@@ -77,7 +77,7 @@ export class YuzhouLiveRoleUatRecorder {
       || measurement.viewportId !== viewportId
       || !/^[0-9a-f]{64}$/u.test(measurement.domAssertionSha256 ?? "")
       || !/^[0-9a-f]{64}$/u.test(measurement.cellEvidenceSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_BROWSER_BINDING_INVALID", `${legacyId}.${roleType}.${viewportId}`);
-    const cell = { runId: measurement.runId, rehearsal: measurement.rehearsal, triple: measurement.triple, legacyId, roleType, actor: measurement.actor, actorSubjectHash: measurement.actorSubjectHash, route: measurement.route, renderedPath: measurement.renderedPath, viewportId, width: measurement.width, height: measurement.height, mobile: measurement.mobile, screenshotSha256: measurement.screenshotSha256, domAssertionSha256: measurement.domAssertionSha256, networkFailureCount: measurement.networkFailureCount };
+    const cell = { runId: measurement.runId, rehearsal: measurement.rehearsal, triple: measurement.triple, legacyId, roleType, actor: measurement.actor, actorSubjectHash: measurement.actorSubjectHash, route: measurement.route, renderedPath: measurement.renderedPath, viewportId, width: measurement.width, height: measurement.height, mobile: measurement.mobile, screenshotSha256: measurement.screenshotSha256, domAssertionSha256: measurement.domAssertionSha256, networkFailureCount: measurement.networkFailureCount, pendingRequestCount: measurement.pendingRequestCount };
     if (measurement.cellEvidenceSha256 !== sha256(cell)) fail("YUZHOU_UAT_RECORDER_BROWSER_CELL_HASH_INVALID", `${legacyId}.${roleType}.${viewportId}`);
     this.#browser.set(`${legacyId}:${roleType}:${viewportId}`, {
       status: "PASS",
@@ -99,6 +99,7 @@ export class YuzhouLiveRoleUatRecorder {
       screenshotSha256: measurement.screenshotSha256,
       domAssertionSha256: measurement.domAssertionSha256,
       networkFailureCount: measurement.networkFailureCount,
+      pendingRequestCount: measurement.pendingRequestCount,
       cellEvidenceSha256: measurement.cellEvidenceSha256,
       assertions: [...this.#taskCard.browserAssertions]
     });

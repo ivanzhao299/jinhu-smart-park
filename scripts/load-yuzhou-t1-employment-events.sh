@@ -119,8 +119,8 @@ WHERE s.employee_id IS NOT NULL AND s.type_decision='map' AND s.type_target_doma
  AND s.state_decision='map' AND s.state_target_domain='migration_decision' AND s.state_target_value='accepted';
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
-INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status)
-SELECT b.id,'yuzhou-v10','dbo.readjust','id='||(s.payload->>'sourceKey'),s.payload->>'sourceIdentitySha256',s.payload->>'sourceRowSha256','hr_employment_event',ev.id,'loaded'
+INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,is_active)
+SELECT b.id,'yuzhou-v10','dbo.readjust','id='||(s.payload->>'sourceKey'),s.payload->>'sourceIdentitySha256',s.payload->>'sourceRowSha256','hr_employment_event',ev.id,'loaded',true
 FROM stg_employment_event_decision s CROSS JOIN b JOIN hr_employment_event ev ON ev.tenant_id=:'tenant_id' AND ev.park_id=:'park_id' AND ev.legacy_event_no=s.payload->'source'->>'legacyEventNo' AND ev.is_deleted=false;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELECT id,batch_id FROM migration_batch_item WHERE batch_id=(SELECT id FROM b) AND domain='employment_event')

@@ -30,10 +30,33 @@
 
 ## 5. 验证与发布
 
-- [ ] fresh/upgrade PostgreSQL、production seed replay、T3 总账与回滚契约通过。
+- [x] fresh/upgrade PostgreSQL、production seed replay、T3 总账与回滚契约通过。
 - [ ] 单元、权限、并发、审计、契约、lint/typecheck/build/security 通过。
 - [ ] 桌面与 390px、HR/负责人/员工三角色只读和写路径 UAT 通过。
 - [ ] 发布前重新 fetch，确认本地候选、远端合并和生产运行 SHA；迁移、健康、受保护账号与 Docker 清理通过。
+
+### 2026-08-31 当前候选隔离证据
+
+- 当前候选 `6d4a4b69382a9f93800a063c1c0ba3e829a6d3c4` 已完成两套独立 `core_t0_t3` lab：两边技术 UAT 均为 `PASS`，T0/T1/T2/T3 的 source/loaded/quarantined 分别为 `3105/3105/0`、`6887/6886/1`、`1163/1155/8`、`35164/35159/5`，A/B canonical comparison 为 `PASS`，两个反序回滚均 `residualCount=0`、副作用计数为 `0`。
+- 同一候选已完成 M6 在线申请连续 lab：`rollback_ready` 上的真实 PostgreSQL 考勤申请门禁 `PASS`（11 项输出断言），随后 `cleaned` 且 `residualCount=0`。生产历史导入始终为 `HOLD`。
+- 代码门禁已复验：M6 API 单元/契约 17/17、Web HR 单元/契约 55/55、API/Web lint、API/Web typecheck 均通过。技术 UAT 覆盖 59 项 API、22 项负向授权、3 条前端路由和受控浏览器矩阵；它不替代真人三角色 UAT、远端合并或生产发布验证。
+
+### 2026-08-31 审批来源追溯门禁补强
+
+- 候选 `2aa3d2e7cab4fc2c04cddc3dcf0b07c46801dd14` 将审批后的请假、加班、出差和更正请求来源纳入不可变日结果追溯，并将其真实 PostgreSQL 断言纳入同一个隔离考勤门禁，避免只跑申请状态机而遗漏计算来源。
+- 新鲜 `core_t0_t3` 隔离 run `yzcore-20260831T112254Z-2aa3d2e7-rA` 已用同一受控备份/恢复回执/映射契约完成 T0→T3 装载、`rollback_ready` 门禁和 T3→T0 反序回滚。门禁输出 `16` 项、状态 `PASS`；清理状态 `cleaned`、`residualCount=0`，13 类资源/业务/控制残留均为零，`productionImport=HOLD`。
+
+### 2026-08-31 当前 SHA 重绑定 A/B 证据
+
+- 早先候选的演练记录不能替代当前代码的证据。当前候选 `89810948b907b075d6f84dd7ccf40b1a070957e5` 已使用新的受控源恢复回执和映射契约，完成两套相互隔离的 `core_t0_t3` A/B 连续演练。
+- A/B canonical comparison 为 `PASS`；两套技术 UAT 均为 `PASS`，各记录 `46` 项观测检查。两个环境均从 `rollback_ready` 反序回滚并清理，结果均为 `CONTRACT_PASS`、`residualCount=0`。
+- 本轮只使用隔离目标，未向生产写入；所有回执、演练和技术 UAT 均保持 `productionImport=HOLD`。该证据仍不替代远端合并、生产运行 SHA、真人 HR/负责人/员工三角色 UAT、生产前备份或一次性生产导入授权。
+
+### 2026-09-01 T3 历史打卡哈希隔离 A/B
+
+- 当前候选 `2a02d4b229aafb19b5ca2625a7c230042fe84568` 新增专用的 T3 打卡 quarantine A/B 编排入口。入口只接受两套 `core_t0_t3` 隔离配置、两份私有 hash-only stage 和新的摘要路径；任一侧均先完成 core `rollback_ready`，再执行两次 load→rollback，最后由同一 core 反序清理。
+- 当前只读源与密封恢复回执已重绑后，A/B stage 都只确认一个无法关联人员的打卡来源事实；每一轮均为 `source=1`、`loaded=0`、`quarantined=1`。业务打卡表保持零写入，未向 stage、日志或任务记录写入任何人员、卡号、时间或进出标记。
+- 正式 A/B 摘要为 `CONTRACT_PASS`，comparison 为 `PASS`；每侧两轮均已回滚，A/B core 清理均为 `residualCount=0`。此结果仅完成“哈希化审计隔离”子切片；在稳定员工映射、业务字段装载、三角色 UAT 和生产门禁完成前，历史打卡业务导入与生产导入继续为 `HOLD`。
 
 ## Rollback points
 

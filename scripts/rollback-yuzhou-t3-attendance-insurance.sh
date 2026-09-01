@@ -12,3 +12,4 @@ DELETE FROM hr_attendance_calendar_source x USING legacy_record_map m,migration_
 DELETE FROM hr_attendance_symbol_rule WHERE remark='Yuzhou T3 rule' AND tenant_id=(SELECT tenant_id FROM hr_attendance_import_batch WHERE batch_code=:'run') AND park_id=(SELECT park_id FROM hr_attendance_import_batch WHERE batch_code=:'run');
 DELETE FROM hr_attendance_import_batch WHERE batch_code=:'run'; UPDATE legacy_record_map SET is_active=false,mapping_status='rolled_back' WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run'); UPDATE migration_batch SET status='rolled_back',phase='rollback',finished_at=now() WHERE run_id=:'run'; COMMIT;
 SQL
+docker exec "$PG" psql -X -q -A -t -F '|' -U jinhu -d "$DB" -c "SELECT b.status,(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.is_active) FROM migration_batch b WHERE b.run_id='$RUN'"

@@ -95,6 +95,18 @@
     "noTempFilter": true,
     "duplicateIdentityPolicy": "validated_business_key_else_content_group_hash_and_multiplicity"
   },
+  "targetMappingRehearsal": {
+    "basis": "core-t0-20260830-current-lab",
+    "targetEmployeeCodes": 2949,
+    "mappedSalaryEmployeeCodes": 2944,
+    "unmappedSalaryEmployeeCodes": 0,
+    "targetEmployeeCodesWithoutSalary": 5,
+    "candidateLoadedRows": 8342,
+    "candidateQuarantinedRows": 0,
+    "candidateSnapshotItems": 190880,
+    "containsPersonalData": false,
+    "productionImport": "HOLD"
+  },
   "productionCandidate": {
     "policyVersion": "three-natural-years-2026-v1",
     "sourceSystemRetired": true,
@@ -103,9 +115,9 @@
     "periodEnd": "2026-12-31",
     "fullSourceRows": 46092,
     "candidateRows": 8342,
-    "candidateLoadedRows": 8320,
-    "candidateQuarantinedRows": 22,
-    "candidateSnapshotItems": 190374,
+    "candidateLoadedRows": 8342,
+    "candidateQuarantinedRows": 0,
+    "candidateSnapshotItems": 190880,
     "candidateCloseRecords": 266,
     "candidateSourceNet": "15723009.9100",
     "candidateLoadedNet": "15723009.9100",

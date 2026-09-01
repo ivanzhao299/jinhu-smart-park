@@ -47,16 +47,51 @@ const legacyRuntimeEvidence = legacyIds => {
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
-  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 150, score60: 0, score40: 27, score20: 42 });
-  assert.equal(result.summary.averageScore, 64.94);
+  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 190, mapped_only: 41 });
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 178, score60: 0, score40: 11, score20: 30 });
+  assert.equal(result.summary.averageScore, 70.82);
   assert.equal(result.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
   assert.deepEqual(result.summary.targetImplementation, {
-    statuses: { implemented: 0, partial: 162, mapped_only: 69 },
-    averageScore: 64.94,
+    statuses: { implemented: 0, partial: 190, mapped_only: 41 },
+    averageScore: 70.82,
     scoreMeaning: "smart_park_target_technical_implementation"
   });
   assert.equal(result.gates.productionImport, "HOLD");
+});
+
+test("decision-center coverage reflects only the shipped aggregate workforce capabilities", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  for (const legacyId of [166, 167, 168, 208, 209, 210, 228, 229, 230, 246, 247]) {
+    const item = result.items.find(candidate => candidate.legacyId === legacyId);
+    assert.equal(item.selectedRoute, "/hr/decision-center");
+    assert.equal(item.score, 80);
+    assert.equal(item.implementationStatus, "partial");
+    assert.deepEqual(item.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
+  }
+  const recruitment = result.items.find(candidate => candidate.legacyId === 231);
+  assert.equal(recruitment.selectedRoute, "/hr/recruitment");
+  assert.equal(recruitment.score, 80);
+  assert.equal(recruitment.implementationStatus, "partial");
+  assert.deepEqual(recruitment.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
+  assert.notEqual(recruitment.selectedRoute, "/hr/decision-center");
+  assert.deepEqual(result.summary.domains.decision_center, {
+    total: 16,
+    implemented: 0,
+    partial: 16,
+    mapped_only: 0,
+    averageScore: 80
+  });
+});
+
+test("decision-center information entries retain their domain-specific workspaces", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  for (const [legacyId, route] of [[232, "/hr/training"], [233, "/hr/performance"], [234, "/hr/attendance"], [235, "/hr/compensation"]]) {
+    const item = result.items.find(candidate => candidate.legacyId === legacyId);
+    assert.equal(item.selectedRoute, route);
+    assert.equal(item.score, 80);
+    assert.equal(item.implementationStatus, "partial");
+    assert.deepEqual(item.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
+  }
 });
 
 test("a mapped destination cannot be called implemented without rule parity and live role UAT", () => {

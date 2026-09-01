@@ -65,17 +65,15 @@ WITH items AS (
   SELECT CASE right(b.run_id,2) WHEN 't0' THEN 'T0' WHEN 't1' THEN 'T1' WHEN 't2' THEN 'T2' WHEN 't3' THEN 'T3' WHEN 't4' THEN 'T4' WHEN 't5' THEN 'T5' END domain,
     i.source_object,i.extracted_count,i.loaded_count,i.rejected_count,
     i.extracted_count-i.loaded_count-i.rejected_count approved_ignored,
-    CASE WHEN i.source_object='dbo.salary01..35:2024-2026' THEN 15723009.9100::numeric
-         WHEN i.source_object='dbo.salary01..35:<2024' THEN 86471046.8900::numeric ELSE 0::numeric END source_amount,
-    CASE WHEN i.source_object='dbo.salary01..35:2024-2026' THEN 15723009.9100::numeric ELSE 0::numeric END loaded_amount
+    CASE WHEN i.source_object='dbo.salary01..35:2010-01-01..2026-12-31' THEN 102194056.8000::numeric ELSE 0::numeric END source_amount,
+    CASE WHEN i.source_object='dbo.salary01..35:2010-01-01..2026-12-31' THEN 102194056.8000::numeric ELSE 0::numeric END loaded_amount
   FROM public.migration_batch b JOIN public.migration_batch_item i ON i.batch_id=b.id
   WHERE b.run_id IN (SELECT :'run_id'||'-t'||g FROM generate_series(0,5) g)
 )
 INSERT INTO hr_cutover_ledger
 SELECT :'run_id',domain,source_object,extracted_count,loaded_count,rejected_count,approved_ignored,
   source_amount,loaded_amount,0::numeric,source_amount-loaded_amount,
-  CASE WHEN approved_ignored>0 AND domain='T4' AND source_object='dbo.salary01..35:<2024' THEN 'SOURCE_OBJECT_OUTSIDE_APPROVED_SCOPE' END,
-  CASE WHEN approved_ignored>0 AND domain='T4' AND source_object='dbo.salary01..35:<2024' THEN :'scope_attestation_sha256' END
+  NULL::text,NULL::text
 FROM items;
 
 WITH maps AS (

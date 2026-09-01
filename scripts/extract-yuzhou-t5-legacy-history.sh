@@ -6,6 +6,8 @@ RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"
 DATABASE="${YUZHOU_SQLSERVER_DATABASE:-YuzhouHR_Lab_20260820_intake01}"
 CONTAINER="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}"
 CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$ROOT_DIR/database/import-reports/yuzhou-hr/20260820_intake01-etl.env}"
+BACKUP_FILE="${YUZHOU_SOURCE_BACKUP_FILE:-$ROOT_DIR/database/backups/yuzhou-hr/hr2026081914.dbk}"
+SOURCE_RESTORE_RECEIPT_PATH="${YUZHOU_SOURCE_RESTORE_RECEIPT_PATH:-}"
 MATERIALIZATION_KEY_FILE="${YUZHOU_PARTY_DATA_KEY_FILE:-}"
 OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
@@ -13,11 +15,14 @@ fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
 [ "$(stat -f '%Lp' "$CREDENTIAL_FILE" 2>/dev/null || stat -c '%a' "$CREDENTIAL_FILE")" = 600 ] || fail "credential file must be mode 0600"
+[ -f "$BACKUP_FILE" ] || fail "pinned SQL Server source backup is missing"
+[ -n "$SOURCE_RESTORE_RECEIPT_PATH" ] && [ -f "$SOURCE_RESTORE_RECEIPT_PATH" ] || fail "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required"
 if [ -n "$MATERIALIZATION_KEY_FILE" ]; then
   [ "${MATERIALIZATION_KEY_FILE#/}" != "$MATERIALIZATION_KEY_FILE" ] || fail "materialization key file must be an absolute path"
   node "$ROOT_DIR/scripts/hr-cutover/materialization-key-contract.mjs" verify "$MATERIALIZATION_KEY_FILE" || fail "materialization key contract rejected the file"
 fi
 [ -n "$MATERIALIZATION_KEY_FILE" ] || fail "protected materialization key file is required"
+node "$ROOT_DIR/scripts/hr-cutover/verify-source-restore-binding.mjs" --receipt "$SOURCE_RESTORE_RECEIPT_PATH" --backup "$BACKUP_FILE" --container "$CONTAINER" --database "$DATABASE" --etl-env "$CREDENTIAL_FILE" >/dev/null
 . "$CREDENTIAL_FILE"
 [ "$(printf %s "$YUZHOU_SQLSERVER_ETL_LOGIN" | tr '[:upper:]' '[:lower:]')" != sa ] || fail "sa is forbidden for extraction"
 [ "$YUZHOU_SQLSERVER_DATABASE" = "$DATABASE" ] || fail "credential database mismatch"
@@ -69,4 +74,16 @@ query bonuscode.raw.json "SET NOCOUNT ON; SELECT bonus,bonusname,CONVERT(varchar
 query bonusrecord.raw.json "SET NOCOUNT ON; SELECT id,person,CONVERT(varchar(33),bonusdate,126) bonusdate,bonus,bonusunit,times,postperson,CONVERT(varchar(33),eventdate,126) eventdate,cause,CONVERT(varchar(40),addsub) addsub,CONVERT(varchar(40),bonuspay) bonuspay FROM dbo.bonusrecord ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query jch_1.raw.json "SET NOCOUNT ON; SELECT CAST(NULL AS int) id WHERE 1=0 ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 node "$ROOT_DIR/scripts/transform-yuzhou-t5-legacy-history.mjs" "$OUT"
+for raw_file in "$OUT"/*.raw.json; do
+  [ -e "$raw_file" ] || continue
+  # The catalog contains schema-only metadata that the loader recomputes as
+  # part of the T5 manifest contract. All row-value extracts are discarded;
+  # retaining this one non-sensitive source definition is required to verify
+  # the staged business hash before any target write.
+  [ "$raw_file" = "$OUT/catalog.raw.json" ] && continue
+  rm -f "$raw_file"
+done
+if find "$OUT" -maxdepth 1 -type f -name '*.raw.json' ! -name 'catalog.raw.json' | grep -q .; then
+  fail "raw T5 source artifacts were not removed"
+fi
 printf 'YUZHOU_T5_EXTRACT_OK run_id=%s output=%s\n' "$RUN_ID" "$OUT"

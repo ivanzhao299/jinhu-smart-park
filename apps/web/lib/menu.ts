@@ -172,6 +172,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/apartments/checkouts",
   "/apartments/documents",
   "/hr",
+  "/hr/decision-center",
   "/hr/organization",
   "/hr/employees",
   "/hr/employees/legacy",
@@ -313,6 +314,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "hr",
     children: [
       { label: "人力资源工作台", href: "/hr", permission: "hr:dashboard", module: "hr" },
+      { label: "人力资源决策中心", href: "/hr/decision-center", permission: "hr:decision_center", module: "hr" },
       { label: "组织与岗位", href: "/hr/organization", permission: "hr:organization", module: "hr" },
       { label: "员工档案", href: "/hr/employees", permission: "hr:employees", module: "hr" },
       { label: "旧系统资料", href: "/hr/employees/legacy", permission: "hr:legacy_archive", module: "hr" },

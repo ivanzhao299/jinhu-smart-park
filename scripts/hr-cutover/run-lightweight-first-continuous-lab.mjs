@@ -1,0 +1,300 @@
+#!/usr/bin/env node
+/* global process */
+import { randomUUID } from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, lstatSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
+import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
+import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
+import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
+import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
+import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
+import { verifyT5IdentityResolutionPackage } from "../verify-yuzhou-t5-identity-resolution-package.mjs";
+
+const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
+const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/lightweight-first-slice-order-v1.json"), "utf8"));
+const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
+const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
+const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
+const safeCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "LIGHTWEIGHT_CONTINUOUS_FAILED";
+const GLOBAL_LOCK_NAME = ".yuzhou-lightweight-first-continuous.lock";
+const T4_BATCH_TOTAL = 16;
+
+function privateJson(path, code) {
+  const absolute = resolve(path);
+  if (!existsSync(absolute) || lstatSync(absolute).isSymbolicLink() || !statSync(absolute).isFile() || !privateMode(absolute)) fail(code, absolute);
+  try { return JSON.parse(readFileSync(absolute, "utf8")); } catch { fail(code, absolute); }
+}
+
+function stage(path, label, requiredManifest = true) {
+  const absolute = resolve(path);
+  if (!existsSync(absolute) || lstatSync(absolute).isSymbolicLink() || !statSync(absolute).isDirectory() || !directoryMode(absolute)) fail("LIGHTWEIGHT_STAGE_UNSAFE", label);
+  const manifest = resolve(absolute, "manifest.json");
+  if (requiredManifest && (!existsSync(manifest) || lstatSync(manifest).isSymbolicLink() || !statSync(manifest).isFile() || !privateMode(manifest))) fail("LIGHTWEIGHT_STAGE_UNSAFE", `${label}.manifest`);
+  return { path: absolute, manifest: requiredManifest ? privateJson(manifest, "LIGHTWEIGHT_STAGE_INVALID") : null };
+}
+
+function childEnvironment(config, additions = {}) {
+  const inherited = Object.fromEntries(["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "DOCKER_HOST", "COLIMA_HOME"].flatMap(key => process.env[key] === undefined ? [] : [[key, process.env[key]]]));
+  return {
+    ...inherited,
+    ALLOW_YUZHOU_MIGRATION: "yes",
+    YUZHOU_TARGET_DATABASE: config.target.database,
+    YUZHOU_POSTGRES_CONTAINER: config.target.container,
+    YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT: config.target.composeProject,
+    YUZHOU_TARGET_TENANT_ID: "10000001",
+    YUZHOU_TARGET_PARK_ID: "20000001",
+    YUZHOU_BACKUP_SHA256: config.triple.sourceSnapshotHash,
+    ...additions
+  };
+}
+
+const CHILD_FAILURE_CODES = Object.freeze({
+  "scripts/provision-yuzhou-t5-nonfile-actor.sh": "LIGHTWEIGHT_T5_ACTOR_PROVISION_FAILED",
+  "scripts/load-yuzhou-t5-nonfile-history.sh": "LIGHTWEIGHT_T5_LOAD_FAILED",
+  "scripts/load-yuzhou-t3-attendance-insurance.sh": "LIGHTWEIGHT_T3_LOAD_FAILED",
+  "scripts/load-yuzhou-t4-payroll-history.sh": "LIGHTWEIGHT_T4_LOAD_FAILED",
+  "scripts/rollback-yuzhou-t4-payroll-history.sh": "LIGHTWEIGHT_T4_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t3-attendance-insurance.sh": "LIGHTWEIGHT_T3_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t5-nonfile-history.sh": "LIGHTWEIGHT_T5_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t5-nonfile-actor.sh": "LIGHTWEIGHT_T5_ACTOR_ROLLBACK_FAILED"
+});
+
+function childFailureCode(script, stderr) {
+  if (script !== "scripts/load-yuzhou-t5-nonfile-history.sh") return CHILD_FAILURE_CODES[script] ?? "LIGHTWEIGHT_CHILD_FAILED";
+  const match = String(stderr ?? "").match(/\b(T5_NONFILE_[A-Z_]+)\b/u);
+  return match ? `LIGHTWEIGHT_${match[1]}` : CHILD_FAILURE_CODES[script];
+}
+
+function writeAuditRecord(config, name, value) {
+  const auditRoot = join(dirname(config.target.credentialRoot), "audit");
+  if (!existsSync(auditRoot) || !directoryMode(auditRoot)) return;
+  const path = join(auditRoot, name);
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+}
+
+function writeAuditSummary(config, value) {
+  writeAuditRecord(config, "lightweight-first-summary.json", value);
+}
+
+function writeProgress(config, startedAt, phase, completedPercent, status = "RUNNING", details = {}) {
+  writeAuditRecord(config, "lightweight-first-progress.json", {
+    formatVersion: 1,
+    status,
+    phase,
+    completedPercent,
+    elapsedMilliseconds: Date.now() - startedAt,
+    productionImport: "HOLD",
+    ...details
+  });
+}
+
+function globalLockPath(config) {
+  const root = dirname(resolve(config.source.sourceRestoreReceiptPath));
+  if (!existsSync(root) || lstatSync(root).isSymbolicLink() || !statSync(root).isDirectory() || !directoryMode(root)) fail("LIGHTWEIGHT_GLOBAL_LOCK_ROOT_UNSAFE", "controlled source root");
+  return join(root, GLOBAL_LOCK_NAME);
+}
+
+function acquireGlobalLock(config) {
+  const path = globalLockPath(config);
+  const bytes = Buffer.from(`${JSON.stringify({ formatVersion: 1, kind: "yuzhou_lightweight_first_continuous", runId: config.runId, codeSha: config.triple.codeSha, sourceSnapshotSha256: config.triple.sourceSnapshotHash, pid: process.pid })}\n`);
+  try {
+    writeFileSync(path, bytes, { flag: "wx", mode: 0o600 });
+    chmodSync(path, 0o600);
+  } catch (error) {
+    if (error?.code === "EEXIST") fail("LIGHTWEIGHT_RUN_CONCURRENT", "a controlled-source lightweight runner is active");
+    throw error;
+  }
+  return { path, bytes };
+}
+
+function releaseGlobalLock(lock) {
+  if (!existsSync(lock.path) || lstatSync(lock.path).isSymbolicLink() || !statSync(lock.path).isFile() || !privateMode(lock.path) || !readFileSync(lock.path).equals(lock.bytes)) fail("LIGHTWEIGHT_LOCK_OWNERSHIP_CHANGED", "global runner lock");
+  // The byte-for-byte ownership check above means only this runner's lock may
+  // be removed. A failed release remains fail-closed for later runners.
+  unlinkSync(lock.path);
+}
+
+function execute(script, env, spawn = spawnSync) {
+  const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
+  if (result.error || result.status !== 0) fail(childFailureCode(script, result.stderr), script);
+  return result.stdout;
+}
+
+export function parseT4BatchProgress(value) {
+  const match = String(value ?? "").match(/\bT4_PROGRESS_BATCH=(\d+)\/16\b/u);
+  if (!match) return null;
+  const completed = Number(match[1]);
+  return Number.isInteger(completed) && completed >= 1 && completed <= T4_BATCH_TOTAL ? completed : null;
+}
+
+function childError(code, script) {
+  const error = new Error(`${code}: ${script}`);
+  error.code = code;
+  return error;
+}
+
+export async function executeT4WithProgress(script, env, onProgress, synchronousSpawn = spawnSync, asynchronousSpawn = spawn) {
+  // Contract tests inject a synchronous child stub. Production streams the
+  // child so the private receipt advances after each completed SQL shard.
+  if (synchronousSpawn !== spawnSync && asynchronousSpawn === spawn) return execute(script, env, synchronousSpawn);
+  return new Promise((resolvePromise, rejectPromise) => {
+    let stdout = "", stderrLine = "", latestBatch = 0;
+    let child;
+    try { child = asynchronousSpawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] }); }
+    catch { rejectPromise(childError(childFailureCode(script), script)); return; }
+    child.stdout.on("data", chunk => { stdout = `${stdout}${String(chunk)}`; });
+    child.stderr.on("data", chunk => {
+      stderrLine = `${stderrLine}${String(chunk)}`;
+      const lines = stderrLine.split(/\r?\n/u);
+      stderrLine = lines.pop() ?? "";
+      for (const line of lines) {
+        const completed = parseT4BatchProgress(line);
+        if (completed !== null && completed > latestBatch) {
+          latestBatch = completed;
+          onProgress(completed, T4_BATCH_TOTAL);
+        }
+      }
+    });
+    child.once("error", () => rejectPromise(childError(childFailureCode(script), script)));
+    child.once("close", code => {
+      if (code !== 0) rejectPromise(childError(childFailureCode(script), script));
+      else resolvePromise(stdout);
+    });
+  });
+}
+
+function assertCheckpoint(result) {
+  if (result?.status !== "CHECKPOINT_READY" || result?.state !== "rollback_ready") fail("LIGHTWEIGHT_CORE_CHECKPOINT_FAILED", "core_t0_t2");
+}
+
+function assertCleanup(result) {
+  if (result?.status !== "CONTRACT_PASS" || result?.state !== "cleaned" || result?.residualCount !== 0) fail("LIGHTWEIGHT_CORE_CLEANUP_FAILED", "core_t0_t2");
+}
+
+async function runDefaultTechnicalUat(configPath) {
+  const { runCoreTechnicalUat } = await import("./run-core-t0-t3-technical-uat.mjs");
+  return runCoreTechnicalUat(configPath);
+}
+
+export function parseLightweightFirstArgs(argv) {
+  const input = argv[0] === "--" ? argv.slice(1) : argv, args = {}, allowed = new Set(["--config", "--t5-stage", "--t3-stage", "--t4-stage", "--t5-identity-resolution", "--t5-baseline"]);
+  for (let index = 0; index < input.length; index += 1) {
+    const key = input[index];
+    if (!allowed.has(key) || !input[index + 1] || allowed.has(input[index + 1])) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
+    const parsedName = key.slice(2).replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+    const name = parsedName === "config" ? "configPath" : parsedName;
+    if (Object.hasOwn(args, name)) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
+    args[name] = resolve(input[++index]);
+  }
+  for (const key of ["configPath", "t5Stage", "t3Stage", "t4Stage"]) if (!args[key]) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
+  return args;
+}
+
+export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Stage, t4Stage, t5IdentityResolution = null, t5Baseline = null }, { coreRunner = runCoreT0T3ContinuousLab, technicalUat = runDefaultTechnicalUat, spawn = spawnSync, uuid = randomUUID } = {}) {
+  verifyLightweightFirstSliceOrder(CONTRACT);
+  const config = validateCoreT0T3Config(privateJson(configPath, "LIGHTWEIGHT_CONFIG_UNSAFE"));
+  if (config.profile !== "core_t0_t2") fail("LIGHTWEIGHT_CORE_PROFILE_INVALID", config.profile);
+  const input = { T5_NONFILE: stage(t5Stage, "T5_NONFILE"), T3: stage(t3Stage, "T3"), T4: stage(t4Stage, "T4") };
+  if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
+  if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
+  const t5IdentityResolutionPath = t5IdentityResolution ? resolve(t5IdentityResolution) : null;
+  if (t5IdentityResolutionPath) {
+    privateJson(t5IdentityResolutionPath, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
+    try { verifyT5IdentityResolutionPackage({ stagePath: input.T5_NONFILE.path, decisionPath: t5IdentityResolutionPath }); }
+    catch { fail("LIGHTWEIGHT_T5_RESOLUTION_INVALID", "reviewed decision package"); }
+  }
+  const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
+  if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
+  const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
+  if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== baseline.sourceSnapshotSha256 || input.T5_NONFILE.manifest.sourceRestoreReceiptSha256 !== baseline.sourceRestoreReceiptSha256 || input.T5_NONFILE.manifest.sourceBusinessSha256 !== baseline.businessSha256 || input.T5_NONFILE.manifest.sourceCatalogSha256 !== baseline.catalogSha256 || input.T5_NONFILE.manifest.mappingContractSha256 !== baseline.mappingContractSha256) fail("LIGHTWEIGHT_T5_BASELINE_DRIFT", "T5 stage differs from selected baseline");
+  const globalLock = acquireGlobalLock(config);
+  try {
+  // T5's materialization actor uses the strictest historical run-id ceiling
+  // (37 characters). Keep the timestamp and candidate SHA prefix while
+  // deriving all three child runs from the same core run.
+  const runStem = config.runId.toLowerCase().replace(/^yzcore-/, "").replace(/-r[ab]$/u, "").slice(0, 27);
+  const run = suffix => `yzlw-${runStem}-${suffix}`;
+  const runs = { t5: run("t5"), t3: run("t3"), t4: run("t4") };
+  const actor = uuid();
+  const reached = [];
+  const receipts = {};
+  const startedAt = Date.now();
+  let primary = null;
+  let result = null;
+  let cleanup = { state: "not_started", residualCount: null };
+  try {
+    writeProgress(config, startedAt, "CORE_CHECKPOINT", 5);
+    const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
+    assertCheckpoint(checkpoint);
+    writeProgress(config, startedAt, "T5_NONFILE", 15);
+    execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
+    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5BaselinePath ? { YUZHOU_T5_BASELINE_FILE: t5BaselinePath } : {}), ...(t5IdentityResolutionPath ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: t5IdentityResolutionPath } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
+    writeProgress(config, startedAt, "T3", 35);
+    receipts.T3 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
+      YUZHOU_MIGRATION_RUN_ID: runs.t3,
+      YUZHOU_STAGING_DIR: input.T3.path,
+      YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: input.T3.manifest.sourceRestoreReceiptSha256,
+      YUZHOU_SOURCE_CATALOG_SHA256: input.T3.manifest.sourceCatalogSha256,
+      YUZHOU_SOURCE_BUSINESS_SHA256: input.T3.manifest.sourceBusinessSha256,
+      YUZHOU_MAPPING_CONTRACT_SHA256: input.T3.manifest.mappingContractSha256
+    }), spawn), { runId: runs.t3, code: "LIGHTWEIGHT_T3_LOAD_RECEIPT_INVALID" }) }; reached.push("T3");
+    writeProgress(config, startedAt, "T4", 55);
+    const business = input.T4.manifest.businessContentSha256;
+    if (!/^[0-9a-f]{64}$/u.test(business ?? "")) fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "business hash");
+    const t4Output = await executeT4WithProgress("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), (completed, total) => writeProgress(config, startedAt, "T4", 55 + Math.floor((completed * 24) / total), "RUNNING", { t4BatchCompleted: completed, t4BatchTotal: total }), spawn);
+    receipts.T4 = { load: assertIsolatedLoadReceipt(t4Output, { runId: runs.t4, code: "LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID" }) }; reached.push("T4");
+    writeProgress(config, startedAt, "TECHNICAL_UAT", 80);
+    const uat = await technicalUat(configPath);
+    if (uat?.status !== "PASS" || uat.productionImport !== "HOLD") fail("LIGHTWEIGHT_TECHNICAL_UAT_FAILED", "core technical UAT");
+    result = { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), receipts, uat: "PASS", productionImport: "HOLD" };
+  } catch (error) { primary = error; }
+  finally {
+    const rollback = (stage, script, env, receipt) => {
+      const phase = stage === "T4" ? "ROLLBACK_T4" : stage === "T3" ? "ROLLBACK_T3" : "ROLLBACK_T5_NONFILE";
+      const percent = stage === "T4" ? 85 : stage === "T3" ? 90 : 95;
+      writeProgress(config, startedAt, phase, percent);
+      try { receipts[stage].rollback = receipt(execute(script, childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", ...env }), spawn)); }
+      catch (error) { if (!primary) primary = error; }
+    };
+    if (reached.includes("T4")) rollback("T4", "scripts/rollback-yuzhou-t4-payroll-history.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t4 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t4, code: "LIGHTWEIGHT_T4_ROLLBACK_RECEIPT_INVALID", requireZeroActiveMaps: true }));
+    if (reached.includes("T3")) rollback("T3", "scripts/rollback-yuzhou-t3-attendance-insurance.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t3 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t3, code: "LIGHTWEIGHT_T3_ROLLBACK_RECEIPT_INVALID", requireZeroActiveMaps: true }));
+    if (reached.includes("T5_NONFILE")) rollback("T5_NONFILE", "scripts/rollback-yuzhou-t5-nonfile-history.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t5, code: "LIGHTWEIGHT_T5_ROLLBACK_RECEIPT_INVALID" }));
+    if (reached.includes("T5_NONFILE")) {
+      writeProgress(config, startedAt, "ROLLBACK_T5_ACTOR", 96);
+      try { execute("scripts/rollback-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn); }
+      catch (error) { if (!primary) primary = error; }
+    }
+    try {
+      writeProgress(config, startedAt, "CORE_CLEANUP", 98);
+      const coreCleanup = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000 });
+      assertCleanup(coreCleanup);
+      cleanup = { state: "cleaned", residualCount: 0 };
+    } catch (error) {
+      cleanup = { state: "failed", residualCount: null };
+      if (!primary) primary = error;
+    }
+    const errorDetail = safeDiagnosticDetail(primary, safeCode(primary));
+    const summary = primary
+      ? { formatVersion: 1, status: "HOLD", errorCode: safeCode(primary), ...(errorDetail ? { errorDetail } : {}), reached, cleanup, productionImport: "HOLD" }
+      : { formatVersion: 1, status: "CONTRACT_PASS", ...result, reached, cleanup, productionImport: "HOLD" };
+    writeAuditSummary(config, summary);
+    writeProgress(config, startedAt, primary ? "HOLD" : "COMPLETE", 100, primary ? "HOLD" : "CONTRACT_PASS");
+    if (primary) throw primary;
+    result = { ...result, cleanup };
+  }
+  return result;
+  } finally {
+    releaseGlobalLock(globalLock);
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  Promise.resolve()
+    .then(() => runLightweightFirstContinuous(parseLightweightFirstArgs(process.argv.slice(2))))
+    .then(result => process.stdout.write(`${JSON.stringify(result)}\n`))
+    .catch(error => { process.stderr.write(`${safeCode(error)}\n`); process.exitCode = 1; });
+}

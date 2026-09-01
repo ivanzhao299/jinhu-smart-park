@@ -6,6 +6,7 @@ import {resolve} from "node:path";
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const migration=read("database/migrations/000275_hr_legacy_dictionary_decision.sql");
 const t0=read("scripts/load-yuzhou-t0.sh"),t1=read("scripts/load-yuzhou-t1-employment-events.sh"),t2=read("scripts/load-yuzhou-t2-contracts.sh");
+const coreNonT0=read("scripts/hr-cutover/materialize-core-non-t0-dictionaries.mjs");
 
 assert.match(migration,/status = 'approved'/);
 assert.match(migration,/source_snapshot_sha256/);
@@ -28,5 +29,10 @@ assert.doesNotMatch(t1,/legacy_unknown|normalizedEventType|legacyState'<>'1'/);
 assert.match(t2,/hr_resolve_legacy_dictionary/);
 assert.match(t2,/approved contract dictionary SHA-256 is required/);
 assert.doesNotMatch(t2,/normalizedStatus|legacyState===|THEN\s*'active'[\s\S]*THEN\s*'terminated'/);
+assert.match(coreNonT0,/verifyT1EventTypeDecision/);
+assert.match(coreNonT0,/row => String\(row\.sourceValue \?\? ""\)\.trim\(\)/);
+assert.match(coreNonT0,/dictionaryCode: "employment_event_type"[\s\S]*item\(\{ sourceValue: value, sourceTable: "dbo\.readjust\.readjusttype"/);
+assert.doesNotMatch(coreNonT0,/dictionaryCode: "employment_event_type"[\s\S]*item\(\{ sourceName:/);
+assert.doesNotMatch(coreNonT0,/row\.legacyType/);
 
 console.log("Yuzhou dictionary materialization contract passed.");

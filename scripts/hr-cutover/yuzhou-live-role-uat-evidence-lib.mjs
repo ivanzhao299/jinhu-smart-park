@@ -26,6 +26,8 @@ const auditSemantics = new Map([
   ["POST /hr/onboarding-applications/{onboardingId}/review", ["hr_onboarding_application", "审核入职申请"]],
   ["POST /hr/onboarding-applications/{onboardingId}/confirm", ["hr_onboarding_application", "确认员工入职"]],
   ["GET /hr/employees/{profileEmployeeId}/profile", ["hr_employee", "读取员工敏感档案"]],
+  ["GET /hr/employees/{teamEmployeeId}/profile", ["hr_employee", "读取员工敏感档案"]],
+  ["GET /hr/employees/me/profile", ["hr_employee", "读取员工敏感档案"]],
   ["POST /hr/probation-applications", ["hr_probation_application", "创建转正申请"]],
   ["POST /hr/probation-applications/{probationId}/actions", ["hr_probation_application", "提交或取消转正申请"]],
   ["POST /hr/probation-applications/{probationId}/review", ["hr_probation_application", "审核转正申请"]],
@@ -97,7 +99,7 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   if (evidence.productionImport !== "HOLD" || evidence.humanAttestation !== "HOLD" || evidence.executionBoundary !== "isolated_lab_only") {
     fail("YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE", rehearsal);
   }
-  if (evidence.rehearsal !== rehearsal || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(evidence.runId ?? "") || !evidence.runId.endsWith(`-r${rehearsal}`)) {
+  if (evidence.rehearsal !== rehearsal || !/^yz(?:full|core)-[a-zA-Z0-9._-]+-r[AB]$/u.test(evidence.runId ?? "") || !evidence.runId.endsWith(`-r${rehearsal}`)) {
     fail("YUZHOU_UAT_EVIDENCE_RUN_INVALID", rehearsal);
   }
   if (!sha64(evidence.targetIdentityHash)
@@ -183,7 +185,9 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
           || !sha64(result.screenshotSha256)
           || !sha64(result.domAssertionSha256)
           || result.networkFailureCount !== 0
-          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256, networkFailureCount: result.networkFailureCount })
+          || !Number.isInteger(result.pendingRequestCount)
+          || result.pendingRequestCount < 0
+          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256, networkFailureCount: result.networkFailureCount, pendingRequestCount: result.pendingRequestCount })
           || !exactArray(result.assertions, taskCard.browserAssertions)) {
           fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${roleType}.${viewport.id}`);
         }

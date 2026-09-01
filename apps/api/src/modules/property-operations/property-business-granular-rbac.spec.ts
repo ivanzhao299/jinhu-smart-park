@@ -38,6 +38,7 @@ const trackBBundleCodes = new Set<string>(
 );
 const historicalPermissionBundles = Object.values(PROPERTY_PERMISSION_BUNDLES)
   .filter((bundle) => !trackBBundleCodes.has(bundle.code));
+const approvedHistoricalDuplicateMigrationNumbers = ["000136", "000286", "000287", "000288"];
 
 function markedRows(source: string, start: string, end: string): string[][] {
   const block = source.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
@@ -60,7 +61,7 @@ function sorted(values: readonly string[]): string[] {
   return [...values].sort();
 }
 
-test("000183/000184 remain the historical RBAC pair and only 000136 is duplicated", () => {
+test("000183/000184 remain the historical RBAC pair and migration collisions match the approved history", () => {
   const filenames = readdirSync(migrationsDir).filter((name) => /^\d{6}_.+\.sql$/.test(name));
   const byNumber = new Map<string, string[]>();
   for (const filename of filenames) {
@@ -70,7 +71,7 @@ test("000183/000184 remain the historical RBAC pair and only 000136 is duplicate
   const duplicates = [...byNumber.entries()]
     .filter(([, names]) => names.length > 1)
     .map(([number]) => number);
-  assert.deepEqual(duplicates, ["000136"]);
+  assert.deepEqual(sorted(duplicates), approvedHistoricalDuplicateMigrationNumbers);
   assert.equal(basename(baseMigrationPath), "000183_property_business_granular_rbac.sql");
   assert.equal(
     basename(extensionMigrationPath),

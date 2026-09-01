@@ -18,6 +18,11 @@ const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contr
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
+
+test("sensitive employee-profile reads share one audit semantic across full, team and self scopes", () => {
+  const expected={bizType:"hr_employee",action:"读取员工敏感档案"};
+  for(const route of ["/hr/employees/{profileEmployeeId}/profile","/hr/employees/{teamEmployeeId}/profile","/hr/employees/me/profile"])assert.deepEqual(technicalUatAuditSemantic("GET",route),expected);
+});
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
 function observation(legacyId, kind, checkId, auditBizIdSha256) {
@@ -27,14 +32,14 @@ function observation(legacyId, kind, checkId, auditBizIdSha256) {
   return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
 }
 
-function browserEvidence(item, rehearsal) {
+function browserEvidence(item, rehearsal, runKind = "yzfull") {
   return Object.fromEntries(item.roleTypes.map(roleType => [
     roleType,
     Object.fromEntries(taskCard.viewports.map(viewport => {
       const check = browserMatrix.checks.find(candidate => candidate.legacyId === item.legacyId && candidate.roleType === roleType);
       const value = {
       status: "PASS",
-      runId: `yzfull-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
+      runId: `${runKind}-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
       actor: check.actor, actorSubjectHash: hash(`${rehearsal}-${check.actor}`), route: check.route,
       renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id,
       width: viewport.width,
@@ -43,17 +48,18 @@ function browserEvidence(item, rehearsal) {
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
       networkFailureCount: 0,
+      pendingRequestCount: 0,
       screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       assertions: taskCard.browserAssertions
       };
-      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount }));
+      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount, pendingRequestCount: value.pendingRequestCount }));
       return [viewport.id, value];
     }))
   ]));
 }
 
-function passingEvidence(rehearsal) {
+function passingEvidence(rehearsal, runKind = "yzfull") {
   const actors=["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({actor,roleType:index<2?"hr_manager":index===2?"department_manager":"employee_self_service",subjectHash:hash(`${rehearsal}-${actor}`)}));
   return {
     formatVersion: 1,
@@ -61,7 +67,7 @@ function passingEvidence(rehearsal) {
     status: "PASS",
     executionBoundary: "isolated_lab_only",
     rehearsal,
-    runId: `yzfull-contract-r${rehearsal}`,
+    runId: `${runKind}-contract-r${rehearsal}`,
     targetIdentityHash: hash(`target-${rehearsal}`),
     taskCardSha256: taskCardHash(taskCard),
     apiMatrixSha256: apiMatrixHash(apiMatrix),
@@ -72,7 +78,7 @@ function passingEvidence(rehearsal) {
       const auditBizIdSha256=hash(`${rehearsal}:${item.legacyId}:biz`),positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id, auditBizIdSha256) }));
       const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id, auditBizIdSha256) }));
       const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations.find(candidate=>technicalUatAuditSemantic(candidate.method,candidate.route)),semantic=technicalUatAuditSemantic(operation.method,operation.route),actor=actors.find(row=>row.actor===auditCheck.actor),row={actor:auditCheck.actor,actorSubjectHash:actor.subjectHash,operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:auditBizIdSha256,bizTypeSha256:hash(semantic.bizType),actionSha256:hash(semantic.action)},auditEvidence={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
-      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
+      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal, runKind), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
     }),
     p0P1Count: 0,
     sensitiveScan: "PASS",
@@ -87,7 +93,7 @@ function reuseReviewerAcrossPair(pair) {
   pair.B.actors[1].subjectHash = subjectHash;
   for (const item of pair.B.items) for (const cell of Object.values(item.browser.hr_manager ?? {})) {
     cell.actorSubjectHash = subjectHash;
-    cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount }));
+    cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount, pendingRequestCount: cell.pendingRequestCount }));
   }
   for(const item of pair.B.items){for(const row of item.auditEvidence.rows)if(row.actor==="hr_reviewer")row.actorSubjectHash=subjectHash;item.auditEvidence.rowsSha256=hash(JSON.stringify(item.auditEvidence.rows));item.auditEvidenceSha256=hash(JSON.stringify(item.auditEvidence));}
 }
@@ -121,6 +127,11 @@ test("independent Smart Park A/B evidence promotes only target implementation an
     assert.equal(item.implementationStatus, "partial");
   }
   assert.equal(coverage.gates.productionImport, "HOLD");
+});
+
+test("core T0-T3 evidence preserves the same isolated A/B contract", () => {
+  const pair = { A: passingEvidence("A", "yzcore"), B: passingEvidence("B", "yzcore") };
+  assert.equal(validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix, browserMatrix).status, "PASS");
 });
 
 test("the former ambiguous live role option fails closed", () => {

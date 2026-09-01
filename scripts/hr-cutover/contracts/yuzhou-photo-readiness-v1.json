@@ -54,6 +54,17 @@
       "sourcePkCanonical": "person=<normalizedPerson>",
       "sourceIdentitySha256": "sha256('dbo.person\\0'+normalizedPerson)"
     },
+    "stagePreparer": {
+      "status": "IMPLEMENTED_NO_SOURCE_EXECUTION",
+      "artifact": "scripts/prepare-yuzhou-photo-owner-stage.mjs",
+      "artifactSha256": "89cc904a13f6d011b37d81223102fe6f4446326a58ec73636ad3852d9372025e",
+      "artifactKind": "yuzhou_t5_photo_owner_stage",
+      "outputFields": ["sourceTable", "sourceIdentitySha256", "sourceRowSha256", "ownerSourceTable", "ownerSourceIdentitySha256", "fileRole", "contentSha256", "actualSize", "detectedMime", "readabilityStatus"],
+      "contentBearingRows": 2155,
+      "excludedEmptyRows": 794,
+      "sourceBinaryAccess": "NOT_EXECUTED",
+      "productionExecution": "FORBIDDEN"
+    },
     "rehearsalBinding": {
       "status": "NOT_EXECUTED",
       "requiredEqualityFields": ["rehearsal", "parentRunId", "t0BatchId", "tenantId", "parkId", "codeSha", "sourceSnapshotHash", "mappingContractHash"],
@@ -70,8 +81,28 @@
     "acceptedSourceMagic": ["JPEG", "PNG", "GIF", "BMP"],
     "acceptedTargetMime": ["image/jpeg", "image/png"],
     "bmpPipeline": ["magic_check", "safe_decode", "dimension_limit", "malware_scan", "encode_jpeg_or_png", "rehash"],
+    "preflightPolicy": {
+      "version": "yuzhou-photo-normalization-preflight-v1",
+      "artifact": "scripts/hr-cutover/yuzhou-photo-normalization-preflight.mjs",
+      "artifactSha256": "205ad1d0b415c63d373a5be529bd1a524adbc106562c92304dcdac1bc808ff94",
+      "policySha256": "cc0bbcd20660d69b66a67d840271e986a5804cadb0c4de24d2f8fe985698c8f9",
+      "maxBytes": 20971520,
+      "maxDimension": 12000,
+      "maxPixels": 50000000,
+      "implementationStatus": "IMPLEMENTED_NO_SOURCE_BINARY_READ"
+    },
+    "workerBoundary": {
+      "implementationStatus": "IMPLEMENTED_SYNTHETIC_REHEARSAL_ONLY",
+      "sourceBinaryAccess": "NOT_EXECUTED",
+      "productionExecution": "FORBIDDEN",
+      "dockerfile": "infra/docker/Dockerfile.yuzhou-photo-worker",
+      "dockerfileSha256": "5ab43d7d2e8548945dccd74e768c1a935e7572a487841a955f756b56451f6f50",
+      "workerArtifact": "scripts/hr-cutover/yuzhou-photo-normalization-worker.mjs",
+      "workerArtifactSha256": "aa046a5c68a9bac512574221033fea10bbd21d0a3a3c68af64f21656bdba9a80",
+      "runtimeRequirements": ["non_root", "network_none", "read_only_root", "pids_limit", "memory_limit", "cpu_limit", "fixed_input_output_paths"]
+    },
     "hashSeparation": "sourceContentSha256_and_normalizedContentSha256",
-    "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
+    "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "BYTE_LIMIT_EXCEEDED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
     "writesBinary": false
   },
   "targetPlan": {
@@ -140,5 +171,5 @@
     "documentImport": "HOLD",
     "productionImport": "HOLD"
   },
-  "contractSha256": "ddf36656b8fef7d8ab32c56d55ff6e291e5425c9a1f739f66a80c3d078c45e0c"
+  "contractSha256": "bdbec05fb75f5abadb9d42bc414a52128f00cf8039d6076515077cd52bfe04b6"
 }

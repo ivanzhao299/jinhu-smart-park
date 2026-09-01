@@ -1449,6 +1449,7 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.APARTMENT_AUDIT, name: "公寓档案审计", resource: "biz.apartment", action: "audit" },
   { code: SYSTEM_PERMISSIONS.HR_MENU, name: "人力资源管理", resource: "hr", action: "menu" },
   { code: SYSTEM_PERMISSIONS.HR_DASHBOARD_PAGE, name: "人力资源工作台", resource: "hr.dashboard", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_DECISION_CENTER_PAGE, name: "人力资源决策中心", resource: "hr.decision_center", action: "page" },
   { code: SYSTEM_PERMISSIONS.HR_ORGANIZATION_PAGE, name: "组织与岗位", resource: "hr.organization", action: "page" },
   { code: SYSTEM_PERMISSIONS.HR_EMPLOYEES_PAGE, name: "员工档案", resource: "hr.employees", action: "page" },
   { code: SYSTEM_PERMISSIONS.HR_GOALS_PAGE, name: "战略与目标", resource: "hr.goals", action: "page" },

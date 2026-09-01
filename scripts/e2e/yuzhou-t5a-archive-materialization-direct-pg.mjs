@@ -29,6 +29,9 @@ assert.equal(label,composeProject,"unexpected PostgreSQL compose project");
 const employeeId="11111111-1111-4111-8111-111111111111";
 const sourceBatchId="22222222-2222-4222-8222-222222222222";
 const otherSourceBatchId="33333333-3333-4333-8333-333333333333";
+const rollbackMigrationBatchId="44444444-4444-4444-8444-444444444444";
+const rollbackSourceBatchId="55555555-5555-4555-8555-555555555555";
+const rollbackRunId="fixture-t5-unowned-rollback";
 const hash=value=>value.repeat(64);
 
 psql(`
@@ -44,21 +47,23 @@ VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa
 
 INSERT INTO hr_legacy_t5_import_batch(id,tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status)
 VALUES
- ('${sourceBatchId}','tenant-a','park-a','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fixture-source','${hash("a")}','${hash("c")}','${hash("d")}',4,0,4,'unpublished'),
- ('${otherSourceBatchId}','tenant-b','park-b','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','fixture-source','${hash("b")}','${hash("e")}','${hash("f")}',1,0,1,'unpublished');
+ ('${sourceBatchId}','tenant-a','park-a','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fixture-source','${hash("a")}','${hash("c")}','${hash("d")}',5,4,1,'unpublished'),
+ ('${otherSourceBatchId}','tenant-b','park-b','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','fixture-source','${hash("b")}','${hash("e")}','${hash("f")}',1,1,0,'unpublished');
 INSERT INTO hr_legacy_t5_record(tenant_id,park_id,import_batch_id,employee_id,domain,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,mapping_status,record_payload)
 VALUES
  ('tenant-a','park-a','${sourceBatchId}','${employeeId}','candidate','dbo.person.core_residue','fixture-profile','${hash("3")}','${hash("4")}','employee_mapped','{}'),
  ('tenant-a','park-a','${sourceBatchId}',NULL,'reward_category','dbo.bonuscode','fixture-dictionary','${hash("5")}','${hash("6")}','not_applicable','{}'),
+ ('tenant-a','park-a','${sourceBatchId}',NULL,'experience','dbo.his','fixture-unowned-history','${hash("a")}','${hash("b")}','not_applicable','{}'),
  ('tenant-b','park-b','${otherSourceBatchId}',NULL,'reward_category','dbo.bonuscode','fixture-other','${hash("7")}','${hash("8")}','not_applicable','{}');
 INSERT INTO hr_legacy_t5_file_evidence(tenant_id,park_id,import_batch_id,employee_id,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,file_role,content_sha256,actual_size,detected_mime,readability_status)
 VALUES('tenant-a','park-a','${sourceBatchId}','${employeeId}','dbo.person.photo','fixture-photo','${hash("9")}','${hash("0")}','employee_photo','${hash("a")}',12,'image/bmp','readable');
 INSERT INTO hr_employee_profile(tenant_id,park_id,employee_id,highest_education,legacy_source_identity_sha256,legacy_source_row_sha256)
 VALUES('tenant-a','park-a','${employeeId}','fixture-level','${hash("3")}','${hash("4")}');
-UPDATE hr_legacy_t5_import_batch SET loaded_row_count=3,quarantined_row_count=1,status='staged' WHERE id='${sourceBatchId}';
-UPDATE hr_legacy_t5_import_batch SET loaded_row_count=1,quarantined_row_count=0,status='staged' WHERE id='${otherSourceBatchId}';
+UPDATE hr_legacy_t5_import_batch SET status='staged' WHERE id IN ('${sourceBatchId}','${otherSourceBatchId}');
 COMMIT;
 `);
+const protectedCounts=psql("SELECT (SELECT count(*) FROM hr_employee)||'|'||(SELECT count(*) FROM hr_employee_profile)||'|'||(SELECT count(*) FROM hr_legacy_t5_file_evidence);");
+assert.equal(protectedCounts,"1|1|1");
 
 const baseEnv={
   YUZHOU_POSTGRES_CONTAINER:container,
@@ -81,9 +86,11 @@ const applyOutput=run("./scripts/materialize-yuzhou-t5-archive-visibility.sh",[]
 });
 const [materializationId,status,sourceCount,deferredCount,archiveCount]=applyOutput.split("|");
 assert.match(materializationId,/^[0-9a-f-]{36}$/u);
-assert.deepEqual([status,sourceCount,deferredCount,archiveCount],["staged","2","1","2"]);
-assert.equal(psql(`SELECT count(*)||'|'||(SELECT count(*) FROM hr_legacy_archive_record WHERE materialization_batch_id='${materializationId}')||'|'||(SELECT count(*) FROM hr_legacy_file_logical_record) FROM hr_legacy_identity_registry WHERE materialization_batch_id='${materializationId}';`),"2|2|0");
+assert.deepEqual([status,sourceCount,deferredCount,archiveCount],["staged","3","1","3"]);
+assert.equal(psql(`SELECT count(*)||'|'||(SELECT count(*) FROM hr_legacy_archive_record WHERE materialization_batch_id='${materializationId}')||'|'||(SELECT count(*) FROM hr_legacy_file_logical_record) FROM hr_legacy_identity_registry WHERE materialization_batch_id='${materializationId}';`),"3|3|0");
+assert.equal(psql("SELECT (SELECT count(*) FROM hr_employee)||'|'||(SELECT count(*) FROM hr_employee_profile)||'|'||(SELECT count(*) FROM hr_legacy_t5_file_evidence);"),protectedCounts);
 assert.equal(psql(`SELECT count(*) FROM hr_legacy_archive_record WHERE display_safe_projection ? 'sourceTable';`),"0");
+assert.equal(psql(`SELECT count(*) FROM hr_legacy_archive_record archive JOIN hr_legacy_identity_registry identity ON identity.id=archive.identity_registry_id WHERE identity.source_table='dbo.his' AND identity.owner_employee_id IS NULL;`),"1");
 assert.equal(psql("SELECT count(*) FROM pg_roles WHERE rolname LIKE 'yuzhou_t5a_apply_%' OR rolname LIKE 'yuzhou_t5a_rollback_%';"),"0");
 
 // Ordinary callers cannot invoke the procedure or mutate immutable archive rows.
@@ -108,4 +115,38 @@ assert.equal(psql(`SELECT count(*) FROM hr_employee WHERE id='${employeeId}' AND
 assert.equal(psql(`SELECT count(*) FROM hr_employee_profile WHERE employee_id='${employeeId}' AND legacy_source_row_sha256='${hash("4")}';`),"1");
 assert.equal(psql("SELECT count(*) FROM pg_roles WHERE rolname LIKE 'yuzhou_t5a_apply_%' OR rolname LIKE 'yuzhou_t5a_rollback_%';"),"0");
 
-console.log("T5A direct PostgreSQL fixture passed: scoped apply, deferred files, immutable denial, controlled rollback, residual=0");
+// T5 source rollback must remove the original unowned archive evidence and
+// deactivate its exact source map; T5A rollback above only reverses the
+// separately materialized visibility projection.
+psql(`
+BEGIN;
+INSERT INTO migration_batch(id,run_id,source_system,source_snapshot_sha256,target_database,phase,status,tool_version,started_at,finished_at)
+VALUES('${rollbackMigrationBatchId}','${rollbackRunId}','yuzhou-v10','${hash("c")}','${database}','verify','succeeded','fixture',now(),now());
+INSERT INTO hr_legacy_t5_import_batch(id,tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status)
+VALUES('${rollbackSourceBatchId}','tenant-a','park-a','${rollbackMigrationBatchId}','${rollbackRunId}','${hash("c")}','${hash("d")}','${hash("e")}',1,1,0,'unpublished');
+INSERT INTO hr_legacy_t5_record(tenant_id,park_id,import_batch_id,employee_id,domain,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,mapping_status,record_payload)
+VALUES('tenant-a','park-a','${rollbackSourceBatchId}',NULL,'experience','dbo.his','fixture-unowned-rollback','${hash("f")}','${hash("0")}','not_applicable','{}');
+INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,is_active)
+SELECT '${rollbackMigrationBatchId}','yuzhou-v10',source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,'hr_legacy_t5_record',id,'loaded',true
+FROM hr_legacy_t5_record WHERE import_batch_id='${rollbackSourceBatchId}';
+INSERT INTO migration_rollback_point(batch_id,rollback_code,verified_at)
+VALUES('${rollbackMigrationBatchId}','T5_LEGACY_HISTORY',now());
+UPDATE hr_legacy_t5_import_batch SET status='staged' WHERE id='${rollbackSourceBatchId}';
+COMMIT;
+`);
+assert.equal(psql(`SELECT (employee_id IS NULL)::text||'|'||mapping_status FROM hr_legacy_t5_record WHERE import_batch_id='${rollbackSourceBatchId}';`),"true|not_applicable");
+run("./scripts/rollback-yuzhou-t5-legacy-history.sh",[],{
+  env:{
+    YUZHOU_POSTGRES_CONTAINER:container,
+    YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:composeProject,
+    YUZHOU_TARGET_DATABASE:database,
+    YUZHOU_MIGRATION_RUN_ID:rollbackRunId,
+    ALLOW_YUZHOU_MIGRATION:"yes",
+    ALLOW_YUZHOU_ROLLBACK:"yes"
+  }
+});
+assert.equal(psql(`SELECT (SELECT count(*) FROM hr_legacy_t5_record WHERE import_batch_id='${rollbackSourceBatchId}')||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id='${rollbackMigrationBatchId}' AND is_active);`),"0|0");
+assert.equal(psql(`SELECT status FROM hr_legacy_t5_import_batch WHERE id='${rollbackSourceBatchId}';`),"rolled_back");
+assert.equal(psql(`SELECT status FROM migration_batch WHERE id='${rollbackMigrationBatchId}';`),"rolled_back");
+
+console.log("T5A direct PostgreSQL fixture passed: scoped apply, deferred files, immutable denial, controlled rollback, unowned T5 source rollback, residual=0");

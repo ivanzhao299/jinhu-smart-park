@@ -11,6 +11,7 @@ import {
   compareIsolation,
   currentState,
   DOMAIN_ORDER,
+  extractManifestFacts,
   provision,
   ROLLBACK_ORDER,
   runForward,
@@ -19,6 +20,7 @@ import {
   validateConfig
 } from "../hr-cutover/full-domain-lifecycle.mjs";
 import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-contract.mjs";
+import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const lifecyclePath = resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs");
@@ -42,10 +44,25 @@ function configFor(rehearsal, suffix, ports) {
   chmodSync(credentialRoot, 0o700);
   const etlEnv = join(credentialRoot, "etl.env");
   const t4File = join(credentialRoot, "t4-evidence.json");
+  const sourceBackup = join(credentialRoot, "source.bak");
+  const sourceRestoreReceipt = join(credentialRoot, "source-restore-receipt.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
   const materializationKey = join(credentialRoot, "materialization.key");
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
+  writeFileSync(sourceBackup, "fixture-source\n", { mode: 0o600 });
+  const sourceSnapshotHash = createHash("sha256").update(readFileSync(sourceBackup)).digest("hex");
+  const sourceRestoreReceiptBody = sealSourceRestoreReceipt({
+    formatVersion: 1,
+    artifactKind: "yuzhou_hr_source_restore_receipt",
+    sourceSnapshotSha256: sourceSnapshotHash,
+    backup: { sha256: sourceSnapshotHash, bytes: readFileSync(sourceBackup).length, containerCopySha256: sourceSnapshotHash, containerCopyBytes: readFileSync(sourceBackup).length },
+    identities: { containerSha256: "a".repeat(64), imageSha256: "b".repeat(64), databaseSha256: "c".repeat(64), restoreSha256: "d".repeat(64), catalogSha256: "e".repeat(64) },
+    state: { online: true, readOnly: true },
+    etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false },
+    productionImport: "HOLD"
+  });
+  privateJson(sourceRestoreReceipt, sourceRestoreReceiptBody);
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
   writeFileSync(materializationKey, `${"ab".repeat(32)}\n`, { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
@@ -54,8 +71,8 @@ function configFor(rehearsal, suffix, ports) {
     runId: `yzfull-20260826T120000Z-${codeSha.slice(0, 8)}-r${rehearsal}`,
     rehearsal,
     backend: "fixture",
-    triple: { codeSha, sourceSnapshotHash: "3".repeat(64), mappingContractHash },
-    source: { databaseAlias: `YuzhouHR_Lab_${suffix}`, readOnly: true, etlEnvFile: etlEnv, t4EvidenceFile: t4File },
+    triple: { codeSha, sourceSnapshotHash, mappingContractHash },
+    source: { databaseAlias: `YuzhouHR_Lab_${suffix}`, readOnly: true, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256: createHash("sha256").update(readFileSync(sourceRestoreReceipt)).digest("hex"), sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", etlEnvFile: etlEnv, t4EvidenceFile: t4File },
     t4Evidence: { status: "COMPLETED", sha256: createHash("sha256").update(readFileSync(t4File)).digest("hex") },
     target: {
       database: project,
@@ -96,6 +113,10 @@ try {
   assert.match(lifecycleSource, /\["network", "inspect", entry\.planned\]/u, "network residual verification must inspect the exact planned identity");
   assert.match(lifecycleSource, /\["network", "rm", entry\.planned\]/u, "cleanup must remove the exact registered Compose network");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
+  assert.match(lifecycleSource, /T5_LOAD_STAGE=\(preflight\(\?:_\[a-z_\]\+\)\?\|database_transaction\)/u, "T5 failures must retain only an allowlisted safe stage marker");
+  assert.match(lifecycleSource, /kind: "child_failure"/u, "child failures must be recorded without preserving raw child output");
+  assert.match(lifecycleSource, /recoveryCleanup = false/u, "only explicit recovery cleanup may tolerate a later mapping-only drift");
+  assert.match(lifecycleSource, /!recoveryCleanup && config\.triple\.mappingContractHash/u, "normal lifecycle phases must retain the byte-exact mapping contract gate");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
   const configAPath = join(sandbox, "config-a.json");
@@ -121,10 +142,42 @@ try {
   assert.doesNotMatch(t4LoaderSource, /digest\(t\|\|x\.id::text/u, "T4 canonical identity must not derive from random target UUIDs");
   assert.match(t4LoaderSource, /source_content_group_hash\|\|':'\|\|i\.legacy_column_name/u, "T4 snapshot-item identity must derive from stable source content");
 
+  const t3ManifestConfig = { runId: configA.runId, triple: configA.triple, target: { stagingRoot: join(sandbox, "t3-manifest-staging") } };
+  const t3ManifestRoot = join(t3ManifestConfig.target.stagingRoot, `staging-${t3ManifestConfig.runId}-t3`);
+  mkdirSync(t3ManifestRoot, { recursive: true, mode: 0o700 });
+  chmodSync(t3ManifestRoot, 0o700);
+  const t3Domains = Object.fromEntries([
+    ["attendance", "attendance.jsonl"], ["policies", "policies.jsonl"], ["insurance", "insurance.jsonl"]
+  ].map(([name, file]) => {
+    const bytes = Buffer.from(`${name}\n`);
+    writeFileSync(join(t3ManifestRoot, file), bytes, { mode: 0o600 });
+    chmodSync(join(t3ManifestRoot, file), 0o600);
+    return [name, { rows: 0, file, fileSha256: createHash("sha256").update(bytes).digest("hex") }];
+  }));
+  privateJson(join(t3ManifestRoot, "manifest.json"), {
+    formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256,
+    sourceCatalogSha256: "c".repeat(64), sourceBusinessSha256: "b".repeat(64), mappingContractSha256: configA.triple.mappingContractHash,
+    productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+  });
+  t3ManifestConfig.source = { sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256 };
+  assert.deepEqual(Object.keys(extractManifestFacts(t3ManifestConfig, "T3").env).sort(), ["YUZHOU_MAPPING_CONTRACT_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256"]);
+  const t3ManifestDrift = JSON.parse(readFileSync(join(t3ManifestRoot, "manifest.json"), "utf8"));
+  t3ManifestDrift.sourceSnapshotSha256 = "0".repeat(64);
+  writeFileSync(join(t3ManifestRoot, "manifest.json"), `${JSON.stringify(t3ManifestDrift)}\n`, { mode: 0o600 });
+  chmodSync(join(t3ManifestRoot, "manifest.json"), 0o600);
+  expectCode("EXTRACT_MANIFEST_UNVERIFIED", () => extractManifestFacts(t3ManifestConfig, "T3"));
+  privateJson(join(t3ManifestRoot, "manifest.json"), {
+    formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256,
+    sourceCatalogSha256: "c".repeat(64), sourceBusinessSha256: "b".repeat(64), mappingContractSha256: configA.triple.mappingContractHash,
+    productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+  });
+
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;
   expectCode("REHEARSAL_RESOURCE_REUSE", () => compareIsolation(configA, reused));
   const wrongTriple = clone(configB); wrongTriple.triple.sourceSnapshotHash = "4".repeat(64);
-  expectCode("TRIPLE_MISMATCH", () => compareIsolation(configA, wrongTriple));
+  expectCode("SOURCE_RESTORE_RECEIPT_INVALID", () => compareIsolation(configA, wrongTriple));
   const wrongMapping = clone(configA); wrongMapping.triple.mappingContractHash = "0".repeat(64);
   expectCode("TRIPLE_MISMATCH", () => validateConfig(wrongMapping));
   const unsafe = clone(configA); unsafe.target.database = "jinhu_production";
@@ -144,6 +197,8 @@ try {
   assert(!existsSync(configA.target.root), "T4 gate must fail before the first runtime write");
   const t4Tampered = clone(configA); t4Tampered.t4Evidence.sha256 = "9".repeat(64);
   expectCode("T4_EVIDENCE_HASH_MISMATCH", () => validateConfig(t4Tampered));
+  const receiptDrift = clone(configA); receiptDrift.triple.sourceSnapshotHash = "9".repeat(64);
+  expectCode("SOURCE_RESTORE_RECEIPT_INVALID", () => validateConfig(receiptDrift));
   const invalidKey = configFor("A", "invalid_key_preflight", [45041, 45042, 45043]);
   writeFileSync(invalidKey.target.materializationKeyArtifact, `${"ab".repeat(48)}\n`, { mode: 0o600 });
   expectCode("UNSAFE_FILE_PERMISSION", () => provision(invalidKey));
@@ -160,6 +215,18 @@ try {
   writeFileSync(realT4Gate.source.t4EvidenceFile, actualT4Evidence, { mode: 0o600 });
   chmodSync(realT4Gate.source.t4EvidenceFile, 0o600);
   realT4Gate.triple.sourceSnapshotHash = JSON.parse(actualT4Evidence).sourceBackupSha256;
+  const realSourceSnapshotHash = realT4Gate.triple.sourceSnapshotHash;
+  privateJson(realT4Gate.source.sourceRestoreReceiptPath, sealSourceRestoreReceipt({
+    formatVersion: 1,
+    artifactKind: "yuzhou_hr_source_restore_receipt",
+    sourceSnapshotSha256: realSourceSnapshotHash,
+    backup: { sha256: realSourceSnapshotHash, bytes: 1, containerCopySha256: realSourceSnapshotHash, containerCopyBytes: 1 },
+    identities: { containerSha256: "a".repeat(64), imageSha256: "b".repeat(64), databaseSha256: "c".repeat(64), restoreSha256: "d".repeat(64), catalogSha256: "e".repeat(64) },
+    state: { online: true, readOnly: true },
+    etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false },
+    productionImport: "HOLD"
+  }));
+  realT4Gate.source.sourceRestoreReceiptSha256 = createHash("sha256").update(readFileSync(realT4Gate.source.sourceRestoreReceiptPath)).digest("hex");
   realT4Gate.t4Evidence.sha256 = createHash("sha256").update(actualT4Evidence).digest("hex");
   const dirty = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).stdout.trim() !== "";
   if (dirty) expectCode("CODE_WORKTREE_DIRTY", () => validateConfig(realT4Gate));
@@ -185,7 +252,7 @@ try {
   assert.equal(currentState(configA), "verifying");
 
   const auditA = JSON.parse(readFileSync(configA.target.auditBundle, "utf8"));
-  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 2, "PostgreSQL and materialization credentials must both be registered");
+  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 4, "ETL, T4 evidence, PostgreSQL, and materialization artifacts must all be registered");
   assert(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").every((entry) => entry.removed && entry.residualCount === 0));
   const journal = auditA.journal;
   assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 6));
@@ -216,6 +283,7 @@ try {
   expectCode("CHILD_FAILED", () => runForward(failedChild, failedChildPath));
   const failedJournal = readFileSync(join(failedChild.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(failedJournal.filter((row) => row.kind === "child" && row.phase === "load").map((row) => row.domain), ["T0", "T1"]);
+  assert.deepEqual(failedJournal.filter((row) => row.kind === "child_failure").map(({ domain, phase, status, code, stage, failureCode }) => ({ domain, phase, status, code, stage, failureCode })), [{ domain: "T2", phase: "load", status: "failed", code: "CHILD_FAILED", stage: undefined, failureCode: "FIXTURE_CHILD_FAILURE" }]);
   assert.equal(cleanup(failedChild, { recovery: true }).residualCount, 0);
 
   const concurrent = configFor("B", "slice2_concurrent_b", [45731, 45732, 45733]);

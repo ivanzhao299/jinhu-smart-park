@@ -6,6 +6,12 @@ import { verifyMaterializationPackage } from "./materialize-reviewed-job-state.m
 
 export const CORE_DOMAIN_ORDER = Object.freeze(["T0", "T1", "T2", "T3"]);
 export const CORE_ROLLBACK_ORDER = Object.freeze(["T3", "T2", "T1", "T0"]);
+export const CORE_T0_T2_DOMAIN_ORDER = Object.freeze(["T0", "T1", "T2"]);
+export const CORE_T0_T2_ROLLBACK_ORDER = Object.freeze(["T2", "T1", "T0"]);
+const CORE_PROFILES = Object.freeze({
+  core_t0_t2: Object.freeze({ domainOrder: CORE_T0_T2_DOMAIN_ORDER, rollbackOrder: CORE_T0_T2_ROLLBACK_ORDER }),
+  core_t0_t3: Object.freeze({ domainOrder: CORE_DOMAIN_ORDER, rollbackOrder: CORE_ROLLBACK_ORDER })
+});
 export const CORE_EXECUTION_STATUS = "SPEC_FROZEN";
 export const CORE_RESIDUAL_CLASSES = Object.freeze([
   "database", "container", "network", "volume", "role", "account", "file", "directory", "port", "process",
@@ -20,7 +26,7 @@ const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const RUN_ID = /^yzcore-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r([AB])$/u;
 const LAB_ID = /^jinhu_hr_migration_lab_core_[a-z0-9_]{6,40}$/u;
-const FORBIDDEN = /(?:T4|T5|production[_-]?import|payroll[_-]?history|legacy[_-]?history)/iu;
+const FORBIDDEN = /(?:\bT[45]\b|production[_-]?import|payroll[_-]?history|legacy[_-]?history)/iu;
 const PATH_FIELDS = ["runtimeRoot", "stagingRoot", "evidenceRoot", "credentialRoot"];
 const STATES = new Set(["planned", "provisioned", "extracting", "review_hold", "loading", "verifying", "rollback_ready", "rolling_back", "rolled_back", "recovery", "cleaned"]);
 const JOURNAL_GENESIS = "0".repeat(64);
@@ -46,10 +52,16 @@ const overlap = (left, right) => {
 };
 const requireSha = (value, code, label) => { if (!SHA256.test(value ?? "")) fail(code, label); };
 
+export function coreProfile(profile) {
+  const value = CORE_PROFILES[profile];
+  if (!value) fail("CORE_CONFIG_INVALID", "unknown profile");
+  return value;
+}
+
 export function validateCoreT0T3Config(input) {
   const config = structuredClone(input);
   exactKeys(config, ["formatVersion", "profile", "runId", "rehearsal", "triple", "source", "machineAttestation", "target", "productionImport"], "CORE_CONFIG_INVALID", "config shape");
-  if (config.formatVersion !== 1 || config.profile !== "core_t0_t3" || config.productionImport !== "HOLD") fail("CORE_CONFIG_INVALID", "identity or HOLD boundary");
+  if (config.formatVersion !== 1 || !CORE_PROFILES[config.profile] || config.productionImport !== "HOLD") fail("CORE_CONFIG_INVALID", "identity or HOLD boundary");
   const match = RUN_ID.exec(config.runId ?? "");
   if (!match || match[1] !== config.rehearsal) fail("CORE_RUN_ID_INVALID", "run id must bind rehearsal A or B");
   exactKeys(config.triple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "CORE_TRIPLE_INVALID", "triple shape");
@@ -109,8 +121,18 @@ export function validateCoreT0T3Config(input) {
   // Dictionary packages are validated by the dedicated four-package preflight
   // before provisioning. Their mandatory `productionImport: "HOLD"` marker is
   // evidence of the boundary, not a production-import capability.
-  const { dictionaryPackages: _dictionaryPackages, dictionaryCaptureReceipt: _dictionaryCaptureReceipt, ...sourceReachabilitySurface } = config.source;
-  const reachabilitySurface = JSON.stringify({ profile: config.profile, runId: config.runId, source: sourceReachabilitySurface, target: config.target });
+  // Resource identifiers and private file paths may legitimately contain
+  // slice labels (for example a lab reserved by the outer lightweight-first
+  // runner). They are not an execution surface. Core reachability is instead
+  // determined by the source identity and enforced domain order, so inspect
+  // only the identity-bearing source fields here.
+  const reachabilitySurface = JSON.stringify({
+    readOnly: config.source.readOnly,
+    sourceBackupSha256: config.source.sourceBackupSha256,
+    sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256,
+    databaseAlias: config.source.databaseAlias,
+    sourceContainer: config.source.sourceContainer
+  });
   if (FORBIDDEN.test(reachabilitySurface)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", "T4, T5 and production historical import are unreachable");
   return config;
 }
@@ -118,6 +140,7 @@ export function validateCoreT0T3Config(input) {
 export function validateCorePairIsolation(configAInput, configBInput) {
   const a = validateCoreT0T3Config(configAInput), b = validateCoreT0T3Config(configBInput);
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("CORE_PAIR_ORDER_INVALID", "pair must be A then B");
+  if (a.profile !== b.profile) fail("CORE_PAIR_PROFILE_MISMATCH", "A/B profile differs");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("CORE_PAIR_TRIPLE_MISMATCH", "C/S/M differs");
   if (a.machineAttestation.trustedRootSha256 === b.machineAttestation.trustedRootSha256) fail("CORE_PAIR_TRUST_ROOT_REUSE", "A/B trusted roots must be independently fixed");
   for (const field of CORE_RESOURCE_FIELDS.filter(field => field !== "ports")) {
@@ -128,6 +151,19 @@ export function validateCorePairIsolation(configAInput, configBInput) {
     if (overlap(a.target[left], b.target[right]) || overlap(b.target[right], a.target[left])) fail("CORE_PAIR_RESOURCE_OVERLAP", `${left}:${right}`);
   }
   return { status: "PASS", triple: a.triple, resourceClasses: CORE_RESOURCE_FIELDS.length, productionImport: "HOLD" };
+}
+
+// This retained receipt deliberately excludes ETL paths and all credential
+// material.  It remains verifiable after cleanup removes the private runtime.
+export function retainedCoreT0T3Binding(configInput) {
+  const config = validateCoreT0T3Config(configInput);
+  return {
+    formatVersion: 1, profile: config.profile, runId: config.runId, rehearsal: config.rehearsal, triple: config.triple,
+    source: { readOnly: true, sourceBackupSha256: config.source.sourceBackupSha256, sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256, databaseAlias: config.source.databaseAlias, sourceContainer: config.source.sourceContainer },
+    machineAttestation: config.machineAttestation,
+    target: { database: config.target.database, composeProject: config.target.composeProject, container: config.target.container, network: config.target.network, volume: config.target.volume, role: config.target.role, accountNamespace: config.target.accountNamespace, ports: config.target.ports },
+    productionImport: "HOLD"
+  };
 }
 
 function privateArtifact(path, label) {
@@ -168,8 +204,8 @@ export function validateCoreMachinePairIsolation(packageA, packageB) {
 export function sealCoreT0T3Facts(input) {
   const body = structuredClone(input);
   exactKeys(body, ["formatVersion", "profile", "runId", "rehearsal", "triple", "domains", "sideEffectViolationCount", "productionImport"], "CORE_FACTS_INVALID", "facts shape");
-  if (body.formatVersion !== 1 || body.profile !== "core_t0_t3" || body.productionImport !== "HOLD" || body.sideEffectViolationCount !== 0) fail("CORE_FACTS_INVALID", "facts identity");
-  if (!Array.isArray(body.domains) || JSON.stringify(body.domains.map(row => row.domain)) !== JSON.stringify(CORE_DOMAIN_ORDER)) fail("CORE_FACTS_DOMAIN_ORDER_INVALID", "only T0-T3 accepted");
+  if (body.formatVersion !== 1 || !CORE_PROFILES[body.profile] || body.productionImport !== "HOLD" || body.sideEffectViolationCount !== 0) fail("CORE_FACTS_INVALID", "facts identity");
+  if (!Array.isArray(body.domains) || JSON.stringify(body.domains.map(row => row.domain)) !== JSON.stringify(coreProfile(body.profile).domainOrder)) fail("CORE_FACTS_DOMAIN_ORDER_INVALID", "profile domain order");
   for (const row of body.domains) {
     exactKeys(row, ["domain", "source", "loaded", "quarantined", "approvedIgnored", "canonicalSha256", "quarantineReasonSha256"], "CORE_FACTS_INVALID", row.domain);
     for (const field of ["source", "loaded", "quarantined", "approvedIgnored"]) if (!Number.isSafeInteger(row[field]) || row[field] < 0) fail("CORE_FACTS_INVALID", `${row.domain}.${field}`);
@@ -232,7 +268,7 @@ export class CoreT0T3FileJournal {
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
       if (row.sequence !== index || row.runId !== this.config.runId || JSON.stringify(row.triple) !== JSON.stringify(this.config.triple) || row.productionImport !== "HOLD") fail("CORE_JOURNAL_TAMPERED", String(index));
-      if (row.domain && !CORE_DOMAIN_ORDER.includes(row.domain)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", row.domain);
+      if (row.domain && !coreProfile(this.config.profile).domainOrder.includes(row.domain)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", row.domain);
       const { eventSha256, ...eventBody } = row;
       if (row.previousEventSha256 !== previousEventSha256 || !SHA256.test(eventSha256 ?? "") || sha256(canonical(eventBody)) !== eventSha256) fail("CORE_JOURNAL_TAMPERED", `hash:${index}`);
       previousEventSha256 = eventSha256;
@@ -260,6 +296,8 @@ export class CoreT0T3Lifecycle {
     this.adapters = { provisionResources, executePhase, materializeMachinePackage, materializeFacts, cleanupResources, probeResiduals };
     this.journal = journal ?? { read: () => [], append: () => {} };
     this.events = this.journal.read();
+    this.domainOrder = coreProfile(this.config.profile).domainOrder;
+    this.rollbackOrder = coreProfile(this.config.profile).rollbackOrder;
     this.state = "planned";
     this.completed = new Set();
     this.facts = null;
@@ -272,10 +310,10 @@ export class CoreT0T3Lifecycle {
         if (!STATES.has(event.state)) fail("CORE_JOURNAL_TAMPERED", `state:${event.state}`);
         if (event.state !== "recovery" && forward[priorState] !== event.state) fail("CORE_JOURNAL_TAMPERED", `${priorState}->${event.state}`);
         if (event.state === "recovery" && ["cleaned", "recovery"].includes(priorState)) fail("CORE_JOURNAL_TAMPERED", `${priorState}->recovery`);
-        if (event.state === "review_hold" && JSON.stringify(completedExtracts) !== JSON.stringify(CORE_DOMAIN_ORDER)) fail("CORE_JOURNAL_TAMPERED", "incomplete extracts");
-        if (event.state === "verifying" && (!this.completed.has("machine:T0") || JSON.stringify(completedLoads) !== JSON.stringify(CORE_DOMAIN_ORDER))) fail("CORE_JOURNAL_TAMPERED", "incomplete loads");
+        if (event.state === "review_hold" && JSON.stringify(completedExtracts) !== JSON.stringify(this.domainOrder)) fail("CORE_JOURNAL_TAMPERED", "incomplete extracts");
+        if (event.state === "verifying" && (!this.completed.has("machine:T0") || JSON.stringify(completedLoads) !== JSON.stringify(this.domainOrder))) fail("CORE_JOURNAL_TAMPERED", "incomplete loads");
         if (event.state === "rollback_ready" && !this.facts) fail("CORE_JOURNAL_TAMPERED", "facts missing");
-        if (event.state === "rolled_back" && JSON.stringify(completedRollbacks) !== JSON.stringify(CORE_ROLLBACK_ORDER)) fail("CORE_JOURNAL_TAMPERED", "incomplete rollback");
+        if (event.state === "rolled_back" && JSON.stringify(completedRollbacks) !== JSON.stringify(this.rollbackOrder)) fail("CORE_JOURNAL_TAMPERED", "incomplete rollback");
         if (event.state === "cleaned" && !this.cleanupEvidence) fail("CORE_JOURNAL_TAMPERED", "cleanup evidence missing");
         priorState = event.state;
         this.state = event.state;
@@ -284,15 +322,15 @@ export class CoreT0T3Lifecycle {
         const key = `${event.phase}:${event.domain}`;
         if (this.completed.has(key)) fail("CORE_JOURNAL_TAMPERED", `duplicate:${key}`);
         if (event.phase === "extract") {
-          if (priorState !== "extracting" || event.domain !== CORE_DOMAIN_ORDER[completedExtracts.length]) fail("CORE_JOURNAL_TAMPERED", `extract:${event.domain}`);
+          if (priorState !== "extracting" || event.domain !== this.domainOrder[completedExtracts.length]) fail("CORE_JOURNAL_TAMPERED", `extract:${event.domain}`);
           completedExtracts.push(event.domain);
         } else if (event.phase === "load") {
-          if (priorState !== "loading" || !this.completed.has("machine:T0") || event.domain !== CORE_DOMAIN_ORDER[completedLoads.length]) fail("CORE_JOURNAL_TAMPERED", `load:${event.domain}`);
+          if (priorState !== "loading" || !this.completed.has("machine:T0") || event.domain !== this.domainOrder[completedLoads.length]) fail("CORE_JOURNAL_TAMPERED", `load:${event.domain}`);
           completedLoads.push(event.domain);
         } else {
           const expected = priorState === "rolling_back"
-            ? CORE_ROLLBACK_ORDER[completedRollbacks.length]
-            : priorState === "recovery" ? CORE_ROLLBACK_ORDER.filter(domain => this.completed.has(`load:${domain}`) && !this.completed.has(`rollback:${domain}`))[0] : null;
+            ? this.rollbackOrder[completedRollbacks.length]
+            : priorState === "recovery" ? this.rollbackOrder.filter(domain => this.completed.has(`load:${domain}`) && !this.completed.has(`rollback:${domain}`))[0] : null;
           if (event.domain !== expected) fail("CORE_JOURNAL_TAMPERED", `rollback:${event.domain}`);
           completedRollbacks.push(event.domain);
         }
@@ -325,7 +363,7 @@ export class CoreT0T3Lifecycle {
     this.#event("state", { state: next });
   }
   #phase(domain, phase) {
-    if (!CORE_DOMAIN_ORDER.includes(domain) || FORBIDDEN.test(domain)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", domain);
+    if (!this.domainOrder.includes(domain) || FORBIDDEN.test(domain)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", domain);
     const key = `${phase}:${domain}`;
     if (this.completed.has(key)) return;
     const result = this.adapters.executePhase({ config: this.config, domain, phase });
@@ -341,8 +379,9 @@ export class CoreT0T3Lifecycle {
     return { state: this.state, productionImport: "HOLD" };
   }
   extract() {
-    this.#transition("provisioned", "extracting");
-    for (const domain of CORE_DOMAIN_ORDER) this.#phase(domain, "extract");
+    if (this.state === "provisioned") this.#transition("provisioned", "extracting");
+    else if (this.state !== "extracting") fail("CORE_STATE_TRANSITION_INVALID", `${this.state}->extracting`);
+    for (const domain of this.domainOrder) this.#phase(domain, "extract");
     this.#transition("extracting", "review_hold");
     return { state: this.state, gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: this.config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
   }
@@ -356,7 +395,7 @@ export class CoreT0T3Lifecycle {
       this.completed.add("machine:T0");
       this.#event("machine_materialization", { domain: "T0", status: "verified", machineAttestationSha256: verified.machineAttestationSha256 });
     }
-    for (const domain of CORE_DOMAIN_ORDER) this.#phase(domain, "load");
+    for (const domain of this.domainOrder) this.#phase(domain, "load");
     this.#transition("loading", "verifying");
     this.facts = verifyCoreT0T3Facts(this.adapters.materializeFacts({ config: this.config }), this.config);
     this.#event("core_facts", { factsSha256: this.facts.factsSha256, facts: this.facts, status: "verified" });
@@ -366,7 +405,7 @@ export class CoreT0T3Lifecycle {
   rollback() {
     if (!["rollback_ready", "rolling_back"].includes(this.state)) fail("CORE_STATE_TRANSITION_INVALID", `${this.state}->rolling_back`);
     if (this.state === "rollback_ready") this.#transition("rollback_ready", "rolling_back");
-    for (const domain of CORE_ROLLBACK_ORDER) this.#phase(domain, "rollback");
+    for (const domain of this.rollbackOrder) this.#phase(domain, "rollback");
     this.#transition("rolling_back", "rolled_back");
     return { state: this.state, productionImport: "HOLD" };
   }
@@ -387,9 +426,11 @@ export class CoreT0T3Lifecycle {
   }
   recover() {
     if (this.state === "cleaned") return { state: "cleaned", residualCount: 0, residualClasses: CORE_RESIDUAL_CLASSES.length, productionImport: "HOLD" };
-    this.state = "recovery";
-    this.#event("state", { state: "recovery" });
-    for (const domain of CORE_ROLLBACK_ORDER) if (this.completed.has(`load:${domain}`)) this.#phase(domain, "rollback");
+    if (this.state !== "recovery") {
+      this.state = "recovery";
+      this.#event("state", { state: "recovery" });
+    }
+    for (const domain of this.rollbackOrder) if (this.completed.has(`load:${domain}`)) this.#phase(domain, "rollback");
     return this.cleanup();
   }
 }
@@ -404,7 +445,7 @@ export function runCoreT0T3Pair({ lifecycleA, lifecycleB, machinePackageA, machi
     const comparison = compareCoreT0T3Facts(resultA.facts, resultB.facts);
     const cleanups = [];
     for (const lifecycle of [lifecycleB, lifecycleA]) { lifecycle.rollback(); cleanups.push(lifecycle.cleanup()); }
-    return { formatVersion: 1, profile: "core_t0_t3", executionStatus: CORE_EXECUTION_STATUS, status: "CONTRACT_PASS", triple: lifecycleA.config.triple, comparison, cleanups, productionImport: "HOLD" };
+    return { formatVersion: 1, profile: lifecycleA.config.profile, executionStatus: CORE_EXECUTION_STATUS, status: "CONTRACT_PASS", triple: lifecycleA.config.triple, comparison, cleanups, productionImport: "HOLD" };
   } catch (error) {
     const recoveryFailures = [];
     for (const lifecycle of [lifecycleA, lifecycleB]) if (lifecycle.state !== "cleaned") {

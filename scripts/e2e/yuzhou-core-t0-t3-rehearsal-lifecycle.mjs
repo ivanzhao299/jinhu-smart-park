@@ -9,6 +9,7 @@ import {
   CORE_RESIDUAL_CLASSES,
   CoreT0T3FileJournal,
   CoreT0T3Lifecycle,
+  coreProfile,
   compareCoreT0T3Facts,
   runCoreT0T3Pair,
   sealCoreT0T3Facts,
@@ -17,6 +18,7 @@ import {
 } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildJobStateV2Fixture, digest } from "./yuzhou-job-state-v2-fixture.mjs";
 import { executeCoreT0T3PairFromFiles } from "../hr-cutover/core-t0-t3-pair-runner.mjs";
+import { safeDiagnosticDetail } from "../hr-cutover/run-core-t0-t3-pair-continuous-lab.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 import { canonicalHash } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { compileYuzhouJobStateMachineAttestation, computeYuzhouJobStateCheckpointArtifactHash, computeYuzhouJobStateCheckpointRoot } from "../hr-cutover/yuzhou-job-state-machine-attestation.mjs";
@@ -55,14 +57,14 @@ const sourceRestoreReceipt = sealSourceRestoreReceipt({
 writeFileSync(sourceRestoreReceiptPath, `${JSON.stringify(sourceRestoreReceipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(sourceRestoreReceiptPath, 0o600);
 const sourceRestoreReceiptSha256 = digest(readFileSync(sourceRestoreReceiptPath));
 const project = suffix => `jinhu_hr_migration_lab_core_${suffix}`;
-const config = (rehearsal, suffix, basePort) => {
+const config = (rehearsal, suffix, basePort, profile = "core_t0_t3") => {
   const database = project(suffix), runtimeRoot = join(root, database, "runtime"), credentialRoot = join(root, database, "credentials");
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 }); chmodSync(credentialRoot, 0o700);
   const etlEnvFile = join(credentialRoot, "etl.env");
   writeFileSync(etlEnvFile, "YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_fixture01\n", { flag: "wx", mode: 0o600 }); chmodSync(etlEnvFile, 0o600);
   return {
     formatVersion: 1,
-    profile: "core_t0_t3",
+    profile,
     runId: `yzcore-20260829T000000Z-${triple.codeSha.slice(0, 8)}-r${rehearsal}`,
     rehearsal,
     triple,
@@ -105,11 +107,11 @@ const pairedMachinePackage = (base, label, offset, trustedRootSha256) => ({ ...b
 
 const factsFor = current => sealCoreT0T3Facts({
   formatVersion: 1,
-  profile: "core_t0_t3",
+  profile: current.profile,
   runId: current.runId,
   rehearsal: current.rehearsal,
   triple: current.triple,
-  domains: CORE_DOMAIN_ORDER.map((domain, index) => ({
+  domains: coreProfile(current.profile).domainOrder.map((domain, index) => ({
     domain,
     source: 10 + index,
     loaded: 8 + index,
@@ -155,6 +157,11 @@ test("core config and pair accept only isolated A/B resources with byte-identica
   assert.throws(() => validateCoreT0T3Config(credentialOverlap), /CORE_TARGET_INVALID/u);
 });
 
+test("pair failure receipt retains only a tokenized safe diagnostic", () => {
+  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0" }), "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0");
+  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: unsafe value name" }), null);
+});
+
 test("lifecycle is a fixed T0-T3 prefix, v2 machine gate, T3-T0 rollback and 13-class cleanup", () => {
   const { lifecycle, calls } = harness(configA);
   lifecycle.provision();
@@ -173,6 +180,16 @@ test("lifecycle is a fixed T0-T3 prefix, v2 machine gate, T3-T0 rollback and 13-
   assert.equal(lifecycle.events.some(row => /T4|T5/u.test(JSON.stringify(row))), false);
 });
 
+test("T0-T2 prefix excludes T3 from extract, load, facts and rollback", () => {
+  const prefix = config("A", "prefix01", 32300, "core_t0_t2");
+  const { lifecycle, calls } = harness(prefix);
+  lifecycle.provision(); lifecycle.extract(); lifecycle.resume(machinePackage); lifecycle.rollback(); lifecycle.cleanup();
+  assert.deepEqual(calls.filter(value => value.startsWith("extract:")), ["T0", "T1", "T2"].map(domain => `extract:${domain}`));
+  assert.deepEqual(calls.filter(value => value.startsWith("load:")), ["T0", "T1", "T2"].map(domain => `load:${domain}`));
+  assert.deepEqual(calls.filter(value => value.startsWith("rollback:")), ["T2", "T1", "T0"].map(domain => `rollback:${domain}`));
+  assert.equal(JSON.stringify(lifecycle.facts).includes('"T3"'), false);
+});
+
 test("crash replay resumes without repeating verified phases or machine materialization", () => {
   const { lifecycle, calls } = harness(configA, { failOnce: "load:T2" });
   lifecycle.provision(); lifecycle.extract();
@@ -183,6 +200,20 @@ test("crash replay resumes without repeating verified phases or machine material
   assert.equal(calls.filter(value => value === "load:T0").length, 1);
   assert.equal(calls.filter(value => value === "load:T1").length, 1);
   assert.equal(calls.filter(value => value === "load:T2").length, 2);
+});
+
+test("extract crash replay resumes at the next unverified core domain", () => {
+  const journalPath = join(configB.target.credentialRoot, "core-extract-lifecycle.jsonl");
+  const journal = new CoreT0T3FileJournal(journalPath, configB);
+  const first = harness(configB, { failOnce: "extract:T1", journal });
+  first.lifecycle.provision();
+  assert.throws(() => first.lifecycle.extract(), /injected crash/u);
+  assert.equal(first.lifecycle.state, "extracting");
+  const second = harness(configB, { journal });
+  assert.equal(second.lifecycle.state, "extracting");
+  assert.equal(second.lifecycle.extract().state, "review_hold");
+  assert.equal(second.calls.includes("extract:T0"), false);
+  assert.deepEqual(second.calls.filter(value => value.startsWith("extract:")), ["extract:T1", "extract:T2", "extract:T3"]);
 });
 
 test("0600 append-only journal reconstructs a new lifecycle after process-style interruption", () => {
@@ -259,6 +290,18 @@ test("recovery cleanup or residual failure remains fail closed", () => {
   residual.lifecycle.provision(); residual.lifecycle.extract();
   assert.throws(() => residual.lifecycle.resume(machinePackageB), /injected crash/u);
   assert.throws(() => residual.lifecycle.recover(), /CORE_RESIDUAL_NONZERO/u);
+});
+
+test("recovery is replay-safe after a prior recovery attempt", () => {
+  const journalPath = join(configB.target.credentialRoot, "core-recovery-lifecycle.jsonl");
+  const journal = new CoreT0T3FileJournal(journalPath, configB);
+  const first = harness(configB, { failOnce: "load:T1", cleanupFails: true, journal });
+  first.lifecycle.provision(); first.lifecycle.extract();
+  assert.throws(() => first.lifecycle.resume(machinePackageB), /injected crash/u);
+  assert.throws(() => first.lifecycle.recover(), /CORE_CLEANUP_FAILED/u);
+  const second = harness(configB, { journal });
+  assert.equal(second.lifecycle.state, "recovery");
+  assert.equal(second.lifecycle.recover().state, "cleaned");
 });
 
 test("contract-only pair entry reads six independent 0600 machine artifacts without claiming real execution readiness", async () => {

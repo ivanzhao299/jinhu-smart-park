@@ -3,7 +3,7 @@ import { HR_PERMISSIONS,type TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
-import { CreateHrTrainingCourseDto,CreateHrTrainingCourseVersionDto,CreateHrTrainingPlanDto,HrTrainingCorrectionDto,HrTrainingListDto,HrTrainingParticipantResultDto } from "./dto/hr-training.dto";
+import { CreateHrTrainingCourseDto,CreateHrTrainingCourseVersionDto,CreateHrTrainingPlanDto,CreateHrTrainingPositionRequirementDto,HrTrainingCorrectionDto,HrTrainingListDto,HrTrainingParticipantResultDto } from "./dto/hr-training.dto";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 type Access="park"|"managed_org_tree"|"self"|"none";
 @Injectable()
@@ -24,6 +24,30 @@ export class HrTrainingService {
    this.db.query(`SELECT id,employee_code "employeeCode",full_name "fullName" FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND employment_status IN('preboarding','probation','active','suspended') ORDER BY full_name,id LIMIT 500`,[s.tenantId,s.parkId])
   ]);
   return {courses,employees};
+ }
+ async requirementOptions(s:TenantParkScope,a:JwtPrincipal){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE);
+  const [courses,positions]=await Promise.all([
+   this.db.query(`SELECT c.id,v.title FROM hr_training_course c JOIN hr_training_course_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.course_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.status='enabled' AND c.is_deleted=false ORDER BY v.title,c.id`,[s.tenantId,s.parkId]),
+   this.db.query(`SELECT id,position_code "positionCode",position_name "positionName" FROM hr_position WHERE tenant_id=$1 AND park_id=$2 AND status='enabled' AND is_deleted=false ORDER BY position_name,id LIMIT 500`,[s.tenantId,s.parkId])
+  ]);
+  return {courses,positions};
+ }
+ async listPositionRequirements(s:TenantParkScope,a:JwtPrincipal){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE);
+  return this.db.query(`SELECT r.id,r.status,p.id "positionId",p.position_code "positionCode",p.position_name "positionName",c.id "courseId",c.course_code "courseCode",v.title "courseTitle",v.hours::text hours,r.create_time "createdAt",r.disabled_at "disabledAt" FROM hr_training_position_requirement r JOIN hr_position p ON (p.id,p.tenant_id,p.park_id)=(r.position_id,r.tenant_id,r.park_id) JOIN hr_training_course c ON (c.id,c.tenant_id,c.park_id)=(r.course_id,r.tenant_id,r.park_id) JOIN hr_training_course_version v ON (v.id,v.course_id,v.tenant_id,v.park_id)=(r.course_version_id,r.course_id,r.tenant_id,r.park_id) WHERE r.tenant_id=$1 AND r.park_id=$2 ORDER BY r.status,p.position_name,v.title,r.id`,[s.tenantId,s.parkId]);
+ }
+ async createPositionRequirement(s:TenantParkScope,a:JwtPrincipal,d:CreateHrTrainingPositionRequirementDto){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE);
+  return this.db.transaction(async m=>{const position=(await m.query(`SELECT id FROM hr_position WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND status='enabled' AND is_deleted=false FOR SHARE`,[s.tenantId,s.parkId,d.positionId]))[0];if(!position)throw new NotFoundException("Position not found");const course=(await m.query(`SELECT c.id,v.id version_id FROM hr_training_course c JOIN hr_training_course_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.course_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.id=$3 AND c.status='enabled' AND c.is_deleted=false FOR SHARE OF c,v`,[s.tenantId,s.parkId,d.courseId]))[0];if(!course)throw new NotFoundException("Course not found");try{return (await m.query(`INSERT INTO hr_training_position_requirement(tenant_id,park_id,position_id,course_id,course_version_id,create_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,status`,[s.tenantId,s.parkId,d.positionId,d.courseId,course.version_id,a.sub]))[0];}catch(e){if((e as {code?:string}).code==="23505")throw new ConflictException("Position course requirement already exists");throw e;}});
+ }
+ async disablePositionRequirement(s:TenantParkScope,a:JwtPrincipal,id:string){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE);
+  return this.db.transaction(async m=>{const row=(await m.query(`SELECT id,status FROM hr_training_position_requirement WHERE tenant_id=$1 AND park_id=$2 AND id=$3 FOR UPDATE`,[s.tenantId,s.parkId,id]))[0];if(!row)throw new NotFoundException("Position course requirement not found");if(row.status!=="enabled")throw new ConflictException("Only enabled position course requirements can be disabled");await m.query(`UPDATE hr_training_position_requirement SET status='disabled',disabled_by=$4,disabled_at=now() WHERE tenant_id=$1 AND park_id=$2 AND id=$3`,[s.tenantId,s.parkId,id,a.sub]);return {id,status:"disabled"};});
+ }
+ async positionRequirementGaps(s:TenantParkScope,a:JwtPrincipal){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE);
+  return this.db.query(`SELECT r.id "requirementId",p.position_name "positionName",c.course_code "courseCode",v.title "courseTitle",e.id "employeeId",e.employee_code "employeeCode",e.full_name "employeeName",EXISTS(SELECT 1 FROM hr_training_participant tp JOIN hr_training_plan plan ON (plan.id,plan.tenant_id,plan.park_id)=(tp.plan_id,tp.tenant_id,tp.park_id) WHERE tp.tenant_id=r.tenant_id AND tp.park_id=r.park_id AND tp.employee_id=e.id AND tp.status='completed' AND plan.status<>'cancelled' AND plan.course_id=r.course_id AND plan.is_deleted=false) "completed" FROM hr_training_position_requirement r JOIN hr_position p ON (p.id,p.tenant_id,p.park_id)=(r.position_id,r.tenant_id,r.park_id) JOIN hr_training_course c ON (c.id,c.tenant_id,c.park_id)=(r.course_id,r.tenant_id,r.park_id) JOIN hr_training_course_version v ON (v.id,v.course_id,v.tenant_id,v.park_id)=(r.course_version_id,r.course_id,r.tenant_id,r.park_id) JOIN hr_employee e ON (e.position_id,e.tenant_id,e.park_id)=(r.position_id,r.tenant_id,r.park_id) WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.status='enabled' AND e.is_deleted=false AND e.employment_status IN('preboarding','probation','active','suspended') ORDER BY p.position_name,v.title,e.full_name,e.id`,[s.tenantId,s.parkId]);
  }
  async createCourse(s:TenantParkScope,a:JwtPrincipal,d:CreateHrTrainingCourseDto){
   await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE);

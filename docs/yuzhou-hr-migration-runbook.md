@@ -4,6 +4,8 @@
 
 本手册用于玉舟集团版 V10 到 Jinhu Smart Park 独立人力资源模块的迁移演练。实验室由两个隔离数据库组成：Jinhu PostgreSQL 目标库和玉舟 SQL Server 源库。源库只读，数据只允许按“源库 → staging → 目标库”方向流动。
 
+HR 在目标 PostgreSQL 中是独立逻辑数据域：`hr_*` 业务与导入回执表可随指定 `tenant_id + park_id` 导出/迁移；平台身份、组织、RBAC、审计和统一文件服务保持为外部依赖并在目标范围重新绑定。共享 `legacy_*`/`migration_*` 账本只允许携带 `source_system=yuzhou-v10` 且由本次 `batch_id` 精确拥有的记录，禁止整表复制或宽泛清理。完整规则和 DDL 锚点以 `scripts/hr-cutover/contracts/hr-module-boundary-v1.json` 为准，可通过 `pnpm test:e2e:yuzhou-hr-module-boundary` 验证。
+
 2026-08-20 已在下载目录发现 `hr2026081914.dbk`，完成源/隔离副本 SHA-256 核验、`VERIFYONLY` 和隔离恢复。恢复库 `YuzhouHR_Lab_20260820_intake01` 为 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。在完成全量 catalog、行级抽取和数据质量检查之前，仍不能宣称已完成 2949 名员工等真实业务数据迁移。
 
 ## 2. 已验证的本机基线
@@ -96,6 +98,8 @@ T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267`
 
 抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。物化版 manifest 额外绑定 reviewed mapping hash；启用后旧业务哈希不再有效，必须对同一固定源重新执行 A/B 抽取并固定新的 hash，不能手工沿用旧值。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。
 
+截至 2026-08-30，受控备份在全新 `core` 隔离库的非文件 T5 演练已完成一次真实闭环：`7,752 = 7,648 loaded + 104 quarantined`。其中 `2,870` 档案残余、`4,538` 家庭、`6` 技能和 `234` 证照资料进入在线投影；`79` 条存在非唯一人员指纹的档案固定隔离为 `EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS`，另有 `25` 条源物化隔离记录，未发生自动身份归并。照片和文档证据均为 `0`，未创建文件占位。旧 `staging-t5nonfile20260830a` 因缺少 `sourceCatalogSha256` 被装载器在业务写入前拒绝。自 2026-08-31 起，所有新阶段还必须同时绑定 canonical `sourceSnapshotSha256`、`sourceRestoreReceiptSha256`、`sourceBusinessSha256`、`sourceCatalogSha256`、映射合同及领域文件 SHA-256；加载器会在创建临时载荷和任何 PostgreSQL 写入前拒绝旧清单、回执漂移、映射漂移或与请求备份不同的源快照。该批次已精确回滚，活动映射、四类在线投影和临时物化主体均为 `0` 残留；这只证明非附件 T5 的隔离可回滚性，不替代完整 A/B、人工身份决议、照片/附件处理或生产授权，`productionImport` 继续为 `HOLD`。
+
 加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
 
 ```sh
@@ -115,7 +119,42 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t5:rollback
 ```
 
-`docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
+#### 新恢复回执后的 T5 A/B 重绑
+
+每次新建只读恢复库并签发新的 `source-restore-receipt.json` 后，旧 T5 stage 不能直接加载。先以同一受控备份、同一只读恢复库、同一实验室物化密钥连续抽取 A 与 B；每次抽取入口都会在读取源行前验证恢复回执、备份哈希、容器/数据库身份和最小 ETL 权限。随后用 `rebase-t5-canonical-baseline.mjs` 生成**新的候选**基线及证据文件；它不改写仓库内 canonical 合同，并且要求 23 个域的行数、对象状态和文件 SHA-256 在 A/B 间逐项一致。
+
+```sh
+# A/B 均须传入同一绝对 0600 回执、ETL 封套和实验室密钥路径；run id 与输出目录必须不同。
+ALLOW_YUZHOU_MIGRATION=yes \
+YUZHOU_MIGRATION_RUN_ID='<new-t5-a-run>' \
+YUZHOU_SQLSERVER_CONTAINER='<current-isolated-source-container>' \
+YUZHOU_SQLSERVER_DATABASE='<current-isolated-source-database>' \
+YUZHOU_ETL_CREDENTIAL_FILE='<absolute-0600-etl-envelope>' \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute-0600-source-restore-receipt>' \
+YUZHOU_PARTY_DATA_KEY_FILE='<absolute-0600-lab-materialization-key>' \
+YUZHOU_STAGING_ROOT='<new-private-0700-output-root>' \
+pnpm hr:migration:t5:extract
+
+node scripts/hr-cutover/rebase-t5-canonical-baseline.mjs \
+  --source-a '<absolute-0700-A-stage>' \
+  --source-b '<absolute-0700-B-stage>' \
+  --source-restore-receipt '<absolute-0600-source-restore-receipt>' \
+  --baseline "$PWD/scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json" \
+  --output '<new-absolute-0600-candidate-baseline>' \
+  --evidence '<new-absolute-0600-rebase-evidence>'
+```
+
+候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--t5-baseline` 参数使用；运行器和 T5 加载器只接受绝对路径、非符号链接且权限为 `0600` 的候选文件。A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
+
+`docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
+
+### 当前只读源恢复的最短入口
+
+当现有私有 ETL 封套失效或不可复用时，运行 `./scripts/bootstrap-yuzhou-readonly-source.sh`。它会使用本机已有的 SQL Server 镜像启动一个**新的**迁移容器和数据卷，从受控备份恢复一个新的数据库、创建新的最小只读 ETL 登录、锁定恢复库为 `READ_ONLY`，并生成 0600 的源恢复回执。操作者只在本机终端设置新的隔离 SQL Server 管理员密码；只有数据库恢复成功后，才设置一次新的 ETL 密码。脚本不显示、记录或提交密码、账户名、源行或个人数据。原有恢复库、容器和数据卷均不被更改；若新目标容器、卷、数据库或控制文件已存在，脚本在开始写入前拒绝。
+
+若启动后因可修复的恢复回执问题中断，保留已健康启动的候选容器和数据卷，使用 `YUZHOU_SQLSERVER_RESUME=yes ./scripts/bootstrap-yuzhou-readonly-source.sh` 续跑。续跑只要求输入该容器当前的管理员密码用于本次本机验证，不会重设管理员密码、不会新建或删除容器/卷；仍然仅在恢复成功后才提示 ETL 密码。
+
+该入口仅建立隔离源和回执，`productionImport` 固定为 `HOLD`。随后仍须执行真实 A/B 导入、比例核验、回滚重装、业务 UAT、明确生产目标备份与一次性生产执行授权，才可导入生产。
 
 完整演练只传递 `YUZHOU_PARTY_DATA_KEY_FILE` 的受控路径，文件必须为 `0600` 普通非符号链接，内容必须是精确 64 个十六进制字符且只允许一个可选的末尾 LF；CRLF、空格、空白行、多行、短值和超长值一律在任何 Docker、源库或目标库访问前拒绝。转换器从文件读取密钥，密钥内容不进入 config、manifest、日志或 Git。A/B 各持有独立私有副本，但内容必须来自同一个实验室密钥源，才能证明确定性；该实验室密钥不得替代生产密钥。转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 
@@ -181,7 +220,7 @@ planned → provisioned → extracting → review_hold → loading → verifying
 命令入口为：
 
 ```sh
-pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --materialization-key '<0600实验室物化密钥文件>'
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --source-restore-receipt '<0600密封源恢复回执>' --materialization-key '<0600实验室物化密钥文件>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
@@ -190,7 +229,7 @@ pnpm hr:migration:full:cleanup -- --config '<受控配置.json>' --recover
 pnpm hr:migration:full:status -- --config '<受控配置.json>'
 ```
 
-`prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
+`prepare` 只在干净且 SHA 已固定的候选工作树运行。它先验证备份、T4 证据、密封源恢复回执与只读 ETL 数据库别名，再为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。T5 只能使用 [canonical A/B 基线合同](../scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json) 中与当前源快照和恢复回执一致的业务哈希。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
 两阶段执行命令如下。三份机器复核文件必须是外部 `0600` 非符号链接普通文件：v2 `MACHINE_CANDIDATE` decision 只保存哈希与机器规则结论，真实源状态和值只允许存在于私有 payload，machine attestation 绑定受信任根且不得由运行时使用输入文件自算根。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。三件套必须共同绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
 
@@ -230,7 +269,137 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 仓库已具备 core 生命周期、哈希链 journal、恢复回滚、事实比较、prepare 和仓库内固定 PostgreSQL lab driver 边界。该 driver 使用独立命名的 Compose/network/volume/container、官方 migration 与 production seed、既有 T0～T3 extract/load/rollback 脚本、T0 v2 机器物化和 13 类 residual 探针；它不引用 T4、T5 或 production historical loader。原 full-domain T0 物化目标守卫保持不变，core 入口只能把该守卫精确收紧到 `jinhu_hr_migration_lab_core_*`。
 
-当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
+如需无人值守地完成一个已 prepare 的 core 演练，可使用 `node scripts/hr-cutover/run-core-t0-t3-continuous-lab.mjs --config '<0600 config>' --duration-minutes 300`。该 runner 仅推进当前 journal 的下一可恢复阶段（provision、extract、机器包、resume、rollback、cleanup），并把状态事件和最终摘要写入同一 0700 audit 根；最短窗口为五小时，但在 `cleaned + residual=0` 后会立即结束。任一失败先做该 run 的受控恢复并报告失败码，不会开启生产历史导入，也不会扩大到 T4/T5。
+
+新版 core 配置必须先从同一受控备份的只读字典 Stage 生成私有预检输入，禁止手工拼接字典 JSON。`hr:migration:core-dictionary-preflight:prepare` 只生成 `0600` 的捕获回执与四份源绑定包，并立即验证行数守恒、源快照和 `HOLD`；它不读取人员、工资或附件内容，也不写入任何业务库。随后才可将生成的四包和回执交给 `core-t0-t3:prepare`。
+
+需要把已验证的 core 映射交给后续隔离切片时，runner 可使用 `--stop-after rollback_ready` 写出 `CHECKPOINT_READY` 并保留本 run 的资源；只允许 `review_hold`、`rollback_ready` 或 `cleaned` 三个检查点。后续切片完成后必须从同一 config 恢复反序 rollback 与 cleanup，不能把 checkpoint 当作生产导入授权。
+
+### 8.0.1a 轻量优先数据切片
+
+受控实际落地顺序由 `scripts/hr-cutover/contracts/lightweight-first-slice-order-v1.json` 冻结为 `T0→T1→T2→T5_NONFILE→T3→T4`，反序回滚为 `T4→T3→T5_NONFILE→T2→T1→T0`。这与最终全域 T0→T5 A/B 合同并存：前者约束分批开发与隔离装载的成本顺序，后者只在全部域都已准备好时做完整性复核。
+
+`T5_NONFILE` 仅覆盖员工档案、家庭关系、技能和证照的非文件投影，必须先命中 T0 的稳定员工映射；任何照片、文档、旧路径或文件对象都属于独立 `T5_FILE`，保持 `HOLD`。工资 `T4` 必须是最后一个数据写入切片，不能因已有抽取、schema 或测试而提前装载。每一切片仍须完成受控源绑定、守恒、保护表前后哈希、精确回滚、零残留和同内容重装后，才可推进下一切片；生产历史导入始终为 `HOLD`。
+
+为遵守该顺序，`core_t0_t2` 是 `core_t0_t3` 的受限前缀合同：只允许 T0、T1、T2 的受控源恢复、字典机器物化、加载、事实核对、反序回滚和零残留清理；T3/T4/T5 均不可达。它用于提供 T5_NONFILE 所需的稳定员工映射，不能将 checkpoint 解释为生产授权；T5_NONFILE 完成后仍必须从同一隔离 run 继续反序回滚和 cleanup。
+
+`pnpm hr:migration:lightweight-first:continuous` 将已经受控生成的 T5 非文件、T3 和 T4 阶段工件串接到同一 `core_t0_t2` 隔离 run：它只接受同一源快照、`0700` 的阶段目录和 `0600` 的 T3/T5/T4 manifest，先停在 core `rollback_ready`，再依次执行 `T5_NONFILE→T3→T4→技术验收`，并且无论业务阶段还是验收成功/失败，均按 `T4→T3→T5_NONFILE→T2→T1→T0` 反序清理。T3 manifest 必须声明只读受控源、当前备份快照和 `HOLD`；加载器重新核对 manifest 与三个阶段文件哈希，core 配置则同时验证同一源恢复回执。成功摘要仅保留每个阶段的 `source/loaded/quarantined` 守恒回执，以及 T3/T4 回滚的零活跃映射证明；不记录金额、工资明细、员工身份、凭据或私有路径。它只传递白名单环境变量，不创建照片/附件对象，不接受生产数据库，也不把技术通过提升为生产授权。
+
+`T5_FILE` 不属于轻量优先顺序，必须通过 `hr:migration:t5:photo-owner:continuous` 作为独立证据切片运行。该入口只接受与 `core_t0_t2` 同一受控备份和恢复回执绑定的 `0700` 照片归属 stage，先使 T0→T2 停在 `rollback_ready`，再用该 run 的 T0 映射进行“加载 → 精确回滚 → 同一 stage 重装 → 再次回滚”，随后继续 T2→T0 清理并要求 `residual=0`。它只写 hash-only 的 `hr_legacy_t5_file_evidence`，明确禁止写入 `sys_file`、`hr_employee_document`、在线员工、薪酬、工资、工资条和消息表；物理二进制归一化、员工附件关联和旧文档仍是后续独立切片，生产导入固定为 `HOLD`。
+
+照片对象存储的下一层已补充为 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs`，但它**仅**接受 `isolated_synthetic_rehearsal` 合成 JPEG 阶段，不读取玉舟图片、不连接 PostgreSQL、不创建 `sys_file`。它以归一化内容 SHA-256 生成 run-scoped 相对对象路径，要求阶段文件和存储根分别为当前用户拥有的 `0600`/`0700` 非符号链接对象；失败时只清理本 run 的临时目录，回滚会在删除前核对目录内容与回执完全一致。该验证只闭合了“受控文件根写入与精确文件回滚”的合成路径，不能代替真实二进制 A/B、`sys_file`/`legacy_record_map` 事务、RBAC 下载验收或生产导入授权。
+
+同一合成边界的后续编排位于 `yuzhou-photo-file-rehearsal-persistence.mjs` 与 `yuzhou-photo-file-rehearsal-runner.mjs`：它要求 PostgreSQL `SERIALIZABLE` 事务，按来源 identity 取得 advisory lock，先拒绝 active `legacy_record_map` 重放，再只写 `sys_file(biz_type=hr_employee_photo)` 与同批精确 map。文件已落盘而数据库写入失败时，runner 只删除这个 run 的文件目录；回滚时先将完整且已核验的 run 目录原子改名为待删除目录，数据库回滚失败则原位恢复目录，数据库成功后才删除待删除目录。`test:e2e:yuzhou-photo-file-rehearsal:pg` 在 `template0` 临时隔离库实测了合成 `sys_file + legacy_record_map` 写入、active-map 唯一冲突、序列化事务和零活动残留，并在结束时删除该库。它仍不是实际照片二进制 A/B，也没有读取、复制或展示任一真实人员图片。
+
+```sh
+pnpm hr:migration:t5:photo-owner:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --photo-owner-stage '<0700 hash-only 照片归属 stage>'
+```
+
+旧 `dbo.docs` 的内容在受控源中为空，因此可用相同的独立证据合同验证文档归属，而不创建二进制文件或 `hr_employee_document` 关联。该入口固定校验 1,003 条源记录、989 条映射和 14 条隔离，并与照片切片一样执行两次“加载→精确回滚”后再清理 T0→T2 lab；所有回执固定为 `productionImport=HOLD`：
+
+```sh
+pnpm hr:migration:t5:document-owner:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --document-owner-stage '<0700 hash-only 文档归属 stage>'
+```
+
+若需要把 document 或 photo 的两次独立 stage 作为一条可比较的 A/B 闭环执行，使用文件归属 pair 入口。它串行执行 A 后 B，并要求相同源快照、恢复回执、stage hash、两轮来源守恒/回滚收据和零残留；只记录 hash 和聚合数量，不读取二进制内容、不创建 `sys_file`、`hr_employee_document` 或生产对象：
+
+```sh
+pnpm hr:migration:t5:file-owner:pair-continuous -- \
+  --kind document \
+  --config-a '<A 0600 core_t0_t2 config>' \
+  --config-b '<B 0600 core_t0_t2 config>' \
+  --stage-a '<A 0700 document owner stage>' \
+  --stage-b '<B 0700 document owner stage>' \
+  --summary '<new 0600 summary outside either runtime root>'
+```
+
+```sh
+pnpm hr:migration:lightweight-first:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --t5-stage '<0700 T5_NONFILE 阶段目录>' \
+  --t3-stage '<0700 T3 阶段目录>' \
+  --t4-stage '<0700 T4 阶段目录>' \
+  --t5-baseline '<同一恢复回执、0600 T5 候选基线>'
+```
+
+`--t5-identity-resolution` 是可选参数，并且只接受逐条覆盖全部歧义候选的、经审阅 `yuzhou_t5_profile_identity_resolution` 决议包；运行器会在启动 core lab 前验证它。`yuzhou_t5_profile_identity_ambiguity_receipt` 只是统计/待办回执，不能作为该参数传入。没有已签署决议包时必须省略该参数，加载器将歧义档案固定隔离为 `EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS`，绝不自动归并。
+
+在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
+
+```sh
+pnpm hr:migration:core-t0-t3:technical-uat -- --config '<同一轮、0600 core 配置>'
+```
+
+此入口只复用受控 lab 中已迁移的 T0～T3 数据库、以临时隔离账号执行 59 项 API、22 项负向授权、3 条前端路由和 56 个角色-页面-视口浏览器单元，并将证据写入该 run 的私有 audit 根。它不读取既有用户账号，不升级 full-domain manifest，不把 `rollback_ready` 伪装成 `uat_ready`，结果固定为技术通过或失败、`humanUat=HOLD`、`productionImport=HOLD`。技术验收结束后必须立即从同一 core 配置恢复 continuous runner，完成 T3→T0 回滚与 cleanup；整个 lab 容器销毁前，临时 UAT 记录不得离开该隔离范围。
+
+### 8.0.2 T3 请假、加班和打卡事件源回执
+
+月历与社保快照不代表请假、加班、打卡或日考勤计算事实已经迁移。先通过只读聚合回执确认源表实际数据量；对打卡和日核算仅追加“可关联到源人员”的计数，回执只保存数量和日期边界，不保存人员、卡号、原因、操作人或任何凭据：
+
+```sh
+set -a; . database/import-reports/yuzhou-hr/canonical-source-receipt-etl.env; set +a
+YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID='<new-run-id>' \
+YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT='database/import-reports/yuzhou-hr/t3-attendance-events' \
+YUZHOU_BACKUP_SHA256='<sealed source snapshot SHA-256>' \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute 0600 source restore receipt>' \
+YUZHOU_MAPPING_CONTRACT_SHA256='<approved mapping contract SHA-256>' \
+pnpm hr:migration:t3-attendance-events:profile
+```
+
+脚本只接受 migration lab 内的只读 SQL Server 与非 `sa` ETL 登录，输出目录为 `0700`、原始聚合与回执为 `0600`。回执必须绑定受控备份、密封恢复回执、源目录身份和批准映射契约；它不导入、更新或删除源/目标数据；不论是否有历史行，`productionImport` 均固定为 `HOLD`。只有在该回执、字段映射、隔离装载、守恒、回滚和重装都通过后，才可为这些事件另开历史导入切片。
+
+打卡表的下一步是**哈希化隔离分期**，不是业务表导入。它只从同一个只读恢复库计算 `dbo.attrecord` 的源身份摘要与行摘要；分期文件不包含人员号、卡号、打卡时间或进出标记。当前阶段没有可信的 `hr_employee` 映射，故所有记录固定写为 `quarantined`：源人员不存在时为 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`，源人员存在但尚无目标映射时为 `ATTENDANCE_PUNCH_TARGET_EMPLOYEE_MAPPING_REQUIRED`。`eligibleRows` 固定为零，且不得写入 `hr_attendance_punch_event`：
+
+```sh
+set -a; . database/import-reports/yuzhou-hr/canonical-source-receipt-etl.env; set +a
+ALLOW_YUZHOU_MIGRATION=yes \
+YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID='<new-run-id>' \
+YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT='database/import-reports/yuzhou-hr/t3-attendance-events-stage' \
+YUZHOU_BACKUP_SHA256="$(shasum -a 256 database/backups/yuzhou-hr/hr2026081914.dbk | awk '{print $1}')" \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute 0600 source restore receipt>' \
+YUZHOU_MAPPING_CONTRACT_SHA256='<approved mapping contract SHA-256>' \
+pnpm hr:migration:t3-attendance-events:stage
+```
+
+该阶段仅形成 `0600` 的隔离审计证据，并将受控备份、密封恢复回执、源目录身份、映射契约和业务哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。quarantine loader 必须重新校验全部 C/S/M 哈希，回滚按实际源行数守恒，不得假定单行。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
+
+完成两次独立 stage 后，使用唯一的 A/B 编排入口执行每侧两次“审计隔离装载→精确回滚”，再从同一 core `rollback_ready` 检查点反序清理。该入口只接受 `core_t0_t3` 的两个隔离配置、两份 `0700` stage 和新的 `0600` 摘要路径；它固定断言 `1 = 0 loaded + 1 quarantined`、业务打卡表零写入、A/B 收据一致和两侧 `residualCount=0`，不接受生产目标或任何文件/工资 stage：
+
+```sh
+pnpm hr:migration:t3-attendance-events:pair-continuous -- \
+  --config-a '<A 0600 core_t0_t3 config>' \
+  --config-b '<B 0600 core_t0_t3 config>' \
+  --stage-a '<A 0700 attendance quarantine stage>' \
+  --stage-b '<B 0700 attendance quarantine stage>' \
+  --summary '<new 0600 summary outside either runtime root>'
+```
+
+截至 2026-08-30，固定恢复源的实际汇总为：`dbo.attrecord=1`、可关联 `dbo.person=0`，`dbo.leave=0`、`dbo.overtime=0`、`dbo.timekeeprecord=0`。该唯一打卡记录已经完成一次隔离审计演练：`1 = 0 loaded + 1 quarantined`，原因是 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`；业务打卡表保持 `0` 行，审计回滚后 migration audit residual 也为 `0`，随后 core 临时资源清理为 `0`。这不是“无数据即跳过”的推断，而是同一受控备份的只读计数和隔离验证；缺少可核验员工映射前，历史打卡业务导入与生产导入继续为 `HOLD`。
+
+现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：
+
+截至 2026-08-30，此闭环已在一套全新 core 隔离库实际执行：API/数据库 gate 的 `11` 条输出断言通过，随后 runner 完成 T3→T0 反序回滚与资源清理，`residualCount=0`。该结果只证明现代考勤申请状态机在单套隔离基线可运行；不替代历史打卡事实导入、独立 A/B、真人 UAT 或生产导入授权，`productionImport` 仍为 `HOLD`。
+
+```sh
+set -a; . '<0600 core credential root>/postgres.env'; set +a
+POSTGRES_HOST=127.0.0.1 POSTGRES_PORT='<core postgres port>' \
+pnpm test:hr:attendance-request:pg
+```
+
+如需连续完成同一切片，不要手工在检查点之间切换。先用 `core-t0-t3:prepare` 建立新的、已提交且 `0600` 的 config，然后将该 config 交给 `hr:migration:t3-attendance-request:lab`。编排器强制不少于 300 分钟的容量窗口，顺序执行 `rollback_ready` 检查点、真实 PostgreSQL 申请闭环、T3→T0 回滚和 cleanup；成功时只接受 `residualCount=0`，失败也只对同一 lab 做恢复，不会接触 production、T4 或 T5：
+
+```sh
+pnpm hr:migration:t3-attendance-request:lab -- \
+  --config '<0600 core config>' --duration-minutes 300 --poll-seconds 1
+```
+
+`executionStatus=SPEC_FROZEN` 是 core 契约分类，不是“只能接线、不能执行”的含义，也不能替代当前提交的真实 A/B 证据。`prepare` 会固定 backup、恢复回执、只读 source container、四本 T1/T2 字典决策包和 machine attestation root；运行时会重新证明 backup→只读恢复库的身份。T1/T2 的 event type/state 与 contract type/state 四本机器证明字典、以及 T0→T3 的目标 canonical facts 与受保护副作用检查已经由 `postgres-lab-v1` 实现；缺包、来源漂移、错误目标或事实不守恒均会失败关闭。
+
+截至 2026-09-01，先前的隔离演练因代码 SHA 已变化，不能充当当前提交的证据。一次针对当前提交的新 A/B `prepare` 已在创建临时数据库前失败关闭：受控 backup 和恢复回执均有效，但私有只读 SQL Server ETL 凭据封套缺失。不得从旧配置、日志或对话中恢复、猜测或复制该封套；应由受控秘密/开发者通道重新签发 `0600` 的最小只读封套后，重新建立 A/B 配置并连续执行 load、技术 UAT、T3→T0 rollback 与 residual=0。生产历史导入继续 `HOLD`。
 
 ```sh
 pnpm test:e2e:yuzhou-core-t0-t3-rehearsal
@@ -283,9 +452,11 @@ fixture lifecycle 只停在 `verifying` 并返回 `FIXTURE_CANNOT_ENTER_UAT_READ
 
 T4 抽取只允许使用固定备份、只读 SQL Server 恢复库和非 `sa/sysadmin` 的最小 ETL 账号。正式证据必须对同一源执行两次完整抽取，逐文件比较哈希，并同时固定 35 张工资表、46,092 条工资行、711 个项目、244 个公式、1,431 条关账、647 条账套成员、9 条税率和 2010～2026 年范围。任何业务内容哈希变化都会使旧 T4 证据和后续 A/B 证据失效。
 
-玉舟已停用且无新增数据，不设计 S0→S1 delta，也不等待停写窗口；固定 backup/catalog/business hash 是唯一源基线。全量抽取仍审计46,092行和2010～2026范围，但生产热候选固定 `YUZHOU_T4_PERIOD_START=2024-01-01`、`YUZHOU_T4_PERIOD_END=2026-12-31`。候选精确守恒为 `8,342 = 8,320 loaded + 22 quarantined`、190,374条明细、266条窗口内关账；候选源/加载净额均为15,723,009.9100。2010～2023共37,750行、源净额86,471,046.8900，只登记 `deferred_cold_archive`，不写热历史表，也不阻断 T0/T1/T2/T3/T5 或全局功能演练。
+玉舟已停用且无新增数据，不设计 S0→S1 delta，也不等待停写窗口；固定 backup/catalog/business hash 是唯一源基线。全量抽取仍审计46,092行和2010～2026范围，但生产热候选固定 `YUZHOU_T4_PERIOD_START=2024-01-01`、`YUZHOU_T4_PERIOD_END=2026-12-31`。当前已验证的 T0 映射将候选 8,342 条记录全部唯一关联，因此候选精确守恒为 `8,342 = 8,342 loaded + 0 quarantined`、190,880 条明细、266 条窗口内关账；候选源/加载净额均为15,723,009.9100。2010～2023共37,750行、源净额86,471,046.8900，按 `cold_archive` 归档到历史快照而不写在线工资、工资条或发薪表；其中 34 行暂不能精确关联到目标员工时必须保留为 `employee_unmapped` 历史快照、明细和同数待办，不得丢弃、伪造员工映射或计为拒绝。
 
 真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
+
+截至 2026-08-31，热历史候选已在全新 `core` 隔离库完成一次真实 `load → rollback → reload → rollback → core cleanup` 闭环：两次装载均得到 `8,342` 个历史工资快照和 `190,880` 个工资项，批次守恒与保护表检查均通过；两次回滚后的活动映射、历史批次、快照和项目均为 `0`，core runtime 的最终 `residualCount=0`。同一受控源的 2010–2023 冷历史也已在独立隔离目标完成两次 `16 分片 load → 对账 → rollback`：每次均为 `37,750` 个历史快照、`887,140` 个明细、`1,165` 个关闭期间和 `34` 个 `employee_unmapped` 待办，检查均通过；每次回滚后历史批次、快照、明细、待办和活动映射均为 `0`，仅保留状态为 `rolled_back` 的迁移审计和失效映射。随后同一隔离目标完成单批次 `full_archive` 的两轮同源真实 `16 分片 load → 对账 → rollback`：每轮均一次性得到全量 `46,092` 个历史快照、`1,078,020` 个明细、`1,431` 个关闭期间、净额 `102,194,056.8000` 和 `34` 个 `employee_unmapped` 待办，0 条校验失败；两次回滚后同样为零业务残留。该结果证明热、冷及全量归档在受控源和隔离目标中的可执行性；它不替代全域 A/B、角色 UAT、生产目标备份/窗口和正式生产授权，生产历史导入与任何正式发薪继续为 `HOLD`。
 
 `000264_hr_payroll_legacy_item_bulk_guard.sql` 只把快照项目 INSERT 的批次状态检查从逐行查询改为同事务的 statement-level transition-table 集合检查。未知或已发布批次仍使整条 INSERT 回滚；UPDATE/DELETE 仍逐行禁止，原 FK、唯一性、owner、金额和不可变约束均保留。不得通过禁用 trigger、`session_replication_role` 或放宽 statement timeout 绕过装载门禁。
 

@@ -43,6 +43,39 @@ test("module, domain, route and source-table coverage cannot silently shrink", (
   rejects("GROUP_WEB_MAPPING_BOUNDARY_INVALID", () => verifyLegacyGroupWebModuleMapping(source));
 });
 
+test("existing system-management and contract-reminder capabilities use exact Smart Park routes", () => {
+  const routes = new Map(manifest.items.map(item => [item.legacyId, item.targetRoutes]));
+  assert.deepEqual(routes.get(258), ["/system/dicts"]);
+  assert.deepEqual(routes.get(173), ["/system/dicts"]);
+  assert.deepEqual(routes.get(169), ["/system/users"]);
+  assert.deepEqual(routes.get(170), ["/system/users"]);
+  assert.deepEqual(routes.get(171), ["/system/roles"]);
+  assert.deepEqual(routes.get(290), ["/system/permissions"]);
+  assert.deepEqual(routes.get(292), ["/system/roles"]);
+  assert.deepEqual(routes.get(293), ["/system/data-scopes"]);
+  assert.deepEqual(routes.get(175), ["/system/audit"]);
+  assert.deepEqual(routes.get(177), ["/system/audit/login-logs"]);
+  assert.deepEqual(routes.get(176), ["/system/audit/op-logs"]);
+  assert.deepEqual(routes.get(174), ["/admin"]);
+  assert.deepEqual(routes.get(181), ["/hr/contracts"]);
+  assert.deepEqual(routes.get(166), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(167), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(228), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(231), ["/hr/recruitment"]);
+  assert.deepEqual(routes.get(232), ["/hr/training"]);
+  assert.deepEqual(routes.get(233), ["/hr/performance"]);
+  assert.deepEqual(routes.get(234), ["/hr/attendance"]);
+  assert.deepEqual(routes.get(235), ["/hr/compensation"]);
+  assert.deepEqual(routes.get(229), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(230), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(246), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(247), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(168), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(208), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(209), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(210), ["/hr/decision-center"]);
+});
+
 test("mapping evidence rejects workstation data, credentials and production import release", () => {
   const path = clone(manifest);
   path.items[0].legacyUrl = "/Users/example/evidence";

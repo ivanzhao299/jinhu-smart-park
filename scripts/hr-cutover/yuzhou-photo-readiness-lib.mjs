@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY,
+  photoNormalizationPreflightPolicyHash
+} from "./yuzhou-photo-normalization-preflight.mjs";
 
 export class YuzhouPhotoReadinessError extends Error {
   constructor(code, detail) {
@@ -114,26 +118,54 @@ export function verifyYuzhouPhotoReadiness(contract, { repositoryRoot = resolve(
   if (documents.sourceRows !== documents.quarantinedRows) fail("YUZHOU_DOCUMENT_LEDGER_MISMATCH", "document conservation");
   if (authorityFiles?.photoRows !== photos.sourceRows || authorityFiles?.readablePhotos !== photos.contentBearingRows || authorityFiles?.photoBytes !== photos.sourceBytes || authorityFiles?.distinctPhotoHashes !== photos.distinctContentHashes || authorityFiles?.docsRows !== documents.sourceRows || authorityFiles?.docsWithContent !== 0 || authorityFiles?.docsWithPath !== 0 || authorityFiles?.docsWithNameOnly !== documents.sourceRows || authorityFiles?.detectedBmpPhotos !== photos.detectedBmpRows || authorityFiles?.legacyPhotoSizeMismatch !== photos.legacyDeclaredSizeMismatchRows) fail("YUZHOU_PHOTO_AUTHORITY_FACT_MISMATCH", "contract aggregates do not match inventory authority");
 
-  exactKeys(contract.ownerResolution, ["method", "sourceMap", "sourceSystem", "sourceTable", "targetTable", "targetJoin", "targetScopeTable", "targetScopeColumns", "acceptedMappingStatuses", "requiresTargetId", "requiresActive", "guessingForbidden", "lookupKeyAlgorithm", "rehearsalBinding", "contentBearingRows", "resolvedRows", "pendingRows", "unmatchedRows", "status"], "YUZHOU_PHOTO_OWNER_SHAPE_INVALID");
+  exactKeys(contract.ownerResolution, ["method", "sourceMap", "sourceSystem", "sourceTable", "targetTable", "targetJoin", "targetScopeTable", "targetScopeColumns", "acceptedMappingStatuses", "requiresTargetId", "requiresActive", "guessingForbidden", "lookupKeyAlgorithm", "stagePreparer", "rehearsalBinding", "contentBearingRows", "resolvedRows", "pendingRows", "unmatchedRows", "status"], "YUZHOU_PHOTO_OWNER_SHAPE_INVALID");
   const owner = contract.ownerResolution;
   if (owner.method !== "exact_t0_legacy_record_map" || owner.sourceMap !== "legacy_record_map" || owner.sourceSystem !== "yuzhou-v10" || owner.sourceTable !== "dbo.person" || owner.targetTable !== "hr_employee" || owner.targetJoin !== "legacy_record_map.target_id=hr_employee.id" || owner.targetScopeTable !== "hr_employee" || owner.requiresTargetId !== true || owner.requiresActive !== true || owner.guessingForbidden !== true) fail("YUZHOU_PHOTO_OWNER_METHOD_INVALID", "owner mapping must use the active T0 map joined to the scoped employee target");
   requireExactArray(owner.targetScopeColumns, ["tenant_id", "park_id"], "YUZHOU_PHOTO_OWNER_SCOPE_INVALID");
   requireExactArray(owner.acceptedMappingStatuses, ["loaded", "verified"], "YUZHOU_PHOTO_OWNER_STATUS_SET_INVALID");
   exactKeys(owner.lookupKeyAlgorithm, ["version", "photoPersonField", "normalization", "sourcePkCanonical", "sourceIdentitySha256"], "YUZHOU_PHOTO_OWNER_LOOKUP_SHAPE_INVALID");
   if (owner.lookupKeyAlgorithm.version !== "t0-person-identity-v1" || owner.lookupKeyAlgorithm.photoPersonField !== "person" || owner.lookupKeyAlgorithm.normalization !== "String(value).trim()" || owner.lookupKeyAlgorithm.sourcePkCanonical !== "person=<normalizedPerson>" || owner.lookupKeyAlgorithm.sourceIdentitySha256 !== "sha256('dbo.person\\0'+normalizedPerson)") fail("YUZHOU_PHOTO_OWNER_LOOKUP_ALGORITHM_INVALID", "lookup must match T0 employee identity");
+  exactKeys(owner.stagePreparer, ["status", "artifact", "artifactSha256", "artifactKind", "outputFields", "contentBearingRows", "excludedEmptyRows", "sourceBinaryAccess", "productionExecution"], "YUZHOU_PHOTO_OWNER_STAGE_SHAPE_INVALID");
+  if (owner.stagePreparer.status !== "IMPLEMENTED_NO_SOURCE_EXECUTION" || owner.stagePreparer.artifact !== "scripts/prepare-yuzhou-photo-owner-stage.mjs" || owner.stagePreparer.artifactKind !== "yuzhou_t5_photo_owner_stage" || owner.stagePreparer.contentBearingRows !== 2155 || owner.stagePreparer.excludedEmptyRows !== 794 || owner.stagePreparer.sourceBinaryAccess !== "NOT_EXECUTED" || owner.stagePreparer.productionExecution !== "FORBIDDEN") fail("YUZHOU_PHOTO_OWNER_STAGE_INVALID", "hash-only preparer boundary");
+  requireExactArray(owner.stagePreparer.outputFields, ["sourceTable", "sourceIdentitySha256", "sourceRowSha256", "ownerSourceTable", "ownerSourceIdentitySha256", "fileRole", "contentSha256", "actualSize", "detectedMime", "readabilityStatus"], "YUZHOU_PHOTO_OWNER_STAGE_FIELDS_INVALID");
+  requireSha(owner.stagePreparer.artifactSha256, "YUZHOU_PHOTO_OWNER_STAGE_ARTIFACT_INVALID", "preparer artifact");
+  let preparerBytes;
+  try { preparerBytes = readFileSync(resolve(repositoryRoot, owner.stagePreparer.artifact)); }
+  catch { fail("YUZHOU_PHOTO_OWNER_STAGE_ARTIFACT_INVALID", "preparer artifact unavailable"); }
+  if (sha(preparerBytes) !== owner.stagePreparer.artifactSha256) fail("YUZHOU_PHOTO_OWNER_STAGE_ARTIFACT_HASH_MISMATCH", "preparer artifact bytes");
   exactKeys(owner.rehearsalBinding, ["status", "requiredEqualityFields", "observed"], "YUZHOU_PHOTO_OWNER_REHEARSAL_BINDING_INVALID");
   requireExactArray(owner.rehearsalBinding.requiredEqualityFields, ["rehearsal", "parentRunId", "t0BatchId", "tenantId", "parkId", "codeSha", "sourceSnapshotHash", "mappingContractHash"], "YUZHOU_PHOTO_OWNER_REHEARSAL_FIELDS_INVALID");
   if (owner.rehearsalBinding.status !== "NOT_EXECUTED" || owner.rehearsalBinding.observed !== null) fail("YUZHOU_PHOTO_OWNER_BINDING_OVERCLAIMED", "same-rehearsal T0 C-S-M binding is pending");
   if (owner.contentBearingRows !== photos.contentBearingRows || owner.resolvedRows + owner.pendingRows + owner.unmatchedRows !== owner.contentBearingRows) fail("YUZHOU_PHOTO_OWNER_LEDGER_MISMATCH", "owner conservation");
   if (owner.resolvedRows !== 0 || owner.pendingRows !== 2155 || owner.unmatchedRows !== 0 || owner.status !== "NOT_EXECUTED") fail("YUZHOU_PHOTO_OWNER_STATUS_OVERCLAIMED", "readiness cannot claim owner resolution");
 
-  exactKeys(contract.normalizationPlan, ["executionStatus", "acceptedSourceMagic", "acceptedTargetMime", "bmpPipeline", "hashSeparation", "quarantineReasons", "writesBinary"], "YUZHOU_PHOTO_NORMALIZATION_SHAPE_INVALID");
+  exactKeys(contract.normalizationPlan, ["executionStatus", "acceptedSourceMagic", "acceptedTargetMime", "bmpPipeline", "preflightPolicy", "workerBoundary", "hashSeparation", "quarantineReasons", "writesBinary"], "YUZHOU_PHOTO_NORMALIZATION_SHAPE_INVALID");
   const normalization = contract.normalizationPlan;
   if (normalization.executionStatus !== "NOT_EXECUTED" || normalization.writesBinary !== false || normalization.hashSeparation !== "sourceContentSha256_and_normalizedContentSha256") fail("YUZHOU_PHOTO_NORMALIZATION_OVERCLAIMED", "no binary transformation is authorized");
   requireExactArray(normalization.acceptedSourceMagic, ["JPEG", "PNG", "GIF", "BMP"], "YUZHOU_PHOTO_SOURCE_MAGIC_INVALID");
   requireExactArray(normalization.acceptedTargetMime, ["image/jpeg", "image/png"], "YUZHOU_PHOTO_TARGET_MIME_INVALID");
   requireExactArray(normalization.bmpPipeline, ["magic_check", "safe_decode", "dimension_limit", "malware_scan", "encode_jpeg_or_png", "rehash"], "YUZHOU_PHOTO_BMP_PIPELINE_INVALID");
-  requireExactArray(normalization.quarantineReasons, ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"], "YUZHOU_PHOTO_QUARANTINE_REASONS_INVALID");
+  exactKeys(normalization.preflightPolicy, ["version", "artifact", "artifactSha256", "policySha256", "maxBytes", "maxDimension", "maxPixels", "implementationStatus"], "YUZHOU_PHOTO_PREFLIGHT_POLICY_SHAPE_INVALID");
+  const preflight = normalization.preflightPolicy;
+  if (preflight.version !== YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY.version || preflight.artifact !== "scripts/hr-cutover/yuzhou-photo-normalization-preflight.mjs" || preflight.policySha256 !== photoNormalizationPreflightPolicyHash() || preflight.maxBytes !== YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY.maxBytes || preflight.maxDimension !== YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY.maxDimension || preflight.maxPixels !== YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY.maxPixels || preflight.implementationStatus !== "IMPLEMENTED_NO_SOURCE_BINARY_READ") fail("YUZHOU_PHOTO_PREFLIGHT_POLICY_INVALID", "preflight policy binding");
+  requireSha(preflight.artifactSha256, "YUZHOU_PHOTO_PREFLIGHT_ARTIFACT_HASH_INVALID", "preflight artifact");
+  let preflightBytes;
+  try { preflightBytes = readFileSync(resolve(repositoryRoot, preflight.artifact)); }
+  catch { fail("YUZHOU_PHOTO_PREFLIGHT_ARTIFACT_UNAVAILABLE", "preflight artifact cannot be read"); }
+  if (sha(preflightBytes) !== preflight.artifactSha256) fail("YUZHOU_PHOTO_PREFLIGHT_ARTIFACT_HASH_MISMATCH", "preflight artifact bytes");
+  exactKeys(normalization.workerBoundary, ["implementationStatus", "sourceBinaryAccess", "productionExecution", "dockerfile", "dockerfileSha256", "workerArtifact", "workerArtifactSha256", "runtimeRequirements"], "YUZHOU_PHOTO_WORKER_BOUNDARY_SHAPE_INVALID");
+  const worker = normalization.workerBoundary;
+  if (worker.implementationStatus !== "IMPLEMENTED_SYNTHETIC_REHEARSAL_ONLY" || worker.sourceBinaryAccess !== "NOT_EXECUTED" || worker.productionExecution !== "FORBIDDEN" || worker.dockerfile !== "infra/docker/Dockerfile.yuzhou-photo-worker" || worker.workerArtifact !== "scripts/hr-cutover/yuzhou-photo-normalization-worker.mjs") fail("YUZHOU_PHOTO_WORKER_BOUNDARY_INVALID", "worker execution boundary");
+  requireSha(worker.dockerfileSha256, "YUZHOU_PHOTO_WORKER_DOCKERFILE_HASH_INVALID", "worker dockerfile");
+  requireSha(worker.workerArtifactSha256, "YUZHOU_PHOTO_WORKER_ARTIFACT_HASH_INVALID", "worker artifact");
+  requireExactArray(worker.runtimeRequirements, ["non_root", "network_none", "read_only_root", "pids_limit", "memory_limit", "cpu_limit", "fixed_input_output_paths"], "YUZHOU_PHOTO_WORKER_RUNTIME_REQUIREMENTS_INVALID");
+  for (const [artifact, expectedHash, code] of [[worker.dockerfile, worker.dockerfileSha256, "YUZHOU_PHOTO_WORKER_DOCKERFILE_HASH_MISMATCH"], [worker.workerArtifact, worker.workerArtifactSha256, "YUZHOU_PHOTO_WORKER_ARTIFACT_HASH_MISMATCH"]]) {
+    let bytes;
+    try { bytes = readFileSync(resolve(repositoryRoot, artifact)); }
+    catch { fail(code, "worker artifact unavailable"); }
+    if (sha(bytes) !== expectedHash) fail(code, "worker artifact bytes");
+  }
+  requireExactArray(normalization.quarantineReasons, ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "BYTE_LIMIT_EXCEEDED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"], "YUZHOU_PHOTO_QUARANTINE_REASONS_INVALID");
 
   exactKeys(contract.targetPlan, ["fileTable", "photoBizType", "documentBizType", "documentLinkTable", "downloadUrlGenerated", "metadataCreated", "binaryCreated"], "YUZHOU_PHOTO_TARGET_SHAPE_INVALID");
   if (contract.targetPlan.fileTable !== "sys_file" || contract.targetPlan.photoBizType !== "hr_employee_photo" || contract.targetPlan.documentBizType !== "hr_employee_document" || contract.targetPlan.documentLinkTable !== "hr_employee_document") fail("YUZHOU_PHOTO_TARGET_CONTRACT_INVALID", "target identity");

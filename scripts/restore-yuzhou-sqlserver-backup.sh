@@ -3,7 +3,13 @@ set -eu
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 BACKUP_ROOT="$ROOT_DIR/database/backups/yuzhou-hr"
-BACKUP_FILE="${YUZHOU_BACKUP_FILE:-$BACKUP_ROOT/hr2026081914.dbk}"
+if [ "${YUZHOU_BACKUP_FILE+x}" = x ]; then
+  BACKUP_FILE="$YUZHOU_BACKUP_FILE"
+  EXPLICIT_BACKUP_FILE=yes
+else
+  BACKUP_FILE="$BACKUP_ROOT/hr2026081914.dbk"
+  EXPLICIT_BACKUP_FILE=no
+fi
 EXPECTED_SHA256="${YUZHOU_BACKUP_SHA256:-}"
 CONTAINER_NAME="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}"
 TARGET_DATABASE="${YUZHOU_SQLSERVER_DATABASE:-}"
@@ -33,14 +39,26 @@ printf '%s' "$BACKUP_SET" | grep -Eq '^[1-9][0-9]{0,2}$' ||
 [ -n "$EXPECTED_SHA256" ] || fail "YUZHOU_BACKUP_SHA256 is required"
 printf '%s' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-f]{64}$' ||
   fail "YUZHOU_BACKUP_SHA256 must be a lowercase SHA-256"
-[ -f "$BACKUP_FILE" ] || fail "backup file not found under the local staging directory"
+[ -f "$BACKUP_FILE" ] || fail "backup file not found"
+[ ! -L "$BACKUP_FILE" ] || fail "backup file must not be a symbolic link"
+[ -f "$ETL_CREDENTIAL_FILE" ] || fail "ETL credential file not found"
+[ ! -L "$ETL_CREDENTIAL_FILE" ] || fail "ETL credential file must not be a symbolic link"
+
+etl_database="$(awk -F= '$1 == "YUZHOU_SQLSERVER_DATABASE" { print substr($0, index($0, "=") + 1); exit }' "$ETL_CREDENTIAL_FILE")"
+[ "$etl_database" = "$TARGET_DATABASE" ] ||
+  fail "ETL credential must bind the target isolated database before restore"
 
 backup_root_real="$(realpath "$BACKUP_ROOT")"
 backup_file_real="$(realpath "$BACKUP_FILE")"
-case "$backup_file_real" in
-  "$backup_root_real"/*) ;;
-  *) fail "backup must be staged under database/backups/yuzhou-hr" ;;
-esac
+if [ "$EXPLICIT_BACKUP_FILE" = no ]; then
+  case "$backup_file_real" in
+    "$backup_root_real"/*) ;;
+    *) fail "default backup must be staged under database/backups/yuzhou-hr" ;;
+  esac
+fi
+
+backup_mode="$(stat -f '%Lp' "$backup_file_real" 2>/dev/null || stat -c '%a' "$backup_file_real" 2>/dev/null || true)"
+[ "$backup_mode" = 600 ] || fail "backup file must be private mode 0600"
 
 actual_sha256="$(shasum -a 256 "$backup_file_real" | awk '{print $1}')"
 [ "$actual_sha256" = "$EXPECTED_SHA256" ] || fail "backup SHA-256 mismatch"
@@ -61,13 +79,16 @@ REPORT_FILE="$REPORT_DIR/${RUN_ID}.txt"
 RESTORE_RECEIPT="$REPORT_DIR/${RUN_ID}-source-restore-receipt.json"
 
 cleanup() {
-  docker exec "$CONTAINER_NAME" rm -f "$CONTAINER_SQL" "$CONTAINER_BACKUP" >/dev/null 2>&1 || true
+  docker exec -u 0 "$CONTAINER_NAME" rm -f "$CONTAINER_SQL" "$CONTAINER_BACKUP" >/dev/null 2>&1 || true
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT HUP INT TERM
 
-docker exec "$CONTAINER_NAME" mkdir -p /var/opt/mssql/backup
+docker exec -u 0 "$CONTAINER_NAME" mkdir -p /var/opt/mssql/backup
 docker cp "$backup_file_real" "$CONTAINER_NAME:$CONTAINER_BACKUP"
+# docker cp preserves the host's private mode. The SQL Server process is not
+# root, so grant read-only access to this run-scoped container copy only.
+docker exec -u 0 "$CONTAINER_NAME" chmod 644 "$CONTAINER_BACKUP"
 
 cat > "$SQL_FILE" <<SQL
 SET NOCOUNT ON;

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -72,4 +73,10 @@ test("live ETL password is piped and never placed in docker or sqlcmd process ar
   assert.doesNotMatch(source, /docker[^\n]+"-e"/u);
   assert.doesNotMatch(source, /sqlcmd[^\n]+ -P /u);
   assert.match(source, /input: `\$\{env\.YUZHOU_SQLSERVER_ETL_PASSWORD\}\\n`/u);
+});
+
+test("receipt module imports safely when a non-file argv entry is supplied by a parent runner", () => {
+  const modulePath = resolve(import.meta.dirname, "../hr-cutover/source-restore-receipt.mjs");
+  const child = spawnSync(process.execPath, ["--input-type=module", "--eval", `process.argv[1] = "-"; await import(${JSON.stringify(modulePath)});`], { encoding: "utf8" });
+  assert.equal(child.status, 0, child.stderr);
 });

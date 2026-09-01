@@ -3,7 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { ClsService } from "nestjs-cls";
-import { catchError, tap, throwError, type Observable } from "rxjs";
+import { catchError, concatMap, from, map, of, throwError, type Observable } from "rxjs";
 import { AUDIT_LOG_KEY, type AuditLogOptions } from "../../modules/audit/decorators/audit-log.decorator";
 import { AuditService } from "../../modules/audit/audit.service";
 import type { JwtPrincipal } from "../types/jwt-principal";
@@ -63,26 +63,26 @@ export class AuditLogInterceptor implements NestInterceptor {
     };
 
     return next.handle().pipe(
-      tap(() => {
-        if (request.idempotencyReplay) return;
+      concatMap((response) => {
+        if (request.idempotencyReplay) return of(response);
         const auditScope = request.auditScopeOverride;
-        void this.auditService.recordOperation({
+        return from(this.auditService.recordOperation({
           ...baseLog,
+          ...(baseLog.bizId ? {} : { bizId: this.responseBizId(response) }),
           ...(auditScope ? { tenantId: auditScope.tenantId, parkId: auditScope.parkId } : {}),
           success: true
-        }).catch(() => undefined);
+        })).pipe(catchError(() => of(undefined)), map(() => response));
       }),
       catchError((error: Error) => {
         const auditScope = request.auditScopeOverride;
-        void this.auditService
+        return from(this.auditService
           .recordOperation({
             ...baseLog,
             ...(auditScope ? { tenantId: auditScope.tenantId, parkId: auditScope.parkId } : {}),
             success: false,
             errorMsg: error.message
           })
-          .catch(() => undefined);
-        return throwError(() => error);
+          .catch(() => undefined)).pipe(concatMap(() => throwError(() => error)));
       })
     );
   }
@@ -92,6 +92,13 @@ export class AuditLogInterceptor implements NestInterceptor {
       return value as Record<string, unknown>;
     }
     return {};
+  }
+
+  private responseBizId(value: unknown): string | null {
+    const response = this.asRecord(value);
+    if (typeof response.id === "string") return response.id;
+    const data = this.asRecord(response.data);
+    return typeof data.id === "string" ? data.id : null;
   }
 
   private sanitize(value: Record<string, unknown>): Record<string, unknown> {

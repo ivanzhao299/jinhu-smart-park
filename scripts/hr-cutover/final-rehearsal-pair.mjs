@@ -27,8 +27,8 @@ const canonical=value=>`${JSON.stringify(value,null,2)}\n`;
 export function validatePairContract(contract){
   if(contract?.formatVersion!==1||contract.contractKind!=="yuzhou_hr_final_rehearsal_pair"||contract.executionBoundary!=="isolated_lab_only"||contract.productionImport!=="HOLD")fail("FINAL_PAIR_CONTRACT_INVALID","identity/boundary");
   if(JSON.stringify(contract.rehearsalOrder)!==JSON.stringify(["A","B"])||JSON.stringify(contract.domainOrder)!==JSON.stringify(["T0","T1","T2","T3","T4","T5"])||JSON.stringify(contract.rollbackOrder)!==JSON.stringify(["T5","T4","T3","T2","T1","T0"]))fail("FINAL_PAIR_ORDER_INVALID","domain order");
-  const expected={T2:{contracts:802,changes:357},T4:{hotYears:[2024,2025,2026],headers:8342,regularHeaders:8320,adjustmentHeaders:22,items:190374,closes:266,net:"15723009.9100",coldArchiveRows:37750},T5:{rows:20163}};
-  if(JSON.stringify(contract.sourceFacts)!==JSON.stringify(expected)||contract.sourceFacts.T4.headers!==contract.sourceFacts.T4.regularHeaders+contract.sourceFacts.T4.adjustmentHeaders)fail("FINAL_PAIR_FACTS_DRIFT","frozen source facts");
+  const expected={T2:{contracts:802,changes:357},T4:{fullYears:[2010,2026],fullRows:46092,fullItems:1078020,fullCloses:1431,fullNet:"102194056.8000",hotRows:8342,coldArchiveRows:37750,coldArchiveItems:887140,coldArchiveCloses:1165,coldArchiveNet:"86471046.8900",coldEmployeeUnmappedRows:34},T5:{rows:20163}};
+  if(JSON.stringify(contract.sourceFacts)!==JSON.stringify(expected)||contract.sourceFacts.T4.fullRows!==contract.sourceFacts.T4.hotRows+contract.sourceFacts.T4.coldArchiveRows||contract.sourceFacts.T4.fullItems!==190880+contract.sourceFacts.T4.coldArchiveItems||contract.sourceFacts.T4.fullCloses!==266+contract.sourceFacts.T4.coldArchiveCloses)fail("FINAL_PAIR_FACTS_DRIFT","frozen source facts");
   if(JSON.stringify(contract.requiredStages)!==JSON.stringify(["provision","T0_T5","technical_uat","p0_matrix","backup_restore_fault","pair_compare","T5_T0_rollback","cleanup"]))fail("FINAL_PAIR_STAGES_INVALID","continuous stages");
   if(JSON.stringify(contract.requiredFinalState)!==JSON.stringify({state:"cleaned",residualCount:0,p0Execution:"PASS",productionImport:"HOLD"}))fail("FINAL_PAIR_FINAL_STATE_INVALID","final state");
   return {status:"PASS",sha256:sha256(canonical(contract)),productionImport:"HOLD"};
@@ -82,7 +82,10 @@ function runtimeSnapshot(configs){
 
 function command(script,args){
   const result=spawnSync(process.execPath,[resolve(ROOT,script),...args],{cwd:ROOT,encoding:"utf8",stdio:["ignore","pipe","pipe"]});
-  if(result.status!==0)fail("FINAL_PAIR_STAGE_FAILED",`${script}:${result.stderr.trim().split("\n").at(-1)??result.status}`);
+  if(result.status!==0){
+    const diagnostics=`${result.stdout}\n${result.stderr}`.match(/T5_LOAD_STAGE=[a-z_]+/g);
+    fail("FINAL_PAIR_STAGE_FAILED",`${script}:${diagnostics?.at(-1)??result.stderr.trim().split("\n").at(-1)??result.status}`);
+  }
   const line=result.stdout.trim().split("\n").filter(Boolean).at(-1);return line?JSON.parse(line):{};
 }
 function readHead(config){
@@ -264,6 +267,14 @@ export function validateMachineArtifactSources(machineByRehearsal,configs,{summa
   return{status:"PASS",artifactCount:6,reviewRoots:2,productionImport:"HOLD"};
 }
 
+export function validateMachineTrustRoots(machineByRehearsal,configs){
+  for(const config of configs){
+    const machine=machineByRehearsal[config.rehearsal],trustedRoot=config.machineAttestation?.trustedRootSha256;
+    const decision=JSON.parse(readFileSync(machine.decision,"utf8")),attestation=JSON.parse(readFileSync(machine.machineAttestation,"utf8"));
+    if(decision.expectedCheckpointRootSha256!==trustedRoot||decision.checkpointRootSha256!==trustedRoot||attestation.trustedCheckpointRootSha256!==trustedRoot)fail("FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH",config.rehearsal);
+  }
+}
+
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
   try{
     const args=parse(process.argv.slice(2)),contractPath=realpathSync(resolve(args.contract??DEFAULT_PAIR_CONTRACT)),contract=JSON.parse(readFileSync(contractPath,"utf8"));
@@ -282,7 +293,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const machineByRehearsal={A:{decision:args.decisionA,payload:args.payloadA,machineAttestation:args.machineAttestationA},B:{decision:args.decisionB,payload:args.payloadB,machineAttestation:args.machineAttestationB}};
     if(Object.values(machineByRehearsal).some(machine=>!machine.decision||!machine.payload||!machine.machineAttestation))fail("FINAL_PAIR_MACHINE_ATTESTATION_REQUIRED","six A/B machine artifacts required before resume");
     validateMachineArtifactSources(machineByRehearsal,configs,{summaryPath:summaryResolved});
-    for(const config of configs){const machine=machineByRehearsal[config.rehearsal],attestation=JSON.parse(readFileSync(machine.machineAttestation,"utf8"));if(attestation.expectedCheckpointRootSha256!==config.machineAttestation.trustedRootSha256||attestation.checkpointRootSha256!==config.machineAttestation.trustedRootSha256)fail("FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH",config.rehearsal);}
+    validateMachineTrustRoots(machineByRehearsal,configs);
     const result=runFinalPair(configs[0],configs[1],contract,{resumeOnly:true,machineArtifacts:config=>machineByRehearsal[config.rehearsal]});privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
   }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
 }

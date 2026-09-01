@@ -20,7 +20,7 @@ if ([evidenceAPath, evidenceBPath, triplePath].filter(Boolean).length !== 0 && [
   throw new Error("--uat-evidence-a, --uat-evidence-b and --expected-triple must be supplied together");
 }
 const options = evidenceAPath ? {
-  liveRoleUatEvidencePair: {
+  targetTechnicalUatEvidencePair: {
     A: JSON.parse(readFileSync(evidenceAPath, "utf8")),
     B: JSON.parse(readFileSync(evidenceBPath, "utf8"))
   },

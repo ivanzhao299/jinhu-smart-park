@@ -72,7 +72,7 @@ function verifyMoney(a, reasons) {
   if (!a) return; const t3 = a.t3, t4 = a.t4;
   if (a.allAmountsDatabaseNumeric !== true || a.reconciled !== true || !object(t3) || !object(t4) || !SHA256.test(t3.numericTotalsSha256 ?? "") || !decimalSum(t3.amountSource, [t3.amountLoaded, t3.amountQuarantined, t3.amountApprovedIgnored])) { reason(reasons, "FAIL", "MACHINE_NUMERIC_EVIDENCE_INVALID"); return; }
   if (!equal({ calendars: t3.calendars, days: t3.days, policies: t3.policies, policyItems: t3.policyItems, periods: t3.periods, periodsLoaded: t3.periodsLoaded, periodsQuarantined: t3.periodsQuarantined, insuranceItems: t3.insuranceItems }, { calendars: 144, days: 4383, policies: 12, policyItems: 144, periods: 35008, periodsLoaded: 34787, periodsQuarantined: 221, insuranceItems: 208722 })) reason(reasons, "FAIL", "MACHINE_T3_FROZEN_FACT_MISMATCH");
-  if (!equal({ hot: t4.hot, loaded: t4.loaded, quarantined: t4.quarantined, items: t4.items, closes: t4.closes, coldArchive: t4.coldArchive, net: t4.net }, { hot: 8342, loaded: 8320, quarantined: 22, items: 190374, closes: 266, coldArchive: 37750, net: "15723009.9100" })) reason(reasons, "FAIL", "MACHINE_T4_FROZEN_FACT_MISMATCH");
+  if (!equal({ hot: t4.hot, loaded: t4.loaded, quarantined: t4.quarantined, items: t4.items, closes: t4.closes, coldArchive: t4.coldArchive, net: t4.net }, { hot: 8342, loaded: 8342, quarantined: 0, items: 190880, closes: 266, coldArchive: 37750, net: "15723009.9100" })) reason(reasons, "FAIL", "MACHINE_T4_FROZEN_FACT_MISMATCH");
   if (!decimalSum(t4.net, [t4.loadedNet, t4.quarantinedNet, t4.approvedIgnoredNet])) reason(reasons, "FAIL", "MACHINE_T4_AMOUNT_RECONCILIATION_FAILED");
 }
 function verifySemantics(a, reasons) {

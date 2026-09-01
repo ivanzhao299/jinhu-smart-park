@@ -103,6 +103,7 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/hr/attendance": { page: "apps/web/app/hr/attendance/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000245_hr_attendance_requests.sql", "database/migrations/000246_hr_attendance_calculation_core.sql"] },
   "/hr/compensation": { page: "apps/web/app/hr/compensation/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000233_hr_compensation_payroll.sql"] },
   "/hr/contracts": { page: "apps/web/app/hr/contracts/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000238_hr_contract_history.sql", "database/migrations/000244_hr_contract_online_drafts.sql", "database/migrations/000272_hr_contract_legacy_parity.sql"] },
+  "/hr/decision-center": { page: "apps/web/app/hr/decision-center/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000230_hr_employee_foundation.sql", "database/migrations/000252_hr_lifecycle_employee_records.sql"] },
   "/hr/employees": { page: "apps/web/app/hr/employees/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000230_hr_employee_foundation.sql"] },
   "/hr/insurance": { page: "apps/web/app/hr/insurance/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000239_hr_attendance_insurance_history.sql"] },
   "/hr/lifecycle": { page: "apps/web/app/hr/lifecycle/page.tsx", api: ["apps/api/src/modules/hr/hr-lifecycle.controller.ts"], migrations: ["database/migrations/000252_hr_lifecycle_employee_records.sql"] },
@@ -114,6 +115,14 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/hr/talent": { page: "apps/web/app/hr/talent/page.tsx", api: ["apps/api/src/modules/hr/hr-talent.controller.ts"], migrations: ["database/migrations/000261_hr_talent_management.sql"] },
   "/hr/training": { page: "apps/web/app/hr/training/page.tsx", api: ["apps/api/src/modules/hr/hr-training.controller.ts"], migrations: ["database/migrations/000254_hr_training_operations.sql"] },
   "/hr/work-reports": { page: "apps/web/app/hr/work-reports/page.tsx", api: ["apps/api/src/modules/hr/hr-goal-report.controller.ts"], migrations: ["database/migrations/000257_hr_goal_report_execution.sql"] },
+  "/system/users": { page: "apps/web/app/system/users/page.tsx", api: ["apps/api/src/modules/users/users.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql", "database/migrations/000019_rel_user_park.sql"] },
+  "/system/roles": { page: "apps/web/app/system/roles/page.tsx", api: ["apps/api/src/modules/roles/roles.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/permissions": { page: "apps/web/app/system/permissions/page.tsx", api: ["apps/api/src/modules/permissions/permissions.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/data-scopes": { page: "apps/web/app/system/data-scopes/page.tsx", api: ["apps/api/src/modules/data-scopes/data-scopes.controller.ts"], migrations: ["database/migrations/000025_data_scope_open_contract.sql"] },
+  "/system/dicts": { page: "apps/web/app/system/dicts/page.tsx", api: ["apps/api/src/modules/dicts/dicts.controller.ts"], migrations: ["database/migrations/000002_s1_system_foundation.sql"] },
+  "/system/audit": { page: "apps/web/app/system/audit/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/audit/login-logs": { page: "apps/web/app/system/audit/login-logs/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/audit/op-logs": { page: "apps/web/app/system/audit/op-logs/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
   "/admin": { page: null, api: [], migrations: [] },
   "/workflow": { page: null, api: [], migrations: [] }
 });

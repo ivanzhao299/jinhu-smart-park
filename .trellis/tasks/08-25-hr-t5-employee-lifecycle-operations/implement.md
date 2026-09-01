@@ -7,6 +7,19 @@
 - [ ] 对玉舟招聘/档案/培训/奖惩来源做真实只读 catalog/count/profile，冻结证据与迁移拆分。
 - [ ] PRD/design/implement 经独立 Trellis 审查并激活任务。
 
+### 2026-08-31 受控源基线复核
+
+- 当前候选已在最新 `origin/main` 之上且未落后；当前候选线的迁移最高号为 `000288`。历史重复号风险仍存在，任何后续前向迁移必须在写入前重新 fetch 并基于候选线复核，而不是从远端全部分支的最大值推断编号。
+- T5 在线产品实现已可在当前候选中定位：招聘、生命周期、培训与奖惩服务/控制器、受保护文件授权、迁移 `000251`～`000256` 及其 API/真实 PostgreSQL/前端契约测试均存在。此条只证明实现面可审计，不替代全量质量、真人 UAT 或生产发布门禁。
+- 受控来源的两次目录字节哈希相同。当前快照的非零轻量域为 `family=4,560`、`his=375`、`knowhow=6`、`ticket=237`、`docs=1,003`、`trainhis=2`、`bonuscode=8`；`accept/course/train/jobtrain/bonusrecord` 均为零。零行域必须以零行守恒或明确 archive/reject 决策处理，不能使用过时估计生成导入记录。
+- 非文件 T5 A/B 连续演练汇总为 `CONTRACT_PASS`，但生产导入仍为 `HOLD`。照片和文档二进制的实际读取、内容校验、对象写入和附件关联仍属于独立的文件迁移切片，不由本基线或非文件演练宣称完成。
+
+### 2026-08-31 定向实现验证
+
+- API 定向契约共 `24` 项通过，覆盖招聘转预入职、生命周期模板/清单与统一待办、培训不可变更正、奖惩审批/受控引用、最小权限与受保护文件审计。
+- Web 定向契约共 `11` 项通过，覆盖招聘、生命周期、培训和奖惩的权限分支、移动记录、请求取消及敏感详情清理。
+- 此批验证未启动完整单元套件、真实 PostgreSQL fixture、浏览器真人 UAT 或生产流程；这些 Phase 6 门禁仍保持未完成，不能据此解除任一历史生产导入 HOLD。
+
 ## Phase 1 — 招聘与入职转化
 
 - [x] Shared 原子权限和 production seed 最小三角色矩阵。
@@ -43,11 +56,37 @@
 
 ## Phase 5 — 玉舟兼容切片
 
+### 2026-08-31 当前代码与真源回执重绑
+
+- 当前隔离代码提交 `424b937b98f856b5677337c02259b60269bcfb88` 已通过 T5 非文件 stage 的受限私有基线入口契约。该入口只接受绝对路径、非符号链接、单链接且权限 `0600` 的候选基线；默认仓库基线行为保持不变。
+- 旧的 M6 “current”回执在运行时身份门禁中被拒绝，没有发生 T5 加载。随后重新采集只读源端恢复回执；它与受控规范回执字节一致，仍绑定同一备份快照、健康只读 SQL Server 和最小只读 ETL 权限。生产导入持续为 `HOLD`。
+- 新鲜 stage 仅含非文件域 `person_core/family/knowhow/ticket`，来源守恒为 `7,752` 行，明确排除照片和文档。串行 A/B 隔离演练均得到一致的两轮结果：每轮 `source=7,752`、`loaded=7,648`、`quarantined=104`，每次均已回滚；A 与 B 最终均为 `CONTRACT_PASS`、`residualCount=0`。
+- 以上证明当前代码对这一个非文件历史切片可重跑、可回滚、可比例验证；不证明照片、文档、培训、奖惩、工资或任何生产目标已经导入。其他历史域仍须各自与当前回执重绑并完成独立的隔离闭环。
+
+### 2026-09-01 文档归属哈希证据 A/B 闭环
+
+- 新增通用 `T5_FILE` 归属 pair 入口，串行执行 A 再 B；它仅接受独立的 `core_t0_t2` 受控配置与 `0700` stage，要求源快照、恢复回执、stage hash、两轮来源守恒/回滚回执均一致，并要求 A、B 均为零残留。入口不读取附件二进制，不创建 `sys_file`、`hr_employee_document` 或生产对象。
+- 从当前受控回执分别生成两个独立文档归属 stage，stage hash 相同。两次隔离演练均完成两轮 `load -> rollback`：每轮 `source=1,003`、`loaded=989`、`quarantined=14`，A/B 比较为 `PASS`，两边均 `residualCount=0`。结果只证明旧文档与员工归属的 hash-only 证据可重跑、可审计、可回滚；二进制内容、对象归一化和附件关联仍未执行，生产导入保持 `HOLD`。
+- 照片归属复用同一 pair 入口并完成独立 A/B 演练。两个 stage 的来源/回执/哈希一致；两边各完成两轮 `load -> rollback`，每轮 `source=2,155`、`loaded=2,155`、`quarantined=0`，最终均为 `CONTRACT_PASS` 与 `residualCount=0`。该结果只涵盖既有内容 hash、大小和 MIME 的归属证据，不读取或复制图片二进制，不创建在线文件或员工附件关联，生产导入继续 `HOLD`。
+
+- 新增 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs` 的合成对象根演练：它只接受 `isolated_synthetic_rehearsal`、哈希命名的 JPEG、当前用户拥有的 `0700` 阶段/存储目录和 `0600` 普通文件；目标路径固定为 run-scoped、内容哈希地址，输出仅含 `hr_employee_photo` 所需的受保护文件元数据。合成契约已覆盖写入哈希复核、失败临时目录清理、目录外残留拒绝和精确回滚。该实现未读取真实玉舟二进制、未写 PostgreSQL 或 `sys_file`，故不能作为照片真实 A/B、在线附件关联或生产导入完成的依据。
+
+- 合成文件根随后接入受控的 `sys_file + legacy_record_map` 持久化和补偿编排：数据库写入与数据库回滚都要求 `SERIALIZABLE`，并在任何业务写前锁定来源 identity、拒绝活动映射重放。文件先物化，数据库失败只清理本 run；文件回滚先原子改名，数据库失败恢复文件，数据库成功才删除待清理目录。定向单元契约与 `template0` 真实 PostgreSQL fixture 均验证合成 metadata/map、唯一重放拒绝和 active residual=0。该结果仅证明合成的目标存储-元数据-映射链可补偿，尚未读取玉舟二进制、未做真实照片 A/B、未执行受保护文件下载 UAT，生产导入仍为 `HOLD`。
+
+- 补充合成员工照片下载 HTTP 验证：`hr_employee_photo` 在授权、required audit 与存储打开均成功后才返回图片响应；审计持久化失败时响应不产生图片头或任何字节，并记录正确的受保护 HR 照片读取动作。该验证不使用源图片、不替代隔离三角色浏览器 UAT，也不解除真实照片或生产导入 HOLD。
+
 - [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
 - [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
 - [x] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。
 - [x] `bonuscode/bonusrecord/jch_1` 奖惩历史保真；空表和未知状态保持可见，不合成业务事实。
 - [x] 旧文件哈希/MIME/大小/可读性核对；生产导入继续 HOLD，除非另获 run 级授权。
+
+### 2026-09-01 决策中心最小企业读模型
+
+- 新增独立 `hr:decision_center` 页面权限，仅默认授予 `HR_MANAGER`；员工自助与部门负责人不因已有工作台权限而获得园区级人员汇总。
+- `GET /hr/decision-center/workforce` 只返回当前园区员工状态/用工类型计数、所选日期区间内的任职异动计数，以及人员编制聚合：已启用岗位数、已配置/未配置编制、已分配在岗、可补编制、超编岗位和未分配岗位。在岗只计在职与试用人员；未配置编制不以零值伪装。查询不选择姓名、工号、联系方式、岗位名称/编码、原因、快照、身份档案或薪资金额；历史异动仍只计入已接受迁移记录。
+- 读取先写 required audit，审计失败即不返回聚合结果。页面复用移动记录表面；当前工作树的路由已实际编译并返回，但本机未提供可安全使用的 HR 登录身份或配套本地 API，故只能确认未认证跳转与 390px 登录边界无横向溢出，不能将其误报为决策中心三角色 UAT。
+- API 6 项、Web/menu 13 项定向契约，以及 shared/API/Web typecheck 均通过。该切片不写迁移目标、不触碰受控源备份、不改变历史导入或照片/工资 HOLD。
 
 ## Phase 6 — 全量质量与发布
 

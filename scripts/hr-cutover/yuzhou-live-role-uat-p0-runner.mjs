@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { validateYuzhouLiveRoleUatP0Matrix } from "./yuzhou-live-role-uat-p0-matrix-lib.mjs";
 
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
+const failWithDiagnostic=(code,detail,diagnostic)=>{const error=new Error(`${code}: ${detail}`);error.code=code;error.safeDiagnostic=diagnostic;throw error;};
 const statusByOutcome={success:new Set([200,201,204]),forbidden:new Set([403]),not_found_or_forbidden:new Set([403,404]),server_failure:new Set([500,503])};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const downloadHeaders=["content-disposition","accept-ranges","content-range"];
@@ -31,7 +32,7 @@ export class YuzhouLiveRoleUatP0Runner {
     if(body!==undefined){headers["content-type"]="application/json";headers["x-idempotency-key"]=`p0-${sha256(id).slice(0,24)}`;}
     this.requestCount+=1;
     const response=await this.request(`${this.apiBase}${route}`,{method:check.method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})});
-    if(!statusByOutcome[check.outcome].has(response.status))fail("YUZHOU_UAT_P0_STATUS_MISMATCH",`${id}:${response.status}`);
+    if(!statusByOutcome[check.outcome].has(response.status))failWithDiagnostic("YUZHOU_UAT_P0_STATUS_MISMATCH",`${id}:${response.status}`,{httpStatus:response.status});
     const responseBytes=new Uint8Array(await response.arrayBuffer()),responseSha256=sha256(responseBytes);
     let observed;
     if(check.responseKind==="binary"){
@@ -71,7 +72,8 @@ export class YuzhouLiveRoleUatP0Runner {
     observed.support=support;let observationRead=false;
     const assertions=await assert(new Proxy(observed,{get(target,key,receiver){observationRead=true;return Reflect.get(target,key,receiver);}}));
     if(!observationRead)fail("YUZHOU_UAT_P0_ASSERTION_UNOBSERVED",id);
-    if(!assertions||JSON.stringify(Object.keys(assertions))!==JSON.stringify(check.assertions)||Object.values(assertions).some(value=>value!==true))fail("YUZHOU_UAT_P0_ASSERTION_FAILED",id);
+    const failedAssertions=Object.entries(assertions??{}).filter(([,value])=>value!==true).map(([key])=>key).filter(key=>check.assertions.includes(key));
+    if(!assertions||JSON.stringify(Object.keys(assertions))!==JSON.stringify(check.assertions)||failedAssertions.length>0)failWithDiagnostic("YUZHOU_UAT_P0_ASSERTION_FAILED",id,{failedAssertions});
     return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256:sha256(JSON.stringify([responseSha256,...support.map(row=>row.responseSha256)])),responseByteLength:responseBytes.byteLength+support.reduce((sum,row)=>sum+row.responseByteLength,0),supportResponses:support.length,assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
   }
 }

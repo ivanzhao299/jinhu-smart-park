@@ -44,6 +44,25 @@ test("integrity, external root and all three package members are reverified", ()
   const payloadDrift = buildCheckpoint(); payloadDrift.privatePayload.items[0].sourceName = "Changed"; payloadDrift.bindings.privatePayloadArtifactSha256 = computeYuzhouJobStateCheckpointArtifactHash("private_payload", payloadDrift.privatePayload); payloadDrift.packageRootSha256 = computeYuzhouJobStateCheckpointRoot(payloadDrift); failure(() => compileYuzhouJobStateMachineAttestation(payloadDrift, { expectedCheckpointRootSha256: payloadDrift.trustedCheckpointRootSha256 }), "YUZHOU_JOB_STATE_MACHINE_PRIVATE_PAYLOAD_HASH_MISMATCH");
 });
 
+test("attestation accepts a source-proven all-mapped state ledger", () => {
+  const checkpoint = buildCheckpoint();
+  for (const [index, decision] of checkpoint.decisionArtifact.decisions.entries()) {
+    decision.decision = "map";
+    decision.targetEmploymentStatus = ["active", "departed", "suspended"][index % 3];
+    decision.semanticClassification = "derived_deterministic";
+    decision.reasonCode = "DETERMINISTIC_MAPPING";
+  }
+  checkpoint.decisionArtifact.semanticLedger = {
+    sourceDistinctStateCount: 7, sourceRecordCount: 2949,
+    mappedStateCount: 7, quarantinedStateCount: 0,
+    mappedRecordCount: 2949, quarantinedRecordCount: 0, conservationVerified: true
+  };
+  reseal(checkpoint);
+  const result = compileYuzhouJobStateMachineAttestation(checkpoint, { expectedCheckpointRootSha256: checkpoint.trustedCheckpointRootSha256 });
+  assert.equal(result.semanticLedger.mappedStateCount, 7);
+  assert.equal(result.semanticLedger.quarantinedRecordCount, 0);
+});
+
 test("self-computed roots, production attestations and legacy v1 human packages cannot substitute", () => {
   const checkpoint = buildCheckpoint(), trustedRoot = checkpoint.trustedCheckpointRootSha256; failure(() => compileYuzhouJobStateMachineAttestation(checkpoint), "YUZHOU_JOB_STATE_MACHINE_TRUST_ROOT_REQUIRED");
   const forged = clone(checkpoint); forged.trustedCheckpointRootSha256 = h("e"); forged.decisionArtifact.expectedCheckpointRootSha256 = h("e"); forged.decisionArtifact.checkpointRootSha256 = h("e"); forged.decisionArtifact.evidenceIndex.checkpointSha256 = h("e"); forged.decisionArtifact.evidenceIndexSha256 = canonicalEvidenceIndexHash(forged.decisionArtifact.evidenceIndex); reseal(forged); failure(() => compileYuzhouJobStateMachineAttestation(forged, { expectedCheckpointRootSha256: trustedRoot }), "YUZHOU_JOB_STATE_MACHINE_TRUST_ROOT_MISMATCH");

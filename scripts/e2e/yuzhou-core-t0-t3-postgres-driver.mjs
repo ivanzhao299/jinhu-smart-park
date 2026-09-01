@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { buildJobStateV2Fixture } from "./yuzhou-job-state-v2-fixture.mjs";
-import { validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
+import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, buildMaterializationSql } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
-import { prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
+import { parseCorePrepareArgs, prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 import { sealCoreDictionaryCapture } from "../hr-cutover/capture-yuzhou-core-dictionary-receipt.mjs";
 
@@ -17,6 +17,12 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const fixture = buildJobStateV2Fixture();
 const sha = value => createHash("sha256").update(value).digest("hex");
 const readOnlyAuthority = { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false };
+
+test("core prepare accepts the pnpm argument delimiter once and rejects a duplicate delimiter", () => {
+  const args = ["--rehearsal", "A", "--suffix", "driver01", "--postgres-port", "33100", "--api-port", "33101", "--web-port", "33102", "--control-root", "/tmp/control", "--etl-env", "/tmp/etl.env", "--source-container", "jinhu_yuzhou_migration_lab-sqlserver-1", "--source-backup", "/tmp/source.bak", "--source-restore-receipt", "/tmp/receipt.json", "--machine-attestation-root", "a".repeat(64), "--event-type-package", "/tmp/event-type.json", "--event-state-package", "/tmp/event-state.json", "--contract-type-package", "/tmp/contract-type.json", "--contract-state-package", "/tmp/contract-state.json", "--dictionary-capture-receipt", "/tmp/dictionary-capture.json"];
+  assert.equal(parseCorePrepareArgs(["--", ...args]).suffix, "driver01");
+  assert.throws(() => parseCorePrepareArgs(["--", "--", ...args]), /CORE_PREPARE_ARGUMENT_INVALID/u);
+});
 
 function writeReceipt(path, sourceSnapshotSha256, bytes) {
   const receipt = sealSourceRestoreReceipt({
@@ -124,7 +130,30 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   assert.equal(prepared.config.source.sourceBackupPath, realpathSync(sourceBackup));
   assert.deepEqual(Object.keys(prepared.config.source.dictionaryPackages).sort(), ["contract_state", "contract_type", "employment_event_state", "employment_event_type"]);
   assert.equal(prepared.config.productionImport, "HOLD");
+  const retained = JSON.parse(readFileSync(prepared.retainedBindingPath, "utf8"));
+  assert.deepEqual(retained, retainedCoreT0T3Binding(prepared.config));
+  assert.equal(JSON.stringify(retained).match(/password|etlEnvFile/iu), null);
   assert.equal(validateCoreT0T3Config(prepared.config).profile, "core_t0_t3");
+  const prefix = prepareCoreConfig({
+    rehearsal: "B", profile: "core_t0_t2", suffix: "prefix01", postgresPort: 33103, apiPort: 33104, webPort: 33105,
+    controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "b".repeat(64), ...packages
+  }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
+  assert.equal(validateCoreT0T3Config(prefix.config).profile, "core_t0_t2");
+  const lightweightNamed = prepareCoreConfig({
+    rehearsal: "A", profile: "core_t0_t2", suffix: "t4core01", postgresPort: 33112, apiPort: 33113, webPort: 33114,
+    controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "c".repeat(64), ...packages
+  }, { codeSha: "3".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
+  assert.equal(validateCoreT0T3Config(lightweightNamed.config).profile, "core_t0_t2");
+  const labelledControlRoot = join(sandbox, "control-t4");
+  mkdirSync(labelledControlRoot, { mode: 0o700 }); chmodSync(labelledControlRoot, 0o700);
+  const labelledPath = prepareCoreConfig({
+    rehearsal: "B", profile: "core_t0_t2", suffix: "corex01", postgresPort: 33115, apiPort: 33116, webPort: 33117,
+    controlRoot: labelledControlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "d".repeat(64), ...packages
+  }, { codeSha: "4".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
+  assert.equal(validateCoreT0T3Config(labelledPath.config).profile, "core_t0_t2");
   const legacyShape = structuredClone(prepared.config);
   legacyShape.source = { readOnly: true, sourceBackupSha256: legacyShape.triple.sourceSnapshotHash };
   assert.throws(() => validateCoreT0T3Config(legacyShape), /CORE_SOURCE_INVALID/u);
@@ -159,7 +188,7 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() }), /CORE_DICTIONARY_PACKAGE_INVALID/u);
 });
 
-test("committed PostgreSQL driver rejects T4/T5 and stops T1/T2 before unproved dictionary writes", async () => {
+test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dictionary materialization is absent", async () => {
   const sandbox = mkdtempSync(join(tmpdir(), "yzcore-driver-gates-")), database = "jinhu_hr_migration_lab_core_gates01";
   const credentialRoot = join(sandbox, database, "credentials"), auditRoot = join(sandbox, database, "audit"), runtimeRoot = join(sandbox, database, "runtime"), etlEnvFile = join(credentialRoot, "etl.env"), sourceBackupPath = join(sandbox, "source.bak"), sourceRestoreReceiptPath = join(sandbox, "source-receipt.json");
   for (const directory of [credentialRoot, auditRoot]) { mkdirSync(directory, { recursive: true, mode: 0o700 }); chmodSync(directory, 0o700); }
@@ -181,16 +210,29 @@ test("committed PostgreSQL driver rejects T4/T5 and stops T1/T2 before unproved 
     project: "jinhu_yuzhou_migration_lab", healthy: true, online: true, readOnly: true, etlAuthority: readOnlyAuthority
   }) };
   const commands = [];
-  const adapters = await createCoreT0T3Adapters(config, { commandRunner: (...args) => { commands.push(args); return ""; }, sourceReceiptProbe });
+  const adapters = await createCoreT0T3Adapters(config, { commandRunner: (...args) => {
+    commands.push(args);
+    if (args[0] === "docker" && args[1]?.[0] === "inspect") return database;
+    return "";
+  }, sourceReceiptProbe });
   assert.throws(() => adapters.executePhase({ domain: "T4", phase: "extract" }), /CORE_FORBIDDEN_DOMAIN_REACHABLE/u);
   assert.doesNotThrow(() => adapters.executePhase({ domain: "T0", phase: "extract" }));
-  assert.equal(commands.length, 1);
-  assert.throws(() => adapters.executePhase({ domain: "T1", phase: "load" }), /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
-  assert.throws(() => adapters.executePhase({ domain: "T2", phase: "load" }), /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
-  assert.throws(() => adapters.materializeFacts(), /CORE_BUSINESS_CANONICAL_FACTS_REQUIRED/u);
+  assert.doesNotThrow(() => adapters.executePhase({ domain: "T1", phase: "extract" }));
+  assert.equal(commands.length, 2);
+  assert.throws(() => adapters.executePhase({ domain: "T1", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
+  assert.throws(() => adapters.executePhase({ domain: "T2", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
+  assert.throws(() => adapters.materializeFacts(), /CORE_DRIVER_PRIVATE_FILE_INVALID/u);
   const source = readFileSync(resolve(ROOT, "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs"), "utf8");
+  assert.match(source, /maxBuffer: 64 \* 1024 \* 1024/u);
+  assert.match(source, /retryableMigrationConnection/u);
+  assert.match(source, /options\.code === "CORE_MIGRATION_FAILED"/u);
   assert.match(source, /networks:\\n {6}- migration/u);
   assert.match(source, /name: \$\{config\.target\.network\}/u);
+  assert.match(source, /materializeCoreNonT0Dictionaries/u);
+  assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
+  assert.match(source, /coreDomainFacts/u);
+  assert.match(source, /'remark'/u);
+  assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
   assert.doesNotMatch(source, /production-import|production_import|hr_payroll_legacy/u);
 });
 

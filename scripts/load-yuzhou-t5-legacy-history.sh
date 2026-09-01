@@ -12,34 +12,52 @@ EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration
 SNAPSHOT="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
 PINNED_BUSINESS_HASH="${YUZHOU_T5_BUSINESS_SHA256:-}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
+stage(){ printf 'T5_LOAD_STAGE=%s\n' "$1" >&2; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
+stage preflight
+stage preflight_run_id
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
+stage preflight_target_database
 printf %s "$DB" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe target database"
+stage preflight_business_hash
 printf %s "$PINNED_BUSINESS_HASH" | grep -Eq '^[0-9a-f]{64}$' || fail "pin YUZHOU_T5_BUSINESS_SHA256"
+stage preflight_snapshot_hash
 printf %s "$SNAPSHOT" | grep -Eq '^[0-9a-f]{64}$' || fail "invalid backup SHA-256"
+stage preflight_target_tenant
 printf %s "$TENANT" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid target tenant"
+stage preflight_target_park
 printf %s "$PARK" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid target park"
+stage preflight_staging_manifest
 [ -f "$STAGE/manifest.json" ] || fail "manifest is missing"
+stage preflight_staging_directory_mode
 [ "$(stat -f '%Lp' "$STAGE" 2>/dev/null || stat -c '%a' "$STAGE")" = 700 ] || fail "staging directory must be mode 0700"
+stage preflight_manifest_mode
 [ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "manifest must be mode 0600"
+stage preflight_compose_project
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = "$EXPECTED_PROJECT" ] || fail "wrong PostgreSQL compose project"
+stage preflight_manifest_contract
 node - "$STAGE" "$PINNED_BUSINESS_HASH" <<'NODE'
 const {createHash}=require('crypto'),{readFileSync}=require('fs'),{join}=require('path');
 const [dir,pinned]=process.argv.slice(2),manifest=JSON.parse(readFileSync(join(dir,'manifest.json')));
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);
-if(manifest.productionImport!=='HOLD')throw Error('production import gate is not HOLD');
-if(manifest.payloadSanitization!=='nul_to_literal_escape_v1')throw Error('payload sanitization contract mismatch');
+const stage=name=>process.stderr.write(`T5_LOAD_STAGE=${name}\n`);
+stage('preflight_manifest_production_gate');if(manifest.productionImport!=='HOLD')throw Error('production import gate is not HOLD');
+stage('preflight_manifest_sanitization');if(manifest.payloadSanitization!=='nul_to_literal_escape_v1')throw Error('payload sanitization contract mismatch');
 const catalogPath=join(dir,'catalog.raw.json'),catalog=JSON.parse(readFileSync(catalogPath));
+stage('preflight_manifest_catalog_hash');
 const calculatedCatalogHash=createHash('sha256').update(canonical(catalog)).digest('hex');
 if(calculatedCatalogHash!==manifest.catalogSha256)throw Error('catalog hash mismatch');
-if((require('fs').statSync(catalogPath).mode&0o777)!==0o600)throw Error('catalog staging mode must be 0600');
-if(manifest.mappingContractSha256!=='0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3')throw Error('reviewed employee mapping contract drift');
+stage('preflight_manifest_catalog_mode');if((require('fs').statSync(catalogPath).mode&0o777)!==0o600)throw Error('catalog staging mode must be 0600');
+stage('preflight_manifest_mapping_contract');if(manifest.mappingContractSha256!=='0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3')throw Error('reviewed employee mapping contract drift');
 const business={formatVersion:manifest.formatVersion,catalogSha256:manifest.catalogSha256,mappingContractSha256:manifest.mappingContractSha256,domains:manifest.domains};
+stage('preflight_manifest_business_hash');
 const calculatedBusinessHash=createHash('sha256').update(canonical(business)).digest('hex');
 if(manifest.businessSha256!==calculatedBusinessHash||calculatedBusinessHash!==pinned)throw Error('business hash mismatch');
 for(const [name,item] of Object.entries(manifest.domains)){
+ stage('preflight_manifest_domain_file');
  const data=readFileSync(join(dir,item.file));const hash=createHash('sha256').update(data).digest('hex');
  if(hash!==item.fileSha256)throw Error(`${name} staging SHA-256 mismatch`);
+ stage('preflight_manifest_domain_mode');
  const mode=(require('fs').statSync(join(dir,item.file)).mode&0o777);if(mode!==0o600)throw Error(`${name} staging mode must be 0600`);
 }
 NODE
@@ -53,11 +71,14 @@ NODE
 REMOTE="/tmp/yuzhou-t5-$RUN_ID"; docker exec "$PG" mkdir -p "$REMOTE"; docker cp "$COMBINED" "$PG:$REMOTE/all.jsonl"; docker exec "$PG" chown -R postgres:postgres "$REMOTE"; docker exec "$PG" chmod -R go-rwx "$REMOTE"
 CATALOG_HASH="$(node -p "require(process.argv[1]).catalogSha256" "$STAGE/manifest.json")"
 MANIFEST_HASH="$PINNED_BUSINESS_HASH"
+DOMAIN_ITEMS="$(node "$ROOT_DIR/scripts/hr-cutover/t5-stage-domain-items.mjs" "$STAGE/manifest.json")"
+[ -n "$DOMAIN_ITEMS" ] || fail "T5 staging domain item contract is empty"
 MATERIALIZATION_ACTOR="${YUZHOU_MATERIALIZATION_ACTOR_USER_ID:-}"
 printf %s "$MATERIALIZATION_ACTOR" | grep -Eq '^[0-9a-fA-F-]{36}$' || fail "YUZHOU_MATERIALIZATION_ACTOR_USER_ID is required"
+stage database_transaction
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" \
   -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" \
-  -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$MATERIALIZATION_ACTOR" -v path="$REMOTE/all.jsonl" <<'SQL'
+  -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$MATERIALIZATION_ACTOR" -v path="$REMOTE/all.jsonl" -v items="$DOMAIN_ITEMS" <<'SQL'
 BEGIN;
 SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='10min';
 LOCK TABLE hr_employee,sys_user,hr_employee_compensation,hr_payroll_run,hr_payslip,hr_performance_cycle,hr_performance_plan,hr_performance_item,biz_user_message IN SHARE MODE;
@@ -89,35 +110,22 @@ INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_d
 VALUES(:'run','yuzhou-v10',:'snapshot',:'db','load','running','t5-legacy-loader-v1',now());
 INSERT INTO hr_legacy_t5_import_batch(tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status)
 SELECT :'tenant',:'park',id,:'run',:'snapshot',:'catalog',:'manifest',20163,0,20163,'unpublished' FROM migration_batch WHERE run_id=:'run';
-WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),v(domain,source_object,n,h,status) AS(VALUES
- ('candidate','dbo.accept',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('family','dbo.family',4560,'1aaea037f12d7b01d7c300df2c93ce2bd8c4ad2348b8d31695420d53df8c0f6c','running'),
- ('experience','dbo.his',375,'d5743d15fb61e5bc77c72e0bd1675d2c0cc26efeb4311431462172ccac7bc45b','running'),
- ('skill','dbo.knowhow',6,'347c30e15e1dda5b5143d55cbf2acd5ec095912897278a0ab25344807d431499','running'),
- ('credential','dbo.ticket',237,'481927e8ee09a01f99dc4cd842fcfa8a950ee1d75f7d5779dcf37397239043ad','running'),
- ('employee_profile_raw','dbo.person.core_residue',2949,'d3defb9453beed2e44b025a5efc39b9d319c0dc87627164a37c701df887d4f72','running'),
- ('employee_profile_raw','dbo.person_user.core_residue',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('employee_profile_raw','dbo.person_user_item.core_residue',8,'39d9bd0bd92eb9b52685a2d40284670288b516eb8ea8c0d59fd041bccd3a8105','running'),
- ('employment_change_raw','dbo.readjust.core_residue',6887,'0a7ac21b543a6c7c723806b6fb8dab8923c0033a76e06103814d807ceade812a','running'),
- ('employment_change_raw','dbo.readjustitem.core_residue',8,'60c6a6ee40177bb948135a336ea13c3a461eb901267ddb7c64dc826c75ad9011','running'),
- ('employment_change_raw','dbo.jobstatecode.core_residue',8,'198008793d9e8e129bea5013f66b0d7e99c3cfb502e21f80b2ba9f9faab2cdc9','running'),
- ('contract_raw','dbo.compact.core_residue',802,'01dd23066ecc904485648c5ba03b75c2cab0b2672b856652447b3f217344c902','running'),
- ('contract_raw','dbo.compact_c.core_residue',357,'eeb11b88634ae451b5dc5ec1d51af808dc394f20ad1dd673eb8a80a323e78576','running'),
- ('contract_raw','dbo.compacttypecode.core_residue',4,'6992d21493149f1eeee8a88f31fc5889e52e2c0728562e3753df2c2301efb3af','running'),
- ('employee_file','dbo.person.photo',2949,'0f698d1148b613233e0531d4cc2a41effb42a5f5cf5e20e011215323fe0127f6','running'),
- ('employee_file','dbo.docs',1003,'1841953301d80f0e8b1f56da8ad082c8d800936c53779752549cf76c03a3c38a','running'),
- ('training','dbo.course',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('training','dbo.train',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('training','dbo.trainhis',2,'c5f0f6996caa5f3760ab6db0de7534e6b47a13381a9a9d0e84315751f96df931','running'),
- ('training','dbo.jobtrain',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('reward','dbo.bonuscode',8,'b3f70ac4f44c6da251cafcc55304fac0c606f5ebd60acc2f0d1765ccb2221b22','running'),
- ('reward','dbo.bonusrecord',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
- ('reward','dbo.jch_1',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'))
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),v AS(
+ SELECT item.domain,item."sourceObject" source_object,item."extractedCount" n,item."checksumSha256" h,item.status
+ FROM jsonb_to_recordset(:'items'::jsonb) AS item(domain text,"sourceObject" text,"extractedCount" bigint,"checksumSha256" text,status text)
+)
 INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extracted_count,valid_count,loaded_count,rejected_count,checksum_sha256,started_at)
 SELECT b.id,v.domain,v.source_object,'load',v.status,v.n,v.n,0,0,v.h,now() FROM b CROSS JOIN v;
+CREATE TEMP TABLE profile_identity_counts AS
+SELECT payload->'materialized'->'idNumber'->>'fingerprint' fingerprint,count(*)::bigint source_matches
+FROM source_rows
+WHERE payload->'materialized'->>'kind'='profile'
+  AND NULLIF(payload->'materialized'->'idNumber'->>'fingerprint','') IS NOT NULL
+GROUP BY payload->'materialized'->'idNumber'->>'fingerprint';
 CREATE TEMP TABLE classified AS
-SELECT s.payload,e.id employee_id,e.matches,
- CASE WHEN s.payload->>'sourceTable'='dbo.his' THEN 'HISTORY_OWNER_UNRESOLVED'
+SELECT s.payload,e.id employee_id,e.matches,COALESCE(profile_identity.source_matches,0) source_matches,
+ CASE WHEN profile_identity.source_matches>1 THEN 'EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS'
+      WHEN EXISTS(SELECT 1 FROM hr_employee_profile p WHERE p.tenant_id=:'tenant' AND p.park_id=:'park' AND p.id_number_fingerprint=profile_identity.fingerprint AND NOT p.is_deleted) THEN 'EMPLOYEE_PROFILE_IDENTITY_CONFLICT'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND COALESCE(e.matches,0)=0 THEN 'EMPLOYEE_NOT_MAPPED'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND e.matches>1 THEN 'EMPLOYEE_MAPPING_AMBIGUOUS'
  END quarantine_code
@@ -129,7 +137,8 @@ FROM source_rows s LEFT JOIN LATERAL(
  WHERE m.source_system='yuzhou-v10' AND m.source_table='dbo.person' AND m.target_table='hr_employee'
    AND m.mapping_status='loaded' AND m.is_active
    AND m.source_pk_canonical='person='||(s.payload->>'employeeCode')
-)e ON NULLIF(s.payload->>'employeeCode','') IS NOT NULL;
+)e ON NULLIF(s.payload->>'employeeCode','') IS NOT NULL
+LEFT JOIN profile_identity_counts profile_identity ON profile_identity.fingerprint=s.payload->'materialized'->'idNumber'->>'fingerprint';
 DO $$BEGIN
  IF EXISTS(SELECT 1 FROM classified c JOIN hr_employee_profile x ON x.tenant_id=current_setting('yuzhou.t5_tenant') AND x.park_id=current_setting('yuzhou.t5_park') AND x.legacy_source_identity_sha256=c.payload->>'sourceIdentitySha256' AND x.is_deleted=false WHERE c.payload->'materialized'->>'kind'='profile')
  OR EXISTS(SELECT 1 FROM classified c JOIN hr_employee_family x ON x.tenant_id=current_setting('yuzhou.t5_tenant') AND x.park_id=current_setting('yuzhou.t5_park') AND x.legacy_source_identity_sha256=c.payload->>'sourceIdentitySha256' AND x.is_deleted=false WHERE c.payload->'materialized'->>'kind'='family')

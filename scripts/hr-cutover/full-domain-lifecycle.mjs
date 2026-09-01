@@ -28,7 +28,9 @@ import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
 import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
+import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "./materialize-core-non-t0-dictionaries.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
+import { validateSourceRestoreReceipt } from "./source-restore-receipt.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
   compileYuzhouJobStateMachineAttestation,
@@ -40,6 +42,7 @@ import {
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
+const T1_EVENT_TYPE_DECISION_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/yuzhou-t1-employment-event-type-decision-v1.json");
 const DOMAIN_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5"];
 const ROLLBACK_ORDER = [...DOMAIN_ORDER].reverse();
 const STATES = ["planned", "provisioned", "extracting", "review_hold", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"];
@@ -78,14 +81,21 @@ const EXTRACT_MANIFEST_BINDINGS = {
     insurance: { file: "insurance.jsonl", env: "YUZHOU_T3_INSURANCE_SHA256" }
   }
 };
+export const EXTRACT_MANIFEST_HEADERS = {
+  T3: {
+    artifactKind: "yuzhou_t3_attendance_insurance_stage",
+    sourceReadOnly: true,
+    productionImport: "HOLD"
+  }
+};
 let ACTIVE_CHILD = null;
 export const ADAPTER_ENV_ALLOWLIST = {
   T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256", "YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256"], rollback: [] },
-  T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"], rollback: [] },
-  T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
-  T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
-  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
+  T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
+  T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
+  T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_MAPPING_CONTRACT_SHA256"], rollback: [] },
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
+  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
 
 export class LifecycleError extends Error {
@@ -137,7 +147,7 @@ function validateTriple(triple) {
   for (const field of ["sourceSnapshotHash", "mappingContractHash"]) if (!SHA256.test(triple[field])) fail("TRIPLE_MISMATCH", `${field} must be a lowercase SHA-256`);
 }
 
-export function validateConfig(config) {
+export function validateConfig(config, { recoveryCleanup = false } = {}) {
   exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
@@ -146,15 +156,25 @@ export function validateConfig(config) {
   if (!['fixture', 'lab'].includes(config.backend)) fail("BACKEND_INVALID", "backend must be fixture or lab");
   validateTriple(config.triple);
   const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
-  if (config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
+  // Recovery cleanup only deletes identities already pinned in this run's
+  // registry. Mapping changes must still block every write-capable phase, but
+  // cannot strand an older isolated run after a corrective mapping commit.
+  if (!recoveryCleanup && config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
   const currentCodeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
   if (currentCodeSha.status !== 0 || currentCodeSha.stdout.trim() !== config.triple.codeSha) fail("TRIPLE_MISMATCH", "codeSha does not match the checked-out candidate");
-  exactKeys(config.source, ["databaseAlias", "readOnly", "etlEnvFile", "t4EvidenceFile"], [], "source");
+  exactKeys(config.source, ["databaseAlias", "readOnly", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "sourceContainer", "etlEnvFile", "t4EvidenceFile"], [], "source");
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(config.source.databaseAlias ?? "") || config.source.readOnly !== true) fail("SOURCE_NOT_READ_ONLY", "source must be an explicit read-only Yuzhou lab database");
-  for (const field of ["etlEnvFile", "t4EvidenceFile"]) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/.test(config.source.sourceContainer ?? "")) fail("SOURCE_NOT_READ_ONLY", "source container identity is invalid");
+  if (!SHA256.test(config.source.sourceRestoreReceiptSha256 ?? "")) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt hash is invalid");
+  for (const field of ["sourceBackupPath", "sourceRestoreReceiptPath", "etlEnvFile", "t4EvidenceFile"]) {
     if (typeof config.source[field] !== "string" || !isAbsolute(config.source[field]) || resolve(config.source[field]) !== config.source[field]) fail("CONFIG_INVALID", `${field} must be an absolute path`);
     if (!existsSync(config.source[field]) || lstatSync(config.source[field]).isSymbolicLink() || !statSync(config.source[field]).isFile() || mode(config.source[field]) !== "0600") fail("UNSAFE_FILE_PERMISSION", `${field} must be a non-symlink 0600 regular file`);
   }
+  let sourceRestoreReceipt;
+  try { sourceRestoreReceipt = validateSourceRestoreReceipt(JSON.parse(readFileSync(config.source.sourceRestoreReceiptPath, "utf8"))); }
+  catch { fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt must be a sealed receipt"); }
+  if (createHash("sha256").update(readFileSync(config.source.sourceRestoreReceiptPath)).digest("hex") !== config.source.sourceRestoreReceiptSha256) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt bytes drifted");
+  if (sourceRestoreReceipt.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt does not bind the C/S/M source snapshot");
   exactKeys(config.t4Evidence, ["status", "sha256"], [], "t4Evidence");
   if (config.t4Evidence.status !== "COMPLETED" || !SHA256.test(config.t4Evidence.sha256 ?? "")) fail("T4_EXTRACTION_NOT_STARTED", "completed hash-pinned T4 evidence is required before any lifecycle write");
   const t4Bytes = readFileSync(config.source.t4EvidenceFile);
@@ -183,8 +203,8 @@ export function validateConfig(config) {
     const candidate = t4Record.productionCandidate;
     const candidateExpected = {
       periodStart: "2024-01-01", periodEnd: "2026-12-31", fullSourceRows: 46092,
-      candidateRows: 8342, candidateLoadedRows: 8320, candidateQuarantinedRows: 22,
-      candidateSnapshotItems: 190374, candidateCloseRecords: 266,
+      candidateRows: 8342, candidateLoadedRows: 8342, candidateQuarantinedRows: 0,
+      candidateSnapshotItems: 190880, candidateCloseRecords: 266,
       candidateSourceNet: "15723009.9100", candidateLoadedNet: "15723009.9100",
       coldArchiveRows: 37750, coldArchiveDisposition: "deferred"
     };
@@ -201,7 +221,7 @@ export function validateConfig(config) {
     }
     const worktree = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
     const controlledTestRun = process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_RUN_ID === config.runId;
-    if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
+    if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun && !recoveryCleanup)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }
   const legacyApproval = config.backend === "lab" && Object.hasOwn(config.target ?? {}, "jobStateApprovalArtifact");
   const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", legacyApproval ? "jobStateApprovalArtifact" : "jobStateMachineAttestationArtifact"] : [];
@@ -219,6 +239,10 @@ export function validateConfig(config) {
   for (const field of ["stagingRoot", "evidenceRoot", "fileRoot"]) if (!inside(target.root, target[field])) fail("CLEANUP_PATH_ESCAPE", `${field} must be below target.root`);
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
   if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
+  const credentialRoot = dirname(target.credentialArtifact);
+  if (config.source.etlEnvFile !== join(credentialRoot, "etl.env") || config.source.t4EvidenceFile !== join(credentialRoot, "t4-evidence.json")) {
+    fail("CONFIG_INVALID", "prepared ETL and T4 evidence copies must stay in the controlled credential root");
+  }
   if (config.backend === "lab") {
     if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json") fail("CONFIG_INVALID", "job-state machine artifact filenames are invalid");
     if (legacyApproval) {
@@ -294,7 +318,7 @@ function stagingDir(config, domain) {
     : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`);
 }
 
-function extractManifestFacts(config, domain) {
+export function extractManifestFacts(config, domain) {
   const definition = EXTRACT_MANIFEST_BINDINGS[domain];
   if (!definition) fail("EXTRACT_MANIFEST_DOMAIN_INVALID", domain);
   const directory = stagingDir(config, domain);
@@ -308,8 +332,14 @@ function extractManifestFacts(config, domain) {
   const manifestBytes = readFileSync(manifestPath);
   let manifest;
   try { manifest = JSON.parse(manifestBytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest is not valid JSON`); }
-  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [], `${domain}.manifest`);
+  const header = EXTRACT_MANIFEST_HEADERS[domain] ?? {};
+  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [...Object.keys(header), ...(domain === "T3" ? ["sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceCatalogSha256", "sourceBusinessSha256", "mappingContractSha256"] : [])], `${domain}.manifest`);
   if (manifest.formatVersion !== 1 || typeof manifest.generatedAt !== "string") fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest header is invalid`);
+  for (const [field, expected] of Object.entries(header)) if (manifest[field] !== expected) fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${field} manifest header is invalid`);
+  if (domain === "T3") {
+    if (manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || manifest.sourceRestoreReceiptSha256 !== config.source?.sourceRestoreReceiptSha256 || manifest.mappingContractSha256 !== config.triple.mappingContractHash
+      || !SHA256.test(manifest.sourceCatalogSha256 ?? "") || !SHA256.test(manifest.sourceBusinessSha256 ?? "")) fail("EXTRACT_MANIFEST_UNVERIFIED", "T3 current source does not bind the C/S/M triple");
+  }
   exactKeys(manifest.domains, Object.keys(definition), [], `${domain}.manifest.domains`);
   const env = {};
   for (const [key, expected] of Object.entries(definition)) {
@@ -326,6 +356,12 @@ function extractManifestFacts(config, domain) {
     if (actualSha256 !== entry.fileSha256) fail("EXTRACT_MANIFEST_HASH_DRIFT", `${domain}.${key} staging bytes differ from the manifest`);
     if (expected.env) env[expected.env] = entry.fileSha256;
   }
+  if (domain === "T3") Object.assign(env, {
+    YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: manifest.sourceRestoreReceiptSha256,
+    YUZHOU_SOURCE_CATALOG_SHA256: manifest.sourceCatalogSha256,
+    YUZHOU_SOURCE_BUSINESS_SHA256: manifest.sourceBusinessSha256,
+    YUZHOU_MAPPING_CONTRACT_SHA256: manifest.mappingContractSha256
+  });
   return {
     manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
     bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"),
@@ -446,6 +482,8 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
+    { type: "credential_artifact", planned: config.source.etlEnvFile },
+    { type: "credential_artifact", planned: config.source.t4EvidenceFile },
     { type: "credential_artifact", planned: t.credentialArtifact },
     { type: "credential_artifact", planned: t.materializationKeyArtifact }
   ];
@@ -527,6 +565,24 @@ function provisionFixture(config, registry) {
   }
 }
 
+function provisionT5MaterializationActor(config) {
+  const actor = config.adapterEnv.T5?.load?.YUZHOU_MATERIALIZATION_ACTOR_USER_ID;
+  const tenant = config.adapterEnv.T5?.load?.YUZHOU_TARGET_TENANT_ID;
+  const park = config.adapterEnv.T5?.load?.YUZHOU_TARGET_PARK_ID;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actor ?? "")) fail("T5_MATERIALIZATION_ACTOR_REQUIRED", "T5 requires a deterministic isolated actor UUID");
+  if (![tenant, park].every(value => typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value))) fail("T5_MATERIALIZATION_ACTOR_INVALID", "T5 tenant and park identities are invalid");
+  const actorUsername = `yuzhou-t5-${config.runId}`;
+  const result = spawnSync("docker", [
+    "exec", "-i", config.target.postgresContainer, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database,
+    "-v", `actor=${actor}`, "-v", `username=${actorUsername}`, "-v", `tenant=${tenant}`, "-v", `park=${park}`, "-v", `db=${config.target.database}`
+  ], {
+    input: `BEGIN;\nSELECT set_config('yuzhou.t5_actor_id', :'actor', true), set_config('yuzhou.t5_actor_username', :'username', true), set_config('yuzhou.t5_actor_tenant', :'tenant', true), set_config('yuzhou.t5_actor_park', :'park', true), set_config('yuzhou.t5_actor_db', :'db', true);\nDO $$BEGIN\n IF current_database()<>current_setting('yuzhou.t5_actor_db') OR current_database()!~'^jinhu_hr_migration_lab_full_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION 'unsafe target'; END IF;\n IF EXISTS(SELECT 1 FROM sys_user WHERE id=current_setting('yuzhou.t5_actor_id')::uuid) OR EXISTS(SELECT 1 FROM sys_user WHERE tenant_id=current_setting('yuzhou.t5_actor_tenant') AND park_id=current_setting('yuzhou.t5_actor_park') AND username=current_setting('yuzhou.t5_actor_username')) THEN RAISE EXCEPTION 'isolated materialization actor already exists'; END IF;\n INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash,is_enabled,status,remark) VALUES(current_setting('yuzhou.t5_actor_id')::uuid,current_setting('yuzhou.t5_actor_tenant'),current_setting('yuzhou.t5_actor_park'),current_setting('yuzhou.t5_actor_username'),'Yuzhou T5 isolated materialization actor','not-a-login-hash',true,'enabled','isolated full-domain migration actor');\nEND$$;\nCOMMIT;\n`,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  if (result.status !== 0) fail("T5_MATERIALIZATION_ACTOR_PROVISION_FAILED", "isolated T5 actor provisioning failed");
+}
+
 function provisionLab(config, registry) {
   const t = config.target;
   const p = paths(config);
@@ -587,12 +643,14 @@ function provisionLab(config, registry) {
   command("sh", [resolve(ROOT, "scripts/db-seed-prod.sh")], {
     env: { ...releaseEnv, ALLOW_PRODUCTION_SEED: "yes" }
   });
+  provisionT5MaterializationActor(config);
   const initializationBaseline = verifyLabInitializationBaseline(releaseEnv);
   appendPrivate(p.journal, {
     kind: "lab_bootstrap",
     migration: "succeeded",
     productionSeed: "succeeded",
     initializationBaseline,
+    t5MaterializationActor: "provisioned",
     productionImport: "HOLD"
   });
   const roles = [t.role, `${t.accountNamespace}_hr`, `${t.accountNamespace}_manager`, `${t.accountNamespace}_employee`];
@@ -640,10 +698,35 @@ export function provision(configInput) {
   }
 }
 
+const T5_LOAD_STAGE = /T5_LOAD_STAGE=(preflight(?:_[a-z_]+)?|database_transaction)\b/g;
+const SAFE_CHILD_FAILURE_CODE = /(?:^|\n)([A-Z][A-Z0-9_]{2,80}):/g;
+
+function childFailureEvidence(output) {
+  const stages = [...String(output ?? "").matchAll(T5_LOAD_STAGE)].map((match) => `T5_LOAD_STAGE=${match[1]}`);
+  const codes = [...String(output ?? "").matchAll(SAFE_CHILD_FAILURE_CODE)].map((match) => match[1]);
+  const failureCode = codes.filter((code) => !["CHILD_FAILED", "ERROR"].includes(code)).at(-1)
+    ?? (codes.includes("ERROR") ? "SCRIPT_ERROR" : null);
+  return { stage: stages.at(-1) ?? null, failureCode };
+}
+
+function recordChildFailure(config, domain, phase, evidence = {}) {
+  appendPrivate(paths(config).journal, {
+    kind: "child_failure", domain, phase, status: "failed", code: "CHILD_FAILED", triple: config.triple,
+    ...(evidence.stage ? { stage: evidence.stage } : {}),
+    ...(evidence.failureCode ? { failureCode: evidence.failureCode } : {})
+  });
+}
+
 function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
-  finally { registerControlledFilesystem(config); }
+  try {
+    const result = spawnSync(process.execPath, args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    if (result.error || result.status !== 0) {
+      const evidence = childFailureEvidence(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+      recordChildFailure(config, domain, phase, evidence);
+      fail("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`);
+    }
+  } finally { registerControlledFilesystem(config); }
   const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
     ? extractManifestFacts(config, domain) : null;
   appendPrivate(paths(config).journal, {
@@ -655,13 +738,31 @@ function runAdapter(config, domain, phase) {
 async function runAdapterAsync(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
   try { await new Promise((resolveChild, rejectChild) => {
-    const child = spawn(process.execPath, args, { stdio: "inherit" });
+    let tail = "", evidence = {}, settled = false;
+    const observe = (chunk) => {
+      tail = `${tail}${chunk}`.slice(-256);
+      const next = childFailureEvidence(tail);
+      evidence = { stage: next.stage ?? evidence.stage, failureCode: next.failureCode ?? evidence.failureCode };
+    };
+    const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     ACTIVE_CHILD = child;
-    child.once("error", () => rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`)));
+    child.stdout.on("data", observe);
+    child.stderr.on("data", observe);
+    child.once("error", () => {
+      if (settled) return;
+      settled = true;
+      recordChildFailure(config, domain, phase, evidence);
+      rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`));
+    });
     child.once("close", (code, signal) => {
       ACTIVE_CHILD = null;
+      if (settled) return;
+      settled = true;
       if (code === 0 && !signal) resolveChild();
-      else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
+      else {
+        recordChildFailure(config, domain, phase, evidence);
+        rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`));
+      }
     });
   }); } finally { registerControlledFilesystem(config); }
   const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
@@ -820,6 +921,20 @@ function materializeMachineAttestedJobState(config) {
   return { canonicalDecisionSha256: decision.canonicalDecisionSha256, privatePayloadSha256: payload.payloadSha256, verificationMode: "machine_attested", machineAttestationSha256: packageVerification.machineAttestationSha256, t0BindingSha256: canonicalHash(payload.t0Binding), t0ManifestSha256: payload.t0Binding.manifestSha256, dictionarySnapshotSha256: payload.dictionaryEvidenceSha256, databaseItemsSha256: payload.expectedDatabaseItemsSha256, productionImport: "HOLD" };
 }
 
+function materializeMachineAttestedNonT0Dictionaries(config) {
+  const dictionaryConfig = structuredClone(config);
+  dictionaryConfig.source = { ...dictionaryConfig.source, dictionaryPackages: { employment_event_type: readJson(T1_EVENT_TYPE_DECISION_PATH) } };
+  const dictionaryPackage = buildCoreNonT0DictionaryPackage(dictionaryConfig, {
+    t1Types: join(stagingDir(config, "T1"), "employment-event-types.json"),
+    t1States: join(stagingDir(config, "T1"), "employment-event-states.json"),
+    t2Types: join(stagingDir(config, "T2"), "contract-types.jsonl"),
+    t2States: join(stagingDir(config, "T2"), "contract-states.raw.json")
+  });
+  const snapshots = materializeCoreNonT0Dictionaries(dictionaryConfig, dictionaryPackage);
+  appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T1_T2", status: "verified", snapshots, triple: config.triple, productionImport: "HOLD" });
+  return snapshots;
+}
+
 async function resumeAfterMachineAttestationAsync(configInput, configPath, artifacts) {
   const config = validateConfig(structuredClone(configInput)); config.__configPath = resolve(configPath);
   if (config.backend !== "lab" || currentState(config) !== "review_hold") fail("STATE_TRANSITION_INVALID", "resume requires a lab run at review_hold");
@@ -840,6 +955,7 @@ async function resumeAfterMachineAttestationAsync(configInput, configPath, artif
   if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "verificationMode", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
   if (existingMaterializations.length === 0) appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materialized, triple: config.triple, productionImport: "HOLD" });
   if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-materialization-journal") return { state: "review_hold", testBreakpoint: "post-materialization-journal", productionImport: "HOLD" };
+  materializeMachineAttestedNonT0Dictionaries(config);
   transition(config, "loading");
   materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
@@ -952,7 +1068,7 @@ function removeRegisteredFilesystem(config, registry) {
 }
 
 export function cleanup(configInput, options = {}) {
-  const config = validateConfig(structuredClone(configInput));
+  const config = validateConfig(structuredClone(configInput), { recoveryCleanup: options.recovery === true });
   const p = paths(config);
   const state = currentState(config);
   if (!options.recovery && state !== "rollback_ready") fail("STATE_TRANSITION_INVALID", "normal cleanup requires rollback_ready state");
@@ -1163,7 +1279,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const configPath = realpathSync(resolve(args.config));
   const config = readJson(configPath);
-  validateConfig(config);
+  validateConfig(config, { recoveryCleanup: args.command === "cleanup" && args.recovery });
   const p = paths(config);
   let ownsRecovery = args.command === "provision";
   if (["run", "resume", "rollback"].includes(args.command)) {

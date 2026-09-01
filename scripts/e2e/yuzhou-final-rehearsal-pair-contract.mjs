@@ -5,14 +5,14 @@ import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validateMachineTrustRoots, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
 
 test("final A/B contract freezes source facts, continuous order and production HOLD",()=>{
   const result=validatePairContract(contract);assert.equal(result.status,"PASS");assert.equal(result.productionImport,"HOLD");assert.match(result.sha256,/^[0-9a-f]{64}$/u);
-  assert.deepEqual(contract.sourceFacts.T4,{hotYears:[2024,2025,2026],headers:8342,regularHeaders:8320,adjustmentHeaders:22,items:190374,closes:266,net:"15723009.9100",coldArchiveRows:37750});
+  assert.deepEqual(contract.sourceFacts.T4,{fullYears:[2010,2026],fullRows:46092,fullItems:1078020,fullCloses:1431,fullNet:"102194056.8000",hotRows:8342,coldArchiveRows:37750,coldArchiveItems:887140,coldArchiveCloses:1165,coldArchiveNet:"86471046.8900",coldEmployeeUnmappedRows:34});
   assert.deepEqual(contract.sourceFacts.T2,{contracts:802,changes:357});assert.deepEqual(contract.sourceFacts.T5,{rows:20163});
 });
 
@@ -85,6 +85,14 @@ test("runner is a fixed fail-closed sequence and deployment workflows do not inv
   assert.doesNotMatch(deploy,/load-yuzhou|hr:migration:full|ALLOW_YUZHOU_MIGRATION/u);
 });
 
+test("T5 failures retain only a safe stage marker for pair diagnostics",()=>{
+  const loader=read("scripts/load-yuzhou-t5-legacy-history.sh"),runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs");
+  assert.match(loader,/T5_LOAD_STAGE=%s/);
+  assert.match(loader,/stage preflight/);
+  assert.match(loader,/stage database_transaction/);
+  assert.match(runner,/T5_LOAD_STAGE=\[a-z_\]\+/);
+});
+
 test("pair execution is serial and any stage failure invokes scoped recovery without a PASS result",()=>{
   const configs=["A","B"].map(rehearsal=>({rehearsal,__configPath:`/controlled/${rehearsal}.json`,triple:{codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)},target:{root:`/controlled/runtime-${rehearsal}`,auditBundle:`/controlled/audit-${rehearsal}.json`}}));
   const calls=[],hooks={
@@ -106,4 +114,15 @@ test("lab pair exposes a durable A/B review-hold checkpoint before any resume",(
   const evidence=config=>checkpoint.runs.find(row=>row.rehearsal===config.rehearsal);assert.equal(validateMachineResumeCheckpoint(checkpoint,configs,{checkpointEvidence:evidence}).status,"PASS");
   assert.throws(()=>validateMachineResumeCheckpoint({...checkpoint,formatVersion:1},configs,{checkpointEvidence:evidence}),error=>error.code==="FINAL_PAIR_CHECKPOINT_INVALID"&&/rollback or cleanup/u.test(error.message));
   const drift=structuredClone(checkpoint);drift.runs[0].trustedRootSha256="9".repeat(64);assert.throws(()=>validateMachineResumeCheckpoint(drift,configs,{checkpointEvidence:evidence}),error=>error.code==="FINAL_PAIR_CHECKPOINT_INVALID");
+});
+
+test("machine resume roots bind decision roots and v2 attestation trusted root",()=>{
+  const sandbox=mkdtempSync(join(tmpdir(),"yuzhou-final-root-"));
+  try{
+    const machines={},configs=[];
+    for(const rehearsal of ["A","B"]){const trustedRoot=(rehearsal==="A"?"1":"2").repeat(64),decision=join(sandbox,`${rehearsal}-decision.json`),payload=join(sandbox,`${rehearsal}-payload.json`),attestation=join(sandbox,`${rehearsal}-attestation.json`);writeFileSync(decision,JSON.stringify({expectedCheckpointRootSha256:trustedRoot,checkpointRootSha256:trustedRoot}),{mode:0o600});writeFileSync(payload,"{}",{mode:0o600});writeFileSync(attestation,JSON.stringify({trustedCheckpointRootSha256:trustedRoot}),{mode:0o600});machines[rehearsal]={decision,payload,machineAttestation:attestation};configs.push({rehearsal,machineAttestation:{trustedRootSha256:trustedRoot}});}
+    assert.doesNotThrow(()=>validateMachineTrustRoots(machines,configs));
+    writeFileSync(machines.A.machineAttestation,JSON.stringify({trustedCheckpointRootSha256:"9".repeat(64)}));
+    assert.throws(()=>validateMachineTrustRoots(machines,configs),error=>error.code==="FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH");
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });

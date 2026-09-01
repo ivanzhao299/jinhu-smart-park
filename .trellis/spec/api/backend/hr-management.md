@@ -46,7 +46,7 @@
 - Base: a preboarding employee exists without a login account and later links to a current-scope user.
 - Bad: directly update `employmentStatus`, show raw 360 reviewers, grant department managers payroll access, or edit a confirmed payslip in place.
 
-### 6. Tests Required
+### 7. Tests Required
 
 - Shared build plus API/Web type-check and lint.
 - `hr-foundation.contract.spec.ts` must cover lifecycle, scope, protected files, goal weights, performance state, anonymity, payroll freeze/correction, and approval actions.
@@ -470,6 +470,152 @@ CREATE INDEX ON hr_employee_insurance_item(period_id);
 -- Keep a separate partial business index only when query access also benefits from it.
 ```
 
+## Scenario: Yuzhou historical payroll archive migration
+
+### 1. Scope / Trigger
+
+- Trigger: changing `scripts/*yuzhou-t4*`, `load-yuzhou-t4-payroll-history.sql`, the T4 rollback procedure, or historical payroll archive tables.
+
+### 2. Signatures
+
+- Load: `ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<run> YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<suffix> YUZHOU_T4_LOAD_MODE=hot_history|cold_archive|full_archive pnpm hr:migration:t4:load`.
+- Rollback additionally requires `ALLOW_YUZHOU_ROLLBACK=yes`; it invokes `rollback_yuzhou_t4_payroll_history(run, expected_database)`.
+- Archive targets: `hr_payroll_legacy_batch`, `hr_payroll_legacy_snapshot`, `hr_payroll_legacy_snapshot_item`, `hr_payroll_review_case`, and `legacy_record_map`.
+
+### 3. Contracts
+
+- The fixed source is loaded only into an isolated lab target. `full_archive` is one 2010–2026 batch, so it creates the shared book/item/formula/tax directory once and archives every period without cross-batch catalog duplicates. Historical rows never write online payroll, payslip, payment, bank, tax, message, outbox, employee, compensation, or attendance facts.
+- Each source disposition is explicit: `loaded` yields `mapping_status='mapped'`; an unmatched target employee yields `mapping_status='employee_unmapped'`, a null employee FK, all of its source items, and exactly one `employee_unmapped` review case. Both states are archived and count toward selected-source, item, and net-amount conservation; neither is silently rejected.
+- The stable shard key is source content identity. The loader pins source/catalog/manifest hashes, checks protected online-state hashes, records every target in `legacy_record_map`, and only the selected batch's active maps authorize rollback.
+
+### 4. Validation & Error Matrix
+
+- non-isolated target, source/hash/count mismatch, duplicate run, invalid mode/window, changed protected online state, or any archive/item/net/review accounting drift -> fail the load transaction.
+- target employee absent -> archive as `employee_unmapped` plus review case; never create a guessed employee relationship.
+- published batch, missing rollback flag, wrong expected database, or an active-map/residual mismatch -> reject rollback without broad deletion.
+
+### 5. Good / Base / Bad Cases
+
+- Good: mapped and unmapped-employee source rows jointly reconcile to the selected source; a `full_archive` batch has full rows = hot rows + cold rows while the unmapped subset remains reviewable without an employee FK.
+- Base: a cold archive holds historical snapshots and items but leaves online payroll tables unchanged.
+- Bad: use an inner item join that drops an unmatched employee's wage items, count it as rejected, synthesize an employee mapping, or delete by remark rather than active record-map proof.
+
+### 6. Required Verification
+
+- Execute `full_archive` against an isolated target twice from the same fixed source: each run must reconcile full rows, item rows, closing periods, net amount, and unmapped-employee review cases; each rollback must leave zero active maps and zero archived business facts for that run.
+- Run the T4 loader rollback, payroll history, and bulk-guard contracts, then the final-rehearsal-pair and full-domain static contracts before accepting a loader or orchestration change.
+
+### 6. Tests Required
+
+- Static contract tests assert both archive dispositions, left-preserved item loading, one review case per unmapped snapshot, protected-table guards, item/net/count accounting, and active-map rollback behavior.
+- In isolated PostgreSQL, run the real fixed source through load -> aggregate check -> rollback -> zero-residual check -> same-source reload -> aggregate check -> rollback.
+- Assert archive snapshots, items, review cases, and active maps are zero after rollback; an audit batch may remain only with `status='rolled_back'` and inactive maps.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+JOIN target_employee e ON e.legacy_key = source.employee_key;
+-- Missing employee discards the entire historical payroll row and its items.
+```
+
+#### Correct
+
+```sql
+LEFT JOIN target_employee e ON e.legacy_key = source.employee_key;
+-- Archive with employee_unmapped, retain items, create one review case, and reconcile it.
+```
+
+## Scenario: Yuzhou T5 hash-only file-owner evidence rehearsal
+
+### 1. Scope / Trigger
+
+- Trigger: changing photo/document owner stages, T5 evidence loaders, or either continuous evidence command.
+- This is isolated compatibility evidence, never physical attachment import or production historical import.
+
+### 2. Signatures
+
+- `pnpm hr:migration:t5:photo-owner:continuous -- --config <0600> --photo-owner-stage <0700>`.
+- `pnpm hr:migration:t5:document-owner:continuous -- --config <0600> --document-owner-stage <0700>`.
+
+### 3. Contracts
+
+- Both commands require a current-HEAD sealed `core_t0_t2` configuration, the same source snapshot/restore receipt, `productionImport=HOLD`, and child processes with the fixed T5_FILE allowlist only.
+- The generic runner stops at `rollback_ready`, performs load -> exact rollback -> reload -> exact rollback using the existing domain loader, and always resumes core cleanup.
+- Photo evidence is 2,155 readable hash-only records. Document evidence is 1,003 hash-only records: 989 owner mappings and 14 quarantines for empty legacy content. Neither route writes `sys_file`, `hr_employee_document`, online employees, compensation, payroll, payslips, or messages.
+
+### 4. Validation & Error Matrix
+
+- Unsafe/mismatched stage, source receipt, source snapshot, target profile, or current code SHA -> fail before core provisioning.
+- Loader/rollback failure -> write a private HOLD summary, attempt exact outstanding rollback, then core cleanup; never promote a partial result.
+- Any core residual after cleanup -> fail the slice; production remains HOLD.
+
+### 5. Good / Base / Bad Cases
+
+- Good: two independent A/B labs use the same sealed source and each records two complete evidence cycles with zero residual resources.
+- Base: document source rows with empty content become hash-only owner evidence or redacted quarantine, never attachment objects.
+- Bad: use manual shell sequencing that can skip cleanup, expose legacy paths/content, or treat evidence success as authorization to import files.
+
+### 6. Tests Required
+
+- Keep the photo compatibility runner contract passing when the shared runner changes.
+- Test document argument translation, stage/source binding, 1,003 = 989 + 14 accounting, two cycles, allowlisted child environment, private summary mode, and failed rollback recovery.
+- Run real-source A/B only in isolated labs and retain aggregate receipts only.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sh
+load-document-owner-evidence && rollback-document-owner-evidence
+# A process interruption can leave the core checkpoint and lab resources behind.
+```
+
+#### Correct
+
+```sh
+pnpm hr:migration:t5:document-owner:continuous -- \
+  --config '<sealed core_t0_t2 config>' \
+  --document-owner-stage '<sealed hash-only stage>'
+```
+
+## Scenario: Yuzhou T5 unowned dynamic-history archive
+
+### 1. Scope / Trigger
+
+- Trigger: changing the T5 legacy-history classifier or archive materialization for `dbo.his`.
+- `dbo.his` is a dynamic history-value store. The reviewed source schema links it only to `histitle` by `tableid`; it does not establish an employee owner.
+
+### 2. Contracts
+
+- A `dbo.his` record is retained as an immutable `hr_legacy_t5_record` with `domain=experience`, `employee_id=NULL`, and `mapping_status=not_applicable`.
+- It is materialized only as an `archive_only` compatibility record. It must never create or update `hr_employee_experience`, an employee profile, a file record, or an employee owner edge.
+- Missing or ambiguous employee mappings on genuinely employee-owned records remain quarantined. This exception is limited to unowned `dbo.his` history and is not a generic mapping bypass.
+- Future person-level projection requires a separately reviewed client-field and ownership-semantics contract; production historical import remains `HOLD`.
+
+### 3. Tests Required
+
+- Contract-test that the `dbo.his` unresolved-owner classifier branch is absent while normal employee mapping quarantine rules remain.
+- Use an isolated PostgreSQL fixture to materialize one unowned `dbo.his` row, assert the archive registry has no `owner_employee_id`, then prove controlled rollback leaves no residual projection.
+
+### 4. Wrong vs Correct
+
+#### Wrong
+
+```sql
+INSERT INTO hr_employee_experience(employee_id, ...)
+SELECT guessed_employee_id, ... FROM dbo_his_projection;
+```
+
+#### Correct
+
+```sql
+-- Retain a source-addressable compatibility archive until ownership semantics are proven.
+INSERT INTO hr_legacy_t5_record(employee_id, domain, source_table, mapping_status)
+VALUES (NULL, 'experience', 'dbo.his', 'not_applicable');
+```
+
 ## Scenario: Historical attendance and insurance read productization
 
 ### 1. Scope / Trigger
@@ -604,6 +750,7 @@ await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
 - Published course versions and plan snapshots are immutable. Publishing freezes the course/version facts, budget/currency, and participant roster; the only plan transitions are `draft -> published -> in_progress -> completed|cancelled`, and plans are never physically deleted.
 - Resolve `park | managed_org_tree | self | none` in the service. Team readers receive no employee/participant UUID, cost, score, assessment, or certificate fields and cannot perform participant actions; self readers see only their own row. Cost and certificate fields additionally require their exact permissions.
 - Plan selectors use the exact plan-management permission and return only minimal current course/employee options; they must not depend on broad employee-directory read access.
+- A position-course requirement freezes the selected course version and is scoped to one tenant/park position. It may transition only from `enabled` to `disabled`; changing a rule means retaining the old evidence and creating a fresh requirement. Course managers manage the matrix, while plan managers may read the employee completion-gap projection. Completion is derived only from a non-cancelled plan with a completed participant for the required course and never writes employee, payroll, or performance state.
 - Completion/results are immutable. Corrections append exact `numeric(20,4)` deltas and the latest projection is cumulative; state-changing writes, deduplicated privacy-safe `biz_user_message` rows, and audit records share one transaction and pessimistic/advisory locking.
 - Certificate files require `biz_type='hr_training_certificate'`, `biz_id=participant.id`, matching tenant/park, active state, exact document permission, and required audit before metadata/headers/stream. Generic file deletion must reject referenced certificates.
 
@@ -969,4 +1116,61 @@ assertRestoreReceiptAndLiveReadOnlyIdentity(config);
 assertReviewedDictionaryMachinePackages(config);
 const facts = queryCanonicalAndProtectedSideEffectFacts(postgres);
 return sealContractOnlyOrRealEvidence(facts);
+```
+
+## Scenario: Receipt-bound T5 candidate baseline in a lightweight rehearsal
+
+### 1. Scope / Trigger
+
+- Trigger: changing `run-lightweight-first-continuous-lab.mjs`, the T5 non-file loader, or a source restore receipt requires a new T5 A/B rebase.
+- This path is an isolated `T0→T1→T2→T5_NONFILE→T3→T4` rehearsal only; production history import, files, and payroll release remain `HOLD`.
+
+### 2. Signatures
+
+- Runner: `pnpm hr:migration:lightweight-first:continuous -- --config <0600-json> --t5-stage <0700-dir> --t3-stage <0700-dir> --t4-stage <0700-dir> [--t5-baseline <absolute-0600-json>]`.
+- Loader environment: optional `YUZHOU_T5_BASELINE_FILE=<absolute-0600-json>` is passed only to `load-yuzhou-t5-nonfile-history.sh`.
+
+### 3. Contracts
+
+- The default is the committed canonical T5 baseline. A rebased candidate is permitted only when it is a regular, non-symbolic-link, `0600` JSON file and has the canonical baseline shape.
+- Before starting the core lab or a child process, the runner verifies the selected baseline against T5 stage snapshot, restore-receipt, business, catalog, and mapping hashes.
+- The CLI parses `--config` as `configPath`; it must not start an isolated workload with an undefined configuration path.
+- Candidate-baseline authority does not relax source binding, isolation, reverse rollback, UAT, or `productionImport=HOLD`.
+
+### 4. Validation & Error Matrix
+
+- Missing, symlinked, non-regular, or non-`0600` candidate -> `LIGHTWEIGHT_T5_BASELINE_UNSAFE` before a core-lab start.
+- Candidate shape or stage binding mismatch -> `LIGHTWEIGHT_T5_BASELINE_DRIFT` before a core-lab start.
+- Invalid/missing stage after a valid CLI configuration -> `LIGHTWEIGHT_STAGE_UNSAFE` before a core-lab start.
+- A T5 loader precondition failure emits an allowlisted `T5_NONFILE_*` code (for example `T5_NONFILE_STAGING_DIR_MODE_INVALID`), and the runner records only the prefixed `LIGHTWEIGHT_T5_NONFILE_*` code; it never persists child stderr, paths, rows, credentials, or personal data.
+- `--t5-identity-resolution` accepts only a fully reviewed `yuzhou_t5_profile_identity_resolution` package bound to the T5 stage; an ambiguity receipt is rejected as `LIGHTWEIGHT_T5_RESOLUTION_INVALID` before a core-lab start. When no reviewed package exists, omit the parameter so ambiguous profiles are quarantined rather than automatically resolved.
+- Candidate that matches the T5 stage -> pass it only to the T5 loader; T3/T4 receive their own receipt-bound inputs.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a new read-only restore receipt produces A/B-equal T5 stages and a sealed candidate baseline; one isolated continuous run loads, verifies, reverses, and cleans all slices.
+- Base: the default canonical baseline still works without setting `YUZHOU_T5_BASELINE_FILE`.
+- Bad: pass a world-readable baseline, use a symlink, let a T5 candidate alter T3/T4 inputs, or treat a successful lab as production authorization.
+
+### 6. Tests Required
+
+- Contract-test default and candidate T5 manifests, candidate `0600` enforcement, exact CLI `configPath` mapping, and a valid CLI failing on an absent stage before any child command.
+- Assert `YUZHOU_T5_BASELINE_FILE` is absent for canonical runs and exists only on the T5 loader for candidate runs.
+- Run shell syntax and the T5 domain-item, stage, legacy-history, slice-order, and lightweight-runner contracts.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```js
+const baseline = canonicalT5Baseline(process.argv[2]);
+runLightweightFirstContinuous(parseLightweightFirstArgs(argv)); // --config is not configPath
+```
+
+#### Correct
+
+```js
+const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
+if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
+const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
 ```

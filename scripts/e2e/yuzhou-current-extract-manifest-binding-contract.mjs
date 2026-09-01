@@ -16,7 +16,7 @@ const project = "jinhu_hr_migration_lab_full_manifest_bind_a";
 const root = join(sandbox, project);
 const stagingRoot = join(root, "staging");
 const evidenceRoot = join(root, "evidence");
-const config = { runId, triple, target: { root, stagingRoot, evidenceRoot } };
+const config = { runId, triple, source: { sourceRestoreReceiptSha256: "d".repeat(64) }, target: { root, stagingRoot, evidenceRoot } };
 
 function privateFile(path, content) {
   writeFileSync(path, content, { mode: 0o600 });
@@ -64,7 +64,19 @@ function writeDomainFixture(domain) {
     domains[key] = { rows: 1, file, fileSha256: sha256(bytes) };
     if (definition.env) env[definition.env] = domains[key].fileSha256;
   }
-  const manifestBytes = Buffer.from(`${JSON.stringify({ formatVersion: 1, generatedAt: "2026-08-28T12:00:00.000Z", domains }, null, 2)}\n`);
+  const manifest = { formatVersion: 1, generatedAt: "2026-08-28T12:00:00.000Z", domains };
+  if (domain === "T3") Object.assign(manifest, {
+    artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
+    sourceSnapshotSha256: triple.sourceSnapshotHash, sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256,
+    sourceCatalogSha256: "e".repeat(64), sourceBusinessSha256: "f".repeat(64), mappingContractSha256: triple.mappingContractHash,
+    productionImport: "HOLD"
+  });
+  if (domain === "T3") Object.assign(env, {
+    YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: config.source.sourceRestoreReceiptSha256,
+    YUZHOU_SOURCE_CATALOG_SHA256: "e".repeat(64), YUZHOU_SOURCE_BUSINESS_SHA256: "f".repeat(64),
+    YUZHOU_MAPPING_CONTRACT_SHA256: triple.mappingContractHash
+  });
+  const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
   privateFile(join(directory, "manifest.json"), manifestBytes);
   return { domain, directory, env, manifestBytes, domains };
 }
@@ -84,6 +96,7 @@ function writeJournal(fixture, overrides = {}) {
 
 try {
   assert.match(adapterSource, /config\.backend === "lab" && phase === "load"[\s\S]*resolveVerifiedExtractBindings\(config, domain\)[\s\S]*Object\.assign\(env, bindings\)/u);
+  assert.match(adapterSource, /const candidate = error instanceof LifecycleError \? error\.code : error\?\.code;[\s\S]*\^\[A-Z\]\[A-Z0-9_\]\{2,80\}\$/u, "adapter must preserve only a bounded machine error code from a protected child");
   const fixtures = Object.keys(DOMAIN_FIXTURES).map(writeDomainFixture);
   for (const fixture of fixtures) {
     writeJournal(fixture);

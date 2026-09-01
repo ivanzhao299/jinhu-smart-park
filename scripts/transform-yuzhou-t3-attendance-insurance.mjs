@@ -1,10 +1,21 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, resolve } from "node:path";
+import { validateSourceRestoreReceipt } from "./hr-cutover/source-restore-receipt.mjs";
 const dir=resolve(process.argv[2]??""); if(!basename(dir).startsWith("staging-")) throw Error("controlled staging directory is required");
+const snapshot=process.env.YUZHOU_BACKUP_SHA256??"";if(!/^[0-9a-f]{64}$/u.test(snapshot))throw Error("YUZHOU_BACKUP_SHA256 is required");
+const mappingContractSha256=process.env.YUZHOU_MAPPING_CONTRACT_SHA256??"";if(!/^[0-9a-f]{64}$/u.test(mappingContractSha256))throw Error("YUZHOU_MAPPING_CONTRACT_SHA256 is required");
 const sha=v=>createHash("sha256").update(v).digest("hex");
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(",")}]`:v&&typeof v==="object"?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`:JSON.stringify(v);
+const sourceReceiptPath=process.env.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH??"";
+if(!isAbsolute(sourceReceiptPath)||resolve(sourceReceiptPath)!==sourceReceiptPath)throw Error("YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required");
+const receiptLink=lstatSync(sourceReceiptPath),receiptActual=realpathSync(sourceReceiptPath),receiptInfo=statSync(receiptActual);
+if(receiptLink.isSymbolicLink()||!receiptInfo.isFile()||receiptInfo.nlink!==1||(receiptInfo.mode&0o777)!==0o600)throw Error("source restore receipt must be a non-symlink 0600 file");
+const sourceRestoreReceiptBytes=readFileSync(receiptActual),sourceRestoreReceiptSha256=sha(sourceRestoreReceiptBytes);
+let sourceRestoreReceipt;try{sourceRestoreReceipt=validateSourceRestoreReceipt(JSON.parse(sourceRestoreReceiptBytes));}catch{throw Error("source restore receipt is invalid")}
+if(sourceRestoreReceipt.sourceSnapshotSha256!==snapshot||sourceRestoreReceipt.productionImport!=="HOLD")throw Error("source restore receipt snapshot binding mismatch");
+const sourceCatalogSha256=sourceRestoreReceipt.identities.catalogSha256;
 const safe=v=>JSON.stringify(v).replaceAll("\\","\\\\");
 const read=n=>{const v=JSON.parse(readFileSync(resolve(dir,n),"utf8"));if(!Array.isArray(v))throw Error(`${n} must be an array`);return v};
 const write=(name,rows)=>{const p=resolve(dir,name);writeFileSync(p,rows.map(safe).join("\n")+"\n",{mode:0o600});return sha(readFileSync(p))};
@@ -17,4 +28,5 @@ const insurance=read("insurance.raw.json").map(source=>identity("dbo.person_insu
 const ensure=(rows,count,label)=>{if(rows.length!==count)throw Error(`${label} count drift: ${rows.length}`);const seen=new Set;for(const r of rows){if(seen.has(r.sourceKey))throw Error(`${label} duplicate key`);seen.add(r.sourceKey)}};
 ensure(attendance,144,"attendance");ensure(policies,12,"policies");ensure(insurance,35008,"insurance");
 const files={attendance:{rows:attendance.length,file:"attendance.jsonl",fileSha256:write("attendance.jsonl",attendance)},policies:{rows:policies.length,file:"policies.jsonl",fileSha256:write("policies.jsonl",policies)},insurance:{rows:insurance.length,file:"insurance.jsonl",fileSha256:write("insurance.jsonl",insurance)}};
-writeFileSync(resolve(dir,"manifest.json"),JSON.stringify({formatVersion:1,generatedAt:new Date().toISOString(),domains:files},null,2)+"\n",{mode:0o600});
+const sourceBusinessSha256=sha(canonical({sourceSnapshotSha256:snapshot,sourceRestoreReceiptSha256,sourceCatalogSha256,domains:files}));
+writeFileSync(resolve(dir,"manifest.json"),JSON.stringify({formatVersion:1,artifactKind:"yuzhou_t3_attendance_insurance_stage",sourceReadOnly:true,sourceSnapshotSha256:snapshot,sourceRestoreReceiptSha256,sourceCatalogSha256,sourceBusinessSha256,mappingContractSha256,productionImport:"HOLD",generatedAt:new Date().toISOString(),domains:files},null,2)+"\n",{mode:0o600});

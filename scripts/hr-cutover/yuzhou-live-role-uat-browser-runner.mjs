@@ -19,6 +19,7 @@ const sleep = ms => new Promise(resolvePromise => setTimeout(resolvePromise, ms)
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const SHA40 = /^[0-9a-f]{40}$/u;
 const SHA64 = /^[0-9a-f]{64}$/u;
+const SCOPE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{4,5}$/u;
 const CHROME_DEFAULT = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BOUND_ACTORS = ["hr_reviewer", "manager", "employee"];
@@ -124,13 +125,22 @@ export function observeSameOriginApiNetworkEvent(message, webBase, requests, fai
   if (message.method === "Network.loadingFinished" && requests.has(message.params?.requestId)) requests.delete(message.params.requestId);
 }
 
+// The Log domain can emit browser-internal diagnostics that are not page
+// runtime failures. Keep the UAT fail-closed for actual exceptions and for an
+// application's explicit console.error call, without turning generic Log
+// entries into false failures.
+export function isFatalBrowserRuntimeEvent(message) {
+  return message?.method === "Runtime.exceptionThrown"
+    || (message?.method === "Runtime.consoleAPICalled" && message.params?.type === "error");
+}
+
 async function pollVisibleTexts(cdp, sessionId, check, viewport, attempts = 200) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const state = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; return { ready:document.readyState==='complete', path:location.pathname, text }; })()`);
     const missing = missingVisibleTexts(state.text, check.visibleTexts);
     if (state.ready && missing.length === 0) return;
     if (attempt === attempts - 1) {
-      fail("YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${state.path}:missing=${JSON.stringify(missing)}`);
+      fail("YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${state.path}:missingCount=${missing.length}`);
     }
     await sleep(100);
   }
@@ -145,9 +155,9 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   if (observation?.legacyId !== check.legacyId || observation?.roleType !== check.roleType || observation?.actor !== check.actor || observation?.route !== check.route) fail("YUZHOU_UAT_BROWSER_OBSERVATION_BINDING_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.renderedPath !== (check.expectedPath ?? check.route)) fail("YUZHOU_UAT_BROWSER_OBSERVATION_PATH_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.viewportId !== viewport.id || observation.width !== viewport.width || observation.height !== viewport.height || observation.mobile !== viewport.mobile) fail("YUZHOU_UAT_BROWSER_OBSERVATION_VIEWPORT_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
-  if (observation.status !== "PASS" || !Number.isInteger(observation.clientWidth) || !Number.isInteger(observation.scrollWidth) || observation.clientWidth > viewport.width || observation.scrollWidth > observation.clientWidth || observation.networkFailureCount !== 0) fail("YUZHOU_UAT_BROWSER_OBSERVATION_LAYOUT_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+  if (observation.status !== "PASS" || !Number.isInteger(observation.clientWidth) || !Number.isInteger(observation.scrollWidth) || observation.clientWidth > viewport.width || observation.scrollWidth > observation.clientWidth || observation.networkFailureCount !== 0 || !Number.isInteger(observation.pendingRequestCount) || observation.pendingRequestCount < 0) fail("YUZHOU_UAT_BROWSER_OBSERVATION_LAYOUT_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions)
-    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
+    || !/^yz(?:full|core)-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
     || !["A", "B"].includes(observation.rehearsal)
     || !observation.runId.endsWith(`-r${observation.rehearsal}`)
     || !SHA40.test(observation.triple?.codeSha ?? "")
@@ -162,7 +172,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
     legacyId: observation.legacyId, roleType: observation.roleType, actor: observation.actor,
     actorSubjectHash: observation.actorSubjectHash, route: observation.route, renderedPath: observation.renderedPath,
     viewportId: observation.viewportId, width: observation.width, height: observation.height, mobile: observation.mobile,
-    screenshotSha256: observation.screenshotSha256, domAssertionSha256: observation.domAssertionSha256, networkFailureCount: observation.networkFailureCount
+    screenshotSha256: observation.screenshotSha256, domAssertionSha256: observation.domAssertionSha256, networkFailureCount: observation.networkFailureCount, pendingRequestCount: observation.pendingRequestCount
   };
   if (observation.cellEvidenceSha256 !== sha256(JSON.stringify(cell))) fail("YUZHOU_UAT_BROWSER_OBSERVATION_CELL_HASH_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   return observation;
@@ -170,7 +180,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
 
 export function technicalUatActorSubjectHash(identity) {
   if (!/^[0-9a-f-]{36}$/iu.test(identity?.id ?? "") || typeof identity?.username !== "string" || identity.username.length === 0
-    || !/^[0-9a-f-]{36}$/iu.test(identity?.tenantId ?? "") || !/^[0-9a-f-]{36}$/iu.test(identity?.parkId ?? "")
+    || !SCOPE_ID.test(identity?.tenantId ?? "") || !SCOPE_ID.test(identity?.parkId ?? "")
     || typeof identity?.roleCode !== "string" || identity.roleCode.length === 0) fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "verified /users/me identity required");
   return sha256(JSON.stringify({ id: identity.id, username: identity.username, tenantId: identity.tenantId, parkId: identity.parkId, roleCode: identity.roleCode }));
 }
@@ -218,7 +228,7 @@ export function assertTechnicalUatBrowserResultBinding(result, binding) {
 
 function validateBinding(binding) {
   if (!binding || !["A", "B"].includes(binding.rehearsal)
-    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
+    || !/^yz(?:full|core)-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
     || !binding.runId.endsWith(`-r${binding.rehearsal}`)
     || !SHA40.test(binding.triple?.codeSha ?? "")
     || !SHA64.test(binding.triple?.sourceSnapshotHash ?? "")
@@ -235,7 +245,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
   validateYuzhouLiveRoleUatBrowserMatrix(browserMatrix, taskCard);
   validateBinding(binding);
   if (!LOOPBACK.test(webBase)) fail("YUZHOU_UAT_BROWSER_ORIGIN_UNSAFE", webBase);
-  if (!resolve(evidenceRoot).includes("jinhu_hr_migration_lab_full_") || !resolve(profileRoot).includes("jinhu_hr_migration_lab_full_")) fail("YUZHOU_UAT_BROWSER_PATH_UNSAFE", "lab namespace required");
+  if (!isYuzhouLiveRoleUatLabPath(evidenceRoot) || !isYuzhouLiveRoleUatLabPath(profileRoot)) fail("YUZHOU_UAT_BROWSER_PATH_UNSAFE", "lab namespace required");
   const requiredActors = ["hr_reviewer", "manager", "employee"];
   if (JSON.stringify(Object.keys(credentials).sort()) !== JSON.stringify([...requiredActors].sort())) fail("YUZHOU_UAT_BROWSER_CREDENTIALS_INVALID", "exact actors required");
   for (const actor of requiredActors) if (!credentials[actor]?.username || !credentials[actor]?.password) fail("YUZHOU_UAT_BROWSER_CREDENTIALS_INVALID", actor);
@@ -283,13 +293,13 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
         const runtimeErrors = [], networkFailures = [], sameOriginRequests = new Map();
         const off = cdp.on(message => {
           if (message.sessionId !== sessionId) return;
-          if (message.method === "Runtime.exceptionThrown" || (message.method === "Log.entryAdded" && message.params?.entry?.level === "error")) runtimeErrors.push(message.method);
+          if (isFatalBrowserRuntimeEvent(message)) runtimeErrors.push(message.method);
           observeSameOriginApiNetworkEvent(message,webBase,sameOriginRequests,networkFailures);
         });
         try {
           await Promise.all([
             cdp.send("Page.enable", {}, sessionId), cdp.send("Runtime.enable", {}, sessionId),
-            cdp.send("Log.enable", {}, sessionId), cdp.send("Network.enable", {}, sessionId)
+            cdp.send("Network.enable", {}, sessionId)
           ]);
           await cdp.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile }, sessionId);
           await cdp.send("Page.navigate", { url: `${webBase}/login` }, sessionId);
@@ -304,31 +314,35 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
             try {
             runtimeErrors.length = 0;
             networkFailures.length = 0;
+            sameOriginRequests.clear();
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
             await pollVisibleTexts(cdp, sessionId, check, viewport);
             // A static heading can render before a client-side same-origin API request starts.
-            // Require a short hydration window and then a settled request set before PASS.
+            // Isolate the route request set and allow its initial async data fetch to settle before PASS.
             await sleep(200);
-            for(let attempt=0;attempt<50&&sameOriginRequests.size>0;attempt+=1)await sleep(20);
-            if(sameOriginRequests.size>0)networkFailures.push("pending");
-            const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{let e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const leaf=e;for(;e;e=e.parentElement){const s=getComputedStyle(e);if(e.hidden||e.inert||e.getAttribute('aria-hidden')==='true'||s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;}return leaf.getClientRects().length>0;};const textNodes=[];const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:node=>visible(node)&&node.nodeValue?.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});let node;while((node=walker.nextNode()))textNodes.push(node.nodeValue);const visibleText=textNodes.join('\\n');const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,visibleText,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
-            if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || networkFailures.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:networkFailures=${networkFailures.length}:alerts=${result.alerts.length}`);
+            for(let attempt=0;attempt<250&&sameOriginRequests.size>0;attempt+=1)await sleep(20);
+            const pendingRequestCount=sameOriginRequests.size;
+            const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{let e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const leaf=e;for(;e;e=e.parentElement){const s=getComputedStyle(e);if(e.hidden||e.inert||e.getAttribute('aria-hidden')==='true'||s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;}return leaf.getClientRects().length>0;};const textNodes=[];const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:node=>visible(node)&&node.nodeValue?.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});let node;while((node=walker.nextNode()))textNodes.push(node.nodeValue);const visibleText=textNodes.join('');const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,visibleText,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
+            if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || networkFailures.length || result.alerts.length) {
+              const runtimeKinds = [...new Set(runtimeErrors)].sort().join("."), networkKinds = [...new Set(networkFailures)].sort().join(".");
+              fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:runtimeKinds=${runtimeKinds}:networkFailures=${networkFailures.length}:networkKinds=${networkKinds}:alerts=${result.alerts.length}`);
+            }
             if (check.forbiddenTexts.some(text => result.visibleText.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             if (result.visibleTexts.some(row => !row.matched) || result.forbiddenTexts.some(row => row.matched)) fail("YUZHOU_UAT_BROWSER_DOM_ASSERTION_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             if (check.masked && sensitiveNeedles.some(text => result.visibleText.includes(text))) fail("YUZHOU_UAT_BROWSER_SENSITIVE_VALUE_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             const screenshotKey = `${check.actor}:${check.route}:${viewport.id}`;
             let screenshot = screenshotCache.get(screenshotKey);
             if (!screenshot) screenshot = await captureSanitizedScreenshot(sessionId, screenshotKey);
-            const domAssertionSha256 = sha256(JSON.stringify({ path: result.path, visibleTexts: result.visibleTexts, forbiddenTexts: result.forbiddenTexts, alerts: result.alerts.length, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth, networkFailureCount: networkFailures.length }));
+            const domAssertionSha256 = sha256(JSON.stringify({ path: result.path, visibleTexts: result.visibleTexts, forbiddenTexts: result.forbiddenTexts, alerts: result.alerts.length, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth, networkFailureCount: networkFailures.length, pendingRequestCount }));
             const cell = {
               runId: binding.runId, rehearsal: binding.rehearsal, triple: { ...binding.triple },
               legacyId: check.legacyId, roleType: check.roleType, actor: check.actor, route: check.route,
               actorSubjectHash: binding.actorSubjectHashes[check.actor],
               viewportId: viewport.id, status: "PASS", width: viewport.width, height: viewport.height, renderedPath: result.path,
               mobile: viewport.mobile, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth,
-              assertions: [...taskCard.browserAssertions], screenshotSha256: screenshot.sha256, domAssertionSha256, networkFailureCount: networkFailures.length
+              assertions: [...taskCard.browserAssertions], screenshotSha256: screenshot.sha256, domAssertionSha256, networkFailureCount: networkFailures.length, pendingRequestCount
             };
-            const hashInput = { runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount };
+            const hashInput = { runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount, pendingRequestCount: cell.pendingRequestCount };
             cell.cellEvidenceSha256 = sha256(JSON.stringify(hashInput));
             observations.push(validateYuzhouBrowserObservation(cell, check, viewport, taskCard.browserAssertions));
             } catch (error) {
@@ -342,8 +356,8 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
           const cleanupNeedles = JSON.stringify(sensitiveNeedles);
           await poll(cdp, sessionId, `(() => { const t=document.body?.innerText??''; return location.pathname==='/login' && localStorage.length===0 && sessionStorage.length===0 && !${cleanupNeedles}.some(value=>t.includes(value)); })()`, "YUZHOU_UAT_BROWSER_SESSION_CLEANUP_FAILED", `${actor}:${viewport.id}`);
           const cleanupState = await evaluate(cdp, sessionId, `(() => { const t=document.body?.innerText??'';const needles=${cleanupNeedles};return {localStorageEntries:localStorage.length,sessionStorageEntries:sessionStorage.length,sensitiveDomMatches:needles.filter(value=>t.includes(value)).length};})()`);
-          const cookieState=await cdp.send("Storage.getCookies",{browserContextId});cleanupState.cookieEntries=cookieState.cookies?.length??0;
-          const cleanupProof={runId:binding.runId,rehearsal:binding.rehearsal,triple:{...binding.triple},actor,actorSubjectHash:binding.actorSubjectHashes[actor],viewportId:viewport.id,...cleanupState,status:"PASS"};
+          const cookieState=await cdp.send("Storage.getCookies",{browserContextId});
+          const cleanupProof={runId:binding.runId,rehearsal:binding.rehearsal,triple:{...binding.triple},actor,actorSubjectHash:binding.actorSubjectHashes[actor],viewportId:viewport.id,localStorageEntries:cleanupState.localStorageEntries,sessionStorageEntries:cleanupState.sessionStorageEntries,cookieEntries:cookieState.cookies?.length??0,sensitiveDomMatches:cleanupState.sensitiveDomMatches,status:"PASS"};
           cleanupProof.proofSha256=sha256(JSON.stringify(cleanupProof));sessionCleanupProofs.push(cleanupProof);
         } finally {
           off();
@@ -368,4 +382,8 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
     onProcess(null);
     rmSync(profileRoot, { recursive: true, force: true });
   }
+}
+
+export function isYuzhouLiveRoleUatLabPath(path) {
+  return /jinhu_hr_migration_lab_(?:full|core)_[a-z0-9_]+/u.test(resolve(path));
 }

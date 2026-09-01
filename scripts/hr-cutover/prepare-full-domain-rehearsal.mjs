@@ -6,12 +6,13 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { DOMAIN_ORDER, validateConfig } from "./full-domain-lifecycle.mjs";
 import { readMaterializationKeyFile } from "./materialization-key-contract.mjs";
+import { validateSourceRestoreReceipt, verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
+import { t5BusinessHashFor } from "./t5-canonical-baseline.mjs";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const T4_BUSINESS_SHA256 = "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800";
-const T5_BUSINESS_SHA256 = "5939691dfdddd5912992328dba58505f92bcfb7bb7de07ada571959a52d37005";
 const DEFAULT_TENANT = "10000001";
 const DEFAULT_PARK = "20000001";
 
@@ -23,6 +24,13 @@ const fileSha256 = (path) => {
   if (result.status !== 0) fail("cannot hash source backup");
   return result.stdout.trim().split(/\s+/)[0];
 };
+
+export { t5BusinessHashFor };
+
+function deterministicUuid(namespace) {
+  const hex = sha256(`jinhu-yuzhou-t5-isolated-actor-v1\0${namespace}`);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${(Number.parseInt(hex[16], 16) & 0x3 | 0x8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
 
 function assertRegularFile(path, label, { privateFile = false } = {}) {
   const candidate = resolve(path);
@@ -38,10 +46,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--materialization-key", "--machine-attestation-root"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--source-restore-receipt", "--materialization-key", "--machine-attestation-root"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "materializationKey", "machineAttestationRoot"]) {
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "materializationKey", "machineAttestationRoot"]) {
     if (!args[key]) fail(`missing --${key.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`);
   }
   if (!["A", "B"].includes(args.rehearsal)) fail("rehearsal must be A or B");
@@ -81,6 +89,28 @@ function configFor(args, codeSha, mappingContractHash) {
   const materializationKeySource = resolve(args.materializationKey);
   if (existsSync(projectRoot)) fail(`controlled project already exists: ${project}`);
   const materializationKeyValue = readMaterializationKeyFile(materializationKeySource);
+  const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
+  const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
+  const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
+  const sourceRestoreReceipt = assertRegularFile(args.sourceRestoreReceipt, "source restore receipt", { privateFile: true });
+  const source = parseEnv(etlSource);
+  if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(source.YUZHOU_SQLSERVER_DATABASE ?? "")) fail("ETL file does not bind a Yuzhou lab database");
+  if ((source.YUZHOU_SQLSERVER_ETL_LOGIN ?? "").toLowerCase() === "sa") fail("ETL login must not be sa");
+  const t4Record = JSON.parse(readFileSync(t4Source, "utf8"));
+  const sourceSnapshotHash = t4Record.sourceBackupSha256;
+  if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
+  if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
+  const sourceRestoreReceiptSha256 = sha256(readFileSync(sourceRestoreReceipt));
+  verifySourceRestoreReceiptFile({
+    receiptPath: sourceRestoreReceipt,
+    receiptSha256: sourceRestoreReceiptSha256,
+    sourceSnapshotSha256: sourceSnapshotHash,
+    sourceBackupPath: sourceBackup,
+    sourceContainer: args.sourceContainer,
+    databaseAlias: source.YUZHOU_SQLSERVER_DATABASE
+  }, { recheckLive: false });
+  validateSourceRestoreReceipt(JSON.parse(readFileSync(sourceRestoreReceipt, "utf8")));
+  const t5BusinessSha256 = t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 });
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 });
   chmodSync(projectRoot, 0o700);
   chmodSync(credentialRoot, 0o700);
@@ -92,24 +122,14 @@ function configFor(args, codeSha, mappingContractHash) {
   const jobStateDecision = join(credentialRoot, "employee-job-state.reviewed.json");
   const jobStateSourcePayload = join(credentialRoot, "employee-job-state.private.json");
   const jobStateMachineAttestation = join(credentialRoot, "employee-job-state.machine-attestation.json");
-  const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
-  const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   privateCopy(etlSource, etlCopy);
   privateCopy(t4Source, t4Copy);
-  const source = parseEnv(etlCopy);
-  if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(source.YUZHOU_SQLSERVER_DATABASE ?? "")) fail("ETL file does not bind a Yuzhou lab database");
-  if ((source.YUZHOU_SQLSERVER_ETL_LOGIN ?? "").toLowerCase() === "sa") fail("ETL login must not be sa");
-
-  const t4Record = JSON.parse(readFileSync(t4Copy, "utf8"));
-  const sourceSnapshotHash = t4Record.sourceBackupSha256;
-  if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
-  const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
-  if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
   writePrivate(materializationKey, `${materializationKeyValue}\n`);
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
   const runId = `yzfull-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`;
+  const t5MaterializationActorUserId = deterministicUuid(`${project}:${runId}`);
   const commonLoad = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
     YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
@@ -120,13 +140,17 @@ function configFor(args, codeSha, mappingContractHash) {
     load: { ...commonLoad },
     rollback: {}
   }]));
+  adapterEnv.T3.extract.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash;
+  adapterEnv.T3.extract.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt;
+  adapterEnv.T3.extract.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash;
   adapterEnv.T4.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T4.load = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
     YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
     YUZHOU_T4_BUSINESS_SHA256: T4_BUSINESS_SHA256
   };
-  adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = T5_BUSINESS_SHA256;
+  adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = t5BusinessSha256;
+  adapterEnv.T5.load.YUZHOU_MATERIALIZATION_ACTOR_USER_ID = t5MaterializationActorUserId;
 
   const factSuffix = `${args.rehearsal.toLowerCase()}_${args.suffix}`.slice(-30);
   const config = {
@@ -138,6 +162,10 @@ function configFor(args, codeSha, mappingContractHash) {
     source: {
       databaseAlias: source.YUZHOU_SQLSERVER_DATABASE,
       readOnly: true,
+      sourceBackupPath: sourceBackup,
+      sourceRestoreReceiptPath: sourceRestoreReceipt,
+      sourceRestoreReceiptSha256,
+      sourceContainer: args.sourceContainer,
       etlEnvFile: etlCopy,
       t4EvidenceFile: t4Copy
     },
@@ -182,6 +210,7 @@ function main() {
   args.etlEnv = resolve(args.etlEnv);
   args.t4Evidence = resolve(args.t4Evidence);
   args.sourceBackup = resolve(args.sourceBackup);
+  args.sourceRestoreReceipt = resolve(args.sourceRestoreReceipt);
   args.materializationKey = resolve(args.materializationKey);
   const git = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
   if (git.status !== 0 || git.stdout.trim()) fail("rehearsal preparation requires a clean worktree");
@@ -200,4 +229,4 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { assertRegularFile, configFor, parseArgs };
+export { assertRegularFile, configFor, deterministicUuid, parseArgs };
