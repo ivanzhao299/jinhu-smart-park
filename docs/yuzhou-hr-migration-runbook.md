@@ -119,6 +119,33 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t5:rollback
 ```
 
+#### 新恢复回执后的 T5 A/B 重绑
+
+每次新建只读恢复库并签发新的 `source-restore-receipt.json` 后，旧 T5 stage 不能直接加载。先以同一受控备份、同一只读恢复库、同一实验室物化密钥连续抽取 A 与 B；每次抽取入口都会在读取源行前验证恢复回执、备份哈希、容器/数据库身份和最小 ETL 权限。随后用 `rebase-t5-canonical-baseline.mjs` 生成**新的候选**基线及证据文件；它不改写仓库内 canonical 合同，并且要求 23 个域的行数、对象状态和文件 SHA-256 在 A/B 间逐项一致。
+
+```sh
+# A/B 均须传入同一绝对 0600 回执、ETL 封套和实验室密钥路径；run id 与输出目录必须不同。
+ALLOW_YUZHOU_MIGRATION=yes \
+YUZHOU_MIGRATION_RUN_ID='<new-t5-a-run>' \
+YUZHOU_SQLSERVER_CONTAINER='<current-isolated-source-container>' \
+YUZHOU_SQLSERVER_DATABASE='<current-isolated-source-database>' \
+YUZHOU_ETL_CREDENTIAL_FILE='<absolute-0600-etl-envelope>' \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute-0600-source-restore-receipt>' \
+YUZHOU_PARTY_DATA_KEY_FILE='<absolute-0600-lab-materialization-key>' \
+YUZHOU_STAGING_ROOT='<new-private-0700-output-root>' \
+pnpm hr:migration:t5:extract
+
+node scripts/hr-cutover/rebase-t5-canonical-baseline.mjs \
+  --source-a '<absolute-0700-A-stage>' \
+  --source-b '<absolute-0700-B-stage>' \
+  --source-restore-receipt '<absolute-0600-source-restore-receipt>' \
+  --baseline "$PWD/scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json" \
+  --output '<new-absolute-0600-candidate-baseline>' \
+  --evidence '<new-absolute-0600-rebase-evidence>'
+```
+
+候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--baseline` 参数使用；A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
+
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
 
 ### 当前只读源恢复的最短入口
