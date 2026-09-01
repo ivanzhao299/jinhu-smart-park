@@ -104,6 +104,7 @@ jobs:
           node scripts/e2e/production-deploy-scope.contract.mjs
           node scripts/e2e/production-deploy-transfer.contract.mjs
           node scripts/e2e/production-deploy-verified-scope.contract.mjs
+          sh scripts/e2e/production-backup-restore-gate-contract.sh
           git diff --check
 
       - name: Validate runtime design system CSS

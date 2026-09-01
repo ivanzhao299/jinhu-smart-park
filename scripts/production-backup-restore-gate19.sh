@@ -40,6 +40,8 @@ RESTORE_DB_NAME=""
 DB_DUMP_PATH="/tmp/$RUN_ID.dump"
 FILE_BACKUP_PATH="/tmp/$RUN_ID-files.tgz"
 FILE_RESTORE_DIR="/tmp/$RUN_ID-files-restore"
+MIN_HOST_FREE_KIB=$((100 * 1024 * 1024))
+MIN_CONTAINER_FREE_KIB=$((15 * 1024 * 1024))
 
 compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
@@ -59,6 +61,24 @@ json_escape() {
 
 append_report() {
   printf "%s\n" "$*" >> "$REPORT_MD"
+}
+
+free_kib() {
+  df -Pk "$1" | awk 'NR == 2 { print $4; exit }'
+}
+
+assert_free_space() {
+  label="$1"
+  path="$2"
+  minimum="$3"
+  available="$(free_kib "$path")"
+  case "$available" in
+    ''|*[!0-9]*) fail_gate "$label free-space probe failed" ;;
+  esac
+  if [ "$available" -lt "$minimum" ]; then
+    fail_gate "$label free-space guard"
+  fi
+  append_report "- PASS: $label free-space guard"
 }
 
 cleanup_gate() {
@@ -82,13 +102,11 @@ fail_gate() {
   "run_id": $(json_escape "$RUN_ID"),
   "status": "FAIL",
   "message": $(json_escape "$message"),
-  "report_md": $(json_escape "$REPORT_MD"),
-  "report_json": $(json_escape "$REPORT_JSON"),
   "production_db_write": "temporary_restore_database_only"
 }
 JSON
   printf "GATE19_FAIL: %s\n" "$message" >&2
-  printf "REPORT_MD=%s\nREPORT_JSON=%s\n" "$REPORT_MD" "$REPORT_JSON"
+  printf "GATE19_REPORT_WRITTEN\n"
   exit 1
 }
 
@@ -132,14 +150,27 @@ cat > "$REPORT_MD" <<MD
 
 - Run ID: \`$RUN_ID\`
 - Started UTC: \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\`
-- API Base: \`$API_BASE\`
-- Web Base: \`$WEB_BASE\`
-- Source DB: \`$POSTGRES_DB_VALUE\`
 - Production DB Write: \`temporary_restore_database_only\`
 - Destructive Volume Operation: \`false\`
 
 ## Checks
 MD
+
+append_report ""
+append_report "## Capacity Guard"
+assert_free_space "host" "$ROOT_DIR" "$MIN_HOST_FREE_KIB"
+postgres_tmp_free="$(compose exec -T postgres sh -c 'df -Pk /tmp | awk '\''NR == 2 { print $4; exit }'\''')"
+postgres_data_free="$(compose exec -T postgres sh -c 'data_dir="${PGDATA:-/var/lib/postgresql/data}"; df -Pk "$data_dir" | awk '\''NR == 2 { print $4; exit }'\''')"
+api_tmp_free="$(compose exec -T api sh -c 'df -Pk /tmp | awk '\''NR == 2 { print $4; exit }'\''')"
+for available in "$postgres_tmp_free" "$postgres_data_free" "$api_tmp_free"; do
+  case "$available" in
+    ''|*[!0-9]*) fail_gate "container free-space probe failed" ;;
+  esac
+  if [ "$available" -lt "$MIN_CONTAINER_FREE_KIB" ]; then
+    fail_gate "container free-space guard"
+  fi
+done
+append_report "- PASS: container free-space guards"
 
 append_report "- Checking production API health"
 wait_for_url "$API_BASE/health" || fail_gate "production API health endpoint is not reachable"
@@ -203,7 +234,7 @@ assert_equals "restored tenant count" "$SOURCE_TENANTS" "$RESTORE_TENANTS"
 assert_equals "restored user count" "$SOURCE_USERS" "$RESTORE_USERS"
 assert_equals "restored role count" "$SOURCE_ROLES" "$RESTORE_ROLES"
 assert_equals "restored file row count" "$SOURCE_FILES" "$RESTORE_FILES"
-append_report "- PASS: restore database \`$RESTORE_DB_NAME\` is queryable"
+append_report "- PASS: restore database is queryable"
 
 append_report ""
 append_report "## File Storage Backup Evidence"
@@ -212,7 +243,6 @@ FILE_STORAGE_ROOT="$(compose exec -T api printenv FILE_STORAGE_LOCAL_ROOT 2>/dev
 if [ -z "$FILE_STORAGE_ROOT" ]; then
   fail_gate "FILE_STORAGE_LOCAL_ROOT is not configured in api container"
 fi
-append_report "- PASS: FILE_STORAGE_LOCAL_ROOT = \`$FILE_STORAGE_ROOT\`"
 compose exec -T api sh -c "test -d '$FILE_STORAGE_ROOT'" >/dev/null || fail_gate "file storage root is not a directory"
 append_report "- PASS: file storage root exists"
 
@@ -240,7 +270,7 @@ $SAMPLE_ROW
 EOF
   RESTORE_SAMPLE_MD5="$(compose exec -T api sh -c "cd '$FILE_RESTORE_DIR' && md5sum '$SAMPLE_REL_PATH' | awk '{print \$1}'" | tr -d ' \r\n')"
   assert_equals "restored sample file checksum" "$SOURCE_SAMPLE_MD5" "$RESTORE_SAMPLE_MD5"
-  append_report "- PASS: sample restored file path = \`$SAMPLE_REL_PATH\`"
+  append_report "- PASS: restored sample checksum matches"
 else
   append_report "- PASS: file volume contains no sample files; archive/extract count check is sufficient"
 fi
@@ -261,10 +291,6 @@ cat > "$REPORT_JSON" <<JSON
 {
   "run_id": $(json_escape "$RUN_ID"),
   "status": "PASS",
-  "api_base": $(json_escape "$API_BASE"),
-  "web_base": $(json_escape "$WEB_BASE"),
-  "source_db": $(json_escape "$POSTGRES_DB_VALUE"),
-  "restore_db": $(json_escape "$RESTORE_DB_NAME"),
   "source_tables": $SOURCE_TABLES,
   "restore_tables": $RESTORE_TABLES,
   "source_tenants": $SOURCE_TENANTS,
@@ -277,17 +303,14 @@ cat > "$REPORT_JSON" <<JSON
   "restore_file_rows": $RESTORE_FILES,
   "db_dump_bytes": $DB_DUMP_SIZE,
   "db_restore_list_entries": $DB_RESTORE_LIST_COUNT,
-  "file_storage_root": $(json_escape "$FILE_STORAGE_ROOT"),
   "source_file_count": $SOURCE_FILE_COUNT,
   "restore_file_count": $RESTORE_FILE_COUNT,
   "file_backup_bytes": $FILE_BACKUP_SIZE,
   "file_backup_archive_entries": $FILE_BACKUP_LIST_COUNT,
   "production_db_write": "temporary_restore_database_only",
-  "destructive_volume_operation": false,
-  "report_md": $(json_escape "$REPORT_MD"),
-  "report_json": $(json_escape "$REPORT_JSON")
+  "destructive_volume_operation": false
 }
 JSON
 
 printf "GATE19_PASS: Backup restore drill verified\n"
-printf "REPORT_MD=%s\nREPORT_JSON=%s\n" "$REPORT_MD" "$REPORT_JSON"
+printf "GATE19_REPORT_WRITTEN\n"
