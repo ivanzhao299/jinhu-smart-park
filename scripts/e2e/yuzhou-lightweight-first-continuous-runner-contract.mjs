@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { mkdtempSync, mkdirSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { parseLightweightFirstArgs, parseT4BatchProgress, runLightweightFirstContinuous } from "../hr-cutover/run-lightweight-first-continuous-lab.mjs";
+import { executeT4WithProgress, parseLightweightFirstArgs, parseT4BatchProgress, runLightweightFirstContinuous } from "../hr-cutover/run-lightweight-first-continuous-lab.mjs";
 import { canonicalT5Baseline } from "../hr-cutover/t5-canonical-baseline.mjs";
 
 assert.deepEqual(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5", "--t3-stage", "/tmp/t3", "--t4-stage", "/tmp/t4"]), { configPath: "/tmp/config", t5Stage: "/tmp/t5", t3Stage: "/tmp/t3", t4Stage: "/tmp/t4" });
@@ -13,6 +14,20 @@ assert.equal(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage",
 assert.throws(() => parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5"]), /LIGHTWEIGHT_ARGUMENT_INVALID/);
 assert.equal(parseT4BatchProgress("NOTICE: T4_PROGRESS_BATCH=12/16"), 12);
 assert.equal(parseT4BatchProgress("T4_PROGRESS_BATCH=17/16"), null);
+const streamedChild = new EventEmitter();
+streamedChild.stdout = new EventEmitter();
+streamedChild.stderr = new EventEmitter();
+const streamedProgress = [];
+const streamedOutput = await executeT4WithProgress("scripts/load-yuzhou-t4-payroll-history.sh", {}, (completed, total) => streamedProgress.push(`${completed}/${total}`), spawnSync, () => {
+  queueMicrotask(() => {
+    streamedChild.stderr.emit("data", Buffer.from("NOTICE: T4_PROGRESS_BATCH=1/16\nNOTICE: T4_PROGRESS_BATCH=12/16\n"));
+    streamedChild.stdout.emit("data", Buffer.from("succeeded|safe-aggregate\n"));
+    streamedChild.emit("close", 0);
+  });
+  return streamedChild;
+});
+assert.equal(streamedOutput, "succeeded|safe-aggregate\n");
+assert.deepEqual(streamedProgress, ["1/16", "12/16"]);
 
 const root = mkdtempSync(join(tmpdir(), "yuzhou-lightweight-runner-"));
 chmodSync(root, 0o700);

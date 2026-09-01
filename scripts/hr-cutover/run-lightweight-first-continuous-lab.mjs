@@ -137,7 +137,7 @@ function childError(code, script) {
   return error;
 }
 
-async function executeT4WithProgress(script, env, onProgress, synchronousSpawn = spawnSync, asynchronousSpawn = spawn) {
+export async function executeT4WithProgress(script, env, onProgress, synchronousSpawn = spawnSync, asynchronousSpawn = spawn) {
   // Contract tests inject a synchronous child stub. Production streams the
   // child so the private receipt advances after each completed SQL shard.
   if (synchronousSpawn !== spawnSync && asynchronousSpawn === spawn) return execute(script, env, synchronousSpawn);
