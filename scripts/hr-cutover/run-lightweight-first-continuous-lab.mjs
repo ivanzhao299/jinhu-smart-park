@@ -9,6 +9,7 @@ import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
 import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
 import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
+import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
 import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
 import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
 import { verifyT5IdentityResolutionPackage } from "../verify-yuzhou-t5-identity-resolution-package.mjs";
@@ -171,8 +172,9 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
       cleanup = { state: "failed", residualCount: null };
       if (!primary) primary = error;
     }
+    const errorDetail = safeDiagnosticDetail(primary, safeCode(primary));
     const summary = primary
-      ? { formatVersion: 1, status: "HOLD", errorCode: safeCode(primary), reached, cleanup, productionImport: "HOLD" }
+      ? { formatVersion: 1, status: "HOLD", errorCode: safeCode(primary), ...(errorDetail ? { errorDetail } : {}), reached, cleanup, productionImport: "HOLD" }
       : { formatVersion: 1, status: "CONTRACT_PASS", ...result, reached, cleanup, productionImport: "HOLD" };
     writeAuditSummary(config, summary);
     if (primary) throw primary;

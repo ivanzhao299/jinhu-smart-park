@@ -7,14 +7,13 @@ import { fileURLToPath } from "node:url";
 import { compareCoreT0T3Facts, validateCorePairIsolation, verifyCoreT0T3Facts } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
 import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
+import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
+
+export { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
 
 const ROOT=resolve(fileURLToPath(new URL("../../",import.meta.url)));
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const safeCode=error=>/^[A-Z][A-Z0-9_]+$/u.test(error?.code??"")?error.code:"CORE_PAIR_CONTINUOUS_FAILED";
-export const safeDiagnosticDetail=error=>{
- const prefix=`${safeCode(error)}: `,detail=typeof error?.message==="string"&&error.message.startsWith(prefix)?error.message.slice(prefix.length):"";
- return /^[A-Za-z0-9:._=/-]{1,256}$/u.test(detail)?detail:null;
-};
 const privateMode=path=>(statSync(path).mode&0o777)===0o600;
 const directoryMode=path=>(statSync(path).mode&0o777)===0o700;
 
