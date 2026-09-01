@@ -51,6 +51,21 @@ IFS='|' read -r host_total_kib host_used_kib host_free_kib <<EOF
 $host_row
 EOF
 
+instance_filesystem_row="$(df -Pk | awk 'NR > 1 && $1 !~ /^(tmpfs|devtmpfs|overlay|shm)$/ { if (!seen[$1]++) { count += 1; total += $2; used += $3; free += $4 } } END { printf "%d|%.0f|%.0f|%.0f", count, total, used, free }')" || fail
+IFS='|' read -r instance_persistent_filesystem_count instance_persistent_total_kib instance_persistent_used_kib instance_persistent_free_kib <<EOF
+$instance_filesystem_row
+EOF
+for value in "$instance_persistent_filesystem_count" "$instance_persistent_total_kib" "$instance_persistent_used_kib" "$instance_persistent_free_kib"; do
+  numeric "$value"
+done
+
+instance_block_disk_row="$(lsblk -b -dn -o TYPE,SIZE 2>/dev/null | awk '$1 == "disk" && $2 ~ /^[0-9]+$/ { count += 1; total += $2 } END { printf "%d|%.0f", count, total }')" || fail
+IFS='|' read -r instance_block_disk_count instance_block_disk_total_bytes <<EOF
+$instance_block_disk_row
+EOF
+numeric "$instance_block_disk_count"
+numeric "$instance_block_disk_total_bytes"
+
 docker_root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)" || fail
 test -n "$docker_root" || fail
 docker_row="$(read_filesystem "$docker_root")"
@@ -81,6 +96,12 @@ printf 'host_total_kib=%s\n' "$host_total_kib"
 printf 'host_used_kib=%s\n' "$host_used_kib"
 printf 'host_free_kib=%s\n' "$host_free_kib"
 printf 'host_minimum_kib=%s\n' "$host_min_kib"
+printf 'instance_persistent_filesystem_count=%s\n' "$instance_persistent_filesystem_count"
+printf 'instance_persistent_total_kib=%s\n' "$instance_persistent_total_kib"
+printf 'instance_persistent_used_kib=%s\n' "$instance_persistent_used_kib"
+printf 'instance_persistent_free_kib=%s\n' "$instance_persistent_free_kib"
+printf 'instance_block_disk_count=%s\n' "$instance_block_disk_count"
+printf 'instance_block_disk_total_bytes=%s\n' "$instance_block_disk_total_bytes"
 printf 'docker_data_total_kib=%s\n' "$docker_total_kib"
 printf 'docker_data_used_kib=%s\n' "$docker_used_kib"
 printf 'docker_data_free_kib=%s\n' "$docker_free_kib"
