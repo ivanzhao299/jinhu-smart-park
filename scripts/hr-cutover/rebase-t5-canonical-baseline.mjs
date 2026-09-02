@@ -42,7 +42,12 @@ function readStage(path, label, baseline) {
   let manifest;
   try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); } catch { fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} manifest is invalid JSON`); }
   if (manifest.sensitive !== true || manifest.productionImport !== "HOLD") fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} manifest authority`);
-  for (const key of ["businessSha256", "catalogSha256", "mappingContractSha256"]) if (manifest[key] !== baseline[key] || !SHA256.test(manifest[key] ?? "")) fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} ${key} drift`);
+  // A new restore receipt requires a new, real extraction.  Its normalized
+  // business hash is therefore allowed to differ from the old canonical
+  // baseline, but only if both fresh A/B extracts agree below.  The catalog
+  // and reviewed mapping contract remain frozen inputs and must not drift.
+  if (!SHA256.test(manifest.businessSha256 ?? "")) fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} businessSha256 invalid`);
+  for (const key of ["catalogSha256", "mappingContractSha256"]) if (manifest[key] !== baseline[key] || !SHA256.test(manifest[key] ?? "")) fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} ${key} drift`);
   if (JSON.stringify(Object.keys(manifest.domains ?? {}).sort()) !== JSON.stringify(Object.keys(DOMAIN_ROWS).sort())) fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} domain set drift`);
   const domains = {};
   for (const [name, rows] of Object.entries(DOMAIN_ROWS)) {
@@ -52,7 +57,7 @@ function readStage(path, label, baseline) {
     if (sha256(readFileSync(file)) !== item.fileSha256) fail("T5_BASELINE_REBASE_STAGE_INVALID", `${label} domain ${name} hash drift`);
     domains[name] = { rows: item.rows, sourceObject: item.sourceObject, objectStatus: item.objectStatus, fileSha256: item.fileSha256 };
   }
-  return { manifest, domains };
+  return { manifest, domains, businessSha256: manifest.businessSha256 };
 }
 
 function writePrivate(path, value) {
@@ -72,9 +77,10 @@ export function rebaseT5CanonicalBaseline(input) {
   const receipt = readReceipt(input.sourceRestoreReceipt, baseline);
   const a = readStage(input.sourceA, "A", baseline);
   const b = readStage(input.sourceB, "B", baseline);
+  if (a.businessSha256 !== b.businessSha256) fail("T5_BASELINE_REBASE_AB_MISMATCH", "businessSha256 differs between A and B");
   for (const name of Object.keys(DOMAIN_ROWS)) if (canonical(a.domains[name]) !== canonical(b.domains[name])) fail("T5_BASELINE_REBASE_AB_MISMATCH", `domain ${name} differs between A and B`);
-  const candidate = { ...baseline, sourceRestoreReceiptSha256: receipt.receiptSha256 };
-  const evidence = { formatVersion: 1, artifactKind: "yuzhou_t5_canonical_baseline_rebase_evidence", sourceSnapshotSha256: receipt.sourceSnapshotSha256, previousSourceRestoreReceiptSha256: baseline.sourceRestoreReceiptSha256, sourceRestoreReceiptSha256: receipt.receiptSha256, businessSha256: baseline.businessSha256, catalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, sourceRows: baseline.sourceRows, domains: a.domains, productionImport: "HOLD" };
+  const candidate = { ...baseline, sourceRestoreReceiptSha256: receipt.receiptSha256, businessSha256: a.businessSha256 };
+  const evidence = { formatVersion: 1, artifactKind: "yuzhou_t5_canonical_baseline_rebase_evidence", sourceSnapshotSha256: receipt.sourceSnapshotSha256, previousSourceRestoreReceiptSha256: baseline.sourceRestoreReceiptSha256, sourceRestoreReceiptSha256: receipt.receiptSha256, businessSha256: a.businessSha256, catalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, sourceRows: baseline.sourceRows, domains: a.domains, productionImport: "HOLD" };
   writePrivate(input.outputPath, candidate);
   try { writePrivate(input.evidencePath, evidence); } catch (error) { unlinkSync(input.outputPath); throw error; }
   return { sourceRows: baseline.sourceRows, productionImport: "HOLD", candidate, evidence };

@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
@@ -53,7 +53,9 @@ async function waitUrl(url){for(let n=0;n<120;n+=1){try{const response=await fet
 async function request(url,options={},expected=200){const response=await fetch(url,options);if(response.status!==expected)fail("TECHNICAL_UAT_HTTP_FAILED",`${response.status} ${url}`);let body=null;try{body=await response.json();}catch{/* a successful empty response is valid */}return body;}
 function token(body){return body?.data?.accessToken??body?.accessToken??body?.data?.data?.accessToken;}
 function businessDate(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
-function registryFile(config,path){const registryPath=resolve(config.target.evidenceRoot,"resource-registry.json"),rows=JSON.parse(readFileSync(registryPath,"utf8"));if(!rows.some((entry)=>entry.type==="file"&&resolve(entry.planned)===path))rows.push({type:"file",planned:path,observed:path,removed:false,residualCount:0});writePrivate(registryPath,rows);}
+function registryResource(config,type,path){const registryPath=resolve(config.target.evidenceRoot,"resource-registry.json"),rows=JSON.parse(readFileSync(registryPath,"utf8")),observed=resolve(path);if(!rows.some((entry)=>entry.type===type&&resolve(entry.planned)===observed))rows.push({type,planned:observed,observed,removed:false,residualCount:0});writePrivate(registryPath,rows);}
+function registryFile(config,path){registryResource(config,"file",path);}
+function registryDirectory(config,path){registryResource(config,"directory",path);}
 function registryProcesses(config,pids){const registryPath=resolve(config.target.evidenceRoot,"resource-registry.json"),rows=JSON.parse(readFileSync(registryPath,"utf8")),entry=rows.find((row)=>row.type==="process"&&row.planned===`${config.runId}:managed_children`);if(!entry)fail("RESOURCE_TYPE_MISSING","managed process registry");entry.observed=pids.filter(Number.isInteger);entry.removed=entry.observed.length===0;entry.residualCount=entry.observed.length;writePrivate(registryPath,rows);}
 function auditRows(config,vars,bizId){return JSON.parse(psql(config,{...vars,bizId},`SELECT COALESCE(json_agg(json_build_object('username',COALESCE(l.username,u.username),'action',l.action,'method',l.method,'path',l.path,'bizType',l.biz_type,'bizId',l.biz_id::text) ORDER BY l.create_time,l.id),'[]'::json)::text FROM sys_op_log l LEFT JOIN sys_user u ON u.id=l.user_id AND u.tenant_id=l.tenant_id AND u.park_id=l.park_id WHERE l.tenant_id=:'tenant' AND l.park_id=:'park' AND l.biz_id::text=:'bizId' AND l.success=true AND l.is_deleted=false;`)||"[]");}
 function allAuditRows(config,vars){return JSON.parse(psql(config,vars,`SELECT COALESCE(json_agg(json_build_object('username',COALESCE(l.username,u.username),'action',l.action,'method',l.method,'path',l.path,'bizType',l.biz_type,'bizId',l.biz_id::text) ORDER BY l.create_time,l.id),'[]'::json)::text FROM sys_op_log l LEFT JOIN sys_user u ON u.id=l.user_id AND u.tenant_id=l.tenant_id AND u.park_id=l.park_id WHERE l.tenant_id=:'tenant' AND l.park_id=:'park' AND l.success=true AND l.is_deleted=false;`)||"[]");}
@@ -159,6 +161,7 @@ COMMIT;`;
   const departureMatrix=await runYuzhouDepartureScenario({runner:matrixRunner,inspect:departureInspect,support:departureSupport,employeeId:fixture.employeeId,makerEmployeeId:fixture.makerDepartureEmployeeId,incompleteEmployeeId:fixture.incompleteDepartureEmployeeId,handoverEmployeeId:fixture.managerEmployeeId,businessDate:businessDate()});
   const matrixObservations=[...onboardingMatrix.observations,...probationMatrix.observations,...employeeMatrix.observations,...contractMatrix.observations,...workReportMatrix.observations,...jobChangeMatrix.observations,...departureMatrix.observations];
   const p0Fixture={...fixture,contractId:contractMatrix.contractId,...await provisionYuzhouP0Fixture({db:async(extra,sql)=>psql(config,extra,sql),vars,fileRoot:config.target.fileRoot,contractId:contractMatrix.contractId})};
+  registryDirectory(config,dirname(p0Fixture.successAbsolutePath));registryFile(config,p0Fixture.successAbsolutePath);
   const p0Inspect={
    auditTotal:async()=>Number(psql(config,vars,`SELECT count(*) FROM sys_op_log WHERE tenant_id=:'tenant' AND park_id=:'park' AND success=true AND is_deleted=false;`)||0),
    requiredAuditTotal:async()=>Number(psql(config,vars,`SELECT count(*) FROM sys_op_log WHERE tenant_id=:'tenant' AND park_id=:'park' AND success=true AND is_deleted=false AND after_json ? 'fieldGroups' AND after_json ? 'projection';`)||0),

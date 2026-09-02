@@ -31,6 +31,7 @@ import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyM
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "./materialize-core-non-t0-dictionaries.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import { validateSourceRestoreReceipt } from "./source-restore-receipt.mjs";
+import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
   compileYuzhouJobStateMachineAttestation,
@@ -94,8 +95,8 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_MAPPING_CONTRACT_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
-  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
+  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
 
 export class LifecycleError extends Error {
@@ -148,7 +149,7 @@ function validateTriple(triple) {
 }
 
 export function validateConfig(config, { recoveryCleanup = false } = {}) {
-  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation"], "config");
+  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation", "t5Baseline"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
   const match = RUN_ID.exec(config.runId ?? "");
@@ -162,8 +163,10 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   if (!recoveryCleanup && config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
   const currentCodeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
   if (currentCodeSha.status !== 0 || currentCodeSha.stdout.trim() !== config.triple.codeSha) fail("TRIPLE_MISMATCH", "codeSha does not match the checked-out candidate");
-  exactKeys(config.source, ["databaseAlias", "readOnly", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "sourceContainer", "etlEnvFile", "t4EvidenceFile"], [], "source");
+  exactKeys(config.source, ["databaseAlias", "readOnly", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "sourceContainer", "etlEnvFile", "t4EvidenceFile"], ["etlCredentialMode"], "source");
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(config.source.databaseAlias ?? "") || config.source.readOnly !== true) fail("SOURCE_NOT_READ_ONLY", "source must be an explicit read-only Yuzhou lab database");
+  const etlCredentialMode = config.source.etlCredentialMode ?? "run_owned";
+  if (!["run_owned", "sealed_reference"].includes(etlCredentialMode)) fail("CONFIG_INVALID", "ETL credential mode is invalid");
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/.test(config.source.sourceContainer ?? "")) fail("SOURCE_NOT_READ_ONLY", "source container identity is invalid");
   if (!SHA256.test(config.source.sourceRestoreReceiptSha256 ?? "")) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt hash is invalid");
   for (const field of ["sourceBackupPath", "sourceRestoreReceiptPath", "etlEnvFile", "t4EvidenceFile"]) {
@@ -177,6 +180,15 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   if (sourceRestoreReceipt.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt does not bind the C/S/M source snapshot");
   exactKeys(config.t4Evidence, ["status", "sha256"], [], "t4Evidence");
   if (config.t4Evidence.status !== "COMPLETED" || !SHA256.test(config.t4Evidence.sha256 ?? "")) fail("T4_EXTRACTION_NOT_STARTED", "completed hash-pinned T4 evidence is required before any lifecycle write");
+  if (config.t5Baseline !== undefined) {
+    exactKeys(config.t5Baseline, ["path", "sha256", "businessSha256"], [], "t5Baseline");
+    const baselinePath = config.t5Baseline.path;
+    if (typeof baselinePath !== "string" || !isAbsolute(baselinePath) || resolve(baselinePath) !== baselinePath || !existsSync(baselinePath) || lstatSync(baselinePath).isSymbolicLink() || !statSync(baselinePath).isFile() || mode(baselinePath) !== "0600") fail("T5_BASELINE_UNSAFE", "candidate baseline must be an absolute non-symlink 0600 file");
+    if (!SHA256.test(config.t5Baseline.sha256 ?? "") || !SHA256.test(config.t5Baseline.businessSha256 ?? "") || createHash("sha256").update(readFileSync(baselinePath)).digest("hex") !== config.t5Baseline.sha256) fail("T5_BASELINE_DRIFT", "candidate baseline bytes changed");
+    let baseline;
+    try { baseline = canonicalT5Baseline(baselinePath); } catch { fail("T5_BASELINE_INVALID", "candidate baseline contract"); }
+    if (baseline.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || baseline.sourceRestoreReceiptSha256 !== config.source.sourceRestoreReceiptSha256 || baseline.businessSha256 !== config.t5Baseline.businessSha256 || config.adapterEnv?.T5?.load?.YUZHOU_T5_BUSINESS_SHA256 !== baseline.businessSha256) fail("T5_BASELINE_DRIFT", "candidate baseline does not bind this run");
+  }
   const t4Bytes = readFileSync(config.source.t4EvidenceFile);
   if (createHash("sha256").update(t4Bytes).digest("hex") !== config.t4Evidence.sha256) fail("T4_EVIDENCE_HASH_MISMATCH", "pinned T4 evidence bytes changed");
   let t4Record;
@@ -225,8 +237,10 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   }
   const legacyApproval = config.backend === "lab" && Object.hasOwn(config.target ?? {}, "jobStateApprovalArtifact");
   const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", legacyApproval ? "jobStateApprovalArtifact" : "jobStateMachineAttestationArtifact"] : [];
-  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...reviewedArtifacts], [], "target");
+  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...reviewedArtifacts], ["materializationKeyMode"], "target");
   const target = config.target;
+  const materializationKeyMode = target.materializationKeyMode ?? "run_owned";
+  if (!["run_owned", "sealed_reference"].includes(materializationKeyMode)) fail("CONFIG_INVALID", "materialization key mode is invalid");
   if (!LAB_ID.test(target.database ?? "") || !LAB_ID.test(target.composeProject ?? "") || target.database !== target.composeProject || FORBIDDEN_TARGET.test(target.database)) fail("UNSAFE_TARGET_IDENTITY", "database and Compose project must be the same full-domain lab identity");
   if (target.volume !== `${target.composeProject}_postgres_data` || target.postgresContainer !== `${target.composeProject}-postgres-1`) fail("UNSAFE_TARGET_IDENTITY", "container and volume must be deterministically namespaced");
   if (target.role !== `${target.composeProject}_operator` || target.accountNamespace !== `yzfull_${config.rehearsal.toLowerCase()}_${target.composeProject.slice(-12)}`) fail("UNSAFE_TARGET_IDENTITY", "role/account namespace must be rehearsal-scoped");
@@ -235,14 +249,19 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   }
   const ports = [target.postgresPort, target.apiPort, target.webPort];
   if (ports.some((port) => !Number.isInteger(port) || port < 1024 || port > 65535) || new Set(ports).size !== ports.length) fail("UNSAFE_TARGET_IDENTITY", "PostgreSQL/API/Web ports must be distinct unprivileged ports");
-  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", ...reviewedArtifacts, "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
+  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", ...reviewedArtifacts, "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
+  if (materializationKeyMode === "run_owned") assertControlledPath(target.materializationKeyArtifact, target.composeProject, "materializationKeyArtifact");
+  else if (typeof target.materializationKeyArtifact !== "string" || !isAbsolute(target.materializationKeyArtifact) || resolve(target.materializationKeyArtifact) !== target.materializationKeyArtifact || !existsSync(target.materializationKeyArtifact) || lstatSync(target.materializationKeyArtifact).isSymbolicLink() || !statSync(target.materializationKeyArtifact).isFile() || mode(target.materializationKeyArtifact) !== "0600") fail("UNSAFE_FILE_PERMISSION", "sealed materialization key reference must be a non-symlink 0600 file");
   for (const field of ["stagingRoot", "evidenceRoot", "fileRoot"]) if (!inside(target.root, target[field])) fail("CLEANUP_PATH_ESCAPE", `${field} must be below target.root`);
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
-  if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
+  if (materializationKeyMode === "run_owned" && basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "run-owned materialization key artifact filename must be materialization.key");
   const credentialRoot = dirname(target.credentialArtifact);
-  if (config.source.etlEnvFile !== join(credentialRoot, "etl.env") || config.source.t4EvidenceFile !== join(credentialRoot, "t4-evidence.json")) {
-    fail("CONFIG_INVALID", "prepared ETL and T4 evidence copies must stay in the controlled credential root");
-  }
+  const projectRoot = dirname(credentialRoot);
+  if (config.source.t4EvidenceFile !== join(credentialRoot, "t4-evidence.json")) fail("CONFIG_INVALID", "prepared T4 evidence copy must stay in the controlled credential root");
+  if (etlCredentialMode === "run_owned" && config.source.etlEnvFile !== join(credentialRoot, "etl.env")) fail("CONFIG_INVALID", "run-owned ETL credential must stay in the controlled credential root");
+  if (etlCredentialMode === "sealed_reference" && inside(projectRoot, config.source.etlEnvFile)) fail("CONFIG_INVALID", "sealed ETL credential reference must remain outside this run");
+  if (materializationKeyMode === "run_owned" && target.materializationKeyArtifact !== join(credentialRoot, "materialization.key")) fail("CONFIG_INVALID", "run-owned materialization key must stay in the controlled credential root");
+  if (materializationKeyMode === "sealed_reference" && inside(projectRoot, target.materializationKeyArtifact)) fail("CONFIG_INVALID", "sealed materialization key reference must remain outside this run");
   if (config.backend === "lab") {
     if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json") fail("CONFIG_INVALID", "job-state machine artifact filenames are invalid");
     if (legacyApproval) {
@@ -280,7 +299,16 @@ export function compareIsolation(configAInput, configBInput) {
   const b = validateConfig(structuredClone(configBInput));
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
-  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
+  if (JSON.stringify(a.t5Baseline ?? null) !== JSON.stringify(b.t5Baseline ?? null)) fail("T5_BASELINE_DRIFT", "A/B must use the byte-exact same T5 candidate baseline");
+  const etlCredentialModeA = a.source.etlCredentialMode ?? "run_owned";
+  const etlCredentialModeB = b.source.etlCredentialMode ?? "run_owned";
+  if (etlCredentialModeA !== etlCredentialModeB) fail("SOURCE_REFERENCE_MISMATCH", "A/B ETL credential modes differ");
+  if (etlCredentialModeA === "sealed_reference" && a.source.etlEnvFile !== b.source.etlEnvFile) fail("SOURCE_REFERENCE_MISMATCH", "A/B must share one sealed ETL reference");
+  const materializationKeyModeA = a.target.materializationKeyMode ?? "run_owned";
+  const materializationKeyModeB = b.target.materializationKeyMode ?? "run_owned";
+  if (materializationKeyModeA !== materializationKeyModeB) fail("SOURCE_REFERENCE_MISMATCH", "A/B materialization key modes differ");
+  if (materializationKeyModeA === "sealed_reference" && a.target.materializationKeyArtifact !== b.target.materializationKeyArtifact) fail("SOURCE_REFERENCE_MISMATCH", "A/B must share one sealed materialization key reference");
+  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", ...(materializationKeyModeA === "run_owned" ? ["materializationKeyArtifact"] : []), "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
 }
@@ -482,11 +510,11 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
-    { type: "credential_artifact", planned: config.source.etlEnvFile },
     { type: "credential_artifact", planned: config.source.t4EvidenceFile },
-    { type: "credential_artifact", planned: t.credentialArtifact },
-    { type: "credential_artifact", planned: t.materializationKeyArtifact }
+    { type: "credential_artifact", planned: t.credentialArtifact }
   ];
+  if ((config.source.etlCredentialMode ?? "run_owned") === "run_owned") resources.push({ type: "credential_artifact", planned: config.source.etlEnvFile });
+  if ((t.materializationKeyMode ?? "run_owned") === "run_owned") resources.push({ type: "credential_artifact", planned: t.materializationKeyArtifact });
   if (config.backend === "lab") resources.push(
     { type: "credential_artifact", planned: t.jobStateDecisionArtifact },
     { type: "credential_artifact", planned: t.jobStateSourcePayloadArtifact },

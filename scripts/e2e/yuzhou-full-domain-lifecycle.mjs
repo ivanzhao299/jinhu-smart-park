@@ -131,6 +131,43 @@ try {
   assert.deepEqual(DOMAIN_ORDER, ["T0", "T1", "T2", "T3", "T4", "T5"]);
   assert.deepEqual(ROLLBACK_ORDER, [...DOMAIN_ORDER].reverse());
   assert.equal(compareIsolation(configA, configB).ok, true);
+  const sealedReference = configFor("B", "slice2_reference_b", [45241, 45242, 45243]);
+  const sealedRoot = join(sandbox, "sealed-reference");
+  mkdirSync(sealedRoot, { recursive: true, mode: 0o700 });
+  const sealedEtl = join(sealedRoot, "etl.env");
+  const sealedMaterializationKey = join(sealedRoot, "materialization.key");
+  writeFileSync(sealedEtl, "fixture-only\n", { mode: 0o600 });
+  writeFileSync(sealedMaterializationKey, `${"ab".repeat(32)}\n`, { mode: 0o600 });
+  sealedReference.source.etlCredentialMode = "sealed_reference";
+  sealedReference.source.etlEnvFile = sealedEtl;
+  sealedReference.target.materializationKeyMode = "sealed_reference";
+  sealedReference.target.materializationKeyArtifact = sealedMaterializationKey;
+  assert.doesNotThrow(() => validateConfig(sealedReference));
+  assert.equal(provision(sealedReference).state, "provisioned");
+  const sealedCleanup = cleanup(sealedReference, { recovery: true });
+  assert.equal(sealedCleanup.residualCount, 0);
+  assert.equal(existsSync(sealedEtl), true, "cleanup must not delete a sealed source credential reference");
+  assert.equal(existsSync(sealedMaterializationKey), true, "cleanup must not delete a sealed materialization key reference");
+  assert.equal(sealedCleanup.resourceLedger.some((entry) => entry.planned === sealedEtl || entry.planned === sealedMaterializationKey), false, "sealed references must not enter this run's cleanup ledger");
+  const sealedReferenceA = configFor("A", "slice2_reference_a", [45251, 45252, 45253]);
+  const sealedReferenceB = configFor("B", "slice2_reference_pair_b", [45261, 45262, 45263]);
+  for (const config of [sealedReferenceA, sealedReferenceB]) {
+    config.source.etlCredentialMode = "sealed_reference";
+    config.source.etlEnvFile = sealedEtl;
+    config.target.materializationKeyMode = "sealed_reference";
+    config.target.materializationKeyArtifact = sealedMaterializationKey;
+  }
+  assert.equal(compareIsolation(sealedReferenceA, sealedReferenceB).ok, true, "A/B may share the sealed source references while all run-owned targets remain isolated");
+  const differentEtl = join(sealedRoot, "different-etl.env");
+  writeFileSync(differentEtl, "fixture-only\n", { mode: 0o600 });
+  const mismatchedEtlReference = clone(sealedReferenceB);
+  mismatchedEtlReference.source.etlEnvFile = differentEtl;
+  expectCode("SOURCE_REFERENCE_MISMATCH", () => compareIsolation(sealedReferenceA, mismatchedEtlReference));
+  const differentMaterializationKey = join(sealedRoot, "different-materialization.key");
+  writeFileSync(differentMaterializationKey, `${"cd".repeat(32)}\n`, { mode: 0o600 });
+  const mismatchedMaterializationReference = clone(sealedReferenceB);
+  mismatchedMaterializationReference.target.materializationKeyArtifact = differentMaterializationKey;
+  expectCode("SOURCE_REFERENCE_MISMATCH", () => compareIsolation(sealedReferenceA, mismatchedMaterializationReference));
   for (const domain of DOMAIN_ORDER) {
     const definition = contract.domains[domain];
     for (const field of ["extract", "transform", "load", "rollback"]) {

@@ -144,7 +144,7 @@ node scripts/hr-cutover/rebase-t5-canonical-baseline.mjs \
   --evidence '<new-absolute-0600-rebase-evidence>'
 ```
 
-候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--t5-baseline` 参数使用；运行器和 T5 加载器只接受绝对路径、非符号链接且权限为 `0600` 的候选文件。A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
+候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--t5-baseline` 参数使用；完整领域 `prepare-full-domain-rehearsal.mjs` 也必须传入同一候选文件，才能把本轮实际 `businessSha256` 固定到 T5 loader。运行器和 T5 加载器只接受绝对路径、非符号链接且权限为 `0600` 的候选文件。A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
 
@@ -221,6 +221,8 @@ planned → provisioned → extracting → review_hold → loading → verifying
 
 ```sh
 pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --source-restore-receipt '<0600密封源恢复回执>' --materialization-key '<0600实验室物化密钥文件>'
+# 已有受控封套时，不复制它们；必须同时给出已签发的只读数据库别名。
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env-reference '<既有0600只读ETL封套>' --source-database '<已签发的只读Yuzhou实验库别名>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --source-restore-receipt '<0600密封源恢复回执>' --materialization-key-reference '<既有0600实验室物化密钥>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
@@ -229,7 +231,7 @@ pnpm hr:migration:full:cleanup -- --config '<受控配置.json>' --recover
 pnpm hr:migration:full:status -- --config '<受控配置.json>'
 ```
 
-`prepare` 只在干净且 SHA 已固定的候选工作树运行。它先验证备份、T4 证据、密封源恢复回执与只读 ETL 数据库别名，再为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。T5 只能使用 [canonical A/B 基线合同](../scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json) 中与当前源快照和恢复回执一致的业务哈希。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
+`prepare` 只在干净且 SHA 已固定的候选工作树运行。它先验证备份、T4 证据、密封源恢复回执与只读 ETL 数据库别名，再为本轮生成唯一 Compose/DB/volume/ports/account namespace，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。默认 `--etl-env`/`--materialization-key` 模式会为本 run 生成受控副本并在 registry 中精确清理；`--etl-env-reference`/`--materialization-key-reference` 模式仅接受运行目录外的 `0600` 非符号链接既有封套，显式绑定只读数据库别名，既不复制，也不登记到本 run 的删除账本。两种模式都不把私有内容写入配置、manifest、日志或 Git。T5 只能使用 [canonical A/B 基线合同](../scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json) 中与当前源快照和恢复回执一致的业务哈希。A/B 必须分别执行 prepare：所有 run-owned 目标资源必须完全不同；若采用 sealed reference，则两侧必须精确引用同一份已验证 ETL 封套和同一份实验室物化密钥，任一引用不一致都失败关闭。
 
 两阶段执行命令如下。三份机器复核文件必须是外部 `0600` 非符号链接普通文件：v2 `MACHINE_CANDIDATE` decision 只保存哈希与机器规则结论，真实源状态和值只允许存在于私有 payload，machine attestation 绑定受信任根且不得由运行时使用输入文件自算根。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。三件套必须共同绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
 

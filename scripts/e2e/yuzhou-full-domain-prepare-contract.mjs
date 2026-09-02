@@ -100,6 +100,31 @@ test("rehearsal preparation requires an externally fixed machine-attestation roo
   assert.throws(() => parseArgs(base.filter((value) => value !== "--source-restore-receipt" && value !== "/tmp/source-receipt.json")), /missing --source-restore-receipt/);
 });
 
+test("sealed source and materialization references require explicit non-secret identities instead of copying private inputs", () => {
+  const reference = [
+    "--rehearsal", "A",
+    "--suffix", "sealed_reference",
+    "--postgres-port", "15432",
+    "--api-port", "18080",
+    "--web-port", "13000",
+    "--control-root", "/tmp/control",
+    "--etl-env-reference", "/tmp/sealed-etl.env",
+    "--source-database", "YuzhouHR_Lab_reference01",
+    "--t4-evidence", "/tmp/t4.json",
+    "--source-container", "yuzhou-source",
+    "--source-backup", "/tmp/source.bak",
+    "--source-restore-receipt", "/tmp/source-receipt.json",
+    "--materialization-key-reference", "/tmp/sealed-materialization.key",
+    "--machine-attestation-root", "a".repeat(64),
+  ];
+  const parsed = parseArgs(reference);
+  assert.equal(parsed.etlEnvReference, "/tmp/sealed-etl.env");
+  assert.equal(parsed.sourceDatabase, "YuzhouHR_Lab_reference01");
+  assert.equal(parsed.materializationKeyReference, "/tmp/sealed-materialization.key");
+  assert.throws(() => parseArgs([...reference, "--etl-env", "/tmp/copied-etl.env"]), /exactly one of --etl-env or --etl-env-reference/);
+  assert.throws(() => parseArgs(reference.map((value) => value === "YuzhouHR_Lab_reference01" ? "invalid" : value)), /--source-database must name the read-only Yuzhou lab database/);
+});
+
 test("full-domain rehearsal gives T5 a deterministic isolated non-login actor identity", () => {
   const first = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");
   const second = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");
@@ -122,4 +147,17 @@ test("full-domain T3 extraction receives the pinned current source bindings requ
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash/);
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash/);
+});
+
+test("full-domain T4 extraction receives the sealed source receipt required by the payroll extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T4.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH"]);
+  const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
+  assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+});
+
+test("full-domain T5 extraction receives the sealed source bindings required by the legacy-history extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T5.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_PARTY_DATA_KEY_FILE"]);
+  const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
+  assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup/);
+  assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
 });

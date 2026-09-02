@@ -24,11 +24,17 @@ test("T5 canonical rebase requires a new sealed receipt plus two identical, comp
     privateWrite(receiptPath, `${JSON.stringify(receipt)}\n`);
     const makeStage = name => { const stage = join(root, name); mkdirSync(stage, { mode: 0o700 }); chmodSync(stage, 0o700); const stageDomains = {}; for (const [domain, rows] of Object.entries(domains)) { const file = `${domain}.jsonl`; privateWrite(join(stage, file), `fixture-${domain}\n`); stageDomains[domain] = { sourceObject: `dbo.${domain}`, objectStatus: rows ? "present" : "empty", rows, file, fileSha256: sha(readFileSync(join(stage, file))) }; } privateWrite(join(stage, "manifest.json"), `${JSON.stringify({ sensitive: true, productionImport: "HOLD", businessSha256: baseline.businessSha256, catalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, domains: stageDomains })}\n`); return stage; };
     const sourceA = makeStage("a"); const sourceB = makeStage("b"); const output = join(root, "candidate.json"); const evidence = join(root, "evidence.json");
+    const freshBusinessSha256 = sha("fresh-real-extract");
+    for (const stage of [sourceA, sourceB]) { const manifest = JSON.parse(readFileSync(join(stage, "manifest.json"), "utf8")); manifest.businessSha256 = freshBusinessSha256; privateWrite(join(stage, "manifest.json"), `${JSON.stringify(manifest)}\n`); }
     const result = rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, outputPath: output, evidencePath: evidence });
     assert.equal(result.productionImport, "HOLD");
     assert.notEqual(result.candidate.sourceRestoreReceiptSha256, baseline.sourceRestoreReceiptSha256);
+    assert.equal(result.candidate.businessSha256, freshBusinessSha256);
     assert.equal(JSON.parse(readFileSync(output, "utf8")).sourceRestoreReceiptSha256, sha(readFileSync(receiptPath)));
     assert.equal(JSON.parse(readFileSync(evidence, "utf8")).domains.person_core.rows, 2949);
+    const divergentBusiness = JSON.parse(readFileSync(join(sourceB, "manifest.json"), "utf8")); divergentBusiness.businessSha256 = sha("different-real-extract"); privateWrite(join(sourceB, "manifest.json"), `${JSON.stringify(divergentBusiness)}\n`);
+    assert.throws(() => rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, outputPath: join(root, "business-rejected.json"), evidencePath: join(root, "business-rejected-evidence.json") }), /T5_BASELINE_REBASE_AB_MISMATCH/);
+    divergentBusiness.businessSha256 = freshBusinessSha256; privateWrite(join(sourceB, "manifest.json"), `${JSON.stringify(divergentBusiness)}\n`);
     const bad = JSON.parse(readFileSync(join(sourceB, "manifest.json"), "utf8")); bad.domains.family.fileSha256 = "0".repeat(64); privateWrite(join(sourceB, "manifest.json"), `${JSON.stringify(bad)}\n`);
     assert.throws(() => rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, outputPath: join(root, "rejected.json"), evidencePath: join(root, "rejected-evidence.json") }), /T5_BASELINE_REBASE_STAGE_INVALID/);
   } finally { rmSync(root, { recursive: true, force: true }); }
