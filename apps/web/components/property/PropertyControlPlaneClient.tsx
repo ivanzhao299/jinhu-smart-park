@@ -143,7 +143,7 @@ export function PropertyControlPlaneListClient({ surface }: { surface: PropertyC
         {config.statusOptions.length ? <label>状态
           <select name={`${surface}-status`} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option>
-            {config.statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            {config.statusOptions.map((option) => <option key={option} value={option}>{controlPlaneStatusLabel(surface, option)}</option>)}
           </select>
         </label> : null}
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>
@@ -545,7 +545,7 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
           </label>
         </div>
         {terminalSubmission ? <p>
-          将基于终态提交 {terminalSubmission.id}（{terminalSubmission.status}，版本 {terminalSubmission.version}）创建复核草稿。
+          将基于当前终态提交（{propertyLabels.identitySubmissionStatus(terminalSubmission.status)}，版本 {terminalSubmission.version}）创建复核草稿。
         </p> : null}
         <div className={styles.formGrid}>
           <label>复核原提交 ID
@@ -560,9 +560,9 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
               setExpectedSupersededStatus(event.target.value as "rejected" | "withdrawn" | "verified" | "");
             }}>
               <option value="">首次核验</option>
-              <option value="rejected">rejected</option>
-              <option value="withdrawn">withdrawn</option>
-              <option value="verified">verified</option>
+              <option value="rejected">{propertyLabels.identitySubmissionStatus("rejected")}</option>
+              <option value="withdrawn">{propertyLabels.identitySubmissionStatus("withdrawn")}</option>
+              <option value="verified">{propertyLabels.identitySubmissionStatus("verified")}</option>
             </select>
           </label>
           <label>复核原提交版本
@@ -838,7 +838,7 @@ function IdentityAuditPanel({ data, error, loading, onPageChange, onReload }: {
             <span>{item.actor.displayName}</span>
             {item.reason ? <p>{item.reason}</p> : null}
             {item.evidence ? <small>
-              证件：{item.evidence.documentType ?? "—"} · 文件 {item.evidence.fileCount}
+              证件：{propertyLabels.identityDocumentType(item.evidence.documentType)} · 文件 {item.evidence.fileCount}
             </small> : null}
           </li>)}
         </ol> : null}
@@ -898,22 +898,29 @@ function appendPendingFile(current: FileRecord[], file: FileRecord): FileRecord[
 function normalize(item: ControlPlaneItem, surface: PropertyControlPlaneSurface) {
   if (surface === "identity") {
     const row = item as IdentitySubmissionProjection;
-    return { id: row.id, title: row.partyDisplayName, status: row.status,
+    return { id: row.id, title: row.partyDisplayName, status: propertyLabels.identitySubmissionStatus(row.status),
       source: row.verificationQueueName ?? "未分派", updatedAt: row.updateTime };
   }
   if (surface === "notifications") {
     const row = item as NotificationListItem;
-    return { id: row.id, title: row.title, status: row.readAt ? "已读" : "未读",
-      source: row.sourceType, updatedAt: row.readAt ?? row.createdAt };
+    return { id: row.id, title: row.title, status: propertyLabels.notificationReadStatus(row.readAt ? "read" : "unread"),
+      source: propertyLabels.notificationType(row.notificationType), updatedAt: row.readAt ?? row.createdAt };
   }
   if (surface === "event-incidents") {
     const row = item as IncidentListItem;
-    return { id: row.dlqId, title: `${row.consumerName} · ${row.errorCode}`, status: row.status,
-      source: row.failureSide, updatedAt: row.lastFailedAt };
+    return { id: row.dlqId, title: `${row.consumerName} · 投递异常`, status: propertyLabels.eventIncidentStatus(row.status),
+      source: propertyLabels.eventFailureSide(row.failureSide), updatedAt: row.lastFailedAt };
   }
   const row = item as ApprovalIncidentListItem;
   return { id: row.requestId, title: row.title, status: propertyLabels.executionStatus(row.executionStatus),
     source: propertyLabels.sourceType(row.sourceType), updatedAt: row.updatedAt };
+}
+
+function controlPlaneStatusLabel(surface: PropertyControlPlaneSurface, value: string): string {
+  if (surface === "identity") return propertyLabels.identitySubmissionStatus(value);
+  if (surface === "notifications") return propertyLabels.notificationReadStatus(value);
+  if (surface === "event-incidents") return propertyLabels.eventIncidentStatus(value);
+  return value;
 }
 
 function detailFields(detail: ControlPlaneDetail, surface: PropertyControlPlaneSurface): [string, string][] {
@@ -922,15 +929,15 @@ function detailFields(detail: ControlPlaneDetail, surface: PropertyControlPlaneS
     ["来源", row.source], ["更新时间", formatTime(row.updatedAt)]];
   if (surface === "identity") {
     const identity = detail as IdentitySubmissionProjection;
-    fields.push(["证件类型", identity.evidence.documentType ?? "—"],
+    fields.push(["证件类型", propertyLabels.identityDocumentType(identity.evidence.documentType)],
       ["证件号码", identity.evidence.identityNumberMasked ?? "—"], ["证据文件", String(identity.evidence.fileCount)]);
   } else if (surface === "event-incidents") {
     const incident = detail as IncidentDetail;
     fields.push(["尝试次数", String(incident.attemptCount)], ["版本", String(incident.version)]);
   } else if (surface === "approval-incidents") {
     const incident = detail as ApprovalIncidentDetail;
-    fields.push(["动作", incident.actionId],
-      ["错误码", incident.errorCode], ["执行版本", String(incident.executionVersion)]);
+    fields.push(["动作", propertyLabels.approvalAction(incident.actionId)],
+      ["异常原因", incident.errorCode ? "业务处理异常" : "未提供"], ["执行版本", String(incident.executionVersion)]);
   }
   return fields;
 }
@@ -1027,7 +1034,7 @@ function identityActionLabel(action: string): string {
     "party.identity.reassign": "重新分派",
     "party.identity.verify": "提交决定",
     "party.identity.withdraw": "撤回提交"
-  } as Record<string, string>)[action] ?? action;
+  } as Record<string, string>)[action] ?? "未知核验操作";
 }
 
 function identityAuditEventLabel(eventType: string): string {
@@ -1043,7 +1050,7 @@ function identityAuditEventLabel(eventType: string): string {
     withdrawn: "撤回提交",
     superseded: "被新提交取代",
     "legacy-imported": "历史导入"
-  } as Record<string, string>)[eventType] ?? eventType;
+  } as Record<string, string>)[eventType] ?? "未知审计事件";
 }
 
 function formatTime(value: string): string {

@@ -229,8 +229,8 @@ function BookingOverview({ data }: { data: HomestayBookingDetailResponse }) {
 function BookingGuests({ data }: { data: HomestayBookingDetailResponse }) {
   return <section className="ds-panel"><h2>住客与凭证</h2>
     <p>住客 {data.guests.length} 人，凭证 {data.credentials.length} 项。</p>
-    {data.guests.map((guest) => <p key={guest.id}>{guest.partyDisplayName} · {guest.isPrimary ? "主住客" : "同行住客"} · <StatusPill value={guest.verificationStatus} /></p>)}
-    {data.credentials.map((credential) => <p key={credential.id}>{credential.credentialLabel} · <StatusPill value={credential.status} /> · {credential.credentialReference ?? "未显示引用"}</p>)}
+    {data.guests.map((guest) => <p key={guest.id}>{guest.partyDisplayName} · {guest.isPrimary ? "主住客" : "同行住客"} · <StatusPill variant={statusVariant(guest.verificationStatus)}>{propertyLabels.homestayGuestVerification(guest.verificationStatus)}</StatusPill></p>)}
+    {data.credentials.map((credential) => <p key={credential.id}>{credential.credentialLabel} · <StatusPill variant={statusVariant(credential.status)}>{propertyLabels.homestayCredentialStatus(credential.status)}</StatusPill> · {credential.credentialReference ?? "未显示引用"}</p>)}
   </section>;
 }
 
@@ -245,7 +245,7 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
     <p><StatusPill variant={statusVariant(data.turnover.status)}>{propertyLabels.turnoverStatus(data.turnover.status)}</StatusPill> · {data.turnover.assigneeName ?? "待分配"} · {data.turnover.exceptionDescription ?? "无异常"}</p>
   </section> : null}
   <section className="ds-panel"><h2>操作审计</h2>
-    {data.actions.length ? data.actions.map((action) => <p key={action.id}>{action.actionTime} · {action.operatorName} · {action.action} · {action.beforeStatus ?? "—"} → {action.afterStatus ?? "—"} · {action.reason ?? "无说明"}</p>) : <p>暂无操作记录。</p>}
+    {data.actions.length ? data.actions.map((action) => <p key={action.id}>{action.actionTime} · {action.operatorName} · {propertyLabels.homestayAuditAction(action.action)} · {action.beforeStatus ? propertyLabels.bookingStatus(action.beforeStatus) : "无前置状态"} → {action.afterStatus ? propertyLabels.bookingStatus(action.afterStatus) : "无后置状态"} · {action.reason ?? "无说明"}</p>) : <p>暂无操作记录。</p>}
   </section></>;
 }
 

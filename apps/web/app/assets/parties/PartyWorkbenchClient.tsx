@@ -14,6 +14,7 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PropertyPanelSurface,
+  propertyLabels,
   type PropertyPageState
 } from "../../../features/property-shared";
 import { ApiError, apiRequest, isForbiddenError } from "../../../lib/api-client";
@@ -153,8 +154,8 @@ function partyFailureState(error: unknown, cached: boolean): PropertyPageState {
 function partyFields(sensitive: boolean) {
   const fields = [
     { key: "type", label: "类型", render: (item: PartyListItemResponse) => item.partyType === "person" ? "个人" : "组织" },
-    { key: "source", label: "来源", render: (item: PartyListItemResponse) => item.sourceDomain ?? "共享房产底座" },
-    { key: "verification", label: "核验", render: (item: PartyListItemResponse) => item.verificationStatus },
+    { key: "source", label: "来源", render: (item: PartyListItemResponse) => propertyLabels.partySourceDomain(item.sourceDomain) },
+    { key: "verification", label: "核验", render: (item: PartyListItemResponse) => propertyLabels.partyVerification(item.verificationStatus) },
     { key: "updated", label: "更新时间", render: (item: PartyListItemResponse) => new Date(item.updateTime).toLocaleString("zh-CN") }
   ];
   return sensitive ? [...fields,

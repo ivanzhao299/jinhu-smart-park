@@ -25,6 +25,10 @@ const sources = {
   controlPlane: read("../components/property/PropertyControlPlaneClient.tsx")
 };
 sources.foundation = read("../components/property/PropertyFoundationControlClient.tsx");
+sources.approvals = read("../components/property/PropertyApprovalClient.tsx");
+sources.runtime = read("../components/property/PropertyRuntimeSlots.tsx");
+sources.partyDetail = read("assets/parties/PartyDetailClient.tsx");
+sources.partyList = read("assets/parties/PartyWorkbenchClient.tsx");
 
 const coverage = {
   "HCD-001": [sources.homestayList, /propertyLabels\.taskStatus/, /propertyLabels\.taskSource/],
@@ -90,4 +94,31 @@ test("PR2 wires authorized names for every B-class HCD item without internal-id 
   assert.doesNotMatch(sources.housingTasks, /render: \(item\) => item\.assigneeId/);
   assert.match(sources.housingCosts, /displayEntityName\(item\.unitName, item\.unitCode, "未关联房源"\)/);
   assert.match(sources.housingDetails, /displayEntityName\(data\.purchase\.unitName, data\.purchase\.unitCode, "未关联房源"\)/);
+});
+
+test("PR3 wires all six temporary D-class directories without submitting translated labels", () => {
+  assert.match(sources.homestayDetail, /propertyLabels\.homestayGuestVerification/);
+  assert.match(sources.homestayDetail, /propertyLabels\.homestayCredentialStatus/);
+  assert.match(sources.homestayDetail, /propertyLabels\.homestayAuditAction/);
+  assert.match(sources.partyDetail + sources.partyList + sources.housingRental, /propertyLabels\.partyVerification/);
+  assert.match(sources.partyDetail, /propertyLabels\.partyConsentFact/);
+  assert.match(sources.partyDetail, /propertyLabels\.partyRoleType/);
+  assert.match(sources.housingBilling + sources.housingFinance, /useHousingDisplayDictionaries/);
+  assert.match(sources.housingBilling + sources.housingFinance, /housingChargeTypeLabel/);
+  assert.match(sources.controlPlane, /propertyLabels\.identitySubmissionStatus/);
+  assert.match(sources.controlPlane, /propertyLabels\.eventIncidentStatus/);
+  assert.match(sources.controlPlane, /propertyLabels\.eventFailureSide/);
+  assert.match(sources.controlPlane + sources.partyDetail, /propertyLabels\.identityDocumentType/);
+  assert.match(sources.approvals + sources.runtime, /propertyLabels\.approvalAction/);
+  assert.match(sources.approvals + sources.runtime, /propertyLabels\.decisionStatus/);
+  assert.match(sources.approvals + sources.runtime, /propertyLabels\.executionStatus/);
+  assert.doesNotMatch(sources.homestayDetail, /<StatusPill value=\{(?:guest\.verificationStatus|credential\.status)\}/);
+  assert.doesNotMatch(sources.partyDetail, /value=\{party\.(?:verificationStatus|consentStatus)\}/);
+  assert.match(sources.housingFinance, /charge_type: String\(form\.get\("charge_type"\)\)/);
+  assert.match(sources.housingFinance, /payment_method: String\(form\.get\("payment_method"\)/);
+  assert.doesNotMatch(sources.approvals, /\{detail\.request\.sourceType\} · \{detail\.request\.sourceId\}/);
+  assert.doesNotMatch(sources.runtime, /\{item\.actionId\}.*\{item\.decisionStatus\}/);
+  assert.doesNotMatch(sources.runtime, /aria-label=\{`\$\{item\.actionId\}审批原因`\}/);
+  assert.match(sources.runtime, /aria-label=\{`\$\{propertyLabels\.approvalAction\(item\.actionId\)\}审批原因`\}/);
+  assert.doesNotMatch(sources.controlPlane, /\?\? (?:action|eventType);/);
 });

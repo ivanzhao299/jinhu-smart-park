@@ -28,6 +28,7 @@ import {
   propertyTaskTargetAllowed
 } from "./property-runtime-slots.logic";
 import { safePropertyDeepLink } from "./property-control-plane.logic";
+import { propertyLabels } from "../../features/property-shared";
 
 export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTypes }: {
   approvalSourceTypes: readonly string[];
@@ -296,7 +297,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
         className={`${styles.taskRecord} ${item.taskId === target.taskId ? styles.focusedRecord : ""}`}
         key={item.taskId} ref={item.taskId === target.taskId ? focusedTarget : undefined}
         tabIndex={item.taskId === target.taskId ? -1 : undefined}>
-        <p><strong>{item.title}</strong> · {item.assignmentStatus} · v{item.assignmentVersion}</p>
+        <p><strong>{item.title}</strong> · {propertyLabels.taskStatus(item.assignmentStatus)} · v{item.assignmentVersion}</p>
         <p>{item.assigneeDisplay ?? "未分派"} · 优先级 {item.priority}</p>
         {item.taskId === target.taskId && focusedTaskDeepLink
           ? <Link href={focusedTaskDeepLink}>查看领域详情</Link>
@@ -325,7 +326,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
         className={`${styles.taskRecord} ${item.requestId === target.requestId ? styles.focusedRecord : ""}`}
         key={item.requestId} ref={item.requestId === target.requestId ? focusedTarget : undefined}
         tabIndex={item.requestId === target.requestId ? -1 : undefined}>
-        <p><strong>{item.actionId}</strong> · {item.decisionStatus} / {item.executionStatus}</p>
+        <p><strong>{propertyLabels.approvalAction(item.actionId)}</strong> · {propertyLabels.decisionStatus(item.decisionStatus)} / {propertyLabels.executionStatus(item.executionStatus)}</p>
         {item.requestId === target.requestId
           ? <Link href={propertyRuntimeDetailHref(
               `/property/approvals/${encodeURIComponent(item.requestId)}`,
@@ -334,7 +335,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
             ) as Route}>查看审批详情</Link>
           : null}
         {item.allowedActions.length ? <label>审批原因
-          <input aria-label={`${item.actionId}审批原因`} maxLength={1000}
+          <input aria-label={`${propertyLabels.approvalAction(item.actionId)}审批原因`} maxLength={1000}
             onChange={(event) => setApprovalReasons((current) => ({
               ...current, [item.requestId]: event.target.value
             }))} value={approvalReasons[item.requestId] ?? ""} />
