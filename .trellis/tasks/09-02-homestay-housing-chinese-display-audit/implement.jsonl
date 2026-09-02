@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web route, rendering, shared helper, responsive verification rules"}
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API projection and cross-layer contract rules"}
+{"file": ".trellis/spec/shared/frontend/index.md", "reason": "Shared contract and frontend reuse boundaries"}
