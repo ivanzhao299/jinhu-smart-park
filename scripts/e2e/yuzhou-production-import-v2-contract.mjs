@@ -195,6 +195,69 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
 const reseal = plan => { plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan); return plan; };
 const findRecord = (plan, table) => plan.phases.flatMap(phase => phase.records).find(record => record.plannedTargetTable === table);
 
+test("an optional T5 nonfile binding is sealed into the same production authorization without exposing payload values", () => {
+  const { plan } = v2Fixture();
+  plan.t5Nonfile = {
+    privateStageSha256: H("t5-private-stage"), sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: H("t5-restore"), sourceBusinessSha256: H("t5-business"),
+    recordCount: 7752, actorId: uuid(99),
+  };
+  plan.authorization.binding.t5NonfilePrivateStageSha256 = plan.t5Nonfile.privateStageSha256;
+  plan.rollback.order = ["T5", "T3", "T2", "T1", "T0"];
+  reseal(plan);
+  assert.deepEqual(validateSealedProductionImportPlan(plan, { now: NOW }).t5Nonfile, plan.t5Nonfile);
+  const unbound = structuredClone(plan);
+  delete unbound.authorization.binding.t5NonfilePrivateStageSha256;
+  reseal(unbound);
+  assert.throws(() => validateSealedProductionImportPlan(unbound, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+  const drift = structuredClone(plan);
+  drift.t5Nonfile.sourceSnapshotSha256 = H("other-source");
+  reseal(drift);
+  assert.throws(() => validateSealedProductionImportPlan(drift, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID");
+});
+
+test("a sealed T5 private stage joins the T0-T3 transaction only after its exact hash binding is verified", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const employeeSource = H("t5-employee");
+  const t5Source = H("t5-skill");
+  const stage = {
+    formatVersion: 1, artifactKind: "yuzhou_hr_production_import_t5_nonfile_private_payload_stage", phase: "T5",
+    triple: structuredClone(plan.triple), sourceSnapshotHash: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: H("t5-restore"), sourceBusinessSha256: H("t5-business"), productionImport: "HOLD",
+    records: [{
+      sourceSystem: "yuzhou-v10", sourceTable: "dbo.knowhow", sourcePkCanonical: `sha256:${t5Source}`,
+      sourceIdentitySha256: t5Source, sourceRowSha256: H("t5-row"), targetTable: "hr_employee_skill", dependencyMode: "employee",
+      dependencyRefs: [{ role: "employee", phase: "T0", expectedTargetTable: "hr_employee", sourceIdentitySha256: employeeSource }],
+      disposition: "insert", payload: { skill_name: "synthetic", proficiency: null, legacy_grade: null, note: null, legacy_source_identity_sha256: t5Source, legacy_source_row_sha256: H("t5-row") },
+    }],
+  };
+  plan.t5Nonfile = {
+    privateStageSha256: computeProductionImportPayloadHash(stage), sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: stage.sourceRestoreReceiptSha256, sourceBusinessSha256: stage.sourceBusinessSha256,
+    recordCount: stage.records.length, actorId: uuid(98),
+  };
+  plan.authorization.binding.t5NonfilePrivateStageSha256 = plan.t5Nonfile.privateStageSha256;
+  plan.rollback.order = ["T5", "T3", "T2", "T1", "T0"];
+  reseal(plan);
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.includes("resolve-employees")) return { rows: [{ source_identity_sha256: employeeSource, employee_id: uuid(97) }] };
+    if (sql.includes("hr-prod-t5:create-batch")) return { rows: [{ id: uuid(96) }] };
+    if (sql.includes("hr-prod-t5:insert:hr_employee_skill")) return { rows: [{ id: uuid(95), legacy_source_identity_sha256: t5Source }] };
+    if (sql.includes("hr-prod-t5:insert-maps")) return { rows: [{ source_identity_sha256: t5Source }] };
+    if (sql.includes("hr-prod-t5:finish-batch")) return { rows: [{ id: uuid(96) }] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  const result = await executeSealedProductionImport(plan, { ...executionOptions(plan, payloadBundles, database), t5NonfilePrivateStage: stage });
+  assert.deepEqual(result.phases, ["T0", "T1", "T2", "T3", "T5"]);
+  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t5"]);
+  assert.equal(database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_phase")).length, 5);
+  assert.ok(database.calls.some(call => call.sql?.includes("hr-prod-t5:create-batch")));
+  assert.ok(database.calls.some(call => call.sql?.includes("hr_yuzhou_production_import_projection_receipt")));
+  const controlInsert = database.calls.find(call => call.sql?.includes("owner_source_identity_sha256") && call.parameters?.[0] && JSON.parse(call.parameters[0])[0]?.phase === "T5");
+  assert.ok(controlInsert);
+  assert.equal(JSON.parse(controlInsert.parameters[0])[0].phase, "T5");
+});
+
 test("v2 repository contract is HOLD with an empty production target allowlist", () => {
   assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.formatVersion, 2);
   assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.status, "HOLD");
@@ -213,6 +276,8 @@ test("v2 repository contract is HOLD with an empty production target allowlist",
   const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-preflight/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2(?:\s|$)/u);
+  assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-private-stage/u);
+  assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-binding-request/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2:pg/u);
   assert.match(ci, /jinhu_hr_migration_lab_ci_\$\{GITHUB_RUN_ID\}/u);
   for (const path of [".github/workflows/deploy-production.yml", "scripts/prod-deploy.sh", "scripts/db-seed-prod.sh", "scripts/hr-cutover/full-domain-lifecycle.sh"]) {
@@ -357,7 +422,7 @@ test("activated simulation consumes v2 scope and writes payload/dependency recei
   const database = mockDatabase();
   const result = await executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database));
   assert.equal(result.status, "succeeded");
-  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t3"]);
+  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t5"]);
   const consume = database.calls.find(call => call.sql?.includes("hr_yuzhou_consume_import_authorization_v2"));
   assert(consume);
   assert.deepEqual(consume.parameters.slice(6, 9), [plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256]);
@@ -405,7 +470,7 @@ test("consumed import authorization survives an independently recorded business 
   const options = executionOptions(plan, payloadBundles, database);
   options.phaseWriters.T1 = async () => { throw new Error("simulated business failure"); };
   await assert.rejects(executeSealedProductionImport(plan, options), /simulated business failure/u);
-  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t3", "record_import_failure"]);
+  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t5", "record_import_failure"]);
   const consumeIndex = database.calls.findIndex(call => call.sql?.includes("consume_import_authorization_v2"));
   const failureIndex = database.calls.findIndex(call => call.sql?.includes("failure_code"));
   assert(consumeIndex >= 0 && failureIndex > consumeIndex);
@@ -472,4 +537,44 @@ test("rollback remains independently authorized and scope bound", async () => {
     targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database: untouchedDatabase, rollbackPhase: async () => [], verifyBusinessResiduals: async () => ({}),
   }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
   assert.equal(untouchedDatabase.calls.length, 0);
+});
+
+test("a T5-bound plan rolls T5 back before the core phases and accounts for its owned batch", async () => {
+  const { plan } = v2Fixture();
+  plan.t5Nonfile = {
+    privateStageSha256: H("t5-private-stage"), sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: H("t5-restore"), sourceBusinessSha256: H("t5-business"), recordCount: 1, actorId: uuid(94),
+  };
+  plan.authorization.binding.t5NonfilePrivateStageSha256 = plan.t5Nonfile.privateStageSha256;
+  plan.rollback.order = ["T5", "T3", "T2", "T1", "T0"];
+  reseal(plan);
+  const t5BatchId = uuid(93);
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.startsWith("SELECT status")) return { rows: [{ status: "succeeded", sealed_plan_sha256: plan.sealing.sealedPlanSha256 }] };
+    if (sql.includes("lock-rollback-batch")) return { rows: [{ id: t5BatchId }] };
+    if (sql.includes("rollback-map-counts")) return { rows: [] };
+    if (sql.includes("rollback-deactivate-maps")) return { rows: [] };
+    if (sql.includes("rollback-residual")) return { rows: [{ count: 0 }] };
+    if (sql.includes("rollback-finish-batch")) return { rows: [{ id: t5BatchId }] };
+    if (sql.includes("WHERE operation_id=$1 AND phase='T5' AND rollback_status='not_started'")) return { rows: [{ source_identity_sha256: H("t5-source") }] };
+    if (sql.includes("AS not_started_count")) return { rows: [{ not_started_count: 0, rolled_back_phase_count: 5, phase_count: 5, active_map_count: 0, succeeded_batch_count: 4, batch_count: 5 }] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  const authorization = {
+    formatVersion: 1, artifactKind: "yuzhou_hr_production_import_rollback_authorization", intent: "production_import_rollback",
+    rollbackOperationId: "yzprod-rollback-20260829T020000Z-abcdef123456", importOperationId: plan.operationId,
+    sealedPlanSha256: plan.sealing.sealedPlanSha256, targetIdentitySha256: plan.target.identitySha256,
+    authorizationArtifactSha256: H("rollback-t5-authorization"), authorizationNonceSha256: H("rollback-t5-nonce"),
+    issuedAt: "2026-08-29T00:30:00.000Z", expiresAt: "2026-08-29T01:30:00.000Z", productionImport: "HOLD",
+  };
+  const result = await rollbackSealedProductionImport(plan, authorization, {
+    contract: activatedContract(plan), now: NOW, currentCodeSha: plan.triple.codeSha, mergedCodeSha: plan.triple.codeSha,
+    targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database,
+    rollbackPhase: async ({ records }) => records.map(record => ({ sourceIdentitySha256: record.sourceIdentitySha256, rollbackStatus: "deleted_insert" })),
+    verifyBusinessResiduals: async ({ operationId, targetScope }) => ({ operationId, targetScopeSha256: targetScope.scopeSha256, residualCount: 0, evidenceSha256: H("business-residual-t5") }),
+  });
+  assert.equal(result.residualCount, 0);
+  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_rollback_authorization", "rollback_t5_t0"]);
+  assert.equal(database.calls.filter(call => call.sql?.includes("SET status='rolling_back'")).at(0).parameters.length, 1);
+  assert.ok(database.calls.some(call => call.sql?.includes("hr-prod-t5:rollback-finish-batch")));
 });

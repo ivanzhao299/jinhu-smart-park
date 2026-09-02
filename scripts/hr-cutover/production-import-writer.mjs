@@ -3,12 +3,15 @@ import {
   ProductionImportExecutionError,
   assertProductionImportExecutionActivated,
   computeProductionImportApprovalSetHash,
+  computeProductionImportPayloadHash,
   computeProductionImportPayloadBundleHash,
   productionImportHash,
   validateProductionImportPayloadBundle,
   validateProductionImportRollbackAuthorization,
   validateSealedProductionImportPlan,
 } from "./production-import-sealed-plan-lib.mjs";
+import { writeT5NonfilePrivateStage } from "./production-import-t5-nonfile-writer.mjs";
+import { rollbackT5NonfilePrivateStage } from "./production-import-t5-nonfile-rollback.mjs";
 
 const fail = (code, detail) => { throw new ProductionImportExecutionError(code, detail); };
 const asBuffer = (value, label) => {
@@ -135,6 +138,54 @@ async function recordControlRows(tx, operationId, phase, result) {
   );
 }
 
+function bindT5NonfilePrivateStage(plan, privateStage) {
+  if (!plan.t5Nonfile) return null;
+  if (!privateStage || typeof privateStage !== "object" || Array.isArray(privateStage)) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_REQUIRED", "sealed T5 binding requires its private stage");
+  if (computeProductionImportPayloadHash(privateStage) !== plan.t5Nonfile.privateStageSha256) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_HASH_MISMATCH", "private stage hash differs from sealed authorization");
+  if (privateStage.phase !== "T5" || privateStage.sourceSnapshotHash !== plan.triple.sourceSnapshotHash || privateStage.sourceSnapshotHash !== plan.t5Nonfile.sourceSnapshotSha256 || privateStage.sourceRestoreReceiptSha256 !== plan.t5Nonfile.sourceRestoreReceiptSha256 || privateStage.sourceBusinessSha256 !== plan.t5Nonfile.sourceBusinessSha256 || !Array.isArray(privateStage.records) || privateStage.records.length !== plan.t5Nonfile.recordCount) {
+    fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_BINDING_MISMATCH", "private stage metadata differs from the sealed plan");
+  }
+  return structuredClone(privateStage);
+}
+
+const t5BeforeCanonicalSha256 = (targetScope, privateStageSha256) => productionImportHash(Buffer.from(`yuzhou-hr-production-t5-insert-only-before-v1\0${targetScope.scopeSha256}\0${privateStageSha256}`));
+
+async function recordT5ControlRows(tx, operationId, privateStage, result) {
+  const bySource = new Map(result.records.map(record => [record.sourceIdentitySha256, record]));
+  if (bySource.size !== privateStage.records.length) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 result/source count differs");
+  const controls = [];
+  const dependencies = [];
+  for (const staged of privateStage.records) {
+    const written = bySource.get(staged.sourceIdentitySha256);
+    if (!written || written.disposition !== staged.disposition || written.targetTable !== staged.targetTable) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 result is not bound to its private stage");
+    const inserted = staged.disposition === "insert";
+    if (inserted && (!written.targetId || !written.businessIdentitySha256 || !written.targetAfterSha256 || written.targetVersionAfter !== 1)) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 insert receipt incomplete");
+    if (!inserted && (!written.decisionAttestationSha256 || written.targetId !== undefined)) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 quarantine receipt incomplete");
+    controls.push({
+      operation_id: operationId, phase: "T5", source_system: staged.sourceSystem, source_table: staged.sourceTable,
+      source_pk_canonical: staged.sourcePkCanonical, source_identity_sha256: staged.sourceIdentitySha256,
+      source_row_sha256: staged.sourceRowSha256, owner_source_identity_sha256: staged.dependencyRefs[0]?.sourceIdentitySha256 ?? null,
+      disposition: staged.disposition, planned_target_table: staged.targetTable, target_table: inserted ? staged.targetTable : null,
+      target_id: inserted ? written.targetId : null, business_identity_sha256: inserted ? written.businessIdentitySha256 : null,
+      target_after_sha256: inserted ? written.targetAfterSha256 : null, target_version_after: inserted ? 1 : null,
+      decision_attestation_sha256: inserted ? null : written.decisionAttestationSha256,
+    });
+    for (const dependency of staged.dependencyRefs) dependencies.push({ operation_id: operationId, phase: "T5", source_identity_sha256: staged.sourceIdentitySha256, dependency_role: dependency.role, depends_on_phase: dependency.phase, depends_on_source_identity_sha256: dependency.sourceIdentitySha256, expected_target_table: dependency.expectedTargetTable });
+  }
+  for (const batch of batches(controls)) await tx.query(
+    `INSERT INTO hr_yuzhou_production_import_record(operation_id,phase,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,owner_source_identity_sha256,disposition,planned_target_table,target_table,target_id,business_identity_sha256,expected_target_before_sha256,target_after_sha256,expected_target_version_before,target_version_after,decision_attestation_sha256)
+     SELECT x.operation_id,x.phase,x.source_system,x.source_table,x.source_pk_canonical,x.source_identity_sha256,x.source_row_sha256,x.owner_source_identity_sha256,x.disposition,x.planned_target_table,x.target_table,x.target_id,x.business_identity_sha256,NULL,x.target_after_sha256,NULL,x.target_version_after,x.decision_attestation_sha256
+     FROM jsonb_to_recordset($1::jsonb) AS x(operation_id varchar,phase varchar,source_system varchar,source_table varchar,source_pk_canonical varchar,source_identity_sha256 char(64),source_row_sha256 char(64),owner_source_identity_sha256 char(64),disposition varchar,planned_target_table varchar,target_table varchar,target_id uuid,business_identity_sha256 char(64),target_after_sha256 char(64),target_version_after bigint,decision_attestation_sha256 char(64))`,
+    [JSON.stringify(batch)],
+  );
+  for (const batch of batches(dependencies)) await tx.query(
+    `INSERT INTO hr_yuzhou_production_import_record_dependency(operation_id,phase,source_identity_sha256,dependency_role,depends_on_phase,depends_on_source_identity_sha256,expected_target_table)
+     SELECT x.operation_id,x.phase,x.source_identity_sha256,x.dependency_role,x.depends_on_phase,x.depends_on_source_identity_sha256,x.expected_target_table
+     FROM jsonb_to_recordset($1::jsonb) AS x(operation_id varchar,phase varchar,source_identity_sha256 char(64),dependency_role varchar,depends_on_phase varchar,depends_on_source_identity_sha256 char(64),expected_target_table varchar)`,
+    [JSON.stringify(batch)],
+  );
+}
+
 export async function executeSealedProductionImport(planInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
@@ -146,6 +197,7 @@ export async function executeSealedProductionImport(planInput, options) {
   for (const phase of plan.phaseOrder) if (typeof options.phaseWriters?.[phase] !== "function") fail("PRODUCTION_IMPORT_PHASE_WRITER_REQUIRED", phase);
   const payloadBundles = new Map();
   for (const phase of plan.phases) payloadBundles.set(phase.phase, validatePhasePayloadBundle(phase, plan.targetScope, options.payloadBundles?.[phase.phase]));
+  const t5PrivateStage = bindT5NonfilePrivateStage(plan, options.t5NonfilePrivateStage);
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query(
@@ -161,7 +213,7 @@ export async function executeSealedProductionImport(planInput, options) {
     );
   });
   try {
-    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "apply_t0_t3" }, async tx => {
+    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "apply_t0_t5" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query("SELECT hr_yuzhou_start_production_import($1,$2)", [plan.operationId, plan.sealing.sealedPlanSha256]);
     for (const phase of plan.phases) {
@@ -186,13 +238,37 @@ export async function executeSealedProductionImport(planInput, options) {
         `${phase.phase} operation progress`,
       );
     }
+    if (t5PrivateStage) {
+      const beforeCanonicalSha256 = t5BeforeCanonicalSha256(plan.targetScope, plan.t5Nonfile.privateStageSha256);
+      await tx.query(
+        `INSERT INTO hr_yuzhou_production_import_phase(operation_id,phase,phase_ordinal,status,source_batch_manifest_sha256,payload_bundle_artifact_sha256,payload_bundle_sha256,canonicalization_version,planned_record_count,before_canonical_sha256,started_at)
+         VALUES($1,'T5',4,'running',$2,$2,$2,$3,$4,$5,now())`,
+        [plan.operationId, plan.t5Nonfile.privateStageSha256, "yuzhou-production-import-canonical-json-v1", t5PrivateStage.records.length, beforeCanonicalSha256],
+      );
+      await expectSingleStateTransition(
+        tx,
+        "UPDATE hr_yuzhou_production_import_operation SET current_phase='T5' WHERE operation_id=$1 AND status='running' RETURNING operation_id,current_phase",
+        [plan.operationId],
+        "T5 operation progress",
+      );
+      const result = await writeT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope), actorId: plan.t5Nonfile.actorId, privateStage: t5PrivateStage });
+      if (result.phase !== "T5" || result.counts?.source !== t5PrivateStage.records.length || !/^[0-9a-f]{64}$/u.test(result.afterCanonicalSha256 ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 writer result invalid");
+      await recordT5ControlRows(tx, plan.operationId, t5PrivateStage, result);
+      await expectSingleStateTransition(tx,
+        `UPDATE hr_yuzhou_production_import_phase SET status='succeeded',applied_record_count=$3,after_canonical_sha256=$4,finished_at=now()
+         WHERE operation_id=$1 AND phase='T5' AND status='running'
+         RETURNING phase,status`,
+        [plan.operationId, "T5", t5PrivateStage.records.length, result.afterCanonicalSha256],
+        "T5 succeeded",
+      );
+    }
     await expectSingleStateTransition(
       tx,
       "UPDATE hr_yuzhou_production_import_operation SET status='succeeded',finished_at=now() WHERE operation_id=$1 AND status='running' RETURNING operation_id,status",
       [plan.operationId],
       "operation succeeded",
     );
-    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder], sealedPlanSha256: plan.sealing.sealedPlanSha256 };
+    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder, ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256 };
   });
   } catch (error) {
     const failureCode = error instanceof ProductionImportExecutionError ? error.code : "PRODUCTION_IMPORT_BUSINESS_TRANSACTION_FAILED";
@@ -223,7 +299,7 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
     );
   });
   try {
-    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "rollback_t3_t0" }, async tx => {
+    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: plan.t5Nonfile ? "rollback_t5_t0" : "rollback_t3_t0" }, async tx => {
     const operation = await tx.query("SELECT status,sealed_plan_sha256 FROM hr_yuzhou_production_import_operation WHERE operation_id=$1 FOR UPDATE", [plan.operationId]);
     if (operation?.rows?.length !== 1 || operation.rows[0].status !== "succeeded" || operation.rows[0].sealed_plan_sha256 !== plan.sealing.sealedPlanSha256) fail("PRODUCTION_IMPORT_ROLLBACK_STATE_INVALID", "operation is not the exact succeeded plan");
     await expectSingleStateTransition(
@@ -232,6 +308,30 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       [rollbackAuthorization.rollbackOperationId],
       "rollback running",
     );
+    if (plan.t5Nonfile) {
+      await expectSingleStateTransition(
+        tx,
+        "UPDATE hr_yuzhou_production_import_phase SET status='rolling_back',finished_at=NULL WHERE operation_id=$1 AND phase='T5' AND status='succeeded' RETURNING phase,status",
+        [plan.operationId],
+        "T5 rolling back",
+      );
+      const t5Result = await rollbackT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope) });
+      if (t5Result.phase !== "T5" || t5Result.status !== "rolled_back" || t5Result.residualCount !== 0) fail("PRODUCTION_IMPORT_ROLLBACK_RESULT_INVALID", "T5 result invalid");
+      const t5Records = await tx.query(
+        `UPDATE hr_yuzhou_production_import_record
+         SET rollback_status=CASE disposition WHEN 'insert' THEN 'deleted_insert' WHEN 'quarantine' THEN 'quarantine_noop' ELSE rollback_status END,
+             rolled_back_at=now()
+         WHERE operation_id=$1 AND phase='T5' AND rollback_status='not_started'
+         RETURNING source_identity_sha256`,
+        [plan.operationId],
+      );
+      if (!t5Records || !Array.isArray(t5Records.rows) || t5Records.rows.length !== plan.t5Nonfile.recordCount) fail("PRODUCTION_IMPORT_ROLLBACK_RESULT_INVALID", "T5 control receipt count differs");
+      await expectSingleStateTransition(tx,
+        "UPDATE hr_yuzhou_production_import_phase SET status='rolled_back',rollback_canonical_sha256=before_canonical_sha256,finished_at=now() WHERE operation_id=$1 AND phase='T5' AND status='rolling_back' RETURNING phase,status",
+        [plan.operationId],
+        "T5 rolled back",
+      );
+    }
     for (const phaseName of contract.rollbackOrder) {
       const phase = plan.phases.find(candidate => candidate.phase === phaseName);
       await expectSingleStateTransition(
@@ -291,7 +391,9 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       [plan.operationId],
     );
     const control = controlResidual?.rows?.[0];
-    if (!control || control.not_started_count !== 0 || control.rolled_back_phase_count !== 4 || control.phase_count !== 4 || control.active_map_count !== 0 || control.succeeded_batch_count !== 4 || control.batch_count !== 4) {
+    const expectedPhaseCount = plan.t5Nonfile ? 5 : 4;
+    const expectedBatchCount = plan.t5Nonfile ? 5 : 4;
+    if (!control || control.not_started_count !== 0 || control.rolled_back_phase_count !== expectedPhaseCount || control.phase_count !== expectedPhaseCount || control.active_map_count !== 0 || control.succeeded_batch_count !== 4 || control.batch_count !== expectedBatchCount) {
       fail("PRODUCTION_IMPORT_ROLLBACK_RESIDUAL", "control, phase, projection-map, or migration-batch residual differs");
     }
     const businessResidual = await options.verifyBusinessResiduals({

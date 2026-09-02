@@ -6,9 +6,11 @@ const PRODUCTION_IMPORT_BUSINESS_TIME_ZONE = "Asia/Shanghai";
 const ALLOWED_PURPOSES = new Set([
   "consume_import_authorization",
   "apply_t0_t3",
+  "apply_t0_t5",
   "record_import_failure",
   "consume_rollback_authorization",
   "rollback_t3_t0",
+  "rollback_t5_t0",
   "record_rollback_failure",
 ]);
 const transactionContext = new AsyncLocalStorage();

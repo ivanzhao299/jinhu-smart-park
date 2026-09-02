@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "modelKind": "yuzhou_hr_production_import_t5_nonfile_target_model",
+  "modelVersion": "2026-09-02.1",
+  "phase": "T5",
+  "sourceBoundary": "nonfile_employee_profile_family_skill_credential_only",
+  "filesExcluded": ["photo", "docs"],
+  "sourceSystem": "yuzhou-v10",
+  "targetTables": {
+    "hr_employee_profile": {
+      "sourceTable": "dbo.person.core_residue",
+      "dependency": "employee",
+      "recordKind": "profile",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["legacy_source_identity_sha256", "legacy_source_row_sha256"]
+    },
+    "hr_employee_family": {
+      "sourceTable": "dbo.family",
+      "dependency": "employee",
+      "recordKind": "family",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["legacy_source_identity_sha256", "legacy_source_row_sha256"]
+    },
+    "hr_employee_skill": {
+      "sourceTable": "dbo.knowhow",
+      "dependency": "employee",
+      "recordKind": "skill",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["legacy_source_identity_sha256", "legacy_source_row_sha256"]
+    },
+    "hr_employee_credential": {
+      "sourceTable": "dbo.ticket",
+      "dependency": "employee",
+      "recordKind": "credential",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["legacy_source_identity_sha256", "legacy_source_row_sha256"]
+    }
+  },
+  "productionImport": "HOLD"
+}

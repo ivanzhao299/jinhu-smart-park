@@ -212,12 +212,14 @@ test("adapter purpose allowlist covers exactly every transaction requested by th
   const purposes = [...writer.matchAll(/database\.transaction\(\{ isolationLevel: "SERIALIZABLE", purpose: "([a-z0-9_]+)"/gu)].map(match => match[1]);
   assert.deepEqual(purposes, [
     "consume_import_authorization",
-    "apply_t0_t3",
+    "apply_t0_t5",
     "record_import_failure",
     "consume_rollback_authorization",
-    "rollback_t3_t0",
     "record_rollback_failure",
   ]);
+  assert.match(writer, /purpose: plan\.t5Nonfile \? "rollback_t5_t0" : "rollback_t3_t0"/u);
+  const adapter = readFileSync(fileURLToPath(new URL("../hr-cutover/production-import-postgres-adapter.mjs", import.meta.url)), "utf8");
+  assert.match(adapter, /"rollback_t3_t0",[\s\S]*"rollback_t5_t0"/u);
 });
 
 test("close fails while a read-only probe owns the connection", async () => {
