@@ -38,16 +38,18 @@ async function lockedBatch(tx, operationId) {
 async function mappedCounts(tx, batchId) {
   const result = rows(await tx.query(
     `/* hr-prod-t5:rollback-map-counts */
-     SELECT target_table,count(*)::integer AS count
+     SELECT target_table,mapping_status,count(*)::integer AS count
      FROM legacy_record_map
      WHERE batch_id=$1::uuid AND is_active=true AND target_table=ANY($2::text[])
-     GROUP BY target_table`,
+       AND mapping_status IN ('loaded','verified','quarantined')
+     GROUP BY target_table,mapping_status`,
     [batchId, TABLES],
   ), "T5 map counts");
-  const counts = Object.fromEntries(TABLES.map(table => [table, 0]));
+  const counts = Object.fromEntries(TABLES.map(table => [table, { loaded: 0, quarantined: 0 }]));
   for (const row of result) {
-    if (!TABLES.includes(row.target_table) || !Number.isSafeInteger(Number(row.count)) || Number(row.count) < 0) fail("PRODUCTION_IMPORT_T5_NONFILE_ROLLBACK_DATABASE_RESULT_INVALID", "invalid mapped count");
-    counts[row.target_table] = Number(row.count);
+    if (!TABLES.includes(row.target_table) || !["loaded", "verified", "quarantined"].includes(row.mapping_status) || !Number.isSafeInteger(Number(row.count)) || Number(row.count) < 0) fail("PRODUCTION_IMPORT_T5_NONFILE_ROLLBACK_DATABASE_RESULT_INVALID", "invalid mapped count");
+    if (row.mapping_status === "quarantined") counts[row.target_table].quarantined += Number(row.count);
+    else counts[row.target_table].loaded += Number(row.count);
   }
   return counts;
 }
@@ -75,7 +77,7 @@ export async function rollbackT5NonfilePrivateStage(input) {
   validateInput(input);
   const batchId = await lockedBatch(input.tx, input.operationId);
   const counts = await mappedCounts(input.tx, batchId);
-  for (const table of TABLES) await deleteTable(input.tx, batchId, input.targetScope, table, counts[table]);
+  for (const table of TABLES) await deleteTable(input.tx, batchId, input.targetScope, table, counts[table].loaded);
   const mapResult = rows(await input.tx.query(
     `/* hr-prod-t5:rollback-deactivate-maps */
      UPDATE legacy_record_map SET mapping_status='rolled_back',is_active=false,update_time=now()
@@ -83,7 +85,7 @@ export async function rollbackT5NonfilePrivateStage(input) {
      RETURNING id::text`,
     [batchId, TABLES],
   ), "deactivate T5 maps");
-  const expected = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const expected = Object.values(counts).reduce((sum, value) => sum + value.loaded + value.quarantined, 0);
   if (mapResult.length !== expected) fail("PRODUCTION_IMPORT_T5_NONFILE_ROLLBACK_RESIDUAL", "mapped row count differs");
   const residual = rows(await input.tx.query(
     `/* hr-prod-t5:rollback-residual */

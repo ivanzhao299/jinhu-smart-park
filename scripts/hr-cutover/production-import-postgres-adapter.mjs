@@ -10,6 +10,7 @@ const ALLOWED_PURPOSES = new Set([
   "record_import_failure",
   "consume_rollback_authorization",
   "rollback_t3_t0",
+  "rollback_t5_t0",
   "record_rollback_failure",
 ]);
 const transactionContext = new AsyncLocalStorage();

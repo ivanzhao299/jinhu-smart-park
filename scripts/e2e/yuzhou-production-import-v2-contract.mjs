@@ -536,3 +536,43 @@ test("rollback remains independently authorized and scope bound", async () => {
   }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
   assert.equal(untouchedDatabase.calls.length, 0);
 });
+
+test("a T5-bound plan rolls T5 back before the core phases and accounts for its owned batch", async () => {
+  const { plan } = v2Fixture();
+  plan.t5Nonfile = {
+    privateStageSha256: H("t5-private-stage"), sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: H("t5-restore"), sourceBusinessSha256: H("t5-business"), recordCount: 1, actorId: uuid(94),
+  };
+  plan.authorization.binding.t5NonfilePrivateStageSha256 = plan.t5Nonfile.privateStageSha256;
+  plan.rollback.order = ["T5", "T3", "T2", "T1", "T0"];
+  reseal(plan);
+  const t5BatchId = uuid(93);
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.startsWith("SELECT status")) return { rows: [{ status: "succeeded", sealed_plan_sha256: plan.sealing.sealedPlanSha256 }] };
+    if (sql.includes("lock-rollback-batch")) return { rows: [{ id: t5BatchId }] };
+    if (sql.includes("rollback-map-counts")) return { rows: [] };
+    if (sql.includes("rollback-deactivate-maps")) return { rows: [] };
+    if (sql.includes("rollback-residual")) return { rows: [{ count: 0 }] };
+    if (sql.includes("rollback-finish-batch")) return { rows: [{ id: t5BatchId }] };
+    if (sql.includes("WHERE operation_id=$1 AND phase='T5' AND rollback_status='not_started'")) return { rows: [{ source_identity_sha256: H("t5-source") }] };
+    if (sql.includes("AS not_started_count")) return { rows: [{ not_started_count: 0, rolled_back_phase_count: 5, phase_count: 5, active_map_count: 0, succeeded_batch_count: 4, batch_count: 5 }] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  const authorization = {
+    formatVersion: 1, artifactKind: "yuzhou_hr_production_import_rollback_authorization", intent: "production_import_rollback",
+    rollbackOperationId: "yzprod-rollback-20260829T020000Z-abcdef123456", importOperationId: plan.operationId,
+    sealedPlanSha256: plan.sealing.sealedPlanSha256, targetIdentitySha256: plan.target.identitySha256,
+    authorizationArtifactSha256: H("rollback-t5-authorization"), authorizationNonceSha256: H("rollback-t5-nonce"),
+    issuedAt: "2026-08-29T00:30:00.000Z", expiresAt: "2026-08-29T01:30:00.000Z", productionImport: "HOLD",
+  };
+  const result = await rollbackSealedProductionImport(plan, authorization, {
+    contract: activatedContract(plan), now: NOW, currentCodeSha: plan.triple.codeSha, mergedCodeSha: plan.triple.codeSha,
+    targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database,
+    rollbackPhase: async ({ records }) => records.map(record => ({ sourceIdentitySha256: record.sourceIdentitySha256, rollbackStatus: "deleted_insert" })),
+    verifyBusinessResiduals: async ({ operationId, targetScope }) => ({ operationId, targetScopeSha256: targetScope.scopeSha256, residualCount: 0, evidenceSha256: H("business-residual-t5") }),
+  });
+  assert.equal(result.residualCount, 0);
+  assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_rollback_authorization", "rollback_t5_t0"]);
+  assert.equal(database.calls.filter(call => call.sql?.includes("SET status='rolling_back'")).at(0).parameters.length, 1);
+  assert.ok(database.calls.some(call => call.sql?.includes("hr-prod-t5:rollback-finish-batch")));
+});

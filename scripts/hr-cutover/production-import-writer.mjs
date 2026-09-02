@@ -11,6 +11,7 @@ import {
   validateSealedProductionImportPlan,
 } from "./production-import-sealed-plan-lib.mjs";
 import { writeT5NonfilePrivateStage } from "./production-import-t5-nonfile-writer.mjs";
+import { rollbackT5NonfilePrivateStage } from "./production-import-t5-nonfile-rollback.mjs";
 
 const fail = (code, detail) => { throw new ProductionImportExecutionError(code, detail); };
 const asBuffer = (value, label) => {
@@ -298,7 +299,7 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
     );
   });
   try {
-    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "rollback_t3_t0" }, async tx => {
+    return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: plan.t5Nonfile ? "rollback_t5_t0" : "rollback_t3_t0" }, async tx => {
     const operation = await tx.query("SELECT status,sealed_plan_sha256 FROM hr_yuzhou_production_import_operation WHERE operation_id=$1 FOR UPDATE", [plan.operationId]);
     if (operation?.rows?.length !== 1 || operation.rows[0].status !== "succeeded" || operation.rows[0].sealed_plan_sha256 !== plan.sealing.sealedPlanSha256) fail("PRODUCTION_IMPORT_ROLLBACK_STATE_INVALID", "operation is not the exact succeeded plan");
     await expectSingleStateTransition(
@@ -307,6 +308,30 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       [rollbackAuthorization.rollbackOperationId],
       "rollback running",
     );
+    if (plan.t5Nonfile) {
+      await expectSingleStateTransition(
+        tx,
+        "UPDATE hr_yuzhou_production_import_phase SET status='rolling_back',finished_at=NULL WHERE operation_id=$1 AND phase='T5' AND status='succeeded' RETURNING phase,status",
+        [plan.operationId],
+        "T5 rolling back",
+      );
+      const t5Result = await rollbackT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope) });
+      if (t5Result.phase !== "T5" || t5Result.status !== "rolled_back" || t5Result.residualCount !== 0) fail("PRODUCTION_IMPORT_ROLLBACK_RESULT_INVALID", "T5 result invalid");
+      const t5Records = await tx.query(
+        `UPDATE hr_yuzhou_production_import_record
+         SET rollback_status=CASE disposition WHEN 'insert' THEN 'deleted_insert' WHEN 'quarantine' THEN 'quarantine_noop' ELSE rollback_status END,
+             rolled_back_at=now()
+         WHERE operation_id=$1 AND phase='T5' AND rollback_status='not_started'
+         RETURNING source_identity_sha256`,
+        [plan.operationId],
+      );
+      if (!t5Records || !Array.isArray(t5Records.rows) || t5Records.rows.length !== plan.t5Nonfile.recordCount) fail("PRODUCTION_IMPORT_ROLLBACK_RESULT_INVALID", "T5 control receipt count differs");
+      await expectSingleStateTransition(tx,
+        "UPDATE hr_yuzhou_production_import_phase SET status='rolled_back',rollback_canonical_sha256=before_canonical_sha256,finished_at=now() WHERE operation_id=$1 AND phase='T5' AND status='rolling_back' RETURNING phase,status",
+        [plan.operationId],
+        "T5 rolled back",
+      );
+    }
     for (const phaseName of contract.rollbackOrder) {
       const phase = plan.phases.find(candidate => candidate.phase === phaseName);
       await expectSingleStateTransition(
@@ -366,7 +391,9 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       [plan.operationId],
     );
     const control = controlResidual?.rows?.[0];
-    if (!control || control.not_started_count !== 0 || control.rolled_back_phase_count !== 4 || control.phase_count !== 4 || control.active_map_count !== 0 || control.succeeded_batch_count !== 4 || control.batch_count !== 4) {
+    const expectedPhaseCount = plan.t5Nonfile ? 5 : 4;
+    const expectedBatchCount = plan.t5Nonfile ? 5 : 4;
+    if (!control || control.not_started_count !== 0 || control.rolled_back_phase_count !== expectedPhaseCount || control.phase_count !== expectedPhaseCount || control.active_map_count !== 0 || control.succeeded_batch_count !== 4 || control.batch_count !== expectedBatchCount) {
       fail("PRODUCTION_IMPORT_ROLLBACK_RESIDUAL", "control, phase, projection-map, or migration-batch residual differs");
     }
     const businessResidual = await options.verifyBusinessResiduals({
