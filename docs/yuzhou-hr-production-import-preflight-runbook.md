@@ -171,7 +171,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 该诊断永远不会执行 release marker、deploy、migration、seed、UAT、writer 或文件导入。即使它得到唯一身份哈希，结果仍为 `HOLD`，因为它只补齐 allowlist 审阅的输入；它不会伪造或取代生产前备份回执、before-image、冲突决策、人工 UAT、一次性导入授权或独立回滚授权。
 
-唯一范围回执只能通过 `prepare-yuzhou-production-target-registration-request.mjs` 变为权限为 `0600` 的私有登记签署输入。该输入只携带回执和目标/范围哈希，明确要求独立 allowlist 审阅，并列出下一步的当前预备份、T0～T3 before-image 和 active record map 快照；它不能修改仓库 allowlist、连接数据库或启动 writer。
+唯一范围回执只能通过 `prepare-yuzhou-production-target-registration-request.mjs` 变为权限为 `0600` 的私有登记签署输入。该输入由机器准备、只携带回执和目标/范围哈希，明确要求独立 allowlist 审阅，并列出下一步的当前预备份、T0～T3 before-image 和 active record map 快照；它不能修改仓库 allowlist、连接数据库或启动 writer。机器准备不代表任何人工签署。
 
 ### 7.2 当前备份恢复证明
 
