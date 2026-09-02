@@ -14,7 +14,7 @@ test("T5 nonfile control migration extends only the explicit production import a
   }
   assert.match(sql, /production_import_phase IN \('T0','T1','T2','T3','T5'\)/);
   for (const table of ["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"]) {
-    assert.match(sql, new RegExp(`WHEN '${table}' THEN v_required := ARRAY\\['employee:hr_employee'\\]`));
+    assert.match(sql, new RegExp(`WHEN '${table}' THEN IF v_record\\.disposition='quarantine' THEN v_optional := ARRAY\\['employee:hr_employee'\\]; ELSE v_required := ARRAY\\['employee:hr_employee'\\]; END IF`));
   }
   assert.doesNotMatch(sql, /hr_payroll|photo|attachment|file_object/i);
   assert.match(sql, /COMMIT;\s*$/);

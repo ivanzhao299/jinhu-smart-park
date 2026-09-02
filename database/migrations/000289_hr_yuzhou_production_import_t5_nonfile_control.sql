@@ -88,10 +88,10 @@ BEGIN
     WHEN 'hr_insurance_policy_item' THEN v_required := ARRAY['policy:hr_insurance_policy'];
     WHEN 'hr_employee_insurance_period' THEN v_required := ARRAY['employee:hr_employee'];
     WHEN 'hr_employee_insurance_item' THEN v_required := ARRAY['period:hr_employee_insurance_period'];
-    WHEN 'hr_employee_profile' THEN v_required := ARRAY['employee:hr_employee'];
-    WHEN 'hr_employee_family' THEN v_required := ARRAY['employee:hr_employee'];
-    WHEN 'hr_employee_skill' THEN v_required := ARRAY['employee:hr_employee'];
-    WHEN 'hr_employee_credential' THEN v_required := ARRAY['employee:hr_employee'];
+    WHEN 'hr_employee_profile' THEN IF v_record.disposition='quarantine' THEN v_optional := ARRAY['employee:hr_employee']; ELSE v_required := ARRAY['employee:hr_employee']; END IF;
+    WHEN 'hr_employee_family' THEN IF v_record.disposition='quarantine' THEN v_optional := ARRAY['employee:hr_employee']; ELSE v_required := ARRAY['employee:hr_employee']; END IF;
+    WHEN 'hr_employee_skill' THEN IF v_record.disposition='quarantine' THEN v_optional := ARRAY['employee:hr_employee']; ELSE v_required := ARRAY['employee:hr_employee']; END IF;
+    WHEN 'hr_employee_credential' THEN IF v_record.disposition='quarantine' THEN v_optional := ARRAY['employee:hr_employee']; ELSE v_required := ARRAY['employee:hr_employee']; END IF;
     ELSE RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_V2_PLANNED_TARGET_INVALID';
   END CASE;
 

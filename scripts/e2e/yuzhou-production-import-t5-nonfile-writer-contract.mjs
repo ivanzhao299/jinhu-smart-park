@@ -34,6 +34,9 @@ test("T5 writer uses the existing T0 source map, audited inserts, and record map
   assert.ok(queries.some(query => query.sql.includes("'prod-import-v2@'||code_sha")));
   assert.ok(queries.some(query => query.sql.includes("create_by,update_by")));
   assert.ok(queries.some(query => query.sql.includes("legacy_record_map")));
+  assert.ok(queries.some(query => query.sql.includes("hr_yuzhou_production_import_projection_receipt")));
+  assert.match(result.afterCanonicalSha256, /^[0-9a-f]{64}$/u);
+  assert.equal(result.records[0].targetVersionAfter, 1);
 });
 
 test("T5 writer rejects a payload that does not exactly match the table allowlist before issuing SQL", async () => {
