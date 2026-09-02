@@ -17,7 +17,8 @@ import {
   runForward,
   runRollback,
   STATES,
-  validateConfig
+  validateConfig,
+  verifyT5ExtractBusinessHash
 } from "../hr-cutover/full-domain-lifecycle.mjs";
 import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-contract.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
@@ -131,6 +132,17 @@ try {
   assert.deepEqual(DOMAIN_ORDER, ["T0", "T1", "T2", "T3", "T4", "T5"]);
   assert.deepEqual(ROLLBACK_ORDER, [...DOMAIN_ORDER].reverse());
   assert.equal(compareIsolation(configA, configB).ok, true);
+  const t5Manifest = {
+    formatVersion: 1,
+    catalogSha256: "a".repeat(64),
+    mappingContractSha256: "b".repeat(64),
+    domains: { sample: { rows: 0, file: "sample.jsonl", fileSha256: "c".repeat(64) } }
+  };
+  const canonicalT5Business = value => Array.isArray(value) ? `[${value.map(canonicalT5Business).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalT5Business(value[key])}`).join(",")}}` : JSON.stringify(value);
+  const t5BusinessHash = createHash("sha256").update(canonicalT5Business(t5Manifest)).digest("hex");
+  t5Manifest.businessSha256 = t5BusinessHash;
+  assert.equal(verifyT5ExtractBusinessHash(t5Manifest, t5BusinessHash), t5BusinessHash, "T5 baseline is verified immediately after extract");
+  expectCode("T5_BASELINE_DRIFT", () => verifyT5ExtractBusinessHash(t5Manifest, "0".repeat(64)));
   const sealedReference = configFor("B", "slice2_reference_b", [45241, 45242, 45243]);
   const sealedRoot = join(sandbox, "sealed-reference");
   mkdirSync(sealedRoot, { recursive: true, mode: 0o700 });

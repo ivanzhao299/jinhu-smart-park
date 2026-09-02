@@ -56,6 +56,7 @@ const FORBIDDEN_TARGET = /prod(?:uction)?|jinhu_smart_park|shared|default/i;
 const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|privatekey|bankaccount|idcard|employeename|fullname|mobile|phone|salaryamount|grosspay|netpay/i;
 const FORBIDDEN_VALUE = /postgres(?:ql)?:\/\/|sqlserver:\/\/|Bearer\s+|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}/i;
 const LOAD_COMMON_ENV = ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_BACKUP_SHA256"];
+const canonical = value => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
 const EXTRACT_MANIFEST_BINDINGS = {
   T0: {
     departments: { file: "departments.jsonl", env: "YUZHOU_DEPARTMENTS_SHA256" },
@@ -417,6 +418,44 @@ export function resolveVerifiedExtractBindings(config, domain) {
     fail("EXTRACT_MANIFEST_BINDING_MISMATCH", `${domain} extract record does not bind this run and C/S/M triple`);
   }
   return facts.env;
+}
+
+// T5 is deliberately kept out of EXTRACT_MANIFEST_BINDINGS because its
+// payload files contain protected legacy material. Its manifest business
+// identity is still safe to verify before any target write takes place.
+export function verifyT5ExtractBusinessHash(manifest, expectedBusinessSha256) {
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)
+    || !SHA256.test(expectedBusinessSha256 ?? "")
+    || !SHA256.test(manifest.businessSha256 ?? "")
+    || !SHA256.test(manifest.catalogSha256 ?? "")
+    || !SHA256.test(manifest.mappingContractSha256 ?? "")
+    || !manifest.domains || typeof manifest.domains !== "object" || Array.isArray(manifest.domains)) {
+    fail("T5_BASELINE_DRIFT", "T5 extract manifest business identity is invalid");
+  }
+  const business = {
+    formatVersion: manifest.formatVersion,
+    catalogSha256: manifest.catalogSha256,
+    mappingContractSha256: manifest.mappingContractSha256,
+    domains: manifest.domains
+  };
+  const actualBusinessSha256 = createHash("sha256").update(canonical(business)).digest("hex");
+  if (manifest.businessSha256 !== actualBusinessSha256 || actualBusinessSha256 !== expectedBusinessSha256) {
+    fail("T5_BASELINE_DRIFT", "T5 extract does not match the selected candidate baseline");
+  }
+  return actualBusinessSha256;
+}
+
+function assertT5ExtractBaseline(config) {
+  if (config.t5Baseline === undefined) return;
+  const directory = stagingDir(config, "T5");
+  const manifestPath = join(directory, "manifest.json");
+  if (!existsSync(manifestPath) || lstatSync(manifestPath).isSymbolicLink() || !statSync(manifestPath).isFile() || mode(manifestPath) !== "0600") {
+    fail("T5_BASELINE_DRIFT", "T5 extract manifest is unavailable for the selected candidate baseline");
+  }
+  let manifest;
+  try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); }
+  catch { fail("T5_BASELINE_DRIFT", "T5 extract manifest is invalid"); }
+  verifyT5ExtractBusinessHash(manifest, config.t5Baseline.businessSha256);
 }
 
 function paths(config) {
@@ -842,6 +881,7 @@ export function runForward(configInput, configPath) {
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "extract");
   validateChildJournal(config, "extract");
+  assertT5ExtractBaseline(config);
   transition(config, "review_hold", { gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation?.trustedRootSha256 ?? null, productionImport: "HOLD" });
   if (config.backend === "lab") return { state: "review_hold", gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
   transition(config, "loading");
@@ -863,6 +903,7 @@ async function runForwardAsync(configInput, configPath) {
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "extract");
   validateChildJournal(config, "extract");
+  assertT5ExtractBaseline(config);
   transition(config, "review_hold", { gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation?.trustedRootSha256 ?? null, productionImport: "HOLD" });
   if (config.backend === "lab") return { state: "review_hold", gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
   transition(config, "loading");
@@ -983,6 +1024,7 @@ async function resumeAfterMachineAttestationAsync(configInput, configPath, artif
   if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "verificationMode", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
   if (existingMaterializations.length === 0) appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materialized, triple: config.triple, productionImport: "HOLD" });
   if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-materialization-journal") return { state: "review_hold", testBreakpoint: "post-materialization-journal", productionImport: "HOLD" };
+  assertT5ExtractBaseline(config);
   materializeMachineAttestedNonT0Dictionaries(config);
   transition(config, "loading");
   materializeFullDomainFacts(config, "before");
