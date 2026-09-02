@@ -195,6 +195,27 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
 const reseal = plan => { plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan); return plan; };
 const findRecord = (plan, table) => plan.phases.flatMap(phase => phase.records).find(record => record.plannedTargetTable === table);
 
+test("an optional T5 nonfile binding is sealed into the same production authorization without exposing payload values", () => {
+  const { plan } = v2Fixture();
+  plan.t5Nonfile = {
+    privateStageSha256: H("t5-private-stage"), sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    sourceRestoreReceiptSha256: H("t5-restore"), sourceBusinessSha256: H("t5-business"),
+    recordCount: 7752, actorId: uuid(99),
+  };
+  plan.authorization.binding.t5NonfilePrivateStageSha256 = plan.t5Nonfile.privateStageSha256;
+  plan.rollback.order = ["T5", "T3", "T2", "T1", "T0"];
+  reseal(plan);
+  assert.deepEqual(validateSealedProductionImportPlan(plan, { now: NOW }).t5Nonfile, plan.t5Nonfile);
+  const unbound = structuredClone(plan);
+  delete unbound.authorization.binding.t5NonfilePrivateStageSha256;
+  reseal(unbound);
+  assert.throws(() => validateSealedProductionImportPlan(unbound, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+  const drift = structuredClone(plan);
+  drift.t5Nonfile.sourceSnapshotSha256 = H("other-source");
+  reseal(drift);
+  assert.throws(() => validateSealedProductionImportPlan(drift, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID");
+});
+
 test("v2 repository contract is HOLD with an empty production target allowlist", () => {
   assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.formatVersion, 2);
   assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.status, "HOLD");
