@@ -144,7 +144,7 @@ node scripts/hr-cutover/rebase-t5-canonical-baseline.mjs \
   --evidence '<new-absolute-0600-rebase-evidence>'
 ```
 
-候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--t5-baseline` 参数使用；运行器和 T5 加载器只接受绝对路径、非符号链接且权限为 `0600` 的候选文件。A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
+候选基线仅可供同一轮 T5/T3/T4 隔离演练的 `--t5-baseline` 参数使用；完整领域 `prepare-full-domain-rehearsal.mjs` 也必须传入同一候选文件，才能把本轮实际 `businessSha256` 固定到 T5 loader。运行器和 T5 加载器只接受绝对路径、非符号链接且权限为 `0600` 的候选文件。A/B 不一致、回执/备份漂移、权限漂移或任何私有文件权限不符时必须停止。照片和附件二进制仍不属于此步骤。
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { DOMAIN_ORDER, validateConfig } from "./full-domain-lifecycle.mjs";
 import { readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import { validateSourceRestoreReceipt, verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
-import { t5BusinessHashFor } from "./t5-canonical-baseline.mjs";
+import { canonicalT5Baseline, t5BusinessHashFor } from "./t5-canonical-baseline.mjs";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -46,7 +46,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--source-restore-receipt", "--materialization-key", "--machine-attestation-root"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--source-restore-receipt", "--materialization-key", "--machine-attestation-root", "--t5-baseline"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
   for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "materializationKey", "machineAttestationRoot"]) {
@@ -93,6 +93,7 @@ function configFor(args, codeSha, mappingContractHash) {
   const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
   const sourceRestoreReceipt = assertRegularFile(args.sourceRestoreReceipt, "source restore receipt", { privateFile: true });
+  const t5BaselineSource = args.t5Baseline ? assertRegularFile(args.t5Baseline, "T5 candidate baseline", { privateFile: true }) : null;
   const source = parseEnv(etlSource);
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(source.YUZHOU_SQLSERVER_DATABASE ?? "")) fail("ETL file does not bind a Yuzhou lab database");
   if ((source.YUZHOU_SQLSERVER_ETL_LOGIN ?? "").toLowerCase() === "sa") fail("ETL login must not be sa");
@@ -110,7 +111,8 @@ function configFor(args, codeSha, mappingContractHash) {
     databaseAlias: source.YUZHOU_SQLSERVER_DATABASE
   }, { recheckLive: false });
   validateSourceRestoreReceipt(JSON.parse(readFileSync(sourceRestoreReceipt, "utf8")));
-  const t5BusinessSha256 = t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 });
+  const t5Baseline = t5BaselineSource ? canonicalT5Baseline(t5BaselineSource) : canonicalT5Baseline();
+  const t5BusinessSha256 = t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 }, t5Baseline);
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 });
   chmodSync(projectRoot, 0o700);
   chmodSync(credentialRoot, 0o700);
@@ -170,6 +172,7 @@ function configFor(args, codeSha, mappingContractHash) {
       t4EvidenceFile: t4Copy
     },
     t4Evidence: { status: "COMPLETED", sha256: sha256(readFileSync(t4Copy)) },
+    ...(t5BaselineSource ? { t5Baseline: { path: t5BaselineSource, sha256: sha256(readFileSync(t5BaselineSource)), businessSha256: t5Baseline.businessSha256 } } : {}),
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: args.machineAttestationRoot },
     target: {
       database: project,

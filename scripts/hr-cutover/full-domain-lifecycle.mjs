@@ -31,6 +31,7 @@ import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyM
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "./materialize-core-non-t0-dictionaries.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import { validateSourceRestoreReceipt } from "./source-restore-receipt.mjs";
+import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
   compileYuzhouJobStateMachineAttestation,
@@ -148,7 +149,7 @@ function validateTriple(triple) {
 }
 
 export function validateConfig(config, { recoveryCleanup = false } = {}) {
-  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation"], "config");
+  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation", "t5Baseline"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
   const match = RUN_ID.exec(config.runId ?? "");
@@ -177,6 +178,15 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   if (sourceRestoreReceipt.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt does not bind the C/S/M source snapshot");
   exactKeys(config.t4Evidence, ["status", "sha256"], [], "t4Evidence");
   if (config.t4Evidence.status !== "COMPLETED" || !SHA256.test(config.t4Evidence.sha256 ?? "")) fail("T4_EXTRACTION_NOT_STARTED", "completed hash-pinned T4 evidence is required before any lifecycle write");
+  if (config.t5Baseline !== undefined) {
+    exactKeys(config.t5Baseline, ["path", "sha256", "businessSha256"], [], "t5Baseline");
+    const baselinePath = config.t5Baseline.path;
+    if (typeof baselinePath !== "string" || !isAbsolute(baselinePath) || resolve(baselinePath) !== baselinePath || !existsSync(baselinePath) || lstatSync(baselinePath).isSymbolicLink() || !statSync(baselinePath).isFile() || mode(baselinePath) !== "0600") fail("T5_BASELINE_UNSAFE", "candidate baseline must be an absolute non-symlink 0600 file");
+    if (!SHA256.test(config.t5Baseline.sha256 ?? "") || !SHA256.test(config.t5Baseline.businessSha256 ?? "") || createHash("sha256").update(readFileSync(baselinePath)).digest("hex") !== config.t5Baseline.sha256) fail("T5_BASELINE_DRIFT", "candidate baseline bytes changed");
+    let baseline;
+    try { baseline = canonicalT5Baseline(baselinePath); } catch { fail("T5_BASELINE_INVALID", "candidate baseline contract"); }
+    if (baseline.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || baseline.sourceRestoreReceiptSha256 !== config.source.sourceRestoreReceiptSha256 || baseline.businessSha256 !== config.t5Baseline.businessSha256 || config.adapterEnv?.T5?.load?.YUZHOU_T5_BUSINESS_SHA256 !== baseline.businessSha256) fail("T5_BASELINE_DRIFT", "candidate baseline does not bind this run");
+  }
   const t4Bytes = readFileSync(config.source.t4EvidenceFile);
   if (createHash("sha256").update(t4Bytes).digest("hex") !== config.t4Evidence.sha256) fail("T4_EVIDENCE_HASH_MISMATCH", "pinned T4 evidence bytes changed");
   let t4Record;
@@ -280,6 +290,7 @@ export function compareIsolation(configAInput, configBInput) {
   const b = validateConfig(structuredClone(configBInput));
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
+  if (JSON.stringify(a.t5Baseline ?? null) !== JSON.stringify(b.t5Baseline ?? null)) fail("T5_BASELINE_DRIFT", "A/B must use the byte-exact same T5 candidate baseline");
   const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
