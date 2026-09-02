@@ -5,9 +5,10 @@ import {
   type HousingChargePlanResponse,
   type HousingBillingListItem
 } from "@jinhu/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   RemoteEntityPicker,
+  housingChargeTypeLabel,
   propertyErrorMessage,
   propertyLabels,
   type PropertyCapabilityProjection,
@@ -26,6 +27,7 @@ import {
 import styles from "./HousingWorkbench.module.css";
 import { loadHousingMeters } from "./housing-picker-loaders";
 import { useStableIdempotency } from "./use-stable-idempotency";
+import { useHousingDisplayDictionaries } from "./use-housing-display-dictionaries";
 
 export function HousingBillingActions({ item, capabilities, reload }: {
   item: HousingBillingListItem;
@@ -39,6 +41,7 @@ export function HousingBillingActions({ item, capabilities, reload }: {
   const [submitting, setSubmitting] = useState(false);
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
+  const dictionaries = useHousingDisplayDictionaries(capabilities.invalidationKey);
   const energyAllowed = hasAccess(user, SYSTEM_PERMISSIONS.ENERGY_METER_READ, "energy");
   useEffect(() => {
     if (!plans.some((plan) => plan.id === planId)) setPlanId(plans[0]?.id ?? "");
@@ -100,14 +103,14 @@ export function HousingBillingActions({ item, capabilities, reload }: {
   }
 
   const selectedPlan = plans.find((plan) => plan.id === planId);
-  return <BillingActionsView capabilities={capabilities} energyAllowed={energyAllowed}
+  return <BillingActionsView capabilities={capabilities} chargeTypeLabels={dictionaries.chargeTypes} energyAllowed={energyAllowed}
     leaseId={item.lease.id} message={message} meter={meter} onGenerate={generateBill}
     onMeter={setMeter} onPlan={setPlanId} onSave={savePlan} onSource={setSource}
     planId={planId} plans={plans} selectedPlan={selectedPlan} source={source} submitting={submitting} />;
 }
 
 function BillingActionsView(props: {
-  capabilities: PropertyCapabilityProjection; energyAllowed: boolean; leaseId: string; message: string;
+  capabilities: PropertyCapabilityProjection; chargeTypeLabels: Readonly<Record<string, string>>; energyAllowed: boolean; leaseId: string; message: string;
   meter: RemoteEntityOption | null; onGenerate(form: FormData): Promise<void>;
   onMeter(value: RemoteEntityOption | null): void; onPlan(value: string): void;
   onSave(form: FormData): Promise<void>; onSource(value: "fixed" | "manual" | "energy_meter"): void;
@@ -118,17 +121,19 @@ function BillingActionsView(props: {
   return <>
     {props.capabilities.actionAllowed("housing.billing.save-plan") ? <ChargePlanForm
       capabilities={props.capabilities} energyAllowed={props.energyAllowed} leaseId={props.leaseId}
+      chargeTypeLabels={props.chargeTypeLabels}
       meter={props.meter} onMeter={props.onMeter} onSource={props.onSource}
       onSubmit={props.onSave} source={props.source} submitting={props.submitting} /> : null}
     {props.capabilities.actionAllowed("housing.billing.generate") && props.selectedPlan ? <GenerateBillForm
       onPlan={props.onPlan} onSubmit={props.onGenerate} planId={props.planId} plans={props.plans}
-      selectedPlan={props.selectedPlan} submitting={props.submitting} /> : null}
+      chargeTypeLabels={props.chargeTypeLabels} selectedPlan={props.selectedPlan} submitting={props.submitting} /> : null}
     <MutationFeedback message={props.message} />
   </>;
 }
 
 function ChargePlanForm(props: {
   capabilities: PropertyCapabilityProjection;
+  chargeTypeLabels: Readonly<Record<string, string>>;
   energyAllowed: boolean;
   leaseId: string;
   meter: RemoteEntityOption | null;
@@ -138,13 +143,15 @@ function ChargePlanForm(props: {
   source: "fixed" | "manual" | "energy_meter";
   submitting: boolean;
 }) {
+  const chargeTypeListId = useId();
   return (
     <ActionDetails label="配置费用">
       <form className={styles.inlineForm} onSubmit={(event) => {
         event.preventDefault(); void props.onSubmit(new FormData(event.currentTarget));
       }}>
         <fieldset className={styles.fieldset} disabled={props.submitting}>
-          <label>费用类型<input maxLength={32} name="charge_type" required /></label>
+          <label>费用类型<input list={chargeTypeListId} maxLength={32} name="charge_type" required /></label>
+          <datalist id={chargeTypeListId}>{Object.entries(props.chargeTypeLabels).map(([value, label]) => <option key={value} label={label} value={value} />)}</datalist>
           <label>计费来源<select name="billing_source" onChange={(event) => {
             props.onSource(event.target.value as typeof props.source); props.onMeter(null);
           }} value={props.source}><option value="fixed">固定金额</option><option value="manual">人工金额</option>{props.energyAllowed ? <option value="energy_meter">能源表计</option> : null}</select></label>
@@ -160,6 +167,7 @@ function ChargePlanForm(props: {
 }
 
 function GenerateBillForm(props: {
+  chargeTypeLabels: Readonly<Record<string, string>>;
   onPlan(value: string): void;
   onSubmit(form: FormData): Promise<void>;
   planId: string;
@@ -173,7 +181,7 @@ function GenerateBillForm(props: {
         event.preventDefault(); void props.onSubmit(new FormData(event.currentTarget));
       }}>
         <fieldset className={styles.fieldset} disabled={props.submitting}>
-          <label>费用计划<select name="charge_plan_id" onChange={(event) => props.onPlan(event.target.value)} required value={props.planId}>{props.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.chargeType} · {propertyLabels.billingSource(plan.billingSource)}</option>)}</select></label>
+          <label>费用计划<select name="charge_plan_id" onChange={(event) => props.onPlan(event.target.value)} required value={props.planId}>{props.plans.map((plan) => <option key={plan.id} value={plan.id}>{housingChargeTypeLabel(plan.chargeType, props.chargeTypeLabels)} · {propertyLabels.billingSource(plan.billingSource)}</option>)}</select></label>
           <label>周期开始<input name="period_start" required type="date" /></label>
           <label>周期结束<input name="period_end" required type="date" /></label>
           {props.selectedPlan.billingSource === "manual" ? <MoneyField label="人工金额" name="manual_amount" /> : null}

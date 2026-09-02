@@ -3,6 +3,7 @@
 import {
   SYSTEM_PERMISSIONS,
   PARTY_IDENTITY_REVEAL_REASON_CODES,
+  PARTY_IDENTITY_REVEAL_REASON_LABELS,
   type PartyIdentityRevealResponse,
   type PartyDetailResponse,
   type PartyListItemResponse
@@ -15,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
   PropertyPanelSurface,
+  propertyLabels,
   resolveReturnHref,
   type CanonicalDetailState
 } from "../../../features/property-shared";
@@ -117,15 +119,15 @@ function PartyDetailContent({ canManageConsent, canReadIdentity, canReadSensitiv
     <div className={styles.stack}>
       <PropertyPanelSurface><dl className={styles.detailGrid}>
         <DetailRow label="类型" value={party.partyType === "person" ? "个人" : "组织"} />
-        <DetailRow label="来源" value={party.sourceDomain ?? "共享房产底座"} />
-        <DetailRow label="核验状态" value={party.verificationStatus} />
-        <DetailRow label="授权状态" value={party.consentStatus} />
+        <DetailRow label="来源" value={propertyLabels.partySourceDomain(party.sourceDomain)} />
+        <DetailRow label="核验状态" value={propertyLabels.partyVerification(party.verificationStatus)} />
+        <DetailRow label="授权状态" value={propertyLabels.partyConsent(party.consentStatus)} />
         <DetailRow label="备注" value={party.remark ?? "—"} />
         {canReadSensitive ? <SensitiveRows party={party} /> : null}
       </dl></PropertyPanelSurface>
       {canRevealIdentity ? <PartyIdentityReveal partyId={party.id} /> : null}
       <PropertyPanelSurface title="业务角色">
-        {party.roles.map((role) => <p key={role.id}>{role.roleType} · {role.sourceType ?? "通用"} · {role.status}</p>)}
+        {party.roles.map((role) => <p key={role.id}>{propertyLabels.partyRoleType(role.roleType)} · {propertyLabels.partyRoleSource(role.sourceType)} · {propertyLabels.partyRoleStatus(role.status)}</p>)}
         {!party.roles.length ? <p>暂无业务角色。</p> : null}
       </PropertyPanelSurface>
       {canReadIdentity ? <PropertyPanelSurface aria-label="身份核验" id="identity" tabIndex={-1} title="身份核验">
@@ -144,7 +146,7 @@ function SensitiveRows({ party }: { party: PartyDetailResponse }) {
   return <>
     <DetailRow label="手机号" value={party.mobile ?? "—"} />
     <DetailRow label="邮箱" value={party.email ?? "—"} />
-    <DetailRow label="证件类型" value={party.identityDocumentType ?? "—"} />
+    <DetailRow label="证件类型" value={propertyLabels.identityDocumentType(party.identityDocumentType)} />
     <DetailRow label="证件号码" value={party.identityNumberMasked ?? "—"} />
   </>;
 }
@@ -188,7 +190,7 @@ function PartyIdentityReveal({ partyId }: { partyId: string }) {
     <form className={styles.stack} onSubmit={reveal}>
       <label>操作理由（必填）<select required value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
         <option value="">请选择</option>
-        {PARTY_IDENTITY_REVEAL_REASON_CODES.map((code) => <option key={code} value={code}>{code}</option>)}
+        {PARTY_IDENTITY_REVEAL_REASON_CODES.map((code) => <option key={code} value={code}>{PARTY_IDENTITY_REVEAL_REASON_LABELS[code]}</option>)}
       </select></label>
       <button className="ds-button" disabled={submitting || !reasonCode} type="submit">{submitting ? "审计中…" : "查看明文"}</button>
       {identityNumber ? <p aria-live="polite">证件号码：{identityNumber}</p> : null}
@@ -287,7 +289,9 @@ function PartyConsentActions({ party, onUpdated }: {
 
   const withdrawable = status?.fact_status === "granted" && status.provenance === "operator_recorded";
   return <PropertyPanelSurface title="同意证据">
-    <p>当前状态：{status?.fact_status ?? party.consentStatus}；来源：{status?.provenance ?? "未加载"}</p>
+    <p>当前状态：{status?.fact_status
+      ? propertyLabels.partyConsentFact(status.fact_status)
+      : propertyLabels.partyConsent(party.consentStatus)}；来源：{propertyLabels.partyConsentProvenance(status?.provenance)}</p>
     {status?.notice_version ? <p>告知版本：{status.notice_version}</p> : null}
     <form className={styles.formGrid} onSubmit={submitGrant}>
       <label>处理目的<select name="processing_purpose">

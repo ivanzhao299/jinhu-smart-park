@@ -4,6 +4,8 @@ import {
   displayEntityName,
   eligibilityReasonLabel,
   homestayPriceSourceLabel,
+  housingChargeTypeLabel,
+  housingPaymentMethodLabel,
   housingLeaseStatusOptions,
   propertyLabels,
   workOrderStatusLabel
@@ -34,4 +36,27 @@ test("HCD lease filters exactly follow the closed shared status labels", () => {
   assert.ok(housingLeaseStatusOptions.some(({ value, label }) => value === "expiring" && label === "即将到期"));
   assert.ok(housingLeaseStatusOptions.some(({ value }) => value === "terminated"));
   assert.equal(housingLeaseStatusOptions.some(({ value }) => value === "closed"), false);
+});
+
+test("HCD temporary D-class labels stay Chinese and unknown values use Chinese fallbacks", () => {
+  assert.equal(propertyLabels.homestayGuestVerification("verified"), "已核验");
+  assert.equal(propertyLabels.homestayCredentialStatus("lost"), "已遗失");
+  assert.equal(propertyLabels.homestayAuditAction("check_out"), "办理退房");
+  assert.equal(propertyLabels.homestayAuditAction("future_action"), "未知订单操作");
+  assert.equal(propertyLabels.partyConsentFact("pending_evidence"), "待补证据");
+  assert.equal(propertyLabels.partyConsentProvenance("operator_recorded"), "经操作员记录");
+  assert.equal(propertyLabels.partyRoleType("future_role"), "其他业务角色");
+  assert.equal(propertyLabels.identitySubmissionStatus("pending_verification"), "待核验");
+  assert.equal(propertyLabels.eventIncidentStatus("quarantined"), "已隔离");
+  assert.equal(propertyLabels.eventFailureSide("consumer"), "消费侧");
+  assert.equal(propertyLabels.identityDocumentType("id_card"), "身份证");
+  assert.equal(propertyLabels.identityDocumentType("future_document"), "未知证件类型");
+  assert.equal(propertyLabels.approvalAction("housing.leases.approve.request"), "长租租约审批");
+  assert.equal(propertyLabels.approvalAction("future_action"), "未知审批操作");
+  assert.equal(housingChargeTypeLabel("rent"), "租金");
+  assert.equal(housingChargeTypeLabel("tenant_custom", { tenant_custom: "租户自定义费" }), "租户自定义费");
+  assert.equal(housingChargeTypeLabel("future_charge"), "其他费用");
+  assert.equal(housingPaymentMethodLabel("bank_transfer"), "银行转账");
+  assert.equal(housingPaymentMethodLabel("tenant_custom", { tenant_custom: "园区收款码" }), "园区收款码");
+  assert.equal(housingPaymentMethodLabel("future_method"), "其他支付方式");
 });

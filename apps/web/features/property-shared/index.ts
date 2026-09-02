@@ -81,6 +81,8 @@ export {
   homestayBookingStatusOptions,
   homestayPriceSourceLabel,
   homestayTurnoverStatusOptions,
+  housingChargeTypeLabel,
+  housingPaymentMethodLabel,
   housingPurchaseApprovalStatusOptions,
   housingLeaseStatusOptions,
   propertyLabels,

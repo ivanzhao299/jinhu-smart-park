@@ -73,7 +73,7 @@ export function HousingTenantsClient() {
     detailHref={canLink ? (item) => detailUrlObject(`/assets/parties/${encodeURIComponent(item.id)}`) : undefined}
     endpoint="/housing/tenants" featureId="housing.tenants" route="/housing/tenants"
     fields={housingFields<HousingTenantListItem>(
-      { key: "verify", label: "核验状态", render: (item) => item.verificationStatus },
+      { key: "verify", label: "核验状态", render: (item) => propertyLabels.partyVerification(item.verificationStatus) },
       { key: "mobile", label: "联系方式", render: (item) => displayHousingValue(item.mobile) },
       { key: "identity", label: "证件", render: (item) => displayHousingValue(item.identityNumberMasked) }
     )}

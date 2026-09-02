@@ -2,9 +2,11 @@
 
 import { PROPERTY_BUSINESS_PERMISSIONS, type HousingFinanceListItem } from "@jinhu/shared";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ConsequenceDialog,
+  housingChargeTypeLabel,
+  housingPaymentMethodLabel,
   propertyErrorMessage,
   propertyLabels,
   type PropertyCapabilityProjection
@@ -20,6 +22,7 @@ import {
 } from "./HousingFormPrimitives";
 import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
+import { useHousingDisplayDictionaries } from "./use-housing-display-dictionaries";
 
 export function HousingFinanceActions({
   item,
@@ -54,6 +57,9 @@ export function HousingFinanceActions({
   const [receivableId, setReceivableId] = useState("");
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
+  const dictionaries = useHousingDisplayDictionaries(capabilities.invalidationKey);
+  const chargeTypeListId = useId();
+  const paymentMethodListId = useId();
   const receivables = useMemo(
     () => available.filter((receivable) => {
       if (entryKind === "refund") {
@@ -161,10 +167,12 @@ export function HousingFinanceActions({
               payment: "普通收款", deposit_receipt: "押金收取", refund: "退款（需审批）",
               waiver: "减免（需审批）", deposit_refund: "押金退还（需审批）"
             } as const)[kind]}</option>)}</select></label>
-            <label>目标应收<select name="receivable_id" onChange={(event) => setReceivableId(event.target.value)} required value={receivableId}><option value="">请选择应收</option>{receivables.map((receivable) => <option key={receivable.id} value={receivable.id}>{receivable.chargeType} · 到期 {receivable.dueDate} · 待收 ¥{receivable.balance}</option>)}</select></label>
-            <label>费用类型<input maxLength={32} name="charge_type" required /></label>
+            <label>目标应收<select name="receivable_id" onChange={(event) => setReceivableId(event.target.value)} required value={receivableId}><option value="">请选择应收</option>{receivables.map((receivable) => <option key={receivable.id} value={receivable.id}>{housingChargeTypeLabel(receivable.chargeType, dictionaries.chargeTypes)} · 到期 {receivable.dueDate} · 待收 ¥{receivable.balance}</option>)}</select></label>
+            <label>费用类型<input list={chargeTypeListId} maxLength={32} name="charge_type" required /></label>
+            <datalist id={chargeTypeListId}>{Object.entries(dictionaries.chargeTypes).map(([value, label]) => <option key={value} label={label} value={value} />)}</datalist>
             <MoneyField label="金额" max={amountMax} name="amount" positive />
-            <label>支付方式<input maxLength={32} name="payment_method" /></label>
+            <label>支付方式<input list={paymentMethodListId} maxLength={32} name="payment_method" /></label>
+            <datalist id={paymentMethodListId}>{Object.keys(dictionaries.paymentMethods).map((value) => <option key={value} label={housingPaymentMethodLabel(value, dictionaries.paymentMethods)} value={value} />)}</datalist>
             <label>交易参考号<input maxLength={100} name="transaction_reference" /></label>
             {!highRiskEntry ? <label>登记原因<input maxLength={500} name="reason" required /></label> : null}
             <button className="ds-button ds-button-primary" type="submit">{submitting ? "提交中…" : highRiskEntry ? "核对并提交审批" : "确认登记"}</button>
@@ -185,7 +193,7 @@ export function HousingFinanceActions({
         target={{
           id: selectedReceivable?.id ?? item.lease.id,
           label: selectedReceivable
-            ? `${selectedReceivable.chargeType} · ¥${pendingBody?.amount ?? amountMax ?? "0"}`
+            ? `${housingChargeTypeLabel(selectedReceivable.chargeType, dictionaries.chargeTypes)} · ¥${pendingBody?.amount ?? amountMax ?? "0"}`
             : item.lease.leaseCode
         }}
         title="确认高风险财务操作"

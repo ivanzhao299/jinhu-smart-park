@@ -2,10 +2,14 @@ import {
   APPROVAL_DECISION_STATUS_LABELS,
   APPROVAL_EXECUTION_STATUS_LABELS,
   HOMESTAY_BOOKING_STATUS_LABELS,
+  HOMESTAY_AUDIT_ACTION_LABELS,
+  HOMESTAY_CREDENTIAL_STATUS_LABELS,
+  HOMESTAY_GUEST_VERIFICATION_STATUS_LABELS,
   HOMESTAY_LEDGER_ENTRY_TYPE_LABELS,
   HOMESTAY_LEDGER_STATUS_LABELS,
   HOMESTAY_TURNOVER_STATUS_LABELS,
   HOUSING_BILLING_SOURCE_LABELS,
+  HOUSING_CHARGE_TYPE_LABELS,
   HOUSING_HANDOVER_STATUS_LABELS,
   HOUSING_HANDOVER_TYPE_LABELS,
   HOUSING_LEASE_STATUS_LABELS,
@@ -14,6 +18,22 @@ import {
   HOUSING_PURCHASE_PAYMENT_STATUS_LABELS,
   HOUSING_REPAIR_PRIORITY_LABELS,
   HOUSING_REPAIR_URGENCY_LABELS,
+  HOUSING_PAYMENT_METHOD_LABELS,
+  IDENTITY_SUBMISSION_STATUS_LABELS,
+  PARTY_CONSENT_FACT_STATUS_LABELS,
+  PARTY_CONSENT_PROVENANCE_LABELS,
+  PARTY_CONSENT_STATUS_LABELS,
+  PARTY_IDENTITY_DOCUMENT_TYPE_LABELS,
+  PARTY_ROLE_SOURCE_TYPE_LABELS,
+  PARTY_ROLE_STATUS_LABELS,
+  PARTY_ROLE_TYPE_LABELS,
+  PARTY_SOURCE_DOMAIN_LABELS,
+  PARTY_VERIFICATION_STATUS_LABELS,
+  PROPERTY_EVENT_DELIVERY_INCIDENT_STATUS_LABELS,
+  PROPERTY_EVENT_FAILURE_SIDE_LABELS,
+  PROPERTY_APPROVAL_ACTION_LABELS,
+  PROPERTY_NOTIFICATION_READ_STATUS_LABELS,
+  PROPERTY_NOTIFICATION_TYPE_LABELS,
   PROPERTY_OPERATING_MODE_LABELS,
   PROPERTY_SOURCE_TYPE_LABELS,
   PROPERTY_TASK_SOURCE_LABELS,
@@ -48,8 +68,36 @@ export const propertyLabels = {
     pending: "待处理", active: "进行中", exception: "异常", completed: "已完成"
   }, value, "未知任务状态"),
   taskSource: (value?: string | null) => knownLabel(PROPERTY_TASK_SOURCE_LABELS, value, "未知任务来源"),
-  sourceType: (value?: string | null) => knownLabel(PROPERTY_SOURCE_TYPE_LABELS, value, "未知业务来源")
+  sourceType: (value?: string | null) => knownLabel(PROPERTY_SOURCE_TYPE_LABELS, value, "未知业务来源"),
+  homestayGuestVerification: (value?: string | null) => knownLabel(HOMESTAY_GUEST_VERIFICATION_STATUS_LABELS, value, "未知核验状态"),
+  homestayCredentialStatus: (value?: string | null) => knownLabel(HOMESTAY_CREDENTIAL_STATUS_LABELS, value, "未知凭证状态"),
+  homestayAuditAction: (value?: string | null) => knownLabel(HOMESTAY_AUDIT_ACTION_LABELS, value, "未知订单操作"),
+  partyVerification: (value?: string | null) => knownLabel(PARTY_VERIFICATION_STATUS_LABELS, value, "未知核验状态"),
+  partyConsent: (value?: string | null) => knownLabel(PARTY_CONSENT_STATUS_LABELS, value, "未知同意状态"),
+  partyConsentFact: (value?: string | null) => knownLabel(PARTY_CONSENT_FACT_STATUS_LABELS, value, "未知同意证据状态"),
+  partyConsentProvenance: (value?: string | null) => knownLabel(PARTY_CONSENT_PROVENANCE_LABELS, value, value ? "未知证据来源" : "未加载"),
+  partyRoleType: (value?: string | null) => knownLabel(PARTY_ROLE_TYPE_LABELS, value, value ? "其他业务角色" : "未指定角色"),
+  partyRoleSource: (value?: string | null) => knownLabel(PARTY_ROLE_SOURCE_TYPE_LABELS, value, value ? "其他业务来源" : "通用"),
+  partyRoleStatus: (value?: string | null) => knownLabel(PARTY_ROLE_STATUS_LABELS, value, "未知角色状态"),
+  partySourceDomain: (value?: string | null) => knownLabel(PARTY_SOURCE_DOMAIN_LABELS, value, value ? "其他业务来源" : "共享房产底座"),
+  identitySubmissionStatus: (value?: string | null) => knownLabel(IDENTITY_SUBMISSION_STATUS_LABELS, value, "未知核验状态"),
+  notificationReadStatus: (value?: string | null) => knownLabel(PROPERTY_NOTIFICATION_READ_STATUS_LABELS, value, "未知阅读状态"),
+  notificationType: (value?: string | null) => knownLabel(PROPERTY_NOTIFICATION_TYPE_LABELS, value, "其他房产通知"),
+  eventIncidentStatus: (value?: string | null) => knownLabel(PROPERTY_EVENT_DELIVERY_INCIDENT_STATUS_LABELS, value, "未知事件状态"),
+  eventFailureSide: (value?: string | null) => knownLabel(PROPERTY_EVENT_FAILURE_SIDE_LABELS, value, "未知故障侧"),
+  identityDocumentType: (value?: string | null) => knownLabel(PARTY_IDENTITY_DOCUMENT_TYPE_LABELS, value, value ? "未知证件类型" : "未设置"),
+  approvalAction: (value?: string | null) => knownLabel(PROPERTY_APPROVAL_ACTION_LABELS, value, "未知审批操作")
 } as const;
+
+export function housingChargeTypeLabel(value?: string | null, dictionary?: Readonly<Record<string, string>>): string {
+  if (value && dictionary?.[value]?.trim()) return dictionary[value]!.trim();
+  return knownLabel(HOUSING_CHARGE_TYPE_LABELS, value, value ? "其他费用" : "未设置费用类型");
+}
+
+export function housingPaymentMethodLabel(value?: string | null, dictionary?: Readonly<Record<string, string>>): string {
+  if (value && dictionary?.[value]?.trim()) return dictionary[value]!.trim();
+  return knownLabel(HOUSING_PAYMENT_METHOD_LABELS, value, value ? "其他支付方式" : "未设置支付方式");
+}
 
 export const housingLeaseStatusOptions = Object.entries(HOUSING_LEASE_STATUS_LABELS)
   .map(([value, label]) => ({ value, label }));

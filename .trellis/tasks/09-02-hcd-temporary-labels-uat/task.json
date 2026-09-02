@@ -3,7 +3,7 @@
   "name": "hcd-temporary-labels-uat",
   "title": "HCD D 类临时定名与 UAT 收尾",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "packages/shared,apps/web,docs/reviews",
   "package": "api",

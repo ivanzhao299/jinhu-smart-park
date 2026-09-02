@@ -21,7 +21,11 @@ const contracts = [
   [shared.HOUSING_BILLING_SOURCES, shared.HOUSING_BILLING_SOURCE_LABELS],
   [shared.APPROVAL_DECISION_STATUSES, shared.APPROVAL_DECISION_STATUS_LABELS],
   [shared.APPROVAL_EXECUTION_STATUSES, shared.APPROVAL_EXECUTION_STATUS_LABELS],
-  [shared.PROPERTY_TASK_STATUSES, shared.PROPERTY_TASK_STATUS_LABELS]
+  [shared.PROPERTY_TASK_STATUSES, shared.PROPERTY_TASK_STATUS_LABELS],
+  [shared.HOMESTAY_GUEST_VERIFICATION_STATUSES, shared.HOMESTAY_GUEST_VERIFICATION_STATUS_LABELS],
+  [shared.HOMESTAY_CREDENTIAL_STATUSES, shared.HOMESTAY_CREDENTIAL_STATUS_LABELS],
+  [shared.IDENTITY_SUBMISSION_STATUSES, shared.IDENTITY_SUBMISSION_STATUS_LABELS],
+  [shared.PROPERTY_EVENT_DELIVERY_INCIDENT_STATUSES, shared.PROPERTY_EVENT_DELIVERY_INCIDENT_STATUS_LABELS]
 ];
 
 test("HCD closed enum labels are exhaustive and contain no extra keys", () => {
@@ -35,4 +39,14 @@ test("HCD closed enum labels are exhaustive and contain no extra keys", () => {
 test("HCD query pseudo-values do not pollute persisted turnover status", () => {
   assert.equal(shared.HOMESTAY_TURNOVER_STATUSES.includes("open"), false);
   assert.equal(shared.HOUSING_LEASE_STATUSES.includes("closed"), false);
+});
+
+test("HCD temporary closed and observed directories contain exactly the reviewed values", () => {
+  assert.deepEqual(Object.keys(shared.PROPERTY_APPROVAL_ACTION_LABELS).sort(), Object.keys(shared.TRACK_B_APPROVAL_EFFECT_MANIFEST).sort());
+  assert.deepEqual(Object.keys(shared.PARTY_CONSENT_STATUS_LABELS).sort(), ["granted", "pending", "withdrawn"]);
+  assert.deepEqual(Object.keys(shared.PARTY_CONSENT_FACT_STATUS_LABELS).sort(), ["granted", "not_applicable", "pending_evidence", "withdrawn"]);
+  assert.deepEqual(Object.keys(shared.PARTY_CONSENT_PROVENANCE_LABELS).sort(), ["legacy_unknown", "operator_recorded"]);
+  assert.deepEqual(Object.keys(shared.PARTY_ROLE_STATUS_LABELS).sort(), ["active", "inactive"]);
+  assert.deepEqual(Object.keys(shared.PROPERTY_EVENT_FAILURE_SIDE_LABELS).sort(), ["consumer", "publisher"]);
+  assert.deepEqual(Object.keys(shared.PARTY_IDENTITY_REVEAL_REASON_LABELS).sort(), [...shared.PARTY_IDENTITY_REVEAL_REASON_CODES].sort());
 });
