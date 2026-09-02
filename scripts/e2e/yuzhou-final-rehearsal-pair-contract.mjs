@@ -33,6 +33,12 @@ test("runtime vacancy rejects occupied ports, Docker identities and controlled p
  assert.throws(()=>validatePairResourceIsolation(configs[0],sharedMachine),error=>error.code==="FINAL_PAIR_RESOURCE_REUSE");
  const crossedMachine=structuredClone(configs[1]);crossedMachine.target.jobStateSourcePayloadArtifact=`${configs[0].target.jobStateMachineAttestationArtifact}/nested`;
  assert.throws(()=>validatePairResourceIsolation(configs[0],crossedMachine),error=>error.code==="FINAL_PAIR_RESOURCE_OVERLAP");
+ const sealed=configs.map(config=>{const copy=structuredClone(config);copy.target.materializationKeyMode="sealed_reference";copy.target.materializationKeyArtifact="/controlled/source-control/materialization.key";return copy;});
+ assert.equal(validatePairResourceIsolation(sealed[0],sealed[1]).status,"PASS");
+ const mismatchedSealed=structuredClone(sealed[1]);mismatchedSealed.target.materializationKeyArtifact="/controlled/source-control/other-materialization.key";
+ assert.throws(()=>validatePairResourceIsolation(sealed[0],mismatchedSealed),error=>error.code==="FINAL_PAIR_SOURCE_REFERENCE_MISMATCH");
+ const mixedMode=structuredClone(sealed[1]);mixedMode.target.materializationKeyMode="run_owned";
+ assert.throws(()=>validatePairResourceIsolation(sealed[0],mixedMode),error=>error.code==="FINAL_PAIR_SOURCE_REFERENCE_MISMATCH");
 });
 
 test("resume machine artifacts are six private independent external files with isolated A/B roots",()=>{
@@ -80,6 +86,7 @@ test("runner is a fixed fail-closed sequence and deployment workflows do not inv
   const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","full-domain-lifecycle.mjs\",[\"resume","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
   let cursor=-1;for(const stage of stages){const next=runner.indexOf(stage,cursor+1);assert(next>cursor,`missing/out-of-order ${stage}`);cursor=next;}
   assert.match(runner,/ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"/u);assert.match(runner,/FINAL_PAIR_P0_HOLD/u);assert.match(runner,/--recover/u);
+  assert.match(runner,/compareIsolation\(a,b\)/u);
   assert.match(runner,/assertTechnicalUatPairEvidence/u);assert.match(runner,/FINAL_PAIR_BROWSER_MANIFEST_UNBOUND/u);assert.match(runner,/FINAL_PAIR_BROWSER_SESSION_PROOF_INVALID/u);
   assert.match(technicalUat,/materializationKeyArtifact/u);assert.match(technicalUat,/PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey/u);
   assert.doesNotMatch(deploy,/load-yuzhou|hr:migration:full|ALLOW_YUZHOU_MIGRATION/u);
