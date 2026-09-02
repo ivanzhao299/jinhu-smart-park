@@ -129,3 +129,10 @@ test("full-domain T4 extraction receives the sealed source receipt required by t
   const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
   assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
 });
+
+test("full-domain T5 extraction receives the sealed source bindings required by the legacy-history extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T5.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_PARTY_DATA_KEY_FILE"]);
+  const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
+  assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup/);
+  assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+});
