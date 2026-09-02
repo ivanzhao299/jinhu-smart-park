@@ -118,6 +118,7 @@ jobs:
         run: |
           pnpm test:e2e:yuzhou-production-import-preflight
           pnpm test:e2e:yuzhou-production-import-v2
+          pnpm test:e2e:yuzhou-production-import-t5-private-stage
           pnpm test:e2e:yuzhou-production-import-target-model
           pnpm test:e2e:yuzhou-production-import-payload-generator
           pnpm test:e2e:yuzhou-production-import-postgres-adapter
