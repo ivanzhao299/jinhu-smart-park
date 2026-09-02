@@ -7,6 +7,11 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT INT TERM
 mkdir -p "$tmp/bin"
 
+workflow="$root/.github/workflows/deploy-production.yml"
+grep -Fq 'yuzhou-hr-production-target-attestation.json' "$workflow"
+grep -Fq 'name: yuzhou-hr-production-target-attestation' "$workflow"
+grep -Fq 'actions/upload-artifact@v6' "$workflow"
+
 cat > "$tmp/bin/docker" <<'SH'
 #!/bin/sh
 set -eu

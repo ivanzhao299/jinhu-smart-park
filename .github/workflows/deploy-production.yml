@@ -276,7 +276,16 @@ jobs:
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-target.sh
+            "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-target.sh > "$RUNNER_TEMP/yuzhou-hr-production-target-attestation.json"
+
+      - name: Retain Yuzhou HR production target attestation
+        if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-production-target' && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: yuzhou-hr-production-target-attestation
+          path: ${{ runner.temp }}/yuzhou-hr-production-target-attestation.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Diagnose Yuzhou HR production capacity (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' }}
