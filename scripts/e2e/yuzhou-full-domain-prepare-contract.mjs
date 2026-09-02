@@ -100,6 +100,31 @@ test("rehearsal preparation requires an externally fixed machine-attestation roo
   assert.throws(() => parseArgs(base.filter((value) => value !== "--source-restore-receipt" && value !== "/tmp/source-receipt.json")), /missing --source-restore-receipt/);
 });
 
+test("sealed source and materialization references require explicit non-secret identities instead of copying private inputs", () => {
+  const reference = [
+    "--rehearsal", "A",
+    "--suffix", "sealed_reference",
+    "--postgres-port", "15432",
+    "--api-port", "18080",
+    "--web-port", "13000",
+    "--control-root", "/tmp/control",
+    "--etl-env-reference", "/tmp/sealed-etl.env",
+    "--source-database", "YuzhouHR_Lab_reference01",
+    "--t4-evidence", "/tmp/t4.json",
+    "--source-container", "yuzhou-source",
+    "--source-backup", "/tmp/source.bak",
+    "--source-restore-receipt", "/tmp/source-receipt.json",
+    "--materialization-key-reference", "/tmp/sealed-materialization.key",
+    "--machine-attestation-root", "a".repeat(64),
+  ];
+  const parsed = parseArgs(reference);
+  assert.equal(parsed.etlEnvReference, "/tmp/sealed-etl.env");
+  assert.equal(parsed.sourceDatabase, "YuzhouHR_Lab_reference01");
+  assert.equal(parsed.materializationKeyReference, "/tmp/sealed-materialization.key");
+  assert.throws(() => parseArgs([...reference, "--etl-env", "/tmp/copied-etl.env"]), /exactly one of --etl-env or --etl-env-reference/);
+  assert.throws(() => parseArgs(reference.map((value) => value === "YuzhouHR_Lab_reference01" ? "invalid" : value)), /--source-database must name the read-only Yuzhou lab database/);
+});
+
 test("full-domain rehearsal gives T5 a deterministic isolated non-login actor identity", () => {
   const first = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");
   const second = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");

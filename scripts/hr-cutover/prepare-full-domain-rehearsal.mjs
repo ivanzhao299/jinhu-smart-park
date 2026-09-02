@@ -46,12 +46,17 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--source-restore-receipt", "--materialization-key", "--machine-attestation-root", "--t5-baseline"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--etl-env-reference", "--source-database", "--t4-evidence", "--source-container", "--source-backup", "--source-restore-receipt", "--materialization-key", "--materialization-key-reference", "--machine-attestation-root", "--t5-baseline"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "materializationKey", "machineAttestationRoot"]) {
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "t4Evidence", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "machineAttestationRoot"]) {
     if (!args[key]) fail(`missing --${key.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`);
   }
+  const etlInputs = [args.etlEnv, args.etlEnvReference].filter(Boolean);
+  if (etlInputs.length !== 1) fail("exactly one of --etl-env or --etl-env-reference is required");
+  const materializationKeyInputs = [args.materializationKey, args.materializationKeyReference].filter(Boolean);
+  if (materializationKeyInputs.length !== 1) fail("exactly one of --materialization-key or --materialization-key-reference is required");
+  if (args.etlEnvReference && !/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(args.sourceDatabase ?? "")) fail("--source-database must name the read-only Yuzhou lab database when using --etl-env-reference");
   if (!["A", "B"].includes(args.rehearsal)) fail("rehearsal must be A or B");
   if (!/^[a-z0-9_]{6,36}$/.test(args.suffix)) fail("suffix must contain 6-36 lowercase letters, digits, or underscores");
   for (const key of ["postgresPort", "apiPort", "webPort"]) {
@@ -86,15 +91,20 @@ function configFor(args, codeSha, mappingContractHash) {
   const projectRoot = join(args.controlRoot, project);
   const credentialRoot = join(projectRoot, "credentials");
   const runtimeRoot = join(projectRoot, "runtime");
-  const materializationKeySource = resolve(args.materializationKey);
+  const etlCredentialMode = args.etlEnvReference ? "sealed_reference" : "run_owned";
+  const materializationKeyMode = args.materializationKeyReference ? "sealed_reference" : "run_owned";
+  const materializationKeySource = resolve(args.materializationKeyReference ?? args.materializationKey);
   if (existsSync(projectRoot)) fail(`controlled project already exists: ${project}`);
-  const materializationKeyValue = readMaterializationKeyFile(materializationKeySource);
-  const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
+  if (materializationKeyMode === "sealed_reference") assertRegularFile(materializationKeySource, "materialization key reference", { privateFile: true });
+  const materializationKeyValue = materializationKeyMode === "run_owned" ? readMaterializationKeyFile(materializationKeySource) : null;
+  const etlSource = assertRegularFile(args.etlEnvReference ?? args.etlEnv, "ETL source file", { privateFile: true });
   const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
   const sourceRestoreReceipt = assertRegularFile(args.sourceRestoreReceipt, "source restore receipt", { privateFile: true });
   const t5BaselineSource = args.t5Baseline ? assertRegularFile(args.t5Baseline, "T5 candidate baseline", { privateFile: true }) : null;
-  const source = parseEnv(etlSource);
+  const source = etlCredentialMode === "run_owned"
+    ? parseEnv(etlSource)
+    : { YUZHOU_SQLSERVER_DATABASE: args.sourceDatabase };
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(source.YUZHOU_SQLSERVER_DATABASE ?? "")) fail("ETL file does not bind a Yuzhou lab database");
   if ((source.YUZHOU_SQLSERVER_ETL_LOGIN ?? "").toLowerCase() === "sa") fail("ETL login must not be sa");
   const t4Record = JSON.parse(readFileSync(t4Source, "utf8"));
@@ -117,16 +127,16 @@ function configFor(args, codeSha, mappingContractHash) {
   chmodSync(projectRoot, 0o700);
   chmodSync(credentialRoot, 0o700);
 
-  const etlCopy = join(credentialRoot, "etl.env");
+  const etlCopy = etlCredentialMode === "run_owned" ? join(credentialRoot, "etl.env") : etlSource;
   const t4Copy = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
-  const materializationKey = join(credentialRoot, "materialization.key");
+  const materializationKey = materializationKeyMode === "run_owned" ? join(credentialRoot, "materialization.key") : materializationKeySource;
   const jobStateDecision = join(credentialRoot, "employee-job-state.reviewed.json");
   const jobStateSourcePayload = join(credentialRoot, "employee-job-state.private.json");
   const jobStateMachineAttestation = join(credentialRoot, "employee-job-state.machine-attestation.json");
-  privateCopy(etlSource, etlCopy);
+  if (etlCredentialMode === "run_owned") privateCopy(etlSource, etlCopy);
   privateCopy(t4Source, t4Copy);
-  writePrivate(materializationKey, `${materializationKeyValue}\n`);
+  if (materializationKeyMode === "run_owned") writePrivate(materializationKey, `${materializationKeyValue}\n`);
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -172,6 +182,7 @@ function configFor(args, codeSha, mappingContractHash) {
       sourceRestoreReceiptSha256,
       sourceContainer: args.sourceContainer,
       etlEnvFile: etlCopy,
+      etlCredentialMode,
       t4EvidenceFile: t4Copy
     },
     t4Evidence: { status: "COMPLETED", sha256: sha256(readFileSync(t4Copy)) },
@@ -193,6 +204,7 @@ function configFor(args, codeSha, mappingContractHash) {
       fileRoot: join(runtimeRoot, "files"),
       credentialArtifact: postgresEnv,
       materializationKeyArtifact: materializationKey,
+      materializationKeyMode,
       jobStateDecisionArtifact: jobStateDecision,
       jobStateSourcePayloadArtifact: jobStateSourcePayload,
       jobStateMachineAttestationArtifact: jobStateMachineAttestation,
@@ -213,11 +225,13 @@ function configFor(args, codeSha, mappingContractHash) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   args.controlRoot = resolve(args.controlRoot);
-  args.etlEnv = resolve(args.etlEnv);
+  if (args.etlEnv) args.etlEnv = resolve(args.etlEnv);
+  if (args.etlEnvReference) args.etlEnvReference = resolve(args.etlEnvReference);
   args.t4Evidence = resolve(args.t4Evidence);
   args.sourceBackup = resolve(args.sourceBackup);
   args.sourceRestoreReceipt = resolve(args.sourceRestoreReceipt);
-  args.materializationKey = resolve(args.materializationKey);
+  if (args.materializationKey) args.materializationKey = resolve(args.materializationKey);
+  if (args.materializationKeyReference) args.materializationKeyReference = resolve(args.materializationKeyReference);
   const git = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
   if (git.status !== 0 || git.stdout.trim()) fail("rehearsal preparation requires a clean worktree");
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" });
