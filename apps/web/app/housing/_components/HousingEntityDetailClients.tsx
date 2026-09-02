@@ -12,7 +12,10 @@ import { useRef, useState } from "react";
 import {
   ConsequenceDialog,
   PropertyPanelSurface,
+  propertyErrorMessage,
+  propertyLabels,
   RemoteEntityPicker,
+  workOrderStatusLabel,
   type PropertyCapabilityProjection,
   type RemoteEntityOption
 } from "../../../features/property-shared";
@@ -34,7 +37,7 @@ function HandoverDetail({ capabilities, data }: {
   return <div className={styles.stack}>
     <PropertyPanelSurface><DetailGrid rows={[
       ["租约", data.leaseCode], ["房源", data.unitCode ?? data.unitName],
-      ["类型", data.handoverType === "move_in" ? "入住" : "退租"], ["状态", data.status],
+      ["类型", propertyLabels.handoverType(data.handoverType)], ["状态", propertyLabels.handoverStatus(data.status)],
       ["交割时间", data.handoverAt ? new Date(data.handoverAt).toLocaleString("zh-CN") : "—"],
       ["损坏金额", money(data.damageAmount)], ["未结费用", money(data.unsettledAmount)],
       ["押金抵扣", money(data.depositDeductionAmount)]
@@ -56,8 +59,8 @@ function RepairDetail({ capabilities, data }: {
   return <div className={styles.stack}>
     <PropertyPanelSurface>
       <DetailGrid rows={[
-        ["房源", data.unitCode ?? data.unitName], ["状态", data.status], ["优先级", data.priority],
-        ["紧急程度", data.urgency], ["处理人", data.assigneeName],
+        ["房源", data.unitCode ?? data.unitName], ["状态", workOrderStatusLabel(data.status)], ["优先级", propertyLabels.repairPriority(data.priority)],
+        ["紧急程度", propertyLabels.repairUrgency(data.urgency)], ["处理人", data.assigneeName],
         ["创建时间", new Date(data.createTime).toLocaleString("zh-CN")], ["问题描述", data.description]
       ]} />
       {workOrderAllowed ? <Link className="ds-button" href={href}>进入工单详情</Link> : null}
@@ -83,7 +86,7 @@ function PurchaseDetail({ capabilities, data, reload }: {
     <PropertyPanelSurface><DetailGrid rows={[
       ["供应商", data.purchase.vendorName], ["采购日期", data.purchase.purchaseDate],
       ["成本分类", data.purchase.costCategory], ["总金额", money(data.purchase.totalAmount)],
-      ["审批状态", data.purchase.approvalStatus], ["付款状态", data.purchase.paymentStatus]
+      ["审批状态", propertyLabels.purchaseApproval(data.purchase.approvalStatus)], ["付款状态", propertyLabels.purchasePayment(data.purchase.paymentStatus)]
     ]} /></PropertyPanelSurface>
     <PropertyPanelSurface title="采购明细">
       {data.items.map((item) => <p key={item.id}>{item.itemName} · {item.quantity} {item.unit ?? ""} · {money(item.amount)}</p>)}
@@ -136,12 +139,12 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
       succeeded = true;
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : successMessage;
       setMessage(successMessage);
       await reload();
       return true;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "提交失败";
+      const detail = propertyErrorMessage(error, succeeded ? "数据刷新失败，请手动刷新" : "提交失败，请稍后重试");
       if (succeeded) { setMessage(`${successMessage} 数据刷新失败：${detail}`); return true; }
       setMessage(detail); setDialogError(detail); return false;
     }
@@ -211,7 +214,7 @@ export function HousingHandoverDetailClient({ handoverId }: { handoverId: string
   return <DetailPage definition={{
     endpoint: `/housing/handovers/${encodeURIComponent(handoverId)}`, fallbackTitle: "交割详情",
     featureId: "housing.handovers", listRoute: "/housing/handovers", readActionId: "housing.handovers.detail",
-    title: (data: HousingHandoverDetailResponse) => `${data.leaseCode} · ${data.handoverType === "move_in" ? "入住" : "退租"}`,
+    title: (data: HousingHandoverDetailResponse) => `${data.leaseCode} · ${propertyLabels.handoverType(data.handoverType)}`,
     render: (data, capabilities) => <HandoverDetail capabilities={capabilities} data={data} />
   }} />;
 }

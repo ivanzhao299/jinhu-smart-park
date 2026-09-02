@@ -8,6 +8,7 @@ import {
   CanonicalDetailShell,
   PropertyPanelSurface,
   projectPropertyCapabilities,
+  propertyErrorMessage,
   resolveReturnHref,
   type CanonicalDetailState,
   type PropertyCapabilityProjection
@@ -47,9 +48,9 @@ function useDetail<T>(definition: DetailDefinition<T>) {
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) setState({ kind: "not-found" });
       else if (isForbiddenError(error)) setState({ kind: "forbidden" });
-      else if (error instanceof ApiError && error.status === 409) setState({ kind: "conflict", message: error.message });
+      else if (error instanceof ApiError && error.status === 409) setState({ kind: "conflict", message: propertyErrorMessage(error, "数据状态已变化，请刷新后重试") });
       else if (typeof navigator !== "undefined" && !navigator.onLine && data) setState({ kind: "ready", stale: true });
-      else setState({ kind: "failure", message: error instanceof Error ? error.message : "详情加载失败" });
+      else setState({ kind: "failure", message: propertyErrorMessage(error, "详情加载失败，请稍后重试") });
     }
   }
   useEffect(() => { void load(); }, [capabilities.invalidationKey, definition.endpoint]);

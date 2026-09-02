@@ -1,6 +1,7 @@
 export * from "./access-manifest";
 export * from "./permission-bundles";
 export * from "./permissions";
+export * from "./display-labels";
 export * from "./property-task-contracts";
 export * from "./response-contracts";
 export * from "./role-templates";

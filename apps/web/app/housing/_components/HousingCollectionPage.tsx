@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   projectPropertyCapabilities,
+  propertyErrorMessage,
   type PropertyFieldDescriptor,
   type PropertyPageState
 } from "../../../features/property-shared";
@@ -60,7 +61,7 @@ function useCollectionQuery(filters: readonly HousingFilterDefinition[], route: 
 }
 
 function failureState(error: unknown, cached: boolean): PropertyPageState {
-  const message = error instanceof Error ? error.message : "数据加载失败";
+  const message = propertyErrorMessage(error, "数据加载失败，请稍后重试");
   if (isForbiddenError(error)) {
     return cached ? { kind: "forbidden-partial", message } : { kind: "forbidden-full" };
   }

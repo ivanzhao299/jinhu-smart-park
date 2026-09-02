@@ -1,6 +1,13 @@
 "use client";
 
-import { PROPERTY_BUSINESS_PERMISSIONS } from "@jinhu/shared";
+import {
+  APPROVAL_DECISION_STATUS_LABELS as DECISION_STATUS_LABELS,
+  APPROVAL_EXECUTION_STATUS_LABELS as EXECUTION_STATUS_LABELS,
+  PROPERTY_BUSINESS_PERMISSIONS,
+  PROPERTY_OCCUPANCY_STATUS_LABELS as OCCUPANCY_STATUS_LABELS,
+  PROPERTY_OPERATING_MODE_LABELS as OPERATING_MODE_LABELS,
+  PROPERTY_OPERATING_STATUS_LABELS as OPERATING_STATUS_LABELS
+} from "@jinhu/shared";
 import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +16,7 @@ import {
   PropertyPageSurface,
   PropertyPanelSurface,
   PropertyResponsiveRecords,
+  propertyLabels,
   ConsequenceDialog,
   type PropertyFieldDescriptor
 } from "../../features/property-shared";
@@ -133,54 +141,6 @@ const SURFACE_CONFIG = {
     route: "/assets/property-mode-transitions"
   }
 } as const;
-
-const OPERATING_MODE_LABELS: Record<string, string> = {
-  none: "不经营",
-  short_stay: "民宿短租",
-  long_rent: "长租经营"
-};
-
-const OPERATING_STATUS_LABELS: Record<string, string> = {
-  enabled: "启用",
-  suspended: "暂停",
-  disabled: "停用"
-};
-
-const OCCUPANCY_STATUS_LABELS: Record<string, string> = {
-  held: "保留",
-  active: "生效",
-  released: "已释放",
-  completed: "已完成",
-  cancelled: "已取消"
-};
-
-const DECISION_STATUS_LABELS: Record<string, string> = {
-  submitted: "已提交",
-  pending_approval: "待审批",
-  approved: "已批准",
-  rejected: "已驳回",
-  withdrawn: "已撤回"
-};
-
-const EXECUTION_STATUS_LABELS: Record<string, string> = {
-  not_required: "无需执行",
-  not_started: "待执行",
-  executing: "执行中",
-  retry_wait: "等待重试",
-  executed: "已执行",
-  execution_failed: "执行失败",
-  infra_exhausted: "基础设施重试耗尽"
-};
-
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  leasing_contract: "租赁合同",
-  homestay_booking: "民宿订单",
-  housing_lease: "长租租约",
-  apartment_room: "公寓房间",
-  manual_maintenance_lock: "人工维修锁房",
-  manual_operations_lock: "人工运营锁房",
-  homestay_turnover: "民宿周转任务"
-};
 
 export function PropertyFoundationListClient({ surface }: { surface: FoundationSurface }) {
   const config = SURFACE_CONFIG[surface];
@@ -528,8 +488,8 @@ function ManualOccupancyCreatePanel({
         {availabilityConflicts.length ? <ul aria-label="可用性冲突">
           {availabilityConflicts.map((conflict, index) => <li key={`${conflict.conflictType}-${conflict.startAt}-${index}`}>
             {conflict.deepLink?.startsWith("/")
-              ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</Link>
-              : <>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</>}
+              ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel || "未命名冲突来源"}</Link>
+              : <>{conflict.sourceLabel || "未命名冲突来源"}</>}
             {` · ${sourceTypeLabel(conflict.sourceType)} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${occupancyStatusLabel(conflict.status)}`}
           </li>)}
         </ul> : null}
@@ -585,7 +545,7 @@ function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
   return <section aria-label="经营模式审计详情" className="ds-section-panel">
     <h2>经营模式审计详情</h2>
     <dl className="ds-description-list">
-      <div><dt>审批请求</dt><dd>{row.requestId ?? "历史执行日志"}</dd></div>
+      <div><dt>审批请求</dt><dd>{row.requestId ? "审批流程已建立" : "历史执行日志"}</dd></div>
       <div><dt>房源</dt><dd>{row.unitCode} · {row.unitName}</dd></div>
       <div><dt>模式变更</dt><dd>{formatOperatingMode(row.fromMode)} → {formatOperatingMode(row.toMode)}</dd></div>
       <div><dt>审批状态</dt><dd>{formatDecisionStatus(row.decisionStatus)}</dd></div>
@@ -593,7 +553,7 @@ function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
       <div><dt>申请时间</dt><dd>{formatTime(row.createTime)}</dd></div>
       <div><dt>审批时间</dt><dd>{formatTime(row.decisionTime)}</dd></div>
       <div><dt>执行时间</dt><dd>{formatTime(row.executionTime)}</dd></div>
-      <div><dt>操作人</dt><dd>{row.operatorName || row.operatorId || "—"}</dd></div>
+      <div><dt>操作人</dt><dd>{row.operatorName || "未显示操作人名称"}</dd></div>
       <div><dt>版本</dt><dd>{row.version}</dd></div>
     </dl>
     <h3>检查快照</h3>
@@ -630,7 +590,7 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
   if (surface === "occupancies") return [
     { key: "source", label: "来源", render: (item) => {
       const row = item as OccupancyRow;
-      const label = `${row.sourceLabel}${row.sourceId ? ` · ${row.sourceId}` : ""}`;
+      const label = row.sourceLabel || "未命名业务来源";
       return row.deepLink?.startsWith("/") ? <Link href={row.deepLink as Route}>{label}</Link> : label;
     } },
     { key: "sourceType", label: "来源类型", render: (item) => sourceTypeLabel((item as OccupancyRow).sourceType) },
@@ -655,7 +615,7 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "reason", label: "切换原因", render: (item) => (item as ModeTransitionRow).reason || "—" },
     { key: "operator", label: "操作人", render: (item) => {
       const row = item as ModeTransitionRow;
-      return row.operatorName || row.operatorId || "—";
+      return row.operatorName || "未显示操作人名称";
     } },
     { key: "created", label: "申请时间", render: (item) => formatTime((item as ModeTransitionRow).createTime) },
     { key: "decisionTime", label: "审批时间", render: (item) => formatTime((item as ModeTransitionRow).decisionTime) },
@@ -1010,35 +970,35 @@ function formatTime(value: string | null | undefined): string {
 }
 
 function formatOperatingMode(value: string | null | undefined): string {
-  return value ? OPERATING_MODE_LABELS[value] ?? value : "—";
+  return propertyLabels.operatingMode(value);
 }
 
 function formatOperatingStatus(value: string | null | undefined): string {
-  return value ? OPERATING_STATUS_LABELS[value] ?? value : "—";
+  return value ? ((OPERATING_STATUS_LABELS as Readonly<Record<string, string>>)[value] ?? "未知经营状态") : "—";
 }
 
 function occupancyStatusLabel(value: string): string {
-  return OCCUPANCY_STATUS_LABELS[value] ?? value;
+  return (OCCUPANCY_STATUS_LABELS as Readonly<Record<string, string>>)[value] ?? "未知占用状态";
 }
 
 function formatDecisionStatus(value: string | null | undefined): string {
-  return value ? DECISION_STATUS_LABELS[value] ?? value : "—";
+  return propertyLabels.decisionStatus(value);
 }
 
 function formatExecutionStatus(value: string | null | undefined): string {
-  return value ? EXECUTION_STATUS_LABELS[value] ?? value : "—";
+  return propertyLabels.executionStatus(value);
 }
 
 function sourceTypeLabel(value: string): string {
-  return SOURCE_TYPE_LABELS[value] ?? value;
+  return propertyLabels.sourceType(value);
 }
 
 function formatBuildingLabel(row: OperationRow): string {
-  return formatCodeName(row.buildingCode, row.buildingName) || row.buildingId || "—";
+  return formatCodeName(row.buildingCode, row.buildingName) || "未命名楼栋";
 }
 
 function formatAssetUnitLabel(row: OperationRow): string {
-  return formatCodeName(row.assetUnitCode, row.assetUnitName) || row.assetUnitId || "—";
+  return formatCodeName(row.assetUnitCode, row.assetUnitName) || "未命名房源";
 }
 
 function formatCodeName(code: string | null | undefined, name: string | null | undefined): string {

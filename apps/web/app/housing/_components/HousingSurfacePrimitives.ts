@@ -1,11 +1,8 @@
+import { HOUSING_LEASE_STATUS_LABELS } from "@jinhu/shared";
 import type { PropertyFieldDescriptor } from "../../../features/property-shared";
 
-export const housingLeaseStatusOptions = [
-  { label: "草稿", value: "draft" }, { label: "待审批", value: "pending_approval" },
-  { label: "待签署", value: "pending_signature" }, { label: "生效", value: "active" },
-  { label: "退租处理中", value: "checkout_pending" }, { label: "已结束", value: "closed" },
-  { label: "已作废", value: "void" }
-] as const;
+export const housingLeaseStatusOptions = Object.entries(HOUSING_LEASE_STATUS_LABELS)
+  .map(([value, label]) => ({ label, value }));
 
 export const housingOrderFilter = {
   key: "order", label: "排序方向", options: [

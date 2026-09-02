@@ -8,7 +8,13 @@ import {
 } from "@jinhu/shared";
 import type { FormEvent } from "react";
 import { useMemo, useRef, useState } from "react";
-import { PropertyPanelSurface, projectPropertyCapabilities } from "../../../features/property-shared";
+import {
+  PropertyPanelSurface,
+  eligibilityReasonLabel,
+  projectPropertyCapabilities,
+  propertyErrorMessage,
+  propertyLabels
+} from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
@@ -40,7 +46,7 @@ function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
       idempotency.complete("housing-tenant-create"); formElement.reset();
       setMessage("租客档案已创建。"); onCreated();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "创建失败");
+      setMessage(propertyErrorMessage(error, "租客档案创建失败，请稍后重试"));
     } finally {
       lock.current = false; setSubmitting(false);
     }
@@ -95,9 +101,9 @@ export function HousingLeasesClient() {
       { key: "unit", label: "房源", render: (item) => displayHousingValue(item.unitCode ?? item.unitName) },
       { key: "tenant", label: "租客", render: (item) => displayHousingValue(item.tenantDisplayName) },
       { key: "period", label: "租期", render: (item) => `${item.startDate} 至 ${item.endDate}` },
-      { key: "status", label: "状态", render: (item) => item.status },
+      { key: "status", label: "状态", render: (item) => propertyLabels.leaseStatus(item.status) },
       { key: "eligibility", label: "房源资格", render: (item) => item.eligibility?.eligible === false
-        ? `不合格（${item.eligibility.reasonCodes.join("、")}）` : "合格" },
+        ? `不合格（${item.eligibility.reasonCodes.map(eligibilityReasonLabel).join("、")}）` : "合格" },
       { key: "rent", label: "月租", render: (item) => housingMoney(item.monthlyRent) }
     )}
     filters={[{ key: "keyword", label: "租约关键词", placeholder: "租约、房源或租客" },
@@ -123,8 +129,8 @@ export function HousingHandoversClient() {
     fields={housingFields<HousingHandoverListItem>(
       { key: "lease", label: "租约", render: (item) => item.leaseCode },
       { key: "unit", label: "房源", render: (item) => displayHousingValue(item.unitCode ?? item.unitName) },
-      { key: "type", label: "类型", render: (item) => item.handoverType === "move_in" ? "入住" : "退租" },
-      { key: "status", label: "状态", render: (item) => item.status },
+      { key: "type", label: "类型", render: (item) => propertyLabels.handoverType(item.handoverType) },
+      { key: "status", label: "状态", render: (item) => propertyLabels.handoverStatus(item.status) },
       { key: "time", label: "交割时间", render: (item) => housingDateTime(item.handoverAt) }
     )}
     filters={[
@@ -136,7 +142,7 @@ export function HousingHandoversClient() {
       ]), housingOrderFilter
     ]}
     getKey={(item) => item.id}
-    getTitle={(item) => `${item.leaseCode} · ${item.handoverType === "move_in" ? "入住" : "退租"}`}
+    getTitle={(item) => `${item.leaseCode} · ${propertyLabels.handoverType(item.handoverType)}`}
     readActionId="housing.handovers.list" title="交割管理"
   />;
 }

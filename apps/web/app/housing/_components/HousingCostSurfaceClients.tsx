@@ -4,7 +4,13 @@ import type {
   HousingBillingListItem, HousingFinanceListItem, HousingPurchaseListItem, HousingRepairListItem
 } from "@jinhu/shared";
 import { useMemo, useState } from "react";
-import { projectPropertyCapabilities } from "../../../features/property-shared";
+import {
+  projectPropertyCapabilities,
+  housingPurchaseApprovalStatusOptions,
+  propertyLabels,
+  workOrderStatusLabel,
+  workOrderStatusLabels
+} from "../../../features/property-shared";
 import { useAuthUser } from "../../../lib/auth-context";
 import { HousingCollectionPage } from "./HousingCollectionPage";
 import { HousingBillingActions } from "./HousingBillingActions";
@@ -26,7 +32,7 @@ export function HousingBillingClient() {
       { key: "unit", label: "房源", render: (item) => displayHousingValue(item.lease.unitCode ?? item.lease.unitName) },
       { key: "plans", label: "费用计划", render: (item) => `${item.charge_plans.length} 项` },
       { key: "receivables", label: "应收", render: (item) => `${item.receivables.length} 笔` },
-      { key: "status", label: "租约状态", render: (item) => item.lease.status }
+      { key: "status", label: "租约状态", render: (item) => propertyLabels.leaseStatus(item.lease.status) }
     )}
     filters={[{ key: "status", label: "租约状态", options: housingLeaseStatusOptions },
       housingSortFilter([
@@ -75,17 +81,13 @@ export function HousingRepairsClient() {
     endpoint="/housing/repairs" featureId="housing.repairs" route="/housing/repairs"
     fields={housingFields<HousingRepairListItem>(
       { key: "unit", label: "房源", render: (item) => displayHousingValue(item.unitCode ?? item.unitName) },
-      { key: "priority", label: "优先级", render: (item) => item.priority },
-      { key: "status", label: "状态", render: (item) => item.status },
+      { key: "priority", label: "优先级", render: (item) => propertyLabels.repairPriority(item.priority) },
+      { key: "status", label: "状态", render: (item) => workOrderStatusLabel(item.status) },
       { key: "assignee", label: "处理人", render: (item) => displayHousingValue(item.assigneeName) },
       { key: "overdue", label: "时效", render: (item) => item.overdueFlag ? "已超时" : "正常" }
     )}
-    filters={[{ key: "status", label: "工单状态", options: [
-      { label: "已提交", value: "10" }, { label: "已派单", value: "20" },
-      { label: "已接单", value: "30" }, { label: "处理中", value: "40" },
-      { label: "待物料", value: "45" }, { label: "已完成", value: "50" },
-      { label: "已关闭", value: "100" }
-    ] },
+    filters={[{ key: "status", label: "工单状态", options: Object.entries(workOrderStatusLabels)
+      .map(([value, label]) => ({ label, value })) },
       housingSortFilter([
         { label: "创建时间", value: "createTime" }, { label: "状态", value: "status" },
         { label: "工单编号", value: "code" }
@@ -111,13 +113,10 @@ export function HousingPurchasesClient() {
       { key: "vendor", label: "供应商", render: (item) => item.vendorName },
       { key: "date", label: "采购日期", render: (item) => item.purchaseDate },
       { key: "amount", label: "金额", render: (item) => housingMoney(item.totalAmount) },
-      { key: "approval", label: "审批", render: (item) => item.approvalStatus },
-      { key: "payment", label: "付款", render: (item) => item.paymentStatus }
+      { key: "approval", label: "审批", render: (item) => propertyLabels.purchaseApproval(item.approvalStatus) },
+      { key: "payment", label: "付款", render: (item) => propertyLabels.purchasePayment(item.paymentStatus) }
     )}
-    filters={[{ key: "approval_status", label: "审批状态", options: [
-      { label: "草稿", value: "draft" }, { label: "已批准", value: "approved" },
-      { label: "已驳回", value: "rejected" }, { label: "已作废", value: "void" }
-    ] },
+    filters={[{ key: "approval_status", label: "审批状态", options: housingPurchaseApprovalStatusOptions },
       housingSortFilter([
         { label: "采购日期", value: "purchaseDate" }, { label: "状态", value: "status" },
         { label: "采购编号", value: "code" }

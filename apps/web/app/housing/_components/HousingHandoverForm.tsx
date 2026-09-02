@@ -11,7 +11,9 @@ import { FileUploader } from "../../../components/files/FileUploader";
 import { PendingAttachmentList } from "../../../components/files/PendingAttachmentList";
 import {
   PropertyPanelSurface,
+  propertyErrorMessage,
   RemoteEntityPicker,
+  propertyLabels,
   type PropertyCapabilityProjection,
   type RemoteEntityOption
 } from "../../../features/property-shared";
@@ -82,10 +84,10 @@ export function HousingHandoverForm({
       const response = await executeHandover(leaseId, body, idempotency.keyFor(operation, body));
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "交割记录已完成。");
+      setMessage(request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : "交割记录已完成。");
       setFiles([]); await onCompleted();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "交割提交失败");
+      setMessage(propertyErrorMessage(error, "交割提交失败，请稍后重试"));
     } finally {
       lock.current = false; setSubmitting(false);
     }
@@ -104,7 +106,7 @@ export function HousingHandoverForm({
       idempotency.complete(operation);
       setFiles((current) => current.filter((file) => file.id !== fileId));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "附件删除失败");
+      setMessage(propertyErrorMessage(error, "附件删除失败，请稍后重试"));
     } finally {
       removeLock.current = false; setRemoving(false);
     }

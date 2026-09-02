@@ -1,0 +1,30 @@
+{
+  "id": "hcd-chinese-display-closure",
+  "name": "hcd-chinese-display-closure",
+  "title": "HCD 中文名称显示修复闭环",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-09-02",
+  "completedAt": null,
+  "branch": "codex/fix-hcd-shared-web",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-02-hcd-shared-web",
+    "09-02-hcd-api-name-projections",
+    "09-02-hcd-temporary-labels-uat"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

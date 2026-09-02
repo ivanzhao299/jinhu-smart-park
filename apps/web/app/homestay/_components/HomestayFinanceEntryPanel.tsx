@@ -2,7 +2,7 @@
 
 import { PROPERTY_BUSINESS_PERMISSIONS, type CreatePendingPropertyApprovalResult, type HomestayFinanceApprovalSource, type HomestayFinanceItem } from "@jinhu/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
+import { PropertyPanelSurface, propertyErrorMessage, propertyLabels, type PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -46,11 +46,11 @@ function useFinanceEntry(onSaved: () => void) {
       retryKey.current = null;
       const result = response.data as Partial<CreatePendingPropertyApprovalResult>;
       setMessage(result.request?.requestId
-        ? `审批申请已提交（${result.request.requestId}；决策 ${result.request.decisionStatus}；执行 ${result.request.executionStatus}）。`
+        ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
         : "普通费用流水已登记。");
       onSaved();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "登记失败");
+      setMessage(propertyErrorMessage(error, "财务流水登记失败，请稍后重试"));
     } finally {
       lock.current = false;
       setSubmitting(false);
@@ -110,7 +110,7 @@ export function HomestayFinanceEntryPanel({
     }).catch((error) => {
       if (requestId === ledgerRequestId.current) {
         setSources([]);
-        form.setMessage(error instanceof Error ? error.message : "加载可操作来源失败");
+        form.setMessage(propertyErrorMessage(error, "加载可操作来源失败，请稍后重试"));
       }
     });
   }, [allowedEntryTypes, form.bookingId, form.entryType, highRiskAllowed]);
@@ -133,7 +133,7 @@ export function HomestayFinanceEntryPanel({
           </select></label>
           {["refund", "waiver"].includes(form.entryType) ? <label>来源流水<select required value={form.sourceLedgerId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); form.setSourceLedgerId(event.target.value); if (source?.chargeType) form.setChargeType(source.chargeType); }}>
             <option value="">请选择来源流水</option>
-            {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.entryType} · 可退/减 ¥{entry.availableAmount} · {entry.occurredAt || "已确认"}</option>)}
+            {sources.map((entry) => <option key={entry.id} value={entry.id}>{propertyLabels.homestayLedgerType(entry.entryType)} · 可退/减 ¥{entry.availableAmount} · {entry.occurredAt || "已确认"}</option>)}
           </select></label> : null}
           <label>费用类型<input required maxLength={32} readOnly={["refund", "waiver"].includes(form.entryType)} value={form.chargeType} onChange={(event) => form.setChargeType(event.target.value)} /></label>
           <label>金额<input required type="number" min="0.01" max={selectedSource?.availableAmount} step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>

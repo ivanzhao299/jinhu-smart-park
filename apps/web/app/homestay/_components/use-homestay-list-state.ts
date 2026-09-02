@@ -14,7 +14,7 @@ import type {
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RemoteEntityOption } from "../../../features/property-shared";
+import { propertyErrorMessage, type RemoteEntityOption } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import type { HomestayListReturnContext } from "./HomestayListRecords";
@@ -165,7 +165,7 @@ export function useHomestaySurfaceData(
         : response.data;
       if (currentRequest === requestId.current) setData(normalized);
     } catch (loadError) {
-      if (currentRequest === requestId.current) setError(loadError instanceof Error ? loadError.message : "数据加载失败");
+      if (currentRequest === requestId.current) setError(propertyErrorMessage(loadError, "数据加载失败，请稍后重试"));
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }

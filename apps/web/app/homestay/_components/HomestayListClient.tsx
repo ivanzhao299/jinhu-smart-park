@@ -10,6 +10,10 @@ import {
   PropertyPageSurface,
   PropertyPanelSurface,
   RemoteEntityPicker,
+  homestayBookingStatusOptions,
+  homestayTurnoverStatusOptions,
+  propertyTaskSourceOptions,
+  propertyTaskStatusOptions,
   projectPropertyCapabilities,
 } from "../../../features/property-shared";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -210,7 +214,7 @@ function HomestayFilters({
             ) : null}
             {surface === "tasks" ? (
               <>
-                <label>任务来源<select name="task_source_type" value={filters.sourceType} onChange={(event) => resetPage({ sourceType: event.target.value })}><option value="">全部</option><option value="homestay_arrival">到店</option><option value="homestay_departure">离店</option><option value="homestay_turnover">周转</option></select></label>
+                <label>任务来源<select name="task_source_type" value={filters.sourceType} onChange={(event) => resetPage({ sourceType: event.target.value })}><option value="">全部</option>{propertyTaskSourceOptions.filter(({ value }) => value.startsWith("homestay_")).map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></label>
                 <label>业务日期<input name="task_business_date" type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label>
               </>
             ) : null}
@@ -225,9 +229,9 @@ function HomestayFilters({
 }
 
 function filterOptions(surface: HomestayListSurface): Array<[string, string]> {
-  if (surface === "tasks") return [["pending", "待处理"], ["active", "处理中"], ["completed", "已完成"], ["exception", "异常"]];
+  if (surface === "tasks") return propertyTaskStatusOptions.map(({ value, label }) => [value, label]);
   if (surface === "stays") return [["arrivals", "今日到店"], ["departures", "今日离店"], ["in_house", "在住"]];
-  if (surface === "turnovers") return [["open", "未关闭"], ["pending", "待开始"], ["cleaning", "清洁中"], ["inspection", "待检查"], ["exception", "异常"], ["completed", "已完成"]];
-  if (surface === "bookings" || surface === "finance") return [["draft", "草稿"], ["confirmed", "已确认"], ["checked_in", "已入住"], ["checked_out", "已退房"], ["cancelled", "已取消"]];
+  if (surface === "turnovers") return homestayTurnoverStatusOptions.map(({ value, label }) => [value, label]);
+  if (surface === "bookings" || surface === "finance") return homestayBookingStatusOptions.map(({ value, label }) => [value, label]);
   return [];
 }

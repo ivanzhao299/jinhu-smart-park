@@ -74,3 +74,21 @@ export type {
   TaskLightAction,
   TaskStaleProjection
 } from "./tasks/task-presentation";
+
+export {
+  displayEntityName,
+  eligibilityReasonLabel,
+  homestayBookingStatusOptions,
+  homestayPriceSourceLabel,
+  homestayTurnoverStatusOptions,
+  housingPurchaseApprovalStatusOptions,
+  housingLeaseStatusOptions,
+  propertyLabels,
+  propertyErrorMessage,
+  propertyTaskSourceOptions,
+  propertyTaskStatusOptions,
+  statusVariant,
+  workOrderStatusLabel,
+  workOrderStatusLabels
+} from "./presentation/property-presentation";
+export type { PropertyStatusVariant } from "./presentation/property-presentation";
