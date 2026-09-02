@@ -40,8 +40,9 @@ RESTORE_DB_NAME=""
 DB_DUMP_PATH="/tmp/$RUN_ID.dump"
 FILE_BACKUP_PATH="/tmp/$RUN_ID-files.tgz"
 FILE_RESTORE_DIR="/tmp/$RUN_ID-files-restore"
-MIN_HOST_FREE_KIB=$((100 * 1024 * 1024))
+MIN_HOST_BASE_FREE_KIB=$((20 * 1024 * 1024))
 MIN_CONTAINER_FREE_KIB=$((15 * 1024 * 1024))
+RECOVERY_WORKING_SET_MULTIPLIER=2
 
 compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
@@ -158,10 +159,18 @@ MD
 
 append_report ""
 append_report "## Capacity Guard"
-assert_free_space "host" "$ROOT_DIR" "$MIN_HOST_FREE_KIB"
 postgres_tmp_free="$(compose exec -T postgres sh -c 'df -Pk /tmp | awk '\''NR == 2 { print $4; exit }'\''')"
-postgres_data_free="$(compose exec -T postgres sh -c 'data_dir="${PGDATA:-/var/lib/postgresql/data}"; df -Pk "$data_dir" | awk '\''NR == 2 { print $4; exit }'\''')"
+postgres_data_row="$(compose exec -T postgres sh -c 'data_dir="${PGDATA:-/var/lib/postgresql/data}"; free_kib=$(df -Pk "$data_dir" | awk '\''NR == 2 { print $4; exit }'\''); used_kib=$(du -sk "$data_dir" | awk '\''NR == 1 { print $1; exit }'\''); printf "%s|%s" "$free_kib" "$used_kib"')"
 api_tmp_free="$(compose exec -T api sh -c 'df -Pk /tmp | awk '\''NR == 2 { print $4; exit }'\''')"
+IFS='|' read -r postgres_data_free postgres_data_used <<EOF
+$postgres_data_row
+EOF
+FILE_STORAGE_ROOT="$(compose exec -T api printenv FILE_STORAGE_LOCAL_ROOT 2>/dev/null | tr -d '\r' | xargs)"
+if [ -z "$FILE_STORAGE_ROOT" ]; then
+  fail_gate "FILE_STORAGE_LOCAL_ROOT is not configured in api container"
+fi
+compose exec -T api sh -c "test -d '$FILE_STORAGE_ROOT'" >/dev/null || fail_gate "file storage root is not a directory"
+api_file_used="$(compose exec -T api sh -c 'file_root="${FILE_STORAGE_LOCAL_ROOT:-}"; test -n "$file_root" && test -d "$file_root" || exit 1; du -sk "$file_root" | awk '\''NR == 1 { print $1; exit }'\''' | tr -d ' \r\n')"
 for available in "$postgres_tmp_free" "$postgres_data_free" "$api_tmp_free"; do
   case "$available" in
     ''|*[!0-9]*) fail_gate "container free-space probe failed" ;;
@@ -170,6 +179,15 @@ for available in "$postgres_tmp_free" "$postgres_data_free" "$api_tmp_free"; do
     fail_gate "container free-space guard"
   fi
 done
+for used in "$postgres_data_used" "$api_file_used"; do
+  case "$used" in
+    ''|*[!0-9]*) fail_gate "recovery working-set probe failed" ;;
+  esac
+done
+required_host_free_kib=$((MIN_HOST_BASE_FREE_KIB + RECOVERY_WORKING_SET_MULTIPLIER * (postgres_data_used + api_file_used)))
+assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host_free_kib"
+append_report "- PASS: host recovery base reserve = \`${MIN_HOST_BASE_FREE_KIB}\` KiB"
+append_report "- PASS: host recovery working-set multiplier = \`${RECOVERY_WORKING_SET_MULTIPLIER}\`"
 append_report "- PASS: container free-space guards"
 
 append_report "- Checking production API health"
@@ -239,11 +257,6 @@ append_report "- PASS: restore database is queryable"
 append_report ""
 append_report "## File Storage Backup Evidence"
 
-FILE_STORAGE_ROOT="$(compose exec -T api printenv FILE_STORAGE_LOCAL_ROOT 2>/dev/null | tr -d '\r' | xargs)"
-if [ -z "$FILE_STORAGE_ROOT" ]; then
-  fail_gate "FILE_STORAGE_LOCAL_ROOT is not configured in api container"
-fi
-compose exec -T api sh -c "test -d '$FILE_STORAGE_ROOT'" >/dev/null || fail_gate "file storage root is not a directory"
 append_report "- PASS: file storage root exists"
 
 SOURCE_FILE_COUNT="$(compose exec -T api sh -c "find '$FILE_STORAGE_ROOT' -type f | wc -l" | tr -d ' \r\n')"
@@ -307,6 +320,7 @@ cat > "$REPORT_JSON" <<JSON
   "restore_file_count": $RESTORE_FILE_COUNT,
   "file_backup_bytes": $FILE_BACKUP_SIZE,
   "file_backup_archive_entries": $FILE_BACKUP_LIST_COUNT,
+  "host_recovery_required_kib": $required_host_free_kib,
   "production_db_write": "temporary_restore_database_only",
   "destructive_volume_operation": false
 }

@@ -5,14 +5,21 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 script="$root/scripts/production-backup-restore-gate19.sh"
 
-grep -Fq 'MIN_HOST_FREE_KIB=$((100 * 1024 * 1024))' "$script"
+grep -Fq 'MIN_HOST_BASE_FREE_KIB=$((20 * 1024 * 1024))' "$script"
 grep -Fq 'MIN_CONTAINER_FREE_KIB=$((15 * 1024 * 1024))' "$script"
-grep -Fq 'assert_free_space "host" "$ROOT_DIR" "$MIN_HOST_FREE_KIB"' "$script"
+grep -Fq 'RECOVERY_WORKING_SET_MULTIPLIER=2' "$script"
+grep -Fq 'required_host_free_kib=$((MIN_HOST_BASE_FREE_KIB + RECOVERY_WORKING_SET_MULTIPLIER * (postgres_data_used + api_file_used)))' "$script"
+grep -Fq 'assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host_free_kib"' "$script"
 grep -Fq 'postgres_tmp_free="$(compose exec -T postgres' "$script"
-grep -Fq 'postgres_data_free="$(compose exec -T postgres' "$script"
+grep -Fq 'postgres_data_row="$(compose exec -T postgres' "$script"
 grep -Fq 'api_tmp_free="$(compose exec -T api' "$script"
+grep -Fq 'for used in "$postgres_data_used" "$api_file_used"; do' "$script"
+if grep -Fq 'for available in "$postgres_tmp_free" "$postgres_data_free" "$postgres_data_used" "$api_tmp_free" "$api_file_used"; do' "$script"; then
+  echo 'recovery working-set sizes must not be compared as container free space' >&2
+  exit 1
+fi
 
-host_guard_line="$(grep -nF 'assert_free_space "host" "$ROOT_DIR" "$MIN_HOST_FREE_KIB"' "$script" | cut -d: -f1)"
+host_guard_line="$(grep -nF 'assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host_free_kib"' "$script" | cut -d: -f1)"
 dump_line="$(grep -nF 'pg_dump -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" -Fc -f "$DB_DUMP_PATH"' "$script" | cut -d: -f1)"
 if [ "$host_guard_line" -ge "$dump_line" ]; then
   echo 'backup capacity guard must run before pg_dump' >&2
