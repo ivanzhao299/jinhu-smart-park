@@ -70,8 +70,10 @@ assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
 assert.match(source, /scripts\/production-deploy-transfer-manifest\.mjs/);
 assert.match(source, /production-deploy-transfer\.contract\.mjs/);
 assert.match(source, /diagnose-yuzhou-hr-production-target/);
+assert.match(source, /diagnose-yuzhou-hr-preimport-snapshot/);
 assert.match(source, /Diagnose Yuzhou HR production target \(read-only\)/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-target\.sh/);
+assert.match(source, /scripts\/diagnose-yuzhou-hr-production-preimport-snapshot\.sh/);
 assert.match(
   source,
   /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-target'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
