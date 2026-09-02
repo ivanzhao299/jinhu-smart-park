@@ -933,3 +933,39 @@ Merged PR #519: housing move-in now requires current verified identity and exact
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: 完成民宿与长租中文名称显示专项核查
+
+**Date**: 2026-09-02
+**Task**: 完成民宿与长租中文名称显示专项核查
+**Package**: api
+**Branch**: `chore/archive-homestay-housing-chinese-display-audit-20260902`
+
+### Summary
+
+核查 27 个路由、形成 30 项问题矩阵（A1/B4/C19/D6）与统一修复方案；报告 PR #531 经一轮 Codex review 修订、CI 全绿后合并，main CI 与部署治理工作流双绿，生产部署步骤因文档变更跳过；未修改产品代码、未创建实施 Issue。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `65d06402` | (see git log) |
+| `87f9bf9a` | (see git log) |
+| `eb3b2c15` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
