@@ -110,6 +110,17 @@ test("homestay candidate and turnover queries enforce bounded pagination and kno
   const candidate = plainToInstance(HomestayUnitCandidateQueryDto, { page: 2, page_size: 100 });
   assert.deepEqual(await validate(candidate), []);
 
+  const restoredCandidate = plainToInstance(HomestayUnitCandidateQueryDto, {
+    unit_id: "11111111-1111-4111-8111-111111111111"
+  });
+  assert.deepEqual(await validate(restoredCandidate), []);
+
+  const invalidRestoredCandidate = plainToInstance(HomestayUnitCandidateQueryDto, {
+    unit_id: "internal-id"
+  });
+  assert.ok((await validate(invalidRestoredCandidate))
+    .some((error) => error.property === "unit_id"));
+
   const oversizedCandidate = plainToInstance(HomestayUnitCandidateQueryDto, { page_size: 101 });
   assert.ok((await validate(oversizedCandidate)).some((error) => error.property === "page_size"));
 

@@ -165,6 +165,7 @@ test("invalid field-policy assignment preserves existing park bindings", async (
 test("nested property projections enforce hidden and masked policies without mutating input", async () => {
   const policies = [
     { tenantId: "tenant-a", module: "homestay", entity: "booking", fieldKey: "booking.room_amount", fieldName: "房费", policyType: "masked", maskRule: "amount", status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "homestay", entity: "booking", fieldKey: "booking.unit_name", fieldName: "房源名称", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
     { tenantId: "tenant-a", module: "homestay", entity: "guest", fieldKey: "guest.mobile", fieldName: "入住人手机号", policyType: "masked", maskRule: "mobile", status: "enabled", isDeleted: false },
     { tenantId: "tenant-a", module: "homestay", entity: "turnover", fieldKey: "turnover.room_amount", fieldName: "周转房费", policyType: "masked", maskRule: "amount", status: "enabled", isDeleted: false },
     { tenantId: "tenant-a", module: "homestay", entity: "ledger", fieldKey: "ledger.amount", fieldName: "流水金额", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
@@ -176,7 +177,7 @@ test("nested property projections enforce hidden and masked policies without mut
     {} as never,
     { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
   );
-  const input = { booking: { roomAmount: "120.00", status: "confirmed" }, ledger: [{ id: "one", amount: "20.00" }, { id: "two", amount: "30.00" }], ledger_summary: { balance: "50.00" } };
+  const input = { booking: { roomAmount: "120.00", unitName: "湖景房", status: "confirmed" }, ledger: [{ id: "one", amount: "20.00" }, { id: "two", amount: "30.00" }], ledger_summary: { balance: "50.00" } };
   const projected = await service.applyFieldPoliciesToProjection(
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
@@ -185,6 +186,7 @@ test("nested property projections enforce hidden and masked policies without mut
   );
 
   assert.equal(projected.booking.roomAmount, "***");
+  assert.equal("unitName" in projected.booking, false);
   assert.equal("amount" in projected.ledger[0]!, false);
   assert.equal("amount" in projected.ledger[1]!, false);
   assert.equal("ledger_summary" in projected, false);
@@ -262,6 +264,39 @@ test("projection fallback is limited to the policy entity and masks composite va
     { occupants: [{ idCard: "320102199001011234", name: "tenant" }] }
   );
   assert.equal(occupants.occupants[0]!.idCard, "3201********1234");
+});
+
+test("housing purchase unit names obey field-policy hiding on detail and list projections", async () => {
+  const policies = [
+    { tenantId: "tenant-a", module: "housing_rental", entity: "purchase", fieldKey: "purchase.unit_name", fieldName: "房源名称", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "housing_rental", entity: "purchase", fieldKey: "purchase.unit_code", fieldName: "房源编号", policyType: "masked", maskRule: "custom", status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "housing_rental", entity: "task", fieldKey: "task.assignee_name", fieldName: "经办人姓名", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false }
+  ];
+  const service = new FieldPolicyService(
+    {} as never,
+    { find: async () => policies.map((fieldPolicy) => ({ fieldPolicy })) } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  const principal = { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] };
+  const detail = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" }, principal,
+    "housing_rental", { purchase: { unitCode: "HOUSE-001", unitName: "人才公寓一号" } }, "purchase"
+  );
+  const list = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" }, principal,
+    "housing_rental", { items: [{ unitCode: "HOUSE-001", unitName: "人才公寓一号" }] }, "purchase"
+  );
+  const tasks = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" }, principal,
+    "housing_rental", { items: [{ assigneeId: "internal-id", assigneeName: "经办人甲" }] }, "task"
+  );
+  assert.equal("unitName" in detail.purchase, false);
+  assert.notEqual(detail.purchase.unitCode, "HOUSE-001");
+  assert.equal("unitName" in list.items[0]!, false);
+  assert.notEqual(list.items[0]!.unitCode, "HOUSE-001");
+  assert.equal("assigneeName" in tasks.items[0]!, false);
+  assert.equal(tasks.items[0]!.assigneeId, "internal-id");
 });
 
 test("field policies cannot weaken an already masked credential projection", async () => {

@@ -488,6 +488,7 @@ test("task responses use the strict frozen item projection", async () => {
             title: "到店 · HS-1",
             status: "pending",
             assigneeId: null,
+            assigneeName: null,
             dueAt: null,
             secret: "must not leak"
           }]
@@ -503,6 +504,7 @@ test("task responses use the strict frozen item projection", async () => {
   const result = await service.listTasks(scope, actor, { page: 1, page_size: 20 });
   assert.deepEqual(Object.keys(result.items[0]!).sort(), [
     "assigneeId",
+    "assigneeName",
     "dueAt",
     "id",
     "sourceId",

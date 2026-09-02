@@ -3,7 +3,7 @@
   "name": "hcd-api-name-projections",
   "title": "HCD API 名称投影与权限修复",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "packages/shared,apps/api,apps/web",
   "package": "api",

@@ -19,6 +19,7 @@ import {
   PropertyPanelSurface,
   PropertyResponsiveRecords,
   TaskPresentation,
+  displayEntityName,
   propertyLabels,
   statusVariant
 } from "../../../features/property-shared";
@@ -96,8 +97,8 @@ function Tasks({ data, returnContext }: { data: HomestayTaskListResponse; return
 }
 
 function Availability({ data }: { data: HomestayAvailabilityListResponse }) {
-  return <PropertyResponsiveRecords items={data.items} label="民宿房态" getKey={(item) => item.unit_id} getTitle={(item) => `${item.unit_code} · ${item.unit_name}`} fields={[
-    { key: "unit", label: "房源", render: (item) => `${item.unit_code} · ${item.unit_name}` },
+  return <PropertyResponsiveRecords items={data.items} label="民宿房态" getKey={(item) => item.unit_id} getTitle={(item) => displayEntityName(item.unit_name, item.unit_code, "未命名房源")} fields={[
+    { key: "unit", label: "房源", render: (item) => displayEntityName(item.unit_name, item.unit_code, "未命名房源") },
     { key: "mode", label: "经营模式", render: (item) => propertyLabels.operatingMode(item.operation_mode) },
     { key: "state", label: "房态", render: (item) => {
       const presentation = homestayRoomStatePresentation(item.room_state);
@@ -108,7 +109,7 @@ function Availability({ data }: { data: HomestayAvailabilityListResponse }) {
 
 function Bookings({ data, returnContext }: { data: HomestayBookingListResponse; returnContext: HomestayListReturnContext }) {
   return <PropertyResponsiveRecords<HomestayBookingListItem> items={data.items} label="民宿订单" getKey={(item) => item.id} getTitle={(item) => item.bookingCode} fields={[
-    { key: "code", label: "订单号", render: (item) => item.bookingCode }, { key: "unit", label: "房源", render: (item) => [item.unitCode, item.unitName].filter(Boolean).join(" · ") || "—" },
+    { key: "code", label: "订单号", render: (item) => item.bookingCode }, { key: "unit", label: "房源", render: (item) => displayEntityName(item.unitName, item.unitCode, "未命名房源") },
     { key: "dates", label: "入住期间", render: (item) => `${item.arrivalDate} 至 ${item.departureDate}` }, { key: "status", label: "状态", render: (item) => <StatusPill variant={statusVariant(item.status)}>{propertyLabels.bookingStatus(item.status)}</StatusPill> }
   ]} renderActions={(item) => <Link className="secondary-button" href={detailHref(`/homestay/bookings/${item.id}`, returnContext) as Route}>查看详情</Link>} />;
 }
@@ -121,8 +122,8 @@ function Stays({ data, returnContext }: { data: HomestayStayListResponse; return
 }
 
 function Turnovers({ data, returnContext }: { data: HomestayTurnoverListResponse; returnContext: HomestayListReturnContext }) {
-  return <PropertyResponsiveRecords<HomestayTurnoverListItem> items={data.items} label="民宿周转" getKey={(item) => item.id} getTitle={(item) => [item.unitCode, item.unitName].filter(Boolean).join(" · ") || "未命名房源"} fields={[
-    { key: "unit", label: "房源", render: (item) => [item.unitCode, item.unitName].filter(Boolean).join(" · ") || "未命名房源" }, { key: "status", label: "状态", render: (item) => <StatusPill variant={statusVariant(item.status)}>{propertyLabels.turnoverStatus(item.status)}</StatusPill> },
+  return <PropertyResponsiveRecords<HomestayTurnoverListItem> items={data.items} label="民宿周转" getKey={(item) => item.id} getTitle={(item) => displayEntityName(item.unitName, item.unitCode, "未命名房源")} fields={[
+    { key: "unit", label: "房源", render: (item) => displayEntityName(item.unitName, item.unitCode, "未命名房源") }, { key: "status", label: "状态", render: (item) => <StatusPill variant={statusVariant(item.status)}>{propertyLabels.turnoverStatus(item.status)}</StatusPill> },
     { key: "assignee", label: "负责人", render: (item) => item.assigneeName ?? "待领取" }, { key: "exception", label: "异常", render: (item) => item.exceptionDescription ?? "无" }
   ]} renderActions={(item) => <Link className="secondary-button" href={detailHref(`/homestay/turnovers/${item.id}`, returnContext) as Route}>查看详情</Link>} />;
 }

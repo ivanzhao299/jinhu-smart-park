@@ -94,6 +94,7 @@ export class HousingPurchaseService {
     return {
       items: items.map((item) => ({
         ...this.toPurchaseResponse(item, actor),
+        ...relations.unitDisplay.get(item.unitId ?? ""),
         transferredItemCount: relations.transferredCounts.get(item.id) ?? 0,
         ...(relations.includeEvidence ? {
           receiptFiles: (relations.receiptFiles.get(item.id) ?? [])
@@ -115,13 +116,14 @@ export class HousingPurchaseService {
       return {
         transferredCounts: new Map<string, number>(),
         receiptFiles: new Map<string, FileEntity[]>(),
-        includeEvidence: false
+        includeEvidence: false,
+        unitDisplay: new Map<string, { unitCode: string | null; unitName: string | null }>()
       };
     }
     const ids = items.map((item) => item.id);
     const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
-    const [transferredRows, files] = await Promise.all([
+    const [transferredRows, files, unitDisplay] = await Promise.all([
       this.loadPurchaseTransferredCounts(scope, ids),
       includeEvidence ? this.dataSource.getRepository(FileEntity).find({
         where: {
@@ -133,7 +135,8 @@ export class HousingPurchaseService {
           isDeleted: false
         },
         order: { createTime: "DESC" }
-      }) : []
+      }) : [],
+      this.loadPurchaseUnitDisplay(scope, items)
     ]);
     const receiptFiles = new Map<string, FileEntity[]>();
     for (const file of files) {
@@ -144,7 +147,8 @@ export class HousingPurchaseService {
       transferredCounts: new Map(transferredRows.map((row) =>
         [row.purchaseId, Number(row.transferredItemCount)])),
       receiptFiles,
-      includeEvidence
+      includeEvidence,
+      unitDisplay
     };
   }
 
@@ -172,7 +176,7 @@ export class HousingPurchaseService {
     await this.assertPurchaseAccess(scope, actor, purchase.unitId);
     const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
-    const [items, receiptFiles] = await Promise.all([
+    const [items, receiptFiles, unitDisplay] = await Promise.all([
       this.dataSource.getRepository(HousingPurchaseItemEntity).find({
         where: {
           tenantId: scope.tenantId,
@@ -193,10 +197,14 @@ export class HousingPurchaseService {
             },
             order: { createTime: "DESC" }
           })
-        : Promise.resolve([])
+        : Promise.resolve([]),
+      this.loadPurchaseUnitDisplay(scope, [purchase])
     ]);
     return {
-      purchase: this.toPurchaseResponse(purchase, actor),
+      purchase: {
+        ...this.toPurchaseResponse(purchase, actor),
+        ...unitDisplay.get(purchase.unitId ?? "")
+      },
       items: items.map((item) => ({
         id: item.id,
         itemName: item.itemName,
@@ -538,6 +546,8 @@ export class HousingPurchaseService {
       id: purchase.id,
       purchaseCode: purchase.purchaseCode,
       unitId: purchase.unitId,
+      unitCode: null,
+      unitName: null,
       vendorName: purchase.vendorName,
       purchaseDate: purchase.purchaseDate,
       costCategory: purchase.costCategory,
@@ -547,6 +557,26 @@ export class HousingPurchaseService {
         totalAmount: formatHousingMoney(purchase.totalAmount)
       } : {})
     };
+  }
+
+  private async loadPurchaseUnitDisplay(
+    scope: TenantParkScope,
+    purchases: HousingPurchaseEntity[]
+  ): Promise<Map<string, { unitCode: string | null; unitName: string | null }>> {
+    const unitIds = [...new Set(purchases.flatMap((purchase) =>
+      purchase.unitId ? [purchase.unitId] : []))];
+    if (!unitIds.length) return new Map();
+    const rows = await this.dataSource.query(
+      `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+       FROM biz_unit unit
+       WHERE unit.tenant_id = $1 AND unit.park_id = $2
+         AND unit.id = ANY($3::uuid[]) AND unit.is_deleted = false`,
+      [scope.tenantId, scope.parkId, unitIds]
+    ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>;
+    return new Map(rows.map((row) => [row.id, {
+      unitCode: row.unitCode,
+      unitName: row.unitName
+    }]));
   }
 
   private toFileRef(file: FileEntity): PropertyWorkbenchFileRef {

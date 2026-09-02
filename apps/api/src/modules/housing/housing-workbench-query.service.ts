@@ -74,7 +74,8 @@ const TASK_CTE = `WITH task AS (
          ('租约 · ' || lease.lease_code) AS title,
          CASE WHEN lease.status IN ('pending_approval', 'pending_signature') THEN 'pending'
               WHEN lease.status = 'checkout_pending' THEN 'active' ELSE 'completed' END AS status,
-         NULL::uuid AS "assigneeId", lease.end_date::timestamp AT TIME ZONE 'Asia/Shanghai' AS "dueAt",
+         NULL::uuid AS "assigneeId", NULL::text AS "assigneeName",
+         lease.end_date::timestamp AT TIME ZONE 'Asia/Shanghai' AS "dueAt",
          lease.unit_id AS "unitId", NULL::uuid AS "reporterId", NULL::uuid AS "createdBy"
   FROM biz_housing_lease lease
   WHERE lease.tenant_id=$1 AND lease.park_id=$2 AND lease.is_deleted=false
@@ -83,7 +84,7 @@ const TASK_CTE = `WITH task AS (
   SELECT handover.id, 'housing_handover', handover.id,
          ('交割 · ' || lease.lease_code || ' · ' || handover.handover_type),
          CASE WHEN handover.status='completed' THEN 'completed' ELSE 'pending' END,
-         NULL::uuid, COALESCE(handover.handover_at, handover.create_time), lease.unit_id,
+         NULL::uuid, NULL::text, COALESCE(handover.handover_at, handover.create_time), lease.unit_id,
          NULL::uuid, NULL::uuid
   FROM biz_housing_handover handover
   JOIN biz_housing_lease lease ON lease.id=handover.lease_id
@@ -94,7 +95,8 @@ const TASK_CTE = `WITH task AS (
          ('报修 · ' || work_order.wo_code || ' · ' || work_order.title),
          CASE WHEN work_order.status IN ('60','70','100') THEN 'completed'
               WHEN work_order.overdue_flag THEN 'exception' ELSE 'active' END,
-         work_order.assignee_id, COALESCE(work_order.finish_time, work_order.create_time), lease.unit_id,
+         work_order.assignee_id, work_order.assignee_name,
+         COALESCE(work_order.finish_time, work_order.create_time), lease.unit_id,
          work_order.reporter_id, work_order.create_by
   FROM biz_work_order work_order
   JOIN biz_housing_lease lease ON lease.id::text=work_order.source_id
@@ -106,7 +108,7 @@ const TASK_CTE = `WITH task AS (
          ('账单 · ' || lease.lease_code || ' · ' || receivable.charge_type),
          CASE WHEN receivable.status IN ('paid','waived','void') THEN 'completed'
               WHEN receivable.due_date < CURRENT_DATE THEN 'exception' ELSE 'pending' END,
-         NULL::uuid, receivable.due_date::timestamp AT TIME ZONE 'Asia/Shanghai', lease.unit_id,
+         NULL::uuid, NULL::text, receivable.due_date::timestamp AT TIME ZONE 'Asia/Shanghai', lease.unit_id,
          NULL::uuid, NULL::uuid
   FROM biz_housing_receivable receivable
   JOIN biz_housing_lease lease ON lease.id=receivable.lease_id
@@ -118,7 +120,7 @@ const TASK_CTE = `WITH task AS (
          ('采购 · ' || purchase.purchase_code || ' · ' || purchase.vendor_name),
          CASE WHEN purchase.approval_status='draft' THEN 'pending'
               WHEN purchase.payment_status='unpaid' THEN 'active' ELSE 'completed' END,
-         NULL::uuid, purchase.purchase_date::timestamp AT TIME ZONE 'Asia/Shanghai', purchase.unit_id,
+         NULL::uuid, NULL::text, purchase.purchase_date::timestamp AT TIME ZONE 'Asia/Shanghai', purchase.unit_id,
          NULL::uuid, NULL::uuid
   FROM biz_housing_purchase purchase
   WHERE purchase.tenant_id=$1 AND purchase.park_id=$2 AND purchase.is_deleted=false
@@ -145,7 +147,7 @@ export class HousingWorkbenchQueryService {
     await this.applyTaskActorScope(parameters, filters, actor);
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
-        `${TASK_CTE} SELECT id, "sourceType", "sourceId", title, status, "assigneeId", "dueAt"
+        `${TASK_CTE} SELECT id, "sourceType", "sourceId", title, status, "assigneeId", "assigneeName", "dueAt"
          FROM task${this.where(filters)} ORDER BY ${this.taskOrder(query)}, id ASC
          LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`,
         [...parameters, query.page_size, this.offset(query)]
@@ -162,6 +164,7 @@ export class HousingWorkbenchQueryService {
       title: row.title,
       status: row.status,
       assigneeId: row.assigneeId,
+      assigneeName: row.assigneeName,
       dueAt: this.toIso(row.dueAt)
     })), countRows, query);
   }

@@ -99,10 +99,12 @@ export function displayEntityName(
   businessCode: string | null | undefined,
   fallback: string
 ): string {
-  const code = businessCode?.trim();
-  const safeCode = code && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(code)
-    ? code : "";
-  return name?.trim() || safeCode || fallback;
+  const isInternalId = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  const safeName = name?.trim();
+  const safeCode = businessCode?.trim();
+  return (safeName && !isInternalId(safeName) ? safeName : "")
+    || (safeCode && !isInternalId(safeCode) ? safeCode : "")
+    || fallback;
 }
 
 export function propertyErrorMessage(error: unknown, fallback = "操作失败，请稍后重试"): string {

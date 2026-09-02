@@ -286,6 +286,7 @@ export class HomestayWorkbenchQueryService {
           title: row.title,
           status: row.status,
           assigneeId: row.assigneeId,
+          assigneeName: row.assigneeName,
           dueAt: rawDueAt instanceof Date ? rawDueAt.toISOString() : row.dueAt
         };
       }),
@@ -457,9 +458,9 @@ export class HomestayWorkbenchQueryService {
     return `WITH task AS (
       SELECT booking.id, 'homestay_arrival'::text AS "sourceType",
              booking.id AS "sourceId",
-             ('到店 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, booking.unit_id::text)) AS title,
+             ('到店 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, '未命名房源')) AS title,
              CASE WHEN booking.status = 'confirmed' THEN 'pending' ELSE 'completed' END AS status,
-             NULL::uuid AS "assigneeId",
+             NULL::uuid AS "assigneeId", NULL::text AS "assigneeName",
              COALESCE(booking.expected_arrival_time, booking.arrival_date::timestamp AT TIME ZONE 'Asia/Shanghai') AS "dueAt"
       FROM biz_homestay_booking booking
       LEFT JOIN biz_unit unit ON unit.id = booking.unit_id
@@ -470,9 +471,9 @@ export class HomestayWorkbenchQueryService {
         AND booking.status IN ('confirmed', 'checked_in', 'checked_out')${bookingUnitClause}
       UNION ALL
       SELECT booking.id, 'homestay_departure'::text, booking.id,
-             ('离店 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, booking.unit_id::text)),
+             ('离店 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, '未命名房源')),
              CASE WHEN booking.status = 'checked_out' THEN 'completed' ELSE 'active' END,
-             NULL::uuid, booking.departure_date::timestamp AT TIME ZONE 'Asia/Shanghai'
+             NULL::uuid, NULL::text, booking.departure_date::timestamp AT TIME ZONE 'Asia/Shanghai'
       FROM biz_homestay_booking booking
       LEFT JOIN biz_unit unit ON unit.id = booking.unit_id
         AND unit.tenant_id = booking.tenant_id AND unit.park_id = booking.park_id
@@ -482,11 +483,12 @@ export class HomestayWorkbenchQueryService {
         AND booking.status IN ('checked_in', 'checked_out')${bookingUnitClause}
       UNION ALL
       SELECT turnover.id, 'homestay_turnover'::text, turnover.id,
-             ('周转 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, turnover.unit_id::text)),
+             ('周转 · ' || booking.booking_code || ' · ' || COALESCE(unit.unit_name, unit.unit_code, '未命名房源')),
              CASE WHEN turnover.status = 'pending' THEN 'pending'
                   WHEN turnover.status = 'exception' THEN 'exception'
                   WHEN turnover.status = 'completed' THEN 'completed' ELSE 'active' END,
-             turnover.assignee_id, COALESCE(turnover.completed_at, turnover.create_time)
+             turnover.assignee_id, turnover.assignee_name,
+             COALESCE(turnover.completed_at, turnover.create_time)
       FROM biz_homestay_turnover_task turnover
       JOIN biz_homestay_booking booking ON booking.id = turnover.booking_id
         AND booking.tenant_id = turnover.tenant_id AND booking.park_id = turnover.park_id

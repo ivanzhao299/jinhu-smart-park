@@ -5,6 +5,7 @@ import type {
 } from "@jinhu/shared";
 import { useMemo, useState } from "react";
 import {
+  displayEntityName,
   projectPropertyCapabilities,
   housingPurchaseApprovalStatusOptions,
   propertyLabels,
@@ -111,6 +112,7 @@ export function HousingPurchasesClient() {
     endpoint="/housing/purchases" featureId="housing.purchases" route="/housing/purchases"
     fields={housingFields<HousingPurchaseListItem>(
       { key: "vendor", label: "供应商", render: (item) => item.vendorName },
+      { key: "unit", label: "房源", render: (item) => displayEntityName(item.unitName, item.unitCode, "未关联房源") },
       { key: "date", label: "采购日期", render: (item) => item.purchaseDate },
       { key: "amount", label: "金额", render: (item) => housingMoney(item.totalAmount) },
       { key: "approval", label: "审批", render: (item) => propertyLabels.purchaseApproval(item.approvalStatus) },

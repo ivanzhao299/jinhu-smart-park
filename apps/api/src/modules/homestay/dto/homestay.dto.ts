@@ -83,6 +83,10 @@ export class HomestayBookingQueryDto {
 
 export class HomestayUnitCandidateQueryDto {
   @IsOptional()
+  @IsUUID()
+  unit_id?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsIn(UNIT_USAGE_TYPES)
   usage_type?: UnitUsageType;
@@ -108,9 +112,6 @@ export class HomestayCandidateQueryDto extends HomestayUnitCandidateQueryDto {
   @MaxLength(100)
   keyword?: string;
 
-  @IsOptional()
-  @IsUUID()
-  unit_id?: string;
 }
 
 export class HomestayGuestCandidateQueryDto extends HomestayUnitCandidateQueryDto {
