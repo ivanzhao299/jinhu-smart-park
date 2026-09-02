@@ -300,7 +300,15 @@ export function compareIsolation(configAInput, configBInput) {
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
   if (JSON.stringify(a.t5Baseline ?? null) !== JSON.stringify(b.t5Baseline ?? null)) fail("T5_BASELINE_DRIFT", "A/B must use the byte-exact same T5 candidate baseline");
-  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
+  const etlCredentialModeA = a.source.etlCredentialMode ?? "run_owned";
+  const etlCredentialModeB = b.source.etlCredentialMode ?? "run_owned";
+  if (etlCredentialModeA !== etlCredentialModeB) fail("SOURCE_REFERENCE_MISMATCH", "A/B ETL credential modes differ");
+  if (etlCredentialModeA === "sealed_reference" && a.source.etlEnvFile !== b.source.etlEnvFile) fail("SOURCE_REFERENCE_MISMATCH", "A/B must share one sealed ETL reference");
+  const materializationKeyModeA = a.target.materializationKeyMode ?? "run_owned";
+  const materializationKeyModeB = b.target.materializationKeyMode ?? "run_owned";
+  if (materializationKeyModeA !== materializationKeyModeB) fail("SOURCE_REFERENCE_MISMATCH", "A/B materialization key modes differ");
+  if (materializationKeyModeA === "sealed_reference" && a.target.materializationKeyArtifact !== b.target.materializationKeyArtifact) fail("SOURCE_REFERENCE_MISMATCH", "A/B must share one sealed materialization key reference");
+  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", ...(materializationKeyModeA === "run_owned" ? ["materializationKeyArtifact"] : []), "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
 }
