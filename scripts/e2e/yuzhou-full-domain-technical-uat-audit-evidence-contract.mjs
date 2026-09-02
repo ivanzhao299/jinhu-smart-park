@@ -16,3 +16,9 @@ test("legacy role evidence derives audit rows from all isolated UAT actors inste
   assert.match(runner, /expectedAuditBizIdByOperationKey\.get\(operationKeySha256\)!==bizIdSha256/u);
   assert.doesNotMatch(runner, /TECHNICAL_UAT_AUDIT_EVIDENCE_INCOMPLETE/u);
 });
+
+test("P0 fixture filesystem resources are registered before later UAT stages can fail", () => {
+  assert.match(runner, /function registryResource\(config,type,path\)/u);
+  assert.match(runner, /function registryDirectory\(config,path\)\{registryResource\(config,"directory",path\);\}/u);
+  assert.match(runner, /registryDirectory\(config,dirname\(p0Fixture\.successAbsolutePath\)\);registryFile\(config,p0Fixture\.successAbsolutePath\);/u);
+});
