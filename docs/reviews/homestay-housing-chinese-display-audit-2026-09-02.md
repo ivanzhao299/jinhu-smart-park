@@ -12,13 +12,13 @@
 
 | 根因 | 定义 | 数量 | 占比 |
 | --- | --- | ---: | ---: |
-| A | 前端缺少展示转换或采用了不当 ID/占位回退 | 2 | 6.7% |
-| B | API/共享响应契约缺少名称字段，前端无法可靠显示 | 3 | 10.0% |
+| A | 前端缺少展示转换或采用了不当 ID/占位回退 | 1 | 3.3% |
+| B | API/共享响应契约缺少名称字段或定向查询能力，前端无法可靠显示 | 4 | 13.3% |
 | C | 仓库已有中文映射/名称资产，但页面漏用或局部资产漂移 | 19 | 63.3% |
 | D | 仓库中没有可确认的中文产品定义，需产品定名 | 6 | 20.0% |
 | **合计** |  | **30** | **100%** |
 
-最主要根因不是“后端都没给名称”，而是中文映射分散在筛选器、创建表单和房产控制面中，列表/详情没有复用。优先建立单一领域 label 层，可一次消除大部分 C 类问题；B 类只集中在民宿订单详情、住房任务负责人、采购关联房源三条响应投影。
+最主要根因不是“后端都没给名称”，而是中文映射分散在筛选器、创建表单和房产控制面中，列表/详情没有复用。优先建立单一领域 label 层，可一次消除大部分 C 类问题；B 类集中在三条名称响应投影和一条按 ID 恢复 picker label 的查询能力。
 
 ## 2. 范围与方法
 
@@ -61,12 +61,12 @@
 | HCD-006 | 订单详情、退款/减免来源 picker：流水类型 | `charge`、`payment` | C | `HomestayDetailClient.tsx:231-237`、`HomestayFinanceEntryPanel.tsx:126-136`；同表单已有“费用/收款/退款/减免”，共享值域在 `packages/shared/src/index.ts:418-424` | 提取并复用 ledger entry type map。 |
 | HCD-007 | 订单详情：流水状态、审计 action | `confirmed`、`booking_confirmed` | D | `HomestayDetailClient.tsx:235-243` 直出；现有合同为开放字符串，未找到完整中文定义 | 产品给出流水状态和 action 目录；before/after status 使用相应领域状态 map。 |
 | HCD-008 | 周转详情、工单 picker：工单状态 | 数字/英文工单状态码 | C | `HomestayDetailClient.tsx:289-296`、`HomestayTurnoverActions.tsx:21-35`；工单模块已有状态展示资产 | 复用工单统一状态 label，picker secondary label 与详情一致。 |
-| HCD-009 | 高风险操作成功提示：审批决策/执行状态及 requestId | `pending_approval`、`not_started`、内部申请 ID | C | `HomestayDetailClient.tsx:88-91`、`HomestayFinanceEntryPanel.tsx:47-50`；现有中文 map 在 `PropertyFoundationControlClient.tsx:157-172,1024-1029` | 状态复用审批 map；主提示显示中文结果，内部 ID 移到带“申请编号”的次要信息。 |
+| HCD-009 | 两模块高风险操作成功提示：审批决策/执行状态及 requestId | `pending_approval`、`not_started`、内部申请 ID | C | 民宿：`HomestayDetailClient.tsx:88-91`、`HomestayFinanceEntryPanel.tsx:47-50`；住房：`HousingFinanceActions.tsx:130-131`、`HousingHandoverForm.tsx:84-85`、`HousingLeaseDetailClient.tsx:55-56`、`HousingEntityDetailClients.tsx:138-139`；现有中文 map 在 `PropertyFoundationControlClient.tsx:157-172,1024-1029` | 状态复用审批 map；主提示显示中文结果，内部 ID 移到带“申请编号”的次要信息。 |
 | HCD-010 | 订单详情：每日房价来源 | `date_override` | C | `HomestayDetailClient.tsx:218-220` 直出；价格页已有“日期覆盖价/基础价”，见 `HomestayRatesClient.tsx:227-231` | 抽取 price source formatter 并在详情复用。 |
 | HCD-011 | 订单/入住详情：房源 | 固定“已关联房源”，无法显示名称 | B | Web 在 `HomestayDetailClient.tsx:204-213` 使用固定占位；共享 `HomestayBookingResponse` 仅有 `unitId`，而列表才有 `unitCode/unitName`，见 `response-contracts.ts:174-194`；API projection 同样只投影 ID | 详情响应补 `unitCode`、`unitName`；若业务要求跨园区/楼栋辨识，再补 `buildingName`、`parkName`，不要前端 N+1 查询。 |
-| HCD-012 | 列表 URL 恢复后的房源 picker | 固定“已选择房源” | A | `apps/web/app/homestay/_components/use-homestay-list-state.ts:105-120` | 用 `/homestay/unit-candidates` 按已选 ID 恢复 `unitCode · unitName`，加载中显示中文暂态，失败显示“已选房源不可用”。 |
-| HCD-013 | 列表、详情、价格、财务操作：错误信息 | 英文 API message/机器字段值 | C | `use-homestay-list-state.ts:160-169`、`HomestayDetailClient.tsx:94-99`、`HomestayFinanceEntryPanel.tsx:52-53`；已有局部 `homestayErrorMessage` 在 `homestay-workbench.logic.ts:40-52` | 扩充并统一错误投影；保留 request id 供排障，但主文案中文化。 |
-| HCD-014 | 订单/周转筛选：状态值域 | `no_show` 无选项；`open` 不在 shared 周转值域 | C | `HomestayListClient.tsx:227-232`；权威值域 `packages/shared/src/index.ts:399-416` | 筛选由共享枚举+label 生成，删除局部漂移；确认 `open` 是聚合筛选语义还是错误状态值。 |
+| HCD-012 | 列表 URL 恢复后的房源 picker | 固定“已选择房源” | B | `apps/web/app/homestay/_components/use-homestay-list-state.ts:105-120`；现有 `HomestayUnitCandidateQueryDto` 只支持 usage/pagination，`apps/api/src/modules/homestay/dto/homestay.dto.ts:84-102`，service 也不能按 ID 定向查询，`apps/api/src/modules/homestay/homestay.service.ts:124-172` | 为 `/homestay/unit-candidates` 增加受 scope/资格约束的 `id` 查询，或新增最小授权详情端点，再恢复 `unitCode · unitName`；加载失败显示“已选房源不可用”。 |
+| HCD-013 | 两模块列表、详情与业务操作：错误信息 | 英文 API message/机器字段值 | C | 民宿：`use-homestay-list-state.ts:160-169`、`HomestayDetailClient.tsx:94-99`；住房通用壳：`HousingCollectionPage.tsx:62-69`、`HousingDetailShell.tsx:47-52`，动作例：`HousingFinanceActions.tsx:137-143`；已有局部 `homestayErrorMessage` 在 `homestay-workbench.logic.ts:40-52` | 建立两模块统一错误投影；覆盖验证/冲突/权限/网络错误，保留 request id 供排障，但主文案中文化。 |
+| HCD-014 | 订单/周转筛选：状态值域 | `no_show` 无选项；合法聚合筛选 `open` 与实体状态混在局部数组 | C | `HomestayListClient.tsx:227-232`；实体权威值域 `packages/shared/src/index.ts:399-416`；`open` 是 DTO 支持并默认的查询伪值，见 `apps/api/src/modules/homestay/dto/homestay.dto.ts:168-171`，service 将其展开为四个未完成状态，见 `homestay-turnover.service.ts:77-81` | 状态选项由 shared 枚举+label 生成并补 `no_show`；显式保留 `open=未完成` 这一查询伪值，不把它写入实体状态枚举。 |
 
 ### 3.2 长租经营
 
@@ -80,7 +80,7 @@
 | HCD-020 | `/housing/tasks`：负责人 | 直接显示 assignee UUID | B | Web `HousingOverviewSurfaceClients.tsx:124-128` 直出 `assigneeId`；共享 `PropertyWorkbenchTaskItem` 只有 ID，见 `response-contracts.ts:315-328`；API task projection也无姓名 | API task projection 补 `assigneeName`；未分派/名称不可用时显示中文占位，不回退 UUID。 |
 | HCD-021 | 租约详情：租客/入住人员名称回退 | 名称缺失时显示 Party UUID | A | `HousingLeaseDetailClient.tsx:90-95,146-153`；响应已有可空 `displayName/partyDisplayName`，见 `response-contracts.ts:495-518` | 名称缺失显示“未命名租客/未命名人员”，内部 ID 仅放受控技术信息。 |
 | HCD-022 | 租约详情：入住人员角色 | `cohabitant`、`emergency_contact` | C | `HousingLeaseDetailClient.tsx:150-152` 直出；新增人员表单已有“同住人/紧急联系人”在 `HousingLeaseSecondaryActions.tsx:179-182` | 提取 occupant role map 并复用。 |
-| HCD-023 | 报修列表/详情：优先级、紧急程度、状态 | `high`、`critical`、`40` | C | `HousingCostSurfaceClients.tsx:68-92`、`HousingEntityDetailClients.tsx:49-62`；创建表单已有优先级/紧急程度中文，列表筛选已有部分工单状态中文 | 复用工单状态资产；补齐状态 60/70/90/91；提取 repair priority/urgency map。 |
+| HCD-023 | 报修列表/详情：优先级、紧急程度、状态 | `high`、`critical`、`40` | C | `HousingCostSurfaceClients.tsx:68-92`、`HousingEntityDetailClients.tsx:49-62`；创建表单已有优先级/紧急程度中文；production-safe `workorder_status` 字典完整值见 `database/seeds/000001_s1_production_core.sql:3623-3634` | 复用工单状态字典/资产；补齐筛选遗漏的 60/70/80/90/91（含 `80=已超时`）；提取 repair priority/urgency map。 |
 | HCD-024 | 采购列表/详情：审批、付款状态 | `approved`、`unpaid` | C | `HousingCostSurfaceClients.tsx:102-120`、`HousingEntityDetailClients.tsx:78-87`；审批筛选已有中文，付款值域为 `unpaid/paid/refunded` | 建立 purchase approval/payment map，列表/详情/筛选同源。 |
 | HCD-025 | 账单费用计划 picker：计费来源 | `fixed`、`energy_meter` | C | `HousingBillingActions.tsx:145-151,160-178`：创建 select 已中文，picker 回显仍直出 | 提取 billing source map，option label 与表单共用。 |
 | HCD-026 | 账单/财务 picker、审批目标：费用类型与支付方式 | `rent`、`checkout_deduction`、自定义 payment method | D | `HousingBillingActions.tsx:145,174`、`HousingFinanceActions.tsx:151-166,183-187`；API `chargeType/paymentMethod` 为开放 string | 产品确定标准费用类型、支付方式及是否允许租户字典扩展；固定值进 shared，租户可配值走 `/dict-items`。 |
@@ -107,6 +107,7 @@
 | API | 当前契约 | 建议字段 | 对应问题 |
 | --- | --- | --- | --- |
 | `GET /homestay/bookings/:id`、`GET /homestay/stays/:stayId` | booking 只有 `unitId` | `unitCode`, `unitName`；确需跨楼栋/园区辨识时再加 `buildingName`, `parkName` | HCD-011 |
+| `GET /homestay/unit-candidates` 或新的最小授权 unit detail | 只能按 usage/pagination 查询，不能按已选 ID 稳定恢复 label | 增加 scope/资格约束的 `id` 查询；响应复用现有 `unitCode`, `unitName` | HCD-012 |
 | `GET /housing/tasks`（并建议同步 `/homestay/tasks` 结构） | 只有 `assigneeId` | `assigneeName`；可选结构化 `unitCode/unitName`，避免继续从 title 解析 | HCD-020 |
 | `GET /housing/purchases`、`GET /housing/purchases/:id` | 采购只有 `unitId` | `unitCode`, `unitName` | HCD-027 |
 
@@ -140,8 +141,8 @@
 ### 6.3 分批实施建议（复核批准后另开队列）
 
 - 批次 1：shared label 单一来源 + Web presentation helper，先修 19 个 C 类并补值域一致性测试。
-- 批次 2：3 个 API 名称 projection + shared response contract + Web 消费；保持列表/详情字段权限一致。
-- 批次 3：2 个 A 类回退修正与 picker URL 恢复。
+- 批次 2：3 个 API 名称 projection、1 个 picker 定向查询能力 + shared response contract + Web 消费；保持列表/详情字段权限一致。
+- 批次 3：1 个 A 类 ID 回退修正。
 - 批次 4：产品确认 6 个 D 类目录后实施；开放字典与固定枚举分开。
 
 本报告不创建实施 Issue；以上分批仅是复核后的建议队列形状。
@@ -165,7 +166,7 @@
 
 - `packages/shared`：1–3 个枚举/label/response-contract 文件及对应测试。
 - `apps/web`：1 个 property-shared presentation 目录，民宿约 6–8 个组件，housing 约 8–11 个组件，Party/identity 兼容展示约 2 个组件；同时更新相关组件/逻辑测试。
-- `apps/api`：homestay booking query、property workbench task projection、housing purchase query/response projection，约 3–6 个 service/contract/test 文件。
+- `apps/api`：homestay booking query、homestay unit candidate query DTO/service、property workbench task projection、housing purchase query/response projection，约 5–8 个 service/DTO/contract/test 文件。
 - 数据库：当前没有必要新增字段或 migration；建议全部通过查询 projection 与共享映射解决。
 - 风险：中等。风险主要是值域漂移（`closed` vs `terminated`、漏 `expiring/no_show`）、字段权限下名称投影泄漏，以及移动卡片和桌面表格分支不一致。
 
