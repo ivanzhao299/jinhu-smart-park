@@ -5,6 +5,8 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ConsequenceDialog,
+  propertyErrorMessage,
+  propertyLabels,
   type PropertyCapabilityProjection
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
@@ -128,13 +130,13 @@ export function HousingFinanceActions({
       succeeded = true;
       idempotency.complete("housing-ledger-register");
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : successMessage;
       setMessage(successMessage);
       formElement?.reset();
       await reload();
       return true;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "财务登记失败";
+      const detail = propertyErrorMessage(error, succeeded ? "数据刷新失败，请手动刷新" : "财务登记失败，请稍后重试");
       if (succeeded) {
         setMessage(`${successMessage} 数据刷新失败：${detail}`);
         return true;

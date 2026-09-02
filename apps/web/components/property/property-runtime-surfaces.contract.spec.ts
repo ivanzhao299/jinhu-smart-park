@@ -205,7 +205,9 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /modeTransitionRecordKey\(item as ModeTransitionRow\) === modeTransitionRecordKey\(current\)/);
   assert.match(foundation, /经营模式审计详情/);
   assert.match(foundation, /查看审计详情/);
-  assert.match(foundation, /row\.requestId \?\? "历史执行日志"/);
+  assert.match(foundation, /row\.requestId \? "审批流程已建立" : "历史执行日志"/);
+  assert.doesNotMatch(foundation, /row\.operatorName \|\| row\.operatorId/);
+  assert.doesNotMatch(foundation, /conflict\.sourceId \? ` · \$\{conflict\.sourceId\}`/);
   assert.match(foundation, /PROPERTY_OPERATIONS_PAGE[\s\S]*PROPERTY_OPERATION_READ[\s\S]*查看房源经营详情/);
   assert.match(foundation, /Date\.parse\(row\.holdExpiresAt\) > Date\.now\(\)/);
   assert.match(foundation, /OPERATING_MODE_LABELS/);
@@ -237,7 +239,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /OCCUPANCY_STATUS_LABELS/);
   assert.match(foundation, /DECISION_STATUS_LABELS/);
   assert.match(foundation, /EXECUTION_STATUS_LABELS/);
-  assert.match(foundation, /SOURCE_TYPE_LABELS/);
+  assert.match(foundation, /propertyLabels\.sourceType/);
   assert.match(foundation, /sourceTypeLabel\(\(item as OccupancyRow\)\.sourceType\)/);
   assert.match(foundation, /occupancyStatusLabel\(\(item as OccupancyRow\)\.status\)/);
   assert.match(foundation, /value="not_required">\{EXECUTION_STATUS_LABELS\.not_required\}/);
@@ -256,7 +258,8 @@ test("shared property foundation exposes three guarded control planes and unit s
   );
   assert.match(foundation, /availability\.data\.conflicts/);
   assert.match(foundation, /aria-label="可用性冲突"/);
-  assert.match(manualCreate, /conflict\.sourceId/);
+  assert.match(manualCreate, /conflict\.sourceLabel \|\| "未命名冲突来源"/);
+  assert.doesNotMatch(manualCreate, /conflict\.sourceId/);
   assert.match(manualCreate, /exactRetry = retryKey\.current !== null && retryPayload\.current === payloadFingerprint/);
   assert.match(manualCreate, /createIdempotencyKey\("property-occupancy-availability"\)/);
   assert.match(manualCreate, /idempotencyKey: availabilityKey\.current/);

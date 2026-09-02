@@ -11,8 +11,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
+  homestayPriceSourceLabel,
+  propertyLabels,
+  propertyErrorMessage,
   projectPropertyCapabilities,
   resolveReturnHref,
+  statusVariant,
+  workOrderStatusLabel,
   type CanonicalDetailState
 } from "../../../features/property-shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
@@ -54,7 +59,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
     } catch (loadError) {
       if (isForbiddenError(loadError)) setState({ kind: "forbidden" });
       else if (loadError instanceof ApiError && loadError.status === 404) setState({ kind: "not-found" });
-      else setState({ kind: "failure", message: loadError instanceof Error ? loadError.message : "详情加载失败" });
+      else setState({ kind: "failure", message: propertyErrorMessage(loadError, "详情加载失败，请稍后重试") });
     }
   }, [entityId, kind, readAllowed]);
   useEffect(() => void load(), [load, invalidationKey]);
@@ -87,15 +92,15 @@ function useDetailMutation(
       });
       const result = response.data as Partial<CreatePendingPropertyApprovalResult>;
       setMessage(result.request?.requestId
-        ? `审批申请已提交（${result.request.requestId}；决策 ${result.request.decisionStatus}；执行 ${result.request.executionStatus}）。`
+        ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
         : "操作已完成。");
       retry.current = null;
       await load();
     } catch (actionError) {
       if (actionError instanceof ApiError && actionError.status === 409) {
-        setState({ kind: "conflict", message: actionError.message });
+        setState({ kind: "conflict", message: propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试") });
       } else {
-        setMessage(actionError instanceof Error ? actionError.message : "操作失败");
+        setMessage(propertyErrorMessage(actionError));
       }
     } finally {
       lock.current = false;
@@ -208,7 +213,7 @@ function BookingOverview({ data }: { data: HomestayBookingDetailResponse }) {
       <dt>订单号</dt><dd>{booking.bookingCode}</dd>
       <dt>入住期间</dt><dd>{booking.arrivalDate} 至 {booking.departureDate}</dd>
       <dt>房源</dt><dd>已关联房源</dd>
-      <dt>状态</dt><dd><StatusPill value={booking.status} /></dd>
+      <dt>状态</dt><dd><StatusPill variant={statusVariant(booking.status)}>{propertyLabels.bookingStatus(booking.status)}</StatusPill></dd>
       <dt>入住人数</dt><dd>{booking.guestCount}</dd>
     </dl></div>
     {(booking.roomAmount !== undefined || booking.totalAmount !== undefined) ? <div className="ds-panel"><h2>授权金额</h2><dl>
@@ -216,7 +221,7 @@ function BookingOverview({ data }: { data: HomestayBookingDetailResponse }) {
       <dt>合计</dt><dd>{booking.totalAmount ?? "—"}</dd>
     </dl></div> : null}
   </section><section className="ds-panel"><h2>每日房价</h2>
-    {data.nights.length ? data.nights.map((night) => <p key={night.id}>{night.businessDate} · {night.finalRate ?? "金额未授权"} · {night.priceSource ?? "价格来源未授权"}</p>) : <p>暂无每日房价记录。</p>}
+    {data.nights.length ? data.nights.map((night) => <p key={night.id}>{night.businessDate} · {night.finalRate ?? "金额未授权"} · {homestayPriceSourceLabel(night.priceSource)}</p>) : <p>暂无每日房价记录。</p>}
   </section></>;
 }
 
@@ -233,10 +238,10 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
     <p className={styles.finance}>费用 {data.ledger_summary.charges} · 已收 {data.ledger_summary.payments} · 退款 {data.ledger_summary.refunds} · 减免 {data.ledger_summary.waivers} · 余额 {data.ledger_summary.balance}</p>
   </section> : null}
   {data.ledger ? <section className="ds-panel"><h2>账务流水</h2>
-    {data.ledger.map((entry) => <p key={entry.id}>{entry.occurredAt} · {entry.entryType} · {entry.amount} · {entry.status}</p>)}
+    {data.ledger.map((entry) => <p key={entry.id}>{entry.occurredAt} · {propertyLabels.homestayLedgerType(entry.entryType)} · {entry.amount} · {propertyLabels.homestayLedgerStatus(entry.status)}</p>)}
   </section> : null}
   {data.turnover ? <section className="ds-panel"><h2>关联周转</h2>
-    <p><StatusPill value={data.turnover.status} /> · {data.turnover.assigneeName ?? "待分配"} · {data.turnover.exceptionDescription ?? "无异常"}</p>
+    <p><StatusPill variant={statusVariant(data.turnover.status)}>{propertyLabels.turnoverStatus(data.turnover.status)}</StatusPill> · {data.turnover.assigneeName ?? "待分配"} · {data.turnover.exceptionDescription ?? "无异常"}</p>
   </section> : null}
   <section className="ds-panel"><h2>操作审计</h2>
     {data.actions.length ? data.actions.map((action) => <p key={action.id}>{action.actionTime} · {action.operatorName} · {action.action} · {action.beforeStatus ?? "—"} → {action.afterStatus ?? "—"} · {action.reason ?? "无说明"}</p>) : <p>暂无操作记录。</p>}
@@ -289,10 +294,10 @@ function TurnoverDetail({
       <section className={styles.detailGrid}>
         <div className="ds-panel"><h2>任务信息</h2><dl>
           <dt>房源</dt><dd>{[data.unitCode, data.unitName].filter(Boolean).join(" · ") || "已关联房源"}</dd>
-          <dt>状态</dt><dd><StatusPill value={data.status} /></dd>
+          <dt>状态</dt><dd><StatusPill variant={statusVariant(data.status)}>{propertyLabels.turnoverStatus(data.status)}</StatusPill></dd>
           <dt>负责人</dt><dd>{data.assigneeName ?? "待领取"}</dd>
           <dt>异常</dt><dd>{data.exceptionDescription ?? "无"}</dd>
-          <dt>关联工单</dt><dd>{data.linkedWorkOrder ? `${data.linkedWorkOrder.code} · ${data.linkedWorkOrder.title} · ${data.linkedWorkOrder.status}` : "无"}</dd>
+          <dt>关联工单</dt><dd>{data.linkedWorkOrder ? `${data.linkedWorkOrder.code} · ${data.linkedWorkOrder.title} · ${workOrderStatusLabel(data.linkedWorkOrder.status)}` : "无"}</dd>
         </dl></div>
         <div className="ds-panel"><h2>耗材</h2>
           {data.consumables.length ? data.consumables.map((item, index) => <p key={`${item.name}-${index}`}>{item.name} × {item.quantity} {item.unit ?? ""}</p>) : <p>未登记耗材</p>}

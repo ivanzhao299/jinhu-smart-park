@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   ConsequenceDialog,
+  eligibilityReasonLabel,
   PropertyPanelSurface,
   projectPropertyCapabilities,
+  propertyErrorMessage,
+  propertyLabels,
   type PropertyCapabilityProjection
 } from "../../../features/property-shared";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -53,14 +56,14 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
       succeeded = true;
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。`
+      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。`
         : action === "submit" ? "租约已提交。"
           : action === "activate" ? "租约已生效。" : "租约审批申请已提交。";
       setFeedback(successMessage);
       await reload();
       return true;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "操作失败";
+      const detail = propertyErrorMessage(error, succeeded ? "数据刷新失败，请手动刷新" : "操作失败，请稍后重试");
       if (succeeded) {
         setFeedback(`${successMessage} 数据刷新失败：${detail}`);
         return true;
@@ -88,10 +91,10 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   return (
     <PropertyPanelSurface>
       <DetailGrid rows={[
-        ["租约编号", data.lease.leaseCode], ["状态", data.lease.status],
+        ["租约编号", data.lease.leaseCode], ["状态", propertyLabels.leaseStatus(data.lease.status)],
         ["租期", `${data.lease.startDate} 至 ${data.lease.endDate}`],
         ["月租", money(data.lease.monthlyRent)], ["押金", money(data.lease.depositAmount)],
-        ["租客", data.tenant?.displayName ?? data.lease.tenantPartyId]
+        ["租客", data.tenant?.displayName ?? "未命名租客"]
       ]} />
       {data.lease.status === "draft" && !eligible ? <div className="ds-alert" role="alert">
         <strong>该历史草稿当前不符合长租房源资格，暂不能提交。</strong>
@@ -136,7 +139,7 @@ function eligibilityReasonLabels(reasonCodes: string[]): string[] {
     OPERATION_STATUS_NOT_ENABLED: "经营状态不是启用",
     LEASE_PERIOD_OCCUPIED: "拟定租期与现有占用、商业合同或未完成清洁/周转任务冲突"
   };
-  return reasonCodes.map((code) => labels[code] ?? code);
+  return reasonCodes.map((code) => labels[code] ?? eligibilityReasonLabel(code));
 }
 
 function isPositiveMoney(value: string) {
@@ -148,7 +151,7 @@ function LeaseRelated({ capabilities, data }: LeaseContextProps) {
   return (
     <>
       {data.occupants ? <PropertyPanelSurface title="入住人员">
-        {data.occupants.map((item) => <p key={item.id}>{item.partyDisplayName ?? item.partyId} · {item.occupantRole}</p>)}
+        {data.occupants.map((item) => <p key={item.id}>{item.partyDisplayName ?? "未命名人员"} · {propertyLabels.occupantRole(item.occupantRole)}</p>)}
         {!data.occupants.length ? <p>暂无入住人员。</p> : null}
       </PropertyPanelSurface> : null}
       {data.finance_summary ? <PropertyPanelSurface title="住房子账"><DetailGrid rows={[
@@ -158,7 +161,7 @@ function LeaseRelated({ capabilities, data }: LeaseContextProps) {
       ]} /></PropertyPanelSurface> : null}
       {data.handovers ? <PropertyPanelSurface title="交割记录">
         {data.handovers.map((item) => <article className="ds-mobile-record" key={item.id}>
-          <strong>{item.handoverType === "move_in" ? "入住" : "退租"} · {item.status}</strong>
+          <strong>{propertyLabels.handoverType(item.handoverType)} · {propertyLabels.handoverStatus(item.status)}</strong>
           {item.photo_files ? <HousingEvidenceList canDownload={fileCapability.canDownload} canRead={fileCapability.canRead} files={item.photo_files} label="租约交割证据" /> : null}
         </article>)}
       </PropertyPanelSurface> : null}

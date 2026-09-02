@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import {
-  PageState, PropertyPageSurface, PropertyPanelSurface, projectPropertyCapabilities,
+  PageState, PropertyPageSurface, PropertyPanelSurface, projectPropertyCapabilities, propertyErrorMessage, propertyLabels,
+  propertyTaskSourceOptions, propertyTaskStatusOptions,
   type PropertyPageState
 } from "../../../features/property-shared";
 import { ApiError, apiRequest, isForbiddenError } from "../../../lib/api-client";
@@ -13,7 +14,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { HousingCollectionPage } from "./HousingCollectionPage";
 import {
-  displayHousingValue, housingDateTime, housingFields, housingMoney,
+  housingDateTime, housingFields, housingMoney,
   housingOrderFilter, housingSortFilter
 } from "./HousingSurfacePrimitives";
 import { detailUrlObject } from "./housing-route-types";
@@ -32,7 +33,7 @@ export function HousingDashboardClient() {
       const response = await apiRequest<HousingDashboardResponse>("/housing/dashboard", { token: getAccessToken() });
       setDashboard(response.data); setState({ kind: "ready" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "看板加载失败";
+      const message = propertyErrorMessage(error, "看板加载失败，请稍后重试");
       if (isForbiddenError(error)) {
         setState(dashboard ? { kind: "forbidden-partial", message } : { kind: "forbidden-full" });
       } else if (error instanceof ApiError && error.status === 409) {
@@ -122,21 +123,14 @@ export function HousingTasksClient() {
     }}
     endpoint="/housing/tasks" featureId="housing.tasks" route="/housing/tasks"
     fields={housingFields<Item>(
-      { key: "source", label: "来源", render: (item) => item.sourceType },
-      { key: "status", label: "状态", render: (item) => item.status },
-      { key: "assignee", label: "负责人", render: (item) => displayHousingValue(item.assigneeId) },
+      { key: "source", label: "来源", render: (item) => propertyLabels.taskSource(item.sourceType) },
+      { key: "status", label: "状态", render: (item) => propertyLabels.taskStatus(item.status) },
+      { key: "assignee", label: "负责人", render: (item) => item.assigneeId ? "经办人名称待加载" : "未分派" },
       { key: "due", label: "截止时间", render: (item) => housingDateTime(item.dueAt) }
     )}
     filters={[
-      { key: "status", label: "任务状态", options: [
-        { label: "待处理", value: "pending" }, { label: "进行中", value: "active" },
-        { label: "异常", value: "exception" }, { label: "已完成", value: "completed" }
-      ] },
-      { key: "source_type", label: "来源类型", options: [
-        { label: "租约", value: "housing_lease" }, { label: "交割", value: "housing_handover" },
-        { label: "报修", value: "housing_repair" }, { label: "账单", value: "housing_billing" },
-        { label: "采购", value: "housing_purchase" }
-      ] },
+      { key: "status", label: "任务状态", options: propertyTaskStatusOptions },
+      { key: "source_type", label: "来源类型", options: propertyTaskSourceOptions.filter(({ value }) => value.startsWith("housing_")) },
       housingSortFilter([
         { label: "截止时间", value: "dueAt" }, { label: "状态", value: "status" },
         { label: "标题", value: "title" }

@@ -8,6 +8,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   RemoteEntityPicker,
+  propertyErrorMessage,
+  propertyLabels,
   type PropertyCapabilityProjection,
   type RemoteEntityOption
 } from "../../../features/property-shared";
@@ -89,7 +91,7 @@ export function HousingBillingActions({ item, capabilities, reload }: {
       await reload();
       return response.data;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "操作失败");
+      setMessage(propertyErrorMessage(error));
       return undefined;
     } finally {
       lock.current = false;
@@ -171,7 +173,7 @@ function GenerateBillForm(props: {
         event.preventDefault(); void props.onSubmit(new FormData(event.currentTarget));
       }}>
         <fieldset className={styles.fieldset} disabled={props.submitting}>
-          <label>费用计划<select name="charge_plan_id" onChange={(event) => props.onPlan(event.target.value)} required value={props.planId}>{props.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.chargeType} · {plan.billingSource}</option>)}</select></label>
+          <label>费用计划<select name="charge_plan_id" onChange={(event) => props.onPlan(event.target.value)} required value={props.planId}>{props.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.chargeType} · {propertyLabels.billingSource(plan.billingSource)}</option>)}</select></label>
           <label>周期开始<input name="period_start" required type="date" /></label>
           <label>周期结束<input name="period_end" required type="date" /></label>
           {props.selectedPlan.billingSource === "manual" ? <MoneyField label="人工金额" name="manual_amount" /> : null}

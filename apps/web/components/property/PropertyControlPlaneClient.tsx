@@ -27,7 +27,8 @@ import { getAccessToken } from "../../lib/authz";
 import { hasPermission } from "../../lib/permissions";
 import {
   PropertyPageSurface,
-  PropertyPanelSurface
+  PropertyPanelSurface,
+  propertyLabels
 } from "../../features/property-shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { FileUploader } from "../files/FileUploader";
@@ -911,25 +912,24 @@ function normalize(item: ControlPlaneItem, surface: PropertyControlPlaneSurface)
       source: row.failureSide, updatedAt: row.lastFailedAt };
   }
   const row = item as ApprovalIncidentListItem;
-  return { id: row.requestId, title: row.title, status: row.executionStatus,
-    source: `${row.sourceType} · ${row.sourceId}`, updatedAt: row.updatedAt };
+  return { id: row.requestId, title: row.title, status: propertyLabels.executionStatus(row.executionStatus),
+    source: propertyLabels.sourceType(row.sourceType), updatedAt: row.updatedAt };
 }
 
 function detailFields(detail: ControlPlaneDetail, surface: PropertyControlPlaneSurface): [string, string][] {
   const row = normalize(detail as ControlPlaneItem, surface);
-  const fields: [string, string][] = [["记录 ID", row.id], ["标题", row.title], ["状态", row.status],
+  const fields: [string, string][] = [["标题", row.title], ["状态", row.status],
     ["来源", row.source], ["更新时间", formatTime(row.updatedAt)]];
   if (surface === "identity") {
     const identity = detail as IdentitySubmissionProjection;
-    fields.push(["Party ID", identity.partyId], ["证件类型", identity.evidence.documentType ?? "—"],
+    fields.push(["证件类型", identity.evidence.documentType ?? "—"],
       ["证件号码", identity.evidence.identityNumberMasked ?? "—"], ["证据文件", String(identity.evidence.fileCount)]);
   } else if (surface === "event-incidents") {
     const incident = detail as IncidentDetail;
-    fields.push(["事件 ID", incident.eventId], ["异常 ID", incident.incidentId],
-      ["尝试次数", String(incident.attemptCount)], ["版本", String(incident.version)]);
+    fields.push(["尝试次数", String(incident.attemptCount)], ["版本", String(incident.version)]);
   } else if (surface === "approval-incidents") {
     const incident = detail as ApprovalIncidentDetail;
-    fields.push(["异常 ID", incident.incidentId], ["动作", incident.actionId],
+    fields.push(["动作", incident.actionId],
       ["错误码", incident.errorCode], ["执行版本", String(incident.executionVersion)]);
   }
   return fields;

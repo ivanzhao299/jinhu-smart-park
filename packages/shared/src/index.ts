@@ -423,6 +423,9 @@ export const HOMESTAY_LEDGER_ENTRY_TYPES = [
 ] as const;
 export type HomestayLedgerEntryType = (typeof HOMESTAY_LEDGER_ENTRY_TYPES)[number];
 
+export const HOMESTAY_LEDGER_STATUSES = ["registered", "confirmed", "void"] as const;
+export type HomestayLedgerStatus = (typeof HOMESTAY_LEDGER_STATUSES)[number];
+
 export const HOUSING_LEASE_STATUSES = [
   "draft",
   "pending_approval",
@@ -434,6 +437,30 @@ export const HOUSING_LEASE_STATUSES = [
   "void"
 ] as const;
 export type HousingLeaseStatus = (typeof HOUSING_LEASE_STATUSES)[number];
+
+export const HOUSING_HANDOVER_STATUSES = ["draft", "completed"] as const;
+export type HousingHandoverStatus = (typeof HOUSING_HANDOVER_STATUSES)[number];
+
+export const HOUSING_HANDOVER_TYPES = ["move_in", "move_out"] as const;
+export type HousingHandoverType = (typeof HOUSING_HANDOVER_TYPES)[number];
+
+export const HOUSING_OCCUPANT_ROLES = ["cohabitant", "emergency_contact"] as const;
+export type HousingOccupantRole = (typeof HOUSING_OCCUPANT_ROLES)[number];
+
+export const HOUSING_REPAIR_PRIORITIES = ["low", "medium", "high"] as const;
+export type HousingRepairPriority = (typeof HOUSING_REPAIR_PRIORITIES)[number];
+
+export const HOUSING_REPAIR_URGENCIES = ["low", "normal", "urgent", "critical"] as const;
+export type HousingRepairUrgency = (typeof HOUSING_REPAIR_URGENCIES)[number];
+
+export const HOUSING_PURCHASE_APPROVAL_STATUSES = ["draft", "approved", "rejected", "void"] as const;
+export type HousingPurchaseApprovalStatus = (typeof HOUSING_PURCHASE_APPROVAL_STATUSES)[number];
+
+export const HOUSING_PURCHASE_PAYMENT_STATUSES = ["unpaid", "paid", "refunded"] as const;
+export type HousingPurchasePaymentStatus = (typeof HOUSING_PURCHASE_PAYMENT_STATUSES)[number];
+
+export const HOUSING_BILLING_SOURCES = ["fixed", "manual", "energy_meter"] as const;
+export type HousingBillingSource = (typeof HOUSING_BILLING_SOURCES)[number];
 
 export const HOUSING_LEDGER_ENTRY_TYPES = [
   "charge",

@@ -7,6 +7,7 @@ import type {
 import { useState } from "react";
 import {
   PropertyPanelSurface, RemoteEntityPicker,
+  workOrderStatusLabel,
   type PropertyCapabilityProjection, type RemoteEntityOption
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
@@ -30,7 +31,7 @@ function workOrderLoader(unitId: string) {
     );
     return {
       items: response.data.items.map((item) => ({
-        id: item.id, label: `${item.woCode} · ${item.title}`, secondaryLabel: item.status
+        id: item.id, label: `${item.woCode} · ${item.title}`, secondaryLabel: workOrderStatusLabel(item.status)
       })),
       page: response.data.page, pageSize: response.data.page_size, total: response.data.total
     };
