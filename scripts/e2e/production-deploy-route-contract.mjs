@@ -23,6 +23,18 @@ assert.equal(
 
 const [{ name, source }] = deployWorkflows;
 assert.equal(name, "deploy-production.yml");
+const ciWorkflow = workflowFiles.find(({ name }) => name === "ci.yml")?.source || "";
+assert.match(
+  ciWorkflow,
+  /node-version:\s*24[\s\S]*?run: pnpm test:unit/,
+  "CI unit tests must use the verified Node 24 runtime",
+);
+const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
+assert.match(
+  apiPackage.scripts?.["test:unit"] || "",
+  /node --test --test-reporter=dot --require ts-node\/register/,
+  "API unit tests must compact only their top-level successful test output",
+);
 assert.match(source, /^\s{4}environment:\s*production\s*$/m);
 assert.match(source, /secrets\.PROD_DEPLOY_PATH/);
 assert.match(source, /https:\/\/park\.cnjinhu\.com\/api\/v1/);
@@ -69,6 +81,11 @@ assert.match(
 assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
 assert.match(source, /scripts\/production-deploy-transfer-manifest\.mjs/);
 assert.match(source, /production-deploy-transfer\.contract\.mjs/);
+assert.match(
+  source,
+  /node-version:\s*24[\s\S]*?pnpm test:unit:web[\s\S]*?pnpm --filter @jinhu\/api test:unit[\s\S]*?pnpm test:unit/,
+  "deployment verification must use the verified Node 24 runtime",
+);
 assert.match(source, /diagnose-yuzhou-hr-production-target/);
 assert.match(source, /diagnose-yuzhou-hr-preimport-snapshot/);
 assert.match(source, /Diagnose Yuzhou HR production target \(read-only\)/);

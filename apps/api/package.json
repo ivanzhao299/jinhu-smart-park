@@ -9,7 +9,7 @@
     "build": "nest build",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "PARTY_DATA_ENCRYPTION_KEY=test-only-party-key-12345678901234567890 find src -type f -name '*.spec.ts' -exec node --test --require ts-node/register {} +",
+    "test:unit": "PARTY_DATA_ENCRYPTION_KEY=test-only-party-key-12345678901234567890 find src -type f -name '*.spec.ts' -exec node --test --test-reporter=dot --require ts-node/register {} +",
     "test:coverage": "PARTY_DATA_ENCRYPTION_KEY=test-only-party-key-12345678901234567890 NODE_V8_COVERAGE=coverage/api node --test --experimental-test-coverage --require ts-node/register \"src/**/*.spec.ts\""
     ,"party-data-key:rotate": "node dist/party-data-key-rotation.cli.js"
   },
