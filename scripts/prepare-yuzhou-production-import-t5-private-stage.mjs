@@ -29,12 +29,12 @@ export function parseT5ProductionPrivateStageArgs(argv) {
   for (let index = 0; index < input.length; index += 2) {
     const key = input[index];
     const value = input[index + 1];
-    if (!new Set(["--stage", "--employee-index", "--triple", "--output-root", "--run-id"]).has(key) || !value || Object.hasOwn(values, key)) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+    if (!new Set(["--stage", "--triple", "--output-root", "--run-id"]).has(key) || !value || Object.hasOwn(values, key)) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
     values[key] = value;
   }
-  if (!Object.keys(values).every(key => ["--stage", "--employee-index", "--triple", "--output-root", "--run-id"].includes(key)) || Object.keys(values).length !== 5 || !SAFE_RUN_ID.test(values["--run-id"] ?? "")) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
-  for (const key of ["--stage", "--employee-index", "--triple", "--output-root"]) if (!isAbsolute(values[key])) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
-  return { stagePath: resolve(values["--stage"]), employeeIndexPath: resolve(values["--employee-index"]), triplePath: resolve(values["--triple"]), outputRoot: resolve(values["--output-root"]), runId: values["--run-id"] };
+  if (!Object.keys(values).every(key => ["--stage", "--triple", "--output-root", "--run-id"].includes(key)) || Object.keys(values).length !== 4 || !SAFE_RUN_ID.test(values["--run-id"] ?? "")) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+  for (const key of ["--stage", "--triple", "--output-root"]) if (!isAbsolute(values[key])) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+  return { stagePath: resolve(values["--stage"]), triplePath: resolve(values["--triple"]), outputRoot: resolve(values["--output-root"]), runId: values["--run-id"] };
 }
 
 function readStage(stagePath) {
@@ -54,6 +54,18 @@ function readStage(stagePath) {
   return { manifest, records };
 }
 
+function deriveEmployeeIndex(records) {
+  const index = new Map();
+  for (const record of records) {
+    if (record?.sourceTable !== "dbo.person.core_residue" || record?.materialized?.kind !== "profile") continue;
+    if (typeof record.employeeCode !== "string" || record.employeeCode.length === 0 || !SHA256.test(record.sourceIdentitySha256 ?? "")) fail("T5_PRIVATE_STAGE_EMPLOYEE_INDEX_INVALID");
+    if (index.has(record.employeeCode)) fail("T5_PRIVATE_STAGE_EMPLOYEE_INDEX_AMBIGUOUS");
+    index.set(record.employeeCode, record.sourceIdentitySha256);
+  }
+  if (index.size === 0) fail("T5_PRIVATE_STAGE_EMPLOYEE_INDEX_INVALID");
+  return [...index.entries()].map(([employeeCode, sourceIdentitySha256]) => ({ employeeCode, sourceIdentitySha256 }));
+}
+
 function writePrivate(path, value) {
   writeFileSync(path, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
   chmodSync(path, 0o600);
@@ -66,10 +78,9 @@ function writePrivate(path, value) {
  * not activate or import data.
  */
 export function prepareT5ProductionPrivateStage(input) {
-  if (!input || typeof input !== "object" || Array.isArray(input) || JSON.stringify(Object.keys(input).sort()) !== JSON.stringify(["employeeIndexPath", "outputRoot", "runId", "stagePath", "triplePath"])) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
+  if (!input || typeof input !== "object" || Array.isArray(input) || JSON.stringify(Object.keys(input).sort()) !== JSON.stringify(["outputRoot", "runId", "stagePath", "triplePath"])) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
   if (!SAFE_RUN_ID.test(input.runId ?? "")) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
   const stage = readStage(input.stagePath);
-  const employeeIndex = parseJson(input.employeeIndexPath, "T5_PRIVATE_STAGE_EMPLOYEE_INDEX_INVALID");
   const triple = parseJson(input.triplePath, "T5_PRIVATE_STAGE_TRIPLE_INVALID");
   const outputRoot = resolve(input.outputRoot);
   if (existsSync(outputRoot) && !privateDirectory(outputRoot)) fail("T5_PRIVATE_STAGE_OUTPUT_UNSAFE");
@@ -89,7 +100,7 @@ export function prepareT5ProductionPrivateStage(input) {
         filesExcluded: stage.manifest.filesExcluded,
         productionImport: stage.manifest.productionImport,
       },
-      employeeIndex,
+      employeeIndex: deriveEmployeeIndex(stage.records),
       records: stage.records,
     });
     writePrivate(join(output, "private-stage.json"), generated.privateStage);
