@@ -122,6 +122,7 @@
     "hr:migration:t4:rollback": "sh scripts/rollback-yuzhou-t4-payroll-history.sh",
     "hr:migration:t5:extract": "sh scripts/extract-yuzhou-t5-legacy-history.sh",
     "hr:migration:t5:prepare-nonfile-stage": "node scripts/prepare-yuzhou-t5-nonfile-materialization-stage.mjs",
+    "hr:migration:t5:prepare-production-private-stage": "node scripts/prepare-yuzhou-production-import-t5-private-stage.mjs",
     "hr:migration:t5:prepare-photo-owner-stage": "node scripts/prepare-yuzhou-photo-owner-stage.mjs",
     "hr:migration:t5:prepare-document-owner-stage": "node scripts/prepare-yuzhou-document-owner-stage.mjs",
     "hr:migration:t5:load-photo-owner-evidence": "sh scripts/load-yuzhou-t5-photo-owner-evidence.sh",
