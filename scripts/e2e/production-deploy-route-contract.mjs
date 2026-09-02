@@ -32,8 +32,8 @@ assert.match(
 const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
 assert.match(
   apiPackage.scripts?.["test:unit"] || "",
-  /node --test --test-reporter=dot --require ts-node\/register/,
-  "API unit tests must compact only their top-level successful test output",
+  /node --test --test-force-exit --test-reporter=dot --require ts-node\/register/,
+  "API unit tests must compact output and exit once all top-level tests finish",
 );
 assert.match(source, /^\s{4}environment:\s*production\s*$/m);
 assert.match(source, /secrets\.PROD_DEPLOY_PATH/);
