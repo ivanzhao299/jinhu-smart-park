@@ -6,7 +6,7 @@ PR2 合入 main 双绿后，从最新 `origin/main` 创建 `codex/fix-hcd-tempor
 
 - [x] 盘点值域/dict code 并确定行业惯例临时中文。
 - [x] shared 常量、注释、测试与 Web 接线。
-- [ ] 27 路由桌面/390px 与主链 UAT（重启轮 3 个民宿具名详情双视口 PASS，19 个入口仅 surface-only；行级 HCD、住房 5 个具名详情、picker、窄权限、未知值与两条主链仍阻塞，未伪造通过）。
+- [ ] 27 路由桌面/390px 与主链 UAT（重启轮 22 个路由均仅 surface-only；raw-CDP runner 绕过 UI 登录且缺少逐项 DOM/交互、全量 Network、设备能力、反串线与 residual gate 证据，未记任何浏览器 HCD PASS；行级 HCD、住房 5 个具名详情、picker、窄权限、未知值与两条主链仍阻塞）。
 - [x] 成熟基建、trellis-check、PR3、CI、merge、main 双绿。
 - [ ] 归档并终报。
 
@@ -26,6 +26,6 @@ PR2 合入 main 双绿后，从最新 `origin/main` 创建 `codex/fix-hcd-tempor
 - 旧轮未完成项已由下述重启轮部分解阻；历史两次 CDP 启动失败保留作根因记录，不再代表当前 Chrome 可用性。
 - 浏览器重启轮已定位旧 Linux Chrome CDP 超时根因为缺少 NSS/NSPR/ALSA 运行库且 stderr 被 runner 丢弃；专用 Chrome 151 + 临时运行库 + 独立 profile + `--no-sandbox` 的 `/json/version` 预检成功。
 - 重启轮隔离栈完成 282/282 migration、production-safe seed、bootstrap、strict baseline、API ready 与 Web login 预热；修正本轮 `NODE_ENV=production`/`next dev` 预热冲突后进入业务路由。
-- PASS：3 个民宿具名详情桌面 3/3、390px 3/3，包含中文状态、名称投影与长中文；19 个列表/工作台入口仅记 surface-only，不能以空态冒充行级 HCD PASS。共 44 张截图，runner 无失败 Network/console/runtime error、viewport mismatch 或横向溢出。
+- SURFACE_ONLY：3 个民宿具名详情与 19 个列表/工作台入口均只有导航、截图与通用渲染观察；runner 未作 route-specific DOM/交互断言，并绕过 UI 登录。共生成 44 张截图；只能确认 runner 跟踪的 same-origin API 未失败、无已记录 console/runtime error、CSS viewport mismatch 或横向溢出，不能据此声明 HCD Case PASS、全量 Network 或完整移动设备能力 PASS。
 - BLOCKED：住房 5 个具名详情、picker 真实交互、窄权限名称裁剪和未知值 fixture。住房 fixture 两次均由约束整笔回滚（canonical park 保护、Party 加密元数据），达到同题上限后停止。
-- 证据位于 local-only `/tmp/jinhu-hcd-uat-20260902-r3/`，含两份 SHA-256 manifest。compose 容器/卷/网络、DB/API/Web/CDP 端口均归零，专用 profile/临时文件根/运行库已精确删除；未触碰生产、HR、主 Chrome 或他人容器。任务继续保持 `in_progress`。
+- 运行时证据曾位于 `/tmp/jinhu-hcd-uat-20260902-r3/` 并生成两份 SHA-256 manifest，已随 teardown 删除且未留存到 `artifacts/`，现不可复核。compose 容器/卷/网络、DB/API/Web/CDP 端口均归零，专用 profile/临时文件根/运行库已删除；但 touched-table/fixture residual gate、UI/DB 反串线、设备能力证据均未采集，记 `UNVERIFIED`。未触碰生产、HR、主 Chrome 或他人容器，任务继续保持 `in_progress`。
