@@ -123,3 +123,9 @@ test("full-domain T3 extraction receives the pinned current source bindings requ
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash/);
 });
+
+test("full-domain T4 extraction receives the sealed source receipt required by the payroll extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T4.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH"]);
+  const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
+  assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+});
