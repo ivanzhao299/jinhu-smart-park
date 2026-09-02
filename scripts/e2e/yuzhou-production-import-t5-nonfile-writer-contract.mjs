@@ -30,6 +30,8 @@ test("T5 writer uses the existing T0 source map, audited inserts, and record map
   assert.deepEqual(result.counts, { source: 1, loaded: 1, quarantined: 0 });
   assert.equal(result.records[0].targetTable, "hr_employee_skill");
   assert.ok(queries.some(query => query.sql.includes("production_import_phase='T0'")));
+  assert.ok(queries.some(query => query.sql.includes("current_phase='T5'")));
+  assert.ok(queries.some(query => query.sql.includes("'prod-import-v2@'||code_sha")));
   assert.ok(queries.some(query => query.sql.includes("create_by,update_by")));
   assert.ok(queries.some(query => query.sql.includes("legacy_record_map")));
 });

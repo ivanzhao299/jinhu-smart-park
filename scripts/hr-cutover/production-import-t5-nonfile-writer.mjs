@@ -46,6 +46,8 @@ function validateInput(input) {
   if (typeof input.targetScope.tenantId !== "string" || typeof input.targetScope.parkId !== "string" || !SHA256.test(input.targetScope.scopeSha256 ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_INPUT_INVALID", "target scope invalid");
   exactKeys(input.privateStage, ["formatVersion", "artifactKind", "phase", "triple", "sourceSnapshotHash", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "records", "productionImport"], [], "private stage");
   if (input.privateStage.formatVersion !== 1 || input.privateStage.artifactKind !== "yuzhou_hr_production_import_t5_nonfile_private_payload_stage" || input.privateStage.phase !== "T5" || input.privateStage.productionImport !== "HOLD" || !Array.isArray(input.privateStage.records) || !SHA256.test(input.privateStage.sourceSnapshotHash ?? "") || !SHA256.test(input.privateStage.sourceRestoreReceiptSha256 ?? "") || !SHA256.test(input.privateStage.sourceBusinessSha256 ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_INPUT_INVALID", "private stage invalid");
+  exactKeys(input.privateStage.triple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"], [], "private stage triple");
+  if (!/^[0-9a-f]{40}$/u.test(input.privateStage.triple.codeSha ?? "") || !SHA256.test(input.privateStage.triple.sourceSnapshotHash ?? "") || !SHA256.test(input.privateStage.triple.mappingContractHash ?? "") || input.privateStage.triple.sourceSnapshotHash !== input.privateStage.sourceSnapshotHash) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_INPUT_INVALID", "private stage triple invalid");
 }
 
 function validateRecords(recordsInput) {
@@ -95,9 +97,10 @@ async function createBatch(tx, operationId, sourceSnapshotHash) {
   const result = rows(await tx.query(
     `/* hr-prod-t5:create-batch */
      INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,phase,status,tool_version,counts,started_at,execution_context,production_import_operation_id,production_import_phase)
-     SELECT operation_id||'-t5','yuzhou-v10',$2,current_database(),'load','running','prod-import-t5-nonfile-v1','{}'::jsonb,now(),'production_import',operation_id,'T5'
+     SELECT operation_id||'-t5','yuzhou-v10',source_snapshot_sha256,current_database(),'load','running','prod-import-v2@'||code_sha,'{}'::jsonb,now(),'production_import',operation_id,'T5'
      FROM hr_yuzhou_production_import_operation
      WHERE operation_id=$1 AND execution_contract_version=2 AND status='running'
+       AND current_phase='T5' AND source_snapshot_sha256=$2
      RETURNING id::text`,
     [operationId, sourceSnapshotHash],
   ), "create T5 migration batch");
