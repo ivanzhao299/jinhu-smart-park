@@ -93,7 +93,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -129,6 +129,7 @@ jobs:
           pnpm test:e2e:yuzhou-production-import-real-artifact-bridge
           pnpm test:e2e:yuzhou-production-import-machine-attestation
           pnpm test:e2e:yuzhou-production-target-attestation
+          pnpm test:e2e:yuzhou-production-preimport-snapshot
           pnpm test:e2e:yuzhou-production-import-writer-receipts
           pnpm test:e2e:yuzhou-job-state-decision-artifact
           pnpm test:e2e:yuzhou-job-state-review-package-builder
@@ -217,7 +218,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies

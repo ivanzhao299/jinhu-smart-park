@@ -173,6 +173,8 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 唯一范围回执只能通过 `prepare-yuzhou-production-target-registration-request.mjs` 变为权限为 `0600` 的私有登记签署输入。该输入由机器准备、只携带回执和目标/范围哈希，明确要求独立 allowlist 审阅，并列出下一步的当前预备份、T0～T3 before-image 和 active record map 快照；它不能修改仓库 allowlist、连接数据库或启动 writer。机器准备不代表任何人工签署。
 
+`diagnose-yuzhou-hr-preimport-snapshot` 是下一条只读诊断路径：它在同一只读事务中对已固定生产范围的 T0～T3 目标表和已有玉舟 active record map 计算数量与 SHA-256 聚合快照。输出明确标注 `PENDING_SOURCE_MANIFEST` 和 `exactSourceIdentity=false`，所以它只能证明目标侧当前状态，不能替代从受控源分期生成并逐来源绑定的正式 before-image/record-map 工件，也不能解除任何导入门禁。
+
 ### 7.2 当前备份恢复证明
 
 在固定目标范围之后、任何生产历史 writer 之前，使用 `Production Backup Restore Gate` 重新执行当前的 PostgreSQL 备份、临时恢复和聚合核对。该 Gate 在创建 dump、临时恢复库或文件归档前要求宿主根盘保留 20 GiB 基线空间，加上当前 PostgreSQL 数据目录与 API 文件根合计体积的两倍（覆盖 dump/临时恢复与文件归档/临时还原的同时工作集）；PostgreSQL 与 API 容器各仍至少保留 15 GiB。任一检查失败即停止，不创建导入批次。它只保留不含连接参数、数据库名、内部地址、文件路径或业务明细的聚合报告。
