@@ -59,7 +59,29 @@ SELECT concat_ws('|','0',(SELECT count(*)::text FROM yuzhou_hr_scope_snapshot),(
 SELECT concat_ws('|','1',phase,sum(target_row_count)::text,encode(digest(string_agg(table_name||':'||target_canonical_sha256,E'\n' ORDER BY table_name),'sha256'),'hex'),encode(digest(string_agg(table_name||':'||target_row_count::text||':'||target_canonical_sha256,E'\n' ORDER BY table_name),'sha256'),'hex'),sum(active_map_count)::text,encode(digest(string_agg(table_name||':'||active_map_sha256,E'\n' ORDER BY table_name),'sha256'),'hex'),encode(digest(string_agg(table_name||':'||source_identity_ledger_sha256,E'\n' ORDER BY table_name),'sha256'),'hex')) FROM yuzhou_hr_phase_table_snapshot GROUP BY phase ORDER BY phase;
 COMMIT;
 SQL
-} 2>&1)" || { echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_PROBE_FAILED' >&2; exit 1; }
+} 2>&1)" || {
+  # The database client can include connection details or query fragments in
+  # its raw stderr. Keep that diagnostic in-process and surface only a stable,
+  # non-sensitive failure class to the deployment log.
+  case "$probe" in
+    *YUZHOU_HR_SCOPE_UNRESOLVED*)
+      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCOPE_UNRESOLVED' >&2
+      ;;
+    *'permission denied'*)
+      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' >&2
+      ;;
+    *'relation '*' does not exist'*)
+      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCHEMA_MISSING' >&2
+      ;;
+    *'function digest'*' does not exist'*)
+      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DIGEST_UNAVAILABLE' >&2
+      ;;
+    *)
+      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_PROBE_FAILED' >&2
+      ;;
+  esac
+  exit 1
+}
 
 target_line="$(printf '%s\n' "$probe" | sed -n '1p')"
 IFS='|' read -r marker scope_count valid_scope_count target_material tenant_id park_id <<EOF
