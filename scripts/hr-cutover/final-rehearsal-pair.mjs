@@ -10,6 +10,7 @@ import { verifyManifestChain } from "./parent-manifest.mjs";
 import { compareRehearsals, computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 import { canonicalYuzhouJobStateMachineJson } from "./yuzhou-job-state-machine-attestation.mjs";
+import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
 
 const ROOT=resolve(fileURLToPath(new URL("../../",import.meta.url)));
 const FULL_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/full-domain-contract-v1.json"),"utf8"));
@@ -21,6 +22,7 @@ const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutove
 const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateMachineAttestationArtifact","auditBundle"];
 const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateMachineAttestationArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
+const safeErrorCode=error=>/^[A-Z][A-Z0-9_]+$/u.test(error?.code??"")?error.code:"FINAL_PAIR_FAILED";
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const canonical=value=>`${JSON.stringify(value,null,2)}\n`;
 
@@ -284,6 +286,7 @@ export function validateMachineTrustRoots(machineByRehearsal,configs){
 }
 
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
+  let summary;
   try{
     const args=parse(process.argv.slice(2)),contractPath=realpathSync(resolve(args.contract??DEFAULT_PAIR_CONTRACT)),contract=JSON.parse(readFileSync(contractPath,"utf8"));
     const configPaths=[realpathSync(resolve(args.configA)),realpathSync(resolve(args.configB))],configs=configPaths.map((path,index)=>({...JSON.parse(readFileSync(path,"utf8")),__configPath:path,__ordinal:index}));
@@ -292,9 +295,10 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     if(args.phase!=="resume")validateRuntimeVacancy(configs,runtimeSnapshot(configs));
     if(!args.execute){process.stdout.write(`${JSON.stringify(preflight)}\n`);process.exit(0);}
     if(process.env.ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"||!args.summary)fail("FINAL_PAIR_EXECUTION_AUTH_MISSING","explicit lab authorization and --summary required");
-    const summary=resolve(args.summary),summaryParentInput=dirname(summary);if(!existsSync(summaryParentInput))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
-    const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(summary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
+    const requestedSummary=resolve(args.summary),summaryParentInput=dirname(requestedSummary);if(!existsSync(summaryParentInput))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
+    const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(requestedSummary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
     if((statSync(summaryParent).mode&0o777)!==0o700)fail("FINAL_PAIR_SUMMARY_UNSAFE","private 0700 parent required");
+    summary=summaryResolved;
     if(!["extract","resume"].includes(args.phase))fail("FINAL_PAIR_PHASE_REQUIRED","--phase extract|resume required");
     if(args.phase==="extract"){const checkpoint=runFinalPairExtract(configs[0],configs[1]);privateJson(summary,checkpoint);process.stdout.write(`${JSON.stringify({status:"REVIEW_HOLD",checkpoint:summary,productionImport:"HOLD"})}\n`);process.exit(0);}
     const checkpointPath=realpathSync(resolve(args.checkpoint??""));if(mode(checkpointPath)!=="0600")fail("FINAL_PAIR_CHECKPOINT_INVALID","0600 checkpoint required");const checkpoint=JSON.parse(readFileSync(checkpointPath,"utf8"));validateMachineResumeCheckpoint(checkpoint,configs);
@@ -303,5 +307,11 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     validateMachineArtifactSources(machineByRehearsal,configs,{summaryPath:summaryResolved});
     validateMachineTrustRoots(machineByRehearsal,configs);
     const result=runFinalPair(configs[0],configs[1],contract,{resumeOnly:true,machineArtifacts:config=>machineByRehearsal[config.rehearsal]});privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
-  }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
+  }catch(error){
+    if(summary&&!existsSync(summary)){
+      const errorDetail=safeDiagnosticDetail(error),result={formatVersion:1,status:"HOLD",errorCode:safeErrorCode(error),...(errorDetail?{errorDetail}:{}),productionImport:"HOLD"};
+      writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);
+    }
+    process.stderr.write(`${safeErrorCode(error)}\n`);process.exitCode=1;
+  }
 }
