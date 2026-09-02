@@ -351,6 +351,10 @@ test("booking detail masks every credential reference without changing null", as
       throw new Error("Unexpected repository");
     },
     query: async (sql: string) => {
+      if (sql.includes("FROM biz_unit unit")) {
+        assert.match(sql, /unit\.is_deleted = false/u);
+        return [{ id: booking.unitId, unitCode: "HS-101", unitName: "湖景房" }];
+      }
       assert.match(sql, /FROM biz_party party/u);
       guestDisplayQueryCount += 1;
       return [{ id: guest.partyId, displayName: "张三" }];
@@ -373,6 +377,8 @@ test("booking detail masks every credential reference without changing null", as
   assert.equal(serialized.includes(secretReference), false);
   assert.equal(serialized.includes("\"credentialReference\":\"x\""), false);
   assert.equal("ledger" in result, false);
+  assert.equal(result.booking.unitCode, "HS-101");
+  assert.equal(result.booking.unitName, "湖景房");
   assert.equal("ledger_summary" in result, false);
   assert.equal("roomAmount" in result.booking, false);
   assert.equal("totalAmount" in result.booking, false);
@@ -404,7 +410,9 @@ test("booking detail masks every credential reference without changing null", as
     "id",
     "sourceType",
     "status",
-    "unitId"
+    "unitCode",
+    "unitId",
+    "unitName"
   ]);
   assert.deepEqual(Object.keys(result.nights[0]!).sort(), ["businessDate", "id"]);
   assert.deepEqual(

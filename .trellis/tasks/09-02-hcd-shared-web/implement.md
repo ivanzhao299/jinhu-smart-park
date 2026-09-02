@@ -6,7 +6,7 @@
 - [x] property-shared presentation 基座与纯函数测试。
 - [x] 民宿与住房 A/C 类接线。
 - [x] HCD 编号测试和定向验证。
-- [ ] 提交、push、PR、CI、squash merge、main 双绿。
+- [x] 提交、push、PR、CI、squash merge、main 双绿。
 
 ## Validation Log
 
@@ -29,6 +29,9 @@
 - PASS `git diff --check`。
 - BLOCKED（环境）`pnpm test`：根脚本进入 S1 smoke 后尝试启动 API，但 `http://127.0.0.1:3001/api/v1` 未在等待窗口内可达；测试断言尚未开始。定向 shared/Web 测试已全部通过，不将该项记为代码通过。
 - 两轮独立 review 已完成（上限 3 轮），第二轮问题已由门禁测试覆盖；无需第三轮。
+- PR #536 已 squash merge；远端 `main` 为 `422af8fa`。
+- PASS PR CI：Detect Release Smoke Scope、Lint/Typecheck/Build、Release Smoke。
+- PASS main 双绿：CI success、自动 Deploy Production success（仅监控自动流程，无生产直操作）。
 
 ## Risks
 

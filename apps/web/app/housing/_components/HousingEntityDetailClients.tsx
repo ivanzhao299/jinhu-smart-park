@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   ConsequenceDialog,
+  displayEntityName,
   PropertyPanelSurface,
   propertyErrorMessage,
   propertyLabels,
@@ -84,7 +85,9 @@ function PurchaseDetail({ capabilities, data, reload }: {
   const files = capabilities.fileCapability("housing_purchase");
   return <div className={styles.stack}>
     <PropertyPanelSurface><DetailGrid rows={[
-      ["供应商", data.purchase.vendorName], ["采购日期", data.purchase.purchaseDate],
+      ["供应商", data.purchase.vendorName],
+      ["房源", displayEntityName(data.purchase.unitName, data.purchase.unitCode, "未关联房源")],
+      ["采购日期", data.purchase.purchaseDate],
       ["成本分类", data.purchase.costCategory], ["总金额", money(data.purchase.totalAmount)],
       ["审批状态", propertyLabels.purchaseApproval(data.purchase.approvalStatus)], ["付款状态", propertyLabels.purchasePayment(data.purchase.paymentStatus)]
     ]} /></PropertyPanelSurface>

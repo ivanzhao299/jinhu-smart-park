@@ -45,6 +45,7 @@ test("housing tasks keep strict projections, true totals, and two statements for
             title: "租约 · HL-1",
             status: "pending",
             assigneeId: null,
+            assigneeName: null,
             dueAt: new Date("2026-08-01T00:00:00.000Z"),
             secret: "must not leak"
           }];
@@ -58,12 +59,13 @@ test("housing tasks keep strict projections, true totals, and two statements for
     assert.equal(statements.length, 2);
     assert.equal(result.total, 37);
     assert.deepEqual(Object.keys(result.items[0]!).sort(), [
-      "assigneeId", "dueAt", "id", "sourceId", "sourceType", "status", "title"
+      "assigneeId", "assigneeName", "dueAt", "id", "sourceId", "sourceType", "status", "title"
     ]);
     assert.equal(result.items[0]?.dueAt, "2026-08-01T00:00:00.000Z");
     assert.match(statements[0] ?? "", /biz_housing_lease/);
     assert.match(statements[0] ?? "", /biz_housing_handover/);
     assert.match(statements[0] ?? "", /biz_work_order/);
+    assert.match(statements[0] ?? "", /work_order\.assignee_name/u);
     assert.match(statements[0] ?? "", /biz_housing_receivable/);
     assert.match(statements[0] ?? "", /biz_housing_purchase/);
   }

@@ -125,7 +125,7 @@ export function HousingTasksClient() {
     fields={housingFields<Item>(
       { key: "source", label: "来源", render: (item) => propertyLabels.taskSource(item.sourceType) },
       { key: "status", label: "状态", render: (item) => propertyLabels.taskStatus(item.status) },
-      { key: "assignee", label: "负责人", render: (item) => item.assigneeId ? "经办人名称待加载" : "未分派" },
+      { key: "assignee", label: "负责人", render: (item) => item.assigneeName?.trim() || "未分派" },
       { key: "due", label: "截止时间", render: (item) => housingDateTime(item.dueAt) }
     )}
     filters={[

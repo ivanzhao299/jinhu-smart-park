@@ -14,7 +14,7 @@ import type {
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { propertyErrorMessage, type RemoteEntityOption } from "../../../features/property-shared";
+import { displayEntityName, propertyErrorMessage, type RemoteEntityOption } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import type { HomestayListReturnContext } from "./HomestayListRecords";
@@ -77,14 +77,19 @@ function queryFor(surface: HomestayListSurface, input: QueryInput) {
 }
 
 export async function loadHomestayUnitOptions(input: {
-  page: number; pageSize: number; signal: AbortSignal;
+  page: number; pageSize: number; signal: AbortSignal; unitId?: string;
 }) {
+  const params = new URLSearchParams({ page: String(input.page), page_size: String(input.pageSize) });
+  if (input.unitId) params.set("unit_id", input.unitId);
   const response = await apiRequest<HomestayUnitCandidateListResponse>(
-    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}`,
+    `/homestay/unit-candidates?${params.toString()}`,
     { token: getAccessToken() ?? undefined, signal: input.signal }
   );
   return {
-    items: response.data.items.map((item) => ({ id: item.id, label: `${item.unitCode} · ${item.unitName}` })),
+    items: response.data.items.map((item) => ({
+      id: item.id,
+      label: displayEntityName(item.unitName, item.unitCode, "未命名房源")
+    })),
     page: response.data.page, pageSize: response.data.page_size, total: response.data.total
   };
 }
@@ -107,6 +112,7 @@ export function useHomestayListFilters(surface: HomestayListSurface) {
   const pathname = usePathname();
   const [filters, setFilters] = useState<HomestayListFilters>(EMPTY_HOMESTAY_FILTERS);
   useEffect(() => {
+    const controller = new AbortController();
     const query = new URLSearchParams(window.location.search);
     const parsedPage = Number(query.get("page") ?? "1");
     const unitId = query.get("unit_id");
@@ -116,8 +122,30 @@ export function useHomestayListFilters(surface: HomestayListSurface) {
       dateFrom: query.get("date_from") ?? "", dateTo: query.get("date_to") ?? "",
       keyword: query.get("keyword") ?? "", sourceType: query.get("source_type") ?? "",
       businessDateValue: query.get("business_date") ?? "",
-      unit: unitId ? { id: unitId, label: "已选择房源" } : null, ready: true
+      unit: unitId ? { id: unitId, label: "房源名称加载中" } : null, ready: true
     });
+    if (unitId) {
+      void loadHomestayUnitOptions({
+        page: 1,
+        pageSize: 1,
+        unitId,
+        signal: controller.signal
+      }).then((result) => {
+        if (controller.signal.aborted) return;
+        const unit = result.items.find((item) => item.id === unitId);
+        setFilters((current) => ({
+          ...current,
+          unit: unit ?? { id: unitId, label: "已选房源不可用" }
+        }));
+      }).catch(() => {
+        if (controller.signal.aborted) return;
+        setFilters((current) => ({
+          ...current,
+          unit: { id: unitId, label: "已选房源不可用" }
+        }));
+      });
+    }
+    return () => controller.abort();
   }, [surface]);
   function update(patch: Partial<HomestayListFilters>) {
     const next = { ...filters, ...patch, ready: true };

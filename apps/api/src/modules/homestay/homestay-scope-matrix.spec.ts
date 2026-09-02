@@ -20,6 +20,7 @@ const actor: JwtPrincipal = {
 };
 const detailId = "11111111-1111-4111-8111-111111111111";
 const GET_SCOPE_MATRIX = {
+  "/homestay/unit-candidates": ["tenant-park-bound", "unit-eligibility-bound", "empty-unit-page"],
   "/homestay/tasks": ["tenant-park-bound", "empty-unit-page"],
   "/homestay/guest-candidates": ["tenant-park-bound", "booking-unit-bound", "empty-unit-page"],
   "/homestay/work-order-candidates": ["tenant-park-bound", "empty-unit-page"],
@@ -80,6 +81,7 @@ function homestayService(options: {
 
 test("seven literal GET routes map to explicit scope scenarios", () => {
   assert.deepEqual(Object.keys(GET_SCOPE_MATRIX), [
+    "/homestay/unit-candidates",
     "/homestay/tasks",
     "/homestay/guest-candidates",
     "/homestay/work-order-candidates",
@@ -159,6 +161,55 @@ test("unit-scoped list routes return empty pages without repository or raw queri
       scenario.route
     );
     assert.equal(counter.value, 0, `${scenario.route} must not query an empty unit scope`);
+  }
+});
+
+test("empty unit scope prevents ID recovery queries", async () => {
+  let queryCount = 0;
+  const result = await homestayService({
+    unitAccessService: { allowedUnitIds: async () => [] },
+    dataSource: { query: async () => { queryCount += 1; return []; } }
+  }).listUnitCandidates(scope, actor, {
+    unit_id: detailId,
+    page: 1,
+    page_size: 20
+  });
+  assert.equal(queryCount, 0);
+  assert.deepEqual(result.items, []);
+  assert.equal(result.total, 0);
+});
+
+test("unit candidate ID recovery keeps tenant, park, eligibility, and unit scope in both queries", async () => {
+  const statements: Array<{ sql: string; parameters: unknown[] }> = [];
+  const service = homestayService({
+    unitAccessService: { allowedUnitIds: async () => [detailId] },
+    dataSource: {
+      query: async (sql: string, parameters: unknown[]) => {
+        statements.push({ sql, parameters });
+        return sql.includes("count(*)::int AS total")
+          ? [{ total: 1 }]
+          : [{ id: detailId, unitCode: "HS-001", unitName: "湖景房", usage_type: 1 }];
+      }
+    }
+  });
+
+  const result = await service.listUnitCandidates(scope, actor, {
+    unit_id: detailId,
+    page: 1,
+    page_size: 1
+  });
+
+  assert.equal(result.items[0]?.unitCode, "HS-001");
+  assert.equal(result.items[0]?.unitName, "湖景房");
+  assert.equal(statements.length, 2);
+  for (const statement of statements) {
+    assert.match(statement.sql, /unit\.tenant_id = \$1/u);
+    assert.match(statement.sql, /unit\.park_id = \$2/u);
+    assert.match(statement.sql, /operation\.operating_mode = 'short_stay'/u);
+    assert.match(statement.sql, /operation\.operating_status = 'enabled'/u);
+    assert.match(statement.sql, /unit\.id = ANY\(/u);
+    assert.match(statement.sql, /unit\.id = \$\d+::uuid/u);
+    assert.equal(statement.parameters.includes(detailId), true);
   }
 });
 

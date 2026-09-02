@@ -13,6 +13,7 @@ const sources = {
   homestayDetail: read("homestay/_components/HomestayDetailClient.tsx"),
   homestayFinance: read("homestay/_components/HomestayFinanceEntryPanel.tsx"),
   homestayTurnover: read("homestay/_components/HomestayTurnoverActions.tsx"),
+  homestayState: read("homestay/_components/use-homestay-list-state.ts"),
   housingTasks: read("housing/_components/HousingOverviewSurfaceClients.tsx"),
   housingRental: read("housing/_components/HousingRentalSurfaceClients.tsx"),
   housingCosts: read("housing/_components/HousingCostSurfaceClients.tsx"),
@@ -75,4 +76,18 @@ test("HCD-009 every high-risk feedback surface projects Chinese approval states 
     assert.match(source, /执行状态：/);
     assert.doesNotMatch(source, /申请编号：\$\{[^}]*requestId/);
   }
+});
+
+test("PR2 wires authorized names for every B-class HCD item without internal-id fallbacks", () => {
+  assert.equal((sources.homestayList.match(/displayEntityName\(item\.unitName, item\.unitCode, "未命名房源"\)/g) ?? []).length, 3);
+  assert.equal((sources.homestayList.match(/displayEntityName\(item\.unit_name, item\.unit_code, "未命名房源"\)/g) ?? []).length, 2);
+  assert.doesNotMatch(sources.homestayList, /\[item\.unitCode, item\.unitName\]\.filter\(Boolean\)\.join/);
+  assert.match(sources.homestayDetail, /displayEntityName\(booking\.unitName, booking\.unitCode, "未命名房源"\)/);
+  assert.match(sources.homestayState, /params\.set\("unit_id", input\.unitId\)/);
+  assert.match(sources.homestayState, /displayEntityName\(item\.unitName, item\.unitCode, "未命名房源"\)/);
+  assert.doesNotMatch(sources.homestayState, /label: "已选择房源"/);
+  assert.match(sources.housingTasks, /item\.assigneeName\?\.trim\(\) \|\| "未分派"/);
+  assert.doesNotMatch(sources.housingTasks, /render: \(item\) => item\.assigneeId/);
+  assert.match(sources.housingCosts, /displayEntityName\(item\.unitName, item\.unitCode, "未关联房源"\)/);
+  assert.match(sources.housingDetails, /displayEntityName\(data\.purchase\.unitName, data\.purchase\.unitCode, "未关联房源"\)/);
 });

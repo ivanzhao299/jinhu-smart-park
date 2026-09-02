@@ -50,7 +50,11 @@ const purchaseItem = {
   transferredReceivableId: null
 };
 
-function purchaseService(receiptFiles: unknown[] = []) {
+function purchaseService(
+  receiptFiles: unknown[] = [],
+  purchaseRecord: typeof purchase | (Omit<typeof purchase, "unitId"> & { unitId: null }) = purchase,
+  queries: string[] = []
+) {
   const builder = {
     where: () => builder,
     andWhere: () => builder,
@@ -58,14 +62,19 @@ function purchaseService(receiptFiles: unknown[] = []) {
     addOrderBy: () => builder,
     skip: () => builder,
     take: () => builder,
-    getManyAndCount: async () => [[purchase], 1]
+    getManyAndCount: async () => [[purchaseRecord], 1]
   };
   const purchasesRepository = {
     createQueryBuilder: () => builder,
-    findOne: async () => purchase
+    findOne: async () => purchaseRecord
   };
   const dataSource = {
-    query: async () => [],
+    query: async (sql: string) => {
+      queries.push(sql);
+      return sql.includes("FROM biz_unit unit")
+        ? [{ id: purchaseRecord.unitId, unitCode: "U-020", unitName: "人才公寓 020" }]
+        : [];
+    },
     getRepository: (entity: unknown) => {
       if (entity === HousingPurchaseItemEntity) {
         return { find: async () => [purchaseItem] };
@@ -80,7 +89,7 @@ function purchaseService(receiptFiles: unknown[] = []) {
     purchasesRepository as never,
     {
       allowedUnitIds: async () => null,
-      assertAccess: async () => ({ id: purchase.unitId })
+      assertAccess: async () => ({ id: purchaseRecord.unitId })
     } as never,
     dataSource as never,
     new HousingTransactionSupportService()
@@ -224,7 +233,7 @@ test("purchase manage/transfer-only list and detail omit every money field", asy
     assert.equal("amount" in detail.items[0]!, false);
     assert.deepEqual(Object.keys(list.items[0]!).sort(), [
       "approvalStatus", "costCategory", "id", "paymentStatus", "purchaseCode",
-      "purchaseDate", "transferredItemCount", "unitId", "vendorName"
+      "purchaseDate", "transferredItemCount", "unitCode", "unitId", "unitName", "vendorName"
     ]);
     assert.deepEqual(Object.keys(detail.items[0]!).sort(), [
       "id", "itemName", "quantity", "transferredReceivableId", "unit"
@@ -233,7 +242,8 @@ test("purchase manage/transfer-only list and detail omit every money field", asy
 });
 
 test("purchase read list and detail expose formatted decimal strings with strict keys", async () => {
-  const service = purchaseService();
+  const queries: string[] = [];
+  const service = purchaseService([], purchase, queries);
   const principal = {
     ...actor,
     permissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ]
@@ -246,12 +256,36 @@ test("purchase read list and detail expose formatted decimal strings with strict
 
   assert.equal(list.items[0]?.totalAmount, "123.45");
   assert.equal(detail.purchase.totalAmount, "123.45");
+  assert.equal(list.items[0]?.unitCode, "U-020");
+  assert.equal(list.items[0]?.unitName, "人才公寓 020");
+  assert.equal(detail.purchase.unitCode, "U-020");
+  assert.equal(detail.purchase.unitName, "人才公寓 020");
+  const unitQuery = queries.find((sql) => sql.includes("FROM biz_unit unit"));
+  assert.match(unitQuery ?? "", /unit\.tenant_id = \$1/u);
+  assert.match(unitQuery ?? "", /unit\.park_id = \$2/u);
+  assert.match(unitQuery ?? "", /unit\.is_deleted = false/u);
   assert.equal(detail.items[0]?.unitPrice, "12.34");
   assert.equal(detail.items[0]?.amount, "24.68");
   assert.deepEqual(Object.keys(detail.items[0]!).sort(), [
     "amount", "id", "itemName", "quantity",
     "transferredReceivableId", "unit", "unitPrice"
   ]);
+});
+
+test("project-wide purchases keep nullable unit names and never synthesize an ID label", async () => {
+  const unlinkedPurchase = { ...purchase, unitId: null };
+  const service = purchaseService([], unlinkedPurchase);
+  const principal = {
+    ...actor,
+    permissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ]
+  };
+  const list = await service.listPurchases(scope, principal, { page: 1, page_size: 20 });
+  const detail = await service.getPurchase(scope, principal, purchase.id);
+  assert.equal(list.items[0]?.unitId, null);
+  assert.equal(list.items[0]?.unitCode, null);
+  assert.equal(list.items[0]?.unitName, null);
+  assert.equal(detail.purchase.unitCode, null);
+  assert.equal(detail.purchase.unitName, null);
 });
 
 test("purchase receipt metadata requires purchase read intersected with file read", async () => {

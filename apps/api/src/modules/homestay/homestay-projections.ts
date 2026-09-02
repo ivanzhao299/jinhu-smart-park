@@ -11,12 +11,15 @@ import type {
 
 export function projectHomestayBooking(
   booking: HomestayBookingEntity,
-  canReadFinance: boolean
+  canReadFinance: boolean,
+  unitDisplay?: { unitCode: string | null; unitName: string | null }
 ): HomestayBookingResponse {
   return {
     id: booking.id,
     bookingCode: booking.bookingCode,
     unitId: booking.unitId,
+    unitCode: unitDisplay?.unitCode ?? null,
+    unitName: unitDisplay?.unitName ?? null,
     arrivalDate: booking.arrivalDate,
     departureDate: booking.departureDate,
     status: booking.status,

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
+  displayEntityName,
   homestayPriceSourceLabel,
   propertyLabels,
   propertyErrorMessage,
@@ -212,7 +213,7 @@ function BookingOverview({ data }: { data: HomestayBookingDetailResponse }) {
     <div className="ds-panel"><h2>订单</h2><dl>
       <dt>订单号</dt><dd>{booking.bookingCode}</dd>
       <dt>入住期间</dt><dd>{booking.arrivalDate} 至 {booking.departureDate}</dd>
-      <dt>房源</dt><dd>已关联房源</dd>
+      <dt>房源</dt><dd>{displayEntityName(booking.unitName, booking.unitCode, "未命名房源")}</dd>
       <dt>状态</dt><dd><StatusPill variant={statusVariant(booking.status)}>{propertyLabels.bookingStatus(booking.status)}</StatusPill></dd>
       <dt>入住人数</dt><dd>{booking.guestCount}</dd>
     </dl></div>

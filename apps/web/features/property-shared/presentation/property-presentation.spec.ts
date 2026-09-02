@@ -26,6 +26,8 @@ test("HCD entity fallback never exposes internal ids", () => {
   assert.equal(displayEntityName(null, "U-001", "房源不可用"), "U-001");
   assert.equal(displayEntityName(null, null, "房源不可用"), "房源不可用");
   assert.equal(displayEntityName(null, "22222222-2222-4222-8222-222222222222", "房源不可用"), "房源不可用");
+  assert.equal(displayEntityName("22222222-2222-4222-8222-222222222222", "U-001", "房源不可用"), "U-001");
+  assert.equal(displayEntityName("22222222-2222-4222-8222-222222222222", null, "房源不可用"), "房源不可用");
 });
 
 test("HCD lease filters exactly follow the closed shared status labels", () => {

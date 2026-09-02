@@ -175,6 +175,8 @@ export interface HomestayBookingResponse {
   id: string;
   bookingCode: string;
   unitId: string;
+  unitCode: string | null;
+  unitName: string | null;
   arrivalDate: string;
   departureDate: string;
   status: string;
@@ -319,6 +321,7 @@ export interface PropertyWorkbenchTaskItem {
   title: string;
   status: string;
   assigneeId: string | null;
+  assigneeName: string | null;
   dueAt: string | null;
 }
 
@@ -700,6 +703,8 @@ export interface HousingPurchaseResponse {
   id: string;
   purchaseCode: string;
   unitId: string | null;
+  unitCode: string | null;
+  unitName: string | null;
   vendorName: string;
   purchaseDate: string;
   costCategory: string;

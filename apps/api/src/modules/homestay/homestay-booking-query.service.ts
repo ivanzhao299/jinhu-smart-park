@@ -75,9 +75,7 @@ export class HomestayBookingQueryService {
     const unitDisplay = await this.loadUnitDisplay(scope, bookings);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
     const items = bookings.map((booking): HomestayBookingListItem => ({
-      ...projectHomestayBooking(booking, canReadFinance),
-      unitCode: unitDisplay.get(booking.unitId)?.unitCode ?? null,
-      unitName: unitDisplay.get(booking.unitId)?.unitName ?? null
+      ...projectHomestayBooking(booking, canReadFinance, unitDisplay.get(booking.unitId))
     }));
     return { items, total, page: query.page, page_size: query.page_size };
   }
@@ -153,6 +151,7 @@ export class HomestayBookingQueryService {
        FROM biz_unit unit
        WHERE unit.tenant_id = $1
          AND unit.park_id = $2
+         AND unit.is_deleted = false
          AND unit.id = ANY($3::uuid[])`,
       [scope.tenantId, scope.parkId, [...new Set(bookings.map((booking) => booking.unitId))]]
     ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>;
@@ -171,8 +170,16 @@ export class HomestayBookingQueryService {
       throw new NotFoundException(missingMessage);
     }
     const access = this.bookingDetailAccess(actor);
-    const relations = await this.loadBookingDetailRelations(scope, id, access);
-    return this.projectBookingDetail(booking, relations, access);
+    const [relations, unitDisplay] = await Promise.all([
+      this.loadBookingDetailRelations(scope, id, access),
+      this.loadUnitDisplay(scope, [booking])
+    ]);
+    return this.projectBookingDetail(
+      booking,
+      relations,
+      access,
+      unitDisplay.get(booking.unitId)
+    );
   }
 
   private bookingDetailAccess(actor: JwtPrincipal): BookingDetailAccess {
@@ -250,10 +257,11 @@ export class HomestayBookingQueryService {
   private projectBookingDetail(
     booking: HomestayBookingEntity,
     relations: BookingDetailRelations,
-    access: BookingDetailAccess
+    access: BookingDetailAccess,
+    unitDisplay?: { unitCode: string | null; unitName: string | null }
   ): HomestayBookingDetailResponse {
     return {
-      booking: projectHomestayBooking(booking, access.canReadFinance),
+      booking: projectHomestayBooking(booking, access.canReadFinance, unitDisplay),
       nights: this.projectNights(relations.nights, access.canReadFinance),
       guests: relations.guests.map((guest) => ({
         id: guest.id,

@@ -134,22 +134,28 @@ export class HomestayService {
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size, facets };
     }
-    const filters: string[] = [];
+    const itemFilters: string[] = [];
+    const countFilters: string[] = [];
     const itemParams: unknown[] = [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size];
     const countParams: unknown[] = [scope.tenantId, scope.parkId];
     if (allowedUnitIds !== null) {
       itemParams.push(allowedUnitIds);
       countParams.push(allowedUnitIds);
-      filters.push(`unit.id = ANY($ACCESS_INDEX::uuid[])`);
+      itemFilters.push(`unit.id = ANY($${itemParams.length}::uuid[])`);
+      countFilters.push(`unit.id = ANY($${countParams.length}::uuid[])`);
     }
     if (query.usage_type !== undefined) {
       itemParams.push(query.usage_type);
       countParams.push(query.usage_type);
-      filters.push(`unit.usage_type = $USAGE_INDEX`);
+      itemFilters.push(`unit.usage_type = $${itemParams.length}`);
+      countFilters.push(`unit.usage_type = $${countParams.length}`);
     }
-    const accessSql = (forItems: boolean) => filters.map((filter) => filter
-      .replace("$ACCESS_INDEX", String(forItems ? 5 : 3))
-      .replace("$USAGE_INDEX", String(forItems ? itemParams.length : countParams.length))).join(" AND ");
+    if (query.unit_id !== undefined) {
+      itemParams.push(query.unit_id);
+      countParams.push(query.unit_id);
+      itemFilters.push(`unit.id = $${itemParams.length}::uuid`);
+      countFilters.push(`unit.id = $${countParams.length}::uuid`);
+    }
     const commonSql = (accessClause: string) => `
       FROM biz_unit unit
       JOIN biz_property_operation_config operation
@@ -167,13 +173,13 @@ export class HomestayService {
       this.dataSource.query(
         `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName",
                 unit.usage_type AS "usage_type"
-         ${commonSql(accessSql(true))}
+         ${commonSql(itemFilters.join(" AND "))}
          ORDER BY unit.unit_code ASC
          LIMIT $3 OFFSET $4`,
         itemParams
       ) as Promise<Array<{ id: string; unitCode: string; unitName: string; usage_type: number }>>,
       this.dataSource.query(
-        `SELECT count(*)::int AS total ${commonSql(accessSql(false))}`,
+        `SELECT count(*)::int AS total ${commonSql(countFilters.join(" AND "))}`,
         countParams
       ) as Promise<Array<{ total: number }>>
     ]);
