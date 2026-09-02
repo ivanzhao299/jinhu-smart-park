@@ -127,6 +127,7 @@ jobs:
           pnpm test:e2e:yuzhou-production-import-phase-writers
           pnpm test:e2e:yuzhou-production-import-phase-rollback
           pnpm test:e2e:yuzhou-production-import-real-artifact-bridge
+          pnpm test:e2e:yuzhou-production-import-t0-artifact
           pnpm test:e2e:yuzhou-production-import-machine-attestation
           pnpm test:e2e:yuzhou-production-target-attestation
           pnpm test:e2e:yuzhou-production-import-writer-receipts

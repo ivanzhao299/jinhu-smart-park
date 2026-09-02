@@ -216,6 +216,7 @@
     "test:e2e:yuzhou-production-import-phase-writers": "node --test scripts/e2e/yuzhou-production-import-phase-writers-contract.mjs",
     "test:e2e:yuzhou-production-import-phase-rollback": "node --test scripts/e2e/yuzhou-production-import-phase-rollback-contract.mjs",
     "test:e2e:yuzhou-production-import-real-artifact-bridge": "node scripts/e2e/yuzhou-production-import-real-artifact-bridge-contract.mjs",
+    "test:e2e:yuzhou-production-import-t0-artifact": "node scripts/e2e/yuzhou-production-import-t0-artifact-contract.mjs",
     "test:e2e:yuzhou-production-import-machine-attestation": "node scripts/e2e/yuzhou-production-import-machine-attestation-contract.mjs",
     "test:e2e:yuzhou-production-target-attestation": "sh scripts/e2e/yuzhou-production-target-attestation-contract.sh",
     "test:e2e:yuzhou-production-import-writer-receipts": "node scripts/e2e/yuzhou-production-import-writer-receipts-contract.mjs",
