@@ -94,7 +94,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         if: ${{ needs.classify.outputs.mode != 'ops-only' && needs.classify.outputs.mode != 'fast-css' }}
