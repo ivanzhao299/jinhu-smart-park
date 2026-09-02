@@ -277,6 +277,7 @@ test("v2 repository contract is HOLD with an empty production target allowlist",
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-preflight/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2(?:\s|$)/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-private-stage/u);
+  assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-binding-request/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2:pg/u);
   assert.match(ci, /jinhu_hr_migration_lab_ci_\$\{GITHUB_RUN_ID\}/u);
   for (const path of [".github/workflows/deploy-production.yml", "scripts/prod-deploy.sh", "scripts/db-seed-prod.sh", "scripts/hr-cutover/full-domain-lifecycle.sh"]) {
