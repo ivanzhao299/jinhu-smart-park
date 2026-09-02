@@ -208,6 +208,7 @@
     "test:e2e:yuzhou-production-import-v2": "node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs",
     "test:e2e:yuzhou-production-import-t5-private-stage": "node --test scripts/e2e/yuzhou-production-import-t5-nonfile-private-stage-contract.mjs scripts/e2e/yuzhou-production-import-t5-private-stage-cli-contract.mjs",
     "test:e2e:yuzhou-production-import-t5-binding-request": "node --test scripts/e2e/yuzhou-production-import-t5-binding-request-contract.mjs",
+    "test:e2e:yuzhou-production-target-registration-request": "node --test scripts/e2e/yuzhou-production-target-registration-request-contract.mjs",
     "test:e2e:yuzhou-production-import-v2:pg": "node scripts/e2e/yuzhou-production-import-control-v2-direct-pg.mjs",
     "test:e2e:yuzhou-production-import-target-model": "node scripts/e2e/yuzhou-production-import-target-model-contract.mjs",
     "test:e2e:yuzhou-production-import-payload-generator": "node scripts/e2e/yuzhou-production-import-payload-generator-contract.mjs",
