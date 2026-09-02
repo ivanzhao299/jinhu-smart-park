@@ -96,7 +96,7 @@ Focused 门禁为 `hr-contract-reminder.contract.spec.ts` 和 `hr-contract-remin
 
 T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267` 保留核心残余归档；`000276` 在不删除 raw archive 的前提下，把已审阅的 `person/family/knowhow/ticket` 字段同步物化到员工档案、家庭、技能和证照业务表。物化必须命中 T0 员工映射并绑定稳定 source identity/row hash；未知字段只登记 locator、hash 和 reason code，不把 raw value 写入证据。技能 `grade` 在词典未签署前保持 `proficiency=NULL` 并登记 `UNKNOWN_SKILL_GRADE`。旧登录密码不迁移，照片及证照路径只保留 hash/文件证据。
 
-抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。物化版 manifest 额外绑定 reviewed mapping hash；启用后旧业务哈希不再有效，必须对同一固定源重新执行 A/B 抽取并固定新的 hash，不能手工沿用旧值。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。物化版 manifest 额外绑定 reviewed mapping hash；启用后旧业务哈希不再有效，必须对同一固定源重新执行 A/B 抽取并固定新的 hash，不能手工沿用旧值。即使源恢复回执未变化，只要当前受控物化封套产生了新的、A/B 一致的业务哈希，也必须生成新的候选基线；回执和业务哈希都未变化时，重建操作会拒绝为无效重复。全域演练在完成抽取后、进入任何目标加载前会核对这个候选基线。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。
 
 截至 2026-08-30，受控备份在全新 `core` 隔离库的非文件 T5 演练已完成一次真实闭环：`7,752 = 7,648 loaded + 104 quarantined`。其中 `2,870` 档案残余、`4,538` 家庭、`6` 技能和 `234` 证照资料进入在线投影；`79` 条存在非唯一人员指纹的档案固定隔离为 `EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS`，另有 `25` 条源物化隔离记录，未发生自动身份归并。照片和文档证据均为 `0`，未创建文件占位。旧 `staging-t5nonfile20260830a` 因缺少 `sourceCatalogSha256` 被装载器在业务写入前拒绝。自 2026-08-31 起，所有新阶段还必须同时绑定 canonical `sourceSnapshotSha256`、`sourceRestoreReceiptSha256`、`sourceBusinessSha256`、`sourceCatalogSha256`、映射合同及领域文件 SHA-256；加载器会在创建临时载荷和任何 PostgreSQL 写入前拒绝旧清单、回执漂移、映射漂移或与请求备份不同的源快照。该批次已精确回滚，活动映射、四类在线投影和临时物化主体均为 `0` 残留；这只证明非附件 T5 的隔离可回滚性，不替代完整 A/B、人工身份决议、照片/附件处理或生产授权，`productionImport` 继续为 `HOLD`。
 

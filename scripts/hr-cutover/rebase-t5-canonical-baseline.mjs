@@ -28,7 +28,6 @@ function readReceipt(path, baseline) {
   try { receipt = validateSourceRestoreReceipt(JSON.parse(raw)); } catch { fail("T5_BASELINE_REBASE_RECEIPT_INVALID", "source restore receipt is invalid"); }
   const receiptSha256 = sha256(raw);
   if (receipt.productionImport !== "HOLD" || receipt.sourceSnapshotSha256 !== baseline.sourceSnapshotSha256) fail("T5_BASELINE_REBASE_RECEIPT_INVALID", "source restore receipt snapshot is not canonical");
-  if (receiptSha256 === baseline.sourceRestoreReceiptSha256) fail("T5_BASELINE_REBASE_NOT_NEEDED", "source restore receipt already matches the canonical baseline");
   return { receiptSha256, sourceSnapshotSha256: receipt.sourceSnapshotSha256 };
 }
 
@@ -79,6 +78,7 @@ export function rebaseT5CanonicalBaseline(input) {
   const b = readStage(input.sourceB, "B", baseline);
   if (a.businessSha256 !== b.businessSha256) fail("T5_BASELINE_REBASE_AB_MISMATCH", "businessSha256 differs between A and B");
   for (const name of Object.keys(DOMAIN_ROWS)) if (canonical(a.domains[name]) !== canonical(b.domains[name])) fail("T5_BASELINE_REBASE_AB_MISMATCH", `domain ${name} differs between A and B`);
+  if (receipt.receiptSha256 === baseline.sourceRestoreReceiptSha256 && a.businessSha256 === baseline.businessSha256) fail("T5_BASELINE_REBASE_NOT_NEEDED", "source receipt and T5 business identity already match the canonical baseline");
   const candidate = { ...baseline, sourceRestoreReceiptSha256: receipt.receiptSha256, businessSha256: a.businessSha256 };
   const evidence = { formatVersion: 1, artifactKind: "yuzhou_t5_canonical_baseline_rebase_evidence", sourceSnapshotSha256: receipt.sourceSnapshotSha256, previousSourceRestoreReceiptSha256: baseline.sourceRestoreReceiptSha256, sourceRestoreReceiptSha256: receipt.receiptSha256, businessSha256: a.businessSha256, catalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, sourceRows: baseline.sourceRows, domains: a.domains, productionImport: "HOLD" };
   writePrivate(input.outputPath, candidate);

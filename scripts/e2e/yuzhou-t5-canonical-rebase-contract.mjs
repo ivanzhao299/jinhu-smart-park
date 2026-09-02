@@ -32,6 +32,14 @@ test("T5 canonical rebase requires a new sealed receipt plus two identical, comp
     assert.equal(result.candidate.businessSha256, freshBusinessSha256);
     assert.equal(JSON.parse(readFileSync(output, "utf8")).sourceRestoreReceiptSha256, sha(readFileSync(receiptPath)));
     assert.equal(JSON.parse(readFileSync(evidence, "utf8")).domains.person_core.rows, 2949);
+    const sameReceiptBaselinePath = join(root, "same-receipt-baseline.json");
+    const sameReceiptBaseline = { ...baseline, sourceRestoreReceiptSha256: sha(readFileSync(receiptPath)) };
+    privateWrite(sameReceiptBaselinePath, `${JSON.stringify(sameReceiptBaseline)}\n`);
+    const sameReceiptResult = rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, baselinePath: sameReceiptBaselinePath, outputPath: join(root, "same-receipt-candidate.json"), evidencePath: join(root, "same-receipt-evidence.json") });
+    assert.equal(sameReceiptResult.candidate.businessSha256, freshBusinessSha256, "a fresh A/B extract may rebase the materialization identity without changing the sealed receipt");
+    for (const stage of [sourceA, sourceB]) { const manifest = JSON.parse(readFileSync(join(stage, "manifest.json"), "utf8")); manifest.businessSha256 = sameReceiptBaseline.businessSha256; privateWrite(join(stage, "manifest.json"), `${JSON.stringify(manifest)}\n`); }
+    assert.throws(() => rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, baselinePath: sameReceiptBaselinePath, outputPath: join(root, "no-change-candidate.json"), evidencePath: join(root, "no-change-evidence.json") }), /T5_BASELINE_REBASE_NOT_NEEDED/);
+    for (const stage of [sourceA, sourceB]) { const manifest = JSON.parse(readFileSync(join(stage, "manifest.json"), "utf8")); manifest.businessSha256 = freshBusinessSha256; privateWrite(join(stage, "manifest.json"), `${JSON.stringify(manifest)}\n`); }
     const divergentBusiness = JSON.parse(readFileSync(join(sourceB, "manifest.json"), "utf8")); divergentBusiness.businessSha256 = sha("different-real-extract"); privateWrite(join(sourceB, "manifest.json"), `${JSON.stringify(divergentBusiness)}\n`);
     assert.throws(() => rebaseT5CanonicalBaseline({ sourceA, sourceB, sourceRestoreReceipt: receiptPath, outputPath: join(root, "business-rejected.json"), evidencePath: join(root, "business-rejected-evidence.json") }), /T5_BASELINE_REBASE_AB_MISMATCH/);
     divergentBusiness.businessSha256 = freshBusinessSha256; privateWrite(join(sourceB, "manifest.json"), `${JSON.stringify(divergentBusiness)}\n`);
