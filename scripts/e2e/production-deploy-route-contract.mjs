@@ -94,6 +94,8 @@ assert.match(source, /scripts\/diagnose-yuzhou-hr-production-target\.sh/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-preimport-snapshot\.sh/);
 assert.match(source, /Diagnose Yuzhou HR production source manifest \(read-only\)/);
 assert.match(source, /scripts\/prepare-yuzhou-production-source-manifest\.mjs/);
+assert.match(source, /source_manifest_json/);
+assert.match(source, /verifyProductionSourceManifest/);
 assert.match(
   source,
   /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-target'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
@@ -110,7 +112,7 @@ const sourceManifestDiagnostic = source.slice(
 );
 assert.doesNotMatch(
   sourceManifestDiagnostic,
-  /(?:rsync|\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/,
+  /(?:rsync|ssh |\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/,
   "Yuzhou HR source-manifest diagnosis must not transfer files or enter a deployment path",
 );
 assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);

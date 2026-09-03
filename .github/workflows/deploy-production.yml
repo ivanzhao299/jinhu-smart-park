@@ -25,6 +25,11 @@ on:
           - diagnose-yuzhou-hr-preimport-snapshot
           - diagnose-yuzhou-hr-production-source-manifest
           - prepare-yuzhou-hr-production-data-volume
+      source_manifest_json:
+        description: "Hash-only Yuzhou source-manifest receipt prepared in the data-custody environment; never provide source rows, files, paths, or credentials."
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: deploy-production
@@ -327,35 +332,22 @@ jobs:
       - name: Diagnose Yuzhou HR production source manifest (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-production-source-manifest' }}
         env:
-          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
-          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
-          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
-          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          YUZHOU_SOURCE_MANIFEST_JSON: ${{ inputs.source_manifest_json }}
         run: |
           set -eu
-          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
-          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "cd '$PROD_DEPLOY_PATH' && node --input-type=module -" > "$RUNNER_TEMP/yuzhou-hr-production-source-manifest.json" <<'NODE'
-          import { lstatSync, readFileSync, statSync } from "node:fs";
-          import { resolve } from "node:path";
-          import { prepareProductionSourceManifest } from "./scripts/prepare-yuzhou-production-source-manifest.mjs";
+          node --input-type=module - > "$RUNNER_TEMP/yuzhou-hr-production-source-manifest.json" <<'NODE'
+          import { verifyProductionSourceManifest } from "./scripts/prepare-yuzhou-production-source-manifest.mjs";
 
           const hold = reasonCode => process.stdout.write(`${JSON.stringify({ status: "HOLD", reasonCode, productionImport: "HOLD" })}\n`);
-          const privateFile = path => {
-            try {
-              const link = lstatSync(path), actual = statSync(path);
-              return !link.isSymbolicLink() && actual.isFile() && actual.nlink === 1 && (actual.mode & 0o777) === 0o600;
-            } catch { return false; }
-          };
-          const configPath = resolve(".private/yuzhou-hr-production-source-manifest.json");
-          if (!privateFile(configPath)) {
+          const attestation = process.env.YUZHOU_SOURCE_MANIFEST_JSON ?? "";
+          if (!attestation || Buffer.byteLength(attestation, "utf8") > 65535) {
             hold("PRODUCTION_SOURCE_MANIFEST_CONFIG_UNAVAILABLE");
           } else {
             try {
-              const result = prepareProductionSourceManifest(JSON.parse(readFileSync(configPath, "utf8")));
+              const result = verifyProductionSourceManifest(attestation);
               process.stdout.write(`${JSON.stringify({ status: "PASS", manifestSha256: result.manifestSha256, phaseCount: result.phaseCount, productionImport: "HOLD" })}\n`);
             } catch (error) {
-              const known = new Set(["PRODUCTION_SOURCE_MANIFEST_INPUT_INVALID", "PRODUCTION_SOURCE_MANIFEST_SOURCE_UNSAFE", "PRODUCTION_SOURCE_MANIFEST_RECEIPT_INVALID", "PRODUCTION_SOURCE_MANIFEST_RECEIPT_DRIFT", "PRODUCTION_SOURCE_MANIFEST_STAGE_UNSAFE", "PRODUCTION_SOURCE_MANIFEST_STAGE_INVALID", "PRODUCTION_SOURCE_MANIFEST_STAGE_BINDING_DRIFT", "PRODUCTION_SOURCE_MANIFEST_STAGE_CONTENT_DRIFT", "PRODUCTION_SOURCE_MANIFEST_OUTPUT_UNSAFE", "PRODUCTION_SOURCE_MANIFEST_OUTPUT_EXISTS", "PRODUCTION_SOURCE_MANIFEST_WRITE_FAILED"]);
+              const known = new Set(["PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID"]);
               hold(known.has(error?.code) ? error.code : "PRODUCTION_SOURCE_MANIFEST_FAILED");
             }
           }
