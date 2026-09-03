@@ -261,6 +261,8 @@ authorization receipt。
 ### 9.1 T0 来源阶段回执
 
 `materialize-production-t0-phase-artifact.mjs` 将已签名的私有 T0 staging（组织、岗位、员工）转换成仅含来源身份哈希、来源行哈希和目标表的封存阶段回执。它要求当前 C/S/M 绑定、`0700/0600` 私有输入/输出和 staging manifest 校验；不输出业务字段，不连接任何数据库，不创建计划，也不执行生产写入。该回执只是后续完整 T0～T3 生产输入的第一块来源证据，不能单独解除 `HOLD`。
+
+`prepare-production-t0-triple.mjs` 从已验证的四阶段 hash-only source manifest 取回当前 `sourceSnapshotHash` 与 `mappingContractHash`，再与当前代码 SHA 组成私有 T0 C/S/M 三元组。它拒绝非 `0600` 输入、非 `0700` 输出目录、符号链接、覆盖和无效 source manifest；只写入私有三元组文件并返回其 hash，不读取 staging 行、不连接数据库、不创建计划，也不解除 `HOLD`。随后 T0 materializer 才可使用这个三元组生成阶段回执。
 主 CI 固定执行 preflight 与 v2 合同测试；数据库敏感 Release Smoke 还会从已迁移的临时数据库克隆一份
 精确命名的 lab 数据库，执行 scope、依赖图、v1兼容、普通角色拒绝和 residual=0 PostgreSQL 合同后删除该 lab 数据库。
 
