@@ -30,7 +30,25 @@ NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
 
 valid="$(cat "$tmp/valid.json")"
 case "$valid" in *'"kind":"yuzhou_hr_production_preimport_snapshot_readonly"'*'"status":"HOLD"'*'"sourceIdentityBinding":"PENDING_SOURCE_MANIFEST"'*'"exactSourceIdentity":false'*'"PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"'*) ;; *) echo 'preimport snapshot receipt contract failed' >&2; exit 1;; esac
+case "$valid" in *'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*) ;; *) echo 'preimport snapshot must retain an unallowlisted target reason' >&2; exit 1;; esac
 case "$valid" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'preimport snapshot leaked raw target identity' >&2; exit 1;; esac
+
+deploy="$tmp/deploy"
+mkdir -p "$deploy/scripts/hr-cutover/contracts"
+separator="$(printf '\037')"
+allowlisted_hash="$(printf 'yuzhou-hr-production-target-v1:prod-db%sservice-user%s127.0.0.1%s5432%s123%stenant-private%spark-private' "$separator" "$separator" "$separator" "$separator" "$separator" "$separator" | shasum -a 256 | awk '{print $1}')"
+printf '{"formatVersion":1,"contractKind":"yuzhou_hr_production_import_target_allowlist","status":"PASS","allowedTargets":[{"environment":"production","alias":"jinhu-smart-park-production","identitySha256":"%s"}],"reasonCodes":[]}' "$allowlisted_hash" > "$deploy/scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json"
+FAKE_PREIMPORT_PROBE="NOTICE:  YUZHOU_HR_PREIMPORT_ROW|0|1|1|prod-db$(printf '\037')service-user$(printf '\037')127.0.0.1$(printf '\037')5432$(printf '\037')123$(printf '\037')tenant-private$(printf '\037')park-private|tenant-private|park-private
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T0|3|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T1|2|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T2|1|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
+  PATH="$tmp/bin:$PATH" sh "$script" report "$deploy" > "$tmp/allowlisted.json"
+
+allowlisted="$(cat "$tmp/allowlisted.json")"
+case "$allowlisted" in *'"status":"HOLD"'*'"PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'*'"PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"'*) ;; *) echo 'allowlisted preimport snapshot must remain hold-only' >&2; exit 1;; esac
+case "$allowlisted" in *'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*) echo 'allowlisted preimport snapshot retained stale target reason' >&2; exit 1;; esac
+case "$allowlisted" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'allowlisted preimport snapshot leaked raw target identity' >&2; exit 1;; esac
 
 if FAKE_PREIMPORT_PROBE='ERROR: permission denied for relation hidden_target' \
   FAKE_PREIMPORT_EXIT=1 PATH="$tmp/bin:$PATH" sh "$script" report . > "$tmp/failure.out" 2> "$tmp/failure.err"; then
@@ -78,6 +96,7 @@ grep -Fq 'legacy_record_map map JOIN public.%I value' "$script"
 grep -Fq 'sys_tenant tenant' "$script"
 grep -Fq 'biz_park park' "$script"
 grep -Fq 'exactSourceIdentity: false' "$script"
+grep -Fq 'production-import-target-allowlist-v1.json' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_RUNTIME_UNAVAILABLE' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' "$script"

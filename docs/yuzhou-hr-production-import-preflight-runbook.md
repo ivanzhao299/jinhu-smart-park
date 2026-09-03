@@ -161,7 +161,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 }
 ```
 
-当前默认 allowlist 尚未通过独立生产目标审阅，所以使用仓库默认合同还会返回 `PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED`。不得在运行时传入临时 allowlist 或修改证据绕过该门禁。
+仓库版本化 allowlist 只登记已独立核验的唯一生产目标身份。只读快照会读取该合同：仅当合同结构完整、状态为 `PASS`、目标别名/环境/身份哈希均精确匹配且没有重复目标时，才移除 `PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED`；其他所有情形都保留该原因码。不得在运行时传入临时 allowlist 或修改证据绕过该门禁。
 
 ### 7.1 生产目标只读证明
 
