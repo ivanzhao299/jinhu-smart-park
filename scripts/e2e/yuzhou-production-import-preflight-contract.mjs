@@ -420,12 +420,17 @@ test("ordinary deploy/lab code cannot reach the production import preflight boun
   assert(result.reasonCodes.includes("PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE"));
 });
 
-test("schema and default allowlist keep production activation unavailable", () => {
+test("schema keeps execution unavailable while the reviewed default allowlist remains a single exact target", () => {
   const schema = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-plan.schema.json"), "utf8"));
   const allowlist = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json"), "utf8"));
   assert.equal(schema.properties.mode.const, "DRY_RUN");
   assert.equal(schema.properties.productionImport.const, "HOLD");
   assert.equal(schema.properties.authorityBoundary.properties.executionAvailable.const, false);
-  assert.equal(allowlist.status, "HOLD");
-  assert.deepEqual(allowlist.allowedTargets, []);
+  assert.equal(allowlist.status, "PASS");
+  assert.deepEqual(allowlist.allowedTargets, [{
+    environment: "production",
+    alias: "jinhu-smart-park-production",
+    identitySha256: "06ac3572434dbef9bde1c46e448906c4e86fbee28b36d8a4020ac15fa24a6f13",
+  }]);
+  assert.deepEqual(allowlist.reasonCodes, []);
 });
