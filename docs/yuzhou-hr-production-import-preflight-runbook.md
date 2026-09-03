@@ -175,7 +175,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 `diagnose-yuzhou-hr-preimport-snapshot` 是下一条只读诊断路径：它在同一只读事务中对已固定生产范围的 T0～T3 目标表和已有玉舟 active record map 计算数量与 SHA-256 聚合快照。输出明确标注 `PENDING_SOURCE_MANIFEST` 和 `exactSourceIdentity=false`，所以它只能证明目标侧当前状态，不能替代从受控源分期生成并逐来源绑定的正式 before-image/record-map 工件，也不能解除任何导入门禁。
 
-若该诊断失败，它只会返回稳定、不含数据库原始报错的分类：范围未固定、认证、运行时不可用、权限、数据库、schema、摘要函数或查询契约问题；不得从通用失败码猜测生产账号、目标范围或业务数据。
+该诊断在 `READ ONLY` 事务中只执行查询和聚合回执，不能创建临时表或执行其他 DDL。若失败，它只会返回稳定、不含数据库原始报错的分类：范围未固定、认证、运行时不可用、权限、数据库、schema、摘要函数或查询契约问题；不得从通用失败码猜测生产账号、目标范围或业务数据。
 
 ### 7.2 当前备份恢复证明
 
