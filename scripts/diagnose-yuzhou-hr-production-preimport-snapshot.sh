@@ -135,6 +135,28 @@ scope_hash="$(hash_value "yuzhou-hr-production-scope-v1:$tenant_id:$park_id")"
 phase_rows="$(printf '%s\n' "$probe_rows" | sed '1d')"
 
 TARGET_HASH="$target_hash" SCOPE_HASH="$scope_hash" PHASE_ROWS="$phase_rows" node <<'NODE'
+import { readFileSync } from "node:fs";
+
+const SHA256 = /^[0-9a-f]{64}$/u;
+const SAFE_ALIAS = /^[a-z0-9][a-z0-9-]{2,63}$/u;
+
+function isExactReviewedTarget(targetIdentitySha256) {
+  // This remains a diagnostic-only check: an allowlist match removes only the
+  // stale allowlist reason.  It never enables the writer or substitutes for
+  // source, backup, before-image, record-map, or authorization evidence.
+  try {
+    const allowlist = JSON.parse(readFileSync("scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json", "utf8"));
+    if (allowlist?.formatVersion !== 1 || allowlist.contractKind !== "yuzhou_hr_production_import_target_allowlist" || allowlist.status !== "PASS" || !Array.isArray(allowlist.allowedTargets) || !Array.isArray(allowlist.reasonCodes) || allowlist.reasonCodes.length !== 0) return false;
+    const targets = allowlist.allowedTargets;
+    if (targets.length !== 1) return false;
+    const [target] = targets;
+    if (!target || Object.keys(target).sort().join(",") !== "alias,environment,identitySha256" || target.environment !== "production" || !SAFE_ALIAS.test(target.alias ?? "") || !SHA256.test(target.identitySha256 ?? "")) return false;
+    return target.identitySha256 === targetIdentitySha256;
+  } catch {
+    return false;
+  }
+}
+
 const rows = process.env.PHASE_ROWS.split("\n").filter(Boolean);
 const phases = {};
 for (const row of rows) {
@@ -147,5 +169,10 @@ for (const row of rows) {
   };
 }
 if (JSON.stringify(Object.keys(phases)) !== JSON.stringify(["T0", "T1", "T2", "T3"])) process.exit(4);
-process.stdout.write(`${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_preimport_snapshot_readonly", status: "HOLD", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: process.env.TARGET_HASH, targetScopeSha256: process.env.SCOPE_HASH, sourceIdentityBinding: "PENDING_SOURCE_MANIFEST", phases, reasonCodes: ["PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED", "PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"] })}\n`);
+const reasonCodes = [
+  ...(isExactReviewedTarget(process.env.TARGET_HASH) ? [] : ["PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"]),
+  "PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED",
+  "PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED",
+];
+process.stdout.write(`${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_preimport_snapshot_readonly", status: "HOLD", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: process.env.TARGET_HASH, targetScopeSha256: process.env.SCOPE_HASH, sourceIdentityBinding: "PENDING_SOURCE_MANIFEST", phases, reasonCodes })}\n`);
 NODE
