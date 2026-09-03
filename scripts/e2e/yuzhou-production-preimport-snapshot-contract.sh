@@ -30,6 +30,8 @@ NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
 
 valid="$(cat "$tmp/valid.json")"
 case "$valid" in *'"kind":"yuzhou_hr_production_preimport_snapshot_readonly"'*'"status":"HOLD"'*'"sourceIdentityBinding":"PENDING_SOURCE_MANIFEST"'*'"exactSourceIdentity":false'*'"PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"'*) ;; *) echo 'preimport snapshot receipt contract failed' >&2; exit 1;; esac
+expected_scope_hash="$(node --input-type=module -e 'import { createHash } from "node:crypto"; process.stdout.write(createHash("sha256").update("yuzhou-hr-production-target-scope-v1\0tenant-private\0park-private").digest("hex"));')"
+case "$valid" in *"\"targetScopeSha256\":\"$expected_scope_hash\""*) ;; *) echo 'preimport snapshot must use the sealed target-scope hash contract' >&2; exit 1;; esac
 case "$valid" in *'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*) ;; *) echo 'preimport snapshot must retain an unallowlisted target reason' >&2; exit 1;; esac
 case "$valid" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'preimport snapshot leaked raw target identity' >&2; exit 1;; esac
 
@@ -96,6 +98,7 @@ grep -Fq 'legacy_record_map map JOIN public.%I value' "$script"
 grep -Fq 'sys_tenant tenant' "$script"
 grep -Fq 'biz_park park' "$script"
 grep -Fq 'exactSourceIdentity: false' "$script"
+grep -Fq 'yuzhou-hr-production-target-scope-v1' "$script"
 grep -Fq 'production-import-target-allowlist-v1.json' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_RUNTIME_UNAVAILABLE' "$script"
