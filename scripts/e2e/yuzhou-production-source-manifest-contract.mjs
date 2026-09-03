@@ -8,6 +8,7 @@ import { join } from "node:path";
 import {
   prepareProductionSourceManifest,
   ProductionSourceManifestError,
+  verifyProductionSourceManifest,
 } from "../prepare-yuzhou-production-source-manifest.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 
@@ -72,6 +73,11 @@ try {
   assert.equal(outputJson.productionImport, "HOLD");
   assert.deepEqual(Object.keys(outputJson.phases), ["T0", "T1", "T2", "T3"]);
   assert.doesNotMatch(outputText, /sensitive-probe-value/);
+  assert.deepEqual(verifyProductionSourceManifest(outputJson), result);
+  assert.throws(
+    () => verifyProductionSourceManifest({ ...outputJson, sourceReadOnly: false }),
+    error => error instanceof ProductionSourceManifestError && error.code === "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID",
+  );
   const configPath = join(root, "source-manifest-config.json");
   privateFile(configPath, JSON.stringify({
     backupPath,

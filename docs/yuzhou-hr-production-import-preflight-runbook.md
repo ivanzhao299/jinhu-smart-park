@@ -179,9 +179,9 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 ### 7.1.1 来源分期封存回执
 
-`diagnose-yuzhou-hr-production-source-manifest` 是独立的 `ops-only` 只读路径。它复用正式宿主机上已发布的来源封存器，并通过标准输入执行极小的只读包装逻辑；不会同步程序文件、备份、阶段文件、私有配置、凭据或业务数据。
+`diagnose-yuzhou-hr-production-source-manifest` 是独立的 `ops-only` 只读路径。数据保管环境先在本机用封存器重算备份、恢复回执和 T0～T3 阶段文件；工作流仅接收该封存器输出的 hash-only manifest JSON，并验证其精确结构及规范化 SHA-256。它不会同步程序文件、备份、阶段文件、私有配置、凭据或业务数据，也不会要求生产宿主机访问本机数据保管目录。
 
-宿主机上的私有配置必须为常规 `0600` JSON 文件，并由数据保管环境在本机准备。它只指向受控备份、只读恢复回执、T0～T3 分期目录、映射合同指纹和私有输出根；这些输入的路径和值都不进入 GitHub、日志、工件或交接材料。包装器只读取该固定私有配置，拒绝软链接或权限不符合要求的配置。
+手工触发时，`source_manifest_json` 只能填写该本机封存 manifest；其中仅允许版本、固定类型、阶段名、聚合行数和 SHA-256。不得填写源路径、原始行、业务文本、文件内容或凭据。工作流输出与保留工件仍只包含 `PASS/HOLD`、封存 manifest SHA-256、阶段数和固定 `productionImport=HOLD`。
 
 封存器会逐一复算 T0～T3 各分期文件的 SHA-256，并同时核对来源备份、恢复回执、catalog 与映射合同的绑定。成功时，工作流工件只包含 `PASS`、封存 manifest SHA-256、阶段数和固定 `productionImport=HOLD`。失败时，工件只包含 `HOLD`、稳定原因码和固定 `productionImport=HOLD`；不得包含私有路径、配置、原始错误或任何 HR 记录。该回执只证明来源完整性，既不写生产数据，也不替代 allowlist、当前备份、before-image、record map、冲突决策、一次性导入授权或独立回滚授权。
 

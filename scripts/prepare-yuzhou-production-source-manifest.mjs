@@ -35,6 +35,11 @@ const canonical = value => Array.isArray(value)
     ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`
     : JSON.stringify(value);
 
+function exactKeys(value, expected, code) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...expected].sort())) fail(code);
+}
+
 function privateFile(path) {
   try {
     const link = lstatSync(path), actual = statSync(path);
@@ -75,6 +80,32 @@ function verifyStage(phase, directory, binding) {
     domains[name] = { rows: item.rows, fileSha256: item.fileSha256 };
   }
   return { stageManifestSha256: sha(manifestBytes), domains };
+}
+
+/**
+ * Validates the portable, hash-only receipt after it leaves the data-custody
+ * machine. It deliberately has no filesystem inputs: raw backup and staging
+ * files are rechecked only by prepareProductionSourceManifest on that machine.
+ */
+export function verifyProductionSourceManifest(input) {
+  let manifest = input;
+  try { if (typeof input === "string") manifest = JSON.parse(input); } catch { fail("PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID"); }
+  exactKeys(manifest, ["formatVersion", "artifactKind", "sourceReadOnly", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceCatalogSha256", "mappingContractSha256", "phases", "productionImport"], "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+  if (manifest.formatVersion !== 1 || manifest.artifactKind !== "yuzhou_hr_production_source_manifest" || manifest.sourceReadOnly !== true || manifest.productionImport !== "HOLD") fail("PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+  for (const field of ["sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceCatalogSha256", "mappingContractSha256"]) if (!SHA256.test(manifest[field] ?? "")) fail("PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+  exactKeys(manifest.phases, PHASES, "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+  for (const phase of PHASES) {
+    const stage = manifest.phases[phase];
+    exactKeys(stage, ["stageManifestSha256", "domains"], "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+    if (!SHA256.test(stage.stageManifestSha256 ?? "")) fail("PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+    exactKeys(stage.domains, REQUIRED[phase], "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+    for (const name of REQUIRED[phase]) {
+      const domain = stage.domains[name];
+      exactKeys(domain, ["rows", "fileSha256"], "PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+      if (!Number.isSafeInteger(domain.rows) || domain.rows < 0 || !SHA256.test(domain.fileSha256 ?? "")) fail("PRODUCTION_SOURCE_MANIFEST_ATTESTATION_INVALID");
+    }
+  }
+  return Object.freeze({ manifestSha256: sha(canonical(manifest)), phaseCount: PHASES.length, productionImport: "HOLD" });
 }
 
 export function parseProductionSourceManifestArgs(argv) {
@@ -139,6 +170,7 @@ export function prepareProductionSourceManifest(input) {
     phases,
     productionImport: "HOLD",
   };
+  const verified = verifyProductionSourceManifest(content);
   const outputRoot = resolve(input.outputRoot);
   if (existsSync(outputRoot) && !privateDirectory(outputRoot)) fail("PRODUCTION_SOURCE_MANIFEST_OUTPUT_UNSAFE");
   if (!existsSync(outputRoot)) { mkdirSync(outputRoot, { recursive: true, mode: 0o700 }); chmodSync(outputRoot, 0o700); }
@@ -148,7 +180,7 @@ export function prepareProductionSourceManifest(input) {
     writeFileSync(output, `${JSON.stringify(content)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
     chmodSync(output, 0o600);
     if (!privateFile(output)) fail("PRODUCTION_SOURCE_MANIFEST_OUTPUT_UNSAFE");
-    return Object.freeze({ manifestSha256: sha(readFileSync(output)), phaseCount: PHASES.length, productionImport: "HOLD" });
+    return verified;
   } catch (error) {
     if (existsSync(output) && privateFile(output)) unlinkSync(output);
     if (error instanceof ProductionSourceManifestError) throw error;
