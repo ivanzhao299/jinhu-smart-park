@@ -7,7 +7,9 @@ const outputDir = resolve(process.argv[2] ?? "");
 if (!process.argv[2] || !basename(outputDir).startsWith("staging-")) throw new Error("controlled staging directory is required");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const canonical = (value) => JSON.stringify(value, Object.keys(value).sort());
-const copySafeJson = (value) => JSON.stringify(value).replaceAll("\\", "\\\\");
+// JSON.stringify already escapes JSONL control characters. Escaping backslashes a
+// second time changes the parsed source object and invalidates sourceRowSha256.
+const copySafeJson = (value) => JSON.stringify(value);
 const readArray = (name) => {
   try {
     const value = JSON.parse(readFileSync(resolve(outputDir, name), "utf8"));
