@@ -1,7 +1,13 @@
 {
   "formatVersion": 1,
   "contractKind": "yuzhou_hr_production_import_target_allowlist",
-  "status": "HOLD",
-  "allowedTargets": [],
-  "reasonCodes": ["PRODUCTION_TARGET_ALLOWLIST_REQUIRES_SEPARATE_REVIEW"]
+  "status": "PASS",
+  "allowedTargets": [
+    {
+      "environment": "production",
+      "alias": "jinhu-smart-park-production",
+      "identitySha256": "06ac3572434dbef9bde1c46e448906c4e86fbee28b36d8a4020ac15fa24a6f13"
+    }
+  ],
+  "reasonCodes": []
 }
