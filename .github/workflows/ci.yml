@@ -129,6 +129,9 @@ jobs:
           pnpm test:e2e:yuzhou-production-import-real-artifact-bridge
           pnpm test:e2e:yuzhou-production-import-t0-triple
           pnpm test:e2e:yuzhou-production-import-t0-artifact
+          pnpm test:e2e:yuzhou-t1-jsonl-hash
+          pnpm test:e2e:yuzhou-production-import-t1-artifact
+          pnpm test:e2e:yuzhou-production-import-t1-decision-candidates
           pnpm test:e2e:yuzhou-production-import-machine-attestation
           pnpm test:e2e:yuzhou-production-target-attestation
           pnpm test:e2e:yuzhou-production-preimport-snapshot
