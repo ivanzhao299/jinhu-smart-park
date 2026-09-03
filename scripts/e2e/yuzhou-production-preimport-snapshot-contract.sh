@@ -13,6 +13,7 @@ cat > "$tmp/bin/docker" <<'SH'
 set -eu
 cat >/dev/null
 printf '%s\n' "${FAKE_PREIMPORT_PROBE:?}"
+exit "${FAKE_PREIMPORT_EXIT:-0}"
 SH
 chmod 700 "$tmp/bin/docker"
 
@@ -31,6 +32,17 @@ valid="$(cat "$tmp/valid.json")"
 case "$valid" in *'"kind":"yuzhou_hr_production_preimport_snapshot_readonly"'*'"status":"HOLD"'*'"sourceIdentityBinding":"PENDING_SOURCE_MANIFEST"'*'"exactSourceIdentity":false'*'"PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"'*) ;; *) echo 'preimport snapshot receipt contract failed' >&2; exit 1;; esac
 case "$valid" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'preimport snapshot leaked raw target identity' >&2; exit 1;; esac
 
+if FAKE_PREIMPORT_PROBE='ERROR: permission denied for relation hidden_target' \
+  FAKE_PREIMPORT_EXIT=1 PATH="$tmp/bin:$PATH" sh "$script" report . > "$tmp/failure.out" 2> "$tmp/failure.err"; then
+  echo 'preimport snapshot must fail closed when the read-only role lacks a required grant' >&2
+  exit 1
+fi
+grep -Fxq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' "$tmp/failure.err"
+if grep -Fq 'hidden_target' "$tmp/failure.err"; then
+  echo 'preimport snapshot failure must not echo raw database diagnostics' >&2
+  exit 1
+fi
+
 grep -Fq 'diagnose-yuzhou-hr-preimport-snapshot' "$workflow"
 grep -Fq 'Diagnose Yuzhou HR pre-import snapshot (read-only)' "$workflow"
 grep -Fq 'yuzhou-hr-production-preimport-snapshot' "$workflow"
@@ -42,6 +54,7 @@ grep -Fq 'legacy_record_map map JOIN public.%I value' "$script"
 grep -Fq 'sys_tenant tenant' "$script"
 grep -Fq 'biz_park park' "$script"
 grep -Fq 'exactSourceIdentity: false' "$script"
+grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' "$script"
 
 if grep -Eq '(^|[^[:alnum:]_])(rm|pg_dump|pg_restore|rsync|prod:deploy)([^[:alnum:]_]|$)' "$script"; then echo 'preimport snapshot must not mutate or transfer files' >&2; exit 1; fi
 echo 'Yuzhou production pre-import snapshot contract passed.'
