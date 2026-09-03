@@ -230,9 +230,14 @@ function outputDependency(value) {
 function buildCandidates(stage, scope, inventory, jobState) {
   const byCode = new Map();
   const organizations = [];
+  const organizationRowsByCode = new Map();
   for (const row of stage.byTable.get("sys_org")) {
     const code = text(row.sourceKey);
-    if (byCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "organization code duplicate");
+    if (organizationRowsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "organization code duplicate");
+    organizationRowsByCode.set(code, row);
+  }
+  for (const row of [...organizationRowsByCode.values()].sort((left, right) => text(left.sourceKey).length - text(right.sourceKey).length || text(left.sourceKey).localeCompare(text(right.sourceKey)))) {
+    const code = text(row.sourceKey);
     const name = text(row.source.orgName);
     const fields = name === "" ? null : { org_code: code, org_name: name, org_type: integerOr(row.source.rating, 1) <= 1 ? "company" : "department", sort_order: integerOr(row.source.sortOrder, 0), status: "enabled", remark: null };
     const parent = [...byCode.entries()].filter(([candidateCode]) => candidateCode.length < code.length && code.startsWith(candidateCode)).sort((left, right) => right[0].length - left[0].length)[0]?.[1] ?? null;

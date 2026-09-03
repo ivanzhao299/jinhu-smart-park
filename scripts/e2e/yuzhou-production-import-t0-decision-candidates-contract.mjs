@@ -23,8 +23,8 @@ const canonical = value => JSON.stringify(value, Object.keys(value).sort());
 const triple = { codeSha, sourceSnapshotHash: snapshot, mappingContractHash: mapping };
 const domainRows = {
   departments: [
-    { key: "000", source: { orgName: "Fixture Root", rating: 1, sortOrder: 0 }, table: "dbo.departmentcode" },
     { key: "0001", source: { orgName: "Fixture Department", rating: 2, sortOrder: 1 }, table: "dbo.departmentcode" },
+    { key: "000", source: { orgName: "Fixture Root", rating: 1, sortOrder: 0 }, table: "dbo.departmentcode" },
   ],
   positions: [{ key: "P001", source: { positionName: "Fixture Position", departmentCode: "0001", jobgrade: "family", salarygrade: "level" }, table: "dbo.job" }],
   employees: [{ key: "E001", source: { fullName: "Fixture Person", departmentCode: "0001", positionCode: "P001", legacyStatus: "A", hireDate: "2024-01-01", formalDate: "2024-02-01", departureDate: "" }, table: "dbo.person" }],
