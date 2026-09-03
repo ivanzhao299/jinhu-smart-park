@@ -34,6 +34,17 @@ hash_value() {
   fi
 }
 
+# Match the NUL-delimited target-scope hash used by the sealed production
+# import contract.  Emit the bytes directly because shell variables cannot
+# safely carry NUL delimiters.
+hash_target_scope() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf 'yuzhou-hr-production-target-scope-v1\000%s\000%s' "$1" "$2" | sha256sum | awk '{print $1}'
+  else
+    printf 'yuzhou-hr-production-target-scope-v1\000%s\000%s' "$1" "$2" | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
 cd "$deploy_path"
 
 # The query deliberately returns the raw identity only to this local shell so
@@ -104,7 +115,7 @@ scope_hash=""
 reason_codes='"PRODUCTION_IMPORT_TARGET_SCOPE_UNRESOLVED","PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'
 if [ "$scope_count" = "1" ] && [ "$valid_scope_count" = "1" ] && [ -n "$target_material" ] && [ -n "$tenant_id" ] && [ -n "$park_id" ]; then
   target_hash="$(hash_value "yuzhou-hr-production-target-v1:$target_material")"
-  scope_hash="$(hash_value "yuzhou-hr-production-scope-v1:$tenant_id:$park_id")"
+  scope_hash="$(hash_target_scope "$tenant_id" "$park_id")"
   reason_codes='"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED","PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'
 fi
 

@@ -18,6 +18,17 @@ hash_value() {
   else printf '%s' "$1" | shasum -a 256 | awk '{print $1}'; fi
 }
 
+# Keep the diagnostic bound to the exact target-scope contract used by the
+# sealed production-import planner.  Shell variables cannot retain NUL bytes,
+# so feed the canonical byte sequence directly to the hashing command.
+hash_target_scope() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf 'yuzhou-hr-production-target-scope-v1\000%s\000%s' "$1" "$2" | sha256sum | awk '{print $1}'
+  else
+    printf 'yuzhou-hr-production-target-scope-v1\000%s\000%s' "$1" "$2" | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
 classify_probe_failure() {
   # psql and Docker may include target identifiers in their diagnostics.  Match
   # only stable error classes here; callers receive the class, never the raw
@@ -131,7 +142,7 @@ EOF
 case "$marker:$scope_count:$valid_scope_count" in 0:1:1) ;; *) echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_INVALID' >&2; exit 3 ;; esac
 test -n "$target_material" && test -n "$tenant_id" && test -n "$park_id" || { echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_INVALID' >&2; exit 3; }
 target_hash="$(hash_value "yuzhou-hr-production-target-v1:$target_material")"
-scope_hash="$(hash_value "yuzhou-hr-production-scope-v1:$tenant_id:$park_id")"
+scope_hash="$(hash_target_scope "$tenant_id" "$park_id")"
 phase_rows="$(printf '%s\n' "$probe_rows" | sed '1d')"
 
 TARGET_HASH="$target_hash" SCOPE_HASH="$scope_hash" PHASE_ROWS="$phase_rows" node <<'NODE'

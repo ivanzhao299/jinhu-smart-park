@@ -40,6 +40,8 @@ case "$valid" in
   *'"status":"HOLD"'*'"productionImport":"HOLD"'*'"executionReachable":false'*'"scopeAssignmentCount":1'*'"validScopeCount":1'*'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*'"PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'*) ;;
   *) echo "valid target attestation contract failed" >&2; exit 1 ;;
 esac
+expected_scope_hash="$(node --input-type=module -e 'import { createHash } from "node:crypto"; process.stdout.write(createHash("sha256").update("yuzhou-hr-production-target-scope-v1\0tenant-secret\0park-secret").digest("hex"));')"
+case "$valid" in *"\"targetScopeSha256\":\"$expected_scope_hash\""*) ;; *) echo "target attestation must use the sealed target-scope hash contract" >&2; exit 1 ;; esac
 case "$valid" in
   *prod-db*|*service-user*|*tenant-secret*|*park-secret*) echo "raw target identity leaked" >&2; exit 1 ;;
 esac
