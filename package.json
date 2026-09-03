@@ -219,6 +219,7 @@
     "test:e2e:yuzhou-production-import-real-artifact-bridge": "node scripts/e2e/yuzhou-production-import-real-artifact-bridge-contract.mjs",
     "test:e2e:yuzhou-production-import-t0-triple": "node scripts/e2e/yuzhou-production-import-t0-triple-contract.mjs",
     "test:e2e:yuzhou-production-import-t0-artifact": "node scripts/e2e/yuzhou-production-import-t0-artifact-contract.mjs",
+    "test:e2e:yuzhou-production-t0-target-inventory": "node scripts/e2e/yuzhou-production-t0-target-inventory-contract.mjs",
     "test:e2e:yuzhou-production-import-machine-attestation": "node scripts/e2e/yuzhou-production-import-machine-attestation-contract.mjs",
     "test:e2e:yuzhou-production-target-attestation": "sh scripts/e2e/yuzhou-production-target-attestation-contract.sh",
     "test:e2e:yuzhou-production-preimport-snapshot": "sh scripts/e2e/yuzhou-production-preimport-snapshot-contract.sh",
