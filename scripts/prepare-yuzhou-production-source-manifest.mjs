@@ -79,6 +79,27 @@ function verifyStage(phase, directory, binding) {
 
 export function parseProductionSourceManifestArgs(argv) {
   const input = argv[0] === "--" ? argv.slice(1) : argv;
+  if (input.length === 2 && input[0] === "--config") {
+    const configPath = input[1];
+    if (!configPath || !isAbsolute(configPath) || !privateFile(configPath)) fail("PRODUCTION_SOURCE_MANIFEST_CONFIG_UNSAFE");
+    let config;
+    try { config = JSON.parse(readFileSync(configPath, "utf8")); } catch { fail("PRODUCTION_SOURCE_MANIFEST_CONFIG_INVALID"); }
+    if (!config || typeof config !== "object" || Array.isArray(config)) fail("PRODUCTION_SOURCE_MANIFEST_CONFIG_INVALID");
+    const expected = ["backupPath", "receiptPath", "mappingContractSha256", "stages", "outputRoot", "runId"];
+    if (JSON.stringify(Object.keys(config).sort()) !== JSON.stringify(expected.sort()) || !config.stages || typeof config.stages !== "object" || Array.isArray(config.stages) || JSON.stringify(Object.keys(config.stages).sort()) !== JSON.stringify(PHASES)) fail("PRODUCTION_SOURCE_MANIFEST_CONFIG_INVALID");
+    const args = [
+      "--backup", config.backupPath,
+      "--receipt", config.receiptPath,
+      "--mapping-contract", config.mappingContractSha256,
+      "--t0", config.stages.T0,
+      "--t1", config.stages.T1,
+      "--t2", config.stages.T2,
+      "--t3", config.stages.T3,
+      "--output-root", config.outputRoot,
+      "--run-id", config.runId,
+    ];
+    return parseProductionSourceManifestArgs(args);
+  }
   const known = new Set(["--backup", "--receipt", "--mapping-contract", "--t0", "--t1", "--t2", "--t3", "--output-root", "--run-id"]);
   const values = {};
   for (let index = 0; index < input.length; index += 2) {

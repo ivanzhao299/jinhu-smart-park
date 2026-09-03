@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -71,6 +72,30 @@ try {
   assert.equal(outputJson.productionImport, "HOLD");
   assert.deepEqual(Object.keys(outputJson.phases), ["T0", "T1", "T2", "T3"]);
   assert.doesNotMatch(outputText, /sensitive-probe-value/);
+  const configPath = join(root, "source-manifest-config.json");
+  privateFile(configPath, JSON.stringify({
+    backupPath,
+    receiptPath,
+    mappingContractSha256: mapping,
+    stages,
+    outputRoot: join(root, "config-output"),
+    runId: "yzsrc-20260903-config",
+  }));
+  const cli = spawnSync(process.execPath, [
+    join(import.meta.dirname, "..", "prepare-yuzhou-production-source-manifest.mjs"),
+    "--config", configPath,
+  ], { encoding: "utf8" });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.match(cli.stdout, /^\{"status":"PASS","manifestSha256":"[a-f0-9]{64}","phaseCount":4,"productionImport":"HOLD"\}\n$/);
+  assert.doesNotMatch(cli.stdout, /sensitive-probe-value/);
+  chmodSync(configPath, 0o644);
+  const unsafeConfig = spawnSync(process.execPath, [
+    join(import.meta.dirname, "..", "prepare-yuzhou-production-source-manifest.mjs"),
+    "--config", configPath,
+  ], { encoding: "utf8" });
+  assert.notEqual(unsafeConfig.status, 0);
+  assert.equal(unsafeConfig.stderr, "PRODUCTION_SOURCE_MANIFEST_CONFIG_UNSAFE\n");
+  chmodSync(configPath, 0o600);
   assert.throws(
     () => prepareProductionSourceManifest({ backupPath, receiptPath, mappingContractSha256: mapping, stages, outputRoot, runId: "yzsrc-20260903-a" }),
     error => error instanceof ProductionSourceManifestError && error.code === "PRODUCTION_SOURCE_MANIFEST_OUTPUT_EXISTS",

@@ -88,13 +88,22 @@ assert.match(
 );
 assert.match(source, /diagnose-yuzhou-hr-production-target/);
 assert.match(source, /diagnose-yuzhou-hr-preimport-snapshot/);
+assert.match(source, /diagnose-yuzhou-hr-production-source-manifest/);
 assert.match(source, /Diagnose Yuzhou HR production target \(read-only\)/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-target\.sh/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-preimport-snapshot\.sh/);
+assert.match(source, /Diagnose Yuzhou HR production source manifest \(read-only\)/);
+assert.match(source, /scripts\/diagnose-yuzhou-hr-production-source-manifest\.sh/);
+assert.match(source, /scripts\/prepare-yuzhou-production-source-manifest\.mjs/);
 assert.match(
   source,
   /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-target'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
   "Yuzhou HR target diagnosis must remain outside deployment, seed, and release-marker steps",
+);
+assert.match(
+  source,
+  /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
+  "Yuzhou HR source-manifest diagnosis must remain outside deployment, seed, and release-marker steps",
 );
 assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);
 assert.match(source, /rsync -az --delete[\s\S]*?--exclude='node_modules\/'[\s\S]*?"\$path\/"/);
