@@ -18,6 +18,41 @@ hash_value() {
   else printf '%s' "$1" | shasum -a 256 | awk '{print $1}'; fi
 }
 
+classify_probe_failure() {
+  # psql and Docker may include target identifiers in their diagnostics.  Match
+  # only stable error classes here; callers receive the class, never the raw
+  # output captured by the probe.
+  case "$1" in
+    *YUZHOU_HR_SCOPE_UNRESOLVED*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCOPE_UNRESOLVED'
+      ;;
+    *'password authentication failed'*|*'no password supplied'*|*'authentication failed'*|*'role "'*'" does not exist'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_AUTH_FAILED'
+      ;;
+    *'could not connect to server'*|*'connection refused'*|*'connection timed out'*|*'server closed the connection unexpectedly'*|*'the database system is starting up'*|*'is not running'*|*'No such container'*|*'No such service: postgres'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_RUNTIME_UNAVAILABLE'
+      ;;
+    *'permission denied'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED'
+      ;;
+    *'database "'*'" does not exist'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DATABASE_UNAVAILABLE'
+      ;;
+    *'function digest'*' does not exist'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DIGEST_UNAVAILABLE'
+      ;;
+    *'relation '*' does not exist'*|*'column '*' does not exist'*|*'type '*' does not exist'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCHEMA_MISSING'
+      ;;
+    *'syntax error at or near'*|*'cannot execute '*'in a read-only transaction'*|*'current transaction is aborted'*)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID'
+      ;;
+    *)
+      printf '%s\n' 'YUZHOU_HR_PREIMPORT_SNAPSHOT_PROBE_FAILED'
+      ;;
+  esac
+}
+
 cd "$deploy_path"
 probe="$({
   docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
@@ -63,23 +98,7 @@ SQL
   # The database client can include connection details or query fragments in
   # its raw stderr. Keep that diagnostic in-process and surface only a stable,
   # non-sensitive failure class to the deployment log.
-  case "$probe" in
-    *YUZHOU_HR_SCOPE_UNRESOLVED*)
-      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCOPE_UNRESOLVED' >&2
-      ;;
-    *'permission denied'*)
-      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' >&2
-      ;;
-    *'relation '*' does not exist'*)
-      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCHEMA_MISSING' >&2
-      ;;
-    *'function digest'*' does not exist'*)
-      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DIGEST_UNAVAILABLE' >&2
-      ;;
-    *)
-      echo 'YUZHOU_HR_PREIMPORT_SNAPSHOT_PROBE_FAILED' >&2
-      ;;
-  esac
+  classify_probe_failure "$probe" >&2
   exit 1
 }
 

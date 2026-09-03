@@ -43,6 +43,28 @@ if grep -Fq 'hidden_target' "$tmp/failure.err"; then
   exit 1
 fi
 
+assert_failure_class() {
+  expected="$1"
+  diagnostic="$2"
+  if FAKE_PREIMPORT_PROBE="$diagnostic" \
+    FAKE_PREIMPORT_EXIT=1 PATH="$tmp/bin:$PATH" sh "$script" report . > "$tmp/failure.out" 2> "$tmp/failure.err"; then
+    echo 'preimport snapshot must fail closed for a classified probe error' >&2
+    exit 1
+  fi
+  grep -Fxq "$expected" "$tmp/failure.err"
+  if grep -Fq 'hidden_' "$tmp/failure.err"; then
+    echo 'preimport snapshot classification leaked raw diagnostics' >&2
+    exit 1
+  fi
+}
+
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_AUTH_FAILED' 'FATAL: password authentication failed for user hidden_service'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_RUNTIME_UNAVAILABLE' 'Error response from daemon: container hidden_postgres is not running'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DATABASE_UNAVAILABLE' 'FATAL: database "hidden_database" does not exist'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCHEMA_MISSING' 'ERROR: relation hidden_table does not exist'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DIGEST_UNAVAILABLE' 'ERROR: function digest(hidden_value, unknown) does not exist'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' 'ERROR: syntax error at or near hidden_token'
+
 grep -Fq 'diagnose-yuzhou-hr-preimport-snapshot' "$workflow"
 grep -Fq 'Diagnose Yuzhou HR pre-import snapshot (read-only)' "$workflow"
 grep -Fq 'yuzhou-hr-production-preimport-snapshot' "$workflow"
@@ -55,6 +77,8 @@ grep -Fq 'sys_tenant tenant' "$script"
 grep -Fq 'biz_park park' "$script"
 grep -Fq 'exactSourceIdentity: false' "$script"
 grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DB_PERMISSION_DENIED' "$script"
+grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_RUNTIME_UNAVAILABLE' "$script"
+grep -Fq 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' "$script"
 
 if grep -Eq '(^|[^[:alnum:]_])(rm|pg_dump|pg_restore|rsync|prod:deploy)([^[:alnum:]_]|$)' "$script"; then echo 'preimport snapshot must not mutate or transfer files' >&2; exit 1; fi
 echo 'Yuzhou production pre-import snapshot contract passed.'
