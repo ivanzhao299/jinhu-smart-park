@@ -21,11 +21,11 @@ hash_a='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 hash_b='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 hash_c='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 hash_d='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
-FAKE_PREIMPORT_PROBE="0|1|1|prod-db$(printf '\037')service-user$(printf '\037')127.0.0.1$(printf '\037')5432$(printf '\037')123$(printf '\037')tenant-private$(printf '\037')park-private|tenant-private|park-private
-1|T0|3|$hash_a|$hash_b|0|$hash_c|$hash_d
-1|T1|2|$hash_a|$hash_b|0|$hash_c|$hash_d
-1|T2|1|$hash_a|$hash_b|0|$hash_c|$hash_d
-1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
+FAKE_PREIMPORT_PROBE="NOTICE:  YUZHOU_HR_PREIMPORT_ROW|0|1|1|prod-db$(printf '\037')service-user$(printf '\037')127.0.0.1$(printf '\037')5432$(printf '\037')123$(printf '\037')tenant-private$(printf '\037')park-private|tenant-private|park-private
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T0|3|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T1|2|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T2|1|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
   PATH="$tmp/bin:$PATH" sh "$script" report . > "$tmp/valid.json"
 
 valid="$(cat "$tmp/valid.json")"
@@ -64,6 +64,7 @@ assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DATABASE_UNAVAILABLE' 'FATAL:
 assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_SCHEMA_MISSING' 'ERROR: relation hidden_table does not exist'
 assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_DIGEST_UNAVAILABLE' 'ERROR: function digest(hidden_value, unknown) does not exist'
 assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' 'ERROR: syntax error at or near hidden_token'
+assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' 'ERROR: cannot execute CREATE TABLE in a read-only transaction'
 
 grep -Fq 'diagnose-yuzhou-hr-preimport-snapshot' "$workflow"
 grep -Fq 'Diagnose Yuzhou HR pre-import snapshot (read-only)' "$workflow"
@@ -72,6 +73,7 @@ exclusions="$(grep -Fc "inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snap
 test "$exclusions" -eq 9
 
 grep -Fq 'BEGIN TRANSACTION READ ONLY;' "$script"
+if grep -Fq 'CREATE TEMP TABLE' "$script"; then echo 'preimport snapshot must not issue DDL inside its read-only transaction' >&2; exit 1; fi
 grep -Fq 'legacy_record_map map JOIN public.%I value' "$script"
 grep -Fq 'sys_tenant tenant' "$script"
 grep -Fq 'biz_park park' "$script"
