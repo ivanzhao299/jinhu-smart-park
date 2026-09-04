@@ -84,6 +84,7 @@ CREATE TABLE hr_performance_legacy_level_rule (
   create_time timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT uq_hr_perf_legacy_level_scope UNIQUE(id,tenant_id,park_id),
+  CONSTRAINT uq_hr_perf_legacy_level_batch_scope UNIQUE(id,tenant_id,park_id,migration_batch_id),
   CONSTRAINT uq_hr_perf_legacy_level_source UNIQUE(migration_batch_id,tenant_id,park_id,source_ass_grade),
   CONSTRAINT uq_hr_perf_legacy_level_map UNIQUE(legacy_record_map_id),
   CONSTRAINT ck_hr_perf_legacy_level_identity CHECK(source_identity_sha256~'^[0-9a-f]{64}$'),
@@ -166,6 +167,7 @@ CREATE TABLE hr_performance_legacy_dimension_level_guide (
   source_my_order integer,
 
   legacy_dimension_profile_id uuid,
+  legacy_level_rule_id uuid,
   target_template_version_id uuid,
   target_dimension_id uuid,
   target_level_id uuid,
@@ -184,6 +186,10 @@ CREATE TABLE hr_performance_legacy_dimension_level_guide (
     legacy_dimension_profile_id,tenant_id,park_id,migration_batch_id
   ) REFERENCES hr_performance_legacy_dimension_profile(id,tenant_id,park_id,migration_batch_id)
     DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT fk_hr_perf_legacy_guide_level_rule FOREIGN KEY(
+    legacy_level_rule_id,tenant_id,park_id,migration_batch_id
+  ) REFERENCES hr_performance_legacy_level_rule(id,tenant_id,park_id,migration_batch_id)
+    DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT fk_hr_perf_legacy_guide_dimension FOREIGN KEY(
     target_dimension_id,tenant_id,park_id,target_template_version_id
   ) REFERENCES hr_performance_template_dimension(id,tenant_id,park_id,template_version_id)
@@ -195,6 +201,8 @@ CREATE TABLE hr_performance_legacy_dimension_level_guide (
 );
 CREATE INDEX ix_hr_perf_legacy_guide_profile
   ON hr_performance_legacy_dimension_level_guide(tenant_id,park_id,migration_batch_id,legacy_dimension_profile_id);
+CREATE INDEX ix_hr_perf_legacy_guide_level_rule
+  ON hr_performance_legacy_dimension_level_guide(tenant_id,park_id,migration_batch_id,legacy_level_rule_id);
 
 CREATE TABLE hr_performance_legacy_dimension_result (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

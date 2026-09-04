@@ -135,10 +135,10 @@ try {
     INSERT INTO hr_performance_legacy_dimension_level_guide(
       id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,source_row_sha256,
       source_guide_id,source_item_id,source_grade,source_description,source_min_value,source_max_value,source_my_order,
-      legacy_dimension_profile_id
+      legacy_dimension_profile_id,legacy_level_rule_id
     ) VALUES(
       '${ids.guide}','tenant-a','park-a','${ids.batch}','${ids.guideMap}',repeat('d',64),repeat('4',64),
-      700,70,'A',NULL,90,100,1,'${ids.dimension}'
+      700,70,'A',NULL,90,100,1,'${ids.dimension}','${ids.level}'
     );
     INSERT INTO hr_performance_legacy_dimension_result(
       id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,source_row_sha256,

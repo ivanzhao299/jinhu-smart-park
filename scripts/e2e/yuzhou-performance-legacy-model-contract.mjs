@@ -100,6 +100,8 @@ assert.match(migration, /uq_hr_perf_dimension_parent_identity/);
 assert.match(migration, /uq_hr_perf_level_parent_identity/);
 assert.match(migration, /target_level_id,tenant_id,park_id,target_template_version_id/);
 assert.match(migration, /target_dimension_id,tenant_id,park_id,target_template_version_id/);
+assert.match(migration, /legacy_level_rule_id,tenant_id,park_id,migration_batch_id/);
+assert.match(migration, /REFERENCES hr_performance_legacy_level_rule\(id,tenant_id,park_id,migration_batch_id\)/);
 assert.match(migration, /HR_PERFORMANCE_LEGACY_FACT_APPEND_ONLY/);
 assert.match(migration, /batch\.target_database=current_database\(\)/);
 assert.match(migration, /batch\.phase='rollback'/);
