@@ -45,6 +45,7 @@ test("module, domain, route and source-table coverage cannot silently shrink", (
 
 test("existing system-management and contract-reminder capabilities use exact Smart Park routes", () => {
   const routes = new Map(manifest.items.map(item => [item.legacyId, item.targetRoutes]));
+  assert.deepEqual(routes.get(126), ["/hr/employees"]);
   assert.deepEqual(routes.get(258), ["/system/dicts"]);
   assert.deepEqual(routes.get(173), ["/system/dicts"]);
   assert.deepEqual(routes.get(169), ["/system/users"]);
