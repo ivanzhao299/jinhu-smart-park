@@ -174,7 +174,7 @@ function Pager({ result, loading, onPage }: { result: LegacyPage; loading: boole
 export function HrPerformanceLegacyPanel() {
   const user = useAuthUser();
   const canDefinitions = hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) || hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_MANAGE);
-  const canResults = [HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ, HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ].some(permission => hasPermission(user, permission));
+  const canResults = [HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ].some(permission => hasPermission(user, permission));
   const available = useMemo(() => [...(canDefinitions ? definitionKinds : []), ...(canResults ? ["results" as const, "masters" as const] : [])], [canDefinitions, canResults]);
   const [kind, setKind] = useState<LegacyKind>(available[0] ?? "results");
   const [page, setPage] = useState(1);
@@ -183,12 +183,15 @@ export function HrPerformanceLegacyPanel() {
   const [error, setError] = useState("");
   const [sessionText, setSessionText] = useState("");
   const [sessionFilter, setSessionFilter] = useState<number | undefined>();
+  const [sessionError, setSessionError] = useState("");
   const [rubricAssessmentText, setRubricAssessmentText] = useState("");
   const [rubric, setRubric] = useState<HrPerformanceLegacyRubric | null>(null);
   const [rubricLoading, setRubricLoading] = useState(false);
   const [rubricError, setRubricError] = useState("");
   const generation = useRef(0);
   const request = useRef<AbortController | null>(null);
+  const rubricGeneration = useRef(0);
+  const rubricRequest = useRef<AbortController | null>(null);
   const activeKind = available.includes(kind) ? kind : available[0] ?? "results";
 
   const load = useCallback(async () => {
@@ -223,29 +226,54 @@ export function HrPerformanceLegacyPanel() {
     return () => { generation.current++; request.current?.abort(); };
   }, [load]);
 
+  useEffect(() => () => {
+    rubricGeneration.current++;
+    rubricRequest.current?.abort();
+  }, []);
+
   if (!available.length) return null;
   const selectKind = (next: LegacyKind) => { setKind(next); setPage(1); setResult(EMPTY_PAGE); };
   const applySession = () => {
     const normalized = sessionText.trim();
-    setSessionFilter(normalized ? Number(normalized) : undefined);
+    if (!normalized) {
+      setSessionError("");
+      setSessionFilter(undefined);
+      setPage(1);
+      return;
+    }
+    const sourceSessionId = Number(normalized);
+    if (!/^\d+$/u.test(normalized) || !Number.isSafeInteger(sourceSessionId)) {
+      setSessionError("请输入有效的旧考核批次编号。");
+      return;
+    }
+    setSessionError("");
+    setSessionFilter(sourceSessionId);
     setPage(1);
   };
   const loadRubric = async () => {
     const normalized = rubricAssessmentText.trim();
-    if (!/^\d+$/u.test(normalized)) {
+    const sourceAssessmentId = Number(normalized);
+    if (!/^\d+$/u.test(normalized) || !Number.isSafeInteger(sourceAssessmentId)) {
       setRubric(null);
       setRubricError("请输入有效的旧考核表编号。");
       return;
     }
+    const current = ++rubricGeneration.current;
+    rubricRequest.current?.abort();
+    const controller = new AbortController();
+    rubricRequest.current = controller;
     setRubricLoading(true);
+    setRubric(null);
     setRubricError("");
     try {
-      setRubric(await hrApi.performanceLegacyRubric(Number(normalized), getAccessToken()));
+      const response = await hrApi.performanceLegacyRubric(sourceAssessmentId, getAccessToken(), controller.signal);
+      if (current === rubricGeneration.current) setRubric(response);
     } catch (cause) {
-      setRubric(null);
-      setRubricError(hrLoadErrorMessage(cause, "加载旧版动态评分表失败"));
+      if (current === rubricGeneration.current && !controller.signal.aborted) {
+        setRubricError(hrLoadErrorMessage(cause, "加载旧版动态评分表失败"));
+      }
     } finally {
-      setRubricLoading(false);
+      if (current === rubricGeneration.current) setRubricLoading(false);
     }
   };
 
@@ -261,7 +289,8 @@ export function HrPerformanceLegacyPanel() {
     {activeKind === "results" || activeKind === "masters" ? <div className={styles.filters}>
       <label className="form-field"><span>旧考核批次（可选）</span><input type="number" min="0" step="1" inputMode="numeric" value={sessionText} onChange={event => setSessionText(event.target.value)} /></label>
       <button className="ds-button" type="button" onClick={applySession} disabled={loading}>查询</button>
-      {sessionFilter !== undefined ? <button className="ds-button" type="button" onClick={() => { setSessionText(""); setSessionFilter(undefined); setPage(1); }}>清除</button> : null}
+      {sessionFilter !== undefined ? <button className="ds-button" type="button" onClick={() => { setSessionText(""); setSessionError(""); setSessionFilter(undefined); setPage(1); }}>清除</button> : null}
+      {sessionError ? <p className={styles.state} role="alert">{sessionError}</p> : null}
     </div> : null}
     {error ? <div className={styles.state} role="alert"><p>{error}</p><button className="ds-button" type="button" onClick={() => void load()}>重新加载</button></div> : null}
     {!error && loading && !result.items.length ? <p className={styles.state} aria-busy="true">正在加载历史绩效…</p> : null}
@@ -289,6 +318,7 @@ export function HrPerformanceLegacyPanel() {
       {rubricError ? <p className={styles.state} role="alert">{rubricError}</p> : null}
       {rubric && !rubric.items.length ? <p className={styles.state}>该旧考核表没有可见项目。</p> : null}
       {rubric?.items.length ? <>
+        <p className={styles.note}>考核表 #{rubric.sourceAssessmentId}</p>
         {!rubric.levels.length ? <p className={styles.warning} role="note">源库没有该考核表的等级定义；以下项目按原值保留，未伪造评分等级。</p> : null}
         <div className={`ds-table-shell ${styles.rubricTable}`}><table><thead><tr><th>考核项目</th><th>满分</th>{rubric.levels.map(level => <th key={level.sourceAssGrade}>{level.sourceAssGrade}</th>)}</tr></thead><tbody>{rubric.items.map(item => <tr key={item.sourceItemId}><td>{valueText(item.sourceItemName || item.sourceItemId)}</td><td>{valueText(item.sourceFullValue)}</td>{rubric.levels.map(level => <td key={level.sourceAssGrade}>{valueText(item.descriptions[level.sourceAssGrade])}</td>)}</tr>)}</tbody></table></div>
         <div className={`ds-mobile-record-list ${styles.rubricMobile}`}>{rubric.items.map(item => <article className="ds-mobile-record" key={item.sourceItemId}><strong>{valueText(item.sourceItemName || item.sourceItemId)}</strong><span>满分 {valueText(item.sourceFullValue)}</span>{rubric.levels.map(level => <span key={level.sourceAssGrade}>{level.sourceAssGrade}：{valueText(item.descriptions[level.sourceAssGrade])}</span>)}</article>)}</div>

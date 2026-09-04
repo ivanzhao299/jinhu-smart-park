@@ -39,6 +39,7 @@ test("legacy performance browser is read-only, paginated, scoped, and relationsh
     "targetDimensionId", "targetCycleEmployeeId",
   ]) assert.match(panel, new RegExp(`key: "${relation}"`, "u"));
   assert.match(panel, /HR_PERFORMANCE_TEAM_READ/u);
+  assert.doesNotMatch(panel, /HR_PERFORMANCE_RESULT_READ/u);
   assert.match(api, /source_session_id/u);
   assert.match(panel, /<Pager result=/u);
   assert.doesNotMatch(panel, /hrApi\.(create|publish|submit|resolve|add|complete)/u);
@@ -50,10 +51,20 @@ test("legacy performance rubric reproduces the dynamic grade matrix on desktop a
   assert.match(panel, /旧过程 u_printassessment/u);
   assert.match(panel, /旧版动态评分表/u);
   assert.match(panel, /源库没有该考核表的等级定义/u);
+  assert.match(panel, /考核表 #\{rubric\.sourceAssessmentId\}/u);
+  assert.match(panel, /rubricRequest\.current\?\.abort\(\)/u);
+  assert.match(panel, /current === rubricGeneration\.current/u);
   assert.match(panel, /ds-table-shell/u);
   assert.match(panel, /ds-mobile-record-list/u);
   assert.match(styles, /\.rubricTable[\s\S]*?display: none/u);
   assert.match(styles, /\.rubricMobile[\s\S]*?display: grid/u);
+});
+
+test("legacy performance filters reject invalid source identifiers before requesting the API", () => {
+  assert.match(panel, /Number\.isSafeInteger\(sourceSessionId\)/u);
+  assert.match(panel, /请输入有效的旧考核批次编号/u);
+  assert.match(panel, /Number\.isSafeInteger\(sourceAssessmentId\)/u);
+  assert.match(panel, /请输入有效的旧考核表编号/u);
 });
 
 test("legacy performance fields collapse on phone-width layouts", () => {
