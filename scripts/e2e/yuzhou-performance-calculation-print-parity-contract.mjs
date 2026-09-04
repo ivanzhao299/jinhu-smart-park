@@ -15,17 +15,17 @@ const contract = JSON.parse(readFileSync(
   "utf8",
 ));
 
-test("bs_ass_compute and u_printassessment receive exact semantic parity credit after API and Web integration", () => {
+test("u_printassessment receives parity credit while bs_ass_compute keeps observable source side effects pending", () => {
   assert.deepEqual(
     verifyLegacyPerformanceCalculationPrintParity({ contract, repositoryRoot: root }),
     {
       ok: true,
-      status: "COMPLETE",
+      status: "IN_PROGRESS",
       sourceRoutines: 2,
-      verifiedRoutines: 2,
-      pendingRoutines: 0,
-      verifiedRoutineIds: ["RULE-0C991427090A219D", "RULE-0F16F0ADB333445C"],
-      pendingRoutineIds: [],
+      verifiedRoutines: 1,
+      pendingRoutines: 1,
+      verifiedRoutineIds: ["RULE-0F16F0ADB333445C"],
+      pendingRoutineIds: ["RULE-0C991427090A219D"],
       reviewedReadOnlyDynamicSql: ["RULE-0F16F0ADB333445C"],
       excludedHistoricalVariants: ["RULE-6FDC0BE94D1719EA"],
       containsSourceRows: false,
@@ -60,7 +60,7 @@ test("the backup print variant cannot inherit current-routine completion credit"
   assert.equal(contract.nonClaims.backupVariantUPrintassessmentBak2Equivalent, "NOT_CLAIMED");
 });
 
-test("evidence drift and incomplete bs_ass_compute review fail closed", () => {
+test("evidence drift and premature bs_ass_compute promotion fail closed", () => {
   const drifted = structuredClone(contract);
   drifted.evidenceBindings.legacyService.sha256 = "f".repeat(64);
   assert.throws(
@@ -69,10 +69,10 @@ test("evidence drift and incomplete bs_ass_compute review fail closed", () => {
       && error.code === "PERFORMANCE_ROUTINE_EVIDENCE_DRIFT",
   );
 
-  const incomplete = structuredClone(contract);
-  incomplete.routines[0].review = { status: "pending", evidenceSha256: null };
+  const promoted = structuredClone(contract);
+  promoted.routines[0].parityStatus = "verified";
   assert.throws(
-    () => verifyLegacyPerformanceCalculationPrintParity({ contract: incomplete, repositoryRoot: root }),
+    () => verifyLegacyPerformanceCalculationPrintParity({ contract: promoted, repositoryRoot: root }),
     error => error?.code === "VERIFIED_ROUTINE_EVIDENCE_INCOMPLETE",
   );
 });

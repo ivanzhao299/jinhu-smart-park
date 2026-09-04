@@ -81,17 +81,17 @@
       "canonicalFamily": "bs_ass_compute",
       "sourceSurface": "yuzhou_v10_client_database",
       "sourceKind": "procedure",
-      "parityStatus": "verified",
+      "parityStatus": "pending",
       "semantics": {
         "parameterMappings": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "SOURCE_SESSION_AND_PERSON_RESOLVE_TO_ONE_SCOPED_MASTER_FACT_BEFORE_REPLAY",
+          "status": "pending",
+          "decisionReason": "SOURCE_DEFAULT_WILDCARD_AND_MULTI_ROW_TARGET_SEMANTICS_REQUIRE_EXPLICIT_MODERNIZATION_ADJUDICATION",
           "entries": [
-            {"sourceParameter":"asssessionid","modernParameter":"masterId","sourceType":"int","modernType":"uuid","transform":"resolve active source session and person identity to one legacy master fact","nullContract":"missing or ambiguous master identity returns no parity result"},
-            {"sourceParameter":"person","modernParameter":"masterId","sourceType":"varchar(20)","modernType":"uuid","transform":"trim person code and resolve with session in the same tenant park batch","nullContract":"null or unmatched person returns no parity result"}
+            {"sourceParameter":"asssessionid","modernParameter":"masterId","sourceType":"int","modernType":"uuid","transform":"legacy null defaults to session 1 while modern replay requires one explicit scoped master id","nullContract":"difference remains pending until the legacy default is rejected or represented by an explicit compatibility operation"},
+            {"sourceParameter":"person","modernParameter":"masterId","sourceType":"varchar(20)","modernType":"uuid","transform":"legacy null or empty becomes percent wildcard and uses LIKE while modern replay requires one exact fact","nullContract":"wildcard and multi-row targeting are not silently reproduced"}
           ],
-          "evidenceSha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+          "evidenceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
         },
         "outputFieldMappings": {
           "applicability": "required",
@@ -105,35 +105,35 @@
         },
         "readMappings": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "ALL_FIVE_SOURCE_READ_RELATIONS_MAP_TO_SCOPED_APPEND_ONLY_COMPATIBILITY_FACTS",
+          "status": "pending",
+          "decisionReason": "SOURCE_PERSON_ASSESSMENT_TO_WEIGHT_TEMPLATE_RELATION_IS_NOT_YET_PROVEN_EQUIVALENT_TO_DETAIL_DERIVED_TEMPLATE_RESOLUTION",
           "entries": [
             {"sourceLocator":"assessmentdetail by session and person","modernLocator":"hr_performance_legacy_dimension_result by tenant park batch session and person","relationContract":"source details are grouped inside one template and migration batch"},
-            {"sourceLocator":"assessmentcode weights through person assessment","modernLocator":"hr_performance_legacy_template_profile percentages","relationContract":"resolved template profile supplies S M T X C percentages"},
+            {"sourceLocator":"assessmentcode weights through assessmentmaster.person to person.assessment","modernLocator":"hr_performance_legacy_template_profile inferred from same-session same-person details","relationContract":"no-detail, no-person-assessment, missing-template and multi-template outcomes require explicit conservation evidence"},
             {"sourceLocator":"assgradecode threshold scan","modernLocator":"hr_performance_legacy_level_rule threshold scan","relationContract":"unscoped minvalue ordering is preserved and duplicate winning thresholds fail closed"}
           ],
-          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+          "evidenceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
         },
         "writeMappings": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "LEGACY_IN_PLACE_MASTER_MUTATION_IS_REPLACED_BY_APPEND_ONLY_SOURCE_FACT_PLUS_READ_ONLY_REPLAY",
+          "status": "pending",
+          "decisionReason": "LEGACY_FIRST_UPDATE_CAN_TARGET_MULTIPLE_ROWS_AND_LATER_UPDATES_RECALCULATE_ALL_MASTERS_WHILE_MODERN_REPLAY_IS_SINGLE_FACT_READ_ONLY",
           "entries": [
-            {"sourceLocator":"assessmentmaster aggregate total and grade update","modernLocator":"hr_performance_legacy_master_result source snapshot plus parity function","relationContract":"import preserves source outputs while replay computes expected outputs without mutating history"}
+            {"sourceLocator":"assessmentmaster first update by session and person LIKE then unfiltered total and grade updates","modernLocator":"hr_performance_legacy_master_result source snapshot plus one-fact parity function","relationContract":"safe modern behavior is implemented but global mutation equivalence remains intentionally unclaimed pending adjudication"}
           ],
-          "evidenceSha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+          "evidenceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
         },
         "transaction": {
-          "status": "verified",
+          "status": "pending",
           "sourceBoundary": "three legacy updates execute in the stored procedure transaction context",
-          "modernBoundary": "append-only import transaction followed by stable read-only parity evaluation",
-          "rollbackBehavior": "batch-scoped reverse rollback removes facts and leaves zero active record maps",
-          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+          "modernBoundary": "append-only import transaction followed by stable single-fact read-only parity evaluation",
+          "rollbackBehavior": "batch-scoped reverse rollback is proven, but source-wide mutation blast radius has not been accepted as a modern compatibility operation",
+          "evidenceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
         },
         "nullSemantics": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "LEGACY_ISNULL_ZERO_AND_NULL_SUBTOTAL_PATHS_ARE_EXPLICIT",
+          "status": "pending",
+          "decisionReason": "FORMULA_NULL_DEFAULTS_ARE_MAPPED_BUT_EMPTY_DETAIL_AND_PARAMETER_DEFAULT_EXECUTION_PATHS_LACK_CROSS_ENGINE_PROOF",
           "entries": [
             {"sourceExpression":"isnull(detail values and master/timekeep/bonus adjustments,0)","modernExpression":"coalesce each matching component to zero","equivalenceRule":"zero defaults are applied component by component before final rounding"},
             {"sourceExpression":"no matching detail aggregate","modernExpression":"subtotal null","equivalenceRule":"TOTAL_UNAVAILABLE is reported and no grade is fabricated"}
@@ -142,8 +142,8 @@
         },
         "roundingSemantics": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "LEGACY_INTEGER_COMPONENT_CASTS_AND_FINAL_TWO_DECIMAL_ROUNDING_ARE_PRESERVED",
+          "status": "pending",
+          "decisionReason": "ROUNDING_OPERATORS_ARE_MAPPED_BUT_POSITIVE_AND_NEGATIVE_HALF_BOUNDARIES_LACK_SQLSERVER_TO_POSTGRESQL_ORACLE_PROOF",
           "entries": [
             {"sourceExpression":"M X C sums stored through numeric(18,0) master components then percent weighted","modernExpression":"M X C sums cast numeric(18,0) before weighting and final round(value,2)","precisionRule":"intermediate integer rounding and final two-decimal total are both observable"}
           ],
@@ -151,18 +151,18 @@
         },
         "stateSideEffects": {
           "applicability": "required",
-          "status": "verified",
-          "decisionReason": "LEGACY_THREE_UPDATES_ARE_CONSERVED_AS_SOURCE_SNAPSHOT_AND_NON_MUTATING_EXPECTED_VALUE",
+          "status": "pending",
+          "decisionReason": "SOURCE_GLOBAL_RECALCULATION_SIDE_EFFECT_IS_VISIBLE_BUT_NOT_REPRODUCED_OR_FORMALLY_REJECTED",
           "entries": [
-            {"sourceEffect":"update five aggregates total and grade on assessmentmaster","modernEffect":"preserve imported source values and expose calculated total expected grade and parity status","conservationRule":"source values remain unchanged and mismatch or ambiguity is visible"}
+            {"sourceEffect":"first update targets session/person LIKE matches and subsequent total/grade updates affect all assessmentmaster rows","modernEffect":"preserve imported source values and expose one selected fact calculated total expected grade and parity status","conservationRule":"source values remain unchanged, but unsafe global side-effect compatibility requires an explicit decision and dedicated tests"}
           ],
-          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+          "evidenceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
         },
         "dynamicSql": {"status":"none","resolvedWriteTargets":[],"evidenceSha256":"33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"},
         "dormantPaths": {
           "sourceDataState": "empty",
-          "emptyInputCase": {"status":"covered","evidenceSha256":"6e182f10e9d9e0fc227d2c921173828903868d26c1c098f752559cdfd117f55e"},
-          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"},
+          "emptyInputCase": {"status":"pending","evidenceSha256":"6e182f10e9d9e0fc227d2c921173828903868d26c1c098f752559cdfd117f55e"},
+          "untriggeredBranchCase": {"status":"pending","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"},
           "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"}
         }
       },
@@ -177,7 +177,7 @@
         "permission": [{"testId":"bs-ass-compute-functions-revoked-from-public","evidenceSha256":"ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"}],
         "conservation": [{"testId":"bs-ass-compute-replay-and-zero-residue","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}]
       },
-      "review": {"status":"approved","evidenceSha256":"4de5f96fb3a981d16ec8e5d1f8045de692bd061ef98ae01aa2087ce05b79e039"}
+      "review": {"status":"pending","evidenceSha256":null}
     },
     {
       "routineId": "RULE-0F16F0ADB333445C",
@@ -291,7 +291,7 @@
     }
   ],
   "nonClaims": {
-    "bsAssComputeApiIntegrated": "VERIFIED",
+    "bsAssComputeApiIntegrated": "VERIFIED_BUT_SOURCE_SIDE_EFFECT_PARITY_PENDING",
     "backupVariantUPrintassessmentBak2Equivalent": "NOT_CLAIMED",
     "productionImport": "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   },

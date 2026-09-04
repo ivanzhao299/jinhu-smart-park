@@ -202,13 +202,13 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
 
   const report = evaluateLegacyRoutineParityContract({ contract, routineLedger: reviewedLedger });
   if (
-    report.status !== "COMPLETE"
+    report.status !== "IN_PROGRESS"
     || report.summary.sourceRoutines !== 2
-    || report.summary.verifiedRoutines !== 2
-    || report.pendingRoutineKeys.length !== 0
+    || report.summary.verifiedRoutines !== 1
+    || !report.pendingRoutineKeys.includes("yuzhou_v10_client_database:RULE-0C991427090A219D")
   ) fail("PERFORMANCE_ROUTINE_COMPLETION_CREDIT_INVALID", JSON.stringify(report.summary));
   if (
-    contract.nonClaims?.bsAssComputeApiIntegrated !== "VERIFIED"
+    contract.nonClaims?.bsAssComputeApiIntegrated !== "VERIFIED_BUT_SOURCE_SIDE_EFFECT_PARITY_PENDING"
     || contract.nonClaims?.backupVariantUPrintassessmentBak2Equivalent !== "NOT_CLAIMED"
     || contract.nonClaims?.productionImport !== "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   ) fail("PERFORMANCE_ROUTINE_NON_CLAIM_INVALID", "root");
@@ -217,10 +217,10 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
     ok: true,
     status: report.status,
     sourceRoutines: 2,
-    verifiedRoutines: 2,
-    pendingRoutines: 0,
-    verifiedRoutineIds: ["RULE-0C991427090A219D", "RULE-0F16F0ADB333445C"],
-    pendingRoutineIds: [],
+    verifiedRoutines: 1,
+    pendingRoutines: 1,
+    verifiedRoutineIds: ["RULE-0F16F0ADB333445C"],
+    pendingRoutineIds: ["RULE-0C991427090A219D"],
     reviewedReadOnlyDynamicSql: ["RULE-0F16F0ADB333445C"],
     excludedHistoricalVariants: ["RULE-6FDC0BE94D1719EA"],
     containsSourceRows: false,

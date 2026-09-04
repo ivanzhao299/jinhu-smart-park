@@ -131,12 +131,11 @@ test("routine inventory and domain classification do not become functional equiv
   assert.equal(parityTotal, baseline.parity.clientRoutineBehaviorParity.numerator);
   assert.equal(baseline.parity.clientRoutineBehaviorParity.denominator, 212);
   assert.deepEqual(baseline.parity.clientRoutineBehaviorParity, {
-    numerator: 7,
+    numerator: 6,
     denominator: 212,
-    percent: 3.3,
+    percent: 2.83,
     verifiedRoutineIds: [
       "RULE-06D838A8343E39F6",
-      "RULE-0C991427090A219D",
       "RULE-0F16F0ADB333445C",
       "RULE-69093173CCAE1126",
       "RULE-A490C8F10B0BB6DC",
@@ -145,7 +144,7 @@ test("routine inventory and domain classification do not become functional equiv
     ],
   });
   assert.deepEqual(baseline.byRoutineDomain.performance.parity, {
-    numerator: 2, denominator: 12, percent: 16.67,
+    numerator: 1, denominator: 12, percent: 8.33,
   });
 
   const verified = source.routineFamilies.flatMap(contract => contract.routines).find(row => row.parityStatus === "verified");
