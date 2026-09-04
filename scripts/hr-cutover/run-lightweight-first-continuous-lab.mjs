@@ -203,7 +203,12 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   if (input.T4.manifest.productionImport !== "HOLD" || typeof input.T4.manifest.sourceRestoreReceiptSha256 !== "string" || typeof input.T4.manifest.mappingContractSha256 !== "string") fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "T4 source boundary");
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
   if ([input.T5_NONFILE.manifest, input.T3.manifest, input.T4.manifest].some(manifest => manifest.sourceRestoreReceiptSha256 !== config.source.sourceRestoreReceiptSha256)) fail("LIGHTWEIGHT_SOURCE_RECEIPT_DRIFT", "staging receipt differs from core config");
-  if ([input.T5_NONFILE.manifest, input.T3.manifest, input.T4.manifest].some(manifest => manifest.mappingContractSha256 !== config.triple.mappingContractHash)) fail("LIGHTWEIGHT_MAPPING_CONTRACT_DRIFT", "staging mapping differs from core config");
+  // The core C/S/M mapping bundle governs the core checkpoint, T3, and T4.
+  // T5 deliberately has an independently reviewed employee-profile mapping
+  // contract and is verified against its selected canonical baseline below.
+  // Treating those two contract families as one would either reject a valid
+  // T5 stage or tempt callers to overwrite its semantic contract.
+  if ([input.T3.manifest, input.T4.manifest].some(manifest => manifest.mappingContractSha256 !== config.triple.mappingContractHash)) fail("LIGHTWEIGHT_MAPPING_CONTRACT_DRIFT", "T3 or T4 mapping differs from core config");
   const t5IdentityResolutionPath = t5IdentityResolution ? resolve(t5IdentityResolution) : null;
   if (t5IdentityResolutionPath) {
     privateJson(t5IdentityResolutionPath, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");

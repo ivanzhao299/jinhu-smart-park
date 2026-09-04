@@ -38,7 +38,7 @@ for (const path of [project, runtime, join(runtime, "staging"), join(runtime, "e
 const backup = join(root, "source.dbk"), receipt = join(root, "receipt.json"), etl = join(credentials, "etl.env");
 writePrivate(backup, "backup"); writePrivate(receipt, "{}"); writePrivate(etl, "redacted\n");
 const legacyBaseline = canonicalT5Baseline();
-const receiptHash = sha("{}"), testBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: receiptHash, mappingContractSha256: "2".repeat(64) }, snapshot = legacyBaseline.sourceSnapshotSha256, business = "b".repeat(64);
+const receiptHash = sha("{}"), testBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: receiptHash, mappingContractSha256: "3".repeat(64) }, snapshot = legacyBaseline.sourceSnapshotSha256, business = "b".repeat(64);
 const testBaselinePath = join(root, "test-baseline.json"); writePrivate(testBaselinePath, JSON.stringify(testBaseline));
 const config = {
   formatVersion: 1, profile: "core_t0_t2", runId: "yzcore-20260831T010101Z-12345678-rA", rehearsal: "A",
@@ -54,7 +54,7 @@ const domains = { person_core: { sourceObject: "dbo.person.core_residue", rows: 
 const t5Manifest = baseline => ({ artifactKind: "yuzhou_t5_nonfile_materialization_stage", productionImport: "HOLD", sourceRows: baseline.nonfileMaterializationRows, sourceSnapshotSha256: baseline.sourceSnapshotSha256, sourceRestoreReceiptSha256: baseline.sourceRestoreReceiptSha256, sourceBusinessSha256: baseline.businessSha256, sourceCatalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, nonfileBusinessSha256: "a".repeat(64), filesExcluded: ["photo", "docs"], domains });
 const t5 = makeStage("t5", t5Manifest(testBaseline));
 const candidateReceipt = join(root, "candidate-receipt.json"); writePrivate(candidateReceipt, "candidate-receipt");
-const candidateReceiptHash = sha("candidate-receipt"), candidateBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: candidateReceiptHash, mappingContractSha256: "2".repeat(64) };
+const candidateReceiptHash = sha("candidate-receipt"), candidateBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: candidateReceiptHash, mappingContractSha256: "3".repeat(64) };
 const candidateBaselinePath = join(root, "candidate-baseline.json"); writePrivate(candidateBaselinePath, JSON.stringify(candidateBaseline));
 const candidateT5 = makeStage("candidate-t5", t5Manifest(candidateBaseline));
 const candidateConfig = { ...config, source: { ...config.source, sourceRestoreReceiptPath: candidateReceipt, sourceRestoreReceiptSha256: candidateReceiptHash } };
@@ -67,8 +67,10 @@ const candidateT3 = makeStage("candidate-t3", { artifactKind: "yuzhou_t3_attenda
 const candidateT4 = makeStage("candidate-t4", { sourceBackupSha256: snapshot, sourceRestoreReceiptSha256: candidateReceiptHash, mappingContractSha256: "2".repeat(64), businessContentSha256: business, productionImport: "HOLD" });
 const receiptDriftT3 = makeStage("receipt-drift-t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: "c".repeat(64), sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "2".repeat(64), productionImport: "HOLD" });
 const mappingDriftT4 = makeStage("mapping-drift-t4", { sourceBackupSha256: snapshot, sourceRestoreReceiptSha256: receiptHash, mappingContractSha256: "f".repeat(64), businessContentSha256: business, productionImport: "HOLD" });
+const mappingDriftT3 = makeStage("mapping-drift-t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: receiptHash, sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "f".repeat(64), productionImport: "HOLD" });
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: receiptDriftT3, t4Stage: t4, t5Baseline: testBaselinePath }), /LIGHTWEIGHT_SOURCE_RECEIPT_DRIFT/);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: mappingDriftT4, t5Baseline: testBaselinePath }), /LIGHTWEIGHT_MAPPING_CONTRACT_DRIFT/);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: mappingDriftT3, t4Stage: t4, t5Baseline: testBaselinePath }), /LIGHTWEIGHT_MAPPING_CONTRACT_DRIFT/);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4, t5Baseline: unsafeCandidateBaselinePath }), /LIGHTWEIGHT_T5_BASELINE_UNSAFE/);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4, t5IdentityResolution: invalidResolutionPath, t5Baseline: testBaselinePath }), /LIGHTWEIGHT_T5_RESOLUTION_INVALID/);
 const commands = [];
