@@ -56,7 +56,7 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.deepEqual(slices.reward_discipline, { domain: "reward_discipline", numerator: 2, denominator: 16, percent: 12.5 });
   assert.deepEqual(slices.training_history, { domain: "training_history", numerator: 5, denominator: 23, percent: 21.74 });
   assert.deepEqual(slices.insurance_policy, { domain: "insurance_policy", numerator: 51, denominator: 51, percent: 100 });
-  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 0, denominator: 11, percent: 0 });
+  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 0, denominator: 41, percent: 0 });
   assert.equal(report.semanticMapping.clientFieldsVerifiedTargetMapping.overlapCount, 0);
   assert.deepEqual(report.semanticMapping.organizationPositionRelations, { numerator: 7, denominator: 8, percent: 87.5 });
   assert.equal(
@@ -123,9 +123,9 @@ test("modern UI checks remain separate from legacy interaction and Group Web par
   assert.deepEqual(report.ui.customFieldLegacyInteractionParity, { numerator: 0, denominator: 6, percent: 0 });
   assert.deepEqual(report.ui.groupWebRuntimeParity, { numerator: 0, denominator: 186, percent: 0 });
   assert.deepEqual(report.implementation.groupWebModernRuntimeTasksPrepared, {
-    numerator: 7,
+    numerator: 10,
     denominator: 186,
-    percent: 3.76,
+    percent: 5.38,
     functionalParityCredit: 0,
     status: "ready_not_executed",
   });

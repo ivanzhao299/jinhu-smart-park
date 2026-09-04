@@ -1,0 +1,175 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_legacy_staffing_discrepancy_report_parity_fixture",
+  "fixtureOnly": true,
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_legacy_routine_family_fixture",
+    "productionImport": "HOLD",
+    "routines": [
+      {
+        "routineId": "RULE-FBB5E43B28F27B57",
+        "canonicalFamily": "u_job_r",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "none"
+      }
+    ]
+  },
+  "scopePattern": "ORG-A%",
+  "sourceRows": [
+    {
+      "positionCode": "POS-A",
+      "positionName": "Fixture Position A",
+      "departmentCode": "ORG-A-1",
+      "departmentName": "Fixture Organization A",
+      "definedPersons": 1,
+      "realPersons": 2
+    },
+    {
+      "positionCode": "POS-B",
+      "positionName": "Fixture Position B",
+      "departmentCode": "ORG-B-1",
+      "departmentName": "Fixture Organization B",
+      "definedPersons": 1,
+      "realPersons": 2
+    },
+    {
+      "positionCode": "POS-C",
+      "positionName": "Fixture Position C",
+      "departmentCode": "ORG-B-2",
+      "departmentName": "Fixture Organization C",
+      "definedPersons": 3,
+      "realPersons": 1
+    },
+    {
+      "positionCode": "POS-D",
+      "positionName": "Fixture Position D",
+      "departmentCode": "ORG-A-2",
+      "departmentName": null,
+      "definedPersons": 0,
+      "realPersons": 1
+    },
+    {
+      "positionCode": "POS-E",
+      "positionName": "Fixture Position E",
+      "departmentCode": "ORG-A-3",
+      "departmentName": "Fixture Organization E",
+      "definedPersons": 2,
+      "realPersons": 2
+    },
+    {
+      "positionCode": "POS-F",
+      "positionName": "Fixture Position F",
+      "departmentCode": "ORG-A-4",
+      "departmentName": "Fixture Organization F",
+      "definedPersons": null,
+      "realPersons": 1
+    },
+    {
+      "positionCode": "POS-G",
+      "positionName": "Fixture Position G",
+      "departmentCode": "ORG-A-5",
+      "departmentName": "Fixture Organization G",
+      "definedPersons": 1,
+      "realPersons": null
+    }
+  ],
+  "expectedLegacyRows": [
+    {
+      "positionName": "Fixture Position A",
+      "departmentName": "Fixture Organization A",
+      "definedPersons": 1,
+      "realPersons": 2,
+      "status": "overstaffed"
+    },
+    {
+      "positionName": "Fixture Position C",
+      "departmentName": "Fixture Organization C",
+      "definedPersons": 3,
+      "realPersons": 1,
+      "status": "understaffed"
+    },
+    {
+      "positionName": "Fixture Position D",
+      "departmentName": null,
+      "definedPersons": 0,
+      "realPersons": 1,
+      "status": "overstaffed"
+    }
+  ],
+  "modernAggregateOnly": {
+    "positionTotal": 7,
+    "configuredPositionCount": 6,
+    "unconfiguredPositionCount": 1,
+    "headcountLimit": 8,
+    "activeAssignedHeadcount": 7,
+    "vacancyCount": 2,
+    "overCapacityPositionCount": 2
+  },
+  "cases": [
+    {
+      "testId": "positive-overstaff-scope-match",
+      "positionCode": "POS-A",
+      "expectedIncluded": true,
+      "expectedStatus": "overstaffed"
+    },
+    {
+      "testId": "negative-overstaff-scope-mismatch",
+      "positionCode": "POS-B",
+      "expectedIncluded": false
+    },
+    {
+      "testId": "positive-understaff-ignores-scope",
+      "positionCode": "POS-C",
+      "expectedIncluded": true,
+      "expectedStatus": "understaffed"
+    },
+    {
+      "testId": "positive-left-join-keeps-missing-department-label",
+      "positionCode": "POS-D",
+      "expectedIncluded": true,
+      "expectedDepartmentName": null
+    },
+    {
+      "testId": "negative-equal-counts-produce-no-row",
+      "positionCode": "POS-E",
+      "expectedIncluded": false
+    },
+    {
+      "testId": "negative-null-defined-count-produces-no-row",
+      "positionCode": "POS-F",
+      "expectedIncluded": false
+    },
+    {
+      "testId": "negative-null-real-count-produces-no-row",
+      "positionCode": "POS-G",
+      "expectedIncluded": false
+    },
+    {
+      "testId": "permission-modern-report-requires-decision-center-page",
+      "expectedPermission": "hr:decision_center"
+    },
+    {
+      "testId": "conservation-read-only-report",
+      "expectedBusinessWrites": 0,
+      "expectedSourceRowDelta": 0,
+      "expectedModernRowDelta": 0
+    },
+    {
+      "testId": "negative-empty-source",
+      "sourceRows": [],
+      "expectedLegacyRows": []
+    }
+  ],
+  "expectedGapCodes": [
+    "STAFFING_ROW_LEVEL_PROJECTION_MISSING",
+    "STAFFING_LEGACY_REALPERSONS_SEMANTICS_UNRESOLVED",
+    "STAFFING_BRANCH_SCOPE_ASYMMETRY_UNRESOLVED",
+    "STAFFING_PRODUCTION_HEADCOUNT_LIMIT_NOT_MATERIALIZED",
+    "STAFFING_MISSING_DEPARTMENT_LABEL_PROJECTION_MISSING"
+  ],
+  "productionImport": "HOLD"
+}

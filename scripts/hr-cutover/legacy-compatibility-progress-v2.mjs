@@ -29,7 +29,13 @@ const DEFAULTS = Object.freeze({
   rewardDiscipline: "scripts/hr-cutover/contracts/legacy-reward-discipline-field-map-v1.json",
   trainingHistory: "scripts/hr-cutover/contracts/legacy-training-history-field-map-v1.json",
   insurancePolicy: "scripts/hr-cutover/contracts/legacy-insurance-policy-field-map-v1.json",
-  performanceAssessment: "scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json",
+  performanceMappings: [
+    "scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
+  ],
   customFieldPage: "scripts/hr-cutover/contracts/legacy-employee-custom-field-page-family-v1.json",
   groupWeb: "scripts/hr-cutover/contracts/legacy-group-web-completeness-ledger-v1.json",
   clientAtomic: "scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json",
@@ -43,6 +49,9 @@ const DEFAULTS = Object.freeze({
     "scripts/hr-cutover/contracts/group-web-job-change-modern-runtime-task-v1.json",
     "scripts/hr-cutover/contracts/group-web-departure-chain-modern-runtime-task-v1.json",
     "scripts/hr-cutover/contracts/group-web-reward-discipline-modern-runtime-task-v1.json",
+    "scripts/hr-cutover/contracts/group-web-performance-template-evaluation-modern-runtime-task-v1.json",
+    "scripts/hr-cutover/contracts/group-web-performance-report-center-modern-runtime-task-v1.json",
+    "scripts/hr-cutover/contracts/group-web-performance-department-task-modern-runtime-task-v1.json",
   ],
   routineFamilies: [
     "scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json",
@@ -52,6 +61,8 @@ const DEFAULTS = Object.freeze({
     "scripts/hr-cutover/contracts/legacy-attendance-item-schema-hook-parity-v1.json",
     "scripts/hr-cutover/contracts/legacy-professional-title-lookup-parity-v1.json",
     "scripts/hr-cutover/contracts/legacy-family-query-parity-v1.json",
+    "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json",
+    "scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-v1.json",
   ],
 });
 
@@ -87,7 +98,7 @@ function verifiedRoutineFamily(row) {
   return true;
 }
 
-function readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceAssessment) {
+function readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings) {
   const slices = [];
   const coreLocators = coreMapping.domains.flatMap(domain => Object.keys(domain.columnMappings));
   slices.push({ domain: "reviewed_core", numerator: coreLocators.length, denominator: coreMapping.inventoryContract.selectedFields, locators: coreLocators });
@@ -131,10 +142,11 @@ function readMappingLocators(coreMapping, organizationPosition, payroll, employe
     .map(field => String(field.sourceField).toLowerCase());
   slices.push({ domain: "insurance_policy", numerator: insurancePolicyLocators.length, denominator: insurancePolicy.fields.length, locators: insurancePolicyLocators });
 
-  const performanceAssessmentLocators = performanceAssessment.fields
+  const performanceFields = performanceMappings.flatMap(mapping => mapping.fields);
+  const performanceAssessmentLocators = performanceFields
     .filter(field => field.disposition === "verified_target")
     .map(field => String(field.sourceField).toLowerCase());
-  slices.push({ domain: "performance_assessment", numerator: performanceAssessmentLocators.length, denominator: performanceAssessment.fields.length, locators: performanceAssessmentLocators });
+  slices.push({ domain: "performance_assessment", numerator: performanceAssessmentLocators.length, denominator: performanceFields.length, locators: performanceAssessmentLocators });
 
   for (const slice of slices) requireUnique(slice.locators, `${slice.domain} field locators`);
   const allLocators = slices.flatMap(slice => slice.locators);
@@ -147,7 +159,7 @@ function readMappingLocators(coreMapping, organizationPosition, payroll, employe
 }
 
 function validateInputs(input) {
-  const { routineLedger, tableMap, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceAssessment, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies } = input;
+  const { routineLedger, tableMap, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies } = input;
   requireIdentity(routineLedger?.formatVersion === 1 && routineLedger.ledgerKind === "yuzhou_hr_legacy_modern_routine_logic_ledger" && routineLedger.productionImport === "HOLD", "routine ledger identity");
   requireIdentity(Array.isArray(routineLedger.routines) && routineLedger.routines.length === CLIENT_BASELINE.routines, "routine denominator");
   requireUnique(routineLedger.routines.map(row => row.routineId), "routine ids");
@@ -173,8 +185,10 @@ function validateInputs(input) {
   requireIdentity(Array.isArray(trainingHistory.fields) && trainingHistory.fields.length === 23, "training history field denominator");
   requireIdentity(insurancePolicy?.contractKind === "yuzhou_hr_legacy_insurance_policy_field_map" && insurancePolicy.productionImport === "HOLD", "insurance policy field mapping identity");
   requireIdentity(Array.isArray(insurancePolicy.fields) && insurancePolicy.fields.length === 51, "insurance policy field denominator");
-  requireIdentity(performanceAssessment?.contractKind === "yuzhou_hr_legacy_performance_assessmentcode_field_map" && performanceAssessment.productionImport === "HOLD", "performance assessment field mapping identity");
-  requireIdentity(Array.isArray(performanceAssessment.fields) && performanceAssessment.fields.length === 11, "performance assessment field denominator");
+  requireIdentity(Array.isArray(performanceMappings) && performanceMappings.length === 5, "performance mapping set");
+  requireUnique(performanceMappings.map(mapping => mapping.contractKind), "performance mapping identities");
+  requireIdentity(performanceMappings.every(mapping => /^yuzhou_hr_legacy_performance_[a-z0-9]+_field_map$/u.test(mapping?.contractKind ?? "") && mapping.productionImport === "HOLD" && Array.isArray(mapping.fields)), "performance mapping identity");
+  requireIdentity(performanceMappings.reduce((sum, mapping) => sum + mapping.fields.length, 0) === 41, "performance field denominator");
   requireIdentity(customFieldPage?.contractKind === "yuzhou_hr_legacy_employee_custom_field_page_family" && customFieldPage.productionImport === "HOLD", "custom field page identity");
   requireIdentity(customFieldPage.legacyFieldFamily?.reviewedMappingCount === 19 && customFieldPage.legacyFieldFamily?.logicCellDenominator === 190, "custom field review binding");
   requireIdentity(groupWeb?.contractKind === "yuzhou_hr_legacy_group_web_completeness_ledger" && groupWeb.productionImport === "HOLD", "Group Web identity");
@@ -211,7 +225,7 @@ function validateInputs(input) {
 
 export function buildLegacyCompatibilityProgress(input) {
   validateInputs(input);
-  const { routineLedger, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceAssessment, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies, productionEvidence = [] } = input;
+  const { routineLedger, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies, productionEvidence = [] } = input;
   const routineById = new Map(routineLedger.routines.map(row => [row.routineId, row]));
   const familyRows = routineFamilies.flatMap(contract => {
     requireIdentity(contract?.contractKind === "yuzhou_hr_legacy_routine_semantic_parity" && contract.productionImport === "HOLD", "routine family identity");
@@ -231,7 +245,7 @@ export function buildLegacyCompatibilityProgress(input) {
   } catch (error) {
     fail("PROGRESS_INPUT_INVALID", `knowhow field mapping: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const fields = readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceAssessment);
+  const fields = readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings);
   requireIdentity(fields.uniqueLocators.length <= CLIENT_BASELINE.fields, "mapped fields exceed baseline");
 
   const routineDomains = {};
@@ -392,7 +406,7 @@ export function readDefaultLegacyCompatibilityProgressInputs() {
     rewardDiscipline: readJson(DEFAULTS.rewardDiscipline),
     trainingHistory: readJson(DEFAULTS.trainingHistory),
     insurancePolicy: readJson(DEFAULTS.insurancePolicy),
-    performanceAssessment: readJson(DEFAULTS.performanceAssessment),
+    performanceMappings: DEFAULTS.performanceMappings.map(readJson),
     customFieldPage: readJson(DEFAULTS.customFieldPage),
     groupWeb: readJson(DEFAULTS.groupWeb),
     clientAtomic: readJson(DEFAULTS.clientAtomic),

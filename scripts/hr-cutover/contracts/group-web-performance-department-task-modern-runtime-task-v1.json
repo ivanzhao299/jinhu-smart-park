@@ -1,0 +1,325 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_performance_department_task_modern_runtime_task",
+  "taskVersion": "performance-department-task-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-92-PERFORMANCE-DEPARTMENT-TASK",
+    "name": "绩效部门任务",
+    "legacyIds": [92],
+    "domain": "performance_department_task",
+    "mappedModernRoute": "/hr/performance",
+    "supportingModernRoute": "/hr/goals",
+    "routeDisposition": "semantic_support_exists_under_goals_but_final_legacy_navigation_and_cross_route_contract_are_unresolved",
+    "selectionReason": "single_score_80_partial_performance_entry_with_modern_department_goal_hierarchy_scope_versions_and_checkins_but_no_legacy_field_runtime_or_navigation_parity",
+    "currentStaticEvidence": {
+      "entryCount": 1,
+      "scoreEach": 80,
+      "implementationStatusEach": "partial",
+      "dimensionsEach": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": false,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "rawSha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959",
+      "canonicalSha256": "84bb37f2595089ba38e37ad9d4ec8b0268d1391427bda14a1fb7f5622cd41d71"
+    }
+  ],
+  "coverageCredit": {
+    "taskReady": { "numerator": 1, "denominator": 1 },
+    "groupWebNavigableEntries": { "numerator": 0, "denominator": 186 },
+    "legacyInteractionParity": { "numerator": 0, "denominator": 1 }
+  },
+  "compatibilityScoreContribution": 0,
+  "legacyEntry": {
+    "legacyId": 92,
+    "name": "部门任务",
+    "legacyUrl": "performance/assignment/DepartmentTask/Basic/Browse.asp",
+    "legacyTable": "Per_Task_tDeptBasic",
+    "legacyView": "Per_Task_vDeptBasic",
+    "mappedTargetRoutes": ["/hr/performance"],
+    "traversedAspFiles": 2,
+    "forms": 1,
+    "controls": 13,
+    "requestKeys": 14,
+    "formActions": 1,
+    "selectStatements": 0,
+    "insertStatements": 0,
+    "updateStatements": 0,
+    "deleteStatements": 0,
+    "stateTransitions": 5,
+    "fieldEvidenceHash": "14598bde7caae34ee8f108751ff69b127492bc24ad02d4cceaa83054caf3945e"
+  },
+  "legacyOpaqueSlots": {
+    "aspIdentityPattern": "legacy_92_asp_{NN}",
+    "controlIdentityPattern": "legacy_92_control_{NN}",
+    "requestKeyIdentityPattern": "legacy_92_request_key_{NN}",
+    "formActionIdentityPattern": "legacy_92_form_action_{NN}",
+    "stateTransitionIdentityPattern": "legacy_92_state_transition_{NN}",
+    "traversedAspFiles": 2,
+    "forms": 1,
+    "controls": 13,
+    "requestKeys": 14,
+    "formActions": 1,
+    "stateTransitions": 5,
+    "status": "identity_and_counts_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false,
+    "emptyOrNullSlotsRemainInDenominator": true
+  },
+  "legacyDataBoundary": {
+    "groupWebSourceId": "yuzhou_group_web_enterprise_hr",
+    "groupWebCatalogHash": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+    "table": "Per_Task_tDeptBasic",
+    "view": "Per_Task_vDeptBasic",
+    "observedRows": null,
+    "receiptStatus": "not_in_current_group_web_key_table_count_receipt",
+    "requiredSourceDiscovery": [
+      "table_column_catalog",
+      "view_definition_and_base_objects",
+      "stable_identity_and_department_relation",
+      "parent_child_task_relation",
+      "status_and_date_columns",
+      "weight_metric_progress_and_result_columns",
+      "procedure_function_trigger_references"
+    ],
+    "featureRequired": true,
+    "emptyRule": "zero_or_unknown_rows_never_remove_fields_controls_actions_conditions_states_routines_or_reports"
+  },
+  "legacyInteractionTask": {
+    "runtimeStatus": "not_observed",
+    "aspEntry": "performance/assignment/DepartmentTask/Basic/Browse.asp",
+    "aspSlots": 2,
+    "controlSlots": 13,
+    "requestKeySlots": 14,
+    "formActionSlots": 1,
+    "transitionSlots": 5,
+    "requiredActionObservations": [
+      "browse",
+      "query",
+      "detail",
+      "create",
+      "edit",
+      "assign_or_decompose",
+      "submit_or_activate",
+      "progress_or_result_update",
+      "complete_or_close",
+      "cancel_or_return",
+      "history_or_report"
+    ],
+    "requiredConditionObservations": [
+      "department_scope",
+      "parent_task_scope",
+      "task_period",
+      "weight_total",
+      "metric_and_target",
+      "responsible_role",
+      "five_transition_preconditions",
+      "child_completion_before_parent_close",
+      "permission_negative",
+      "cross_department_absence",
+      "empty_state"
+    ],
+    "groupWebRoutineReferences": [],
+    "groupWebRoutineReferenceStatus": "not_extracted_from_current_static_audit",
+    "requiredRoutineObservation": "trace_every_referenced_Group_Web_procedure_function_trigger_and_include_empty_and_untriggered_branches",
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_and_hash_bound_group_web_table_view_and_routine_call_chain_observation"
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservations": [
+      "column_order",
+      "query_controls",
+      "department_filter",
+      "period_filter",
+      "status_filter",
+      "pagination",
+      "sort_order",
+      "detail_layout",
+      "form_layout",
+      "action_placement",
+      "history_or_report_controls",
+      "empty_state"
+    ],
+    "requiredObservationCount": 12,
+    "modernAcceptance": [
+      "desktop_department_task_tree_list_detail_form_actions",
+      "phone_390_department_task_cards_detail_form_actions",
+      "no_horizontal_overflow",
+      "no_raw_uuid_entry"
+    ],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernRuntimeContract": {
+    "mappedRoute": "/hr/performance",
+    "supportingRoute": "/hr/goals",
+    "goalCycleStatusVocabulary": ["draft", "active", "closed"],
+    "goalStatusVocabulary": ["draft", "active", "completed", "cancelled"],
+    "goalLevelVocabulary": ["group", "department", "employee"],
+    "metricTypeVocabulary": ["numeric", "percentage", "milestone", "count", "currency"],
+    "transitionMatrix": [
+      { "entity": "cycle", "action": "activate", "from": ["draft"], "to": "active" },
+      { "entity": "cycle", "action": "close", "from": ["active"], "to": "closed" },
+      { "entity": "goal", "action": "activate", "from": ["draft"], "to": "active" },
+      { "entity": "goal", "action": "complete", "from": ["active"], "to": "completed" },
+      { "entity": "goal", "action": "cancel", "from": ["active"], "to": "cancelled" }
+    ],
+    "roleMatrix": [
+      { "role": "department_task_park_reader", "permissions": ["hr:goals", "hr:goal:read"], "expectedCapabilities": ["park_goal_tree", "department_rows", "write_controls_absent"] },
+      { "role": "department_task_team_reader", "permissions": ["hr:goals", "hr:goal:team_read"], "expectedCapabilities": ["managed_org_tree_only", "outside_tree_absent"] },
+      { "role": "department_task_self_reader", "permissions": ["hr:goals", "hr:goal:self_read"], "expectedCapabilities": ["own_employee_goals_only", "department_management_absent"] },
+      { "role": "department_task_manager", "permissions": ["hr:goals", "hr:goal:team_read", "hr:goal:manage", "hr:goal:change"], "expectedCapabilities": ["create_department_or_employee_goal_in_managed_tree", "change_open_goal", "activate_complete_cancel_after_web_gap"] },
+      { "role": "department_task_cycle_manager", "permissions": ["hr:goals", "hr:goal:read", "hr:goal:cycle_manage"], "expectedCapabilities": ["create_activate_close_cycle_after_web_gap", "close_blocked_by_open_goals"] },
+      { "role": "department_task_no_permission", "permissions": [], "expectedCapabilities": ["forbidden", "rows_absent"] }
+    ],
+    "apiTasks": [
+      { "id": "cycles", "method": "GET", "path": "/hr/goal-cycles", "webReachable": true, "assertions": ["role_scope", "required_audit"] },
+      { "id": "create_cycle", "method": "POST", "path": "/hr/goal-cycles", "webReachable": true, "assertions": ["idempotency", "valid_dates"] },
+      { "id": "cycle_action", "method": "POST", "path": "/hr/goal-cycles/:id/actions", "webReachable": false, "assertions": ["idempotency", "draft_active_closed_state", "open_goal_guard"] },
+      { "id": "goals", "method": "GET", "path": "/hr/goals", "webReachable": true, "assertions": ["park_or_managed_tree_scope", "filters", "required_audit"] },
+      { "id": "self_goals", "method": "GET", "path": "/hr/goals/me", "webReachable": true, "assertions": ["self_only", "other_rows_absent"] },
+      { "id": "options", "method": "GET", "path": "/hr/goals/options", "webReachable": true, "assertions": ["managed_org_and_employee_selectors", "group_create_capability"] },
+      { "id": "create_goal", "method": "POST", "path": "/hr/goals", "webReachable": true, "assertions": ["idempotency", "hierarchy", "department_owner", "sibling_weight"] },
+      { "id": "change_goal", "method": "PUT", "path": "/hr/goals/:id", "webReachable": false, "assertions": ["idempotency", "new_version", "closed_immutable"] },
+      { "id": "goal_action", "method": "POST", "path": "/hr/goals/:id/actions", "webReachable": false, "assertions": ["idempotency", "state_machine", "children_closed_first"] },
+      { "id": "checkins", "method": "GET", "path": "/hr/goals/:id/checkins", "webReachable": false, "assertions": ["scope", "append_only_history"] },
+      { "id": "create_checkin", "method": "POST", "path": "/hr/goals/:id/checkins", "webReachable": true, "assertions": ["idempotency", "self_or_authorized_scope", "progress_bounds"] }
+    ],
+    "browserTask": {
+      "viewports": [
+        { "id": "desktop", "width": 1440, "height": 1000 },
+        { "id": "phone_390", "width": 390, "height": 844 }
+      ],
+      "checks": [
+        { "id": "legacy_navigation", "role": "department_task_park_reader", "assertions": ["legacy_department_task_opens_final_modern_route_after_route_gap_closes", "no_duplicate_confusing_entry"] },
+        { "id": "park_tree", "role": "department_task_park_reader", "assertions": ["group_department_employee_hierarchy", "write_controls_absent"] },
+        { "id": "team_tree", "role": "department_task_team_reader", "assertions": ["managed_tree_only", "outside_tree_absent"] },
+        { "id": "self_scope", "role": "department_task_self_reader", "assertions": ["own_employee_rows", "department_write_absent"] },
+        { "id": "create_department_task", "role": "department_task_manager", "assertions": ["readable_cycle_parent_department_selectors", "weight_metric_dates", "no_raw_uuid_entry"] },
+        { "id": "change_and_state_actions", "role": "department_task_manager", "assertions": ["change_activate_complete_cancel_required_after_web_gap", "state_conditioned_controls", "history_required_after_web_gap"] },
+        { "id": "cycle_actions", "role": "department_task_cycle_manager", "assertions": ["create_activate_close_required_after_web_gap", "open_goal_guard_visible"] },
+        { "id": "forbidden", "role": "department_task_no_permission", "assertions": ["forbidden", "rows_absent"] },
+        { "id": "empty_state", "role": "department_task_park_reader", "assertions": ["current_scope_empty_message", "authorized_create_preserved", "no_horizontal_overflow"] }
+      ]
+    }
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_GOALS_PAGE: \"hr:goals\"", "HR_GOAL_READ", "HR_GOAL_TEAM_READ", "HR_GOAL_MANAGE", "HR_GOAL_CYCLE_MANAGE", "HR_GOAL_CHANGE", "HR_GOAL_SELF_READ", "HR_GOAL_CHECKIN"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-goal-report.controller.ts",
+      "requiredTokens": ["@Get(\"goal-cycles\")", "@Post(\"goal-cycles/:id/actions\")", "@Get(\"goals\")", "@Get(\"goals/me\")", "@Post(\"goals\")", "@Put(\"goals/:id\")", "@Post(\"goals/:id/actions\")", "@Get(\"goals/:id/checkins\")", "@Post(\"goals/:id/checkins\")", "IdempotencyInterceptor", "captureBody:false"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/dto/hr-goal-report.dto.ts",
+      "requiredTokens": ["@IsIn([\"group\",\"department\",\"employee\"])", "@IsIn([\"numeric\",\"percentage\",\"milestone\",\"count\",\"currency\"])", "ownerOrgId", "parentGoalId", "collaboratorEmployeeIds"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-goal-report.service.ts",
+      "requiredTokens": ["managed_org_tree", "Organization is outside the managed tree", "All child goals must be completed or cancelled first", "hr_goal_version", "hr_goal_action"]
+    },
+    {
+      "path": "database/migrations/000257_hr_goal_report_execution.sql",
+      "requiredTokens": ["goal_level='department'", "fk_hr_goal_owner_org_scope", "department owner outside parent organization", "sibling goal weight exceeds 100 percent", "terminal goal is immutable"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
+      "requiredTokens": ["goal_snapshot", "owner_employee_id", "version_no \"versionNo\""]
+    },
+    {
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "requiredTokens": ["goal_snapshot", "published performance cycle employees are frozen", "performance cycle employee snapshot is immutable"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["goalCycles:", "goalOptions:", "createGoalCycle:", "goals:", "createGoal:", "changeGoal:", "goalCheckins:", "createGoalCheckin:"],
+      "forbiddenTokens": ["goalCycleAction:", "goalAction:"]
+    },
+    {
+      "path": "apps/web/app/hr/goals/HrGoalsClient.tsx",
+      "requiredTokens": ["集团方向逐级落实到部门和员工。", "目标分解", "部门归属", "更新目标进度", "ds-mobile-record-list", "当前范围暂无目标。"],
+      "forbiddenTokens": ["hrApi.changeGoal", "hrApi.goalCheckins", "hrApi.goalCycleAction", "hrApi.goalAction"]
+    }
+  ],
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_DEPARTMENT_TASK_LEGACY_FIELDS_ACTIONS_AND_ROUTINE_CHAIN_NOT_BOUND",
+      "missingEvidence": ["2_asp_identities_beyond_entry", "13_control_semantics", "14_request_key_semantics", "1_form_action_semantics", "5_transition_semantics", "table_view_column_relations", "procedure_function_trigger_call_chain"],
+      "implementationAction": ["observe_the_authenticated_legacy_department_task_with_non_personal_test_scope", "capture_hash_bound_table_and_view_column_catalogs", "bind_every_asp_control_request_action_status_condition_and_layout_slot", "trace_all_referenced_routines_and_empty_or_untriggered_branches"],
+      "acceptance": ["hash_bound_legacy_entry_receipt", "no_unmapped_slot", "five_transitions_disposed", "no_empty_or_untriggered_branch_removed"]
+    },
+    {
+      "id": "GROUP_WEB_DEPARTMENT_TASK_ROW_COUNT_AND_FIELD_MAP_NOT_BOUND",
+      "missingEvidence": ["Per_Task_tDeptBasic_read_only_count", "Per_Task_tDeptBasic_columns", "Per_Task_vDeptBasic_definition", "stable_key", "department_parent_metric_progress_result_relations"],
+      "implementationAction": ["capture_read_only_count_columns_view_definition_and_dependency_hashes", "map_every_legacy_field_to_hr_goal_or_explicit_preservation", "execute_full_legacy_empty_page_path_when_zero_rows"],
+      "acceptance": ["source_identity_bound_count", "all_columns_disposed", "zero_rows_preserve_feature_denominator", "no_personal_values_in_receipt"]
+    },
+    {
+      "id": "GROUP_WEB_DEPARTMENT_TASK_ROUTE_AND_CROSS_DOMAIN_CONTRACT_UNRESOLVED",
+      "missingEvidence": ["decision_between_hr_performance_and_hr_goals", "legacy_menu_deep_link", "department_goal_to_performance_cycle_snapshot_relation", "single_user_visible_ownership"],
+      "implementationAction": ["decide_one_canonical_modern_route_for_legacy_id_92", "update_mapping_only_after_runtime_and_field_relation_proof", "preserve_goal_version_in_performance_snapshot_and_link_back_without_duplicate_edit_surfaces"],
+      "acceptance": ["one_canonical_navigation", "no_duplicate_conflicting_editor", "immutable_version_relation", "legacy_id_92_pairing_uses_decided_route"]
+    },
+    {
+      "id": "GROUP_WEB_DEPARTMENT_TASK_WEB_CHANGE_STATE_AND_HISTORY_ACTIONS_NOT_REACHABLE",
+      "missingEvidence": ["cycle_action_wrapper_and_controls", "goal_action_wrapper_and_controls", "goal_change_form", "checkin_history_panel"],
+      "implementationAction": ["add_typed_cycle_and_goal_action_wrappers", "surface_permission_and_state_conditioned_activate_close_complete_cancel_controls", "wire_the_existing_change_goal_wrapper_to_a_versioned_edit_form", "render_scoped_checkin_history_from_the_existing_wrapper"],
+      "acceptance": ["backend_supported_actions_reachable_after_refresh", "terminal_immutable", "child_close_guard", "desktop_and_390px", "no_raw_uuid_entry"]
+    }
+  ],
+  "blockingGaps": [
+    "GROUP_WEB_DEPARTMENT_TASK_LEGACY_RUNTIME_NOT_OBSERVED",
+    "GROUP_WEB_DEPARTMENT_TASK_13_CONTROLS_NOT_BOUND",
+    "GROUP_WEB_DEPARTMENT_TASK_14_REQUEST_KEYS_NOT_BOUND",
+    "GROUP_WEB_DEPARTMENT_TASK_5_TRANSITIONS_NOT_BOUND",
+    "GROUP_WEB_DEPARTMENT_TASK_LEGACY_FIELDS_ACTIONS_AND_ROUTINE_CHAIN_NOT_BOUND",
+    "GROUP_WEB_DEPARTMENT_TASK_ROW_COUNT_AND_FIELD_MAP_NOT_BOUND",
+    "GROUP_WEB_DEPARTMENT_TASK_ROUTE_AND_CROSS_DOMAIN_CONTRACT_UNRESOLVED",
+    "GROUP_WEB_DEPARTMENT_TASK_WEB_CHANGE_STATE_AND_HISTORY_ACTIONS_NOT_REACHABLE",
+    "GROUP_WEB_DEPARTMENT_TASK_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyEntryObservations": 1,
+    "requiredLegacyAspBindings": 2,
+    "requiredLegacyControlBindings": 13,
+    "requiredLegacyRequestKeyBindings": 14,
+    "requiredLegacyFormActionBindings": 1,
+    "requiredLegacyStateTransitionBindings": 5,
+    "requiredLegacyActionObservations": 11,
+    "requiredLegacyConditionObservations": 11,
+    "requiredLegacyReportLayoutObservations": 12,
+    "requiredGroupWebTableCountReceipts": 1,
+    "requiredGroupWebTableViewFieldMaps": 2,
+    "requiredModernApiObservations": 11,
+    "requiredModernBrowserObservations": 18,
+    "requiredPairing": "same_entry_hash_bound_redacted_legacy_and_decided_modern_route_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "payrollValuesExcluded": true,
+    "attachmentBinariesExcluded": true
+  },
+  "productionImport": "HOLD"
+}

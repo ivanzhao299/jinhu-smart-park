@@ -1,0 +1,84 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_legacy_job_realpersons_refresh_parity_fixture",
+  "fixtureOnly": true,
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD",
+  "sourceRoutineLedger": {
+    "routines": [
+      {
+        "routineId": "RULE-4B21922F4B3320A2",
+        "kind": "procedure",
+        "sourceName": "u_getjobpersons",
+        "sourceArtifact": "SQL_STORED_PROCEDURE_u_getjobpersons_sql",
+        "sourceArtifactSha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8",
+        "structuralHash": "53af927e6fa4b8572edef9c213827e7ea405a0c6dced4bbab532eb3ad5f2da1a",
+        "canonicalFamily": "u_getjobpersons",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "primaryDomain": "organization_position",
+        "secondaryDomains": ["employee_profile", "employment_lifecycle"],
+        "businessCapability": "business_state_mutation",
+        "parameters": [],
+        "readTables": ["job", "jobstatecode", "person"],
+        "writeTables": ["job"],
+        "dynamicWriteTables": [],
+        "dynamicMutationStatus": "none",
+        "calledRoutines": [],
+        "joinPredicates": ["person.job=job.job", "person.jobstate=jobstatecode.jobstate"],
+        "logicSignals": ["aggregation_count"],
+        "statementProfile": {"select": 1, "insert": 0, "update": 1, "delete": 0, "merge": 0, "alter": 0},
+        "parityStatus": "partial_domain_surface_rule_parity_pending"
+      }
+    ]
+  },
+  "jobs": [
+    {"jobCode": "FIX-JOB-A", "beforeRealPersons": 91},
+    {"jobCode": "FIX-JOB-B", "beforeRealPersons": null},
+    {"jobCode": "FIX-JOB-C", "beforeRealPersons": 7},
+    {"jobCode": null, "beforeRealPersons": 3}
+  ],
+  "jobStates": [
+    {"jobState": "A", "defaultCount": 1},
+    {"jobState": "I", "defaultCount": 0},
+    {"jobState": "N", "defaultCount": null}
+  ],
+  "persons": [
+    {"fixturePerson": "SYNTHETIC-1", "jobCode": "FIX-JOB-A", "jobState": "A"},
+    {"fixturePerson": "SYNTHETIC-2", "jobCode": "FIX-JOB-A", "jobState": "A"},
+    {"fixturePerson": "SYNTHETIC-3", "jobCode": "FIX-JOB-A", "jobState": "I"},
+    {"fixturePerson": "SYNTHETIC-4", "jobCode": "FIX-JOB-B", "jobState": "N"},
+    {"fixturePerson": "SYNTHETIC-5", "jobCode": "FIX-JOB-C", "jobState": null},
+    {"fixturePerson": "SYNTHETIC-6", "jobCode": null, "jobState": "A"},
+    {"fixturePerson": "SYNTHETIC-7", "jobCode": "FIX-JOB-UNKNOWN", "jobState": "A"},
+    {"fixturePerson": "SYNTHETIC-8", "jobCode": "FIX-JOB-C", "jobState": "UNKNOWN"}
+  ],
+  "expectedAfter": [
+    {"jobCode": "FIX-JOB-A", "realPersons": 2},
+    {"jobCode": "FIX-JOB-B", "realPersons": 0},
+    {"jobCode": "FIX-JOB-C", "realPersons": 0},
+    {"jobCode": null, "realPersons": 0}
+  ],
+  "cases": [
+    {"testId": "positive-counts-only-persons-whose-state-defcount-is-one", "jobCode": "FIX-JOB-A", "expectedRealPersons": 2},
+    {"testId": "negative-defcount-zero-and-null-do-not-count", "jobCode": "FIX-JOB-B", "expectedRealPersons": 0},
+    {"testId": "negative-null-or-unmatched-state-does-not-count", "jobCode": "FIX-JOB-C", "expectedRealPersons": 0},
+    {"testId": "negative-null-job-key-does-not-match", "jobCode": null, "expectedRealPersons": 0},
+    {"testId": "empty-person-table-zeroes-every-job", "expectedRealPersonsForEveryJob": 0},
+    {"testId": "empty-jobstate-table-zeroes-every-job", "expectedRealPersonsForEveryJob": 0},
+    {"testId": "empty-job-table-updates-no-rows", "expectedAffectedRows": 0},
+    {"testId": "conservation-job-identity-and-person-rows-unchanged", "expectedJobIdentityDelta": 0, "expectedPersonRowDelta": 0},
+    {"testId": "permission-modern-report-requires-decision-center-page", "expectedPermission": "hr:decision_center"}
+  ],
+  "modernAggregateOnly": {
+    "activeAssignedHeadcount": 2,
+    "overCapacityPositionCount": 0
+  },
+  "expectedGapCodes": [
+    "JOB_REALPERSONS_REFRESH_TARGET_NOT_PRESERVED",
+    "JOBSTATE_DEFCOUNT_TO_EMPLOYMENT_STATUS_RULE_UNRESOLVED",
+    "PERSISTED_REFRESH_REPLACED_BY_READ_TIME_AGGREGATE_UNAPPROVED",
+    "POSITION_LEVEL_ASSIGNED_COUNT_NOT_EXPOSED",
+    "SOURCE_EXECUTE_AUTHORIZATION_NOT_BOUND"
+  ]
+}
