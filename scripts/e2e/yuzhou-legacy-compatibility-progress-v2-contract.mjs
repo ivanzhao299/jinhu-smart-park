@@ -81,6 +81,38 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.equal(report.parity.clientFieldRowLevelParity.denominator, 2364);
 });
 
+test("performance compatibility reports verified runtime coverage without hiding source relation gaps", () => {
+  const report = buildLegacyCompatibilityProgress(inputs());
+  assert.deepEqual(report.implementation.performanceLegacyLosslessStorage, { numerator: 41, denominator: 41, percent: 100 });
+  assert.deepEqual(report.implementation.performanceLegacyReadApiProjection, { numerator: 41, denominator: 41, percent: 100 });
+  assert.deepEqual(report.ui.performanceLegacyFrontendProjection, { numerator: 41, denominator: 41, percent: 100 });
+  assert.deepEqual(report.parity.performanceLegacyRealSourceRows, {
+    numerator: 66,
+    denominator: 66,
+    percent: 100,
+    checks: ["exact_row_conservation", "idempotent_replay", "drift_rejection", "reverse_rollback_zero_residue"],
+    relationParityCredit: 0,
+  });
+  assert.ok(report.gaps.some(gap => gap.code === "PERFORMANCE_TEMPLATE_SOURCE_ABSENT" && gap.remaining === 30));
+  assert.ok(report.gaps.some(gap => gap.code === "PERFORMANCE_GUIDE_GRADE_RELATION_UNRESOLVED" && gap.remaining === 30));
+});
+
+test("performance compatibility cannot self-promote a missing field binding or unmatched row receipt", () => {
+  const missingBinding = inputs();
+  missingBinding.performanceRuntimeCoverage.fieldBindings[0].storageField = "source_field_that_does_not_exist";
+  assert.throws(
+    () => buildLegacyCompatibilityProgress(missingBinding),
+    error => error instanceof LegacyCompatibilityProgressError && error.code === "PROGRESS_INPUT_INVALID",
+  );
+
+  const unmatchedRows = inputs();
+  unmatchedRows.performanceRuntimeCoverage.verifiedCoverage.realSourceRowsRoundTripped -= 1;
+  assert.throws(
+    () => buildLegacyCompatibilityProgress(unmatchedRows),
+    error => error instanceof LegacyCompatibilityProgressError && error.code === "PROGRESS_INPUT_INVALID",
+  );
+});
+
 test("published compatibility plan uses the machine-verified field baseline", () => {
   const fields = buildLegacyCompatibilityProgress(inputs()).semanticMapping.clientFieldsVerifiedTargetMapping;
   const expected = `客户端字段已验证目标映射 \`${fields.numerator}/${fields.denominator} = ${fields.percent}%\``;

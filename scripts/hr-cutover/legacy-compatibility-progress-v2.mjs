@@ -36,6 +36,7 @@ const DEFAULTS = Object.freeze({
     "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json",
     "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
   ],
+  performanceRuntimeCoverage: "scripts/hr-cutover/contracts/legacy-performance-runtime-coverage-v1.json",
   customFieldPage: "scripts/hr-cutover/contracts/legacy-employee-custom-field-page-family-v1.json",
   groupWeb: "scripts/hr-cutover/contracts/legacy-group-web-completeness-ledger-v1.json",
   clientAtomic: "scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json",
@@ -158,8 +159,45 @@ function readMappingLocators(coreMapping, organizationPosition, payroll, employe
   };
 }
 
+function validatePerformanceRuntimeCoverage(performanceMappings, coverage) {
+  requireIdentity(coverage?.contractKind === "yuzhou_hr_legacy_performance_runtime_coverage" && coverage.contractVersion === "1.0.0" && coverage.productionImport === "HOLD", "performance runtime coverage identity");
+  const sourceTables = performanceMappings.map(mapping => mapping.contractKind.match(/legacy_performance_([a-z0-9]+)_field_map$/u)?.[1]);
+  requireIdentity(JSON.stringify(coverage.scope?.sourceTables) === JSON.stringify(sourceTables), "performance runtime table scope");
+  requireIdentity(coverage.scope?.sourceFieldDenominator === 41, "performance runtime field denominator");
+  requireIdentity(Array.isArray(coverage.fieldBindings) && coverage.fieldBindings.length === coverage.scope.sourceFieldDenominator, "performance field binding denominator");
+  const mappingFields = performanceMappings.flatMap(mapping => mapping.fields.map(field => String(field.sourceField).toLowerCase())).sort();
+  const boundFields = coverage.fieldBindings.map(binding => String(binding.sourceField).toLowerCase()).sort();
+  requireUnique(boundFields, "performance bound source fields");
+  requireIdentity(JSON.stringify(boundFields) === JSON.stringify(mappingFields), "performance exact source field bindings");
+  const verified = coverage.verifiedCoverage ?? {};
+  for (const field of ["losslessStorageFields", "readApiFields", "frontendFields"]) {
+    requireIdentity(verified[field] === coverage.scope.sourceFieldDenominator, `performance runtime ${field}`);
+  }
+  requireIdentity(Number.isInteger(verified.realSourceRowsObserved) && verified.realSourceRowsObserved >= 0, "performance real source rows observed");
+  requireIdentity(verified.realSourceRowsRoundTripped === verified.realSourceRowsObserved, "performance real source row parity");
+  requireIdentity(Object.values(coverage.safeRealSourceReceipt?.tableRowCounts ?? {}).reduce((sum, count) => sum + count, 0) === verified.realSourceRowsObserved, "performance real source row conservation");
+  requireIdentity(/^[0-9a-f]{64}$/u.test(coverage.safeRealSourceReceipt?.sourceRestoreReceiptSha256 ?? "") && /^[0-9a-f]{64}$/u.test(coverage.safeRealSourceReceipt?.payloadSha256 ?? ""), "performance safe receipt hashes");
+  requireIdentity(Array.isArray(coverage.semanticRelationGaps) && coverage.semanticRelationGaps.length === 2, "performance relation gaps");
+  for (const evidence of Object.values(coverage.implementationEvidence ?? {})) {
+    requireIdentity(typeof evidence?.path === "string" && Array.isArray(evidence.requiredTokens) && evidence.requiredTokens.length > 0, "performance implementation evidence descriptor");
+    const contents = readFileSync(resolve(ROOT, evidence.path), "utf8");
+    requireIdentity(evidence.requiredTokens.every(token => contents.includes(token)), `performance implementation evidence ${evidence.path}`);
+  }
+  const storage = readFileSync(resolve(ROOT, coverage.implementationEvidence.storage.path), "utf8");
+  const api = readFileSync(resolve(ROOT, coverage.implementationEvidence.api.path), "utf8");
+  const frontend = readFileSync(resolve(ROOT, coverage.implementationEvidence.frontend.path), "utf8");
+  for (const binding of coverage.fieldBindings) {
+    requireIdentity(["storageTable", "storageField", "apiField", "frontendField"].every(key => typeof binding[key] === "string" && binding[key].length > 0), `performance binding shape ${binding.sourceField}`);
+    const tableStart = storage.indexOf(`CREATE TABLE ${binding.storageTable} (`);
+    const tableEnd = storage.indexOf("\n);", tableStart);
+    requireIdentity(tableStart >= 0 && tableEnd > tableStart && storage.slice(tableStart, tableEnd).includes(`\n  ${binding.storageField} `), `performance storage binding ${binding.sourceField}`);
+    requireIdentity(api.includes(`"${binding.apiField}"`), `performance API binding ${binding.sourceField}`);
+    requireIdentity(frontend.includes(`key: "${binding.frontendField}"`), `performance frontend binding ${binding.sourceField}`);
+  }
+}
+
 function validateInputs(input) {
-  const { routineLedger, tableMap, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies } = input;
+  const { routineLedger, tableMap, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, performanceRuntimeCoverage, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies } = input;
   requireIdentity(routineLedger?.formatVersion === 1 && routineLedger.ledgerKind === "yuzhou_hr_legacy_modern_routine_logic_ledger" && routineLedger.productionImport === "HOLD", "routine ledger identity");
   requireIdentity(Array.isArray(routineLedger.routines) && routineLedger.routines.length === CLIENT_BASELINE.routines, "routine denominator");
   requireUnique(routineLedger.routines.map(row => row.routineId), "routine ids");
@@ -189,6 +227,7 @@ function validateInputs(input) {
   requireUnique(performanceMappings.map(mapping => mapping.contractKind), "performance mapping identities");
   requireIdentity(performanceMappings.every(mapping => /^yuzhou_hr_legacy_performance_[a-z0-9]+_field_map$/u.test(mapping?.contractKind ?? "") && mapping.productionImport === "HOLD" && Array.isArray(mapping.fields)), "performance mapping identity");
   requireIdentity(performanceMappings.reduce((sum, mapping) => sum + mapping.fields.length, 0) === 41, "performance field denominator");
+  validatePerformanceRuntimeCoverage(performanceMappings, performanceRuntimeCoverage);
   requireIdentity(customFieldPage?.contractKind === "yuzhou_hr_legacy_employee_custom_field_page_family" && customFieldPage.productionImport === "HOLD", "custom field page identity");
   requireIdentity(customFieldPage.legacyFieldFamily?.reviewedMappingCount === 19 && customFieldPage.legacyFieldFamily?.logicCellDenominator === 190, "custom field review binding");
   requireIdentity(groupWeb?.contractKind === "yuzhou_hr_legacy_group_web_completeness_ledger" && groupWeb.productionImport === "HOLD", "Group Web identity");
@@ -225,7 +264,7 @@ function validateInputs(input) {
 
 export function buildLegacyCompatibilityProgress(input) {
   validateInputs(input);
-  const { routineLedger, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies, productionEvidence = [] } = input;
+  const { routineLedger, coreMapping, organizationPosition, payroll, employeeProfile, knowhowFieldMap, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, performanceRuntimeCoverage, customFieldPage, groupWeb, groupWebTasks, clientAtomic, clientMenuInventory, permissionMapping, routineFamilies, productionEvidence = [] } = input;
   const routineById = new Map(routineLedger.routines.map(row => [row.routineId, row]));
   const familyRows = routineFamilies.flatMap(contract => {
     requireIdentity(contract?.contractKind === "yuzhou_hr_legacy_routine_semantic_parity" && contract.productionImport === "HOLD", "routine family identity");
@@ -294,6 +333,7 @@ export function buildLegacyCompatibilityProgress(input) {
     { code: "ORGANIZATION_POSITION_RELATIONS_PENDING", remaining: organizationPosition.relations.length - organizationRelations },
     { code: "PAYROLL_FIELDS_PENDING", remaining: payroll.fieldMappings.filter(field => field.status !== "verified").length },
     { code: "PAYROLL_DYNAMIC_ROUTINES_PENDING", remaining: payroll.dynamicRoutineGates.length - payrollDynamic },
+    ...performanceRuntimeCoverage.semanticRelationGaps.map(gap => ({ code: gap.code, remaining: gap.affectedSourceRows })),
     { code: "CLIENT_CUSTOM_FIELD_INTERACTION_PARITY_PENDING", remaining: pageAcceptance.endToEndLegacyInteractionParity.denominator - pageAcceptance.endToEndLegacyInteractionParity.verified },
     { code: "GROUP_WEB_ATOMIC_DATABASE_INVENTORY_PENDING", remaining: groupWeb.expectedCatalog.tables + groupWeb.expectedCatalog.fields + groupWeb.expectedCatalog.views + groupRoutineDenominator },
     { code: "GROUP_WEB_ASP_ATOMIC_INVENTORY_PENDING", remaining: groupWeb.expectedInteraction.classicAspPages },
@@ -350,6 +390,8 @@ export function buildLegacyCompatibilityProgress(input) {
     },
     implementation: {
       clientFieldsWithVerifiedTargetContract: metric(fields.uniqueLocators.length, CLIENT_BASELINE.fields),
+      performanceLegacyLosslessStorage: metric(performanceRuntimeCoverage.verifiedCoverage.losslessStorageFields, performanceRuntimeCoverage.scope.sourceFieldDenominator),
+      performanceLegacyReadApiProjection: metric(performanceRuntimeCoverage.verifiedCoverage.readApiFields, performanceRuntimeCoverage.scope.sourceFieldDenominator),
       clientRoutineFamiliesImplementedAndTested: metric(verifiedRoutineRows.length, CLIENT_BASELINE.routines),
       reviewedCoreArchiveDetailFields: metric(
         coreMapping.inventoryContract.selectedFields
@@ -368,6 +410,10 @@ export function buildLegacyCompatibilityProgress(input) {
     },
     parity: {
       clientFieldRowLevelParity: metric(0, CLIENT_BASELINE.fields, { reasonCode: "FULL_SOURCE_ROW_PARITY_RECEIPT_NOT_COMMITTED" }),
+      performanceLegacyRealSourceRows: metric(performanceRuntimeCoverage.verifiedCoverage.realSourceRowsRoundTripped, performanceRuntimeCoverage.verifiedCoverage.realSourceRowsObserved, {
+        checks: performanceRuntimeCoverage.safeRealSourceReceipt.checks,
+        relationParityCredit: 0,
+      }),
       clientRoutineBehaviorParity: metric(verifiedRoutineRows.length, CLIENT_BASELINE.routines, { verifiedRoutineIds: [...verifiedRoutineIds].sort() }),
       customFieldLegacyInteractions: metric(pageAcceptance.endToEndLegacyInteractionParity.verified, pageAcceptance.endToEndLegacyInteractionParity.denominator),
       groupWebNavigableEntries: metric(0, groupWeb.expectedInteraction.navigableEntries, { reasonCode: "GROUP_WEB_RUNTIME_PARITY_NOT_VERIFIED" }),
@@ -376,6 +422,7 @@ export function buildLegacyCompatibilityProgress(input) {
       customFieldSourceNavigation: metric(pageAcceptance.sourceNavigation.verified, pageAcceptance.sourceNavigation.denominator),
       customFieldLegacyInteractionParity: metric(pageAcceptance.sourceInteractionParity.verified, pageAcceptance.sourceInteractionParity.denominator),
       customFieldModernSurface: metric(modernUiNumerator, modernUiDenominator),
+      performanceLegacyFrontendProjection: metric(performanceRuntimeCoverage.verifiedCoverage.frontendFields, performanceRuntimeCoverage.scope.sourceFieldDenominator),
       groupWebRuntimeParity: metric(0, groupWeb.expectedInteraction.navigableEntries),
     },
     productionEvidence: {
@@ -407,6 +454,7 @@ export function readDefaultLegacyCompatibilityProgressInputs() {
     trainingHistory: readJson(DEFAULTS.trainingHistory),
     insurancePolicy: readJson(DEFAULTS.insurancePolicy),
     performanceMappings: DEFAULTS.performanceMappings.map(readJson),
+    performanceRuntimeCoverage: readJson(DEFAULTS.performanceRuntimeCoverage),
     customFieldPage: readJson(DEFAULTS.customFieldPage),
     groupWeb: readJson(DEFAULTS.groupWeb),
     clientAtomic: readJson(DEFAULTS.clientAtomic),

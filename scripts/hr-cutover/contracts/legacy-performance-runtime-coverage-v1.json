@@ -1,0 +1,136 @@
+{
+  "contractKind": "yuzhou_hr_legacy_performance_runtime_coverage",
+  "contractVersion": "1.0.0",
+  "productionImport": "HOLD",
+  "scope": {
+    "sourceTables": [
+      "assessmentcode",
+      "assgradecode",
+      "assitem",
+      "assitemgradedes",
+      "assessmentdetail"
+    ],
+    "sourceFieldDenominator": 41
+  },
+  "fieldBindings": [
+    { "sourceField": "assessmentcode.assessment", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_assessment", "apiField": "sourceAssessment", "frontendField": "sourceAssessment" },
+    { "sourceField": "assessmentcode.assessmentname", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_assessment_name", "apiField": "sourceAssessmentName", "frontendField": "sourceAssessmentName" },
+    { "sourceField": "assessmentcode.department", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_department", "apiField": "sourceDepartment", "frontendField": "sourceDepartment" },
+    { "sourceField": "assessmentcode.mpercent", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_m_percent", "apiField": "sourceMPercent", "frontendField": "sourceMPercent" },
+    { "sourceField": "assessmentcode.tpercent", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_t_percent", "apiField": "sourceTPercent", "frontendField": "sourceTPercent" },
+    { "sourceField": "assessmentcode.xpercent", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_x_percent", "apiField": "sourceXPercent", "frontendField": "sourceXPercent" },
+    { "sourceField": "assessmentcode.cpercent", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_c_percent", "apiField": "sourceCPercent", "frontendField": "sourceCPercent" },
+    { "sourceField": "assessmentcode.spercent", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_s_percent", "apiField": "sourceSPercent", "frontendField": "sourceSPercent" },
+    { "sourceField": "assessmentcode.timekeep", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_timekeep", "apiField": "sourceTimekeep", "frontendField": "sourceTimekeep" },
+    { "sourceField": "assessmentcode.bonus", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_bonus", "apiField": "sourceBonus", "frontendField": "sourceBonus" },
+    { "sourceField": "assessmentcode.master", "storageTable": "hr_performance_legacy_template_profile", "storageField": "source_master", "apiField": "sourceMaster", "frontendField": "sourceMaster" },
+    { "sourceField": "assgradecode.assgrade", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_ass_grade", "apiField": "sourceAssGrade", "frontendField": "sourceAssGrade" },
+    { "sourceField": "assgradecode.description", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_description", "apiField": "sourceDescription", "frontendField": "sourceDescription" },
+    { "sourceField": "assgradecode.myorder", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_my_order", "apiField": "sourceMyOrder", "frontendField": "sourceMyOrder" },
+    { "sourceField": "assgradecode.assessmentid", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_assessment_id", "apiField": "sourceAssessmentId", "frontendField": "sourceAssessmentId" },
+    { "sourceField": "assgradecode.minvalue", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_min_value", "apiField": "sourceMinValue", "frontendField": "sourceMinValue" },
+    { "sourceField": "assgradecode.maxvalue", "storageTable": "hr_performance_legacy_level_rule", "storageField": "source_max_value", "apiField": "sourceMaxValue", "frontendField": "sourceMaxValue" },
+    { "sourceField": "assitem.id", "storageTable": "hr_performance_legacy_dimension_profile", "storageField": "source_item_id", "apiField": "sourceItemId", "frontendField": "sourceItemId" },
+    { "sourceField": "assitem.assid", "storageTable": "hr_performance_legacy_dimension_profile", "storageField": "source_assessment_id", "apiField": "sourceAssessmentId", "frontendField": "sourceAssessmentId" },
+    { "sourceField": "assitem.assitem", "storageTable": "hr_performance_legacy_dimension_profile", "storageField": "source_item_name", "apiField": "sourceItemName", "frontendField": "sourceItemName" },
+    { "sourceField": "assitem.fullvalue", "storageTable": "hr_performance_legacy_dimension_profile", "storageField": "source_full_value", "apiField": "sourceFullValue", "frontendField": "sourceFullValue" },
+    { "sourceField": "assitem.myorder", "storageTable": "hr_performance_legacy_dimension_profile", "storageField": "source_my_order", "apiField": "sourceMyOrder", "frontendField": "sourceMyOrder" },
+    { "sourceField": "assitemgradedes.id", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_guide_id", "apiField": "sourceGuideId", "frontendField": "sourceGuideId" },
+    { "sourceField": "assitemgradedes.assitemid", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_item_id", "apiField": "sourceItemId", "frontendField": "sourceItemId" },
+    { "sourceField": "assitemgradedes.grade", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_grade", "apiField": "sourceGrade", "frontendField": "sourceGrade" },
+    { "sourceField": "assitemgradedes.description", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_description", "apiField": "sourceDescription", "frontendField": "sourceDescription" },
+    { "sourceField": "assitemgradedes.minvalue", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_min_value", "apiField": "sourceMinValue", "frontendField": "sourceMinValue" },
+    { "sourceField": "assitemgradedes.maxvalue", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_max_value", "apiField": "sourceMaxValue", "frontendField": "sourceMaxValue" },
+    { "sourceField": "assitemgradedes.myorder", "storageTable": "hr_performance_legacy_dimension_level_guide", "storageField": "source_my_order", "apiField": "sourceMyOrder", "frontendField": "sourceMyOrder" },
+    { "sourceField": "assessmentdetail.id", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_detail_id", "apiField": "sourceDetailId", "frontendField": "sourceDetailId" },
+    { "sourceField": "assessmentdetail.asssessionid", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_session_id", "apiField": "sourceSessionId", "frontendField": "sourceSessionId" },
+    { "sourceField": "assessmentdetail.person", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_person_code", "apiField": "sourcePersonCode", "frontendField": "sourcePersonCode" },
+    { "sourceField": "assessmentdetail.assitemid", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_item_id", "apiField": "sourceItemId", "frontendField": "sourceItemId" },
+    { "sourceField": "assessmentdetail.selfvalue", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_self_value", "apiField": "sourceSelfValue", "frontendField": "sourceSelfValue" },
+    { "sourceField": "assessmentdetail.mitemvalue", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_m_item_value", "apiField": "sourceMItemValue", "frontendField": "sourceMItemValue" },
+    { "sourceField": "assessmentdetail.itemvalue", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_item_value", "apiField": "sourceItemValue", "frontendField": "sourceItemValue" },
+    { "sourceField": "assessmentdetail.xitemvalue", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_x_item_value", "apiField": "sourceXItemValue", "frontendField": "sourceXItemValue" },
+    { "sourceField": "assessmentdetail.citemvalue", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_c_item_value", "apiField": "sourceCItemValue", "frontendField": "sourceCItemValue" },
+    { "sourceField": "assessmentdetail.selfgrade", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_self_grade", "apiField": "sourceSelfGrade", "frontendField": "sourceSelfGrade" },
+    { "sourceField": "assessmentdetail.assgrade", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_ass_grade", "apiField": "sourceAssGrade", "frontendField": "sourceAssGrade" },
+    { "sourceField": "assessmentdetail.appraisal", "storageTable": "hr_performance_legacy_dimension_result", "storageField": "source_appraisal", "apiField": "sourceAppraisal", "frontendField": "sourceAppraisal" }
+  ],
+  "implementationEvidence": {
+    "storage": {
+      "path": "database/migrations/000300_hr_performance_yuzhou_legacy_model.sql",
+      "requiredTokens": [
+        "CREATE TABLE hr_performance_legacy_template_profile",
+        "CREATE TABLE hr_performance_legacy_level_rule",
+        "CREATE TABLE hr_performance_legacy_dimension_profile",
+        "CREATE TABLE hr_performance_legacy_dimension_level_guide",
+        "CREATE TABLE hr_performance_legacy_dimension_result"
+      ]
+    },
+    "writer": {
+      "path": "database/migrations/000301_hr_performance_yuzhou_legacy_writer.sql",
+      "requiredTokens": [
+        "CREATE OR REPLACE PROCEDURE materialize_yuzhou_performance_legacy_lab",
+        "'assessmentcode','assgradecode','assitem'",
+        "'assitemgradedes','assessmentdetail'",
+        "HR_PERFORMANCE_LEGACY_WRITER_CONSERVATION_FAILED"
+      ]
+    },
+    "api": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
+      "requiredTokens": [
+        "async templates(",
+        "async levels(",
+        "async dimensions(",
+        "async guides(",
+        "async results("
+      ]
+    },
+    "frontend": {
+      "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
+      "requiredTokens": [
+        "templates:",
+        "levels:",
+        "dimensions:",
+        "guides:",
+        "results:",
+        "历史绩效与字段映射"
+      ]
+    }
+  },
+  "verifiedCoverage": {
+    "losslessStorageFields": 41,
+    "readApiFields": 41,
+    "frontendFields": 41,
+    "realSourceRowsRoundTripped": 66,
+    "realSourceRowsObserved": 66
+  },
+  "safeRealSourceReceipt": {
+    "sourceRestoreReceiptSha256": "f1faae7f5803e1d6940274f1c3b5a1e2a6eb5cb2f59a87b62d4d8b0b15eb104b",
+    "payloadSha256": "21cc293cce973a07cf7dda9eba9d5a215eb04bb1dfa8b85a62cf1c6d76bfc411",
+    "tableRowCounts": {
+      "assessmentcode": 0,
+      "assgradecode": 3,
+      "assitem": 33,
+      "assitemgradedes": 30,
+      "assessmentdetail": 0
+    },
+    "checks": [
+      "exact_row_conservation",
+      "idempotent_replay",
+      "drift_rejection",
+      "reverse_rollback_zero_residue"
+    ]
+  },
+  "semanticRelationGaps": [
+    {
+      "code": "PERFORMANCE_TEMPLATE_SOURCE_ABSENT",
+      "affectedSourceRows": 30,
+      "reason": "assessmentcode is empty while assitem retains assessment identifiers"
+    },
+    {
+      "code": "PERFORMANCE_GUIDE_GRADE_RELATION_UNRESOLVED",
+      "affectedSourceRows": 30,
+      "reason": "source grade values do not resolve to the three available assgradecode rows"
+    }
+  ]
+}
