@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_person_summary_source_receipt_gate",
+  "artifactKind": "yuzhou_hr_legacy_performance_person_summary_safe_source_receipt",
+  "sourceObjects": [
+    "dbo.assessmentmaster",
+    "dbo.person"
+  ],
+  "sourceRoutines": [
+    "web_ass",
+    "web_assessmentquery"
+  ],
+  "requiredEvidence": [
+    "assessmentmaster_person_orphan_counts",
+    "person_code_ascii_length_and_space_counts",
+    "person_code_case_trim_collision_counts",
+    "name_projection_conservation_counts_and_hash",
+    "page_size_20_population_counts_and_order_hash",
+    "current_snapshot_routine_projection_counts_and_hashes"
+  ],
+  "receiptOutput": "counts_status_and_sha256_only",
+  "containsSourceRows": false,
+  "containsPersonCodes": false,
+  "containsPersonNames": false,
+  "liveSqlServerReceiptRequired": true,
+  "emptyAssessmentRowsGiveBehaviorEquivalenceCredit": false,
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}
