@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_hr_legacy_performance_person_summary_safe_source_receipt",
   "sourceRestoreReceiptSha256": "f1faae7f5803e1d6940274f1c3b5a1e2a6eb5cb2f59a87b62d4d8b0b15eb104b",
   "sourceCatalogSha256": "0a22ab601f4821dde8ab80c8d09e330a6b38b4c63c2073c89ac16471f111e7a1",
-  "routineContractSha256": "f531eb453a38a0de19d793902eb0192062f2ff0722bf74c62cdc45dcb5c0e7be",
+  "routineContractSha256": "dd9dfb6352d63ef57e6bb190e8e8c53e30f1e8fbdc50101473260d9bea7b7abb",
   "databaseIdentitySha256": "46f7a455cc95c3d4ba1112bb2442b5b3ccd27cf8464f09a083669a7368193e86",
   "queryIdentitySha256": "f5369fa899ea91b4c2530bf323dcdcf939a4c369d37ae8c5b6b13ef8e3ab8424",
   "operationMode": "read_only_aggregate_hash_only",
@@ -88,5 +88,5 @@
   "status": "SOURCE_PERSON_SUMMARY_EVIDENCE_CAPTURED_WITH_GAPS",
   "compatibilityCredit": 0,
   "productionImport": "HOLD",
-  "canonicalSha256": "4fe4b52cdf51af34a09e8659971c459fe54838d87eab2bb2af896a6d992fa0fe"
+  "canonicalSha256": "548d435e22cc6f544eec3d81899a6a25dc06d673a9c4fef8e6d8a06f8846edb8"
 }
