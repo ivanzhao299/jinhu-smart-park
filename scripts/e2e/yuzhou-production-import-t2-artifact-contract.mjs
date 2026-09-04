@@ -22,7 +22,7 @@ try {
   privateDirectory(staging); privateDirectory(output);
   const type = row("dbo.compacttypecode", "type-fixture", { typeCode: "fixture-code", typeName: "fixture-type" });
   const contractWithoutEvidence = row("dbo.compact", "contract-1", { contractNo: "fixture-contract-1", legacyFilePresent: 0, legacyTextPresent: 0 });
-  const contractWithEvidence = row("dbo.compact", "contract-2", { contractNo: "fixture-contract-2", legacyFilePresent: 0, legacyTextPresent: 1 });
+  const contractWithEvidence = row("dbo.compact", "contract-2", { contractNo: "fixture-contract-2", legacyFilePresent: 1, legacyTextPresent: 1 });
   const change = row("dbo.compact_c", "change-1", { contractNo: "fixture-contract-2", sequenceNo: 1 });
   const fixtureFiles = {
     "dbo.compacttypecode": ["contract-types.jsonl", `${JSON.stringify(type)}\n`, 1],
@@ -58,16 +58,19 @@ try {
   const outputPath = join(output, "t2-phase.json");
   const result = materializeProductionT2PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath }, { head: () => codeSha });
   assert.equal(result.status, "READY_FOR_REVIEW");
-  assert.equal(result.recordCount, 5);
-  assert.deepEqual(result.targetTableCounts, { hr_contract_type: 1, hr_contract: 2, hr_contract_change: 1, hr_contract_legacy_evidence: 1 });
+  assert.equal(result.recordCount, 6);
+  assert.deepEqual(result.targetTableCounts, { hr_contract_type: 1, hr_contract: 2, hr_contract_change: 1, hr_contract_legacy_evidence: 2 });
   assert.equal(result.productionImport, "HOLD");
 
   const artifact = JSON.parse(readFileSync(outputPath, "utf8"));
   assert.deepEqual(artifact.targetTableCounts, result.targetTableCounts);
-  assert.equal(artifact.records.filter(value => value.targetTable === "hr_contract_legacy_evidence").length, 1);
-  const evidence = artifact.records.find(value => value.targetTable === "hr_contract_legacy_evidence");
-  assert.equal(evidence.sourceIdentitySha256, sha(`yuzhou-hr-production-source-projection-v1\0${contractWithEvidence.sourceIdentitySha256}\0hr_contract_legacy_evidence`));
-  assert.equal(evidence.sourceRowSha256, contractWithEvidence.sourceRowSha256);
+  const evidence = artifact.records.filter(value => value.targetTable === "hr_contract_legacy_evidence");
+  assert.equal(evidence.length, 2);
+  assert.deepEqual(
+    evidence.map(value => value.sourceIdentitySha256).sort(),
+    ["controlled_text", "file_manifest"].map(kind => sha(`yuzhou-hr-production-source-projection-v1\0${contractWithEvidence.sourceIdentitySha256}\0hr_contract_legacy_evidence\0${kind}`)).sort(),
+  );
+  assert.ok(evidence.every(value => value.sourceRowSha256 === contractWithEvidence.sourceRowSha256));
   assert.equal(new Set(artifact.records.map(value => value.sourceIdentitySha256)).size, artifact.records.length);
   assert.doesNotMatch(JSON.stringify(artifact), /fixture-contract|fixture-type|fixture-active/u);
 
