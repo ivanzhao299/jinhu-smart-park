@@ -20,7 +20,9 @@ for (const entry of [
   const source = read(entry);
   assert.match(source, /verify-source-restore-binding\.mjs/);
   assert.match(source, /YUZHOU_SOURCE_RESTORE_RECEIPT_PATH/);
+  assert.match(source, /YUZHOU_SOURCE_BACKUP_FILE/);
   assert.match(source, /--receipt "\$SOURCE_RESTORE_RECEIPT_PATH"/);
+  assert.match(source, /--backup "\$BACKUP_FILE"/);
   assert.match(source, /--etl-env "\$CREDENTIAL_FILE"/);
 }
 
