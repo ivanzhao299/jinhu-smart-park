@@ -1,0 +1,92 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_hr_legacy_performance_person_summary_safe_source_receipt",
+  "sourceRestoreReceiptSha256": "f1faae7f5803e1d6940274f1c3b5a1e2a6eb5cb2f59a87b62d4d8b0b15eb104b",
+  "sourceCatalogSha256": "0a22ab601f4821dde8ab80c8d09e330a6b38b4c63c2073c89ac16471f111e7a1",
+  "routineContractSha256": "f531eb453a38a0de19d793902eb0192062f2ff0722bf74c62cdc45dcb5c0e7be",
+  "databaseIdentitySha256": "46f7a455cc95c3d4ba1112bb2442b5b3ccd27cf8464f09a083669a7368193e86",
+  "queryIdentitySha256": "f5369fa899ea91b4c2530bf323dcdcf939a4c369d37ae8c5b6b13ef8e3ab8424",
+  "operationMode": "read_only_aggregate_hash_only",
+  "sourceObjects": {
+    "assessmentmaster": "dbo.assessmentmaster",
+    "person": "dbo.person"
+  },
+  "safeFacts": {
+    "assessmentRows": 0,
+    "assessmentNonblankPersonRows": 0,
+    "assessmentBlankPersonRows": 0,
+    "personRows": 2949,
+    "personNonblankRows": 2949,
+    "matchedAssessmentRows": 0,
+    "orphanAssessmentRows": 0,
+    "orphanDistinctPersonCodes": 0,
+    "resolvedNameProjectionRows": 0,
+    "blankNameProjectionRows": 0,
+    "assessmentInvalidPersonCodeRows": 0,
+    "personInvalidPersonCodeRows": 2,
+    "assessmentLeadingSpaceRows": 0,
+    "assessmentTrailingSpaceRows": 0,
+    "personLeadingSpaceRows": 0,
+    "personTrailingSpaceRows": 0,
+    "maximumPersonCodeBytes": 6,
+    "caseFoldCollisionGroups": 0,
+    "caseFoldCollisionVariants": 0,
+    "trimCollisionGroups": 0,
+    "trimCollisionVariants": 0,
+    "normalizedCollisionGroups": 0,
+    "normalizedCollisionVariants": 0,
+    "queryablePersonCodes": 0,
+    "queryableRows": 0,
+    "queryableMatchedRows": 0,
+    "queryableOrphanRows": 0,
+    "maximumRowsPerPerson": 0,
+    "personCodesOverPage20": 0,
+    "page20TotalPages": 0,
+    "webAssProjectedRows": 0,
+    "webAssessmentQueryProjectedRows": 0,
+    "sourceNameProjectionSetSha256": "5ee9173b1b564e61afd2359a897c180b5ea83875a91a28537df4202aad4b3aa7",
+    "webAssProjectionSetSha256": "5ee9173b1b564e61afd2359a897c180b5ea83875a91a28537df4202aad4b3aa7",
+    "webAssessmentQueryProjectionSetSha256": "5ee9173b1b564e61afd2359a897c180b5ea83875a91a28537df4202aad4b3aa7",
+    "paginationSetSha256": "5ee9173b1b564e61afd2359a897c180b5ea83875a91a28537df4202aad4b3aa7"
+  },
+  "conservation": {
+    "assessmentPersonJoin": "PROVEN",
+    "nameProjection": "PROVEN",
+    "paginationPopulation": "PROVEN"
+  },
+  "currentSnapshotEquivalence": {
+    "scope": "current_restored_source_snapshot_modern_admissible_person_codes",
+    "projectedRowCountEqual": true,
+    "projectionSetHashEqual": true,
+    "decision": "VACUOUS_EMPTY_SOURCE_POPULATION"
+  },
+  "promotionGate": {
+    "assessmentPopulation": "EMPTY_NO_BEHAVIOR_CREDIT",
+    "personCodeValidation": "GAPS_PRESENT",
+    "routineMergeDecision": "NOT_PROVEN_EMPTY_SOURCE_POPULATION",
+    "modernRuntimeComparison": "BLOCKED_NO_SOURCE_FACT_ROWS"
+  },
+  "sourceState": {
+    "readOnly": true
+  },
+  "etlAuthority": {
+    "loginSucceeded": true,
+    "sysadmin": false,
+    "dbDatareader": true,
+    "viewDefinition": true,
+    "insert": false,
+    "update": false,
+    "delete": false,
+    "execute": false
+  },
+  "privacy": {
+    "containsSourceRows": false,
+    "containsPersonCodes": false,
+    "containsPersonNames": false,
+    "hashesMayDependOnPersonalValues": true
+  },
+  "status": "SOURCE_PERSON_SUMMARY_EVIDENCE_CAPTURED_WITH_GAPS",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD",
+  "canonicalSha256": "4fe4b52cdf51af34a09e8659971c459fe54838d87eab2bb2af896a6d992fa0fe"
+}
