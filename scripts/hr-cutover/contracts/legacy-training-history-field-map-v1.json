@@ -1,0 +1,129 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_training_history_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "inventoryBindingGap": {
+    "canonicalInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "currentGeneratorObservedSha256": "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617",
+    "reasonCode": "STRUCTURAL_INVENTORY_GENERATOR_DIGEST_DRIFT",
+    "decision": "KEEP_GAP_NO_REBIND"
+  },
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.train",
+      "sourceTable": "train",
+      "observedRows": 0,
+      "stableKey": ["id"],
+      "columns": [
+        {"name": "id", "type": "int", "nullable": false, "default": null, "description": null},
+        {"name": "course", "type": "varchar(50)", "nullable": false, "default": null, "description": null},
+        {"name": "personid", "type": "int", "nullable": true, "default": "(1)", "description": null},
+        {"name": "person", "type": "varchar(10)", "nullable": false, "default": null, "description": null},
+        {"name": "hours", "type": "int", "nullable": true, "default": null, "description": null},
+        {"name": "startdate", "type": "smalldatetime", "nullable": true, "default": null, "description": null},
+        {"name": "enddate", "type": "smalldatetime", "nullable": true, "default": null, "description": null},
+        {"name": "attainment", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null},
+        {"name": "test", "type": "varchar(6)", "nullable": true, "default": null, "description": null},
+        {"name": "trainmoney", "type": "money", "nullable": true, "default": null, "description": null},
+        {"name": "memo", "type": "varchar(255)", "nullable": true, "default": null, "description": null},
+        {"name": "coursename", "type": "varchar(50)", "nullable": true, "default": null, "description": null}
+      ]
+    },
+    {
+      "sourceObject": "dbo.trainhis",
+      "sourceTable": "trainhis",
+      "observedRows": 2,
+      "stableKey": ["id"],
+      "columns": [
+        {"name": "id", "type": "int", "nullable": false, "default": null, "description": null},
+        {"name": "person", "type": "varchar(10)", "nullable": false, "default": null, "description": null},
+        {"name": "organ", "type": "varchar(30)", "nullable": true, "default": null, "description": null},
+        {"name": "coursename", "type": "varchar(50)", "nullable": true, "default": null, "description": null},
+        {"name": "startdate", "type": "smalldatetime", "nullable": true, "default": null, "description": null},
+        {"name": "enddate", "type": "smalldatetime", "nullable": true, "default": null, "description": null},
+        {"name": "hours", "type": "int", "nullable": true, "default": null, "description": null},
+        {"name": "attainment", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null},
+        {"name": "test", "type": "varchar(6)", "nullable": true, "default": null, "description": null},
+        {"name": "trainmoney", "type": "money", "nullable": true, "default": null, "description": null},
+        {"name": "memo", "type": "varchar(255)", "nullable": true, "default": null, "description": null}
+      ]
+    }
+  ],
+  "denominatorRule": "all_twenty_three_catalog_fields_count_even_when_train_is_empty_or_a_source_column_is_all_null",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_aggregates_and_gap_codes_only",
+  "fields": [
+    {"stableId":"TRAIN_ID","sourceField":"train.id","disposition":"authorized_archive","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.id"],"transformRule":"preserve_as_stable_source_identity_only","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_COURSE","sourceField":"train.course","disposition":"explicit_gap","targetFields":["hr_training_course.course_code","hr_training_plan.course_id","hr_training_plan.course_version_id"],"preservationFields":["hr_legacy_t5_record.record_payload.course"],"transformRule":"resolve_declared_course_relation_and_freeze_course_version_after_active_record_writer_exists","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_PERSONID","sourceField":"train.personid","disposition":"explicit_gap","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.personid"],"transformRule":"preserve_integer_without_assuming_equivalence_to_person_code_or_modern_employee_uuid","reasonCode":"TRAIN_PERSONID_RELATION_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAIN_PERSON","sourceField":"train.person","disposition":"explicit_gap","targetFields":["hr_training_participant.employee_id"],"preservationFields":["hr_legacy_t5_record.record_payload.person"],"transformRule":"resolve_exact_active_T0_person_record_map_or_quarantine_after_active_record_writer_exists","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_HOURS","sourceField":"train.hours","disposition":"explicit_gap","targetFields":["hr_training_course_version.hours","hr_training_participant.completed_hours"],"preservationFields":["hr_legacy_t5_record.record_payload.hours"],"transformRule":"validate_positive_numeric_hours_without_silently_defaulting_null","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_STARTDATE","sourceField":"train.startdate","disposition":"explicit_gap","targetFields":["hr_training_plan.start_date"],"preservationFields":["hr_legacy_t5_record.record_payload.startdate"],"transformRule":"convert_to_date_only_after_required_date_and_timezone_policy_is_frozen","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_ENDDATE","sourceField":"train.enddate","disposition":"explicit_gap","targetFields":["hr_training_plan.end_date","hr_training_participant.completed_at"],"preservationFields":["hr_legacy_t5_record.record_payload.enddate"],"transformRule":"convert_to_plan_end_and_completion_timestamp_only_after_required_date_and_timezone_policy_is_frozen","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_ATTAINMENT","sourceField":"train.attainment","disposition":"explicit_gap","targetFields":["hr_training_participant.score"],"preservationFields":["hr_legacy_t5_record.record_payload.attainment"],"transformRule":"preserve_numeric_score_until_range_and_out_of_range_quarantine_policy_is reviewed","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_TEST","sourceField":"train.test","disposition":"explicit_gap","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.test"],"transformRule":"preserve_result_label_without_guessing_evaluation_or_status_conversion","reasonCode":"TRAIN_TEST_RESULT_MAPPING_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAIN_TRAINMONEY","sourceField":"train.trainmoney","disposition":"explicit_gap","targetFields":["hr_training_participant.actual_cost"],"preservationFields":["hr_legacy_t5_record.record_payload.trainmoney"],"transformRule":"preserve_money_until_currency_nonnegative_and_cost_permission_policy_is frozen","reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","compatibilityCredit":0},
+    {"stableId":"TRAIN_MEMO","sourceField":"train.memo","disposition":"explicit_gap","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.memo"],"transformRule":"preserve_note_without relabeling it as participant evaluation","reasonCode":"TRAIN_MEMO_TARGET_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAIN_COURSENAME","sourceField":"train.coursename","disposition":"explicit_gap","targetFields":["hr_training_course_version.title","hr_training_plan.plan_name"],"preservationFields":["hr_legacy_t5_record.record_payload.coursename"],"transformRule":"preserve_denormalized_name_until precedence against course.coursename is reviewed","reasonCode":"TRAIN_COURSE_NAME_PRECEDENCE_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_ID","sourceField":"trainhis.id","disposition":"authorized_archive","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.id"],"transformRule":"preserve_as_stable_source_identity_and_projection_lineage","reasonCode":"TRAINING_HISTORY_SOURCE_IDENTITY_ONLY","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_PERSON","sourceField":"trainhis.person","disposition":"verified_target","targetFields":["hr_training_participant.employee_id"],"preservationFields":["hr_legacy_t5_record.record_payload.person"],"transformRule":"resolve_exact_active_T0_person_record_map_or quarantine","reasonCode":null,"compatibilityCredit":1},
+    {"stableId":"TRAINHIS_ORGAN","sourceField":"trainhis.organ","disposition":"explicit_gap","targetFields":["hr_training_course_version.provider"],"preservationFields":["hr_legacy_t5_record.record_payload.organ"],"transformRule":"preserve_without assuming training provider semantics","reasonCode":"TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_COURSENAME","sourceField":"trainhis.coursename","disposition":"verified_target","targetFields":["hr_training_course_version.title","hr_training_plan.plan_name"],"preservationFields":["hr_legacy_t5_record.record_payload.coursename"],"transformRule":"trim_to_required_course_and_plan_name_or_quarantine","reasonCode":null,"compatibilityCredit":1},
+    {"stableId":"TRAINHIS_STARTDATE","sourceField":"trainhis.startdate","disposition":"verified_target","targetFields":["hr_training_plan.start_date"],"preservationFields":["hr_legacy_t5_record.record_payload.startdate"],"transformRule":"parse_iso_source_timestamp_then_project_date_or_quarantine","reasonCode":null,"compatibilityCredit":1},
+    {"stableId":"TRAINHIS_ENDDATE","sourceField":"trainhis.enddate","disposition":"verified_target","targetFields":["hr_training_plan.end_date","hr_training_participant.completed_at"],"preservationFields":["hr_legacy_t5_record.record_payload.enddate"],"transformRule":"parse_iso_source_timestamp_project_end_date_and_Asia_Shanghai_completion_or_quarantine","reasonCode":null,"compatibilityCredit":1},
+    {"stableId":"TRAINHIS_HOURS","sourceField":"trainhis.hours","disposition":"verified_target","targetFields":["hr_training_course_version.hours","hr_training_participant.completed_hours"],"preservationFields":["hr_legacy_t5_record.record_payload.hours"],"transformRule":"require_integer_between_one_and_999999_then_project_course_and_completion_hours","reasonCode":null,"compatibilityCredit":1},
+    {"stableId":"TRAINHIS_ATTAINMENT","sourceField":"trainhis.attainment","disposition":"explicit_gap","targetFields":["hr_training_participant.score"],"preservationFields":["hr_legacy_t5_record.record_payload.attainment"],"transformRule":"current_transform_preserves_value_but_writer_does_not_project_score","reasonCode":"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_TEST","sourceField":"trainhis.test","disposition":"explicit_gap","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.test"],"transformRule":"current_transform_preserves label but no reviewed result dictionary or target field exists","reasonCode":"TRAINING_HISTORY_TEST_RESULT_MAPPING_UNRESOLVED","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_TRAINMONEY","sourceField":"trainhis.trainmoney","disposition":"explicit_gap","targetFields":["hr_training_participant.actual_cost"],"preservationFields":["hr_legacy_t5_record.record_payload.trainmoney"],"transformRule":"full archive preserves money but dedicated extract and writer omit actual cost","reasonCode":"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE","compatibilityCredit":0},
+    {"stableId":"TRAINHIS_MEMO","sourceField":"trainhis.memo","disposition":"explicit_gap","targetFields":[],"preservationFields":["hr_legacy_t5_record.record_payload.memo"],"transformRule":"full archive preserves note without relabeling it as participant evaluation","reasonCode":"TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED","compatibilityCredit":0}
+  ],
+  "relations": [
+    {"source":"train.person","target":"person.person","kind":"declared_foreign_key_and_routine_join","disposition":"verified_source_relation"},
+    {"source":"train.course","target":"course.course","kind":"declared_foreign_key_and_routine_join","disposition":"verified_source_relation"},
+    {"source":"trainhis.person","target":"person.person","kind":"declared_foreign_key_and_projection_record_map","disposition":"verified_source_relation"}
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {"routineId":"RULE-522C4683EEE76C1B","sourceName":"u_trainmoney","sourceArtifactSha256":"94d4da5561ec735fd85e06fd4936781ccc223c1694437d4d751aabad0159cc34"},
+      {"routineId":"RULE-17C65A9F55141B37","sourceName":"u_trainmoneys","sourceArtifactSha256":"150daea145e2f4048a28f2bb60bc70e8a80a305046df7d2f9ac979a3c1837f25"},
+      {"routineId":"RULE-2D4C9B3E294C376B","sourceName":"u_trainrecords","sourceArtifactSha256":"62e4231664bf9acc6205592332213b96f8663c51cc2d32b2faae730826c75432"},
+      {"routineId":"RULE-5BC3DE9B6D975A1B","sourceName":"web_traincount","sourceArtifactSha256":"a98bd419754260c51afe2bd46100680b9118e14b89e0b8c2d2a0febbeb90b695"},
+      {"routineId":"RULE-78BBAD337FC9C3BF","sourceName":"web_trainrecords","sourceArtifactSha256":"5a3b7621e058dd8c1acf9cec682ff06f489c4992a3ce81637bef8f400aa35dc4"}
+    ]
+  },
+  "explicitGaps": [
+    {"sourceFields":["train.course","train.person","train.hours","train.startdate","train.enddate","train.attainment","train.trainmoney"],"reasonCode":"TRAIN_ACTIVE_RECORD_WRITER_NOT_IMPLEMENTED","missingEvidence":["train_dedicated_transform_and_writer","train_record_map_projection_and_rollback"],"decision":"KEEP_GAP"},
+    {"sourceFields":["train.personid"],"reasonCode":"TRAIN_PERSONID_RELATION_UNRESOLVED","missingEvidence":["declared_relation_or_reviewed_personid_semantics"],"decision":"KEEP_GAP"},
+    {"sourceFields":["train.test"],"reasonCode":"TRAIN_TEST_RESULT_MAPPING_UNRESOLVED","missingEvidence":["reviewed_legacy_test_dictionary_and_modern_result_target"],"decision":"KEEP_GAP"},
+    {"sourceFields":["train.memo"],"reasonCode":"TRAIN_MEMO_TARGET_UNRESOLVED","missingEvidence":["reviewed_memo_business_meaning_and_target"],"decision":"KEEP_GAP"},
+    {"sourceFields":["train.coursename"],"reasonCode":"TRAIN_COURSE_NAME_PRECEDENCE_UNRESOLVED","missingEvidence":["reviewed_precedence_against_course_coursename"],"decision":"KEEP_GAP"},
+    {"sourceFields":["trainhis.organ"],"reasonCode":"TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED","missingEvidence":["readonly_page_or_routine_label_for_organ"],"decision":"KEEP_GAP"},
+    {"sourceFields":["trainhis.attainment","trainhis.trainmoney"],"reasonCode":"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE","missingEvidence":["score_and_actual_cost_projection_writer","range_currency_permission_and_rollback_contract"],"decision":"KEEP_GAP"},
+    {"sourceFields":["trainhis.test"],"reasonCode":"TRAINING_HISTORY_TEST_RESULT_MAPPING_UNRESOLVED","missingEvidence":["reviewed_legacy_test_dictionary_and_modern_result_target"],"decision":"KEEP_GAP"},
+    {"sourceFields":["trainhis.memo"],"reasonCode":"TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED","missingEvidence":["reviewed_memo_business_meaning_and_target"],"decision":"KEEP_GAP"}
+  ],
+  "repositoryEvidence": [
+    {"role":"full_field_extract","path":"scripts/extract-yuzhou-t5-legacy-history.sh","sha256":"7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353","requiredTokens":["SELECT id,course,personid,person,hours,CONVERT(varchar(33),startdate,126) startdate,CONVERT(varchar(33),enddate,126) enddate,CONVERT(varchar(40),attainment) attainment,test,CONVERT(varchar(40),trainmoney) trainmoney,memo,coursename FROM dbo.train","SELECT id,person,organ,coursename,CONVERT(varchar(33),startdate,126) startdate,CONVERT(varchar(33),enddate,126) enddate,hours,CONVERT(varchar(40),attainment) attainment,test,CONVERT(varchar(40),trainmoney) trainmoney,memo FROM dbo.trainhis"]},
+    {"role":"source_aggregate","path":"scripts/transform-yuzhou-t5-legacy-history.mjs","sha256":"bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3","requiredTokens":["train:0","trainhis:2"]},
+    {"role":"history_read_only_extract","path":"scripts/extract-yuzhou-training-reward-history.sh","sha256":"e8c9ebae83dd80c8f067a396b9d968e43a648bce7625a1e15d5b812d191c32cb","requiredTokens":["trainhis.raw.json","SELECT id,person,coursename"]},
+    {"role":"history_transform","path":"scripts/transform-yuzhou-training-reward-history.mjs","sha256":"ee533a542407bca672e02d8625f251bef0c885c40b5cf5fed2998b17ce698fc6","requiredTokens":["domain:\"training_history\"","TRAINING_HISTORY_INCOMPLETE"]},
+    {"role":"history_writer","path":"scripts/load-yuzhou-training-reward-history.sh","sha256":"3b95e0dae65d0f08dfbe77af689e67f8536cd54e6c9bfbee6e26451620c79161","requiredTokens":["INSERT INTO hr_training_course","INSERT INTO hr_training_participant","completed_hours=v.hours"]},
+    {"role":"modern_schema","path":"database/migrations/000254_hr_training_operations.sql","sha256":"d84e95815a0aa51c2b58e51b645fcdad45c13a73ca988ac81b635a5e17594427","requiredTokens":["CREATE TABLE hr_training_course (","CREATE TABLE hr_training_participant (","score numeric(8,2)","actual_cost numeric(20,4)"]},
+    {"role":"authorized_archive","path":"database/migrations/000256_hr_legacy_t5_history.sql","sha256":"a00798cb1b3867b4865367e3d770143cd673e45f6d0e02b0476d4b60f7ad7ab9","requiredTokens":["record_payload jsonb NOT NULL","'training_course','training_history'"]},
+    {"role":"authorized_archive_writer","path":"scripts/load-yuzhou-t5-legacy-history.sh","sha256":"bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de","requiredTokens":["INSERT INTO hr_legacy_t5_record","c.payload->'source'"]},
+    {"role":"projection_rollback","path":"database/migrations/000286_hr_legacy_training_reward_projection.sql","sha256":"c70ac94314d7ea0a02d5410fbfc951aa4b84546e528c2932a3e8a4e4bee79202","requiredTokens":["source_table IN('dbo.trainhis','dbo.bonuscode')","training_participant_id"]},
+    {"role":"runtime_api","path":"apps/api/src/modules/hr/hr-training.service.ts","sha256":"d6766c57c58142ef7053704a44028e1e967809008662d5df7c3cc03210ba3fd0","requiredTokens":["hr_training_participant","completed_hours=$4","score=$5","evaluation=$6","actual_cost=$7"]},
+    {"role":"runtime_page","path":"apps/web/app/hr/training/HrTrainingClient.tsx","sha256":"20c19ae0a97e89adae060faab32ccd3059e1cc416bbaa58420e6ac8cca43f0af","requiredTokens":["培训结果","完成学时","实际费用"]}
+  ],
+  "compatibilityCredit": {"numerator":5,"denominator":23},
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": ["photo","docs"],
+  "productionImport": "HOLD"
+}
