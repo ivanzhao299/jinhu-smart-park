@@ -263,6 +263,19 @@ pnpm hr:migration:legacy-routine-logic:audit -- --inventory <原子清单绝对�
 
 每个业务例程只有在其旧输入 fixture、现代服务输出、状态副作用、金额/数量守恒、权限负例和桌面/390px 页面结果全部一致后，才能从 pending 改为 equivalent。历史变体（`_bak/_bak2/_bak3/_old/2003`）必须归入同一 canonical family 比较差异；不能只验证最新同名版本，也不能把“已迁历史数据”当作“已复现业务逻辑”。
 
+### 13.1 绩效查询例程语义合同（2026-09-05）
+
+`legacy-performance-query-routine-parity-v1.json` 已把 `u_assessmentquery`、`u_assessmentvalue`、`u_assessmentvalueofperson`、`u_assessmentmaster`、`web_ass`、`web_assessmentquery`、`web_assquery` 七个查询过程逐项绑定到源码哈希、19 个参数和 53 个返回列。五个动态 SQL 过程经源码审查确认只有查询行为，但旧式字符串拼接仍不安全；现代实现必须使用绑定参数、类型化等级列表、服务端 tenant/park/team/self 范围和失败即隐藏结果的敏感读取审计，不复制旧式动态 SQL。
+
+四个过程引用当前绑定 DDL 不存在的旧版 `assessmentmaster` 字段，已标为 `dormant_schema_drift`，在 catalog/版本证据明确前不得猜测别名。`u_assessmentvalue` 与 `u_assessmentvalueofperson` 的“最后评定分”严格记录为 `itemvalue + timekeepvalue + bonusvalue`，不含同一结果中展示的 `mastervalue`；`web_assquery` 会覆盖传入周期并查询全部周期，现代默认行为应修正为尊重周期，而兼容对照模式需证明旧输入确实不起作用。七个过程当前均为 `pending`，兼容分不增加，生产导入仍为 `HOLD`。
+
+专项核验命令：
+
+```bash
+pnpm test:e2e:yuzhou-performance-query-routine-parity
+pnpm hr:migration:performance-query-routine-parity
+```
+
 ## 14. 全模型重写目标、零遗漏规则与里程碑（2026-09-04）
 
 本项目按大型专业 HR 产品的技术栈重写执行，不再按园区附属 CRUD 模块估算。生产迁移不是独立终点，而是全模型兼容完成后的交付动作。事实源分为三层，三层均不可互相替代：DDL 定义系统可表达的结构，存储过程/函数/触发器源码定义计算和状态逻辑，当前备份实例只定义本次需要迁移的实际值。因此空表、全空列、没有被当前数据触发的分支、当前没有调用证据的例程仍须进入映射账和测试计划；不得以“本次数据为空”为理由删除功能。
