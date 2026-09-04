@@ -3,9 +3,15 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { ForbiddenException } from "@nestjs/common";
+import { DataSource } from "typeorm";
 import { projectHrCustomFieldDefinition, HrCustomFieldDefinitionService } from "./hr-custom-field-definition.service";
 
 const scope = { tenantId: "tenant-a", parkId: "park-a" };
+
+test("service preserves runtime DataSource injection metadata", () => {
+  const dependencies = Reflect.getMetadata("design:paramtypes", HrCustomFieldDefinitionService) as unknown[];
+  assert.equal(dependencies[1], DataSource);
+});
 
 test("legacy definition projection is fail-closed and never exposes stored fingerprints", () => {
   const projection = projectHrCustomFieldDefinition({
