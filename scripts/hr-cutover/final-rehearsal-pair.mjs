@@ -221,6 +221,12 @@ export function validateMachineResumeCheckpoint(checkpoint,configs,{checkpointEv
 
 function parse(argv){const out={execute:false};for(let i=0;i<argv.length;i+=1){const arg=argv[i];if(arg==="--execute")out.execute=true;else if(["--config-a","--config-b","--contract","--summary","--phase","--checkpoint","--decision-a","--payload-a","--machine-attestation-a","--decision-b","--payload-b","--machine-attestation-b"].includes(arg))out[arg.slice(2).replace(/-([a-z])/gu,(_m,x)=>x.toUpperCase())]=argv[++i];else fail("FINAL_PAIR_ARGUMENT_INVALID",arg);}if(!out.configA||!out.configB)fail("FINAL_PAIR_ARGUMENT_INVALID","--config-a and --config-b required");return out;}
 function privateJson(path,value){if(existsSync(path))fail("FINAL_PAIR_SUMMARY_EXISTS",path);writeFileSync(path,canonical(value),{mode:0o600,flag:"wx"});chmodSync(path,0o600);}
+export function writeTerminalHoldSummary(path, signal){
+  if(typeof path!=="string"||!path||existsSync(path))return false;
+  if(!["SIGINT","SIGTERM","SIGHUP"].includes(signal))fail("FINAL_PAIR_SIGNAL_INVALID",signal);
+  privateJson(path,{formatVersion:1,status:"HOLD",errorCode:"FINAL_PAIR_INTERRUPTED",errorDetail:`signal=${signal}`,productionImport:"HOLD"});
+  return true;
+}
 function mode(path){return(statSync(path).mode&0o777).toString(8).padStart(4,"0");}
 function inside(parent,child){const rel=relative(parent,child);return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
 
@@ -299,6 +305,12 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(requestedSummary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
     if((statSync(summaryParent).mode&0o777)!==0o700)fail("FINAL_PAIR_SUMMARY_UNSAFE","private 0700 parent required");
     summary=summaryResolved;
+    for(const signal of ["SIGINT","SIGTERM","SIGHUP"]){
+      process.once(signal,()=>{
+        writeTerminalHoldSummary(summary,signal);
+        process.exit(128);
+      });
+    }
     if(!["extract","resume"].includes(args.phase))fail("FINAL_PAIR_PHASE_REQUIRED","--phase extract|resume required");
     if(args.phase==="extract"){const checkpoint=runFinalPairExtract(configs[0],configs[1]);privateJson(summary,checkpoint);process.stdout.write(`${JSON.stringify({status:"REVIEW_HOLD",checkpoint:summary,productionImport:"HOLD"})}\n`);process.exit(0);}
     const checkpointPath=realpathSync(resolve(args.checkpoint??""));if(mode(checkpointPath)!=="0600")fail("FINAL_PAIR_CHECKPOINT_INVALID","0600 checkpoint required");const checkpoint=JSON.parse(readFileSync(checkpointPath,"utf8"));validateMachineResumeCheckpoint(checkpoint,configs);
