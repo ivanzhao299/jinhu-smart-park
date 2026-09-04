@@ -12,10 +12,14 @@ fail() { printf '%s\n' "$1" >&2; exit 1; }
 mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1" 2>/dev/null; }
 
 [ -n "$OUTPUT" ] || fail PERFORMANCE_EXTRACT_PRIVATE_OUTPUT_REQUIRED
+MASTER_OUTPUT="${YUZHOU_PERFORMANCE_MASTER_PRIVATE_OUTPUT:-$OUTPUT.master.json}"
+RELATION_OUTPUT="${YUZHOU_PERFORMANCE_RELATION_PRIVATE_OUTPUT:-$OUTPUT.relations.json}"
 case "$CONTAINER" in *[!A-Za-z0-9_.-]*|'') fail PERFORMANCE_EXTRACT_CONTAINER_INVALID;; esac
 [ -f "$CREDENTIAL_FILE" ] && [ "$(mode "$CREDENTIAL_FILE")" = 600 ] || fail PERFORMANCE_EXTRACT_ETL_ENVELOPE_INVALID
 [ -f "$SOURCE_RECEIPT" ] || fail PERFORMANCE_EXTRACT_SOURCE_RECEIPT_MISSING
 [ ! -e "$OUTPUT" ] || fail PERFORMANCE_EXTRACT_PRIVATE_OUTPUT_EXISTS
+[ "$MASTER_OUTPUT" != "$OUTPUT" ] && [ "$RELATION_OUTPUT" != "$OUTPUT" ] && [ "$MASTER_OUTPUT" != "$RELATION_OUTPUT" ] || fail PERFORMANCE_EXTRACT_OUTPUTS_MUST_DIFFER
+[ ! -e "$MASTER_OUTPUT" ] && [ ! -e "$RELATION_OUTPUT" ] || fail PERFORMANCE_EXTRACT_PRIVATE_OUTPUT_EXISTS
 
 # The private envelope is sourced without echoing it.  The password is passed
 # to sqlcmd over stdin and never appears in argv, stdout, or the safe receipt.
@@ -26,9 +30,12 @@ set +a
 [ "$(printf '%s' "$YUZHOU_SQLSERVER_ETL_LOGIN" | tr '[:upper:]' '[:lower:]')" != sa ] || fail PERFORMANCE_EXTRACT_SA_FORBIDDEN
 printf '%s' "${YUZHOU_SQLSERVER_DATABASE:-}" | grep -Eq '^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$' || fail PERFORMANCE_EXTRACT_DATABASE_INVALID
 
+for PRIVATE_OUTPUT in "$OUTPUT" "$MASTER_OUTPUT" "$RELATION_OUTPUT"; do
+  PRIVATE_OUTPUT_DIR="$(dirname -- "$PRIVATE_OUTPUT")"
+  mkdir -p "$PRIVATE_OUTPUT_DIR"
+  chmod 700 "$PRIVATE_OUTPUT_DIR"
+done
 OUTPUT_DIR="$(dirname -- "$OUTPUT")"
-mkdir -p "$OUTPUT_DIR"
-chmod 700 "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d "$OUTPUT_DIR/.performance-extract.XXXXXX")"
 chmod 700 "$WORK_DIR"
 cleanup() { rm -rf "$WORK_DIR"; }
@@ -63,47 +70,63 @@ sqlcmd_query "$WORK_DIR/assessmentdetail.json" "SET NOCOUNT ON; SELECT LOWER(CON
 sqlcmd_query "$WORK_DIR/asssession.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssession',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssession,source.description,source.assessmenttype,source.year,source.month,source.quarter,source.myorder FROM dbo.asssession source CROSS APPLY(SELECT source.id,source.asssession,source.description,source.assessmenttype,source.year,source.month,source.quarter,source.myorder FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 sqlcmd_query "$WORK_DIR/assessmentmaster.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.assessmentmaster',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.selfgrade,source.assgrade,source.selfvalue,source.itemvalue,source.mitemvalue,source.xitemvalue,source.citemvalue,source.mastervalue,source.timekeepvalue,source.bonusvalue,source.totalvalue,source.selfappraisal,source.appraisal,source.pay,source.assessmentperson,source.recdate,source.operator,source.des FROM dbo.assessmentmaster source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.selfgrade,source.assgrade,source.selfvalue,source.itemvalue,source.mitemvalue,source.xitemvalue,source.citemvalue,source.mastervalue,source.timekeepvalue,source.bonusvalue,source.totalvalue,source.selfappraisal,source.appraisal,source.pay,source.assessmentperson,source.recdate,source.operator,source.des FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 sqlcmd_query "$WORK_DIR/asssour.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssour',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.assitemid,source.lb,source.itemvalue,source.assgrade,source.appraisal FROM dbo.asssour source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.assitemid,source.lb,source.itemvalue,source.assgrade,source.appraisal FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
+sqlcmd_query "$WORK_DIR/asssourperson.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssourperson',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.assperson,source.lb FROM dbo.asssourperson source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.assperson,source.lb FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 
 SOURCE_RECEIPT_SHA256="$(shasum -a 256 "$SOURCE_RECEIPT" | awk '{print $1}')"
-export WORK_DIR OUTPUT SOURCE_RECEIPT_SHA256
+export WORK_DIR OUTPUT MASTER_OUTPUT RELATION_OUTPUT SOURCE_RECEIPT_SHA256
 node --input-type=module <<'NODE'
 import { createHash } from "node:crypto";
 import { openSync, closeSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve } from "node:path";
 
-const names = ["assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail", "asssession", "assessmentmaster", "asssour"];
-const payload = Object.fromEntries(names.map(name => [name, JSON.parse(readFileSync(resolve(process.env.WORK_DIR, `${name}.json`), "utf8") || "[]")]));
+const projectionNames = ["assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail"];
+const masterNames = ["assessmentmaster"];
+const relationNames = ["asssession", "asssour", "asssourperson"];
+const names = [...projectionNames, ...masterNames, ...relationNames];
+const all = Object.fromEntries(names.map(name => [name, JSON.parse(readFileSync(resolve(process.env.WORK_DIR, `${name}.json`), "utf8") || "[]")]));
+const payload = Object.fromEntries(projectionNames.map(name => [name, all[name]]));
+const masterPayload = Object.fromEntries(masterNames.map(name => [name, all[name]]));
+const relationPayload = Object.fromEntries(relationNames.map(name => [name, all[name]]));
 const canonical = `${JSON.stringify(payload)}\n`;
-const fd = openSync(process.env.OUTPUT, "wx", 0o600);
-closeSync(fd);
-writeFileSync(process.env.OUTPUT, canonical, { mode: 0o600 });
-chmodSync(process.env.OUTPUT, 0o600);
+const masterCanonical = `${JSON.stringify(masterPayload)}\n`;
+const relationCanonical = `${JSON.stringify(relationPayload)}\n`;
+const writePrivate = (path, bytes) => {
+  const fd = openSync(path, "wx", 0o600);
+  closeSync(fd);
+  writeFileSync(path, bytes, { mode: 0o600 });
+  chmodSync(path, 0o600);
+};
+writePrivate(process.env.OUTPUT, canonical);
+writePrivate(process.env.MASTER_OUTPUT, masterCanonical);
+writePrivate(process.env.RELATION_OUTPUT, relationCanonical);
 const duplicateGroups = (rows, key) => [...rows.reduce((m, row) => m.set(String(row[key]), (m.get(String(row[key])) ?? 0) + 1), new Map()).values()].filter(count => count > 1).length;
-const assessmentIds = new Set(payload.assessmentcode.map(row => row.assessment));
-const gradeCodes = new Set(payload.assgradecode.map(row => row.assgrade));
-const itemIds = new Set(payload.assitem.map(row => row.id));
-const sessionIds = new Set(payload.asssession.map(row => row.id));
+const assessmentIds = new Set(all.assessmentcode.map(row => row.assessment));
+const gradeCodes = new Set(all.assgradecode.map(row => row.assgrade));
+const itemIds = new Set(all.assitem.map(row => row.id));
+const sessionIds = new Set(all.asssession.map(row => row.id));
 const safeFacts = {
-  rowCounts: Object.fromEntries(names.map(name => [name, payload[name].length])),
+  rowCounts: Object.fromEntries(names.map(name => [name, all[name].length])),
   duplicateKeyGroups: {
-    assessmentcode: duplicateGroups(payload.assessmentcode, "assessment"),
-    assgradecode: duplicateGroups(payload.assgradecode, "assgrade"),
-    assitem: duplicateGroups(payload.assitem, "id"),
-    assitemgradedes: duplicateGroups(payload.assitemgradedes, "id"),
-    assessmentdetail: duplicateGroups(payload.assessmentdetail, "id"),
-    asssession: duplicateGroups(payload.asssession, "id"),
-    assessmentmaster: duplicateGroups(payload.assessmentmaster, "id"),
-    asssour: duplicateGroups(payload.asssour, "id"),
+    assessmentcode: duplicateGroups(all.assessmentcode, "assessment"),
+    assgradecode: duplicateGroups(all.assgradecode, "assgrade"),
+    assitem: duplicateGroups(all.assitem, "id"),
+    assitemgradedes: duplicateGroups(all.assitemgradedes, "id"),
+    assessmentdetail: duplicateGroups(all.assessmentdetail, "id"),
+    asssession: duplicateGroups(all.asssession, "id"),
+    assessmentmaster: duplicateGroups(all.assessmentmaster, "id"),
+    asssour: duplicateGroups(all.asssour, "id"),
+    asssourperson: duplicateGroups(all.asssourperson, "id"),
   },
   unresolvedRelations: {
-    assitemAssessment: payload.assitem.filter(row => row.assid !== null && !assessmentIds.has(row.assid)).length,
-    guideItem: payload.assitemgradedes.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
-    guideGrade: payload.assitemgradedes.filter(row => row.grade !== null && !gradeCodes.has(row.grade)).length,
-    detailItem: payload.assessmentdetail.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
-    detailSession: payload.assessmentdetail.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
-    masterSession: payload.assessmentmaster.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
-    scoreSourceSession: payload.asssour.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
-    scoreSourceItem: payload.asssour.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+    assitemAssessment: all.assitem.filter(row => row.assid !== null && !assessmentIds.has(row.assid)).length,
+    guideItem: all.assitemgradedes.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+    guideGrade: all.assitemgradedes.filter(row => row.grade !== null && !gradeCodes.has(row.grade)).length,
+    detailItem: all.assessmentdetail.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+    detailSession: all.assessmentdetail.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
+    masterSession: all.assessmentmaster.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
+    scoreSourceSession: all.asssour.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
+    scoreSourceItem: all.asssour.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+    scoreSourcePersonSession: all.asssourperson.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
   },
 };
 process.stdout.write(`${JSON.stringify({
@@ -114,6 +137,8 @@ process.stdout.write(`${JSON.stringify({
   sourceSysadmin: false,
   sourceRestoreReceiptSha256: process.env.SOURCE_RECEIPT_SHA256,
   privatePayloadSha256: createHash("sha256").update(canonical).digest("hex"),
+  masterPrivatePayloadSha256: createHash("sha256").update(masterCanonical).digest("hex"),
+  relationPrivatePayloadSha256: createHash("sha256").update(relationCanonical).digest("hex"),
   privatePayloadMode: "0600",
   safeFacts,
   containsSourceValues: false,
