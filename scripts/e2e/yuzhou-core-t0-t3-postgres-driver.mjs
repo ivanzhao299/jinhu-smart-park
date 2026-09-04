@@ -218,7 +218,10 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.throws(() => adapters.executePhase({ domain: "T4", phase: "extract" }), /CORE_FORBIDDEN_DOMAIN_REACHABLE/u);
   assert.doesNotThrow(() => adapters.executePhase({ domain: "T0", phase: "extract" }));
   assert.doesNotThrow(() => adapters.executePhase({ domain: "T1", phase: "extract" }));
-  assert.equal(commands.length, 2);
+  assert.doesNotThrow(() => adapters.executePhase({ domain: "T3", phase: "extract" }));
+  assert.equal(commands.length, 3);
+  const t3Extract = commands.at(-1);
+  assert.equal(t3Extract[2].env.YUZHOU_SOURCE_BACKUP_FILE, sourceBackupPath);
   assert.throws(() => adapters.executePhase({ domain: "T1", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
   assert.throws(() => adapters.executePhase({ domain: "T2", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
   assert.throws(() => adapters.materializeFacts(), /CORE_DRIVER_PRIVATE_FILE_INVALID/u);
