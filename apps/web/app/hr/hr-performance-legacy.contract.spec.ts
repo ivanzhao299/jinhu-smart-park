@@ -7,7 +7,7 @@ const panel = readFileSync(resolve(__dirname, "performance/HrPerformanceLegacyPa
 const styles = readFileSync(resolve(__dirname, "performance/performance-legacy.module.css"), "utf8");
 const api = readFileSync(resolve(__dirname, "../../lib/hr-api.ts"), "utf8");
 
-test("legacy performance screen exposes every one of the 29 definition and 12 result source fields", () => {
+test("legacy performance screen exposes all 29 definition, 12 detail, and 21 master source fields", () => {
   const sourceFields = [
     "sourceAssessment", "sourceAssessmentName", "sourceDepartment", "sourceMPercent",
     "sourceTPercent", "sourceXPercent", "sourceCPercent", "sourceSPercent",
@@ -17,14 +17,20 @@ test("legacy performance screen exposes every one of the 29 definition and 12 re
     "sourceGuideId", "sourceGrade", "sourceDetailId", "sourceSessionId",
     "sourcePersonCode", "sourceSelfValue", "sourceMItemValue", "sourceItemValue",
     "sourceXItemValue", "sourceCItemValue", "sourceSelfGrade", "sourceAppraisal",
+    "sourceMasterId", "sourceMasterValue", "sourceTimekeepValue", "sourceBonusValue",
+    "sourceTotalValue", "sourceSelfAppraisal", "sourcePay", "sourceAssessmentPerson",
+    "sourceRecordedAt", "sourceOperatorCode",
   ];
   for (const field of sourceFields) assert.match(panel, new RegExp(`key: "${field}"`, "u"));
-  assert.equal(panel.match(/\{ key: "source[A-Z][A-Za-z]+"/gu)?.length, 41);
-  assert.match(panel, /29 个定义字段和 12 个结果字段/u);
+  assert.equal(panel.match(/\{ key: "source[A-Z][A-Za-z]+"/gu)?.length, 62);
+  assert.match(panel, /29 个定义字段、12 个明细结果字段和 21 个汇总字段/u);
+  for (const field of ["calculatedTotal", "expectedAssGrade", "winningMinValue", "winningCandidateCount", "parityStatus"]) {
+    assert.match(panel, new RegExp(`key: "${field}"`, "u"));
+  }
 });
 
 test("legacy performance browser is read-only, paginated, scoped, and relationship-visible", () => {
-  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Rubric", "Results"]) {
+  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Rubric", "Results", "Masters"]) {
     assert.match(api, new RegExp(`performanceLegacy${endpoint}:`, "u"));
   }
   for (const relation of [
@@ -33,6 +39,7 @@ test("legacy performance browser is read-only, paginated, scoped, and relationsh
     "targetDimensionId", "targetCycleEmployeeId",
   ]) assert.match(panel, new RegExp(`key: "${relation}"`, "u"));
   assert.match(panel, /HR_PERFORMANCE_TEAM_READ/u);
+  assert.doesNotMatch(panel, /HR_PERFORMANCE_RESULT_READ/u);
   assert.match(api, /source_session_id/u);
   assert.match(panel, /<Pager result=/u);
   assert.doesNotMatch(panel, /hrApi\.(create|publish|submit|resolve|add|complete)/u);
@@ -44,10 +51,20 @@ test("legacy performance rubric reproduces the dynamic grade matrix on desktop a
   assert.match(panel, /旧过程 u_printassessment/u);
   assert.match(panel, /旧版动态评分表/u);
   assert.match(panel, /源库没有该考核表的等级定义/u);
+  assert.match(panel, /考核表 #\{rubric\.sourceAssessmentId\}/u);
+  assert.match(panel, /rubricRequest\.current\?\.abort\(\)/u);
+  assert.match(panel, /current === rubricGeneration\.current/u);
   assert.match(panel, /ds-table-shell/u);
   assert.match(panel, /ds-mobile-record-list/u);
   assert.match(styles, /\.rubricTable[\s\S]*?display: none/u);
   assert.match(styles, /\.rubricMobile[\s\S]*?display: grid/u);
+});
+
+test("legacy performance filters reject invalid source identifiers before requesting the API", () => {
+  assert.match(panel, /Number\.isSafeInteger\(sourceSessionId\)/u);
+  assert.match(panel, /请输入有效的旧考核批次编号/u);
+  assert.match(panel, /Number\.isSafeInteger\(sourceAssessmentId\)/u);
+  assert.match(panel, /请输入有效的旧考核表编号/u);
 });
 
 test("legacy performance fields collapse on phone-width layouts", () => {
