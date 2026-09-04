@@ -295,9 +295,14 @@ test("v2 repository contract is HOLD with an empty production target allowlist",
   assert.match(writer, /const resultBySourceIdentity = new Map/u);
   assert.doesNotMatch(writer, /result\.records\.find\(/u, "control receipt lookup must remain O(n), not O(n squared)");
   const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+  const packageJson = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-preflight/u);
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2(?:\s|$)/u);
-  assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-nonfile/u);
+  assert.match(ci, /pnpm test:e2e:yuzhou-production-import-t5-private-stage/u);
+  assert.equal(
+    packageJson.scripts["test:e2e:yuzhou-production-import-t5-private-stage"],
+    "pnpm test:e2e:yuzhou-production-import-t5-nonfile",
+  );
   assert.match(ci, /pnpm test:e2e:yuzhou-production-import-v2:pg/u);
   assert.match(ci, /jinhu_hr_migration_lab_ci_\$\{GITHUB_RUN_ID\}/u);
   for (const path of [".github/workflows/deploy-production.yml", "scripts/prod-deploy.sh", "scripts/db-seed-prod.sh", "scripts/hr-cutover/full-domain-lifecycle.sh"]) {
