@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
-import type { DataSource, Repository, SelectQueryBuilder } from "typeorm";
+import { DataSource, type Repository, type SelectQueryBuilder } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { HrCustomFieldDefinitionQueryDto, ReviewHrCustomFieldDefinitionDto } from "./dto/hr-custom-field-definition.dto";

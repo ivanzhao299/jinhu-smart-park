@@ -78,6 +78,8 @@ test("controller and migration keep scoped audited review without any raw legacy
   assert.match(controller, /captureBody: false/);
   assert.match(service, /definition\.tenant_id=:tenantId AND definition\.park_id=:parkId/);
   assert.match(service, /recordHrSensitiveRead/);
+  assert.match(service, /import \{ DataSource, type Repository, type SelectQueryBuilder \} from "typeorm";/);
+  assert.doesNotMatch(service, /import type \{[^}]*DataSource/);
   assert.match(migration, /legacy_sqltext_present boolean/);
   assert.match(migration, /legacy_sqltext_sha256 char\(64\)/);
   assert.match(migration, /legacy_crosssql_present boolean/);
