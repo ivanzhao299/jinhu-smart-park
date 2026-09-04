@@ -6,6 +6,7 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequireAnyPermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HrPerformanceLegacyAssessmentMasterQueryDto } from "./dto/hr-performance-legacy-assessment-master.dto";
+import { HrPerformanceLegacyAssessmentValueQueryDto } from "./dto/hr-performance-legacy-assessment-value.dto";
 import {
   HrPerformanceLegacyPageQueryDto,
   HrPerformanceLegacyResultQueryDto,
@@ -138,5 +139,19 @@ export class HrPerformanceLegacyController {
     @Query() query: HrPerformanceLegacyAssessmentMasterQueryDto,
   ) {
     return this.service.assessmentMasterQuery(scope, actor, query);
+  }
+
+  @Get("query-reports/assessment-value")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  assessmentValueQuery(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyAssessmentValueQueryDto,
+  ) {
+    return this.service.assessmentValueQuery(scope, actor, query);
   }
 }

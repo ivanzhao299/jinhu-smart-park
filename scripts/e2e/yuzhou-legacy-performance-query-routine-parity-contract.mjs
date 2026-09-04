@@ -25,7 +25,7 @@ test("seven query routines remain pending and receive zero compatibility credit"
     sourceRoutines: 7,
     verifiedRoutines: 0,
     pendingRoutines: 7,
-    implementedTargets: 3,
+    implementedTargets: 4,
     dynamicReadOnlyRoutines: 5,
     schemaDriftRoutines: 4,
     compatibilityCredit: 0,
@@ -56,6 +56,37 @@ test("u_assessmentmaster is implemented without claiming its unresolved assid dr
     item.code === "CALLER_SUPPLIED_LIKE_PATTERN"
       && /exact or legacy_like/iu.test(item.modernDecision)
       && /bound PostgreSQL parameter/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
+});
+
+test("u_assessmentvalue implements nine columns without changing its frozen formula", () => {
+  const row = contract.routines.find(item => item.sourceName === "u_assessmentvalue");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.assessmentValueQuery",
+    api: "GET /hr/performance-legacy/query-reports/assessment-value",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValuePanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 9);
+  assert.equal(row.outputColumns[2].plannedModernField, "unresolvedLegacyGrade");
+  const formula = row.calculationSemantics.find(
+    item => item.code === "LEGACY_FINAL_EXCLUDES_MASTERVALUE",
+  );
+  assert.equal(formula.expression, "itemvalue + timekeepvalue + bonusvalue");
+  assert.doesNotMatch(formula.expression, /mastervalue/iu);
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /verified same-batch/iu.test(item.modernDecision)
+      && /explicit null/iu.test(item.modernDecision)
+      && /not guessed from assgrade/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "DEPARTMENT_PREFIX_INPUT_HARDENED"
+      && /bounded literal prefix/iu.test(item.modernDecision)
+      && /bound PostgreSQL LIKE parameter/iu.test(item.modernDecision),
   ));
   assert.equal(row.implementationEvidence.length, 2);
   assert.equal(row.parityStatus, "pending");

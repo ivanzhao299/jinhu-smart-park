@@ -11,6 +11,7 @@ import styles from "../hr-workbench.module.css";
 import {HrPerformanceLegacyPanel} from "./HrPerformanceLegacyPanel";
 import {HrPerformanceLegacyRelationsPanel} from "./HrPerformanceLegacyRelationsPanel";
 import {HrPerformanceLegacyAssessmentMasterPanel} from "./HrPerformanceLegacyAssessmentMasterPanel";
+import {HrPerformanceLegacyAssessmentValuePanel} from "./HrPerformanceLegacyAssessmentValuePanel";
 import {HrPerformanceLegacyPersonSummaryPanel} from "./HrPerformanceLegacyPersonSummaryPanel";
 
 type Options={orgs:Array<{id:string;orgName:string}>;templates:Array<{id:string;templateName:string;versionName:string}>};
@@ -52,5 +53,6 @@ export function HrPerformanceClient(){
   <HrPerformanceLegacyRelationsPanel/>
   <HrPerformanceLegacyPersonSummaryPanel/>
   <HrPerformanceLegacyAssessmentMasterPanel/>
+  <HrPerformanceLegacyAssessmentValuePanel/>
  </main></PermissionGuard>;
 }
