@@ -1,0 +1,289 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "staffing-discrepancy-report-gap-1.0.0",
+  "compatibilityScope": "u_job_r_source_bound_gap_only",
+  "sourceBinding": {
+    "routineLedgerSha256": "37083e0d359c296b331628f47799275b48179709945af079b2d559181b022066",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": [
+      "yuzhou_v10_client_database"
+    ]
+  },
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "t0Extractor": {
+      "path": "scripts/extract-yuzhou-t0.sh",
+      "sha256": "b5910d04d89550baf240eb182fa7be6e2ff3db51aec9314f3b9549cd3fa146a0"
+    },
+    "t0LabLoader": {
+      "path": "scripts/load-yuzhou-t0.sh",
+      "sha256": "79c7cbf04351a9b3a98ccc82c7e8f13cfad97b392e326e755ca4004e7c6a8fe4"
+    },
+    "productionT0CandidateMaterializer": {
+      "path": "scripts/hr-cutover/materialize-production-t0-decision-candidates.mjs",
+      "sha256": "0f397275f9975e8287e089d042e8c5413cebd28fc528a5c9fa6399866a3e874d"
+    },
+    "modernService": {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+    },
+    "modernController": {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx",
+      "sha256": "1f74e4d5ea4b223cd8f6fd006f586e6c63696a39811f3b8f686e2dec56bb5728"
+    },
+    "permissionContract": {
+      "path": "packages/shared/src/hr.ts",
+      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+    },
+    "aggregateTest": {
+      "path": "apps/api/src/modules/hr/hr-workforce-decision-snapshot.spec.ts",
+      "sha256": "1292e7bc25f1b0cd78e80f4fcb44b69c0db35c38cde8304a5ea60e32b9962cd7"
+    },
+    "syntheticFixture": {
+      "path": "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-fixture-v1.json",
+      "sha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+    }
+  },
+  "sourceShape": {
+    "parameter": "rightscope_varchar_30",
+    "overstaffBranch": "job_defpersons_less_than_realpersons_and_department_like_rightscope_exact_pattern",
+    "understaffBranch": "job_defpersons_greater_than_realpersons_without_rightscope_filter",
+    "join": "job_left_join_departmentcode_on_department_business_key",
+    "setOperator": "union_distinct",
+    "ordering": "none_guaranteed",
+    "outputColumns": [
+      "jobname",
+      "departmentname",
+      "defpersons",
+      "realpersons",
+      "status_literal"
+    ],
+    "businessWrites": 0,
+    "dynamicSqlExecutions": 0
+  },
+  "routines": [
+    {
+      "routineId": "RULE-FBB5E43B28F27B57",
+      "canonicalFamily": "u_job_r",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "pending",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "LEGACY_RIGHTSCOPE_AFFECTS_ONLY_OVERSTAFF_BRANCH_WHILE_MODERN_SCOPE_IS_TENANT_PARK_UNIFORM",
+          "entries": [
+            {
+              "sourceParameter": "@rightscope",
+              "modernParameter": "current_tenant_and_park_scope_without_legacy_pattern_parameter",
+              "sourceType": "varchar(30)_sql_like_pattern",
+              "modernType": "TenantParkScope",
+              "transform": "no_verified_transform_for_asymmetric_branch_scope",
+              "nullContract": "source_null_pattern_excludes_overstaff_only_modern_null_scope_is_not_allowed"
+            }
+          ],
+          "evidenceSha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "MODERN_DECISION_CENTER_RETURNS_AGGREGATES_NOT_THE_FIVE_COLUMN_POSITION_ROWS",
+          "entries": [
+            {
+              "sourceField": "job.jobname",
+              "modernField": "missing_position_row_positionName",
+              "transform": "not_implemented",
+              "nullContract": "source_jobname_nullable_behavior_not_projected"
+            },
+            {
+              "sourceField": "departmentcode.departmentname",
+              "modernField": "missing_position_row_departmentName",
+              "transform": "not_implemented",
+              "nullContract": "left_join_null_label_must_remain_null"
+            },
+            {
+              "sourceField": "job.defpersons",
+              "modernField": "missing_position_row_headcountLimit",
+              "transform": "integer_identity_after_production_materialization_is_fixed",
+              "nullContract": "null_must_not_be_converted_to_zero"
+            },
+            {
+              "sourceField": "job.realpersons",
+              "modernField": "missing_position_row_legacyActualHeadcount",
+              "transform": "no_verified_equivalence_to_live_active_assignment_count",
+              "nullContract": "null_comparison_must_produce_no_discrepancy_row"
+            },
+            {
+              "sourceField": "literal_overstaffed_or_understaffed",
+              "modernField": "missing_position_row_staffingStatus",
+              "transform": "preserve_branch_result_without_collapsing_to_aggregate_count",
+              "nullContract": "literal_is_never_null"
+            }
+          ],
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "HEADCOUNT_LIMIT_EXISTS_BUT_LEGACY_REALPERSONS_AND_ROW_LEVEL_DEPARTMENT_JOIN_ARE_NOT_BOUND",
+          "entries": [
+            {
+              "sourceLocator": "dbo.job.defpersons_and_realpersons",
+              "modernLocator": "hr_position.headcount_limit_and_live_hr_employee_assignment_aggregate",
+              "relationContract": "defined_count_can_map_but_legacy_denormalized_actual_count_semantics_require_explicit_decision"
+            },
+            {
+              "sourceLocator": "dbo.departmentcode.department_to_job.department_left_join",
+              "modernLocator": "sys_org.id_to_hr_position.org_id",
+              "relationContract": "modern_aggregate_does_not_project_each_joined_position_row_or_missing_org_label"
+            }
+          ],
+          "evidenceSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_ROUTINE_AND_MODERN_REPORT_ARE_READ_ONLY",
+          "entries": [],
+          "evidenceSha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "single_read_only_union_statement_without_explicit_transaction",
+          "modernBoundary": "single_read_only_aggregate_query_without_business_mutation",
+          "rollbackBehavior": "no_business_state_exists_to_rollback",
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "SOURCE_NULL_COMPARISONS_AND_LEFT_JOIN_NULL_LABEL_HAVE_NO_ROW_LEVEL_MODERN_PROJECTION",
+          "entries": [
+            {
+              "sourceExpression": "defpersons_less_or_greater_than_realpersons_under_sql_three_valued_logic",
+              "modernExpression": "aggregate_filters_over_nullable_headcount_limit_and_nonnullable_computed_assignment_count",
+              "equivalenceRule": "null_defined_or_actual_count_yields_no_legacy_row_and_missing_department_keeps_row_with_null_label"
+            }
+          ],
+          "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "INTEGER_COUNTS_ARE_COMPARED_WITHOUT_ARITHMETIC_OR_ROUNDING",
+          "entries": [],
+          "evidenceSha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "BOTH_SOURCE_AND_MODERN_SURFACES_ARE_READ_ONLY",
+          "entries": [
+            {
+              "sourceEffect": "select_only_zero_business_writes",
+              "modernEffect": "decision_snapshot_read_plus_sensitive_read_audit_only",
+              "conservationRule": "staffing_business_rows_remain_unchanged_by_report_execution"
+            }
+          ],
+          "evidenceSha256": "1292e7bc25f1b0cd78e80f4fcb44b69c0db35c38cde8304a5ea60e32b9962cd7"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_non_personal_rows_cover_both_union_branches_empty_equal_null_and_missing_join_cases",
+          "emptyInputCase": {
+            "status": "covered",
+            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+          },
+          "untriggeredBranchCase": {
+            "status": "covered",
+            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+          },
+          "triggerFiringCase": {
+            "status": "not_applicable",
+            "evidenceSha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751"
+          }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": [
+          "HrService.workforceDecisionSnapshot"
+        ],
+        "apiSymbols": [
+          "GET /hr/decision-center/workforce"
+        ],
+        "pages": [
+          "apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx"
+        ]
+      },
+      "testEvidence": {
+        "positive": [
+          {
+            "testId": "positive-overstaff-scope-match-and-understaff-unscoped",
+            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+          }
+        ],
+        "negative": [
+          {
+            "testId": "negative-scope-mismatch-equality-null-and-empty",
+            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+          }
+        ],
+        "permission": [
+          {
+            "testId": "permission-decision-center-page-required",
+            "evidenceSha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+          }
+        ],
+        "conservation": [
+          {
+            "testId": "conservation-read-only-zero-business-writes",
+            "evidenceSha256": "1292e7bc25f1b0cd78e80f4fcb44b69c0db35c38cde8304a5ea60e32b9962cd7"
+          }
+        ]
+      },
+      "review": {
+        "status": "pending",
+        "evidenceSha256": null
+      }
+    }
+  ],
+  "gapAnalysis": {
+    "compatibilityCredit": 0,
+    "status": "GAP_CONFIRMED",
+    "reasonCodes": [
+      "STAFFING_ROW_LEVEL_PROJECTION_MISSING",
+      "STAFFING_LEGACY_REALPERSONS_SEMANTICS_UNRESOLVED",
+      "STAFFING_BRANCH_SCOPE_ASYMMETRY_UNRESOLVED",
+      "STAFFING_PRODUCTION_HEADCOUNT_LIMIT_NOT_MATERIALIZED",
+      "STAFFING_MISSING_DEPARTMENT_LABEL_PROJECTION_MISSING"
+    ],
+    "minimumClosure": [
+      "preserve_or_explicitly_retire_job_realpersons_with_approved_business_rule",
+      "materialize_job_defpersons_into_production_hr_position_headcount_limit",
+      "add_scoped_row_level_position_discrepancy_projection_with_department_label_and_null_semantics",
+      "decide_and_test_the_legacy_understaff_unscoped_branch_instead_of_silently_normalizing_it",
+      "add_positive_negative_permission_and_zero_write_runtime_tests"
+    ]
+  },
+  "nonClaims": {
+    "rowLevelSemanticParity": "NOT_CLAIMED",
+    "legacyRightscopeParity": "NOT_CLAIMED",
+    "legacyRealpersonsParity": "NOT_CLAIMED",
+    "productionImportReadiness": "NOT_CLAIMED"
+  },
+  "productionImport": "HOLD"
+}
