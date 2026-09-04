@@ -10,6 +10,7 @@ import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import {HrPerformanceLegacyPanel} from "./HrPerformanceLegacyPanel";
 import {HrPerformanceLegacyRelationsPanel} from "./HrPerformanceLegacyRelationsPanel";
+import {HrPerformanceLegacyPersonSummaryPanel} from "./HrPerformanceLegacyPersonSummaryPanel";
 
 type Options={orgs:Array<{id:string;orgName:string}>;templates:Array<{id:string;templateName:string;versionName:string}>};
 type Batch={id:string;cycleId:string;batchName:string;meetingAt:string;status:string;canAct:boolean};
@@ -48,5 +49,6 @@ export function HrPerformanceClient(){
   {editor?<section className="ds-panel"><form action={submitEditor} className={styles.formGrid}><div className={styles.sectionHeading}><div><span className="ds-eyebrow">{editor.review.employee.name}</span><h2>{{self:"员工自评",manager:"主管评价",calibrate:"校准调整",appeal:"绩效申诉",resolve:"申诉处理"}[editor.kind]}</h2></div><button className="ds-button" type="button" onClick={()=>setEditor(null)}>关闭</button></div>{editor.kind!=="appeal"?editor.review.dimensions.map(d=><div className={styles.formGrid} key={d.code}><label className="form-field"><span>{d.name}（{Number(d.weight)*100}%）</span><input name={`score-${d.code}`} type="number" min={d.scoreMin} max={d.scoreMax} step="0.01" defaultValue={editor.review.managerSubmission?.scores[d.code]??editor.review.selfSubmission?.scores[d.code]??80} required/></label>{editor.kind!=="calibrate"&&editor.kind!=="resolve"?<label className="form-field"><span>评价说明</span><textarea name={`comment-${d.code}`} maxLength={1000}/></label>:null}</div>):null}{editor.kind==="resolve"?<label className="form-field"><span>处理决定</span><select name="decision" required><option value="rejected">维持原结果</option><option value="upheld">采纳并调整</option></select></label>:null}{["calibrate","appeal","resolve"].includes(editor.kind)?<label className="form-field"><span>{editor.kind==="appeal"?"申诉理由":"处理理由"}</span><textarea name="reason" minLength={2} maxLength={2000} required/></label>:null}<div className={styles.formActions}><button className="ds-button ds-button-primary">提交</button><button className="ds-button" type="button" onClick={()=>setEditor(null)}>取消</button></div>{formError?<p className="form-error" role="alert">{formError}</p>:null}</form></section>:null}
   <HrPerformanceLegacyPanel/>
   <HrPerformanceLegacyRelationsPanel/>
+  <HrPerformanceLegacyPersonSummaryPanel/>
  </main></PermissionGuard>;
 }
