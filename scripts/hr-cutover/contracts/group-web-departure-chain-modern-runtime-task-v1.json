@@ -1,0 +1,278 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_departure_chain_modern_runtime_task",
+  "taskVersion": "departure-chain-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-42-47-DEPARTURE-CHAIN",
+    "primaryLegacyId": 42,
+    "name": "员工离职完整链",
+    "dependentLegacyIds": [43, 44, 45, 46, 47],
+    "domain": "employee",
+    "actualModernRoute": "/hr/lifecycle",
+    "selectionReason": "six_score_90_partial_entries_share_one_hash_bound_departure_source_contract_and_one_modern_scoped_approval_clearance_atomic_apply_mobile_workbench",
+    "currentStaticEvidence": {
+      "entryCount": 6,
+      "scoreEach": 90,
+      "implementationStatusEach": "partial",
+      "dimensionsEach": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": true,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/yuzhou-departure-dual-source-evidence-v1.json",
+      "rawSha256": "54ecd5133a46d1c15d110b9c9fd9c12299e6bba664057f3279382088cc7f2d8e",
+      "canonicalSha256": "7ab0dced78e83bda6c7af3ad8908f59a6f519131820e140cf215fd786d52ec37"
+    }
+  ],
+  "legacyEntries": [
+    {"legacyId":42,"name":"离职申请","legacyUrl":"employee/dimission/browse.asp","legacyTable":"Emp_tDimission","legacyView":"Emp_vDimission","mappedTargetRoutes":["/hr/lifecycle"],"traversedAspFiles":2,"forms":1,"controls":15,"requestKeys":15,"formActions":1,"selectStatements":0,"stateTransitions":1,"fieldEvidenceHash":"ed79e32572bba6abe7775e0b116865c5cf4eac5f484e50aa0aae09d327b5401a"},
+    {"legacyId":43,"name":"离职面谈","legacyUrl":"employee/interview/browse.asp","legacyTable":"Emp_tInterview","legacyView":"Emp_vInterview","mappedTargetRoutes":["/hr/lifecycle"],"traversedAspFiles":2,"forms":1,"controls":11,"requestKeys":14,"formActions":1,"selectStatements":0,"stateTransitions":0,"fieldEvidenceHash":"dd1f376e0b80c4bbf6cd6e7f4859daeb9d1e4a15dc88442727b8523e851942d2"},
+    {"legacyId":44,"name":"离职调查","legacyUrl":"employee/indagate/browse.asp","legacyTable":"Emp_tDimission","legacyView":"Emp_vDimission_Indagate","mappedTargetRoutes":["/hr/lifecycle"],"traversedAspFiles":4,"forms":1,"controls":13,"requestKeys":12,"formActions":1,"selectStatements":4,"stateTransitions":3,"fieldEvidenceHash":"d3bb7e47ea11c6fd601f95974797e3335501721147670936503dd496fac55d0b"},
+    {"legacyId":45,"name":"离职交接","legacyUrl":"employee/connect/browse.asp","legacyTable":"Emp_tConnect","legacyView":"Emp_vConnect","mappedTargetRoutes":["/hr/lifecycle"],"traversedAspFiles":2,"forms":1,"controls":11,"requestKeys":14,"formActions":1,"selectStatements":0,"stateTransitions":0,"fieldEvidenceHash":"10760f5cd0c22867ffd00230fdcc89a388ec7253defc2545d46ab9e1ec013a0a"},
+    {"legacyId":46,"name":"工资结算","legacyUrl":"employee/wage/browse.asp","legacyTable":"Emp_tDimission","legacyView":"Emp_vDimission_wage","mappedTargetRoutes":["/hr/employees"],"traversedAspFiles":2,"forms":1,"controls":12,"requestKeys":10,"formActions":1,"selectStatements":0,"stateTransitions":1,"fieldEvidenceHash":"9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee"},
+    {"legacyId":47,"name":"关闭档案","legacyUrl":"employee/closedoc/browse.asp","legacyTable":"Emp_tDimission","legacyView":"Emp_vDimission_CloseDoc","mappedTargetRoutes":["/hr/employees"],"traversedAspFiles":2,"forms":1,"controls":12,"requestKeys":10,"formActions":1,"selectStatements":0,"stateTransitions":1,"fieldEvidenceHash":"9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee"}
+  ],
+  "legacyEvidenceSlots": {
+    "slotIdentityPattern": "legacy_{legacyId}_{control|request_key|form_action}_{NN}",
+    "entryCount": 6,
+    "traversedAspFiles": 14,
+    "forms": 6,
+    "controls": 74,
+    "requestKeys": 75,
+    "formActions": 6,
+    "selectStatements": 4,
+    "stateTransitions": 6,
+    "status": "identity_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false
+  },
+  "legacySemanticFields": [
+    {"legacyId":42,"id":"application_name","legacyEvidenceField":"applicationName","modernTargets":["hr_departure_application.application_name"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":42,"id":"applicant","legacyEvidenceField":"applicant","modernTargets":["hr_departure_application.applicant_user_id"],"disposition":"candidate_requires_actor_identity_binding"},
+    {"legacyId":42,"id":"application_date","legacyEvidenceField":"applicationDate","modernTargets":["hr_departure_application.application_date"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":42,"id":"employee","legacyEvidenceField":"employee","modernTargets":["hr_departure_application.subject_employee_id", "hr_employee.id"],"disposition":"candidate_requires_employee_identity_resolution"},
+    {"legacyId":42,"id":"departure_type","legacyEvidenceField":"departureType","modernTargets":["hr_departure_application.departure_type"],"disposition":"candidate_requires_legacy_dictionary_binding"},
+    {"legacyId":42,"id":"departure_reason","legacyEvidenceField":"departureReason","modernTargets":["hr_departure_application.reason", "hr_employment_event.reason"],"disposition":"candidate_requires_legacy_control_and_projection_binding"},
+    {"legacyId":42,"id":"planned_departure_date","legacyEvidenceField":"plannedDepartureDate","modernTargets":["hr_departure_application.planned_departure_date", "hr_employee.departure_date"],"disposition":"candidate_requires_apply_effect_binding"},
+    {"legacyId":42,"id":"remark","legacyEvidenceField":"remark","modernTargets":["hr_departure_application.source_snapshot"],"disposition":"unresolved_requires_remark_preservation_decision"},
+    {"legacyId":43,"id":"interview_employee","legacyEvidenceField":"employee","modernTargets":["hr_departure_application.subject_employee_id"],"disposition":"candidate_requires_parent_application_binding"},
+    {"legacyId":43,"id":"interviewer","legacyEvidenceField":"interviewer","modernTargets":["hr_departure_application.interview_by"],"disposition":"candidate_requires_actor_identity_binding"},
+    {"legacyId":43,"id":"interview_date","legacyEvidenceField":"date","modernTargets":["hr_departure_application.interview_at"],"disposition":"candidate_requires_date_time_semantics_observation"},
+    {"legacyId":43,"id":"interview_place","legacyEvidenceField":"place","modernTargets":["hr_departure_application.interview_place"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":43,"id":"interview_content","legacyEvidenceField":"content","modernTargets":["hr_departure_application.interview_summary"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":43,"id":"interview_remark","legacyEvidenceField":"remark","modernTargets":["hr_departure_action.evidence_snapshot"],"disposition":"unresolved_requires_remark_preservation_decision"},
+    {"legacyId":44,"id":"survey_reasons","legacyEvidenceField":"reasonSelection","modernTargets":["hr_departure_application.survey_reason_codes"],"disposition":"candidate_requires_reason_dictionary_binding"},
+    {"legacyId":44,"id":"survey_advice","legacyEvidenceField":"advice","modernTargets":["hr_departure_application.survey_summary"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":44,"id":"survey_appraisal","legacyEvidenceField":"appraisal","modernTargets":["hr_departure_application.source_snapshot"],"disposition":"unresolved_requires_appraisal_preservation_decision"},
+    {"legacyId":44,"id":"survey_completion","legacyEvidenceField":"completionFlag","modernTargets":["hr_departure_application.survey_status"],"disposition":"candidate_requires_status_binding"},
+    {"legacyId":45,"id":"handover_employee","legacyEvidenceField":"employee","modernTargets":["hr_departure_application.subject_employee_id"],"disposition":"candidate_requires_parent_application_binding"},
+    {"legacyId":45,"id":"handover_recipient","legacyEvidenceField":"handoverRecipient","modernTargets":["hr_departure_application.handover_to_employee_id"],"disposition":"candidate_requires_employee_identity_resolution"},
+    {"legacyId":45,"id":"handover_date","legacyEvidenceField":"date","modernTargets":["hr_departure_application.handover_at"],"disposition":"candidate_requires_date_time_semantics_observation"},
+    {"legacyId":45,"id":"handover_content","legacyEvidenceField":"content","modernTargets":["hr_departure_application.handover_summary"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"legacyId":45,"id":"handover_remark","legacyEvidenceField":"remark","modernTargets":["hr_departure_action.evidence_snapshot"],"disposition":"unresolved_requires_remark_preservation_decision"},
+    {"legacyId":46,"id":"wage_settlement_flag","legacyEvidenceField":"settlementFlag","modernTargets":["hr_departure_application.wage_status", "hr_departure_application.wage_note"],"disposition":"blocked_pending_sp_setwageflag_branch_mapping_without_salary_values"},
+    {"legacyId":47,"id":"archive_close_or_reopen","legacyEvidenceField":"closeOrReopenPersonnelFile","modernTargets":["hr_departure_application.archive_status", "hr_departure_application.archive_note"],"disposition":"blocked_pending_sp_closedoc_branch_mapping_and_audited_correction_implementation"}
+  ],
+  "legacySourceDatabaseShape": {
+    "departureApplication": {"table":"Emp_tDimission","columnCount":16,"rowCount":28,"featureRequired":true},
+    "interview": {"table":"Emp_tInterview","columnCount":8,"rowCount":0,"featureRequired":true,"emptyDataDoesNotRemoveBehavior":true},
+    "handover": {"table":"Emp_tConnect","columnCount":6,"rowCount":0,"featureRequired":true,"emptyDataDoesNotRemoveBehavior":true},
+    "surveyAdvice": {"table":"Emp_tAdvice","columnCount":6,"rowCount":125,"featureRequired":true},
+    "surveyReason": {"table":"Emp_tReason","columnCount":6,"rowCount":330,"featureRequired":true}
+  },
+  "legacyWorkflowRules": {
+    "applicationFields": ["applicationName", "applicant", "applicationDate", "employee", "departureType", "departureReason", "plannedDepartureDate", "remark"],
+    "approvalResults": ["disagree", "agree", "return"],
+    "applyGate": ["approved", "workflowEnded", "notPreviouslyApplied"],
+    "clearances": {
+      "interview": ["employee", "interviewer", "date", "place", "content", "remark"],
+      "survey": ["reasonSelection", "advice", "appraisal", "completionFlag"],
+      "handover": ["employee", "handoverRecipient", "date", "content", "remark"],
+      "wage": ["settlementFlag"],
+      "archive": ["closeOrReopenPersonnelFile"]
+    },
+    "legacyApplyEffects": ["markDepartureApplied", "recordActualDepartureDate", "setEmployeeLeftStatus", "lockLegacyUser"],
+    "legacyProcedures": ["sp_CloseDoc", "sp_SetWageFlag"],
+    "runtimeStatus": "not_observed",
+    "requiredActionObservations": ["browse_application", "create", "edit", "submit", "resubmit", "cancel", "approve", "return", "interview_complete_or_waive", "survey_complete_or_waive", "handover_complete_or_waive", "wage_settle_or_waive", "archive_close", "archive_reopen", "manual_apply", "operation_history"],
+    "requiredConditionObservations": ["approval_workflow_end", "not_previously_applied", "clearance_requires_approval", "handover_recipient_required", "archive_requires_prior_clearances", "planned_date_due", "stale_employee_guard", "identity_lock_side_effect", "sp_setwageflag_branches", "sp_closedoc_branches", "terminal_immutability", "sensitive_projection"]
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservationByLegacyId": {
+      "42": ["columns", "filters", "pagination", "actions", "empty_state"],
+      "43": ["columns", "filters", "actions", "empty_state"],
+      "44": ["columns", "reason_selection", "actions", "empty_state"],
+      "45": ["columns", "recipient_control", "actions", "empty_state"],
+      "46": ["columns", "settlement_control", "actions", "empty_state"],
+      "47": ["columns", "close_reopen_control", "actions", "empty_state"]
+    },
+    "requiredObservationCount": 25,
+    "modernAcceptance": ["desktop_list_form_clearance_actions", "phone_390_cards_form_clearance_actions", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernSourceEvidence": [
+    {"path":"packages/shared/src/hr.ts","requiredTokens":["HR_LIFECYCLE_PAGE: \"hr:lifecycle\"", "HR_DEPARTURE_READ", "HR_DEPARTURE_TEAM_READ", "HR_DEPARTURE_SELF_READ", "HR_DEPARTURE_MANAGE", "HR_DEPARTURE_REVIEW", "HR_DEPARTURE_INTERVIEW", "HR_DEPARTURE_SURVEY", "HR_DEPARTURE_HANDOVER", "HR_DEPARTURE_WAGE_SETTLE", "HR_DEPARTURE_ARCHIVE_CLOSE", "HR_DEPARTURE_APPLY"]},
+    {"path":"apps/api/src/modules/hr/hr-departure.controller.ts","requiredTokens":["@Controller(\"hr/departure-applications\")", "@Post(\":id/interview\")", "@Post(\":id/survey\")", "@Post(\":id/handover\")", "@Post(\":id/wage-settlement\")", "@Post(\":id/archive\")", "@Post(\":id/apply\")", "IdempotencyInterceptor", "captureBody:false"]},
+    {"path":"apps/api/src/modules/hr/dto/hr-departure.dto.ts","requiredTokens":["export class SaveHrDepartureDto", "export class HrDepartureInterviewDto", "export class HrDepartureSurveyDto", "export class HrDepartureHandoverDto", "export class HrDepartureWageDto", "export class HrDepartureArchiveDto"]},
+    {"path":"apps/api/src/modules/hr/hr-departure.service.ts","requiredTokens":["managed_org_tree", "Applicants cannot review their own departure application", "Departure clearance requires an approved application", "Interview, survey, handover and wage settlement must be closed first", "Departure clearance is incomplete", "Employee assignment or status changed after approval", "UPDATE hr_employee SET employment_status='departed'", "INSERT INTO hr_employment_event", "pg_advisory_xact_lock"]},
+    {"path":"database/migrations/000274_hr_departure_clearance_parity.sql","requiredTokens":["CREATE TABLE hr_departure_application", "HR_DEPARTURE_SUBMITTED_FACTS_IMMUTABLE", "HR_DEPARTURE_INTERVIEW_IMMUTABLE", "HR_DEPARTURE_ARCHIVE_IMMUTABLE", "hr_departure_action_append_only", "HR_EMPLOYEE_DEPARTURE_WORKFLOW_REQUIRED"]},
+    {"path":"apps/api/src/modules/hr/hr-departure.contract.spec.ts","requiredTokens":["departure compatibility is scoped, maker-checker controlled and atomic", "Departure clearance is incomplete", "HR_EMPLOYEE_DEPARTURE_WORKFLOW_REQUIRED"]},
+    {"path":"apps/web/lib/hr-api.ts","requiredTokens":["departureApplications:", "createDepartureApplication:", "updateDepartureApplication:", "reviewDepartureApplication:", "recordDepartureInterview:", "recordDepartureSurvey:", "recordDepartureHandover:", "recordDepartureWage:", "closeDepartureArchive:", "applyDepartureApplication:"]},
+    {"path":"apps/web/app/hr/lifecycle/DepartureApplicationsPanel.tsx","requiredTokens":["玉舟离职闭环", "离职申请与清场", "离职面谈", "离职调查", "工作交接", "工资结算", "人事档案关闭", "确认离职生效", "ds-mobile-record-list"]},
+    {"path":"apps/web/app/hr/hr-departure.contract.spec.ts","requiredTokens":["departure UI is permission-gated, list-first and exposes every clearance", "recordDepartureWage", "closeDepartureArchive", "applyDepartureApplication"]}
+  ],
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/lifecycle",
+    "applicationStatuses": ["draft", "submitted", "returned", "approved", "cancelled", "applied"],
+    "clearanceStatuses": {
+      "interview": ["pending", "completed", "waived"],
+      "survey": ["pending", "completed", "waived"],
+      "handover": ["pending", "completed", "waived"],
+      "wage": ["pending", "settled", "waived"],
+      "archive": ["open", "closed"]
+    },
+    "transitionMatrix": [
+      {"action":"submit","from":["draft"],"to":"submitted"},
+      {"action":"resubmit","from":["returned"],"to":"submitted"},
+      {"action":"cancel","from":["draft", "submitted", "returned"],"to":"cancelled"},
+      {"action":"approve","from":["submitted"],"to":"approved"},
+      {"action":"return","from":["submitted"],"to":"returned"},
+      {"action":"apply","from":["approved"],"to":"applied"}
+    ],
+    "roleMatrix": [
+      {"role":"park_departure_reader","permissions":["hr:lifecycle", "hr:departure:read"],"expectedCapabilities":["park_list", "sensitive_clearance_projection", "no_write"]},
+      {"role":"team_departure_reader","permissions":["hr:lifecycle", "hr:departure:team_read"],"expectedCapabilities":["managed_org_tree_list", "outside_tree_absent", "sensitive_reason_and_clearance_details_absent"]},
+      {"role":"self_departure_reader","permissions":["hr:lifecycle", "hr:departure:self_read"],"expectedCapabilities":["own_or_subject_list", "other_employee_absent", "sensitive_reason_and_clearance_details_absent"]},
+      {"role":"departure_operator","permissions":["hr:lifecycle", "hr:departure:team_read", "hr:departure:manage"],"expectedCapabilities":["scoped_options", "create", "edit", "submit", "resubmit", "cancel"]},
+      {"role":"departure_reviewer","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:review"],"expectedCapabilities":["approve", "return", "cannot_review_own"]},
+      {"role":"departure_interviewer","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:interview"],"expectedCapabilities":["complete_or_waive_interview"]},
+      {"role":"departure_surveyor","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:survey"],"expectedCapabilities":["complete_or_waive_survey"]},
+      {"role":"departure_handover_operator","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:handover"],"expectedCapabilities":["complete_or_waive_handover"]},
+      {"role":"departure_wage_operator","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:wage_settle"],"expectedCapabilities":["settle_or_waive_flag_without_salary_values"]},
+      {"role":"departure_archive_operator","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:archive_close"],"expectedCapabilities":["close_after_prior_clearances"],"knownParityGap":"legacy_reopen_has_no_modern_correction_action"},
+      {"role":"departure_applier","permissions":["hr:lifecycle", "hr:departure:read", "hr:departure:apply"],"expectedCapabilities":["apply_approved_due_fully_cleared", "future_incomplete_stale_denied"]},
+      {"role":"no_departure_permission","permissions":[],"expectedCapabilities":["departure_panel_absent"]}
+    ],
+    "apiTasks": [
+      {"id":"park_list","method":"GET","path":"/hr/departure-applications","expectedStatus":200,"assertions":["tenant_park_only", "sensitive_projection", "pagination"]},
+      {"id":"team_list","method":"GET","path":"/hr/departure-applications","expectedStatus":200,"assertions":["managed_tree_only", "outside_tree_absent", "sensitive_details_absent"]},
+      {"id":"self_list","method":"GET","path":"/hr/departure-applications","expectedStatus":200,"assertions":["own_or_subject_only", "other_rows_absent", "sensitive_details_absent"]},
+      {"id":"create","method":"POST","path":"/hr/departure-applications","expectedStatus":201,"assertions":["synthetic_values_only", "idempotency_key", "monthly_number", "before_snapshot"]},
+      {"id":"duplicate_active","method":"POST","path":"/hr/departure-applications","expectedStatus":409,"assertions":["one_active_application_per_employee", "no_partial_write"]},
+      {"id":"invalid_dates","method":"POST","path":"/hr/departure-applications","expectedStatus":400,"assertions":["planned_not_before_application"]},
+      {"id":"edit","method":"PUT","path":"/hr/departure-applications/:id","expectedStatus":200,"assertions":["draft_or_returned_only", "action_appended"]},
+      {"id":"submit","method":"POST","path":"/hr/departure-applications/:id/actions","expectedStatus":200,"assertions":["draft_to_submitted"]},
+      {"id":"resubmit","method":"POST","path":"/hr/departure-applications/:id/actions","expectedStatus":200,"assertions":["returned_to_submitted"]},
+      {"id":"cancel","method":"POST","path":"/hr/departure-applications/:id/actions","expectedStatus":200,"assertions":["terminal_cancelled", "no_physical_delete"]},
+      {"id":"maker_checker_denied","method":"POST","path":"/hr/departure-applications/:id/review","expectedStatus":403,"assertions":["applicant_cannot_review_own"]},
+      {"id":"return_requires_comment","method":"POST","path":"/hr/departure-applications/:id/review","expectedStatus":400,"assertions":["state_unchanged"]},
+      {"id":"approve","method":"POST","path":"/hr/departure-applications/:id/review","expectedStatus":200,"assertions":["submitted_to_approved"]},
+      {"id":"clearance_before_approval_denied","method":"POST","path":"/hr/departure-applications/:id/interview","expectedStatus":409,"assertions":["no_clearance_change"]},
+      {"id":"interview","method":"POST","path":"/hr/departure-applications/:id/interview","expectedStatus":200,"assertions":["completed_or_waived", "immutable_after_close"]},
+      {"id":"survey","method":"POST","path":"/hr/departure-applications/:id/survey","expectedStatus":200,"assertions":["reason_codes_deduplicated", "completed_or_waived", "immutable_after_close"]},
+      {"id":"handover_requires_recipient","method":"POST","path":"/hr/departure-applications/:id/handover","expectedStatus":400,"assertions":["completed_requires_other_active_employee"]},
+      {"id":"handover","method":"POST","path":"/hr/departure-applications/:id/handover","expectedStatus":200,"assertions":["completed_or_waived", "immutable_after_close"]},
+      {"id":"wage","method":"POST","path":"/hr/departure-applications/:id/wage-settlement","expectedStatus":200,"assertions":["settled_or_waived_flag", "no_salary_values", "immutable_after_close"]},
+      {"id":"archive_before_clearances_denied","method":"POST","path":"/hr/departure-applications/:id/archive","expectedStatus":409,"assertions":["archive_remains_open"]},
+      {"id":"archive_close","method":"POST","path":"/hr/departure-applications/:id/archive","expectedStatus":200,"assertions":["all_prior_clearances_closed", "archive_closed_immutable"]},
+      {"id":"legacy_archive_reopen_gap","method":"POST","path":"/hr/departure-applications/:id/archive-corrections","expectedStatus":"not_implemented","assertions":["do_not_claim_reopen_equivalence"]},
+      {"id":"future_apply_denied","method":"POST","path":"/hr/departure-applications/:id/apply","expectedStatus":409,"assertions":["employee_unchanged"]},
+      {"id":"incomplete_apply_denied","method":"POST","path":"/hr/departure-applications/:id/apply","expectedStatus":409,"assertions":["employee_unchanged", "no_event"]},
+      {"id":"stale_apply_denied","method":"POST","path":"/hr/departure-applications/:id/apply","expectedStatus":409,"assertions":["employee_unchanged", "no_event"]},
+      {"id":"apply_atomic","method":"POST","path":"/hr/departure-applications/:id/apply","expectedStatus":200,"assertions":["employee_departed", "departure_date_set", "depart_event_appended", "application_applied_same_transaction"]},
+      {"id":"legacy_identity_lock_gap","method":"POST","path":"/hr/departure-applications/:id/access-revocation","expectedStatus":"not_bound_to_departure_apply","assertions":["do_not_mutate_identity_implicitly", "post_effective_control_required"]},
+      {"id":"wage_archive_route_gap","method":"BROWSER_ROUTE","path":"/hr/employees","expectedStatus":"mapped_route_does_not_host_clearance_controls","assertions":["add_discoverable_link_or_correct_mapping_to_hr_lifecycle"]}
+    ],
+    "browserTask": {
+      "viewports": [{"id":"desktop","width":1440,"height":1000},{"id":"phone_390","width":390,"height":844}],
+      "checks": [
+        {"id":"park_reader","role":"park_departure_reader","visibleTexts":["玉舟离职闭环", "离职申请与清场"],"assertions":["park_rows", "sensitive_projection", "no_horizontal_overflow"]},
+        {"id":"team_reader","role":"team_departure_reader","visibleTexts":["离职申请与清场"],"assertions":["managed_tree_rows", "sensitive_details_absent", "no_horizontal_overflow"]},
+        {"id":"self_reader","role":"self_departure_reader","visibleTexts":["离职申请与清场"],"assertions":["own_or_subject_rows", "sensitive_details_absent", "no_horizontal_overflow"]},
+        {"id":"operator","role":"departure_operator","visibleTexts":["保存申请草稿", "提交审批", "重新提交", "取消"],"assertions":["state_conditioned_actions", "no_horizontal_overflow"]},
+        {"id":"reviewer","role":"departure_reviewer","visibleTexts":["批准", "退回"],"assertions":["submitted_only", "own_application_denied", "no_horizontal_overflow"]},
+        {"id":"interviewer","role":"departure_interviewer","visibleTexts":["离职面谈"],"assertions":["approved_pending_only", "no_horizontal_overflow"]},
+        {"id":"surveyor","role":"departure_surveyor","visibleTexts":["离职调查"],"assertions":["approved_pending_only", "no_horizontal_overflow"]},
+        {"id":"handover","role":"departure_handover_operator","visibleTexts":["工作交接"],"assertions":["recipient_required_unless_waived", "no_horizontal_overflow"]},
+        {"id":"wage","role":"departure_wage_operator","visibleTexts":["工资结算"],"assertions":["flag_and_note_only", "salary_values_absent", "no_horizontal_overflow"]},
+        {"id":"archive","role":"departure_archive_operator","visibleTexts":["人事档案关闭"],"assertions":["prior_clearances_required", "reopen_action_absent_and_gap_visible", "no_horizontal_overflow"]},
+        {"id":"applier","role":"departure_applier","visibleTexts":["确认离职生效"],"assertions":["approved_due_fully_cleared_only", "no_horizontal_overflow"]},
+        {"id":"forbidden","role":"no_departure_permission","visibleTexts":[],"assertions":["departure_panel_absent", "rows_absent", "no_horizontal_overflow"]}
+      ]
+    }
+  },
+  "implementationGaps": [
+    {
+      "id":"GROUP_WEB_DEPARTURE_WAGE_ARCHIVE_ROUTE_MISMATCH",
+      "missingEvidence":["legacy_46_47_discoverability_on_modern_route", "employee_page_link_to_clearance_chain"],
+      "implementationAction":["choose_hr_lifecycle_as_the_canonical_wage_and_archive_clearance_route", "update_the_shared_mapping_or_add_an_employee_detail_deep_link_after_review", "verify_both_desktop_and_390px_navigation_without_duplicate_business_actions"],
+      "acceptance":["one_canonical_write_surface", "legacy_46_and_47_each_retain_independent_runtime_evidence", "no_dead_mapped_route"]
+    },
+    {
+      "id":"GROUP_WEB_DEPARTURE_ARCHIVE_REOPEN_CORRECTION_NOT_IMPLEMENTED",
+      "missingEvidence":["sp_CloseDoc_full_definition", "legacy_reopen_preconditions", "legacy_reopen_effects", "modern_audited_correction_action"],
+      "implementationAction":["hash_and_map_every_sp_CloseDoc_branch_even_when_source_rows_are_empty", "add_a_separate_permissioned_archive_correction_request_if_reopen_is_business_required", "append_before_after_reason_and_approver_evidence_without_rewriting_the_closed_record"],
+      "acceptance":["no_physical_reopen_or_history_rewrite", "maker_checker_correction", "append_only_evidence", "paired_legacy_modern_outcome"]
+    },
+    {
+      "id":"GROUP_WEB_DEPARTURE_LEGACY_PROCEDURE_AND_IDENTITY_EFFECTS_NOT_BOUND",
+      "missingEvidence":["sp_SetWageFlag_full_definition", "lockLegacyUser_exact_effect", "modern_post_effective_identity_access_control"],
+      "implementationAction":["hash_and_map_every_sp_SetWageFlag_condition_and_effect_without_reading_salary_values", "keep_wage_clearance_as_a_settled_or_waived_flag_not_a_payroll_payment", "create_or_link_an_audited_post_effective_identity_access_task_instead_of_disabling_a_user_inside_departure_apply"],
+      "acceptance":["all_procedure_branches_disposed", "no_salary_detail_in_receipts", "identity_control_has_owner_status_and_audit", "departure_apply_remains_atomic_for_employee_and_event_only"]
+    }
+  ],
+  "runtimeEvidence": {
+    "status":"not_observed",
+    "requiredLegacyEntryObservations":6,
+    "requiredLegacyControlBindings":74,
+    "requiredLegacyRequestKeyBindings":75,
+    "requiredLegacyFormActionBindings":6,
+    "requiredLegacySemanticFieldBindings":25,
+    "requiredLegacyActionObservations":16,
+    "requiredLegacyConditionObservations":12,
+    "requiredLegacyReportLayoutObservations":25,
+    "requiredModernApiObservations":28,
+    "requiredModernBrowserObservations":24,
+    "requiredPairing":"same_entry_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan":"required_pass",
+    "credentialsExcluded":true,
+    "personalValuesExcluded":true,
+    "salaryValuesExcluded":true
+  },
+  "blockingGaps": [
+    "GROUP_WEB_DEPARTURE_SIX_LEGACY_RUNTIMES_NOT_OBSERVED",
+    "GROUP_WEB_DEPARTURE_74_CONTROLS_NOT_SEMANTICALLY_BOUND",
+    "GROUP_WEB_DEPARTURE_75_REQUEST_KEYS_NOT_ENUMERATED",
+    "GROUP_WEB_DEPARTURE_WAGE_ARCHIVE_ROUTE_MISMATCH",
+    "GROUP_WEB_DEPARTURE_ARCHIVE_REOPEN_CORRECTION_NOT_IMPLEMENTED",
+    "GROUP_WEB_DEPARTURE_LEGACY_PROCEDURE_AND_IDENTITY_EFFECTS_NOT_BOUND",
+    "GROUP_WEB_DEPARTURE_EMPTY_INTERVIEW_HANDOVER_TABLES_STILL_REQUIRE_FEATURE_UAT",
+    "GROUP_WEB_DEPARTURE_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "coverageCredit": {
+    "groupWebNavigableEntries":{"numerator":0,"denominator":186},
+    "legacyInteractionParity":{"numerator":0,"denominator":6}
+  },
+  "compatibilityScoreContribution":0,
+  "productionImport":"HOLD"
+}
