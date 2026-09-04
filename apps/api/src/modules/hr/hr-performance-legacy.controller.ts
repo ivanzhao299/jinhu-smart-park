@@ -7,6 +7,7 @@ import { RequireAnyPermissions } from "../../shared/decorators/permissions.decor
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   HrPerformanceLegacyPageQueryDto,
+  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
@@ -108,5 +109,19 @@ export class HrPerformanceLegacyController {
     @Query() query: HrPerformanceLegacyResultQueryDto,
   ) {
     return this.service.masters(scope, actor, query);
+  }
+
+  @Get("query-reports/person-summary")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  personSummary(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyPersonSummaryQueryDto,
+  ) {
+    return this.service.personSummary(scope, actor, query);
   }
 }

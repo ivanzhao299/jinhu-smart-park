@@ -9,6 +9,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type {
   HrPerformanceLegacyPageQueryDto,
+  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
@@ -393,6 +394,70 @@ export class HrPerformanceLegacyService {
         ? ["legacy_projection", "compensation"]
         : ["legacy_projection"],
       projection: access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
+  async personSummary(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyPersonSummaryQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query);
+    if (!resolved) return this.emptyPage(query);
+    const parameters = [...resolved.parameters, query.source_person_code];
+    const sourcePersonParameter = parameters.length;
+    const accessWhere = `${resolved.accessWhere}
+      AND fact.source_person_code=$${sourcePersonParameter}`;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const employeeProjectionJoin = resolved.access === "park"
+      ? `LEFT JOIN hr_performance_cycle_employee summary_cycle_employee
+          ON (summary_cycle_employee.id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)=
+             (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
+        LEFT JOIN hr_employee summary_employee
+          ON (summary_employee.id,summary_employee.tenant_id,summary_employee.park_id)=
+             (summary_cycle_employee.employee_id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)
+         AND summary_employee.is_deleted=false`
+      : "";
+    const employeeDisplayName = resolved.access === "park"
+      ? "summary_employee.full_name"
+      : "employee.full_name";
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${visibility}${accessWhere}`,
+      parameters,
+    )) as Array<{ total: number | string }>;
+
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `SELECT fact.source_person_code "sourcePersonCode",
+        ${employeeDisplayName} "employeeDisplayName",
+        fact.source_self_grade "sourceSelfGrade",
+        fact.source_ass_grade "sourceAssGrade",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_total_value::text "sourceTotalValue"
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${employeeProjectionJoin}
+       ${visibility}${accessWhere}
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC
+       LIMIT $${parameters.length - 1} OFFSET $${parameters.length}`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_person_summary",
+      action: "读取玉舟历史个人绩效汇总",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/query-reports/person-summary",
+      fieldGroups: ["legacy_projection"],
+      projection: resolved.access,
       itemCount: items.length,
     });
     return result;

@@ -4,8 +4,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { HR_PERMISSIONS } from "@jinhu/shared";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 import type { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { HrPerformanceLegacyPersonSummaryQueryDto } from "./dto/hr-performance-legacy.dto";
 import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
@@ -384,6 +387,195 @@ test("authorized empty legacy reads still require a successful audit", async () 
   );
   await assert.rejects(
     service.templates(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ), page),
+    /required audit unavailable/u,
+  );
+});
+
+test("person-summary source code is trimmed and rejects wildcard, SQL text, blank, and overlength input", async () => {
+  const accepted = plainToInstance(HrPerformanceLegacyPersonSummaryQueryDto, {
+    source_person_code: "  EMP_01  ",
+  });
+  assert.equal(accepted.source_person_code, "EMP_01");
+  assert.equal((await validate(accepted)).length, 0);
+
+  for (const source_person_code of ["", "   ", "EMP%", "EMP.01", "EMP' OR 1=1", "12345678901", 101]) {
+    const dto = plainToInstance(HrPerformanceLegacyPersonSummaryQueryDto, { source_person_code });
+    assert.notEqual((await validate(dto)).length, 0, String(source_person_code));
+  }
+});
+
+test("person-summary endpoint uses base park/team/self permissions and excludes result-read-only access", () => {
+  const controller = readFileSync(resolve(__dirname, "hr-performance-legacy.controller.ts"), "utf8");
+  const route = controller.slice(controller.indexOf('@Get("query-reports/person-summary")'));
+  assert.match(route, /HR_PERFORMANCE_READ/u);
+  assert.match(route, /HR_PERFORMANCE_TEAM_READ/u);
+  assert.match(route, /HR_PERFORMANCE_SELF_READ/u);
+  assert.doesNotMatch(route, /HR_PERFORMANCE_RESULT_READ/u);
+  assert.doesNotMatch(route, /@(Post|Put|Patch|Delete)\(/u);
+});
+
+function personSummaryHarness(rows: Record<string, unknown>[] = []) {
+  const calls: Array<{ sql: string; params: unknown[] }> = [];
+  const audits: unknown[] = [];
+  const dataSource = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params: [...params] });
+      return /count\(\*\)::int total/u.test(sql) ? [{ total: String(rows.length) }] : rows;
+    },
+  } as unknown as DataSource;
+  const audit = {
+    recordOperationRequired: async (input: unknown) => {
+      audits.push(input);
+    },
+  } as never;
+  return { calls, audits, service: new HrPerformanceLegacyService(dataSource, audit) };
+}
+
+test("person-summary returns only the six legacy report fields with exact parameterized filtering and stable paging", async () => {
+  const row = {
+    sourcePersonCode: "EMP_01",
+    employeeDisplayName: "Synthetic employee",
+    sourceSelfGrade: "A",
+    sourceAssGrade: "B",
+    sourceItemValue: "88.0000",
+    sourceTotalValue: "91.0000",
+  };
+  const fixture = personSummaryHarness([row]);
+  const result = await fixture.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 2, page_size: 25, source_person_code: "EMP_01" },
+  );
+  assert.deepEqual(result, { items: [row], total: 1, page: 2, page_size: 25 });
+  assert.deepEqual(Object.keys(result.items[0] ?? {}).sort(), [
+    "employeeDisplayName",
+    "sourceAssGrade",
+    "sourceItemValue",
+    "sourcePersonCode",
+    "sourceSelfGrade",
+    "sourceTotalValue",
+  ]);
+  assert.deepEqual(fixture.calls[0]?.params, [scope.tenantId, scope.parkId, "EMP_01"]);
+  assert.deepEqual(fixture.calls[1]?.params, [scope.tenantId, scope.parkId, "EMP_01", 25, 25]);
+  assert.match(fixture.calls[1]?.sql ?? "", /fact\.source_person_code=\$3/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /summary_employee\.full_name "employeeDisplayName"/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_employee summary_employee/u);
+  assert.match(
+    fixture.calls[1]?.sql ?? "",
+    /ORDER BY fact\.source_session_id DESC NULLS LAST,\s*fact\.source_master_id ASC,\s*fact\.id ASC/u,
+  );
+  assert.doesNotMatch(fixture.calls[1]?.sql ?? "", /EMP_01/u);
+  const selectProjection = (fixture.calls[1]?.sql ?? "").split("FROM")[0] ?? "";
+  assert.doesNotMatch(
+    selectProjection,
+    /source_session_id|source_pay|source_appraisal|source_self_appraisal|source_identity_sha256|source_row_sha256|migration_batch_id|legacy_record_map_id/u,
+  );
+  assert.equal(fixture.audits.length, 1);
+});
+
+test("person-summary park projection preserves an unbound employee name as null without guessing", async () => {
+  const row = {
+    sourcePersonCode: "EMP_02",
+    employeeDisplayName: null,
+    sourceSelfGrade: null,
+    sourceAssGrade: null,
+    sourceItemValue: null,
+    sourceTotalValue: null,
+  };
+  const fixture = personSummaryHarness([row]);
+  const result = await fixture.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 1, page_size: 50, source_person_code: "EMP_02" },
+  );
+  assert.deepEqual(result.items, [row]);
+  assert.equal(result.items[0]?.employeeDisplayName, null);
+  assert.doesNotMatch(
+    fixture.calls[1]?.sql ?? "",
+    /lower\(|upper\(|ilike|full_name\s*=|employee_code\s*=|source_person_code\s*=\s*employee/u,
+  );
+});
+
+test("person-summary fails closed for no permission and result-read-only permission", async () => {
+  for (const deniedActor of [actor(), actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ)]) {
+    const fixture = personSummaryHarness();
+    assert.deepEqual(
+      await fixture.service.personSummary(
+        scope,
+        deniedActor,
+        { page: 1, page_size: 50, source_person_code: "EMP_01" },
+      ),
+      { items: [], total: 0, page: 1, page_size: 50 },
+    );
+    assert.equal(fixture.calls.length, 0);
+    assert.equal(fixture.audits.length, 0);
+  }
+});
+
+test("person-summary self and team scopes require active employee mapping and only narrow by source code", async () => {
+  const team = personSummaryHarness();
+  await team.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
+    { page: 1, page_size: 50, source_person_code: "EMP_01" },
+  );
+  assert.match(team.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(team.calls[0]?.sql ?? "", /JOIN hr_employee employee/u);
+  assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
+  assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
+  assert.deepEqual(team.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
+  assert.match(team.calls[1]?.sql ?? "", /employee\.full_name "employeeDisplayName"/u);
+  assert.doesNotMatch(team.calls[1]?.sql ?? "", /summary_cycle_employee|summary_employee/u);
+
+  const self = personSummaryHarness();
+  await self.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
+    { page: 1, page_size: 50, source_person_code: "EMP_01" },
+  );
+  assert.match(self.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
+  assert.match(self.calls[0]?.sql ?? "", /fact\.source_person_code=\$4/u);
+  assert.deepEqual(self.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
+  assert.match(self.calls[1]?.sql ?? "", /employee\.full_name "employeeDisplayName"/u);
+  assert.doesNotMatch(self.calls[1]?.sql ?? "", /summary_cycle_employee|summary_employee/u);
+});
+
+test("person-summary reuses verified production-import visibility and never concatenates source code into SQL", async () => {
+  const injected = "EMP' OR 1=1 --";
+  const fixture = personSummaryHarness();
+  await fixture.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 1, page_size: 50, source_person_code: injected },
+  );
+  for (const call of fixture.calls) {
+    assert.doesNotMatch(call.sql, /EMP' OR 1=1/u);
+    assert.match(call.sql, /record_map\.mapping_status='verified'/u);
+    assert.match(call.sql, /record_map\.is_active=true/u);
+    assert.match(call.sql, /batch\.execution_context='production_import'/u);
+    assert.match(call.sql, /batch\.status='succeeded'/u);
+    assert.deepEqual(call.params.slice(0, 3), [scope.tenantId, scope.parkId, injected]);
+  }
+});
+
+test("person-summary blocks authorized empty responses when required audit persistence fails", async () => {
+  const dataSource = {
+    query: async (sql: string) => /count\(\*\)::int total/u.test(sql) ? [{ total: "0" }] : [],
+  } as unknown as DataSource;
+  const audit = {
+    recordOperationRequired: async () => {
+      throw new Error("required audit unavailable");
+    },
+  } as never;
+  const service = new HrPerformanceLegacyService(dataSource, audit);
+  await assert.rejects(
+    service.personSummary(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+      { page: 1, page_size: 50, source_person_code: "EMP_01" },
+    ),
     /required audit unavailable/u,
   );
 });
