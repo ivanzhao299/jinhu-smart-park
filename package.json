@@ -208,6 +208,8 @@
     "test:e2e:yuzhou-legacy-group-web-completeness": "node --test scripts/e2e/yuzhou-legacy-group-web-completeness-ledger-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-model": "node scripts/e2e/yuzhou-performance-legacy-model-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-model:pg": "node scripts/e2e/yuzhou-performance-legacy-model-direct-pg.mjs",
+    "test:e2e:yuzhou-performance-legacy-master-model": "node scripts/e2e/yuzhou-performance-legacy-master-model-contract.mjs",
+    "test:e2e:yuzhou-performance-legacy-master-model:pg": "node scripts/e2e/yuzhou-performance-legacy-master-model-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-writer": "node scripts/e2e/yuzhou-performance-legacy-writer-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-writer:pg": "node scripts/e2e/yuzhou-performance-legacy-writer-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-extract": "node scripts/e2e/yuzhou-performance-legacy-extract-contract.mjs",
