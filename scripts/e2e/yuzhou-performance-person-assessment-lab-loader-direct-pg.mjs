@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global Buffer, console, process */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";

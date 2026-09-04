@@ -1,0 +1,73 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_performance_person_assessment_production_adapter",
+  "contractVersion": "2026-09-05.1",
+  "scope": "dbo_person_assessment_to_assessmentcode_for_bs_ass_compute",
+  "phase": "PERFREL",
+  "transactionIsolation": "SERIALIZABLE",
+  "sourceContract": {
+    "path": "scripts/hr-cutover/contracts/legacy-performance-person-assessment-source-adapter-v1.json",
+    "sha256": "29e13b7fe4acdb99098e974ff93d76aa03a2cb168890383c00bc3a01b4121c49"
+  },
+  "weightRelationMigration": {
+    "path": "database/migrations/000307_hr_performance_yuzhou_ass_compute_weight_relation.sql",
+    "sha256": "0467f31888a5fb52c7c63ab1e754a68ab76822b2e177318bf249f71eb1f8887a"
+  },
+  "requiredBindings": [
+    "codeSha",
+    "sourceSnapshotHash",
+    "mappingContractHash",
+    "t0ArtifactSha256",
+    "sourceRestoreReceiptSha256",
+    "contractArtifactSha256",
+    "sourcePayloadArtifactSha256",
+    "sourcePayloadSha256",
+    "safeReceiptArtifactSha256",
+    "safeReceiptSha256",
+    "migrationArtifactSha256",
+    "targetIdentitySha256",
+    "targetScopeSha256",
+    "parentImportOperationId"
+  ],
+  "authorization": {
+    "importIntent": "production_performance_person_assessment_import",
+    "rollbackIntent": "production_performance_person_assessment_rollback",
+    "oneTime": true,
+    "importAndRollbackSeparate": true
+  },
+  "databaseCapability": {
+    "executionContext": "production_import",
+    "applyProcedure": "materialize_yuzhou_performance_ass_compute_weight_relation_production",
+    "rollbackProcedure": "rollback_yuzhou_performance_ass_compute_weight_relation_production",
+    "authorizationFunction": "hr_yuzhou_consume_performance_person_assessment_authorization",
+    "rollbackAuthorizationFunction": "hr_yuzhou_consume_performance_person_assessment_rollback_authorization",
+    "currentMigrationCapability": "lab_rehearsal_only",
+    "missingCapabilityDisposition": "reject_before_transaction"
+  },
+  "writer": {
+    "exactReplay": "idempotent_receipt",
+    "driftDisposition": "reject_before_transaction",
+    "sourceRows": "append_only",
+    "masterResolution": "derived_only",
+    "allNullSourceAssessmentDisposition": "assessment_missing_or_not_applicable",
+    "compatibilityCredit": 0
+  },
+  "rollback": {
+    "order": [
+      "hr_performance_legacy_ass_compute_weight_resolution",
+      "hr_performance_legacy_person_assessment_evidence"
+    ],
+    "ownerTablesImmutable": true,
+    "residualCount": 0
+  },
+  "realSourceObservation": {
+    "personAssessmentRelationCount": 2949,
+    "assessmentNonNullCount": 0,
+    "assessmentMasterCount": 0,
+    "disposition": "no_comparable_result_claim"
+  },
+  "payloadContainsPersonCodes": false,
+  "safeOutput": "aggregate_counts_status_and_sha256_only",
+  "productionConnection": "FORBIDDEN_BY_THIS_SLICE",
+  "productionImport": "HOLD"
+}

@@ -12,6 +12,10 @@ const ALLOWED_PURPOSES = new Set([
   "rollback_t3_t0",
   "rollback_t5_t0",
   "record_rollback_failure",
+  "consume_performance_person_assessment_authorization",
+  "apply_performance_person_assessment",
+  "consume_performance_person_assessment_rollback_authorization",
+  "rollback_performance_person_assessment",
 ]);
 const transactionContext = new AsyncLocalStorage();
 
@@ -185,6 +189,77 @@ export function createProductionImportPostgresAdapter(options) {
     }
   }
 
+  function normalizePerformancePersonAssessmentReceipt(row) {
+    if (!row) return null;
+    return {
+      operationId: row.operation_id,
+      status: row.status,
+      sealedArtifactSha256: row.sealed_artifact_sha256,
+      bindingSha256: row.binding_sha256,
+      targetScopeSha256: row.target_scope_sha256,
+      evidenceRows: Number(row.evidence_rows),
+      masterRows: Number(row.master_rows),
+      resolutionRows: Number(row.resolution_rows),
+      stateSha256: row.state_sha256,
+    };
+  }
+
+  async function probePerformancePersonAssessmentCapability(artifact) {
+    const client = await acquire();
+    try {
+      const rows = unwrapRows(await client.query(
+        `SELECT execution_context,phase,migration_artifact_sha256,parent_import_operation_id,
+                t0_artifact_sha256,contract_artifact_sha256,apply_procedure,rollback_procedure
+         FROM hr_yuzhou_performance_person_assessment_production_capability($1,$2,$3,$4,$5)`,
+        [artifact.parentImportOperationId, artifact.bindings.t0ArtifactSha256,
+          artifact.bindings.contractArtifactSha256, artifact.bindings.migrationArtifactSha256,
+          artifact.target.scope.scopeSha256],
+      ), "performance person-assessment capability probe");
+      if (rows.length !== 1) fail("PRODUCTION_IMPORT_PG_RESULT_INVALID", "performance person-assessment capability probe did not return exactly one row");
+      const row = rows[0];
+      return {
+        executionContext: row.execution_context,
+        phase: row.phase,
+        migrationArtifactSha256: row.migration_artifact_sha256,
+        parentImportOperationId: row.parent_import_operation_id,
+        t0ArtifactSha256: row.t0_artifact_sha256,
+        contractArtifactSha256: row.contract_artifact_sha256,
+        applyProcedure: row.apply_procedure,
+        rollbackProcedure: row.rollback_procedure,
+      };
+    } finally {
+      release(client);
+    }
+  }
+
+  async function probePerformancePersonAssessmentOperation(operationId) {
+    const client = await acquire();
+    try {
+      const rows = unwrapRows(await client.query(
+        `SELECT operation_id,status,sealed_artifact_sha256,binding_sha256,target_scope_sha256,
+                evidence_rows,master_rows,resolution_rows,state_sha256
+         FROM hr_yuzhou_performance_person_assessment_production_receipt($1)`,
+        [operationId],
+      ), "performance person-assessment operation probe");
+      if (rows.length > 1) fail("PRODUCTION_IMPORT_PG_RESULT_INVALID", "performance person-assessment operation probe returned multiple rows");
+      return normalizePerformancePersonAssessmentReceipt(rows[0]);
+    } finally {
+      release(client);
+    }
+  }
+
+  async function readPerformancePersonAssessmentReceipt(tx, operationId) {
+    if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "performance receipt transaction required");
+    const rows = unwrapRows(await tx.query(
+      `SELECT operation_id,status,sealed_artifact_sha256,binding_sha256,target_scope_sha256,
+              evidence_rows,master_rows,resolution_rows,state_sha256
+       FROM hr_yuzhou_performance_person_assessment_production_receipt($1)`,
+      [operationId],
+    ), "performance person-assessment transaction receipt");
+    if (rows.length !== 1) fail("PRODUCTION_IMPORT_PG_RESULT_INVALID", "performance person-assessment transaction receipt did not return exactly one row");
+    return normalizePerformancePersonAssessmentReceipt(rows[0]);
+  }
+
   async function transaction(transactionOptions, callback) {
     exactKeys(transactionOptions, ["isolationLevel", "purpose"], [], "transaction options");
     if (transactionOptions.isolationLevel !== "SERIALIZABLE") fail("PRODUCTION_IMPORT_PG_ISOLATION_INVALID", "only SERIALIZABLE is permitted");
@@ -278,6 +353,15 @@ export function createProductionImportPostgresAdapter(options) {
     if (options.ownership === "owned") await (options.pool ?? options.client).end();
   }
 
-  const adapter = Object.freeze({ transaction, queryReadOnly, probeTarget, close, ownership: options.ownership });
+  const adapter = Object.freeze({
+    transaction,
+    queryReadOnly,
+    probeTarget,
+    probePerformancePersonAssessmentCapability,
+    probePerformancePersonAssessmentOperation,
+    readPerformancePersonAssessmentReceipt,
+    close,
+    ownership: options.ownership,
+  });
   return adapter;
 }

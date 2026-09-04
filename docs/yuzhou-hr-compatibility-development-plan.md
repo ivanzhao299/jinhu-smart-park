@@ -282,6 +282,21 @@ pnpm hr:migration:performance-query-routine-parity
 
 绩效建账过程 `dbo.bs_AssCreateRecord` 已形成首份源码哈希绑定的写例程业务合同。当前受控 212 例程账中该 canonical family 仅有同名过程，没有发现 `_bak/_old` 变体；合同仍保留未来发现变体时重新开审的规则。合同冻结 3 个输入、5 张实际读取表、`assessmentmaster/assessmentdetail/asssour` 3 个写目标、14 条分支和两次无序游标遍历，并保留空人员、空考核方案、空项目、已存在行及异常中断后的部分写路径。现有现代绩效模型能够表达租户/园区内的周期、员工和项目事实，且相关写入口具备权限、审计和幂等保护；但旧过程省略无默认值的非空 ID、逻辑键无唯一约束、`person` 长度不一致、`lb` 注释口径冲突、无显式事务，以及人员/周期/项目身份关系和精确页面动作尚未闭合。因此该例程继续为 `pending`、兼容积分 `0/1`、`productionImport=HOLD`；合同命令 `pnpm hr:migration:legacy-bs-ass-create-record:contract` 和专项测试 `pnpm test:e2e:yuzhou-legacy-bs-ass-create-record` 会拒绝漏写目标、漏分支、误报 verified、证据哈希漂移和任何生产写入声明。
 
+### 13.3 `person.assessment` 关系的生产适配边界（2026-09-05）
+
+`person.assessment → assessmentcode.assessment` 已增加独立的生产载荷、writer 与 rollback 适配合同。密封载荷必须同时绑定同一份代码/源快照/映射合同三元组、T0 工件、源恢复回执、关系合同、私有载荷、安全回执、`000307` 文件、父生产导入 operation、唯一目标和 tenant/park scope；import 与 rollback 分别消费不可复用的授权 artifact/nonce。所有字节、代码和数据库能力漂移均在业务事务前拒绝；成功 operation 的精确重放只回读同一绑定回执，不再次消费授权或重复写入；回退顺序固定为 resolution 后 evidence，并要求 owner master/detail/template 不变和零残留。
+
+当前真实源事实仍是 `2,949` 条人员关系、`person.assessment` 非空数 `0`、`assessmentmaster` 行数 `0`，因此不得生成 matched/mismatch 或任何可比较结论，也不增加 `bs_ass_compute` 兼容积分。合成 PostgreSQL 已覆盖非空 master、非空 assessment、一次授权消费、精确重放和逆序零残留，证明脚本编排可以在具备生产过程的目标上工作；它不冒充真实源结果。
+
+当前 `000307` 的触发器、materialize 和 rollback 过程仍只允许 `lab_rehearsal`，仓库中尚无生产版数据库过程和授权/回执控制函数。适配器因此会在任何写事务前以 `PERFORMANCE_PERSON_ASSESSMENT_PRODUCTION_CAPABILITY_UNAVAILABLE` 失败关闭，禁止关闭触发器、把生产批次伪标成 lab 或直接插表。下一最小切片是一个前向数据库迁移：实现合同中列名固定的 capability、一次性授权消费、production materialize/rollback 和 hash-only receipt；在该迁移通过合成与隔离 A/B 前，本关系的 `productionImport` 保持 `HOLD`。
+
+专项核验命令：
+
+```bash
+pnpm hr:migration:performance:person-assessment-production-adapter:contract
+pnpm test:e2e:yuzhou-performance-person-assessment-production-adapter:pg
+```
+
 ## 14. 全模型重写目标、零遗漏规则与里程碑（2026-09-04）
 
 本项目按大型专业 HR 产品的技术栈重写执行，不再按园区附属 CRUD 模块估算。生产迁移不是独立终点，而是全模型兼容完成后的交付动作。事实源分为三层，三层均不可互相替代：DDL 定义系统可表达的结构，存储过程/函数/触发器源码定义计算和状态逻辑，当前备份实例只定义本次需要迁移的实际值。因此空表、全空列、没有被当前数据触发的分支、当前没有调用证据的例程仍须进入映射账和测试计划；不得以“本次数据为空”为理由删除功能。
