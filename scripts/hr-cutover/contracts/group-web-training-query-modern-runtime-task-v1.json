@@ -1,0 +1,187 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_training_query_modern_runtime_task",
+  "taskVersion": "training-query-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "sourceCapabilityContract": {
+    "path": "scripts/hr-cutover/contracts/group-web-training-query-capability-v1.json",
+    "canonicalSha256": "17874f007b4192a38aa3f455f8f1b0ebb4cc70fa9420ff0c49a28848e29d7b59"
+  },
+  "sourceEvidence": [
+    {
+      "path": "apps/api/src/modules/hr/hr-training.controller.ts",
+      "requiredTokens": [
+        "@Get(\"plans\")",
+        "@RequireAnyPermissions(HR_PERMISSIONS.HR_TRAINING_READ,HR_PERMISSIONS.HR_TRAINING_TEAM_READ,HR_PERMISSIONS.HR_TRAINING_SELF_READ)",
+        "return this.service.listPlans(s,a,q)"
+      ]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-training.service.ts",
+      "requiredTokens": [
+        "type Access=\"park\"|\"managed_org_tree\"|\"self\"|\"none\"",
+        "if(access===\"none\")return {items:[],page:q.page,pageSize:q.page_size,total:0}",
+        "p.tenant_id=$1",
+        "p.park_id=$2",
+        "if(access===\"self\")filters.push(`e.user_id=$5`)",
+        "if(access===\"managed_org_tree\")"
+      ]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-training-list.spec.ts",
+      "requiredTokens": [
+        "training plan list binds only SQL parameters used by each access scope",
+        "HR_PERMISSIONS.HR_TRAINING_READ",
+        "HR_PERMISSIONS.HR_TRAINING_TEAM_READ",
+        "HR_PERMISSIONS.HR_TRAINING_SELF_READ"
+      ]
+    },
+    {
+      "path": "apps/api/src/shared/guards/permission.guard.ts",
+      "requiredTokens": [
+        "const anyPermissions = this.reflector.getAllAndOverride<string[]>(ANY_PERMISSIONS_KEY",
+        "const hasAny = !anyPermissions || anyPermissions.length === 0 || anyPermissions.some((permission) => granted.has(permission))",
+        "return hasRequired && hasAny"
+      ]
+    },
+    {
+      "path": "apps/api/src/shared/guards/permission.guard.spec.ts",
+      "requiredTokens": [
+        "allows either any-permission while still enforcing combined required permissions",
+        "assert.equal(guard.canActivate(context({",
+        "permissions: [\"property:read\"]"
+      ]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": [
+        "trainingPlans:",
+        "/hr/training/plans?${q}",
+        "page_size"
+      ]
+    },
+    {
+      "path": "apps/web/app/hr/training/HrTrainingClient.tsx",
+      "requiredTokens": [
+        "HR_PERMISSIONS.HR_TRAINING_READ,HR_PERMISSIONS.HR_TRAINING_TEAM_READ,HR_PERMISSIONS.HR_TRAINING_SELF_READ",
+        "<h1>培训管理</h1>",
+        "<h2>培训任务</h2>",
+        "当前没有可见培训任务。",
+        "ds-mobile-record-list",
+        "ForbiddenState message=\"无权访问培训管理\""
+      ]
+    },
+    {
+      "path": "apps/web/app/hr/hr-training.contract.spec.ts",
+      "requiredTokens": [
+        "training workbench provides HR team self projections and mobile records",
+        "当前没有可见培训任务",
+        "ds-mobile-record-list"
+      ]
+    }
+  ],
+  "endpoint": {
+    "method": "GET",
+    "path": "/hr/training/plans",
+    "queryKeys": ["page", "page_size", "status"],
+    "readPermissions": [
+      "hr:training:read",
+      "hr:training:team_read",
+      "hr:training:self_read"
+    ]
+  },
+  "apiTasks": [
+    {
+      "id": "park_read_get_filtered",
+      "actorPermissions": ["hr:training:read"],
+      "query": {"page": "1", "page_size": "20", "status": "published"},
+      "expectedStatus": 200,
+      "expectedAccessScope": "tenant_park",
+      "assertions": ["paginated_shape", "only_exact_tenant_park", "status_filter_applied"]
+    },
+    {
+      "id": "team_read_get_scoped",
+      "actorPermissions": ["hr:training:team_read"],
+      "query": {"page": "1", "page_size": "20"},
+      "expectedStatus": 200,
+      "expectedAccessScope": "managed_org_tree",
+      "assertions": ["paginated_shape", "only_managed_org_tree", "cross_tree_rows_absent"]
+    },
+    {
+      "id": "self_read_get_scoped",
+      "actorPermissions": ["hr:training:self_read"],
+      "query": {"page": "1", "page_size": "20"},
+      "expectedStatus": 200,
+      "expectedAccessScope": "self",
+      "assertions": ["paginated_shape", "only_actor_employee", "other_employee_rows_absent"]
+    },
+    {
+      "id": "missing_read_permission_forbidden",
+      "actorPermissions": [],
+      "query": {"page": "1", "page_size": "20"},
+      "expectedStatus": 403,
+      "expectedAccessScope": "none",
+      "assertions": ["permission_guard_denies", "no_training_rows_returned"]
+    },
+    {
+      "id": "empty_scope_get",
+      "actorPermissions": ["hr:training:read"],
+      "query": {"page": "1", "page_size": "20"},
+      "expectedStatus": 200,
+      "expectedAccessScope": "tenant_park_empty_fixture",
+      "assertions": ["items_empty", "total_zero", "page_shape_preserved"]
+    }
+  ],
+  "browserTask": {
+    "route": "/hr/training",
+    "viewports": [
+      {"id": "desktop", "width": 1440, "height": 1000, "mobile": false},
+      {"id": "phone_390", "width": 390, "height": 844, "mobile": true}
+    ],
+    "checks": [
+      {
+        "id": "training_query_surface",
+        "actorPermissions": ["hr:training", "hr:training:read"],
+        "fixture": "scoped_non_sensitive_rows",
+        "expectedPath": "/hr/training",
+        "visibleTexts": ["培训管理", "培训任务"],
+        "assertions": ["authenticated_route_reached", "get_query_succeeds", "no_runtime_error_surface", "no_horizontal_overflow"]
+      },
+      {
+        "id": "training_query_empty_state",
+        "actorPermissions": ["hr:training", "hr:training:read"],
+        "fixture": "empty_tenant_park_scope",
+        "expectedPath": "/hr/training",
+        "visibleTexts": ["培训管理", "当前没有可见培训任务。"],
+        "assertions": ["authenticated_route_reached", "empty_response_rendered", "no_runtime_error_surface", "no_horizontal_overflow"]
+      },
+      {
+        "id": "training_query_page_forbidden",
+        "actorPermissions": [],
+        "fixture": "no_hr_page_permission",
+        "expectedPath": "/hr/training",
+        "visibleTexts": ["403", "无权访问培训管理"],
+        "assertions": ["forbidden_surface_rendered", "training_rows_absent", "no_runtime_error_surface", "no_horizontal_overflow"]
+      }
+    ]
+  },
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredApiObservations": 5,
+    "requiredBrowserObservations": 6,
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalDataExcluded": true
+  },
+  "legacyRuntime": {
+    "status": "pending",
+    "gapCode": "GROUP_WEB_TRAINING_QUERY_RUNTIME_PARITY_NOT_OBSERVED"
+  },
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator": 0, "denominator": 186},
+    "legacyInteractionParity": {"numerator": 0, "denominator": 6}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

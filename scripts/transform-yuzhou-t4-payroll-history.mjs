@@ -57,6 +57,58 @@ export const lexicalFormulaProfile = (expression, condition) => {
   };
 };
 
+const normalizeReviewedFlag = (value, truthy, falsy) => {
+  const raw = value == null ? null : String(value).trim();
+  if (raw !== null && truthy.includes(raw)) return { value: true, reviewed: true };
+  if (raw !== null && falsy.includes(raw)) return { value: false, reviewed: true };
+  return { value: null, reviewed: false };
+};
+
+const boundedText = (value, maxLength, label) => {
+  if (value == null || String(value) === "") return null;
+  const text = String(value);
+  if ([...text].length > maxLength) throw new Error(`${label} exceeds source schema length`);
+  return text;
+};
+
+export function normalizePayrollItemDeclarativeMetadata(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error("payroll item row must be an object");
+  const integer = value => {
+    if (value == null) return { value: null, sourceHash: null, reviewed: false };
+    const raw = String(value);
+    const sourceHash = sha256(raw);
+    if (!/^-?\d+$/u.test(raw)) return { value: null, sourceHash, reviewed: false };
+    const parsed = BigInt(raw);
+    if (parsed < -2147483648n || parsed > 2147483647n) return { value: null, sourceHash, reviewed: false };
+    return { value: Number(parsed), sourceHash, reviewed: true };
+  };
+  const printWidth = integer(row.printwidth);
+  const decimalLength = integer(row.declen);
+  const printReport = integer(row.printreport);
+  const tax = normalizeReviewedFlag(row.istax, ["是", "1"], ["否", "0"]);
+  const suppressDecimals = normalizeReviewedFlag(row.notdec, ["是", "1"], ["否", "0"]);
+  const use = normalizeReviewedFlag(row.isuse, ["是", "使用", "1"], ["否", "不使用", "0"]);
+  const printEnabled = printReport.value === 1 ? true : printReport.value === 0 ? false : null;
+  const isDecimal = row.datatype === "数值";
+  const decimalLengthReviewed = decimalLength.reviewed && (!isDecimal || (decimalLength.value >= 0 && decimalLength.value <= 4));
+  return {
+    printWidth: printWidth.value,
+    printWidthSourceHash: printWidth.sourceHash,
+    taxable: tax.value,
+    suppressDecimals: suppressDecimals.value,
+    enabled: use.value ?? false,
+    legacyDecimalLength: decimalLength.value,
+    decimalLengthSourceHash: decimalLength.sourceHash,
+    decimalScale: isDecimal ? decimalLengthReviewed ? decimalLength.value : 4 : null,
+    legacyPrintReport: printReport.value,
+    printReportSourceHash: printReport.sourceHash,
+    printEnabled,
+    itemTitle: boundedText(row.itemtitle, 24, "itemtitle"),
+    longDescription: boundedText(row.des, 100, "des"),
+    legacyMetadataReviewRequired: !(printWidth.reviewed && tax.reviewed && suppressDecimals.reviewed && use.reviewed && printReport.reviewed && printEnabled !== null && decimalLengthReviewed),
+  };
+}
+
 const readArray = (path) => {
   const data = JSON.parse(readFileSync(path, "utf8"));
   if (!Array.isArray(data)) throw new Error(`${basename(path)} must contain an array`);
@@ -102,7 +154,7 @@ export function transformPayroll(dir, evidencePath, options = { sourceRestoreRec
 
   const itemsRaw = readArray(resolve(dir, "items.raw.json"));
   const itemMap = new Map(itemsRaw.map((row) => [`${row.scheme}\0${row.itemname}`, row]));
-  const items = itemsRaw.map((row) => ({ ...identity("salaryitems", `${row.scheme}/${row.itemname}`, row), source: row }));
+  const items = itemsRaw.map((row) => ({ ...identity("salaryitems", `${row.scheme}/${row.itemname}`, row), source: row, declarativeMetadata: normalizePayrollItemDeclarativeMetadata(row) }));
   const formulasRaw = readArray(resolve(dir, "formulas.raw.json"));
   const formulas = formulasRaw.map((row) => ({ ...identity("salaryequal", row.id, row), source: row, lexicalProfile: lexicalFormulaProfile(row.expression, row.cit) }));
   const closesRaw = readArray(resolve(dir, "closes.raw.json"));

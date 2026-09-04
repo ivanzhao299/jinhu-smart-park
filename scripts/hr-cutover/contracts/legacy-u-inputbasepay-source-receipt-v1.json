@@ -1,0 +1,74 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_payroll_u_inputbasepay_source_receipt",
+  "contractVersion": "2026-09-04.1",
+  "scope": "u_inputbasepay_single_routine_source_identity",
+  "sourceEvidence": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "mapping": {
+      "path": "scripts/hr-cutover/contracts/legacy-u-inputbasepay-modern-map-v1.json",
+      "sha256": "6dd7532126113a0c3152e9daa2d3ef4785cdf955db62e68c6de09918fa709cd9"
+    },
+    "routine": {
+      "routineId": "RULE-0883F6C1E60DB772",
+      "sourceName": "u_inputbasepay",
+      "sourceArtifactSha256": "7a34ce1db8d1dd772245e8a4f4f5433beee73acc82e09e0611582436e19765d8",
+      "reviewedReadTable": "person",
+      "reviewedLogicalReadField": "person._base",
+      "ledgerDynamicMutationStatus": "unknown_requires_review"
+    }
+  },
+  "sourceCatalog": {
+    "schema": "dbo",
+    "table": "person",
+    "identityColumn": "person",
+    "valueColumn": "_base",
+    "numericSqlTypes": [
+      "bigint",
+      "decimal",
+      "float",
+      "int",
+      "money",
+      "numeric",
+      "real",
+      "smallint",
+      "smallmoney",
+      "tinyint"
+    ],
+    "nullabilityPolicy": "capture_exact_catalog_value_without_inference",
+    "valuePolicy": "count_rows_and_null_presence_only_no_payroll_values"
+  },
+  "modernCandidate": {
+    "inputCode": "hr:基本工资",
+    "mappingTarget": "hr_payroll_reconciliation_input.hr:基本工资",
+    "formulaDsl": {
+      "path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts",
+      "sha256": "91b10675d333d1b0500fce68769fa6894fa6d70d89ac2dc8c563bb53621ac325",
+      "requiredSymbols": [
+        "HR_PAYROLL_DSL_PARSER_VERSION",
+        "HR_PAYROLL_DSL_ENGINE_VERSION",
+        "parsePayrollFormula",
+        "evaluatePayrollFormula",
+        "projectLegacyPersonBasePayInput"
+      ]
+    },
+    "bindingStatus": "verified_modern_capability_only",
+    "equivalenceStatus": "pending"
+  },
+  "dynamicSqlPolicy": {
+    "catalogEvidence": "module_hash_and_dynamic_or_update_flags_only",
+    "legacyRoutineExecution": "FORBIDDEN",
+    "legacyDynamicSqlExecution": "FORBIDDEN",
+    "writeSideEffectDisposition": "captured_unexecuted_and_pending_review"
+  },
+  "receiptPolicy": "aggregate_catalog_types_nullability_counts_hashes_and_statuses_only",
+  "syntheticEvidenceDecision": "KEEP_PENDING",
+  "requiredDecision": "KEEP_PENDING",
+  "containsPayrollValues": false,
+  "containsPersonalData": false,
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,76 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_payroll_u_input_formula_dsl_source_gap",
+  "contractVersion": "2026-09-04.1",
+  "scope": "u_inputbasepay_and_u_inputjobpay_source_identity_to_modern_formula_dsl",
+  "sourceLedger": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+  },
+  "modernFormulaDsl": {
+    "path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts",
+    "sha256": "91b10675d333d1b0500fce68769fa6894fa6d70d89ac2dc8c563bb53621ac325",
+    "requiredSymbols": [
+      "HR_PAYROLL_DSL_PARSER_VERSION",
+      "HR_PAYROLL_DSL_ENGINE_VERSION",
+      "parsePayrollFormula",
+      "evaluatePayrollFormula",
+      "projectLegacyPersonBasePayInput"
+    ],
+    "requiredHrReferenceCodes": ["基本工资"],
+    "absentHrReferenceCodes": ["岗位工资"],
+    "bindingStatus": "verified_modern_capability_only"
+  },
+  "families": [
+    {
+      "canonicalFamily": "u_inputbasepay",
+      "routineId": "RULE-0883F6C1E60DB772",
+      "sourceName": "u_inputbasepay",
+      "sourceArtifactSha256": "7a34ce1db8d1dd772245e8a4f4f5433beee73acc82e09e0611582436e19765d8",
+      "logicalReadField": "person._base",
+      "modernInputCode": "hr:基本工资",
+      "mappingPath": "scripts/hr-cutover/contracts/legacy-u-inputbasepay-modern-map-v1.json",
+      "mappingSha256": "6dd7532126113a0c3152e9daa2d3ef4785cdf955db62e68c6de09918fa709cd9",
+      "parityPath": "scripts/hr-cutover/contracts/legacy-u-inputbasepay-parity-v1.json",
+      "paritySha256": "dd123bb65241854bfd42e62cc0552a6cb089a70e19422b5cf286ecce9c4424b0",
+      "adapterPath": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts",
+      "adapterSha256": "91b10675d333d1b0500fce68769fa6894fa6d70d89ac2dc8c563bb53621ac325",
+      "adapterSymbol": "projectLegacyPersonBasePayInput",
+      "dslReferenceStatus": "allowlisted_identity_pending",
+      "sourceIdentityStatus": "pending",
+      "gapCodes": [
+        "PAYROLL_U_INPUTBASEPAY_SOURCE_FIELD_IDENTITY_UNPROVEN",
+        "PAYROLL_U_INPUTBASEPAY_MODERN_TARGET_EQUIVALENCE_UNPROVEN"
+      ],
+      "compatibilityCredit": 0
+    },
+    {
+      "canonicalFamily": "u_inputjobpay",
+      "routineId": "RULE-0F29EAC0B4E0DC44",
+      "sourceName": "u_inputjobpay",
+      "sourceArtifactSha256": "3bcb2316b7bc062730413c824420552bafa74c9f6fbbc4ca522071ec4de22b0d",
+      "logicalReadField": "person._base2",
+      "modernInputCode": "hr:岗位工资",
+      "mappingPath": "scripts/hr-cutover/contracts/legacy-u-inputjobpay-modern-map-v1.json",
+      "mappingSha256": "e5603b61dcb765085831662fbaf71dbb2b8b33434cb30ffafe1eb576fd5673f4",
+      "parityPath": "scripts/hr-cutover/contracts/legacy-u-inputjobpay-parity-v1.json",
+      "paritySha256": "2ea12f5e6d9a432188c58143d899a7e59b091f23b42f5aa69306cbdae824eeba",
+      "adapterPath": "apps/api/src/modules/hr/hr-payroll-person-job-routine-family.ts",
+      "adapterSha256": "457b7eeb2ae49ca50e56db44b8e120ec43d795ed26563d7842f41336f2dce13a",
+      "adapterSymbol": "projectLegacyPersonJobPayInput",
+      "dslReferenceStatus": "not_allowlisted",
+      "sourceIdentityStatus": "pending",
+      "gapCodes": [
+        "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+        "PAYROLL_U_INPUTJOBPAY_DSL_REFERENCE_NOT_ALLOWLISTED"
+      ],
+      "compatibilityCredit": 0
+    }
+  ],
+  "receiptPolicy": "aggregate_object_identities_hashes_statuses_and_gap_codes_only",
+  "requiredDecision": "KEEP_PENDING",
+  "legacyDynamicSqlExecution": "FORBIDDEN",
+  "containsPayrollValues": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_company_contact_private_stage",
+  "sourceSystem": "yuzhou-v10",
+  "scope": "company_contacts_into_existing_department_root_candidates",
+  "mergeReceiptBinding": {
+    "path": "scripts/hr-cutover/contracts/legacy-company-department-root-merge-receipt-v1.json",
+    "sha256": "0686d5dd3119add985a3e78a6c0d16c4b48375200214aac34b6e859545b8c06c",
+    "requiredArtifactKind": "yuzhou_hr_legacy_company_department_root_merge_receipt",
+    "requiredDecision": "MERGE_ONE_TO_ONE_READY",
+    "requiresValidReceiptSeal": true,
+    "requiresExactSourceRestoreReceiptSha256": true,
+    "requiresExactDatabaseIdentitySha256": true,
+    "requiresExactAggregateFacts": true
+  },
+  "source": {
+    "companyTable": "dbo.company",
+    "companyColumns": ["id", "company", "phone", "addr", "email", "master"],
+    "departmentTable": "dbo.departmentcode",
+    "departmentColumns": ["department", "departmentname"],
+    "rootRule": "no_shorter_department_code_prefix_parent",
+    "matchRule": "trimmed_case_folded_exact_name_candidate"
+  },
+  "target": {
+    "table": "sys_org",
+    "operation": "update_existing_only",
+    "lookupColumn": "org_code",
+    "writableColumns": [
+      "contact_phone",
+      "contact_address",
+      "contact_email",
+      "legacy_company_manager_reference"
+    ],
+    "protectedLegacyColumn": "legacy_company_manager_reference",
+    "forbiddenWriteColumns": ["leader_user_id", "org_code", "org_name", "parent_id", "remark"]
+  },
+  "targetEvidence": [
+    {
+      "path": "database/migrations/000298_hr_org_company_contact_model.sql",
+      "sha256": "863c687b5f6cea94c30c4a655d95f7308aa57e72be1a36f04e5c151cc604c8ac"
+    },
+    {
+      "path": "apps/api/src/modules/orgs/entities/org.entity.ts",
+      "sha256": "cc8be733de995308df1f973cf06b66cae276a8211e37903d504695d84279f0fc"
+    }
+  ],
+  "privacyBoundary": {
+    "inputFileMode": "0600",
+    "outputFileMode": "0600",
+    "parentDirectoryMode": "0700",
+    "exclusiveCreate": true,
+    "stdoutContainsSourceValues": false,
+    "sourceValuesForbiddenFromErrors": true
+  },
+  "conservation": {
+    "companyRowsEqualCandidateRows": true,
+    "departmentRootRowsEqualCandidateRows": true,
+    "oneCandidatePerCompanySourceKey": true,
+    "oneCandidatePerDepartmentRootKey": true
+  },
+  "execution": {
+    "adapterMode": "private_stage_only",
+    "databaseConnections": "forbidden",
+    "postgresLoad": "NOT_EXECUTED",
+    "compatibilityCredit": 0,
+    "productionImport": "HOLD"
+  }
+}

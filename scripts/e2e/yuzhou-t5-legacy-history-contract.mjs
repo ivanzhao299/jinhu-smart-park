@@ -38,7 +38,10 @@ assert.match(extract,/sysadmin login is forbidden/);
 for(const table of ["accept","family","his","knowhow","ticket","person","docs","course","train","trainhis","jobtrain","bonuscode","bonusrecord"]){
   assert.match(extract,new RegExp(`FROM dbo\\.${table} ORDER BY`));
 }
+assert.match(extract,/FROM dbo\.defs WHERE def IN/);
+for(const column of ["ID","def","description","datatype","groupid","groupname","myorder","description_d","sqltext","flag","crosssql","crosscolselectsql","crossrowselectsql","crosswhere","querywhere","ascount","ascount2"]){assert.match(extract,new RegExp(`SELECT[^\\n]*${column}`));}
 for(const table of ["person_user","person_user_item","readjust","readjustitem","jobstatecode","compact","compact_c","compacttypecode"]){assert.match(extract,new RegExp(`FROM dbo\\.${table} ORDER BY`));}
+assert.match(extract,/SELECT assignment,assignmentname FROM dbo\.assignment ORDER BY assignment/);
 assert.doesNotMatch(extract,/SELECT \*/);
 assert.match(extract,/c\.name NOT IN\('password','photo'\)/);
 assert.doesNotMatch(extract,/printf[^\n]*(?:idcard|handtel|ticketno|cause|fName)/i);
@@ -49,6 +52,18 @@ assert.match(transform,/productionImport:"HOLD"/);
 assert.match(transform,/payloadSanitization:"nul_to_literal_escape_v1"/);
 assert.match(transform,/replaceAll\("\\0","\\\\u0000"\)/);
 assert.match(transform,/Object\.hasOwn\(row,"password"\)\|\|Object\.hasOwn\(row,"photo"\)/);
+assert.match(transform,/definitionSource=read\("defs\.raw\.json"\),customFieldDefinitions=buildLegacyCustomFieldDefinitions\(definitionSource\)/);
+assert.match(transform,/materializeLegacyEmployeeCustomFields\(row,customFieldDefinitions\)/);
+assert.match(transform,/buildLegacyProfessionalTitleDictionary\(professionalTitleSource\)/);
+assert.match(transform,/materializeLegacyProfessionalTitle\(row\.assignment,professionalTitleDictionary\)/);
+assert.match(transform,/semantics:"professional_title_not_position"/);
+assert.match(transform,/defs\.private\.jsonl/);
+assert.match(transform,/defs\.safe-evidence\.jsonl/);
+assert.match(transform,/privateOnly:true,execution:"forbidden"/);
+assert.match(transform,/legacyLogicCoverage:definition\.legacyLogicCoverage/);
+assert.doesNotMatch(transform,/(?:^|[{,])logicCoverage:definition\.legacyLogicCoverage/m);
+assert.match(transform,/logicColumnDenominator:customFieldDefinitions\.length\*10/);
+assert.doesNotMatch(transform,/console\.(?:log|error)[^\n]*(?:sqltext|crosssql|querywhere)/iu);
 for(const projection of ["person.core_residue","readjust.core_residue","compact.core_residue"]){assert.match(transform,new RegExp(projection.replace(".","\\.")));assert.match(stageItems,new RegExp(projection.replace(".","\\.")));}
 assert.match(transform,/jch_1:0/);
 

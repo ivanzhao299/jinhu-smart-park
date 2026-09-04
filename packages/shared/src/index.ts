@@ -37,6 +37,9 @@ export interface OrgTreeNode {
   orgName: string;
   orgType: string;
   leaderUserId: string | null;
+  contactPhone?: string | null;
+  contactAddress?: string | null;
+  contactEmail?: string | null;
   sortOrder: number;
   status: string;
   children: OrgTreeNode[];

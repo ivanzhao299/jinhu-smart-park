@@ -1,0 +1,124 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "bs-readfromleave-1.0.0",
+  "sourceBinding": {
+    "routineLedgerSha256": "167e2160bfe5dfb8695fc66aab24d6fbb58f5207e0addc2141b53cca370ab298",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "routines": [
+    {
+      "routineId": "RULE-A6D7E11BA9DEAEC2",
+      "canonicalFamily": "bs_readfromLeave",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "verified",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "INCLUSIVE_SOURCE_WINDOW_AND_MODERN_REQUEST_INTERVAL_REVIEWED",
+          "entries": [
+            { "sourceParameter": "d1", "modernParameter": "startAt", "sourceType": "datetime", "modernType": "timestamptz", "transform": "bind_as_Asia_Shanghai_instant", "nullContract": "null_produces_no_projection" },
+            { "sourceParameter": "d2", "modernParameter": "endAt", "sourceType": "datetime", "modernType": "timestamptz", "transform": "bind_as_Asia_Shanghai_instant", "nullContract": "null_produces_no_projection" }
+          ],
+          "evidenceSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "PARTIAL_LEGACY_ROWS_NORMALIZED_TO_COMPLETE_DAILY_IMPACT",
+          "entries": [
+            { "sourceField": "timekeepdate", "modernField": "workDate", "transform": "Asia_Shanghai_calendar_date", "nullContract": "null_start_has_no_segment" },
+            { "sourceField": "timekeepitem", "modernField": "requestType", "transform": "leave_constant", "nullContract": "modern_request_type_rejects_null" },
+            { "sourceField": "timelen", "modernField": "leaveMinutes", "transform": "work_window_overlap_to_whole_minutes", "nullContract": "no_overlap_is_zero" }
+          ],
+          "evidenceSha256": "c85cbb305d0d354cd1bb6f0057332b0b1e268a9ee6e10b73da98e85d61b7cbf6"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEAVE_SOURCE_AND_DUPLICATE_GUARD_REPLACED_BY_SCOPED_VERSIONED_FACTS",
+          "entries": [
+            { "sourceLocator": "leave", "modernLocator": "hr_attendance_request", "relationContract": "tenant_park_employee_scoped_leave_requests" },
+            { "sourceLocator": "timekeeprecord", "modernLocator": "hr_employee_attendance_daily_result", "relationContract": "latest_version_is_read_without_overwriting_history" }
+          ],
+          "evidenceSha256": "1169cea0e985c12aec701e42847008c5095b34b50b6575976b5eaf56c51df544"
+        },
+        "writeMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "FIRST_DAY_ONLY_SOURCE_INSERT_REPLACED_BY_ATOMIC_IMMUTABLE_VERSION",
+          "entries": [
+            { "sourceLocator": "timekeeprecord.first_day_insert", "modernLocator": "hr_employee_attendance_daily_result.source_trace.approvedLeaveMinutes", "relationContract": "append_one_complete_daily_version_inside_recalculation_transaction" }
+          ],
+          "evidenceSha256": "c85cbb305d0d354cd1bb6f0057332b0b1e268a9ee6e10b73da98e85d61b7cbf6"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "no_explicit_transaction_with_partial_statement_autocommit",
+          "modernBoundary": "single_attendance_recalculation_transaction",
+          "rollbackBehavior": "version_and_daily_result_roll_back_together",
+          "evidenceSha256": "c85cbb305d0d354cd1bb6f0057332b0b1e268a9ee6e10b73da98e85d61b7cbf6"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "NULL_AND_INVALID_INTERVAL_PATHS_HAVE_EXECUTABLE_EMPTY_RESULTS",
+          "entries": [
+            { "sourceExpression": "d1_or_d2_is_null", "modernExpression": "startAt_or_endAt_is_null", "equivalenceRule": "no_day_segments_and_zero_effective_minutes" },
+            { "sourceExpression": "leave_state_not_read", "modernExpression": "status_equals_approved", "equivalenceRule": "controlled_safety_modernization_nonapproved_is_zero" }
+          ],
+          "evidenceSha256": "54769d8442dbb8d7a3b7b7255c25101abb63784a17aa6acdde50da0a0985dfb4"
+        },
+        "roundingSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_HOUR_BOUNDARY_ROUNDING_REPLACED_BY_EXACT_MINUTE_CONSERVATION",
+          "entries": [
+            { "sourceExpression": "datediff_hour_start_or_end_boundary", "modernExpression": "floor_overlap_milliseconds_divided_by_60000", "precisionRule": "whole_minute_inputs_conserve_exact_09_00_to_17_00_overlap" }
+          ],
+          "evidenceSha256": "4c27198c2cc969ad63fd90e3752a4552b951927b2d4848f07351163f3eca91ca"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_PARTIAL_WRITE_REPLACED_WITH_APPROVED_VERSIONED_EFFECT",
+          "entries": [
+            { "sourceEffect": "first_day_insert_middle_and_final_select_only", "modernEffect": "approved_leave_minutes_in_immutable_daily_source_trace", "conservationRule": "sum_daily_modern_minutes_equals_request_planned_minutes_and_nonapproved_effect_is_zero" },
+            { "sourceEffect": "exact_person_and_timekeepdate_skip", "modernEffect": "append_recalculation_version_without_overwriting_prior_result", "conservationRule": "historical_daily_versions_and_hr_attendance_day_are_unchanged" }
+          ],
+          "evidenceSha256": "3dce2bf79acbc13106de1fde1630b5ce6f768f4934a3baa5347a3090d918e33b"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a"
+        },
+        "dormantPaths": {
+          "sourceDataState": "empty",
+          "emptyInputCase": { "status": "covered", "evidenceSha256": "54769d8442dbb8d7a3b7b7255c25101abb63784a17aa6acdde50da0a0985dfb4" },
+          "untriggeredBranchCase": { "status": "covered", "evidenceSha256": "4c27198c2cc969ad63fd90e3752a4552b951927b2d4848f07351163f3eca91ca" },
+          "triggerFiringCase": { "status": "not_applicable", "evidenceSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a" }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrService.listAttendanceRequests", "HrService.recalculateAttendanceDay", "projectLeaveRoutineImpact"],
+        "apiSymbols": ["GET /hr/attendance/requests", "POST /hr/attendance/daily-results/recalculate"],
+        "pages": ["apps/web/app/hr/attendance/HrAttendanceClient.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{ "testId": "bs-readfromleave-positive-multi-day", "evidenceSha256": "4c27198c2cc969ad63fd90e3752a4552b951927b2d4848f07351163f3eca91ca" }],
+        "negative": [{ "testId": "bs-readfromleave-null-invalid-and-nonapproved", "evidenceSha256": "4c27198c2cc969ad63fd90e3752a4552b951927b2d4848f07351163f3eca91ca" }],
+        "permission": [{ "testId": "bs-readfromleave-exact-attendance-read-permission", "evidenceSha256": "3dce2bf79acbc13106de1fde1630b5ce6f768f4934a3baa5347a3090d918e33b" }],
+        "conservation": [{ "testId": "bs-readfromleave-approved-minute-conservation", "evidenceSha256": "3dce2bf79acbc13106de1fde1630b5ce6f768f4934a3baa5347a3090d918e33b" }]
+      },
+      "review": {
+        "status": "approved",
+        "evidenceSha256": "1169cea0e985c12aec701e42847008c5095b34b50b6575976b5eaf56c51df544"
+      }
+    }
+  ],
+  "productionImport": "HOLD"
+}

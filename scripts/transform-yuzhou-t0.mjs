@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
@@ -9,8 +10,8 @@ if (!process.argv[2] || !basename(outputDir).startsWith("staging-")) throw new E
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const canonical = (value) => JSON.stringify(value, Object.keys(value).sort());
 const domains = [
-  { name: "departments", table: "dbo.departmentcode", key: "legacyCode" },
-  { name: "positions", table: "dbo.job", key: "legacyCode" },
+  { name: "departments", table: "dbo.departmentcode", key: "legacyCode", requiredColumns: ["legacyCode", "orgName", "rating", "legacyManagerValue", "plannedHeadcount", "contactPhone", "sortOrder", "legacySourceId"] },
+  { name: "positions", table: "dbo.job", key: "legacyCode", requiredColumns: ["legacyCode", "positionName", "departmentCode", "parentPositionCode", "legacyUptoCode", "jobgrade", "salarygrade", "authority", "qualification", "responsibilities", "headcountLimit", "positionManual", "rating", "sortOrder", "legacySourceId"] },
   { name: "employees", table: "dbo.person", key: "employeeCode" },
 ];
 const summary = { formatVersion: 1, generatedAt: new Date().toISOString(), domains: {} };
@@ -27,6 +28,7 @@ for (const domain of domains) {
   rows.sort((a, b) => String(a[domain.key]).localeCompare(String(b[domain.key]), "en"));
   const seen = new Set();
   const transformed = rows.map((source) => {
+    for (const column of domain.requiredColumns ?? []) if (!Object.hasOwn(source, column)) throw new Error(`${domain.name} row omitted structural column ${column}`);
     const sourceKey = String(source[domain.key] ?? "").trim();
     if (!sourceKey || seen.has(sourceKey)) throw new Error(`${domain.name} has blank or duplicate source key`);
     seen.add(sourceKey);

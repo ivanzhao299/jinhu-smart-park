@@ -142,7 +142,7 @@ function bindT5NonfilePrivateStage(plan, privateStage) {
   if (!plan.t5Nonfile) return null;
   if (!privateStage || typeof privateStage !== "object" || Array.isArray(privateStage)) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_REQUIRED", "sealed T5 binding requires its private stage");
   if (computeProductionImportPayloadHash(privateStage) !== plan.t5Nonfile.privateStageSha256) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_HASH_MISMATCH", "private stage hash differs from sealed authorization");
-  if (privateStage.phase !== "T5" || privateStage.sourceSnapshotHash !== plan.triple.sourceSnapshotHash || privateStage.sourceSnapshotHash !== plan.t5Nonfile.sourceSnapshotSha256 || privateStage.sourceRestoreReceiptSha256 !== plan.t5Nonfile.sourceRestoreReceiptSha256 || privateStage.sourceBusinessSha256 !== plan.t5Nonfile.sourceBusinessSha256 || !Array.isArray(privateStage.records) || privateStage.records.length !== plan.t5Nonfile.recordCount) {
+  if (privateStage.phase !== "T5" || privateStage.sourceSnapshotHash !== plan.triple.sourceSnapshotHash || privateStage.mappingContractSha256 !== plan.triple.mappingContractHash || privateStage.sourceSnapshotHash !== plan.t5Nonfile.sourceSnapshotSha256 || privateStage.sourceRestoreReceiptSha256 !== plan.t5Nonfile.sourceRestoreReceiptSha256 || privateStage.sourceBusinessSha256 !== plan.t5Nonfile.sourceBusinessSha256 || privateStage.t0DecisionArtifactSha256 !== plan.t5Nonfile.t0DecisionArtifactSha256 || privateStage.t0TargetIdentitySha256 !== plan.target.identitySha256 || privateStage.t0TargetScopeSha256 !== plan.targetScope.scopeSha256 || !Array.isArray(privateStage.records) || privateStage.records.length !== plan.t5Nonfile.recordCount) {
     fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_BINDING_MISMATCH", "private stage metadata differs from the sealed plan");
   }
   return structuredClone(privateStage);
@@ -164,7 +164,9 @@ async function recordT5ControlRows(tx, operationId, privateStage, result) {
     controls.push({
       operation_id: operationId, phase: "T5", source_system: staged.sourceSystem, source_table: staged.sourceTable,
       source_pk_canonical: staged.sourcePkCanonical, source_identity_sha256: staged.sourceIdentitySha256,
-      source_row_sha256: staged.sourceRowSha256, owner_source_identity_sha256: staged.dependencyRefs[0]?.sourceIdentitySha256 ?? null,
+      // Contract v2 models every T5 edge in the dependency table. The legacy
+      // owner column is forbidden by the database guard for v2 operations.
+      source_row_sha256: staged.sourceRowSha256, owner_source_identity_sha256: null,
       disposition: staged.disposition, planned_target_table: staged.targetTable, target_table: inserted ? staged.targetTable : null,
       target_id: inserted ? written.targetId : null, business_identity_sha256: inserted ? written.businessIdentitySha256 : null,
       target_after_sha256: inserted ? written.targetAfterSha256 : null, target_version_after: inserted ? 1 : null,
@@ -251,7 +253,7 @@ export async function executeSealedProductionImport(planInput, options) {
         [plan.operationId],
         "T5 operation progress",
       );
-      const result = await writeT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope), actorId: plan.t5Nonfile.actorId, privateStage: t5PrivateStage });
+      const result = await writeT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetIdentitySha256: plan.target.identitySha256, targetScope: structuredClone(plan.targetScope), actorId: plan.t5Nonfile.actorId, privateStage: t5PrivateStage });
       if (result.phase !== "T5" || result.counts?.source !== t5PrivateStage.records.length || !/^[0-9a-f]{64}$/u.test(result.afterCanonicalSha256 ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_RESULT_INVALID", "T5 writer result invalid");
       await recordT5ControlRows(tx, plan.operationId, t5PrivateStage, result);
       await expectSingleStateTransition(tx,
@@ -315,7 +317,7 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
         [plan.operationId],
         "T5 rolling back",
       );
-      const t5Result = await rollbackT5NonfilePrivateStage({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope) });
+      const t5Result = await rollbackT5NonfilePrivateStage({ tx, operationId: plan.operationId, rollbackOperationId: rollbackAuthorization.rollbackOperationId, targetIdentitySha256: plan.target.identitySha256, targetScope: structuredClone(plan.targetScope), actorId: plan.t5Nonfile.actorId });
       if (t5Result.phase !== "T5" || t5Result.status !== "rolled_back" || t5Result.residualCount !== 0) fail("PRODUCTION_IMPORT_ROLLBACK_RESULT_INVALID", "T5 result invalid");
       const t5Records = await tx.query(
         `UPDATE hr_yuzhou_production_import_record

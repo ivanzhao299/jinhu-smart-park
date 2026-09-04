@@ -1,0 +1,60 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_full_days_source_definition_receipt",
+  "contractVersion": "2026-09-04.1",
+  "routineId": "RULE-BD491199DA9913BE",
+  "sourceEvidence": {
+    "sourceManifest": {
+      "path": ".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/generated/legacy-manifest.json",
+      "sha256": "2fa1a1aaae47787ad9301a0fa21b1e71f039e20b507c3e6051a5c68f8d458ace"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    }
+  },
+  "expectedDefinition": {
+    "sourceArtifactSha256": "44c06a473845d44f83f9f5321a90486759a0ab6eb4ec6cf2a8c77bbbd9c5a235",
+    "structuralHash": "26089ed60c6a7ad83b2c6cc5e1e848efc30b995a8eb2de3497029e4817665cce",
+    "byteCount": 2143,
+    "lineCount": 55,
+    "inputParameterCount": 3,
+    "inputParameterSetSha256": "ab12392999eceb14aa91a30c92c1daaaef46421c4234014200343727344c0222",
+    "returnSignatureSha256": "1f8ddbb4f0b15431b870be501af314a4e6ba9c9d5405d0c169e5c184fc9e08a2",
+    "directReadDependencyCount": 2,
+    "directReadDependencySetSha256": "b2f69a4d813a1daa00a987f7ae865a87e310a45e34e2255ce62cac4aa29e7fc0",
+    "directCalledRoutineCount": 0,
+    "directCalledRoutineSetSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "directWriteDependencyCount": 0,
+    "dynamicWriteDependencyCount": 0
+  },
+  "semanticClassification": {
+    "routineShape": "read_only_scalar_function",
+    "primaryDomain": "attendance_leave",
+    "capability": "derived_value_helper",
+    "returnShape": "signed_32_bit_whole_number_scalar",
+    "sourceControl": "controlled_archive_hash_verified_body_not_committed"
+  },
+  "resolution": {
+    "resolvedGapCodes": [
+      "FULL_DAYS_SOURCE_BODY_NOT_COMMITTED",
+      "FULL_DAYS_RETURN_TYPE_UNIT_AND_PRECISION_UNAVAILABLE"
+    ],
+    "residualGapCodes": [
+      "FULL_DAYS_RETURN_UNIT_UNPROVEN",
+      "FULL_DAYS_NULL_AND_NO_DATA_SEMANTICS_UNPROVEN",
+      "FULL_DAYS_PERSON_IDENTITY_AND_TABLE_RESOLUTION_UNPROVEN",
+      "FULL_DAYS_TIMEKEEPTABLE_COLUMNS_PREDICATES_AND_AGGREGATION_UNAVAILABLE",
+      "FULL_DAYS_CROSS_MONTH_BOUNDARY_SEMANTICS_UNPROVEN",
+      "FULL_DAYS_MODERN_FIXED_WORK_WINDOW_NOT_SCHEDULE_DRIVEN",
+      "FULL_DAYS_BOUNDED_SYNTHETIC_PARITY_ORACLE_UNAVAILABLE"
+    ]
+  },
+  "decision": "SOURCE_DEFINITION_VERIFIED_SEMANTIC_PARITY_PENDING",
+  "compatibilityCredit": 0,
+  "sourceDefinitionIncluded": false,
+  "parameterNamesIncluded": false,
+  "dependencyNamesIncluded": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

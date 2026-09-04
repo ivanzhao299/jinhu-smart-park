@@ -1,0 +1,71 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_static_interaction_candidate",
+  "contractVersion": "training-query-1.0.0",
+  "sourceContracts": [
+    {"path":"scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json","rawSha256":"e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd","canonicalSha256":"37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"},
+    {"path":"scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json","rawSha256":"b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621","canonicalSha256":"8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"},
+    {"path":"scripts/hr-cutover/contracts/legacy-web-entry-target-binding-v1.json","rawSha256":"ac1164055853cef37ba00ad68759ea0411ca4b7b8407619155ddfa5f819ca433","canonicalSha256":"792d605d5dfced1cc56a1b9afaa3afad92dbdf13c18a259190d83d27ab7ba32e"}
+  ],
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-128-TRAINING-QUERY",
+    "legacyId": 128,
+    "capabilityKey": "training_record_query",
+    "legacyModule": {
+      "legacyId": 128,
+      "parentId": 125,
+      "level": 3,
+      "order": 3,
+      "name": "培训信息",
+      "legacyUrl": "SERVICE/QUERY/TRAIN/Browse.asp",
+      "legacyTable": "tra_tSignup",
+      "legacyView": "tra_vTraininfo",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": ["/hr/training"],
+      "mappingStatus": "mapped"
+    },
+    "staticSourceEvidence": {
+      "legacyId": 128,
+      "domain": "personal_office",
+      "entryResolved": true,
+      "traversedAspFiles": 2,
+      "forms": 1,
+      "controls": 10,
+      "requestKeys": 10,
+      "formActions": 1,
+      "selectStatements": 0,
+      "insertStatements": 0,
+      "updateStatements": 0,
+      "deleteStatements": 0,
+      "stateTransitions": 0,
+      "fieldEvidenceHash": "8a20e9b638ac6fe71b1aff73038b3afa3dc9d390401ce4c156955260d8cc256e"
+    },
+    "modernTargetCrossReference": {
+      "name": "培训记录查询",
+      "legacyPath": "trainquery.aspx",
+      "status": "mapped",
+      "targetRoute": "/hr/training",
+      "reasonCode": null,
+      "targetEvidence": [
+        {"kind":"route","file":"apps/web/app/hr/training/page.tsx","symbol":"HrTrainingClient"},
+        {"kind":"api","file":"apps/api/src/modules/hr/hr-training.controller.ts","symbol":"@Get(\"plans\")"},
+        {"kind":"permission","file":"packages/shared/src/hr.ts","symbol":"HR_TRAINING_READ"},
+        {"kind":"test","file":"apps/web/app/hr/hr-training.contract.spec.ts","symbol":"training workbench"}
+      ]
+    },
+    "crossReferencePolicy": "same_modern_capability_target_only_not_legacy_source_identity_equivalence"
+  },
+  "status": "pending_runtime_parity",
+  "review": {
+    "status": "pending",
+    "gapCode": "GROUP_WEB_TRAINING_QUERY_RUNTIME_PARITY_NOT_OBSERVED",
+    "requiredEvidence": "authenticated read-only employee-role observation of navigation, filter submission, scoped result rendering, empty state and forbidden-scope behavior"
+  },
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator":0,"denominator":186},
+    "legacyInteractionParity": {"numerator":0,"denominator":6}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

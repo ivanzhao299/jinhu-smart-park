@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import test from "node:test";
+
+const repositoryRoot=resolve(__dirname,"../../../..");
+function readTrackedFile(path:string){if(existsSync(path))return readFileSync(path,"utf8");const repositoryPath=relative(repositoryRoot,path);return execFileSync("git",["-C",repositoryRoot,"show",`HEAD:${repositoryPath}`],{encoding:"utf8"});}
 
 test("HR top-level route keeps the authenticated dashboard and visible permission fallback", () => {
   const layout = readFileSync(resolve(__dirname, "layout.tsx"), "utf8");
@@ -46,7 +50,7 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
 test("department manager directory stays team-scoped without broad employee permission",()=>{
   const employeePage=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
   const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
-  const seed=readFileSync(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"),"utf8");
+  const seed=readTrackedFile(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"));
   assert.match(employeePage,/canReadTeam=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_TEAM_READ\)/);
   assert.doesNotMatch(employeePage,/HR_WORK_REPORT_TEAM_REVIEW|HR_PERFORMANCE_MANAGER_REVIEW/);
   assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
@@ -333,6 +337,15 @@ test("HR M6 attendance requests expose explicit self and approval actions withou
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
  for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
+});
+
+test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave impact",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ for(const field of ["leavePlannedMinutes","leaveEffectiveMinutes","leaveDayCount","leaveMinutes"])assert.match(api,new RegExp(`${field}:number`));
+ assert.match(attendance,/row\.status==="approved"\?`已计入/);
+ assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
+ assert.match(attendance,/row\.leaveMinutes>0/);
+ assert.match(attendance,/已批准请假/);
 });
 
 test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{

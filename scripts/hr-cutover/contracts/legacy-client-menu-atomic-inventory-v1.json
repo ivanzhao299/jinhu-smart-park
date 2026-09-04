@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_client_menu_atomic_inventory",
+  "contractVersion": "2026-09-04.1",
+  "surface": "desktop_client",
+  "status": "STATIC_CANDIDATES_PENDING_RUNTIME_AUTHORITY",
+  "sourceBindings": {
+    "atomicTraversal": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
+      "sha256": "ee3adb30d145afc33f845e290f5acfa390beb85c1ed913ead1dd2c8d136da4b5"
+    },
+    "familyTraversal": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json",
+      "sha256": "e3c01e1f772f629a351d885a935af63b83ddba5edf29b2d07fcf41810410bc54"
+    },
+    "modernMenuCandidates": {
+      "path": "apps/web/lib/menu.ts",
+      "sha256": "12599528acaf4b11506609b8a58271fae37ab76e2c4b346bfd11ec81526e0d81"
+    }
+  },
+  "expectedCounts": {
+    "entries": 68,
+    "families": 12
+  },
+  "familyTargets": [
+    {"familyId":"organization_job","parentAtomicId":"client.family.organization_job","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/organization"]},
+    {"familyId":"employee_profile","parentAtomicId":"client.family.employee_profile","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/employees","/hr/employees/legacy","/hr/decision-center"]},
+    {"familyId":"employment_change","parentAtomicId":"client.family.employment_change","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/lifecycle"]},
+    {"familyId":"contract","parentAtomicId":"client.family.contract","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/contracts"]},
+    {"familyId":"training","parentAtomicId":"client.family.training","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/training"]},
+    {"familyId":"performance","parentAtomicId":"client.family.performance","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/performance"]},
+    {"familyId":"reward_discipline","parentAtomicId":"client.family.reward_discipline","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/rewards"]},
+    {"familyId":"payroll","parentAtomicId":"client.family.payroll","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/compensation","/hr/payroll"]},
+    {"familyId":"attendance","parentAtomicId":"client.family.attendance","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/attendance"]},
+    {"familyId":"insurance_welfare","parentAtomicId":"client.family.insurance_welfare","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/insurance"]},
+    {"familyId":"recruitment","parentAtomicId":"client.family.recruitment","targetType":"modern_hr_route_candidate","candidateRoutes":["/hr/recruitment","/hr/approvals"]},
+    {"familyId":"permission_log_reminder","parentAtomicId":"client.family.permission_log_reminder","targetType":"shared_platform_route_candidate","candidateRoutes":["/system/users","/system/permissions","/system/dicts","/system/audit/op-logs"]}
+  ],
+  "candidatePolicy": {
+    "sourceRelation": "familyTraversal.menuFamilies[].entryPoints",
+    "routeEvidence": "modernMenuCandidates static source only",
+    "missingLivePageAuthorityStatus": "pending",
+    "missingRoleAuthorityStatus": "pending",
+    "staticCandidateCompatibilityCredit": 0
+  },
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu.example/schemas/yuzhou-hr/legacy-routine-parity-contract.schema.json",
+  "title": "Yuzhou HR legacy routine semantic parity contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "contractKind", "contractVersion", "sourceBinding", "routines", "productionImport"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "contractKind": { "const": "yuzhou_hr_legacy_routine_semantic_parity" },
+    "contractVersion": { "type": "string", "minLength": 1 },
+    "sourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routineLedgerSha256", "sourceRoutineCount", "requiredSourceSurfaces"],
+      "properties": {
+        "routineLedgerSha256": { "$ref": "#/$defs/sha256" },
+        "sourceRoutineCount": { "type": "integer", "minimum": 1 },
+        "requiredSourceSurfaces": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "routines": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/routine" }
+    },
+    "productionImport": { "const": "HOLD" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableSha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "dimensionBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "status", "decisionReason", "entries", "evidenceSha256"],
+      "properties": {
+        "applicability": { "enum": ["required", "not_applicable"] },
+        "status": { "enum": ["pending", "verified"] },
+        "decisionReason": { "$ref": "#/$defs/nonEmptyString" },
+        "entries": { "type": "array" },
+        "evidenceSha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "parameterEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceParameter", "modernParameter", "sourceType", "modernType", "transform", "nullContract"],
+      "properties": {
+        "sourceParameter": { "$ref": "#/$defs/nonEmptyString" },
+        "modernParameter": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceType": { "$ref": "#/$defs/nonEmptyString" },
+        "modernType": { "$ref": "#/$defs/nonEmptyString" },
+        "transform": { "$ref": "#/$defs/nonEmptyString" },
+        "nullContract": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "outputEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceField", "modernField", "transform", "nullContract"],
+      "properties": {
+        "sourceField": { "$ref": "#/$defs/nonEmptyString" },
+        "modernField": { "$ref": "#/$defs/nonEmptyString" },
+        "transform": { "$ref": "#/$defs/nonEmptyString" },
+        "nullContract": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "relationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceLocator", "modernLocator", "relationContract"],
+      "properties": {
+        "sourceLocator": { "$ref": "#/$defs/nonEmptyString" },
+        "modernLocator": { "$ref": "#/$defs/nonEmptyString" },
+        "relationContract": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "nullEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceExpression", "modernExpression", "equivalenceRule"],
+      "properties": {
+        "sourceExpression": { "$ref": "#/$defs/nonEmptyString" },
+        "modernExpression": { "$ref": "#/$defs/nonEmptyString" },
+        "equivalenceRule": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "roundingEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceExpression", "modernExpression", "precisionRule"],
+      "properties": {
+        "sourceExpression": { "$ref": "#/$defs/nonEmptyString" },
+        "modernExpression": { "$ref": "#/$defs/nonEmptyString" },
+        "precisionRule": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "sideEffectEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceEffect", "modernEffect", "conservationRule"],
+      "properties": {
+        "sourceEffect": { "$ref": "#/$defs/nonEmptyString" },
+        "modernEffect": { "$ref": "#/$defs/nonEmptyString" },
+        "conservationRule": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "parameterDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/parameterEntry" } } } }] },
+    "outputDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/outputEntry" } } } }] },
+    "relationDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/relationEntry" } } } }] },
+    "nullDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/nullEntry" } } } }] },
+    "roundingDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/roundingEntry" } } } }] },
+    "sideEffectDimension": { "allOf": [{ "$ref": "#/$defs/dimensionBase" }, { "properties": { "entries": { "items": { "$ref": "#/$defs/sideEffectEntry" } } } }] },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sourceBoundary", "modernBoundary", "rollbackBehavior", "evidenceSha256"],
+      "properties": {
+        "status": { "enum": ["pending", "verified"] },
+        "sourceBoundary": { "$ref": "#/$defs/nonEmptyString" },
+        "modernBoundary": { "$ref": "#/$defs/nonEmptyString" },
+        "rollbackBehavior": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceSha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "dynamicSql": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "resolvedWriteTargets", "evidenceSha256"],
+      "properties": {
+        "status": { "enum": ["none", "resolved", "unresolved"] },
+        "resolvedWriteTargets": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "evidenceSha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "dormantCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidenceSha256"],
+      "properties": {
+        "status": { "enum": ["covered", "pending", "not_applicable"] },
+        "evidenceSha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "dormantPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceDataState", "emptyInputCase", "untriggeredBranchCase", "triggerFiringCase"],
+      "properties": {
+        "sourceDataState": { "enum": ["populated", "empty", "unknown"] },
+        "emptyInputCase": { "$ref": "#/$defs/dormantCase" },
+        "untriggeredBranchCase": { "$ref": "#/$defs/dormantCase" },
+        "triggerFiringCase": { "$ref": "#/$defs/dormantCase" }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["testId", "evidenceSha256"],
+      "properties": {
+        "testId": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "routine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routineId", "canonicalFamily", "sourceSurface", "sourceKind", "parityStatus", "semantics", "modernTargets", "testEvidence", "review"],
+      "properties": {
+        "routineId": { "$ref": "#/$defs/nonEmptyString" },
+        "canonicalFamily": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceSurface": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceKind": { "enum": ["procedure", "function", "trigger"] },
+        "parityStatus": { "enum": ["pending", "verified"] },
+        "semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parameterMappings", "outputFieldMappings", "readMappings", "writeMappings", "transaction", "nullSemantics", "roundingSemantics", "stateSideEffects", "dynamicSql", "dormantPaths"],
+          "properties": {
+            "parameterMappings": { "$ref": "#/$defs/parameterDimension" },
+            "outputFieldMappings": { "$ref": "#/$defs/outputDimension" },
+            "readMappings": { "$ref": "#/$defs/relationDimension" },
+            "writeMappings": { "$ref": "#/$defs/relationDimension" },
+            "transaction": { "$ref": "#/$defs/transaction" },
+            "nullSemantics": { "$ref": "#/$defs/nullDimension" },
+            "roundingSemantics": { "$ref": "#/$defs/roundingDimension" },
+            "stateSideEffects": { "$ref": "#/$defs/sideEffectDimension" },
+            "dynamicSql": { "$ref": "#/$defs/dynamicSql" },
+            "dormantPaths": { "$ref": "#/$defs/dormantPaths" }
+          }
+        },
+        "modernTargets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["serviceSymbols", "apiSymbols", "pages"],
+          "properties": {
+            "serviceSymbols": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } },
+            "apiSymbols": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } },
+            "pages": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } }
+          }
+        },
+        "testEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positive", "negative", "permission", "conservation"],
+          "properties": {
+            "positive": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+            "negative": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+            "permission": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+            "conservation": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "evidenceSha256"],
+          "properties": {
+            "status": { "enum": ["pending", "approved"] },
+            "evidenceSha256": { "$ref": "#/$defs/nullableSha256" }
+          }
+        }
+      }
+    }
+  }
+}

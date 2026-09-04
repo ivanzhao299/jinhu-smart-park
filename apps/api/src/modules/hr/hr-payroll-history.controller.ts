@@ -29,6 +29,7 @@ import {
   HrPayrollReconciliationQueryDto,
   HrPayrollReconciliationReviewDto,
   HrPayrollReviewActionDto,
+  HrPayrollTaxRuleQueryDto,
 } from "./dto/hr-payroll-history.dto";
 import { HrPayrollHistoryService } from "./hr-payroll-history.service";
 
@@ -60,6 +61,10 @@ export class HrPayrollHistoryController {
   @Get("history-books/:id")
   @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)
   book(@CurrentScope()scope:TenantParkScope,@CurrentUser()actor:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string){return this.service.bookDetail(scope,actor,id);}
+
+  @Get("history-tax-rules")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)
+  taxRules(@CurrentScope()scope:TenantParkScope,@CurrentUser()actor:JwtPrincipal,@Query()query:HrPayrollTaxRuleQueryDto){return this.service.listTaxRules(scope,actor,query);}
 
   @Get("history-items")
   @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)

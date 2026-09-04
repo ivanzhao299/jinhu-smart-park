@@ -21,6 +21,18 @@ interface HierarchyRepositories {
   userRepository: Repository<UserEntity>;
 }
 
+type PublicOrgEntity = Omit<OrgEntity, "legacyCompanyManagerReference">;
+
+function normalizeNullableContact(value: string | null | undefined): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  return value.trim() || null;
+}
+
+function withoutLegacyCompanyManagerReference(entity: OrgEntity): PublicOrgEntity {
+  delete (entity as Partial<OrgEntity>).legacyCompanyManagerReference;
+  return entity;
+}
+
 @Injectable()
 export class OrgsService {
   constructor(
@@ -111,15 +123,21 @@ export class OrgsService {
     }));
   }
 
-  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateOrgDto): Promise<OrgEntity> {
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateOrgDto): Promise<PublicOrgEntity> {
     return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
+      const { legacyCompanyManagerReference: protectedLegacyManagerReference, ...writableDto } = dto as
+        CreateOrgDto & { legacyCompanyManagerReference?: unknown };
+      void protectedLegacyManagerReference;
       await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
       await this.assertParentAllowed(scope, dto.parentId ?? null, actor, undefined, orgRepository);
       await this.assertLeaderAllowed(scope, dto.leaderUserId ?? null, userRepository);
       const entity = orgRepository.create({
-        ...dto,
+        ...writableDto,
         parentId: dto.parentId ?? null,
         leaderUserId: dto.leaderUserId ?? null,
+        contactPhone: normalizeNullableContact(dto.contactPhone) ?? null,
+        contactAddress: normalizeNullableContact(dto.contactAddress) ?? null,
+        contactEmail: normalizeNullableContact(dto.contactEmail) ?? null,
         sortOrder: dto.sortOrder ?? 0,
         status: dto.status ?? "enabled",
         tenantId: scope.tenantId,
@@ -127,7 +145,7 @@ export class OrgsService {
         createBy: actor.sub,
         updateBy: actor.sub
       });
-      return orgRepository.save(entity);
+      return withoutLegacyCompanyManagerReference(await orgRepository.save(entity));
     });
   }
 
@@ -141,8 +159,11 @@ export class OrgsService {
     return entity;
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateOrgDto): Promise<OrgEntity> {
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateOrgDto): Promise<PublicOrgEntity> {
     return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
+      const { legacyCompanyManagerReference: protectedLegacyManagerReference, ...writableDto } = dto as
+        UpdateOrgDto & { legacyCompanyManagerReference?: unknown };
+      void protectedLegacyManagerReference;
       const entity = await this.detail(scope, id, orgRepository);
       if (dto.orgCode && dto.orgCode !== entity.orgCode) {
         await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
@@ -156,12 +177,16 @@ export class OrgsService {
       if (dto.status === "disabled" && entity.status !== "disabled") {
         await this.assertNoActiveChildren(scope, id, "存在有效下级组织，不能停用", orgRepository);
       }
-      Object.assign(entity, dto, {
+      withoutLegacyCompanyManagerReference(entity);
+      Object.assign(entity, writableDto, {
         parentId: dto.parentId === undefined ? entity.parentId : dto.parentId,
         leaderUserId: dto.leaderUserId === undefined ? entity.leaderUserId : dto.leaderUserId,
+        contactPhone: dto.contactPhone === undefined ? entity.contactPhone : normalizeNullableContact(dto.contactPhone),
+        contactAddress: dto.contactAddress === undefined ? entity.contactAddress : normalizeNullableContact(dto.contactAddress),
+        contactEmail: dto.contactEmail === undefined ? entity.contactEmail : normalizeNullableContact(dto.contactEmail),
         updateBy: actor.sub
       });
-      return orgRepository.save(entity);
+      return withoutLegacyCompanyManagerReference(await orgRepository.save(entity));
     });
   }
 

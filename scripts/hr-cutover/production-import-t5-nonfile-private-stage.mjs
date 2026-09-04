@@ -6,7 +6,7 @@ import { adaptT5NonfilePrivateStage, projectT5NonfileStagedRecord } from "./prod
 const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const STAGE_DOMAINS = Object.freeze(["family", "knowhow", "person_core", "ticket"]);
-const TARGET_TABLES = Object.freeze(["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"]);
+const TARGET_TABLES = Object.freeze(["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential", "hr_custom_field_definition", "hr_custom_field_legacy_logic_fingerprint", "hr_employee_custom_value"]);
 
 export class ProductionImportT5NonfilePrivateStageError extends Error {
   constructor(code, detail) {
@@ -30,8 +30,8 @@ function validateTriple(value) {
 }
 
 function validateStageManifest(value, triple) {
-  exactKeys(value, ["artifactKind", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "nonfileBusinessSha256", "domains", "filesExcluded", "productionImport"], [], "stage manifest");
-  if (value.artifactKind !== "yuzhou_t5_nonfile_materialization_stage" || value.sourceSnapshotSha256 !== triple.sourceSnapshotHash || !SHA256.test(value.sourceRestoreReceiptSha256 ?? "") || !SHA256.test(value.nonfileBusinessSha256 ?? "") || value.productionImport !== "HOLD" || JSON.stringify(value.filesExcluded) !== JSON.stringify(["photo", "docs"]) || JSON.stringify(Object.keys(value.domains).sort()) !== JSON.stringify(STAGE_DOMAINS)) {
+  exactKeys(value, ["artifactKind", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "nonfileBusinessSha256", "mappingContractSha256", "definitionEvidenceSha256", "definitionEvidenceRows", "definitionLogicColumnDenominator", "definitionLogicColumnPresentCount", "t0DecisionArtifactSha256", "t0TargetIdentitySha256", "t0TargetScopeSha256", "domains", "filesExcluded", "productionImport"], [], "stage manifest");
+  if (value.artifactKind !== "yuzhou_t5_nonfile_materialization_stage" || value.sourceSnapshotSha256 !== triple.sourceSnapshotHash || value.mappingContractSha256 !== triple.mappingContractHash || !SHA256.test(value.sourceRestoreReceiptSha256 ?? "") || !SHA256.test(value.nonfileBusinessSha256 ?? "") || !SHA256.test(value.definitionEvidenceSha256 ?? "") || value.definitionEvidenceRows !== 19 || value.definitionLogicColumnDenominator !== 190 || !Number.isSafeInteger(value.definitionLogicColumnPresentCount) || value.definitionLogicColumnPresentCount < 0 || value.definitionLogicColumnPresentCount > 190 || !SHA256.test(value.t0DecisionArtifactSha256 ?? "") || !SHA256.test(value.t0TargetIdentitySha256 ?? "") || !SHA256.test(value.t0TargetScopeSha256 ?? "") || value.productionImport !== "HOLD" || JSON.stringify(value.filesExcluded) !== JSON.stringify(["photo", "docs"]) || JSON.stringify(Object.keys(value.domains).sort()) !== JSON.stringify(STAGE_DOMAINS)) {
     fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", "stage manifest binding invalid");
   }
 }
@@ -47,6 +47,10 @@ function receipt(privateStage) {
     sourceSnapshotSha256: privateStage.sourceSnapshotHash,
     sourceRestoreReceiptSha256: privateStage.sourceRestoreReceiptSha256,
     sourceBusinessSha256: privateStage.sourceBusinessSha256,
+    mappingContractSha256: privateStage.mappingContractSha256,
+    t0DecisionArtifactSha256: privateStage.t0DecisionArtifactSha256,
+    t0TargetIdentitySha256: privateStage.t0TargetIdentitySha256,
+    t0TargetScopeSha256: privateStage.t0TargetScopeSha256,
     privateStageSha256: computeProductionImportPayloadHash(privateStage),
     recordCount: privateStage.records.length,
     targetTableCounts: domains,
@@ -60,7 +64,7 @@ function receipt(privateStage) {
  * opens a connection, or provides an activation path.
  */
 export function createT5NonfilePrivateStage(input) {
-  exactKeys(input, ["triple", "stageManifest", "employeeIndex", "records"], [], "input");
+  exactKeys(input, ["triple", "stageManifest", "definitionEvidence", "employeeIndex", "records"], [], "input");
   validateTriple(input.triple);
   validateStageManifest(input.stageManifest, input.triple);
   if (!Array.isArray(input.records)) fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", "records must be an array");
@@ -78,14 +82,30 @@ export function createT5NonfilePrivateStage(input) {
         sourceSnapshotHash: input.stageManifest.sourceSnapshotSha256,
         sourceRestoreReceiptSha256: input.stageManifest.sourceRestoreReceiptSha256,
         nonfileBusinessSha256: input.stageManifest.nonfileBusinessSha256,
+        mappingContractSha256: input.stageManifest.mappingContractSha256,
+        definitionEvidenceSha256: input.stageManifest.definitionEvidenceSha256,
+        definitionEvidenceRows: input.stageManifest.definitionEvidenceRows,
+        definitionLogicColumnDenominator: input.stageManifest.definitionLogicColumnDenominator,
+        definitionLogicColumnPresentCount: input.stageManifest.definitionLogicColumnPresentCount,
+        t0DecisionArtifactSha256: input.stageManifest.t0DecisionArtifactSha256,
+        t0TargetIdentitySha256: input.stageManifest.t0TargetIdentitySha256,
+        t0TargetScopeSha256: input.stageManifest.t0TargetScopeSha256,
         productionImport: "HOLD",
       },
+      definitionEvidence: structuredClone(input.definitionEvidence),
       employeeIndex: structuredClone(input.employeeIndex),
       records: projected,
     });
   } catch (error) {
     fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", error?.code ?? "adapter rejected stage");
   }
-  if (privateStage.records.length !== projected.length || privateStage.records.some(record => Object.hasOwn(record, "source"))) fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", "source projection invalid");
+  const projectedIdentities = new Set(projected.map(record => record.sourceIdentitySha256));
+  const retained = privateStage.records.filter(record => projectedIdentities.has(record.sourceIdentitySha256));
+  const expanded = privateStage.records.filter(record => !projectedIdentities.has(record.sourceIdentitySha256));
+  if (retained.length !== projected.length
+    || expanded.some(record => !["hr_custom_field_definition", "hr_custom_field_legacy_logic_fingerprint", "hr_employee_custom_value"].includes(record.targetTable))
+    || privateStage.records.some(record => Object.hasOwn(record, "source"))) {
+    fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", "source projection invalid");
+  }
   return Object.freeze({ privateStage: Object.freeze(privateStage), receipt: receipt(privateStage) });
 }

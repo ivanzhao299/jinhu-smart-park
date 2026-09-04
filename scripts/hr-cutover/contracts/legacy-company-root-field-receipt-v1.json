@@ -1,0 +1,137 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_company_root_field_receipt",
+  "sourceSystem": "yuzhou-v10",
+  "sourceTable": "company",
+  "scope": "company_root_organization_minimum_field_family",
+  "sourceSchema": {
+    "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+    "requiredCatalogColumns": ["id", "company", "phone", "etype", "addr", "email", "master"]
+  },
+  "evidenceBindings": {
+    "organizationPositionMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "selectedCompanyColumns": ["id", "company", "phone", "etype", "addr", "email", "master"],
+      "selectedRowsSha256": "8c4f640fbb2bfc9e6f222efcd4aae66b2af075a6af618975b418ba19877abbeb"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+      "expectedCompanyReferenceCount": 0
+    },
+    "clientAtomicPage": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
+      "sha256": "ee3adb30d145afc33f845e290f5acfa390beb85c1ed913ead1dd2c8d136da4b5",
+      "atomicId": "client.organization_job.001",
+      "entryPoint": "单位设置",
+      "requiredObservationStatus": "pending",
+      "requiredGapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    "targetArtifacts": [
+      {
+        "id": "sys_org_base",
+        "path": "database/migrations/000002_s1_system_foundation.sql",
+        "sha256": "4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9",
+        "requiredTokens": ["CREATE TABLE IF NOT EXISTS sys_org", "org_name varchar(100) NOT NULL", "org_type varchar(32) NOT NULL", "leader_user_id uuid", "remark varchar(500)"]
+      },
+      {
+        "id": "sys_org_legacy_columns",
+        "path": "database/migrations/000295_hr_organization_position_legacy_mapping.sql",
+        "sha256": "50925b509d630dddb95606e7a63ad1f7cfbeed8e5a3874802b3cce9793365e2e",
+        "requiredTokens": ["legacy_source_id integer", "contact_phone varchar(50)"]
+      },
+      {
+        "id": "sys_org_entity",
+        "path": "apps/api/src/modules/orgs/entities/org.entity.ts",
+        "sha256": "cc8be733de995308df1f973cf06b66cae276a8211e37903d504695d84279f0fc",
+        "requiredTokens": ["name: \"org_name\"", "name: \"org_type\"", "name: \"legacy_source_id\"", "name: \"contact_phone\"", "name: \"contact_address\"", "name: \"contact_email\"", "name: \"legacy_company_manager_reference\"", "name: \"leader_user_id\"", "select: false"]
+      },
+      {
+        "id": "sys_org_company_contact_model",
+        "path": "database/migrations/000298_hr_org_company_contact_model.sql",
+        "sha256": "863c687b5f6cea94c30c4a655d95f7308aa57e72be1a36f04e5c151cc604c8ac",
+        "requiredTokens": ["contact_address varchar(500)", "contact_email varchar(254)", "legacy_company_manager_reference varchar(50)", "must not populate leader_user_id"]
+      }
+    ]
+  },
+  "candidateFields": [
+    {
+      "sourceColumn": "id",
+      "candidateTarget": "sys_org.legacy_source_id",
+      "targetEvidenceIds": ["sys_org_legacy_columns", "sys_org_entity"],
+      "currentGapCode": "COMPANY_ROOT_MERGE_RULE_UNCONFIRMED",
+      "semanticStatus": "pending_authoritative_root_merge",
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "company",
+      "candidateTarget": "sys_org.org_name",
+      "targetEvidenceIds": ["sys_org_base", "sys_org_entity"],
+      "currentGapCode": "COMPANY_ROOT_MERGE_RULE_UNCONFIRMED",
+      "semanticStatus": "pending_authoritative_root_merge",
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "phone",
+      "candidateTarget": "sys_org.contact_phone",
+      "targetEvidenceIds": ["sys_org_legacy_columns", "sys_org_entity"],
+      "currentGapCode": "COMPANY_ROOT_MERGE_RULE_UNCONFIRMED",
+      "semanticStatus": "pending_authoritative_root_merge",
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "etype",
+      "candidateTarget": "sys_org.org_type",
+      "targetEvidenceIds": ["sys_org_base", "sys_org_entity"],
+      "currentGapCode": "LEGACY_SEMANTICS_UNCONFIRMED",
+      "semanticStatus": "pending_authoritative_legacy_semantics",
+      "compatibilityCredit": 0
+    }
+  ],
+  "explicitGaps": [
+    {
+      "sourceColumn": "addr",
+      "currentMapTarget": "sys_org",
+      "authoritativeModernTarget": "sys_org.contact_address",
+      "forbiddenTargets": ["sys_org.remark"],
+      "gapCode": "COMPANY_ADDR_SOURCE_SEMANTICS_UNCONFIRMED",
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "email",
+      "currentMapTarget": "sys_org",
+      "authoritativeModernTarget": "sys_org.contact_email",
+      "forbiddenTargets": ["sys_org.remark"],
+      "gapCode": "COMPANY_EMAIL_SOURCE_SEMANTICS_UNCONFIRMED",
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "master",
+      "currentMapTarget": "sys_org.leader_user_id",
+      "authoritativeModernTarget": "sys_org.legacy_company_manager_reference",
+      "forbiddenTargets": ["sys_org.leader_user_id", "sys_org.remark"],
+      "gapCode": "COMPANY_MASTER_IDENTITY_BINDING_REQUIRED",
+      "compatibilityCredit": 0
+    }
+  ],
+  "aggregateFields": [
+    "companyRows",
+    "distinctIdRows",
+    "nullIdRows",
+    "duplicateIdGroups",
+    "distinctCompanyNames",
+    "blankCompanyRows",
+    "maxCompanyLength",
+    "blankPhoneRows",
+    "maxPhoneLength",
+    "distinctEtypeRows",
+    "blankEtypeRows",
+    "maxEtypeLength"
+  ],
+  "privacyPolicy": "aggregate_counts_lengths_and_catalog_only_no_company_values_personal_data_or_identifiers",
+  "allowedDecision": "KEEP_PENDING",
+  "receiptStatus": "SOURCE_FACTS_CAPTURED_SEMANTIC_AND_TARGET_REVIEW_PENDING",
+  "compatibilityCredit": {"numerator": 0, "denominator": 4},
+  "productionImport": "HOLD"
+}

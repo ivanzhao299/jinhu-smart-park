@@ -1,0 +1,71 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_employment_event_cross_layer",
+  "contractVersion": "2026-09-04.2",
+  "identity": {
+    "milestone": "M4",
+    "sourceTable": "dbo.readjust",
+    "targetTable": "hr_employment_event",
+    "mappedRoute": "/hr/lifecycle",
+    "detailRoute": "/hr/employees"
+  },
+  "sourceBindings": {
+    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "b59248966bbb2e221cde4017aef1aabbc6cb3c6cc3665c1f266d5c1b046b13f6" },
+    "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
+    "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "ae48cab4308fcc9861961b89228fc9f57267ab1406f706f59535dcb832e03a40" },
+    "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "a32eeacff08d4037557e069878e8436b933feb9a48646e2f72ba6d7897ae03bb" },
+    "targetLoader": { "path": "scripts/load-yuzhou-t1-employment-events.sh", "sha256": "dcad28e24e63b80d947716d2f1d7b55096e08638562f7bc84ed5af8414974be0" },
+    "targetFoundationMigration": { "path": "database/migrations/000230_hr_employee_foundation.sql", "sha256": "9041f56e6114bca535c23cd83fb88d31f579651d40b31bf975201ce8b06e5631" },
+    "targetCompatibilityMigration": { "path": "database/migrations/000237_hr_employment_event_legacy_compatibility.sql", "sha256": "c50dd0cb4e026ef6c3b13be6d3a7bbdce69ea810cb8b54131c46dcaedddc01cf" },
+    "targetEventNumberMigration": { "path": "database/migrations/000266_hr_employee_identity_event_number.sql", "sha256": "5d16f76541896e81454537b07ea851bef2a89aaea913ddca9aec92ed1f6d51d9" },
+    "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "fe614bdbddb7b730f77e44cd44ad599416a27c35c7ddd899481f56769432f23b" },
+    "apiController": { "path": "apps/api/src/modules/hr/hr.controller.ts", "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051" },
+    "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad" },
+    "apiDto": { "path": "apps/api/src/modules/hr/dto/hr.dto.ts", "sha256": "f3c167775a6c8965a4ada18b72e89fbfd4d1a2d0e7afdd22ba055c98ffe4fab1" },
+    "apiReadSpec": { "path": "apps/api/src/modules/hr/hr-employment-event-read.spec.ts", "sha256": "66e81f17c1c4dffd558bb13a613d68590fbe3f28a0110caf567073a5e7cd41ef" },
+    "lifecycleRoute": { "path": "apps/web/app/hr/lifecycle/page.tsx", "sha256": "9a308469aea7ce4584ae5d3b6996d81909441016660bb487e0fe84aaa05db641" },
+    "lifecycleClient": { "path": "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx", "sha256": "4c8ffaafb9f5bf616f9610c4b1c0350bf71bea9ca8e09ef0d117715757cd220a" },
+    "employeeRoute": { "path": "apps/web/app/hr/employees/page.tsx", "sha256": "b86fcaa84a73e6de9cf68ee17889226cbef2e69843e4bb73ee2742a9de77f552" },
+    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126" },
+    "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a" }
+  },
+  "requiredStaticLayers": [
+    "source_manifest",
+    "source_mapping",
+    "controlled_transform",
+    "target_loader",
+    "target_schema",
+    "target_entity",
+    "api_controller",
+    "api_service",
+    "frontend_routes",
+    "frontend_read_write_surface",
+    "detail_response_projection",
+    "detail_required_audit"
+  ],
+  "expectedStaticGapCodes": [],
+  "nextImplementationSlices": [
+    {
+      "stableId": "M4_EMPLOYMENT_EVENT_RUNTIME_PARITY",
+      "scope": "current_hash_bound_role_and_browser_acceptance",
+      "requiredEvidence": ["api_role_matrix", "desktop", "390px", "legacy_runtime_observation"]
+    }
+  ],
+  "runtimeSurfaces": [
+    "source_readonly_runtime",
+    "api_role_matrix",
+    "modern_web_desktop",
+    "modern_web_390"
+  ],
+  "evidencePolicy": {
+    "sourcePayload": "hash_structure_and_stable_identifiers_only",
+    "sourceRows": "FORBIDDEN",
+    "personData": "FORBIDDEN",
+    "credentials": "FORBIDDEN",
+    "pageBody": "FORBIDDEN",
+    "screenshotBinary": "FORBIDDEN",
+    "staticCompatibilityCredit": 0,
+    "runtimeCompatibilityCreditWithoutEvidence": 0
+  },
+  "productionImport": "HOLD"
+}

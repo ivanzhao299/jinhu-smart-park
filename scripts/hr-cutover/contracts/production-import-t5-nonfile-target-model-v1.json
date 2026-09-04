@@ -1,9 +1,9 @@
 {
   "formatVersion": 1,
   "modelKind": "yuzhou_hr_production_import_t5_nonfile_target_model",
-  "modelVersion": "2026-09-02.1",
+  "modelVersion": "2026-09-04.3",
   "phase": "T5",
-  "sourceBoundary": "nonfile_employee_profile_family_skill_credential_only",
+  "sourceBoundary": "nonfile_employee_profile_family_skill_credential_custom_fields_and_logic",
   "filesExcluded": ["photo", "docs"],
   "sourceSystem": "yuzhou-v10",
   "targetTables": {
@@ -34,6 +34,27 @@
       "recordKind": "credential",
       "writeMode": "insert_only",
       "legacyIdentityColumns": ["legacy_source_identity_sha256", "legacy_source_row_sha256"]
+    },
+    "hr_custom_field_definition": {
+      "sourceTable": "dbo.defs",
+      "dependency": "none",
+      "recordKind": "custom_field_definition",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["source_identity_sha256", "source_row_sha256"]
+    },
+    "hr_custom_field_legacy_logic_fingerprint": {
+      "sourceTable": "dbo.defs",
+      "dependency": "custom_field_definition",
+      "recordKind": "custom_field_definition_logic",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["source_identity_sha256", "source_row_sha256"]
+    },
+    "hr_employee_custom_value": {
+      "sourceTable": "dbo.person",
+      "dependency": "employee_custom_field",
+      "recordKind": "custom_field_value",
+      "writeMode": "insert_only",
+      "legacyIdentityColumns": ["source_identity_sha256", "source_row_sha256"]
     }
   },
   "productionImport": "HOLD"

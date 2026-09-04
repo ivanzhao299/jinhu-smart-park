@@ -134,9 +134,11 @@ UNION ALL SELECT id,'employee','dbo.person','load','running',2949,
   (SELECT count(*) FROM stg_employee_decision WHERE (decision='map' AND target_domain='employment_status'
     AND target_value IN('active','probation','suspended','departed')) IS NOT TRUE),:'emp_sha',now() FROM b;
 
-INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark)
+INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,legacy_source_id,legacy_hierarchy_level,legacy_manager_reference,planned_headcount,contact_phone,sort_order,status,remark)
 SELECT :'tenant_id',:'park_id',NULL,s.payload->>'sourceKey',s.payload->'source'->>'orgName',
   CASE WHEN COALESCE((s.payload->'source'->>'rating')::int,1)<=1 THEN 'company' ELSE 'department' END,
+  NULLIF(s.payload->'source'->>'legacySourceId','')::int,NULLIF(s.payload->'source'->>'rating','')::smallint,
+  NULLIF(s.payload->'source'->>'legacyManagerValue',''),NULLIF(s.payload->'source'->>'plannedHeadcount','')::int,NULLIF(btrim(s.payload->'source'->>'contactPhone'),''),
   COALESCE((s.payload->'source'->>'sortOrder')::int,0),'enabled','Migrated from Yuzhou V10; run='||:'run_id'
 FROM stg_department s ORDER BY length(s.payload->>'sourceKey'),s.payload->>'sourceKey';
 
@@ -155,13 +157,53 @@ UPDATE sys_org child SET parent_id=(
 WHERE child.tenant_id::text=:'tenant_id' AND child.park_id::text=:'park_id'
   AND child.remark='Migrated from Yuzhou V10; run='||:'run_id';
 
-INSERT INTO hr_position(tenant_id,park_id,org_id,position_code,position_name,job_family,job_level,status,remark)
-SELECT :'tenant_id',:'park_id',COALESCE(dept.id,root_org.id),s.payload->>'sourceKey',s.payload->'source'->>'positionName',
-  NULLIF(s.payload->'source'->>'jobgrade',''),NULLIF(s.payload->'source'->>'salarygrade',''),
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM stg_position s
+    WHERE NOT (s.payload->'source' ? 'legacyUptoCode')
+  ) THEN RAISE EXCEPTION 'T0 position omitted legacy upto structural field'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM stg_position s
+    WHERE NULLIF(btrim(s.payload->'source'->>'departmentCode'),'') IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM sys_org o
+        WHERE o.tenant_id::text=current_setting('yuzhou.tenant_id') AND o.park_id::text=current_setting('yuzhou.park_id')
+          AND o.org_code=s.payload->'source'->>'departmentCode' AND o.is_deleted=false
+      )
+  ) THEN RAISE EXCEPTION 'T0 position references an unknown organization'; END IF;
+END $$;
+
+INSERT INTO hr_position(tenant_id,park_id,org_id,reports_to_position_id,position_code,position_name,job_family,job_level,headcount_limit,hierarchy_level,sort_order,legacy_source_id,legacy_upto_code,authority,qualification,responsibilities,position_manual,status,remark)
+SELECT :'tenant_id',:'park_id',COALESCE(dept.id,root_org.id),NULL,s.payload->>'sourceKey',s.payload->'source'->>'positionName',
+  NULLIF(s.payload->'source'->>'jobgrade',''),NULLIF(s.payload->'source'->>'salarygrade',''),NULLIF(s.payload->'source'->>'headcountLimit','')::int,
+  NULLIF(s.payload->'source'->>'rating','')::smallint,COALESCE(NULLIF(s.payload->'source'->>'sortOrder','')::int,0),NULLIF(s.payload->'source'->>'legacySourceId','')::int,NULLIF(btrim(s.payload->'source'->>'legacyUptoCode'),''),
+  NULLIF(btrim(s.payload->'source'->>'authority'),''),NULLIF(btrim(s.payload->'source'->>'qualification'),''),
+  NULLIF(btrim(s.payload->'source'->>'responsibilities'),''),NULLIF(btrim(s.payload->'source'->>'positionManual'),''),
   'enabled','Migrated from Yuzhou V10; run='||:'run_id'
 FROM stg_position s
 LEFT JOIN sys_org dept ON dept.tenant_id::text=:'tenant_id' AND dept.park_id::text=:'park_id' AND dept.org_code=s.payload->'source'->>'departmentCode' AND dept.is_deleted=false
 JOIN sys_org root_org ON root_org.tenant_id::text=:'tenant_id' AND root_org.park_id::text=:'park_id' AND root_org.org_code='000' AND root_org.is_deleted=false;
+
+UPDATE hr_position child
+SET reports_to_position_id=parent.id
+FROM stg_position source
+JOIN hr_position parent
+  ON parent.tenant_id::text=:'tenant_id' AND parent.park_id::text=:'park_id'
+ AND parent.position_code=source.payload->'source'->>'parentPositionCode' AND parent.is_deleted=false
+WHERE child.tenant_id::text=:'tenant_id' AND child.park_id::text=:'park_id'
+  AND child.position_code=source.payload->>'sourceKey' AND child.is_deleted=false
+  AND child.remark='Migrated from Yuzhou V10; run='||:'run_id'
+  AND NULLIF(btrim(source.payload->'source'->>'parentPositionCode'),'') IS NOT NULL;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM stg_position source
+    JOIN hr_position child ON child.tenant_id::text=current_setting('yuzhou.tenant_id') AND child.park_id::text=current_setting('yuzhou.park_id')
+      AND child.position_code=source.payload->>'sourceKey' AND child.is_deleted=false
+    WHERE NULLIF(btrim(source.payload->'source'->>'parentPositionCode'),'') IS NOT NULL
+      AND child.reports_to_position_id IS NULL
+  ) THEN RAISE EXCEPTION 'T0 position references an unknown parent position'; END IF;
+END $$;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
 INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status)

@@ -1,0 +1,47 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_dual_source_empty_object_denominator",
+  "status": "SOURCE_BOUND_DENOMINATOR_ONLY",
+  "sourceBindings": {
+    "clientAtomicInventory": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json",
+      "sha256": "83777787b4dcbcebb959c0051e021e1bb27ff77abe73047c79cd2273fa387e4a"
+    },
+    "clientTableMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+    },
+    "clientRoutineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "dualSourceReconciliation": {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "sha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959"
+    }
+  },
+  "expectedDenominator": {
+    "clientTables": 162,
+    "clientRoutines": 212,
+    "groupWebTables": 438,
+    "totalObjects": 812
+  },
+  "groupWebAggregateEvidence": {
+    "tables": 438,
+    "nonemptyTables": 215,
+    "emptyTables": 223,
+    "rows": 320406,
+    "schemaSha256": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+    "tableRowCountSetSha256": "8aa9b2b7b2abc842dd95e2925641d3c9225837f2010cfe93ca42f7e33ad84b40"
+  },
+  "evidencePolicy": {
+    "includeUnknownRowObjects": true,
+    "includeUnknownNonNullObjects": true,
+    "includeUncalledRoutines": true,
+    "doNotAssignAggregateEmptyCountsToOpaqueObjects": true,
+    "objectPayloadMode": "stable_id_type_status_hash_only",
+    "compatibilityCredit": 0
+  },
+  "containsBusinessValues": false,
+  "productionImport": "HOLD"
+}

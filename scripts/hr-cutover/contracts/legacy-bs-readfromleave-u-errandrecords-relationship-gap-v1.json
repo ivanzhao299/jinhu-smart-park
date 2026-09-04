@@ -1,0 +1,76 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_bs_readfromleave_u_errandrecords_source_relationship_gap",
+  "contractVersion": "2026-09-04.1",
+  "scope": "legacy_business_trip_and_leave_source_relationship",
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "uErrandrecordsMapping": {
+      "path": "scripts/hr-cutover/contracts/legacy-u-errandrecords-modern-map-v1.json",
+      "sha256": "8eb774455f0a1e783b8c7cf76d2e03da97899795fb26edcd6f2974df41a4eff7"
+    },
+    "uErrandrecordsParity": {
+      "path": "scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json",
+      "sha256": "91526cbadb88c1f1906e2c703d37701880bab06999ddcc045cbea38eb15f467d"
+    },
+    "bsReadfromleaveMapping": {
+      "path": "scripts/hr-cutover/contracts/legacy-bs-readfromleave-modern-map-v1.json",
+      "sha256": "1169cea0e985c12aec701e42847008c5095b34b50b6575976b5eaf56c51df544"
+    },
+    "bsReadfromleaveParity": {
+      "path": "scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json",
+      "sha256": "e70cc0bec2a6a80326691d8886633d6c4a8a8ed0e20f46ca22584b61c84fb19c"
+    },
+    "uErrandrecordsSourceReceiptImplementation": {
+      "path": "scripts/hr-cutover/u-errandrecords-source-receipt.mjs",
+      "sha256": "745d58f421776e70a46de7d6b91d48545b1ec0155a4a6b8f272135d3505b7a19"
+    }
+  },
+  "families": [
+    {
+      "canonicalFamily": "u_errandrecords",
+      "routineId": "RULE-89960D3A0FC9C591",
+      "sourceArtifactSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a",
+      "businessReadTables": ["departmentcode", "errand", "person"],
+      "businessWriteTables": [],
+      "calledRoutines": [],
+      "modernRequestType": "business_trip",
+      "parityStatus": "pending",
+      "sourceDataEvidenceStatus": "safe_receipt_implementation_only_current_receipt_not_bound"
+    },
+    {
+      "canonicalFamily": "bs_readfromLeave",
+      "routineId": "RULE-A6D7E11BA9DEAEC2",
+      "sourceArtifactSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a",
+      "businessReadTables": ["leave", "timekeeprecord"],
+      "businessWriteTables": ["timekeeprecord"],
+      "calledRoutines": [],
+      "modernRequestType": "leave",
+      "parityStatus": "verified",
+      "sourceDataEvidenceStatus": "empty_fixture_only"
+    }
+  ],
+  "relationshipEvidence": {
+    "sharedSourceBusinessTables": [],
+    "directRoutineCalls": [],
+    "sharedSourceKeyEvidence": "missing",
+    "declaredForeignKeyEvidence": "missing",
+    "crossFamilyRowReceipt": "missing",
+    "sourceRowIdentityInterchangeable": false,
+    "allowedInference": "NONE"
+  },
+  "decision": "KEEP_SEPARATE_AND_PENDING",
+  "gapCodes": [
+    "ERRAND_LEAVE_SHARED_SOURCE_RELATION_UNPROVEN",
+    "ERRAND_CURRENT_SAFE_SOURCE_RECEIPT_NOT_BOUND",
+    "LEAVE_SOURCE_DATA_STATE_EMPTY_FIXTURE_ONLY"
+  ],
+  "compatibilityCredit": 0,
+  "receiptPolicy": "aggregate_object_identities_hashes_relationship_statuses_and_gap_codes_only",
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

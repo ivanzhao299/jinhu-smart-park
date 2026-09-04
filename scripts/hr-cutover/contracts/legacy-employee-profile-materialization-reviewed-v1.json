@@ -1,9 +1,22 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "mappingKind": "yuzhou_hr_employee_profile_materialization_reviewed",
   "sourceSystem": "yuzhou-v10",
-  "sourceTables": ["dbo.person.core_residue", "dbo.family", "dbo.knowhow", "dbo.ticket"],
-  "targetTables": ["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"],
+  "sourceTables": [
+    "dbo.person.core_residue",
+    "dbo.defs",
+    "dbo.family",
+    "dbo.knowhow",
+    "dbo.ticket"
+  ],
+  "targetTables": [
+    "hr_employee_profile",
+    "hr_custom_field_definition",
+    "hr_employee_custom_value",
+    "hr_employee_family",
+    "hr_employee_skill",
+    "hr_employee_credential"
+  ],
   "identityContract": "legacy_source_identity_sha256_and_employee_map_v1",
   "employeeMapContract": "active_t0_legacy_record_map_dbo_person_v1",
   "encryptionKeyContract": "party_data_encryption_key_v1",
@@ -30,9 +43,124 @@
       "jobtitle": "job_title",
       "jobgrade": "job_grade"
     },
-    "family": {"member":"protected_full_name","rela":"relationship","birthday":"birth_date","jobunit":"work_unit","jobname":"job_title","political":"political_status","tel":"protected_contact"},
-    "knowhow": {"knowhow":"skill_name","grade":"legacy_grade_gap","memo":"note"},
-    "ticket": {"ticket":"credential_name","tickettype":"credential_type","ticketno":"protected_number","getdate":"acquired_date","validdate":"valid_to","org":"issuing_authority","memo":"note","ticketfilename":"hashed_file_reference_only"}
+    "family": {
+      "member": "protected_full_name",
+      "rela": "relationship",
+      "birthday": "birth_date",
+      "jobunit": "work_unit",
+      "jobname": "job_title",
+      "political": "political_status",
+      "tel": "protected_contact"
+    },
+    "knowhow": {
+      "knowhow": "skill_name",
+      "grade": "legacy_grade_gap",
+      "memo": "note"
+    },
+    "ticket": {
+      "ticket": "credential_name",
+      "tickettype": "credential_type",
+      "ticketno": "protected_number",
+      "getdate": "acquired_date",
+      "validdate": "valid_to",
+      "org": "issuing_authority",
+      "memo": "note",
+      "ticketfilename": "hashed_file_reference_only"
+    }
+  },
+  "personCustomFieldMapping": {
+    "sourceDefinitionTable": "dbo.defs",
+    "sourceValueTable": "dbo.person",
+    "targetDefinitionTable": "hr_custom_field_definition",
+    "targetValueTable": "hr_employee_custom_value",
+    "sourceDefinitionColumns": [
+      "ID",
+      "def",
+      "description",
+      "datatype",
+      "groupid",
+      "groupname",
+      "myorder",
+      "description_d",
+      "sqltext",
+      "flag",
+      "crosssql",
+      "crosscolselectsql",
+      "crossrowselectsql",
+      "crosswhere",
+      "querywhere",
+      "ascount",
+      "ascount2"
+    ],
+    "definitionFieldRules": {
+      "ID": "required_stable_source_identity",
+      "def": "required_unique_source_column",
+      "description": "display_label_or_explicit_code_fallback",
+      "datatype": "required_and_must_match_declared_value_type",
+      "groupid": "nullable_legacy_group_identity",
+      "groupname": "field_group_or_explicit_ungrouped_label",
+      "myorder": "source_order_input_for_dense_stable_sort_or_mapping_ordinal_when_null"
+    },
+    "logicColumnRules": [
+      {"column": "description_d", "classification": "presentation_expression", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "sqltext", "classification": "legacy_sql_expression", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "flag", "classification": "legacy_behavior_flag", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "crosssql", "classification": "legacy_cross_lookup_sql", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "crosscolselectsql", "classification": "legacy_cross_column_sql", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "crossrowselectsql", "classification": "legacy_cross_row_sql", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "crosswhere", "classification": "legacy_cross_filter", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "querywhere", "classification": "legacy_query_filter", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "ascount", "classification": "legacy_aggregate_flag", "execution": "forbidden", "retention": "private_source_and_hash_only"},
+      {"column": "ascount2", "classification": "legacy_secondary_aggregate_flag", "execution": "forbidden", "retention": "private_source_and_hash_only"}
+    ],
+    "logicCoverageRule": "all_10_logic_columns_count_in_denominator_even_when_source_null",
+    "safeMetadataRules": {
+      "legacyRuleClassification": "review_required_when_any_logic_column_present_otherwise_inert",
+      "logicFingerprint": "column_classification_presence_nullness_and_sha256_only",
+      "logicSourceText": "private_stage_only_never_execute_log_or_commit"
+    },
+    "definitionSetRules": {
+      "requiredCodes": [
+        "def1", "def2", "def3", "def4", "def5", "def6", "def7", "def8", "def9",
+        "def11", "def12", "def13", "def14", "def15",
+        "def21", "def22", "def23", "def24", "def25"
+      ],
+      "missingDefinition": "fail_closed",
+      "duplicateDefinition": "fail_closed",
+      "datatypeConflict": "fail_closed",
+      "unexpectedDefinition": "excluded_by_pinned_source_query"
+    },
+    "valueRules": {
+      "sourceNull": "emit_explicit_value_row_with_is_source_null_true",
+      "validValue": "emit_exactly_one_type_specific_value",
+      "invalidValue": "emit_quarantined_review_value_without_typed_value",
+      "invalidRawValue": "private_stage_only_never_log_or_commit",
+      "numericPrecision": "numeric_28_8",
+      "dateCanonicalization": "yyyy_mm_dd",
+      "definitionOrdering": "myorder_then_ID_then_mapping_ordinal",
+      "grouping": "groupname_then_groupid_with_explicit_ungrouped_label"
+    },
+    "fields": [
+      {"sourceColumn": "def1", "valueType": "text", "mappingOrdinal": 0},
+      {"sourceColumn": "def2", "valueType": "text", "mappingOrdinal": 1},
+      {"sourceColumn": "def3", "valueType": "text", "mappingOrdinal": 2},
+      {"sourceColumn": "def4", "valueType": "text", "mappingOrdinal": 3},
+      {"sourceColumn": "def5", "valueType": "text", "mappingOrdinal": 4},
+      {"sourceColumn": "def6", "valueType": "text", "mappingOrdinal": 5},
+      {"sourceColumn": "def7", "valueType": "text", "mappingOrdinal": 6},
+      {"sourceColumn": "def8", "valueType": "text", "mappingOrdinal": 7},
+      {"sourceColumn": "def9", "valueType": "text", "mappingOrdinal": 8},
+      {"sourceColumn": "def11", "valueType": "numeric", "mappingOrdinal": 9},
+      {"sourceColumn": "def12", "valueType": "numeric", "mappingOrdinal": 10},
+      {"sourceColumn": "def13", "valueType": "numeric", "mappingOrdinal": 11},
+      {"sourceColumn": "def14", "valueType": "numeric", "mappingOrdinal": 12},
+      {"sourceColumn": "def15", "valueType": "numeric", "mappingOrdinal": 13},
+      {"sourceColumn": "def21", "valueType": "date", "mappingOrdinal": 14},
+      {"sourceColumn": "def22", "valueType": "date", "mappingOrdinal": 15},
+      {"sourceColumn": "def23", "valueType": "date", "mappingOrdinal": 16},
+      {"sourceColumn": "def24", "valueType": "date", "mappingOrdinal": 17},
+      {"sourceColumn": "def25", "valueType": "date", "mappingOrdinal": 18}
+    ]
   },
   "unknownDisposition": "redacted_gap_without_raw_value",
   "invalidStructuredValueDisposition": "redacted_gap_and_structured_quarantine",

@@ -6,7 +6,7 @@ import { HR_PERMISSIONS } from "@jinhu/shared";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { HrPayrollHistoryQueryDto } from "./dto/hr-payroll-history.dto";
+import { HrPayrollHistoryQueryDto, HrPayrollTaxRuleQueryDto } from "./dto/hr-payroll-history.dto";
 import { resolveHrPayrollHistoryAccessScope } from "./hr-access-policy";
 import { HrPayrollHistoryService } from "./hr-payroll-history.service";
 
@@ -44,6 +44,28 @@ test("history month filters reject invalid calendar months before database acces
  assert.equal((await validate(plainToInstance(HrPayrollHistoryQueryDto,{period_from:"2026-01-01",period_to:"2026-12-01"}))).length,0);
 });
 
+test("historical tax rule pagination is bounded before database access",async()=>{
+ const valid=plainToInstance(HrPayrollTaxRuleQueryDto,{page:"2",page_size:"100"});
+ assert.equal((await validate(valid)).length,0);
+ assert.equal(valid.page,2);
+ assert.equal(valid.page_size,100);
+ assert.ok((await validate(plainToInstance(HrPayrollTaxRuleQueryDto,{page:"0",page_size:"101"}))).length>=2);
+});
+
+test("historical tax rules are permission-exact, scoped, projected, and stably paged",async()=>{
+ assert.match(controller,/@Get\("history-tax-rules"\)[\s\S]{0,240}@RequirePermissions\(HR_PERMISSIONS\.HR_PAYROLL_RULE_READ\)[\s\S]{0,280}HrPayrollTaxRuleQueryDto[\s\S]{0,180}listTaxRules/);
+ const body=service.slice(service.indexOf("async listTaxRules"),service.indexOf("async listCatalogItems"));
+ assert.match(body,/this\.requireRuleRead\(actor\)/);
+ assert.match(body,/tax_rule\.tenant_id=:tenantId AND tax_rule\.park_id=:parkId AND tax_rule\.is_deleted=false/);
+ assert.match(body,/tax_rule\.legacy_tax_id ASC,tax_rule\.version_no ASC/);
+ for(const projection of ["legacyTaxId","versionNo","baseAmount","lowerLimit","upperLimit","taxPercent","offsetAmount"])assert.match(body,new RegExp(`"${projection}"`));
+ for(const forbidden of ["source_hash","tenant_id","park_id","create_time","update_time","create_by","update_by"])assert.doesNotMatch(body,new RegExp(`(?:select|addSelect)\\([^\\n]*${forbidden}`,"i"));
+ assert.match(body,/semanticsStatus:"pending_review"/);
+ assert.match(body,/path:"\/hr\/payroll\/history-tax-rules"/);
+ const payroll=new HrPayrollHistoryService({} as never,{recordOperationRequired:async()=>undefined} as never);
+ await assert.rejects(payroll.listTaxRules({tenantId:"t",parkId:"p"},actor([]),{page:1,page_size:20}),/Payroll rule read permission is required/);
+});
+
 test("amount routes never grant team permission and self history requires published own rows",()=>{
  assert.match(controller,/@Get\("history"\)[\s\S]*HR_PAYROLL_HISTORY_READ,HR_PERMISSIONS\.HR_PAYROLL_HISTORY_SELF_READ/);
  assert.match(controller,/@Get\("history\/team-summary"\)[\s\S]*HR_PAYROLL_HISTORY_TEAM_SUMMARY/);
@@ -56,7 +78,7 @@ test("amount routes never grant team permission and self history requires publis
 });
 
 test("sensitive reads are allowlisted and required-audited before return",()=>{
- for(const path of ["/hr/payroll/history","/hr/payroll/history/:id","/hr/payroll/history/:id/items","/hr/payroll/history-formulas","/hr/payroll/history-review-cases"])assert.match(service,new RegExp(path.replace(/[/:]/g,match=>match==="/"?"\\/":match===":"?"\\:":match)));
+ for(const path of ["/hr/payroll/history","/hr/payroll/history/:id","/hr/payroll/history/:id/items","/hr/payroll/history-tax-rules","/hr/payroll/history-formulas","/hr/payroll/history-review-cases"])assert.match(service,new RegExp(path.replace(/[/:]/g,match=>match==="/"?"\\/":match===":"?"\\:":match)));
  assert.match(service,/recordHrSensitiveRead\(this\.auditService/);
  assert.match(service,/projectReviewEvidence/);
  for(const forbidden of ["source_hash","source_content_group_hash","legacy_employee_hash","legacy_department_hash","source_backup_hash","manifest_hash","tenant_id","park_id"])assert.doesNotMatch(service,new RegExp(`addSelect\\([^\\n]*${forbidden}`));

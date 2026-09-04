@@ -1,0 +1,94 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_modern_routine_capability_map",
+  "mappingVersion": "1.0.0",
+  "technicalRoutinePatterns": ["^dt_"],
+  "specialDomainRules": [
+    {"pattern": "^ext_tn[1-6](?:insert|update)$", "domain": "reporting", "capability": "statutory_hr_statistical_report_materialization"},
+    {"pattern": "^ext_tx(?:next)?$", "domain": "reporting", "capability": "retirement_eligibility_report"},
+    {"pattern": "^(?:fun_getPY|uf_GetPY|web_getPY)$", "domain": "employee_profile", "capability": "name_transliteration_search_key"},
+    {"pattern": "^web_getage$", "domain": "employee_profile", "capability": "birth_date_and_age_derivation"},
+    {"pattern": "^web_getjobage$", "domain": "employee_profile", "capability": "service_age_derivation"},
+    {"pattern": "^(?:bs_importatt(?:_bak)?|u_import(?:_bak)?)$", "domain": "attendance_leave", "capability": "attendance_device_file_import"},
+    {"pattern": "^bs_vp$", "domain": "technical_residue", "capability": "unresolved_legacy_utility"},
+    {"pattern": "^u_assessmentitems$", "domain": "performance", "capability": "performance_item_projection"},
+    {"pattern": "^bs_countTotal(?:_bak)?$", "domain": "reporting", "capability": "custom_field_statistical_aggregation"},
+    {"pattern": "^tr_(?:add|drop)timekeepitem$", "domain": "attendance_leave", "capability": "attendance_item_schema_hook"}
+  ],
+  "domainEvidence": {
+    "organization_position": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/employees", "GET /hr/positions"],
+      "targetPages": ["apps/web/app/hr/employees/HrEmployeesClient.tsx"]
+    },
+    "employee_profile": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts", "apps/api/src/modules/hr/hr-lifecycle.service.ts"],
+      "targetApis": ["GET /hr/employees/:id/profile", "GET /hr/employees/:id/records"],
+      "targetPages": ["apps/web/app/hr/employees/HrEmployeesClient.tsx"]
+    },
+    "recruitment": {
+      "targetServices": ["apps/api/src/modules/hr/hr-recruitment.service.ts"],
+      "targetApis": ["GET /hr/recruitment/requisitions", "GET /hr/recruitment/candidates"],
+      "targetPages": ["apps/web/app/hr/recruitment/HrRecruitmentClient.tsx"]
+    },
+    "employment_lifecycle": {
+      "targetServices": ["apps/api/src/modules/hr/hr-lifecycle.service.ts", "apps/api/src/modules/hr/hr-onboarding.service.ts", "apps/api/src/modules/hr/hr-job-change.service.ts", "apps/api/src/modules/hr/hr-departure.service.ts"],
+      "targetApis": ["POST /hr/employees/:id/transitions", "GET /hr/employees/:id/events"],
+      "targetPages": ["apps/web/app/hr/employees/HrEmployeesClient.tsx"]
+    },
+    "contract": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/contracts", "POST /hr/contracts/:id/actions"],
+      "targetPages": ["apps/web/app/hr/contracts/HrContractsClient.tsx"]
+    },
+    "payroll": {
+      "targetServices": ["apps/api/src/modules/hr/hr-payroll-history.service.ts", "apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/payroll/history", "POST /hr/payroll/runs"],
+      "targetPages": ["apps/web/app/hr/payroll/HrPayrollClient.tsx"]
+    },
+    "attendance_leave": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/attendance/daily-results", "POST /hr/attendance/daily-results/recalculate"],
+      "targetPages": ["apps/web/app/hr/attendance/HrAttendanceClient.tsx"]
+    },
+    "insurance_welfare": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/insurance/periods"],
+      "targetPages": ["apps/web/app/hr/insurance/HrInsuranceClient.tsx"]
+    },
+    "performance": {
+      "targetServices": ["apps/api/src/modules/hr/hr-performance-review.service.ts", "apps/api/src/modules/hr/hr-performance-evaluation.service.ts"],
+      "targetApis": ["GET /hr/performance-v2/reviews", "POST /hr/performance-v2/score-preview"],
+      "targetPages": ["apps/web/app/hr/performance/HrPerformanceClient.tsx"]
+    },
+    "training": {
+      "targetServices": ["apps/api/src/modules/hr/hr-training.service.ts"],
+      "targetApis": ["GET /hr/training/plans", "POST /hr/training/plans"],
+      "targetPages": ["apps/web/app/hr/training/HrTrainingClient.tsx"]
+    },
+    "reward_discipline": {
+      "targetServices": ["apps/api/src/modules/hr/hr-rewards.service.ts"],
+      "targetApis": ["GET /hr/rewards/cases", "POST /hr/rewards/cases"],
+      "targetPages": ["apps/web/app/hr/rewards/HrRewardsClient.tsx"]
+    },
+    "piecework": {"targetServices": [], "targetApis": [], "targetPages": []},
+    "reporting": {
+      "targetServices": ["apps/api/src/modules/hr/hr.service.ts"],
+      "targetApis": ["GET /hr/decision-center/workforce", "GET /hr/employment-events/statistics"],
+      "targetPages": ["apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx"]
+    },
+    "collaboration_records": {
+      "targetServices": ["apps/api/src/modules/hr/hr-legacy-archive.service.ts"],
+      "targetApis": ["GET /hr/legacy-archive/:id"],
+      "targetPages": ["apps/web/app/hr/employees/legacy/LegacyArchivePageClient.tsx"]
+    },
+    "authorization_audit": {
+      "targetServices": ["apps/api/src/modules/roles/roles.service.ts"],
+      "targetApis": [],
+      "targetPages": []
+    },
+    "custom_configuration": {"targetServices": [], "targetApis": [], "targetPages": []},
+    "technical_residue": {"targetServices": [], "targetApis": [], "targetPages": []}
+  },
+  "productionImport": "HOLD"
+}

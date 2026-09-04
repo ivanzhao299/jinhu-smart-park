@@ -51,4 +51,19 @@ function scaled(value:string):bigint{if(!/^-?\d+(?:\.\d{1,4})?$/u.test(value))fa
 function checked(value:bigint){if(value>MAX||value< -MAX)fail("decimal overflow");return value;}
 function roundDivide(numerator:bigint,denominator:bigint){if(denominator===0n)fail("division by zero");const negative=(numerator<0n)!==(denominator<0n),n=numerator<0n?-numerator:numerator,d=denominator<0n?-denominator:denominator,q=n/d,r=n%d,rounded=r*2n>=d?q+1n:q;return negative?-rounded:rounded;}
 export function formatPayrollDecimal(value:bigint){const negative=value<0n,absolute=negative?-value:value;return `${negative?"-":""}${absolute/SCALE}.${(absolute%SCALE).toString().padStart(4,"0")}`;}
+/**
+ * Canonicalizes the legacy u_inputbasepay value without executing its dynamic
+ * table/column update. A missing legacy person/value remains null; callers must
+ * review or reject it instead of silently substituting zero.
+ */
+export function projectLegacyPersonBasePayInput(value:string|null|undefined):string|null{
+ if(value==null)return null;
+ return formatPayrollDecimal(checked(scaled(value)));
+}
+export function projectLegacyPersonBasePayPeriodInput(input:{value:string|null|undefined;rowYear:number;rowMonth:number;targetYear:number;targetMonth:number}):{matchesPeriod:boolean;value:string|null}{
+ for(const [name,value] of Object.entries({rowYear:input.rowYear,targetYear:input.targetYear}))if(!Number.isSafeInteger(value))fail(`${name} is invalid`);
+ for(const [name,value] of Object.entries({rowMonth:input.rowMonth,targetMonth:input.targetMonth}))if(!Number.isSafeInteger(value)||value<1||value>12)fail(`${name} is invalid`);
+ const matchesPeriod=input.rowYear===input.targetYear&&input.rowMonth===input.targetMonth;
+ return {matchesPeriod,value:matchesPeriod?projectLegacyPersonBasePayInput(input.value):null};
+}
 export function evaluatePayrollFormula(ast:PayrollAst,inputs:Readonly<Record<string,string>>):string{let budget=512;const run=(node:PayrollAst):bigint=>{if(--budget<0)fail("evaluation resource limit exceeded");if(node.type==="decimal")return checked(scaled(node.value));if(node.type==="reference"){const value=inputs[`${node.domain}:${node.code}`];if(value===undefined)fail(`unknown reference ${node.domain}:${node.code}`);return checked(scaled(value));}if(node.type==="unary"){const value=run(node.operand);return node.operator==="-"?checked(-value):value;}if(node.type==="conditional")return run(node.condition)!==0n?run(node.whenTrue):run(node.whenFalse);const left=run(node.left),right=run(node.right);if(["==","!=","<","<=",">",">="].includes(node.operator)){const ok=node.operator==="=="?left===right:node.operator==="!="?left!==right:node.operator==="<"?left<right:node.operator==="<="?left<=right:node.operator===">"?left>right:left>=right;return ok?SCALE:0n;}if(node.operator==="+")return checked(left+right);if(node.operator==="-")return checked(left-right);if(node.operator==="*")return checked(roundDivide(left*right,SCALE));return checked(roundDivide(left*SCALE,right));};return formatPayrollDecimal(run(ast));}

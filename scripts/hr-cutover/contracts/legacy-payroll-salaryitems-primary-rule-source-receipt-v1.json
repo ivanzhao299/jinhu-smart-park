@@ -1,0 +1,64 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_payroll_salaryitems_primary_rule_source_receipt",
+  "contractVersion": "2026-09-04.1",
+  "scope": "salaryitems_expression_cit_defvalue_source_identity",
+  "sourceEvidence": {
+    "payrollRuleContract": {
+      "path": "scripts/hr-cutover/contracts/legacy-payroll-rule-family-parity-v1.json",
+      "sha256": "84c78befc7c7b7efeba4fad0165381b263591c222e4560ccaa9d1c779167c72d"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    }
+  },
+  "sourceObject": {
+    "schema": "dbo",
+    "table": "salaryitems",
+    "staticObservedRows": 711,
+    "staticObservedRowsStatus": "non_authoritative_until_live_receipt",
+    "fields": [
+      {
+        "name": "expression",
+        "payrollGapCode": "PAYROLL_ITEM_RULE_SLOT_1_TARGET_MISSING"
+      },
+      {
+        "name": "cit",
+        "payrollGapCode": "PAYROLL_ITEM_CONDITION_SLOT_1_TARGET_MISSING"
+      },
+      {
+        "name": "defvalue",
+        "payrollGapCode": "PAYROLL_ITEM_DEFAULT_VALUE_TARGET_MISSING"
+      }
+    ]
+  },
+  "catalogPolicy": {
+    "metadata": "capture_exact_sql_type_length_precision_scale_nullability_and_computed_state",
+    "aggregate": "table_row_count_and_per_field_non_null_count_only",
+    "routineReferences": "anonymous_distinct_procedure_counts_from_resolved_catalog_dependencies_by_field_only",
+    "routineReferenceCoverage": "static_catalog_dependencies_only_dynamic_references_and_write_effects_excluded",
+    "routineBodiesRead": false,
+    "routineNamesReturned": false,
+    "routineBodiesReturned": false
+  },
+  "executionPolicy": {
+    "operationMode": "read_only_catalog_and_anonymous_aggregate",
+    "legacyRoutineExecution": "FORBIDDEN",
+    "legacyDynamicSqlExecution": "FORBIDDEN",
+    "sourceMutation": "FORBIDDEN"
+  },
+  "evidencePolicy": {
+    "staticEvidenceCompatibilityCredit": 0,
+    "syntheticEvidenceCompatibilityCredit": 0,
+    "liveCatalogStillRequiresSemanticReview": true,
+    "catalogDependenciesDoNotProveDynamicSqlOrWriteEffects": true,
+    "requiredDecision": "KEEP_PENDING"
+  },
+  "containsExpressionContent": false,
+  "containsDefaultValues": false,
+  "containsPayrollValues": false,
+  "containsPersonalData": false,
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

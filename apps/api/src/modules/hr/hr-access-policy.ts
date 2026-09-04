@@ -73,6 +73,15 @@ export interface HrEmployeeProfileProjection {
   emergencyContactName: string | null;
   emergencyContactMobile: string | null;
   remark?: string | null;
+  customFields?: Array<{
+    code:string;
+    label:string;
+    valueType:"text"|"numeric"|"date"|"boolean";
+    group:string|null;
+    sortOrder:number;
+    value:string|null;
+    sourceValid:boolean;
+  }>;
   masked: boolean;
 }
 

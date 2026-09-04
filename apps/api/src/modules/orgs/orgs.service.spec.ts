@@ -7,6 +7,8 @@ import { OrgsService } from "./orgs.service";
 import { OrgEntity } from "./entities/org.entity";
 import { UserOrgEntity } from "./entities/user-org.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import type { CreateOrgDto } from "./dto/create-org.dto";
+import type { UpdateOrgDto } from "./dto/update-org.dto";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor = {
@@ -22,12 +24,14 @@ const hierarchyMigration = readFileSync(
   "utf8"
 );
 
-function makeOrg(id: string, parentId: string | null, sortOrder: number, orgName = id) {
+function makeOrg(id: string, parentId: string | null, sortOrder: number, orgName = id): OrgEntity {
   return {
     id, parentId, sortOrder, orgName, orgCode: id, orgType: "department", leaderUserId: null,
+    legacySourceId: null, legacyHierarchyLevel: null, legacyManagerReference: null, plannedHeadcount: null,
+    contactPhone: null, contactAddress: null, contactEmail: null, legacyCompanyManagerReference: null,
     status: "enabled", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false,
     createTime: new Date(), updateTime: new Date(), createBy: null, updateBy: null, version: 1, remark: null, userLinks: []
-  };
+  } as OrgEntity;
 }
 
 function createService(
@@ -44,6 +48,7 @@ function createService(
     fieldPolicyCalls?: unknown[][];
     userOrgCountWhere?: unknown[];
     visibleOrgIds?: string[];
+    orgSaveInputs?: Array<Record<string, unknown>>;
   } = {}
 ) {
   const byId = new Map(orgs.map((org) => [org.id, org]));
@@ -57,7 +62,11 @@ function createService(
     },
     findOne: async ({ where }: { where: { id: string } }) => byId.get(where.id) ?? null,
     findAndCount: async () => [[], 0], exists: async () => false, count: async () => options.childCount ?? 0,
-    create: (value: unknown) => value, save: async (value: unknown) => value
+    create: (value: unknown) => value,
+    save: async (value: Record<string, unknown>) => {
+      options.orgSaveInputs?.push({ ...value });
+      return value;
+    }
   };
   const userOrgRepository = {
     count: async (countOptions: { where: unknown }) => {
@@ -216,4 +225,46 @@ test("create and reparent reject parent organizations outside the actor data sco
     () => service.update(scope, scopedActor, "child", { parentId: "hidden" }),
     /无权使用该上级组织/
   );
+});
+
+test("organization writes normalize contacts and omit the protected legacy reference from persistence and responses", async () => {
+  const createSaveInputs: Array<Record<string, unknown>> = [];
+  const service = createService([], { orgSaveInputs: createSaveInputs });
+  const created = await service.create(scope, actor, {
+    orgCode: "root",
+    orgName: "Root",
+    orgType: "company",
+    contactPhone: " 010-12345678 ",
+    contactAddress: " 园区大道 1 号 ",
+    contactEmail: " office@example.com ",
+    legacyCompanyManagerReference: "must-not-write",
+  } as CreateOrgDto & { legacyCompanyManagerReference: string });
+  assert.equal(created.contactPhone, "010-12345678");
+  assert.equal(created.contactAddress, "园区大道 1 号");
+  assert.equal(created.contactEmail, "office@example.com");
+  assert.equal(Object.prototype.hasOwnProperty.call(created, "legacyCompanyManagerReference"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(createSaveInputs[0] ?? {}, "legacyCompanyManagerReference"), false);
+  assert.doesNotMatch(JSON.stringify(created), /legacyCompanyManagerReference/);
+
+  const existing = {
+    ...makeOrg("root", null, 0),
+    contactPhone: "old-phone",
+    contactAddress: "old-address",
+    contactEmail: "old@example.com",
+    legacyCompanyManagerReference: "protected-existing",
+  };
+  const updateSaveInputs: Array<Record<string, unknown>> = [];
+  const updateService = createService([existing], { orgSaveInputs: updateSaveInputs });
+  const updated = await updateService.update(scope, actor, "root", {
+    contactPhone: "   ",
+    contactAddress: null,
+    contactEmail: " new@example.com ",
+    legacyCompanyManagerReference: "must-not-overwrite",
+  } as UpdateOrgDto & { legacyCompanyManagerReference: string });
+  assert.equal(updated.contactPhone, null);
+  assert.equal(updated.contactAddress, null);
+  assert.equal(updated.contactEmail, "new@example.com");
+  assert.equal(Object.prototype.hasOwnProperty.call(updated, "legacyCompanyManagerReference"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(updateSaveInputs[0] ?? {}, "legacyCompanyManagerReference"), false);
+  assert.doesNotMatch(JSON.stringify(updated), /legacyCompanyManagerReference/);
 });

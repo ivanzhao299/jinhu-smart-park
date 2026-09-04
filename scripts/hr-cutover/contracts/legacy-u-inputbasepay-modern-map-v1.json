@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_payroll_dynamic_routine_resolution",
+  "contractVersion": "u-inputbasepay-1.0.0",
+  "familyScope": "single_family_only",
+  "canonicalFamily": "u_inputbasepay",
+  "sourceBinding": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "sourceArtifactSha256": "7a34ce1db8d1dd772245e8a4f4f5433beee73acc82e09e0611582436e19765d8"
+  },
+  "historicalVariants": [
+    {
+      "routineId": "RULE-0883F6C1E60DB772",
+      "sourceName": "u_inputbasepay",
+      "sourceKind": "procedure",
+      "parameters": [
+        { "name": "salaryfilename", "sourceType": "varchar(30)", "modernBinding": "bookPeriod.legacySourceTable", "execution": "identifier_not_executed" },
+        { "name": "salaryitem", "sourceType": "varchar(30)", "modernBinding": "reviewedItemCode", "execution": "identifier_not_executed" },
+        { "name": "year", "sourceType": "integer", "modernBinding": "period.year", "execution": "exact_integer_filter" },
+        { "name": "month", "sourceType": "integer", "modernBinding": "period.month", "execution": "exact_integer_filter" }
+      ]
+    }
+  ],
+  "sourceContract": {
+    "readTables": ["person"],
+    "logicalReadField": "person._base",
+    "correlationKey": "salary.person=person.person",
+    "periodPredicate": "salary.year=year_and_salary.month=month",
+    "dynamicWriteTarget": "reviewed_salary_table.reviewed_salary_item",
+    "nullContract": "missing_person_or_null_source_projects_null",
+    "roundingContract": "source_money_value_is_copied_without_intermediate_rounding",
+    "returnCode": 0
+  },
+  "modernContract": {
+    "readFields": ["hr_employee_compensation.base_salary"],
+    "candidateTargets": [
+      "hr_employee_compensation.base_salary",
+      "hr_payroll_reconciliation_input.hr:基本工资"
+    ],
+    "adapterSymbol": "projectLegacyPersonBasePayInput",
+    "calculationPath": "HrPayrollHistoryService.simulateReconciliation",
+    "nullContract": "null_remains_null_and_cannot_be_silently_replaced_with_zero",
+    "roundingContract": "canonical_four_place_decimal_then_named_DSL_rounding",
+    "sideEffectContract": "append_only_reconciliation_results_inside_one_transaction",
+    "dynamicSqlExecution": "FORBIDDEN"
+  },
+  "review": {
+    "status": "pending",
+    "reason": "source procedure field person._base is not present in reviewed person DDL and cannot yet be proven equivalent to person.basepay",
+    "gapCodes": [
+      "PAYROLL_U_INPUTBASEPAY_SOURCE_FIELD_IDENTITY_UNPROVEN",
+      "PAYROLL_U_INPUTBASEPAY_MODERN_TARGET_EQUIVALENCE_UNPROVEN"
+    ],
+    "requiredEvidence": "read-only SQL Server catalog proof for person._base or its alias/computed-column relation to person.basepay"
+  },
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,59 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_completeness_ledger",
+  "sourceSurface": "group_web",
+  "status": "inventory_only_coverage_pending",
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "sha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "sha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "sha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621"
+    }
+  ],
+  "expectedCatalog": {
+    "tables": 438,
+    "fields": 5449,
+    "nonemptyTables": 215,
+    "rows": 320406,
+    "views": 768,
+    "procedures": 340,
+    "functions": 9,
+    "triggers": 79
+  },
+  "expectedInteraction": {
+    "menuNodes": 231,
+    "navigableEntries": 186,
+    "classicAspPages": 4026
+  },
+  "denominatorPolicy": {
+    "includeEmptyTables": true,
+    "includeNullOnlyOrEmptyFields": true,
+    "includeUncalledRoutines": true,
+    "includeUnnavigatedAspPages": true,
+    "logicalEntriesAndPhysicalPagesAreSeparate": true
+  },
+  "missingAuthoritativeInputs": [
+    {
+      "categories": ["table", "field", "view"],
+      "reasonCode": "GROUP_WEB_ATOMIC_SCHEMA_EXPORT_NOT_COMMITTED"
+    },
+    {
+      "categories": ["procedure", "function", "trigger"],
+      "reasonCode": "GROUP_WEB_ATOMIC_ROUTINE_EXPORT_NOT_COMMITTED"
+    },
+    {
+      "categories": ["asp_page"],
+      "reasonCode": "GROUP_WEB_FULL_ASP_MANIFEST_NOT_COMMITTED"
+    }
+  ],
+  "sourceBindingSha256": "16ef16756747c0963cb874f2a5176c5edbeee4c8f4303beba6eefb1352b2f8c2",
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

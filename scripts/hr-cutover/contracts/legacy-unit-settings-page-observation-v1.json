@@ -1,0 +1,70 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_unit_settings_page_observation",
+  "contractVersion": "2026-09-04.1",
+  "surface": "desktop_client",
+  "atomicEntry": {
+    "atomicId": "client.organization_job.001",
+    "familyId": "organization_job",
+    "entryPoint": "单位设置"
+  },
+  "sourceBindings": {
+    "atomicInventory": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
+      "sha256": "ee3adb30d145afc33f845e290f5acfa390beb85c1ed913ead1dd2c8d136da4b5"
+    },
+    "companyRootFieldReceipt": {
+      "path": "scripts/hr-cutover/contracts/legacy-company-root-field-receipt-v1.json",
+      "sha256": "e2d055de2033da92de22445f23d85f6568aa2cfa0457520bd01b7b6e680f466e"
+    }
+  },
+  "stableIdentityPolicy": {
+    "windowIdPrefix": "unit-settings.window.",
+    "controlIdPrefix": "unit-settings.control.",
+    "buttonIdPrefix": "unit-settings.button."
+  },
+  "allowedControlTypes": [
+    "text_input",
+    "numeric_input",
+    "select",
+    "checkbox",
+    "radio_group",
+    "date_input",
+    "read_only_text",
+    "unknown"
+  ],
+  "allowedButtonActions": ["save", "cancel", "close", "edit", "reset", "lookup", "unknown"],
+  "allowedVisibilityConditions": ["always", "role_gated", "state_dependent", "unknown"],
+  "allowedRoles": ["system_admin", "hr_admin", "hr_operator", "read_only_reviewer", "unknown"],
+  "semanticConfirmationGaps": [
+    {
+      "sourceColumn": "company.addr",
+      "gapCode": "COMPANY_ADDR_UNIT_SETTINGS_PAGE_SEMANTICS_UNCONFIRMED",
+      "authoritativeMeaning": null,
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "company.email",
+      "gapCode": "COMPANY_EMAIL_UNIT_SETTINGS_PAGE_SEMANTICS_UNCONFIRMED",
+      "authoritativeMeaning": null,
+      "compatibilityCredit": 0
+    },
+    {
+      "sourceColumn": "company.master",
+      "gapCode": "COMPANY_MASTER_UNIT_SETTINGS_PAGE_SEMANTICS_UNCONFIRMED_NO_GUESS",
+      "authoritativeMeaning": null,
+      "compatibilityCredit": 0
+    }
+  ],
+  "evidencePolicy": {
+    "screenshotStorage": "sha256_only_no_path_or_binary",
+    "controlValues": "FORBIDDEN",
+    "userIdentity": "FORBIDDEN",
+    "personalData": "FORBIDDEN",
+    "credentials": "FORBIDDEN",
+    "missingLiveObservationStatus": "pending",
+    "liveObservationReviewStatus": "review_pending",
+    "compatibilityCredit": 0
+  },
+  "productionImport": "HOLD"
+}

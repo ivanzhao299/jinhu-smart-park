@@ -170,7 +170,7 @@ export function validateLegacyAtomicInventory(inventory) {
   if (columns !== 2364) fail("COLUMN_COUNT_MISMATCH", String(columns));
   const expectedSummary = { tables: 162, columns, procedures: 194, functions: 16, triggers: 2, rules: 212, pages: inventory.pages.length };
   if (JSON.stringify(inventory.summary) !== JSON.stringify(expectedSummary)) fail("SUMMARY_MISMATCH", "derived counts differ");
-  if (inventory.permissions?.status !== "pending_review" || inventory.permissions.expectedAuthorizationRows !== 915 || inventory.permissions.reasonCode !== "PERMISSION_ATOMIC_IMPORT_REQUIRES_REDACTED_REVIEW" || inventory.permissions.importerContract?.policy !== "no_placeholder_rows_no_automatic_approval") fail("PERMISSION_CONTRACT_INVALID", "permissions must remain pending review");
+  if (inventory.permissions?.status !== "pending_review" || inventory.permissions.expectedAuthorizationGrantEdges !== 915 || inventory.permissions.reasonCode !== "PERMISSION_GRANT_EDGE_INVENTORY_REQUIRES_PRIVATE_REVIEW" || inventory.permissions.importerContract?.policy !== "no_user_bound_rows_in_public_inventory_no_functionality_credit") fail("PERMISSION_CONTRACT_INVALID", "authorization grant edges must remain private and earn no functionality credit");
   assertUnique(inventory.tables, "name", "DUPLICATE_TABLE_NAME");
   assertUnique(inventory.tables, "id", "DUPLICATE_STABLE_ID");
   assertUnique(inventory.routines, "id", "DUPLICATE_STABLE_ID");
@@ -264,12 +264,12 @@ export function buildLegacyAtomicInventory(legacyRoot) {
     pages,
     permissions: {
       status: "pending_review",
-      expectedAuthorizationRows: 915,
-      reasonCode: "PERMISSION_ATOMIC_IMPORT_REQUIRES_REDACTED_REVIEW",
+      expectedAuthorizationGrantEdges: 915,
+      reasonCode: "PERMISSION_GRANT_EDGE_INVENTORY_REQUIRES_PRIVATE_REVIEW",
       importerContract: {
-        input: "explicit_redacted_structural_authorization_export",
-        output: "review_candidate_only",
-        policy: "no_placeholder_rows_no_automatic_approval"
+        input: "explicit_private_authorization_grant_export",
+        output: "private_migration_review_only",
+        policy: "no_user_bound_rows_in_public_inventory_no_functionality_credit"
       }
     }
   };

@@ -1,0 +1,148 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_organization_position_field_map",
+  "mappingVersion": "1.3.0",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTables": ["assignment", "company", "departmentcode", "job", "secassignmentcode", "station"],
+  "fields": [
+    {"sourceTable":"assignment","sourceColumn":"assignment","disposition":"exact_mapped","targetLocators":["hr_employee_profile.legacy_professional_title_code"],"reasonCode":null},
+    {"sourceTable":"assignment","sourceColumn":"assignmentname","disposition":"exact_mapped","targetLocators":["hr_employee_profile.technical_title"],"reasonCode":null},
+
+    {"sourceTable":"company","sourceColumn":"id","disposition":"pending","targetLocators":["sys_org.legacy_source_id"],"reasonCode":"COMPANY_ROOT_MERGE_RULE_UNCONFIRMED"},
+    {"sourceTable":"company","sourceColumn":"company","disposition":"pending","targetLocators":["sys_org.org_name"],"reasonCode":"COMPANY_ROOT_MERGE_RULE_UNCONFIRMED"},
+    {"sourceTable":"company","sourceColumn":"addr","disposition":"pending","targetLocators":["sys_org"],"reasonCode":"COMPANY_ROOT_MERGE_RULE_UNCONFIRMED"},
+    {"sourceTable":"company","sourceColumn":"phone","disposition":"pending","targetLocators":["sys_org.contact_phone"],"reasonCode":"COMPANY_ROOT_MERGE_RULE_UNCONFIRMED"},
+    {"sourceTable":"company","sourceColumn":"email","disposition":"pending","targetLocators":["sys_org"],"reasonCode":"COMPANY_ROOT_MERGE_RULE_UNCONFIRMED"},
+    {"sourceTable":"company","sourceColumn":"bank","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.bank"],"reasonCode":"SENSITIVE_COMPANY_FINANCE_NOT_ORG_MASTER_DATA"},
+    {"sourceTable":"company","sourceColumn":"account","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.account"],"reasonCode":"SENSITIVE_COMPANY_FINANCE_NOT_ORG_MASTER_DATA"},
+    {"sourceTable":"company","sourceColumn":"taxcount","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.taxcount"],"reasonCode":"SENSITIVE_COMPANY_FINANCE_NOT_ORG_MASTER_DATA"},
+    {"sourceTable":"company","sourceColumn":"master","disposition":"pending","targetLocators":["sys_org.leader_user_id"],"reasonCode":"PERSON_IDENTITY_BINDING_REQUIRED"},
+    {"sourceTable":"company","sourceColumn":"etype","disposition":"pending","targetLocators":["sys_org.org_type"],"reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED"},
+
+    {"sourceTable":"departmentcode","sourceColumn":"department","disposition":"exact_mapped","targetLocators":["sys_org.org_code","sys_org.parent_id"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"departmentname","disposition":"exact_mapped","targetLocators":["sys_org.org_name"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"rating","disposition":"exact_mapped","targetLocators":["sys_org.legacy_hierarchy_level","sys_org.org_type"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"master","disposition":"exact_mapped","targetLocators":["sys_org.legacy_manager_reference"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"defpersons","disposition":"exact_mapped","targetLocators":["sys_org.planned_headcount"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"realpersons","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.realpersons"],"reasonCode":"DERIVED_HEADCOUNT_NOT_AUTHORITATIVE"},
+    {"sourceTable":"departmentcode","sourceColumn":"tel","disposition":"exact_mapped","targetLocators":["sys_org.contact_phone"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"rights","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.rights"],"reasonCode":"LEGACY_AUTHORIZATION_NOT_ORG_MASTER_DATA"},
+    {"sourceTable":"departmentcode","sourceColumn":"myorder","disposition":"exact_mapped","targetLocators":["sys_org.sort_order"],"reasonCode":null},
+    {"sourceTable":"departmentcode","sourceColumn":"id","disposition":"exact_mapped","targetLocators":["sys_org.legacy_source_id"],"reasonCode":null},
+
+    {"sourceTable":"job","sourceColumn":"job","disposition":"exact_mapped","targetLocators":["hr_position.position_code"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"jobname","disposition":"exact_mapped","targetLocators":["hr_position.position_name"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"jobgrade","disposition":"exact_mapped","targetLocators":["hr_position.job_family"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"parentjob","disposition":"exact_mapped","targetLocators":["hr_position.reports_to_position_id"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"upto","disposition":"exact_mapped","targetLocators":["hr_position.legacy_upto_code"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"department","disposition":"exact_mapped","targetLocators":["hr_position.org_id"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"authority","disposition":"exact_mapped","targetLocators":["hr_position.authority"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"qualify","disposition":"exact_mapped","targetLocators":["hr_position.qualification"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"respos","disposition":"exact_mapped","targetLocators":["hr_position.responsibilities"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"salarygrade","disposition":"exact_mapped","targetLocators":["hr_position.job_level"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"salarybase","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.salarybase"],"reasonCode":"SENSITIVE_COMPENSATION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"job","sourceColumn":"defpersons","disposition":"exact_mapped","targetLocators":["hr_position.headcount_limit"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"realpersons","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.realpersons"],"reasonCode":"DERIVED_HEADCOUNT_NOT_AUTHORITATIVE"},
+    {"sourceTable":"job","sourceColumn":"manual","disposition":"exact_mapped","targetLocators":["hr_position.position_manual"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"rating","disposition":"exact_mapped","targetLocators":["hr_position.hierarchy_level"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"myorder","disposition":"exact_mapped","targetLocators":["hr_position.sort_order"],"reasonCode":null},
+    {"sourceTable":"job","sourceColumn":"id","disposition":"exact_mapped","targetLocators":["hr_position.legacy_source_id"],"reasonCode":null},
+
+    {"sourceTable":"secassignmentcode","sourceColumn":"secassignment","disposition":"pending","targetLocators":["hr_position"],"reasonCode":"NO_DIRECT_JOB_RELATION"},
+    {"sourceTable":"secassignmentcode","sourceColumn":"myorder","disposition":"pending","targetLocators":["hr_position.sort_order"],"reasonCode":"NO_DIRECT_JOB_RELATION"},
+
+    {"sourceTable":"station","sourceColumn":"product","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.product"],"reasonCode":"PIECEWORK_DIMENSION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"specification","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.specification"],"reasonCode":"PIECEWORK_DIMENSION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"station","disposition":"pending","targetLocators":["hr_position.position_code"],"reasonCode":"COMPOSITE_STATION_IDENTITY_AND_ORG_BINDING_REQUIRED"},
+    {"sourceTable":"station","sourceColumn":"stationname","disposition":"pending","targetLocators":["hr_position.position_name"],"reasonCode":"COMPOSITE_STATION_IDENTITY_AND_ORG_BINDING_REQUIRED"},
+    {"sourceTable":"station","sourceColumn":"unit","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.unit"],"reasonCode":"PIECEWORK_DIMENSION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"price","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.price"],"reasonCode":"PIECEWORK_COMPENSATION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"feicipingbi","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.feicipingbi"],"reasonCode":"PIECEWORK_COMPENSATION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"jianglibi","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.jianglibi"],"reasonCode":"PIECEWORK_COMPENSATION_NOT_POSITION_MASTER_DATA"},
+    {"sourceTable":"station","sourceColumn":"fakuanbi","disposition":"archive_only","targetLocators":["hr_legacy_archive_record.restricted_safe_projection.legacyFields.fakuanbi"],"reasonCode":"PIECEWORK_COMPENSATION_NOT_POSITION_MASTER_DATA"}
+  ],
+  "relations": [
+    {"source":"departmentcode.department","target":"sys_org.org_code","kind":"business_key","status":"confirmed"},
+    {"source":"departmentcode.department","target":"sys_org.parent_id","kind":"code_prefix_hierarchy","status":"confirmed"},
+    {"source":"departmentcode.master","target":"sys_org.legacy_manager_reference","kind":"lossless_legacy_metadata","status":"confirmed_no_identity_binding"},
+    {"source":"job.department","target":"sys_org.org_code","kind":"business_key","status":"confirmed"},
+    {"source":"job.parentjob","target":"hr_position.position_code","kind":"business_key","status":"confirmed"},
+    {"source":"job.upto","target":"hr_position.legacy_upto_code","kind":"lossless_legacy_metadata","status":"confirmed_no_precedence"},
+    {"source":"person.assignment","target":"assignment.assignment","kind":"declared_foreign_key","status":"confirmed_professional_title_not_position"},
+    {"source":"person.secassignment","target":"secassignmentcode.secassignment","kind":"inferred_business_key","status":"pending_fk_and_length_reconciliation"}
+  ],
+  "resolutionRules": [
+    {
+      "ruleId": "JOB_PARENTJOB_UPTO_SEPARATION_V1",
+      "reportsToSource": "job.parentjob",
+      "legacyMetadataSource": "job.upto",
+      "legacyMetadataTarget": "hr_position.legacy_upto_code",
+      "uptoMayOverrideReportsTo": false,
+      "missingUptoAction": "FAIL_CLOSED_BEFORE_LOAD",
+      "evidence": {
+        "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+        "jobPathFunctionSha256": [
+          "2e4e7665f5ddbb0436de76831eea7a919504f126c1d0a525180c88f638d4799e",
+          "cd9efe5bdd132ba18e1ade323b024187d57226889cad3614fb35d8f3a67b1047"
+        ],
+        "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+        "sourceT0PositionSha256": "04dec6c66ecaef362bb76023c07a4957512d0b08c753ba921e417abe633af306",
+        "sourceT0Rows": 18,
+        "sourceParentjobNonBlankRows": 7,
+        "sourceParentjobEqualsCodePrefixRows": 0,
+        "conclusion": "PARENTJOB_AND_CODE_PREFIX_ARE_DISTINCT; UPTO_IS_PRESERVED_WITHOUT_INFERRED_PRECEDENCE"
+      }
+    },
+    {
+      "ruleId": "DEPARTMENT_MANAGER_REFERENCE_PRESERVATION_V1",
+      "source": "departmentcode.master",
+      "target": "sys_org.legacy_manager_reference",
+      "identityTarget": "sys_org.leader_user_id",
+      "mayPopulateIdentityTarget": false,
+      "visibility": "protected_compatibility_metadata",
+      "evidence": {
+        "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+        "sourceT0DepartmentSha256": "24d3d208bbbdbb5fd8a8a0b29804f4473b6c99b31d6d46f16c8d8e795e6366e1",
+        "sourceT0Rows": 138,
+        "sourceType": "varchar(10)",
+        "conclusion": "LEGACY_REFERENCE_PRESERVED_WITHOUT_USER_IDENTITY_BINDING"
+      }
+    },
+    {
+      "ruleId": "ASSIGNMENT_PROFESSIONAL_TITLE_V1",
+      "sourceCode": "assignment.assignment",
+      "sourceLabel": "assignment.assignmentname",
+      "personRelation": "person.assignment",
+      "codeTarget": "hr_employee_profile.legacy_professional_title_code",
+      "labelTarget": "hr_employee_profile.technical_title",
+      "doesNotDefinePosition": true,
+      "evidence": {
+        "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+        "labelFunctionSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3",
+        "profileProjectionRoutineSha256": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868",
+        "aggregateRoutineSha256": "a49e3836b0846321c0fcb1e97b44666bf5d2a09b72474b6cd4d2e272ee0a7e36",
+        "declaredForeignKey": "FK_person_assignment",
+        "legacyBusinessLabel": "professional_title",
+        "conclusion": "ASSIGNMENT_IS_EMPLOYEE_PROFESSIONAL_TITLE_NOT_POSITION"
+      }
+    },
+    {
+      "ruleId": "SECASSIGNMENT_RELATION_GAP_V1",
+      "personSource": "person.secassignment",
+      "dictionarySource": "secassignmentcode.secassignment",
+      "personSourceType": "varchar(50)",
+      "dictionarySourceType": "varchar(30)",
+      "declaredForeignKey": false,
+      "deployedRoutineJoinEvidence": false,
+      "aggregateReceiptContract": "legacy-secassignment-relationship-receipt-v1",
+      "aggregateReceiptStatus": "NOT_CAPTURED",
+      "action": "KEEP_PENDING",
+      "evidence": {
+        "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+        "profileProjectionRoutineSha256": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868",
+        "conclusion": "IDENTITY_LABEL_PRESENT_BUT_DICTIONARY_RELATION_UNPROVEN"
+      }
+    }
+  ],
+  "productionImport": "HOLD"
+}

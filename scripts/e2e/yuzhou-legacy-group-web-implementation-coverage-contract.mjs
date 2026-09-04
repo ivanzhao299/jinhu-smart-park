@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
+  evidenceFileAvailable,
   LegacyGroupWebImplementationCoverageError,
   assessLegacyGroupWebImplementationCoverage
 } from "../hr-cutover/legacy-group-web-implementation-coverage-lib.mjs";
@@ -43,6 +46,20 @@ const legacyRuntimeEvidence = legacyIds => {
   }));
   return evidence;
 };
+
+test("sparse index blobs remain evidence while ordinary working-tree deletion does not", () => {
+  const repository = mkdtempSync(join(tmpdir(), "group-web-evidence-"));
+  execFileSync("git", ["init", "-q"], { cwd: repository });
+  writeFileSync(join(repository, "sparse.sql"), "SELECT 1;\n");
+  writeFileSync(join(repository, "deleted.sql"), "SELECT 2;\n");
+  execFileSync("git", ["add", "sparse.sql", "deleted.sql"], { cwd: repository });
+  execFileSync("git", ["update-index", "--skip-worktree", "sparse.sql"], { cwd: repository });
+  unlinkSync(join(repository, "sparse.sql"));
+  unlinkSync(join(repository, "deleted.sql"));
+  assert.equal(evidenceFileAvailable(repository, "sparse.sql"), true);
+  assert.equal(evidenceFileAvailable(repository, "deleted.sql"), false);
+  assert.equal(evidenceFileAvailable(repository, "never-tracked.sql"), false);
+});
 
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);

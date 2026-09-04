@@ -58,9 +58,11 @@ test("service fails closed on wrong identity kinds and cross-owner file links",(
  assert.match(service,/file_registry\.identity_kind='file_logical'/);
  assert.match(service,/parent_registry\.owner_employee_id IS NOT DISTINCT FROM file_registry\.owner_employee_id/);
  assert.match(service,/blob\.tenant_id=logical\.tenant_id AND blob\.park_id=logical\.park_id/);
+ assert.match(service,/source\.import_batch_id=materialization\.source_t5_import_batch_id/);
+ assert.match(service,/jsonb_build_object\('legacyFields',hr_legacy_archive_redact_source_fields\(source\.record_payload\)\)/);
 });
 
-test("service hides restricted projection outside precise HR permission and audits every read",async()=>{
+test("list stays summary-only while restricted fields remain detail-only and every read is audited",async()=>{
  const rows=[{id:"archive-1",employeeId:"employee-1",mappingStatus:"mapped",recordType:"profile",occurredOn:"2024-01-01",displayTitle:"历史档案",displaySafeProjection:{department:"A"},restrictedSafeProjection:{identityMasked:"***1"},hasSensitiveSource:true,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",resolutionReasonCode:null,totalCount:"1"}];
  const queries:string[]=[];
  const dataSource={query:async(sql:string)=>{queries.push(sql);return rows;}};
@@ -72,12 +74,13 @@ test("service hides restricted projection outside precise HR permission and audi
  const result=await service.list(scope,manager,{page:1,page_size:20});
  assert.deepEqual(result.items[0]?.projection,{department:"A"});
  assert.equal(result.items[0]?.sourceTable,undefined);
+ assert.doesNotMatch(queries[0]??"",/restricted_safe_projection/);
  assert.match(queries[0]??"",/WITH RECURSIVE managed_org/);
  assert.match(queries[0]??"",/owner_employee_id IN/);
  assert.equal(audits.length,1);
  const hr={...manager,permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_READ,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SENSITIVE_READ]};
  const full=await service.list(scope,hr,{page:1,page_size:20});
- assert.deepEqual(full.items[0]?.projection,{department:"A",identityMasked:"***1"});
+ assert.deepEqual(full.items[0]?.projection,{department:"A"});
  assert.equal(full.items[0]?.sourceTable,"dbo.person");
 });
 
@@ -87,16 +90,22 @@ test("unclaimed archive read is denied without its exact HR permission",async()=
 });
 
 test("detail does not leak source or blob fingerprints and required audit fails closed",async()=>{
- const archive={id:"00000000-0000-4000-8000-000000000001",employeeId:"00000000-0000-4000-8000-000000000002",mappingStatus:"mapped",recordType:"profile",occurredOn:null,displayTitle:"安全标题",displaySafeProjection:{department:"A"},restrictedSafeProjection:{identityMasked:"***1"},hasSensitiveSource:true,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",resolutionReasonCode:null};
+ const archive={id:"00000000-0000-4000-8000-000000000001",employeeId:"00000000-0000-4000-8000-000000000002",mappingStatus:"mapped",recordType:"profile",occurredOn:null,displayTitle:"安全标题",displaySafeProjection:{department:"A"},restrictedSafeProjection:{identityMasked:"***1",legacyFields:{A00007:"fixture-value"}},hasSensitiveSource:true,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",resolutionReasonCode:null};
  const file={id:"00000000-0000-4000-8000-000000000003",logicalKind:"photo",logicalName:"历史照片",mediaType:"image/jpeg",sizeBytes:"4",availability:"available",contentSha256:"f".repeat(64)};
  const dataSource={query:async(sql:string)=>sql.includes("hr_legacy_file_logical_record")?[file]:[archive]};
  const actor={sub:"employee",username:"employee",tenantId:"tenant",parkId:"park",roles:[],permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SELF_READ],isSuper:false};
- const service=new HrLegacyArchiveService(dataSource as never,{recordOperationRequired:async()=>undefined} as never);
+ const audits:Array<Record<string,unknown>>=[];
+ const service=new HrLegacyArchiveService(dataSource as never,{recordOperationRequired:async(input:Record<string,unknown>)=>{audits.push(input);}} as never);
  const detail=await service.detail({tenantId:"tenant",parkId:"park"},actor,archive.id);
  assert.equal(detail.sourceSystem,undefined);
  assert.equal(detail.sourceTable,undefined);
  assert.equal("contentFingerprint" in detail.files[0]!,false);
  assert.doesNotMatch(JSON.stringify(detail),/dbo\.person|f{64}|encrypted-object/u);
+ const hr={...actor,permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_READ,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SENSITIVE_READ]};
+ const privileged=await service.detail({tenantId:"tenant",parkId:"park"},hr,archive.id);
+ assert.deepEqual(privileged.projection,{department:"A",identityMasked:"***1",legacyFields:{A00007:"fixture-value"}});
+ assert.equal(audits.at(-1)?.bizId,archive.id);
+ assert.deepEqual((audits.at(-1)?.afterJson as {fieldGroups:string[]}).fieldGroups,["identity","attachment","legacy_projection"]);
  const auditFailure=new Error("required audit unavailable");
  const blocked=new HrLegacyArchiveService(dataSource as never,{recordOperationRequired:async()=>{throw auditFailure;}} as never);
  await assert.rejects(()=>blocked.detail({tenantId:"tenant",parkId:"park"},actor,archive.id),error=>error===auditFailure);

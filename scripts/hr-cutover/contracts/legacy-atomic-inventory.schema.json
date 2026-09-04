@@ -49,19 +49,19 @@
     "permissions": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "expectedAuthorizationRows", "reasonCode", "importerContract"],
+      "required": ["status", "expectedAuthorizationGrantEdges", "reasonCode", "importerContract"],
       "properties": {
         "status": { "const": "pending_review" },
-        "expectedAuthorizationRows": { "const": 915 },
-        "reasonCode": { "const": "PERMISSION_ATOMIC_IMPORT_REQUIRES_REDACTED_REVIEW" },
+        "expectedAuthorizationGrantEdges": { "const": 915 },
+        "reasonCode": { "const": "PERMISSION_GRANT_EDGE_INVENTORY_REQUIRES_PRIVATE_REVIEW" },
         "importerContract": {
           "type": "object",
           "additionalProperties": false,
           "required": ["input", "output", "policy"],
           "properties": {
-            "input": { "const": "explicit_redacted_structural_authorization_export" },
-            "output": { "const": "review_candidate_only" },
-            "policy": { "const": "no_placeholder_rows_no_automatic_approval" }
+            "input": { "const": "explicit_private_authorization_grant_export" },
+            "output": { "const": "private_migration_review_only" },
+            "policy": { "const": "no_user_bound_rows_in_public_inventory_no_functionality_credit" }
           }
         }
       }

@@ -27,6 +27,7 @@ import type {
   HrPayrollReconciliationQueryDto,
   HrPayrollReconciliationReviewDto,
   HrPayrollReviewActionDto,
+  HrPayrollTaxRuleQueryDto,
 } from "./dto/hr-payroll-history.dto";
 import {
   HrPayrollReviewActionEntity,
@@ -153,6 +154,20 @@ export class HrPayrollHistoryService {
     return row;
   }
 
+  async listTaxRules(scope:TenantParkScope,actor:JwtPrincipal,q:HrPayrollTaxRuleQueryDto) {
+    this.requireRuleRead(actor);
+    const qb=this.dataSource.createQueryBuilder().from("hr_payroll_tax_rule_version","tax_rule")
+      .where("tax_rule.tenant_id=:tenantId AND tax_rule.park_id=:parkId AND tax_rule.is_deleted=false",scope)
+      .select("tax_rule.legacy_tax_id","legacyTaxId").addSelect("tax_rule.version_no","versionNo")
+      .addSelect("tax_rule.base_amount","baseAmount").addSelect("tax_rule.lower_limit","lowerLimit")
+      .addSelect("tax_rule.upper_limit","upperLimit").addSelect("tax_rule.tax_percent","taxPercent")
+      .addSelect("tax_rule.offset_amount","offsetAmount");
+    const result=await this.paginate(qb,q.page,q.page_size,"tax_rule.legacy_tax_id ASC,tax_rule.version_no ASC");
+    const items=result.items.map(row=>({...row,semanticsStatus:"pending_review"}));
+    await this.audit(scope,actor,{resource:"hr.payroll_tax_rule",action:"读取历史税率规则",bizType:"hr_payroll_tax_rule_version",bizId:null,path:"/hr/payroll/history-tax-rules",fieldGroups:["compensation"],projection:"admin",itemCount:items.length});
+    return {items,total:result.total,page:q.page,page_size:q.page_size};
+  }
+
   async listCatalogItems(scope:TenantParkScope,actor:JwtPrincipal,q:HrPayrollCatalogQueryDto) {
     this.requireRuleRead(actor);
     const qb=this.dataSource.createQueryBuilder().from("hr_payroll_item_version","version")
@@ -162,7 +177,10 @@ export class HrPayrollHistoryService {
       .select("version.id","id").addSelect("book.id","bookId").addSelect("definition.item_code","itemCode")
       .addSelect("version.display_name","displayName").addSelect("version.value_type","valueType").addSelect("version.item_category","itemCategory")
       .addSelect("version.decimal_scale","decimalScale").addSelect("version.sort_no","sortNo").addSelect("version.taxable","taxable")
-      .addSelect("version.print_enabled","printEnabled").addSelect("version.enabled","enabled");
+      .addSelect("version.print_enabled","printEnabled").addSelect("version.enabled","enabled")
+      .addSelect("version.legacy_print_width","legacyPrintWidth").addSelect("version.legacy_decimal_length","legacyDecimalLength")
+      .addSelect("version.legacy_item_title","legacyItemTitle").addSelect("version.legacy_long_description","legacyLongDescription")
+      .addSelect("version.suppress_decimals","suppressDecimals").addSelect("version.legacy_metadata_review_required","legacyMetadataReviewRequired");
     if(q.book_id)qb.andWhere("book.id=:bookId",{bookId:q.book_id});
     const result=await this.paginate(qb,q.page,q.page_size,"book.legacy_scheme ASC,version.sort_no ASC,version.id ASC");
     await this.audit(scope,actor,{resource:"hr.payroll_rule",action:"读取历史工资项目",bizType:"hr_payroll_item_version",bizId:null,path:"/hr/payroll/history-items",fieldGroups:["compensation"],projection:"admin",itemCount:result.items.length});
@@ -178,7 +196,10 @@ export class HrPayrollHistoryService {
       .select("version.id","id").addSelect("book.id","bookId").addSelect("definition.item_code","itemCode")
       .addSelect("version.display_name","displayName").addSelect("version.value_type","valueType").addSelect("version.item_category","itemCategory")
       .addSelect("version.decimal_scale","decimalScale").addSelect("version.sort_no","sortNo").addSelect("version.taxable","taxable")
-      .addSelect("version.print_enabled","printEnabled").addSelect("version.enabled","enabled").getRawOne<RawRow>();
+      .addSelect("version.print_enabled","printEnabled").addSelect("version.enabled","enabled")
+      .addSelect("version.legacy_print_width","legacyPrintWidth").addSelect("version.legacy_decimal_length","legacyDecimalLength")
+      .addSelect("version.legacy_item_title","legacyItemTitle").addSelect("version.legacy_long_description","legacyLongDescription")
+      .addSelect("version.suppress_decimals","suppressDecimals").addSelect("version.legacy_metadata_review_required","legacyMetadataReviewRequired").getRawOne<RawRow>();
     if(!row)throw new NotFoundException("Payroll item not found");
     await this.audit(scope,actor,{resource:"hr.payroll_rule",action:"读取历史工资项目详情",bizType:"hr_payroll_item_version",bizId:id,path:"/hr/payroll/history-items/:id",fieldGroups:["compensation"],projection:"admin",itemCount:1});
     return row;

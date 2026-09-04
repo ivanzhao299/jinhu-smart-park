@@ -1,0 +1,133 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_payroll_pe_genprice_modern_equivalence_gap",
+  "sourceSystem": "yuzhou-v10",
+  "routineFamily": "pe_genprice",
+  "routineId": "RULE-81CAC314D2F3C517",
+  "selectionPolicy": {
+    "sourceDomain": "payroll",
+    "excludedFamilies": [
+      "u_inputbasepay",
+      "u_inputjobpay"
+    ],
+    "requiredDynamicMutationStatus": "none",
+    "requiredExplicitReadAndWriteTables": true,
+    "requiredExplicitJoinPredicates": true,
+    "requiredClosedCallSet": true,
+    "expectedEligibleRoutineIds": [
+      "RULE-81CAC314D2F3C517"
+    ]
+  },
+  "routineLedger": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "expectedRoutine": {
+      "sourceName": "pe_genprice",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_pe_genprice_sql",
+      "sourceArtifactSha256": "24966434a25d112d6e8c02d695b70708d765e2dbd16ffe90c4053a67e7d54c1d",
+      "parameters": [
+        [
+          "productid",
+          "int"
+        ],
+        [
+          "date",
+          "datetime"
+        ]
+      ],
+      "readTables": [
+        "product",
+        "workprocedure",
+        "workprocedureitem"
+      ],
+      "writeTables": [
+        "pieceprice"
+      ],
+      "calledRoutines": [],
+      "joinPredicates": [
+        "workprocedure.id=product.workprocedureid",
+        "workprocedureitem.workprocedureid=workprocedure.id"
+      ],
+      "statementProfile": {
+        "select": 1,
+        "insert": 1,
+        "update": 0,
+        "delete": 0,
+        "merge": 0,
+        "alter": 0
+      }
+    }
+  },
+  "sourceManifest": {
+    "path": ".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/generated/legacy-manifest.json",
+    "sha256": "2fa1a1aaae47787ad9301a0fa21b1e71f039e20b507c3e6051a5c68f8d458ace",
+    "sourceArtifactPath": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_pe_genprice_sql",
+    "sourceArtifactBytes": 407,
+    "sourceArtifactLines": 12,
+    "sourceBodyStatus": "hash_and_shape_only_body_not_committed"
+  },
+  "businessPageEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+    "sha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+    "requiredLegacyPages": [
+      {
+        "legacyId": 76,
+        "name": "计件产品",
+        "targetRoute": "/hr/compensation"
+      },
+      {
+        "legacyId": 77,
+        "name": "计件工序",
+        "targetRoute": "/hr/compensation"
+      },
+      {
+        "legacyId": 201,
+        "name": "计件工资",
+        "targetRoute": "/hr/payroll"
+      }
+    ]
+  },
+  "modernTargetEvidence": {
+    "tableDomainMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+    },
+    "routineCapabilityMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-routine-capability-map-v1.json",
+      "sha256": "7702c0673e1a6ce259861d2421ca04f5280a278c44310ede7af446c3ac03b789"
+    },
+    "domain": "piecework",
+    "requiredSourceTables": [
+      "product",
+      "workprocedure",
+      "workprocedureitem"
+    ],
+    "expectedFunctionalStatus": "target_schema_required",
+    "expectedTargetServices": [],
+    "expectedTargetApis": [],
+    "expectedTargetPages": []
+  },
+  "behaviorEvidenceStatus": "unverified",
+  "adapterDisposition": "not_created_behavior_unverified",
+  "boundedSyntheticParityDisposition": "not_run_source_oracle_unavailable",
+  "blockingGaps": [
+    "PE_GENPRICE_SOURCE_BODY_NOT_COMMITTED",
+    "PE_GENPRICE_SELECT_INSERT_COLUMN_MAPPING_UNAVAILABLE",
+    "PE_GENPRICE_NULL_DUPLICATE_DATE_TRANSACTION_SEMANTICS_UNPROVEN",
+    "PIECEWORK_TARGET_SCHEMA_UNAVAILABLE",
+    "BOUNDED_SYNTHETIC_PARITY_ORACLE_UNAVAILABLE"
+  ],
+  "forbiddenAssumptions": [
+    "derive_insert_columns_from_table_names",
+    "invent_piece_price_arithmetic",
+    "invent_same_date_duplicate_behavior",
+    "treat_generic_payroll_snapshot_tables_as_pieceprice_equivalence"
+  ],
+  "requiredDecision": "KEEP_GAP",
+  "compatibilityCredit": 0,
+  "legacyRoutineExecuted": false,
+  "legacyDynamicSqlExecuted": false,
+  "containsPayrollValues": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

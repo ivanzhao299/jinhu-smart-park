@@ -65,3 +65,20 @@ test("organization editor preserves an unavailable parent without resubmitting i
   assert.match(source, /当前上级（不可见或不可选）/);
   assert.match(source, /form\.parentId !== \(editingOrg\.parentId \?\? ""\) \? \{ parentId:/);
 });
+
+test("organization contacts round-trip through the shared desktop and 390px-capable surfaces", () => {
+  for (const field of ["contactPhone", "contactAddress", "contactEmail"]) {
+    assert.match(source, new RegExp(`${field}: org\\.${field} \\?\\? ""`));
+    assert.match(source, new RegExp(`${field}: form\\.${field}\\.trim\\(\\) \\|\\| null`));
+  }
+  assert.match(source, /className="ds-table-shell"/);
+  assert.match(source, /className="ds-mobile-record-list"/);
+  assert.match(source, /<DrawerFormGrid>/);
+  assert.match(source, /type="tel" maxLength=\{50\}/);
+  assert.match(source, /type="email" maxLength=\{254\}/);
+  assert.match(source, /<label>联系地址<\/label><textarea maxLength=\{500\}/);
+  assert.match(source, /label="联系电话"/);
+  assert.match(source, /label="联系邮箱"/);
+  assert.match(source, /label="联系地址"/);
+  assert.doesNotMatch(source, /legacyCompanyManagerReference|legacy_company_manager_reference/);
+});

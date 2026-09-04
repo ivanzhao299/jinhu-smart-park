@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_payroll_items_page_observation",
+  "contractVersion": "2026-09-04.1",
+  "surface": "desktop_client",
+  "pageIntent": "payroll_items_and_formulas",
+  "atomicEntry": {
+    "atomicId": "client.payroll.001",
+    "familyId": "payroll",
+    "entryPoint": "工资核算设置",
+    "pageCheck": "payroll-items-and-formulas"
+  },
+  "sourceBindings": {
+    "atomicInventory": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
+      "sha256": "ee3adb30d145afc33f845e290f5acfa390beb85c1ed913ead1dd2c8d136da4b5"
+    },
+    "familyTraversal": {
+      "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json",
+      "sha256": "e3c01e1f772f629a351d885a935af63b83ddba5edf29b2d07fcf41810410bc54"
+    },
+    "salaryitemsRuleReceipt": {
+      "path": "scripts/hr-cutover/contracts/legacy-payroll-salaryitems-primary-rule-source-receipt-v1.json",
+      "sha256": "975dbd978a30979e03054daa3764b6c28bec558b6f810780aa334ce649153b78"
+    },
+    "salaryequalRuleReceipt": {
+      "path": "scripts/hr-cutover/contracts/legacy-payroll-salaryequal-rule-relation-source-receipt-v1.json",
+      "sha256": "45e323088d6e6b50ca091cea9f331b3e59c662ebf25454bfed6df6ab8e043846"
+    }
+  },
+  "allowedWindowTypes": ["main_window", "dialog", "tab_page", "unknown"],
+  "allowedControlTypes": [
+    "data_grid",
+    "text_input",
+    "numeric_input",
+    "select",
+    "checkbox",
+    "formula_editor",
+    "tab",
+    "read_only_text",
+    "unknown"
+  ],
+  "allowedActionCategories": [
+    "create",
+    "edit",
+    "delete",
+    "save",
+    "cancel",
+    "reorder",
+    "validate_formula",
+    "lookup",
+    "close",
+    "unknown"
+  ],
+  "evidencePolicy": {
+    "staticEvidenceStatus": "navigation_and_rule_source_bound_only",
+    "runtimeEvidenceStatusWithoutWindowsInstance": "pending",
+    "runtimeEvidenceStatusAfterCapture": "review_pending",
+    "screenEvidence": "sha256_only_no_path_or_binary",
+    "controlValues": "FORBIDDEN",
+    "payrollValues": "FORBIDDEN",
+    "personData": "FORBIDDEN",
+    "credentials": "FORBIDDEN",
+    "compatibilityCredit": 0
+  },
+  "productionWrite": "FORBIDDEN",
+  "productionImport": "HOLD"
+}
