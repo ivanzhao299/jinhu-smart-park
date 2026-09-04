@@ -8,6 +8,7 @@ const container = process.env.YUZHOU_PERFORMANCE_PG_CONTAINER ?? "jinhu-smart-pa
 const database = `jinhu_hr_migration_lab_perfmaster_${process.pid}`;
 const model = readFileSync(resolve(root, "database/migrations/000300_hr_performance_yuzhou_legacy_model.sql"), "utf8");
 const master = readFileSync(resolve(root, "database/migrations/000302_hr_performance_yuzhou_legacy_master.sql"), "utf8");
+const parity = readFileSync(resolve(root, "database/migrations/000304_hr_performance_yuzhou_legacy_master_parity.sql"), "utf8");
 
 function psql(targetDatabase, sql, expectSuccess = true) {
   const result = spawnSync(
@@ -28,12 +29,16 @@ const dimensionMap2 = id("13");
 const resultMap1 = id("14");
 const resultMap2 = id("15");
 const masterMap = id("16");
+const levelMap = id("17");
+const tiedLevelMap = id("18");
 const template = id("21");
 const dimension1 = id("22");
 const dimension2 = id("23");
 const result1 = id("24");
 const result2 = id("25");
 const masterFact = id("26");
+const levelFact = id("27");
+const tiedLevelFact = id("28");
 
 try {
   admin(`CREATE DATABASE ${database} TEMPLATE template0;`);
@@ -75,6 +80,7 @@ try {
   `);
   psql(database, model);
   psql(database, master);
+  psql(database, parity);
 
   psql(database, `
     BEGIN;
@@ -90,7 +96,8 @@ try {
       ('${dimensionMap2}','${batch}','yuzhou-v10','dbo.assitem','sha256:'||repeat('c',64),repeat('c',64),repeat('3',64),'hr_performance_legacy_dimension_profile','${dimension2}','loaded',true),
       ('${resultMap1}','${batch}','yuzhou-v10','dbo.assessmentdetail','sha256:'||repeat('d',64),repeat('d',64),repeat('4',64),'hr_performance_legacy_dimension_result','${result1}','loaded',true),
       ('${resultMap2}','${batch}','yuzhou-v10','dbo.assessmentdetail','sha256:'||repeat('e',64),repeat('e',64),repeat('5',64),'hr_performance_legacy_dimension_result','${result2}','loaded',true),
-      ('${masterMap}','${batch}','yuzhou-v10','dbo.assessmentmaster','sha256:'||repeat('6',64),repeat('6',64),repeat('7',64),'hr_performance_legacy_master_result','${masterFact}','loaded',true);
+      ('${masterMap}','${batch}','yuzhou-v10','dbo.assessmentmaster','sha256:'||repeat('6',64),repeat('6',64),repeat('7',64),'hr_performance_legacy_master_result','${masterFact}','loaded',true),
+      ('${levelMap}','${batch}','yuzhou-v10','dbo.assgradecode','sha256:'||repeat('7',64),repeat('7',64),repeat('8',64),'hr_performance_legacy_level_rule','${levelFact}','loaded',true);
 
     INSERT INTO hr_performance_legacy_template_profile(
       id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,
@@ -104,6 +111,14 @@ try {
     ) VALUES
       ('${dimension1}','tenant-a','park-a','${batch}','${dimensionMap1}',repeat('b',64),repeat('2',64),70,7,'${template}'),
       ('${dimension2}','tenant-a','park-a','${batch}','${dimensionMap2}',repeat('c',64),repeat('3',64),71,7,'${template}');
+
+    INSERT INTO hr_performance_legacy_level_rule(
+      id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,
+      source_row_sha256,source_ass_grade,source_assessment_id,source_min_value,source_max_value
+    ) VALUES(
+      '${levelFact}','tenant-a','park-a','${batch}','${levelMap}',repeat('7',64),repeat('8',64),
+      'A',999,70,100
+    );
 
     INSERT INTO hr_performance_legacy_dimension_result(
       id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,
@@ -129,16 +144,21 @@ try {
     SET CONSTRAINTS ALL IMMEDIATE;
 
     DO $test$
-    DECLARE subtotal numeric; full_total numeric;
+    DECLARE subtotal numeric; full_total numeric; grade_status text; expected_grade varchar;
     BEGIN
       SELECT hr_performance_yuzhou_weighted_detail_total(
         'tenant-a','park-a','${batch}','${template}',9,'P-SYNTH'
       ) INTO subtotal;
       SELECT hr_performance_yuzhou_legacy_full_total('${masterFact}') INTO full_total;
+      SELECT parity_status,expected_ass_grade INTO grade_status,expected_grade
+      FROM hr_performance_yuzhou_legacy_grade_parity('${masterFact}');
       IF subtotal<>77.70 THEN RAISE EXCEPTION 'weighted subtotal mismatch: %',subtotal; END IF;
       IF full_total<>79.00 THEN RAISE EXCEPTION 'full total mismatch: %',full_total; END IF;
       IF full_total<>(SELECT source_total_value FROM hr_performance_legacy_master_result WHERE id='${masterFact}') THEN
         RAISE EXCEPTION 'source total parity mismatch';
+      END IF;
+      IF grade_status<>'MATCH' OR expected_grade<>'A' THEN
+        RAISE EXCEPTION 'grade parity mismatch: %, %',grade_status,expected_grade;
       END IF;
       IF (SELECT count(*) FROM hr_performance_legacy_master_result
           WHERE source_self_appraisal IS NULL AND source_pay IS NULL AND source_operator_code IS NULL)<>1 THEN
@@ -156,9 +176,41 @@ try {
 
   psql(database, `
     BEGIN;
+    INSERT INTO legacy_record_map(
+      id,batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,
+      source_row_sha256,target_table,target_id,mapping_status,is_active
+    ) VALUES(
+      '${tiedLevelMap}','${batch}','yuzhou-v10','dbo.assgradecode','sha256:'||repeat('8',64),
+      repeat('8',64),repeat('9',64),'hr_performance_legacy_level_rule','${tiedLevelFact}','loaded',true
+    );
+    INSERT INTO hr_performance_legacy_level_rule(
+      id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_identity_sha256,
+      source_row_sha256,source_ass_grade,source_assessment_id,source_min_value,source_max_value
+    ) VALUES(
+      '${tiedLevelFact}','tenant-a','park-a','${batch}','${tiedLevelMap}',repeat('8',64),repeat('9',64),
+      'A-TIE',123,70,100
+    );
+    SET CONSTRAINTS ALL IMMEDIATE;
+    COMMIT;
+    DO $test$
+    DECLARE grade_status text; expected_grade varchar; candidate_count bigint;
+    BEGIN
+      SELECT parity_status,expected_ass_grade,winning_candidate_count
+      INTO grade_status,expected_grade,candidate_count
+      FROM hr_performance_yuzhou_legacy_grade_parity('${masterFact}');
+      IF grade_status<>'AMBIGUOUS_TOP_THRESHOLD' OR expected_grade IS NOT NULL OR candidate_count<>2 THEN
+        RAISE EXCEPTION 'same-threshold ambiguity was hidden: %, %, %',grade_status,expected_grade,candidate_count;
+      END IF;
+    END
+    $test$;
+  `);
+
+  psql(database, `
+    BEGIN;
     UPDATE migration_batch SET phase='rollback',status='running' WHERE id='${batch}';
     SET LOCAL yuzhou.performance_legacy_rollback_batch_id='${batch}';
     DELETE FROM hr_performance_legacy_master_result WHERE migration_batch_id='${batch}';
+    DELETE FROM hr_performance_legacy_level_rule WHERE migration_batch_id='${batch}';
     DELETE FROM hr_performance_legacy_dimension_result WHERE migration_batch_id='${batch}';
     DELETE FROM hr_performance_legacy_dimension_profile WHERE migration_batch_id='${batch}';
     DELETE FROM hr_performance_legacy_template_profile WHERE migration_batch_id='${batch}';
@@ -168,6 +220,7 @@ try {
     DO $test$
     BEGIN
       IF (SELECT count(*) FROM hr_performance_legacy_master_result)<>0
+        OR (SELECT count(*) FROM hr_performance_legacy_level_rule)<>0
         OR (SELECT count(*) FROM hr_performance_legacy_dimension_result)<>0
         OR (SELECT count(*) FROM hr_performance_legacy_dimension_profile)<>0
         OR (SELECT count(*) FROM hr_performance_legacy_template_profile)<>0
@@ -178,7 +231,7 @@ try {
     $test$;
   `);
 
-  console.log("Yuzhou performance master direct PostgreSQL checks passed (rounding, full total, guard, rollback).")
+  console.log("Yuzhou performance master direct PostgreSQL checks passed (rounding, total, grade parity, ambiguity, guard, rollback).")
 } finally {
   admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE);`);
 }
