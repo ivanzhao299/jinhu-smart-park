@@ -11,6 +11,11 @@
     "missingDepartmentRows",
     "omittedInnerJoinRows"
   ],
+  "requiredColumns": {
+    "startdate": { "sqlType": "smalldatetime", "nullable": false },
+    "enddate": { "sqlType": "smalldatetime", "nullable": false },
+    "days": { "sqlType": "int", "nullable": true }
+  },
   "conservationRules": [
     "omittedInnerJoinRows=missingPersonRows+missingDepartmentRows",
     "totalRows=matchedInnerJoinRows+omittedInnerJoinRows"

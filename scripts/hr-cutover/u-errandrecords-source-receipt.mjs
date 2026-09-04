@@ -65,6 +65,8 @@ SELECT
   CONVERT(varchar(1),start_column.is_nullable),
   TYPE_NAME(end_column.user_type_id),
   CONVERT(varchar(1),end_column.is_nullable),
+  TYPE_NAME(days_column.user_type_id),
+  CONVERT(varchar(1),days_column.is_nullable),
   CONVERT(varchar(8),DATEPART(TZOFFSET,SYSDATETIMEOFFSET())),
   CONVERT(varchar(1),sd.is_read_only),
   DB_NAME(),
@@ -78,6 +80,7 @@ SELECT
 FROM sys.databases sd
 LEFT JOIN sys.columns start_column ON start_column.object_id=OBJECT_ID(N'dbo.errand') AND start_column.name=N'startdate'
 LEFT JOIN sys.columns end_column ON end_column.object_id=OBJECT_ID(N'dbo.errand') AND end_column.name=N'enddate'
+LEFT JOIN sys.columns days_column ON days_column.object_id=OBJECT_ID(N'dbo.errand') AND days_column.name=N'days'
 WHERE sd.name=DB_NAME();`;
 
 export class UErrandrecordsSourceReceiptError extends Error {
@@ -215,10 +218,10 @@ function parseAggregateOutput(output, expectedDatabase) {
     fail("U_ERRANDRECORDS_SOURCE_PROBE_INVALID", "one aggregate row required");
   }
   const fields = lines[0].split("|").map((value) => value.trim());
-  if (fields.length !== 18) {
+  if (fields.length !== 20) {
     fail("U_ERRANDRECORDS_SOURCE_PROBE_INVALID", "aggregate row shape");
   }
-  const offsetMinutes = Number(fields[8]);
+  const offsetMinutes = Number(fields[10]);
   if (
     !Number.isInteger(offsetMinutes) ||
     offsetMinutes < -840 ||
@@ -226,8 +229,9 @@ function parseAggregateOutput(output, expectedDatabase) {
     fields[5] !== "0" ||
     fields[7] !== "0" ||
     fields[9] !== "1" ||
-    fields[10] !== expectedDatabase ||
-    fields.slice(11).some((value) => !/^[01]$/u.test(value))
+    fields[11] !== "1" ||
+    fields[12] !== expectedDatabase ||
+    fields.slice(13).some((value) => !/^[01]$/u.test(value))
   ) {
     fail("U_ERRANDRECORDS_SOURCE_PROBE_INVALID", "timezone, read-only, or database identity");
   }
@@ -240,18 +244,20 @@ function parseAggregateOutput(output, expectedDatabase) {
     startNullable: fields[5] === "1",
     endSqlType: fields[6],
     endNullable: fields[7] === "1",
+    daysSqlType: fields[8],
+    daysNullable: fields[9] === "1",
     serverUtcOffsetMinutes: offsetMinutes,
     databaseReadOnly: true,
-    databaseIdentity: fields[10],
+    databaseIdentity: fields[12],
     etlAuthority: {
       loginSucceeded: true,
-      sysadmin: fields[11] === "1",
-      dbDatareader: fields[12] === "1",
-      viewDefinition: fields[13] === "1",
-      insert: fields[14] === "1",
-      update: fields[15] === "1",
-      delete: fields[16] === "1",
-      execute: fields[17] === "1",
+      sysadmin: fields[13] === "1",
+      dbDatareader: fields[14] === "1",
+      viewDefinition: fields[15] === "1",
+      insert: fields[16] === "1",
+      update: fields[17] === "1",
+      delete: fields[18] === "1",
+      execute: fields[19] === "1",
     },
   };
 }
@@ -347,10 +353,11 @@ export function sealUErrandrecordsSourceReceipt(input) {
   ) {
     fail("U_ERRANDRECORDS_SOURCE_COUNT_MISMATCH", "inner-join conservation");
   }
-  exactKeys(body.columns, ["startdate", "enddate"], "U_ERRANDRECORDS_SOURCE_RECEIPT_INVALID", "columns shape");
-  for (const field of ["startdate", "enddate"]) {
+  exactKeys(body.columns, ["startdate", "enddate", "days"], "U_ERRANDRECORDS_SOURCE_RECEIPT_INVALID", "columns shape");
+  for (const field of ["startdate", "enddate", "days"]) {
     exactKeys(body.columns[field], ["sqlType", "nullable"], "U_ERRANDRECORDS_SOURCE_RECEIPT_INVALID", `${field} shape`);
-    if (body.columns[field].sqlType !== "smalldatetime" || body.columns[field].nullable !== false) {
+    const expected = field === "days" ? { sqlType: "int", nullable: true } : { sqlType: "smalldatetime", nullable: false };
+    if (body.columns[field].sqlType !== expected.sqlType || body.columns[field].nullable !== expected.nullable) {
       fail("U_ERRANDRECORDS_SOURCE_COLUMN_DRIFT", field);
     }
   }
@@ -473,6 +480,7 @@ export function captureUErrandrecordsSourceReceipt(input, { probe }) {
     columns: {
       startdate: { sqlType: aggregate.startSqlType, nullable: aggregate.startNullable },
       enddate: { sqlType: aggregate.endSqlType, nullable: aggregate.endNullable },
+      days: { sqlType: aggregate.daysSqlType, nullable: aggregate.daysNullable },
     },
     serverTimezone: {
       currentUtcOffsetMinutes: aggregate.serverUtcOffsetMinutes,
