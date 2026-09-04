@@ -10,6 +10,7 @@ import {
   type HrPerformanceLegacyDimension,
   type HrPerformanceLegacyGuide,
   type HrPerformanceLegacyLevel,
+  type HrPerformanceLegacyMaster,
   type HrPerformanceLegacyResult,
   type HrPerformanceLegacyTemplate,
 } from "../../../lib/hr-api";
@@ -17,13 +18,14 @@ import { hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./performance-legacy.module.css";
 
-type LegacyKind = "templates" | "levels" | "dimensions" | "guides" | "results";
+type LegacyKind = "templates" | "levels" | "dimensions" | "guides" | "results" | "masters";
 type LegacyRow =
   | HrPerformanceLegacyTemplate
   | HrPerformanceLegacyLevel
   | HrPerformanceLegacyDimension
   | HrPerformanceLegacyGuide
-  | HrPerformanceLegacyResult;
+  | HrPerformanceLegacyResult
+  | HrPerformanceLegacyMaster;
 type LegacyPage = PaginatedResult<LegacyRow>;
 type Field = { key: string; label: string; relation?: boolean };
 
@@ -35,6 +37,7 @@ const labels: Record<LegacyKind, string> = {
   dimensions: "考核项目",
   guides: "评分说明",
   results: "历史结果",
+  masters: "汇总与总分",
 };
 const fields: Record<LegacyKind, Field[]> = {
   templates: [
@@ -105,6 +108,37 @@ const fields: Record<LegacyKind, Field[]> = {
     { key: "targetTemplateVersionId", label: "现代模板版本", relation: true },
     { key: "targetDimensionId", label: "现代评价维度", relation: true },
   ],
+  masters: [
+    { key: "sourceMasterId", label: "旧汇总编号" },
+    { key: "sourceSessionId", label: "旧考核批次" },
+    { key: "sourcePersonCode", label: "旧人员编码" },
+    { key: "sourceSelfGrade", label: "自评等级" },
+    { key: "sourceAssGrade", label: "考核等级" },
+    { key: "sourceSelfValue", label: "自评汇总" },
+    { key: "sourceItemValue", label: "项目汇总" },
+    { key: "sourceMItemValue", label: "主管汇总" },
+    { key: "sourceXItemValue", label: "协作汇总" },
+    { key: "sourceCItemValue", label: "公司汇总" },
+    { key: "sourceMasterValue", label: "主考核调整" },
+    { key: "sourceTimekeepValue", label: "考勤调整" },
+    { key: "sourceBonusValue", label: "奖惩调整" },
+    { key: "sourceTotalValue", label: "旧系统总分" },
+    { key: "sourceSelfAppraisal", label: "自我评价" },
+    { key: "sourceAppraisal", label: "考核评价" },
+    { key: "sourcePay", label: "绩效金额（按工资权限）" },
+    { key: "sourceAssessmentPerson", label: "考核人" },
+    { key: "sourceRecordedAt", label: "记录时间" },
+    { key: "sourceOperatorCode", label: "操作员编码" },
+    { key: "sourceDescription", label: "备注" },
+    { key: "calculatedTotal", label: "兼容计算总分" },
+    { key: "expectedAssGrade", label: "兼容计算等级" },
+    { key: "winningMinValue", label: "命中最低分阈值" },
+    { key: "winningCandidateCount", label: "同阈值候选数" },
+    { key: "parityStatus", label: "复算一致性" },
+    { key: "legacyTemplateProfileId", label: "兼容模板关系", relation: true },
+    { key: "targetCycleEmployeeId", label: "现代员工周期", relation: true },
+    { key: "targetTemplateVersionId", label: "现代模板版本", relation: true },
+  ],
 };
 
 function valueText(value: unknown) {
@@ -123,6 +157,7 @@ function rowTitle(kind: LegacyKind, row: LegacyRow) {
   if (kind === "levels") return `等级 ${valueText(values.sourceAssGrade)}`;
   if (kind === "dimensions") return valueText(values.sourceItemName || values.sourceItemId);
   if (kind === "guides") return `${valueText(values.sourceGrade)} · 项目 ${valueText(values.sourceItemId)}`;
+  if (kind === "masters") return `批次 ${valueText(values.sourceSessionId)} · 人员 ${valueText(values.sourcePersonCode)}`;
   return `批次 ${valueText(values.sourceSessionId)} · 项目 ${valueText(values.sourceItemId)}`;
 }
 
@@ -140,7 +175,7 @@ export function HrPerformanceLegacyPanel() {
   const user = useAuthUser();
   const canDefinitions = hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) || hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_MANAGE);
   const canResults = [HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ, HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ].some(permission => hasPermission(user, permission));
-  const available = useMemo(() => [...(canDefinitions ? definitionKinds : []), ...(canResults ? ["results" as const] : [])], [canDefinitions, canResults]);
+  const available = useMemo(() => [...(canDefinitions ? definitionKinds : []), ...(canResults ? ["results" as const, "masters" as const] : [])], [canDefinitions, canResults]);
   const [kind, setKind] = useState<LegacyKind>(available[0] ?? "results");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<LegacyPage>(EMPTY_PAGE);
@@ -170,6 +205,7 @@ export function HrPerformanceLegacyPanel() {
         : activeKind === "levels" ? await hrApi.performanceLegacyLevels(token, page, 20, controller.signal)
         : activeKind === "dimensions" ? await hrApi.performanceLegacyDimensions(token, page, 20, controller.signal)
         : activeKind === "guides" ? await hrApi.performanceLegacyGuides(token, page, 20, controller.signal)
+        : activeKind === "masters" ? await hrApi.performanceLegacyMasters(token, page, 20, sessionFilter, controller.signal)
         : await hrApi.performanceLegacyResults(token, page, 20, sessionFilter, controller.signal);
       if (current === generation.current) setResult(response);
     } catch (cause) {
@@ -218,11 +254,11 @@ export function HrPerformanceLegacyPanel() {
       <div><span className="ds-eyebrow">玉舟 V10 兼容层</span><h2 id="legacy-performance-heading">历史绩效与字段映射</h2></div>
       <span className={styles.count}>{loading ? "加载中…" : `${result.total} 条`}</span>
     </div>
-    <p className={styles.note}>只读展示旧系统 29 个定义字段和 12 个结果字段；“现代关系”用于核对新旧模型的实际映射，未建立时明确显示为空。</p>
+    <p className={styles.note}>只读展示旧系统 29 个定义字段、12 个明细结果字段和 21 个汇总字段；同时显示旧公式复算总分、等级及一致性状态。</p>
     <div className={styles.tabs} role="tablist" aria-label="历史绩效数据类型">
       {available.map(item => <button key={item} type="button" role="tab" aria-selected={activeKind === item} className={activeKind === item ? styles.activeTab : styles.tab} onClick={() => selectKind(item)}>{labels[item]}</button>)}
     </div>
-    {activeKind === "results" ? <div className={styles.filters}>
+    {activeKind === "results" || activeKind === "masters" ? <div className={styles.filters}>
       <label className="form-field"><span>旧考核批次（可选）</span><input type="number" min="0" step="1" inputMode="numeric" value={sessionText} onChange={event => setSessionText(event.target.value)} /></label>
       <button className="ds-button" type="button" onClick={applySession} disabled={loading}>查询</button>
       {sessionFilter !== undefined ? <button className="ds-button" type="button" onClick={() => { setSessionText(""); setSessionFilter(undefined); setPage(1); }}>清除</button> : null}

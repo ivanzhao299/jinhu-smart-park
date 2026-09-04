@@ -7,7 +7,7 @@ const panel = readFileSync(resolve(__dirname, "performance/HrPerformanceLegacyPa
 const styles = readFileSync(resolve(__dirname, "performance/performance-legacy.module.css"), "utf8");
 const api = readFileSync(resolve(__dirname, "../../lib/hr-api.ts"), "utf8");
 
-test("legacy performance screen exposes every one of the 29 definition and 12 result source fields", () => {
+test("legacy performance screen exposes all 29 definition, 12 detail, and 21 master source fields", () => {
   const sourceFields = [
     "sourceAssessment", "sourceAssessmentName", "sourceDepartment", "sourceMPercent",
     "sourceTPercent", "sourceXPercent", "sourceCPercent", "sourceSPercent",
@@ -17,14 +17,20 @@ test("legacy performance screen exposes every one of the 29 definition and 12 re
     "sourceGuideId", "sourceGrade", "sourceDetailId", "sourceSessionId",
     "sourcePersonCode", "sourceSelfValue", "sourceMItemValue", "sourceItemValue",
     "sourceXItemValue", "sourceCItemValue", "sourceSelfGrade", "sourceAppraisal",
+    "sourceMasterId", "sourceMasterValue", "sourceTimekeepValue", "sourceBonusValue",
+    "sourceTotalValue", "sourceSelfAppraisal", "sourcePay", "sourceAssessmentPerson",
+    "sourceRecordedAt", "sourceOperatorCode",
   ];
   for (const field of sourceFields) assert.match(panel, new RegExp(`key: "${field}"`, "u"));
-  assert.equal(panel.match(/\{ key: "source[A-Z][A-Za-z]+"/gu)?.length, 41);
-  assert.match(panel, /29 个定义字段和 12 个结果字段/u);
+  assert.equal(panel.match(/\{ key: "source[A-Z][A-Za-z]+"/gu)?.length, 62);
+  assert.match(panel, /29 个定义字段、12 个明细结果字段和 21 个汇总字段/u);
+  for (const field of ["calculatedTotal", "expectedAssGrade", "winningMinValue", "winningCandidateCount", "parityStatus"]) {
+    assert.match(panel, new RegExp(`key: "${field}"`, "u"));
+  }
 });
 
 test("legacy performance browser is read-only, paginated, scoped, and relationship-visible", () => {
-  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Rubric", "Results"]) {
+  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Rubric", "Results", "Masters"]) {
     assert.match(api, new RegExp(`performanceLegacy${endpoint}:`, "u"));
   }
   for (const relation of [
