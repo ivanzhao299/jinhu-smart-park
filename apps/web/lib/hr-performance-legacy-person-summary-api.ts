@@ -1,4 +1,7 @@
-import type { PaginatedResult } from "@jinhu/shared";
+import type {
+  HrPerformanceLegacyPersonSummaryRoutine,
+  PaginatedResult,
+} from "@jinhu/shared";
 import { apiRequest } from "./api-client";
 
 export interface HrPerformanceLegacyPersonSummary {
@@ -14,6 +17,7 @@ const unwrap = async <T>(request: Promise<{ data: T }>): Promise<T> =>
   (await request).data;
 
 export function performanceLegacyPersonSummary(
+  sourceRoutine: HrPerformanceLegacyPersonSummaryRoutine,
   sourcePersonCode: string,
   token?: string,
   page = 1,
@@ -21,6 +25,7 @@ export function performanceLegacyPersonSummary(
   signal?: AbortSignal,
 ) {
   const query = new URLSearchParams({
+    source_routine: sourceRoutine,
     source_person_code: sourcePersonCode,
     page: String(page),
     page_size: String(pageSize),

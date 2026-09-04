@@ -1,6 +1,7 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import {
   HR_PERMISSIONS,
+  isHrPerformanceLegacyPersonSummaryRoutine,
   type PaginatedResult,
   type TenantParkScope,
 } from "@jinhu/shared";
@@ -9,10 +10,10 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type {
   HrPerformanceLegacyPageQueryDto,
-  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
+import type { HrPerformanceLegacyPersonSummaryRoutineQueryDto } from "./dto/hr-performance-legacy-person-summary.dto";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type RawRow = Record<string, unknown>;
@@ -402,10 +403,13 @@ export class HrPerformanceLegacyService {
   async personSummary(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    query: HrPerformanceLegacyPersonSummaryQueryDto,
+    query: HrPerformanceLegacyPersonSummaryRoutineQueryDto,
   ) {
     const resolved = this.resultScope(scope, actor, query);
     if (!resolved) return this.emptyPage(query);
+    if (!isHrPerformanceLegacyPersonSummaryRoutine(query.source_routine)) {
+      throw new BadRequestException("Unsupported legacy performance person-summary routine");
+    }
     const parameters = [...resolved.parameters, query.source_person_code];
     const sourcePersonParameter = parameters.length;
     const accessWhere = `${resolved.accessWhere}
@@ -423,11 +427,15 @@ export class HrPerformanceLegacyService {
     const employeeDisplayName = resolved.access === "park"
       ? "summary_employee.full_name"
       : "employee.full_name";
+    const mappedEmployeePredicate = query.source_routine === "web_ass"
+      ? ` AND ${resolved.access === "park" ? "summary_employee" : "employee"}.id IS NOT NULL`
+      : "";
     const countRows = (await this.dataSource.query(
       `SELECT count(*)::int total
        FROM hr_performance_legacy_master_result fact
        ${resolved.accessJoin}
-       ${visibility}${accessWhere}`,
+       ${employeeProjectionJoin}
+       ${visibility}${accessWhere}${mappedEmployeePredicate}`,
       parameters,
     )) as Array<{ total: number | string }>;
 
@@ -442,7 +450,7 @@ export class HrPerformanceLegacyService {
        FROM hr_performance_legacy_master_result fact
        ${resolved.accessJoin}
        ${employeeProjectionJoin}
-       ${visibility}${accessWhere}
+       ${visibility}${accessWhere}${mappedEmployeePredicate}
        ORDER BY fact.source_session_id DESC NULLS LAST,
                 fact.source_master_id ASC,
                 fact.id ASC
@@ -452,7 +460,9 @@ export class HrPerformanceLegacyService {
     const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
     await recordHrSensitiveRead(this.auditService, scope, actor, {
       resource: "hr.performance_legacy_person_summary",
-      action: "读取玉舟历史个人绩效汇总",
+      action: query.source_routine === "web_ass"
+        ? "按玉舟 web_ass 语义读取历史个人绩效汇总"
+        : "按玉舟 web_assessmentquery 语义读取历史个人绩效汇总",
       bizType: "hr_performance_legacy_master_result",
       bizId: null,
       path: "/hr/performance-legacy/query-reports/person-summary",

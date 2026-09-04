@@ -240,7 +240,7 @@
       "parameters": [
         {"name":"person","sourceType":"varchar(10)","behavior":"Exact assessmentmaster.person equality."}
       ],
-      "joinSemantics": "person LEFT OUTER JOIN assessmentmaster becomes effectively inner because assessmentmaster.person is constrained in WHERE.",
+      "joinSemantics": "The query starts from person and LEFT OUTER JOINs assessmentmaster; constraining assessmentmaster.person in WHERE makes the result effectively inner and excludes assessmentmaster rows whose person row is absent.",
       "filters": [
         {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code across all sessions"}
       ],
@@ -261,17 +261,17 @@
         "safeReplacement": "Bind the person identity after resolving server-side self or authorized employee scope."
       },
       "knownDifferences": [
-        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"implemented stable source-session/master/id paging order; cross-engine page-set conservation remains pending"},
-        {"code":"ORPHAN_MASTER_JOIN_ASYMMETRY","sourceBehavior":"web_ass starts from person and therefore returns no row when assessmentmaster.person has no matching person row","modernDecision":"the shared endpoint preserves an unmatched imported master with a null modern employee name, matching web_assessmentquery instead; web_ass parity remains pending until the source orphan aggregate is zero or an explicit compatibility mode excludes unmatched masters"}
+        {"code":"ORPHAN_MASTER_EXCLUDED","sourceBehavior":"an assessmentmaster row without a matching person row is absent because person is the driving table","modernDecision":"the explicit web_ass mode requires an active modern employee projection; it must not silently use the orphan-preserving mode"},
+        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"pending stable descending session order"}
       ],
       "sourceSchemaStatus": "compatible",
       "missingSourceColumns": [],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.personSummary","api":"GET /hr/performance-legacy/query-reports/person-summary","page":"apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx","status":"implemented_pending_parity_evidence"},
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.personSummary source_routine=web_ass","api":"GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_ass","page":"apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx","status":"implemented_pending_runtime_uat"},
       "implementationEvidence": [
-        {"path":"apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts","testId":"person-summary returns only the six legacy report fields with exact parameterized filtering and stable paging"},
-        {"path":"apps/web/app/hr/hr-performance-legacy-person-summary.contract.spec.ts","testId":"result surface renders only the six approved person-summary fields"}
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts","testId":"person-summary keeps web_ass and web_assessmentquery orphan semantics explicit"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-person-summary.contract.spec.ts","testId":"routine mode is explicit and preserves the two distinct orphan policies"}
       ],
-      "missingEvidence": ["source assessmentmaster-to-person orphan aggregate or explicit web_ass compatibility filter", "cross-engine result and multipage conservation fixture", "source person-code collation and charset adjudication", "employee-role desktop and 390px runtime UAT"]
+      "missingEvidence": ["nonempty source orphan-conservation fixture", "three-role runtime UAT", "desktop and 390px browser UAT", "production source runtime receipt"]
     },
     {
       "routineId": "RULE-E6282105617A7A50",
@@ -302,20 +302,20 @@
         "concatenatedParameters": ["person"],
         "mutation": "none",
         "risk": "sql_injection_and_query_shape_manipulation",
-        "safeReplacement": "Bind the authorized source person code; this routine is output-equivalent to web_ass but its dynamic SQL must not be reproduced."
+        "safeReplacement": "Bind the authorized source person code, preserve an assessmentmaster row when its modern employee projection is absent, and require an explicit source-routine mode; never reproduce the source dynamic SQL."
       },
       "knownDifferences": [
-        {"code":"DUPLICATE_OUTPUT_DIFFERENT_EXECUTION","sourceBehavior":"output and filter match web_ass for matched people, but this variant concatenates dynamic SQL","modernDecision":"implemented one shared parameterized endpoint without copying dynamic SQL; cross-engine conservation and source-identity UAT remain pending"},
-        {"code":"ORPHAN_MASTER_JOIN_ASYMMETRY","sourceBehavior":"web_assessmentquery starts from assessmentmaster and preserves a master row with a null person.name when no person row matches","modernDecision":"the shared endpoint preserves the imported master and returns a null modern employee name; source orphan and name-conservation aggregates remain pending"}
+        {"code":"ORPHAN_MASTER_PRESERVED","sourceBehavior":"assessmentmaster is the driving table, so a matching master row remains and person.name is null when the person row is absent","modernDecision":"the explicit web_assessmentquery mode preserves the row and projects employeeDisplayName as null without identity guessing"},
+        {"code":"DUPLICATE_COLUMNS_DIFFERENT_JOIN_AND_EXECUTION","sourceBehavior":"selected columns match web_ass, but the driving-table join direction and dynamic SQL execution differ","modernDecision":"share one parameterized query core while keeping the source-routine identity and orphan policy explicit"}
       ],
       "sourceSchemaStatus": "compatible",
       "missingSourceColumns": [],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.personSummary","api":"GET /hr/performance-legacy/query-reports/person-summary","page":"apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx","status":"implemented_pending_parity_evidence"},
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.personSummary source_routine=web_assessmentquery","api":"GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_assessmentquery","page":"apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx","status":"implemented_pending_runtime_uat"},
       "implementationEvidence": [
-        {"path":"apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts","testId":"person-summary returns only the six legacy report fields with exact parameterized filtering and stable paging"},
-        {"path":"apps/web/app/hr/hr-performance-legacy-person-summary.contract.spec.ts","testId":"result surface renders only the six approved person-summary fields"}
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts","testId":"person-summary keeps web_ass and web_assessmentquery orphan semantics explicit"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-person-summary.contract.spec.ts","testId":"routine mode is explicit and preserves the two distinct orphan policies"}
       ],
-      "missingEvidence": ["source assessmentmaster-to-person orphan and name-conservation aggregates", "cross-engine result and multipage conservation fixture", "source person-code collation and charset adjudication", "employee-role desktop and 390px runtime UAT"]
+      "missingEvidence": ["nonempty source orphan-conservation fixture", "three-role runtime UAT", "desktop and 390px browser UAT", "production source runtime receipt"]
     },
     {
       "routineId": "RULE-0C4458064CE74646",
