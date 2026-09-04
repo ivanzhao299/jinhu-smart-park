@@ -27,6 +27,7 @@ const EXPECTED_TARGET_TABLE_RULES = structuredClone(DEFAULT_PRODUCTION_IMPORT_EX
 const CANONICALIZATION_VERSION = "yuzhou-production-import-canonical-json-v1";
 const REQUIRED_APPROVAL_ROLES = ["hr_owner", "data_security_owner", "release_owner"];
 const T5_NONFILE_PLAN_KEYS = ["privateStageSha256", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "t0DecisionArtifactSha256", "t0TargetIdentitySha256", "t0TargetScopeSha256", "recordCount", "actorId"];
+const PERFORMANCE_RELATIONS_PLAN_KEYS = ["formatVersion", "bindingKind", "triple", "sourceConservationContractSha256", "sourceFactLocationReceiptSha256", "sourceFactLocationCanonicalSha256", "relationPayloadArtifactSha256", "identityDecisionArtifactSha256", "t0PhaseReceiptSha256", "migration305Sha256", "migration306Sha256", "sessionRows", "scoreSourceRows", "assignmentRows", "activeRelationMaps", "identityResolutionRows", "subjectUnmatchedRows", "blankAssessorRows", "forwardOrder", "rollbackOrder", "adapterStatus", "executionReachable", "productionImport"];
 
 export class ProductionImportExecutionError extends Error {
   constructor(code, detail) {
@@ -107,6 +108,28 @@ function validateT5NonfilePlanBinding(value, triple) {
   if (value.sourceSnapshotSha256 !== triple.sourceSnapshotHash) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 source snapshot differs from C/S/M");
   if (!Number.isSafeInteger(value.recordCount) || value.recordCount <= 0) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 record count invalid");
   if (!UUID.test(value.actorId ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 audit actor invalid");
+  return structuredClone(value);
+}
+
+function validatePerformanceRelationsPlanBinding(value, triple) {
+  exactKeys(value, PERFORMANCE_RELATIONS_PLAN_KEYS, [], "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_PLAN_INVALID", "performanceRelations");
+  validateTriple(value.triple, "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_PLAN_INVALID", "performanceRelations.triple");
+  if (!same(value.triple, triple)) fail("PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_PLAN_INVALID", "performance relation C/S/M differs from parent plan");
+  for (const key of ["sourceConservationContractSha256", "sourceFactLocationReceiptSha256", "sourceFactLocationCanonicalSha256", "relationPayloadArtifactSha256", "identityDecisionArtifactSha256", "t0PhaseReceiptSha256", "migration305Sha256", "migration306Sha256"]) assertSha(value[key], "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_PLAN_INVALID", `performanceRelations.${key}`);
+  if (value.formatVersion !== 1
+    || value.bindingKind !== "yuzhou_hr_production_import_performance_relations_held_binding"
+    || value.sessionRows !== 7
+    || value.scoreSourceRows !== 0
+    || value.assignmentRows !== 117
+    || value.activeRelationMaps !== 124
+    || value.identityResolutionRows !== 234
+    || value.subjectUnmatchedRows !== 108
+    || value.blankAssessorRows !== 117
+    || !same(value.forwardOrder, ["source_person_assignments", "identity_resolution"])
+    || !same(value.rollbackOrder, ["identity_resolution", "source_person_assignments"])
+    || value.adapterStatus !== "UNAVAILABLE"
+    || value.executionReachable !== false
+    || value.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE", "performance relation binding must remain held and unreachable");
   return structuredClone(value);
 }
 
@@ -290,12 +313,13 @@ function validateApprovalSet(approvalSet) {
 
 export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT, now = new Date() } = {}) {
   validateContract(contract);
-  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], ["t5Nonfile"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
+  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], ["t5Nonfile", "performanceRelations"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
   scan(plan);
   if (plan.formatVersion !== 2 || plan.planKind !== "yuzhou_hr_production_import_sealed_execution_plan" || plan.intent !== "production_import" || plan.status !== "SEALED" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "identity/status invalid");
   if (!OPERATION_ID.test(plan.operationId ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "operation id invalid");
   validateTriple(plan.triple, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "triple");
   const t5Nonfile = plan.t5Nonfile === undefined ? null : validateT5NonfilePlanBinding(plan.t5Nonfile, plan.triple);
+  const performanceRelations = plan.performanceRelations === undefined ? null : validatePerformanceRelationsPlanBinding(plan.performanceRelations, plan.triple);
   exactKeys(plan.target, ["environment", "alias", "identitySha256"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target");
   if (plan.target.environment !== "production" || !SAFE_ALIAS.test(plan.target.alias ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target invalid");
   assertSha(plan.target.identitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target identity");
@@ -316,10 +340,11 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   if (issuedAt < windowStartsAt || expiresAt > windowEndsAt) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization validity escapes pinned production window");
   assertSha(plan.manifestSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "manifest");
   validateFinalRehearsalPair(plan.finalRehearsalPair, plan.triple);
-  const authorizationBindingKeys = ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt", ...(t5Nonfile ? ["t5NonfilePrivateStageSha256"] : [])];
+  const authorizationBindingKeys = ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt", ...(t5Nonfile ? ["t5NonfilePrivateStageSha256"] : []), ...(performanceRelations ? ["performanceRelationsContractSha256"] : [])];
   exactKeys(plan.authorization.binding, authorizationBindingKeys, [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
   const expectedBinding = { triple: plan.triple, targetIdentitySha256: plan.target.identitySha256, targetScopeSha256: plan.targetScope.scopeSha256, finalRehearsalPairSha256: plan.finalRehearsalPair.artifactSha256, manifestSha256: plan.manifestSha256, windowStartsAt: plan.window.startsAt, windowEndsAt: plan.window.endsAt };
   if (t5Nonfile) expectedBinding.t5NonfilePrivateStageSha256 = t5Nonfile.privateStageSha256;
+  if (performanceRelations) expectedBinding.performanceRelationsContractSha256 = computeProductionImportPayloadHash(performanceRelations);
   if (!same(plan.authorization.binding, expectedBinding)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization does not bind exact A/B, triple, target, manifest and window");
   validateApprovalSet(plan.authorization.approvalSet);
   if (!same(plan.phaseOrder, contract.phaseOrder) || !Array.isArray(plan.phases) || plan.phases.length !== contract.phaseOrder.length) fail("PRODUCTION_IMPORT_PHASE_SEQUENCE_INVALID", "T0-T3 exact phases required");

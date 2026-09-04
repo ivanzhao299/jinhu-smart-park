@@ -16,6 +16,10 @@ import {
   validateSealedProductionImportPlan,
 } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { executeSealedProductionImport, rollbackSealedProductionImport } from "../hr-cutover/production-import-writer.mjs";
+import {
+  attachHeldPerformanceRelationsBinding,
+  createHeldPerformanceRelationsBinding,
+} from "../hr-cutover/production-import-performance-relations-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const NOW = new Date("2026-08-29T01:00:00.000Z");
@@ -194,6 +198,46 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
 
 const reseal = plan => { plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan); return plan; };
 const findRecord = (plan, table) => plan.phases.flatMap(phase => phase.records).find(record => record.plannedTargetTable === table);
+
+test("performance relation HOLD binding is sealed into v2 authorization but cannot reach a transaction", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const binding = createHeldPerformanceRelationsBinding({
+    triple: plan.triple,
+    relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  const attached = attachHeldPerformanceRelationsBinding(plan, binding);
+  assert.deepEqual(validateSealedProductionImportPlan(attached, { now: NOW }).performanceRelations, binding);
+  assert.equal(attached.authorization.binding.performanceRelationsContractSha256, computeProductionImportPayloadHash(binding));
+
+  const database = mockDatabase();
+  await assert.rejects(
+    () => executeSealedProductionImport(attached, executionOptions(attached, payloadBundles, database)),
+    error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE",
+  );
+  assert.equal(database.calls.length, 0, "writer touched the database before refusing the lab-only extension");
+  await assert.rejects(
+    () => rollbackSealedProductionImport(attached, null, { ...executionOptions(attached, payloadBundles, database), rollbackPhase() {}, verifyBusinessResiduals() {} }),
+    error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE",
+  );
+  assert.equal(database.calls.length, 0, "rollback touched the database for a never-executed extension");
+});
+
+test("performance relation binding cannot be appended outside the sealed authorization", () => {
+  const { plan } = v2Fixture();
+  plan.performanceRelations = createHeldPerformanceRelationsBinding({
+    triple: plan.triple,
+    relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  reseal(plan);
+  assert.throws(
+    () => validateSealedProductionImportPlan(plan, { now: NOW }),
+    error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH",
+  );
+});
 
 test("an optional T5 nonfile binding is sealed into the same production authorization without exposing payload values", () => {
   const { plan } = v2Fixture();

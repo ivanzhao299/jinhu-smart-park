@@ -239,6 +239,14 @@ authorization receipt。
 此控制面不等于批准执行。只有独立审阅把固定生产目标加入版本化执行合同并把状态改为 `PASS/READY`，
 且再次完成 C/S/M、窗口、hash-addressed 机器复核凭证和临时角色门禁后，注入式数据库 adapter 才能到达 writer。机器凭证不冒用自然人身份；固定 run 的一次性生产执行授权、数据安全和发布职责仍是独立门禁。
 
+### 8.1 绩效评分人关系的 HOLD 接线
+
+`production-import-performance-relations-v1.json` 把 `000305/000306` 的绩效评分人关系域绑定到同一份 v2 sealed plan：只接受同一 C/S/M、T0 成功回执、关系 payload 工件哈希、身份裁决工件哈希、真实来源聚合合同哈希及两份迁移文件的固定 SHA-256。绑定本身也必须进入原生产授权的 `performanceRelationsContractSha256`，不能在签署后追加或替换。
+
+当前固定聚合仅包含安全计数：`7` 个旧绩效期间、`0` 条评分明细来源、`117` 条旧评分关系、`124` 条对应活动映射、`234` 条主体/评分人身份结果、`108` 条主体未命中和 `117` 条空评分人。它不包含人员编码、姓名、工资值或源数据行。合成生命周期按 `source_person_assignments → identity_resolution` 前向执行，重复执行必须保持相同计数；回退严格按 `identity_resolution → source_person_assignments`，最终所有关系事实、活动映射、身份结果和会话绑定均为零残留。
+
+这项接线仍不可触发生产写入。两份现有过程只允许 `lab_rehearsal`，生产 adapter 标记为 `UNAVAILABLE`；带有该绑定的 sealed plan 会在授权消费和数据库事务之前被 writer 以 `PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE` 拒绝。仓库只提供无数据库、无环境变量、无 CLI 的纯内存合成 adapter，用于证明顺序、幂等、漂移拒绝和回退合同。真实 `117/234` 保持 `HOLD`，后续必须另行实现并审阅生产专用 writer、控制回执和 rollback adapter，再完成新的 A/B、目标范围和一次性授权绑定；不得复用或放宽 lab procedure。
+
 ## 9. 生产写入激活前仍必须完成的门禁
 
 只有以下条件全部完成后，才能另开任务实现生产写入；不得在本预检文件中直接添加 loader 调用：

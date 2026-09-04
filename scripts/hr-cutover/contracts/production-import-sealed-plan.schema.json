@@ -37,7 +37,8 @@
           "required": ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"],
           "properties": {
             "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "targetScopeSha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
-            "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" }
+            "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" },
+            "performanceRelationsContractSha256": { "$ref": "#/$defs/sha256" }
           }
         },
         "approvalSet": {
@@ -68,6 +69,7 @@
     },
     "phaseOrder": { "const": ["T0", "T1", "T2", "T3"] },
     "phases": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/phase" } },
+    "performanceRelations": { "$ref": "#/$defs/performanceRelations" },
     "rollback": {
       "type": "object", "additionalProperties": false,
       "required": ["order", "insert", "merge", "quarantine", "skipApproved", "residualCount", "canonicalHash"],
@@ -92,6 +94,35 @@
       "type": "object", "additionalProperties": false,
       "required": ["tenantId", "parkId", "scopeSha256"],
       "properties": { "tenantId": { "$ref": "#/$defs/scopeId" }, "parkId": { "$ref": "#/$defs/scopeId" }, "scopeSha256": { "$ref": "#/$defs/sha256" } }
+    },
+    "performanceRelations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["formatVersion", "bindingKind", "triple", "sourceConservationContractSha256", "sourceFactLocationReceiptSha256", "sourceFactLocationCanonicalSha256", "relationPayloadArtifactSha256", "identityDecisionArtifactSha256", "t0PhaseReceiptSha256", "migration305Sha256", "migration306Sha256", "sessionRows", "scoreSourceRows", "assignmentRows", "activeRelationMaps", "identityResolutionRows", "subjectUnmatchedRows", "blankAssessorRows", "forwardOrder", "rollbackOrder", "adapterStatus", "executionReachable", "productionImport"],
+      "properties": {
+        "formatVersion": { "const": 1 },
+        "bindingKind": { "const": "yuzhou_hr_production_import_performance_relations_held_binding" },
+        "triple": { "$ref": "#/$defs/triple" },
+        "sourceConservationContractSha256": { "$ref": "#/$defs/sha256" },
+        "sourceFactLocationReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "sourceFactLocationCanonicalSha256": { "$ref": "#/$defs/sha256" },
+        "relationPayloadArtifactSha256": { "$ref": "#/$defs/sha256" },
+        "identityDecisionArtifactSha256": { "$ref": "#/$defs/sha256" },
+        "t0PhaseReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "migration305Sha256": { "$ref": "#/$defs/sha256" },
+        "migration306Sha256": { "$ref": "#/$defs/sha256" },
+        "sessionRows": { "const": 7 },
+        "scoreSourceRows": { "const": 0 },
+        "assignmentRows": { "const": 117 },
+        "activeRelationMaps": { "const": 124 },
+        "identityResolutionRows": { "const": 234 },
+        "subjectUnmatchedRows": { "const": 108 },
+        "blankAssessorRows": { "const": 117 },
+        "forwardOrder": { "const": ["source_person_assignments", "identity_resolution"] },
+        "rollbackOrder": { "const": ["identity_resolution", "source_person_assignments"] },
+        "adapterStatus": { "const": "UNAVAILABLE" },
+        "executionReachable": { "const": false },
+        "productionImport": { "const": "HOLD" }
+      }
     },
     "rehearsalBase": {
       "type": "object", "additionalProperties": false,
