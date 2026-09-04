@@ -150,7 +150,28 @@ export class HrPerformanceLegacyRelationsService {
        fact.source_person_code "sourcePersonCode",
        fact.source_assessor_code "sourceAssessorCode",
        fact.source_relation_type "sourceRelationType",
-       fact.legacy_session_id "legacySessionId"`,
+       fact.legacy_session_id "legacySessionId",
+       COALESCE((
+         SELECT resolution.person_resolution_status
+         FROM hr_performance_legacy_identity_resolution resolution
+         WHERE resolution.legacy_source_person_assignment_id=fact.id
+           AND resolution.tenant_id=fact.tenant_id
+           AND resolution.park_id=fact.park_id
+           AND resolution.migration_batch_id=fact.migration_batch_id
+           AND resolution.person_role='subject'
+       ),'unknown') "subjectResolutionStatus",
+       CASE
+         WHEN NULLIF(btrim(fact.source_assessor_code),'') IS NULL THEN 'blank'
+         ELSE COALESCE((
+           SELECT resolution.person_resolution_status
+           FROM hr_performance_legacy_identity_resolution resolution
+           WHERE resolution.legacy_source_person_assignment_id=fact.id
+             AND resolution.tenant_id=fact.tenant_id
+             AND resolution.park_id=fact.park_id
+             AND resolution.migration_batch_id=fact.migration_batch_id
+             AND resolution.person_role='assessor'
+         ),'unknown')
+       END "assessorResolutionStatus"`,
       "fact.source_session_id DESC NULLS LAST, fact.source_person_code ASC NULLS LAST, fact.source_assessor_code ASC NULLS LAST, fact.source_assignment_id ASC",
       filter.sql,
       filter.parameters,
@@ -161,6 +182,8 @@ export class HrPerformanceLegacyRelationsService {
         sourceAssessorCode: optionalText(row.sourceAssessorCode),
         sourceRelationType: optionalInteger(row.sourceRelationType),
         legacySessionId: optionalText(row.legacySessionId),
+        subjectResolutionStatus: text(row.subjectResolutionStatus),
+        assessorResolutionStatus: text(row.assessorResolutionStatus),
       }),
     );
     await this.auditPersonRelations(

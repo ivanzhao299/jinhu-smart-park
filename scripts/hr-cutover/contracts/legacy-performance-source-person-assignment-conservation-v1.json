@@ -1,0 +1,76 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_hr_legacy_performance_source_person_assignment_conservation_contract",
+  "sourceFactLocationReceiptSha256": "4df7bcba4f8deaa0f35f40fff77da0a6a41fdd2fb14412779e42ccf865d55a2c",
+  "sourceFactLocationCanonicalSha256": "1e37b27f0ac3975fd989d54341ff2c64b3e64955a38b80b03a00fe25cdf04182",
+  "sourceAggregate": {
+    "sourceTable": "dbo.asssourperson",
+    "rowCount": 117,
+    "subjectNotFoundInSourcePersonRows": 108,
+    "blankAssessorRows": 117,
+    "distinctSessionCount": 1
+  },
+  "preservationContract": {
+    "migration": "000305_hr_performance_yuzhou_legacy_relations.sql",
+    "targetTable": "hr_performance_legacy_source_person_assignment",
+    "sourceTable": "dbo.asssourperson",
+    "requiredTargetRows": 117,
+    "requiredActiveRecordMaps": 117,
+    "allowBlankAssessor": true,
+    "allowUnmatchedSubject": true,
+    "forbidInventedEmployeeMapping": true
+  },
+  "identityResolutionContract": {
+    "migration": "000306_hr_performance_yuzhou_identity_resolution.sql",
+    "requiredResolutionRowsPerAssignment": 2,
+    "requiredResolutionRows": 234,
+    "expectedSubjectUnmatchedRows": 108,
+    "expectedAssessorBlankRows": 117,
+    "blankAssessorStatus": "blank",
+    "unmatchedSubjectStatus": "unmatched"
+  },
+  "queryContract": {
+    "endpoint": "/hr/performance-legacy/relations/source-person-assignments",
+    "pageSize": 20,
+    "expectedPages": 6,
+    "stableOrderTail": "source_assignment_id ASC",
+    "requiredFields": [
+      "sourceAssignmentId",
+      "sourceSessionId",
+      "sourcePersonCode",
+      "sourceAssessorCode",
+      "sourceRelationType",
+      "legacySessionId",
+      "subjectResolutionStatus",
+      "assessorResolutionStatus"
+    ],
+    "forbiddenFields": [
+      "sourceIdentitySha256",
+      "sourceRowSha256",
+      "migrationBatchId",
+      "legacyRecordMapId",
+      "targetEmployeeId"
+    ]
+  },
+  "webContract": {
+    "route": "/hr/performance",
+    "viewports": [
+      { "id": "desktop", "width": 1440, "height": 1000 },
+      { "id": "phone_390", "width": 390, "height": 844 }
+    ],
+    "cardBased": true,
+    "horizontalOverflowAllowed": false,
+    "showsBlankAssessorState": true,
+    "showsUnmatchedSubjectState": true
+  },
+  "evidenceBoundary": {
+    "sourceRowsEmitted": false,
+    "personCodesEmitted": false,
+    "personNamesEmitted": false,
+    "credentialsEmitted": false,
+    "syntheticRuntimeDoesNotProveRealSourceLoaded": true
+  },
+  "compatibilityCredit": 0,
+  "status": "SOURCE_AGGREGATE_BOUND_REAL_LOAD_NOT_EXECUTED",
+  "productionImport": "HOLD"
+}

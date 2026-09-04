@@ -33,7 +33,17 @@ export interface HrPerformanceLegacyPersonAssignmentRelation {
   sourceAssessorCode: string | null;
   sourceRelationType: number | null;
   legacySessionId: string | null;
+  subjectResolutionStatus: HrPerformanceLegacyPersonResolutionStatus;
+  assessorResolutionStatus: HrPerformanceLegacyPersonResolutionStatus | "blank";
 }
+
+export type HrPerformanceLegacyPersonResolutionStatus =
+  | "resolved"
+  | "unmatched"
+  | "ambiguous"
+  | "semantics_unverified"
+  | "not_applicable"
+  | "unknown";
 
 const unwrap = async <T>(request: Promise<{ data: T }>): Promise<T> =>
   (await request).data;
