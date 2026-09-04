@@ -45,31 +45,31 @@ test("insurance policy map accounts for all 51 fields including nullable and zer
   assert.deepEqual(receipt.summary, {
     sourceTables: 1,
     sourceFields: 51,
-    verifiedTargetFields: 3,
+    verifiedTargetFields: 51,
     authorizedArchiveFields: 0,
-    explicitGapFields: 48,
+    explicitGapFields: 0,
   });
   assert.equal(receipt.fields.length, 51);
   assert.equal(receipt.fields.every(field => field.denominatorDisposition === "included"), true);
   assert.equal(receipt.nullAndEmptyFieldsRemainInDenominator, true);
-  assert.equal(receipt.repositoryEvidenceCount, 9);
-  assert.equal(receipt.status, "PARTIAL_WITH_EXPLICIT_GAPS");
+  assert.equal(receipt.repositoryEvidenceCount, 11);
+  assert.equal(receipt.status, "FIELD_MAPPING_COMPLETE_RUNTIME_SURFACE_GAP");
   assert.equal(receipt.productionImport, "HOLD");
   assert.match(receipt.receiptSha256, /^[a-f0-9]{64}$/u);
 });
 
-test("only policy identity metadata receives credit while rate-unit and fixed-addend errors remain gaps", () => {
+test("all policy metadata rates and fixed addends have distinct verified targets", () => {
   const receipt = verify(fixture());
-  assert.deepEqual(receipt.compatibilityCredit, { numerator: 3, denominator: 51 });
-  assert.equal(receipt.fields.filter(field => field.compatibilityCredit === 1).length, 3);
+  assert.deepEqual(receipt.compatibilityCredit, { numerator: 51, denominator: 51 });
+  assert.equal(receipt.fields.filter(field => field.compatibilityCredit === 1).length, 51);
   assert.equal(receipt.fields.filter(field => field.sourceField.endsWith("2")).length, 24);
-  assert.equal(receipt.fields.filter(field => field.sourceField.endsWith("2")).every(field => field.compatibilityCredit === 0), true);
+  assert.equal(receipt.fields.filter(field => field.sourceField.endsWith("2")).every(field => field.compatibilityCredit === 1), true);
   assert.deepEqual(receipt.fields.find(field => field.sourceField === "insure_method.oldage_e")?.targetFields, [
     "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employer_rate",
   ]);
-  assert.equal(receipt.fields.find(field => field.sourceField === "insure_method.oldage_e")?.reasonCode, "INSURANCE_POLICY_PERCENT_RATE_UNIT_MISMATCH");
-  assert.deepEqual(receipt.fields.find(field => field.sourceField === "insure_method.oldage_e2")?.currentIncorrectTargetFields, [
-    "hr_insurance_policy_item[insurance_kind=oldage,variant_no=2].employer_rate",
+  assert.equal(receipt.fields.find(field => field.sourceField === "insure_method.oldage_e")?.reasonCode, null);
+  assert.deepEqual(receipt.fields.find(field => field.sourceField === "insure_method.oldage_e2")?.targetFields, [
+    "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employer_fixed_amount",
   ]);
 });
 
@@ -96,15 +96,9 @@ test("legacy calculation family proves rate times base plus fixed addend semanti
   }]);
 });
 
-test("24 percentage units and 24 fixed addends remain distinct semantic gaps while policy UI stays separate", () => {
+test("24 percentage units and 24 fixed addends are resolved while policy UI stays a separate gap", () => {
   const receipt = verify(fixture());
-  assert.equal(receipt.explicitGaps.length, 2);
-  assert.equal(receipt.explicitGaps[0].sourceFields.length, 24);
-  assert.equal(receipt.explicitGaps[0].reasonCode, "INSURANCE_POLICY_PERCENT_RATE_UNIT_MISMATCH");
-  assert.equal(receipt.explicitGaps[0].sourceFields.every(field => !field.endsWith("2")), true);
-  assert.equal(receipt.explicitGaps[1].sourceFields.length, 24);
-  assert.equal(receipt.explicitGaps[1].reasonCode, "INSURANCE_POLICY_FIXED_ADDEND_MISLABELED_AS_RATE");
-  assert.equal(receipt.explicitGaps[1].sourceFields.every(field => field.endsWith("2")), true);
+  assert.deepEqual(receipt.explicitGaps, []);
   assert.equal(receipt.runtimeSurfaceGap.reasonCode, "INSURANCE_POLICY_DEFINITION_RUNTIME_SURFACE_MISSING");
   assert.equal(receipt.runtimeSurfaceGap.decision, "KEEP_GAP");
 });
@@ -120,13 +114,10 @@ test("source column loss, semantic promotion, evidence drift and inventory rebin
   changedDefault.contract.inventorySha256 = createHash("sha256").update(`${JSON.stringify(changedDefault.inventory)}\n`).digest("hex");
   rejects("INSURANCE_POLICY_FIELD_SOURCE_COLUMNS_INVALID", () => verify(changedDefault));
 
-  const promoted = fixture();
-  const fixed = promoted.contract.fields.find(field => field.sourceField === "insure_method.oldage2");
-  fixed.disposition = "verified_target";
-  fixed.targetFields = fixed.currentIncorrectTargetFields;
-  fixed.compatibilityCredit = 1;
-  promoted.contract.compatibilityCredit.numerator = 4;
-  rejects("INSURANCE_POLICY_FIELD_MAP_CONTRACT_INVALID", () => verify(promoted));
+  const relabeled = fixture();
+  const fixed = relabeled.contract.fields.find(field => field.sourceField === "insure_method.oldage2");
+  fixed.targetFields = ["hr_insurance_policy_item[insurance_kind=oldage,variant_no=2].base_rate"];
+  rejects("INSURANCE_POLICY_FIELD_MAPPING_INVALID", () => verify(relabeled));
 
   const drift = fixture();
   drift.contract.repositoryEvidence.find(evidence => evidence.role === "policy_writer").sha256 = "0".repeat(64);

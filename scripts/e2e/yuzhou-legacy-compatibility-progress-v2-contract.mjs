@@ -55,7 +55,8 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.deepEqual(slices.employee_skill, { domain: "employee_skill", numerator: 4, denominator: 5, percent: 80 });
   assert.deepEqual(slices.reward_discipline, { domain: "reward_discipline", numerator: 2, denominator: 16, percent: 12.5 });
   assert.deepEqual(slices.training_history, { domain: "training_history", numerator: 5, denominator: 23, percent: 21.74 });
-  assert.deepEqual(slices.insurance_policy, { domain: "insurance_policy", numerator: 3, denominator: 51, percent: 5.88 });
+  assert.deepEqual(slices.insurance_policy, { domain: "insurance_policy", numerator: 51, denominator: 51, percent: 100 });
+  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 0, denominator: 11, percent: 0 });
   assert.equal(report.semanticMapping.clientFieldsVerifiedTargetMapping.overlapCount, 0);
   assert.deepEqual(report.semanticMapping.organizationPositionRelations, { numerator: 7, denominator: 8, percent: 87.5 });
   assert.equal(
@@ -63,17 +64,17 @@ test("verified field locators are de-duplicated and archive visibility earns no 
     slices.reviewed_core.numerator + slices.organization_position.numerator + slices.payroll.numerator
       + slices.custom_configuration.numerator + slices.employee_skill.numerator
       + slices.reward_discipline.numerator + slices.training_history.numerator
-      + slices.insurance_policy.numerator,
+      + slices.insurance_policy.numerator + slices.performance_assessment.numerator,
   );
   assert.deepEqual(report.semanticMapping.clientFieldsVerifiedTargetMapping, {
-    numerator: 134,
+    numerator: 182,
     denominator: 2364,
-    percent: 5.67,
+    percent: 7.7,
     denominatorScope: "all_client_database_source_fields",
     overlapCount: 0,
     slices: report.semanticMapping.clientFieldsVerifiedTargetMapping.slices,
   });
-  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 134, denominator: 2364, percent: 5.67 });
+  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 182, denominator: 2364, percent: 7.7 });
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.numerator, 220);
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.functionalParityCredit, 0);
   assert.equal(report.parity.clientFieldRowLevelParity.numerator, 0);
@@ -122,9 +123,9 @@ test("modern UI checks remain separate from legacy interaction and Group Web par
   assert.deepEqual(report.ui.customFieldLegacyInteractionParity, { numerator: 0, denominator: 6, percent: 0 });
   assert.deepEqual(report.ui.groupWebRuntimeParity, { numerator: 0, denominator: 186, percent: 0 });
   assert.deepEqual(report.implementation.groupWebModernRuntimeTasksPrepared, {
-    numerator: 6,
+    numerator: 7,
     denominator: 186,
-    percent: 3.23,
+    percent: 3.76,
     functionalParityCredit: 0,
     status: "ready_not_executed",
   });

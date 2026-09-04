@@ -12,10 +12,10 @@ const CANONICAL_INVENTORY_SHA256 = "182e49369910e0b251459b91fe79c5f465f9f78c1f35
 const OBSERVED_GENERATOR_SHA256 = "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617";
 const KINDS = Object.freeze(["oldage", "remedy", "losework", "fund", "wound", "bear"]);
 const COMPONENTS = Object.freeze([
-  Object.freeze({ suffix: "", target: "base_rate", component: "total" }),
-  Object.freeze({ suffix: "_e", target: "employer_rate", component: "employer" }),
-  Object.freeze({ suffix: "_p", target: "employee_rate", component: "employee" }),
-  Object.freeze({ suffix: "_pc", target: "supplement_rate", component: "supplement" }),
+  Object.freeze({ suffix: "", target: "base_rate", fixedTarget: "base_fixed_amount", component: "base" }),
+  Object.freeze({ suffix: "_e", target: "employer_rate", fixedTarget: "employer_fixed_amount", component: "employer" }),
+  Object.freeze({ suffix: "_p", target: "employee_rate", fixedTarget: "employee_fixed_amount", component: "employee" }),
+  Object.freeze({ suffix: "_pc", target: "supplement_rate", fixedTarget: "supplement_fixed_amount", component: "supplement" }),
 ]);
 const COLUMNS = Object.freeze([
   ["id", "int", false, null, null],
@@ -50,13 +50,13 @@ const expectedFields = () => {
     fields.push({
       stableId: `INSURE_METHOD_${name.toUpperCase()}`,
       sourceField: `insure_method.${name}`,
-      disposition: "explicit_gap",
+      disposition: "verified_target",
       targetFields: [target],
-      currentIncorrectTargetFields: [target],
+      currentIncorrectTargetFields: [],
       preservationFields: [`t3.policies.items[insurance_kind=${kind},variant=1].${component.component}Rate`],
-      transformRule: "divide_percentage_points_by_100_before_writing_fractional_rate_and_quarantine_out_of_range",
-      reasonCode: "INSURANCE_POLICY_PERCENT_RATE_UNIT_MISMATCH",
-      compatibilityCredit: 0,
+      transformRule: "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      reasonCode: null,
+      compatibilityCredit: 1,
     });
   }
   for (const kind of KINDS) for (const component of COMPONENTS) {
@@ -64,13 +64,13 @@ const expectedFields = () => {
     fields.push({
       stableId: `INSURE_METHOD_${name.toUpperCase()}`,
       sourceField: `insure_method.${name}`,
-      disposition: "explicit_gap",
-      targetFields: [],
-      currentIncorrectTargetFields: [`hr_insurance_policy_item[insurance_kind=${kind},variant_no=2].${component.target}`],
-      preservationFields: [`t3.policies.items[insurance_kind=${kind},variant=2].${component.component}Rate`],
-      transformRule: "preserve_numeric_fixed_addend_but_do_not_label_or_calculate_it_as_a_percentage_rate",
-      reasonCode: "INSURANCE_POLICY_FIXED_ADDEND_MISLABELED_AS_RATE",
-      compatibilityCredit: 0,
+      disposition: "verified_target",
+      targetFields: [`hr_insurance_policy_item[insurance_kind=${kind},variant_no=1].${component.fixedTarget}`],
+      currentIncorrectTargetFields: [],
+      preservationFields: [`t3.policies.items[insurance_kind=${kind},variant=1].${component.component}FixedAmount`],
+      transformRule: "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      reasonCode: null,
+      compatibilityCredit: 1,
     });
   }
   return fields;
@@ -95,7 +95,7 @@ const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
 
 function validateRepositoryEvidence(root, evidence) {
-  if (!Array.isArray(evidence) || evidence.length !== 9 || new Set(evidence.map(row => row?.role)).size !== 9) {
+  if (!Array.isArray(evidence) || evidence.length !== 11 || new Set(evidence.map(row => row?.role)).size !== 11) {
     fail("INSURANCE_POLICY_FIELD_EVIDENCE_SET_INVALID", "repositoryEvidence");
   }
   return evidence.map(row => {
@@ -182,31 +182,14 @@ function validateContract(contract) {
     || !same(contract.calculationRuleEvidence, expectedFormula)
     || !same(contract.relations, expectedRelation)
     || !same(contract.runtimeSurfaceGap, expectedRuntimeGap)
-    || !same(contract.compatibilityCredit, { numerator: 3, denominator: 51 })
+    || !same(contract.compatibilityCredit, { numerator: 51, denominator: 51 })
     || contract.sourceRowValuesEmitted !== false || contract.containsSourceValues !== false
     || contract.containsPersonalData !== false || !same(contract.filesExcluded, ["photo", "docs"])
     || contract.productionImport !== "HOLD") {
     fail("INSURANCE_POLICY_FIELD_MAP_CONTRACT_INVALID", "root identity, metadata or safety policy");
   }
   if (!same(contract.fields, FIELDS)) fail("INSURANCE_POLICY_FIELD_MAPPING_INVALID", "complete fifty-one-field mapping");
-  const percentageFields = FIELDS.filter(field => field.reasonCode === "INSURANCE_POLICY_PERCENT_RATE_UNIT_MISMATCH").map(field => field.sourceField);
-  const fixedFields = FIELDS.filter(field => field.reasonCode === "INSURANCE_POLICY_FIXED_ADDEND_MISLABELED_AS_RATE").map(field => field.sourceField);
-  const [rateGap, fixedGap] = contract.explicitGaps ?? [];
-  if (contract.explicitGaps?.length !== 2
-    || !same(rateGap?.sourceFields, percentageFields)
-    || rateGap?.reasonCode !== "INSURANCE_POLICY_PERCENT_RATE_UNIT_MISMATCH"
-    || rateGap?.currentBehavior !== "writes_legacy_percentage_points_directly_into_modern_fractional_rate_columns"
-    || rateGap?.requiredCorrection !== "divide_legacy_percentage_points_by_100_then_add_range_and_formula_parity_tests"
-    || !same(rateGap?.missingEvidence, ["corrected_T3_rate_unit_conversion", "fractional_rate_range_contract", "formula_parity_test_for_legacy_percentage_points"])
-    || rateGap?.decision !== "KEEP_GAP"
-    || !same(fixedGap?.sourceFields, fixedFields)
-    || fixedGap?.reasonCode !== "INSURANCE_POLICY_FIXED_ADDEND_MISLABELED_AS_RATE"
-    || fixedGap?.currentBehavior !== "writes_fixed_currency_addends_into_variant_2_rate_columns"
-    || fixedGap?.requiredCorrection !== "add_fixed_amount_columns_or_normalized_fixed_addend_model_then_rewrite_T3_transform_loader_and_formula_parity_tests"
-    || !same(fixedGap?.missingEvidence, ["modern_fixed_addend_target_model", "corrected_T3_writer", "formula_parity_test_for_rate_times_base_plus_fixed_addend"])
-    || fixedGap?.decision !== "KEEP_GAP") {
-    fail("INSURANCE_POLICY_FIELD_GAP_INVALID", "rates or fixed addends");
-  }
+  if (!same(contract.explicitGaps, [])) fail("INSURANCE_POLICY_FIELD_GAP_INVALID", "resolved rate and fixed-addend mappings must not remain gaps");
 }
 
 function validateInventory(inventory, contract) {
@@ -236,8 +219,8 @@ export function verifyLegacyInsurancePolicyFieldMap(inventory, contract, { root 
   });
   const count = disposition => fields.filter(field => field.disposition === disposition).length;
   const summary = { sourceTables: 1, sourceFields: 51, verifiedTargetFields: count("verified_target"), authorizedArchiveFields: count("authorized_archive"), explicitGapFields: count("explicit_gap") };
-  if (!same(summary, { sourceTables: 1, sourceFields: 51, verifiedTargetFields: 3, authorizedArchiveFields: 0, explicitGapFields: 48 })
-    || fields.reduce((sum, field) => sum + field.compatibilityCredit, 0) !== 3) {
+  if (!same(summary, { sourceTables: 1, sourceFields: 51, verifiedTargetFields: 51, authorizedArchiveFields: 0, explicitGapFields: 0 })
+    || fields.reduce((sum, field) => sum + field.compatibilityCredit, 0) !== 51) {
     fail("INSURANCE_POLICY_FIELD_CREDIT_INVALID", "summary");
   }
   const body = {
@@ -262,7 +245,7 @@ export function verifyLegacyInsurancePolicyFieldMap(inventory, contract, { root 
     containsSourceValues: false,
     containsPersonalData: false,
     compatibilityCredit: structuredClone(contract.compatibilityCredit),
-    status: "PARTIAL_WITH_EXPLICIT_GAPS",
+    status: "FIELD_MAPPING_COMPLETE_RUNTIME_SURFACE_GAP",
     productionImport: "HOLD",
   };
   return { ...body, receiptSha256: sha256(`${JSON.stringify(body)}\n`) };
