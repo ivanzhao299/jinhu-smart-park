@@ -174,6 +174,21 @@ test("read-only target probe binds current database, current user, public databa
   assert.equal(client.calls.length, 1);
 });
 
+test("performance capability query is isolated in an explicit read-only transaction", async () => {
+  const client = fakeClient(async sql => sql.includes("capability") ? { rows: [{ capability_id: "synthetic" }] } : { rows: [] });
+  const database = adapterFor(client);
+  const result = await database.queryReadOnly("SELECT * FROM synthetic_capability()", []);
+  assert.deepEqual(result.rows, [{ capability_id: "synthetic" }]);
+  assert.deepEqual(client.calls.map(call => call.sql), [
+    "BEGIN",
+    "SET TRANSACTION READ ONLY",
+    "SELECT set_config('application_name', $1, true)",
+    "SELECT * FROM synthetic_capability()",
+    "COMMIT",
+  ]);
+  assert.deepEqual(client.calls[2].parameters, ["jinhu_hr_prod_import:performance_relations_capability"]);
+});
+
 test("target probe fails closed for connection identity or missing scope", async () => {
   const wrongIdentity = adapterFor(fakeClient(async () => ({ rows: [probeRow({ database_name: "other" })] })));
   const expected = binding();

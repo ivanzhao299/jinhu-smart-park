@@ -33,7 +33,7 @@ test("builds a hash-only HOLD binding for the current 117/234 aggregate facts", 
   assert.equal(binding.blankAssessorRows, 117);
   assert.deepEqual(binding.forwardOrder, ["source_person_assignments", "identity_resolution"]);
   assert.deepEqual(binding.rollbackOrder, ["identity_resolution", "source_person_assignments"]);
-  assert.equal(binding.adapterStatus, "UNAVAILABLE");
+  assert.equal(binding.adapterStatus, "SCRIPT_READY_SCHEMA_CAPABILITY_REQUIRED");
   assert.equal(binding.executionReachable, false);
   assert.equal(binding.productionImport, "HOLD");
 });

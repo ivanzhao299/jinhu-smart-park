@@ -127,9 +127,9 @@ function validatePerformanceRelationsPlanBinding(value, triple) {
     || value.blankAssessorRows !== 117
     || !same(value.forwardOrder, ["source_person_assignments", "identity_resolution"])
     || !same(value.rollbackOrder, ["identity_resolution", "source_person_assignments"])
-    || value.adapterStatus !== "UNAVAILABLE"
+    || value.adapterStatus !== "SCRIPT_READY_SCHEMA_CAPABILITY_REQUIRED"
     || value.executionReachable !== false
-    || value.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE", "performance relation binding must remain held and unreachable");
+    || value.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE", "performance relation binding must remain held and schema-capability gated");
   return structuredClone(value);
 }
 

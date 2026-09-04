@@ -27,7 +27,7 @@
       "migrationSha256": "d3784218fc8272bd28b93e44b19a02d5c8124466b6b3c218294920603909dfc0",
       "currentProcedure": "materialize_yuzhou_performance_legacy_relations_lab",
       "currentExecutionContext": "lab_rehearsal",
-      "productionAdapter": "UNAVAILABLE"
+      "productionAdapter": "hr_yuzhou_apply_performance_relations_production_v1"
     },
     {
       "step": "identity_resolution",
@@ -35,7 +35,7 @@
       "migrationSha256": "cd49f294f4c9e4105b9f7fd4c678b7b2d29c5433d0348f6e6632d6e7c135a56d",
       "currentProcedure": "materialize_yuzhou_performance_legacy_identity_resolution_lab",
       "currentExecutionContext": "lab_rehearsal",
-      "productionAdapter": "UNAVAILABLE"
+      "productionAdapter": "hr_yuzhou_apply_performance_relations_production_v1"
     }
   ],
   "expectedAfter": {
@@ -57,11 +57,11 @@
     "residualCount": 0
   },
   "executionBoundary": {
-    "adapter": "synthetic_memory_contract_only",
+    "adapter": "production_import_performance_relations_writer_v1",
     "executionReachable": false,
     "sourceRowsAllowed": false,
-    "databaseConnectionAllowed": false,
-    "productionWriterStatus": "HOLD_MISSING_PRODUCTION_ADAPTERS",
+    "databaseConnectionAllowed": true,
+    "productionWriterStatus": "HOLD_SCHEMA_CAPABILITY_REQUIRED",
     "productionImport": "HOLD"
   },
   "productionImport": "HOLD"

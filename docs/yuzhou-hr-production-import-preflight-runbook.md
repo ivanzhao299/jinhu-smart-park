@@ -245,7 +245,11 @@ authorization receipt。
 
 当前固定聚合仅包含安全计数：`7` 个旧绩效期间、`0` 条评分明细来源、`117` 条旧评分关系、`124` 条对应活动映射、`234` 条主体/评分人身份结果、`108` 条主体未命中和 `117` 条空评分人。它不包含人员编码、姓名、工资值或源数据行。合成生命周期按 `source_person_assignments → identity_resolution` 前向执行，重复执行必须保持相同计数；回退严格按 `identity_resolution → source_person_assignments`，最终所有关系事实、活动映射、身份结果和会话绑定均为零残留。
 
-这项接线仍不可触发生产写入。两份现有过程只允许 `lab_rehearsal`，生产 adapter 标记为 `UNAVAILABLE`；带有该绑定的 sealed plan 会在授权消费和数据库事务之前被 writer 以 `PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE` 拒绝。仓库只提供无数据库、无环境变量、无 CLI 的纯内存合成 adapter，用于证明顺序、幂等、漂移拒绝和回退合同。真实 `117/234` 保持 `HOLD`，后续必须另行实现并审阅生产专用 writer、控制回执和 rollback adapter，再完成新的 A/B、目标范围和一次性授权绑定；不得复用或放宽 lab procedure。
+生产脚本侧现已增加 `production-import-performance-relations-writer.mjs`。它没有 CLI、环境变量或连接串入口，只能由已激活的 v2 sealed-plan writer 注入私有载荷字节、只读能力查询和现有 SERIALIZABLE 事务。任何关系写入前，它会同时核对同一 C/S/M、生产目标身份与 tenant/park scope、T0 回执、原生产或独立回退的一次性授权哈希、关系/身份工件字节哈希以及 `000305/000306` 的固定 SHA。关系子域只允许紧跟 T0 前向执行；总回退在 T3→T2→T1 后先执行 `identity_resolution → source_person_assignments`，确认零残留后才允许回退 T0。
+
+该脚本不会复用或放宽现有 `lab_rehearsal` procedure。数据库必须先通过只读 `hr_yuzhou_performance_relations_production_capability_v1()` 能力回执，并提供审阅后的 `hr_yuzhou_apply_performance_relations_production_v1(...)` 与 `hr_yuzhou_rollback_performance_relations_production_v1(...)` 原子接口；否则在消费一次性导入/回退授权和开启业务写事务之前，以稳定能力错误拒绝。接口的控制回执只允许返回状态、是否重放、7/0/117/124/234/7/108/117 聚合计数、固定回退顺序、零残留和回执 SHA，不得返回人员编码、姓名或内部映射 ID。
+
+当前已合并 schema 仍只有 lab 接口，所以仓库执行合同、目标 allowlist 和真实 `117/234` 继续保持 `HOLD`。合成 PostgreSQL 已验证前向、同批精确重放、同批漂移拒绝、独立回退授权、identity-first 回退及零残留；这不等同于生产 schema 已部署。下一最小切片是新增并审阅上述三个数据库接口的前向迁移及最小角色授权，再以新的生产候选 SHA 重建 sealed plan/授权；不得通过伪造 `lab_rehearsal`、关闭触发器或超级用户绕过门禁。
 
 ## 9. 生产写入激活前仍必须完成的门禁
 

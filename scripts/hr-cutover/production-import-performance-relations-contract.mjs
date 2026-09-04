@@ -71,10 +71,11 @@ function assertRepositoryContract() {
     || countFor("dbo.asssourperson") !== contract.sourceEvidence.assignmentRows) invalid("relation source-object counts differ");
   if (contract.productionImport !== "HOLD"
     || contract.executionBoundary.executionReachable !== false
-    || contract.executionBoundary.databaseConnectionAllowed !== false
+    || contract.executionBoundary.databaseConnectionAllowed !== true
     || contract.executionBoundary.sourceRowsAllowed !== false
-    || contract.executionBoundary.adapter !== "synthetic_memory_contract_only"
-    || contract.forwardOrder.some(step => step.currentExecutionContext !== "lab_rehearsal" || step.productionAdapter !== "UNAVAILABLE")
+    || contract.executionBoundary.adapter !== "production_import_performance_relations_writer_v1"
+    || contract.executionBoundary.productionWriterStatus !== "HOLD_SCHEMA_CAPABILITY_REQUIRED"
+    || contract.forwardOrder.some(step => step.currentExecutionContext !== "lab_rehearsal" || step.productionAdapter !== "hr_yuzhou_apply_performance_relations_production_v1")
     || JSON.stringify(contract.rollbackOrder) !== JSON.stringify(["identity_resolution", "source_person_assignments"])) {
     invalid("execution boundary was weakened");
   }
@@ -113,7 +114,7 @@ export function createHeldPerformanceRelationsBinding(input) {
     blankAssessorRows: contract.expectedAfter.blankAssessorRows,
     forwardOrder: contract.forwardOrder.map(step => step.step),
     rollbackOrder: [...contract.rollbackOrder],
-    adapterStatus: "UNAVAILABLE",
+    adapterStatus: "SCRIPT_READY_SCHEMA_CAPABILITY_REQUIRED",
     executionReachable: false,
     productionImport: "HOLD",
   });
@@ -147,7 +148,7 @@ export function validateHeldPerformanceRelationsBinding(binding) {
     || binding.bindingKind !== "yuzhou_hr_production_import_performance_relations_held_binding"
     || JSON.stringify(binding.forwardOrder) !== JSON.stringify(contract.forwardOrder.map(step => step.step))
     || JSON.stringify(binding.rollbackOrder) !== JSON.stringify(contract.rollbackOrder)
-    || binding.adapterStatus !== "UNAVAILABLE"
+    || binding.adapterStatus !== "SCRIPT_READY_SCHEMA_CAPABILITY_REQUIRED"
     || binding.executionReachable !== false
     || binding.productionImport !== "HOLD") {
     fail("PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_EXECUTION_UNAVAILABLE", "binding must remain held and unreachable");
