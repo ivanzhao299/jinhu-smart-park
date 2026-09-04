@@ -259,6 +259,15 @@ function validateContract(contractPath, repositoryRoot) {
     || contract.normalization?.assessment !== "nullable_exact_sql_int_no_text_or_case_coercion"
     || contract.privateLabPayload?.targetProcedure !== "materialize_yuzhou_performance_ass_compute_weight_relation_lab"
     || contract.privateLabPayload?.mode !== "lab_rehearsal_only"
+    || contract.labWriter?.executionContext !== "lab_rehearsal"
+    || contract.labWriter?.sourceAssessmentRequirement !== "all_null"
+    || contract.labWriter?.comparableMasterDisposition !== "assessment_missing"
+    || contract.labWriter?.comparisonDisposition !== "not_comparable"
+    || contract.labWriter?.exactReplay !== "idempotent"
+    || contract.labWriter?.driftDisposition !== "reject"
+    || contract.labWriter?.rollbackDisposition !== "reverse_zero_residual"
+    || contract.labWriter?.compatibilityCredit !== 0
+    || contract.labWriter?.productionImport !== "HOLD"
     || contract.safeReceipt?.personCodeValues !== false
     || contract.safeReceipt?.assessmentValues !== false
     || contract.safeReceipt?.names !== false

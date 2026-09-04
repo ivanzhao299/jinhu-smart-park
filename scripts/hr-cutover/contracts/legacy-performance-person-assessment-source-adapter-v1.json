@@ -69,6 +69,17 @@
     "containsAssessmentIds": true,
     "stdout": "status_counts_and_sha256_only"
   },
+  "labWriter": {
+    "executionContext": "lab_rehearsal",
+    "sourceAssessmentRequirement": "all_null",
+    "comparableMasterDisposition": "assessment_missing",
+    "comparisonDisposition": "not_comparable",
+    "exactReplay": "idempotent",
+    "driftDisposition": "reject",
+    "rollbackDisposition": "reverse_zero_residual",
+    "compatibilityCredit": 0,
+    "productionImport": "HOLD"
+  },
   "statusOrder": [
     "identity_null",
     "identity_blank",
