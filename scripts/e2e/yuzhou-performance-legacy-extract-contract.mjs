@@ -5,7 +5,10 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "../..");
 const script = readFileSync(resolve(root, "scripts/extract-yuzhou-performance-legacy.sh"), "utf8");
 
-for (const table of ["assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail"]) {
+for (const table of [
+  "assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail",
+  "asssession", "assessmentmaster", "asssour",
+]) {
   assert.match(script, new RegExp(`dbo\\.${table}`, "u"));
 }
 for (const marker of [
@@ -31,6 +34,9 @@ assert.match(script, /chmod 700 "\$OUTPUT_DIR"/u);
 assert.match(script, /HASHBYTES\('SHA2_256',canonical\.row_json\)/u);
 assert.match(script, /duplicateKeyGroups/u);
 assert.match(script, /unresolvedRelations/u);
+for (const relation of ["detailSession", "masterSession", "scoreSourceSession", "scoreSourceItem"]) {
+  assert.match(script, new RegExp(relation, "u"));
+}
 assert.doesNotMatch(script, /process\.stdout\.write\([^;]*(?:payload|assitem|assessmentdetail)/su);
 
 console.log("Yuzhou performance legacy extract contract passed (read-only, private payload, safe receipt).");
