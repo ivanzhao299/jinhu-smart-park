@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -68,7 +69,7 @@ test("u_errandrecords compatibility check does not invent write-side equivalence
 });
 
 test("legacy source binding is migration-only and remains auditable for exact rollback",()=>{
- const migration=readFileSync("database/migrations/000297_hr_attendance_business_trip_legacy_source.sql","utf8");
+ const migration=readFileSync(resolve(__dirname,"../../../../../database/migrations/000297_hr_attendance_business_trip_legacy_source.sql"),"utf8");
  for(const field of ["legacy_source_table","legacy_source_id","legacy_declared_days","legacy_source_identity_sha256","legacy_source_row_sha256"])assert.match(migration,new RegExp(field));
  assert.match(migration,/legacy_source_table = 'dbo\.errand'/);
  assert.match(migration,/request_type = 'business_trip'/);
