@@ -113,6 +113,37 @@ assert.equal(missingTable.generatorInput, null);
 assert.deepEqual(missingTable.reasonCodes, ["PRODUCTION_IMPORT_REAL_ARTIFACT_TABLE_COVERAGE_INCOMPLETE"]);
 assert.deepEqual(missingTable.targetTableCoverage.missingTables, ["hr_employee_insurance_item"]);
 
+const zeroCountCoverageInput = structuredClone(baseInput);
+const zeroT2Index = zeroCountCoverageInput.phaseArtifacts.findIndex(value => JSON.parse(Buffer.from(value.bytes).toString("utf8")).phase === "T2");
+const zeroT2 = JSON.parse(Buffer.from(zeroCountCoverageInput.phaseArtifacts[zeroT2Index].bytes).toString("utf8"));
+zeroT2.records = zeroT2.records.filter(row => row.targetTable !== "hr_contract_legacy_evidence");
+zeroT2.targetTableCounts = Object.fromEntries(entries.filter(([, rule]) => rule.phase === "T2").map(([table]) => [table, zeroT2.records.filter(row => row.targetTable === table).length]));
+zeroCountCoverageInput.phaseArtifacts[zeroT2Index] = explicit("/controlled/T2-zero-evidence.json", zeroT2);
+const zeroT2Records = zeroCountCoverageInput.phaseArtifacts
+  .map(value => JSON.parse(Buffer.from(value.bytes).toString("utf8")))
+  .sort((left, right) => ["T0", "T1", "T2", "T3"].indexOf(left.phase) - ["T0", "T1", "T2", "T3"].indexOf(right.phase))
+  .flatMap(value => value.records);
+const zeroT2Decisions = decisionRecords.filter(row => row.targetTable !== "hr_contract_legacy_evidence");
+zeroCountCoverageInput.decisionsArtifact = roleArtifact("decisions-zero-evidence", "yuzhou_hr_production_import_real_decisions", {
+  ...decisionsContent,
+  stagingArtifactSha256: envelopeHash({ ...stagingContent, records: zeroT2Records }),
+  phaseManifests: { ...decisionsContent.phaseManifests, T2: zeroCountCoverageInput.phaseArtifacts[zeroT2Index].sha256 },
+  records: zeroT2Decisions,
+});
+const zeroCountCoverage = bridgeProductionImportRealArtifacts(zeroCountCoverageInput);
+assert.equal(zeroCountCoverage.status, "READY");
+assert.equal(zeroCountCoverage.targetTableCoverage.presentCount, 16);
+assert.equal(zeroCountCoverage.generationEvidence.recordCount, 15);
+
+const falseZeroCoverageInput = structuredClone(zeroCountCoverageInput);
+const falseZeroT2 = JSON.parse(Buffer.from(falseZeroCoverageInput.phaseArtifacts[zeroT2Index].bytes).toString("utf8"));
+falseZeroT2.targetTableCounts.hr_contract = 0;
+falseZeroCoverageInput.phaseArtifacts[zeroT2Index] = explicit("/controlled/T2-false-zero.json", falseZeroT2);
+assert.throws(
+  () => bridgeProductionImportRealArtifacts(falseZeroCoverageInput),
+  error => error instanceof ProductionImportRealArtifactBridgeError && error.code === "PRODUCTION_IMPORT_REAL_PHASE_ARTIFACT_INVALID",
+);
+
 const oldArtifactInput = structuredClone(baseInput);
 const t0Index = oldArtifactInput.phaseArtifacts.findIndex(value => JSON.parse(Buffer.from(value.bytes).toString("utf8")).phase === "T0");
 const oldT0 = JSON.parse(Buffer.from(oldArtifactInput.phaseArtifacts[t0Index].bytes).toString("utf8"));
