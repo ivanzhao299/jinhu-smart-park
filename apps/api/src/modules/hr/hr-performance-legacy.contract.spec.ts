@@ -391,14 +391,33 @@ test("authorized empty legacy reads still require a successful audit", async () 
   );
 });
 
-test("person-summary source code is trimmed and rejects wildcard, SQL text, blank, and overlength input", async () => {
+test("person-summary accepts observed Unicode letters and rejects patterns, controls, symbols, blank, and overlength input", async () => {
   const accepted = plainToInstance(HrPerformanceLegacyPersonSummaryQueryDto, {
-    source_person_code: "  EMP_01  ",
+    source_person_code: "  汉01  ",
   });
-  assert.equal(accepted.source_person_code, "EMP_01");
+  assert.equal(accepted.source_person_code, "汉01");
   assert.equal((await validate(accepted)).length, 0);
+  for (const source_person_code of ["EMP_01", "A-01", "１２３"]) {
+    const dto = plainToInstance(HrPerformanceLegacyPersonSummaryQueryDto, { source_person_code });
+    assert.equal((await validate(dto)).length, 0, source_person_code);
+  }
 
-  for (const source_person_code of ["", "   ", "EMP%", "EMP.01", "EMP' OR 1=1", "12345678901", 101]) {
+  for (const source_person_code of [
+    "",
+    "   ",
+    "EMP 01",
+    "EMP%",
+    "EMP*",
+    "EMP?",
+    "EMP.01",
+    "EMP' OR 1=1",
+    "EMP;01",
+    "EMP\\01",
+    "EMP\n01",
+    "😀01",
+    "汉".repeat(11),
+    101,
+  ]) {
     const dto = plainToInstance(HrPerformanceLegacyPersonSummaryQueryDto, { source_person_code });
     assert.notEqual((await validate(dto)).length, 0, String(source_person_code));
   }
@@ -557,6 +576,21 @@ test("person-summary reuses verified production-import visibility and never conc
     assert.match(call.sql, /batch\.execution_context='production_import'/u);
     assert.match(call.sql, /batch\.status='succeeded'/u);
     assert.deepEqual(call.params.slice(0, 3), [scope.tenantId, scope.parkId, injected]);
+  }
+});
+
+test("person-summary binds an exact Unicode source code without case folding or SQL pattern semantics", async () => {
+  const fixture = personSummaryHarness();
+  await fixture.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 1, page_size: 50, source_person_code: "汉01" },
+  );
+  for (const call of fixture.calls) {
+    assert.doesNotMatch(call.sql, /汉01/u);
+    assert.doesNotMatch(call.sql, /\b(?:LIKE|ILIKE|LOWER|UPPER)\b/iu);
+    assert.match(call.sql, /fact\.source_person_code=\$3/u);
+    assert.equal(call.params[2], "汉01");
   }
 });
 

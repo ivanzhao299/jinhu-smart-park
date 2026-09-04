@@ -1,4 +1,15 @@
 export const HR_EMPLOYEE_STATUSES = ["preboarding", "probation", "active", "suspended", "departed"] as const;
+export const HR_LEGACY_PERSON_CODE_MAX_LENGTH = 10;
+export const HR_LEGACY_PERSON_CODE_PATTERN = /^[\p{L}\p{N}_-]{1,10}$/u;
+
+export function normalizeHrLegacyPersonCode(value: unknown): unknown {
+  return typeof value === "string" ? value.trim() : value;
+}
+
+export function isHrLegacyPersonCode(value: unknown): value is string {
+  return typeof value === "string" && HR_LEGACY_PERSON_CODE_PATTERN.test(value);
+}
+
 export type HrEmployeeStatus = (typeof HR_EMPLOYEE_STATUSES)[number];
 export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contractor"] as const;
 export type HrEmploymentType = (typeof HR_EMPLOYMENT_TYPES)[number];

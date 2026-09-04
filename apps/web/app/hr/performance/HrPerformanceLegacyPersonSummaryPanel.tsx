@@ -1,6 +1,12 @@
 "use client";
 
-import { HR_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import {
+  HR_LEGACY_PERSON_CODE_MAX_LENGTH,
+  HR_PERMISSIONS,
+  isHrLegacyPersonCode,
+  normalizeHrLegacyPersonCode,
+  type PaginatedResult,
+} from "@jinhu/shared";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
@@ -13,7 +19,6 @@ import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./performance-legacy-person-summary.module.css";
 
 const PAGE_SIZE = 20;
-const PERSON_CODE_PATTERN = /^[A-Za-z0-9_-]{1,10}$/u;
 const EMPTY_PAGE: PaginatedResult<HrPerformanceLegacyPersonSummary> = {
   items: [],
   page: 1,
@@ -119,15 +124,15 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
 
   const submitQuery = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalized = input.trim();
-    if (!PERSON_CODE_PATTERN.test(normalized)) {
+    const normalized = normalizeHrLegacyPersonCode(input);
+    if (!isHrLegacyPersonCode(normalized)) {
       generation.current += 1;
       request.current?.abort();
       setQueryCode(null);
       setResult(EMPTY_PAGE);
       setLoading(false);
       setLoadError("");
-      setValidationError("旧人员编码须为 1-10 位 ASCII 字母、数字、下划线或连字符。");
+      setValidationError("旧人员编码须为 1-10 位文字、数字、下划线或连字符。");
       return;
     }
     setInput(normalized);
@@ -165,8 +170,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
             type="text"
             value={input}
             minLength={1}
-            maxLength={10}
-            pattern="[A-Za-z0-9_-]{1,10}"
+            maxLength={HR_LEGACY_PERSON_CODE_MAX_LENGTH}
             autoComplete="off"
             spellCheck={false}
             aria-invalid={Boolean(validationError)}

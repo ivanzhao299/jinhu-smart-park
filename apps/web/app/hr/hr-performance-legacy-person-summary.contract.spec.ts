@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
 const root = process.cwd();
+const repositoryRoot = path.resolve(root, "../..");
 const component = fs.readFileSync(
   path.join(root, "app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx"),
   "utf8",
@@ -18,6 +20,15 @@ const client = fs.readFileSync(
 );
 const api = fs.readFileSync(
   path.join(root, "lib/hr-performance-legacy-person-summary-api.ts"),
+  "utf8",
+);
+const sourceProfilePath = path.join(
+  repositoryRoot,
+  "scripts/hr-cutover/contracts/legacy-performance-person-code-profile-v1.json",
+);
+const sourceProfile = JSON.parse(fs.readFileSync(sourceProfilePath, "utf8")) as Record<string, unknown>;
+const sourceProfileSql = fs.readFileSync(
+  path.join(repositoryRoot, String(sourceProfile.captureQueryPath)),
   "utf8",
 );
 
@@ -53,12 +64,89 @@ test("entry permission is limited to read, team-read, and self-read", () => {
   assert.doesNotMatch(component, /HR_PERFORMANCE_MANAGE/u);
 });
 
-test("person code is trimmed and validated before any request", () => {
-  assert.match(component, /const normalized = input\.trim\(\)/u);
-  assert.ok(component.includes("const PERSON_CODE_PATTERN = /^[A-Za-z0-9_-]{1,10}$/u;"));
-  assert.match(component, /maxLength=\{10\}/u);
-  assert.match(component, /if \(!PERSON_CODE_PATTERN\.test\(normalized\)\)/u);
+test("person code uses the shared Unicode-safe exact-code policy before any request", () => {
+  for (const symbol of [
+    "HR_LEGACY_PERSON_CODE_MAX_LENGTH",
+    "isHrLegacyPersonCode",
+    "normalizeHrLegacyPersonCode",
+  ]) assert.match(component, new RegExp(`\\b${symbol}\\b`, "u"));
+  assert.match(component, /const normalized = normalizeHrLegacyPersonCode\(input\)/u);
+  assert.match(component, /maxLength=\{HR_LEGACY_PERSON_CODE_MAX_LENGTH\}/u);
+  assert.match(component, /if \(!isHrLegacyPersonCode\(normalized\)\)/u);
+  assert.doesNotMatch(component, /ASCII|PERSON_CODE_PATTERN/u);
   assert.match(component, /if \(!canRead \|\| queryCode === null\) return/u);
+});
+
+test("the read-only source profile proves Unicode coverage without carrying source values", () => {
+  assert.deepEqual(
+    {
+      databaseReadOnly: sourceProfile.databaseReadOnly,
+      sourceType: sourceProfile.sourceType,
+      sourceMaxBytes: sourceProfile.sourceMaxBytes,
+      totalRows: sourceProfile.totalRows,
+      nullRows: sourceProfile.nullRows,
+      emptyRows: sourceProfile.emptyRows,
+      minCodeUnits: sourceProfile.minCodeUnits,
+      maxCodeUnits: sourceProfile.maxCodeUnits,
+      outerSpaceRows: sourceProfile.outerSpaceRows,
+      whitespaceRows: sourceProfile.whitespaceRows,
+      controlRows: sourceProfile.controlRows,
+      nonAsciiRows: sourceProfile.nonAsciiRows,
+      hanRows: sourceProfile.hanRows,
+      nonAsciiNonHanRows: sourceProfile.nonAsciiNonHanRows,
+      asciiOtherRows: sourceProfile.asciiOtherRows,
+      wildcardRows: sourceProfile.wildcardRows,
+      sqlMetaRows: sourceProfile.sqlMetaRows,
+      exactDuplicateGroups: sourceProfile.exactDuplicateGroups,
+      trimCollisionGroups: sourceProfile.trimCollisionGroups,
+      caseFoldCollisionGroups: sourceProfile.caseFoldCollisionGroups,
+    },
+    {
+      databaseReadOnly: true,
+      sourceType: "varchar",
+      sourceMaxBytes: 10,
+      totalRows: 2949,
+      nullRows: 0,
+      emptyRows: 0,
+      minCodeUnits: 2,
+      maxCodeUnits: 6,
+      outerSpaceRows: 0,
+      whitespaceRows: 0,
+      controlRows: 0,
+      nonAsciiRows: 2,
+      hanRows: 2,
+      nonAsciiNonHanRows: 0,
+      asciiOtherRows: 0,
+      wildcardRows: 0,
+      sqlMetaRows: 0,
+      exactDuplicateGroups: 0,
+      trimCollisionGroups: 0,
+      caseFoldCollisionGroups: 0,
+    },
+  );
+  assert.equal(sourceProfile.containsSourceValues, false);
+  assert.equal(sourceProfile.containsPersonalData, false);
+  assert.equal(sourceProfile.productionImport, "HOLD");
+  assert.deepEqual(sourceProfile.inputPolicy, {
+    normalization: "trim_only_no_case_or_unicode_rewrite",
+    maxCodePoints: 10,
+    allowedUnicodeCategories: ["Letter", "Number"],
+    allowedLiteralSeparators: ["_", "-"],
+    comparison: "parameterized_exact_equality",
+    urlEncoding: "URLSearchParams",
+  });
+  assert.match(String(sourceProfile.sourceSetSha256), /^[a-f0-9]{64}$/u);
+  assert.equal(
+    createHash("sha256").update(sourceProfileSql).digest("hex"),
+    sourceProfile.captureQuerySha256,
+  );
+  assert.match(sourceProfileSql, /PERFORMANCE_PERSON_CODE_SOURCE_NOT_READ_ONLY/u);
+  assert.match(sourceProfileSql, /IS_SRVROLEMEMBER\('sysadmin'\)/u);
+  assert.match(sourceProfileSql, /FOR JSON PATH, WITHOUT_ARRAY_WRAPPER/u);
+  assert.doesNotMatch(
+    sourceProfileSql,
+    /\b(?:INSERT\s+INTO|UPDATE\s+dbo\.|DELETE\s+FROM|MERGE\s+INTO|ALTER\s+TABLE|DROP\s+TABLE)\b/iu,
+  );
 });
 
 test("requests have independent cancellation, stale-response, and retry controls", () => {
