@@ -13,7 +13,7 @@
     {"stableId":"FIELD_KNOWHOW","path":"scripts/hr-cutover/contracts/legacy-knowhow-field-map-v1.json","sha256":"0e1b072d9ecc52afd40fc630d6db5e4d81b665d0c1b3baa0a9bf27aef0f3550a"},
     {"stableId":"ROUTINE_LEDGER","path":"scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json","sha256":"30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"},
     {"stableId":"ROUTINE_BS_READFROMLEAVE","path":"scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json","sha256":"e70cc0bec2a6a80326691d8886633d6c4a8a8ed0e20f46ca22584b61c84fb19c"},
-    {"stableId":"ROUTINE_U_ERRANDRECORDS","path":"scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json","sha256":"91526cbadb88c1f1906e2c703d37701880bab06999ddcc045cbea38eb15f467d"},
+    {"stableId":"ROUTINE_U_ERRANDRECORDS","path":"scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json","sha256":"a9096e32b3ff7c5c817c276f044e0114994bd632b51d50ff2ce605b400bc1e6e"},
     {"stableId":"ROUTINE_U_INPUTBASEPAY","path":"scripts/hr-cutover/contracts/legacy-u-inputbasepay-parity-v1.json","sha256":"dd123bb65241854bfd42e62cc0552a6cb089a70e19422b5cf286ecce9c4424b0"},
     {"stableId":"ROUTINE_U_INPUTJOBPAY","path":"scripts/hr-cutover/contracts/legacy-u-inputjobpay-parity-v1.json","sha256":"2ea12f5e6d9a432188c58143d899a7e59b091f23b42f5aa69306cbdae824eeba"},
     {"stableId":"PAGE_CUSTOM_FIELD","path":"scripts/hr-cutover/contracts/legacy-employee-custom-field-page-family-v1.json","sha256":"d137881424e6256eac25cd065c8155d4f0c9cd81a74e0054d723fe9d03809e01"},

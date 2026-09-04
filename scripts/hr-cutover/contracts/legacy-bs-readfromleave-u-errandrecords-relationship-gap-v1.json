@@ -14,7 +14,7 @@
     },
     "uErrandrecordsParity": {
       "path": "scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json",
-      "sha256": "91526cbadb88c1f1906e2c703d37701880bab06999ddcc045cbea38eb15f467d"
+      "sha256": "a9096e32b3ff7c5c817c276f044e0114994bd632b51d50ff2ce605b400bc1e6e"
     },
     "bsReadfromleaveMapping": {
       "path": "scripts/hr-cutover/contracts/legacy-bs-readfromleave-modern-map-v1.json",

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /* global console, structuredClone */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   buildLegacyCompatibilityProgress,
@@ -9,6 +11,7 @@ import {
 } from "../hr-cutover/legacy-compatibility-progress-v2.mjs";
 
 const inputs = () => structuredClone(readDefaultLegacyCompatibilityProgressInputs());
+const compatibilityPlan = () => readFileSync(resolve(import.meta.dirname, "../../docs/yuzhou-hr-compatibility-development-plan.md"), "utf8");
 
 test("current report uses complete source denominators without producing an additive score", () => {
   const report = buildLegacyCompatibilityProgress(inputs());
@@ -70,6 +73,12 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.functionalParityCredit, 0);
   assert.equal(report.parity.clientFieldRowLevelParity.numerator, 0);
   assert.equal(report.parity.clientFieldRowLevelParity.denominator, 2364);
+});
+
+test("published compatibility plan uses the machine-verified field baseline", () => {
+  const fields = buildLegacyCompatibilityProgress(inputs()).semanticMapping.clientFieldsVerifiedTargetMapping;
+  const expected = `客户端字段已验证目标映射 \`${fields.numerator}/${fields.denominator} = ${fields.percent}%\``;
+  assert.match(compatibilityPlan(), new RegExp(expected, "u"));
 });
 
 test("routine inventory and domain classification do not become functional equivalence", () => {
