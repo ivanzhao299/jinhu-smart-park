@@ -103,6 +103,9 @@ test("invalid and null integer metadata is hashed, quarantined from casts, and m
 
 test("entity hides raw legacy flags from default ORM projection", () => {
   const itemEntity = entity.slice(entity.indexOf("export class HrPayrollItemVersionEntity"), entity.indexOf("@Entity(\"hr_payroll_formula_version\")"));
+  for (const field of ["legacy_print_width_hash", "legacy_tax_flag", "legacy_no_decimal_flag", "legacy_use_flag", "legacy_decimal_length_hash", "legacy_print_report_hash", "legacy_item_title", "legacy_long_description"]) {
+    assert.match(itemEntity, new RegExp(`name:\"${field}\",type:\"varchar\"`, "u"));
+  }
   for (const field of ["legacy_tax_flag", "legacy_no_decimal_flag", "legacy_use_flag", "legacy_print_report"]) {
     assert.match(itemEntity, new RegExp(`name:\"${field}\"[^}]+select:false`, "u"));
   }
