@@ -101,6 +101,12 @@ export function classifyCorePhaseFailure(output, requestedCode = "CORE_PHASE_FAI
   if (requestedCode !== "CORE_PHASE_FAILED") return requestedCode ?? "CORE_DRIVER_COMMAND_FAILED";
   const t0Input = String(output).match(/\b(T0_(?:DEPARTMENT|POSITION)_(?:SMALLINT|INTEGER)_INPUT_INVALID|T0_EMPLOYEE_DATE_INPUT_INVALID)\b/u);
   if (t0Input) return `CORE_PHASE_${t0Input[1]}`;
+  // PostgreSQL includes the rejected value in this message.  Keep receipts and
+  // reports value-free, but retain a small allowlist of type classes so a
+  // controlled retry can repair the right coercion without widening access to
+  // staging or source rows.
+  const invalidType = String(output).match(/invalid input syntax for type\s+(integer|smallint|date|boolean|uuid)\b/iu)?.[1]?.toUpperCase();
+  if (invalidType) return `CORE_PHASE_POSTGRES_INVALID_${invalidType}`;
   if (/invalid input syntax/iu.test(output)) return "CORE_PHASE_POSTGRES_INVALID_INPUT";
   if (/duplicate key|unique constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_UNIQUE_CONSTRAINT";
   if (/foreign key constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_FOREIGN_KEY";
