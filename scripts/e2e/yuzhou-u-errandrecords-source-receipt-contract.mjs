@@ -56,6 +56,7 @@ function baseBody() {
     columns: {
       startdate: { sqlType: "smalldatetime", nullable: false },
       enddate: { sqlType: "smalldatetime", nullable: false },
+      days: { sqlType: "int", nullable: true },
     },
     serverTimezone: {
       currentUtcOffsetMinutes: 480,
@@ -97,6 +98,12 @@ test("u_errandrecords safe receipt is canonical, aggregate-only, and fail-closed
   typeDrift.columns.startdate.sqlType = "datetime";
   assert.throws(
     () => sealUErrandrecordsSourceReceipt(typeDrift),
+    /U_ERRANDRECORDS_SOURCE_COLUMN_DRIFT/u,
+  );
+  const daysDrift = baseBody();
+  daysDrift.columns.days.nullable = false;
+  assert.throws(
+    () => sealUErrandrecordsSourceReceipt(daysDrift),
     /U_ERRANDRECORDS_SOURCE_COLUMN_DRIFT/u,
   );
 
@@ -144,6 +151,7 @@ test("offline gate cannot promote an unbound live SQL Server receipt", () => {
     "missingDepartmentRows",
     "omittedInnerJoinRows",
   ]);
+  assert.deepEqual(offlineGate.requiredColumns, baseBody().columns);
 });
 
 test("read-only and least-privilege authority failures are rejected independently", () => {
@@ -301,6 +309,8 @@ test("u_errandrecords capture binds restore/catalog/mapping and calls one aggreg
             startNullable: false,
             endSqlType: "smalldatetime",
             endNullable: false,
+            daysSqlType: "int",
+            daysNullable: true,
             serverUtcOffsetMinutes: 480,
             databaseReadOnly: true,
             databaseIdentity: databaseAlias,
@@ -343,6 +353,7 @@ test("u_errandrecords SQL uses one read-only aggregate projection without source
     "LEFT JOIN dbo.departmentcode d ON d.department=p.department",
     "sys.columns",
     "TYPE_NAME(start_column.user_type_id)",
+    "TYPE_NAME(days_column.user_type_id)",
     "SYSDATETIMEOFFSET()",
     "DATEPART(TZOFFSET,SYSDATETIMEOFFSET())",
     "is_read_only",

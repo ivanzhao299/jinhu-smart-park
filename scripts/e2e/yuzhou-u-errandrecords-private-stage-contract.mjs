@@ -48,6 +48,7 @@ function sourceReceipt(overrides = {}) {
     columns: {
       startdate: { sqlType: "smalldatetime", nullable: false },
       enddate: { sqlType: "smalldatetime", nullable: false },
+      days: { sqlType: "int", nullable: true },
     },
     serverTimezone: {
       currentUtcOffsetMinutes: 480,
