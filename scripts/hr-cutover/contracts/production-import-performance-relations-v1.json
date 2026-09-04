@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_production_import_performance_relations_extension",
+  "contractVersion": "2026-09-05.1",
+  "parentPlan": {
+    "planKind": "yuzhou_hr_production_import_sealed_execution_plan",
+    "formatVersion": 2,
+    "executionContractSha256": "9b740ea972d835aed4913e43bf7dfeb8fb59de8120573e2ca1638a074e24e1d0",
+    "requiredSucceededPhase": "T0"
+  },
+  "sourceEvidence": {
+    "contractSha256": "63ff8c586645b5e930b00670685e30c8df62a00ddafc5f9c8fb73cc8316f63b5",
+    "sourceFactLocationReceiptSha256": "4df7bcba4f8deaa0f35f40fff77da0a6a41fdd2fb14412779e42ccf865d55a2c",
+    "sourceFactLocationCanonicalSha256": "1e37b27f0ac3975fd989d54341ff2c64b3e64955a38b80b03a00fe25cdf04182",
+    "sourceTable": "dbo.asssourperson",
+    "sessionRows": 7,
+    "scoreSourceRows": 0,
+    "assignmentRows": 117,
+    "assignmentDistinctSessionRows": 1,
+    "subjectUnmatchedRows": 108,
+    "blankAssessorRows": 117
+  },
+  "forwardOrder": [
+    {
+      "step": "source_person_assignments",
+      "migration": "000305_hr_performance_yuzhou_legacy_relations.sql",
+      "migrationSha256": "d3784218fc8272bd28b93e44b19a02d5c8124466b6b3c218294920603909dfc0",
+      "currentProcedure": "materialize_yuzhou_performance_legacy_relations_lab",
+      "currentExecutionContext": "lab_rehearsal",
+      "productionAdapter": "hr_yuzhou_apply_performance_relations_production_v1"
+    },
+    {
+      "step": "identity_resolution",
+      "migration": "000306_hr_performance_yuzhou_identity_resolution.sql",
+      "migrationSha256": "cd49f294f4c9e4105b9f7fd4c678b7b2d29c5433d0348f6e6632d6e7c135a56d",
+      "currentProcedure": "materialize_yuzhou_performance_legacy_identity_resolution_lab",
+      "currentExecutionContext": "lab_rehearsal",
+      "productionAdapter": "hr_yuzhou_apply_performance_relations_production_v1"
+    }
+  ],
+  "expectedAfter": {
+    "sessionRows": 7,
+    "scoreSourceRows": 0,
+    "assignmentRows": 117,
+    "activeRelationMaps": 124,
+    "identityResolutionRows": 234,
+    "subjectUnmatchedRows": 108,
+    "blankAssessorRows": 117,
+    "sessionBindingRows": 7
+  },
+  "rollbackOrder": ["identity_resolution", "source_person_assignments"],
+  "rollbackInvariant": {
+    "identityResolutionRows": 0,
+    "sessionBindingRows": 0,
+    "assignmentRows": 0,
+    "activeRelationMaps": 0,
+    "residualCount": 0
+  },
+  "executionBoundary": {
+    "adapter": "production_import_performance_relations_writer_v1",
+    "executionReachable": false,
+    "sourceRowsAllowed": false,
+    "databaseConnectionAllowed": true,
+    "productionWriterStatus": "HOLD_SCHEMA_CAPABILITY_REQUIRED",
+    "productionImport": "HOLD"
+  },
+  "productionImport": "HOLD"
+}

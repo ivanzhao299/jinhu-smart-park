@@ -244,6 +244,33 @@ export function createProductionImportPostgresAdapter(options) {
     }
   }
 
+  async function queryReadOnly(sql, parameters = []) {
+    if (typeof sql !== "string" || sql.length === 0 || !Array.isArray(parameters)) fail("PRODUCTION_IMPORT_PG_QUERY_INVALID", "read-only query must use sql text and a parameter array");
+    const client = await acquire();
+    let began = false;
+    let finalized = false;
+    let poison = false;
+    try {
+      await client.query("BEGIN", []);
+      began = true;
+      await client.query("SET TRANSACTION READ ONLY", []);
+      await client.query("SELECT set_config('application_name', $1, true)", ["jinhu_hr_prod_import:performance_relations_capability"]);
+      const result = await client.query(sql, parameters);
+      await client.query("COMMIT", []);
+      finalized = true;
+      return result;
+    } catch (error) {
+      if (!began) poison = true;
+      if (began && !finalized) {
+        try { await client.query("ROLLBACK", []); }
+        catch (rollbackError) { poison = true; throw combineTransactionErrors(error, rollbackError); }
+      }
+      throw error;
+    } finally {
+      release(client, poison);
+    }
+  }
+
   async function close() {
     if (closed) return;
     if (activeLeases !== 0) fail("PRODUCTION_IMPORT_PG_ADAPTER_BUSY", "cannot close with an active transaction or probe");
@@ -251,6 +278,6 @@ export function createProductionImportPostgresAdapter(options) {
     if (options.ownership === "owned") await (options.pool ?? options.client).end();
   }
 
-  const adapter = Object.freeze({ transaction, probeTarget, close, ownership: options.ownership });
+  const adapter = Object.freeze({ transaction, queryReadOnly, probeTarget, close, ownership: options.ownership });
   return adapter;
 }

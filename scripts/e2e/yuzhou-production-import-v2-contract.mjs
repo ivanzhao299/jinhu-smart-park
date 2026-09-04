@@ -16,6 +16,10 @@ import {
   validateSealedProductionImportPlan,
 } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { executeSealedProductionImport, rollbackSealedProductionImport } from "../hr-cutover/production-import-writer.mjs";
+import {
+  attachHeldPerformanceRelationsBinding,
+  createHeldPerformanceRelationsBinding,
+} from "../hr-cutover/production-import-performance-relations-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const NOW = new Date("2026-08-29T01:00:00.000Z");
@@ -194,6 +198,80 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
 
 const reseal = plan => { plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan); return plan; };
 const findRecord = (plan, table) => plan.phases.flatMap(phase => phase.records).find(record => record.plannedTargetTable === table);
+
+test("performance relation binding requires private artifacts before capability probe or authorization consumption", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const binding = createHeldPerformanceRelationsBinding({
+    triple: plan.triple,
+    relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  const attached = attachHeldPerformanceRelationsBinding(plan, binding);
+  assert.deepEqual(validateSealedProductionImportPlan(attached, { now: NOW }).performanceRelations, binding);
+  assert.equal(attached.authorization.binding.performanceRelationsContractSha256, computeProductionImportPayloadHash(binding));
+
+  const database = mockDatabase();
+  await assert.rejects(
+    () => executeSealedProductionImport(attached, executionOptions(attached, payloadBundles, database)),
+    error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_RELATIONS_ARTIFACT_INVALID",
+  );
+  assert.equal(database.calls.length, 0, "writer touched the database before validating sealed private artifacts");
+});
+
+test("production relation writer runs immediately after T0 only after the read-only schema capability passes", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const binding = createHeldPerformanceRelationsBinding({
+    triple: plan.triple,
+    relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  const attached = attachHeldPerformanceRelationsBinding(plan, binding);
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.includes("hr-prod-performance-relations:apply")) return { rows: [{
+      status: "succeeded", replayed: false, session_rows: 7, score_source_rows: 0,
+      assignment_rows: 117, active_relation_maps: 124, identity_resolution_rows: 234,
+      session_binding_rows: 7, subject_unmatched_rows: 108, blank_assessor_rows: 117,
+      receipt_sha256: H("performance-relation-receipt"),
+    }] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  const options = executionOptions(attached, payloadBundles, database);
+  options.performanceRelations = {
+    relationPayloadArtifact: Buffer.from("fixture:performance-relations-payload"),
+    identityDecisionArtifact: Buffer.from("fixture:performance-relations-decisions"),
+    readOnlyQuery: async () => ({ rows: [{
+      capability_id: "jinhu-yuzhou-performance-relations-production-v1",
+      migration_305_sha256: binding.migration305Sha256,
+      migration_306_sha256: binding.migration306Sha256,
+      production_context_supported: true,
+      reverse_order: "identity_resolution>source_person_assignments",
+    }] }),
+  };
+  const receipt = await executeSealedProductionImport(attached, options);
+  assert.deepEqual(receipt.phases, ["T0", "PERFORMANCE_RELATIONS", "T1", "T2", "T3"]);
+  const businessQueries = database.calls.filter(call => call.kind === "query").map(call => call.sql);
+  const t0Finished = businessQueries.findIndex(sql => sql.includes("phase=$2") && sql.includes("status='succeeded'"));
+  const relationApplied = businessQueries.findIndex(sql => sql.includes("hr-prod-performance-relations:apply"));
+  const t1Started = businessQueries.findIndex((sql, index) => index > relationApplied && sql.includes("INSERT INTO hr_yuzhou_production_import_phase"));
+  assert.ok(t0Finished >= 0 && relationApplied > t0Finished && t1Started > relationApplied);
+});
+
+test("performance relation binding cannot be appended outside the sealed authorization", () => {
+  const { plan } = v2Fixture();
+  plan.performanceRelations = createHeldPerformanceRelationsBinding({
+    triple: plan.triple,
+    relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  reseal(plan);
+  assert.throws(
+    () => validateSealedProductionImportPlan(plan, { now: NOW }),
+    error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH",
+  );
+});
 
 test("an optional T5 nonfile binding is sealed into the same production authorization without exposing payload values", () => {
   const { plan } = v2Fixture();
@@ -562,6 +640,40 @@ test("rollback remains independently authorized and scope bound", async () => {
     targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database: untouchedDatabase, rollbackPhase: async () => [], verifyBusinessResiduals: async () => ({}),
   }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
   assert.equal(untouchedDatabase.calls.length, 0);
+});
+
+test("performance relation rollback runs identity then relations after T1 and before T0", async () => {
+  const { plan } = v2Fixture();
+  const binding = createHeldPerformanceRelationsBinding({
+    triple: plan.triple, relationPayloadArtifactSha256: H("performance-relations-payload"),
+    identityDecisionArtifactSha256: H("performance-relations-decisions"),
+    t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
+  });
+  const attached = attachHeldPerformanceRelationsBinding(plan, binding);
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.startsWith("SELECT status")) return { rows: [{ status: "succeeded", sealed_plan_sha256: attached.sealing.sealedPlanSha256 }] };
+    if (sql.includes("hr-prod-performance-relations:rollback-identity-then-relations")) return { rows: [{ status: "rolled_back", rollback_order: "identity_resolution>source_person_assignments", residual_count: 0, replayed: false, receipt_sha256: H("performance-relations-rollback") }] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  const authorization = {
+    formatVersion: 1, artifactKind: "yuzhou_hr_production_import_rollback_authorization", intent: "production_import_rollback",
+    rollbackOperationId: "yzprod-rollback-20260829T020000Z-abcdef123456", importOperationId: attached.operationId,
+    sealedPlanSha256: attached.sealing.sealedPlanSha256, targetIdentitySha256: attached.target.identitySha256,
+    authorizationArtifactSha256: H("performance-rollback-authorization"), authorizationNonceSha256: H("performance-rollback-nonce"),
+    issuedAt: "2026-08-29T00:30:00.000Z", expiresAt: "2026-08-29T01:30:00.000Z", productionImport: "HOLD",
+  };
+  await rollbackSealedProductionImport(attached, authorization, {
+    contract: activatedContract(attached), now: NOW, currentCodeSha: attached.triple.codeSha, mergedCodeSha: attached.triple.codeSha,
+    targetIdentitySha256: attached.target.identitySha256, targetScope: attached.targetScope, database,
+    performanceRelations: { readOnlyQuery: async () => ({ rows: [{ capability_id: "jinhu-yuzhou-performance-relations-production-v1", migration_305_sha256: binding.migration305Sha256, migration_306_sha256: binding.migration306Sha256, production_context_supported: true, reverse_order: "identity_resolution>source_person_assignments" }] }) },
+    rollbackPhase: async ({ records }) => records.map(record => ({ sourceIdentitySha256: record.sourceIdentitySha256, rollbackStatus: "deleted_insert" })),
+    verifyBusinessResiduals: async ({ operationId, targetScope }) => ({ operationId, targetScopeSha256: targetScope.scopeSha256, residualCount: 0, evidenceSha256: H("performance-business-residual") }),
+  });
+  const queries = database.calls.filter(call => call.kind === "query");
+  const relationRollback = queries.findIndex(call => call.sql.includes("hr-prod-performance-relations:rollback-identity-then-relations"));
+  const t1Rollback = queries.findIndex(call => call.sql.includes("status='rolling_back'") && call.parameters?.[1] === "T1");
+  const t0Rollback = queries.findIndex((call, index) => index > relationRollback && call.sql.includes("status='rolling_back'") && call.parameters?.[1] === "T0");
+  assert.ok(t1Rollback >= 0 && relationRollback > t1Rollback && t0Rollback > relationRollback);
 });
 
 test("a T5-bound plan rolls T5 back before the core phases and accounts for its owned batch", async () => {

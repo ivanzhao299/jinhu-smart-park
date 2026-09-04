@@ -12,6 +12,12 @@ import {
 } from "./production-import-sealed-plan-lib.mjs";
 import { writeT5NonfilePrivateStage } from "./production-import-t5-nonfile-writer.mjs";
 import { rollbackT5NonfilePrivateStage } from "./production-import-t5-nonfile-rollback.mjs";
+import {
+  probeProductionPerformanceRelationsCapability,
+  rollbackProductionPerformanceRelations,
+  validateProductionPerformanceRelationsInvocation,
+  writeProductionPerformanceRelations,
+} from "./production-import-performance-relations-writer.mjs";
 
 const fail = (code, detail) => { throw new ProductionImportExecutionError(code, detail); };
 const asBuffer = (value, label) => {
@@ -200,6 +206,26 @@ export async function executeSealedProductionImport(planInput, options) {
   const payloadBundles = new Map();
   for (const phase of plan.phases) payloadBundles.set(phase.phase, validatePhasePayloadBundle(phase, plan.targetScope, options.payloadBundles?.[phase.phase]));
   const t5PrivateStage = bindT5NonfilePrivateStage(plan, options.t5NonfilePrivateStage);
+  let performanceRelationsInput = null;
+  if (plan.performanceRelations) {
+    performanceRelationsInput = {
+      operationId: plan.operationId, sealedPlanSha256: plan.sealing.sealedPlanSha256,
+      authorizationArtifactSha256: plan.authorization.artifactSha256, authorizationNonceSha256: plan.authorization.nonceSha256,
+      codeSha: plan.triple.codeSha, sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+      mappingContractSha256: plan.triple.mappingContractHash,
+      targetIdentitySha256: options.targetIdentitySha256, expectedTargetIdentitySha256: plan.target.identitySha256,
+      targetScope: structuredClone(options.targetScope), expectedTargetScopeSha256: plan.targetScope.scopeSha256,
+      t0PhaseReceiptSha256: plan.performanceRelations.t0PhaseReceiptSha256,
+      relationPayloadArtifact: options.performanceRelations?.relationPayloadArtifact,
+      identityDecisionArtifact: options.performanceRelations?.identityDecisionArtifact,
+      binding: plan.performanceRelations,
+    };
+    validateProductionPerformanceRelationsInvocation(performanceRelationsInput);
+    await probeProductionPerformanceRelationsCapability({
+      query: options.performanceRelations?.readOnlyQuery ?? options.database.queryReadOnly?.bind(options.database),
+      binding: plan.performanceRelations,
+    });
+  }
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query(
@@ -239,6 +265,9 @@ export async function executeSealedProductionImport(planInput, options) {
         [plan.operationId, phase.phase],
         `${phase.phase} operation progress`,
       );
+      if (phase.phase === "T0" && performanceRelationsInput) {
+        await writeProductionPerformanceRelations({ ...performanceRelationsInput, tx });
+      }
     }
     if (t5PrivateStage) {
       const beforeCanonicalSha256 = t5BeforeCanonicalSha256(plan.targetScope, plan.t5Nonfile.privateStageSha256);
@@ -270,7 +299,7 @@ export async function executeSealedProductionImport(planInput, options) {
       [plan.operationId],
       "operation succeeded",
     );
-    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder, ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256 };
+    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder.slice(0, 1), ...(performanceRelationsInput ? ["PERFORMANCE_RELATIONS"] : []), ...plan.phaseOrder.slice(1), ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256 };
   });
   } catch (error) {
     const failureCode = error instanceof ProductionImportExecutionError ? error.code : "PRODUCTION_IMPORT_BUSINESS_TRANSACTION_FAILED";
@@ -294,6 +323,26 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
   if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
   if (!options?.targetScope || options.targetScope.tenantId !== plan.targetScope.tenantId || options.targetScope.parkId !== plan.targetScope.parkId || options.targetScope.scopeSha256 !== plan.targetScope.scopeSha256) fail("PRODUCTION_IMPORT_TARGET_SCOPE_MISMATCH", "database adapter scope differs from sealed target scope");
   if (!options?.database || typeof options.database.transaction !== "function" || typeof options.rollbackPhase !== "function" || typeof options.verifyBusinessResiduals !== "function") fail("PRODUCTION_IMPORT_ROLLBACK_ADAPTER_REQUIRED", "bulk rollback and business residual adapters are required");
+  let performanceRelationsRollbackInput = null;
+  if (plan.performanceRelations) {
+    performanceRelationsRollbackInput = {
+      rollbackOperationId: rollbackAuthorization.rollbackOperationId,
+      operationId: plan.operationId, sealedPlanSha256: plan.sealing.sealedPlanSha256,
+      authorizationArtifactSha256: rollbackAuthorization.authorizationArtifactSha256,
+      authorizationNonceSha256: rollbackAuthorization.authorizationNonceSha256,
+      codeSha: plan.triple.codeSha, sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+      mappingContractSha256: plan.triple.mappingContractHash,
+      targetIdentitySha256: options.targetIdentitySha256, expectedTargetIdentitySha256: plan.target.identitySha256,
+      targetScope: structuredClone(options.targetScope), expectedTargetScopeSha256: plan.targetScope.scopeSha256,
+      t0PhaseReceiptSha256: plan.performanceRelations.t0PhaseReceiptSha256,
+      binding: plan.performanceRelations,
+    };
+    validateProductionPerformanceRelationsInvocation(performanceRelationsRollbackInput, { rollback: true });
+    await probeProductionPerformanceRelationsCapability({
+      query: options.performanceRelations?.readOnlyQuery ?? options.database.queryReadOnly?.bind(options.database),
+      binding: plan.performanceRelations,
+    });
+  }
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_rollback_authorization" }, async tx => {
     await tx.query(
       "SELECT hr_yuzhou_consume_rollback_authorization($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -335,6 +384,9 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       );
     }
     for (const phaseName of contract.rollbackOrder) {
+      if (phaseName === "T0" && performanceRelationsRollbackInput) {
+        await rollbackProductionPerformanceRelations({ ...performanceRelationsRollbackInput, tx });
+      }
       const phase = plan.phases.find(candidate => candidate.phase === phaseName);
       await expectSingleStateTransition(
         tx,
