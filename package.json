@@ -203,6 +203,8 @@
     "test:e2e:yuzhou-legacy-relational-model": "node --test scripts/e2e/yuzhou-legacy-relational-model-contract.mjs",
     "test:e2e:yuzhou-legacy-routine-logic": "node --test scripts/e2e/yuzhou-legacy-routine-logic-ledger-contract.mjs",
     "test:e2e:yuzhou-legacy-routine-parity": "node --test scripts/e2e/yuzhou-legacy-routine-parity-contract.mjs",
+    "test:e2e:yuzhou-performance-query-routine-parity": "node --test scripts/e2e/yuzhou-legacy-performance-query-routine-parity-contract.mjs",
+    "hr:migration:performance-query-routine-parity": "node scripts/hr-cutover/legacy-performance-query-routine-parity.mjs",
     "test:e2e:yuzhou-legacy-custom-field-parity": "node --test scripts/e2e/yuzhou-legacy-custom-field-parity-contract.mjs",
     "test:e2e:yuzhou-legacy-modern-field-ledger": "node --test scripts/e2e/yuzhou-legacy-modern-field-ledger-contract.mjs",
     "test:e2e:yuzhou-legacy-group-web-completeness": "node --test scripts/e2e/yuzhou-legacy-group-web-completeness-ledger-contract.mjs",

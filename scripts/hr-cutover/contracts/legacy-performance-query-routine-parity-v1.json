@@ -1,0 +1,375 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_query_routine_parity",
+  "contractVersion": "1.0.0",
+  "sourceBinding": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerFileSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "reviewedRoutineSubsetSha256": "78df95be82839c2be3d6cfac44742923c1986fec526c7581768cc5f2ce4e1f08",
+    "sourceRoutineCount": 7,
+    "sourceSurface": "yuzhou_v10_client_database",
+    "schemaManifestPath": ".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/generated/legacy-manifest.json",
+    "schemaManifestFileSha256": "2fa1a1aaae47787ad9301a0fa21b1e71f039e20b507c3e6051a5c68f8d458ace",
+    "schemaArtifactPath": "玉舟人力资源管理系统分析产出/schema_tables.sql",
+    "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+    "assessmentMasterColumns": [
+      "id", "asssessionid", "person", "selfgrade", "assgrade", "selfvalue", "itemvalue",
+      "mitemvalue", "xitemvalue", "citemvalue", "mastervalue", "timekeepvalue", "bonusvalue",
+      "totalvalue", "selfappraisal", "appraisal", "pay", "assessmentperson", "recdate", "operator", "des"
+    ]
+  },
+  "sourceReview": {
+    "dynamicSqlAdjudications": [
+      {"routineId":"RULE-F3D80C57661321E9","from":"unknown_requires_review","to":"none","reviewedCapability":"read_only_dynamic_projection"},
+      {"routineId":"RULE-6092B6B0B15A0466","from":"unknown_requires_review","to":"none","reviewedCapability":"read_only_dynamic_projection"},
+      {"routineId":"RULE-BED041EE4A468EC3","from":"unknown_requires_review","to":"none","reviewedCapability":"read_only_dynamic_projection"},
+      {"routineId":"RULE-E6282105617A7A50","from":"unknown_requires_review","to":"none","reviewedCapability":"read_only_dynamic_projection"},
+      {"routineId":"RULE-0C4458064CE74646","from":"unknown_requires_review","to":"none","reviewedCapability":"read_only_dynamic_projection"}
+    ],
+    "decision": "All five dynamic routines assemble SELECT statements only and have no write target, but raw parameter concatenation is unsafe and must not be copied into the modern runtime."
+  },
+  "sharedModernReplacementRequirements": [
+    {"code":"TENANT_PARK_BOUND_PARAMETER","requirement":"Every modern query binds tenant and park before applying any legacy filter."},
+    {"code":"SERVER_DERIVED_PERFORMANCE_SCOPE","requirement":"Park, managed-team, and self scope comes from server-side permissions and employee relationships; source rightscope is never authorization."},
+    {"code":"PARAMETERIZED_QUERY_ONLY","requirement":"All scalar filters use bound parameters; no source SQL text, identifier, predicate, or quoted value is accepted from a client."},
+    {"code":"GRADE_LIST_TYPED_ALLOWLIST","requirement":"Legacy gradelist text becomes a validated array of grade codes and a bound membership predicate."},
+    {"code":"REQUIRED_SENSITIVE_READ_AUDIT","requirement":"The response is withheld when required sensitive-read audit persistence fails."},
+    {"code":"HISTORICAL_RESULT_PROJECTION","requirement":"Only explicit historical result fields are projected; internal hashes, migration control IDs, and unrestricted entities are excluded."},
+    {"code":"SOURCE_PAY_NOT_IN_QUERY_FAMILY","requirement":"This seven-routine family never returns assessmentmaster.pay and must not gain payroll-field visibility implicitly."}
+  ],
+  "routines": [
+    {
+      "routineId": "RULE-F3D80C57661321E9",
+      "sourceName": "u_assessmentquery",
+      "canonicalFamily": "u_assessmentquery",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_u_assessmentquery_sql",
+      "sourceArtifactSha256": "b83b5b63778842eca1a5e6ef98dbb352f2bc4a9cf25210b7f5e381c822e4d851",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"asssession","sourceType":"int","behavior":"Exact assessmentmaster.asssessionid equality."},
+        {"name":"department","sourceType":"varchar(30)","behavior":"Department prefix match; the procedure appends percent wildcard."},
+        {"name":"name","sourceType":"varchar(10)","behavior":"Person-name contains match; the procedure adds leading and trailing percent wildcards."},
+        {"name":"gradelist","sourceType":"varchar(1024)","behavior":"Raw SQL IN-list fragment in the legacy implementation; modern replacement must parse typed grade codes."},
+        {"name":"itemvalue1","sourceType":"float","behavior":"Inclusive lower bound on totalvalue."},
+        {"name":"itemvalue2","sourceType":"float","behavior":"Inclusive upper bound on totalvalue."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person by person code becomes effectively inner because person.department and person.name are constrained in WHERE.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.asssessionid = @asssession","behavior":"exact numeric session id"},
+        {"sourceExpression":"person.department LIKE @department + '%'","behavior":"department subtree by legacy code prefix"},
+        {"sourceExpression":"person.name LIKE '%' + @name + '%'","behavior":"contains search"},
+        {"sourceExpression":"assessmentmaster.assgrade IN (<raw @gradelist>)","behavior":"caller-supplied SQL fragment; unsafe legacy behavior"},
+        {"sourceExpression":"assessmentmaster.totalvalue >= @itemvalue1","behavior":"inclusive lower score"},
+        {"sourceExpression":"assessmentmaster.totalvalue <= @itemvalue2","behavior":"inclusive upper score"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.person","sourceAlias":"编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":2,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.assgrade","sourceAlias":"考评等级","plannedModernField":"sourceAssGrade"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.totalvalue","sourceAlias":"总评定分","plannedModernField":"sourceTotalValue"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.selfappraisal","sourceAlias":"自我评语","plannedModernField":"sourceSelfAppraisal"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.appraisal","sourceAlias":"考核评语","plannedModernField":"sourceAppraisal"}
+      ],
+      "calculationSemantics": [],
+      "legacyDynamicSql": {
+        "mode": "raw_input_concatenation",
+        "concatenatedParameters": ["asssession", "department", "name", "gradelist", "itemvalue1", "itemvalue2"],
+        "mutation": "none",
+        "risk": "sql_injection_and_query_shape_manipulation",
+        "safeReplacement": "Use bound scalar parameters, parse gradelist as an allowlisted grade-code array, and use a bound array-membership predicate."
+      },
+      "knownDifferences": [
+        {"code":"RAW_GRADE_LIST_DYNAMIC_SQL","sourceBehavior":"gradelist is inserted directly into an IN clause","modernDecision":"pending implementation; never reproduce raw SQL acceptance"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+      ],
+      "sourceSchemaStatus": "compatible",
+      "missingSourceColumns": [],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters query-filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["modern filter implementation", "permission negative tests", "result conservation fixture", "desktop and 390px role UAT"]
+    },
+    {
+      "routineId": "RULE-6092B6B0B15A0466",
+      "sourceName": "u_assessmentvalue",
+      "canonicalFamily": "u_assessmentvalue",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_u_assessmentvalue_sql",
+      "sourceArtifactSha256": "62f8586e560be1955380e79cfe1170beab5b0721f10ac6c54b470eaab5cea0fa",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"asssession","sourceType":"varchar(30)","behavior":"Exact equality against the legacy asssession text column."},
+        {"name":"department","sourceType":"varchar(30)","behavior":"Department prefix match; the procedure appends percent wildcard."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person by person code becomes effectively inner because person.department is constrained in WHERE.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.asssession = @asssession","behavior":"exact text session; column is absent from the bound current schema"},
+        {"sourceExpression":"person.department LIKE @department + '%'","behavior":"department subtree by legacy code prefix"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.person","sourceAlias":"员工编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":2,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.grade","sourceAlias":"等级","plannedModernField":"unresolvedLegacyGrade"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考核项总分","plannedModernField":"sourceItemValue"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.mastervalue","sourceAlias":"主管附加分","plannedModernField":"sourceMasterValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.timekeepvalue","sourceAlias":"考勤加减分","plannedModernField":"sourceTimekeepValue"},
+        {"ordinal":7,"sourceExpression":"assessmentmaster.bonusvalue","sourceAlias":"奖惩加减分","plannedModernField":"sourceBonusValue"},
+        {"ordinal":8,"sourceExpression":"assessmentmaster.itemvalue + assessmentmaster.timekeepvalue + assessmentmaster.bonusvalue","sourceAlias":"最后评定分","plannedModernField":"legacyLastValueWithoutMaster"},
+        {"ordinal":9,"sourceExpression":"assessmentmaster.appraisal","sourceAlias":"评定","plannedModernField":"sourceAppraisal"}
+      ],
+      "calculationSemantics": [
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","expression":"itemvalue + timekeepvalue + bonusvalue","nullRule":"SQL arithmetic is null-propagating; any null operand makes the result null.","difference":"mastervalue is selected for display but is not included in the procedure's final-value expression."}
+      ],
+      "legacyDynamicSql": {
+        "mode": "raw_input_concatenation",
+        "concatenatedParameters": ["asssession", "department"],
+        "mutation": "none",
+        "risk": "sql_injection_and_query_shape_manipulation",
+        "safeReplacement": "Use bound session and department-prefix parameters; expose the legacy final expression separately from any corrected total."
+      },
+      "knownDifferences": [
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"pending explicit dual projection; do not silently substitute sourceTotalValue"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+      ],
+      "sourceSchemaStatus": "dormant_schema_drift",
+      "missingSourceColumns": ["assessmentmaster.asssession", "assessmentmaster.grade"],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters query-filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["source schema-variant adjudication", "modern dual-value projection", "nonzero-mastervalue conservation fixture", "permission and role UAT"]
+    },
+    {
+      "routineId": "RULE-BED041EE4A468EC3",
+      "sourceName": "u_assessmentvalueofperson",
+      "canonicalFamily": "u_assessmentvalueofperson",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_u_assessmentvalueofperson_sql",
+      "sourceArtifactSha256": "bc1a1e92c3ede18394de57ed4cc9abe8cf8d734d88cd87755ecbb38829673c8e",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"person","sourceType":"varchar(10)","behavior":"Exact assessmentmaster.person equality across all sessions."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person is retained, but no selected or filtered field requires the person row; a matching master row can project even if person is absent.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code with no session restriction"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.asssession","sourceAlias":"考核期间","plannedModernField":"unresolvedLegacySessionText"},
+        {"ordinal":2,"sourceExpression":"assessmentmaster.grade","sourceAlias":"等级","plannedModernField":"unresolvedLegacyGrade"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考核项总分","plannedModernField":"sourceItemValue"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.mastervalue","sourceAlias":"主管附加分","plannedModernField":"sourceMasterValue"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.timekeepvalue","sourceAlias":"考勤加减分","plannedModernField":"sourceTimekeepValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.bonusvalue","sourceAlias":"奖惩加减分","plannedModernField":"sourceBonusValue"},
+        {"ordinal":7,"sourceExpression":"assessmentmaster.itemvalue + assessmentmaster.timekeepvalue + assessmentmaster.bonusvalue","sourceAlias":"最后评定分","plannedModernField":"legacyLastValueWithoutMaster"},
+        {"ordinal":8,"sourceExpression":"assessmentmaster.appraisal","sourceAlias":"评定","plannedModernField":"sourceAppraisal"}
+      ],
+      "calculationSemantics": [
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","expression":"itemvalue + timekeepvalue + bonusvalue","nullRule":"SQL arithmetic is null-propagating; any null operand makes the result null.","difference":"mastervalue is selected for display but is not included in the procedure's final-value expression."}
+      ],
+      "legacyDynamicSql": {
+        "mode": "raw_input_concatenation",
+        "concatenatedParameters": ["person"],
+        "mutation": "none",
+        "risk": "sql_injection_and_query_shape_manipulation",
+        "safeReplacement": "Resolve the authenticated self or authorized scoped employee and bind the source person code; never accept it as an authorization boundary."
+      },
+      "knownDifferences": [
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"pending explicit dual projection and conservation fixture"},
+        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"pending stable descending session order"}
+      ],
+      "sourceSchemaStatus": "dormant_schema_drift",
+      "missingSourceColumns": ["assessmentmaster.asssession", "assessmentmaster.grade"],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters self/history query expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["source schema-variant adjudication", "self-scope implementation", "nonzero-mastervalue conservation fixture", "employee-role desktop and 390px UAT"]
+    },
+    {
+      "routineId": "RULE-0ACE2D87C1774B3B",
+      "sourceName": "u_assessmentmaster",
+      "canonicalFamily": "u_assessmentmaster",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_u_assessmentmaster_sql",
+      "sourceArtifactSha256": "edc82c9a342bbc9276b163f265002d04bd3e4c9f9f267fbab1009d26e2327946",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"asssession","sourceType":"varchar(30)","behavior":"Exact equality against the legacy asssession text column."},
+        {"name":"assessmenttype","sourceType":"varchar(4)","behavior":"Exact equality against the legacy assessmenttype column."},
+        {"name":"department","sourceType":"varchar(30)","behavior":"Passed directly to LIKE; the procedure does not append a wildcard."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person by person code becomes effectively inner because person.department is constrained in WHERE.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.asssession = @asssession","behavior":"exact text session; column is absent from the bound current schema"},
+        {"sourceExpression":"assessmentmaster.assessmenttype = @assessmenttype","behavior":"exact assessment type; column is absent from the bound current schema"},
+        {"sourceExpression":"person.department LIKE @department","behavior":"caller controls exact or wildcard pattern; no wildcard is appended by the procedure"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.assid","sourceAlias":"assid","plannedModernField":"unresolvedLegacyAssessmentMasterId"},
+        {"ordinal":2,"sourceExpression":"assessmentmaster.person","sourceAlias":"员工编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":3,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.assgrade","sourceAlias":"考核等级","plannedModernField":"sourceAssGrade"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"项目总分","plannedModernField":"sourceItemValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.mastervalue","sourceAlias":"主管附加分","plannedModernField":"sourceMasterValue"},
+        {"ordinal":7,"sourceExpression":"assessmentmaster.timekeepvalue","sourceAlias":"考勤加减分","plannedModernField":"sourceTimekeepValue"},
+        {"ordinal":8,"sourceExpression":"assessmentmaster.bonusvalue","sourceAlias":"奖惩加减分","plannedModernField":"sourceBonusValue"},
+        {"ordinal":9,"sourceExpression":"assessmentmaster.appraisal","sourceAlias":"评语","plannedModernField":"sourceAppraisal"},
+        {"ordinal":10,"sourceExpression":"assessmentmaster.assessmentperson","sourceAlias":"考核人员","plannedModernField":"sourceAssessmentPerson"},
+        {"ordinal":11,"sourceExpression":"assessmentmaster.recdate","sourceAlias":"考核日期","plannedModernField":"sourceRecordedAt"},
+        {"ordinal":12,"sourceExpression":"assessmentmaster.operator","sourceAlias":"维护员","plannedModernField":"sourceOperatorCode"}
+      ],
+      "calculationSemantics": [],
+      "legacyDynamicSql": {
+        "mode": "static_parameter_binding",
+        "concatenatedParameters": [],
+        "mutation": "none",
+        "risk": "caller_supplied_like_pattern_requires_scope_separation",
+        "safeReplacement": "Bind all values and treat department only as a narrowing filter after server-derived scope; preserve caller-supplied wildcard semantics only in an explicit compatibility filter."
+      },
+      "knownDifferences": [
+        {"code":"CALLER_SUPPLIED_LIKE_PATTERN","sourceBehavior":"department is passed directly to LIKE without an appended wildcard","modernDecision":"pending explicit exact/prefix compatibility option"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"routine references assid, asssession, and assessmenttype","modernDecision":"pending catalog-backed version adjudication; do not guess aliases"}
+      ],
+      "sourceSchemaStatus": "dormant_schema_drift",
+      "missingSourceColumns": ["assessmentmaster.assid", "assessmentmaster.asssession", "assessmentmaster.assessmenttype"],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters query-filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["source schema-variant adjudication", "assessment type/session mapping", "modern output implementation", "permission and role UAT"]
+    },
+    {
+      "routineId": "RULE-58E6086521F8A03B",
+      "sourceName": "web_ass",
+      "canonicalFamily": "web_ass",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_web_ass_sql",
+      "sourceArtifactSha256": "0519e0941c405d98c76795cea378fe347a0dc7577fe9e79e68035761b3248933",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"person","sourceType":"varchar(10)","behavior":"Exact assessmentmaster.person equality."}
+      ],
+      "joinSemantics": "person LEFT OUTER JOIN assessmentmaster becomes effectively inner because assessmentmaster.person is constrained in WHERE.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code across all sessions"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.person","sourceAlias":"员工编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":2,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.selfgrade","sourceAlias":"自评等级","plannedModernField":"sourceSelfGrade"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.assgrade","sourceAlias":"考评等级","plannedModernField":"sourceAssGrade"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考评测评分","plannedModernField":"sourceItemValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.totalvalue","sourceAlias":"总评定分","plannedModernField":"sourceTotalValue"}
+      ],
+      "calculationSemantics": [],
+      "legacyDynamicSql": {
+        "mode": "static_parameter_binding",
+        "concatenatedParameters": [],
+        "mutation": "none",
+        "risk": "none_beyond_required_scope_and_result_projection",
+        "safeReplacement": "Bind the person identity after resolving server-side self or authorized employee scope."
+      },
+      "knownDifferences": [
+        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"pending stable descending session order"}
+      ],
+      "sourceSchemaStatus": "compatible",
+      "missingSourceColumns": [],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters self/history query expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["self-scope implementation", "modern output conservation fixture", "result visibility tests", "employee-role desktop and 390px UAT"]
+    },
+    {
+      "routineId": "RULE-E6282105617A7A50",
+      "sourceName": "web_assessmentquery",
+      "canonicalFamily": "web_assessmentquery",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_web_assessmentquery_sql",
+      "sourceArtifactSha256": "2ccc23b92971ea34dffb3e4cd6ef190b57e79192a38dc97900d434995ac88674",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"person","sourceType":"varchar(10)","behavior":"Exact assessmentmaster.person equality."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person becomes effectively inner for the requested person because assessmentmaster.person is constrained in WHERE; person.name can remain null if no person row exists.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code across all sessions"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.person","sourceAlias":"员工编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":2,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.selfgrade","sourceAlias":"自评等级","plannedModernField":"sourceSelfGrade"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.assgrade","sourceAlias":"考评等级","plannedModernField":"sourceAssGrade"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考评测评分","plannedModernField":"sourceItemValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.totalvalue","sourceAlias":"总评定分","plannedModernField":"sourceTotalValue"}
+      ],
+      "calculationSemantics": [],
+      "legacyDynamicSql": {
+        "mode": "raw_input_concatenation",
+        "concatenatedParameters": ["person"],
+        "mutation": "none",
+        "risk": "sql_injection_and_query_shape_manipulation",
+        "safeReplacement": "Bind the authorized source person code; this routine is output-equivalent to web_ass but its dynamic SQL must not be reproduced."
+      },
+      "knownDifferences": [
+        {"code":"DUPLICATE_OUTPUT_DIFFERENT_EXECUTION","sourceBehavior":"output and filter match web_ass, but this variant concatenates dynamic SQL","modernDecision":"pending one shared parameterized implementation with two traceable source identities"}
+      ],
+      "sourceSchemaStatus": "compatible",
+      "missingSourceColumns": [],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters self/history query expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["shared modern implementation", "source-identity trace test", "result visibility tests", "employee-role desktop and 390px UAT"]
+    },
+    {
+      "routineId": "RULE-0C4458064CE74646",
+      "sourceName": "web_assquery",
+      "canonicalFamily": "web_assquery",
+      "sourceArtifact": "SQL_STORED_PROCEDURE_web_assquery_sql",
+      "sourceArtifactSha256": "1c828ea8c8afec8238a5e2f35c59cb6d4b97c30305167e4805b82f0722afb27e",
+      "parityStatus": "pending",
+      "compatibilityCredit": 0,
+      "parameters": [
+        {"name":"person","sourceType":"varchar(30)","behavior":"Empty or null is replaced by percent wildcard; otherwise passed directly to LIKE."},
+        {"name":"asssession","sourceType":"varchar(30)","behavior":"Always overwritten with percent wildcard before query construction; caller input is ignored."},
+        {"name":"itemvalue1","sourceType":"float","behavior":"Inclusive lower bound on totalvalue."},
+        {"name":"itemvalue2","sourceType":"float","behavior":"Inclusive upper bound on totalvalue."},
+        {"name":"rightscope","sourceType":"varchar(31)","behavior":"Department prefix filter only; it must not become a modern authorization source."}
+      ],
+      "joinSemantics": "assessmentmaster LEFT JOIN person becomes effectively inner because person.department is constrained in WHERE.",
+      "filters": [
+        {"sourceExpression":"assessmentmaster.asssession LIKE '%'","behavior":"the input session is discarded and all sessions are selected; the referenced column is absent from the bound current schema"},
+        {"sourceExpression":"person.department LIKE @rightscope + '%'","behavior":"legacy department-prefix narrowing, not authorization"},
+        {"sourceExpression":"assessmentmaster.totalvalue >= @itemvalue1","behavior":"inclusive lower score"},
+        {"sourceExpression":"assessmentmaster.totalvalue <= @itemvalue2","behavior":"inclusive upper score"},
+        {"sourceExpression":"assessmentmaster.person LIKE @person","behavior":"caller-supplied LIKE pattern; empty or null becomes percent wildcard"}
+      ],
+      "outputColumns": [
+        {"ordinal":1,"sourceExpression":"assessmentmaster.person","sourceAlias":"员工编号","plannedModernField":"sourcePersonCode"},
+        {"ordinal":2,"sourceExpression":"person.name","sourceAlias":"姓名","plannedModernField":"employeeDisplayName"},
+        {"ordinal":3,"sourceExpression":"assessmentmaster.selfgrade","sourceAlias":"自评等级","plannedModernField":"sourceSelfGrade"},
+        {"ordinal":4,"sourceExpression":"assessmentmaster.assgrade","sourceAlias":"考评等级","plannedModernField":"sourceAssGrade"},
+        {"ordinal":5,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考评测评分","plannedModernField":"sourceItemValue"},
+        {"ordinal":6,"sourceExpression":"assessmentmaster.totalvalue","sourceAlias":"总评定分","plannedModernField":"sourceTotalValue"}
+      ],
+      "calculationSemantics": [],
+      "legacyDynamicSql": {
+        "mode": "raw_input_concatenation",
+        "concatenatedParameters": ["person", "itemvalue1", "itemvalue2", "rightscope"],
+        "discardedParameters": ["asssession"],
+        "mutation": "none",
+        "risk": "sql_injection_query_shape_manipulation_and_scope_confusion",
+        "safeReplacement": "Derive authorization scope on the server, bind optional person and score filters, and expose the ignored-session behavior only as an explicit legacy comparison mode."
+      },
+      "knownDifferences": [
+        {"code":"LEGACY_SESSION_PARAMETER_DISCARDED","sourceBehavior":"@asssession is unconditionally set to percent wildcard before the query","modernDecision":"pending approved difference: normal modern filtering should honor period while legacy comparison proves the old input had no effect"},
+        {"code":"RIGHTSCOPE_IS_NOT_AUTHORIZATION","sourceBehavior":"rightscope is concatenated as a department prefix","modernDecision":"server-derived park/team/self scope is mandatory; a department input can only narrow it"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+      ],
+      "sourceSchemaStatus": "dormant_schema_drift",
+      "missingSourceColumns": ["assessmentmaster.asssession"],
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters scoped filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
+      "missingEvidence": ["source schema-variant adjudication", "server-scope and filter implementation", "ignored-session differential fixture", "three-role desktop and 390px UAT"]
+    }
+  ],
+  "completionPolicy": {
+    "currentStatus": "IN_PROGRESS",
+    "verifiedRoutineCount": 0,
+    "pendingRoutineCount": 7,
+    "rule": "A routine remains pending until source-schema adjudication, parameterized modern implementation, exact output and difference fixtures, park/team/self permission negatives, required audit, conservation, and desktop plus 390px role UAT are all evidenced."
+  },
+  "nonClaims": {
+    "semanticInventoryIsFunctionalParity": "NOT_CLAIMED",
+    "dormantSchemaColumnsAreAliases": "NOT_CLAIMED",
+    "dynamicSqlWasCopied": "NOT_CLAIMED",
+    "compatibilityScoreIncrease": "ZERO",
+    "productionImport": "NOT_AUTHORIZED_BY_THIS_CONTRACT"
+  },
+  "productionImport": "HOLD"
+}
