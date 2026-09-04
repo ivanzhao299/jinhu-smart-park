@@ -72,6 +72,110 @@
   max-width: 100%;
 }
 
+.organizationTreePanel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.organizationTree {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.organizationTreeRoot,
+.organizationTreeBranch {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.organizationTreeBranch {
+  margin-block-start: 10px;
+  margin-inline-start: 30px;
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--border);
+}
+
+.organizationTreeItem,
+.organizationTreeCard {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.organizationTreeCard {
+  padding: 14px 16px;
+  overflow-wrap: anywhere;
+}
+
+.organizationTreeHeading {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.organizationTreeHeading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.organizationTreeHeading span,
+.organizationTreeMeta,
+.organizationTreeState {
+  color: var(--text-secondary);
+}
+
+.organizationTreeToggle {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--color-primary);
+  background: var(--bg-card);
+  cursor: pointer;
+}
+
+.organizationTreeToggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.organizationTreeLeaf {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+}
+
+.organizationTreeStatus {
+  white-space: nowrap;
+}
+
+.organizationTreeMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-block-start: 10px;
+  padding-inline-start: 42px;
+}
+
+.organizationTreeState {
+  margin: 0;
+  padding: 18px 0 4px;
+}
+
+.organizationTreeState p {
+  margin: 0 0 10px;
+}
+
 .hero {
   align-items: flex-end;
 }
@@ -654,6 +758,30 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .organizationTreeBranch {
+    margin-inline-start: 14px;
+    padding-inline-start: 8px;
+  }
+
+  .organizationTreeCard {
+    padding: 12px;
+  }
+
+  .organizationTreeHeading {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .organizationTreeStatus {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .organizationTreeMeta {
+    display: grid;
+    gap: 4px;
+    padding-inline-start: 42px;
   }
 
   .profileGroup {

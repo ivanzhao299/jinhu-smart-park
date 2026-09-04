@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_payroll_dynamic_routine_resolution",
+  "contractVersion": "u-inputjobpay-1.0.0",
+  "familyScope": "single_family_only",
+  "canonicalFamily": "u_inputjobpay",
+  "sourceBinding": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "sourceArtifactSha256": "3bcb2316b7bc062730413c824420552bafa74c9f6fbbc4ca522071ec4de22b0d"
+  },
+  "historicalVariants": [
+    {
+      "routineId": "RULE-0F29EAC0B4E0DC44",
+      "sourceName": "u_inputjobpay",
+      "sourceKind": "procedure",
+      "parameters": [
+        { "name": "salaryfilename", "sourceType": "varchar(30)", "modernBinding": "bookPeriod.legacySourceTable", "execution": "identifier_not_executed" },
+        { "name": "salaryitem", "sourceType": "varchar(30)", "modernBinding": "reviewedItemCode", "execution": "identifier_not_executed" },
+        { "name": "year", "sourceType": "integer", "modernBinding": "period.year", "execution": "exact_integer_filter" },
+        { "name": "month", "sourceType": "integer", "modernBinding": "period.month", "execution": "exact_integer_filter" }
+      ]
+    }
+  ],
+  "sourceContract": {
+    "readTables": ["person"],
+    "logicalReadField": "person._base2",
+    "reviewedCandidateField": "person.jobpay",
+    "correlationKey": "salary.person=person.person",
+    "periodPredicate": "salary.year=year_and_salary.month=month",
+    "dynamicWriteTarget": "reviewed_salary_table.reviewed_salary_item",
+    "nullContract": "missing_person_or_null_source_projects_null",
+    "roundingContract": "source_money_value_is_copied_without_intermediate_rounding",
+    "returnCode": 0
+  },
+  "modernContract": {
+    "candidateTargets": [
+      "hr_payroll_reconciliation_input.hr:岗位工资"
+    ],
+    "adapterPath": "apps/api/src/modules/hr/hr-payroll-person-job-routine-family.ts",
+    "adapterSymbol": "projectLegacyPersonJobPayInput",
+    "calculationPath": "HrPayrollHistoryService.simulateReconciliation",
+    "nullContract": "null_remains_null_and_cannot_be_silently_replaced_with_zero",
+    "roundingContract": "canonical_four_place_decimal_then_named_DSL_rounding",
+    "sideEffectContract": "candidate_input_only_no_legacy_or_online_payroll_mutation",
+    "dynamicSqlExecution": "FORBIDDEN"
+  },
+  "review": {
+    "status": "pending",
+    "gapCode": "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+    "reason": "person._base2 is absent from reviewed DDL, person.jobpay is only a name-based candidate, and no dedicated modern job-pay component is frozen into reconciliation input",
+    "requiredEvidence": "read-only catalog or application metadata proving person._base2 identity plus an approved modern job-pay component binding"
+  },
+  "productionImport": "HOLD"
+}

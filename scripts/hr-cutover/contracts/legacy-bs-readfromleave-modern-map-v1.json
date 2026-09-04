@@ -1,0 +1,79 @@
+{
+  "formatVersion": 1,
+  "mappingKind": "yuzhou_hr_bs_readfromleave_modern_equivalence",
+  "canonicalFamily": "bs_readfromLeave",
+  "familyScope": "single_family_only",
+  "sourceBinding": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+  },
+  "historicalVariants": [
+    {
+      "routineId": "RULE-A6D7E11BA9DEAEC2",
+      "sourceName": "bs_readfromLeave",
+      "kind": "procedure",
+      "sourceArtifactSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a",
+      "aliasesOrBackupsInLedger": []
+    }
+  ],
+  "sourceContract": {
+    "inputs": [
+      { "name": "d1", "type": "datetime", "nullBehavior": "comparison_unknown_yields_no_cursor_rows" },
+      { "name": "d2", "type": "datetime", "nullBehavior": "comparison_unknown_yields_no_cursor_rows" }
+    ],
+    "outputs": [
+      { "branch": "single_or_first_day", "shape": "timekeeprecord_insert", "durability": "durable_statement_side_effect" },
+      { "branch": "middle_day", "shape": "person_date_leave_hours_result_set", "durability": "not_persisted" },
+      { "branch": "final_day_after_first", "shape": "person_date_leave_hours_result_set", "durability": "not_persisted" }
+    ],
+    "readTables": ["leave", "timekeeprecord"],
+    "writeTables": ["timekeeprecord"],
+    "generatedObjects": ["cur"],
+    "calledRoutines": [],
+    "branches": [
+      "leave_starttime_in_inclusive_d1_d2_window",
+      "calendar_day_loop_inclusive_of_end_day",
+      "skip_when_exact_person_and_timekeepdate_exists",
+      "first_day_insert",
+      "middle_day_select_only",
+      "final_day_select_only"
+    ],
+    "dateSemantics": "naive_sql_server_datetime_and_calendar_day_datediff",
+    "roundingSemantics": "datediff_hour_counts_hour_boundaries_and_persists_numeric_18_2",
+    "nullSemantics": [
+      "null_d1_or_d2_selects_no_leave_rows",
+      "null_starttime_is_filtered_out",
+      "null_endtime_enters_no_day_loop",
+      "null_person_or_leave_value_can_reach_the_first_day_insert"
+    ],
+    "transaction": "no_explicit_transaction_partial_first_day_inserts_can_survive_later_failure",
+    "sideEffects": ["first_day_timekeeprecord_insert_only"],
+    "statusSemantics": "leave_state_is_not_read"
+  },
+  "modernContract": {
+    "requestType": "leave",
+    "stateGate": "only_approved_contributes_effective_minutes",
+    "dateSemantics": "Asia/Shanghai_calendar_days_with_09_00_to_17_00_work_window",
+    "precision": "whole_minutes_no_decimal_or_hour_boundary_rounding",
+    "projectionFields": ["leavePlannedMinutes", "leaveEffectiveMinutes", "leaveDayCount", "leaveMinutes"],
+    "readTables": ["hr_attendance_request", "hr_employee_attendance_daily_result"],
+    "writeTables": ["hr_attendance_calculation_version", "hr_employee_attendance_daily_result"],
+    "transaction": "one_recalculation_transaction_appends_one_immutable_daily_version",
+    "permissions": {
+      "requestRead": ["hr:attendance:read", "hr:attendance:team_read", "hr:attendance:self_read"],
+      "recalculate": ["hr:attendance:operate"]
+    },
+    "sideEffects": [
+      "approved_leave_minutes_are_recorded_in_daily_source_trace",
+      "hr_attendance_day_is_never_written",
+      "payroll_salary_and_employee_profile_are_never_written"
+    ]
+  },
+  "controlledModernizations": [
+    "replace_partial_first_day_insert_and_later_result_sets_with_complete_day_projection",
+    "require_approved_state_instead_of_ignoring_leave_state",
+    "replace_hour_boundary_rounding_with_exact_whole_minutes",
+    "append_versioned_daily_result_in_one_transaction_instead_of_partial_autocommit"
+  ],
+  "productionImport": "HOLD"
+}

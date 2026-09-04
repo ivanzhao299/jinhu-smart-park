@@ -26,7 +26,7 @@ const EXPECTED_TARGET_TABLES = {
 const EXPECTED_TARGET_TABLE_RULES = structuredClone(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.targetTableRules);
 const CANONICALIZATION_VERSION = "yuzhou-production-import-canonical-json-v1";
 const REQUIRED_APPROVAL_ROLES = ["hr_owner", "data_security_owner", "release_owner"];
-const T5_NONFILE_PLAN_KEYS = ["privateStageSha256", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "recordCount", "actorId"];
+const T5_NONFILE_PLAN_KEYS = ["privateStageSha256", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "t0DecisionArtifactSha256", "t0TargetIdentitySha256", "t0TargetScopeSha256", "recordCount", "actorId"];
 
 export class ProductionImportExecutionError extends Error {
   constructor(code, detail) {
@@ -103,7 +103,7 @@ function validateTargetScope(scope, code = "PRODUCTION_IMPORT_TARGET_SCOPE_INVAL
 
 function validateT5NonfilePlanBinding(value, triple) {
   exactKeys(value, T5_NONFILE_PLAN_KEYS, [], "PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "t5Nonfile");
-  for (const key of ["privateStageSha256", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256"]) assertSha(value[key], "PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", `t5Nonfile.${key}`);
+  for (const key of ["privateStageSha256", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "t0DecisionArtifactSha256", "t0TargetIdentitySha256", "t0TargetScopeSha256"]) assertSha(value[key], "PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", `t5Nonfile.${key}`);
   if (value.sourceSnapshotSha256 !== triple.sourceSnapshotHash) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 source snapshot differs from C/S/M");
   if (!Number.isSafeInteger(value.recordCount) || value.recordCount <= 0) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 record count invalid");
   if (!UUID.test(value.actorId ?? "")) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 audit actor invalid");
@@ -300,6 +300,7 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   if (plan.target.environment !== "production" || !SAFE_ALIAS.test(plan.target.alias ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target invalid");
   assertSha(plan.target.identitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target identity");
   validateTargetScope(plan.targetScope);
+  if (t5Nonfile && (t5Nonfile.t0TargetIdentitySha256 !== plan.target.identitySha256 || t5Nonfile.t0TargetScopeSha256 !== plan.targetScope.scopeSha256)) fail("PRODUCTION_IMPORT_T5_NONFILE_PLAN_INVALID", "T5 T0 decision target differs from sealed target");
   exactKeys(plan.window, ["startsAt", "endsAt"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "window");
   const windowStartsAt = Date.parse(plan.window.startsAt);
   const windowEndsAt = Date.parse(plan.window.endsAt);

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "2.0.0",
+  "status": "IN_PROGRESS",
+  "updatedAt": "2026-09-04",
+  "objective": "以玉舟 HR V10 真实 SQL Server、Windows 客户端和集团 Web 为兼容事实输入，重写企业级、独立可复用、全功能现代 HR 产品，并在完整功能等价后完成可审计、可回滚的历史数据生产导入。",
+  "definitionOfDone": {
+    "structure": "双源表、字段、关系及空对象全部具有稳定身份和经验证的现代处置结论",
+    "logic": "存储过程、函数、触发器及调用链逐项具有输入、输出、分支、副作用、权限、计算和现代等价证据",
+    "interaction": "Windows 客户端和集团 Web 的字段、动作、条件、角色、状态及报表在现代桌面和 390px 页面可运行",
+    "data": "宽表拆分、类型、空值、关系、行数和金额守恒均可自动验证，历史查询从新前端完整可达",
+    "production": "候选、合并、运行、备份、授权、一次导入、分域核对、权限负例、UAT 和逆序回滚证据全部绑定同一范围"
+  },
+  "scoringPolicy": {
+    "singleAdditiveScoreForbidden": true,
+    "inventoryDoesNotEarnFunctionalParity": true,
+    "syntheticEvidenceDoesNotEarnRuntimeParity": true,
+    "emptySourceObjectsRemainInDenominator": true,
+    "productionImport": "HOLD"
+  },
+  "executionModel": {
+    "activeSlotLimit": 4,
+    "rootIntegrationSlots": 1,
+    "workerSlots": 3,
+    "strategy": "rolling_file_ownership_isolated_slices",
+    "sharedEntryIntegration": "single_writer",
+    "sourceDatabase": "read_only",
+    "productionWriterConcurrency": 0
+  },
+  "forecast": {
+    "unit": "weeks_after_continuous_source_and_ui_access",
+    "optimistic": { "min": 14, "max": 20 },
+    "prudent": { "min": 26, "max": 40 },
+    "productionImportAfterAllGates": { "unit": "days", "min": 1, "max": 3 },
+    "assumptions": [
+      "真实 SQL Server 只读实例、完整例程源码及旧页面持续可访问",
+      "三个工作 Agent 与一个单线集成任务保持滚动占用且文件所有权互斥",
+      "HR 与薪酬业务复核能够及时处理无法由源码唯一判定的语义",
+      "隔离 PostgreSQL、API、浏览器及角色环境可重复使用",
+      "未新增当前分母之外的大型外部集成或隐藏报表范围"
+    ],
+    "reestimateTriggers": [
+      "任一里程碑出口通过",
+      "双源分母或例程调用图发生变化",
+      "连续五个切片的实际吞吐或返工率偏离当前区间",
+      "旧源、旧页面或生产目标连续不可用超过两个工作日"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "全景模型与原子账",
+      "calendarWindow": "第 1-2 周，之后持续增量维护",
+      "parallelWith": ["M1", "M2", "M3", "M4"],
+      "deliverables": ["双源表字段关系原子账", "例程调用图和空路径账", "页面菜单角色动作原子账", "逐项 gap receipt 与证据哈希"],
+      "exitCriteria": ["所有已知源对象进入分母且稳定身份无重复", "空表空字段无数据例程和未触发分支均未被忽略", "每项只有 mapped verified excluded-with-proof 或 explicit-gap 四类处置"]
+    },
+    {
+      "id": "M1",
+      "name": "人员组织任职合同主链",
+      "calendarWindow": "第 2-7 周",
+      "parallelWith": ["M2", "M3", "M4"],
+      "deliverables": ["组织岗位员工字典和自定义字段", "入转调离状态机和合同变更链", "源关系到现代存储 API 权限页面的闭环"],
+      "exitCriteria": ["字段关系状态和编号语义均通过源回执及行级守恒", "HR 负责人和员工三类角色正负向路径通过", "桌面与 390px 历史查询和业务动作均可达"]
+    },
+    {
+      "id": "M2",
+      "name": "专业业务域",
+      "calendarWindow": "第 3-10 周",
+      "parallelWith": ["M1", "M3", "M4"],
+      "deliverables": ["招聘考勤休假社保绩效培训奖惩领域模型", "例程族输入分支副作用权限和守恒映射", "跨域审批提醒和审计链"],
+      "exitCriteria": ["每个 canonical 例程族具备真实源身份与现代行为等价", "异常空值和无数据分支均有测试", "领域 API 页面权限和迁移回读形成闭环"]
+    },
+    {
+      "id": "M3",
+      "name": "薪酬计算与报表",
+      "calendarWindow": "第 3-12 周",
+      "parallelWith": ["M1", "M2", "M4"],
+      "deliverables": ["工资项账套公式税率舍入及期间版本模型", "旧动态宽表到规范化工资事实的完整映射", "受限 DSL 双轨计算金额守恒与报表口径"],
+      "exitCriteria": ["所有工资例程及动态字段逐项有真实源证据", "合成测试真实只读核对和隔离写入结果一致", "关账更正工资条字段权限和高数据量分页性能通过"]
+    },
+    {
+      "id": "M4",
+      "name": "双旧端页面与现代交互复现",
+      "calendarWindow": "第 2-14 周，随 M1-M3 同族完成",
+      "parallelWith": ["M1", "M2", "M3"],
+      "deliverables": ["Windows 客户端页面字段动作条件和角色矩阵", "集团 Web 菜单 ASP 页面 SQL 及报表布局映射", "现代桌面和移动页面真实角色运行证据"],
+      "exitCriteria": ["每个纳管入口绑定现代路由 API 存储权限和测试", "隐藏禁用空数据和越权路径均验证", "真实角色桌面与 390px UAT 通过"]
+    },
+    {
+      "id": "M5",
+      "name": "全域迁移与生产切换",
+      "calendarWindow": "第 15-20 周；稳妥情形顺延至第 26-40 周",
+      "dependsOn": ["M0", "M1", "M2", "M3", "M4"],
+      "deliverables": ["固定 C S M 的全域隔离 A B 演练", "分域回读行数金额关系和历史查询核对", "幂等重放备份恢复逆序回滚零残留", "固定目标的一次生产历史导入"],
+      "exitCriteria": ["候选合并运行提交和源目标身份全部一致", "预备份业务签署记录映射比例验证和一次执行授权有效", "导入后技术核对角色 UAT 和可恢复性通过"]
+    }
+  ],
+  "nextRollingSlices": [
+    "M0 继续补齐真实源例程调用及空路径回执",
+    "M1 完成 company 联系字段现代模型并等待旧页面语义与根组织合并回执",
+    "M2 以一个 canonical 例程族完成源身份到现代业务闭环",
+    "M3 先关闭基础工资与 salaryitems 第一条规则路径",
+    "M4 将首批客户端菜单静态原子账升级为真实页面运行证据",
+    "M5 只消费 M0-M4 已冻结项，不重复无变化的全量 A B"
+  ]
+}

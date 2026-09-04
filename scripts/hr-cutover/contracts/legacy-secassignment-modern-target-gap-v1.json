@@ -1,0 +1,91 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_secassignment_modern_target_gap",
+  "contractVersion": "2026-09-04.1",
+  "sourceSystem": "yuzhou-v10",
+  "scope": "person_secassignment_to_modern_employee_relationship",
+  "sourceRelation": {
+    "personSource": "person.secassignment",
+    "dictionarySource": "secassignmentcode.secassignment",
+    "structuralStatus": "business_key_integrity_probe_available",
+    "semanticStatus": "unproven"
+  },
+  "evidenceBindings": {
+    "sourceProbeContract": {
+      "path": "scripts/hr-cutover/contracts/legacy-secassignment-source-probe-v1.json",
+      "sha256": "cab78e573ae31b8f0aff0005b41c5d0c13e49a9fb3dcd461cfd4d4a6ad368772"
+    },
+    "sourceProbeImplementation": {
+      "path": "scripts/hr-cutover/legacy-secassignment-source-probe.mjs",
+      "sha256": "5359612df2669f4422ea9f01f0354a894821e52c8361f6b90c1c6bda72fb07eb"
+    },
+    "organizationPositionMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "sha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+    },
+    "productionTargetModel": {
+      "path": "scripts/hr-cutover/contracts/production-import-target-model-v1.json",
+      "sha256": "ad9f25e35100f3a98a5e8ede04d55d8e92f62c0c7220ba183950fd372d21a6c4"
+    },
+    "employeeFoundationMigration": {
+      "path": "database/migrations/000230_hr_employee_foundation.sql",
+      "sha256": "9041f56e6114bca535c23cd83fb88d31f579651d40b31bf975201ce8b06e5631"
+    },
+    "employmentHistoryMigration": {
+      "path": "database/migrations/000237_hr_employment_event_legacy_compatibility.sql",
+      "sha256": "c50dd0cb4e026ef6c3b13be6d3a7bbdce69ea810cb8b54131c46dcaedddc01cf"
+    }
+  },
+  "candidateTargets": [
+    {
+      "targetId": "employee_position_reference",
+      "targetTable": "hr_employee",
+      "targetLocators": ["hr_employee.position_id"],
+      "sourceAllowlist": ["dbo.person"],
+      "structuralCapacity": "single_nullable_position_reference",
+      "decision": "REJECT_UNPROVEN_MAPPING",
+      "reasonCode": "SINGULAR_POSITION_REFERENCE_CANNOT_ENCODE_UNPROVEN_SECONDARY_RELATION"
+    },
+    {
+      "targetId": "position_master",
+      "targetTable": "hr_position",
+      "targetLocators": ["hr_position.position_code", "hr_position.position_name", "hr_position.org_id"],
+      "sourceAllowlist": ["dbo.job"],
+      "structuralCapacity": "organization_bound_position_master",
+      "decision": "REJECT_UNPROVEN_MAPPING",
+      "reasonCode": "SOURCE_TABLE_NOT_ALLOWLISTED_AND_ORG_BINDING_MISSING"
+    },
+    {
+      "targetId": "employment_event_history",
+      "targetTable": "hr_employment_event",
+      "targetLocators": ["hr_employment_event.event_type", "hr_employment_event.effective_date", "hr_employment_event.before_snapshot", "hr_employment_event.after_snapshot"],
+      "sourceAllowlist": ["dbo.readjust"],
+      "structuralCapacity": "dated_before_after_employment_event",
+      "decision": "REJECT_UNPROVEN_MAPPING",
+      "reasonCode": "PRESENT_STATE_LABEL_HAS_NO_EVENT_IDENTITY_OR_EFFECTIVE_TIME"
+    }
+  ],
+  "explicitModernRelationTableStatus": "ABSENT_REVIEW_REQUIRED_IF_SCHEMA_CHANGES",
+  "uniqueGap": {
+    "code": "SECASSIGNMENT_MODERN_RELATION_CONTRACT_UNAPPROVED",
+    "requiredReviewedDecision": [
+      "source_semantic_classification",
+      "modern_target_relation_and_cardinality",
+      "effective_time_and_history_policy"
+    ],
+    "resolution": "approve_one_versioned_relation_contract_before_any_target_materialization"
+  },
+  "forbiddenAssumptions": [
+    "secassignment_is_a_position",
+    "secassignment_is_an_organization",
+    "secassignment_is_single_valued_for_modern_use",
+    "person_secassignment_is_a_dated_employment_event"
+  ],
+  "decision": "KEEP_PENDING",
+  "materialization": "BLOCKED",
+  "compatibilityCredit": 0,
+  "receiptPolicy": "source_and_target_hashes_schema_aggregates_statuses_and_gap_code_only",
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

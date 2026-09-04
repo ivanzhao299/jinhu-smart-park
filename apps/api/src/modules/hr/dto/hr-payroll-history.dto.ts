@@ -32,6 +32,11 @@ export class HrPayrollCatalogQueryDto {
   @IsOptional() @IsIn(["employee_unmapped","item_unmapped","formula_unsafe","period_invalid","amount_unbalanced","duplicate_source","other"]) case_type?:string;
 }
 
+export class HrPayrollTaxRuleQueryDto {
+  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+}
+
 export class HrPayrollReviewActionDto {
   @IsIn(["comment","resolve","reject"]) action!:string;
   @IsIn(["needs_follow_up","accepted_exception","mapping_confirmed","unsafe_rejected"]) decision!:string;

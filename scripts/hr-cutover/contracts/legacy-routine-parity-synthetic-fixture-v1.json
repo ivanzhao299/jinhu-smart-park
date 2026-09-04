@@ -1,0 +1,215 @@
+{
+  "fixtureKind": "yuzhou_hr_legacy_routine_parity_synthetic_fixture",
+  "fixtureOnly": true,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "synthetic_dual_surface_routine_ledger",
+    "routines": [
+      {
+        "routineId": "SYN-CLIENT-QUERY-001",
+        "canonicalFamily": "synthetic_employee_query",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "none"
+      },
+      {
+        "routineId": "SYN-WEB-TRIGGER-001",
+        "canonicalFamily": "synthetic_empty_state_trigger",
+        "sourceSurface": "yuzhou_v10_group_web_database",
+        "kind": "trigger",
+        "dynamicMutationStatus": "unknown_requires_review"
+      }
+    ]
+  },
+  "parityContract": {
+    "formatVersion": 1,
+    "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+    "contractVersion": "synthetic-1.0.0",
+    "sourceBinding": {
+      "routineLedgerSha256": "ba318213810fa6f8c2ce347a6ea90ab8177e94218e52eb69bab8334d5bf19301",
+      "sourceRoutineCount": 2,
+      "requiredSourceSurfaces": [
+        "yuzhou_v10_client_database",
+        "yuzhou_v10_group_web_database"
+      ]
+    },
+    "routines": [
+      {
+        "routineId": "SYN-CLIENT-QUERY-001",
+        "canonicalFamily": "synthetic_employee_query",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "sourceKind": "procedure",
+        "parityStatus": "verified",
+        "semantics": {
+          "parameterMappings": {
+            "applicability": "required",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_PARAMETER_PARITY",
+            "entries": [
+              {
+                "sourceParameter": "synthetic_scope",
+                "modernParameter": "scopeId",
+                "sourceType": "varchar",
+                "modernType": "uuid",
+                "transform": "synthetic_lookup",
+                "nullContract": "reject_null"
+              }
+            ],
+            "evidenceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "outputFieldMappings": {
+            "applicability": "required",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_OUTPUT_PARITY",
+            "entries": [
+              {
+                "sourceField": "synthetic_result",
+                "modernField": "resultCode",
+                "transform": "identity",
+                "nullContract": "preserve_null"
+              }
+            ],
+            "evidenceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "readMappings": {
+            "applicability": "required",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_READ_PARITY",
+            "entries": [
+              {
+                "sourceLocator": "synthetic_source.employee",
+                "modernLocator": "hr_employee",
+                "relationContract": "scope_bound_identity"
+              }
+            ],
+            "evidenceSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "writeMappings": {
+            "applicability": "not_applicable",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_READ_ONLY_ROUTINE",
+            "entries": [],
+            "evidenceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "transaction": {
+            "status": "verified",
+            "sourceBoundary": "statement_read_snapshot",
+            "modernBoundary": "service_read_transaction",
+            "rollbackBehavior": "no_mutation",
+            "evidenceSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          },
+          "nullSemantics": {
+            "applicability": "required",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_NULL_PARITY",
+            "entries": [
+              {
+                "sourceExpression": "synthetic_result_null",
+                "modernExpression": "resultCode_null",
+                "equivalenceRule": "null_is_not_empty_string"
+              }
+            ],
+            "evidenceSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          },
+          "roundingSemantics": {
+            "applicability": "not_applicable",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_NO_NUMERIC_OUTPUT",
+            "entries": [],
+            "evidenceSha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "stateSideEffects": {
+            "applicability": "not_applicable",
+            "status": "verified",
+            "decisionReason": "SYNTHETIC_QUERY_HAS_NO_STATE_EFFECT",
+            "entries": [],
+            "evidenceSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "dynamicSql": {
+            "status": "none",
+            "resolvedWriteTargets": [],
+            "evidenceSha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "dormantPaths": {
+            "sourceDataState": "populated",
+            "emptyInputCase": {
+              "status": "covered",
+              "evidenceSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+            },
+            "untriggeredBranchCase": {
+              "status": "covered",
+              "evidenceSha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "triggerFiringCase": {
+              "status": "not_applicable",
+              "evidenceSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        },
+        "modernTargets": {
+          "serviceSymbols": ["SyntheticHrService.query"],
+          "apiSymbols": ["GET /hr/synthetic-query"],
+          "pages": ["apps/web/app/hr/synthetic/page.tsx"]
+        },
+        "testEvidence": {
+          "positive": [{ "testId": "synthetic-positive", "evidenceSha256": "7777777777777777777777777777777777777777777777777777777777777777" }],
+          "negative": [{ "testId": "synthetic-negative", "evidenceSha256": "8888888888888888888888888888888888888888888888888888888888888888" }],
+          "permission": [{ "testId": "synthetic-permission", "evidenceSha256": "9999999999999999999999999999999999999999999999999999999999999999" }],
+          "conservation": [{ "testId": "synthetic-conservation", "evidenceSha256": "abababababababababababababababababababababababababababababababab" }]
+        },
+        "review": {
+          "status": "approved",
+          "evidenceSha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        }
+      },
+      {
+        "routineId": "SYN-WEB-TRIGGER-001",
+        "canonicalFamily": "synthetic_empty_state_trigger",
+        "sourceSurface": "yuzhou_v10_group_web_database",
+        "sourceKind": "trigger",
+        "parityStatus": "pending",
+        "semantics": {
+          "parameterMappings": { "applicability": "not_applicable", "status": "verified", "decisionReason": "TRIGGER_HAS_NO_PARAMETERS", "entries": [], "evidenceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+          "outputFieldMappings": { "applicability": "not_applicable", "status": "verified", "decisionReason": "TRIGGER_HAS_NO_DIRECT_OUTPUT", "entries": [], "evidenceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+          "readMappings": { "applicability": "required", "status": "pending", "decisionReason": "EMPTY_SOURCE_RELATION_REVIEW_PENDING", "entries": [], "evidenceSha256": null },
+          "writeMappings": { "applicability": "required", "status": "pending", "decisionReason": "DYNAMIC_WRITE_TARGET_PENDING", "entries": [], "evidenceSha256": null },
+          "transaction": { "status": "pending", "sourceBoundary": "legacy_trigger_transaction", "modernBoundary": "modern_service_transaction_pending", "rollbackBehavior": "pending_failure_path_fixture", "evidenceSha256": null },
+          "nullSemantics": { "applicability": "required", "status": "pending", "decisionReason": "EMPTY_SOURCE_NULL_PATH_PENDING", "entries": [], "evidenceSha256": null },
+          "roundingSemantics": { "applicability": "required", "status": "pending", "decisionReason": "DYNAMIC_EXPRESSION_REVIEW_PENDING", "entries": [], "evidenceSha256": null },
+          "stateSideEffects": { "applicability": "required", "status": "pending", "decisionReason": "TRIGGER_SIDE_EFFECT_REVIEW_PENDING", "entries": [], "evidenceSha256": null },
+          "dynamicSql": { "status": "unresolved", "resolvedWriteTargets": [], "evidenceSha256": null },
+          "dormantPaths": {
+            "sourceDataState": "empty",
+            "emptyInputCase": { "status": "pending", "evidenceSha256": null },
+            "untriggeredBranchCase": { "status": "pending", "evidenceSha256": null },
+            "triggerFiringCase": { "status": "pending", "evidenceSha256": null }
+          }
+        },
+        "modernTargets": {
+          "serviceSymbols": ["SyntheticHrService.triggerReplacementPending"],
+          "apiSymbols": ["POST /hr/synthetic-trigger-preview"],
+          "pages": ["apps/web/app/hr/synthetic-trigger/page.tsx"]
+        },
+        "testEvidence": {
+          "positive": [],
+          "negative": [],
+          "permission": [],
+          "conservation": []
+        },
+        "review": { "status": "pending", "evidenceSha256": null }
+      }
+    ],
+    "productionImport": "HOLD"
+  },
+  "expected": {
+    "status": "IN_PROGRESS",
+    "sourceRoutines": 2,
+    "verifiedRoutines": 1,
+    "pendingRoutines": 1,
+    "verifiedSemanticParityPercent": 50,
+    "reasonCodes": [
+      "ROUTINE_SEMANTIC_EVIDENCE_PENDING",
+      "DYNAMIC_SQL_MUTATION_REVIEW_PENDING"
+    ]
+  }
+}

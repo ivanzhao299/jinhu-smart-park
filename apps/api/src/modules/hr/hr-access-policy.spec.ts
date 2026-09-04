@@ -121,7 +121,8 @@ test("employee routes expose only the reviewed full, self, and manager permissio
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.profile),[
     HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ,
     HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ,
-    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ
+    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ,
+    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE
   ]);
   assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myProfile),[HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ]);
 });

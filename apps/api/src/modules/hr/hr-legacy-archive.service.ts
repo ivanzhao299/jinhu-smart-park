@@ -45,11 +45,17 @@ export class HrLegacyArchiveService {
       `SELECT archive.id,registry.owner_employee_id AS "employeeId",registry.mapping_status AS "mappingStatus",
         registry.source_system AS "sourceSystem",registry.source_table AS "sourceTable",registry.resolution_reason_code AS "resolutionReasonCode",
         archive.record_type AS "recordType",archive.occurred_on AS "occurredOn",archive.display_title AS "displayTitle",
-        archive.display_safe_projection AS "displaySafeProjection",archive.restricted_safe_projection AS "restrictedSafeProjection",
+        archive.display_safe_projection AS "displaySafeProjection",
+        archive.restricted_safe_projection||CASE WHEN source.record_payload IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('legacyFields',hr_legacy_archive_redact_source_fields(source.record_payload)) END AS "restrictedSafeProjection",
         archive.encrypted_source_object_ref IS NOT NULL AS "hasSensitiveSource"
        FROM hr_legacy_archive_record archive
        JOIN hr_legacy_identity_registry registry ON registry.id=archive.identity_registry_id
         AND registry.tenant_id=archive.tenant_id AND registry.park_id=archive.park_id AND registry.identity_kind='archive_record'
+       LEFT JOIN hr_legacy_archive_materialization_batch materialization ON materialization.id=registry.materialization_batch_id
+        AND materialization.tenant_id=registry.tenant_id AND materialization.park_id=registry.park_id
+       LEFT JOIN hr_legacy_t5_record source ON source.import_batch_id=materialization.source_t5_import_batch_id
+        AND source.tenant_id=registry.tenant_id AND source.park_id=registry.park_id
+        AND source.source_table=registry.source_table AND source.source_identity_sha256=registry.source_identity_sha256
        WHERE archive.tenant_id=$1 AND archive.park_id=$2 AND archive.id=$3 ${accessSql}`,
       params,
     ) as RawRow[];
@@ -73,8 +79,8 @@ export class HrLegacyArchiveService {
       [scope.tenantId,scope.parkId,id],
     ) as RawRow[];
     const canReadSensitive=this.has(actor,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SENSITIVE_READ);
-    await this.audit(scope,actor,"读取旧系统资料详情","/hr/legacy-archive/:id",access,1);
-    return {...this.project(rows[0],canReadSensitive),files:files.map(file=>this.projectFile(file,canReadSensitive))};
+    await this.audit(scope,actor,"读取旧系统资料详情","/hr/legacy-archive/:id",access,1,{bizId:id,includeLegacyProjection:canReadSensitive});
+    return {...this.project(rows[0],canReadSensitive,{includeRestricted:true}),files:files.map(file=>this.projectFile(file,canReadSensitive))};
   }
 
   private async listInternal(scope:TenantParkScope,actor:JwtPrincipal,query:HrLegacyArchiveQueryDto,unclaimedOnly:boolean):Promise<PaginatedResult<HrLegacyArchiveProjection>> {
@@ -96,7 +102,7 @@ export class HrLegacyArchiveService {
       `SELECT archive.id,registry.owner_employee_id AS "employeeId",registry.mapping_status AS "mappingStatus",
         registry.source_system AS "sourceSystem",registry.source_table AS "sourceTable",registry.resolution_reason_code AS "resolutionReasonCode",
         archive.record_type AS "recordType",archive.occurred_on AS "occurredOn",archive.display_title AS "displayTitle",
-        archive.display_safe_projection AS "displaySafeProjection",archive.restricted_safe_projection AS "restrictedSafeProjection",
+        archive.display_safe_projection AS "displaySafeProjection",
         archive.encrypted_source_object_ref IS NOT NULL AS "hasSensitiveSource",count(*) OVER() AS "totalCount"
        FROM hr_legacy_archive_record archive
        JOIN hr_legacy_identity_registry registry ON registry.id=archive.identity_registry_id
@@ -107,7 +113,7 @@ export class HrLegacyArchiveService {
       params,
     ) as RawRow[];
     const canReadSensitive=this.has(actor,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SENSITIVE_READ);
-    const items=rows.map(row=>this.project(row,canReadSensitive));
+    const items=rows.map(row=>this.project(row,canReadSensitive,{includeRestricted:false}));
     const total=rows[0]?Number(rows[0].totalCount):0;
     await this.audit(scope,actor,unclaimedOnly?"读取待认领旧档案":"读取旧系统资料",unclaimedOnly?"/hr/legacy-archive/unclaimed":"/hr/legacy-archive",access,items.length);
     return {items,total,page:query.page,page_size:query.page_size};
@@ -141,9 +147,9 @@ export class HrLegacyArchiveService {
     return "none";
   }
 
-  private project(row:RawRow,canReadSensitive:boolean):HrLegacyArchiveProjection {
+  private project(row:RawRow,canReadSensitive:boolean,{includeRestricted}:{includeRestricted:boolean}):HrLegacyArchiveProjection {
     const publicProjection=this.object(row.displaySafeProjection);
-    const restricted=canReadSensitive?this.object(row.restrictedSafeProjection):{};
+    const restricted=canReadSensitive&&includeRestricted?this.object(row.restrictedSafeProjection):{};
     const base:HrLegacyArchiveProjection={
       id:String(row.id),employeeId:row.employeeId?String(row.employeeId):null,mappingStatus:String(row.mappingStatus),
       recordType:String(row.recordType),occurredOn:row.occurredOn?String(row.occurredOn).slice(0,10):null,
@@ -159,8 +165,8 @@ export class HrLegacyArchiveService {
 
   private object(value:unknown):Record<string,unknown>{return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
   private has(actor:JwtPrincipal,permission:string){return Boolean(actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(permission));}
-  private async audit(scope:TenantParkScope,actor:JwtPrincipal,action:string,path:string,projection:ArchiveAccess,itemCount:number){
-    await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.legacy_archive",action,bizType:"hr_legacy_archive_record",path,fieldGroups:["identity","attachment"],projection:projection==="none"?"metadata":projection,itemCount});
+  private async audit(scope:TenantParkScope,actor:JwtPrincipal,action:string,path:string,projection:ArchiveAccess,itemCount:number,options:{bizId?:string;includeLegacyProjection?:boolean}={}){
+    await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.legacy_archive",action,bizType:"hr_legacy_archive_record",bizId:options.bizId,path,fieldGroups:options.includeLegacyProjection?["identity","attachment","legacy_projection"]:["identity","attachment"],projection:projection==="none"?"metadata":projection,itemCount});
   }
   private async auditedEmpty(scope:TenantParkScope,actor:JwtPrincipal,query:HrLegacyArchiveQueryDto,unclaimedOnly:boolean){
     await this.audit(scope,actor,unclaimedOnly?"读取待认领旧档案":"读取旧系统资料",unclaimedOnly?"/hr/legacy-archive/unclaimed":"/hr/legacy-archive","none",0);

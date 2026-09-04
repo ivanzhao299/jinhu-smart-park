@@ -1,0 +1,45 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_u_errandrecords_source_receipt_offline_gate",
+  "artifactKind": "yuzhou_hr_u_errandrecords_safe_source_receipt",
+  "operationMode": "read_only_aggregate",
+  "sourceObject": "dbo.errand",
+  "requiredCounts": [
+    "totalRows",
+    "matchedInnerJoinRows",
+    "missingPersonRows",
+    "missingDepartmentRows",
+    "omittedInnerJoinRows"
+  ],
+  "conservationRules": [
+    "omittedInnerJoinRows=missingPersonRows+missingDepartmentRows",
+    "totalRows=matchedInnerJoinRows+omittedInnerJoinRows"
+  ],
+  "requiredAuthority": {
+    "loginSucceeded": true,
+    "sysadmin": false,
+    "dbDatareader": true,
+    "viewDefinition": true,
+    "insert": false,
+    "update": false,
+    "delete": false,
+    "execute": false
+  },
+  "requiredSourceState": {
+    "readOnly": true
+  },
+  "timezoneEvidence": {
+    "metadataSource": "SYSDATETIMEOFFSET",
+    "interpretationStatus": "current_offset_only_requires_business_review",
+    "minimumUtcOffsetMinutes": -840,
+    "maximumUtcOffsetMinutes": 840,
+    "historicalTimezoneInferred": false
+  },
+  "outputPolicy": "aggregate_counts_types_authority_state_hashes_only",
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "liveSqlServerReceiptRequired": true,
+  "liveVerificationStatus": "GAP_LIVE_SQLSERVER_RECEIPT_NOT_BOUND",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

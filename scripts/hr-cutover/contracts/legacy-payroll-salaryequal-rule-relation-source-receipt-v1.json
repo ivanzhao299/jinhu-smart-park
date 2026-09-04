@@ -1,0 +1,69 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_payroll_salaryequal_rule_relation_source_receipt",
+  "contractVersion": "2026-09-04.1",
+  "scope": "salaryequal_rule_relation_source_identity",
+  "sourceEvidence": {
+    "payrollRuleContract": {
+      "path": "scripts/hr-cutover/contracts/legacy-payroll-rule-family-parity-v1.json",
+      "sha256": "84c78befc7c7b7efeba4fad0165381b263591c222e4560ccaa9d1c779167c72d"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    }
+  },
+  "sourceObject": {
+    "schema": "dbo",
+    "table": "salaryequal",
+    "staticObservedRows": 244,
+    "staticObservedRowsStatus": "non_authoritative_until_live_receipt",
+    "fields": [
+      {"name":"id","targetFields":["hr_payroll_formula_version.legacy_formula_id"]},
+      {"name":"scheme","targetFields":["hr_payroll_formula_version.book_id"]},
+      {"name":"itemname","targetFields":["hr_payroll_formula_version.item_version_id"]},
+      {"name":"expression","targetFields":["hr_payroll_formula_version.raw_expression","hr_payroll_formula_version.expression_hash","hr_payroll_formula_version.dsl_ast"]},
+      {"name":"cit","targetFields":["hr_payroll_formula_version.raw_condition","hr_payroll_formula_version.parse_status"]},
+      {"name":"myorder","targetFields":["hr_payroll_formula_version.calculation_order"]}
+    ]
+  },
+  "ruleRelation": {
+    "stableId": "SALARYEQUAL_RULE_RELATION_V1",
+    "mappingContractStatus": "verified_static_contract_only",
+    "sourceIdentityStatus": "pending",
+    "rowRelationParity": "pending"
+  },
+  "routineLedgerPolicy": {
+    "expectedDirectReaders": 0,
+    "expectedDirectWriters": 0,
+    "absenceDoesNotProveNoRuntimeUsage": true
+  },
+  "catalogPolicy": {
+    "metadata": "capture_exact_sql_type_length_precision_scale_nullability_and_computed_state",
+    "aggregate": "table_row_count_and_per_field_non_null_count_only",
+    "routineReferences": "anonymous_distinct_procedure_counts_from_resolved_catalog_dependencies_by_field_only",
+    "routineReferenceCoverage": "static_catalog_dependencies_only_dynamic_references_and_write_effects_excluded",
+    "routineBodiesRead": false,
+    "routineNamesReturned": false,
+    "routineBodiesReturned": false
+  },
+  "executionPolicy": {
+    "operationMode": "read_only_catalog_and_anonymous_aggregate",
+    "legacyRoutineExecution": "FORBIDDEN",
+    "legacyDynamicSqlExecution": "FORBIDDEN",
+    "sourceMutation": "FORBIDDEN"
+  },
+  "evidencePolicy": {
+    "staticEvidenceCompatibilityCredit": 0,
+    "syntheticEvidenceCompatibilityCredit": 0,
+    "liveCatalogCompatibilityCredit": 0,
+    "catalogDependenciesDoNotProveDynamicSqlOrWriteEffects": true,
+    "requiredDecision": "KEEP_PENDING"
+  },
+  "containsRuleExpressionContent": false,
+  "containsConditionContent": false,
+  "containsPayrollValues": false,
+  "containsPersonalData": false,
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

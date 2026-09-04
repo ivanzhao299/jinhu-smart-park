@@ -1,0 +1,110 @@
+{
+  "formatVersion": 1,
+  "mappingKind": "yuzhou_hr_u_errandrecords_modern_equivalence",
+  "canonicalFamily": "u_errandrecords",
+  "familyScope": "single_family_only",
+  "sourceBinding": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+  },
+  "historicalVariants": [
+    {
+      "routineId": "RULE-89960D3A0FC9C591",
+      "sourceName": "u_errandrecords",
+      "kind": "procedure",
+      "sourceArtifactSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a",
+      "structuralHash": "5d714beba35a689675b6f74af5ed54c3e878d5bc7f1a32b30dafbac3cd8a12ac",
+      "aliasesOrBackupsInLedger": []
+    }
+  ],
+  "safeStructuralEvidence": {
+    "parameters": [],
+    "readTables": ["departmentcode", "errand", "person"],
+    "writeTables": [],
+    "calledRoutines": [],
+    "outputFields": [
+      "departmentcode.departmentname",
+      "errand.person",
+      "person.name",
+      "errand.startdate",
+      "errand.enddate",
+      "errand.days"
+    ],
+    "joinPredicates": [
+      "errand.person=person.person",
+      "person.department=departmentcode.department"
+    ],
+    "statementProfile": {
+      "select": 1,
+      "insert": 0,
+      "update": 0,
+      "delete": 0
+    },
+    "branchSignals": [],
+    "dateArithmeticSignals": [],
+    "nullDefaultingSignals": [],
+    "roundingSignals": [],
+    "explicitTransaction": false,
+    "dynamicSql": false
+  },
+  "sourceContract": {
+    "capability": "unfiltered_business_trip_register_projection",
+    "inputs": [],
+    "outputs": [
+      { "sourceField": "departmentcode.departmentname", "sourceType": "varchar(40)", "nullable": false },
+      { "sourceField": "errand.person", "sourceType": "varchar(10)", "nullable": false },
+      { "sourceField": "person.name", "sourceType": "varchar(30)", "nullable": true },
+      { "sourceField": "errand.startdate", "sourceType": "smalldatetime", "nullable": false },
+      { "sourceField": "errand.enddate", "sourceType": "smalldatetime", "nullable": false },
+      { "sourceField": "errand.days", "sourceType": "int", "nullable": true }
+    ],
+    "readTables": ["departmentcode", "errand", "person"],
+    "writeTables": [],
+    "calledRoutines": [],
+    "joinSemantics": "both_equalities_are_required_and_unmatched_employee_or_department_rows_are_omitted",
+    "filterSemantics": "no_parameter_no_where_no_status_filter",
+    "orderingSemantics": "not_declared",
+    "dateSemantics": "naive_sql_server_smalldatetime_returned_without_conversion_or_arithmetic",
+    "nullSemantics": [
+      "nullable_person_name_is_returned_as_null",
+      "nullable_declared_days_is_returned_as_null",
+      "missing_person_or_department_join_omits_the_errand_row"
+    ],
+    "transaction": "read_only_single_select_without_explicit_transaction",
+    "sideEffects": []
+  },
+  "modernContract": {
+    "requestType": "business_trip",
+    "readTables": ["hr_attendance_request", "hr_employee", "sys_org"],
+    "writeTables": [],
+    "serviceSymbols": ["HrService.listAttendanceRequests", "HrService.detailAttendanceRequest"],
+    "apiSymbols": ["GET /hr/attendance/requests?type=business_trip", "GET /hr/attendance/requests/:id"],
+    "pages": ["apps/web/app/hr/attendance/HrAttendanceClient.tsx"],
+    "permissions": ["hr:attendance:read", "hr:attendance:team_read", "hr:attendance:self_read"],
+    "confirmedFieldMappings": [
+      { "sourceField": "departmentcode.departmentname", "modernField": "organizationName", "transform": "scoped_sys_org_display_name" },
+      { "sourceField": "errand.person", "modernField": "employeeCode", "transform": "legacy_employee_code_to_scoped_employee_identity" },
+      { "sourceField": "person.name", "modernField": "employeeName", "transform": "current_scoped_employee_display_name" },
+      { "sourceField": "errand.startdate", "modernField": "startAt", "transform": "Asia_Shanghai_local_datetime_to_timestamptz" },
+      { "sourceField": "errand.enddate", "modernField": "endAt", "transform": "Asia_Shanghai_local_datetime_to_timestamptz" },
+      { "sourceField": "errand.days", "modernField": "legacyDeclaredDays", "transform": "preserve_nullable_integer_without_recalculation" }
+    ],
+    "legacyStorageBinding": {
+      "migration": "database/migrations/000297_hr_attendance_business_trip_legacy_source.sql",
+      "sourceTable": "dbo.errand",
+      "sourceIdField": "legacySourceId",
+      "sourceIdentityField": "legacySourceIdentitySha256",
+      "sourceRowField": "legacySourceRowSha256",
+      "ordinaryWriteCanSetLegacyBinding": false
+    },
+    "unresolvedFieldMappings": [],
+    "unresolvedSemantics": [
+      "source_data_state_not_bound_to_a_current_safe_count_receipt",
+      "legacy_inner_join_omission_not_yet_rehearsed_against_scoped_employee_and_org_references",
+      "legacy_smalldatetime_timezone_interpretation_not_bound_to_a_reviewed_source_setting"
+    ]
+  },
+  "completionRule": "verified requires all six source output fields, both join omission rules, source data state, timezone interpretation, positive, negative, permission and read-only conservation evidence",
+  "parityStatus": "pending",
+  "productionImport": "HOLD"
+}

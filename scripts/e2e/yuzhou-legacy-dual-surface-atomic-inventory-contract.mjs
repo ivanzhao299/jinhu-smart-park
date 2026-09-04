@@ -13,7 +13,7 @@ const refreshShortcutAuthority=groupWeb=>{groupWeb.evidenceAuthority.shortcutIde
 
 test("client and Group Web atomic skeletons conserve every frozen source boundary",()=>{
   const result=buildDualSurfaceAtomicInventories(root,clientManifest,groupManifest);
-  assert.deepEqual(result.report.summary,{client:{total:3721,menuEntries:68,tables:162,fields:2364,rules:212,permissions:915},groupWeb:{total:417,menuEntries:231,sourcePaths:186,shortcutCrossReferences:15}});
+  assert.deepEqual(result.report.summary,{client:{total:3721,menuEntries:68,tables:162,fields:2364,rules:212,authorizationGrantEdges:915},groupWeb:{total:417,menuEntries:231,sourcePaths:186,shortcutCrossReferences:15}});
   assert.deepEqual(result.report.evidenceLevels,{TRAVERSED:0,DB:231,SOURCE:186,TARGET:0,INFERRED:68,MISSING:3653});
   assert.equal(result.groupWeb.crossReferences.every(row=>row.observationStatus==="pending"&&Object.values(row.coverage).every(value=>value===false)&&row.evidence.sha256.length===0),true);
   assert.equal(result.report.productionImport,"HOLD");

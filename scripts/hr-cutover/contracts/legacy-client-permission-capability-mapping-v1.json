@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_client_permission_capability_mapping",
+  "surface": "client",
+  "sourceInventorySha256": "7b63bfdb9f62123e03a867c32bb72bc531c45949cc63f99376f80ebb4c3687ee",
+  "sourceReceiptSha256": null,
+  "fixedDenominator": null,
+  "authorizationGrantEdges": {"observedRows":0,"expectedRows":915,"compatibilityCredit":0,"status":"SOURCE_RECEIPT_MISSING"},
+  "inputContract": {
+    "kind": "explicit_redacted_structural_authorization_export",
+    "stableIdentityFields": ["legacyUnitCode", "legacyDomain", "legacyResource", "legacyAction", "legacyScope"],
+    "forbiddenFields": ["username", "userId", "account", "accountId", "employeeId", "personId", "password", "credential", "token", "secret", "granted", "allowed", "assignedTo"],
+    "policy": "capability_semantics_only_no_user_grant_replication"
+  },
+  "status": "SOURCE_PERMISSION_RECEIPT_MISSING",
+  "summary": {"observedRows":0,"uniqueRows":0,"mappedRows":0,"retiredRows":0,"pendingRows":0,"missingRows":null},
+  "compatibilityCredit": {"numerator":0,"denominator":null},
+  "items": [],
+  "gaps": [{"code":"LEGACY_CLIENT_PERMISSION_SOURCE_RECEIPT_MISSING","expectedRows":null,"observedRows":0,"requiredInput":"readonly_permission_source_receipt"}],
+  "productionImport": "HOLD"
+}

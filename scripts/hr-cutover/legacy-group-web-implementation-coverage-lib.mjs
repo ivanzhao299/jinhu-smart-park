@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
@@ -253,7 +254,22 @@ const ITEM_RULE_PARITY = Object.freeze({
   }
 });
 
-const fileEvidence = (root, files) => files.length > 0 && files.every(file => existsSync(resolve(root, file)));
+export function evidenceFileAvailable(root, file) {
+  if (existsSync(resolve(root, file))) return true;
+  try {
+    const tracked = execFileSync(
+      "git",
+      ["-C", root, "ls-files", "-t", "--stage", "--", file],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    return /^S 100(?:644|755) [0-9a-f]{40,64} 0\t/u.test(tracked)
+      && tracked.endsWith(`\t${file}`);
+  } catch {
+    return false;
+  }
+}
+
+const fileEvidence = (root, files) => files.length > 0 && files.every(file => evidenceFileAvailable(root, file));
 
 function scoreRoute(root, route) {
   const evidence = ROUTE_EVIDENCE[route];

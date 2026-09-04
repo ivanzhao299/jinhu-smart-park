@@ -1,0 +1,165 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_modern_table_domain_map",
+  "mappingVersion": "1.0.0",
+  "groups": [
+    {
+      "domain": "organization_position",
+      "sourceTables": ["assignment", "company", "departmentcode", "job", "secassignmentcode", "station"],
+      "targetTables": ["sys_org", "hr_position"],
+      "strategy": "normalize_hierarchy_and_positions",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "employee_profile",
+      "sourceTables": ["comethough", "family", "his", "knowhow", "knowhowcode", "person", "room", "sfz", "ticket", "ticketcode"],
+      "targetTables": ["hr_employee", "hr_employee_profile", "hr_employee_family", "hr_employee_experience", "hr_employee_skill", "hr_employee_credential", "hr_employee_document"],
+      "strategy": "split_wide_employee_record",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "recruitment",
+      "sourceTables": ["accept", "release"],
+      "targetTables": ["hr_candidate", "hr_candidate_action", "hr_candidate_conversion", "hr_recruitment_requisition"],
+      "strategy": "normalize_candidate_lifecycle",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "employment_lifecycle",
+      "sourceTables": ["awaytypecode", "educode", "employcode", "jobstatecode", "maritalcode", "paygrade", "paywaycode", "persontypecode", "politicalcode", "racecode", "readjust", "readjustitem"],
+      "targetTables": ["hr_employment_event", "hr_job_change_application", "hr_departure_application", "hr_onboarding_application", "hr_probation_application", "hr_legacy_dictionary_item"],
+      "strategy": "normalize_events_snapshots_and_dictionaries",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "contract",
+      "sourceTables": ["compact", "compact_c", "compacttypecode"],
+      "targetTables": ["hr_contract", "hr_contract_change", "hr_contract_type", "hr_contract_legacy_evidence"],
+      "strategy": "normalize_contract_and_renewal_chain",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "payroll",
+      "sourceTables": ["salary01", "salary02", "salary03", "salary04", "salary05", "salary06", "salary07", "salary08", "salary09", "salary10", "salary11", "salary12", "salary13", "salary14", "salary15", "salary16", "salary17", "salary18", "salary19", "salary20", "salary21", "salary22", "salary23", "salary24", "salary25", "salary26", "salary27", "salary28", "salary29", "salary30", "salary31", "salary32", "salary33", "salary34", "salary35", "salarycount", "salaryequal", "salaryitems", "scheme", "schemes", "tax", "tmp_paycount", "web_tmp_paycount"],
+      "targetTables": ["hr_payroll_book", "hr_payroll_item_definition", "hr_payroll_item_version", "hr_payroll_formula_version", "hr_payroll_book_period", "hr_payroll_book_membership", "hr_payroll_tax_rule_version", "hr_payroll_legacy_batch", "hr_payroll_legacy_snapshot", "hr_payroll_legacy_snapshot_item"],
+      "strategy": "decompose_dynamic_salary_tables_to_period_item_facts",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "attendance_leave",
+      "sourceTables": ["attrecord", "classtype", "errand", "leave", "overtime", "timekeepapply", "timekeepclass", "timekeepitemcode", "timekeepperiod", "timekeeprecord", "timekeepset", "timekeepsubset", "timekeeptable", "timekeeptablecode", "yearleave"],
+      "targetTables": ["hr_attendance_import_batch", "hr_attendance_calendar_source", "hr_attendance_day", "hr_attendance_shift", "hr_employee_schedule", "hr_attendance_punch_event", "hr_attendance_request", "hr_attendance_period", "hr_attendance_month_summary"],
+      "strategy": "decompose_month_columns_to_daily_facts",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "insurance_welfare",
+      "sourceTables": ["insure_method", "person_insure", "weal", "wealcode"],
+      "targetTables": ["hr_insurance_policy", "hr_insurance_policy_item", "hr_employee_insurance_period", "hr_employee_insurance_item"],
+      "strategy": "decompose_monthly_wide_insurance_to_kind_items",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "performance",
+      "sourceTables": ["assessmentcode", "assessmentdetail", "assessmentmaster", "assgradecode", "assitem", "assitemgradedes", "assitemgroup", "asspay", "asssession", "asssour", "asssourperson"],
+      "targetTables": ["hr_performance_template", "hr_performance_template_version", "hr_performance_template_dimension", "hr_performance_review_cycle", "hr_performance_review_submission", "hr_performance_item", "hr_performance_appeal"],
+      "strategy": "normalize_scheme_item_source_and_result",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "training",
+      "sourceTables": ["course", "course_person", "coursecode", "jobtrain", "train", "trainhis"],
+      "targetTables": ["hr_training_course", "hr_training_course_version", "hr_training_plan", "hr_training_participant", "hr_training_position_requirement", "hr_training_action"],
+      "strategy": "normalize_course_plan_participant_and_history",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "reward_discipline",
+      "sourceTables": ["bonuscode", "bonusrecord"],
+      "targetTables": ["hr_reward_discipline_category", "hr_reward_discipline_category_version", "hr_reward_discipline_case", "hr_reward_discipline_action"],
+      "strategy": "normalize_category_case_and_action",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "piecework",
+      "sourceTables": ["piecerecord", "piecerecord_tmp", "product", "productdetail", "putin", "tmp_piececount", "wholesale", "wholesaleitem", "workprocedure", "workprocedureitem"],
+      "targetTables": ["hr_compensation_item", "hr_payslip_item", "hr_legacy_archive_record"],
+      "strategy": "preserve_and_design_piecework_extension",
+      "functionalStatus": "target_schema_required"
+    },
+    {
+      "domain": "reporting",
+      "sourceTables": ["histitle", "papersize", "reports", "reportsflt", "reportsfltsour", "templet", "ugraph"],
+      "targetTables": ["hr_legacy_archive_record"],
+      "strategy": "archive_legacy_report_definitions_and_rebuild_queries",
+      "functionalStatus": "target_schema_required"
+    },
+    {
+      "domain": "collaboration_records",
+      "sourceTables": ["docs", "everyday", "infonote", "institution", "makenote", "meetingrecord", "noticerecorde", "noticerecorde_to", "orgticket"],
+      "targetTables": ["hr_employee_document", "sys_file", "hr_legacy_file_logical_record", "hr_legacy_archive_record"],
+      "strategy": "normalize_owned_files_and_archive_general_records",
+      "functionalStatus": "partial_target_requires_field_review"
+    },
+    {
+      "domain": "authorization_audit",
+      "sourceTables": ["func", "logdata", "person_user", "person_user_item", "rights", "rightstemplet", "sysTab", "users"],
+      "targetTables": ["sys_user", "sys_role", "sys_permission", "sys_login_log", "sys_op_log", "hr_legacy_archive_record"],
+      "strategy": "translate_permissions_and_archive_audit_without_credentials",
+      "functionalStatus": "target_schema_required"
+    },
+    {
+      "domain": "custom_configuration",
+      "sourceTables": ["deflist6", "deflist7", "deflist8", "deflist9", "defs", "defs2", "defs3", "defs4", "defs5", "itemtype", "mysetting", "process", "sendway"],
+      "targetTables": ["hr_custom_field_definition", "hr_employee_custom_value", "hr_legacy_archive_record"],
+      "strategy": "materialize_custom_field_definitions_and_values",
+      "functionalStatus": "target_schema_required"
+    },
+    {
+      "domain": "technical_residue",
+      "sourceTables": ["dtproperties"],
+      "targetTables": ["hr_legacy_archive_record"],
+      "strategy": "decommission_after_structural_archive",
+      "functionalStatus": "decommission_after_archive"
+    }
+  ],
+  "decompositionRules": [
+    {"id": "department-code-hierarchy", "sourceTable": "departmentcode", "sourceColumnPattern": "^department$", "targetLocators": ["sys_org.org_code", "sys_org.parent_id"], "method": "code_length_3_6_9_12_to_explicit_parent"},
+    {"id": "person-wide-domain-split", "sourceTable": "person", "sourceColumnPattern": ".*", "targetLocators": ["hr_employee", "hr_employee_profile", "hr_employee_compensation", "hr_employee_insurance_period", "hr_employee_document"], "method": "semantic_field_group_split"},
+    {"id": "person-custom-fields", "sourceTable": "person", "sourceColumnPattern": "^def(?:[1-9]|1[1-5]|2[1-5])$", "targetLocators": ["hr_custom_field_definition", "hr_employee_custom_value"], "method": "wide_custom_columns_to_typed_rows"},
+    {"id": "attendance-days", "sourceTable": "timekeeptable", "sourceColumnPattern": "^date(?:[1-9]|[12][0-9]|3[01])$", "targetLocators": ["hr_attendance_day.attendance_date", "hr_attendance_day.legacy_symbol"], "method": "month_day_column_to_daily_row"},
+    {"id": "insurance-kinds", "sourceTable": "person_insure", "sourceColumnPattern": "^(?:base|oldage|remedy|losework|wound|bear|fund)(?:_[a-z]+)?$", "targetLocators": ["hr_employee_insurance_period", "hr_employee_insurance_item"], "method": "six_kind_wide_amounts_to_period_item_rows"},
+    {"id": "salary-dynamic-items", "sourceTablePattern": "^salary(?:0[1-9]|[12][0-9]|3[0-5])$", "sourceColumnPattern": "^(?:S|U|Q).+", "targetLocators": ["hr_payroll_legacy_snapshot_item.legacy_column_name", "hr_payroll_legacy_snapshot_item.decimal_value", "hr_payroll_legacy_snapshot_item.text_value", "hr_payroll_legacy_snapshot_item.date_value"], "method": "dynamic_salary_column_to_typed_item_row"},
+    {"id": "binary-object-extraction", "sourceTypePattern": "^(?:image|binary|varbinary)", "targetLocators": ["hr_legacy_file_blob_object", "hr_legacy_file_logical_record", "sys_file"], "method": "content_hash_deduplicated_object_storage"}
+  ],
+  "currentExtractionTables": [
+    "accept", "bonuscode", "bonusrecord", "compact", "compact_c", "compacttypecode", "course", "departmentcode", "docs", "family", "his", "insure_method", "job", "jobstatecode", "jobtrain", "knowhow", "person", "person_insure", "person_user", "person_user_item", "readjust", "readjustitem",
+    "salary01", "salary02", "salary03", "salary04", "salary05", "salary06", "salary07", "salary08", "salary09", "salary10", "salary11", "salary12", "salary13", "salary14", "salary15", "salary16", "salary17", "salary18", "salary19", "salary20", "salary21", "salary22", "salary23", "salary24", "salary25", "salary26", "salary27", "salary28", "salary29", "salary30", "salary31", "salary32", "salary33", "salary34", "salary35", "salarycount", "salaryequal", "salaryitems", "schemes", "tax", "ticket", "timekeeptable", "train", "trainhis"
+  ],
+  "currentExtractionOmissions": [
+    "departmentcode.realpersons", "departmentcode.rights",
+    "job.salarybase", "job.realpersons",
+    "person_insure.insureaccount", "person_insure.inpatient", "person_insure.hurt", "person_insure.insure", "person_insure.insure_e", "person_insure.insure_p", "person_insure.insure_pc", "person_insure.fundflag", "person_insure.oldageflag", "person_insure.woundflag", "person_insure.remedyflag", "person_insure.loseworkflag", "person_insure.bearflag"
+  ],
+  "currentArchiveSurfaceTables": ["accept", "bonuscode", "bonusrecord", "compact", "compact_c", "compacttypecode", "course", "family", "his", "jobstatecode", "jobtrain", "knowhow", "person", "person_user", "person_user_item", "readjust", "readjustitem", "ticket", "train", "trainhis"],
+  "implementedNormalizationRules": [
+    {"id": "t0-org-code", "sourceTable": "departmentcode", "sourceColumnPattern": "^(?:department|departmentname|rating|master|defpersons|tel|myorder|id)$", "targetLocators": ["sys_org"], "evidence": "scripts/extract-yuzhou-t0.sh"},
+    {"id": "t0-position", "sourceTable": "job", "sourceColumnPattern": "^(?:job|jobname|department|parentjob|upto|jobgrade|salarygrade|authority|qualify|respos|defpersons|manual|rating|myorder|id)$", "targetLocators": ["hr_position"], "evidence": "scripts/extract-yuzhou-t0.sh"},
+    {"id": "t0-employee", "sourceTable": "person", "sourceColumnPattern": "^(?:person|name|department|job|jobstate|persontype|injobdate|formaldate|awaydate)$", "targetLocators": ["hr_employee"], "evidence": "scripts/extract-yuzhou-t0.sh"},
+    {"id": "t5-employee-profile", "sourceTable": "person", "sourceColumnPattern": "^(?:idcard|sex|birthday|race|political|marital|addr|tel|handtel|email|edu|secedu|speciality|graduatescholl|graduatedate)$", "targetLocators": ["hr_employee_profile"], "evidence": "scripts/transform-yuzhou-t5-legacy-history.mjs"},
+    {"id": "t5-family", "sourceTable": "family", "sourceColumnPattern": ".*", "targetLocators": ["hr_employee_family"], "evidence": "scripts/transform-yuzhou-t5-legacy-history.mjs"},
+    {"id": "t5-skill", "sourceTable": "knowhow", "sourceColumnPattern": ".*", "targetLocators": ["hr_employee_skill"], "evidence": "scripts/transform-yuzhou-t5-legacy-history.mjs"},
+    {"id": "t5-credential", "sourceTable": "ticket", "sourceColumnPattern": ".*", "targetLocators": ["hr_employee_credential"], "evidence": "scripts/transform-yuzhou-t5-legacy-history.mjs"},
+    {"id": "t3-attendance-calendar", "sourceTable": "timekeeptable", "sourceColumnPattern": ".*", "targetLocators": ["hr_attendance_calendar_source", "hr_attendance_day"], "evidence": "scripts/transform-yuzhou-t3-attendance-insurance.mjs"},
+    {"id": "t3-insurance-policy", "sourceTable": "insure_method", "sourceColumnPattern": ".*", "targetLocators": ["hr_insurance_policy", "hr_insurance_policy_item"], "evidence": "scripts/transform-yuzhou-t3-attendance-insurance.mjs"},
+    {"id": "t3-insurance-month", "sourceTable": "person_insure", "sourceColumnPattern": "^(?:id|recyear|recmonth|person|base|base_(?:oldage|remedy|losework|fund|wound|bear)|(?:oldage|remedy|losework|fund|wound|bear)(?:_e|_p|_pc)?)$", "targetLocators": ["hr_employee_insurance_period", "hr_employee_insurance_item"], "evidence": "scripts/transform-yuzhou-t3-attendance-insurance.mjs"},
+    {"id": "t4-payroll-items", "sourceTable": "salaryitems", "sourceColumnPattern": "^(?:scheme|itemname|description|itemtype|datatype|addorsub|declen|myorder)$", "targetLocators": ["hr_payroll_item_definition", "hr_payroll_item_version"], "evidence": "scripts/sql/load-yuzhou-t4-payroll-history.sql"},
+    {"id": "t4-payroll-formula", "sourceTable": "salaryequal", "sourceColumnPattern": ".*", "targetLocators": ["hr_payroll_formula_version"], "evidence": "scripts/sql/load-yuzhou-t4-payroll-history.sql"},
+    {"id": "t4-payroll-close", "sourceTable": "salarycount", "sourceColumnPattern": ".*", "targetLocators": ["hr_payroll_book_period"], "evidence": "scripts/sql/load-yuzhou-t4-payroll-history.sql"},
+    {"id": "t4-payroll-membership", "sourceTable": "schemes", "sourceColumnPattern": ".*", "targetLocators": ["hr_payroll_book_membership"], "evidence": "scripts/sql/load-yuzhou-t4-payroll-history.sql"},
+    {"id": "t4-payroll-tax", "sourceTable": "tax", "sourceColumnPattern": ".*", "targetLocators": ["hr_payroll_tax_rule_version"], "evidence": "scripts/sql/load-yuzhou-t4-payroll-history.sql"},
+    {"id": "t4-payroll-period-employee", "sourceTablePattern": "^salary(?:0[1-9]|[12][0-9]|3[0-5])$", "sourceColumnPattern": "^(?:year|month|person)$", "targetLocators": ["hr_payroll_book_period", "hr_payroll_legacy_snapshot"], "evidence": "scripts/transform-yuzhou-t4-payroll-history.mjs"},
+    {"id": "t4-payroll-dynamic-item", "sourceTablePattern": "^salary(?:0[1-9]|[12][0-9]|3[0-5])$", "sourceColumnPattern": "^(?:S|U|Q).+", "targetLocators": ["hr_payroll_legacy_snapshot_item"], "evidence": "scripts/transform-yuzhou-t4-payroll-history.mjs"}
+  ],
+  "productionImport": "HOLD"
+}

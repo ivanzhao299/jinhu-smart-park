@@ -6,7 +6,7 @@
   "inventoryVersion": 1,
   "previousInventoryHash": null,
   "sourceContracts": [
-    {"path":"scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json","sha256":"596c56c85cc7cb84451d0a15d314dbc681ab3254add7c93545ec88a9a52cb5b6"},
+    {"path":"scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json","sha256":"e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd"},
     {"path":"scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json","sha256":"b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621"},
     {"path":"scripts/hr-cutover/contracts/legacy-group-web-shortcut-cross-reference-v1.json","sha256":"c8326ad75e81811eba11f08fc458715be65479786e0a020e03d66c67b5f95711"},
     {"path":"scripts/hr-cutover/contracts/legacy-web-entry-target-binding-v1.json","sha256":"ac1164055853cef37ba00ad68759ea0411ca4b7b8407619155ddfa5f819ca433"}

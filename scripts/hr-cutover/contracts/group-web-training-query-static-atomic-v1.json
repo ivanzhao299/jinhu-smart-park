@@ -1,0 +1,98 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_training_query_static_atomic_manifest",
+  "contractVersion": "training-query-static-atomic-1.0.0",
+  "candidateId": "GROUP-WEB-INTERACTION-128-TRAINING-QUERY",
+  "sourceBindings": {
+    "capabilityContract": {
+      "path": "scripts/hr-cutover/contracts/group-web-training-query-capability-v1.json",
+      "canonicalSha256": "17874f007b4192a38aa3f455f8f1b0ebb4cc70fa9420ff0c49a28848e29d7b59"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "routineId": "RULE-A2A639DDC9BC5AE9",
+      "routineCanonicalSha256": "c2955967ca8ae6f1705fcb882318a0e25c7d3f870c7d428afe6a057358fa0aa6"
+    },
+    "modernRuntimeTask": {
+      "path": "scripts/hr-cutover/contracts/group-web-training-query-modern-runtime-task-v1.json",
+      "canonicalSha256": "91c54741d3aa7c5b3221b5cf8326655410b201ddc7f829ccfa57937beb2bc644"
+    }
+  },
+  "legacyRoutine": {
+    "sourceName": "web_trainquery",
+    "sourceArtifactSha256": "4c6d090927d7fb39b8ebe9a5a1505f3bddd954e22d48b8cb026dfc9e8faee21c",
+    "structuralHash": "f275dc7bd5869028e15208f62328c0b26f811d4f3817cbb06f81348940f3f6d3",
+    "businessCapability": "query_or_report_projection",
+    "classificationEvidence": "table-dependency-and-name",
+    "parameters": ["date1:datetime", "date2:datetime", "rightscope:varchar(31)"],
+    "readTables": ["course", "departmentcode"],
+    "joinPredicates": ["course.department=departmentcode.department"],
+    "logicSignals": ["hierarchy_prefix_scope"],
+    "writeStatementCount": 0,
+    "personalDataTablesRead": false,
+    "associationStatus": "capability_name_and_domain_candidate_only"
+  },
+  "atomicInteractions": [
+    {
+      "id": "legacy_entry_128_resolved",
+      "evidenceClass": "hash_bound_static_page_definition",
+      "status": "STATIC_CONFIRMED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    },
+    {
+      "id": "legacy_filter_form_shape",
+      "evidenceClass": "hash_bound_static_page_structure",
+      "status": "STATIC_CONFIRMED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    },
+    {
+      "id": "legacy_web_trainquery_read_projection",
+      "evidenceClass": "hash_bound_routine_structure",
+      "status": "STATIC_CONFIRMED_NOT_PAGE_LINKED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    },
+    {
+      "id": "legacy_hierarchy_scope_signal",
+      "evidenceClass": "hash_bound_routine_logic_signal",
+      "status": "STATIC_CONFIRMED_NOT_BEHAVIOR_VERIFIED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    },
+    {
+      "id": "modern_training_plans_get_contract",
+      "evidenceClass": "source_bound_modern_route_contract",
+      "status": "STATIC_CONFIRMED_RUNTIME_NOT_EXECUTED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    },
+    {
+      "id": "modern_training_page_contract",
+      "evidenceClass": "source_bound_modern_page_contract",
+      "status": "STATIC_CONFIRMED_RUNTIME_NOT_EXECUTED",
+      "runtimeObserved": false,
+      "compatibilityScoreContribution": 0
+    }
+  ],
+  "staticEvidenceProgress": {"numerator": 6, "denominator": 6},
+  "runtimeEvidence": {
+    "status": "NOT_OBSERVED",
+    "missing": [
+      "legacy_entry_to_routine_invocation",
+      "authenticated_legacy_filter_submission",
+      "legacy_scoped_result_rendering",
+      "modern_api_and_browser_observations",
+      "legacy_to_modern_behavior_parity"
+    ]
+  },
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator": 0, "denominator": 186},
+    "legacyInteractionParity": {"numerator": 0, "denominator": 6}
+  },
+  "compatibilityScoreContribution": 0,
+  "personalDataObserved": false,
+  "credentialsUsed": false,
+  "productionImport": "HOLD"
+}

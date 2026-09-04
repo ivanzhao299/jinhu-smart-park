@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_organization_cross_layer",
+  "contractVersion": "2026-09-04.1",
+  "legacyEntry": {
+    "legacyId": 2,
+    "legacyUrl": "Organization/Orgchart/detail.asp?t=1",
+    "domain": "organization",
+    "ownership": "hr",
+    "targetRoute": "/hr/organization"
+  },
+  "expectedReadPermissions": {
+    "page": "hr:organization",
+    "treeApi": "system:org:list"
+  },
+  "sourceBindings": {
+    "legacyMapping": { "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json", "sha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd" },
+    "routePage": { "path": "apps/web/app/hr/organization/page.tsx", "sha256": "d49a28d0bafe470b04769022416759d6a6533ba4c7e4fb93677effe2849c0ea5" },
+    "pageClient": { "path": "apps/web/app/hr/organization/HrOrganizationClient.tsx", "sha256": "dd0cd6cdb80a7fba3474979db91edfd991d4e9791f4ec53c5bc45dcc1fd74876" },
+    "webApi": { "path": "apps/web/lib/hr-api.ts", "sha256": "c9cb4a0aa00e8c2916b1b9bfb7f42f52f0f32ac4917397df399ec35b8bc4828d" },
+    "treeController": { "path": "apps/api/src/modules/orgs/orgs.controller.ts", "sha256": "1ec0d333abac1bd9f9f7ac4b973274dd77572a7f645a0812e50c1119a1a2ae59" },
+    "treeService": { "path": "apps/api/src/modules/orgs/orgs.service.ts", "sha256": "651e15e6f83c66fa7b46cb749ea277bd7c1570900f25b284c59cebf18d03addd" },
+    "orgEntity": { "path": "apps/api/src/modules/orgs/entities/org.entity.ts", "sha256": "cc8be733de995308df1f973cf06b66cae276a8211e37903d504695d84279f0fc" },
+    "orgFoundationMigration": { "path": "database/migrations/000002_s1_system_foundation.sql", "sha256": "4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9" },
+    "orgHierarchyMigration": { "path": "database/migrations/000204_org_hierarchy_integrity.sql", "sha256": "93e1f86ef8f1ae54c2ae7797cd98efc94fc91d3506a541a1b10682f68090fccc" },
+    "systemPermissions": { "path": "packages/shared/src/index.ts", "sha256": "bab846a41d44165190fd0c3c3af2e6cd1f7dad03295eb227ea63336e50e1c35b" },
+    "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a" },
+    "hrResponsiveStyles": { "path": "apps/web/app/hr/hr-workbench.module.css", "sha256": "081719e7135ad3cd9397c056d665ca33ec4b32e0a9e50dbcaaeda30ea9bf6711" },
+    "designSystemStyles": { "path": "apps/web/app/globals.css", "sha256": "77e37571047a678d9f9bc414bcd6b7ae180a0a086b222edaf921def3b8fc7315" }
+  },
+  "requiredStaticLayers": [
+    "legacy_entry",
+    "modern_route",
+    "page_tree_api_binding",
+    "tree_controller",
+    "tree_service",
+    "storage_entity",
+    "storage_migrations",
+    "read_permissions",
+    "responsive_shell",
+    "organization_tree_390"
+  ],
+  "runtimeSurfaces": ["legacy_group_web", "modern_web_browser"],
+  "evidencePolicy": {
+    "sourcePayload": "hash_and_boolean_checks_only",
+    "organizationNameValues": "FORBIDDEN",
+    "personData": "FORBIDDEN",
+    "credentials": "FORBIDDEN",
+    "pageBody": "FORBIDDEN",
+    "screenshotBinary": "FORBIDDEN",
+    "staticCompatibilityCredit": 0,
+    "runtimeCompatibilityCreditWithoutEvidence": 0
+  },
+  "productionImport": "HOLD"
+}

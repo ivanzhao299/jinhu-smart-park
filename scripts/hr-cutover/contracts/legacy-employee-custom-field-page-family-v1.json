@@ -1,0 +1,112 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_employee_custom_field_page_family",
+  "familyId": "group-web-employee-custom-field-governance",
+  "status": "IN_PROGRESS",
+  "sourceSurface": "group_web",
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "sha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "sha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json",
+      "sha256": "d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0"
+    }
+  ],
+  "legacyNavigation": {
+    "parent": { "legacyId": 33, "name": "员工信息" },
+    "aliases": [
+      { "legacyId": 35, "parentId": 33, "name": "员工信息", "legacyUrl": "EMPLOYEE/INFORMATION/main.asp" },
+      { "legacyId": 262, "parentId": 35, "name": "在职员工", "legacyUrl": "employee/INFORMATION/main.asp" }
+    ],
+    "canonicalPageCount": 1,
+    "navigableAliasDenominator": 2,
+    "navigableAliasVerified": 2
+  },
+  "legacySourcePage": {
+    "fieldEvidenceSha256": "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622",
+    "traversedAspFiles": 6,
+    "forms": 4,
+    "controls": 65,
+    "requestKeys": 15,
+    "formActions": 1,
+    "stateTransitions": 6,
+    "granularInteractionDenominator": 6,
+    "granularInteractionVerified": 0,
+    "liveRuntimeTraversed": false,
+    "gapReasonCodes": [
+      "LEGACY_INTERACTION_LOCATORS_NOT_ENUMERATED",
+      "LEGACY_LIVE_RUNTIME_NOT_TRAVERSED",
+      "LEGACY_VISUAL_EQUIVALENCE_NOT_VERIFIED"
+    ]
+  },
+  "legacyFieldFamily": {
+    "definitionSource": "dbo.defs",
+    "valueSource": "dbo.person",
+    "customFieldDefinitions": 19,
+    "logicColumnsPerDefinition": 10,
+    "logicCellDenominator": 190,
+    "reviewedMappingCount": 19,
+    "runtimeValueRenderingVerified": 0
+  },
+  "modernSurface": {
+    "route": "/hr/employees/custom-fields",
+    "routeFile": "apps/web/app/hr/employees/custom-fields/page.tsx",
+    "clientFile": "apps/web/app/hr/employees/custom-fields/HrCustomFieldDefinitionsClient.tsx",
+    "apiClientFile": "apps/web/lib/hr-custom-field-api.ts",
+    "controllerFile": "apps/api/src/modules/hr/hr-custom-field-definition.controller.ts",
+    "serviceFile": "apps/api/src/modules/hr/hr-custom-field-definition.service.ts",
+    "permission": "hr:employee_profile:manage",
+    "apis": [
+      "GET /hr/custom-field-definitions/legacy",
+      "PUT /hr/custom-field-definitions/legacy/:id/review"
+    ],
+    "interactionIds": [
+      "list",
+      "filter_keyword",
+      "filter_classification",
+      "filter_review_status",
+      "filter_coverage_status",
+      "load_more",
+      "review_with_optimistic_version"
+    ],
+    "responsiveModes": ["desktop_table", "phone_390_cards"],
+    "acceptanceTests": {
+      "apiFile": "apps/api/src/modules/hr/hr-custom-field-definition.contract.spec.ts",
+      "webFile": "apps/web/app/hr/hr-custom-field-definitions.contract.spec.ts",
+      "positiveCaseIds": [
+        "safe_projection",
+        "desktop_and_phone_structure",
+        "optimistic_idempotent_review"
+      ],
+      "negativeCaseIds": [
+        "permission_denied",
+        "pending_and_rejected_fail_closed",
+        "raw_sql_and_fingerprint_hidden",
+        "free_text_reason_forbidden"
+      ]
+    },
+    "sensitiveProjection": "safe_metadata_only",
+    "rawLegacySqlVisible": false,
+    "legacySqlExecutable": false,
+    "visualEquivalenceClaimed": false
+  },
+  "acceptance": {
+    "sourceNavigation": { "denominator": 2, "verified": 2 },
+    "sourceInteractionParity": { "denominator": 6, "verified": 0 },
+    "modernRoutes": { "denominator": 1, "verified": 1 },
+    "modernApis": { "denominator": 2, "verified": 2 },
+    "modernPermissions": { "denominator": 2, "verified": 2 },
+    "modernInteractions": { "denominator": 7, "verified": 7 },
+    "responsiveStructures": { "denominator": 2, "verified": 2 },
+    "positiveNegativeTests": { "denominator": 7, "verified": 7 },
+    "endToEndLegacyInteractionParity": { "denominator": 6, "verified": 0 }
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

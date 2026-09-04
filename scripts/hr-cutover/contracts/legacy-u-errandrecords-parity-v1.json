@@ -1,0 +1,173 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "u-errandrecords-v1-pending",
+  "sourceBinding": {
+    "routineLedgerSha256": "943d7a5fd39ca8c22d31e64634e6866c3f785268a6794cb4b4d62beffe1135ec",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "routines": [
+    {
+      "routineId": "RULE-89960D3A0FC9C591",
+      "canonicalFamily": "u_errandrecords",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "pending",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_PROCEDURE_HAS_NO_PARAMETERS",
+          "entries": [],
+          "evidenceSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ALL_SIX_SOURCE_OUTPUTS_HAVE_EXPLICIT_STORAGE_OR_SCOPED_READ_PROJECTIONS",
+          "entries": [
+            {
+              "sourceField": "departmentcode.departmentname",
+              "modernField": "organizationName",
+              "transform": "scoped_sys_org_display_name",
+              "nullContract": "source_inner_join_requires_a_department_match"
+            },
+            {
+              "sourceField": "errand.person",
+              "modernField": "employeeCode",
+              "transform": "legacy_employee_code_to_scoped_employee_identity",
+              "nullContract": "source_and_modern_identity_are_required"
+            },
+            {
+              "sourceField": "person.name",
+              "modernField": "employeeName",
+              "transform": "scoped_employee_display_name",
+              "nullContract": "nullable_source_name_must_remain_nullable"
+            },
+            {
+              "sourceField": "errand.startdate",
+              "modernField": "startAt",
+              "transform": "Asia_Shanghai_local_datetime_to_timestamptz",
+              "nullContract": "source_and_modern_timed_request_require_a_start"
+            },
+            {
+              "sourceField": "errand.enddate",
+              "modernField": "endAt",
+              "transform": "Asia_Shanghai_local_datetime_to_timestamptz",
+              "nullContract": "source_and_modern_timed_request_require_an_end"
+            },
+            {
+              "sourceField": "errand.days",
+              "modernField": "legacyDeclaredDays",
+              "transform": "preserve_declared_integer_without_recalculation",
+              "nullContract": "nullable_source_value_must_remain_distinct_from_zero"
+            }
+          ],
+          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "SCOPED_EMPLOYEE_AND_ORGANIZATION_INNER_JOINS_EXIST_BUT_SOURCE_REFERENCE_REHEARSAL_IS_MISSING",
+          "entries": [
+            {
+              "sourceLocator": "errand",
+              "modernLocator": "hr_attendance_request",
+              "relationContract": "request_type_business_trip_with_scoped_employee_start_end_and_declared_days"
+            },
+            {
+              "sourceLocator": "person",
+              "modernLocator": "hr_employee",
+              "relationContract": "same_tenant_park_employee_identity_and_display_name"
+            },
+            {
+              "sourceLocator": "departmentcode",
+              "modernLocator": "sys_org",
+              "relationContract": "same_tenant_park_current_or_frozen_organization_display_name"
+            }
+          ],
+          "evidenceSha256": "8eb774455f0a1e783b8c7cf76d2e03da97899795fb26edcd6f2974df41a4eff7"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_ROUTINE_AND_MODERN_COMPATIBILITY_QUERY_ARE_READ_ONLY",
+          "entries": [],
+          "evidenceSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "single_read_only_select_without_explicit_transaction",
+          "modernBoundary": "single_scoped_read_query_without_business_state_mutation",
+          "rollbackBehavior": "no_business_state_exists_to_roll_back",
+          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "NULL_OUTPUTS_AND_INNER_JOIN_OMISSION_REQUIRE_SOURCE_COUNT_AND_REFERENCE_REHEARSAL",
+          "entries": [
+            {
+              "sourceExpression": "person.name_is_null",
+              "modernExpression": "employeeName_is_null",
+              "equivalenceRule": "do_not_coerce_a_missing_name_to_an_empty_string"
+            },
+            {
+              "sourceExpression": "errand.days_is_null",
+              "modernExpression": "legacyDeclaredDays_is_null",
+              "equivalenceRule": "preserve_null_separately_from_zero_and_derived_duration"
+            },
+            {
+              "sourceExpression": "person_or_department_join_is_missing",
+              "modernExpression": "employee_or_organization_reference_is_missing",
+              "equivalenceRule": "fail_closed_or_quarantine_without_inventing_a_reference"
+            }
+          ],
+          "evidenceSha256": "8eb774455f0a1e783b8c7cf76d2e03da97899795fb26edcd6f2974df41a4eff7"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_ROUTINE_PERFORMS_NO_ARITHMETIC_OR_ROUNDING",
+          "entries": [],
+          "evidenceSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a"
+        },
+        "stateSideEffects": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_STATEMENT_PROFILE_AND_MODERN_LIST_HAVE_ZERO_MUTATIONS",
+          "entries": [],
+          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a"
+        },
+        "dormantPaths": {
+          "sourceDataState": "unknown",
+          "emptyInputCase": { "status": "pending", "evidenceSha256": null },
+          "untriggeredBranchCase": { "status": "pending", "evidenceSha256": null },
+          "triggerFiringCase": { "status": "not_applicable", "evidenceSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a" }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrService.listAttendanceRequests", "HrService.detailAttendanceRequest"],
+        "apiSymbols": ["GET /hr/attendance/requests?type=business_trip", "GET /hr/attendance/requests/:id"],
+        "pages": ["apps/web/app/hr/attendance/HrAttendanceClient.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{ "testId": "u-errandrecords-storage-projection", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
+        "negative": [{ "testId": "u-errandrecords-missing-reference-fails-closed", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
+        "permission": [{ "testId": "u-errandrecords-exact-attendance-read-permission", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
+        "conservation": [{ "testId": "u-errandrecords-read-only-zero-mutation", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }]
+      },
+      "review": {
+        "status": "pending",
+        "evidenceSha256": "8eb774455f0a1e783b8c7cf76d2e03da97899795fb26edcd6f2974df41a4eff7"
+      }
+    }
+  ],
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,234 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_knowhow_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "sourceTable": "knowhow",
+  "sourceObject": "dbo.knowhow",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceAggregate": {
+    "observedRows": 6,
+    "fieldDenominator": 5,
+    "evidence": {
+      "path": "scripts/hr-cutover/t5-nonfile-stage-domain-items.mjs",
+      "sha256": "37c6a4a214b92d809d00a2e03315f8a76e1be3c2e4cf2701832c98f927b2cabd",
+      "requiredTokens": [
+        "knowhow:[\"skill\",\"dbo.knowhow\",6]"
+      ]
+    }
+  },
+  "denominatorRule": "all_five_catalog_fields_count_even_when_the_table_is_empty_or_every_source_value_is_null",
+  "rowHashRule": "all_five_fields_feed_sorted_key_canonical_source_row_sha256_with_explicit_nulls",
+  "fields": [
+    {
+      "stableId": "KNOWHOW_ID",
+      "sourceColumn": "id",
+      "disposition": "verified",
+      "targetFields": [
+        "hr_employee_skill.legacy_source_identity_sha256"
+      ],
+      "transformRule": "sha256_utf8_dbo_knowhow_nul_string_id",
+      "emptyRule": "reject_missing_stable_key",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "KNOWHOW_PERSON",
+      "sourceColumn": "person",
+      "disposition": "verified",
+      "targetFields": [
+        "hr_employee_skill.employee_id"
+      ],
+      "transformRule": "trim_then_resolve_active_t0_dbo_person_legacy_record_map_or_quarantine",
+      "emptyRule": "quarantine_employee_not_mapped",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "KNOWHOW_NAME",
+      "sourceColumn": "knowhow",
+      "disposition": "verified",
+      "targetFields": [
+        "hr_employee_skill.skill_name"
+      ],
+      "transformRule": "trim_to_required_string_or_quarantine_invalid_structured_value",
+      "emptyRule": "quarantine_invalid_structured_value",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "KNOWHOW_GRADE",
+      "sourceColumn": "grade",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_employee_skill.proficiency"
+      ],
+      "preservationFields": [
+        "hr_employee_skill.legacy_grade"
+      ],
+      "transformRule": "trim_to_legacy_grade_and_force_proficiency_null_pending_reviewed_dictionary",
+      "emptyRule": "preserve_null_without_gap",
+      "reasonCode": "SKILL_GRADE_DICTIONARY_UNREVIEWED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "KNOWHOW_MEMO",
+      "sourceColumn": "memo",
+      "disposition": "verified",
+      "targetFields": [
+        "hr_employee_skill.note"
+      ],
+      "transformRule": "trim_to_nullable_string",
+      "emptyRule": "write_null",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    }
+  ],
+  "explicitGaps": [
+    {
+      "stableId": "KNOWHOW_GRADE_TO_PROFICIENCY",
+      "sourceField": "knowhow.grade",
+      "intendedTargetField": "hr_employee_skill.proficiency",
+      "preservationField": "hr_employee_skill.legacy_grade",
+      "reasonCode": "SKILL_GRADE_DICTIONARY_UNREVIEWED",
+      "missingEvidence": [
+        "reviewed_knowhowcode_grade_dictionary",
+        "reviewed_grade_to_proficiency_crosswalk"
+      ],
+      "decision": "KEEP_GAP",
+      "compatibilityCredit": 0
+    }
+  ],
+  "sourceRelationEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "routineId": "RULE-8BE9321B3FBD7842",
+    "sourceName": "u_knowhowquery2003",
+    "sourceArtifactSha256": "fe5add3c4e502e357402c79be1af74f0e8e279edc2752b52bce963807de1118f",
+    "requiredReadTables": [
+      "knowhow",
+      "knowhowcode",
+      "person"
+    ],
+    "requiredJoinPredicates": [
+      "knowhow.knowhow=knowhowcode.knowhow",
+      "knowhow.person=person.person"
+    ]
+  },
+  "pipelineEvidence": [
+    {
+      "stage": "reviewed_mapping",
+      "path": "scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json",
+      "sha256": "d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0",
+      "requiredTokens": [
+        "\"knowhow\": \"skill_name\"",
+        "\"grade\": \"legacy_grade_gap\"",
+        "\"memo\": \"note\""
+      ]
+    },
+    {
+      "stage": "read_only_extract",
+      "path": "scripts/extract-yuzhou-t5-legacy-history.sh",
+      "sha256": "7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353",
+      "requiredTokens": [
+        "SELECT id,person,knowhow,grade,memo FROM dbo.knowhow ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES"
+      ]
+    },
+    {
+      "stage": "transform",
+      "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
+      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3",
+      "requiredTokens": [
+        "if(name===\"knowhow\")",
+        "skillName=text(row.knowhow)",
+        "return {kind:\"skill\"",
+        "proficiency:null",
+        "legacyGrade:text(row.grade)",
+        "note:text(row.memo)",
+        "sourceIdentitySha256:sha(`dbo.${table}\\0${key}`)",
+        "sourceRowSha256:sha(canonical(source))"
+      ]
+    },
+    {
+      "stage": "private_stage",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-stage-adapter.mjs",
+      "sha256": "904537d25e913b3eabf17f556aa045819d45f6dc3993ea6260b45b5fe46fa58d",
+      "requiredTokens": [
+        "sourceTable: \"dbo.knowhow\"",
+        "skill_name: row.materialized.skillName",
+        "legacy_grade: row.materialized.legacyGrade",
+        "note: row.materialized.note",
+        "expectedTargetTable: \"hr_employee\""
+      ]
+    },
+    {
+      "stage": "writer",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-writer.mjs",
+      "sha256": "15b0c64a922039c08a5760249a96d65c253b7da4cc539339f731c441f49edfab",
+      "requiredTokens": [
+        "hr_employee_skill",
+        "\"skill_name\", \"proficiency\", \"legacy_grade\", \"note\", \"legacy_source_identity_sha256\", \"legacy_source_row_sha256\"",
+        "map.target_table='hr_employee'",
+        "map.is_active=true"
+      ]
+    },
+    {
+      "stage": "rollback",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-rollback.mjs",
+      "sha256": "20a1277d4a15001ee0e88e72f7bc3114cd3ba5d01f5769e0469eb665aed0dbdf",
+      "requiredTokens": [
+        "hr_employee_skill",
+        "map.batch_id=$1::uuid",
+        "map.target_id=target.id",
+        "map.is_active=true"
+      ]
+    }
+  ],
+  "modernTargetEvidence": [
+    {
+      "surface": "base_migration",
+      "path": "database/migrations/000252_hr_lifecycle_employee_records.sql",
+      "sha256": "5094bab69db6d675f24fa3f5bc661ee2d44362474134e4ae220d8ee3e2ed5465",
+      "requiredTokens": [
+        "CREATE TABLE hr_employee_skill",
+        "employee_id uuid NOT NULL",
+        "skill_name varchar(160) NOT NULL",
+        "proficiency varchar(24)"
+      ]
+    },
+    {
+      "surface": "legacy_migration",
+      "path": "database/migrations/000276_hr_legacy_employee_profile_materialization.sql",
+      "sha256": "d49a1d0503d829b80d54799ec8ffc839eddcf76c8b48d447958f4f5f340391ef",
+      "requiredTokens": [
+        "ALTER TABLE hr_employee_skill",
+        "ADD COLUMN legacy_grade varchar(64)",
+        "ADD COLUMN note varchar(2000)",
+        "ADD COLUMN legacy_source_identity_sha256 char(64)",
+        "ADD COLUMN legacy_source_row_sha256 char(64)"
+      ]
+    },
+    {
+      "surface": "runtime_service",
+      "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
+      "sha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43",
+      "requiredTokens": [
+        "SELECT id,skill_name \"skillName\",proficiency,acquired_date \"acquiredDate\",note",
+        "legacy_grade \"legacyGrade\"",
+        "INSERT INTO hr_employee_skill"
+      ]
+    }
+  ],
+  "receiptPolicy": "field_metadata_stable_ids_hashes_and_aggregates_only",
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "compatibilityCredit": {
+    "numerator": 4,
+    "denominator": 5
+  },
+  "productionImport": "HOLD"
+}

@@ -49,7 +49,9 @@ query(){
   fi
   chmod 600 "$OUT/$name"
 }
-query catalog.raw.json "SET NOCOUNT ON; SELECT s.name [schema],t.name [table],p.rows [rows],JSON_QUERY((SELECT c.column_id,c.name,ty.name [type],c.max_length,c.is_nullable FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR JSON PATH,INCLUDE_NULL_VALUES)) columns FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN(0,1) WHERE t.name IN ('accept','family','his','knowhow','ticket','person','person_user','person_user_item','readjust','readjustitem','jobstatecode','compact','compact_c','compacttypecode','docs','course','train','trainhis','jobtrain','bonuscode','bonusrecord','jch_1') ORDER BY t.name FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query catalog.raw.json "SET NOCOUNT ON; SELECT s.name [schema],t.name [table],p.rows [rows],JSON_QUERY((SELECT c.column_id,c.name,ty.name [type],c.max_length,c.is_nullable FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR JSON PATH,INCLUDE_NULL_VALUES)) columns FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN(0,1) WHERE t.name IN ('accept','assignment','defs','family','his','knowhow','ticket','person','person_user','person_user_item','readjust','readjustitem','jobstatecode','compact','compact_c','compacttypecode','docs','course','train','trainhis','jobtrain','bonuscode','bonusrecord','jch_1') ORDER BY t.name FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query assignment.raw.json "SET NOCOUNT ON; SELECT assignment,assignmentname FROM dbo.assignment ORDER BY assignment FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query defs.raw.json "SET NOCOUNT ON; SELECT ID,def,description,datatype,groupid,groupname,myorder,description_d,sqltext,flag,crosssql,crosscolselectsql,crossrowselectsql,crosswhere,querywhere,ascount,ascount2 FROM dbo.defs WHERE def IN('def1','def2','def3','def4','def5','def6','def7','def8','def9','def11','def12','def13','def14','def15','def21','def22','def23','def24','def25') ORDER BY myorder,ID FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query accept.raw.json "SET NOCOUNT ON; SELECT id,person,name,sex,CONVERT(varchar(33),birthday,126) birthday,age,edu,speciality,graduatescholl,CONVERT(varchar(33),graduatedate,126) graduatedate,marital,race,idcard,oldaddr,addr,tel,handtel,email,department,job,heathy,CONVERT(varchar(40),nowpay) nowpay,CONVERT(varchar(40),needpay) needpay,english,comethough,family,relation,trainrecord,foraccept,bonusrecord,aboutperson,memo,releaseid,isbackupperson,CONVERT(varchar(40),hearttest) hearttest,heartmemo,CONVERT(varchar(40),knowledgetest) knowledgetest,knowledgememo,CONVERT(varchar(40),jobtest) jobtest,jobmemo,CONVERT(varchar(40),assignmenttest) assignmenttest,assignmentmemo,CONVERT(varchar(40),knowhowtest) knowhowtest,knowhowmemo,CONVERT(varchar(40),facetest) facetest,facememo,CONVERT(varchar(40),totaltest) totaltest,totaltestmemo,release,isemploy,height,weight FROM dbo.accept ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query family.raw.json "SET NOCOUNT ON; SELECT id,person,member,rela,CONVERT(varchar(33),birthday,126) birthday,jobunit,jobname,political,tel FROM dbo.family ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query his.raw.json "SET NOCOUNT ON; SELECT id,tableid,rowid,colid,vv FROM dbo.his ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
@@ -77,9 +79,10 @@ node "$ROOT_DIR/scripts/transform-yuzhou-t5-legacy-history.mjs" "$OUT"
 for raw_file in "$OUT"/*.raw.json; do
   [ -e "$raw_file" ] || continue
   # The catalog contains schema-only metadata that the loader recomputes as
-  # part of the T5 manifest contract. All row-value extracts are discarded;
-  # retaining this one non-sensitive source definition is required to verify
-  # the staged business hash before any target write.
+  # part of the T5 manifest contract. Raw row extracts are discarded after
+  # transform. The transform separately retains the exact dbo.defs rows in a
+  # mode-0600 private-only artifact so legacy expressions are reviewable but
+  # never executed, logged, or copied into public receipts.
   [ "$raw_file" = "$OUT/catalog.raw.json" ] && continue
   rm -f "$raw_file"
 done

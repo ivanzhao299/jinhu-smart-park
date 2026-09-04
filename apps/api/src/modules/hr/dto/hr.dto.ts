@@ -16,6 +16,14 @@ export class HrEmploymentEventStatisticsQueryDto {
  @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() from!:string;
  @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() to!:string;
 }
+export interface HrEmploymentEventResponseDto {
+ id:string;
+ eventNo:string|null;
+ eventType:string;
+ effectiveDate:string;
+ reason:string|null;
+ createTime:string;
+}
 export class HrContractListQueryDto {
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
@@ -93,9 +101,16 @@ export class HrContractChangeActionDto { @IsIn(["apply","cancel"]) action!:strin
 export class CreateHrPositionDto {
  @IsUUID() orgId!:string; @Transform(trim) @IsString() @MaxLength(64) positionCode!:string;
  @Transform(trim) @IsString() @MaxLength(100) positionName!:string;
+ @IsOptional() @IsUUID() reportsToPositionId?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) jobFamily?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) jobLevel?:string;
  @IsOptional() @IsInt() @Min(0) headcountLimit?:number;
+ @IsOptional() @IsInt() @Min(0) hierarchyLevel?:number;
+ @IsOptional() @IsInt() @Min(0) sortOrder?:number;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) authority?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) qualification?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) responsibilities?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(256) positionManual?:string;
  @IsOptional() @IsIn(["enabled","disabled"]) status?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }

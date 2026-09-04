@@ -1,0 +1,82 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_u_errandrecords_private_stage_prewrite",
+  "canonicalFamily": "u_errandrecords",
+  "phase": "T3",
+  "sourceBinding": {
+    "sourceReceiptKind": "yuzhou_hr_u_errandrecords_safe_source_receipt",
+    "sourceTable": "dbo.errand",
+    "mappingContractKind": "yuzhou_hr_u_errandrecords_modern_equivalence",
+    "requiresExactReceiptFileSha256": true,
+    "requiresExactCatalogSha256": true,
+    "requiresReadOnlyMinimumEtlAuthority": true
+  },
+  "privacyBoundary": {
+    "rawSourceRowForbidden": true,
+    "employeeCodeForbidden": true,
+    "employeeNameForbidden": true,
+    "departmentNameForbidden": true,
+    "credentialsForbidden": true,
+    "privateStageFileMode": "0600",
+    "exclusiveCreate": true
+  },
+  "scopeBinding": {
+    "requiredHashes": [
+      "tenantIdentitySha256",
+      "parkIdentitySha256",
+      "targetScopeSha256"
+    ],
+    "employeeDependencyPhase": "T0",
+    "employeeTargetTable": "hr_employee",
+    "organizationDependencyPhase": "T0",
+    "organizationTargetTable": "sys_org",
+    "employeePrimaryOrganizationMustEqualMappedOrganization": true
+  },
+  "timePolicy": {
+    "sourceSqlType": "smalldatetime",
+    "sourceTimezone": "Asia/Shanghai",
+    "sourceUtcOffsetMinutes": 480,
+    "minutePrecisionRequired": true,
+    "reviewedDecisionSha256Required": true,
+    "sourceReceiptCurrentOffsetIsNotHistoricalInterpretationProof": true
+  },
+  "target": {
+    "table": "hr_attendance_request",
+    "requestType": "business_trip",
+    "status": "approved",
+    "approvalRequestId": null,
+    "isHistoricalImport": true,
+    "legacySourceTable": "dbo.errand",
+    "legacyDeclaredDaysPolicy": "preserve_nullable_sql_integer_without_recalculation"
+  },
+  "idempotency": {
+    "sourceIdentityParts": [
+      "sourceCatalogSha256",
+      "dbo.errand",
+      "legacySourceId"
+    ],
+    "businessIdentityParts": [
+      "tenantIdentitySha256",
+      "parkIdentitySha256",
+      "sourceIdentitySha256"
+    ],
+    "sameIdentityAndSameRowHash": "replay",
+    "sameIdentityAndDifferentRowHash": "conflict",
+    "sameSourceIdAndDifferentIdentity": "conflict",
+    "softDeletedPriorMatch": "conflict"
+  },
+  "conservation": {
+    "inputRowsMustEqualSourceTotalRows": true,
+    "insertRowsMustEqualMatchedInnerJoinRows": true,
+    "missingPersonQuarantineMustEqualReceipt": true,
+    "missingDepartmentQuarantineMustEqualReceipt": true,
+    "insertPlusReplayPlusQuarantineMustEqualSourceTotalRows": true
+  },
+  "execution": {
+    "adapterMode": "in_memory_private_stage_only",
+    "prewriteMode": "no_database_connection_no_write",
+    "realSourceExtraction": "pending",
+    "scopedRehearsal": "pending",
+    "productionImport": "HOLD"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_secassignment_relationship_receipt",
+  "sourceSystem": "yuzhou-v10",
+  "personSource": "person.secassignment",
+  "dictionarySource": "secassignmentcode.secassignment",
+  "personSourceType": "varchar(50)",
+  "dictionarySourceType": "varchar(30)",
+  "structuralEvidence": {
+    "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+    "profileProjectionRoutineId": "RULE-E3B1314CFFD42847",
+    "profileProjectionRoutineSha256": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868",
+    "relationshipClassification": "business_key_name_candidate",
+    "relationshipReviewStatus": "candidate",
+    "profileProjectionReadsDictionary": false,
+    "profileProjectionJoinsRelationship": false,
+    "directOrganizationOrPositionRelationEvidence": false
+  },
+  "declaredForeignKeyRequiredForExactMapping": true,
+  "deployedRoutineJoinRequiredForExactMapping": true,
+  "aggregateFields": [
+    "dictionaryRows",
+    "dictionaryDistinctKeys",
+    "dictionaryBlankKeys",
+    "dictionaryDuplicateKeys",
+    "personNonBlankRows",
+    "personMatchedRows",
+    "personUnmatchedRows",
+    "personOverDictionaryWidthRows"
+  ],
+  "privacyPolicy": "aggregate_counts_only_no_person_values_or_identifiers",
+  "gap": {
+    "code": "SECASSIGNMENT_ORGANIZATION_SEMANTICS_UNPROVEN",
+    "missingEvidence": [
+      "reviewed_legacy_secassignment_semantic_definition",
+      "declared_foreign_key_or_reviewed_deployed_join",
+      "approved_modern_organization_or_position_target_binding"
+    ],
+    "materialization": "BLOCKED",
+    "compatibilityCredit": 0
+  },
+  "allowedDecision": "KEEP_PENDING",
+  "productionImport": "HOLD"
+}

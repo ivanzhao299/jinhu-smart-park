@@ -1,0 +1,36 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_employee_profile_physical_measurements_gap",
+  "sourceSystem": "yuzhou-v10",
+  "reviewedMappingContract": "scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json",
+  "reviewedMappingContractSha256": "d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0",
+  "fieldFamily": "physical_measurements",
+  "sourceFields": [
+    "person.stature",
+    "person.weight"
+  ],
+  "intendedTargetFields": [
+    "hr_employee_profile.height_cm",
+    "hr_employee_profile.weight_kg"
+  ],
+  "reviewStatus": "gap",
+  "reasonCode": "SOURCE_UNIT_SEMANTICS_UNCONFIRMED",
+  "stagedGapReasonCode": "UNKNOWN_FIELD_SEMANTICS",
+  "missingEvidence": [
+    "reviewed_source_unit_contract",
+    "reviewed_conversion_and_rounding_contract"
+  ],
+  "pipelineDisposition": {
+    "extract": "read_only_person_core_residue",
+    "transform": "redacted_gap_without_raw_value",
+    "privateStage": "field_family_forbidden",
+    "writer": "not_allowlisted",
+    "rollback": "hr_employee_profile_active_record_map_only"
+  },
+  "compatibilityCredit": 0,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "productionImport": "HOLD"
+}

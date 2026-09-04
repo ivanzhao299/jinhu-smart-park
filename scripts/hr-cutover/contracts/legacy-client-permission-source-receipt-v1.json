@@ -1,0 +1,10 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_client_permission_source_receipt",
+  "sourceTables": ["rights", "rightstemplet", "users"],
+  "expectedAuthorizationGrantEdges": 915,
+  "capabilityDenominatorPolicy": "distinct_union_of_rights_and_rightstemplet_unitcode_from_current_readonly_receipt",
+  "publicReceiptPolicy": "counts_and_collection_hashes_only_no_user_bound_rows",
+  "privateCapabilityExportFields": ["unitcode", "programgroup", "programunit", "grade", "authorise", "rightstates"],
+  "productionImport": "HOLD"
+}

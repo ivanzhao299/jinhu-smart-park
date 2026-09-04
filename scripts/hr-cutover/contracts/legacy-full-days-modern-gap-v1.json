@@ -1,0 +1,165 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_full_days_modern_behavior_gap",
+  "sourceSystem": "yuzhou-v10",
+  "routineFamily": "FullDays",
+  "routineId": "RULE-BD491199DA9913BE",
+  "sourceReceipt": {
+    "path": "scripts/hr-cutover/contracts/legacy-full-days-source-receipt-v1.json",
+    "sha256": "fd88b7ae675002638fbe1fc29aced7abd9be2d1d3fa5519f56c054ea460f48e7",
+    "expectedDecision": "KEEP_PENDING",
+    "expectedCompatibilityCredit": 0,
+    "expectedProductionImport": "HOLD"
+  },
+  "sourceManifest": {
+    "path": ".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/generated/legacy-manifest.json",
+    "sha256": "2fa1a1aaae47787ad9301a0fa21b1e71f039e20b507c3e6051a5c68f8d458ace",
+    "sourceArtifactPath": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_FullDays_sql",
+    "sourceArtifactBytes": 2143,
+    "sourceArtifactLines": 55,
+    "sourceBodyStatus": "hash_and_shape_only_body_not_committed"
+  },
+  "legacyStructuralEvidence": {
+    "parameters": [
+      ["year", "integer"],
+      ["month", "integer"],
+      ["person", "varchar(30)"]
+    ],
+    "readTables": ["person", "timekeeptable"],
+    "joinPredicates": ["person.tablename=timekeeptable.tablename"],
+    "calledRoutines": [],
+    "logicSignals": ["conditional_branch"],
+    "statementProfile": {
+      "select": 1,
+      "insert": 0,
+      "update": 0,
+      "delete": 0,
+      "merge": 0,
+      "alter": 0
+    },
+    "returnEvidence": "anonymous_return_signature_hash_only"
+  },
+  "modernEvidence": {
+    "tableDomainMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+    },
+    "routineCapabilityMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-routine-capability-map-v1.json",
+      "sha256": "7702c0673e1a6ce259861d2421ca04f5280a278c44310ede7af446c3ac03b789"
+    },
+    "implementationFiles": [
+      {
+        "role": "modern_leave_projection_helper",
+        "path": "apps/api/src/modules/hr/hr-leave-routine-equivalence.ts",
+        "sha256": "c85cbb305d0d354cd1bb6f0057332b0b1e268a9ee6e10b73da98e85d61b7cbf6"
+      },
+      {
+        "role": "modern_leave_projection_tests",
+        "path": "apps/api/src/modules/hr/hr-leave-routine-equivalence.spec.ts",
+        "sha256": "4c27198c2cc969ad63fd90e3752a4552b951927b2d4848f07351163f3eca91ca"
+      },
+      {
+        "role": "attendance_request_and_daily_calculation_service",
+        "path": "apps/api/src/modules/hr/hr.service.ts",
+        "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+      },
+      {
+        "role": "historical_calendar_day_schema",
+        "path": "database/migrations/000239_hr_attendance_insurance_history.sql",
+        "sha256": "23641dbb1b0c8b6d09411f1da81e4bb5f878735ad7b222432ad2ac18abd21aea"
+      },
+      {
+        "role": "online_attendance_request_schema",
+        "path": "database/migrations/000245_hr_attendance_requests.sql",
+        "sha256": "c425d7e2a76fc31ea639cd23d79c6673d66f7fc1371f86a2f5ac375c7efcbcd6"
+      },
+      {
+        "role": "online_schedule_and_daily_result_schema",
+        "path": "database/migrations/000246_hr_attendance_calculation_core.sql",
+        "sha256": "4e3a8ebe48cb84773c6f465fd5f925887ad720692f2ebcf12cce27c355f573cb"
+      },
+      {
+        "role": "monthly_close_schema",
+        "path": "database/migrations/000247_hr_attendance_month_close.sql",
+        "sha256": "e4540f4ce29a7377b171aa50eda1de4b7f8a4eaffa7823f94f18c6a6999e2ca5"
+      }
+    ],
+    "observedModernBehavior": {
+      "identity": "tenant_park_scoped_employee_uuid",
+      "requestDuration": "positive_whole_minutes_max_31_elapsed_days",
+      "leaveProjection": "asia_shanghai_fixed_09_00_to_17_00_overlap_by_calendar_date",
+      "effectiveLeave": "approved_leave_only",
+      "dailyCalculation": "schedule_punch_and_approved_request_sources_append_immutable_version",
+      "monthlyCalculation": "latest_daily_results_grouped_by_employee_inside_one_period_month",
+      "historicalCalendar": "timekeeptable_month_day_columns_normalized_to_calendar_source_and_day_rows"
+    }
+  },
+  "mapping": [
+    {
+      "legacyInput": "year + month",
+      "modernSurface": "hr_attendance_period.period_month and date-bounded daily facts",
+      "disposition": "shape_correspondence_only",
+      "gap": "legacy month validation boundary and return-period semantics unavailable"
+    },
+    {
+      "legacyInput": "person varchar(30)",
+      "modernSurface": "tenant/park-scoped hr_employee.id UUID",
+      "disposition": "requires_controlled_identity_map",
+      "gap": "legacy person token meaning and duplicate or missing-person behavior unavailable"
+    },
+    {
+      "legacyDependency": "person.tablename=timekeeptable.tablename",
+      "modernSurface": "historical hr_attendance_calendar_source/hr_attendance_day plus online employee schedule/request/daily result",
+      "disposition": "normalized_dependency_split_not_behavior_equivalence",
+      "gap": "legacy selected columns predicates aggregation and table-resolution behavior unavailable"
+    },
+    {
+      "legacyOutput": "scalar return signature hash only",
+      "modernSurface": "leave minutes leave work-window count daily results and monthly summaries",
+      "disposition": "no_direct_adapter",
+      "gap": "return type unit precision and meaning unavailable"
+    },
+    {
+      "legacyEdge": "null input or no matching person/timekeeptable rows",
+      "modernSurface": "leave helper returns empty segments and zero projected minutes for null or invalid instants",
+      "disposition": "explicit_non_equivalence_gap",
+      "gap": "legacy null and empty-set result unavailable"
+    },
+    {
+      "legacyEdge": "cross-month request against one year/month call",
+      "modernSurface": "request projection may cross dates for at most 31 elapsed days while month close remains period-bounded",
+      "disposition": "explicit_non_equivalence_gap",
+      "gap": "legacy clipping splitting and boundary inclusion unavailable"
+    }
+  ],
+  "behaviorEvidenceStatus": "unverified_source_body_unavailable",
+  "adapterDisposition": "not_created_no_legacy_oracle",
+  "modernHelperDisposition": "existing_helper_documented_not_promoted_to_full_days_equivalent",
+  "blockingGaps": [
+    "FULL_DAYS_SOURCE_BODY_NOT_COMMITTED",
+    "FULL_DAYS_RETURN_TYPE_UNIT_AND_PRECISION_UNAVAILABLE",
+    "FULL_DAYS_NULL_AND_NO_DATA_SEMANTICS_UNPROVEN",
+    "FULL_DAYS_PERSON_IDENTITY_AND_TABLE_RESOLUTION_UNPROVEN",
+    "FULL_DAYS_TIMEKEEPTABLE_COLUMNS_PREDICATES_AND_AGGREGATION_UNAVAILABLE",
+    "FULL_DAYS_CROSS_MONTH_BOUNDARY_SEMANTICS_UNPROVEN",
+    "FULL_DAYS_MODERN_FIXED_WORK_WINDOW_NOT_SCHEDULE_DRIVEN",
+    "FULL_DAYS_BOUNDED_SYNTHETIC_PARITY_ORACLE_UNAVAILABLE"
+  ],
+  "forbiddenAssumptions": [
+    "infer_calendar_day_count_from_function_name",
+    "invent_scalar_return_type_unit_or_rounding",
+    "treat_legacy_person_token_as_employee_uuid_or_employee_code",
+    "treat_tablename_join_as_modern_employee_relationship",
+    "assume_null_or_no_rows_returns_zero",
+    "assume_cross_month_clipping_or_splitting",
+    "treat_fixed_09_00_to_17_00_projection_as_historical_schedule",
+    "treat_schema_mapping_as_behavior_parity"
+  ],
+  "requiredDecision": "KEEP_GAP",
+  "compatibilityCredit": 0,
+  "legacyRoutineExecuted": false,
+  "legacyDynamicSqlExecuted": false,
+  "containsPersonalData": false,
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_u_inputjobpay_semantic_fixture",
+  "fixtureOnly": true,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_single_family_routine_ledger_fixture",
+    "routines": [
+      {
+        "routineId": "RULE-0F29EAC0B4E0DC44",
+        "canonicalFamily": "u_inputjobpay",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "unknown_requires_review",
+        "sourceArtifactSha256": "3bcb2316b7bc062730413c824420552bafa74c9f6fbbc4ca522071ec4de22b0d"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "positive-exact-job-pay",
+      "input": { "legacyPersonBase2": "456.7", "targetYear": 2026, "targetMonth": 9 },
+      "expected": { "modernInputCode": "hr:岗位工资", "value": "456.7000", "returnCode": 0 }
+    },
+    {
+      "testId": "rounding-at-formula-consumer",
+      "input": { "legacyPersonBase2": "456.7000", "formula": "[人事系统.岗位工资] / 6" },
+      "expected": { "value": "76.1167", "rounding": "half_away_from_zero_at_four_places" }
+    },
+    {
+      "testId": "null-person-or-value",
+      "input": { "legacyPersonBase2": null },
+      "expected": { "value": null, "fallbackApplied": false, "writeCount": 0 }
+    },
+    {
+      "testId": "invalid-money-fails-closed",
+      "input": { "legacyPersonBase2": "1.00001" },
+      "expected": { "errorCode": "PAYROLL_FORMULA_UNSAFE", "writeCount": 0 }
+    },
+    {
+      "testId": "out-of-period-no-side-effect",
+      "input": { "legacyPersonBase2": "456.7", "sourceYear": 2026, "sourceMonth": 8, "targetYear": 2026, "targetMonth": 9 },
+      "expected": { "projectedRows": 0, "writeCount": 0 }
+    }
+  ],
+  "dynamicSqlBodyIncluded": false,
+  "dynamicSqlExecution": "FORBIDDEN",
+  "sourceIdentityGap": "stored procedure references person._base2 while the reviewed table DDL exposes person.jobpay and no alias or computed-column proof is present",
+  "productionImport": "HOLD"
+}

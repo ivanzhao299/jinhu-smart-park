@@ -30,8 +30,8 @@ export function verifyLegacyDualSourceReconciliation(contract) {
   exact(contract.sources, ["desktopClient", "groupWeb"], "sources");
   const desktop = contract.sources.desktopClient;
   exact(desktop, ["sourceId", "systemSurface", "databaseRole", "catalog", "employees"], "sources.desktopClient");
-  exact(desktop.catalog, ["tables", "fields", "rules", "helpTopics", "authorizationRows"], "sources.desktopClient.catalog");
-  if (desktop.sourceId !== "yuzhou_desktop_client_salary" || desktop.systemSurface !== "windows_desktop_client" || desktop.databaseRole !== "client_and_payroll_history" || desktop.employees !== 2949 || JSON.stringify(desktop.catalog) !== JSON.stringify({ tables: 162, fields: 2364, rules: 212, helpTopics: 46, authorizationRows: 915 })) fail("DESKTOP_SOURCE_BASELINE_INVALID", "sources.desktopClient");
+  exact(desktop.catalog, ["tables", "fields", "rules", "helpTopics", "authorizationGrantEdges"], "sources.desktopClient.catalog");
+  if (desktop.sourceId !== "yuzhou_desktop_client_salary" || desktop.systemSurface !== "windows_desktop_client" || desktop.databaseRole !== "client_and_payroll_history" || desktop.employees !== 2949 || JSON.stringify(desktop.catalog) !== JSON.stringify({ tables: 162, fields: 2364, rules: 212, helpTopics: 46, authorizationGrantEdges: 915 })) fail("DESKTOP_SOURCE_BASELINE_INVALID", "sources.desktopClient");
 
   const web = contract.sources.groupWeb;
   exact(web, ["sourceId", "systemSurface", "databaseRole", "catalog", "employees"], "sources.groupWeb");

@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_u_errandrecords_semantic_fixture",
+  "fixtureOnly": true,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_single_family_routine_ledger_fixture",
+    "routines": [
+      {
+        "routineId": "RULE-89960D3A0FC9C591",
+        "canonicalFamily": "u_errandrecords",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "none",
+        "sourceArtifactSha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "positive-projection-shape",
+      "sourceShape": ["departmentName", "employeeCode", "employeeName", "startAt", "endAt", "declaredDays"],
+      "modernShape": ["organizationName", "employeeCode", "employeeName", "startAt", "endAt", "legacyDeclaredDays"],
+      "expectedReasonCodes": []
+    },
+    {
+      "testId": "negative-unmatched-join",
+      "sourceRule": "unmatched_person_or_department_is_omitted",
+      "modernEvidenceStatus": "pending"
+    },
+    {
+      "testId": "permission-fail-closed",
+      "permissions": ["hr:attendance:request"],
+      "expected": { "items": [], "total": 0, "writeCount": 0 }
+    },
+    {
+      "testId": "read-only-conservation",
+      "sourceStatementProfile": { "select": 1, "insert": 0, "update": 0, "delete": 0 },
+      "expectedModernMutationCount": 0
+    }
+  ],
+  "sourceDataState": "unknown",
+  "unknownSourceStateBlocksVerifiedParity": true,
+  "containsBusinessValues": false,
+  "productionImport": "HOLD"
+}

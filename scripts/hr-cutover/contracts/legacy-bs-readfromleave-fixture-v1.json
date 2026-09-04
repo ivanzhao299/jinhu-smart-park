@@ -1,0 +1,49 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_bs_readfromleave_semantic_fixture",
+  "fixtureOnly": true,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_single_family_routine_ledger_fixture",
+    "routines": [
+      {
+        "routineId": "RULE-A6D7E11BA9DEAEC2",
+        "canonicalFamily": "bs_readfromLeave",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "none",
+        "sourceArtifactSha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "positive-multi-day",
+      "input": { "startAt": "2026-09-01T10:00:00+08:00", "endAt": "2026-09-03T15:00:00+08:00", "status": "approved" },
+      "expected": { "branches": ["first_insert", "middle_select", "final_select"], "legacyHours": [7, 8, 6], "modernMinutes": [420, 480, 360], "effectiveMinutes": 1260 }
+    },
+    {
+      "testId": "negative-invalid-range",
+      "input": { "startAt": "2026-09-01T17:00:00+08:00", "endAt": "2026-09-01T08:00:00+08:00", "status": "approved" },
+      "expected": { "branches": [], "modernMinutes": [], "effectiveMinutes": 0 }
+    },
+    {
+      "testId": "empty-null-input",
+      "input": { "startAt": null, "endAt": null, "status": "approved" },
+      "expected": { "branches": [], "modernMinutes": [], "effectiveMinutes": 0 }
+    },
+    {
+      "testId": "permission-fail-closed",
+      "input": { "permissions": ["hr:attendance:request"], "requestType": "leave" },
+      "expected": { "items": [], "total": 0, "writeCount": 0 }
+    },
+    {
+      "testId": "conservation-state-gate",
+      "input": { "startAt": "2026-09-01T08:00:00+08:00", "endAt": "2026-09-01T12:00:00+08:00", "status": "submitted" },
+      "expected": { "plannedMinutes": 180, "effectiveMinutes": 0, "approvedEffectiveMinutes": 180 }
+    }
+  ],
+  "sourceDataState": "empty",
+  "emptySourceStillRequiresExecutableFixture": true,
+  "productionImport": "HOLD"
+}

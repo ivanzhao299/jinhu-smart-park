@@ -1,0 +1,79 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_company_department_root_merge_receipt",
+  "sourceSystem": "yuzhou-v10",
+  "scope": "company_to_existing_department_root_one_to_one_merge",
+  "sourceIdentities": [
+    { "table": "company", "keyColumn": "id", "matchColumn": "company" },
+    { "table": "departmentcode", "keyColumn": "department", "matchColumn": "departmentname" }
+  ],
+  "rootRule": {
+    "classification": "no_shorter_department_code_prefix_parent",
+    "sourceTable": "departmentcode",
+    "sourceKeyColumn": "department"
+  },
+  "matchRule": {
+    "classification": "trimmed_case_folded_exact_name_candidate",
+    "left": "company.company",
+    "right": "departmentcode.departmentname",
+    "valuesMayAppearInReceipt": false
+  },
+  "evidenceBindings": {
+    "companyRootFieldReceipt": {
+      "path": "scripts/hr-cutover/contracts/legacy-company-root-field-receipt-v1.json",
+      "sha256": "e2d055de2033da92de22445f23d85f6568aa2cfa0457520bd01b7b6e680f466e",
+      "requiredContractKind": "yuzhou_hr_legacy_company_root_field_receipt",
+      "requiredDecision": "KEEP_PENDING"
+    },
+    "organizationPositionMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "sha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19",
+      "requiredInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c"
+    },
+    "currentHierarchyMaterializer": {
+      "path": "scripts/hr-cutover/materialize-production-t0-decision-candidates.mjs",
+      "sha256": "0f397275f9975e8287e089d042e8c5413cebd28fc528a5c9fa6399866a3e874d",
+      "requiredTokens": [
+        "candidateCode.length < code.length && code.startsWith(candidateCode)",
+        "derivedField, targetId",
+        "parent_id"
+      ]
+    }
+  },
+  "aggregateFields": [
+    "companyRows",
+    "departmentRows",
+    "departmentRootRows",
+    "companyBlankIdRows",
+    "companyDistinctIdRows",
+    "companyDuplicateIdGroups",
+    "companyBlankMatchKeyRows",
+    "companyDistinctMatchKeyRows",
+    "companyDuplicateMatchKeyGroups",
+    "departmentBlankKeyRows",
+    "departmentDistinctKeyRows",
+    "departmentDuplicateKeyGroups",
+    "departmentRootBlankMatchKeyRows",
+    "departmentRootDistinctMatchKeyRows",
+    "departmentRootDuplicateMatchKeyGroups",
+    "matchedPairRows",
+    "companyZeroMatchRows",
+    "companyUniqueMatchRows",
+    "companyMultipleMatchRows",
+    "departmentRootZeroMatchRows",
+    "departmentRootUniqueMatchRows",
+    "departmentRootMultipleMatchRows"
+  ],
+  "allowedDecisions": [
+    "MERGE_ONE_TO_ONE_READY",
+    "HOLD_EMPTY_TABLE",
+    "HOLD_INVALID_OR_DUPLICATE_SOURCE_KEY",
+    "HOLD_ZERO_MATCH",
+    "HOLD_MULTIPLE_MATCH",
+    "HOLD_NON_BIJECTIVE_MATCH"
+  ],
+  "privacyPolicy": "table_column_identity_anonymous_counts_deidentified_match_counts_and_sha256_only",
+  "materialization": "NOT_EXECUTED",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

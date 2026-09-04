@@ -6,7 +6,7 @@ const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const SAFE_REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$/u;
-const TARGET_TABLES = Object.freeze(["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"]);
+const TARGET_TABLES = Object.freeze(["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential", "hr_custom_field_definition", "hr_custom_field_legacy_logic_fingerprint", "hr_employee_custom_value"]);
 
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
@@ -32,8 +32,8 @@ function validateTriple(value) {
 }
 
 function validateReceipt(value, triple) {
-  exactKeys(value, ["formatVersion", "artifactKind", "phase", "triple", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "privateStageSha256", "recordCount", "targetTableCounts", "productionImport"], "T5_BINDING_REQUEST_RECEIPT");
-  if (value.formatVersion !== 1 || value.artifactKind !== "yuzhou_hr_production_import_t5_nonfile_private_stage_receipt" || value.phase !== "T5" || value.productionImport !== "HOLD" || JSON.stringify(value.triple) !== JSON.stringify(triple) || value.sourceSnapshotSha256 !== triple.sourceSnapshotHash || !SHA256.test(value.sourceRestoreReceiptSha256 ?? "") || !SHA256.test(value.sourceBusinessSha256 ?? "") || !SHA256.test(value.privateStageSha256 ?? "") || !Number.isSafeInteger(value.recordCount) || value.recordCount <= 0) fail("T5_BINDING_REQUEST_RECEIPT_INVALID");
+  exactKeys(value, ["formatVersion", "artifactKind", "phase", "triple", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceBusinessSha256", "mappingContractSha256", "t0DecisionArtifactSha256", "t0TargetIdentitySha256", "t0TargetScopeSha256", "privateStageSha256", "recordCount", "targetTableCounts", "productionImport"], "T5_BINDING_REQUEST_RECEIPT");
+  if (value.formatVersion !== 1 || value.artifactKind !== "yuzhou_hr_production_import_t5_nonfile_private_stage_receipt" || value.phase !== "T5" || value.productionImport !== "HOLD" || JSON.stringify(value.triple) !== JSON.stringify(triple) || value.sourceSnapshotSha256 !== triple.sourceSnapshotHash || value.mappingContractSha256 !== triple.mappingContractHash || !SHA256.test(value.sourceRestoreReceiptSha256 ?? "") || !SHA256.test(value.sourceBusinessSha256 ?? "") || !SHA256.test(value.t0DecisionArtifactSha256 ?? "") || !SHA256.test(value.t0TargetIdentitySha256 ?? "") || !SHA256.test(value.t0TargetScopeSha256 ?? "") || !SHA256.test(value.privateStageSha256 ?? "") || !Number.isSafeInteger(value.recordCount) || value.recordCount <= 0) fail("T5_BINDING_REQUEST_RECEIPT_INVALID");
   if (!object(value.targetTableCounts) || JSON.stringify(Object.keys(value.targetTableCounts).sort()) !== JSON.stringify([...TARGET_TABLES].sort())) fail("T5_BINDING_REQUEST_RECEIPT_INVALID");
   const count = TARGET_TABLES.reduce((total, table) => {
     const item = value.targetTableCounts[table];
@@ -46,6 +46,9 @@ function validateReceipt(value, triple) {
     sourceSnapshotSha256: value.sourceSnapshotSha256,
     sourceRestoreReceiptSha256: value.sourceRestoreReceiptSha256,
     sourceBusinessSha256: value.sourceBusinessSha256,
+    t0DecisionArtifactSha256: value.t0DecisionArtifactSha256,
+    t0TargetIdentitySha256: value.t0TargetIdentitySha256,
+    t0TargetScopeSha256: value.t0TargetScopeSha256,
     recordCount: value.recordCount,
   });
 }

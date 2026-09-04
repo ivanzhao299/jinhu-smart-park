@@ -1,0 +1,57 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_call_graph",
+  "contractVersion": "2026-09-04.1",
+  "scope": "all_legacy_routine_static_call_relationships",
+  "sourceEvidence": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+      "ledgerKind": "yuzhou_hr_legacy_modern_routine_logic_ledger",
+      "formatVersion": 1
+    }
+  },
+  "expectedCounts": {
+    "routineDenominator": 212,
+    "staticCallEdges": 32,
+    "selfCallEdges": 7,
+    "stronglyConnectedComponents": 212,
+    "cyclicComponents": 7,
+    "largestComponentSize": 1,
+    "zeroOutgoingRoutines": 186,
+    "zeroIncomingRoutines": 192,
+    "isolatedRoutines": 179,
+    "businessDomainEdges": 9,
+    "dynamicCallGapRoutines": 57
+  },
+  "graphPolicy": {
+    "routineIdentity": "stable_routine_id_only",
+    "routineIdPattern": "^RULE-[0-9A-F]{16}$",
+    "sourceNameResolution": "internal_case_insensitive_unique_lookup_never_emitted",
+    "denominator": "all_212_routines_including_empty_called_routines",
+    "staticEdge": "one_direct_ledger_call_per_caller_and_callee_routine_id",
+    "businessDomainEdge": "aggregate_static_edges_by_primary_domain_pair_with_routine_ids_only",
+    "stronglyConnectedComponents": "tarjan_over_sorted_routine_ids_and_sorted_adjacency_including_singletons",
+    "zeroCallLedger": "every_routine_with_empty_called_routines_is_retained_with_incoming_count_and_dynamic_gap",
+    "dynamicCallGap": "logic_signal_dynamic_sql_or_non_none_dynamic_mutation_status",
+    "staticCallsDoNotProveRuntimeBehavior": true,
+    "emptyCallsDoNotProveRuntimeIsolation": true
+  },
+  "outputPolicy": {
+    "containsRoutineBodies": false,
+    "containsRoutineNames": false,
+    "containsParameters": false,
+    "containsParameterValues": false,
+    "containsBusinessRows": false,
+    "containsPersonalData": false,
+    "containsCredentials": false
+  },
+  "evidencePolicy": {
+    "staticStructureCompatibilityCredit": 0,
+    "behaviorCompatibilityStatus": "pending",
+    "dynamicCallResolutionStatus": "gap",
+    "requiredDecision": "KEEP_PENDING"
+  },
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

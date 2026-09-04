@@ -1,0 +1,469 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_payroll_rule_family_parity",
+  "contractVersion": "2026-09-04.1",
+  "family": "payroll_item_definition_and_formula_dependency",
+  "sourceBinding": {
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "sourceObjects": [
+      {
+        "name": "salaryitems",
+        "observedRows": 711,
+        "expectedFields": [
+          "scheme",
+          "itemname",
+          "description",
+          "itemtype",
+          "datatype",
+          "printwidth",
+          "expression",
+          "addorsub",
+          "istax",
+          "notdec",
+          "isuse",
+          "myorder",
+          "declen",
+          "defvalue",
+          "printreport",
+          "itemtitle",
+          "expression2",
+          "expression3",
+          "expression4",
+          "expression5",
+          "cit",
+          "cit2",
+          "cit3",
+          "cit4",
+          "cit5",
+          "des"
+        ],
+        "declaredIntegerFields": ["printwidth", "declen", "printreport"],
+        "evidence": [
+          {
+            "path": "scripts/extract-yuzhou-t4-payroll-history.sh",
+            "tokens": ["scheme,itemname,description,itemtype,datatype,printwidth,expression,addorsub,istax,notdec,isuse,myorder,declen,defvalue,printreport,itemtitle,expression2,expression3,expression4,expression5,cit,cit2,cit3,cit4,cit5,des", "dbo.salaryitems"]
+          }
+        ]
+      },
+      {
+        "name": "salaryequal",
+        "observedRows": 244,
+        "expectedFields": [
+          "id",
+          "scheme",
+          "itemname",
+          "expression",
+          "cit",
+          "myorder"
+        ],
+        "declaredIntegerFields": [],
+        "evidence": [
+          {
+            "path": "scripts/extract-yuzhou-t4-payroll-history.sh",
+            "tokens": ["id,scheme,itemname,expression,cit,myorder", "dbo.salaryequal"]
+          }
+        ]
+      }
+    ]
+  },
+  "fieldMappings": [
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "scheme",
+      "status": "verified",
+      "targetFields": ["hr_payroll_book.legacy_scheme"],
+      "transform": "exact integer and scope-bound book lookup",
+      "nullContract": "null or invalid identifiers are quarantined",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_scheme", "hr_payroll_book"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "itemname",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_definition.legacy_item_name", "hr_payroll_item_definition.item_code"],
+      "transform": "preserve legacy name and derive scoped code",
+      "nullContract": "null identity cannot create a definition",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_item_name", "item_code"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "description",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.display_name"],
+      "transform": "direct display label projection",
+      "nullContract": "required target label rejects null",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["display_name", "description"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "itemtype",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_item_type"],
+      "transform": "lossless legacy classifier preservation",
+      "nullContract": "required target classifier rejects null",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_item_type", "itemtype"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "datatype",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.value_type"],
+      "transform": "reviewed legacy type to decimal date or text enum",
+      "nullContract": "unknown or null type cannot silently become decimal",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["value_type", "datatype"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "printwidth",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_print_width"],
+      "transform": "exact integer preservation with safe API projection",
+      "nullContract": "legacy non-null source is preserved; historical rows without metadata remain null and review-required",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_print_width integer", "legacy_metadata_review_required"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["normalizePayrollItemDeclarativeMetadata", "row.printwidth", "printWidthSourceHash"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_print_width", "declarativeMetadata'->>'printWidth'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["legacy_print_width", "legacyPrintWidth"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "expression",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed rule-fragment normalization",
+      "nullContract": "empty expression still represents the primary rule slot",
+      "gapCode": "PAYROLL_ITEM_RULE_SLOT_1_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "addorsub",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_add_or_sub", "hr_payroll_item_version.item_category"],
+      "transform": "preserve legacy value and derive earning deduction summary or unclassified",
+      "nullContract": "unknown or null stays unclassified and reviewable",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_add_or_sub", "item_category", "unclassified"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "istax",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_tax_flag", "hr_payroll_item_version.taxable"],
+      "transform": "preserve exact legacy flag and normalize only reviewed yes/no or one/zero values",
+      "nullContract": "unrecognized values map to null and require review rather than becoming false",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_tax_flag varchar(2)", "taxable IS NOT NULL"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.istax", "taxable: tax.value"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_tax_flag", "source'->>'istax'", "declarativeMetadata'->>'taxable'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["version.taxable", "taxable"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "notdec",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_no_decimal_flag", "hr_payroll_item_version.suppress_decimals"],
+      "transform": "preserve exact legacy flag and normalize only reviewed yes/no or one/zero values",
+      "nullContract": "unrecognized values map to null and require review rather than selecting display behavior",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_no_decimal_flag varchar(2)", "suppress_decimals boolean"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.notdec", "suppressDecimals: suppressDecimals.value"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_no_decimal_flag", "source'->>'notdec'", "declarativeMetadata'->>'suppressDecimals'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["version.suppress_decimals", "suppressDecimals"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "isuse",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_use_flag", "hr_payroll_item_version.enabled"],
+      "transform": "preserve exact legacy flag; recognized enabled and disabled values normalize to boolean",
+      "nullContract": "unrecognized values fail closed to disabled and require review",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_use_flag varchar(4)", "legacy_metadata_review_required"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.isuse", "enabled: use.value ?? false"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_use_flag", "source'->>'isuse'", "declarativeMetadata'->>'enabled'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["version.enabled", "enabled"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "myorder",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.sort_no"],
+      "transform": "exact integer ordering with explicit zero fallback",
+      "nullContract": "null maps to reviewed stable zero order",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["sort_no", "myorder"]}]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "declen",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_decimal_length", "hr_payroll_item_version.decimal_scale"],
+      "transform": "preserve exact legacy length; use it directly for zero through four and conservative scale four otherwise",
+      "nullContract": "non-decimal target scale is null; absent or out-of-range decimal length requires review",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_decimal_length integer", "decimal_scale = legacy_decimal_length"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.declen", "legacyDecimalLength", "decimalLengthSourceHash"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_decimal_length", "declarativeMetadata'->>'legacyDecimalLength'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["legacy_decimal_length", "legacyDecimalLength"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "defvalue",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires typed default-value normalization",
+      "nullContract": "null and empty defaults must stay distinguishable",
+      "gapCode": "PAYROLL_ITEM_DEFAULT_VALUE_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "printreport",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_print_report", "hr_payroll_item_version.print_enabled"],
+      "transform": "preserve exact integer; normalize only zero and one to boolean",
+      "nullContract": "unrecognized values map to null and require review rather than enabling output",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_print_report integer", "print_enabled IS NOT NULL"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.printreport", "legacyPrintReport", "printReportSourceHash"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_print_report", "declarativeMetadata'->>'legacyPrintReport'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["version.print_enabled", "printEnabled"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "itemtitle",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_item_title"],
+      "transform": "bounded report title preservation with safe API projection",
+      "nullContract": "legacy null or empty title projects as null without inventing a label",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_item_title varchar(24)"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.itemtitle", "itemTitle"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_item_title", "declarativeMetadata'->>'itemTitle'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["legacy_item_title", "legacyItemTitle"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "expression2",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed rule-fragment normalization",
+      "nullContract": "empty expression still represents rule slot 2",
+      "gapCode": "PAYROLL_ITEM_RULE_SLOT_2_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "expression3",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed rule-fragment normalization",
+      "nullContract": "empty expression still represents rule slot 3",
+      "gapCode": "PAYROLL_ITEM_RULE_SLOT_3_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "expression4",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed rule-fragment normalization",
+      "nullContract": "empty expression still represents rule slot 4",
+      "gapCode": "PAYROLL_ITEM_RULE_SLOT_4_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "expression5",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed rule-fragment normalization",
+      "nullContract": "empty expression still represents rule slot 5",
+      "gapCode": "PAYROLL_ITEM_RULE_SLOT_5_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "cit",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed condition-fragment normalization",
+      "nullContract": "empty condition remains distinct from a missing slot",
+      "gapCode": "PAYROLL_ITEM_CONDITION_SLOT_1_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "cit2",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed condition-fragment normalization",
+      "nullContract": "empty condition remains distinct from a missing slot",
+      "gapCode": "PAYROLL_ITEM_CONDITION_SLOT_2_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "cit3",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed condition-fragment normalization",
+      "nullContract": "empty condition remains distinct from a missing slot",
+      "gapCode": "PAYROLL_ITEM_CONDITION_SLOT_3_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "cit4",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed condition-fragment normalization",
+      "nullContract": "empty condition remains distinct from a missing slot",
+      "gapCode": "PAYROLL_ITEM_CONDITION_SLOT_4_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "cit5",
+      "status": "pending",
+      "targetFields": [],
+      "transform": "requires reviewed condition-fragment normalization",
+      "nullContract": "empty condition remains distinct from a missing slot",
+      "gapCode": "PAYROLL_ITEM_CONDITION_SLOT_5_TARGET_MISSING",
+      "evidence": []
+    },
+    {
+      "sourceObject": "salaryitems",
+      "sourceField": "des",
+      "status": "verified",
+      "targetFields": ["hr_payroll_item_version.legacy_long_description"],
+      "transform": "bounded long-description preservation with safe API projection",
+      "nullContract": "legacy null or empty description projects as null without inventing content",
+      "evidence": [
+        {"path": "database/migrations/000296_hr_payroll_item_legacy_declarative_metadata.sql", "tokens": ["legacy_long_description varchar(100)"]},
+        {"path": "scripts/transform-yuzhou-t4-payroll-history.mjs", "tokens": ["row.des", "longDescription"]},
+        {"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_long_description", "declarativeMetadata'->>'longDescription'"]},
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["legacy_long_description", "legacyLongDescription"]}
+      ]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "id",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.legacy_formula_id"],
+      "transform": "exact positive integer identity",
+      "nullContract": "null or non-positive identity is rejected",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["legacy_formula_id", "source'->>'id"]}]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "scheme",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.book_id"],
+      "transform": "scope-bound lookup through hr_payroll_book legacy scheme",
+      "nullContract": "missing book identity cannot be approved",
+      "evidence": [{"path": "scripts/sql/load-yuzhou-t4-payroll-history.sql", "tokens": ["hr_payroll_formula_version", "legacy_scheme"]}]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "itemname",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.item_version_id"],
+      "transform": "scope and book-bound definition/version lookup",
+      "nullContract": "unresolved item remains manual review and cannot be simulation-approved",
+      "evidence": [{"path": "database/migrations/000248_hr_payroll_legacy_history.sql", "tokens": ["ck_hr_payroll_formula_item_resolution", "item_version_id"]}]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "expression",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.raw_expression", "hr_payroll_formula_version.expression_hash", "hr_payroll_formula_version.dsl_ast"],
+      "transform": "preserve reviewed source, hash it, and parse only into restricted DSL",
+      "nullContract": "null or empty expression is rejected by the parser",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["expression is empty", "PAYROLL_FORMULA_UNSAFE", "dsl"]}]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "cit",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.raw_condition", "hr_payroll_formula_version.parse_status"],
+      "transform": "condition presence forces manual review before simulation",
+      "nullContract": "null condition means no extra condition; empty and null do not auto-approve",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["legacy condition requires manual review", "manual_review"]}]
+    },
+    {
+      "sourceObject": "salaryequal",
+      "sourceField": "myorder",
+      "status": "verified",
+      "targetFields": ["hr_payroll_formula_version.calculation_order"],
+      "transform": "positive integer evaluation order",
+      "nullContract": "missing order cannot be approved without a deterministic reviewed order",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["assertFormulaEvaluationOrder", "formula dependency"]}]
+    }
+  ],
+  "dynamicRoutineGates": [
+    {"routineId": "RULE-0883F6C1E60DB772", "canonicalFamily": "u_inputbasepay", "status": "unresolved", "compatibilityCredit": 0},
+    {"routineId": "RULE-9C7540752ADD255D", "canonicalFamily": "u_inputfromdeductpay", "status": "unresolved", "compatibilityCredit": 0},
+    {"routineId": "RULE-53EDC7949DAE4E20", "canonicalFamily": "u_inputfrompiece", "status": "unresolved", "compatibilityCredit": 0},
+    {"routineId": "RULE-0F29EAC0B4E0DC44", "canonicalFamily": "u_inputjobpay", "status": "unresolved", "compatibilityCredit": 0},
+    {"routineId": "RULE-465D956E958EF4C3", "canonicalFamily": "web_paycount", "status": "unresolved", "compatibilityCredit": 0},
+    {"routineId": "RULE-15444560CB3C59BD", "canonicalFamily": "web_payquery", "status": "unresolved", "compatibilityCredit": 0}
+  ],
+  "modernBehaviorContracts": [
+    {
+      "id": "decimal_scale_four",
+      "status": "verified",
+      "evidence": [
+        {"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["const SCALE=10000n", "decimal scale exceeds four"]},
+        {"path": "database/migrations/000248_hr_payroll_legacy_history.sql", "tokens": ["numeric(20,4)", "decimal_scale BETWEEN 0 AND 4"]}
+      ]
+    },
+    {
+      "id": "round_half_away_from_zero",
+      "status": "verified",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["r*2n>=d?q+1n:q", "roundDivide"]}]
+    },
+    {
+      "id": "missing_or_null_input_fail_closed",
+      "status": "verified",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["unknown reference", "invalid decimal input"]}]
+    },
+    {
+      "id": "dependency_cycle_and_order_fail_closed",
+      "status": "verified",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["assertAcyclicFormulaDependencies", "assertFormulaEvaluationOrder"]}]
+    },
+    {
+      "id": "unsafe_legacy_expression_not_executed",
+      "status": "verified",
+      "evidence": [{"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts", "tokens": ["FORBIDDEN", "forbidden token"]}]
+    },
+    {
+      "id": "review_is_transactional_and_append_only",
+      "status": "verified",
+      "evidence": [
+        {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["reviewFormula", "this.dataSource.transaction"]},
+        {"path": "database/migrations/000248_hr_payroll_legacy_history.sql", "tokens": ["trg_hr_payroll_formula_version_guard", "hr_payroll_catalog_append_only_guard"]}
+      ]
+    }
+  ],
+  "modernSurfaces": {
+    "services": ["apps/api/src/modules/hr/hr-payroll-history.service.ts", "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts"],
+    "apis": ["GET /hr/payroll/history-items", "GET /hr/payroll/history-formulas", "POST /hr/payroll/history-formulas/:id/review"],
+    "pages": ["apps/web/app/hr/payroll/HrPayrollClient.tsx"],
+    "tests": ["apps/api/src/modules/hr/hr-payroll-formula-dsl.spec.ts", "scripts/e2e/yuzhou-payroll-rule-family-parity-contract.mjs"],
+    "surfaceEvidence": [
+      {"path": "apps/api/src/modules/hr/hr-payroll-history.controller.ts", "tokens": ["@Get(\"history-items\")", "@Get(\"history-formulas\")", "@Post(\"history-formulas/:id/review\")"]},
+      {"path": "apps/api/src/modules/hr/hr-payroll-history.service.ts", "tokens": ["listCatalogItems", "listFormulas", "reviewFormula"]},
+      {"path": "apps/web/app/hr/payroll/HrPayrollClient.tsx", "tokens": ["规则复核", "payrollHistoryFormulas", "待人工复核"]},
+      {"path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.spec.ts", "tokens": ["rounds half away from zero", "dependency cycles are rejected", "division by zero fail closed"]}
+    ]
+  },
+  "productionImport": "HOLD"
+}

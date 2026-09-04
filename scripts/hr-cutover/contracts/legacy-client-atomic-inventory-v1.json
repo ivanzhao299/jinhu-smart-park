@@ -7,9 +7,9 @@
   "previousInventoryHash": null,
   "sourceContracts": [
     {"path":"scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json","sha256":"e3c01e1f772f629a351d885a935af63b83ddba5edf29b2d07fcf41810410bc54"},
-    {"path":"scripts/hr-cutover/contracts/legacy-atomic-inventory.schema.json","sha256":"e69b4ced0de268b46d335d9e9a0b2357060ab75ab4f6c8662547928527c64c93"}
+    {"path":"scripts/hr-cutover/contracts/legacy-atomic-inventory.schema.json","sha256":"9c19a9128929405fd87695570da66d54493a07a8b13794296443aae38e3dac9f"}
   ],
-  "expectedCounts": {"menuEntries":68,"tables":162,"fields":2364,"rules":212,"permissions":915,"total":3721},
+  "expectedCounts": {"menuEntries":68,"tables":162,"fields":2364,"rules":212,"authorizationGrantEdges":915,"total":3721},
   "unreviewedAtomicReason": "CLIENT_ATOMIC_NAME_AND_TARGET_BINDING_NOT_REVIEWED",
   "productionImport": "HOLD"
 }

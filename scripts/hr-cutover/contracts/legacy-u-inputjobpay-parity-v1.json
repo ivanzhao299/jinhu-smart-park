@@ -1,0 +1,122 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "u-inputjobpay-1.0.0",
+  "sourceBinding": {
+    "routineLedgerSha256": "4d93b7aa02c10f9924d4c1751232c5088bfde3caa3fc071ede2faa8e0917bfb0",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "routines": [
+    {
+      "routineId": "RULE-0F29EAC0B4E0DC44",
+      "canonicalFamily": "u_inputjobpay",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "pending",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "DYNAMIC_IDENTIFIERS_REPLACED_BY_REVIEWED_BOOK_ITEM_AND_PERIOD_IDENTITIES",
+          "entries": [
+            { "sourceParameter": "salaryfilename", "modernParameter": "bookPeriod.legacySourceTable", "sourceType": "varchar(30)", "modernType": "reviewed_catalog_identity", "transform": "resolve_without_dynamic_identifier_execution", "nullContract": "missing_book_period_fails_closed" },
+            { "sourceParameter": "salaryitem", "modernParameter": "reviewedItemCode", "sourceType": "varchar(30)", "modernType": "bounded_item_code", "transform": "resolve_from_versioned_item_definition", "nullContract": "missing_item_mapping_fails_closed" },
+            { "sourceParameter": "year", "modernParameter": "period.year", "sourceType": "integer", "modernType": "integer", "transform": "exact_year_filter", "nullContract": "missing_year_fails_closed" },
+            { "sourceParameter": "month", "modernParameter": "period.month", "sourceType": "integer", "modernType": "integer", "transform": "exact_month_filter", "nullContract": "missing_or_out_of_range_month_fails_closed" }
+          ],
+          "evidenceSha256": "e5603b61dcb765085831662fbaf71dbb2b8b33434cb30ffafe1eb576fd5673f4"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+          "entries": [
+            { "sourceField": "person._base2", "modernField": "hr_payroll_reconciliation_input.hr:岗位工资", "transform": "canonical_four_place_decimal_candidate_projection", "nullContract": "null_remains_null_and_is_never_substituted_with_zero" }
+          ],
+          "evidenceSha256": "457b7eeb2ae49ca50e56db44b8e120ec43d795ed26563d7842f41336f2dce13a"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+          "entries": [
+            { "sourceLocator": "person.person_and_person._base2", "modernLocator": "reviewed_employee_and_job_pay_candidate", "relationContract": "same_scope_employee_candidate_input_is_frozen_before_formula_evaluation" }
+          ],
+          "evidenceSha256": "29b93081667d85a00bdc02f535dbe4ff7b5a2a75e5cd4e0093c55c3471a14edd"
+        },
+        "writeMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+          "entries": [
+            { "sourceLocator": "salaryfilename.salaryitem_for_year_month", "modernLocator": "hr_payroll_reconciliation_result_and_item_difference", "relationContract": "candidate simulation never updates legacy snapshot or online payslip" }
+          ],
+          "evidenceSha256": "29b93081667d85a00bdc02f535dbe4ff7b5a2a75e5cd4e0093c55c3471a14edd"
+        },
+        "transaction": {
+          "status": "pending",
+          "sourceBoundary": "single_dynamic_update_statement_without_explicit_transaction",
+          "modernBoundary": "single_locked_reconciliation_transaction_with_frozen_inputs",
+          "rollbackBehavior": "candidate reconciliation results and item differences roll back together",
+          "evidenceSha256": "29b93081667d85a00bdc02f535dbe4ff7b5a2a75e5cd4e0093c55c3471a14edd"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_NULL_OR_MISSING_PERSON_REMAINS_VISIBLE_AND_NEVER_BECOMES_ZERO",
+          "entries": [
+            { "sourceExpression": "person_match_or_base2_value_is_null", "modernExpression": "job_pay_candidate_input_is_missing", "equivalenceRule": "null_projection_then_fail_closed_formula_evaluation_without_business_write" }
+          ],
+          "evidenceSha256": "89f86329a796f15954b8dde0036b81cbb5c475a44d0e90e48528b2679d7673ca"
+        },
+        "roundingSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_MONEY_COPY_HAS_NO_INTERMEDIATE_ROUNDING_AND_CANDIDATE_ROUNDING_IS_NAMED",
+          "entries": [
+            { "sourceExpression": "copy_person_base2_money", "modernExpression": "canonical_scale_four_then_DSL_operation", "precisionRule": "copy_preserves_four_places_and_formula_division_uses_half_away_from_zero" }
+          ],
+          "evidenceSha256": "89f86329a796f15954b8dde0036b81cbb5c475a44d0e90e48528b2679d7673ca"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "PAYROLL_U_INPUTJOBPAY_SOURCE_AND_TARGET_IDENTITY_UNPROVEN",
+          "entries": [
+            { "sourceEffect": "update_selected_salary_rows_for_exact_year_month", "modernEffect": "append_scoped_candidate_reconciliation_result_only", "conservationRule": "legacy_snapshot_online_payroll_and_payslip_rows remain unchanged" },
+            { "sourceEffect": "return_zero_after_dynamic_update", "modernEffect": "candidate transaction reports success only after commit", "conservationRule": "no success is reported for rejected or missing job-pay input" }
+          ],
+          "evidenceSha256": "29b93081667d85a00bdc02f535dbe4ff7b5a2a75e5cd4e0093c55c3471a14edd"
+        },
+        "dynamicSql": {
+          "status": "unresolved",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "e5603b61dcb765085831662fbaf71dbb2b8b33434cb30ffafe1eb576fd5673f4"
+        },
+        "dormantPaths": {
+          "sourceDataState": "unknown",
+          "emptyInputCase": { "status": "covered", "evidenceSha256": "89f86329a796f15954b8dde0036b81cbb5c475a44d0e90e48528b2679d7673ca" },
+          "untriggeredBranchCase": { "status": "covered", "evidenceSha256": "89f86329a796f15954b8dde0036b81cbb5c475a44d0e90e48528b2679d7673ca" },
+          "triggerFiringCase": { "status": "not_applicable", "evidenceSha256": "e5603b61dcb765085831662fbaf71dbb2b8b33434cb30ffafe1eb576fd5673f4" }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrPayrollHistoryService.simulateReconciliation", "projectLegacyPersonJobPayInput"],
+        "apiSymbols": ["POST /hr/payroll/reconciliation-runs", "GET /hr/payroll/reconciliation-runs/:id"],
+        "pages": ["apps/web/app/hr/payroll/HrPayrollClient.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{ "testId": "u-inputjobpay-positive-exact-candidate", "evidenceSha256": "a4a9f91cec67151d42d3ca75a4f83cd0937c5afa4503649879b8ae00b175dfb0" }],
+        "negative": [{ "testId": "u-inputjobpay-null-invalid-and-period", "evidenceSha256": "a4a9f91cec67151d42d3ca75a4f83cd0937c5afa4503649879b8ae00b175dfb0" }],
+        "permission": [{ "testId": "u-inputjobpay-reconciliation-permission", "evidenceSha256": "1b8fd488dcd8193d6f876906f53ef7934285fe12ff5e790091a3f358f8a82797" }],
+        "conservation": [{ "testId": "u-inputjobpay-candidate-no-write", "evidenceSha256": "29b93081667d85a00bdc02f535dbe4ff7b5a2a75e5cd4e0093c55c3471a14edd" }]
+      },
+      "review": {
+        "status": "pending",
+        "evidenceSha256": "e5603b61dcb765085831662fbaf71dbb2b8b33434cb30ffafe1eb576fd5673f4"
+      }
+    }
+  ],
+  "productionImport": "HOLD"
+}

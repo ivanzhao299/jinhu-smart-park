@@ -1,0 +1,191 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_employee_profile_education_source_chain_gap",
+  "sourceSystem": "yuzhou-v10",
+  "fieldFamily": "education_attainment",
+  "sourceFields": [
+    "person.edu",
+    "person.secedu"
+  ],
+  "intendedTargetField": "hr_employee_profile.highest_education",
+  "sourceRoutineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {
+        "routineId": "RULE-FDB8E6EFFBE4F692",
+        "sourceName": "u_personinfo2003",
+        "sourceArtifactSha256": "adf140a230a553b28eca6558dcd324e7ac84fa58f821be23dab75af59437017a"
+      },
+      {
+        "routineId": "RULE-E3B1314CFFD42847",
+        "sourceName": "web_personinfo_SelectCommand",
+        "sourceArtifactSha256": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868"
+      }
+    ],
+    "requiredReadTables": [
+      "educode",
+      "person"
+    ],
+    "requiredJoinPredicate": "person.edu=educode.edu",
+    "status": "person_edu_dictionary_key_verified"
+  },
+  "legacyPageEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json",
+    "sha256": "e3c01e1f772f629a351d885a935af63b83ddba5edf29b2d07fcf41810410bc54",
+    "familyId": "employee_profile",
+    "requiredEntryPoints": [
+      "档案维护",
+      "档案查询"
+    ],
+    "familyStatus": "partial",
+    "fieldBindingStatus": "unproven"
+  },
+  "pipelineEvidence": [
+    {
+      "stage": "reviewed_mapping",
+      "path": "scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json",
+      "sha256": "d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0",
+      "requiredTokens": [
+        "secedu_or_edu",
+        "highest_education"
+      ]
+    },
+    {
+      "stage": "read_only_extract",
+      "path": "scripts/extract-yuzhou-t5-legacy-history.sh",
+      "sha256": "7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353",
+      "requiredTokens": [
+        "person_core.raw.json",
+        "sys.columns",
+        "c.name NOT IN('password','photo')"
+      ]
+    },
+    {
+      "stage": "transform",
+      "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
+      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3",
+      "requiredTokens": [
+        "highestEducation:text(row.secedu)||text(row.edu)"
+      ]
+    },
+    {
+      "stage": "private_stage",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-stage-adapter.mjs",
+      "sha256": "904537d25e913b3eabf17f556aa045819d45f6dc3993ea6260b45b5fe46fa58d",
+      "requiredTokens": [
+        "highestEducation",
+        "highest_education: value.highestEducation"
+      ]
+    },
+    {
+      "stage": "writer_allowlist",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-writer.mjs",
+      "sha256": "15b0c64a922039c08a5760249a96d65c253b7da4cc539339f731c441f49edfab",
+      "requiredTokens": [
+        "hr_employee_profile",
+        "highest_education",
+        "legacy_source_identity_sha256",
+        "legacy_source_row_sha256"
+      ]
+    },
+    {
+      "stage": "exact_rollback",
+      "path": "scripts/hr-cutover/production-import-t5-nonfile-rollback.mjs",
+      "sha256": "20a1277d4a15001ee0e88e72f7bc3114cd3ba5d01f5769e0469eb665aed0dbdf",
+      "requiredTokens": [
+        "hr_employee_profile",
+        "map.batch_id=$1::uuid",
+        "map.target_id=target.id",
+        "map.is_active=true"
+      ]
+    }
+  ],
+  "modernSurfaceEvidence": [
+    {
+      "surface": "database_entity",
+      "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
+      "sha256": "fe614bdbddb7b730f77e44cd44ad599416a27c35c7ddd899481f56769432f23b",
+      "requiredTokens": [
+        "name:\"highest_education\"",
+        "highestEducation!:string|null"
+      ]
+    },
+    {
+      "surface": "api_dto",
+      "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
+      "sha256": "f3c167775a6c8965a4ada18b72e89fbfd4d1a2d0e7afdd22ba055c98ffe4fab1",
+      "requiredTokens": [
+        "highestEducation?:string"
+      ]
+    },
+    {
+      "surface": "api_controller",
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051",
+      "requiredTokens": [
+        "employees/:id/profile",
+        "HR_EMPLOYEE_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "surface": "api_projection",
+      "path": "apps/api/src/modules/hr/hr-access-policy.ts",
+      "sha256": "1e6dbf17af59cebdc58951ae09593acc4e0902b51ce1b1f3d7466e0eb7e21a84",
+      "requiredTokens": [
+        "highestEducation?: string | null",
+        "highestEducation:profile.highestEducation??null"
+      ]
+    },
+    {
+      "surface": "web_api",
+      "path": "apps/web/lib/hr-api.ts",
+      "sha256": "c9cb4a0aa00e8c2916b1b9bfb7f42f52f0f32ac4917397df399ec35b8bc4828d",
+      "requiredTokens": [
+        "highestEducation?:string|null",
+        "/hr/employees/${id}/profile"
+      ]
+    },
+    {
+      "surface": "web_ui",
+      "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126",
+      "requiredTokens": [
+        "name=\"highestEducation\"",
+        "label=\"最高学历\"",
+        "highestEducation:value(\"highestEducation\")"
+      ]
+    }
+  ],
+  "observedTransform": "trimmed_secedu_then_trimmed_edu_fallback",
+  "dictionaryProjectionStatus": "unproven",
+  "precedenceStatus": "unproven",
+  "blockingGaps": [
+    "EDUCODE_DISPLAY_LABEL_PROJECTION_UNPROVEN",
+    "SECEDU_EDU_PRECEDENCE_UNPROVEN",
+    "LEGACY_PAGE_FIELD_BINDING_UNPROVEN"
+  ],
+  "forbiddenAssumptions": [
+    "educode_key_equals_display_label",
+    "secedu_semantically_precedes_edu",
+    "either_legacy_field_is_highest_education_without_reviewed_dictionary_projection"
+  ],
+  "pipelineDisposition": {
+    "extract": "read_only_person_core_residue_only_no_educode_projection",
+    "transform": "existing_fallback_observed_not_semantically_promoted",
+    "privateStage": "highest_education_shape_allowlisted",
+    "writer": "highest_education_allowlisted_with_source_hashes",
+    "rollback": "batch_scoped_active_legacy_record_map_target_only"
+  },
+  "receiptPolicy": "aggregate_paths_hashes_object_ids_statuses_and_gap_codes_only",
+  "reviewStatus": "gap",
+  "requiredDecision": "KEEP_GAP",
+  "compatibilityCredit": 0,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,87 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_secassignment_source_probe",
+  "sourceSystem": "yuzhou-v10",
+  "scope": "person_secassignment_to_secassignmentcode_business_key_integrity",
+  "sourceObjects": [
+    {
+      "schema": "dbo",
+      "table": "person",
+      "column": "secassignment",
+      "requiredType": "varchar",
+      "declaredMaxLength": 50
+    },
+    {
+      "schema": "dbo",
+      "table": "secassignmentcode",
+      "column": "secassignment",
+      "requiredType": "varchar",
+      "declaredMaxLength": 30
+    }
+  ],
+  "evidenceBindings": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-secassignment-relationship-receipt-v1.json",
+      "sha256": "a853f3be79c1a1b565acda13d127b869c1d73624e4c13a6d7e1e8d7e50e8e57c"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "sha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+    }
+  ],
+  "aggregateFields": [
+    "dictionaryRows",
+    "dictionaryNullRows",
+    "dictionaryBlankRows",
+    "dictionaryNonBlankRows",
+    "dictionaryDistinctNonBlankKeys",
+    "dictionaryDuplicateKeyGroups",
+    "dictionaryDuplicateRows",
+    "dictionaryMaxObservedLength",
+    "personRows",
+    "personNullRows",
+    "personBlankRows",
+    "personNonBlankRows",
+    "personDistinctNonBlankKeys",
+    "personDuplicateValueGroups",
+    "personRepeatedValueRows",
+    "personZeroMatchRows",
+    "personOneMatchRows",
+    "personMultipleMatchRows",
+    "personOrphanDistinctKeys",
+    "personOverDictionaryWidthRows",
+    "personMaxObservedLength"
+  ],
+  "allowedDecisions": [
+    "SOURCE_RELATION_ONE_TO_ONE_READY",
+    "SOURCE_RELATION_MANY_TO_ONE_READY",
+    "HOLD_EMPTY_TABLE",
+    "HOLD_DICTIONARY_ALL_EMPTY",
+    "HOLD_PERSON_FIELD_ALL_EMPTY",
+    "HOLD_DICTIONARY_BLANK_KEY",
+    "HOLD_DICTIONARY_KEY_NOT_UNIQUE",
+    "HOLD_ORPHAN_OR_AMBIGUOUS_MATCH",
+    "HOLD_LENGTH_UNSAFE"
+  ],
+  "readOnlyAuthority": {
+    "databaseReadOnly": true,
+    "loginSucceeded": true,
+    "sysadmin": false,
+    "dbDatareader": true,
+    "viewDefinition": true,
+    "insert": false,
+    "update": false,
+    "delete": false,
+    "execute": false
+  },
+  "readinessBoundary": {
+    "readyMeans": "legacy_source_business_key_cardinality_and_observed_length_only",
+    "modernOrganizationOrPositionTargetBinding": "UNBOUND",
+    "semanticCompatibility": "NOT_CLAIMED",
+    "integrationStatus": "REBIND_REQUIRED"
+  },
+  "privacyPolicy": "catalog_identity_types_lengths_nullability_and_anonymous_counts_only",
+  "materialization": "BLOCKED",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}

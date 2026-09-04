@@ -15,6 +15,9 @@ import { getAccessToken, getAuthUser, hasPermission } from "../../../lib/authz";
 type OrgStatus = "enabled" | "disabled";
 interface OrgRow extends Omit<OrgTreeNode, "children"> {
   children: OrgRow[];
+  contactPhone?: string | null;
+  contactAddress?: string | null;
+  contactEmail?: string | null;
   remark?: string | null;
   tenantId?: string;
   parkId?: string;
@@ -29,6 +32,9 @@ interface OrgFormState {
   orgName: string;
   orgType: string;
   leaderUserId: string;
+  contactPhone: string;
+  contactAddress: string;
+  contactEmail: string;
   status: OrgStatus;
   sortOrder: string;
   remark: string;
@@ -36,7 +42,7 @@ interface OrgFormState {
 
 const emptyForm: OrgFormState = {
   parentId: "", orgCode: "", orgName: "", orgType: "department", leaderUserId: "",
-  status: "enabled", sortOrder: "0", remark: ""
+  contactPhone: "", contactAddress: "", contactEmail: "", status: "enabled", sortOrder: "0", remark: ""
 };
 const orgTypeOptions = [
   { value: "park", label: "园区" }, { value: "group", label: "集团" },
@@ -63,6 +69,7 @@ function toForm(org: OrgRow): OrgFormState {
   return {
     parentId: org.parentId ?? "", orgCode: org.orgCode, orgName: org.orgName,
     orgType: org.orgType, leaderUserId: org.leaderUserId ?? "", status: org.status as OrgStatus,
+    contactPhone: org.contactPhone ?? "", contactAddress: org.contactAddress ?? "", contactEmail: org.contactEmail ?? "",
     sortOrder: String(org.sortOrder ?? 0), remark: org.remark ?? ""
   };
 }
@@ -121,6 +128,9 @@ export default function OrgsPage() {
       orgCode: form.orgCode.trim(), orgName: form.orgName.trim(),
       orgType: form.orgType,
       ...(editingOrg && form.leaderUserId === (editingOrg.leaderUserId ?? "") ? {} : { leaderUserId: form.leaderUserId || null }),
+      contactPhone: form.contactPhone.trim() || null,
+      contactAddress: form.contactAddress.trim() || null,
+      contactEmail: form.contactEmail.trim() || null,
       status: form.status,
       sortOrder: Number.parseInt(form.sortOrder || "0", 10) || 0, remark: form.remark.trim() || undefined
     };
@@ -162,9 +172,11 @@ export default function OrgsPage() {
       <div className="field"><label>上级组织</label><select value={form.parentId} onChange={(e) => { setDrawerError(""); setForm((v) => ({ ...v, parentId: e.target.value })); }}><option value="">无（根组织）</option>{unavailableCurrentParent ? <option value={unavailableCurrentParent} disabled>当前上级（不可见或不可选）</option> : null}{parentOptions.map(({ org, depth }) => <option key={org.id} value={org.id}>{"—".repeat(depth)} {org.orgName}</option>)}</select></div>
       <div className="field"><label>负责人</label><select value={form.leaderUserId} onChange={(e) => setForm((v) => ({ ...v, leaderUserId: e.target.value }))}><option value="">未指定</option>{leaderOptions.map((leader) => <option key={leader.id} value={leader.id} disabled={leader.id === editingOrg?.leaderUserId && !leaders.some((candidate) => candidate.id === leader.id)}>{leader.displayName}（{leader.username}）</option>)}</select></div>
       <div className="field"><label>组织编码</label><input required maxLength={64} value={form.orgCode} onChange={(e) => setForm((v) => ({ ...v, orgCode: e.target.value }))} /></div><div className="field"><label>组织名称</label><input required maxLength={100} value={form.orgName} onChange={(e) => setForm((v) => ({ ...v, orgName: e.target.value }))} /></div>
-      <div className="field"><label>类型</label><select value={form.orgType} onChange={(e) => setForm((v) => ({ ...v, orgType: e.target.value }))}>{orgTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="field"><label>状态</label><select value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as OrgStatus }))}><option value="enabled">启用</option><option value="disabled">停用</option></select></div><div className="field"><label>排序</label><input type="number" min={0} step={1} value={form.sortOrder} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm((v) => ({ ...v, sortOrder: e.target.value }))} /></div><div className="field"><label>备注</label><textarea maxLength={500} value={form.remark} onChange={(e) => setForm((v) => ({ ...v, remark: e.target.value }))} /></div>
+      <div className="field"><label>类型</label><select value={form.orgType} onChange={(e) => setForm((v) => ({ ...v, orgType: e.target.value }))}>{orgTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="field"><label>状态</label><select value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as OrgStatus }))}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+      <div className="field"><label>联系电话</label><input type="tel" maxLength={50} value={form.contactPhone} onChange={(e) => setForm((v) => ({ ...v, contactPhone: e.target.value }))} /></div><div className="field"><label>联系邮箱</label><input type="email" maxLength={254} value={form.contactEmail} onChange={(e) => setForm((v) => ({ ...v, contactEmail: e.target.value }))} /></div>
+      <div className="field"><label>联系地址</label><textarea maxLength={500} value={form.contactAddress} onChange={(e) => setForm((v) => ({ ...v, contactAddress: e.target.value }))} /></div><div className="field"><label>排序</label><input type="number" min={0} step={1} value={form.sortOrder} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm((v) => ({ ...v, sortOrder: e.target.value }))} /></div><div className="field"><label>备注</label><textarea maxLength={500} value={form.remark} onChange={(e) => setForm((v) => ({ ...v, remark: e.target.value }))} /></div>
     </DrawerFormGrid>{drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}<DrawerFooter><button className="secondary-button" type="button" onClick={closeForm}><X size={16} />取消</button><button className="primary-button" type="submit"><Save size={16} />保存</button></DrawerFooter></DrawerForm></Drawer> : null}
-    {viewingOrg ? <Drawer size="md" onClose={() => setViewingOrg(null)}><DrawerHeader eyebrow="系统管理" title="组织详情" description="查看组织层级、负责人和基础档案。" onClose={() => setViewingOrg(null)} closeIcon={<X size={18} />} /><DrawerDetailGrid><DrawerDetailItem label="组织编码" value={viewingOrg.orgCode} /><DrawerDetailItem label="组织名称" value={viewingOrg.orgName} /><DrawerDetailItem label="上级组织" value={parentName(viewingOrg.parentId)} /><DrawerDetailItem label="负责人" value={leaderName(viewingOrg.leaderUserId)} /><DrawerDetailItem label="组织类型" value={orgTypeLabels.get(viewingOrg.orgType) ?? viewingOrg.orgType} /><DrawerDetailItem label="状态" value={<StatusBadge status={viewingOrg.status as OrgStatus} />} /><DrawerDetailItem label="排序" value={viewingOrg.sortOrder} /><DrawerDetailItem label="数据租户" value={viewingOrg.tenantId ?? "-"} /><DrawerDetailItem label="园区范围" value={viewingOrg.parkId ?? "-"} /><DrawerDetailItem label="创建时间" value={formatDateTime(viewingOrg.createTime)} /><DrawerDetailItem label="更新时间" value={formatDateTime(viewingOrg.updateTime)} /><DrawerDetailItem label="备注" value={viewingOrg.remark ?? "-"} /></DrawerDetailGrid><DrawerFooter><button className="secondary-button" type="button" onClick={() => setViewingOrg(null)}>关闭</button></DrawerFooter></Drawer> : null}
+    {viewingOrg ? <Drawer size="md" onClose={() => setViewingOrg(null)}><DrawerHeader eyebrow="系统管理" title="组织详情" description="查看组织层级、负责人和基础档案。" onClose={() => setViewingOrg(null)} closeIcon={<X size={18} />} /><DrawerDetailGrid><DrawerDetailItem label="组织编码" value={viewingOrg.orgCode} /><DrawerDetailItem label="组织名称" value={viewingOrg.orgName} /><DrawerDetailItem label="上级组织" value={parentName(viewingOrg.parentId)} /><DrawerDetailItem label="负责人" value={leaderName(viewingOrg.leaderUserId)} /><DrawerDetailItem label="组织类型" value={orgTypeLabels.get(viewingOrg.orgType) ?? viewingOrg.orgType} /><DrawerDetailItem label="联系电话" value={viewingOrg.contactPhone ?? "-"} /><DrawerDetailItem label="联系邮箱" value={viewingOrg.contactEmail ?? "-"} /><DrawerDetailItem label="联系地址" value={viewingOrg.contactAddress ?? "-"} /><DrawerDetailItem label="状态" value={<StatusBadge status={viewingOrg.status as OrgStatus} />} /><DrawerDetailItem label="排序" value={viewingOrg.sortOrder} /><DrawerDetailItem label="数据租户" value={viewingOrg.tenantId ?? "-"} /><DrawerDetailItem label="园区范围" value={viewingOrg.parkId ?? "-"} /><DrawerDetailItem label="创建时间" value={formatDateTime(viewingOrg.createTime)} /><DrawerDetailItem label="更新时间" value={formatDateTime(viewingOrg.updateTime)} /><DrawerDetailItem label="备注" value={viewingOrg.remark ?? "-"} /></DrawerDetailGrid><DrawerFooter><button className="secondary-button" type="button" onClick={() => setViewingOrg(null)}>关闭</button></DrawerFooter></Drawer> : null}
     {message ? <p className="status-pill">{message}</p> : null}
   </main>;
 }

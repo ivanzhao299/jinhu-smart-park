@@ -8,12 +8,27 @@ const css=readFileSync(resolve(__dirname,"payroll/payroll.module.css"),"utf8");
 const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
 
 test("T4 payroll API contracts use exact paged history and review routes",()=>{
-  for(const route of ["/hr/payroll/history?","/hr/payroll/history/${id}","/hr/payroll/history/${id}/items","/hr/payroll/history-books?","/hr/payroll/history-items?","/hr/payroll/history-formulas?","/hr/payroll/history-review-cases?"]){
+  for(const route of ["/hr/payroll/history?","/hr/payroll/history/${id}","/hr/payroll/history/${id}/items","/hr/payroll/history-books?","/hr/payroll/history-tax-rules?","/hr/payroll/history-items?","/hr/payroll/history-formulas?","/hr/payroll/history-review-cases?"]){
     assert.ok(api.includes(route),`missing API route ${route}`);
   }
   assert.match(api,/PaginatedResult<HrPayrollHistoryRow>/);
+  assert.match(api,/PaginatedResult<HrPayrollTaxRule>/);
   assert.match(api,/PaginatedResult<HrPayrollReviewCase>/);
   assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
+});
+
+test("M3 historical tax rule catalog is paged, semantics-safe, and phone-visible",()=>{
+  assert.match(api,/interface HrPayrollTaxRule \{legacyTaxId:number;versionNo:number;baseAmount:string\|null;lowerLimit:string\|null;upperLimit:string\|null;taxPercent:string\|null;offsetAmount:string\|null;semanticsStatus:"pending_review";\}/);
+  const taxApi=api.slice(api.indexOf("payrollHistoryTaxRules"),api.indexOf("payrollHistoryCatalogItems"));
+  for(const forbidden of ["sourceHash","tenantId","parkId","createTime","updateTime","employeeId","grossAmount","netAmount"])assert.doesNotMatch(taxApi,new RegExp(forbidden));
+  assert.match(payroll,/payrollHistoryTaxRules\(getAccessToken\(\),taxPage,20,controller\.signal\)/);
+  assert.match(payroll,/<Pager page=\{taxRules\.page\} pageSize=\{taxRules\.page_size\} total=\{taxRules\.total\} onPage=\{setTaxPage\}\/>/);
+  assert.match(payroll,/暂无历史税率规则。/);
+  assert.match(payroll,/税率单位、区间边界、舍入和期间语义待复核；仅展示历史规则，不代表旧系统计算等价。/);
+  assert.match(payroll,/税率原始值 \{decimalText\(rule\.taxPercent\)\}/);
+  assert.doesNotMatch(payroll,/taxPercent\)}%/);
+  assert.match(payroll,/<\/div><section className="ds-panel" aria-labelledby="history-tax-rules-heading">[\s\S]*className="ds-mobile-record"/);
+  assert.match(payroll,/if\(state==="loading"\|\|state==="forbidden"\|\|state==="error"\)return <StatePanel/);
 });
 
 test("T4 payroll work areas fail closed before sensitive requests",()=>{
