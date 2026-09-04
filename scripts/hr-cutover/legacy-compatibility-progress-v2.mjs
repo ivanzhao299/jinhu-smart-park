@@ -64,6 +64,7 @@ const DEFAULTS = Object.freeze({
     "scripts/hr-cutover/contracts/legacy-family-query-parity-v1.json",
     "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json",
     "scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-calculation-print-parity-v1.json",
   ],
 });
 
