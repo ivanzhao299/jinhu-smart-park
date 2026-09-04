@@ -3473,7 +3473,7 @@
       "domain": "personal_office",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/employees"
       ],
       "mappingStatus": "mapped"
     },

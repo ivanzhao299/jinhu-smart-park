@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { chmodSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { chmodSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, resolve } from "node:path";
+import { validateSourceRestoreReceipt } from "./hr-cutover/source-restore-receipt.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const compareCanonical = (left, right) => left < right ? -1 : left > right ? 1 : 0;
@@ -72,8 +73,23 @@ const identity = (table, sourceKey, source) => ({
   sourceIdentitySha256: sha256(`dbo.${table}\0${sourceKey}`), sourceRowSha256: sha256(canonical(source)),
 });
 
-export function transformPayroll(dir, evidencePath) {
+const sourceBinding = ({ sourceRestoreReceiptPath, mappingContractSha256 }) => {
+  if (!isAbsolute(sourceRestoreReceiptPath ?? "") || resolve(sourceRestoreReceiptPath) !== sourceRestoreReceiptPath) throw new Error("YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required");
+  if (!/^[0-9a-f]{64}$/u.test(mappingContractSha256 ?? "")) throw new Error("YUZHOU_MAPPING_CONTRACT_SHA256 is required");
+  const link = lstatSync(sourceRestoreReceiptPath), actual = realpathSync(sourceRestoreReceiptPath), info = statSync(actual);
+  if (link.isSymbolicLink() || !info.isFile() || info.nlink !== 1 || (info.mode & 0o777) !== 0o600) throw new Error("source restore receipt must be a non-symlink 0600 file");
+  const bytes = readFileSync(actual);
+  let receipt;
+  try { receipt = validateSourceRestoreReceipt(JSON.parse(bytes)); }
+  catch { throw new Error("source restore receipt is invalid"); }
+  if (receipt.productionImport !== "HOLD") throw new Error("source restore receipt must remain HOLD");
+  return { sourceSnapshotSha256: receipt.sourceSnapshotSha256, sourceRestoreReceiptSha256: sha256(bytes), mappingContractSha256 };
+};
+
+export function transformPayroll(dir, evidencePath, options = { sourceRestoreReceiptPath: process.env.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH, mappingContractSha256: process.env.YUZHOU_MAPPING_CONTRACT_SHA256 }) {
   const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+  const binding = sourceBinding(options);
+  if (binding.sourceSnapshotSha256 !== evidence.sourceBackupSha256) throw new Error("source restore receipt snapshot binding mismatch");
   const expected = evidence.payrollProfile;
   const catalog = readArray(resolve(dir, "catalog.raw.json"));
   const byTable = new Map();
@@ -148,7 +164,7 @@ export function transformPayroll(dir, evidencePath) {
   const outputs = {};
   for (const [name, rows] of [["scheme-memberships", memberships], ["items", items], ["formulas", formulas], ["tax-rules", taxRules], ["closes", closes], ["payslips", payslips]]) outputs[`${name}.jsonl`] = writeJsonl(resolve(dir, `${name}.jsonl`), rows);
   const rawBusiness = { catalogSha256: sha256(canonical(catalog)), files: Object.fromEntries(Object.keys(outputs).map((name) => [name, outputs[name].fileSha256])) };
-  const manifest = { formatVersion: 1, profileVersion: evidence.profileVersion, sourceDatabase: evidence.sourceDatabase, sourceBackupSha256: evidence.sourceBackupSha256, catalogAggregateSha256: evidence.catalogAggregateSha256, actualCatalogSha256: rawBusiness.catalogSha256, actualSourceRows: salaryRows.toString(), minimumYear: minimumYear.toString(), maximumYear: maximumYear.toString(), outputFiles: outputs, rawBusinessContentSha256: sha256(canonical(rawBusiness)), businessContentSha256: sha256(canonical({ profileVersion: evidence.profileVersion, catalogSha256: rawBusiness.catalogSha256, outputFiles: rawBusiness.files })) };
+  const manifest = { formatVersion: 1, profileVersion: evidence.profileVersion, sourceDatabase: evidence.sourceDatabase, sourceBackupSha256: evidence.sourceBackupSha256, sourceRestoreReceiptSha256: binding.sourceRestoreReceiptSha256, mappingContractSha256: binding.mappingContractSha256, catalogAggregateSha256: evidence.catalogAggregateSha256, actualCatalogSha256: rawBusiness.catalogSha256, actualSourceRows: salaryRows.toString(), minimumYear: minimumYear.toString(), maximumYear: maximumYear.toString(), outputFiles: outputs, rawBusinessContentSha256: sha256(canonical(rawBusiness)), businessContentSha256: sha256(canonical({ profileVersion: evidence.profileVersion, catalogSha256: rawBusiness.catalogSha256, outputFiles: rawBusiness.files })), productionImport: "HOLD" };
   writeFileSync(resolve(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 }); chmodSync(resolve(dir, "manifest.json"), 0o600);
   return manifest;
 }

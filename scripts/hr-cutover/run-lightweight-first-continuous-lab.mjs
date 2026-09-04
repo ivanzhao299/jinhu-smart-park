@@ -200,7 +200,10 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   if (config.profile !== "core_t0_t2") fail("LIGHTWEIGHT_CORE_PROFILE_INVALID", config.profile);
   const input = { T5_NONFILE: stage(t5Stage, "T5_NONFILE"), T3: stage(t3Stage, "T3"), T4: stage(t4Stage, "T4") };
   if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
+  if (input.T4.manifest.productionImport !== "HOLD" || typeof input.T4.manifest.sourceRestoreReceiptSha256 !== "string" || typeof input.T4.manifest.mappingContractSha256 !== "string") fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "T4 source boundary");
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
+  if ([input.T5_NONFILE.manifest, input.T3.manifest, input.T4.manifest].some(manifest => manifest.sourceRestoreReceiptSha256 !== config.source.sourceRestoreReceiptSha256)) fail("LIGHTWEIGHT_SOURCE_RECEIPT_DRIFT", "staging receipt differs from core config");
+  if ([input.T5_NONFILE.manifest, input.T3.manifest, input.T4.manifest].some(manifest => manifest.mappingContractSha256 !== config.triple.mappingContractHash)) fail("LIGHTWEIGHT_MAPPING_CONTRACT_DRIFT", "staging mapping differs from core config");
   const t5IdentityResolutionPath = t5IdentityResolution ? resolve(t5IdentityResolution) : null;
   if (t5IdentityResolutionPath) {
     privateJson(t5IdentityResolutionPath, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
