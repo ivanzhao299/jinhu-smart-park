@@ -1,0 +1,319 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_performance_report_center_modern_runtime_task",
+  "taskVersion": "performance-report-center-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-95-PERFORMANCE-REPORT-CENTER",
+    "name": "绩效报表中心",
+    "legacyIds": [95],
+    "domain": "performance_reporting",
+    "actualModernRoute": "/hr/performance",
+    "selectionReason": "performance_adjacent_score_80_partial_entry_with_existing_scoped_performance_read_models_but_no_dedicated_report_export_or_print_surface",
+    "currentStaticEvidence": {
+      "entryCount": 1,
+      "scoreEach": 80,
+      "implementationStatusEach": "partial",
+      "dimensionsEach": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": false,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "rawSha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959",
+      "canonicalSha256": "84bb37f2595089ba38e37ad9d4ec8b0268d1391427bda14a1fb7f5622cd41d71"
+    }
+  ],
+  "coverageCredit": {
+    "taskReady": { "numerator": 1, "denominator": 1 },
+    "groupWebNavigableEntries": { "numerator": 0, "denominator": 186 },
+    "legacyInteractionParity": { "numerator": 0, "denominator": 1 }
+  },
+  "compatibilityScoreContribution": 0,
+  "legacyEntry": {
+    "legacyId": 95,
+    "name": "报表中心",
+    "legacyUrl": "performance/reportcenter/submain.asp",
+    "legacyTable": null,
+    "legacyView": null,
+    "mappedTargetRoutes": ["/hr/performance"],
+    "traversedAspFiles": 5,
+    "forms": 3,
+    "controls": 17,
+    "requestKeys": 11,
+    "formActions": 1,
+    "selectStatements": 10,
+    "insertStatements": 0,
+    "updateStatements": 0,
+    "deleteStatements": 0,
+    "stateTransitions": 3,
+    "fieldEvidenceHash": "c27c167410f662d6a33604f62701f1f32934f70ae7c76f03a0b7fa515df7c4e9"
+  },
+  "legacyOpaqueSlots": {
+    "aspIdentityPattern": "legacy_95_asp_{NN}",
+    "controlIdentityPattern": "legacy_95_control_{NN}",
+    "requestKeyIdentityPattern": "legacy_95_request_key_{NN}",
+    "formActionIdentityPattern": "legacy_95_form_action_{NN}",
+    "selectIdentityPattern": "legacy_95_select_{NN}",
+    "stateTransitionIdentityPattern": "legacy_95_state_transition_{NN}",
+    "traversedAspFiles": 5,
+    "forms": 3,
+    "controls": 17,
+    "requestKeys": 11,
+    "formActions": 1,
+    "selectStatements": 10,
+    "stateTransitions": 3,
+    "status": "identity_and_counts_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false,
+    "emptyOrNullSlotsRemainInDenominator": true
+  },
+  "legacyDataBoundary": {
+    "groupWebSourceId": "yuzhou_group_web_enterprise_hr",
+    "groupWebCatalogHash": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+    "legacyTable": null,
+    "legacyView": null,
+    "rowCount": null,
+    "rowCountDisposition": "composite_report_entry_has_no_single_mapped_table_or_view_and_must_not_be_classified_as_empty",
+    "requiredSourceDiscovery": [
+      "ten_select_statement_source_objects",
+      "join_and_filter_relations",
+      "aggregate_and_grouping_rules",
+      "procedure_function_trigger_references",
+      "report_parameter_defaults",
+      "empty_result_behavior"
+    ],
+    "featureRequired": true,
+    "emptyRule": "no_single_table_or_zero_result_never_removes_report_filters_columns_drilldowns_print_export_or_permission_cases"
+  },
+  "legacyInteractionTask": {
+    "runtimeStatus": "not_observed",
+    "aspEntry": "performance/reportcenter/submain.asp",
+    "aspSlots": 5,
+    "controlSlots": 17,
+    "requestKeySlots": 11,
+    "formActionSlots": 1,
+    "selectSlots": 10,
+    "transitionSlots": 3,
+    "requiredActionObservations": [
+      "open_report_center",
+      "choose_report",
+      "set_parameters",
+      "query",
+      "reset",
+      "sort",
+      "paginate",
+      "drill_down",
+      "print",
+      "export",
+      "return_to_report_index"
+    ],
+    "requiredConditionObservations": [
+      "tenant_and_organization_scope",
+      "employee_scope",
+      "period_scope",
+      "template_scope",
+      "task_or_review_status",
+      "result_release_state",
+      "grade_and_score_visibility",
+      "minimum_or_empty_dataset",
+      "permission_negative",
+      "cross_scope_record_absence",
+      "print_export_authority"
+    ],
+    "groupWebRoutineReferences": [],
+    "groupWebRoutineReferenceStatus": "not_extracted_from_current_static_audit",
+    "requiredRoutineObservation": "trace_all_ten_selects_and_every_referenced_procedure_function_trigger_including_empty_and_untriggered_branches",
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_and_hash_bound_group_web_query_and_routine_call_chain_observation"
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservations": [
+      "report_index_and_group_order",
+      "report_title",
+      "parameter_labels_and_defaults",
+      "column_order",
+      "group_headers_and_subtotals",
+      "grand_totals",
+      "number_and_percentage_formats",
+      "status_and_grade_labels",
+      "pagination_and_sort",
+      "drill_down_target",
+      "print_layout",
+      "export_columns_and_order",
+      "empty_result_message"
+    ],
+    "requiredObservationCount": 13,
+    "modernAcceptance": [
+      "desktop_report_index_parameters_result_drilldown_print_export",
+      "phone_390_report_cards_parameters_and_safe_export_action",
+      "no_horizontal_overflow",
+      "export_schema_matches_authorized_on_screen_projection"
+    ],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/performance",
+    "currentReadInputs": [
+      { "id": "templates", "method": "GET", "path": "/hr/performance-v2/templates", "status": "implemented_static_not_runtime_verified" },
+      { "id": "cycles", "method": "GET", "path": "/hr/performance-v2/cycles", "status": "implemented_static_not_runtime_verified" },
+      { "id": "reviews", "method": "GET", "path": "/hr/performance-v2/reviews", "status": "implemented_static_not_runtime_verified" },
+      { "id": "review_actions", "method": "GET", "path": "/hr/performance-v2/reviews/:id/actions", "status": "implemented_static_not_runtime_verified" }
+    ],
+    "requiredReportingApiTasks": [
+      { "id": "report_catalog", "method": "GET", "path": "/hr/performance-v2/reports", "status": "missing", "assertions": ["authorized_catalog", "stable_report_codes"] },
+      { "id": "report_parameters", "method": "GET", "path": "/hr/performance-v2/reports/:code/options", "status": "missing", "assertions": ["scoped_selectors", "no_raw_uuid_entry"] },
+      { "id": "report_query", "method": "GET", "path": "/hr/performance-v2/reports/:code/results", "status": "missing", "assertions": ["pagination", "sort_allowlist", "stable_columns", "required_audit"] },
+      { "id": "report_drilldown", "method": "GET", "path": "/hr/performance-v2/reports/:code/results/:rowId", "status": "missing", "assertions": ["same_scope", "field_projection", "no_target_disclosure"] },
+      { "id": "report_export", "method": "POST", "path": "/hr/performance-v2/reports/:code/exports", "status": "missing", "assertions": ["idempotency", "body_free_audit", "same_projection_as_query"] },
+      { "id": "export_status", "method": "GET", "path": "/hr/performance-v2/report-exports/:id", "status": "missing", "assertions": ["owner_or_authorized_scope", "bounded_metadata"] },
+      { "id": "export_download", "method": "FILES_API", "path": "hr_performance_report_export/:exportId", "status": "missing", "assertions": ["report_and_file_permissions_intersect", "expiry", "no_cross_scope_binary"] },
+      { "id": "no_permission", "method": "GET", "path": "/hr/performance-v2/reports", "status": "missing", "assertions": ["403", "rows_absent"] }
+    ],
+    "statusFilters": ["planning", "self_review", "manager_review", "calibration", "employee_acknowledged", "appealed", "confirmed"],
+    "requiredPermissionAtoms": [
+      "hr:performance_report:read",
+      "hr:performance_report:team_read",
+      "hr:performance_report:self_read",
+      "hr:performance_report:export",
+      "file:read"
+    ],
+    "permissionAtomStatus": "missing_dedicated_performance_report_atoms",
+    "roleMatrix": [
+      { "role": "performance_report_park_reader", "scope": "park", "expectedCapabilities": ["catalog", "query", "drilldown", "no_export_without_atom"] },
+      { "role": "performance_report_team_reader", "scope": "managed_org_tree", "expectedCapabilities": ["managed_tree_rows", "outside_tree_absent", "no_export_without_atom"] },
+      { "role": "performance_report_self_reader", "scope": "self", "expectedCapabilities": ["own_released_results_only", "other_rows_absent", "manager_and_final_values_hidden_by_state"] },
+      { "role": "performance_report_exporter", "scope": "authorized_read_scope", "expectedCapabilities": ["query_then_export", "screen_and_export_projection_match", "download_requires_file_read"] },
+      { "role": "performance_report_no_permission", "scope": "none", "expectedCapabilities": ["forbidden", "catalog_and_rows_absent"] }
+    ],
+    "browserTask": {
+      "viewports": [
+        { "id": "desktop", "width": 1440, "height": 1000 },
+        { "id": "phone_390", "width": 390, "height": 844 }
+      ],
+      "checks": [
+        { "id": "report_index", "role": "performance_report_park_reader", "assertions": ["legacy_report_catalog_parity", "readable_report_selection", "no_horizontal_overflow"] },
+        { "id": "report_parameters", "role": "performance_report_park_reader", "assertions": ["scoped_readable_selectors", "defaults", "reset_query"] },
+        { "id": "report_result", "role": "performance_report_park_reader", "assertions": ["columns_groups_totals_formats", "sort_pagination_drilldown"] },
+        { "id": "team_scope", "role": "performance_report_team_reader", "assertions": ["managed_tree_only", "outside_tree_absent"] },
+        { "id": "self_scope", "role": "performance_report_self_reader", "assertions": ["own_released_only", "premature_results_absent"] },
+        { "id": "print_export", "role": "performance_report_exporter", "assertions": ["authorized_actions", "screen_export_projection_match", "safe_phone_action"] },
+        { "id": "forbidden", "role": "performance_report_no_permission", "assertions": ["forbidden", "catalog_and_rows_absent"] },
+        { "id": "empty_result", "role": "performance_report_park_reader", "assertions": ["parameters_preserved", "explicit_empty_message", "print_export_state_explicit"] }
+      ]
+    }
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_PERFORMANCE_PAGE: \"hr:performance\"", "HR_PERFORMANCE_READ", "HR_PERFORMANCE_TEAM_READ", "HR_PERFORMANCE_SELF_READ", "HR_PERFORMANCE_RESULT_READ"],
+      "forbiddenTokens": ["HR_PERFORMANCE_REPORT_READ", "HR_PERFORMANCE_REPORT_EXPORT"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-performance-review.controller.ts",
+      "requiredTokens": ["@Controller(\"hr/performance-v2\")", "@Get(\"templates\")", "@Get(\"cycles\")", "@Get(\"reviews\")", "@Get(\"reviews/:id/actions\")"],
+      "forbiddenTokens": ["@Get(\"reports\")", "@Post(\"reports/:code/exports\")"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
+      "requiredTokens": ["recordHrSensitiveRead", "projection:access===\"managed_org_tree\"?\"team\":access", "itemCount:rows.length"],
+      "forbiddenTokens": ["performance_report_export"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["performanceTemplatesV2:", "performanceCyclesV2:", "performanceReviewsV2:"],
+      "forbiddenTokens": ["performanceReportsV2:", "exportPerformanceReportV2:"]
+    },
+    {
+      "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
+      "requiredTokens": ["绩效工作台", "评价与结果", "绩效周期", "ds-mobile-record-list", "当前没有可办理的绩效评价。"],
+      "forbiddenTokens": ["绩效报表中心", "导出绩效报表", "打印绩效报表"]
+    },
+    {
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "requiredTokens": ["CREATE TABLE hr_performance_review_cycle", "CREATE TABLE hr_performance_cycle_employee", "template_snapshot"]
+    },
+    {
+      "path": "database/migrations/000259_hr_performance_review_calibration.sql",
+      "requiredTokens": ["CREATE TABLE hr_performance_review_submission", "CREATE TABLE hr_performance_review_action", "confirmed performance result is immutable"]
+    }
+  ],
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_PERFORMANCE_REPORT_LEGACY_QUERY_AND_ROUTINE_CHAIN_NOT_BOUND",
+      "missingEvidence": ["5_asp_identities_beyond_entry", "17_control_semantics", "11_request_key_semantics", "1_form_action_semantics", "10_select_query_shapes", "3_transition_semantics", "procedure_function_trigger_call_chain"],
+      "implementationAction": ["observe_the_authenticated_legacy_report_center_with_non_personal_test_scope", "bind_every_asp_control_request_action_select_transition_and_layout_slot", "trace_all_source_objects_routines_and_empty_or_untriggered_branches"],
+      "acceptance": ["hash_bound_legacy_entry_receipt", "no_unmapped_slot", "all_ten_selects_disposed", "no_empty_or_untriggered_branch_removed"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_REPORT_CATALOG_AND_LAYOUT_NOT_BOUND",
+      "missingEvidence": ["report_catalog", "parameter_defaults", "column_groups_totals_formats", "drilldown_targets", "print_layout", "export_schema"],
+      "implementationAction": ["capture_each_legacy_report_variant_and_parameter_matrix", "freeze_column_order_grouping_subtotals_totals_and_formats", "pair_print_and_export_outputs_with_the_authorized_screen_projection"],
+      "acceptance": ["all_report_variants_accounted", "desktop_and_390px", "print_layout_parity", "export_schema_parity"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_REPORT_API_AND_PERMISSION_SURFACE_NOT_IMPLEMENTED",
+      "missingEvidence": ["dedicated_report_permissions", "catalog_endpoint", "parameter_options_endpoint", "paged_sorted_results_endpoint", "scoped_drilldown", "idempotent_export_job", "protected_download"],
+      "implementationAction": ["add_least_privilege_read_team_self_export_atoms", "implement_scoped_required_audited_report_catalog_options_results_and_drilldown", "implement_idempotent_body_free_audited_export_job_and_protected_file_download"],
+      "acceptance": ["park_team_self_and_forbidden_negative_cases", "stable_report_and_column_codes", "screen_export_projection_match", "cross_scope_rows_and_binary_absent"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_REPORT_WEB_SURFACE_NOT_IMPLEMENTED",
+      "missingEvidence": ["report_catalog_ui", "parameter_form", "result_table_and_mobile_cards", "drilldown", "print", "export_status_and_download", "empty_result_state"],
+      "implementationAction": ["add_a_permission_gated_report_center_surface_under_hr_performance", "use_readable_server_scoped_selectors_without_raw_uuid_entry", "render_desktop_table_and_390px_cards_with_shared_design_system", "add_stateful_print_and_export_controls_only_after_backend_gap_closes"],
+      "acceptance": ["all_legacy_reports_reachable", "no_horizontal_overflow", "no_raw_uuid_entry", "empty_result_preserves_parameters", "unauthorized_actions_absent"]
+    }
+  ],
+  "blockingGaps": [
+    "GROUP_WEB_PERFORMANCE_REPORT_LEGACY_RUNTIME_NOT_OBSERVED",
+    "GROUP_WEB_PERFORMANCE_REPORT_17_CONTROLS_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_REPORT_11_REQUEST_KEYS_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_REPORT_10_SELECTS_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_REPORT_LEGACY_QUERY_AND_ROUTINE_CHAIN_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_REPORT_CATALOG_AND_LAYOUT_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_REPORT_API_AND_PERMISSION_SURFACE_NOT_IMPLEMENTED",
+    "GROUP_WEB_PERFORMANCE_REPORT_WEB_SURFACE_NOT_IMPLEMENTED",
+    "GROUP_WEB_PERFORMANCE_REPORT_MODERN_RUNTIME_NOT_EXECUTED"
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyEntryObservations": 1,
+    "requiredLegacyAspBindings": 5,
+    "requiredLegacyControlBindings": 17,
+    "requiredLegacyRequestKeyBindings": 11,
+    "requiredLegacyFormActionBindings": 1,
+    "requiredLegacySelectBindings": 10,
+    "requiredLegacyStateTransitionBindings": 3,
+    "requiredLegacyActionObservations": 11,
+    "requiredLegacyConditionObservations": 11,
+    "requiredLegacyReportLayoutObservations": 13,
+    "requiredModernReadInputObservations": 4,
+    "requiredModernReportingApiObservations": 8,
+    "requiredModernBrowserObservations": 16,
+    "requiredPairing": "same_entry_hash_bound_redacted_legacy_and_modern_report_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "payrollValuesExcluded": true,
+    "attachmentBinariesExcluded": true
+  },
+  "productionImport": "HOLD"
+}
