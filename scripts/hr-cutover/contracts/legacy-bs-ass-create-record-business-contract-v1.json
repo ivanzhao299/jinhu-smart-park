@@ -1,0 +1,346 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_bs_ass_create_record_business_contract",
+  "contractVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10-client-database",
+  "sourceBinding": {
+    "routineId": "RULE-D7708D3A5CB7696D",
+    "sourceName": "bs_AssCreateRecord",
+    "canonicalFamily": "bs_AssCreateRecord",
+    "sourceArtifact": "SQL_STORED_PROCEDURE_bs_AssCreateRecord_sql",
+    "sourceArtifactSha256": "2981b6a7dbabe949c03d25d17971146e9939344e0051ecd8d52aa90a984a8e9d",
+    "structuralHash": "97f878a43dabfdcca660851f78c62b896e94d6b6203799cab71a4453d66abb59",
+    "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e"
+  },
+  "familyReview": {
+    "canonicalFamilyMembers": [
+      "bs_AssCreateRecord"
+    ],
+    "historicalVariants": [],
+    "variantSearchResult": "exactly_one_member_in_controlled_212_routine_ledger",
+    "variantRule": "bak_old_bak2_bak3_and_year_suffix_members_must_be_compared_before_any_future_parity_promotion"
+  },
+  "repositoryEvidence": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "assitemFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
+      "sha256": "df1dc6aca4719ba12808841f1c23d30ca81686a7fde565efd5bf6b4d2228a6ea"
+    },
+    "assessmentdetailFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
+      "sha256": "d29fa75753aab41ad0c19a740b7efc8d70ef42c9ca2c0100c1bc970aa44c3dbc"
+    },
+    "modernSchema": {
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "sha256": "b88a42fab357ad788a4b56e3d2b5479af4a942f96210c7c2806ce7509aa16318"
+    },
+    "modernReviewController": {
+      "path": "apps/api/src/modules/hr/hr-performance-review.controller.ts",
+      "sha256": "96b1330da8c9a4d6647c4e1d3bb52648812b2e5ec523ecbddac8c3d8ea3a120f"
+    },
+    "legacyReadController": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
+      "sha256": "58776d7aa8f7de2a4694a36c47935b7830ded4bd93b6aeaaa81abedf1b7203ec"
+    },
+    "legacyReadService": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
+      "sha256": "487e5575c2f860274254e3dacd9fa2f47ef5ed4229848fd62cb939c635c0ca0d"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
+      "sha256": "23e21ad62dcca1b921070260ac1219416c4a59b8771ff75f136ff8cfe40e7b9c"
+    },
+    "legacyPanel": {
+      "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
+      "sha256": "d721e7e5d28d279c92a520958b9a9ca5222d3ef2e546d4318f1e1cab25ce8a86"
+    },
+    "permissionContract": {
+      "path": "packages/shared/src/hr.ts",
+      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+    }
+  },
+  "parameters": [
+    {
+      "ordinal": 1,
+      "sourceName": "asssessionid",
+      "sourceType": "int",
+      "nullSemantics": "null_returns_scalar_zero_before_any_write",
+      "modernBinding": "hr_performance_review_cycle.id_requires_an_explicit_source_session_record_map",
+      "classification": "drift"
+    },
+    {
+      "ordinal": 2,
+      "sourceName": "person",
+      "sourceType": "varchar(20)",
+      "nullSemantics": "null_returns_scalar_zero_before_any_write",
+      "modernBinding": "hr_employee.id_requires_exact_tenant_park_scoped_legacy_identity_resolution",
+      "classification": "drift",
+      "typeRisk": "parameter_width_20_exceeds_person_and_fact_column_width_10"
+    },
+    {
+      "ordinal": 3,
+      "sourceName": "lb",
+      "sourceType": "int",
+      "nullSemantics": "null_defaults_to_integer_1",
+      "modernBinding": "source_role_semantics_are_not_yet_bound_to_a_modern_review_actor_role",
+      "classification": "drift"
+    }
+  ],
+  "reads": [
+    {
+      "sourceTable": "person",
+      "fields": ["person", "assessment"],
+      "purpose": "resolve_assessment_definition_id_by_exact_person_key",
+      "classification": "drift"
+    },
+    {
+      "sourceTable": "assessmentmaster",
+      "fields": ["person", "asssessionid"],
+      "purpose": "logical_master_existence_check",
+      "classification": "compatible"
+    },
+    {
+      "sourceTable": "assitem",
+      "fields": ["id", "assid"],
+      "purpose": "emit_and_iterate_all_items_for_the_resolved_assessment",
+      "classification": "compatible"
+    },
+    {
+      "sourceTable": "assessmentdetail",
+      "fields": ["person", "asssessionid", "assitemid"],
+      "purpose": "logical_detail_existence_check",
+      "classification": "compatible"
+    },
+    {
+      "sourceTable": "asssour",
+      "fields": ["person", "asssessionid", "assitemid", "lb"],
+      "purpose": "logical_score_source_existence_check",
+      "classification": "drift"
+    }
+  ],
+  "writes": [
+    {
+      "sourceTable": "assessmentmaster",
+      "operation": "insert_if_missing",
+      "insertedFields": [
+        {"field": "asssessionid", "expression": "@asssessionid"},
+        {"field": "person", "expression": "@person"}
+      ],
+      "logicalExistenceKey": ["person", "asssessionid"],
+      "omittedFieldSemantics": "id_and_all_other_columns_depend_on_runtime_defaults_or_nullable_schema",
+      "modernCandidate": "hr_performance_cycle_employee",
+      "classification": "drift"
+    },
+    {
+      "sourceTable": "assessmentdetail",
+      "operation": "insert_if_missing_per_item",
+      "insertedFields": [
+        {"field": "asssessionid", "expression": "@asssessionid"},
+        {"field": "person", "expression": "@person"},
+        {"field": "assitemid", "expression": "@assitemid"}
+      ],
+      "logicalExistenceKey": ["person", "asssessionid", "assitemid"],
+      "omittedFieldSemantics": "id_and_score_fields_depend_on_runtime_defaults_or_nullable_schema",
+      "modernCandidate": "hr_performance_review_submission_dimension_scores_or_legacy_detail_fact",
+      "classification": "drift"
+    },
+    {
+      "sourceTable": "asssour",
+      "operation": "insert_if_missing_per_item_and_lb",
+      "insertedFields": [
+        {"field": "asssessionid", "expression": "@asssessionid"},
+        {"field": "person", "expression": "@person"},
+        {"field": "assitemid", "expression": "@assitemid"},
+        {"field": "lb", "expression": "effective_@lb_defaulting_to_1"}
+      ],
+      "logicalExistenceKey": ["person", "asssessionid", "assitemid", "lb"],
+      "omittedFieldSemantics": "id_and_assessor_or_score_fields_depend_on_runtime_defaults_or_nullable_schema",
+      "modernCandidate": "review_actor_assignment_or_legacy_score_source_fact",
+      "classification": "drift"
+    }
+  ],
+  "defaultsAndOmittedFields": {
+    "procedureDefaults": [
+      {"field": "lb", "defaultExpression": "integer_1_when_input_is_null"}
+    ],
+    "assessmentmaster": {
+      "id": "not_null_without_controlled_ddl_default_but_omitted_by_routine",
+      "omittedNullableFields": ["selfgrade", "assgrade", "selfvalue", "itemvalue", "mitemvalue", "xitemvalue", "citemvalue", "mastervalue", "timekeepvalue", "bonusvalue", "totalvalue", "selfappraisal", "appraisal", "pay", "assessmentperson", "recdate", "operator", "des"],
+      "explicitDefaultsUsed": []
+    },
+    "assessmentdetail": {
+      "id": "not_null_without_controlled_ddl_default_but_omitted_by_routine",
+      "omittedNullableFields": ["selfvalue", "mitemvalue", "itemvalue", "xitemvalue", "citemvalue", "selfgrade", "assgrade", "appraisal"],
+      "explicitDefaultsUsed": ["itemvalue_defaults_to_numeric_zero"]
+    },
+    "asssour": {
+      "id": "not_null_without_controlled_ddl_default_but_omitted_by_routine",
+      "omittedNullableFields": ["itemvalue", "assgrade", "appraisal"],
+      "explicitDefaultsUsed": []
+    }
+  },
+  "calculations": [
+    {"id": "C01_EFFECTIVE_LB", "expression": "effective_lb_is_1_when_lb_is_null_otherwise_input_lb", "rounding": "none"},
+    {"id": "C02_ASSESSMENT_RESOLUTION", "expression": "initialize_assid_null_then_assign_person.assessment_for_exact_person_key", "rounding": "none"},
+    {"id": "C03_ITEM_SET", "expression": "all_assitem.id_where_assitem.assid_equals_resolved_assid", "rounding": "none"},
+    {"id": "C04_SCORE_CALCULATION", "expression": "none_this_routine_only_materializes_empty_record_scaffolding", "rounding": "not_applicable"}
+  ],
+  "branches": [
+    {"id": "B01_REQUIRED_INPUT_NULL", "condition": "asssessionid_is_null_or_person_is_null", "effect": "select_scalar_zero_and_return_without_writes"},
+    {"id": "B02_LB_NULL_DEFAULT", "condition": "lb_is_null", "effect": "set_effective_lb_to_1"},
+    {"id": "B03_LB_NONNULL_PRESERVE", "condition": "lb_is_not_null", "effect": "preserve_value_without_range_validation"},
+    {"id": "B04_ASSESSMENT_UNRESOLVED", "condition": "person_lookup_has_no_row_or_assessment_is_null", "effect": "select_scalar_zero_and_return_without_writes"},
+    {"id": "B05_MASTER_MISSING", "condition": "master_logical_key_not_found", "effect": "insert_assessmentmaster"},
+    {"id": "B06_MASTER_EXISTS", "condition": "master_logical_key_found", "effect": "skip_master_insert"},
+    {"id": "B07_ITEM_RESULT_SET", "condition": "assessment_resolved", "effect": "select_matching_assitem_ids_without_order_by"},
+    {"id": "B08_ITEM_SET_EMPTY", "condition": "no_assitem_matches_assid", "effect": "both_cursor_loops_execute_zero_iterations"},
+    {"id": "B09_DETAIL_MISSING", "condition": "detail_logical_key_not_found_for_cursor_item", "effect": "insert_assessmentdetail"},
+    {"id": "B10_DETAIL_EXISTS", "condition": "detail_logical_key_found_for_cursor_item", "effect": "skip_detail_insert"},
+    {"id": "B11_SOURCE_MISSING", "condition": "source_logical_key_not_found_for_cursor_item_and_effective_lb", "effect": "insert_asssour"},
+    {"id": "B12_SOURCE_EXISTS", "condition": "source_logical_key_found_for_cursor_item_and_effective_lb", "effect": "skip_asssour_insert"},
+    {"id": "B13_DETAIL_CURSOR_TERMINATES", "condition": "first_cursor_fetch_status_is_not_zero", "effect": "close_and_deallocate_first_cursor"},
+    {"id": "B14_SOURCE_CURSOR_TERMINATES", "condition": "second_cursor_fetch_status_is_not_zero", "effect": "close_and_deallocate_second_cursor"}
+  ],
+  "loops": [
+    {
+      "id": "L01_DETAIL_ITEMS",
+      "cursorSource": "select_id_from_assitem_where_assid_equals_resolved_assid",
+      "ordering": "none_guaranteed",
+      "body": "assessmentdetail_exists_check_then_optional_insert",
+      "emptyPath": "zero_iterations"
+    },
+    {
+      "id": "L02_SCORE_SOURCE_ITEMS",
+      "cursorSource": "select_id_from_assitem_where_assid_equals_resolved_assid",
+      "ordering": "none_guaranteed",
+      "body": "asssour_exists_check_then_optional_insert",
+      "emptyPath": "zero_iterations"
+    }
+  ],
+  "outputs": {
+    "earlyExit": "single_row_single_unnamed_integer_zero_result_set",
+    "resolvedPath": "zero_or_more_assitem_id_rows_without_order_by_before_cursor_writes",
+    "successScalar": "none",
+    "rowCountMessages": "not_suppressed_by_the_routine"
+  },
+  "transactionAndErrors": {
+    "explicitTransaction": false,
+    "tryCatch": false,
+    "lockingHints": false,
+    "errorTranslation": false,
+    "failureSemantics": "a_runtime_error_propagates_and_prior_statement_autocommits_may_leave_partial_master_detail_or_source_state",
+    "cursorCleanupOnError": "not_guaranteed"
+  },
+  "repeatExecution": {
+    "intendedBehavior": "logical_rows_are_skipped_when_their_exists_predicate_matches",
+    "databaseEnforcedLogicalUniqueness": false,
+    "raceRisk": "concurrent_not_exists_checks_can_insert_duplicates",
+    "driftRisk": "not_null_id_columns_are_omitted_and_have_no_default_in_the_controlled_ddl",
+    "modernRequirement": "transactional_tenant_park_scoped_upsert_with_database_unique_constraints_and_idempotency_key"
+  },
+  "emptyAndNullPaths": [
+    "null_asssessionid_returns_zero",
+    "null_person_returns_zero",
+    "empty_string_person_is_not_null_and_continues_to_exact_lookup",
+    "missing_person_returns_zero",
+    "null_person_assessment_returns_zero",
+    "null_lb_defaults_to_1",
+    "nonnull_lb_outside_documented_values_is_not_rejected",
+    "empty_assitem_set_can_leave_only_the_master_insert",
+    "existing_rows_are_independently_skipped_per_target_and_item",
+    "nullable_score_and_assessor_columns_are_not_initialized"
+  ],
+  "references": {
+    "calledFunctions": [],
+    "calledProcedures": [],
+    "dynamicSql": "none",
+    "controlledLedgerTriggersOnWriteTargets": [],
+    "triggerConclusion": "none_in_controlled_ledger_not_an_unbounded_server_claim",
+    "declaredRelations": [
+      "assessmentdetail.assitemid_to_assitem.id"
+    ],
+    "undeclaredRoutineRelations": [
+      "person.assessment_to_assitem.assid",
+      "person.person_to_assessmentmaster.person",
+      "person.person_to_assessmentdetail.person",
+      "person.person_to_asssour.person",
+      "asssessionid_to_three_fact_tables_without_source_fk"
+    ],
+    "ledgerPseudoObject": "cur_is_a_cursor_identifier_not_a_business_table"
+  },
+  "sourceSemanticConflict": {
+    "routineComment": "lb_1_master_2_item_3_collection_record",
+    "tableDdlComment": "lb_0_self_1_superior_2_subordinate_3_customer",
+    "decision": "do_not_resolve_or_transform_until_page_or_business_evidence_is_reviewed",
+    "classification": "drift"
+  },
+  "schemaAssessment": {
+    "compatible": [
+      "modern_review_cycle_employee_can_uniquely_represent_one_employee_per_cycle",
+      "modern_performance_schema_is_tenant_and_park_scoped",
+      "modern_identifiers_have_database_generated_uuid_defaults",
+      "existing_legacy_read_surfaces_can_display_preserved_definition_and_result_facts"
+    ],
+    "dormant": [
+      "empty_source_tables_or_nullable_columns_do_not_remove_any_frozen_branch",
+      "zero_matching_assitem_path_remains_required_even_if_current_rows_do_not_exercise_it",
+      "no_historical_variant_is_present_in_the_controlled_ledger_but_future_variant_discovery_must_reopen_family_review"
+    ],
+    "drift": [
+      "source_parameter_and_fact_person_widths_differ",
+      "source_not_null_ids_are_omitted_without_controlled_ddl_defaults",
+      "source_logical_keys_lack_database_uniqueness",
+      "source_has_no_explicit_transaction_or_error_contract",
+      "source_person_session_and_assessment_relations_lack_declared_foreign_keys",
+      "lb_business_comments_conflict",
+      "modern_cycle_employee_creation_requires_employee_and_cycle_uuid_resolution_not_proven_by_this_routine",
+      "modern_review_items_and_submissions_do_not_have_a_one_to_one_verified_mapping_for_assessmentdetail_and_asssour",
+      "source_item_result_set_is_unordered_and_has_no_exact_modern_write_endpoint"
+    ]
+  },
+  "modernSurface": {
+    "page": "/hr/performance",
+    "pagePermission": "hr:performance",
+    "definitionReadPermissions": ["hr:performance_template:read", "hr:performance_template:manage"],
+    "resultReadPermissions": ["hr:performance:read", "hr:performance:team_read", "hr:performance:self_read"],
+    "candidateWritePermission": "hr:performance:manage",
+    "candidateWritesAreAuditedAndIdempotent": true,
+    "exactCreateRecordEndpoint": "missing",
+    "exactCreateRecordAction": "missing",
+    "personIdentityBinding": "pending",
+    "sessionIdentityBinding": "pending",
+    "itemIdentityBinding": "pending",
+    "lbRoleBinding": "pending",
+    "pageAndPermissionConclusion": "existing_surfaces_are_related_but_do_not_implement_the_exact_three_target_side_effect_contract"
+  },
+  "gapCodes": [
+    "ASS_CREATE_RECORD_ID_GENERATION_DRIFT",
+    "ASS_CREATE_RECORD_PERSON_IDENTITY_UNRESOLVED",
+    "ASS_CREATE_RECORD_SESSION_IDENTITY_UNRESOLVED",
+    "ASS_CREATE_RECORD_ITEM_RELATION_UNRESOLVED",
+    "ASS_CREATE_RECORD_LB_SEMANTICS_CONFLICT",
+    "ASS_CREATE_RECORD_TRANSACTION_AND_RACE_PARITY_MISSING",
+    "ASS_CREATE_RECORD_EXACT_API_AND_PAGE_ACTION_MISSING"
+  ],
+  "nonClaims": {
+    "sourceRowsRead": false,
+    "sourceRowValuesStored": false,
+    "personalDataStored": false,
+    "salaryDataStored": false,
+    "credentialsStored": false,
+    "privatePathsStored": false,
+    "businessParity": "NOT_CLAIMED",
+    "productionReadiness": "NOT_CLAIMED",
+    "productionWriteAuthorized": false
+  },
+  "status": "pending",
+  "compatibilityCredit": {
+    "numerator": 0,
+    "denominator": 1
+  },
+  "productionMutationAllowed": false,
+  "productionImport": "HOLD"
+}
