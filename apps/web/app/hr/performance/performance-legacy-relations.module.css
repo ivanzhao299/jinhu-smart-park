@@ -1,0 +1,196 @@
+.panel {
+  padding: 20px;
+}
+
+.heading,
+.tabs,
+.filters,
+.pager,
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heading,
+.cardHeader {
+  justify-content: space-between;
+}
+
+.heading h2 {
+  margin: 4px 0 0;
+}
+
+.count,
+.note,
+.state,
+.cardHeader span,
+.fieldGrid dt {
+  color: var(--text-secondary);
+}
+
+.count {
+  flex: 0 0 auto;
+}
+
+.note {
+  margin: 10px 0 18px;
+  line-height: 1.7;
+}
+
+.tabs,
+.filters {
+  flex-wrap: wrap;
+}
+
+.tabs {
+  margin-bottom: 18px;
+}
+
+.tab,
+.activeTab {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.activeTab {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 11%, var(--bg-card));
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.filterBlock {
+  margin-bottom: 18px;
+}
+
+.filters label {
+  width: min(320px, 100%);
+}
+
+.filterError {
+  margin: 8px 0 0;
+  color: var(--color-danger, #b42318);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.cardHeader {
+  min-height: 62px;
+  padding: 14px 16px;
+}
+
+.cardHeader strong,
+.cardHeader span,
+.fieldGrid dd,
+.mappingWarning {
+  overflow-wrap: anywhere;
+}
+
+.cardHeader span {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.mappingWarning {
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--bg-card));
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  border-top: 1px solid var(--border);
+  background: var(--border);
+}
+
+.fieldGrid > div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--bg-card);
+}
+
+.fieldGrid dt {
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.fieldGrid dd {
+  margin: 0;
+}
+
+.relationField {
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--bg-card)) !important;
+}
+
+.pager {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.state {
+  margin: 16px 0;
+}
+
+@media (max-width: 820px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .heading,
+  .cardHeader {
+    align-items: flex-start;
+  }
+
+  .tabs > button {
+    flex: 1 1 calc(50% - 12px);
+  }
+
+  .filters > button {
+    flex: 1 1 0;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pager {
+    justify-content: space-between;
+  }
+}
