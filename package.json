@@ -221,6 +221,7 @@
     "test:e2e:yuzhou-performance-legacy-master-parity": "node scripts/e2e/yuzhou-performance-legacy-master-parity-contract.mjs",
     "test:e2e:yuzhou-performance-person-summary-source-receipt": "node --test scripts/e2e/yuzhou-legacy-performance-person-summary-source-receipt-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-relations": "node scripts/e2e/yuzhou-performance-legacy-relations-contract.mjs",
+    "test:e2e:yuzhou-performance-person-assignment-conservation": "node --test scripts/e2e/yuzhou-performance-source-person-assignment-conservation-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-identity-resolution": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-identity-resolution:pg": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-direct-pg.mjs",
     "test:e2e:yuzhou-performance-calculation-print-parity": "node --test scripts/e2e/yuzhou-performance-calculation-print-parity-contract.mjs",

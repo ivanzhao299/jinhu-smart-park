@@ -155,6 +155,8 @@ test("relation queries use bounded pagination, stable ordering, and narrowing se
     sourceAssessorCode: "assessor-code",
     sourceRelationType: 1,
     legacySessionId: null,
+    subjectResolutionStatus: "unmatched",
+    assessorResolutionStatus: "semantics_unverified",
   });
   const result = await allowed.service.sourcePersonAssignments(
     scope,
@@ -169,13 +171,68 @@ test("relation queries use bounded pagination, stable ordering, and narrowing se
     /ORDER BY fact\.source_session_id DESC NULLS LAST,[\s\S]*fact\.source_assignment_id ASC[\s\S]*LIMIT \$4 OFFSET \$5/u,
   );
   assert.deepEqual(Object.keys(result.items[0] ?? {}).sort(), [
+    "assessorResolutionStatus",
     "legacySessionId",
     "sourceAssessorCode",
     "sourceAssignmentId",
     "sourcePersonCode",
     "sourceRelationType",
     "sourceSessionId",
+    "subjectResolutionStatus",
   ]);
+  assert.match(
+    allowed.calls[1]?.sql ?? "",
+    /legacy_source_person_assignment_id=fact\.id[\s\S]*person_role='subject'/u,
+  );
+  assert.match(
+    allowed.calls[1]?.sql ?? "",
+    /NULLIF\(btrim\(fact\.source_assessor_code\),''\) IS NULL THEN 'blank'/u,
+  );
+  assert.deepEqual(result.items[0], {
+    sourceAssignmentId: 5,
+    sourceSessionId: 7,
+    sourcePersonCode: "subject-code",
+    sourceAssessorCode: "assessor-code",
+    sourceRelationType: 1,
+    legacySessionId: null,
+    subjectResolutionStatus: "unmatched",
+    assessorResolutionStatus: "semantics_unverified",
+  });
+});
+
+test("blank assessor and unmatched subject states are projected without inventing an employee", async () => {
+  const allowed = harness({
+    sourceAssignmentId: 6,
+    sourceSessionId: 7,
+    sourcePersonCode: "synthetic-orphan",
+    sourceAssessorCode: "",
+    sourceRelationType: null,
+    legacySessionId: null,
+    subjectResolutionStatus: "unmatched",
+    assessorResolutionStatus: "blank",
+    targetEmployeeId: "must-not-leak",
+  });
+  const result = await allowed.service.sourcePersonAssignments(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 1, page_size: 20 },
+  );
+  assert.deepEqual(result, {
+    items: [{
+      sourceAssignmentId: 6,
+      sourceSessionId: 7,
+      sourcePersonCode: "synthetic-orphan",
+      sourceAssessorCode: "",
+      sourceRelationType: null,
+      legacySessionId: null,
+      subjectResolutionStatus: "unmatched",
+      assessorResolutionStatus: "blank",
+    }],
+    total: 1,
+    page: 1,
+    page_size: 20,
+  });
+  assert.equal(allowed.audits.length, 1);
 });
 
 test("relation response allowlists never expose migration provenance or rich employee records", () => {

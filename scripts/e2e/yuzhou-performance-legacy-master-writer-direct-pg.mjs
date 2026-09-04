@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -22,6 +23,7 @@ function psql(targetDatabase, sql, expectSuccess = true) {
 const admin = sql => psql("postgres", sql);
 const batch = "00000000-0000-4000-8000-000000000301";
 const h = character => character.repeat(64);
+const hash = value => createHash("sha256").update(value).digest("hex");
 const payload = {
   assessmentmaster: [{
     sourceIdentitySha256: h("a"), sourceRowSha256: h("1"), id: 9000,
@@ -65,10 +67,15 @@ const relationPayload = {
     asssessionid: 9, person: "P-SYNTH", assitemid: 101, lb: 1,
     itemvalue: 80, assgrade: "A", appraisal: null,
   }],
-  asssourperson: [{
-    sourceIdentitySha256: h("9"), sourceRowSha256: h("0"), id: 8100,
-    asssessionid: 9, person: "P-SYNTH", assperson: "A-SYNTH", lb: 1,
-  }],
+  asssourperson: Array.from({ length: 117 }, (_, index) => ({
+    sourceIdentitySha256: hash(`synthetic-assignment-identity-${index}`),
+    sourceRowSha256: hash(`synthetic-assignment-row-${index}`),
+    id: 8100 + index,
+    asssessionid: 9,
+    person: index < 9 ? "P-MAPPED" : `P-ORPH-${String(index - 8).padStart(3, "0")}`,
+    assperson: "",
+    lb: 1,
+  })),
 };
 const serialized = JSON.stringify(payload).replaceAll("'", "''");
 const performanceSerialized = JSON.stringify(performancePayload).replaceAll("'", "''");
@@ -134,8 +141,8 @@ try {
       IF (SELECT count(*) FROM hr_performance_legacy_master_result)<>1
         OR (SELECT count(*) FROM hr_performance_legacy_session)<>1
         OR (SELECT count(*) FROM hr_performance_legacy_score_source)<>1
-        OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment)<>1
-        OR (SELECT count(*) FROM legacy_record_map WHERE batch_id='${batch}' AND is_active)<>8 THEN
+        OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment)<>117
+        OR (SELECT count(*) FROM legacy_record_map WHERE batch_id='${batch}' AND is_active)<>124 THEN
         RAISE EXCEPTION 'master writer conservation mismatch';
       END IF;
       IF NOT EXISTS(
@@ -149,11 +156,11 @@ try {
         SELECT 1 FROM hr_performance_legacy_score_source
         WHERE source_score_id=8000 AND legacy_session_id IS NOT NULL
           AND legacy_dimension_profile_id IS NOT NULL AND source_relation_type=1
-      ) OR NOT EXISTS(
-        SELECT 1 FROM hr_performance_legacy_source_person_assignment
-        WHERE source_assignment_id=8100 AND legacy_session_id IS NOT NULL
-          AND source_assessor_code='A-SYNTH'
-      ) THEN RAISE EXCEPTION 'performance relation projection mismatch'; END IF;
+      ) OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment
+        WHERE legacy_session_id IS NOT NULL AND source_assessor_code='')<>117
+        OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment
+          WHERE source_person_code LIKE 'P-ORPH-%')<>108 THEN
+        RAISE EXCEPTION 'performance relation projection mismatch'; END IF;
       IF NOT EXISTS(
         SELECT 1 FROM hr_performance_yuzhou_legacy_grade_parity(
           (SELECT id FROM hr_performance_legacy_master_result LIMIT 1)
@@ -213,7 +220,7 @@ try {
     $test$;
   `);
 
-  console.log("Yuzhou performance relation direct PostgreSQL checks passed (8 rows, totals, grades, relations, replay, drift, rollback).")
+  console.log("Yuzhou performance relation direct PostgreSQL checks passed (117 synthetic assignments, blank assessors, orphan-shaped subjects, replay, drift, rollback).")
 } finally {
   admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE);`);
 }

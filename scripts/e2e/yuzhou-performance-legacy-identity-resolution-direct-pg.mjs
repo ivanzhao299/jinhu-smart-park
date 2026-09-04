@@ -52,6 +52,13 @@ const payload = {
   ],
 };
 const serialized = JSON.stringify(payload).replaceAll("'", "''");
+const sourcePersonAssignmentsSql = Array.from({ length: 117 }, (_, index) => {
+  const id = `73000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+  const sourcePersonCode = index < 9
+    ? "P-EXACT"
+    : `P-MISS-${String(index - 8).padStart(3, "0")}`;
+  return `('${id}','tenant-a','park-a','${labBatch}','${sourcePersonCode}','',9)`;
+}).join(",\n      ");
 
 try {
   admin(`CREATE DATABASE ${database} TEMPLATE template0;`);
@@ -229,8 +236,7 @@ try {
       ('72000000-0000-4000-8000-000000000003','tenant-a','park-a','${labBatch}','P-SCOPE',9),
       ('72000000-0000-4000-8000-000000000004','tenant-a','park-a','${labBatch}','P-EXACT',10);
     INSERT INTO hr_performance_legacy_source_person_assignment VALUES
-      ('73000000-0000-4000-8000-000000000001','tenant-a','park-a','${labBatch}','P-EXACT',NULL,9),
-      ('73000000-0000-4000-8000-000000000002','tenant-a','park-a','${labBatch}','P-EXACT','A-UNVERIFIED',9);
+      ${sourcePersonAssignmentsSql};
   `);
 
   psql(database, `
@@ -242,23 +248,23 @@ try {
     DO $test$
     BEGIN
       IF (SELECT count(*) FROM hr_performance_legacy_session_binding)<>2
-        OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution)<>10 THEN
+        OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution)<>240 THEN
         RAISE EXCEPTION 'identity resolution conservation mismatch';
       END IF;
       IF (SELECT count(*) FROM hr_performance_legacy_identity_resolution
-          WHERE person_resolution_status='resolved')<>4
+          WHERE person_resolution_status='resolved')<>11
         OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution
-          WHERE person_resolution_status='unmatched')<>3
+          WHERE person_resolution_status='unmatched')<>111
         OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution
           WHERE person_resolution_status='ambiguous')<>1
         OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution
-          WHERE person_resolution_status='not_applicable')<>1
+          WHERE person_resolution_status='not_applicable')<>117
         OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution
-          WHERE person_resolution_status='semantics_unverified')<>1 THEN
+          WHERE person_resolution_status='semantics_unverified')<>0 THEN
         RAISE EXCEPTION 'identity status matrix mismatch';
       END IF;
       IF (SELECT count(*) FROM hr_performance_legacy_identity_resolution
-          WHERE cycle_resolution_status='resolved' AND target_cycle_employee_id='${cycleEmployee}')<>3
+          WHERE cycle_resolution_status='resolved' AND target_cycle_employee_id='${cycleEmployee}')<>10
         OR (SELECT count(*) FROM hr_performance_legacy_identity_resolution
           WHERE cycle_resolution_status='unmatched')<>1 THEN
         RAISE EXCEPTION 'cycle binding matrix mismatch';
@@ -287,7 +293,7 @@ try {
   `);
   assert.equal(
     psql(database, "SELECT count(*) FROM hr_performance_legacy_identity_resolution;").stdout.trim(),
-    "10",
+    "240",
     "exact replay created duplicate identity facts",
   );
 
@@ -339,7 +345,7 @@ try {
         OR (SELECT count(*) FROM hr_performance_legacy_dimension_result)<>1
         OR (SELECT count(*) FROM hr_performance_legacy_master_result)<>1
         OR (SELECT count(*) FROM hr_performance_legacy_score_source)<>4
-        OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment)<>2 THEN
+        OR (SELECT count(*) FROM hr_performance_legacy_source_person_assignment)<>117 THEN
         RAISE EXCEPTION 'identity rollback mutated owner or source facts';
       END IF;
     END
@@ -350,7 +356,7 @@ try {
   `);
 
   console.log(
-    "Yuzhou performance identity-resolution direct PostgreSQL checks passed (exact/case-sensitive T0, scope, ambiguity, assessor semantics, replay, reverse guards, zero-residual rollback).",
+    "Yuzhou performance identity-resolution direct PostgreSQL checks passed (117 synthetic assignments, 108 unmatched subjects, 117 blank assessors, replay, reverse guards, zero-residual rollback).",
   );
 } finally {
   admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE);`);

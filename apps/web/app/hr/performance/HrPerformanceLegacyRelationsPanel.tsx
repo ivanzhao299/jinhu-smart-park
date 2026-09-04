@@ -51,6 +51,19 @@ function mappingText(value: unknown) {
     : "已建立";
 }
 
+function personResolutionText(value: string) {
+  const labels: Record<string, string> = {
+    resolved: "已建立现代员工映射",
+    unmatched: "未找到现代员工映射，旧关系已保留",
+    ambiguous: "存在多个候选，旧关系已保留且未自动映射",
+    semantics_unverified: "关系语义待核实，旧关系已保留",
+    not_applicable: "源人员编码为空，旧关系已保留",
+    blank: "旧评分人为空，空值已原样保留",
+    unknown: "尚无映射判定，旧关系已保留",
+  };
+  return labels[value] ?? labels.unknown;
+}
+
 function cardData(row: RelationRow): {
   key: string;
   title: string;
@@ -122,6 +135,16 @@ function cardData(row: RelationRow): {
       { label: "被考核人旧编码", value: row.sourcePersonCode },
       { label: "评分人旧编码", value: row.sourceAssessorCode },
       { label: "旧关系类型代码", value: row.sourceRelationType },
+      {
+        label: "被考核人映射状态",
+        value: personResolutionText(row.subjectResolutionStatus),
+        relation: true,
+      },
+      {
+        label: "评分人映射状态",
+        value: personResolutionText(row.assessorResolutionStatus),
+        relation: true,
+      },
       {
         label: "兼容周期关系",
         value: mappingText(row.legacySessionId),
@@ -375,7 +398,7 @@ export function HrPerformanceLegacyRelationsPanel() {
               </header>
               {card.personBearing ? (
                 <p className={styles.mappingWarning} role="note">
-                  现代员工映射：未建立；仅保留旧人员编码，不推断人员身份。
+                  映射状态来自受控解析账本；未匹配、空值和待核实关系均保留，不推断人员身份。
                 </p>
               ) : null}
               <dl className={styles.fieldGrid}>
