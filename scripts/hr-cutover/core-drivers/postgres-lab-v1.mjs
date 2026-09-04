@@ -201,7 +201,8 @@ function phaseEnvironment(config, domain, phase, state) {
   Object.assign(env, {
     ALLOW_YUZHOU_MIGRATION: "yes", YUZHOU_MIGRATION_RUN_ID: childRunId,
     YUZHOU_SQLSERVER_DATABASE: config.source.databaseAlias, YUZHOU_SQLSERVER_CONTAINER: config.source.sourceContainer,
-    YUZHOU_ETL_CREDENTIAL_FILE: config.source.etlEnvFile, YUZHOU_STAGING_ROOT: config.target.stagingRoot,
+    YUZHOU_ETL_CREDENTIAL_FILE: config.source.etlEnvFile, YUZHOU_SOURCE_BACKUP_FILE: config.source.sourceBackupPath,
+    YUZHOU_STAGING_ROOT: config.target.stagingRoot,
     YUZHOU_STAGING_DIR: stagingDirectory(config, domain), YUZHOU_TARGET_DATABASE: config.target.database,
     YUZHOU_POSTGRES_CONTAINER: config.target.container, YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT: config.target.composeProject,
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT, YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
