@@ -1,8 +1,9 @@
+import {
+  HR_LEGACY_PERSON_CODE_PATTERN,
+  normalizeHrLegacyPersonCode,
+} from "@jinhu/shared";
 import { Transform, Type } from "class-transformer";
 import { IsInt, IsOptional, IsString, Matches, Max, Min } from "class-validator";
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === "string" ? value.trim() : value;
 
 export class HrPerformanceLegacyPageQueryDto {
   @IsOptional()
@@ -28,9 +29,9 @@ export class HrPerformanceLegacyResultQueryDto extends HrPerformanceLegacyPageQu
 }
 
 export class HrPerformanceLegacyPersonSummaryQueryDto extends HrPerformanceLegacyPageQueryDto {
-  @Transform(trim)
+  @Transform(({ value }: { value: unknown }) => normalizeHrLegacyPersonCode(value))
   @IsString()
-  @Matches(/^[A-Za-z0-9_-]{1,10}$/)
+  @Matches(HR_LEGACY_PERSON_CODE_PATTERN)
   source_person_code!: string;
 }
 
