@@ -90,11 +90,13 @@ assert.match(source, /diagnose-yuzhou-hr-production-target/);
 assert.match(source, /diagnose-yuzhou-hr-preimport-snapshot/);
 assert.match(source, /diagnose-yuzhou-hr-production-source-manifest/);
 assert.match(source, /diagnose-yuzhou-hr-production-t0-target-inventory/);
+assert.match(source, /diagnose-yuzhou-hr-production-target-inventory/);
 assert.match(source, /Diagnose Yuzhou HR production target \(read-only\)/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-target\.sh/);
 assert.match(source, /scripts\/diagnose-yuzhou-hr-production-preimport-snapshot\.sh/);
 assert.match(source, /Diagnose Yuzhou HR production source manifest \(read-only\)/);
 assert.match(source, /Diagnose Yuzhou HR T0 target inventory \(read-only\)/);
+assert.match(source, /Diagnose Yuzhou HR T0-T3 target inventory \(read-only\)/);
 assert.match(source, /scripts\/prepare-yuzhou-production-source-manifest\.mjs/);
 assert.match(source, /source_manifest_json/);
 assert.match(source, /verifyProductionSourceManifest/);
@@ -113,6 +115,11 @@ assert.match(
   /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
   "Yuzhou HR T0 target inventory diagnosis must remain outside deployment, seed, and release-marker steps",
 );
+assert.match(
+  source,
+  /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
+  "Yuzhou HR T0-T3 target inventory diagnosis must remain outside deployment, seed, and release-marker steps",
+);
 const sourceManifestDiagnostic = source.slice(
   source.indexOf("Diagnose Yuzhou HR production source manifest (read-only)"),
   source.indexOf("Diagnose Yuzhou HR T0 target inventory (read-only)"),
@@ -124,7 +131,7 @@ assert.doesNotMatch(
 );
 const targetInventoryDiagnostic = source.slice(
   source.indexOf("Diagnose Yuzhou HR T0 target inventory (read-only)"),
-  source.indexOf("Prepare Yuzhou HR production data volume"),
+  source.indexOf("Diagnose Yuzhou HR T0-T3 target inventory (read-only)"),
 );
 assert.match(targetInventoryDiagnostic, /scripts\/diagnose-yuzhou-hr-production-t0-target-inventory\.sh/);
 assert.match(targetInventoryDiagnostic, /verifyProductionSourceManifest/);
@@ -132,6 +139,17 @@ assert.doesNotMatch(
   targetInventoryDiagnostic,
   /(?:\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/,
   "Yuzhou HR T0 target inventory diagnosis must not enter a deployment path",
+);
+const fullTargetInventoryDiagnostic = source.slice(
+  source.indexOf("Diagnose Yuzhou HR T0-T3 target inventory (read-only)"),
+  source.indexOf("Prepare Yuzhou HR production data volume"),
+);
+assert.match(fullTargetInventoryDiagnostic, /scripts\/diagnose-yuzhou-hr-production-target-inventory\.sh/);
+assert.match(fullTargetInventoryDiagnostic, /verifyProductionSourceManifest/);
+assert.doesNotMatch(
+  fullTargetInventoryDiagnostic,
+  /(?:\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/,
+  "Yuzhou HR T0-T3 target inventory diagnosis must not enter a deployment path",
 );
 assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);
 assert.match(source, /rsync -az --delete[\s\S]*?--exclude='node_modules\/'[\s\S]*?"\$path\/"/);

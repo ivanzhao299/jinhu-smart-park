@@ -71,7 +71,7 @@ function validDate(value) {
   return actual.getUTCFullYear() === year && actual.getUTCMonth() === month - 1 && actual.getUTCDate() === day;
 }
 
-function normalizeTargetFields(targetTable, fields, rule, { partial = false } = {}) {
+export function normalizeProductionImportTargetFields(targetTable, fields, rule, { partial = false } = {}) {
   if (!isPlainObject(fields)) fail("PRODUCTION_IMPORT_TARGET_FIELD_INVALID", `${targetTable}.targetFields must be an object`);
   for (const key of Object.keys(fields)) {
     if (!rule.fieldWhitelist.includes(key) || FORBIDDEN_SECRET.test(key)) fail("PRODUCTION_IMPORT_TARGET_FIELD_DENIED", `${targetTable}.${key}`);
@@ -110,6 +110,8 @@ function normalizeTargetFields(targetTable, fields, rule, { partial = false } = 
   }
   return normalized;
 }
+
+const normalizeTargetFields = normalizeProductionImportTargetFields;
 
 function validateTargetScope(targetScope) {
   exactKeys(targetScope, ["tenantId", "parkId", "scopeSha256"], [], "PRODUCTION_IMPORT_SEALED_SCOPE_INVALID", "targetScope");
