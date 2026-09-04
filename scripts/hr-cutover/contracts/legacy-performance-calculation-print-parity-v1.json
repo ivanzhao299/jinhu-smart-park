@@ -52,15 +52,15 @@
     },
     "legacyService": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
-      "sha256": "05ad1499094560c64e799f253a10d54224edafd6a3a2adba0f8291fc4d2010b8"
+      "sha256": "487e5575c2f860274254e3dacd9fa2f47ef5ed4229848fd62cb939c635c0ca0d"
     },
     "legacyController": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
-      "sha256": "2d2d4e931bcb37e1c365741f8b36ed834ed3209f1ddd8c3f056380701f946f53"
+      "sha256": "58776d7aa8f7de2a4694a36c47935b7830ded4bd93b6aeaaa81abedf1b7203ec"
     },
     "legacyApiContract": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "4de5f96fb3a981d16ec8e5d1f8045de692bd061ef98ae01aa2087ce05b79e039"
+      "sha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
@@ -206,7 +206,7 @@
           "entries": [
             {"sourceParameter":"assessment","modernParameter":"source_assessment_id","sourceType":"varchar(30)","modernType":"integer query parameter","transform":"validate integer then bind once to all scoped source assessment predicates","nullContract":"missing nonnumeric or out-of-range input is rejected before database access"}
           ],
-          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+          "evidenceSha256": "487e5575c2f860274254e3dacd9fa2f47ef5ed4229848fd62cb939c635c0ca0d"
         },
         "outputFieldMappings": {
           "applicability": "required",
@@ -216,7 +216,7 @@
             {"sourceField":"assitem.assitemid assitemname fullvalue myorder","modernField":"items[].sourceItemId sourceItemName sourceFullValue sourceMyOrder","transform":"one ordered item object per legacy item","nullContract":"nullable name value and order remain null"},
             {"sourceField":"one dynamic column per assgradecode.assgrade","modernField":"levels[] plus items[].descriptions[grade]","transform":"grade cursor becomes a stable key-value matrix without executing dynamic SQL","nullContract":"missing guide description is absent while null descriptions remain null"}
           ],
-          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+          "evidenceSha256": "487e5575c2f860274254e3dacd9fa2f47ef5ed4229848fd62cb939c635c0ca0d"
         },
         "readMappings": {
           "applicability": "required",
@@ -227,7 +227,7 @@
             {"sourceLocator":"assitem where assid equals parameter order by myorder","modernLocator":"hr_performance_legacy_dimension_profile by source_assessment_id order by source_my_order","relationContract":"each source item appears once in stable source order"},
             {"sourceLocator":"assitemgradedes by item and grade","modernLocator":"hr_performance_legacy_item_grade_guide by source_item_id and source_grade","relationContract":"duplicate item-grade descriptions fail closed instead of silently overwriting a dynamic column"}
           ],
-          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+          "evidenceSha256": "487e5575c2f860274254e3dacd9fa2f47ef5ed4229848fd62cb939c635c0ca0d"
         },
         "writeMappings": {
           "applicability": "not_applicable",
@@ -241,7 +241,7 @@
           "sourceBoundary": "cursor builds one read-only dynamic SELECT without an explicit write transaction",
           "modernBoundary": "three tenant-park-batch-scoped SELECT statements followed by in-memory matrix assembly",
           "rollbackBehavior": "read has no business state to roll back and required audit failure suppresses the response",
-          "evidenceSha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+          "evidenceSha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -252,7 +252,7 @@
             {"sourceExpression":"no assgradecode rows for assessment","modernExpression":"levels empty while matching items remain visible","equivalenceRule":"empty grade metadata does not erase source items"},
             {"sourceExpression":"all three source relations empty","modernExpression":"levels and items are both empty","equivalenceRule":"successful empty projection is distinct from permission denial and database failure"}
           ],
-          "evidenceSha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+          "evidenceSha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
         },
         "roundingSemantics": {
           "applicability": "not_applicable",
@@ -266,13 +266,13 @@
           "status": "verified",
           "decisionReason": "ROUTINE_AND_MODERN_ENDPOINT_ARE_READ_ONLY",
           "entries": [],
-          "evidenceSha256": "43769f31ea239343ca02ba7217c94f764c78f41e6cb02baf933d73740fb0bea8"
+          "evidenceSha256": "58776d7aa8f7de2a4694a36c47935b7830ded4bd93b6aeaaa81abedf1b7203ec"
         },
         "dynamicSql": {"status":"none","resolvedWriteTargets":[],"evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"},
         "dormantPaths": {
           "sourceDataState": "populated",
-          "emptyInputCase": {"status":"covered","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"},
-          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"},
+          "emptyInputCase": {"status":"covered","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"},
+          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"},
           "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"}
         }
       },
@@ -282,10 +282,10 @@
         "pages": ["apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx"]
       },
       "testEvidence": {
-        "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
-        "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
-        "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
-        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"edb8f36b9fbec6fa4d0fc56d1e3498e7f29f93a0f7b31001b22a2f99cf8aff07"}]
+        "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
+        "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
+        "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
+        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"}]
       },
       "review": {"status":"approved","evidenceSha256":"cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"}
     }
