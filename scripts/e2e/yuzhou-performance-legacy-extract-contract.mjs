@@ -34,7 +34,8 @@ assert.match(script, /openSync\(path, "wx", 0o600\)/u);
 for (const output of ["OUTPUT", "MASTER_OUTPUT", "RELATION_OUTPUT"]) {
   assert.match(script, new RegExp(`writePrivate\\(process\\.env\\.${output},`, "u"));
 }
-assert.match(script, /chmod 700 "\$OUTPUT_DIR"/u);
+assert.match(script, /for PRIVATE_OUTPUT in "\$OUTPUT" "\$MASTER_OUTPUT" "\$RELATION_OUTPUT"/u);
+assert.match(script, /chmod 700 "\$PRIVATE_OUTPUT_DIR"/u);
 assert.match(script, /HASHBYTES\('SHA2_256',canonical\.row_json\)/u);
 assert.match(script, /duplicateKeyGroups/u);
 assert.match(script, /unresolvedRelations/u);

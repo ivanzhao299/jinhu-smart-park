@@ -30,9 +30,12 @@ set +a
 [ "$(printf '%s' "$YUZHOU_SQLSERVER_ETL_LOGIN" | tr '[:upper:]' '[:lower:]')" != sa ] || fail PERFORMANCE_EXTRACT_SA_FORBIDDEN
 printf '%s' "${YUZHOU_SQLSERVER_DATABASE:-}" | grep -Eq '^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$' || fail PERFORMANCE_EXTRACT_DATABASE_INVALID
 
+for PRIVATE_OUTPUT in "$OUTPUT" "$MASTER_OUTPUT" "$RELATION_OUTPUT"; do
+  PRIVATE_OUTPUT_DIR="$(dirname -- "$PRIVATE_OUTPUT")"
+  mkdir -p "$PRIVATE_OUTPUT_DIR"
+  chmod 700 "$PRIVATE_OUTPUT_DIR"
+done
 OUTPUT_DIR="$(dirname -- "$OUTPUT")"
-mkdir -p "$OUTPUT_DIR"
-chmod 700 "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d "$OUTPUT_DIR/.performance-extract.XXXXXX")"
 chmod 700 "$WORK_DIR"
 cleanup() { rm -rf "$WORK_DIR"; }
