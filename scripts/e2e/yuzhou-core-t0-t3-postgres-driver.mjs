@@ -22,6 +22,8 @@ test("core driver preserves redacted T0 input failure classes before generic Pos
   assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_EMPLOYEE_DATE_INPUT_INVALID");
   assert.equal(classifyCorePhaseFailure("ERROR: T0_POSITION_INTEGER_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_POSITION_INTEGER_INPUT_INVALID");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type integer", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_INTEGER");
+  assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type timestamp with time zone", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_TIMESTAMPTZ");
+  assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type numeric", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_NUMERIC");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type text", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_INPUT");
   assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_MIGRATION_FAILED"), "CORE_MIGRATION_FAILED");
 });
