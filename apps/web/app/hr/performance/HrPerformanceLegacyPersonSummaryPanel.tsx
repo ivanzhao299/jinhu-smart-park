@@ -2,6 +2,7 @@
 
 import {
   HR_LEGACY_PERSON_CODE_MAX_LENGTH,
+  HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH,
   HR_PERMISSIONS,
   isHrLegacyPersonCode,
   normalizeHrLegacyPersonCode,
@@ -132,7 +133,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
       setResult(EMPTY_PAGE);
       setLoading(false);
       setLoadError("");
-      setValidationError("旧人员编码须为 1-10 位文字、数字、下划线或连字符。");
+      setValidationError(`旧人员编码须为 1-${HR_LEGACY_PERSON_CODE_MAX_LENGTH} 位文字、数字、下划线或连字符。`);
       return;
     }
     setInput(normalized);
@@ -170,7 +171,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
             type="text"
             value={input}
             minLength={1}
-            maxLength={HR_LEGACY_PERSON_CODE_MAX_LENGTH}
+            maxLength={HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH}
             autoComplete="off"
             spellCheck={false}
             aria-invalid={Boolean(validationError)}

@@ -1,5 +1,6 @@
 export const HR_EMPLOYEE_STATUSES = ["preboarding", "probation", "active", "suspended", "departed"] as const;
 export const HR_LEGACY_PERSON_CODE_MAX_LENGTH = 10;
+export const HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH = HR_LEGACY_PERSON_CODE_MAX_LENGTH * 2;
 export const HR_LEGACY_PERSON_CODE_PATTERN = /^[\p{L}\p{N}_-]{1,10}$/u;
 
 export function normalizeHrLegacyPersonCode(value: unknown): unknown {

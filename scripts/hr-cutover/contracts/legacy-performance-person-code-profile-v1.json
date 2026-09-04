@@ -29,10 +29,12 @@
   "inputPolicy": {
     "normalization": "trim_only_no_case_or_unicode_rewrite",
     "maxCodePoints": 10,
+    "webMaxUtf16CodeUnits": 20,
     "allowedUnicodeCategories": ["Letter", "Number"],
     "allowedLiteralSeparators": ["_", "-"],
     "comparison": "parameterized_exact_equality",
-    "urlEncoding": "URLSearchParams"
+    "urlEncoding": "URLSearchParams",
+    "claimScope": "current_snapshot_query_superset_not_varchar_write_equivalence"
   },
   "containsSourceValues": false,
   "containsPersonalData": false,

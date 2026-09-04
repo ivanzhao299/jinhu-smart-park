@@ -67,11 +67,12 @@ test("entry permission is limited to read, team-read, and self-read", () => {
 test("person code uses the shared Unicode-safe exact-code policy before any request", () => {
   for (const symbol of [
     "HR_LEGACY_PERSON_CODE_MAX_LENGTH",
+    "HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH",
     "isHrLegacyPersonCode",
     "normalizeHrLegacyPersonCode",
   ]) assert.match(component, new RegExp(`\\b${symbol}\\b`, "u"));
   assert.match(component, /const normalized = normalizeHrLegacyPersonCode\(input\)/u);
-  assert.match(component, /maxLength=\{HR_LEGACY_PERSON_CODE_MAX_LENGTH\}/u);
+  assert.match(component, /maxLength=\{HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH\}/u);
   assert.match(component, /if \(!isHrLegacyPersonCode\(normalized\)\)/u);
   assert.doesNotMatch(component, /ASCII|PERSON_CODE_PATTERN/u);
   assert.match(component, /if \(!canRead \|\| queryCode === null\) return/u);
@@ -130,10 +131,12 @@ test("the read-only source profile proves Unicode coverage without carrying sour
   assert.deepEqual(sourceProfile.inputPolicy, {
     normalization: "trim_only_no_case_or_unicode_rewrite",
     maxCodePoints: 10,
+    webMaxUtf16CodeUnits: 20,
     allowedUnicodeCategories: ["Letter", "Number"],
     allowedLiteralSeparators: ["_", "-"],
     comparison: "parameterized_exact_equality",
     urlEncoding: "URLSearchParams",
+    claimScope: "current_snapshot_query_superset_not_varchar_write_equivalence",
   });
   assert.match(String(sourceProfile.sourceSetSha256), /^[a-f0-9]{64}$/u);
   assert.equal(
