@@ -44,7 +44,7 @@
     },
     "masterParityDirectPg": {
       "path": "scripts/e2e/yuzhou-performance-legacy-master-model-direct-pg.mjs",
-      "sha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+      "sha256": "a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"
     },
     "masterParityContract": {
       "path": "scripts/e2e/yuzhou-performance-legacy-master-parity-contract.mjs",
@@ -60,7 +60,7 @@
     },
     "legacyApiContract": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
+      "sha256": "d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
@@ -147,7 +147,7 @@
           "entries": [
             {"sourceExpression":"M X C sums stored through numeric(18,0) master components then percent weighted","modernExpression":"M X C sums cast numeric(18,0) before weighting and final round(value,2)","precisionRule":"intermediate integer rounding and final two-decimal total are both observable"}
           ],
-          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+          "evidenceSha256": "a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"
         },
         "stateSideEffects": {
           "applicability": "required",
@@ -162,7 +162,7 @@
         "dormantPaths": {
           "sourceDataState": "empty",
           "emptyInputCase": {"status":"pending","evidenceSha256":"6e182f10e9d9e0fc227d2c921173828903868d26c1c098f752559cdfd117f55e"},
-          "untriggeredBranchCase": {"status":"pending","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"},
+          "untriggeredBranchCase": {"status":"pending","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"},
           "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"}
         }
       },
@@ -172,10 +172,20 @@
         "pages": ["apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx"]
       },
       "testEvidence": {
-        "positive": [{"testId":"bs-ass-compute-weight-total-grade-match","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}],
-        "negative": [{"testId":"bs-ass-compute-tied-threshold-fails-closed","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}],
-        "permission": [{"testId":"bs-ass-compute-functions-revoked-from-public","evidenceSha256":"ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"}],
-        "conservation": [{"testId":"bs-ass-compute-replay-and-zero-residue","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}]
+        "positive": [
+          {"testId":"bs-ass-compute-weight-total-grade-match","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"},
+          {"testId":"bs-ass-compute-null-default-positive-negative-half-rounding","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"}
+        ],
+        "negative": [
+          {"testId":"bs-ass-compute-tied-threshold-fails-closed","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"},
+          {"testId":"bs-ass-compute-total-unavailable-without-detail","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"},
+          {"testId":"bs-ass-compute-no-eligible-grade","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"}
+        ],
+        "permission": [
+          {"testId":"bs-ass-compute-functions-revoked-from-public","evidenceSha256":"ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"},
+          {"testId":"bs-ass-compute-master-result-read-scope-pay-and-audit-matrix","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"}
+        ],
+        "conservation": [{"testId":"bs-ass-compute-replay-and-zero-residue","evidenceSha256":"a7d34142c164cc0b8d08235926d0e6f78ff30a89849cc3aac18f705f27ced19e"}]
       },
       "review": {"status":"pending","evidenceSha256":null}
     },
@@ -241,7 +251,7 @@
           "sourceBoundary": "cursor builds one read-only dynamic SELECT without an explicit write transaction",
           "modernBoundary": "three tenant-park-batch-scoped SELECT statements followed by in-memory matrix assembly",
           "rollbackBehavior": "read has no business state to roll back and required audit failure suppresses the response",
-          "evidenceSha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
+          "evidenceSha256": "d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -252,7 +262,7 @@
             {"sourceExpression":"no assgradecode rows for assessment","modernExpression":"levels empty while matching items remain visible","equivalenceRule":"empty grade metadata does not erase source items"},
             {"sourceExpression":"all three source relations empty","modernExpression":"levels and items are both empty","equivalenceRule":"successful empty projection is distinct from permission denial and database failure"}
           ],
-          "evidenceSha256": "7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"
+          "evidenceSha256": "d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"
         },
         "roundingSemantics": {
           "applicability": "not_applicable",
@@ -271,8 +281,8 @@
         "dynamicSql": {"status":"none","resolvedWriteTargets":[],"evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"},
         "dormantPaths": {
           "sourceDataState": "populated",
-          "emptyInputCase": {"status":"covered","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"},
-          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"},
+          "emptyInputCase": {"status":"covered","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"},
+          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"},
           "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"}
         }
       },
@@ -282,9 +292,9 @@
         "pages": ["apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx"]
       },
       "testEvidence": {
-        "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
-        "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
-        "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"7838729c594015ba32e22b86080ac34149b0778e70ea8088d9d1c6eea09ad81a"}],
+        "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"}],
+        "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"}],
+        "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"d83c8e274558ddf0dcd5f98526a15e5f0724680be63b2ab4582b58561bc5bc07"}],
         "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"}]
       },
       "review": {"status":"approved","evidenceSha256":"cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"}
@@ -292,6 +302,7 @@
   ],
   "nonClaims": {
     "bsAssComputeApiIntegrated": "VERIFIED_BUT_SOURCE_SIDE_EFFECT_PARITY_PENDING",
+    "bsAssComputeSqlServerOracle": "PENDING",
     "backupVariantUPrintassessmentBak2Equivalent": "NOT_CLAIMED",
     "productionImport": "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   },

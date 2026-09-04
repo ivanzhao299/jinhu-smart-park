@@ -183,11 +183,22 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
   ]);
   requireTokens(repositoryRoot, "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts", [
     "legacy masters expose all 21 source fields, parity, paging-first SQL, and field-level pay control",
+    "resultVisibilityOnly.service.masters(",
     "legacy master pay visibility never widens team scope with self-only payroll permission",
+    "legacy master self scope is exact and self payroll permission reveals pay only to self",
+    "service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page)",
     "legacy rubric reproduces u_printassessment item-by-grade projection without dynamic SQL",
     "legacy rubric preserves items when source level definitions are absent",
     "legacy rubric returns an empty projection when all three source relations are empty",
     "legacy rubric fails closed for mixed batches or duplicate item-grade descriptions",
+  ]);
+  requireTokens(repositoryRoot, "scripts/e2e/yuzhou-performance-legacy-master-model-direct-pg.mjs", [
+    "TOTAL_UNAVAILABLE",
+    "NO_ELIGIBLE_GRADE",
+    "positive_rounding_total<>2.00",
+    "negative_rounding_total<>-2.00",
+    "null weight fixture drifted",
+    "null adjustment fixture drifted",
   ]);
   requireTokens(repositoryRoot, "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx", [
     "汇总与总分",
@@ -209,6 +220,7 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
   ) fail("PERFORMANCE_ROUTINE_COMPLETION_CREDIT_INVALID", JSON.stringify(report.summary));
   if (
     contract.nonClaims?.bsAssComputeApiIntegrated !== "VERIFIED_BUT_SOURCE_SIDE_EFFECT_PARITY_PENDING"
+    || contract.nonClaims?.bsAssComputeSqlServerOracle !== "PENDING"
     || contract.nonClaims?.backupVariantUPrintassessmentBak2Equivalent !== "NOT_CLAIMED"
     || contract.nonClaims?.productionImport !== "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   ) fail("PERFORMANCE_ROUTINE_NON_CLAIM_INVALID", "root");

@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(app\.module\.ts$|modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|property-tasks|units|work-orders)/|shared/(guards/(idempotency-key|property-high-risk-action)\.guard\.ts|interceptors/idempotency\.interceptor\.ts|services/idempotency\.service\.ts|property-workbench/property-high-risk-stopship\.ts)$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(app\.module\.ts$|modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|property-tasks|units|work-orders)/|shared/(guards/(idempotency-key|property-high-risk-action)\.guard\.ts|interceptors/idempotency\.interceptor\.ts|services/idempotency\.service\.ts|property-workbench/property-high-risk-stopship\.ts)$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/e2e/yuzhou-performance-legacy-master-model-direct-pg\.mjs$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -144,6 +144,9 @@ jobs:
           pnpm test:e2e:yuzhou-job-state-review-package-builder
           pnpm test:e2e:yuzhou-job-state-machine-attestation
           pnpm test:e2e:yuzhou-job-state-materialization
+
+      - name: Verify Yuzhou performance routine parity contract
+        run: pnpm test:e2e:yuzhou-performance-calculation-print-parity
 
       - name: Lint
         run: pnpm lint
@@ -255,6 +258,13 @@ jobs:
 
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
+
+      - name: Verify Yuzhou performance calculation PostgreSQL branches
+        env:
+          YUZHOU_PERFORMANCE_PG_CONTAINER: ${{ env.POSTGRES_CTN }}
+        run: |
+          pnpm test:e2e:yuzhou-performance-legacy-master-model:pg \
+            2>&1 | tee /tmp/release-smoke-logs/yuzhou-performance-master-model-pg.log
 
       - name: Verify Yuzhou production import v2 PostgreSQL controls
         run: |

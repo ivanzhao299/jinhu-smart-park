@@ -60,6 +60,34 @@ test("the backup print variant cannot inherit current-routine completion credit"
   assert.equal(contract.nonClaims.backupVariantUPrintassessmentBak2Equivalent, "NOT_CLAIMED");
 });
 
+test("compute branch evidence does not claim a SQL Server oracle or full routine parity", () => {
+  const compute = contract.routines.find(row => row.routineId === "RULE-0C991427090A219D");
+  const evidenceIds = Object.values(compute.testEvidence).flat().map(row => row.testId);
+  assert.equal(compute.parityStatus, "pending");
+  assert.equal(contract.nonClaims.bsAssComputeApiIntegrated, "VERIFIED_BUT_SOURCE_SIDE_EFFECT_PARITY_PENDING");
+  assert.equal(contract.nonClaims.bsAssComputeSqlServerOracle, "PENDING");
+  assert.ok(evidenceIds.includes("bs-ass-compute-total-unavailable-without-detail"));
+  assert.ok(evidenceIds.includes("bs-ass-compute-no-eligible-grade"));
+  assert.ok(evidenceIds.includes("bs-ass-compute-null-default-positive-negative-half-rounding"));
+  assert.ok(evidenceIds.includes("bs-ass-compute-master-result-read-scope-pay-and-audit-matrix"));
+});
+
+test("ordinary CI runs the fast contract and release smoke owns direct PostgreSQL branches", () => {
+  const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+  assert.match(
+    workflow,
+    /Verify Yuzhou performance routine parity contract[\s\S]*pnpm test:e2e:yuzhou-performance-calculation-print-parity/u,
+  );
+  assert.match(
+    workflow,
+    /Verify Yuzhou performance calculation PostgreSQL branches[\s\S]*YUZHOU_PERFORMANCE_PG_CONTAINER[\s\S]*pnpm test:e2e:yuzhou-performance-legacy-master-model:pg/u,
+  );
+  assert.match(
+    workflow,
+    /scripts\/e2e\/yuzhou-performance-legacy-master-model-direct-pg\\\.mjs\$/u,
+  );
+});
+
 test("evidence drift and premature bs_ass_compute promotion fail closed", () => {
   const drifted = structuredClone(contract);
   drifted.evidenceBindings.legacyService.sha256 = "f".repeat(64);

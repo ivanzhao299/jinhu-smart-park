@@ -280,6 +280,18 @@ test("legacy masters expose all 21 source fields, parity, paging-first SQL, and 
   });
   assert.equal(denied.calls.length, 0);
 
+  const resultVisibilityOnly = harness();
+  assert.deepEqual(
+    await resultVisibilityOnly.service.masters(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ),
+      page,
+    ),
+    { items: [], total: 0, page: 2, page_size: 25 },
+  );
+  assert.equal(resultVisibilityOnly.calls.length, 0);
+  assert.equal(resultVisibilityOnly.audits.length, 0);
+
   const allowed = harness();
   await allowed.service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page);
   assert.deepEqual(allowed.calls[1]?.params, [scope.tenantId, scope.parkId, false, 25, 25]);
@@ -383,6 +395,61 @@ test("legacy master pay visibility never widens team scope with self-only payrol
   );
 });
 
+test("legacy master self scope is exact and self payroll permission reveals pay only to self", async () => {
+  const self = harness();
+  await self.service.masters(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
+    page,
+  );
+  assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
+  assert.match(
+    self.calls[0]?.sql ?? "",
+    /\(cycle_employee\.id,cycle_employee\.tenant_id,cycle_employee\.park_id\)=\s*\(fact\.target_cycle_employee_id,fact\.tenant_id,fact\.park_id\)/u,
+  );
+  assert.match(
+    self.calls[0]?.sql ?? "",
+    /\(employee\.id,employee\.tenant_id,employee\.park_id\)=\s*\(cycle_employee\.employee_id,cycle_employee\.tenant_id,cycle_employee\.park_id\)/u,
+  );
+  assert.match(self.calls[0]?.sql ?? "", /fact\.tenant_id=\$1 AND fact\.park_id=\$2/u);
+  assert.deepEqual(self.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", false, 25, 25]);
+  assert.deepEqual(
+    (self.audits[0] as { afterJson: { fieldGroups: string[]; projection: string } }).afterJson,
+    { fieldGroups: ["legacy_projection"], projection: "self", itemCount: 1 },
+  );
+
+  const selfPay = harness();
+  const selfPayActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ);
+  selfPayActor.permissions.push(HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ);
+  await selfPay.service.masters(
+    scope,
+    selfPayActor,
+    { ...page, source_session_id: 7 },
+  );
+  assert.match(selfPay.calls[0]?.sql ?? "", /fact\.source_session_id=\$4/u);
+  assert.deepEqual(
+    selfPay.calls[1]?.params,
+    [scope.tenantId, scope.parkId, "user-1", 7, true, 25, 25],
+  );
+  assert.deepEqual(
+    (selfPay.audits[0] as { afterJson: { fieldGroups: string[]; projection: string } }).afterJson,
+    { fieldGroups: ["legacy_projection", "compensation"], projection: "self", itemCount: 1 },
+  );
+
+  const parkWithSelfPay = harness();
+  const parkActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_READ);
+  parkActor.permissions.push(HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ);
+  await parkWithSelfPay.service.masters(scope, parkActor, page);
+  assert.deepEqual(
+    parkWithSelfPay.calls[1]?.params,
+    [scope.tenantId, scope.parkId, false, 25, 25],
+  );
+  assert.deepEqual(
+    (parkWithSelfPay.audits[0] as { afterJson: { fieldGroups: string[] } }).afterJson.fieldGroups,
+    ["legacy_projection"],
+  );
+});
+
 test("legacy result filters narrow but cannot widen the resolved access scope", async () => {
   const self = harness();
   await self.service.results(
@@ -407,6 +474,10 @@ test("authorized empty legacy reads still require a successful audit", async () 
   const service = new HrPerformanceLegacyService(dataSource, audit);
   await assert.rejects(
     service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page),
+    /required audit unavailable/u,
+  );
+  await assert.rejects(
+    service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page),
     /required audit unavailable/u,
   );
   await assert.rejects(
