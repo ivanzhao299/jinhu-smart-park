@@ -23,3 +23,10 @@ export class HrPerformanceLegacyResultQueryDto extends HrPerformanceLegacyPageQu
   @Min(0)
   source_session_id?: number;
 }
+
+export class HrPerformanceLegacyRubricQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  source_assessment_id!: number;
+}

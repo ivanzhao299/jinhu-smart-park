@@ -100,7 +100,7 @@ test("legacy performance API is read-only, HR-module gated, and wired through ex
   const module = readFileSync(resolve(__dirname, "hr.module.ts"), "utf8");
   assert.match(controller, /@Controller\("hr\/performance-legacy"\)/u);
   assert.match(controller, /@RequireModule\("hr"\)/u);
-  for (const route of ["templates", "levels", "dimensions", "guides", "results"]) {
+  for (const route of ["templates", "levels", "dimensions", "guides", "rubric", "results"]) {
     assert.match(controller, new RegExp(`@Get\\("${route}"\\)`, "u"));
   }
   assert.doesNotMatch(controller, /@(Post|Put|Patch|Delete)\(/u);
@@ -114,6 +114,120 @@ test("legacy performance API is read-only, HR-module gated, and wired through ex
   ]) assert.match(controller, new RegExp(`HR_PERMISSIONS\\.${permission}\\b`, "u"));
   assert.match(module, /HrPerformanceLegacyController/u);
   assert.match(module, /HrPerformanceLegacyService/u);
+});
+
+test("legacy rubric reproduces u_printassessment item-by-grade projection without dynamic SQL", async () => {
+  const denied = harness();
+  assert.deepEqual(await denied.service.rubric(scope, actor(), { source_assessment_id: 3 }), {
+    sourceAssessmentId: 3,
+    levels: [],
+    items: [],
+  });
+  assert.equal(denied.calls.length, 0);
+  assert.equal(denied.audits.length, 0);
+
+  const calls: Array<{ sql: string; params: unknown[] }> = [];
+  const audits: unknown[] = [];
+  const dataSource = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params });
+      if (/FROM hr_performance_legacy_level_rule fact/u.test(sql)) {
+        return [
+          { _batchId: "batch-1", sourceAssGrade: "A", sourceDescription: null, sourceMyOrder: "1", sourceMinValue: 90, sourceMaxValue: 100 },
+          { _batchId: "batch-1", sourceAssGrade: "B", sourceDescription: null, sourceMyOrder: "2", sourceMinValue: 0, sourceMaxValue: 89 },
+        ];
+      }
+      if (/FROM hr_performance_legacy_dimension_profile fact/u.test(sql)) {
+        return [{ _batchId: "batch-1", sourceItemId: 7, sourceItemName: "Delivery", sourceFullValue: "100.00", sourceMyOrder: 1 }];
+      }
+      return [
+        { _batchId: "batch-1", sourceItemId: 7, sourceGrade: "A", sourceDescription: "Exceeds" },
+        { _batchId: "batch-1", sourceItemId: 7, sourceGrade: "B", sourceDescription: "Meets" },
+      ];
+    },
+  } as unknown as DataSource;
+  const audit = { recordOperationRequired: async (input: unknown) => audits.push(input) } as never;
+  const service = new HrPerformanceLegacyService(dataSource, audit);
+  const result = await service.rubric(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ),
+    { source_assessment_id: 3 },
+  );
+  assert.deepEqual(result, {
+    sourceAssessmentId: 3,
+    levels: [
+      { sourceAssGrade: "A", sourceDescription: null, sourceMyOrder: "1", sourceMinValue: 90, sourceMaxValue: 100 },
+      { sourceAssGrade: "B", sourceDescription: null, sourceMyOrder: "2", sourceMinValue: 0, sourceMaxValue: 89 },
+    ],
+    items: [{
+      sourceItemId: 7,
+      sourceItemName: "Delivery",
+      sourceFullValue: "100.00",
+      sourceMyOrder: 1,
+      descriptions: { A: "Exceeds", B: "Meets" },
+    }],
+  });
+  assert.equal(calls.length, 3);
+  assert.match(calls[2]?.sql ?? "", /fact\.source_item_id=ANY\(\$3::int\[\]\)/u);
+  assert.deepEqual(calls[2]?.params, [scope.tenantId, scope.parkId, [7]]);
+  assert.equal(audits.length, 1);
+});
+
+test("legacy rubric preserves items when source level definitions are absent", async () => {
+  const dataSource = {
+    query: async (sql: string) => {
+      if (/FROM hr_performance_legacy_level_rule fact/u.test(sql)) return [];
+      if (/FROM hr_performance_legacy_dimension_profile fact/u.test(sql)) {
+        return [{ _batchId: "batch-1", sourceItemId: 8, sourceItemName: null, sourceFullValue: null, sourceMyOrder: null }];
+      }
+      return [{ _batchId: "batch-1", sourceItemId: 8, sourceGrade: "orphan", sourceDescription: null }];
+    },
+  } as unknown as DataSource;
+  const audit = { recordOperationRequired: async () => undefined } as never;
+  const service = new HrPerformanceLegacyService(dataSource, audit);
+  const result = await service.rubric(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ),
+    { source_assessment_id: 3 },
+  );
+  assert.deepEqual(result.levels, []);
+  assert.deepEqual(result.items, [{
+    sourceItemId: 8,
+    sourceItemName: null,
+    sourceFullValue: null,
+    sourceMyOrder: null,
+    descriptions: {},
+  }]);
+});
+
+test("legacy rubric fails closed for mixed batches or duplicate item-grade descriptions", async () => {
+  const mixed = {
+    query: async (sql: string) => {
+      if (/FROM hr_performance_legacy_level_rule fact/u.test(sql)) return [{ _batchId: "batch-a", sourceAssGrade: "A" }];
+      if (/FROM hr_performance_legacy_dimension_profile fact/u.test(sql)) return [{ _batchId: "batch-b", sourceItemId: 7 }];
+      return [];
+    },
+  } as unknown as DataSource;
+  const audit = { recordOperationRequired: async () => undefined } as never;
+  await assert.rejects(
+    new HrPerformanceLegacyService(mixed, audit).rubric(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ), { source_assessment_id: 3 }),
+    /multiple active source batches/u,
+  );
+
+  const duplicate = {
+    query: async (sql: string) => {
+      if (/FROM hr_performance_legacy_level_rule fact/u.test(sql)) return [{ _batchId: "batch-a", sourceAssGrade: "A" }];
+      if (/FROM hr_performance_legacy_dimension_profile fact/u.test(sql)) return [{ _batchId: "batch-a", sourceItemId: 7 }];
+      return [
+        { _batchId: "batch-a", sourceItemId: 7, sourceGrade: "A", sourceDescription: "first" },
+        { _batchId: "batch-a", sourceItemId: 7, sourceGrade: "A", sourceDescription: "second" },
+      ];
+    },
+  } as unknown as DataSource;
+  await assert.rejects(
+    new HrPerformanceLegacyService(duplicate, audit).rubric(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ), { source_assessment_id: 3 }),
+    /duplicate item-grade descriptions/u,
+  );
 });
 
 test("legacy results expose all 12 source fields and preserve decimal values as text", () => {

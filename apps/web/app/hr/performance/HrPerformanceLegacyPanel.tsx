@@ -6,6 +6,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import {
   hrApi,
+  type HrPerformanceLegacyRubric,
   type HrPerformanceLegacyDimension,
   type HrPerformanceLegacyGuide,
   type HrPerformanceLegacyLevel,
@@ -147,6 +148,10 @@ export function HrPerformanceLegacyPanel() {
   const [error, setError] = useState("");
   const [sessionText, setSessionText] = useState("");
   const [sessionFilter, setSessionFilter] = useState<number | undefined>();
+  const [rubricAssessmentText, setRubricAssessmentText] = useState("");
+  const [rubric, setRubric] = useState<HrPerformanceLegacyRubric | null>(null);
+  const [rubricLoading, setRubricLoading] = useState(false);
+  const [rubricError, setRubricError] = useState("");
   const generation = useRef(0);
   const request = useRef<AbortController | null>(null);
   const activeKind = available.includes(kind) ? kind : available[0] ?? "results";
@@ -189,6 +194,24 @@ export function HrPerformanceLegacyPanel() {
     setSessionFilter(normalized ? Number(normalized) : undefined);
     setPage(1);
   };
+  const loadRubric = async () => {
+    const normalized = rubricAssessmentText.trim();
+    if (!/^\d+$/u.test(normalized)) {
+      setRubric(null);
+      setRubricError("请输入有效的旧考核表编号。");
+      return;
+    }
+    setRubricLoading(true);
+    setRubricError("");
+    try {
+      setRubric(await hrApi.performanceLegacyRubric(Number(normalized), getAccessToken()));
+    } catch (cause) {
+      setRubric(null);
+      setRubricError(hrLoadErrorMessage(cause, "加载旧版动态评分表失败"));
+    } finally {
+      setRubricLoading(false);
+    }
+  };
 
   return <section className="ds-panel" aria-labelledby="legacy-performance-heading">
     <div className={styles.heading}>
@@ -220,5 +243,20 @@ export function HrPerformanceLegacyPanel() {
       })}
     </div>
     <Pager result={result} loading={loading} onPage={setPage} />
+    {canDefinitions ? <section className={styles.rubric} aria-labelledby="legacy-rubric-heading">
+      <div className={styles.heading}><div><span className="ds-eyebrow">旧过程 u_printassessment</span><h3 id="legacy-rubric-heading">旧版动态评分表</h3></div></div>
+      <p className={styles.note}>按旧考核表编号读取项目，并按旧等级顺序横向展开评分说明；源等级定义缺失时仍保留项目，不补造等级。</p>
+      <div className={styles.filters}>
+        <label className="form-field"><span>旧考核表编号</span><input type="number" min="0" step="1" inputMode="numeric" value={rubricAssessmentText} onChange={event => setRubricAssessmentText(event.target.value)} /></label>
+        <button className="ds-button ds-button-primary" type="button" disabled={rubricLoading} onClick={() => void loadRubric()}>{rubricLoading ? "加载中…" : "生成评分表"}</button>
+      </div>
+      {rubricError ? <p className={styles.state} role="alert">{rubricError}</p> : null}
+      {rubric && !rubric.items.length ? <p className={styles.state}>该旧考核表没有可见项目。</p> : null}
+      {rubric?.items.length ? <>
+        {!rubric.levels.length ? <p className={styles.warning} role="note">源库没有该考核表的等级定义；以下项目按原值保留，未伪造评分等级。</p> : null}
+        <div className={`ds-table-shell ${styles.rubricTable}`}><table><thead><tr><th>考核项目</th><th>满分</th>{rubric.levels.map(level => <th key={level.sourceAssGrade}>{level.sourceAssGrade}</th>)}</tr></thead><tbody>{rubric.items.map(item => <tr key={item.sourceItemId}><td>{valueText(item.sourceItemName || item.sourceItemId)}</td><td>{valueText(item.sourceFullValue)}</td>{rubric.levels.map(level => <td key={level.sourceAssGrade}>{valueText(item.descriptions[level.sourceAssGrade])}</td>)}</tr>)}</tbody></table></div>
+        <div className={`ds-mobile-record-list ${styles.rubricMobile}`}>{rubric.items.map(item => <article className="ds-mobile-record" key={item.sourceItemId}><strong>{valueText(item.sourceItemName || item.sourceItemId)}</strong><span>满分 {valueText(item.sourceFullValue)}</span>{rubric.levels.map(level => <span key={level.sourceAssGrade}>{level.sourceAssGrade}：{valueText(item.descriptions[level.sourceAssGrade])}</span>)}</article>)}</div>
+      </> : null}
+    </section> : null}
   </section>;
 }

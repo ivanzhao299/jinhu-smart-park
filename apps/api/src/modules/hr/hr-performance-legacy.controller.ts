@@ -8,6 +8,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   HrPerformanceLegacyPageQueryDto,
   HrPerformanceLegacyResultQueryDto,
+  HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
 import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 
@@ -66,6 +67,19 @@ export class HrPerformanceLegacyController {
     @Query() query: HrPerformanceLegacyPageQueryDto,
   ) {
     return this.service.guides(scope, actor, query);
+  }
+
+  @Get("rubric")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_MANAGE,
+  )
+  rubric(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyRubricQueryDto,
+  ) {
+    return this.service.rubric(scope, actor, query);
   }
 
   @Get("results")
