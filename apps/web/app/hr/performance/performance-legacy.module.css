@@ -122,6 +122,25 @@
   margin: 16px 0;
 }
 
+.rubric {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.rubric h3 {
+  margin: 4px 0 0;
+}
+
+.warning {
+  margin: 12px 0;
+  color: var(--color-warning-text, var(--text-secondary));
+}
+
+.rubricMobile {
+  display: none;
+}
+
 @media (max-width: 560px) {
   .heading,
   .record summary {
@@ -143,5 +162,13 @@
 
   .tabs > button {
     flex: 1 1 calc(50% - 12px);
+  }
+
+  .rubricTable {
+    display: none;
+  }
+
+  .rubricMobile {
+    display: grid;
   }
 }

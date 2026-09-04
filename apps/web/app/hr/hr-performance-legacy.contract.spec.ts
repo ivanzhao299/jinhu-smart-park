@@ -24,7 +24,7 @@ test("legacy performance screen exposes every one of the 29 definition and 12 re
 });
 
 test("legacy performance browser is read-only, paginated, scoped, and relationship-visible", () => {
-  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Results"]) {
+  for (const endpoint of ["Templates", "Levels", "Dimensions", "Guides", "Rubric", "Results"]) {
     assert.match(api, new RegExp(`performanceLegacy${endpoint}:`, "u"));
   }
   for (const relation of [
@@ -36,6 +36,18 @@ test("legacy performance browser is read-only, paginated, scoped, and relationsh
   assert.match(api, /source_session_id/u);
   assert.match(panel, /<Pager result=/u);
   assert.doesNotMatch(panel, /hrApi\.(create|publish|submit|resolve|add|complete)/u);
+});
+
+test("legacy performance rubric reproduces the dynamic grade matrix on desktop and mobile", () => {
+  assert.match(api, /performanceLegacyRubric:/u);
+  assert.match(api, /performance-legacy\/rubric\?source_assessment_id=/u);
+  assert.match(panel, /旧过程 u_printassessment/u);
+  assert.match(panel, /旧版动态评分表/u);
+  assert.match(panel, /源库没有该考核表的等级定义/u);
+  assert.match(panel, /ds-table-shell/u);
+  assert.match(panel, /ds-mobile-record-list/u);
+  assert.match(styles, /\.rubricTable[\s\S]*?display: none/u);
+  assert.match(styles, /\.rubricMobile[\s\S]*?display: grid/u);
 });
 
 test("legacy performance fields collapse on phone-width layouts", () => {
