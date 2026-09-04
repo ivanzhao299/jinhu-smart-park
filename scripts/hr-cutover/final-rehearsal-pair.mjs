@@ -19,6 +19,7 @@ const P0_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contr
 const UAT_TASK_CARD=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"),"utf8"));
 const UAT_API_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8"));
 const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"),"utf8"));
+let ACTIVE_FINAL_PAIR_RECOVERY=null;
 const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateMachineAttestationArtifact","auditBundle"];
 const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateMachineAttestationArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
@@ -221,6 +222,12 @@ export function validateMachineResumeCheckpoint(checkpoint,configs,{checkpointEv
 
 function parse(argv){const out={execute:false};for(let i=0;i<argv.length;i+=1){const arg=argv[i];if(arg==="--execute")out.execute=true;else if(["--config-a","--config-b","--contract","--summary","--phase","--checkpoint","--decision-a","--payload-a","--machine-attestation-a","--decision-b","--payload-b","--machine-attestation-b"].includes(arg))out[arg.slice(2).replace(/-([a-z])/gu,(_m,x)=>x.toUpperCase())]=argv[++i];else fail("FINAL_PAIR_ARGUMENT_INVALID",arg);}if(!out.configA||!out.configB)fail("FINAL_PAIR_ARGUMENT_INVALID","--config-a and --config-b required");return out;}
 function privateJson(path,value){if(existsSync(path))fail("FINAL_PAIR_SUMMARY_EXISTS",path);writeFileSync(path,canonical(value),{mode:0o600,flag:"wx"});chmodSync(path,0o600);}
+export function writeTerminalHoldSummary(path, signal,{recoveryFailed=false}={}){
+  if(typeof path!=="string"||!path||existsSync(path))return false;
+  if(!["SIGINT","SIGTERM","SIGHUP"].includes(signal))fail("FINAL_PAIR_SIGNAL_INVALID",signal);
+  privateJson(path,{formatVersion:1,status:"HOLD",errorCode:recoveryFailed?"FINAL_PAIR_INTERRUPTED_RECOVERY_FAILED":"FINAL_PAIR_INTERRUPTED",errorDetail:`signal=${signal}`,productionImport:"HOLD"});
+  return true;
+}
 function mode(path){return(statSync(path).mode&0o777).toString(8).padStart(4,"0");}
 function inside(parent,child){const rel=relative(parent,child);return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
 
@@ -292,6 +299,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const configPaths=[realpathSync(resolve(args.configA)),realpathSync(resolve(args.configB))],configs=configPaths.map((path,index)=>({...JSON.parse(readFileSync(path,"utf8")),__configPath:path,__ordinal:index}));
     const git=spawnSync("git",["status","--porcelain=v1","--untracked-files=all"],{cwd:ROOT,encoding:"utf8"}),head=spawnSync("git",["rev-parse","HEAD"],{cwd:ROOT,encoding:"utf8"}).stdout.trim();
     const preflight=validatePairPreflight(configs[0],configs[1],contract,{currentSha:head,mappingContractHash:computeMappingContractHash(FULL_CONTRACT),worktreeClean:git.status===0&&!git.stdout.trim()});
+    ACTIVE_FINAL_PAIR_RECOVERY=()=>{const failures=[];for(const config of configs){try{recover(config);}catch(error){failures.push(error);}}if(failures.length)fail("FINAL_PAIR_RECOVERY_FAILED",String(failures.length));};
     if(args.phase!=="resume")validateRuntimeVacancy(configs,runtimeSnapshot(configs));
     if(!args.execute){process.stdout.write(`${JSON.stringify(preflight)}\n`);process.exit(0);}
     if(process.env.ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"||!args.summary)fail("FINAL_PAIR_EXECUTION_AUTH_MISSING","explicit lab authorization and --summary required");
@@ -299,6 +307,13 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(requestedSummary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
     if((statSync(summaryParent).mode&0o777)!==0o700)fail("FINAL_PAIR_SUMMARY_UNSAFE","private 0700 parent required");
     summary=summaryResolved;
+    for(const signal of ["SIGINT","SIGTERM","SIGHUP"]){
+      process.once(signal,()=>{
+        let recoveryFailed=false;try{ACTIVE_FINAL_PAIR_RECOVERY?.();}catch{recoveryFailed=true;}
+        writeTerminalHoldSummary(summary,signal,{recoveryFailed});
+        process.exit(128);
+      });
+    }
     if(!["extract","resume"].includes(args.phase))fail("FINAL_PAIR_PHASE_REQUIRED","--phase extract|resume required");
     if(args.phase==="extract"){const checkpoint=runFinalPairExtract(configs[0],configs[1]);privateJson(summary,checkpoint);process.stdout.write(`${JSON.stringify({status:"REVIEW_HOLD",checkpoint:summary,productionImport:"HOLD"})}\n`);process.exit(0);}
     const checkpointPath=realpathSync(resolve(args.checkpoint??""));if(mode(checkpointPath)!=="0600")fail("FINAL_PAIR_CHECKPOINT_INVALID","0600 checkpoint required");const checkpoint=JSON.parse(readFileSync(checkpointPath,"utf8"));validateMachineResumeCheckpoint(checkpoint,configs);
@@ -312,6 +327,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
       const errorDetail=safeDiagnosticDetail(error),result={formatVersion:1,status:"HOLD",errorCode:safeErrorCode(error),...(errorDetail?{errorDetail}:{}),productionImport:"HOLD"};
       writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);
     }
+    ACTIVE_FINAL_PAIR_RECOVERY=null;
     process.stderr.write(`${safeErrorCode(error)}\n`);process.exitCode=1;
   }
 }

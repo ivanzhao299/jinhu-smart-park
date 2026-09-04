@@ -1,11 +1,11 @@
 /* global structuredClone */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validateMachineTrustRoots, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validateMachineTrustRoots, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy, writeTerminalHoldSummary } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -20,6 +20,22 @@ test("fact, order, final-state and import drift fail closed",()=>{
   for(const mutate of [draft=>{draft.sourceFacts.T4.items++;},draft=>{draft.rollbackOrder.reverse();},draft=>{draft.requiredFinalState.residualCount=1;},draft=>{draft.productionImport="GO";}]){
     const draft=structuredClone(contract);mutate(draft);assert.throws(()=>validatePairContract(draft));
   }
+});
+
+test("interrupts leave a private HOLD receipt without replacing an existing checkpoint",()=>{
+  const sandbox=mkdtempSync(join(realpathSync(tmpdir()),"yuzhou-final-terminal-"));
+  try{
+    chmodSync(sandbox,0o700);
+    const summary=join(sandbox,"summary.json");
+    assert.equal(writeTerminalHoldSummary(summary,"SIGTERM"),true);
+    assert.equal((statSync(summary).mode&0o777),0o600);
+    assert.deepEqual(JSON.parse(readFileSync(summary,"utf8")),{formatVersion:1,status:"HOLD",errorCode:"FINAL_PAIR_INTERRUPTED",errorDetail:"signal=SIGTERM",productionImport:"HOLD"});
+    assert.equal(writeTerminalHoldSummary(summary,"SIGINT"),false);
+    assert.throws(()=>writeTerminalHoldSummary(join(sandbox,"invalid.json"),"SIGUSR1"),error=>error.code==="FINAL_PAIR_SIGNAL_INVALID");
+    const failedRecovery=join(sandbox,"failed-recovery.json");
+    assert.equal(writeTerminalHoldSummary(failedRecovery,"SIGHUP",{recoveryFailed:true}),true);
+    assert.equal(JSON.parse(readFileSync(failedRecovery,"utf8")).errorCode,"FINAL_PAIR_INTERRUPTED_RECOVERY_FAILED");
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
 
 test("runtime vacancy rejects occupied ports, Docker identities and controlled paths before provision",()=>{
@@ -86,6 +102,7 @@ test("runner is a fixed fail-closed sequence and deployment workflows do not inv
   const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","full-domain-lifecycle.mjs\",[\"resume","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
   let cursor=-1;for(const stage of stages){const next=runner.indexOf(stage,cursor+1);assert(next>cursor,`missing/out-of-order ${stage}`);cursor=next;}
   assert.match(runner,/ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"/u);assert.match(runner,/FINAL_PAIR_P0_HOLD/u);assert.match(runner,/--recover/u);
+  assert.match(runner,/ACTIVE_FINAL_PAIR_RECOVERY=\(\)=>/u);assert.match(runner,/ACTIVE_FINAL_PAIR_RECOVERY\?\.\(\)/u);
   assert.match(runner,/compareIsolation\(a,b\)/u);
   assert.match(runner,/assertTechnicalUatPairEvidence/u);assert.match(runner,/FINAL_PAIR_BROWSER_MANIFEST_UNBOUND/u);assert.match(runner,/FINAL_PAIR_BROWSER_SESSION_PROOF_INVALID/u);
   assert.match(technicalUat,/materializationKeyArtifact/u);assert.match(technicalUat,/PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey/u);
