@@ -1,0 +1,263 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_reward_discipline_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.bonuscode",
+      "sourceTable": "bonuscode",
+      "observedRows": 8,
+      "stableKey": ["bonus"],
+      "columns": [
+        {"name": "bonus", "type": "varchar(2)", "nullable": false, "default": null, "description": null},
+        {"name": "bonusname", "type": "varchar(100)", "nullable": false, "default": null, "description": null},
+        {"name": "addsub", "type": "numeric(8,4)", "nullable": true, "default": null, "description": null},
+        {"name": "bonuspay", "type": "money", "nullable": true, "default": "(0)", "description": null},
+        {"name": "bonustype", "type": "varchar(4)", "nullable": false, "default": "('奖励')", "description": "奖励，惩罚"}
+      ]
+    },
+    {
+      "sourceObject": "dbo.bonusrecord",
+      "sourceTable": "bonusrecord",
+      "observedRows": 0,
+      "stableKey": ["id"],
+      "columns": [
+        {"name": "id", "type": "int", "nullable": false, "default": null, "description": null},
+        {"name": "person", "type": "varchar(10)", "nullable": false, "default": null, "description": null},
+        {"name": "bonusdate", "type": "smalldatetime", "nullable": false, "default": null, "description": null},
+        {"name": "bonus", "type": "varchar(2)", "nullable": false, "default": null, "description": null},
+        {"name": "bonusunit", "type": "varchar(50)", "nullable": true, "default": null, "description": null},
+        {"name": "times", "type": "int", "nullable": true, "default": null, "description": null},
+        {"name": "postperson", "type": "varchar(30)", "nullable": true, "default": null, "description": null},
+        {"name": "eventdate", "type": "smalldatetime", "nullable": true, "default": null, "description": null},
+        {"name": "cause", "type": "varchar(100)", "nullable": true, "default": null, "description": null},
+        {"name": "addsub", "type": "numeric(8,4)", "nullable": true, "default": "(0)", "description": null},
+        {"name": "bonuspay", "type": "money", "nullable": true, "default": null, "description": null}
+      ]
+    }
+  ],
+  "denominatorRule": "all_sixteen_catalog_fields_count_even_when_bonusrecord_is_empty_or_a_source_column_is_all_null",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_aggregates_and_gap_codes_only",
+  "fields": [
+    {
+      "stableId": "BONUSCODE_BONUS",
+      "sourceField": "bonuscode.bonus",
+      "disposition": "verified_target",
+      "targetFields": ["hr_reward_discipline_category.category_code"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonus"],
+      "transformRule": "trim_then_prefix_YZ_RC_or_quarantine",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "BONUSCODE_BONUSNAME",
+      "sourceField": "bonuscode.bonusname",
+      "disposition": "verified_target",
+      "targetFields": ["hr_reward_discipline_category_version.name"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonusname"],
+      "transformRule": "trim_to_required_name_or_quarantine",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "BONUSCODE_ADDSUB",
+      "sourceField": "bonuscode.addsub",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_category_version.kind"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.addsub"],
+      "transformRule": "current_loader_derives_kind_from_sign_but_cannot_override_unread_bonustype",
+      "reasonCode": "REWARD_CATEGORY_KIND_SOURCE_PRECEDENCE_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSCODE_BONUSPAY",
+      "sourceField": "bonuscode.bonuspay",
+      "disposition": "authorized_archive",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonuspay"],
+      "transformRule": "preserve_exact_source_value_in_restricted_legacy_payload",
+      "reasonCode": "REWARD_CATEGORY_DEFAULT_PAY_HAS_NO_PROVEN_MODERN_TARGET",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSCODE_BONUSTYPE",
+      "sourceField": "bonuscode.bonustype",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_category_version.kind"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonustype"],
+      "transformRule": "preserve_without_kind_conversion_until_dictionary_and_precedence_receipt",
+      "reasonCode": "REWARD_CATEGORY_KIND_SOURCE_PRECEDENCE_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_ID",
+      "sourceField": "bonusrecord.id",
+      "disposition": "authorized_archive",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.id"],
+      "transformRule": "preserve_as_stable_source_identity_only",
+      "reasonCode": "REWARD_CASE_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_PERSON",
+      "sourceField": "bonusrecord.person",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.employee_id"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.person"],
+      "transformRule": "resolve_exact_active_T0_person_record_map_or_quarantine_after_case_writer_exists",
+      "reasonCode": "REWARD_CASE_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_BONUSDATE",
+      "sourceField": "bonusrecord.bonusdate",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.occurred_on"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonusdate"],
+      "transformRule": "preserve_without_date_collapse_until_bonusdate_eventdate_precedence_is_reviewed",
+      "reasonCode": "REWARD_CASE_TWO_DATE_SEMANTICS_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_BONUS",
+      "sourceField": "bonusrecord.bonus",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.category_id", "hr_reward_discipline_case.category_version_id"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonus"],
+      "transformRule": "resolve_exact_bonuscode_projection_and_freeze_version_after_case_writer_exists",
+      "reasonCode": "REWARD_CASE_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_BONUSUNIT",
+      "sourceField": "bonusrecord.bonusunit",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonusunit"],
+      "transformRule": "preserve_without_target_projection",
+      "reasonCode": "REWARD_CASE_BONUSUNIT_SEMANTICS_UNREVIEWED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_TIMES",
+      "sourceField": "bonusrecord.times",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.times"],
+      "transformRule": "preserve_integer_without_flattening_repeated_occurrence_count",
+      "reasonCode": "REWARD_CASE_OCCURRENCE_COUNT_TARGET_MISSING",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_POSTPERSON",
+      "sourceField": "bonusrecord.postperson",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.postperson"],
+      "transformRule": "preserve_without_user_identity_guess",
+      "reasonCode": "REWARD_CASE_PROPOSER_IDENTITY_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_EVENTDATE",
+      "sourceField": "bonusrecord.eventdate",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.occurred_on"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.eventdate"],
+      "transformRule": "preserve_without_date_collapse_until_bonusdate_eventdate_precedence_is_reviewed",
+      "reasonCode": "REWARD_CASE_TWO_DATE_SEMANTICS_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_CAUSE",
+      "sourceField": "bonusrecord.cause",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.fact_summary", "hr_reward_discipline_case.detailed_reason"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.cause"],
+      "transformRule": "preserve_without_duplicating_one_legacy_reason_into_two_modern_fields",
+      "reasonCode": "REWARD_CASE_REASON_SPLIT_RULE_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_ADDSUB",
+      "sourceField": "bonusrecord.addsub",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.addsub"],
+      "transformRule": "preserve_numeric_score_adjustment_exactly",
+      "reasonCode": "REWARD_CASE_SCORE_ADJUSTMENT_TARGET_MISSING",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "BONUSRECORD_BONUSPAY",
+      "sourceField": "bonusrecord.bonuspay",
+      "disposition": "explicit_gap",
+      "targetFields": ["hr_reward_discipline_case.amount_suggestion"],
+      "preservationFields": ["hr_legacy_t5_record.record_payload.bonuspay"],
+      "transformRule": "preserve_exact_money_without_relabeling_actual_payroll_input_as_suggestion",
+      "reasonCode": "REWARD_CASE_PAYROLL_AMOUNT_SEMANTICS_UNRESOLVED",
+      "compatibilityCredit": 0
+    }
+  ],
+  "relations": [
+    {
+      "source": "bonusrecord.person",
+      "target": "person.person",
+      "kind": "declared_foreign_key_and_routine_join",
+      "disposition": "verified_source_relation"
+    },
+    {
+      "source": "bonusrecord.bonus",
+      "target": "bonuscode.bonus",
+      "kind": "declared_foreign_key_and_routine_join",
+      "disposition": "verified_source_relation"
+    }
+  ],
+  "explicitGaps": [
+    {"sourceFields": ["bonuscode.addsub", "bonuscode.bonustype"], "reasonCode": "REWARD_CATEGORY_KIND_SOURCE_PRECEDENCE_UNRESOLVED", "missingEvidence": ["readonly_value_domain_cross_tab_for_addsub_and_bonustype", "reviewed_precedence_rule"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.person", "bonusrecord.bonus"], "reasonCode": "REWARD_CASE_WRITER_NOT_IMPLEMENTED", "missingEvidence": ["bonusrecord_case_transform", "case_writer_record_map_and_rollback"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.bonusdate", "bonusrecord.eventdate"], "reasonCode": "REWARD_CASE_TWO_DATE_SEMANTICS_UNRESOLVED", "missingEvidence": ["reviewed_two_date_target_model", "empty_table_fixture_for_both_dates"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.bonusunit"], "reasonCode": "REWARD_CASE_BONUSUNIT_SEMANTICS_UNREVIEWED", "missingEvidence": ["readonly_page_or_routine_label_for_bonusunit"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.times"], "reasonCode": "REWARD_CASE_OCCURRENCE_COUNT_TARGET_MISSING", "missingEvidence": ["modern_occurrence_count_field_or_normalized_child_model"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.postperson"], "reasonCode": "REWARD_CASE_PROPOSER_IDENTITY_UNRESOLVED", "missingEvidence": ["proposer_identity_relation_and_null_policy"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.cause"], "reasonCode": "REWARD_CASE_REASON_SPLIT_RULE_UNRESOLVED", "missingEvidence": ["fact_summary_and_detailed_reason_split_rule"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.addsub"], "reasonCode": "REWARD_CASE_SCORE_ADJUSTMENT_TARGET_MISSING", "missingEvidence": ["modern_score_adjustment_field_or_link_model"], "decision": "KEEP_GAP"},
+    {"sourceFields": ["bonusrecord.bonuspay"], "reasonCode": "REWARD_CASE_PAYROLL_AMOUNT_SEMANTICS_UNRESOLVED", "missingEvidence": ["actual_payroll_input_link_contract", "currency_and_sign_rule"], "decision": "KEEP_GAP"}
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {"routineId": "RULE-0F91E40B8FA6295E", "sourceName": "u_bonuscounts", "sourceArtifactSha256": "6fde7f298105b9b017f95b44c20edbd2d3c8fd7effe6fb3cf565a4baea2b4daf"},
+      {"routineId": "RULE-2B33E54610FB83AD", "sourceName": "u_bonuscountsonperson", "sourceArtifactSha256": "7a11c881f164024b8cefa3596a1a4f85e380b49f350f016421d9facd1b3aa8ff"},
+      {"routineId": "RULE-23BD1FDCED6A81B2", "sourceName": "u_bonusrecords", "sourceArtifactSha256": "309082edcd356f8edc12353d3fd81df319caaa08aede31dfb02d471106371a93"},
+      {"routineId": "RULE-D2CE44AF3326AF5F", "sourceName": "u_inputfrombonus", "sourceArtifactSha256": "d8bc2afb30a748442e342fa0260ea89b75caf485d9aa07f070cbaca9777492d2"},
+      {"routineId": "RULE-6E6C72D33ED5ACE1", "sourceName": "web_bonusquery", "sourceArtifactSha256": "738392825f4518853597abe31391a08986d44d9de8fe7b3ec72c4c72327ef639"},
+      {"routineId": "RULE-192E4361BA44EAF2", "sourceName": "web_bonusrecord", "sourceArtifactSha256": "8da426c868aaa9bf38fb497dbbdc0b6cae4872f1eb1f9fdd2888e3a1594dcf65"}
+    ]
+  },
+  "repositoryEvidence": [
+    {"role": "full_field_extract", "path": "scripts/extract-yuzhou-t5-legacy-history.sh", "sha256": "7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353", "requiredTokens": ["SELECT bonus,bonusname,CONVERT(varchar(40),addsub) addsub,CONVERT(varchar(40),bonuspay) bonuspay,bonustype FROM dbo.bonuscode", "SELECT id,person,CONVERT(varchar(33),bonusdate,126) bonusdate,bonus,bonusunit,times,postperson,CONVERT(varchar(33),eventdate,126) eventdate,cause,CONVERT(varchar(40),addsub) addsub,CONVERT(varchar(40),bonuspay) bonuspay FROM dbo.bonusrecord"]},
+    {"role": "source_aggregate", "path": "scripts/transform-yuzhou-t5-legacy-history.mjs", "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3", "requiredTokens": ["bonuscode:8", "bonusrecord:0"]},
+    {"role": "category_read_only_extract", "path": "scripts/extract-yuzhou-training-reward-history.sh", "sha256": "e8c9ebae83dd80c8f067a396b9d968e43a648bce7625a1e15d5b812d191c32cb", "requiredTokens": ["bonuscode.raw.json", "SELECT bonus,bonusname,CONVERT(varchar(40),addsub) addsub FROM dbo.bonuscode"]},
+    {"role": "category_transform", "path": "scripts/transform-yuzhou-training-reward-history.mjs", "sha256": "ee533a542407bca672e02d8625f251bef0c885c40b5cf5fed2998b17ce698fc6", "requiredTokens": ["impact>0?\"reward\":impact<0?\"discipline\":null", "REWARD_CATEGORY_IMPACT_UNRESOLVED"]},
+    {"role": "category_writer", "path": "scripts/load-yuzhou-training-reward-history.sh", "sha256": "3b95e0dae65d0f08dfbe77af689e67f8536cd54e6c9bfbee6e26451620c79161", "requiredTokens": ["INSERT INTO hr_reward_discipline_category", "INSERT INTO hr_reward_discipline_category_version"]},
+    {"role": "modern_schema", "path": "database/migrations/000255_hr_reward_discipline_operations.sql", "sha256": "aeff85ed7b47ce4b483d40d8ec8f45c78076729f55d5c0334f1b8cea88fe670e", "requiredTokens": ["CREATE TABLE hr_reward_discipline_category(", "CREATE TABLE hr_reward_discipline_case("]},
+    {"role": "authorized_archive", "path": "database/migrations/000256_hr_legacy_t5_history.sql", "sha256": "a00798cb1b3867b4865367e3d770143cd673e45f6d0e02b0476d4b60f7ad7ab9", "requiredTokens": ["record_payload jsonb NOT NULL", "'reward_category','reward_history'"]},
+    {"role": "authorized_archive_writer", "path": "scripts/load-yuzhou-t5-legacy-history.sh", "sha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de", "requiredTokens": ["INSERT INTO hr_legacy_t5_record", "c.payload->'source'"]},
+    {"role": "projection_rollback", "path": "database/migrations/000286_hr_legacy_training_reward_projection.sql", "sha256": "c70ac94314d7ea0a02d5410fbfc951aa4b84546e528c2932a3e8a4e4bee79202", "requiredTokens": ["source_table IN('dbo.trainhis','dbo.bonuscode')", "reward_category_id", "reward_category_version_id"]},
+    {"role": "runtime_api", "path": "apps/api/src/modules/hr/hr-rewards.service.ts", "sha256": "46bbffa8bd18dc5e5aba87378c40fed75e692047350d97c8c9091ffc9a8f700a", "requiredTokens": ["hr_reward_discipline_category", "hr_reward_discipline_case", "amount_suggestion"]},
+    {"role": "runtime_page", "path": "apps/web/app/hr/rewards/HrRewardsClient.tsx", "sha256": "a524c4252480d315c39e8996bd58e2cfd8bbfd14e4567e5e6821881dde8b9f99", "requiredTokens": ["奖励", "处分", "rewardCases"]}
+  ],
+  "compatibilityCredit": {"numerator": 2, "denominator": 16},
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": ["photo", "docs"],
+  "productionImport": "HOLD"
+}

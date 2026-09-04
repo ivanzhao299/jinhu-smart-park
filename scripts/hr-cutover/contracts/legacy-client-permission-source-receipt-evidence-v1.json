@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_hr_legacy_client_permission_source_receipt",
+  "sourceRestoreReceiptSha256": "f1faae7f5803e1d6940274f1c3b5a1e2a6eb5cb2f59a87b62d4d8b0b15eb104b",
+  "databaseIdentitySha256": "46f7a455cc95c3d4ba1112bb2442b5b3ccd27cf8464f09a083669a7368193e86",
+  "queryIdentitySha256": "96d1aecb44838724927bdad9035a4b27772e2189b74ef5950f4e716adc0bb4d8",
+  "operationMode": "read_only_aggregate_and_private_capability_export",
+  "expectedAuthorizationGrantEdges": 915,
+  "safeFacts": {
+    "rightsRows": 915,
+    "templateRows": 91,
+    "usersRows": 10,
+    "rightsDistinctUnitcodes": 93,
+    "templateDistinctUnitcodes": 91,
+    "sharedUnitcodes": 91,
+    "capabilityUnionUnitcodes": 93,
+    "rightsOrphanUnitcodes": 2,
+    "templateUnusedUnitcodes": 0,
+    "duplicateGrantPrimaryKeys": 0,
+    "structuralConflictUnitcodes": 78,
+    "blankTemplateSemantics": 12,
+    "grantEdgeSetSha256": "12dc0d4fcf053bd728ccf3eefc298515f32aeb09fb192bfcb969c1cda791dffd",
+    "capabilitySetSha256": "aa86dd6986569ea991e89abdbf92b02c74c887c4dcf7efc8819df8339be149cd"
+  },
+  "status": "SOURCE_PERMISSION_CAPABILITIES_CAPTURED_WITH_GAPS",
+  "compatibilityCredit": 0,
+  "containsUserBoundRows": false,
+  "productionImport": "HOLD",
+  "receiptSha256": "5a650740ec7e6e4ade10d5cf1e5456c830ed38829a167fde43d7cfc1a148de11"
+}

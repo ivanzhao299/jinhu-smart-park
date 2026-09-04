@@ -3,19 +3,1413 @@
   "contractKind": "yuzhou_hr_legacy_client_permission_capability_mapping",
   "surface": "client",
   "sourceInventorySha256": "7b63bfdb9f62123e03a867c32bb72bc531c45949cc63f99376f80ebb4c3687ee",
-  "sourceReceiptSha256": null,
-  "fixedDenominator": null,
-  "authorizationGrantEdges": {"observedRows":0,"expectedRows":915,"compatibilityCredit":0,"status":"SOURCE_RECEIPT_MISSING"},
+  "sourceReceiptSha256": "5a650740ec7e6e4ade10d5cf1e5456c830ed38829a167fde43d7cfc1a148de11",
+  "fixedDenominator": 93,
+  "authorizationGrantEdges": {
+    "observedRows": 915,
+    "expectedRows": 915,
+    "compatibilityCredit": 0,
+    "status": "SOURCE_GRANT_EDGE_CONSERVATION_VERIFIED"
+  },
   "inputContract": {
     "kind": "explicit_redacted_structural_authorization_export",
-    "stableIdentityFields": ["legacyUnitCode", "legacyDomain", "legacyResource", "legacyAction", "legacyScope"],
-    "forbiddenFields": ["username", "userId", "account", "accountId", "employeeId", "personId", "password", "credential", "token", "secret", "granted", "allowed", "assignedTo"],
+    "stableIdentityFields": [
+      "legacyUnitCode",
+      "legacyDomain",
+      "legacyResource",
+      "legacyAction",
+      "legacyScope"
+    ],
+    "forbiddenFields": [
+      "username",
+      "userId",
+      "account",
+      "accountId",
+      "employeeId",
+      "personId",
+      "password",
+      "credential",
+      "token",
+      "secret",
+      "granted",
+      "allowed",
+      "assignedTo"
+    ],
     "policy": "capability_semantics_only_no_user_grant_replication"
   },
-  "status": "SOURCE_PERMISSION_RECEIPT_MISSING",
-  "summary": {"observedRows":0,"uniqueRows":0,"mappedRows":0,"retiredRows":0,"pendingRows":0,"missingRows":null},
-  "compatibilityCredit": {"numerator":0,"denominator":null},
-  "items": [],
-  "gaps": [{"code":"LEGACY_CLIENT_PERMISSION_SOURCE_RECEIPT_MISSING","expectedRows":null,"observedRows":0,"requiredInput":"readonly_permission_source_receipt"}],
+  "status": "ATOMIC_PERMISSION_MAPPING_PENDING_REVIEW",
+  "summary": {
+    "observedRows": 93,
+    "uniqueRows": 93,
+    "mappedRows": 64,
+    "retiredRows": 12,
+    "pendingRows": 17,
+    "missingRows": 0
+  },
+  "compatibilityCredit": {
+    "numerator": 76,
+    "denominator": 93
+  },
+  "items": [
+    {
+      "id": "PERMISSION-032681F5E10D1330",
+      "legacyUnitCode": 405,
+      "legacyDomain": "training",
+      "legacyResource": "training_course",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "training_course",
+      "targetPermissions": [
+        "hr:training_course:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "6e4835a20e75f3efa07fdba97137560d85e3d7c840837a224424178b9a3c0ec1"
+    },
+    {
+      "id": "PERMISSION-0551A85A8CD7FD2D",
+      "legacyUnitCode": 625,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_department_summary",
+      "legacyAction": "read",
+      "legacyScope": "team",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:team_read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "9d10f11a22b7159b6bb379e9128335fb37384f1f86b527157f299b5b9b89b8ff"
+    },
+    {
+      "id": "PERMISSION-064C5F9B284A2B6E",
+      "legacyUnitCode": 1220,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "notification",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_NOTIFICATION_MANAGEMENT_CAPABILITY_MISSING",
+      "evidenceSha256": "352edc5b015a780280c447987951a2281c22590118399b52c9b41a4bd7b82833"
+    },
+    {
+      "id": "PERMISSION-086792F6E39F6453",
+      "legacyUnitCode": 110,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_profile",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee:manage",
+        "hr:employee_profile:manage"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "b13e947137e302d1950a64046d05f611bb8c5cd72a90328ce4a0163ea7f3526d"
+    },
+    {
+      "id": "PERMISSION-0E3017812CCF5738",
+      "legacyUnitCode": 300,
+      "legacyDomain": "contract",
+      "legacyResource": "contract",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "contract",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "08255711a3a5a795e48856b0041fd6e8c69e3d7292a5762c351d44706fea85dd"
+    },
+    {
+      "id": "PERMISSION-0E391E7A5AF311E5",
+      "legacyUnitCode": 410,
+      "legacyDomain": "training",
+      "legacyResource": "training_record",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "training_progress",
+      "targetPermissions": [
+        "hr:training_progress:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "b087f3862a5ffc69da8fb3ae1be0b5b2ad5eee0a7fa9bc1ce2b561d5de5dd09a"
+    },
+    {
+      "id": "PERMISSION-1195D74019FE2EA4",
+      "legacyUnitCode": 145,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_birthday",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee_profile:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "6e64fd14880b9f4e46c6820a16ca2835e3be8fa3d5e22e81b8ba948581aed7ad"
+    },
+    {
+      "id": "PERMISSION-11B4652DD797729B",
+      "legacyUnitCode": 505,
+      "legacyDomain": "performance",
+      "legacyResource": "assessment_category",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "performance_template",
+      "targetPermissions": [
+        "hr:performance_template:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "79e6b05a795587671f704c4f0a7ec347d326578974237e8680bfd4c68ce9f08a"
+    },
+    {
+      "id": "PERMISSION-13E68DB488FFDC0C",
+      "legacyUnitCode": 1025,
+      "legacyDomain": "recruitment",
+      "legacyResource": "talent_pool",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "candidate",
+      "targetPermissions": [
+        "hr:candidate:manage",
+        "hr:candidate:read"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "a1ef7cc6b931d2fefdd7e1547710d6e960538619d7dad651dcf3832fe0680347"
+    },
+    {
+      "id": "PERMISSION-1482ABA451B74E06",
+      "legacyUnitCode": 105,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_browser",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee",
+      "targetPermissions": [
+        "hr:employee:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "0e79bd5e50948f2ebddd18b141de66adc5e84ee9e11d661b365c631a895c5a99"
+    },
+    {
+      "id": "PERMISSION-1AF7E23B97A83D76",
+      "legacyUnitCode": 150,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_number",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employee",
+      "targetPermissions": [
+        "hr:employee:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "fe5a7b316d1d3a11baf005b430f52bfef7a290797939b9853690e5cbc88113b6"
+    },
+    {
+      "id": "PERMISSION-1FE4817794EA0411",
+      "legacyUnitCode": 415,
+      "legacyDomain": "training",
+      "legacyResource": "training_course",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "training",
+      "targetPermissions": [
+        "hr:training:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "dd93bdb3c8cb510844e3290d373b37dc01b4e5b82efbe7c249a58963f01f841b"
+    },
+    {
+      "id": "PERMISSION-25ED2206BC75800D",
+      "legacyUnitCode": 910,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance_checkin",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:operate"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "373c165d2b8d2ad348c6efc75081c2b78ce53afaf71397db77197be175f9bf24"
+    },
+    {
+      "id": "PERMISSION-2B6EB0F663C2F659",
+      "legacyUnitCode": 1135,
+      "legacyDomain": "system",
+      "legacyResource": "database_restore",
+      "legacyAction": "execute",
+      "legacyScope": "platform",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "PLATFORM_RESTORE_CAPABILITY_BINDING_REQUIRED",
+      "evidenceSha256": "f1d26b5b0c3a215833511720607bf0355e53d40884f0a3dc9f7727ec218470a4"
+    },
+    {
+      "id": "PERMISSION-2D4FA8FEC48087C9",
+      "legacyUnitCode": 1140,
+      "legacyDomain": "system",
+      "legacyResource": "user_authorization",
+      "legacyAction": "manage",
+      "legacyScope": "platform",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "PLATFORM_RBAC_CAPABILITY_BINDING_REQUIRED",
+      "evidenceSha256": "8864778e0482c31b55e6cb639205793e57ddaccddee537ea02fee685bb88b8e7"
+    },
+    {
+      "id": "PERMISSION-319069EEAB98A0AF",
+      "legacyUnitCode": 1126,
+      "legacyDomain": "system",
+      "legacyResource": "custom_employee_profile",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee_profile:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "baa9c6aad85d70bf8cc2be2b869aec6b584cbae7a281e4337447d24821130093"
+    },
+    {
+      "id": "PERMISSION-31EF4030EE5307D9",
+      "legacyUnitCode": 820,
+      "legacyDomain": "insurance",
+      "legacyResource": "insurance_statistics",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "insurance",
+      "targetPermissions": [
+        "hr:insurance:read",
+        "hr:insurance_amount:read"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "2e74bb3b2c58e709766f1a5f8781815c8a292e270559133d98f53db8d8c73a1a"
+    },
+    {
+      "id": "PERMISSION-3360F5B0C55A12CB",
+      "legacyUnitCode": 115,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_profile",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee_profile:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "6ae8068d80abb6fe8b484e9f7eeb87dcbbffdc8a63677ed52756b6cdd00f5acc"
+    },
+    {
+      "id": "PERMISSION-37BD6C4568F3A9D3",
+      "legacyUnitCode": 745,
+      "legacyDomain": "payroll",
+      "legacyResource": "month_end_close",
+      "legacyAction": "execute",
+      "legacyScope": "park",
+      "targetDomain": "payroll_close",
+      "targetPermissions": [
+        "hr:payroll:confirm",
+        "hr:payroll:review"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "e24f1b0b7202cec4c6137f43ec7326979bb39f4626b4cfe1dc703d60cc42f80b"
+    },
+    {
+      "id": "PERMISSION-3D3ACDBE133FE27E",
+      "legacyUnitCode": 610,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_record",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "399dc6890240baafd2d67a57c069558ef4da630fe1d8c8fdcb7cca4893726b67"
+    },
+    {
+      "id": "PERMISSION-3E4CCB7461B1FEC0",
+      "legacyUnitCode": 420,
+      "legacyDomain": "training",
+      "legacyResource": "training_record",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "training",
+      "targetPermissions": [
+        "hr:training:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "2a44fdc367085601c3109941b5e9613777387f9d26b817eafe3a35ee5cde4647"
+    },
+    {
+      "id": "PERMISSION-405B9E270BCA7893",
+      "legacyUnitCode": 805,
+      "legacyDomain": "insurance",
+      "legacyResource": "contribution_policy",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_INSURANCE_POLICY_MANAGE_CAPABILITY_MISSING",
+      "evidenceSha256": "60e2b12fa6642128991732aacff345f3e018c6f83f378cd50b908fcb0c13cd52"
+    },
+    {
+      "id": "PERMISSION-410DA2F5E170E96F",
+      "legacyUnitCode": 1105,
+      "legacyDomain": "system",
+      "legacyResource": "company_information",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_ORGANIZATION_MANAGE_CAPABILITY_MISSING",
+      "evidenceSha256": "a928f3fb651850de1e6c892239547b98b3bfc0c1ad25c093e8bd3f24a785a361"
+    },
+    {
+      "id": "PERMISSION-422771E53BE9ED55",
+      "legacyUnitCode": 225,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "rehire",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employment_transition",
+      "targetPermissions": [
+        "hr:employee:manage",
+        "hr:employment:transition"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "ca6ed0ffc6aee74a8acb639d6463bb815e72d1d394e0b2ede44369df8a45002b"
+    },
+    {
+      "id": "PERMISSION-43CD8C9B4AC709FA",
+      "legacyUnitCode": 1210,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "address_book",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_ADDRESS_BOOK_CAPABILITY_MISSING",
+      "evidenceSha256": "580b380e7a6bd290fb8e9c82bddca4dd2875825767559436ef67b10051a720cf"
+    },
+    {
+      "id": "PERMISSION-478DE943DA7E1932",
+      "legacyUnitCode": 305,
+      "legacyDomain": "contract",
+      "legacyResource": "labor_contract",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "contract",
+      "targetPermissions": [
+        "hr:contract:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "7c2ce9d84377ebcd4fb27e60e6cb11545645c5696503dc278ff8de5fa0676f58"
+    },
+    {
+      "id": "PERMISSION-47E540CDAFF69307",
+      "legacyUnitCode": 1205,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "notebook",
+      "legacyAction": "manage",
+      "legacyScope": "self",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_NOTEBOOK_CAPABILITY_MISSING",
+      "evidenceSha256": "1e9f3a66ed9ef41663bd9a7722afac03b7efecbdf7cd670ea5377c7cfd46939c"
+    },
+    {
+      "id": "PERMISSION-49B7258780D94435",
+      "legacyUnitCode": 315,
+      "legacyDomain": "contract",
+      "legacyResource": "probation_expiry",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "contract_reminder",
+      "targetPermissions": [
+        "hr:contract_reminder:park_read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "e4c9feefdfcadd51f6fdb381b45b08dc3b4d5029b22e8c7cac4af1009ca8b4d2"
+    },
+    {
+      "id": "PERMISSION-4A13DB620A1DC7FC",
+      "legacyUnitCode": 155,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_batch",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee_profile:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "1c486f43ae9c4b6819a895f4e1eb3b7802fae9fe04d01355d1987695d6a921d8"
+    },
+    {
+      "id": "PERMISSION-54A68F2AFBE63A29",
+      "legacyUnitCode": 515,
+      "legacyDomain": "performance",
+      "legacyResource": "assessment_assignment",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "performance",
+      "targetPermissions": [
+        "hr:performance:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "c77844427a2a251da1976c10de5a99de78a29e41457d8a72679f866c59919601"
+    },
+    {
+      "id": "PERMISSION-591BB462B0B2C028",
+      "legacyUnitCode": 1020,
+      "legacyDomain": "recruitment",
+      "legacyResource": "candidate_hire",
+      "legacyAction": "execute",
+      "legacyScope": "park",
+      "targetDomain": "candidate",
+      "targetPermissions": [
+        "hr:candidate:convert",
+        "hr:onboarding:manage"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "71ee38ad4c4b394c5adb9f07d3cf60b4a3bae1563c6f0f5bae3f64821affaba0"
+    },
+    {
+      "id": "PERMISSION-5A9FAAAB4A1ED8F5",
+      "legacyUnitCode": 710,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll_formula",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "payroll_rule",
+      "targetPermissions": [
+        "hr:payroll_formula:review",
+        "hr:payroll_rule:read"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "9caea1bd1612e969b48e61068cf8cc8cf817983da0f6c8ed1519dbe07e38ace6"
+    },
+    {
+      "id": "PERMISSION-5E5C19B702401514",
+      "legacyUnitCode": 630,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_monthly_summary",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "56882d75720ae2d1aa0601ff12bb9b770eb9772c9b5b8f938c4ed75c718b2d9d"
+    },
+    {
+      "id": "PERMISSION-6209553FE29F7798",
+      "legacyUnitCode": 1225,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "policy_document",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_POLICY_DOCUMENT_CAPABILITY_MISSING",
+      "evidenceSha256": "5fe9ee410c515000fa2d78caaef8bcca902ed2b22e7e7f6452c22f006d326e6c"
+    },
+    {
+      "id": "PERMISSION-64586E5D0690BE92",
+      "legacyUnitCode": 500,
+      "legacyDomain": "performance",
+      "legacyResource": "performance",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "performance",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "a453138ed8eafe14ee6a645eeb0e71e7c9dbde0b391211c1faea6592e74f1bbe"
+    },
+    {
+      "id": "PERMISSION-68947CB177102B9A",
+      "legacyUnitCode": 905,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance_settings",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:operate"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "7d46dc2061d6aa874d58f5190c5ca82dcdbef2bf5c02c4bae09db2f815cf0ff5"
+    },
+    {
+      "id": "PERMISSION-6AD09C4606A21E9E",
+      "legacyUnitCode": 140,
+      "legacyDomain": "employee_records",
+      "legacyResource": "service_length",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_record",
+      "targetPermissions": [
+        "hr:employee_record:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "a2848db4029619c6a64d39ed85aa46a525c9306276f5c8c83cd3511eb09df154"
+    },
+    {
+      "id": "PERMISSION-6F0E3B05F6D7272D",
+      "legacyUnitCode": 600,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_discipline",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "reward_discipline",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "5b1141ef47678764483b9811b2920c0da1d8932dbaecb433cdc7eaad186796be"
+    },
+    {
+      "id": "PERMISSION-6F7B1874273B52BA",
+      "legacyUnitCode": 920,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance_result",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:close",
+        "hr:attendance:correct"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "3f6e2cbd18e0f6f625035bc50575d4259478b7698b5ffb2238b44ebee872ed1a"
+    },
+    {
+      "id": "PERMISSION-73E11B086E422AAA",
+      "legacyUnitCode": 735,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll_analysis",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "payroll_history",
+      "targetPermissions": [
+        "hr:payroll_history:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "9b9944f122ffd99084805255643e9bb895aff49217f699ab199a8ba0fd54b73e"
+    },
+    {
+      "id": "PERMISSION-7588085F01740D61",
+      "legacyUnitCode": 800,
+      "legacyDomain": "insurance",
+      "legacyResource": "insurance",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "insurance",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "ac3997a5d9715f9d470bb3526c586ec3adadc67ed2be42e76dee6398787f654d"
+    },
+    {
+      "id": "PERMISSION-7752F19889F99582",
+      "legacyUnitCode": 1166,
+      "legacyDomain": "system",
+      "legacyResource": "operation_log",
+      "legacyAction": "read",
+      "legacyScope": "platform",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "PLATFORM_AUDIT_LOG_CAPABILITY_BINDING_REQUIRED",
+      "evidenceSha256": "538e5db2e900f604102c4061fa2bc72dfcdb9892e86de4585bdafc886bb033e7"
+    },
+    {
+      "id": "PERMISSION-78CC728F9B55B3EE",
+      "legacyUnitCode": 1127,
+      "legacyDomain": "system",
+      "legacyResource": "housing_information",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employee_profile",
+      "targetPermissions": [
+        "hr:employee_profile:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "08475c85caae6c4fa2204363a2ad98bf60a139ed532d9e07332fa8e639434ff0"
+    },
+    {
+      "id": "PERMISSION-7FD28A93B388235D",
+      "legacyUnitCode": 152,
+      "legacyDomain": "employee_records",
+      "legacyResource": "report_center",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_analytics",
+      "targetPermissions": [
+        "hr:dashboard"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "d62828ca246bf6afd39b93470cbdb3e38c49700678271e33d575055318b9f5b6"
+    },
+    {
+      "id": "PERMISSION-8BCBBAD0D15ECB02",
+      "legacyUnitCode": 900,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "attendance",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "7905b2830046590f60cecb2bb01fe10e7e88adb84d997e35c970d67bc4844d81"
+    },
+    {
+      "id": "PERMISSION-8C554CD16847F783",
+      "legacyUnitCode": 215,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "job_change",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "job_change",
+      "targetPermissions": [
+        "hr:job_change:manage",
+        "hr:job_change:review"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "9639aff5d20cd8922e42ab3833b2cdf7949c3b887c57fcd588778f8fe9695d77"
+    },
+    {
+      "id": "PERMISSION-8EF38102D3CAAE51",
+      "legacyUnitCode": 1000,
+      "legacyDomain": "recruitment",
+      "legacyResource": "recruitment",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "recruitment",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "12dffe8123507332ff3fd247686e38dbe69790aef1984f81d054f19c55e24328"
+    },
+    {
+      "id": "PERMISSION-91780FD81474A3DD",
+      "legacyUnitCode": 605,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_reason",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "4a0d8673b7f1dbc3d3e4aa884434b78f963fee868fdf19745cef32cba9733afe"
+    },
+    {
+      "id": "PERMISSION-91CFAC777D595217",
+      "legacyUnitCode": 220,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "departure",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "departure",
+      "targetPermissions": [
+        "hr:departure:manage",
+        "hr:departure:review"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "2cc1a810bb01fc178411c975d8c6e7e61adec1ea2168429e61ca24310a1887e3"
+    },
+    {
+      "id": "PERMISSION-9285EDCD87B9386C",
+      "legacyUnitCode": 1125,
+      "legacyDomain": "system",
+      "legacyResource": "reminder_options",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_GENERIC_REMINDER_CONFIGURATION_CAPABILITY_MISSING",
+      "evidenceSha256": "20aa448c560d994bc0c71e8da68cff980ff4e954af9e9ce83269088962dffbde"
+    },
+    {
+      "id": "PERMISSION-9448C9D3A1BBD862",
+      "legacyUnitCode": 310,
+      "legacyDomain": "contract",
+      "legacyResource": "labor_contract",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "contract",
+      "targetPermissions": [
+        "hr:contract:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "2fff265a122609afb553beed65f50318b4b076d0e6337b044935ca208dee83ac"
+    },
+    {
+      "id": "PERMISSION-9FCC0EC2C4DE64B0",
+      "legacyUnitCode": 810,
+      "legacyDomain": "insurance",
+      "legacyResource": "insurance_ledger",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_INSURANCE_LEDGER_MANAGE_CAPABILITY_MISSING",
+      "evidenceSha256": "67230fe52689c67e58061310bba369499758cc47cfdd511844b50b231f5141d6"
+    },
+    {
+      "id": "PERMISSION-A10B35A4AFA9925F",
+      "legacyUnitCode": 1215,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "meeting",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_MEETING_CAPABILITY_MISSING",
+      "evidenceSha256": "f5b05c762da94ab75ad6c27ee7529b309ad67f1a9b25f1f83b7b2c386f8a6d9c"
+    },
+    {
+      "id": "PERMISSION-A19C6F4403BF1298",
+      "legacyUnitCode": 715,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll_input",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "payroll",
+      "targetPermissions": [
+        "hr:payroll:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "bc3d960aecb6f0203328ff9f506a2688d19e4c87149500f6c2651dc23a9528aa"
+    },
+    {
+      "id": "PERMISSION-A8D561D89B314AE6",
+      "legacyUnitCode": 1005,
+      "legacyDomain": "recruitment",
+      "legacyResource": "requisition",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "requisition",
+      "targetPermissions": [
+        "hr:requisition:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "295ea79a8fa5fd65faf28c13a4b0ee48175134163e9897d97300d736a4d93035"
+    },
+    {
+      "id": "PERMISSION-ADB363A2087C918E",
+      "legacyUnitCode": 1130,
+      "legacyDomain": "system",
+      "legacyResource": "database_backup",
+      "legacyAction": "execute",
+      "legacyScope": "platform",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "PLATFORM_BACKUP_CAPABILITY_BINDING_REQUIRED",
+      "evidenceSha256": "63ca87a695348c0be794163e26ba77a12638e45fb63c42f3be5a41b9b7a24add"
+    },
+    {
+      "id": "PERMISSION-AF957DEA9D8802B2",
+      "legacyUnitCode": 1015,
+      "legacyDomain": "recruitment",
+      "legacyResource": "requisition_publish",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "requisition",
+      "targetPermissions": [
+        "hr:requisition:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "a706d165ad4d2d06d8469b9f6d024c99e37c89a1e5a9372b885058404edc2c9e"
+    },
+    {
+      "id": "PERMISSION-B0133D934D21373C",
+      "legacyUnitCode": 135,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_credentials",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_credential",
+      "targetPermissions": [
+        "hr:employee_credential:read",
+        "hr:employee_credential_document:read"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "2d71f579f69581632f8026cbe9be8e5b4637410967d9bcb2df314f2a4463a88c"
+    },
+    {
+      "id": "PERMISSION-B25ABCED4E47D080",
+      "legacyUnitCode": 1010,
+      "legacyDomain": "recruitment",
+      "legacyResource": "requisition_review",
+      "legacyAction": "review",
+      "legacyScope": "park",
+      "targetDomain": "requisition",
+      "targetPermissions": [
+        "hr:approval:park_review",
+        "hr:requisition:manage"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "76548f1591081e6773fab6a78a75a55a49eefae664978e11e23a6a5512a7215e"
+    },
+    {
+      "id": "PERMISSION-B2954B8980AF335A",
+      "legacyUnitCode": 815,
+      "legacyDomain": "insurance",
+      "legacyResource": "insured_employee",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_INSURANCE_ENROLLMENT_MANAGE_CAPABILITY_MISSING",
+      "evidenceSha256": "6579ab2a1db0f55550056f7f93be61c4283723ecdc3a3c324ad1ad6b7ca5e08b"
+    },
+    {
+      "id": "PERMISSION-B75CF0334B5C5C48",
+      "legacyUnitCode": 430,
+      "legacyDomain": "training",
+      "legacyResource": "training_cost",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "training_cost",
+      "targetPermissions": [
+        "hr:training_cost:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "e42b5a49674c788eb9b09b29e812b483703313dd88df17896bdb28f537b335c6"
+    },
+    {
+      "id": "PERMISSION-B8827D0DA1278555",
+      "legacyUnitCode": 400,
+      "legacyDomain": "training",
+      "legacyResource": "training",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "training",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "ee2eb52c1b7a3e9fc6e4a311c5a89447896d81d0d315dee31d34984058a0aa80"
+    },
+    {
+      "id": "PERMISSION-B8A7776744307EBD",
+      "legacyUnitCode": 230,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "movement_query",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employment_event",
+      "targetPermissions": [
+        "hr:employment_event:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "26c03627d112d7f2937fe8d9ab204784ab13a6b97305ba7cbcb6683f3bb8784a"
+    },
+    {
+      "id": "PERMISSION-B928935C2277D749",
+      "legacyUnitCode": 160,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_archive",
+      "legacyAction": "delete",
+      "legacyScope": "park",
+      "targetDomain": "employee",
+      "targetPermissions": [
+        "hr:employee:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "4e27d7cd4e77898f927b09241d224b0b9c6f4de0ad76db3d89ac351a8999cf6c"
+    },
+    {
+      "id": "PERMISSION-BB67834D12E88449",
+      "legacyUnitCode": 125,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_reports",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_analytics",
+      "targetPermissions": [
+        "hr:dashboard"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "7bc7da9235e70f536fdf78fb2ca7ede2830df55c6b15f2fd206b404c306c3c3b"
+    },
+    {
+      "id": "PERMISSION-BB7FC08406E30D48",
+      "legacyUnitCode": 1110,
+      "legacyDomain": "system",
+      "legacyResource": "department",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_ORGANIZATION_MANAGE_CAPABILITY_MISSING",
+      "evidenceSha256": "d2df077100cc94cd7e3928b9f583d4f8f20f4c46d18fbdaa11d88b3fe815685c"
+    },
+    {
+      "id": "PERMISSION-C027768979ECC9BB",
+      "legacyUnitCode": 720,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll_report",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "payroll",
+      "targetPermissions": [
+        "hr:payroll:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "5c3f6bc9d4909bd337f32edffb9212c47a68f0258d9303a27887e4df62902a20"
+    },
+    {
+      "id": "PERMISSION-C154A3FDE784922B",
+      "legacyUnitCode": 700,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "payroll",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "0e9739d15ddb63b0985dce6823744b9941c78e765f98e781342b2d2cdf6becf7"
+    },
+    {
+      "id": "PERMISSION-C3A94D678FCBD18C",
+      "legacyUnitCode": 200,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "employment_movement",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "employment_movement",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "904979b8470617fb1c7c067694cb5d114fcd049ac54162fa86f307c5c6688d04"
+    },
+    {
+      "id": "PERMISSION-C6F363A10BC33332",
+      "legacyUnitCode": 1200,
+      "legacyDomain": "work_assistant",
+      "legacyResource": "work_assistant",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "work_assistant",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "a7111e0ca0cb4a023061cd918bc6eb53e57c37e17c595053e959475093a7c2cf"
+    },
+    {
+      "id": "PERMISSION-C7E0CCD8EBD696CB",
+      "legacyUnitCode": 940,
+      "legacyDomain": "attendance",
+      "legacyResource": "overtime_record",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:operate"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "4fc0b19c61e98c71d4047ae8589cc91231cd3f0df6223eb929a24f10c788727b"
+    },
+    {
+      "id": "PERMISSION-C8DA3F183B5EDB4A",
+      "legacyUnitCode": 510,
+      "legacyDomain": "performance",
+      "legacyResource": "assessment_plan",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "performance",
+      "targetPermissions": [
+        "hr:performance:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "a74bde4451b48e5e9826541a0ed49834b4747d6996ba15d1139a7100e8f71153"
+    },
+    {
+      "id": "PERMISSION-CD0616742B1B29D4",
+      "legacyUnitCode": 1160,
+      "legacyDomain": "system",
+      "legacyResource": "password_change",
+      "legacyAction": "execute",
+      "legacyScope": "self",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "PLATFORM_ACCOUNT_PASSWORD_CAPABILITY_BINDING_REQUIRED",
+      "evidenceSha256": "6fc6cb4cbeb5ce1e366be3177257007aef85416d9be8809ec0d3cb9314245501"
+    },
+    {
+      "id": "PERMISSION-CFE4A07086AF7C5E",
+      "legacyUnitCode": 1100,
+      "legacyDomain": "system",
+      "legacyResource": "system",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "system",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "0374aa2049855b926e01803d4fc270ea3a2bcc77ac5ac2834cf269061392643b"
+    },
+    {
+      "id": "PERMISSION-CFF529311D86EC5F",
+      "legacyUnitCode": 705,
+      "legacyDomain": "payroll",
+      "legacyResource": "payroll_account_set",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "payroll",
+      "targetPermissions": [
+        "hr:payroll:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "03b5af48ec08cb3e84848150c20e4eefd34b7c194a87f63e576584b3e802662d"
+    },
+    {
+      "id": "PERMISSION-D0CA3316C6181094",
+      "legacyUnitCode": 130,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_skills",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_record",
+      "targetPermissions": [
+        "hr:employee_record:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "0c7a88e443b832eea44602319fd3a50c05bf05a8188621ab1c5240a317c23f2c"
+    },
+    {
+      "id": "PERMISSION-D23D79B20A3E2356",
+      "legacyUnitCode": 950,
+      "legacyDomain": "attendance",
+      "legacyResource": "night_shift_record",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:operate"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "303e61ceb0a75520174b334da44c55064d0b7bda7464849d70238f78633235bb"
+    },
+    {
+      "id": "PERMISSION-D50DA53C698C050E",
+      "legacyUnitCode": 615,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_record",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "51240765bbb8208a20ac2ae06effc5d82574d3acc635fe6916ec38556b007ab1"
+    },
+    {
+      "id": "PERMISSION-D76818DB346D40A2",
+      "legacyUnitCode": 930,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance_statistics",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "e6dfa6411d463d8cf74b9feba7fa6df9f83c19b11d04b87740e6001591b05757"
+    },
+    {
+      "id": "PERMISSION-DE799B8518DCBD83",
+      "legacyUnitCode": 1120,
+      "legacyDomain": "system",
+      "legacyResource": "data_dictionary",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "legacy_dictionary",
+      "targetPermissions": [
+        "hr:legacy_dictionary:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "4bb725ecafedff4540137e4f74b66402e58fcab41b05eadc5a9d2fad27e3bcb2"
+    },
+    {
+      "id": "PERMISSION-E0162C1A186BCF2F",
+      "legacyUnitCode": 100,
+      "legacyDomain": "employee_records",
+      "legacyResource": "employee_records",
+      "legacyAction": "navigate",
+      "legacyScope": "navigation",
+      "targetDomain": "employee_records",
+      "targetPermissions": [],
+      "disposition": "retired",
+      "reasonCode": "NAVIGATION_CONTAINER_REPLACED_BY_MODERN_INFORMATION_ARCHITECTURE",
+      "evidenceSha256": "de9ea9063763d26ac5fafc88452a124d04c346c102c08a8d7bd2c08db2ef782a"
+    },
+    {
+      "id": "PERMISSION-E6A37FFA0E654BB4",
+      "legacyUnitCode": 520,
+      "legacyDomain": "performance",
+      "legacyResource": "assessment_record",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "performance",
+      "targetPermissions": [
+        "hr:performance:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "ca67f58fafe58cb050804a2460355a5ebcf6557f3f99b94ceaaf8378deb07744"
+    },
+    {
+      "id": "PERMISSION-E8739B3CFB720429",
+      "legacyUnitCode": 1115,
+      "legacyDomain": "system",
+      "legacyResource": "position",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "position",
+      "targetPermissions": [
+        "hr:position:manage"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "7cdd13920e2347eb97d8bf92896b7e02e0d559aae75e13670bf7efa918f7b213"
+    },
+    {
+      "id": "PERMISSION-E9A22F5D27E8F9C1",
+      "legacyUnitCode": 320,
+      "legacyDomain": "contract",
+      "legacyResource": "contract_expiry",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "contract_reminder",
+      "targetPermissions": [
+        "hr:contract_reminder:park_read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "985639062282f57b9f6a800c0e7b18b1e5269682e772e7cfa58fb68f4629f81b"
+    },
+    {
+      "id": "PERMISSION-EBB535460D99BE17",
+      "legacyUnitCode": 120,
+      "legacyDomain": "employee_records",
+      "legacyResource": "workforce_analysis",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employee_analytics",
+      "targetPermissions": [
+        "hr:dashboard"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "149c5bdd38bc77aacef0dab2e0bc56aa3c39fe75c1517ce1efd2f13616c5eb6a"
+    },
+    {
+      "id": "PERMISSION-EECB59020B5A16F4",
+      "legacyUnitCode": 835,
+      "legacyDomain": "insurance",
+      "legacyResource": "commercial_insurance_report",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "insurance",
+      "targetPermissions": [
+        "hr:insurance:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "6eba5c9f56c25bf573484ac34df2486e7887a376ccff8030f02d39ed41f87194"
+    },
+    {
+      "id": "PERMISSION-EF9897A64D28974E",
+      "legacyUnitCode": 925,
+      "legacyDomain": "attendance",
+      "legacyResource": "attendance_record",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "attendance",
+      "targetPermissions": [
+        "hr:attendance:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "b0f31bcbb11a20f3dea9c315540670af2ef6c461c37c3ef1d2dc7462fc25f1bb"
+    },
+    {
+      "id": "PERMISSION-F115C30B6EE48DAE",
+      "legacyUnitCode": 740,
+      "legacyDomain": "payroll",
+      "legacyResource": "bank_payout",
+      "legacyAction": "execute",
+      "legacyScope": "park",
+      "targetDomain": null,
+      "targetPermissions": [],
+      "disposition": "pending_review",
+      "reasonCode": "MODERN_BANK_PAYOUT_EXECUTION_CAPABILITY_MISSING",
+      "evidenceSha256": "751462a8046f422369dafe96499b02fd05b0710da028a8d9e9e3de0a9db91619"
+    },
+    {
+      "id": "PERMISSION-F259406905A7BBDB",
+      "legacyUnitCode": 228,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "movement_browser",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "employment_event",
+      "targetPermissions": [
+        "hr:employment_event:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "84d441b3d8bd7c187f68c84076660d9148759d4cbddd5e6182629adb92a3e4d1"
+    },
+    {
+      "id": "PERMISSION-F4DBC51AB730CCD8",
+      "legacyUnitCode": 330,
+      "legacyDomain": "contract",
+      "legacyResource": "probation_confirmation",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "employment_transition",
+      "targetPermissions": [
+        "hr:employee:manage",
+        "hr:employment:transition"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "d571aab80e2024c4bc2425f9ad42a5d56e2a0e0e4571dd7a023d3720595b837c"
+    },
+    {
+      "id": "PERMISSION-F83344DA51B1067B",
+      "legacyUnitCode": 525,
+      "legacyDomain": "performance",
+      "legacyResource": "assessment_result",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "performance_result",
+      "targetPermissions": [
+        "hr:performance:result_read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "ac9154292216722edf7af363751b2dd563f8e288e5f7f50aac833a1faf2dbb15"
+    },
+    {
+      "id": "PERMISSION-FB4935A05A1313D5",
+      "legacyUnitCode": 620,
+      "legacyDomain": "reward_discipline",
+      "legacyResource": "reward_register",
+      "legacyAction": "read",
+      "legacyScope": "park",
+      "targetDomain": "reward",
+      "targetPermissions": [
+        "hr:reward:read"
+      ],
+      "disposition": "exact_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "a500791d5d99a27915e3347138878c8729154fa4c91d843d1d6bc850534fc88b"
+    },
+    {
+      "id": "PERMISSION-FFD13AA676ED87AC",
+      "legacyUnitCode": 210,
+      "legacyDomain": "employment_movement",
+      "legacyResource": "onboarding",
+      "legacyAction": "manage",
+      "legacyScope": "park",
+      "targetDomain": "onboarding",
+      "targetPermissions": [
+        "hr:employment:transition",
+        "hr:onboarding:manage"
+      ],
+      "disposition": "split_mapped",
+      "reasonCode": null,
+      "evidenceSha256": "e838a863c2ee75084ce451caf790caebcc25478131bf887c236f64129ff73ff2"
+    }
+  ],
+  "gaps": [
+    {
+      "code": "LEGACY_CLIENT_PERMISSION_TARGET_REVIEW_PENDING",
+      "expectedRows": 93,
+      "observedRows": 93,
+      "requiredInput": "reviewed_modern_permission_binding"
+    }
+  ],
   "productionImport": "HOLD"
 }

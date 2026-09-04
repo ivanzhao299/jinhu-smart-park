@@ -162,7 +162,7 @@ function readStage(stagingDir, sourceManifest) {
     add(record({ targetTable: "hr_insurance_policy", sourceTable: row.sourceTable, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }));
     const itemKeys = new Set();
     for (const item of row.items) {
-      exact(item, ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate"], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
+      exact(item, ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate", "baseFixedAmount", "employerFixedAmount", "employeeFixedAmount", "supplementFixedAmount"], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
       if (typeof item.kind !== "string" || item.kind.trim() === "" || !Number.isSafeInteger(item.variant)) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
       const itemKey = `${item.kind}\0${item.variant}`;
       if (itemKeys.has(itemKey)) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item duplicate");

@@ -1,0 +1,1316 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_insurance_policy_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "inventoryBindingGap": {
+    "canonicalInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "currentGeneratorObservedSha256": "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617",
+    "reasonCode": "STRUCTURAL_INVENTORY_GENERATOR_DIGEST_DRIFT",
+    "decision": "KEEP_GAP_NO_REBIND"
+  },
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.insure_method",
+      "sourceTable": "insure_method",
+      "observedRows": 12,
+      "stableKey": [
+        "id"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "type": "int",
+          "nullable": false,
+          "default": null,
+          "description": null
+        },
+        {
+          "name": "des",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": "('自定义标准')",
+          "description": null
+        },
+        {
+          "name": "rightscope",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "oldage",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "oldage_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "oldage_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "oldage_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "remedy",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "remedy_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "remedy_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "remedy_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "losework",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "losework_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "losework_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "losework_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "fund",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "fund_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "fund_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "fund_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "wound",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "wound_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "wound_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "wound_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "bear",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "bear_e",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "bear_p",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "bear_pc",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0)",
+          "description": null
+        },
+        {
+          "name": "oldage2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "oldage_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "oldage_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "oldage_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "remedy2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "remedy_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "remedy_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "remedy_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "losework2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "losework_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "losework_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "losework_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "fund2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "fund_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "fund_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "fund_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "wound2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "wound_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "wound_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "wound_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "bear2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "bear_e2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "bear_p2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        },
+        {
+          "name": "bear_pc2",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": "(0.00)",
+          "description": null
+        }
+      ]
+    }
+  ],
+  "denominatorRule": "all_fifty_one_catalog_fields_count_even_when_a_source_column_is_all_null_or_defaults_to_zero",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_aggregates_and_gap_codes_only",
+  "calculationRuleEvidence": {
+    "canonicalFamily": "bs_insure_compute",
+    "formula": "round(percentage_rate * contribution_base / 100 + fixed_addend, 2)",
+    "percentageFieldVariant": "no_numeric_suffix",
+    "fixedAddendFieldVariant": "suffix_2",
+    "fundInclusion": "conditional",
+    "hierarchyScope": "person.department_prefix"
+  },
+  "fields": [
+    {
+      "stableId": "INSURE_METHOD_ID",
+      "sourceField": "insure_method.id",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy.policy_code"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "legacy_record_map.source_pk_canonical"
+      ],
+      "transformRule": "prefix_YUZHOU_to_integer_source_identity",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_DES",
+      "sourceField": "insure_method.des",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy.policy_name"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.source.name"
+      ],
+      "transformRule": "preserve_nullable_policy_description_as_name",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_RIGHTSCOPE",
+      "sourceField": "insure_method.rightscope",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy.scope_description"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.source.scope"
+      ],
+      "transformRule": "preserve_nullable_hierarchy_prefix_scope_description",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE",
+      "sourceField": "insure_method.oldage",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_E",
+      "sourceField": "insure_method.oldage_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_P",
+      "sourceField": "insure_method.oldage_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_PC",
+      "sourceField": "insure_method.oldage_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY",
+      "sourceField": "insure_method.remedy",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_E",
+      "sourceField": "insure_method.remedy_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_P",
+      "sourceField": "insure_method.remedy_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_PC",
+      "sourceField": "insure_method.remedy_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK",
+      "sourceField": "insure_method.losework",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_E",
+      "sourceField": "insure_method.losework_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_P",
+      "sourceField": "insure_method.losework_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_PC",
+      "sourceField": "insure_method.losework_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND",
+      "sourceField": "insure_method.fund",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_E",
+      "sourceField": "insure_method.fund_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_P",
+      "sourceField": "insure_method.fund_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_PC",
+      "sourceField": "insure_method.fund_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND",
+      "sourceField": "insure_method.wound",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_E",
+      "sourceField": "insure_method.wound_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_P",
+      "sourceField": "insure_method.wound_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_PC",
+      "sourceField": "insure_method.wound_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR",
+      "sourceField": "insure_method.bear",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].base_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].baseRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_E",
+      "sourceField": "insure_method.bear_e",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].employer_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].employerRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_P",
+      "sourceField": "insure_method.bear_p",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].employee_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].employeeRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_PC",
+      "sourceField": "insure_method.bear_pc",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].supplement_rate"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].supplementRate"
+      ],
+      "transformRule": "divide_percentage_points_by_100_using_exact_decimal_string_normalization_before_writing_fractional_rate",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE2",
+      "sourceField": "insure_method.oldage2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_E2",
+      "sourceField": "insure_method.oldage_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_P2",
+      "sourceField": "insure_method.oldage_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_OLDAGE_PC2",
+      "sourceField": "insure_method.oldage_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=oldage,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=oldage,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY2",
+      "sourceField": "insure_method.remedy2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_E2",
+      "sourceField": "insure_method.remedy_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_P2",
+      "sourceField": "insure_method.remedy_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_REMEDY_PC2",
+      "sourceField": "insure_method.remedy_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=remedy,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=remedy,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK2",
+      "sourceField": "insure_method.losework2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_E2",
+      "sourceField": "insure_method.losework_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_P2",
+      "sourceField": "insure_method.losework_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_LOSEWORK_PC2",
+      "sourceField": "insure_method.losework_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=losework,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=losework,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND2",
+      "sourceField": "insure_method.fund2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_E2",
+      "sourceField": "insure_method.fund_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_P2",
+      "sourceField": "insure_method.fund_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_FUND_PC2",
+      "sourceField": "insure_method.fund_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=fund,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=fund,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND2",
+      "sourceField": "insure_method.wound2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_E2",
+      "sourceField": "insure_method.wound_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_P2",
+      "sourceField": "insure_method.wound_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_WOUND_PC2",
+      "sourceField": "insure_method.wound_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=wound,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=wound,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR2",
+      "sourceField": "insure_method.bear2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].base_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].baseFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_E2",
+      "sourceField": "insure_method.bear_e2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].employer_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].employerFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_P2",
+      "sourceField": "insure_method.bear_p2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].employee_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].employeeFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    },
+    {
+      "stableId": "INSURE_METHOD_BEAR_PC2",
+      "sourceField": "insure_method.bear_pc2",
+      "disposition": "verified_target",
+      "targetFields": [
+        "hr_insurance_policy_item[insurance_kind=bear,variant_no=1].supplement_fixed_amount"
+      ],
+      "currentIncorrectTargetFields": [],
+      "preservationFields": [
+        "t3.policies.items[insurance_kind=bear,variant=1].supplementFixedAmount"
+      ],
+      "transformRule": "preserve_exact_decimal_fixed_addend_in_dedicated_fixed_amount_column",
+      "reasonCode": null,
+      "compatibilityCredit": 1
+    }
+  ],
+  "relations": [
+    {
+      "source": "person.insuremod",
+      "target": "insure_method.id",
+      "kind": "routine_join_without_declared_foreign_key",
+      "disposition": "verified_source_relation"
+    }
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {
+        "routineId": "RULE-01B1E8BB98D7142B",
+        "sourceName": "bs_insure_compute",
+        "sourceArtifactSha256": "c48be83c0d90bf16cc2c5e1ede57bffb3ee299e1bea31ad328b858bc8b267f3b"
+      },
+      {
+        "routineId": "RULE-39EB7B0B42127233",
+        "sourceName": "bs_insure_compute_bak",
+        "sourceArtifactSha256": "69f7ac6c7173234d481fdc399bd64ee0ef85921c9b2a6a17259c0de226454f2b"
+      }
+    ]
+  },
+  "explicitGaps": [],
+  "runtimeSurfaceGap": {
+    "reasonCode": "INSURANCE_POLICY_DEFINITION_RUNTIME_SURFACE_MISSING",
+    "currentSurface": "employee_monthly_insurance_periods_only",
+    "missingEvidence": [
+      "policy_definition_API",
+      "policy_definition_frontend_with_all_rate_and_fixed_addend_fields"
+    ],
+    "decision": "KEEP_GAP"
+  },
+  "repositoryEvidence": [
+    {
+      "role": "full_field_extract",
+      "path": "scripts/extract-yuzhou-t3-attendance-insurance.sh",
+      "sha256": "f522dfefbbd92ac6c704b0cdcfcf99f00b7fc12854e975ad704eff5270326e49",
+      "requiredTokens": [
+        "SELECT id,des,rightscope",
+        "oldage_pc2",
+        "bear_pc2 FROM dbo.insure_method"
+      ]
+    },
+    {
+      "role": "policy_normalization",
+      "path": "scripts/hr-cutover/legacy-insurance-policy-normalization.mjs",
+      "sha256": "88e43e9d7101ad168348df65357ef7e62a4373df149e1f1c2f05c6d99b06959f",
+      "requiredTokens": [
+        "legacyPercentPointsToFraction",
+        "baseFixedAmount",
+        "supplementFixedAmount"
+      ]
+    },
+    {
+      "role": "policy_transform",
+      "path": "scripts/transform-yuzhou-t3-attendance-insurance.mjs",
+      "sha256": "7df7d466ffd6380d75089bbb0a580692b55b363c2cc8a1542cfaa88edf09f6d8",
+      "requiredTokens": [
+        "const kinds=[\"oldage\",\"remedy\",\"losework\",\"fund\",\"wound\",\"bear\"]",
+        "buildLegacyInsurancePolicyItems(source,kinds)"
+      ]
+    },
+    {
+      "role": "policy_writer",
+      "path": "scripts/load-yuzhou-t3-attendance-insurance.sh",
+      "sha256": "1aeb9d3ad407d2655e37759fa7cb65d0f4ea0c12a2638e43f97cc0f7439c512c",
+      "requiredTokens": [
+        "INSERT INTO hr_insurance_policy(",
+        "INSERT INTO hr_insurance_policy_item(",
+        "base_fixed_amount,employer_fixed_amount,employee_fixed_amount,supplement_fixed_amount",
+        "i->>'baseFixedAmount'"
+      ]
+    },
+    {
+      "role": "modern_schema",
+      "path": "database/migrations/000299_hr_insurance_policy_fixed_amounts.sql",
+      "sha256": "7cd8150fbcaa044d9a943959d178b67b1f3c0d71d5a01222f8dc5d5453ff8df0",
+      "requiredTokens": [
+        "base_fixed_amount numeric(18,3)",
+        "supplement_fixed_amount numeric(18,3)",
+        "percentage-point values must be divided by 100"
+      ]
+    },
+    {
+      "role": "modern_entity",
+      "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
+      "sha256": "3db6e883ab63b6db954bf1cb4e1386c1b76b6cd85df65468b4b9eadc26cd4908",
+      "requiredTokens": [
+        "base_fixed_amount",
+        "employerFixedAmount",
+        "supplementFixedAmount"
+      ]
+    },
+    {
+      "role": "production_materializer",
+      "path": "scripts/hr-cutover/materialize-production-t3-phase-artifact.mjs",
+      "sha256": "c8f28a37a6fa1d626f57204420e2416822e84558f4f164fa1d33d322e8b3330d",
+      "requiredTokens": [
+        "sourceTable: \"dbo.insure_method\"",
+        "baseFixedAmount",
+        "supplementFixedAmount"
+      ]
+    },
+    {
+      "role": "production_target_model",
+      "path": "scripts/hr-cutover/contracts/production-import-target-model-v1.json",
+      "sha256": "38741d920ce5fa56b0ba870049704c5242feaeefd185a2d7da5f63cce1cee03b",
+      "requiredTokens": [
+        "base_fixed_amount",
+        "supplement_fixed_amount"
+      ]
+    },
+    {
+      "role": "production_payload_contract",
+      "path": "scripts/e2e/yuzhou-production-import-payload-generator-contract.mjs",
+      "sha256": "645ab216f9df3cdf3452c5595bae4066a0eb64afc8313ddc74bc28ae8e4b9f3a",
+      "requiredTokens": [
+        "employer_rate: \"0.160000\"",
+        "employer_fixed_amount: \"6.000\""
+      ]
+    },
+    {
+      "role": "runtime_api",
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad",
+      "requiredTokens": [
+        "listInsurancePeriods",
+        "insurancePeriodDetail",
+        "hr.employee_insurance"
+      ]
+    },
+    {
+      "role": "runtime_page",
+      "path": "apps/web/app/hr/insurance/HrInsuranceClient.tsx",
+      "sha256": "15b05a9a6b2440190d029b2b1af04689388f44c8e13e2c20205502d9d5d618d0",
+      "requiredTokens": [
+        "五险一金",
+        "缴费基数"
+      ]
+    }
+  ],
+  "compatibilityCredit": {
+    "numerator": 51,
+    "denominator": 51
+  },
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "productionImport": "HOLD"
+}

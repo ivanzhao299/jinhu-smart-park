@@ -1,0 +1,254 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_job_change_modern_runtime_task",
+  "taskVersion": "job-change-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-39-JOB-CHANGE",
+    "legacyId": 39,
+    "name": "岗位变更",
+    "legacyUrl": "employee/changejob/Browse.asp",
+    "legacyTable": "Emp_JobChange_tApplay",
+    "legacyView": "Emp_JobChange_vApplay",
+    "domain": "employee",
+    "targetRoutes": ["/hr/lifecycle"],
+    "selectionReason": "score_90_partial_with_hash_bound_group_web_and_desktop_ledger_evidence_plus_existing_scoped_approval_manual_apply_atomic_employee_event_api_and_mobile_panel",
+    "currentStaticEvidence": {
+      "score": 90,
+      "implementationStatus": "partial",
+      "dimensions": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": true,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/yuzhou-job-change-dual-source-evidence-v1.json",
+      "rawSha256": "bcdc601f57089cdd59adced48d29908684f881d8b6e775dd787968c83999af66",
+      "canonicalSha256": "06042de5ce462743efccadcedc4d982a1bb53ff49d59b0a2c1ac1482e0bb8598"
+    }
+  ],
+  "legacyStaticContract": {
+    "entryResolved": true,
+    "traversedAspFiles": 2,
+    "forms": 1,
+    "controls": 14,
+    "requestKeys": 20,
+    "formActions": 1,
+    "selectStatements": 0,
+    "insertStatements": 0,
+    "updateStatements": 0,
+    "deleteStatements": 0,
+    "stateTransitions": 0,
+    "fieldEvidenceHash": "b279850a9053621fd3ab890b5fd85092292f886f6150092ccc28ab4138b9dc06",
+    "staticEvidenceMeaning": "page_shape_inventory_only_not_runtime_behavior"
+  },
+  "legacyOpaqueSlots": {
+    "controlSlots": ["legacy_control_01", "legacy_control_02", "legacy_control_03", "legacy_control_04", "legacy_control_05", "legacy_control_06", "legacy_control_07", "legacy_control_08", "legacy_control_09", "legacy_control_10", "legacy_control_11", "legacy_control_12", "legacy_control_13", "legacy_control_14"],
+    "requestKeySlots": ["legacy_request_key_01", "legacy_request_key_02", "legacy_request_key_03", "legacy_request_key_04", "legacy_request_key_05", "legacy_request_key_06", "legacy_request_key_07", "legacy_request_key_08", "legacy_request_key_09", "legacy_request_key_10", "legacy_request_key_11", "legacy_request_key_12", "legacy_request_key_13", "legacy_request_key_14", "legacy_request_key_15", "legacy_request_key_16", "legacy_request_key_17", "legacy_request_key_18", "legacy_request_key_19", "legacy_request_key_20"],
+    "formActionSlots": ["legacy_form_action_01"],
+    "status": "identity_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false
+  },
+  "legacySemanticFields": [
+    {"id":"application_name","legacyEvidenceField":"applicationName","modernTargets":["hr_job_change_application.application_name"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"applicant","legacyEvidenceField":"applicant","modernTargets":["hr_job_change_application.applicant_user_id"],"disposition":"candidate_requires_exact_actor_identity_binding"},
+    {"id":"application_date","legacyEvidenceField":"applicationDate","modernTargets":["hr_job_change_application.application_date"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"employee","legacyEvidenceField":"employee","modernTargets":["hr_job_change_application.subject_employee_id", "hr_employee.id"],"disposition":"candidate_requires_exact_employee_identity_resolution"},
+    {"id":"change_type","legacyEvidenceField":"changeType","modernTargets":["hr_job_change_application.change_type"],"disposition":"candidate_requires_legacy_dictionary_binding"},
+    {"id":"before_job","legacyEvidenceField":"beforeJob","modernTargets":["hr_job_change_application.before_position_id", "hr_job_change_application.before_snapshot"],"disposition":"candidate_requires_position_identity_and_snapshot_binding"},
+    {"id":"after_job","legacyEvidenceField":"afterJob","modernTargets":["hr_job_change_application.after_position_id", "hr_job_change_application.after_snapshot"],"disposition":"candidate_requires_position_identity_and_snapshot_binding"},
+    {"id":"before_department","legacyEvidenceField":"beforeDepartment","modernTargets":["hr_job_change_application.before_org_id", "hr_job_change_application.before_snapshot"],"disposition":"candidate_requires_organization_identity_and_snapshot_binding"},
+    {"id":"after_department","legacyEvidenceField":"afterDepartment","modernTargets":["hr_job_change_application.after_org_id", "hr_job_change_application.after_snapshot"],"disposition":"candidate_requires_organization_identity_and_snapshot_binding"},
+    {"id":"reason","legacyEvidenceField":"reason","modernTargets":["hr_job_change_application.reason", "hr_employment_event.reason"],"disposition":"candidate_requires_legacy_control_and_apply_effect_binding"}
+  ],
+  "legacyDualSourceLedger": {
+    "table": "readjust",
+    "tableArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+    "columnCount": 32,
+    "columns": ["id", "no", "readjusttype", "readjustdate", "person", "name", "department", "job", "olddepartment", "oldjob", "oldpay", "pay", "oldgradepay", "gradepay", "oldbaseepay", "baseepay", "oldjobpay", "jobpay", "pausetodate", "awaytype", "readjustitem", "cause", "recdate", "operator", "jobstate", "state", "username", "approve", "departmentflag", "jobflag", "payflag", "otherflag"],
+    "numberRule": "DZyyyymmxxxx",
+    "unifiedLedgerTypes": ["hire", "transfer", "depart", "resume"],
+    "runtimeStatus": "not_observed",
+    "mappingStatus": "hash_bound_columns_pending_modern_projection_and_runtime_pairing",
+    "compensationColumns": ["oldpay", "pay", "oldgradepay", "gradepay", "oldbaseepay", "baseepay", "oldjobpay", "jobpay"],
+    "compensationDisposition": "blocked_from_job_change_write_path_requires_separate_compensation_change_mapping"
+  },
+  "legacyWorkflowRules": {
+    "applicationFields": ["applicationName", "applicant", "applicationDate", "employee", "changeType", "beforeJob", "afterJob", "beforeDepartment", "afterDepartment", "reason"],
+    "approvalResults": ["disagree", "agree", "return"],
+    "applyGate": ["approved", "workflowEnded", "notPreviouslyApplied"],
+    "applyEffects": ["markApplicationApplied", "recordAppliedDate", "updateEmployeeDepartment", "updateEmployeeJob"],
+    "visibility": "department_range",
+    "legacyRecycle": "soft_recycle_with_operation_log",
+    "runtimeStatus": "not_observed",
+    "requiredActionObservations": ["browse", "query", "detail", "readonly_view", "create", "edit", "submit", "approve", "return", "recycle", "manual_apply", "operation_history"],
+    "requiredConditionObservations": ["department_range", "maker_checker", "approved_gate", "workflow_ended_gate", "not_previously_applied", "target_differs_from_current", "effective_date_gate", "stale_assignment_conflict", "terminal_immutable", "compensation_change_separate"]
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservation": ["column_order", "query_controls", "department_range_control", "status_filter", "pagination", "sort_order", "detail_layout", "readonly_layout", "operation_history_layout", "empty_state"],
+    "modernAcceptance": ["desktop_list_form_and_state_actions", "phone_390_cards_form_and_state_actions", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_LIFECYCLE_PAGE: \"hr:lifecycle\"", "HR_JOB_CHANGE_READ", "HR_JOB_CHANGE_TEAM_READ", "HR_JOB_CHANGE_SELF_READ", "HR_JOB_CHANGE_MANAGE", "HR_JOB_CHANGE_REVIEW", "HR_JOB_CHANGE_APPLY"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-job-change.controller.ts",
+      "requiredTokens": ["@Controller(\"hr/job-change-applications\")", "@RequireAnyPermissions", "@RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE)", "@RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_REVIEW)", "@RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_APPLY)", "IdempotencyInterceptor", "captureBody:false"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/dto/hr-job-change.dto.ts",
+      "requiredTokens": ["export class SaveHrJobChangeDto", "afterOrgId!:string", "afterPositionId?:string", "@IsIn([\"submit\",\"resubmit\",\"cancel\"])", "@IsIn([\"approve\",\"return\"])"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-job-change.service.ts",
+      "requiredTokens": ["managed_org_tree", "Applicants cannot review their own job-change application", "Only approved job-change applications can be applied", "A future-dated job change cannot be applied yet", "Employee organization or position changed after approval", "INSERT INTO hr_employment_event", "UPDATE hr_job_change_application SET status='applied'", "pg_advisory_xact_lock"]
+    },
+    {
+      "path": "database/migrations/000273_hr_job_change_application_parity.sql",
+      "requiredTokens": ["CREATE TABLE hr_job_change_application", "uq_hr_job_change_active_employee", "HR_JOB_CHANGE_SUBMITTED_FACTS_IMMUTABLE", "hr_job_change_action_append_only", "BEFORE UPDATE OR DELETE ON hr_job_change_action"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-job-change.contract.spec.ts",
+      "requiredTokens": ["job-change compatibility has atomic RBAC, state guards and idempotent writes", "managed_org_tree", "Employee organization or position changed after approval"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["jobChangeApplications:", "jobChangeOptions:", "createJobChangeApplication:", "updateJobChangeApplication:", "jobChangeApplicationAction:", "reviewJobChangeApplication:", "applyJobChangeApplication:"]
+    },
+    {
+      "path": "apps/web/app/hr/lifecycle/JobChangeApplicationsPanel.tsx",
+      "requiredTokens": ["玉舟岗位变更", "保存申请草稿", "提交审批", "重新提交", "取消申请", "批准", "退回", "生效变更", "ds-mobile-record-list"]
+    },
+    {
+      "path": "apps/web/app/hr/hr-job-change.contract.spec.ts",
+      "requiredTokens": ["job-change UI is permission-gated, wired and list-first", "HR_JOB_CHANGE_TEAM_READ", "applyJobChangeApplication", "ds-mobile-record-list"]
+    }
+  ],
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/lifecycle",
+    "statusVocabulary": ["draft", "submitted", "returned", "approved", "cancelled", "applied"],
+    "transitionMatrix": [
+      {"action":"submit","from":["draft"],"to":"submitted"},
+      {"action":"resubmit","from":["returned"],"to":"submitted"},
+      {"action":"cancel","from":["draft", "submitted", "returned"],"to":"cancelled"},
+      {"action":"approve","from":["submitted"],"to":"approved"},
+      {"action":"return","from":["submitted"],"to":"returned"},
+      {"action":"apply","from":["approved"],"to":"applied"}
+    ],
+    "roleMatrix": [
+      {"role":"park_job_change_reader","permissions":["hr:lifecycle", "hr:job_change:read"],"expectedCapabilities":["park_list", "no_write"]},
+      {"role":"team_job_change_reader","permissions":["hr:lifecycle", "hr:job_change:team_read"],"expectedCapabilities":["managed_org_tree_list", "outside_tree_absent", "no_write"],"knownParityGap":"legacy_department_range_semantics_not_runtime_bound"},
+      {"role":"self_job_change_reader","permissions":["hr:lifecycle", "hr:job_change:self_read"],"expectedCapabilities":["own_or_subject_list", "other_employee_absent", "no_write"]},
+      {"role":"team_job_change_operator","permissions":["hr:lifecycle", "hr:job_change:team_read", "hr:job_change:manage"],"expectedCapabilities":["managed_tree_options", "create", "edit_draft_or_returned", "submit", "resubmit", "cancel"]},
+      {"role":"job_change_reviewer","permissions":["hr:lifecycle", "hr:job_change:read", "hr:job_change:review"],"expectedCapabilities":["approve", "return", "cannot_review_own"]},
+      {"role":"job_change_applier","permissions":["hr:lifecycle", "hr:job_change:read", "hr:job_change:apply"],"expectedCapabilities":["apply_approved_due_change", "future_and_stale_denied"]},
+      {"role":"no_job_change_permission","permissions":[],"expectedCapabilities":["job_change_panel_absent"]}
+    ],
+    "apiTasks": [
+      {"id":"park_list","method":"GET","path":"/hr/job-change-applications","expectedStatus":200,"assertions":["tenant_park_only", "paginated_shape", "status_filter"]},
+      {"id":"team_list","method":"GET","path":"/hr/job-change-applications","expectedStatus":200,"assertions":["managed_org_tree_only", "outside_tree_absent"]},
+      {"id":"self_list","method":"GET","path":"/hr/job-change-applications","expectedStatus":200,"assertions":["applicant_or_subject_self_only", "other_rows_absent"]},
+      {"id":"legacy_department_range_equivalence","method":"GET","path":"/hr/job-change-applications","expectedStatus":"blocked_until_direct_child_sibling_scope_pair_is_observed","assertions":["do_not_claim_department_scope_equivalence"]},
+      {"id":"team_options","method":"GET","path":"/hr/job-change-applications/options","expectedStatus":200,"assertions":["managed_tree_employees_only", "enabled_orgs_and_positions"]},
+      {"id":"create_valid","method":"POST","path":"/hr/job-change-applications","expectedStatus":201,"assertions":["synthetic_values_only", "idempotency_key", "before_after_snapshots", "monthly_number"]},
+      {"id":"create_outside_scope_denied","method":"POST","path":"/hr/job-change-applications","expectedStatus":403,"assertions":["no_row_created"]},
+      {"id":"create_invalid_date","method":"POST","path":"/hr/job-change-applications","expectedStatus":400,"assertions":["effective_not_before_application", "no_row_created"]},
+      {"id":"create_same_assignment_denied","method":"POST","path":"/hr/job-change-applications","expectedStatus":400,"assertions":["target_must_differ", "no_row_created"]},
+      {"id":"edit_draft_or_returned","method":"PUT","path":"/hr/job-change-applications/:id","expectedStatus":200,"assertions":["mutable_states_only", "action_appended"]},
+      {"id":"edit_submitted_denied","method":"PUT","path":"/hr/job-change-applications/:id","expectedStatus":409,"assertions":["submitted_facts_immutable"]},
+      {"id":"submit","method":"POST","path":"/hr/job-change-applications/:id/actions","expectedStatus":200,"assertions":["draft_to_submitted", "action_appended"]},
+      {"id":"resubmit","method":"POST","path":"/hr/job-change-applications/:id/actions","expectedStatus":200,"assertions":["returned_to_submitted", "action_appended"]},
+      {"id":"cancel_replaces_recycle","method":"POST","path":"/hr/job-change-applications/:id/actions","expectedStatus":200,"assertions":["terminal_cancelled", "no_physical_delete", "action_appended"]},
+      {"id":"maker_checker_denied","method":"POST","path":"/hr/job-change-applications/:id/review","expectedStatus":403,"assertions":["applicant_cannot_review_own", "state_unchanged"]},
+      {"id":"return_requires_comment","method":"POST","path":"/hr/job-change-applications/:id/review","expectedStatus":400,"assertions":["state_unchanged"]},
+      {"id":"approve","method":"POST","path":"/hr/job-change-applications/:id/review","expectedStatus":200,"assertions":["submitted_to_approved", "action_appended"]},
+      {"id":"future_apply_denied","method":"POST","path":"/hr/job-change-applications/:id/apply","expectedStatus":409,"assertions":["employee_unchanged", "application_approved"]},
+      {"id":"stale_assignment_apply_denied","method":"POST","path":"/hr/job-change-applications/:id/apply","expectedStatus":409,"assertions":["employee_unchanged", "application_approved", "no_event"]},
+      {"id":"apply_atomic","method":"POST","path":"/hr/job-change-applications/:id/apply","expectedStatus":200,"assertions":["approved_and_due_only", "employee_org_position_updated", "transfer_event_appended", "application_applied_same_transaction", "compensation_unchanged"]}
+    ],
+    "browserTask": {
+      "viewports": [
+        {"id":"desktop","width":1440,"height":1000},
+        {"id":"phone_390","width":390,"height":844}
+      ],
+      "checks": [
+        {"id":"park_reader","role":"park_job_change_reader","visibleTexts":["玉舟岗位变更", "岗位变更申请"],"assertions":["park_rows_only", "write_controls_absent", "no_horizontal_overflow"]},
+        {"id":"team_reader","role":"team_job_change_reader","visibleTexts":["玉舟岗位变更", "岗位变更申请"],"assertions":["managed_tree_rows_only", "parent_child_sibling_scope_recorded", "no_horizontal_overflow"]},
+        {"id":"self_reader","role":"self_job_change_reader","visibleTexts":["岗位变更申请"],"assertions":["own_or_subject_rows_only", "other_rows_absent", "no_horizontal_overflow"]},
+        {"id":"operator","role":"team_job_change_operator","visibleTexts":["保存申请草稿", "提交审批", "重新提交", "取消申请"],"assertions":["managed_tree_options_only", "state_conditioned_actions", "no_horizontal_overflow"]},
+        {"id":"reviewer","role":"job_change_reviewer","visibleTexts":["批准", "退回"],"assertions":["submitted_only", "own_application_denied", "no_horizontal_overflow"]},
+        {"id":"applier","role":"job_change_applier","visibleTexts":["生效变更"],"assertions":["approved_due_only", "future_action_disabled", "no_horizontal_overflow"]},
+        {"id":"forbidden","role":"no_job_change_permission","visibleTexts":[],"assertions":["job_change_panel_absent", "job_change_rows_absent", "no_horizontal_overflow"]}
+      ]
+    }
+  },
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_JOB_CHANGE_DEPARTMENT_RANGE_TREE_EQUIVALENCE_NOT_OBSERVED",
+      "missingEvidence": ["legacy_direct_department_visibility", "legacy_child_department_visibility", "legacy_sibling_department_visibility", "legacy_cross_department_visibility"],
+      "implementationAction": ["create_non_personal_parent_child_and_sibling_department_records", "observe_the_same_manager_in_legacy_department_range_and_modern_managed_org_tree", "record_only_redacted_presence_absence_and_count_receipts", "if_legacy_direct_only_scope_is_required_add_an_exact_direct_team_scope_instead_of_claiming_tree_equivalence"],
+      "acceptance": ["paired_scope_matrix_for_parent_child_sibling_cross_department", "no_out_of_scope_row_or_count_disclosure", "documented_modernization_decision_if_tree_scope_is_intentionally_broader"]
+    },
+    {
+      "id": "GROUP_WEB_JOB_CHANGE_COMPENSATION_COLUMNS_REQUIRE_SEPARATE_MAPPING",
+      "missingEvidence": ["eight_desktop_compensation_column_semantics", "compensation_change_business_route", "job_change_to_compensation_reference_rule"],
+      "implementationAction": ["bind_each_old_and_new_pay_column_to_the_compensation_domain", "keep_job_change_apply_from_writing_compensation", "link_any_authorized_compensation_change_by_event_identity_and_effective_date"],
+      "acceptance": ["all_eight_columns_have_a_disposition", "job_change_apply_does_not_change_pay", "compensation_audit_remains_separate"]
+    }
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyControlBindings": 14,
+    "requiredLegacyRequestKeyBindings": 20,
+    "requiredLegacyFormActionBindings": 1,
+    "requiredLegacyActionObservations": 12,
+    "requiredLegacyConditionObservations": 10,
+    "requiredLegacyReportLayoutDecision": 1,
+    "requiredDesktopLedgerColumnBindings": 32,
+    "requiredModernApiObservations": 20,
+    "requiredModernBrowserObservations": 14,
+    "requiredPairing": "same_candidate_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "compensationValuesExcluded": true
+  },
+  "blockingGaps": [
+    "GROUP_WEB_JOB_CHANGE_LEGACY_RUNTIME_NOT_OBSERVED",
+    "GROUP_WEB_JOB_CHANGE_14_CONTROLS_NOT_SEMANTICALLY_BOUND",
+    "GROUP_WEB_JOB_CHANGE_20_REQUEST_KEYS_NOT_ENUMERATED",
+    "GROUP_WEB_JOB_CHANGE_DEPARTMENT_RANGE_TREE_EQUIVALENCE_NOT_OBSERVED",
+    "GROUP_WEB_JOB_CHANGE_32_DESKTOP_LEDGER_COLUMNS_NOT_RUNTIME_BOUND",
+    "GROUP_WEB_JOB_CHANGE_COMPENSATION_COLUMNS_REQUIRE_SEPARATE_MAPPING",
+    "GROUP_WEB_JOB_CHANGE_REPORT_LAYOUT_NOT_OBSERVED",
+    "GROUP_WEB_JOB_CHANGE_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator":0,"denominator":186},
+    "legacyInteractionParity": {"numerator":0,"denominator":6}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

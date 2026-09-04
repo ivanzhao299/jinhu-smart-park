@@ -61,14 +61,18 @@ test("all source denominators remain locked including empty and unobserved objec
   assert.equal(input.denominatorPolicy.includeUnnavigatedPages, true);
 });
 
-test("only the fully reviewed routine is exposed as a frozen candidate, never as admitted", () => {
+test("only fully reviewed routines are exposed as frozen candidates, never as admitted", () => {
   const manifest = build();
   assert.deepEqual(manifest.frozenItems.map(row => [row.stableId, row.status, row.count]), [
+    ["RULE-06D838A8343E39F6", "FROZEN", 1],
+    ["RULE-69093173CCAE1126", "FROZEN", 1],
+    ["RULE-A490C8F10B0BB6DC", "FROZEN", 1],
     ["RULE-A6D7E11BA9DEAEC2", "FROZEN", 1],
+    ["RULE-EEE0816A27D9E126", "FROZEN", 1],
   ]);
   assert.deepEqual(manifest.coverageCounts.map(row => [row.stableId, row.status, row.count]), [
     ["FIELD_FROZEN", "NOT_FROZEN", 0],
-    ["ROUTINE_FROZEN", "PARTIAL", 1],
+    ["ROUTINE_FROZEN", "PARTIAL", 5],
     ["PAGE_FROZEN", "NOT_FROZEN", 0],
     ["PRODUCTION_FROZEN", "NOT_FROZEN", 0],
   ]);

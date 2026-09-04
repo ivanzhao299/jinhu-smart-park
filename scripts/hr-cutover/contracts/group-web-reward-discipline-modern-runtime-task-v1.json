@@ -1,0 +1,361 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_reward_discipline_modern_runtime_task",
+  "taskVersion": "reward-discipline-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-48-49-REWARD-DISCIPLINE",
+    "name": "员工奖励与处罚",
+    "legacyIds": [48, 49],
+    "domain": "employee_reward_discipline",
+    "actualModernRoute": "/hr/rewards",
+    "selectionReason": "two_score_80_partial_entries_share_one_modern_scoped_versioned_approval_sensitive_projection_append_only_evidence_and_mobile_workbench",
+    "currentStaticEvidence": {
+      "entryCount": 2,
+      "scoreEach": 80,
+      "implementationStatusEach": "partial",
+      "dimensionsEach": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": false,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "rawSha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959",
+      "canonicalSha256": "84bb37f2595089ba38e37ad9d4ec8b0268d1391427bda14a1fb7f5622cd41d71"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-reward-discipline-field-map-v1.json",
+      "rawSha256": "5598fdfa5ebf34cf28438436f67477557443629dad76bd08ffdeb736291cb53c",
+      "canonicalSha256": "a5997d9a538150237c0fa5dd0c1d36b525afff19c22f4197ef0c2d63aa8f5424"
+    }
+  ],
+  "legacyEntries": [
+    {
+      "legacyId": 48,
+      "name": "员工奖励",
+      "legacyUrl": "employee/hortation/browse.asp",
+      "legacyTable": "Emp_Reward_tApplay",
+      "legacyView": "Emp_Reward_vApplay",
+      "mappedTargetRoutes": ["/hr/rewards"],
+      "traversedAspFiles": 2,
+      "forms": 1,
+      "controls": 14,
+      "requestKeys": 16,
+      "formActions": 1,
+      "selectStatements": 0,
+      "insertStatements": 0,
+      "updateStatements": 0,
+      "deleteStatements": 0,
+      "stateTransitions": 1,
+      "fieldEvidenceHash": "ed524426f4d9c38b3d7b252c3fe2b933eaca5c952e5b6177ae97b638f809ce21"
+    },
+    {
+      "legacyId": 49,
+      "name": "员工处罚",
+      "legacyUrl": "employee/punishment/browse.asp",
+      "legacyTable": "Emp_Punish_tApplay",
+      "legacyView": "Emp_Punish_vApplay",
+      "mappedTargetRoutes": ["/hr/rewards"],
+      "traversedAspFiles": 2,
+      "forms": 1,
+      "controls": 14,
+      "requestKeys": 16,
+      "formActions": 1,
+      "selectStatements": 0,
+      "insertStatements": 0,
+      "updateStatements": 0,
+      "deleteStatements": 0,
+      "stateTransitions": 1,
+      "fieldEvidenceHash": "96fbb0d5f541f36c54d32791f52db5a12dbf1d4a30d43486ab08899106907895"
+    }
+  ],
+  "legacyOpaqueSlots": {
+    "slotIdentityPattern": "legacy_{legacyId}_{control|request_key|form_action|state_transition}_{NN}",
+    "entryCount": 2,
+    "traversedAspFiles": 4,
+    "forms": 2,
+    "controls": 28,
+    "requestKeys": 32,
+    "formActions": 2,
+    "stateTransitions": 2,
+    "status": "identity_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false
+  },
+  "legacyDataPresenceBoundary": {
+    "groupWebSourceId": "yuzhou_group_web_enterprise_hr",
+    "groupWebCatalogHash": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+    "tables": [
+      {
+        "legacyId": 48,
+        "table": "Emp_Reward_tApplay",
+        "observedRows": null,
+        "receiptStatus": "not_in_current_group_web_key_table_count_receipt",
+        "featureRequired": true,
+        "emptyOrUnknownDataDoesNotRemoveBehavior": true
+      },
+      {
+        "legacyId": 49,
+        "table": "Emp_Punish_tApplay",
+        "observedRows": 8,
+        "receiptStatus": "observed_in_current_group_web_key_table_count_receipt",
+        "featureRequired": true,
+        "emptyOrUnknownDataDoesNotRemoveBehavior": true
+      }
+    ],
+    "crossSourceEmptyTable": {
+      "sourceSystem": "yuzhou-v10",
+      "table": "bonusrecord",
+      "observedRows": 0,
+      "relationshipToGroupWebEntries": "separate_windows_client_source_not_a_group_web_page_row_count",
+      "maySubstituteForGroupWebRewardCount": false,
+      "featureRequired": true
+    },
+    "requiredReceipt": "read_only_group_web_counts_for_both_application_tables_with_hash_bound_empty_state_observation",
+    "emptyTableRule": "zero_rows_never_removes_page_fields_actions_conditions_permissions_or_reports"
+  },
+  "legacyFieldBindingPlan": [
+    {
+      "legacyId": 48,
+      "controlSlots": 14,
+      "requestKeySlots": 16,
+      "targetCandidateGroups": ["case_identity", "employee_relation", "category_and_version", "event_dates", "fact_and_reason", "impact", "amount", "evidence", "approval", "history_and_reports"],
+      "disposition": "unresolved_requires_authenticated_page_and_group_web_database_binding"
+    },
+    {
+      "legacyId": 49,
+      "controlSlots": 14,
+      "requestKeySlots": 16,
+      "targetCandidateGroups": ["case_identity", "employee_relation", "category_and_version", "event_dates", "fact_and_reason", "impact", "amount", "evidence", "approval", "history_and_reports"],
+      "disposition": "unresolved_requires_authenticated_page_and_group_web_database_binding"
+    }
+  ],
+  "legacyWorkflowTask": {
+    "runtimeStatus": "not_observed",
+    "staticTransitionSlots": ["legacy_48_state_transition_01", "legacy_49_state_transition_01"],
+    "requiredActionObservationsPerEntry": ["browse", "query", "detail", "create", "edit", "submit", "approve", "return", "withdraw_or_cancel", "operation_history_or_report"],
+    "requiredConditionObservationsPerEntry": ["visible_statuses", "transition_preconditions", "maker_checker", "employee_scope", "reason_visibility", "amount_visibility_and_meaning", "evidence_permissions", "terminal_mutation_behavior", "downstream_payroll_or_performance_effect", "empty_state_behavior"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_and_group_web_routine_call_chain_observation"
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservationPerEntry": ["column_order", "query_controls", "status_filter", "pagination", "sort_order", "detail_layout", "form_layout", "action_placement", "print_or_export_controls", "empty_state"],
+    "requiredObservationCount": 20,
+    "modernAcceptance": ["desktop_list_detail_form_actions", "phone_390_cards_detail_form_actions", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "crossSourceFieldBoundary": {
+    "windowsClientFieldMap": "legacy-reward-discipline-field-map-v1",
+    "windowsClientFields": 16,
+    "windowsClientVerifiedTargetFields": 2,
+    "groupWebFieldCreditFromWindowsClient": 0,
+    "rule": "client_bonuscode_and_bonusrecord_fields_must_not_be_copied_to_group_web_application_fields_without_relationship_evidence",
+    "unresolvedSemanticRisks": ["reward_or_discipline_kind_precedence", "two_date_semantics", "occurrence_count", "proposer_identity", "reason_split", "score_adjustment", "payroll_amount_meaning"]
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_REWARDS_PAGE: \"hr:rewards\"", "HR_REWARD_READ", "HR_REWARD_TEAM_READ", "HR_REWARD_SELF_READ", "HR_REWARD_MANAGE", "HR_REWARD_REVIEW", "HR_REWARD_REASON_READ", "HR_REWARD_DOCUMENT_READ", "HR_REWARD_DOCUMENT_MANAGE", "HR_REWARD_AMOUNT_READ", "HR_REWARD_LINK_PAYROLL", "HR_REWARD_LINK_PERFORMANCE"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-rewards.controller.ts",
+      "requiredTokens": ["@Controller(\"hr/rewards\")", "@Get(\"cases\")", "@Post(\"cases\")", "@Post(\"cases/:id/submit\")", "@Post(\"cases/:id/resubmit\")", "@Post(\"cases/:id/withdraw\")", "@Post(\"cases/:id/approve\")", "@Post(\"cases/:id/return\")", "@Post(\"cases/:id/corrections\")", "@Post(\"cases/:id/links\")", "IdempotencyInterceptor", "captureBody: false"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/dto/hr-rewards.dto.ts",
+      "requiredTokens": ["export class CreateHrRewardCaseDto", "export class UpdateHrRewardDraftDto", "export class HrRewardCorrectionDto", "export class HrRewardLinkDto", "@IsIn([\"reward\", \"discipline\"])", "@Matches(DECIMAL)", "@ArrayMaxSize(20)"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-rewards.service.ts",
+      "requiredTokens": ["type Access = \"park\" | \"managed_org_tree\" | \"self\" | \"none\"", "Only draft or returned cases can be corrected", "Self review is not allowed", "Reward case action is not valid for current state", "Only approved cases accept append-only correction or appeal", "Only approved cases can be linked", "recordHrSensitiveRead", "INSERT INTO biz_user_message"]
+    },
+    {
+      "path": "database/migrations/000255_hr_reward_discipline_operations.sql",
+      "requiredTokens": ["CREATE TABLE hr_reward_discipline_category", "CREATE TABLE hr_reward_discipline_category_version", "CREATE TABLE hr_reward_discipline_case", "CREATE TABLE hr_reward_discipline_action", "CREATE TABLE hr_reward_discipline_correction", "CREATE TABLE hr_reward_discipline_link", "submitted reward facts are immutable", "terminal reward case is immutable"]
+    },
+    {
+      "path": "database/seeds/production/000022_hr_rewards_rbac.sql",
+      "requiredTokens": ["HR rewards least privilege", "DEPARTMENT_MANAGER','hr:reward:team_read", "DEPARTMENT_MANAGER','hr:reward:review", "EMPLOYEE_SELF_SERVICE','hr:reward:self_read", "Sensitive HR rewards permissions leaked"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-rewards.contract.spec.ts",
+      "requiredTokens": ["reward schema freezes category and submitted facts with append-only action correction link", "reward writes are replay-aware body-free and service fails closed", "least privilege seed and protected evidence do not leak amount reason or documents", "web reward workbench has readable selectors paging cancellation and mobile records"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["rewardCategories:", "rewardOptions:", "rewardCases:", "rewardCase:", "createRewardCategory:", "createRewardCase:", "updateRewardCase:", "rewardCaseAction:"],
+      "forbiddenTokens": ["versionRewardCategory:", "correctRewardCase:", "linkRewardCase:"]
+    },
+    {
+      "path": "apps/web/app/hr/rewards/HrRewardsClient.tsx",
+      "requiredTokens": ["奖惩管理", "新增奖惩事项", "保存草稿", "提交", "重新提交", "撤回", "批准", "退回", "上传奖惩证据", "ds-mobile-record-list"],
+      "forbiddenTokens": ["versionRewardCategory", "correctRewardCase", "linkRewardCase"]
+    },
+    {
+      "path": "apps/web/app/hr/rewards/HrRewardsClient.spec.ts",
+      "requiredTokens": ["reward evidence uses shared protected upload surfaces and exact permission intersections", "hr_reward_evidence", "HR_REWARD_DOCUMENT_MANAGE", "FILE_UPLOAD", "保存修改"]
+    }
+  ],
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/rewards",
+    "statusVocabulary": ["draft", "submitted", "approved", "returned", "withdrawn"],
+    "transitionMatrix": [
+      {"action": "submit", "from": ["draft"], "to": "submitted"},
+      {"action": "resubmit", "from": ["returned"], "to": "submitted"},
+      {"action": "withdraw", "from": ["submitted"], "to": "withdrawn"},
+      {"action": "approve", "from": ["submitted"], "to": "approved"},
+      {"action": "return", "from": ["submitted"], "to": "returned"}
+    ],
+    "roleMatrix": [
+      {"role": "park_reward_reader", "permissions": ["hr:rewards", "hr:reward:read"], "expectedCapabilities": ["park_list", "detail", "reason_amount_documents_absent_without_atoms"]},
+      {"role": "team_reward_reader", "permissions": ["hr:rewards", "hr:reward:team_read"], "expectedCapabilities": ["managed_org_tree_list", "outside_tree_absent", "sensitive_details_absent"]},
+      {"role": "self_reward_reader", "permissions": ["hr:rewards", "hr:reward:self_read"], "expectedCapabilities": ["own_approved_only", "other_employee_absent", "append_own_appeal_on_approved_case"]},
+      {"role": "reward_operator", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward:manage"], "expectedCapabilities": ["category_and_case_create", "draft_or_returned_edit", "submit", "resubmit", "withdraw", "append_correction"]},
+      {"role": "reward_reviewer", "permissions": ["hr:rewards", "hr:reward:team_read", "hr:reward:review"], "expectedCapabilities": ["managed_tree_approve_or_return", "self_review_denied"]},
+      {"role": "reward_reason_reader", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward_reason:read"], "expectedCapabilities": ["detailed_reason_visible", "amount_and_documents_absent"]},
+      {"role": "reward_amount_reader", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward_amount:read"], "expectedCapabilities": ["exact_decimal_amount_visible", "reason_and_documents_absent"]},
+      {"role": "reward_document_reader", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward_document:read", "file:read"], "expectedCapabilities": ["frozen_evidence_list_detail_download", "upload_delete_absent"]},
+      {"role": "reward_document_operator", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward:manage", "hr:reward_document:read", "hr:reward_document:manage", "file:read", "file:upload", "file:delete"], "expectedCapabilities": ["draft_or_returned_upload_delete", "submitted_evidence_immutable"]},
+      {"role": "reward_link_operator", "permissions": ["hr:rewards", "hr:reward:read", "hr:reward:link_payroll", "hr:reward:link_performance"], "expectedCapabilities": ["approved_case_link_to_matching_effective_payroll_or_open_performance_version"]},
+      {"role": "no_reward_permission", "permissions": [], "expectedCapabilities": ["forbidden", "rows_absent"]}
+    ],
+    "apiTasks": [
+      {"id": "categories", "method": "GET", "path": "/hr/rewards/categories", "expectedStatus": 200, "assertions": ["same_tenant_park", "current_enabled_versions"]},
+      {"id": "park_list", "method": "GET", "path": "/hr/rewards/cases", "expectedStatus": 200, "assertions": ["park_scope", "pagination", "required_audit"]},
+      {"id": "team_list", "method": "GET", "path": "/hr/rewards/cases", "expectedStatus": 200, "assertions": ["managed_tree_only", "outside_tree_absent", "sensitive_fields_absent"]},
+      {"id": "self_list", "method": "GET", "path": "/hr/rewards/cases", "expectedStatus": 200, "assertions": ["own_approved_only", "other_employee_absent", "sensitive_fields_absent"]},
+      {"id": "detail", "method": "GET", "path": "/hr/rewards/cases/:id", "expectedStatus": 200, "assertions": ["scope_and_permission_projection", "required_audit"]},
+      {"id": "cross_scope_detail_denied", "method": "GET", "path": "/hr/rewards/cases/:otherId", "expectedStatus": "403_or_404", "assertions": ["no_target_disclosure"]},
+      {"id": "options", "method": "GET", "path": "/hr/rewards/options", "expectedStatus": 200, "assertions": ["manage_permission", "scoped_employee_and_category_selectors"]},
+      {"id": "create_category", "method": "POST", "path": "/hr/rewards/categories", "expectedStatus": 201, "assertions": ["idempotency_key", "category_version_one"]},
+      {"id": "version_category", "method": "POST", "path": "/hr/rewards/categories/:id/versions", "expectedStatus": 201, "assertions": ["append_version", "prior_version_immutable"]},
+      {"id": "create_case", "method": "POST", "path": "/hr/rewards/cases", "expectedStatus": 201, "assertions": ["synthetic_values_only", "idempotency_key", "exact_decimal_string"]},
+      {"id": "duplicate_case_code", "method": "POST", "path": "/hr/rewards/cases", "expectedStatus": 409, "assertions": ["no_duplicate", "no_partial_write"]},
+      {"id": "sensitive_create_denied", "method": "POST", "path": "/hr/rewards/cases", "expectedStatus": 403, "assertions": ["reason_amount_document_atoms_enforced", "no_row_created"]},
+      {"id": "update_draft_or_returned", "method": "PUT", "path": "/hr/rewards/cases/:id", "expectedStatus": 200, "assertions": ["draft_or_returned_only", "protected_fields_require_atoms"]},
+      {"id": "update_submitted_denied", "method": "PUT", "path": "/hr/rewards/cases/:id", "expectedStatus": 409, "assertions": ["submitted_facts_immutable"]},
+      {"id": "submit", "method": "POST", "path": "/hr/rewards/cases/:id/submit", "expectedStatus": 200, "assertions": ["draft_to_submitted", "category_and_evidence_frozen", "workflow_message"]},
+      {"id": "resubmit", "method": "POST", "path": "/hr/rewards/cases/:id/resubmit", "expectedStatus": 200, "assertions": ["returned_to_submitted"]},
+      {"id": "withdraw", "method": "POST", "path": "/hr/rewards/cases/:id/withdraw", "expectedStatus": 200, "assertions": ["submitted_to_withdrawn", "terminal_immutable"]},
+      {"id": "self_review_denied", "method": "POST", "path": "/hr/rewards/cases/:id/approve", "expectedStatus": 403, "assertions": ["maker_checker", "state_unchanged"]},
+      {"id": "approve", "method": "POST", "path": "/hr/rewards/cases/:id/approve", "expectedStatus": 200, "assertions": ["submitted_to_approved", "workflow_message"]},
+      {"id": "return", "method": "POST", "path": "/hr/rewards/cases/:id/return", "expectedStatus": 200, "assertions": ["submitted_to_returned", "workflow_message"]},
+      {"id": "append_correction", "method": "POST", "path": "/hr/rewards/cases/:id/corrections", "expectedStatus": 201, "assertions": ["approved_only", "append_only", "no_terminal_fact_rewrite"]},
+      {"id": "append_self_appeal", "method": "POST", "path": "/hr/rewards/cases/:id/corrections", "expectedStatus": 201, "assertions": ["own_approved_only", "appeal_only", "other_employee_denied"]},
+      {"id": "link_payroll", "method": "POST", "path": "/hr/rewards/cases/:id/links", "expectedStatus": 201, "assertions": ["approved_only", "same_employee_effective_input", "version_exact", "no_payroll_write"]},
+      {"id": "link_performance", "method": "POST", "path": "/hr/rewards/cases/:id/links", "expectedStatus": 201, "assertions": ["approved_only", "same_employee_open_plan", "version_exact", "no_performance_write"]},
+      {"id": "invalid_link_denied", "method": "POST", "path": "/hr/rewards/cases/:id/links", "expectedStatus": "403_or_409", "assertions": ["permission_or_relation_guard", "no_link"]},
+      {"id": "document_scope", "method": "FILES_API", "path": "hr_reward_evidence/:caseId", "expectedStatus": "scope_dependent", "assertions": ["domain_and_file_permissions_intersect", "submitted_files_immutable", "unauthorized_binary_absent"]},
+      {"id": "audit_failure", "method": "GET", "path": "/hr/rewards/cases", "expectedStatus": 500, "assertions": ["sensitive_response_blocked"]},
+      {"id": "no_permission", "method": "GET", "path": "/hr/rewards/cases", "expectedStatus": 403, "assertions": ["rows_absent"]}
+    ],
+    "browserTask": {
+      "viewports": [
+        {"id": "desktop", "width": 1440, "height": 1000},
+        {"id": "phone_390", "width": 390, "height": 844}
+      ],
+      "checks": [
+        {"id": "park_reader", "role": "park_reward_reader", "visibleTexts": ["奖惩管理", "奖惩事项", "查看"], "assertions": ["park_rows", "write_controls_absent", "sensitive_blocks_absent", "no_horizontal_overflow"]},
+        {"id": "team_reader", "role": "team_reward_reader", "visibleTexts": ["奖惩管理", "奖惩事项"], "assertions": ["managed_tree_rows", "outside_tree_absent", "sensitive_blocks_absent", "no_horizontal_overflow"]},
+        {"id": "self_reader", "role": "self_reward_reader", "visibleTexts": ["奖惩管理", "奖惩事项"], "assertions": ["own_approved_only", "other_rows_absent", "appeal_control_required_after_gap_closed", "no_horizontal_overflow"]},
+        {"id": "operator", "role": "reward_operator", "visibleTexts": ["奖惩类别", "新增奖惩事项", "保存草稿", "提交", "重新提交", "撤回"], "assertions": ["readable_selectors", "state_conditioned_actions", "category_version_and_approved_correction_controls_required_after_gaps_closed", "sensitive_inputs_absent_without_atoms", "no_horizontal_overflow"]},
+        {"id": "reviewer", "role": "reward_reviewer", "visibleTexts": ["批准", "退回"], "assertions": ["submitted_managed_tree_only", "own_case_denied", "no_horizontal_overflow"]},
+        {"id": "reason_reader", "role": "reward_reason_reader", "visibleTexts": ["详细原因"], "assertions": ["reason_visible", "amount_documents_absent", "no_horizontal_overflow"]},
+        {"id": "amount_reader", "role": "reward_amount_reader", "visibleTexts": ["建议金额"], "assertions": ["exact_decimal_visible", "reason_documents_absent", "no_horizontal_overflow"]},
+        {"id": "document_reader", "role": "reward_document_reader", "visibleTexts": [], "assertions": ["attachment_list_detail_download", "upload_delete_absent", "no_horizontal_overflow"]},
+        {"id": "document_operator", "role": "reward_document_operator", "visibleTexts": ["上传奖惩证据"], "assertions": ["draft_or_returned_only", "submitted_immutable", "no_horizontal_overflow"]},
+        {"id": "links", "role": "reward_link_operator", "visibleTexts": [], "assertions": ["current_web_gap_requires_payroll_and_performance_link_controls", "no_uuid_entry", "no_horizontal_overflow"]},
+        {"id": "forbidden", "role": "no_reward_permission", "visibleTexts": [], "assertions": ["forbidden", "rows_absent", "no_horizontal_overflow"]},
+        {"id": "empty_state", "role": "park_reward_reader", "visibleTexts": ["当前没有可见奖惩事项。"], "assertions": ["empty_state_preserves_filters_and_authorized_create_controls", "no_horizontal_overflow"]}
+      ]
+    }
+  },
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_REWARD_DISCIPLINE_LEGACY_SEMANTICS_AND_RULE_CALL_CHAIN_NOT_BOUND",
+      "missingEvidence": ["28_control_semantics", "32_request_key_semantics", "2_form_action_semantics", "2_transition_semantics", "group_web_procedure_function_trigger_call_chain"],
+      "implementationAction": ["observe_both_legacy_entries_with_authenticated_non_personal_test_records", "bind_every_control_request_action_status_condition_and_report_slot", "trace_every_referenced_group_web_procedure_function_trigger_and_dispose_all_branches_including_untriggered_branches"],
+      "acceptance": ["two_hash_bound_legacy_entry_receipts", "no_unmapped_legacy_slot", "no_empty_or_untriggered_branch_removed", "paired_legacy_modern_outcomes"]
+    },
+    {
+      "id": "GROUP_WEB_REWARD_DISCIPLINE_GROUP_WEB_ROW_COUNTS_AND_EMPTY_STATE_NOT_BOUND",
+      "missingEvidence": ["Emp_Reward_tApplay_read_only_count", "both_group_web_table_count_hashes", "legacy_empty_page_observation_when_applicable"],
+      "implementationAction": ["capture_read_only_aggregate_counts_for_both_group_web_application_tables", "if_either_table_is_empty_execute_the_full_legacy_empty_page_and_create_path", "keep_windows_client_bonusrecord_zero_rows_as_separate_source_evidence_only"],
+      "acceptance": ["source_identity_bound_counts", "zero_rows_preserve_full_feature_denominator", "no_cross_source_empty_table_substitution"]
+    },
+    {
+      "id": "GROUP_WEB_REWARD_DISCIPLINE_WEB_CATEGORY_VERSION_CONTROL_NOT_IMPLEMENTED",
+      "missingEvidence": ["web_api_category_version_wrapper", "permission_gated_category_version_form", "current_version_refresh_after_publish"],
+      "implementationAction": ["add_a_typed_web_api_wrapper_for_the_existing_category_versions_endpoint", "add_a_manage_permission_category_version_form_with_readable_category_selection", "refresh_the_authoritative_current_category_version_after_publish"],
+      "acceptance": ["category_history_remains_immutable", "no_raw_uuid_entry", "desktop_and_390px_action_reachable", "idempotent_publish"]
+    },
+    {
+      "id": "GROUP_WEB_REWARD_DISCIPLINE_WEB_CORRECTION_APPEAL_AND_LINK_CONTROLS_NOT_IMPLEMENTED",
+      "missingEvidence": ["web_api_correction_wrapper", "web_api_link_wrapper", "permission_gated_correction_and_appeal_controls", "payroll_and_performance_candidate_selectors"],
+      "implementationAction": ["add_typed_web_api_wrappers_for_existing_corrections_and_links_endpoints", "add_state_and_permission_gated_correction_and_self_appeal_forms", "add_action_specific_server_scoped_payroll_and_performance_candidate_selectors_before_link_controls", "verify_desktop_and_390px_without_raw_uuid_entry"],
+      "acceptance": ["backend_supported_actions_reachable_after_refresh", "exact_permission_negative_cases", "no_raw_uuid_entry", "no_online_payroll_or_performance_mutation"]
+    },
+    {
+      "id": "GROUP_WEB_REWARD_DISCIPLINE_DUAL_SOURCE_FIELD_RELATION_NOT_PROVEN",
+      "missingEvidence": ["Emp_Reward_tApplay_and_Emp_Punish_tApplay_column_catalog", "relationship_to_bonuscode_and_bonusrecord", "source_precedence_for_overlapping_semantics"],
+      "implementationAction": ["capture_hash_bound_group_web_column_catalog_without_values", "compare_group_web_fields_to_the_16_field_windows_client_map", "define_explicit_merge_preserve_or_distinct_case_rules_without_copying_client_credit"],
+      "acceptance": ["separate_source_provenance", "every_overlapping_field_has_precedence", "group_web_credit_comes_only_from_group_web_evidence"]
+    }
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyEntryObservations": 2,
+    "requiredLegacyControlBindings": 28,
+    "requiredLegacyRequestKeyBindings": 32,
+    "requiredLegacyFormActionBindings": 2,
+    "requiredLegacyStateTransitionBindings": 2,
+    "requiredLegacyActionObservations": 20,
+    "requiredLegacyConditionObservations": 20,
+    "requiredLegacyReportLayoutObservations": 20,
+    "requiredGroupWebTableCountReceipts": 2,
+    "requiredModernApiObservations": 28,
+    "requiredModernBrowserObservations": 24,
+    "requiredPairing": "same_entry_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "amountValuesExcluded": true,
+    "attachmentBinariesExcluded": true
+  },
+  "blockingGaps": [
+    "GROUP_WEB_REWARD_DISCIPLINE_TWO_LEGACY_RUNTIMES_NOT_OBSERVED",
+    "GROUP_WEB_REWARD_DISCIPLINE_28_CONTROLS_NOT_BOUND",
+    "GROUP_WEB_REWARD_DISCIPLINE_32_REQUEST_KEYS_NOT_BOUND",
+    "GROUP_WEB_REWARD_DISCIPLINE_LEGACY_SEMANTICS_AND_RULE_CALL_CHAIN_NOT_BOUND",
+    "GROUP_WEB_REWARD_DISCIPLINE_GROUP_WEB_ROW_COUNTS_AND_EMPTY_STATE_NOT_BOUND",
+    "GROUP_WEB_REWARD_DISCIPLINE_WEB_CATEGORY_VERSION_CONTROL_NOT_IMPLEMENTED",
+    "GROUP_WEB_REWARD_DISCIPLINE_WEB_CORRECTION_APPEAL_AND_LINK_CONTROLS_NOT_IMPLEMENTED",
+    "GROUP_WEB_REWARD_DISCIPLINE_DUAL_SOURCE_FIELD_RELATION_NOT_PROVEN",
+    "GROUP_WEB_REWARD_DISCIPLINE_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "coverageCredit": {
+    "taskReady": {"numerator": 1, "denominator": 1},
+    "groupWebNavigableEntries": {"numerator": 0, "denominator": 186},
+    "legacyInteractionParity": {"numerator": 0, "denominator": 2}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}

@@ -1,0 +1,371 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "attendance-item-schema-hook-1.0.0",
+  "compatibilityScope": "two_active_noop_triggers_only",
+  "sourceBinding": {
+    "routineLedgerSha256": "996ec3ab0e8df14840c8db2785c40e5f841830801f44c6b3caad7ec85855e43d",
+    "sourceRoutineCount": 2,
+    "requiredSourceSurfaces": [
+      "yuzhou_v10_client_database"
+    ]
+  },
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "tableDomainMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+    },
+    "historicalAttendanceSchema": {
+      "path": "database/migrations/000239_hr_attendance_insurance_history.sql",
+      "sha256": "23641dbb1b0c8b6d09411f1da81e4bb5f878735ad7b222432ad2ac18abd21aea"
+    },
+    "attendanceSymbolRuleSchema": {
+      "path": "database/migrations/000240_hr_attendance_symbol_rules.sql",
+      "sha256": "16e61a78ebc33f890740e16b2f9249f98dc0c01d30f5cb7f229164802a3db732"
+    },
+    "onlineAttendanceSchema": {
+      "path": "database/migrations/000246_hr_attendance_calculation_core.sql",
+      "sha256": "4e3a8ebe48cb84773c6f465fd5f925887ad720692f2ebcf12cce27c355f573cb"
+    },
+    "modernService": {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+    },
+    "modernController": {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
+      "sha256": "647fbf65a9efad58ac25084135d7ee945072af73683b3845ed3c738c92abd7c4"
+    },
+    "permissionEvidence": {
+      "path": "apps/api/src/modules/hr/hr-attendance-request.spec.ts",
+      "sha256": "390a3f251e064686bab863dad4d1581e39c87e5474c707f87643bbb5dc5dce94"
+    },
+    "conservationEvidence": {
+      "path": "apps/api/src/modules/hr/hr-attendance-calculation.pg.spec.ts",
+      "sha256": "00b3f7eff26350fed53ad3c42c4d872c4d8e3e96364bcf4b58961549d836c171"
+    }
+  },
+  "sourceShape": {
+    "activeStatement": "select_constant_one",
+    "activeBusinessWrites": 0,
+    "activeDynamicSqlExecutions": 0,
+    "commentedInsertIntent": "add_numeric_column_named_by_inserted_item_code_to_timekeeprecord",
+    "commentedDeleteIntent": "drop_column_named_by_deleted_item_code_from_timekeeprecord",
+    "commentedIntentDisposition": "retired_in_favor_of_normalized_rows_no_physical_fact_schema_mutation"
+  },
+  "routines": [
+    {
+      "routineId": "RULE-EEE0816A27D9E126",
+      "canonicalFamily": "tr_addtimekeepitem",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "trigger",
+      "parityStatus": "verified",
+      "activeBehaviorScope": "active_trigger_body_only",
+      "retiredCommentedIntent": "dynamic_timekeeprecord_column_ddl_replaced_by_normalized_rows",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "INSERT_TRIGGER_HAS_NO_DECLARED_PARAMETERS",
+          "entries": [],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "UNNAMED_CONSTANT_RESULT_IS_TECHNICAL_ACKNOWLEDGEMENT_WITH_NO_DOMAIN_PAYLOAD",
+          "entries": [
+            {
+              "sourceField": "unnamed_constant_1",
+              "modernField": "no_domain_output",
+              "transform": "discard_non_business_trigger_result_set",
+              "nullContract": "constant_is_never_null"
+            }
+          ],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "TRIGGER_OWNER_TABLE_IS_REPLACED_BY_SCOPED_VERSIONED_SYMBOL_RULE_ROWS",
+          "entries": [
+            {
+              "sourceLocator": "dbo.timekeepitemcode inserted transition",
+              "modernLocator": "hr_attendance_symbol_rule",
+              "relationContract": "tenant_park_rule_version_legacy_symbol_identity_without_fact_column_generation"
+            }
+          ],
+          "evidenceSha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_TRIGGER_BODY_HAS_NO_WRITE_OR_DDL_STATEMENT",
+          "entries": [],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "implicit_owner_insert_statement_trigger_boundary_with_constant_select_only",
+          "modernBoundary": "no_schema_hook_transaction_normalized_rule_and_fact_rows_keep_independent_owner_transactions",
+          "rollbackBehavior": "owner_insert_rollback_has_no_separate_trigger_business_write_to_compensate",
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "nullSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_BODY_DOES_NOT_READ_INSERTED_COLUMNS_OR_BRANCH_ON_NULL",
+          "entries": [],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_BODY_HAS_NO_NUMERIC_INPUT_OR_CALCULATION",
+          "entries": [],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ZERO_ACTIVE_SCHEMA_OR_FACT_MUTATION_IS_PRESERVED_BY_NORMALIZED_ROW_MODEL",
+          "entries": [
+            {
+              "sourceEffect": "constant_result_set_only_no_timekeeprecord_column_addition",
+              "modernEffect": "symbol_rule_rows_and_attendance_fact_rows_do_not_change_physical_columns",
+              "conservationRule": "trigger_family_business_write_count_zero_and_attendance_fact_column_delta_zero"
+            }
+          ],
+          "evidenceSha256": "16e61a78ebc33f890740e16b2f9249f98dc0c01d30f5cb7f229164802a3db732"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_insert_transition_only_no_source_rows",
+          "emptyInputCase": {
+            "status": "covered",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          },
+          "untriggeredBranchCase": {
+            "status": "covered",
+            "evidenceSha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e"
+          },
+          "triggerFiringCase": {
+            "status": "covered",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": [
+          "HrService.recalculateAttendanceDay",
+          "HrService.listAttendanceDaily"
+        ],
+        "apiSymbols": [
+          "GET /hr/attendance/daily-results",
+          "POST /hr/attendance/daily-results/recalculate"
+        ],
+        "pages": [
+          "apps/web/app/hr/attendance/HrAttendanceClient.tsx"
+        ]
+      },
+      "testEvidence": {
+        "positive": [
+          {
+            "testId": "positive-insert-trigger-active-body",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        ],
+        "negative": [
+          {
+            "testId": "negative-empty-transition-set",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        ],
+        "permission": [
+          {
+            "testId": "permission-no-direct-trigger-execution",
+            "evidenceSha256": "390a3f251e064686bab863dad4d1581e39c87e5474c707f87643bbb5dc5dce94"
+          }
+        ],
+        "conservation": [
+          {
+            "testId": "conservation-normalized-fact-schema",
+            "evidenceSha256": "00b3f7eff26350fed53ad3c42c4d872c4d8e3e96364bcf4b58961549d836c171"
+          }
+        ]
+      },
+      "review": {
+        "status": "approved",
+        "evidenceSha256": "16e61a78ebc33f890740e16b2f9249f98dc0c01d30f5cb7f229164802a3db732"
+      }
+    },
+    {
+      "routineId": "RULE-69093173CCAE1126",
+      "canonicalFamily": "tr_droptimekeepitem",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "trigger",
+      "parityStatus": "verified",
+      "activeBehaviorScope": "active_trigger_body_only",
+      "retiredCommentedIntent": "dynamic_timekeeprecord_column_ddl_replaced_by_normalized_rows",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "DELETE_TRIGGER_HAS_NO_DECLARED_PARAMETERS",
+          "entries": [],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "UNNAMED_CONSTANT_RESULT_IS_TECHNICAL_ACKNOWLEDGEMENT_WITH_NO_DOMAIN_PAYLOAD",
+          "entries": [
+            {
+              "sourceField": "unnamed_constant_1",
+              "modernField": "no_domain_output",
+              "transform": "discard_non_business_trigger_result_set",
+              "nullContract": "constant_is_never_null"
+            }
+          ],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "TRIGGER_OWNER_TABLE_IS_REPLACED_BY_SCOPED_VERSIONED_SYMBOL_RULE_ROWS",
+          "entries": [
+            {
+              "sourceLocator": "dbo.timekeepitemcode deleted transition",
+              "modernLocator": "hr_attendance_symbol_rule",
+              "relationContract": "tenant_park_rule_version_legacy_symbol_identity_without_fact_column_removal"
+            }
+          ],
+          "evidenceSha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_TRIGGER_BODY_HAS_NO_WRITE_OR_DDL_STATEMENT",
+          "entries": [],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "implicit_owner_delete_statement_trigger_boundary_with_constant_select_only",
+          "modernBoundary": "no_schema_hook_transaction_normalized_rule_and_fact_rows_keep_independent_owner_transactions",
+          "rollbackBehavior": "owner_delete_rollback_has_no_separate_trigger_business_write_to_compensate",
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "nullSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_BODY_DOES_NOT_READ_DELETED_COLUMNS_OR_BRANCH_ON_NULL",
+          "entries": [],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ACTIVE_BODY_HAS_NO_NUMERIC_INPUT_OR_CALCULATION",
+          "entries": [],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ZERO_ACTIVE_SCHEMA_OR_FACT_MUTATION_IS_PRESERVED_BY_NORMALIZED_ROW_MODEL",
+          "entries": [
+            {
+              "sourceEffect": "constant_result_set_only_no_timekeeprecord_column_removal",
+              "modernEffect": "symbol_rule_rows_and_attendance_fact_rows_do_not_change_physical_columns",
+              "conservationRule": "trigger_family_business_write_count_zero_and_attendance_fact_column_delta_zero"
+            }
+          ],
+          "evidenceSha256": "16e61a78ebc33f890740e16b2f9249f98dc0c01d30f5cb7f229164802a3db732"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_delete_transition_only_no_source_rows",
+          "emptyInputCase": {
+            "status": "covered",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          },
+          "untriggeredBranchCase": {
+            "status": "covered",
+            "evidenceSha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664"
+          },
+          "triggerFiringCase": {
+            "status": "covered",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": [
+          "HrService.recalculateAttendanceDay",
+          "HrService.listAttendanceDaily"
+        ],
+        "apiSymbols": [
+          "GET /hr/attendance/daily-results",
+          "POST /hr/attendance/daily-results/recalculate"
+        ],
+        "pages": [
+          "apps/web/app/hr/attendance/HrAttendanceClient.tsx"
+        ]
+      },
+      "testEvidence": {
+        "positive": [
+          {
+            "testId": "positive-delete-trigger-active-body",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        ],
+        "negative": [
+          {
+            "testId": "negative-empty-transition-set",
+            "evidenceSha256": "7240f88a0b19cb54fb349cda5836579aa12ec91cc0d4501d65a5a4fac0bf1d11"
+          }
+        ],
+        "permission": [
+          {
+            "testId": "permission-no-direct-trigger-execution",
+            "evidenceSha256": "390a3f251e064686bab863dad4d1581e39c87e5474c707f87643bbb5dc5dce94"
+          }
+        ],
+        "conservation": [
+          {
+            "testId": "conservation-normalized-fact-schema",
+            "evidenceSha256": "00b3f7eff26350fed53ad3c42c4d872c4d8e3e96364bcf4b58961549d836c171"
+          }
+        ]
+      },
+      "review": {
+        "status": "approved",
+        "evidenceSha256": "16e61a78ebc33f890740e16b2f9249f98dc0c01d30f5cb7f229164802a3db732"
+      }
+    }
+  ],
+  "nonClaims": {
+    "legacyItemConfigurationCrud": "NOT_CLAIMED",
+    "legacyPageRuntimeParity": "NOT_CLAIMED",
+    "productionImport": "NOT_CLAIMED"
+  },
+  "productionImport": "HOLD"
+}

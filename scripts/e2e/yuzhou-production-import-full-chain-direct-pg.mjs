@@ -80,7 +80,7 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
     hr_attendance_calendar_source: { legacy_id: 1, calendar_name: `Calendar ${suffix}`, calendar_year: 2026, calendar_month: 8, source_snapshot: { source: "fixed-lab" }, remark: null },
     hr_attendance_day: { attendance_date: sharedDate, legacy_symbol: "√", symbol_status: "mapped", normalized_kind: "present", is_historical_import: true, remark: null },
     hr_insurance_policy: { policy_code: `POL-${suffix}`, policy_name: `Policy ${suffix}`, scope_description: "Lab only", status: "historical", is_historical_import: true, remark: null },
-    hr_insurance_policy_item: { insurance_kind: "pension", variant_no: 1, base_rate: "0.080000", employer_rate: "0.160000", employee_rate: "0.080000", supplement_rate: null, source_snapshot: { source: "fixed-lab" }, remark: null },
+    hr_insurance_policy_item: { insurance_kind: "pension", variant_no: 1, base_rate: "0.080000", employer_rate: "0.160000", employee_rate: "0.080000", supplement_rate: null, base_fixed_amount: null, employer_fixed_amount: null, employee_fixed_amount: null, supplement_fixed_amount: null, source_snapshot: { source: "fixed-lab" }, remark: null },
     hr_employee_insurance_period: { period_year: 2026, period_month: 8, legacy_id: 1, status: "historical", needs_review: false, is_historical_import: true, source_snapshot: { source: "fixed-lab" }, remark: null },
     hr_employee_insurance_item: { insurance_kind: "pension", contribution_base: "1000.01", total_amount: "240.00", employer_amount: "160.00", employee_amount: "80.00", supplement_amount: null, legacy_base_negative: false, remark: null },
   };

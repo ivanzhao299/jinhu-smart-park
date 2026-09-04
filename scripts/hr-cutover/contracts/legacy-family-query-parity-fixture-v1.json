@@ -1,0 +1,138 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_legacy_family_query_parity_fixture",
+  "fixtureOnly": true,
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_legacy_routine_family_fixture",
+    "productionImport": "HOLD",
+    "routines": [
+      {
+        "routineId": "RULE-A490C8F10B0BB6DC",
+        "canonicalFamily": "u_family",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "procedure",
+        "dynamicMutationStatus": "none"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "family-query-known-employee-full-projection",
+      "kind": "positive",
+      "input": "X001",
+      "rows": [
+        {
+          "id": 1,
+          "person": "X001",
+          "member": "Relative Alpha",
+          "rela": "parent",
+          "birthday": "2000-01-02T00:00:00",
+          "jobunit": "Example Unit",
+          "jobname": "Example Role",
+          "political": "unspecified",
+          "tel": "000-0001"
+        },
+        {
+          "id": 2,
+          "person": "X002",
+          "member": "Relative Beta",
+          "rela": "sibling",
+          "birthday": null,
+          "jobunit": null,
+          "jobname": null,
+          "political": null,
+          "tel": null
+        }
+      ],
+      "expectedLegacyRows": [
+        {
+          "member": "Relative Alpha",
+          "rela": "parent",
+          "birthday": "2000-01-02T00:00:00",
+          "jobunit": "Example Unit",
+          "jobname": "Example Role",
+          "political": "unspecified",
+          "tel": "000-0001"
+        }
+      ],
+      "expectedModernFullRows": [
+        {
+          "relationship": "parent",
+          "fullName": "Relative Alpha",
+          "birthDate": "2000-01-02",
+          "workUnit": "Example Unit",
+          "jobTitle": "Example Role",
+          "politicalStatus": "unspecified",
+          "contact": "000-0001"
+        }
+      ]
+    },
+    {
+      "testId": "family-query-no-match-and-null-input",
+      "kind": "negative",
+      "inputs": ["X009", null],
+      "rows": [
+        {
+          "id": 3,
+          "person": "X001",
+          "member": "Relative Gamma",
+          "rela": "guardian",
+          "birthday": null,
+          "jobunit": null,
+          "jobname": null,
+          "political": null,
+          "tel": null
+        }
+      ],
+      "expectedLegacyRows": [],
+      "expectedModernRows": []
+    },
+    {
+      "testId": "family-query-invalid-required-relation-quarantine",
+      "kind": "negative",
+      "input": "X001",
+      "row": {
+        "id": 4,
+        "person": "X001",
+        "member": "Relative Delta",
+        "rela": null,
+        "birthday": "invalid-date",
+        "jobunit": "  ",
+        "jobname": null,
+        "political": null,
+        "tel": null
+      },
+      "expectedLegacyRowCount": 1,
+      "expectedModernDisposition": "quarantined",
+      "expectedReasonCodes": ["INVALID_STRUCTURED_VALUE", "INVALID_STRUCTURED_VALUE"]
+    },
+    {
+      "testId": "family-query-scoped-sensitive-permission",
+      "kind": "permission",
+      "endpointPermissions": [
+        "hr:employee_record:read",
+        "hr:employee_record:team_read",
+        "hr:employee_record:self_read"
+      ],
+      "fullFieldPermission": "hr:employee_family:read",
+      "expectedScopeBinding": "tenant_park_employee_access_scope",
+      "expectedFullFields": ["fullName", "contact"],
+      "expectedMaskedFields": ["fullNameMasked", "contactMasked"],
+      "expectedAudit": true
+    },
+    {
+      "testId": "family-query-row-conservation",
+      "kind": "conservation",
+      "sourceRows": 3,
+      "loadedRows": 2,
+      "quarantinedRows": 1,
+      "approvedIgnoredRows": 0,
+      "expectedTargetRows": 2,
+      "expectedUnrelatedBusinessWrites": 0
+    }
+  ],
+  "productionImport": "HOLD"
+}

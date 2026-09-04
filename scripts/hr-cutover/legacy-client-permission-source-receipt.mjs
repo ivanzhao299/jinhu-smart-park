@@ -22,7 +22,16 @@ const SAFE_FACT_KEYS = [
 
 // This query returns aggregates and collection hashes only. User identifiers are
 // consumed inside the grant-edge hash and are never selected into the receipt.
-export const LEGACY_CLIENT_PERMISSION_SAFE_AGGREGATE_SQL = `SET NOCOUNT ON;
+const SQLSERVER_INDEXED_OBJECT_SESSION_OPTIONS = `SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;`;
+
+export const LEGACY_CLIENT_PERMISSION_SAFE_AGGREGATE_SQL = `${SQLSERVER_INDEXED_OBJECT_SESSION_OPTIONS}
+SET NOCOUNT ON;
 SELECT
   (SELECT COUNT_BIG(*) FROM dbo.rights) AS rightsRows,
   (SELECT COUNT_BIG(*) FROM dbo.rightstemplet) AS templateRows,
@@ -42,7 +51,7 @@ SELECT
        OR COALESCE(r.rightstates,-2147483648)<>COALESCE(t.rightstates,-2147483648)) AS structuralConflictUnitcodes,
   (SELECT COUNT_BIG(*) FROM dbo.rightstemplet WHERE NULLIF(LTRIM(RTRIM(programgroup)),'') IS NULL OR NULLIF(LTRIM(RTRIM(programunit)),'') IS NULL) AS blankTemplateSemantics,
   LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',COALESCE((SELECT CONCAT(LEN(username),':',username,'|',unitcode,';') FROM dbo.rights ORDER BY username,unitcode FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),'')),2)) AS grantEdgeSetSha256,
-  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',COALESCE((SELECT CONCAT(unitcode,';') FROM (SELECT unitcode FROM dbo.rights UNION SELECT unitcode FROM dbo.rightstemplet) capabilities ORDER BY unitcode FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),'')),2)) AS capabilitySetSha256,
+  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varchar(max),COALESCE((SELECT CONCAT(unitcode,';') FROM (SELECT unitcode FROM dbo.rights UNION SELECT unitcode FROM dbo.rightstemplet) capabilities ORDER BY unitcode FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),''))),2)) AS capabilitySetSha256,
   CONVERT(varchar(1),sd.is_read_only) AS databaseReadOnly,
   CONVERT(varchar(1),COALESCE(IS_SRVROLEMEMBER('sysadmin'),0)) AS sysadmin,
   CONVERT(varchar(1),COALESCE(IS_ROLEMEMBER('db_datareader'),0)) AS dbDatareader,
@@ -55,7 +64,8 @@ FROM sys.databases sd WHERE sd.name=DB_NAME();`;
 
 // This private review query returns one structural capability row per unitcode.
 // It never selects the user-bound grant key from dbo.rights.
-export const LEGACY_CLIENT_PERMISSION_PRIVATE_CAPABILITY_SQL = `SET NOCOUNT ON;
+export const LEGACY_CLIENT_PERMISSION_PRIVATE_CAPABILITY_SQL = `${SQLSERVER_INDEXED_OBJECT_SESSION_OPTIONS}
+SET NOCOUNT ON;
 WITH capability_codes AS (
   SELECT unitcode FROM dbo.rights
   UNION

@@ -20,7 +20,7 @@ try {
   const staging = join(root, "staging"), output = join(root, "output");
   privateDirectory(staging); privateDirectory(output);
   const attendance = row("dbo.timekeeptable", "calendar-1", { id: 1, calendarName: "fixture-calendar", year: 2026, month: 1 }, { days: [{ day: 1, legacySymbol: "fixture-symbol" }, { day: 2, legacySymbol: null }] });
-  const policy = row("dbo.insure_method", "policy-1", { id: 1, name: "fixture-policy", scope: "fixture-scope" }, { items: [{ kind: "fixture-kind", variant: 1, baseRate: "1", employerRate: "1", employeeRate: "1", supplementRate: null }] });
+  const policy = row("dbo.insure_method", "policy-1", { id: 1, name: "fixture-policy", scope: "fixture-scope" }, { items: [{ kind: "fixture-kind", variant: 1, baseRate: "0.01", employerRate: "0.01", employeeRate: "0.01", supplementRate: null, baseFixedAmount: "1", employerFixedAmount: "1", employeeFixedAmount: "1", supplementFixedAmount: null }] });
   const insurance = row("dbo.person_insure", "insurance-1", { id: 1, year: 2026, month: 1, employeeCode: "fixture-employee" }, { items: [{ kind: "fixture-kind", contributionBase: "1", totalAmount: "1", employerAmount: "1", employeeAmount: "1", supplementAmount: null, legacyBaseNegative: false, legacyFlag: null }] });
   const fixtureFiles = {
     attendance: ["attendance.jsonl", `${JSON.stringify(attendance)}\n`],

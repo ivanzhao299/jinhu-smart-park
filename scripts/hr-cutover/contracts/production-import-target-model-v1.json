@@ -139,11 +139,11 @@
     "hr_insurance_policy_item": {
       "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.insure_method"],
-      "fieldWhitelist": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "source_snapshot", "remark"],
-      "requiredFields": ["insurance_kind", "variant_no", "source_snapshot"], "nullableFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate", "remark"],
-      "integerFields": ["variant_no"], "booleanFields": [], "decimalStringFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate"], "dateFields": [], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
+      "fieldWhitelist": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "base_fixed_amount", "employer_fixed_amount", "employee_fixed_amount", "supplement_fixed_amount", "source_snapshot", "remark"],
+      "requiredFields": ["insurance_kind", "variant_no", "source_snapshot"], "nullableFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate", "base_fixed_amount", "employer_fixed_amount", "employee_fixed_amount", "supplement_fixed_amount", "remark"],
+      "integerFields": ["variant_no"], "booleanFields": [], "decimalStringFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate", "base_fixed_amount", "employer_fixed_amount", "employee_fixed_amount", "supplement_fixed_amount"], "dateFields": [], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
       "derivedFields": ["policy_id"], "foreignKeys": [{"column":"policy_id","dependencyRole":"policy","targetTable":"hr_insurance_policy","required":true}],
-      "uniqueKey": ["tenant_id", "park_id", "policy_id", "insurance_kind", "variant_no"], "canonicalFields": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "source_snapshot", "remark", "policy_id"],
+      "uniqueKey": ["tenant_id", "park_id", "policy_id", "insurance_kind", "variant_no"], "canonicalFields": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "base_fixed_amount", "employer_fixed_amount", "employee_fixed_amount", "supplement_fixed_amount", "source_snapshot", "remark", "policy_id"],
       "allowedDispositions": ["insert", "quarantine", "skip_approved"]
     },
     "hr_employee_insurance_period": {

@@ -11,6 +11,23 @@ import {
   LegacyClientPermissionSourceReceiptError,
 } from "../hr-cutover/legacy-client-permission-source-receipt.mjs";
 
+const REQUIRED_SQLSERVER_SESSION_OPTIONS = [
+  "SET ANSI_NULLS ON;",
+  "SET QUOTED_IDENTIFIER ON;",
+  "SET ANSI_PADDING ON;",
+  "SET ANSI_WARNINGS ON;",
+  "SET ARITHABORT ON;",
+  "SET CONCAT_NULL_YIELDS_NULL ON;",
+  "SET NUMERIC_ROUNDABORT OFF;",
+];
+
+test("permission source queries declare SQL Server indexed-object session options", () => {
+  for (const sql of [LEGACY_CLIENT_PERMISSION_SAFE_AGGREGATE_SQL, LEGACY_CLIENT_PERMISSION_PRIVATE_CAPABILITY_SQL]) {
+    for (const option of REQUIRED_SQLSERVER_SESSION_OPTIONS) assert.match(sql, new RegExp(option.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+  }
+  assert.match(LEGACY_CLIENT_PERMISSION_SAFE_AGGREGATE_SQL, /HASHBYTES\('SHA2_256',CONVERT\(varchar\(max\),COALESCE\(\(SELECT CONCAT\(unitcode,';'\)/u);
+});
+
 const root = resolve(import.meta.dirname, "../..");
 const contract = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/legacy-client-permission-source-receipt-v1.json"), "utf8"));
 const sha = "a".repeat(64);

@@ -24,8 +24,8 @@ test("current report uses complete source denominators without producing an addi
   });
   assert.equal(report.inventory.clientDatabase.fields.numerator, 2364);
   assert.equal(report.inventory.clientDatabase.routines.numerator, 212);
-  assert.deepEqual(report.inventory.clientDatabase.authorizationGrantEdges, { numerator: 0, denominator: 915, percent: 0, functionalParityCredit: 0, status: "SOURCE_RECEIPT_MISSING" });
-  assert.deepEqual(report.inventory.clientDatabase.permissionCapabilities, { numerator: 0, denominator: 0, percent: 0, denominatorStatus: "SOURCE_RECEIPT_REQUIRED", status: "SOURCE_PERMISSION_RECEIPT_MISSING", reasonCode: "LEGACY_CLIENT_PERMISSION_SOURCE_RECEIPT_MISSING" });
+  assert.deepEqual(report.inventory.clientDatabase.authorizationGrantEdges, { numerator: 915, denominator: 915, percent: 100, functionalParityCredit: 0, status: "SOURCE_GRANT_EDGE_CONSERVATION_VERIFIED" });
+  assert.deepEqual(report.inventory.clientDatabase.permissionCapabilities, { numerator: 76, denominator: 93, percent: 81.72, denominatorStatus: "SOURCE_DERIVED", status: "ATOMIC_PERMISSION_MAPPING_PENDING_REVIEW", reasonCode: "LEGACY_CLIENT_PERMISSION_TARGET_REVIEW_PENDING" });
   assert.deepEqual(report.inventory.clientUi.staticMenuEntryInventory, {
     numerator: 68,
     denominator: 68,
@@ -53,22 +53,28 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.equal(slices.payroll.denominator, 32);
   assert.deepEqual(slices.custom_configuration, { domain: "custom_configuration", numerator: 36, denominator: 36, percent: 100 });
   assert.deepEqual(slices.employee_skill, { domain: "employee_skill", numerator: 4, denominator: 5, percent: 80 });
+  assert.deepEqual(slices.reward_discipline, { domain: "reward_discipline", numerator: 2, denominator: 16, percent: 12.5 });
+  assert.deepEqual(slices.training_history, { domain: "training_history", numerator: 5, denominator: 23, percent: 21.74 });
+  assert.deepEqual(slices.insurance_policy, { domain: "insurance_policy", numerator: 51, denominator: 51, percent: 100 });
+  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 0, denominator: 11, percent: 0 });
   assert.equal(report.semanticMapping.clientFieldsVerifiedTargetMapping.overlapCount, 0);
   assert.deepEqual(report.semanticMapping.organizationPositionRelations, { numerator: 7, denominator: 8, percent: 87.5 });
   assert.equal(
     report.semanticMapping.clientFieldsVerifiedTargetMapping.numerator,
     slices.reviewed_core.numerator + slices.organization_position.numerator + slices.payroll.numerator
-      + slices.custom_configuration.numerator + slices.employee_skill.numerator,
+      + slices.custom_configuration.numerator + slices.employee_skill.numerator
+      + slices.reward_discipline.numerator + slices.training_history.numerator
+      + slices.insurance_policy.numerator + slices.performance_assessment.numerator,
   );
   assert.deepEqual(report.semanticMapping.clientFieldsVerifiedTargetMapping, {
-    numerator: 124,
+    numerator: 182,
     denominator: 2364,
-    percent: 5.25,
+    percent: 7.7,
     denominatorScope: "all_client_database_source_fields",
     overlapCount: 0,
     slices: report.semanticMapping.clientFieldsVerifiedTargetMapping.slices,
   });
-  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 124, denominator: 2364, percent: 5.25 });
+  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 182, denominator: 2364, percent: 7.7 });
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.numerator, 220);
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.functionalParityCredit, 0);
   assert.equal(report.parity.clientFieldRowLevelParity.numerator, 0);
@@ -117,9 +123,9 @@ test("modern UI checks remain separate from legacy interaction and Group Web par
   assert.deepEqual(report.ui.customFieldLegacyInteractionParity, { numerator: 0, denominator: 6, percent: 0 });
   assert.deepEqual(report.ui.groupWebRuntimeParity, { numerator: 0, denominator: 186, percent: 0 });
   assert.deepEqual(report.implementation.groupWebModernRuntimeTasksPrepared, {
-    numerator: 1,
+    numerator: 7,
     denominator: 186,
-    percent: 0.54,
+    percent: 3.76,
     functionalParityCredit: 0,
     status: "ready_not_executed",
   });

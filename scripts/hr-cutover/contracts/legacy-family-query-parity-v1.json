@@ -1,0 +1,293 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "family-query-1.0.0",
+  "compatibilityScope": "u_family_employee_family_projection",
+  "sourceBinding": {
+    "routineLedgerSha256": "74ad31f2a73f019a64689a9ed9a9f45a636cc27493021404de1541296566abd8",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "sourceExtractor": {
+      "path": "scripts/extract-yuzhou-t5-legacy-history.sh",
+      "sha256": "7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353"
+    },
+    "familyMaterializer": {
+      "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
+      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+    },
+    "familyLoader": {
+      "path": "scripts/load-yuzhou-t5-legacy-history.sh",
+      "sha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+    },
+    "recordSchema": {
+      "path": "database/migrations/000252_hr_lifecycle_employee_records.sql",
+      "sha256": "5094bab69db6d675f24fa3f5bc661ee2d44362474134e4ae220d8ee3e2ed5465"
+    },
+    "legacyMaterializationSchema": {
+      "path": "database/migrations/000276_hr_legacy_employee_profile_materialization.sql",
+      "sha256": "d49a1d0503d829b80d54799ec8ffc839eddcf76c8b48d447958f4f5f340391ef"
+    },
+    "modernService": {
+      "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
+      "sha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+    },
+    "modernController": {
+      "path": "apps/api/src/modules/hr/hr-lifecycle.controller.ts",
+      "sha256": "c861eb4147e7c9823dd7015fe1306836c56f1283461a4e992f64eda2dccffa42"
+    },
+    "permissionContract": {
+      "path": "packages/shared/src/hr.ts",
+      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+    },
+    "permissionEvidence": {
+      "path": "apps/api/src/modules/hr/hr-employee-materialized-projection.spec.ts",
+      "sha256": "8b3984d61f849eda11ac86e445b8fb1c856e70d9aa3586bce9a6d09d8c81792c"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126"
+    },
+    "modernWebApi": {
+      "path": "apps/web/lib/hr-api.ts",
+      "sha256": "c9cb4a0aa00e8c2916b1b9bfb7f42f52f0f32ac4917397df399ec35b8bc4828d"
+    },
+    "syntheticFixture": {
+      "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
+      "sha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+    }
+  },
+  "sourceShape": {
+    "sourceArtifact": "SQL_STORED_PROCEDURE_u_family_sql",
+    "sourceArtifactSha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da",
+    "declaredParameter": "person varchar(5)",
+    "sourceRelation": "family.person_equals_person",
+    "outputFields": ["member", "rela", "birthday", "jobunit", "jobname", "political", "tel"],
+    "ordering": "unspecified",
+    "activeBusinessWrites": 0,
+    "activeDynamicSqlExecutions": 0
+  },
+  "routines": [
+    {
+      "routineId": "RULE-A490C8F10B0BB6DC",
+      "canonicalFamily": "u_family",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "verified",
+      "historicalVariants": [],
+      "controlledModernizations": [
+        "legacy_employee_code_is_resolved_once_to_a_tenant_park_scoped_employee_uuid",
+        "required_member_or_relationship_failure_is_quarantined_instead_of_returned_as_an_unusable_record",
+        "birthday_smalldatetime_is_normalized_to_business_date_without_time_of_day",
+        "member_name_and_contact_are_encrypted_at_rest_and_returned_full_only_with_exact_family_permission",
+        "read_adds_required_sensitive_access_audit_without_business_state_mutation"
+      ],
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_PERSON_CODE_IS_THE_DECLARED_FOREIGN_KEY_AND_T5_IMPORT_BINDS_IT_TO_ONE_SCOPED_EMPLOYEE",
+          "entries": [
+            {
+              "sourceParameter": "person",
+              "modernParameter": "employeeId",
+              "sourceType": "varchar(5)",
+              "modernType": "uuid",
+              "transform": "trim_source_person_code_then_resolve_loaded_dbo_person_mapping_with_tenant_and_park_scope",
+              "nullContract": "null_or_unmatched_source_person_returns_zero_rows_and_missing_or_out_of_scope_modern_employee_fails_closed"
+            }
+          ],
+          "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ALL_SEVEN_SOURCE_PROJECTION_FIELDS_HAVE_EXPLICIT_NORMALIZED_TARGET_AND_API_FIELDS",
+          "entries": [
+            {
+              "sourceField": "family.member",
+              "modernField": "hr_employee_family.full_name_encrypted_to_family.fullName",
+              "transform": "trim_then_encrypt_at_rest_and_decrypt_only_for_exact_family_permission",
+              "nullContract": "source_not_null_blank_is_quarantined_because_modern_family_name_is_required"
+            },
+            {
+              "sourceField": "family.rela",
+              "modernField": "hr_employee_family.relationship_to_family.relationship",
+              "transform": "trim_text",
+              "nullContract": "null_or_blank_is_quarantined_because_modern_relationship_is_required"
+            },
+            {
+              "sourceField": "family.birthday",
+              "modernField": "hr_employee_family.birth_date_to_family.birthDate",
+              "transform": "smalldatetime_to_iso_business_date",
+              "nullContract": "null_stays_null_and_invalid_structured_value_records_a_gap"
+            },
+            {
+              "sourceField": "family.jobunit",
+              "modernField": "hr_employee_family.work_unit_to_family.workUnit",
+              "transform": "trim_text",
+              "nullContract": "null_or_blank_maps_to_null"
+            },
+            {
+              "sourceField": "family.jobname",
+              "modernField": "hr_employee_family.job_title_to_family.jobTitle",
+              "transform": "trim_text",
+              "nullContract": "null_or_blank_maps_to_null"
+            },
+            {
+              "sourceField": "family.political",
+              "modernField": "hr_employee_family.political_status_to_family.politicalStatus",
+              "transform": "trim_text",
+              "nullContract": "null_or_blank_maps_to_null"
+            },
+            {
+              "sourceField": "family.tel",
+              "modernField": "hr_employee_family.contact_encrypted_to_family.contact",
+              "transform": "trim_then_encrypt_at_rest_and_decrypt_only_for_exact_family_permission",
+              "nullContract": "null_or_blank_maps_to_null"
+            }
+          ],
+          "evidenceSha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_FAMILY_ROWS_ARE_MATERIALIZED_ONE_FOR_ONE_BY_STABLE_SOURCE_ID_AND_READ_FROM_THE_SCOPED_NORMALIZED_TABLE",
+          "entries": [
+            {
+              "sourceLocator": "dbo.family_where_person_equals_parameter",
+              "modernLocator": "hr_employee_family_where_tenant_park_employee_and_not_deleted",
+              "relationContract": "dbo.family.person_foreign_key_to_dbo.person.person_then_loaded_record_map_to_hr_employee.id"
+            }
+          ],
+          "evidenceSha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_PROCEDURE_AND_MODERN_RECORD_QUERY_HAVE_ZERO_BUSINESS_WRITES",
+          "entries": [],
+          "evidenceSha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "single_select_without_explicit_transaction",
+          "modernBoundary": "one_scoped_employee_access_check_then_one_scoped_family_select",
+          "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_import_rejects_duplicate_source_identity",
+          "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "OPTIONAL_NULLS_STAY_NULL_AND_REQUIRED_INVALID_VALUES_HAVE_AN_EXPLICIT_QUARANTINE_ACCOUNTING_PATH",
+          "entries": [
+            {
+              "sourceExpression": "nullable_birthday_jobunit_jobname_political_tel_are_returned_as_null",
+              "modernExpression": "nullable_birthDate_workUnit_jobTitle_politicalStatus_contact_are_projected_as_null",
+              "equivalenceRule": "optional_nulls_are_preserved_after_text_normalization"
+            },
+            {
+              "sourceExpression": "nullable_or_blank_rela_and_blank_member_can_produce_unusable_rows",
+              "modernExpression": "missing_relationship_or_name_is_quarantined_with_INVALID_STRUCTURED_VALUE",
+              "equivalenceRule": "invalid_required_rows_are_conserved_in_gap_accounting_and_never_silently_dropped"
+            }
+          ],
+          "evidenceSha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ROUTINE_HAS_NO_NUMERIC_CALCULATION_OR_ROUNDING",
+          "entries": [],
+          "evidenceSha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "QUERY_REMAINS_BUSINESS_READ_ONLY_WHILE_MODERN_ACCESS_ADDS_A_REQUIRED_AUDIT_RECORD",
+          "entries": [
+            {
+              "sourceEffect": "zero_business_writes",
+              "modernEffect": "zero_family_or_employee_writes_plus_sensitive_read_audit",
+              "conservationRule": "source_rows_equal_loaded_rows_plus_quarantined_rows_plus_approved_ignored_rows"
+            }
+          ],
+          "evidenceSha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_non_personal_rows_only",
+          "emptyInputCase": {
+            "status": "covered",
+            "evidenceSha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+          },
+          "untriggeredBranchCase": {
+            "status": "covered",
+            "evidenceSha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+          },
+          "triggerFiringCase": {
+            "status": "not_applicable",
+            "evidenceSha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da"
+          }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrLifecycleService.listRecords"],
+        "apiSymbols": ["GET /hr/employees/:employeeId/records"],
+        "pages": ["apps/web/app/hr/employees/HrEmployeesClient.tsx"]
+      },
+      "testEvidence": {
+        "positive": [
+          {
+            "testId": "family-query-known-employee-full-projection",
+            "evidenceSha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+          }
+        ],
+        "negative": [
+          {
+            "testId": "family-query-no-match-and-null-input",
+            "evidenceSha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+          },
+          {
+            "testId": "family-query-invalid-required-relation-quarantine",
+            "evidenceSha256": "5e0b9234e1511c6baaf67d6a54e78b257e66e76688a6d2f286d2304e1e149200"
+          }
+        ],
+        "permission": [
+          {
+            "testId": "family-query-scoped-sensitive-permission",
+            "evidenceSha256": "8b3984d61f849eda11ac86e445b8fb1c856e70d9aa3586bce9a6d09d8c81792c"
+          }
+        ],
+        "conservation": [
+          {
+            "testId": "family-query-row-conservation",
+            "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+          }
+        ]
+      },
+      "review": {
+        "status": "approved",
+        "evidenceSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+      }
+    }
+  ],
+  "nonClaims": {
+    "sourceProcedureRowOrder": "NOT_CLAIMED",
+    "rawWhitespaceOrBirthdayTimeOfDay": "NOT_CLAIMED",
+    "allSevenFieldsRenderedOnCurrentSummaryCard": "NOT_CLAIMED",
+    "otherFamilyReportRoutines": "NOT_CLAIMED",
+    "productionImport": "NOT_CLAIMED"
+  },
+  "productionImport": "HOLD"
+}

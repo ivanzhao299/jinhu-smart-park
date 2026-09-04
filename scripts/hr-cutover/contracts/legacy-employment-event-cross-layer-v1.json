@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "contractKind": "yuzhou_hr_legacy_employment_event_cross_layer",
-  "contractVersion": "2026-09-04.2",
+  "contractVersion": "2026-09-05.3",
   "identity": {
     "milestone": "M4",
     "sourceTable": "dbo.readjust",
@@ -10,15 +10,15 @@
     "detailRoute": "/hr/employees"
   },
   "sourceBindings": {
-    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "b59248966bbb2e221cde4017aef1aabbc6cb3c6cc3665c1f266d5c1b046b13f6" },
+    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "fb3db5c48d13b677b37d9a6f32b729bc456e4295dfdb8dc351b1eef604259d87" },
     "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
     "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "ae48cab4308fcc9861961b89228fc9f57267ab1406f706f59535dcb832e03a40" },
-    "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "a32eeacff08d4037557e069878e8436b933feb9a48646e2f72ba6d7897ae03bb" },
+    "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "c4d880e027c5101cef14cf19c1e755c709c839e25bca86ea825a3a7b563b6d5c" },
     "targetLoader": { "path": "scripts/load-yuzhou-t1-employment-events.sh", "sha256": "dcad28e24e63b80d947716d2f1d7b55096e08638562f7bc84ed5af8414974be0" },
     "targetFoundationMigration": { "path": "database/migrations/000230_hr_employee_foundation.sql", "sha256": "9041f56e6114bca535c23cd83fb88d31f579651d40b31bf975201ce8b06e5631" },
     "targetCompatibilityMigration": { "path": "database/migrations/000237_hr_employment_event_legacy_compatibility.sql", "sha256": "c50dd0cb4e026ef6c3b13be6d3a7bbdce69ea810cb8b54131c46dcaedddc01cf" },
     "targetEventNumberMigration": { "path": "database/migrations/000266_hr_employee_identity_event_number.sql", "sha256": "5d16f76541896e81454537b07ea851bef2a89aaea913ddca9aec92ed1f6d51d9" },
-    "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "fe614bdbddb7b730f77e44cd44ad599416a27c35c7ddd899481f56769432f23b" },
+    "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "3db6e883ab63b6db954bf1cb4e1386c1b76b6cd85df65468b4b9eadc26cd4908" },
     "apiController": { "path": "apps/api/src/modules/hr/hr.controller.ts", "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051" },
     "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad" },
     "apiDto": { "path": "apps/api/src/modules/hr/dto/hr.dto.ts", "sha256": "f3c167775a6c8965a4ada18b72e89fbfd4d1a2d0e7afdd22ba055c98ffe4fab1" },

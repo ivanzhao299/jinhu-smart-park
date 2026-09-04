@@ -1,0 +1,258 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_employee_contract_modern_runtime_task",
+  "taskVersion": "employee-contract-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-37-EMPLOYEE-CONTRACT",
+    "legacyId": 37,
+    "name": "员工合同",
+    "legacyUrl": "employee/contract/browse.asp",
+    "legacyTable": null,
+    "legacyView": null,
+    "domain": "employee",
+    "targetRoutes": ["/hr/contracts"],
+    "selectionReason": "score_90_partial_with_hash_bound_legacy_contract_rules_and_existing_park_team_self_api_scope_contract_state_chain_salary_boundary_document_permissions_action_ledger_and_mobile_workbench",
+    "currentStaticEvidence": {
+      "score": 90,
+      "implementationStatus": "partial",
+      "dimensions": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": true,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/yuzhou-contract-source-evidence-v1.json",
+      "rawSha256": "8f57f21cbdc87ee7c3ebda7e284a173addf623b372847aa4deac9610195c630c",
+      "canonicalSha256": "5dfabde2dfbee456293df769cb9a7bcee4a3c180d825532121b2fb86eba14805"
+    }
+  ],
+  "legacyStaticContract": {
+    "entryResolved": true,
+    "traversedAspFiles": 8,
+    "forms": 3,
+    "controls": 82,
+    "requestKeys": 21,
+    "formActions": 1,
+    "selectStatements": 1,
+    "insertStatements": 0,
+    "updateStatements": 0,
+    "deleteStatements": 0,
+    "stateTransitions": 5,
+    "fieldEvidenceHash": "71721d33d52f7fe9bd09db05c35668890825f0956d6f0927165ad2a103ef3964",
+    "staticEvidenceMeaning": "page_shape_inventory_only_not_runtime_behavior"
+  },
+  "legacyOpaqueSlots": {
+    "controlSlots": ["legacy_control_01", "legacy_control_02", "legacy_control_03", "legacy_control_04", "legacy_control_05", "legacy_control_06", "legacy_control_07", "legacy_control_08", "legacy_control_09", "legacy_control_10", "legacy_control_11", "legacy_control_12", "legacy_control_13", "legacy_control_14", "legacy_control_15", "legacy_control_16", "legacy_control_17", "legacy_control_18", "legacy_control_19", "legacy_control_20", "legacy_control_21", "legacy_control_22", "legacy_control_23", "legacy_control_24", "legacy_control_25", "legacy_control_26", "legacy_control_27", "legacy_control_28", "legacy_control_29", "legacy_control_30", "legacy_control_31", "legacy_control_32", "legacy_control_33", "legacy_control_34", "legacy_control_35", "legacy_control_36", "legacy_control_37", "legacy_control_38", "legacy_control_39", "legacy_control_40", "legacy_control_41", "legacy_control_42", "legacy_control_43", "legacy_control_44", "legacy_control_45", "legacy_control_46", "legacy_control_47", "legacy_control_48", "legacy_control_49", "legacy_control_50", "legacy_control_51", "legacy_control_52", "legacy_control_53", "legacy_control_54", "legacy_control_55", "legacy_control_56", "legacy_control_57", "legacy_control_58", "legacy_control_59", "legacy_control_60", "legacy_control_61", "legacy_control_62", "legacy_control_63", "legacy_control_64", "legacy_control_65", "legacy_control_66", "legacy_control_67", "legacy_control_68", "legacy_control_69", "legacy_control_70", "legacy_control_71", "legacy_control_72", "legacy_control_73", "legacy_control_74", "legacy_control_75", "legacy_control_76", "legacy_control_77", "legacy_control_78", "legacy_control_79", "legacy_control_80", "legacy_control_81", "legacy_control_82"],
+    "requestKeySlots": ["legacy_request_key_01", "legacy_request_key_02", "legacy_request_key_03", "legacy_request_key_04", "legacy_request_key_05", "legacy_request_key_06", "legacy_request_key_07", "legacy_request_key_08", "legacy_request_key_09", "legacy_request_key_10", "legacy_request_key_11", "legacy_request_key_12", "legacy_request_key_13", "legacy_request_key_14", "legacy_request_key_15", "legacy_request_key_16", "legacy_request_key_17", "legacy_request_key_18", "legacy_request_key_19", "legacy_request_key_20", "legacy_request_key_21"],
+    "formActionSlots": ["legacy_form_action_01"],
+    "status": "identity_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false
+  },
+  "legacySemanticFields": [
+    {"id":"contract_number","legacyEvidenceRule":"identity.contractNumberUnique","modernTargets":["hr_contract.contract_no"],"disposition":"candidate_requires_legacy_control_binding_and_uniqueness_observation"},
+    {"id":"contract_type","legacyEvidenceRule":"identity.contractType","modernTargets":["hr_contract.contract_type_id", "hr_contract_type.id"],"disposition":"candidate_requires_exact_contract_type_identity_resolution"},
+    {"id":"employee","legacyEvidenceRule":"identity.employee","modernTargets":["hr_contract.employee_id", "hr_employee.id"],"disposition":"candidate_requires_exact_employee_identity_resolution"},
+    {"id":"term","legacyEvidenceRule":"dates.term","modernTargets":["hr_contract.contract_term_months"],"disposition":"candidate_requires_legacy_control_binding_and_unit_observation"},
+    {"id":"start_date","legacyEvidenceRule":"dates.startDate","modernTargets":["hr_contract.start_date"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"end_date","legacyEvidenceRule":"dates.endDate","modernTargets":["hr_contract.end_date"],"disposition":"candidate_requires_legacy_control_binding_and_open_term_observation"},
+    {"id":"signature_date","legacyEvidenceRule":"dates.signatureDate","modernTargets":["hr_contract.signature_date"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"confirmation_date","legacyEvidenceRule":"dates.confirmationDate","modernTargets":["hr_contract.probation_end_date"],"disposition":"candidate_requires_semantic_confirmation_date_binding"},
+    {"id":"effective_date","legacyEvidenceRule":"dates.effectiveDate","modernTargets":["hr_contract.effective_date"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"position_title","legacyEvidenceRule":"employment.positionTitle","modernTargets":["hr_contract.position_title"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"work_type","legacyEvidenceRule":"employment.workType","modernTargets":["hr_contract.work_type"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"department_snapshot","legacyEvidenceRule":"employment.departmentSnapshot","modernTargets":["hr_contract.department_name_snapshot"],"disposition":"candidate_requires_snapshot_semantics_observation"},
+    {"id":"probation_months","legacyEvidenceRule":"probationAndSalary.probationMonths","modernTargets":["hr_contract.probation_months"],"disposition":"candidate_requires_legacy_control_binding_and_unit_observation"},
+    {"id":"probation_salary","legacyEvidenceRule":"probationAndSalary.probationSalary","modernTargets":["hr_contract.probation_salary"],"disposition":"candidate_requires_legacy_control_binding_and_salary_permission_observation"},
+    {"id":"base_salary","legacyEvidenceRule":"probationAndSalary.baseSalary","modernTargets":["hr_contract.base_salary"],"disposition":"candidate_requires_legacy_control_binding_and_salary_permission_observation"},
+    {"id":"remark","legacyEvidenceRule":"documentsAndHistory.remark","modernTargets":["hr_contract.remark"],"disposition":"candidate_requires_legacy_control_binding"},
+    {"id":"contract_attachment","legacyEvidenceRule":"documentsAndHistory.contractAttachment","modernTargets":["sys_file.biz_type=hr_contract_document", "sys_file.biz_id=hr_contract.id"],"disposition":"blocked_pending_authorized_binary_manifest_and_role_runtime_observation"},
+    {"id":"operation_log","legacyEvidenceRule":"documentsAndHistory.createUpdateDeleteOperationLog","modernTargets":["hr_contract_action"],"disposition":"candidate_requires_legacy_action_pairing_and_append_only_runtime_observation"}
+  ],
+  "legacyWorkflowRules": {
+    "verifiedRules": {
+      "identity": ["contractNumberUnique", "contractType", "employee"],
+      "dates": ["term", "startDate", "endDate", "signatureDate", "confirmationDate", "effectiveDate"],
+      "employment": ["positionTitle", "workType", "departmentSnapshot"],
+      "probationAndSalary": ["probationMonths", "probationSalary", "baseSalary"],
+      "documentsAndHistory": ["remark", "contractAttachment", "createUpdateDeleteOperationLog"]
+    },
+    "runtimeStatus": "not_observed",
+    "requiredActionObservations": ["browse", "query", "detail", "readonly_view", "create", "edit", "upload_attachment", "legacy_delete", "operation_log"],
+    "requiredConditionObservations": ["contract_number_unique", "contract_type_required", "employee_required", "term_and_date_semantics", "open_ended_contract", "salary_visibility", "attachment_permissions", "delete_allowed_statuses", "delete_side_effects", "history_ordering"]
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservation": ["column_order", "query_controls", "status_filter", "pagination", "sort_order", "detail_layout", "readonly_layout", "print_or_export_controls", "empty_state"],
+    "modernAcceptance": ["desktop_list_detail_actions", "phone_390_cards_detail_actions", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_CONTRACTS_PAGE: \"hr:contracts\"", "HR_CONTRACT_READ", "HR_CONTRACT_TEAM_READ", "HR_CONTRACT_SELF_READ", "HR_CONTRACT_MANAGE", "HR_CONTRACT_SALARY_READ", "HR_CONTRACT_DOCUMENT_MANAGE"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "requiredTokens": ["@Get(\"contracts\")", "@Get(\"contracts/me\")", "@Post(\"contracts\")", "@Put(\"contracts/:id\")", "@Post(\"contracts/:id/actions\")", "@Post(\"contracts/:id/changes\")", "@Post(\"contracts/:id/changes/:changeId/actions\")", "captureBody:false"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
+      "requiredTokens": ["export class CreateHrContractDto", "contractTermMonths?:number", "probationSalary?:string", "baseSalary?:string", "@IsIn([\"activate\",\"cancel\"])", "@IsIn([\"apply\",\"cancel\"])"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-access-policy.ts",
+      "requiredTokens": ["resolveHrContractAccessScope", "HR_CONTRACT_TEAM_READ", "HR_CONTRACT_SELF_READ", "managedOrgTree"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "requiredTokens": ["Historical imported contracts are immutable", "Only a draft online contract can be edited", "Employee already has an active or draft contract", "Compensation management permission is required to write contract salary", "Only an active online contract can create a change draft", "projectSelfContract", "appendContractAction"]
+    },
+    {
+      "path": "database/migrations/000272_hr_contract_legacy_parity.sql",
+      "requiredTokens": ["ADD COLUMN IF NOT EXISTS contract_term_months", "CREATE TABLE IF NOT EXISTS hr_contract_action", "uq_hr_contract_action_sequence", "trg_hr_contract_action_append_only", "BEFORE UPDATE OR DELETE ON hr_contract_action"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-foundation.contract.spec.ts",
+      "requiredTokens": ["online labor contracts serialize draft state and preserve imported history", "Yuzhou contract parity preserves legacy fields behind salary and append-only audit boundaries"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["contracts:", "contract:", "createContract:", "updateContract:", "contractAction:", "createContractChange:", "contractChangeAction:"]
+    },
+    {
+      "path": "apps/web/app/hr/contracts/HrContractsClient.tsx",
+      "requiredTokens": ["我的劳动合同", "新建合同", "保存合同草稿", "编辑草稿", "确认生效", "办理续签/变更", "合同附件", "办理轨迹", "ds-mobile-record-list"]
+    },
+    {
+      "path": "apps/web/app/hr/hr-route.contract.spec.ts",
+      "requiredTokens": ["HR M5 labor contracts are list-first, server-filtered, and history-aware", "HR_CONTRACT_SALARY_READ", "FileUploader compact bizType=\"hr_contract_document\"", "旧系统历史记录"]
+    }
+  ],
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/contracts",
+    "statusVocabulary": ["draft", "active", "expired", "terminated", "cancelled", "needs_review"],
+    "contractTransitionMatrix": [
+      {"action":"activate","from":["draft"],"to":"active"},
+      {"action":"cancel","from":["draft"],"to":"cancelled"},
+      {"action":"terminate_via_change","from":["active"],"to":"terminated"}
+    ],
+    "changeTransitionMatrix": [
+      {"action":"apply_renewal","from":["draft"],"to":"effective"},
+      {"action":"apply_amendment","from":["draft"],"to":"effective"},
+      {"action":"apply_correction","from":["draft"],"to":"effective"},
+      {"action":"apply_termination","from":["draft"],"to":"effective"},
+      {"action":"cancel_change","from":["draft"],"to":"cancelled"}
+    ],
+    "roleMatrix": [
+      {"role":"park_contract_reader","permissions":["hr:contracts", "hr:contract:read"],"expectedCapabilities":["park_list", "detail_without_salary_unless_salary_permission"]},
+      {"role":"team_contract_reader","permissions":["hr:contracts", "hr:contract:team_read"],"expectedCapabilities":["managed_org_tree_list", "team_detail", "outside_team_absent", "salary_absent"]},
+      {"role":"self_contract_reader","permissions":["hr:contracts", "hr:contract:self_read"],"expectedCapabilities":["self_list", "self_detail_projection", "other_employee_absent", "salary_absent"]},
+      {"role":"contract_operator","permissions":["hr:contracts", "hr:contract:read", "hr:contract:manage"],"expectedCapabilities":["create", "edit_draft", "activate", "cancel_draft", "create_and_act_change", "salary_write_denied_without_compensation_manage"]},
+      {"role":"salary_authorized_operator","permissions":["hr:contracts", "hr:contract:read", "hr:contract:manage", "hr:contract_salary:read", "hr:compensation:manage"],"expectedCapabilities":["salary_read", "salary_write"]},
+      {"role":"document_authorized_operator","permissions":["hr:contracts", "hr:contract:read", "hr:contract_document:read", "hr:contract_document:manage"],"expectedCapabilities":["document_list", "document_download", "online_contract_upload", "historical_contract_mutation_denied"]},
+      {"role":"no_contract_permission","permissions":[],"expectedCapabilities":["forbidden"]}
+    ],
+    "apiTasks": [
+      {"id":"park_list","method":"GET","path":"/hr/contracts","expectedStatus":200,"assertions":["tenant_park_only", "paginated_shape", "server_filters"]},
+      {"id":"team_list","method":"GET","path":"/hr/contracts","expectedStatus":200,"assertions":["managed_org_tree_only", "outside_team_absent", "salary_absent"]},
+      {"id":"self_list","method":"GET","path":"/hr/contracts/me","expectedStatus":200,"assertions":["self_only", "salary_absent", "foreign_employee_identity_absent"]},
+      {"id":"scoped_detail","method":"GET","path":"/hr/contracts/:id","expectedStatus":200,"assertions":["same_scope_only", "ordered_changes", "ordered_action_history"]},
+      {"id":"cross_scope_detail_denied","method":"GET","path":"/hr/contracts/:otherId","expectedStatus":"403_or_404","assertions":["no_target_disclosure", "salary_absent"]},
+      {"id":"create_draft","method":"POST","path":"/hr/contracts","expectedStatus":201,"assertions":["synthetic_values_only", "idempotency_key", "created_action_appended"]},
+      {"id":"duplicate_contract_number","method":"POST","path":"/hr/contracts","expectedStatus":409,"assertions":["no_duplicate", "no_partial_write"]},
+      {"id":"duplicate_employee_active_or_draft","method":"POST","path":"/hr/contracts","expectedStatus":409,"assertions":["one_current_contract", "no_partial_write"]},
+      {"id":"edit_draft","method":"PUT","path":"/hr/contracts/:id","expectedStatus":200,"assertions":["draft_online_only", "updated_action_appended"]},
+      {"id":"activate_draft","method":"POST","path":"/hr/contracts/:id/actions","expectedStatus":200,"assertions":["draft_to_active", "activated_action_appended"]},
+      {"id":"cancel_draft","method":"POST","path":"/hr/contracts/:id/actions","expectedStatus":200,"assertions":["draft_to_cancelled", "no_physical_delete", "cancelled_action_appended"]},
+      {"id":"legacy_delete_cancel_equivalence","method":"POST","path":"/hr/contracts/:id/actions","expectedStatus":"blocked_until_legacy_delete_preconditions_and_effects_observed","assertions":["do_not_claim_action_equivalence"]},
+      {"id":"create_change","method":"POST","path":"/hr/contracts/:id/changes","expectedStatus":201,"assertions":["active_online_only", "single_pending_draft", "change_created_action_appended"]},
+      {"id":"apply_change","method":"POST","path":"/hr/contracts/:id/changes/:changeId/actions","expectedStatus":200,"assertions":["draft_change_to_effective", "contract_dates_or_status_updated_atomically", "change_applied_action_appended"]},
+      {"id":"cancel_change","method":"POST","path":"/hr/contracts/:id/changes/:changeId/actions","expectedStatus":200,"assertions":["draft_change_to_cancelled", "contract_unchanged", "change_cancelled_action_appended"]},
+      {"id":"historical_contract_mutation_denied","method":"PUT_OR_POST","path":"/hr/contracts/:historicalId","expectedStatus":409,"assertions":["historical_row_immutable", "no_action_appended"]},
+      {"id":"salary_read_boundary","method":"GET","path":"/hr/contracts/:id","expectedStatus":200,"assertions":["salary_present_only_with_park_and_salary_read", "salary_absent_for_team_and_self"]},
+      {"id":"salary_write_boundary","method":"POST","path":"/hr/contracts","expectedStatus":403,"assertions":["compensation_manage_required", "no_row_created"]},
+      {"id":"document_scope","method":"FILES_API","path":"hr_contract_document/:contractId","expectedStatus":"scope_dependent","assertions":["park_team_self_document_permissions", "historical_upload_denied", "unauthorized_binary_absent"]},
+      {"id":"no_permission_forbidden","method":"GET","path":"/hr/contracts","expectedStatus":403,"assertions":["permission_guard_denies", "rows_absent"]}
+    ],
+    "browserTask": {
+      "viewports": [
+        {"id":"desktop","width":1440,"height":1000},
+        {"id":"phone_390","width":390,"height":844}
+      ],
+      "checks": [
+        {"id":"park_reader","role":"park_contract_reader","visibleTexts":["劳动合同", "合同目录", "查看合同"],"assertions":["park_rows_only", "write_controls_absent", "salary_absent_without_salary_permission", "no_horizontal_overflow"]},
+        {"id":"team_reader","role":"team_contract_reader","visibleTexts":["劳动合同", "合同目录"],"assertions":["managed_tree_rows_only", "outside_team_absent", "salary_absent", "no_horizontal_overflow"]},
+        {"id":"self_reader","role":"self_contract_reader","visibleTexts":["我的劳动合同", "合同目录"],"assertions":["self_rows_only", "other_employee_absent", "salary_absent", "no_horizontal_overflow"]},
+        {"id":"operator","role":"contract_operator","visibleTexts":["新建合同", "保存合同草稿", "编辑草稿", "确认生效", "办理续签/变更"],"assertions":["state_conditioned_actions", "salary_inputs_absent_without_compensation_manage", "no_horizontal_overflow"]},
+        {"id":"salary_operator","role":"salary_authorized_operator","visibleTexts":["试用期工资", "转正工资"],"assertions":["salary_values_visible", "salary_inputs_available", "no_horizontal_overflow"]},
+        {"id":"document_operator","role":"document_authorized_operator","visibleTexts":["合同附件", "上传合同附件"],"assertions":["authorized_documents_only", "historical_upload_absent", "no_horizontal_overflow"]},
+        {"id":"forbidden","role":"no_contract_permission","visibleTexts":["无权访问劳动合同"],"assertions":["forbidden_surface", "contract_rows_absent", "no_horizontal_overflow"]}
+      ]
+    }
+  },
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_EMPLOYEE_CONTRACT_LEGACY_DELETE_CANCEL_EQUIVALENCE_NOT_OBSERVED",
+      "missingEvidence": ["legacy_delete_allowed_statuses", "legacy_delete_preconditions", "legacy_delete_side_effects", "legacy_delete_operation_log"],
+      "implementationAction": ["observe_employee_contract_delete_with_an_authenticated_non_personal_test_record", "bind_the_hash_addressed_legacy_preconditions_and_effects", "compare_with_modern_draft_cancel_and_append_only_action", "if_legacy_non_draft_delete_exists_add_an_audited_correction_or_termination_path_instead_of_physical_delete"],
+      "acceptance": ["paired_legacy_and_modern_action_receipts", "same_business_outcome_or_documented_modernized_exception", "no_physical_delete", "action_history_append_only"]
+    },
+    {
+      "id": "GROUP_WEB_EMPLOYEE_CONTRACT_ATTACHMENT_LINK_NOT_EXECUTED",
+      "missingEvidence": ["legacy_attachment_key_to_contract_identity", "authorized_binary_manifest", "role_scoped_download_observation"],
+      "implementationAction": ["build_a_metadata_only_attachment_manifest_bound_to_contract_identity", "keep_binary_copy_on_hold_until_separate_authorization", "after_authorization_import_to_hr_contract_document_and_verify_park_team_self_access"],
+      "acceptance": ["every_manifest_row_resolves_to_one_contract", "unauthorized_roles_receive_no_metadata_or_binary", "historical_attachment_is_immutable", "zero_orphans"]
+    }
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyControlBindings": 82,
+    "requiredLegacyRequestKeyBindings": 21,
+    "requiredLegacyFormActionBindings": 1,
+    "requiredLegacyActionObservations": 9,
+    "requiredLegacyConditionObservations": 10,
+    "requiredLegacyReportLayoutDecision": 1,
+    "requiredModernApiObservations": 20,
+    "requiredModernBrowserObservations": 14,
+    "requiredPairing": "same_candidate_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "salaryValuesExcluded": true,
+    "attachmentBinariesExcluded": true
+  },
+  "blockingGaps": [
+    "GROUP_WEB_EMPLOYEE_CONTRACT_LEGACY_RUNTIME_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_82_CONTROLS_NOT_SEMANTICALLY_BOUND",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_21_REQUEST_KEYS_NOT_ENUMERATED",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_LEGACY_DELETE_CANCEL_EQUIVALENCE_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_ATTACHMENT_LINK_NOT_EXECUTED",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_REPORT_LAYOUT_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_CONTRACT_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator":0,"denominator":186},
+    "legacyInteractionParity": {"numerator":0,"denominator":6}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}
