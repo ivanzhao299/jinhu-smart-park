@@ -1,0 +1,251 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "professional-title-lookup-1.0.0",
+  "compatibilityScope": "getNameByassignment_person_profile_projection",
+  "sourceBinding": {
+    "routineLedgerSha256": "684f967f52d59fed39978d2c9f6af0520ada2b88a0aebdc892543177e59c003b",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "organizationPositionFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "sha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+    },
+    "professionalTitleMaterializer": {
+      "path": "scripts/hr-cutover/legacy-professional-title-materialization.mjs",
+      "sha256": "2611a41b51193859d61d5b3e9f8280376333a28b8c277c45f8cd4e61074cc7dc"
+    },
+    "t5Transformer": {
+      "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
+      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+    },
+    "profileSchema": {
+      "path": "database/migrations/000270_hr_employee_basic_profile_parity.sql",
+      "sha256": "1bdb3ffa9d1d3ef692475ad07858ba4b54d37fb38513f2def4cc2a0c9fa2a3dc"
+    },
+    "professionalTitleCodeSchema": {
+      "path": "database/migrations/000295_hr_organization_position_legacy_mapping.sql",
+      "sha256": "50925b509d630dddb95606e7a63ad1f7cfbeed8e5a3874802b3cce9793365e2e"
+    },
+    "modernService": {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+    },
+    "modernAccessPolicy": {
+      "path": "apps/api/src/modules/hr/hr-access-policy.ts",
+      "sha256": "1e6dbf17af59cebdc58951ae09593acc4e0902b51ce1b1f3d7466e0eb7e21a84"
+    },
+    "modernController": {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126"
+    },
+    "materializationEvidence": {
+      "path": "scripts/e2e/yuzhou-professional-title-materialization-contract.mjs",
+      "sha256": "c9c7530a7e16cdabe6ab83dc0190d1bcdb185e101617aa1d21fcfabe583115e3"
+    },
+    "permissionEvidence": {
+      "path": "apps/api/src/modules/hr/hr-employee-basic-profile-parity.contract.spec.ts",
+      "sha256": "7aa01a7b47f9fa5efa9c78c5e3a8966b89fa09c4899c21f334b19a6a936996d5"
+    }
+  },
+  "sourceShape": {
+    "sourceArtifact": "SQL_SCALAR_FUNCTION_getNameByassignment_sql",
+    "sourceArtifactSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3",
+    "declaredParameter": "id varchar(50)",
+    "declaredReturn": "varchar(50)",
+    "lookup": "assignment.assignment_equals_id_to_assignment.assignmentname",
+    "missingOrNullResult": "empty_string",
+    "returnNormalization": "rtrim",
+    "activeBusinessWrites": 0,
+    "activeDynamicSqlExecutions": 0
+  },
+  "routines": [
+    {
+      "routineId": "RULE-06D838A8343E39F6",
+      "canonicalFamily": "getNameByassignment",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "function",
+      "parityStatus": "verified",
+      "historicalVariants": [],
+      "controlledModernizations": [
+        "unknown_nonnull_assignment_code_fails_closed_before_import_instead_of_silently_returning_empty",
+        "null_database_value_is_projected_as_null_and_rendered_as_empty_presentation",
+        "surrounding_padding_is_normalized_as_non_business_presentation_whitespace"
+      ],
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "DECLARED_PERSON_ASSIGNMENT_FOREIGN_KEY_BINDS_SOURCE_CODE_TO_REVIEWED_DICTIONARY",
+          "entries": [
+            {
+              "sourceParameter": "id",
+              "modernParameter": "person.assignment_to_legacyProfessionalTitleCode",
+              "sourceType": "varchar(50)",
+              "modernType": "varchar(64)_nullable",
+              "transform": "trim_and_validate_against_complete_assignment_dictionary",
+              "nullContract": "source_null_returns_empty_string_modern_null_renders_empty"
+            }
+          ],
+          "evidenceSha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ASSIGNMENT_LABEL_IS_EXACT_MAPPED_AS_EMPLOYEE_TECHNICAL_TITLE",
+          "entries": [
+            {
+              "sourceField": "return_assignmentname",
+              "modernField": "hr_employee_profile.technical_title",
+              "transform": "trim_presentation_padding_and_preserve_label_text",
+              "nullContract": "empty_source_presentation_equals_null_modern_presentation"
+            }
+          ],
+          "evidenceSha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_DICTIONARY_LOOKUP_IS_MATERIALIZED_ONCE_THEN_READ_FROM_SCOPED_EMPLOYEE_PROFILE",
+          "entries": [
+            {
+              "sourceLocator": "dbo.assignment.assignment_and_assignmentname",
+              "modernLocator": "hr_employee_profile.legacy_professional_title_code_and_technical_title",
+              "relationContract": "declared_person_assignment_foreign_key_to_complete_reviewed_dictionary_then_tenant_park_employee_scope"
+            }
+          ],
+          "evidenceSha256": "2611a41b51193859d61d5b3e9f8280376333a28b8c277c45f8cd4e61074cc7dc"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_FUNCTION_AND_MODERN_PROFILE_LOOKUP_ARE_READ_ONLY",
+          "entries": [],
+          "evidenceSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "single_scalar_select_without_explicit_transaction",
+          "modernBoundary": "immutable_imported_profile_code_label_pair_read_in_one_scoped_repository_query",
+          "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_failed_import_rejects_the_profile_pair",
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "NULL_MISSING_AND_UNKNOWN_PATHS_ARE_EXECUTABLE_AND_EXPLICIT",
+          "entries": [
+            {
+              "sourceExpression": "null_or_unmatched_id_returns_empty_string",
+              "modernExpression": "null_assignment_projects_null_technicalTitle_and_unknown_nonnull_code_is_rejected",
+              "equivalenceRule": "empty_presentation_is_preserved_while_unknown_nonnull_data_loss_fails_closed"
+            }
+          ],
+          "evidenceSha256": "34ae646e2b210e5f8d1f78174521252975940a0f6cb8808573b6a0be7c5250e3"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ROUTINE_HAS_NO_NUMERIC_INPUT_OUTPUT_OR_CALCULATION",
+          "entries": [],
+          "evidenceSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LOOKUP_REMAINS_BUSINESS_READ_ONLY_AND_MODERN_READ_ADDS_ONLY_REQUIRED_AUDIT",
+          "entries": [
+            {
+              "sourceEffect": "zero_business_writes",
+              "modernEffect": "zero_business_writes_plus_sensitive_profile_read_audit",
+              "conservationRule": "one_valid_source_code_label_pair_materializes_to_one_profile_code_label_pair_with_zero_unrelated_writes"
+            }
+          ],
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_non_personal_dictionary_rows_only",
+          "emptyInputCase": {
+            "status": "covered",
+            "evidenceSha256": "34ae646e2b210e5f8d1f78174521252975940a0f6cb8808573b6a0be7c5250e3"
+          },
+          "untriggeredBranchCase": {
+            "status": "covered",
+            "evidenceSha256": "34ae646e2b210e5f8d1f78174521252975940a0f6cb8808573b6a0be7c5250e3"
+          },
+          "triggerFiringCase": {
+            "status": "not_applicable",
+            "evidenceSha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3"
+          }
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": [
+          "materializeLegacyProfessionalTitle",
+          "HrService.employeeProfile",
+          "projectHrEmployeeProfile"
+        ],
+        "apiSymbols": [
+          "GET /hr/employees/:id/profile",
+          "GET /hr/employees/me/profile"
+        ],
+        "pages": [
+          "apps/web/app/hr/employees/HrEmployeesClient.tsx"
+        ]
+      },
+      "testEvidence": {
+        "positive": [
+          {
+            "testId": "professional-title-known-code",
+            "evidenceSha256": "c9c7530a7e16cdabe6ab83dc0190d1bcdb185e101617aa1d21fcfabe583115e3"
+          }
+        ],
+        "negative": [
+          {
+            "testId": "professional-title-null-and-unknown-code",
+            "evidenceSha256": "c9c7530a7e16cdabe6ab83dc0190d1bcdb185e101617aa1d21fcfabe583115e3"
+          }
+        ],
+        "permission": [
+          {
+            "testId": "professional-title-profile-read-permission",
+            "evidenceSha256": "7aa01a7b47f9fa5efa9c78c5e3a8966b89fa09c4899c21f334b19a6a936996d5"
+          }
+        ],
+        "conservation": [
+          {
+            "testId": "professional-title-code-label-conservation",
+            "evidenceSha256": "2611a41b51193859d61d5b3e9f8280376333a28b8c277c45f8cd4e61074cc7dc"
+          }
+        ]
+      },
+      "review": {
+        "status": "approved",
+        "evidenceSha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+      }
+    }
+  ],
+  "nonClaims": {
+    "assignmentDefinesPosition": "NOT_CLAIMED",
+    "arbitraryUnvalidatedLookupInput": "NOT_CLAIMED",
+    "otherReferenceLookupFunctions": "NOT_CLAIMED",
+    "productionImport": "NOT_CLAIMED"
+  },
+  "productionImport": "HOLD"
+}

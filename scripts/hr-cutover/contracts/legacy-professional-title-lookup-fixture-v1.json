@@ -1,0 +1,84 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_legacy_professional_title_lookup_fixture",
+  "fixtureOnly": true,
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_legacy_routine_family_fixture",
+    "productionImport": "HOLD",
+    "routines": [
+      {
+        "routineId": "RULE-06D838A8343E39F6",
+        "canonicalFamily": "getNameByassignment",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "function",
+        "dynamicMutationStatus": "none"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "professional-title-known-code",
+      "kind": "positive",
+      "input": "T1",
+      "dictionary": [
+        { "assignment": "T1", "assignmentname": "Reviewed title" }
+      ],
+      "expectedLegacyOutput": "Reviewed title",
+      "expectedModernProjection": {
+        "legacyProfessionalTitleCode": "T1",
+        "technicalTitle": "Reviewed title"
+      }
+    },
+    {
+      "testId": "professional-title-null-code",
+      "kind": "negative",
+      "input": null,
+      "dictionary": [
+        { "assignment": "T1", "assignmentname": "Reviewed title" }
+      ],
+      "expectedLegacyOutput": "",
+      "expectedModernProjection": {
+        "legacyProfessionalTitleCode": null,
+        "technicalTitle": null
+      },
+      "expectedPresentation": ""
+    },
+    {
+      "testId": "professional-title-unknown-code",
+      "kind": "negative",
+      "input": "T2",
+      "dictionary": [
+        { "assignment": "T1", "assignmentname": "Reviewed title" }
+      ],
+      "expectedLegacyOutput": "",
+      "expectedModernError": "LEGACY_PROFESSIONAL_TITLE_UNKNOWN_CODE"
+    },
+    {
+      "testId": "professional-title-profile-read-permission",
+      "kind": "permission",
+      "requiredPermissions": [
+        "hr:employee_profile:read",
+        "hr:employee_profile:team_read",
+        "hr:employee_profile:self_read",
+        "hr:employee_profile:manage"
+      ],
+      "expectedScopeBinding": "tenant_park_employee_access_scope",
+      "expectedAudit": true,
+      "expectedField": "technicalTitle"
+    },
+    {
+      "testId": "professional-title-code-label-conservation",
+      "kind": "conservation",
+      "sourceDictionaryRows": 1,
+      "sourcePersonAssignments": 1,
+      "expectedProfileRows": 1,
+      "expectedCodeFields": 1,
+      "expectedLabelFields": 1,
+      "expectedUnrelatedWrites": 0
+    }
+  ],
+  "productionImport": "HOLD"
+}
