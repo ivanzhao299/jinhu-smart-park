@@ -224,6 +224,8 @@
     "test:e2e:yuzhou-performance-legacy-identity-resolution": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-identity-resolution:pg": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-direct-pg.mjs",
     "test:e2e:yuzhou-performance-calculation-print-parity": "node --test scripts/e2e/yuzhou-performance-calculation-print-parity-contract.mjs",
+    "test:e2e:yuzhou-performance-ass-compute-weight-relation": "node --test scripts/e2e/yuzhou-performance-ass-compute-weight-relation-contract.mjs",
+    "test:e2e:yuzhou-performance-ass-compute-weight-relation:pg": "node --test scripts/e2e/yuzhou-performance-ass-compute-weight-relation-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-writer": "node scripts/e2e/yuzhou-performance-legacy-writer-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-writer:pg": "node scripts/e2e/yuzhou-performance-legacy-writer-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-extract": "node scripts/e2e/yuzhou-performance-legacy-extract-contract.mjs",
