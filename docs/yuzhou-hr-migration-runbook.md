@@ -285,7 +285,7 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 为遵守该顺序，`core_t0_t2` 是 `core_t0_t3` 的受限前缀合同：只允许 T0、T1、T2 的受控源恢复、字典机器物化、加载、事实核对、反序回滚和零残留清理；T3/T4/T5 均不可达。它用于提供 T5_NONFILE 所需的稳定员工映射，不能将 checkpoint 解释为生产授权；T5_NONFILE 完成后仍必须从同一隔离 run 继续反序回滚和 cleanup。
 
-`pnpm hr:migration:lightweight-first:continuous` 将已经受控生成的 T5 非文件、T3 和 T4 阶段工件串接到同一 `core_t0_t2` 隔离 run：它只接受同一源快照、`0700` 的阶段目录和 `0600` 的 T3/T5/T4 manifest，先停在 core `rollback_ready`，再依次执行 `T5_NONFILE→T3→T4→技术验收`，并且无论业务阶段还是验收成功/失败，均按 `T4→T3→T5_NONFILE→T2→T1→T0` 反序清理。T3 manifest 必须声明只读受控源、当前备份快照和 `HOLD`；加载器重新核对 manifest 与三个阶段文件哈希，core 配置则同时验证同一源恢复回执。成功摘要仅保留每个阶段的 `source/loaded/quarantined` 守恒回执，以及 T3/T4 回滚的零活跃映射证明；不记录金额、工资明细、员工身份、凭据或私有路径。它只传递白名单环境变量，不创建照片/附件对象，不接受生产数据库，也不把技术通过提升为生产授权。
+`pnpm hr:migration:lightweight-first:continuous` 将已经受控生成的 T5 非文件、T3 和 T4 阶段工件串接到同一 `core_t0_t2` 隔离 run：它只接受同一源快照、`0700` 的阶段目录和 `0600` 的 T3/T5/T4 manifest，先停在 core `rollback_ready`，再依次执行 `T5_NONFILE→T3→T4→技术验收`，并且无论业务阶段还是验收成功/失败，均按 `T4→T3→T5_NONFILE→T2→T1→T0` 反序清理。T3 manifest 必须声明只读受控源、当前备份快照和 `HOLD`；加载器重新核对 manifest 与三个阶段文件哈希，core 配置则同时验证同一源恢复回执。T3/T4 必须匹配 core C/S/M 映射契约；T5_NONFILE 必须匹配其独立的经审核员工档案基线，不能被 core 映射替换。成功摘要仅保留每个阶段的 `source/loaded/quarantined` 守恒回执，以及 T3/T4 回滚的零活跃映射证明；不记录金额、工资明细、员工身份、凭据或私有路径。它只传递白名单环境变量，不创建照片/附件对象，不接受生产数据库，也不把技术通过提升为生产授权。
 
 `T5_FILE` 不属于轻量优先顺序，必须通过 `hr:migration:t5:photo-owner:continuous` 作为独立证据切片运行。该入口只接受与 `core_t0_t2` 同一受控备份和恢复回执绑定的 `0700` 照片归属 stage，先使 T0→T2 停在 `rollback_ready`，再用该 run 的 T0 映射进行“加载 → 精确回滚 → 同一 stage 重装 → 再次回滚”，随后继续 T2→T0 清理并要求 `residual=0`。它只写 hash-only 的 `hr_legacy_t5_file_evidence`，明确禁止写入 `sys_file`、`hr_employee_document`、在线员工、薪酬、工资、工资条和消息表；物理二进制归一化、员工附件关联和旧文档仍是后续独立切片，生产导入固定为 `HOLD`。
 
