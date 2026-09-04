@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import {
   HR_PERMISSIONS,
   type PaginatedResult,
@@ -10,11 +10,33 @@ import { AuditService } from "../audit/audit.service";
 import type {
   HrPerformanceLegacyPageQueryDto,
   HrPerformanceLegacyResultQueryDto,
+  HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type RawRow = Record<string, unknown>;
 type ResultAccess = "park" | "managed_org_tree" | "self" | "none";
+type RubricLevelRow = {
+  _batchId: string;
+  sourceAssGrade: string;
+  sourceDescription: string | null;
+  sourceMyOrder: string | null;
+  sourceMinValue: number | null;
+  sourceMaxValue: number | null;
+};
+type RubricItemRow = {
+  _batchId: string;
+  sourceItemId: number;
+  sourceItemName: string | null;
+  sourceFullValue: string | null;
+  sourceMyOrder: number | null;
+};
+type RubricGuideRow = {
+  _batchId: string;
+  sourceItemId: number;
+  sourceGrade: string;
+  sourceDescription: string | null;
+};
 
 const has = (actor: JwtPrincipal, permission: string): boolean =>
   Boolean(
@@ -142,6 +164,86 @@ export class HrPerformanceLegacyService {
     );
     await this.auditDefinitions(scope, actor, "评分说明", "guides", result.items.length);
     return result;
+  }
+
+  async rubric(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyRubricQueryDto,
+  ) {
+    if (!this.canReadDefinitions(actor)) {
+      return { sourceAssessmentId: query.source_assessment_id, levels: [], items: [] };
+    }
+    const parameters = [scope.tenantId, scope.parkId, query.source_assessment_id];
+    const levels = (await this.dataSource.query(
+      `SELECT fact.migration_batch_id::text "_batchId",
+        fact.source_ass_grade "sourceAssGrade",
+        fact.source_description "sourceDescription",
+        fact.source_my_order "sourceMyOrder",
+        fact.source_min_value "sourceMinValue",
+        fact.source_max_value "sourceMaxValue"
+       FROM hr_performance_legacy_level_rule fact
+       ${this.visibilitySql("hr_performance_legacy_level_rule")}
+         AND fact.source_assessment_id=$3
+       ORDER BY fact.source_my_order ASC NULLS LAST,
+                fact.source_ass_grade ASC, fact.id ASC`,
+      parameters,
+    )) as RubricLevelRow[];
+    const items = (await this.dataSource.query(
+      `SELECT fact.migration_batch_id::text "_batchId",
+        fact.source_item_id "sourceItemId",
+        fact.source_item_name "sourceItemName",
+        fact.source_full_value::text "sourceFullValue",
+        fact.source_my_order "sourceMyOrder"
+       FROM hr_performance_legacy_dimension_profile fact
+       ${this.visibilitySql("hr_performance_legacy_dimension_profile")}
+         AND fact.source_assessment_id=$3
+       ORDER BY fact.source_my_order ASC NULLS LAST,
+                fact.source_item_id ASC, fact.id ASC`,
+      parameters,
+    )) as RubricItemRow[];
+    const sourceItemIds = [...new Set(items.map(item => item.sourceItemId))];
+    const guides = sourceItemIds.length === 0
+      ? []
+      : (await this.dataSource.query(
+        `SELECT fact.migration_batch_id::text "_batchId",
+          fact.source_item_id "sourceItemId",
+          fact.source_grade "sourceGrade",
+          fact.source_description "sourceDescription"
+         FROM hr_performance_legacy_dimension_level_guide fact
+         ${this.visibilitySql("hr_performance_legacy_dimension_level_guide")}
+           AND fact.source_item_id=ANY($3::int[])
+         ORDER BY fact.source_item_id ASC,
+                  fact.source_my_order ASC NULLS LAST,
+                  fact.source_guide_id ASC, fact.id ASC`,
+        [scope.tenantId, scope.parkId, sourceItemIds],
+      )) as RubricGuideRow[];
+
+    const batchIds = new Set([...levels, ...items, ...guides].map(row => row._batchId));
+    if (batchIds.size > 1) throw new ConflictException("Legacy performance rubric has multiple active source batches");
+    const allowedGrades = new Set(levels.map(level => level.sourceAssGrade));
+    const descriptionByItemGrade = new Map<string, string | null>();
+    for (const guide of guides) {
+      if (!allowedGrades.has(guide.sourceGrade)) continue;
+      const key = `${guide.sourceItemId}\u0000${guide.sourceGrade}`;
+      if (descriptionByItemGrade.has(key)) {
+        throw new ConflictException("Legacy performance rubric has duplicate item-grade descriptions");
+      }
+      descriptionByItemGrade.set(key, guide.sourceDescription);
+    }
+    const response = {
+      sourceAssessmentId: query.source_assessment_id,
+      levels: levels.map(({ _batchId: _batch, ...level }) => level),
+      items: items.map(({ _batchId: _batch, ...item }) => ({
+        ...item,
+        descriptions: Object.fromEntries(levels.map(level => [
+          level.sourceAssGrade,
+          descriptionByItemGrade.get(`${item.sourceItemId}\u0000${level.sourceAssGrade}`) ?? null,
+        ])),
+      })),
+    };
+    await this.auditDefinitions(scope, actor, "评分表", "rubric", response.items.length);
+    return response;
   }
 
   async results(
