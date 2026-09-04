@@ -1,0 +1,87 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_performance_person_assessment_source_adapter",
+  "sourceSystem": "yuzhou-v10",
+  "scope": "dbo_person_assessment_to_assessmentcode_for_bs_ass_compute",
+  "sourceObjects": [
+    {
+      "schema": "dbo",
+      "table": "person",
+      "column": "person",
+      "requiredType": "varchar",
+      "role": "t0_person_identity"
+    },
+    {
+      "schema": "dbo",
+      "table": "person",
+      "column": "assessment",
+      "requiredType": "int",
+      "role": "person_weight_profile_reference"
+    },
+    {
+      "schema": "dbo",
+      "table": "assessmentcode",
+      "column": "assessment",
+      "requiredType": "int",
+      "role": "weight_profile_business_key"
+    }
+  ],
+  "evidenceBindings": {
+    "weightRelationMigration": {
+      "path": "database/migrations/000307_hr_performance_yuzhou_ass_compute_weight_relation.sql",
+      "sha256": "0467f31888a5fb52c7c63ab1e754a68ab76822b2e177318bf249f71eb1f8887a"
+    },
+    "assessmentFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json",
+      "sha256": "32a611f7af804a0cbc50b36df083d69a6e664ded160ed8fa1b8136d861d527cb"
+    },
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+      "routineId": "RULE-0C991427090A219D",
+      "routineSourceSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414",
+      "routineStructuralSha256": "15e55a977d3344fba46019c9c52d7922222beb9f9cb097013e5bfad49d934267"
+    }
+  },
+  "normalization": {
+    "person": "case_sensitive_ascii_after_sql_ltrim_rtrim_space_only",
+    "personIdentity": "sha256_utf8('dbo.person\\0'+normalized_person)",
+    "assessment": "nullable_exact_sql_int_no_text_or_case_coercion",
+    "nonAsciiPersonDisposition": "quarantine_hash_encoding_unproven",
+    "normalizationCollisionDisposition": "quarantine_all_rows_in_collision_group",
+    "multipleAssessmentMatchDisposition": "quarantine_without_winner"
+  },
+  "safeReceipt": {
+    "content": "catalog_metadata_aggregate_counts_statuses_and_sha256_only",
+    "personCodeValues": false,
+    "assessmentValues": false,
+    "names": false,
+    "credentials": false
+  },
+  "privateLabPayload": {
+    "artifactKind": "yuzhou_hr_performance_person_assessment_lab_payload",
+    "mode": "lab_rehearsal_only",
+    "targetProcedure": "materialize_yuzhou_performance_ass_compute_weight_relation_lab",
+    "payloadKey": "personAssessments",
+    "fileMode": "0600",
+    "containsPersonCodes": false,
+    "containsPersonIdentityHashes": true,
+    "containsAssessmentIds": true,
+    "stdout": "status_counts_and_sha256_only"
+  },
+  "statusOrder": [
+    "identity_null",
+    "identity_blank",
+    "identity_non_ascii",
+    "identity_normalization_collision",
+    "identity_duplicate",
+    "assessment_not_applicable",
+    "assessment_unmatched",
+    "assessment_resolved",
+    "assessment_ambiguous"
+  ],
+  "sourceMutation": "FORBIDDEN",
+  "legacyRoutineExecution": "FORBIDDEN",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}
