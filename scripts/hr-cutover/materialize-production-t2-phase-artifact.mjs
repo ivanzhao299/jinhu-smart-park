@@ -98,8 +98,8 @@ function sourceRecord(row, sourceTable, targetTable) {
   };
 }
 
-function evidenceRecord(row) {
-  const sourceIdentitySha256 = sha256(`yuzhou-hr-production-source-projection-v1\0${row.sourceIdentitySha256}\0${EVIDENCE_TABLE}`);
+function evidenceRecord(row, evidenceKind) {
+  const sourceIdentitySha256 = sha256(`yuzhou-hr-production-source-projection-v1\0${row.sourceIdentitySha256}\0${EVIDENCE_TABLE}\0${evidenceKind}`);
   return {
     phase: PHASE,
     targetTable: EVIDENCE_TABLE,
@@ -142,11 +142,16 @@ function readStage(stagingDir, sourceManifest) {
       if (identities.has(record.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_T2_ARTIFACT_STAGE_INVALID", "duplicate source identity");
       identities.add(record.sourceIdentitySha256);
       records.push(record);
-      if (domain === "dbo.compact" && (Boolean(row.source.legacyFilePresent) || Boolean(row.source.legacyTextPresent))) {
-        const evidence = evidenceRecord(row);
-        if (identities.has(evidence.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_T2_ARTIFACT_STAGE_INVALID", "duplicate evidence identity");
-        identities.add(evidence.sourceIdentitySha256);
-        records.push(evidence);
+      if (domain === "dbo.compact") {
+        const evidenceKinds = [];
+        if (row.source.legacyTextPresent) evidenceKinds.push("controlled_text");
+        if (row.source.legacyFilePresent) evidenceKinds.push("file_manifest");
+        for (const evidenceKind of evidenceKinds) {
+          const evidence = evidenceRecord(row, evidenceKind);
+          if (identities.has(evidence.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_T2_ARTIFACT_STAGE_INVALID", "duplicate evidence identity");
+          identities.add(evidence.sourceIdentitySha256);
+          records.push(evidence);
+        }
       }
     }
   }
