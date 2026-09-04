@@ -99,7 +99,7 @@ function verifiedRoutineFamily(row) {
   return true;
 }
 
-function readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings) {
+function readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, performanceRuntimeCoverage) {
   const slices = [];
   const coreLocators = coreMapping.domains.flatMap(domain => Object.keys(domain.columnMappings));
   slices.push({ domain: "reviewed_core", numerator: coreLocators.length, denominator: coreMapping.inventoryContract.selectedFields, locators: coreLocators });
@@ -144,9 +144,8 @@ function readMappingLocators(coreMapping, organizationPosition, payroll, employe
   slices.push({ domain: "insurance_policy", numerator: insurancePolicyLocators.length, denominator: insurancePolicy.fields.length, locators: insurancePolicyLocators });
 
   const performanceFields = performanceMappings.flatMap(mapping => mapping.fields);
-  const performanceAssessmentLocators = performanceFields
-    .filter(field => field.disposition === "verified_target")
-    .map(field => String(field.sourceField).toLowerCase());
+  const performanceAssessmentLocators = performanceRuntimeCoverage.fieldBindings
+    .map(binding => String(binding.sourceField).toLowerCase());
   slices.push({ domain: "performance_assessment", numerator: performanceAssessmentLocators.length, denominator: performanceFields.length, locators: performanceAssessmentLocators });
 
   for (const slice of slices) requireUnique(slice.locators, `${slice.domain} field locators`);
@@ -284,7 +283,7 @@ export function buildLegacyCompatibilityProgress(input) {
   } catch (error) {
     fail("PROGRESS_INPUT_INVALID", `knowhow field mapping: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const fields = readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings);
+  const fields = readMappingLocators(coreMapping, organizationPosition, payroll, employeeProfile, knowhowProfile, rewardDiscipline, trainingHistory, insurancePolicy, performanceMappings, performanceRuntimeCoverage);
   requireIdentity(fields.uniqueLocators.length <= CLIENT_BASELINE.fields, "mapped fields exceed baseline");
 
   const routineDomains = {};

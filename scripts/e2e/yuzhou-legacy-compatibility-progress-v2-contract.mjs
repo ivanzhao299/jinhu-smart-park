@@ -56,7 +56,7 @@ test("verified field locators are de-duplicated and archive visibility earns no 
   assert.deepEqual(slices.reward_discipline, { domain: "reward_discipline", numerator: 2, denominator: 16, percent: 12.5 });
   assert.deepEqual(slices.training_history, { domain: "training_history", numerator: 5, denominator: 23, percent: 21.74 });
   assert.deepEqual(slices.insurance_policy, { domain: "insurance_policy", numerator: 51, denominator: 51, percent: 100 });
-  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 0, denominator: 41, percent: 0 });
+  assert.deepEqual(slices.performance_assessment, { domain: "performance_assessment", numerator: 41, denominator: 41, percent: 100 });
   assert.equal(report.semanticMapping.clientFieldsVerifiedTargetMapping.overlapCount, 0);
   assert.deepEqual(report.semanticMapping.organizationPositionRelations, { numerator: 7, denominator: 8, percent: 87.5 });
   assert.equal(
@@ -67,14 +67,14 @@ test("verified field locators are de-duplicated and archive visibility earns no 
       + slices.insurance_policy.numerator + slices.performance_assessment.numerator,
   );
   assert.deepEqual(report.semanticMapping.clientFieldsVerifiedTargetMapping, {
-    numerator: 182,
+    numerator: 223,
     denominator: 2364,
-    percent: 7.7,
+    percent: 9.43,
     denominatorScope: "all_client_database_source_fields",
     overlapCount: 0,
     slices: report.semanticMapping.clientFieldsVerifiedTargetMapping.slices,
   });
-  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 182, denominator: 2364, percent: 7.7 });
+  assert.deepEqual(report.implementation.clientFieldsWithVerifiedTargetContract, { numerator: 223, denominator: 2364, percent: 9.43 });
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.numerator, 220);
   assert.equal(report.implementation.reviewedCoreArchiveDetailFields.functionalParityCredit, 0);
   assert.equal(report.parity.clientFieldRowLevelParity.numerator, 0);
