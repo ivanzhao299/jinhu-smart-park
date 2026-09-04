@@ -1,0 +1,233 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_employee_information_modern_runtime_task",
+  "taskVersion": "employee-information-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-35-EMPLOYEE-INFORMATION",
+    "legacyId": 35,
+    "name": "员工信息",
+    "legacyUrl": "EMPLOYEE/INFORMATION/main.asp",
+    "domain": "employee",
+    "targetRoute": "/hr/employees",
+    "selectionReason": "one_of_twelve_score_90_entries_with_hash_bound_legacy_field_evidence_and_existing_scoped_api_permission_page_and_mobile_contracts",
+    "currentStaticEvidence": {
+      "score": 90,
+      "implementationStatus": "partial",
+      "dimensions": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": true,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/yuzhou-employee-basic-profile-source-evidence-v1.json",
+      "rawSha256": "1a17ae4e2d3f82671ae9bc1923cf46d1109e30a8ae6d73d1d917f1dc8e7f7992",
+      "canonicalSha256": "a698021da0c592693dbe9e01b696e3ea7080e077c803ac27b9d01f9a2835ae97"
+    }
+  ],
+  "legacyStaticContract": {
+    "entryResolved": true,
+    "traversedAspFiles": 6,
+    "forms": 4,
+    "controls": 65,
+    "enumeratedFields": 43,
+    "unenumeratedControls": 22,
+    "requestKeys": 15,
+    "formActions": 1,
+    "selectStatements": 1,
+    "insertStatements": 0,
+    "updateStatements": 0,
+    "deleteStatements": 0,
+    "stateTransitions": 6,
+    "fieldEvidenceHash": "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622",
+    "staticEvidenceMeaning": "source_inventory_only_not_runtime_behavior"
+  },
+  "legacyFieldGroups": {
+    "identity": ["vCardID", "vEmployeeNumb", "vCHName", "vENName", "vSex", "vRace", "vNativePlace", "vPoliticalFace", "dJoinClan", "iStature", "decAvoirdupois", "vMarriage", "vHealth", "vCardType", "vIDCard", "dBirth", "txtNative"],
+    "education": ["vEducational", "vSpeciality", "vDergee", "vLanguage", "vLanguageDegree", "GraduateTime", "finishschool"],
+    "contact": ["vHomePhone", "vMobile", "vWorkPhone", "vEmail", "vAddress", "vLinkman", "vLinkPhone"],
+    "employment": ["vDept", "vJob", "vHeadShip", "vHeadShipGrade", "vSort", "vTechnical", "vTechnicalGrade", "dJoinDate", "iProbationTerm", "isfire", "DFiredate", "txtRemark"]
+  },
+  "fieldBindings": [
+    {"legacyField":"vCardID","modernTarget":null,"disposition":"unresolved_target_requires_legacy_runtime_and_catalog_evidence"},
+    {"legacyField":"vEmployeeNumb","modernTarget":"hr_employee.employee_code","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vCHName","modernTarget":"hr_employee.full_name","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vENName","modernTarget":"hr_employee_profile.english_name","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vSex","modernTarget":"hr_employee_profile.gender","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vRace","modernTarget":"hr_employee_profile.ethnicity","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vNativePlace","modernTarget":"hr_employee_profile.native_place","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vPoliticalFace","modernTarget":"hr_employee_profile.political_status","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"dJoinClan","modernTarget":"hr_employee_profile.party_join_date","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"iStature","modernTarget":"hr_employee_profile.height_cm","disposition":"blocked_source_unit_semantics_unconfirmed"},
+    {"legacyField":"decAvoirdupois","modernTarget":"hr_employee_profile.weight_kg","disposition":"blocked_source_unit_semantics_unconfirmed"},
+    {"legacyField":"vMarriage","modernTarget":"hr_employee_profile.marital_status","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vHealth","modernTarget":"hr_employee_profile.health_status","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vCardType","modernTarget":"hr_employee_profile.id_type","disposition":"candidate_requires_value_dictionary_confirmation"},
+    {"legacyField":"vIDCard","modernTarget":"hr_employee_profile.protected_id_number","disposition":"candidate_requires_runtime_confirmation_and_masked_acceptance"},
+    {"legacyField":"dBirth","modernTarget":"hr_employee_profile.date_of_birth","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"txtNative","modernTarget":"hr_employee_profile.household_registration","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vEducational","modernTarget":"hr_employee_profile.highest_education","disposition":"blocked_dictionary_projection_and_precedence_unconfirmed"},
+    {"legacyField":"vSpeciality","modernTarget":"hr_employee_profile.major","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vDergee","modernTarget":"hr_employee_profile.degree","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vLanguage","modernTarget":"hr_employee_profile.foreign_language","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vLanguageDegree","modernTarget":"hr_employee_profile.language_level","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"GraduateTime","modernTarget":"hr_employee_profile.graduation_date","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"finishschool","modernTarget":"hr_employee_profile.graduation_school","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vHomePhone","modernTarget":"hr_employee_profile.home_phone","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vMobile","modernTarget":"hr_employee_profile.personal_mobile","disposition":"candidate_requires_runtime_confirmation_and_masked_acceptance"},
+    {"legacyField":"vWorkPhone","modernTarget":"hr_employee.work_mobile","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vEmail","modernTarget":"hr_employee_profile.personal_email","disposition":"candidate_requires_personal_vs_work_boundary_confirmation"},
+    {"legacyField":"vAddress","modernTarget":"hr_employee_profile.address","disposition":"candidate_requires_runtime_confirmation_and_masked_acceptance"},
+    {"legacyField":"vLinkman","modernTarget":"hr_employee_profile.emergency_contact_name","disposition":"candidate_requires_runtime_confirmation_and_masked_acceptance"},
+    {"legacyField":"vLinkPhone","modernTarget":"hr_employee_profile.emergency_contact_mobile","disposition":"candidate_requires_runtime_confirmation_and_masked_acceptance"},
+    {"legacyField":"vDept","modernTarget":"hr_employee.primary_org_id","disposition":"blocked_reference_identity_resolution_required"},
+    {"legacyField":"vJob","modernTarget":"hr_employee.position_id","disposition":"blocked_reference_identity_resolution_required"},
+    {"legacyField":"vHeadShip","modernTarget":"hr_employee_profile.job_title","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vHeadShipGrade","modernTarget":"hr_employee_profile.job_grade","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vSort","modernTarget":"hr_employee_profile.employee_category","disposition":"candidate_requires_value_dictionary_confirmation"},
+    {"legacyField":"vTechnical","modernTarget":"hr_employee_profile.technical_title","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"vTechnicalGrade","modernTarget":"hr_employee_profile.technical_grade","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"dJoinDate","modernTarget":"hr_employee.hire_date","disposition":"candidate_requires_runtime_confirmation"},
+    {"legacyField":"iProbationTerm","modernTarget":"hr_employee.probation_end_date","disposition":"blocked_duration_unit_and_date_derivation_unconfirmed"},
+    {"legacyField":"isfire","modernTarget":"hr_employee.employment_status","disposition":"blocked_state_translation_unconfirmed"},
+    {"legacyField":"DFiredate","modernTarget":"hr_employee.departure_date","disposition":"candidate_requires_approved_departure_semantics_confirmation"},
+    {"legacyField":"txtRemark","modernTarget":null,"disposition":"blocked_employee_vs_profile_remark_ownership_ambiguous"}
+  ],
+  "legacyInteractionSlots": {
+    "forms": ["legacy_form_1", "legacy_form_2", "legacy_form_3", "legacy_form_4"],
+    "formActions": ["legacy_form_action_1"],
+    "stateTransitions": ["legacy_state_transition_1", "legacy_state_transition_2", "legacy_state_transition_3", "legacy_state_transition_4", "legacy_state_transition_5", "legacy_state_transition_6"],
+    "slotStatus": "static_slot_identity_frozen_semantics_pending_live_observation",
+    "requiredObservation": "bind_each_slot_to_visible_label_precondition_role_before_state_after_state_and_modern_action_without_recording_business_values"
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservation": ["column_order", "filter_controls", "pagination", "sort_order", "print_or_export_controls", "empty_state"],
+    "modernAcceptance": ["desktop_list_and_detail", "phone_390_cards", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_EMPLOYEE_STATUSES = [\"preboarding\", \"probation\", \"active\", \"suspended\", \"departed\"]", "HR_EMPLOYEE_TEAM_READ", "HR_EMPLOYEE_PROFILE_SELF_READ", "managed_org_tree"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "requiredTokens": ["@Get(\"employees\")", "@Get(\"employees/me\")", "@Get(\"employees/:id\")", "@Get(\"employees/:id/profile\")", "@Put(\"employees/:id/profile\")"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "requiredTokens": ["resolveHrEmployeeAccessScope(actor)", "if(accessScope===\"none\")return", "resolveHrEmployeeProfileAccess(actor)", "recordHrSensitiveRead(this.auditService", "projectHrEmployeeProfile(saved,\"full\")"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-access-policy.ts",
+      "requiredTokens": ["export function projectHrEmployee", "export function projectHrEmployeeProfile", "projection===\"full\"", "masked: !full"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
+      "requiredTokens": ["export class CreateHrEmployeeDto", "export class UpdateHrEmployeeProfileDto", "heightCm?:number", "highestEducation?:string", "emergencyContactMobile?:string"]
+    },
+    {
+      "path": "database/migrations/000270_hr_employee_basic_profile_parity.sql",
+      "requiredTokens": ["ALTER TABLE hr_employee_profile", "id_number_encrypted", "id_number_fingerprint", "uq_hr_employee_profile_identity_fingerprint"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-employee-basic-profile-parity.contract.spec.ts",
+      "requiredTokens": ["Yuzhou basic profile fields have typed persistence and privacy controls", "ck_hr_employee_profile_height", "ck_hr_employee_profile_weight"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["employees:(token?:string", "profile:(id:string", "updateProfile:(id:string", "/hr/employees/${id}/profile"]
+    },
+    {
+      "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+      "requiredTokens": ["type=\"search\"", "statusFilter", "ds-mobile-record-list", "当前员工详情不在您的数据权限范围内。", "无权访问员工档案", "profile.masked"]
+    },
+    {
+      "path": "apps/web/app/hr/hr-employee-rbac-scope.contract.spec.ts",
+      "requiredTokens": ["employee directory and profiles use only their exact park team and self atoms", "self masked profile and independently permitted detail sections remain usable"]
+    },
+    {
+      "path": "apps/web/app/hr/hr-route.contract.spec.ts",
+      "requiredTokens": ["HR M4 employee directory is list-first with explicit create and filters", "ds-mobile-record-list", "@media (max-width: 520px)"]
+    }
+  ],
+  "modernRuntimeContract": {
+    "route": "/hr/employees",
+    "statusVocabulary": ["preboarding", "probation", "active", "suspended", "departed"],
+    "roleMatrix": [
+      {"role":"hr_manager","permissions":["hr:employees", "hr:employee:read", "hr:employee_profile:manage"],"directoryScope":"tenant_park","profileProjection":"full"},
+      {"role":"department_manager","permissions":["hr:employees", "hr:employee:team_read", "hr:employee_profile:team_read"],"directoryScope":"managed_org_tree","profileProjection":"masked"},
+      {"role":"employee_self_service","permissions":["hr:employees", "hr:employee:self_read", "hr:employee_profile:self_read"],"directoryScope":"self","profileProjection":"self_masked"},
+      {"role":"no_employee_permission","permissions":[],"directoryScope":"none","profileProjection":"none"}
+    ],
+    "apiTasks": [
+      {"id":"park_directory_filtered","method":"GET","path":"/hr/employees","expectedStatus":200,"assertions":["paginated_shape", "tenant_park_scope", "keyword_filter", "status_filter"]},
+      {"id":"team_directory_scoped","method":"GET","path":"/hr/employees","expectedStatus":200,"assertions":["managed_org_tree_only", "sibling_tree_absent"]},
+      {"id":"self_directory_scoped","method":"GET","path":"/hr/employees/me","expectedStatus":200,"assertions":["actor_employee_only"]},
+      {"id":"park_detail_scoped","method":"GET","path":"/hr/employees/:id","expectedStatus":200,"assertions":["reviewed_projection_keys_only"]},
+      {"id":"team_cross_tree_detail_hidden","method":"GET","path":"/hr/employees/:id","expectedStatus":404,"assertions":["foreign_identity_not_disclosed"]},
+      {"id":"full_profile_required_audit","method":"GET","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["full_projection", "required_audit_before_response"]},
+      {"id":"team_profile_masked","method":"GET","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["masked_projection", "protected_values_absent"]},
+      {"id":"self_profile_masked","method":"GET","path":"/hr/employees/me/profile","expectedStatus":200,"assertions":["self_only", "self_masked_projection"]},
+      {"id":"profile_update_isolated_fixture","method":"PUT","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["idempotency_key", "profile_manage_permission", "synthetic_values_only", "read_after_write"]},
+      {"id":"missing_permission_forbidden","method":"GET","path":"/hr/employees","expectedStatus":403,"assertions":["permission_guard_denies", "employee_rows_absent"]}
+    ],
+    "browserTask": {
+      "viewports": [
+        {"id":"desktop","width":1440,"height":1000},
+        {"id":"phone_390","width":390,"height":844}
+      ],
+      "checks": [
+        {"id":"park_directory","role":"hr_manager","visibleTexts":["员工档案", "新增员工"],"assertions":["route_reached", "filters_operable", "detail_opens", "no_horizontal_overflow"]},
+        {"id":"team_directory","role":"department_manager","visibleTexts":["团队员工档案", "受保护档案（已脱敏）"],"assertions":["managed_tree_only", "write_controls_absent", "no_horizontal_overflow"]},
+        {"id":"self_directory","role":"employee_self_service","visibleTexts":["我的档案", "受保护档案（已脱敏）"],"assertions":["self_only", "other_employee_rows_absent", "no_horizontal_overflow"]},
+        {"id":"forbidden_directory","role":"no_employee_permission","visibleTexts":["无权访问员工档案"],"assertions":["forbidden_surface", "employee_rows_absent", "no_horizontal_overflow"]}
+      ]
+    }
+  },
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyFieldBindings": 43,
+    "requiredLegacyInteractionSlots": 11,
+    "requiredLegacyReportLayoutDecision": 1,
+    "requiredModernApiObservations": 10,
+    "requiredModernBrowserObservations": 8,
+    "requiredPairing": "same_candidate_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true
+  },
+  "blockingGaps": [
+    "GROUP_WEB_EMPLOYEE_INFORMATION_LEGACY_RUNTIME_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_INFORMATION_22_CONTROLS_NOT_ENUMERATED",
+    "GROUP_WEB_EMPLOYEE_INFORMATION_ACTION_AND_STATE_SEMANTICS_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_INFORMATION_FIELD_BINDINGS_NOT_RUNTIME_CONFIRMED",
+    "GROUP_WEB_EMPLOYEE_INFORMATION_REPORT_LAYOUT_NOT_OBSERVED",
+    "GROUP_WEB_EMPLOYEE_INFORMATION_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "coverageCredit": {
+    "groupWebNavigableEntries": {"numerator":0,"denominator":186},
+    "legacyInteractionParity": {"numerator":0,"denominator":6}
+  },
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}
