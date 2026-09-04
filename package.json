@@ -215,6 +215,8 @@
     "test:e2e:yuzhou-performance-legacy-master-extract": "node scripts/e2e/yuzhou-performance-legacy-master-extract-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-master-parity": "node scripts/e2e/yuzhou-performance-legacy-master-parity-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-relations": "node scripts/e2e/yuzhou-performance-legacy-relations-contract.mjs",
+    "test:e2e:yuzhou-performance-legacy-identity-resolution": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-contract.mjs",
+    "test:e2e:yuzhou-performance-legacy-identity-resolution:pg": "node scripts/e2e/yuzhou-performance-legacy-identity-resolution-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-writer": "node scripts/e2e/yuzhou-performance-legacy-writer-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-writer:pg": "node scripts/e2e/yuzhou-performance-legacy-writer-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-extract": "node scripts/e2e/yuzhou-performance-legacy-extract-contract.mjs",
