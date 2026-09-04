@@ -1,0 +1,136 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_assessmentdetail_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "inventoryBindingGap": {
+    "canonicalInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "currentGeneratorObservedSha256": "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617",
+    "reasonCode": "STRUCTURAL_INVENTORY_GENERATOR_DIGEST_DRIFT",
+    "decision": "KEEP_GAP_NO_REBIND"
+  },
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.assessmentdetail",
+      "sourceTable": "assessmentdetail",
+      "tableId": "TABLE-E7C19611B44BEBBB",
+      "structuralHash": "bb027ae37045c1d871df3b2e2846fba0e3d514663509031fc1b63f23acee0b38",
+      "sourceArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+      "observedRows": null,
+      "sourceRowCountStatus": "NOT_CAPTURED_IN_CURRENT_STRUCTURAL_INVENTORY",
+      "stableKey": [
+        "id"
+      ],
+      "columns": [
+        { "id": "COLUMN-D14942C772FDD604", "name": "id", "type": "int", "nullable": false, "default": null, "description": null, "structuralHash": "2f90d897303ec99475cf5b382f8b9a1063c058022a034137535dbebb9c066696" },
+        { "id": "COLUMN-8899EDFAD8DC19CC", "name": "asssessionid", "type": "int", "nullable": true, "default": null, "description": null, "structuralHash": "02d4089778d7eb5763b424f93d342fb54fe0f776029deb73985a7d8ef3d9f00e" },
+        { "id": "COLUMN-E5AAD33E86895F7E", "name": "person", "type": "varchar(10)", "nullable": true, "default": null, "description": null, "structuralHash": "b3529de1c7bd7582afea78082915e9ad4c050ca99808a1f8fb3ebc59bc6ccacb" },
+        { "id": "COLUMN-84A52F73862808E3", "name": "assitemid", "type": "int", "nullable": true, "default": null, "description": null, "structuralHash": "02ecc8e5da035a328b72dba8edf739d1e67c505679b9364568b7aec65d0edad0" },
+        { "id": "COLUMN-F0D1DCBAB25C5C79", "name": "selfvalue", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null, "structuralHash": "3dcbd824fa5ad12dbcf632b22e0aa56d950c4e60ca5287910edc5619e2f5b9d4" },
+        { "id": "COLUMN-5F285D9C5A5147BA", "name": "mitemvalue", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null, "structuralHash": "316d571d58b52b78a58d4279da8b1808b7e0ef774d0afb9e2c226ee32ec9ed2a" },
+        { "id": "COLUMN-D35643C54A468885", "name": "itemvalue", "type": "numeric(18,2)", "nullable": true, "default": "(0)", "description": null, "structuralHash": "41f4264dde3e1e5ff71afc0d71eebf744762b05fbbc3fe8ac21675ffb0831926" },
+        { "id": "COLUMN-6CC522513D05912B", "name": "xitemvalue", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null, "structuralHash": "c158c0a102110cf42ece4eaaf15771ff3804112c7d8742ec38113dfcf43ebbe1" },
+        { "id": "COLUMN-7387B48190FD4EDA", "name": "citemvalue", "type": "numeric(18,2)", "nullable": true, "default": null, "description": null, "structuralHash": "95471b2f8fda7b816b455a7877d103e9d3239327b425ac0d99774e722c66ac6a" },
+        { "id": "COLUMN-CF738FC7EFDE0E8F", "name": "selfgrade", "type": "varchar(12)", "nullable": true, "default": null, "description": null, "structuralHash": "955f0a6799324a4401a3202dc7f27a343f6313c4eda75617e08f00596f226f06" },
+        { "id": "COLUMN-FA4A908A72CD56D4", "name": "assgrade", "type": "varchar(12)", "nullable": true, "default": null, "description": null, "structuralHash": "6166ed650fade31bd856da7b193f0f9ba3f7326d21ec3c32d6ba998b5f8149a1" },
+        { "id": "COLUMN-80BAECE96404BDAC", "name": "appraisal", "type": "varchar(200)", "nullable": true, "default": null, "description": "评定", "structuralHash": "ef3c9933ebdb0f5df0a6701d00ee8751a3e3b72777625a4666db7280e7faa4f2" }
+      ]
+    }
+  ],
+  "denominatorRule": "all_twelve_catalog_fields_count_even_when_the_source_table_or_a_nullable_defaulted_or_routine_unreferenced_column_has_no_rows_or_values",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_safe_aggregates_declared_and_routine_relations_routine_structure_and_gap_codes_only",
+  "routineBehaviorFindings": {
+    "recordCreation": "bs_AssCreateRecord_inserts_one_detail_identity_row_per_session_person_and_matching_assitem_when_not_exists",
+    "aggregatedFields": [
+      "assessmentdetail.selfvalue",
+      "assessmentdetail.mitemvalue",
+      "assessmentdetail.itemvalue",
+      "assessmentdetail.xitemvalue",
+      "assessmentdetail.citemvalue"
+    ],
+    "aggregation": "bs_ass_compute_sums_each_value_field_with_null_as_zero_by_asssessionid_and_person_into_assessmentmaster",
+    "notConsumedByBoundCompute": [
+      "assessmentdetail.id",
+      "assessmentdetail.assitemid",
+      "assessmentdetail.selfgrade",
+      "assessmentdetail.assgrade",
+      "assessmentdetail.appraisal"
+    ],
+    "implementationStatus": "REQUIRES_ROLE_MODEL_AND_SCORING_PARITY_DECISION_BEFORE_WRITER"
+  },
+  "scoringModelGap": {
+    "legacyModel": "five_per_item_value_components_are_summed_then_weighted_by_five_assessmentcode_percentages",
+    "modernModel": "self_and_manager_dimension_score_submissions_plus_optional_calibration_are_weighted_by_template_dimension_weights",
+    "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED",
+    "decision": "KEEP_GAP"
+  },
+  "relations": [
+    { "source": "assessmentdetail.assitemid", "target": "assitem.id", "kind": "declared_foreign_key", "disposition": "verified_source_relation" },
+    { "source": "assessmentdetail.asssessionid+assessmentdetail.person", "target": "assessmentmaster.asssessionid+assessmentmaster.person", "kind": "routine_composite_join_without_declared_foreign_key", "disposition": "verified_source_relation" },
+    { "source": "assessmentdetail.person", "target": "person.person", "kind": "record_creation_identity_without_declared_foreign_key", "disposition": "verified_source_relation" },
+    { "source": "assessmentdetail.asssessionid", "target": "asssession.id", "kind": "parameter_identity_candidate_without_declared_foreign_key", "disposition": "explicit_gap_relation", "reasonCode": "PERFORMANCE_DETAIL_SESSION_RELATION_NOT_DECLARED" },
+    { "source": "assessmentdetail.selfgrade", "target": "assgradecode.assgrade", "kind": "name_match_candidate_without_declared_foreign_key_or_bound_routine", "disposition": "explicit_gap_relation", "reasonCode": "PERFORMANCE_DETAIL_GRADE_RELATION_UNPROVEN" },
+    { "source": "assessmentdetail.assgrade", "target": "assgradecode.assgrade", "kind": "name_match_candidate_without_declared_foreign_key_or_bound_routine", "disposition": "explicit_gap_relation", "reasonCode": "PERFORMANCE_DETAIL_GRADE_RELATION_UNPROVEN" }
+  ],
+  "fields": [
+    { "stableId": "ASSESSMENTDETAIL_ID", "sourceField": "assessmentdetail.id", "disposition": "explicit_gap", "targetFields": ["legacy_record_map.source_pk_canonical"], "preservationFields": [], "transformRule": "preserve_integer_source_identity_after_writer_exists", "reasonCode": "PERFORMANCE_ASSESSMENTDETAIL_LEGACY_WRITER_NOT_IMPLEMENTED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_ASSSESSIONID", "sourceField": "assessmentdetail.asssessionid", "disposition": "explicit_gap", "targetFields": ["hr_performance_cycle_employee.cycle_id"], "preservationFields": [], "transformRule": "resolve_nullable_session_through_asssession_record_map_after_relation_is_proven", "reasonCode": "PERFORMANCE_DETAIL_SESSION_RELATION_NOT_DECLARED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_PERSON", "sourceField": "assessmentdetail.person", "disposition": "explicit_gap", "targetFields": ["hr_performance_cycle_employee.employee_id"], "preservationFields": [], "transformRule": "resolve_nullable_person_through_employee_record_map_after_writer_exists", "reasonCode": "PERFORMANCE_DETAIL_PERSON_RELATION_WRITER_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_ASSITEMID", "sourceField": "assessmentdetail.assitemid", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_scores.key"], "preservationFields": [], "transformRule": "resolve_nullable_item_through_assitem_dimension_record_map_after_writer_exists", "reasonCode": "PERFORMANCE_DETAIL_ITEM_RELATION_WRITER_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_SELFVALUE", "sourceField": "assessmentdetail.selfvalue", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission[submission_type=self].dimension_scores"], "preservationFields": [], "transformRule": "preserve_nullable_decimal_score_after_range_and_aggregation_parity_are_proven", "reasonCode": "PERFORMANCE_DETAIL_SCORE_WRITER_AND_PARITY_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_MITEMVALUE", "sourceField": "assessmentdetail.mitemvalue", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_scores"], "preservationFields": [], "transformRule": "preserve_nullable_decimal_component_without_assigning_a_modern_role_until_legacy_role_identity_is_reviewed", "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_ITEMVALUE", "sourceField": "assessmentdetail.itemvalue", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_scores"], "preservationFields": [], "transformRule": "preserve_defaulted_decimal_component_without_assigning_a_modern_role_until_legacy_role_identity_is_reviewed", "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_XITEMVALUE", "sourceField": "assessmentdetail.xitemvalue", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_scores"], "preservationFields": [], "transformRule": "preserve_nullable_decimal_component_without_assigning_a_modern_role_until_legacy_role_identity_is_reviewed", "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_CITEMVALUE", "sourceField": "assessmentdetail.citemvalue", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_scores"], "preservationFields": [], "transformRule": "preserve_nullable_decimal_component_without_assigning_a_modern_role_until_legacy_role_identity_is_reviewed", "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_SELFGRADE", "sourceField": "assessmentdetail.selfgrade", "disposition": "explicit_gap", "targetFields": [], "preservationFields": [], "transformRule": "preserve_nullable_grade_after_relation_and_per_dimension_grade_target_are_defined", "reasonCode": "PERFORMANCE_DETAIL_PER_ITEM_GRADE_TARGET_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_ASSGRADE", "sourceField": "assessmentdetail.assgrade", "disposition": "explicit_gap", "targetFields": [], "preservationFields": [], "transformRule": "preserve_nullable_grade_after_relation_and_per_dimension_grade_target_are_defined", "reasonCode": "PERFORMANCE_DETAIL_PER_ITEM_GRADE_TARGET_UNRESOLVED", "compatibilityCredit": 0 },
+    { "stableId": "ASSESSMENTDETAIL_APPRAISAL", "sourceField": "assessmentdetail.appraisal", "disposition": "explicit_gap", "targetFields": ["hr_performance_review_submission.dimension_comments"], "preservationFields": [], "transformRule": "preserve_nullable_appraisal_after_comment_role_and_item_key_are_defined", "reasonCode": "PERFORMANCE_DETAIL_APPRAISAL_ROLE_AND_WRITER_UNRESOLVED", "compatibilityCredit": 0 }
+  ],
+  "explicitGaps": [
+    { "sourceFields": ["assessmentdetail.id"], "reasonCode": "PERFORMANCE_ASSESSMENTDETAIL_LEGACY_WRITER_NOT_IMPLEMENTED", "missingEvidence": ["assessmentdetail_readonly_extract_and_safe_aggregate", "assessmentdetail_dedicated_transform_and_writer", "assessmentdetail_record_map_projection_and_rollback"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.asssessionid"], "reasonCode": "PERFORMANCE_DETAIL_SESSION_RELATION_NOT_DECLARED", "missingEvidence": ["reviewed_asssession_identity_relation", "asssession_to_review_cycle_record_map", "session_orphan_aggregate"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.person"], "reasonCode": "PERFORMANCE_DETAIL_PERSON_RELATION_WRITER_UNRESOLVED", "missingEvidence": ["person_to_employee_record_map", "person_orphan_aggregate", "tenant_park_scoped_relation_writer"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.assitemid"], "reasonCode": "PERFORMANCE_DETAIL_ITEM_RELATION_WRITER_UNRESOLVED", "missingEvidence": ["assitem_to_dimension_record_map", "assitem_orphan_aggregate", "dimension_key_writer"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.selfvalue"], "reasonCode": "PERFORMANCE_DETAIL_SCORE_WRITER_AND_PARITY_UNRESOLVED", "missingEvidence": ["safe_score_range_aggregate", "self_score_submission_writer", "legacy_sum_to_modern_score_parity_test"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.mitemvalue", "assessmentdetail.itemvalue", "assessmentdetail.xitemvalue", "assessmentdetail.citemvalue"], "reasonCode": "PERFORMANCE_DETAIL_FIVE_COMPONENT_TO_MODERN_ROLE_MODEL_UNRESOLVED", "missingEvidence": ["reviewed_legacy_role_identity_for_each_component", "modern_storage_for_all_five_components", "five_component_weighted_total_parity_test"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.selfgrade", "assessmentdetail.assgrade"], "reasonCode": "PERFORMANCE_DETAIL_PER_ITEM_GRADE_TARGET_UNRESOLVED", "missingEvidence": ["reviewed_grade_relation", "modern_per_dimension_grade_target", "grade_rendering_parity"], "decision": "KEEP_GAP" },
+    { "sourceFields": ["assessmentdetail.appraisal"], "reasonCode": "PERFORMANCE_DETAIL_APPRAISAL_ROLE_AND_WRITER_UNRESOLVED", "missingEvidence": ["reviewed_appraisal_actor_and_stage", "dimension_comment_key_mapping", "lossless_comment_writer_and_UI"], "decision": "KEEP_GAP" }
+  ],
+  "sourceAggregateGap": {
+    "sourceTable": "dbo.assessmentdetail",
+    "observedRows": null,
+    "reasonCode": "PERFORMANCE_ASSESSMENTDETAIL_SAFE_AGGREGATES_NOT_CAPTURED",
+    "missingEvidence": ["readonly_row_count", "nullable_field_counts", "session_person_item_duplicate_count", "session_person_item_orphan_counts", "five_score_component_population_and_range_counts", "grade_orphan_counts", "appraisal_population_count"],
+    "decision": "KEEP_GAP"
+  },
+  "legacyProjectionGap": {
+    "reasonCode": "PERFORMANCE_ASSESSMENTDETAIL_EXTRACT_TRANSFORM_WRITER_MISSING",
+    "missingEvidence": ["readonly_extract", "typed_transform", "tenant_park_scoped_writer", "record_map", "reverse_order_rollback"],
+    "decision": "KEEP_GAP"
+  },
+  "repositoryEvidence": [
+    { "role": "domain_table_map", "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f", "requiredTokens": ["assessmentdetail", "hr_performance_review_submission", "hr_performance_item"] },
+    { "role": "modern_template_score_schema", "path": "database/migrations/000258_hr_performance_template_planning.sql", "sha256": "b88a42fab357ad788a4b56e3d2b5479af4a942f96210c7c2806ce7509aa16318", "requiredTokens": ["CREATE TABLE hr_performance_template_dimension (", "CREATE FUNCTION hr_performance_snapshot_score", "total:=total+supplied*(d->>'weight')::numeric"] },
+    { "role": "modern_submission_schema", "path": "database/migrations/000259_hr_performance_review_calibration.sql", "sha256": "49103b7ec592ec746e93fa149394a72b74bca0dfb97078236a71f1142d0b9549", "requiredTokens": ["CREATE TABLE hr_performance_review_submission (", "dimension_scores jsonb NOT NULL", "dimension_comments jsonb NOT NULL", "submission_type IN('self','manager')"] },
+    { "role": "modern_review_runtime", "path": "apps/api/src/modules/hr/hr-performance-review.service.ts", "sha256": "d76e7888afbf93bbd73f43accee26e238772e67dc955c85c67bd2f9249d26f35", "requiredTokens": ["hr_performance_cycle_employee", "template_snapshot", "applicable_org_ids"] },
+    { "role": "modern_submission_writer", "path": "apps/api/src/modules/hr/hr-performance-evaluation.service.ts", "sha256": "ec1d11da1ef233f880dc45bf1809e52f80ccdb8d6b886a989eb7c634372c9d03", "requiredTokens": ["async submitSelf", "async submitManager", "INSERT INTO hr_performance_review_submission", "hr_performance_snapshot_score"] },
+    { "role": "modern_runtime_page", "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx", "sha256": "d1e252f5bd63fe296e14b9de7735f0e0a0dff73bed289bb3626c4efbb167597e", "requiredTokens": ["填写自评", "主管评价", "校准调整", "评价说明"] }
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      { "routineId": "RULE-0C991427090A219D", "sourceName": "bs_ass_compute", "sourceArtifactSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414" },
+      { "routineId": "RULE-D7708D3A5CB7696D", "sourceName": "bs_AssCreateRecord", "sourceArtifactSha256": "2981b6a7dbabe949c03d25d17971146e9939344e0051ecd8d52aa90a984a8e9d" }
+    ]
+  },
+  "compatibilityCredit": { "numerator": 0, "denominator": 12 },
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": ["photo", "docs"],
+  "productionImport": "HOLD"
+}
