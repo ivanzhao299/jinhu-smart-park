@@ -8,7 +8,7 @@ import test from "node:test";
 import { buildJobStateV2Fixture } from "./yuzhou-job-state-v2-fixture.mjs";
 import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, buildMaterializationSql } from "../hr-cutover/materialize-reviewed-job-state.mjs";
-import { computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
+import { classifyCorePhaseFailure, computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
 import { parseCorePrepareArgs, prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 import { sealCoreDictionaryCapture } from "../hr-cutover/capture-yuzhou-core-dictionary-receipt.mjs";
@@ -17,6 +17,13 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const fixture = buildJobStateV2Fixture();
 const sha = value => createHash("sha256").update(value).digest("hex");
 const readOnlyAuthority = { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false };
+
+test("core driver preserves redacted T0 input failure classes before generic PostgreSQL classification", () => {
+  assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_EMPLOYEE_DATE_INPUT_INVALID");
+  assert.equal(classifyCorePhaseFailure("ERROR: T0_POSITION_INTEGER_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_POSITION_INTEGER_INPUT_INVALID");
+  assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type integer", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_INPUT");
+  assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_MIGRATION_FAILED"), "CORE_MIGRATION_FAILED");
+});
 
 test("core prepare accepts the pnpm argument delimiter once and rejects a duplicate delimiter", () => {
   const args = ["--rehearsal", "A", "--suffix", "driver01", "--postgres-port", "33100", "--api-port", "33101", "--web-port", "33102", "--control-root", "/tmp/control", "--etl-env", "/tmp/etl.env", "--source-container", "jinhu_yuzhou_migration_lab-sqlserver-1", "--source-backup", "/tmp/source.bak", "--source-restore-receipt", "/tmp/receipt.json", "--machine-attestation-root", "a".repeat(64), "--event-type-package", "/tmp/event-type.json", "--event-state-package", "/tmp/event-state.json", "--contract-type-package", "/tmp/contract-type.json", "--contract-state-package", "/tmp/contract-state.json", "--dictionary-capture-receipt", "/tmp/dictionary-capture.json"];

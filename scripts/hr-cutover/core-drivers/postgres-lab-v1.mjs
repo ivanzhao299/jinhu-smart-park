@@ -97,18 +97,22 @@ function assertPrivateFile(path, label) {
   return actual;
 }
 
+export function classifyCorePhaseFailure(output, requestedCode = "CORE_PHASE_FAILED") {
+  if (requestedCode !== "CORE_PHASE_FAILED") return requestedCode ?? "CORE_DRIVER_COMMAND_FAILED";
+  const t0Input = String(output).match(/\b(T0_(?:DEPARTMENT|POSITION)_(?:SMALLINT|INTEGER)_INPUT_INVALID|T0_EMPLOYEE_DATE_INPUT_INVALID)\b/u);
+  if (t0Input) return `CORE_PHASE_${t0Input[1]}`;
+  if (/invalid input syntax/iu.test(output)) return "CORE_PHASE_POSTGRES_INVALID_INPUT";
+  if (/duplicate key|unique constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_UNIQUE_CONSTRAINT";
+  if (/foreign key constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_FOREIGN_KEY";
+  if (/not-null constraint|null value/iu.test(output)) return "CORE_PHASE_POSTGRES_NOT_NULL";
+  if (/permission denied|unsafe target|wrong postgres project/iu.test(output)) return "CORE_PHASE_TARGET_BOUNDARY";
+  if (/T3 verification failed|count drift|staging manifest binding mismatch/iu.test(output)) return "CORE_PHASE_T3_VERIFICATION";
+  return "CORE_PHASE_EXECUTION_FAILED";
+}
+
 function defaultRun(command, args, options = {}) {
   const retryableMigrationConnection = output => /connection to server|could not connect|server closed the connection|database system is starting up/iu.test(output);
-  const phaseFailureCode = output => {
-    if (options.code !== "CORE_PHASE_FAILED") return options.code ?? "CORE_DRIVER_COMMAND_FAILED";
-    if (/invalid input syntax/iu.test(output)) return "CORE_PHASE_POSTGRES_INVALID_INPUT";
-    if (/duplicate key|unique constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_UNIQUE_CONSTRAINT";
-    if (/foreign key constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_FOREIGN_KEY";
-    if (/not-null constraint|null value/iu.test(output)) return "CORE_PHASE_POSTGRES_NOT_NULL";
-    if (/permission denied|unsafe target|wrong postgres project/iu.test(output)) return "CORE_PHASE_TARGET_BOUNDARY";
-    if (/T3 verification failed|count drift|staging manifest binding mismatch/iu.test(output)) return "CORE_PHASE_T3_VERIFICATION";
-    return "CORE_PHASE_EXECUTION_FAILED";
-  };
+  const phaseFailureCode = output => classifyCorePhaseFailure(output, options.code);
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const result = spawnSync(command, args, {
       cwd: ROOT,
