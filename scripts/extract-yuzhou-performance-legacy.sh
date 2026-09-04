@@ -70,6 +70,7 @@ sqlcmd_query "$WORK_DIR/assessmentdetail.json" "SET NOCOUNT ON; SELECT LOWER(CON
 sqlcmd_query "$WORK_DIR/asssession.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssession',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssession,source.description,source.assessmenttype,source.year,source.month,source.quarter,source.myorder FROM dbo.asssession source CROSS APPLY(SELECT source.id,source.asssession,source.description,source.assessmenttype,source.year,source.month,source.quarter,source.myorder FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 sqlcmd_query "$WORK_DIR/assessmentmaster.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.assessmentmaster',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.selfgrade,source.assgrade,source.selfvalue,source.itemvalue,source.mitemvalue,source.xitemvalue,source.citemvalue,source.mastervalue,source.timekeepvalue,source.bonusvalue,source.totalvalue,source.selfappraisal,source.appraisal,source.pay,source.assessmentperson,source.recdate,source.operator,source.des FROM dbo.assessmentmaster source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.selfgrade,source.assgrade,source.selfvalue,source.itemvalue,source.mitemvalue,source.xitemvalue,source.citemvalue,source.mastervalue,source.timekeepvalue,source.bonusvalue,source.totalvalue,source.selfappraisal,source.appraisal,source.pay,source.assessmentperson,source.recdate,source.operator,source.des FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 sqlcmd_query "$WORK_DIR/asssour.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssour',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.assitemid,source.lb,source.itemvalue,source.assgrade,source.appraisal FROM dbo.asssour source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.assitemid,source.lb,source.itemvalue,source.assgrade,source.appraisal FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
+sqlcmd_query "$WORK_DIR/asssourperson.json" "SET NOCOUNT ON; SELECT LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'dbo.asssourperson',NCHAR(0),CONVERT(nvarchar(50),source.id))),2)) sourceIdentitySha256,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',canonical.row_json),2)) sourceRowSha256,source.id,source.asssessionid,source.person,source.assperson,source.lb FROM dbo.asssourperson source CROSS APPLY(SELECT source.id,source.asssessionid,source.person,source.assperson,source.lb FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)canonical(row_json) ORDER BY source.id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 
 SOURCE_RECEIPT_SHA256="$(shasum -a 256 "$SOURCE_RECEIPT" | awk '{print $1}')"
 export WORK_DIR OUTPUT MASTER_OUTPUT RELATION_OUTPUT SOURCE_RECEIPT_SHA256
@@ -80,7 +81,7 @@ import { resolve } from "node:path";
 
 const projectionNames = ["assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail"];
 const masterNames = ["assessmentmaster"];
-const relationNames = ["asssession", "asssour"];
+const relationNames = ["asssession", "asssour", "asssourperson"];
 const names = [...projectionNames, ...masterNames, ...relationNames];
 const all = Object.fromEntries(names.map(name => [name, JSON.parse(readFileSync(resolve(process.env.WORK_DIR, `${name}.json`), "utf8") || "[]")]));
 const payload = Object.fromEntries(projectionNames.map(name => [name, all[name]]));
@@ -114,6 +115,7 @@ const safeFacts = {
     asssession: duplicateGroups(all.asssession, "id"),
     assessmentmaster: duplicateGroups(all.assessmentmaster, "id"),
     asssour: duplicateGroups(all.asssour, "id"),
+    asssourperson: duplicateGroups(all.asssourperson, "id"),
   },
   unresolvedRelations: {
     assitemAssessment: all.assitem.filter(row => row.assid !== null && !assessmentIds.has(row.assid)).length,
@@ -124,6 +126,7 @@ const safeFacts = {
     masterSession: all.assessmentmaster.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
     scoreSourceSession: all.asssour.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
     scoreSourceItem: all.asssour.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+    scoreSourcePersonSession: all.asssourperson.filter(row => row.asssessionid !== null && !sessionIds.has(row.asssessionid)).length,
   },
 };
 process.stdout.write(`${JSON.stringify({

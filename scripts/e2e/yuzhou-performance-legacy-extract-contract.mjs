@@ -8,7 +8,7 @@ const writer = readFileSync(resolve(root, "database/migrations/000301_hr_perform
 
 for (const table of [
   "assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail",
-  "asssession", "assessmentmaster", "asssour",
+  "asssession", "assessmentmaster", "asssour", "asssourperson",
 ]) {
   assert.match(script, new RegExp(`dbo\\.${table}`, "u"));
 }
@@ -42,12 +42,12 @@ assert.match(script, /unresolvedRelations/u);
 assert.match(script, /const projectionNames = \["assessmentcode", "assgradecode", "assitem", "assitemgradedes", "assessmentdetail"\]/u);
 assert.match(writer, /p_payload,ARRAY\['assessmentcode','assgradecode','assitem','assitemgradedes','assessmentdetail'\]/u);
 assert.match(script, /const masterNames = \["assessmentmaster"\]/u);
-assert.match(script, /const relationNames = \["asssession", "asssour"\]/u);
+assert.match(script, /const relationNames = \["asssession", "asssour", "asssourperson"\]/u);
 assert.match(script, /YUZHOU_PERFORMANCE_MASTER_PRIVATE_OUTPUT/u);
 assert.match(script, /YUZHOU_PERFORMANCE_RELATION_PRIVATE_OUTPUT/u);
 assert.match(script, /masterPrivatePayloadSha256/u);
 assert.match(script, /relationPrivatePayloadSha256/u);
-for (const relation of ["detailSession", "masterSession", "scoreSourceSession", "scoreSourceItem"]) {
+for (const relation of ["detailSession", "masterSession", "scoreSourceSession", "scoreSourceItem", "scoreSourcePersonSession"]) {
   assert.match(script, new RegExp(relation, "u"));
 }
 assert.doesNotMatch(script, /process\.stdout\.write\([^;]*(?:payload|assitem|assessmentdetail)/su);
