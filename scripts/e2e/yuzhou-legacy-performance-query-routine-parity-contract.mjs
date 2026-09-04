@@ -25,6 +25,7 @@ test("seven query routines remain pending and receive zero compatibility credit"
     sourceRoutines: 7,
     verifiedRoutines: 0,
     pendingRoutines: 7,
+    implementedTargets: 2,
     dynamicReadOnlyRoutines: 5,
     schemaDriftRoutines: 4,
     compatibilityCredit: 0,
@@ -34,6 +35,26 @@ test("seven query routines remain pending and receive zero compatibility credit"
   });
   assert.equal(contract.routines.flatMap(row => row.parameters).length, 19);
   assert.equal(contract.routines.flatMap(row => row.outputColumns).length, 53);
+});
+
+test("web_ass and web_assessmentquery share the implemented bounded endpoint without hiding their orphan-row difference", () => {
+  const rows = contract.routines.filter(row => ["web_ass", "web_assessmentquery"].includes(row.sourceName));
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.parityStatus, "pending");
+    assert.equal(row.compatibilityCredit, 0);
+    assert.deepEqual(row.modernTarget, {
+      serviceSymbol: "HrPerformanceLegacyService.personSummary",
+      api: "GET /hr/performance-legacy/query-reports/person-summary",
+      page: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
+      status: "implemented_pending_parity_evidence",
+    });
+    assert.equal(row.implementationEvidence.length, 2);
+    assert.ok(row.knownDifferences.some(item => item.code === "ORPHAN_MASTER_JOIN_ASYMMETRY"));
+    assert.ok(row.missingEvidence.some(item => /orphan/iu.test(item)));
+  }
+  assert.match(rows.find(row => row.sourceName === "web_ass").joinSemantics, /person LEFT OUTER JOIN assessmentmaster/iu);
+  assert.match(rows.find(row => row.sourceName === "web_assessmentquery").joinSemantics, /assessmentmaster LEFT JOIN person/iu);
 });
 
 test("legacy final-value formulas explicitly omit the displayed master adjustment", () => {
@@ -101,6 +122,10 @@ test("verified status or compatibility credit cannot be asserted before implemen
   const credited = structuredClone(contract);
   credited.routines[0].compatibilityCredit = 1;
   expectCode(credited, "PERFORMANCE_QUERY_ROUTINE_IDENTITY_INVALID");
+
+  const missingImplementationEvidence = structuredClone(contract);
+  delete missingImplementationEvidence.routines.find(row => row.sourceName === "web_ass").implementationEvidence;
+  expectCode(missingImplementationEvidence, "PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID");
 });
 
 test("source binding, payroll projection, formula and ignored-period differences fail closed", () => {
