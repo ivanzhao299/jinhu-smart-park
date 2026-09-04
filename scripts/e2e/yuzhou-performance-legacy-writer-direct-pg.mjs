@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -28,7 +28,7 @@ function psql(targetDatabase, sql, expectSuccess = true) {
 const admin = sql => psql("postgres", sql);
 const batchId = "00000000-0000-4000-8000-000000000101";
 const h = character => character.repeat(64);
-const payload = {
+const syntheticPayload = {
   assessmentcode: [],
   assgradecode: [
     { sourceIdentitySha256: h("a"), sourceRowSha256: h("1"), assgrade: "G1", description: null, myorder: "01", assessmentid: null, minvalue: 0, maxvalue: 59 },
@@ -43,6 +43,30 @@ const payload = {
     { sourceIdentitySha256: h("f"), sourceRowSha256: h("6"), id: 201, assitemid: 101, grade: "UNMATCHED", description: null, minvalue: null, maxvalue: null, myorder: null },
   ],
   assessmentdetail: [],
+};
+const privatePayloadPath = process.env.YUZHOU_PERFORMANCE_PRIVATE_PAYLOAD;
+if (privatePayloadPath) {
+  assert.equal(statSync(privatePayloadPath).mode & 0o777, 0o600, "private payload must use mode 0600");
+}
+const payload = privatePayloadPath
+  ? JSON.parse(readFileSync(privatePayloadPath, "utf8"))
+  : syntheticPayload;
+const expectedCounts = {
+  template: payload.assessmentcode.length,
+  level: payload.assgradecode.length,
+  dimension: payload.assitem.length,
+  guide: payload.assitemgradedes.length,
+  result: payload.assessmentdetail.length,
+};
+const expectedMapCount = Object.values(expectedCounts).reduce((sum, count) => sum + count, 0);
+const assessmentIds = new Set(payload.assessmentcode.map(row => row.assessment));
+const gradeCodes = new Set(payload.assgradecode.map(row => row.assgrade));
+const itemIds = new Set(payload.assitem.map(row => row.id));
+const expectedUnresolved = {
+  itemAssessment: payload.assitem.filter(row => row.assid !== null && !assessmentIds.has(row.assid)).length,
+  guideItem: payload.assitemgradedes.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
+  guideGrade: payload.assitemgradedes.filter(row => row.grade !== null && !gradeCodes.has(row.grade)).length,
+  detailItem: payload.assessmentdetail.filter(row => row.assitemid !== null && !itemIds.has(row.assitemid)).length,
 };
 
 try {
@@ -104,22 +128,25 @@ try {
     COMMIT;
     DO $test$
     BEGIN
-      IF (SELECT count(*) FROM hr_performance_legacy_template_profile)<>0
-        OR (SELECT count(*) FROM hr_performance_legacy_level_rule)<>3
-        OR (SELECT count(*) FROM hr_performance_legacy_dimension_profile)<>2
-        OR (SELECT count(*) FROM hr_performance_legacy_dimension_level_guide)<>1
-        OR (SELECT count(*) FROM hr_performance_legacy_dimension_result)<>0
-        OR (SELECT count(*) FROM legacy_record_map WHERE batch_id='${batchId}' AND is_active)<>6 THEN
+      IF (SELECT count(*) FROM hr_performance_legacy_template_profile)<>${expectedCounts.template}
+        OR (SELECT count(*) FROM hr_performance_legacy_level_rule)<>${expectedCounts.level}
+        OR (SELECT count(*) FROM hr_performance_legacy_dimension_profile)<>${expectedCounts.dimension}
+        OR (SELECT count(*) FROM hr_performance_legacy_dimension_level_guide)<>${expectedCounts.guide}
+        OR (SELECT count(*) FROM hr_performance_legacy_dimension_result)<>${expectedCounts.result}
+        OR (SELECT count(*) FROM legacy_record_map WHERE batch_id='${batchId}' AND is_active)<>${expectedMapCount} THEN
         RAISE EXCEPTION 'writer conservation mismatch';
       END IF;
       IF (SELECT count(*) FROM hr_performance_legacy_dimension_profile
-          WHERE source_assessment_id=700 AND legacy_template_profile_id IS NULL)<>1 THEN
+          WHERE source_assessment_id IS NOT NULL AND legacy_template_profile_id IS NULL)<>${expectedUnresolved.itemAssessment} THEN
         RAISE EXCEPTION 'unresolved template relation was not preserved';
       END IF;
       IF (SELECT count(*) FROM hr_performance_legacy_dimension_level_guide
-          WHERE source_grade='UNMATCHED' AND legacy_dimension_profile_id IS NOT NULL
-            AND legacy_level_rule_id IS NULL)<>1 THEN
-        RAISE EXCEPTION 'partial guide relations were not preserved';
+          WHERE source_item_id IS NOT NULL AND legacy_dimension_profile_id IS NULL)<>${expectedUnresolved.guideItem}
+        OR (SELECT count(*) FROM hr_performance_legacy_dimension_level_guide
+          WHERE source_grade IS NOT NULL AND legacy_level_rule_id IS NULL)<>${expectedUnresolved.guideGrade}
+        OR (SELECT count(*) FROM hr_performance_legacy_dimension_result
+          WHERE source_item_id IS NOT NULL AND legacy_dimension_profile_id IS NULL)<>${expectedUnresolved.detailItem} THEN
+        RAISE EXCEPTION 'unresolved child relations were not preserved';
       END IF;
     END
     $test$;
@@ -133,10 +160,18 @@ try {
   const afterReplay = psql(database, `
     SELECT count(*) FROM legacy_record_map WHERE batch_id='${batchId}' AND is_active;
   `);
-  assert.equal(afterReplay.stdout.trim(), "6", "exact replay created duplicate maps");
+  assert.equal(afterReplay.stdout.trim(), String(expectedMapCount), "exact replay created duplicate maps");
 
   const driftPayload = structuredClone(payload);
-  driftPayload.assitem[0].sourceRowSha256 = h("7");
+  const driftRecord = [
+    ...driftPayload.assessmentcode,
+    ...driftPayload.assgradecode,
+    ...driftPayload.assitem,
+    ...driftPayload.assitemgradedes,
+    ...driftPayload.assessmentdetail,
+  ][0];
+  assert.ok(driftRecord, "writer fixture must contain at least one row");
+  driftRecord.sourceRowSha256 = driftRecord.sourceRowSha256 === h("0") ? h("9") : h("0");
   const drift = JSON.stringify(driftPayload).replaceAll("'", "''");
   const driftResult = psql(database, `
     BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
@@ -171,7 +206,7 @@ try {
     $test$;
   `);
 
-  console.log("Yuzhou performance legacy writer direct PostgreSQL checks passed (empty parents, idempotency, drift guard, rollback).");
+  console.log(`Yuzhou performance legacy writer direct PostgreSQL checks passed (${expectedMapCount} rows, idempotency, drift guard, rollback).`);
 } finally {
   admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE);`);
 }

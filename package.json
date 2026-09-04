@@ -210,6 +210,7 @@
     "test:e2e:yuzhou-performance-legacy-model:pg": "node scripts/e2e/yuzhou-performance-legacy-model-direct-pg.mjs",
     "test:e2e:yuzhou-performance-legacy-writer": "node scripts/e2e/yuzhou-performance-legacy-writer-contract.mjs",
     "test:e2e:yuzhou-performance-legacy-writer:pg": "node scripts/e2e/yuzhou-performance-legacy-writer-direct-pg.mjs",
+    "test:e2e:yuzhou-performance-legacy-extract": "node scripts/e2e/yuzhou-performance-legacy-extract-contract.mjs",
     "test:e2e:yuzhou-organization-position-field-map": "node --test scripts/e2e/yuzhou-organization-position-field-map-contract.mjs",
     "test:e2e:yuzhou-secassignment-relationship-receipt": "node --test scripts/e2e/yuzhou-secassignment-relationship-receipt-contract.mjs",
     "test:e2e:yuzhou-secassignment-modern-target-gap": "node --test scripts/e2e/yuzhou-secassignment-modern-target-gap-contract.mjs",
