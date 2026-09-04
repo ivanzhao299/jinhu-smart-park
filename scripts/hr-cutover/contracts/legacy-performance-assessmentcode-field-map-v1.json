@@ -1,0 +1,436 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_assessmentcode_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "inventoryBindingGap": {
+    "canonicalInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "currentGeneratorObservedSha256": "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617",
+    "reasonCode": "STRUCTURAL_INVENTORY_GENERATOR_DIGEST_DRIFT",
+    "decision": "KEEP_GAP_NO_REBIND"
+  },
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.assessmentcode",
+      "sourceTable": "assessmentcode",
+      "tableId": "TABLE-EC6B29966591245A",
+      "structuralHash": "ad67cc0085c0c4da2b1d23802fad8c8815caeb8d9af35e7982a3b9ee8370cd3f",
+      "sourceArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+      "observedRows": null,
+      "sourceRowCountStatus": "NOT_CAPTURED_IN_CURRENT_STRUCTURAL_INVENTORY",
+      "stableKey": [
+        "assessment"
+      ],
+      "columns": [
+        {
+          "id": "COLUMN-753076DC2796C230",
+          "name": "assessment",
+          "type": "int",
+          "nullable": false,
+          "default": null,
+          "description": null,
+          "structuralHash": "d746ecae9bff01aa539d743fb562c6353ab8d842573a92e0136ddcec35f40613"
+        },
+        {
+          "id": "COLUMN-0456A3303158C1F6",
+          "name": "assessmentname",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "f09a36f07aad958dd2df0aac9d1ef58df93498c9812fee39935a0121d420e17e"
+        },
+        {
+          "id": "COLUMN-75504E9884B1E650",
+          "name": "department",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": "('000')",
+          "description": null,
+          "structuralHash": "70f60f21995070dbbcf972fb168deb2e49b540f402898886b904be32ad9ea297"
+        },
+        {
+          "id": "COLUMN-2CB15CE72C0A9770",
+          "name": "mpercent",
+          "type": "int",
+          "nullable": true,
+          "default": "(100)",
+          "description": null,
+          "structuralHash": "0b541b0fdf4c4d908ba8bbcf6e296544379dbd4711e3076931ecbbb83740afe1"
+        },
+        {
+          "id": "COLUMN-D1C4BE8335F1E42C",
+          "name": "tpercent",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "a562bbcca6685593be179eebc8bd54fc9dc5b71e2670f48930e116de5ad55510"
+        },
+        {
+          "id": "COLUMN-6F2C4878EF48A8DA",
+          "name": "xpercent",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "fc935fc38f8304b2308719e1b86391562595cbe26b9d16845d3de2e6fc4b8801"
+        },
+        {
+          "id": "COLUMN-51A4E18F9D12A6F8",
+          "name": "cpercent",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "2a6f05d1bb26762b96fad89c59bd3289488dd7b98ddd3719dd7ac0e0ae68ce29"
+        },
+        {
+          "id": "COLUMN-2E07321553C7CDDF",
+          "name": "spercent",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "edfc59591d655dab414575c1a081a0058600e03bc8764f0fd1c01055b35d7f88"
+        },
+        {
+          "id": "COLUMN-5263921B93440359",
+          "name": "timekeep",
+          "type": "bit",
+          "nullable": true,
+          "default": "(1)",
+          "description": null,
+          "structuralHash": "3f314321b6d174cd97c4a683c3a43604e780f514bbc0933f9e47826f04c44533"
+        },
+        {
+          "id": "COLUMN-545E0004A0B349D7",
+          "name": "bonus",
+          "type": "bit",
+          "nullable": true,
+          "default": "(1)",
+          "description": null,
+          "structuralHash": "742f52c87ebd78104bb5732aa57ab70bb10279231eb7c70c4e16b00c6441703b"
+        },
+        {
+          "id": "COLUMN-8C5EE2D7D7543BA0",
+          "name": "master",
+          "type": "bit",
+          "nullable": true,
+          "default": "(1)",
+          "description": null,
+          "structuralHash": "c619e4ce645a31219e733a8484156bfbc6a9cb5a7258a91d0e5b93003a2f70c6"
+        }
+      ]
+    }
+  ],
+  "denominatorRule": "all_eleven_catalog_fields_count_even_when_the_source_table_or_a_nullable_column_has_no_rows_or_values",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_safe_aggregates_routine_structure_and_gap_codes_only",
+  "calculationRuleEvidence": {
+    "canonicalRoutine": "bs_ass_compute",
+    "weightedTotal": "selfvalue*spercent/100+mitemvalue*mpercent/100+itemvalue*tpercent/100+xitemvalue*xpercent/100+citemvalue*cpercent/100+mastervalue+timekeepvalue+bonusvalue",
+    "percentageUnitTransform": "legacy_integer_percentage_points_divided_by_100_before_modern_fractional_weight",
+    "gradeAssignment": "assgradecode_threshold_lookup_after_total",
+    "nullHandling": "legacy_routine_contains_null_defaulting",
+    "implementationStatus": "NOT_IMPLEMENTED_IN_LEGACY_PROJECTION_WRITER"
+  },
+  "relations": [
+    {
+      "source": "person.assessment",
+      "target": "assessmentcode.assessment",
+      "kind": "routine_join_without_declared_foreign_key",
+      "disposition": "verified_source_relation"
+    }
+  ],
+  "fields": [
+    {
+      "stableId": "ASSESSMENTCODE_ASSESSMENT",
+      "sourceField": "assessmentcode.assessment",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template.template_code"
+      ],
+      "preservationFields": [],
+      "transformRule": "prefix_YUZHOU_to_integer_source_identity_after_writer_exists",
+      "reasonCode": "PERFORMANCE_ASSESSMENTCODE_LEGACY_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_ASSESSMENTNAME",
+      "sourceField": "assessmentcode.assessmentname",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template.template_name",
+        "hr_performance_template_version.version_name"
+      ],
+      "preservationFields": [],
+      "transformRule": "preserve_nullable_name_after_template_version_precedence_is_defined",
+      "reasonCode": "PERFORMANCE_ASSESSMENTCODE_LEGACY_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_DEPARTMENT",
+      "sourceField": "assessmentcode.department",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_review_cycle.applicable_org_ids"
+      ],
+      "preservationFields": [],
+      "transformRule": "resolve_legacy_department_scope_to_modern_org_ids_only_after_scope_semantics_are_reviewed",
+      "reasonCode": "PERFORMANCE_TEMPLATE_ORG_SCOPE_MAPPING_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_MPERCENT",
+      "sourceField": "assessmentcode.mpercent",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_dimension.weight"
+      ],
+      "preservationFields": [],
+      "transformRule": "divide_integer_percentage_points_by_100_after_dimension_identity_and_writer_are_reviewed",
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_TPERCENT",
+      "sourceField": "assessmentcode.tpercent",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_dimension.weight"
+      ],
+      "preservationFields": [],
+      "transformRule": "divide_integer_percentage_points_by_100_after_dimension_identity_and_writer_are_reviewed",
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_XPERCENT",
+      "sourceField": "assessmentcode.xpercent",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_dimension.weight"
+      ],
+      "preservationFields": [],
+      "transformRule": "divide_integer_percentage_points_by_100_after_dimension_identity_and_writer_are_reviewed",
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_CPERCENT",
+      "sourceField": "assessmentcode.cpercent",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_dimension.weight"
+      ],
+      "preservationFields": [],
+      "transformRule": "divide_integer_percentage_points_by_100_after_dimension_identity_and_writer_are_reviewed",
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_SPERCENT",
+      "sourceField": "assessmentcode.spercent",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_dimension.weight"
+      ],
+      "preservationFields": [],
+      "transformRule": "divide_integer_percentage_points_by_100_after_dimension_identity_and_writer_are_reviewed",
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_TIMEKEEP",
+      "sourceField": "assessmentcode.timekeep",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": [],
+      "transformRule": "preserve_boolean_component_gate_after_target_component_model_is_defined",
+      "reasonCode": "PERFORMANCE_EXTERNAL_COMPONENT_FLAG_MAPPING_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_BONUS",
+      "sourceField": "assessmentcode.bonus",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": [],
+      "transformRule": "preserve_boolean_component_gate_after_target_component_model_is_defined",
+      "reasonCode": "PERFORMANCE_EXTERNAL_COMPONENT_FLAG_MAPPING_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSESSMENTCODE_MASTER",
+      "sourceField": "assessmentcode.master",
+      "disposition": "explicit_gap",
+      "targetFields": [],
+      "preservationFields": [],
+      "transformRule": "preserve_boolean_component_gate_after_target_component_model_is_defined",
+      "reasonCode": "PERFORMANCE_EXTERNAL_COMPONENT_FLAG_MAPPING_UNRESOLVED",
+      "compatibilityCredit": 0
+    }
+  ],
+  "explicitGaps": [
+    {
+      "sourceFields": [
+        "assessmentcode.assessment",
+        "assessmentcode.assessmentname"
+      ],
+      "reasonCode": "PERFORMANCE_ASSESSMENTCODE_LEGACY_WRITER_NOT_IMPLEMENTED",
+      "missingEvidence": [
+        "assessmentcode_readonly_extract_and_safe_aggregate",
+        "assessmentcode_dedicated_transform_and_writer",
+        "assessmentcode_record_map_projection_and_rollback"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assessmentcode.department"
+      ],
+      "reasonCode": "PERFORMANCE_TEMPLATE_ORG_SCOPE_MAPPING_UNRESOLVED",
+      "missingEvidence": [
+        "reviewed_department_scope_semantics",
+        "legacy_department_to_modern_org_identity_mapping"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assessmentcode.mpercent",
+        "assessmentcode.tpercent",
+        "assessmentcode.xpercent",
+        "assessmentcode.cpercent",
+        "assessmentcode.spercent"
+      ],
+      "reasonCode": "PERFORMANCE_WEIGHT_DIMENSION_IDENTITY_AND_WRITER_UNRESOLVED",
+      "missingEvidence": [
+        "reviewed_dimension_identity_for_each_legacy_percentage",
+        "percentage_points_to_fractional_weight_transform",
+        "weight_sum_and_legacy_formula_parity_contract"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assessmentcode.timekeep",
+        "assessmentcode.bonus",
+        "assessmentcode.master"
+      ],
+      "reasonCode": "PERFORMANCE_EXTERNAL_COMPONENT_FLAG_MAPPING_UNRESOLVED",
+      "missingEvidence": [
+        "modern_external_component_gate_model",
+        "legacy_component_value_projection",
+        "weighted_total_formula_parity_contract"
+      ],
+      "decision": "KEEP_GAP"
+    }
+  ],
+  "sourceAggregateGap": {
+    "sourceTable": "dbo.assessmentcode",
+    "observedRows": null,
+    "reasonCode": "PERFORMANCE_ASSESSMENTCODE_SAFE_AGGREGATE_NOT_CAPTURED",
+    "missingEvidence": [
+      "readonly_row_count_receipt_without_source_values"
+    ],
+    "decision": "KEEP_GAP"
+  },
+  "legacyProjectionGap": {
+    "reasonCode": "PERFORMANCE_ASSESSMENTCODE_EXTRACT_TRANSFORM_WRITER_MISSING",
+    "missingEvidence": [
+      "readonly_extract",
+      "typed_transform",
+      "tenant_park_scoped_writer",
+      "record_map",
+      "reverse_order_rollback"
+    ],
+    "decision": "KEEP_GAP"
+  },
+  "repositoryEvidence": [
+    {
+      "role": "domain_table_map",
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f",
+      "requiredTokens": [
+        "assessmentcode",
+        "hr_performance_template",
+        "hr_performance_review_cycle"
+      ]
+    },
+    {
+      "role": "modern_schema_and_formula",
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "sha256": "b88a42fab357ad788a4b56e3d2b5479af4a942f96210c7c2806ce7509aa16318",
+      "requiredTokens": [
+        "CREATE TABLE hr_performance_template (",
+        "CREATE TABLE hr_performance_template_dimension (",
+        "CREATE FUNCTION hr_performance_snapshot_score",
+        "CONSTRAINT ck_hr_perf_dimension_weight CHECK(weight>0 AND weight<=1)"
+      ]
+    },
+    {
+      "role": "modern_template_writer",
+      "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
+      "sha256": "d76e7888afbf93bbd73f43accee26e238772e67dc955c85c67bd2f9249d26f35",
+      "requiredTokens": [
+        "async createTemplate",
+        "INSERT INTO hr_performance_template(",
+        "INSERT INTO hr_performance_template_dimension(",
+        "async createCycle"
+      ]
+    },
+    {
+      "role": "modern_score_runtime",
+      "path": "apps/api/src/modules/hr/hr-performance-evaluation.service.ts",
+      "sha256": "ec1d11da1ef233f880dc45bf1809e52f80ccdb8d6b886a989eb7c634372c9d03",
+      "requiredTokens": [
+        "hr_performance_snapshot_score",
+        "dimension_scores",
+        "final_score"
+      ]
+    },
+    {
+      "role": "modern_runtime_page",
+      "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
+      "sha256": "d1e252f5bd63fe296e14b9de7735f0e0a0dff73bed289bb3626c4efbb167597e",
+      "requiredTokens": [
+        "创建评价模板",
+        "新建绩效周期",
+        "校准调整",
+        "绩效申诉"
+      ]
+    }
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {
+        "routineId": "RULE-0C991427090A219D",
+        "sourceName": "bs_ass_compute",
+        "sourceArtifactSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
+      },
+      {
+        "routineId": "RULE-62565DCE85F4A8D0",
+        "sourceName": "u_count",
+        "sourceArtifactSha256": "a49e3836b0846321c0fcb1e97b44666bf5d2a09b72474b6cd4d2e272ee0a7e36"
+      }
+    ]
+  },
+  "compatibilityCredit": {
+    "numerator": 0,
+    "denominator": 11
+  },
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "productionImport": "HOLD"
+}
