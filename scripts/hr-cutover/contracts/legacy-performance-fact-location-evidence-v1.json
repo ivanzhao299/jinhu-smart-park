@@ -1,0 +1,173 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_hr_legacy_performance_fact_location_safe_source_receipt",
+  "sourceRestoreReceiptSha256": "f1faae7f5803e1d6940274f1c3b5a1e2a6eb5cb2f59a87b62d4d8b0b15eb104b",
+  "sourceCatalogSha256": "0a22ab601f4821dde8ab80c8d09e330a6b38b4c63c2073c89ac16471f111e7a1",
+  "factLocationContractSha256": "95a0bbefa7086736f8b0c0f5d5f66b38ab0d5299e78cd2dac006f0243536f40d",
+  "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+  "databaseIdentitySha256": "46f7a455cc95c3d4ba1112bb2442b5b3ccd27cf8464f09a083669a7368193e86",
+  "queryIdentitySha256": "f277ad2ec8a8e98ce5e829a55934b89fc094f9e8bd9e87157abb3717c19ffdcd",
+  "operationMode": "read_only_count_hash_catalog",
+  "objectFindings": [
+    {
+      "sourceObject": "dbo.assessmentmaster",
+      "role": "person_session_performance_summary_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "rowCount": 0,
+      "runtimeDecision": "AUTHORITATIVE_EMPTY"
+    },
+    {
+      "sourceObject": "dbo.assessmentdetail",
+      "role": "person_session_item_score_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "rowCount": 0,
+      "runtimeDecision": "AUTHORITATIVE_EMPTY"
+    },
+    {
+      "sourceObject": "dbo.asssour",
+      "role": "person_session_item_rater_score_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "rowCount": 0,
+      "runtimeDecision": "AUTHORITATIVE_EMPTY"
+    },
+    {
+      "sourceObject": "dbo.asssourperson",
+      "role": "person_session_rater_assignment_relation",
+      "authority": "AUTHORITATIVE_SUPPORTING_RELATION_NOT_OUTCOME_FACT",
+      "rowCount": 117,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.asssession",
+      "role": "performance_period_dimension",
+      "authority": "AUTHORITATIVE_SUPPORTING_DIMENSION_NOT_OUTCOME_FACT",
+      "rowCount": 7,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.assessmentcode",
+      "role": "performance_template_header_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 0,
+      "runtimeDecision": "SUPPORTING_OBJECT_EMPTY"
+    },
+    {
+      "sourceObject": "dbo.assitem",
+      "role": "performance_template_item_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 33,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.assitemgradedes",
+      "role": "performance_item_grade_description_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 30,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.assitemgroup",
+      "role": "performance_item_group_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 0,
+      "runtimeDecision": "SUPPORTING_OBJECT_EMPTY"
+    },
+    {
+      "sourceObject": "dbo.assgradecode",
+      "role": "performance_grade_band_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 3,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.asspay",
+      "role": "performance_grade_pay_rule_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "rowCount": 12,
+      "runtimeDecision": "SUPPORTING_OBJECT_POPULATED"
+    },
+    {
+      "sourceObject": "dbo.assessment",
+      "role": "u_assessmentitems_external_or_generated_projection",
+      "authority": "NON_AUTHORITATIVE_ABSENT_EXTERNAL_OR_GENERATED_REFERENCE",
+      "rowCount": null,
+      "runtimeDecision": "ABSENT_NON_AUTHORITATIVE"
+    }
+  ],
+  "relationshipFacts": {
+    "personAssessmentBindingRows": 0,
+    "asssourpersonBlankSubjectRows": 0,
+    "asssourpersonBlankAssessorRows": 117,
+    "asssourpersonMissingSessionRows": 0,
+    "asssourpersonMissingSubjectRows": 108,
+    "asssourpersonNonblankAssessorMissingPersonRows": 0,
+    "asssourpersonDistinctSessionCount": 1,
+    "assitemWithoutAssessmentHeaderRows": 30,
+    "assitemgradedesWithoutItemRows": 0,
+    "assgradecodeWithoutAssessmentHeaderRows": 0,
+    "asspayWithoutGradeRows": 5
+  },
+  "catalogDiscovery": {
+    "signatureCandidateTableCount": 4,
+    "unexpectedSignatureTableCount": 0,
+    "performanceViewCount": 0,
+    "performanceSynonymCount": 0,
+    "performanceTriggerCount": 0,
+    "performanceTemporalTableCount": 0,
+    "performanceCdcTableCount": 0,
+    "archiveLikeObjectCount": 0,
+    "deployedModuleReferenceCount": 13,
+    "deployedDeleteOrTruncateModuleCount": 0,
+    "declaredPerformanceForeignKeyCount": 3,
+    "untrustedPerformanceForeignKeyCount": 3,
+    "factPersonSessionForeignKeyCount": 0,
+    "externalAssessmentObjectCount": 0
+  },
+  "contentSetHashes": {
+    "factFamilySetSha256": "6c437e8bdf0d284dc0b17901d566fdbb441c21a2b02293c086ffc1b410638867",
+    "supportingRelationSetSha256": "f6df3f9593e7bfb8447ac00f5940c7c3f7ddcd86b891df505293dcf4888d1c65",
+    "configurationSetSha256": "108c8bcf32cbd2bfcc56ec300b1992a566f153fbb43c08b11eef9afd8b073ee3",
+    "catalogCandidateSetSha256": "a9d0c3dfd6d72eda4305685e74d8fed89d9674a6b7f43c61aeb5865149b22460",
+    "moduleReferenceSetSha256": "4ce5e9330eeef2ac8d7a8d7c44a9a9af8084f2875b29c9e9ef9c53115be462e2"
+  },
+  "rootCauseEvidence": {
+    "personAssessmentBindingRows": 0,
+    "assessmentTemplateHeaderRows": 0,
+    "factInitializerRoutine": "bs_AssCreateRecord",
+    "factInitializerRequiresPersonAssessmentBinding": true,
+    "currentCreationPath": "BLOCKED_BY_EMPTY_PERSON_ASSESSMENT_BINDING",
+    "historicalEmptyingCause": "UNKNOWN_NO_AUDIT_EVIDENCE"
+  },
+  "factLocationConclusion": {
+    "historyFactPopulation": "ABSENT_FROM_CURRENT_RESTORED_DATABASE",
+    "authoritativeSource": "DECLARED_AUTHORITATIVE_TABLES_EMPTY",
+    "alternativeStore": "NOT_LOCATED_IN_RESTORED_DATABASE",
+    "supportingResiduals": "PRESENT_NOT_OUTCOME_HISTORY",
+    "promotionDecision": "HOLD_REQUIRE_NONEMPTY_AUTHORITATIVE_SOURCE_OR_EXPLICIT_NO_HISTORY_DECISION"
+  },
+  "sourceState": {
+    "readOnly": true
+  },
+  "etlAuthority": {
+    "loginSucceeded": true,
+    "sysadmin": false,
+    "dbDatareader": true,
+    "viewDefinition": true,
+    "insert": false,
+    "update": false,
+    "delete": false,
+    "execute": false
+  },
+  "privacy": {
+    "containsSourceRows": false,
+    "containsPersonCodes": false,
+    "containsPersonNames": false,
+    "containsPayValues": false,
+    "hashesMayDependOnSourceValues": true
+  },
+  "status": "SOURCE_PERFORMANCE_FACTS_CONFIRMED_EMPTY_WITH_SUPPORTING_RESIDUALS",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD",
+  "canonicalSha256": "1e37b27f0ac3975fd989d54341ff2c64b3e64955a38b80b03a00fe25cdf04182"
+}

@@ -205,6 +205,7 @@
     "test:e2e:yuzhou-legacy-routine-logic": "node --test scripts/e2e/yuzhou-legacy-routine-logic-ledger-contract.mjs",
     "test:e2e:yuzhou-legacy-routine-parity": "node --test scripts/e2e/yuzhou-legacy-routine-parity-contract.mjs",
     "test:e2e:yuzhou-performance-query-routine-parity": "node --test scripts/e2e/yuzhou-legacy-performance-query-routine-parity-contract.mjs",
+    "test:e2e:yuzhou-performance-fact-location-source-receipt": "node --test scripts/e2e/yuzhou-legacy-performance-fact-location-source-receipt-contract.mjs",
     "hr:migration:performance-query-routine-parity": "node scripts/hr-cutover/legacy-performance-query-routine-parity.mjs",
     "test:e2e:yuzhou-legacy-bs-ass-create-record": "node --test scripts/e2e/yuzhou-legacy-bs-ass-create-record-business-contract.mjs",
     "test:e2e:yuzhou-legacy-custom-field-parity": "node --test scripts/e2e/yuzhou-legacy-custom-field-parity-contract.mjs",

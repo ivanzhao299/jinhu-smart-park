@@ -1,0 +1,176 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_fact_location",
+  "contractVersion": "1.0.0",
+  "sourceBindings": {
+    "schemaArtifact": "schema_tables.sql",
+    "schemaArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+  },
+  "candidateObjects": [
+    {
+      "sourceObject": "dbo.assessmentmaster",
+      "role": "person_session_performance_summary_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assessmentdetail",
+      "role": "person_session_item_score_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.asssour",
+      "role": "person_session_item_rater_score_fact",
+      "authority": "AUTHORITATIVE_HISTORY_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.asssourperson",
+      "role": "person_session_rater_assignment_relation",
+      "authority": "AUTHORITATIVE_SUPPORTING_RELATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.asssession",
+      "role": "performance_period_dimension",
+      "authority": "AUTHORITATIVE_SUPPORTING_DIMENSION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assessmentcode",
+      "role": "performance_template_header_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assitem",
+      "role": "performance_template_item_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assitemgradedes",
+      "role": "performance_item_grade_description_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assitemgroup",
+      "role": "performance_item_group_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assgradecode",
+      "role": "performance_grade_band_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.asspay",
+      "role": "performance_grade_pay_rule_configuration",
+      "authority": "AUTHORITATIVE_CONFIGURATION_NOT_OUTCOME_FACT",
+      "populationDecision": "RUNTIME_COUNT_REQUIRED"
+    },
+    {
+      "sourceObject": "dbo.assessment",
+      "role": "u_assessmentitems_external_or_generated_projection",
+      "authority": "NON_AUTHORITATIVE_ABSENT_EXTERNAL_OR_GENERATED_REFERENCE",
+      "populationDecision": "MUST_REMAIN_ABSENT_OR_BE_SEPARATELY_ADJUDICATED"
+    }
+  ],
+  "routineDataFlow": [
+    {
+      "sourceRoutine": "bs_AssCreateRecord",
+      "role": "fact_initializer",
+      "reads": [
+        "dbo.person.assessment",
+        "dbo.assitem"
+      ],
+      "writes": [
+        "dbo.assessmentmaster",
+        "dbo.assessmentdetail",
+        "dbo.asssour"
+      ]
+    },
+    {
+      "sourceRoutine": "bs_ass_compute",
+      "role": "fact_aggregator",
+      "reads": [
+        "dbo.assessmentdetail",
+        "dbo.assessmentcode",
+        "dbo.assgradecode",
+        "dbo.person"
+      ],
+      "writes": [
+        "dbo.assessmentmaster"
+      ]
+    },
+    {
+      "sourceRoutine": "web_ass",
+      "role": "person_history_reader",
+      "reads": [
+        "dbo.assessmentmaster",
+        "dbo.person"
+      ],
+      "writes": []
+    },
+    {
+      "sourceRoutine": "web_assessmentquery",
+      "role": "person_history_reader_dynamic_sql_variant",
+      "reads": [
+        "dbo.assessmentmaster",
+        "dbo.person"
+      ],
+      "writes": []
+    },
+    {
+      "sourceRoutine": "u_assessmentquery",
+      "role": "department_session_history_reader",
+      "reads": [
+        "dbo.assessmentmaster",
+        "dbo.person"
+      ],
+      "writes": []
+    },
+    {
+      "sourceRoutine": "u_printassessment",
+      "role": "template_definition_reader",
+      "reads": [
+        "dbo.assitem",
+        "dbo.assgradecode",
+        "dbo.assitemgradedes"
+      ],
+      "writes": []
+    },
+    {
+      "sourceRoutine": "u_assessmentitems",
+      "role": "dormant_external_or_generated_projection_reader",
+      "reads": [
+        "dbo.assessment"
+      ],
+      "writes": []
+    }
+  ],
+  "requiredLiveEvidence": [
+    "candidate_object_counts",
+    "fact_and_supporting_relation_hashes",
+    "template_binding_and_relationship_conservation_counts",
+    "signature_based_alternative_table_scan",
+    "view_synonym_trigger_temporal_cdc_and_archive_scans",
+    "deployed_module_reference_and_delete_scans",
+    "least_privilege_read_only_source_proof"
+  ],
+  "decisionPolicy": {
+    "emptyAuthoritativeTablesReceiveCompatibilityCredit": false,
+    "supportingRelationsCountAsOutcomeHistory": false,
+    "configurationRowsCountAsOutcomeHistory": false,
+    "unlocatedExternalBackupOrDatabaseIsAbsenceProof": false,
+    "productionImport": "HOLD"
+  },
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}
