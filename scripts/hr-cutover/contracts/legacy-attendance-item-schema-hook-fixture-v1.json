@@ -1,0 +1,64 @@
+{
+  "formatVersion": 1,
+  "fixtureKind": "yuzhou_hr_legacy_attendance_item_schema_hook_fixture",
+  "fixtureOnly": true,
+  "containsSourceRows": false,
+  "containsPersonalData": false,
+  "sourceRoutineLedger": {
+    "formatVersion": 1,
+    "ledgerKind": "yuzhou_hr_legacy_routine_family_fixture",
+    "productionImport": "HOLD",
+    "routines": [
+      {
+        "routineId": "RULE-EEE0816A27D9E126",
+        "canonicalFamily": "tr_addtimekeepitem",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "trigger",
+        "dynamicMutationStatus": "none"
+      },
+      {
+        "routineId": "RULE-69093173CCAE1126",
+        "canonicalFamily": "tr_droptimekeepitem",
+        "sourceSurface": "yuzhou_v10_client_database",
+        "kind": "trigger",
+        "dynamicMutationStatus": "none"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "testId": "positive-insert-trigger-active-body",
+      "operation": "insert",
+      "expectedResultSet": [[1]],
+      "expectedBusinessWrites": 0,
+      "expectedFactColumnDelta": 0
+    },
+    {
+      "testId": "positive-delete-trigger-active-body",
+      "operation": "delete",
+      "expectedResultSet": [[1]],
+      "expectedBusinessWrites": 0,
+      "expectedFactColumnDelta": 0
+    },
+    {
+      "testId": "negative-empty-transition-set",
+      "operation": "no_matching_transition",
+      "expectedTriggerFirings": 0,
+      "expectedBusinessWrites": 0,
+      "expectedFactColumnDelta": 0
+    },
+    {
+      "testId": "permission-no-direct-trigger-execution",
+      "operation": "direct_execute",
+      "expectedDisposition": "not_exposed_as_modern_api"
+    },
+    {
+      "testId": "conservation-normalized-fact-schema",
+      "operation": "insert_then_delete",
+      "expectedBusinessWrites": 0,
+      "expectedFactColumnDelta": 0,
+      "expectedHistoricalFactMutation": 0
+    }
+  ],
+  "productionImport": "HOLD"
+}
