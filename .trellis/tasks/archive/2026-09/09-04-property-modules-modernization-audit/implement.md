@@ -9,8 +9,8 @@
 - [x] 生成 `docs/reviews/property-modules-modernization-audit-2026-09-04.md`。
 - [x] 验证 Markdown、编号/统计/证据、敏感信息与变更范围。
 - [x] 进行一轮独立审查并修订报告。
-- [ ] 提交、push 报告分支，创建 PR，等待 CI，通过后合并。
-- [ ] 确认合并结果和 main 分支所需检查双绿，归档 Trellis task 并记录会话。
+- [x] 提交、push 报告分支，创建 PR，等待 CI，通过后合并。
+- [x] 确认合并结果和 main 分支所需检查双绿，归档 Trellis task 并记录会话。
 
 ## Validation Commands
 
