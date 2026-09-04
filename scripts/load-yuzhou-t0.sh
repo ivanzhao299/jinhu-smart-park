@@ -78,6 +78,63 @@ COPY stg_department(payload) FROM :'dep_path';
 COPY stg_position(payload) FROM :'pos_path';
 COPY stg_employee(payload) FROM :'emp_path';
 
+-- Validate every legacy value that this loader will cast before any target write.
+-- The helpers intentionally return only a boolean: the journal must identify the
+-- failed field class without retaining a source value or employee identity.
+CREATE FUNCTION pg_temp.yuzhou_t0_integer_input_valid(value text)
+RETURNS boolean LANGUAGE plpgsql AS $$
+BEGIN
+  IF NULLIF(btrim(value),'') IS NULL THEN RETURN true; END IF;
+  PERFORM btrim(value)::integer;
+  RETURN true;
+EXCEPTION WHEN SQLSTATE '22P02' OR SQLSTATE '22003' THEN
+  RETURN false;
+END $$;
+
+CREATE FUNCTION pg_temp.yuzhou_t0_smallint_input_valid(value text)
+RETURNS boolean LANGUAGE plpgsql AS $$
+BEGIN
+  IF NULLIF(btrim(value),'') IS NULL THEN RETURN true; END IF;
+  PERFORM btrim(value)::smallint;
+  RETURN true;
+EXCEPTION WHEN SQLSTATE '22P02' OR SQLSTATE '22003' THEN
+  RETURN false;
+END $$;
+
+CREATE FUNCTION pg_temp.yuzhou_t0_date_input_valid(value text)
+RETURNS boolean LANGUAGE plpgsql AS $$
+BEGIN
+  IF NULLIF(btrim(value),'') IS NULL THEN RETURN true; END IF;
+  PERFORM btrim(value)::date;
+  RETURN true;
+EXCEPTION WHEN SQLSTATE '22P02' OR SQLSTATE '22007' OR SQLSTATE '22008' THEN
+  RETURN false;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM stg_department s WHERE NOT pg_temp.yuzhou_t0_smallint_input_valid(s.payload->'source'->>'rating')) THEN
+    RAISE EXCEPTION 'T0_DEPARTMENT_SMALLINT_INPUT_INVALID';
+  END IF;
+  IF EXISTS (SELECT 1 FROM stg_department s WHERE NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'legacySourceId')
+     OR NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'plannedHeadcount')
+     OR NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'sortOrder')) THEN
+    RAISE EXCEPTION 'T0_DEPARTMENT_INTEGER_INPUT_INVALID';
+  END IF;
+  IF EXISTS (SELECT 1 FROM stg_position s WHERE NOT pg_temp.yuzhou_t0_smallint_input_valid(s.payload->'source'->>'rating')) THEN
+    RAISE EXCEPTION 'T0_POSITION_SMALLINT_INPUT_INVALID';
+  END IF;
+  IF EXISTS (SELECT 1 FROM stg_position s WHERE NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'headcountLimit')
+     OR NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'sortOrder')
+     OR NOT pg_temp.yuzhou_t0_integer_input_valid(s.payload->'source'->>'legacySourceId')) THEN
+    RAISE EXCEPTION 'T0_POSITION_INTEGER_INPUT_INVALID';
+  END IF;
+  IF EXISTS (SELECT 1 FROM stg_employee s WHERE NOT pg_temp.yuzhou_t0_date_input_valid(s.payload->'source'->>'hireDate')
+     OR NOT pg_temp.yuzhou_t0_date_input_valid(s.payload->'source'->>'formalDate')
+     OR NOT pg_temp.yuzhou_t0_date_input_valid(s.payload->'source'->>'departureDate')) THEN
+    RAISE EXCEPTION 'T0_EMPLOYEE_DATE_INPUT_INVALID';
+  END IF;
+END $$;
+
 DO $$ BEGIN
   IF (SELECT count(*) FROM hr_legacy_dictionary_version
       WHERE tenant_id=current_setting('yuzhou.tenant_id') AND park_id=current_setting('yuzhou.park_id')
@@ -136,10 +193,10 @@ UNION ALL SELECT id,'employee','dbo.person','load','running',2949,
 
 INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,legacy_source_id,legacy_hierarchy_level,legacy_manager_reference,planned_headcount,contact_phone,sort_order,status,remark)
 SELECT :'tenant_id',:'park_id',NULL,s.payload->>'sourceKey',s.payload->'source'->>'orgName',
-  CASE WHEN COALESCE((s.payload->'source'->>'rating')::int,1)<=1 THEN 'company' ELSE 'department' END,
-  NULLIF(s.payload->'source'->>'legacySourceId','')::int,NULLIF(s.payload->'source'->>'rating','')::smallint,
-  NULLIF(s.payload->'source'->>'legacyManagerValue',''),NULLIF(s.payload->'source'->>'plannedHeadcount','')::int,NULLIF(btrim(s.payload->'source'->>'contactPhone'),''),
-  COALESCE((s.payload->'source'->>'sortOrder')::int,0),'enabled','Migrated from Yuzhou V10; run='||:'run_id'
+  CASE WHEN COALESCE(NULLIF(btrim(s.payload->'source'->>'rating'),'')::int,1)<=1 THEN 'company' ELSE 'department' END,
+  NULLIF(btrim(s.payload->'source'->>'legacySourceId'),'')::int,NULLIF(btrim(s.payload->'source'->>'rating'),'')::smallint,
+  NULLIF(btrim(s.payload->'source'->>'legacyManagerValue'),''),NULLIF(btrim(s.payload->'source'->>'plannedHeadcount'),'')::int,NULLIF(btrim(s.payload->'source'->>'contactPhone'),''),
+  COALESCE(NULLIF(btrim(s.payload->'source'->>'sortOrder'),'')::int,0),'enabled','Migrated from Yuzhou V10; run='||:'run_id'
 FROM stg_department s ORDER BY length(s.payload->>'sourceKey'),s.payload->>'sourceKey';
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
@@ -175,8 +232,8 @@ END $$;
 
 INSERT INTO hr_position(tenant_id,park_id,org_id,reports_to_position_id,position_code,position_name,job_family,job_level,headcount_limit,hierarchy_level,sort_order,legacy_source_id,legacy_upto_code,authority,qualification,responsibilities,position_manual,status,remark)
 SELECT :'tenant_id',:'park_id',COALESCE(dept.id,root_org.id),NULL,s.payload->>'sourceKey',s.payload->'source'->>'positionName',
-  NULLIF(s.payload->'source'->>'jobgrade',''),NULLIF(s.payload->'source'->>'salarygrade',''),NULLIF(s.payload->'source'->>'headcountLimit','')::int,
-  NULLIF(s.payload->'source'->>'rating','')::smallint,COALESCE(NULLIF(s.payload->'source'->>'sortOrder','')::int,0),NULLIF(s.payload->'source'->>'legacySourceId','')::int,NULLIF(btrim(s.payload->'source'->>'legacyUptoCode'),''),
+  NULLIF(btrim(s.payload->'source'->>'jobgrade'),''),NULLIF(btrim(s.payload->'source'->>'salarygrade'),''),NULLIF(btrim(s.payload->'source'->>'headcountLimit'),'')::int,
+  NULLIF(btrim(s.payload->'source'->>'rating'),'')::smallint,COALESCE(NULLIF(btrim(s.payload->'source'->>'sortOrder'),'')::int,0),NULLIF(btrim(s.payload->'source'->>'legacySourceId'),'')::int,NULLIF(btrim(s.payload->'source'->>'legacyUptoCode'),''),
   NULLIF(btrim(s.payload->'source'->>'authority'),''),NULLIF(btrim(s.payload->'source'->>'qualification'),''),
   NULLIF(btrim(s.payload->'source'->>'responsibilities'),''),NULLIF(btrim(s.payload->'source'->>'positionManual'),''),
   'enabled','Migrated from Yuzhou V10; run='||:'run_id'
@@ -217,10 +274,10 @@ WITH valid_employee AS (
 INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,hire_date,probation_end_date,departure_date,remark)
 SELECT :'tenant_id',:'park_id',s.payload->>'sourceKey',s.payload->'source'->>'fullName',o.id,p.id,
   'full_time',s.target_value,
-  NULLIF(s.payload->'source'->>'hireDate','')::date,NULLIF(s.payload->'source'->>'formalDate','')::date,
-  CASE WHEN NULLIF(s.payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(s.payload->'source'->>'departureDate','') IS NOT NULL
-      AND (s.payload->'source'->>'departureDate')::date < (s.payload->'source'->>'hireDate')::date THEN NULL
-    ELSE NULLIF(s.payload->'source'->>'departureDate','')::date END,
+  NULLIF(btrim(s.payload->'source'->>'hireDate'),'')::date,NULLIF(btrim(s.payload->'source'->>'formalDate'),'')::date,
+  CASE WHEN NULLIF(btrim(s.payload->'source'->>'hireDate'),'') IS NOT NULL AND NULLIF(btrim(s.payload->'source'->>'departureDate'),'') IS NOT NULL
+      AND btrim(s.payload->'source'->>'departureDate')::date < btrim(s.payload->'source'->>'hireDate')::date THEN NULL
+    ELSE NULLIF(btrim(s.payload->'source'->>'departureDate'),'')::date END,
   'Migrated from Yuzhou V10; legacy_status='||(s.payload->'source'->>'legacyStatus')||'; legacy_date_order=review_required; run='||:'run_id'
 FROM valid_employee s
 JOIN sys_org o ON o.tenant_id::text=:'tenant_id' AND o.park_id::text=:'park_id' AND o.org_code=s.payload->'source'->>'departmentCode' AND o.is_deleted=false
@@ -235,8 +292,8 @@ WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELE
 INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable)
 SELECT b.id,item.id,'data_quality','EMPLOYEE_DATE_ORDER',s.payload->>'sourceIdentitySha256',jsonb_build_object('rule','departure_before_hire'),true,false
 FROM stg_employee_decision s CROSS JOIN b JOIN item ON item.batch_id=b.id
-WHERE NULLIF(s.payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(s.payload->'source'->>'departureDate','') IS NOT NULL
-  AND (s.payload->'source'->>'departureDate')::date < (s.payload->'source'->>'hireDate')::date
+WHERE NULLIF(btrim(s.payload->'source'->>'hireDate'),'') IS NOT NULL AND NULLIF(btrim(s.payload->'source'->>'departureDate'),'') IS NOT NULL
+  AND btrim(s.payload->'source'->>'departureDate')::date < btrim(s.payload->'source'->>'hireDate')::date
 UNION ALL
 SELECT b.id,item.id,'mapping','EMPLOYEE_JOB_STATE_UNRESOLVED',s.payload->>'sourceIdentitySha256',
        jsonb_build_object('rule','approved_dictionary_mapping_required'),true,false
