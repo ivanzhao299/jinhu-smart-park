@@ -64,7 +64,7 @@
               "nullContract": "nullable_source_value_must_remain_distinct_from_zero"
             }
           ],
-          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+          "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3"
         },
         "readMappings": {
           "applicability": "required",
@@ -101,7 +101,7 @@
           "sourceBoundary": "single_read_only_select_without_explicit_transaction",
           "modernBoundary": "single_scoped_read_query_without_business_state_mutation",
           "rollbackBehavior": "no_business_state_exists_to_roll_back",
-          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+          "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -138,7 +138,7 @@
           "status": "verified",
           "decisionReason": "SOURCE_STATEMENT_PROFILE_AND_MODERN_LIST_HAVE_ZERO_MUTATIONS",
           "entries": [],
-          "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee"
+          "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3"
         },
         "dynamicSql": {
           "status": "none",
@@ -158,10 +158,10 @@
         "pages": ["apps/web/app/hr/attendance/HrAttendanceClient.tsx"]
       },
       "testEvidence": {
-        "positive": [{ "testId": "u-errandrecords-storage-projection", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
-        "negative": [{ "testId": "u-errandrecords-missing-reference-fails-closed", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
-        "permission": [{ "testId": "u-errandrecords-exact-attendance-read-permission", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }],
-        "conservation": [{ "testId": "u-errandrecords-read-only-zero-mutation", "evidenceSha256": "80c7367578bd068818b6283303e4cb21e24321e0a0672141dd71c6d88bc1e1ee" }]
+        "positive": [{ "testId": "u-errandrecords-storage-projection", "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3" }],
+        "negative": [{ "testId": "u-errandrecords-missing-reference-fails-closed", "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3" }],
+        "permission": [{ "testId": "u-errandrecords-exact-attendance-read-permission", "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3" }],
+        "conservation": [{ "testId": "u-errandrecords-read-only-zero-mutation", "evidenceSha256": "22a10f57be0969e2b5d1b384fbc3d5e3afed54d6a921b1fd4df1ea025a7b04f3" }]
       },
       "review": {
         "status": "pending",
