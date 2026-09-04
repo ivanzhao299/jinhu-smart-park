@@ -406,10 +406,7 @@ export class HrPerformanceLegacyService {
   }
 
   private resultAccess(actor: JwtPrincipal): ResultAccess {
-    if (
-      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ) ||
-      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_READ)
-    ) {
+    if (has(actor, HR_PERMISSIONS.HR_PERFORMANCE_READ)) {
       return "park";
     }
     if (has(actor, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ)) {
