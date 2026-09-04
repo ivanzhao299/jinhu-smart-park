@@ -411,6 +411,18 @@ export class HrPerformanceLegacyService {
     const accessWhere = `${resolved.accessWhere}
       AND fact.source_person_code=$${sourcePersonParameter}`;
     const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const employeeProjectionJoin = resolved.access === "park"
+      ? `LEFT JOIN hr_performance_cycle_employee summary_cycle_employee
+          ON (summary_cycle_employee.id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)=
+             (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
+        LEFT JOIN hr_employee summary_employee
+          ON (summary_employee.id,summary_employee.tenant_id,summary_employee.park_id)=
+             (summary_cycle_employee.employee_id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)
+         AND summary_employee.is_deleted=false`
+      : "";
+    const employeeDisplayName = resolved.access === "park"
+      ? "summary_employee.full_name"
+      : "employee.full_name";
     const countRows = (await this.dataSource.query(
       `SELECT count(*)::int total
        FROM hr_performance_legacy_master_result fact
@@ -421,14 +433,15 @@ export class HrPerformanceLegacyService {
 
     parameters.push(query.page_size, (query.page - 1) * query.page_size);
     const items = (await this.dataSource.query(
-      `SELECT fact.source_session_id "sourceSessionId",
-        fact.source_person_code "sourcePersonCode",
+      `SELECT fact.source_person_code "sourcePersonCode",
+        ${employeeDisplayName} "employeeDisplayName",
         fact.source_self_grade "sourceSelfGrade",
         fact.source_ass_grade "sourceAssGrade",
         fact.source_item_value::text "sourceItemValue",
         fact.source_total_value::text "sourceTotalValue"
        FROM hr_performance_legacy_master_result fact
        ${resolved.accessJoin}
+       ${employeeProjectionJoin}
        ${visibility}${accessWhere}
        ORDER BY fact.source_session_id DESC NULLS LAST,
                 fact.source_master_id ASC,

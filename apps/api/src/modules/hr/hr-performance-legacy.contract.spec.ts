@@ -433,8 +433,8 @@ function personSummaryHarness(rows: Record<string, unknown>[] = []) {
 
 test("person-summary returns only the six legacy report fields with exact parameterized filtering and stable paging", async () => {
   const row = {
-    sourceSessionId: 9,
     sourcePersonCode: "EMP_01",
+    employeeDisplayName: "Synthetic employee",
     sourceSelfGrade: "A",
     sourceAssGrade: "B",
     sourceItemValue: "88.0000",
@@ -448,16 +448,19 @@ test("person-summary returns only the six legacy report fields with exact parame
   );
   assert.deepEqual(result, { items: [row], total: 1, page: 2, page_size: 25 });
   assert.deepEqual(Object.keys(result.items[0] ?? {}).sort(), [
+    "employeeDisplayName",
     "sourceAssGrade",
     "sourceItemValue",
     "sourcePersonCode",
     "sourceSelfGrade",
-    "sourceSessionId",
     "sourceTotalValue",
   ]);
   assert.deepEqual(fixture.calls[0]?.params, [scope.tenantId, scope.parkId, "EMP_01"]);
   assert.deepEqual(fixture.calls[1]?.params, [scope.tenantId, scope.parkId, "EMP_01", 25, 25]);
   assert.match(fixture.calls[1]?.sql ?? "", /fact\.source_person_code=\$3/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /summary_employee\.full_name "employeeDisplayName"/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_employee summary_employee/u);
   assert.match(
     fixture.calls[1]?.sql ?? "",
     /ORDER BY fact\.source_session_id DESC NULLS LAST,\s*fact\.source_master_id ASC,\s*fact\.id ASC/u,
@@ -466,9 +469,32 @@ test("person-summary returns only the six legacy report fields with exact parame
   const selectProjection = (fixture.calls[1]?.sql ?? "").split("FROM")[0] ?? "";
   assert.doesNotMatch(
     selectProjection,
-    /source_pay|source_appraisal|source_self_appraisal|source_identity_sha256|source_row_sha256|migration_batch_id|legacy_record_map_id/u,
+    /source_session_id|source_pay|source_appraisal|source_self_appraisal|source_identity_sha256|source_row_sha256|migration_batch_id|legacy_record_map_id/u,
   );
   assert.equal(fixture.audits.length, 1);
+});
+
+test("person-summary park projection preserves an unbound employee name as null without guessing", async () => {
+  const row = {
+    sourcePersonCode: "EMP_02",
+    employeeDisplayName: null,
+    sourceSelfGrade: null,
+    sourceAssGrade: null,
+    sourceItemValue: null,
+    sourceTotalValue: null,
+  };
+  const fixture = personSummaryHarness([row]);
+  const result = await fixture.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    { page: 1, page_size: 50, source_person_code: "EMP_02" },
+  );
+  assert.deepEqual(result.items, [row]);
+  assert.equal(result.items[0]?.employeeDisplayName, null);
+  assert.doesNotMatch(
+    fixture.calls[1]?.sql ?? "",
+    /lower\(|upper\(|ilike|full_name\s*=|employee_code\s*=|source_person_code\s*=\s*employee/u,
+  );
 });
 
 test("person-summary fails closed for no permission and result-read-only permission", async () => {
@@ -499,6 +525,8 @@ test("person-summary self and team scopes require active employee mapping and on
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
   assert.deepEqual(team.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
+  assert.match(team.calls[1]?.sql ?? "", /employee\.full_name "employeeDisplayName"/u);
+  assert.doesNotMatch(team.calls[1]?.sql ?? "", /summary_cycle_employee|summary_employee/u);
 
   const self = personSummaryHarness();
   await self.service.personSummary(
@@ -510,6 +538,8 @@ test("person-summary self and team scopes require active employee mapping and on
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.source_person_code=\$4/u);
   assert.deepEqual(self.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
+  assert.match(self.calls[1]?.sql ?? "", /employee\.full_name "employeeDisplayName"/u);
+  assert.doesNotMatch(self.calls[1]?.sql ?? "", /summary_cycle_employee|summary_employee/u);
 });
 
 test("person-summary reuses verified production-import visibility and never concatenates source code into SQL", async () => {
