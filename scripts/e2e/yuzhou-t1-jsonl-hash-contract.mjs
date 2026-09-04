@@ -25,7 +25,10 @@ try {
   write("employment-events.raw.json", [source]);
   const run = spawnSync(process.execPath, [resolve(import.meta.dirname, "../transform-yuzhou-t1-employment-events.mjs"), stage], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
-  const row = JSON.parse(readFileSync(join(stage, "employment-events.jsonl"), "utf8").trim());
+  // The stage is COPY-text transport, not direct JSONL: COPY collapses the
+  // doubled backslashes before jsonb performs the JSON parse.
+  const transport = readFileSync(join(stage, "employment-events.jsonl"), "utf8").trim();
+  const row = JSON.parse(transport.replaceAll("\\\\", "\\"));
   assert.deepEqual(row.source, source);
   assert.equal(row.sourceRowSha256, sha(canonical(source)));
   assert.equal(row.sourceIdentitySha256, sha("dbo.readjust\0" + "1"));

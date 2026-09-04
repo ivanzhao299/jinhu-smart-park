@@ -7,9 +7,19 @@ const outputDir = resolve(process.argv[2] ?? "");
 if (!process.argv[2] || !basename(outputDir).startsWith("staging-")) throw new Error("controlled staging directory is required");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const canonical = (value) => JSON.stringify(value, Object.keys(value).sort());
-// JSON.stringify already escapes JSONL control characters. Escaping backslashes a
-// second time changes the parsed source object and invalidates sourceRowSha256.
-const copySafeJson = (value) => JSON.stringify(value);
+// PostgreSQL COPY text consumes backslash escapes before jsonb parsing. Preserve
+// source control characters as a visible literal marker and double every
+// transport backslash so the JSON parser receives the intended JSON payload.
+// The source row digest deliberately stays bound to the unsanitized read-only
+// source object; the staged payload is only the PostgreSQL-safe representation.
+const safePayload = (value) => Array.isArray(value)
+  ? value.map(safePayload)
+  : value && typeof value === "object"
+    ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, safePayload(item)]))
+    : typeof value === "string"
+      ? value.replaceAll("\0", "\\u0000")
+      : value;
+const copySafeJson = (value) => JSON.stringify(value).replaceAll("\\", "\\\\");
 const readArray = (name) => {
   try {
     const value = JSON.parse(readFileSync(resolve(outputDir, name), "utf8"));
@@ -38,7 +48,7 @@ const events = eventRows.map((source) => {
     sourceKey,
     sourceIdentitySha256: sha256(`${sourceTable}\u0000${sourceKey}`),
     sourceRowSha256: sha256(canonical(source)),
-    source,
+    source: safePayload(source),
   };
 });
 const seenTypes = new Set();
@@ -57,6 +67,7 @@ writeFileSync(statePath, `${JSON.stringify(stateRows, null, 2)}\n`, { mode: 0o60
 const summary = {
   formatVersion: 1,
   generatedAt: new Date().toISOString(),
+  payloadSanitization: "nul_to_literal_escape_v1",
   domains: {
     employmentEvents: { rows: events.length, file: "employment-events.jsonl", fileSha256: sha256(readFileSync(eventPath)) },
     employmentEventTypes: { rows: types.length, file: "employment-event-types.json", fileSha256: sha256(readFileSync(typePath)) },

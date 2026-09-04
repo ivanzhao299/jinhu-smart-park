@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 const root = resolve(import.meta.dirname, "../..");
 const migration = readFileSync(resolve(root, "database/migrations/000237_hr_employment_event_legacy_compatibility.sql"), "utf8");
 const extract = readFileSync(resolve(root, "scripts/extract-yuzhou-t1-employment-events.sh"), "utf8");
@@ -20,6 +22,9 @@ assert.match(transform, /sourceValue, usageCount/);
 assert.match(transform, /employment event type usage evidence is invalid/);
 assert.match(extract, /employment-event-states\.raw\.json[\s\S]*GROUP BY CONVERT\(varchar\(255\),state\)/);
 assert.match(transform, /copySafeJson/);
+assert.match(transform, /payloadSanitization: "nul_to_literal_escape_v1"/);
+assert.match(transform, /replaceAll\("\\0", "\\\\u0000"\)/);
+assert.match(transform, /JSON\.stringify\(value\)\.replaceAll\("\\\\", "\\\\\\\\"\)/);
 assert.match(load, /T1_EMPLOYEE_STATE_UNCHANGED/);
 assert.match(load, /legacy_record_map/);
 assert.match(load, /target_id,mapping_status,is_active\)\nSELECT[\s\S]*'loaded',true/);
@@ -43,4 +48,22 @@ assert.doesNotMatch(load, /password|bank_account|idcard/i);
 assert.match(rollback, /target_table='hr_employment_event'/);
 assert.match(rollback, /status='quarantined' AND loaded_count=0/);
 assert.doesNotMatch(rollback, /DELETE FROM hr_employee\b/);
+
+const stage = mkdtempSync(resolve(tmpdir(), "staging-yuzhou-t1-jsonl-"));
+try {
+  writeFileSync(resolve(stage, "employment-events.raw.json"), JSON.stringify([{
+    legacyId: 1, legacyEventNo: "T1-1", legacyEventType: "transfer", legacyState: "accepted",
+    employeeCode: "E-1", reason: "legacy\0marker",
+  }]));
+  writeFileSync(resolve(stage, "employment-event-types.raw.json"), JSON.stringify([{ sourceValue: "transfer", usageCount: 1 }]));
+  writeFileSync(resolve(stage, "employment-event-states.raw.json"), JSON.stringify([{ sourceValue: "accepted", usageCount: 1 }]));
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/transform-yuzhou-t1-employment-events.mjs"), stage], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  const transport = readFileSync(resolve(stage, "employment-events.jsonl"), "utf8").trim();
+  const payload = JSON.parse(transport.replaceAll("\\\\", "\\"));
+  assert.equal(payload.source.reason, "legacy\\u0000marker");
+  assert.equal(payload.source.reason.includes("\0"), false);
+} finally {
+  rmSync(stage, { recursive: true, force: true });
+}
 console.log("Yuzhou T1 employment event contract passed.");
