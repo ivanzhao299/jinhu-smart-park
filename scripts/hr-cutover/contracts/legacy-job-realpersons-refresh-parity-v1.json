@@ -1,0 +1,233 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "job-realpersons-refresh-gap-1.0.0",
+  "compatibilityScope": "u_getjobpersons_source_bound_gap_only",
+  "sourceBinding": {
+    "routineLedgerSha256": "b03791056e8b866cf4bbece40ac0f2f020ae396b8564fedc2ae723dba3651c83",
+    "sourceRoutineCount": 1,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "evidenceBindings": {
+    "routineLedger": {
+      "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+      "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+    },
+    "organizationPositionFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
+      "sha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+    },
+    "t0Extractor": {
+      "path": "scripts/extract-yuzhou-t0.sh",
+      "sha256": "b5910d04d89550baf240eb182fa7be6e2ff3db51aec9314f3b9549cd3fa146a0"
+    },
+    "positionEntity": {
+      "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
+      "sha256": "3db6e883ab63b6db954bf1cb4e1386c1b76b6cd85df65468b4b9eadc26cd4908"
+    },
+    "modernService": {
+      "path": "apps/api/src/modules/hr/hr.service.ts",
+      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+    },
+    "modernController": {
+      "path": "apps/api/src/modules/hr/hr.controller.ts",
+      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+    },
+    "modernPage": {
+      "path": "apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx",
+      "sha256": "1f74e4d5ea4b223cd8f6fd006f586e6c63696a39811f3b8f686e2dec56bb5728"
+    },
+    "permissionContract": {
+      "path": "packages/shared/src/hr.ts",
+      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+    },
+    "aggregateTest": {
+      "path": "apps/api/src/modules/hr/hr-workforce-decision-snapshot.spec.ts",
+      "sha256": "1292e7bc25f1b0cd78e80f4fcb44b69c0db35c38cde8304a5ea60e32b9962cd7"
+    },
+    "syntheticFixture": {
+      "path": "scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-fixture-v1.json",
+      "sha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"
+    }
+  },
+  "sourceShape": {
+    "parameters": [],
+    "statement": "update_every_job_row_realpersons_to_correlated_count",
+    "countPredicate": "person_job_equals_current_job_and_person_jobstate_equals_jobstatecode_jobstate_and_defcount_equals_one",
+    "outputResultSet": "none",
+    "affectedRows": "every_job_row",
+    "emptyPersonOrJobStateBehavior": "overwrite_every_job_realpersons_with_zero",
+    "businessWrites": 1,
+    "dynamicSqlExecutions": 0
+  },
+  "routines": [
+    {
+      "routineId": "RULE-4B21922F4B3320A2",
+      "canonicalFamily": "u_getjobpersons",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "pending",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_PROCEDURE_HAS_NO_PARAMETERS",
+          "entries": [],
+          "evidenceSha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "SOURCE_RETURNS_NO_RESULT_SET_BUT_PERSISTS_ONE_COUNT_PER_JOB_WHILE_MODERN_API_RETURNS_ONLY_PARK_AGGREGATES",
+          "entries": [
+            {
+              "sourceField": "job.realpersons_after_update",
+              "modernField": "missing_position_level_assigned_headcount",
+              "transform": "no_verified_row_level_projection",
+              "nullContract": "source_count_is_zero_not_null_after_successful_refresh"
+            },
+            {
+              "sourceField": "no_result_set",
+              "modernField": "workforceDecisionSnapshot.staffing.activeAssignedHeadcount",
+              "transform": "aggregate_observation_is_not_the_source_mutation_contract",
+              "nullContract": "modern_numeric_fallback_zero_does_not_prove_persisted_row_outcome"
+            }
+          ],
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "LEGACY_JOBSTATECODE_DEFCOUNT_EQUALS_ONE_HAS_NO_APPROVED_COMPLETE_MAPPING_TO_MODERN_EMPLOYMENT_STATUS",
+          "entries": [
+            {
+              "sourceLocator": "dbo.job.job",
+              "modernLocator": "hr_position.id_and_position_code",
+              "relationContract": "business_key_mapping_exists_but_refresh_targets_all_legacy_jobs"
+            },
+            {
+              "sourceLocator": "dbo.person.job_and_jobstate",
+              "modernLocator": "hr_employee.position_id_and_employment_status",
+              "relationContract": "position_relation_exists_but_counting_state_equivalence_is_pending"
+            },
+            {
+              "sourceLocator": "dbo.jobstatecode.jobstate_and_defcount",
+              "modernLocator": "hr_employee.employment_status",
+              "relationContract": "every_source_state_with_defcount_one_must_be_decided_not_inferred_from_active_and_probation_only"
+            }
+          ],
+          "evidenceSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"
+        },
+        "writeMappings": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "LEGACY_PERSISTS_JOB_REALPERSONS_BUT_MODERN_POSITION_SCHEMA_DOES_NOT_STORE_AN_EQUIVALENT_FIELD",
+          "entries": [
+            {
+              "sourceLocator": "dbo.job.realpersons_for_every_job_row",
+              "modernLocator": "no_hr_position_persisted_actual_headcount",
+              "relationContract": "archive_only_source_field_and_read_time_aggregate_do_not_prove_write_equivalence"
+            }
+          ],
+          "evidenceSha256": "79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"
+        },
+        "transaction": {
+          "status": "pending",
+          "sourceBoundary": "single_set_based_update_statement_atomic_under_sql_server_statement_rules",
+          "modernBoundary": "read_time_postgresql_aggregate_followed_by_required_audit_without_equivalent_refresh_command",
+          "rollbackBehavior": "source_statement_failure_rolls_back_its_update_but_no_modern_mutation_boundary_exists_to_compare",
+          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "SOURCE_CORRELATED_EQUALITIES_EXCLUDE_NULLS_AND_COUNT_RETURNS_ZERO_BUT_MODERN_STATUS_MAPPING_IS_UNRESOLVED",
+          "entries": [
+            {
+              "sourceExpression": "count_star_over_inner_join_predicates_and_defcount_equals_one",
+              "modernExpression": "count_by_nonnull_position_id_filtered_to_active_or_probation",
+              "equivalenceRule": "null_or_unmatched_job_and_jobstate_do_not_count_and_every_job_receives_nonnull_zero_when_no_match"
+            }
+          ],
+          "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "COUNT_AND_INTEGER_ASSIGNMENT_HAVE_NO_ROUNDING",
+          "entries": [],
+          "evidenceSha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "pending",
+          "decisionReason": "SOURCE_OVERWRITES_CACHED_COUNTS_FOR_ALL_JOBS_WHILE_MODERN_API_ONLY_READS_AGGREGATES_AND_WRITES_AN_AUDIT_EVENT",
+          "entries": [
+            {
+              "sourceEffect": "overwrite_job_realpersons_for_every_job_row",
+              "modernEffect": "no_position_business_write_and_required_sensitive_read_audit",
+              "conservationRule": "job_identity_and_person_rows_remain_unchanged_but_persisted_count_effect_is_not_equivalent"
+            }
+          ],
+          "evidenceSha256": "1292e7bc25f1b0cd78e80f4fcb44b69c0db35c38cde8304a5ea60e32b9962cd7"
+        },
+        "dynamicSql": {
+          "status": "none",
+          "resolvedWriteTargets": [],
+          "evidenceSha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8"
+        },
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "fixtureDataState": "synthetic_non_personal_rows_cover_counted_excluded_null_unmatched_and_empty_tables",
+          "emptyInputCase": {"status": "covered", "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"},
+          "untriggeredBranchCase": {"status": "covered", "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"},
+          "triggerFiringCase": {"status": "not_applicable", "evidenceSha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8"}
+        }
+      },
+      "authorizationSemantics": {
+        "status": "pending",
+        "sourceExecuteGrant": "not_bound_in_current_source_evidence",
+        "modernPermission": "hr:decision_center",
+        "decisionReason": "DATABASE_EXECUTE_GRANTS_CANNOT_BE_INFERRED_FROM_UI_OR_API_PERMISSION"
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrService.workforceDecisionSnapshot"],
+        "apiSymbols": ["GET /hr/decision-center/workforce"],
+        "pages": ["apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{"testId": "positive-defcount-one-refresh", "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"}],
+        "negative": [{"testId": "negative-defcount-null-zero-unmatched-and-empty", "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"}],
+        "permission": [{"testId": "permission-source-grant-gap-and-modern-page-permission", "evidenceSha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"}],
+        "conservation": [{"testId": "conservation-only-realpersons_changes", "evidenceSha256": "85a71a447cd2fb45ca57ae95d70991d6b72cffefd296426937923fb59b6499e3"}]
+      },
+      "review": {"status": "pending", "evidenceSha256": null}
+    }
+  ],
+  "gapAnalysis": {
+    "compatibilityCredit": 0,
+    "status": "GAP_CONFIRMED",
+    "reasonCodes": [
+      "JOB_REALPERSONS_REFRESH_TARGET_NOT_PRESERVED",
+      "JOBSTATE_DEFCOUNT_TO_EMPLOYMENT_STATUS_RULE_UNRESOLVED",
+      "PERSISTED_REFRESH_REPLACED_BY_READ_TIME_AGGREGATE_UNAPPROVED",
+      "POSITION_LEVEL_ASSIGNED_COUNT_NOT_EXPOSED",
+      "SOURCE_EXECUTE_AUTHORIZATION_NOT_BOUND"
+    ],
+    "minimumClosure": [
+      "approve_each_jobstatecode_defcount_mapping_to_modern_counted_or_excluded_status",
+      "choose_and_document_persisted_snapshot_or_explicitly_approved_read_time_derivation",
+      "expose_or_verifiably_materialize_one_count_per_position_including_zero_count_positions",
+      "prove_null_unmatched_and_empty_reference_behavior_at_the_modern_boundary",
+      "bind_source_execute_authorization_and_modern_permission_decision"
+    ]
+  },
+  "nonClaims": {
+    "refreshMutationParity": "NOT_CLAIMED",
+    "jobStateCountingParity": "NOT_CLAIMED",
+    "positionLevelOutputParity": "NOT_CLAIMED",
+    "authorizationParity": "NOT_CLAIMED",
+    "productionImportReadiness": "NOT_CLAIMED"
+  },
+  "productionImport": "HOLD"
+}
