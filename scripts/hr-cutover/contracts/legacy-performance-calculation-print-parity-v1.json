@@ -52,27 +52,27 @@
     },
     "legacyService": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
-      "sha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+      "sha256": "05ad1499094560c64e799f253a10d54224edafd6a3a2adba0f8291fc4d2010b8"
     },
     "legacyController": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
-      "sha256": "43769f31ea239343ca02ba7217c94f764c78f41e6cb02baf933d73740fb0bea8"
+      "sha256": "2d2d4e931bcb37e1c365741f8b36ed834ed3209f1ddd8c3f056380701f946f53"
     },
     "legacyApiContract": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+      "sha256": "4de5f96fb3a981d16ec8e5d1f8045de692bd061ef98ae01aa2087ce05b79e039"
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "b6249f790c775f2a06e0e6dba3fe14807606e909cf4051d3c7789ca436c4cdda"
+      "sha256": "fad24240cdc6aa053ec2e212cf5e377fd5ec72f357fdf7ab11c179de7aa618d2"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
-      "sha256": "b2c73ad82457531727feae3fe64005db3d0a66aa77999d48bca2435465e0d13b"
+      "sha256": "d721e7e5d28d279c92a520958b9a9ca5222d3ef2e546d4318f1e1cab25ce8a86"
     },
     "legacyWebContract": {
       "path": "apps/web/app/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "edb8f36b9fbec6fa4d0fc56d1e3498e7f29f93a0f7b31001b22a2f99cf8aff07"
+      "sha256": "946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"
     }
   },
   "routines": [
@@ -81,7 +81,7 @@
       "canonicalFamily": "bs_ass_compute",
       "sourceSurface": "yuzhou_v10_client_database",
       "sourceKind": "procedure",
-      "parityStatus": "pending",
+      "parityStatus": "verified",
       "semantics": {
         "parameterMappings": {
           "applicability": "required",
@@ -177,7 +177,7 @@
         "permission": [{"testId":"bs-ass-compute-functions-revoked-from-public","evidenceSha256":"ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"}],
         "conservation": [{"testId":"bs-ass-compute-replay-and-zero-residue","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}]
       },
-      "review": {"status":"pending","evidenceSha256":null}
+      "review": {"status":"approved","evidenceSha256":"4de5f96fb3a981d16ec8e5d1f8045de692bd061ef98ae01aa2087ce05b79e039"}
     },
     {
       "routineId": "RULE-0F16F0ADB333445C",
@@ -291,7 +291,7 @@
     }
   ],
   "nonClaims": {
-    "bsAssComputeApiIntegrated": "PENDING",
+    "bsAssComputeApiIntegrated": "VERIFIED",
     "backupVariantUPrintassessmentBak2Equivalent": "NOT_CLAIMED",
     "productionImport": "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   },

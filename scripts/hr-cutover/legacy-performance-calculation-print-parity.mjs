@@ -158,6 +158,14 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
     "REVOKE ALL ON FUNCTION hr_performance_yuzhou_legacy_grade_parity(uuid) FROM PUBLIC",
   ]);
   requireTokens(repositoryRoot, "apps/api/src/modules/hr/hr-performance-legacy.service.ts", [
+    "async masters(",
+    "WITH page_fact AS (",
+    "hr_performance_yuzhou_legacy_grade_parity(fact.id)",
+    "parity.calculated_total::text \"calculatedTotal\"",
+    "parity.expected_ass_grade \"expectedAssGrade\"",
+    "parity.parity_status \"parityStatus\"",
+    "HR_PAYROLL_HISTORY_SELF_READ",
+    "读取玉舟历史绩效汇总",
     "async rubric(",
     "fact.source_assessment_id=$3",
     "fact.source_item_id=ANY($3::int[])",
@@ -166,16 +174,26 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
     "batch.execution_context='production_import'",
   ]);
   requireTokens(repositoryRoot, "apps/api/src/modules/hr/hr-performance-legacy.controller.ts", [
+    "@Get(\"masters\")",
+    "HR_PERMISSIONS.HR_PERFORMANCE_READ",
+    "HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ",
+    "HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ",
     "@Get(\"rubric\")",
     "HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ",
   ]);
   requireTokens(repositoryRoot, "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts", [
+    "legacy masters expose all 21 source fields, parity, paging-first SQL, and field-level pay control",
+    "legacy master pay visibility never widens team scope with self-only payroll permission",
     "legacy rubric reproduces u_printassessment item-by-grade projection without dynamic SQL",
     "legacy rubric preserves items when source level definitions are absent",
     "legacy rubric returns an empty projection when all three source relations are empty",
     "legacy rubric fails closed for mixed batches or duplicate item-grade descriptions",
   ]);
   requireTokens(repositoryRoot, "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx", [
+    "汇总与总分",
+    "兼容计算总分",
+    "兼容计算等级",
+    "复算一致性",
     "旧过程 u_printassessment",
     "旧版动态评分表",
     "ds-table-shell",
@@ -184,13 +202,13 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
 
   const report = evaluateLegacyRoutineParityContract({ contract, routineLedger: reviewedLedger });
   if (
-    report.status !== "IN_PROGRESS"
+    report.status !== "COMPLETE"
     || report.summary.sourceRoutines !== 2
-    || report.summary.verifiedRoutines !== 1
-    || !report.pendingRoutineKeys.includes("yuzhou_v10_client_database:RULE-0C991427090A219D")
+    || report.summary.verifiedRoutines !== 2
+    || report.pendingRoutineKeys.length !== 0
   ) fail("PERFORMANCE_ROUTINE_COMPLETION_CREDIT_INVALID", JSON.stringify(report.summary));
   if (
-    contract.nonClaims?.bsAssComputeApiIntegrated !== "PENDING"
+    contract.nonClaims?.bsAssComputeApiIntegrated !== "VERIFIED"
     || contract.nonClaims?.backupVariantUPrintassessmentBak2Equivalent !== "NOT_CLAIMED"
     || contract.nonClaims?.productionImport !== "NOT_AUTHORIZED_BY_THIS_CONTRACT"
   ) fail("PERFORMANCE_ROUTINE_NON_CLAIM_INVALID", "root");
@@ -199,10 +217,10 @@ export function verifyLegacyPerformanceCalculationPrintParity({ contract, reposi
     ok: true,
     status: report.status,
     sourceRoutines: 2,
-    verifiedRoutines: 1,
-    pendingRoutines: 1,
-    verifiedRoutineIds: ["RULE-0F16F0ADB333445C"],
-    pendingRoutineIds: ["RULE-0C991427090A219D"],
+    verifiedRoutines: 2,
+    pendingRoutines: 0,
+    verifiedRoutineIds: ["RULE-0C991427090A219D", "RULE-0F16F0ADB333445C"],
+    pendingRoutineIds: [],
     reviewedReadOnlyDynamicSql: ["RULE-0F16F0ADB333445C"],
     excludedHistoricalVariants: ["RULE-6FDC0BE94D1719EA"],
     containsSourceRows: false,
