@@ -29,7 +29,7 @@ export class HrPerformanceLegacyRelationsController {
 
   @Get("score-sources")
   @RequireAnyPermissions(
-    HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_MANAGE,
   )
   scoreSources(
@@ -42,7 +42,7 @@ export class HrPerformanceLegacyRelationsController {
 
   @Get("source-person-assignments")
   @RequireAnyPermissions(
-    HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_MANAGE,
   )
   sourcePersonAssignments(

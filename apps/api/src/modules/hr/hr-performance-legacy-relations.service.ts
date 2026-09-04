@@ -183,7 +183,7 @@ export class HrPerformanceLegacyRelationsService {
 
   private canReadPersonRelations(actor: JwtPrincipal): boolean {
     return (
-      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ) ||
+      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_READ) ||
       has(actor, HR_PERMISSIONS.HR_PERFORMANCE_MANAGE)
     );
   }

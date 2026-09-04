@@ -84,10 +84,10 @@ test("legacy session definitions require template authority and stay tenant/park
   assert.equal(allowed.audits.length, 1);
 });
 
-test("person-bearing relations accept only result-read or performance-manage park authority", async () => {
+test("person-bearing relations require an explicit park read or manage scope", async () => {
   for (const permission of [
     undefined,
-    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ,
@@ -105,7 +105,7 @@ test("person-bearing relations accept only result-read or performance-manage par
   }
 
   for (const permission of [
-    HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
     HR_PERMISSIONS.HR_PERFORMANCE_MANAGE,
   ]) {
     const allowed = harness({
@@ -158,7 +158,7 @@ test("relation queries use bounded pagination, stable ordering, and narrowing se
   });
   const result = await allowed.service.sourcePersonAssignments(
     scope,
-    actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ),
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
     { ...page, source_session_id: 7 },
   );
   assert.deepEqual(allowed.calls[0]?.params, [scope.tenantId, scope.parkId, 7]);
@@ -214,7 +214,7 @@ test("authorized relation reads fail closed when required audit persistence fail
     /required audit unavailable/u,
   );
   await assert.rejects(
-    service.scoreSources(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ), page),
+    service.scoreSources(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page),
     /required audit unavailable/u,
   );
   await assert.rejects(
@@ -238,7 +238,7 @@ test("legacy relation controller is read-only and module wiring is complete", ()
   for (const permission of [
     "HR_PERFORMANCE_TEMPLATE_READ",
     "HR_PERFORMANCE_TEMPLATE_MANAGE",
-    "HR_PERFORMANCE_RESULT_READ",
+    "HR_PERFORMANCE_READ",
     "HR_PERFORMANCE_MANAGE",
   ]) {
     assert.match(controller, new RegExp(`HR_PERMISSIONS\\.${permission}\\b`, "u"));
