@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -13,6 +14,16 @@ import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
 const page = { page: 2, page_size: 25 };
+
+test("ordinary API CI executes the legacy performance routine parity fast contract", () => {
+  const repositoryRoot = resolve(__dirname, "../../../../..");
+  const result = spawnSync(
+    process.execPath,
+    ["--test", resolve(repositoryRoot, "scripts/e2e/yuzhou-performance-calculation-print-parity-contract.mjs")],
+    { cwd: repositoryRoot, encoding: "utf8", env: process.env },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
 
 function actor(permission?: string): JwtPrincipal {
   return {

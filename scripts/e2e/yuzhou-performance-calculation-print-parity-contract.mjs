@@ -72,20 +72,14 @@ test("compute branch evidence does not claim a SQL Server oracle or full routine
   assert.ok(evidenceIds.includes("bs-ass-compute-master-result-read-scope-pay-and-audit-matrix"));
 });
 
-test("ordinary CI runs the fast contract and release smoke owns direct PostgreSQL branches", () => {
-  const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
-  assert.match(
-    workflow,
-    /Verify Yuzhou performance routine parity contract[\s\S]*pnpm test:e2e:yuzhou-performance-calculation-print-parity/u,
+test("ordinary API CI owns the fast contract while direct PostgreSQL CI remains explicitly pending", () => {
+  const apiContract = readFileSync(
+    resolve(root, "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts"),
+    "utf8",
   );
-  assert.match(
-    workflow,
-    /Verify Yuzhou performance calculation PostgreSQL branches[\s\S]*YUZHOU_PERFORMANCE_PG_CONTAINER[\s\S]*pnpm test:e2e:yuzhou-performance-legacy-master-model:pg/u,
-  );
-  assert.match(
-    workflow,
-    /scripts\/e2e\/yuzhou-performance-legacy-master-model-direct-pg\\\.mjs\$/u,
-  );
+  assert.match(apiContract, /ordinary API CI executes the legacy performance routine parity fast contract/u);
+  assert.match(apiContract, /yuzhou-performance-calculation-print-parity-contract\.mjs/u);
+  assert.equal(contract.nonClaims.bsAssComputePostgresCiGate, "PENDING_WORKFLOW_SCOPE");
 });
 
 test("evidence drift and premature bs_ass_compute promotion fail closed", () => {
