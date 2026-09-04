@@ -202,6 +202,30 @@ test("legacy rubric preserves items when source level definitions are absent", a
   }]);
 });
 
+test("legacy rubric returns an empty projection when all three source relations are empty", async () => {
+  const calls: string[] = [];
+  const dataSource = {
+    query: async (sql: string) => {
+      calls.push(sql);
+      return [];
+    },
+  } as unknown as DataSource;
+  const audits: unknown[] = [];
+  const audit = {
+    recordOperationRequired: async (input: unknown) => {
+      audits.push(input);
+    },
+  } as never;
+  const result = await new HrPerformanceLegacyService(dataSource, audit).rubric(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ),
+    { source_assessment_id: 3 },
+  );
+  assert.deepEqual(result, { sourceAssessmentId: 3, levels: [], items: [] });
+  assert.equal(calls.length, 2);
+  assert.equal(audits.length, 1);
+});
+
 test("legacy rubric fails closed for mixed batches or duplicate item-grade descriptions", async () => {
   const mixed = {
     query: async (sql: string) => {

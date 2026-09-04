@@ -1,0 +1,299 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
+  "contractVersion": "performance-calculation-print-1.0.0",
+  "sourceBinding": {
+    "routineLedgerSha256": "a3d7ff331131ce339ab9e8221b8e3a9bc2b5a5022ccff18dd2adf696daa3f601",
+    "sourceRoutineCount": 2,
+    "requiredSourceSurfaces": ["yuzhou_v10_client_database"]
+  },
+  "sourceReview": {
+    "routineLedgerPath": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "routineLedgerFileSha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "adjudications": [
+      {
+        "routineId": "RULE-0F16F0ADB333445C",
+        "sourceArtifactSha256": "9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986",
+        "fromDynamicMutationStatus": "unknown_requires_review",
+        "toDynamicMutationStatus": "none",
+        "reviewedBusinessCapability": "read_only_dynamic_projection",
+        "reason": "The active routine has one SELECT, reads assgradecode/assitem/assitemgradedes, and has zero INSERT/UPDATE/DELETE/MERGE/ALTER or dynamic write targets. Its cursor constructs output columns only."
+      }
+    ]
+  },
+  "evidenceBindings": {
+    "gradeFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json",
+      "sha256": "1ccd435a5a9cb9565f1717e078cd4011420bd7269bae572a713382b1c09ad056"
+    },
+    "itemFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
+      "sha256": "df1dc6aca4719ba12808841f1c23d30ca81686a7fde565efd5bf6b4d2228a6ea"
+    },
+    "guideFieldMap": {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json",
+      "sha256": "cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"
+    },
+    "masterModel": {
+      "path": "database/migrations/000302_hr_performance_yuzhou_legacy_master.sql",
+      "sha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+    },
+    "masterParity": {
+      "path": "database/migrations/000304_hr_performance_yuzhou_legacy_master_parity.sql",
+      "sha256": "ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"
+    },
+    "masterParityDirectPg": {
+      "path": "scripts/e2e/yuzhou-performance-legacy-master-model-direct-pg.mjs",
+      "sha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+    },
+    "masterParityContract": {
+      "path": "scripts/e2e/yuzhou-performance-legacy-master-parity-contract.mjs",
+      "sha256": "6e182f10e9d9e0fc227d2c921173828903868d26c1c098f752559cdfd117f55e"
+    },
+    "legacyService": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
+      "sha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+    },
+    "legacyController": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
+      "sha256": "43769f31ea239343ca02ba7217c94f764c78f41e6cb02baf933d73740fb0bea8"
+    },
+    "legacyApiContract": {
+      "path": "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts",
+      "sha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+    },
+    "legacyWebApi": {
+      "path": "apps/web/lib/hr-api.ts",
+      "sha256": "b6249f790c775f2a06e0e6dba3fe14807606e909cf4051d3c7789ca436c4cdda"
+    },
+    "legacyPanel": {
+      "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
+      "sha256": "b2c73ad82457531727feae3fe64005db3d0a66aa77999d48bca2435465e0d13b"
+    },
+    "legacyWebContract": {
+      "path": "apps/web/app/hr/hr-performance-legacy.contract.spec.ts",
+      "sha256": "edb8f36b9fbec6fa4d0fc56d1e3498e7f29f93a0f7b31001b22a2f99cf8aff07"
+    }
+  },
+  "routines": [
+    {
+      "routineId": "RULE-0C991427090A219D",
+      "canonicalFamily": "bs_ass_compute",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "pending",
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_SESSION_AND_PERSON_RESOLVE_TO_ONE_SCOPED_MASTER_FACT_BEFORE_REPLAY",
+          "entries": [
+            {"sourceParameter":"asssessionid","modernParameter":"masterId","sourceType":"int","modernType":"uuid","transform":"resolve active source session and person identity to one legacy master fact","nullContract":"missing or ambiguous master identity returns no parity result"},
+            {"sourceParameter":"person","modernParameter":"masterId","sourceType":"varchar(20)","modernType":"uuid","transform":"trim person code and resolve with session in the same tenant park batch","nullContract":"null or unmatched person returns no parity result"}
+          ],
+          "evidenceSha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "SOURCE_TOTAL_AND_GRADE_WRITES_HAVE_EXPLICIT_REPLAY_AND_COMPARISON_OUTPUTS",
+          "entries": [
+            {"sourceField":"assessmentmaster.totalvalue","modernField":"hr_performance_yuzhou_legacy_grade_parity.calculated_total","transform":"five weighted aggregates plus master timekeeping and bonus adjustments","nullContract":"unavailable detail subtotal yields TOTAL_UNAVAILABLE"},
+            {"sourceField":"assessmentmaster.assgrade","modernField":"hr_performance_yuzhou_legacy_grade_parity.expected_ass_grade","transform":"highest minvalue not greater than total without assessment or maxvalue filter","nullContract":"no eligible level or tied top threshold does not invent a grade"}
+          ],
+          "evidenceSha256": "ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ALL_FIVE_SOURCE_READ_RELATIONS_MAP_TO_SCOPED_APPEND_ONLY_COMPATIBILITY_FACTS",
+          "entries": [
+            {"sourceLocator":"assessmentdetail by session and person","modernLocator":"hr_performance_legacy_dimension_result by tenant park batch session and person","relationContract":"source details are grouped inside one template and migration batch"},
+            {"sourceLocator":"assessmentcode weights through person assessment","modernLocator":"hr_performance_legacy_template_profile percentages","relationContract":"resolved template profile supplies S M T X C percentages"},
+            {"sourceLocator":"assgradecode threshold scan","modernLocator":"hr_performance_legacy_level_rule threshold scan","relationContract":"unscoped minvalue ordering is preserved and duplicate winning thresholds fail closed"}
+          ],
+          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+        },
+        "writeMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_IN_PLACE_MASTER_MUTATION_IS_REPLACED_BY_APPEND_ONLY_SOURCE_FACT_PLUS_READ_ONLY_REPLAY",
+          "entries": [
+            {"sourceLocator":"assessmentmaster aggregate total and grade update","modernLocator":"hr_performance_legacy_master_result source snapshot plus parity function","relationContract":"import preserves source outputs while replay computes expected outputs without mutating history"}
+          ],
+          "evidenceSha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "three legacy updates execute in the stored procedure transaction context",
+          "modernBoundary": "append-only import transaction followed by stable read-only parity evaluation",
+          "rollbackBehavior": "batch-scoped reverse rollback removes facts and leaves zero active record maps",
+          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_ISNULL_ZERO_AND_NULL_SUBTOTAL_PATHS_ARE_EXPLICIT",
+          "entries": [
+            {"sourceExpression":"isnull(detail values and master/timekeep/bonus adjustments,0)","modernExpression":"coalesce each matching component to zero","equivalenceRule":"zero defaults are applied component by component before final rounding"},
+            {"sourceExpression":"no matching detail aggregate","modernExpression":"subtotal null","equivalenceRule":"TOTAL_UNAVAILABLE is reported and no grade is fabricated"}
+          ],
+          "evidenceSha256": "ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"
+        },
+        "roundingSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_INTEGER_COMPONENT_CASTS_AND_FINAL_TWO_DECIMAL_ROUNDING_ARE_PRESERVED",
+          "entries": [
+            {"sourceExpression":"M X C sums stored through numeric(18,0) master components then percent weighted","modernExpression":"M X C sums cast numeric(18,0) before weighting and final round(value,2)","precisionRule":"intermediate integer rounding and final two-decimal total are both observable"}
+          ],
+          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+        },
+        "stateSideEffects": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_THREE_UPDATES_ARE_CONSERVED_AS_SOURCE_SNAPSHOT_AND_NON_MUTATING_EXPECTED_VALUE",
+          "entries": [
+            {"sourceEffect":"update five aggregates total and grade on assessmentmaster","modernEffect":"preserve imported source values and expose calculated total expected grade and parity status","conservationRule":"source values remain unchanged and mismatch or ambiguity is visible"}
+          ],
+          "evidenceSha256": "77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"
+        },
+        "dynamicSql": {"status":"none","resolvedWriteTargets":[],"evidenceSha256":"33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"},
+        "dormantPaths": {
+          "sourceDataState": "empty",
+          "emptyInputCase": {"status":"covered","evidenceSha256":"6e182f10e9d9e0fc227d2c921173828903868d26c1c098f752559cdfd117f55e"},
+          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"},
+          "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"}
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["hr_performance_yuzhou_weighted_detail_total", "hr_performance_yuzhou_legacy_full_total", "hr_performance_yuzhou_legacy_grade_parity"],
+        "apiSymbols": ["GET /hr/performance-legacy/masters"],
+        "pages": ["apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{"testId":"bs-ass-compute-weight-total-grade-match","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}],
+        "negative": [{"testId":"bs-ass-compute-tied-threshold-fails-closed","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}],
+        "permission": [{"testId":"bs-ass-compute-functions-revoked-from-public","evidenceSha256":"ff4987b85208550ff8237e20d39b4f5c94b067578b13b694982d09910994df06"}],
+        "conservation": [{"testId":"bs-ass-compute-replay-and-zero-residue","evidenceSha256":"77f75772ce061a8581b3ada5b8698c0097ce705f309de1dccb09c303a6877db1"}]
+      },
+      "review": {"status":"pending","evidenceSha256":null}
+    },
+    {
+      "routineId": "RULE-0F16F0ADB333445C",
+      "canonicalFamily": "u_printassessment",
+      "sourceSurface": "yuzhou_v10_client_database",
+      "sourceKind": "procedure",
+      "parityStatus": "verified",
+      "historicalVariants": [
+        {
+          "routineId": "RULE-6FDC0BE94D1719EA",
+          "sourceName": "u_printassessment_bak2",
+          "sourceArtifactSha256": "ef2e114f5b231e02f3fdfedfb7eb5259af785c8b7469e298b13fe83dac786084",
+          "reviewStatus": "reviewed_not_equivalent",
+          "differences": [
+            "grade cursor omits the assessmentid filter",
+            "routine references assitem.assitemgroupid and assitemgroup outside the current structural inventory"
+          ],
+          "compatibilityCredit": 0
+        }
+      ],
+      "semantics": {
+        "parameterMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "LEGACY_VARCHAR_PARAMETER_IS_EXPLICITLY_VALIDATED_AS_THE_NUMERIC_ASSESSMENT_ID_USED_BY_ALL_THREE_RELATIONS",
+          "entries": [
+            {"sourceParameter":"assessment","modernParameter":"source_assessment_id","sourceType":"varchar(30)","modernType":"integer query parameter","transform":"validate integer then bind once to all scoped source assessment predicates","nullContract":"missing nonnumeric or out-of-range input is rejected before database access"}
+          ],
+          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+        },
+        "outputFieldMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "DYNAMIC_GRADE_COLUMNS_ARE_NORMALIZED_TO_A_STABLE_LEVEL_LIST_AND_PER_ITEM_DESCRIPTION_MAP_WITHOUT_LOSS",
+          "entries": [
+            {"sourceField":"assitem.assitemid assitemname fullvalue myorder","modernField":"items[].sourceItemId sourceItemName sourceFullValue sourceMyOrder","transform":"one ordered item object per legacy item","nullContract":"nullable name value and order remain null"},
+            {"sourceField":"one dynamic column per assgradecode.assgrade","modernField":"levels[] plus items[].descriptions[grade]","transform":"grade cursor becomes a stable key-value matrix without executing dynamic SQL","nullContract":"missing guide description is absent while null descriptions remain null"}
+          ],
+          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+        },
+        "readMappings": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "ALL_THREE_SOURCE_TABLES_ARE_READ_FROM_ACTIVE_VERIFIED_PRODUCTION_IMPORT_FACTS_IN_ONE_TENANT_AND_PARK",
+          "entries": [
+            {"sourceLocator":"assgradecode where assessmentid equals parameter","modernLocator":"hr_performance_legacy_level_rule by source_assessment_id","relationContract":"level rows and their ordering remain within one active source batch"},
+            {"sourceLocator":"assitem where assid equals parameter order by myorder","modernLocator":"hr_performance_legacy_dimension_profile by source_assessment_id order by source_my_order","relationContract":"each source item appears once in stable source order"},
+            {"sourceLocator":"assitemgradedes by item and grade","modernLocator":"hr_performance_legacy_item_grade_guide by source_item_id and source_grade","relationContract":"duplicate item-grade descriptions fail closed instead of silently overwriting a dynamic column"}
+          ],
+          "evidenceSha256": "ff26908e060f348c73eaa1aff16ca568214da08ed8238901a13a6f2f4ab846fe"
+        },
+        "writeMappings": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "SOURCE_AND_MODERN_PROJECTIONS_HAVE_ZERO_BUSINESS_WRITES",
+          "entries": [],
+          "evidenceSha256": "9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"
+        },
+        "transaction": {
+          "status": "verified",
+          "sourceBoundary": "cursor builds one read-only dynamic SELECT without an explicit write transaction",
+          "modernBoundary": "three tenant-park-batch-scoped SELECT statements followed by in-memory matrix assembly",
+          "rollbackBehavior": "read has no business state to roll back and required audit failure suppresses the response",
+          "evidenceSha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+        },
+        "nullSemantics": {
+          "applicability": "required",
+          "status": "verified",
+          "decisionReason": "NULL_FIELDS_EMPTY_LEVELS_AND_EMPTY_RELATIONS_HAVE_EXPLICIT_OUTPUTS",
+          "entries": [
+            {"sourceExpression":"nullable item label full value order or guide description","modernExpression":"nullable item properties and description values","equivalenceRule":"null remains null and is not replaced by invented text or zero"},
+            {"sourceExpression":"no assgradecode rows for assessment","modernExpression":"levels empty while matching items remain visible","equivalenceRule":"empty grade metadata does not erase source items"},
+            {"sourceExpression":"all three source relations empty","modernExpression":"levels and items are both empty","equivalenceRule":"successful empty projection is distinct from permission denial and database failure"}
+          ],
+          "evidenceSha256": "99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"
+        },
+        "roundingSemantics": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ROUTINE_PROJECTS_STORED_VALUES_AND_DOES_NOT_CALCULATE_OR_ROUND",
+          "entries": [],
+          "evidenceSha256": "9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"
+        },
+        "stateSideEffects": {
+          "applicability": "not_applicable",
+          "status": "verified",
+          "decisionReason": "ROUTINE_AND_MODERN_ENDPOINT_ARE_READ_ONLY",
+          "entries": [],
+          "evidenceSha256": "43769f31ea239343ca02ba7217c94f764c78f41e6cb02baf933d73740fb0bea8"
+        },
+        "dynamicSql": {"status":"none","resolvedWriteTargets":[],"evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"},
+        "dormantPaths": {
+          "sourceDataState": "populated",
+          "emptyInputCase": {"status":"covered","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"},
+          "untriggeredBranchCase": {"status":"covered","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"},
+          "triggerFiringCase": {"status":"not_applicable","evidenceSha256":"9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"}
+        }
+      },
+      "modernTargets": {
+        "serviceSymbols": ["HrPerformanceLegacyService.rubric"],
+        "apiSymbols": ["GET /hr/performance-legacy/rubric"],
+        "pages": ["apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx"]
+      },
+      "testEvidence": {
+        "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
+        "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
+        "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"99ff1e021a71c3eece52cb1ab04898233767bb8cbb5dca659db213dd29159c48"}],
+        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"edb8f36b9fbec6fa4d0fc56d1e3498e7f29f93a0f7b31001b22a2f99cf8aff07"}]
+      },
+      "review": {"status":"approved","evidenceSha256":"cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"}
+    }
+  ],
+  "nonClaims": {
+    "bsAssComputeApiIntegrated": "PENDING",
+    "backupVariantUPrintassessmentBak2Equivalent": "NOT_CLAIMED",
+    "productionImport": "NOT_AUTHORIZED_BY_THIS_CONTRACT"
+  },
+  "productionImport": "HOLD"
+}
