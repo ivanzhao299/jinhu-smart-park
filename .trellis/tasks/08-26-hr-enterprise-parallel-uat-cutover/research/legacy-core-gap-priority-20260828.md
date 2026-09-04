@@ -22,6 +22,22 @@
 | P0-08 | `compact.compactfile,compacttext` | protected file/evidence entity / contract detail+download API / 合同详情 / contract read scopes + document permission / auth+hash tests | 当前只保存 file/text presence，无法查阅原合同正文；raw presence 不构成证据迁移。 | 文件逐件存在性、hash、MIME、大小清单；正文受控存储；self/team/read 权限不得越权；缺件明确 residual，不伪造成功。 |
 | P0-09 | `compact.enddate,state,person` | contract reminder work item/outbox / reminder query+ack API / 合同到期工作台 / 独立 reminder run/read/ack 权限 / scheduler idempotency tests | 当前仅有 expiry filter 和前端 60 日计数，没有定时生成、接收人、已读/处理、重试语义，不能称为“提醒流程”。 | 30/60/90 日策略可配置；同合同同窗口唯一；终止/续签后撤销旧提醒；定时任务重复运行零重复，具备审计。 |
 
+### 2026-09-05 实现状态校正：T5 非文件员工资料
+
+本节补充本审计完成后的代码与契约状态，不改变上表的历史现场遍历边界，也不将隔离测试当作生产导入授权。
+
+P0-01 至 P0-04 的目标结构化投影现已在代码中实现：`hr_employee_profile`、`hr_employee_family`、`hr_employee_skill` 与 `hr_employee_credential` 均以旧系统源身份/行散列为幂等键，保留受控原始归档作为对账依据。非文件 T5 写入器要求精确目标表白名单、现有 T0 员工映射和事务内审计记录；家庭/证照敏感值使用加密、掩码和指纹列，技能未知等级与未映射员工进入受控隔离，绝不猜测或静默降级。旧照片、合同/证照二进制仍不属于此投影，继续保持独立证据迁移边界。
+
+已验证的契约包括：
+
+- profile、family、skill、credential 四域无原始对象保留的阶段适配；
+- 精确源绑定与目标表集合校验，漂移或歧义员工映射在写入前失败；
+- 记录映射、审计写入、重复保护，以及仅删除本次记录的回滚；
+- 隔离记录、已写目标行的反序回滚与 `residualCount=0`；
+- T5 → T3 → T4 → T4 rollback → T3 rollback → T5 rollback 的连续 runner 顺序。
+
+因此，这四项的当前分类为 **代码实现及隔离契约已完成，当前精确 C/S/M 候选仍待串行 A/B rehearsal 和三角色运行验证**。它们不得在这两个运行证据完成前标记为生产兼容或解除 `productionImport=HOLD`。
+
 ## P1：核心上线后、业务验收前补齐
 
 | ID | legacy table.field | 新系统绑定目标 | 未覆盖原因与实施要求 |
