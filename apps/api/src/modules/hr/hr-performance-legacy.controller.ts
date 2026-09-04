@@ -96,4 +96,19 @@ export class HrPerformanceLegacyController {
   ) {
     return this.service.results(scope, actor, query);
   }
+
+  @Get("masters")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  masters(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyResultQueryDto,
+  ) {
+    return this.service.masters(scope, actor, query);
+  }
 }

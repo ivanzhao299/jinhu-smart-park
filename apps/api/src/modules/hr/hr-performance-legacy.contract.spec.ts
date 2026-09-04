@@ -100,7 +100,7 @@ test("legacy performance API is read-only, HR-module gated, and wired through ex
   const module = readFileSync(resolve(__dirname, "hr.module.ts"), "utf8");
   assert.match(controller, /@Controller\("hr\/performance-legacy"\)/u);
   assert.match(controller, /@RequireModule\("hr"\)/u);
-  for (const route of ["templates", "levels", "dimensions", "guides", "rubric", "results"]) {
+  for (const route of ["templates", "levels", "dimensions", "guides", "rubric", "results", "masters"]) {
     assert.match(controller, new RegExp(`@Get\\("${route}"\\)`, "u"));
   }
   assert.doesNotMatch(controller, /@(Post|Put|Patch|Delete)\(/u);
@@ -227,6 +227,46 @@ test("legacy rubric fails closed for mixed batches or duplicate item-grade descr
   await assert.rejects(
     new HrPerformanceLegacyService(duplicate, audit).rubric(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ), { source_assessment_id: 3 }),
     /duplicate item-grade descriptions/u,
+  );
+});
+
+test("legacy masters expose all 21 source fields, parity, paging-first SQL, and field-level pay control", async () => {
+  const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
+  const masterColumns = [
+    "source_master_id", "source_session_id", "source_person_code", "source_self_grade",
+    "source_ass_grade", "source_self_value", "source_item_value", "source_m_item_value",
+    "source_x_item_value", "source_c_item_value", "source_master_value", "source_timekeep_value",
+    "source_bonus_value", "source_total_value", "source_self_appraisal", "source_appraisal",
+    "source_pay", "source_assessment_person", "source_recorded_at", "source_operator_code",
+    "source_description",
+  ];
+  for (const column of masterColumns) assert.match(source, new RegExp(`fact\\.${column}\\b`, "u"));
+  assert.match(source, /WITH page_fact AS[\s\S]*LIMIT \$[\s\S]*LEFT JOIN LATERAL hr_performance_yuzhou_legacy_grade_parity/u);
+  assert.match(source, /CASE WHEN \$\$\{payVisibilityParameter\}::boolean THEN fact\.source_pay::text END/u);
+  assert.match(source, /HR_PAYROLL_DETAIL_READ/u);
+  assert.match(source, /HR_PAYROLL_HISTORY_READ/u);
+  assert.match(source, /HR_PAYROLL_HISTORY_SELF_READ/u);
+  assert.doesNotMatch(source, /"sourceIdentitySha256"|"sourceRowSha256"|"migrationBatchId"|"legacyRecordMapId"/u);
+
+  const denied = harness();
+  assert.deepEqual(await denied.service.masters(scope, actor(), page), {
+    items: [], total: 0, page: 2, page_size: 25,
+  });
+  assert.equal(denied.calls.length, 0);
+
+  const allowed = harness();
+  await allowed.service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ), page);
+  assert.deepEqual(allowed.calls[1]?.params, [scope.tenantId, scope.parkId, false, 25, 25]);
+  assert.equal(allowed.audits.length, 1);
+
+  const payAllowed = harness();
+  const payActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ);
+  payActor.permissions.push(HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ);
+  await payAllowed.service.masters(scope, payActor, page);
+  assert.deepEqual(payAllowed.calls[1]?.params, [scope.tenantId, scope.parkId, true, 25, 25]);
+  assert.deepEqual(
+    (payAllowed.audits[0] as { afterJson: { fieldGroups: string[] } }).afterJson.fieldGroups,
+    ["legacy_projection", "compensation"],
   );
 });
 
