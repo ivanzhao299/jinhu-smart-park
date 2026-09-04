@@ -14,6 +14,9 @@ const root = resolve(import.meta.dirname, "../..");
 const readJson = path => JSON.parse(readFileSync(resolve(root, path), "utf8"));
 const sourceInventory = readJson("scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json");
 const currentContract = readJson("scripts/hr-cutover/contracts/legacy-client-permission-capability-mapping-v1.json");
+const currentSourceReceipt = readJson("scripts/hr-cutover/contracts/legacy-client-permission-source-receipt-evidence-v1.json");
+const permissionRegistrySource = readFileSync(resolve(root, "packages/shared/src/hr.ts"), "utf8");
+const currentModernPermissions = new Set([...permissionRegistrySource.matchAll(/\bHR_[A-Z0-9_]+:\s*"(hr(?::[a-z0-9_]+)+)"/gu)].map(match => match[1]));
 const evidenceSha256 = "a".repeat(64);
 const modernPermissions = new Set(["hr:employee:read", "hr:employee:team_read"]);
 const sha256 = value => createHash("sha256").update(value).digest("hex");
@@ -53,14 +56,16 @@ const makeRows = () => Array.from({ length: 91 }, (_, index) => ({
 }));
 const expectCode = (action, code) => assert.throws(action, error => error instanceof LegacyClientPermissionCapabilityMappingError && error.code === code);
 
-test("current client permission contract reports the exact missing atomic source without fake credit", () => {
-  const result = verifyLegacyClientPermissionCapabilityMapping(sourceInventory, currentContract);
-  assert.equal(result.status, "SOURCE_PERMISSION_RECEIPT_MISSING");
-  assert.deepEqual(result.authorizationGrantEdges, { observedRows: 0, expectedRows: 915, compatibilityCredit: 0, status: "SOURCE_RECEIPT_MISSING" });
-  assert.deepEqual(result.summary, { observedRows: 0, uniqueRows: 0, mappedRows: 0, retiredRows: 0, pendingRows: 0, missingRows: null });
-  assert.deepEqual(result.compatibilityCredit, { numerator: 0, denominator: null });
-  assert.equal(result.items.length, 0);
-  assert.equal(result.gaps[0].code, "LEGACY_CLIENT_PERMISSION_SOURCE_RECEIPT_MISSING");
+test("current client permission contract binds all source capabilities without copying user grants or fake credit", () => {
+  const result = verifyLegacyClientPermissionCapabilityMapping(sourceInventory, currentContract, { modernPermissions: currentModernPermissions, sourceReceipt: currentSourceReceipt });
+  assert.equal(result.status, "ATOMIC_PERMISSION_MAPPING_PENDING_REVIEW");
+  assert.deepEqual(result.authorizationGrantEdges, { observedRows: 915, expectedRows: 915, compatibilityCredit: 0, status: "SOURCE_GRANT_EDGE_CONSERVATION_VERIFIED" });
+  assert.deepEqual(result.summary, { observedRows: 93, uniqueRows: 93, mappedRows: 64, retiredRows: 12, pendingRows: 17, missingRows: 0 });
+  assert.deepEqual(result.compatibilityCredit, { numerator: 76, denominator: 93 });
+  assert.equal(result.items.length, 93);
+  assert.equal(result.gaps[0].code, "LEGACY_CLIENT_PERMISSION_TARGET_REVIEW_PENDING");
+  assert.equal(JSON.stringify(result).includes("username"), true);
+  assert.equal(result.items.some(item => Object.hasOwn(item, "username") || Object.hasOwn(item, "userId")), false);
   assert.equal(result.productionImport, "HOLD");
 });
 
