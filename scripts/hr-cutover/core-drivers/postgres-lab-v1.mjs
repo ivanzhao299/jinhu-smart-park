@@ -105,8 +105,13 @@ export function classifyCorePhaseFailure(output, requestedCode = "CORE_PHASE_FAI
   // reports value-free, but retain a small allowlist of type classes so a
   // controlled retry can repair the right coercion without widening access to
   // staging or source rows.
-  const invalidType = String(output).match(/invalid input syntax for type\s+(integer|smallint|date|boolean|uuid)\b/iu)?.[1]?.toUpperCase();
-  if (invalidType) return `CORE_PHASE_POSTGRES_INVALID_${invalidType}`;
+  const invalidType = String(output).match(/invalid input syntax for type\s+(timestamp with time zone|timestamp without time zone|time with time zone|time without time zone|double precision|smallint|integer|bigint|numeric|boolean|uuid|date|jsonb?|real)\b/iu)?.[1]?.toLowerCase();
+  const invalidTypeCode = {
+    integer: "INTEGER", smallint: "SMALLINT", bigint: "BIGINT", numeric: "NUMERIC", real: "REAL", "double precision": "DOUBLE_PRECISION",
+    date: "DATE", "timestamp without time zone": "TIMESTAMP", "timestamp with time zone": "TIMESTAMPTZ",
+    "time without time zone": "TIME", "time with time zone": "TIMETZ", boolean: "BOOLEAN", uuid: "UUID", json: "JSON", jsonb: "JSONB"
+  }[invalidType];
+  if (invalidTypeCode) return `CORE_PHASE_POSTGRES_INVALID_${invalidTypeCode}`;
   if (/invalid input syntax/iu.test(output)) return "CORE_PHASE_POSTGRES_INVALID_INPUT";
   if (/duplicate key|unique constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_UNIQUE_CONSTRAINT";
   if (/foreign key constraint/iu.test(output)) return "CORE_PHASE_POSTGRES_FOREIGN_KEY";
