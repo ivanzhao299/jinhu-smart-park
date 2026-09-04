@@ -9,6 +9,7 @@ CONTAINER="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}
 CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$ROOT_DIR/database/import-reports/yuzhou-hr/20260820_intake01-etl.env}"
 BACKUP_FILE="${YUZHOU_SOURCE_BACKUP_FILE:-$ROOT_DIR/database/backups/yuzhou-hr/hr2026081914.dbk}"
 SOURCE_RESTORE_RECEIPT_PATH="${YUZHOU_SOURCE_RESTORE_RECEIPT_PATH:-}"
+MAPPING_CONTRACT_SHA256="${YUZHOU_MAPPING_CONTRACT_SHA256:-}"
 OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
 EVIDENCE="$ROOT_DIR/.trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json"
 
@@ -18,6 +19,7 @@ printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "inva
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
 [ -f "$BACKUP_FILE" ] || fail "pinned SQL Server source backup is missing"
 [ -n "$SOURCE_RESTORE_RECEIPT_PATH" ] && [ -f "$SOURCE_RESTORE_RECEIPT_PATH" ] || fail "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required"
+printf %s "$MAPPING_CONTRACT_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail "YUZHOU_MAPPING_CONTRACT_SHA256 is required"
 [ -f "$EVIDENCE" ] || fail "pinned T4 source evidence manifest is missing"
 credential_mode="$(stat -f '%Lp' "$CREDENTIAL_FILE" 2>/dev/null || stat -c '%a' "$CREDENTIAL_FILE")"
 [ "$credential_mode" = 600 ] || fail "read-only ETL credential file must be mode 0600"
@@ -25,6 +27,7 @@ backup_sha256="$(shasum -a 256 "$BACKUP_FILE" | awk '{print $1}')"
 expected_backup_sha256="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1])).sourceBackupSha256)' "$EVIDENCE")"
 [ "$backup_sha256" = "$expected_backup_sha256" ] || fail "source backup SHA-256 mismatch"
 node "$ROOT_DIR/scripts/hr-cutover/verify-source-restore-binding.mjs" --receipt "$SOURCE_RESTORE_RECEIPT_PATH" --backup "$BACKUP_FILE" --container "$CONTAINER" --database "$DATABASE" --etl-env "$CREDENTIAL_FILE" >/dev/null
+SOURCE_RESTORE_RECEIPT_SHA256="$(shasum -a 256 "$SOURCE_RESTORE_RECEIPT_PATH" | awk '{print $1}')"
 . "$CREDENTIAL_FILE"
 [ -n "${YUZHOU_SQLSERVER_ETL_LOGIN:-}" ] || fail "read-only ETL login is missing"
 [ -n "${YUZHOU_SQLSERVER_ETL_PASSWORD:-}" ] || fail "read-only ETL password is missing"
@@ -86,5 +89,7 @@ SET @sql='SELECT JSON_QUERY(j.rowJson) AS rowData FROM dbo.$table r CROSS APPLY 
   i=$((i+1))
 done
 
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH="$SOURCE_RESTORE_RECEIPT_PATH" \
+YUZHOU_MAPPING_CONTRACT_SHA256="$MAPPING_CONTRACT_SHA256" \
 node "$ROOT_DIR/scripts/transform-yuzhou-t4-payroll-history.mjs" "$OUT" "$EVIDENCE"
 printf 'YUZHOU_T4_EXTRACT_OK run_id=%s business_hash=%s\n' "$RUN_ID" "$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1])).businessContentSha256)' "$OUT/manifest.json")"
