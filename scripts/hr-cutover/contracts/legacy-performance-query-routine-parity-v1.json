@@ -221,13 +221,17 @@
         "safeReplacement": "Bind all values and treat department only as a narrowing filter after server-derived scope; preserve caller-supplied wildcard semantics only in an explicit compatibility filter."
       },
       "knownDifferences": [
-        {"code":"CALLER_SUPPLIED_LIKE_PATTERN","sourceBehavior":"department is passed directly to LIKE without an appended wildcard","modernDecision":"pending explicit exact/prefix compatibility option"},
-        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"routine references assid, asssession, and assessmenttype","modernDecision":"pending catalog-backed version adjudication; do not guess aliases"}
+        {"code":"CALLER_SUPPLIED_LIKE_PATTERN","sourceBehavior":"department is passed directly to LIKE without an appended wildcard","modernDecision":"implemented as explicit exact or legacy_like mode; legacy_like accepts only percent and underscore wildcard syntax, remains tenant/park/organization scoped, and uses a bound PostgreSQL parameter"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"routine references assid, asssession, and assessmenttype","modernDecision":"asssession and assessmenttype are compatibility projections from the same-batch verified dbo.asssession relation; assid remains an explicit null unresolvedLegacyAssessmentMasterId pending catalog-backed variant evidence and is not guessed from id"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.assid", "assessmentmaster.asssession", "assessmentmaster.assessmenttype"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters query-filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "assessment type/session mapping", "modern output implementation", "permission and role UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.assessmentMasterQuery","api":"GET /hr/performance-legacy/query-reports/assessment-master","page":"apps/web/app/hr/performance/HrPerformanceLegacyAssessmentMasterPanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-assessment-master.contract.spec.ts","testId":"u_assessmentmaster query projects exactly twelve source columns without guessing drifted fields"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-assessment-master.contract.spec.ts","testId":"u_assessmentmaster response contract is exactly the sealed twelve-column projection"}
+      ],
+      "missingEvidence": ["catalog-backed assid schema-variant adjudication", "nonempty session-name and assessment-type conservation fixture", "SQL Server versus PostgreSQL LIKE collation runtime comparison", "park/team/self desktop and 390px role UAT"]
     },
     {
       "routineId": "RULE-58E6086521F8A03B",

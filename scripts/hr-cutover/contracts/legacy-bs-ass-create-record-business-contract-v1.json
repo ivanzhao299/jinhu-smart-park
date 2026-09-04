@@ -43,15 +43,15 @@
     },
     "legacyReadController": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
-      "sha256": "c6cc4abe15c93418c8d92f74ff63f5549bcd2720d0fe62462f8f25004efde61e"
+      "sha256": "f7000d42f847aacddd4c9d85a9eb6d269c79553ec97cb3b51879f627c6b09dd4"
     },
     "legacyReadService": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
-      "sha256": "dcf6ec0c02f44055d74882d29483a0fa182db6c96802db313982f6053157f1ce"
+      "sha256": "7f49d09872b3616c4221f59855777535b79c003779605a559f9168198eeba944"
     },
     "modernPage": {
       "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
-      "sha256": "10f611561401ec853cc74e7974c655cf98c8d6cfbce71ab06d9a176e23fc5285"
+      "sha256": "656067914c51f48e7b49e86413a24c7f69949f3adc9f646bff0ff7254d9ee7f0"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
@@ -59,7 +59,7 @@
     },
     "permissionContract": {
       "path": "packages/shared/src/hr.ts",
-      "sha256": "21cdab1b80b4ec9802daf23d41e0e522d36dd5844190d1e1a680443cdb90547f"
+      "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
     }
   },
   "parameters": [

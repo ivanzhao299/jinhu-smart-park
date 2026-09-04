@@ -273,6 +273,8 @@ pnpm hr:migration:legacy-routine-logic:audit -- --inventory <原子清单绝对�
 
 两个同列查询的孤儿语义不得合并：`web_ass` 以 `person` 为驱动表，必须排除没有现代员工映射的历史汇总；`web_assessmentquery` 以 `assessmentmaster` 为驱动表，必须保留汇总并把现代员工姓名投影为 `null`/“未建立现代员工映射”。现代 API 强制客户端显式提交 `source_routine=web_ass|web_assessmentquery`，两种模式共用精确人员编码、绑定参数、tenant/park/team/self 范围和必需审计，不提供隐式默认模式。当前只具备合成 matched/orphan 合同证据，两个例程仍须真实非空源守恒与三角色桌面/390px UAT 后才能晋级，兼容分保持不变。
 
+`u_assessmentmaster` 已增加独立只读查询面：3 个旧输入分别为考核期间、考核类型和部门条件，部门条件必须显式选择精确匹配或受限 `legacy_like`，后者只接受 `%`、`_` 通配符并继续使用绑定参数和服务端 tenant/park/team/self 范围。当前 `assessmentmaster` 清单没有旧过程引用的 `asssession/assessmenttype/assid`；现代查询仅把同批次、已验证的 `dbo.asssession` 周期名称与类型作为明确兼容投影，`assid` 固定返回未解析 `null`，不拿现存 `id` 猜测。12 个输出均有显式 allowlist，工资字段不在该查询中。该实现仍待非空周期/类型守恒、SQL Server 与 PostgreSQL LIKE 排序规则对照和三角色桌面/390px UAT，故例程保持 `pending`、兼容积分为 0。
+
 专项核验命令：
 
 ```bash
