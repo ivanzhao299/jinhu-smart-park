@@ -1,0 +1,351 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_performance_assgradecode_field_map",
+  "mappingVersion": "1.0.0",
+  "sourceSystem": "yuzhou-v10",
+  "inventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+  "sourceTableCatalogArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+  "sourceDdlArtifactSha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+  "inventoryBindingGap": {
+    "canonicalInventorySha256": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "currentGeneratorObservedSha256": "8d79af70275219d35bbaca313d9869ba16fdc2f4af35fecd71c7d4482945a617",
+    "reasonCode": "STRUCTURAL_INVENTORY_GENERATOR_DIGEST_DRIFT",
+    "decision": "KEEP_GAP_NO_REBIND"
+  },
+  "sourceTables": [
+    {
+      "sourceObject": "dbo.assgradecode",
+      "sourceTable": "assgradecode",
+      "tableId": "TABLE-D0397CEBDE12426B",
+      "structuralHash": "04b25bbedd9658b652978087198ea33d54c26aa958950a33e9c45bd1f0ca8a8b",
+      "sourceArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+      "observedRows": null,
+      "sourceRowCountStatus": "NOT_CAPTURED_IN_CURRENT_STRUCTURAL_INVENTORY",
+      "stableKey": [
+        "assgrade"
+      ],
+      "columns": [
+        {
+          "id": "COLUMN-18932ED76900A366",
+          "name": "assgrade",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "description": null,
+          "structuralHash": "4f480d7f9343a6264ad4f6a4b308b0d3fd5c8c18d5928c897405a3c4ad000f4b"
+        },
+        {
+          "id": "COLUMN-992F7D99CE032F7D",
+          "name": "description",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "656727cfdd01924207cfd70f8a6b78acf041d9895ba1dc59381d0a7daf18384c"
+        },
+        {
+          "id": "COLUMN-4F5A0BF9CEC461F6",
+          "name": "myorder",
+          "type": "varchar(2)",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "bba966016eed3599f99811230f043653c3ae30fb91a9640d415d69a544abda79"
+        },
+        {
+          "id": "COLUMN-CAFA3D63B8BCDA5A",
+          "name": "assessmentid",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "92cedca3e338a38d72162d100dec1c97b20f24e34bb4232ef693151a825ba993"
+        },
+        {
+          "id": "COLUMN-4D99246DE54D6F07",
+          "name": "minvalue",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "a7f2c1fef026146d59a56e68592c4a3b8cee63d116b0894add85c54aff10e6f7"
+        },
+        {
+          "id": "COLUMN-32CDACDBE241A1D5",
+          "name": "maxvalue",
+          "type": "int",
+          "nullable": true,
+          "default": null,
+          "description": null,
+          "structuralHash": "dc8fb8dc7a878908467b8d19dc7eb065ff78dacdca2ca3bf17d7325069726b8b"
+        }
+      ]
+    }
+  ],
+  "denominatorRule": "all_six_catalog_fields_count_even_when_the_source_table_or_a_nullable_column_has_no_rows_or_values",
+  "receiptPolicy": "field_metadata_stable_ids_hashes_safe_aggregates_routine_structure_and_gap_codes_only",
+  "routineBehaviorFindings": {
+    "gradeSelection": "bs_ass_compute_selects_top_grade_where_minvalue_is_not_greater_than_total_ordered_by_minvalue_descending",
+    "gradeSelectionScope": "bs_ass_compute_does_not_filter_assgradecode_by_assessmentid",
+    "upperBoundUsage": "bs_ass_compute_does_not_use_maxvalue",
+    "printScope": "u_printassessment_filters_assessmentid_by_assessment_parameter_and_orders_by_myorder",
+    "backupPrintScope": "u_printassessment_bak2_omits_assessmentid_filter",
+    "implementationStatus": "REQUIRES_REVIEWED_PARITY_DECISION_BEFORE_WRITER"
+  },
+  "relations": [
+    {
+      "source": "assgradecode.assessmentid",
+      "target": "assessmentcode.assessment",
+      "kind": "routine_parameter_scope_candidate_without_declared_foreign_key",
+      "disposition": "explicit_gap_relation",
+      "reasonCode": "PERFORMANCE_GRADE_ASSESSMENT_RELATION_NOT_DECLARED_OR_UNIFORMLY_ENFORCED"
+    }
+  ],
+  "fields": [
+    {
+      "stableId": "ASSGRADECODE_ASSGRADE",
+      "sourceField": "assgradecode.assgrade",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.level_code"
+      ],
+      "preservationFields": [],
+      "transformRule": "preserve_non_null_grade_code_after_template_version_identity_and_writer_exist",
+      "reasonCode": "PERFORMANCE_ASSGRADECODE_LEGACY_WRITER_NOT_IMPLEMENTED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSGRADECODE_DESCRIPTION",
+      "sourceField": "assgradecode.description",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.level_name"
+      ],
+      "preservationFields": [],
+      "transformRule": "preserve_nullable_description_without_truncation_after_500_to_64_capacity_policy_is_defined",
+      "reasonCode": "PERFORMANCE_GRADE_DESCRIPTION_TARGET_CAPACITY_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSGRADECODE_MYORDER",
+      "sourceField": "assgradecode.myorder",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.sort_order"
+      ],
+      "preservationFields": [],
+      "transformRule": "parse_nullable_varchar_order_as_integer_or_quarantine_after_writer_exists",
+      "reasonCode": "PERFORMANCE_GRADE_ORDER_CONVERSION_AND_WRITER_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSGRADECODE_ASSESSMENTID",
+      "sourceField": "assgradecode.assessmentid",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.template_version_id"
+      ],
+      "preservationFields": [],
+      "transformRule": "resolve_through_assessmentcode_record_map_only_after_relation_and_compute_scope_are_reviewed",
+      "reasonCode": "PERFORMANCE_GRADE_ASSESSMENT_RELATION_NOT_DECLARED_OR_UNIFORMLY_ENFORCED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSGRADECODE_MINVALUE",
+      "sourceField": "assgradecode.minvalue",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.score_min"
+      ],
+      "preservationFields": [],
+      "transformRule": "preserve_nullable_lower_threshold_after_range_and_formula_parity_are_proven",
+      "reasonCode": "PERFORMANCE_GRADE_THRESHOLD_SEMANTICS_UNRESOLVED",
+      "compatibilityCredit": 0
+    },
+    {
+      "stableId": "ASSGRADECODE_MAXVALUE",
+      "sourceField": "assgradecode.maxvalue",
+      "disposition": "explicit_gap",
+      "targetFields": [
+        "hr_performance_template_level.score_max"
+      ],
+      "preservationFields": [],
+      "transformRule": "preserve_nullable_upper_threshold_but_do_not_claim_compute_parity_until_legacy_non_usage_is_resolved",
+      "reasonCode": "PERFORMANCE_GRADE_THRESHOLD_SEMANTICS_UNRESOLVED",
+      "compatibilityCredit": 0
+    }
+  ],
+  "explicitGaps": [
+    {
+      "sourceFields": [
+        "assgradecode.assgrade"
+      ],
+      "reasonCode": "PERFORMANCE_ASSGRADECODE_LEGACY_WRITER_NOT_IMPLEMENTED",
+      "missingEvidence": [
+        "assgradecode_readonly_extract_and_safe_aggregate",
+        "assgradecode_dedicated_transform_and_writer",
+        "assgradecode_record_map_projection_and_rollback"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assgradecode.description"
+      ],
+      "reasonCode": "PERFORMANCE_GRADE_DESCRIPTION_TARGET_CAPACITY_UNRESOLVED",
+      "missingEvidence": [
+        "reviewed_legacy_description_semantics",
+        "lossless_500_character_target_or_overflow_archive_policy"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assgradecode.myorder"
+      ],
+      "reasonCode": "PERFORMANCE_GRADE_ORDER_CONVERSION_AND_WRITER_UNRESOLVED",
+      "missingEvidence": [
+        "safe_numeric_order_aggregate",
+        "invalid_order_quarantine_contract",
+        "typed_sort_order_writer"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assgradecode.assessmentid"
+      ],
+      "reasonCode": "PERFORMANCE_GRADE_ASSESSMENT_RELATION_NOT_DECLARED_OR_UNIFORMLY_ENFORCED",
+      "missingEvidence": [
+        "reviewed_assessmentid_foreign_identity",
+        "decision_for_bs_ass_compute_unscoped_grade_selection",
+        "assessmentcode_to_template_version_record_map"
+      ],
+      "decision": "KEEP_GAP"
+    },
+    {
+      "sourceFields": [
+        "assgradecode.minvalue",
+        "assgradecode.maxvalue"
+      ],
+      "reasonCode": "PERFORMANCE_GRADE_THRESHOLD_SEMANTICS_UNRESOLVED",
+      "missingEvidence": [
+        "safe_threshold_range_and_overlap_aggregate",
+        "decision_for_legacy_maxvalue_non_usage",
+        "legacy_selection_to_modern_contiguous_range_parity_test"
+      ],
+      "decision": "KEEP_GAP"
+    }
+  ],
+  "sourceAggregateGap": {
+    "sourceTable": "dbo.assgradecode",
+    "observedRows": null,
+    "reasonCode": "PERFORMANCE_ASSGRADECODE_SAFE_AGGREGATES_NOT_CAPTURED",
+    "missingEvidence": [
+      "readonly_row_count",
+      "nullable_field_counts",
+      "assessment_scope_orphan_count",
+      "numeric_order_parse_failure_count",
+      "threshold_overlap_and_gap_counts"
+    ],
+    "decision": "KEEP_GAP"
+  },
+  "legacyProjectionGap": {
+    "reasonCode": "PERFORMANCE_ASSGRADECODE_EXTRACT_TRANSFORM_WRITER_MISSING",
+    "missingEvidence": [
+      "readonly_extract",
+      "typed_transform",
+      "tenant_park_scoped_writer",
+      "record_map",
+      "reverse_order_rollback"
+    ],
+    "decision": "KEEP_GAP"
+  },
+  "repositoryEvidence": [
+    {
+      "role": "domain_table_map",
+      "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json",
+      "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f",
+      "requiredTokens": [
+        "assgradecode",
+        "hr_performance_template_version",
+        "hr_performance_item"
+      ]
+    },
+    {
+      "role": "modern_schema_and_grade_constraints",
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "sha256": "b88a42fab357ad788a4b56e3d2b5479af4a942f96210c7c2806ce7509aa16318",
+      "requiredTokens": [
+        "CREATE TABLE hr_performance_template_level (",
+        "level_code varchar(32) NOT NULL",
+        "level_name varchar(64) NOT NULL",
+        "CONSTRAINT ck_hr_perf_level_scores CHECK(score_min>=0 AND score_max<=100 AND score_max>=score_min)",
+        "score_min<>previous_max+0.01"
+      ]
+    },
+    {
+      "role": "modern_template_level_writer",
+      "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
+      "sha256": "d76e7888afbf93bbd73f43accee26e238772e67dc955c85c67bd2f9249d26f35",
+      "requiredTokens": [
+        "INSERT INTO hr_performance_template_level(",
+        "Performance levels must uniquely and continuously cover 0.00 through 100.00",
+        "async publishTemplate"
+      ]
+    },
+    {
+      "role": "modern_grade_runtime",
+      "path": "apps/api/src/modules/hr/hr-performance-evaluation.service.ts",
+      "sha256": "ec1d11da1ef233f880dc45bf1809e52f80ccdb8d6b886a989eb7c634372c9d03",
+      "requiredTokens": [
+        "private async level(",
+        "final_level_code",
+        "final_level_name"
+      ]
+    },
+    {
+      "role": "modern_runtime_page",
+      "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
+      "sha256": "d1e252f5bd63fe296e14b9de7735f0e0a0dff73bed289bb3626c4efbb167597e",
+      "requiredTokens": [
+        "levels:[{code:",
+        "levelName",
+        "绩效结果"
+      ]
+    }
+  ],
+  "routineEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
+    "sha256": "30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a",
+    "requiredRoutines": [
+      {
+        "routineId": "RULE-0C991427090A219D",
+        "sourceName": "bs_ass_compute",
+        "sourceArtifactSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
+      },
+      {
+        "routineId": "RULE-0F16F0ADB333445C",
+        "sourceName": "u_printassessment",
+        "sourceArtifactSha256": "9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986"
+      },
+      {
+        "routineId": "RULE-6FDC0BE94D1719EA",
+        "sourceName": "u_printassessment_bak2",
+        "sourceArtifactSha256": "ef2e114f5b231e02f3fdfedfb7eb5259af785c8b7469e298b13fe83dac786084"
+      }
+    ]
+  },
+  "compatibilityCredit": {
+    "numerator": 0,
+    "denominator": 6
+  },
+  "sourceRowValuesEmitted": false,
+  "containsSourceValues": false,
+  "containsPersonalData": false,
+  "filesExcluded": [
+    "photo",
+    "docs"
+  ],
+  "productionImport": "HOLD"
+}
