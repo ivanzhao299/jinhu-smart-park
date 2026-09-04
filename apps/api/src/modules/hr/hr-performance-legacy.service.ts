@@ -251,48 +251,9 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyResultQueryDto,
   ) {
-    const access = this.resultAccess(actor);
-    if (access === "none") return this.emptyPage(query);
-
-    const parameters: unknown[] = [scope.tenantId, scope.parkId];
-    let accessJoin = "";
-    let accessWhere = "";
-    if (access === "self") {
-      parameters.push(actor.sub);
-      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
-        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
-           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        JOIN hr_employee employee
-        ON (employee.id,employee.tenant_id,employee.park_id)=
-           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
-      accessWhere = ` AND employee.user_id::text=$${parameters.length}::text
-        AND employee.is_deleted=false`;
-    } else if (access === "managed_org_tree") {
-      parameters.push(actor.sub);
-      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
-        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
-           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        JOIN hr_employee employee
-        ON (employee.id,employee.tenant_id,employee.park_id)=
-           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
-      accessWhere = ` AND employee.primary_org_id IN (
-        WITH RECURSIVE managed_org AS (
-          SELECT id FROM sys_org
-          WHERE tenant_id=$1 AND park_id=$2
-            AND leader_user_id::text=$${parameters.length}::text
-            AND is_deleted=false AND status='enabled'
-          UNION ALL
-          SELECT child.id FROM sys_org child
-          JOIN managed_org parent ON child.parent_id=parent.id
-          WHERE child.tenant_id=$1 AND child.park_id=$2
-            AND child.is_deleted=false AND child.status='enabled'
-        ) SELECT id FROM managed_org
-      ) AND employee.is_deleted=false`;
-    }
-    if (query.source_session_id !== undefined) {
-      parameters.push(query.source_session_id);
-      accessWhere += ` AND fact.source_session_id=$${parameters.length}`;
-    }
+    const resolved = this.resultScope(scope, actor, query);
+    if (!resolved) return this.emptyPage(query);
+    const { access, parameters, accessJoin, accessWhere } = resolved;
 
     const visibility = this.visibilitySql(
       "hr_performance_legacy_dimension_result",
@@ -347,6 +308,96 @@ export class HrPerformanceLegacyService {
     return result;
   }
 
+  async masters(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyResultQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query);
+    if (!resolved) return this.emptyPage(query);
+    const { access, parameters, accessJoin, accessWhere } = resolved;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${accessJoin}
+       ${visibility}${accessWhere}`,
+      parameters,
+    )) as Array<{ total: number | string }>;
+
+    const canReadPay =
+      has(actor, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ) ||
+      has(actor, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ) ||
+      (access === "self" && has(actor, HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ));
+    parameters.push(canReadPay);
+    const payVisibilityParameter = parameters.length;
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `WITH page_fact AS (
+         SELECT fact.*
+         FROM hr_performance_legacy_master_result fact
+         ${accessJoin}
+         ${visibility}${accessWhere}
+         ORDER BY fact.source_session_id DESC NULLS LAST,
+                  fact.source_person_code ASC NULLS LAST,
+                  fact.source_master_id ASC,
+                  fact.id ASC
+         LIMIT $${parameters.length - 1} OFFSET $${parameters.length}
+       )
+       SELECT fact.id,
+        fact.source_master_id "sourceMasterId",
+        fact.source_session_id "sourceSessionId",
+        fact.source_person_code "sourcePersonCode",
+        fact.source_self_grade "sourceSelfGrade",
+        fact.source_ass_grade "sourceAssGrade",
+        fact.source_self_value::text "sourceSelfValue",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_m_item_value::text "sourceMItemValue",
+        fact.source_x_item_value::text "sourceXItemValue",
+        fact.source_c_item_value::text "sourceCItemValue",
+        fact.source_master_value::text "sourceMasterValue",
+        fact.source_timekeep_value::text "sourceTimekeepValue",
+        fact.source_bonus_value::text "sourceBonusValue",
+        fact.source_total_value::text "sourceTotalValue",
+        fact.source_self_appraisal "sourceSelfAppraisal",
+        fact.source_appraisal "sourceAppraisal",
+        CASE WHEN $${payVisibilityParameter}::boolean THEN fact.source_pay::text END "sourcePay",
+        fact.source_assessment_person "sourceAssessmentPerson",
+        fact.source_recorded_at "sourceRecordedAt",
+        fact.source_operator_code "sourceOperatorCode",
+        fact.source_description "sourceDescription",
+        fact.legacy_template_profile_id "legacyTemplateProfileId",
+        fact.target_cycle_employee_id "targetCycleEmployeeId",
+        fact.target_template_version_id "targetTemplateVersionId",
+        parity.calculated_total::text "calculatedTotal",
+        parity.expected_ass_grade "expectedAssGrade",
+        parity.winning_min_value "winningMinValue",
+        parity.winning_candidate_count::int "winningCandidateCount",
+        parity.parity_status "parityStatus"
+       FROM page_fact fact
+       LEFT JOIN LATERAL hr_performance_yuzhou_legacy_grade_parity(fact.id) parity ON true
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_person_code ASC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_master",
+      action: "读取玉舟历史绩效汇总",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/masters",
+      fieldGroups: canReadPay
+        ? ["legacy_projection", "compensation"]
+        : ["legacy_projection"],
+      projection: access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
   private canReadDefinitions(actor: JwtPrincipal) {
     return (
       has(actor, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) ||
@@ -355,10 +406,7 @@ export class HrPerformanceLegacyService {
   }
 
   private resultAccess(actor: JwtPrincipal): ResultAccess {
-    if (
-      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ) ||
-      has(actor, HR_PERMISSIONS.HR_PERFORMANCE_READ)
-    ) {
+    if (has(actor, HR_PERMISSIONS.HR_PERFORMANCE_READ)) {
       return "park";
     }
     if (has(actor, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ)) {
@@ -366,6 +414,55 @@ export class HrPerformanceLegacyService {
     }
     if (has(actor, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ)) return "self";
     return "none";
+  }
+
+  private resultScope(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyResultQueryDto,
+  ) {
+    const access = this.resultAccess(actor);
+    if (access === "none") return null;
+    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    let accessJoin = "";
+    let accessWhere = "";
+    if (access === "self") {
+      parameters.push(actor.sub);
+      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
+        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
+           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
+        JOIN hr_employee employee
+        ON (employee.id,employee.tenant_id,employee.park_id)=
+           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
+      accessWhere = ` AND employee.user_id::text=$${parameters.length}::text
+        AND employee.is_deleted=false`;
+    } else if (access === "managed_org_tree") {
+      parameters.push(actor.sub);
+      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
+        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
+           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
+        JOIN hr_employee employee
+        ON (employee.id,employee.tenant_id,employee.park_id)=
+           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
+      accessWhere = ` AND employee.primary_org_id IN (
+        WITH RECURSIVE managed_org AS (
+          SELECT id FROM sys_org
+          WHERE tenant_id=$1 AND park_id=$2
+            AND leader_user_id::text=$${parameters.length}::text
+            AND is_deleted=false AND status='enabled'
+          UNION ALL
+          SELECT child.id FROM sys_org child
+          JOIN managed_org parent ON child.parent_id=parent.id
+          WHERE child.tenant_id=$1 AND child.park_id=$2
+            AND child.is_deleted=false AND child.status='enabled'
+        ) SELECT id FROM managed_org
+      ) AND employee.is_deleted=false`;
+    }
+    if (query.source_session_id !== undefined) {
+      parameters.push(query.source_session_id);
+      accessWhere += ` AND fact.source_session_id=$${parameters.length}`;
+    }
+    return { access, parameters, accessJoin, accessWhere };
   }
 
   private visibilitySql(targetTable: string) {

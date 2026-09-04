@@ -100,14 +100,13 @@ test("legacy performance API is read-only, HR-module gated, and wired through ex
   const module = readFileSync(resolve(__dirname, "hr.module.ts"), "utf8");
   assert.match(controller, /@Controller\("hr\/performance-legacy"\)/u);
   assert.match(controller, /@RequireModule\("hr"\)/u);
-  for (const route of ["templates", "levels", "dimensions", "guides", "rubric", "results"]) {
+  for (const route of ["templates", "levels", "dimensions", "guides", "rubric", "results", "masters"]) {
     assert.match(controller, new RegExp(`@Get\\("${route}"\\)`, "u"));
   }
   assert.doesNotMatch(controller, /@(Post|Put|Patch|Delete)\(/u);
   for (const permission of [
     "HR_PERFORMANCE_TEMPLATE_READ",
     "HR_PERFORMANCE_TEMPLATE_MANAGE",
-    "HR_PERFORMANCE_RESULT_READ",
     "HR_PERFORMANCE_READ",
     "HR_PERFORMANCE_TEAM_READ",
     "HR_PERFORMANCE_SELF_READ",
@@ -230,6 +229,46 @@ test("legacy rubric fails closed for mixed batches or duplicate item-grade descr
   );
 });
 
+test("legacy masters expose all 21 source fields, parity, paging-first SQL, and field-level pay control", async () => {
+  const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
+  const masterColumns = [
+    "source_master_id", "source_session_id", "source_person_code", "source_self_grade",
+    "source_ass_grade", "source_self_value", "source_item_value", "source_m_item_value",
+    "source_x_item_value", "source_c_item_value", "source_master_value", "source_timekeep_value",
+    "source_bonus_value", "source_total_value", "source_self_appraisal", "source_appraisal",
+    "source_pay", "source_assessment_person", "source_recorded_at", "source_operator_code",
+    "source_description",
+  ];
+  for (const column of masterColumns) assert.match(source, new RegExp(`fact\\.${column}\\b`, "u"));
+  assert.match(source, /WITH page_fact AS[\s\S]*LIMIT \$[\s\S]*LEFT JOIN LATERAL hr_performance_yuzhou_legacy_grade_parity/u);
+  assert.match(source, /CASE WHEN \$\$\{payVisibilityParameter\}::boolean THEN fact\.source_pay::text END/u);
+  assert.match(source, /HR_PAYROLL_DETAIL_READ/u);
+  assert.match(source, /HR_PAYROLL_HISTORY_READ/u);
+  assert.match(source, /HR_PAYROLL_HISTORY_SELF_READ/u);
+  assert.doesNotMatch(source, /"sourceIdentitySha256"|"sourceRowSha256"|"migrationBatchId"|"legacyRecordMapId"/u);
+
+  const denied = harness();
+  assert.deepEqual(await denied.service.masters(scope, actor(), page), {
+    items: [], total: 0, page: 2, page_size: 25,
+  });
+  assert.equal(denied.calls.length, 0);
+
+  const allowed = harness();
+  await allowed.service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page);
+  assert.deepEqual(allowed.calls[1]?.params, [scope.tenantId, scope.parkId, false, 25, 25]);
+  assert.equal(allowed.audits.length, 1);
+
+  const payAllowed = harness();
+  const payActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_READ);
+  payActor.permissions.push(HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ);
+  await payAllowed.service.masters(scope, payActor, page);
+  assert.deepEqual(payAllowed.calls[1]?.params, [scope.tenantId, scope.parkId, true, 25, 25]);
+  assert.deepEqual(
+    (payAllowed.audits[0] as { afterJson: { fieldGroups: string[] } }).afterJson.fieldGroups,
+    ["legacy_projection", "compensation"],
+  );
+});
+
 test("legacy results expose all 12 source fields and preserve decimal values as text", () => {
   const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
   const resultColumns = [
@@ -265,24 +304,56 @@ test("legacy result access is park, managed organization tree, self, or fail-clo
   assert.equal(denied.calls.length, 0);
   assert.equal(denied.audits.length, 0);
 
+  const resultVisibilityOnly = harness();
+  assert.deepEqual(
+    await resultVisibilityOnly.service.results(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ),
+      page,
+    ),
+    { items: [], total: 0, page: 2, page_size: 25 },
+  );
+  assert.equal(resultVisibilityOnly.calls.length, 0);
+  assert.equal(resultVisibilityOnly.audits.length, 0);
+
   const park = harness();
-  await park.service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ), page);
+  await park.service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page);
   assert.doesNotMatch(park.calls[0]?.sql ?? "", /JOIN hr_employee employee/u);
   assert.deepEqual(park.calls[1]?.params, [scope.tenantId, scope.parkId, 25, 25]);
   assert.equal(park.audits.length, 1);
 
   const team = harness();
-  await team.service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ), page);
+  const teamActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ);
+  teamActor.permissions.push(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ);
+  await team.service.results(scope, teamActor, page);
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
   assert.deepEqual(team.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", 25, 25]);
   assert.equal(team.audits.length, 1);
 
   const self = harness();
-  await self.service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ), page);
+  const selfActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ);
+  selfActor.permissions.push(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ);
+  await self.service.results(scope, selfActor, page);
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.deepEqual(self.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", 25, 25]);
   assert.equal(self.audits.length, 1);
+});
+
+test("legacy master pay visibility never widens team scope with self-only payroll permission", async () => {
+  const team = harness();
+  const teamActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ);
+  teamActor.permissions.push(HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ);
+  await team.service.masters(scope, teamActor, page);
+  assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
+  assert.deepEqual(
+    team.calls[1]?.params,
+    [scope.tenantId, scope.parkId, "user-1", false, 25, 25],
+  );
+  assert.deepEqual(
+    (team.audits[0] as { afterJson: { fieldGroups: string[] } }).afterJson.fieldGroups,
+    ["legacy_projection"],
+  );
 });
 
 test("legacy result filters narrow but cannot widen the resolved access scope", async () => {
@@ -308,7 +379,7 @@ test("authorized empty legacy reads still require a successful audit", async () 
   } as never;
   const service = new HrPerformanceLegacyService(dataSource, audit);
   await assert.rejects(
-    service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ), page),
+    service.results(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page),
     /required audit unavailable/u,
   );
   await assert.rejects(
