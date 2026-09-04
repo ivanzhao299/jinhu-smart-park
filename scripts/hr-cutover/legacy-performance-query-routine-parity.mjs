@@ -68,9 +68,13 @@ const EXPECTED = [
     sourceArtifactSha256: "0519e0941c405d98c76795cea378fe347a0dc7577fe9e79e68035761b3248933",
     parameters: ["person:varchar(10)"],
     outputCount: 6,
-    semanticContractSha256: "ec41971f642a1a734c8162b08625a47359bb3a8e1be2b89f1aa22fb622d92da4",
+    semanticContractSha256: "880eef097511cd5ddad2d7bec8f9c7ecdcec654311ab56989fb7a99e200948fa",
     dynamic: false,
     missingColumns: [],
+    modernStatus: "implemented_pending_parity_evidence",
+    modernService: "HrPerformanceLegacyService.personSummary",
+    modernApi: "GET /hr/performance-legacy/query-reports/person-summary",
+    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
   },
   {
     routineId: "RULE-E6282105617A7A50",
@@ -78,9 +82,13 @@ const EXPECTED = [
     sourceArtifactSha256: "2ccc23b92971ea34dffb3e4cd6ef190b57e79192a38dc97900d434995ac88674",
     parameters: ["person:varchar(10)"],
     outputCount: 6,
-    semanticContractSha256: "36994eeb4116b1cb679910de5618921118a19ffb2ec75525d71fb3a38898d0af",
+    semanticContractSha256: "707a165ff72ff8e45a4bf1e230b5a5a02eca3739d6cc4344b236f27a48e40e20",
     dynamic: true,
     missingColumns: [],
+    modernStatus: "implemented_pending_parity_evidence",
+    modernService: "HrPerformanceLegacyService.personSummary",
+    modernApi: "GET /hr/performance-legacy/query-reports/person-summary",
+    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
   },
   {
     routineId: "RULE-0C4458064CE74646",
@@ -247,11 +255,12 @@ function semanticContractSha256(row) {
     sourceSchemaStatus: row.sourceSchemaStatus,
     missingSourceColumns: row.missingSourceColumns,
     modernTarget: row.modernTarget,
+    implementationEvidence: row.implementationEvidence,
     missingEvidence: row.missingEvidence,
   }));
 }
 
-function validateRoutineRows(contract) {
+function validateRoutineRows(contract, repositoryRoot) {
   if (!Array.isArray(contract.routines) || contract.routines.length !== EXPECTED.length) {
     fail("PERFORMANCE_QUERY_ROUTINE_SCOPE_INVALID", "count");
   }
@@ -299,13 +308,33 @@ function validateRoutineRows(contract) {
     if (row.sourceSchemaStatus !== expectedSchemaStatus || !same(row.missingSourceColumns, expected.missingColumns)) {
       fail("PERFORMANCE_QUERY_SCHEMA_DRIFT_CLASSIFICATION_INVALID", expected.sourceName);
     }
+    const expectedModernStatus = expected.modernStatus ?? "not_implemented";
     if (
-      row.modernTarget?.status !== "not_implemented"
+      row.modernTarget?.status !== expectedModernStatus
       || !Array.isArray(row.missingEvidence)
       || row.missingEvidence.length < 4
       || !Array.isArray(row.knownDifferences)
       || !row.knownDifferences.length
     ) fail("PERFORMANCE_QUERY_PENDING_EVIDENCE_INVALID", expected.sourceName);
+    if (expected.modernStatus) {
+      if (
+        row.modernTarget.serviceSymbol !== expected.modernService
+        || row.modernTarget.api !== expected.modernApi
+        || row.modernTarget.page !== expected.modernPage
+        || !Array.isArray(row.implementationEvidence)
+        || row.implementationEvidence.length !== 2
+      ) fail("PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID", expected.sourceName);
+      for (const evidence of row.implementationEvidence) {
+        assertNonEmpty(evidence.path, "PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID", expected.sourceName);
+        assertNonEmpty(evidence.testId, "PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID", expected.sourceName);
+        const evidenceText = readFileSync(repositoryFile(repositoryRoot, evidence.path), "utf8");
+        if (!evidenceText.includes(`test("${evidence.testId}"`)) {
+          fail("PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID", `${expected.sourceName}:${evidence.testId}`);
+        }
+      }
+    } else if (row.implementationEvidence !== undefined) {
+      fail("PERFORMANCE_QUERY_IMPLEMENTATION_EVIDENCE_INVALID", expected.sourceName);
+    }
 
     if (semanticContractSha256(row) !== expected.semanticContractSha256) {
       fail("PERFORMANCE_QUERY_SEMANTIC_CONTRACT_DRIFT", expected.sourceName);
@@ -344,8 +373,16 @@ function validateKnownDifferences(contract) {
   }
 
   const outputIdentity = row => row.outputColumns.map(column => `${column.sourceExpression}|${column.sourceAlias}`);
-  if (!same(outputIdentity(byName.get("web_ass")), outputIdentity(byName.get("web_assessmentquery")))) {
+  const webAss = byName.get("web_ass");
+  const webAssessmentQuery = byName.get("web_assessmentquery");
+  if (!same(outputIdentity(webAss), outputIdentity(webAssessmentQuery))) {
     fail("PERFORMANCE_QUERY_WEB_DUPLICATE_OUTPUT_DRIFT", "web_ass/web_assessmentquery");
+  }
+  for (const row of [webAss, webAssessmentQuery]) {
+    const orphanDifference = row.knownDifferences.find(item => item.code === "ORPHAN_MASTER_JOIN_ASYMMETRY");
+    if (!/no (?:matching )?person row/iu.test(orphanDifference?.sourceBehavior ?? "") || !orphanDifference.modernDecision.includes("pending")) {
+      fail("PERFORMANCE_QUERY_WEB_ORPHAN_DIFFERENCE_MISSING", row.sourceName);
+    }
   }
 }
 
@@ -372,7 +409,7 @@ export function verifyLegacyPerformanceQueryRoutineParity({ contract, repository
   ) fail("PERFORMANCE_QUERY_CONTRACT_IDENTITY_INVALID", "root");
 
   validateSourceBindings(contract, repositoryRoot);
-  validateRoutineRows(contract);
+  validateRoutineRows(contract, repositoryRoot);
   validateKnownDifferences(contract);
   validateCompletionBoundary(contract);
 
@@ -382,6 +419,7 @@ export function verifyLegacyPerformanceQueryRoutineParity({ contract, repository
     sourceRoutines: EXPECTED.length,
     verifiedRoutines: 0,
     pendingRoutines: EXPECTED.length,
+    implementedTargets: EXPECTED.filter(row => row.modernStatus).length,
     dynamicReadOnlyRoutines: DYNAMIC_IDS.size,
     schemaDriftRoutines: EXPECTED.filter(row => row.missingColumns.length).length,
     compatibilityCredit: 0,
