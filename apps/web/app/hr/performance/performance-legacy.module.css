@@ -1,0 +1,147 @@
+.heading,
+.filters,
+.pager,
+.tabs,
+.record summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heading {
+  justify-content: space-between;
+}
+
+.heading h2 {
+  margin: 4px 0 0;
+}
+
+.count,
+.note,
+.state,
+.record summary span,
+.fieldGrid dt {
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: 10px 0 18px;
+}
+
+.tabs {
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.tab,
+.activeTab {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.activeTab {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 11%, var(--bg-card));
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.filters {
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.filters label {
+  width: min(320px, 100%);
+}
+
+.records {
+  display: grid;
+  gap: 12px;
+}
+
+.record {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.record summary {
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.record summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  border-top: 1px solid var(--border);
+  background: var(--border);
+}
+
+.fieldGrid > div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--bg-card);
+}
+
+.fieldGrid dt {
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.fieldGrid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.relationField {
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--bg-card)) !important;
+}
+
+.pager {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.state {
+  margin: 16px 0;
+}
+
+@media (max-width: 560px) {
+  .heading,
+  .record summary {
+    align-items: flex-start;
+  }
+
+  .record summary span {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pager {
+    justify-content: space-between;
+  }
+
+  .tabs > button {
+    flex: 1 1 calc(50% - 12px);
+  }
+}
