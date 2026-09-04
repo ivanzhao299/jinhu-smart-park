@@ -1,0 +1,380 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_group_web_performance_template_evaluation_modern_runtime_task",
+  "taskVersion": "performance-template-evaluation-modern-runtime-1.0.0",
+  "executionBoundary": "isolated_lab_only",
+  "status": "ready_not_executed",
+  "candidate": {
+    "id": "GROUP-WEB-INTERACTION-90-94-PERFORMANCE-TEMPLATE-EVALUATION",
+    "name": "考核模板与绩效评估",
+    "legacyIds": [90, 94],
+    "domain": "performance",
+    "actualModernRoute": "/hr/performance",
+    "selectionReason": "assessmentcode_definition_to_evaluation_chain_with_two_score_80_partial_entries_and_one_modern_versioned_scoped_review_workbench",
+    "currentStaticEvidence": {
+      "entryCount": 2,
+      "scoreEach": 80,
+      "implementationStatusEach": "partial",
+      "dimensionsEach": {
+        "ownershipMapped": true,
+        "productionRoute": true,
+        "apiBusinessFlow": true,
+        "persistentDataModel": true,
+        "legacyRuleParity": false,
+        "targetTechnicalUat": false,
+        "legacyRuntimeUat": false
+      }
+    }
+  },
+  "sourceContracts": [
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+      "rawSha256": "e99018b809147dbf97fe4cf07bef0123ec4eb7f8ff2295324bd0d204e86d76dd",
+      "canonicalSha256": "37791d1259c4fca18ceb15c3cb26727236930aa2406e70019d17362d87da5e36"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json",
+      "rawSha256": "b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621",
+      "canonicalSha256": "8a66a869c43c60c50ad3a1400631f2481e699607b7c1a9df83728e05e6914d55"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-dual-source-reconciliation-v1.json",
+      "rawSha256": "38d5e621de3c163843bda8e3724c4225c79990446a9f0cecc09ff7e3e77f4959",
+      "canonicalSha256": "84bb37f2595089ba38e37ad9d4ec8b0268d1391427bda14a1fb7f5622cd41d71"
+    },
+    {
+      "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json",
+      "rawSha256": "32a611f7af804a0cbc50b36df083d69a6e664ded160ed8fa1b8136d861d527cb",
+      "canonicalSha256": "c27862d61db2bae00c89fb80f2dc57c1de54f35b7b9eb5aeb266fffbc7b869a1"
+    }
+  ],
+  "coverageCredit": {
+    "taskReady": { "numerator": 1, "denominator": 1 },
+    "groupWebNavigableEntries": { "numerator": 0, "denominator": 186 },
+    "legacyInteractionParity": { "numerator": 0, "denominator": 2 }
+  },
+  "compatibilityScoreContribution": 0,
+  "legacyEntries": [
+    {
+      "legacyId": 90,
+      "name": "考核模板",
+      "legacyUrl": "performance/asstemplet/Browse.asp",
+      "legacyTable": "Per_tAssessTemplate",
+      "legacyView": "Per_vAssessTemplate",
+      "mappedTargetRoutes": ["/hr/performance"],
+      "traversedAspFiles": 8,
+      "forms": 3,
+      "controls": 76,
+      "requestKeys": 14,
+      "formActions": 2,
+      "selectStatements": 2,
+      "insertStatements": 0,
+      "updateStatements": 0,
+      "deleteStatements": 0,
+      "stateTransitions": 4,
+      "fieldEvidenceHash": "9ca5070bb51454196b676115f06a9d495c9e46943496ebfc4f746c98118fdd73"
+    },
+    {
+      "legacyId": 94,
+      "name": "绩效评估",
+      "legacyUrl": "performance/assess/Browse.asp",
+      "legacyTable": "Per_tAssessTask",
+      "legacyView": "Per_vAssessTaskinfo",
+      "mappedTargetRoutes": ["/hr/performance"],
+      "traversedAspFiles": 4,
+      "forms": 2,
+      "controls": 25,
+      "requestKeys": 23,
+      "formActions": 2,
+      "selectStatements": 0,
+      "insertStatements": 0,
+      "updateStatements": 0,
+      "deleteStatements": 0,
+      "stateTransitions": 3,
+      "fieldEvidenceHash": "d415c59b0108d2569779c57dbb5bcbf024f24ff08b75bd407b4bb052a5982239"
+    }
+  ],
+  "legacyOpaqueSlots": {
+    "aspIdentityPattern": "legacy_{legacyId}_asp_{NN}",
+    "controlIdentityPattern": "legacy_{legacyId}_control_{NN}",
+    "requestKeyIdentityPattern": "legacy_{legacyId}_request_key_{NN}",
+    "formActionIdentityPattern": "legacy_{legacyId}_form_action_{NN}",
+    "stateTransitionIdentityPattern": "legacy_{legacyId}_state_transition_{NN}",
+    "entryCount": 2,
+    "traversedAspFiles": 12,
+    "forms": 5,
+    "controls": 101,
+    "requestKeys": 37,
+    "formActions": 4,
+    "selectStatements": 2,
+    "stateTransitions": 7,
+    "status": "identity_and_counts_frozen_semantics_pending_authenticated_legacy_runtime_observation",
+    "sourceColumnNamesClaimed": false,
+    "emptyOrNullSlotsRemainInDenominator": true
+  },
+  "legacyDataPresenceBoundary": {
+    "groupWebSourceId": "yuzhou_group_web_enterprise_hr",
+    "groupWebCatalogHash": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+    "tables": [
+      {
+        "legacyId": 90,
+        "table": "Per_tAssessTemplate",
+        "observedRows": 23,
+        "receiptStatus": "observed_in_current_group_web_key_table_count_receipt",
+        "featureRequired": true,
+        "emptyOrUnknownDataDoesNotRemoveBehavior": true
+      },
+      {
+        "legacyId": 94,
+        "table": "Per_tAssessTask",
+        "observedRows": null,
+        "receiptStatus": "not_in_current_group_web_key_table_count_receipt",
+        "featureRequired": true,
+        "emptyOrUnknownDataDoesNotRemoveBehavior": true
+      }
+    ],
+    "requiredReceipt": "read_only_group_web_count_and_column_catalog_for_both_tables_with_hash_bound_empty_page_observation",
+    "emptyTableRule": "zero_or_unknown_rows_never_remove_fields_controls_actions_conditions_statuses_routines_or_reports"
+  },
+  "crossSourceAssessmentBoundary": {
+    "windowsClientSourceSystem": "yuzhou-v10",
+    "groupWebSourceSystem": "yuzhou_group_web_enterprise_hr",
+    "windowsClientTable": "assessmentcode",
+    "observedRows": null,
+    "sourceRowCountStatus": "NOT_CAPTURED_IN_CURRENT_STRUCTURAL_INVENTORY",
+    "fieldDenominator": 11,
+    "verifiedTargetFields": 0,
+    "groupWebFieldCreditFromWindowsClient": 0,
+    "fields": [
+      "assessment",
+      "assessmentname",
+      "department",
+      "mpercent",
+      "tpercent",
+      "xpercent",
+      "cpercent",
+      "spercent",
+      "timekeep",
+      "bonus",
+      "master"
+    ],
+    "relation": "person.assessment=assessmentcode.assessment",
+    "weightedTotal": "selfvalue*spercent/100+mitemvalue*mpercent/100+itemvalue*tpercent/100+xitemvalue*xpercent/100+citemvalue*cpercent/100+mastervalue+timekeepvalue+bonusvalue",
+    "percentageUnitTransform": "legacy_integer_percentage_points_divided_by_100_before_modern_fractional_weight",
+    "gradeAssignment": "assgradecode_threshold_lookup_after_total",
+    "nullHandling": "legacy_routine_contains_null_defaulting",
+    "routineEvidence": [
+      {
+        "routineId": "RULE-0C991427090A219D",
+        "sourceName": "bs_ass_compute",
+        "sourceArtifactSha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414"
+      },
+      {
+        "routineId": "RULE-62565DCE85F4A8D0",
+        "sourceName": "u_count",
+        "sourceArtifactSha256": "a49e3836b0846321c0fcb1e97b44666bf5d2a09b72474b6cd4d2e272ee0a7e36"
+      }
+    ],
+    "separateSourceRule": "assessmentcode_metadata_and_routines_are_related_client_evidence_but_cannot_name_or_complete_Group_Web_slots_without_source_relationship_proof",
+    "emptyFieldRule": "all_eleven_fields_and_both_routines_remain_required_when_rows_or_nullable_values_are_empty"
+  },
+  "legacyInteractionTask": {
+    "runtimeStatus": "not_observed",
+    "entryPlans": [
+      {
+        "legacyId": 90,
+        "aspEntry": "performance/asstemplet/Browse.asp",
+        "aspSlots": 8,
+        "controlSlots": 76,
+        "requestKeySlots": 14,
+        "formActionSlots": 2,
+        "transitionSlots": 4,
+        "requiredActions": ["browse", "query", "detail", "create", "edit", "clone_or_version", "publish_or_activate", "disable_or_retire", "delete_or_reject", "history_or_report"],
+        "requiredConditions": ["organization_scope", "template_identity", "dimension_weights", "level_thresholds", "component_gates", "draft_or_published_state", "duplicate_code", "immutable_after_publish", "permission_negative", "empty_state"]
+      },
+      {
+        "legacyId": 94,
+        "aspEntry": "performance/assess/Browse.asp",
+        "aspSlots": 4,
+        "controlSlots": 25,
+        "requestKeySlots": 23,
+        "formActionSlots": 2,
+        "transitionSlots": 3,
+        "requiredActions": ["browse", "query", "detail", "self_score", "manager_score", "compute", "grade", "finalize", "reopen_or_return", "history_or_report"],
+        "requiredConditions": ["employee_scope", "organization_scope", "period", "template_snapshot", "null_component_default", "weight_total", "grade_threshold", "maker_checker", "permission_negative", "empty_state"]
+      }
+    ],
+    "groupWebRoutineReferences": [],
+    "groupWebRoutineReferenceStatus": "not_extracted_from_current_static_audit",
+    "requiredRoutineObservation": "trace_every_Group_Web_procedure_function_trigger_and_include_untriggered_and_empty_data_branches",
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_and_hash_bound_group_web_routine_call_chain_observation"
+  },
+  "legacyReportLayout": {
+    "status": "not_observed",
+    "requiredObservationPerEntry": ["column_order", "query_controls", "status_filter", "pagination", "sort_order", "detail_layout", "form_layout", "action_placement", "print_or_export_controls", "empty_state"],
+    "requiredObservationCount": 20,
+    "modernAcceptance": ["desktop_template_evaluation_list_detail_form_actions", "phone_390_template_evaluation_cards_detail_form_actions", "no_horizontal_overflow"],
+    "notApplicableDecisionAllowedOnlyAfter": "authenticated_legacy_runtime_observation"
+  },
+  "modernRuntimeContract": {
+    "primaryRoute": "/hr/performance",
+    "statusVocabulary": ["planning", "self_review", "manager_review", "calibration", "employee_acknowledged", "appealed", "confirmed"],
+    "transitionMatrix": [
+      { "action": "publish_cycle", "from": ["planning"], "to": "self_review" },
+      { "action": "self_review", "from": ["self_review"], "to": "manager_review" },
+      { "action": "manager_review", "from": ["manager_review"], "to": "calibration" },
+      { "action": "complete_calibration", "from": ["calibration"], "to": "employee_acknowledged" },
+      { "action": "acknowledge", "from": ["employee_acknowledged"], "to": "confirmed" },
+      { "action": "appeal", "from": ["employee_acknowledged"], "to": "appealed" },
+      { "action": "resolve_appeal", "from": ["appealed"], "to": "confirmed" }
+    ],
+    "roleMatrix": [
+      { "role": "performance_template_reader", "permissions": ["hr:performance", "hr:performance_template:read"], "expectedCapabilities": ["template_list", "no_template_write", "web_template_list_current_gap"] },
+      { "role": "performance_template_manager", "permissions": ["hr:performance", "hr:performance_template:manage"], "expectedCapabilities": ["template_list", "create_template", "publish_template"] },
+      { "role": "performance_park_reader", "permissions": ["hr:performance", "hr:performance:read", "hr:performance:result_read"], "expectedCapabilities": ["park_cycles", "scoped_reviews", "result_visibility_by_state"] },
+      { "role": "performance_team_reader", "permissions": ["hr:performance", "hr:performance:team_read"], "expectedCapabilities": ["managed_tree_only", "outside_tree_absent"] },
+      { "role": "performance_self_reviewer", "permissions": ["hr:performance", "hr:performance:self_read", "hr:performance:self_review", "hr:performance:acknowledge", "hr:performance:appeal"], "expectedCapabilities": ["own_review_only", "manager_and_final_hidden_before_release", "self_review_acknowledge_appeal"] },
+      { "role": "performance_manager_reviewer", "permissions": ["hr:performance", "hr:performance:team_read", "hr:performance:manager_review"], "expectedCapabilities": ["managed_tree_review", "self_review_denied"] },
+      { "role": "performance_cycle_manager", "permissions": ["hr:performance", "hr:performance:read", "hr:performance:manage"], "expectedCapabilities": ["create_and_publish_cycle", "server_score_preview"] },
+      { "role": "performance_calibrator", "permissions": ["hr:performance", "hr:performance:read", "hr:performance:calibrate"], "expectedCapabilities": ["create_batch", "record_adjustment", "complete_batch", "self_calibration_denied"] },
+      { "role": "performance_appeal_reviewer", "permissions": ["hr:performance", "hr:performance:read", "hr:performance:appeal_review"], "expectedCapabilities": ["resolve_appeal", "self_appeal_review_denied"] },
+      { "role": "no_performance_permission", "permissions": [], "expectedCapabilities": ["forbidden", "rows_absent"] }
+    ],
+    "apiTasks": [
+      { "id": "templates", "method": "GET", "path": "/hr/performance-v2/templates", "assertions": ["tenant_park_scope", "version_dimensions_levels"] },
+      { "id": "options", "method": "GET", "path": "/hr/performance-v2/options", "assertions": ["active_orgs", "published_templates"] },
+      { "id": "create_template", "method": "POST", "path": "/hr/performance-v2/templates", "assertions": ["idempotency", "weights_total_one", "continuous_levels"] },
+      { "id": "publish_template", "method": "POST", "path": "/hr/performance-v2/templates/:id/publish", "assertions": ["idempotency", "immutable_snapshot"] },
+      { "id": "cycles", "method": "GET", "path": "/hr/performance-v2/cycles", "assertions": ["role_scope", "required_audit"] },
+      { "id": "create_cycle", "method": "POST", "path": "/hr/performance-v2/cycles", "assertions": ["idempotency", "published_template_only", "active_current_park_orgs"] },
+      { "id": "publish_cycle", "method": "POST", "path": "/hr/performance-v2/cycles/:id/publish", "assertions": ["idempotency", "frozen_template_and_employees"] },
+      { "id": "score_preview", "method": "POST", "path": "/hr/performance-v2/score-preview", "assertions": ["server_computed", "frozen_template", "grade"] },
+      { "id": "reviews", "method": "GET", "path": "/hr/performance-v2/reviews", "assertions": ["role_scope", "premature_results_hidden"] },
+      { "id": "calibration_options", "method": "GET", "path": "/hr/performance-v2/calibration-options", "assertions": ["calibrate_permission", "scoped_users"] },
+      { "id": "calibration_batches", "method": "GET", "path": "/hr/performance-v2/calibration-batches", "assertions": ["required_audit", "capability_projection"] },
+      { "id": "actions", "method": "GET", "path": "/hr/performance-v2/reviews/:id/actions", "assertions": ["scope", "append_only_history"] },
+      { "id": "self_review", "method": "POST", "path": "/hr/performance-v2/reviews/:id/self-review", "assertions": ["idempotency", "own_record_only", "server_score"] },
+      { "id": "manager_review", "method": "POST", "path": "/hr/performance-v2/reviews/:id/manager-review", "assertions": ["idempotency", "managed_tree", "maker_checker"] },
+      { "id": "create_calibration_batch", "method": "POST", "path": "/hr/performance-v2/calibration-batches", "assertions": ["idempotency", "participants_scoped"] },
+      { "id": "add_calibration_entry", "method": "POST", "path": "/hr/performance-v2/calibration-batches/:id/entries", "assertions": ["idempotency", "self_calibration_denied"] },
+      { "id": "complete_calibration", "method": "POST", "path": "/hr/performance-v2/calibration-batches/:id/complete", "assertions": ["idempotency", "finalize_after_calibration"] },
+      { "id": "acknowledge", "method": "POST", "path": "/hr/performance-v2/reviews/:id/acknowledge", "assertions": ["idempotency", "own_record_only"] },
+      { "id": "appeal", "method": "POST", "path": "/hr/performance-v2/reviews/:id/appeals", "assertions": ["idempotency", "own_record_only"] },
+      { "id": "resolve_appeal", "method": "POST", "path": "/hr/performance-v2/appeals/:id/resolve", "assertions": ["idempotency", "maker_checker", "append_only_result"] }
+    ],
+    "browserTask": {
+      "viewports": [{ "id": "desktop", "width": 1440, "height": 1000 }, { "id": "phone_390", "width": 390, "height": 844 }],
+      "checks": [
+        { "id": "template_reader", "role": "performance_template_reader", "assertions": ["template_list_required_after_gap_closed", "write_controls_absent", "no_horizontal_overflow"] },
+        { "id": "template_manager", "role": "performance_template_manager", "assertions": ["create_publish_template", "dynamic_dimensions_required_after_gap_closed", "no_horizontal_overflow"] },
+        { "id": "park_reader", "role": "performance_park_reader", "assertions": ["park_scope", "state_appropriate_result", "write_controls_absent"] },
+        { "id": "team_reader", "role": "performance_team_reader", "assertions": ["managed_tree_only", "outside_tree_absent"] },
+        { "id": "self_reviewer", "role": "performance_self_reviewer", "assertions": ["own_only", "premature_manager_and_final_absent", "state_actions"] },
+        { "id": "manager_reviewer", "role": "performance_manager_reviewer", "assertions": ["managed_tree_only", "own_review_denied", "state_actions"] },
+        { "id": "cycle_manager", "role": "performance_cycle_manager", "assertions": ["readable_template_org_selectors", "create_publish_cycle", "score_preview_required_after_gap_closed"] },
+        { "id": "calibrator", "role": "performance_calibrator", "assertions": ["batch_adjust_complete", "self_calibration_denied"] },
+        { "id": "appeal_reviewer", "role": "performance_appeal_reviewer", "assertions": ["resolve_appeal", "self_review_denied"] },
+        { "id": "forbidden_and_empty", "role": "no_performance_permission", "assertions": ["forbidden", "rows_absent", "authorized_empty_state_preserves_controls", "no_horizontal_overflow"] }
+      ]
+    }
+  },
+  "modernSourceEvidence": [
+    {
+      "path": "packages/shared/src/hr.ts",
+      "requiredTokens": ["HR_PERFORMANCE_PAGE: \"hr:performance\"", "HR_PERFORMANCE_TEMPLATE_READ", "HR_PERFORMANCE_TEMPLATE_MANAGE", "HR_PERFORMANCE_SELF_REVIEW", "HR_PERFORMANCE_MANAGER_REVIEW", "HR_PERFORMANCE_CALIBRATE", "HR_PERFORMANCE_ACKNOWLEDGE", "HR_PERFORMANCE_APPEAL", "HR_PERFORMANCE_APPEAL_REVIEW", "HR_PERFORMANCE_RESULT_READ"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-performance-review.controller.ts",
+      "requiredTokens": ["@Controller(\"hr/performance-v2\")", "@Get(\"templates\")", "@Post(\"templates\")", "@Post(\"score-preview\")", "@Post(\"reviews/:id/self-review\")", "@Post(\"reviews/:id/manager-review\")", "@Post(\"appeals/:id/resolve\")", "IdempotencyInterceptor", "captureBody:false"]
+    },
+    {
+      "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
+      "requiredTokens": ["Performance dimension weights must total 100 percent", "hr_performance_snapshot_score", "computedBy:\"server\"", "Only a published template version can be frozen"]
+    },
+    {
+      "path": "database/migrations/000258_hr_performance_template_planning.sql",
+      "requiredTokens": ["CREATE TABLE hr_performance_template", "CREATE TABLE hr_performance_template_version", "CREATE TABLE hr_performance_template_dimension", "CREATE TABLE hr_performance_template_level", "CREATE TABLE hr_performance_review_cycle", "hr_performance_snapshot_score"]
+    },
+    {
+      "path": "database/migrations/000259_hr_performance_review_calibration.sql",
+      "requiredTokens": ["CREATE TABLE hr_performance_review_submission", "CREATE TABLE hr_performance_calibration_batch", "CREATE TABLE hr_performance_appeal", "performance review evidence is append-only", "confirmed performance result is immutable"]
+    },
+    {
+      "path": "apps/web/lib/hr-api.ts",
+      "requiredTokens": ["performanceTemplatesV2:", "createPerformanceTemplateV2:", "publishPerformanceTemplateV2:", "performanceReviewsV2:", "submitPerformanceSelfReviewV2:", "submitPerformanceManagerReviewV2:", "resolvePerformanceAppealV2:"],
+      "forbiddenTokens": ["previewPerformanceScoreV2:"]
+    },
+    {
+      "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
+      "requiredTokens": ["绩效工作台", "评价模板", "保存草稿", "发布模板", "填写自评", "主管评价", "记录校准", "绩效申诉", "ds-mobile-record-list", "dimensions:[{code:\"result\",name:\"结果达成\",weight:.6},{code:\"capability\",name:\"岗位能力\",weight:.25},{code:\"collaboration\",name:\"协作贡献\",weight:.15}]"],
+      "forbiddenTokens": ["HR_PERFORMANCE_TEMPLATE_READ", "previewPerformanceScoreV2"]
+    }
+  ],
+  "implementationGaps": [
+    {
+      "id": "GROUP_WEB_PERFORMANCE_LEGACY_SLOTS_AND_ROUTINE_CALL_CHAIN_NOT_BOUND",
+      "missingEvidence": ["12_traversed_asp_file_identities_beyond_entry_routes", "101_control_semantics", "37_request_key_semantics", "4_form_action_semantics", "7_state_transition_semantics", "group_web_procedure_function_trigger_call_chain"],
+      "implementationAction": ["observe_both_legacy_entries_with_authenticated_non_personal_test_records", "bind_every_asp_control_request_action_status_condition_and_report_slot", "trace_every_referenced_group_web_procedure_function_trigger_and_all_empty_or_untriggered_branches"],
+      "acceptance": ["two_hash_bound_legacy_entry_receipts", "no_unmapped_legacy_slot", "no_empty_or_untriggered_branch_removed", "paired_legacy_modern_outcomes"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_TABLE_COUNT_AND_COLUMN_RELATION_NOT_BOUND",
+      "missingEvidence": ["Per_tAssessTask_read_only_count", "both_group_web_column_catalogs", "relation_to_assessmentcode_and_person_assessment"],
+      "implementationAction": ["capture_hash_bound_read_only_counts_and_column_catalogs", "prove_source_precedence_and_join_relations_without copying_client_credit", "execute_full_empty_page_behavior_if_a_table_is_empty"],
+      "acceptance": ["source_identity_bound_counts", "every_group_web_column_disposed", "zero_rows_preserve_full_denominator", "no_cross_source_conflation"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_ASSESSMENTCODE_FORMULA_PROJECTION_NOT_IMPLEMENTED",
+      "missingEvidence": ["11_field_projection_writer", "five_percentage_component_mapping", "timekeep_bonus_master_component_gates", "legacy_null_defaulting", "legacy_grade_threshold_parity"],
+      "implementationAction": ["implement_versioned_template_projection_for_all_eleven_fields", "preserve_integer_percentage_point_to_fraction_transform", "implement_server_owned_bs_ass_compute_equivalent_with_component_gates_null_defaults_and_grade_thresholds", "bind_person_assessment_to_projected_template_identity"],
+      "acceptance": ["11_of_11_field_dispositions_verified", "formula_golden_cases_include_null_and_disabled_components", "grade_boundary_parity", "immutable_published_version"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_WEB_DYNAMIC_TEMPLATE_EDITOR_NOT_IMPLEMENTED",
+      "missingEvidence": ["dynamic_dimension_editor", "five_legacy_percentage_inputs", "three_external_component_gate_inputs", "level_threshold_editor"],
+      "implementationAction": ["replace_three_hardcoded_dimensions_with_validated_dynamic_dimension_and_level_controls", "add_explicit_legacy_component_mapping_and_gate controls_without_raw_ids", "verify_weight_total_and_threshold_continuity_client_and_server"],
+      "acceptance": ["all_legacy_template_fields_reachable", "no_fixed_three_dimension_loss", "desktop_and_390px", "no_horizontal_overflow"]
+    },
+    {
+      "id": "GROUP_WEB_PERFORMANCE_WEB_READ_AND_SCORE_PREVIEW_CAPABILITIES_NOT_REACHABLE",
+      "missingEvidence": ["template_read_only_web_projection", "score_preview_web_api_wrapper", "score_preview_state_action"],
+      "implementationAction": ["load_and_render_templates_for_HR_PERFORMANCE_TEMPLATE_READ_without_manage", "add_typed_wrapper_for_existing_score_preview_endpoint", "surface_server_score_and_grade_preview_before_allowed submissions"],
+      "acceptance": ["read_only_template_role_sees_templates_without_write_controls", "server_computed_preview", "permission_negative_cases", "desktop_and_390px"]
+    }
+  ],
+  "blockingGaps": [
+    "GROUP_WEB_PERFORMANCE_TWO_LEGACY_RUNTIMES_NOT_OBSERVED",
+    "GROUP_WEB_PERFORMANCE_101_CONTROLS_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_37_REQUEST_KEYS_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_LEGACY_SLOTS_AND_ROUTINE_CALL_CHAIN_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_TABLE_COUNT_AND_COLUMN_RELATION_NOT_BOUND",
+    "GROUP_WEB_PERFORMANCE_ASSESSMENTCODE_FORMULA_PROJECTION_NOT_IMPLEMENTED",
+    "GROUP_WEB_PERFORMANCE_WEB_DYNAMIC_TEMPLATE_EDITOR_NOT_IMPLEMENTED",
+    "GROUP_WEB_PERFORMANCE_WEB_READ_AND_SCORE_PREVIEW_CAPABILITIES_NOT_REACHABLE",
+    "GROUP_WEB_PERFORMANCE_MODERN_API_BROWSER_RUNTIME_NOT_EXECUTED"
+  ],
+  "runtimeEvidence": {
+    "status": "not_observed",
+    "requiredLegacyEntryObservations": 2,
+    "requiredLegacyAspBindings": 12,
+    "requiredLegacyControlBindings": 101,
+    "requiredLegacyRequestKeyBindings": 37,
+    "requiredLegacyFormActionBindings": 4,
+    "requiredLegacyStateTransitionBindings": 7,
+    "requiredLegacyActionObservations": 20,
+    "requiredLegacyConditionObservations": 20,
+    "requiredLegacyReportLayoutObservations": 20,
+    "requiredGroupWebTableCountReceipts": 2,
+    "requiredWindowsClientFieldDispositions": 11,
+    "requiredWindowsClientRoutineParities": 2,
+    "requiredModernApiObservations": 20,
+    "requiredModernBrowserObservations": 20,
+    "requiredPairing": "same_entry_hash_bound_redacted_legacy_and_modern_observation_pair",
+    "sensitiveScan": "required_pass",
+    "credentialsExcluded": true,
+    "personalValuesExcluded": true,
+    "payrollValuesExcluded": true,
+    "attachmentBinariesExcluded": true
+  },
+  "productionImport": "HOLD"
+}
