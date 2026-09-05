@@ -98,6 +98,15 @@ function projected(rawIdentity, targetTable, discriminator, sourceRowSha256) {
   const sourceIdentitySha256 = sha256(`yuzhou-hr-production-source-projection-v1\0${rawIdentity}\0${targetTable}\0${discriminator}`);
   return { sourceIdentitySha256, sourceRowSha256: sha256(canonical({ parentSourceRowSha256: sourceRowSha256, discriminator })) };
 }
+export { record as buildProductionT3Provenance, projected as deriveProductionT3ChildProvenance };
+
+export function buildProductionT3AttendanceBatchProvenance(attendanceFileSha256) {
+  return record({ targetTable: "hr_attendance_import_batch", sourceTable: "dbo.timekeeptable", sourceIdentitySha256: sha256(`yuzhou-hr-production-source-projection-v1\0dbo.timekeeptable\0hr_attendance_import_batch\0${attendanceFileSha256}`), sourceRowSha256: attendanceFileSha256 });
+}
+
+export function buildProductionT3AttendanceSymbolProvenance(symbol) {
+  return record({ targetTable: "hr_attendance_symbol_rule", sourceTable: "dbo.timekeeptable", sourceIdentitySha256: sha256(`yuzhou-hr-production-source-projection-v1\0dbo.timekeeptable\0hr_attendance_symbol_rule\0${sha256(symbol)}`), sourceRowSha256: sha256(canonical({ legacySymbol: symbol })) });
+}
 
 function validateBaseRow(row, sourceTable, extraKey) {
   exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source", extraKey], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", sourceTable);
@@ -134,8 +143,7 @@ function readStage(stagingDir, sourceManifest) {
     records.push(value);
   };
 
-  const batchIdentity = sha256(`yuzhou-hr-production-source-projection-v1\0dbo.timekeeptable\0hr_attendance_import_batch\0${manifest.domains.attendance.fileSha256}`);
-  add(record({ targetTable: "hr_attendance_import_batch", sourceTable: "dbo.timekeeptable", sourceIdentitySha256: batchIdentity, sourceRowSha256: manifest.domains.attendance.fileSha256 }));
+  add(buildProductionT3AttendanceBatchProvenance(manifest.domains.attendance.fileSha256));
 
   const symbols = new Map();
   for (const row of sourceRows.attendance) {
@@ -152,9 +160,8 @@ function readStage(stagingDir, sourceManifest) {
       if (symbol !== "") symbols.set(sha256(symbol), symbol);
     }
   }
-  for (const [symbolHash, symbol] of [...symbols.entries()].sort()) {
-    const sourceIdentitySha256 = sha256(`yuzhou-hr-production-source-projection-v1\0dbo.timekeeptable\0hr_attendance_symbol_rule\0${symbolHash}`);
-    add(record({ targetTable: "hr_attendance_symbol_rule", sourceTable: "dbo.timekeeptable", sourceIdentitySha256, sourceRowSha256: sha256(canonical({ legacySymbol: symbol })) }));
+  for (const [, symbol] of [...symbols.entries()].sort()) {
+    add(buildProductionT3AttendanceSymbolProvenance(symbol));
   }
 
   for (const row of sourceRows.policies) {
@@ -162,7 +169,12 @@ function readStage(stagingDir, sourceManifest) {
     add(record({ targetTable: "hr_insurance_policy", sourceTable: row.sourceTable, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }));
     const itemKeys = new Set();
     for (const item of row.items) {
-      exact(item, ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate", "baseFixedAmount", "employerFixedAmount", "employeeFixedAmount", "supplementFixedAmount"], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
+      // Both attested layouts carry the same kind/variant provenance. The
+      // six-key historical layout does not establish fixed amounts or rate
+      // semantics; the field projector separately marks it unresolved.
+      const historicalKeys = ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate"];
+      const currentKeys = [...historicalKeys, "baseFixedAmount", "employerFixedAmount", "employeeFixedAmount", "supplementFixedAmount"];
+      exact(item, plain(item) && Object.keys(item).length === historicalKeys.length ? historicalKeys : currentKeys, "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
       if (typeof item.kind !== "string" || item.kind.trim() === "" || !Number.isSafeInteger(item.variant)) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item");
       const itemKey = `${item.kind}\0${item.variant}`;
       if (itemKeys.has(itemKey)) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", "policy item duplicate");
