@@ -99,7 +99,13 @@ export function normalizeProductionImportTargetFields(targetTable, fields, rule,
     } else if (rule.dateFields.includes(field)) {
       if (typeof value !== "string" || !validDate(value)) fail("PRODUCTION_IMPORT_TARGET_FIELD_TYPE_INVALID", `${targetTable}.${field} must be an ISO date`);
     } else if (rule.timestampFields.includes(field)) {
-      if (typeof value !== "string" || !TIMESTAMP.test(value) || !Number.isFinite(Date.parse(value))) fail("PRODUCTION_IMPORT_TARGET_FIELD_TYPE_INVALID", `${targetTable}.${field} must be an ISO timestamp`);
+      // This historical column is timestamp WITHOUT time zone. Its writer reads
+      // wall-clock milliseconds, not an instant. Accept that exact representation
+      // without inventing an offset; other timestamp fields retain their contract.
+      const localContractSignature = targetTable === "hr_contract_change" && field === "signed_at"
+        && typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(value)
+        && Number.isFinite(Date.parse(`${value}Z`)) && new Date(`${value}Z`).toISOString() === `${value}Z`;
+      if (!localContractSignature && (typeof value !== "string" || !TIMESTAMP.test(value) || !Number.isFinite(Date.parse(value)))) fail("PRODUCTION_IMPORT_TARGET_FIELD_TYPE_INVALID", `${targetTable}.${field} must be an ISO timestamp`);
     } else if (rule.jsonObjectFields.includes(field)) {
       if (!isPlainObject(value)) fail("PRODUCTION_IMPORT_TARGET_FIELD_TYPE_INVALID", `${targetTable}.${field} must be a JSON object`);
       scanJson(value, `${targetTable}.${field}`);
