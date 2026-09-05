@@ -40,6 +40,16 @@
 - 配置和输入使用受控绝对路径、仅所有者可读写的 0600 单链接文件；staging 和输出目录为 0700，拒绝符号链接。每文件最多 32 MiB，合计读取最多 128 MiB；空 JSONL 仅在来源 manifest 明确为零行时接受。不会读取工资文件或文件二进制。
 - 生产 inventory 的 `sourceManifestSha256` 是 `verifyProductionSourceManifest` 返回的规范化哈希，**不是**描述符里的文件字节哈希。两种身份都必须核验，不能互换。
 - 已有 `yuzhou_core_non_t0_machine_dictionary_package` 的 C/S/M、T2 文件证据、类型/状态来源字段、状态使用次数及 machineAttestationSha256 都重新核对；机器哈希不等于外部/人工审批，不会因校验通过而签发授权。
-- 可选变更分类候选的 kind 为 `yuzhou_hr_t2_change_classification_candidates`，绑定 triple 与 contract-changes.jsonl 的 `stageFileSha256`；每条为 `{sourceIdentitySha256,sourceRowSha256,changeType,evidenceSha256}`。缺项保持差异，不默认续签。源逻辑台账中 `RULE-F089F24164D89466` / `web_compact_c` 的查询列明确标注续订，已核对归档文件哈希 `f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12`；后续分类生成可引用该依据，但尚未生成真实逐条分类候选，也不据此宣称所有合同业务复现。
+- 可选变更分类候选的 kind 为 `yuzhou_hr_t2_change_classification_candidates`，绑定 triple 与 contract-changes.jsonl 的 `stageFileSha256`；每条为 `{sourceIdentitySha256,sourceRowSha256,changeType,evidenceSha256}`。缺项保持差异，不默认续签。源逻辑台账中 `RULE-F089F24164D89466` / `web_compact_c` 的查询列明确标注续订，已核对归档文件哈希 `f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12`。下述分类入口已完成本地真实源验证；该依据只支持已验证关系的历史分类，不表示所有合同业务复现。
 - 仅在全部校验通过后独占创建新候选文件，并做哈希回读。失败不覆盖已有文件，不删除可能的私有部分输出；重试应使用明确的新输出名。stdout 只有数量、分类码和哈希；输出候选文件包含业务字段，必须保持私有且不提交。
 - 私有文件测试：`node --test scripts/e2e/yuzhou-production-t2-materializer-contract.mjs`，已接入原 T2 CI 测试命令。
+
+## 源过程支持的变更分类入口
+
+`materialize-production-t2-change-classifications.mjs --config <private-config>` 生成上述 `changeDecisions` 文件。配置包含 `formatVersion`、`triple`、`stagingDir`、`sourceManifest:{path,sha256}`、`routine:{path,sha256}`、`outputPath`。CLI 必须使用当前干净代码提交，核验源清单及 T2 全部四份文件的字节/数量/状态使用，独立核验固定旧过程实际字节，再调用纯分类器。
+
+只有父合同唯一且员工一致的记录标为 `renewal`；缺父、父关系歧义或归属不符保留为 `needs_review`，重复源身份直接拒绝。每条仅包含来源身份/行哈希、分类和过程证据哈希，全部保留并稳定排序。缺父记录仍由下游关联检查阻断，不会因已有分类而允许插入。
+
+固定旧 SQL 归档属于不执行的源码证据，不要求修改其原权限或复制；仍要求所有者、普通单链接文件、禁止符号链接、256 KiB 上限、读取稳定及固定实际字节哈希。业务暂存、配置和输出仍严格采用 0600/0700，单文件32 MiB、总读取128 MiB。输出排他创建并回读验证。纯函数接受的哈希不是独立审批，真实字节真实性必须由 CLI 证明。
+
+本地真实源验证得到357条分类，349条续签候选、8条缺父待处理，数量守恒且重复覆盖被拒绝。该结果来自本地实现验证，不表示已合并部署、生产导入或完整合同功能验收。当前生产候选仍须在最终合并提交上重新生成，源数据不需重新提取。

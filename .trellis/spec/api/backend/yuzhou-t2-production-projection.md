@@ -22,6 +22,8 @@ Assembly requires the full 16-table read-only inventory and exact T2 phase prove
 
 Optional per-source change classifications bind stage file SHA, row SHA, triple and evidence hash. They remain machine candidates; absent classification is unresolved rather than silently renewal. External approval/source authenticity and final execution authorization remain independent; content/semantic hashes are integrity references, not signatures.
 
+`buildProductionT2ChangeClassifications({triple,stagedRecords,stageFileSha256,routineEvidence})` returns `{artifact,summary}` in that existing envelope. Fixed `web_compact_c` source evidence supports renewal only for a unique exact parent/employee match; missing or mismatched parent yields needs_review, all changes retained. Duplicate source identities fail before choosing a parent. Pure hash inputs are caller-verified references. `materializeProductionT2ChangeClassifications(configPath,options?)` proves current clean code, full source manifest/T2 bytes/counts/state usage and actual pinned routine bytes before output. SQL source code is non-executed, bounded256KiB, owned no-follow single-link/stable reads, and can retain archive permissions; private config/data/output still0600/0700. Output exclusive/fsynced/readback checked, no raw paths or values in errors. No source extraction, SQL, approval or target insertion. Missing-parent candidates remain blocked downstream.
+
 ## 4. Validation & Error Matrix
 
 - Source identity/row hash drift -> `T2_SOURCE_HASH_MISMATCH`; source key mismatch -> `T2_SOURCE_KEY_MISMATCH`.
