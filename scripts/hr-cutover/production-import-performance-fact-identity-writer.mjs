@@ -23,7 +23,7 @@ const fail = (code, detail) => {
   throw new ProductionPerformanceFactIdentityWriterError(code, detail);
 };
 const sha = (value, label, code = "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_INPUT_INVALID") => {
-  if (!SHA256.test(value ?? "")) fail(code, `${label} must be SHA-256`);
+  if (typeof value !== "string" || !SHA256.test(value)) fail(code, `${label} must be SHA-256`);
 };
 const integer = (value, label) => {
   let parsed = Number.NaN;

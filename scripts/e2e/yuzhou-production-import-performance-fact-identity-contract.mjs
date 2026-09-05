@@ -374,6 +374,9 @@ test("adapter writer passes the final 21 parameters and conserves both state par
     succeededReceipt({ relation_owner_maps: false }),
     succeededReceipt({ verified_owner_maps: "" }),
     succeededReceipt({ owner_map_state_sha256: "not-a-hash" }),
+    succeededReceipt({ owner_map_state_sha256: [h("owner-map-state")] }),
+    succeededReceipt({ resolution_state_sha256: [h("resolution-state")] }),
+    succeededReceipt({ receipt_sha256: [h("receipt")] }),
   ]) {
     await assert.rejects(
       () => writeProductionPerformanceFactIdentity({
