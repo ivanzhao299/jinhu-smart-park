@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { normalizeProductionT1LocalTimestamp } from "./production-t1-local-timestamp.mjs";
 
 import { ProductionImportExecutionError, computeProductionImportPayloadHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -90,6 +91,12 @@ function recordsetColumns(table, rule, { withExpectedVersion = false } = {}) {
 
 function normalizeDatabaseValue(table, rule, field, value) {
   if (value === null || value === undefined) return value ?? null;
+  if (table === "hr_employment_event" && field === "source_effective_at") {
+    // SELECT projects exact PostgreSQL microseconds as text. A JS Date has
+    // already lost that precision and cannot prove a target canonical hash.
+    if (typeof value !== "string" || normalizeProductionT1LocalTimestamp(value) !== value) fail("PRODUCTION_IMPORT_T1_TIMESTAMP_READBACK_INVALID", "exact local timestamp text required");
+    return value;
+  }
   if (tableStorage(table).fieldTypes?.[field] === "bigint") return String(value);
   if (rule.integerFields.includes(field)) return Number(value);
   if (rule.booleanFields.includes(field)) return Boolean(value);
@@ -302,9 +309,11 @@ function databaseWriteRow(row, targetScope, { expectedVersion = false } = {}) {
 async function selectAndVerifyExisting(tx, table, rule, rows, targetScope) {
   const storage = tableStorage(table);
   const columns = [...new Set(["id", ...(storage.versioned ? ["version"] : []), ...rule.fieldWhitelist, ...rule.derivedFields])];
+  const projections = columns.map(column => table === "hr_employment_event" && column === "source_effective_at"
+    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at` : column);
   const result = rowsOf(await tx.query(
     `/* hr-prod-phase:lock-existing */
-     SELECT ${columns.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
+     SELECT ${projections.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
      FROM ${table}
      WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${storage.softDelete ? " AND is_deleted=false" : ""}
      FOR UPDATE`,

@@ -15,6 +15,10 @@ const mode = path => (statSync(path).mode & 0o777).toString(8).padStart(4, "0");
 const fail = code => { throw new Error(code); };
 
 const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", reason: "EFFECTIVE_SOURCE_STATE" }], ["0", { decision: "reject", target: null, reason: "SOURCE_NON_EFFECTIVE_STATE" }]]);
+export function evaluateCoreT1StatePolicy(sourceValue) {
+  const rule = eventStateTargets.get(sourceValue);
+  return rule ? Object.freeze({ ...rule }) : null;
+}
 const contractTypeTargets = new Map([["01", "YUZHOU_01"], ["02", "YUZHOU_02"], ["03", "YUZHOU_03"], ["04", "YUZHOU_04"]]);
 const contractStateTargets = new Map([["生效", "active"], ["解除", "terminated"]]);
 
@@ -78,7 +82,7 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
     { dictionaryCode: "employment_event_type", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_type", source: evidence.t1Types }),
       items: t1Types.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventTypeRules.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.readjusttype", sourceKey: value, targetDomain: "employment_event_type", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "employment_event_state", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_state", source: evidence.t1States }),
-      items: t1States.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventStateTargets.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.state", sourceKey: value, targetDomain: "migration_decision", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
+      items: t1States.value.map(row => { const value = String(row.sourceValue).trim(), rule = evaluateCoreT1StatePolicy(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.state", sourceKey: value, targetDomain: "migration_decision", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "contract_type", sourceTable: "dbo.compacttypecode", sourceSnapshotSha256: canonicalHash({ kind: "contract_type", source: evidence.t2Types }),
       items: t2Types.value.map(row => { const code = String(row.source.typeCode).trim(), name = String(row.source.typeName).trim(); return item({ sourceCode: code, sourceName: name, sourceTable: "dbo.compacttypecode", sourceKey: code, targetDomain: "contract_type_code", targetValue: evaluateCoreT2DictionaryPolicy("contract_type", code), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) },
     { dictionaryCode: "contract_state", sourceTable: "dbo.compact", sourceSnapshotSha256: canonicalHash({ kind: "contract_state", source: evidence.t2States }),

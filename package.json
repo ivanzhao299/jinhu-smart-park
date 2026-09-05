@@ -292,7 +292,7 @@
     "test:e2e:yuzhou-production-import-t1-artifact": "node scripts/e2e/yuzhou-production-import-t1-artifact-contract.mjs",
     "test:e2e:yuzhou-production-import-t2-artifact": "node scripts/e2e/yuzhou-production-import-t2-artifact-contract.mjs && node --test scripts/e2e/yuzhou-production-t2-field-projection-contract.mjs scripts/e2e/yuzhou-production-t2-decision-candidates-contract.mjs scripts/e2e/yuzhou-production-t2-materializer-contract.mjs scripts/e2e/yuzhou-production-t2-change-classifications-contract.mjs",
     "test:e2e:yuzhou-production-import-t3-artifact": "node scripts/e2e/yuzhou-production-import-t3-artifact-contract.mjs",
-    "test:e2e:yuzhou-production-import-t1-decision-candidates": "node scripts/e2e/yuzhou-production-import-t1-decision-candidates-contract.mjs",
+    "test:e2e:yuzhou-production-import-t1-decision-candidates": "node scripts/e2e/yuzhou-production-import-t1-decision-candidates-contract.mjs && node --test scripts/e2e/yuzhou-production-t1-source-revalidation-contract.mjs",
     "test:e2e:yuzhou-production-t0-target-inventory": "node scripts/e2e/yuzhou-production-t0-target-inventory-contract.mjs",
     "test:e2e:yuzhou-production-target-inventory": "node scripts/e2e/yuzhou-production-target-inventory-contract.mjs",
     "test:e2e:yuzhou-production-import-machine-attestation": "node scripts/e2e/yuzhou-production-import-machine-attestation-contract.mjs",
