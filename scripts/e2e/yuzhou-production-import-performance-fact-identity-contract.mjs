@@ -196,6 +196,33 @@ test("apply is stacked on the exact 000308 receipt and migration history", () =>
   assert.match(migration, /fact_loader_receipt_sha256/u);
 });
 
+test("final apply promotes only the exact six fact and three relation owner maps", () => {
+  for (const binding of [
+    "dbo.assessmentcode>hr_performance_legacy_template_profile",
+    "dbo.assgradecode>hr_performance_legacy_level_rule",
+    "dbo.assitem>hr_performance_legacy_dimension_profile",
+    "dbo.assitemgradedes>hr_performance_legacy_dimension_level_guide",
+    "dbo.assessmentdetail>hr_performance_legacy_dimension_result",
+    "dbo.assessmentmaster>hr_performance_legacy_master_result",
+    "dbo.asssession>hr_performance_legacy_session",
+    "dbo.asssour>hr_performance_legacy_score_source",
+    "dbo.asssourperson>hr_performance_legacy_source_person_assignment",
+  ]) {
+    const [source, target] = binding.split(">");
+    assert.match(migration, new RegExp(`${source.replaceAll(".", "\\.")}'[^;]+${target}`, "su"));
+  }
+  assert.match(migration, /hr_yuzhou_performance_owner_map_projection_v1/u);
+  assert.match(migration, /map\.source_pk_canonical='sha256:'\|\|owner\.source_identity_sha256/u);
+  assert.match(migration, /map\.target_table=owner\.target_table AND map\.target_id=owner\.target_id/u);
+  assert.match(migration, /UPDATE public\.legacy_record_map map SET mapping_status='verified',update_time=now\(\)[\s\S]*FROM public\.hr_yuzhou_performance_owner_map_projection_v1/u);
+  assert.doesNotMatch(migration, /UPDATE public\.legacy_record_map SET mapping_status='verified'\s+WHERE batch_id=/u);
+  assert.match(migration, /v_before\.loaded_owner_maps<>v_before\.owner_maps OR v_before\.verified_owner_maps<>0/u);
+  assert.match(migration, /v_after\.loaded_owner_maps<>0 OR v_after\.verified_owner_maps<>v_after\.owner_maps/u);
+  assert.match(migration, /HR_PERFORMANCE_OWNER_MAP_(?:CONSERVATION|PRECONDITION|PROMOTION|REPLAY_DRIFT)/u);
+  assert.match(migration, /ownerMapStateSha256/u);
+  assert.match(migration, /fact_owner_maps,relation_owner_maps,verified_owner_maps,owner_map_state_sha256/u);
+});
+
 test("rollback owns only master and dimension identity and enforces reverse order", () => {
   assert.match(migration, /fact_kind IN\('dimension_result','master_result'\)/u);
   assert.match(migration, /v_assignment_rows<>234/u);

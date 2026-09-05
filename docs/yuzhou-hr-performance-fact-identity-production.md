@@ -18,6 +18,11 @@
   unmatched、resolved、ambiguous，不按姓名、大小写或其他个人字段猜测。
 - 周期未解析不阻断人员解析：已解析人员可保存 `SESSION_BINDING_UNRESOLVED`，供旧查询按当前人员身份展示。
 - 重放必须同时满足事实集合、解析状态和 receipt hash；事实增删、候选漂移或参数漂移均失败关闭。
+- 最终 identity 守恒成功后，在同一个 `SERIALIZABLE` 事务内核对六类绩效事实表和三类关系表的
+  owner map：批次、源表、源身份哈希、源行哈希、目标表和目标 ID 必须全部一致。随后仅把这九类
+  精确 owner map 从 `loaded` 一次性晋级为 `verified`；不按批次盲目更新，也不放宽 API 的
+  `verified` 读取门禁。缺失、额外、重复、漂移或混合状态会令整个事务失败且零晋级；精确重放只接受
+  全部已为 `verified`。成功 receipt 保存事实/关系/已验证 owner map 数和不含个人值的聚合状态哈希。
 - 回滚只删除本扩展创建的 master/dimension identity 行，并强制逆序为
   `fact identity -> 000308 performance relations -> production facts`。原因是 `score_source` 仍可能引用
   dimension profile；即使当前 `asssour` 是空表，也不能依赖偶然的零行绕过真实外键顺序。

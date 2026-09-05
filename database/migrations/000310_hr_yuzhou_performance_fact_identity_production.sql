@@ -37,6 +37,10 @@ CREATE TABLE hr_yuzhou_performance_fact_identity_production_receipt (
   cycle_not_applicable_rows bigint NOT NULL,
   fact_set_sha256 char(64) NOT NULL,
   resolution_state_sha256 char(64) NOT NULL,
+  fact_owner_maps bigint NOT NULL,
+  relation_owner_maps bigint NOT NULL,
+  verified_owner_maps bigint NOT NULL,
+  owner_map_state_sha256 char(64) NOT NULL,
   status varchar(24) NOT NULL DEFAULT 'succeeded',
   receipt_sha256 char(64) NOT NULL,
   rollback_operation_id varchar(72)
@@ -63,6 +67,7 @@ CREATE TABLE hr_yuzhou_performance_fact_identity_production_receipt (
     AND migration_310_sha256~'^[0-9a-f]{64}$'
     AND fact_set_sha256~'^[0-9a-f]{64}$'
     AND resolution_state_sha256~'^[0-9a-f]{64}$'
+    AND owner_map_state_sha256~'^[0-9a-f]{64}$'
     AND receipt_sha256~'^[0-9a-f]{64}$'
     AND (extension_rollback_nonce_sha256 IS NULL
       OR extension_rollback_nonce_sha256~'^[0-9a-f]{64}$')
@@ -77,6 +82,8 @@ CREATE TABLE hr_yuzhou_performance_fact_identity_production_receipt (
     AND cycle_not_applicable_rows>=0
     AND cycle_resolved_rows+cycle_unmatched_rows+cycle_ambiguous_rows
       +cycle_not_applicable_rows=fact_rows
+    AND fact_owner_maps>=0 AND relation_owner_maps>=0
+    AND verified_owner_maps=fact_owner_maps+relation_owner_maps
   ),
   CONSTRAINT ck_hr_yuzhou_perf_fact_identity_status CHECK (
     (status='succeeded' AND rollback_operation_id IS NULL
@@ -166,6 +173,170 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
       (p_tenant_id,p_park_id,p_batch_id)
     AND resolution.fact_kind IN('dimension_result','master_result')
 $$;
+
+-- Exact owner projection for all six fact and three relation tables.  It
+-- deliberately returns hashes/identifiers only; no source values are exposed.
+CREATE OR REPLACE FUNCTION hr_yuzhou_performance_owner_map_projection_v1(
+  p_tenant_id varchar,p_park_id varchar,p_batch_id uuid
+) RETURNS TABLE(
+  owner_family text,source_table varchar,target_table varchar,target_id uuid,
+  legacy_record_map_id uuid,source_identity_sha256 char(64),source_row_sha256 char(64),
+  mapping_status varchar,is_active boolean,exact_binding boolean
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+  WITH owners AS (
+    SELECT 'fact'::text owner_family,'dbo.assessmentcode'::varchar source_table,
+      'hr_performance_legacy_template_profile'::varchar target_table,
+      fact.id target_id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_template_profile fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'fact','dbo.assgradecode','hr_performance_legacy_level_rule',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_level_rule fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'fact','dbo.assitem','hr_performance_legacy_dimension_profile',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_dimension_profile fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'fact','dbo.assitemgradedes','hr_performance_legacy_dimension_level_guide',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_dimension_level_guide fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'fact','dbo.assessmentdetail','hr_performance_legacy_dimension_result',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_dimension_result fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'fact','dbo.assessmentmaster','hr_performance_legacy_master_result',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_master_result fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'relation','dbo.asssession','hr_performance_legacy_session',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_session fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'relation','dbo.asssour','hr_performance_legacy_score_source',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_score_source fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+    UNION ALL
+    SELECT 'relation','dbo.asssourperson','hr_performance_legacy_source_person_assignment',
+      fact.id,fact.legacy_record_map_id,fact.source_identity_sha256,fact.source_row_sha256
+    FROM public.hr_performance_legacy_source_person_assignment fact
+    WHERE (fact.tenant_id,fact.park_id,fact.migration_batch_id)=(p_tenant_id,p_park_id,p_batch_id)
+  )
+  SELECT owner.owner_family,owner.source_table,owner.target_table,owner.target_id,
+    owner.legacy_record_map_id,owner.source_identity_sha256,owner.source_row_sha256,
+    map.mapping_status,map.is_active,
+    (map.id IS NOT NULL AND map.batch_id=p_batch_id AND map.source_system='yuzhou-v10'
+      AND map.source_table=owner.source_table
+      AND map.source_pk_canonical='sha256:'||owner.source_identity_sha256
+      AND map.source_identity_sha256=owner.source_identity_sha256
+      AND map.source_row_sha256=owner.source_row_sha256
+      AND map.target_table=owner.target_table AND map.target_id=owner.target_id
+      AND map.mapping_status IN('loaded','verified') AND map.is_active) exact_binding
+  FROM owners owner
+  LEFT JOIN public.legacy_record_map map ON map.id=owner.legacy_record_map_id
+$$;
+
+CREATE OR REPLACE FUNCTION hr_yuzhou_performance_owner_map_state_v1(
+  p_tenant_id varchar,p_park_id varchar,p_batch_id uuid
+) RETURNS TABLE(
+  fact_owner_maps bigint,relation_owner_maps bigint,owner_maps bigint,
+  distinct_owner_maps bigint,active_target_maps bigint,loaded_owner_maps bigint,
+  verified_owner_maps bigint,invalid_owner_maps bigint,owner_map_state_sha256 char(64)
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+  WITH owners AS MATERIALIZED (
+    SELECT * FROM public.hr_yuzhou_performance_owner_map_projection_v1(
+      p_tenant_id,p_park_id,p_batch_id)
+  ), aggregate_state AS (
+    SELECT count(*) FILTER(WHERE owner_family='fact') fact_owner_maps,
+      count(*) FILTER(WHERE owner_family='relation') relation_owner_maps,
+      count(*) owner_maps,count(DISTINCT legacy_record_map_id) distinct_owner_maps,
+      count(*) FILTER(WHERE exact_binding AND mapping_status='loaded') loaded_owner_maps,
+      count(*) FILTER(WHERE exact_binding AND mapping_status='verified') verified_owner_maps,
+      count(*) FILTER(WHERE NOT exact_binding OR mapping_status NOT IN('loaded','verified'))
+        invalid_owner_maps,
+      COALESCE(jsonb_agg(jsonb_build_array(owner_family,source_table,target_table,target_id,
+        legacy_record_map_id,source_identity_sha256,source_row_sha256,mapping_status,
+        is_active,exact_binding) ORDER BY owner_family,source_table,source_identity_sha256),
+        '[]'::jsonb) canonical
+    FROM owners
+  ), active_maps AS (
+    SELECT count(*) active_target_maps FROM public.legacy_record_map map
+    WHERE map.batch_id=p_batch_id AND map.is_active AND map.target_table IN(
+      'hr_performance_legacy_template_profile','hr_performance_legacy_level_rule',
+      'hr_performance_legacy_dimension_profile','hr_performance_legacy_dimension_level_guide',
+      'hr_performance_legacy_dimension_result','hr_performance_legacy_master_result',
+      'hr_performance_legacy_session','hr_performance_legacy_score_source',
+      'hr_performance_legacy_source_person_assignment')
+  )
+  SELECT aggregate_state.fact_owner_maps,aggregate_state.relation_owner_maps,
+    aggregate_state.owner_maps,aggregate_state.distinct_owner_maps,active_maps.active_target_maps,
+    aggregate_state.loaded_owner_maps,aggregate_state.verified_owner_maps,
+    aggregate_state.invalid_owner_maps,
+    encode(digest(convert_to(aggregate_state.canonical::text,'UTF8'),'sha256'),'hex')::char(64)
+  FROM aggregate_state CROSS JOIN active_maps
+$$;
+
+CREATE OR REPLACE FUNCTION hr_yuzhou_verify_performance_owner_maps_v1(
+  p_tenant_id varchar,p_park_id varchar,p_batch_id uuid,
+  p_expected_relation_maps bigint,p_replayed boolean
+) RETURNS TABLE(
+  fact_owner_maps bigint,relation_owner_maps bigint,verified_owner_maps bigint,
+  owner_map_state_sha256 char(64)
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE
+  v_before record; v_after record; v_updated bigint;
+BEGIN
+  IF current_setting('transaction_isolation')<>'serializable'
+    OR p_expected_relation_maps<0 THEN
+    RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_VERIFICATION_CONTEXT_INVALID'; END IF;
+  SELECT * INTO STRICT v_before FROM public.hr_yuzhou_performance_owner_map_state_v1(
+    p_tenant_id,p_park_id,p_batch_id);
+  IF v_before.relation_owner_maps<>p_expected_relation_maps
+    OR v_before.owner_maps<>v_before.fact_owner_maps+v_before.relation_owner_maps
+    OR v_before.distinct_owner_maps<>v_before.owner_maps
+    OR v_before.active_target_maps<>v_before.owner_maps
+    OR v_before.invalid_owner_maps<>0 THEN
+    RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_CONSERVATION_FAILED'; END IF;
+  IF p_replayed THEN
+    IF v_before.loaded_owner_maps<>0 OR v_before.verified_owner_maps<>v_before.owner_maps THEN
+      RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_REPLAY_DRIFT'; END IF;
+  ELSE
+    IF v_before.loaded_owner_maps<>v_before.owner_maps OR v_before.verified_owner_maps<>0 THEN
+      RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_PRECONDITION_FAILED'; END IF;
+    UPDATE public.legacy_record_map map SET mapping_status='verified',update_time=now()
+    FROM public.hr_yuzhou_performance_owner_map_projection_v1(
+      p_tenant_id,p_park_id,p_batch_id) owner
+    WHERE map.id=owner.legacy_record_map_id AND owner.exact_binding
+      AND owner.mapping_status='loaded' AND map.mapping_status='loaded' AND map.is_active;
+    GET DIAGNOSTICS v_updated=ROW_COUNT;
+    IF v_updated<>v_before.owner_maps THEN
+      RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_PROMOTION_FAILED'; END IF;
+    SET CONSTRAINTS ALL IMMEDIATE;
+  END IF;
+  SELECT * INTO STRICT v_after FROM public.hr_yuzhou_performance_owner_map_state_v1(
+    p_tenant_id,p_park_id,p_batch_id);
+  IF v_after.fact_owner_maps<>v_before.fact_owner_maps
+    OR v_after.relation_owner_maps<>v_before.relation_owner_maps
+    OR v_after.owner_maps<>v_before.owner_maps
+    OR v_after.distinct_owner_maps<>v_after.owner_maps
+    OR v_after.active_target_maps<>v_after.owner_maps
+    OR v_after.loaded_owner_maps<>0 OR v_after.verified_owner_maps<>v_after.owner_maps
+    OR v_after.invalid_owner_maps<>0 THEN
+    RAISE EXCEPTION 'HR_PERFORMANCE_OWNER_MAP_PROMOTION_FAILED'; END IF;
+  RETURN QUERY SELECT v_after.fact_owner_maps,v_after.relation_owner_maps,
+    v_after.verified_owner_maps,v_after.owner_map_state_sha256;
+END$$;
 
 CREATE OR REPLACE FUNCTION hr_yuzhou_performance_fact_identity_context_allowed_v1(
   p_batch_id uuid,p_mode varchar
@@ -344,7 +515,8 @@ CREATE OR REPLACE FUNCTION hr_yuzhou_apply_performance_fact_identity_production_
   resolved_rows bigint,unmatched_rows bigint,ambiguous_rows bigint,not_applicable_rows bigint,
   cycle_resolved_rows bigint,cycle_unmatched_rows bigint,cycle_ambiguous_rows bigint,
   cycle_not_applicable_rows bigint,fact_set_sha256 char(64),
-  resolution_state_sha256 char(64),receipt_sha256 char(64)
+  resolution_state_sha256 char(64),fact_owner_maps bigint,relation_owner_maps bigint,
+  verified_owner_maps bigint,owner_map_state_sha256 char(64),receipt_sha256 char(64)
 )
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE
@@ -353,7 +525,9 @@ DECLARE
   v_dimension bigint; v_master bigint; v_facts bigint; v_fact_set char(64);
   v_resolved bigint; v_unmatched bigint; v_ambiguous bigint; v_na bigint;
   v_cycle_resolved bigint; v_cycle_unmatched bigint; v_cycle_ambiguous bigint; v_cycle_na bigint;
-  v_state char(64); v_receipt char(64); v_replayed boolean:=false;
+  v_state char(64); v_fact_owner_maps bigint; v_relation_owner_maps bigint;
+  v_verified_owner_maps bigint; v_owner_map_state char(64);
+  v_receipt char(64); v_replayed boolean:=false;
 BEGIN
   IF current_setting('transaction_isolation')<>'serializable' THEN
     RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_REQUIRES_SERIALIZABLE'; END IF;
@@ -443,6 +617,10 @@ BEGIN
     RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_CONSERVATION_FAILED'; END IF;
   v_state:=public.hr_yuzhou_performance_fact_identity_state_v1(
     p_tenant_id,p_park_id,v_parent.migration_batch_id);
+  SELECT * INTO STRICT v_fact_owner_maps,v_relation_owner_maps,v_verified_owner_maps,
+    v_owner_map_state
+  FROM public.hr_yuzhou_verify_performance_owner_maps_v1(
+    p_tenant_id,p_park_id,v_parent.migration_batch_id,v_parent.active_relation_maps,v_replayed);
   v_receipt:=encode(digest(convert_to(jsonb_build_object(
     'contract','jinhu-yuzhou-performance-fact-identity-production-v1',
     'operationId',p_operation_id,'extensionNonceSha256',p_extension_nonce_sha256,
@@ -452,8 +630,10 @@ BEGIN
     'targetScopeSha256',p_target_scope_sha256,'t0PhaseReceiptSha256',p_t0_phase_receipt_sha256,
     'migration308Sha256',p_migration_308_sha256,'migration310Sha256',p_migration_310_sha256,
     'factSetSha256',v_fact_set,'resolutionStateSha256',v_state,
+    'ownerMapStateSha256',v_owner_map_state,
     'counts',jsonb_build_array(v_dimension,v_master,v_facts,v_resolved,v_unmatched,v_ambiguous,v_na,
-      v_cycle_resolved,v_cycle_unmatched,v_cycle_ambiguous,v_cycle_na))::text,'UTF8'),'sha256'),'hex');
+      v_cycle_resolved,v_cycle_unmatched,v_cycle_ambiguous,v_cycle_na,
+      v_fact_owner_maps,v_relation_owner_maps,v_verified_owner_maps))::text,'UTF8'),'sha256'),'hex');
   INSERT INTO public.hr_yuzhou_performance_fact_identity_production_receipt(
     operation_id,migration_batch_id,sealed_plan_sha256,authorization_artifact_sha256,
     authorization_nonce_sha256,extension_nonce_sha256,code_sha,source_snapshot_sha256,
@@ -463,7 +643,7 @@ BEGIN
     migration_310_sha256,dimension_rows,master_rows,fact_rows,resolved_rows,unmatched_rows,
     ambiguous_rows,not_applicable_rows,cycle_resolved_rows,cycle_unmatched_rows,
     cycle_ambiguous_rows,cycle_not_applicable_rows,fact_set_sha256,resolution_state_sha256,
-    receipt_sha256
+    fact_owner_maps,relation_owner_maps,verified_owner_maps,owner_map_state_sha256,receipt_sha256
   ) VALUES(p_operation_id,v_parent.migration_batch_id,p_sealed_plan_sha256,
     p_authorization_artifact_sha256,p_authorization_nonce_sha256,p_extension_nonce_sha256,
     p_code_sha,p_source_snapshot_sha256,p_mapping_contract_sha256,p_target_identity_sha256,
@@ -472,13 +652,20 @@ BEGIN
     p_fact_loader_receipt_sha256,
     p_migration_308_sha256,p_migration_310_sha256,
     v_dimension,v_master,v_facts,v_resolved,v_unmatched,v_ambiguous,v_na,v_cycle_resolved,
-    v_cycle_unmatched,v_cycle_ambiguous,v_cycle_na,v_fact_set,v_state,v_receipt)
+    v_cycle_unmatched,v_cycle_ambiguous,v_cycle_na,v_fact_set,v_state,
+    v_fact_owner_maps,v_relation_owner_maps,v_verified_owner_maps,v_owner_map_state,v_receipt)
   ON CONFLICT(operation_id) DO NOTHING;
-  IF v_replayed AND (v_existing.resolution_state_sha256<>v_state OR v_existing.receipt_sha256<>v_receipt) THEN
+  IF v_replayed AND (v_existing.resolution_state_sha256<>v_state
+    OR v_existing.fact_owner_maps<>v_fact_owner_maps
+    OR v_existing.relation_owner_maps<>v_relation_owner_maps
+    OR v_existing.verified_owner_maps<>v_verified_owner_maps
+    OR v_existing.owner_map_state_sha256<>v_owner_map_state
+    OR v_existing.receipt_sha256<>v_receipt) THEN
     RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_REPLAY_DRIFT'; END IF;
   RETURN QUERY SELECT 'succeeded'::varchar,v_replayed,v_dimension,v_master,v_facts,
     v_resolved,v_unmatched,v_ambiguous,v_na,v_cycle_resolved,v_cycle_unmatched,
-    v_cycle_ambiguous,v_cycle_na,v_fact_set,v_state,v_receipt;
+    v_cycle_ambiguous,v_cycle_na,v_fact_set,v_state,v_fact_owner_maps,
+    v_relation_owner_maps,v_verified_owner_maps,v_owner_map_state,v_receipt;
 END$$;
 
 CREATE OR REPLACE FUNCTION hr_yuzhou_rollback_performance_fact_identity_production_v1(
@@ -613,6 +800,11 @@ REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_fact_loader_dependency_valid
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_fact_identity_set_v1(varchar,varchar,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_fact_identity_state_v1(varchar,varchar,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_owner_map_projection_v1(varchar,varchar,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_owner_map_state_v1(varchar,varchar,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.hr_yuzhou_verify_performance_owner_maps_v1(
+  varchar,varchar,uuid,bigint,boolean
+) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.hr_yuzhou_performance_fact_identity_context_allowed_v1(uuid,varchar) FROM PUBLIC;
 REVOKE ALL ON PROCEDURE public.hr_yuzhou_materialize_performance_fact_identity_production_v1(varchar,varchar,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.hr_yuzhou_apply_performance_fact_identity_production_v1(
