@@ -36,6 +36,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 - `T0`、`T1`、`T2`、`T3`；
 - plan 已签入时，在 `T0` 后增加 `PERFORMANCE_RELATIONS`；
+- 新绩效链的准备顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。入口已支持事实工件校验与传递；总 writer 的装载/身份映射接线尚未完成，当前执行仍明确拒绝，不能把准备结果视为生产能力验收；
 - plan 已签入时，在末尾增加 `T5_NONFILE`。
 
 以下域尚未接入此 writer，入口会用稳定原因码拒绝，不能把一次 T0-T3 成功描述成全量产品迁移完成：
@@ -67,6 +68,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 - `requestedDomains`，必须与 plan 的实际接线顺序一字不差；
 - `artifacts.sealedPlan` 与 `artifacts.payloadBundles.T0..T3`；
 - plan 使用时才允许出现的 `artifacts.t5NonfilePrivateStage` 或 `artifacts.performanceRelations`；
+- plan 使用 `performanceFactLoader` 时，必须提供 `artifacts.performanceFactLoader.factPayload` 和 `masterPayload` 两个 descriptor。它们同时受文件权限、聚合读取预算、descriptor 字节 hash 和封存计划字节 hash 约束；身份映射不额外接受人工填写的运行回执文件，须消费同一执行事务中真实产生的回执；
 - 执行配置的 `execution.runtimeEvidence`、`databaseBinding`、`postgresCredentials`、`cryptoEnvelope` 和 `cryptoKeyFiles`。
 
 配置不能指定 execution contract、替代 writer、模块路径、shell 命令或连接插件。activation contract 只能来自当前仓库版本，避免用一个临时 JSON 绕过已审阅的 `HOLD`。

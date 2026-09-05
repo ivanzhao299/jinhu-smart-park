@@ -25,7 +25,7 @@ import { executeSealedProductionImport } from "./production-import-writer.mjs";
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
 const PHASES = Object.freeze(["T0", "T1", "T2", "T3"]);
-const SUPPORTED_DOMAINS = Object.freeze([...PHASES, "PERFORMANCE_RELATIONS", "T5_NONFILE"]);
+const SUPPORTED_DOMAINS = Object.freeze([...PHASES, "PERFORMANCE_FACTS", "PERFORMANCE_RELATIONS", "PERFORMANCE_FACT_IDENTITY", "T5_NONFILE"]);
 const EXECUTION_INTENT = "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE";
 const MAX_CONFIG_BYTES = 1024 * 1024;
 const MAX_CONTROL_ARTIFACT_BYTES = 64 * 1024 * 1024;
@@ -38,6 +38,8 @@ export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
   "scripts/hr-cutover/production-import-phase-writers.mjs",
   "scripts/hr-cutover/production-import-postgres-adapter.mjs",
   "scripts/hr-cutover/production-import-performance-relations-writer.mjs",
+  "scripts/hr-cutover/production-import-performance-fact-identity-contract.mjs",
+  "scripts/hr-cutover/production-import-performance-fact-identity-writer.mjs",
   "scripts/hr-cutover/production-import-sealed-plan-lib.mjs",
   "scripts/hr-cutover/production-import-writer.mjs",
 ]);
@@ -157,7 +159,7 @@ function validateConfig(value) {
   if (!Array.isArray(value.requestedDomains) || value.requestedDomains.length === 0 || new Set(value.requestedDomains).size !== value.requestedDomains.length || value.requestedDomains.some(domain => typeof domain !== "string")) {
     fail("PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "requestedDomains must be a unique non-empty string array");
   }
-  exactKeys(value.artifacts, ["sealedPlan", "payloadBundles"], ["t5NonfilePrivateStage", "performanceRelations"], "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "artifacts");
+  exactKeys(value.artifacts, ["sealedPlan", "payloadBundles"], ["t5NonfilePrivateStage", "performanceRelations", "performanceFactLoader"], "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "artifacts");
   const sealedPlan = validateDescriptor(value.artifacts.sealedPlan, "artifacts.sealedPlan");
   exactKeys(value.artifacts.payloadBundles, PHASES, [], "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "artifacts.payloadBundles");
   const payloadBundles = Object.fromEntries(PHASES.map(phase => [phase, validateDescriptor(value.artifacts.payloadBundles[phase], `artifacts.payloadBundles.${phase}`)]));
@@ -172,6 +174,14 @@ function validateConfig(value) {
     };
   }
   let execution;
+  let performanceFactLoader;
+  if (value.artifacts.performanceFactLoader !== undefined) {
+    exactKeys(value.artifacts.performanceFactLoader, ["factPayload", "masterPayload"], [], "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "artifacts.performanceFactLoader");
+    performanceFactLoader = {
+      factPayload: validateDescriptor(value.artifacts.performanceFactLoader.factPayload, "artifacts.performanceFactLoader.factPayload"),
+      masterPayload: validateDescriptor(value.artifacts.performanceFactLoader.masterPayload, "artifacts.performanceFactLoader.masterPayload"),
+    };
+  }
   if (value.execution !== undefined) {
     exactKeys(value.execution, ["runtimeEvidence", "databaseBinding", "postgresCredentials", "cryptoEnvelope", "cryptoKeyFiles"], [], "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "execution");
     if (!Array.isArray(value.execution.cryptoKeyFiles)) fail("PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "execution.cryptoKeyFiles must be an array");
@@ -195,7 +205,7 @@ function validateConfig(value) {
     deploymentMode: value.deploymentMode,
     executionIntent: value.executionIntent,
     requestedDomains: [...value.requestedDomains],
-    artifacts: { sealedPlan, payloadBundles, ...(t5NonfilePrivateStage ? { t5NonfilePrivateStage } : {}), ...(performanceRelations ? { performanceRelations } : {}) },
+    artifacts: { sealedPlan, payloadBundles, ...(t5NonfilePrivateStage ? { t5NonfilePrivateStage } : {}), ...(performanceRelations ? { performanceRelations } : {}), ...(performanceFactLoader ? { performanceFactLoader } : {}) },
     ...(execution ? { execution } : {}),
   };
 }
@@ -205,6 +215,7 @@ function assertArtifactBudget(config, includeExecution, bytesAlreadyRead) {
     ...PHASES.map(phase => config.artifacts.payloadBundles[phase]),
     ...(config.artifacts.t5NonfilePrivateStage ? [config.artifacts.t5NonfilePrivateStage] : []),
     ...(config.artifacts.performanceRelations ? Object.values(config.artifacts.performanceRelations) : []),
+    ...(config.artifacts.performanceFactLoader ? Object.values(config.artifacts.performanceFactLoader) : []),
     ...(includeExecution && config.execution ? [
       config.execution.runtimeEvidence,
       config.execution.databaseBinding,
@@ -224,7 +235,7 @@ function assertArtifactBudget(config, includeExecution, bytesAlreadyRead) {
 }
 
 function expectedDomains(plan) {
-  return [...PHASES.slice(0, 1), ...(plan.performanceRelations ? ["PERFORMANCE_RELATIONS"] : []), ...PHASES.slice(1), ...(plan.t5Nonfile ? ["T5_NONFILE"] : [])];
+  return [...PHASES.slice(0, 1), ...(plan.performanceFactLoader ? ["PERFORMANCE_FACTS"] : []), ...(plan.performanceRelations ? ["PERFORMANCE_RELATIONS"] : []), ...(plan.performanceFactIdentity ? ["PERFORMANCE_FACT_IDENTITY"] : []), ...PHASES.slice(1), ...(plan.t5Nonfile ? ["T5_NONFILE"] : [])];
 }
 
 function validateRequestedDomains(config, plan) {
@@ -259,6 +270,7 @@ function validatePayloadBundles(config, plan, readBudget) {
 function validateOptionalArtifacts(config, plan, readBudget) {
   if (Boolean(config.artifacts.t5NonfilePrivateStage) !== Boolean(plan.t5Nonfile)) fail("PRODUCTION_IMPORT_ENTRYPOINT_T5_BINDING_MISMATCH", "T5_NONFILE descriptor and plan binding differ");
   if (Boolean(config.artifacts.performanceRelations) !== Boolean(plan.performanceRelations)) fail("PRODUCTION_IMPORT_ENTRYPOINT_PERFORMANCE_BINDING_MISMATCH", "performance relation descriptors and plan binding differ");
+  if (Boolean(config.artifacts.performanceFactLoader) !== Boolean(plan.performanceFactLoader)) fail("PRODUCTION_IMPORT_ENTRYPOINT_PERFORMANCE_FACT_LOADER_BINDING_MISMATCH", "performance fact descriptors and plan binding differ");
   let t5NonfilePrivateStage;
   if (plan.t5Nonfile) {
     const loaded = loadArtifact(config.artifacts.t5NonfilePrivateStage, "T5_NONFILE private stage", MAX_PAYLOAD_ARTIFACT_BYTES, { json: true, readBudget });
@@ -289,7 +301,17 @@ function validateOptionalArtifacts(config, plan, readBudget) {
     validateProductionPerformanceRelationsInvocation(invocation);
     performanceRelations = { relationPayloadArtifact, identityDecisionArtifact };
   }
-  return { t5NonfilePrivateStage, performanceRelations };
+  let performanceFactLoader;
+  if (plan.performanceFactLoader) {
+    const factPayloadArtifact = loadArtifact(config.artifacts.performanceFactLoader.factPayload, "performance fact payload", MAX_PAYLOAD_ARTIFACT_BYTES, { readBudget }).bytes;
+    const masterPayloadArtifact = loadArtifact(config.artifacts.performanceFactLoader.masterPayload, "performance master payload", MAX_PAYLOAD_ARTIFACT_BYTES, { readBudget }).bytes;
+    if (sha256(factPayloadArtifact) !== plan.performanceFactLoader.factPayloadArtifactSha256
+      || sha256(masterPayloadArtifact) !== plan.performanceFactLoader.masterPayloadArtifactSha256) {
+      fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_LOADER_ARTIFACT_HASH_MISMATCH", "performance fact bytes differ from sealed input");
+    }
+    performanceFactLoader = { factPayloadArtifact, masterPayloadArtifact };
+  }
+  return { t5NonfilePrivateStage, performanceRelations, performanceFactLoader };
 }
 
 function readRuntimeEvidence(descriptor, plan, currentCodeSha, now, readBudget) {
@@ -586,6 +608,7 @@ export async function runProductionImportEntrypoint(input, dependencies = {}) {
         phaseWriters,
         ...(optional.t5NonfilePrivateStage ? { t5NonfilePrivateStage: optional.t5NonfilePrivateStage } : {}),
         ...(optional.performanceRelations ? { performanceRelations: { ...optional.performanceRelations, readOnlyQuery: adapter.queryReadOnly.bind(adapter) } } : {}),
+        ...(optional.performanceFactLoader ? { performanceFactLoader: { ...optional.performanceFactLoader, readOnlyQuery: adapter.queryReadOnly.bind(adapter) } } : {}),
       });
       if (result?.status !== "succeeded" || JSON.stringify(result.phases) !== JSON.stringify(domains.map(domain => domain === "T5_NONFILE" ? "T5" : domain))) {
         fail("PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID", "writer receipt differs from requested scope");
