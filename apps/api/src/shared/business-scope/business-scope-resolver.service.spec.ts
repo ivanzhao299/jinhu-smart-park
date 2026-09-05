@@ -91,7 +91,11 @@ test("unique selection rejects malformed input and every client-supplied scopeId
     { tenantId: TENANT, userId: "not-a-uuid", requiredModuleCode: "hr" },
     { tenantId: TENANT, userId: USER, requiredModuleCode: "HR" },
     { tenantId: TENANT, userId: USER, requiredModuleCode: "hr", scopeId: SCOPE },
-    { tenantId: TENANT, userId: USER, requiredModuleCode: "hr", scopeId: undefined }
+    { tenantId: TENANT, userId: USER, requiredModuleCode: "hr", scopeId: undefined },
+    ...[undefined, null, SCOPE].map((scopeId) => Object.assign(
+      Object.create({ scopeId }) as object,
+      { tenantId: TENANT, userId: USER, requiredModuleCode: "hr" }
+    ))
   ];
 
   for (const input of inputs) {
