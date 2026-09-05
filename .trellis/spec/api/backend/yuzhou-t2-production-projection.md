@@ -26,6 +26,23 @@ Optional per-source change classifications bind stage file SHA, row SHA, triple 
 
 ## 4. Validation & Error Matrix
 
+Legacy `dbo.compact` staging may omit all five semantic fields (`derivedContractTermMonths`,
+`legacyRenewalCount`, `contractTermDecision`, `signatureDateDecision`, `renewalCountDecision`).
+Authenticate the untouched staged record first; derive a local view using the shared pure
+`t2-contract-semantics.mjs` owner also imported by the extraction transformer. Never rewrite,
+rehash or mutate the staged record. All output provenance retains its original row hash.
+If any semantic field is supplied, all five must be present and match derivation from original
+dates and `continuetimes`, including values, not only markers. Partial/inconsistent claims fail.
+The legacy inclusive boundary-month algorithm is preserved: year/month difference plus one
+when end day >= start day, not elapsed whole-month duration. Missing bounds yield null;
+missing count stays null in provenance and projects zero. Negative, fractional and int4-overflow
+counts remain errors; ambiguous legacy term/year fields never substitute for missing dates.
+Agreement flags accept only true/false, 1/0, "1"/"0", and exact Chinese "是"/"否".
+No trimming, null defaults or generic truthiness. Preserve the original source/hash.
+This contract covers modern projection/assembler/materializer, not the legacy isolated SQL
+loader, whose flag and signature-history semantics differ. Do not run that loader as a
+substitute for the modern production payload writer or claim parity from these tests.
+
 - Source identity/row hash drift -> `T2_SOURCE_HASH_MISMATCH`; source key mismatch -> `T2_SOURCE_KEY_MISMATCH`.
 - Unknown source field -> `T2_SOURCE_FIELD_UNMAPPED`.
 - Null/unknown protocol flag -> `T2_LEGACY_FLAG_UNRESOLVED`, not false.
@@ -44,7 +61,7 @@ Good: exact money, known dictionary, source hashes and semantic markers agree. B
 
 Test all four complete field sets; source immutability and drift; null/zero; leap/invalid/reversed dates; safe integer bounds; numeric(18,2) exactness; local datetime preservation; evidence identities; no protected file ID. Run via the existing T2 artifact package command. Before production readiness, separately test actual database canonical/hash round trips, dependencies, approved conflicts, real staging, rollback and user-facing queries.
 
-The optional explicit `YUZHOU_T2_PROJECTION_PG_CONTAINER` test permits only a local unix Docker endpoint and performs fixed literal casts in a read-only transaction, without tables or writes. A pass proves type/canonical representation only, not full writer execution. Source-derived term/count semantics remain the responsibility of the receipt-bound upstream transform; this projection must not be called with an unverified stage.
+The optional explicit `YUZHOU_T2_PROJECTION_PG_CONTAINER` test permits only a local unix Docker endpoint and performs fixed literal casts in a read-only transaction, without tables or writes. A pass proves type/canonical representation only, not full writer execution. The shared owner supplies term/count semantics for both transform and verified legacy projection; this projection must not be called with an unverified stage. Cover legacy/enriched parity, untouched source hash/bytes, month-end/leap/open bounds, partial/inconsistent claims, and legacy parent-to-renewal/evidence dependencies through assembler and private materializer.
 
 ## 7. Wrong vs Correct
 

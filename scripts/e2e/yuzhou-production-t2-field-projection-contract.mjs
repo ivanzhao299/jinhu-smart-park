@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { projectProductionT2Fields, ProductionT2ProjectionError } from "../hr-cutover/production-t2-field-projection.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { normalizeProductionImportTargetFields } from "../hr-cutover/production-import-payload-generator.mjs";
+import { materializeContractSemantics, T2_CONTRACT_SEMANTIC_FIELDS } from "../hr-cutover/t2-contract-semantics.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const contract = overrides => ({
@@ -26,6 +27,59 @@ const record = (source, sourceTable = "dbo.compact") => {
 };
 const project = overrides => projectProductionT2Fields(record(contract(overrides)), { status: "active" });
 const rejects = (fn, code) => assert.throws(fn, error => error instanceof ProductionT2ProjectionError && error.code === code && error.message === code);
+
+const legacyContract = overrides => Object.fromEntries(Object.entries(contract(overrides)).filter(([key]) => !T2_CONTRACT_SEMANTIC_FIELDS.includes(key)));
+test("authenticated legacy and enriched rows share semantics but preserve distinct original hashes", () => {
+  for (const overrides of [{}, { startDate: null, endDate: null, signedDate: null, continuetimes: null }, { continuetimes: "0" }]) {
+    const legacy = record(legacyContract(overrides)), enriched = record(materializeContractSemantics(legacy.source));
+    const before = JSON.stringify(legacy), oldRows = projectProductionT2Fields(legacy, { status: "active" }), newRows = projectProductionT2Fields(enriched, { status: "active" });
+    assert.equal(JSON.stringify(legacy), before);
+    assert.notEqual(legacy.sourceRowSha256, enriched.sourceRowSha256);
+    assert.equal(oldRows[0].sourceRowSha256, legacy.sourceRowSha256);
+    assert.equal(oldRows[0].sourceIdentitySha256, legacy.sourceIdentitySha256);
+    assert.deepEqual({ ...oldRows[0].targetFields, legacy_source_row_sha256: null }, { ...newRows[0].targetFields, legacy_source_row_sha256: null });
+  }
+});
+test("legacy recovery preserves inclusive boundary-month semantics, leap dates and open bounds", () => {
+  for (const [startDate, endDate, expected] of [["2024-01-31", "2024-02-29", 1], ["2024-02-29", "2025-02-28", 12], ["2024-02-29", "2024-02-29", 1], ["2024-01-15", "2024-02-15", 2], ["2024-01-15", "2024-02-14", 1], [null, "2024-02-29", null], ["2024-02-29", null, null]]) {
+    const row = record(legacyContract({ startDate, endDate, continuetimes: null, signedDate: null }));
+    const f = projectProductionT2Fields(row, { status: "active" })[0].targetFields;
+    assert.equal(f.contract_term_months, expected); assert.equal(f.renewal_count, 0);
+    assert.equal(f.signature_date, null); assert.equal(f.first_signature_date, null); assert.equal(f.last_signature_date, null);
+  }
+});
+test("legacy invalid dates, reversed bounds, count overflow and original hash drift still fail", () => {
+  for (const [overrides, code] of [[{ startDate: "2023-02-29" }, "T2_DATE_INVALID"], [{ signedDate: "2024-02-30" }, "T2_DATE_INVALID"], [{ startDate: "2027-01-01" }, "T2_DATE_RANGE_INVALID"], ...[-1, "1.5", true, "2147483648", "9007199254740992"].map(continuetimes => [{ continuetimes }, "T2_INTEGER_INVALID"])]) {
+    rejects(() => projectProductionT2Fields(record(legacyContract(overrides)), { status: "active" }), code);
+  }
+  assert.equal(projectProductionT2Fields(record(legacyContract({ continuetimes: "2147483647" })), { status: "active" })[0].targetFields.renewal_count, 2147483647);
+  const row = record(legacyContract()); row.source.continuetimes = "3";
+  rejects(() => projectProductionT2Fields(row, { status: "active" }), "T2_SOURCE_HASH_MISMATCH");
+});
+test("partial derivations and complete but inconsistent claims are never silently repaired", () => {
+  for (const key of T2_CONTRACT_SEMANTIC_FIELDS) {
+    const partial = legacyContract(); partial[key] = contract()[key];
+    rejects(() => projectProductionT2Fields(record(partial), { status: "active" }), "T2_SEMANTIC_DECISION_INVALID");
+    const missing = contract(); delete missing[key];
+    rejects(() => projectProductionT2Fields(record(missing), { status: "active" }), "T2_SEMANTIC_DECISION_INVALID");
+  }
+  for (const overrides of [{ derivedContractTermMonths: 35 }, { legacyRenewalCount: 3 }, { derivedContractTermMonths: null, contractTermDecision: "NO_FIXED_DATE_BOUNDARY" }, { legacyRenewalCount: null, renewalCountDecision: "ABSENT_DEFAULT_ZERO" }, { signatureDateDecision: "ABSENT" }]) {
+    rejects(() => project(overrides), "T2_SEMANTIC_DECISION_INVALID");
+  }
+});
+test("legacy agreement flags accept exact Chinese yes/no, never null or generic truthiness", () => {
+  const keys = ["confidentialityFlag", "nonCompeteFlag", "trainingServiceFlag"];
+  const targets = ["confidentiality_agreement", "non_compete_agreement", "training_service_agreement"];
+  for (const [value, expected] of [["是", true], ["否", false]]) {
+    const row = record(legacyContract(Object.fromEntries(keys.map(key => [key, value])))), before = structuredClone(row);
+    const result = projectProductionT2Fields(row, { status: "active" })[0];
+    for (const target of targets) assert.equal(result.targetFields[target], expected);
+    assert.deepEqual(row, before); assert.equal(result.sourceRowSha256, row.sourceRowSha256);
+  }
+  for (const key of keys) for (const value of [null, undefined, "", " 是", "否 ", "yes", "false", "未知", 2]) {
+    rejects(() => projectProductionT2Fields(record(legacyContract({ [key]: value })), { status: "active" }), "T2_LEGACY_FLAG_UNRESOLVED");
+  }
+});
 
 test("projects all contract fields without inventing signature history or converting ambiguous terms", () => {
   const input = record(contract()), before = structuredClone(input), rows = projectProductionT2Fields(input, { status: "active" }), f = rows[0].targetFields;

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL } from "./production-import-target-model.mjs";
 import { normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
+import { materializeContractSemantics, T2_CONTRACT_SEMANTIC_FIELDS } from "./t2-contract-semantics.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const SHA = /^[0-9a-f]{64}$/u;
@@ -38,8 +39,8 @@ const integer = (value, { nullable = true, minimum = 0 } = {}) => {
   return parsed;
 };
 const flag = value => {
-  if (value === true || value === 1 || value === "1") return true;
-  if (value === false || value === 0 || value === "0") return false;
+  if (value === true || value === 1 || value === "1" || value === "是") return true;
+  if (value === false || value === 0 || value === "0" || value === "否") return false;
   return fail("T2_LEGACY_FLAG_UNRESOLVED");
 };
 const presence = value => {
@@ -95,7 +96,7 @@ export function projectProductionT2Fields(row, resolved = {}) {
   if (!plain(resolved)) fail("T2_DICTIONARY_DECISION_INVALID");
   const decisionKey = row.sourceTable === "dbo.compacttypecode" ? "typeCode" : row.sourceTable === "dbo.compact" ? "status" : "changeType";
   if (Object.keys(resolved).length !== 1 || !Object.hasOwn(resolved, decisionKey)) fail("T2_DICTIONARY_DECISION_INVALID");
-  const s = row.source;
+  let s = row.source;
   if (row.sourceTable === "dbo.compacttypecode") {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/u.test(resolved.typeCode ?? "")) fail("T2_DICTIONARY_DECISION_INVALID");
     return [projection(row, "hr_contract_type", { type_code: resolved.typeCode, type_name: requiredText(s.typeName), status: "enabled", is_historical_import: true, remark: null })];
@@ -114,6 +115,20 @@ export function projectProductionT2Fields(row, resolved = {}) {
   if (!["draft", "active", "expired", "terminated", "cancelled"].includes(resolved.status)) fail("T2_DICTIONARY_DECISION_INVALID");
   const start = date(s.startDate), end = date(s.endDate), signed = date(s.signedDate);
   if (start && end && end < start) fail("T2_DATE_RANGE_INVALID");
+  // Authenticate the original row above, then derive a local view only. Provenance
+  // always refers to untouched staging bytes, never to this enriched projection.
+  const supplied = T2_CONTRACT_SEMANTIC_FIELDS.filter(key => Object.hasOwn(s, key));
+  if (supplied.length !== 0 && supplied.length !== T2_CONTRACT_SEMANTIC_FIELDS.length) fail("T2_SEMANTIC_DECISION_INVALID");
+  let derived;
+  try { derived = materializeContractSemantics(s); }
+  catch { fail("T2_INTEGER_INVALID"); } // Dates/ranges were validated before derivation.
+  integer(derived.legacyRenewalCount); // PostgreSQL int4 bound also applies to legacy recovery.
+  if (supplied.length) {
+    for (const key of T2_CONTRACT_SEMANTIC_FIELDS) {
+      const value = key === "derivedContractTermMonths" || key === "legacyRenewalCount" ? integer(s[key]) : s[key];
+      if (s[key] === undefined || value !== derived[key]) fail("T2_SEMANTIC_DECISION_INVALID");
+    }
+  } else s = derived;
   const term = integer(s.derivedContractTermMonths), renewal = integer(s.legacyRenewalCount);
   if ((term === null ? s.contractTermDecision !== "NO_FIXED_DATE_BOUNDARY" : s.contractTermDecision !== "DERIVED_FROM_DATE_BOUNDARY")
     || (signed === null ? s.signatureDateDecision !== "ABSENT" : s.signatureDateDecision !== "DIRECT_LEGACY_DATE")
