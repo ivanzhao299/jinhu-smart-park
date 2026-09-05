@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import "./yuzhou-t0-full-inventory-compat.contract.mjs";
 import "./yuzhou-production-import-t0-decision-candidates-contract.mjs";
+import "./yuzhou-production-job-state-source-revalidation-contract.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";

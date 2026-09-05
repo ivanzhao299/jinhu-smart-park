@@ -281,6 +281,17 @@ authorization receipt。
 `materialize-production-t0-phase-artifact.mjs` 将已签名的私有 T0 staging（组织、岗位、员工）转换成仅含来源身份哈希、来源行哈希和目标表的封存阶段回执。它要求当前 C/S/M 绑定、`0700/0600` 私有输入/输出和 staging manifest 校验；不输出业务字段，不连接任何数据库，不创建计划，也不执行生产写入。该回执只是后续完整 T0～T3 生产输入的第一块来源证据，不能单独解除 `HOLD`。
 
 `prepare-production-t0-triple.mjs` 从已验证的四阶段 hash-only source manifest 取回当前 `sourceSnapshotHash` 与 `mappingContractHash`，再与当前代码 SHA 组成私有 T0 C/S/M 三元组。它拒绝非 `0600` 输入、非 `0700` 输出目录、符号链接、覆盖和无效 source manifest；只写入私有三元组文件并返回其 hash，不读取 staging 行、不连接数据库、不创建计划，也不解除 `HOLD`。随后 T0 materializer 才可使用这个三元组生成阶段回执。
+
+### 9.2 未变源字典的语义重新校验
+
+`materialize-production-t0-decision-candidates.mjs` 默认仍要求在职状态 decision 与当前 C/S/M 一致。显式传入 `--source-manifest` 后，可以对历史机器候选重新验证语义，不必为了更新代码版本而再次抽取员工或启动完整 A/B。
+
+此路径不是跳过版本检查：当前 source manifest 必须与当前 C/S/M、完整生产目标 inventory 的 canonical manifest SHA 一致；T0 manifest 的全部域、三份状态字典文件的哈希/数量、员工实际状态分布、旧 decision 的逐状态来源行哈希及字典聚合哈希均须一致；当前代码独立计算的状态映射还必须与旧 decision 逐项相同。任何未知状态、数量/字节变化或语义变化都在生成候选前拒绝。
+
+旧 decision 的代码版本、映射版本、checkpoint 和文件字节保持原样。新 T0 候选只通过原 decision 的文件 SHA 记录其来源，使用本轮生产目标范围及当前 C/S/M；不挪用旧实验范围、旧授权或旧运行成功结论。输出依旧是 `HOLD` 的候选，不是业务签署、封存计划或生产导入成功。完整字段及父子关系、冲突决策、实际写入、回退和用户端查询仍须由后续链路验证。
+
+T2 合同候选的私有 config 可显式设置 `dictionaryRevalidation: "source_semantics"`；省略时仍严格要求字典包 C/S/M 等于当前值。启用后要求相同源 S、完整合同类型/状态文件和源行哈希、实际状态使用数量、字典聚合全部一致，并按原始包 C/S/M 验证原始机器证明，再独立对照当前合同类型/状态策略。未知状态、映射目标或原因不一致均拒绝。原包字节及其 SHA 保持不变；生产 inventory、T0、阶段清单和合同变更分类仍须绑定当前版本。此选项不推断续签，不转移旧实验授权，也不触发数据库写入。
+
 主 CI 固定执行 preflight 与 v2 合同测试；数据库敏感 Release Smoke 还会从已迁移的临时数据库克隆一份
 精确命名的 lab 数据库，执行 scope、依赖图、v1兼容、普通角色拒绝和 residual=0 PostgreSQL 合同后删除该 lab 数据库。
 

@@ -122,27 +122,25 @@ assert.deepEqual(fullResult.countByDisposition, result.countByDisposition);
 assert.deepEqual(fullResult.targetTableCounts, result.targetTableCounts);
 assert.equal(fullArtifact.productionImport, "HOLD");
 assert.equal(readFileSync(fullInventoryPath, "utf8"), fullInventoryBytes);
-// Replacing the file after the first read must never bind one snapshot's hash to another's data.
-const originalReadFileSync = fs.readFileSync;
+// In-place mutation during a private read fails closed before any candidate is written.
+const originalReadSync = fs.readSync;
 let inventoryReads = 0;
 try {
-  fs.readFileSync = (...args) => {
-    const bytes = originalReadFileSync(...args);
-    if (args[0] === fullInventoryPath) {
+  fs.readSync = (...args) => {
+    const count = originalReadSync(...args);
+    if (inventoryReads === 0 && args[1].subarray(args[2], args[2] + count).toString("utf8") === fullInventoryBytes) {
       inventoryReads += 1;
       writePrivate(fullInventoryPath, `${JSON.stringify({ ...fullInventory, status: "FAIL" })}\n`);
     }
-    return bytes;
+    return count;
   };
   syncBuiltinESMExports();
   const snapshotOutput = join(output, "snapshot-candidates.json");
-  materializeProductionT0DecisionCandidates({ ...fullInput, outputPath: snapshotOutput }, { head: () => codeSha });
-  const snapshotArtifact = JSON.parse(readFileSync(snapshotOutput, "utf8"));
+  assert.throws(() => materializeProductionT0DecisionCandidates({ ...fullInput, outputPath: snapshotOutput }, { head: () => codeSha }));
   assert.equal(inventoryReads, 1);
-  assert.equal(snapshotArtifact.targetInventoryArtifactSha256, sha(fullInventoryBytes));
-  assert.deepEqual(snapshotArtifact.records, fullArtifact.records);
+  assert.equal(existsSync(snapshotOutput), false);
 } finally {
-  fs.readFileSync = originalReadFileSync;
+  fs.readSync = originalReadSync;
   syncBuiltinESMExports();
   writePrivate(fullInventoryPath, fullInventoryBytes);
 }

@@ -14,7 +14,7 @@ const hash = value => createHash("sha256").update(value).digest("hex");
 const canonicalHash = value => hash(canonical(value) + "\n");
 const code = "a".repeat(40);
 const options = { currentHead: () => code };
-function fixture(t, { empty = false, classify = true } = {}) {
+function fixture(t, { empty = false, classify = true, policyState = "Synthetic active" } = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hr-t2-materializer-test-"))); chmodSync(root, 0o700);
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const staging = join(root, "stage"); mkdirSync(staging, { mode: 0o700 });
@@ -26,7 +26,11 @@ function fixture(t, { empty = false, classify = true } = {}) {
     ["dbo.compact", "SYN-C", { contractNo: "SYN-C", employeeCode: "SYN-E", typeName: "Synthetic type", legacyState: "Synthetic active", derivedContractTermMonths: null, legacyRenewalCount: null, contractTermDecision: "NO_FIXED_DATE_BOUNDARY", signatureDateDecision: "ABSENT", renewalCountDecision: "ABSENT_DEFAULT_ZERO", confidentialityFlag: 0, nonCompeteFlag: 0, trainingServiceFlag: 0, legacyTextPresent: 0, legacyFilePresent: 0 }],
     ["dbo.compact_c", "SYN-C|SYN-E|2026-01-01 00:00:00||", { contractNo: "SYN-C", employeeCode: "SYN-E", startDate: "2026-01-01 00:00:00", endDate: null, signedAt: null, sequenceNo: 1 }],
   ].map(([sourceTable, sourceKey, source]) => ({ sourceTable, sourceKey, source, sourceIdentitySha256: hash(`${sourceTable}\0${sourceKey}`), sourceRowSha256: hash(JSON.stringify(source, Object.keys(source).sort())) }));
-  const states = empty ? [] : [{ sourceValue: "Synthetic active", usageCount: 1 }];
+  for (const row of staged) if (row.sourceTable === "dbo.compact") {
+    row.source.legacyState = policyState;
+    row.sourceRowSha256 = hash(JSON.stringify(row.source, Object.keys(row.source).sort()));
+  }
+  const states = empty ? [] : [{ sourceValue: policyState, usageCount: 1 }];
   const files = { "dbo.compacttypecode": "contract-types.jsonl", "dbo.compact": "contracts.jsonl", "dbo.compact_c": "contract-changes.jsonl", "dbo.compact.state": "contract-states.raw.json" };
   const stageManifest = { formatVersion: 1, domains: {} };
   for (const [domain, file] of Object.entries(files)) {
@@ -57,7 +61,7 @@ function fixture(t, { empty = false, classify = true } = {}) {
   const pkg = { formatVersion: 1, kind: "yuzhou_core_non_t0_machine_dictionary_package", triple, trustedRootSha256: hash("synthetic trusted root"), machineActor: { id: "00000000-0000-5000-8000-000000000001", kind: "machine_policy_engine", verifiedAt: "2026-09-05T00:00:00Z" }, evidence, dictionaries: [{ dictionaryCode: "employment_event_type" }, { dictionaryCode: "employment_event_state" }], productionImport: "HOLD" };
   for (const [dictionaryCode, sourceTable, identity, original, domain, target, source] of [
     ["contract_type", "dbo.compacttypecode", hash("dbo.compacttypecode\0" + "01"), { sourceCode: "01", sourceName: "Synthetic type", sourceValue: null }, "contract_type_code", "YUZHOU_01", evidence.t2Types],
-    ["contract_state", "dbo.compact", hash("dbo.compact.state\0Synthetic active"), { sourceCode: null, sourceName: null, sourceValue: "Synthetic active" }, "contract_status", "active", evidence.t2States],
+    ["contract_state", "dbo.compact", hash(`dbo.compact.state\0${policyState}`), { sourceCode: null, sourceName: null, sourceValue: policyState }, "contract_status", "active", evidence.t2States],
   ]) {
     const item = { id: "00000000-0000-5000-8000-000000000001", ...original, sourceIdentitySha256: identity, sourceRowSha256: canonicalHash(original), decision: "map", targetDomain: domain, targetValue: target, reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" };
     const d = { dictionaryCode, sourceTable, sourceSnapshotSha256: canonicalHash({ kind: dictionaryCode, source }), items: empty ? [] : [item] };
@@ -70,6 +74,56 @@ function fixture(t, { empty = false, classify = true } = {}) {
   return { root, config, path, pkg, write, save: () => write("config.json", config) };
 }
 const reject = (f, code) => assert.throws(() => materialize(f.path, options), error => error.code === code && error.message === code);
+
+function attest(pkg, triple = pkg.triple) {
+  for (const d of pkg.dictionaries.filter(d => d.items)) d.machineAttestationSha256 = canonicalHash({ triple, trustedRootSha256: pkg.trustedRootSha256, dictionaryCode: d.dictionaryCode, sourceSnapshotSha256: d.sourceSnapshotSha256, items: d.items.map(({ id: _id, ...rest }) => rest) });
+}
+function historic(t, fixtureOptions = {}) {
+  const f = fixture(t, { policyState: "生效", ...fixtureOptions });
+  f.pkg.triple = { ...f.pkg.triple, codeSha: "b".repeat(40), mappingContractHash: hash("old mapping") };
+  attest(f.pkg);
+  f.config.dictionaryRevalidation = "source_semantics";
+  f.persist = () => { f.config.artifacts.dictionaryPackage = f.write("dictionary.json", f.pkg); f.save(); };
+  f.persist(); return f;
+}
+
+test("explicit T2 revalidation accepts unchanged source semantics without relabeling original package", t => {
+  const f = historic(t), before = readFileSync(f.config.artifacts.dictionaryPackage.path);
+  const result = materialize(f.path, options), output = JSON.parse(readFileSync(f.config.outputPath));
+  assert.equal(result.countByDisposition.insert, 3);
+  assert.equal(output.triple.codeSha, code);
+  assert.equal(output.resolutionEvidence.dictionaryPackageSha256, hash(before));
+  assert.equal(output.resolutionEvidence.approvalClaimed, false);
+  assert.equal(output.productionImport, "HOLD");
+  assert.deepEqual(readFileSync(f.config.artifacts.dictionaryPackage.path), before);
+});
+test("historical dictionaries remain rejected by default and invalid opt-ins fail closed", t => {
+  const a = historic(t); delete a.config.dictionaryRevalidation; a.save(); reject(a, "T2_MATERIALIZER_DICTIONARY_INVALID");
+  for (const option of [true, false, null, "force"]) {
+    const f = historic(t); f.config.dictionaryRevalidation = option; f.save(); reject(f, "T2_MATERIALIZER_DICTIONARY_REVALIDATION_INVALID");
+  }
+});
+test("T2 revalidation rejects changed source or malformed historical binding", t => {
+  const a = historic(t); a.pkg.triple.sourceSnapshotHash = hash("different source"); attest(a.pkg); a.persist(); reject(a, "T2_MATERIALIZER_DICTIONARY_INVALID");
+  const b = historic(t); b.pkg.triple.codeSha = "bad"; attest(b.pkg); b.persist(); reject(b, "T2_MATERIALIZER_DICTIONARY_INVALID");
+});
+test("T2 historical attestation must use original triple, never refreshed current triple", t => {
+  const f = historic(t); attest(f.pkg, f.config.triple); f.persist(); reject(f, "T2_MATERIALIZER_DICTIONARY_HASH_MISMATCH");
+});
+test("recomputed hashes cannot authorize changed policy, reason or unknown state", t => {
+  for (const [field, value] of [["targetValue", "terminated"], ["reasonCode", "OTHER_POLICY"]]) {
+    const f = historic(t); f.pkg.dictionaries.find(d => d.dictionaryCode === "contract_state").items[0][field] = value; attest(f.pkg); f.persist(); reject(f, "T2_MATERIALIZER_DICTIONARY_POLICY_MISMATCH");
+  }
+  const unknown = historic(t, { policyState: "Synthetic unknown" }); reject(unknown, "T2_MATERIALIZER_DICTIONARY_POLICY_MISMATCH");
+});
+test("revalidation does not grant historical change classification current authority", t => {
+  const f = historic(t), changes = JSON.parse(readFileSync(f.config.artifacts.changeDecisions.path));
+  changes.triple = f.pkg.triple; f.config.artifacts.changeDecisions = f.write("changes.json", changes); f.save();
+  assert.throws(() => materialize(f.path, options), error => /^T2_MATERIALIZER_CHANGE_/u.test(error.code));
+});
+test("empty T2 dictionaries retain zero-source proof under explicit revalidation", t => {
+  const f = historic(t, { empty: true }); assert.equal(materialize(f.path, options).recordCount, 0);
+});
 
 test("private files through existing dictionary and graph produce a hash-verified candidate", t => {
   const f = fixture(t), result = materialize(f.path, options), bytes = readFileSync(f.config.outputPath), artifact = JSON.parse(bytes);

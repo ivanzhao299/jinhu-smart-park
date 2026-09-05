@@ -11,6 +11,9 @@ import { compileYuzhouJobStateMachineAttestation, computeYuzhouJobStateCheckpoin
 const sha = value => createHash("sha256").update(value).digest("hex");
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const statusTarget = new Map([["1", "active"], ["a", "active"], ["2", "departed"], ["3", "departed"], ["4", "departed"], ["5", "suspended"], ["b", "suspended"]]);
+// Shared deterministic policy; callers must independently bind the complete
+// source dictionary bytes before applying this code lookup.
+export const evaluateCoreT0JobStatePolicy = normalizedCode => statusTarget.get(normalizedCode) ?? null;
 const fail = code => { throw new Error(code); };
 const privateJson = path => {
   if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !privateMode(path)) fail("CORE_T0_MACHINE_INPUT_UNSAFE");
@@ -49,9 +52,9 @@ export function buildCoreT0MachinePackage(configInput, machineRoot, { validate =
   });
   const decisions = states.value.map(row => {
     const sourceCode = String(row.sourceCode ?? "").trim(), normalized = sourceCode.toLowerCase(), source = dictionary.get(normalized), observedRecordCount = row.usageCount;
-    if (!source || !statusTarget.has(normalized) || !Number.isSafeInteger(observedRecordCount) || observedRecordCount < 1) fail("CORE_T0_MACHINE_SOURCE_DRIFT");
+    if (!source || evaluateCoreT0JobStatePolicy(normalized) === null || !Number.isSafeInteger(observedRecordCount) || observedRecordCount < 1) fail("CORE_T0_MACHINE_SOURCE_DRIFT");
     const sourceIdentitySha256 = sha(`dbo.person.jobstate\u0000${normalized}`), sourceRowSha256 = canonicalHash({ sourceCode, usageCount: observedRecordCount, dictionaryRowSha256: canonicalHash(source) });
-    return { sourceIdentitySha256, sourceRowSha256, observedRecordCount, decision: "map", targetEmploymentStatus: statusTarget.get(normalized), semanticClassification: "derived_deterministic", reasonCode: "DETERMINISTIC_MAPPING" };
+    return { sourceIdentitySha256, sourceRowSha256, observedRecordCount, decision: "map", targetEmploymentStatus: evaluateCoreT0JobStatePolicy(normalized), semanticClassification: "derived_deterministic", reasonCode: "DETERMINISTIC_MAPPING" };
   }).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   if (new Set(decisions.map(row => row.sourceIdentitySha256)).size !== 7 || decisions.reduce((sum, row) => sum + row.observedRecordCount, 0) !== 2949) fail("CORE_T0_MACHINE_SOURCE_DRIFT");
   const scopeBinding = { tenantIdentitySha256: sha("tenant\u000010000001"), parkIdentitySha256: sha("park\u000020000001") };

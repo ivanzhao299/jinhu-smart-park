@@ -18,6 +18,14 @@ const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", 
 const contractTypeTargets = new Map([["01", "YUZHOU_01"], ["02", "YUZHOU_02"], ["03", "YUZHOU_03"], ["04", "YUZHOU_04"]]);
 const contractStateTargets = new Map([["生效", "active"], ["解除", "terminated"]]);
 
+// A lookup alone is not source evidence. Consumers must bind the complete
+// dictionary bytes and independently verify usage before using this policy.
+export function evaluateCoreT2DictionaryPolicy(dictionaryCode, sourceValue) {
+  const rules = dictionaryCode === "contract_type" ? contractTypeTargets
+    : dictionaryCode === "contract_state" ? contractStateTargets : null;
+  return rules?.get(sourceValue) ?? null;
+}
+
 function privateBytes(path) {
   if (!existsSync(path) || lstatSync(path).isSymbolicLink() || mode(path) !== "0600") fail("CORE_DICTIONARY_INPUT_UNSAFE");
   return readFileSync(path);
@@ -72,9 +80,9 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
     { dictionaryCode: "employment_event_state", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_state", source: evidence.t1States }),
       items: t1States.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventStateTargets.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.state", sourceKey: value, targetDomain: "migration_decision", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "contract_type", sourceTable: "dbo.compacttypecode", sourceSnapshotSha256: canonicalHash({ kind: "contract_type", source: evidence.t2Types }),
-      items: t2Types.value.map(row => { const code = String(row.source.typeCode).trim(), name = String(row.source.typeName).trim(); return item({ sourceCode: code, sourceName: name, sourceTable: "dbo.compacttypecode", sourceKey: code, targetDomain: "contract_type_code", targetValue: contractTypeTargets.get(code), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) },
+      items: t2Types.value.map(row => { const code = String(row.source.typeCode).trim(), name = String(row.source.typeName).trim(); return item({ sourceCode: code, sourceName: name, sourceTable: "dbo.compacttypecode", sourceKey: code, targetDomain: "contract_type_code", targetValue: evaluateCoreT2DictionaryPolicy("contract_type", code), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) },
     { dictionaryCode: "contract_state", sourceTable: "dbo.compact", sourceSnapshotSha256: canonicalHash({ kind: "contract_state", source: evidence.t2States }),
-      items: t2States.value.map(row => { const value = String(row.sourceValue).trim(); return item({ sourceValue: value, sourceTable: "dbo.compact.state", sourceKey: value, targetDomain: "contract_status", targetValue: contractStateTargets.get(value), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) }
+      items: t2States.value.map(row => { const value = String(row.sourceValue).trim(); return item({ sourceValue: value, sourceTable: "dbo.compact.state", sourceKey: value, targetDomain: "contract_status", targetValue: evaluateCoreT2DictionaryPolicy("contract_state", value), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) }
   ];
   for (const dictionary of dictionaries) {
     dictionary.items.sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
