@@ -25,7 +25,7 @@
     },
     "productionT0CandidateMaterializer": {
       "path": "scripts/hr-cutover/materialize-production-t0-decision-candidates.mjs",
-      "sha256": "0f397275f9975e8287e089d042e8c5413cebd28fc528a5c9fa6399866a3e874d"
+      "sha256": "02bd9a23e2b8a4f421babdabfb5ba1d5867df79bbadfb61855f44006c2d86ef6"
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",

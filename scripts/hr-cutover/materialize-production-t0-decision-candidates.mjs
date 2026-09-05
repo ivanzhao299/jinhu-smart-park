@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { computeProductionImportTargetScopeHash } from "./production-import-sealed-plan-lib.mjs";
 import {
+  DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL,
   computeProductionImportBusinessIdentityHash,
   computeProductionImportTargetCanonicalHash,
   deriveProductionImportTargetId,
@@ -157,23 +158,46 @@ function readScope(path, inventory) {
   return targetScope;
 }
 
-function readInventory(path) {
-  const bytes = readFileSync(privateFile(path, "target inventory"));
-  const value = readJson(path, "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID");
-  exact(value, ["formatVersion", "kind", "status", "productionImport", "executionReachable", "targetIdentitySha256", "targetScopeSha256", "targetTableCounts", "records"], "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "inventory");
-  if (value.formatVersion !== 1 || value.kind !== "yuzhou_hr_production_t0_target_inventory_readonly" || value.status !== "PASS" || value.productionImport !== "HOLD" || value.executionReachable !== false || !SHA256.test(value.targetIdentitySha256 ?? "") || !SHA256.test(value.targetScopeSha256 ?? "") || !plain(value.targetTableCounts) || !Array.isArray(value.records)) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "identity");
-  const expectedCounts = { sys_org: 0, hr_position: 0, hr_employee: 0 };
+export function validateProductionT0DecisionInventory(value, expectedTriple) {
+  const validHash = hash => typeof hash === "string" && SHA256.test(hash);
+  const full = value?.kind === "yuzhou_hr_production_target_inventory_readonly";
+  const keys = ["formatVersion", "kind", "status", "productionImport", "executionReachable", "targetIdentitySha256", "targetScopeSha256", "targetTableCounts", "records"];
+  exact(value, [...keys, ...(full ? ["sourceManifestSha256", "triple"] : [])], "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "inventory");
+  if (value.formatVersion !== 1 || (!full && value.kind !== "yuzhou_hr_production_t0_target_inventory_readonly") || value.status !== "PASS" || value.productionImport !== "HOLD" || value.executionReachable !== false || !validHash(value.targetIdentitySha256) || !validHash(value.targetScopeSha256) || !plain(value.targetTableCounts) || !Array.isArray(value.records)) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "identity");
+  if (full) {
+    exact(value.triple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "inventory triple");
+    if (!validHash(value.sourceManifestSha256)
+      || !expectedTriple || typeof value.triple.codeSha !== "string" || !CODE_SHA.test(value.triple.codeSha)
+      || !validHash(value.triple.sourceSnapshotHash) || !validHash(value.triple.mappingContractHash)
+      || Object.keys(value.triple).some(key => value.triple[key] !== expectedTriple[key])) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "inventory source/code/mapping binding");
+  }
+  const t0Tables = DOMAINS.map(domain => domain.targetTable);
+  const tables = full ? Object.keys(DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables) : t0Tables;
+  exact(value.targetTableCounts, tables, "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "table counts");
+  const expectedCounts = Object.fromEntries(tables.map(table => [table, 0]));
   const records = new Map();
+  const ids = new Set();
+  const identities = new Set();
   for (const row of value.records) {
     exact(row, ["targetTable", "businessIdentitySha256", "targetId", "targetCanonicalSha256", "targetVersion"], "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "record");
-    if (!Object.hasOwn(expectedCounts, row.targetTable) || !SHA256.test(row.businessIdentitySha256 ?? "") || !SHA256.test(row.targetCanonicalSha256 ?? "") || typeof row.targetId !== "string" || !Number.isSafeInteger(row.targetVersion) || row.targetVersion < 0) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "record values");
+    if (!Object.hasOwn(expectedCounts, row.targetTable) || !validHash(row.businessIdentitySha256) || !validHash(row.targetCanonicalSha256) || typeof row.targetId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(row.targetId) || !Number.isSafeInteger(row.targetVersion) || row.targetVersion < 0) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "record values");
     const key = `${row.targetTable}:${row.businessIdentitySha256}`;
-    if (records.has(key)) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "duplicate");
-    records.set(key, Object.freeze({ ...row }));
+    const id = `${row.targetTable}:${row.targetId}`;
+    if (identities.has(key) || ids.has(id)) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "duplicate");
+    identities.add(key); ids.add(id);
+    if (t0Tables.includes(row.targetTable)) records.set(key, Object.freeze({ ...row }));
     expectedCounts[row.targetTable] += 1;
   }
   if (Object.entries(expectedCounts).some(([key, count]) => value.targetTableCounts[key] !== count)) fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "counts");
-  return { value, records, artifactSha256: sha256(bytes) };
+  return { value, records };
+}
+
+function readInventory(path, triple) {
+  const bytes = readFileSync(privateFile(path, "target inventory"));
+  let value;
+  try { value = JSON.parse(bytes.toString("utf8")); }
+  catch { fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "JSON"); }
+  return { ...validateProductionT0DecisionInventory(value, triple), artifactSha256: sha256(bytes) };
 }
 
 function readJobState(path, triple) {
@@ -303,7 +327,7 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
   const triple = validateTriple(readJson(privateFile(input.triplePath, "triple"), "PRODUCTION_IMPORT_T0_DECISION_TRIPLE_INVALID"), head());
   const stage = readStage(stagingDir, triple);
   const phaseArtifactSha256 = readPhaseArtifact(input.phaseArtifactPath, triple, stage);
-  const inventory = readInventory(input.targetInventoryPath);
+  const inventory = readInventory(input.targetInventoryPath, triple);
   const targetScope = readScope(input.targetScopePath, inventory.value);
   const jobState = readJobState(input.jobStatePath, triple);
   const records = buildCandidates(stage, targetScope, inventory, jobState)
