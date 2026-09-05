@@ -95,6 +95,10 @@ merge before-image 和 quarantine payload 必须在执行前由受控外部密�
 
 `prepare STRUCTURE_READY` 仅说明本地封存输入及仓库 activation 可进入显式执行步骤，并固定返回 `readOnlyTargetVerified=false`、`envelopeAuthenticated=false`、`productionImportExecuted=false`；它不是生产目标或密文恢复验证，更不是生产写入完成。`SUCCEEDED` 只证明回执列出的精确域成功，且固定返回 `fullProductMigrationComplete=false`。T4、T5_FILE、独立 person-assessment、全域 UAT 和 P0-P4 双模式验收必须由各自入口与证据闭合。
 
+## 持续验证
+
+CI 通过既有 `pnpm test:e2e:yuzhou-production-import-v2` 入口同时执行 v2、CLI 和真实加密封套测试；新增入口测试不是只在本地手动运行。
+
 ## 当前性能风险
 
 现有 writer API 接收每阶段完整 Buffer，并在验证时解析 payload bundle；入口为保持同一合同没有另写流式旁路。因此大阶段执行的峰值内存可能明显高于源备份文件大小。当前专项测试只使用合成小载荷，不构成大规模生产吞吐证据。若真实 T3/T4 工件超过已批准内存预算，应先在原 writer/phase-writer 层实现并验证 hash 保持的流式或分块合同，不能由 CLI 临时拆包绕过 sealed hash。
