@@ -36,7 +36,8 @@ inside its SERIALIZABLE transaction, then reverses identity, relations and facts
 It accepts neither caller-supplied receipt substitutes nor an out-of-transaction
 receipt lookup. Both forward and reverse core phases restore deferred constraint
 timing after extension calls; commit still checks all links. Mock orchestration
-tests do not prove the complete PostgreSQL/API chain, which remains unverified.
+tests alone do not prove the complete PostgreSQL/API chain. The bounded PostgreSQL
+result below proves one empty-fact transaction chain; API visibility is still pending.
 
 The `performanceFactLoader` extension binds the configuration/detail and master
 artifact hashes, source receipt hashes, six migration hashes, six fact counts,
@@ -103,3 +104,37 @@ failure left no batch, projection, control or phase rows; isolated fixture resou
 were cleaned. That run excluded performance extensions and used the integration
 worktree while performance orchestration was being edited; it proves the unchanged
 core transition, not immutable full-chain release readiness.
+
+## Bounded total-writer PostgreSQL evidence
+
+The first performance total-writer run passed against a fresh isolated schema
+migrated through 000311. The executed test is committed as `10c86bd24ad8163a4e2781fdd3ef9b25897eb611`;
+its file SHA-256 is `c7afc9410d7db8142d70dd468b5a7774fb6f79b63d55ce2abd0725925d257df4`.
+Execution started from candidate `9a06e34e53aaef832a92d97096867bb19c218b7b` with
+that new test file; the later entrypoint dependency-list fix does not change the
+total writer exercised here. This is synthetic transaction evidence, not proof
+of a merged, deployed or production-authorized candidate.
+
+- Actual `executeSealedProductionImport` applies T0, 311 facts, 308 relations,
+  310 identity and T1-T3; it returns three real database receipt hashes.
+- The fixture has 7 sessions, 117 assignments, 234 identity resolutions and
+  7 session bindings. All 124 performance owner maps become `verified` without
+  hand-written status promotion or relabeling a laboratory batch as production.
+- Actual total rollback consumes the bound receipt chain, reverses 310/308/311
+  before core T0 and verifies zero active maps and zero performance rows.
+- A separate failure injected at T1 observes the completed performance chain
+  inside the transaction, then proves no batch, phase, control, projection or
+  performance receipt survives the failed business transaction.
+- The initial shell cleanup did not remove the temporary database/role because
+  its psql variable substitution was incorrect. Exact-target follow-up cleanup
+  and a second read-only check verified both counts zero; the temporary dependency
+  link and migration log were also removed. Test PASS is not used as cleanup proof.
+
+Reproducible entry: `pnpm test:e2e:yuzhou-production-import-performance-full-chain:pg`,
+with the existing explicit loopback/laboratory environment and a prepared isolated
+schema. The test does not provision, authorize or connect to production by default.
+The six fact collections in this first fixture are all empty. It therefore does
+not prove nonempty configuration visibility, nonempty result functionality, actual
+service/HTTP queries or CLI encryption; its crypto provider is a synthetic test
+substitute. The next combined run must add nonempty configuration with zero results
+and actual service queries without relaxing source-empty production constraints.
