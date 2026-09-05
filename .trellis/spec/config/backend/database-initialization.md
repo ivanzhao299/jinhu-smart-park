@@ -278,3 +278,62 @@ pnpm hr:migration:sqlserver:restore
 Wrong: update an active mapping's source hash when the legacy row changes.
 
 Correct: reject the insert as drift, write a redacted `migration_error`, and require an explicit resolution before deactivating/replacing the mapping.
+
+## Scenario: Yuzhou T0 JSONB preflight and bounded lab cleanup
+
+### 1. Scope / Trigger
+
+- Trigger: changing `scripts/load-yuzhou-t0.sh`, the core T0-T3 rehearsal driver, or its disposable PostgreSQL port/cleanup probe.
+- This is a local isolated-rehearsal contract. It does not authorize a production import or relax the source-read-only, exact-run, and zero-residual requirements.
+
+### 2. Signatures
+
+- Loader input: the pinned normalized T0 JSONL files whose records contain a `source` JSON object.
+- Cleanup probe: `netstat -an -p tcp` executed through a bounded child-process capture before declaring a run clean.
+- Terminal evidence: a redacted summary with the cleanup state and residual count.
+
+### 3. Contracts
+
+- Before Docker/PostgreSQL mutation, the loader parses every nonblank JSONL line and recursively rejects NUL (`U+0000`) in every JSON key or string value. JavaScript accepting the JSON is insufficient because PostgreSQL `jsonb` rejects NUL.
+- Invalid staging input produces only a domain-level `T0_<DOMAIN>_JSON_INPUT_INVALID` result; reports must not echo the source line, employee values, or file path.
+- The cleanup probe must have a fixed short timeout. It must support both macOS and Linux listener-line layouts without assuming `lsof` is available or cannot hang.
+- Probe timeout, child-process error, nonzero exit, signal, or unparseable output is an unknown residual (`residualCount=1`), not proof of a clean port. The runner must still enter its normal cleanup/terminal-evidence path.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Malformed JSONL line | Fail before target mutation with redacted JSON-input error |
+| JSON key or string contains NUL | Fail before target mutation with `T0_<DOMAIN>_JSON_INPUT_INVALID` |
+| Valid JSONL without NUL | Continue to the existing hash, isolation, and transaction checks |
+| macOS/Linux listener detected | Report residual listener; do not declare cleanup complete |
+| Probe timeout/error/signal/nonzero/unparseable output | Fail closed as one residual and retain redacted terminal evidence |
+| Probe confirms no listener | Continue only with the remaining named-resource cleanup checks |
+
+### 5. Good / Base / Bad Cases
+
+- Good: valid pinned JSONL enters the existing T0 transaction, then a bounded no-listener probe contributes to a zero-residual terminal summary.
+- Base: a JSON string with ordinary escaped control notation remains valid when it contains no decoded NUL.
+- Bad: let PostgreSQL discover an embedded NUL midway through COPY, treat a stalled `lsof` command as cleanup success, or expose a rejected raw JSONL line in diagnostics.
+
+### 6. Tests Required
+
+- Unit-test JSONL preflight for malformed JSON, NUL in a nested value, NUL in a nested key, and a valid control case; assert no database-copy command is reached after rejection.
+- Unit-test macOS and Linux `netstat` listener parsing plus no-listener, timeout, child error, signal, nonzero, and unparseable-output cases; every uncertain probe state must yield a residual.
+- Run the focused T0/core-rehearsal tests and `sh -n scripts/load-yuzhou-t0.sh`; a full isolated rehearsal remains separately required for candidate evidence.
+
+### 7. Wrong vs Correct
+
+Wrong:
+
+```js
+await execFileAsync('lsof', ['-nP', '-iTCP:45461', '-sTCP:LISTEN']);
+return 0; // command completion is assumed to prove cleanup
+```
+
+Correct:
+
+```js
+const probe = await runBoundedNetstat(port, { timeoutMs: 3_000 });
+return probe.uncertain ? 1 : probe.listenerCount;
+```

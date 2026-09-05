@@ -269,6 +269,11 @@ Reference files:
   evidence gate must apply the same command-aware allowlist when it re-reads
   the command's exact persisted stdout/stderr log paths. All non-allowlisted
   URLs, non-build logs, and path masquerades remain fail-closed.
+- Treat lifecycle cleanup probes as bounded, fail-closed operations too. A port
+  probe that times out, errors, exits nonzero, is signalled, or yields an
+  unknown format is evidence of an unresolved residual, never a clean run.
+  Cover the supported operating-system output formats in deterministic tests
+  and retain only redacted terminal evidence.
 
 ### Mutating Property API E2E Isolation
 

@@ -8,7 +8,7 @@ import test from "node:test";
 import { buildJobStateV2Fixture } from "./yuzhou-job-state-v2-fixture.mjs";
 import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, buildMaterializationSql } from "../hr-cutover/materialize-reviewed-job-state.mjs";
-import { classifyCorePhaseFailure, computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
+import { classifyCorePhaseFailure, computeCoreT0T3MappingContractHash, createCoreT0T3Adapters, netstatPortIsListening } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
 import { parseCorePrepareArgs, prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 import { sealCoreDictionaryCapture } from "../hr-cutover/capture-yuzhou-core-dictionary-receipt.mjs";
@@ -25,7 +25,15 @@ test("core driver preserves redacted T0 input failure classes before generic Pos
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type timestamp with time zone", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_TIMESTAMPTZ");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type numeric", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_NUMERIC");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type text", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_INPUT");
+  assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_JSON_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_EMPLOYEE_JSON_INPUT_INVALID");
   assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_MIGRATION_FAILED"), "CORE_MIGRATION_FAILED");
+});
+
+test("core cleanup port probe recognizes macOS and Linux listeners without lsof", () => {
+  assert.equal(netstatPortIsListening("tcp4 0 0 127.0.0.1.45461 *.* LISTEN", 45461), true);
+  assert.equal(netstatPortIsListening("tcp 0 0 127.0.0.1:45461 0.0.0.0:* LISTEN", 45461), true);
+  assert.equal(netstatPortIsListening("tcp4 0 0 127.0.0.1.45462 *.* LISTEN", 45461), false);
+  assert.throws(() => netstatPortIsListening("", 0), /CORE_PORT_PROBE_INVALID/u);
 });
 
 test("core prepare accepts the pnpm argument delimiter once and rejects a duplicate delimiter", () => {
@@ -242,7 +250,11 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.match(source, /networks:\\n {6}- migration/u);
   assert.match(source, /name: \$\{config\.target\.network\}/u);
   assert.match(source, /materializeCoreNonT0Dictionaries/u);
+  assert.match(source, /spawnSync\("netstat", \["-an", "-p", "tcp"\]/u);
+  assert.doesNotMatch(source, /spawnSync\("lsof"/u);
   assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
+  assert.match(readFileSync(resolve(ROOT, "scripts/load-yuzhou-t0.sh"), "utf8"), /T0_\$\{label\}_JSON_INPUT_INVALID/u);
+  assert.match(readFileSync(resolve(ROOT, "scripts/load-yuzhou-t0.sh"), "utf8"), /postgresJsonbSafe/u);
   assert.match(source, /coreDomainFacts/u);
   assert.match(source, /'remark'/u);
   assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
