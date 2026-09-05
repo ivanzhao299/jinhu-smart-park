@@ -290,7 +290,7 @@
     "test:e2e:yuzhou-production-import-t0-triple": "node scripts/e2e/yuzhou-production-import-t0-triple-contract.mjs",
     "test:e2e:yuzhou-production-import-t0-artifact": "node scripts/e2e/yuzhou-production-import-t0-artifact-contract.mjs",
     "test:e2e:yuzhou-production-import-t1-artifact": "node scripts/e2e/yuzhou-production-import-t1-artifact-contract.mjs",
-    "test:e2e:yuzhou-production-import-t2-artifact": "node scripts/e2e/yuzhou-production-import-t2-artifact-contract.mjs",
+    "test:e2e:yuzhou-production-import-t2-artifact": "node scripts/e2e/yuzhou-production-import-t2-artifact-contract.mjs && node --test scripts/e2e/yuzhou-production-t2-field-projection-contract.mjs",
     "test:e2e:yuzhou-production-import-t3-artifact": "node scripts/e2e/yuzhou-production-import-t3-artifact-contract.mjs",
     "test:e2e:yuzhou-production-import-t1-decision-candidates": "node scripts/e2e/yuzhou-production-import-t1-decision-candidates-contract.mjs",
     "test:e2e:yuzhou-production-t0-target-inventory": "node scripts/e2e/yuzhou-production-t0-target-inventory-contract.mjs",
