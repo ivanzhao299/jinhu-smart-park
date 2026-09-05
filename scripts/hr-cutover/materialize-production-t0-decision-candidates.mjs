@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,8 @@ import {
   deriveProductionImportTargetId,
 } from "./production-import-target-model.mjs";
 import { verifyYuzhouJobStateDecisionArtifact } from "./yuzhou-job-state-decision-artifact-lib.mjs";
+import { verifyProductionSourceManifest } from "../prepare-yuzhou-production-source-manifest.mjs";
+import { verifyProductionJobStateSourceRevalidation } from "./production-job-state-source-revalidation.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -45,19 +47,41 @@ function exact(value, keys, code, label) {
 function privateDirectory(path, label) {
   if (!isAbsolute(path) || !existsSync(path)) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", label);
   const entry = lstatSync(path);
-  if (entry.isSymbolicLink() || !entry.isDirectory() || mode(path) !== 0o700) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", label);
-  return resolve(path);
+  if (entry.isSymbolicLink() || !entry.isDirectory() || mode(path) !== 0o700 || entry.uid !== process.getuid()) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", label);
+  return realpathSync(path);
 }
 
 function privateFile(path, label) {
   if (!isAbsolute(path) || !existsSync(path)) fail("PRODUCTION_IMPORT_T0_DECISION_INPUT_MISSING", label);
   const entry = lstatSync(path);
-  if (entry.isSymbolicLink() || !entry.isFile() || mode(path) !== 0o600) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", label);
-  return resolve(path);
+  if (entry.isSymbolicLink() || !entry.isFile() || mode(path) !== 0o600 || entry.uid !== process.getuid() || entry.nlink !== 1 || entry.size > 32 * 1024 * 1024) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", label);
+  return realpathSync(path);
+}
+
+function readPrivateBytes(path) {
+  path = privateFile(path, "input");
+  let descriptor;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const entry = fstatSync(descriptor);
+    if (!entry.isFile() || (entry.mode & 0o777) !== 0o600 || entry.uid !== process.getuid() || entry.nlink !== 1 || entry.size > 32 * 1024 * 1024) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", "input");
+    const buffer = Buffer.alloc(entry.size + 1);
+    let read = 0;
+    while (read < buffer.length) {
+      const count = readSync(descriptor, buffer, read, buffer.length - read, read);
+      if (count === 0) break;
+      read += count;
+    }
+    const bytes = buffer.subarray(0, read);
+    const after = fstatSync(descriptor);
+    if (bytes.length !== entry.size || after.size !== entry.size || after.mtimeMs !== entry.mtimeMs || after.ctimeMs !== entry.ctimeMs) fail("PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID", "input changed");
+    return bytes;
+  } finally { if (descriptor !== undefined) closeSync(descriptor); }
 }
 
 function readJson(path, code) {
-  try { return JSON.parse(readFileSync(path, "utf8")); }
+  const bytes = readPrivateBytes(path);
+  try { return JSON.parse(bytes.toString("utf8")); }
   catch { fail(code, "JSON"); }
 }
 
@@ -112,7 +136,9 @@ export function parseLegacyPositionHeadcount(value) {
 }
 
 function readStage(stagingDir, triple) {
-  const manifest = readJson(privateFile(resolve(stagingDir, "manifest.json"), "manifest"), "PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID");
+  const manifestBytes = readPrivateBytes(privateFile(resolve(stagingDir, "manifest.json"), "manifest"));
+  let manifest;
+  try { manifest = JSON.parse(manifestBytes.toString("utf8")); } catch { fail("PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID", "JSON"); }
   if (!plain(manifest) || manifest.formatVersion !== 1 || !plain(manifest.domains)) fail("PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID", "manifest");
   const byTable = new Map();
   for (const domain of DOMAINS) {
@@ -120,7 +146,7 @@ function readStage(stagingDir, triple) {
     exact(item, ["rows", "file", "fileSha256"], "PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID", domain.name);
     if (!Number.isSafeInteger(item.rows) || item.rows < 1 || item.file !== domain.file || !SHA256.test(item.fileSha256 ?? "")) fail("PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID", domain.name);
     const path = privateFile(resolve(stagingDir, domain.file), domain.name);
-    const bytes = readFileSync(path);
+    const bytes = readPrivateBytes(path);
     if (sha256(bytes) !== item.fileSha256) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_HASH_MISMATCH", domain.name);
     const rows = bytes.toString("utf8").split("\n").filter(Boolean).map((line, index) => {
       let row;
@@ -136,12 +162,13 @@ function readStage(stagingDir, triple) {
   const total = [...byTable.values()].flat();
   if (new Set(total.map(row => row.sourceIdentitySha256)).size !== total.length) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "cross-table duplicate identity");
   if (total.length === 0) fail("PRODUCTION_IMPORT_T0_DECISION_SOURCE_COUNT_DRIFT", "T0");
-  return { byTable, sourceSnapshotHash: triple.sourceSnapshotHash };
+  return { byTable, manifestBytes, sourceSnapshotHash: triple.sourceSnapshotHash };
 }
 
 function readPhaseArtifact(path, triple, stage) {
-  const bytes = readFileSync(privateFile(path, "phase artifact"));
-  const value = readJson(path, "PRODUCTION_IMPORT_T0_DECISION_PHASE_INVALID");
+  const bytes = readPrivateBytes(privateFile(path, "phase artifact"));
+  let value;
+  try { value = JSON.parse(bytes.toString("utf8")); } catch { fail("PRODUCTION_IMPORT_T0_DECISION_PHASE_INVALID", "JSON"); }
   exact(value, ["formatVersion", "artifactKind", "triple", "phase", "records"], "PRODUCTION_IMPORT_T0_DECISION_PHASE_INVALID", "phase");
   if (value.formatVersion !== 1 || value.artifactKind !== "yuzhou_hr_production_import_real_phase_staging" || value.phase !== PHASE || JSON.stringify(value.triple) !== JSON.stringify(triple) || !Array.isArray(value.records)) fail("PRODUCTION_IMPORT_T0_DECISION_PHASE_INVALID", "identity");
   const expected = new Map([...stage.byTable.values()].flat().map(row => [row.sourceIdentitySha256, row]));
@@ -201,16 +228,23 @@ export function validateProductionT0DecisionInventory(value, expectedTriple) {
 }
 
 function readInventory(path, triple) {
-  const bytes = readFileSync(privateFile(path, "target inventory"));
+  const bytes = readPrivateBytes(privateFile(path, "target inventory"));
   let value;
   try { value = JSON.parse(bytes.toString("utf8")); }
   catch { fail("PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID", "JSON"); }
   return { ...validateProductionT0DecisionInventory(value, triple), artifactSha256: sha256(bytes) };
 }
 
-function readJobState(path, triple) {
-  const bytes = readFileSync(privateFile(path, "job state decision"));
-  const value = readJson(path, "PRODUCTION_IMPORT_T0_DECISION_JOB_STATE_INVALID");
+function readJobState(path, triple, revalidation) {
+  const bytes = readPrivateBytes(privateFile(path, "job state decision"));
+  let value;
+  try { value = JSON.parse(bytes.toString("utf8")); } catch { fail("PRODUCTION_IMPORT_T0_DECISION_JOB_STATE_INVALID", "JSON"); }
+  if (revalidation) {
+    try {
+      const result = verifyProductionJobStateSourceRevalidation({ decision: value, triple, ...revalidation });
+      return { decisions: result.decisions, artifactSha256: sha256(bytes) };
+    } catch { fail("PRODUCTION_IMPORT_T0_DECISION_JOB_STATE_REVALIDATION_FAILED", "source or policy drift"); }
+  }
   let verified;
   try { verified = verifyYuzhouJobStateDecisionArtifact(value); }
   catch { fail("PRODUCTION_IMPORT_T0_DECISION_JOB_STATE_INVALID", "contract"); }
@@ -340,7 +374,17 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
   const phaseArtifactSha256 = readPhaseArtifact(input.phaseArtifactPath, triple, stage);
   const inventory = readInventory(input.targetInventoryPath, triple);
   const targetScope = readScope(input.targetScopePath, inventory.value);
-  const jobState = readJobState(input.jobStatePath, triple);
+  let revalidation;
+  if (Object.hasOwn(input, "sourceManifestPath")) {
+    const sourceManifest = readJson(privateFile(input.sourceManifestPath, "source manifest"), "PRODUCTION_IMPORT_T0_DECISION_SOURCE_MANIFEST_INVALID");
+    let sourceVerified;
+    try { sourceVerified = verifyProductionSourceManifest(sourceManifest); } catch { fail("PRODUCTION_IMPORT_T0_DECISION_SOURCE_MANIFEST_INVALID", "contract"); }
+    if (inventory.value.kind !== "yuzhou_hr_production_target_inventory_readonly" || inventory.value.sourceManifestSha256 !== sourceVerified.manifestSha256) fail("PRODUCTION_IMPORT_T0_DECISION_SOURCE_MANIFEST_INVALID", "inventory binding");
+    revalidation = { sourceManifest, stageManifestBytes: stage.manifestBytes, employeeRows: stage.byTable.get("hr_employee"), dictionaryBytes: Object.fromEntries([
+      ["employeeJobStates", "employee-job-states.raw.json"], ["jobStateCodeMetadata", "job-state-code-metadata.raw.json"], ["jobStateCodes", "job-state-codes.raw.json"],
+    ].map(([key, filename]) => [key, readPrivateBytes(resolve(stagingDir, filename))])) };
+  }
+  const jobState = readJobState(input.jobStatePath, triple, revalidation);
   const records = buildCandidates(stage, targetScope, inventory, jobState)
     .sort((left, right) => left.targetTable.localeCompare(right.targetTable) || left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   const countByDisposition = Object.fromEntries(["insert", "skip_exact", "review_target_collision", "quarantine"].map(kind => [kind, records.filter(row => row.candidateDisposition === kind).length]));
@@ -365,14 +409,15 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
 function parseArgs(argv) {
   const input = argv[0] === "--" ? argv.slice(1) : argv;
   const allowed = ["--staging", "--triple", "--phase-artifact", "--target-inventory", "--target-scope", "--job-state", "--output"];
-  if (input.length !== allowed.length * 2) fail("PRODUCTION_IMPORT_T0_DECISION_ARGUMENT_INVALID", "arguments");
+  if (input.length !== allowed.length * 2 && input.length !== (allowed.length + 1) * 2) fail("PRODUCTION_IMPORT_T0_DECISION_ARGUMENT_INVALID", "arguments");
   const values = {};
   for (let index = 0; index < input.length; index += 2) {
     const key = input[index], value = input[index + 1];
-    if (!allowed.includes(key) || !value || values[key] || !isAbsolute(value)) fail("PRODUCTION_IMPORT_T0_DECISION_ARGUMENT_INVALID", "arguments");
+    if ((!allowed.includes(key) && key !== "--source-manifest") || !value || values[key] || !isAbsolute(value)) fail("PRODUCTION_IMPORT_T0_DECISION_ARGUMENT_INVALID", "arguments");
     values[key] = resolve(value);
   }
-  return { stagingDir: values["--staging"], triplePath: values["--triple"], phaseArtifactPath: values["--phase-artifact"], targetInventoryPath: values["--target-inventory"], targetScopePath: values["--target-scope"], jobStatePath: values["--job-state"], outputPath: values["--output"] };
+  if (allowed.some(key => !values[key])) fail("PRODUCTION_IMPORT_T0_DECISION_ARGUMENT_INVALID", "arguments");
+  return { stagingDir: values["--staging"], triplePath: values["--triple"], phaseArtifactPath: values["--phase-artifact"], targetInventoryPath: values["--target-inventory"], targetScopePath: values["--target-scope"], jobStatePath: values["--job-state"], outputPath: values["--output"], ...(values["--source-manifest"] ? { sourceManifestPath: values["--source-manifest"] } : {}) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
