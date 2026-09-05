@@ -6,6 +6,8 @@ Protected tenant SUPER_ADMIN context evaluation: [Tenant Super Control Plane](./
 
 Per-park role integrity projection and explicit target-park assignment: [Park Role Integrity](./park-role-integrity.md).
 
+Optional identity/RBAC/session range preparation: [Identity Scope Transition](./identity-scope-transition.md).
+
 Physical-to-operating space conversion: [Asset To Operating Space Mapping](./asset-operating-space-mapping.md).
 
 Apartment operating-space inclusion: [Apartment Inclusion And Availability](./apartment-inclusion-availability.md).
