@@ -21,6 +21,7 @@ const EXPECTED_EVIDENCE = Object.freeze({
   permissionContract: "packages/shared/src/hr.ts",
   permissionEvidence: "apps/api/src/modules/hr/hr-employee-materialized-projection.spec.ts",
   modernPage: "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+  modernFamilyComponent: "apps/web/app/hr/employees/components/HrFamilyRecords.tsx",
   modernWebApi: "apps/web/lib/hr-api.ts",
   syntheticFixture: "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
 });
@@ -139,6 +140,7 @@ function assertModernSurface(evidence) {
   const permissions = evidence.permissionContract.toString("utf8");
   const permissionTest = evidence.permissionEvidence.toString("utf8");
   const page = evidence.modernPage.toString("utf8");
+  const familyComponent = evidence.modernFamilyComponent.toString("utf8");
   const webApi = evidence.modernWebApi.toString("utf8");
   if (!/SELECT id,person,member,rela,CONVERT\(varchar\(33\),birthday,126\) birthday,jobunit,jobname,political,tel FROM dbo\.family/u.test(extractor)
     || !/family:4560/u.test(materializer)
@@ -151,14 +153,31 @@ function assertModernSurface(evidence) {
     || !/ALTER TABLE hr_employee_family[\s\S]*ADD COLUMN birth_date date[\s\S]*ADD COLUMN work_unit varchar\(200\)[\s\S]*ADD COLUMN job_title varchar\(160\)[\s\S]*ADD COLUMN political_status varchar\(64\)/u.test(materializationSchema)
     || !/async listRecords/u.test(service)
     || !/FROM hr_employee_family WHERE tenant_id=\$1 AND park_id=\$2 AND employee_id=\$3 AND is_deleted=false/u.test(service)
-    || !/relationship,full_name_masked "fullNameMasked"[\s\S]*birth_date "birthDate",work_unit "workUnit",job_title "jobTitle",political_status "politicalStatus"/u.test(service)
+    || !/relationship,full_name_masked "fullNameMasked"[\s\S]*to_char\(birth_date, 'YYYY-MM-DD'\) "birthDate",work_unit "workUnit",job_title "jobTitle",political_status "politicalStatus"/u.test(service)
     || !/familyFull\?\{\.\.\.safe,fullName:this\.sensitive\.decrypt\(fullNameEncrypted as string\|null\),contact:this\.sensitive\.decrypt\(contactEncrypted as string\|null\)\}:safe/u.test(service)
     || !/recordHrSensitiveRead/u.test(service)
     || !/@Get\("employees\/:employeeId\/records"\)/u.test(controller)
     || !/HR_EMPLOYEE_RECORD_READ[\s\S]*HR_EMPLOYEE_RECORD_TEAM_READ[\s\S]*HR_EMPLOYEE_RECORD_SELF_READ/u.test(controller)
     || !/HR_EMPLOYEE_FAMILY_READ/u.test(permissions)
     || !/exact family and credential permissions expose decrypted PII to full HR only/u.test(permissionTest)
-    || !/records\.family\.map/u.test(page)
+    || !/import \{ HrFamilyRecords \} from "\.\/components\/HrFamilyRecords"/u.test(page)
+    || !/<HrFamilyRecords records=\{records\} canReadFull=\{hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_FAMILY_READ\)\}\/>/u.test(page)
+    || !/records\.fieldAccess\.family !== true/u.test(familyComponent)
+    || !/records\.family\.length === 0/u.test(familyComponent)
+    || !/records\.family\.map\(\(record\) =>/u.test(familyComponent)
+    || !/className="ds-mobile-record"/u.test(familyComponent)
+    || !/canReadFull && hasRegisteredValue\(record\.fullName\)[\s\S]*record\.fullNameMasked/u.test(familyComponent)
+    || !/canReadFull && hasRegisteredValue\(record\.contact\)[\s\S]*record\.contactMasked/u.test(familyComponent)
+    || ![
+      "<strong>姓名：{registeredValue(fullName)}</strong>",
+      "<span>关系：{registeredValue(record.relationship)}</span>",
+      "<span>出生日期：{registeredValue(record.birthDate)}</span>",
+      "<span>工作单位：{registeredValue(record.workUnit)}</span>",
+      "<span>职务：{registeredValue(record.jobTitle)}</span>",
+      "<span>政治面貌：{registeredValue(record.politicalStatus)}</span>",
+      "<span>联系方式：{registeredValue(contact)}</span>",
+    ].every(token => familyComponent.includes(token))
+    || !/export interface HrEmployeeFamilyRecord[\s\S]*relationship:string;[\s\S]*birthDate\?:string\|null;[\s\S]*workUnit\?:string\|null;[\s\S]*jobTitle\?:string\|null;[\s\S]*politicalStatus\?:string\|null;[\s\S]*fullName\?:string\|null;[\s\S]*contact\?:string\|null;/u.test(webApi)
     || !/employeeRecords:\(employeeId:string/u.test(webApi)) {
     fail("FAMILY_QUERY_MODERN_SURFACE_DRIFT", "extract, materialization, scoped API, permission, or page");
   }
@@ -185,6 +204,17 @@ function assertContract(contract) {
     || row?.semantics?.writeMappings?.applicability !== "not_applicable"
     || row?.semantics?.roundingSemantics?.applicability !== "not_applicable"
     || row?.semantics?.dormantPaths?.triggerFiringCase?.status !== "not_applicable"
+    || !same(contract.currentModernFamilyPanel, {
+      implementationStatus: "implemented_synthetic_technical_evidence",
+      renderedFields: ["fullName", "relationship", "birthDate", "workUnit", "jobTitle", "politicalStatus", "contact"],
+      fullSensitiveFields: ["fullName", "contact"],
+      maskedFallbackFields: ["fullNameMasked", "contactMasked"],
+      fullFieldPermission: "hr:employee_family:read",
+      fieldAccessGate: "records.fieldAccess.family_equals_true",
+      legacyRuntimeEquivalence: "NOT_CLAIMED",
+      businessUat: "NOT_CLAIMED",
+      compatibilityCreditDelta: 0,
+    })
     || contract.nonClaims?.sourceProcedureRowOrder !== "NOT_CLAIMED"
     || contract.nonClaims?.rawWhitespaceOrBirthdayTimeOfDay !== "NOT_CLAIMED"
     || contract.nonClaims?.allSevenFieldsRenderedOnCurrentSummaryCard !== "NOT_CLAIMED"

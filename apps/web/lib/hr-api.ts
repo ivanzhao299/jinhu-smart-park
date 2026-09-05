@@ -164,7 +164,22 @@ export interface HrTrainingPositionRequirementGap {requirementId:string;position
 export interface HrRewardCategory{id:string;code:string;versionNo:number;kind:"reward"|"discipline";name:string;impactLevel:string;status:string;}
 export interface HrRewardCase{id:string;code:string;status:string;occurredOn:string;employeeName:string;kind:string;categoryName:string|null;impactLevel:string;summary:string;amountSuggestion?:string|null;currency?:string|null;}
 export interface HrRewardCaseDetail extends HrRewardCase{detailedReason?:string|null;evidenceFileIds?:string[];corrections?:Array<{sequenceNo:number;type:string;summary:string;createdAt:string}>;}
-export interface HrEmployeeRecords {employeeId:string;experiences:Array<{id:string;type:string;organizationName:string;title:string|null;startDate:string;endDate:string|null;summary:string|null}>;skills:Array<{id:string;skillName:string;proficiency:string|null;acquiredDate:string|null}>;family:Array<{id:string;relationship:string;fullNameMasked:string;identityMasked:string|null;contactMasked:string|null;isEmergencyContact:boolean}>;credentials:Array<{id:string;credentialType:string;credentialName:string;numberMasked:string|null;issuingAuthority:string|null;acquiredDate:string|null;validTo:string|null}>;fieldAccess:{family:boolean;credential:boolean};}
+export interface HrEmployeeFamilyRecord {
+ id:string;
+ relationship:string;
+ fullNameMasked:string;
+ identityMasked:string|null;
+ contactMasked:string|null;
+ isEmergencyContact:boolean;
+ birthDate?:string|null;
+ workUnit?:string|null;
+ jobTitle?:string|null;
+ politicalStatus?:string|null;
+ /** Present only in the server-authorized full family projection. */
+ fullName?:string|null;
+ contact?:string|null;
+}
+export interface HrEmployeeRecords {employeeId:string;experiences:Array<{id:string;type:string;organizationName:string;title:string|null;startDate:string;endDate:string|null;summary:string|null}>;skills:Array<{id:string;skillName:string;proficiency:string|null;acquiredDate:string|null}>;family:HrEmployeeFamilyRecord[];credentials:Array<{id:string;credentialType:string;credentialName:string;numberMasked:string|null;issuingAuthority:string|null;acquiredDate:string|null;validTo:string|null}>;fieldAccess:{family:boolean;credential:boolean};}
 export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
 export interface HrAttendanceFilters {year?:number;month?:number;}
 export interface HrAttendanceRequestFilters {type?:string;status?:string;}

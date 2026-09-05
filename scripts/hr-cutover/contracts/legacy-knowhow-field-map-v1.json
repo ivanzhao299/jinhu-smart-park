@@ -211,7 +211,7 @@
     {
       "surface": "runtime_service",
       "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
-      "sha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a",
+      "sha256": "f39e043b5e68e83c8b0f6bcc4ffcbbec879b574e2725bace68ff2fc63110899c",
       "requiredTokens": [
         "SELECT id,skill_name \"skillName\",proficiency,acquired_date \"acquiredDate\",note",
         "legacy_grade \"legacyGrade\"",
