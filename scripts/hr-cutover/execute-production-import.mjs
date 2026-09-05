@@ -40,6 +40,12 @@ export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
   "scripts/hr-cutover/production-import-performance-relations-writer.mjs",
   "scripts/hr-cutover/production-import-performance-fact-identity-contract.mjs",
   "scripts/hr-cutover/production-import-performance-fact-identity-writer.mjs",
+  "scripts/hr-cutover/production-import-performance-fact-loader-contract.mjs",
+  "scripts/hr-cutover/production-import-performance-fact-loader-writer.mjs",
+  "scripts/hr-cutover/contracts/production-import-performance-fact-loader-v1.json",
+  "scripts/hr-cutover/contracts/production-import-performance-fact-identity-v1.json",
+  "database/migrations/000310_hr_yuzhou_performance_fact_identity_production.sql",
+  "database/migrations/000311_hr_yuzhou_performance_facts_production.sql",
   "scripts/hr-cutover/production-import-sealed-plan-lib.mjs",
   "scripts/hr-cutover/production-import-writer.mjs",
 ]);

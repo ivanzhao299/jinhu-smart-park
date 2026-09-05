@@ -18,6 +18,17 @@ import {
   validateProductionPerformanceRelationsInvocation,
   writeProductionPerformanceRelations,
 } from "./production-import-performance-relations-writer.mjs";
+import {
+  probeProductionPerformanceFactLoaderCapability,
+  rollbackProductionPerformanceFacts,
+  validateProductionPerformanceFactLoaderInvocation,
+  writeProductionPerformanceFacts,
+} from "./production-import-performance-fact-loader-writer.mjs";
+import {
+  probeProductionPerformanceFactIdentityCapability,
+  rollbackProductionPerformanceFactIdentity,
+  writeProductionPerformanceFactIdentity,
+} from "./production-import-performance-fact-identity-writer.mjs";
 
 const fail = (code, detail) => { throw new ProductionImportExecutionError(code, detail); };
 const asBuffer = (value, label) => {
@@ -235,11 +246,79 @@ async function recordT5ControlRows(tx, operationId, privateStage, result) {
   );
 }
 
+async function preparePerformanceFactChain(plan, options, rollbackAuthorization = null) {
+  if (!plan.performanceFactLoader || !plan.performanceFactIdentity) return null;
+  const rollback = rollbackAuthorization !== null;
+  const common = {
+    operationId: plan.operationId, sealedPlanSha256: plan.sealing.sealedPlanSha256,
+    authorizationArtifactSha256: rollback ? rollbackAuthorization.authorizationArtifactSha256 : plan.authorization.artifactSha256,
+    authorizationNonceSha256: rollback ? rollbackAuthorization.authorizationNonceSha256 : plan.authorization.nonceSha256,
+    codeSha: plan.triple.codeSha, sourceSnapshotSha256: plan.triple.sourceSnapshotHash,
+    mappingContractSha256: plan.triple.mappingContractHash,
+    targetIdentitySha256: options.targetIdentitySha256, expectedTargetIdentitySha256: plan.target.identitySha256,
+    targetScope: structuredClone(options.targetScope), expectedTargetScopeSha256: plan.targetScope.scopeSha256,
+    t0PhaseReceiptSha256: plan.performanceFactLoader.t0PhaseReceiptSha256,
+    ...(rollback ? { rollbackOperationId: rollbackAuthorization.rollbackOperationId } : {}),
+  };
+  const loader = {
+    ...common, binding: plan.performanceFactLoader,
+    ...(!rollback ? {
+      factPayloadArtifact: options.performanceFactLoader?.factPayloadArtifact,
+      masterPayloadArtifact: options.performanceFactLoader?.masterPayloadArtifact,
+    } : {}),
+  };
+  validateProductionPerformanceFactLoaderInvocation(loader, { rollback });
+  const query = options.performanceFactLoader?.readOnlyQuery ?? options.database.queryReadOnly?.bind(options.database);
+  await probeProductionPerformanceFactLoaderCapability({ query, binding: plan.performanceFactLoader });
+  await probeProductionPerformanceFactIdentityCapability({
+    query, binding: plan.performanceFactIdentity,
+    parentPerformanceRelationsBinding: plan.performanceRelations,
+    parentPerformanceFactLoaderBinding: plan.performanceFactLoader,
+  });
+  const extensionNonce = computeProductionImportPayloadHash({
+    formatVersion: 1, domain: "performance_fact_identity", intent: rollback ? "rollback" : "import",
+    operationId: rollback ? rollbackAuthorization.rollbackOperationId : plan.operationId,
+    sealedPlanSha256: common.sealedPlanSha256, authorizationNonceSha256: common.authorizationNonceSha256,
+  });
+  return {
+    loader,
+    identity: {
+      ...common, binding: plan.performanceFactIdentity,
+      parentPerformanceRelationsBinding: plan.performanceRelations,
+      parentPerformanceFactLoaderBinding: plan.performanceFactLoader,
+      [rollback ? "extensionRollbackNonceSha256" : "extensionNonceSha256"]: extensionNonce,
+    },
+  };
+}
+
+async function readPerformanceReceiptChain(tx, plan) {
+  let result;
+  try {
+    result = await tx.query(
+      `/* hr-prod-performance:receipt-chain */
+       SELECT * FROM hr_yuzhou_performance_production_receipt_chain_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [plan.operationId, plan.sealing.sealedPlanSha256, plan.triple.codeSha,
+        plan.triple.sourceSnapshotHash, plan.triple.mappingContractHash, plan.target.identitySha256,
+        plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256,
+        plan.performanceFactIdentity.t0PhaseReceiptSha256],
+    );
+  } catch {
+    fail("PRODUCTION_IMPORT_PERFORMANCE_RECEIPT_CHAIN_UNAVAILABLE", "bound database receipt chain is unavailable");
+  }
+  const expected = ["fact_identity_receipt_sha256", "fact_loader_receipt_sha256", "relations_receipt_sha256"];
+  const row = result?.rows?.[0];
+  if (!Array.isArray(result?.rows) || result.rows.length !== 1 || !row
+    || Object.keys(row).sort().join(",") !== expected.join(",")
+    || expected.some(key => typeof row[key] !== "string" || !/^[0-9a-f]{64}$/u.test(row[key]))) {
+    fail("PRODUCTION_IMPORT_PERFORMANCE_RECEIPT_CHAIN_INVALID", "database must return the three exact receipt hashes");
+  }
+  return row;
+}
+
 export async function executeSealedProductionImport(planInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
-  // Remove only when both apply and reverse rollback consume this sealed extension.
-  if (plan.performanceFactIdentity || plan.performanceFactLoader) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "fact loader and identity orchestration are not available");
+  if (Boolean(plan.performanceFactIdentity) !== Boolean(plan.performanceFactLoader)) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "production facts require the complete identity verification chain");
   assertProductionImportExecutionActivated(plan, contract);
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
   if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
@@ -269,6 +348,7 @@ export async function executeSealedProductionImport(planInput, options) {
       binding: plan.performanceRelations,
     });
   }
+  const performanceFactChain = await preparePerformanceFactChain(plan, options);
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query(
@@ -317,8 +397,18 @@ export async function executeSealedProductionImport(planInput, options) {
         `${phase.phase} operation progress`,
       );
       if (phase.phase === "T0" && performanceRelationsInput) {
+        const factReceipt = performanceFactChain ? await writeProductionPerformanceFacts({ ...performanceFactChain.loader, tx }) : null;
+        if (factReceipt) databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = factReceipt.receiptSha256;
         const relationReceipt = await writeProductionPerformanceRelations({ ...performanceRelationsInput, tx });
         databaseReceiptSha256ByDomain.PERFORMANCE_RELATIONS = relationReceipt.receiptSha256;
+        if (performanceFactChain) {
+          const identityReceipt = await writeProductionPerformanceFactIdentity({
+            ...performanceFactChain.identity, tx,
+            parentRelationsReceiptSha256: relationReceipt.receiptSha256,
+            factLoaderReceiptSha256: factReceipt.receiptSha256,
+          });
+          databaseReceiptSha256ByDomain.PERFORMANCE_FACT_IDENTITY = identityReceipt.receiptSha256;
+        }
       }
     }
     if (t5PrivateStage) {
@@ -351,7 +441,7 @@ export async function executeSealedProductionImport(planInput, options) {
       [plan.operationId],
       "operation succeeded",
     );
-    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder.slice(0, 1), ...(performanceRelationsInput ? ["PERFORMANCE_RELATIONS"] : []), ...plan.phaseOrder.slice(1), ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256,
+    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder.slice(0, 1), ...(performanceFactChain ? ["PERFORMANCE_FACTS"] : []), ...(performanceRelationsInput ? ["PERFORMANCE_RELATIONS"] : []), ...(performanceFactChain ? ["PERFORMANCE_FACT_IDENTITY"] : []), ...plan.phaseOrder.slice(1), ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256,
       ...(Object.keys(databaseReceiptSha256ByDomain).length ? { databaseReceiptSha256ByDomain } : {}) };
   });
   } catch (error) {
@@ -370,7 +460,7 @@ export async function executeSealedProductionImport(planInput, options) {
 export async function rollbackSealedProductionImport(planInput, rollbackAuthorizationInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
-  if (plan.performanceFactIdentity || plan.performanceFactLoader) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "fact loader and identity orchestration are not available");
+  if (Boolean(plan.performanceFactIdentity) !== Boolean(plan.performanceFactLoader)) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "production facts require the complete identity verification chain");
   assertProductionImportExecutionActivated(plan, contract);
   const rollbackAuthorization = validateProductionImportRollbackAuthorization(rollbackAuthorizationInput, plan, { now: options?.now ?? new Date() });
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
@@ -397,6 +487,7 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       binding: plan.performanceRelations,
     });
   }
+  const performanceFactChain = await preparePerformanceFactChain(plan, options, rollbackAuthorization);
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_rollback_authorization" }, async tx => {
     await tx.query(
       "SELECT hr_yuzhou_consume_rollback_authorization($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -439,7 +530,16 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
     }
     for (const phaseName of contract.rollbackOrder) {
       if (phaseName === "T0" && performanceRelationsRollbackInput) {
+        if (performanceFactChain) {
+          const receipts = await readPerformanceReceiptChain(tx, plan);
+          await rollbackProductionPerformanceFactIdentity({
+            ...performanceFactChain.identity, tx,
+            parentRelationsReceiptSha256: receipts.relations_receipt_sha256,
+            factLoaderReceiptSha256: receipts.fact_loader_receipt_sha256,
+          });
+        }
         await rollbackProductionPerformanceRelations({ ...performanceRelationsRollbackInput, tx });
+        if (performanceFactChain) await rollbackProductionPerformanceFacts({ ...performanceFactChain.loader, tx });
       }
       // Extension rollback may also switch constraints to IMMEDIATE. Core
       // target/map changes and their control receipt updates form one phase.

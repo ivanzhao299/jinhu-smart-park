@@ -21,14 +21,22 @@ Fact-set hashes follow the SQL canonical bytes (empty set is SHA-256 of `[]`, wi
 a trailing newline). Sealed payload hashes retain the existing canonical JSON plus
 newline convention. These are separate contracts and must not be interchanged.
 
-## Incomplete execution boundary
+## Candidate execution boundary
 
-Until the production orchestration consumes the extension in both forward and
-reverse paths, both entry points reject it with
-`PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED` before database access or
-authorization consumption. Ordinary plans without the extension retain their
-existing behavior. This temporary guard must be replaced by real capability,
-apply, receipt and rollback wiring, not simply removed to make a test pass.
+The candidate total writer wires complete facts/relations/identity plans in both
+directions. All artifact and capability checks precede authorization consumption;
+facts then relations then identity execute inside the existing business transaction
+after T0 and before T1. The returned domain hashes are the actual database receipts,
+not hashes of status labels. Partial loader plans without final identity verification
+still fail with `PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED`.
+Ordinary plans retain their existing behavior and production activation remains HOLD.
+
+Rollback reads the three bound receipt hashes through the narrow database function
+inside its SERIALIZABLE transaction, then reverses identity, relations and facts.
+It accepts neither caller-supplied receipt substitutes nor an out-of-transaction
+receipt lookup. Both forward and reverse core phases restore deferred constraint
+timing after extension calls; commit still checks all links. Mock orchestration
+tests do not prove the complete PostgreSQL/API chain, which remains unverified.
 
 The `performanceFactLoader` extension binds the configuration/detail and master
 artifact hashes, source receipt hashes, six migration hashes, six fact counts,
@@ -85,5 +93,13 @@ alone do not prove that runtime transition or end-user visibility.
 
 `node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs` covers stable
 sealing, missing parent, source/T0/hash/count/order drift, authorization binding,
-legacy-plan compatibility and rejection of unwired forward/rollback execution.
+legacy-plan compatibility, incomplete-chain refusal, complete-chain ordering,
+actual returned receipt propagation, malformed receipt refusal and failure handling.
 These checks do not connect to a source or production database.
+
+The core-only direct PostgreSQL fixture separately passed two 16-table T0-T3
+apply/rollback iterations and a failure injected after T0 map verification. The
+failure left no batch, projection, control or phase rows; isolated fixture resources
+were cleaned. That run excluded performance extensions and used the integration
+worktree while performance orchestration was being edited; it proves the unchanged
+core transition, not immutable full-chain release readiness.
