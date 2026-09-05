@@ -408,7 +408,7 @@ async function runIteration(iteration, failAfterT0 = false) {
       },
     });
     const contract = activatedContract(fixture.plan);
-    const phaseWriters = createProductionImportPhaseWriters({ cryptoProvider });
+    const phaseWriters = { ...createProductionImportPhaseWriters({ cryptoProvider }) };
     if (failAfterT0) {
       phaseWriters.T1 = async ({ tx }) => {
         const promoted = await tx.query(
