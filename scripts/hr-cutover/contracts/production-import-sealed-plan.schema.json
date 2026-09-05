@@ -39,6 +39,7 @@
             "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "targetScopeSha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
             "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" },
             "performanceRelationsContractSha256": { "$ref": "#/$defs/sha256" },
+            "performanceFactIdentityContractSha256": { "$ref": "#/$defs/sha256" },
             "runtimeReleaseEvidenceBindingSha256": { "$ref": "#/$defs/sha256" }
           }
         },
@@ -71,6 +72,7 @@
     "phaseOrder": { "const": ["T0", "T1", "T2", "T3"] },
     "phases": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/phase" } },
     "performanceRelations": { "$ref": "#/$defs/performanceRelations" },
+    "performanceFactIdentity": { "$ref": "#/$defs/performanceFactIdentity" },
     "runtimeReleaseEvidence": {
       "type": "object", "additionalProperties": false,
       "required": ["artifactSha256", "observedAt", "expiresAt"],
@@ -93,11 +95,40 @@
     "productionImport": { "const": "HOLD" }
   },
   "allOf": [{
+    "if": { "required": ["performanceFactIdentity"] },
+    "then": {
+      "required": ["performanceRelations"],
+      "properties": { "authorization": { "properties": { "binding": { "required": ["performanceFactIdentityContractSha256"] } } } }
+    },
+    "else": { "properties": { "authorization": { "properties": { "binding": { "not": { "required": ["performanceFactIdentityContractSha256"] } } } } } }
+  }, {
     "if": { "required": ["runtimeReleaseEvidence"] },
     "then": { "properties": { "authorization": { "properties": { "binding": { "required": ["runtimeReleaseEvidenceBindingSha256"] } } } } },
     "else": { "properties": { "authorization": { "properties": { "binding": { "not": { "required": ["runtimeReleaseEvidenceBindingSha256"] } } } } } }
   }],
   "$defs": {
+    "performanceFactIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["formatVersion", "bindingKind", "triple", "contractArtifactSha256", "t0PhaseReceiptSha256", "parentPerformanceRelationsContractSha256", "expectedDimensionRows", "expectedMasterRows", "expectedFactRows", "expectedFactSetSha256", "migration308Sha256", "migration310Sha256", "factKinds", "rollbackOrder", "adapterStatus", "productionImport"],
+      "properties": {
+        "formatVersion": { "const": 1 },
+        "bindingKind": { "const": "yuzhou_hr_production_import_performance_fact_identity_binding" },
+        "triple": { "$ref": "#/$defs/triple" },
+        "contractArtifactSha256": { "$ref": "#/$defs/sha256" },
+        "t0PhaseReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "parentPerformanceRelationsContractSha256": { "$ref": "#/$defs/sha256" },
+        "expectedDimensionRows": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expectedMasterRows": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expectedFactRows": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expectedFactSetSha256": { "$ref": "#/$defs/sha256" },
+        "migration308Sha256": { "const": "ad77e0cf12cf73f98a5984835a9943a9e15c96cde37fe6bd95133845c711befa" },
+        "migration310Sha256": { "$ref": "#/$defs/sha256" },
+        "factKinds": { "const": ["dimension_result", "master_result"] },
+        "rollbackOrder": { "const": ["fact_identity", "performance_relations"] },
+        "adapterStatus": { "const": "PRODUCTION_CAPABILITY_BOUND" },
+        "productionImport": { "const": "HOLD" }
+      }
+    },
     "runtimeTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "triple": {
@@ -135,7 +166,7 @@
         "blankAssessorRows": { "const": 117 },
         "forwardOrder": { "const": ["source_person_assignments", "identity_resolution"] },
         "rollbackOrder": { "const": ["identity_resolution", "source_person_assignments"] },
-        "adapterStatus": { "const": "UNAVAILABLE" },
+        "adapterStatus": { "const": "SCRIPT_READY_SCHEMA_CAPABILITY_REQUIRED" },
         "executionReachable": { "const": false },
         "productionImport": { "const": "HOLD" }
       }

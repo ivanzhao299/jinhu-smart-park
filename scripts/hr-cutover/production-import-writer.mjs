@@ -197,6 +197,8 @@ async function recordT5ControlRows(tx, operationId, privateStage, result) {
 export async function executeSealedProductionImport(planInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
+  // Remove only when both apply and reverse rollback consume this sealed extension.
+  if (plan.performanceFactIdentity) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "fact identity orchestration is not available");
   assertProductionImportExecutionActivated(plan, contract);
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
   if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
@@ -317,6 +319,7 @@ export async function executeSealedProductionImport(planInput, options) {
 export async function rollbackSealedProductionImport(planInput, rollbackAuthorizationInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
+  if (plan.performanceFactIdentity) fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED", "fact identity orchestration is not available");
   assertProductionImportExecutionActivated(plan, contract);
   const rollbackAuthorization = validateProductionImportRollbackAuthorization(rollbackAuthorizationInput, plan, { now: options?.now ?? new Date() });
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
