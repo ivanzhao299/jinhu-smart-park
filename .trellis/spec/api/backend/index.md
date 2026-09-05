@@ -28,6 +28,8 @@ Same-source normalized phase and eight-table review assembly: [T3 Decision Candi
 
 Bounded authenticated private phase/candidate/lineage output: [T3 Private Materializer](./yuzhou-t3-private-materializer.md).
 
+Private quarantine envelopes and external signature finalization: [Exception Review Preparation](./yuzhou-production-exception-preparation.md).
+
 Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
 
 ## Package Boundary
