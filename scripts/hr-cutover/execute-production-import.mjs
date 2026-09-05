@@ -529,13 +529,18 @@ export async function runProductionImportEntrypoint(input, dependencies = {}) {
   // Inspect every remaining private artifact and its aggregate size before any
   // large payload, credential, envelope, or key file is read.
   assertArtifactBudget(config, input.execute, readBudget.bytesRead);
+  let currentCodeSha;
+  let runtimeEvidence;
+  let binding;
+  if (input.execute) {
+    currentCodeSha = (dependencies.currentCodeSha ?? currentRepositorySha)();
+    runtimeEvidence = readRuntimeEvidence(config.execution.runtimeEvidence, plan, currentCodeSha, now, readBudget);
+    binding = readDatabaseBinding(config.execution.databaseBinding, plan, readBudget);
+  }
   const payloadBundles = validatePayloadBundles(config, plan, readBudget);
   const optional = validateOptionalArtifacts(config, plan, readBudget);
   if (!input.execute) return preparationSummary(plan, domains, activationReady);
 
-  const currentCodeSha = (dependencies.currentCodeSha ?? currentRepositorySha)();
-  const runtimeEvidence = readRuntimeEvidence(config.execution.runtimeEvidence, plan, currentCodeSha, now, readBudget);
-  const binding = readDatabaseBinding(config.execution.databaseBinding, plan, readBudget);
   // The provider validates the private envelope before any database connection.
   const loadCryptoProviderModule = dependencies.loadCryptoProviderModule ?? (() => import("./production-import-crypto-provider.mjs"));
   const cryptoModule = await loadCryptoProviderModule();
