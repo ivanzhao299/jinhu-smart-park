@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
@@ -480,11 +482,15 @@ async function runIteration(iteration, failAfterT0 = false) {
   }
 }
 
-try {
-  await runIteration(1);
-  await runIteration(2);
-  await runIteration(3, true);
-  console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, verified maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0; failure after T0 verification leaves no business transaction residue");
-} finally {
-  await pool.end();
+export { makeFixture, seedExisting, cleanupFixture, activatedContract };
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await runIteration(1);
+    await runIteration(2);
+    await runIteration(3, true);
+    console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, verified maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0; failure after T0 verification leaves no business transaction residue");
+  } finally {
+    await pool.end();
+  }
 }
