@@ -25,6 +25,7 @@ test("core driver preserves redacted T0 input failure classes before generic Pos
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type timestamp with time zone", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_TIMESTAMPTZ");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type numeric", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_NUMERIC");
   assert.equal(classifyCorePhaseFailure("ERROR: invalid input syntax for type text", "CORE_PHASE_FAILED"), "CORE_PHASE_POSTGRES_INVALID_INPUT");
+  assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_JSON_INPUT_INVALID", "CORE_PHASE_FAILED"), "CORE_PHASE_T0_EMPLOYEE_JSON_INPUT_INVALID");
   assert.equal(classifyCorePhaseFailure("ERROR: T0_EMPLOYEE_DATE_INPUT_INVALID", "CORE_MIGRATION_FAILED"), "CORE_MIGRATION_FAILED");
 });
 
@@ -252,6 +253,7 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.match(source, /spawnSync\("netstat", \["-an", "-p", "tcp"\]/u);
   assert.doesNotMatch(source, /spawnSync\("lsof"/u);
   assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
+  assert.match(readFileSync(resolve(ROOT, "scripts/load-yuzhou-t0.sh"), "utf8"), /T0_\$\{label\}_JSON_INPUT_INVALID/u);
   assert.match(source, /coreDomainFacts/u);
   assert.match(source, /'remark'/u);
   assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);

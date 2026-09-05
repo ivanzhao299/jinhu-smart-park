@@ -30,6 +30,15 @@ actual_employees_sha="$(shasum -a 256 "$STAGING_DIR/employees.jsonl" | awk '{pri
 [ "$actual_departments_sha" = "$DEPARTMENTS_SHA256" ] || fail "departments staging SHA-256 mismatch"
 [ "$actual_positions_sha" = "$POSITIONS_SHA256" ] || fail "positions staging SHA-256 mismatch"
 [ "$actual_employees_sha" = "$EMPLOYEES_SHA256" ] || fail "employees staging SHA-256 mismatch"
+node - "$STAGING_DIR/departments.jsonl" "$STAGING_DIR/positions.jsonl" "$STAGING_DIR/employees.jsonl" <<'NODE' || fail "T0 staging JSON validation failed"
+const fs = require('fs');
+for (const [label, file] of [["DEPARTMENT", process.argv[2]], ["POSITION", process.argv[3]], ["EMPLOYEE", process.argv[4]]]) {
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try { JSON.parse(line); } catch { process.stderr.write(`T0_${label}_JSON_INPUT_INVALID\n`); process.exit(1); }
+  }
+}
+NODE
 
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$PG_CONTAINER" 2>/dev/null || true)"
 [ "$project" = "$EXPECTED_COMPOSE_PROJECT" ] || fail "PostgreSQL container is not the expected migration lab"

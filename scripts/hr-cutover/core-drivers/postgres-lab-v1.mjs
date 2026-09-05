@@ -101,6 +101,8 @@ export function classifyCorePhaseFailure(output, requestedCode = "CORE_PHASE_FAI
   if (requestedCode !== "CORE_PHASE_FAILED") return requestedCode ?? "CORE_DRIVER_COMMAND_FAILED";
   const t0Input = String(output).match(/\b(T0_(?:DEPARTMENT|POSITION)_(?:SMALLINT|INTEGER)_INPUT_INVALID|T0_EMPLOYEE_DATE_INPUT_INVALID)\b/u);
   if (t0Input) return `CORE_PHASE_${t0Input[1]}`;
+  const t0Json = String(output).match(/\b(T0_(?:DEPARTMENT|POSITION|EMPLOYEE)_JSON_INPUT_INVALID)\b/u);
+  if (t0Json) return `CORE_PHASE_${t0Json[1]}`;
   // PostgreSQL includes the rejected value in this message.  Keep receipts and
   // reports value-free, but retain a small allowlist of type classes so a
   // controlled retry can repair the right coercion without widening access to
