@@ -33,14 +33,17 @@ export class ProductionImportCandidateFreezeError extends Error {
   constructor(code) { super(code); this.name = "ProductionImportCandidateFreezeError"; this.code = code; }
 }
 const fail = suffix => { throw new ProductionImportCandidateFreezeError(`CANDIDATE_FREEZE_${suffix}`); };
-function exact(value, keys) {
-  if (!plain(value) || Object.keys(value).sort().join("|") !== [...keys].sort().join("|")) fail("SHAPE_INVALID");
+function exact(value, keys, code = "SHAPE_INVALID") {
+  if (!plain(value) || Object.keys(value).sort().join("|") !== [...keys].sort().join("|")) fail(code);
 }
 function document(input) {
   exact(input, ["path", "bytes", "sha256"]);
   if (typeof input.path !== "string" || !input.path || input.path.includes("\0")
     || !(typeof input.bytes === "string" || input.bytes instanceof Uint8Array)) fail("DESCRIPTOR_INVALID");
-  const bytes = Buffer.from(input.bytes);
+  // Hash/decode the caller's exact view synchronously, without another whole-file
+  // allocation. Shared backing memory could change between hash and decode.
+  if (input.bytes instanceof Uint8Array && input.bytes.buffer instanceof SharedArrayBuffer) fail("DESCRIPTOR_INVALID");
+  const bytes = typeof input.bytes === "string" ? Buffer.from(input.bytes, "utf8") : input.bytes;
   if (!bytes.length || !SHA.test(input.sha256 ?? "") || hash(bytes) !== input.sha256) fail("BYTE_HASH_MISMATCH");
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
   catch { fail("JSON_INVALID"); }
@@ -86,9 +89,12 @@ function prepare(input) {
   exact(input, ["expectedTriple", "phaseArtifacts", "candidateArtifacts", "targetInventoryArtifact", "targetScopeArtifact", "reviewedDecisionsArtifact"]);
   const triple = structuredClone(input.expectedTriple);
   validateTriple(triple); exact(input.phaseArtifacts, phases); exact(input.candidateArtifacts, phases);
-  const inventory = document(input.targetInventoryArtifact), scope = document(input.targetScopeArtifact);
-  exact(scope, ["tenantId", "parkId", "scopeSha256"]);
-  if (typeof scope.tenantId !== "string" || typeof scope.parkId !== "string" || scope.scopeSha256 !== computeProductionImportTargetScopeHash(scope)) fail("SCOPE_INVALID");
+  const inventory = document(input.targetInventoryArtifact), rawScope = document(input.targetScopeArtifact);
+  const hasScopeHash = plain(rawScope) && Object.hasOwn(rawScope, "scopeSha256");
+  exact(rawScope, ["tenantId", "parkId", ...(hasScopeHash ? ["scopeSha256"] : [])], "SCOPE_INVALID");
+  if ([rawScope.tenantId, rawScope.parkId].some(value => typeof value !== "string" || value.length === 0 || value.trim() !== value)) fail("SCOPE_INVALID");
+  const scope = { tenantId: rawScope.tenantId, parkId: rawScope.parkId, scopeSha256: computeProductionImportTargetScopeHash(rawScope) };
+  if (hasScopeHash && rawScope.scopeSha256 !== scope.scopeSha256) fail("SCOPE_INVALID");
   if (inventory.kind !== "yuzhou_hr_production_target_inventory_readonly") fail("INVENTORY_INCOMPLETE");
   validateProductionT0DecisionInventory(inventory, triple);
   if (inventory.targetScopeSha256 !== scope.scopeSha256) fail("SCOPE_INVALID");
@@ -97,7 +103,15 @@ function prepare(input) {
   for (const phase of phases) {
     const candidate = document(input.candidateArtifacts[phase]), source = document(input.phaseArtifacts[phase]);
     candidates[phase] = candidate; candidateHashes[phase] = input.candidateArtifacts[phase].sha256;
-    exact(candidate, [...common, ...extras[phase]]);
+    const hasResolutionEvidence = phase === "T2" && Object.hasOwn(candidate, "resolutionEvidence");
+    exact(candidate, [...common, ...extras[phase], ...(hasResolutionEvidence ? ["resolutionEvidence"] : [])]);
+    if (hasResolutionEvidence) {
+      const resolution = candidate.resolutionEvidence;
+      exact(resolution, ["dictionaryPackageSha256", "changeDecisionsSha256", "approvalClaimed"], "RESOLUTION_EVIDENCE_INVALID");
+      if (typeof resolution.dictionaryPackageSha256 !== "string" || !SHA.test(resolution.dictionaryPackageSha256)
+        || (resolution.changeDecisionsSha256 !== null && (typeof resolution.changeDecisionsSha256 !== "string" || !SHA.test(resolution.changeDecisionsSha256)))
+        || resolution.approvalClaimed !== false) fail("RESOLUTION_EVIDENCE_INVALID");
+    }
     if (candidate.formatVersion !== 1 || candidate.artifactKind !== `yuzhou_hr_production_import_real_${phase.toLowerCase()}_decision_candidates`
       || candidate.productionImport !== "HOLD" || !same(candidate.triple, triple) || !same(candidate.targetScope, scope)
       || candidate.targetIdentitySha256 !== inventory.targetIdentitySha256 || candidate.phaseArtifactSha256 !== input.phaseArtifacts[phase].sha256
@@ -243,6 +257,7 @@ function prepare(input) {
   }
   const missingReviewCount = [...rows.values()].filter(row => row.candidateDisposition !== "insert" && !reviews.has(row.sourceIdentitySha256)).length;
   const evidence = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_candidate_preparation_evidence", triple, targetScope: scope,
+    ...(Object.hasOwn(candidates.T2, "resolutionEvidence") ? { t2ResolutionEvidence: candidates.T2.resolutionEvidence } : {}),
     sourceManifestSha256: inventory.sourceManifestSha256, targetIdentitySha256: inventory.targetIdentitySha256,
     candidateArtifactSha256: candidateHashes, phaseArtifactSha256: Object.fromEntries(phases.map(phase => [phase, input.phaseArtifacts[phase].sha256])),
     targetInventoryArtifactSha256: input.targetInventoryArtifact.sha256, targetScopeArtifactSha256: input.targetScopeArtifact.sha256,

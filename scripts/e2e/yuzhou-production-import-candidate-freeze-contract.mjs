@@ -21,6 +21,48 @@ test("explicit zero tables survive preparation", () => {
   const out = freeze(inputFor(f)); assert.equal(out.summary.status, "READY");
   assert.equal(out.summary.targetTableCounts.hr_contract_legacy_evidence, 0); assert.equal(out.summary.recordCount, 15);
 });
+test("Buffer and offset Uint8Array descriptors are hash-decoded without copying or mutation", t => {
+  const f = fixture(); quarantine(f, "hr_employee_insurance_item", true);
+  const input = inputFor(f), protectedViews = new Set(), snapshots = [];
+  const descriptors = [...Object.values(input.phaseArtifacts), ...Object.values(input.candidateArtifacts), input.targetInventoryArtifact, input.targetScopeArtifact];
+  for (const [index, artifact] of descriptors.entries()) {
+    const content = Buffer.from(artifact.bytes), backing = Buffer.alloc(content.length + 4, 0xff); content.copy(backing, 2);
+    artifact.bytes = index % 2 ? new Uint8Array(backing.buffer, backing.byteOffset + 2, content.length) : backing.subarray(2, content.length + 2);
+    protectedViews.add(artifact.bytes); snapshots.push({ backing, before: Buffer.from(backing) });
+  }
+  const originalFrom = Buffer.from;
+  t.mock.method(Buffer, "from", (value, ...args) => {
+    assert.equal(protectedViews.has(value), false, "document must not copy caller byte views");
+    return originalFrom(value, ...args);
+  });
+  const result = freeze(input); assert.equal(result.summary.status, "REVIEW_HOLD"); assert.equal(result.summary.missingReviewCount, 1);
+  for (const { backing, before } of snapshots) assert.deepEqual(backing, before);
+});
+test("direct byte views retain fatal UTF-8, exact hash and nonshared-input requirements", () => {
+  const input = inputFor(fixture()), invalid = new Uint8Array([0xff]);
+  assert.throws(() => freeze({ ...input, targetScopeArtifact: { path: "/synthetic/invalid-utf8.json", bytes: invalid, sha256: hash(invalid) } }), { code: "CANDIDATE_FREEZE_JSON_INVALID" });
+  const bytes = Buffer.from(input.targetScopeArtifact.bytes);
+  assert.throws(() => freeze({ ...input, targetScopeArtifact: { ...input.targetScopeArtifact, bytes, sha256: hash("wrong") } }), { code: "CANDIDATE_FREEZE_BYTE_HASH_MISMATCH" });
+  const shared = new Uint8Array(new SharedArrayBuffer(bytes.length)); shared.set(bytes);
+  assert.throws(() => freeze({ ...input, targetScopeArtifact: { ...input.targetScopeArtifact, bytes: shared } }), { code: "CANDIDATE_FREEZE_DESCRIPTOR_INVALID" });
+});
+test("real two-field scope is normalized without changing raw bytes or accepting a forged hash", () => {
+  const f = fixture(), input = inputFor(f), baseline = freeze(input);
+  const bytes = JSON.stringify({ tenantId: f.scope.tenantId, parkId: f.scope.parkId }, null, 2) + "\n";
+  input.targetScopeArtifact = { path: "/synthetic/two-field-scope.json", bytes, sha256: hash(bytes) };
+  const saved = structuredClone(input), result = freeze(input);
+  assert.equal(result.summary.status, "READY"); assert.deepEqual(result.wrappers, baseline.wrappers);
+  assert.deepEqual(result.evidence.targetScope, f.scope);
+  assert.equal(result.evidence.targetScopeArtifactSha256, hash(bytes));
+  assert.notEqual(result.evidence.targetScopeArtifactSha256, f.scope.scopeSha256);
+  assert.deepEqual(input, saved); assert.deepEqual(Object.keys(decode(input.targetScopeArtifact)), ["tenantId", "parkId"]);
+  for (const scope of [
+    { ...f.scope, scopeSha256: hash("forged scope") }, { ...f.scope, scopeSha256: null }, { ...f.scope, scopeSha256: 1 },
+    { tenantId: f.scope.tenantId, parkId: f.scope.parkId, unexpected: false }, { tenantId: f.scope.tenantId },
+    { tenantId: "", parkId: f.scope.parkId }, { tenantId: ` ${f.scope.tenantId}`, parkId: f.scope.parkId },
+    { tenantId: 123, parkId: f.scope.parkId }, { tenantId: f.scope.tenantId, parkId: "different-park" },
+  ]) assert.throws(() => freeze({ ...input, targetScopeArtifact: descriptor(scope) }), { code: "CANDIDATE_FREEZE_SCOPE_INVALID" });
+});
 test("actual T2/T3 assembler outputs use exact normalized phase bytes and explicit zero domains", () => {
   const f = fixture(), input = inputFor(f), t0Candidates = decode(input.candidateArtifacts.T0);
   const t2Phase = decode(input.phaseArtifacts.T2); t2Phase.records = [];

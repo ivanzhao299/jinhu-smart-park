@@ -103,6 +103,17 @@ test("missing review emits only retained HOLD evidence and aggregate receipt", t
   assert.deepEqual(fs.readdirSync(x.output).sort(), ["candidate-freeze-receipt.json", "candidate-preparation-evidence.json"]);
   assert.doesNotMatch(JSON.stringify(out), /sourceIdentitySha256|targetFields|attestationBase64|synthetic-tenant/);
 });
+test("private two-field scope bytes remain unchanged and bound in emitted evidence", t => {
+  const x = privateFixture(t), scopePath = x.config.artifacts.targetScope.path;
+  const { tenantId, parkId } = JSON.parse(fs.readFileSync(scopePath, "utf8"));
+  const bytes = JSON.stringify({ tenantId, parkId }) + "\n";
+  fs.writeFileSync(scopePath, bytes); x.config.artifacts.targetScope.sha256 = hash(bytes); x.save();
+  assert.equal(materialize(x.path, x.options).status, "READY");
+  const evidence = JSON.parse(fs.readFileSync(join(x.output, "candidate-preparation-evidence.json"), "utf8"));
+  assert.equal(evidence.targetScopeArtifactSha256, hash(bytes));
+  assert.match(evidence.targetScope.scopeSha256, /^[0-9a-f]{64}$/u);
+  assert.equal(fs.readFileSync(scopePath, "utf8"), bytes);
+});
 test("permissions, hardlinks, symlinks, byte hashes and bounded input/output fail before output", async t => {
   const cases = [
     x => fs.chmodSync(x.config.artifacts.candidates.T0.path, 0o644),

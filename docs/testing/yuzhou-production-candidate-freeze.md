@@ -19,12 +19,14 @@ Config is an exact object with `formatVersion: 1`, `triple`, `artifacts`, and `o
 - `phases`: object with `T0`, `T1`, `T2`, `T3` descriptors for the original producer phase files. Use T3's matching normalized phase.
 - `candidates`: object with the same four keys, describing the four producer candidate files.
 - `targetInventory`: descriptor for the full sixteen-table `yuzhou_hr_production_target_inventory_readonly` inventory.
-- `targetScope`: descriptor for a JSON object containing exactly `tenantId`, `parkId`, `scopeSha256`. The hash uses the existing target-scope helper and must match the inventory and all candidates.
+- `targetScope`: descriptor for the existing raw scope JSON containing exactly `tenantId` and `parkId`, or its three-field normalized form with `scopeSha256`. IDs must be nonempty trimmed strings. The adapter computes the hash using the existing target-scope helper; if a hash is supplied, it must match exactly. Unknown fields are rejected. The normalized scope must match the inventory and all candidates, while evidence retains the original scope file-byte SHA without rewriting the input.
 - `reviewedDecisions`: `null` for insert-only or not-yet-reviewed preparation; otherwise a descriptor for the reviewed resolution document below.
 
 Every descriptor is exactly `{ "path": "/absolute/private/file.json", "sha256": "<actual file-byte SHA-256>" }`. The hash covers exact bytes, including whitespace/newlines. These are distinct from canonical frozen content hashes produced by the bridge.
 
 The adapter recognizes T1's `targetSnapshotArtifactSha256` and `t0DecisionCandidatesArtifactSha256` aliases and validates its five-key dependency annotations before projecting the generator's four-key references. It checks phase provenance one-to-one, all table/disposition counts, scope, target identity, inventory, T0 binding, target field types, actual business identity, derived IDs, target canonical hashes and versions. Legacy T0/T1 phase files without explicit table counts must contain every table in their phase. Missing legacy zero-table evidence is a HOLD/rejection requiring corrected producer coverage, not an inferred zero. T2/T3 explicit zero tables remain included.
+
+The T2 private materializer additionally emits `resolutionEvidence`, while its pure assembler omits it. Only T2 may supply this optional exact object: `{dictionaryPackageSha256,changeDecisionsSha256,approvalClaimed:false}`. Dictionary SHA must be lowercase SHA-256; change-decision SHA may be lowercase SHA-256 or `null`. Unknown keys, invalid hashes or an approval claim reject preparation. When present, it is retained as `t2ResolutionEvidence`, together with the exact original T2 candidate byte SHA; these references do not authenticate an external approval or rebind historical mapping evidence. T3's materializer emits its candidate unchanged and keeps recovery lineage and receipt metadata in separate artifacts.
 
 ## Reviewed non-inserts
 
