@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* global console, process, structuredClone */
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -89,24 +90,135 @@ function performanceArtifacts(employeeCode) {
       decisionAttestationSha256: h(`session-decision-${session.id}`),
     })),
   };
-  const emptyFacts = {
+  const facts = {
     assessmentcode: [],
-    assgradecode: [],
-    assitem: [],
-    assitemgradedes: [],
+    assgradecode: Array.from({ length: 3 }, (_, index) => ({
+      sourceIdentitySha256: h(`level-identity-${index + 1}`),
+      sourceRowSha256: h(`level-row-${index + 1}`),
+      assgrade: ["A", "B", "C"][index], description: null,
+      myorder: String(index + 1).padStart(2, "0"), assessmentid: 7,
+      minvalue: [85, 70, 0][index], maxvalue: [100, 84, 69][index],
+    })),
+    assitem: Array.from({ length: 33 }, (_, index) => ({
+      sourceIdentitySha256: h(`dimension-identity-${index + 1}`),
+      sourceRowSha256: h(`dimension-row-${index + 1}`),
+      id: index + 1, assid: 7, assitem: `Synthetic ${index + 1}`,
+      fullvalue: 100, myorder: index + 1,
+    })),
+    assitemgradedes: Array.from({ length: 30 }, (_, index) => ({
+      sourceIdentitySha256: h(`guide-identity-${index + 1}`),
+      sourceRowSha256: h(`guide-row-${index + 1}`),
+      id: index + 1, assitemid: index + 1, grade: ["A", "B", "C"][index % 3],
+      description: `Synthetic ${index + 1}`, minvalue: 0, maxvalue: 100,
+      myorder: index + 1,
+    })),
     assessmentdetail: [],
   };
   const emptyMasters = { assessmentmaster: [] };
   return {
     relationPayloadArtifact: Buffer.from(JSON.stringify(relations)),
     identityDecisionArtifact: Buffer.from(JSON.stringify(identity)),
-    factPayloadArtifact: Buffer.from(JSON.stringify(emptyFacts)),
+    facts,
+    masters: emptyMasters,
+    factPayloadArtifact: Buffer.from(JSON.stringify(facts)),
     masterPayloadArtifact: Buffer.from(JSON.stringify(emptyMasters)),
   };
 }
 
-function bindPerformanceChain(fixture) {
+async function deriveFactAggregate(client, fixture, artifacts) {
+  const batchId = randomUUID();
+  await client.query(
+    `INSERT INTO migration_batch(id,run_id,source_system,source_snapshot_sha256,target_database,
+       phase,status,tool_version,execution_context,started_at)
+     VALUES($1,$2,'yuzhou-v10',$3,current_database(),'load','running',
+       'synthetic-performance-total-chain-oracle','lab_rehearsal',now())`,
+    [batchId, `perf-oracle-${batchId}`, fixture.plan.triple.sourceSnapshotHash],
+  );
+  await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+  try {
+    await client.query(
+      "CALL materialize_yuzhou_performance_legacy_lab($1,$2,$3::uuid,$4::jsonb)",
+      [fixture.targetScope.tenantId, fixture.targetScope.parkId, batchId, JSON.stringify(artifacts.facts)],
+    );
+    await client.query(
+      "CALL materialize_yuzhou_performance_legacy_master_lab($1,$2,$3::uuid,$4::jsonb)",
+      [fixture.targetScope.tenantId, fixture.targetScope.parkId, batchId, JSON.stringify(artifacts.masters)],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+  const result = await client.query(
+    `SELECT fact_set.template_rows::int AS template_rows,
+       fact_set.level_rule_rows::int AS level_rule_rows,
+       fact_set.dimension_rows::int AS dimension_rows,
+       fact_set.guide_rows::int AS guide_rows,
+       fact_set.dimension_result_rows::int AS dimension_result_rows,
+       fact_set.master_result_rows::int AS master_result_rows,
+       fact_set.active_fact_maps::int AS active_fact_maps,
+       identity.fact_set_sha256 AS identity_fact_set_sha256,
+       fact_set.full_fact_set_sha256
+     FROM hr_yuzhou_performance_full_fact_set_v1($1,$2,$3::uuid) fact_set
+     CROSS JOIN hr_yuzhou_performance_fact_identity_set_v1($1,$2,$3::uuid) identity`,
+    [fixture.targetScope.tenantId, fixture.targetScope.parkId, batchId],
+  );
+  assert.equal(result.rows.length, 1);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(result.rows[0]).filter(([key]) => key.endsWith("_rows"))),
+    {
+      template_rows: 0, level_rule_rows: 3, dimension_rows: 33, guide_rows: 30,
+      dimension_result_rows: 0, master_result_rows: 0,
+    },
+  );
+  assert.equal(result.rows[0].active_fact_maps, 66);
+  assert.equal(result.rows[0].identity_fact_set_sha256, EMPTY_SET_SHA256);
+  assert.match(result.rows[0].full_fact_set_sha256, /^[0-9a-f]{64}$/u);
+
+  await client.query("BEGIN");
+  try {
+    await client.query(
+      "UPDATE migration_batch SET phase='rollback',status='running' WHERE id=$1::uuid",
+      [batchId],
+    );
+    await client.query(
+      "SELECT set_config('yuzhou.performance_legacy_rollback_batch_id',$1,true)",
+      [batchId],
+    );
+    for (const table of [
+      "hr_performance_legacy_master_result", "hr_performance_legacy_dimension_result",
+      "hr_performance_legacy_dimension_level_guide", "hr_performance_legacy_dimension_profile",
+      "hr_performance_legacy_level_rule", "hr_performance_legacy_template_profile",
+    ]) await client.query(`DELETE FROM ${table} WHERE migration_batch_id=$1::uuid`, [batchId]);
+    await client.query(
+      "UPDATE legacy_record_map SET mapping_status='rolled_back',is_active=false WHERE batch_id=$1::uuid",
+      [batchId],
+    );
+    await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+  const oracleResidual = await client.query(
+    `SELECT
+      (SELECT count(*)::int FROM legacy_record_map WHERE batch_id=$1::uuid AND is_active)+
+      (SELECT count(*)::int FROM hr_performance_legacy_template_profile WHERE migration_batch_id=$1::uuid)+
+      (SELECT count(*)::int FROM hr_performance_legacy_level_rule WHERE migration_batch_id=$1::uuid)+
+      (SELECT count(*)::int FROM hr_performance_legacy_dimension_profile WHERE migration_batch_id=$1::uuid)+
+      (SELECT count(*)::int FROM hr_performance_legacy_dimension_level_guide WHERE migration_batch_id=$1::uuid)+
+      (SELECT count(*)::int FROM hr_performance_legacy_dimension_result WHERE migration_batch_id=$1::uuid)+
+      (SELECT count(*)::int FROM hr_performance_legacy_master_result WHERE migration_batch_id=$1::uuid)
+      AS rows`,
+    [batchId],
+  );
+  assert.equal(oracleResidual.rows[0].rows, 0);
+  return result.rows[0];
+}
+
+async function bindPerformanceChain(fixture, client) {
   const artifacts = performanceArtifacts(EMPLOYEE_CODE);
+  const aggregate = await deriveFactAggregate(client, fixture, artifacts);
   const t0PhaseReceiptSha256 = fixture.plan.phases.find(phase => phase.phase === "T0")
     .expectedAfterCanonicalSha256;
   const relations = createHeldPerformanceRelationsBinding({
@@ -125,15 +237,15 @@ function bindPerformanceChain(fixture) {
     t0PhaseReceiptSha256,
     migration310Sha256: sha256File("database/migrations/000310_hr_yuzhou_performance_fact_identity_production.sql"),
     migration311Sha256: sha256File("database/migrations/000311_hr_yuzhou_performance_facts_production.sql"),
-    templateRows: 0,
-    levelRuleRows: 0,
-    dimensionRows: 0,
-    guideRows: 0,
+    templateRows: aggregate.template_rows,
+    levelRuleRows: aggregate.level_rule_rows,
+    dimensionRows: aggregate.dimension_rows,
+    guideRows: aggregate.guide_rows,
     dimensionResultRows: 0,
     masterResultRows: 0,
-    activeFactMaps: 0,
+    activeFactMaps: aggregate.active_fact_maps,
     identityFactSetSha256: EMPTY_SET_SHA256,
-    fullFactSetSha256: EMPTY_SET_SHA256,
+    fullFactSetSha256: aggregate.full_fact_set_sha256,
     sourceOutcomeFactStatus: "AUTHORITATIVE_EMPTY",
     productionImport: "HOLD",
   });
@@ -235,6 +347,45 @@ function executeOptions(fixture, artifacts, adapter, phaseWriters) {
   };
 }
 
+function assertApiReadSurface(fixture, state) {
+  const result = spawnSync("pnpm", [
+    "--filter",
+    "@jinhu/api",
+    "exec",
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "--test-force-exit",
+    "--require",
+    "ts-node/register",
+    "src/modules/hr/hr-performance-legacy-post-import.pg.spec.ts",
+  ], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      PATH: process.env.PATH ?? "",
+      NODE_ENV: "test",
+      TS_NODE_PROJECT: resolve(root, "apps/api/tsconfig.json"),
+      PARTY_DATA_ENCRYPTION_KEY: "test-only-party-key-12345678901234567890",
+      POSTGRES_HOST: host,
+      POSTGRES_PORT: String(port),
+      POSTGRES_DB: database,
+      POSTGRES_USER: user,
+      POSTGRES_PASSWORD: password,
+      HR_PERFORMANCE_POST_IMPORT_API_PG: "1",
+      HR_PERFORMANCE_POST_IMPORT_OPERATION_ID: fixture.plan.operationId,
+      HR_PERFORMANCE_POST_IMPORT_TENANT_ID: fixture.targetScope.tenantId,
+      HR_PERFORMANCE_POST_IMPORT_PARK_ID: fixture.targetScope.parkId,
+      HR_PERFORMANCE_POST_IMPORT_STATE: state,
+    },
+  });
+  assert.equal(
+    result.status,
+    0,
+    `HR_PERFORMANCE_POST_IMPORT_API_${state.toUpperCase()}_FAILED`,
+  );
+}
+
 async function assertApplied(client, fixture, result) {
   assert.deepEqual(result.phases, [
     "T0", "PERFORMANCE_FACTS", "PERFORMANCE_RELATIONS", "PERFORMANCE_FACT_IDENTITY",
@@ -280,12 +431,12 @@ async function assertApplied(client, fixture, result) {
     [fixture.plan.operationId],
   );
   assert.deepEqual(state.rows[0], {
-    fact_rows: 0,
+    fact_rows: 66,
     sessions: 7,
     assignments: 117,
     identities: 234,
     session_bindings: 7,
-    verified_performance_maps: 124,
+    verified_performance_maps: 190,
     loaded_performance_maps: 0,
     t1_succeeded: 1,
   });
@@ -392,9 +543,9 @@ async function runSuccess() {
     employeeCode: EMPLOYEE_CODE,
     employeeSourceIdentitySha256: sourcePersonIdentity(EMPLOYEE_CODE),
   });
-  const artifacts = bindPerformanceChain(fixture);
   const { client, adapter } = await runtime(fixture);
   try {
+    const artifacts = await bindPerformanceChain(fixture, client);
     await seedExisting(client, fixture);
     const provider = cryptoProvider(fixture);
     const result = await executeSealedProductionImport(
@@ -402,6 +553,7 @@ async function runSuccess() {
       executeOptions(fixture, artifacts, adapter, createProductionImportPhaseWriters({ cryptoProvider: provider })),
     );
     await assertApplied(client, fixture, result);
+    assertApiReadSurface(fixture, "applied");
     const rollback = await rollbackSealedProductionImport(
       fixture.plan,
       fixture.rollbackAuthorization,
@@ -431,6 +583,7 @@ async function runSuccess() {
     assert.equal(rollback.status, "rolled_back");
     assert.equal(rollback.residualCount, 0);
     await assertRolledBack(client, fixture);
+    assertApiReadSurface(fixture, "rolled_back");
   } finally {
     await adapter.close();
     client.release();
@@ -443,10 +596,10 @@ async function runFailure() {
     employeeCode: EMPLOYEE_CODE,
     employeeSourceIdentitySha256: sourcePersonIdentity(EMPLOYEE_CODE),
   });
-  const artifacts = bindPerformanceChain(fixture);
   const { client, adapter } = await runtime(fixture);
   const observed = { extensionsCompleteBeforeT1Failure: false };
   try {
+    const artifacts = await bindPerformanceChain(fixture, client);
     await seedExisting(client, fixture);
     const provider = cryptoProvider(fixture);
     const phaseWriters = createProductionImportPhaseWriters({ cryptoProvider: provider });
@@ -471,7 +624,7 @@ async function runFailure() {
           sessions: 7,
           assignments: 117,
           identities: 234,
-          verified_maps: 124,
+          verified_maps: 190,
         });
         observed.extensionsCompleteBeforeT1Failure = true;
         throw Object.assign(new Error("synthetic failure after full performance chain"), {
@@ -496,7 +649,7 @@ async function runFailure() {
 try {
   await runSuccess();
   await runFailure();
-  console.log("YUZHOU_PRODUCTION_IMPORT_PERFORMANCE_FULL_CHAIN_DIRECT_PG_PASS actual-entrypoint 311>308>310>T1 rollback=310>308>311>core failure-residual=0 current-outcome-facts=0");
+  console.log("YUZHOU_PRODUCTION_IMPORT_PERFORMANCE_FULL_CHAIN_DIRECT_PG_PASS actual-entrypoint 311>308>310>T1 rollback=310>308>311>core failure-residual=0 config-facts=66 current-outcome-facts=0");
 } finally {
   await pool.end();
 }
