@@ -68,3 +68,12 @@ PG 使用单个随机 loopback 端口、512 MiB tmpfs 临时容器，启动前�
 这些局部证据不能证明生产源已无歧义或整个 HR 已可独立运行。
 
 下一段：完整身份/RBAC/session 的 scope 迁移闭包，以及 HR/Org/审计接线与真实登录闭环。
+
+### 主线同步验证
+
+原候选 `9a7ed38a` 的 CI 与 Release Smoke 已通过。随后正常合入主线 `214fb4b3`
+（合并提交 `92c40260`），没有冲突；主线变更为唯一已授权企业范围解析，不改本绑定 DDL。
+在同步后的工作树重新验证 resolver 与 park adapter 共 13 项单元测试、API typecheck，
+以及 `pnpm test:e2e:yuzhou-hr-park-scope-binding` 的 1 项小型 PG 测试，均通过且无跳过。
+约 2.2 秒的 PG 检查后未残留本片临时容器；没有重复真实数据 A/B。
+同步后的远端 CI 需单独通过，旧候选的绿色结果不能替代它。
