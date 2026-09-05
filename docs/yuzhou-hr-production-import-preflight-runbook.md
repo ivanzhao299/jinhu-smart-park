@@ -187,6 +187,12 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 ### 7.2 当前备份恢复证明
 
+注意区分“恢复演练成功”和“恢复材料仍在”：Gate-19 默认会删除本次临时 dump/文件归档。
+生产导入需要留存材料时，显式使用 `retain_verified_backup=true`，核验报告中非空的
+`retained_backup` 和对应私有文件；不能只用默认 PASS 报告充当留存证明。
+该选项只写固定独立数据盘，缺少挂载或空间不足时拒绝；不会授权生产导入/恢复。
+操作与限制见[已验证备份留存](./yuzhou-hr-verified-backup-retention.md)。
+
 在固定目标范围之后、任何生产历史 writer 之前，使用 `Production Backup Restore Gate` 重新执行当前的 PostgreSQL 备份、临时恢复和聚合核对。该 Gate 在创建 dump、临时恢复库或文件归档前要求宿主根盘保留 20 GiB 基线空间，加上当前 PostgreSQL 数据目录与 API 文件根合计体积的两倍（覆盖 dump/临时恢复与文件归档/临时还原的同时工作集）；PostgreSQL 与 API 容器各仍至少保留 15 GiB。任一检查失败即停止，不创建导入批次。它只保留不含连接参数、数据库名、内部地址、文件路径或业务明细的聚合报告。
 
 当 Gate-19 因容量门禁退出且需要判断处置方式时，可手工运行 `Production Yuzhou HR Capacity Diagnostic`。该诊断只输出宿主、全实例持久化文件系统、已挂载/未挂载块设备及其是否具有可识别文件系统、Docker 数据区、PostgreSQL 临时/数据区和 API 文件区的汇总 KiB，以及与 Gate-19 相同的根盘恢复工作集需求和 Docker 分类汇总；不会加载或显示环境值、主机路径、业务数据或连接信息，不会创建备份/恢复库/归档，也不会执行 Docker 清理。结果为 `DISK_GUARD` 时，先依据汇总确认扩容或经批准的精确清理对象，再重新执行 Gate-19；`READY_FOR_GATE19` 只表示容量条件满足，不表示生产导入获准。

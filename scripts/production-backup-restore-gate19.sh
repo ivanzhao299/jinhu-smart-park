@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 set -eu
+umask 077
+
+# An explicit invocation wins over long-lived application configuration.
+requested_retention="${RETAIN_VERIFIED_BACKUP:-no}"
+case "$requested_retention" in yes|no) ;; *) printf 'BACKUP_RETENTION_FLAG_INVALID\n' >&2; exit 2 ;; esac
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.production}"
@@ -16,6 +21,18 @@ set -a
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 set +a
+RETAIN_VERIFIED_BACKUP="$requested_retention"
+RETAINED_BACKUP_JSON="null"
+case "$RUN_ID" in
+  ''|*[!A-Za-z0-9_-]*|-*|_*) printf 'BACKUP_RETENTION_RUN_ID_INVALID\n' >&2; exit 2 ;;
+esac
+if [ "${#RUN_ID}" -gt 80 ]; then
+  printf 'BACKUP_RETENTION_RUN_ID_INVALID\n' >&2
+  exit 2
+fi
+if [ "$RETAIN_VERIFIED_BACKUP" = "yes" ]; then
+  node "$ROOT_DIR/scripts/retain-production-gate-backup.mjs" check
+fi
 
 mkdir -p "$REPORT_DIR"
 REPORT_MD="$REPORT_DIR/$RUN_ID.md"
@@ -295,6 +312,21 @@ append_report "- PASS: production database was not overwritten"
 append_report "- PASS: file restore used temporary directory \`$FILE_RESTORE_DIR\` only"
 append_report "- PASS: cleanup trap drops the temporary restore database and removes temporary backup artifacts"
 
+if [ "$RETAIN_VERIFIED_BACKUP" = "yes" ]; then
+  DB_DUMP_HASH_OUTPUT="$(compose exec -T postgres sha256sum "$DB_DUMP_PATH" 2>/dev/null)" || fail_gate "database backup hash probe failed"
+  FILE_BACKUP_HASH_OUTPUT="$(compose exec -T api sha256sum "$FILE_BACKUP_PATH" 2>/dev/null)" || fail_gate "file backup hash probe failed"
+  DB_DUMP_SHA="$(printf '%s\n' "$DB_DUMP_HASH_OUTPUT" | awk '{print $1}')"
+  FILE_BACKUP_SHA="$(printf '%s\n' "$FILE_BACKUP_HASH_OUTPUT" | awk '{print $1}')"
+  if ! RETAINED_BACKUP_JSON="$(node -e '
+    const [runId,dbBytes,dbSha,fileBytes,fileSha]=process.argv.slice(1);
+    process.stdout.write(JSON.stringify({runId,artifacts:[{kind:"database",bytes:Number(dbBytes),sha256:dbSha},{kind:"files",bytes:Number(fileBytes),sha256:fileSha}]}));
+  ' "$RUN_ID" "$DB_DUMP_SIZE" "$DB_DUMP_SHA" "$FILE_BACKUP_SIZE" "$FILE_BACKUP_SHA" |
+    node "$ROOT_DIR/scripts/retain-production-gate-backup.mjs" retain "$ENV_FILE" "$COMPOSE_FILE")"; then
+    fail_gate "verified backup retention failed; private partial copies may remain"
+  fi
+  append_report "- PASS: verified copies retained on the independent data volume; temporary cleanup does not remove them"
+fi
+
 append_report ""
 append_report "## Final Verdict"
 append_report ""
@@ -321,6 +353,7 @@ cat > "$REPORT_JSON" <<JSON
   "file_backup_bytes": $FILE_BACKUP_SIZE,
   "file_backup_archive_entries": $FILE_BACKUP_LIST_COUNT,
   "host_recovery_required_kib": $required_host_free_kib,
+  "retained_backup": $RETAINED_BACKUP_JSON,
   "production_db_write": "temporary_restore_database_only",
   "destructive_volume_operation": false
 }

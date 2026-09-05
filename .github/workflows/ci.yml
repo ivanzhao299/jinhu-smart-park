@@ -116,6 +116,7 @@ jobs:
 
       - name: Verify Yuzhou production import stays sealed and unreachable
         run: |
+          sh scripts/e2e/production-backup-restore-gate-contract.sh
           pnpm test:e2e:yuzhou-production-import-preflight
           pnpm test:e2e:yuzhou-production-import-v2
             pnpm test:e2e:yuzhou-production-import-t5-private-stage
