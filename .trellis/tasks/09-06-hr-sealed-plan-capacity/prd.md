@@ -1,0 +1,7 @@
+# Sealed-plan capacity repair
+
+The current executor treats the full per-record sealed plan as a 64 MiB control file. Current generator synthetic insert rows extrapolated at verified normalized T3 counts require 253354343 bytes before T0–T2 and outer metadata. This is a reproducible implementation mismatch, not a need to re-extract source data.
+
+Give only the sealed plan a dedicated bounded 384 MiB allowance (402653184 bytes), leaving 1 MiB config, 64 MiB other controls and 2000000000-byte payload/aggregate budgets unchanged. No environment/config override, activation change, writer change, source IO, business connection or weakened hash/permissions checks. This removes the known 64 MiB rejection; it does not prove large structured-plan peak memory or production throughput.
+
+Acceptance: existing prepare/execute HOLD and byte-budget regressions still pass; boundary rejects a plan larger than its dedicated cap before parsing/validation/database loading; aggregate reads still count plan bytes. An explicitly enabled synthetic large-file prepare check must pass valid sealed JSON larger than 64 MiB through the real validator, preserve exact descriptor hash checking and prove zero DB/crypto/writer calls. Run this larger probe once locally, not on every ordinary CI repetition. No real source or secret fixture. Keep normal suite small and sparse oversize fixture recoverably scoped to its test temp directory.

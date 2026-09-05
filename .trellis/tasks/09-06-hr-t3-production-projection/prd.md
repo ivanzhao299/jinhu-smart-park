@@ -1,0 +1,9 @@
+# T3 production field projection
+
+The current T3 producer emits hash-only provenance for eight attendance/insurance tables, but no production field projection/candidate producer exists. Implement the actual source-to-target field transformation needed by production preparation, preserving existing source identities and full declared fields. This is one necessary layer of the full migration, not a substitute for candidate assembly, execution or professional HR feature parity.
+
+Cover attendance batch, observed symbol rules, calendar parents and per-day rows; insurance policy parents and rate/fixed-amount items; employee insurance periods and items. Reuse established stage and loader semantics without executing SQL. Match PostgreSQL numeric(18,6) rates, numeric(18,3) policy fixed amounts and numeric(18,2) contributions exactly without floating point/rounding. Stage policy rates are already divided by100: never divide again.
+
+Retain unknown symbols, blank days, null/zero/negative-base distinctions and legacy flags; do not invent employee/policy associations or interpret unknown flags as false. Structural/hash/key/unknown-field drift rejects source rows. Semantic projection failures retain source projection identities with stable review/quarantine reasons; no partial disappearance. SourceRowSha256 refers to raw pre-transform source, so do not falsely recompute it from reduced stage fields.
+
+Acceptance: pure bounded-per-parent API without filesystem/network/SQL; deterministic projection IDs exactly match existing T3 phase artifact; target field and dependency sets are complete; source objects unchanged; zero-source support and every projected row accounted; real-schema decimal/calendar/length bounds, synthetic multi-table integration and optional read-only literal casts. No production write, re-extraction, full A/B or generated personal data in Git.

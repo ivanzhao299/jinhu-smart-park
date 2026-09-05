@@ -20,6 +20,14 @@ Versioned Party sensitive-data keys and tenant-scoped rotation: [Party Sensitive
 
 Human resources lifecycle, goals, performance, protected documents, approvals, and payroll: [HR Management Domain Contract](./hr-management.md).
 
+T3 historical attendance/insurance field conversion: [Yuzhou T3 Production Projection](./yuzhou-t3-production-projection.md).
+
+Exact old-policy source recovery and two-to-one lineage: [T3 Policy Recovery](./yuzhou-t3-policy-recovery.md).
+
+Same-source normalized phase and eight-table review assembly: [T3 Decision Candidates](./yuzhou-t3-decision-candidates.md).
+
+Bounded authenticated private phase/candidate/lineage output: [T3 Private Materializer](./yuzhou-t3-private-materializer.md).
+
 Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
 
 ## Package Boundary

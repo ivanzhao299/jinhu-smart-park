@@ -1256,7 +1256,7 @@
     {
       "role": "production_materializer",
       "path": "scripts/hr-cutover/materialize-production-t3-phase-artifact.mjs",
-      "sha256": "c8f28a37a6fa1d626f57204420e2416822e84558f4f164fa1d33d322e8b3330d",
+      "sha256": "c126576a6d086de78cea7a5cd63e8546caad6c827e1750c3a7360430170895ac",
       "requiredTokens": [
         "sourceTable: \"dbo.insure_method\"",
         "baseFixedAmount",
@@ -1275,7 +1275,7 @@
     {
       "role": "production_payload_contract",
       "path": "scripts/e2e/yuzhou-production-import-payload-generator-contract.mjs",
-      "sha256": "645ab216f9df3cdf3452c5595bae4066a0eb64afc8313ddc74bc28ae8e4b9f3a",
+      "sha256": "03b2176c4775ceb839afc761b4fea98fd4269497b4eef24002d2aa1aeeb0c1cd",
       "requiredTokens": [
         "employer_rate: \"0.160000\"",
         "employer_fixed_amount: \"6.000\""
@@ -1284,7 +1284,7 @@
     {
       "role": "runtime_api",
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad",
+      "sha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee",
       "requiredTokens": [
         "listInsurancePeriods",
         "insurancePeriodDetail",

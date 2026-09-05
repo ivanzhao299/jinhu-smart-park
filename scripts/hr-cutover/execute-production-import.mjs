@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, structuredClone */
+/* global Buffer, TextDecoder, URL, process, structuredClone */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
@@ -29,6 +29,7 @@ const SUPPORTED_DOMAINS = Object.freeze([...PHASES, "PERFORMANCE_FACTS", "PERFOR
 const EXECUTION_INTENT = "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE";
 const MAX_CONFIG_BYTES = 1024 * 1024;
 const MAX_CONTROL_ARTIFACT_BYTES = 64 * 1024 * 1024;
+export const MAX_SEALED_PLAN_BYTES = 384 * 1024 * 1024;
 const MAX_PAYLOAD_ARTIFACT_BYTES = 2_000_000_000;
 const MAX_TOTAL_PRIVATE_ARTIFACT_BYTES = 2_000_000_000;
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -552,13 +553,12 @@ export function parseProductionImportEntrypointArgs(argv) {
 }
 
 export async function runProductionImportEntrypoint(input, dependencies = {}) {
-  const mode = input.execute ? "execute" : "prepare";
   const contract = dependencies.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const now = dependencies.now ?? new Date();
   const readBudget = { bytesRead: 0, maximumBytes: MAX_TOTAL_PRIVATE_ARTIFACT_BYTES };
   const configBytes = readBoundedPrivateArtifactBytes(resolve(input.configPath), "entrypoint config", MAX_CONFIG_BYTES, readBudget);
   const config = validateConfig(parseJson(configBytes, "PRODUCTION_IMPORT_ENTRYPOINT_CONFIG_INVALID", "entrypoint config"));
-  const planArtifact = loadArtifact(config.artifacts.sealedPlan, "sealed plan", MAX_CONTROL_ARTIFACT_BYTES, { json: true, readBudget });
+  const planArtifact = loadArtifact(config.artifacts.sealedPlan, "sealed plan", MAX_SEALED_PLAN_BYTES, { json: true, readBudget });
   const validatePlan = dependencies.validatePlan ?? validateSealedProductionImportPlan;
   const plan = validatePlan(planArtifact.value, { contract, now });
   const domains = validateRequestedDomains(config, plan);

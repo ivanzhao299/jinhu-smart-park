@@ -1,12 +1,15 @@
+/* global Buffer, URL, structuredClone */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import process from "node:process";
 import { afterEach, test } from "node:test";
 
 import {
+  MAX_SEALED_PLAN_BYTES,
   ProductionImportEntrypointError,
   PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS,
   createProductionImportArtifactCryptoProvider,
@@ -405,6 +408,94 @@ test("bounded private reads reject aggregate overflow, concurrent growth, and tr
     () => readBoundedPrivateArtifactBytes(descriptor.path, "fixture", 16, undefined, { afterStat: () => truncateSync(descriptor.path, 0) }),
     error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_FILE_CHANGED",
   );
+});
+
+test("bounded private reads accept exact file and actual-read budget boundaries", () => {
+  const value = fixture();
+  const descriptor = privateBytes(value.root, "boundary.bin", Buffer.from("abcd"));
+  const readBudget = { bytesRead: 6, maximumBytes: 10 };
+  assert.equal(readBoundedPrivateArtifactBytes(descriptor.path, "fixture", 4, readBudget).toString(), "abcd");
+  assert.equal(readBudget.bytesRead, 10);
+  assert.throws(
+    () => readBoundedPrivateArtifactBytes(descriptor.path, "fixture", 4, readBudget),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_ARTIFACT_BUDGET_EXCEEDED",
+  );
+  assert.equal(readBudget.bytesRead, 10);
+  assert.throws(
+    () => readBoundedPrivateArtifactBytes(descriptor.path, "fixture", 3),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_FILE_UNSAFE",
+  );
+});
+
+test("sealed plan above its dedicated cap fails before allocation, parsing, validation or execution", async () => {
+  assert.equal(MAX_SEALED_PLAN_BYTES, 402_653_184);
+  const value = fixture();
+  const config = JSON.parse(readFileSync(value.configPath, "utf8"));
+  const planPath = config.artifacts.sealedPlan.path;
+  truncateSync(planPath, MAX_SEALED_PLAN_BYTES + 1);
+  const readBudget = { bytesRead: 0, maximumBytes: 2_000_000_000 };
+  let afterStatCalls = 0;
+  assert.throws(
+    () => readBoundedPrivateArtifactBytes(planPath, "sealed plan", MAX_SEALED_PLAN_BYTES, readBudget, {
+      afterStat() { afterStatCalls++; },
+    }),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_FILE_UNSAFE",
+  );
+  assert.equal(afterStatCalls, 0);
+  assert.equal(readBudget.bytesRead, 0);
+  let downstreamCalls = 0;
+  await assert.rejects(() => runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, {
+    now: NOW,
+    validatePlan() { downstreamCalls++; },
+    loadPg: async () => { downstreamCalls++; },
+    loadCryptoProviderModule: async () => { downstreamCalls++; },
+    executeImport: async () => { downstreamCalls++; },
+  }), error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_FILE_UNSAFE");
+  assert.equal(downstreamCalls, 0);
+});
+
+test("opt-in 65 MiB sealed plan passes the real validator and rejects byte hash drift without execution", {
+  skip: process.env.YUZHOU_SEALED_PLAN_LARGE_READ_TEST !== "yes",
+}, async t => {
+  const value = fixture();
+  const config = JSON.parse(readFileSync(value.configPath, "utf8"));
+  const descriptor = config.artifacts.sealedPlan;
+  const originalBytes = readFileSync(descriptor.path);
+  const byteHash = createHash("sha256").update(originalBytes);
+  const targetBytes = 65 * 1024 * 1024;
+  const paddingChunk = Buffer.alloc(1024 * 1024, " ");
+  for (let remaining = targetBytes - originalBytes.length; remaining > 0;) {
+    const chunk = paddingChunk.subarray(0, Math.min(remaining, paddingChunk.length));
+    appendFileSync(descriptor.path, chunk);
+    byteHash.update(chunk);
+    remaining -= chunk.length;
+  }
+  descriptor.sha256 = byteHash.digest("hex");
+  privateJson(value.root, "entrypoint.json", config);
+  assert.equal(statSync(descriptor.path).size, targetBytes);
+  const calls = { database: 0, crypto: 0, writer: 0 };
+  const dependencies = {
+    now: NOW,
+    loadPg: async () => { calls.database++; },
+    loadCryptoProviderModule: async () => { calls.crypto++; },
+    executeImport: async () => { calls.writer++; },
+  };
+  const result = await runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, dependencies);
+  assert.equal(result.status, "HOLD");
+  assert.equal(result.mode, "prepare");
+  assert.equal(result.sealedPlanSha256, value.plan.sealing.sealedPlanSha256);
+  assert.equal(result.databaseConnected, false);
+  assert.equal(result.writeAttempted, false);
+  assert.equal(result.productionImportExecuted, false);
+  assert.deepEqual(calls, { database: 0, crypto: 0, writer: 0 });
+  // Reuse the same valid JSON file: a trailing newline changes bytes, not the semantic seal.
+  appendFileSync(descriptor.path, "\n");
+  await assert.rejects(
+    () => runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, dependencies),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_ARTIFACT_HASH_MISMATCH",
+  );
+  assert.deepEqual(calls, { database: 0, crypto: 0, writer: 0 });
+  t.diagnostic(JSON.stringify({ sealedPlanBytes: targetBytes, hashDriftRejected: true, calls }));
 });
 
 test("prepare validates sealed payload artifacts but never loads DB, crypto, or writer", async () => {
