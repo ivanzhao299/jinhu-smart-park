@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { Injectable, Module } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { ModulesContainer, NestFactory } from "@nestjs/core";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import type { BusinessScopeParkAdapter } from "./business-scope-park-adapter";
@@ -158,6 +158,25 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
     });
     try {
       const resolver = enterpriseContext.get(BusinessScopeResolverService);
+      const moduleNames = [...enterpriseContext.get(ModulesContainer).values()]
+        .map((entry) => entry.metatype.name);
+      for (const forbidden of [
+        "UsersModule", "ParksModule", "SaaSModulesModule", "DataScopesModule",
+        "FieldPoliciesModule", "PropertyOperationsModule", "AppModule", "HrModule"
+      ]) {
+        assert.equal(moduleNames.includes(forbidden), false, `${forbidden} must not enter the scope core`);
+      }
+      const selectUnique = () => resolver.resolveUniqueForUser({
+        tenantId: TENANT_A,
+        userId: USER_A,
+        requiredModuleCode: "hr"
+      });
+      const expectedEnterprise = {
+        tenantId: TENANT_A,
+        scopeId: SCOPE_A1,
+        kind: "enterprise",
+        parkId: null
+      };
       const resolveA1 = () => resolver.resolveForUser({
         tenantId: TENANT_A,
         userId: USER_A,
@@ -170,6 +189,16 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
         kind: "enterprise",
         parkId: null
       });
+      assert.deepEqual(await selectUnique(), expectedEnterprise);
+      assert.equal(await resolver.resolveUniqueForUser({
+        tenantId: TENANT_A, userId: USER_B, requiredModuleCode: "hr"
+      }), null);
+      assert.equal(await resolver.resolveUniqueForUser({
+        tenantId: TENANT_B, userId: USER_A, requiredModuleCode: "hr"
+      }), null);
+      assert.equal(await resolver.resolveUniqueForUser({
+        tenantId: TENANT_A, userId: USER_A, requiredModuleCode: "not-enabled"
+      }), null);
       assert.equal(
         await resolver.resolveForUser({
           tenantId: TENANT_A,
@@ -196,10 +225,15 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
         `INSERT INTO sys_user_business_scope_membership(tenant_id, scope_id, user_id) VALUES ($1, $2, $3)`,
         [TENANT_A, SCOPE_A2, USER_A]
       );
+      // Both scopes are now legitimately available. Never choose the first row
+      // or let an externally supplied scope silently narrow login selection.
+      assert.equal(await selectUnique(), null);
+      assert.deepEqual(await resolveA1(), expectedEnterprise);
       await owner.query(
         `DELETE FROM sys_business_scope_module WHERE tenant_id = $1 AND scope_id = $2`,
         [TENANT_A, SCOPE_A2]
       );
+      assert.deepEqual(await selectUnique(), expectedEnterprise);
       assert.equal(
         await resolver.resolveForUser({
           tenantId: TENANT_A,
@@ -220,6 +254,7 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
         [TENANT_A, SCOPE_A1]
       );
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(
         `UPDATE sys_user_business_scope_membership SET status = 'enabled' WHERE tenant_id = $1 AND scope_id = $2`,
         [TENANT_A, SCOPE_A1]
@@ -230,6 +265,7 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
         [TENANT_A, SCOPE_A1]
       );
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(
         `UPDATE sys_business_scope_module SET status = 'enabled' WHERE tenant_id = $1 AND scope_id = $2`,
         [TENANT_A, SCOPE_A1]
@@ -237,18 +273,23 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
 
       await owner.query(`UPDATE sys_user SET is_enabled = false WHERE id = $1`, [USER_A]);
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(`UPDATE sys_user SET is_enabled = true, status = 'disabled' WHERE id = $1`, [USER_A]);
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(`UPDATE sys_user SET status = 'enabled' WHERE id = $1`, [USER_A]);
 
       await owner.query(`UPDATE sys_business_scope SET status = 'disabled' WHERE id = $1`, [SCOPE_A1]);
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(`UPDATE sys_business_scope SET status = 'enabled' WHERE id = $1`, [SCOPE_A1]);
 
       await owner.query(`UPDATE sys_tenant SET status = 0 WHERE id = $1`, [TENANT_A_ROW]);
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(`UPDATE sys_tenant SET status = 1, expire_time = now() - interval '1 minute' WHERE id = $1`, [TENANT_A_ROW]);
       assert.equal(await resolveA1(), null);
+      assert.equal(await selectUnique(), null);
       await owner.query(`UPDATE sys_tenant SET expire_time = NULL WHERE id = $1`, [TENANT_A_ROW]);
       assert.deepEqual(await resolveA1(), {
         tenantId: TENANT_A,
@@ -270,6 +311,11 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
         `INSERT INTO sys_business_scope_module(tenant_id, scope_id, module_code) VALUES ($1, $2, 'hr')`,
         [TENANT_A, SCOPE_PARK]
       );
+      // Missing a park adapter cannot turn two authorized candidates into one.
+      assert.equal(await selectUnique(), null);
+      await owner.query(`UPDATE sys_business_scope SET status = 'disabled' WHERE id = $1`, [SCOPE_A1]);
+      // The sole remaining scope is park-backed: a real adapter is still required.
+      assert.equal(await selectUnique(), null);
       assert.equal(
         await resolver.resolveForUser({
           tenantId: TENANT_A,
@@ -308,6 +354,15 @@ test("business scope core synthetic PostgreSQL contract", { skip: !enabled }, as
     class ParkScopeTestModule {}
     const parkContext = await NestFactory.createApplicationContext(ParkScopeTestModule, { logger: false });
     try {
+      assert.deepEqual(
+        await parkContext.get(BusinessScopeResolverService).resolveUniqueForUser({
+          tenantId: TENANT_A, userId: USER_A, requiredModuleCode: "hr"
+        }),
+        {
+          tenantId: TENANT_A, scopeId: SCOPE_PARK,
+          kind: "park", parkId: "synthetic-adapter-contract-only"
+        }
+      );
       assert.deepEqual(
         await parkContext.get(BusinessScopeResolverService).resolveForUser({
           tenantId: TENANT_A,
