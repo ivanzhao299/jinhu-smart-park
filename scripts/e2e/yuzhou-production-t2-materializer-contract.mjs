@@ -11,6 +11,8 @@ import { T2_CONTRACT_SEMANTIC_FIELDS } from "../hr-cutover/t2-contract-semantics
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, stableProductionImportCanonicalJson as canonical, computeProductionImportBusinessIdentityHash as businessHash, deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { buildProductionT2ChangeClassifications, T2_RENEWAL_ROUTINE_ID, T2_RENEWAL_ROUTINE_SHA256 } from "../hr-cutover/materialize-production-t2-change-classifications.mjs";
+import { freezeProductionImportCandidates } from "../hr-cutover/production-import-candidate-freeze.mjs";
+import { assembleProductionT3DecisionCandidates } from "../hr-cutover/production-t3-decision-candidates.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const canonicalHash = value => hash(canonical(value) + "\n");
@@ -81,6 +83,61 @@ function fixture(t, { empty = false, classify = true, policyState = "Synthetic a
   return { root, config, path, pkg, write, save: () => write("config.json", config) };
 }
 const reject = (f, code) => assert.throws(() => materialize(f.path, options), error => error.code === code && error.message === code);
+
+test("actual private T2 materializer output freezes with exact retained resolution evidence and unchanged bytes", t => {
+  for (const classify of [true, false]) {
+    const f = fixture(t, { classify }), a = f.config.artifacts;
+    const explicit = (value, path = "/synthetic/candidate-freeze.json") => { const bytes = canonical(value) + "\n"; return { path, bytes, sha256: hash(bytes) }; };
+    const read = descriptor => ({ ...descriptor, bytes: readFileSync(descriptor.path) });
+    const t0 = JSON.parse(readFileSync(a.t0Candidates.path, "utf8")), inventory = JSON.parse(readFileSync(a.targetInventory.path, "utf8"));
+    const phase = (name, records) => ({ formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_phase_staging", triple: f.config.triple, phase: name, records,
+      targetTableCounts: Object.fromEntries(Object.entries(model.targetTables).filter(([, rule]) => rule.phase === name).map(([table]) => [table, records.filter(row => row.targetTable === table).length])) });
+    const provenance = ["phase", "targetTable", "sourceSystem", "sourceTable", "sourcePkCanonical", "sourceIdentitySha256", "sourceRowSha256"];
+    const t0Phase = explicit(phase("T0", t0.records.map(row => Object.fromEntries(provenance.map(key => [key, row[key]])))));
+    t0.phaseArtifactSha256 = t0Phase.sha256;
+    a.t0Candidates = f.write("t0.json", t0); f.save();
+    const t0Descriptor = read(a.t0Candidates), before = readFileSync(a.phaseArtifact.path);
+    const materialized = materialize(f.path, options);
+    const outputDescriptor = read({ path: f.config.outputPath, sha256: materialized.artifactSha256 });
+    const produced = JSON.parse(outputDescriptor.bytes.toString("utf8"));
+    const t1Phase = explicit(phase("T1", []));
+    const t1 = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_t1_decision_candidates", triple: f.config.triple,
+      phaseArtifactSha256: t1Phase.sha256, t0DecisionCandidatesArtifactSha256: t0Descriptor.sha256, targetSnapshotArtifactSha256: a.targetInventory.sha256,
+      targetIdentitySha256: inventory.targetIdentitySha256, targetScope: t0.targetScope, eventTypeDecisionArtifactSha256: hash("synthetic event types"), eventStateDecisionArtifactSha256: hash("synthetic event states"),
+      status: "READY_FOR_FREEZE", countByDisposition: { insert: 0, skip_exact: 0, review_target_collision: 0, quarantine: 0 }, records: [], productionImport: "HOLD" };
+    const t3 = assembleProductionT3DecisionCandidates({ triple: f.config.triple, targetScope: t0.targetScope, targetInventory: inventory, t0Candidates: t0,
+      stagedRecords: [], attendanceFileSha256: hash("synthetic empty attendance"), artifactHashes: { targetInventoryArtifactSha256: a.targetInventory.sha256, t0CandidatesArtifactSha256: t0Descriptor.sha256 } });
+    const input = { expectedTriple: f.config.triple, targetInventoryArtifact: read(a.targetInventory), targetScopeArtifact: explicit({ tenantId: t0.targetScope.tenantId, parkId: t0.targetScope.parkId }), reviewedDecisionsArtifact: null,
+      phaseArtifacts: { T0: t0Phase, T1: t1Phase, T2: read(a.phaseArtifact), T3: explicit(t3.phaseArtifact) },
+      candidateArtifacts: { T0: t0Descriptor, T1: explicit(t1), T2: outputDescriptor, T3: explicit(t3.candidates) } };
+    const result = freezeProductionImportCandidates(input);
+    assert.equal(result.summary.status, classify ? "READY" : "REVIEW_HOLD");
+    assert.equal(result.summary.missingReviewCount, classify ? 0 : 1);
+    assert.deepEqual(result.evidence.t2ResolutionEvidence, { dictionaryPackageSha256: a.dictionaryPackage.sha256, changeDecisionsSha256: a.changeDecisions?.sha256 ?? null, approvalClaimed: false });
+    assert.equal(result.evidence.candidateArtifactSha256.T2, materialized.artifactSha256);
+    assert.equal(result.summary.approvalClaimed, false); assert.equal(result.summary.productionImport, "HOLD");
+    assert.deepEqual(readFileSync(f.config.outputPath), outputDescriptor.bytes); assert.deepEqual(readFileSync(a.phaseArtifact.path), before);
+    for (const change of [
+      value => { value.resolutionEvidence.extra = true; },
+      value => { delete value.resolutionEvidence.changeDecisionsSha256; },
+      value => { value.resolutionEvidence = null; },
+      value => { value.resolutionEvidence.dictionaryPackageSha256 = "invalid"; },
+      value => { value.resolutionEvidence.dictionaryPackageSha256 = null; },
+      value => { value.resolutionEvidence.changeDecisionsSha256 = "A".repeat(64); },
+      value => { value.resolutionEvidence.changeDecisionsSha256 = 123; },
+      value => { value.resolutionEvidence.approvalClaimed = true; },
+      value => { value.resolutionEvidence.approvalClaimed = "false"; },
+    ]) {
+      const altered = structuredClone(produced); change(altered);
+      assert.throws(() => freezeProductionImportCandidates({ ...input, candidateArtifacts: { ...input.candidateArtifacts, T2: explicit(altered) } }),
+        error => error.code === "CANDIDATE_FREEZE_RESOLUTION_EVIDENCE_INVALID" && error.message === error.code);
+    }
+    for (const otherPhase of ["T0", "T1", "T3"]) {
+      const candidate = JSON.parse(Buffer.from(input.candidateArtifacts[otherPhase].bytes).toString("utf8")); candidate.resolutionEvidence = produced.resolutionEvidence;
+      assert.throws(() => freezeProductionImportCandidates({ ...input, candidateArtifacts: { ...input.candidateArtifacts, [otherPhase]: explicit(candidate) } }), { code: "CANDIDATE_FREEZE_SHAPE_INVALID" });
+    }
+  }
+});
 
 test("private raw legacy staging materializes contract and renewal with unchanged source files", t => {
   for (const legacyFlag of ["否", "是"]) {
