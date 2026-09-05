@@ -234,6 +234,27 @@ test("dependencies resolve only through exact active maps from this operation an
   assert.equal(tx.calls.some(call => call.sql.includes("bulk-insert:hr_position")), false);
 });
 
+test("T1 exact target readback preserves wall-clock microseconds and rejects lossy Date values", async () => {
+  const table = "hr_employment_event", identity = H("synthetic event"), owner = H("synthetic employee"), employeeId = uuid(701);
+  const payload = { event_no: "SYN-701", event_type: "transfer", effective_date: "2026-01-01", before_snapshot: {}, after_snapshot: {}, reason: null, status: "effective", legacy_event_no: "SYN-701", legacy_event_type: "synthetic", legacy_state: "1", source_effective_at: "2026-01-01T08:30:00.123456+08:00", migration_decision: "accepted", is_historical_import: true, remark: null };
+  const canonicalHash = computeProductionImportTargetCanonicalHash(table, targetScope, payload, { employee_id: employeeId });
+  const record = { sourceSystem: "yuzhou-v10", sourceTable: "dbo.readjust", sourcePkCanonical: `sha256:${identity}`, sourceIdentitySha256: identity, sourceRowSha256: H("event row"), payloadSha256: computeProductionImportPayloadHash(payload), plannedTargetTable: table, targetTable: table, targetId: uuid(702), dependencyMode: "record_graph", dependencyRefs: [{ role: "employee", phase: "T0", sourceIdentitySha256: owner, expectedTargetTable: "hr_employee" }], disposition: "skip_approved", businessIdentitySha256: computeProductionImportBusinessIdentityHash(table, targetScope, payload, { employee_id: employeeId }), expectedTargetAfterSha256: canonicalHash, expectedTargetBeforeSha256: canonicalHash, expectedTargetVersionBefore: 3, targetVersionAfter: 3 };
+  for (const observed of [payload.source_effective_at, new Date("2026-01-01T08:30:00.123Z"), "2026-01-01T08:30:00.123+08:00"]) {
+    const tx = fakeTx(async sql => {
+      if (sql.includes("hr-prod-phase:resolve-dependencies")) return { rows: [{ source_identity_sha256: owner, target_table: "hr_employee", target_id: employeeId, mapping_status: "loaded", phase: "T0" }] };
+      if (sql.includes("hr-prod-phase:lock-existing")) {
+        assert.match(sql, /to_char\(.*source_effective_at.*SS\.US/u);
+        return { rows: [{ id: record.targetId, version: 3, ...payload, source_effective_at: observed, employee_id: employeeId }] };
+      }
+      return { rows: [] };
+    });
+    const input = { ...phaseInput([record], [payload], "T1"), tx };
+    if (observed === payload.source_effective_at) assert.equal((await createProductionImportPhaseWriters({ cryptoProvider }).T1(input)).records.length, 1);
+    else await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T1(input), e => /^PRODUCTION_IMPORT_/u.test(e.code));
+    assert.equal(tx.calls.some(call => /hr-prod-phase:bulk-(?:insert|merge):hr_employment_event/u.test(call.sql)), false);
+  }
+});
+
 test("quarantine creates the compatible quarantined map and exact projection receipt required by 000282", async () => {
   const payload = { org_code: "BAD" };
   const record = orgRecord(50, "quarantine", payload);

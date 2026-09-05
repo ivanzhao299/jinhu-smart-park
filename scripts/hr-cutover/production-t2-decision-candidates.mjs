@@ -97,6 +97,7 @@ function validateT0(value, triple, scope, inventory, inventoryHash) {
   for (const row of rows.values()) verify(row);
   return rows;
 }
+export { validateT0 as validateProductionT0CandidateDependencies };
 
 export { validateT0 as validateProductionT0CandidateDependencies };
 
