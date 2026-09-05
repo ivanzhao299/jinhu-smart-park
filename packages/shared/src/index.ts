@@ -9,6 +9,7 @@ export * from "./property-business";
 export * from "./mobile";
 export * from "./apartment";
 export * from "./hr";
+export * from "./business-scope";
 export * from "./hr-performance-legacy";
 
 export interface ApiResponse<T> {
