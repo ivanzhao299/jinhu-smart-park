@@ -68,6 +68,7 @@
     "test:e2e:yuzhou-hr-identity-scope-transition": "node scripts/e2e/yuzhou-hr-business-scope-core-postgres.mjs --identity-transition",
     "test:e2e:yuzhou-core-dictionary-preflight-preparer": "node --test scripts/e2e/yuzhou-core-dictionary-preflight-preparer.mjs",
     "test:e2e:yuzhou-core-dictionary-capture": "node --test scripts/e2e/yuzhou-core-dictionary-capture-receipt.mjs",
+    "test:e2e:yuzhou-core-dictionary-template": "node --test scripts/e2e/yuzhou-core-dictionary-input-template-contract.mjs",
     "test:e2e:yuzhou-full-domain-contract": "node scripts/e2e/yuzhou-full-domain-contract.mjs",
     "test:e2e:yuzhou-legacy-compatibility-coverage": "node scripts/e2e/yuzhou-legacy-compatibility-coverage-contract.mjs",
     "test:e2e:yuzhou-legacy-atomic-inventory": "node scripts/e2e/yuzhou-legacy-atomic-inventory-contract.mjs",
