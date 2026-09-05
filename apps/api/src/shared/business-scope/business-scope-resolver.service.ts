@@ -13,6 +13,12 @@ export interface ResolveBusinessScopeInput {
   requiredModuleCode: string;
 }
 
+export interface ResolveUniqueBusinessScopeInput {
+  tenantId: string;
+  userId: string;
+  requiredModuleCode: string;
+}
+
 interface ResolvedCoreScopeRow {
   tenantId: string;
   scopeId: string;
@@ -32,9 +38,18 @@ export class BusinessScopeResolverService {
   ) {}
 
   async resolveForUser(input: ResolveBusinessScopeInput): Promise<BusinessScopeContext | null> {
-    const normalized = this.normalizeInput(input);
+    const normalized = this.normalizeInput(input, true);
     if (!normalized) return null;
+    return this.resolveSingleScope(normalized);
+  }
 
+  async resolveUniqueForUser(input: ResolveUniqueBusinessScopeInput): Promise<BusinessScopeContext | null> {
+    const normalized = this.normalizeInput(input, false);
+    if (!normalized) return null;
+    return this.resolveSingleScope(normalized);
+  }
+
+  private async resolveSingleScope(input: NormalizedResolveBusinessScopeInput): Promise<BusinessScopeContext | null> {
     let rows: unknown;
     try {
       rows = await this.dataSource.query(
@@ -58,7 +73,7 @@ export class BusinessScopeResolverService {
           AND scope_module.scope_id = scope.id
           AND scope_module.module_code = $4
          WHERE scope.tenant_id = $1
-           AND scope.id = $3::uuid
+           AND ($3::uuid IS NULL OR scope.id = $3::uuid)
            AND scope.status = 'enabled'
            AND scope.is_deleted = false
            AND tenant.status = 1
@@ -73,14 +88,21 @@ export class BusinessScopeResolverService {
            AND scope_module.is_deleted = false
          ORDER BY scope.id
          FETCH FIRST 2 ROWS ONLY`,
-        [normalized.tenantId, normalized.userId, normalized.scopeId, normalized.requiredModuleCode]
+        [input.tenantId, input.userId, input.scopeId, input.requiredModuleCode]
       );
     } catch {
       return null;
     }
 
-    const row = this.readSingleCoreRow(rows, normalized);
+    const row = this.readSingleCoreRow(rows, input);
     if (!row) return null;
+    return this.resolveContext(row, input.userId);
+  }
+
+  private async resolveContext(
+    row: ResolvedCoreScopeRow,
+    userId: string
+  ): Promise<BusinessScopeContext | null> {
     if (row.scopeKind === "enterprise") {
       return { tenantId: row.tenantId, scopeId: row.scopeId, kind: "enterprise", parkId: null };
     }
@@ -91,7 +113,7 @@ export class BusinessScopeResolverService {
       park = await this.parkAdapter.resolveParkScope({
         tenantId: row.tenantId,
         scopeId: row.scopeId,
-        userId: normalized.userId
+        userId
       });
     } catch {
       return null;
@@ -115,11 +137,16 @@ export class BusinessScopeResolverService {
     };
   }
 
-  private normalizeInput(input: ResolveBusinessScopeInput): ResolveBusinessScopeInput | null {
+  private normalizeInput(
+    input: ResolveBusinessScopeInput | ResolveUniqueBusinessScopeInput,
+    scopeRequired: boolean
+  ): NormalizedResolveBusinessScopeInput | null {
     if (!input || typeof input !== "object") return null;
+    if (!scopeRequired && "scopeId" in input) return null;
     const tenantId = typeof input.tenantId === "string" ? input.tenantId.trim() : "";
     const userId = typeof input.userId === "string" ? input.userId.trim().toLowerCase() : "";
-    const scopeId = typeof input.scopeId === "string" ? input.scopeId.trim().toLowerCase() : "";
+    const rawScopeId = "scopeId" in input ? input.scopeId : undefined;
+    const scopeId = typeof rawScopeId === "string" ? rawScopeId.trim().toLowerCase() : null;
     const requiredModuleCode =
       typeof input.requiredModuleCode === "string" ? input.requiredModuleCode.trim() : "";
     if (
@@ -128,8 +155,9 @@ export class BusinessScopeResolverService {
       || tenantId !== input.tenantId
       || !UUID_PATTERN.test(userId)
       || userId !== input.userId.trim().toLowerCase()
-      || !UUID_PATTERN.test(scopeId)
-      || scopeId !== input.scopeId.trim().toLowerCase()
+      || (scopeRequired && (scopeId === null || !UUID_PATTERN.test(scopeId)))
+      || (!scopeRequired && scopeId !== null)
+      || (scopeId !== null && scopeId !== rawScopeId?.trim().toLowerCase())
       || !MODULE_CODE_PATTERN.test(requiredModuleCode)
       || requiredModuleCode !== input.requiredModuleCode
     ) {
@@ -140,7 +168,7 @@ export class BusinessScopeResolverService {
 
   private readSingleCoreRow(
     value: unknown,
-    expected: Pick<ResolveBusinessScopeInput, "tenantId" | "scopeId">
+    expected: Pick<NormalizedResolveBusinessScopeInput, "tenantId" | "scopeId">
   ): ResolvedCoreScopeRow | null {
     if (!Array.isArray(value) || value.length !== 1) return null;
     const row: unknown = value[0];
@@ -153,7 +181,7 @@ export class BusinessScopeResolverService {
       || record.tenantId !== expected.tenantId
       || typeof record.scopeId !== "string"
       || !UUID_PATTERN.test(record.scopeId)
-      || record.scopeId.toLowerCase() !== expected.scopeId
+      || (expected.scopeId !== null && record.scopeId.toLowerCase() !== expected.scopeId)
       || (record.scopeKind !== "enterprise" && record.scopeKind !== "park")
     ) {
       return null;
@@ -164,4 +192,11 @@ export class BusinessScopeResolverService {
       scopeKind: record.scopeKind
     };
   }
+}
+
+interface NormalizedResolveBusinessScopeInput {
+  tenantId: string;
+  userId: string;
+  scopeId: string | null;
+  requiredModuleCode: string;
 }
