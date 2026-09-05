@@ -69,6 +69,7 @@ const auditService = {
   async recordOperation(): Promise<void> {}
 };
 const businessAccessService = {
+  assertCompositionBizType(): void {},
   assertRoutePermission(): void {},
   assertPendingFileOwner(): void {},
   async assertReferenceAccess(): Promise<void> {}
