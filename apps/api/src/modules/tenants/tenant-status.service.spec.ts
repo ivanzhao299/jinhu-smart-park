@@ -8,7 +8,8 @@ import { DataSource, type Repository } from "typeorm";
 import { AuthModule } from "../auth/auth.module";
 import { AuthService } from "../auth/auth.service";
 import { JwtStrategy } from "../auth/strategies/jwt.strategy";
-import { UsersService } from "../users/users.service";
+import { IdentityDirectoryService } from "../users/identity-directory.service";
+import { IdentityDirectoryModule } from "../users/identity-directory.module";
 import { TenantEntity } from "./entities/tenant.entity";
 import { TenantStatusModule } from "./tenant-status.module";
 import { TenantStatusService } from "./tenant-status.service";
@@ -69,11 +70,14 @@ test("repository failure remains a failure and the management facade delegates t
 });
 
 test("Auth and JWT inject the leaf service while the tenant management facade keeps it shared", () => {
+  assert.strictEqual(Reflect.getMetadata("design:paramtypes", AuthService)[0], IdentityDirectoryService);
+  assert.strictEqual(Reflect.getMetadata("design:paramtypes", JwtStrategy)[2], IdentityDirectoryService);
   assert.strictEqual(Reflect.getMetadata("design:paramtypes", AuthService)[4], TenantStatusService);
   assert.strictEqual(Reflect.getMetadata("design:paramtypes", JwtStrategy)[1], TenantStatusService);
   assert.strictEqual(Reflect.getMetadata("design:paramtypes", TenantsService)[4], TenantStatusService);
   const authImports: unknown[] = Reflect.getMetadata("imports", AuthModule);
   assert.ok(authImports.includes(TenantStatusModule));
+  assert.ok(authImports.includes(IdentityDirectoryModule));
   assert.ok(!authImports.includes(TenantsModule));
   assert.ok(Reflect.getMetadata("imports", TenantsModule).includes(TenantStatusModule));
 });
@@ -107,7 +111,7 @@ test("real leaf module and JWT provider start without tenant management or park 
     providers: [
       JwtStrategy,
       { provide: ConfigService, useValue: new ConfigService({ JWT_SECRET: "synthetic-test-only-secret" }) },
-      { provide: UsersService, useValue: { resolveJwtPrincipal: async () => principal } }
+      { provide: IdentityDirectoryService, useValue: { resolveJwtPrincipal: async () => principal } }
     ]
   })
   class SyntheticJwtRoot {}

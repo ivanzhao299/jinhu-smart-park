@@ -11,6 +11,7 @@ import { UserParkEntity } from "./entities/user-park.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { UserRoleCandidatesQueryDto } from "./dto/user-role-candidates-query.dto";
 import { AssignParkRolesDto } from "./dto/assign-roles.dto";
+import { IdentityDirectoryService } from "./identity-directory.service";
 
 const scope = { tenantId: "tenant-current", parkId: "park-current" };
 const actor = {
@@ -85,12 +86,14 @@ function createService(overrides: {
   userParkRepository?: unknown;
   parksRepository?: unknown;
 } = {}) {
+  const usersRepository = overrides.usersRepository ?? { findOne: async () => target };
   return new UsersService(
-    (overrides.usersRepository ?? { findOne: async () => target }) as never,
+    usersRepository as never,
     (overrides.rolesRepository ?? { find: async () => [] }) as never,
     (overrides.userRoleRepository ?? { find: async () => [] }) as never,
     {} as never, (overrides.userParkRepository ?? {}) as never, (overrides.parksRepository ?? {}) as never, {} as never, {} as never, {} as never, {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService(usersRepository as never)
   );
 }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { NotFoundException } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
+import { IdentityDirectoryService } from "./identity-directory.service";
 import { UsersService } from "./users.service";
 
 const TENANT_ID = "10000001";
@@ -9,8 +10,9 @@ const PARK_ID = "20000001";
 const USER_ID = "00000000-0000-0000-0000-000000000001";
 
 function createService(query: (sql: string, parameters: unknown[]) => Promise<unknown[]>): UsersService {
+  const usersRepository = { query };
   return new UsersService(
-    { query } as never,
+    usersRepository as never,
     {} as never,
     {} as never,
     {} as never,
@@ -20,7 +22,8 @@ function createService(query: (sql: string, parameters: unknown[]) => Promise<un
     {} as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService(usersRepository as never)
   );
 }
 

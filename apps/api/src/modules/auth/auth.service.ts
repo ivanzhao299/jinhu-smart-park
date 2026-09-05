@@ -24,7 +24,7 @@ import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
 import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
 import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
-import { UsersService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/users.service";
+import { IdentityDirectoryService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/identity-directory.service";
 import { UserEntity } from "../users/entities/user.entity";
 import { isProtectedTenantSuperRole } from "../roles/protected-super-role";
 
@@ -104,7 +104,7 @@ export interface LoginRequestMeta {
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
-    private readonly usersService: UsersService,
+    private readonly usersService: IdentityDirectoryService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
