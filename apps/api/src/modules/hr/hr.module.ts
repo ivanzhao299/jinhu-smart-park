@@ -12,7 +12,7 @@ import { HrPayrollHistoryService } from "./hr-payroll-history.service";
 import { HrService } from "./hr.service";
 import { HrRecruitmentController } from "./hr-recruitment.controller";
 import { HrRecruitmentService } from "./hr-recruitment.service";
-import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
+import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { HrLifecycleController } from "./hr-lifecycle.controller";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import { HrTrainingController } from "./hr-training.controller";

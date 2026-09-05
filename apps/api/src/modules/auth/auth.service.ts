@@ -9,7 +9,7 @@ import { SYSTEM_PERMISSIONS, type AuthUser } from "@jinhu/shared";
 import type { JwtPrincipal, JwtSessionClaims } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { LoginDto } from "./dto/login.dto";
-import { TenantsService } from "../tenants/tenants.service";
+import { TenantStatusService } from "../tenants/tenant-status.service";
 import type { MobileLoginDto } from "./dto/mobile-login.dto";
 import type { MobileSendCodeDto } from "./dto/mobile-send-code.dto";
 import type { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -108,7 +108,7 @@ export class AuthService implements OnModuleInit {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
-    private readonly tenantsService: TenantsService,
+    private readonly tenantsService: TenantStatusService,
     @InjectRepository(UserIdentityEntity)
     private readonly identityRepository: Repository<UserIdentityEntity>,
     @InjectRepository(AuthRefreshTokenEntity)

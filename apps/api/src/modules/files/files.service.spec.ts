@@ -25,6 +25,19 @@ test("HR employee document projection omits storage, hashes and audit internals"
   ].sort());
 });
 
+test("direct upload honors the composed file business boundary before storage",async()=>{
+ let repositoryCalls=0,storageCalls=0;
+ const service=new FilesService(
+  {count:async()=>{repositoryCalls+=1;return 0;}} as never,
+  {save:async()=>{storageCalls+=1;return {};}} as never,
+  {} as never,
+  {assertCompositionBizType:()=>{throw new ForbiddenException("Only HR protected file types are available in the HR file module");}} as never
+ );
+ await assert.rejects(service.upload(scope,actor.sub,{biz_type:"generic_contract"} as never,{originalname:"x.pdf",mimetype:"application/pdf",size:1,buffer:Buffer.from("x")}),ForbiddenException);
+ assert.equal(repositoryCalls,0);
+ assert.equal(storageCalls,0);
+});
+
 test("pending purchase receipt listing is restricted to the uploader", async () => {
   let where: Record<string, unknown> | undefined;
   const accessCalls: unknown[][] = [];
@@ -38,6 +51,7 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
     {} as never,
     {} as never,
     {
+      assertCompositionBizType: () => undefined,
       assertRoutePermission: () => undefined,
       isProtectedBizType: () => true,
       assertReferenceAccess: async (...args: unknown[]) => {
@@ -180,7 +194,7 @@ test("upload persists SHA-256 alongside the legacy MD5 digest", async () => {
       })
     } as never,
     {} as never,
-    {} as never
+    { assertCompositionBizType: () => undefined } as never
   );
   const payload = Buffer.from("identity-evidence");
   await service.upload(
@@ -222,6 +236,7 @@ test("identity downloads use the download-specific authorization path before ret
     } as never,
     {} as never,
     {
+      assertCompositionBizType: () => undefined,
       assertRoutePermission: () => undefined,
       assertPendingFileOwner: () => undefined,
       assertReferenceAccess: async (...args: unknown[]) => {
@@ -245,7 +260,7 @@ test("successful identity download records a protected evidence access audit", a
         audit = input;
       }
     } as never,
-    {} as never
+    { assertCompositionBizType: () => undefined } as never
   );
   await service.recordDownload(
     scope,
