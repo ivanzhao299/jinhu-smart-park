@@ -2,6 +2,12 @@ name: Production Backup Restore Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      retain_verified_backup:
+        description: "Retain hash-verified recovery files on the mounted production data disk; does not authorize import."
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: production-backup-restore-gate
@@ -31,6 +37,7 @@ jobs:
 
       - name: Run Gate-19 on production host
         env:
+          RETAIN_VERIFIED_BACKUP: ${{ inputs.retain_verified_backup && 'yes' || 'no' }}
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
@@ -41,9 +48,10 @@ jobs:
           rsync -az \
             -e "ssh $SSH_OPTS" \
             scripts/production-backup-restore-gate19.sh \
-            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/production-backup-restore-gate19.sh"
+            scripts/retain-production-gate-backup.mjs \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "cd '$PROD_DEPLOY_PATH' && chmod +x scripts/production-backup-restore-gate19.sh && scripts/production-backup-restore-gate19.sh"
+            "cd '$PROD_DEPLOY_PATH' && chmod +x scripts/production-backup-restore-gate19.sh && RETAIN_VERIFIED_BACKUP='$RETAIN_VERIFIED_BACKUP' scripts/production-backup-restore-gate19.sh"
 
       - name: Collect Gate-19 reports
         if: always()
