@@ -167,6 +167,45 @@ async function addMasterFact(sourcePersonCode: string, sourceMasterId: number) {
   return factId;
 }
 
+async function addDimensionFact(sourcePersonCode: string, sourceDetailId: number) {
+  const factId = uuid();
+  const factMapId = uuid();
+  await dataSource.query(
+    `INSERT INTO legacy_record_map(
+       id,batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,
+       source_row_sha256,target_table,target_id,mapping_status,is_active
+     ) VALUES($1,$2,'yuzhou-v10','dbo.assessmentdetail','sha256:'||$3,$3,$4,
+       'hr_performance_legacy_dimension_result',$5,'verified',true)`,
+    [
+      factMapId,
+      factBatchId,
+      hash(`dimension-identity-${sourceDetailId}`),
+      hash(`dimension-row-${sourceDetailId}`),
+      factId,
+    ],
+  );
+  await dataSource.query(
+    `INSERT INTO hr_performance_legacy_dimension_result(
+       id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,source_detail_id,
+       source_session_id,source_person_code,source_item_id,source_self_value,
+       source_m_item_value,source_item_value,source_x_item_value,source_c_item_value,
+       source_self_grade,source_ass_grade,source_appraisal,legacy_dimension_profile_id,
+       target_cycle_employee_id,target_template_version_id,target_dimension_id
+     ) VALUES($1,$2,$3,$4,$5,$6,9,$7,71,76,77,78,79,80,'A','A',
+       'Synthetic dimension appraisal',NULL,NULL,NULL,NULL)`,
+    [
+      factId,
+      scope.tenantId,
+      scope.parkId,
+      factBatchId,
+      factMapId,
+      sourceDetailId,
+      sourcePersonCode,
+    ],
+  );
+  return factId;
+}
+
 before(async () => {
   if (!enabled) return;
   dataSource = new DataSource({
@@ -246,7 +285,13 @@ before(async () => {
     );
     CREATE TABLE hr_performance_legacy_dimension_result(
       id uuid PRIMARY KEY,tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-      migration_batch_id uuid NOT NULL,source_person_code varchar(10),source_session_id integer,
+      migration_batch_id uuid NOT NULL,legacy_record_map_id uuid NOT NULL,
+      source_detail_id integer NOT NULL,source_session_id integer,source_person_code varchar(10),
+      source_item_id integer,source_self_value numeric(18,2),source_m_item_value numeric(18,2),
+      source_item_value numeric(18,2),source_x_item_value numeric(18,2),
+      source_c_item_value numeric(18,2),source_self_grade varchar(12),source_ass_grade varchar(12),
+      source_appraisal varchar(500),legacy_dimension_profile_id uuid,target_cycle_employee_id uuid,
+      target_template_version_id uuid,target_dimension_id uuid,
       UNIQUE(id,tenant_id,park_id)
     );
     CREATE TABLE hr_performance_legacy_master_result(
@@ -361,6 +406,7 @@ before(async () => {
   for (const [index, sourceCode] of sourceCodes.entries()) {
     await addMasterFact(sourceCode, 9000 + index);
   }
+  await addDimensionFact("P-VALID", 7001);
 
   const wrongFact = (await dataSource.query(
     "SELECT id FROM hr_performance_legacy_master_result WHERE source_person_code='P-WRONG'",
@@ -428,6 +474,11 @@ before(async () => {
     ) as Array<{ total: number }>)[0]?.total,
     1,
   );
+
+  // This second dimension fact deliberately arrives after the real 000306
+  // materializer. A resolved master_result identity exists for the same source
+  // person, but this fact has no dimension_result identity of its own.
+  await addDimensionFact("P-VALID", 7002);
 
   // 000306 intentionally writes only in a lab batch. This disposable fixture
   // changes only its visibility state after the guarded materializer succeeds,
@@ -514,6 +565,68 @@ test("team and self scopes narrow through resolved employee identity", { skip: !
   )).total, 0);
 });
 
+test("dimension results cannot borrow master identity and require a verified unique T0 owner for scoped reads", { skip: !enabled }, async () => {
+  const audits: Array<Record<string, unknown>> = [];
+  const service = queryService(audits);
+  const query = { source_session_id: 9, page: 1, page_size: 20 };
+
+  const park = await service.results(
+    scope,
+    actor(uuid(), HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    query,
+  );
+  assert.equal(park.total, 2);
+  assert.deepEqual(park.items.map((item) => item.sourceDetailId), [7001, 7002]);
+
+  const team = await service.results(
+    scope,
+    actor(teamLeaderId, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
+    query,
+  );
+  assert.equal(team.total, 1);
+  assert.equal(team.items[0]?.sourceDetailId, 7001);
+
+  const self = await service.results(
+    scope,
+    actor(selfUserId, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
+    query,
+  );
+  assert.equal(self.total, 1);
+  assert.equal(self.items[0]?.sourceDetailId, 7001);
+
+  const identityKinds = await dataSource.query(
+    `SELECT fact.source_detail_id "sourceDetailId",resolution.fact_kind "factKind"
+     FROM hr_performance_legacy_dimension_result fact
+     LEFT JOIN hr_performance_legacy_identity_resolution resolution
+       ON resolution.legacy_dimension_result_id=fact.id
+      AND resolution.fact_kind='dimension_result'
+      AND resolution.person_role='subject'
+     WHERE fact.source_person_code='P-VALID'
+     ORDER BY fact.source_detail_id`,
+  ) as Array<{ sourceDetailId: number; factKind: string | null }>;
+  assert.deepEqual(identityKinds, [
+    { sourceDetailId: 7001, factKind: "dimension_result" },
+    { sourceDetailId: 7002, factKind: null },
+  ]);
+  assert.equal(
+    (await dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_identity_resolution resolution
+       JOIN hr_performance_legacy_master_result fact
+         ON fact.id=resolution.legacy_master_result_id
+       WHERE resolution.fact_kind='master_result'
+         AND resolution.person_role='subject'
+         AND resolution.person_resolution_status='resolved'
+         AND fact.source_person_code='P-VALID'`,
+    ) as Array<{ total: number }>)[0]?.total,
+    1,
+  );
+  assert.deepEqual(
+    audits.map((entry) => (entry.afterJson as { itemCount: number }).itemCount),
+    [2, 1, 1],
+  );
+});
+
 test("unresolved inactive ambiguous deleted orgless and foreign facts remain invisible", { skip: !enabled }, async () => {
   const service = queryService();
   for (const sourcePersonCode of [
@@ -557,6 +670,21 @@ test("an unverified T0 owner cannot supply person labels or team/self authority"
       ass_session: "Synthetic period", department_prefix: "TEAM", page: 1, page_size: 20,
     });
     assert.equal(assessment.total, 0);
+    assert.equal((await service.results(
+      scope,
+      actor(teamLeaderId, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
+      { source_session_id: 9, page: 1, page_size: 20 },
+    )).total, 0);
+    assert.equal((await service.results(
+      scope,
+      actor(selfUserId, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
+      { source_session_id: 9, page: 1, page_size: 20 },
+    )).total, 0);
+    assert.equal((await service.results(
+      scope,
+      parkActor,
+      { source_session_id: 9, page: 1, page_size: 20 },
+    )).total, 2);
     for (const principal of [
       parkActor,
       actor(teamLeaderId, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
@@ -617,4 +745,14 @@ test("a newly ambiguous T0 candidate fails closed without dropping an orphan-pre
   });
   assert.equal(orphan.total, 1);
   assert.equal(orphan.items[0]?.employeeDisplayName, null);
+  assert.equal((await service.results(
+    scope,
+    actor(teamLeaderId, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
+    { source_session_id: 9, page: 1, page_size: 20 },
+  )).total, 0);
+  assert.equal((await service.results(
+    scope,
+    actor(selfUserId, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
+    { source_session_id: 9, page: 1, page_size: 20 },
+  )).total, 0);
 });
