@@ -100,6 +100,7 @@ export class FilesService {
     dto: UploadFileDto,
     file: UploadedFilePayload | undefined
   ): Promise<FileEntity> {
+    this.businessAccessService.assertCompositionBizType(dto.biz_type);
     if (!file) {
       throw new BadRequestException("file is required");
     }
@@ -277,6 +278,7 @@ export class FilesService {
     if (!entity) {
       throw new NotFoundException("File not found");
     }
+    this.businessAccessService.assertCompositionBizType(entity.bizType);
     return entity;
   }
 
@@ -328,6 +330,7 @@ export class FilesService {
   }
 
   async preparePublicBrandLogo(id: string): Promise<DownloadFileResult> {
+    this.businessAccessService.assertCompositionBizType(TENANT_BRAND_LOGO_BIZ_TYPE);
     const file = await this.fileRepository.findOne({
       where: {
         id,
@@ -351,6 +354,7 @@ export class FilesService {
     file: FileEntity,
     requestId: string | null
   ): Promise<void> {
+    this.businessAccessService.assertCompositionBizType(file.bizType);
     if(file.bizType==="hr_employee_document"||file.bizType==="hr_employee_photo"){
       const photo=file.bizType==="hr_employee_photo";
       await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:photo?"hr.employee_photo":"hr.employee_document",action:photo?"下载员工照片":"下载员工档案附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});

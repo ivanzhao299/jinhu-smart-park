@@ -103,6 +103,42 @@ test("HR file atoms cannot enumerate or read non-protected generic files",()=>{
  assert.doesNotThrow(()=>service.assertRoutePermission(hrOnly,"hr_employee_document","read"));
 });
 
+test("HR leaf composition allows protected HR scope checks but rejects cross-scope references",async()=>{
+ const calls:unknown[][]=[];
+ const service=new FileBusinessAccessService(
+  {query:async(_sql:string,params:unknown[])=>{calls.push(params);return params[0]==="employee-self"?[{user_id:"employee-user",is_self:true,is_team:false}]:[];}} as never,
+  {compositionMode:"hr_leaf"} as never,
+  unrestrictedDataScopes
+ );
+ const self=actor([HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_SELF_READ],"employee-user");
+ await assert.doesNotReject(service.assertReferenceAccess(scope,self,"hr_employee_document","employee-self","read"));
+ await assert.rejects(service.assertReferenceAccess(scope,self,"hr_employee_document","employee-foreign","read"),ForbiddenException);
+ assert.deepEqual(calls,[
+  ["employee-self","tenant-1","park-1","employee-user"],
+  ["employee-foreign","tenant-1","park-1","employee-user"]
+ ]);
+});
+
+test("HR leaf composition denies every non-HR route before database or property access",async()=>{
+ let queries=0,propertyCalls=0;
+ const service=new FileBusinessAccessService(
+  {query:async()=>{queries+=1;return [];}} as never,
+  {
+   compositionMode:"hr_leaf",
+   assertAccess:async()=>{propertyCalls+=1;},
+   allowedUnitIds:async()=>{propertyCalls+=1;return null;}
+  } as never,
+  unrestrictedDataScopes
+ );
+ const superActor={...actor([SYSTEM_PERMISSIONS.FILE_READ,SYSTEM_PERMISSIONS.HOUSING_LEASE_READ]),isSuper:true};
+ for(const bizType of [undefined,"generic_contract","housing_lease_signature","floorplan","party_identity_evidence"]){
+  assert.throws(()=>service.assertRoutePermission(superActor,bizType,"read"),ForbiddenException);
+ }
+ await assert.rejects(service.assertReferenceAccess(scope,superActor,"housing_lease_signature","lease-1","read"),ForbiddenException);
+ assert.equal(queries,0);
+ assert.equal(propertyCalls,0);
+});
+
 test("protected file references are resolved inside tenant and park before unit scope", async () => {
   const queries: unknown[][] = [];
   const checkedUnits: string[] = [];
