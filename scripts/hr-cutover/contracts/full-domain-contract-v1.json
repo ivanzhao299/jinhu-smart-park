@@ -69,6 +69,7 @@
       "scripts/load-yuzhou-t2-contracts.sh",
       "scripts/rollback-yuzhou-t2-contracts.sh",
       "scripts/transform-yuzhou-t2-contracts.mjs",
+      "scripts/hr-cutover/t2-contract-semantics.mjs",
       "scripts/extract-yuzhou-t3-attendance-insurance.sh",
       "scripts/load-yuzhou-t3-attendance-insurance.sh",
       "scripts/rollback-yuzhou-t3-attendance-insurance.sh",

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { assembleProductionT2DecisionCandidates as assemble, ProductionT2CandidatesError } from "../hr-cutover/production-t2-decision-candidates.mjs";
 import { projectProductionT2Fields } from "../hr-cutover/production-t2-field-projection.mjs";
+import { T2_CONTRACT_SEMANTIC_FIELDS } from "../hr-cutover/t2-contract-semantics.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, computeProductionImportBusinessIdentityHash as businessHash, computeProductionImportTargetCanonicalHash as targetHash, deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 
@@ -68,6 +69,31 @@ function inventoryEntry(input, row, canonicalSha = null) {
   input.targetInventory.records.push(entry); input.targetInventory.targetTableCounts[row.targetTable]++; return entry;
 }
 const rejects = (input, code) => assert.throws(() => assemble(input), error => error instanceof ProductionT2CandidatesError && error.code === code && error.message === code);
+
+test("raw-shaped legacy contract unblocks renewal and evidence without rewriting provenance", () => {
+  const input = fixture();
+  const source = Object.fromEntries(Object.entries(input.stagedRecords[1].source).filter(([key]) => !T2_CONTRACT_SEMANTIC_FIELDS.includes(key)));
+  Object.assign(source, { confidentialityFlag: "否", nonCompeteFlag: "否", trainingServiceFlag: "否" });
+  input.stagedRecords[1] = record("dbo.compact", source); refresh(input);
+  const before = structuredClone(input), out = assemble(input);
+  assert.deepEqual(input, before); assert.equal(out.countByDisposition.insert, 5); assert.equal(out.countByDisposition.quarantine, 0);
+  const parent = rows(out, tables[1])[0];
+  assert.equal(parent.sourceRowSha256, input.stagedRecords[1].sourceRowSha256);
+  assert.equal(parent.targetFields.contract_term_months, 24);
+  for (const child of [...rows(out, tables[2]), ...rows(out, tables[3])]) {
+    assert.equal(child.candidateDisposition, "insert"); assert.equal(child.dependencyRefs[0].sourceIdentitySha256, parent.sourceIdentitySha256);
+  }
+});
+test("partial and inconsistent semantic claims quarantine parent and preserve blocked children", () => {
+  for (const mutate of [source => { delete source.renewalCountDecision; }, source => { source.derivedContractTermMonths = 25; }]) {
+    const input = fixture(), source = contract(); mutate(source);
+    input.stagedRecords[1] = record("dbo.compact", source); refresh(input);
+    const out = assemble(input);
+    assert.equal(out.records.length, 5); assert.equal(rows(out, tables[1])[0].reasonCode, "T2_SEMANTIC_DECISION_INVALID");
+    assert.equal(rows(out, tables[2])[0].candidateDisposition, "quarantine");
+    assert.equal(rows(out, tables[3]).every(row => row.candidateDisposition === "quarantine"), true);
+  }
+});
 
 test("assembles all four tables with explicit FK dependencies, stable IDs and exact fields", () => {
   const input = fixture(), before = structuredClone(input), out = assemble(input);

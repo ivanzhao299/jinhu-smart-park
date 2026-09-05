@@ -32,6 +32,7 @@ const DRIVER_CONTRACT_PATHS = Object.freeze([
   "scripts/extract-yuzhou-t0.sh", "scripts/transform-yuzhou-t0.mjs", "scripts/load-yuzhou-t0.sh", "scripts/rollback-yuzhou-t0.sh",
   "scripts/extract-yuzhou-t1-employment-events.sh", "scripts/transform-yuzhou-t1-employment-events.mjs", "scripts/load-yuzhou-t1-employment-events.sh", "scripts/rollback-yuzhou-t1-employment-events.sh",
   "scripts/extract-yuzhou-t2-contracts.sh", "scripts/transform-yuzhou-t2-contracts.mjs", "scripts/load-yuzhou-t2-contracts.sh", "scripts/rollback-yuzhou-t2-contracts.sh",
+  "scripts/hr-cutover/t2-contract-semantics.mjs",
   "scripts/extract-yuzhou-t3-attendance-insurance.sh", "scripts/transform-yuzhou-t3-attendance-insurance.mjs", "scripts/load-yuzhou-t3-attendance-insurance.sh", "scripts/rollback-yuzhou-t3-attendance-insurance.sh"
 ]);
 const DEFAULT_TENANT = "10000001", DEFAULT_PARK = "20000001";

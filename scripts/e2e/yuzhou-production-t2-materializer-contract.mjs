@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { materializeProductionT2DecisionCandidates as materialize } from "../hr-cutover/materialize-production-t2-decision-candidates.mjs";
 import { projectProductionT2Fields } from "../hr-cutover/production-t2-field-projection.mjs";
+import { T2_CONTRACT_SEMANTIC_FIELDS } from "../hr-cutover/t2-contract-semantics.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, stableProductionImportCanonicalJson as canonical, computeProductionImportBusinessIdentityHash as businessHash, deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { buildProductionT2ChangeClassifications, T2_RENEWAL_ROUTINE_ID, T2_RENEWAL_ROUTINE_SHA256 } from "../hr-cutover/materialize-production-t2-change-classifications.mjs";
@@ -15,7 +16,7 @@ const hash = value => createHash("sha256").update(value).digest("hex");
 const canonicalHash = value => hash(canonical(value) + "\n");
 const code = "a".repeat(40);
 const options = { currentHead: () => code };
-function fixture(t, { empty = false, classify = true, policyState = "Synthetic active" } = {}) {
+function fixture(t, { empty = false, classify = true, policyState = "Synthetic active", legacy = false, legacyFlag = "否" } = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hr-t2-materializer-test-"))); chmodSync(root, 0o700);
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const staging = join(root, "stage"); mkdirSync(staging, { mode: 0o700 });
@@ -28,6 +29,11 @@ function fixture(t, { empty = false, classify = true, policyState = "Synthetic a
     ["dbo.compact_c", "SYN-C|SYN-E|2026-01-01 00:00:00||", { contractNo: "SYN-C", employeeCode: "SYN-E", startDate: "2026-01-01 00:00:00", endDate: null, signedAt: null, sequenceNo: 1 }],
   ].map(([sourceTable, sourceKey, source]) => ({ sourceTable, sourceKey, source, sourceIdentitySha256: hash(`${sourceTable}\0${sourceKey}`), sourceRowSha256: hash(JSON.stringify(source, Object.keys(source).sort())) }));
   for (const row of staged) if (row.sourceTable === "dbo.compact") {
+    if (legacy) {
+      for (const key of T2_CONTRACT_SEMANTIC_FIELDS) delete row.source[key];
+      Object.assign(row.source, { startDate: "2024-01-31", endDate: "2025-02-28", signedDate: "2024-01-01", continuetimes: "2", contractMonths: "999", totalContractMonths: "888" });
+      Object.assign(row.source, { confidentialityFlag: legacyFlag, nonCompeteFlag: legacyFlag, trainingServiceFlag: legacyFlag });
+    }
     row.source.legacyState = policyState;
     row.sourceRowSha256 = hash(JSON.stringify(row.source, Object.keys(row.source).sort()));
   }
@@ -75,6 +81,23 @@ function fixture(t, { empty = false, classify = true, policyState = "Synthetic a
   return { root, config, path, pkg, write, save: () => write("config.json", config) };
 }
 const reject = (f, code) => assert.throws(() => materialize(f.path, options), error => error.code === code && error.message === code);
+
+test("private raw legacy staging materializes contract and renewal with unchanged source files", t => {
+  for (const legacyFlag of ["否", "是"]) {
+  const f = fixture(t, { legacy: true, legacyFlag });
+  const sourcePath = join(f.config.stagingDir, "contracts.jsonl"), before = readFileSync(sourcePath);
+  const source = JSON.parse(before.toString("utf8")), result = materialize(f.path, options), output = JSON.parse(readFileSync(f.config.outputPath));
+  assert.equal(result.countByDisposition.insert, 3); assert.equal(result.countByDisposition.quarantine, 0);
+  assert.deepEqual(readFileSync(sourcePath), before);
+  const parent = output.records.find(row => row.targetTable === "hr_contract"), child = output.records.find(row => row.targetTable === "hr_contract_change");
+  assert.equal(parent.sourceRowSha256, source.sourceRowSha256); assert.equal(parent.targetFields.legacy_source_row_sha256, source.sourceRowSha256);
+  assert.equal(parent.targetFields.contract_term_months, 13); assert.equal(parent.targetFields.renewal_count, 2);
+  assert.equal(parent.targetFields.source_snapshot.unconfirmedTerm, "999");
+  for (const key of ["confidentiality_agreement", "non_compete_agreement", "training_service_agreement"]) assert.equal(parent.targetFields[key], legacyFlag === "是");
+  assert.equal(child.candidateDisposition, "insert"); assert.equal(child.dependencyRefs[0].sourceIdentitySha256, parent.sourceIdentitySha256);
+  assert.equal(output.productionImport, "HOLD"); assert.equal(output.resolutionEvidence.approvalClaimed, false);
+  }
+});
 
 function attest(pkg, triple = pkg.triple) {
   for (const d of pkg.dictionaries.filter(d => d.items)) d.machineAttestationSha256 = canonicalHash({ triple, trustedRootSha256: pkg.trustedRootSha256, dictionaryCode: d.dictionaryCode, sourceSnapshotSha256: d.sourceSnapshotSha256, items: d.items.map(({ id: _id, ...rest }) => rest) });
