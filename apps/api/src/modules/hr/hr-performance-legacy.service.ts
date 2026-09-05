@@ -918,6 +918,7 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyResultQueryDto,
   ) {
+    if (actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId) return null;
     const access = this.resultAccess(actor);
     if (access === "none") return null;
     const parameters: unknown[] = [scope.tenantId, scope.parkId];

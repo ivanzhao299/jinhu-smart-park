@@ -175,6 +175,8 @@ export function HrPerformanceLegacyAssessmentValuePanel() {
       <p className={styles.note}>
         对应旧过程 u_assessmentvalue。最后评定分严格按项目总分、考勤加减分、奖惩加减分相加；
         主管附加分仅展示、不计入该旧公式。旧 grade 字段尚无目录证据，因此不以 assgrade 猜测替代。
+        当前展示姓名来自已映射的现代员工档案，部门前缀基于当前主组织编码，仅用于现代授权和筛选；
+        尚不宣称等同于历史 person.name / person.department 原值。
       </p>
       <form className={styles.search} onSubmit={submitQuery} noValidate>
         <label className="form-field">

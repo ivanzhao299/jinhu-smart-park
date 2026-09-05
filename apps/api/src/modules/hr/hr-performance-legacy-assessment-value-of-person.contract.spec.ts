@@ -35,13 +35,15 @@ function actor(...permissions: string[]): JwtPrincipal {
   };
 }
 
-function harness(resultRow: Record<string, unknown> = row) {
+function harness(resultRow: Record<string, unknown> | null = row) {
   const calls: Array<{ sql: string; params: unknown[] }> = [];
   const audits: Array<Record<string, unknown>> = [];
   const dataSource = {
     query: async (sql: string, params: unknown[]) => {
       calls.push({ sql, params });
-      return /count\(\*\)::int total/u.test(sql) ? [{ total: "1" }] : [resultRow];
+      return /count\(\*\)::int total/u.test(sql)
+        ? [{ total: resultRow === null ? "0" : "1" }]
+        : resultRow === null ? [] : [resultRow];
     },
   } as unknown as DataSource;
   const audit = {
@@ -205,6 +207,50 @@ test("u_assessmentvalueofperson preserves park team self and fails closed", asyn
     ),
     /audit unavailable/u,
   );
+});
+
+test("u_assessmentvalueofperson audits an authorized empty result and closes on audit failure", async () => {
+  const empty = harness(null);
+  assert.deepEqual(
+    await empty.service.assessmentValueOfPersonQuery(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+      query,
+    ),
+    { items: [], total: 0, page: 2, page_size: 25 },
+  );
+  assert.equal(empty.calls.length, 2);
+  assert.deepEqual(
+    (empty.audits[0] as { afterJson: Record<string, unknown> }).afterJson,
+    { fieldGroups: ["legacy_projection"], projection: "park", itemCount: 0 },
+  );
+
+  const auditFailure = harness(null);
+  (auditFailure.service as unknown as { auditService: { recordOperationRequired: () => Promise<never> } })
+    .auditService = { recordOperationRequired: async () => { throw new Error("audit unavailable"); } };
+  await assert.rejects(
+    auditFailure.service.assessmentValueOfPersonQuery(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+      query,
+    ),
+    /audit unavailable/u,
+  );
+});
+
+test("u_assessmentvalueofperson rejects a direct-call actor from another tenant or park", async () => {
+  for (const principal of [
+    { ...actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), tenantId: "tenant-2" },
+    { ...actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), parkId: "park-2" },
+  ]) {
+    const foreign = harness();
+    assert.deepEqual(
+      await foreign.service.assessmentValueOfPersonQuery(scope, principal, query),
+      { items: [], total: 0, page: 2, page_size: 25 },
+    );
+    assert.equal(foreign.calls.length, 0);
+    assert.equal(foreign.audits.length, 0);
+  }
 });
 
 test("u_assessmentvalueofperson controller route is read only", () => {

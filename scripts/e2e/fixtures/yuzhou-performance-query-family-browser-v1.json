@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "technicalEvidenceOnly": true,
+  "session": {
+    "token": "synthetic-query-browser-token",
+    "authorizedUser": {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "username": "synthetic-query-reviewer",
+      "real_name": "合成技术验证员",
+      "mobile": null,
+      "email": null,
+      "tenant_id": "20000000-0000-4000-8000-000000000001",
+      "park_id": "30000000-0000-4000-8000-000000000001",
+      "park_name": "合成园区",
+      "org_id": "40000000-0000-4000-8000-000000000001",
+      "org_name": "合成组织",
+      "roles": [
+        {
+          "role_code": "SYNTHETIC_HR_REVIEWER",
+          "role_name": "合成绩效复核员"
+        }
+      ],
+      "permissions": [
+        "hr:performance",
+        "hr:performance:read"
+      ],
+      "data_scope": "park",
+      "enabled_modules": [
+        {
+          "module_code": "hr",
+          "module_name": "人力资源",
+          "module_group": "synthetic",
+          "enabled": true
+        }
+      ],
+      "menus": [
+        {
+          "label": "人力资源管理",
+          "module": "hr",
+          "children": [
+            {
+              "label": "绩效考核",
+              "href": "/hr/performance",
+              "permission": "hr:performance",
+              "module": "hr"
+            }
+          ]
+        }
+      ],
+      "is_super": false
+    }
+  },
+  "queries": {
+    "assessmentValue": {
+      "assSession": "合成周期-2026",
+      "departmentPrefix": "D-SYN"
+    },
+    "assessmentValueOfPerson": {
+      "sourcePersonCode": "P-SYN-01"
+    },
+    "webAssQuery": {
+      "assSession": "合成周期-2026",
+      "personLikeEmpty": "P-SYN-%",
+      "personLikeResult": "P-SYN-_",
+      "rightScopePrefix": "D-SYN",
+      "itemValueMin": "60",
+      "itemValueMax": "100"
+    }
+  },
+  "rows": {
+    "assessmentValue": {
+      "sourcePersonCode": "P-SYN-01",
+      "employeeDisplayName": "合成员工甲",
+      "unresolvedLegacyGrade": null,
+      "sourceItemValue": "82.00",
+      "sourceMasterValue": null,
+      "sourceTimekeepValue": "1.00",
+      "sourceBonusValue": "2.00",
+      "legacyLastValueWithoutMaster": "85.00",
+      "sourceAppraisal": "合成评定"
+    },
+    "assessmentValuePageTwo": {
+      "sourcePersonCode": "P-SYN-02",
+      "employeeDisplayName": "合成员工乙",
+      "unresolvedLegacyGrade": null,
+      "sourceItemValue": "78.00",
+      "sourceMasterValue": "3.00",
+      "sourceTimekeepValue": null,
+      "sourceBonusValue": "1.00",
+      "legacyLastValueWithoutMaster": null,
+      "sourceAppraisal": null
+    },
+    "assessmentValueOfPerson": {
+      "compatibleLegacySessionText": "合成周期-2026",
+      "unresolvedLegacyGrade": null,
+      "sourceItemValue": "82.00",
+      "sourceMasterValue": null,
+      "sourceTimekeepValue": "1.00",
+      "sourceBonusValue": "2.00",
+      "legacyLastValueWithoutMaster": "85.00",
+      "sourceAppraisal": "合成评定"
+    },
+    "webAssQuery": {
+      "sourcePersonCode": "P-SYN-01",
+      "employeeDisplayName": "合成员工甲",
+      "sourceSelfGrade": "SYN-A",
+      "sourceAssGrade": null,
+      "sourceItemValue": "82.00",
+      "sourceTotalValue": "85.00"
+    }
+  }
+}
