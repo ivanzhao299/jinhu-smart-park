@@ -156,6 +156,40 @@ assert.equal(quarantinedEvent.targetVersionAfter, undefined);
 assert.equal(quarantinedEvent.expectedTargetVersionBefore, undefined);
 assert.equal(quarantinedEvent.targetId, undefined);
 
+// Orphan source rows remain accounted for without inventing a target parent.
+for (const targetTable of ["hr_contract_change", "hr_employment_event"]) {
+  const orphanDecisions = structuredClone(decisionsContent);
+  const orphan = orphanDecisions.records.find(row => row.targetTable === targetTable);
+  Object.assign(orphan, {
+    disposition: "quarantine", targetFields: {}, dependencyRefs: [],
+    decisionAttestationSha256: sha("d"),
+    quarantine: { reasonCode: "SOURCE_PARENT_MISSING", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: sha("c"), keyReferenceSha256: sha("e") },
+  });
+  const attempt = () => generateProductionImportPayloads({ ...input, decisionsArtifact: envelope(orphanDecisions) });
+  const result = attempt();
+  const planned = result.planPhases.flatMap(phase => phase.records).find(row => row.plannedTargetTable === targetTable);
+  assert.equal(result.planPhases.flatMap(phase => phase.records).length, 16);
+  assert.equal(planned.disposition, "quarantine");
+  assert.equal(planned.targetId, undefined);
+  assert.deepEqual(planned.dependencyRefs, []);
+  const orphanStaging = envelope({ ...stagingContent, records: stagingContent.records.filter(row => row.targetTable === targetTable) });
+  const orphanOnly = generateProductionImportPayloads({ ...input, stagingArtifact: orphanStaging, decisionsArtifact: envelope({
+    ...orphanDecisions, stagingArtifactSha256: orphanStaging.artifactSha256, records: [orphan],
+  }) });
+  assert.equal(orphanOnly.planPhases.flatMap(phase => phase.records).length, 1, "no parent source or target is manufactured");
+  const validRef = targetTable === "hr_contract_change" ? dep("contract", "T2", "6", "hr_contract") : dep("employee", "T0", "3", "hr_employee");
+  orphan.dependencyRefs = [{ ...validRef, role: "invented_parent" }];
+  assert.throws(attempt, error => error.code === "PRODUCTION_IMPORT_DEPENDENCY_INVALID");
+  orphan.dependencyRefs = [{ ...validRef, sourceIdentitySha256: sha("9") }];
+  assert.throws(attempt, error => error.code === "PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED");
+  orphan.dependencyRefs = [];
+  delete orphan.decisionAttestationSha256;
+  assert.throws(attempt, error => error.code === "PRODUCTION_IMPORT_DECISION_REQUIRED");
+  Object.assign(orphan, decisionsContent.records.find(row => row.targetTable === targetTable), { dependencyRefs: [] });
+  delete orphan.quarantine;
+  assert.throws(attempt, error => error.code === "PRODUCTION_IMPORT_DEPENDENCY_REQUIRED");
+}
+
 const expectCode = (mutate, code) => {
   assert.throws(() => generateProductionImportPayloads(mutate(structuredClone(input))), error => error instanceof ProductionImportPayloadGenerationError && error.code === code);
 };

@@ -213,7 +213,9 @@ function dependencyProjection(decision, rule, generatedBySource, model) {
     refsByRole.set(ref.role, ref);
     if (resolved.targetId) derivedFields[spec.column] = resolved.targetId;
   }
-  for (const spec of rule.foreignKeys) if (spec.required && !refsByRole.has(spec.dependencyRole)) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${decision.targetTable}.${spec.dependencyRole}`);
+  // Quarantine preserves unresolved source records without creating a business target.
+  // Supplied references are still checked above; only absent references are permitted.
+  for (const spec of rule.foreignKeys) if (decision.disposition !== "quarantine" && spec.required && !refsByRole.has(spec.dependencyRole)) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${decision.targetTable}.${spec.dependencyRole}`);
   if ([...refsByRole.keys()].some(role => !rule.foreignKeys.some(spec => spec.dependencyRole === role))) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${decision.targetTable} undeclared role`);
   return { dependencyRefs: structuredClone(decision.dependencyRefs), derivedFields };
 }

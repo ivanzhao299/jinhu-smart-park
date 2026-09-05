@@ -885,6 +885,53 @@ test("quarantine retains planned target table without claiming an actual target"
   assert.equal(row.targetTable, undefined);
 });
 
+test("orphan quarantine permits absent parents but still rejects invalid supplied references and missing attestations", () => {
+  for (const table of ["hr_contract_change", "hr_employment_event"]) {
+    const { plan } = v2Fixture();
+    const row = findRecord(plan, table);
+    const validRef = structuredClone(row.dependencyRefs[0]);
+    row.disposition = "quarantine";
+    row.dependencyRefs = [];
+    for (const key of ["targetTable", "targetId", "businessIdentitySha256", "expectedTargetAfterSha256", "targetVersionAfter"]) delete row[key];
+    row.decisionAttestationSha256 = H("orphan-decision");
+    row.quarantine = { reasonCode: "SOURCE_PARENT_MISSING", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: H("ciphertext"), keyReferenceSha256: H("key") };
+    reseal(plan);
+    assert.doesNotThrow(() => validateSealedProductionImportPlan(plan, { now: NOW }));
+    for (const [refs, code] of [
+      [[{ ...validRef, role: "invented_parent" }], "PRODUCTION_IMPORT_DEPENDENCY_INVALID"],
+      [[{ ...validRef, sourceIdentitySha256: H("missing-parent") }], "PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED"],
+      [[validRef, validRef], "PRODUCTION_IMPORT_DEPENDENCY_INVALID"],
+    ]) {
+      row.dependencyRefs = refs;
+      reseal(plan);
+      assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === code);
+    }
+    row.dependencyRefs = [];
+    delete row.decisionAttestationSha256;
+    reseal(plan);
+    assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_DECISION_REQUIRED");
+  }
+});
+
+test("quarantined contract may retain only its known employee without enabling dependent business writes", () => {
+  const { plan } = v2Fixture();
+  for (const table of ["hr_contract", "hr_contract_change", "hr_contract_legacy_evidence"]) {
+    const row = findRecord(plan, table);
+    row.disposition = "quarantine";
+    if (table === "hr_contract") row.dependencyRefs = row.dependencyRefs.filter(reference => reference.role === "employee");
+    for (const key of ["targetTable", "targetId", "businessIdentitySha256", "expectedTargetAfterSha256", "targetVersionAfter"]) delete row[key];
+    row.decisionAttestationSha256 = H("partial-decision");
+    row.quarantine = { reasonCode: "SOURCE_PARENT_MISSING", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: H("ciphertext"), keyReferenceSha256: H("key") };
+  }
+  reseal(plan);
+  assert.doesNotThrow(() => validateSealedProductionImportPlan(plan, { now: NOW }));
+  const { plan: active } = v2Fixture();
+  const activeContract = findRecord(active, "hr_contract");
+  activeContract.dependencyRefs = activeContract.dependencyRefs.filter(reference => reference.role === "employee");
+  reseal(active);
+  assert.throws(() => validateSealedProductionImportPlan(active, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_DEPENDENCY_REQUIRED");
+});
+
 test("target scope and authorization scope are inseparable", () => {
   const { plan } = v2Fixture();
   plan.targetScope.parkId = "another-park";
