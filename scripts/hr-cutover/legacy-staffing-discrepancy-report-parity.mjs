@@ -13,7 +13,7 @@ const EXPECTED_GAPS = Object.freeze([
   "STAFFING_ROW_LEVEL_PROJECTION_MISSING",
   "STAFFING_LEGACY_REALPERSONS_SEMANTICS_UNRESOLVED",
   "STAFFING_BRANCH_SCOPE_ASYMMETRY_UNRESOLVED",
-  "STAFFING_PRODUCTION_HEADCOUNT_LIMIT_NOT_MATERIALIZED",
+  "STAFFING_PRODUCTION_HEADCOUNT_RUNTIME_NOT_VERIFIED",
   "STAFFING_MISSING_DEPARTMENT_LABEL_PROJECTION_MISSING",
 ]);
 const EXPECTED_EVIDENCE = Object.freeze({
@@ -121,7 +121,7 @@ function assertContract(contract) {
   if (!object(contract)
     || contract.formatVersion !== 1
     || contract.contractKind !== "yuzhou_hr_legacy_routine_semantic_parity"
-    || contract.contractVersion !== "staffing-discrepancy-report-gap-1.0.0"
+    || contract.contractVersion !== "staffing-discrepancy-report-gap-1.1.0"
     || contract.compatibilityScope !== "u_job_r_source_bound_gap_only"
     || contract.productionImport !== "HOLD"
     || contract.gapAnalysis?.status !== "GAP_CONFIRMED"
@@ -246,8 +246,10 @@ export function verifyLegacyStaffingDiscrepancyReportParity({ contract, fixture,
     || !/source'->>'headcountLimit/u.test(labLoader)) {
     fail("STAFFING_PARITY_T0_SOURCE_BINDING_DRIFT", "lab headcount materialization");
   }
-  if (!/headcount_limit:\s*null/u.test(productionMaterializer)) {
-    fail("STAFFING_PARITY_GAP_CLOSED_OR_DRIFTED", "production headcount materialization changed; re-review required");
+  if (!/headcount_limit:\s*headcount\.value/u.test(productionMaterializer)
+    || !/parseLegacyPositionHeadcount\(row\.source\.headcountLimit\)/u.test(productionMaterializer)
+    || !/POSITION_HEADCOUNT_INVALID/u.test(productionMaterializer)) {
+    fail("STAFFING_PARITY_T0_SOURCE_BINDING_DRIFT", "reviewed production headcount candidate mapping");
   }
 
   const methodStart = service.indexOf("async workforceDecisionSnapshot");

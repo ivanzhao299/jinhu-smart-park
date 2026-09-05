@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateProductionT0DecisionInventory } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { parseLegacyPositionHeadcount, validateProductionT0DecisionInventory } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL } from "../hr-cutover/production-import-target-model.mjs";
 
 const triple = { codeSha: "a".repeat(40), sourceSnapshotHash: "b".repeat(64), mappingContractHash: "c".repeat(64) };
@@ -16,6 +16,15 @@ function inventory(full = true) {
     ...(full ? { sourceManifestSha256: "2".repeat(64), triple: clone(triple) } : {}) };
 }
 const rejects = (value, expected = triple) => assert.throws(() => validateProductionT0DecisionInventory(value, expected), { code: "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID" });
+
+test("legacy staffing limits preserve int4 values, zero and null without coercing invalid input", () => {
+  for (const [source, expected] of [[0, 0], [7, 7], [" 12 ", 12], ["+8", 8], [-1, -1], ["-2147483648", -2147483648], [2147483647, 2147483647], [null, null], [undefined, null], ["", null], ["  ", null]]) {
+    assert.deepEqual(parseLegacyPositionHeadcount(source), { value: expected, valid: true });
+  }
+  for (const source of [true, false, [], {}, "null", "1.2", 1.5, "1e2", "0x10", "unknown", 2147483648, -2147483649, Infinity, NaN]) {
+    assert.deepEqual(parseLegacyPositionHeadcount(source), { value: null, valid: false });
+  }
+});
 
 test("full inventory validates all tables then exposes only T0 lookup, preserving full provenance", () => {
   const original = inventory();

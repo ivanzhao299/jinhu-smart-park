@@ -32,7 +32,7 @@
     },
     "currentHierarchyMaterializer": {
       "path": "scripts/hr-cutover/materialize-production-t0-decision-candidates.mjs",
-      "sha256": "02bd9a23e2b8a4f421babdabfb5ba1d5867df79bbadfb61855f44006c2d86ef6",
+      "sha256": "4e73ecfa1c29933b74739d41b00b4df706d1aebc38b8c48c082ab9cfaea22561",
       "requiredTokens": [
         "candidateCode.length < code.length && code.startsWith(candidateCode)",
         "derivedField, targetId",

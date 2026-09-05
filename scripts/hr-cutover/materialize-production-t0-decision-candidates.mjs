@@ -103,6 +103,14 @@ function optionalDate(value) {
   return normalized === "" ? { value: null, valid: true } : { value: normalized, valid: validDate(normalized) };
 }
 
+export function parseLegacyPositionHeadcount(value) {
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return { value: null, valid: true };
+  const numeric = typeof value === "number" ? value
+    : typeof value === "string" && /^[+-]?[0-9]+$/u.test(value.trim()) ? Number(value.trim()) : NaN;
+  if (!Number.isSafeInteger(numeric) || numeric < -2147483648 || numeric > 2147483647) return { value: null, valid: false };
+  return { value: numeric, valid: true };
+}
+
 function readStage(stagingDir, triple) {
   const manifest = readJson(privateFile(resolve(stagingDir, "manifest.json"), "manifest"), "PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID");
   if (!plain(manifest) || manifest.formatVersion !== 1 || !plain(manifest.domains)) fail("PRODUCTION_IMPORT_T0_DECISION_MANIFEST_INVALID", "manifest");
@@ -229,6 +237,8 @@ function candidate(row, fields, dependencies, scope, inventory, disposition = "i
   result.expectedTargetId = existing.targetId;
   result.expectedTargetVersion = existing.targetVersion;
   result.expectedTargetCanonicalSha256 = existing.targetCanonicalSha256;
+  // Matching target bytes cannot resolve a rejected source value or blocked dependency.
+  if (disposition === "quarantine") return result;
   if (existing.targetCanonicalSha256 === canonicalSha256) {
     result.candidateDisposition = "skip_exact";
     return result;
@@ -278,9 +288,10 @@ function buildCandidates(stage, scope, inventory, jobState) {
     if (positionsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
     const name = text(row.source.positionName);
     const org = byCode.get(text(row.source.departmentCode)) ?? root;
-    const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: null, status: "enabled", remark: null };
+    const headcount = parseLegacyPositionHeadcount(row.source.headcountLimit);
+    const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null };
     const dependencies = org ? [link("org", org, "sys_org", "org_id")] : [];
-    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
+    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     positions.push(rowCandidate);
     positionsByCode.set(code, rowCandidate);
   }

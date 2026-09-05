@@ -47,6 +47,16 @@ test("legacy overstaff scope and unscoped understaff branch are frozen exactly",
   assert.equal(rows.find(row => row.positionName === "Fixture Position D")?.departmentName, null);
 });
 
+test("candidate headcount mapping does not claim runtime staffing report parity", () => {
+  assert.ok(contract.gapAnalysis.reasonCodes.includes("STAFFING_PRODUCTION_HEADCOUNT_RUNTIME_NOT_VERIFIED"));
+  assert.equal(contract.gapAnalysis.reasonCodes.includes("STAFFING_PRODUCTION_HEADCOUNT_LIMIT_NOT_MATERIALIZED"), false);
+  assert.equal(contract.gapAnalysis.compatibilityCredit, 0);
+  assert.equal(contract.routines[0].parityStatus, "pending");
+  assert.equal(contract.routines[0].semantics.outputFieldMappings.status, "pending");
+  assert.ok(contract.gapAnalysis.minimumClosure.includes("verify_candidate_job_defpersons_mapping_in_real_isolated_load_and_runtime_readback"));
+  assert.equal(contract.productionImport, "HOLD");
+});
+
 test("equal null and empty inputs produce no discrepancy rows", () => {
   for (const positionCode of ["POS-E", "POS-F", "POS-G"]) {
     const row = fixture.sourceRows.find(item => item.positionCode === positionCode);

@@ -28,7 +28,7 @@
     {"stableId":"ROUTINE_ATTENDANCE_SCHEMA_HOOKS","path":"scripts/hr-cutover/contracts/legacy-attendance-item-schema-hook-parity-v1.json","sha256":"5b857c2f8530750352b8fa6499966b37736cd83dbc0d30c4a80aafdefcc0804f"},
     {"stableId":"ROUTINE_PROFESSIONAL_TITLE_LOOKUP","path":"scripts/hr-cutover/contracts/legacy-professional-title-lookup-parity-v1.json","sha256":"e15c5b1415e50d565d868ea20e1dd26388d99572909d7034e80f34bb1eb36fa9"},
     {"stableId":"ROUTINE_FAMILY_QUERY","path":"scripts/hr-cutover/contracts/legacy-family-query-parity-v1.json","sha256":"3e124672fc2630d1780f01685dc00875df2be5f3c277d8e57c90aab463a03a00"},
-    {"stableId":"ROUTINE_STAFFING_DISCREPANCY","path":"scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json","sha256":"368c293f4130bb7d18b6795d0aa20b328b866f3c159ce3c4c91f446beddeb97a"},
+    {"stableId":"ROUTINE_STAFFING_DISCREPANCY","path":"scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json","sha256":"57390b2d54e027622d47c727e506d200839d2b0bdfd387ef7146c11b5cc3be83"},
     {"stableId":"ROUTINE_JOB_HEADCOUNT_REFRESH","path":"scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-v1.json","sha256":"f586b542bbae331d1c5188ae541dcec8cd5b938eae6a11e073a9997a67b198be"},
     {"stableId":"ROUTINE_PERFORMANCE_CALCULATION_PRINT","path":"scripts/hr-cutover/contracts/legacy-performance-calculation-print-parity-v1.json","sha256":"938b368ecf159a5d72905c9ac189bd796ceb3a31e261387e4c0dcac7083f63ac"},
     {"stableId":"PAGE_CUSTOM_FIELD","path":"scripts/hr-cutover/contracts/legacy-employee-custom-field-page-family-v1.json","sha256":"d137881424e6256eac25cd065c8155d4f0c9cd81a74e0054d723fe9d03809e01"},
