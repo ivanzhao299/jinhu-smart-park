@@ -64,6 +64,7 @@
     "test:e2e:yuzhou-core-dictionary-preflight": "node scripts/e2e/yuzhou-core-dictionary-preflight-contract.mjs",
     "test:e2e:yuzhou-hr-module-boundary": "node scripts/e2e/yuzhou-hr-module-boundary-contract.mjs",
     "test:e2e:yuzhou-hr-business-scope-core": "node scripts/e2e/yuzhou-hr-business-scope-core-postgres.mjs",
+    "test:e2e:yuzhou-hr-park-scope-binding": "node scripts/e2e/yuzhou-hr-business-scope-core-postgres.mjs --park-binding",
     "test:e2e:yuzhou-core-dictionary-preflight-preparer": "node --test scripts/e2e/yuzhou-core-dictionary-preflight-preparer.mjs",
     "test:e2e:yuzhou-core-dictionary-capture": "node --test scripts/e2e/yuzhou-core-dictionary-capture-receipt.mjs",
     "test:e2e:yuzhou-full-domain-contract": "node scripts/e2e/yuzhou-full-domain-contract.mjs",
