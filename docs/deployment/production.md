@@ -544,6 +544,11 @@ The production compose file mounts `api-files-data` into the API container and k
 - Back up the directory or Docker volume behind `FILE_STORAGE_LOCAL_ROOT`
 - Keep file backups in the same maintenance window as PostgreSQL backups
 - A practical default is daily incremental backup plus weekly full backup, or the equivalent policy used by your operations team
+- Gate-19 normally removes its temporary backup artifacts after the restore drill. Its explicit
+  `retain_verified_backup` workflow input (default false) retains hash-verified copies on the fixed
+  independent data mount; it does not authorize import or restore. See
+  [verified backup retention](../yuzhou-hr-verified-backup-retention.md) for capacity, private permissions,
+  recovery lookup, failure handling and the limits of on-host retention.
 
 ### Restore Strategy
 

@@ -39,4 +39,5 @@ grep -Fq 'compose exec -T postgres rm -f "$DB_DUMP_PATH"' "$script"
 grep -Fq 'compose exec -T api rm -rf "$FILE_BACKUP_PATH" "$FILE_RESTORE_DIR"' "$script"
 grep -Fq 'GATE19_REPORT_WRITTEN' "$script"
 
+node --test "$root/scripts/e2e/production-backup-retention.contract.mjs"
 echo 'Production backup restore gate contract passed.'
