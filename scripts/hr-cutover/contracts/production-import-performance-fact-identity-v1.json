@@ -42,7 +42,7 @@
     {
       "number": "000310",
       "path": "database/migrations/000310_hr_yuzhou_performance_fact_identity_production.sql",
-      "sha256": "64c30fdf2f3b209a10f1a020a4fdeffbf2b31e31f74a7c62f3f2e43d5a78d10f"
+      "sha256": "e67936f0983dea544d09d4885c75bf1ee50cc9e08fa5684a2fbe46f8ca8afee5"
     }
   ],
   "databaseCapability": {
@@ -87,7 +87,11 @@
     "cycleStates": ["resolved", "unmatched", "ambiguous", "not_applicable"],
     "personStateSumEqualsFactRows": true,
     "cycleStateSumEqualsFactRows": true,
-    "factSetSha256MustMatch": true
+    "factSetSha256MustMatch": true,
+    "factOwnerMapsEqualParentActiveFactMaps": true,
+    "relationOwnerMapsEqualParentActiveRelationMaps": true,
+    "verifiedOwnerMapsEqualFactAndRelationOwnerMaps": true,
+    "ownerMapStateSha256Required": true
   },
   "upstreamFactWriter": {
     "requiredPlanProperty": "performanceFactLoader",

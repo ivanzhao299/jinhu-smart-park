@@ -28,7 +28,7 @@ import {
 const root = resolve(import.meta.dirname, "../..");
 const h = value => createHash("sha256").update(`synthetic:${value}`).digest("hex");
 const EMPTY_FACT_SET_SHA256 = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
-const MIGRATION_310_SHA256 = "64c30fdf2f3b209a10f1a020a4fdeffbf2b31e31f74a7c62f3f2e43d5a78d10f";
+const MIGRATION_310_SHA256 = "e67936f0983dea544d09d4885c75bf1ee50cc9e08fa5684a2fbe46f8ca8afee5";
 const triple = Object.freeze({
   codeSha: "1".repeat(40),
   sourceSnapshotHash: h("source"),
@@ -136,6 +136,10 @@ function succeededReceipt(overrides = {}) {
     cycle_not_applicable_rows: "0",
     fact_set_sha256: EMPTY_FACT_SET_SHA256,
     resolution_state_sha256: h("resolution-state"),
+    fact_owner_maps: "0",
+    relation_owner_maps: "124",
+    verified_owner_maps: "124",
+    owner_map_state_sha256: h("owner-map-state"),
     receipt_sha256: h("fact-identity-receipt"),
     ...overrides,
   };
@@ -329,6 +333,9 @@ test("adapter writer passes the final 21 parameters and conserves both state par
   const result = await writeProductionPerformanceFactIdentity(input);
   assert.equal(result.status, "succeeded");
   assert.equal(result.factRows, 0);
+  assert.equal(result.factOwnerMaps, 0);
+  assert.equal(result.relationOwnerMaps, 124);
+  assert.equal(result.verifiedOwnerMaps, 124);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].parameters.length, 21);
   assert.deepEqual(calls[0].parameters.slice(12, 19), [
@@ -346,6 +353,9 @@ test("adapter writer passes the final 21 parameters and conserves both state par
     succeededReceipt({ resolved_rows: "1" }),
     succeededReceipt({ cycle_unmatched_rows: "1" }),
     succeededReceipt({ fact_set_sha256: h("wrong-set") }),
+    succeededReceipt({ fact_owner_maps: "1", verified_owner_maps: "125" }),
+    succeededReceipt({ relation_owner_maps: "123", verified_owner_maps: "123" }),
+    succeededReceipt({ verified_owner_maps: "123" }),
   ]) {
     await assert.rejects(
       () => writeProductionPerformanceFactIdentity({
@@ -360,6 +370,10 @@ test("adapter writer passes the final 21 parameters and conserves both state par
     succeededReceipt({ master_rows: false }),
     succeededReceipt({ resolved_rows: "" }),
     succeededReceipt({ replayed: "false" }),
+    succeededReceipt({ fact_owner_maps: null }),
+    succeededReceipt({ relation_owner_maps: false }),
+    succeededReceipt({ verified_owner_maps: "" }),
+    succeededReceipt({ owner_map_state_sha256: "not-a-hash" }),
   ]) {
     await assert.rejects(
       () => writeProductionPerformanceFactIdentity({

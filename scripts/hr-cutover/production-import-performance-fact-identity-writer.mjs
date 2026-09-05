@@ -104,7 +104,11 @@ function validateInvocation(input, { rollback = false } = {}) {
       "C/S/M, T0, or parent relation contract differs",
     );
   }
-  return { binding };
+  return {
+    binding,
+    expectedFactOwnerMaps: input.parentPerformanceFactLoaderBinding.activeFactMaps,
+    expectedRelationOwnerMaps: input.parentPerformanceRelationsBinding.activeRelationMaps,
+  };
 }
 
 export function validateProductionPerformanceFactIdentityInvocation(input, options = undefined) {
@@ -166,7 +170,11 @@ export async function probeProductionPerformanceFactIdentityCapability({
   }
 }
 
-function validateForwardReceipt(row, binding) {
+function validateForwardReceipt(
+  row,
+  binding,
+  { expectedFactOwnerMaps, expectedRelationOwnerMaps },
+) {
   const receipt = {
     status: row.status,
     replayed: boolean(row.replayed, "replayed"),
@@ -183,9 +191,15 @@ function validateForwardReceipt(row, binding) {
     cycleNotApplicableRows: integer(row.cycle_not_applicable_rows, "cycleNotApplicableRows"),
     factSetSha256: row.fact_set_sha256,
     resolutionStateSha256: row.resolution_state_sha256,
+    factOwnerMaps: integer(row.fact_owner_maps, "factOwnerMaps"),
+    relationOwnerMaps: integer(row.relation_owner_maps, "relationOwnerMaps"),
+    verifiedOwnerMaps: integer(row.verified_owner_maps, "verifiedOwnerMaps"),
+    ownerMapStateSha256: row.owner_map_state_sha256,
     receiptSha256: row.receipt_sha256,
   };
-  for (const key of ["factSetSha256", "resolutionStateSha256", "receiptSha256"]) {
+  for (const key of [
+    "factSetSha256", "resolutionStateSha256", "ownerMapStateSha256", "receiptSha256",
+  ]) {
     sha(
       receipt[key],
       key,
@@ -202,7 +216,10 @@ function validateForwardReceipt(row, binding) {
     || receipt.factRows !== binding.expectedFactRows
     || personStateRows !== receipt.factRows
     || cycleStateRows !== receipt.factRows
-    || receipt.factSetSha256 !== binding.expectedFactSetSha256) {
+    || receipt.factSetSha256 !== binding.expectedFactSetSha256
+    || receipt.factOwnerMaps !== expectedFactOwnerMaps
+    || receipt.relationOwnerMaps !== expectedRelationOwnerMaps
+    || receipt.verifiedOwnerMaps !== receipt.factOwnerMaps + receipt.relationOwnerMaps) {
     fail(
       "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_CONSERVATION_FAILED",
       "forward receipt differs from the sealed fact set",
@@ -218,7 +235,7 @@ export async function writeProductionPerformanceFactIdentity(input) {
       "SERIALIZABLE transaction handle is required",
     );
   }
-  const { binding } = validateInvocation(input);
+  const { binding, expectedFactOwnerMaps, expectedRelationOwnerMaps } = validateInvocation(input);
   let result;
   try {
     result = await input.tx.query(
@@ -257,7 +274,10 @@ export async function writeProductionPerformanceFactIdentity(input) {
     );
   }
   const row = one(result, "production performance fact identity writer");
-  return validateForwardReceipt(row, binding);
+  return validateForwardReceipt(row, binding, {
+    expectedFactOwnerMaps,
+    expectedRelationOwnerMaps,
+  });
 }
 
 export async function rollbackProductionPerformanceFactIdentity(input) {

@@ -131,6 +131,10 @@ function loadContract(contractUrl = CONTRACT_URL) {
     || contract.upstreamFactWriter?.runtimeReceiptBinding !== "factLoaderReceiptSha256"
     || contract.upstreamFactWriter?.missingDisposition
       !== "PRODUCTION_FACT_LOADER_RECEIPT_REQUIRED"
+    || contract.receiptConservation?.factOwnerMapsEqualParentActiveFactMaps !== true
+    || contract.receiptConservation?.relationOwnerMapsEqualParentActiveRelationMaps !== true
+    || contract.receiptConservation?.verifiedOwnerMapsEqualFactAndRelationOwnerMaps !== true
+    || contract.receiptConservation?.ownerMapStateSha256Required !== true
     || contract.rollback?.ownerTablesImmutable !== true
     || contract.rollback?.residualCount !== 0
     || JSON.stringify(contract.rollback?.order) !== JSON.stringify(ROLLBACK_ORDER)
