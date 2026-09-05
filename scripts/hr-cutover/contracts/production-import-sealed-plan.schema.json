@@ -38,7 +38,8 @@
           "properties": {
             "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "targetScopeSha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
             "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" },
-            "performanceRelationsContractSha256": { "$ref": "#/$defs/sha256" }
+            "performanceRelationsContractSha256": { "$ref": "#/$defs/sha256" },
+            "runtimeReleaseEvidenceBindingSha256": { "$ref": "#/$defs/sha256" }
           }
         },
         "approvalSet": {
@@ -70,6 +71,15 @@
     "phaseOrder": { "const": ["T0", "T1", "T2", "T3"] },
     "phases": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/phase" } },
     "performanceRelations": { "$ref": "#/$defs/performanceRelations" },
+    "runtimeReleaseEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactSha256", "observedAt", "expiresAt"],
+      "properties": {
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "observedAt": { "$ref": "#/$defs/runtimeTimestamp" },
+        "expiresAt": { "$ref": "#/$defs/runtimeTimestamp" }
+      }
+    },
     "rollback": {
       "type": "object", "additionalProperties": false,
       "required": ["order", "insert", "merge", "quarantine", "skipApproved", "residualCount", "canonicalHash"],
@@ -82,7 +92,13 @@
     },
     "productionImport": { "const": "HOLD" }
   },
+  "allOf": [{
+    "if": { "required": ["runtimeReleaseEvidence"] },
+    "then": { "properties": { "authorization": { "properties": { "binding": { "required": ["runtimeReleaseEvidenceBindingSha256"] } } } } },
+    "else": { "properties": { "authorization": { "properties": { "binding": { "not": { "required": ["runtimeReleaseEvidenceBindingSha256"] } } } } } }
+  }],
   "$defs": {
+    "runtimeTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "triple": {
       "type": "object", "additionalProperties": false,
