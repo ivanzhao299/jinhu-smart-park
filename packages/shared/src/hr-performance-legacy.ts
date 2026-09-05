@@ -26,6 +26,7 @@ export const HR_PERFORMANCE_LEGACY_DEPARTMENT_PATTERN_MAX_LENGTH = 30;
 
 export const HR_PERFORMANCE_LEGACY_QUERY_TEXT_PATTERN = /^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]+$/u;
 export const HR_PERFORMANCE_LEGACY_DEPARTMENT_PATTERN = /^[\p{L}\p{N}._%/-]+$/u;
+export const HR_PERFORMANCE_LEGACY_DEPARTMENT_PREFIX_PATTERN = /^[\p{L}\p{N}._/-]+$/u;
 
 export function normalizeHrPerformanceLegacyQueryText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -49,4 +50,11 @@ export function isHrPerformanceLegacyDepartmentPattern(value: unknown): value is
     value,
     HR_PERFORMANCE_LEGACY_DEPARTMENT_PATTERN_MAX_LENGTH,
   ) && HR_PERFORMANCE_LEGACY_DEPARTMENT_PATTERN.test(value);
+}
+
+export function isHrPerformanceLegacyDepartmentPrefix(value: unknown): value is string {
+  return isHrPerformanceLegacyQueryText(
+    value,
+    HR_PERFORMANCE_LEGACY_DEPARTMENT_PATTERN_MAX_LENGTH,
+  ) && HR_PERFORMANCE_LEGACY_DEPARTMENT_PREFIX_PATTERN.test(value);
 }

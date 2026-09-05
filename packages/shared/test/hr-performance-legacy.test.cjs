@@ -9,6 +9,7 @@ const {
   HR_PERFORMANCE_LEGACY_PERSON_SUMMARY_ROUTINES,
   isHrPerformanceLegacyDepartmentMatchMode,
   isHrPerformanceLegacyDepartmentPattern,
+  isHrPerformanceLegacyDepartmentPrefix,
   isHrPerformanceLegacyPersonSummaryRoutine,
   isHrPerformanceLegacyQueryText,
   normalizeHrPerformanceLegacyQueryText,
@@ -24,6 +25,15 @@ test("legacy person-summary routine modes are a closed two-value contract", () =
   }
   for (const value of [undefined, null, "", "web_assquery", "WEB_ASS", 1]) {
     assert.equal(isHrPerformanceLegacyPersonSummaryRoutine(value), false);
+  }
+});
+
+test("u_assessmentvalue department prefix is literal and bounded", () => {
+  for (const value of ["001", "部门_1", "A-1/2.3"]) {
+    assert.equal(isHrPerformanceLegacyDepartmentPrefix(value), true);
+  }
+  for (const value of ["", "001%", "001\\", "001*", "x".repeat(31)]) {
+    assert.equal(isHrPerformanceLegacyDepartmentPrefix(value), false);
   }
 });
 

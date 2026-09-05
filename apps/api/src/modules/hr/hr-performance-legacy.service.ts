@@ -3,11 +3,14 @@ import {
   HR_PERFORMANCE_LEGACY_ASSESSMENT_TYPE_MAX_LENGTH,
   HR_PERFORMANCE_LEGACY_SESSION_MAX_LENGTH,
   HR_PERMISSIONS,
+  isHrLegacyPersonCode,
   isHrPerformanceLegacyDepartmentMatchMode,
   isHrPerformanceLegacyDepartmentPattern,
+  isHrPerformanceLegacyDepartmentPrefix,
   isHrPerformanceLegacyPersonSummaryRoutine,
   isHrPerformanceLegacyQueryText,
   normalizeHrPerformanceLegacyQueryText,
+  normalizeHrLegacyPersonCode,
   type PaginatedResult,
   type TenantParkScope,
 } from "@jinhu/shared";
@@ -15,8 +18,11 @@ import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { HrPerformanceLegacyAssessmentMasterQueryDto } from "./dto/hr-performance-legacy-assessment-master.dto";
+import type { HrPerformanceLegacyAssessmentValueQueryDto } from "./dto/hr-performance-legacy-assessment-value.dto";
+import type { HrPerformanceLegacyWebAssQueryDto } from "./dto/hr-performance-legacy-web-ass-query.dto";
 import type {
   HrPerformanceLegacyPageQueryDto,
+  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
@@ -25,6 +31,7 @@ import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type RawRow = Record<string, unknown>;
 type ResultAccess = "park" | "managed_org_tree" | "self" | "none";
+type ResultFactKind = "dimension_result" | "master_result";
 type RubricLevelRow = {
   _batchId: string;
   sourceAssGrade: string;
@@ -260,7 +267,7 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyResultQueryDto,
   ) {
-    const resolved = this.resultScope(scope, actor, query);
+    const resolved = this.resultScope(scope, actor, query, "dimension_result");
     if (!resolved) return this.emptyPage(query);
     const { access, parameters, accessJoin, accessWhere } = resolved;
 
@@ -322,7 +329,7 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyResultQueryDto,
   ) {
-    const resolved = this.resultScope(scope, actor, query);
+    const resolved = this.resultScope(scope, actor, query, "master_result");
     if (!resolved) return this.emptyPage(query);
     const { access, parameters, accessJoin, accessWhere } = resolved;
     const visibility = this.visibilitySql("hr_performance_legacy_master_result");
@@ -412,7 +419,7 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyPersonSummaryRoutineQueryDto,
   ) {
-    const resolved = this.resultScope(scope, actor, query);
+    const resolved = this.resultScope(scope, actor, query, "master_result");
     if (!resolved) return this.emptyPage(query);
     if (!isHrPerformanceLegacyPersonSummaryRoutine(query.source_routine)) {
       throw new BadRequestException("Unsupported legacy performance person-summary routine");
@@ -423,13 +430,12 @@ export class HrPerformanceLegacyService {
       AND fact.source_person_code=$${sourcePersonParameter}`;
     const visibility = this.visibilitySql("hr_performance_legacy_master_result");
     const employeeProjectionJoin = resolved.access === "park"
-      ? `LEFT JOIN hr_performance_cycle_employee summary_cycle_employee
-          ON (summary_cycle_employee.id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)=
-             (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        LEFT JOIN hr_employee summary_employee
-          ON (summary_employee.id,summary_employee.tenant_id,summary_employee.park_id)=
-             (summary_cycle_employee.employee_id,summary_cycle_employee.tenant_id,summary_cycle_employee.park_id)
-         AND summary_employee.is_deleted=false`
+      ? this.resultSubjectIdentityJoin(
+          "master_result",
+          "summary",
+          "summary_employee",
+          query.source_routine === "web_assessmentquery" ? "left" : "inner",
+        )
       : "";
     const employeeDisplayName = resolved.access === "park"
       ? "summary_employee.full_name"
@@ -485,7 +491,7 @@ export class HrPerformanceLegacyService {
     actor: JwtPrincipal,
     query: HrPerformanceLegacyAssessmentMasterQueryDto,
   ) {
-    const resolved = this.resultScope(scope, actor, query);
+    const resolved = this.resultScope(scope, actor, query, "master_result");
     if (!resolved) return this.emptyPage(query);
     if (
       !isHrPerformanceLegacyDepartmentMatchMode(query.department_match_mode)
@@ -516,19 +522,14 @@ export class HrPerformanceLegacyService {
       ? `query_org.org_code=$${departmentParameter}`
       : `query_org.org_code LIKE $${departmentParameter} ESCAPE '\\'`;
     const employeeAccessJoin = resolved.access === "park"
-      ? `JOIN hr_performance_cycle_employee query_cycle_employee
-          ON (query_cycle_employee.id,query_cycle_employee.tenant_id,query_cycle_employee.park_id)=
-             (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        JOIN hr_employee query_employee
-          ON (query_employee.id,query_employee.tenant_id,query_employee.park_id)=
-             (query_cycle_employee.employee_id,query_cycle_employee.tenant_id,query_cycle_employee.park_id)
-         AND query_employee.is_deleted=false`
+      ? this.resultSubjectIdentityJoin("master_result", "query", "query_employee")
       : "";
     const employeeAlias = resolved.access === "park" ? "query_employee" : "employee";
     const compatibilityJoins = `${employeeAccessJoin}
       JOIN sys_org query_org
         ON (query_org.id,query_org.tenant_id,query_org.park_id)=
            (${employeeAlias}.primary_org_id,${employeeAlias}.tenant_id,${employeeAlias}.park_id)
+       AND query_org.is_deleted=false
       JOIN hr_performance_legacy_session query_session
         ON (query_session.tenant_id,query_session.park_id,query_session.migration_batch_id,
             query_session.source_session_id)=
@@ -593,6 +594,289 @@ export class HrPerformanceLegacyService {
     return result;
   }
 
+  async assessmentValueQuery(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyAssessmentValueQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query, "master_result");
+    if (!resolved) return this.emptyPage(query);
+    if (
+      !isHrPerformanceLegacyQueryText(
+        query.ass_session,
+        HR_PERFORMANCE_LEGACY_SESSION_MAX_LENGTH,
+      )
+      || !isHrPerformanceLegacyDepartmentPrefix(query.department_prefix)
+      || query.ass_session !== normalizeHrPerformanceLegacyQueryText(query.ass_session)
+      || query.department_prefix !== normalizeHrPerformanceLegacyQueryText(query.department_prefix)
+    ) {
+      throw new BadRequestException("Unsupported legacy assessment-value query parameters");
+    }
+
+    const parameters = [...resolved.parameters];
+    parameters.push(query.ass_session);
+    const sessionNameParameter = parameters.length;
+    const departmentPrefix = query.department_prefix.replace(/([\\%_])/gu, "\\$1");
+    parameters.push(`${departmentPrefix}%`);
+    const departmentParameter = parameters.length;
+    const employeeAccessJoin = resolved.access === "park"
+      ? this.resultSubjectIdentityJoin("master_result", "value", "value_employee")
+      : "";
+    const employeeAlias = resolved.access === "park" ? "value_employee" : "employee";
+    const compatibilityJoins = `${employeeAccessJoin}
+      JOIN sys_org value_org
+        ON (value_org.id,value_org.tenant_id,value_org.park_id)=
+           (${employeeAlias}.primary_org_id,${employeeAlias}.tenant_id,${employeeAlias}.park_id)
+       AND value_org.is_deleted=false
+      JOIN hr_performance_legacy_session value_session
+        ON (value_session.tenant_id,value_session.park_id,value_session.migration_batch_id,
+            value_session.source_session_id)=
+           (fact.tenant_id,fact.park_id,fact.migration_batch_id,fact.source_session_id)
+       AND value_session.source_session_name=$${sessionNameParameter}
+      JOIN legacy_record_map value_session_map
+        ON value_session_map.id=value_session.legacy_record_map_id
+       AND value_session_map.batch_id=value_session.migration_batch_id
+       AND value_session_map.source_system='yuzhou-v10'
+       AND value_session_map.target_table='hr_performance_legacy_session'
+       AND value_session_map.target_id=value_session.id
+       AND value_session_map.mapping_status='verified'
+       AND value_session_map.is_active=true`;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const filter = `${resolved.accessWhere}
+      AND value_org.org_code LIKE $${departmentParameter} ESCAPE '\\'`;
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}`,
+      [...parameters],
+    )) as Array<{ total: number | string }>;
+
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `SELECT fact.source_person_code "sourcePersonCode",
+        ${employeeAlias}.full_name "employeeDisplayName",
+        NULL::text "unresolvedLegacyGrade",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_master_value::text "sourceMasterValue",
+        fact.source_timekeep_value::text "sourceTimekeepValue",
+        fact.source_bonus_value::text "sourceBonusValue",
+        (fact.source_item_value
+          + fact.source_timekeep_value
+          + fact.source_bonus_value)::text "legacyLastValueWithoutMaster",
+        fact.source_appraisal "sourceAppraisal"
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_person_code ASC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC
+       LIMIT $${parameters.length - 1} OFFSET $${parameters.length}`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_assessment_value_query",
+      action: "按玉舟 u_assessmentvalue 语义读取历史绩效评分",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/query-reports/assessment-value",
+      fieldGroups: ["legacy_projection"],
+      projection: resolved.access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
+  async assessmentValueOfPersonQuery(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyPersonSummaryQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query, "master_result");
+    if (!resolved) return this.emptyPage(query);
+    if (
+      !isHrLegacyPersonCode(query.source_person_code)
+      || query.source_person_code !== normalizeHrLegacyPersonCode(query.source_person_code)
+    ) {
+      throw new BadRequestException("Unsupported legacy assessment-value person code");
+    }
+
+    const parameters = [...resolved.parameters, query.source_person_code];
+    const sourcePersonParameter = parameters.length;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const filter = `${resolved.accessWhere}
+      AND fact.source_person_code=$${sourcePersonParameter}`;
+    const compatibilityJoins = `LEFT JOIN hr_performance_legacy_session person_value_session
+        ON (person_value_session.tenant_id,person_value_session.park_id,
+            person_value_session.migration_batch_id,person_value_session.source_session_id)=
+           (fact.tenant_id,fact.park_id,fact.migration_batch_id,fact.source_session_id)
+      LEFT JOIN legacy_record_map person_value_session_map
+        ON person_value_session_map.id=person_value_session.legacy_record_map_id
+       AND person_value_session_map.batch_id=person_value_session.migration_batch_id
+       AND person_value_session_map.source_system='yuzhou-v10'
+       AND person_value_session_map.target_table='hr_performance_legacy_session'
+       AND person_value_session_map.target_id=person_value_session.id
+       AND person_value_session_map.mapping_status='verified'
+       AND person_value_session_map.is_active=true`;
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${visibility}${filter}`,
+      [...parameters],
+    )) as Array<{ total: number | string }>;
+
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `SELECT CASE WHEN person_value_session_map.id IS NOT NULL
+          THEN person_value_session.source_session_name
+          ELSE NULL
+        END "compatibleLegacySessionText",
+        NULL::text "unresolvedLegacyGrade",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_master_value::text "sourceMasterValue",
+        fact.source_timekeep_value::text "sourceTimekeepValue",
+        fact.source_bonus_value::text "sourceBonusValue",
+        (fact.source_item_value
+          + fact.source_timekeep_value
+          + fact.source_bonus_value)::text "legacyLastValueWithoutMaster",
+        fact.source_appraisal "sourceAppraisal"
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC
+       LIMIT $${parameters.length - 1} OFFSET $${parameters.length}`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_assessment_value_of_person_query",
+      action: "按玉舟 u_assessmentvalueofperson 语义读取个人历史绩效评分",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/query-reports/assessment-value-of-person",
+      fieldGroups: ["legacy_projection"],
+      projection: resolved.access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
+  async webAssQuery(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyWebAssQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query, "master_result");
+    if (!resolved) return this.emptyPage(query);
+    if (
+      !isHrPerformanceLegacyQueryText(
+        query.ass_session,
+        HR_PERFORMANCE_LEGACY_SESSION_MAX_LENGTH,
+      )
+      || query.ass_session !== normalizeHrPerformanceLegacyQueryText(query.ass_session)
+      || (query.person_like !== undefined && (
+        !isHrPerformanceLegacyDepartmentPattern(query.person_like)
+        || query.person_like !== normalizeHrPerformanceLegacyQueryText(query.person_like)
+      ))
+      || !isHrPerformanceLegacyDepartmentPrefix(query.right_scope_prefix)
+      || query.right_scope_prefix
+        !== normalizeHrPerformanceLegacyQueryText(query.right_scope_prefix)
+      || !Number.isFinite(query.item_value_min)
+      || !Number.isFinite(query.item_value_max)
+      || query.item_value_min > query.item_value_max
+    ) {
+      throw new BadRequestException("Unsupported legacy web-ass query parameters");
+    }
+
+    const parameters = [...resolved.parameters, query.ass_session];
+    const sessionParameter = parameters.length;
+    parameters.push(query.right_scope_prefix.replace(/([\\%_])/gu, "\\$1") + "%");
+    const rightScopeParameter = parameters.length;
+    parameters.push(query.item_value_min, query.item_value_max);
+    const minimumParameter = parameters.length - 1;
+    const maximumParameter = parameters.length;
+    let personPredicate = "";
+    if (query.person_like !== undefined) {
+      parameters.push(query.person_like);
+      personPredicate = ` AND fact.source_person_code LIKE $${parameters.length} ESCAPE '\\'`;
+    }
+    const employeeAccessJoin = resolved.access === "park"
+      ? this.resultSubjectIdentityJoin("master_result", "web_query", "web_query_employee")
+      : "";
+    const employeeAlias = resolved.access === "park" ? "web_query_employee" : "employee";
+    const compatibilityJoins = `${employeeAccessJoin}
+      JOIN sys_org web_query_org
+        ON (web_query_org.id,web_query_org.tenant_id,web_query_org.park_id)=
+           (${employeeAlias}.primary_org_id,${employeeAlias}.tenant_id,${employeeAlias}.park_id)
+       AND web_query_org.is_deleted=false
+      JOIN hr_performance_legacy_session web_query_session
+        ON (web_query_session.tenant_id,web_query_session.park_id,
+            web_query_session.migration_batch_id,web_query_session.source_session_id)=
+           (fact.tenant_id,fact.park_id,fact.migration_batch_id,fact.source_session_id)
+       AND web_query_session.source_session_name=$${sessionParameter}
+      JOIN legacy_record_map web_query_session_map
+        ON web_query_session_map.id=web_query_session.legacy_record_map_id
+       AND web_query_session_map.batch_id=web_query_session.migration_batch_id
+       AND web_query_session_map.source_system='yuzhou-v10'
+       AND web_query_session_map.target_table='hr_performance_legacy_session'
+       AND web_query_session_map.target_id=web_query_session.id
+       AND web_query_session_map.mapping_status='verified'
+       AND web_query_session_map.is_active=true`;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const filter = `${resolved.accessWhere}
+      AND web_query_org.org_code LIKE $${rightScopeParameter} ESCAPE '\\'
+      AND fact.source_total_value >= $${minimumParameter}
+      AND fact.source_total_value <= $${maximumParameter}${personPredicate}`;
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}`,
+      [...parameters],
+    )) as Array<{ total: number | string }>;
+
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `SELECT fact.source_person_code "sourcePersonCode",
+        ${employeeAlias}.full_name "employeeDisplayName",
+        fact.source_self_grade "sourceSelfGrade",
+        fact.source_ass_grade "sourceAssGrade",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_total_value::text "sourceTotalValue"
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_person_code ASC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC
+       LIMIT $${parameters.length - 1} OFFSET $${parameters.length}`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_web_assquery",
+      action: "按安全修正后的玉舟 web_assquery 语义读取历史绩效汇总",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/query-reports/web-ass-query",
+      fieldGroups: ["legacy_projection"],
+      projection: resolved.access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
   private canReadDefinitions(actor: JwtPrincipal) {
     return (
       has(actor, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) ||
@@ -615,7 +899,9 @@ export class HrPerformanceLegacyService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HrPerformanceLegacyResultQueryDto,
+    factKind: ResultFactKind,
   ) {
+    if (actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId) return null;
     const access = this.resultAccess(actor);
     if (access === "none") return null;
     const parameters: unknown[] = [scope.tenantId, scope.parkId];
@@ -623,22 +909,12 @@ export class HrPerformanceLegacyService {
     let accessWhere = "";
     if (access === "self") {
       parameters.push(actor.sub);
-      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
-        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
-           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        JOIN hr_employee employee
-        ON (employee.id,employee.tenant_id,employee.park_id)=
-           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
+      accessJoin = this.resultSubjectIdentityJoin(factKind, "scope", "employee");
       accessWhere = ` AND employee.user_id::text=$${parameters.length}::text
         AND employee.is_deleted=false`;
     } else if (access === "managed_org_tree") {
       parameters.push(actor.sub);
-      accessJoin = `JOIN hr_performance_cycle_employee cycle_employee
-        ON (cycle_employee.id,cycle_employee.tenant_id,cycle_employee.park_id)=
-           (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
-        JOIN hr_employee employee
-        ON (employee.id,employee.tenant_id,employee.park_id)=
-           (cycle_employee.employee_id,cycle_employee.tenant_id,cycle_employee.park_id)`;
+      accessJoin = this.resultSubjectIdentityJoin(factKind, "scope", "employee");
       accessWhere = ` AND employee.primary_org_id IN (
         WITH RECURSIVE managed_org AS (
           SELECT id FROM sys_org
@@ -658,6 +934,60 @@ export class HrPerformanceLegacyService {
       accessWhere += ` AND fact.source_session_id=$${parameters.length}`;
     }
     return { access, parameters, accessJoin, accessWhere };
+  }
+
+  private resultSubjectIdentityJoin(
+    factKind: ResultFactKind,
+    aliasPrefix: string,
+    employeeAlias: string,
+    joinMode: "inner" | "left" = "inner",
+  ) {
+    const factIdColumn = factKind === "master_result"
+      ? "legacy_master_result_id"
+      : "legacy_dimension_result_id";
+    const resolutionAlias = `${aliasPrefix}_subject_resolution`;
+    const candidateAlias = `${aliasPrefix}_subject_t0`;
+    const ownerMapAlias = `${aliasPrefix}_subject_owner_map`;
+    const join = joinMode === "left" ? "LEFT JOIN" : "JOIN";
+    return `${join} hr_performance_legacy_identity_resolution ${resolutionAlias}
+        ON (${resolutionAlias}.${factIdColumn},${resolutionAlias}.tenant_id,
+            ${resolutionAlias}.park_id,${resolutionAlias}.migration_batch_id)=
+           (fact.id,fact.tenant_id,fact.park_id,fact.migration_batch_id)
+       AND ${resolutionAlias}.fact_kind='${factKind}'
+       AND ${resolutionAlias}.person_role='subject'
+       AND ${resolutionAlias}.person_resolution_status='resolved'
+       AND ${resolutionAlias}.source_person_identity_sha256=
+           hr_performance_yuzhou_person_identity_sha256(fact.source_person_code)
+      ${join} LATERAL (
+        SELECT count(*)::int candidate_count,
+          (array_agg(candidate.owner_t0_record_map_id
+            ORDER BY candidate.owner_t0_record_map_id))[1] owner_t0_record_map_id,
+          (array_agg(candidate.target_employee_id
+            ORDER BY candidate.target_employee_id))[1] target_employee_id
+        FROM hr_performance_yuzhou_t0_person_candidate(
+          fact.tenant_id,fact.park_id,${resolutionAlias}.source_person_identity_sha256
+        ) candidate
+      ) ${candidateAlias}
+        ON ${candidateAlias}.candidate_count=1
+       AND ${candidateAlias}.owner_t0_record_map_id=${resolutionAlias}.owner_t0_record_map_id
+       AND ${candidateAlias}.target_employee_id=${resolutionAlias}.target_employee_id
+      ${join} legacy_record_map ${ownerMapAlias}
+        ON ${ownerMapAlias}.id=${candidateAlias}.owner_t0_record_map_id
+       AND ${ownerMapAlias}.id=${resolutionAlias}.owner_t0_record_map_id
+       AND ${ownerMapAlias}.source_system='yuzhou-v10'
+       AND ${ownerMapAlias}.source_table='dbo.person'
+       AND ${ownerMapAlias}.source_pk_canonical=
+           'sha256:'||${resolutionAlias}.source_person_identity_sha256
+       AND ${ownerMapAlias}.source_identity_sha256=${resolutionAlias}.source_person_identity_sha256
+       AND ${ownerMapAlias}.target_table='hr_employee'
+       AND ${ownerMapAlias}.target_id=${resolutionAlias}.target_employee_id
+       AND ${ownerMapAlias}.mapping_status='verified'
+       AND ${ownerMapAlias}.is_active=true
+      ${join} hr_employee ${employeeAlias}
+        ON (${employeeAlias}.id,${employeeAlias}.tenant_id,${employeeAlias}.park_id)=
+           (${resolutionAlias}.target_employee_id,fact.tenant_id,fact.park_id)
+       AND ${employeeAlias}.id=${ownerMapAlias}.target_id
+       AND ${employeeAlias}.is_deleted=false`;
   }
 
   private visibilitySql(targetTable: string) {

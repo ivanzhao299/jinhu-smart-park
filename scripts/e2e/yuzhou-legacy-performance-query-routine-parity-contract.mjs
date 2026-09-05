@@ -25,7 +25,7 @@ test("seven query routines remain pending and receive zero compatibility credit"
     sourceRoutines: 7,
     verifiedRoutines: 0,
     pendingRoutines: 7,
-    implementedTargets: 3,
+    implementedTargets: 6,
     dynamicReadOnlyRoutines: 5,
     schemaDriftRoutines: 4,
     compatibilityCredit: 0,
@@ -56,6 +56,69 @@ test("u_assessmentmaster is implemented without claiming its unresolved assid dr
     item.code === "CALLER_SUPPLIED_LIKE_PATTERN"
       && /exact or legacy_like/iu.test(item.modernDecision)
       && /bound PostgreSQL parameter/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
+});
+
+test("u_assessmentvalue implements nine columns without changing its frozen formula", () => {
+  const row = contract.routines.find(item => item.sourceName === "u_assessmentvalue");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.assessmentValueQuery",
+    api: "GET /hr/performance-legacy/query-reports/assessment-value",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValuePanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 9);
+  assert.equal(row.outputColumns[2].plannedModernField, "unresolvedLegacyGrade");
+  const formula = row.calculationSemantics.find(
+    item => item.code === "LEGACY_FINAL_EXCLUDES_MASTERVALUE",
+  );
+  assert.equal(formula.expression, "itemvalue + timekeepvalue + bonusvalue");
+  assert.doesNotMatch(formula.expression, /mastervalue/iu);
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /verified same-batch/iu.test(item.modernDecision)
+      && /explicit null/iu.test(item.modernDecision)
+      && /not guessed from assgrade/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "DEPARTMENT_PREFIX_INPUT_HARDENED"
+      && /bounded literal prefix/iu.test(item.modernDecision)
+      && /bound PostgreSQL LIKE parameter/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
+});
+
+test("u_assessmentvalueofperson implements eight columns without guessing schema drift", () => {
+  const row = contract.routines.find(item => item.sourceName === "u_assessmentvalueofperson");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.assessmentValueOfPersonQuery",
+    api: "GET /hr/performance-legacy/query-reports/assessment-value-of-person",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValueOfPersonPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 8);
+  assert.equal(row.outputColumns[0].plannedModernField, "compatibleLegacySessionText");
+  assert.equal(row.outputColumns[1].plannedModernField, "unresolvedLegacyGrade");
+  const formula = row.calculationSemantics.find(
+    item => item.code === "LEGACY_FINAL_EXCLUDES_MASTERVALUE",
+  );
+  assert.equal(formula.expression, "itemvalue + timekeepvalue + bonusvalue");
+  assert.doesNotMatch(formula.expression, /mastervalue/iu);
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /active verified same-batch/iu.test(item.modernDecision)
+      && /explicit null/iu.test(item.modernDecision)
+      && /not guessed from assgrade/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "EXACT_PERSON_INPUT_HARDENED"
+      && /shared bounded Unicode/iu.test(item.modernDecision)
+      && /exact bound PostgreSQL parameter/iu.test(item.modernDecision),
   ));
   assert.equal(row.implementationEvidence.length, 2);
   assert.equal(row.parityStatus, "pending");
@@ -104,12 +167,36 @@ test("legacy final-value formulas explicitly omit the displayed master adjustmen
 
 test("web_assquery freezes the ignored-period defect without making it the modern default", () => {
   const row = contract.routines.find(item => item.sourceName === "web_assquery");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.webAssQuery",
+    api: "GET /hr/performance-legacy/query-reports/web-ass-query",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyWebAssQueryPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 6);
   assert.match(row.parameters.find(parameter => parameter.name === "asssession").behavior, /ignored/iu);
   assert.deepEqual(row.legacyDynamicSql.discardedParameters, ["asssession"]);
   assert.deepEqual(row.missingSourceColumns, ["assessmentmaster.asssession"]);
   const difference = row.knownDifferences.find(item => item.code === "LEGACY_SESSION_PARAMETER_DISCARDED");
-  assert.match(difference.modernDecision, /honor period/iu);
+  assert.match(difference.modernDecision, /honors the exact period/iu);
   assert.match(difference.modernDecision, /old input had no effect/iu);
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /active verified same-batch/iu.test(item.modernDecision)
+      && /never guessed/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "RIGHTSCOPE_IS_NOT_AUTHORIZATION"
+      && /server-derived park team or self scope/iu.test(item.modernDecision)
+      && /can only narrow/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "SCORE_RANGE_INPUT_HARDENED"
+      && /finite bound numeric parameters/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
 });
 
 test("web_ass and web_assessmentquery keep opposite orphan-master policies", () => {
