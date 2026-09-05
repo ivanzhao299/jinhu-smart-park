@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
@@ -93,7 +95,14 @@ function dependency(role, record) {
   return { role, phase: record.phase, sourceIdentitySha256: record.sourceIdentitySha256, expectedTargetTable: record.plannedTargetTable };
 }
 
-function makeFixture(iteration, now) {
+function makeFixture(iteration, now, employeeOptions = {}) {
+  assert.ok(Object.keys(employeeOptions).every(key => ["employeeCode", "employeeSourceIdentitySha256"].includes(key)));
+  const customEmployee = Object.keys(employeeOptions).length > 0;
+  if (customEmployee) {
+    assert.equal(typeof employeeOptions.employeeCode, "string");
+    assert.ok(employeeOptions.employeeCode.length > 0 && employeeOptions.employeeCode.length <= 64);
+    assert.match(employeeOptions.employeeSourceIdentitySha256, /^[0-9a-f]{64}$/u);
+  }
   const suffix = randomBytes(6).toString("hex");
   const operationId = `yzprod-import-${iso(now).replaceAll(/[-:.]/gu, "").slice(0, 15)}Z-${suffix}`;
   const targetScope = { tenantId: randomUUID(), parkId: randomUUID(), scopeSha256: "" };
@@ -103,9 +112,9 @@ function makeFixture(iteration, now) {
   const records = [];
   const protectedFileId = randomUUID();
   let ordinal = 0;
-  const add = (table, dependencyMode, dependencyRefs, disposition = "insert", payloadOverride = undefined) => {
+  const add = (table, dependencyMode, dependencyRefs, disposition = "insert", payloadOverride = undefined, sourceIdentityOverride = undefined) => {
     const rule = model.targetTables[table];
-    const sourceIdentitySha256 = H(`${suffix}:${table}:${ordinal}:identity`);
+    const sourceIdentitySha256 = sourceIdentityOverride ?? H(`${suffix}:${table}:${ordinal}:identity`);
     const sourceRowSha256 = H(`${suffix}:${table}:${ordinal}:row`);
     const payload = payloadOverride ?? payloadFor(table, suffix, sourceIdentitySha256, protectedFileId);
     const derivedFields = Object.fromEntries(rule.derivedFields.map(field => {
@@ -157,7 +166,12 @@ function makeFixture(iteration, now) {
   const orgCiphertext = Buffer.from(JSON.stringify(orgBefore));
   org.beforeImage = { algorithm: "aes-256-gcm-external-kek-v1", plaintextSha256: org.expectedTargetBeforeSha256, ciphertextSha256: H(orgCiphertext), keyReferenceSha256: H(`${suffix}:before-key`) };
   const position = add("hr_position", "record_graph", [dependency("org", org)]);
-  const employee = add("hr_employee", "record_graph", [dependency("primary_org", org), dependency("position", position)]);
+  const employeePayload = customEmployee ? {
+    ...payloadFor("hr_employee", suffix, employeeOptions.employeeSourceIdentitySha256, protectedFileId),
+    employee_code: employeeOptions.employeeCode,
+  } : undefined;
+  const employee = add("hr_employee", "record_graph", [dependency("primary_org", org), dependency("position", position)],
+    "insert", employeePayload, employeeOptions.employeeSourceIdentitySha256);
   add("hr_employment_event", "employee", [dependency("employee", employee)]);
   const contractType = add("hr_contract_type", "scope", [], "skip_approved");
   contractType.expectedTargetBeforeSha256 = contractType.expectedTargetAfterSha256;
@@ -262,6 +276,21 @@ async function verifyApplied(client, fixture) {
     [fixture.plan.operationId],
   );
   assert.deepEqual(counts.rows[0], { controls: 17, receipts: 17, batches: 4, active_maps: 17 });
+  const visibility = await client.query(
+    `SELECT record.disposition, map.mapping_status, count(*)::int AS count
+       FROM hr_yuzhou_production_import_projection_receipt projection
+       JOIN hr_yuzhou_production_import_record record
+         ON record.operation_id=projection.operation_id AND record.phase=projection.phase
+         AND record.source_identity_sha256=projection.source_identity_sha256
+       JOIN legacy_record_map map ON map.id=projection.legacy_record_map_id
+       WHERE projection.operation_id=$1 AND map.is_active
+       GROUP BY record.disposition,map.mapping_status`,
+    [fixture.plan.operationId],
+  );
+  for (const row of visibility.rows) {
+    assert.equal(row.mapping_status, row.disposition === "quarantine" ? "quarantined" : "verified", "only reconciled owned records become query-visible");
+    assert.equal(row.count, fixture.records.filter(record => record.disposition === row.disposition).length);
+  }
   for (const table of TABLES) {
     const expected = fixture.records.filter(record => record.plannedTargetTable === table && record.disposition !== "quarantine").length;
     const result = await client.query(`SELECT count(*)::int AS count FROM ${table} WHERE tenant_id=$1 AND park_id=$2`, [fixture.targetScope.tenantId, fixture.targetScope.parkId]);
@@ -354,7 +383,7 @@ async function cleanupFixture(client, fixture) {
   assert.equal(Number(residual.rows[0].count), 0, "fixture cleanup residual must be zero");
 }
 
-async function runIteration(iteration) {
+async function runIteration(iteration, failAfterT0 = false) {
   const now = new Date();
   const fixture = makeFixture(iteration, now);
   const client = await pool.connect();
@@ -393,7 +422,41 @@ async function runIteration(iteration) {
       },
     });
     const contract = activatedContract(fixture.plan);
-    const phaseWriters = createProductionImportPhaseWriters({ cryptoProvider });
+    const phaseWriters = { ...createProductionImportPhaseWriters({ cryptoProvider }) };
+    if (failAfterT0) {
+      phaseWriters.T1 = async ({ tx }) => {
+        const promoted = await tx.query(
+          `SELECT count(*)::int AS count FROM legacy_record_map map
+             JOIN migration_batch batch ON batch.id=map.batch_id
+             WHERE batch.production_import_operation_id=$1
+               AND batch.production_import_phase='T0' AND map.is_active AND map.mapping_status='verified'`,
+          [fixture.plan.operationId],
+        );
+        assert.equal(promoted.rows[0].count, fixture.records.filter(record => record.phase === "T0" && record.disposition !== "quarantine").length);
+        throw Object.assign(new Error("synthetic failure after T0 verification"), { code: "SYNTHETIC_AFTER_T0_VERIFICATION" });
+      };
+      await assert.rejects(() => executeSealedProductionImport(fixture.plan, {
+        contract, now, currentCodeSha: fixture.plan.triple.codeSha, mergedCodeSha: fixture.plan.triple.codeSha,
+        targetIdentitySha256: fixture.plan.target.identitySha256, targetScope: fixture.targetScope,
+        database: adapter, payloadBundles: fixture.payloadBundles, phaseWriters,
+      }), error => error.code === "SYNTHETIC_AFTER_T0_VERIFICATION");
+      const afterFailure = await client.query(
+        `SELECT
+           (SELECT count(*)::int FROM migration_batch WHERE production_import_operation_id=$1) AS batches,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_projection_receipt WHERE operation_id=$1) AS receipts,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_record WHERE operation_id=$1) AS controls,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_phase WHERE operation_id=$1) AS phases,
+           (SELECT status FROM hr_yuzhou_production_import_operation WHERE operation_id=$1) AS status`,
+        [fixture.plan.operationId],
+      );
+      assert.deepEqual(afterFailure.rows[0], { batches: 0, receipts: 0, controls: 0, phases: 0, status: "failed" });
+      for (const record of fixture.records.filter(record => record.disposition === "insert")) {
+        assert.equal((await client.query(`SELECT count(*)::int AS count FROM ${record.plannedTargetTable} WHERE id=$1`, [record.targetId])).rows[0].count, 0);
+      }
+      assert.deepEqual((await client.query("SELECT org_name,version FROM sys_org WHERE id=$1", [fixture.org.targetId])).rows,
+        [{ org_name: fixture.orgBeforePayload.org_name, version: 3 }]);
+      return;
+    }
     const applied = await executeSealedProductionImport(fixture.plan, {
       contract, now, currentCodeSha: fixture.plan.triple.codeSha, mergedCodeSha: fixture.plan.triple.codeSha,
       targetIdentitySha256: fixture.plan.target.identitySha256, targetScope: fixture.targetScope,
@@ -431,10 +494,15 @@ async function runIteration(iteration) {
   }
 }
 
-try {
-  await runIteration(1);
-  await runIteration(2);
-  console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0");
-} finally {
-  await pool.end();
+export { makeFixture, seedExisting, cleanupFixture, activatedContract };
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await runIteration(1);
+    await runIteration(2);
+    await runIteration(3, true);
+    console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, verified maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0; failure after T0 verification leaves no business transaction residue");
+  } finally {
+    await pool.end();
+  }
 }
