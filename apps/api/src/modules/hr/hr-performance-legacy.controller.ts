@@ -7,10 +7,10 @@ import { RequireAnyPermissions } from "../../shared/decorators/permissions.decor
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   HrPerformanceLegacyPageQueryDto,
-  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
+import { HrPerformanceLegacyPersonSummaryRoutineQueryDto } from "./dto/hr-performance-legacy-person-summary.dto";
 import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 
 @Controller("hr/performance-legacy")
@@ -120,7 +120,7 @@ export class HrPerformanceLegacyController {
   personSummary(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Query() query: HrPerformanceLegacyPersonSummaryQueryDto,
+    @Query() query: HrPerformanceLegacyPersonSummaryRoutineQueryDto,
   ) {
     return this.service.personSummary(scope, actor, query);
   }

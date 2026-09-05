@@ -68,13 +68,13 @@ const EXPECTED = [
     sourceArtifactSha256: "0519e0941c405d98c76795cea378fe347a0dc7577fe9e79e68035761b3248933",
     parameters: ["person:varchar(10)"],
     outputCount: 6,
-    semanticContractSha256: "880eef097511cd5ddad2d7bec8f9c7ecdcec654311ab56989fb7a99e200948fa",
+    semanticContractSha256: "ef4a9d7ebe7cde76a12cce7155d07d8e328aab58ab50856d794cc9a92110677c",
+    modernStatus: "implemented_pending_runtime_uat",
+    modernService: "HrPerformanceLegacyService.personSummary source_routine=web_ass",
+    modernApi: "GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_ass",
+    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
     dynamic: false,
     missingColumns: [],
-    modernStatus: "implemented_pending_parity_evidence",
-    modernService: "HrPerformanceLegacyService.personSummary",
-    modernApi: "GET /hr/performance-legacy/query-reports/person-summary",
-    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
   },
   {
     routineId: "RULE-E6282105617A7A50",
@@ -82,13 +82,13 @@ const EXPECTED = [
     sourceArtifactSha256: "2ccc23b92971ea34dffb3e4cd6ef190b57e79192a38dc97900d434995ac88674",
     parameters: ["person:varchar(10)"],
     outputCount: 6,
-    semanticContractSha256: "707a165ff72ff8e45a4bf1e230b5a5a02eca3739d6cc4344b236f27a48e40e20",
+    semanticContractSha256: "64a5f0f613cb385829a474390d7f940500bb8ccef79385b3c716baef69ec1572",
+    modernStatus: "implemented_pending_runtime_uat",
+    modernService: "HrPerformanceLegacyService.personSummary source_routine=web_assessmentquery",
+    modernApi: "GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_assessmentquery",
+    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
     dynamic: true,
     missingColumns: [],
-    modernStatus: "implemented_pending_parity_evidence",
-    modernService: "HrPerformanceLegacyService.personSummary",
-    modernApi: "GET /hr/performance-legacy/query-reports/person-summary",
-    modernPage: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
   },
   {
     routineId: "RULE-0C4458064CE74646",
@@ -308,14 +308,14 @@ function validateRoutineRows(contract, repositoryRoot) {
     if (row.sourceSchemaStatus !== expectedSchemaStatus || !same(row.missingSourceColumns, expected.missingColumns)) {
       fail("PERFORMANCE_QUERY_SCHEMA_DRIFT_CLASSIFICATION_INVALID", expected.sourceName);
     }
-    const expectedModernStatus = expected.modernStatus ?? "not_implemented";
     if (
-      row.modernTarget?.status !== expectedModernStatus
+      row.modernTarget?.status !== (expected.modernStatus ?? "not_implemented")
       || !Array.isArray(row.missingEvidence)
       || row.missingEvidence.length < 4
       || !Array.isArray(row.knownDifferences)
       || !row.knownDifferences.length
     ) fail("PERFORMANCE_QUERY_PENDING_EVIDENCE_INVALID", expected.sourceName);
+
     if (expected.modernStatus) {
       if (
         row.modernTarget.serviceSymbol !== expected.modernService
@@ -373,17 +373,14 @@ function validateKnownDifferences(contract) {
   }
 
   const outputIdentity = row => row.outputColumns.map(column => `${column.sourceExpression}|${column.sourceAlias}`);
-  const webAss = byName.get("web_ass");
-  const webAssessmentQuery = byName.get("web_assessmentquery");
-  if (!same(outputIdentity(webAss), outputIdentity(webAssessmentQuery))) {
+  if (!same(outputIdentity(byName.get("web_ass")), outputIdentity(byName.get("web_assessmentquery")))) {
     fail("PERFORMANCE_QUERY_WEB_DUPLICATE_OUTPUT_DRIFT", "web_ass/web_assessmentquery");
   }
-  for (const row of [webAss, webAssessmentQuery]) {
-    const orphanDifference = row.knownDifferences.find(item => item.code === "ORPHAN_MASTER_JOIN_ASYMMETRY");
-    if (!/no (?:matching )?person row/iu.test(orphanDifference?.sourceBehavior ?? "") || !orphanDifference.modernDecision.includes("pending")) {
-      fail("PERFORMANCE_QUERY_WEB_ORPHAN_DIFFERENCE_MISSING", row.sourceName);
-    }
-  }
+  if (
+    !byName.get("web_ass").knownDifferences.some(item => item.code === "ORPHAN_MASTER_EXCLUDED")
+    || !byName.get("web_assessmentquery").knownDifferences
+      .some(item => item.code === "ORPHAN_MASTER_PRESERVED")
+  ) fail("PERFORMANCE_QUERY_WEB_ORPHAN_POLICY_MISSING", "web_ass/web_assessmentquery");
 }
 
 function validateCompletionBoundary(contract) {
@@ -419,7 +416,7 @@ export function verifyLegacyPerformanceQueryRoutineParity({ contract, repository
     sourceRoutines: EXPECTED.length,
     verifiedRoutines: 0,
     pendingRoutines: EXPECTED.length,
-    implementedTargets: EXPECTED.filter(row => row.modernStatus).length,
+    implementedTargets: 2,
     dynamicReadOnlyRoutines: DYNAMIC_IDS.size,
     schemaDriftRoutines: EXPECTED.filter(row => row.missingColumns.length).length,
     compatibilityCredit: 0,

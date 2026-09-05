@@ -37,24 +37,33 @@ test("seven query routines remain pending and receive zero compatibility credit"
   assert.equal(contract.routines.flatMap(row => row.outputColumns).length, 53);
 });
 
-test("web_ass and web_assessmentquery share the implemented bounded endpoint without hiding their orphan-row difference", () => {
+test("web_ass and web_assessmentquery use explicit modes without hiding their orphan-row difference", () => {
   const rows = contract.routines.filter(row => ["web_ass", "web_assessmentquery"].includes(row.sourceName));
   assert.equal(rows.length, 2);
   for (const row of rows) {
     assert.equal(row.parityStatus, "pending");
     assert.equal(row.compatibilityCredit, 0);
-    assert.deepEqual(row.modernTarget, {
-      serviceSymbol: "HrPerformanceLegacyService.personSummary",
-      api: "GET /hr/performance-legacy/query-reports/person-summary",
-      page: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
-      status: "implemented_pending_parity_evidence",
-    });
     assert.equal(row.implementationEvidence.length, 2);
-    assert.ok(row.knownDifferences.some(item => item.code === "ORPHAN_MASTER_JOIN_ASYMMETRY"));
     assert.ok(row.missingEvidence.some(item => /orphan/iu.test(item)));
   }
-  assert.match(rows.find(row => row.sourceName === "web_ass").joinSemantics, /person LEFT OUTER JOIN assessmentmaster/iu);
-  assert.match(rows.find(row => row.sourceName === "web_assessmentquery").joinSemantics, /assessmentmaster LEFT JOIN person/iu);
+  const webAss = rows.find(row => row.sourceName === "web_ass");
+  const assessmentQuery = rows.find(row => row.sourceName === "web_assessmentquery");
+  assert.deepEqual(webAss.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.personSummary source_routine=web_ass",
+    api: "GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_ass",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.deepEqual(assessmentQuery.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.personSummary source_routine=web_assessmentquery",
+    api: "GET /hr/performance-legacy/query-reports/person-summary?source_routine=web_assessmentquery",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyPersonSummaryPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.ok(webAss.knownDifferences.some(item => item.code === "ORPHAN_MASTER_EXCLUDED"));
+  assert.ok(assessmentQuery.knownDifferences.some(item => item.code === "ORPHAN_MASTER_PRESERVED"));
+  assert.match(webAss.joinSemantics, /person and LEFT OUTER JOINs assessmentmaster/iu);
+  assert.match(assessmentQuery.joinSemantics, /assessmentmaster LEFT JOIN person/iu);
 });
 
 test("legacy final-value formulas explicitly omit the displayed master adjustment", () => {
@@ -76,6 +85,25 @@ test("web_assquery freezes the ignored-period defect without making it the moder
   const difference = row.knownDifferences.find(item => item.code === "LEGACY_SESSION_PARAMETER_DISCARDED");
   assert.match(difference.modernDecision, /honor period/iu);
   assert.match(difference.modernDecision, /old input had no effect/iu);
+});
+
+test("web_ass and web_assessmentquery keep opposite orphan-master policies", () => {
+  const webAss = contract.routines.find(item => item.sourceName === "web_ass");
+  const assessmentQuery = contract.routines.find(
+    item => item.sourceName === "web_assessmentquery",
+  );
+  assert.ok(webAss.knownDifferences.some(item => item.code === "ORPHAN_MASTER_EXCLUDED"));
+  assert.ok(
+    assessmentQuery.knownDifferences.some(item => item.code === "ORPHAN_MASTER_PRESERVED"),
+  );
+  assert.match(webAss.modernTarget.api, /source_routine=web_ass$/u);
+  assert.match(assessmentQuery.modernTarget.api, /source_routine=web_assessmentquery$/u);
+  assert.equal(webAss.modernTarget.status, "implemented_pending_runtime_uat");
+  assert.equal(assessmentQuery.modernTarget.status, "implemented_pending_runtime_uat");
+  assert.equal(webAss.parityStatus, "pending");
+  assert.equal(assessmentQuery.parityStatus, "pending");
+  assert.equal(webAss.compatibilityCredit, 0);
+  assert.equal(assessmentQuery.compatibilityCredit, 0);
 });
 
 test("dynamic SQL and current-schema drift are bounded to the reviewed routine identities", () => {
@@ -150,6 +178,14 @@ test("source binding, payroll projection, formula and ignored-period differences
   restoredPeriod.routines.find(row => row.sourceName === "web_assquery")
     .legacyDynamicSql.discardedParameters = [];
   expectCode(restoredPeriod, "PERFORMANCE_QUERY_SEMANTIC_CONTRACT_DRIFT");
+
+  const mergedOrphanPolicy = structuredClone(contract);
+  mergedOrphanPolicy.routines.find(row => row.sourceName === "web_ass")
+    .knownDifferences = structuredClone(
+      mergedOrphanPolicy.routines.find(row => row.sourceName === "web_assessmentquery")
+        .knownDifferences,
+    );
+  expectCode(mergedOrphanPolicy, "PERFORMANCE_QUERY_SEMANTIC_CONTRACT_DRIFT");
 });
 
 test("contract contains structure and semantics only, not sensitive payload fields", () => {

@@ -10,6 +10,7 @@ import { validate } from "class-validator";
 import type { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HrPerformanceLegacyPersonSummaryQueryDto } from "./dto/hr-performance-legacy.dto";
+import { HrPerformanceLegacyPersonSummaryRoutineQueryDto } from "./dto/hr-performance-legacy-person-summary.dto";
 import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
@@ -529,9 +530,27 @@ test("person-summary accepts observed Unicode letters and rejects patterns, cont
   }
 });
 
+test("person-summary requires one explicit closed source routine", async () => {
+  for (const source_routine of ["web_ass", "web_assessmentquery"]) {
+    const dto = plainToInstance(HrPerformanceLegacyPersonSummaryRoutineQueryDto, {
+      source_person_code: "EMP_01",
+      source_routine,
+    });
+    assert.equal((await validate(dto)).length, 0, source_routine);
+  }
+  for (const source_routine of [undefined, null, "", "web_assquery", "WEB_ASS", 1]) {
+    const dto = plainToInstance(HrPerformanceLegacyPersonSummaryRoutineQueryDto, {
+      source_person_code: "EMP_01",
+      source_routine,
+    });
+    assert.notEqual((await validate(dto)).length, 0, String(source_routine));
+  }
+});
+
 test("person-summary endpoint uses base park/team/self permissions and excludes result-read-only access", () => {
   const controller = readFileSync(resolve(__dirname, "hr-performance-legacy.controller.ts"), "utf8");
   const route = controller.slice(controller.indexOf('@Get("query-reports/person-summary")'));
+  assert.match(route, /HrPerformanceLegacyPersonSummaryRoutineQueryDto/u);
   assert.match(route, /HR_PERFORMANCE_READ/u);
   assert.match(route, /HR_PERFORMANCE_TEAM_READ/u);
   assert.match(route, /HR_PERFORMANCE_SELF_READ/u);
@@ -556,6 +575,120 @@ function personSummaryHarness(rows: Record<string, unknown>[] = []) {
   return { calls, audits, service: new HrPerformanceLegacyService(dataSource, audit) };
 }
 
+function personSummaryOrphanHarness() {
+  const matched = {
+    sourcePersonCode: "LEGACY_01",
+    employeeDisplayName: "Synthetic mapped employee",
+    sourceSelfGrade: "A",
+    sourceAssGrade: "A",
+    sourceItemValue: "88.0000",
+    sourceTotalValue: "91.0000",
+  };
+  const orphan = {
+    sourcePersonCode: "LEGACY_01",
+    employeeDisplayName: null,
+    sourceSelfGrade: "B",
+    sourceAssGrade: null,
+    sourceItemValue: "75.0000",
+    sourceTotalValue: null,
+  };
+  const calls: Array<{ sql: string; params: unknown[] }> = [];
+  const audits: unknown[] = [];
+  const dataSource = {
+    query: async (sql: string, params: unknown[]) => {
+      calls.push({ sql, params: [...params] });
+      const rows = /summary_employee\.id IS NOT NULL/u.test(sql)
+        ? [matched]
+        : [matched, orphan];
+      return /count\(\*\)::int total/u.test(sql)
+        ? [{ total: String(rows.length) }]
+        : rows;
+    },
+  } as unknown as DataSource;
+  const audit = {
+    recordOperationRequired: async (input: unknown) => audits.push(input),
+  } as never;
+  return {
+    matched,
+    orphan,
+    calls,
+    audits,
+    service: new HrPerformanceLegacyService(dataSource, audit),
+  };
+}
+
+test("person-summary keeps web_ass and web_assessmentquery orphan semantics explicit", async () => {
+  const webAss = personSummaryOrphanHarness();
+  const matchedOnly = await webAss.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    {
+      page: 2,
+      page_size: 25,
+      source_person_code: "LEGACY_01",
+      source_routine: "web_ass",
+    },
+  );
+  assert.deepEqual(matchedOnly, {
+    items: [webAss.matched], total: 1, page: 2, page_size: 25,
+  });
+  assert.equal(webAss.calls.length, 2);
+  for (const call of webAss.calls) {
+    assert.match(call.sql, /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
+    assert.match(call.sql, /LEFT JOIN hr_employee summary_employee/u);
+    assert.match(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /web_ass/u);
+  }
+  assert.deepEqual(webAss.calls[1]?.params, [scope.tenantId, scope.parkId, "LEGACY_01", 25, 25]);
+  assert.match(String((webAss.audits[0] as { action?: string })?.action), /web_ass 语义/u);
+
+  const assessmentQuery = personSummaryOrphanHarness();
+  const withOrphan = await assessmentQuery.service.personSummary(
+    scope,
+    actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+    {
+      page: 1,
+      page_size: 50,
+      source_person_code: "LEGACY_01",
+      source_routine: "web_assessmentquery",
+    },
+  );
+  assert.deepEqual(withOrphan, {
+    items: [assessmentQuery.matched, assessmentQuery.orphan],
+    total: 2,
+    page: 1,
+    page_size: 50,
+  });
+  assert.equal(withOrphan.items[1]?.employeeDisplayName, null);
+  for (const call of assessmentQuery.calls) {
+    assert.doesNotMatch(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /web_assessmentquery/u);
+  }
+  assert.match(
+    String((assessmentQuery.audits[0] as { action?: string })?.action),
+    /web_assessmentquery 语义/u,
+  );
+});
+
+test("person-summary rejects an unknown routine before query or audit", async () => {
+  const fixture = personSummaryHarness();
+  await assert.rejects(
+    fixture.service.personSummary(
+      scope,
+      actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
+      {
+        page: 1,
+        page_size: 50,
+        source_person_code: "EMP_01",
+        source_routine: "web_assquery" as never,
+      },
+    ),
+    /Unsupported legacy performance person-summary routine/u,
+  );
+  assert.equal(fixture.calls.length, 0);
+  assert.equal(fixture.audits.length, 0);
+});
+
 test("person-summary returns only the six legacy report fields with exact parameterized filtering and stable paging", async () => {
   const row = {
     sourcePersonCode: "EMP_01",
@@ -569,7 +702,7 @@ test("person-summary returns only the six legacy report fields with exact parame
   const result = await fixture.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
-    { page: 2, page_size: 25, source_person_code: "EMP_01" },
+    { page: 2, page_size: 25, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
   assert.deepEqual(result, { items: [row], total: 1, page: 2, page_size: 25 });
   assert.deepEqual(Object.keys(result.items[0] ?? {}).sort(), [
@@ -612,7 +745,7 @@ test("person-summary park projection preserves an unbound employee name as null 
   const result = await fixture.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
-    { page: 1, page_size: 50, source_person_code: "EMP_02" },
+    { page: 1, page_size: 50, source_person_code: "EMP_02", source_routine: "web_assessmentquery" },
   );
   assert.deepEqual(result.items, [row]);
   assert.equal(result.items[0]?.employeeDisplayName, null);
@@ -624,17 +757,19 @@ test("person-summary park projection preserves an unbound employee name as null 
 
 test("person-summary fails closed for no permission and result-read-only permission", async () => {
   for (const deniedActor of [actor(), actor(HR_PERMISSIONS.HR_PERFORMANCE_RESULT_READ)]) {
-    const fixture = personSummaryHarness();
-    assert.deepEqual(
-      await fixture.service.personSummary(
-        scope,
-        deniedActor,
-        { page: 1, page_size: 50, source_person_code: "EMP_01" },
-      ),
-      { items: [], total: 0, page: 1, page_size: 50 },
-    );
-    assert.equal(fixture.calls.length, 0);
-    assert.equal(fixture.audits.length, 0);
+    for (const source_routine of ["web_ass", "web_assessmentquery"] as const) {
+      const fixture = personSummaryHarness();
+      assert.deepEqual(
+        await fixture.service.personSummary(
+          scope,
+          deniedActor,
+          { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine },
+        ),
+        { items: [], total: 0, page: 1, page_size: 50 },
+      );
+      assert.equal(fixture.calls.length, 0);
+      assert.equal(fixture.audits.length, 0);
+    }
   }
 });
 
@@ -643,7 +778,7 @@ test("person-summary self and team scopes require active employee mapping and on
   await team.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
-    { page: 1, page_size: 50, source_person_code: "EMP_01" },
+    { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
   assert.match(team.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
   assert.match(team.calls[0]?.sql ?? "", /JOIN hr_employee employee/u);
@@ -657,7 +792,7 @@ test("person-summary self and team scopes require active employee mapping and on
   await self.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
-    { page: 1, page_size: 50, source_person_code: "EMP_01" },
+    { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
   assert.match(self.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
@@ -673,7 +808,7 @@ test("person-summary reuses verified production-import visibility and never conc
   await fixture.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
-    { page: 1, page_size: 50, source_person_code: injected },
+    { page: 1, page_size: 50, source_person_code: injected, source_routine: "web_assessmentquery" },
   );
   for (const call of fixture.calls) {
     assert.doesNotMatch(call.sql, /EMP' OR 1=1/u);
@@ -690,7 +825,7 @@ test("person-summary binds an exact Unicode source code without case folding or 
   await fixture.service.personSummary(
     scope,
     actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
-    { page: 1, page_size: 50, source_person_code: "汉01" },
+    { page: 1, page_size: 50, source_person_code: "汉01", source_routine: "web_assessmentquery" },
   );
   for (const call of fixture.calls) {
     assert.doesNotMatch(call.sql, /汉01/u);
@@ -714,7 +849,7 @@ test("person-summary blocks authorized empty responses when required audit persi
     service.personSummary(
       scope,
       actor(HR_PERMISSIONS.HR_PERFORMANCE_READ),
-      { page: 1, page_size: 50, source_person_code: "EMP_01" },
+      { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
     ),
     /required audit unavailable/u,
   );

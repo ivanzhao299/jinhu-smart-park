@@ -44,6 +44,7 @@ const fields = [
 test("legacy person summary uses the bounded GET query contract", () => {
   assert.match(api, /\/hr\/performance-legacy\/query-reports\/person-summary\?/u);
   assert.match(api, /source_person_code: sourcePersonCode/u);
+  assert.match(api, /source_routine: sourceRoutine/u);
   assert.match(api, /page: String\(page\)/u);
   assert.match(api, /page_size: String\(pageSize\)/u);
   assert.doesNotMatch(api, /method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/u);
@@ -75,7 +76,24 @@ test("person code uses the shared Unicode-safe exact-code policy before any requ
   assert.match(component, /maxLength=\{HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH\}/u);
   assert.match(component, /if \(!isHrLegacyPersonCode\(normalized\)\)/u);
   assert.doesNotMatch(component, /ASCII|PERSON_CODE_PATTERN/u);
-  assert.match(component, /if \(!canRead \|\| queryCode === null\) return/u);
+  assert.match(component, /if \(!canRead \|\| queryCode === null \|\| queryRoutine === null\) return/u);
+});
+
+test("routine mode is explicit and preserves the two distinct orphan policies", () => {
+  assert.match(component, /<select/u);
+  assert.match(component, /HR_PERFORMANCE_LEGACY_PERSON_SUMMARY_ROUTINES\.map/u);
+  assert.match(component, /web_ass:\s*"web_ass（仅已映射现代员工）"/u);
+  assert.match(
+    component,
+    /web_assessmentquery:\s*"web_assessmentquery（保留未映射历史汇总）"/u,
+  );
+  assert.match(component, /useState<HrPerformanceLegacyPersonSummaryRoutine>\("web_ass"\)/u);
+  assert.match(component, /setQueryRoutine\(sourceRoutine\)/u);
+  assert.match(component, /setQueryRoutine\(null\)/u);
+  assert.match(component, /performanceLegacyPersonSummary\(\s*queryRoutine,\s*queryCode,/u);
+  assert.match(component, /web_assessmentquery 保留未映射历史汇总并明确显示未映射状态/u);
+  assert.match(component, /value === null \? "未建立现代员工映射" : valueText\(value\)/u);
+  assert.match(styles, /@media \(max-width: 560px\)[\s\S]*?\.search\s*\{[\s\S]*?flex-direction:\s*column/u);
 });
 
 test("the read-only source profile proves Unicode coverage without carrying source values", () => {

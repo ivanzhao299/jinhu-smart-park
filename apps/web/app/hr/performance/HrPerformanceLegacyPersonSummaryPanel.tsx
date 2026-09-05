@@ -3,9 +3,11 @@
 import {
   HR_LEGACY_PERSON_CODE_MAX_LENGTH,
   HR_LEGACY_PERSON_CODE_MAX_UTF16_LENGTH,
+  HR_PERFORMANCE_LEGACY_PERSON_SUMMARY_ROUTINES,
   HR_PERMISSIONS,
   isHrLegacyPersonCode,
   normalizeHrLegacyPersonCode,
+  type HrPerformanceLegacyPersonSummaryRoutine,
   type PaginatedResult,
 } from "@jinhu/shared";
 import { type FormEvent, useEffect, useRef, useState } from "react";
@@ -20,6 +22,10 @@ import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./performance-legacy-person-summary.module.css";
 
 const PAGE_SIZE = 20;
+const ROUTINE_LABELS: Record<HrPerformanceLegacyPersonSummaryRoutine, string> = {
+  web_ass: "web_ass（仅已映射现代员工）",
+  web_assessmentquery: "web_assessmentquery（保留未映射历史汇总）",
+};
 const EMPTY_PAGE: PaginatedResult<HrPerformanceLegacyPersonSummary> = {
   items: [],
   page: 1,
@@ -78,6 +84,10 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
     hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ) ||
     hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ);
   const [input, setInput] = useState("");
+  const [sourceRoutine, setSourceRoutine] =
+    useState<HrPerformanceLegacyPersonSummaryRoutine>("web_ass");
+  const [queryRoutine, setQueryRoutine] =
+    useState<HrPerformanceLegacyPersonSummaryRoutine | null>(null);
   const [queryCode, setQueryCode] = useState<string | null>(null);
   const [queryVersion, setQueryVersion] = useState(0);
   const [page, setPage] = useState(1);
@@ -89,7 +99,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
   const request = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!canRead || queryCode === null) return;
+    if (!canRead || queryCode === null || queryRoutine === null) return;
     const current = ++generation.current;
     request.current?.abort();
     const controller = new AbortController();
@@ -97,6 +107,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
     setLoading(true);
     setLoadError("");
     void performanceLegacyPersonSummary(
+      queryRoutine,
       queryCode,
       getAccessToken(),
       page,
@@ -119,7 +130,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
       generation.current += 1;
       controller.abort();
     };
-  }, [canRead, page, queryCode, queryVersion]);
+  }, [canRead, page, queryCode, queryRoutine, queryVersion]);
 
   if (!canRead) return null;
 
@@ -140,6 +151,7 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
     setValidationError("");
     setLoadError("");
     setQueryCode(normalized);
+    setQueryRoutine(sourceRoutine);
     setPage(1);
     setResult(EMPTY_PAGE);
     setQueryVersion(version => version + 1);
@@ -162,9 +174,32 @@ export function HrPerformanceLegacyPersonSummaryPanel() {
         </span>
       </div>
       <p className={styles.note}>
-        输入完整旧人员编码查询当前权限范围内的历史汇总；结果严格限定为人员编码、现代员工姓名、等级与汇总分值。
+        输入完整旧人员编码并选择旧例程语义。web_ass 仅显示已建立现代员工映射的记录；
+        web_assessmentquery 保留未映射历史汇总并明确显示未映射状态。
       </p>
       <form className={styles.search} onSubmit={submitQuery} noValidate>
+        <label className="form-field">
+          <span>旧例程兼容模式</span>
+          <select
+            value={sourceRoutine}
+            onChange={event => {
+              setSourceRoutine(event.target.value as HrPerformanceLegacyPersonSummaryRoutine);
+              generation.current += 1;
+              request.current?.abort();
+              setQueryCode(null);
+              setQueryRoutine(null);
+              setResult(EMPTY_PAGE);
+              setPage(1);
+              setLoading(false);
+              setValidationError("");
+              setLoadError("");
+            }}
+          >
+            {HR_PERFORMANCE_LEGACY_PERSON_SUMMARY_ROUTINES.map(routine => (
+              <option key={routine} value={routine}>{ROUTINE_LABELS[routine]}</option>
+            ))}
+          </select>
+        </label>
         <label className="form-field">
           <span>旧人员编码</span>
           <input
