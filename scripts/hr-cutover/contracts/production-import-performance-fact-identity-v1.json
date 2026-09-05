@@ -1,0 +1,106 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_production_import_performance_fact_identity_extension",
+  "contractVersion": "2026-09-05.1",
+  "parentExtension": {
+    "contractKind": "yuzhou_hr_production_import_performance_relations_extension",
+    "receiptRequired": true,
+    "requiredStatus": "succeeded"
+  },
+  "factLoaderParent": {
+    "bindingKind": "yuzhou_hr_production_import_performance_fact_loader_binding",
+    "planProperty": "performanceFactLoader",
+    "receiptRequired": true,
+    "requiredStatus": "succeeded"
+  },
+  "sourceEvidence": {
+    "path": "scripts/hr-cutover/contracts/legacy-performance-fact-location-evidence-v1.json",
+    "sha256": "4df7bcba4f8deaa0f35f40fff77da0a6a41fdd2fb14412779e42ccf865d55a2c",
+    "dimensionRows": 0,
+    "masterRows": 0
+  },
+  "factSet": {
+    "algorithm": "yuzhou-performance-fact-identity-set-v1",
+    "orderedBy": ["factKind", "sourceIdentitySha256"],
+    "rowKeys": [
+      "factKind",
+      "sourceIdentitySha256",
+      "sourceRowSha256",
+      "sourcePersonIdentitySha256",
+      "sourceSessionId"
+    ],
+    "emptySha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "containsTargetUuid": false,
+    "containsPersonalData": false
+  },
+  "migrations": [
+    {
+      "number": "000308",
+      "path": "database/migrations/000308_hr_yuzhou_performance_relations_production.sql",
+      "sha256": "ad77e0cf12cf73f98a5984835a9943a9e15c96cde37fe6bd95133845c711befa"
+    },
+    {
+      "number": "000310",
+      "path": "database/migrations/000310_hr_yuzhou_performance_fact_identity_production.sql",
+      "sha256": "64c30fdf2f3b209a10f1a020a4fdeffbf2b31e31f74a7c62f3f2e43d5a78d10f"
+    }
+  ],
+  "databaseCapability": {
+    "capabilityId": "jinhu-yuzhou-performance-fact-identity-production-v1",
+    "capabilityFunction": "hr_yuzhou_performance_fact_identity_production_capability_v1",
+    "applyFunction": "hr_yuzhou_apply_performance_fact_identity_production_v1",
+    "rollbackFunction": "hr_yuzhou_rollback_performance_fact_identity_production_v1",
+    "productionContextSupported": true,
+    "factKinds": ["dimension_result", "master_result"],
+    "rollbackOrder": "fact_identity>performance_relations>performance_facts"
+  },
+  "requiredBindings": [
+    "codeSha",
+    "sourceSnapshotHash",
+    "mappingContractHash",
+    "contractArtifactSha256",
+    "t0PhaseReceiptSha256",
+    "parentPerformanceRelationsContractSha256",
+    "parentPerformanceFactLoaderContractSha256",
+    "factLoaderReceiptSha256",
+    "expectedDimensionRows",
+    "expectedMasterRows",
+    "expectedFactRows",
+    "expectedFactSetSha256",
+    "migration308Sha256",
+    "migration310Sha256",
+    "targetIdentitySha256",
+    "targetScopeSha256",
+    "authorizationArtifactSha256",
+    "authorizationNonceSha256",
+    "extensionNonceSha256"
+  ],
+  "authorization": {
+    "sameParentExecutionEnvelope": true,
+    "parentReceiptBoundAtRuntimeAfterParentApply": true,
+    "factLoaderReceiptBoundAtRuntimeAfterFactLoad": true,
+    "oneTimeExtensionNonce": true,
+    "rollbackExtensionNonceSeparate": true
+  },
+  "receiptConservation": {
+    "personStates": ["resolved", "unmatched", "ambiguous", "not_applicable"],
+    "cycleStates": ["resolved", "unmatched", "ambiguous", "not_applicable"],
+    "personStateSumEqualsFactRows": true,
+    "cycleStateSumEqualsFactRows": true,
+    "factSetSha256MustMatch": true
+  },
+  "upstreamFactWriter": {
+    "requiredPlanProperty": "performanceFactLoader",
+    "requiredAuthorizationBinding": "performanceFactLoaderContractSha256",
+    "runtimeReceiptBinding": "factLoaderReceiptSha256",
+    "missingDisposition": "PRODUCTION_FACT_LOADER_RECEIPT_REQUIRED"
+  },
+  "rollback": {
+    "order": ["fact_identity", "performance_relations", "performance_facts"],
+    "ownerTablesImmutable": true,
+    "residualCount": 0
+  },
+  "safeOutput": "aggregate_counts_status_and_sha256_only",
+  "compatibilityCredit": 0,
+  "productionImport": "HOLD"
+}
