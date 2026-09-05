@@ -95,6 +95,8 @@ merge before-image 和 quarantine payload 必须在执行前由受控外部密�
 
 标准输出只有稳定 JSON 摘要：状态、原因码、sealed plan hash、scope hash、精确域列表、聚合记录数或最终 receipt hash。错误不会输出原始数据库异常、凭据、人员字段、工资值、附件内容或私有路径。
 
+包含已接线绩效域时，`databaseReceiptSha256ByDomain` 保留各数据库写入函数实际返回的回执哈希；总 writer 不再丢弃关系写入回执。入口要求这些键与本次绩效域完全一致，并核对返回 operationId、sealedPlanSha256，不接受额外字段或非字符串哈希。顶层 `receiptSha256` 仍是执行摘要哈希（同时绑定这些数据库回执哈希），不能称作数据库回执本体或产品验收证明。跨进程回滚必须在受控事务内从数据库读取权威回执，不能拿 CLI 摘要冒充它。
+
 `prepare STRUCTURE_READY` 仅说明本地封存输入及仓库 activation 可进入显式执行步骤，并固定返回 `readOnlyTargetVerified=false`、`envelopeAuthenticated=false`、`productionImportExecuted=false`；它不是生产目标或密文恢复验证，更不是生产写入完成。`SUCCEEDED` 只证明回执列出的精确域成功，且固定返回 `fullProductMigrationComplete=false`。T4、T5_FILE、独立 person-assessment、全域 UAT 和 P0-P4 双模式验收必须由各自入口与证据闭合。
 
 ## 持续验证

@@ -235,8 +235,8 @@ function dependencies(plan, overrides = {}) {
   };
 }
 
-function performanceArtifactFixture() {
-  const value = fixture();
+function performanceArtifactFixture(options = {}) {
+  const value = fixture(options);
   const config = JSON.parse(readFileSync(value.configPath, "utf8"));
   config.artifacts.performanceRelations = {
     relationPayload: privateJson(value.root, "synthetic-relations.json", { fixture: "relations" }),
@@ -274,6 +274,11 @@ function performanceArtifactFixture() {
   value.plan.authorization.binding.performanceFactLoaderContractSha256 = computeProductionImportPayloadHash(value.plan.performanceFactLoader);
   value.plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(value.plan);
   config.artifacts.sealedPlan = privateJson(value.root, "performance-plan.json", value.plan);
+  if (config.execution) {
+    const databaseBinding = JSON.parse(readFileSync(config.execution.databaseBinding.path, "utf8"));
+    databaseBinding.sealedPlanSha256 = value.plan.sealing.sealedPlanSha256;
+    config.execution.databaseBinding = privateJson(value.root, "performance-database-binding.json", databaseBinding);
+  }
   config.requestedDomains = ["T0", "PERFORMANCE_FACTS", "PERFORMANCE_RELATIONS", "T1", "T2", "T3"];
   return { ...value, config, configPath: privateJson(value.root, "performance-entrypoint.json", config).path };
 }
@@ -734,4 +739,40 @@ test("entrypoint source has no alternate contract, plugin, shell, or lab executi
   assert.match(source, /ls-files[\s\S]*diff[\s\S]*--cached[\s\S]*rev-parse/u);
   assert.doesNotMatch(source, /production-import-real-artifact-bridge|full-domain-lifecycle|run-final-rehearsal|docker|child_process.*spawn|eval\(|new Function/u);
   assert.ok(ProductionImportEntrypointError);
+});
+
+test("synthetic writer database receipt hashes survive CLI aggregation while wrong identity or extra fields fail", async () => {
+  async function run(mutate = () => {}) {
+    const value = performanceArtifactFixture({ intent: "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE", withExecution: true });
+    const writerResult = {
+      operationId: value.plan.operationId, sealedPlanSha256: value.plan.sealing.sealedPlanSha256,
+      status: "succeeded", phases: value.config.requestedDomains,
+      databaseReceiptSha256ByDomain: { PERFORMANCE_FACTS: H("actual-fixture-fact-receipt"), PERFORMANCE_RELATIONS: H("actual-fixture-relation-receipt") },
+    };
+    mutate(writerResult);
+    return runProductionImportEntrypoint({ configPath: value.configPath, execute: true }, {
+      now: NOW, assertActivated() {}, currentCodeSha: () => CODE_SHA,
+      loadCryptoProviderModule: async () => ({ decryptProductionImportEnvelope() { throw new Error("fixture has no encrypted records"); } }),
+      loadPg: async () => ({ Pool: class { async end() {} } }),
+      createAdapter: () => ({ queryReadOnly: async () => ({ rows: [] }), async probeTarget() {}, async close() {} }),
+      createPhaseWriters: () => ({}), executeImport: async () => writerResult,
+    });
+  }
+  const result = await run();
+  assert.deepEqual(result.databaseReceiptSha256ByDomain, {
+    PERFORMANCE_FACTS: H("actual-fixture-fact-receipt"), PERFORMANCE_RELATIONS: H("actual-fixture-relation-receipt"),
+  });
+  const different = await run(r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = H("different-fixture-receipt"); });
+  assert.notEqual(result.receiptSha256, different.receiptSha256);
+  for (const mutate of [
+    r => { r.operationId = "another-operation"; },
+    r => { r.sealedPlanSha256 = H("another-seal"); },
+    r => { delete r.databaseReceiptSha256ByDomain; },
+    r => { delete r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS; },
+    r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = "not-a-hash"; },
+    r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = [H("array-is-not-a-hash")]; },
+    r => { r.databaseReceiptSha256ByDomain.unexpectedField = "synthetic-canary"; },
+  ]) {
+    await assert.rejects(() => run(mutate), error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID");
+  }
 });

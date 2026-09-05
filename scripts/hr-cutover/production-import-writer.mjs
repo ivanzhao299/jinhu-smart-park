@@ -246,6 +246,7 @@ export async function executeSealedProductionImport(planInput, options) {
     return await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "apply_t0_t5" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query("SELECT hr_yuzhou_start_production_import($1,$2)", [plan.operationId, plan.sealing.sealedPlanSha256]);
+    const databaseReceiptSha256ByDomain = {};
     for (const phase of plan.phases) {
       await tx.query(
         `INSERT INTO hr_yuzhou_production_import_phase(operation_id,phase,phase_ordinal,status,source_batch_manifest_sha256,payload_bundle_artifact_sha256,payload_bundle_sha256,canonicalization_version,planned_record_count,before_canonical_sha256,started_at)
@@ -268,7 +269,8 @@ export async function executeSealedProductionImport(planInput, options) {
         `${phase.phase} operation progress`,
       );
       if (phase.phase === "T0" && performanceRelationsInput) {
-        await writeProductionPerformanceRelations({ ...performanceRelationsInput, tx });
+        const relationReceipt = await writeProductionPerformanceRelations({ ...performanceRelationsInput, tx });
+        databaseReceiptSha256ByDomain.PERFORMANCE_RELATIONS = relationReceipt.receiptSha256;
       }
     }
     if (t5PrivateStage) {
@@ -301,7 +303,8 @@ export async function executeSealedProductionImport(planInput, options) {
       [plan.operationId],
       "operation succeeded",
     );
-    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder.slice(0, 1), ...(performanceRelationsInput ? ["PERFORMANCE_RELATIONS"] : []), ...plan.phaseOrder.slice(1), ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256 };
+    return { operationId: plan.operationId, status: "succeeded", phases: [...plan.phaseOrder.slice(0, 1), ...(performanceRelationsInput ? ["PERFORMANCE_RELATIONS"] : []), ...plan.phaseOrder.slice(1), ...(t5PrivateStage ? ["T5"] : [])], sealedPlanSha256: plan.sealing.sealedPlanSha256,
+      ...(Object.keys(databaseReceiptSha256ByDomain).length ? { databaseReceiptSha256ByDomain } : {}) };
   });
   } catch (error) {
     const failureCode = error instanceof ProductionImportExecutionError ? error.code : "PRODUCTION_IMPORT_BUSINESS_TRANSACTION_FAILED";

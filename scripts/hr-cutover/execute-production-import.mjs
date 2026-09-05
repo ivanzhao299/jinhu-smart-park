@@ -64,7 +64,7 @@ function exactKeys(value, required, optional, code, label) {
 }
 
 function assertSha(value, code, label) {
-  if (!SHA256.test(value ?? "")) fail(code, `${label} must be a lowercase SHA-256`);
+  if (typeof value !== "string" || !SHA256.test(value)) fail(code, `${label} must be a lowercase SHA-256`);
 }
 
 export function readBoundedPrivateArtifactBytes(pathInput, label, maximumBytes, readBudget, { afterStat } = {}) {
@@ -610,14 +610,27 @@ export async function runProductionImportEntrypoint(input, dependencies = {}) {
         ...(optional.performanceRelations ? { performanceRelations: { ...optional.performanceRelations, readOnlyQuery: adapter.queryReadOnly.bind(adapter) } } : {}),
         ...(optional.performanceFactLoader ? { performanceFactLoader: { ...optional.performanceFactLoader, readOnlyQuery: adapter.queryReadOnly.bind(adapter) } } : {}),
       });
-      if (result?.status !== "succeeded" || JSON.stringify(result.phases) !== JSON.stringify(domains.map(domain => domain === "T5_NONFILE" ? "T5" : domain))) {
+      if (result?.status !== "succeeded" || result.operationId !== plan.operationId
+        || result.sealedPlanSha256 !== plan.sealing.sealedPlanSha256
+        || JSON.stringify(result.phases) !== JSON.stringify(domains.map(domain => domain === "T5_NONFILE" ? "T5" : domain))) {
         fail("PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID", "writer receipt differs from requested scope");
       }
+      const receiptDomains = domains.filter(domain => domain.startsWith("PERFORMANCE_"));
+      const databaseReceiptSha256ByDomain = {};
+      if (receiptDomains.length || result.databaseReceiptSha256ByDomain !== undefined) {
+        exactKeys(result.databaseReceiptSha256ByDomain, receiptDomains, [], "PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID", "databaseReceiptSha256ByDomain");
+        for (const domain of receiptDomains) {
+          assertSha(result.databaseReceiptSha256ByDomain[domain], "PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID", "database receipt hash");
+          databaseReceiptSha256ByDomain[domain] = result.databaseReceiptSha256ByDomain[domain];
+        }
+      }
+      const summaryIdentity = `${result.operationId}\0${result.sealedPlanSha256}\0${result.status}\0${result.phases.join(",")}`;
       return {
         status: "SUCCEEDED",
         mode: "execute",
         reasonCodes: [],
-        receiptSha256: sha256(Buffer.from(`${result.operationId}\0${result.sealedPlanSha256}\0${result.status}\0${result.phases.join(",")}`, "utf8")),
+        receiptSha256: sha256(Buffer.from(`${summaryIdentity}${receiptDomains.length ? `\0${computeProductionImportPayloadHash(databaseReceiptSha256ByDomain)}` : ""}`, "utf8")),
+        ...(receiptDomains.length ? { databaseReceiptSha256ByDomain } : {}),
         sealedPlanSha256: result.sealedPlanSha256,
         targetScopeSha256: plan.targetScope.scopeSha256,
         domains,

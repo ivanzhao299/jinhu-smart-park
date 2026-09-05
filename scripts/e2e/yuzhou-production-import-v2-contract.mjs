@@ -491,6 +491,7 @@ test("production relation writer runs immediately after T0 only after the read-o
   };
   const receipt = await executeSealedProductionImport(attached, options);
   assert.deepEqual(receipt.phases, ["T0", "PERFORMANCE_RELATIONS", "T1", "T2", "T3"]);
+  assert.deepEqual(receipt.databaseReceiptSha256ByDomain, { PERFORMANCE_RELATIONS: H("performance-relation-receipt") });
   const businessQueries = database.calls.filter(call => call.kind === "query").map(call => call.sql);
   const t0Finished = businessQueries.findIndex(sql => sql.includes("phase=$2") && sql.includes("status='succeeded'"));
   const relationApplied = businessQueries.findIndex(sql => sql.includes("hr-prod-performance-relations:apply"));
