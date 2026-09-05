@@ -122,15 +122,20 @@ keyring 实现移到 `apps/api/src/shared/security/`，但本文不修改、复�
 ```ts
 type BusinessScopeKind = "park" | "enterprise";
 
-interface BusinessScopeContext {
+type BusinessScopeContext = {
   tenantId: string;
   scopeId: string;
-  scopeKind: BusinessScopeKind;
-  parkId: string | null;
-}
+  kind: "park";
+  parkId: string;
+} | {
+  tenantId: string;
+  scopeId: string;
+  kind: "enterprise";
+  parkId: null;
+};
 ```
 
-不使用只有 `scopeId` 的弱类型。`scopeKind` 和可空的真实 `parkId` 必须一起由服务端从数据库
+不使用只有 `scopeId` 的弱类型。`kind` 和与之严格对应的 `parkId` 必须一起由服务端从数据库
 解析，客户端不能自行声明。约束为：
 
 - `park`：`parkId` 必须非空，且对应同租户启用的真实 `biz_park`；
@@ -144,33 +149,42 @@ interface BusinessScopeContext {
 toTenantParkScope(scope: BusinessScopeContext): TenantParkScope
 ```
 
-它仅在 `scopeKind === "park"` 且 `parkId` 已被权威解析时返回；企业作用域调用时直接拒绝，
+它仅在 `kind === "park"` 且 `parkId` 已被权威解析时返回；企业作用域调用时直接拒绝，
 绝不生成默认值。
 
 ### 3.2 权威持久化模型
 
-后续应通过未编号、前向迁移新增两类事实表；本文不预留迁移编号、不写 SQL：
+P1-A 已把共同内核固定为仅可显式执行的同源 DDL 组件
+`database/components/business-scope/000001_core.sql`。它不进入默认生产迁移链；后续独立安装
+profile 必须按 checksum/history 引用该文件，不能复制 SQL。共同内核新增三类事实表：
 
 1. `sys_business_scope`
-   - `id`（`scope_id`）、`tenant_id`、`scope_kind`、`park_id NULL`、`scope_code`、
-     `scope_name`、`status` 和审计列；
+   - `id`（`scope_id`）、真实 `tenant_row_id`、`tenant_id`、`scope_kind`、`scope_code`、
+     `scope_name`、`status` 和审计列；共同内核没有 `park_id`；
+   - `(tenant_row_id,tenant_id)` 复合外键引用真实 `sys_tenant(id,tenant_id)`；
    - `(tenant_id,id)` 唯一；
-   - 每个真实 park 最多一个活动的 park scope；
-   - 企业根 scope 的 `park_id IS NULL`；
-   - park scope 必须引用同租户真实 park；
+   - 同租户活动 `scope_code` 大小写不敏感唯一，但不限制一个租户只有一个 enterprise scope；
    - 不能把 `sys_tenant.park_id='0'` 当外键目标。
-2. `rel_user_business_scope`
-   - `tenant_id,scope_id,user_id,status,is_default` 和审计列；
+2. `sys_user_business_scope_membership`
+   - `tenant_id,scope_id,user_id,status` 和审计列；
    - 同租户同 scope 同用户活动关系唯一；
-   - 一个用户在同一产品登录范围内最多一个活动默认 scope；
-   - 用户、scope 和绑定必须属于同一租户。
+   - `(user_id,tenant_id)` 复合外键引用真实 `sys_user(id,tenant_id)`；
+   - 用户、scope 和绑定必须属于同一租户；登录唯一候选属于后续身份解析切片。
+3. `sys_business_scope_module`
+   - `tenant_id,scope_id,module_code,status` 和审计列；
+   - scope 与模块活动授权唯一，模块授权不代替 RBAC 权限。
 
 模块可用性也要有 scope 事实，不能在代码中因“独立版”而无条件放行：
 
-- 新的中性 `rel_business_scope_module(tenant_id,scope_id,module_code,status)` 可作为共同授权源；
+- 中性 `sys_business_scope_module(tenant_id,scope_id,module_code,status)` 是共同授权源；
 - park 集成模式可由迁移把当前已启用模块映射到对应 park scope；
 - 独立 HR 安装必须显式存在活动的 `hr` 授权关系；
 - 模块授权只说明产品能力开启，不代替 RBAC 权限。
+
+共同内核不引用 `biz_park` 或任何 `biz_*` 表。park 的真实身份由后续 Smart Park 适配层维护，
+并由服务端 adapter 核验同租户、同 scope 和非空真实 `parkId`；缺少适配层时必须拒绝。
+`sys_tenant` 继续只保留活动行 `tenant_id` 部分唯一，绝不能新增全局 `tenant_id` 唯一；P1-A
+只新增 `(id,tenant_id)` 唯一身份以支持复合外键，历史删除行仍可保留相同 `tenant_id`。
 
 ### 3.3 现有 `park_id NOT NULL` 的前向兼容方式
 
@@ -194,7 +208,7 @@ toTenantParkScope(scope: BusinessScopeContext): TenantParkScope
 
 | 事实 | 表/实体 | 为什么必须一起迁移 |
 |---|---|---|
-| 作用域和成员 | `sys_business_scope`, `rel_user_business_scope` | 登录和请求的权威范围 |
+| 作用域和成员 | `sys_business_scope`, `sys_user_business_scope_membership`, `sys_business_scope_module` | 登录和请求的权威范围及模块授权 |
 | 用户 | `sys_user` | 用户默认 scope、锁定、状态和用户名唯一性；`sys_user` 保存 `default_scope_id`，多 scope 成员关系仍在关系表 |
 | RBAC | `sys_role`, `sys_permission`, `rel_user_role`, `rel_role_perm` | principal 权限必须与请求 scope 同域；角色/权限定义的 tenant/platform 语义与 scope 绑定需要分开建模 |
 | 会话 | `sys_auth_refresh_token`, 密码身份所需的 `sys_user_identity` | access/refresh token 必须绑定同一 scope |
@@ -255,9 +269,10 @@ Files→Property 图带入独立 HR。
 - 生成 `BusinessScopeContext`；
 - 企业 scope 永远不查询/创建 `biz_park`。
 
-建议新模块：`apps/api/src/modules/business-scopes/`，独占其 entity、service、module 和
-park-only adapter。`ParksModule` 只在 Smart Park 组合根提供 park existence adapter；独立组合
-根不导入 ParksModule。
+P1-A 的共同模块已位于 `apps/api/src/shared/business-scope/`，并通过
+`BusinessScopeCoreModule.register({ parkAdapterProvider })` 暴露显式组合入口。`ParksModule` 只应在
+Smart Park 组合根提供 park existence adapter；独立组合根不导入 ParksModule。当前 P1-A 尚未
+接入 Auth/JWT，不能作为完整登录证明。
 
 ### 4.3 `IdentityDirectoryService`（Auth 所需的用户/RBAC 叶节点）
 
@@ -289,17 +304,17 @@ park-only adapter。`ParksModule` 只在 Smart Park 组合根提供 park existen
 listEnabledModules(scope: BusinessScopeContext): Promise<readonly string[]>
 ```
 
-共同实现读取 `rel_business_scope_module`；Smart Park 可在过渡期使用现有 SaaS 适配器。无授权
+共同实现读取 `sys_business_scope_module`；Smart Park 可在过渡期使用现有 SaaS 适配器。无授权
 记录、scope 不活动或适配器不支持该 kind 均返回拒绝，不能因为启动模式是 HR 就自动授予
 `hr`。`PermissionGuard`（`apps/api/src/shared/guards/permission.guard.ts:11-59`）本身只读 JWT
 权限，可以继续复用。
 
 ### 4.5 Auth/JWT 与审计
 
-- `JwtSessionClaims` 改为包含 `tenantId,scopeId,authVersion`；`scopeKind/parkId` 即使作为展示
+- `JwtSessionClaims` 改为包含 `tenantId,scopeId,authVersion`；`kind/parkId` 即使作为展示
   提示也不能成为权威事实。
 - `AuthUser/UserContext/LoginContextOption/SelectContextDto/SwitchContextDto` 同步改成中性
-  `scopeId/scopeKind/parkId|null` 合同；当前硬编码位置包括
+  `scopeId/kind/parkId` 判别联合合同；当前硬编码位置包括
   `packages/shared/src/index.ts:217-235`、`apps/api/src/modules/auth/auth.service.ts:31-47`、
   `apps/api/src/modules/auth/dto/select-context.dto.ts:3-18` 和
   `apps/api/src/modules/auth/dto/switch-context.dto.ts:3-12`。Smart Park 的 park context switch
