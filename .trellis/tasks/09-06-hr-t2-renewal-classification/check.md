@@ -1,0 +1,9 @@
+# Verification
+
+- Candidate base890e386c (PR637 not yet merged). No production/runtime identity claim for local modified code.
+- Root reviewed full producer and wrote10 focused tests plus a classifier-to-private-materializer integration. Combined T2 projection/assembly/materializer/classifier:52passed,1optional PostgreSQL cast test skipped because no container specified. Original phase artifact contract passed. No full extraction/A-B, SQL or source modification.
+- Actual CLI function (test currentHead callback, so not release proof) consumed current controlled source and exact archived routine bytes; generated357 hash-only classification records:349renewal,8needs_review (MISSING_PARENT). Source manifest bytes unchanged, count conservation and output hash verified. Second invocation rejected overwrite and existing output stayed identical.
+- Local validation artifact SHA5a24e1adb1af973604a9b4707d50e41ebe220d752884b6797a6d02b0b0c8cf06; this is local test evidence, not a final merged-code artifact. Private output/config paths are not included here.
+- Node syntax/diff checks passed. Independent trellis-check review found no concrete defect and modified no files. New producer/test focused recommended ESLint with Node globals:0errors/0warnings. Existing materializer test retains3 pre-existing unused destructurings, independently compared against HEAD; new integration added none and18/18materializer tests passed. No TypeScript/API/Web runtime or DB schema changes; workspace type/build deferred to normal PR CI, no dependency installation.
+
+Remaining: review, commit/PR CI after PR637, final merged-code candidate generation/current target evidence, conflict quarantine decisions and controlled production import with real domain reconciliation. Full enterprise HR parity remains in the parent objective.

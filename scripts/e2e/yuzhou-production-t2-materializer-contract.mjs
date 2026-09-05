@@ -9,6 +9,7 @@ import { materializeProductionT2DecisionCandidates as materialize } from "../hr-
 import { projectProductionT2Fields } from "../hr-cutover/production-t2-field-projection.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, stableProductionImportCanonicalJson as canonical, computeProductionImportBusinessIdentityHash as businessHash, deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
+import { buildProductionT2ChangeClassifications, T2_RENEWAL_ROUTINE_ID, T2_RENEWAL_ROUTINE_SHA256 } from "../hr-cutover/materialize-production-t2-change-classifications.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const canonicalHash = value => hash(canonical(value) + "\n");
@@ -138,6 +139,18 @@ test("missing change classification is counted as review, not silently inferred 
   const f = fixture(t, { classify: false }), result = materialize(f.path, options);
   assert.equal(result.status, "REVIEW_HOLD"); assert.equal(result.countByDisposition.quarantine, 1);
   assert.equal(result.reasonCounts.T2_DICTIONARY_DECISION_INVALID, 1);
+});
+test("source-evidenced classifier output feeds the existing private T2 consumer unchanged", t => {
+  const f = fixture(t), stagedRecords = ["contract-types.jsonl", "contracts.jsonl", "contract-changes.jsonl"].flatMap(name => readFileSync(join(f.config.stagingDir, name), "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line)));
+  const manifest = JSON.parse(readFileSync(join(f.config.stagingDir, "manifest.json")));
+  const { artifact, summary } = buildProductionT2ChangeClassifications({ triple: f.config.triple, stagedRecords, stageFileSha256: manifest.domains["dbo.compact_c"].fileSha256, routineEvidence: { routineId: T2_RENEWAL_ROUTINE_ID, routineSha256: T2_RENEWAL_ROUTINE_SHA256 } });
+  assert.equal(summary.renewal, 1); assert.equal(summary.needsReview, 0);
+  f.config.artifacts.changeDecisions = f.write("generated-changes.json", artifact); f.save();
+  const result = materialize(f.path, options), output = JSON.parse(readFileSync(f.config.outputPath));
+  assert.equal(result.countByDisposition.insert, 3);
+  assert.equal(output.records.find(row => row.targetTable === "hr_contract_change").targetFields.change_type, "renewal");
+  assert.equal(output.resolutionEvidence.changeDecisionsSha256, f.config.artifacts.changeDecisions.sha256);
+  assert.equal(output.productionImport, "HOLD"); assert.equal(output.resolutionEvidence.approvalClaimed, false);
 });
 test("empty jsonl sources still materialize a complete four-table zero artifact", t => {
   const f = fixture(t, { empty: true }); const result = materialize(f.path, options);
