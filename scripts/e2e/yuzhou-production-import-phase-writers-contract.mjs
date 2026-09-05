@@ -250,6 +250,46 @@ test("quarantine creates the compatible quarantined map and exact projection rec
   assert.match(migration, /disposition='quarantine'[\s\S]*mapping_status<>'quarantined'[\s\S]*PRODUCTION_IMPORT_QUARANTINE_PROJECTION_INVALID/u);
 });
 
+test("orphan contract change writes only quarantine maps and encrypted receipts, never a business target", async () => {
+  const payload = {};
+  const record = orgRecord(51, "quarantine", payload, {
+    sourceTable: "dbo.compact_c", plannedTargetTable: "hr_contract_change", dependencyRefs: [],
+  });
+  const tx = fakeTx();
+  const result = await createProductionImportPhaseWriters({ cryptoProvider }).T2({ ...phaseInput([record], [payload], "T2"), tx });
+  assert.equal(result.records.length, 1);
+  assert.equal(result.records[0].disposition, "quarantine");
+  assert.equal(result.records[0].targetId, undefined);
+  assert.equal(H(result.records[0].quarantineCiphertext), record.quarantine.payloadCiphertextSha256);
+  assert.equal(tx.calls.some(call => /hr-prod-phase:(bulk-insert:|bulk-merge:|lock-existing)/u.test(call.sql)), false);
+  const mapCalls = tx.calls.filter(call => call.sql.includes("bulk-quarantine-map-receipt"));
+  assert.equal(mapCalls.length, 1);
+  assert.match(mapCalls[0].sql, /target_table,NULL,'quarantined'/u);
+  assert.equal(JSON.parse(mapCalls[0].parameters[3])[0].target_table, "hr_contract_change");
+  assert.equal(tx.calls.some(call => call.sql.includes("hr-prod-phase:bulk-map-receipt")), false);
+
+  for (const [dependency, code] of [
+    [{ role: "contract", phase: "T2", sourceIdentitySha256: H("missing"), expectedTargetTable: "hr_contract" }, "PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED"],
+    [{ role: "contract", phase: "T0", sourceIdentitySha256: H("missing"), expectedTargetTable: "hr_employee" }, "PRODUCTION_IMPORT_DEPENDENCY_INVALID"],
+  ]) {
+    const invalid = { ...record, dependencyRefs: [dependency] };
+    const invalidTx = fakeTx();
+    await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T2({ ...phaseInput([invalid], [payload], "T2"), tx: invalidTx }), error => error.code === code);
+    assert.equal(invalidTx.calls.some(call => call.sql.includes("bulk-quarantine-map-receipt")), false);
+  }
+});
+
+test("all-empty dependency layer still rejects required references for active contract changes", async () => {
+  const payload = Object.fromEntries(DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables.hr_contract_change.fieldWhitelist.map(field => [field, null]));
+  const record = orgRecord(52, "insert", orgPayload(52), {
+    sourceTable: "dbo.compact_c", plannedTargetTable: "hr_contract_change", targetTable: "hr_contract_change",
+    dependencyRefs: [], payloadSha256: computeProductionImportPayloadHash(payload),
+  });
+  const tx = fakeTx();
+  await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T2({ ...phaseInput([record], [payload], "T2"), tx }), error => error.code === "PRODUCTION_IMPORT_DEPENDENCY_REQUIRED");
+  assert.equal(tx.calls.some(call => /hr-prod-phase:(bulk-insert:|bulk-merge:|bulk-map-receipt)/u.test(call.sql)), false);
+});
+
 test("duplicate source or target identities fail before SQL and a partial database failure bubbles to the outer SERIALIZABLE owner", async () => {
   const payload = orgPayload(70);
   const duplicateSource = [orgRecord(70), orgRecord(70)];

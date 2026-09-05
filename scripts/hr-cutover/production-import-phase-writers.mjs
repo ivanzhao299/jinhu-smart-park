@@ -211,6 +211,12 @@ async function createMigrationBatch(tx, operationId, phaseName) {
 }
 
 async function resolveDependencies(tx, operationId, phaseName, layer) {
+  // Validate required references even when the whole layer has no references.
+  // Quarantined records have no business target and may lack their source parent.
+  for (const row of layer) for (const spec of row.rule.foreignKeys) {
+    const declared = row.record.dependencyRefs.some(reference => reference.role === spec.dependencyRole);
+    if (row.record.disposition !== "quarantine" && spec.required && !declared) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${row.record.plannedTargetTable}.${spec.dependencyRole}`);
+  }
   const references = [];
   for (const row of layer) for (const reference of row.record.dependencyRefs) {
     const spec = row.rule.foreignKeys.find(candidate => candidate.dependencyRole === reference.role);
@@ -239,10 +245,6 @@ async function resolveDependencies(tx, operationId, phaseName, layer) {
     if (reference.child.record.disposition !== "quarantine" && (map.mapping_status === "quarantined" || !UUID.test(map.target_id ?? ""))) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", `${reference.child.record.plannedTargetTable}.${reference.role}`);
     const spec = reference.child.rule.foreignKeys.find(candidate => candidate.dependencyRole === reference.role);
     reference.child.derivedFields[spec.column] = map.target_id ?? null;
-  }
-  for (const row of layer) for (const spec of row.rule.foreignKeys) {
-    const declared = row.record.dependencyRefs.some(reference => reference.role === spec.dependencyRole);
-    if (spec.required && !declared) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${row.record.plannedTargetTable}.${spec.dependencyRole}`);
   }
 }
 

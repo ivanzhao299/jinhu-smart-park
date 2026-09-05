@@ -316,7 +316,7 @@ function validateDependencyGraph(plan, contract) {
     const rule = contract.targetTableRules[record.plannedTargetTable];
     if (!rule || rule.phase !== phase.phase || !rule.allowedDependencyModes.includes(record.dependencyMode)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} dependency mode denied`);
     if (record.dependencyMode === "scope" && record.dependencyRefs.length !== 0) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} scope record cannot have dependencies`);
-    if (record.dependencyMode !== "scope" && record.dependencyRefs.length === 0) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label} dependencies missing`);
+    if (record.disposition !== "quarantine" && record.dependencyMode !== "scope" && record.dependencyRefs.length === 0) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label} dependencies missing`);
     const roleCounts = new Map();
     for (const [index, dependency] of record.dependencyRefs.entries()) {
       exactKeys(dependency, ["role", "phase", "sourceIdentitySha256", "expectedTargetTable"], [], "PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.dependencyRefs[${index}]`);
@@ -334,10 +334,10 @@ function validateDependencyGraph(plan, contract) {
       if (dependencyRecord.phase === phase.phase && dependencyRecord.recordIndex >= recordIndex) fail("PRODUCTION_IMPORT_DEPENDENCY_SEQUENCE_INVALID", `${label}.${dependency.role} must precede its dependent record`);
       if (record.disposition !== "quarantine" && (dependencyRecord.record.disposition === "quarantine" || dependencyRecord.record.targetTable !== dependency.expectedTargetTable || !UUID.test(dependencyRecord.record.targetId ?? ""))) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", `${label}.${dependency.role} is not an active target map`);
     }
-    for (const required of rule.requiredDependencies) if (roleCounts.get(required.role) !== 1) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label}.${required.role} required`);
+    for (const required of rule.requiredDependencies) if (record.disposition !== "quarantine" && roleCounts.get(required.role) !== 1) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label}.${required.role} required`);
     for (const optional of rule.optionalDependencies) if ((roleCounts.get(optional.role) ?? 0) > 1) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.${optional.role} duplicated`);
-    if (record.dependencyMode === "employee" && (record.dependencyRefs.length !== 1 || record.dependencyRefs[0].role !== "employee" || record.dependencyRefs[0].phase !== "T0" || record.dependencyRefs[0].expectedTargetTable !== "hr_employee")) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee mode requires exact T0 employee`);
-    if (record.dependencyMode === "record_graph" && record.dependencyRefs.length === 1 && record.dependencyRefs[0].role === "employee") fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee-only dependency must use employee mode`);
+    if (record.dependencyMode === "employee" && !(record.disposition === "quarantine" && record.dependencyRefs.length === 0) && (record.dependencyRefs.length !== 1 || record.dependencyRefs[0].role !== "employee" || record.dependencyRefs[0].phase !== "T0" || record.dependencyRefs[0].expectedTargetTable !== "hr_employee")) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee mode requires exact T0 employee`);
+    if (record.disposition !== "quarantine" && record.dependencyMode === "record_graph" && record.dependencyRefs.length === 1 && record.dependencyRefs[0].role === "employee") fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee-only dependency must use employee mode`);
   }
   const visiting = new Set();
   const visited = new Set();
