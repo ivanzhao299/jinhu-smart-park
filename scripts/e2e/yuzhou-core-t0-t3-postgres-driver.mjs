@@ -254,6 +254,7 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.doesNotMatch(source, /spawnSync\("lsof"/u);
   assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
   assert.match(readFileSync(resolve(ROOT, "scripts/load-yuzhou-t0.sh"), "utf8"), /T0_\$\{label\}_JSON_INPUT_INVALID/u);
+  assert.match(readFileSync(resolve(ROOT, "scripts/load-yuzhou-t0.sh"), "utf8"), /postgresJsonbSafe/u);
   assert.match(source, /coreDomainFacts/u);
   assert.match(source, /'remark'/u);
   assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
