@@ -55,7 +55,23 @@ The 000310 dependency hook must reject execution until the 000311 loader capabil
 can verify its real successful receipt. Neither runtime receipt belongs in the
 sealed metadata; both are obtained from actual execution.
 
-## Validation
+## Remaining visibility transition
+
+The current 000301/000303/000305 materializers insert maps as `loaded`, while HR
+legacy readers require `verified`. The core production phase writer likewise
+creates non-quarantine insert/merge maps as `loaded`. A successful load alone
+therefore does not prove the new API can read the imported records.
+
+The production chain must promote only its exact operation-owned maps after
+conservation succeeds, inside the same transaction. Core maps have exact
+`hr_yuzhou_production_import_projection_receipt` links to the sealed control rows;
+performance maps require their exact batch, fact kind, source and target bindings.
+Quarantined, inactive, foreign-operation and unrelated maps must not be promoted.
+Do not change API readers to accept `loaded`, and do not manually insert `verified`
+fixture maps to claim this transition works. This transition and its rollback/error
+tests remain implementation work; the preparation checks below do not prove it.
+
+## Preparation checks
 
 `node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs` covers stable
 sealing, missing parent, source/T0/hash/count/order drift, authorization binding,
