@@ -369,7 +369,7 @@ async function cleanupFixture(client, fixture) {
   assert.equal(Number(residual.rows[0].count), 0, "fixture cleanup residual must be zero");
 }
 
-async function runIteration(iteration) {
+async function runIteration(iteration, failAfterT0 = false) {
   const now = new Date();
   const fixture = makeFixture(iteration, now);
   const client = await pool.connect();
@@ -409,6 +409,40 @@ async function runIteration(iteration) {
     });
     const contract = activatedContract(fixture.plan);
     const phaseWriters = createProductionImportPhaseWriters({ cryptoProvider });
+    if (failAfterT0) {
+      phaseWriters.T1 = async ({ tx }) => {
+        const promoted = await tx.query(
+          `SELECT count(*)::int AS count FROM legacy_record_map map
+             JOIN migration_batch batch ON batch.id=map.batch_id
+             WHERE batch.production_import_operation_id=$1
+               AND batch.production_import_phase='T0' AND map.is_active AND map.mapping_status='verified'`,
+          [fixture.plan.operationId],
+        );
+        assert.equal(promoted.rows[0].count, fixture.records.filter(record => record.phase === "T0" && record.disposition !== "quarantine").length);
+        throw Object.assign(new Error("synthetic failure after T0 verification"), { code: "SYNTHETIC_AFTER_T0_VERIFICATION" });
+      };
+      await assert.rejects(() => executeSealedProductionImport(fixture.plan, {
+        contract, now, currentCodeSha: fixture.plan.triple.codeSha, mergedCodeSha: fixture.plan.triple.codeSha,
+        targetIdentitySha256: fixture.plan.target.identitySha256, targetScope: fixture.targetScope,
+        database: adapter, payloadBundles: fixture.payloadBundles, phaseWriters,
+      }), error => error.code === "SYNTHETIC_AFTER_T0_VERIFICATION");
+      const afterFailure = await client.query(
+        `SELECT
+           (SELECT count(*)::int FROM migration_batch WHERE production_import_operation_id=$1) AS batches,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_projection_receipt WHERE operation_id=$1) AS receipts,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_record WHERE operation_id=$1) AS controls,
+           (SELECT count(*)::int FROM hr_yuzhou_production_import_phase WHERE operation_id=$1) AS phases,
+           (SELECT status FROM hr_yuzhou_production_import_operation WHERE operation_id=$1) AS status`,
+        [fixture.plan.operationId],
+      );
+      assert.deepEqual(afterFailure.rows[0], { batches: 0, receipts: 0, controls: 0, phases: 0, status: "failed" });
+      for (const record of fixture.records.filter(record => record.disposition === "insert")) {
+        assert.equal((await client.query(`SELECT count(*)::int AS count FROM ${record.plannedTargetTable} WHERE id=$1`, [record.targetId])).rows[0].count, 0);
+      }
+      assert.deepEqual((await client.query("SELECT org_name,version FROM sys_org WHERE id=$1", [fixture.org.targetId])).rows,
+        [{ org_name: fixture.orgBeforePayload.org_name, version: 3 }]);
+      return;
+    }
     const applied = await executeSealedProductionImport(fixture.plan, {
       contract, now, currentCodeSha: fixture.plan.triple.codeSha, mergedCodeSha: fixture.plan.triple.codeSha,
       targetIdentitySha256: fixture.plan.target.identitySha256, targetScope: fixture.targetScope,
@@ -449,7 +483,8 @@ async function runIteration(iteration) {
 try {
   await runIteration(1);
   await runIteration(2);
-  console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0");
+  await runIteration(3, true);
+  console.log("Production import full-chain PostgreSQL fixture passed twice: 16 tables, T0-T3, verified maps/control/canonical, insert/merge/skip/quarantine, reverse rollback, residual=0; failure after T0 verification leaves no business transaction residue");
 } finally {
   await pool.end();
 }
