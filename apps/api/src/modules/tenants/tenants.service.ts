@@ -3,8 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
-  UnauthorizedException
+  NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
@@ -54,6 +53,7 @@ import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-set
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
 import type { UpdateTenantDto } from "./dto/update-tenant.dto";
 import { TenantEntity } from "./entities/tenant.entity";
+import { TenantStatusService } from "./tenant-status.service";
 import {
   normalizeTenantBranding,
   tenantMatchesBrandingHost,
@@ -130,7 +130,8 @@ export class TenantsService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-    private readonly filesService: FilesService
+    private readonly filesService: FilesService,
+    private readonly tenantStatusService: TenantStatusService
   ) {}
 
   async current(scope: TenantParkScope): Promise<TenantView> {
@@ -203,17 +204,7 @@ export class TenantsService {
   }
 
   async assertTenantActive(tenantId: string): Promise<TenantEntity> {
-    const tenant = await this.tenantRepository.findOne({ where: { tenantId, isDeleted: false } });
-    if (!tenant) {
-      throw new UnauthorizedException("账号所属租户不存在，请联系管理员");
-    }
-    if (tenant.status === 0) {
-      throw new UnauthorizedException("账号所属租户已停用，请联系管理员");
-    }
-    if (tenant.status === 2 || (tenant.expireTime && tenant.expireTime.getTime() <= Date.now())) {
-      throw new UnauthorizedException("账号所属租户已过期，请联系管理员续费");
-    }
-    return tenant;
+    return this.tenantStatusService.assertTenantActive(tenantId);
   }
 
   async list(actor: JwtPrincipal, query: PaginationQueryDto): Promise<PaginatedResult<TenantView>> {
