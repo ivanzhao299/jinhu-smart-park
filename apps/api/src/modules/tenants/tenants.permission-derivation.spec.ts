@@ -17,7 +17,7 @@ import { TenantEntity } from "./entities/tenant.entity";
 import { UserEntity } from "../users/entities/user.entity";
 
 test("runtime module grants derive the current homestay and housing permission families", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -31,7 +31,7 @@ test("runtime module grants derive the current homestay and housing permission f
 });
 
 test("housing rental module preserves compatibility entry permissions", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const filter = (service as unknown as {
     permissionCodesForModules(permissionCodes: string[], moduleCodes: string[]): string[];
   }).permissionCodesForModules.bind(service);
@@ -43,7 +43,7 @@ test("housing rental module preserves compatibility entry permissions", () => {
 });
 
 test("the default system module grants tenant administration pages without platform tenant management", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -70,7 +70,7 @@ test("the default system module grants tenant administration pages without platf
 });
 
 test("the safety module grants every safety permission family used by its menus and APIs", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -98,7 +98,7 @@ test("the safety module grants every safety permission family used by its menus 
 });
 
 test("the work-order module keeps core, SLA, log, and compatibility permissions", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -127,7 +127,7 @@ test("the work-order module keeps core, SLA, log, and compatibility permissions"
 });
 
 test("the apartment module keeps its menu and API permission family", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -162,7 +162,7 @@ test("the apartment module keeps its menu and API permission family", () => {
 });
 
 test("the asset module keeps shared property operations, approvals, tasks, and notifications", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const derive = (service as unknown as {
     derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
   }).derivePermissionCodes.bind(service);
@@ -193,7 +193,7 @@ test("the asset module keeps shared property operations, approvals, tasks, and n
 });
 
 test("plan module markers cannot grant permissions for a module that is not enabled", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const filter = (service as unknown as {
     permissionCodesForModules(permissionCodes: string[], moduleCodes: string[]): string[];
   }).permissionCodesForModules.bind(service);
@@ -390,7 +390,7 @@ test("generic tenant expiry updates every non-deleted module assignment in the s
     }
   };
   const dataSource = { transaction: async (work: (entityManager: unknown) => unknown) => work(manager) };
-  const service = new TenantsService({} as never, dataSource as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, dataSource as never, {} as never, {} as never, {} as never);
 
   await service.update(
     { isSuper: true, permissions: [] } as never,
@@ -414,7 +414,7 @@ test("tenant park row convergence prefers the active duplicate regardless of row
 });
 
 test("inactive park recovery grants only its explicit read and update permissions outside asset", () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const select = (service as unknown as {
     selectPermissions(
       permissions: Array<{ id: string; code: string; parentId: null; isEnabled: boolean; isDeleted: boolean }>,
@@ -703,7 +703,7 @@ test("tenant asset provisioning rejects duplicate non-deleted projections before
 });
 
 test("tenant authorization rejects a malformed park-scoped administrator role", async () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const getOrCreate = (service as unknown as {
     getOrCreateTenantAdminRole(
       manager: { getRepository(): { findOne(): Promise<unknown> } },
@@ -733,7 +733,7 @@ test("tenant authorization rejects a malformed park-scoped administrator role", 
 });
 
 test("tenant authorization repairs legacy tenant-scoped administrator role flags", async () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const getOrCreate = (service as unknown as {
     getOrCreateTenantAdminRole(
       manager: { getRepository(): { findOne(): Promise<unknown>; save(role: unknown): Promise<unknown> } },
@@ -790,7 +790,7 @@ test("tenant authorization repairs legacy tenant-scoped administrator role flags
 });
 
 test("tenant authorization rejects user-created tenant admin role collisions", async () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never, {} as never);
   const getOrCreate = (service as unknown as {
     getOrCreateTenantAdminRole(
       manager: { getRepository(): { findOne(): Promise<unknown>; save(role: unknown): Promise<unknown> } },

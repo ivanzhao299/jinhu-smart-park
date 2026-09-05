@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import {
   PROPERTY_BUSINESS_PERMISSIONS,
   HR_PERMISSIONS,
@@ -8,8 +8,24 @@ import {
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
-import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import type { FileEntity } from "./entities/file.entity";
+import {
+  FILE_PROPERTY_UNIT_ACCESS_PORT,
+  type FilePropertyUnitAccessPort
+} from "./file-property-unit-access.port";
+
+export const HR_BUSINESS_FILE_TYPES = [
+  "hr_employee_document",
+  "hr_employee_photo",
+  "hr_candidate_resume",
+  "hr_candidate_offer_evidence",
+  "hr_employee_credential_evidence",
+  "hr_lifecycle_checklist_evidence",
+  "hr_training_certificate",
+  "hr_training_evidence",
+  "hr_reward_evidence",
+  "hr_contract_document"
+] as const;
 
 export const PROPERTY_BUSINESS_FILE_TYPES = [
   "housing_lease_signature",
@@ -20,8 +36,8 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "housing_purchase",
   "homestay_turnover",
   "floorplan",
-  "party_identity_evidence"
-  ,"hr_employee_document","hr_employee_photo","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence","hr_reward_evidence","hr_contract_document"
+  "party_identity_evidence",
+  ...HR_BUSINESS_FILE_TYPES
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
@@ -100,15 +116,26 @@ const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
 export class FileBusinessAccessService {
   constructor(
     private readonly dataSource: DataSource,
-    private readonly unitAccessService: PropertyUnitAccessService,
+    @Inject(FILE_PROPERTY_UNIT_ACCESS_PORT)
+    private readonly unitAccessService: FilePropertyUnitAccessPort,
     private readonly dataScopeService: DataScopeService
   ) {}
+
+  assertCompositionBizType(bizType: string | undefined): void {
+    if (
+      this.unitAccessService.compositionMode === "hr_leaf"
+      && (!bizType || !(HR_BUSINESS_FILE_TYPES as readonly string[]).includes(bizType))
+    ) {
+      throw new ForbiddenException("Only HR protected file types are available in the HR file module");
+    }
+  }
 
   isProtectedBizType(value: string): value is PropertyBusinessFileType {
     return (PROPERTY_BUSINESS_FILE_TYPES as readonly string[]).includes(value);
   }
 
   assertRoutePermission(actor:JwtPrincipal,bizType:string|undefined,action:AccessAction):void{
+    this.assertCompositionBizType(bizType);
     if(bizType&&this.isProtectedBizType(bizType))return;
     const permission=action==="upload"?SYSTEM_PERMISSIONS.FILE_UPLOAD:action==="delete"?SYSTEM_PERMISSIONS.FILE_DELETE:action==="download"?SYSTEM_PERMISSIONS.FILE_DOWNLOAD:SYSTEM_PERMISSIONS.FILE_READ;
     if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
@@ -123,6 +150,7 @@ export class FileBusinessAccessService {
     pendingOwnerId?: string,
     protectedFileId?: string
   ): Promise<void> {
+    this.assertCompositionBizType(bizType);
     if (!this.isProtectedBizType(bizType)) return;
     if (bizType === "floorplan") {
       const floorAction: FloorAccessAction = action === "upload" || action === "delete"
@@ -301,6 +329,7 @@ export class FileBusinessAccessService {
   }
 
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {
+    this.assertCompositionBizType(file.bizType);
     if (
       this.isProtectedBizType(file.bizType)
       && !file.bizId
@@ -315,6 +344,7 @@ export class FileBusinessAccessService {
     file: FileEntity,
     manager: EntityManager = this.dataSource.manager
   ): Promise<void> {
+    this.assertCompositionBizType(file.bizType);
     if (!this.isProtectedBizType(file.bizType) || !file.bizId) return;
     if (file.bizType === "party_identity_evidence") {
       const references = await manager.query(
@@ -411,6 +441,7 @@ export class FileBusinessAccessService {
     actor: JwtPrincipal,
     manager: EntityManager = this.dataSource.manager
   ): Promise<void> {
+    this.assertCompositionBizType(file.bizType);
     if (file.bizType !== "floorplan" || !file.bizId) return;
     await this.assertFloorReferenceAccess(scope, actor, file.bizId, "write", manager);
     await manager.query(

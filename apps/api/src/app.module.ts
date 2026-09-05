@@ -80,7 +80,7 @@ import { PropertyHighRiskActionGuard } from "./shared/guards/property-high-risk-
 import { IdempotencyCleanupService } from "./shared/services/idempotency-cleanup.service";
 import { IdempotencyService, setIdempotencyService } from "./shared/services/idempotency.service";
 import { DataSource } from "typeorm";
-import { parsePartyDataKeyring } from "./modules/property-operations/party-data-keyring";
+import { parsePartyDataKeyring } from "./shared/security/party-data-keyring";
 
 function getEnvString(config: Record<string, unknown>, key: string, fallback = ""): string {
   const value = config[key];

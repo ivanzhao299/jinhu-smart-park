@@ -318,13 +318,15 @@ pnpm hr:migration:performance-query-routine-parity
 
 当前真实源事实仍是 `2,949` 条人员关系、`person.assessment` 非空数 `0`、`assessmentmaster` 行数 `0`，因此不得生成 matched/mismatch 或任何可比较结论，也不增加 `bs_ass_compute` 兼容积分。合成 PostgreSQL 已覆盖非空 master、非空 assessment、一次授权消费、精确重放和逆序零残留，证明脚本编排可以在具备生产过程的目标上工作；它不冒充真实源结果。
 
-当前 `000307` 的触发器、materialize 和 rollback 过程仍只允许 `lab_rehearsal`，仓库中尚无生产版数据库过程和授权/回执控制函数。适配器因此会在任何写事务前以 `PERFORMANCE_PERSON_ASSESSMENT_PRODUCTION_CAPABILITY_UNAVAILABLE` 失败关闭，禁止关闭触发器、把生产批次伪标成 lab 或直接插表。下一最小切片是一个前向数据库迁移：实现合同中列名固定的 capability、一次性授权消费、production materialize/rollback 和 hash-only receipt；在该迁移通过合成与隔离 A/B 前，本关系的 `productionImport` 保持 `HOLD`。
+`000309` 候选在不改写 `000307` 的前提下增加固定 production capability、独立 import/rollback 一次性授权账本、production materialize/rollback 与 hash-only receipt。它必须复用同一父导入的 production T0 batch，并以成功的 `000308` 关系回执、`000308` 迁移历史精确 SHA、C/S/M、T0、源恢复回执、payload 和 `000307` SHA 为事务前门禁；不会新建或伪装 owner batch。合成 PostgreSQL 从零迁移链必须证明非空 master 可得到 resolved/matched、精确重放幂等、漂移拒绝、resolution→evidence 逆序回滚零残留且 owner 表不变。该切片不连接真实生产；当前真实源仍是全空 assessment/master=0，兼容积分保持 0，`productionImport` 保持 `HOLD`。
 
 专项核验命令：
 
 ```bash
 pnpm hr:migration:performance:person-assessment-production-adapter:contract
 pnpm test:e2e:yuzhou-performance-person-assessment-production-adapter:pg
+pnpm hr:migration:performance:person-assessment-production-db:contract
+pnpm test:e2e:yuzhou-performance-person-assessment-production-db:pg
 ```
 
 ## 14. 全模型重写目标、零遗漏规则与里程碑（2026-09-04）

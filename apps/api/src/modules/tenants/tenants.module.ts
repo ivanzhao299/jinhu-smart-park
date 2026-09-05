@@ -16,9 +16,11 @@ import { UserParkEntity } from "../users/entities/user-park.entity";
 import { TenantEntity } from "./entities/tenant.entity";
 import { TenantsController } from "./tenants.controller";
 import { TenantsService } from "./tenants.service";
+import { TenantStatusModule } from "./tenant-status.module";
 
 @Module({
   imports: [
+    TenantStatusModule,
     forwardRef(() => FilesModule),
     TypeOrmModule.forFeature([
       TenantEntity,

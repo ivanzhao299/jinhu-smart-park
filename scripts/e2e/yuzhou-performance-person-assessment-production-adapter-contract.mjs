@@ -177,6 +177,20 @@ test("consumes import authority separately, writes once and returns the exact pr
   assert.deepEqual(db.calls.filter(call => call.kind === "transaction").map(call => call.purpose), [
     "consume_performance_person_assessment_authorization", "apply_performance_person_assessment",
   ]);
+  const consume = db.calls.find(call => call.kind === "query"
+    && call.sql.includes("consume_performance_person_assessment_authorization"));
+  assert.equal(consume.parameters.length, 17);
+  assert.deepEqual(consume.parameters.slice(0, 14), [
+    payload.operationId, payload.parentImportOperationId, payload.triple.codeSha,
+    payload.triple.sourceSnapshotHash, payload.triple.mappingContractHash,
+    payload.bindings.t0ArtifactSha256, payload.bindings.contractArtifactSha256,
+    payload.bindings.sourceRestoreReceiptSha256,
+    payload.bindings.sourcePayloadArtifactSha256,
+    payload.bindings.safeReceiptArtifactSha256,
+    payload.bindings.migrationArtifactSha256, payload.payloadSha256,
+    payload.sealing.sealedArtifactSha256,
+    computePerformancePersonAssessmentProductionBindingHash(payload),
+  ]);
   const beforeReplay = db.calls.filter(call => call.kind === "transaction").length;
   const replay = await executePerformancePersonAssessmentProductionPayload(payload, authorization(payload), options(payload, db));
   assert.equal(replay.stateSha256, first.stateSha256);

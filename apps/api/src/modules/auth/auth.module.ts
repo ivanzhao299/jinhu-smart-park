@@ -4,7 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
-import { TenantsModule } from "../tenants/tenants.module";
+import { TenantStatusModule } from "../tenants/tenant-status.module";
 import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthPreValidationRateLimitMiddleware } from "./auth-prevalidation-rate-limit.middleware";
@@ -38,7 +38,7 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
       AuthPolicyEntity
     ]),
     AuditModule,
-    TenantsModule,
+    TenantStatusModule,
     UsersModule
   ],
   controllers: [AuthController],

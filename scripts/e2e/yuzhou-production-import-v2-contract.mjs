@@ -199,6 +199,73 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
 const reseal = plan => { plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan); return plan; };
 const findRecord = (plan, table) => plan.phases.flatMap(phase => phase.records).find(record => record.plannedTargetTable === table);
 
+function bindRuntimeReleaseEvidence(plan) {
+  plan.runtimeReleaseEvidence = {
+    artifactSha256: H("approved-runtime-receipt-bytes"),
+    observedAt: "2026-08-28T23:55:00.000Z",
+    expiresAt: plan.authorization.expiresAt,
+  };
+  plan.authorization.binding.runtimeReleaseEvidenceBindingSha256 = computeProductionImportPayloadHash(plan.runtimeReleaseEvidence);
+  return reseal(plan);
+}
+
+test("external runtime receipt binds exact bytes and validity without changing the code SHA", () => {
+  const { plan } = v2Fixture();
+  const originalCode = plan.triple.codeSha;
+  const originalSeal = plan.sealing.sealedPlanSha256;
+  bindRuntimeReleaseEvidence(plan);
+  assert.equal(validateSealedProductionImportPlan(plan, { now: NOW }).triple.codeSha, originalCode);
+  assert.notEqual(plan.sealing.sealedPlanSha256, originalSeal);
+  assert.deepEqual(validateSealedProductionImportPlan(v2Fixture().plan, { now: NOW }).runtimeReleaseEvidence, undefined);
+});
+
+test("runtime receipt cannot be swapped or removed under an existing authorization binding", () => {
+  for (const mutate of [
+    plan => { delete plan.authorization.binding.runtimeReleaseEvidenceBindingSha256; },
+    plan => { plan.runtimeReleaseEvidence.artifactSha256 = H("replacement-receipt"); },
+    plan => { plan.runtimeReleaseEvidence.observedAt = "2026-08-28T23:56:00.000Z"; },
+    plan => { delete plan.runtimeReleaseEvidence; },
+  ]) {
+    const plan = bindRuntimeReleaseEvidence(v2Fixture().plan);
+    mutate(plan);
+    reseal(plan);
+    assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+  }
+});
+
+test("runtime observation rejects invalid, future, post-approval and expired intervals", () => {
+  for (const override of [
+    { observedAt: null }, { observedAt: "2026-02-30T00:00:00.000Z" },
+    { observedAt: "2026-08-29" }, { observedAt: "2026-08-29T01:01:00.000Z" },
+    { observedAt: "2026-08-29T00:31:00.000Z" },
+    { expiresAt: NOW.toISOString() }, { expiresAt: "2026-08-29T01:31:00.000Z" },
+    { artifactSha256: "not-a-hash" }, { artifactSha256: [H("array-hash")] }, { extra: true },
+  ]) {
+    const plan = bindRuntimeReleaseEvidence(v2Fixture().plan);
+    Object.assign(plan.runtimeReleaseEvidence, override);
+    plan.authorization.binding.runtimeReleaseEvidenceBindingSha256 = computeProductionImportPayloadHash(plan.runtimeReleaseEvidence);
+    reseal(plan);
+    assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_RUNTIME_RELEASE_EVIDENCE_INVALID");
+  }
+});
+
+test("runtime receipt changes remain covered by the sealed plan hash", () => {
+  const plan = bindRuntimeReleaseEvidence(v2Fixture().plan);
+  plan.runtimeReleaseEvidence.artifactSha256 = H("replacement-receipt");
+  plan.authorization.binding.runtimeReleaseEvidenceBindingSha256 = computeProductionImportPayloadHash(plan.runtimeReleaseEvidence);
+  assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_SEALED_PLAN_HASH_MISMATCH");
+});
+
+test("invalid runtime evidence fails before database access", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  bindRuntimeReleaseEvidence(plan);
+  plan.runtimeReleaseEvidence.artifactSha256 = H("unapproved");
+  reseal(plan);
+  const database = mockDatabase();
+  await assert.rejects(() => executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database)), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+  assert.equal(database.calls.length, 0);
+});
+
 test("performance relation binding requires private artifacts before capability probe or authorization consumption", async () => {
   const { plan, payloadBundles } = v2Fixture();
   const binding = createHeldPerformanceRelationsBinding({
