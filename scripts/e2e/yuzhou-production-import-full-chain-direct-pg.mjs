@@ -262,6 +262,21 @@ async function verifyApplied(client, fixture) {
     [fixture.plan.operationId],
   );
   assert.deepEqual(counts.rows[0], { controls: 17, receipts: 17, batches: 4, active_maps: 17 });
+  const visibility = await client.query(
+    `SELECT record.disposition, map.mapping_status, count(*)::int AS count
+       FROM hr_yuzhou_production_import_projection_receipt projection
+       JOIN hr_yuzhou_production_import_record record
+         ON record.operation_id=projection.operation_id AND record.phase=projection.phase
+         AND record.source_identity_sha256=projection.source_identity_sha256
+       JOIN legacy_record_map map ON map.id=projection.legacy_record_map_id
+       WHERE projection.operation_id=$1 AND map.is_active
+       GROUP BY record.disposition,map.mapping_status`,
+    [fixture.plan.operationId],
+  );
+  for (const row of visibility.rows) {
+    assert.equal(row.mapping_status, row.disposition === "quarantine" ? "quarantined" : "verified", "only reconciled owned records become query-visible");
+    assert.equal(row.count, fixture.records.filter(record => record.disposition === row.disposition).length);
+  }
   for (const table of TABLES) {
     const expected = fixture.records.filter(record => record.plannedTargetTable === table && record.disposition !== "quarantine").length;
     const result = await client.query(`SELECT count(*)::int AS count FROM ${table} WHERE tenant_id=$1 AND park_id=$2`, [fixture.targetScope.tenantId, fixture.targetScope.parkId]);

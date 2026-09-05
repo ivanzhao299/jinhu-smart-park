@@ -99,6 +99,47 @@ const CONTROL_BATCH_SIZE = 1000;
 const batches = rows => Array.from({ length: Math.ceil(rows.length / CONTROL_BATCH_SIZE) }, (_, index) => rows.slice(index * CONTROL_BATCH_SIZE, (index + 1) * CONTROL_BATCH_SIZE));
 const base64 = value => value.toString("base64");
 
+async function verifyOwnedPhaseMaps(tx, plan, phase) {
+  const mapped = phase.records.filter(record => record.disposition !== "quarantine");
+  for (const part of batches(mapped)) {
+    const expected = new Set(part.map(record => record.sourceIdentitySha256));
+    const result = await tx.query(
+      `/* hr-prod-control:verify-owned-maps */
+       UPDATE legacy_record_map AS map SET mapping_status='verified'
+       FROM hr_yuzhou_production_import_projection_receipt AS projection
+       JOIN hr_yuzhou_production_import_record AS record
+         ON record.operation_id=projection.operation_id AND record.phase=projection.phase
+         AND record.source_identity_sha256=projection.source_identity_sha256
+       JOIN migration_batch AS batch ON batch.id=projection.migration_batch_id
+       JOIN hr_yuzhou_production_import_operation AS operation ON operation.operation_id=projection.operation_id
+       WHERE projection.operation_id=$1 AND projection.phase=$2
+         AND record.source_identity_sha256=ANY($3::char(64)[])
+         AND operation.status='running' AND operation.sealed_plan_sha256=$4
+         AND operation.target_tenant_id=$5 AND operation.target_park_id=$6 AND operation.target_scope_sha256=$7
+         AND batch.execution_context='production_import' AND batch.status='succeeded'
+         AND batch.production_import_operation_id=projection.operation_id
+         AND batch.production_import_phase=projection.phase AND batch.source_system='yuzhou-v10'
+         AND map.id=projection.legacy_record_map_id AND map.batch_id=batch.id
+         AND map.source_system=record.source_system AND map.source_table=record.source_table
+         AND map.source_pk_canonical=record.source_pk_canonical
+         AND map.source_identity_sha256=record.source_identity_sha256
+         AND map.source_row_sha256=record.source_row_sha256
+         AND map.target_table=record.target_table AND map.target_id=record.target_id
+         AND record.disposition IN ('insert','merge','skip_approved')
+         AND map.is_active=true AND map.mapping_status IN ('loaded','verified')
+       RETURNING map.source_identity_sha256`,
+      [plan.operationId, phase.phase, [...expected], plan.sealing.sealedPlanSha256,
+        plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256],
+    );
+    if (!result || !Array.isArray(result.rows) || result.rows.length !== expected.size) {
+      fail("PRODUCTION_IMPORT_MAP_VERIFICATION_FAILED", `${phase.phase} exact owned map count differs`);
+    }
+    for (const row of result.rows) {
+      if (!expected.delete(row?.source_identity_sha256)) fail("PRODUCTION_IMPORT_MAP_VERIFICATION_FAILED", `${phase.phase} returned an unbound or duplicate map`);
+    }
+  }
+}
+
 async function recordControlRows(tx, operationId, phase, result) {
   const resultBySourceIdentity = new Map(result.records.map(row => [row.sourceIdentitySha256, row]));
   const records = [];
@@ -255,6 +296,9 @@ export async function executeSealedProductionImport(planInput, options) {
       );
       const result = validatePhaseResults(phase, plan.targetScope, await options.phaseWriters[phase.phase]({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope), phase: structuredClone(phase), payloadBundle: structuredClone(payloadBundles.get(phase.phase)) }));
       await recordControlRows(tx, plan.operationId, phase, result);
+      // The business result and sealed control rows must agree before readers
+      // may see these maps. Later failures roll this transition back too.
+      await verifyOwnedPhaseMaps(tx, plan, phase);
       await expectSingleStateTransition(tx,
         `UPDATE hr_yuzhou_production_import_phase SET status='succeeded',applied_record_count=$3,after_canonical_sha256=$4,finished_at=now()
          WHERE operation_id=$1 AND phase=$2 AND status='running'

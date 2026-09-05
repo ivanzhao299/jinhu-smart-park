@@ -68,8 +68,18 @@ conservation succeeds, inside the same transaction. Core maps have exact
 performance maps require their exact batch, fact kind, source and target bindings.
 Quarantined, inactive, foreign-operation and unrelated maps must not be promoted.
 Do not change API readers to accept `loaded`, and do not manually insert `verified`
-fixture maps to claim this transition works. This transition and its rollback/error
-tests remain implementation work; the preparation checks below do not prove it.
+fixture maps to claim this transition works.
+
+The candidate total writer now performs the core transition after validating the
+phase writer result and inserting its control receipts, before marking the phase
+successful. Its bounded updates require the exact operation, sealed plan, target
+scope, successful production batch, projection map, source row and target identity.
+Missing, duplicate or foreign returned identities abort the business transaction.
+Quarantined maps remain quarantined. This does not promote additional performance
+maps merely because they share the T0 batch; their final 000310 transition remains
+separate. The core full-chain PostgreSQL test now checks the resulting status by
+disposition without manually promoting fixture maps. Mock and SQL-string checks
+alone do not prove that runtime transition or end-user visibility.
 
 ## Preparation checks
 

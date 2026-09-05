@@ -160,6 +160,7 @@ function activatedContract(plan) {
 }
 
 function defaultDatabaseResult(sql, parameters = []) {
+  if (sql.includes("hr-prod-control:verify-owned-maps")) return { rows: parameters[2].map(identity => ({ source_identity_sha256: identity })) };
   if (sql.includes("UPDATE hr_yuzhou_production_import_record AS record") && sql.includes("RETURNING record.source_identity_sha256")) return { rows: JSON.parse(parameters[2]).map(row => ({ source_identity_sha256: row.source_identity_sha256 })) };
   if (/\bUPDATE\b[\s\S]+\bRETURNING\b/u.test(sql)) return { rows: [{}] };
   if (sql.includes("AS not_started_count")) return { rows: [{ not_started_count: 0, rolled_back_phase_count: 4, phase_count: 4, active_map_count: 0, succeeded_batch_count: 4, batch_count: 4 }] };
@@ -806,6 +807,47 @@ test("control receipts are bulk inserted in bounded 1000-row batches", async () 
   assert.equal(sizes.reduce((sum, size) => sum + size, 0), 1016);
   assert.ok(sizes.every(size => size >= 1 && size <= 1000));
   assert.equal(sizes.filter(size => size === 1000).length, 1);
+  const promotions = database.calls.filter(call => call.sql?.includes("hr-prod-control:verify-owned-maps"));
+  assert.ok(promotions.every(call => call.parameters[2].length <= 1000));
+  assert.equal(promotions.reduce((sum, call) => sum + call.parameters[2].length, 0), plan.phases.flatMap(phase => phase.records).filter(record => record.disposition !== "quarantine").length);
+});
+
+test("core maps are verified only after matching control receipts and before the phase succeeds", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const database = mockDatabase();
+  await executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database));
+  const calls = database.calls.filter(call => call.kind === "query");
+  for (const phase of plan.phases) {
+    const verifyIndex = calls.findIndex(call => call.sql.includes("hr-prod-control:verify-owned-maps") && call.parameters[1] === phase.phase);
+    const controlIndex = calls.findIndex(call => call.sql.startsWith("INSERT INTO hr_yuzhou_production_import_record(") && JSON.parse(call.parameters[0])[0]?.phase === phase.phase);
+    const succeededIndex = calls.findIndex(call => call.sql.includes("SET status='succeeded',applied_record_count") && call.parameters[1] === phase.phase);
+    assert.ok(controlIndex >= 0 && controlIndex < verifyIndex && verifyIndex < succeededIndex);
+    const verification = calls[verifyIndex];
+    assert.deepEqual(verification.parameters, [plan.operationId, phase.phase,
+      phase.records.filter(record => record.disposition !== "quarantine").map(record => record.sourceIdentitySha256),
+      plan.sealing.sealedPlanSha256, plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256]);
+    for (const clause of ["map.id=projection.legacy_record_map_id", "map.batch_id=batch.id", "map.source_row_sha256=record.source_row_sha256", "map.target_id=record.target_id", "map.is_active=true", "batch.execution_context='production_import'", "record.disposition IN ('insert','merge','skip_approved')", "operation.target_tenant_id=$5", "operation.target_park_id=$6", "operation.target_scope_sha256=$7"]) {
+      assert.ok(verification.sql.includes(clause), clause);
+    }
+  }
+});
+
+test("missing duplicate foreign or malformed map verification results fail the business transaction", async () => {
+  for (const mutate of [
+    rows => rows.slice(1),
+    rows => [rows[0], ...rows.slice(0, -1)],
+    rows => [{ source_identity_sha256: H("foreign-map") }, ...rows.slice(1)],
+    () => null,
+  ]) {
+    const { plan, payloadBundles } = v2Fixture();
+    const database = mockDatabase(async (sql, parameters) => {
+      const result = defaultDatabaseResult(sql, parameters);
+      return sql.includes("hr-prod-control:verify-owned-maps") ? { rows: mutate(result.rows) } : result;
+    });
+    await assert.rejects(() => executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database)), error => error.code === "PRODUCTION_IMPORT_MAP_VERIFICATION_FAILED");
+    assert.equal(database.calls.filter(call => call.kind === "query" && call.sql.includes("SET status='succeeded',applied_record_count")).length, 0);
+    assert.ok(database.calls.some(call => call.kind === "transaction" && call.options.purpose === "record_import_failure"));
+  }
 });
 
 test("consumed import authorization survives an independently recorded business failure", async () => {
