@@ -113,7 +113,10 @@ test("party key configuration rejects malformed and unknown active versions", ()
 });
 
 test("party sensitive runtime source contains no cross-domain or fixed-secret fallback", () => {
-  const source = readFileSync(resolve(__dirname, "party-sensitive-data.service.ts"), "utf8");
+  const source = readFileSync(resolve(__dirname, "../../shared/security/party-sensitive-data.service.ts"), "utf8");
+  const compatibilitySurface = readFileSync(resolve(__dirname, "party-sensitive-data.service.ts"), "utf8");
   assert.doesNotMatch(source, /IOT_DEVICE_SECRET_ENCRYPTION_KEY|JWT_SECRET|jinhu-smart-park-dev-secret/u);
   assert.match(source, /parsePartyDataKeyring/u);
+  assert.match(compatibilitySurface, /shared\/security\/party-sensitive-data\.service/u);
+  assert.doesNotMatch(compatibilitySurface, /class PartySensitiveDataService/u);
 });
