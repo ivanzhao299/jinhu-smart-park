@@ -64,7 +64,12 @@ test("actual total-writer data is visible through HR services and disappears aft
       `SELECT
         (SELECT count(*)::int FROM hr_yuzhou_production_import_operation
           WHERE operation_id=$1 AND target_tenant_id=$2 AND target_park_id=$3
-            AND status=$4) AS operations,
+            AND status='succeeded') AS operations,
+        (SELECT count(*)::int FROM hr_yuzhou_production_import_rollback_operation rollback
+          JOIN hr_yuzhou_production_import_operation operation
+            ON operation.operation_id=rollback.operation_id
+           AND operation.sealed_plan_sha256=rollback.sealed_plan_sha256
+          WHERE rollback.operation_id=$1 AND rollback.status='succeeded') AS rollbacks,
         (SELECT count(*)::int FROM hr_yuzhou_performance_facts_production_receipt
           WHERE operation_id=$1 AND status=$4)+
         (SELECT count(*)::int FROM hr_yuzhou_performance_relations_production_receipt
@@ -89,7 +94,8 @@ test("actual total-writer data is visible through HR services and disappears aft
       [operationId, scope.tenantId, scope.parkId, applied ? "succeeded" : "rolled_back"],
     ) as Array<Record<string, number>>;
     assert.deepEqual(evidence, [{
-      operations: 1, receipts: 3, visible_maps: applied ? 190 : 0, incomplete_maps: 0,
+      operations: 1, rollbacks: applied ? 0 : 1, receipts: 3,
+      visible_maps: applied ? 190 : 0, incomplete_maps: 0,
     }]);
 
     const audits: RecordOperationInput[] = [];
