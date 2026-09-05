@@ -1,0 +1,5 @@
+# T2 source-evidenced renewal classifications
+
+Continue the existing full HR migration objective by producing the missing per-row contract change classifications from verified legacy routine semantics, not defaulting every change to renewal. This is candidate preparation only; no database connections, writes, approvals or raw output.
+
+Acceptance: current valid C/S/M and complete manifest-bound T2 source; verified archived web_compact_c routine bytes (RULE-F089F24164D89466, SHA f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12); exact source key/row hashes; classify renewal only when unique parent contract and employee agree, otherwise needs_review. Preserve every change including empty source and missing parents. Deterministic hash-only records compatible with the existing changeDecisions consumer, each referencing routine evidence. Original files unchanged, safe bounded private reads, exclusive 0600 output, stable errors and summary only. No full extraction/A-B. Product parity and production import are not completed by this slice.
