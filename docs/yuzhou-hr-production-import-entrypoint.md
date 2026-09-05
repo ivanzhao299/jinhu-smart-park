@@ -93,6 +93,8 @@ merge before-image 和 quarantine payload 必须在执行前由受控外部密�
 
 任何缺密文、缺 key、认证失败、明文差异或覆盖差异都在建立数据库连接前或业务事务内失败；入口不保存明文回滚副本，也不提供测试型明文“加密”降级。所有工件先做单文件与 2,000,000,000 字节聚合预算检查，实际读取仍逐文件有界并拒绝读取期间增长、截断或元数据变化；这只是防失控上限，不是生产容量通过证明。
 
+封存计划采用独立的 `MAX_SEALED_PLAN_BYTES = 384 MiB`（402,653,184 字节）上限，避免把包含逐记录描述的完整计划当作 64 MiB 控制文件拒绝。配置仍限 1 MiB，其他控制工件仍限 64 MiB，载荷单文件和实际累计读取预算仍为 2,000,000,000 字节。计划字节也计入累计预算；超限计划在分配读取 Buffer、解析 JSON、验证计划或加载数据库之前拒绝。此上限没有环境变量或配置覆盖，文件安全检查、descriptor 原始字节 SHA-256、语义封存 hash 和生产 `HOLD` 门禁保持不变。
+
 ## 输出与运维判断
 
 标准输出只有稳定 JSON 摘要：状态、原因码、sealed plan hash、scope hash、精确域列表、聚合记录数或最终 receipt hash。错误不会输出原始数据库异常、凭据、人员字段、工资值、附件内容或私有路径。
@@ -105,6 +107,14 @@ merge before-image 和 quarantine payload 必须在执行前由受控外部密�
 
 CI 通过既有 `pnpm test:e2e:yuzhou-production-import-v2` 入口同时执行 v2、CLI 和真实加密封套测试；新增入口测试不是只在本地手动运行。
 
+普通入口契约测试使用小文件检查精确读取预算边界，并使用测试临时目录内的稀疏 `384 MiB + 1` 文件检查提前拒绝。大文件读取探针默认跳过，仅在显式设置以下测试开关时运行：
+
+```sh
+YUZHOU_SEALED_PLAN_LARGE_READ_TEST=yes node --test --test-name-pattern='opt-in 65 MiB sealed plan' scripts/e2e/execute-production-import.contract.mjs
+```
+
+该探针把有效的合成封存 JSON 用分块空白填充到 65 MiB，更新 descriptor 字节 hash 后经过真实计划验证器，断言数据库、加密模块和 writer 调用均为零，再复用同一文件检查字节 hash 漂移被拒绝。它只验证超过旧 64 MiB 上限的读取、hash 和 JSON 解析路径；空白填充不会增加业务记录数，不能证明约 25 万条结构化计划的校验复杂度、生产峰值内存或吞吐。测试开关不改变执行器容量配置。
+
 ## 当前性能风险
 
-现有 writer API 接收每阶段完整 Buffer，并在验证时解析 payload bundle；入口为保持同一合同没有另写流式旁路。因此大阶段执行的峰值内存可能明显高于源备份文件大小。当前专项测试只使用合成小载荷，不构成大规模生产吞吐证据。若真实 T3/T4 工件超过已批准内存预算，应先在原 writer/phase-writer 层实现并验证 hash 保持的流式或分块合同，不能由 CLI 临时拆包绕过 sealed hash。
+现有 writer API 接收每阶段完整 Buffer，并在验证时解析 payload bundle；入口为保持同一合同没有另写流式旁路。因此大阶段执行的峰值内存可能明显高于源备份文件大小。writer 专项测试仍使用合成小载荷，65 MiB 空白填充探针也不构成大规模生产吞吐证据。384 MiB 计划上限只解除已知的文件大小拒绝，真实结构化计划仍需在只读准备阶段单独测量峰值内存。若真实 T3/T4 工件超过已批准内存预算，应先在原 writer/phase-writer 层实现并验证 hash 保持的流式或分块合同，不能由 CLI 临时拆包绕过 sealed hash。

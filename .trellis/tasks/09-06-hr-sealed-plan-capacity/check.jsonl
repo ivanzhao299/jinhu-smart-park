@@ -1,0 +1,2 @@
+{"file":"docs/yuzhou-hr-production-import-entrypoint.md","reason":"Limit scope, exact hash and no database preparation behavior"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"No production authorization or contract loosening"}
