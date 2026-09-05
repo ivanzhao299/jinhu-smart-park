@@ -157,6 +157,29 @@ const requireCount = (value, code, label) => {
   if (!Number.isSafeInteger(value) || value < 0) fail(code, label);
 };
 
+export function assertPayrollUInputbasepaySourceContainerBinding({
+  sourceContainer,
+  expectedContainerSha256,
+  inspectContainerIdentity,
+}) {
+  if (!CONTAINER.test(sourceContainer ?? "")
+    || !SHA256.test(expectedContainerSha256 ?? "")
+    || typeof inspectContainerIdentity !== "function") {
+    fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID", "container binding input");
+  }
+  let containerIdentity;
+  try {
+    containerIdentity = inspectContainerIdentity(sourceContainer);
+  } catch (error) {
+    if (error instanceof PayrollUInputbasepaySourceReceiptError) throw error;
+    fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID", "container inspection");
+  }
+  if (typeof containerIdentity !== "string" || !containerIdentity
+    || digest(containerIdentity) !== expectedContainerSha256) {
+    fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_MISMATCH", "source container differs from restore receipt");
+  }
+}
+
 function privateFile(filePath, label) {
   if (typeof filePath !== "string" || !isAbsolute(filePath) || resolve(filePath) !== filePath) {
     fail("PAYROLL_U_INPUTBASEPAY_SOURCE_FILE_UNSAFE", label);
@@ -399,8 +422,12 @@ function validateEvidence(evidence) {
   return structuredClone(evidence);
 }
 
-function catalogDisposition(evidence) {
+export function catalogDisposition(evidence, expectedRoutineDefinitionSha256) {
+  requireSha(expectedRoutineDefinitionSha256, "PAYROLL_U_INPUTBASEPAY_SOURCE_CATALOG_INVALID", "reviewed routine definition hash");
   if (!evidence.routineCatalog.exists) return "source_routine_absent";
+  if (evidence.routineCatalog.definitionSha256 !== expectedRoutineDefinitionSha256) {
+    return "source_routine_definition_drift";
+  }
   if (!evidence.routineCatalog.personTokenObserved || !evidence.routineCatalog.sourceFieldTokenObserved) {
     return "source_routine_field_binding_unobserved";
   }
@@ -436,7 +463,7 @@ function buildReceipt({
     fail("PAYROLL_U_INPUTBASEPAY_SOURCE_RECEIPT_INVALID", "evidence origin");
   }
   const safeEvidence = validateEvidence(evidence);
-  const disposition = catalogDisposition(safeEvidence);
+  const disposition = catalogDisposition(safeEvidence, contractEvidence.sourceArtifactSha256);
   const liveSourceIdentityVerified = evidenceOrigin === "live_bound_read_only_sqlserver"
     && disposition === "source_catalog_identity_observed";
   const sourceIdentityReason = evidenceOrigin === "synthetic_contract_test"
@@ -572,7 +599,7 @@ export function validatePayrollUInputbasepaySourceReceipt(receipt, { contract, r
     routineCatalog: body.routineCatalog,
     valueAggregate: body.sourceObject.valueAggregate,
   });
-  const disposition = catalogDisposition(evidence);
+  const disposition = catalogDisposition(evidence, contractEvidence.sourceArtifactSha256);
   const verified = body.evidenceOrigin === "live_bound_read_only_sqlserver" && disposition === "source_catalog_identity_observed";
   const expectedGaps = [
     ...(verified ? [] : ["PAYROLL_U_INPUTBASEPAY_SOURCE_FIELD_IDENTITY_UNPROVEN"]),
@@ -759,6 +786,25 @@ export function createDefaultPayrollUInputbasepaySourceProbe({ etlEnvFile }) {
   );
   return {
     [LIVE_PROBE]: true,
+    inspectContainerIdentity(sourceContainer) {
+      if (!CONTAINER.test(sourceContainer ?? "")) {
+        fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID", "source container");
+      }
+      let inspected;
+      try {
+        inspected = JSON.parse(run("docker", ["inspect", sourceContainer], {
+          code: "PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID",
+          detail: "source container unavailable",
+        }))[0];
+      } catch (error) {
+        if (error instanceof PayrollUInputbasepaySourceReceiptError) throw error;
+        fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID", "source container inspect output");
+      }
+      if (typeof inspected?.Id !== "string" || !inspected.Id) {
+        fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_INVALID", "source container identity");
+      }
+      return inspected.Id;
+    },
     inspectEvidence({ sourceContainer, databaseAlias }) {
       if (!CONTAINER.test(sourceContainer ?? "")
         || !DATABASE.test(databaseAlias ?? "")
@@ -808,6 +854,13 @@ export function capturePayrollUInputbasepaySourceReceipt(input, { probe }) {
     fail("PAYROLL_U_INPUTBASEPAY_SOURCE_CAPTURE_INVALID", "source probe");
   }
   const restoreReceipt = readRestoreReceipt(input.sourceRestoreReceiptPath, input.sourceRestoreReceiptSha256);
+  if (probe[LIVE_PROBE] === true) {
+    assertPayrollUInputbasepaySourceContainerBinding({
+      sourceContainer: input.sourceContainer,
+      expectedContainerSha256: restoreReceipt.identities.containerSha256,
+      inspectContainerIdentity: probe.inspectContainerIdentity,
+    });
+  }
   const { contract } = loadContract(input.contractPath, input.repositoryRoot);
   const evidence = validateEvidence(probe.inspectEvidence(input));
   if (evidence.databaseIdentity !== input.databaseAlias
@@ -862,6 +915,11 @@ export function verifyPayrollUInputbasepaySourceReceiptFile(input, { probe, rech
     if (!probe || probe[LIVE_PROBE] !== true || typeof probe.inspectEvidence !== "function") {
       fail("PAYROLL_U_INPUTBASEPAY_SOURCE_LIVE_RECHECK_REQUIRED", "default live read-only probe required");
     }
+    assertPayrollUInputbasepaySourceContainerBinding({
+      sourceContainer: input.sourceContainer,
+      expectedContainerSha256: restoreReceipt.identities.containerSha256,
+      inspectContainerIdentity: probe.inspectContainerIdentity,
+    });
     const currentEvidence = validateEvidence(probe.inspectEvidence(input));
     const receiptEvidence = {
       databaseIdentity: input.databaseAlias,
