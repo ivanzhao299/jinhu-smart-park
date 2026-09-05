@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import fs, { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import process from "node:process";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
-import { computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
+import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
 
@@ -15,6 +17,7 @@ const codeSha = "a".repeat(40);
 const snapshot = "b".repeat(64);
 const mapping = "c".repeat(64);
 const root = mkdtempSync(join(tmpdir(), "yuzhou-t0-decision-candidates-"));
+process.once("exit", () => rmSync(root, { recursive: true, force: true }));
 chmodSync(root, 0o700);
 const staging = join(root, "staging"), output = join(root, "output");
 for (const dir of [staging, output]) { mkdirSync(dir, { mode: 0o700 }); chmodSync(dir, 0o700); }
@@ -26,7 +29,7 @@ const domainRows = {
     { key: "0001", source: { orgName: "Fixture Department", rating: 2, sortOrder: 1 }, table: "dbo.departmentcode" },
     { key: "000", source: { orgName: "Fixture Root", rating: 1, sortOrder: 0 }, table: "dbo.departmentcode" },
   ],
-  positions: [{ key: "P001", source: { positionName: "Fixture Position", departmentCode: "0001", jobgrade: "family", salarygrade: "level" }, table: "dbo.job" }],
+  positions: [{ key: "P001", source: { positionName: "Fixture Position", departmentCode: "0001", jobgrade: "family", salarygrade: "level", headcountLimit: " 12 " }, table: "dbo.job" }],
   employees: [{ key: "E001", source: { fullName: "Fixture Person", departmentCode: "0001", positionCode: "P001", legacyStatus: "A", hireDate: "2024-01-01", formalDate: "2024-02-01", departureDate: "" }, table: "dbo.person" }],
 };
 const files = { departments: "departments.jsonl", positions: "positions.jsonl", employees: "employees.jsonl" };
@@ -43,7 +46,7 @@ for (let index = 2; index < 138; index += 1) {
   writePrivate(join(staging, files.departments), next);
 }
 for (let index = 1; index < 18; index += 1) {
-  const row = { table: "dbo.job", key: `P${String(index + 1).padStart(3, "0")}`, source: { positionName: `Fixture Position ${index + 1}`, departmentCode: "0001" } };
+  const row = { table: "dbo.job", key: `P${String(index + 1).padStart(3, "0")}`, source: { positionName: `Fixture Position ${index + 1}`, departmentCode: "0001", headcountLimit: index === 1 ? 0 : index === 3 ? -1 : null } };
   const next = `${readFileSync(join(staging, files.positions), "utf8")}${JSON.stringify({ sourceTable: row.table, sourceKey: row.key, sourceIdentitySha256: sha(`${row.table}\0${row.key}`), sourceRowSha256: sha(canonical(row.source)), source: row.source })}\n`;
   writePrivate(join(staging, files.positions), next);
 }
@@ -86,12 +89,129 @@ const artifact = JSON.parse(readFileSync(outputPath, "utf8"));
 assert.equal(artifact.records.find(row => row.targetTable === "sys_org" && row.candidateDisposition === "skip_exact").expectedTargetVersion, 3);
 assert.equal(artifact.records.find(row => row.targetTable === "hr_employee").dependencyRefs.length, 2);
 assert.equal(artifact.productionImport, "HOLD");
+for (const [positionCode, expected] of [["P001", 12], ["P002", 0], ["P003", null], ["P004", -1]]) {
+  const position = artifact.records.find(row => row.targetTable === "hr_position" && row.targetFields.position_code === positionCode);
+  assert.equal(position.targetFields.headcount_limit, expected);
+  assert.equal(position.candidateDisposition, "insert");
+}
+const fullInventory = {
+  ...JSON.parse(readFileSync(inventoryPath, "utf8")),
+  kind: "yuzhou_hr_production_target_inventory_readonly",
+  triple,
+  sourceManifestSha256: "8".repeat(64),
+};
+fullInventory.records.push({ targetTable: "hr_contract_type", businessIdentitySha256: "7".repeat(64),
+  targetId: "22222222-2222-4222-8222-222222222222", targetCanonicalSha256: "6".repeat(64), targetVersion: 1 });
+fullInventory.targetTableCounts = Object.fromEntries(Object.keys(DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables)
+  .map(table => [table, fullInventory.records.filter(row => row.targetTable === table).length]));
+const fullInventoryPath = join(root, "full-inventory.json");
+// Noncanonical whitespace makes hashing the parsed/reprojected JSON observably wrong.
+const fullInventoryBytes = `${JSON.stringify(fullInventory, null, 2)}\n\n`;
+writePrivate(fullInventoryPath, fullInventoryBytes);
+const fullOutputPath = join(output, "full-candidates.json");
+const fullInput = { stagingDir: staging, triplePath, phaseArtifactPath: phasePath,
+  targetInventoryPath: fullInventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath: fullOutputPath };
+const fullResult = materializeProductionT0DecisionCandidates(fullInput, { head: () => codeSha });
+const fullArtifact = JSON.parse(readFileSync(fullOutputPath, "utf8"));
+assert.equal(fullResult.status, "READY_FOR_FREEZE");
+assert.equal(fullArtifact.targetInventoryArtifactSha256, sha(fullInventoryBytes));
+assert.notEqual(fullArtifact.targetInventoryArtifactSha256, sha(JSON.stringify(fullInventory)));
+assert.notEqual(fullArtifact.targetInventoryArtifactSha256, artifact.targetInventoryArtifactSha256);
+assert.deepEqual(fullArtifact.records, artifact.records);
+assert.deepEqual(fullResult.countByDisposition, result.countByDisposition);
+assert.deepEqual(fullResult.targetTableCounts, result.targetTableCounts);
+assert.equal(fullArtifact.productionImport, "HOLD");
+assert.equal(readFileSync(fullInventoryPath, "utf8"), fullInventoryBytes);
+// Replacing the file after the first read must never bind one snapshot's hash to another's data.
+const originalReadFileSync = fs.readFileSync;
+let inventoryReads = 0;
+try {
+  fs.readFileSync = (...args) => {
+    const bytes = originalReadFileSync(...args);
+    if (args[0] === fullInventoryPath) {
+      inventoryReads += 1;
+      writePrivate(fullInventoryPath, `${JSON.stringify({ ...fullInventory, status: "FAIL" })}\n`);
+    }
+    return bytes;
+  };
+  syncBuiltinESMExports();
+  const snapshotOutput = join(output, "snapshot-candidates.json");
+  materializeProductionT0DecisionCandidates({ ...fullInput, outputPath: snapshotOutput }, { head: () => codeSha });
+  const snapshotArtifact = JSON.parse(readFileSync(snapshotOutput, "utf8"));
+  assert.equal(inventoryReads, 1);
+  assert.equal(snapshotArtifact.targetInventoryArtifactSha256, sha(fullInventoryBytes));
+  assert.deepEqual(snapshotArtifact.records, fullArtifact.records);
+} finally {
+  fs.readFileSync = originalReadFileSync;
+  syncBuiltinESMExports();
+  writePrivate(fullInventoryPath, fullInventoryBytes);
+}
+for (const drift of ["non-T0-count", "non-T0-record", "codeSha", "sourceSnapshotHash", "mappingContractHash"]) {
+  const invalid = JSON.parse(fullInventoryBytes);
+  if (drift === "non-T0-count") invalid.targetTableCounts.hr_contract_type = 0;
+  else if (drift === "non-T0-record") invalid.records[1].targetCanonicalSha256 = "invalid";
+  else invalid.triple[drift] = "9".repeat(drift === "codeSha" ? 40 : 64);
+  const invalidPath = join(root, `invalid-${drift}.json`);
+  const invalidOutput = join(output, `invalid-${drift}-candidates.json`);
+  writePrivate(invalidPath, `${JSON.stringify(invalid)}\n`);
+  assert.throws(() => materializeProductionT0DecisionCandidates({ ...fullInput,
+    targetInventoryPath: invalidPath, outputPath: invalidOutput }, { head: () => codeSha }),
+  error => error instanceof ProductionT0DecisionCandidatesError && error.code === "PRODUCTION_IMPORT_T0_DECISION_INVENTORY_INVALID");
+  assert.equal(existsSync(invalidOutput), false);
+}
 const collisionInventoryPath = join(root, "collision-inventory.json");
 writePrivate(collisionInventoryPath, `${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_t0_target_inventory_readonly", status: "PASS", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: "d".repeat(64), targetScopeSha256: targetScope.scopeSha256, targetTableCounts: { sys_org: 1, hr_position: 0, hr_employee: 0 }, records: [{ targetTable: "sys_org", businessIdentitySha256: rootBusiness, targetId: "11111111-1111-4111-8111-111111111111", targetCanonicalSha256: "9".repeat(64), targetVersion: 3 }] })}\n`);
 const collision = materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: collisionInventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath: join(output, "collision-candidates.json") }, { head: () => codeSha });
 assert.equal(collision.status, "REVIEW_HOLD");
 assert.equal(collision.countByDisposition.review_target_collision, 1);
 assert.ok(collision.countByDisposition.quarantine > 0, "dependent records do not bypass a collision");
+const invalidHeadcountStage = join(root, "invalid-headcount-stage");
+mkdirSync(invalidHeadcountStage, { mode: 0o700 });
+const invalidHeadcountRows = readFileSync(join(staging, files.positions), "utf8").trim().split("\n").map(line => JSON.parse(line));
+invalidHeadcountRows[0].source.headcountLimit = "1.5";
+invalidHeadcountRows[0].sourceRowSha256 = sha(canonical(invalidHeadcountRows[0].source));
+const invalidHeadcountManifest = JSON.parse(JSON.stringify(manifest));
+for (const [domain, file] of Object.entries(files)) {
+  const bytes = domain === "positions" ? `${invalidHeadcountRows.map(row => JSON.stringify(row)).join("\n")}\n`
+    : readFileSync(join(staging, file), "utf8");
+  writePrivate(join(invalidHeadcountStage, file), bytes);
+  invalidHeadcountManifest.domains[domain].fileSha256 = sha(bytes);
+}
+writePrivate(join(invalidHeadcountStage, "manifest.json"), `${JSON.stringify(invalidHeadcountManifest)}\n`);
+const invalidHeadcountPhase = JSON.parse(readFileSync(phasePath, "utf8"));
+invalidHeadcountPhase.records.find(row => row.sourceIdentitySha256 === invalidHeadcountRows[0].sourceIdentitySha256)
+  .sourceRowSha256 = invalidHeadcountRows[0].sourceRowSha256;
+const invalidHeadcountPhasePath = join(root, "invalid-headcount-phase.json");
+writePrivate(invalidHeadcountPhasePath, `${JSON.stringify(invalidHeadcountPhase)}\n`);
+const employeeFixture = artifact.records.find(row => row.targetTable === "hr_employee" && row.targetFields.employee_code === "E001");
+const orgFixture = artifact.records.find(row => row.targetTable === "sys_org" && row.targetFields.org_code === "0001");
+const employeeDerived = { primary_org_id: orgFixture.expectedTargetId, position_id: null };
+for (const existingEmployee of [false, true]) {
+  const testInventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
+  if (existingEmployee) {
+    testInventory.records.push({ targetTable: "hr_employee", targetId: "33333333-3333-4333-8333-333333333333", targetVersion: 1,
+      businessIdentitySha256: computeProductionImportBusinessIdentityHash("hr_employee", targetScope, employeeFixture.targetFields, employeeDerived),
+      targetCanonicalSha256: computeProductionImportTargetCanonicalHash("hr_employee", targetScope, employeeFixture.targetFields, employeeDerived) });
+    testInventory.targetTableCounts.hr_employee = 1;
+  }
+  const testInventoryPath = join(root, `headcount-inventory-${existingEmployee}.json`);
+  writePrivate(testInventoryPath, `${JSON.stringify(testInventory)}\n`);
+  const testOutput = join(output, `headcount-${existingEmployee}.json`);
+  const invalidResult = materializeProductionT0DecisionCandidates({ ...fullInput,
+    stagingDir: invalidHeadcountStage, phaseArtifactPath: invalidHeadcountPhasePath,
+    targetInventoryPath: testInventoryPath, outputPath: testOutput }, { head: () => codeSha });
+  const invalidArtifact = JSON.parse(readFileSync(testOutput, "utf8"));
+  const invalidPosition = invalidArtifact.records.find(row => row.sourceIdentitySha256 === invalidHeadcountRows[0].sourceIdentitySha256);
+  assert.equal(invalidPosition.candidateDisposition, "quarantine");
+  assert.equal(invalidPosition.reasonCode, "POSITION_HEADCOUNT_INVALID");
+  assert.equal(invalidPosition.targetFields, null);
+  const dependentEmployees = invalidArtifact.records.filter(row => row.targetTable === "hr_employee");
+  assert.equal(dependentEmployees.length, 2949);
+  assert.ok(dependentEmployees.every(row => row.candidateDisposition === "quarantine" && row.reasonCode === "DEPENDENCY_UNRESOLVED"));
+  assert.equal(invalidArtifact.records.filter(row => row.targetTable === "hr_position" && row.candidateDisposition === "insert").length, 17);
+  assert.equal(invalidResult.status, "REVIEW_HOLD");
+  assert.equal(invalidResult.productionImport, "HOLD");
+}
 chmodSync(scopePath, 0o644);
 assert.throws(() => materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: inventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath: join(output, "bad.json") }, { head: () => codeSha }), error => error instanceof ProductionT0DecisionCandidatesError && error.code === "PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID");
 console.log("Yuzhou production T0 decision-candidate contract passed: private C/S/M-bound source mapping, exact collision skip, dependency graph, no production write");

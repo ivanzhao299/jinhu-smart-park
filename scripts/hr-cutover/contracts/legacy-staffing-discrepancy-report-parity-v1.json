@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "contractKind": "yuzhou_hr_legacy_routine_semantic_parity",
-  "contractVersion": "staffing-discrepancy-report-gap-1.0.0",
+  "contractVersion": "staffing-discrepancy-report-gap-1.1.0",
   "compatibilityScope": "u_job_r_source_bound_gap_only",
   "sourceBinding": {
     "routineLedgerSha256": "37083e0d359c296b331628f47799275b48179709945af079b2d559181b022066",
@@ -21,15 +21,15 @@
     },
     "t0LabLoader": {
       "path": "scripts/load-yuzhou-t0.sh",
-      "sha256": "79c7cbf04351a9b3a98ccc82c7e8f13cfad97b392e326e755ca4004e7c6a8fe4"
+      "sha256": "242fc71056147acd5a264bb7b5e1e88c8e9706bcc4dac10a4d4845c2a0de5606"
     },
     "productionT0CandidateMaterializer": {
       "path": "scripts/hr-cutover/materialize-production-t0-decision-candidates.mjs",
-      "sha256": "0f397275f9975e8287e089d042e8c5413cebd28fc528a5c9fa6399866a3e874d"
+      "sha256": "4e73ecfa1c29933b74739d41b00b4df706d1aebc38b8c48c082ab9cfaea22561"
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+      "sha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
@@ -41,7 +41,7 @@
     },
     "permissionContract": {
       "path": "packages/shared/src/hr.ts",
-      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+      "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
     },
     "aggregateTest": {
       "path": "apps/api/src/modules/hr/hr-workforce-decision-snapshot.spec.ts",
@@ -49,7 +49,7 @@
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-fixture-v1.json",
-      "sha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+      "sha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
     }
   },
   "sourceShape": {
@@ -113,7 +113,7 @@
             {
               "sourceField": "job.defpersons",
               "modernField": "missing_position_row_headcountLimit",
-              "transform": "integer_identity_after_production_materialization_is_fixed",
+              "transform": "integer_identity_candidate_mapped_pending_runtime_verification",
               "nullContract": "null_must_not_be_converted_to_zero"
             },
             {
@@ -129,7 +129,7 @@
               "nullContract": "literal_is_never_null"
             }
           ],
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee"
         },
         "readMappings": {
           "applicability": "required",
@@ -161,7 +161,7 @@
           "sourceBoundary": "single_read_only_union_statement_without_explicit_transaction",
           "modernBoundary": "single_read_only_aggregate_query_without_business_mutation",
           "rollbackBehavior": "no_business_state_exists_to_rollback",
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -174,7 +174,7 @@
               "equivalenceRule": "null_defined_or_actual_count_yields_no_legacy_row_and_missing_department_keeps_row_with_null_label"
             }
           ],
-          "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+          "evidenceSha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
         },
         "roundingSemantics": {
           "applicability": "not_applicable",
@@ -206,11 +206,11 @@
           "fixtureDataState": "synthetic_non_personal_rows_cover_both_union_branches_empty_equal_null_and_missing_join_cases",
           "emptyInputCase": {
             "status": "covered",
-            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+            "evidenceSha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
           },
           "untriggeredBranchCase": {
             "status": "covered",
-            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+            "evidenceSha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
           },
           "triggerFiringCase": {
             "status": "not_applicable",
@@ -233,19 +233,19 @@
         "positive": [
           {
             "testId": "positive-overstaff-scope-match-and-understaff-unscoped",
-            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+            "evidenceSha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
           }
         ],
         "negative": [
           {
             "testId": "negative-scope-mismatch-equality-null-and-empty",
-            "evidenceSha256": "5b9f00b8812fa9c0e77647934974e4ae48b0b466a72110d03d0bfb82e4d957ba"
+            "evidenceSha256": "71089867169ed196ed673b19090aee838dee1016ac9c6d8e5f5db58e921b5d15"
           }
         ],
         "permission": [
           {
             "testId": "permission-decision-center-page-required",
-            "evidenceSha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+            "evidenceSha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
           }
         ],
         "conservation": [
@@ -268,12 +268,12 @@
       "STAFFING_ROW_LEVEL_PROJECTION_MISSING",
       "STAFFING_LEGACY_REALPERSONS_SEMANTICS_UNRESOLVED",
       "STAFFING_BRANCH_SCOPE_ASYMMETRY_UNRESOLVED",
-      "STAFFING_PRODUCTION_HEADCOUNT_LIMIT_NOT_MATERIALIZED",
+      "STAFFING_PRODUCTION_HEADCOUNT_RUNTIME_NOT_VERIFIED",
       "STAFFING_MISSING_DEPARTMENT_LABEL_PROJECTION_MISSING"
     ],
     "minimumClosure": [
       "preserve_or_explicitly_retire_job_realpersons_with_approved_business_rule",
-      "materialize_job_defpersons_into_production_hr_position_headcount_limit",
+      "verify_candidate_job_defpersons_mapping_in_real_isolated_load_and_runtime_readback",
       "add_scoped_row_level_position_discrepancy_projection_with_department_label_and_null_semantics",
       "decide_and_test_the_legacy_understaff_unscoped_branch_instead_of_silently_normalizing_it",
       "add_positive_negative_permission_and_zero_write_runtime_tests"

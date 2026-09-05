@@ -5,7 +5,7 @@
   "scope": "company_contacts_into_existing_department_root_candidates",
   "mergeReceiptBinding": {
     "path": "scripts/hr-cutover/contracts/legacy-company-department-root-merge-receipt-v1.json",
-    "sha256": "0686d5dd3119add985a3e78a6c0d16c4b48375200214aac34b6e859545b8c06c",
+    "sha256": "a7107d489d5879156341d014d44560223a4112efed3ac313538f11f2d6628a4d",
     "requiredArtifactKind": "yuzhou_hr_legacy_company_department_root_merge_receipt",
     "requiredDecision": "MERGE_ONE_TO_ONE_READY",
     "requiresValidReceiptSeal": true,
