@@ -5,6 +5,24 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
 
+function tamperFinalPayloadByte(ciphertext: string): string {
+  assert.match(ciphertext, /:[0-9a-f]+$/u);
+  const lastByte = Number.parseInt(ciphertext.slice(-2), 16);
+  // Replacing with 00 is a no-op for 1/256 random ciphertexts. Flip a bit instead.
+  return `${ciphertext.slice(0, -2)}${(lastByte ^ 1).toString(16).padStart(2, "0")}`;
+}
+
+test("ciphertext tampering changes every possible final byte, including zero", () => {
+  for (let byte = 0; byte <= 255; byte++) {
+    const original = `enc:v1:synthetic-iv:synthetic-tag:1234${byte.toString(16).padStart(2, "0")}`;
+    const tampered = tamperFinalPayloadByte(original);
+    assert.notEqual(tampered, original);
+    assert.equal(tampered.slice(0, -2), original.slice(0, -2));
+    assert.equal(tampered.length, original.length);
+    assert.equal(tamperFinalPayloadByte(tampered), original);
+  }
+});
+
 test("party sensitive data encrypts reversibly without persisting plaintext", () => {
   const service = new PartySensitiveDataService(new ConfigService({
     PARTY_DATA_ENCRYPTION_KEY: "test-only-party-key-12345678901234567890"
@@ -65,18 +83,20 @@ test("party sensitive data rejects malformed envelopes and supports empty plaint
     PARTY_DATA_ENCRYPTION_KEY: "test-only-party-key-12345678901234567890"
   }));
   const ciphertext = service.encrypt("synthetic-value");
+  const tampered = tamperFinalPayloadByte(ciphertext);
+  assert.notEqual(tampered, ciphertext);
   assert.equal(service.decrypt(`${ciphertext}:extra`), null);
   assert.equal(service.decrypt("enc:v1:00:0011:aa"), null);
   assert.equal(service.decrypt("enc:v1:zzzzzzzzzzzzzzzzzzzzzzzz:00112233445566778899aabbccddeeff:aa"), null);
   assert.equal(service.decrypt("enc:v1:00112233445566778899aabb:00112233445566778899aabbccddeeff:a"), null);
-  assert.equal(service.decrypt(`${ciphertext.slice(0, -2)}00`), null);
+  assert.equal(service.decrypt(tampered), null);
   assert.equal(service.decrypt(service.encrypt("")), "");
   assert.throws(
     () => service.decrypt(`${ciphertext}:extra`, "party-data-v1"),
     /ciphertext envelope is invalid/u
   );
   assert.throws(
-    () => service.decrypt(`${ciphertext.slice(0, -2)}00`, "party-data-v1"),
+    () => service.decrypt(tampered, "party-data-v1"),
     /ciphertext authentication failed/u
   );
 });
