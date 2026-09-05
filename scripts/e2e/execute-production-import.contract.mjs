@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, test } from "node:test";
 
 import {
   ProductionImportEntrypointError,
+  PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS,
   createProductionImportArtifactCryptoProvider,
   currentRepositorySha,
   parseProductionImportEntrypointArgs,
@@ -53,6 +55,25 @@ function privateBytes(root, name, bytes) {
   writeFileSync(path, bytes, { mode: 0o600 });
   chmodSync(path, 0o600);
   return { path, sha256: H(bytes) };
+}
+
+function gitCandidateFixture() {
+  const root = mkdtempSync(join(tmpdir(), "jinhu-prod-import-git-candidate-"));
+  roots.push(root);
+  const git = args => execFileSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+  git(["init", "--quiet"]);
+  for (const dependencyPath of PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS) {
+    const absolutePath = join(root, dependencyPath);
+    mkdirSync(dirname(absolutePath), { recursive: true });
+    writeFileSync(absolutePath, `${dependencyPath}\n`);
+  }
+  git(["add", "--", ...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS]);
+  git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "-m", "fixture candidate"]);
+  return { root, git };
 }
 
 function fixture({ intent = "HOLD", domains = ["T0", "T1", "T2", "T3"], withExecution = false, deploymentMode = "smart_park_integrated" } = {}) {
@@ -219,8 +240,39 @@ test("CLI defaults to read-only preparation and rejects ambiguous arguments", ()
   assert.throws(() => parseProductionImportEntrypointArgs(["--config", "/tmp/a", "--config", "/tmp/b"]), error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_ARGUMENT_INVALID");
 });
 
-test("published entrypoint resolves only from a clean tracked candidate", () => {
-  assert.match(currentRepositorySha(), /^[0-9a-f]{40}$/u);
+test("candidate gate accepts a clean isolated repository with every execution dependency tracked", () => {
+  const value = gitCandidateFixture();
+  assert.equal(currentRepositorySha(value.root), value.git(["rev-parse", "HEAD"]));
+});
+
+test("candidate gate rejects a tracked dependency with unstaged changes", () => {
+  const value = gitCandidateFixture();
+  appendFileSync(join(value.root, PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS[0]), "dirty\n");
+  assert.throws(
+    () => currentRepositorySha(value.root),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
+  );
+});
+
+test("candidate gate rejects a tracked dependency with staged changes", () => {
+  const value = gitCandidateFixture();
+  appendFileSync(join(value.root, PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS[0]), "staged\n");
+  value.git(["add", "--", PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS[0]]);
+  assert.throws(
+    () => currentRepositorySha(value.root),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
+  );
+});
+
+test("candidate gate rejects an execution dependency that exists but is no longer tracked", () => {
+  const value = gitCandidateFixture();
+  const dependencyPath = PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS[0];
+  value.git(["rm", "--quiet", "--cached", "--", dependencyPath]);
+  value.git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "-m", "untrack dependency"]);
+  assert.throws(
+    () => currentRepositorySha(value.root),
+    error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
+  );
 });
 
 test("bounded private reads reject aggregate overflow, concurrent growth, and truncation", () => {

@@ -32,7 +32,7 @@ const MAX_CONTROL_ARTIFACT_BYTES = 64 * 1024 * 1024;
 const MAX_PAYLOAD_ARTIFACT_BYTES = 2_000_000_000;
 const MAX_TOTAL_PRIVATE_ARTIFACT_BYTES = 2_000_000_000;
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
-const EXECUTION_DEPENDENCY_PATHS = Object.freeze([
+export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
   "scripts/hr-cutover/execute-production-import.mjs",
   "scripts/hr-cutover/production-import-crypto-provider.mjs",
   "scripts/hr-cutover/production-import-phase-writers.mjs",
@@ -453,13 +453,16 @@ export async function createProductionImportArtifactCryptoProvider({ envelopeArt
   }
 }
 
-export function currentRepositorySha() {
+export function currentRepositorySha(repositoryRoot = ROOT) {
+  if (typeof repositoryRoot !== "string" || !isAbsolute(repositoryRoot) || resolve(repositoryRoot) !== repositoryRoot) {
+    fail("PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE", "execution requires an absolute repository root");
+  }
   try {
-    const git = args => execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", "ignore", "ignore"] });
-    git(["ls-files", "--error-unmatch", "--", ...EXECUTION_DEPENDENCY_PATHS]);
+    const git = args => execFileSync("git", args, { cwd: repositoryRoot, stdio: ["ignore", "ignore", "ignore"] });
+    git(["ls-files", "--error-unmatch", "--", ...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS]);
     git(["diff", "--quiet", "--no-ext-diff", "--"]);
     git(["diff", "--cached", "--quiet", "--no-ext-diff", "--"]);
-    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch (error) {
     fail("PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE", "execution requires tracked dependencies from a clean committed candidate", { cause: error });
   }
