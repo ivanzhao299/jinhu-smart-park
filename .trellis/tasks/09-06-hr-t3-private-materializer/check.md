@@ -1,0 +1,15 @@
+# Local implementation and independent validation complete
+
+- Root canonical record-chunk helper plus T3 candidate contracts: 17/17 passed. Includes canonical UTF-8/newline/hash parity, sparse/numeric-key behavior, lazy records and a synthetic >3 MB artifact with bounded per-record chunks.
+- Adjacent T2 candidates and T3 projector/recovery/candidates/chunks: 52 passed, one optional PostgreSQL literal-cast check skipped. No business database was opened.
+- Execution entrypoint regression: 23 passed, one opt-in 65 MiB read test skipped because that explicit probe was already run in the preceding capacity slice. No repeated large plan or source extraction.
+- Scoped ESLint for the root helper, assembler and helper test: zero errors and warnings.
+- Initial private materializer filesystem/CLI contracts:21/21 passed; root independently reran them with the chunk helper:25/25 passed. After the independent review fix below, materializer22/22 passed and the complete T3 package command passed the legacy phase contract and58 tests, with one optional PostgreSQL literal-cast check skipped. No claim of current production-target materialization or business import.
+
+Independent Trellis review fixed one P2 integrity race: capturing a fresh fstat after authenticated readback could accept a modification occurring in between. The private reader now returns its authenticated stat snapshot; the completion check retains that snapshot rather than sampling a new baseline. The new regression mutates the output immediately after readback and confirms no completion receipt is issued. Source summaries explicitly select hashes/bytes/counts so internal stat metadata is not serialized.
+
+Reviewer final checks: T3 package legacy contract plus58 passed/1 optional PostgreSQL skipped; adjacent T2 package legacy contract plus52 passed/1 optional PostgreSQL skipped; materializer22/22; scoped ESLint across five changed MJS files with0 findings; node --check all five files and git diff --check passed. Full pnpm lint and pnpm typecheck were attempted but could not run because this isolated worktree has no node_modules (eslint/tsc unavailable). No install or full build was performed. CI remains the full-workspace gate. No frontend/API page changed, so browser acceptance was not run.
+
+Caught failure after a completion receipt is created removes only the receipt inode created by that invocation, never a replaced/preexisting receipt or any of the three data artifacts. Tests cover a fully written receipt followed by write failure, final directory fsync failure, marker replacement and failed unlink. A rollback failure is an explicit failed outcome, not successful materialization. Abrupt process/OS failure remains a consumer-validation concern; receipt existence alone is not proof.
+
+Production deployment 33983959520 (main c48276d7) completed successfully; its job log confirmed the standard Docker cleanup completion marker. This is separate from this uncommitted materializer and does not establish its deployment or an HR data import.

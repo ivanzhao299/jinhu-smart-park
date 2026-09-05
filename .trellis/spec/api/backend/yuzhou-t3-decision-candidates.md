@@ -77,6 +77,11 @@ The suite also runs through `pnpm test:e2e:yuzhou-production-import-t3-artifact`
 These synthetic pure checks prove assembly contracts, not private IO authentication, full HR parity or
 production execution.
 
+The [private materializer](./yuzhou-t3-private-materializer.md) authenticates the
+existing private source/target artifacts and serializes the same canonical phase,
+candidates and recovery lineage. Its separate IO contracts do not grant approval
+or change the pure assembler's evidence boundary.
+
 ## 7. Wrong vs Correct
 
 Wrong: `existing ? "skip_exact" : "insert"` treats business-key equality as content equality.

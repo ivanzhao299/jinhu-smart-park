@@ -1,16 +1,15 @@
-import { createHash } from "node:crypto";
 import { buildProductionT3AttendanceSupport, projectProductionT3Fields, verifyProductionT3StagedRecord } from "./production-t3-field-projection.mjs";
 import { recoverProductionT3LegacyPolicy, ProductionT3PolicyRecoveryError } from "./production-t3-policy-recovery.mjs";
 import { validateProductionT0CandidateDependencies, ProductionT2CandidatesError } from "./production-t2-decision-candidates.mjs";
 import { validateProductionT0DecisionInventory } from "./materialize-production-t0-decision-candidates.mjs";
 import { computeProductionImportTargetScopeHash } from "./production-import-sealed-plan-lib.mjs";
+import { hashProductionT3ArtifactJson } from "./production-t3-artifact-json.mjs";
 import {
-  DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, stableProductionImportCanonicalJson as canonical,
+  DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model,
   computeProductionImportBusinessIdentityHash as businessHash,
   computeProductionImportTargetCanonicalHash as targetHash, deriveProductionImportTargetId as deriveId,
 } from "./production-import-target-model.mjs";
 
-const hash = value => createHash("sha256").update(value).digest("hex");
 const SHA = /^[0-9a-f]{64}$/u;
 const tables = Object.keys(model.targetTables).filter(table => model.targetTables[table].phase === "T3");
 const provenanceKeys = ["phase", "targetTable", "sourceSystem", "sourceTable", "sourcePkCanonical", "sourceIdentitySha256", "sourceRowSha256"];
@@ -147,7 +146,7 @@ export function assembleProductionT3DecisionCandidates(input) {
   if (records.length !== identities.size || phaseRecords.length !== records.length) fail("T3_CANDIDATE_OUTPUT_COVERAGE_INVALID");
   const phaseArtifact = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_phase_staging", triple: { ...triple }, phase: "T3", targetTableCounts: { ...counts }, records: phaseRecords };
   const candidates = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_t3_decision_candidates", triple: { ...triple },
-    ...artifactHashes, phaseArtifactSha256: hash(`${canonical(phaseArtifact)}\n`), sourceManifestSha256: inventory.sourceManifestSha256,
+    ...artifactHashes, phaseArtifactSha256: hashProductionT3ArtifactJson(phaseArtifact), sourceManifestSha256: inventory.sourceManifestSha256,
     targetIdentitySha256: inventory.targetIdentitySha256, targetScope: { ...scope },
     status: countByDisposition.quarantine + countByDisposition.review_target_collision === 0 ? "READY_FOR_REVIEW" : "REVIEW_HOLD",
     targetTableCounts: counts, countByDisposition, records, productionImport: "HOLD" };
