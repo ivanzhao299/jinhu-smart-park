@@ -412,7 +412,15 @@ function residualRows(config, p) {
   let pre = { activeBusinessRows: 0, activeControlRows: 0 };
   if (existsSync(p.preCleanup)) pre = JSON.parse(readFileSync(p.preCleanup, "utf8"));
   const dockerResidual = (kind, identity) => spawnSync("docker", [kind, "inspect", identity], { stdio: "ignore" }).status === 0 ? 1 : 0;
-  const portResidual = port => spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"], { stdio: "ignore" }).status === 0 ? 1 : 0;
+  const portResidual = port => {
+    const probe = spawnSync("netstat", ["-an", "-p", "tcp"], {
+      encoding: "utf8", timeout: 3000, maxBuffer: 1024 * 1024
+    });
+    // A failed or incomplete probe is not proof that the port is clear.  Fail
+    // closed so a later run cannot reuse a loopback port whose owner is unknown.
+    if (probe.error || probe.status !== 0 || probe.signal || typeof probe.stdout !== "string") return 1;
+    return netstatPortIsListening(probe.stdout, port) ? 1 : 0;
+  };
   const values = {
     database: dockerResidual("container", config.target.container), container: dockerResidual("container", config.target.container),
     network: dockerResidual("network", config.target.network), volume: dockerResidual("volume", config.target.volume),
@@ -423,6 +431,12 @@ function residualRows(config, p) {
     business_row: Number(pre.activeBusinessRows), control_row: Number(pre.activeControlRows)
   };
   return CORE_RESIDUAL_CLASSES.map(kind => ({ class: kind, removed: values[kind] === 0, residualCount: values[kind] }));
+}
+
+export function netstatPortIsListening(output, port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) fail("CORE_PORT_PROBE_INVALID", String(port));
+  const endpoint = new RegExp(`(?:\\.|:)${port}(?:\\s|$)`, "u");
+  return output.split("\n").some(line => /\bLISTEN\b/u.test(line) && endpoint.test(line));
 }
 
 export async function createCoreT0T3Adapters(configInput, { commandRunner = defaultRun, enforceContractHash = true, sourceReceiptProbe } = {}) {
