@@ -95,7 +95,14 @@ function dependency(role, record) {
   return { role, phase: record.phase, sourceIdentitySha256: record.sourceIdentitySha256, expectedTargetTable: record.plannedTargetTable };
 }
 
-function makeFixture(iteration, now) {
+function makeFixture(iteration, now, employeeOptions = {}) {
+  assert.ok(Object.keys(employeeOptions).every(key => ["employeeCode", "employeeSourceIdentitySha256"].includes(key)));
+  const customEmployee = Object.keys(employeeOptions).length > 0;
+  if (customEmployee) {
+    assert.equal(typeof employeeOptions.employeeCode, "string");
+    assert.ok(employeeOptions.employeeCode.length > 0 && employeeOptions.employeeCode.length <= 64);
+    assert.match(employeeOptions.employeeSourceIdentitySha256, /^[0-9a-f]{64}$/u);
+  }
   const suffix = randomBytes(6).toString("hex");
   const operationId = `yzprod-import-${iso(now).replaceAll(/[-:.]/gu, "").slice(0, 15)}Z-${suffix}`;
   const targetScope = { tenantId: randomUUID(), parkId: randomUUID(), scopeSha256: "" };
@@ -105,9 +112,9 @@ function makeFixture(iteration, now) {
   const records = [];
   const protectedFileId = randomUUID();
   let ordinal = 0;
-  const add = (table, dependencyMode, dependencyRefs, disposition = "insert", payloadOverride = undefined) => {
+  const add = (table, dependencyMode, dependencyRefs, disposition = "insert", payloadOverride = undefined, sourceIdentityOverride = undefined) => {
     const rule = model.targetTables[table];
-    const sourceIdentitySha256 = H(`${suffix}:${table}:${ordinal}:identity`);
+    const sourceIdentitySha256 = sourceIdentityOverride ?? H(`${suffix}:${table}:${ordinal}:identity`);
     const sourceRowSha256 = H(`${suffix}:${table}:${ordinal}:row`);
     const payload = payloadOverride ?? payloadFor(table, suffix, sourceIdentitySha256, protectedFileId);
     const derivedFields = Object.fromEntries(rule.derivedFields.map(field => {
@@ -159,7 +166,12 @@ function makeFixture(iteration, now) {
   const orgCiphertext = Buffer.from(JSON.stringify(orgBefore));
   org.beforeImage = { algorithm: "aes-256-gcm-external-kek-v1", plaintextSha256: org.expectedTargetBeforeSha256, ciphertextSha256: H(orgCiphertext), keyReferenceSha256: H(`${suffix}:before-key`) };
   const position = add("hr_position", "record_graph", [dependency("org", org)]);
-  const employee = add("hr_employee", "record_graph", [dependency("primary_org", org), dependency("position", position)]);
+  const employeePayload = customEmployee ? {
+    ...payloadFor("hr_employee", suffix, employeeOptions.employeeSourceIdentitySha256, protectedFileId),
+    employee_code: employeeOptions.employeeCode,
+  } : undefined;
+  const employee = add("hr_employee", "record_graph", [dependency("primary_org", org), dependency("position", position)],
+    "insert", employeePayload, employeeOptions.employeeSourceIdentitySha256);
   add("hr_employment_event", "employee", [dependency("employee", employee)]);
   const contractType = add("hr_contract_type", "scope", [], "skip_approved");
   contractType.expectedTargetBeforeSha256 = contractType.expectedTargetAfterSha256;
