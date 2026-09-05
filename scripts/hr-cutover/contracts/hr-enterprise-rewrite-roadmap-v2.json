@@ -1,14 +1,56 @@
 {
   "schemaVersion": "2.0.0",
   "status": "IN_PROGRESS",
-  "updatedAt": "2026-09-04",
-  "objective": "以玉舟 HR V10 真实 SQL Server、Windows 客户端和集团 Web 为兼容事实输入，重写企业级、独立可复用、全功能现代 HR 产品，并在完整功能等价后完成可审计、可回滚的历史数据生产导入。",
+  "updatedAt": "2026-09-05",
+  "objective": "以玉舟 HR V10 真实 SQL Server、Windows 客户端和集团 Web 为兼容事实输入，重写企业级、独立可复用、全功能现代 HR 产品，并在完整功能等价后完成可审计、可回滚的历史数据生产导入。在 Smart Park 中是完整的专业 HR 子系统；离开 Smart Park 后仍能携带完整数据、业务规则和历史记录独立部署运行，并可复用于另一家企业。",
   "definitionOfDone": {
     "structure": "双源表、字段、关系及空对象全部具有稳定身份和经验证的现代处置结论",
     "logic": "存储过程、函数、触发器及调用链逐项具有输入、输出、分支、副作用、权限、计算和现代等价证据",
     "interaction": "Windows 客户端和集团 Web 的字段、动作、条件、角色、状态及报表在现代桌面和 390px 页面可运行",
     "data": "宽表拆分、类型、空值、关系、行数和金额守恒均可自动验证，历史查询从新前端完整可达",
-    "production": "候选、合并、运行、备份、授权、一次导入、分域核对、权限负例、UAT 和逆序回滚证据全部绑定同一范围"
+    "production": "候选、合并、运行、备份、授权、一次导入、分域核对、权限负例、UAT 和逆序回滚证据全部绑定同一范围",
+    "independentProduct": "M0-M5 全部通过 AND P0-P4 全部通过；同一 HR 内核在集成版和独立版运行，完整数据规则历史及文件可迁出恢复，不能用平均分或生产导入成功代替"
+  },
+  "productAcceptance": {
+    "status": "NOT_VERIFIED",
+    "sharedBusinessKernel": true,
+    "deploymentModes": ["smart_park_integrated", "standalone_enterprise"],
+    "completionRule": "ALL_M0_M5_AND_ALL_P0_P4",
+    "roadmapContractPassIsRuntimeEvidence": false,
+    "existingForecastCoversIndependentMode": false,
+    "reestimateAfter": "P0_dependency_inventory",
+    "gates": [
+      {
+        "id": "P0",
+        "status": "NOT_VERIFIED",
+        "milestones": ["M0", "M1", "M2", "M3"],
+        "requiredEvidence": ["完整跨模块服务实体外键与任务依赖清单", "员工账号与任职资产组织分离", "独立企业不依赖园区业务或伪造园区"]
+      },
+      {
+        "id": "P1",
+        "status": "NOT_VERIFIED",
+        "milestones": ["M1", "M2", "M3", "M4"],
+        "requiredEvidence": ["同版本双模式真实启动", "独立身份组织权限消息文件审计能力", "独立版无园区业务进程且关键流程通过"]
+      },
+      {
+        "id": "P2",
+        "status": "NOT_VERIFIED",
+        "milestones": ["M0", "M1", "M2", "M3", "M5"],
+        "requiredEvidence": ["专用 HR 数据库及独立文件边界", "独立备份恢复与前向升级", "身份重绑定和历史审计主体可追溯"]
+      },
+      {
+        "id": "P3",
+        "status": "NOT_VERIFIED",
+        "milestones": ["M5"],
+        "requiredEvidence": ["另一隔离企业的完整导入回读", "数据字典规则版本审批审计历史旧映射和精确批次账本守恒", "文件数量字节hash归属权限核对", "幂等重放恢复及回滚"]
+      },
+      {
+        "id": "P4",
+        "status": "NOT_VERIFIED",
+        "milestones": ["M4", "M5"],
+        "requiredEvidence": ["双模式全部角色业务和权限负例", "桌面390px历史查询和报表", "预设性能容量预算与分页导出后台作业实测", "独立升级及故障恢复和集成版无回归"]
+      }
+    ]
   },
   "scoringPolicy": {
     "singleAdditiveScoreForbidden": true,

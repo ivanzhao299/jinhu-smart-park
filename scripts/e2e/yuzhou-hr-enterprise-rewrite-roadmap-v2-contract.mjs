@@ -47,4 +47,35 @@ test("forecast separates full parity from the final production import window", (
   assert.equal(roadmap.nextRollingSlices.length, 6);
 });
 
-console.log("Yuzhou HR enterprise rewrite roadmap v2 contract passed: M0-M5 and forecast remain explicit and fail-closed.");
+test("final goal requires one HR kernel, both deployment modes and every independent product gate", () => {
+  const acceptance = roadmap.productAcceptance;
+  assert.equal(acceptance.sharedBusinessKernel, true);
+  assert.deepEqual(acceptance.deploymentModes, ["smart_park_integrated", "standalone_enterprise"]);
+  assert.equal(acceptance.completionRule, "ALL_M0_M5_AND_ALL_P0_P4");
+  assert.match(roadmap.objective, /离开 Smart Park 后仍能携带完整数据、业务规则和历史记录独立部署运行/);
+  assert.match(roadmap.definitionOfDone.independentProduct, /M0-M5 全部通过 AND P0-P4 全部通过/);
+  assert.deepEqual(acceptance.gates.map(({ id }) => id), ["P0", "P1", "P2", "P3", "P4"]);
+  const milestoneIds = new Set(roadmap.milestones.map(({ id }) => id));
+  for (const gate of acceptance.gates) {
+    assert.ok(gate.requiredEvidence.length >= 3, gate.id);
+    assert.ok(gate.milestones.length > 0, gate.id);
+    assert.ok(gate.milestones.every((id) => milestoneIds.has(id)), gate.id);
+  }
+});
+
+test("freezing the expanded goal cannot claim product readiness or inherit the old forecast", () => {
+  const acceptance = roadmap.productAcceptance;
+  assert.equal(acceptance.status, "NOT_VERIFIED");
+  assert.ok(acceptance.gates.every(({ status }) => status === "NOT_VERIFIED"));
+  assert.equal(acceptance.roadmapContractPassIsRuntimeEvidence, false);
+  assert.equal(acceptance.existingForecastCoversIndependentMode, false);
+  assert.equal(acceptance.reestimateAfter, "P0_dependency_inventory");
+  for (const path of [
+    "../../docs/yuzhou-hr-compatibility-development-plan.md",
+    "../../.trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/prd.md",
+    "../../.trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/implement.md",
+  ]) {
+    const content = readFileSync(new URL(path, import.meta.url), "utf8");
+    for (const { id } of acceptance.gates) assert.ok(content.includes(id), `${path} lacks ${id}`);
+  }
+});
