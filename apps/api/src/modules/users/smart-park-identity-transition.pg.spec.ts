@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { DataSource } from "typeorm";
+import { AuthService } from "../auth/auth.service";
+import { AuthRefreshTokenEntity } from "../auth/entities/auth-refresh-token.entity";
+import { SmartParkRefreshScopeWriter } from "../auth/smart-park-refresh-scope-writer";
 
 const databaseUrl = process.env.BUSINESS_SCOPE_TEST_DATABASE_URL;
 const id = (n: number) => `90000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -19,7 +25,7 @@ test("identity transition preserves real migration constraints, grants and histo
   const connection = new URL(databaseUrl);
   assert.equal(connection.hostname, "127.0.0.1");
   assert.equal(connection.pathname, "/postgres");
-  const source = await new DataSource({ type: "postgres", url: databaseUrl, entities: [] }).initialize();
+  const source = await new DataSource({ type: "postgres", url: databaseUrl, entities: [AuthRefreshTokenEntity] }).initialize();
   const db = source.createQueryRunner();
   await db.connect();
   const apply = async (file: string) => db.query(await readFile(path.resolve(process.cwd(), "../..", file), "utf8"));
@@ -202,5 +208,106 @@ test("identity transition preserves real migration constraints, grants and histo
       await rejectCode(() => backfill(), "42501");
       await rejectCode(() => db.query("UPDATE sys_user SET default_scope_id=NULL"), "42501");
     } finally { await db.query("RESET ROLE"); }
+
+    // Actual public refresh + repository, with synthetic identity, signing and audit substitutes.
+    // This proves scope persistence, not production login, JWT or permission acceptance.
+    type AuthArguments = ConstructorParameters<typeof AuthService>;
+    const makeAuth = (mapped: boolean) => new AuthService(
+      {
+        resolveJwtPrincipal: async (context: { tenantId: string; parkId: string }, userId: string) => {
+          assert.equal(context.tenantId, "alpha");
+          assert.equal(userId, id(10));
+          return { sub: userId, ...context, username: "synthetic-10", roles: [], permissions: [],
+            dataScope: "self", isSuper: false, authVersion: 1 };
+        },
+        findByIdForIdentity: async () => ({ avatarUrl: null, gender: 0, authVersion: 1 }),
+        recordSuccessfulLogin: async () => undefined
+      } as unknown as AuthArguments[0],
+      { signAsync: async () => "synthetic-access-token" } as unknown as AuthArguments[1],
+      new ConfigService(),
+      { recordLogin: async () => undefined } as unknown as AuthArguments[3],
+      {} as AuthArguments[4], {} as AuthArguments[5], source.getRepository(AuthRefreshTokenEntity),
+      {} as AuthArguments[7], {} as AuthArguments[8], {} as AuthArguments[9],
+      mapped ? new SmartParkRefreshScopeWriter() : undefined
+    );
+    const digest = (raw: string) => createHash("sha256").update(raw).digest("hex");
+    const seedRefresh = async (n: number, park = "park-a") => {
+      const raw = `synthetic-refresh-${n}`;
+      await db.query(`INSERT INTO sys_auth_refresh_token(id,tenant_id,park_id,user_id,token_hash,expires_at)
+        VALUES ($1,'alpha',$2,$3,$4,now()+interval '1 day')`, [id(n), park, id(10), digest(raw)]);
+      return raw;
+    };
+    const tokenCount = async () => (await one("SELECT count(*)::int AS n FROM sys_auth_refresh_token")).n;
+    const auth = makeAuth(true);
+    const meta = { ipAddress: "127.0.0.1", userAgent: "synthetic-pg-test" };
+    const scopeDenied = (error: unknown) => error instanceof UnauthorizedException
+      && error.message === "Refresh token scope unavailable";
+    for (const [n, park, expectedScope] of [[500, "park-a", scopeA], [501, "park-b", scopeB]] as const) {
+      const raw = await seedRefresh(n, park);
+      const beforeCount = await tokenCount();
+      const result = await auth.refresh({ refreshToken: raw }, meta);
+      assert.ok(result.refreshToken);
+      const saved = await one("SELECT scope_id,user_id,park_id,revoked FROM sys_auth_refresh_token WHERE token_hash=$1",
+        [digest(result.refreshToken)]);
+      assert.deepEqual(saved, { scope_id: expectedScope, user_id: id(10), park_id: park, revoked: false });
+      assert.equal(await tokenCount(), beforeCount + 1);
+      assert.equal((await one("SELECT revoked FROM sys_auth_refresh_token WHERE id=$1", [id(n)])).revoked, true);
+    }
+    const disabledRaw = await seedRefresh(502);
+    const disabledCount = await tokenCount();
+    await db.query("UPDATE sys_business_scope SET status='disabled' WHERE id=$1", [scopeA]);
+    try { await assert.rejects(auth.refresh({ refreshToken: disabledRaw }, meta), scopeDenied); }
+    finally { await db.query("UPDATE sys_business_scope SET status='enabled' WHERE id=$1", [scopeA]); }
+    assert.equal(await tokenCount(), disabledCount);
+
+    const duplicateRaw = await seedRefresh(505);
+    const duplicateCount = await tokenCount();
+    await db.query(`INSERT INTO biz_park(id,tenant_id,park_id,park_code,park_name,status)
+      VALUES ($1,'alpha','park-a','duplicate-refresh','Synthetic duplicate',0)`, [id(700)]);
+    try { await assert.rejects(auth.refresh({ refreshToken: duplicateRaw }, meta), scopeDenied); }
+    finally { await db.query("DELETE FROM biz_park WHERE id=$1", [id(700)]); }
+    assert.equal(await tokenCount(), duplicateCount);
+
+    const lateRaw = await seedRefresh(503);
+    const lateCount = await tokenCount();
+    await db.query(`CREATE FUNCTION synthetic_refresh_scope_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'SYNTHETIC_REFRESH_SCOPE_LATE_FAILURE'; END $$;
+      CREATE TRIGGER synthetic_refresh_scope_failure AFTER UPDATE OF scope_id ON sys_auth_refresh_token
+        FOR EACH ROW WHEN (OLD.scope_id IS NULL AND NEW.scope_id IS NOT NULL)
+        EXECUTE FUNCTION synthetic_refresh_scope_failure();`);
+    try { await assert.rejects(auth.refresh({ refreshToken: lateRaw }, meta), scopeDenied); }
+    finally {
+      await db.query("DROP TRIGGER synthetic_refresh_scope_failure ON sys_auth_refresh_token; DROP FUNCTION synthetic_refresh_scope_failure()");
+    }
+    assert.equal(await tokenCount(), lateCount);
+    // Legacy refresh revokes the old token before replacement. This slice does not claim atomic rotation.
+    assert.equal((await one("SELECT revoked FROM sys_auth_refresh_token WHERE id=$1", [id(503)])).revoked, true);
+
+    const defaultRaw = await seedRefresh(504);
+    const defaultResult = await makeAuth(false).refresh({ refreshToken: defaultRaw }, meta);
+    assert.ok(defaultResult.refreshToken);
+    assert.equal((await one("SELECT scope_id FROM sys_auth_refresh_token WHERE token_hash=$1",
+      [digest(defaultResult.refreshToken)])).scope_id, null);
+    assert.equal((await one("SELECT count(*)::int AS n FROM sys_user_business_scope_membership")).n, 0);
+    assert.equal((await one("SELECT count(*)::int AS n FROM sys_business_scope_module")).n, 0);
+
+    const sessionWriter = source.createQueryRunner();
+    await sessionWriter.connect();
+    const beforeLockedWrite = await tokenCount();
+    try {
+      await sessionWriter.startTransaction();
+      const token = source.getRepository(AuthRefreshTokenEntity).create({ tenantId: "alpha", parkId: "park-a",
+        userId: id(10), tokenHash: digest("synthetic-concurrent-scope-token"), expiresAt: new Date(Date.now() + 60000) });
+      await new SmartParkRefreshScopeWriter().persist(sessionWriter.manager, token);
+      await db.query("SET lock_timeout='150ms'");
+      try {
+        await rejectCode(() => db.query("UPDATE sys_business_scope SET status='disabled' WHERE id=$1", [scopeA]), "55P03");
+      } finally { await db.query("RESET lock_timeout"); }
+      await sessionWriter.rollbackTransaction();
+    } finally {
+      if (sessionWriter.isTransactionActive) await sessionWriter.rollbackTransaction();
+      await sessionWriter.release();
+    }
+    assert.equal(await tokenCount(), beforeLockedWrite);
   } finally { await db.release(); await source.destroy(); }
 });
