@@ -372,17 +372,24 @@
         "discardedParameters": ["asssession"],
         "mutation": "none",
         "risk": "sql_injection_query_shape_manipulation_and_scope_confusion",
-        "safeReplacement": "Derive authorization scope on the server, bind optional person and score filters, and expose the ignored-session behavior only as an explicit legacy comparison mode."
+        "safeReplacement": "Derive authorization scope on the server, honor a bound exact session, bind a bounded optional person LIKE pattern, an escaped literal department prefix, and finite score limits; do not reproduce raw SQL concatenation."
       },
       "knownDifferences": [
-        {"code":"LEGACY_SESSION_PARAMETER_DISCARDED","sourceBehavior":"@asssession is unconditionally set to percent wildcard before the query","modernDecision":"pending approved difference: normal modern filtering should honor period while legacy comparison proves the old input had no effect"},
-        {"code":"RIGHTSCOPE_IS_NOT_AUTHORIZATION","sourceBehavior":"rightscope is concatenated as a department prefix","modernDecision":"server-derived park/team/self scope is mandatory; a department input can only narrow it"},
-        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+        {"code":"LEGACY_SESSION_PARAMETER_DISCARDED","sourceBehavior":"@asssession is unconditionally set to percent wildcard before the query","modernDecision":"approved safe correction implemented: the modern endpoint requires and honors the exact period through an active verified same-batch session relationship; pending differential runtime evidence must still prove the old input had no effect"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"procedure references assessmentmaster.asssession","modernDecision":"the absent source column is adapted only through the active verified same-batch dbo.asssession relationship and is never guessed from another master field"},
+        {"code":"PERSON_LIKE_INPUT_HARDENED","sourceBehavior":"raw person LIKE text is concatenated and empty or null becomes percent wildcard","modernDecision":"modern person pattern is optional, bounded to a safe Unicode code-pattern grammar and passed as a bound PostgreSQL LIKE parameter; omission means no person narrowing without injecting a wildcard"},
+        {"code":"RIGHTSCOPE_IS_NOT_AUTHORIZATION","sourceBehavior":"rightscope is concatenated as a department prefix","modernDecision":"server-derived park team or self scope is mandatory; the bounded literal department prefix is escaped and bound and can only narrow that scope"},
+        {"code":"SCORE_RANGE_INPUT_HARDENED","sourceBehavior":"float limits are concatenated into dynamic SQL","modernDecision":"modern lower and upper limits must be finite bound numeric parameters with lower less than or equal to upper"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"modern paging uses stable source-session person master and row id order"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.asssession"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters scoped filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "server-scope and filter implementation", "ignored-session differential fixture", "three-role desktop and 390px UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.webAssQuery","api":"GET /hr/performance-legacy/query-reports/web-ass-query","page":"apps/web/app/hr/performance/HrPerformanceLegacyWebAssQueryPanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-web-ass-query.contract.spec.ts","testId":"web_assquery honors period through a verified session relationship"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-web-ass-query.contract.spec.ts","testId":"web_assquery browser binds all five filters and explicitly honors period"}
+      ],
+      "missingEvidence": ["catalog adjudication for the absent assessmentmaster.asssession variant", "nonempty exact-period conservation through the verified session relationship", "SQL Server ignored-session versus modern honored-session differential fixture", "park team self desktop and 390px role UAT"]
     }
   ],
   "completionPolicy": {

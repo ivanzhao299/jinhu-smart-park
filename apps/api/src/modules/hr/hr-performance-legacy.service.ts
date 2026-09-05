@@ -19,6 +19,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { HrPerformanceLegacyAssessmentMasterQueryDto } from "./dto/hr-performance-legacy-assessment-master.dto";
 import type { HrPerformanceLegacyAssessmentValueQueryDto } from "./dto/hr-performance-legacy-assessment-value.dto";
+import type { HrPerformanceLegacyWebAssQueryDto } from "./dto/hr-performance-legacy-web-ass-query.dto";
 import type {
   HrPerformanceLegacyPageQueryDto,
   HrPerformanceLegacyPersonSummaryQueryDto,
@@ -771,6 +772,122 @@ export class HrPerformanceLegacyService {
       bizType: "hr_performance_legacy_master_result",
       bizId: null,
       path: "/hr/performance-legacy/query-reports/assessment-value-of-person",
+      fieldGroups: ["legacy_projection"],
+      projection: resolved.access,
+      itemCount: items.length,
+    });
+    return result;
+  }
+
+  async webAssQuery(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HrPerformanceLegacyWebAssQueryDto,
+  ) {
+    const resolved = this.resultScope(scope, actor, query);
+    if (!resolved) return this.emptyPage(query);
+    if (
+      !isHrPerformanceLegacyQueryText(
+        query.ass_session,
+        HR_PERFORMANCE_LEGACY_SESSION_MAX_LENGTH,
+      )
+      || query.ass_session !== normalizeHrPerformanceLegacyQueryText(query.ass_session)
+      || (query.person_like !== undefined && (
+        !isHrPerformanceLegacyDepartmentPattern(query.person_like)
+        || query.person_like !== normalizeHrPerformanceLegacyQueryText(query.person_like)
+      ))
+      || !isHrPerformanceLegacyDepartmentPrefix(query.right_scope_prefix)
+      || query.right_scope_prefix
+        !== normalizeHrPerformanceLegacyQueryText(query.right_scope_prefix)
+      || !Number.isFinite(query.item_value_min)
+      || !Number.isFinite(query.item_value_max)
+      || query.item_value_min > query.item_value_max
+    ) {
+      throw new BadRequestException("Unsupported legacy web-ass query parameters");
+    }
+
+    const parameters = [...resolved.parameters, query.ass_session];
+    const sessionParameter = parameters.length;
+    parameters.push(query.right_scope_prefix.replace(/([\\%_])/gu, "\\$1") + "%");
+    const rightScopeParameter = parameters.length;
+    parameters.push(query.item_value_min, query.item_value_max);
+    const minimumParameter = parameters.length - 1;
+    const maximumParameter = parameters.length;
+    let personPredicate = "";
+    if (query.person_like !== undefined) {
+      parameters.push(query.person_like);
+      personPredicate = ` AND fact.source_person_code LIKE $${parameters.length} ESCAPE '\\'`;
+    }
+    const employeeAccessJoin = resolved.access === "park"
+      ? `JOIN hr_performance_cycle_employee web_query_cycle_employee
+          ON (web_query_cycle_employee.id,web_query_cycle_employee.tenant_id,
+              web_query_cycle_employee.park_id)=
+             (fact.target_cycle_employee_id,fact.tenant_id,fact.park_id)
+        JOIN hr_employee web_query_employee
+          ON (web_query_employee.id,web_query_employee.tenant_id,
+              web_query_employee.park_id)=
+             (web_query_cycle_employee.employee_id,web_query_cycle_employee.tenant_id,
+              web_query_cycle_employee.park_id)
+         AND web_query_employee.is_deleted=false`
+      : "";
+    const employeeAlias = resolved.access === "park" ? "web_query_employee" : "employee";
+    const compatibilityJoins = `${employeeAccessJoin}
+      JOIN sys_org web_query_org
+        ON (web_query_org.id,web_query_org.tenant_id,web_query_org.park_id)=
+           (${employeeAlias}.primary_org_id,${employeeAlias}.tenant_id,${employeeAlias}.park_id)
+      JOIN hr_performance_legacy_session web_query_session
+        ON (web_query_session.tenant_id,web_query_session.park_id,
+            web_query_session.migration_batch_id,web_query_session.source_session_id)=
+           (fact.tenant_id,fact.park_id,fact.migration_batch_id,fact.source_session_id)
+       AND web_query_session.source_session_name=$${sessionParameter}
+      JOIN legacy_record_map web_query_session_map
+        ON web_query_session_map.id=web_query_session.legacy_record_map_id
+       AND web_query_session_map.batch_id=web_query_session.migration_batch_id
+       AND web_query_session_map.source_system='yuzhou-v10'
+       AND web_query_session_map.target_table='hr_performance_legacy_session'
+       AND web_query_session_map.target_id=web_query_session.id
+       AND web_query_session_map.mapping_status='verified'
+       AND web_query_session_map.is_active=true`;
+    const visibility = this.visibilitySql("hr_performance_legacy_master_result");
+    const filter = `${resolved.accessWhere}
+      AND web_query_org.org_code LIKE $${rightScopeParameter} ESCAPE '\\'
+      AND fact.source_total_value >= $${minimumParameter}
+      AND fact.source_total_value <= $${maximumParameter}${personPredicate}`;
+    const countRows = (await this.dataSource.query(
+      `SELECT count(*)::int total
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}`,
+      [...parameters],
+    )) as Array<{ total: number | string }>;
+
+    parameters.push(query.page_size, (query.page - 1) * query.page_size);
+    const items = (await this.dataSource.query(
+      `SELECT fact.source_person_code "sourcePersonCode",
+        ${employeeAlias}.full_name "employeeDisplayName",
+        fact.source_self_grade "sourceSelfGrade",
+        fact.source_ass_grade "sourceAssGrade",
+        fact.source_item_value::text "sourceItemValue",
+        fact.source_total_value::text "sourceTotalValue"
+       FROM hr_performance_legacy_master_result fact
+       ${resolved.accessJoin}
+       ${compatibilityJoins}
+       ${visibility}${filter}
+       ORDER BY fact.source_session_id DESC NULLS LAST,
+                fact.source_person_code ASC NULLS LAST,
+                fact.source_master_id ASC,
+                fact.id ASC
+       LIMIT $${parameters.length - 1} OFFSET $${parameters.length}`,
+      parameters,
+    )) as RawRow[];
+    const result = this.page(query, items, Number(countRows[0]?.total ?? 0));
+    await recordHrSensitiveRead(this.auditService, scope, actor, {
+      resource: "hr.performance_legacy_web_assquery",
+      action: "按安全修正后的玉舟 web_assquery 语义读取历史绩效汇总",
+      bizType: "hr_performance_legacy_master_result",
+      bizId: null,
+      path: "/hr/performance-legacy/query-reports/web-ass-query",
       fieldGroups: ["legacy_projection"],
       projection: resolved.access,
       itemCount: items.length,

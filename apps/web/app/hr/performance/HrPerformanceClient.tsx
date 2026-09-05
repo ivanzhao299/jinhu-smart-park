@@ -14,6 +14,7 @@ import {HrPerformanceLegacyAssessmentMasterPanel} from "./HrPerformanceLegacyAss
 import {HrPerformanceLegacyAssessmentValuePanel} from "./HrPerformanceLegacyAssessmentValuePanel";
 import {HrPerformanceLegacyAssessmentValueOfPersonPanel} from "./HrPerformanceLegacyAssessmentValueOfPersonPanel";
 import {HrPerformanceLegacyPersonSummaryPanel} from "./HrPerformanceLegacyPersonSummaryPanel";
+import {HrPerformanceLegacyWebAssQueryPanel} from "./HrPerformanceLegacyWebAssQueryPanel";
 
 type Options={orgs:Array<{id:string;orgName:string}>;templates:Array<{id:string;templateName:string;versionName:string}>};
 type Batch={id:string;cycleId:string;batchName:string;meetingAt:string;status:string;canAct:boolean};
@@ -56,5 +57,6 @@ export function HrPerformanceClient(){
   <HrPerformanceLegacyAssessmentMasterPanel/>
   <HrPerformanceLegacyAssessmentValuePanel/>
   <HrPerformanceLegacyAssessmentValueOfPersonPanel/>
+  <HrPerformanceLegacyWebAssQueryPanel/>
  </main></PermissionGuard>;
 }
