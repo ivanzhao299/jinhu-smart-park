@@ -344,6 +344,7 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   if (runtimeReleaseEvidence !== undefined) {
     const code = "PRODUCTION_IMPORT_RUNTIME_RELEASE_EVIDENCE_INVALID";
     exactKeys(runtimeReleaseEvidence, ["artifactSha256", "observedAt", "expiresAt"], [], code, "runtimeReleaseEvidence");
+    if (typeof runtimeReleaseEvidence.artifactSha256 !== "string") fail(code, "runtime release artifact must be a SHA-256 string");
     assertSha(runtimeReleaseEvidence.artifactSha256, code, "runtime release artifact");
     const timestamps = [runtimeReleaseEvidence.observedAt, runtimeReleaseEvidence.expiresAt];
     if (!timestamps.every(value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value)) fail(code, "runtime release timestamps must be canonical UTC");

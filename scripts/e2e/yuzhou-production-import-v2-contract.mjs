@@ -239,7 +239,7 @@ test("runtime observation rejects invalid, future, post-approval and expired int
     { observedAt: "2026-08-29" }, { observedAt: "2026-08-29T01:01:00.000Z" },
     { observedAt: "2026-08-29T00:31:00.000Z" },
     { expiresAt: NOW.toISOString() }, { expiresAt: "2026-08-29T01:31:00.000Z" },
-    { artifactSha256: "not-a-hash" }, { extra: true },
+    { artifactSha256: "not-a-hash" }, { artifactSha256: [H("array-hash")] }, { extra: true },
   ]) {
     const plan = bindRuntimeReleaseEvidence(v2Fixture().plan);
     Object.assign(plan.runtimeReleaseEvidence, override);
