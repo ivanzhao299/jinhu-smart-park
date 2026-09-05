@@ -5,7 +5,8 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { projectProductionT3Fields as project, buildProductionT3AttendanceSupport as support } from "../hr-cutover/production-t3-field-projection.mjs";
+import { projectProductionT3Fields as project, buildProductionT3AttendanceSupport as support,
+  projectProductionT3InsuranceQuarantineFields as insuranceQuarantine, buildProductionT3AttendanceQuarantineSupport as symbolQuarantine } from "../hr-cutover/production-t3-field-projection.mjs";
 import { materializeProductionT3PhaseArtifact } from "../hr-cutover/materialize-production-t3-phase-artifact.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, computeProductionImportTargetCanonicalHash as targetHash } from "../hr-cutover/production-import-target-model.mjs";
 import { normalizeProductionImportTargetFields as normalize } from "../hr-cutover/production-import-payload-generator.mjs";
@@ -88,6 +89,84 @@ test("structural source drift, duplicate children and unmapped fields fail rathe
 test("empty source still has its batch and explicit empty child sets are not invented", () => {
   const rows = support([], fileHash); assert.equal(rows.length, 1); assert.equal(rows[0].targetTable, "hr_attendance_import_batch");
   const p = policy(); p.items = []; assert.equal(project(p).length, 1);
+});
+
+test("opt-in fact sharing preserves pre-change default projection JSON bytes", () => {
+  assert.equal(hash(JSON.stringify(project(insurance()))), "84b658ebeced8b73a3b85a5b3f2e637a8c8b86189d676da84368320dffe58027");
+  const missing = insurance(); missing.source.year = null;
+  assert.equal(hash(JSON.stringify(project(missing))), "3278d778106d2e8720fb31fe22729f6a1c9c43f1fb0d4305c88b1a0155d56dd9");
+  assert.equal(hash(JSON.stringify(support([calendar()], fileHash))), "140ae27ade0f42d76de4deaba12d1eb8ecd4c78c33fa293d69d2d82293b26dc9");
+});
+
+for (const missing of [["year"], ["month"], ["year", "month"]]) test(`explicit quarantine retains source facts with missing ${missing.join(" and ")}`, () => {
+  const i = insurance(); for (const field of missing) i.source[field] = null;
+  i.items[0].contributionBase = "+000100.000";
+  i.items[1].contributionBase = "0"; i.items[1].legacyFlag = 0;
+  i.items[2].legacyBaseNegative = true; i.items[2].contributionBase = null; i.items[2].legacyFlag = false;
+  const before = structuredClone(i), original = project(i), rows = insuranceQuarantine(i);
+  assert.equal(rows.length, 7); assert.deepEqual(i, before);
+  for (const [index, projected] of rows.entries()) {
+    const { targetFields, omittedFields, ...unchanged } = projected;
+    assert.deepEqual({ ...unchanged, targetFields: null }, original[index]);
+    assert.equal(projected.reasonCode, "T3_INT4_INVALID");
+    assert.deepEqual(normalize(projected.targetTable, targetFields, model.targetTables[projected.targetTable], { partial: true }), targetFields);
+    assert.deepEqual(omittedFields.map(item => item.field).sort(), model.targetTables[projected.targetTable].fieldWhitelist.filter(field => !Object.hasOwn(targetFields, field)).sort());
+  }
+  const fields = rows[0].targetFields;
+  for (const [sourceField, targetField, expected] of [["year", "period_year", 2024], ["month", "period_month", 2]]) {
+    assert.equal(Object.hasOwn(fields, targetField), !missing.includes(sourceField));
+    if (!missing.includes(sourceField)) assert.equal(fields[targetField], expected);
+  }
+  assert.equal(Object.hasOwn(fields, "status"), false); assert.equal(fields.legacy_id, 301);
+  assert.equal(fields.source_snapshot.sourceRowSha256, i.sourceRowSha256);
+  assert.equal(fields.source_snapshot.legacyItems.remedy.legacyFlag, 0); assert.equal(fields.source_snapshot.legacyItems.losework.legacyFlag, false);
+  const child = rows.find(item => item.targetFields.insurance_kind === "oldage").targetFields;
+  assert.deepEqual(child, { insurance_kind: "oldage", contribution_base: "100.00", total_amount: "16.50", employer_amount: "0.00", employee_amount: null, supplement_amount: "0.00", legacy_base_negative: false, remark: null });
+  assert.equal(rows.find(item => item.targetFields.insurance_kind === "remedy").targetFields.contribution_base, "0.00");
+  const negative = rows.find(item => item.targetFields.insurance_kind === "losework").targetFields;
+  assert.equal(negative.legacy_base_negative, true); assert.equal(negative.contribution_base, null);
+  rows[0].targetFields.source_snapshot.legacyItems.oldage.legacyFlag = "mutated output";
+  rows[0].dependencyRefs[0].sourceIdentitySha256 = hash("mutated output");
+  rows[0].omittedFields[0].field = "mutated metadata";
+  assert.deepEqual(i, before); assert.deepEqual(project(i), original);
+  assert.notDeepEqual(insuranceQuarantine(i), rows);
+});
+
+test("quarantine fact extraction rejects other semantic failures hidden by the missing-calendar parent", () => {
+  const mutations = [i => { i.source.month = ""; }, i => { i.source.month = "bogus"; }, i => { i.source.month = 13; },
+    i => { i.source.year = ""; i.source.month = null; }, i => { i.source.year = 1899; i.source.month = null; },
+    i => { i.source.month = 1.5; }, i => { i.source.month = false; }, i => { i.source.id = "not an integer"; i.sourceKey = i.source.id; i.sourceIdentitySha256 = hash(`${i.sourceTable}\0${i.sourceKey}`); },
+    i => { i.source.employeeCode = null; }, i => { i.items[0].kind = "unrecognized"; },
+    i => { i.items[0].contributionBase = 100; }, i => { i.items[0].totalAmount = "1.001"; },
+    i => { i.items[0].employeeAmount = "-1"; }, i => { i.items[0].supplementAmount = "10000000000000000"; },
+    i => { i.items[0].legacyBaseNegative = true; }, i => { i.items[0].legacyBaseNegative = true; i.items[0].contributionBase = ""; },
+    i => { i.sourceIdentitySha256 = hash("corrupt identity"); }, i => { i.items.push({ ...i.items[0] }); },
+    i => { i.items[0].legacyFlag = { unrecognized: true }; }, i => { i.source.unrecognized = null; }];
+  for (const mutate of mutations) { const i = insurance(); i.source.year = null; mutate(i); stableFailure(() => insuranceQuarantine(i)); }
+  stableFailure(() => insuranceQuarantine(insurance())); stableFailure(() => insuranceQuarantine(policy()));
+  const empty = insurance(); empty.source.year = null; empty.items = []; assert.equal(insuranceQuarantine(empty).length, 1);
+});
+
+test("unknown symbol quarantine retains normalized symbols and provenance without mapping or status", () => {
+  const a = calendar(); a.days[2].legacySymbol = "  unknown-synthetic  "; a.days[3].legacySymbol = "other-unmapped"; a.days[4].legacySymbol = "unknown-synthetic"; a.days[5].legacySymbol = "third-unmapped";
+  const before = structuredClone(a), defaults = support([a], fileHash), rows = symbolQuarantine([a], fileHash);
+  assert.equal(rows.length, 3); assert.deepEqual(a, before);
+  assert.deepEqual(rows.map(row => row.sourceIdentitySha256), defaults.filter(row => row.reasonCode === "T3_ATTENDANCE_SYMBOL_UNRESOLVED").map(row => row.sourceIdentitySha256));
+  for (const projected of rows) {
+    const { targetFields, omittedFields, ...unchanged } = projected;
+    assert.deepEqual({ ...unchanged, targetFields: null }, defaults.find(row => row.sourceIdentitySha256 === projected.sourceIdentitySha256));
+    assert.equal(targetFields.legacy_symbol, targetFields.legacy_symbol.trim());
+    assert.equal(Object.hasOwn(targetFields, "normalized_kind"), false); assert.equal(Object.hasOwn(targetFields, "status"), false);
+    assert.deepEqual(omittedFields, ["normalized_kind", "status"].map(field => ({ field, reasonCode: "T3_ATTENDANCE_SYMBOL_UNRESOLVED" })));
+    assert.deepEqual(normalize(projected.targetTable, targetFields, model.targetTables[projected.targetTable], { partial: true }), targetFields);
+  }
+  rows[0].targetFields.legacy_symbol = "mutated output"; rows[0].dependencyRefs.push({ invalid: true }); assert.deepEqual(a, before);
+  assert.deepEqual(symbolQuarantine([], fileHash), []);
+  const known = calendar(); known.days = known.days.slice(0, 2); assert.deepEqual(symbolQuarantine([known], fileHash), []);
+  const long = calendar(); long.days[2].legacySymbol = "x".repeat(65); stableFailure(() => symbolQuarantine([long], fileHash));
+  const invalid = calendar(); invalid.days[2].legacySymbol = false; stableFailure(() => symbolQuarantine([invalid], fileHash));
+  stableFailure(() => symbolQuarantine([a, a], fileHash)); stableFailure(() => symbolQuarantine([a], hash("bad").slice(1)));
+  invalid.days[2].legacySymbol = "unknown"; invalid.sourceIdentitySha256 = hash("corrupt"); stableFailure(() => symbolQuarantine([invalid], fileHash));
 });
 
 test("attested older policy layout retains all identities without fabricating absent fixed amounts", () => {

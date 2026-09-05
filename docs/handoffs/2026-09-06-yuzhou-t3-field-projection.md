@@ -48,3 +48,22 @@
 ## 证据引用修复
 
 更新政策字段契约中阶段生成器的字节哈希，同时检查发现两个主线已有的过期引用：payload 测试仅增加孤儿记录隔离断言，HR service 仅将敏感数据服务 import 移到共享目录，保险语义未变。逐项审阅对应差异后仅重绑这两个引用及冻结清单的父哈希，不增加兼容分数，也不替换业务/生产验收。
+
+## 后续：明确选择的 quarantine 源事实接口
+
+新增两个 opt-in 纯接口，默认 `projectProductionT3Fields` / `buildProductionT3AttendanceSupport` 及现有候选输出保持不变：
+
+```js
+projectProductionT3InsuranceQuarantineFields(stagedPersonInsureRecord)
+buildProductionT3AttendanceQuarantineSupport(stagedAttendanceRows, attendanceFileSha256)
+```
+
+第一个接口仅接受 `dbo.person_insure` 的 year/month 至少一项为字面量 `null`。返回原期间父记录及全部保险子项目的稳定身份、原始行哈希、原 `T3_INT4_INVALID` 原因与依赖引用；非空部分字段使用同一套整数、金额、legacy snapshot 和目标模型规范化函数。有效的单个年月会保留，缺失年月直接省略，不改成零、当前月份或伪造的 null 目标值。父 `status` 不推断；省略元数据单独说明。子项五种金额、零值、空值、负基数标记及父 snapshot 的原始旗标得到保留。父缺失不能遮蔽子项精度/类型/溢出/负基数矛盾：这些情况拒绝整个调用。
+
+第二个接口只返回未映射符号规则，不返回批次或已知规则。使用既有 trim/去重和身份公式保留源符号，不补 `normalized_kind`，不授予 `status: enabled`；原 `T3_ATTENDANCE_SYMBOL_UNRESOLVED` 原因不变。过长、非字符串符号及来源身份/重复项错误仍拒绝，不截断或静默丢弃。
+
+两者每条返回值都具有独立 `omittedFields: [{field, reasonCode}]`，它不是业务 targetFields；输入/输出相互分离，调用方修改输出不会修改原始暂存记录。这些是**源事实投影**，不是已批准的 candidates/resolutions，不含加密、签名、密钥、文件或数据库操作。原始依赖不自动删除；私有集成方仍须逐项绑定原候选字节/来源链，明确选择可执行依赖，再通过既有外部审查流程。部分密文不等于完整原始档案。
+
+实现 Agent 仅以合成数据回归缺年、缺月、都缺失、未知符号和各类拒绝边界。正常保险、缺年保险和 attendance support 的修改前 JSON 字节摘要回归不变；projection/candidate/recovery 三套契约共 38 项通过、原有可选 PostgreSQL 字面量检查 1 项跳过。实现 Agent 未读取实际源数据、生成候选、访问数据库、借用/安装依赖或产生生产授权。
+
+主会话随后独立执行完整 T3 专项：阶段契约通过，64 项测试通过、1 项可选 PostgreSQL 检查跳过；既有异常 prepare/finalize 14 项通过。另以哈希绑定的现有来源及 3a649c93 候选执行只读开发态对照：38 条均获得非空部分字段，原身份、行哈希、原因、依赖精确匹配，包含 283 个目标字段（其中 150 个金额字段）。该对照读取约327 MB、峰值 RSS约1.37 GiB，文件写入与业务写入均为零。它不代表生产执行、完整原始档案或外部业务签署；旧生产准备仍不能直接冒充新提交的执行材料。
