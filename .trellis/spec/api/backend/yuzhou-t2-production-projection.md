@@ -8,11 +8,15 @@ Use when converting receipt-bound T2 staging to fields for the existing producti
 
 `projectProductionT2Fields(record, resolved) -> Array<{ phase, targetTable, sourceSystem, sourceTable, sourcePkCanonical, sourceIdentitySha256, sourceRowSha256, targetFields }>`.
 
+`verifyProductionT2StagedRecord(record)` verifies the same staged wrapper/provenance contract without semantic projection. `assembleProductionT2DecisionCandidates({triple,targetScope,targetInventory,t0Candidates,phaseArtifact,stagedRecords,resolutions,artifactHashes})` builds the in-memory candidate artifact. `resolutions` is exact one `{sourceIdentitySha256,resolved}` per source; `artifactHashes` has phaseArtifactSha256, targetInventoryArtifactSha256, t0CandidatesArtifactSha256 and resolutionArtifactSha256. These hashes are caller-verified references, not independent verification of content bytes or approvals.
+
 ## 3. Contracts
 
 Source record has exactly `sourceTable`, `sourceKey`, `sourceIdentitySha256`, `sourceRowSha256`, `source`. Supported tables: `dbo.compacttypecode`, `dbo.compact`, `dbo.compact_c`. Resolved dictionary values are `typeCode`, `status`, or `changeType`; the caller owns approval verification, C/S/M, artifact byte identity, dependencies and collisions. Output is not a decision or sealed plan.
 
 Target fields use the existing model and normalizer. Monetary strings must fit numeric(18,2) without rounding and always have two fractional digits. Local `hr_contract_change.signed_at` accepts exact calendar-valid `YYYY-MM-DDTHH:mm:ss.SSS` to match the writer's timestamp-without-zone readback; no offset is inferred. Other timestamp fields retain their current contract. Signature history is not inferred from one source signature date. Ambiguous terms remain snapshot values. Evidence presence accepts only extractor-produced numeric 0/1, and IDs use the existing phase projection hash; protected_file_id remains null.
+
+Assembly requires the full 16-table read-only inventory and exact T2 phase provenance/counts, aligned with T0 scope, target identity and C/S/M. Accepted T0 dependencies are recursively checked against the model, source business code, derived insert ID or actual exact-skip inventory/canonical/version; blocked T0 records never become usable employee refs. All same-level business/target-ID duplicates are blocked before the next dependency level. Contract type names use unique exact trimmed source names, changes also require matching source employee ownership, evidence uses the parent contract. No merge, write, approval, binary access or source I/O is performed. Semantic errors produce counted quarantine candidates; structural source/phase drift fails the entire artifact. Output is deterministic and detached from input references.
 
 ## 4. Validation & Error Matrix
 

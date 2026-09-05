@@ -68,7 +68,7 @@ const localTimestamp = value => {
   return `${value.replace(" ", "T")}.000`;
 };
 
-function verifyRecord(row) {
+export function verifyProductionT2StagedRecord(row) {
   if (!plain(row) || !Object.hasOwn(SOURCE_FIELDS, row.sourceTable) || typeof row.sourceKey !== "string" || !row.sourceKey.trim() || !plain(row.source) || !SHA.test(row.sourceIdentitySha256 ?? "") || !SHA.test(row.sourceRowSha256 ?? "")) fail("T2_SOURCE_RECORD_INVALID");
   if (Object.keys(row).sort().join("|") !== ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source"].sort().join("|")) fail("T2_SOURCE_RECORD_INVALID");
   if (Object.keys(row.source).some(key => !SOURCE_FIELDS[row.sourceTable].includes(key))) fail("T2_SOURCE_FIELD_UNMAPPED");
@@ -91,7 +91,7 @@ function projection(row, targetTable, fields, evidenceKind = null) {
 
 /** Pure candidate projection. Does not approve dictionaries, resolve dependencies, seal plans or write data. */
 export function projectProductionT2Fields(row, resolved = {}) {
-  verifyRecord(row);
+  verifyProductionT2StagedRecord(row);
   if (!plain(resolved)) fail("T2_DICTIONARY_DECISION_INVALID");
   const decisionKey = row.sourceTable === "dbo.compacttypecode" ? "typeCode" : row.sourceTable === "dbo.compact" ? "status" : "changeType";
   if (Object.keys(resolved).length !== 1 || !Object.hasOwn(resolved, decisionKey)) fail("T2_DICTIONARY_DECISION_INVALID");
