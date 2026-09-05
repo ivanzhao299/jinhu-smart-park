@@ -289,6 +289,10 @@ export async function executeSealedProductionImport(planInput, options) {
     await tx.query("SELECT hr_yuzhou_start_production_import($1,$2)", [plan.operationId, plan.sealing.sealedPlanSha256]);
     const databaseReceiptSha256ByDomain = {};
     for (const phase of plan.phases) {
+      // Extension materializers may validate all constraints immediately. Core
+      // projection receipts precede their control rows, so restore their declared
+      // deferred mode before each new phase. Commit still validates every link.
+      await tx.query("SET CONSTRAINTS ALL DEFERRED");
       await tx.query(
         `INSERT INTO hr_yuzhou_production_import_phase(operation_id,phase,phase_ordinal,status,source_batch_manifest_sha256,payload_bundle_artifact_sha256,payload_bundle_sha256,canonicalization_version,planned_record_count,before_canonical_sha256,started_at)
          VALUES($1,$2,$3,'running',$4,$5,$6,$7,$8,$9,now())`,

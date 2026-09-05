@@ -821,6 +821,8 @@ test("core maps are verified only after matching control receipts and before the
     const verifyIndex = calls.findIndex(call => call.sql.includes("hr-prod-control:verify-owned-maps") && call.parameters[1] === phase.phase);
     const controlIndex = calls.findIndex(call => call.sql.startsWith("INSERT INTO hr_yuzhou_production_import_record(") && JSON.parse(call.parameters[0])[0]?.phase === phase.phase);
     const succeededIndex = calls.findIndex(call => call.sql.includes("SET status='succeeded',applied_record_count") && call.parameters[1] === phase.phase);
+    const phaseStartIndex = calls.findIndex(call => call.sql.startsWith("INSERT INTO hr_yuzhou_production_import_phase(") && call.parameters[1] === phase.phase);
+    assert.equal(calls[phaseStartIndex - 1]?.sql, "SET CONSTRAINTS ALL DEFERRED", "a prior extension must not change the next core phase FK timing");
     assert.ok(controlIndex >= 0 && controlIndex < verifyIndex && verifyIndex < succeededIndex);
     const verification = calls[verifyIndex];
     assert.deepEqual(verification.parameters, [plan.operationId, phase.phase,
