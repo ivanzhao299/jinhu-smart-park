@@ -18,7 +18,7 @@
 
 类型名只有唯一精确匹配才关联，重名或缺失进入差异；合同变更必须同时对应合同号和员工来源。目标相同为 `skip_exact` 候选，不同为待审冲突，绝不自动覆盖。来源重复业务键的全部成员在下游组装前被阻断，避免第一条先入选。语义错误保留合同及派生证据的完整行数，不静默丢弃。
 
-**尚缺私有文件入口接线和真实源验证。** 候选函数接收的工件哈希只是引用，不能自行证明文件字节或外部审批；私有调用方仍需验证实际 C/S/M、来源清单/文件哈希、当前代码和已有字典决策后调用，再接到现有封存/生产执行链。`resolved` 不是审批证明，`READY_FOR_REVIEW` 不是可生产执行。当前没有真实数据候选包、生产写入、API/页面回读、业务签署或完整 T2 验收证据。
+私有文件入口 `materialize-production-t2-decision-candidates.mjs --config <private-config>` 已实现并通过合成私有文件测试：核对当前提交、工件文件字节、来源清单、T2 staging、已有类型/状态字典后调用组装器。**真实源运行与封存/生产执行接线尚未完成。** `resolved` 不是审批证明，`READY_FOR_REVIEW` 不是可生产执行。当前没有真实数据候选包、生产写入、API/页面回读、业务签署或完整 T2 验收证据。
 
 已有 transform 产出的日期推导期限和续签次数在本层检查类型与语义标记，但不重复实现推导算法；其正确性须由上游来源清单、已验证 transform 和阶段工件共同证明，单条自报哈希不是语义或来源真实性证明。
 
@@ -33,3 +33,13 @@
 具体函数合同见 `.trellis/spec/api/backend/yuzhou-t2-production-projection.md`。
 
 候选组装测试：`node --test scripts/e2e/yuzhou-production-t2-decision-candidates-contract.mjs`，同时已纳入上述 T2 测试入口。覆盖非空四表依赖、零行、输入重排、来源和清单漂移、缺失/被阻断人员、类型歧义、合同归属、来源碰撞、已有目标精确匹配/差异和 ID 碰撞。测试数据全部为合成，不代表真实记录已经通过。
+
+## 私有文件入口合同
+
+- 配置字段：`formatVersion=1`、`triple`、`stagingDir`、`artifacts`、`outputPath`。`artifacts` 包含 `sourceManifest`、`phaseArtifact`、`targetInventory`、`t0Candidates`、`dictionaryPackage` 和可为 null 的 `changeDecisions`；非空项均为 `{path,sha256}`，哈希针对实际文件字节。
+- 配置和输入使用受控绝对路径、仅所有者可读写的 0600 单链接文件；staging 和输出目录为 0700，拒绝符号链接。每文件最多 32 MiB，合计读取最多 128 MiB；空 JSONL 仅在来源 manifest 明确为零行时接受。不会读取工资文件或文件二进制。
+- 生产 inventory 的 `sourceManifestSha256` 是 `verifyProductionSourceManifest` 返回的规范化哈希，**不是**描述符里的文件字节哈希。两种身份都必须核验，不能互换。
+- 已有 `yuzhou_core_non_t0_machine_dictionary_package` 的 C/S/M、T2 文件证据、类型/状态来源字段、状态使用次数及 machineAttestationSha256 都重新核对；机器哈希不等于外部/人工审批，不会因校验通过而签发授权。
+- 可选变更分类候选的 kind 为 `yuzhou_hr_t2_change_classification_candidates`，绑定 triple 与 contract-changes.jsonl 的 `stageFileSha256`；每条为 `{sourceIdentitySha256,sourceRowSha256,changeType,evidenceSha256}`。缺项保持差异，不默认续签。源逻辑台账中 `RULE-F089F24164D89466` / `web_compact_c` 的查询列明确标注续订，已核对归档文件哈希 `f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12`；后续分类生成可引用该依据，但尚未生成真实逐条分类候选，也不据此宣称所有合同业务复现。
+- 仅在全部校验通过后独占创建新候选文件，并做哈希回读。失败不覆盖已有文件，不删除可能的私有部分输出；重试应使用明确的新输出名。stdout 只有数量、分类码和哈希；输出候选文件包含业务字段，必须保持私有且不提交。
+- 私有文件测试：`node --test scripts/e2e/yuzhou-production-t2-materializer-contract.mjs`，已接入原 T2 CI 测试命令。
