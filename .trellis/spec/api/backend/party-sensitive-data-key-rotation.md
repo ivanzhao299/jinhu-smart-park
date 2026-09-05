@@ -43,6 +43,7 @@
 ### 6. Tests Required
 
 - Unit: missing Party key with IoT/JWT present fails; malformed/duplicate keyring and malformed ciphertext envelopes fail; old ciphertext decrypts by old key id and by the unversioned compatibility path; new profile uses active id; fingerprint stays stable.
+- Authentication-failure fixtures must deterministically change ciphertext bytes (for example XOR one bit), assert the envelope differs, and cover the zero-byte boundary. Replacing a random trailing byte with a fixed `00` is a no-op approximately 1/256 of the time; do not fix this by retrying CI or fixing production nonces.
 - Rotation: scope lock precedes inventory; active-key, soft-deleted Party and current-draft/snapshot metadata is validated; old ciphertext is re-encrypted; same-active-key replay performs no write while cross-active-key replay conflicts; required audit receives the transaction manager and no secret fields.
 - Migration: PostgreSQL 16 apply plus replay; Party v1 metadata backfill; three key-id guards; scoped receipt uniqueness.
 - Package gates: API unit, lint, typecheck, build, migration prerequisite contract, shell syntax, and secret/fallback source scan.
