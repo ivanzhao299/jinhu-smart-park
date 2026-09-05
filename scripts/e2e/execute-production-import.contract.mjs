@@ -27,6 +27,7 @@ import {
   computeProductionImportTargetScopeHash,
 } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
+import { createHeldPerformanceRelationsBinding } from "../hr-cutover/production-import-performance-relations-contract.mjs";
 
 const roots = [];
 const H = value => createHash("sha256").update(value).digest("hex");
@@ -234,6 +235,83 @@ function dependencies(plan, overrides = {}) {
   };
 }
 
+function performanceArtifactFixture(options = {}) {
+  const value = fixture(options);
+  const config = JSON.parse(readFileSync(value.configPath, "utf8"));
+  config.artifacts.performanceRelations = {
+    relationPayload: privateJson(value.root, "synthetic-relations.json", { fixture: "relations" }),
+    identityDecision: privateJson(value.root, "synthetic-decisions.json", { fixture: "decisions" }),
+  };
+  const relations = createHeldPerformanceRelationsBinding({
+    triple: value.plan.triple,
+    relationPayloadArtifactSha256: config.artifacts.performanceRelations.relationPayload.sha256,
+    identityDecisionArtifactSha256: config.artifacts.performanceRelations.identityDecision.sha256,
+    t0PhaseReceiptSha256: H("synthetic-t0-receipt"),
+  });
+  value.plan.performanceRelations = relations;
+  config.artifacts.performanceFactLoader = {
+    factPayload: privateJson(value.root, "synthetic-facts.json", { fixture: "facts" }),
+    masterPayload: privateJson(value.root, "synthetic-master.json", { fixture: "master" }),
+  };
+  value.plan.performanceFactLoader = {
+    formatVersion: 1, bindingKind: "yuzhou_hr_production_import_performance_fact_loader_binding",
+    triple: value.plan.triple, sourceRestoreReceiptSha256: H("synthetic-restore"),
+    sourceFactLocationReceiptSha256: relations.sourceFactLocationReceiptSha256,
+    sourceFactLocationCanonicalSha256: relations.sourceFactLocationCanonicalSha256,
+    t0PhaseReceiptSha256: relations.t0PhaseReceiptSha256,
+    factPayloadArtifactSha256: config.artifacts.performanceFactLoader.factPayload.sha256,
+    masterPayloadArtifactSha256: config.artifacts.performanceFactLoader.masterPayload.sha256,
+    ...Object.fromEntries([300, 301, 302, 303, 310, 311].map(n => [`migration${n}Sha256`, H(`synthetic-migration-${n}`)])),
+    templateRows: 1, levelRuleRows: 0, dimensionRows: 0, guideRows: 0,
+    dimensionResultRows: 0, masterResultRows: 0, activeFactMaps: 1,
+    identityFactSetSha256: H("[]"), fullFactSetSha256: H("synthetic-full-set"),
+    sourceOutcomeFactStatus: "AUTHORITATIVE_EMPTY",
+    forwardOrder: ["legacy_config_and_detail", "legacy_master"],
+    rollbackOrder: ["master_result", "dimension_result", "dimension_level_guide", "dimension_profile", "level_rule", "template_profile"],
+    productionImport: "HOLD",
+  };
+  value.plan.authorization.binding.performanceRelationsContractSha256 = computeProductionImportPayloadHash(relations);
+  value.plan.authorization.binding.performanceFactLoaderContractSha256 = computeProductionImportPayloadHash(value.plan.performanceFactLoader);
+  value.plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(value.plan);
+  config.artifacts.sealedPlan = privateJson(value.root, "performance-plan.json", value.plan);
+  if (config.execution) {
+    const databaseBinding = JSON.parse(readFileSync(config.execution.databaseBinding.path, "utf8"));
+    databaseBinding.sealedPlanSha256 = value.plan.sealing.sealedPlanSha256;
+    config.execution.databaseBinding = privateJson(value.root, "performance-database-binding.json", databaseBinding);
+  }
+  config.requestedDomains = ["T0", "PERFORMANCE_FACTS", "PERFORMANCE_RELATIONS", "T1", "T2", "T3"];
+  return { ...value, config, configPath: privateJson(value.root, "performance-entrypoint.json", config).path };
+}
+
+test("performance preparation binds both fact artifacts with the real plan validator without database access", async () => {
+  const value = performanceArtifactFixture();
+  let calls = 0;
+  const result = await runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, {
+    now: NOW, loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
+  });
+  assert.equal(calls, 0);
+  assert.deepEqual(result.domains, value.config.requestedDomains);
+  assert.equal(result.mode, "prepare");
+});
+
+test("performance preparation rejects missing descriptors, swapped bytes and incorrect domain order", async () => {
+  const cases = [
+    { mutate: v => { delete v.config.artifacts.performanceFactLoader; }, code: "PRODUCTION_IMPORT_ENTRYPOINT_PERFORMANCE_FACT_LOADER_BINDING_MISMATCH" },
+    { mutate: v => { v.config.artifacts.performanceFactLoader.factPayload = privateJson(v.root, "other-facts.json", { fixture: "different" }); }, code: "PRODUCTION_IMPORT_PERFORMANCE_FACT_LOADER_ARTIFACT_HASH_MISMATCH" },
+    { mutate: v => { v.config.requestedDomains = ["T0", "PERFORMANCE_RELATIONS", "PERFORMANCE_FACTS", "T1", "T2", "T3"]; }, code: "PRODUCTION_IMPORT_ENTRYPOINT_DOMAIN_SCOPE_MISMATCH" },
+  ];
+  for (const scenario of cases) {
+    const value = performanceArtifactFixture();
+    scenario.mutate(value);
+    const configPath = privateJson(value.root, "invalid-performance-entrypoint.json", value.config).path;
+    let calls = 0;
+    await assert.rejects(() => runProductionImportEntrypoint({ configPath, execute: false }, {
+      now: NOW, loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
+    }), error => error.code === scenario.code);
+    assert.equal(calls, 0);
+  }
+});
+
 test("CLI defaults to read-only preparation and rejects ambiguous arguments", () => {
   assert.deepEqual(parseProductionImportEntrypointArgs(["--config", "/tmp/example"]), { configPath: "/tmp/example", execute: false });
   assert.deepEqual(parseProductionImportEntrypointArgs(["--execute", "--config", "/tmp/example"]), { configPath: "/tmp/example", execute: true });
@@ -273,6 +351,41 @@ test("candidate gate rejects an execution dependency that exists but is no longe
     () => currentRepositorySha(value.root),
     error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
   );
+});
+
+test("candidate gate binds transitive code and runtime contract assets to the committed candidate", () => {
+  const dependencies = [
+    "scripts/hr-cutover/production-import-target-model.mjs",
+    "scripts/hr-cutover/contracts/production-import-target-model-v1.json",
+    "scripts/hr-cutover/contracts/production-import-execution-v2.json",
+    "scripts/hr-cutover/production-import-performance-relations-contract.mjs",
+    "scripts/hr-cutover/contracts/production-import-performance-relations-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-source-person-assignment-conservation-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-fact-location-evidence-v1.json",
+    "database/migrations/000305_hr_performance_yuzhou_legacy_relations.sql",
+    "database/migrations/000306_hr_performance_yuzhou_identity_resolution.sql",
+    "database/migrations/000308_hr_yuzhou_performance_relations_production.sql",
+    "scripts/hr-cutover/production-import-t5-nonfile-writer.mjs",
+    "scripts/hr-cutover/production-import-t5-nonfile-rollback.mjs",
+  ];
+  for (const dependencyPath of dependencies) {
+    const value = gitCandidateFixture();
+    const absolutePath = join(value.root, dependencyPath);
+    mkdirSync(dirname(absolutePath), { recursive: true });
+    writeFileSync(absolutePath, `${dependencyPath}\n`);
+    value.git(["add", "--", dependencyPath]);
+    value.git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "--allow-empty", "-m", "track runtime dependency"]);
+    assert.equal(currentRepositorySha(value.root), value.git(["rev-parse", "HEAD"]));
+    value.git(["rm", "--quiet", "--cached", "--", dependencyPath]);
+    value.git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "-m", "leave untracked runtime dependency"]);
+    assert.equal(readFileSync(absolutePath, "utf8"), `${dependencyPath}\n`);
+    assert.equal(value.git(["ls-files", "--others", "--exclude-standard", "--", dependencyPath]), dependencyPath);
+    assert.throws(
+      () => currentRepositorySha(value.root),
+      error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
+      dependencyPath,
+    );
+  }
 });
 
 test("bounded private reads reject aggregate overflow, concurrent growth, and truncation", () => {
@@ -661,4 +774,40 @@ test("entrypoint source has no alternate contract, plugin, shell, or lab executi
   assert.match(source, /ls-files[\s\S]*diff[\s\S]*--cached[\s\S]*rev-parse/u);
   assert.doesNotMatch(source, /production-import-real-artifact-bridge|full-domain-lifecycle|run-final-rehearsal|docker|child_process.*spawn|eval\(|new Function/u);
   assert.ok(ProductionImportEntrypointError);
+});
+
+test("synthetic writer database receipt hashes survive CLI aggregation while wrong identity or extra fields fail", async () => {
+  async function run(mutate = () => {}) {
+    const value = performanceArtifactFixture({ intent: "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE", withExecution: true });
+    const writerResult = {
+      operationId: value.plan.operationId, sealedPlanSha256: value.plan.sealing.sealedPlanSha256,
+      status: "succeeded", phases: value.config.requestedDomains,
+      databaseReceiptSha256ByDomain: { PERFORMANCE_FACTS: H("actual-fixture-fact-receipt"), PERFORMANCE_RELATIONS: H("actual-fixture-relation-receipt") },
+    };
+    mutate(writerResult);
+    return runProductionImportEntrypoint({ configPath: value.configPath, execute: true }, {
+      now: NOW, assertActivated() {}, currentCodeSha: () => CODE_SHA,
+      loadCryptoProviderModule: async () => ({ decryptProductionImportEnvelope() { throw new Error("fixture has no encrypted records"); } }),
+      loadPg: async () => ({ Pool: class { async end() {} } }),
+      createAdapter: () => ({ queryReadOnly: async () => ({ rows: [] }), async probeTarget() {}, async close() {} }),
+      createPhaseWriters: () => ({}), executeImport: async () => writerResult,
+    });
+  }
+  const result = await run();
+  assert.deepEqual(result.databaseReceiptSha256ByDomain, {
+    PERFORMANCE_FACTS: H("actual-fixture-fact-receipt"), PERFORMANCE_RELATIONS: H("actual-fixture-relation-receipt"),
+  });
+  const different = await run(r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = H("different-fixture-receipt"); });
+  assert.notEqual(result.receiptSha256, different.receiptSha256);
+  for (const mutate of [
+    r => { r.operationId = "another-operation"; },
+    r => { r.sealedPlanSha256 = H("another-seal"); },
+    r => { delete r.databaseReceiptSha256ByDomain; },
+    r => { delete r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS; },
+    r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = "not-a-hash"; },
+    r => { r.databaseReceiptSha256ByDomain.PERFORMANCE_FACTS = [H("array-is-not-a-hash")]; },
+    r => { r.databaseReceiptSha256ByDomain.unexpectedField = "synthetic-canary"; },
+  ]) {
+    await assert.rejects(() => run(mutate), error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_WRITER_RECEIPT_INVALID");
+  }
 });

@@ -133,6 +133,86 @@ function validatePerformanceRelationsPlanBinding(value, triple) {
   return structuredClone(value);
 }
 
+export function validateProductionPerformanceFactLoaderPlanBinding(value, triple) {
+  const code = "PRODUCTION_IMPORT_PERFORMANCE_FACT_LOADER_BINDING_INVALID";
+  const hashKeys = ["sourceRestoreReceiptSha256", "sourceFactLocationReceiptSha256", "sourceFactLocationCanonicalSha256", "factPayloadArtifactSha256", "masterPayloadArtifactSha256", "t0PhaseReceiptSha256", "migration300Sha256", "migration301Sha256", "migration302Sha256", "migration303Sha256", "migration310Sha256", "migration311Sha256", "identityFactSetSha256", "fullFactSetSha256"];
+  const countKeys = ["templateRows", "levelRuleRows", "dimensionRows", "guideRows", "dimensionResultRows", "masterResultRows"];
+  exactKeys(value, ["formatVersion", "bindingKind", "triple", ...hashKeys, ...countKeys, "activeFactMaps", "sourceOutcomeFactStatus", "forwardOrder", "rollbackOrder", "productionImport"], [], code, "performanceFactLoader");
+  validateTriple(value.triple, code, "performanceFactLoader.triple");
+  for (const key of hashKeys) {
+    if (typeof value[key] !== "string") fail(code, `${key} must be a SHA-256 string`);
+    assertSha(value[key], code, key);
+  }
+  for (const key of [...countKeys, "activeFactMaps"]) {
+    if (!Number.isSafeInteger(value[key]) || value[key] < 0) fail(code, `${key} must be a non-negative safe integer`);
+  }
+  const total = countKeys.reduce((sum, key) => sum + value[key], 0);
+  const outcomeRows = value.dimensionResultRows + value.masterResultRows;
+  if (value.formatVersion !== 1
+    || value.bindingKind !== "yuzhou_hr_production_import_performance_fact_loader_binding"
+    || !same(value.triple, triple)
+    || !Number.isSafeInteger(total) || total !== value.activeFactMaps
+    || (outcomeRows === 0) !== (value.identityFactSetSha256 === sha256("[]"))
+    || value.sourceOutcomeFactStatus !== (outcomeRows === 0 ? "AUTHORITATIVE_EMPTY" : "AUTHORITATIVE_NONEMPTY")
+    || !same(value.forwardOrder, ["legacy_config_and_detail", "legacy_master"])
+    || !same(value.rollbackOrder, ["master_result", "dimension_result", "dimension_level_guide", "dimension_profile", "level_rule", "template_profile"])
+    || value.productionImport !== "HOLD") fail(code, "fact loader identity, counts, source status or execution boundary differs");
+  return structuredClone(value);
+}
+
+// A parent execution receipt includes sealedPlanSha256. Only its stable input
+// contract belongs in the seal; the actual receipt is bound after parent apply.
+export function validateProductionPerformanceFactIdentityPlanBinding(value, triple, parentPerformanceRelationsBinding, parentPerformanceFactLoaderBinding) {
+  const code = "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_BINDING_INVALID";
+  const keys = [
+    "formatVersion", "bindingKind", "triple", "contractArtifactSha256",
+    "t0PhaseReceiptSha256", "parentPerformanceRelationsContractSha256", "parentPerformanceFactLoaderContractSha256",
+    "expectedDimensionRows", "expectedMasterRows", "expectedFactRows",
+    "expectedFactSetSha256", "migration308Sha256", "migration310Sha256",
+    "factKinds", "rollbackOrder", "adapterStatus", "productionImport",
+  ];
+  exactKeys(value, keys, [], code, "performanceFactIdentity");
+  validateTriple(value.triple, code, "performanceFactIdentity.triple");
+  if (!same(value.triple, triple) || !parentPerformanceRelationsBinding || !parentPerformanceFactLoaderBinding) {
+    fail(code, "the same C/S/M and parent performance relation contract are required");
+  }
+  const parent = validatePerformanceRelationsPlanBinding(parentPerformanceRelationsBinding, triple);
+  const loader = validateProductionPerformanceFactLoaderPlanBinding(parentPerformanceFactLoaderBinding, triple);
+  for (const key of [
+    "contractArtifactSha256", "t0PhaseReceiptSha256", "parentPerformanceRelationsContractSha256", "parentPerformanceFactLoaderContractSha256",
+    "expectedFactSetSha256", "migration308Sha256", "migration310Sha256",
+  ]) {
+    if (typeof value[key] !== "string") fail(code, `${key} must be a SHA-256 string`);
+    assertSha(value[key], code, key);
+  }
+  for (const key of ["expectedDimensionRows", "expectedMasterRows", "expectedFactRows"]) {
+    if (!Number.isSafeInteger(value[key]) || value[key] < 0) fail(code, `${key} must be a non-negative safe integer`);
+  }
+  const emptyFactSetSha256 = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
+  if (value.formatVersion !== 1
+    || value.bindingKind !== "yuzhou_hr_production_import_performance_fact_identity_binding"
+    || value.parentPerformanceRelationsContractSha256 !== computeProductionImportPayloadHash(parent)
+    || value.parentPerformanceFactLoaderContractSha256 !== computeProductionImportPayloadHash(loader)
+    || value.t0PhaseReceiptSha256 !== parent.t0PhaseReceiptSha256
+    || value.t0PhaseReceiptSha256 !== loader.t0PhaseReceiptSha256
+    || loader.sourceFactLocationReceiptSha256 !== parent.sourceFactLocationReceiptSha256
+    || loader.sourceFactLocationCanonicalSha256 !== parent.sourceFactLocationCanonicalSha256
+    || value.expectedDimensionRows !== loader.dimensionResultRows
+    || value.expectedMasterRows !== loader.masterResultRows
+    || value.expectedFactSetSha256 !== loader.identityFactSetSha256
+    || value.migration310Sha256 !== loader.migration310Sha256
+    || value.expectedFactRows !== value.expectedDimensionRows + value.expectedMasterRows
+    || (value.expectedFactRows === 0) !== (value.expectedFactSetSha256 === emptyFactSetSha256)
+    || value.migration308Sha256 !== "ad77e0cf12cf73f98a5984835a9943a9e15c96cde37fe6bd95133845c711befa"
+    || !same(value.factKinds, ["dimension_result", "master_result"])
+    || !same(value.rollbackOrder, ["fact_identity", "performance_relations", "performance_facts"])
+    || value.adapterStatus !== "PRODUCTION_CAPABILITY_BOUND"
+    || value.productionImport !== "HOLD") {
+    fail(code, "fact identity metadata, conservation, parent binding or execution boundary differs");
+  }
+  return structuredClone(value);
+}
+
 function validatePayloadValue(value, label) {
   if (value === null || typeof value === "string" || typeof value === "boolean") return;
   if (typeof value === "number") {
@@ -313,13 +393,22 @@ function validateApprovalSet(approvalSet) {
 
 export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT, now = new Date() } = {}) {
   validateContract(contract);
-  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], ["t5Nonfile", "performanceRelations", "runtimeReleaseEvidence"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
+  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], ["t5Nonfile", "performanceRelations", "performanceFactLoader", "performanceFactIdentity", "runtimeReleaseEvidence"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
   scan(plan);
   if (plan.formatVersion !== 2 || plan.planKind !== "yuzhou_hr_production_import_sealed_execution_plan" || plan.intent !== "production_import" || plan.status !== "SEALED" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "identity/status invalid");
   if (!OPERATION_ID.test(plan.operationId ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "operation id invalid");
   validateTriple(plan.triple, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "triple");
   const t5Nonfile = plan.t5Nonfile === undefined ? null : validateT5NonfilePlanBinding(plan.t5Nonfile, plan.triple);
   const performanceRelations = plan.performanceRelations === undefined ? null : validatePerformanceRelationsPlanBinding(plan.performanceRelations, plan.triple);
+  const performanceFactLoader = plan.performanceFactLoader === undefined ? null : validateProductionPerformanceFactLoaderPlanBinding(plan.performanceFactLoader, plan.triple);
+  if (performanceFactLoader && (!performanceRelations
+    || performanceFactLoader.t0PhaseReceiptSha256 !== performanceRelations.t0PhaseReceiptSha256
+    || performanceFactLoader.sourceFactLocationReceiptSha256 !== performanceRelations.sourceFactLocationReceiptSha256
+    || performanceFactLoader.sourceFactLocationCanonicalSha256 !== performanceRelations.sourceFactLocationCanonicalSha256)) {
+    fail("PRODUCTION_IMPORT_PERFORMANCE_FACT_LOADER_BINDING_INVALID", "fact loader requires the same source and T0 as its parent relations");
+  }
+  const performanceFactIdentity = plan.performanceFactIdentity === undefined ? null
+    : validateProductionPerformanceFactIdentityPlanBinding(plan.performanceFactIdentity, plan.triple, performanceRelations, performanceFactLoader);
   exactKeys(plan.target, ["environment", "alias", "identitySha256"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target");
   if (plan.target.environment !== "production" || !SAFE_ALIAS.test(plan.target.alias ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target invalid");
   assertSha(plan.target.identitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target identity");
@@ -353,11 +442,13 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   }
   assertSha(plan.manifestSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "manifest");
   validateFinalRehearsalPair(plan.finalRehearsalPair, plan.triple);
-  const authorizationBindingKeys = ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt", ...(t5Nonfile ? ["t5NonfilePrivateStageSha256"] : []), ...(performanceRelations ? ["performanceRelationsContractSha256"] : []), ...(runtimeReleaseEvidence !== undefined ? ["runtimeReleaseEvidenceBindingSha256"] : [])];
+  const authorizationBindingKeys = ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt", ...(t5Nonfile ? ["t5NonfilePrivateStageSha256"] : []), ...(performanceRelations ? ["performanceRelationsContractSha256"] : []), ...(performanceFactLoader ? ["performanceFactLoaderContractSha256"] : []), ...(performanceFactIdentity ? ["performanceFactIdentityContractSha256"] : []), ...(runtimeReleaseEvidence !== undefined ? ["runtimeReleaseEvidenceBindingSha256"] : [])];
   exactKeys(plan.authorization.binding, authorizationBindingKeys, [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
   const expectedBinding = { triple: plan.triple, targetIdentitySha256: plan.target.identitySha256, targetScopeSha256: plan.targetScope.scopeSha256, finalRehearsalPairSha256: plan.finalRehearsalPair.artifactSha256, manifestSha256: plan.manifestSha256, windowStartsAt: plan.window.startsAt, windowEndsAt: plan.window.endsAt };
   if (t5Nonfile) expectedBinding.t5NonfilePrivateStageSha256 = t5Nonfile.privateStageSha256;
   if (performanceRelations) expectedBinding.performanceRelationsContractSha256 = computeProductionImportPayloadHash(performanceRelations);
+  if (performanceFactLoader) expectedBinding.performanceFactLoaderContractSha256 = computeProductionImportPayloadHash(performanceFactLoader);
+  if (performanceFactIdentity) expectedBinding.performanceFactIdentityContractSha256 = computeProductionImportPayloadHash(performanceFactIdentity);
   if (runtimeReleaseEvidence !== undefined) expectedBinding.runtimeReleaseEvidenceBindingSha256 = computeProductionImportPayloadHash(runtimeReleaseEvidence);
   if (!same(plan.authorization.binding, expectedBinding)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization does not bind exact A/B, triple, target, manifest and window");
   validateApprovalSet(plan.authorization.approvalSet);

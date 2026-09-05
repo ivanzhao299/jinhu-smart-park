@@ -36,6 +36,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 - `T0`、`T1`、`T2`、`T3`；
 - plan 已签入时，在 `T0` 后增加 `PERFORMANCE_RELATIONS`；
+- 新绩效链的顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。候选总 writer 已接入装载、关系及身份映射，并传递同一事务产生的真实回执；已通过合成非空配置、空结果的隔离数据库整链与实际服务回读/回滚测试，精确证据见 `docs/yuzhou-hr-performance-fact-identity-integration.md`。这不证明 CLI/GCM、非空结果业务等价或真实生产导入，版本化生产合同仍为 `HOLD`；
 - plan 已签入时，在末尾增加 `T5_NONFILE`。
 
 以下域尚未接入此 writer，入口会用稳定原因码拒绝，不能把一次 T0-T3 成功描述成全量产品迁移完成：
@@ -67,11 +68,14 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 - `requestedDomains`，必须与 plan 的实际接线顺序一字不差；
 - `artifacts.sealedPlan` 与 `artifacts.payloadBundles.T0..T3`；
 - plan 使用时才允许出现的 `artifacts.t5NonfilePrivateStage` 或 `artifacts.performanceRelations`；
+- plan 使用 `performanceFactLoader` 时，必须提供 `artifacts.performanceFactLoader.factPayload` 和 `masterPayload` 两个 descriptor。它们同时受文件权限、聚合读取预算、descriptor 字节 hash 和封存计划字节 hash 约束；身份映射不额外接受人工填写的运行回执文件，须消费同一执行事务中真实产生的回执；
 - 执行配置的 `execution.runtimeEvidence`、`databaseBinding`、`postgresCredentials`、`cryptoEnvelope` 和 `cryptoKeyFiles`。
 
 配置不能指定 execution contract、替代 writer、模块路径、shell 命令或连接插件。activation contract 只能来自当前仓库版本，避免用一个临时 JSON 绕过已审阅的 `HOLD`。
 
 执行模式还会拒绝未跟踪的入口/依赖以及任意 tracked/staged diff；当前 `HEAD`、合并提交、sealed code SHA 必须一致。仅 `git rev-parse HEAD` 不是干净候选证明。
+
+版本化依赖清单覆盖本入口的直接和传递本地模块，以及运行时读取的目标模型、执行/绩效合同、来源摘要合同和迁移 SQL。新增运行时依赖必须同步该清单；文件即使仍存在于工作树，只要从 Git 索引移除并提交，就不能作为候选执行代码继续使用。入口契约测试逐一保留这些传递依赖为未跟踪文件，验证门禁拒绝；该测试不读取业务载荷、不连接数据库。
 
 `execution.runtimeEvidence` 必须是外部审批已经按原始 UTF-8 文件字节 SHA-256 固定进 sealed plan 的只读生产发布回执。入口只接受固定 `artifactKind=yuzhou_hr_production_import_runtime_release_receipt`，并逐项核对 current/main/runtime 三个提交、生产目标、scope、`observedAt` 和 `expiresAt`；观测必须早于一次性授权签发且回执不能逃出授权/执行窗口。任意未绑定、自报替代 hash、字节篡改、错误目标或过期回执都会在加载密钥和连接 PostgreSQL 之前失败。这个机制证明“审批固定的回执字节、范围和时效没有变化”；现场真实性仍来自生成该回执的受信任只读采集/发布证据，CLI 不会自己制造回执，也不会把任意 JSON 宣称为三端同步证明。
 
@@ -92,6 +96,8 @@ merge before-image 和 quarantine payload 必须在执行前由受控外部密�
 ## 输出与运维判断
 
 标准输出只有稳定 JSON 摘要：状态、原因码、sealed plan hash、scope hash、精确域列表、聚合记录数或最终 receipt hash。错误不会输出原始数据库异常、凭据、人员字段、工资值、附件内容或私有路径。
+
+包含已接线绩效域时，`databaseReceiptSha256ByDomain` 保留各数据库写入函数实际返回的回执哈希；总 writer 不再丢弃关系写入回执。入口要求这些键与本次绩效域完全一致，并核对返回 operationId、sealedPlanSha256，不接受额外字段或非字符串哈希。顶层 `receiptSha256` 仍是执行摘要哈希（同时绑定这些数据库回执哈希），不能称作数据库回执本体或产品验收证明。跨进程回滚必须在受控事务内从数据库读取权威回执，不能拿 CLI 摘要冒充它。
 
 `prepare STRUCTURE_READY` 仅说明本地封存输入及仓库 activation 可进入显式执行步骤，并固定返回 `readOnlyTargetVerified=false`、`envelopeAuthenticated=false`、`productionImportExecuted=false`；它不是生产目标或密文恢复验证，更不是生产写入完成。`SUCCEEDED` 只证明回执列出的精确域成功，且固定返回 `fullProductMigrationComplete=false`。T4、T5_FILE、独立 person-assessment、全域 UAT 和 P0-P4 双模式验收必须由各自入口与证据闭合。
 
