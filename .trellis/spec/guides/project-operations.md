@@ -294,6 +294,19 @@ Reference files:
 
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.
 
+### Evidence-Bound Refactors
+
+- A source-only import move still changes a whole-file evidence hash. Search the previous SHA in
+  `scripts/hr-cutover/contracts/` before publishing, including nested semantic evidence references.
+- Rebind only after reviewing the actual old/new diff and affected behavior; never replace every
+  stale hash automatically, weaken the verifier, or award new compatibility credit for rebinding.
+- Run the affected field/routine contracts and the progress aggregator. Keep a wrong-runtime-hash
+  negative test so stale evidence remains fail-closed.
+- When a reviewed contract changes bytes, update its explicitly identified frozen-manifest references
+  and run the manifest contract too; an aggregator pass alone does not validate all nested evidence.
+- The default compatibility progress input supplies no external production receipts. Its `0/8`
+  is not a live production audit and must not be used to claim eight historical tasks were never done.
+
 Reference files:
 - `AGENTS.md`
 - `README.md`

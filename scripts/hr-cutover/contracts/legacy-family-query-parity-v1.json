@@ -35,7 +35,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
-      "sha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+      "sha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr-lifecycle.controller.ts",
@@ -43,7 +43,7 @@
     },
     "permissionContract": {
       "path": "packages/shared/src/hr.ts",
-      "sha256": "b201c9e747a9edd0292fe211e840c3e303972f3b586957546f4d643dc8fe689a"
+      "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
     },
     "permissionEvidence": {
       "path": "apps/api/src/modules/hr/hr-employee-materialized-projection.spec.ts",
@@ -55,7 +55,7 @@
     },
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "c9cb4a0aa00e8c2916b1b9bfb7f42f52f0f32ac4917397df399ec35b8bc4828d"
+      "sha256": "fad24240cdc6aa053ec2e212cf5e377fd5ec72f357fdf7ab11c179de7aa618d2"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
@@ -165,7 +165,7 @@
               "relationContract": "dbo.family.person_foreign_key_to_dbo.person.person_then_loaded_record_map_to_hr_employee.id"
             }
           ],
-          "evidenceSha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+          "evidenceSha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
         },
         "writeMappings": {
           "applicability": "not_applicable",
@@ -217,7 +217,7 @@
               "conservationRule": "source_rows_equal_loaded_rows_plus_quarantined_rows_plus_approved_ignored_rows"
             }
           ],
-          "evidenceSha256": "af9a41a04695051268401ebe1b0e7445046e1bf6b7a6c7acd0dcf9704021ef43"
+          "evidenceSha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
         },
         "dynamicSql": {
           "status": "none",
