@@ -205,8 +205,8 @@ export function HrPerformanceLegacyWebAssQueryPanel() {
       <p className={styles.note}>
         对应旧过程 web_assquery。旧过程会丢弃传入的考核期间；现代查询明确遵守所选期间，
         并在服务端权限范围内再应用人员、部门前缀和总评定分区间。
-        当前展示姓名来自已映射的现代员工档案，部门前缀基于当前主组织编码，仅用于现代授权和筛选；
-        尚不宣称等同于历史 person.name / person.department 原值。
+        当前姓名与部门前缀来自 T0 精确解析后的当前员工和主组织，对应旧过程运行时关联当前 person
+        记录的语义；它们不是冻结的历史姓名或部门快照。
       </p>
       <form className={styles.search} onSubmit={submitQuery} noValidate>
         <label className="form-field">

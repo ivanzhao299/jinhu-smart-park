@@ -136,9 +136,17 @@ test("u_assessmentvalue binds verified session and literal department-prefix sco
   assert.match(sql, /value_session\.source_session_name=\$3/u);
   assert.match(sql, /value_session_map\.target_table='hr_performance_legacy_session'/u);
   assert.match(sql, /value_session_map\.mapping_status='verified'/u);
-  assert.match(sql, /JOIN hr_performance_cycle_employee value_cycle_employee/u);
+  assert.match(sql, /JOIN hr_performance_legacy_identity_resolution value_subject_resolution/u);
+  assert.match(sql, /value_subject_resolution\.legacy_master_result_id/u);
+  assert.match(sql, /value_subject_resolution\.person_resolution_status='resolved'/u);
+  assert.match(sql, /hr_performance_yuzhou_t0_person_candidate/u);
+  assert.match(sql, /value_subject_t0\.candidate_count=1/u);
+  assert.match(sql, /value_subject_owner_map\.source_table='dbo\.person'/u);
+  assert.match(sql, /value_subject_owner_map\.target_id=value_subject_resolution\.target_employee_id/u);
   assert.match(sql, /JOIN hr_employee value_employee/u);
+  assert.doesNotMatch(sql, /value_cycle_employee|fact\.target_cycle_employee_id/u);
   assert.match(sql, /JOIN sys_org value_org/u);
+  assert.match(sql, /value_org\.is_deleted=false/u);
   assert.match(sql, /value_org\.org_code LIKE \$4 ESCAPE '\\'/u);
   assert.deepEqual(allowed.calls[0]?.params, [
     scope.tenantId,

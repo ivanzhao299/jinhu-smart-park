@@ -70,10 +70,10 @@ test("u_assessmentvalue UI keeps the legacy final separate from displayed master
   assert.match(panel, /最后评定分（不含主管附加分）/u);
 });
 
-test("u_assessmentvalue labels current mapped identity without claiming frozen source parity", () => {
-  assert.match(panel, /当前展示姓名来自已映射的现代员工档案/u);
-  assert.match(panel, /部门前缀基于当前主组织编码，仅用于现代授权和筛选/u);
-  assert.match(panel, /尚不宣称等同于历史 person\.name \/ person\.department 原值/u);
+test("u_assessmentvalue labels resolved current-person semantics without claiming a frozen snapshot", () => {
+  assert.match(panel, /T0 精确解析后的当前员工和主组织/u);
+  assert.match(panel, /对应旧过程运行时关联当前 person/u);
+  assert.match(panel, /不是冻结的历史姓名或部门快照/u);
 });
 
 test("u_assessmentvalue panel preserves permissions, frozen query and paging", () => {

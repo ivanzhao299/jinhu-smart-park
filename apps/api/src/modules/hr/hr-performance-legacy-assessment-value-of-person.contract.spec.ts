@@ -175,6 +175,9 @@ test("u_assessmentvalueofperson preserves park team self and fails closed", asyn
   );
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_t0\.candidate_count=1/u);
+  assert.doesNotMatch(team.calls[0]?.sql ?? "", /fact\.target_cycle_employee_id/u);
 
   const self = harness();
   await self.service.assessmentValueOfPersonQuery(

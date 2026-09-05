@@ -58,6 +58,12 @@ function harness() {
   };
 }
 
+test("final person projections require verified T0 ownership without relaxing the materializer helper", () => {
+  const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
+  assert.ok(source.includes("${ownerMapAlias}.mapping_status='verified'"));
+  assert.ok(!source.includes("${ownerMapAlias}.mapping_status IN('loaded','verified')"));
+});
+
 test("legacy definition reads expose all 29 definition fields only from active successful production imports", async () => {
   const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
   const definitionColumns = [
@@ -379,6 +385,9 @@ test("legacy result access is park, managed organization tree, self, or fail-clo
   await team.service.results(scope, teamActor, page);
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_dimension_result_id/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.fact_kind='dimension_result'/u);
+  assert.doesNotMatch(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
   assert.deepEqual(team.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", 25, 25]);
   assert.equal(team.audits.length, 1);
 
@@ -417,12 +426,14 @@ test("legacy master self scope is exact and self payroll permission reveals pay 
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(
     self.calls[0]?.sql ?? "",
-    /\(cycle_employee\.id,cycle_employee\.tenant_id,cycle_employee\.park_id\)=\s*\(fact\.target_cycle_employee_id,fact\.tenant_id,fact\.park_id\)/u,
+    /scope_subject_resolution\.legacy_master_result_id/u,
   );
   assert.match(
     self.calls[0]?.sql ?? "",
-    /\(employee\.id,employee\.tenant_id,employee\.park_id\)=\s*\(cycle_employee\.employee_id,cycle_employee\.tenant_id,cycle_employee\.park_id\)/u,
+    /scope_subject_t0\.candidate_count=1/u,
   );
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_owner_map\.target_table='hr_employee'/u);
+  assert.doesNotMatch(self.calls[0]?.sql ?? "", /fact\.target_cycle_employee_id/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.tenant_id=\$1 AND fact\.park_id=\$2/u);
   assert.deepEqual(self.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", false, 25, 25]);
   assert.deepEqual(
@@ -634,9 +645,12 @@ test("person-summary keeps web_ass and web_assessmentquery orphan semantics expl
   });
   assert.equal(webAss.calls.length, 2);
   for (const call of webAss.calls) {
-    assert.match(call.sql, /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
-    assert.match(call.sql, /LEFT JOIN hr_employee summary_employee/u);
+    assert.match(call.sql, /JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
+    assert.match(call.sql, /summary_subject_resolution\.person_resolution_status='resolved'/u);
+    assert.match(call.sql, /summary_subject_t0\.candidate_count=1/u);
+    assert.match(call.sql, /JOIN hr_employee summary_employee/u);
     assert.match(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /fact\.target_cycle_employee_id|summary_cycle_employee/u);
     assert.doesNotMatch(call.sql, /web_ass/u);
   }
   assert.deepEqual(webAss.calls[1]?.params, [scope.tenantId, scope.parkId, "LEGACY_01", 25, 25]);
@@ -661,7 +675,16 @@ test("person-summary keeps web_ass and web_assessmentquery orphan semantics expl
   });
   assert.equal(withOrphan.items[1]?.employeeDisplayName, null);
   for (const call of assessmentQuery.calls) {
+    assert.match(call.sql, /LEFT JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
+    assert.match(call.sql, /LEFT JOIN LATERAL/u);
+    assert.match(call.sql, /LEFT JOIN legacy_record_map summary_subject_owner_map/u);
+    assert.match(
+      call.sql,
+      /summary_subject_owner_map\.id=summary_subject_t0\.owner_t0_record_map_id/u,
+    );
+    assert.match(call.sql, /LEFT JOIN hr_employee summary_employee/u);
     assert.doesNotMatch(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /fact\.target_cycle_employee_id|summary_cycle_employee/u);
     assert.doesNotMatch(call.sql, /web_assessmentquery/u);
   }
   assert.match(
@@ -717,8 +740,9 @@ test("person-summary returns only the six legacy report fields with exact parame
   assert.deepEqual(fixture.calls[1]?.params, [scope.tenantId, scope.parkId, "EMP_01", 25, 25]);
   assert.match(fixture.calls[1]?.sql ?? "", /fact\.source_person_code=\$3/u);
   assert.match(fixture.calls[1]?.sql ?? "", /summary_employee\.full_name "employeeDisplayName"/u);
-  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
   assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_employee summary_employee/u);
+  assert.doesNotMatch(fixture.calls[1]?.sql ?? "", /fact\.target_cycle_employee_id|summary_cycle_employee/u);
   assert.match(
     fixture.calls[1]?.sql ?? "",
     /ORDER BY fact\.source_session_id DESC NULLS LAST,\s*fact\.source_master_id ASC,\s*fact\.id ASC/u,
@@ -780,8 +804,10 @@ test("person-summary self and team scopes require active employee mapping and on
     actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
     { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
-  assert.match(team.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_t0\.candidate_count=1/u);
   assert.match(team.calls[0]?.sql ?? "", /JOIN hr_employee employee/u);
+  assert.doesNotMatch(team.calls[0]?.sql ?? "", /fact\.target_cycle_employee_id/u);
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
   assert.deepEqual(team.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
@@ -794,7 +820,8 @@ test("person-summary self and team scopes require active employee mapping and on
     actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
     { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
-  assert.match(self.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_t0\.candidate_count=1/u);
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.source_person_code=\$4/u);
   assert.deepEqual(self.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);

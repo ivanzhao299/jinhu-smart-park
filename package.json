@@ -78,6 +78,7 @@
     "test:e2e:yuzhou-live-role-uat-browser-matrix": "node --test scripts/e2e/yuzhou-live-role-uat-browser-matrix-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-browser-runner": "node --test scripts/e2e/yuzhou-live-role-uat-browser-runner-contract.mjs scripts/e2e/yuzhou-live-role-uat-browser-runner-integration.mjs",
     "test:e2e:yuzhou-performance-query-family-browser": "node scripts/e2e/yuzhou-performance-query-family-browser.mjs",
+    "test:e2e:yuzhou-performance-query-family:pg": "node scripts/e2e/yuzhou-performance-query-family-direct-pg.mjs",
     "test:e2e:yuzhou-live-role-uat-work-report": "node --test scripts/e2e/yuzhou-live-role-uat-work-report-scenario-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-employee": "node --test scripts/e2e/yuzhou-live-role-uat-employee-scenario-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-contract": "node --test scripts/e2e/yuzhou-live-role-uat-contract-scenario-contract.mjs",

@@ -157,6 +157,13 @@ test("web_assquery binds every legacy filter and keeps rightscope subordinate to
   assert.match(sql, /fact\.source_total_value >= \$5/u);
   assert.match(sql, /fact\.source_total_value <= \$6/u);
   assert.match(sql, /fact\.source_person_code LIKE \$7 ESCAPE '\\'/u);
+  assert.match(sql, /web_query_subject_resolution\.legacy_master_result_id/u);
+  assert.match(sql, /web_query_subject_resolution\.person_resolution_status='resolved'/u);
+  assert.match(sql, /hr_performance_yuzhou_t0_person_candidate/u);
+  assert.match(sql, /web_query_subject_t0\.candidate_count=1/u);
+  assert.match(sql, /web_query_subject_owner_map\.source_identity_sha256=/u);
+  assert.match(sql, /web_query_org\.is_deleted=false/u);
+  assert.doesNotMatch(sql, /web_query_cycle_employee|fact\.target_cycle_employee_id/u);
   assert.doesNotMatch(sql, /Synthetic period|ORG-01|员工_/u);
   assert.deepEqual(allowed.calls[1]?.params, [
     scope.tenantId,
