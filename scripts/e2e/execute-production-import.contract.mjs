@@ -353,6 +353,41 @@ test("candidate gate rejects an execution dependency that exists but is no longe
   );
 });
 
+test("candidate gate binds transitive code and runtime contract assets to the committed candidate", () => {
+  const dependencies = [
+    "scripts/hr-cutover/production-import-target-model.mjs",
+    "scripts/hr-cutover/contracts/production-import-target-model-v1.json",
+    "scripts/hr-cutover/contracts/production-import-execution-v2.json",
+    "scripts/hr-cutover/production-import-performance-relations-contract.mjs",
+    "scripts/hr-cutover/contracts/production-import-performance-relations-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-source-person-assignment-conservation-v1.json",
+    "scripts/hr-cutover/contracts/legacy-performance-fact-location-evidence-v1.json",
+    "database/migrations/000305_hr_performance_yuzhou_legacy_relations.sql",
+    "database/migrations/000306_hr_performance_yuzhou_identity_resolution.sql",
+    "database/migrations/000308_hr_yuzhou_performance_relations_production.sql",
+    "scripts/hr-cutover/production-import-t5-nonfile-writer.mjs",
+    "scripts/hr-cutover/production-import-t5-nonfile-rollback.mjs",
+  ];
+  for (const dependencyPath of dependencies) {
+    const value = gitCandidateFixture();
+    const absolutePath = join(value.root, dependencyPath);
+    mkdirSync(dirname(absolutePath), { recursive: true });
+    writeFileSync(absolutePath, `${dependencyPath}\n`);
+    value.git(["add", "--", dependencyPath]);
+    value.git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "--allow-empty", "-m", "track runtime dependency"]);
+    assert.equal(currentRepositorySha(value.root), value.git(["rev-parse", "HEAD"]));
+    value.git(["rm", "--quiet", "--cached", "--", dependencyPath]);
+    value.git(["-c", "user.name=Production Import Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "--quiet", "-m", "leave untracked runtime dependency"]);
+    assert.equal(readFileSync(absolutePath, "utf8"), `${dependencyPath}\n`);
+    assert.equal(value.git(["ls-files", "--others", "--exclude-standard", "--", dependencyPath]), dependencyPath);
+    assert.throws(
+      () => currentRepositorySha(value.root),
+      error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_CANDIDATE_NOT_IMMUTABLE",
+      dependencyPath,
+    );
+  }
+});
+
 test("bounded private reads reject aggregate overflow, concurrent growth, and truncation", () => {
   const root = mkdtempSync(join(tmpdir(), "jinhu-prod-import-bounded-read-"));
   roots.push(root);

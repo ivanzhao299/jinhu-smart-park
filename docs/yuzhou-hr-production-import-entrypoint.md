@@ -36,7 +36,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 - `T0`、`T1`、`T2`、`T3`；
 - plan 已签入时，在 `T0` 后增加 `PERFORMANCE_RELATIONS`；
-- 新绩效链的准备顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。入口已支持事实工件校验与传递；总 writer 的装载/身份映射接线尚未完成，当前执行仍明确拒绝，不能把准备结果视为生产能力验收；
+- 新绩效链的顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。候选总 writer 已接入装载、关系及身份映射，并传递同一事务产生的真实回执；完整隔离数据库链仍须另行验证，不能把接线、模拟测试或准备结果视为生产能力验收，版本化生产合同仍为 `HOLD`；
 - plan 已签入时，在末尾增加 `T5_NONFILE`。
 
 以下域尚未接入此 writer，入口会用稳定原因码拒绝，不能把一次 T0-T3 成功描述成全量产品迁移完成：
@@ -74,6 +74,8 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 配置不能指定 execution contract、替代 writer、模块路径、shell 命令或连接插件。activation contract 只能来自当前仓库版本，避免用一个临时 JSON 绕过已审阅的 `HOLD`。
 
 执行模式还会拒绝未跟踪的入口/依赖以及任意 tracked/staged diff；当前 `HEAD`、合并提交、sealed code SHA 必须一致。仅 `git rev-parse HEAD` 不是干净候选证明。
+
+版本化依赖清单覆盖本入口的直接和传递本地模块，以及运行时读取的目标模型、执行/绩效合同、来源摘要合同和迁移 SQL。新增运行时依赖必须同步该清单；文件即使仍存在于工作树，只要从 Git 索引移除并提交，就不能作为候选执行代码继续使用。入口契约测试逐一保留这些传递依赖为未跟踪文件，验证门禁拒绝；该测试不读取业务载荷、不连接数据库。
 
 `execution.runtimeEvidence` 必须是外部审批已经按原始 UTF-8 文件字节 SHA-256 固定进 sealed plan 的只读生产发布回执。入口只接受固定 `artifactKind=yuzhou_hr_production_import_runtime_release_receipt`，并逐项核对 current/main/runtime 三个提交、生产目标、scope、`observedAt` 和 `expiresAt`；观测必须早于一次性授权签发且回执不能逃出授权/执行窗口。任意未绑定、自报替代 hash、字节篡改、错误目标或过期回执都会在加载密钥和连接 PostgreSQL 之前失败。这个机制证明“审批固定的回执字节、范围和时效没有变化”；现场真实性仍来自生成该回执的受信任只读采集/发布证据，CLI 不会自己制造回执，也不会把任意 JSON 宣称为三端同步证明。
 
