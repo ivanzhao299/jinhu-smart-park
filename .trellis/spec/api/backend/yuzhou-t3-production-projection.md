@@ -43,6 +43,8 @@ Run `pnpm test:e2e:yuzhou-production-import-t3-artifact`. Set `YUZHOU_T3_PROJECT
 Wrong: `item.baseFixedAmount ?? "0"` fabricates an amount when the old artifact never captured the field.
 Correct: recognize the exact older shape and keep its identity with `targetFields: null` and `T3_POLICY_FIXED_AMOUNTS_UNATTESTED`; resolve it from separately authenticated source evidence.
 
+For the complete reversible six-kind dual-variant layout, [T3 Policy Recovery](./yuzhou-t3-policy-recovery.md) authenticates all51 reconstructed raw fields and returns explicit12-to6 lineage. The private owner may project its normalized record only after source-byte binding; default behavior and old phase receipts remain unchanged.
+
 ## Source and product acceptance boundary
 
 Real staging can be streamed per parent. Do not aggregate every expanded insurance row just to produce a count, and do not re-extract the complete source to solve a small policy evidence gap. Matching source file hashes and projection counts prove preparation coverage, not full business semantics, employee dependency resolution, API/UI parity or production execution. Keep these acceptance dimensions separate.

@@ -22,6 +22,8 @@ Human resources lifecycle, goals, performance, protected documents, approvals, a
 
 T3 historical attendance/insurance field conversion: [Yuzhou T3 Production Projection](./yuzhou-t3-production-projection.md).
 
+Exact old-policy source recovery and two-to-one lineage: [T3 Policy Recovery](./yuzhou-t3-policy-recovery.md).
+
 Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
 
 ## Package Boundary
