@@ -9,7 +9,7 @@ import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
-import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
+import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import {
   CreateHrEmployeeRecordDto,
