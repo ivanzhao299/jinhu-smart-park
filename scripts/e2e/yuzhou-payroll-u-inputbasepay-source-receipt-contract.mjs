@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   buildSyntheticPayrollUInputbasepaySourceReceipt,
   capturePayrollUInputbasepaySourceReceipt,
+  assertPayrollUInputbasepaySourceContainerBinding,
   PAYROLL_U_INPUTBASEPAY_CATALOG_SQL,
   PAYROLL_U_INPUTBASEPAY_VALUE_AGGREGATE_SQL,
   PayrollUInputbasepaySourceReceiptError,
@@ -196,6 +197,23 @@ test("queries expose only catalog metadata and row/null aggregates while source 
   assert.equal(receipt.containsPayrollValues, false);
   assert.equal(receipt.containsPersonalData, false);
   assert.doesNotMatch(JSON.stringify(receipt), /"(?:payrollValue|sourceValue|employeeId|personKey)":/iu);
+});
+
+test("live source receipt use is bound to the exact restored SQL Server container", () => {
+  assert.throws(
+    () => assertPayrollUInputbasepaySourceContainerBinding({
+      sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1",
+      expectedContainerSha256: fixedSha("e"),
+      inspectContainerIdentity: () => "other-restored-container",
+    }),
+    (error) => error instanceof PayrollUInputbasepaySourceReceiptError
+      && error.code === "PAYROLL_U_INPUTBASEPAY_SOURCE_CONTAINER_BINDING_MISMATCH",
+  );
+  assert.doesNotThrow(() => assertPayrollUInputbasepaySourceContainerBinding({
+    sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1",
+    expectedContainerSha256: sha("bound-restored-container"),
+    inspectContainerIdentity: () => "bound-restored-container",
+  }));
 });
 
 test("authority, aggregate conservation, metadata, contract hashes, and receipt hash fail closed", () => {
