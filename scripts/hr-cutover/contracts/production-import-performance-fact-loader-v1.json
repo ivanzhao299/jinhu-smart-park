@@ -1,0 +1,65 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_production_import_performance_fact_loader",
+  "contractVersion": "2026-09-05.1",
+  "planProperty": "performanceFactLoader",
+  "authorizationBindingProperty": "performanceFactLoaderContractSha256",
+  "parentPlan": {
+    "planKind": "yuzhou_hr_production_import_sealed_execution_plan",
+    "formatVersion": 2,
+    "requiredSucceededPhase": "T0"
+  },
+  "sourceTables": [
+    "dbo.assessmentcode",
+    "dbo.assgradecode",
+    "dbo.assitem",
+    "dbo.assitemgradedes",
+    "dbo.assessmentdetail",
+    "dbo.assessmentmaster"
+  ],
+  "targetTables": [
+    "hr_performance_legacy_template_profile",
+    "hr_performance_legacy_level_rule",
+    "hr_performance_legacy_dimension_profile",
+    "hr_performance_legacy_dimension_level_guide",
+    "hr_performance_legacy_dimension_result",
+    "hr_performance_legacy_master_result"
+  ],
+  "predecessorMigrations": [
+    {
+      "migration": "000300_hr_performance_yuzhou_legacy_model.sql",
+      "migrationSha256": "ab3410b2121e0772c4b0cc6f273c893340b7925dcecf26414ea336f15dd0656a"
+    },
+    {
+      "migration": "000301_hr_performance_yuzhou_legacy_writer.sql",
+      "migrationSha256": "4a4de62295d7e4ac7e752c435eba49483da7d79384c34aa992b9bc5f1f618e7e"
+    },
+    {
+      "migration": "000302_hr_performance_yuzhou_legacy_master.sql",
+      "migrationSha256": "7b45377d252a9593d779af779bcb9d6f91ceb326f6b5da1273da50b89f52e43a"
+    },
+    {
+      "migration": "000303_hr_performance_yuzhou_legacy_master_writer.sql",
+      "migrationSha256": "853d7632ebd2c2c3a9211e0088a3ccda7979a788539db2123aaf43c59c070648"
+    }
+  ],
+  "runtimeDependency": {
+    "migration": "000310_hr_yuzhou_performance_fact_identity_production.sql",
+    "purpose": "canonical_identity_fact_set_and_fail_closed_dependency_hook"
+  },
+  "forwardOrder": ["legacy_config_and_detail", "legacy_master"],
+  "rollbackOrder": [
+    "master_result",
+    "dimension_result",
+    "dimension_level_guide",
+    "dimension_profile",
+    "level_rule",
+    "template_profile"
+  ],
+  "executionBoundary": {
+    "currentAuthoritativeOutcomeFacts": "AUTHORITATIVE_EMPTY",
+    "nonemptyCapabilityEvidence": "SYNTHETIC_ONLY",
+    "realNonemptyRuntimeUat": "NOT_CLAIMED",
+    "productionImport": "HOLD"
+  }
+}
