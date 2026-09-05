@@ -97,7 +97,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,public AS $$
   SELECT 'jinhu-yuzhou-performance-fact-identity-production-v1'::text,
     'ad77e0cf12cf73f98a5984835a9943a9e15c96cde37fe6bd95133845c711befa'::char(64),
     true,'dimension_result>master_result'::text,
-    'fact_identity>performance_facts>performance_relations'::text
+    'fact_identity>performance_relations>performance_facts'::text
 $$;
 
 -- 000311 (or a later reviewed production fact loader) replaces only this
@@ -564,7 +564,7 @@ BEGIN
       'extensionRollbackNonceSha256',p_extension_rollback_nonce_sha256,
       'parentRelationsReceiptSha256',p_parent_relations_receipt_sha256,
       'factSetSha256',v_receipt.fact_set_sha256,
-      'rollbackOrder','fact_identity>performance_facts>performance_relations',
+      'rollbackOrder','fact_identity>performance_relations>performance_facts',
       'residualCount',0)::text,'UTF8'),'sha256'),'hex');
     UPDATE public.hr_yuzhou_performance_fact_identity_production_receipt SET
       status='rolled_back',rollback_operation_id=p_rollback_operation_id,
@@ -573,7 +573,7 @@ BEGIN
     WHERE operation_id=p_operation_id;
   END IF;
   RETURN QUERY SELECT 'rolled_back'::varchar,
-    'fact_identity>performance_facts>performance_relations'::text,
+    'fact_identity>performance_relations>performance_facts'::text,
     0::bigint,v_replayed,v_rollback_receipt;
 END$$;
 

@@ -61,6 +61,6 @@ test("apply is stacked on the exact 000308 receipt and migration history", () =>
 test("rollback owns only master and dimension identity and enforces reverse order", () => {
   assert.match(migration, /fact_kind IN\('dimension_result','master_result'\)/u);
   assert.match(migration, /v_assignment_rows<>234/u);
-  assert.match(migration, /fact_identity>performance_facts>performance_relations/u);
+  assert.match(migration, /fact_identity>performance_relations>performance_facts/u);
   assert.doesNotMatch(migration, /DELETE FROM public\.hr_performance_legacy_(?:master|dimension)_result/u);
 });
