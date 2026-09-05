@@ -98,6 +98,8 @@ function validateT0(value, triple, scope, inventory, inventoryHash) {
   return rows;
 }
 
+export { validateT0 as validateProductionT0CandidateDependencies };
+
 /** In-memory private-materializer core. Input hashes are references, NOT proof of bytes/authenticity/approval. */
 export function assembleProductionT2DecisionCandidates(input) {
   exact(input, ["triple", "targetScope", "targetInventory", "t0Candidates", "phaseArtifact", "stagedRecords", "resolutions", "artifactHashes"], "T2_CANDIDATE_INPUT_INVALID");

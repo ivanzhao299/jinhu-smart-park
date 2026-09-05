@@ -24,6 +24,8 @@ T3 historical attendance/insurance field conversion: [Yuzhou T3 Production Proje
 
 Exact old-policy source recovery and two-to-one lineage: [T3 Policy Recovery](./yuzhou-t3-policy-recovery.md).
 
+Same-source normalized phase and eight-table review assembly: [T3 Decision Candidates](./yuzhou-t3-decision-candidates.md).
+
 Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
 
 ## Package Boundary

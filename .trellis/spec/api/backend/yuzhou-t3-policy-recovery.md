@@ -41,3 +41,7 @@ Correct: reconstruct `raw[kind + "2"]`, verify its contribution to the original 
 ## Downstream boundary
 
 Final phase and candidate assembly must select the same normalized source representation under current evidence. An old144-item phase artifact does not match a new72-item policy projection and must not be relabeled. Do not fabricate `skip_approved` or archive dispositions for consumed old aliases; lineage is a transformation relationship, not permission to omit business data or touch an existing target.
+
+[T3 decision candidates](./yuzhou-t3-decision-candidates.md) compose this recovery with field projection,
+generate the new phase and its canonical-byte SHA internally, and retain each recovery's proof and lineage.
+This pure continuation still requires a later private owner to authenticate current source and target bytes.

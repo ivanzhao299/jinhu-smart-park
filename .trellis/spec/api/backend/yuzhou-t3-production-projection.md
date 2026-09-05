@@ -12,6 +12,9 @@ Root-script preparation only; no API, filesystem, SQL or writer entry point.
 Every projection carries existing phase provenance, complete `targetFields` or null, `dependencyRefs`, and null or stable `reasonCode`.
 The private caller must authenticate source bytes/manifest, C/S/M, target inventory, T0 references and decisions before freezing; these functions do not grant approval.
 
+The pure [normalized phase and candidate assembler](./yuzhou-t3-decision-candidates.md) resolves these
+projections through the target model and validated T0 candidates, preserving review failures and policy lineage.
+
 ## 3. Contracts
 
 - Support all eight existing T3 model tables. Reuse the phase producer's exact parent, child, batch and symbol identities.
