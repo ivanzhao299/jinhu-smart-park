@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/api/backend/index.md", "reason": "Candidate preparation evidence contract"}
+{"file": ".trellis/spec/api/backend/yuzhou-t2-production-projection.md", "reason": "Candidate preparation evidence contract"}
+{"file": ".trellis/spec/api/backend/yuzhou-t3-decision-candidates.md", "reason": "Candidate preparation evidence contract"}
+{"file": ".trellis/spec/api/backend/yuzhou-t3-private-materializer.md", "reason": "Candidate preparation evidence contract"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Candidate preparation evidence contract"}
+{"file": ".trellis/tasks/09-06-hr-t2-legacy-semantic-recovery/research/candidate-freeze-wiring.md", "reason": "Candidate preparation evidence contract"}
