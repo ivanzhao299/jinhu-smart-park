@@ -3,6 +3,7 @@ import test from "node:test";
 import * as bcrypt from "bcrypt";
 import { normalizePasswordLockoutConfig } from "../auth/auth-password-lockout.policy";
 import { AuthRefreshTokenEntity } from "../auth/entities/auth-refresh-token.entity";
+import { IdentityDirectoryService } from "./identity-directory.service";
 import { UsersService } from "./users.service";
 import { UserEntity } from "./entities/user.entity";
 
@@ -47,7 +48,8 @@ function createUsersService(usersRepository: unknown, config: Record<string, str
     {} as never,
     {
       get: (key: string, fallback?: string) => config[key] ?? fallback
-    } as never
+    } as never,
+    new IdentityDirectoryService(usersRepository as never)
   );
 }
 

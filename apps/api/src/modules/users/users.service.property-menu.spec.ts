@@ -11,6 +11,7 @@ import type { PermissionEntity } from "../permissions/entities/permission.entity
 import type { RoleEntity } from "../roles/entities/role.entity";
 import type { UserRoleEntity } from "../roles/entities/user-role.entity";
 import type { UserEntity } from "./entities/user.entity";
+import { IdentityDirectoryService } from "./identity-directory.service";
 import { UsersService } from "./users.service";
 
 const TENANT_ID = "10000001";
@@ -39,8 +40,9 @@ function createService(overrides: {
   fieldPolicyService?: unknown;
   saasModulesService?: unknown;
 } = {}): UsersService {
+  const usersRepository = overrides.usersRepository ?? {};
   return new UsersService(
-    (overrides.usersRepository ?? {}) as never,
+    usersRepository as never,
     {} as never,
     {} as never,
     (overrides.userOrgRepository ?? {}) as never,
@@ -50,7 +52,8 @@ function createService(overrides: {
     (overrides.dataScopeService ?? {}) as never,
     (overrides.fieldPolicyService ?? {}) as never,
     (overrides.saasModulesService ?? {}) as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService(usersRepository as never)
   );
 }
 

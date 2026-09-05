@@ -4,6 +4,7 @@ import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { PostEntity } from "../orgs/entities/post.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
+import { IdentityDirectoryService } from "./identity-directory.service";
 import { UsersService } from "./users.service";
 import { UserEntity } from "./entities/user.entity";
 import { UserParkEntity } from "./entities/user-park.entity";
@@ -76,7 +77,8 @@ test("organization assignment replacement only deletes the target user's current
     {} as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   const result = await service.replaceOrgAssignments(
@@ -130,7 +132,8 @@ test("organization assignment replacement preserves an unchanged disabled organi
   const service = new UsersService(
     {} as never, {} as never, {} as never, { manager } as never, {} as never, {} as never, {} as never,
     {} as never, {} as never, {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   const result = await service.replaceOrgAssignments(
@@ -195,7 +198,8 @@ test("user scope updates serialize with assignment writes and retire the previou
     {} as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
   const superActor = { ...actor, isSuper: true, permissions: ["*"] };
 
@@ -243,7 +247,8 @@ test("organization assignment reads apply the actor's organization data scope", 
     { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   await service.listOrgAssignments(scope, actor, target.id);
@@ -289,7 +294,8 @@ test("organization assignment replacement preserves relationships outside the ac
     { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   await service.replaceOrgAssignments(scope, actor, target.id, {
@@ -328,7 +334,8 @@ test("create organization candidates resolve the requested super-admin target sc
     } as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
   const superActor = { ...actor, isSuper: true, permissions: ["*"] };
 
@@ -381,7 +388,8 @@ test("organization assignment writes enforce the actor's organization data scope
     { buildFindWhere: async () => ({ id: "org-visible" }) } as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   await assert.rejects(
@@ -439,7 +447,8 @@ test("user profile and organization assignment updates share one transaction", a
     { find: async () => [] } as never,
     { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
     {} as never, {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   await service.update(scope, actor, target.id, {
@@ -494,7 +503,8 @@ test("user deletion serializes with assignment writes and retires active assignm
     {} as never,
     {} as never,
     {} as never,
-    { get: (_key: string, fallback?: string) => fallback } as never
+    { get: (_key: string, fallback?: string) => fallback } as never,
+    new IdentityDirectoryService({} as never)
   );
 
   await service.softDelete(scope, actor.sub, target.id);
