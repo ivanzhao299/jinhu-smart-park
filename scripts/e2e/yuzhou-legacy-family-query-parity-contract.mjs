@@ -112,6 +112,18 @@ test("evidence drift and scope promotion fail closed", () => {
     () => verifyLegacyFamilyQueryParity({ contract: drifted, fixture, repositoryRoot: root }),
     error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_EVIDENCE_DRIFT",
   );
+  const permissionDrift = structuredClone(contract);
+  permissionDrift.evidenceBindings.permissionContract.sha256 = "f".repeat(64);
+  assert.throws(
+    () => verifyLegacyFamilyQueryParity({ contract: permissionDrift, fixture, repositoryRoot: root }),
+    error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_EVIDENCE_DRIFT",
+  );
+  const webApiDrift = structuredClone(contract);
+  webApiDrift.evidenceBindings.modernWebApi.sha256 = "f".repeat(64);
+  assert.throws(
+    () => verifyLegacyFamilyQueryParity({ contract: webApiDrift, fixture, repositoryRoot: root }),
+    error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_EVIDENCE_DRIFT",
+  );
   const promoted = structuredClone(contract);
   promoted.nonClaims.allSevenFieldsRenderedOnCurrentSummaryCard = "VERIFIED";
   assert.throws(

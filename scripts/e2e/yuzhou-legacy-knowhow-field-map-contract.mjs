@@ -106,6 +106,10 @@ test("hash drift or contract-only grade promotion cannot create verified credit"
   drift.contract.pipelineEvidence.find(row => row.stage === "writer").sha256 = "0".repeat(64);
   rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(drift));
 
+  const runtimeServiceDrift = fixture();
+  runtimeServiceDrift.contract.modernTargetEvidence.find(row => row.surface === "runtime_service").sha256 = "0".repeat(64);
+  rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(runtimeServiceDrift));
+
   const promoted = fixture();
   const grade = promoted.contract.fields.find(row => row.stableId === "KNOWHOW_GRADE");
   grade.disposition = "verified";

@@ -65,6 +65,7 @@ test("only fully reviewed routines are exposed as frozen candidates, never as ad
   const manifest = build();
   assert.deepEqual(manifest.frozenItems.map(row => [row.stableId, row.status, row.count]), [
     ["RULE-06D838A8343E39F6", "FROZEN", 1],
+    ["RULE-0F16F0ADB333445C", "FROZEN", 1],
     ["RULE-69093173CCAE1126", "FROZEN", 1],
     ["RULE-A490C8F10B0BB6DC", "FROZEN", 1],
     ["RULE-A6D7E11BA9DEAEC2", "FROZEN", 1],
@@ -72,7 +73,7 @@ test("only fully reviewed routines are exposed as frozen candidates, never as ad
   ]);
   assert.deepEqual(manifest.coverageCounts.map(row => [row.stableId, row.status, row.count]), [
     ["FIELD_FROZEN", "NOT_FROZEN", 0],
-    ["ROUTINE_FROZEN", "PARTIAL", 5],
+    ["ROUTINE_FROZEN", "PARTIAL", 6],
     ["PAGE_FROZEN", "NOT_FROZEN", 0],
     ["PRODUCTION_FROZEN", "NOT_FROZEN", 0],
   ]);
@@ -127,6 +128,16 @@ test("evidence hash drift and unsafe policy mutations fail closed", () => {
   const drifted = contract();
   drifted.evidenceLedgers[0].sha256 = "0".repeat(64);
   rejects("FROZEN_MANIFEST_EVIDENCE_DRIFT", () => build(drifted));
+
+  const performanceRuntimeDrift = contract();
+  performanceRuntimeDrift.evidenceLedgers.find(row => row.stableId === "PERFORMANCE_RUNTIME_COVERAGE").sha256 = "0".repeat(64);
+  rejects("FROZEN_MANIFEST_EVIDENCE_DRIFT", () => build(performanceRuntimeDrift));
+
+  const missingPrintRoutine = contract();
+  missingPrintRoutine.evidenceLedgers = missingPrintRoutine.evidenceLedgers.filter(
+    row => row.stableId !== "ROUTINE_PERFORMANCE_CALCULATION_PRINT",
+  );
+  rejects("FROZEN_MANIFEST_CONTRACT_INVALID", () => build(missingPrintRoutine));
 
   const shrunk = contract();
   shrunk.expectedDenominators.CLIENT_FIELDS -= 1;

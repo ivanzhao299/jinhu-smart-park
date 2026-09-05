@@ -27,6 +27,7 @@ const EVIDENCE = [
   ["FIELD_PERFORMANCE_ITEM", "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json"],
   ["FIELD_PERFORMANCE_ITEM_GRADE", "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json"],
   ["FIELD_PERFORMANCE_DETAIL", "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json"],
+  ["PERFORMANCE_RUNTIME_COVERAGE", "scripts/hr-cutover/contracts/legacy-performance-runtime-coverage-v1.json"],
   ["ROUTINE_LEDGER", "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json"],
   ["ROUTINE_BS_READFROMLEAVE", "scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json"],
   ["ROUTINE_U_ERRANDRECORDS", "scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json"],
@@ -37,6 +38,7 @@ const EVIDENCE = [
   ["ROUTINE_FAMILY_QUERY", "scripts/hr-cutover/contracts/legacy-family-query-parity-v1.json"],
   ["ROUTINE_STAFFING_DISCREPANCY", "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json"],
   ["ROUTINE_JOB_HEADCOUNT_REFRESH", "scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-v1.json"],
+  ["ROUTINE_PERFORMANCE_CALCULATION_PRINT", "scripts/hr-cutover/contracts/legacy-performance-calculation-print-parity-v1.json"],
   ["PAGE_CUSTOM_FIELD", "scripts/hr-cutover/contracts/legacy-employee-custom-field-page-family-v1.json"],
   ["PAGE_GROUP_WEB", "scripts/hr-cutover/contracts/legacy-group-web-completeness-ledger-v1.json"],
   ["PAGE_CLIENT_ATOMIC", "scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json"],
@@ -81,6 +83,7 @@ const ROUTINE_FAMILY_IDS = [
   "ROUTINE_FAMILY_QUERY",
   "ROUTINE_STAFFING_DISCREPANCY",
   "ROUTINE_JOB_HEADCOUNT_REFRESH",
+  "ROUTINE_PERFORMANCE_CALCULATION_PRINT",
 ];
 const GROUP_WEB_TASK_IDS = [
   "PAGE_GROUP_WEB_TRAINING",
@@ -224,6 +227,7 @@ function progressInputs(parsed) {
       parsed.get("FIELD_PERFORMANCE_ITEM_GRADE"),
       parsed.get("FIELD_PERFORMANCE_DETAIL"),
     ],
+    performanceRuntimeCoverage: parsed.get("PERFORMANCE_RUNTIME_COVERAGE"),
     customFieldPage: parsed.get("PAGE_CUSTOM_FIELD"),
     groupWeb: parsed.get("PAGE_GROUP_WEB"),
     clientAtomic: parsed.get("PAGE_CLIENT_ATOMIC"),
