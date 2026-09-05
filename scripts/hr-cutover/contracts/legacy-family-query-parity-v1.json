@@ -35,7 +35,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
-      "sha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
+      "sha256": "f39e043b5e68e83c8b0f6bcc4ffcbbec879b574e2725bace68ff2fc63110899c"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr-lifecycle.controller.ts",
@@ -51,11 +51,15 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126"
+      "sha256": "c964a5db82b478dcfbefc46d6ee80697dd860a7e4a23e8243e4b304609d24280"
+    },
+    "modernFamilyComponent": {
+      "path": "apps/web/app/hr/employees/components/HrFamilyRecords.tsx",
+      "sha256": "c8c11d6cd79b65e40e178c793638bcfb3be99a228e1357989e25751dbe1ee1ef"
     },
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "fad24240cdc6aa053ec2e212cf5e377fd5ec72f357fdf7ab11c179de7aa618d2"
+      "sha256": "44523ef37cb5060c06a6fcd51a50827e15d4d5e8144225dfa5f858ca9fba9a83"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
@@ -165,7 +169,7 @@
               "relationContract": "dbo.family.person_foreign_key_to_dbo.person.person_then_loaded_record_map_to_hr_employee.id"
             }
           ],
-          "evidenceSha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
+          "evidenceSha256": "f39e043b5e68e83c8b0f6bcc4ffcbbec879b574e2725bace68ff2fc63110899c"
         },
         "writeMappings": {
           "applicability": "not_applicable",
@@ -217,7 +221,7 @@
               "conservationRule": "source_rows_equal_loaded_rows_plus_quarantined_rows_plus_approved_ignored_rows"
             }
           ],
-          "evidenceSha256": "1543271a61a74f23fee99b94b43b249cd217f0c64940bfd788a1d1a02dd1378a"
+          "evidenceSha256": "f39e043b5e68e83c8b0f6bcc4ffcbbec879b574e2725bace68ff2fc63110899c"
         },
         "dynamicSql": {
           "status": "none",
@@ -282,6 +286,17 @@
       }
     }
   ],
+  "currentModernFamilyPanel": {
+    "implementationStatus": "implemented_synthetic_technical_evidence",
+    "renderedFields": ["fullName", "relationship", "birthDate", "workUnit", "jobTitle", "politicalStatus", "contact"],
+    "fullSensitiveFields": ["fullName", "contact"],
+    "maskedFallbackFields": ["fullNameMasked", "contactMasked"],
+    "fullFieldPermission": "hr:employee_family:read",
+    "fieldAccessGate": "records.fieldAccess.family_equals_true",
+    "legacyRuntimeEquivalence": "NOT_CLAIMED",
+    "businessUat": "NOT_CLAIMED",
+    "compatibilityCreditDelta": 0
+  },
   "nonClaims": {
     "sourceProcedureRowOrder": "NOT_CLAIMED",
     "rawWhitespaceOrBirthdayTimeOfDay": "NOT_CLAIMED",

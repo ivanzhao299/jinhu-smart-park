@@ -609,7 +609,7 @@ export class HrLifecycleService {
       ),
       familyAllowed
         ? this.db.query(
-            `SELECT id,relationship,full_name_masked "fullNameMasked",identity_masked "identityMasked",contact_masked "contactMasked",is_emergency_contact "isEmergencyContact",birth_date "birthDate",work_unit "workUnit",job_title "jobTitle",political_status "politicalStatus"${familyFull?',full_name_encrypted "fullNameEncrypted",contact_encrypted "contactEncrypted"':''} FROM hr_employee_family WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY create_time`,
+            `SELECT id,relationship,full_name_masked "fullNameMasked",identity_masked "identityMasked",contact_masked "contactMasked",is_emergency_contact "isEmergencyContact",to_char(birth_date, 'YYYY-MM-DD') "birthDate",work_unit "workUnit",job_title "jobTitle",political_status "politicalStatus"${familyFull?',full_name_encrypted "fullNameEncrypted",contact_encrypted "contactEncrypted"':''} FROM hr_employee_family WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY create_time`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),
