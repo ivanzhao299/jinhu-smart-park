@@ -157,7 +157,7 @@
         {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code with no session restriction"}
       ],
       "outputColumns": [
-        {"ordinal":1,"sourceExpression":"assessmentmaster.asssession","sourceAlias":"考核期间","plannedModernField":"unresolvedLegacySessionText"},
+        {"ordinal":1,"sourceExpression":"assessmentmaster.asssession","sourceAlias":"考核期间","plannedModernField":"compatibleLegacySessionText"},
         {"ordinal":2,"sourceExpression":"assessmentmaster.grade","sourceAlias":"等级","plannedModernField":"unresolvedLegacyGrade"},
         {"ordinal":3,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考核项总分","plannedModernField":"sourceItemValue"},
         {"ordinal":4,"sourceExpression":"assessmentmaster.mastervalue","sourceAlias":"主管附加分","plannedModernField":"sourceMasterValue"},
@@ -174,16 +174,23 @@
         "concatenatedParameters": ["person"],
         "mutation": "none",
         "risk": "sql_injection_and_query_shape_manipulation",
-        "safeReplacement": "Resolve the authenticated self or authorized scoped employee and bind the source person code; never accept it as an authorization boundary."
+        "safeReplacement": "Validate and bind the exact source person code, then independently enforce tenant, park, team or self scope; never accept the source code as an authorization boundary."
       },
       "knownDifferences": [
-        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"pending explicit dual projection and conservation fixture"},
-        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"pending stable descending session order"}
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"implemented as an explicit null-propagating itemvalue + timekeepvalue + bonusvalue projection; mastervalue remains a separate display column and sourceTotalValue is not substituted"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"procedure references assessmentmaster.asssession and assessmentmaster.grade","modernDecision":"session text is projected only through an active verified same-batch dbo.asssession relation and is null when that relation is absent; grade remains explicit null and is not guessed from assgrade"},
+        {"code":"EXACT_PERSON_INPUT_HARDENED","sourceBehavior":"raw person text is concatenated into SQL","modernDecision":"modern input uses the shared bounded Unicode legacy-person-code contract and an exact bound PostgreSQL parameter; authorization is separately enforced by tenant park team or self scope"},
+        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"modern paging uses stable descending source-session then master and row id order"},
+        {"code":"ORPHAN_MASTER_SCOPE","sourceBehavior":"park-wide query can preserve assessmentmaster rows without a person row","modernDecision":"park scope preserves an authorized source fact without requiring a modern employee binding; team and self scopes fail closed unless their employee scope join is satisfied"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.asssession", "assessmentmaster.grade"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters self/history query expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "self-scope implementation", "nonzero-mastervalue conservation fixture", "employee-role desktop and 390px UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.assessmentValueOfPersonQuery","api":"GET /hr/performance-legacy/query-reports/assessment-value-of-person","page":"apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValueOfPersonPanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-assessment-value-of-person.contract.spec.ts","testId":"u_assessmentvalueofperson keeps the null-propagating final separate from mastervalue"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-assessment-value-of-person.contract.spec.ts","testId":"u_assessmentvalueofperson UI keeps the legacy final separate from displayed mastervalue"}
+      ],
+      "missingEvidence": ["catalog adjudication for the absent assessmentmaster.asssession and assessmentmaster.grade variant", "nonempty source-person and source-session conservation against the verified relation", "nonzero-mastervalue and null-operand SQL Server versus PostgreSQL runtime comparison", "park team self including orphan behavior desktop and 390px role UAT"]
     },
     {
       "routineId": "RULE-0ACE2D87C1774B3B",

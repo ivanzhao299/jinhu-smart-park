@@ -25,7 +25,7 @@ test("seven query routines remain pending and receive zero compatibility credit"
     sourceRoutines: 7,
     verifiedRoutines: 0,
     pendingRoutines: 7,
-    implementedTargets: 4,
+    implementedTargets: 5,
     dynamicReadOnlyRoutines: 5,
     schemaDriftRoutines: 4,
     compatibilityCredit: 0,
@@ -87,6 +87,38 @@ test("u_assessmentvalue implements nine columns without changing its frozen form
     item.code === "DEPARTMENT_PREFIX_INPUT_HARDENED"
       && /bounded literal prefix/iu.test(item.modernDecision)
       && /bound PostgreSQL LIKE parameter/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
+});
+
+test("u_assessmentvalueofperson implements eight columns without guessing schema drift", () => {
+  const row = contract.routines.find(item => item.sourceName === "u_assessmentvalueofperson");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.assessmentValueOfPersonQuery",
+    api: "GET /hr/performance-legacy/query-reports/assessment-value-of-person",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValueOfPersonPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 8);
+  assert.equal(row.outputColumns[0].plannedModernField, "compatibleLegacySessionText");
+  assert.equal(row.outputColumns[1].plannedModernField, "unresolvedLegacyGrade");
+  const formula = row.calculationSemantics.find(
+    item => item.code === "LEGACY_FINAL_EXCLUDES_MASTERVALUE",
+  );
+  assert.equal(formula.expression, "itemvalue + timekeepvalue + bonusvalue");
+  assert.doesNotMatch(formula.expression, /mastervalue/iu);
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /active verified same-batch/iu.test(item.modernDecision)
+      && /explicit null/iu.test(item.modernDecision)
+      && /not guessed from assgrade/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "EXACT_PERSON_INPUT_HARDENED"
+      && /shared bounded Unicode/iu.test(item.modernDecision)
+      && /exact bound PostgreSQL parameter/iu.test(item.modernDecision),
   ));
   assert.equal(row.implementationEvidence.length, 2);
   assert.equal(row.parityStatus, "pending");

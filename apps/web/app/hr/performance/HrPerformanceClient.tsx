@@ -12,6 +12,7 @@ import {HrPerformanceLegacyPanel} from "./HrPerformanceLegacyPanel";
 import {HrPerformanceLegacyRelationsPanel} from "./HrPerformanceLegacyRelationsPanel";
 import {HrPerformanceLegacyAssessmentMasterPanel} from "./HrPerformanceLegacyAssessmentMasterPanel";
 import {HrPerformanceLegacyAssessmentValuePanel} from "./HrPerformanceLegacyAssessmentValuePanel";
+import {HrPerformanceLegacyAssessmentValueOfPersonPanel} from "./HrPerformanceLegacyAssessmentValueOfPersonPanel";
 import {HrPerformanceLegacyPersonSummaryPanel} from "./HrPerformanceLegacyPersonSummaryPanel";
 
 type Options={orgs:Array<{id:string;orgName:string}>;templates:Array<{id:string;templateName:string;versionName:string}>};
@@ -54,5 +55,6 @@ export function HrPerformanceClient(){
   <HrPerformanceLegacyPersonSummaryPanel/>
   <HrPerformanceLegacyAssessmentMasterPanel/>
   <HrPerformanceLegacyAssessmentValuePanel/>
+  <HrPerformanceLegacyAssessmentValueOfPersonPanel/>
  </main></PermissionGuard>;
 }

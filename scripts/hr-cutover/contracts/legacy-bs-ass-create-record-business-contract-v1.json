@@ -43,15 +43,15 @@
     },
     "legacyReadController": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
-      "sha256": "172f83d8a07c6da876dec96bf0777b5a401f6f3b48f2dfc70022326159c359c1"
+      "sha256": "766b601fcd48adae72ae22c8d81051dfc74e59b355a1a27beeb746cdf8065afd"
     },
     "legacyReadService": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
-      "sha256": "83b37419406f1e1454e6de09bee31b265d1a0996e1dbcd15e9c9f4a162caab35"
+      "sha256": "8b76dd4be180dff02b2c2dfd1cebf60c4b6fd5a1096525edf1e9675ed7e2dbd9"
     },
     "modernPage": {
       "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx",
-      "sha256": "9ddeab84e253a0a465563312f8e50fb3a1f6a4fac6a91240b687ce05f9bb17d8"
+      "sha256": "6062dfb84426d24b4a5c1b93595ef66a65773b9b10ae747972dac9f2131d46f6"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
