@@ -37,7 +37,8 @@ It accepts neither caller-supplied receipt substitutes nor an out-of-transaction
 receipt lookup. Both forward and reverse core phases restore deferred constraint
 timing after extension calls; commit still checks all links. Mock orchestration
 tests alone do not prove the complete PostgreSQL/API chain. The bounded PostgreSQL
-result below proves one empty-fact transaction chain; API visibility is still pending.
+results below separately establish an empty-fact transaction chain and a nonempty
+configuration/service-read chain. HTTP/browser and nonempty-result parity remain pending.
 
 The `performanceFactLoader` extension binds the configuration/detail and master
 artifact hashes, source receipt hashes, six migration hashes, six fact counts,
@@ -138,3 +139,46 @@ not prove nonempty configuration visibility, nonempty result functionality, actu
 service/HTTP queries or CLI encryption; its crypto provider is a synthetic test
 substitute. The next combined run must add nonempty configuration with zero results
 and actual service queries without relaxing source-empty production constraints.
+
+## Nonempty configuration and actual service readback
+
+The combined isolated run completed successfully with runner commit `03a58461c5f4e98e1efd590e3ef6a75ab1256acb`
+and the API assertion correction in final candidate `ca5a7f68d2f6fcaaa5dc19e975211add62f9a837`.
+Executed runner SHA-256: `f269aefc55c6f9e5969764fefe25b0ca3cbed884d38d658068df87eb791d86c1`.
+Executed API test SHA-256: `5211277e2465200533e1a33058a2fa8ea79075e37c087df23c057902f3f7bb08`.
+The runner started before the API correction was committed; the child API process
+loaded the corrected bytes. These identities describe what ran, not a claim that
+the whole test started from an unchanged release checkout.
+
+The fixture uses synthetic field values with the safe source-summary shape:
+0 templates, 3 levels, 33 dimensions, 30 guides, 7 sessions, 117 assignments,
+and 0 detail/master outcomes. An isolated original-materializer oracle computes
+the 66-fact aggregate and is reversed to zero live rows before the actual total
+writer executes. Oracle maps are not promoted or relabeled as production evidence.
+
+Verified in that same freshly migrated PostgreSQL schema:
+
+- Actual total import loads 66 configuration facts, the 124 session/assignment
+  relations and 234 identity resolutions; final identity verification automatically
+  promotes all 190 performance maps before the remaining T1-T3 phases succeed.
+- `HrPerformanceLegacyService` and `HrPerformanceLegacyRelationsService` query
+  the actual committed rows, with read-only database sessions and an in-memory
+  audit sink. Nine surfaces return the expected configuration/relation/empty-result
+  counts and audit item counts; assignment pagination returns 50/50/17 unique rows.
+  Definition-only assignment access is denied and another park sees no sessions.
+- Actual total rollback reverses identity, relations, facts and core. The same
+  services then return empty collections. The original import retains its success
+  history; a separate successful rollback operation proves the reversal, rather
+  than incorrectly expecting the original operation to change status.
+- Failure at T1 after the complete extension chain leaves no business batch,
+  phase, projection, control, performance receipt or active map outside the failed
+  transaction. Inserted core rows are also absent.
+- Exact temporary database and role counts were verified as 0/0 after cleanup;
+  temporary root/API dependency links and the migration log were removed.
+
+The API test is `apps/api/src/modules/hr/hr-performance-legacy-post-import.pg.spec.ts`;
+it is disabled unless explicitly enabled by the isolated runner. No source field
+values or production credentials were read to build this fixture. This proves the
+current-shaped synthetic import-to-service-to-rollback chain, not the real private
+payload import, HTTP/controller/authentication behavior, browser UAT, CLI/GCM
+encryption or nonempty-result calculation equivalence. Production remains HOLD.

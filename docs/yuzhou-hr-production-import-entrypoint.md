@@ -36,7 +36,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 - `T0`、`T1`、`T2`、`T3`；
 - plan 已签入时，在 `T0` 后增加 `PERFORMANCE_RELATIONS`；
-- 新绩效链的顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。候选总 writer 已接入装载、关系及身份映射，并传递同一事务产生的真实回执；完整隔离数据库链仍须另行验证，不能把接线、模拟测试或准备结果视为生产能力验收，版本化生产合同仍为 `HOLD`；
+- 新绩效链的顺序为 `T0 → PERFORMANCE_FACTS → PERFORMANCE_RELATIONS → PERFORMANCE_FACT_IDENTITY → T1 → T2 → T3`，最后仍可追加 `T5_NONFILE`。候选总 writer 已接入装载、关系及身份映射，并传递同一事务产生的真实回执；已通过合成非空配置、空结果的隔离数据库整链与实际服务回读/回滚测试，精确证据见 `docs/yuzhou-hr-performance-fact-identity-integration.md`。这不证明 CLI/GCM、非空结果业务等价或真实生产导入，版本化生产合同仍为 `HOLD`；
 - plan 已签入时，在末尾增加 `T5_NONFILE`。
 
 以下域尚未接入此 writer，入口会用稳定原因码拒绝，不能把一次 T0-T3 成功描述成全量产品迁移完成：
