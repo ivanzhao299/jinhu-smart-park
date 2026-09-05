@@ -59,6 +59,41 @@ principal 仍依赖真实 `biz_park`、`rel_user_park` 和 park-scoped RBAC 表�
   helper 的调用限定名。此对比不代替真实数据库测试。
 - API `typecheck`、受影响 Auth/Users/Tenant 文件定向 ESLint、`git diff --check` 通过。
 
+上述首次本地检查借用了另一工作树的依赖，因此仅为开发反馈，不作为当前候选的
+独立发布验证。CI `33949279680` 随后在完整单元测试中失败：
+`users.role-assignment-scope.spec.ts` 仍从 `users.service.ts` 查找已移出的 JWT SQL。
+这属于移动实现后遗漏源码测试引用，而非已证明的运行时权限回归。
+
+## CI 修复与独立依赖验证（2026-09-05）
+
+- 工作树：`/private/tmp/jinhu-hr-identity-directory-v1`；合入主线
+  `214fb4b3c259d5a1322c2173914b23a440141d5e`（唯一授权业务范围解析）。
+- 只移除两个经核验的跨工作树 `node_modules` 符号链接，原目标目录完整保留。
+  `pnpm install --offline --frozen-lockfile --prod=false` 使用本地缓存安装 818 个包，
+  无下载；随后在本工作树执行 `pnpm --filter @jinhu/shared build`。
+- API 与 Web 的 `@jinhu/shared` 均解析到本工作树 `packages/shared`。
+- JWT SQL 的两条安全断言改读 `identity-directory.service.ts`；内存角色过滤断言
+  原样保留，补充旧服务必须委托身份目录的断言，没有复制 SQL 或放宽断言。
+- 失败文件、JWT principal 运行测试及真实 Nest 装配测试共 11 项通过。
+  全部源码测试引用扫描未发现第二处同类遗漏。
+- 完整 API 单元测试采用与 `test:unit` 相同的 `src/**/*.spec.ts` 文件集、
+  `ts-node/register`、force-exit 和 dot reporter，仅将并发限制为 2；341 个测试文件
+  组成的整组命令退出码为 0。专用数据库环境未启用，该结果不覆盖显式 opt-in 的 PG 演练。
+  命令在 `apps/api` 执行：
+  `find src -type f -name '*.spec.ts' -exec node --test --test-concurrency=2 --test-force-exit --test-reporter=dot --require ts-node/register {} +`。
+- `pnpm test:unit:web` 的全部 14 组脚本通过，包括认证路由、会话、园区角色恢复
+  和 HR 页面合同；这是单元/源码合同验证，不是浏览器 UAT。
+- 当前工作树共享包 41 项测试、API typecheck、全部变更 TypeScript 文件定向
+  ESLint 及差异检查通过。独立审查逐个比较迁出方法与主线，确认保留租户超级管理员、
+  有效园区、普通角色和 wildcard 语义；没有借本次修复扩展企业登录或跨范围权限。
+- 最终目标路线图合同 6 项通过；上述验证基于合并提交 `5e03fff9` 加本次三文件修复，
+  不能引用旧 CI 失败运行作为新候选的发布证明。
+
+缺陷分类为变更传播遗漏与定向回归范围不足。防复发要求已补入
+`.trellis/spec/api/backend/park-role-integrity.md`：区分 SQL 与内存检查的真实所有者，
+移动方法后扫描源码读取测试，并保留完整 API 单元测试。仓库没有
+`src/templates/markdown/spec/` 模板目录，不创建无用副本。
+
 未执行全量构建、真实数据库/HTTP 登录、浏览器 UAT 或生产部署；本次不改数据库结构、
 SQL 语义或前端页面。独立企业身份/RBAC/session、`/auth/me` 的集成依赖和完整启动链
 仍未交付，因此本片不能计为 P1 通过，也不解除历史导入 HOLD。

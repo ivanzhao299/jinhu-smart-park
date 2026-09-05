@@ -60,9 +60,11 @@ test("role candidate catalog is paginated and keeps the legacy array contract op
 });
 
 test("JWT and in-memory authorization reject foreign park-scoped roles", () => {
-  const source = readFileSync(resolve(__dirname, "users.service.ts"), "utf8");
+  const usersSource = readFileSync(resolve(__dirname, "users.service.ts"), "utf8");
+  const identitySource = readFileSync(resolve(__dirname, "identity-directory.service.ts"), "utf8");
 
-  assert.match(source, /active_role\.role_scope = 'tenant' OR active_role\.park_id = \$3/);
-  assert.match(source, /role\.role_scope = 'tenant' OR role\.park_id = \$3/);
-  assert.match(source, /link\.role\.roleScope === "tenant" \|\| link\.role\.parkId === user\.parkId/);
+  assert.match(identitySource, /active_role\.role_scope = 'tenant' OR active_role\.park_id = \$3/);
+  assert.match(identitySource, /role\.role_scope = 'tenant' OR role\.park_id = \$3/);
+  assert.match(usersSource, /return this\.identityDirectory\.resolveJwtPrincipal\(scope, id\)/);
+  assert.match(usersSource, /link\.role\.roleScope === "tenant" \|\| link\.role\.parkId === user\.parkId/);
 });

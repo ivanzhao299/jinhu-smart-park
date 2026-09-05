@@ -49,6 +49,13 @@
 - Projection tests cover role-bearing/access-only parks, protected tenant super across future parks, inactive/foreign roles, and diagnostic omission without permission.
 - Web tests assert exact access-only danger text, neutral hidden-diagnostic text, explicit target selector/payload, and identical desktop/mobile switcher summaries.
 - Run the complete API unit suite plus shared build, API/Web typecheck, lint, and build after changing this contract.
+- `IdentityDirectoryService.resolveJwtPrincipal` owns the JWT SQL; `UsersService.resolveJwtPrincipal`
+  is a compatibility delegate, while its in-memory role filtering remains in `UsersService`.
+  Source-contract tests must read each predicate from its actual owner and assert the delegate;
+  do not restore duplicate SQL or remove a security assertion to accommodate a service extraction.
+  Keep `users.role-assignment-scope.spec.ts`, the runtime `users.service.jwt-principal.spec.ts`,
+  and `identity-directory.module.spec.ts` together in the regression set. Search all source-reading
+  specs after moving methods; a targeted login suite alone does not cover role-assignment contracts.
 
 ### 7. Wrong vs Correct
 
