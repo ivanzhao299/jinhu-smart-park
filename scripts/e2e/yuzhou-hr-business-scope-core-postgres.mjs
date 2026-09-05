@@ -5,8 +5,11 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
+const modeArgs = process.argv.slice(2);
+assert.ok(modeArgs.length === 0 || (modeArgs.length === 1 && modeArgs[0] === "--park-binding"), "BUSINESS_SCOPE_UNKNOWN_TEST_MODE");
+const parkBinding = modeArgs[0] === "--park-binding";
 const runId = randomBytes(6).toString("hex");
-const container = `jinhu-hr-scope-core-${runId}`;
+const container = `jinhu-hr-scope-${parkBinding ? "park" : "core"}-${runId}`;
 const password = `synthetic-${randomBytes(18).toString("hex")}`;
 let containerStarted = false;
 
@@ -114,7 +117,9 @@ async function main() {
       "--test-force-exit",
       "--require",
       "ts-node/register",
-      "src/shared/business-scope/business-scope-core.pg.spec.ts"
+      parkBinding
+        ? "src/modules/parks/smart-park-business-scope.pg.spec.ts"
+        : "src/shared/business-scope/business-scope-core.pg.spec.ts"
     ],
     {
       stdio: "inherit",
@@ -147,4 +152,4 @@ try {
   }
 }
 if (failure) throw failure;
-process.stdout.write("BUSINESS_SCOPE_CORE_POSTGRES_PASS\n");
+process.stdout.write(parkBinding ? "SMART_PARK_SCOPE_POSTGRES_PASS\n" : "BUSINESS_SCOPE_CORE_POSTGRES_PASS\n");
