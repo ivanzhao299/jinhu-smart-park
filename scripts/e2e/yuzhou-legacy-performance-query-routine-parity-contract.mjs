@@ -25,7 +25,7 @@ test("seven query routines remain pending and receive zero compatibility credit"
     sourceRoutines: 7,
     verifiedRoutines: 0,
     pendingRoutines: 7,
-    implementedTargets: 2,
+    implementedTargets: 3,
     dynamicReadOnlyRoutines: 5,
     schemaDriftRoutines: 4,
     compatibilityCredit: 0,
@@ -35,6 +35,31 @@ test("seven query routines remain pending and receive zero compatibility credit"
   });
   assert.equal(contract.routines.flatMap(row => row.parameters).length, 19);
   assert.equal(contract.routines.flatMap(row => row.outputColumns).length, 53);
+});
+
+test("u_assessmentmaster is implemented without claiming its unresolved assid drift", () => {
+  const row = contract.routines.find(item => item.sourceName === "u_assessmentmaster");
+  assert.deepEqual(row.modernTarget, {
+    serviceSymbol: "HrPerformanceLegacyService.assessmentMasterQuery",
+    api: "GET /hr/performance-legacy/query-reports/assessment-master",
+    page: "apps/web/app/hr/performance/HrPerformanceLegacyAssessmentMasterPanel.tsx",
+    status: "implemented_pending_runtime_uat",
+  });
+  assert.equal(row.outputColumns.length, 12);
+  assert.equal(row.outputColumns[0].plannedModernField, "unresolvedLegacyAssessmentMasterId");
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CURRENT_SCHEMA_COLUMN_DRIFT"
+      && /explicit null/iu.test(item.modernDecision)
+      && /not guessed from id/iu.test(item.modernDecision),
+  ));
+  assert.ok(row.knownDifferences.some(item =>
+    item.code === "CALLER_SUPPLIED_LIKE_PATTERN"
+      && /exact or legacy_like/iu.test(item.modernDecision)
+      && /bound PostgreSQL parameter/iu.test(item.modernDecision),
+  ));
+  assert.equal(row.implementationEvidence.length, 2);
+  assert.equal(row.parityStatus, "pending");
+  assert.equal(row.compatibilityCredit, 0);
 });
 
 test("web_ass and web_assessmentquery use explicit modes without hiding their orphan-row difference", () => {
