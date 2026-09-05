@@ -13,6 +13,8 @@ import {
   computeSealedProductionImportPlanHash,
   productionImportHash,
   validateProductionImportPayloadBundle,
+  validateProductionPerformanceFactIdentityPlanBinding,
+  validateProductionPerformanceFactLoaderPlanBinding,
   validateSealedProductionImportPlan,
 } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { executeSealedProductionImport, rollbackSealedProductionImport } from "../hr-cutover/production-import-writer.mjs";
@@ -206,21 +208,39 @@ function withFactIdentity(plan) {
     t0PhaseReceiptSha256: H("performance-relations-t0-receipt"),
   });
   const result = attachHeldPerformanceRelationsBinding(plan, parent);
+  result.performanceFactLoader = {
+    formatVersion: 1, bindingKind: "yuzhou_hr_production_import_performance_fact_loader_binding",
+    triple: structuredClone(plan.triple), sourceRestoreReceiptSha256: H("restore"),
+    sourceFactLocationReceiptSha256: parent.sourceFactLocationReceiptSha256,
+    sourceFactLocationCanonicalSha256: parent.sourceFactLocationCanonicalSha256,
+    factPayloadArtifactSha256: H("config-detail-artifact"), masterPayloadArtifactSha256: H("master-artifact"),
+    t0PhaseReceiptSha256: parent.t0PhaseReceiptSha256,
+    ...Object.fromEntries([300, 301, 302, 303, 310, 311].map(n => [`migration${n}Sha256`, H(`synthetic-migration-${n}`)])),
+    templateRows: 1, levelRuleRows: 1, dimensionRows: 1, guideRows: 0,
+    dimensionResultRows: 0, masterResultRows: 0, activeFactMaps: 3,
+    identityFactSetSha256: productionImportHash("[]"), fullFactSetSha256: H("synthetic-full-facts"),
+    sourceOutcomeFactStatus: "AUTHORITATIVE_EMPTY",
+    forwardOrder: ["legacy_config_and_detail", "legacy_master"],
+    rollbackOrder: ["master_result", "dimension_result", "dimension_level_guide", "dimension_profile", "level_rule", "template_profile"],
+    productionImport: "HOLD",
+  };
   result.performanceFactIdentity = {
     formatVersion: 1, bindingKind: "yuzhou_hr_production_import_performance_fact_identity_binding",
     triple: structuredClone(plan.triple), contractArtifactSha256: H("fact-contract"),
     t0PhaseReceiptSha256: parent.t0PhaseReceiptSha256,
     parentPerformanceRelationsContractSha256: computeProductionImportPayloadHash(parent),
+    parentPerformanceFactLoaderContractSha256: computeProductionImportPayloadHash(result.performanceFactLoader),
     expectedDimensionRows: 0, expectedMasterRows: 0, expectedFactRows: 0,
     // SQL fact-set canonical bytes omit the newline used by sealed JSON payloads.
     expectedFactSetSha256: productionImportHash("[]"),
     migration308Sha256: "ad77e0cf12cf73f98a5984835a9943a9e15c96cde37fe6bd95133845c711befa",
     migration310Sha256: H("synthetic-migration-310"),
     factKinds: ["dimension_result", "master_result"],
-    rollbackOrder: ["fact_identity", "performance_relations"],
+    rollbackOrder: ["fact_identity", "performance_relations", "performance_facts"],
     adapterStatus: "PRODUCTION_CAPABILITY_BOUND", productionImport: "HOLD",
   };
   result.authorization.binding.performanceFactIdentityContractSha256 = computeProductionImportPayloadHash(result.performanceFactIdentity);
+  result.authorization.binding.performanceFactLoaderContractSha256 = computeProductionImportPayloadHash(result.performanceFactLoader);
   return reseal(result);
 }
 
@@ -235,7 +255,8 @@ test("fact identity seals stable parent inputs without a circular execution rece
 
 test("fact identity rejects parent, source, count, hash and rollback drift even after resealing", () => {
   const mutations = [
-    p => { delete p.performanceRelations; },
+    p => { delete p.performanceFactLoader; },
+    p => { p.performanceFactIdentity.parentPerformanceFactLoaderContractSha256 = H("other-loader"); },
     p => { p.performanceFactIdentity.triple.sourceSnapshotHash = H("other-source"); },
     p => { p.performanceFactIdentity.t0PhaseReceiptSha256 = H("other-t0"); },
     p => { p.performanceFactIdentity.parentPerformanceRelationsContractSha256 = H("other-parent"); },
@@ -275,6 +296,75 @@ test("fact identity extension requires exact authorization binding and leaves ol
 test("an unwired fact identity extension cannot silently succeed or consume authorization", async () => {
   const fixture = v2Fixture();
   const plan = withFactIdentity(fixture.plan);
+  const database = mockDatabase();
+  const options = executionOptions(plan, fixture.payloadBundles, database);
+  await assert.rejects(() => executeSealedProductionImport(plan, options), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED");
+  await assert.rejects(() => rollbackSealedProductionImport(plan, {}, options), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED");
+  assert.equal(database.calls.length, 0);
+});
+
+test("fact loader metadata rejects count, source classification, parent and authorization drift", () => {
+  const mutations = [
+    p => { p.performanceFactLoader.activeFactMaps++; },
+    p => { p.performanceFactLoader.templateRows = -1; },
+    p => { p.performanceFactLoader.dimensionRows = Number.MAX_SAFE_INTEGER; },
+    p => { p.performanceFactLoader.sourceOutcomeFactStatus = "AUTHORITATIVE_NONEMPTY"; },
+    p => { p.performanceFactLoader.identityFactSetSha256 = H("wrong-empty-set"); },
+    p => { p.performanceFactLoader.sourceRestoreReceiptSha256 = null; },
+    p => { p.performanceFactLoader.productionImport = "AUTHORIZED"; },
+    p => { p.performanceFactLoader.rollbackOrder.reverse(); },
+    p => { p.performanceFactLoader.sourceFactLocationReceiptSha256 = H("another-source"); },
+    p => { p.performanceFactLoader.sourceFactLocationCanonicalSha256 = H("another-canonical"); },
+    p => { delete p.performanceRelations; },
+  ];
+  for (const mutate of mutations) {
+    const plan = withFactIdentity(v2Fixture().plan);
+    mutate(plan);
+    assert.throws(() => validateSealedProductionImportPlan(reseal(plan), { now: NOW }), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_LOADER_BINDING_INVALID");
+  }
+  for (const mutate of [
+    p => { delete p.authorization.binding.performanceFactLoaderContractSha256; },
+    p => { p.authorization.binding.performanceFactLoaderContractSha256 = H("wrong-binding"); },
+  ]) {
+    const plan = withFactIdentity(v2Fixture().plan);
+    mutate(plan);
+    assert.throws(() => validateSealedProductionImportPlan(reseal(plan), { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+  }
+});
+
+test("direct identity validation cannot combine different source receipts behind a rehashed loader", () => {
+  for (const key of ["sourceFactLocationReceiptSha256", "sourceFactLocationCanonicalSha256"]) {
+    const plan = withFactIdentity(v2Fixture().plan);
+    plan.performanceFactLoader[key] = H(`other-${key}`);
+    plan.performanceFactIdentity.parentPerformanceFactLoaderContractSha256 = computeProductionImportPayloadHash(plan.performanceFactLoader);
+    assert.throws(() => validateProductionPerformanceFactIdentityPlanBinding(plan.performanceFactIdentity, plan.triple, plan.performanceRelations, plan.performanceFactLoader), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_BINDING_INVALID");
+  }
+});
+
+test("synthetic nonempty loader and identity metadata must agree and does not claim source or runtime verification", () => {
+  const plan = withFactIdentity(v2Fixture().plan);
+  const loader = plan.performanceFactLoader;
+  Object.assign(loader, { dimensionResultRows: 2, masterResultRows: 1, activeFactMaps: 6,
+    identityFactSetSha256: H("synthetic-nonempty-identity-set"),
+    fullFactSetSha256: H("synthetic-nonempty-full-set"), sourceOutcomeFactStatus: "AUTHORITATIVE_NONEMPTY" });
+  Object.assign(plan.performanceFactIdentity, {
+    expectedDimensionRows: 2, expectedMasterRows: 1, expectedFactRows: 3,
+    expectedFactSetSha256: loader.identityFactSetSha256,
+    parentPerformanceFactLoaderContractSha256: computeProductionImportPayloadHash(loader),
+  });
+  assert.deepEqual(validateProductionPerformanceFactLoaderPlanBinding(loader, plan.triple), loader);
+  assert.deepEqual(validateProductionPerformanceFactIdentityPlanBinding(plan.performanceFactIdentity, plan.triple, plan.performanceRelations, loader), plan.performanceFactIdentity);
+  plan.performanceFactIdentity.expectedDimensionRows = 1;
+  plan.performanceFactIdentity.expectedMasterRows = 2;
+  assert.throws(() => validateProductionPerformanceFactIdentityPlanBinding(plan.performanceFactIdentity, plan.triple, plan.performanceRelations, loader), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_BINDING_INVALID");
+});
+
+test("loader-only plans cannot bypass the incomplete execution guard", async () => {
+  const fixture = v2Fixture();
+  const plan = withFactIdentity(fixture.plan);
+  delete plan.performanceFactIdentity;
+  delete plan.authorization.binding.performanceFactIdentityContractSha256;
+  reseal(plan);
   const database = mockDatabase();
   const options = executionOptions(plan, fixture.payloadBundles, database);
   await assert.rejects(() => executeSealedProductionImport(plan, options), error => error.code === "PRODUCTION_IMPORT_PERFORMANCE_FACT_IDENTITY_NOT_WIRED");

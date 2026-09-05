@@ -30,13 +30,30 @@ authorization consumption. Ordinary plans without the extension retain their
 existing behavior. This temporary guard must be replaced by real capability,
 apply, receipt and rollback wiring, not simply removed to make a test pass.
 
+The `performanceFactLoader` extension binds the configuration/detail and master
+artifact hashes, source receipt hashes, six migration hashes, six fact counts,
+their total active-map count and both full-fact and result-identity-set hashes.
+Its complete input hash is included in authorization and referenced by
+`performanceFactIdentity.parentPerformanceFactLoaderContractSha256`. Both extensions
+must agree on C/S/M, source location receipts, T0, result counts and identity-set
+hash. `AUTHORITATIVE_EMPTY` describes result rows, not empty configuration tables;
+the metadata status itself does not prove the underlying source receipt.
+
 The full pipeline also needs the production fact loader and its successful
-same-operation receipt. Identity materialization must not accept arbitrary existing
+same-operation runtime receipt. Identity materialization must not accept arbitrary existing
 facts or a laboratory batch whose context was manually relabeled as production.
 The loader, relation and identity receipts must agree on scope, batch, C/S/M, T0
 receipt and fact-set digest. Nonempty synthetic fixtures verify implementation
 capability; they do not establish that the authoritative old source contains
 nonempty assessment results or prove live query equivalence.
+
+The foreign-key order is facts → relations → identity, with reverse rollback
+identity → relations → facts. In particular, migration 000305 score sources can
+reference dimension profiles; deleting facts first is invalid for nonempty score
+sources. Current empty score-source evidence cannot justify ignoring this path.
+The 000310 dependency hook must reject execution until the 000311 loader capability
+can verify its real successful receipt. Neither runtime receipt belongs in the
+sealed metadata; both are obtained from actual execution.
 
 ## Validation
 
