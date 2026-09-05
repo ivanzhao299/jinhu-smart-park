@@ -959,6 +959,10 @@ test("performance relation rollback runs identity then relations after T1 and be
   const t1Rollback = queries.findIndex(call => call.sql.includes("status='rolling_back'") && call.parameters?.[1] === "T1");
   const t0Rollback = queries.findIndex((call, index) => index > relationRollback && call.sql.includes("status='rolling_back'") && call.parameters?.[1] === "T0");
   assert.ok(t1Rollback >= 0 && relationRollback > t1Rollback && t0Rollback > relationRollback);
+  for (const phaseName of ["T3", "T2", "T1", "T0"]) {
+    const start = queries.findIndex(call => call.sql.includes("status='rolling_back'") && call.parameters?.[1] === phaseName);
+    assert.equal(queries[start - 1]?.sql, "SET CONSTRAINTS ALL DEFERRED", `${phaseName} rollback restores receipt FK timing`);
+  }
 });
 
 test("a T5-bound plan rolls T5 back before the core phases and accounts for its owned batch", async () => {

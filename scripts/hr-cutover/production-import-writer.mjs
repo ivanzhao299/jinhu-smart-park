@@ -441,6 +441,9 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
       if (phaseName === "T0" && performanceRelationsRollbackInput) {
         await rollbackProductionPerformanceRelations({ ...performanceRelationsRollbackInput, tx });
       }
+      // Extension rollback may also switch constraints to IMMEDIATE. Core
+      // target/map changes and their control receipt updates form one phase.
+      await tx.query("SET CONSTRAINTS ALL DEFERRED");
       const phase = plan.phases.find(candidate => candidate.phase === phaseName);
       await expectSingleStateTransition(
         tx,
