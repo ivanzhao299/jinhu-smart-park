@@ -63,4 +63,7 @@ test("rollback owns only master and dimension identity and enforces reverse orde
   assert.match(migration, /v_assignment_rows<>234/u);
   assert.match(migration, /fact_identity>performance_relations>performance_facts/u);
   assert.doesNotMatch(migration, /DELETE FROM public\.hr_performance_legacy_(?:master|dimension)_result/u);
+  assert.match(migration, /v_parent\.status NOT IN\('succeeded','rolled_back'\)/u);
+  assert.match(migration, /v_receipt\.status<>'succeeded' OR v_parent\.status<>'succeeded'/u);
+  assert.match(migration, /ROLLBACK_REPLAY_DRIFT[\s\S]*SELECT count\(\*\) INTO v_residual/u);
 });

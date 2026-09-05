@@ -521,12 +521,13 @@ BEGIN
       p_target_scope_sha256,p_t0_phase_receipt_sha256,
       p_parent_performance_relations_contract_sha256,p_parent_relations_receipt_sha256,
       p_fact_loader_receipt_sha256,p_migration_308_sha256,p_migration_310_sha256)
-    OR v_parent.status<>'succeeded' OR v_parent.receipt_sha256<>p_parent_relations_receipt_sha256
+    OR v_parent.receipt_sha256<>p_parent_relations_receipt_sha256
     OR NOT EXISTS(SELECT 1 FROM public.hr_yuzhou_production_import_operation operation
       WHERE operation.operation_id=p_operation_id AND operation.status='succeeded')
     OR NOT EXISTS(SELECT 1 FROM public.hr_yuzhou_production_import_rollback_operation rollback
       WHERE rollback.rollback_operation_id=p_rollback_operation_id
-        AND rollback.import_operation_id=p_operation_id AND rollback.status='running'
+        AND rollback.import_operation_id=p_operation_id
+        AND rollback.status IN('running','succeeded')
         AND rollback.sealed_plan_sha256=p_sealed_plan_sha256
         AND rollback.target_identity_sha256=p_target_identity_sha256
         AND rollback.authorization_artifact_sha256=p_authorization_artifact_sha256
@@ -539,10 +540,21 @@ BEGIN
     RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_ROLLBACK_BINDING_INVALID'; END IF;
   IF v_receipt.status='rolled_back' THEN
     IF v_receipt.rollback_operation_id<>p_rollback_operation_id
-      OR v_receipt.extension_rollback_nonce_sha256<>p_extension_rollback_nonce_sha256 THEN
+      OR v_receipt.extension_rollback_nonce_sha256<>p_extension_rollback_nonce_sha256
+      OR v_parent.status NOT IN('succeeded','rolled_back') THEN
+      RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_ROLLBACK_REPLAY_DRIFT'; END IF;
+    SELECT count(*) INTO v_residual FROM public.hr_performance_legacy_identity_resolution
+      WHERE migration_batch_id=v_receipt.migration_batch_id
+        AND fact_kind IN('dimension_result','master_result');
+    IF v_residual<>0 THEN
       RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_ROLLBACK_REPLAY_DRIFT'; END IF;
     v_replayed:=true; v_rollback_receipt:=v_receipt.rollback_receipt_sha256;
   ELSE
+    IF v_receipt.status<>'succeeded' OR v_parent.status<>'succeeded'
+      OR NOT EXISTS(SELECT 1 FROM public.hr_yuzhou_production_import_rollback_operation rollback
+        WHERE rollback.rollback_operation_id=p_rollback_operation_id
+          AND rollback.status='running') THEN
+      RAISE EXCEPTION 'HR_PERFORMANCE_FACT_IDENTITY_PRODUCTION_ROLLBACK_BINDING_INVALID'; END IF;
     PERFORM set_config('yuzhou.performance_fact_identity_operation_id',p_operation_id,true);
     PERFORM set_config('yuzhou.performance_fact_identity_rollback_operation_id',p_rollback_operation_id,true);
     PERFORM set_config('yuzhou.performance_fact_identity_mode','rollback',true);
@@ -574,7 +586,7 @@ BEGIN
   END IF;
   RETURN QUERY SELECT 'rolled_back'::varchar,
     'fact_identity>performance_relations>performance_facts'::text,
-    0::bigint,v_replayed,v_rollback_receipt;
+    COALESCE(v_residual,0)::bigint,v_replayed,v_rollback_receipt;
 END$$;
 
 DO $$ BEGIN
