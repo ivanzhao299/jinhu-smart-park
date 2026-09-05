@@ -281,11 +281,12 @@ export async function executePerformancePersonAssessmentProductionPayload(artifa
   const { artifact, authorization, operation } = await preflight(artifactInput, authorizationInput, options, false);
   if (operation) return validateReceipt(operation, artifact, "succeeded");
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_performance_person_assessment_authorization" }, async tx => {
-    await tx.query("SELECT hr_yuzhou_consume_performance_person_assessment_authorization($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)", [
+    await tx.query("SELECT hr_yuzhou_consume_performance_person_assessment_authorization($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)", [
       artifact.operationId, artifact.parentImportOperationId, artifact.triple.codeSha, artifact.triple.sourceSnapshotHash,
       artifact.triple.mappingContractHash, artifact.bindings.t0ArtifactSha256, artifact.bindings.contractArtifactSha256,
-      artifact.bindings.sourcePayloadArtifactSha256, artifact.bindings.safeReceiptArtifactSha256,
-      artifact.bindings.migrationArtifactSha256, artifact.sealing.sealedArtifactSha256,
+      artifact.bindings.sourceRestoreReceiptSha256, artifact.bindings.sourcePayloadArtifactSha256,
+      artifact.bindings.safeReceiptArtifactSha256, artifact.bindings.migrationArtifactSha256,
+      artifact.payloadSha256, artifact.sealing.sealedArtifactSha256,
       computePerformancePersonAssessmentProductionBindingHash(artifact), authorization.artifactSha256,
       authorization.nonceSha256, authorization.expiresAt,
     ]);
