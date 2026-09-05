@@ -1,8 +1,8 @@
 {
   "id": "yuzhou-hr-compatibility-migration-env",
   "name": "yuzhou-hr-compatibility-migration-env",
-  "title": "企业级独立 HR 产品重写、玉舟全量兼容与最终验收",
-  "description": "以最终产品验收为开发完成目标：原 M0-M5 全部通过 AND P0-P4 全部通过。同一 HR 内核在 Smart Park 集成版和独立企业版运行，完整兼容旧数据及业务规则，可整体迁出复用；迁移成功、清单完成或测试通过不得单独代表产品完成。验收依据为 docs/yuzhou-hr-compatibility-development-plan.md 与 scripts/hr-cutover/contracts/hr-enterprise-rewrite-roadmap-v2.json。",
+  "title": "玉舟 HR 企业级全功能重写、完整迁移与双模式最终验收",
+  "description": "以最终验收为完成目标：玉舟表、字段、拆分关系、存储过程、函数、触发器及双旧端页面逐项映射并验证现代业务等价；同一 HR 内核支持 Smart Park 集成及独立企业部署，具备专用数据与文件边界、完整迁出复用及受控生产迁移。M0-M5 全部通过 AND P0-P4 全部通过才完成，数据入库、CI 或平均分不能代替最终验收。",
   "status": "in_progress",
   "dev_type": null,
   "scope": null,
@@ -28,6 +28,10 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": "保留原任务 ID、子任务关系和历史证据；环境与 T0 是初始阶段，不是父任务范围上限。每个后续切片绑定 M 里程碑、P 验收项和可复核证据；没有通过的项目保持未完成，不因更新目标重跑已有效的演练。",
+  "meta": {
+    "acceptanceContract": "scripts/hr-cutover/contracts/hr-enterprise-rewrite-roadmap-v2.json",
+    "acceptancePlan": "docs/yuzhou-hr-compatibility-development-plan.md",
+    "completionRule": "ALL_M0_M5_AND_ALL_P0_P4"
+  }
 }

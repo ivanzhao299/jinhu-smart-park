@@ -6,6 +6,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
 import { TenantStatusModule } from "../tenants/tenant-status.module";
 import { UsersModule } from "../users/users.module";
+import { IdentityDirectoryModule } from "../users/identity-directory.module";
 import { AuthController } from "./auth.controller";
 import { AuthPreValidationRateLimitMiddleware } from "./auth-prevalidation-rate-limit.middleware";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
@@ -39,6 +40,8 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     ]),
     AuditModule,
     TenantStatusModule,
+    IdentityDirectoryModule,
+    // /auth/me still uses the integrated user-context/menu projection.
     UsersModule
   ],
   controllers: [AuthController],

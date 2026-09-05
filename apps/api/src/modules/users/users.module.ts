@@ -14,6 +14,7 @@ import { ParkEntity } from "../parks/entities/park.entity";
 import { UserEntity } from "./entities/user.entity";
 import { UserParkEntity } from "./entities/user-park.entity";
 import { UsersController } from "./users.controller";
+import { IdentityDirectoryModule } from "./identity-directory.module";
 import { UsersService } from "./users.service";
 
 @Module({
@@ -22,7 +23,8 @@ import { UsersService } from "./users.service";
     RolesModule,
     DataScopesModule,
     FieldPoliciesModule,
-    SaaSModulesModule
+    SaaSModulesModule,
+    IdentityDirectoryModule
   ],
   controllers: [UsersController],
   providers: [UsersService],

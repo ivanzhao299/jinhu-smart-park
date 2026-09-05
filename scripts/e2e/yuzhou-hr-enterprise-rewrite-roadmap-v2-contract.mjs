@@ -84,8 +84,9 @@ test("parent task targets final product acceptance rather than environment setup
   const task = JSON.parse(readFileSync(new URL(
     "../../.trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/task.json", import.meta.url,
   ), "utf8"));
-  assert.match(task.title, /企业级独立 HR 产品重写、玉舟全量兼容与最终验收/);
+  assert.match(task.title, /HR.*重写.*最终验收/);
   assert.match(task.description, /M0-M5 全部通过 AND P0-P4 全部通过/);
-  assert.match(task.description, /不得单独代表产品完成/);
-  assert.ok(task.description.includes("hr-enterprise-rewrite-roadmap-v2.json"));
+  assert.match(task.description, /不能代替最终验收/);
+  assert.equal(task.meta.completionRule, roadmap.productAcceptance.completionRule);
+  assert.equal(task.meta.acceptanceContract, "scripts/hr-cutover/contracts/hr-enterprise-rewrite-roadmap-v2.json");
 });
