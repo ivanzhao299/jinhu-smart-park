@@ -8,6 +8,7 @@ import test from "node:test";
 
 import {
   buildSyntheticPayrollUInputbasepaySourceReceipt,
+  catalogDisposition,
   capturePayrollUInputbasepaySourceReceipt,
   assertPayrollUInputbasepaySourceContainerBinding,
   PAYROLL_U_INPUTBASEPAY_CATALOG_SQL,
@@ -75,7 +76,7 @@ const evidence = (overrides = {}) => ({
   },
   routineCatalog: {
     exists: true,
-    definitionSha256: fixedSha("d"),
+    definitionSha256: contract().sourceEvidence.routine.sourceArtifactSha256,
     dynamicExecutionObserved: true,
     mutationVerbObserved: true,
     personTokenObserved: true,
@@ -180,6 +181,19 @@ test("routine absence and unobserved dynamic-write signature cannot be promoted"
   assert.equal(noMutationSignature.dynamicSqlReviewStatus, "unexecuted_pending_review");
   assert.equal(noMutationSignature.legacyRoutineExecuted, false);
   assert.equal(noMutationSignature.legacyDynamicSqlExecuted, false);
+});
+
+test("a live routine with a different definition hash remains a source-identity drift", () => {
+  const drifted = evidence({
+    routineCatalog: {
+      ...evidence().routineCatalog,
+      definitionSha256: fixedSha("e"),
+    },
+  });
+  assert.equal(
+    catalogDisposition(drifted, contract().sourceEvidence.routine.sourceArtifactSha256),
+    "source_routine_definition_drift",
+  );
 });
 
 test("queries expose only catalog metadata and row/null aggregates while source mutation authority is denied", () => {

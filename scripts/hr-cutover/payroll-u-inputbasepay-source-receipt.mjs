@@ -422,8 +422,12 @@ function validateEvidence(evidence) {
   return structuredClone(evidence);
 }
 
-function catalogDisposition(evidence) {
+export function catalogDisposition(evidence, expectedRoutineDefinitionSha256) {
+  requireSha(expectedRoutineDefinitionSha256, "PAYROLL_U_INPUTBASEPAY_SOURCE_CATALOG_INVALID", "reviewed routine definition hash");
   if (!evidence.routineCatalog.exists) return "source_routine_absent";
+  if (evidence.routineCatalog.definitionSha256 !== expectedRoutineDefinitionSha256) {
+    return "source_routine_definition_drift";
+  }
   if (!evidence.routineCatalog.personTokenObserved || !evidence.routineCatalog.sourceFieldTokenObserved) {
     return "source_routine_field_binding_unobserved";
   }
@@ -459,7 +463,7 @@ function buildReceipt({
     fail("PAYROLL_U_INPUTBASEPAY_SOURCE_RECEIPT_INVALID", "evidence origin");
   }
   const safeEvidence = validateEvidence(evidence);
-  const disposition = catalogDisposition(safeEvidence);
+  const disposition = catalogDisposition(safeEvidence, contractEvidence.sourceArtifactSha256);
   const liveSourceIdentityVerified = evidenceOrigin === "live_bound_read_only_sqlserver"
     && disposition === "source_catalog_identity_observed";
   const sourceIdentityReason = evidenceOrigin === "synthetic_contract_test"
@@ -595,7 +599,7 @@ export function validatePayrollUInputbasepaySourceReceipt(receipt, { contract, r
     routineCatalog: body.routineCatalog,
     valueAggregate: body.sourceObject.valueAggregate,
   });
-  const disposition = catalogDisposition(evidence);
+  const disposition = catalogDisposition(evidence, contractEvidence.sourceArtifactSha256);
   const verified = body.evidenceOrigin === "live_bound_read_only_sqlserver" && disposition === "source_catalog_identity_observed";
   const expectedGaps = [
     ...(verified ? [] : ["PAYROLL_U_INPUTBASEPAY_SOURCE_FIELD_IDENTITY_UNPROVEN"]),
