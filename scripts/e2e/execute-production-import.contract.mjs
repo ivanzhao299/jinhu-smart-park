@@ -8,6 +8,7 @@ import { afterEach, test } from "node:test";
 import {
   ProductionImportEntrypointError,
   createProductionImportArtifactCryptoProvider,
+  currentRepositorySha,
   parseProductionImportEntrypointArgs,
   readBoundedPrivateArtifactBytes,
   runProductionImportEntrypoint,
@@ -216,6 +217,10 @@ test("CLI defaults to read-only preparation and rejects ambiguous arguments", ()
   assert.deepEqual(parseProductionImportEntrypointArgs(["--config", "/tmp/example"]), { configPath: "/tmp/example", execute: false });
   assert.deepEqual(parseProductionImportEntrypointArgs(["--execute", "--config", "/tmp/example"]), { configPath: "/tmp/example", execute: true });
   assert.throws(() => parseProductionImportEntrypointArgs(["--config", "/tmp/a", "--config", "/tmp/b"]), error => error.code === "PRODUCTION_IMPORT_ENTRYPOINT_ARGUMENT_INVALID");
+});
+
+test("published entrypoint resolves only from a clean tracked candidate", () => {
+  assert.match(currentRepositorySha(), /^[0-9a-f]{40}$/u);
 });
 
 test("bounded private reads reject aggregate overflow, concurrent growth, and truncation", () => {

@@ -453,7 +453,7 @@ export async function createProductionImportArtifactCryptoProvider({ envelopeArt
   }
 }
 
-function currentRepositorySha() {
+export function currentRepositorySha() {
   try {
     const git = args => execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", "ignore", "ignore"] });
     git(["ls-files", "--error-unmatch", "--", ...EXECUTION_DEPENDENCY_PATHS]);
