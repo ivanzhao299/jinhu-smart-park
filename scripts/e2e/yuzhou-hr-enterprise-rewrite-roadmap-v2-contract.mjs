@@ -79,3 +79,14 @@ test("freezing the expanded goal cannot claim product readiness or inherit the o
     for (const { id } of acceptance.gates) assert.ok(content.includes(id), `${path} lacks ${id}`);
   }
 });
+
+test("parent task targets final product acceptance rather than environment setup", () => {
+  const task = JSON.parse(readFileSync(new URL(
+    "../../.trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/task.json", import.meta.url,
+  ), "utf8"));
+  assert.match(task.title, /HR.*重写.*最终验收/);
+  assert.match(task.description, /M0-M5 全部通过 AND P0-P4 全部通过/);
+  assert.match(task.description, /不能代替最终验收/);
+  assert.equal(task.meta.completionRule, roadmap.productAcceptance.completionRule);
+  assert.equal(task.meta.acceptanceContract, "scripts/hr-cutover/contracts/hr-enterprise-rewrite-roadmap-v2.json");
+});
