@@ -47,7 +47,7 @@ function directory(path, original) {
 }
 function read(path, limit, budget, consume, expected) {
   canonicalPath(path); directory(dirname(path));
-  let fd;
+  let fd, buffer;
   try {
     const before = lstatSync(path);
     if (!before.isFile() || !owned(before, 0o600) || before.nlink !== 1) fail("FILE_UNSAFE");
@@ -57,7 +57,8 @@ function read(path, limit, budget, consume, expected) {
     if (!Number.isSafeInteger(stat.size) || stat.size < 1 || stat.size > limit) fail("FILE_SIZE_INVALID");
     if (budget.bytes + stat.size > budget.maximum) fail("READ_BUDGET_EXCEEDED");
     budget.bytes += stat.size;
-    const buffer = Buffer.alloc(CHUNK), digest = createHash("sha256");
+    buffer = Buffer.alloc(CHUNK);
+    const digest = createHash("sha256");
     let offset = 0;
     while (offset < stat.size) {
       const count = readSync(fd, buffer, 0, Math.min(CHUNK, stat.size - offset), null);
@@ -68,17 +69,17 @@ function read(path, limit, budget, consume, expected) {
     canonicalPath(path);
     if (!sameFile(stat, lstatSync(path))) fail("FILE_CHANGED");
     return { sha256: digest.digest("hex"), bytes: offset, stat };
-  } finally { if (fd !== undefined) closeSync(fd); }
+  } finally { buffer?.fill(0); if (fd !== undefined) closeSync(fd); }
 }
 function parse(bytes) {
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
   catch { fail("JSON_INVALID"); }
 }
-export function currentCandidateFreezeRepositorySha(repositoryRoot = ROOT) {
+export function currentCandidateFreezeRepositorySha(repositoryRoot = ROOT, additionalDependencyPaths = []) {
   if (typeof repositoryRoot !== "string" || !isAbsolute(repositoryRoot) || resolve(repositoryRoot) !== repositoryRoot) fail("CURRENT_CODE_REQUIRED");
   try {
     const git = args => execFileSync("git", args, { cwd: repositoryRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 });
-    git(["ls-files", "--error-unmatch", "--", ...PRODUCTION_IMPORT_CANDIDATE_FREEZE_DEPENDENCY_PATHS]);
+    git(["ls-files", "--error-unmatch", "--", ...PRODUCTION_IMPORT_CANDIDATE_FREEZE_DEPENDENCY_PATHS, ...additionalDependencyPaths]);
     git(["diff", "--quiet", "--no-ext-diff", "--"]);
     git(["diff", "--cached", "--quiet", "--no-ext-diff", "--"]);
     const head = git(["rev-parse", "HEAD"]).trim();
@@ -128,7 +129,8 @@ function write(fd, value) {
   }
   if (used) flush(); fsyncSync(fd);
 }
-function emit(path, artifacts, receipt, descriptors, outputLimit) {
+function emit(path, artifacts, receipt, descriptors, outputLimit, receiptFile = RECEIPT) {
+  if (!/^[a-z][a-z0-9-]*\.json$/u.test(receiptFile) || Object.hasOwn(artifacts, receiptFile)) fail("INPUT_INVALID");
   const original = directory(path), opened = [];
   let dirFd, marker;
   try {
@@ -154,17 +156,17 @@ function emit(path, artifacts, receipt, descriptors, outputLimit) {
     };
     checkCompleted(); fsyncSync(dirFd);
     if (readdirSync(path).sort().join("|") !== Object.keys(artifacts).sort().join("|")) fail("OUTPUT_CHANGED");
-    marker = reserve(RECEIPT);
+    marker = reserve(receiptFile);
     verify(marker, receipt, measure(receipt, outputLimit));
     checkCompleted();
-    if (readdirSync(path).sort().join("|") !== [...Object.keys(artifacts), RECEIPT].sort().join("|")) fail("OUTPUT_CHANGED");
+    if (readdirSync(path).sort().join("|") !== [...Object.keys(artifacts), receiptFile].sort().join("|")) fail("OUTPUT_CHANGED");
     fsyncSync(dirFd);
   } catch (error) {
     if (marker) {
       try {
         directory(path, original);
-        const found = lstatSync(join(path, RECEIPT));
-        if (found.dev === marker.stat.dev && found.ino === marker.stat.ino) { unlinkSync(join(path, RECEIPT)); fsyncSync(dirFd); }
+        const found = lstatSync(join(path, receiptFile));
+        if (found.dev === marker.stat.dev && found.ino === marker.stat.ino) { unlinkSync(join(path, receiptFile)); fsyncSync(dirFd); }
       } catch (rollback) { if (rollback?.code !== "ENOENT") fail("RECEIPT_ROLLBACK_FAILED"); }
     }
     throw error;
@@ -172,6 +174,11 @@ function emit(path, artifacts, receipt, descriptors, outputLimit) {
     for (const fd of [...opened.map(item => item.fd), dirFd]) if (fd !== undefined) { try { closeSync(fd); } catch { /* retain the original failure */ } }
   }
 }
+// Shared bounded IO primitives. Callers own fixed filenames, budgets and schemas.
+export { read as readProductionImportPrivateBytes, directory as productionImportPrivateDirectory,
+  canonicalPath as productionImportCanonicalPath, sameFile as sameProductionImportPrivateFile,
+  parse as parseProductionImportPrivateJson, measure as measureProductionImportPrivateJson,
+  emit as emitProductionImportPrivateArtifacts };
 function materialize(configPath, { currentHead: head = currentCandidateFreezeRepositorySha, maximumReadBytes = TOTAL, maximumOutputBytes = LARGE, maximumTotalOutputBytes = TOTAL } = {}) {
   for (const [value, cap] of [[maximumReadBytes, TOTAL], [maximumOutputBytes, LARGE], [maximumTotalOutputBytes, TOTAL]]) {
     if (!Number.isSafeInteger(value) || value < 1 || value > cap) fail("BUDGET_INVALID");
