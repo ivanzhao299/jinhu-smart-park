@@ -8,4 +8,6 @@
 - Related contracts:57/58 pass; existing staffing t0LabLoader reference mismatch verified against unchanged HEAD bytes.
   This is not repaired by inventing semantic parity. Production remains HOLD; no real source decisions produced.
 - No local application lint/typecheck/build (JavaScript preparation only; no installed workspace dependencies).
-- Publish still requires workflow scope for preceding backup-retention commit; no repeated push attempts.
+- Original combined branch publication required workflow scope for preceding backup-retention commit.
+  Code-only follow-up branch codex/hr-t0-candidate-mapping-v1 excludes that independent workflow change;
+  its existing repository authorization successfully pushed the reviewed mapping changes. Backup candidate remains preserved separately.
