@@ -289,6 +289,9 @@ authorization receipt。
 此路径不是跳过版本检查：当前 source manifest 必须与当前 C/S/M、完整生产目标 inventory 的 canonical manifest SHA 一致；T0 manifest 的全部域、三份状态字典文件的哈希/数量、员工实际状态分布、旧 decision 的逐状态来源行哈希及字典聚合哈希均须一致；当前代码独立计算的状态映射还必须与旧 decision 逐项相同。任何未知状态、数量/字节变化或语义变化都在生成候选前拒绝。
 
 旧 decision 的代码版本、映射版本、checkpoint 和文件字节保持原样。新 T0 候选只通过原 decision 的文件 SHA 记录其来源，使用本轮生产目标范围及当前 C/S/M；不挪用旧实验范围、旧授权或旧运行成功结论。输出依旧是 `HOLD` 的候选，不是业务签署、封存计划或生产导入成功。完整字段及父子关系、冲突决策、实际写入、回退和用户端查询仍须由后续链路验证。
+
+T2 合同候选的私有 config 可显式设置 `dictionaryRevalidation: "source_semantics"`；省略时仍严格要求字典包 C/S/M 等于当前值。启用后要求相同源 S、完整合同类型/状态文件和源行哈希、实际状态使用数量、字典聚合全部一致，并按原始包 C/S/M 验证原始机器证明，再独立对照当前合同类型/状态策略。未知状态、映射目标或原因不一致均拒绝。原包字节及其 SHA 保持不变；生产 inventory、T0、阶段清单和合同变更分类仍须绑定当前版本。此选项不推断续签，不转移旧实验授权，也不触发数据库写入。
+
 主 CI 固定执行 preflight 与 v2 合同测试；数据库敏感 Release Smoke 还会从已迁移的临时数据库克隆一份
 精确命名的 lab 数据库，执行 scope、依赖图、v1兼容、普通角色拒绝和 residual=0 PostgreSQL 合同后删除该 lab 数据库。
 

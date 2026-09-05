@@ -9,6 +9,7 @@ import { verifyProductionSourceManifest } from "../prepare-yuzhou-production-sou
 import { stableProductionImportCanonicalJson as canonical } from "./production-import-target-model.mjs";
 import { assembleProductionT2DecisionCandidates } from "./production-t2-decision-candidates.mjs";
 import { verifyProductionT2StagedRecord } from "./production-t2-field-projection.mjs";
+import { evaluateCoreT2DictionaryPolicy } from "./materialize-core-non-t0-dictionaries.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const SHA = /^[0-9a-f]{64}$/u;
@@ -98,9 +99,17 @@ function stage(stagingDir, manifest, budget) {
   return { records, states, hashes };
 }
 
-export function resolveProductionT2DictionaryCandidates(pkg, staged, triple, changeDecisions = null) {
+export function resolveProductionT2DictionaryCandidates(pkg, staged, triple, changeDecisions = null, { revalidateSourceSemantics = false } = {}) {
+  if (typeof revalidateSourceSemantics !== "boolean") fail("T2_MATERIALIZER_DICTIONARY_REVALIDATION_INVALID");
   exact(pkg, ["formatVersion", "kind", "triple", "trustedRootSha256", "machineActor", "evidence", "dictionaries", "productionImport"], "T2_MATERIALIZER_DICTIONARY_INVALID");
-  if (pkg.formatVersion !== 1 || pkg.kind !== "yuzhou_core_non_t0_machine_dictionary_package" || !same(pkg.triple, triple) || pkg.productionImport !== "HOLD"
+  for (const binding of [triple, pkg.triple]) {
+    exact(binding, ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "T2_MATERIALIZER_DICTIONARY_INVALID");
+    if (typeof binding.codeSha !== "string" || !/^[0-9a-f]{40}$/u.test(binding.codeSha)
+      || typeof binding.sourceSnapshotHash !== "string" || !SHA.test(binding.sourceSnapshotHash)
+      || typeof binding.mappingContractHash !== "string" || !SHA.test(binding.mappingContractHash)) fail("T2_MATERIALIZER_DICTIONARY_INVALID");
+  }
+  if (pkg.formatVersion !== 1 || pkg.kind !== "yuzhou_core_non_t0_machine_dictionary_package"
+    || (revalidateSourceSemantics ? pkg.triple.sourceSnapshotHash !== triple.sourceSnapshotHash : !same(pkg.triple, triple)) || pkg.productionImport !== "HOLD"
     || !SHA.test(pkg.trustedRootSha256 ?? "") || !Array.isArray(pkg.dictionaries) || !plain(pkg.evidence)) fail("T2_MATERIALIZER_DICTIONARY_INVALID");
   exact(pkg.machineActor, ["id", "kind", "verifiedAt"], "T2_MATERIALIZER_DICTIONARY_INVALID");
   if (pkg.machineActor.kind !== "machine_policy_engine" || !Number.isFinite(Date.parse(pkg.machineActor.verifiedAt))) fail("T2_MATERIALIZER_DICTIONARY_INVALID");
@@ -134,9 +143,16 @@ export function resolveProductionT2DictionaryCandidates(pkg, staged, triple, cha
       if (!original || seen.has(item.sourceIdentitySha256) || !same(original, { sourceCode: item.sourceCode, sourceName: item.sourceName, sourceValue: item.sourceValue })
         || item.sourceRowSha256 !== canonicalHash(original) || !["map", "reject"].includes(item.decision)
         || (item.decision === "map" ? item.targetDomain !== targetDomain || typeof item.targetValue !== "string" : item.targetDomain !== null || item.targetValue !== null)) fail("T2_MATERIALIZER_DICTIONARY_SOURCE_DRIFT");
+      if (revalidateSourceSemantics) {
+        const currentTarget = evaluateCoreT2DictionaryPolicy(code, code === "contract_type" ? original.sourceCode : original.sourceValue);
+        if (currentTarget === null || item.decision !== "map" || item.targetDomain !== targetDomain || item.targetValue !== currentTarget
+          || item.reasonCode !== "DETERMINISTIC_COMPATIBILITY_MAPPING") fail("T2_MATERIALIZER_DICTIONARY_POLICY_MISMATCH");
+      }
       seen.add(item.sourceIdentitySha256); mappings.set(item.sourceIdentitySha256, item);
     }
-    if (d.machineAttestationSha256 !== canonicalHash({ triple, trustedRootSha256: pkg.trustedRootSha256, dictionaryCode: code, sourceSnapshotSha256: d.sourceSnapshotSha256, items: d.items.map(({ id: _id, ...rest }) => rest) })) fail("T2_MATERIALIZER_DICTIONARY_HASH_MISMATCH");
+    // Preserve original provenance. Revalidation must never re-sign a historical
+    // package with the current code/mapping or transplant its lab approvals.
+    if (d.machineAttestationSha256 !== canonicalHash({ triple: pkg.triple, trustedRootSha256: pkg.trustedRootSha256, dictionaryCode: code, sourceSnapshotSha256: d.sourceSnapshotSha256, items: d.items.map(({ id: _id, ...rest }) => rest) })) fail("T2_MATERIALIZER_DICTIONARY_HASH_MISMATCH");
   }
   const changes = new Map();
   if (changeDecisions !== null) {
@@ -167,7 +183,9 @@ export function materializeProductionT2DecisionCandidates(configPath, { currentH
   if (!Number.isSafeInteger(maximumReadBytes) || maximumReadBytes < 1 || maximumReadBytes > MAX_TOTAL_BYTES) fail("T2_MATERIALIZER_READ_BUDGET_INVALID");
   const budget = { bytesRead: 0, maximumBytes: maximumReadBytes };
   const config = json(bytes(configPath, budget));
-  exact(config, ["formatVersion", "triple", "stagingDir", "artifacts", "outputPath"]);
+  const hasRevalidation = plain(config) && Object.hasOwn(config, "dictionaryRevalidation");
+  exact(config, ["formatVersion", "triple", "stagingDir", "artifacts", "outputPath", ...(hasRevalidation ? ["dictionaryRevalidation"] : [])]);
+  if (hasRevalidation && config.dictionaryRevalidation !== "source_semantics") fail("T2_MATERIALIZER_DICTIONARY_REVALIDATION_INVALID");
   exact(config.triple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"]);
   if (config.formatVersion !== 1 || config.triple.codeSha !== currentHead()) fail("T2_MATERIALIZER_CURRENT_CODE_REQUIRED");
   exact(config.artifacts, ["sourceManifest", "phaseArtifact", "targetInventory", "t0Candidates", "dictionaryPackage", "changeDecisions"]);
@@ -182,7 +200,7 @@ export function materializeProductionT2DecisionCandidates(configPath, { currentH
   const t0 = artifact(a.t0Candidates, budget), phase = artifact(a.phaseArtifact, budget), dictionary = artifact(a.dictionaryPackage, budget);
   const staged = stage(config.stagingDir, manifest, budget);
   const changeDecisions = a.changeDecisions === null ? null : artifact(a.changeDecisions, budget);
-  const resolutions = resolveProductionT2DictionaryCandidates(dictionary, staged, config.triple, changeDecisions);
+  const resolutions = resolveProductionT2DictionaryCandidates(dictionary, staged, config.triple, changeDecisions, { revalidateSourceSemantics: hasRevalidation });
   const result = assembleProductionT2DecisionCandidates({ triple: config.triple, targetScope: t0.targetScope, targetInventory: inventory, t0Candidates: t0, phaseArtifact: phase,
     stagedRecords: staged.records, resolutions, artifactHashes: { phaseArtifactSha256: a.phaseArtifact.sha256, targetInventoryArtifactSha256: a.targetInventory.sha256,
       t0CandidatesArtifactSha256: a.t0Candidates.sha256, resolutionArtifactSha256: canonicalHash({ dictionaryPackageSha256: a.dictionaryPackage.sha256, changeDecisionsSha256: a.changeDecisions?.sha256 ?? null, resolutions }) } });

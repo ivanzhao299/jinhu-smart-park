@@ -19,4 +19,6 @@ The T0 CLI owns private bounded reads and current full inventory/source-manifest
 
 ## Limits
 
+T2 uses the sibling explicit config `dictionaryRevalidation: "source_semantics"`. Its resolver accepts a final `{revalidateSourceSemantics: true}` option. Both original and current triples must be well-formed and share S; all consumed type/state bytes, source rows, aggregate hashes and actual usage remain verified. Original dictionary attestations are recomputed with original C/S/M, then each item is independently checked against `evaluateCoreT2DictionaryPolicy`. Package bytes/hash are unchanged. Current inventory, T0, phase and change-classification bindings are not relaxed. Unknown policy, changed reason/target and attestation relabeling must fail. Empty dictionaries remain explicitly validated. Tests must cover default rejection, opt-in success, malformed or different S, refreshed attestation rejection, unchanged package and stale change-classification rejection.
+
 Integrity hashes are not external approvals. Source revalidation does not prove new runtime identity, successful production import, record-map freeze, full HR parity or business UAT. Never rewrite an old receipt's C/M or fabricate a lab checkpoint to make it current.

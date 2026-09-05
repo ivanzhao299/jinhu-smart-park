@@ -12,6 +12,7 @@ Continue the existing enterprise HR migration goal by making current production 
 - Independently re-evaluate the current deterministic state policy and reject any differing original decision, changed source bytes/counts, unknown values, different source snapshot, or malformed evidence. Never infer semantics only from a state code.
 - No old production target, lab scope, checkpoint, approval or authorization is transferred. Current target scope/inventory checks and HOLD remain unchanged.
 - Preserve T0 candidate envelope compatibility for T1/T2 consumers and reject drift before producing output. Add positive and negative synthetic tests plus real controlled-source hash-only verification.
+- Apply the same source-semantic rule to T2 contract type/state candidates: default dictionary C/S/M stays strict; explicit `dictionaryRevalidation: "source_semantics"` must verify original dictionary hashes against the original triple, unchanged current source bytes/usage, and independently evaluate the existing current T2 dictionary policy. Current phase/target/T0/change-classification bindings are never relaxed. Historical dictionary bytes remain referenced, never rewritten.
 
 ## Implementation plan
 

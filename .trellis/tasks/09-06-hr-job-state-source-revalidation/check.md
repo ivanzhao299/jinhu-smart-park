@@ -14,4 +14,10 @@ The local modified verifier was exercised with the existing manifest-bound sourc
 
 ## Remaining
 
+## T2 sibling verification added before merge
+
+- Same bounded implementer owned two T2 implementation files; root reviewed and added seven regression cases. Existing defaults and dictionary policy values are unchanged.
+- T2 assembly/materializer tests: 33/33 passed, including original-triple attestation, current-policy comparison, default strict rejection, unknown policy, malformed/source drift, stale change classification, unchanged bytes and empty sources. Existing non-T0 dictionary contract passed.
+- Controlled source validation passed against manifest-bound bytes: 4 contract types, 802 contracts, 357 changes, 2 states. All 806 type/status resolutions validated; 357 changes remain unclassified, not inferred renewal. Original dictionary package SHA `20562948c5519b13ac36904857656362feddbcc3e943718c2a0a701d7078b530` unchanged. No SQL or production writes.
+
 PR/CI and release are pending for this change. Fresh current-code production candidates must use independently captured current target evidence. Candidate freeze/conflict resolution, business/one-time execution authority and actual domain reconciliation remain separate; production import remains HOLD. Product-wide M0-M5/P0-P4 acceptance is not complete.
