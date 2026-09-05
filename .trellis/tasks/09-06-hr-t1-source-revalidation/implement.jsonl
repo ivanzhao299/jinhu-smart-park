@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/api/backend/yuzhou-job-state-source-revalidation.md", "reason": "Original proof versus current source semantics; explicit T1 mode"}
+{"file": ".trellis/spec/api/backend/yuzhou-t2-production-projection.md", "reason": "Reuse validated T0 dependency and target inventory contracts"}

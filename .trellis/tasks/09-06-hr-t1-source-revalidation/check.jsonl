@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/api/backend/yuzhou-job-state-source-revalidation.md", "reason": "Current source semantics and historical proof immutability"}
+{"file": ".trellis/spec/api/backend/yuzhou-t2-production-projection.md", "reason": "Reused T0 dependency verification and private read limits"}
