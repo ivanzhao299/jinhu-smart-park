@@ -113,7 +113,7 @@ function project(meta, refs, build, parentReason = null) {
   }
 }
 
-export function buildProductionT3AttendanceSupport(attendanceRows, attendanceFileSha256) {
+function observedAttendanceSymbols(attendanceRows, attendanceFileSha256) {
   if (!Array.isArray(attendanceRows) || typeof attendanceFileSha256 !== "string" || !SHA.test(attendanceFileSha256)) fail("T3_ATTENDANCE_SUPPORT_INVALID");
   const observed = new Set(), identities = new Set();
   for (const row of attendanceRows) {
@@ -122,11 +122,27 @@ export function buildProductionT3AttendanceSupport(attendanceRows, attendanceFil
     identities.add(row.sourceIdentitySha256);
     for (const day of row.days) if (day.legacySymbol !== null && day.legacySymbol.trim()) observed.add(day.legacySymbol.trim());
   }
+  return [...observed];
+}
+function attendanceSymbolFacts(symbol) {
+  return { rule_version: "yuzhou-v1", legacy_symbol: text(symbol, 64, { required: true }), effective_from: null, effective_to: null, is_historical_import: true, remark: null };
+}
+function insurancePeriodFacts(row) {
+  const legacyItems = Object.fromEntries([...row.items].sort((a, b) => a.kind.localeCompare(b.kind)).map(item => [item.kind, { legacyBaseNegative: item.legacyBaseNegative, legacyFlag: item.legacyFlag }]));
+  return { legacy_id: integer(row.source.id), needs_review: row.items.some(item => item.legacyBaseNegative || item.legacyFlag !== null), is_historical_import: true,
+    source_snapshot: { sourceRowSha256: row.sourceRowSha256, employeeCode: row.source.employeeCode, legacyItems }, remark: null };
+}
+function insuranceItemFields(item) {
+  if (item.legacyBaseNegative && item.contributionBase !== null) fail("T3_LEGACY_BASE_CONTRADICTION");
+  return { insurance_kind: kind(item.kind), contribution_base: decimal(item.contributionBase, 2), total_amount: decimal(item.totalAmount, 2), employer_amount: decimal(item.employerAmount, 2), employee_amount: decimal(item.employeeAmount, 2), supplement_amount: decimal(item.supplementAmount, 2), legacy_base_negative: item.legacyBaseNegative, remark: null };
+}
+export function buildProductionT3AttendanceSupport(attendanceRows, attendanceFileSha256) {
+  const observed = observedAttendanceSymbols(attendanceRows, attendanceFileSha256);
   const batch = project(buildProductionT3AttendanceBatchProvenance(attendanceFileSha256), [], () => ({ batch_code: attendanceFileSha256, source_system: "yuzhou-v10", source_checksum: attendanceFileSha256, status: "imported", is_historical_import: true, remark: null }));
   const rules = [...observed].map(symbol => project(buildProductionT3AttendanceSymbolProvenance(symbol), [], () => {
-    text(symbol, 64, { required: true });
+    const facts = attendanceSymbolFacts(symbol);
     if (!symbols.has(symbol)) fail("T3_ATTENDANCE_SYMBOL_UNRESOLVED");
-    return { rule_version: "yuzhou-v1", legacy_symbol: symbol, normalized_kind: symbols.get(symbol), effective_from: null, effective_to: null, status: "enabled", is_historical_import: true, remark: null };
+    return { ...facts, normalized_kind: symbols.get(symbol), status: "enabled" };
   })).sort((a, b) => a.sourceIdentitySha256.localeCompare(b.sourceIdentitySha256));
   return [batch, ...rules];
 }
@@ -166,13 +182,54 @@ export function projectProductionT3Fields(row, options = {}) {
   const insurancePeriod = project(provenance(row, "hr_employee_insurance_period"), employeeRefs, () => {
     const { year, month } = period(row.source);
     if (!employeeCode) fail("T3_EMPLOYEE_REQUIRED");
-    const legacyItems = Object.fromEntries([...row.items].sort((a, b) => a.kind.localeCompare(b.kind)).map(item => [item.kind, { legacyBaseNegative: item.legacyBaseNegative, legacyFlag: item.legacyFlag }]));
-    return { period_year: year, period_month: month, legacy_id: integer(row.source.id), status: "historical", needs_review: row.items.some(item => item.legacyBaseNegative || item.legacyFlag !== null), is_historical_import: true,
-      source_snapshot: { sourceRowSha256: row.sourceRowSha256, employeeCode: row.source.employeeCode, legacyItems }, remark: null };
+    return { period_year: year, period_month: month, ...insurancePeriodFacts(row), status: "historical" };
   });
   const items = row.items.map(item => project(child(row, "hr_employee_insurance_item", item.kind), [dependency("period", insurancePeriod.targetTable, insurancePeriod.sourceIdentitySha256)], () => {
-    if (item.legacyBaseNegative && item.contributionBase !== null) fail("T3_LEGACY_BASE_CONTRADICTION");
-    return { insurance_kind: kind(item.kind), contribution_base: decimal(item.contributionBase, 2), total_amount: decimal(item.totalAmount, 2), employer_amount: decimal(item.employerAmount, 2), employee_amount: decimal(item.employeeAmount, 2), supplement_amount: decimal(item.supplementAmount, 2), legacy_base_negative: item.legacyBaseNegative, remark: null };
+    return insuranceItemFields(item);
   }, insurancePeriod.reasonCode)).sort((a, b) => a.sourceIdentitySha256.localeCompare(b.sourceIdentitySha256));
   return [insurancePeriod, ...items];
+}
+
+function quarantineProjection(original, fields, omittedFields) {
+  const rule = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables[original.targetTable];
+  let targetFields;
+  try { targetFields = normalizeProductionImportTargetFields(original.targetTable, fields, rule, { partial: true }); }
+  catch { fail("T3_TARGET_FIELDS_UNREPRESENTABLE"); }
+  return { ...structuredClone(original), targetFields, omittedFields };
+}
+
+/** Opt-in source facts only: missing calendar components must be literal null.
+ * Never catch arbitrary semantic errors as partial success or change candidates. */
+export function projectProductionT3InsuranceQuarantineFields(row) {
+  verifyProductionT3StagedRecord(row);
+  if (row.sourceTable !== "dbo.person_insure") fail("T3_QUARANTINE_CASE_UNSUPPORTED");
+  const calendar = {}, omittedFields = [];
+  for (const [sourceField, field, minimum, maximum] of [["year", "period_year", 1900, 2100], ["month", "period_month", 1, 12]]) {
+    if (row.source[sourceField] === null) omittedFields.push({ field, reasonCode: "T3_INT4_INVALID" });
+    else {
+      const value = integer(row.source[sourceField]);
+      if (value < minimum || value > maximum) fail("T3_CALENDAR_PERIOD_INVALID");
+      calendar[field] = value;
+    }
+  }
+  if (!omittedFields.length) fail("T3_QUARANTINE_CASE_UNSUPPORTED");
+  if (typeof row.source.employeeCode !== "string" || !row.source.employeeCode.trim()) fail("T3_EMPLOYEE_REQUIRED");
+  // Build every child even though the default path propagates its parent error:
+  // this exposes precision, kind, type and negative-base contradictions instead
+  // of hiding them behind a supported missing-calendar classification.
+  const itemFields = new Map(row.items.map(item => [child(row, "hr_employee_insurance_item", item.kind).sourceIdentitySha256, insuranceItemFields(item)]));
+  const parentFields = { ...calendar, ...insurancePeriodFacts(row) }, originals = projectProductionT3Fields(row);
+  if (originals.some(item => item.reasonCode !== "T3_INT4_INVALID" || item.targetFields !== null)) fail("T3_QUARANTINE_CASE_UNSUPPORTED");
+  return originals.map(original => quarantineProjection(original, original.targetTable === "hr_employee_insurance_period" ? parentFields : itemFields.get(original.sourceIdentitySha256),
+    original.targetTable === "hr_employee_insurance_period" ? [...omittedFields, { field: "status", reasonCode: "T3_QUARANTINE_STATUS_NOT_SELECTED" }] : []));
+}
+
+/** Unknown rule source facts only; known mappings and the import batch stay in
+ * the existing support API. No inferred normalized kind or enabled state. */
+export function buildProductionT3AttendanceQuarantineSupport(attendanceRows, attendanceFileSha256) {
+  return observedAttendanceSymbols(attendanceRows, attendanceFileSha256).filter(symbol => !symbols.has(symbol)).map(symbol => {
+    const facts = attendanceSymbolFacts(symbol);
+    const original = { ...buildProductionT3AttendanceSymbolProvenance(symbol), targetFields: null, dependencyRefs: [], reasonCode: "T3_ATTENDANCE_SYMBOL_UNRESOLVED" };
+    return quarantineProjection(original, facts, ["normalized_kind", "status"].map(field => ({ field, reasonCode: "T3_ATTENDANCE_SYMBOL_UNRESOLVED" })));
+  }).sort((a, b) => a.sourceIdentitySha256.localeCompare(b.sourceIdentitySha256));
 }
