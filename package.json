@@ -272,7 +272,7 @@
     "test:e2e:yuzhou-production-import-preflight": "node --test scripts/e2e/yuzhou-production-import-preflight-contract.mjs",
     "test:e2e:yuzhou-production-source-manifest": "node scripts/e2e/yuzhou-production-source-manifest-contract.mjs",
     "test:e2e:yuzhou-production-import-execution": "node --test scripts/e2e/yuzhou-production-import-execution-contract.mjs",
-    "test:e2e:yuzhou-production-import-v2": "node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs",
+    "test:e2e:yuzhou-production-import-v2": "node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs scripts/e2e/execute-production-import.contract.mjs scripts/e2e/yuzhou-production-import-crypto-provider-contract.mjs",
     "test:e2e:yuzhou-production-import-t5-private-stage": "pnpm test:e2e:yuzhou-production-import-t5-nonfile",
     "test:e2e:yuzhou-production-import-t5-binding-request": "node --test scripts/e2e/yuzhou-production-import-t5-binding-request-contract.mjs",
     "test:e2e:yuzhou-production-import-t5-nonfile": "node --test scripts/e2e/yuzhou-production-import-t5-binding-request-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-control-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-private-stage-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-rollback-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-stage-adapter-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-target-model-contract.mjs scripts/e2e/yuzhou-production-import-t5-nonfile-writer-contract.mjs scripts/e2e/yuzhou-production-import-t5-private-stage-cli-contract.mjs",
