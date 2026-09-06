@@ -48,7 +48,7 @@ import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
 @Controller("homestay")
-@RequireModule("homestay")
+@RequireModule("homestay", "asset")
 @UseInterceptors(HomestayFieldPolicyInterceptor)
 export class HomestayController {
   constructor(
@@ -157,7 +157,7 @@ export class HomestayController {
   upsertRate(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("unitId") unitId: string,
+    @Param("unitId", new ParseUUIDPipe({ version: "4" })) unitId: string,
     @Body() dto: UpsertHomestayRateDto
   ) {
     return this.service.upsertRate(scope, actor, unitId, dto);
@@ -170,7 +170,7 @@ export class HomestayController {
   upsertRateOverride(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("unitId") unitId: string,
+    @Param("unitId", new ParseUUIDPipe({ version: "4" })) unitId: string,
     @Body() dto: UpsertHomestayRateOverrideDto
   ) {
     return this.service.upsertRateOverride(scope, actor, unitId, dto);
@@ -274,7 +274,7 @@ export class HomestayController {
   confirmBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.confirmBooking(scope, actor, id);
   }
@@ -291,7 +291,7 @@ export class HomestayController {
   cancelBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: HomestayReasonDto,
     @Headers("x-idempotency-key") clientKey: string
   ) {
@@ -308,7 +308,7 @@ export class HomestayController {
   markNoShow(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: HomestayReasonDto
   ) {
     return this.service.markNoShow(scope, actor, id, dto.reason);
@@ -324,7 +324,7 @@ export class HomestayController {
   rescheduleBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: RescheduleHomestayBookingDto
   ) {
     return this.service.rescheduleBooking(scope, actor, id, dto);
@@ -340,7 +340,7 @@ export class HomestayController {
   addGuest(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: AddHomestayGuestDto
   ) {
     return this.service.addGuest(scope, actor, id, dto);
@@ -356,7 +356,7 @@ export class HomestayController {
   issueCredential(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: IssueHomestayCredentialDto
   ) {
     return this.service.issueCredential(scope, actor, id, dto);
@@ -372,8 +372,8 @@ export class HomestayController {
   returnCredential(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
-    @Param("credentialId") credentialId: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Param("credentialId", new ParseUUIDPipe({ version: "4" })) credentialId: string
   ) {
     return this.service.returnCredential(scope, actor, id, credentialId);
   }
@@ -405,7 +405,7 @@ export class HomestayController {
   checkIn(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.checkIn(scope, actor, id);
   }
@@ -420,7 +420,7 @@ export class HomestayController {
   checkOut(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.checkOut(scope, actor, id);
   }
@@ -440,7 +440,7 @@ export class HomestayController {
   registerLedgerEntry(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: RegisterHomestayLedgerEntryDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -475,7 +475,7 @@ export class HomestayController {
   executeTurnover(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Param("action") action: "start" | "complete" | "inspect" | "exception",
     @Body() dto: ExecuteHomestayTurnoverDto
   ) {

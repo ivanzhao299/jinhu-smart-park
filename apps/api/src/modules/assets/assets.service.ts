@@ -382,11 +382,35 @@ export class AssetsService {
   }
 
   async deleteUnit(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    const entity = await this.mustFind(this.unitsRepository, scope, id, "Unit not found", undefined, actor, "unit", { unit: "id", building: "buildingId", floor: "floorId" });
-    entity.isDeleted = true;
-    entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
-    return { id };
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(AssetUnitEntity);
+      const where = await this.dataScopeService.buildFindWhere<AssetUnitEntity>(
+        scope,
+        actor,
+        "unit",
+        { ...this.baseWhere<AssetUnitEntity>(scope), id },
+        { unit: "id", building: "buildingId", floor: "floorId" }
+      );
+      const entity = await repository.findOne({
+        where,
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!entity) throw new NotFoundException("Unit not found");
+      const activeRows = await manager.query<Array<{ activeCount: number }>>(
+        `SELECT count(*)::int AS "activeCount"
+           FROM biz_unit
+          WHERE tenant_id=$1 AND park_id=$2 AND asset_unit_id=$3
+            AND is_deleted=false AND status=1`,
+        [scope.tenantId, scope.parkId, id]
+      );
+      if (Number(activeRows[0]?.activeCount ?? 0) > 0) {
+        throw new ConflictException("Active operating unit must be disabled or unlinked before deleting the asset unit");
+      }
+      entity.isDeleted = true;
+      entity.updateBy = actor.sub;
+      await repository.save(entity);
+      return { id };
+    });
   }
 
   private baseWhere<T>(scope: TenantParkScope, status?: string): FindOptionsWhere<T> {

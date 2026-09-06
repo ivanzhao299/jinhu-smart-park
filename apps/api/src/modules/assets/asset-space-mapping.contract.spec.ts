@@ -8,6 +8,9 @@ const service = readFileSync(resolve(process.cwd(), "src/modules/assets/asset-sp
 const mappingModule = readFileSync(resolve(process.cwd(), "src/modules/assets/asset-space-mapping.module.ts"), "utf8");
 const assetsModule = readFileSync(resolve(process.cwd(), "src/modules/assets/assets.module.ts"), "utf8");
 const propertyOperationsModule = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.module.ts"), "utf8");
+const propertyOperationsController = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.controller.ts"), "utf8");
+const propertyOperationsService = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.service.ts"), "utf8");
+const propertyOperationsDto = readFileSync(resolve(process.cwd(), "src/modules/property-operations/dto/configure-property-unit.dto.ts"), "utf8");
 const mappingDto = readFileSync(resolve(process.cwd(), "src/modules/assets/dto/map-asset-space.dto.ts"), "utf8");
 
 test("mapping endpoints retain granular permissions and true HTTP idempotency", () => {
@@ -47,4 +50,12 @@ test("mapping service is composed without creating an assets and units module cy
   assert.match(assetsModule, /AssetSpaceMappingModule/u);
   assert.match(propertyOperationsModule, /AssetSpaceMappingModule/u);
   assert.doesNotMatch(propertyOperationsModule, /AssetsModule/u);
+});
+
+test("explicit operating-unit unlink remains the M-01 handoff contract", () => {
+  assert.match(propertyOperationsController, /@Controller\("property\/units"\)/u);
+  assert.match(propertyOperationsController, /@Put\(":unitId\/operation"\)/u);
+  assert.match(propertyOperationsDto, /asset_unit_id\?: string \| null/u);
+  assert.match(propertyOperationsService, /dto\.asset_unit_id !== null/u);
+  assert.match(propertyOperationsService, /unlinkExistingUnit/u);
 });
