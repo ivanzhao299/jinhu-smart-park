@@ -179,6 +179,33 @@ const expectBridgeCode = (input, code) => assert.throws(
 const badHashInput = structuredClone(baseInput);
 badHashInput.phaseArtifacts[0].sha256 = sha("tampered");
 expectBridgeCode(badHashInput, "PRODUCTION_IMPORT_REAL_ARTIFACT_HASH_MISMATCH");
+
+// Exact typed-array views must exclude surrounding bytes and leave output owned
+// by the bridge, even after callers mutate the original backing buffers.
+const viewInput = structuredClone(baseInput);
+for (const artifact of [...viewInput.phaseArtifacts, viewInput.decisionsArtifact, viewInput.targetInventoryArtifact, viewInput.sealedScopeArtifact]) {
+  const backing = new Uint8Array(artifact.bytes.length + 32).fill(255);
+  backing.set(artifact.bytes, 16);
+  artifact.bytes = backing.subarray(16, backing.length - 16);
+}
+const viewsReady = bridgeProductionImportRealArtifacts(viewInput);
+assert.deepEqual(viewsReady, ready);
+for (const artifact of [...viewInput.phaseArtifacts, viewInput.decisionsArtifact, viewInput.targetInventoryArtifact, viewInput.sealedScopeArtifact]) artifact.bytes.fill(0);
+assert.deepEqual(viewsReady, ready);
+viewsReady.generatorInput.stagingArtifact.content.records[0].sourceRowSha256 = sha("output-mutation");
+assert.deepEqual(bridgeProductionImportRealArtifacts(baseInput), ready);
+
+const sharedInput = structuredClone(baseInput);
+const shared = new Uint8Array(new SharedArrayBuffer(sharedInput.phaseArtifacts[0].bytes.length));
+shared.set(sharedInput.phaseArtifacts[0].bytes);
+sharedInput.phaseArtifacts[0].bytes = shared;
+expectBridgeCode(sharedInput, "PRODUCTION_IMPORT_REAL_ARTIFACT_INPUT_INVALID");
+const invalidUtf8 = structuredClone(baseInput);
+const badUtf8 = Buffer.from(invalidUtf8.phaseArtifacts[0].bytes);
+badUtf8[badUtf8.indexOf(Buffer.from("yuzhou"))] = 255;
+invalidUtf8.phaseArtifacts[0].bytes = badUtf8;
+invalidUtf8.phaseArtifacts[0].sha256 = hash(badUtf8);
+expectBridgeCode(invalidUtf8, "PRODUCTION_IMPORT_REAL_ARTIFACT_JSON_INVALID");
 const badTripleInput = structuredClone(baseInput);
 const badTriplePhase = JSON.parse(Buffer.from(badTripleInput.phaseArtifacts[0].bytes).toString("utf8"));
 badTriplePhase.triple.codeSha = "2".repeat(40);

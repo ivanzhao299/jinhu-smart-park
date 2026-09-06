@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { TextDecoder } from "node:util";
 
 import {
   ProductionImportPayloadGenerationError,
@@ -61,13 +62,19 @@ function explicitBytes(input, label) {
   if (!(typeof input.bytes === "string" || input.bytes instanceof Uint8Array)) {
     fail("PRODUCTION_IMPORT_REAL_ARTIFACT_INPUT_INVALID", `${label} explicit bytes required`);
   }
-  const bytes = typeof input.bytes === "string" ? Buffer.from(input.bytes, "utf8") : Buffer.from(input.bytes);
+  // Hash and decode one exact, non-shared view synchronously. Parsing owns the
+  // resulting object graph; neither another whole-file copy nor downstream
+  // clones of that private graph provide additional caller isolation.
+  if (input.bytes instanceof Uint8Array && input.bytes.buffer instanceof SharedArrayBuffer) {
+    fail("PRODUCTION_IMPORT_REAL_ARTIFACT_INPUT_INVALID", `${label} shared bytes are unsupported`);
+  }
+  const bytes = typeof input.bytes === "string" ? Buffer.from(input.bytes, "utf8") : input.bytes;
   if (bytes.length === 0 || !SHA256.test(input.sha256 ?? "") || sha256(bytes) !== input.sha256) {
     fail("PRODUCTION_IMPORT_REAL_ARTIFACT_HASH_MISMATCH", `${label} bytes differ from declared hash`);
   }
   let parsed;
   try {
-    parsed = JSON.parse(bytes.toString("utf8"));
+    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     fail("PRODUCTION_IMPORT_REAL_ARTIFACT_JSON_INVALID", `${label} is not JSON`);
   }
@@ -85,7 +92,7 @@ function verifyTripleBinding(actual, expected, label) {
 }
 
 function envelope(content) {
-  return { artifactSha256: computeFrozenArtifactHash(content), content: structuredClone(content) };
+  return { artifactSha256: computeFrozenArtifactHash(content), content };
 }
 
 function readPhaseArtifact(input, expectedTriple, model) {
@@ -104,7 +111,7 @@ function readPhaseArtifact(input, expectedTriple, model) {
     if (expectedTables.some(table => !Number.isSafeInteger(artifact.parsed.targetTableCounts[table]) || artifact.parsed.targetTableCounts[table] < 0 || artifact.parsed.targetTableCounts[table] !== observed[table])) fail("PRODUCTION_IMPORT_REAL_PHASE_ARTIFACT_INVALID", "phase target table counts differ");
     coveredTables = expectedTables;
   }
-  return { ...artifact, phase: artifact.parsed.phase, records: structuredClone(artifact.parsed.records), coveredTables };
+  return { ...artifact, phase: artifact.parsed.phase, records: artifact.parsed.records, coveredTables };
 }
 
 function readRoleArtifact(input, expectedTriple, role, artifactKind) {
@@ -114,7 +121,7 @@ function readRoleArtifact(input, expectedTriple, role, artifactKind) {
     fail("PRODUCTION_IMPORT_REAL_ROLE_ARTIFACT_INVALID", `${role} artifact identity invalid`);
   }
   verifyTripleBinding(artifact.parsed.triple, expectedTriple, `${role}Artifact`);
-  return { ...artifact, payload: structuredClone(artifact.parsed.payload) };
+  return { ...artifact, payload: artifact.parsed.payload };
 }
 
 function holdResult({ expectedTriple, phaseEvidence, artifacts, coverage, reasonCode }) {
