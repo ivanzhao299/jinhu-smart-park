@@ -19,6 +19,7 @@
 - 2026-09-06：定向测试首次揭示 3 个测试自身问题（controller 前缀断言、fake builder thenable、方法名错误）及解绑分支断言形态错误；修正后 assets controller/mapping + homestay controller 共 19/19 PASS。
 - 2026-09-06：`pnpm --filter @jinhu/api lint`、API typecheck、workspace `pnpm typecheck`、API build、`git diff --check` 全部 PASS。
 - 2026-09-06：核对 `UnitEntity` 与现有 service 后确认 active 持久值为 smallint `status=1`，已避免错误使用展示字符串 `enabled`。删除与 convertUnit 锁同一 source row，不留检查后新增 active 投影窗口；零 migration/seed。
+- 2026-09-06：PR #662 首轮 CI run `34011403701` 在 Unit tests 失败；唯一失败为旧 `property-business-access-manifest.spec.ts` 仍预期 homestay 类级模块仅 `[homestay]`。按本任务 hard dependency 契约更新为 `[homestay, asset]`，不重跑掩盖该证据。
 
 ## Risks
 
