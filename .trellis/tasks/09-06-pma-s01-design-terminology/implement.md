@@ -38,3 +38,5 @@
 - 2026-09-06：`pnpm --filter @jinhu/shared build` PASS；`pnpm --filter @jinhu/shared test` 42 pass / 0 fail；`pnpm --filter @jinhu/shared typecheck` PASS；`pnpm --filter @jinhu/shared lint` PASS。
 - 2026-09-06：`pnpm typecheck` PASS（shared/ui/api/web 全部通过）。
 - 2026-09-06：8 个改动 Markdown 文件的本地相对链接检查 PASS；`git diff --check` PASS。
+- 2026-09-06：PR #648 第 1 轮 Codex review 提出 3 条 P2。已修正签署状态说明和 Trellis `base_branch`；角色 bundle 现名采用“先校验存储签名、再按稳定 code 投影显示名”，保持零迁移且不改 released hash/权限集合。
+- 2026-09-06：review 修订后 shared build/test 42/42、API/shared lint、API typecheck、`git diff --check` PASS。本地 API 单测 runner 因当前 worktree 未安装 `tsx`/`ts-node` 无法启动；交由完整依赖环境的第 2 轮 CI unit tests 验证，不安装依赖污染现场。

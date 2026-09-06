@@ -61,6 +61,14 @@ export const PARTY_SOURCE_DOMAIN_LABELS = {
   apartment: "公寓", maintenance: "维修", operations: "运营"
 } as const;
 
+// Stored bundle_name participates in the signed permission-bundle ABI. Project current
+// user-facing terminology by stable bundle code without rewriting released signatures.
+export const PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES: Readonly<Record<string, string>> = {
+  "property-bundle:property-housing-operator": "长租经营运营人员",
+  "property-bundle:property-housing-finance-operator": "长租经营财务操作员",
+  "property-bundle:property-housing-approver": "长租经营审批人"
+};
+
 export const HOUSING_CHARGE_TYPE_LABELS = {
   rent: "租金", deposit: "押金", electricity: "能耗费", checkout_charges: "退租结算费",
   checkout_deduction: "退租扣款", purchase_recharge: "采购补收"

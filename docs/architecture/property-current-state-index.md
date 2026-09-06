@@ -17,6 +17,8 @@
 
 housing 与传统 leasing 维持双 bounded context。二者共享物理资产映射、经营模式、占用/房态基础设施、显示与导航原语，但不视为同一合同或财务模型，也不做隐式数据互转。
 
+已发布的 property role bundle `bundle_name` 参与签名哈希，数据库中可能保留历史“住房出租”签名名。API 在验证存储签名后按稳定 bundle code 投影“长租经营”现名；这不改变权限集合、definition version/hash 或角色绑定。
+
 ## 2. 经营模式 × 用途 × 业务段
 
 | `operating_mode` | 允许 `usage_type` | `rental_segment` / owner workflow |
@@ -44,7 +46,7 @@ housing 与传统 leasing 维持双 bounded context。二者共享物理资产�
 
 - `void` 是草稿/审批阶段的终止分支。
 - `expiring` 是当前持久枚举，可进入费用、报修和退租流程；是否由时间任务投影须以当前 service 为准，不能仅凭旧设计推断。
-- 签署动作登记 `signed_at` 后把状态推进到 `pending_signature` 之后的 `active` 准备边界；`signed` 不是当前 `HOUSING_LEASE_STATUSES` 的持久值。
+- 签署动作只登记签署文件与 `signed_at`，持久状态仍为 `pending_signature`；后续独立的 activate 动作校验审批与签署证据后才推进到 `active`。`signed` 不是当前 `HOUSING_LEASE_STATUSES` 的持久值。
 - `renewed` 不是当前 housing 持久状态；旧设计中的 `expiring → renewed` 不能视为已验证主链。
 
 状态值权威在 [`HOUSING_LEASE_STATUSES`](../../packages/shared/src/index.ts)；命令约束在 `apps/api/src/modules/housing/housing-lease-command.service.ts`。HCD API 主链证据只证明其明确记录的状态和层级，见 [HCD UAT](../uat/hcd-chinese-display-uat-2026-09-02.md)。
