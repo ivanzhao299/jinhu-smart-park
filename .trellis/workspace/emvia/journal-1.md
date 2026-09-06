@@ -58,7 +58,9 @@
 
 ### Main Changes
 
-(Add details)
+- Added a singleton dirty-leave coordinator and adopted it for identity drafts.
+- Composed property `PageState` with the shared UI empty-state surface while preserving heading semantics.
+- Added honest shared formatters and route-template breadcrumbs with bounded leasing/global consumers.
 
 ### Git Commits
 
@@ -68,7 +70,9 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] Property unit suite: 42/42; menu unit suite: 13/13.
+- [OK] Web typecheck, Web lint, and `git diff --check`.
+- [OK] PR CI `34020812475`; main CI `34021337190`; Deploy `34021336894`.
 
 ### Status
 
