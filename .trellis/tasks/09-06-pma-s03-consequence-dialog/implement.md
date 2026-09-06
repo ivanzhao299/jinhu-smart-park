@@ -17,6 +17,7 @@
 - 2026-09-06：定向采用契约 3/3 通过；共享 dialog 约束为 `100vw - 2rem` / `100dvh - 2rem`，既有按钮保持 44px 最小触控尺寸。
 - 2026-09-06：`pnpm --filter @jinhu/web typecheck` 与 `pnpm --filter @jinhu/web lint` 通过。静态契约运行有 Node `MODULE_TYPELESS_PACKAGE_JSON` 性能提示，无失败。
 - 2026-09-06：当前工具没有可隔离于主 Chrome 的交互浏览器；遵守“不动主 Chrome”，本地仅完成源码、类型、lint 与响应式样式契约，实际桌面/390px 页面检查留给 PR 环境或 L-04 浏览器基线。
+- 2026-09-06：review 1 指出 leasing 失败消息仅在 modal 后的页面层不可见；已增加 dialog 内错误透传和重开/关闭清理。review 同时确认 endpoint 保持、单飞 gate 与普通编辑边界；后端真 replay 幂等为既存缺口，非 S-03 范围，留作后续风险记录。
 
 ## Risks
 

@@ -22,6 +22,8 @@ test("leasing settlement confirmation and effective checkout share the consequen
   assert.match(leasing, /performConfirmSettlement/);
   assert.match(leasing, /performEffectiveCheckout/);
   assert.match(leasing, /<ConsequenceDialog/);
+  assert.match(leasing, /errorMessage=\{pendingConsequenceError \?\? undefined\}/);
+  assert.match(leasing, /setPendingConsequenceError\(errorMessage\)/);
   assert.doesNotMatch(leasing, /确认结算后[\s\S]{0,120}window\.confirm/);
   assert.doesNotMatch(leasing, /window\.prompt\("请输入实际退租日期"/);
   assert.doesNotMatch(leasing, /window\.prompt\("请输入生效意见"/);

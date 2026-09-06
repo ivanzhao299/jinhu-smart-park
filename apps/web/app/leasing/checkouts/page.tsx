@@ -245,6 +245,7 @@ export default function LeasingCheckoutsPage() {
     actualCheckoutDate: string;
     opinion: string;
   } | null>(null);
+  const [pendingConsequenceError, setPendingConsequenceError] = useState<string | null>(null);
 
   const canRead = hasAccess(authUser, CHECKOUT_PERMISSIONS.read, LEASING_MODULE);
   const canCreate = hasPermission(authUser, CHECKOUT_PERMISSIONS.create);
@@ -477,6 +478,7 @@ export default function LeasingCheckoutsPage() {
   async function performConfirmSettlement(row: CheckoutRow) {
     setSaving(true);
     setMessage(null);
+    setPendingConsequenceError(null);
     try {
       const response = await apiRequest<CheckoutRow>(`/leasing/checkouts/${row.id}/confirm-settlement`, {
         method: "POST",
@@ -495,7 +497,9 @@ export default function LeasingCheckoutsPage() {
       await load(pageData.page);
       return true;
     } catch (error) {
-      setMessage(toErrorMessage(error));
+      const errorMessage = toErrorMessage(error);
+      setMessage(errorMessage);
+      setPendingConsequenceError(errorMessage);
       return false;
     } finally {
       setSaving(false);
@@ -538,15 +542,18 @@ export default function LeasingCheckoutsPage() {
     setPendingConsequence({
       kind: "effective", row, actualCheckoutDate: defaultDate, opinion: "退租完成，房源释放"
     });
+    setPendingConsequenceError(null);
   }
 
   async function performEffectiveCheckout(row: CheckoutRow, actualCheckoutDate: string, opinion: string) {
     if (!actualCheckoutDate.trim()) {
       setMessage("实际退租日期必填");
+      setPendingConsequenceError("实际退租日期必填");
       return false;
     }
     setSaving(true);
     setMessage(null);
+    setPendingConsequenceError(null);
     try {
       const response = await apiRequest<EffectiveResult>(`/leasing/checkouts/${row.id}/effective`, {
         method: "POST",
@@ -566,7 +573,9 @@ export default function LeasingCheckoutsPage() {
       await loadLookups();
       return true;
     } catch (error) {
-      setMessage(toErrorMessage(error));
+      const errorMessage = toErrorMessage(error);
+      setMessage(errorMessage);
+      setPendingConsequenceError(errorMessage);
       return false;
     } finally {
       setSaving(false);
@@ -790,7 +799,10 @@ export default function LeasingCheckoutsPage() {
                     </button>
                   ) : null}
                   {canConfirmSettlement ? (
-                    <button className="primary-button" disabled={saving || detail.status !== "40"} type="button" onClick={() => setPendingConsequence({ kind: "confirm-settlement", row: detail, actualCheckoutDate: "", opinion: "" })}>
+                    <button className="primary-button" disabled={saving || detail.status !== "40"} type="button" onClick={() => {
+                      setPendingConsequenceError(null);
+                      setPendingConsequence({ kind: "confirm-settlement", row: detail, actualCheckoutDate: "", opinion: "" });
+                    }}>
                       <CheckCircle2 size={16} /> 确认结算
                     </button>
                   ) : null}
@@ -865,10 +877,16 @@ export default function LeasingCheckoutsPage() {
         consequences={pendingConsequence?.kind === "effective"
           ? ["合同将终止，房源占用将释放。", "符合条件的未来未收应收将取消；该状态推进不可通过普通编辑撤回。"]
           : ["本次扣款、追加费用和退款金额将确认入账。", "本步骤不会自动生成应收或释放房源，后续仍需完成退款登记与退租生效。"]}
+        errorMessage={pendingConsequenceError ?? undefined}
         onConfirm={() => pendingConsequence?.kind === "effective"
           ? performEffectiveCheckout(pendingConsequence.row, pendingConsequence.actualCheckoutDate, pendingConsequence.opinion)
           : pendingConsequence ? performConfirmSettlement(pendingConsequence.row) : false}
-        onOpenChange={(open) => { if (!open) setPendingConsequence(null); }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingConsequence(null);
+            setPendingConsequenceError(null);
+          }
+        }}
         open={pendingConsequence !== null}
         reasonPolicy={{ kind: "none" }}
         resultingState={pendingConsequence?.kind === "effective" ? "退租已生效，合同已终止" : "结算已确认"}
