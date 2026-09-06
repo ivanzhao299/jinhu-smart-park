@@ -2,6 +2,9 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { DataSource, EntityManager } from "typeorm";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { AssetUnitEntity } from "./entities/asset-unit.entity";
 import type { ConvertAssetUnitDto, MapAssetSpaceDto } from "./dto/map-asset-space.dto";
 
 type SpaceType = "building" | "floor" | "unit";
@@ -9,34 +12,40 @@ type SourceRow = Record<string, string | number | boolean | null>;
 
 @Injectable()
 export class AssetSpaceMappingService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly dataScopeService: DataScopeService
+  ) {}
 
-  async listUnitCandidates(scope: TenantParkScope, page: number, pageSize: number, keyword?: string) {
+  async listUnitCandidates(scope: TenantParkScope, actor: JwtPrincipal, page: number, pageSize: number, keyword?: string) {
     const pattern = keyword?.trim() ? `%${keyword.trim()}%` : null;
-    const parameters = [scope.tenantId, scope.parkId, pattern, pageSize, (page - 1) * pageSize];
-    const rows = await this.dataSource.query(
-      `SELECT source.id AS "assetUnitId", source.unit_code AS "unitCode", source.unit_name AS "unitName",
+    const builder = this.dataSource.getRepository(AssetUnitEntity).createQueryBuilder("source")
+      .select(`source.id AS "assetUnitId", source.unit_code AS "unitCode", source.unit_name AS "unitName",
               source.unit_no AS "unitNo", source.building_area AS "buildingArea", source.rentable_area AS "rentableArea",
               asset_building.id AS "assetBuildingId", asset_building.building_name AS "buildingName",
               asset_floor.id AS "assetFloorId", asset_floor.floor_name AS "floorName",
               business_building.id AS "operatingBuildingId", business_floor.id AS "operatingFloorId",
-              business_unit.id AS "operatingUnitId", count(*) OVER()::int AS "total"
-       FROM asset_unit source
-       JOIN asset_building ON asset_building.id=source.building_id AND asset_building.is_deleted=false
-       JOIN asset_floor ON asset_floor.id=source.floor_id AND asset_floor.is_deleted=false
-       LEFT JOIN biz_building business_building ON business_building.tenant_id=source.tenant_id::text
+              business_unit.id AS "operatingUnitId", count(*) OVER()::int AS "total"`)
+      .innerJoin("asset_building", "asset_building", "asset_building.id=source.building_id AND asset_building.is_deleted=false")
+      .innerJoin("asset_floor", "asset_floor", "asset_floor.id=source.floor_id AND asset_floor.is_deleted=false")
+      .leftJoin("biz_building", "business_building", `business_building.tenant_id=source.tenant_id::text
          AND business_building.park_id=source.park_id::text AND business_building.asset_building_id=asset_building.id
-         AND business_building.is_deleted=false
-       LEFT JOIN biz_floor business_floor ON business_floor.tenant_id=source.tenant_id::text
+         AND business_building.is_deleted=false`)
+      .leftJoin("biz_floor", "business_floor", `business_floor.tenant_id=source.tenant_id::text
          AND business_floor.park_id=source.park_id::text AND business_floor.asset_floor_id=asset_floor.id
-         AND business_floor.building_id=business_building.id AND business_floor.is_deleted=false
-       LEFT JOIN biz_unit business_unit ON business_unit.tenant_id=source.tenant_id::text
-         AND business_unit.park_id=source.park_id::text AND business_unit.asset_unit_id=source.id AND business_unit.is_deleted=false
-       WHERE source.tenant_id::text=$1 AND source.park_id::text=$2 AND source.is_deleted=false
-         AND ($3::text IS NULL OR source.unit_code ILIKE $3 OR source.unit_name ILIKE $3
-           OR asset_building.building_name ILIKE $3 OR asset_floor.floor_name ILIKE $3)
-       ORDER BY asset_building.sort_order, asset_floor.sort_order, source.unit_code
-       LIMIT $4 OFFSET $5`, parameters);
+         AND business_floor.building_id=business_building.id AND business_floor.is_deleted=false`)
+      .leftJoin("biz_unit", "business_unit", `business_unit.tenant_id=source.tenant_id::text
+         AND business_unit.park_id=source.park_id::text AND business_unit.asset_unit_id=source.id AND business_unit.is_deleted=false`)
+      .where("source.tenant_id::text=:tenantId AND source.park_id::text=:parkId AND source.is_deleted=false", scope)
+      .andWhere(`(:pattern::text IS NULL OR source.unit_code ILIKE :pattern OR source.unit_name ILIKE :pattern
+           OR asset_building.building_name ILIKE :pattern OR asset_floor.floor_name ILIKE :pattern)`, { pattern })
+      .orderBy("asset_building.sort_order", "ASC")
+      .addOrderBy("asset_floor.sort_order", "ASC")
+      .addOrderBy("source.unit_code", "ASC")
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "unit", "source", { unit: "id" });
+    const rows = await builder.getRawMany();
     return { items: rows.map(({ total: _total, ...row }: Record<string, unknown>) => row), total: Number(rows[0]?.total ?? 0), page, page_size: pageSize };
   }
 

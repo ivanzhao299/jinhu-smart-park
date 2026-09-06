@@ -84,7 +84,7 @@ test("PostgreSQL serializes competing asset-unit conversions and replays the win
         return run(manager);
       })
     };
-    const service = new AssetSpaceMappingService(transactionalDataSource as never);
+    const service = new AssetSpaceMappingService(transactionalDataSource as never, {} as never);
     await service.mapBuilding(scope, actorId, assetBuildingId, "building-key-0001", { mode: "create", reason: "test" });
     await service.mapFloor(scope, actorId, assetFloorId, "floor-key-000001", { mode: "create", reason: "test" });
     const dto = { usageType: 10, rentalStatus: 10, fittingStatus: 10, reason: "test" };

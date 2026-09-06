@@ -158,8 +158,13 @@ test("A-2.5 candidate handlers do not add unrelated permissions or workorder mod
   );
 });
 
-test("every homestay GET UUID path rejects malformed identifiers with HTTP 400", async () => {
-  for (const methodName of ["rateCalendar", "getBooking", "getStay", "getTurnover"]) {
+test("every homestay resource UUID path rejects malformed identifiers with HTTP 400", async () => {
+  for (const methodName of [
+    "rateCalendar", "upsertRate", "upsertRateOverride", "getBooking", "getStay",
+    "approvalSources", "confirmBooking", "cancelBooking", "markNoShow", "rescheduleBooking",
+    "addGuest", "issueCredential", "returnCredential", "markCredentialLost", "checkIn", "checkOut",
+    "registerLedgerEntry", "getTurnover", "executeTurnover"
+  ]) {
     const routeArguments = Reflect.getMetadata(
       ROUTE_ARGS_METADATA,
       HomestayController,
@@ -182,6 +187,10 @@ test("every homestay GET UUID path rejects malformed identifiers with HTTP 400",
         && (error as { getStatus(): number }).getStatus() === 400
     );
   }
+});
+
+test("homestay controller declares asset as a class-wide hard dependency", () => {
+  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, HomestayController), ["homestay", "asset"]);
 });
 
 test("all A-2.5 GETs reject normal, super, and wildcard for missing/disabled/expired modules", async () => {

@@ -46,8 +46,8 @@ export class AssetsController {
 
   @Get("operating-space-candidates")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_LIST)
-  operatingSpaceCandidates(@CurrentScope() scope: TenantParkScope, @Query() query: AssetQueryDto) {
-    return this.assetSpaceMappingService.listUnitCandidates(scope, query.page, query.page_size, query.keyword);
+  operatingSpaceCandidates(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: AssetQueryDto) {
+    return this.assetSpaceMappingService.listUnitCandidates(scope, user, query.page, query.page_size, query.keyword);
   }
 
   @Get("parks")
@@ -65,7 +65,7 @@ export class AssetsController {
 
   @Get("parks/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_PARK_DETAIL)
-  detailPark(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  detailPark(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.detailPark(scope, id, user);
   }
 
@@ -75,7 +75,7 @@ export class AssetsController {
   updatePark(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdateAssetParkDto
   ) {
     return this.assetsService.updatePark(scope, user, id, dto);
@@ -84,7 +84,7 @@ export class AssetsController {
   @Delete("parks/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_PARK_DELETE)
   @AuditLog({ module: "园区管理", resource: "asset.park", action: "删除", bizType: "asset_park", bizIdParam: "id" })
-  deletePark(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  deletePark(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.deletePark(scope, user, id);
   }
 
@@ -113,7 +113,7 @@ export class AssetsController {
 
   @Get("buildings/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_BUILDING_DETAIL)
-  detailBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  detailBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.detailBuilding(scope, id, user);
   }
 
@@ -123,7 +123,7 @@ export class AssetsController {
   updateBuilding(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdateAssetBuildingDto
   ) {
     return this.assetsService.updateBuilding(scope, user, id, dto);
@@ -132,7 +132,7 @@ export class AssetsController {
   @Delete("buildings/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_BUILDING_DELETE)
   @AuditLog({ module: "楼栋管理", resource: "asset.building", action: "删除", bizType: "asset_building", bizIdParam: "id" })
-  deleteBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  deleteBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.deleteBuilding(scope, user, id);
   }
 
@@ -161,7 +161,7 @@ export class AssetsController {
 
   @Get("floors/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_FLOOR_DETAIL)
-  detailFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  detailFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.detailFloor(scope, id, user);
   }
 
@@ -171,7 +171,7 @@ export class AssetsController {
   updateFloor(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdateAssetFloorDto
   ) {
     return this.assetsService.updateFloor(scope, user, id, dto);
@@ -180,7 +180,7 @@ export class AssetsController {
   @Delete("floors/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_FLOOR_DELETE)
   @AuditLog({ module: "楼层管理", resource: "asset.floor", action: "删除", bizType: "asset_floor", bizIdParam: "id" })
-  deleteFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  deleteFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.deleteFloor(scope, user, id);
   }
 
@@ -209,7 +209,7 @@ export class AssetsController {
 
   @Get("units/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_DETAIL)
-  detailUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  detailUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.detailUnit(scope, id, user);
   }
 
@@ -219,7 +219,7 @@ export class AssetsController {
   updateUnit(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdateAssetUnitDto
   ) {
     return this.assetsService.updateUnit(scope, user, id, dto);
@@ -228,7 +228,7 @@ export class AssetsController {
   @Delete("units/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_DELETE)
   @AuditLog({ module: "房源管理", resource: "asset.unit", action: "删除", bizType: "asset_unit", bizIdParam: "id" })
-  deleteUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+  deleteUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.deleteUnit(scope, user, id);
   }
 }
