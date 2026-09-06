@@ -969,3 +969,37 @@ Merged PR #519: housing move-in now requires current verified identity and exact
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: PMA S-01 当前态设计与术语收口
+
+**Date**: 2026-09-06
+**Task**: PMA S-01 当前态设计与术语收口
+**Package**: api
+**Branch**: `codex/fix-pma-s01-closure`
+
+### Summary
+
+完成 PMA-001~007 当前态设计索引、长租经营显示字典与签名 bundle 兼容投影；PR #648 三轮审查后合并，PR CI、Release Smoke 及 main CI/Deploy 双绿。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1112fff6d7979b2235a0aaa268ee7bd3e3dd5a33` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -10,9 +10,9 @@
 - [x] 收敛 shared 显示字典与权限 bundle；签名角色名保留为 frozen ABI，并以契约测试明确兼容边界。
 - [x] 仅向仍有误导风险的历史证据追加现名/历史注记。
 - [x] 运行链接检查、shared 定向测试、lint、workspace typecheck/build、diff 检查。
-- [ ] 更新本文件记录实际结果；提交并 push。
-- [ ] 创建 PR；最多三轮 review；等待 CI 并合并。
-- [ ] 等待 main CI 与 Deploy 双绿后归档 Trellis 任务。
+- [x] 更新本文件记录实际结果；提交并 push。
+- [x] 创建 PR；完成三轮 review；等待 CI 并合并。
+- [x] 等待 main CI 与 Deploy 双绿后归档 Trellis 任务。
 
 ## Validation Plan
 
@@ -42,3 +42,6 @@
 - 2026-09-06：review 修订后 shared build/test 42/42、API/shared lint、API typecheck、`git diff --check` PASS。本地 API 单测 runner 因当前 worktree 未安装 `tsx`/`ts-node` 无法启动；交由完整依赖环境的第 2 轮 CI unit tests 验证，不安装依赖污染现场。
 - 2026-09-06：PR #648 第 2 轮 review 发现 `property-housing-task-supervisor` 仍会回退旧名。已全量枚举 migration 中 4 个 housing bundle 并补齐最后一个 override；第 3 轮为最终 review 轮。
 - 2026-09-06：PR #648 第 3 轮（最终轮）review 指出 preview 仍返回存储旧名、`void` 状态说明不完整、双域边界误把办公用途全部归入传统 leasing。已让 preview 同样在存储签名校验后投影现名，并明确 `pending_signature` 可作废及 housing 可承载个人/小团队办公场景。按 review 上限不再发起第 4 轮，改以本地验证与新 CI 门禁收口。
+- 2026-09-06：最终修订 `f518b151` 本地验证：shared build/test 42/42、API lint/typecheck、workspace typecheck、`git diff --check` 全部 PASS；未改 HR 文件，未新增 migration。
+- 2026-09-06：PR #648 CI run `34005964517` 全绿：Detect 9s、Lint/Typecheck/Build 12m48s、Release Smoke 23m0s；随后 squash merge 为 main `1112fff6d7979b2235a0aaa268ee7bd3e3dd5a33`。
+- 2026-09-06：main 双绿：CI `34007551647` completed/success（含独立 Release Smoke），Deploy Production `34007551648` completed/success。Deploy 仅由合并触发的 GitHub workflow 执行，本会话未直连或直接操作生产。
