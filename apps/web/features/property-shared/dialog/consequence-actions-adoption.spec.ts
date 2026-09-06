@@ -12,6 +12,8 @@ const dialogCss = readFileSync(resolve(webRoot, "features/property-shared/dialog
 test("homestay check-in and check-out share the consequence dialog", () => {
   assert.match(homestay, /pendingStayAction/);
   assert.match(homestay, /<ConsequenceDialog/);
+  assert.match(homestay, /errorMessage=\{mutationError \|\| undefined\}/);
+  assert.match(homestay, /return false;/);
   assert.match(homestay, /办理入住/);
   assert.match(homestay, /办理退房/);
   assert.doesNotMatch(homestay, /window\.(?:confirm|prompt)/);
@@ -24,6 +26,7 @@ test("leasing settlement confirmation and effective checkout share the consequen
   assert.match(leasing, /<ConsequenceDialog/);
   assert.match(leasing, /errorMessage=\{pendingConsequenceError \?\? undefined\}/);
   assert.match(leasing, /setPendingConsequenceError\(errorMessage\)/);
+  assert.match(leasing, /退租已生效，但页面刷新失败/);
   assert.doesNotMatch(leasing, /确认结算后[\s\S]{0,120}window\.confirm/);
   assert.doesNotMatch(leasing, /window\.prompt\("请输入实际退租日期"/);
   assert.doesNotMatch(leasing, /window\.prompt\("请输入生效意见"/);

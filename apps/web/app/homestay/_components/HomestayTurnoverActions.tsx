@@ -17,7 +17,7 @@ import { hasPermission } from "../../../lib/permissions";
 import styles from "./HomestayWorkbench.module.css";
 
 type Action = "start" | "complete" | "inspect" | "exception";
-type Mutate = (endpoint: string, body?: unknown) => Promise<void>;
+type Mutate = (endpoint: string, body?: unknown) => Promise<boolean>;
 
 function workOrderLoader(unitId: string) {
   return async (input: { query: string; page: number; pageSize: number; signal: AbortSignal }) => {

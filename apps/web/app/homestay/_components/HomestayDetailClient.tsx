@@ -73,14 +73,16 @@ function useDetailMutation(
   setState: React.Dispatch<React.SetStateAction<CanonicalDetailState>>
 ) {
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const lock = useRef(false);
   const retry = useRef<{ signature: string; key: string } | null>(null);
   async function mutate(endpoint: string, body?: unknown) {
-    if (lock.current) return;
+    if (lock.current) return false;
     lock.current = true;
     setSubmitting(true);
     setMessage("");
+    setErrorMessage("");
     const signature = `${endpoint}:${JSON.stringify(body ?? {})}`;
     if (retry.current?.signature !== signature) {
       retry.current = { signature, key: createIdempotencyKey("homestay-action") };
@@ -97,19 +99,27 @@ function useDetailMutation(
         ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
         : "操作已完成。");
       retry.current = null;
-      await load();
+      try {
+        await load();
+      } catch {
+        setMessage("操作已完成，但详情刷新失败，请手动刷新确认最新状态。");
+      }
+      return true;
     } catch (actionError) {
       if (actionError instanceof ApiError && actionError.status === 409) {
         setState({ kind: "conflict", message: propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试") });
       } else {
-        setMessage(propertyErrorMessage(actionError));
+        const actionMessage = propertyErrorMessage(actionError);
+        setMessage(actionMessage);
+        setErrorMessage(actionMessage);
       }
+      return false;
     } finally {
       lock.current = false;
       setSubmitting(false);
     }
   }
-  return { message, mutate, submitting };
+  return { errorMessage, message, mutate, submitting };
 }
 
 export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; entityId: string }) {
@@ -139,7 +149,7 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
     >
       <div aria-busy={action.submitting} inert={action.submitting}>
       {isBookingDetail(query.data)
-        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} />
+        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} />
         : query.data
           ? <TurnoverDetail
               capability={capability}
@@ -186,12 +196,14 @@ function BookingDetail({
   data,
   kind,
   capability,
-  mutate
+  mutate,
+  mutationError
 }: {
   data: HomestayBookingDetailResponse;
   kind: DetailKind;
   capability: ReturnType<typeof projectPropertyCapabilities>;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
+  mutationError: string;
 }) {
   const booking = data.booking;
   const isStay = kind === "stay";
@@ -203,7 +215,7 @@ function BookingDetail({
       {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} /> : null}
       {canReschedule ? <HomestayReschedulePanel booking={booking} mutate={mutate} /> : null}
       <BookingProjections data={data} />
-      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} />
+      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} />
     </>
   );
 }
@@ -250,10 +262,11 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
   </section></>;
 }
 
-function BookingActions({ booking, capability, isStay, mutate }: {
+function BookingActions({ booking, capability, isStay, mutate, mutationError }: {
   booking: HomestayBookingDetailResponse["booking"];
   capability: ReturnType<typeof projectPropertyCapabilities>; isStay: boolean;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
+  mutationError: string;
 }) {
   const [cancelReason, setCancelReason] = useState("");
   const [pendingStayAction, setPendingStayAction] = useState<"check-in" | "check-out" | null>(null);
@@ -279,6 +292,7 @@ function BookingActions({ booking, capability, isStay, mutate }: {
     consequences={pendingStayAction === "check-out"
       ? ["订单将进入已退房终态并释放占用。", "系统将创建客房周转任务；未回收或遗失凭证须先完成处置。"]
       : ["订单将进入在住状态并占用该房源。", "系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。"]}
+    errorMessage={mutationError || undefined}
     onConfirm={() => pendingStayAction
       ? mutate(`/homestay/bookings/${booking.id}/${pendingStayAction}`)
       : false}
@@ -301,7 +315,7 @@ function TurnoverDetail({
 }: {
   data: HomestayTurnoverDetailResponse;
   capability: ReturnType<typeof projectPropertyCapabilities>;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
   attachmentVersion: number;
   onUploaded(): void;
 }) {

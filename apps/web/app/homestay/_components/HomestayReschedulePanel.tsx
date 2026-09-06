@@ -10,7 +10,7 @@ export function HomestayReschedulePanel({
   mutate
 }: {
   booking: HomestayBookingResponse;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
 }) {
   const [arrivalDate, setArrivalDate] = useState(booking.arrivalDate);
   const [departureDate, setDepartureDate] = useState(booking.departureDate);

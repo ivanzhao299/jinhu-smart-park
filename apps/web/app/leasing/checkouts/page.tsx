@@ -494,7 +494,11 @@ export default function LeasingCheckoutsPage() {
       setDetail(response.data);
       setRefundForm((current) => ({ ...current, refundAmount: response.data.refundAmount ?? current.refundAmount }));
       setMessage("退租结算已确认");
-      await load(pageData.page);
+      try {
+        await load(pageData.page);
+      } catch {
+        setMessage("退租结算已确认，但列表刷新失败，请手动刷新确认最新状态。");
+      }
       return true;
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -569,8 +573,11 @@ export default function LeasingCheckoutsPage() {
       setDetail(response.data.checkout);
       setForm(formFromCheckout(response.data.checkout));
       setMessage("退租已生效，合同已终止并释放房源");
-      await load(pageData.page);
-      await loadLookups();
+      try {
+        await Promise.all([load(pageData.page), loadLookups()]);
+      } catch {
+        setMessage("退租已生效，但页面刷新失败，请手动刷新确认最新状态。");
+      }
       return true;
     } catch (error) {
       const errorMessage = toErrorMessage(error);
