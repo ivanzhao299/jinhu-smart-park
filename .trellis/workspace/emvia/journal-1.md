@@ -1003,3 +1003,37 @@ Merged PR #519: housing move-in now requires current verified identity and exact
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: PMA S-02 endpoint 契约与资产删除防线
+
+**Date**: 2026-09-06
+**Task**: PMA S-02 endpoint 契约与资产删除防线
+**Package**: api
+**Branch**: `codex/fix-pma-s02-closure`
+
+### Summary
+
+完成 PMA-008/009/010/014：候选 data scope、homestay asset hard dependency、资源 UUID 400 门禁与 active 运营投影删除 409；PR #662 两轮审查、CI/Smoke 与 main CI/Deploy 双绿。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc9a557f743dc8b672a1a2586cf2a504d3b78004` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
