@@ -12,7 +12,7 @@
   "assignee": "emvia",
   "createdAt": "2026-09-02",
   "completedAt": null,
-  "branch": "codex/fix-hcd-temporary-labels-uat",
+  "branch": "codex/hcd-uat-deep-final",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,

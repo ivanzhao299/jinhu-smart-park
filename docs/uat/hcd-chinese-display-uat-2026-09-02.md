@@ -2,7 +2,7 @@
 
 ## 结论
 
-**PARTIAL / BLOCKED，不归档。** PR1 #536、PR2 #537、PR3 #538 均已合入，PR 与 main 门禁为绿色；静态成熟门禁和 HCD 定向测试通过。2026-09-02 重启轮已通过专用 Linux Chrome 的 CDP 预检，但 raw-CDP runner 绕过 UI 登录且只执行导航/通用渲染检查：19 个空态入口和 3 个具名民宿详情均只记 `SURFACE_ONLY` 观察证据，不构成成熟浏览器 Case PASS。住房具名数据、逐项 HCD DOM/交互断言、picker、窄权限、未知值 fixture 和两条业务主链均未形成完整浏览器证据，因此不声明任何浏览器 HCD Case PASS，更不声明全部 30 项 PASS。
+**PARTIAL / BLOCKED，不归档。** PR1 #536、PR2 #537、PR3 #538 均已合入，PR 与 main 门禁为绿色；静态成熟门禁和 HCD 定向测试通过。最终深水轮 `hcd-20260902-r4-final` 已用产品 API 解开住房 Party/租约 fixture 约束，并真实完成住房、民宿 API 主链与防回退断言；证据持久保存在 ignored `artifacts/`。浏览器基建第二次尝试到达真实 UI 登录表单，但未建立认证 session，27 路由均未开始；遵守同题最多两次后停止。因此历史 22 路由仍仅为 `SURFACE_ONLY`，不声明任何浏览器 HCD Case PASS，更不声明全部 30 项 PASS。
 
 ## 已完成交付
 
@@ -92,6 +92,52 @@
 
 因此以下项目仍无完整真实浏览器证据：22 个已观察路由的 route-specific HCD DOM/交互断言；19 个入口的行级 HCD 数据；住房租约/交割/报修/采购详情与 Party 兼容详情 5 个路由的具名数据；picker 刷新/返回后的真实交互回显；窄权限账号下名称不泄漏及中文占位；未知值实际页面兜底；民宿与长租主链的真实状态迁移防回退。长中文仅在民宿详情取得截图观察；runner 的受限 Network/console 门禁不能外推到完整资源流、剩余数据态与交互。代码/contract 测试覆盖不能替代这些视觉与交互断言。
 
+## 最终深水轮（`hcd-20260902-r4-final`）
+
+### 已解阻
+
+- 被测基线：`origin/main@782630d1`；隔离 PostgreSQL 使用唯一 compose project `jinhu-hcd-uat-hcd-20260902-r4-final` 与 loopback `35434`，API/Web 为 `3283/3284`。
+- 282 个 migration、production-safe seed、bootstrap admin、严格 initialization baseline、API `/api/v1/ready` 与 Web `/login`：PASS。
+- 住房 fixture 不创建或改写 canonical park。审批账号和基础 long-rent/short-stay 单元沿用 disposable Property API gate 的受控 SQL 基础 fixture；Party、身份加密字段、租约及其后续实体全部由产品 API 创建。
+- `scripts/e2e/housing-rental-api-e2e.mjs`：PASS。具名 lease、Party、move-in/move-out handover、repair/work order、purchase 均已落库；长租链真实完成 `draft → pending_approval → signed → active → terminated`，终态下 ledger/occupant/charge-plan 写入均被拒绝，防回退 PASS。
+- `scripts/e2e/homestay-api-e2e.mjs`：PASS。具名 booking/stay/turnover 数据已落库；订单完成退房、财务登记、周转 start/exception/complete 与终态可读断言 PASS。
+- DB 只读反查将 RUN_ID 对应的 Party、lease、handover、purchase、booking、turnover 关联保存于 `reports/residual-before.txt`。这证明产品 API fixture 与本轮数据库绑定，但不是“UI 创建 → UI 显示 → DB 反查”三联，因为浏览器登录未成功。
+- local-only 证据根改为 `artifacts/hcd-uat-hcd-20260902-r4-final/`，保留 logs、reports、临时 compose、SQL 审计输入与 `SHA256SUMS`；未再使用 teardown 后不可复核的 `/tmp` 作为证据权威来源。
+
+### 浏览器结果与诚实分级
+
+1. 第一次 runner 启动在页面访问前因缓存 Chrome 缺少 NSS/NSPR/ALSA 动态库失败。
+2. 临时库仅解包到本轮 ignored artifact，未安装系统包；Chrome for Testing `151.0.7922.34` 预检成功。
+3. 第二次 runner 使用独立 incognito BrowserContext 到达 `/login`，通过 DOM 查找账号、密码和 submit 控件并点击提交；结果仍停在 `/login`，未出现认证 storage，记 `no_authenticated_session`。
+4. 遵守同题最多两次，未作第三次浏览器尝试。`pages_checked=0`、截图 `0`；没有把 API fixture、CDP 可连或登录页冒充 Case PASS。
+
+因此本轮分级如下：
+
+| 范围 | 结论 | 说明 |
+|---|---|---|
+| 隔离栈/迁移/seed/bootstrap/readiness | PASS | 独占 DB/API 文件卷；严格 baseline 通过 |
+| 住房 fixture 新约束适配 | PASS | Party/租约走产品 API，未命中 canonical park 或加密元数据约束 |
+| 民宿/住房真实 API 主链与防回退 | PASS（API 层） | 不能替代 UI 状态迁移证据 |
+| ignored `artifacts/` 证据留存 | PASS | 47 个本地文件，SHA-256 manifest 已生成 |
+| 真实 UI 登录/session isolation | BLOCKED | 表单已提交但 session 未建立；未进入业务页 |
+| 全资源 Network/device/rewrite runtime 证据 | BLOCKED | runner 代码已补采集面，但本次未越过登录，不能记运行 PASS |
+| 27 路由/30 HCD Case | BLOCKED | 本轮 0 个浏览器 Case 开始；历史 22 个仍为 SURFACE_ONLY |
+| picker、窄权限、未知值、390px 长中文 | BLOCKED | 无新的真实浏览器交互证据 |
+| RUN_ID UI/API/DB 反串线三联 | BLOCKED | API→DB 已证实，缺 UI 创建/展示一联 |
+| touched-table/residual gate | UNVERIFIED | 运行前未冻结全表 before 计数，不能用事后统计补写为已冻结 |
+
+### residual、隐私与 teardown
+
+- `reports/residual-before.txt` 保存本轮 RUN_ID 业务关联、`pg_stat_user_tables` 触达统计及 immutable trigger 分类；但因全表清单不是在写入前冻结，residual gate 诚实记 `UNVERIFIED`。
+- teardown 使用与启动完全相同的 project/compose/env，删除本轮 API/PostgreSQL 容器、两个独占 volume、network 与本地 API image；project label 下容器/volume/network 均为 0，`35434/3283/3284` 均无监听。没有操作 `phoenix-v3-db`、其他退出容器、生产或主 Chrome。
+- 含密码/密钥的 ignored `run.env` 已在 teardown 后精确删除。截图目录为空；文本关键词扫描唯一命中 `compose.yml` 的环境变量名，不含值。日志和报告未保存 Authorization、JWT、Cookie 或连接串。
+
+### 当前解阻条件
+
+- 在新的同题计数下定位 UI 表单提交未触发认证请求的原因，先以单路由最小 Case 证明：真实表单输入 → `/auth/login` Network 2xx → `/users/me` → 页面身份 → logout → 新 BrowserContext storage/cookie 隔离。
+- 运行前冻结完整 touched-table 清单和 fixture 精确谓词/before 计数；区分可删业务表与 immutable trigger 表，再开始业务写入。
+- 登录基线通过后才执行 27 路由 route-specific DOM/交互矩阵、19 入口行级数据、住房 5 详情、picker refresh/back、窄权限、未知值、双主链 UI 状态与两模块 390px 长中文；逐 Case 保存全资源 Network、设备能力和截图。
+
 ## D 类临时定名（待产品确认）
 
 - 民宿住客核验：未核验、已核验、已驳回；凭证：已发放、已回收、已遗失、已作废。
@@ -101,6 +147,6 @@
 - 住房费用：租金、押金、能耗费、退租结算费、退租扣款、采购补收；支付方式：银行转账、现金、微信、支付宝、POS、其他。租户 `/dict-items` 配置优先于平台临时名。
 - Identity/通知/事件/retention：集中中文状态、事件与保留动作目录；retention 当前没有 Web 页面，未虚构页面验收。
 
-## 解阻条件
+## 历史重启轮解阻条件
 
 Chrome/CDP 已解阻。下一轮应先补齐成熟浏览器基建：真实 UI 登录/session isolation、全资源 Network 失败捕获、设备能力 JSON、请求 rewrite target 与 RUN_ID UI/DB 反串线三联、冻结 touched-table 与 fixture residual gate，并把 local-only 证据留存在 ignored `artifacts/`（若用户仍要求仅 `/tmp`，须明确接受不可持久复核）。随后使用与当前 migration 兼容的 API/UI fixture 链建立民宿与住房列表/详情数据，用独立窄权限账号完成 picker 回显、字段权限裁剪和未知值 fixture，并真实走完民宿与长租主链状态迁移防回退；逐页保存 route-specific DOM、截图、全量 Network 与 console 证据。全部通过后再更新本报告、归档 Trellis 任务并提交终报。

@@ -25,6 +25,18 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /trackedWebApiPrefix/u);
   assert.doesNotMatch(browserRunner, /Browser\.close"\)\.catch/u);
   assert.match(browserRunner, /safeUsername/u);
+  assert.match(browserRunner, /Target\.createBrowserContext/u);
+  assert.match(browserRunner, /Target\.disposeBrowserContext/u);
+  assert.match(browserRunner, /input\[autocomplete=.{0,4}username/u);
+  assert.match(browserRunner, /button\[type=.{0,4}submit/u);
+  assert.match(browserRunner, /method: "ui_form"/u);
+  assert.doesNotMatch(browserRunner, /localStorage\.setItem\("jinhu_access_token"/u);
+  assert.match(browserRunner, /deviceCapabilities/u);
+  assert.match(browserRunner, /maxTouchPoints/u);
+  assert.match(browserRunner, /coarsePointer/u);
+  assert.match(browserRunner, /rewrite_target/u);
+  assert.match(browserRunner, /run_id/u);
+  assert.match(browserRunner, /\^https\?:/u);
 });
 
 test("housing real API preserves the forged occupancy boundary for residential and office long-rent units", () => {

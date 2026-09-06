@@ -29,3 +29,7 @@ PR2 合入 main 双绿后，从最新 `origin/main` 创建 `codex/fix-hcd-tempor
 - SURFACE_ONLY：3 个民宿具名详情与 19 个列表/工作台入口均只有导航、截图与通用渲染观察；runner 未作 route-specific DOM/交互断言，并绕过 UI 登录。共生成 44 张截图；只能确认 runner 跟踪的 same-origin API 未失败、无已记录 console/runtime error、CSS viewport mismatch 或横向溢出，不能据此声明 HCD Case PASS、全量 Network 或完整移动设备能力 PASS。
 - BLOCKED：住房 5 个具名详情、picker 真实交互、窄权限名称裁剪和未知值 fixture。住房 fixture 两次均由约束整笔回滚（canonical park 保护、Party 加密元数据），达到同题上限后停止。
 - 运行时证据曾位于 `/tmp/jinhu-hcd-uat-20260902-r3/` 并生成两份 SHA-256 manifest，已随 teardown 删除且未留存到 `artifacts/`，现不可复核。compose 容器/卷/网络、DB/API/Web/CDP 端口均归零，专用 profile/临时文件根/运行库已删除；但 touched-table/fixture residual gate、UI/DB 反串线、设备能力证据均未采集，记 `UNVERIFIED`。未触碰生产、HR、主 Chrome 或他人容器，任务继续保持 `in_progress`。
+- 最终深水轮 `hcd-20260902-r4-final`：从 `origin/main@782630d1` 启动独占 PostgreSQL/API 文件卷与 Web，migration/production seed/bootstrap/strict baseline/readiness PASS；住房与民宿既有 product API E2E 全链 PASS，住房 Party 加密元数据与 canonical park 阻塞已解开，双主链 API 防回退 PASS。
+- 本轮证据持久保存在 ignored `artifacts/hcd-uat-hcd-20260902-r4-final/`，含产品 API logs、RUN_ID DB 反查、资源清零证据与 SHA-256 manifest；敏感 `run.env` 已精确删除，截图为 0。
+- 浏览器第 1 次因缓存 Chrome 缺 NSS/NSPR/ALSA 未进入页面；解包临时运行库后第 2 次到达真实 UI 表单，但提交后未建立认证 session，`pages_checked=0`。遵守同题最多两次停止；27 路由/30 Case、全资源 Network/device runtime、picker/窄权限/未知值/390px 与 UI→DB 三联仍 BLOCKED。
+- touched-table 事前冻结未完成；事后统计和独占 volume teardown 不能补写为 residual gate PASS，保持 `UNVERIFIED`。本轮 project 容器/volume/network 与 35434/3283/3284 端口已清零，未触碰生产、HR、主 Chrome或他人容器；任务不归档。
