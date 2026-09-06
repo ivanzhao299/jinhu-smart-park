@@ -14,6 +14,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { formatPropertyDateTime as formatDateTime, formatPropertyMoney } from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const CONTRACT_ENTITY = "leasing_contract";
@@ -2826,8 +2827,7 @@ function scopedMoneyText(user: ReturnType<typeof useAuthUser>, canView: boolean,
 }
 
 function formatMoney(value?: string | null): string {
-  const numberValue = Number(value ?? 0);
-  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(value ?? "-");
+  return formatPropertyMoney(value, { empty: "0.00" });
 }
 
 function formatArea(value?: string | null): string {
@@ -2837,10 +2837,6 @@ function formatArea(value?: string | null): string {
 
 function formatDate(value?: string | null): string {
   return value ? value.slice(0, 10) : "-";
-}
-
-function formatDateTime(value?: string | null): string {
-  return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "-";
 }
 
 function emptyToUndefined(value: string): string | undefined {

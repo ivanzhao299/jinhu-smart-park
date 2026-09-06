@@ -28,7 +28,8 @@ import { hasPermission } from "../../lib/permissions";
 import {
   PropertyPageSurface,
   PropertyPanelSurface,
-  propertyLabels
+  propertyLabels,
+  useDirtyLeaveGuard
 } from "../../features/property-shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { FileUploader } from "../files/FileUploader";
@@ -624,6 +625,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     || fileIds.length !== initialFileIds.current.size
     || fileIds.some((fileId) => !initialFileIds.current.has(fileId));
   const draftBusy = busy || uploading;
+  useDirtyLeaveGuard({ dirty: draftDirty, busy: draftBusy });
 
   useEffect(() => {
     cleanupAbandonedPendingIdentityEvidence();

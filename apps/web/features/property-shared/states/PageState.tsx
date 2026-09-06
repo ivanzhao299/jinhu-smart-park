@@ -1,3 +1,4 @@
+import { EmptyState } from "@jinhu/ui";
 import type { ReactNode } from "react";
 import { LiveRegion } from "./LiveRegion";
 import {
@@ -123,13 +124,7 @@ function StateMessage({
   message: string;
   action?: ReactNode;
 }) {
-  return (
-    <div>
-      <h2>{title}</h2>
-      <p>{message}</p>
-      {action}
-    </div>
-  );
+  return <EmptyState action={action} compact description={message} title={title} />;
 }
 
 function assertNever(value: never): never {

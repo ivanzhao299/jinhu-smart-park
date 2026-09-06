@@ -42,6 +42,39 @@ import {
 
 export type PropertyStatusVariant = "success" | "warning" | "info" | "primary" | "danger" | "muted";
 
+interface FormatValueOptions {
+  empty?: string;
+}
+
+export function formatPropertyMoney(
+  value: string | number | null | undefined,
+  options: FormatValueOptions & { decimals?: number } = {}
+): string {
+  if (value === null || value === undefined || value === "") return options.empty ?? "-";
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue.toFixed(options.decimals ?? 2) : String(value);
+}
+
+export function formatPropertyDate(value: string | Date | null | undefined, options: FormatValueOptions = {}): string {
+  if (value === null || value === undefined || value === "") return options.empty ?? "-";
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("zh-CN");
+}
+
+export function formatPropertyDateTime(value: string | Date | null | undefined, options: FormatValueOptions = {}): string {
+  if (value === null || value === undefined || value === "") return options.empty ?? "-";
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("zh-CN", { hour12: false });
+}
+
+export function formatPropertyEnum(
+  value: string | number | null | undefined,
+  labels: Readonly<Record<string, string>>,
+  fallback: string
+): string {
+  return knownLabel(labels, value == null ? null : String(value), fallback);
+}
+
 function knownLabel(labels: Readonly<Record<string, string>>, value: string | null | undefined, fallback: string): string {
   return value && Object.prototype.hasOwnProperty.call(labels, value) ? (labels[value] ?? fallback) : fallback;
 }

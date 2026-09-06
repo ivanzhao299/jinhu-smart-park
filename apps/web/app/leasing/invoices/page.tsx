@@ -13,6 +13,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { formatPropertyMoney as formatMoney } from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const INVOICE_ENTITY = "leasing_invoice";
@@ -702,12 +703,7 @@ function buyerTaxNoText(value: unknown, canView: boolean, user: ReturnType<typeo
 function invoiceAmountText(value: unknown, canView: boolean, user: ReturnType<typeof useAuthUser>): string {
   if (!canView) return "-";
   const masked = maskField(user, LEASING_MODULE, INVOICE_ENTITY, "amount", value);
-  return formatMoney(masked as string | number | null | undefined);
-}
-
-function formatMoney(value?: string | number | null): string {
-  const numberValue = Number(value ?? 0);
-  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(value ?? "-");
+  return formatMoney(masked as string | number | null | undefined, { empty: "0.00" });
 }
 
 function normalizeAmount(value: unknown): string {

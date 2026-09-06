@@ -8,6 +8,7 @@ import {
 } from "@jinhu/shared";
 import {
   FIRST_RELEASE_MENU_PATH_SET,
+  findBreadcrumbByPath,
   findMenuByPath,
   findMenusByPath,
   getDashboardAuthorizationMenus,
@@ -16,6 +17,17 @@ import {
   getUserNormalizedMenuTree,
   resolveUserMenuTree
 } from "./menu";
+
+test("breadcrumbs map declared dynamic route templates without weakening exact menu lookup", () => {
+  const menus = getDashboardMenus();
+  const engineering = findBreadcrumbByPath("/engineering/projects/22222222-2222-4222-8222-222222222222", menus);
+  assert.equal(engineering.parent?.label, "工程管理");
+  assert.equal(engineering.current?.href, "/engineering/projects");
+  assert.equal(findMenuByPath("/engineering/projects/22222222-2222-4222-8222-222222222222", menus), undefined);
+  const unknown = findBreadcrumbByPath("/engineering/projects/not/too/deep", menus);
+  assert.equal(unknown.parent, undefined);
+  assert.equal(unknown.current, undefined);
+});
 
 test("explicit API empty trees remain authoritative while missing fields use legacy compatibility", () => {
   assert.deepEqual(getDashboardMenus([]), []);
