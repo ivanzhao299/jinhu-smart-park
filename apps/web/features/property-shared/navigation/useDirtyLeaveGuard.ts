@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const DEFAULT_DIRTY_LEAVE_MESSAGE = "有未保存的修改，确定离开吗？";
 
@@ -15,9 +15,15 @@ export function shouldGuardDirtyLeave(options: DirtyLeaveGuardOptions): boolean 
   return options.enabled !== false && (options.dirty || options.busy === true);
 }
 
-export function useDirtyLeaveGuard(options: DirtyLeaveGuardOptions): void {
+export interface DirtyLeaveGuard {
+  confirmLeave: () => boolean;
+}
+
+export function useDirtyLeaveGuard(options: DirtyLeaveGuardOptions): DirtyLeaveGuard {
   const guarded = shouldGuardDirtyLeave(options);
   const message = options.message?.trim() || DEFAULT_DIRTY_LEAVE_MESSAGE;
+  const suppressNextPop = useRef(false);
+  const confirmLeave = useCallback(() => !guarded || window.confirm(message), [guarded, message]);
 
   useEffect(() => {
     if (!guarded) return;
@@ -32,17 +38,31 @@ export function useDirtyLeaveGuard(options: DirtyLeaveGuardOptions): void {
       if (!target || target.target === "_blank" || target.hasAttribute("download")) return;
       const next = new URL(target.href, window.location.href);
       if (next.href === window.location.href || (next.pathname === window.location.pathname && next.search === window.location.search && next.hash)) return;
-      if (!window.confirm(message)) {
+      if (!confirmLeave()) {
         event.preventDefault();
         event.stopPropagation();
       }
     };
+    const onPopState = (event: PopStateEvent) => {
+      if (suppressNextPop.current) {
+        suppressNextPop.current = false;
+        return;
+      }
+      if (confirmLeave()) return;
+      event.stopImmediatePropagation();
+      suppressNextPop.current = true;
+      window.history.forward();
+    };
 
     window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState, true);
     document.addEventListener("click", onDocumentClick, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState, true);
       document.removeEventListener("click", onDocumentClick, true);
     };
-  }, [guarded, message]);
+  }, [confirmLeave, guarded]);
+
+  return { confirmLeave };
 }

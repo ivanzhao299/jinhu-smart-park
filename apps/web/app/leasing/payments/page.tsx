@@ -526,7 +526,7 @@ export default function LeasingPaymentsPage() {
                     <option value="">请选择</option>
                     {receivables.map((receivable) => (
                       <option key={receivable.id} value={receivable.id}>
-                        {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} 未收 {formatMoney(receivable.amountRemain)}
+                        {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} 未收 {formatMoney(receivable.amountRemain, { empty: "0.00" })}
                       </option>
                     ))}
                   </select>
@@ -574,7 +574,7 @@ export default function LeasingPaymentsPage() {
                       <td>{application.receivable?.arCode ?? application.receivableId}</td>
                       <td>{dictLabel(feeTypeItems, application.receivable?.feeType ?? "")}</td>
                       <td>{application.receivable ? `${application.receivable.periodStart} 至 ${application.receivable.periodEnd}` : "-"}</td>
-                      <td>{formatMoney(application.appliedAmount)}</td>
+                      <td>{formatMoney(application.appliedAmount, { empty: "0.00" })}</td>
                       <td><DictBadge items={receivableStatusItems} value={application.receivable?.status} /></td>
                       <td>{formatDateTime(application.createTime)}</td>
                     </tr>

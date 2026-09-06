@@ -8,7 +8,8 @@ const root = resolve(process.cwd());
 test("stateful page states compose the shared UI empty state", () => {
   const source = readFileSync(resolve(root, "features/property-shared/states/PageState.tsx"), "utf8");
   assert.match(source, /import \{ EmptyState \} from "@jinhu\/ui"/);
-  assert.match(source, /<EmptyState action=\{action\} compact description=\{message\} title=\{title\}/);
+  assert.match(source, /<h2 className="sr-only">\{title\}<\/h2>/);
+  assert.match(source, /<EmptyState action=\{action\} compact description=\{message\}/);
 });
 
 test("identity draft binds dirty and busy state to the shared leave guard", () => {
@@ -20,4 +21,3 @@ test("global breadcrumb consumes the route-template matcher", () => {
   const source = readFileSync(resolve(root, "components/layout/AppBreadcrumb.tsx"), "utf8");
   assert.match(source, /findBreadcrumbByPath\(pathname, menus\)/);
 });
-

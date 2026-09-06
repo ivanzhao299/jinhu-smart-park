@@ -51,8 +51,10 @@ export interface BreadcrumbMatch {
 }
 
 const BREADCRUMB_ROUTE_TEMPLATES = [
-  "/engineering/projects/:id", "/engineering/plans/:id", "/engineering/daily-reports/:id",
-  "/engineering/inspections/:id", "/engineering/rectifications/:id", "/engineering/acceptances/:id",
+  "/engineering/projects/:id", "/engineering/projects/:id/edit", "/engineering/plans/:id", "/engineering/plans/:id/edit",
+  "/engineering/daily-reports/:id", "/engineering/daily-reports/:id/edit", "/engineering/inspections/:id",
+  "/engineering/inspections/:id/edit", "/engineering/rectifications/:id", "/engineering/acceptances/:id",
+  "/engineering/acceptances/:id/edit",
   "/iot/devices/:id", "/workorders/:id", "/assets/identity-submissions/:id", "/assets/parties/:id",
   "/assets/property-occupancies/:id", "/assets/property-operations/:id", "/homestay/bookings/:id",
   "/homestay/stays/:id", "/homestay/turnovers/:id", "/housing/handovers/:id", "/housing/leases/:id",
@@ -65,7 +67,7 @@ export function findBreadcrumbByPath(pathname: string, menus: MenuNode[] = dashb
     const pattern = `^${candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(":id", "[^/]+")}/?$`;
     return new RegExp(pattern).test(pathname);
   });
-  const menuPath = template ? template.replace("/:id", "") : pathname;
+  const menuPath = template ? template.replace("/:id/edit", "").replace("/:id", "") : pathname;
   const current = findMenuByPath(menuPath, menus);
   const parent = menus.find((menu) => menu === current || menu.children?.some((child) => child.href === current?.href));
   return { parent: parent === current ? undefined : parent, current };

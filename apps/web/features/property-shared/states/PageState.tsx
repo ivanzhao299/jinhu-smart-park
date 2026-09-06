@@ -124,7 +124,12 @@ function StateMessage({
   message: string;
   action?: ReactNode;
 }) {
-  return <EmptyState action={action} compact description={message} title={title} />;
+  return (
+    <div>
+      <h2 className="sr-only">{title}</h2>
+      <EmptyState action={action} compact description={message} title={<span aria-hidden="true">{title}</span>} />
+    </div>
+  );
 }
 
 function assertNever(value: never): never {

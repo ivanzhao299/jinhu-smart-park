@@ -19,6 +19,7 @@
 - 2026-09-06: property 41/41 and menu 13/13 passed; typecheck then found remaining invoices/payments references to the removed local `formatMoney`. Switched the shared import to the original local alias so every call uses the shared formatter.
 - 2026-09-06: final local gate passed: property 41/41, menu 13/13, Web typecheck, Web lint, and `git diff --check`.
 - 2026-09-06: no isolated browser connector was available; per constraint the shared main Chrome was not used. Actual desktop/390px route rendering remains an explicit browser verification gap for L-04, while this PR covers source/state contracts.
+- 2026-09-06: review 1 found missing browser history protection, lost PageState heading semantics, uncovered engineering edit-route breadcrumbs, and nullable financial display drift. Added `popstate` cancellation plus an explicit `confirmLeave` API, restored a screen-reader heading, declared edit templates, and preserved `0.00` at existing financial call sites.
 
 ## Risks
 

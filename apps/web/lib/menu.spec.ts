@@ -24,6 +24,7 @@ test("breadcrumbs map declared dynamic route templates without weakening exact m
   assert.equal(engineering.parent?.label, "工程管理");
   assert.equal(engineering.current?.href, "/engineering/projects");
   assert.equal(findMenuByPath("/engineering/projects/22222222-2222-4222-8222-222222222222", menus), undefined);
+  assert.equal(findBreadcrumbByPath("/engineering/projects/22222222-2222-4222-8222-222222222222/edit", menus).current?.href, "/engineering/projects");
   const unknown = findBreadcrumbByPath("/engineering/projects/not/too/deep", menus);
   assert.equal(unknown.parent, undefined);
   assert.equal(unknown.current, undefined);

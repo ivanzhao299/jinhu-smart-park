@@ -67,7 +67,7 @@ export type {
   PageStateKind
 } from "./states/page-state";
 export { shouldGuardDirtyLeave, useDirtyLeaveGuard } from "./navigation/useDirtyLeaveGuard";
-export type { DirtyLeaveGuardOptions } from "./navigation/useDirtyLeaveGuard";
+export type { DirtyLeaveGuard, DirtyLeaveGuardOptions } from "./navigation/useDirtyLeaveGuard";
 
 export { TaskPresentation } from "./tasks/TaskPresentation";
 export type { TaskPresentationProps } from "./tasks/TaskPresentation";
