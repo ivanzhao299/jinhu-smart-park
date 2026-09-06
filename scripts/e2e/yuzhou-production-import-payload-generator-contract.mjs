@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 
 import {
   ProductionImportPayloadGenerationError,
   computeFrozenArtifactHash,
   generateProductionImportPayloads,
 } from "../hr-cutover/production-import-payload-generator.mjs";
-import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
+import { computeProductionImportPayloadBundleHash, computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import {
   computeProductionImportBusinessIdentityHash,
   computeProductionImportTargetCanonicalHash,
+  stableProductionImportCanonicalJson,
 } from "../hr-cutover/production-import-target-model.mjs";
 
 const sha = character => character.repeat(64);
@@ -79,6 +81,27 @@ const decisionsArtifact = envelope(decisionsContent);
 const input = { stagingArtifact, decisionsArtifact, targetInventoryArtifact, sealedScopeArtifact };
 
 const generated = generateProductionImportPayloads(input);
+// Independent pre-optimization oracle: preserve sealed bytes, not just a second
+// call to the optimized hash. Numeric keys differ from JSON.stringify ordering.
+const originalCanonical = value => {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return `[${value.map(originalCanonical).join(",")}]`;
+  if (typeof value === "object") return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${originalCanonical(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+};
+const originalHash = value => createHash("sha256").update(`${originalCanonical(value)}\n`).digest("hex");
+const numericKeys = { records: [{ payload: { "2": "二", "10": "十", nested: [null, true, -0, "引号\"\\\n😀", { z: 1, a: 2 }] } }] };
+assert.notEqual(originalHash(numericKeys), createHash("sha256").update(`${stableProductionImportCanonicalJson(numericKeys)}\n`).digest("hex"), "sealed hash must not reuse artifact hash for numeric object keys");
+for (const value of [null, true, 7, "text", [], {}, { records: [] }, { records: [undefined].concat(Array(1), [null]) }, { records: null, optional: undefined }, numericKeys, ...generated.bundles.map(row => row.bundle)]) {
+  const before = structuredClone(value);
+  assert.equal(computeProductionImportPayloadBundleHash(value), originalHash(value));
+  assert.deepEqual(value, before, "hashing must not mutate caller input");
+}
+for (const row of generated.bundles) {
+  assert.equal(row.payloadBundleSha256, originalHash(row.bundle));
+  assert.equal(row.artifactText, `${stableProductionImportCanonicalJson(row.bundle)}\n`);
+  assert.equal(row.payloadBundleArtifactSha256, createHash("sha256").update(row.artifactText).digest("hex"));
+}
 assert.deepEqual(generated.phaseOrder, ["T0", "T1", "T2", "T3"]);
 assert.equal(generated.bundles.length, 4);
 assert.equal(generated.bundles.flatMap(row => row.bundle.records).length, 16);

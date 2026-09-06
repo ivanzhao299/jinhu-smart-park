@@ -41,8 +41,18 @@ remove simultaneous whole-dataset residency. This is the leading allocation caus
 not a demonstrated production DB, credentials or disk failure. No precise failing
 allocation stage has yet been measured.
 
-Next: one bounded, synthetic structured-data allocation profile of the retained
-graphs at those boundaries; then a hash-preserving lifetime/streaming correction
-with ownership and equivalence tests. Do not keep retrying the real 260k-row chain
-until the profile and focused test demonstrate a meaningful bound. Keep the full
-product goal open; the user does not need to reconfirm sole-owner authority.
+The bounded synthetic bridge/generator profile is now complete: 50,016 records,
+READY, maxRSS 740,688 KiB. Its largest sampled adjacent RSS increase was about
+119.7 MiB during large-bundle serialization and hashing. See
+`research/allocation-profile-result.md` for measurements, fixture repair and limits.
+This is not a real full-data or outer materializer/freeze memory acceptance result.
+
+Record-wise sealed bundle hashing is implemented with independent old-byte/hash
+equivalence tests. Same synthetic profile passed: maxRSS 625,776 KiB (15.5% below
+the baseline), not full-data acceptance. Generator/bridge contracts and 136 related
+tests passed; one opt-in large test skipped. Local ESLint unavailable, no reinstall.
+
+Next: normal PR CI for this focused correction, then bounded synthetic measurement
+of the outer materializer/freeze retention before another real full-data attempt.
+Do not keep retrying the real 260k-row chain on the strength of a smaller bridge-only
+fixture. Keep the full product goal open; sole-owner authority remains accepted.
