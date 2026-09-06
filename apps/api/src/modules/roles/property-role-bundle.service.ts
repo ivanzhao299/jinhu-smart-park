@@ -323,7 +323,10 @@ export class PropertyRoleBundleService {
       roleId: role?.id ?? null,
       roleVersion: role?.version ?? null,
       mode: dto.mode,
-      bundles: bundles.map(({ id: _id, actualHash: _actualHash, ...bundle }) => bundle),
+      bundles: bundles.map(({ id: _id, actualHash: _actualHash, ...bundle }) => ({
+        ...bundle,
+        name: PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES[bundle.code] ?? bundle.name
+      })),
       add,
       keepExtra,
       removeExtra,

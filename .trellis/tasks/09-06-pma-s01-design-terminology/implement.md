@@ -41,3 +41,4 @@
 - 2026-09-06：PR #648 第 1 轮 Codex review 提出 3 条 P2。已修正签署状态说明和 Trellis `base_branch`；角色 bundle 现名采用“先校验存储签名、再按稳定 code 投影显示名”，保持零迁移且不改 released hash/权限集合。
 - 2026-09-06：review 修订后 shared build/test 42/42、API/shared lint、API typecheck、`git diff --check` PASS。本地 API 单测 runner 因当前 worktree 未安装 `tsx`/`ts-node` 无法启动；交由完整依赖环境的第 2 轮 CI unit tests 验证，不安装依赖污染现场。
 - 2026-09-06：PR #648 第 2 轮 review 发现 `property-housing-task-supervisor` 仍会回退旧名。已全量枚举 migration 中 4 个 housing bundle 并补齐最后一个 override；第 3 轮为最终 review 轮。
+- 2026-09-06：PR #648 第 3 轮（最终轮）review 指出 preview 仍返回存储旧名、`void` 状态说明不完整、双域边界误把办公用途全部归入传统 leasing。已让 preview 同样在存储签名校验后投影现名，并明确 `pending_signature` 可作废及 housing 可承载个人/小团队办公场景。按 review 上限不再发起第 4 轮，改以本地验证与新 CI 门禁收口。

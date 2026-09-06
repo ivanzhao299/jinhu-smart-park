@@ -68,4 +68,5 @@ test("bundle catalog projects current display names after validating stored sign
   const source = readFileSync(resolve(__dirname, "property-role-bundle.service.ts"), "utf8");
   assert.match(source, /this\.assertStoredBundleHashes\(rows\)/);
   assert.match(source, /PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES\[row\.code\] \?\? row\.name/);
+  assert.match(source, /PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES\[bundle\.code\] \?\? bundle\.name/);
 });

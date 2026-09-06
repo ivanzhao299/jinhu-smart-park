@@ -25,7 +25,7 @@ housing 与传统 leasing 维持双 bounded context。二者共享物理资产�
 |---|---|---|
 | `none` | 不限制静态用途 | 不进入租赁经营 |
 | `short_stay` | `70` 住宅 | homestay 订单、入住、退房与周转 |
-| `long_rent` | `70` 住宅、`10` 办公 | `housing_rental` 负责住房长租；传统 leasing 负责招商/商业合同财务 |
+| `long_rent` | `70` 住宅、`10` 办公 | `housing_rental` 可承载住宅及个人/小团队办公长租；传统 leasing 按企业招商、商业合同及其财务模型承载，不以“办公”用途单独划界 |
 
 资格、picker reason 和并发边界的历史决策见 [LEA-001/002 mode×usage 任务](../../.trellis/tasks/archive/2026-08/08-29-lea-001-002-mode-usage-matrix/prd.md)，真实 API/UAT 证据见 [LEA post-deploy UAT](../uat/lea-post-deploy-uat-20260829.md)。模式与占用的当前执行契约见 [Shared Property Occupancy](../../.trellis/spec/api/backend/shared-property-occupancy.md)。
 
@@ -44,7 +44,7 @@ housing 与传统 leasing 维持双 bounded context。二者共享物理资产�
 
 `draft → pending_approval → pending_signature → active → checkout_pending → terminated`
 
-- `void` 是草稿/审批阶段的终止分支。
+- `void` 是 `draft`、`pending_approval`、`pending_signature` 签署生效前阶段的终止分支。
 - `expiring` 是当前持久枚举，可进入费用、报修和退租流程；是否由时间任务投影须以当前 service 为准，不能仅凭旧设计推断。
 - 签署动作只登记签署文件与 `signed_at`，持久状态仍为 `pending_signature`；后续独立的 activate 动作校验审批与签署证据后才推进到 `active`。`signed` 不是当前 `HOUSING_LEASE_STATUSES` 的持久值。
 - `renewed` 不是当前 housing 持久状态；旧设计中的 `expiring → renewed` 不能视为已验证主链。
