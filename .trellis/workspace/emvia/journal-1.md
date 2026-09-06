@@ -1077,3 +1077,38 @@ PR #665 unified high-risk confirmation flows; 3 review rounds, 54 focused tests,
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: PMA S-04 property shared primitives closure
+
+**Date**: 2026-09-06
+**Task**: PMA S-04 property shared primitives closure
+**Package**: web
+**Branch**: `codex/fix-pma-s04-close`
+
+### Summary
+
+PR #668 unified dirty-leave, stateful EmptyState composition, property formatters and route-template breadcrumbs; three reviews, 55 focused tests, PR CI and main CI/Deploy green; browser compatibility/rendering gaps handed to L-04.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5d9517eb` | (see git log) |
+| `78e708b6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
