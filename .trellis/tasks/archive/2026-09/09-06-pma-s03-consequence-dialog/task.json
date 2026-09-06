@@ -6,7 +6,7 @@
   "status": "completed",
   "dev_type": null,
   "scope": null,
-  "package": "api",
+  "package": "web",
   "priority": "P1",
   "creator": "emvia",
   "assignee": "emvia",

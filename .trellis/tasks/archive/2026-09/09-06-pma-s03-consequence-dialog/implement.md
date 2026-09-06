@@ -8,7 +8,7 @@
 - [x] 接入 leasing 结算确认与退租生效，并移除对应 prompt/confirm。
 - [x] 补定向采用契约与手机宽度/触控样式契约。
 - [x] 本地验证、review 3 轮、PR CI、merge、main 双绿。
-- [ ] Trellis 归档与 closure PR。
+- [x] Trellis 归档与 closure PR #666。
 
 ## Evidence Log
 

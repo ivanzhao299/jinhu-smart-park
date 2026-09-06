@@ -19,7 +19,9 @@
 
 ### Main Changes
 
-(Add details)
+- Reused the shared `ConsequenceDialog` for homestay check-in/check-out and leasing settlement/effective actions.
+- Preserved failed mutations inside the dialog, separated successful writes from refresh failures, and added phone-width/touch contracts.
+- Archived the S-03 task after PR #665 and containing-main CI/Deploy passed.
 
 ### Git Commits
 
@@ -29,7 +31,10 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] Property unit suite: 36/36.
+- [OK] Homestay unit suite: 18/18.
+- [OK] Web typecheck, Web lint, and `git diff --check`.
+- [OK] PR CI `34016610818`; containing-main CI `34017477973`; Deploy `34017477966`.
 
 ### Status
 
