@@ -99,5 +99,9 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/web ./apps/web
 COPY --from=build /app/packages ./packages
 
+ARG RELEASE_COMMIT=
+RUN node -e 'const v=process.argv[1]; if(v!==""&&!/^[0-9a-f]{40}$/.test(v)) process.exit(1)' "$RELEASE_COMMIT"
+LABEL org.opencontainers.image.revision="$RELEASE_COMMIT" cn.jinhu.runtime.component="web"
+
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@jinhu/web", "start"]
