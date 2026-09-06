@@ -8,7 +8,7 @@
 - [x] 统一 homestay hard dependency module gate 与 UUID path pipe/测试矩阵。
 - [x] 添加 deleteUnit active projection 事务防线和测试。
 - [x] 记录显式解绑契约与 M-01 边界。
-- [ ] 本地验证、最多三轮 review、PR CI/Smoke、合并、main 双绿、归档。
+- [x] 本地验证、两轮 review、PR CI/Smoke、合并、main 双绿、归档。
 
 ## Evidence Log
 
@@ -20,6 +20,9 @@
 - 2026-09-06：`pnpm --filter @jinhu/api lint`、API typecheck、workspace `pnpm typecheck`、API build、`git diff --check` 全部 PASS。
 - 2026-09-06：核对 `UnitEntity` 与现有 service 后确认 active 持久值为 smallint `status=1`，已避免错误使用展示字符串 `enabled`。删除与 convertUnit 锁同一 source row，不留检查后新增 active 投影窗口；零 migration/seed。
 - 2026-09-06：PR #662 首轮 CI run `34011403701` 在 Unit tests 失败；唯一失败为旧 `property-business-access-manifest.spec.ts` 仍预期 homestay 类级模块仅 `[homestay]`。按本任务 hard dependency 契约更新为 `[homestay, asset]`，不重跑掩盖该证据。
+- 2026-09-06：修订后定向 assets/homestay/access-manifest 组合 37/37 PASS；PR 第 1、2 轮 Codex review 分别覆盖 `ffafe0cd`、`9a821a6b`，均无重大问题。
+- 2026-09-06：PR #662 最终 CI run `34011854335` 全绿：Detect 6s、Lint/Typecheck/Build 13m07s、Release Smoke 22m30s；squash merge 为 main `fc9a557f743dc8b672a1a2586cf2a504d3b78004`。
+- 2026-09-06：main 双绿：CI `34013351127` completed/success（含 Release Smoke），Deploy Production `34013351129` completed/success。本会话未直连或直接操作生产。
 
 ## Risks
 
