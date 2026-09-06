@@ -15,6 +15,7 @@ const CHUNK = 64 * 1024, MIB = 1024 ** 2, LARGE = 384 * MIB, TOTAL = 1024 ** 3;
 const RECEIPT = "candidate-freeze-receipt.json";
 const phases = ["T0", "T1", "T2", "T3"];
 export const PRODUCTION_IMPORT_CANDIDATE_FREEZE_DEPENDENCY_PATHS = Object.freeze([
+  "scripts/hr-cutover/production-import-approval-policy.mjs",
   "scripts/hr-cutover/materialize-production-import-frozen-decisions.mjs",
   "scripts/hr-cutover/production-import-candidate-freeze.mjs",
   "scripts/hr-cutover/production-import-real-artifact-bridge.mjs",

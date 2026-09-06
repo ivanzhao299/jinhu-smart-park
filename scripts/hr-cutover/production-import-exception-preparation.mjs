@@ -149,7 +149,7 @@ function reviewersDocument(artifact) {
   }
   return keys;
 }
-export async function finalizeProductionImportExceptions(input, { resolveKey } = {}) {
+export async function finalizeProductionImportExceptions(input, { resolveKey, includeBridgeEvidence = false } = {}) {
   return sanitized(async () => {
     exact(input, ["freezeInput", "choicesArtifact", "operationId", "keyReferenceSha256", "preparedArtifact", "envelopesArtifact", "attestationsArtifact", "reviewersArtifact"]);
     input = { ...input, preparedArtifact: { ...input.preparedArtifact }, envelopesArtifact: { ...input.envelopesArtifact }, reviewersArtifact: { ...input.reviewersArtifact } };
@@ -208,7 +208,9 @@ export async function finalizeProductionImportExceptions(input, { resolveKey } =
     const frozen = freezeProductionImportCandidates({ ...input.freezeInput, reviewedDecisionsArtifact: { path: "finalized-exception-resolutions.json", bytes, sha256: hash(bytes) } });
     if (frozen.summary.status !== "READY") fail("FREEZE_NOT_READY");
     for (const item of frozen.evidence.records) if (originals.has(item.candidate.sourceIdentitySha256) && !same(item.candidate, originals.get(item.candidate.sourceIdentitySha256))) fail("ORIGINAL_EVIDENCE_INVALID");
-    return { reviewed, summary: { status: "VERIFIED_AGAINST_PINNED_REVIEWER_KEYS", recordCount: records.length, approvalClaimed: false,
+    return { reviewed, ...(includeBridgeEvidence ? { bridgeEvidence: { targetIdentitySha256: frozen.evidence.targetIdentitySha256,
+      generationEvidence: frozen.bridge.generationEvidence, outputArtifactSha256: frozen.bridge.outputArtifactSha256 } } : {}),
+      summary: { status: "VERIFIED_AGAINST_PINNED_REVIEWER_KEYS", recordCount: records.length, approvalClaimed: false,
       signatureVerifiedAgainstProvidedKeys: true, signerAuthorityEstablished: false, productionImport: "HOLD", preparedArtifactSha256: input.preparedArtifact.sha256,
       envelopeArtifactSha256: input.envelopesArtifact.sha256, reviewerKeysArtifactSha256: input.reviewersArtifact.sha256 } };
   });

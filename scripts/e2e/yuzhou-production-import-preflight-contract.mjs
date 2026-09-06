@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* global Buffer, process */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
+import { createProductionImportSingleOwnerPolicy, productionImportOperatorPublicKeyHash } from "../hr-cutover/production-import-approval-policy.mjs";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -385,6 +386,33 @@ test("usage replay includes nonce identity and approval roles must be independen
     });
     assert.equal(reason(approvals), "PRODUCTION_IMPORT_AUTH_MISSING");
   } finally { rmSync(approvals.sandbox, { recursive: true, force: true }); }
+});
+
+test("explicit one-owner preflight requires scope, preserves replay and never replaces conflict-ledger roles", () => {
+  const f = makeFixture(), operator = generateKeyPairSync("ed25519");
+  try {
+    f.plan.targetScopeSha256 = hash("synthetic explicit scope");
+    rewriteRole(f, "one_time_import_authorization", value => {
+      value.binding.targetScopeSha256 = f.plan.targetScopeSha256;
+      const confirmation = { formatVersion: 1, artifactKind: "yuzhou_hr_single_owner_confirmation", provenance: "explicit_user_confirmation", decision: "AUTHORIZE_DELEGATED_OPERATION",
+        ownerSubjectRefSha256: hash("synthetic owner"), confirmationEvidenceSha256: hash("synthetic provenance"), operatorSubjectRefSha256: hash("synthetic operator"),
+        operatorPublicKeySha256: productionImportOperatorPublicKeyHash(operator.publicKey.export({ type: "spki", format: "pem" })),
+        context: { operationId: f.plan.operationId, binding: value.binding, issuedAt: value.issuedAt, expiresAt: value.expiresAt, nonceSha256: value.authorizationNonceSha256,
+          preparationArtifacts: { preparedSha256: hash("prepared"), reviewedSha256: hash("reviewed"), bridgeEvidenceSha256: hash("bridge") },
+          payloadBundleSha256: Object.fromEntries(["T0", "T1", "T2", "T3"].map(phase => [phase, hash(phase)])) } };
+      Object.assign(value, createProductionImportSingleOwnerPolicy({ confirmation, operatorSigningKey: operator.privateKey }));
+    });
+    assert.equal(reason(f), undefined);
+    delete f.plan.targetScopeSha256;
+    assert.equal(reason(f), "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+    f.plan.targetScopeSha256 = hash("synthetic explicit scope");
+    rewriteRole(f, "authorization_usage_ledger", value => value.entries.push({ operationId: "yzprod-import-20260828T000000Z-123456abcdef",
+      authorizationArtifactSha256: "f".repeat(64), authorizationNonceSha256: f.authorization.authorizationNonceSha256, intent: "production_import", status: "CONSUMED", consumedAt: "2026-08-28T01:00:00.000Z" }));
+    assert.equal(reason(f), "PRODUCTION_IMPORT_AUTH_REUSED");
+    rewriteRole(f, "authorization_usage_ledger", value => value.entries = []);
+    rewriteRole(f, "one_time_import_authorization", value => value.approvalSet.push(value.approvalSet[0]));
+    assert.equal(reason(f), "PRODUCTION_IMPORT_SINGLE_OWNER_POLICY_INVALID");
+  } finally { rmSync(f.sandbox, { recursive: true, force: true }); }
 });
 
 test("T5A, rollback and residual invariants cannot be weakened", () => {

@@ -5,16 +5,35 @@ import { chmodSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdir
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, inputFor, descriptor, decode, hash, quarantine } from "./yuzhou-production-import-candidate-freeze-fixture.mjs";
-import { stableProductionImportCanonicalJson as canonical } from "../hr-cutover/production-import-target-model.mjs";
+import { stableProductionImportCanonicalJson as canonical, computeProductionImportBusinessIdentityHash as businessHash,
+  deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { prepareProductionImportExceptions as prepare, finalizeProductionImportExceptions as finalize } from "../hr-cutover/production-import-exception-preparation.mjs";
 import { materializeProductionImportExceptionPreparation as materialize } from "../hr-cutover/materialize-production-import-exception-preparation.mjs";
 import { freezeProductionImportCandidates as freeze } from "../hr-cutover/production-import-candidate-freeze.mjs";
 import { generateProductionImportPayloads } from "../hr-cutover/production-import-payload-generator.mjs";
 import { decryptProductionImportEnvelope } from "../hr-cutover/production-import-crypto-provider.mjs";
 import { createProductionImportArtifactCryptoProvider } from "../hr-cutover/execute-production-import.mjs";
+import { materializeProductionImportDelegatedAuthorization } from "../hr-cutover/materialize-production-import-delegated-authorization.mjs";
+import { authorizeDelegatedProductionImport } from "../hr-cutover/production-import-delegated-authorization.mjs";
+import { approvalPolicyHash, productionImportOperatorPublicKeyHash } from "../hr-cutover/production-import-approval-policy.mjs";
+import { computeSealedProductionImportPlanHash, validateSealedProductionImportPlan, assertProductionImportExecutionActivated } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 
-function setup() {
-  const f = fixture(), candidate = quarantine(f, "hr_employee_insurance_item", true), freezeInput = inputFor(f);
+function setup(withChildOrg = false) {
+  const f = fixture();
+  if (withChildOrg) {
+    const parent = f.records.find(row => row.targetTable === "sys_org"), child = structuredClone(parent);
+    child.targetFields.org_code = "SYN-child-org";
+    child.sourceIdentitySha256 = hash(`${child.sourceTable}\0${child.targetFields.org_code}`);
+    child.sourcePkCanonical = `sha256:${child.sourceIdentitySha256}`; child.sourceRowSha256 = hash("synthetic child org row");
+    child.expectedTargetId = deriveId({ targetScope: f.scope, targetTable: "sys_org", sourceIdentitySha256: child.sourceIdentitySha256 });
+    child.dependencyRefs = [{ role: "parent_org", phase: "T0", sourceIdentitySha256: parent.sourceIdentitySha256, expectedTargetTable: "sys_org" }];
+    child.businessIdentitySha256 = businessHash("sys_org", f.scope, child.targetFields, { parent_id: parent.expectedTargetId });
+    f.records.splice(f.records.indexOf(parent) + 1, 0, child);
+    const employee = f.records.find(row => row.targetTable === "hr_employee"), primaryOrg = employee.dependencyRefs.find(ref => ref.role === "primary_org");
+    if (primaryOrg) primaryOrg.sourceIdentitySha256 = child.sourceIdentitySha256;
+    else employee.dependencyRefs.push({ role: "primary_org", phase: "T0", sourceIdentitySha256: child.sourceIdentitySha256, expectedTargetTable: "sys_org" });
+  }
+  const candidate = quarantine(f, "hr_employee_insurance_item", true), freezeInput = inputFor(f);
   const bindings = { triple: f.triple, phaseArtifactSha256: Object.fromEntries(Object.entries(freezeInput.phaseArtifacts).map(([phase, artifact]) => [phase, artifact.sha256])),
     candidateArtifactSha256: Object.fromEntries(Object.entries(freezeInput.candidateArtifacts).map(([phase, artifact]) => [phase, artifact.sha256])),
     targetInventoryArtifactSha256: freezeInput.targetInventoryArtifact.sha256, targetScopeArtifactSha256: freezeInput.targetScopeArtifact.sha256 };
@@ -79,6 +98,98 @@ test("private prepare -> external Ed25519 signature -> finalize -> freeze -> act
   assert.equal(JSON.stringify(result).includes(p.config.artifacts.keyFile.path), false);
   assert.equal(JSON.stringify(final).includes(p.config.artifacts.keyFile.sha256), false);
   assert.deepEqual(readdirSync(finalConfig.outputDir).sort(), ["exception-preparation-receipt.json", "reviewed-candidate-resolutions.json"]);
+});
+
+test("actual private delegate and authorize producers bind nonempty crypto, all bridge payloads and one owner to a sealed HOLD plan", async t => {
+  const s = setup(true), p = privateFixture(t, s), operator = generateKeyPairSync("ed25519");
+  const preparedResult = await materialize(p.json("prepare-owner-config.json", p.config).path, p.options);
+  const preparedDescriptor = { path: join(p.config.outputDir, "unsigned-exception-requests.json"), sha256: preparedResult.artifacts["unsigned-exception-requests.json"].sha256 };
+  const prepared = JSON.parse(readFileSync(preparedDescriptor.path));
+  const operatorKeyFile = p.bytes("synthetic-operator.pem", operator.privateKey.export({ type: "pkcs8", format: "pem" }));
+  const delegatedConfig = { ...p.config, mode: "delegate", outputDir: p.out("delegated"), artifacts: { ...p.config.artifacts, prepared: preparedDescriptor,
+    envelopes: { path: join(p.config.outputDir, "crypto-envelopes.json"), sha256: preparedResult.artifacts["crypto-envelopes.json"].sha256 }, operatorKeyFile } };
+  const delegated = await materialize(p.json("delegate-config.json", delegatedConfig).path, p.options);
+  assert.equal(delegated.status, "DELEGATED_INTEGRITY_VERIFIED"); assert.equal(delegated.ownerAuthorizationClaimed, false);
+  const reviewedDescriptor = { path: join(delegatedConfig.outputDir, "reviewed-candidate-resolutions.json"), sha256: delegated.artifacts["reviewed-candidate-resolutions.json"].sha256 };
+  const receiptDescriptor = { path: join(delegatedConfig.outputDir, "delegated-bridge-evidence.json"), sha256: delegated.artifacts["delegated-bridge-evidence.json"].sha256 };
+  const reviewed = JSON.parse(readFileSync(reviewedDescriptor.path)), receipt = JSON.parse(readFileSync(receiptDescriptor.path));
+  const confirmationSource = p.bytes("synthetic-confirmation.txt", "Synthetic owner explicitly delegates this test operation. Not a production approval.");
+  const now = new Date("2026-09-06T01:00:00.000Z");
+  const binding = { triple: s.f.triple, targetIdentitySha256: s.f.inventory.targetIdentitySha256, targetScopeSha256: s.f.scope.scopeSha256,
+    finalRehearsalPairSha256: hash("synthetic pair"), manifestSha256: hash("synthetic manifest"), windowStartsAt: "2026-09-06T00:00:00.000Z", windowEndsAt: "2026-09-06T02:00:00.000Z" };
+  const confirmation = { formatVersion: 1, artifactKind: "yuzhou_hr_single_owner_confirmation", provenance: "explicit_user_confirmation", decision: "AUTHORIZE_DELEGATED_OPERATION",
+    ownerSubjectRefSha256: hash("one synthetic owner"), confirmationEvidenceSha256: confirmationSource.sha256, operatorSubjectRefSha256: hash("synthetic operator"),
+    operatorPublicKeySha256: productionImportOperatorPublicKeyHash(operator.publicKey.export({ type: "spki", format: "pem" })),
+    context: { operationId: s.input.operationId, binding, issuedAt: "2026-09-06T00:30:00.000Z", expiresAt: "2026-09-06T01:30:00.000Z", nonceSha256: hash("synthetic nonce"),
+      preparationArtifacts: { preparedSha256: preparedDescriptor.sha256, reviewedSha256: reviewedDescriptor.sha256, bridgeEvidenceSha256: receiptDescriptor.sha256 },
+      payloadBundleSha256: receipt.binding.generationEvidence.payloadBundleSha256 } };
+  const authConfig = { formatVersion: 1, mode: "authorize", triple: s.f.triple, artifacts: { confirmation: p.json("owner-confirmation.json", confirmation), confirmationSource,
+    prepared: preparedDescriptor, reviewed: reviewedDescriptor, bridgeEvidence: receiptDescriptor, operatorKeyFile }, outputDir: p.out("authorized") };
+  const authResult = materializeProductionImportDelegatedAuthorization(p.json("authorize-config.json", authConfig).path, { ...p.options, now });
+  const authorization = JSON.parse(readFileSync(join(authConfig.outputDir, "sealed-authorization.json")));
+  assert.equal(authorization.approvalSet.length, 1); assert.equal(authorization.approvalSet[0].role, "accountable_owner");
+  assert.equal(authorization.artifactSha256, authResult.artifacts["one-time-import-authorization.json"].sha256);
+  assert.equal(JSON.stringify(authResult).includes(operatorKeyFile.path), false); assert.equal(JSON.stringify(authResult).includes(operatorKeyFile.sha256), false);
+  const frozen = freeze({ ...s.input.freezeInput, reviewedDecisionsArtifact: descriptor(reviewed) }), generated = generateProductionImportPayloads(frozen.bridge.generatorInput);
+  const phases = generated.planPhases.map((phase, index) => ({ ...phase, payloadBundleArtifactSha256: generated.bundles[index].payloadBundleArtifactSha256,
+    payloadBundleSha256: generated.bundles[index].payloadBundleSha256, canonicalizationVersion: generated.bundles[index].bundle.canonicalizationVersion,
+    beforeCanonicalSha256: hash(`synthetic before ${index}`), expectedAfterCanonicalSha256: hash(`synthetic after ${index}`) }));
+  const plan = { formatVersion: 2, planKind: "yuzhou_hr_production_import_sealed_execution_plan", operationId: s.input.operationId, intent: "production_import", status: "SEALED",
+    triple: s.f.triple, target: { environment: "production", alias: "synthetic-production", identitySha256: s.f.inventory.targetIdentitySha256 }, targetScope: s.f.scope,
+    window: { startsAt: binding.windowStartsAt, endsAt: binding.windowEndsAt }, authorization, manifestSha256: binding.manifestSha256,
+    finalRehearsalPair: { artifactSha256: binding.finalRehearsalPairSha256, triple: s.f.triple, rehearsals: ["A", "B"].map(rehearsal => ({ rehearsal, manifestSha256: hash(`synthetic ${rehearsal}`), cleanupAuditSha256: hash(`synthetic cleanup ${rehearsal}`), residualCount: 0 })) },
+    phaseOrder: ["T0", "T1", "T2", "T3"], phases,
+    rollback: { order: ["T3", "T2", "T1", "T0"], insert: "delete_operation_owned_target", merge: "encrypted_before_image_cas_restore", quarantine: "no_target_write", skipApproved: "no_target_write", residualCount: 0, canonicalHash: "EXACT" },
+    sealing: { algorithm: "canonical-json-sha256-v1", sealedPlanSha256: "" }, productionImport: "HOLD" };
+  plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan);
+  assert.equal(validateSealedProductionImportPlan(plan, { now }).productionImport, "HOLD");
+  const orgs = plan.phases[0].records.filter(record => record.plannedTargetTable === "sys_org");
+  assert.deepEqual(orgs.map(record => record.dependencyMode), ["scope", "record_graph"]);
+  assert.equal(orgs[1].dependencyRefs[0].sourceIdentitySha256, orgs[0].sourceIdentitySha256);
+  assert.equal(plan.phases[0].records.find(record => record.plannedTargetTable === "hr_employee").dependencyRefs.find(ref => ref.role === "primary_org").sourceIdentitySha256, orgs[1].sourceIdentitySha256);
+  assert.throws(() => assertProductionImportExecutionActivated(plan), { code: "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE" });
+  const provider = await createProductionImportArtifactCryptoProvider({ envelopeArtifact: JSON.parse(readFileSync(delegatedConfig.artifacts.envelopes.path)),
+    keyFiles: [{ keyReferenceSha256: s.input.keyReferenceSha256, keyFile: p.config.artifacts.keyFile }], plan,
+    payloadBundles: Object.fromEntries(generated.bundles.map(bundle => [bundle.phase, Buffer.from(bundle.artifactText)])), decryptEnvelope: decryptProductionImportEnvelope });
+  try {
+    const record = plan.phases.flatMap(phase => phase.records).find(row => row.disposition === "quarantine");
+    assert.ok((await provider.encryptQuarantine({ phaseName: "T3", record, payload: prepared.records[0].binding.decision.targetFields })).ciphertext.length > 0);
+  } finally { provider.destroy(); }
+  for (const mutate of [value => value.authorization.approvalSet = [], value => value.authorization.approvalSet.push(value.authorization.approvalSet[0]),
+    value => value.authorization.approvalSet[0].subjectRefSha256 = hash("wrong owner"), value => value.authorization.approvalSet[0].role = "hr_owner",
+    value => delete value.authorization.approvalPolicy.confirmation.confirmationEvidenceSha256,
+    value => value.authorization.approvalPolicy.confirmation.context.binding.triple.mappingContractHash = hash("wrong mapping"),
+    value => value.authorization.approvalPolicy.confirmation.context.preparationArtifacts.reviewedSha256 = hash("replacement"),
+    value => value.authorization.approvalPolicy.operatorAttestation.signatureBase64 = Buffer.alloc(64).toString("base64"),
+    value => value.phases[0].payloadBundleSha256 = hash("other payload"), value => delete value.authorization.approvalPolicy]) {
+    const changed = structuredClone(plan); mutate(changed); changed.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(changed);
+    assert.throws(() => validateSealedProductionImportPlan(changed, { now }));
+  }
+  const authInput = { confirmationArtifact: descriptor(confirmation), confirmationSourceArtifact: { ...confirmationSource, bytes: readFileSync(confirmationSource.path) },
+    preparedArtifact: descriptor(prepared), reviewedArtifact: descriptor(reviewed), bridgeEvidenceArtifact: descriptor(receipt) };
+  for (const mutate of [value => value.context.operationId = "yzprod-import-20260906T010000Z-aaaaaaaaaaaa", value => value.context.binding.triple.sourceSnapshotHash = hash("other source"),
+    value => value.context.binding.targetIdentitySha256 = hash("other target"), value => value.context.binding.targetScopeSha256 = hash("other scope"),
+    value => value.confirmationEvidenceSha256 = hash("missing provenance"), value => value.context.payloadBundleSha256.T0 = hash("other bundle"),
+    ...["preparedSha256", "reviewedSha256", "bridgeEvidenceSha256"].map(key => value => value.context.preparationArtifacts[key] = hash("other artifact"))]) {
+    assert.throws(() => authorizeDelegatedProductionImport({ ...authInput, confirmationArtifact: change(authInput.confirmationArtifact, mutate) }, { operatorSigningKey: operator.privateKey, now }), { code: "PRODUCTION_IMPORT_DELEGATION_INVALID" });
+  }
+  assert.throws(() => authorizeDelegatedProductionImport(authInput, { operatorSigningKey: operator.privateKey, now: new Date(confirmation.context.expiresAt) }));
+  assert.equal(approvalPolicyHash(receipt), receiptDescriptor.sha256);
+  for (const kind of ["source-hash", "key-mode", "key-symlink", "wrong-key", "read-budget", "output-budget", "occupied", "current-code"]) {
+    const config = structuredClone(authConfig), options = { ...p.options, now };
+    config.outputDir = p.out(`auth-negative-${kind}`);
+    if (kind === "source-hash") config.artifacts.confirmationSource.sha256 = hash("wrong provenance bytes");
+    if (kind === "key-mode") chmodSync(operatorKeyFile.path, 0o644);
+    if (kind === "key-symlink") { const path = join(p.root, "operator-alias.pem"); symlinkSync(operatorKeyFile.path, path); config.artifacts.operatorKeyFile.path = path; }
+    if (kind === "wrong-key") config.artifacts.operatorKeyFile = p.bytes("wrong-operator.pem", generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }));
+    if (kind === "read-budget") options.maximumReadBytes = 100;
+    if (kind === "output-budget") options.maximumOutputBytes = 100;
+    if (kind === "occupied") writeFileSync(join(config.outputDir, "retained.txt"), "preserved", { mode: 0o600 });
+    if (kind === "current-code") options.currentHead = () => "b".repeat(40);
+    try { assert.throws(() => materializeProductionImportDelegatedAuthorization(p.json(`auth-negative-${kind}.json`, config).path, options), { code: "PRODUCTION_IMPORT_DELEGATED_AUTHORIZATION_FAILED" }); }
+    finally { if (kind === "key-mode") chmodSync(operatorKeyFile.path, 0o600); }
+    assert.equal(readdirSync(config.outputDir).includes("single-owner-authorization-receipt.json"), false);
+  }
 });
 test("unsigned preparation is not reviewed evidence; invalid explicit choices fail before key access", async () => {
   const s = setup(); let reads = 0;

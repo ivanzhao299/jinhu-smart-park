@@ -26,6 +26,7 @@
     "sourceSurface": { "const": "yuzhou_v10_client_database" },
     "triple": { "$ref": "#/$defs/triple" },
     "planningContractSha256": { "$ref": "#/$defs/sha256" },
+    "targetScopeSha256": { "$ref": "#/$defs/sha256", "description": "Required only with an explicit single-accountable-owner authorization; cross-artifact policy consistency is checked by preflight." },
     "target": {
       "type": "object",
       "additionalProperties": false,

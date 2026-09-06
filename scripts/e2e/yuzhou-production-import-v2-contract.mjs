@@ -33,6 +33,19 @@ const TARGET = { environment: "production", alias: "jinhu-smart-park-production"
 const TARGET_SCOPE = { tenantId: "tenant-production", parkId: "park-production", scopeSha256: "" };
 TARGET_SCOPE.scopeSha256 = computeProductionImportTargetScopeHash(TARGET_SCOPE);
 
+test("sealed JSON schema explicitly selects one-owner shape without relaxing the legacy three-party shape", () => {
+  const schema = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-sealed-plan.schema.json"), "utf8"));
+  const auth = schema.properties.authorization;
+  assert.deepEqual(auth.allOf[0].if.required, ["approvalPolicy"]);
+  assert.equal(auth.allOf[0].then.properties.approvalSet.$ref, "#/$defs/singleOwnerApprovalSet");
+  assert.equal(auth.allOf[0].else.properties.approvalSet.$ref, "#/$defs/legacyApprovalSet");
+  assert.equal(schema.$defs.singleOwnerApprovalSet.minItems, 1); assert.equal(schema.$defs.singleOwnerApprovalSet.maxItems, 1);
+  assert.equal(schema.$defs.legacyApprovalSet.minItems, 3); assert.equal(schema.$defs.legacyApprovalSet.maxItems, 3);
+  assert.equal(schema.$defs.singleOwnerPolicy.additionalProperties, false);
+  assert.ok(schema.$defs.singleOwnerPolicy.properties.confirmation.required.includes("confirmationEvidenceSha256"));
+  assert.deepEqual(schema.$defs.singleOwnerPolicy.properties.confirmation.properties.context.properties.payloadBundleSha256.required, ["T0", "T1", "T2", "T3"]);
+});
+
 function ref(role, record) {
   return { role, phase: record.phase, sourceIdentitySha256: record.sourceIdentitySha256, expectedTargetTable: record.plannedTargetTable };
 }

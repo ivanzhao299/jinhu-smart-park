@@ -22,7 +22,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 入口严格复用以下现有组件：
 
-1. `production-import-sealed-plan-lib.mjs` 验证 v2 plan、T0-T3 payload bundle、当前窗口、三方签署摘要、A/B 零残留、C/S/M、唯一目标和版本化 activation contract。
+1. `production-import-sealed-plan-lib.mjs` 验证 v2 plan、T0-T3 payload bundle、当前窗口、授权摘要、A/B 零残留、C/S/M、唯一目标和版本化 activation contract。默认仍要求三方独立签署；仅显式 `single_accountable_owner_v1` 使用[单责任人确认来源与受托操作员签发路线](testing/yuzhou-production-exception-preparation.md#explicit-single-accountable-owner-and-delegated-operation)，并逐项绑定实际四阶段载荷哈希，不冒充责任人亲签。
 2. `production-import-postgres-adapter.mjs` 使用注入的单连接池先执行只读目标身份与 tenant/park 范围探测，再为 writer 提供固定 `SERIALIZABLE` 事务。
 3. `production-import-phase-writers.mjs` 提供固定 T0-T3 writer；入口不允许从配置加载任意 JavaScript writer 或插件。
 4. `production-import-writer.mjs` 先独立消费一次性 import authorization，再以一个业务事务执行封存阶段，失败时记录稳定失败状态。
@@ -77,7 +77,7 @@ node scripts/hr-cutover/execute-production-import.mjs --config "$PRIVATE_ENTRYPO
 
 版本化依赖清单覆盖本入口的直接和传递本地模块，以及运行时读取的目标模型、执行/绩效合同、来源摘要合同和迁移 SQL。新增运行时依赖必须同步该清单；文件即使仍存在于工作树，只要从 Git 索引移除并提交，就不能作为候选执行代码继续使用。入口契约测试逐一保留这些传递依赖为未跟踪文件，验证门禁拒绝；该测试不读取业务载荷、不连接数据库。
 
-`execution.runtimeEvidence` 必须是外部审批已经按原始 UTF-8 文件字节 SHA-256 固定进 sealed plan 的只读生产发布回执。入口只接受固定 `artifactKind=yuzhou_hr_production_import_runtime_release_receipt`，并逐项核对 current/main/runtime 三个提交、生产目标、scope、`observedAt` 和 `expiresAt`；观测必须早于一次性授权签发且回执不能逃出授权/执行窗口。任意未绑定、自报替代 hash、字节篡改、错误目标或过期回执都会在加载密钥和连接 PostgreSQL 之前失败。这个机制证明“审批固定的回执字节、范围和时效没有变化”；现场真实性仍来自生成该回执的受信任只读采集/发布证据，CLI 不会自己制造回执，也不会把任意 JSON 宣称为三端同步证明。
+`execution.runtimeEvidence` 必须是外部审批（或显式单责任人确认下的受托签发）已经按原始 UTF-8 文件字节 SHA-256 固定进 sealed plan 的只读生产发布回执。入口只接受固定 `artifactKind=yuzhou_hr_production_import_runtime_release_receipt`，并逐项核对 current/main/runtime 三个提交、生产目标、scope、`observedAt` 和 `expiresAt`；观测必须早于一次性授权签发且回执不能逃出授权/执行窗口。任意未绑定、自报替代 hash、字节篡改、错误目标或过期回执都会在加载密钥和连接 PostgreSQL 之前失败。这个机制证明“审批固定的回执字节、范围和时效没有变化”；现场真实性仍来自生成该回执的受信任只读采集/发布证据，CLI 不会自己制造回执，也不会把任意 JSON 宣称为三端同步证明。
 
 PostgreSQL 凭据工件只能保存在私有文件中。已有账号密码只要求非空且有界，入口不会以“密码不够长”为由要求重设。`sslMode=verify-full` 必须包含 CA；`sslMode=disable` 只允许精确 `127.0.0.1` 或 `::1` 的本地/SSH 隧道端点，不能向远程地址明文传递密码。连接池上限固定为 1；输出永远不包含主机、数据库、用户、密码、范围值或工件路径。
 
