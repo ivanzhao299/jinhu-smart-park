@@ -15,5 +15,7 @@ test("dirty leave guard source uses one navigation coordinator without history c
   const source = readFileSync(resolve(process.cwd(), "features/property-shared/navigation/useDirtyLeaveGuard.ts"), "utf8");
   assert.match(source, /const activeGuards = new Map/);
   assert.match(source, /navigation\.addEventListener\("navigate"/);
+  assert.match(source, /event\.intercept\(\{/);
+  assert.match(source, /"AbortError"/);
   assert.doesNotMatch(source, /history\.(?:forward|back|go)/);
 });

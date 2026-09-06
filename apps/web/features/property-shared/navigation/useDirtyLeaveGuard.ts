@@ -23,6 +23,7 @@ interface NavigationEventLike extends Event {
   canIntercept?: boolean;
   destination?: { url?: string };
   hashChange?: boolean;
+  intercept?: (options: { handler: () => Promise<void> }) => void;
 }
 
 interface NavigationLike {
@@ -57,7 +58,15 @@ function installGlobalListeners(): () => void {
   };
   const onNavigate = (event: NavigationEventLike) => {
     if (event.hashChange || event.canIntercept === false || !event.destination?.url) return;
-    if (!confirmActiveGuards()) event.preventDefault();
+    if (event.intercept) {
+      event.intercept({
+        handler: async () => {
+          if (!confirmActiveGuards()) throw new DOMException("Navigation cancelled by dirty form", "AbortError");
+        }
+      });
+    } else if (!confirmActiveGuards()) {
+      event.preventDefault();
+    }
   };
   const navigation = (window as Window & { navigation?: NavigationLike }).navigation;
 

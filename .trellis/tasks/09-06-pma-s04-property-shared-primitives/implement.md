@@ -21,6 +21,7 @@
 - 2026-09-06: no isolated browser connector was available; per constraint the shared main Chrome was not used. Actual desktop/390px route rendering remains an explicit browser verification gap for L-04, while this PR covers source/state contracts.
 - 2026-09-06: review 1 found missing browser history protection, lost PageState heading semantics, uncovered engineering edit-route breadcrumbs, and nullable financial display drift. Added `popstate` cancellation plus an explicit `confirmLeave` API, restored a screen-reader heading, declared edit templates, and preserved `0.00` at existing financial call sites.
 - 2026-09-06: review 2 correctly rejected direction-blind `history.forward()` recovery and per-instance suppression. Replaced it with a singleton guard registry: Navigation API cancellation covers Link/router/history where supported; fallback covers anchor navigation, and `beforeunload` remains universal. No history compensation or repeated per-instance listeners remain.
+- 2026-09-06: review 3 noted `preventDefault()` does not reliably cancel Navigation API traverse events. Replaced cancellation with `NavigateEvent.intercept()` and an aborting handler, so supported Chromium navigation waits for the operator decision. Non-Navigation-API SPA history traversal remains a documented browser compatibility/L-04 gap; fallback still protects anchors and full unloads. Review cap reached; final patch is validated by focused tests/type/lint/CI rather than a fourth review.
 
 ## Risks
 
