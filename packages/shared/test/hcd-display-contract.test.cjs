@@ -41,6 +41,16 @@ test("HCD query pseudo-values do not pollute persisted turnover status", () => {
   assert.equal(shared.HOUSING_LEASE_STATUSES.includes("closed"), false);
 });
 
+test("long-rent current display terminology stays canonical without changing signed role ABI", () => {
+  assert.equal(shared.PROPERTY_OPERATING_MODE_LABELS.long_rent, "长租经营");
+  assert.equal(shared.PARTY_SOURCE_DOMAIN_LABELS.housing_rental, "长租经营");
+  assert.equal(shared.PROPERTY_PERMISSION_BUNDLES.HOUSING_OVERVIEW.description, "长租经营看板与任务能力");
+  assert.equal(
+    shared.TRACK_B_PERMISSION_BUNDLE_REVISIONS["property-bundle:property-housing-operator"].signingName,
+    "住房出租运营人员"
+  );
+});
+
 test("HCD temporary closed and observed directories contain exactly the reviewed values", () => {
   assert.deepEqual(Object.keys(shared.PROPERTY_APPROVAL_ACTION_LABELS).sort(), Object.keys(shared.TRACK_B_APPROVAL_EFFECT_MANIFEST).sort());
   assert.deepEqual(Object.keys(shared.PARTY_CONSENT_STATUS_LABELS).sort(), ["granted", "pending", "withdrawn"]);

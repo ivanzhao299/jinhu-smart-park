@@ -228,7 +228,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_OVERVIEW: {
     code: "property-bundle:housing-overview",
-    description: "住房出租看板与任务能力",
+    description: "长租经营看板与任务能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_DASHBOARD_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASKS_PAGE,
