@@ -1,3 +1,4 @@
+import { EmptyState } from "@jinhu/ui";
 import type { ReactNode } from "react";
 import { LiveRegion } from "./LiveRegion";
 import {
@@ -125,9 +126,8 @@ function StateMessage({
 }) {
   return (
     <div>
-      <h2>{title}</h2>
-      <p>{message}</p>
-      {action}
+      <h2 className="sr-only">{title}</h2>
+      <EmptyState action={action} compact description={message} title={<span aria-hidden="true">{title}</span>} />
     </div>
   );
 }

@@ -3,6 +3,10 @@ import test from "node:test";
 import {
   displayEntityName,
   eligibilityReasonLabel,
+  formatPropertyDate,
+  formatPropertyDateTime,
+  formatPropertyEnum,
+  formatPropertyMoney,
   homestayPriceSourceLabel,
   housingChargeTypeLabel,
   housingPaymentMethodLabel,
@@ -10,6 +14,17 @@ import {
   propertyLabels,
   workOrderStatusLabel
 } from "./property-presentation";
+
+test("property formatters preserve empty and invalid values honestly", () => {
+  assert.equal(formatPropertyMoney("12.5"), "12.50");
+  assert.equal(formatPropertyMoney(null), "-");
+  assert.equal(formatPropertyMoney(null, { empty: "0.00" }), "0.00");
+  assert.equal(formatPropertyMoney("not-money"), "not-money");
+  assert.equal(formatPropertyDate("not-a-date"), "not-a-date");
+  assert.equal(formatPropertyDateTime(null), "-");
+  assert.equal(formatPropertyEnum("known", { known: "已知" }, "未知状态"), "已知");
+  assert.equal(formatPropertyEnum("raw-code", { known: "已知" }, "未知状态"), "未知状态");
+});
 
 test("HCD known codes use Chinese labels and unknown codes use Chinese fallbacks", () => {
   assert.equal(propertyLabels.operatingMode("short_stay"), "民宿短租");

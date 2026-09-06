@@ -45,6 +45,34 @@ export interface MenuNode {
   children?: MenuNode[];
 }
 
+export interface BreadcrumbMatch {
+  parent?: MenuNode;
+  current?: MenuNode;
+}
+
+const BREADCRUMB_ROUTE_TEMPLATES = [
+  "/engineering/projects/:id", "/engineering/projects/:id/edit", "/engineering/plans/:id", "/engineering/plans/:id/edit",
+  "/engineering/daily-reports/:id", "/engineering/daily-reports/:id/edit", "/engineering/inspections/:id",
+  "/engineering/inspections/:id/edit", "/engineering/rectifications/:id", "/engineering/acceptances/:id",
+  "/engineering/acceptances/:id/edit",
+  "/iot/devices/:id", "/workorders/:id", "/assets/identity-submissions/:id", "/assets/parties/:id",
+  "/assets/property-occupancies/:id", "/assets/property-operations/:id", "/homestay/bookings/:id",
+  "/homestay/stays/:id", "/homestay/turnovers/:id", "/housing/handovers/:id", "/housing/leases/:id",
+  "/housing/purchases/:id", "/housing/repairs/:id", "/housing/tenants/:id", "/property/approval-incidents/:id",
+  "/property/approvals/:id", "/property/event-delivery-incidents/:id", "/property/notifications/:id"
+] as const;
+
+export function findBreadcrumbByPath(pathname: string, menus: MenuNode[] = dashboardMenus): BreadcrumbMatch {
+  const template = BREADCRUMB_ROUTE_TEMPLATES.find((candidate) => {
+    const pattern = `^${candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(":id", "[^/]+")}/?$`;
+    return new RegExp(pattern).test(pathname);
+  });
+  const menuPath = template ? template.replace("/:id/edit", "").replace("/:id", "") : pathname;
+  const current = findMenuByPath(menuPath, menus);
+  const parent = menus.find((menu) => menu === current || menu.children?.some((child) => child.href === current?.href));
+  return { parent: parent === current ? undefined : parent, current };
+}
+
 const MENU_ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
   "building-2": Building2,

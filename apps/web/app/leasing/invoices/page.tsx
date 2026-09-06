@@ -13,6 +13,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { formatPropertyMoney as formatMoney } from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const INVOICE_ENTITY = "leasing_invoice";
@@ -499,7 +500,7 @@ export default function LeasingInvoicesPage() {
             <section className="detail-stack">
               <h3>关联应收</h3>
               <div className="system-toolbar">
-                <span className="muted-text">发票金额 {formatMoney(form.amount)}，关联合计 {formatMoney(invoiceRowsTotal)}</span>
+                <span className="muted-text">发票金额 {formatMoney(form.amount, { empty: "0.00" })}，关联合计 {formatMoney(invoiceRowsTotal, { empty: "0.00" })}</span>
                 <button className="primary-button" type="button" onClick={() => setInvoiceRows((current) => [...current, { receivableId: "", invoiceAmount: "0" }])}>
                   <Plus size={16} /> 添加应收
                 </button>
@@ -512,7 +513,7 @@ export default function LeasingInvoicesPage() {
                       <option value="">请选择</option>
                       {receivables.map((receivable) => (
                         <option key={receivable.id} value={receivable.id}>
-                          {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} {receivable.periodStart} 至 {receivable.periodEnd} 应收 {formatMoney(receivable.amountDue)}
+                          {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} {receivable.periodStart} 至 {receivable.periodEnd} 应收 {formatMoney(receivable.amountDue, { empty: "0.00" })}
                         </option>
                       ))}
                     </select>
@@ -585,8 +586,8 @@ export default function LeasingInvoicesPage() {
                     <td>{item.receivable?.contract?.contractCode ?? "-"}</td>
                     <td>{dictLabel(feeTypeItems, item.receivable?.feeType)}</td>
                     <td>{item.receivable ? `${item.receivable.periodStart} 至 ${item.receivable.periodEnd}` : "-"}</td>
-                    <td>{formatMoney(item.receivable?.amountDue)}</td>
-                    <td>{formatMoney(item.invoiceAmount)}</td>
+                    <td>{formatMoney(item.receivable?.amountDue, { empty: "0.00" })}</td>
+                    <td>{formatMoney(item.invoiceAmount, { empty: "0.00" })}</td>
                     <td><DictBadge items={invoiceStatusItems} value={item.receivable?.invoiceStatus} /></td>
                     <td><DictBadge items={receivableStatusItems} value={item.receivable?.status} /></td>
                   </tr>
@@ -702,12 +703,7 @@ function buyerTaxNoText(value: unknown, canView: boolean, user: ReturnType<typeo
 function invoiceAmountText(value: unknown, canView: boolean, user: ReturnType<typeof useAuthUser>): string {
   if (!canView) return "-";
   const masked = maskField(user, LEASING_MODULE, INVOICE_ENTITY, "amount", value);
-  return formatMoney(masked as string | number | null | undefined);
-}
-
-function formatMoney(value?: string | number | null): string {
-  const numberValue = Number(value ?? 0);
-  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(value ?? "-");
+  return formatMoney(masked as string | number | null | undefined, { empty: "0.00" });
 }
 
 function normalizeAmount(value: unknown): string {

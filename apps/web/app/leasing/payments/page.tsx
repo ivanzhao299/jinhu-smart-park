@@ -13,6 +13,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { formatPropertyDateTime as formatDateTime, formatPropertyMoney as formatMoney } from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const PAYMENT_ENTITY = "leasing_payment";
@@ -525,7 +526,7 @@ export default function LeasingPaymentsPage() {
                     <option value="">请选择</option>
                     {receivables.map((receivable) => (
                       <option key={receivable.id} value={receivable.id}>
-                        {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} 未收 {formatMoney(receivable.amountRemain)}
+                        {receivable.arCode} {dictLabel(feeTypeItems, receivable.feeType)} 未收 {formatMoney(receivable.amountRemain, { empty: "0.00" })}
                       </option>
                     ))}
                   </select>
@@ -573,7 +574,7 @@ export default function LeasingPaymentsPage() {
                       <td>{application.receivable?.arCode ?? application.receivableId}</td>
                       <td>{dictLabel(feeTypeItems, application.receivable?.feeType ?? "")}</td>
                       <td>{application.receivable ? `${application.receivable.periodStart} 至 ${application.receivable.periodEnd}` : "-"}</td>
-                      <td>{formatMoney(application.appliedAmount)}</td>
+                      <td>{formatMoney(application.appliedAmount, { empty: "0.00" })}</td>
                       <td><DictBadge items={receivableStatusItems} value={application.receivable?.status} /></td>
                       <td>{formatDateTime(application.createTime)}</td>
                     </tr>
@@ -680,21 +681,12 @@ function bankSerialText(value: unknown, canView: boolean, user: ReturnType<typeo
 function paymentAmountText(value: unknown, fieldKey: "payAmount" | "unappliedAmount", canView: boolean, user: ReturnType<typeof useAuthUser>): string {
   if (!canView) return "-";
   const masked = maskField(user, LEASING_MODULE, PAYMENT_ENTITY, fieldKey, value);
-  return formatMoney(masked as string | number | null | undefined);
-}
-
-function formatMoney(value?: string | number | null): string {
-  const numberValue = Number(value ?? 0);
-  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(value ?? "-");
+  return formatMoney(masked as string | number | null | undefined, { empty: "0.00" });
 }
 
 function normalizeAmount(value: unknown): string {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue.toFixed(2) : "0";
-}
-
-function formatDateTime(value?: string | null): string {
-  return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "-";
 }
 
 function toDateTimeInput(value?: string | null): string {
