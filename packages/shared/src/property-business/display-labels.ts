@@ -66,7 +66,8 @@ export const PARTY_SOURCE_DOMAIN_LABELS = {
 export const PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES: Readonly<Record<string, string>> = {
   "property-bundle:property-housing-operator": "长租经营运营人员",
   "property-bundle:property-housing-finance-operator": "长租经营财务操作员",
-  "property-bundle:property-housing-approver": "长租经营审批人"
+  "property-bundle:property-housing-approver": "长租经营审批人",
+  "property-bundle:property-housing-task-supervisor": "长租经营任务督办人"
 };
 
 export const HOUSING_CHARGE_TYPE_LABELS = {
