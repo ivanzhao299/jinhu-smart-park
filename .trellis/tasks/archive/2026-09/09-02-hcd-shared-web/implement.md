@@ -32,6 +32,7 @@
 - PR #536 已 squash merge；远端 `main` 为 `422af8fa`。
 - PASS PR CI：Detect Release Smoke Scope、Lint/Typecheck/Build、Release Smoke。
 - PASS main 双绿：CI success、自动 Deploy Production success（仅监控自动流程，无生产直操作）。
+- 收口复核：PR #536 merge `422af8fa`；A/C 20 项 shared/Web 契约与定向测试为 PASS 面，运行态浏览器仅按 UAT 报告的 SURFACE_ONLY/BLOCKED 等级记录。
 
 ## Risks
 

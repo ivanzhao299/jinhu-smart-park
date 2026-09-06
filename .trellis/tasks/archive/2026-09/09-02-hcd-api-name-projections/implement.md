@@ -7,7 +7,7 @@ PR1 已合入 main 并双绿；已从 `origin/main@422af8fa` 创建 `codex/fix-h
 - [x] 核验四条 API scope/字段权限/测试（双路只读探子，按 file:line 抽查）。
 - [x] shared contract、API projection、Web 消费。
 - [x] 权限裁剪/null/跨 scope 测试。
-- [ ] trellis-check、PR、CI、merge、main 双绿。
+- [x] trellis-check、PR #537、CI、squash merge `c9177120`、main CI 与 Deploy 双绿。
 
 ## Validation Log
 
@@ -20,3 +20,4 @@ PR1 已合入 main 并双绿；已从 `origin/main@422af8fa` 创建 `codex/fix-h
 - 首轮独立复核发现并修复：民宿房源名称投影未排除软删除；列表订单/房态/周转仍有直接编号拼接路径。
 - 第二轮独立复核确认 API tenant/park/ID scope 与软删除约束无 P0-P1；进一步封闭名称字段本身为 UUID 的脏数据回退，并将三类列表接线门禁改为精确调用次数。
 - PASS 复核修正后 API 民宿定向 19/19、Web property 32/32、Web housing 32/32、API/Web typecheck、`git diff --check`。
+- 收口复核：B 类 HCD-011/012/020/027 的 additive nullable 投影、scope/权限裁剪、null 回退与 picker 恢复证据保持有效；真实浏览器交互未据此升级为 PASS。

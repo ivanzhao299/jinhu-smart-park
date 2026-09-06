@@ -14,6 +14,8 @@ const tenantId = "10000001";
 const parkId = "20000001";
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
+const redactedApiBase = redactUrl(apiBase);
+const redactedWebBase = redactUrl(webBase);
 const apiPathPrefix = new URL(apiBase).pathname.replace(/\/$/u, "");
 const trackedWebApiPrefix = `${webBase.replace(/\/$/u, "")}${apiPathPrefix}/`;
 const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCredentialsFile);
@@ -31,6 +33,9 @@ const expectForbidden = process.argv.includes("--expect-forbidden");
 const mobilePathPrefixes = parseListArg("--mobile-path-prefixes");
 const evidenceDirArg = readArg("--evidence-dir");
 const evidenceDir = evidenceDirArg ? resolve(repoRoot, evidenceDirArg) : null;
+const runId = readArg("--run-id") ?? process.env.TEST_RUN_ID ?? null;
+const rewriteTarget = readArg("--rewrite-target") ?? process.env.NEXT_PUBLIC_API_TARGET ?? null;
+const redactedRewriteTarget = rewriteTarget ? redactUrl(rewriteTarget, webBase) : null;
 const singlePathPrefix = readArg("--path-prefix");
 if (singlePathPrefix) pathPrefixes.push(singlePathPrefix);
 
@@ -96,14 +101,16 @@ function buildReport(usesSingleUser) {
     go_live_date: "2026-07-06",
     status: failures.length === 0 ? "PASS" : "FAIL",
     scope: usesSingleUser ? "single_user_browser_page_uat" : "all_enabled_users_browser_page_uat",
-    api_base: apiBase,
-    web_base: webBase,
+    api_base: redactedApiBase,
+    web_base: redactedWebBase,
     credentials_file: singleUsername && singlePassword ? null : credentialsFile,
     report_file: reportFile,
     users_checked: results.length,
     pages_checked: pagesChecked,
     results,
     screenshot_manifest: screenshotManifest,
+    run_id: runId,
+    rewrite_target: redactedRewriteTarget,
     warnings,
     failures
   };
@@ -126,25 +133,32 @@ async function checkUser(user, password, chrome) {
     page_evidence: []
   };
 
-  const login = await requestJson(`${apiBase}/auth/login`, {
-    method: "POST",
-    body: { tenantId, parkId, username: user.username, password }
-  });
-  if (login.status !== 200 || !login.body?.data?.accessToken) {
-    fail(`browser UAT login failed for ${user.username}: ${login.status}`);
+  let session;
+  try {
+    session = await chrome.createSession();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    result.failed_pages.push(`SESSION_CREATE: browser_harness_error (${reason})`);
+    fail(`browser UAT ${user.username} could not create an isolated browser session: ${reason}`);
     return result;
   }
-  result.login = "PASS";
+  let me;
+  try {
+    const login = await session.login({ username: user.username, password });
+    result.login_evidence = login;
+    if (login.status !== "PASS") {
+      fail(`browser UAT UI login failed for ${user.username}: ${login.reason}`);
+      return result;
+    }
+    result.login = "PASS";
+    me = await session.currentUser();
+    if (!me?.data) {
+      result.failed_pages.push("/users/me (browser_session_failed)");
+      fail(`browser UAT browser-session /users/me failed for ${user.username}`);
+      return result;
+    }
 
-  const token = login.body.data.accessToken;
-  const me = await requestJson(`${apiBase}/users/me`, { token });
-  if (me.status !== 200 || !me.body?.data) {
-    result.failed_pages.push(`/users/me (${me.status})`);
-    fail(`browser UAT /users/me failed for ${user.username}: ${me.status}`);
-    return result;
-  }
-
-  const apiPages = Array.from(new Set(flattenMenuHrefs(me.body.data.menus ?? me.body.data.menu_tree ?? [])))
+  const apiPages = Array.from(new Set(flattenMenuHrefs(me.data.menus ?? me.data.menu_tree ?? [])))
     .map(normalizeMenuHref)
     .filter(Boolean);
   result.api_menu_pages_total = apiPages.length;
@@ -155,9 +169,7 @@ async function checkUser(user, password, chrome) {
   } else {
     let renderedMenu;
     try {
-      renderedMenu = await chrome.listMenuPaths({
-        token,
-        userContext: me.body.data,
+      renderedMenu = await session.listMenuPaths({
         viewport: { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
       });
     } catch (error) {
@@ -196,11 +208,9 @@ async function checkUser(user, password, chrome) {
 
     let pageResult;
     try {
-        pageResult = await chrome.visit({
+        pageResult = await session.visit({
           path: pagePath,
           username: user.username,
-        token,
-        userContext: me.body.data,
         viewport: isMobileTerminalPath(pagePath)
           ? { width: 390, height: 844, mobile: true, deviceScaleFactor: 3 }
           : { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
@@ -227,6 +237,9 @@ async function checkUser(user, password, chrome) {
   }
   console.log(`[browser-uat] ${user.username} done: ${result.page_render_check} (${result.pages_checked}/${result.menu_pages_total})`);
   return result;
+  } finally {
+    await session.close();
+  }
 }
 
 async function launchChrome() {
@@ -235,11 +248,8 @@ async function launchChrome() {
     const browser = new CdpClient(version.webSocketDebuggerUrl);
     await browser.open();
     return {
-      async listMenuPaths(input) {
-        return collectRenderedMenuPaths(browser, input);
-      },
-      async visit(input) {
-        return visitPage(browser, input);
+      async createSession() {
+        return createBrowserSession(browser);
       },
       async close() {
         try {
@@ -273,11 +283,8 @@ async function launchChrome() {
   await browser.open();
 
   return {
-    async listMenuPaths(input) {
-      return collectRenderedMenuPaths(browser, input);
-    },
-    async visit(input) {
-      return visitPage(browser, input);
+    async createSession() {
+      return createBrowserSession(browser);
     },
     async close() {
       await browser.close();
@@ -294,8 +301,109 @@ async function launchChrome() {
   };
 }
 
-async function collectRenderedMenuPaths(browser, { token, userContext, viewport }) {
-  const target = await browser.send("Target.createTarget", { url: `${webBase}/login` });
+async function createBrowserSession(browser) {
+  const context = await browser.send("Target.createBrowserContext", { disposeOnDetach: true });
+  const browserContextId = context.browserContextId;
+  return {
+    login: (input) => loginThroughUi(browser, browserContextId, input),
+    currentUser: () => browserSessionRequest(browser, browserContextId, `${apiPathPrefix}/users/me`),
+    listMenuPaths: (input) => collectRenderedMenuPaths(browser, { ...input, browserContextId }),
+    visit: (input) => visitPage(browser, { ...input, browserContextId }),
+    close: () => browser.send("Target.disposeBrowserContext", { browserContextId }).catch(() => undefined)
+  };
+}
+
+async function loginThroughUi(browser, browserContextId, { username, password }) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/login`, browserContextId });
+  const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
+  const sessionId = attached.sessionId;
+  const network = [];
+  const requests = new Map();
+  const off = browser.onEvent((message) => {
+    if (message.sessionId !== sessionId) return;
+    if (message.method === "Network.requestWillBeSent") {
+      const request = message.params?.request;
+      if (request?.url && /^https?:/u.test(request.url)) {
+        requests.set(message.params.requestId, {
+          method: request.method,
+          url: redactUrl(request.url),
+          path: new URL(request.url).pathname
+        });
+      }
+    }
+    if (message.method === "Network.responseReceived") {
+      const request = requests.get(message.params?.requestId);
+      if (request) network.push({ ...request, status: message.params?.response?.status ?? null });
+    }
+    if (message.method === "Network.loadingFailed") {
+      const request = requests.get(message.params?.requestId);
+      if (request) network.push({ ...request, status: "transport_failed", error: message.params?.errorText ?? "unknown" });
+    }
+  });
+  try {
+    await browser.send("Page.enable", {}, sessionId);
+    await browser.send("Runtime.enable", {}, sessionId);
+    await browser.send("Network.enable", {}, sessionId);
+    await waitForReady(browser, sessionId);
+    await waitForExpression(browser, sessionId, `Boolean(document.querySelector('input[autocomplete="username"]') && document.querySelector('input[autocomplete="current-password"]'))`, 10000);
+    const submitted = await browser.send("Runtime.evaluate", {
+      expression: `(() => {
+        const setValue = (element, value) => {
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+          setter.call(element, value);
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        const username = document.querySelector('input[autocomplete="username"]');
+        const password = document.querySelector('input[autocomplete="current-password"]');
+        const submit = document.querySelector('button[type="submit"]');
+        if (!username || !password || !submit) return false;
+        setValue(username, ${JSON.stringify(username)});
+        setValue(password, ${JSON.stringify(password)});
+        submit.click();
+        return true;
+      })()`,
+      returnByValue: true
+    }, sessionId);
+    if (!submitted.result?.value) return { status: "FAIL", reason: "login_form_not_found", method: "ui_form", network };
+    await waitForExpression(browser, sessionId, `location.pathname !== "/login" && Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token"))`, 15000);
+    const evidence = await browser.send("Runtime.evaluate", {
+      expression: `({ pathname: location.pathname, hasSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), formStillVisible: Boolean(document.querySelector(".signin-page")) })`,
+      returnByValue: true
+    }, sessionId);
+    const value = evidence.result?.value ?? {};
+    return {
+      status: value.hasSession && !value.formStillVisible ? "PASS" : "FAIL",
+      reason: value.hasSession ? "" : "no_authenticated_session",
+      method: "ui_form",
+      pathname: value.pathname,
+      network
+    };
+  } finally {
+    off();
+    await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
+  }
+}
+
+async function browserSessionRequest(browser, browserContextId, path) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/dashboard`, browserContextId });
+  const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
+  try {
+    await browser.send("Runtime.enable", {}, attached.sessionId);
+    await waitForReady(browser, attached.sessionId);
+    const response = await browser.send("Runtime.evaluate", {
+      expression: `fetch(${JSON.stringify(path)}, { credentials: "same-origin" }).then(async response => ({ status: response.status, body: await response.json() }))`,
+      returnByValue: true,
+      awaitPromise: true
+    }, attached.sessionId);
+    return response.result?.value?.status === 200 ? response.result.value.body : null;
+  } finally {
+    await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
+  }
+}
+
+async function collectRenderedMenuPaths(browser, { browserContextId, viewport }) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/dashboard`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
   const runtimeErrors = [];
@@ -304,14 +412,14 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
     if (message.method === "Runtime.exceptionThrown") {
-      runtimeErrors.push(message.params?.exceptionDetails?.text ?? "runtime exception");
+      runtimeErrors.push(redactDiagnostic(message.params?.exceptionDetails?.text ?? "runtime exception"));
     }
     if (message.method === "Runtime.consoleAPICalled" && message.params?.type === "error") {
       const text = (message.params.args ?? [])
         .map((arg) => String(arg.value ?? arg.description ?? ""))
         .filter(Boolean)
         .join(" ");
-      if (text) pageWarnings.push(`console.error: ${text}`);
+      if (text) pageWarnings.push(`console.error: ${redactDiagnostic(text)}`);
     }
   });
 
@@ -325,18 +433,6 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
       deviceScaleFactor: viewport.deviceScaleFactor
     }, sessionId);
     await waitForReady(browser, sessionId);
-
-    const seedSessionSource = `
-        localStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
-        sessionStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
-        localStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-        sessionStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-      `;
-    await browser.send("Page.addScriptToEvaluateOnNewDocument", { source: seedSessionSource }, sessionId);
-    await browser.send("Runtime.evaluate", {
-      expression: seedSessionSource,
-      awaitPromise: true
-    }, sessionId);
 
     const loadPromise = waitForEvent(browser, sessionId, "Page.loadEventFired", 12000);
     await browser.send("Page.navigate", { url: `${webBase}/dashboard` }, sessionId);
@@ -385,44 +481,47 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
   }
 }
 
-async function visitPage(browser, { path, username, token, userContext, viewport }) {
-  const target = await browser.send("Target.createTarget", { url: `${webBase}/login` });
+async function visitPage(browser, { path, username, browserContextId, viewport }) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}${path}`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
   const runtimeErrors = [];
   const pageWarnings = [];
   const network = [];
-  const pendingApiRequests = new Map();
+  const pendingRequests = new Map();
 
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
     if (message.method === "Runtime.exceptionThrown") {
-      runtimeErrors.push(message.params?.exceptionDetails?.text ?? "runtime exception");
+      runtimeErrors.push(redactDiagnostic(message.params?.exceptionDetails?.text ?? "runtime exception"));
     }
     if (message.method === "Runtime.consoleAPICalled" && message.params?.type === "error") {
       const text = (message.params.args ?? [])
         .map((arg) => String(arg.value ?? arg.description ?? ""))
         .filter(Boolean)
         .join(" ");
-      if (text) pageWarnings.push(`console.error: ${text}`);
+      if (text) pageWarnings.push(`console.error: ${redactDiagnostic(text)}`);
     }
     if (message.method === "Network.responseReceived") {
       const response = message.params?.response;
-      if (response?.url?.startsWith(trackedWebApiPrefix)) {
+      if (response?.url && /^https?:/u.test(response.url)) {
         network.push({
           resource_type: message.params?.type ?? "Other",
+          url: redactUrl(response.url),
           path: new URL(response.url).pathname,
-          status: response.status
+          status: response.status,
+          remote_ip: response.remoteIPAddress ?? null,
+          rewrite_target: response.url.startsWith(trackedWebApiPrefix) ? redactedRewriteTarget : null
         });
       }
     }
     if (message.method === "Network.requestWillBeSent") {
       const url = message.params?.request?.url;
-      if (url?.startsWith(trackedWebApiPrefix)) pendingApiRequests.set(message.params.requestId, url);
+      if (url && /^https?:/u.test(url)) pendingRequests.set(message.params.requestId, url);
     }
-    if (message.method === "Network.loadingFinished") pendingApiRequests.delete(message.params?.requestId);
+    if (message.method === "Network.loadingFinished") pendingRequests.delete(message.params?.requestId);
     if (message.method === "Network.loadingFailed") {
-      const url = pendingApiRequests.get(message.params?.requestId);
+      const url = pendingRequests.get(message.params?.requestId);
       if (url) {
         network.push({
           resource_type: message.params?.type ?? "Other",
@@ -431,7 +530,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
           error: message.params?.errorText ?? "unknown"
         });
       }
-      pendingApiRequests.delete(message.params?.requestId);
+      pendingRequests.delete(message.params?.requestId);
     }
   });
 
@@ -447,18 +546,6 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     }, sessionId);
     await waitForReady(browser, sessionId);
 
-    const seedSessionSource = `
-        localStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
-        sessionStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
-        localStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-        sessionStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-      `;
-    await browser.send("Page.addScriptToEvaluateOnNewDocument", { source: seedSessionSource }, sessionId);
-    await browser.send("Runtime.evaluate", {
-      expression: seedSessionSource,
-      awaitPromise: true
-    }, sessionId);
-
     const loadPromise = waitForEvent(browser, sessionId, "Page.loadEventFired", 12000);
     await browser.send("Page.navigate", { url: `${webBase}${path}` }, sessionId);
     await loadPromise;
@@ -467,7 +554,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     const settleDeadline = Date.now() + 5000;
     let settledAt = null;
     while (Date.now() < settleDeadline) {
-      if (pendingApiRequests.size === 0) {
+      if (pendingRequests.size === 0) {
         settledAt ??= Date.now();
         if (Date.now() - settledAt >= 300) break;
       } else {
@@ -475,10 +562,10 @@ async function visitPage(browser, { path, username, token, userContext, viewport
       }
       await sleep(100);
     }
-    if (pendingApiRequests.size > 0) {
+    if (pendingRequests.size > 0) {
       network.push({
         resource_type: "Pending",
-        path: new URL(pendingApiRequests.values().next().value).pathname,
+        path: new URL(pendingRequests.values().next().value).pathname,
         status: "settle_timeout"
       });
     }
@@ -497,6 +584,14 @@ async function visitPage(browser, { path, username, token, userContext, viewport
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
+          ,deviceCapabilities: {
+            userAgent: navigator.userAgent,
+            maxTouchPoints: navigator.maxTouchPoints,
+            coarsePointer: matchMedia("(pointer: coarse)").matches,
+            finePointer: matchMedia("(pointer: fine)").matches,
+            hover: matchMedia("(hover: hover)").matches,
+            devicePixelRatio: window.devicePixelRatio
+          }
         };
       })()`,
       returnByValue: true,
@@ -534,6 +629,22 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     off();
     await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
   }
+}
+
+function redactUrl(value, base) {
+  const url = new URL(value, base);
+  url.username = "";
+  url.password = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function redactDiagnostic(value) {
+  return String(value)
+    .replace(/Bearer\s+[^\s"']+/giu, "Bearer [REDACTED]")
+    .replace(/(authorization|cookie|set-cookie|token|password)\s*[:=]\s*[^\s,;]+/giu, "$1=[REDACTED]")
+    .replace(/https?:\/\/[^\s"'<>]+/giu, (url) => redactUrl(url));
 }
 
 function getRenderFailure(value, runtimeErrors, options = {}) {
