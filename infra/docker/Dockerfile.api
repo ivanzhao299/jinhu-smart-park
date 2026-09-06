@@ -81,5 +81,9 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api ./apps/api
 COPY --from=build /app/packages ./packages
 
+ARG RELEASE_COMMIT=
+RUN node -e 'const v=process.argv[1]; if(v!==""&&!/^[0-9a-f]{40}$/.test(v)) process.exit(1)' "$RELEASE_COMMIT"
+LABEL org.opencontainers.image.revision="$RELEASE_COMMIT" cn.jinhu.runtime.component="api"
+
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]
