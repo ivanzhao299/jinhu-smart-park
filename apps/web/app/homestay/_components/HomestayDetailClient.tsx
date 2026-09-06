@@ -41,7 +41,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
   const load = useCallback(async () => {
     if (!readAllowed) {
       setState({ kind: "forbidden" });
-      return;
+      return false;
     }
     setState((current) => current.kind === "ready"
       ? { kind: "ready", stale: true }
@@ -58,10 +58,12 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
       );
       setData(response.data);
       setState({ kind: "ready" });
+      return true;
     } catch (loadError) {
       if (isForbiddenError(loadError)) setState({ kind: "forbidden" });
       else if (loadError instanceof ApiError && loadError.status === 404) setState({ kind: "not-found" });
       else setState({ kind: "failure", message: propertyErrorMessage(loadError, "详情加载失败，请稍后重试") });
+      return false;
     }
   }, [entityId, kind, readAllowed]);
   useEffect(() => void load(), [load, invalidationKey]);
@@ -69,7 +71,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
 }
 
 function useDetailMutation(
-  load: () => Promise<void>,
+  load: () => Promise<boolean>,
   setState: React.Dispatch<React.SetStateAction<CanonicalDetailState>>
 ) {
   const [message, setMessage] = useState("");
@@ -99,15 +101,15 @@ function useDetailMutation(
         ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
         : "操作已完成。");
       retry.current = null;
-      try {
-        await load();
-      } catch {
+      if (!await load()) {
         setMessage("操作已完成，但详情刷新失败，请手动刷新确认最新状态。");
       }
       return true;
     } catch (actionError) {
       if (actionError instanceof ApiError && actionError.status === 409) {
-        setState({ kind: "conflict", message: propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试") });
+        const actionMessage = propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试");
+        setErrorMessage(actionMessage);
+        setState({ kind: "conflict", message: actionMessage });
       } else {
         const actionMessage = propertyErrorMessage(actionError);
         setMessage(actionMessage);
@@ -149,7 +151,7 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
     >
       <div aria-busy={action.submitting} inert={action.submitting}>
       {isBookingDetail(query.data)
-        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} />
+        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} submitting={action.submitting} />
         : query.data
           ? <TurnoverDetail
               capability={capability}
@@ -197,13 +199,15 @@ function BookingDetail({
   kind,
   capability,
   mutate,
-  mutationError
+  mutationError,
+  submitting
 }: {
   data: HomestayBookingDetailResponse;
   kind: DetailKind;
   capability: ReturnType<typeof projectPropertyCapabilities>;
   mutate(endpoint: string, body?: unknown): Promise<boolean>;
   mutationError: string;
+  submitting: boolean;
 }) {
   const booking = data.booking;
   const isStay = kind === "stay";
@@ -215,7 +219,7 @@ function BookingDetail({
       {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} /> : null}
       {canReschedule ? <HomestayReschedulePanel booking={booking} mutate={mutate} /> : null}
       <BookingProjections data={data} />
-      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} />
+      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} submitting={submitting} />
     </>
   );
 }
@@ -262,11 +266,12 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
   </section></>;
 }
 
-function BookingActions({ booking, capability, isStay, mutate, mutationError }: {
+function BookingActions({ booking, capability, isStay, mutate, mutationError, submitting }: {
   booking: HomestayBookingDetailResponse["booking"];
   capability: ReturnType<typeof projectPropertyCapabilities>; isStay: boolean;
   mutate(endpoint: string, body?: unknown): Promise<boolean>;
   mutationError: string;
+  submitting: boolean;
 }) {
   const [cancelReason, setCancelReason] = useState("");
   const [pendingStayAction, setPendingStayAction] = useState<"check-in" | "check-out" | null>(null);
@@ -289,6 +294,7 @@ function BookingActions({ booking, capability, isStay, mutate, mutationError }: 
   </form> : null}
   <ConsequenceDialog
     actionLabel={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
+    busy={submitting}
     consequences={pendingStayAction === "check-out"
       ? ["订单将进入已退房终态并释放占用。", "系统将创建客房周转任务；未回收或遗失凭证须先完成处置。"]
       : ["订单将进入在住状态并占用该房源。", "系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。"]}

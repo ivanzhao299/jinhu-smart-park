@@ -13,6 +13,9 @@ test("homestay check-in and check-out share the consequence dialog", () => {
   assert.match(homestay, /pendingStayAction/);
   assert.match(homestay, /<ConsequenceDialog/);
   assert.match(homestay, /errorMessage=\{mutationError \|\| undefined\}/);
+  assert.match(homestay, /busy=\{submitting\}/);
+  assert.match(homestay, /setErrorMessage\(actionMessage\)/);
+  assert.match(homestay, /if \(!await load\(\)\)/);
   assert.match(homestay, /return false;/);
   assert.match(homestay, /办理入住/);
   assert.match(homestay, /办理退房/);
