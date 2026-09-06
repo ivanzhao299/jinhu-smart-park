@@ -1037,3 +1037,38 @@ Merged PR #519: housing move-in now requires current verified identity and exact
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: PMA S-03 high-risk confirmation closure
+
+**Date**: 2026-09-06
+**Task**: PMA S-03 high-risk confirmation closure
+**Package**: web
+**Branch**: `codex/fix-pma-s03-close`
+
+### Summary
+
+PR #665 unified high-risk confirmation flows; 3 review rounds, 54 focused tests, PR CI and containing-main CI/Deploy green; browser route rendering handed to L-04.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ac32ef02` | (see git log) |
+| `74394bf7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
