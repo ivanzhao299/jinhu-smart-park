@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
+  ConsequenceDialog,
   displayEntityName,
   homestayPriceSourceLabel,
   propertyLabels,
@@ -40,7 +41,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
   const load = useCallback(async () => {
     if (!readAllowed) {
       setState({ kind: "forbidden" });
-      return;
+      return false;
     }
     setState((current) => current.kind === "ready"
       ? { kind: "ready", stale: true }
@@ -57,10 +58,12 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
       );
       setData(response.data);
       setState({ kind: "ready" });
+      return true;
     } catch (loadError) {
       if (isForbiddenError(loadError)) setState({ kind: "forbidden" });
       else if (loadError instanceof ApiError && loadError.status === 404) setState({ kind: "not-found" });
       else setState({ kind: "failure", message: propertyErrorMessage(loadError, "详情加载失败，请稍后重试") });
+      return false;
     }
   }, [entityId, kind, readAllowed]);
   useEffect(() => void load(), [load, invalidationKey]);
@@ -68,18 +71,20 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
 }
 
 function useDetailMutation(
-  load: () => Promise<void>,
+  load: () => Promise<boolean>,
   setState: React.Dispatch<React.SetStateAction<CanonicalDetailState>>
 ) {
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const lock = useRef(false);
   const retry = useRef<{ signature: string; key: string } | null>(null);
   async function mutate(endpoint: string, body?: unknown) {
-    if (lock.current) return;
+    if (lock.current) return false;
     lock.current = true;
     setSubmitting(true);
     setMessage("");
+    setErrorMessage("");
     const signature = `${endpoint}:${JSON.stringify(body ?? {})}`;
     if (retry.current?.signature !== signature) {
       retry.current = { signature, key: createIdempotencyKey("homestay-action") };
@@ -96,19 +101,27 @@ function useDetailMutation(
         ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
         : "操作已完成。");
       retry.current = null;
-      await load();
+      if (!await load()) {
+        setMessage("操作已完成，但详情刷新失败，请手动刷新确认最新状态。");
+      }
+      return true;
     } catch (actionError) {
       if (actionError instanceof ApiError && actionError.status === 409) {
-        setState({ kind: "conflict", message: propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试") });
+        const actionMessage = propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试");
+        setErrorMessage(actionMessage);
+        setState({ kind: "conflict", message: actionMessage });
       } else {
-        setMessage(propertyErrorMessage(actionError));
+        const actionMessage = propertyErrorMessage(actionError);
+        setMessage(actionMessage);
+        setErrorMessage(actionMessage);
       }
+      return false;
     } finally {
       lock.current = false;
       setSubmitting(false);
     }
   }
-  return { message, mutate, submitting };
+  return { errorMessage, message, mutate, submitting };
 }
 
 export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; entityId: string }) {
@@ -138,7 +151,7 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
     >
       <div aria-busy={action.submitting} inert={action.submitting}>
       {isBookingDetail(query.data)
-        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} />
+        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} submitting={action.submitting} />
         : query.data
           ? <TurnoverDetail
               capability={capability}
@@ -185,12 +198,16 @@ function BookingDetail({
   data,
   kind,
   capability,
-  mutate
+  mutate,
+  mutationError,
+  submitting
 }: {
   data: HomestayBookingDetailResponse;
   kind: DetailKind;
   capability: ReturnType<typeof projectPropertyCapabilities>;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
+  mutationError: string;
+  submitting: boolean;
 }) {
   const booking = data.booking;
   const isStay = kind === "stay";
@@ -202,7 +219,7 @@ function BookingDetail({
       {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} /> : null}
       {canReschedule ? <HomestayReschedulePanel booking={booking} mutate={mutate} /> : null}
       <BookingProjections data={data} />
-      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} />
+      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} submitting={submitting} />
     </>
   );
 }
@@ -249,12 +266,15 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
   </section></>;
 }
 
-function BookingActions({ booking, capability, isStay, mutate }: {
+function BookingActions({ booking, capability, isStay, mutate, mutationError, submitting }: {
   booking: HomestayBookingDetailResponse["booking"];
   capability: ReturnType<typeof projectPropertyCapabilities>; isStay: boolean;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
+  mutationError: string;
+  submitting: boolean;
 }) {
   const [cancelReason, setCancelReason] = useState("");
+  const [pendingStayAction, setPendingStayAction] = useState<"check-in" | "check-out" | null>(null);
   const canConfirm = !isStay && capability.actionAllowed("homestay.bookings.confirm") && booking.status === "draft";
   const canCheckIn = isStay && capability.actionAllowed("homestay.stays.check-in") && booking.status === "confirmed";
   const canCheckOut = isStay && capability.actionAllowed("homestay.stays.check-out") && booking.status === "checked_in";
@@ -262,8 +282,8 @@ function BookingActions({ booking, capability, isStay, mutate }: {
     && ["draft", "confirmed"].includes(booking.status);
   return <section className="ds-panel"><h2>可执行操作</h2><div className="ds-action-bar">
     {canConfirm ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/confirm`)}>确认订单</button> : null}
-    {canCheckIn ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-in`)}>办理入住</button> : null}
-    {canCheckOut ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-out`)}>办理退房</button> : null}
+    {canCheckIn ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-in")}>办理入住</button> : null}
+    {canCheckOut ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-out")}>办理退房</button> : null}
   </div>
   {canCancel ? <form className={styles.toolbar} onSubmit={(event) => {
     event.preventDefault();
@@ -272,6 +292,23 @@ function BookingActions({ booking, capability, isStay, mutate }: {
     <label>取消原因<input required maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
     <button className="secondary-button" type="submit">提交取消审批</button>
   </form> : null}
+  <ConsequenceDialog
+    actionLabel={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
+    busy={submitting}
+    consequences={pendingStayAction === "check-out"
+      ? ["订单将进入已退房终态并释放占用。", "系统将创建客房周转任务；未回收或遗失凭证须先完成处置。"]
+      : ["订单将进入在住状态并占用该房源。", "系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。"]}
+    errorMessage={mutationError || undefined}
+    onConfirm={() => pendingStayAction
+      ? mutate(`/homestay/bookings/${booking.id}/${pendingStayAction}`)
+      : false}
+    onOpenChange={(open) => { if (!open) setPendingStayAction(null); }}
+    open={pendingStayAction !== null}
+    reasonPolicy={{ kind: "none" }}
+    resultingState={pendingStayAction === "check-out" ? "已退房，待周转" : "在住"}
+    target={{ id: booking.id, label: `${booking.bookingCode} · ${booking.arrivalDate} 至 ${booking.departureDate}` }}
+    title={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
+  />
   </section>;
 }
 
@@ -284,7 +321,7 @@ function TurnoverDetail({
 }: {
   data: HomestayTurnoverDetailResponse;
   capability: ReturnType<typeof projectPropertyCapabilities>;
-  mutate(endpoint: string, body?: unknown): Promise<void>;
+  mutate(endpoint: string, body?: unknown): Promise<boolean>;
   attachmentVersion: number;
   onUploaded(): void;
 }) {

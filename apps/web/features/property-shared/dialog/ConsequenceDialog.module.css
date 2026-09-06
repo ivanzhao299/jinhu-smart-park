@@ -1,3 +1,10 @@
+.dialog {
+  inline-size: min(36rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  max-inline-size: calc(100vw - 2rem);
+  overflow: auto;
+}
+
 .touchTarget {
   min-block-size: 44px;
   min-inline-size: 44px;

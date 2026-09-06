@@ -12,7 +12,7 @@ import { businessDate } from "../../../lib/business-date";
 import { homestayStayActionVisibility } from "./homestay-workbench.logic";
 import styles from "./HomestayWorkbench.module.css";
 
-type Mutate = (endpoint: string, body?: unknown) => Promise<void>;
+type Mutate = (endpoint: string, body?: unknown) => Promise<boolean>;
 
 function loadGuests(bookingId: string) {
   return async (input: { query: string; page: number; pageSize: number; signal: AbortSignal }) => {
