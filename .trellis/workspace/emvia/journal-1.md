@@ -1077,3 +1077,42 @@ PR #665 unified high-risk confirmation flows; 3 review rounds, 54 focused tests,
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: PMA S-04 property shared primitives closure
+
+**Date**: 2026-09-06
+**Task**: PMA S-04 property shared primitives closure
+**Package**: web
+**Branch**: `codex/fix-pma-s04-close`
+
+### Summary
+
+PR #668 unified dirty-leave, stateful EmptyState composition, property formatters and route-template breadcrumbs; three reviews, 55 focused tests, PR CI and main CI/Deploy green; browser compatibility/rendering gaps handed to L-04.
+
+### Main Changes
+
+- Added a singleton dirty-leave coordinator and adopted it for identity drafts.
+- Composed property `PageState` with the shared UI empty-state surface while preserving heading semantics.
+- Added honest shared formatters and route-template breadcrumbs with bounded leasing/global consumers.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5d9517eb` | (see git log) |
+| `78e708b6` | (see git log) |
+
+### Testing
+
+- [OK] Property unit suite: 42/42; menu unit suite: 13/13.
+- [OK] Web typecheck, Web lint, and `git diff --check`.
+- [OK] PR CI `34020812475`; main CI `34021337190`; Deploy `34021336894`.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

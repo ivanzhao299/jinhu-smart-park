@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web route, shared UI, accessibility, mobile and verification contracts."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Required search-first and shared-helper guidance for repeated formatters and state surfaces."}
