@@ -144,6 +144,25 @@ Outputs are exclusive, never overwritten. Partial files are preserved after fail
 
 ## Synthetic verification
 
+### Large-input memory boundary
+
+The 2026-09-06 private current-code T0–T3 preparation used 260,828 candidates,
+including 47 quarantine projections. A 2 GiB process guard stopped the initial
+prepare attempt at 2,185,199,616 bytes RSS. Lowering the Node old-space limit from
+1,536 MiB to 768 MiB allowed prepare to finish at 1,443,627,008 bytes sampled RSS;
+the subsequent delegated full freeze still exited unsuccessfully. No production
+business write or valid delegated completion receipt resulted.
+
+The real-artifact bridge now retains its independently parsed private object graph
+instead of cloning each phase/role and cloning those same objects again into
+generator envelopes. It synchronously hashes and fatally decodes the exact
+non-shared byte view, preserving original artifact and generated payload hashes.
+Caller-buffer mutation, repeated calls, non-zero view offsets, shared memory and
+invalid UTF-8 have explicit regression coverage. This removes redundant allocations;
+it does **not** yet prove the full real-data freeze/writer fits 2 GiB. Keep the guard,
+failed-attempt evidence and current-code checks. Reuse successful preparation where
+bindings permit; never relabel historical receipts or increase limits to hide failure.
+
 `node --test scripts/e2e/yuzhou-production-import-exception-preparation-contract.mjs`
 
 The test uses only fresh ephemeral synthetic encryption/signing keys. It passes a nonempty partial payload through private prepare, an independent test signature, private finalize, existing freeze/generator and the actual execution crypto verifier; it verifies retained envelope bytes and HOLD. Negative coverage includes choices/reviews, binding/signature/GCM tampering and unsafe private IO. It provides no actual production, source migration or organizational authorization evidence.
