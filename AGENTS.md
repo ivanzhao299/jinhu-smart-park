@@ -215,6 +215,17 @@ At the end of each task, report:
 - Validation results.
 - Skipped checks and reasons.
 - Remaining risks.
+## Cost-Controlled Development Mode (Default)
+
+Apply [Cost-Controlled Development Mode](docs/development/cost-controlled-development-mode.md)
+to this repository and all subsequent continuation tasks. Preserve scope and quality;
+reduce redundant model work, not necessary engineering. Default to one agent, targeted
+context/tests, batched changes, and evidence-driven fixes. At most two automatic fixes
+for the same root cause; then stop retries and perform one focused root-cause audit.
+Enter `COST_GUARD` on repeated scans/tests, more than ten substantial model interactions
+on one task, duplicate agents, or prolonged work without an effective change. Preserve
+Git/worktrees and active processes. End each task with the specified Cost Summary.
+
 <!-- TRELLIS:START -->
 # Trellis Instructions
 
