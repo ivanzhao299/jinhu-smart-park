@@ -231,7 +231,8 @@ function buildPlanRecord(decision, staged, payload, derivedFields, targetScope, 
     sourceRowSha256: staged.sourceRowSha256,
     payloadSha256: computeProductionImportPayloadHash(payload),
     plannedTargetTable: decision.targetTable,
-    dependencyMode: rule.foreignKeys.length === 0 ? "scope" : rule.foreignKeys.length === 1 && rule.foreignKeys[0].dependencyRole === "employee" ? "employee" : "record_graph",
+    dependencyMode: decision.dependencyRefs.length === 0 && rule.foreignKeys.every(fk => !fk.required) ? "scope"
+      : rule.foreignKeys.length === 1 && rule.foreignKeys[0].dependencyRole === "employee" ? "employee" : "record_graph",
     dependencyRefs: structuredClone(decision.dependencyRefs),
     disposition: decision.disposition,
   };

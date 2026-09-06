@@ -29,7 +29,13 @@
     "authorization": {
       "type": "object", "additionalProperties": false,
       "required": ["intent", "artifactSha256", "nonceSha256", "issuedAt", "expiresAt", "binding", "approvalSet"],
+      "allOf": [{
+        "if": { "required": ["approvalPolicy"] },
+        "then": { "properties": { "approvalSet": { "$ref": "#/$defs/singleOwnerApprovalSet" } } },
+        "else": { "properties": { "approvalSet": { "$ref": "#/$defs/legacyApprovalSet" } } }
+      }],
       "properties": {
+        "approvalPolicy": { "$ref": "#/$defs/singleOwnerPolicy" },
         "intent": { "const": "production_import" },
         "artifactSha256": { "$ref": "#/$defs/sha256" }, "nonceSha256": { "$ref": "#/$defs/sha256" }, "issuedAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" },
         "binding": {
@@ -44,14 +50,7 @@
             "runtimeReleaseEvidenceBindingSha256": { "$ref": "#/$defs/sha256" }
           }
         },
-        "approvalSet": {
-          "type": "array", "minItems": 3, "maxItems": 3,
-          "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["role", "subjectRefSha256", "signedDecisionSha256"],
-            "properties": { "role": { "enum": ["hr_owner", "data_security_owner", "release_owner"] }, "subjectRefSha256": { "$ref": "#/$defs/sha256" }, "signedDecisionSha256": { "$ref": "#/$defs/sha256" } }
-          }
-        }
+        "approvalSet": { "type": "array" }
       }
     },
     "manifestSha256": { "$ref": "#/$defs/sha256" },
@@ -116,6 +115,61 @@
     "else": { "properties": { "authorization": { "properties": { "binding": { "not": { "required": ["runtimeReleaseEvidenceBindingSha256"] } } } } } }
   }],
   "$defs": {
+    "legacyApprovalSet": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["role", "subjectRefSha256", "signedDecisionSha256"],
+        "properties": { "role": { "enum": ["hr_owner", "data_security_owner", "release_owner"] }, "subjectRefSha256": { "$ref": "#/$defs/sha256" }, "signedDecisionSha256": { "$ref": "#/$defs/sha256" } }
+      }
+    },
+    "singleOwnerApprovalSet": {
+      "type": "array", "minItems": 1, "maxItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["role", "subjectRefSha256", "ownerDecisionSha256"],
+        "properties": { "role": { "const": "accountable_owner" }, "subjectRefSha256": { "$ref": "#/$defs/sha256" }, "ownerDecisionSha256": { "$ref": "#/$defs/sha256" } }
+      }
+    },
+    "singleOwnerPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "confirmation", "operatorAttestation"],
+      "properties": {
+        "kind": { "const": "single_accountable_owner_v1" },
+        "confirmation": {
+          "type": "object", "additionalProperties": false,
+          "required": ["formatVersion", "artifactKind", "provenance", "decision", "ownerSubjectRefSha256", "confirmationEvidenceSha256", "operatorSubjectRefSha256", "operatorPublicKeySha256", "context"],
+          "properties": {
+            "formatVersion": { "const": 1 }, "artifactKind": { "const": "yuzhou_hr_single_owner_confirmation" },
+            "provenance": { "const": "explicit_user_confirmation" }, "decision": { "const": "AUTHORIZE_DELEGATED_OPERATION" },
+            "ownerSubjectRefSha256": { "$ref": "#/$defs/sha256" }, "confirmationEvidenceSha256": { "$ref": "#/$defs/sha256" },
+            "operatorSubjectRefSha256": { "$ref": "#/$defs/sha256" }, "operatorPublicKeySha256": { "$ref": "#/$defs/sha256" },
+            "context": {
+              "type": "object", "additionalProperties": false,
+              "required": ["operationId", "binding", "issuedAt", "expiresAt", "nonceSha256", "preparationArtifacts", "payloadBundleSha256"],
+              "properties": {
+                "operationId": { "$ref": "#/properties/operationId" }, "binding": { "$ref": "#/properties/authorization/properties/binding" },
+                "issuedAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" }, "nonceSha256": { "$ref": "#/$defs/sha256" },
+                "payloadBundleSha256": {
+                  "type": "object", "additionalProperties": false, "required": ["T0", "T1", "T2", "T3"],
+                  "properties": { "T0": { "$ref": "#/$defs/sha256" }, "T1": { "$ref": "#/$defs/sha256" }, "T2": { "$ref": "#/$defs/sha256" }, "T3": { "$ref": "#/$defs/sha256" } }
+                },
+                "preparationArtifacts": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["preparedSha256", "reviewedSha256", "bridgeEvidenceSha256"],
+                  "properties": { "preparedSha256": { "$ref": "#/$defs/sha256" }, "reviewedSha256": { "$ref": "#/$defs/sha256" }, "bridgeEvidenceSha256": { "$ref": "#/$defs/sha256" } }
+                }
+              }
+            }
+          }
+        },
+        "operatorAttestation": {
+          "type": "object", "additionalProperties": false,
+          "required": ["publicKeyPem", "signatureBase64"],
+          "properties": { "publicKeyPem": { "type": "string", "minLength": 1 }, "signatureBase64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" } }
+        }
+      }
+    },
     "performanceFactLoader": {
       "type": "object",
       "additionalProperties": false,

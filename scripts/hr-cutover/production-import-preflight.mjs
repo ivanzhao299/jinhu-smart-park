@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* global process, structuredClone, URL */
 import { createHash } from "node:crypto";
+import { validateProductionImportSingleOwnerPolicy } from "./production-import-approval-policy.mjs";
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -160,7 +161,8 @@ export function readRepositoryCodeShas() {
 
 function validatePlanShape(plan, contract) {
   const keys = ["formatVersion", "planKind", "operationId", "mode", "sourceSurface", "triple", "planningContractSha256", "target", "window", "artifacts", "authorityBoundary", "productionImport"];
-  exactKeys(plan, keys, [], "PRODUCTION_IMPORT_PLAN_INVALID", "plan");
+  exactKeys(plan, keys, ["targetScopeSha256"], "PRODUCTION_IMPORT_PLAN_INVALID", "plan");
+  if (plan.targetScopeSha256 !== undefined) assertSha(plan.targetScopeSha256, "PRODUCTION_IMPORT_PLAN_INVALID", "plan.targetScopeSha256");
   scanArtifact(plan, "plan");
   if (plan.formatVersion !== 1 || plan.planKind !== "yuzhou_hr_production_import_preflight_plan" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_PLAN_INVALID", "identity/boundary invalid");
   if (!OPERATION_ID.test(plan.operationId ?? "")) fail("PRODUCTION_IMPORT_OPERATION_ID_INVALID", "operationId invalid");
@@ -364,7 +366,7 @@ function validateImportManifest(manifest, plan, artifacts, contract) {
 
 function validateAuthorization(authorization, plan, artifacts, contract, nowMs) {
   const required = ["formatVersion", "artifactKind", "intent", "operationId", "status", "issuedAt", "expiresAt", "binding", "approvalSet", "authorizationNonceSha256", "restoreAuthorityArtifactAccepted", "secretDelivery", "productionImport"];
-  exactKeys(authorization, required, [], "PRODUCTION_IMPORT_AUTH_MISSING", "authorization");
+  exactKeys(authorization, required, ["approvalPolicy"], "PRODUCTION_IMPORT_AUTH_MISSING", "authorization");
   if (authorization.formatVersion !== 1 || authorization.artifactKind !== "yuzhou_hr_production_import_one_time_authorization" || authorization.status !== "APPROVED" || authorization.operationId !== plan.operationId || authorization.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_AUTH_MISSING", "authorization identity invalid");
   if (authorization.intent !== "production_import") fail("PRODUCTION_IMPORT_AUTH_WRONG_INTENT", "restore or other authority cannot authorize import");
   if (authorization.restoreAuthorityArtifactAccepted !== false || authorization.secretDelivery !== "OUT_OF_BAND_REQUIRED") fail("PRODUCTION_IMPORT_IMPORT_RESTORE_AUTHORITY_NOT_SEPARATE", "restore/import authority boundary invalid");
@@ -375,7 +377,9 @@ function validateAuthorization(authorization, plan, artifacts, contract, nowMs) 
   const windowEndsAt = timestamp(plan.window.endsAt, "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "plan.window.endsAt");
   if (issuedAt >= expiresAt || nowMs < issuedAt || nowMs >= expiresAt) fail("PRODUCTION_IMPORT_AUTH_STALE", "authorization is outside its validity interval");
   if (issuedAt < windowStartsAt || expiresAt > windowEndsAt) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization validity escapes the pinned import window");
-  exactKeys(authorization.binding, ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "importManifestSha256", "windowStartsAt", "windowEndsAt"], [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
+  const singleOwner = authorization.approvalPolicy !== undefined;
+  if (singleOwner !== (plan.targetScopeSha256 !== undefined)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "explicit policy and target scope must be supplied together");
+  exactKeys(authorization.binding, ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "importManifestSha256", "windowStartsAt", "windowEndsAt", ...(singleOwner ? ["targetScopeSha256"] : [])], [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
   validateTriple(authorization.binding.triple, "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding.triple");
   const expected = {
     triple: plan.triple,
@@ -385,7 +389,17 @@ function validateAuthorization(authorization, plan, artifacts, contract, nowMs) 
     windowStartsAt: plan.window.startsAt,
     windowEndsAt: plan.window.endsAt,
   };
+  if (singleOwner) expected.targetScopeSha256 = plan.targetScopeSha256;
   if (!same(authorization.binding, expected)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization binding differs");
+  if (singleOwner) {
+    try {
+      validateProductionImportSingleOwnerPolicy({ approvalPolicy: authorization.approvalPolicy, approvalSet: authorization.approvalSet,
+        context: { operationId: plan.operationId, binding: expected, issuedAt: authorization.issuedAt, expiresAt: authorization.expiresAt,
+          nonceSha256: authorization.authorizationNonceSha256, preparationArtifacts: authorization.approvalPolicy?.confirmation?.context?.preparationArtifacts,
+          payloadBundleSha256: authorization.approvalPolicy?.confirmation?.context?.payloadBundleSha256 } });
+    } catch { fail("PRODUCTION_IMPORT_SINGLE_OWNER_POLICY_INVALID", "explicit owner delegation is invalid"); }
+    return;
+  }
   if (!Array.isArray(authorization.approvalSet) || authorization.approvalSet.length !== contract.requiredApprovalRoles.length) fail("PRODUCTION_IMPORT_AUTH_MISSING", "approval set incomplete");
   const roles = [];
   const subjects = new Set();

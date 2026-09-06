@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateProductionImportSingleOwnerPolicy } from "./production-import-approval-policy.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 export const DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-execution-v2.json"), "utf8"));
@@ -419,7 +420,7 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   const windowEndsAt = Date.parse(plan.window.endsAt);
   const nowMs = now instanceof Date ? now.getTime() : Date.parse(now);
   if (![windowStartsAt, windowEndsAt, nowMs].every(Number.isFinite) || windowStartsAt >= windowEndsAt || nowMs < windowStartsAt || nowMs >= windowEndsAt) fail("PRODUCTION_IMPORT_WINDOW_INVALID", "current time outside pinned production window");
-  exactKeys(plan.authorization, ["intent", "artifactSha256", "nonceSha256", "issuedAt", "expiresAt", "binding", "approvalSet"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "authorization");
+  exactKeys(plan.authorization, ["intent", "artifactSha256", "nonceSha256", "issuedAt", "expiresAt", "binding", "approvalSet"], ["approvalPolicy"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "authorization");
   if (plan.authorization.intent !== "production_import") fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization intent invalid");
   assertSha(plan.authorization.artifactSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "authorization artifact");
   assertSha(plan.authorization.nonceSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "authorization nonce");
@@ -451,7 +452,12 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   if (performanceFactIdentity) expectedBinding.performanceFactIdentityContractSha256 = computeProductionImportPayloadHash(performanceFactIdentity);
   if (runtimeReleaseEvidence !== undefined) expectedBinding.runtimeReleaseEvidenceBindingSha256 = computeProductionImportPayloadHash(runtimeReleaseEvidence);
   if (!same(plan.authorization.binding, expectedBinding)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization does not bind exact A/B, triple, target, manifest and window");
-  validateApprovalSet(plan.authorization.approvalSet);
+  if (plan.authorization.approvalPolicy !== undefined) {
+    validateProductionImportSingleOwnerPolicy({ approvalPolicy: plan.authorization.approvalPolicy, approvalSet: plan.authorization.approvalSet,
+      context: { operationId: plan.operationId, binding: expectedBinding, issuedAt: plan.authorization.issuedAt, expiresAt: plan.authorization.expiresAt,
+        nonceSha256: plan.authorization.nonceSha256, preparationArtifacts: plan.authorization.approvalPolicy?.confirmation?.context?.preparationArtifacts,
+        payloadBundleSha256: Object.fromEntries((Array.isArray(plan.phases) ? plan.phases : []).map(phase => [phase.phase, phase.payloadBundleSha256])) } });
+  } else validateApprovalSet(plan.authorization.approvalSet);
   if (!same(plan.phaseOrder, contract.phaseOrder) || !Array.isArray(plan.phases) || plan.phases.length !== contract.phaseOrder.length) fail("PRODUCTION_IMPORT_PHASE_SEQUENCE_INVALID", "T0-T3 exact phases required");
   for (let index = 0; index < plan.phases.length; index += 1) {
     const phase = plan.phases[index];

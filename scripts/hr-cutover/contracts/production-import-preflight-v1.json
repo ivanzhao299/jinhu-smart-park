@@ -43,6 +43,7 @@
     "scripts/hr-cutover/contracts/production-import-preflight-v1.json",
     "scripts/hr-cutover/contracts/production-import-plan.schema.json",
     "scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json",
+    "scripts/hr-cutover/production-import-approval-policy.mjs",
     "scripts/hr-cutover/production-import-preflight.mjs"
   ],
   "reasonCatalog": [
@@ -71,6 +72,7 @@
     "PRODUCTION_IMPORT_AUTH_REUSED",
     "PRODUCTION_IMPORT_AUTH_WRONG_INTENT",
     "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH",
+    "PRODUCTION_IMPORT_SINGLE_OWNER_POLICY_INVALID",
     "PRODUCTION_IMPORT_IMPORT_RESTORE_AUTHORITY_NOT_SEPARATE",
     "PRODUCTION_IMPORT_PHASE_SEQUENCE_INVALID",
     "PRODUCTION_IMPORT_T5A_NOT_DECOUPLED",

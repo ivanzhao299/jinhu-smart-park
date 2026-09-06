@@ -34,6 +34,7 @@ const MAX_PAYLOAD_ARTIFACT_BYTES = 2_000_000_000;
 const MAX_TOTAL_PRIVATE_ARTIFACT_BYTES = 2_000_000_000;
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
+  "scripts/hr-cutover/production-import-approval-policy.mjs",
   "scripts/hr-cutover/execute-production-import.mjs",
   "scripts/hr-cutover/production-import-crypto-provider.mjs",
   "scripts/hr-cutover/production-import-phase-writers.mjs",

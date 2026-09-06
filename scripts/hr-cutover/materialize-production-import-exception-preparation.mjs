@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-/** Private prepare/finalize file owner; no signing, source extraction or execution. */
+/** Private prepare/finalize/delegate file owner; no source extraction or execution. */
+import { createPrivateKey } from "node:crypto";
 import { lstatSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepareProductionImportExceptions, finalizeProductionImportExceptions, ProductionImportExceptionPreparationError } from "./production-import-exception-preparation.mjs";
+import { finalizeDelegatedProductionImportExceptions } from "./production-import-delegated-authorization.mjs";
 import { currentCandidateFreezeRepositorySha, readProductionImportPrivateBytes as read,
   productionImportPrivateDirectory as directory, productionImportCanonicalPath as canonicalPath,
   sameProductionImportPrivateFile as sameFile, parseProductionImportPrivateJson as parse,
@@ -11,7 +13,7 @@ import { currentCandidateFreezeRepositorySha, readProductionImportPrivateBytes a
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url)).replace(/\/$/u, "");
 const MIB = 1024 ** 2, LARGE = 384 * MIB, TOTAL = 1024 ** 3, phases = ["T0", "T1", "T2", "T3"];
-const extraDependencies = ["scripts/hr-cutover/production-import-exception-preparation.mjs", "scripts/hr-cutover/materialize-production-import-exception-preparation.mjs", "scripts/hr-cutover/production-import-crypto-provider.mjs"];
+const extraDependencies = ["scripts/hr-cutover/production-import-exception-preparation.mjs", "scripts/hr-cutover/materialize-production-import-exception-preparation.mjs", "scripts/hr-cutover/production-import-crypto-provider.mjs", "scripts/hr-cutover/production-import-delegated-authorization.mjs", "scripts/hr-cutover/production-import-approval-policy.mjs"];
 const fail = code => { throw new ProductionImportExceptionPreparationError(`EXCEPTION_PREPARATION_${code}`); };
 function exact(value, keys) {
   if (!value || Object.getPrototypeOf(value) !== Object.prototype || Object.keys(value).sort().join("|") !== [...keys].sort().join("|")) fail("CONFIG_INVALID");
@@ -20,7 +22,7 @@ export async function materializeProductionImportExceptionPreparation(configPath
   currentHead = () => currentCandidateFreezeRepositorySha(ROOT, extraDependencies),
   maximumReadBytes = TOTAL, maximumOutputBytes = LARGE, maximumTotalOutputBytes = TOTAL,
 } = {}) {
-  let key;
+  let key, signingBytes;
   try {
     for (const [value, cap] of [[maximumReadBytes, TOTAL], [maximumOutputBytes, LARGE], [maximumTotalOutputBytes, TOTAL]]) {
       if (!Number.isSafeInteger(value) || value < 1 || value > cap) fail("BUDGET_INVALID");
@@ -29,14 +31,15 @@ export async function materializeProductionImportExceptionPreparation(configPath
     const load = (path, limit) => {
       const parts = [], result = read(path, limit, budget, part => parts.push(Buffer.from(part)));
       snapshots.push({ path, stat: result.stat });
-      return { ...result, content: Buffer.concat(parts) };
+      const content = Buffer.concat(parts); parts.forEach(part => part.fill(0));
+      return { ...result, content };
     };
     const configRead = load(configPath, MIB), config = parse(configRead.content);
     exact(config, ["formatVersion", "mode", "triple", "operationId", "keyReferenceSha256", "artifacts", "outputDir"]);
-    if (config.formatVersion !== 1 || !["prepare", "finalize"].includes(config.mode)) fail("CONFIG_INVALID");
+    if (config.formatVersion !== 1 || !["prepare", "finalize", "delegate"].includes(config.mode)) fail("CONFIG_INVALID");
     if (config.triple?.codeSha !== currentHead()) fail("CURRENT_CODE_REQUIRED");
-    const final = config.mode === "finalize";
-    exact(config.artifacts, ["phases", "candidates", "targetInventory", "targetScope", "choices", "keyFile", ...(final ? ["prepared", "envelopes", "attestations", "reviewerKeys"] : [])]);
+    const delegated = config.mode === "delegate", final = config.mode !== "prepare";
+    exact(config.artifacts, ["phases", "candidates", "targetInventory", "targetScope", "choices", "keyFile", ...(final ? ["prepared", "envelopes", ...(delegated ? ["operatorKeyFile"] : ["attestations", "reviewerKeys"])] : [])]);
     exact(config.artifacts.phases, phases); exact(config.artifacts.candidates, phases);
     exact(config.artifacts.keyFile, ["path", "sha256"]);
     const outputStat = directory(config.outputDir);
@@ -44,7 +47,7 @@ export async function materializeProductionImportExceptionPreparation(configPath
     const artifact = (descriptor, limit) => {
       exact(descriptor, ["path", "sha256"]);
       const result = load(descriptor.path, limit);
-      if (result.sha256 !== descriptor.sha256) fail("ARTIFACT_HASH_MISMATCH");
+      if (result.sha256 !== descriptor.sha256) { result.content.fill(0); fail("ARTIFACT_HASH_MISMATCH"); }
       return { ...descriptor, bytes: result.content };
     };
     const input = { freezeInput: { expectedTriple: config.triple,
@@ -53,7 +56,7 @@ export async function materializeProductionImportExceptionPreparation(configPath
       targetInventoryArtifact: artifact(config.artifacts.targetInventory, 32 * MIB), targetScopeArtifact: artifact(config.artifacts.targetScope, 32 * MIB), reviewedDecisionsArtifact: null },
       choicesArtifact: artifact(config.artifacts.choices, 32 * MIB), operationId: config.operationId, keyReferenceSha256: config.keyReferenceSha256 };
     if (final) Object.assign(input, { preparedArtifact: artifact(config.artifacts.prepared, 32 * MIB), envelopesArtifact: artifact(config.artifacts.envelopes, 32 * MIB),
-      attestationsArtifact: artifact(config.artifacts.attestations, 32 * MIB), reviewersArtifact: artifact(config.artifacts.reviewerKeys, 32 * MIB) });
+      ...(!delegated ? { attestationsArtifact: artifact(config.artifacts.attestations, 32 * MIB), reviewersArtifact: artifact(config.artifacts.reviewerKeys, 32 * MIB) } : {}) });
     // Load the supplied key lazily, only after document validation needs crypto.
     const resolveKey = async ({ keyReferenceSha256 }) => {
       if (keyReferenceSha256 !== config.keyReferenceSha256) fail("KEY_REFERENCE_INVALID");
@@ -65,8 +68,14 @@ export async function materializeProductionImportExceptionPreparation(configPath
       }
       return key;
     };
-    const result = await (final ? finalizeProductionImportExceptions : prepareProductionImportExceptions)(input, { resolveKey });
-    const artifacts = final ? { "reviewed-candidate-resolutions.json": result.reviewed }
+    let operatorSigningKey;
+    if (delegated) {
+      signingBytes = artifact(config.artifacts.operatorKeyFile, 16 * 1024).bytes;
+      operatorSigningKey = createPrivateKey(signingBytes);
+      if (operatorSigningKey.asymmetricKeyType !== "ed25519") fail("SIGNING_KEY_INVALID");
+    }
+    const result = await (delegated ? finalizeDelegatedProductionImportExceptions : final ? finalizeProductionImportExceptions : prepareProductionImportExceptions)(input, { resolveKey, operatorSigningKey });
+    const artifacts = final ? { "reviewed-candidate-resolutions.json": result.reviewed, ...(delegated ? { "delegated-bridge-evidence.json": result.bridgeEvidence } : {}) }
       : { "unsigned-exception-requests.json": result.prepared, "crypto-envelopes.json": result.envelopes };
     const descriptors = Object.fromEntries(Object.entries(artifacts).map(([file, value]) => [file, measure(value, maximumOutputBytes)]));
     if (!final && descriptors["crypto-envelopes.json"].sha256 !== result.prepared.envelopeArtifactSha256) fail("OUTPUT_HASH_MISMATCH");
@@ -82,7 +91,7 @@ export async function materializeProductionImportExceptionPreparation(configPath
   } catch (error) {
     if (error instanceof ProductionImportExceptionPreparationError) throw error;
     fail("PRIVATE_IO_OR_VALIDATION_FAILED");
-  } finally { key?.fill(0); }
+  } finally { key?.fill(0); signingBytes?.fill(0); }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {

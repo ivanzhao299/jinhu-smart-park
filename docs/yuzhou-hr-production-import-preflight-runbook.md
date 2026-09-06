@@ -87,7 +87,7 @@ writer，也不改变上述生产 `HOLD`。它只接受名称符合隔离实验�
 - A/B 摘要 hash；
 - import manifest hash；
 - 相同的时间窗口；
-- `hr_owner`、`data_security_owner`、`release_owner` 三类 detached 决策引用；
+- 默认 `hr_owner`、`data_security_owner`、`release_owner` 三类独立 detached 决策引用；仅显式 `single_accountable_owner_v1` 可使用[单责任人确认来源与受托签发](testing/yuzhou-production-exception-preparation.md#explicit-single-accountable-owner-and-delegated-operation)，v1 plan 与 binding 额外固定 `targetScopeSha256`，不改变独立冲突 ledger 的角色规则；
 - 一次性随机材料的 SHA-256，而不是随机材料本身；
 - `secretDelivery=OUT_OF_BAND_REQUIRED`；
 - `restoreAuthorityArtifactAccepted=false`。
@@ -226,7 +226,7 @@ v2 不再把所有 T1～T3 记录伪绑到某一员工。每条记录即使进�
 插入的记录，或在目标仍等于导入后 hash 时恢复加密 before-image。
 
 封存计划必须逐字节绑定代码/源/映射三元组、唯一生产目标、执行窗口、import manifest、A/B 各自不同的
-manifest 与 cleanup 审计（两边 `residualCount=0`），以及 HR、数据安全、发布三个不同主体的签署决定摘要。
+manifest 与 cleanup 审计（两边 `residualCount=0`），以及默认 HR、数据安全、发布三个不同主体的签署决定摘要；显式单责任人策略改为一份实际确认来源、一个责任人决定和受托操作员完整性签名，另逐项绑定真实 T0～T3 payload bundle 哈希。v1 预检没有执行载荷，不能代替 v2 的该项匹配。
 授权有效期必须完全包含在执行窗口内；writer 还要求当前代码、已合并代码、数据库 adapter 目标身份、
 tenant/park scope 和 payload bundle 字节与封存值一致。员工依赖必须精确指向同一计划中的 T0
 `hr_employee` record map；父记录依赖必须指向矩阵规定的表，随机哈希或姓名推断均不能通过应用与数据库双层门禁。
