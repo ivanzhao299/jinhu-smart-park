@@ -6,9 +6,9 @@ PR2 合入 main 双绿后，从最新 `origin/main` 创建 `codex/fix-hcd-tempor
 
 - [x] 盘点值域/dict code 并确定行业惯例临时中文。
 - [x] shared 常量、注释、测试与 Web 接线。
-- [ ] 27 路由桌面/390px 与主链 UAT（重启轮 22 个路由均仅 surface-only；raw-CDP runner 绕过 UI 登录且缺少逐项 DOM/交互、全量 Network、设备能力、反串线与 residual gate 证据，未记任何浏览器 HCD PASS；行级 HCD、住房 5 个具名详情、picker、窄权限、未知值与两条主链仍阻塞）。
+- [x] 分级完成 UAT 收口：重启轮 22 个路由仅 `SURFACE_ONLY`；最终深水轮隔离栈与民宿/住房 API 主链 PASS；真实 UI session 未建立，27 路由/30 Case、行级 HCD、住房 5 个具名详情、picker、窄权限、未知值与 390px 深交互保持 BLOCKED/UNVERIFIED 并移交，未记任何浏览器 HCD PASS。
 - [x] 成熟基建、trellis-check、PR3、CI、merge、main 双绿。
-- [ ] 归档并终报。
+- [x] UAT 终版列明 D 类临时定名与浏览器基线移交清单；经用户批准按证据分级归档，归档不等于浏览器验收通过。
 
 ## Validation Log
 
@@ -29,3 +29,8 @@ PR2 合入 main 双绿后，从最新 `origin/main` 创建 `codex/fix-hcd-tempor
 - SURFACE_ONLY：3 个民宿具名详情与 19 个列表/工作台入口均只有导航、截图与通用渲染观察；runner 未作 route-specific DOM/交互断言，并绕过 UI 登录。共生成 44 张截图；只能确认 runner 跟踪的 same-origin API 未失败、无已记录 console/runtime error、CSS viewport mismatch 或横向溢出，不能据此声明 HCD Case PASS、全量 Network 或完整移动设备能力 PASS。
 - BLOCKED：住房 5 个具名详情、picker 真实交互、窄权限名称裁剪和未知值 fixture。住房 fixture 两次均由约束整笔回滚（canonical park 保护、Party 加密元数据），达到同题上限后停止。
 - 运行时证据曾位于 `/tmp/jinhu-hcd-uat-20260902-r3/` 并生成两份 SHA-256 manifest，已随 teardown 删除且未留存到 `artifacts/`，现不可复核。compose 容器/卷/网络、DB/API/Web/CDP 端口均归零，专用 profile/临时文件根/运行库已删除；但 touched-table/fixture residual gate、UI/DB 反串线、设备能力证据均未采集，记 `UNVERIFIED`。未触碰生产、HR、主 Chrome 或他人容器，任务继续保持 `in_progress`。
+- 最终深水轮 `hcd-20260902-r4-final`：从 `origin/main@782630d1` 启动独占 PostgreSQL/API 文件卷与 Web，migration/production seed/bootstrap/strict baseline/readiness PASS；住房与民宿既有 product API E2E 全链 PASS，住房 Party 加密元数据与 canonical park 阻塞已解开，双主链 API 防回退 PASS。
+- 本轮证据持久保存在 ignored `artifacts/hcd-uat-hcd-20260902-r4-final/`，含产品 API logs、RUN_ID DB 反查、资源清零证据与 SHA-256 manifest；敏感 `run.env` 已精确删除，截图为 0。
+- 浏览器第 1 次因缓存 Chrome 缺 NSS/NSPR/ALSA 未进入页面；解包临时运行库后第 2 次到达真实 UI 表单，但提交后未建立认证 session，`pages_checked=0`。遵守同题最多两次停止；27 路由/30 Case、全资源 Network/device runtime、picker/窄权限/未知值/390px 与 UI→DB 三联仍 BLOCKED。
+- touched-table 事前冻结未完成；事后统计和独占 volume teardown 不能补写为 residual gate PASS，保持 `UNVERIFIED`。本轮 project 容器/volume/network 与 35434/3283/3284 端口已清零，未触碰生产、HR、主 Chrome或他人容器。
+- 诚实收口：代码/测试/API 证据与浏览器证据严格分级；真实 UI 登录和深交互缺口转交后续浏览器验证基线重建。本任务归档表示本轮范围关闭，不把缺口改记 PASS。
