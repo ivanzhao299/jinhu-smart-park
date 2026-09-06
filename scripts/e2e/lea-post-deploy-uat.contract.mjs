@@ -30,11 +30,18 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /input\[autocomplete=.{0,4}username/u);
   assert.match(browserRunner, /button\[type=.{0,4}submit/u);
   assert.match(browserRunner, /method: "ui_form"/u);
+  assert.match(browserRunner, /Network\.requestWillBeSent/u);
+  assert.match(browserRunner, /Network\.responseReceived/u);
+  assert.match(browserRunner, /SESSION_CREATE: browser_harness_error/u);
   assert.doesNotMatch(browserRunner, /localStorage\.setItem\("jinhu_access_token"/u);
   assert.match(browserRunner, /deviceCapabilities/u);
   assert.match(browserRunner, /maxTouchPoints/u);
   assert.match(browserRunner, /coarsePointer/u);
   assert.match(browserRunner, /rewrite_target/u);
+  assert.match(browserRunner, /redactedRewriteTarget/u);
+  assert.match(browserRunner, /redactedApiBase/u);
+  assert.match(browserRunner, /redactedWebBase/u);
+  assert.match(browserRunner, /redactDiagnostic/u);
   assert.match(browserRunner, /run_id/u);
   assert.match(browserRunner, /\^https\?:/u);
 });

@@ -2,14 +2,16 @@
 
 ## 结论
 
-**PARTIAL / BLOCKED，不归档。** PR1 #536、PR2 #537、PR3 #538 均已合入，PR 与 main 门禁为绿色；静态成熟门禁和 HCD 定向测试通过。最终深水轮 `hcd-20260902-r4-final` 已用产品 API 解开住房 Party/租约 fixture 约束，并真实完成住房、民宿 API 主链与防回退断言；证据持久保存在 ignored `artifacts/`。浏览器基建第二次尝试到达真实 UI 登录表单，但未建立认证 session，27 路由均未开始；遵守同题最多两次后停止。因此历史 22 路由仍仅为 `SURFACE_ONLY`，不声明任何浏览器 HCD Case PASS，更不声明全部 30 项 PASS。
+**CLOSED WITH GRADED EVIDENCE / 浏览器基线移交。** PR1 #536、PR2 #537、PR3 #538 均已合入，PR 与 main 门禁为绿色；静态成熟门禁和 HCD 定向测试通过。最终深水轮 `hcd-20260902-r4-final` 已用产品 API 解开住房 Party/租约 fixture 约束，并真实完成住房、民宿 API 主链与防回退断言；本地证据保存在 ignored `artifacts/`。浏览器基建第二次尝试到达真实 UI 登录表单，但未建立认证 session，27 路由均未开始；遵守同题最多两次后停止。因此历史 22 路由仍仅为 `SURFACE_ONLY`，不声明任何浏览器 HCD Case PASS，更不声明全部 30 项 PASS。经用户批准，本轮按上述证据等级诚实收口并归档四个 HCD Trellis 任务，未完成的真实浏览器面移交为独立验证基线重建工作；“归档”不代表将 `BLOCKED` 或 `UNVERIFIED` 升级为 `PASS`。
 
 ## 已完成交付
 
 - PR1 #536：shared 封闭枚举、Web presentation 与 A/C 类接线，merge commit `422af8fa`。
 - PR2 #537：四项授权名称投影、权限裁剪/null 回退与 picker 按 ID 恢复，merge commit `c9177120`。
 - PR3 #538：六组 D 类临时定名、开放字典优先策略与收尾接线，merge commit `599fb765`。
-- 三个 PR 的 required checks、合并后的 main CI 与自动部署均成功；未对生产执行直接操作。
+- PR #539：保存首次浏览器 UAT 阻塞报告，merge commit `b26148ba`。
+- PR #540：保存重启轮 `SURFACE_ONLY` 浏览器观察与基建根因记录，merge commit `782630d1`。
+- 上述 PR 的 required checks、合并后的 main CI 与自动部署均成功；未对生产执行直接操作。
 
 ## 成熟门禁
 
@@ -138,6 +140,16 @@
 - 运行前冻结完整 touched-table 清单和 fixture 精确谓词/before 计数；区分可删业务表与 immutable trigger 表，再开始业务写入。
 - 登录基线通过后才执行 27 路由 route-specific DOM/交互矩阵、19 入口行级数据、住房 5 详情、picker refresh/back、窄权限、未知值、双主链 UI 状态与两模块 390px 长中文；逐 Case 保存全资源 Network、设备能力和截图。
 
+### 浏览器验证基线移交清单
+
+- 首个门禁只验证一个最小页面：真实 UI 表单输入、`/auth/login` 2xx、`/users/me`、页面身份、logout，以及新 BrowserContext 无 storage/cookie 串线；未通过前不展开 27 路由。
+- runner 必须保留独立 BrowserContext，不再通过 API token 直接注入 Web storage；登录失败报告须包含脱敏 Network 事实与页面状态，不能只给超时标签。
+- fixture 写入前冻结 touched-table 清单、精确 RUN_ID 谓词与 before 计数；区分可清理业务表和 immutable trigger/audit 表，teardown 后输出独立 gate verdict。
+- 登录门禁通过后按 27 路由执行 route-specific DOM/交互矩阵，覆盖 19 个入口行级数据、3 个民宿具名详情、5 个住房具名详情、picker refresh/back、窄权限、未知值和双主链 UI 状态。
+- desktop 与 390px 均保存逐 Case 截图、完整 HTTP(S) Network、console/runtime、设备能力与 rewrite target；390px 宽度模拟不能单独冒充移动设备能力 PASS。
+- 每个含 RUN_ID 的 UI fixture 都需完成 UI 创建/显示、同源 API 读取、同一 disposable DB 反查三联；证据进入可复核的脱敏 artifact manifest，敏感 env 精确删除。
+- 后续任务沿用本报告的 `PASS / SURFACE_ONLY / BLOCKED / UNVERIFIED` 分级，不得用静态、API 或截图观察替代真实浏览器 Case PASS。
+
 ## D 类临时定名（待产品确认）
 
 - 民宿住客核验：未核验、已核验、已驳回；凭证：已发放、已回收、已遗失、已作废。
@@ -149,4 +161,4 @@
 
 ## 历史重启轮解阻条件
 
-Chrome/CDP 已解阻。下一轮应先补齐成熟浏览器基建：真实 UI 登录/session isolation、全资源 Network 失败捕获、设备能力 JSON、请求 rewrite target 与 RUN_ID UI/DB 反串线三联、冻结 touched-table 与 fixture residual gate，并把 local-only 证据留存在 ignored `artifacts/`（若用户仍要求仅 `/tmp`，须明确接受不可持久复核）。随后使用与当前 migration 兼容的 API/UI fixture 链建立民宿与住房列表/详情数据，用独立窄权限账号完成 picker 回显、字段权限裁剪和未知值 fixture，并真实走完民宿与长租主链状态迁移防回退；逐页保存 route-specific DOM、截图、全量 Network 与 console 证据。全部通过后再更新本报告、归档 Trellis 任务并提交终报。
+Chrome/CDP 已解阻。后续独立浏览器基线任务应按上方移交清单重建真实 UI 登录/session isolation、全资源 Network、设备能力、rewrite target、RUN_ID UI/API/DB 三联以及 residual gate。四个 HCD Trellis 任务在本轮按分级证据归档；后续验证结果须更新新的任务与本报告，不得回写或改称本轮已取得浏览器 PASS。

@@ -14,6 +14,8 @@ const tenantId = "10000001";
 const parkId = "20000001";
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
+const redactedApiBase = redactUrl(apiBase);
+const redactedWebBase = redactUrl(webBase);
 const apiPathPrefix = new URL(apiBase).pathname.replace(/\/$/u, "");
 const trackedWebApiPrefix = `${webBase.replace(/\/$/u, "")}${apiPathPrefix}/`;
 const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCredentialsFile);
@@ -33,6 +35,7 @@ const evidenceDirArg = readArg("--evidence-dir");
 const evidenceDir = evidenceDirArg ? resolve(repoRoot, evidenceDirArg) : null;
 const runId = readArg("--run-id") ?? process.env.TEST_RUN_ID ?? null;
 const rewriteTarget = readArg("--rewrite-target") ?? process.env.NEXT_PUBLIC_API_TARGET ?? null;
+const redactedRewriteTarget = rewriteTarget ? redactUrl(rewriteTarget, webBase) : null;
 const singlePathPrefix = readArg("--path-prefix");
 if (singlePathPrefix) pathPrefixes.push(singlePathPrefix);
 
@@ -98,8 +101,8 @@ function buildReport(usesSingleUser) {
     go_live_date: "2026-07-06",
     status: failures.length === 0 ? "PASS" : "FAIL",
     scope: usesSingleUser ? "single_user_browser_page_uat" : "all_enabled_users_browser_page_uat",
-    api_base: apiBase,
-    web_base: webBase,
+    api_base: redactedApiBase,
+    web_base: redactedWebBase,
     credentials_file: singleUsername && singlePassword ? null : credentialsFile,
     report_file: reportFile,
     users_checked: results.length,
@@ -107,7 +110,7 @@ function buildReport(usesSingleUser) {
     results,
     screenshot_manifest: screenshotManifest,
     run_id: runId,
-    rewrite_target: rewriteTarget,
+    rewrite_target: redactedRewriteTarget,
     warnings,
     failures
   };
@@ -130,7 +133,15 @@ async function checkUser(user, password, chrome) {
     page_evidence: []
   };
 
-  const session = await chrome.createSession();
+  let session;
+  try {
+    session = await chrome.createSession();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    result.failed_pages.push(`SESSION_CREATE: browser_harness_error (${reason})`);
+    fail(`browser UAT ${user.username} could not create an isolated browser session: ${reason}`);
+    return result;
+  }
   let me;
   try {
     const login = await session.login({ username: user.username, password });
@@ -306,9 +317,33 @@ async function loginThroughUi(browser, browserContextId, { username, password })
   const target = await browser.send("Target.createTarget", { url: `${webBase}/login`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
+  const network = [];
+  const requests = new Map();
+  const off = browser.onEvent((message) => {
+    if (message.sessionId !== sessionId) return;
+    if (message.method === "Network.requestWillBeSent") {
+      const request = message.params?.request;
+      if (request?.url && /^https?:/u.test(request.url)) {
+        requests.set(message.params.requestId, {
+          method: request.method,
+          url: redactUrl(request.url),
+          path: new URL(request.url).pathname
+        });
+      }
+    }
+    if (message.method === "Network.responseReceived") {
+      const request = requests.get(message.params?.requestId);
+      if (request) network.push({ ...request, status: message.params?.response?.status ?? null });
+    }
+    if (message.method === "Network.loadingFailed") {
+      const request = requests.get(message.params?.requestId);
+      if (request) network.push({ ...request, status: "transport_failed", error: message.params?.errorText ?? "unknown" });
+    }
+  });
   try {
     await browser.send("Page.enable", {}, sessionId);
     await browser.send("Runtime.enable", {}, sessionId);
+    await browser.send("Network.enable", {}, sessionId);
     await waitForReady(browser, sessionId);
     await waitForExpression(browser, sessionId, `Boolean(document.querySelector('input[autocomplete="username"]') && document.querySelector('input[autocomplete="current-password"]'))`, 10000);
     const submitted = await browser.send("Runtime.evaluate", {
@@ -330,15 +365,22 @@ async function loginThroughUi(browser, browserContextId, { username, password })
       })()`,
       returnByValue: true
     }, sessionId);
-    if (!submitted.result?.value) return { status: "FAIL", reason: "login_form_not_found", method: "ui_form" };
+    if (!submitted.result?.value) return { status: "FAIL", reason: "login_form_not_found", method: "ui_form", network };
     await waitForExpression(browser, sessionId, `location.pathname !== "/login" && Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token"))`, 15000);
     const evidence = await browser.send("Runtime.evaluate", {
       expression: `({ pathname: location.pathname, hasSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), formStillVisible: Boolean(document.querySelector(".signin-page")) })`,
       returnByValue: true
     }, sessionId);
     const value = evidence.result?.value ?? {};
-    return { status: value.hasSession && !value.formStillVisible ? "PASS" : "FAIL", reason: value.hasSession ? "" : "no_authenticated_session", method: "ui_form", pathname: value.pathname };
+    return {
+      status: value.hasSession && !value.formStillVisible ? "PASS" : "FAIL",
+      reason: value.hasSession ? "" : "no_authenticated_session",
+      method: "ui_form",
+      pathname: value.pathname,
+      network
+    };
   } finally {
+    off();
     await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
   }
 }
@@ -370,14 +412,14 @@ async function collectRenderedMenuPaths(browser, { browserContextId, viewport })
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
     if (message.method === "Runtime.exceptionThrown") {
-      runtimeErrors.push(message.params?.exceptionDetails?.text ?? "runtime exception");
+      runtimeErrors.push(redactDiagnostic(message.params?.exceptionDetails?.text ?? "runtime exception"));
     }
     if (message.method === "Runtime.consoleAPICalled" && message.params?.type === "error") {
       const text = (message.params.args ?? [])
         .map((arg) => String(arg.value ?? arg.description ?? ""))
         .filter(Boolean)
         .join(" ");
-      if (text) pageWarnings.push(`console.error: ${text}`);
+      if (text) pageWarnings.push(`console.error: ${redactDiagnostic(text)}`);
     }
   });
 
@@ -451,14 +493,14 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
     if (message.method === "Runtime.exceptionThrown") {
-      runtimeErrors.push(message.params?.exceptionDetails?.text ?? "runtime exception");
+      runtimeErrors.push(redactDiagnostic(message.params?.exceptionDetails?.text ?? "runtime exception"));
     }
     if (message.method === "Runtime.consoleAPICalled" && message.params?.type === "error") {
       const text = (message.params.args ?? [])
         .map((arg) => String(arg.value ?? arg.description ?? ""))
         .filter(Boolean)
         .join(" ");
-      if (text) pageWarnings.push(`console.error: ${text}`);
+      if (text) pageWarnings.push(`console.error: ${redactDiagnostic(text)}`);
     }
     if (message.method === "Network.responseReceived") {
       const response = message.params?.response;
@@ -469,7 +511,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
           path: new URL(response.url).pathname,
           status: response.status,
           remote_ip: response.remoteIPAddress ?? null,
-          rewrite_target: response.url.startsWith(trackedWebApiPrefix) ? rewriteTarget : null
+          rewrite_target: response.url.startsWith(trackedWebApiPrefix) ? redactedRewriteTarget : null
         });
       }
     }
@@ -589,13 +631,20 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
   }
 }
 
-function redactUrl(value) {
-  const url = new URL(value);
+function redactUrl(value, base) {
+  const url = new URL(value, base);
   url.username = "";
   url.password = "";
   url.search = "";
   url.hash = "";
   return url.toString();
+}
+
+function redactDiagnostic(value) {
+  return String(value)
+    .replace(/Bearer\s+[^\s"']+/giu, "Bearer [REDACTED]")
+    .replace(/(authorization|cookie|set-cookie|token|password)\s*[:=]\s*[^\s,;]+/giu, "$1=[REDACTED]")
+    .replace(/https?:\/\/[^\s"'<>]+/giu, (url) => redactUrl(url));
 }
 
 function getRenderFailure(value, runtimeErrors, options = {}) {
