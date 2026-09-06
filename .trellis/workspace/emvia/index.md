@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 27
-- **Last Active**: 2026-09-02
+- **Total Sessions**: 28
+- **Last Active**: 2026-09-06
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~971 | Active |
+| `journal-1.md` | ~1005 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 28 | 2026-09-06 | PMA S-01 当前态设计与术语收口 | `1112fff6d7979b2235a0aaa268ee7bd3e3dd5a33` | `codex/fix-pma-s01-closure` |
 | 27 | 2026-09-02 | 完成民宿与长租中文名称显示专项核查 | `65d06402`, `87f9bf9a`, `eb3b2c15` | `chore/archive-homestay-housing-chinese-display-audit-20260902` |
 | 26 | 2026-09-01 | 身份治理硬伤组全链路闭环 | `5852c546`, `65d5ef68` | `codex/fix-idy-final-archive` |
 | 25 | 2026-09-01 | IDY-F05 housing identity gate | `b6934fec` | `codex/fix-idy-05-housing-identity-gate-archive` |
