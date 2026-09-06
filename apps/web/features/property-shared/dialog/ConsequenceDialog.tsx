@@ -27,6 +27,7 @@ import type {
   ConsequenceReasonPolicy,
   ConsequenceTarget
 } from "./types";
+import styles from "./ConsequenceDialog.module.css";
 
 export type {
   ConsequenceReasonPolicy,
@@ -248,7 +249,7 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
     <dialog
       aria-describedby={props.descriptionId}
       aria-labelledby={props.titleId}
-      className="ds-panel"
+      className={`${styles.dialog} ds-panel`}
       onCancel={props.onCancel}
       onClose={() => restoreTriggerFocus(props.triggerRef)}
       onKeyDown={trapDialogFocus}

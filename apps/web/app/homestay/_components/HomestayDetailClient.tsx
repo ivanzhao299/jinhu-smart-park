@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
+  ConsequenceDialog,
   displayEntityName,
   homestayPriceSourceLabel,
   propertyLabels,
@@ -255,6 +256,7 @@ function BookingActions({ booking, capability, isStay, mutate }: {
   mutate(endpoint: string, body?: unknown): Promise<void>;
 }) {
   const [cancelReason, setCancelReason] = useState("");
+  const [pendingStayAction, setPendingStayAction] = useState<"check-in" | "check-out" | null>(null);
   const canConfirm = !isStay && capability.actionAllowed("homestay.bookings.confirm") && booking.status === "draft";
   const canCheckIn = isStay && capability.actionAllowed("homestay.stays.check-in") && booking.status === "confirmed";
   const canCheckOut = isStay && capability.actionAllowed("homestay.stays.check-out") && booking.status === "checked_in";
@@ -262,8 +264,8 @@ function BookingActions({ booking, capability, isStay, mutate }: {
     && ["draft", "confirmed"].includes(booking.status);
   return <section className="ds-panel"><h2>可执行操作</h2><div className="ds-action-bar">
     {canConfirm ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/confirm`)}>确认订单</button> : null}
-    {canCheckIn ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-in`)}>办理入住</button> : null}
-    {canCheckOut ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-out`)}>办理退房</button> : null}
+    {canCheckIn ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-in")}>办理入住</button> : null}
+    {canCheckOut ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-out")}>办理退房</button> : null}
   </div>
   {canCancel ? <form className={styles.toolbar} onSubmit={(event) => {
     event.preventDefault();
@@ -272,6 +274,21 @@ function BookingActions({ booking, capability, isStay, mutate }: {
     <label>取消原因<input required maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
     <button className="secondary-button" type="submit">提交取消审批</button>
   </form> : null}
+  <ConsequenceDialog
+    actionLabel={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
+    consequences={pendingStayAction === "check-out"
+      ? ["订单将进入已退房终态并释放占用。", "系统将创建客房周转任务；未回收或遗失凭证须先完成处置。"]
+      : ["订单将进入在住状态并占用该房源。", "系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。"]}
+    onConfirm={() => pendingStayAction
+      ? mutate(`/homestay/bookings/${booking.id}/${pendingStayAction}`)
+      : false}
+    onOpenChange={(open) => { if (!open) setPendingStayAction(null); }}
+    open={pendingStayAction !== null}
+    reasonPolicy={{ kind: "none" }}
+    resultingState={pendingStayAction === "check-out" ? "已退房，待周转" : "在住"}
+    target={{ id: booking.id, label: `${booking.bookingCode} · ${booking.arrivalDate} 至 ${booking.departureDate}` }}
+    title={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
+  />
   </section>;
 }
 

@@ -13,6 +13,7 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { ConsequenceDialog } from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const CHECKOUT_ENTITY = "leasing_checkout";
@@ -238,6 +239,12 @@ export default function LeasingCheckoutsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingConsequence, setPendingConsequence] = useState<{
+    kind: "confirm-settlement" | "effective";
+    row: CheckoutRow;
+    actualCheckoutDate: string;
+    opinion: string;
+  } | null>(null);
 
   const canRead = hasAccess(authUser, CHECKOUT_PERMISSIONS.read, LEASING_MODULE);
   const canCreate = hasPermission(authUser, CHECKOUT_PERMISSIONS.create);
@@ -467,8 +474,7 @@ export default function LeasingCheckoutsPage() {
     }
   }
 
-  async function confirmSettlement(row: CheckoutRow) {
-    if (!window.confirm("确认结算后，本轮不会自动生成应收或释放房源，后续可登记退款。是否继续？")) return;
+  async function performConfirmSettlement(row: CheckoutRow) {
     setSaving(true);
     setMessage(null);
     try {
@@ -487,8 +493,10 @@ export default function LeasingCheckoutsPage() {
       setRefundForm((current) => ({ ...current, refundAmount: response.data.refundAmount ?? current.refundAmount }));
       setMessage("退租结算已确认");
       await load(pageData.page);
+      return true;
     } catch (error) {
       setMessage(toErrorMessage(error));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -525,17 +533,18 @@ export default function LeasingCheckoutsPage() {
     }
   }
 
-  async function effectiveCheckout(row: CheckoutRow) {
+  function requestEffectiveCheckout(row: CheckoutRow) {
     const defaultDate = form.actualCheckoutDate || row.actualCheckoutDate || row.plannedCheckoutDate || today();
-    const actualCheckoutDate = window.prompt("请输入实际退租日期", defaultDate);
-    if (actualCheckoutDate === null) return;
+    setPendingConsequence({
+      kind: "effective", row, actualCheckoutDate: defaultDate, opinion: "退租完成，房源释放"
+    });
+  }
+
+  async function performEffectiveCheckout(row: CheckoutRow, actualCheckoutDate: string, opinion: string) {
     if (!actualCheckoutDate.trim()) {
       setMessage("实际退租日期必填");
-      return;
+      return false;
     }
-    const opinion = window.prompt("请输入生效意见", "退租完成，房源释放");
-    if (opinion === null) return;
-    if (!window.confirm("退租生效后将终止合同、释放房源，并取消符合条件的未来未收应收。是否继续？")) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -555,8 +564,10 @@ export default function LeasingCheckoutsPage() {
       setMessage("退租已生效，合同已终止并释放房源");
       await load(pageData.page);
       await loadLookups();
+      return true;
     } catch (error) {
       setMessage(toErrorMessage(error));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -779,7 +790,7 @@ export default function LeasingCheckoutsPage() {
                     </button>
                   ) : null}
                   {canConfirmSettlement ? (
-                    <button className="primary-button" disabled={saving || detail.status !== "40"} type="button" onClick={() => void confirmSettlement(detail)}>
+                    <button className="primary-button" disabled={saving || detail.status !== "40"} type="button" onClick={() => setPendingConsequence({ kind: "confirm-settlement", row: detail, actualCheckoutDate: "", opinion: "" })}>
                       <CheckCircle2 size={16} /> 确认结算
                     </button>
                   ) : null}
@@ -838,7 +849,7 @@ export default function LeasingCheckoutsPage() {
                 </div>
                 {canEffective ? (
                   <div className="page-actions">
-                    <button className="primary-button" disabled={saving || detail.status !== "60" || !["30", "40"].includes(detail.settlementStatus)} type="button" onClick={() => void effectiveCheckout(detail)}>
+                    <button className="primary-button" disabled={saving || detail.status !== "60" || !["30", "40"].includes(detail.settlementStatus)} type="button" onClick={() => requestEffectiveCheckout(detail)}>
                       <CheckCircle2 size={16} /> 退租生效
                     </button>
                   </div>
@@ -848,6 +859,31 @@ export default function LeasingCheckoutsPage() {
             ) : null}
           </Drawer>
       ) : null}
+      <ConsequenceDialog
+        actionLabel={pendingConsequence?.kind === "effective" ? "确认退租生效" : "确认结算"}
+        busy={saving}
+        consequences={pendingConsequence?.kind === "effective"
+          ? ["合同将终止，房源占用将释放。", "符合条件的未来未收应收将取消；该状态推进不可通过普通编辑撤回。"]
+          : ["本次扣款、追加费用和退款金额将确认入账。", "本步骤不会自动生成应收或释放房源，后续仍需完成退款登记与退租生效。"]}
+        onConfirm={() => pendingConsequence?.kind === "effective"
+          ? performEffectiveCheckout(pendingConsequence.row, pendingConsequence.actualCheckoutDate, pendingConsequence.opinion)
+          : pendingConsequence ? performConfirmSettlement(pendingConsequence.row) : false}
+        onOpenChange={(open) => { if (!open) setPendingConsequence(null); }}
+        open={pendingConsequence !== null}
+        reasonPolicy={{ kind: "none" }}
+        resultingState={pendingConsequence?.kind === "effective" ? "退租已生效，合同已终止" : "结算已确认"}
+        target={pendingConsequence
+          ? { id: pendingConsequence.row.id, label: `${pendingConsequence.row.checkoutCode} · ${pendingConsequence.row.contract?.contractCode ?? pendingConsequence.row.contractId}` }
+          : { id: "unselected-checkout", label: "未选择退租单" }}
+        title={pendingConsequence?.kind === "effective" ? "确认退租生效" : "确认退租结算"}
+      >
+        {pendingConsequence?.kind === "effective" ? <div className="form-stack">
+          <label className="field"><span>实际退租日期</span><input required type="date" value={pendingConsequence.actualCheckoutDate}
+            onChange={(event) => setPendingConsequence((current) => current ? { ...current, actualCheckoutDate: event.target.value } : current)} /></label>
+          <label className="field"><span>生效意见</span><textarea maxLength={500} value={pendingConsequence.opinion}
+            onChange={(event) => setPendingConsequence((current) => current ? { ...current, opinion: event.target.value } : current)} /></label>
+        </div> : null}
+      </ConsequenceDialog>
     </div>
   );
 }
