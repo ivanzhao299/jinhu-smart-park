@@ -57,9 +57,18 @@ export const PARTY_ROLE_TYPE_LABELS = { tenant: "租客" } as const;
 export const PARTY_ROLE_SOURCE_TYPE_LABELS = { housing_lease: "长租租约" } as const;
 export const PARTY_ROLE_STATUS_LABELS = { active: "生效", inactive: "已停用" } as const;
 export const PARTY_SOURCE_DOMAIN_LABELS = {
-  commercial_leasing: "园区租赁", homestay: "民宿", housing_rental: "长租住房",
+  commercial_leasing: "园区租赁", homestay: "民宿", housing_rental: "长租经营",
   apartment: "公寓", maintenance: "维修", operations: "运营"
 } as const;
+
+// Stored bundle_name participates in the signed permission-bundle ABI. Project current
+// user-facing terminology by stable bundle code without rewriting released signatures.
+export const PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES: Readonly<Record<string, string>> = {
+  "property-bundle:property-housing-operator": "长租经营运营人员",
+  "property-bundle:property-housing-finance-operator": "长租经营财务操作员",
+  "property-bundle:property-housing-approver": "长租经营审批人",
+  "property-bundle:property-housing-task-supervisor": "长租经营任务督办人"
+};
 
 export const HOUSING_CHARGE_TYPE_LABELS = {
   rent: "租金", deposit: "押金", electricity: "能耗费", checkout_charges: "退租结算费",

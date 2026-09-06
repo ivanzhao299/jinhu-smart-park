@@ -1,5 +1,7 @@
 # 共享房产底座
 
+> 当前稳定模型摘要；统一入口与权威优先级见 [房产业务当前态设计索引](property-current-state-index.md)。
+>
 > 实施状态：开发中
 > 首次实现迁移：`000176_shared_property_foundation.sql`
 
@@ -22,7 +24,7 @@
 
 - `none`：未进入长租或短租经营。
 - `short_stay`：民宿短租。
-- `long_rent`：住房长租；现有园区商业租赁也按长租侧冲突处理。
+- `long_rent`：长租经营，允许住宅（`usage_type=70`）和办公（`usage_type=10`）；housing 与传统 leasing 维持双 bounded context，并共享冲突基础设施。
 
 模式只能通过 `POST /api/v1/property/units/:unitId/mode-transitions` 切换。直接修改经营配置不能改变模式。
 
@@ -84,6 +86,8 @@
 
 部署环境必须设置 Party 专用的版本化 keyring，运行时不得回退到其他域或 JWT secret。带 metadata 的 Party 读取严格使用所记录 key id；没有 key-id metadata 的存量同域消费者仅在已配置 Party keyring 内 active-first 双读，新写入只用 active key。逐 tenant/park 轮换会校验 active-key、历史 key、软删除 Party、当前 draft 与 snapshot 的保留密文，并通过 scope lock、幂等 receipt 与 required audit 执行，异常整 scope 回滚。身份 HMAC 使用独立稳定的 fingerprint key；更换 fingerprint key 需要独立 hash migration，不能冒充 AES 密钥轮换。
 
+身份核验由 purpose-specific owner workflow 消费 current verified submission 与不可变 snapshot。Consent 的数据库权威是 append-only `biz_party_consent_fact`；`biz_party.consent_status` 仅为兼容投影，generic Party create/update 不得写入。完整治理契约见 [Party Sensitive Data Key Rotation](../../.trellis/spec/api/backend/party-sensitive-data-key-rotation.md)。
+
 ## 5. API
 
 | 能力 | API |
@@ -109,3 +113,7 @@
 - 维修、保洁和人工锁房分别使用 `maintenance` 或 `operations`。
 - 各业务域释放占用时保留原 `source_type` 和 `source_id`，用于跨业态审计与分析。
 - 民宿订单和住房租约状态机不得绕过统一占用服务自行判断房态。
+
+`biz_unit.rental_status` 是 owner workflow 在同一事务内维护的生命周期投影，不是 mode 或 availability authority。强资产状态、释放阻断、商业合同兼容读取和锁顺序以 [Shared Property Occupancy](../../.trellis/spec/api/backend/shared-property-occupancy.md) 为准。
+
+Housing 当前持久租约状态以 shared `HOUSING_LEASE_STATUSES` 为准；`signed` 和 `renewed` 不是当前持久值。状态表、双长租域边界及证据限制见 [房产业务当前态设计索引](property-current-state-index.md)。

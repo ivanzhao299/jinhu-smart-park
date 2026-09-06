@@ -6,7 +6,10 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import type { TenantParkScope } from "@jinhu/shared";
+import {
+  PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { DataSource, EntityManager, In } from "typeorm";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
@@ -104,7 +107,11 @@ export class PropertyRoleBundleService {
       ORDER BY bundle.bundle_code
     `);
     this.assertStoredBundleHashes(rows);
-    return rows.map(({ actualHash: _actualHash, ...row }) => ({ ...row, permissionCount: Number(row.permissionCount) }));
+    return rows.map(({ actualHash: _actualHash, ...row }) => ({
+      ...row,
+      name: PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES[row.code] ?? row.name,
+      permissionCount: Number(row.permissionCount)
+    }));
   }
 
   preview(scope: TenantParkScope, dto: PreviewPropertyRoleBundlesDto, roleId?: string) {
@@ -316,7 +323,10 @@ export class PropertyRoleBundleService {
       roleId: role?.id ?? null,
       roleVersion: role?.version ?? null,
       mode: dto.mode,
-      bundles: bundles.map(({ id: _id, actualHash: _actualHash, ...bundle }) => bundle),
+      bundles: bundles.map(({ id: _id, actualHash: _actualHash, ...bundle }) => ({
+        ...bundle,
+        name: PROPERTY_PERMISSION_BUNDLE_DISPLAY_NAME_OVERRIDES[bundle.code] ?? bundle.name
+      })),
       add,
       keepExtra,
       removeExtra,
