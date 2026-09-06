@@ -9,6 +9,14 @@ WEB_CONTAINER_NAME="${WEB_CONTAINER_NAME:-jinhu-smart-park-prod-web}"
 RUNTIME_DESIGN_SYSTEM_CSS="$ROOT_DIR/apps/web/public/runtime-design-system.css"
 REQUESTED_RUN_PRODUCTION_SEED_IS_SET="${RUN_PRODUCTION_SEED+x}"
 REQUESTED_RUN_PRODUCTION_SEED="${RUN_PRODUCTION_SEED-}"
+REQUESTED_RELEASE_COMMIT="${RELEASE_COMMIT-}"
+readonly REQUESTED_RELEASE_COMMIT
+case "$REQUESTED_RELEASE_COMMIT" in
+  *[!0-9a-f]*) printf 'PRODUCTION_RELEASE_COMMIT_INVALID\n' >&2; exit 1 ;;
+esac
+if [ -n "$REQUESTED_RELEASE_COMMIT" ] && [ "${#REQUESTED_RELEASE_COMMIT}" -ne 40 ]; then
+  printf 'PRODUCTION_RELEASE_COMMIT_INVALID\n' >&2; exit 1
+fi
 
 if [ ! -f "$ENV_FILE" ]; then
   printf "Missing production env file: %s\nCopy .env.production.example to .env.production and fill production values first.\n" "$ENV_FILE" >&2
@@ -89,7 +97,7 @@ deploy_fast_css() {
 }
 
 deploy_web() {
-  compose build web
+  compose build web --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
   compose up -d postgres
   wait_for_postgres
   compose up -d web
@@ -97,7 +105,7 @@ deploy_web() {
 }
 
 deploy_api() {
-  compose build api
+  compose build api --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
   compose up -d api
   MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
 }
@@ -112,7 +120,7 @@ deploy_database() {
 }
 
 deploy_full() {
-  compose build api web
+  compose build api web --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
   compose up -d postgres
   wait_for_postgres
   quiesce_api_for_migrations
