@@ -7,7 +7,8 @@
 - [x] 接入民宿入住/退房。
 - [x] 接入 leasing 结算确认与退租生效，并移除对应 prompt/confirm。
 - [x] 补定向采用契约与手机宽度/触控样式契约。
-- [ ] 本地验证、review ≤3、CI/Smoke、merge、main 双绿、归档。
+- [x] 本地验证、review 3 轮、PR CI、merge、main 双绿。
+- [x] Trellis 归档与 closure PR #666。
 
 ## Evidence Log
 
@@ -20,6 +21,9 @@
 - 2026-09-06：review 1 指出 leasing 失败消息仅在 modal 后的页面层不可见；已增加 dialog 内错误透传和重开/关闭清理。review 同时确认 endpoint 保持、单飞 gate 与普通编辑边界；后端真 replay 幂等为既存缺口，非 S-03 范围，留作后续风险记录。
 - 2026-09-06：review 2 指出民宿 `mutate` 吞错导致 dialog 误关，以及 leasing API 成功后的刷新失败会被误判为业务失败。已令 mutation 显式返回布尔值并在 dialog 内显示错误；业务提交与后置刷新拆分，刷新失败提示手动刷新但仍关闭确认框，避免重复提交。
 - 2026-09-06：review 3 指出民宿提交时 dialog 仍可取消、409 未透传错误，以及 query `load()` 吞错令刷新告警不可达。已绑定 `busy`、统一 409 dialog 错误，并让详情加载显式返回成功布尔值。按审查上限不再开第 4 轮，改以定向测试、类型、lint 与 CI 验证最终补丁。
+- 2026-09-06：最终本地验证：property 36/36、homestay 18/18、Web typecheck、Web lint、`git diff --check` 均通过。
+- 2026-09-06：PR #665 head `ac32ef02`；CI `34016610818` 成功（Build 15m39s，Release Smoke 因无数据库/发布范围按规则 skipped）；squash merge `74394bf7`。
+- 2026-09-06：原 main CI 因后续 main 提交的并发策略被取消；最新 main `fb9f6afc` 明确包含 `74394bf7`，CI `34017477973` 与 Deploy `34017477966` 均 success，作为有效双绿证据。未触碰后续 HR 改动。
 
 ## Risks
 
