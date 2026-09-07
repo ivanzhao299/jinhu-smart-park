@@ -400,28 +400,9 @@ export class LeasingContractsService {
 
     let savedContract!: LeasingContractEntity;
     await this.contractsRepository.manager.transaction(async (manager) => {
-      const lockedOriginal = await manager.getRepository(LeasingContractEntity)
-        .createQueryBuilder("contract")
-        .setLock("pessimistic_write")
-        .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("contract.id = :contractId", { contractId: original.id })
-        .andWhere("contract.is_deleted = false")
-        .getOne();
-      if (!lockedOriginal) throw new NotFoundException("Leasing contract not found");
+      const lockedOriginal = await this.lockRenewalSourceAndAssertNoSibling(manager, scope, original.id);
       if (lockedOriginal.status !== CONTRACT_STATUS_EFFECTIVE) {
         throw new ConflictException("Source contract changed while creating renewal; refresh the contract and retry");
-      }
-      const unfinishedRenewalExists = await manager.getRepository(LeasingContractEntity)
-        .createQueryBuilder("renewal")
-        .where("renewal.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("renewal.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("renewal.renewal_from_contract_id = :contractId", { contractId: original.id })
-        .andWhere("renewal.status IN (:...unfinishedStatuses)", { unfinishedStatuses: UNFINISHED_RENEWAL_STATUSES })
-        .andWhere("renewal.is_deleted = false")
-        .getExists();
-      if (unfinishedRenewalExists) {
-        throw new ConflictException("An unfinished renewal already exists for this contract; refresh the contract before retrying");
       }
       const relationDrafts = originalRelations.map((relation) => {
         const area = this.toNumber(relation.area);
@@ -541,6 +522,14 @@ export class LeasingContractsService {
       await this.assertContractCodeAvailable(scope, dto.contract_code, id);
       entity.contractCode = dto.contract_code;
       entity.code = dto.contract_code;
+    }
+    if (
+      entity.sourceType === "renewal"
+      && entity.status === CONTRACT_STATUS_REJECTED
+      && dto.status !== undefined
+      && UNFINISHED_RENEWAL_STATUSES.includes(dto.status)
+    ) {
+      throw new BadRequestException("Use the submit endpoint to move a rejected renewal back into approval");
     }
     if (dto.contract_name !== undefined) entity.contractName = dto.contract_name.trim();
     if (dto.contract_type !== undefined) entity.contractType = this.emptyToNull(dto.contract_type);
@@ -1027,6 +1016,13 @@ export class LeasingContractsService {
     const record = this.buildApproveRecord(actor, action, beforeStatus, afterStatus, opTime, dto, action === "reject" ? reason : null);
     let saved!: LeasingContractEntity;
     await this.contractStatusLogsRepository.manager.transaction(async (manager) => {
+      if (
+        UNFINISHED_RENEWAL_STATUSES.includes(afterStatus)
+        && contract.sourceType === "renewal"
+        && contract.renewalFromContractId
+      ) {
+        await this.lockRenewalSourceAndAssertNoSibling(manager, scope, contract.renewalFromContractId, contract.id);
+      }
       contract.status = afterStatus;
       contract.approveRecords = [...(contract.approveRecords ?? []), record];
       contract.updateBy = actor.sub;
@@ -1083,6 +1079,36 @@ export class LeasingContractsService {
       remark: this.emptyToNull(remark ?? undefined)
     });
     await manager.getRepository(LeasingContractActionLogEntity).save(log);
+  }
+
+  private async lockRenewalSourceAndAssertNoSibling(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    sourceContractId: string,
+    currentRenewalId?: string
+  ): Promise<LeasingContractEntity> {
+    const source = await manager.getRepository(LeasingContractEntity)
+      .createQueryBuilder("contract")
+      .setLock("pessimistic_write")
+      .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("contract.id = :contractId", { contractId: sourceContractId })
+      .andWhere("contract.is_deleted = false")
+      .getOne();
+    if (!source) throw new NotFoundException("Leasing contract not found");
+
+    const siblingQuery = manager.getRepository(LeasingContractEntity)
+      .createQueryBuilder("renewal")
+      .where("renewal.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("renewal.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("renewal.renewal_from_contract_id = :contractId", { contractId: sourceContractId })
+      .andWhere("renewal.status IN (:...unfinishedStatuses)", { unfinishedStatuses: UNFINISHED_RENEWAL_STATUSES })
+      .andWhere("renewal.is_deleted = false");
+    if (currentRenewalId) siblingQuery.andWhere("renewal.id <> :currentRenewalId", { currentRenewalId });
+    if (await siblingQuery.getExists()) {
+      throw new ConflictException("An unfinished renewal already exists for this contract; refresh the contract before retrying");
+    }
+    return source;
   }
 
   private buildApproveRecord(

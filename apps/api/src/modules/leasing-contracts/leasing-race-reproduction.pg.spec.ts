@@ -175,6 +175,26 @@ test("PostgreSQL renewal race permits one draft and rejects the concurrent loser
       [tenantId, parkId, ids.contract]
     );
     assert.equal(renewalRows[0]?.count, "1");
+
+    const winner = settled.find((item): item is PromiseFulfilledResult<unknown> => item.status === "fulfilled");
+    assert.ok(winner);
+    const rejectedRenewalId = (winner.value as LeasingContractEntity).id;
+    await dataSource.query("UPDATE biz_leasing_contract SET status='50' WHERE id=$1", [rejectedRenewalId]);
+    const transitionRunner = dataSource.createQueryRunner();
+    try {
+      await transitionRunner.connect();
+      const transitionService = createService(transitionRunner);
+      await transitionService.createRenewalDraft(scope, principal, ids.contract, {
+        start_date: "2027-01-01", end_date: "2027-12-31"
+      });
+      await assert.rejects(
+        transitionService.submitForApproval(scope, principal, rejectedRenewalId, { opinion: "retry rejected renewal" }),
+        (error: unknown) => (error as { getStatus?: () => number }).getStatus?.() === 409
+          && /refresh.*retry/i.test((error as Error).message)
+      );
+    } finally {
+      await transitionRunner.release();
+    }
   } finally {
     try {
       try {

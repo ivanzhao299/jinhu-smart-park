@@ -738,7 +738,7 @@ Guard-only idempotency is not equivalent to replay/conflict semantics. When docu
 
 ### 3. Contracts
 
-- A source contract may have at most one non-deleted renewal in draft, submitted, or approving status. Lock the source contract with `pessimistic_write` inside the creation transaction before checking and inserting.
+- A source contract may have at most one non-deleted renewal in draft, submitted, or approving status. Lock the source contract with `pessimistic_write` inside the creation transaction before checking and inserting, and take the same lock/check before a rejected renewal re-enters approval.
 - A completed same-key/same-fingerprint renewal replay returns the cached original 2xx response and entity. A different key executes business logic and receives conflict when an unfinished renewal exists.
 - Validate request status and available amounts before the transaction as HTTP 400. Revalidate after acquiring the payment/waiver/receivable write locks; if a competing writer changed the previously valid state or balance, return HTTP 409 with refresh/retry guidance.
 - Keep contract/action/status logs and every financial mutation in the same transaction as the winning write.
@@ -748,6 +748,7 @@ Guard-only idempotency is not equivalent to replay/conflict semantics. When docu
 - source contract is not effective at initial read -> HTTP 400.
 - source contract changes before the transaction lock -> HTTP 409, refresh and retry.
 - unfinished renewal exists under the source lock -> HTTP 409, refresh and retry.
+- rejected renewal resubmission while a sibling draft exists -> HTTP 409; ordinary update cannot bypass the submit endpoint to re-enter an unfinished status.
 - renewal same-key replay after success -> original 2xx response; in-flight same-key request may remain processing 409.
 - payment/waiver amount is invalid in the initial snapshot -> HTTP 400.
 - payment/waiver state or balance becomes invalid after its write lock -> HTTP 409, refresh and retry.
