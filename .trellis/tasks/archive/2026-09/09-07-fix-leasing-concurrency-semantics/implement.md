@@ -11,8 +11,8 @@
 - [x] Upgrade S-05 PostgreSQL assertions and add focused unit/API coverage.
 - [x] Run targeted formatting/lint/type/tests; then s3c/s3d/s3e and first-release-leasing gates where isolated prerequisites are available.
 - [x] Run `trellis-check`; resolve verified P0/P1 findings, maximum three review rounds and maximum two automatic fixes per root cause.
-- [ ] Commit, push only this branch, open PR, wait for CI/review, squash merge through `gh pr merge`.
-- [ ] Wait for main CI and Deploy to be green, close #678, archive the Trellis task, and report evidence.
+- [x] Commit, push only this branch, open PR, wait for CI/review, squash merge through `gh pr merge`.
+- [x] Wait for main CI and Deploy to be green, close #678, archive the Trellis task, and report evidence.
 
 ## Planned validation
 
@@ -45,3 +45,5 @@
 - 2026-09-07: Single-agent review round 1 found payment receivable over-amount needed initial snapshot validation to preserve ordinary HTTP 400; fixed once and revalidated with full static gates plus S3-D payment. No remaining verified P0/P1 findings. API spec now records the executable concurrency/idempotency contract.
 - 2026-09-07: GitHub Codex review round 1 found a valid P1 bypass: rejected renewal resubmission could re-enter approving after a sibling replacement draft existed. Review fix serializes every renewal entry into unfinished status on the same source lock, excludes the current renewal from sibling checks, and prevents ordinary update from bypassing the submit endpoint. Fresh task-owned PG 306+8 setup and the expanded race/resubmission regression passed 2/2; targeted ESLint/API typecheck passed.
 - 2026-09-07: GitHub Codex review round 2 found three direct boundary gaps. The renewal guard now keys on immutable `renewal_from_contract_id` even if mutable `source_type` is changed; waiver prevalidation reuses the receivable already authorized and loaded with the visible waiver; and a payment disappearing after the authorized snapshot is translated to descriptive 409 instead of 404. The PG lineage regression explicitly mutates `source_type` before rejected resubmission.
+- 2026-09-07: Review round 3 completed with no major findings. PR #679 CI run 34096820844 passed and the PR was squash-merged as `c5862446`; Issue #678 auto-closed.
+- 2026-09-07: Merge-SHA main CI run 34098013090 passed. Deploy Production run 34098013104 passed release verification, controlled deployment, and protected production acceptance-account verification. No direct production operation was performed from this session.
