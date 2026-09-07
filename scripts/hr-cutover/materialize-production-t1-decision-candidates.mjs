@@ -126,7 +126,11 @@ function readStage(stagingDir, triple, read) {
   }
   const events = files.employmentEvents.bytes.toString("utf8").split("\n").filter(Boolean).map((line, index) => {
     let row;
-    try { row = JSON.parse(line); } catch { fail("PRODUCTION_IMPORT_T1_DECISION_STAGE_INVALID", `employmentEvents:${index}`); }
+    // The extractor writes JSONL as PostgreSQL COPY text: decode transport
+    // backslashes before validating source-row provenance, matching the T1
+    // phase materializer. This keeps candidate validation bound to the
+    // staged source value rather than the transport representation.
+    try { row = JSON.parse(line.replaceAll("\\\\", "\\")); } catch { fail("PRODUCTION_IMPORT_T1_DECISION_STAGE_INVALID", `employmentEvents:${index}`); }
     exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source"], "PRODUCTION_IMPORT_T1_DECISION_STAGE_INVALID", "event");
     if (row.sourceTable !== SOURCE_TABLE || text(row.sourceKey) === "" || !SHA256.test(row.sourceIdentitySha256 ?? "") || !SHA256.test(row.sourceRowSha256 ?? "") || !plain(row.source) || row.sourceIdentitySha256 !== sha256(`${SOURCE_TABLE}\0${row.sourceKey}`) || row.sourceRowSha256 !== sha256(canonicalTopLevel(row.source))) fail("PRODUCTION_IMPORT_T1_DECISION_STAGE_INVALID", "event");
     return Object.freeze({ ...row });
