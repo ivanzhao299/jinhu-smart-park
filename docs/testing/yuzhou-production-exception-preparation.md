@@ -146,6 +146,14 @@ Outputs are exclusive, never overwritten. Partial files are preserved after fail
 
 ### Large-input memory boundary
 
+Payload-bundle hash calculation now feeds records individually into SHA-256 instead
+of assembling a second complete bundle string. It preserves the sealed canonical
+key order and trailing newline. Artifact and bundle hashes must remain separate:
+numeric object keys can serialize differently in the target-model serializer.
+The generator contract compares bytes/hashes against the pre-change algorithm,
+including nested numeric keys, Unicode and caller non-mutation. This optimization
+does not raise limits or prove that real full-data delegated preparation fits.
+
 The 2026-09-06 private current-code T0–T3 preparation used 260,828 candidates,
 including 47 quarantine projections. A 2 GiB process guard stopped the initial
 prepare attempt at 2,185,199,616 bytes RSS. Lowering the Node old-space limit from

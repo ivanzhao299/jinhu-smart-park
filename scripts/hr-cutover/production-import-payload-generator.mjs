@@ -11,6 +11,7 @@ import {
   computeProductionImportTargetCanonicalHash,
   deriveProductionImportTargetId,
   stableProductionImportCanonicalJson,
+  ProductionImportTargetModelError,
   validateProductionImportTargetModel,
 } from "./production-import-target-model.mjs";
 
@@ -36,7 +37,56 @@ const sha256 = value => createHash("sha256").update(value).digest("hex");
 const isPlainObject = value => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 const same = (left, right) => stableProductionImportCanonicalJson(left) === stableProductionImportCanonicalJson(right);
 
-export const computeFrozenArtifactHash = content => sha256(`${stableProductionImportCanonicalJson(content)}\n`);
+const canonicalValueError = detail => { throw new ProductionImportTargetModelError(detail, "PRODUCTION_IMPORT_CANONICAL_VALUE_INVALID"); };
+const isArrayIndexKey = key => {
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(key)) return false;
+  const number = Number(key);
+  return number < 4294967295 && String(number) === key;
+};
+
+// This emits the exact bytes produced by stableProductionImportCanonicalJson
+// without first cloning the whole object or retaining its complete JSON string.
+// JSON.stringify enumerates integer-index properties numerically even when the
+// canonicalizer inserted them after lexicographic sorting; preserve that detail.
+const updateStableCanonicalHash = (hash, value) => {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    hash.update(JSON.stringify(value));
+    return;
+  }
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) canonicalValueError("canonical JSON accepts safe integers only");
+    hash.update(JSON.stringify(value));
+    return;
+  }
+  if (Array.isArray(value)) {
+    hash.update("[");
+    value.forEach((entry, index) => {
+      if (index > 0) hash.update(",");
+      updateStableCanonicalHash(hash, entry);
+    });
+    hash.update("]");
+    return;
+  }
+  if (!isPlainObject(value)) canonicalValueError("canonical JSON accepts plain JSON objects only");
+  const keys = Object.keys(value).sort();
+  const integerKeys = keys.filter(isArrayIndexKey).sort((left, right) => Number(left) - Number(right));
+  const nonIntegerKeys = keys.filter(key => !isArrayIndexKey(key));
+  hash.update("{");
+  [...integerKeys, ...nonIntegerKeys].forEach((key, index) => {
+    if (index > 0) hash.update(",");
+    hash.update(JSON.stringify(key));
+    hash.update(":");
+    updateStableCanonicalHash(hash, value[key]);
+  });
+  hash.update("}");
+};
+
+export const computeFrozenArtifactHash = content => {
+  const hash = createHash("sha256");
+  updateStableCanonicalHash(hash, content);
+  hash.update("\n");
+  return hash.digest("hex");
+};
 
 function exactKeys(value, required, optional, code, label) {
   if (!isPlainObject(value)) fail(code, `${label} must be an object`);

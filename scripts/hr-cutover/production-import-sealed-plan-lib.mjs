@@ -57,7 +57,28 @@ const same = (left, right) => canonicalJson(left) === canonicalJson(right);
 export const computeProductionImportApprovalSetHash = approvalSet => sha256(`${canonicalJson(approvalSet)}\n`);
 export const computeProductionImportTargetScopeHash = ({ tenantId, parkId }) => sha256(`yuzhou-hr-production-target-scope-v1\0${tenantId}\0${parkId}`);
 export const computeProductionImportPayloadHash = payload => sha256(`${canonicalJson(payload)}\n`);
-export const computeProductionImportPayloadBundleHash = bundle => sha256(`${canonicalJson(bundle)}\n`);
+export function computeProductionImportPayloadBundleHash(bundle) {
+  if (!bundle || typeof bundle !== "object" || Array.isArray(bundle)) return sha256(`${canonicalJson(bundle)}\n`);
+  // Keep the sealed canonical order (including numeric object keys). Hash records
+  // one at a time instead of allocating another whole-bundle JSON string.
+  const hash = createHash("sha256").update("{");
+  for (const [index, key] of Object.keys(bundle).sort().entries()) {
+    hash.update(`${index ? "," : ""}${JSON.stringify(key)}:`);
+    const value = bundle[key];
+    if (key === "records" && Array.isArray(value)) {
+      hash.update("[");
+      for (let recordIndex = 0; recordIndex < value.length; recordIndex++) {
+        if (recordIndex) hash.update(",");
+        // Array.map(...).join previously emitted empty slots for undefined/holes.
+        hash.update(recordIndex in value ? (canonicalJson(value[recordIndex]) ?? "") : "");
+      }
+      hash.update("]");
+    } else {
+      hash.update(`${canonicalJson(value)}`);
+    }
+  }
+  return hash.update("}\n").digest("hex");
+}
 
 function scan(value, at = "$") {
   if (Array.isArray(value)) return value.forEach((child, index) => scan(child, `${at}[${index}]`));
