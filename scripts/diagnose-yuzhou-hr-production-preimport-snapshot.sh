@@ -65,6 +65,36 @@ classify_probe_failure() {
 }
 
 cd "$deploy_path"
+
+# Gate-19 is produced by the separate backup/restore workflow and retained on
+# the mounted production data disk.  Bind only its safe PASS facts here; never
+# print or forward the report body, which may contain host-specific details.
+prebackup_status="REQUIRED"
+gate19_report=""
+if [ -d "$deploy_path/tmp/production-gates" ]; then
+  gate19_report="$(find "$deploy_path/tmp/production-gates" -maxdepth 1 -type f -name 'gate19-backup-restore-*.json' -print 2>/dev/null | sort | tail -n 1)"
+fi
+if [ -n "$gate19_report" ] && [ -f "$gate19_report" ] && [ ! -L "$gate19_report" ]; then
+  if PREBACKUP_RECEIPT_PATH="$gate19_report" node <<'NODE'
+import { lstatSync, readFileSync, statSync } from "node:fs";
+const path = process.env.PREBACKUP_RECEIPT_PATH ?? "";
+try {
+  const link = lstatSync(path), info = statSync(path);
+  const value = JSON.parse(readFileSync(path, "utf8"));
+  const sha = /^[0-9a-f]{64}$/u;
+  if (link.isSymbolicLink() || !info.isFile() || info.nlink !== 1
+    || value.status !== "PASS" || value.productionImport !== "HOLD"
+    || value.production_db_write !== "temporary_restore_database_only"
+    || value.destructive_volume_operation !== false
+    || value.retained_backup?.status !== "RETAINED_HASH_VERIFIED"
+    || !sha.test(value.retained_backup?.receiptSha256 ?? "")) process.exit(1);
+} catch { process.exit(1); }
+NODE
+  then
+    prebackup_status="PASS"
+  fi
+fi
+
 probe="$({
   docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
     sh -c 'database_name="${POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -F "|" -U "$POSTGRES_USER" -d "$database_name"' <<'SQL'
@@ -145,7 +175,7 @@ target_hash="$(hash_value "yuzhou-hr-production-target-v1:$target_material")"
 scope_hash="$(hash_target_scope "$tenant_id" "$park_id")"
 phase_rows="$(printf '%s\n' "$probe_rows" | sed '1d')"
 
-TARGET_HASH="$target_hash" SCOPE_HASH="$scope_hash" PHASE_ROWS="$phase_rows" node <<'NODE'
+TARGET_HASH="$target_hash" SCOPE_HASH="$scope_hash" PHASE_ROWS="$phase_rows" PREBACKUP_STATUS="$prebackup_status" node <<'NODE'
 import { readFileSync } from "node:fs";
 
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -182,7 +212,7 @@ for (const row of rows) {
 if (JSON.stringify(Object.keys(phases)) !== JSON.stringify(["T0", "T1", "T2", "T3"])) process.exit(4);
 const reasonCodes = [
   ...(isExactReviewedTarget(process.env.TARGET_HASH) ? [] : ["PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"]),
-  "PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED",
+  ...(process.env.PREBACKUP_STATUS === "PASS" ? [] : ["PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"]),
   "PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED",
 ];
 process.stdout.write(`${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_preimport_snapshot_readonly", status: "HOLD", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: process.env.TARGET_HASH, targetScopeSha256: process.env.SCOPE_HASH, sourceIdentityBinding: "PENDING_SOURCE_MANIFEST", phases, reasonCodes })}\n`);
