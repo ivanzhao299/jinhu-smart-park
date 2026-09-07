@@ -1116,3 +1116,37 @@ PR #668 unified dirty-leave, stateful EmptyState composition, property formatter
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: Fix leasing concurrency semantics
+
+**Date**: 2026-09-07
+**Task**: Fix leasing concurrency semantics
+**Package**: api
+**Branch**: `codex/fix-lea-concurrency-678-closeout`
+
+### Summary
+
+Enforced one unfinished renewal per source contract under concurrency, preserved same-key idempotent replay, translated leasing lock-time payment and waiver races to descriptive 409 responses, passed targeted PostgreSQL and leasing gates, merged PR #679, and verified main CI plus production deploy.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c5862446` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

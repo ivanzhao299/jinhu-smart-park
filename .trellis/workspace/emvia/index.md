@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 31
-- **Last Active**: 2026-09-06
+- **Total Sessions**: 32
+- **Last Active**: 2026-09-07
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1114 | Active |
+| `journal-1.md` | ~1152 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 32 | 2026-09-07 | Fix leasing concurrency semantics | `c5862446` | `codex/fix-lea-concurrency-678-closeout` |
 | 31 | 2026-09-06 | PMA S-04 property shared primitives closure | `5d9517eb`, `78e708b6` | `codex/fix-pma-s04-close` |
 | 30 | 2026-09-06 | PMA S-03 high-risk confirmation closure | `ac32ef02`, `74394bf7` | `codex/fix-pma-s03-close` |
 | 29 | 2026-09-06 | PMA S-02 endpoint 契约与资产删除防线 | `fc9a557f743dc8b672a1a2586cf2a504d3b78004` | `codex/fix-pma-s02-closure` |
