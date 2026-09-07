@@ -1150,3 +1150,38 @@ Enforced one unfinished renewal per source contract under concurrency, preserved
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: Close leasing batch SQL and lock order
+
+**Date**: 2026-09-07
+**Task**: Close leasing batch SQL and lock order
+**Package**: api
+**Branch**: `codex/fix-leasing-batch-sql-lock-order-683-closeout`
+
+### Summary
+
+Closed #683 via #684; deterministic receivable-first locks, bounded batch SQL, cent conservation and audit tests; PR Release Smoke and containing-main CI/Deploy passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a83102ef` | (see git log) |
+| `74512b1a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
