@@ -27,6 +27,19 @@
 
 因此本轮 T0 隔离批次的守恒结果是：组织 138/138；岗位 18 条源记录中 11 条加载、7 条隔离；员工 2,949 条中 2,889 条加载、60 条因旧状态仅保留 `raw_only`。另有 11 条日期顺序复核。上述 T0 关系缺口不会被伪造为“已匹配”，也不改变 T1--T3 的 47 条异常统计。
 
+## 依赖传播（当前隔离链的新增统计，不改写原始 47 条）
+
+在真实当前源上按 T0 → T1 → T2 → T3 串行装载后，发现部分下游记录依赖那 60 名 `raw_only` 员工。这些不是源表的新异常，而是“现代目标要求可写员工状态”后产生的依赖隔离：
+
+| 阶段 | 源关系 | 当前隔离数 | 处理 |
+| --- | --- | ---: | --- |
+| T1 | `dbo.readjust.person` → `hr_employee` | 148 | 事件保留为 `EMPLOYMENT_EVENT_EMPLOYEE_NOT_MAPPED`，不伪造员工外键 |
+| T2 | `dbo.compact.person` → `hr_employee` | 25 | 合同保留为 `CONTRACT_EMPLOYEE_NOT_MAPPED`；其对应的 2 条变更随父合同缺失隔离 |
+| T2 | `dbo.compact_c.compact` → `hr_contract` | 10 | 8 条基础父合同缺失，加上 2 条由员工未映射传导的父合同缺失 |
+| T3 | `dbo.person_insure.person` → `hr_employee` | 959 | 保险期间和子项目保留 `INSURANCE_EMPLOYEE_NOT_MAPPED` |
+
+当前隔离链已证明：T0 员工主数据不先解决，不能声称 T1/T2/T3 已“全量兼容”。这些依赖记录都保留源身份哈希、错误码和批次账本，可在员工状态字典补齐后定向重放，不需要重新抽取全部源库。
+
 ## 逐表关系
 
 ### 1. 人事异动：`dbo.readjust` → `hr_employment_event`
