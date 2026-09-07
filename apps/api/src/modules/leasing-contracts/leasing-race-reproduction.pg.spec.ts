@@ -6,6 +6,10 @@ import { DataSource, type QueryRunner } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { LeasingReceivableStatusLogEntity } from "../leasing-receivables/entities/leasing-receivable-status-log.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { lockLeasingReceivables } from "../leasing-receivables/leasing-financial-locks";
+import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
+import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
+import { LeasingPaymentsService } from "../leasing-payments/leasing-payments.service";
 import { LeasingWaiverEntity } from "../leasing-waivers/entities/leasing-waiver.entity";
 import { LeasingWaiversService } from "../leasing-waivers/leasing-waivers.service";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
@@ -328,6 +332,120 @@ test("PostgreSQL waiver write-off race rejects the concurrent loser with conflic
           await dataSource.destroy();
         }
       }
+    }
+  }
+});
+
+test("PostgreSQL leasing receivable batches lock opposite input orders without deadlock", {
+  skip: databaseUrl ? false : "DATABASE_URL is required for PostgreSQL concurrency coverage"
+}, async () => {
+  const suffix = randomUUID().replaceAll("-", "");
+  const tenantId = `pma-m06-${suffix}`;
+  const parkId = `pma-m06-${suffix}`;
+  const parkTenantId = randomUUID();
+  const receivableIds = [randomUUID(), randomUUID()].sort();
+  const dataSource = await new DataSource({ type: "postgres", url: databaseUrl, entities: entityGlobs }).initialize();
+  try {
+    await dataSource.query(
+      `INSERT INTO biz_park_tenant(id,tenant_id,park_id,park_tenant_code,company_name)
+       VALUES ($1,$2,$3,$4,'PMA M-06 tenant')`,
+      [parkTenantId, tenantId, parkId, `PMA-M06-${suffix}`]
+    );
+    for (const [index, receivableId] of receivableIds.entries()) {
+      await dataSource.query(
+        `INSERT INTO biz_leasing_receivable(
+         id,tenant_id,park_id,ar_code,park_tenant_id,fee_type,period_start,period_end,due_date,
+         amount_due,amount_paid,amount_waived,amount_remain,late_fee,invoice_status,status,source_type)
+         VALUES ($1,$2,$3,$4,$5,'rent','2026-09-01','2026-09-30','2099-09-30',100,0,0,100,0,'10','20','manual')`,
+        [receivableId, tenantId, parkId, `PMA-M06-AR-${index}-${suffix}`, parkTenantId]
+      );
+    }
+    const attempts = [receivableIds, [...receivableIds].reverse()].map((ids) =>
+      dataSource.transaction(async (manager) => {
+        await manager.query("SET LOCAL lock_timeout='5s'");
+        const rows = await lockLeasingReceivables(manager, { tenantId, parkId }, ids);
+        assert.deepEqual(rows.map((row) => row.id), receivableIds);
+        await manager.query("SELECT pg_sleep(0.05)");
+      })
+    );
+    const settled = await Promise.allSettled(attempts);
+    assert.equal(settled.filter((result) => result.status === "fulfilled").length, 2);
+  } finally {
+    try {
+      await dataSource.query("DELETE FROM biz_leasing_receivable WHERE tenant_id=$1 AND park_id=$2", [tenantId, parkId]);
+      await dataSource.query("DELETE FROM biz_park_tenant WHERE tenant_id=$1 AND park_id=$2", [tenantId, parkId]);
+    } finally {
+      await dataSource.destroy();
+    }
+  }
+});
+
+test("PostgreSQL payment batch conserves cents and audits every receivable", {
+  skip: databaseUrl ? false : "DATABASE_URL is required for PostgreSQL financial coverage"
+}, async () => {
+  const suffix = randomUUID().replaceAll("-", "");
+  const tenantId = `pma-m06-pay-${suffix}`;
+  const parkId = `pma-m06-pay-${suffix}`;
+  const ids = { parkTenant: randomUUID(), payment: randomUUID(), receivables: [randomUUID(), randomUUID()] };
+  const dataSource = await new DataSource({ type: "postgres", url: databaseUrl, entities: entityGlobs }).initialize();
+  const principal = actor(tenantId, parkId);
+  try {
+    await dataSource.query(
+      `INSERT INTO biz_park_tenant(id,tenant_id,park_id,park_tenant_code,company_name)
+       VALUES ($1,$2,$3,$4,'PMA M-06 payment tenant')`,
+      [ids.parkTenant, tenantId, parkId, `PMA-M06-PAY-${suffix}`]
+    );
+    await dataSource.query(
+      `INSERT INTO biz_leasing_payment(
+       id,tenant_id,park_id,pay_code,park_tenant_id,pay_amount,unapplied_amount,pay_method,pay_time,status)
+       VALUES ($1,$2,$3,$4,$5,100,100,'bank','2026-09-01','10')`,
+      [ids.payment, tenantId, parkId, `PMA-M06-P-${suffix}`, ids.parkTenant]
+    );
+    for (const [index, receivableId] of ids.receivables.entries()) {
+      await dataSource.query(
+        `INSERT INTO biz_leasing_receivable(
+         id,tenant_id,park_id,ar_code,park_tenant_id,fee_type,period_start,period_end,due_date,
+         amount_due,amount_paid,amount_waived,amount_remain,late_fee,invoice_status,status,source_type)
+         VALUES ($1,$2,$3,$4,$5,'rent','2026-09-01','2026-09-30','2099-09-30',50,0,0,50,0,'10','20','manual')`,
+        [receivableId, tenantId, parkId, `PMA-M06-PAY-AR-${index}-${suffix}`, ids.parkTenant]
+      );
+    }
+    const service = new LeasingPaymentsService(
+      dataSource.getRepository(LeasingPaymentEntity),
+      dataSource.getRepository(LeasingPaymentReceivableEntity),
+      dataSource.getRepository(ParkTenantEntity),
+      {} as never, alwaysEnabledDictionaryRepository as never, {} as never,
+      unrestrictedDataScope as never, identityFieldPolicy as never
+    );
+    await service.apply({ tenantId, parkId }, principal, ids.payment, {
+      applications: ids.receivables.map((receivable_id) => ({ receivable_id, applied_amount: 50 }))
+    });
+
+    const [payment] = await dataSource.query<Array<{ unapplied: string; status: string }>>(
+      `SELECT unapplied_amount::text AS unapplied,status FROM biz_leasing_payment WHERE id=$1`, [ids.payment]
+    );
+    assert.deepEqual(payment, { unapplied: "0.00", status: "30" });
+    const [totals] = await dataSource.query<Array<{ paid: string; remaining: string; applications: string; audits: string }>>(
+      `SELECT COALESCE(SUM(r.amount_paid),0)::text AS paid,
+              COALESCE(SUM(r.amount_remain),0)::text AS remaining,
+              (SELECT count(*)::text FROM rel_leasing_payment_receivable a
+                WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.payment_id=$3 AND a.is_deleted=false) AS applications,
+              (SELECT count(*)::text FROM biz_leasing_receivable_status_log l
+                WHERE l.tenant_id=$1 AND l.park_id=$2 AND l.receivable_id=ANY($4::uuid[]) AND l.action='payment_apply') AS audits
+         FROM biz_leasing_receivable r WHERE r.id=ANY($4::uuid[])`,
+      [tenantId, parkId, ids.payment, ids.receivables]
+    );
+    assert.deepEqual(totals, { paid: "100.00", remaining: "0.00", applications: "2", audits: "2" });
+  } finally {
+    try {
+      for (const table of [
+        "biz_leasing_receivable_status_log", "rel_leasing_payment_receivable",
+        "biz_leasing_receivable", "biz_leasing_payment", "biz_park_tenant"
+      ]) {
+        await dataSource.query(`DELETE FROM ${table} WHERE tenant_id=$1 AND park_id=$2`, [tenantId, parkId]);
+      }
+    } finally {
+      await dataSource.destroy();
     }
   }
 });

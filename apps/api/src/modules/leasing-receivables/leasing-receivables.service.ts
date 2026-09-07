@@ -30,6 +30,7 @@ const RECEIVABLE_STATUS_WAIVED = "80";
 const RECEIVABLE_STATUS_VOID = "90";
 const INVOICE_STATUS_NONE = "10";
 const CONTRACT_STATUS_EFFECTIVE = "75";
+const MAX_RECEIVABLES_PER_CONTRACT_GENERATION = 240;
 const FEE_TYPE_RENT = "10";
 const FEE_TYPE_DEPOSIT = "20";
 const FEE_TYPE_PROPERTY_FEE = "30";
@@ -345,11 +346,19 @@ export class LeasingReceivablesService {
 
     const monthRange = options?.billingMonth ? this.resolveBillingMonthRange(options.billingMonth) : null;
     const specs = this.buildReceivableSpecs(contract, dto, monthRange);
+    if (specs.length > MAX_RECEIVABLES_PER_CONTRACT_GENERATION) {
+      throw new BadRequestException(`Receivable generation exceeds ${MAX_RECEIVABLES_PER_CONTRACT_GENERATION} rows; split the contract period`);
+    }
     const rows = await this.receivablesRepository.manager.transaction(async (manager) => {
       const generatedRows: ReceivableGenerationRow[] = [];
+      const existingByKey = await this.loadExistingGeneratedReceivables(manager, scope, contract.id);
       for (const spec of specs) {
-        generatedRows.push(await this.saveGeneratedReceivable(manager, scope, actor, contract, spec, Boolean(dto.force_regenerate)));
+        const row = await this.saveGeneratedReceivable(
+          manager, scope, actor, contract, spec, Boolean(dto.force_regenerate), existingByKey.get(this.generationKey(spec))
+        );
+        generatedRows.push(row);
       }
+      await this.assertGeneratedAmountConservation(manager, scope, generatedRows);
       return generatedRows;
     });
     return this.summarizeGenerationRows(rows);
@@ -759,10 +768,11 @@ export class LeasingReceivablesService {
     actor: JwtPrincipal,
     contract: LeasingContractEntity,
     spec: ReceivableGenerationSpec,
-    forceRegenerate: boolean
+    forceRegenerate: boolean,
+    existingReceivable?: LeasingReceivableEntity
   ): Promise<ReceivableGenerationRow> {
     const repository = manager.getRepository(LeasingReceivableEntity);
-    const existing = await this.findExistingGeneratedReceivable(repository, scope, contract.id, spec);
+    const existing = existingReceivable;
 
     if (existing) {
       if (!forceRegenerate) {
@@ -863,6 +873,30 @@ export class LeasingReceivablesService {
       .getOne();
   }
 
+  private async loadExistingGeneratedReceivables(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    contractId: string
+  ): Promise<Map<string, LeasingReceivableEntity>> {
+    const rows = await manager.getRepository(LeasingReceivableEntity)
+      .createQueryBuilder("receivable")
+      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("receivable.contract_id = :contractId", { contractId })
+      .andWhere("receivable.source_type = :sourceType", { sourceType: "contract" })
+      .andWhere("receivable.is_deleted = false")
+      .getMany();
+    return new Map(rows.map((row) => [this.generationKey({
+      feeType: row.feeType,
+      periodStart: this.dateOnly(row.periodStart),
+      periodEnd: this.dateOnly(row.periodEnd)
+    }), row]));
+  }
+
+  private generationKey(spec: Pick<ReceivableGenerationSpec, "feeType" | "periodStart" | "periodEnd">): string {
+    return `${spec.feeType}|${spec.periodStart}|${spec.periodEnd}`;
+  }
+
   private safeGenerationFailureMessage(error: unknown): string {
     if (error instanceof HttpException) {
       const response = error.getResponse();
@@ -951,6 +985,37 @@ export class LeasingReceivablesService {
       failed_count: rows.filter((row) => row.status === "failed").length,
       rows
     };
+  }
+
+  private async assertGeneratedAmountConservation(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    rows: ReceivableGenerationRow[]
+  ): Promise<void> {
+    const changedRows = rows.filter((row) => row.status === "generated" || row.status === "regenerated");
+    const receivableIds = changedRows.flatMap((row) => row.receivable_id ? [row.receivable_id] : []);
+    if (receivableIds.length !== changedRows.length || receivableIds.length === 0) {
+      if (changedRows.length === 0) return;
+      throw new ConflictException("Receivable generation amount conservation invariant violated");
+    }
+    const totals = await manager.getRepository(LeasingReceivableEntity)
+      .createQueryBuilder("receivable")
+      .select("COALESCE(SUM(receivable.amount_due), 0)", "amountDue")
+      .addSelect("COALESCE(SUM(receivable.amount_remain), 0)", "amountRemain")
+      .addSelect("COALESCE(SUM(receivable.amount_paid), 0)", "amountPaid")
+      .addSelect("COALESCE(SUM(receivable.amount_waived), 0)", "amountWaived")
+      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("receivable.id IN (:...receivableIds)", { receivableIds })
+      .andWhere("receivable.is_deleted = false")
+      .getRawOne<{ amountDue: string; amountRemain: string; amountPaid: string; amountWaived: string }>();
+    const expectedCents = changedRows.reduce((sum, row) => sum + this.toCents(row.amount_due), 0n);
+    if (this.toCents(totals?.amountDue) !== expectedCents
+      || this.toCents(totals?.amountRemain) !== expectedCents
+      || this.toCents(totals?.amountPaid) !== 0n
+      || this.toCents(totals?.amountWaived) !== 0n) {
+      throw new ConflictException("Receivable generation amount conservation invariant violated");
+    }
   }
 
   private matchesBillingMonth(spec: Pick<ReceivableGenerationSpec, "periodStart" | "periodEnd">, monthRange: { start: string; end: string } | null): boolean {
@@ -1193,6 +1258,10 @@ export class LeasingReceivablesService {
   private toNumber(value: string | number | null | undefined): number {
     const numberValue = Number(value ?? 0);
     return Number.isFinite(numberValue) ? numberValue : 0;
+  }
+
+  private toCents(value: string | number | null | undefined): bigint {
+    return BigInt(this.decimal(this.toNumber(value)).replace(".", ""));
   }
 
   private emptyToNull(value?: string | null): string | null {

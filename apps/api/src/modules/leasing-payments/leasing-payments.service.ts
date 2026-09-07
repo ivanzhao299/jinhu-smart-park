@@ -11,6 +11,7 @@ import { FileEntity } from "../files/entities/file.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { LeasingReceivableStatusLogEntity } from "../leasing-receivables/entities/leasing-receivable-status-log.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { loadLeasingReceivables } from "../leasing-receivables/leasing-financial-locks";
 import type { ApplyLeasingPaymentDto } from "./dto/apply-leasing-payment.dto";
 import type { CreateLeasingPaymentDto } from "./dto/create-leasing-payment.dto";
 import type { LeasingPaymentQueryDto } from "./dto/leasing-payment-query.dto";
@@ -174,14 +175,16 @@ export class LeasingPaymentsService {
     if (requestedTotal > this.toNumber(initialPayment.unappliedAmount) + 0.000001) {
       throw new BadRequestException("applied_amount exceeds payment unapplied amount");
     }
+    const sortedReceivableIds = [...seenReceivableIds].sort();
+    const initialReceivables = await loadLeasingReceivables(
+      this.paymentsRepository.manager,
+      scope,
+      sortedReceivableIds,
+      false
+    );
+    const initialReceivablesById = new Map(initialReceivables.map((receivable) => [receivable.id, receivable]));
     for (const item of dto.applications) {
-      const initialReceivable = await this.paymentsRepository.manager.getRepository(LeasingReceivableEntity)
-        .createQueryBuilder("receivable")
-        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("receivable.id = :receivableId", { receivableId: item.receivable_id })
-        .andWhere("receivable.is_deleted = false")
-        .getOne();
+      const initialReceivable = initialReceivablesById.get(item.receivable_id);
       if (!initialReceivable) throw new NotFoundException("Leasing receivable not found");
       if (initialReceivable.parkTenantId !== initialPayment.parkTenantId) {
         throw new BadRequestException("Receivable does not belong to the payment park_tenant_id");
@@ -192,6 +195,8 @@ export class LeasingPaymentsService {
     }
 
     await this.paymentsRepository.manager.transaction(async (manager) => {
+      const lockedReceivables = await loadLeasingReceivables(manager, scope, sortedReceivableIds, true);
+      const lockedReceivablesById = new Map(lockedReceivables.map((receivable) => [receivable.id, receivable]));
       const paymentRepository = manager.getRepository(LeasingPaymentEntity);
       const payment = await paymentRepository
         .createQueryBuilder("payment")
@@ -208,6 +213,7 @@ export class LeasingPaymentsService {
         throw new ConflictException("Payment status changed during application; refresh the payment and retry if it is still actionable");
       }
       let unappliedAmount = this.toNumber(payment.unappliedAmount);
+      const initialUnappliedCents = this.toCents(payment.unappliedAmount);
       const totalApplied = dto.applications.reduce((sum, item) => sum + this.toNumber(item.applied_amount), 0);
       if (totalApplied > unappliedAmount + 0.000001) {
         throw new ConflictException("Payment unapplied amount changed during application; refresh the payment and retry with valid amounts");
@@ -215,14 +221,7 @@ export class LeasingPaymentsService {
 
       for (const item of dto.applications) {
         const appliedAmount = this.toNumber(item.applied_amount);
-        const receivable = await manager.getRepository(LeasingReceivableEntity)
-          .createQueryBuilder("receivable")
-          .setLock("pessimistic_write")
-          .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-          .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-          .andWhere("receivable.id = :receivableId", { receivableId: item.receivable_id })
-          .andWhere("receivable.is_deleted = false")
-          .getOne();
+        const receivable = lockedReceivablesById.get(item.receivable_id);
         if (!receivable) throw new NotFoundException("Leasing receivable not found");
         if (receivable.parkTenantId !== payment.parkTenantId) {
           throw new BadRequestException("Receivable does not belong to the payment park_tenant_id");
@@ -243,6 +242,9 @@ export class LeasingPaymentsService {
         }));
 
         const beforeStatus = receivable.status;
+        const beforePaidCents = this.toCents(receivable.amountPaid);
+        const beforeRemainCents = this.toCents(receivable.amountRemain);
+        const appliedCents = this.toCents(item.applied_amount);
         const nextPaid = this.toNumber(receivable.amountPaid) + appliedAmount;
         const nextRemain = this.calculateAmountRemain(
           this.toNumber(receivable.amountDue),
@@ -252,6 +254,10 @@ export class LeasingPaymentsService {
         );
         const overdueDays = this.calculateOverdueDays(receivable.dueDate, nextRemain);
         const nextStatus = this.deriveReceivableStatus(nextPaid, nextRemain, overdueDays);
+        if (this.toCents(nextPaid) - beforePaidCents !== appliedCents
+          || beforeRemainCents - this.toCents(nextRemain) !== appliedCents) {
+          throw new ConflictException("Payment application amount conservation invariant violated");
+        }
         Object.assign(receivable, {
           amountPaid: this.decimal(nextPaid),
           amountRemain: this.decimal(nextRemain),
@@ -269,6 +275,10 @@ export class LeasingPaymentsService {
         status: this.derivePaymentStatus(this.toNumber(payment.payAmount), unappliedAmount),
         updateBy: actor.sub
       });
+      if (initialUnappliedCents - this.toCents(unappliedAmount)
+        !== dto.applications.reduce((sum, item) => sum + this.toCents(item.applied_amount), 0n)) {
+        throw new ConflictException("Payment unapplied amount conservation invariant violated");
+      }
       await paymentRepository.save(payment);
     });
 
@@ -570,6 +580,10 @@ export class LeasingPaymentsService {
   private toNumber(value: string | number | null | undefined): number {
     const numberValue = Number(value ?? 0);
     return Number.isFinite(numberValue) ? numberValue : 0;
+  }
+
+  private toCents(value: string | number | null | undefined): bigint {
+    return BigInt(this.decimal(this.toNumber(value)).replace(".", ""));
   }
 
   private emptyToNull(value?: string | null): string | null {

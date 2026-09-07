@@ -40,6 +40,7 @@ export interface HomestayLedgerSnapshotRow {
 }
 
 interface HomestayLegacyFinanceMappingRow {
+  sourceId: string;
   resultId: string;
   sourceExpectedVersion: number;
   currency: string;
@@ -338,50 +339,75 @@ export class HomestayTransactionSupportService {
     allocatedCents: bigint;
     contributors: Array<Record<string, PropertyApprovalJsonValue>>;
   }> {
-    const mapped = await this.loadLegacyMappings(manager, scope, source.id);
-    if (mapped.some((row) => row.sourceExpectedVersion !== source.version
-      || row.currency !== source.currency)) {
-      throw new ConflictException("Finance allocation source changed");
+    const snapshots = await this.homestayFinanceAllocationSnapshots(
+      manager, scope, [source], lockedLedger, entryType
+    );
+    return snapshots.get(source.id)!;
+  }
+
+  async homestayFinanceAllocationSnapshots(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    sources: HomestayLedgerSnapshotRow[],
+    lockedLedger: HomestayLedgerSnapshotRow[],
+    entryType: "refund" | "waiver"
+  ): Promise<Map<string, {
+    allocatedCents: bigint;
+    contributors: Array<Record<string, PropertyApprovalJsonValue>>;
+  }>> {
+    const mapped = await this.loadLegacyMappings(manager, scope, sources.map((source) => source.id));
+    const mappingsBySource = new Map<string, HomestayLegacyFinanceMappingRow[]>();
+    for (const row of mapped) {
+      mappingsBySource.set(row.sourceId, [...(mappingsBySource.get(row.sourceId) ?? []), row]);
     }
-    const mappedIds = new Set(mapped.map((row) => row.resultId));
-    const contributors = lockedLedger.flatMap((row) => {
-      const direct = row.sourceLedgerEntryId === source.id;
-      const legacyMapped = mappedIds.has(row.id);
-      if (!direct && !legacyMapped) return [];
-      if (direct && legacyMapped) throw new ConflictException("Finance allocation is ambiguous");
-      if (row.entryType !== entryType || row.currency !== source.currency) {
+    return new Map(sources.map((source) => {
+      const sourceMappings = mappingsBySource.get(source.id) ?? [];
+      if (sourceMappings.some((row) => row.sourceExpectedVersion !== source.version
+        || row.currency !== source.currency)) {
         throw new ConflictException("Finance allocation source changed");
       }
-      return [{
-        id: row.id,
-        expectedVersion: row.version,
-        status: row.status,
-        entryType: row.entryType,
-        amount: row.amount,
-        currency: row.currency,
-        allocationKind: direct ? "direct" : "legacy-mapped"
+      const mappedIds = new Set(sourceMappings.map((row) => row.resultId));
+      const contributors = lockedLedger.flatMap((row) => {
+        const direct = row.sourceLedgerEntryId === source.id;
+        const legacyMapped = mappedIds.has(row.id);
+        if (!direct && !legacyMapped) return [];
+        if (direct && legacyMapped) throw new ConflictException("Finance allocation is ambiguous");
+        if (row.entryType !== entryType || row.currency !== source.currency) {
+          throw new ConflictException("Finance allocation source changed");
+        }
+        return [{
+          id: row.id,
+          expectedVersion: row.version,
+          status: row.status,
+          entryType: row.entryType,
+          amount: row.amount,
+          currency: row.currency,
+          allocationKind: direct ? "direct" : "legacy-mapped"
+        }];
+      }).sort((left, right) => String(left.id).localeCompare(String(right.id)));
+      return [source.id, {
+        allocatedCents: contributors.reduce(
+          (sum, row) => sum + toMoneyCents(String(row.amount)), 0n
+        ),
+        contributors
       }];
-    }).sort((left, right) => String(left.id).localeCompare(String(right.id)));
-    return {
-      allocatedCents: contributors.reduce(
-        (sum, row) => sum + toMoneyCents(String(row.amount)), 0n
-      ),
-      contributors
-    };
+    }));
   }
 
   private loadLegacyMappings(
     manager: EntityManager,
     scope: TenantParkScope,
-    sourceLedgerEntryId: string
+    sourceLedgerEntryIds: string[]
   ): Promise<HomestayLegacyFinanceMappingRow[]> {
+    if (sourceLedgerEntryIds.length === 0) return Promise.resolve([]);
     return manager.query(
-      `SELECT result_ledger_entry_id::text AS "resultId",
+      `SELECT source_ledger_entry_id::text AS "sourceId",
+              result_ledger_entry_id::text AS "resultId",
               source_expected_version AS "sourceExpectedVersion",currency
          FROM biz_homestay_legacy_finance_source_map
-        WHERE tenant_id=$1 AND park_id=$2 AND source_ledger_entry_id=$3
-        ORDER BY result_ledger_entry_id FOR SHARE`,
-      [scope.tenantId, scope.parkId, sourceLedgerEntryId]
+        WHERE tenant_id=$1 AND park_id=$2 AND source_ledger_entry_id = ANY($3::uuid[])
+        ORDER BY source_ledger_entry_id,result_ledger_entry_id FOR SHARE`,
+      [scope.tenantId, scope.parkId, sourceLedgerEntryIds]
     ) as Promise<HomestayLegacyFinanceMappingRow[]>;
   }
 }

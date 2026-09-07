@@ -142,10 +142,11 @@ export class HomestayFinanceService {
       await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
       const sourceEntryType = entryType === "refund" ? "payment" : "charge";
       const candidates = ledger.filter((entry) => entry.entryType === sourceEntryType && Boolean(entry.recordedBy));
-      const sources = await Promise.all(candidates.map(async (source) => {
-        const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
-          manager, scope, source, ledger, entryType
-        );
+      const allocations = await this.transactionSupport.homestayFinanceAllocationSnapshots(
+        manager, scope, candidates, ledger, entryType
+      );
+      const sources = candidates.map((source) => {
+        const allocation = allocations.get(source.id)!;
         const availableCents = toMoneyCents(source.amount) - allocation.allocatedCents;
         return availableCents > 0n ? {
           id: source.id,
@@ -155,7 +156,7 @@ export class HomestayFinanceService {
           availableAmount: formatMoneyCents(availableCents),
           occurredAt: source.occurredAt
         } satisfies HomestayFinanceApprovalSource : null;
-      }));
+      });
       return sources.filter((source): source is HomestayFinanceApprovalSource => source !== null);
     });
   }

@@ -9,6 +9,7 @@ import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { LeasingReceivableStatusLogEntity } from "../leasing-receivables/entities/leasing-receivable-status-log.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { lockLeasingReceivables } from "../leasing-receivables/leasing-financial-locks";
 import type { CreateLeasingWaiverDto } from "./dto/create-leasing-waiver.dto";
 import type { LeasingWaiverApprovalDto, RejectLeasingWaiverDto } from "./dto/leasing-waiver-approval.dto";
 import type { LeasingWaiverQueryDto } from "./dto/leasing-waiver-query.dto";
@@ -97,11 +98,14 @@ export class LeasingWaiversService {
     if (initialWaiver.status !== WAIVER_STATUS_PENDING) throw new BadRequestException("Only pending waiver can be approved");
     this.assertReceivableCanWaive(initialWaiver.receivable, this.toNumber(initialWaiver.waiverAmount));
     await this.waiversRepository.manager.transaction(async (manager) => {
+      const receivable = await this.lockReceivable(manager, scope, initialWaiver.receivableId);
       const waiver = await this.lockWaiver(manager, scope, id);
       if (waiver.status !== WAIVER_STATUS_PENDING) {
         throw new ConflictException("Waiver status changed during approval; refresh the waiver and retry if it is still actionable");
       }
-      const receivable = await this.lockReceivable(manager, scope, waiver.receivableId);
+      if (waiver.receivableId !== receivable.id) {
+        throw new ConflictException("Waiver receivable changed during approval; refresh the waiver and retry if it is still actionable");
+      }
       const waiverAmount = this.toNumber(waiver.waiverAmount);
       try {
         this.assertReceivableCanWaive(receivable, waiverAmount);
@@ -324,14 +328,7 @@ export class LeasingWaiversService {
   }
 
   private async lockReceivable(manager: EntityManager, scope: TenantParkScope, receivableId: string): Promise<LeasingReceivableEntity> {
-    const receivable = await manager.getRepository(LeasingReceivableEntity)
-      .createQueryBuilder("receivable")
-      .setLock("pessimistic_write")
-      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("receivable.id = :receivableId", { receivableId })
-      .andWhere("receivable.is_deleted = false")
-      .getOne();
+    const [receivable] = await lockLeasingReceivables(manager, scope, [receivableId]);
     if (!receivable) throw new NotFoundException("Leasing receivable not found");
     return receivable;
   }

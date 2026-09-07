@@ -189,7 +189,7 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
       }
       if (sql.includes("FROM biz_homestay_legacy_finance_source_map")) {
         events.push("mapped");
-        return [{ resultId: mappedId, sourceExpectedVersion: mappingExpectedVersion,
+        return [{ sourceId, resultId: mappedId, sourceExpectedVersion: mappingExpectedVersion,
           currency: "CNY" }];
       }
       if (sql.includes("FROM biz_homestay_ledger_entry")) {
