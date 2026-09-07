@@ -369,7 +369,10 @@ jobs:
               const receipt = verifyProductionSourceManifest(source);
               const snapshot = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/yuzhou-hr-production-preimport-snapshot.json", "utf8"));
               if (snapshot?.formatVersion !== 1 || snapshot.kind !== "yuzhou_hr_production_preimport_snapshot_readonly" || snapshot.productionImport !== "HOLD") throw new Error("snapshot invalid");
-              process.stdout.write(`${JSON.stringify({ ...snapshot, sourceManifestSha256: receipt.manifestSha256, sourceIdentityBinding: "HASH_ONLY_SOURCE_MANIFEST", triple: { codeSha: process.env.GITHUB_SHA, sourceSnapshotHash: source.sourceSnapshotSha256, mappingContractHash: source.mappingContractSha256 } })}\n`);
+              const reasonCodes = Array.isArray(snapshot.reasonCodes)
+                ? snapshot.reasonCodes.filter(code => code !== "PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED")
+                : [];
+              process.stdout.write(`${JSON.stringify({ ...snapshot, reasonCodes, sourceManifestSha256: receipt.manifestSha256, sourceIdentityBinding: "HASH_ONLY_SOURCE_MANIFEST", triple: { codeSha: process.env.GITHUB_SHA, sourceSnapshotHash: source.sourceSnapshotSha256, mappingContractHash: source.mappingContractSha256 } })}\n`);
             }
           } catch {
             hold("PRODUCTION_PREIMPORT_SNAPSHOT_BINDING_FAILED");
