@@ -1,0 +1,57 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_hr_quarantine_remediation_ledger",
+  "source": "controlled_read_only_candidate_batches",
+  "productionImport": "HOLD",
+  "totalQuarantine": 47,
+  "groups": [
+    {
+      "sourceTable": "dbo.readjust",
+      "targetTable": "hr_employment_event",
+      "reasonCode": "EMPLOYMENT_EVENT_STATE_UNRESOLVED",
+      "count": 1,
+      "replayPrerequisite": "confirm_legacy_state_semantics",
+      "replayScope": "one_record"
+    },
+    {
+      "sourceTable": "dbo.compact_c",
+      "targetTable": "hr_contract_change",
+      "reasonCode": "T2_CONTRACT_MISSING",
+      "count": 8,
+      "replayPrerequisite": "resolve_five_parent_contract_keys",
+      "replayScope": "eight_change_records_only"
+    },
+    {
+      "sourceTable": "dbo.timekeeptable",
+      "targetTable": "hr_attendance_symbol_rule",
+      "reasonCode": "T3_ATTENDANCE_SYMBOL_UNRESOLVED",
+      "count": 3,
+      "replayPrerequisite": "approve_three_legacy_symbol_rules",
+      "replayScope": "rule_rows_and_affected_days"
+    },
+    {
+      "sourceTable": "dbo.person_insure",
+      "targetTable": "hr_employee_insurance_period",
+      "reasonCode": "T3_INT4_INVALID",
+      "count": 5,
+      "replayPrerequisite": "resolve_five_period_year_month_pairs",
+      "replayScope": "five_parent_periods"
+    },
+    {
+      "sourceTable": "dbo.person_insure",
+      "targetTable": "hr_employee_insurance_item",
+      "reasonCode": "T3_INT4_INVALID",
+      "count": 30,
+      "replayPrerequisite": "resolve_parent_period_before_children",
+      "replayScope": "thirty_child_items"
+    }
+  ],
+  "invariants": [
+    "do_not_create_orphan_contract_changes",
+    "do_not_default_unknown_attendance_symbols",
+    "do_not_default_missing_insurance_periods",
+    "do_not_translate_unresolved_employment_state",
+    "replay_only_affected_records",
+    "verify_reverse_order_zero_residuals"
+  ]
+}
