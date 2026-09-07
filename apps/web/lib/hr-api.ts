@@ -1,6 +1,6 @@
 import type { OrgTreeNode, PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
-export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
+export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;legacyJobstateCode:string|null;legacyJobstateName:string|null;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrLegacyArchiveFile {id:string;logicalKind:"photo"|"document"|"attachment"|string;logicalName:string;mediaType:string|null;sizeBytes:string|null;availability:string;contentFingerprint?:string;}
 export interface HrLegacyArchiveRecord {id:string;employeeId:string|null;mappingStatus:"mapped"|"archive_only"|"quarantine"|"resolved";recordType:string;occurredOn:string|null;displayTitle:string;projection:Record<string,unknown>;hasSensitiveSource:boolean;sourceSystem?:string;sourceTable?:string;resolutionReasonCode?:string|null;files?:HrLegacyArchiveFile[];}
 export interface HrLegacyArchiveFilters {status?:string;recordType?:string;employeeId?:string;keyword?:string;}

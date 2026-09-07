@@ -29,6 +29,8 @@ export interface HrEmployeeProjection {
   managerEmployeeId:string|null;
   employmentType:string;
   employmentStatus:string;
+  legacyJobstateCode:string|null;
+  legacyJobstateName:string|null;
   hireDate:string|null;
   departureDate:string|null;
   workLocation:string|null;
@@ -134,11 +136,11 @@ export function projectHrApproval(row: HrApprovalRequestEntity) {
 export function projectHrEmployee(row:HrEmployeeEntity):HrEmployeeProjection {
   const {
     id,employeeCode,fullName,userId,primaryOrgId,positionId,managerEmployeeId,
-    employmentType,employmentStatus,hireDate,departureDate,workLocation,workMobile,workEmail
+    employmentType,employmentStatus,legacyJobstateCode,legacyJobstateName,hireDate,departureDate,workLocation,workMobile,workEmail
   }=row;
   return {
     id,employeeCode,fullName,userId,primaryOrgId,positionId,managerEmployeeId,
-    employmentType,employmentStatus,hireDate,departureDate,workLocation,workMobile,workEmail
+    employmentType,employmentStatus,legacyJobstateCode,legacyJobstateName,hireDate,departureDate,workLocation,workMobile,workEmail
   };
 }
 

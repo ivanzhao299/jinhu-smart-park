@@ -318,9 +318,14 @@ WITH valid_employee AS (
   SELECT * FROM stg_employee_decision WHERE decision='map' AND target_domain='employee_employment_status'
     AND target_value IN('active','probation','suspended','departed')
   )
-INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,hire_date,probation_end_date,departure_date,remark)
+INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,legacy_jobstate_code,legacy_jobstate_name,hire_date,probation_end_date,departure_date,remark)
 SELECT :'tenant_id',:'park_id',s.payload->>'sourceKey',s.payload->'source'->>'fullName',o.id,p.id,
-  'full_time',s.target_value,
+  CASE WHEN lower(s.payload->'source'->>'legacyStatus')='a' THEN 'temporary' ELSE 'full_time' END,s.target_value,
+  NULLIF(btrim(s.payload->'source'->>'legacyStatus'),'')::varchar(8),
+  CASE lower(s.payload->'source'->>'legacyStatus')
+    WHEN '1' THEN '在职人员' WHEN '2' THEN '退休人员' WHEN '3' THEN '离休人员'
+    WHEN '4' THEN '离职人员' WHEN '5' THEN '内退人员' WHEN '6' THEN '试用人员'
+    WHEN 'a' THEN '临时人员' WHEN 'b' THEN '未办退厂手续' ELSE NULL END,
   NULLIF(btrim(s.payload->'source'->>'hireDate'),'')::date,NULLIF(btrim(s.payload->'source'->>'formalDate'),'')::date,
   CASE WHEN NULLIF(btrim(s.payload->'source'->>'hireDate'),'') IS NOT NULL AND NULLIF(btrim(s.payload->'source'->>'departureDate'),'') IS NOT NULL
       AND btrim(s.payload->'source'->>'departureDate')::date < btrim(s.payload->'source'->>'hireDate')::date THEN NULL

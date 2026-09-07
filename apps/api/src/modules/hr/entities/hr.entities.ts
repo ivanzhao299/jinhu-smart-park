@@ -31,6 +31,8 @@ export class HrEmployeeEntity extends AuditableEntity {
  @Column({name:"manager_employee_id",type:"uuid",nullable:true}) managerEmployeeId!:string|null;
  @Column({name:"employment_type",length:32,default:"full_time"}) employmentType!:string;
  @Column({name:"employment_status",length:32,default:"preboarding"}) employmentStatus!:string;
+ @Column({name:"legacy_jobstate_code",type:"varchar",length:8,nullable:true}) legacyJobstateCode!:string|null;
+ @Column({name:"legacy_jobstate_name",type:"varchar",length:64,nullable:true}) legacyJobstateName!:string|null;
  @Column({name:"hire_date",type:"date",nullable:true}) hireDate!:string|null;
  @Column({name:"probation_end_date",type:"date",nullable:true}) probationEndDate!:string|null;
  @Column({name:"departure_date",type:"date",nullable:true}) departureDate!:string|null;
