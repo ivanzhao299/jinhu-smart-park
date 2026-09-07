@@ -15,6 +15,18 @@
 
 `dbo.person_insure` 的 35 条同时属于同一条父子链：`hr_employee -> hr_employee_insurance_period -> hr_employee_insurance_item`，所以源表数是 4，异常记录行数仍是 47，不应重复累计。
 
+## T0 主数据关系复核（不计入上述 47 条）
+
+最新只读 T0 抽取还发现一组独立的主数据关系缺口，不能和 T1--T3 的 47 条混算：
+
+| 源关系 | 受影响源行 | 现代处理 |
+| --- | ---: | --- |
+| `dbo.job.department` → `dbo.departmentcode.department` | 2 个岗位 | 岗位保留为 `legacy_record_map` 的 `quarantined` 记录，错误码 `POSITION_ORG_UNRESOLVED` |
+| `dbo.job.parentjob` → `dbo.job.job` | 7 个岗位 | 岗位保留为 `quarantined` 记录，错误码 `POSITION_PARENT_UNRESOLVED` |
+| `dbo.person.job` → 可加载 `hr_position` | 27 名员工 | 员工仍按组织和状态加载，岗位外键留空，并记录 `EMPLOYEE_POSITION_UNRESOLVED` |
+
+因此本轮 T0 隔离批次的守恒结果是：组织 138/138；岗位 18 条源记录中 11 条加载、7 条隔离；员工 2,949 条中 2,889 条加载、60 条因旧状态仅保留 `raw_only`。另有 11 条日期顺序复核。上述 T0 关系缺口不会被伪造为“已匹配”，也不改变 T1--T3 的 47 条异常统计。
+
 ## 逐表关系
 
 ### 1. 人事异动：`dbo.readjust` → `hr_employment_event`

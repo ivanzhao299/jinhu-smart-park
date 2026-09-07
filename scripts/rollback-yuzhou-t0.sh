@@ -23,7 +23,7 @@ SELECT set_config('yuzhou.run_id',:'run_id',true);
 SELECT set_config('yuzhou.target_database',:'target_database',true);
 
 DO $$
-DECLARE batch_uuid uuid; expected_employees bigint; rejected_employees bigint; expected_positions bigint; expected_orgs bigint;
+DECLARE batch_uuid uuid; expected_employees bigint; rejected_employees bigint; expected_positions bigint; quarantined_positions bigint; expected_orgs bigint;
 BEGIN
   IF current_database()<>current_setting('yuzhou.target_database') OR current_database() !~ '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN
     RAISE EXCEPTION 'unsafe rollback target';
@@ -33,9 +33,10 @@ BEGIN
   SELECT count(*) INTO expected_employees FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_employee' AND is_active;
   SELECT count(*) INTO rejected_employees FROM migration_error
     WHERE batch_id=batch_uuid AND error_code='EMPLOYEE_JOB_STATE_UNRESOLVED';
-  SELECT count(*) INTO expected_positions FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_position' AND is_active;
+  SELECT count(*) INTO expected_positions FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_position' AND target_id IS NOT NULL AND is_active;
+  SELECT count(*) INTO quarantined_positions FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_position' AND mapping_status='quarantined';
   SELECT count(*) INTO expected_orgs FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='sys_org' AND is_active;
-  IF expected_employees + rejected_employees<>2949 OR expected_positions<>18 OR expected_orgs<>138 THEN RAISE EXCEPTION 'rollback source accounting drift'; END IF;
+  IF expected_employees + rejected_employees<>2949 OR expected_positions + quarantined_positions<>18 OR expected_orgs<>138 THEN RAISE EXCEPTION 'rollback source accounting drift'; END IF;
   IF EXISTS (
     SELECT 1 FROM migration_check
     WHERE batch_id=batch_uuid AND check_code IN ('T0_ORGANIZATION_COUNT','T0_POSITION_COUNT','T0_EMPLOYEE_ACCOUNTING') AND NOT passed
