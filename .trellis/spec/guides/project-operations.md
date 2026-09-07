@@ -12,6 +12,46 @@ Reference files:
 - `.env.production.example`
 - `docs/deployment/production.md`
 
+## Scenario: Gate-19 Retained Backup Receipt Binding
+
+### 1. Scope / Trigger
+
+- Applies when Gate-19 produces a machine-readable backup/restore receipt that a later production pre-import diagnostic consumes.
+
+### 2. Signatures
+
+- Producer: `scripts/production-backup-restore-gate19.sh` writes `gate19-backup-restore-*.json`.
+- Consumer: `scripts/diagnose-yuzhou-hr-production-preimport-snapshot.sh` reads the newest regular, non-symlink Gate-19 JSON receipt.
+
+### 3. Contracts
+
+- A consumable receipt has top-level `status="PASS"`, `productionImport="HOLD"`, `production_db_write="temporary_restore_database_only"`, and `destructive_volume_operation=false`.
+- Its `retained_backup.status` is `RETAINED_HASH_VERIFIED` and `retained_backup.receiptSha256` is lowercase SHA-256.
+- PASS and FAIL producer receipts both retain the top-level HOLD marker; no receipt enables the production writer.
+
+### 4. Validation & Error Matrix
+
+- Missing or non-HOLD `productionImport` -> retain `PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED`.
+- Missing retained receipt, invalid hash, symlink, multi-link file, destructive-volume claim, or non-temporary production write -> retain the same blocker.
+- Fully valid receipt -> remove only the prebackup blocker; source, target, authorization, and other blockers remain independent.
+
+### 5. Good/Base/Bad Cases
+
+- Good: retained hash-verified PASS receipt with top-level HOLD is recognized.
+- Base: no receipt remains HOLD with the prebackup reason.
+- Bad: an otherwise valid-looking legacy receipt without top-level HOLD is rejected.
+
+### 6. Tests Required
+
+- Gate-19 producer contract asserts the HOLD field exists in both terminal JSON shapes.
+- Pre-import contract covers no receipt, missing top-level HOLD, and valid retained receipt.
+- Tests must never require production credentials, paths, or data.
+
+### 7. Wrong vs Correct
+
+- Wrong: hand-write only a permissive consumer fixture whose fields are not asserted against the producer.
+- Correct: assert the producer's terminal JSON field and separately prove the consumer rejects its nearest invalid neighbor.
+
 ## Release Baseline
 
 Production initialization keeps migration, production seed, baseline checks, and bootstrap admin separate.

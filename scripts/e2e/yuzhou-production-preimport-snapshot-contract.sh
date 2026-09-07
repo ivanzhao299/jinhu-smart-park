@@ -7,6 +7,7 @@ trap 'rm -rf "$tmp"' EXIT INT TERM
 mkdir -p "$tmp/bin"
 script="$root/scripts/diagnose-yuzhou-hr-production-preimport-snapshot.sh"
 workflow="$root/.github/workflows/deploy-production.yml"
+gate19="$root/scripts/production-backup-restore-gate19.sh"
 
 cat > "$tmp/bin/docker" <<'SH'
 #!/bin/sh
@@ -53,6 +54,18 @@ case "$allowlisted" in *'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*) echo 'all
 case "$allowlisted" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'allowlisted preimport snapshot leaked raw target identity' >&2; exit 1;; esac
 
 mkdir -p "$deploy/tmp/production-gates"
+cat > "$deploy/tmp/production-gates/gate19-backup-restore-test.json" <<'JSON'
+{"status":"PASS","production_db_write":"temporary_restore_database_only","destructive_volume_operation":false,"retained_backup":{"status":"RETAINED_HASH_VERIFIED","receiptSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
+JSON
+FAKE_PREIMPORT_PROBE="NOTICE:  YUZHOU_HR_PREIMPORT_ROW|0|1|1|prod-db$(printf '\037')service-user$(printf '\037')127.0.0.1$(printf '\037')5432$(printf '\037')123$(printf '\037')tenant-private$(printf '\037')park-private|tenant-private|park-private
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T0|3|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T1|2|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T2|1|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
+  PATH="$tmp/bin:$PATH" sh "$script" report "$deploy" > "$tmp/backup-missing-hold.json"
+backup_missing_hold="$(cat "$tmp/backup-missing-hold.json")"
+case "$backup_missing_hold" in *'"PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'*) ;; *) echo 'Gate-19 receipt without top-level HOLD must remain rejected' >&2; exit 1;; esac
+
 cat > "$deploy/tmp/production-gates/gate19-backup-restore-test.json" <<'JSON'
 {"status":"PASS","productionImport":"HOLD","production_db_write":"temporary_restore_database_only","destructive_volume_operation":false,"retained_backup":{"status":"RETAINED_HASH_VERIFIED","receiptSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
 JSON
@@ -105,6 +118,7 @@ assert_failure_class 'YUZHOU_HR_PREIMPORT_SNAPSHOT_QUERY_CONTRACT_INVALID' 'ERRO
 grep -Fq 'diagnose-yuzhou-hr-preimport-snapshot' "$workflow"
 grep -Fq 'Diagnose Yuzhou HR pre-import snapshot (read-only)' "$workflow"
 grep -Fq 'yuzhou-hr-production-preimport-snapshot' "$workflow"
+grep -Fq '"productionImport": "HOLD"' "$gate19"
 exclusions="$(grep -Fc "inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot'" "$workflow")"
 test "$exclusions" -eq 9
 
