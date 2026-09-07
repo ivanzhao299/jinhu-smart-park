@@ -3,7 +3,10 @@
   "artifactKind": "yuzhou_hr_quarantine_remediation_ledger",
   "source": "controlled_read_only_candidate_batches",
   "productionImport": "HOLD",
-  "totalQuarantine": 47,
+  "sourceBatchQuarantine": 47,
+  "expectedAfterCurrentProjection": 45,
+  "latestT3ReboundCandidateQuarantine": 36,
+  "latestT3ReboundCandidateStatus": "REVIEW_HOLD",
   "groups": [
     {
       "sourceTable": "dbo.readjust",
@@ -26,8 +29,10 @@
       "targetTable": "hr_attendance_symbol_rule",
       "reasonCode": "T3_ATTENDANCE_SYMBOL_UNRESOLVED",
       "count": 3,
-      "replayPrerequisite": "approve_three_legacy_symbol_rules",
-      "replayScope": "rule_rows_and_affected_days"
+      "resolvedByCurrentProjection": 2,
+      "remainingCount": 1,
+      "replayPrerequisite": "approve_one_remaining_legacy_symbol_rule",
+      "replayScope": "one_rule_row_and_affected_days"
     },
     {
       "sourceTable": "dbo.person_insure",

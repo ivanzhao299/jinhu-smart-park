@@ -16,6 +16,7 @@ const kinds = ["oldage", "remedy", "losework", "fund", "wound", "bear"];
 const fileHash = hash("synthetic attendance file");
 function row(sourceTable, source, extra) { return { sourceTable, sourceKey: String(source.id), sourceIdentitySha256: hash(`${sourceTable}\0${source.id}`), sourceRowSha256: hash(`raw pretransform ${sourceTable} ${source.id}`), source, ...extra }; }
 function calendar() { return row("dbo.timekeeptable", { id: 101, calendarName: "Synthetic calendar", year: 2024, month: 2 }, { days: Array.from({ length: 29 }, (_, index) => ({ day: index + 1, legacySymbol: ["普通班次", "晚上班", "unknown-synthetic"][index] ?? null })) }); }
+function documentedLegacyCalendar() { return row("dbo.timekeeptable", { id: 102, calendarName: "Documented legacy calendar", year: 2024, month: 2 }, { days: [{ day: 1, legacySymbol: "N1" }, { day: 2, legacySymbol: "N2" }, { day: 3, legacySymbol: "N" }] }); }
 function policy() { return row("dbo.insure_method", { id: 201, name: "Synthetic policy", scope: null }, { items: kinds.map(kind => ({ kind, variant: 1, baseRate: "0.16", employerRate: "0", employeeRate: null, supplementRate: "0.000001", baseFixedAmount: "1.234", employerFixedAmount: "0", employeeFixedAmount: null, supplementFixedAmount: "2.3" })) }); }
 function insurance() { return row("dbo.person_insure", { id: 301, year: "2024", month: "2", employeeCode: "SYN-E" }, { items: kinds.map(kind => ({ kind, contributionBase: "100", totalAmount: "16.5", employerAmount: "0", employeeAmount: null, supplementAmount: "0.00", legacyBaseNegative: false, legacyFlag: null })) }); }
 const validRows = rows => rows.filter(r => r.targetFields !== null);
@@ -47,6 +48,17 @@ test("attendance preserves blank and unknown symbols without inventing rules or 
   assert.equal(days[3].targetFields.symbol_status, "blank"); assert.equal(days[3].targetFields.legacy_symbol, null);
   const batch = rules.find(r => r.targetTable === "hr_attendance_import_batch"); assert.equal(batch.targetFields.status, "imported"); assert.equal(batch.targetFields.source_checksum, fileHash); assert.ok(batch.targetFields.batch_code.length <= 64);
   assert.deepEqual(support([a], fileHash), support([a], fileHash)); assert.notDeepEqual(support([a], hash("different file"))[0].sourceIdentitySha256, rules[0].sourceIdentitySha256);
+});
+
+test("schema-documented N1/N2 symbols map while undocumented N remains reviewable", () => {
+  const a = documentedLegacyCalendar(), rows = project(a, { attendanceFileSha256: fileHash }), days = rows.filter(r => r.targetTable === "hr_attendance_day");
+  assert.equal(days[0].targetFields.normalized_kind, "weekend");
+  assert.equal(days[0].targetFields.symbol_status, "mapped");
+  assert.equal(days[1].targetFields.normalized_kind, "statutory_holiday");
+  assert.equal(days[1].targetFields.symbol_status, "mapped");
+  assert.equal(days[2].targetFields.normalized_kind, null);
+  assert.equal(days[2].targetFields.symbol_status, "needs_review");
+  assert.equal(symbolQuarantine([a], fileHash).length, 1);
 });
 
 test("rates are already fractional and each PostgreSQL numeric scale is preserved exactly", () => {
