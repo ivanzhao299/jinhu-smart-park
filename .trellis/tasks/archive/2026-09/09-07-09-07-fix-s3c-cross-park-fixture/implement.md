@@ -7,7 +7,7 @@
 - [x] Implement the smallest fixture correction.
 - [x] Run focused checks and the full S3C regression.
 - [x] Review, CI, squash merge, main CI/deploy, and close issue.
-- [ ] Archive Trellis task and record the session journal.
+- [x] Archive Trellis task and record the session journal (session 34).
 
 ## Evidence
 
