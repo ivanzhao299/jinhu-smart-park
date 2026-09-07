@@ -18,12 +18,14 @@ const domains = ["employmentEventStates", "employmentEventTypes", "employmentEve
 try {
   const staging = join(root, "staging"), output = join(root, "output");
   privateDirectory(staging); privateDirectory(output);
-  const source = { legacyId: 1, legacyEventNo: "L001", employeeCode: "E001", legacyEventType: "transfer", sourceEffectiveAt: "2026-01-01T00:00:00.000Z" };
+  const source = { legacyId: 1, legacyEventNo: "L001", employeeCode: "E001", legacyEventType: "transfer", sourceEffectiveAt: "2026-01-01T00:00:00.000Z", reason: "legacy\0marker" };
   const event = { sourceTable: "dbo.readjust", sourceKey: "1", sourceIdentitySha256: sha("dbo.readjust\0" + "1"), sourceRowSha256: sha(canonical(source)), source };
   const fixtureFiles = {
     employmentEventStates: ["employment-event-states.json", "[]\n"],
     employmentEventTypes: ["employment-event-types.json", "[]\n"],
-    employmentEvents: ["employment-events.jsonl", `${JSON.stringify(event)}\n`],
+    // Match the extractor's PostgreSQL COPY transport escaping. The
+    // materializer must restore it before validating the source-row hash.
+    employmentEvents: ["employment-events.jsonl", `${JSON.stringify(event).replaceAll("\\", "\\\\")}\n`],
   };
   const stageDomains = {};
   for (const [name, [file, bytes]] of Object.entries(fixtureFiles)) {

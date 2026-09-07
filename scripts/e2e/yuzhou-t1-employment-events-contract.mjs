@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 const root = resolve(import.meta.dirname, "../..");
+const sha = value => createHash("sha256").update(value).digest("hex");
+const canonical = value => JSON.stringify(value, Object.keys(value).sort());
 const migration = readFileSync(resolve(root, "database/migrations/000237_hr_employment_event_legacy_compatibility.sql"), "utf8");
 const extract = readFileSync(resolve(root, "scripts/extract-yuzhou-t1-employment-events.sh"), "utf8");
 const transform = readFileSync(resolve(root, "scripts/transform-yuzhou-t1-employment-events.mjs"), "utf8");
@@ -63,6 +66,9 @@ try {
   const payload = JSON.parse(transport.replaceAll("\\\\", "\\"));
   assert.equal(payload.source.reason, "legacy\\u0000marker");
   assert.equal(payload.source.reason.includes("\0"), false);
+  // Provenance must hash the exact sanitized source object that is persisted;
+  // otherwise a NUL-bearing row cannot pass the downstream phase validator.
+  assert.equal(payload.sourceRowSha256, sha(canonical(payload.source)));
 } finally {
   rmSync(stage, { recursive: true, force: true });
 }

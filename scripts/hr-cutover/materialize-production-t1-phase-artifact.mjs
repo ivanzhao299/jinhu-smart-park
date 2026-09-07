@@ -99,9 +99,13 @@ function readStage(stagingDir, sourceManifest) {
   }
   const events = domainFiles.get(EVENT_DOMAIN);
   if (events.item.file !== EVENT_FILE || events.item.rows < 1) fail("PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", EVENT_DOMAIN);
+  // The extractor writes JSONL as PostgreSQL COPY text: every backslash in
+  // the JSON payload is doubled for transport. Restore that representation
+  // before JSON parsing so provenance hashes bind to the staged source value,
+  // not to the transport escaping.
   const records = events.bytes.toString("utf8").split("\n").filter(Boolean).map((line, index) => {
     let row;
-    try { row = JSON.parse(line); } catch { fail("PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", `${EVENT_DOMAIN}:${index}`); }
+    try { row = JSON.parse(line.replaceAll("\\\\", "\\")); } catch { fail("PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", `${EVENT_DOMAIN}:${index}`); }
     exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source"], "PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", EVENT_DOMAIN);
     if (row.sourceTable !== SOURCE_TABLE || typeof row.sourceKey !== "string" || row.sourceKey.trim() === "" || !SHA256.test(row.sourceIdentitySha256 ?? "") || !SHA256.test(row.sourceRowSha256 ?? "") || !plain(row.source)) fail("PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", EVENT_DOMAIN);
     if (row.sourceIdentitySha256 !== sha256(`${SOURCE_TABLE}\0${row.sourceKey}`) || row.sourceRowSha256 !== sha256(canonicalTopLevel(row.source))) fail("PRODUCTION_IMPORT_T1_ARTIFACT_STAGE_INVALID", EVENT_DOMAIN);

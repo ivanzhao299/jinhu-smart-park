@@ -10,8 +10,9 @@ const canonical = (value) => JSON.stringify(value, Object.keys(value).sort());
 // PostgreSQL COPY text consumes backslash escapes before jsonb parsing. Preserve
 // source control characters as a visible literal marker and double every
 // transport backslash so the JSON parser receives the intended JSON payload.
-// The source row digest deliberately stays bound to the unsanitized read-only
-// source object; the staged payload is only the PostgreSQL-safe representation.
+// The staged payload is the PostgreSQL-safe representation.  Its digest must
+// be computed from the exact bytes/values written to the stage so downstream
+// provenance validation can reproduce it without access to the raw source.
 const safePayload = (value) => Array.isArray(value)
   ? value.map(safePayload)
   : value && typeof value === "object"
@@ -43,12 +44,13 @@ const events = eventRows.map((source) => {
   seenIds.add(sourceKey);
   seenNos.add(eventNo);
   const sourceTable = "dbo.readjust";
+  const stagedSource = safePayload(source);
   return {
     sourceTable,
     sourceKey,
     sourceIdentitySha256: sha256(`${sourceTable}\u0000${sourceKey}`),
-    sourceRowSha256: sha256(canonical(source)),
-    source: safePayload(source),
+    sourceRowSha256: sha256(canonical(stagedSource)),
+    source: stagedSource,
   };
 });
 const seenTypes = new Set();
