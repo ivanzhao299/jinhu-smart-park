@@ -1,0 +1,27 @@
+version: 1
+provider: github.com
+client: gh
+policy: cli-first
+
+# Authentication is supplied by the operator's local gh keyring/session.  Do
+# not place tokens, passwords, device codes, or copied credential material in
+# this repository or in workflow inputs.
+auth:
+  preflight: gh-auth-status
+  required_scopes:
+    - repo
+    - workflow
+  token_output: forbidden
+
+operations:
+  pull_requests: gh-pr
+  workflows: gh-workflow
+  runs: gh-run
+  api: gh-api
+  browser_ui: fallback-only
+
+safety:
+  redact_credentials: true
+  redact_personal_data: true
+  production_writes_require_explicit_gate: true
+  production_import_default: HOLD
