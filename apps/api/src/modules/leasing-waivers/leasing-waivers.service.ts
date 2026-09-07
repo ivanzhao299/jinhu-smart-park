@@ -93,13 +93,25 @@ export class LeasingWaiversService {
   }
 
   async approve(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: LeasingWaiverApprovalDto): Promise<LeasingWaiverEntity> {
-    await this.findOne(scope, id, actor);
+    const initialWaiver = await this.findOne(scope, id, actor);
+    if (initialWaiver.status !== WAIVER_STATUS_PENDING) throw new BadRequestException("Only pending waiver can be approved");
+    const initialReceivable = await this.mustFindReceivable(scope, initialWaiver.receivableId, actor);
+    this.assertReceivableCanWaive(initialReceivable, this.toNumber(initialWaiver.waiverAmount));
     await this.waiversRepository.manager.transaction(async (manager) => {
       const waiver = await this.lockWaiver(manager, scope, id);
-      if (waiver.status !== WAIVER_STATUS_PENDING) throw new BadRequestException("Only pending waiver can be approved");
+      if (waiver.status !== WAIVER_STATUS_PENDING) {
+        throw new ConflictException("Waiver status changed during approval; refresh the waiver and retry if it is still actionable");
+      }
       const receivable = await this.lockReceivable(manager, scope, waiver.receivableId);
       const waiverAmount = this.toNumber(waiver.waiverAmount);
-      this.assertReceivableCanWaive(receivable, waiverAmount);
+      try {
+        this.assertReceivableCanWaive(receivable, waiverAmount);
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw new ConflictException("Receivable balance changed during waiver approval; refresh the receivable and retry with a valid amount");
+        }
+        throw error;
+      }
       const beforeStatus = receivable.status;
       const nextWaived = this.toNumber(receivable.amountWaived) + waiverAmount;
       const nextRemain = this.calculateAmountRemain(

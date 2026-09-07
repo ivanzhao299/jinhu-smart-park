@@ -54,6 +54,7 @@ const LOCKED_CORE_STATUSES = new Set([
   CONTRACT_STATUS_VOID
 ]);
 const CONTRACT_EDITABLE_STATUSES = new Set([CONTRACT_STATUS_DRAFT, CONTRACT_STATUS_REJECTED]);
+const UNFINISHED_RENEWAL_STATUSES = [CONTRACT_STATUS_DRAFT, CONTRACT_STATUS_SUBMITTED, CONTRACT_STATUS_APPROVING];
 const CONTRACT_UNIT_EDIT_LOCKED_MESSAGE = "Current contract status cannot edit unit links in current phase";
 const DEFAULT_BINDABLE_UNIT_STATUSES = new Set([10, 20, 40]);
 const UNIT_STATUS_RENTED = 30;
@@ -399,6 +400,29 @@ export class LeasingContractsService {
 
     let savedContract!: LeasingContractEntity;
     await this.contractsRepository.manager.transaction(async (manager) => {
+      const lockedOriginal = await manager.getRepository(LeasingContractEntity)
+        .createQueryBuilder("contract")
+        .setLock("pessimistic_write")
+        .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("contract.id = :contractId", { contractId: original.id })
+        .andWhere("contract.is_deleted = false")
+        .getOne();
+      if (!lockedOriginal) throw new NotFoundException("Leasing contract not found");
+      if (lockedOriginal.status !== CONTRACT_STATUS_EFFECTIVE) {
+        throw new ConflictException("Source contract changed while creating renewal; refresh the contract and retry");
+      }
+      const unfinishedRenewalExists = await manager.getRepository(LeasingContractEntity)
+        .createQueryBuilder("renewal")
+        .where("renewal.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("renewal.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("renewal.renewal_from_contract_id = :contractId", { contractId: original.id })
+        .andWhere("renewal.status IN (:...unfinishedStatuses)", { unfinishedStatuses: UNFINISHED_RENEWAL_STATUSES })
+        .andWhere("renewal.is_deleted = false")
+        .getExists();
+      if (unfinishedRenewalExists) {
+        throw new ConflictException("An unfinished renewal already exists for this contract; refresh the contract before retrying");
+      }
       const relationDrafts = originalRelations.map((relation) => {
         const area = this.toNumber(relation.area);
         const rentUnitPrice = dto.rent_unit_price ?? this.toNumber(relation.rentUnitPrice);

@@ -192,6 +192,7 @@ export class LeasingContractsController {
   }
 
   @Post(":id/renew-draft")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_RENEW)
   @AuditLog({ module: "租赁合同", resource: "biz.leasing_contract", action: "生成续租草稿", bizType: "biz_leasing_contract", bizIdParam: "id" })
   renewDraft(
