@@ -18,6 +18,7 @@ const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "Jinhu@123456";
 const normalUser = process.env.E2E_NORMAL_USERNAME ?? "s1_user";
 const normalPassword = process.env.E2E_NORMAL_PASSWORD ?? "Jinhu@123456";
 const stamp = Date.now();
+const crossParkId = `s3c-cross-${stamp}`;
 const smokeRemark = `S3C contract smoke ${stamp}`;
 
 let apiProcess = null;
@@ -318,18 +319,88 @@ async function createUnit(token, buildingId, floorId, label, rentalStatus = 10, 
   return created.body.data;
 }
 
-async function createCrossParkUnit(buildingId, floorId) {
-  const id = randomUUID();
+async function createCrossParkUnit() {
+  const buildingId = randomUUID();
+  const floorId = randomUUID();
+  const unitId = randomUUID();
+  const adminPrimaryParkBefore = await dbScalar(`
+SELECT park_id FROM sys_user
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND username = ${sqlLiteral(adminUser)}
+  AND is_deleted = false
+LIMIT 1;`);
+  assert(adminPrimaryParkBefore, "bootstrap admin primary park was not found");
+
   await dbExec(`
+BEGIN;
+INSERT INTO biz_park (
+  tenant_id, park_id, park_code, park_name, status, remark
+) VALUES (
+  ${sqlLiteral(tenantId)}, ${sqlLiteral(crossParkId)}, ${sqlLiteral(`S3C-CROSS-${stamp}`)},
+  'S3C跨园区测试园区', 1, ${sqlLiteral(smokeRemark)}
+);
+INSERT INTO biz_building (
+  id, tenant_id, park_id, building_code, building_name, floor_count, build_area, status, remark
+) VALUES (
+  ${sqlLiteral(buildingId)}::uuid, ${sqlLiteral(tenantId)}, ${sqlLiteral(crossParkId)},
+  ${sqlLiteral(`S3C-CROSS-B-${stamp}`)}, 'S3C跨园区测试楼栋', 1, 80, 1, ${sqlLiteral(smokeRemark)}
+);
+INSERT INTO biz_floor (
+  id, tenant_id, park_id, building_id, floor_code, floor_no, floor_name, floor_area, status, remark
+) VALUES (
+  ${sqlLiteral(floorId)}::uuid, ${sqlLiteral(tenantId)}, ${sqlLiteral(crossParkId)}, ${sqlLiteral(buildingId)}::uuid,
+  ${sqlLiteral(`S3C-CROSS-F-${stamp}`)}, 1, 'S3C跨园区测试楼层', 80, 1, ${sqlLiteral(smokeRemark)}
+);
 INSERT INTO biz_unit (
   id, tenant_id, park_id, unit_code, code, building_id, floor_id, unit_name, usage_type,
   unit_area, use_area, rental_status, fitting_status, ref_price, status, create_by, update_by, remark
 ) VALUES (
-  ${sqlLiteral(id)}::uuid, ${sqlLiteral(tenantId)}, '29999999', ${sqlLiteral(`S3C-CROSS-${stamp}`)}, ${sqlLiteral(`S3C-CROSS-${stamp}`)},
+  ${sqlLiteral(unitId)}::uuid, ${sqlLiteral(tenantId)}, ${sqlLiteral(crossParkId)}, ${sqlLiteral(`S3C-CROSS-U-${stamp}`)}, ${sqlLiteral(`S3C-CROSS-U-${stamp}`)},
   ${sqlLiteral(buildingId)}::uuid, ${sqlLiteral(floorId)}::uuid, 'S3C跨园区房源', 10, 80, 75, 10, 20, 35, 1,
   NULL, NULL, ${sqlLiteral(smokeRemark)}
-);`);
-  return id;
+);
+INSERT INTO rel_user_park (tenant_id, user_id, park_id, is_default, status, remark)
+SELECT ${sqlLiteral(tenantId)}, id, ${sqlLiteral(crossParkId)}, false, 'enabled', ${sqlLiteral(smokeRemark)}
+FROM sys_user
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND username = ${sqlLiteral(adminUser)}
+  AND is_deleted = false;
+COMMIT;`);
+
+  const targetHierarchyCount = Number(await dbScalar(`
+SELECT count(*) FROM biz_unit unit
+JOIN biz_building building
+  ON building.id = unit.building_id
+ AND building.tenant_id = unit.tenant_id
+ AND building.park_id = unit.park_id
+JOIN biz_floor floor
+  ON floor.id = unit.floor_id
+ AND floor.building_id = building.id
+ AND floor.tenant_id = unit.tenant_id
+ AND floor.park_id = unit.park_id
+WHERE unit.id = ${sqlLiteral(unitId)}::uuid
+  AND unit.tenant_id = ${sqlLiteral(tenantId)}
+  AND unit.park_id = ${sqlLiteral(crossParkId)};`));
+  assert(targetHierarchyCount === 1, "cross-park fixture hierarchy is not target-park consistent");
+  const adminPrimaryParkAfter = await dbScalar(`
+SELECT park_id FROM sys_user
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND username = ${sqlLiteral(adminUser)}
+  AND is_deleted = false
+LIMIT 1;`);
+  assert(adminPrimaryParkAfter === adminPrimaryParkBefore, "cross-park fixture changed bootstrap admin primary park");
+  const appendedAccessCount = Number(await dbScalar(`
+SELECT count(*) FROM rel_user_park access
+JOIN sys_user admin ON admin.id = access.user_id
+WHERE access.tenant_id = ${sqlLiteral(tenantId)}
+  AND access.park_id = ${sqlLiteral(crossParkId)}
+  AND access.is_default = false
+  AND access.status = 'enabled'
+  AND access.is_deleted = false
+  AND admin.username = ${sqlLiteral(adminUser)}
+  AND admin.is_deleted = false;`));
+  assert(appendedAccessCount === 1, "cross-park fixture did not append non-default admin access");
+  return unitId;
 }
 
 function contractPayload(parkTenantId, label, overrides = {}) {
@@ -504,7 +575,7 @@ async function main() {
   const unitSelfUse = await createUnit(adminToken, building.id, floor.id, "S", 60, 60, 20);
   const quoteUnit = await createUnit(adminToken, building.id, floor.id, "Q", 10, 70, 33);
   const unconvertedQuoteUnit = await createUnit(adminToken, building.id, floor.id, "UQ", 10, 65, 31);
-  const crossParkUnitId = await createCrossParkUnit(building.id, floor.id);
+  const crossParkUnitId = await createCrossParkUnit();
 
   const adminContract = await createContract(adminToken, parkTenant.id, "主流程");
   const opsContract = await createContract(opsToken, parkTenant.id, "运营负责人");
