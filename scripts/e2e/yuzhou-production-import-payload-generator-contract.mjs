@@ -92,6 +92,10 @@ const originalCanonical = value => {
 const originalHash = value => createHash("sha256").update(`${originalCanonical(value)}\n`).digest("hex");
 const numericKeys = { records: [{ payload: { "2": "二", "10": "十", nested: [null, true, -0, "引号\"\\\n😀", { z: 1, a: 2 }] } }] };
 assert.notEqual(originalHash(numericKeys), createHash("sha256").update(`${stableProductionImportCanonicalJson(numericKeys)}\n`).digest("hex"), "sealed hash must not reuse artifact hash for numeric object keys");
+const frozenCanonical = value => stableProductionImportCanonicalJson(value);
+for (const value of [null, true, 7, "text", [], {}, { records: [] }, numericKeys, stagingContent, inventoryContent, sealedScopeContent, decisionsContent]) {
+  assert.equal(computeFrozenArtifactHash(value), createHash("sha256").update(`${frozenCanonical(value)}\n`).digest("hex"), "frozen hash must preserve canonical artifact bytes");
+}
 for (const value of [null, true, 7, "text", [], {}, { records: [] }, { records: [undefined].concat(Array(1), [null]) }, { records: null, optional: undefined }, numericKeys, ...generated.bundles.map(row => row.bundle)]) {
   const before = structuredClone(value);
   assert.equal(computeProductionImportPayloadBundleHash(value), originalHash(value));
