@@ -724,6 +724,68 @@ Reference files:
 
 Guard-only idempotency is not equivalent to replay/conflict semantics. When documenting or changing idempotency behavior, distinguish routes using `IdempotencyInterceptor` from routes that only validate a key.
 
+## Scenario: Leasing Renewal And Financial Race Semantics
+
+### 1. Scope / Trigger
+
+- Trigger: creating a renewal draft from a commercial leasing contract, approving a leasing waiver, or applying a payment to receivables.
+
+### 2. Signatures
+
+- `POST /leasing/contracts/:id/renew-draft` uses `IdempotencyInterceptor` and `X-Idempotency-Key`.
+- `LeasingContractsService.createRenewalDraft(scope, actor, contractId, dto)` serializes on the scoped source-contract row.
+- `LeasingWaiversService.approve(...)` and `LeasingPaymentsService.apply(...)` distinguish initial validation from authoritative lock-time conflict detection.
+
+### 3. Contracts
+
+- A source contract may have at most one non-deleted renewal in draft, submitted, or approving status. Lock the source contract with `pessimistic_write` inside the creation transaction before checking and inserting, and take the same lock/check before a rejected renewal re-enters approval.
+- A completed same-key/same-fingerprint renewal replay returns the cached original 2xx response and entity. A different key executes business logic and receives conflict when an unfinished renewal exists.
+- Validate request status and available amounts before the transaction as HTTP 400. Revalidate after acquiring the payment/waiver/receivable write locks; if a competing writer changed the previously valid state or balance, return HTTP 409 with refresh/retry guidance.
+- Keep contract/action/status logs and every financial mutation in the same transaction as the winning write.
+
+### 4. Validation & Error Matrix
+
+- source contract is not effective at initial read -> HTTP 400.
+- source contract changes before the transaction lock -> HTTP 409, refresh and retry.
+- unfinished renewal exists under the source lock -> HTTP 409, refresh and retry.
+- rejected renewal resubmission while a sibling draft exists -> HTTP 409; ordinary update cannot bypass the submit endpoint to re-enter an unfinished status.
+- renewal same-key replay after success -> original 2xx response; in-flight same-key request may remain processing 409.
+- payment/waiver amount is invalid in the initial snapshot -> HTTP 400.
+- payment/waiver state or balance becomes invalid after its write lock -> HTTP 409, refresh and retry.
+
+### 5. Good / Base / Bad Cases
+
+- Good: two different-key renewal requests queue on one source row; one commits and one receives 409; one draft persists.
+- Base: a completed same-key renewal retry never re-enters the service and returns the original draft.
+- Bad: check for an existing renewal before starting the transaction, or relabel every ordinary amount validation as conflict.
+
+### 6. Tests Required
+
+- Use real PostgreSQL sessions and a synchronized lock barrier; assert renewal `1 fulfilled / 1 rejected(409) / 1 persisted`.
+- Assert waiver/payment race losers return 409 with retry guidance while winner totals, statuses, applications, and audit logs remain exact.
+- At HTTP level, assert same-key renewal replay returns the original 2xx entity and a different key returns 409.
+- Retain sequential over-amount tests that expect HTTP 400.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+if (!(await renewalRepository.existsBy({ renewalFromContractId: contractId }))) {
+  await renewalRepository.save(draft);
+}
+```
+
+#### Correct
+
+```ts
+await sourceContractQuery.setLock("pessimistic_write").getOneOrFail();
+if (await unfinishedRenewalQuery.getExists()) {
+  throw new ConflictException("... refresh ... retry ...");
+}
+await renewalRepository.save(draft);
+```
+
 ## Persistence And Financial Safety
 
 Entities extend `AuditableEntity` when they participate in tenant/park scoped business data. It provides `id`, `tenantId`, `parkId`, audit columns, soft-delete state, optimistic `version`, and `remark`.

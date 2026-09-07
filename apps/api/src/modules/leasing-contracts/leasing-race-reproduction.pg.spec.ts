@@ -75,7 +75,7 @@ async function beginBlocker(dataSource: DataSource): Promise<QueryRunner> {
   }
 }
 
-test("PostgreSQL renewal race records the current double-success persisted outcome", {
+test("PostgreSQL renewal race permits one draft and rejects the concurrent loser with conflict", {
   skip: databaseUrl ? false : "DATABASE_URL is required for PostgreSQL concurrency coverage"
 }, async () => {
   const suffix = randomUUID().replaceAll("-", "");
@@ -148,7 +148,7 @@ test("PostgreSQL renewal race records the current double-success persisted outco
       );
     });
 
-    await blocker.query("SELECT lock_property_unit_scope($1, $2, $3)", [tenantId, parkId, ids.unit]);
+    await blocker.query("SELECT id FROM biz_leasing_contract WHERE id=$1 FOR UPDATE", [ids.contract]);
     attempts = ["pma_s05_renewal_a", "pma_s05_renewal_b"].map(async (applicationName) => {
       const runner = dataSource.createQueryRunner();
       try {
@@ -164,14 +164,38 @@ test("PostgreSQL renewal race records the current double-success persisted outco
     await waitUntilBlocked(dataSource, ["pma_s05_renewal_a", "pma_s05_renewal_b"]);
     await blocker.commitTransaction();
     const settled = await Promise.allSettled(attempts);
-    assert.equal(settled.filter((item) => item.status === "fulfilled").length, 2);
-    assert.equal(settled.filter((item) => item.status === "rejected").length, 0);
+    assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1);
+    const rejected = settled.filter((item): item is PromiseRejectedResult => item.status === "rejected");
+    assert.equal(rejected.length, 1);
+    assert.equal((rejected[0]?.reason as { getStatus?: () => number }).getStatus?.(), 409);
+    assert.match((rejected[0]?.reason as Error).message, /refresh.*retry/i);
     const renewalRows = await dataSource.query<Array<{ count: string }>>(
       `SELECT count(*)::text AS count FROM biz_leasing_contract
         WHERE tenant_id=$1 AND park_id=$2 AND renewal_from_contract_id=$3 AND is_deleted=false`,
       [tenantId, parkId, ids.contract]
     );
-    assert.equal(renewalRows[0]?.count, "2");
+    assert.equal(renewalRows[0]?.count, "1");
+
+    const winner = settled.find((item): item is PromiseFulfilledResult<unknown> => item.status === "fulfilled");
+    assert.ok(winner);
+    const rejectedRenewalId = (winner.value as LeasingContractEntity).id;
+    await dataSource.query("UPDATE biz_leasing_contract SET status='50' WHERE id=$1", [rejectedRenewalId]);
+    const transitionRunner = dataSource.createQueryRunner();
+    try {
+      await transitionRunner.connect();
+      const transitionService = createService(transitionRunner);
+      await transitionService.createRenewalDraft(scope, principal, ids.contract, {
+        start_date: "2027-01-01", end_date: "2027-12-31"
+      });
+      await dataSource.query("UPDATE biz_leasing_contract SET source_type='manual' WHERE id=$1", [rejectedRenewalId]);
+      await assert.rejects(
+        transitionService.submitForApproval(scope, principal, rejectedRenewalId, { opinion: "retry rejected renewal" }),
+        (error: unknown) => (error as { getStatus?: () => number }).getStatus?.() === 409
+          && /refresh.*retry/i.test((error as Error).message)
+      );
+    } finally {
+      await transitionRunner.release();
+    }
   } finally {
     try {
       try {
@@ -205,7 +229,7 @@ test("PostgreSQL renewal race records the current double-success persisted outco
   }
 });
 
-test("PostgreSQL waiver write-off race records the current one-approved one-bad-request outcome", {
+test("PostgreSQL waiver write-off race rejects the concurrent loser with conflict", {
   skip: databaseUrl ? false : "DATABASE_URL is required for PostgreSQL concurrency coverage"
 }, async () => {
   const suffix = randomUUID().replaceAll("-", "");
@@ -270,7 +294,8 @@ test("PostgreSQL waiver write-off race records the current one-approved one-bad-
     assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1);
     const rejected = settled.filter((item): item is PromiseRejectedResult => item.status === "rejected");
     assert.equal(rejected.length, 1);
-    assert.equal((rejected[0]?.reason as { getStatus?: () => number }).getStatus?.(), 400);
+    assert.equal((rejected[0]?.reason as { getStatus?: () => number }).getStatus?.(), 409);
+    assert.match((rejected[0]?.reason as Error).message, /refresh.*retry/i);
     const [receivable] = await dataSource.query<Array<{ amount_waived: string; amount_remain: string; status: string }>>(
       "SELECT amount_waived::text,amount_remain::text,status FROM biz_leasing_receivable WHERE id=$1", [ids.receivable]
     );

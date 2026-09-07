@@ -382,7 +382,7 @@ WHERE id IN (${sqlLiteral(ids.unpaidReceivableId)}, ${sqlLiteral(ids.paidReceiva
   }, "renew-conflict");
   assertStatus("renewal overlapping term rejected", renewalConflict.response.status, 400, renewalConflict.body);
 
-  const renewal = await jsonRequest(`/leasing/contracts/${ids.contractId}/renew-draft`, adminToken, "POST", {
+  const renewalPayload = {
     contract_name: `S3E续租草稿${stamp}`,
     start_date: "2027-01-01",
     end_date: "2027-12-31",
@@ -391,12 +391,32 @@ WHERE id IN (${sqlLiteral(ids.unpaidReceivableId)}, ${sqlLiteral(ids.paidReceiva
     free_rent_months: 0,
     payment_period: "10",
     payment_advance_days: 0
-  }, "renew-draft");
+  };
+  const renewalIdempotencyKey = `s3e-${stamp}-renew-draft-replay`;
+  const createRenewal = () => request(`/leasing/contracts/${ids.contractId}/renew-draft`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${adminToken}`,
+      "x-idempotency-key": renewalIdempotencyKey
+    },
+    body: JSON.stringify(renewalPayload)
+  });
+  const renewal = await createRenewal();
   assertStatus("create renewal draft", renewal.response.status, 201, renewal.body);
   assertUniformResponse("create renewal draft", renewal.body);
   assert(valueOf(renewal.body.data, "source_type", "sourceType") === "renewal", "renewal draft source_type should be renewal");
   assert(valueOf(renewal.body.data, "renewal_from_contract_id", "renewalFromContractId") === ids.contractId, "renewal draft should link original contract");
   assertClose("renewal rent per month", valueOf(renewal.body.data, "rent_per_month", "rentPerMonth"), 1300);
+  const renewalReplay = await createRenewal();
+  assertStatus("renewal draft idempotency replay", renewalReplay.response.status, renewal.response.status, renewalReplay.body);
+  assertUniformResponse("renewal draft idempotency replay", renewalReplay.body);
+  assert(valueOf(renewalReplay.body.data, "id") === valueOf(renewal.body.data, "id"), "renewal replay should return the original draft");
+  const secondRenewal = await jsonRequest(
+    `/leasing/contracts/${ids.contractId}/renew-draft`, adminToken, "POST", renewalPayload, "renew-draft-different-key"
+  );
+  assertStatus("second unfinished renewal with different key rejected", secondRenewal.response.status, 409, secondRenewal.body);
+  assert(/refresh.*retry/i.test(String(secondRenewal.body?.message)), "renewal conflict should include refresh and retry guidance");
 
   const renewFromDraft = await jsonRequest(`/leasing/contracts/${renewal.body.data.id}/renew-draft`, adminToken, "POST", {
     contract_name: `S3E未生效续租${stamp}`,

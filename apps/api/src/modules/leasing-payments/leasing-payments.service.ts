@@ -156,7 +156,7 @@ export class LeasingPaymentsService {
   }
 
   async apply(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: ApplyLeasingPaymentDto): Promise<LeasingPaymentEntity> {
-    await this.findOne(scope, id, actor);
+    const initialPayment = await this.findOne(scope, id, actor);
     const seenReceivableIds = new Set<string>();
     for (const item of dto.applications) {
       if (seenReceivableIds.has(item.receivable_id)) {
@@ -165,6 +165,29 @@ export class LeasingPaymentsService {
       seenReceivableIds.add(item.receivable_id);
       if (this.toNumber(item.applied_amount) <= 0) {
         throw new BadRequestException("applied_amount must be greater than 0");
+      }
+    }
+    if (initialPayment.status === PAYMENT_STATUS_VOID) {
+      throw new BadRequestException("Voided payment cannot be applied");
+    }
+    const requestedTotal = dto.applications.reduce((sum, item) => sum + this.toNumber(item.applied_amount), 0);
+    if (requestedTotal > this.toNumber(initialPayment.unappliedAmount) + 0.000001) {
+      throw new BadRequestException("applied_amount exceeds payment unapplied amount");
+    }
+    for (const item of dto.applications) {
+      const initialReceivable = await this.paymentsRepository.manager.getRepository(LeasingReceivableEntity)
+        .createQueryBuilder("receivable")
+        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("receivable.id = :receivableId", { receivableId: item.receivable_id })
+        .andWhere("receivable.is_deleted = false")
+        .getOne();
+      if (!initialReceivable) throw new NotFoundException("Leasing receivable not found");
+      if (initialReceivable.parkTenantId !== initialPayment.parkTenantId) {
+        throw new BadRequestException("Receivable does not belong to the payment park_tenant_id");
+      }
+      if (this.toNumber(item.applied_amount) > this.toNumber(initialReceivable.amountRemain) + 0.000001) {
+        throw new BadRequestException("applied_amount exceeds receivable amount_remain");
       }
     }
 
@@ -178,14 +201,16 @@ export class LeasingPaymentsService {
         .andWhere("payment.id = :id", { id })
         .andWhere("payment.is_deleted = false")
         .getOne();
-      if (!payment) throw new NotFoundException("Leasing payment not found");
+      if (!payment) {
+        throw new ConflictException("Payment changed or was voided during application; refresh the payment and retry if it is still actionable");
+      }
       if (payment.status === PAYMENT_STATUS_VOID) {
-        throw new BadRequestException("Voided payment cannot be applied");
+        throw new ConflictException("Payment status changed during application; refresh the payment and retry if it is still actionable");
       }
       let unappliedAmount = this.toNumber(payment.unappliedAmount);
       const totalApplied = dto.applications.reduce((sum, item) => sum + this.toNumber(item.applied_amount), 0);
       if (totalApplied > unappliedAmount + 0.000001) {
-        throw new BadRequestException("applied_amount exceeds payment unapplied amount");
+        throw new ConflictException("Payment unapplied amount changed during application; refresh the payment and retry with valid amounts");
       }
 
       for (const item of dto.applications) {
@@ -204,7 +229,7 @@ export class LeasingPaymentsService {
         }
         const currentRemain = this.toNumber(receivable.amountRemain);
         if (appliedAmount > currentRemain + 0.000001) {
-          throw new BadRequestException("applied_amount exceeds receivable amount_remain");
+          throw new ConflictException("Receivable balance changed during payment application; refresh balances and retry with valid amounts");
         }
 
         await manager.getRepository(LeasingPaymentReceivableEntity).save(manager.getRepository(LeasingPaymentReceivableEntity).create({
