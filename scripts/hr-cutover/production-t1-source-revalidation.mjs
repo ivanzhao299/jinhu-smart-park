@@ -38,7 +38,9 @@ export function verifyProductionT1SourceRevalidation({ triple, sourceManifest, s
     exact(domain, ["rows", "file", "fileSha256"]);
     const bytes = bytesOf(stageBytes[key]); hashes[key] = hash(bytes);
     if (domain.file !== file || domain.rows !== expected.rows || domain.fileSha256 !== expected.fileSha256 || hashes[key] !== expected.fileSha256) fail("DOMAIN_MISMATCH");
-    const rows = key === "employmentEvents" ? bytes.toString("utf8").split("\n").filter(Boolean).map(line => parse(Buffer.from(line))) : parse(bytes);
+    // The SQL Server COPY export doubles backslashes in JSONL transport. Decode
+    // that transport layer before validating the canonical source row hash.
+    const rows = key === "employmentEvents" ? bytes.toString("utf8").split("\n").filter(Boolean).map(line => parse(Buffer.from(line.replaceAll("\\\\", "\\")))) : parse(bytes);
     if (!Array.isArray(rows) || rows.length !== domain.rows) fail("COUNT_MISMATCH");
     parsed[key] = rows;
   }
