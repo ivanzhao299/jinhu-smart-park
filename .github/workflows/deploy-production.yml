@@ -317,11 +317,33 @@ jobs:
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          YUZHOU_SOURCE_MANIFEST_JSON: ${{ inputs.source_manifest_json }}
         run: |
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-preimport-snapshot.sh > "$RUNNER_TEMP/yuzhou-hr-production-preimport-snapshot.json"
+          node --input-type=module - > "$RUNNER_TEMP/yuzhou-hr-production-preimport-snapshot-bound.json" <<'NODE'
+          import { readFileSync } from "node:fs";
+          import { verifyProductionSourceManifest } from "./scripts/prepare-yuzhou-production-source-manifest.mjs";
+
+          const hold = reasonCode => process.stdout.write(`${JSON.stringify({ status: "HOLD", reasonCode, productionImport: "HOLD" })}\n`);
+          try {
+            const manifest = process.env.YUZHOU_SOURCE_MANIFEST_JSON ?? "";
+            if (!manifest || Buffer.byteLength(manifest, "utf8") > 65535) {
+              hold("PRODUCTION_SOURCE_MANIFEST_CONFIG_UNAVAILABLE");
+            } else {
+              const source = JSON.parse(manifest);
+              const receipt = verifyProductionSourceManifest(source);
+              const snapshot = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/yuzhou-hr-production-preimport-snapshot.json", "utf8"));
+              if (snapshot?.formatVersion !== 1 || snapshot.kind !== "yuzhou_hr_production_preimport_snapshot_readonly" || snapshot.productionImport !== "HOLD") throw new Error("snapshot invalid");
+              process.stdout.write(`${JSON.stringify({ ...snapshot, sourceManifestSha256: receipt.manifestSha256, sourceIdentityBinding: "HASH_ONLY_SOURCE_MANIFEST", triple: { codeSha: process.env.GITHUB_SHA, sourceSnapshotHash: source.sourceSnapshotSha256, mappingContractHash: source.mappingContractSha256 } })}\n`);
+            }
+          } catch {
+            hold("PRODUCTION_PREIMPORT_SNAPSHOT_BINDING_FAILED");
+          }
+          NODE
+          mv "$RUNNER_TEMP/yuzhou-hr-production-preimport-snapshot-bound.json" "$RUNNER_TEMP/yuzhou-hr-production-preimport-snapshot.json"
 
       - name: Retain Yuzhou HR pre-import snapshot receipt
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-preimport-snapshot' && success() }}
