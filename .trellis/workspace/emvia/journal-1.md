@@ -1185,3 +1185,38 @@ Closed #683 via #684; deterministic receivable-first locks, bounded batch SQL, c
 ### Next Steps
 
 - None - task complete
+
+
+## Session 34: Fix S3C cross-park fixture drift
+
+**Date**: 2026-09-07
+**Task**: Fix S3C cross-park fixture drift
+**Package**: api
+**Branch**: `codex/fix-s3c-cross-park-fixture-689-closeout`
+
+### Summary
+
+Issue #689 / PR #690: created target-park building-floor-unit fixture hierarchy, appended non-default admin access without changing primary park, audited sibling E2E fixtures, passed final S3C plus PR/main CI and Deploy, then archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b3110fcd` | (see git log) |
+| `8acc268f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
