@@ -92,7 +92,7 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
     const result=await service.listEmployees(scope,managerActor,{page:1,page_size:50});
     assert.deepEqual(result.items.map(row=>row.id),[ids.managed]);
     assert.deepEqual(Object.keys(result.items[0]!).sort(),[
-      "departureDate","employeeCode","employmentStatus","employmentType","fullName","hireDate","id","managerEmployeeId",
+      "departureDate","employeeCode","employmentStatus","employmentType","fullName","hireDate","id","legacyJobstateCode","legacyJobstateName","managerEmployeeId",
       "positionId","primaryOrgId","userId","workEmail","workLocation","workMobile"
     ].sort());
     for(const hidden of [ids.outsideDirect,ids.disabledOrgEmployee,ids.deletedOrgEmployee,ids.foreignTenant,ids.foreignPark]){
