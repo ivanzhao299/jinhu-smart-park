@@ -95,6 +95,51 @@ NODE
   fi
 fi
 
+# The durable Gate-19 receipt is published on the dedicated production data
+# mount.  Deploy releases are replaceable and may not contain the ephemeral
+# tmp/production-gates report, so accept only the fixed, mount-checked receipt
+# location as a second read-only evidence source.  The receipt contains hashes,
+# sizes, and run metadata only; do not forward its contents to the snapshot.
+if [ "$prebackup_status" != "PASS" ]; then
+  if node <<'NODE'
+import { execFileSync } from "node:child_process";
+import { lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+const mount = "/srv/jinhu-production-data";
+const root = join(mount, "hr-preimport-backups");
+const sha = /^[0-9a-f]{64}$/u;
+try {
+  execFileSync("mountpoint", ["-q", mount], { stdio: "ignore", timeout: 10000 });
+  const mountInfo = lstatSync(mount);
+  if (mountInfo.isSymbolicLink() || !mountInfo.isDirectory() || statSync(mount).dev === statSync("/").dev) process.exit(1);
+  const rootInfo = lstatSync(root);
+  if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory() || (rootInfo.mode & 0o777) !== 0o700
+    || rootInfo.uid !== process.getuid() || rootInfo.dev !== mountInfo.dev) process.exit(1);
+  const candidates = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const directory = join(root, entry.name);
+    const receipt = join(directory, "receipt.json");
+    const info = lstatSync(receipt);
+    if (info.isSymbolicLink() || !info.isFile() || info.nlink !== 1 || (info.mode & 0o777) !== 0o600
+      || info.uid !== process.getuid() || info.dev !== rootInfo.dev) continue;
+    const value = JSON.parse(readFileSync(receipt, "utf8"));
+    if (value.formatVersion !== 1 || value.kind !== "production_gate19_retained_backup"
+      || value.status !== "RETAINED_HASH_VERIFIED" || value.productionImport !== "HOLD"
+      || value.fullDisasterRecoveryClaimed !== false || !Array.isArray(value.artifacts)
+      || value.artifacts.length !== 2 || value.artifacts.some(item => !item || !sha.test(item.sha256 ?? "")
+        || !Number.isSafeInteger(item.bytes) || item.bytes <= 0)) continue;
+    candidates.push(info.mtimeMs);
+  }
+  if (candidates.length === 0) process.exit(1);
+} catch { process.exit(1); }
+NODE
+  then
+    prebackup_status="PASS"
+  fi
+fi
+
 probe="$({
   docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
     sh -c 'database_name="${POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -F "|" -U "$POSTGRES_USER" -d "$database_name"' <<'SQL'
