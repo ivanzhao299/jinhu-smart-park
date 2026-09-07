@@ -52,6 +52,22 @@ case "$allowlisted" in *'"status":"HOLD"'*'"PRODUCTION_IMPORT_PREBACKUP_RECEIPT_
 case "$allowlisted" in *'"PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED"'*) echo 'allowlisted preimport snapshot retained stale target reason' >&2; exit 1;; esac
 case "$allowlisted" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'allowlisted preimport snapshot leaked raw target identity' >&2; exit 1;; esac
 
+mkdir -p "$deploy/tmp/production-gates"
+cat > "$deploy/tmp/production-gates/gate19-backup-restore-test.json" <<'JSON'
+{"status":"PASS","productionImport":"HOLD","production_db_write":"temporary_restore_database_only","destructive_volume_operation":false,"retained_backup":{"status":"RETAINED_HASH_VERIFIED","receiptSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
+JSON
+FAKE_PREIMPORT_PROBE="NOTICE:  YUZHOU_HR_PREIMPORT_ROW|0|1|1|prod-db$(printf '\037')service-user$(printf '\037')127.0.0.1$(printf '\037')5432$(printf '\037')123$(printf '\037')tenant-private$(printf '\037')park-private|tenant-private|park-private
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T0|3|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T1|2|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T2|1|$hash_a|$hash_b|0|$hash_c|$hash_d
+NOTICE:  YUZHOU_HR_PREIMPORT_ROW|1|T3|4|$hash_a|$hash_b|0|$hash_c|$hash_d" \
+  PATH="$tmp/bin:$PATH" sh "$script" report "$deploy" > "$tmp/backup-bound.json"
+backup_bound="$(cat "$tmp/backup-bound.json")"
+case "$backup_bound" in *'"status":"HOLD"'*) ;; *) echo 'backup-bound preimport snapshot must remain hold-only' >&2; exit 1;; esac
+case "$backup_bound" in *'"PRODUCTION_IMPORT_PREBACKUP_RECEIPT_REQUIRED"'*) echo 'verified Gate-19 receipt must clear stale prebackup reason' >&2; exit 1;; esac
+case "$backup_bound" in *'"PRODUCTION_IMPORT_SOURCE_MANIFEST_REQUIRED"'*) ;; *) echo 'source manifest gate must remain explicit' >&2; exit 1;; esac
+case "$backup_bound" in *prod-db*|*service-user*|*tenant-private*|*park-private*) echo 'backup-bound snapshot leaked raw target identity' >&2; exit 1;; esac
+
 if FAKE_PREIMPORT_PROBE='ERROR: permission denied for relation hidden_target' \
   FAKE_PREIMPORT_EXIT=1 PATH="$tmp/bin:$PATH" sh "$script" report . > "$tmp/failure.out" 2> "$tmp/failure.err"; then
   echo 'preimport snapshot must fail closed when the read-only role lacks a required grant' >&2
