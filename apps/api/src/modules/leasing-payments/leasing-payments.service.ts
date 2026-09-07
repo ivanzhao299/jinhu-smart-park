@@ -201,7 +201,9 @@ export class LeasingPaymentsService {
         .andWhere("payment.id = :id", { id })
         .andWhere("payment.is_deleted = false")
         .getOne();
-      if (!payment) throw new NotFoundException("Leasing payment not found");
+      if (!payment) {
+        throw new ConflictException("Payment changed or was voided during application; refresh the payment and retry if it is still actionable");
+      }
       if (payment.status === PAYMENT_STATUS_VOID) {
         throw new ConflictException("Payment status changed during application; refresh the payment and retry if it is still actionable");
       }

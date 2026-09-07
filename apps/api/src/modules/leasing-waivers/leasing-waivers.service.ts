@@ -95,8 +95,7 @@ export class LeasingWaiversService {
   async approve(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: LeasingWaiverApprovalDto): Promise<LeasingWaiverEntity> {
     const initialWaiver = await this.findOne(scope, id, actor);
     if (initialWaiver.status !== WAIVER_STATUS_PENDING) throw new BadRequestException("Only pending waiver can be approved");
-    const initialReceivable = await this.mustFindReceivable(scope, initialWaiver.receivableId, actor);
-    this.assertReceivableCanWaive(initialReceivable, this.toNumber(initialWaiver.waiverAmount));
+    this.assertReceivableCanWaive(initialWaiver.receivable, this.toNumber(initialWaiver.waiverAmount));
     await this.waiversRepository.manager.transaction(async (manager) => {
       const waiver = await this.lockWaiver(manager, scope, id);
       if (waiver.status !== WAIVER_STATUS_PENDING) {

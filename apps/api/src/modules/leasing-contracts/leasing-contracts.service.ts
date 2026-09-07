@@ -524,7 +524,7 @@ export class LeasingContractsService {
       entity.code = dto.contract_code;
     }
     if (
-      entity.sourceType === "renewal"
+      entity.renewalFromContractId !== null
       && entity.status === CONTRACT_STATUS_REJECTED
       && dto.status !== undefined
       && UNFINISHED_RENEWAL_STATUSES.includes(dto.status)
@@ -1018,7 +1018,6 @@ export class LeasingContractsService {
     await this.contractStatusLogsRepository.manager.transaction(async (manager) => {
       if (
         UNFINISHED_RENEWAL_STATUSES.includes(afterStatus)
-        && contract.sourceType === "renewal"
         && contract.renewalFromContractId
       ) {
         await this.lockRenewalSourceAndAssertNoSibling(manager, scope, contract.renewalFromContractId, contract.id);

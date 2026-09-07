@@ -187,6 +187,7 @@ test("PostgreSQL renewal race permits one draft and rejects the concurrent loser
       await transitionService.createRenewalDraft(scope, principal, ids.contract, {
         start_date: "2027-01-01", end_date: "2027-12-31"
       });
+      await dataSource.query("UPDATE biz_leasing_contract SET source_type='manual' WHERE id=$1", [rejectedRenewalId]);
       await assert.rejects(
         transitionService.submitForApproval(scope, principal, rejectedRenewalId, { opinion: "retry rejected renewal" }),
         (error: unknown) => (error as { getStatus?: () => number }).getStatus?.() === 409
