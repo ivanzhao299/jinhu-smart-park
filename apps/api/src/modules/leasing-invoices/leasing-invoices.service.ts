@@ -10,6 +10,7 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
 import { LeasingReceivableStatusLogEntity } from "../leasing-receivables/entities/leasing-receivable-status-log.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { lockLeasingReceivables } from "../leasing-receivables/leasing-financial-locks";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import type { CreateLeasingInvoiceDto, LeasingInvoiceReceivableInputDto } from "./dto/create-leasing-invoice.dto";
 import type { LeasingInvoiceQueryDto } from "./dto/leasing-invoice-query.dto";
@@ -124,10 +125,19 @@ export class LeasingInvoicesService {
     }
     const allocationInputs = dto.receivables ?? await this.currentAllocationInputs(scope, entity.id);
     if (!allocationInputs.length) throw new BadRequestException("Invoice must link at least one receivable");
+    const expectedPreviousReceivableIds = await this.currentReceivableIds(this.invoicesRepository.manager, scope, entity.id);
 
     await this.invoicesRepository.manager.transaction(async (manager) => {
+      const lockIds = [...new Set([
+        ...expectedPreviousReceivableIds,
+        ...allocationInputs.map((item) => item.receivable_id)
+      ])].sort();
+      await lockLeasingReceivables(manager, scope, lockIds);
       const invoice = await this.lockInvoice(manager, scope, id);
       const previousReceivableIds = await this.currentReceivableIds(manager, scope, invoice.id);
+      if (!this.sameIdSet(expectedPreviousReceivableIds, previousReceivableIds)) {
+        throw new ConflictException("Invoice allocations changed during update; refresh the invoice and retry");
+      }
       const allocations = await this.validateAllocations(manager, scope, nextParkTenantId, allocationInputs, nextAmount, invoice.id);
       Object.assign(invoice, {
         invoiceCode: dto.invoice_code ?? invoice.invoiceCode,
@@ -163,9 +173,14 @@ export class LeasingInvoicesService {
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     await this.findOne(scope, id, actor);
+    const expectedReceivableIds = await this.currentReceivableIds(this.invoicesRepository.manager, scope, id);
     await this.invoicesRepository.manager.transaction(async (manager) => {
+      await lockLeasingReceivables(manager, scope, expectedReceivableIds);
       const invoice = await this.lockInvoice(manager, scope, id);
       const receivableIds = await this.currentReceivableIds(manager, scope, invoice.id);
+      if (!this.sameIdSet(expectedReceivableIds, receivableIds)) {
+        throw new ConflictException("Invoice allocations changed during deletion; refresh the invoice and retry");
+      }
       Object.assign(invoice, {
         isDeleted: true,
         status: INVOICE_STATUS_VOID,
@@ -404,31 +419,30 @@ export class LeasingInvoicesService {
     currentInvoiceId: string | null
   ): Promise<AllocationRow[]> {
     const seen = new Set<string>();
-    const rows: AllocationRow[] = [];
     let total = 0;
     for (const item of inputs) {
       const invoiceAmountForRow = this.toNumber(item.invoice_amount);
       if (invoiceAmountForRow <= 0) throw new BadRequestException("invoice_amount must be greater than 0");
       if (seen.has(item.receivable_id)) throw new BadRequestException("Duplicate receivable_id in invoice receivables");
       seen.add(item.receivable_id);
-      const receivable = await manager.getRepository(LeasingReceivableEntity)
-        .createQueryBuilder("receivable")
-        .setLock("pessimistic_write")
-        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("receivable.id = :receivableId", { receivableId: item.receivable_id })
-        .andWhere("receivable.is_deleted = false")
-        .getOne();
+      total += invoiceAmountForRow;
+    }
+    const receivables = await lockLeasingReceivables(manager, scope, [...seen]);
+    const receivablesById = new Map(receivables.map((receivable) => [receivable.id, receivable]));
+    const invoicedAmounts = await this.sumInvoicedAmounts(manager, scope, [...seen], currentInvoiceId);
+    const rows: AllocationRow[] = [];
+    for (const item of inputs) {
+      const invoiceAmountForRow = this.toNumber(item.invoice_amount);
+      const receivable = receivablesById.get(item.receivable_id);
       if (!receivable) throw new NotFoundException("Leasing receivable not found");
       if (receivable.parkTenantId !== parkTenantId) {
         throw new BadRequestException("Receivable does not belong to the invoice park_tenant_id");
       }
-      const alreadyInvoiced = await this.sumInvoicedAmount(manager, scope, receivable.id, currentInvoiceId);
+      const alreadyInvoiced = invoicedAmounts.get(receivable.id) ?? 0;
       const amountDue = this.toNumber(receivable.amountDue);
       if (alreadyInvoiced + invoiceAmountForRow > amountDue + AMOUNT_TOLERANCE) {
         throw new BadRequestException("invoice_amount exceeds receivable uninvoiced amount");
       }
-      total += invoiceAmountForRow;
       rows.push({ receivable, invoiceAmount: invoiceAmountForRow });
     }
     if (Math.abs(total - invoiceAmount) > AMOUNT_TOLERANCE) {
@@ -456,18 +470,13 @@ export class LeasingInvoicesService {
     receivableIds: string[],
     reason: string
   ): Promise<void> {
-    for (const receivableId of [...new Set(receivableIds)]) {
-      const receivable = await manager.getRepository(LeasingReceivableEntity)
-        .createQueryBuilder("receivable")
-        .setLock("pessimistic_write")
-        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("receivable.id = :receivableId", { receivableId })
-        .andWhere("receivable.is_deleted = false")
-        .getOne();
-      if (!receivable) continue;
+    const uniqueIds = [...new Set(receivableIds)];
+    if (uniqueIds.length === 0) return;
+    const receivables = await lockLeasingReceivables(manager, scope, uniqueIds);
+    const invoicedAmounts = await this.sumInvoicedAmounts(manager, scope, uniqueIds, null);
+    for (const receivable of receivables) {
       const beforeInvoiceStatus = receivable.invoiceStatus;
-      const invoiced = await this.sumInvoicedAmount(manager, scope, receivable.id, null);
+      const invoiced = invoicedAmounts.get(receivable.id) ?? 0;
       const amountDue = this.toNumber(receivable.amountDue);
       receivable.invoiceStatus = this.deriveInvoiceStatus(invoiced, amountDue);
       await manager.getRepository(LeasingReceivableEntity).save(receivable);
@@ -503,20 +512,32 @@ export class LeasingInvoicesService {
     }));
   }
 
-  private async sumInvoicedAmount(manager: EntityManager, scope: TenantParkScope, receivableId: string, excludeInvoiceId: string | null): Promise<number> {
+  private async sumInvoicedAmounts(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    receivableIds: string[],
+    excludeInvoiceId: string | null
+  ): Promise<Map<string, number>> {
+    if (receivableIds.length === 0) return new Map();
     const builder = manager.getRepository(LeasingInvoiceReceivableEntity)
       .createQueryBuilder("invoiceReceivable")
       .innerJoin("invoiceReceivable.invoice", "invoice")
-      .select("COALESCE(SUM(invoiceReceivable.invoice_amount), 0)", "sum")
+      .select("invoiceReceivable.receivable_id", "receivableId")
+      .addSelect("COALESCE(SUM(invoiceReceivable.invoice_amount), 0)", "sum")
       .where("invoiceReceivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("invoiceReceivable.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("invoiceReceivable.receivable_id = :receivableId", { receivableId })
+      .andWhere("invoiceReceivable.receivable_id IN (:...receivableIds)", { receivableIds })
       .andWhere("invoiceReceivable.is_deleted = false")
       .andWhere("invoice.is_deleted = false")
-      .andWhere("invoice.status <> :voidStatus", { voidStatus: INVOICE_STATUS_VOID });
+      .andWhere("invoice.status <> :voidStatus", { voidStatus: INVOICE_STATUS_VOID })
+      .groupBy("invoiceReceivable.receivable_id");
     if (excludeInvoiceId) builder.andWhere("invoiceReceivable.invoice_id <> :excludeInvoiceId", { excludeInvoiceId });
-    const result = await builder.getRawOne<{ sum: string }>();
-    return this.toNumber(result?.sum);
+    const results = await builder.getRawMany<{ receivableId: string; sum: string }>();
+    return new Map(results.map((row) => [row.receivableId, this.toNumber(row.sum)]));
+  }
+
+  private sameIdSet(left: string[], right: string[]): boolean {
+    return [...new Set(left)].sort().join("|") === [...new Set(right)].sort().join("|");
   }
 
   private deriveInvoiceStatus(invoicedAmount: number, amountDue: number): string {

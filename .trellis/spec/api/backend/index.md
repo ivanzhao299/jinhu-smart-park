@@ -807,6 +807,62 @@ Reference files:
 - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
 - `AGENTS.md`
 
+## Scenario: Leasing Financial Batch And Lock Budget
+
+### 1. Scope / Trigger
+
+- Trigger: a leasing payment, invoice, waiver, or receivable-generation command touches one or more receivables; homestay finance projects candidate-source allocations.
+
+### 2. Signatures
+
+- `loadLeasingReceivables(manager, scope, receivableIds, lock)` is the shared stable-order loader.
+- Batch limits: receivable contract IDs, payment applications, and invoice receivable allocations each accept at most 50 entries; one contract generation accepts at most 240 output rows.
+
+### 3. Contracts
+
+- Lock leasing parents/units first where applicable, then all affected receivables ordered by ID, then payment/invoice/waiver child aggregates. Re-reading an already-held receivable lock after the child lock is allowed; acquiring a new receivable lock is not.
+- Batch reads and allocation sums use one `IN`/grouped query, not one query per input. Per-row financial writes and audit rows may remain separate only under the fixed request ceiling.
+- `generate-batch` keeps per-contract partial success and guard-only idempotency semantics.
+- Payment application and generated receivable totals are checked in integer cents inside the transaction; every changed receivable retains its own audit/status log.
+- Homestay mutation order remains booking → source key/source → ledger IDs; approval-source legacy mappings load once for all candidate source IDs.
+
+### 4. Validation & Error Matrix
+
+- array above its fixed limit -> DTO HTTP 400 before service SQL.
+- contract output above 240 rows -> HTTP 400 instructing the caller to split the period.
+- locked financial totals do not conserve cents -> conflict and full transaction rollback.
+- invoice allocation set changes while waiting for its lock -> HTTP 409 refresh/retry.
+
+### 5. Good / Base / Bad Cases
+
+- Good: opposite input orders for the same receivable set both lock rows in ID order and complete without deadlock.
+- Base: one-row commands use the same batch loader and preserve existing response/audit behavior.
+- Bad: loop over request IDs and call `getOne()`/aggregate per item, or lock invoice/payment/waiver before an as-yet-unlocked receivable.
+
+### 6. Tests Required
+
+- DTO over-limit rejection; maximum-size batch loader executes one sorted select.
+- PostgreSQL opposite-order transaction test with a lock timeout.
+- Multi-receivable payment asserts payment/receivable cents, application cardinality, and one audit per receivable.
+- Homestay multi-source snapshot asserts one mapping query and unchanged allocation totals.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+for (const id of dto.receivableIds) {
+  await repository.createQueryBuilder("receivable").setLock("pessimistic_write")
+    .where("receivable.id = :id", { id }).getOne();
+}
+```
+
+#### Correct
+
+```ts
+await lockLeasingReceivables(manager, scope, dto.receivableIds);
+```
+
 Read [TypeORM Raw Query Result Shapes](./typeorm-raw-query-results.md) before using
 `EntityManager.query()` or `QueryRunner.query()` results from PostgreSQL DML with
 `RETURNING`, especially for optimistic-version CAS and financial effect cardinality.

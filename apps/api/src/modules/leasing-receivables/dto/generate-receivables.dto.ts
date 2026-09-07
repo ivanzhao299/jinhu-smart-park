@@ -1,5 +1,7 @@
 import { Transform } from "class-transformer";
-import { ArrayNotEmpty, IsArray, IsBoolean, IsOptional, IsString, IsUUID, Matches } from "class-validator";
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsOptional, IsString, IsUUID, Matches } from "class-validator";
+
+export const LEASING_RECEIVABLE_BATCH_MAX_SIZE = 50;
 
 function optionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === "") return undefined;
@@ -32,6 +34,7 @@ export class GenerateContractReceivablesDto {
 export class GenerateReceivablesBatchDto {
   @IsArray()
   @ArrayNotEmpty()
+  @ArrayMaxSize(LEASING_RECEIVABLE_BATCH_MAX_SIZE)
   @IsUUID(undefined, { each: true })
   contract_ids!: string[];
 

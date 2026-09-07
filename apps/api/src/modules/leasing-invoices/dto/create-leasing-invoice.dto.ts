@@ -1,6 +1,8 @@
 import { Transform, Type } from "class-transformer";
-import { IsArray, IsDateString, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsDateString, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from "class-validator";
 import { optionalNumber, trimOptional } from "../../leasing-receivables/dto/create-leasing-receivable.dto";
+
+export const LEASING_INVOICE_RECEIVABLE_MAX_SIZE = 50;
 
 export class LeasingInvoiceReceivableInputDto {
   @IsUUID()
@@ -69,6 +71,7 @@ export class CreateLeasingInvoiceDto {
   status?: string;
 
   @IsArray()
+  @ArrayMaxSize(LEASING_INVOICE_RECEIVABLE_MAX_SIZE)
   @ValidateNested({ each: true })
   @Type(() => LeasingInvoiceReceivableInputDto)
   receivables!: LeasingInvoiceReceivableInputDto[];
