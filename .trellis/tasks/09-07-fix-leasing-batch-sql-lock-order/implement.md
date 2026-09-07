@@ -19,8 +19,8 @@
 - [x] Add statement-count, audit completeness, and real PostgreSQL opposite-order lock tests.
 - [x] Run targeted API unit/PG tests, typecheck/lint as affected; defer DB-backed S3C/first-release leasing to CI because no safe isolated runtime is configured locally.
 - [x] Run `trellis-check`; remediate verified findings only, review rounds ≤3.
-- [ ] Commit, push only the feature branch, open PR, await CI, squash merge via `gh pr merge`.
-- [ ] Await exact merged main CI and Deploy success; close #683.
+- [x] Commit, push only the feature branch, open PR, await CI, squash merge via `gh pr merge`.
+- [x] Await merged main CI and Deploy success; close #683.
 - [ ] Run finish-work/archive and record final Cost Summary.
 
 ## Lock-order inventory (baseline)
@@ -56,3 +56,16 @@
 - 2026-09-07 full unit gate attempt 1 under inherited `NODE_ENV=production`: three unrelated auth cookie expectations failed because production correctly sets `secure=true`; one changed homestay fixture mock lacked the new batch `sourceId` alias. Added the alias and focused homestay tests passed 7/7.
 - 2026-09-07 full unit gate attempt 2 under `NODE_ENV=test`: all changed-domain tests passed; one unrelated `property-task.ownership.spec.ts` file-level runner failure occurred without assertion detail. Immediate focused run of that unchanged file passed 3/3. No property-task code was changed and no third full-suite retry was made under cost control.
 - 2026-09-07 review round 2: removed obsolete single-receivable invoice sum helper; confirmed no migration/idempotency semantic change. API typecheck PASS, API build PASS, `git diff --check` PASS. Added the executable batch/lock contract to the API backend spec.
+- 2026-09-07 delivery: work commit `a83102ef`; PR #684 CI run `34107222587` PASS including Unit/Build and Release Smoke. Squash merge `74512b1a` completed. Exact-SHA Deploy run `34110248942` PASS. Exact-SHA main CI was superseded/cancelled by a newer main push; verified `74512b1a` is an ancestor of `c1d5ad48`, whose main CI `34111238895` PASS and Deploy `34111238844` PASS. Issue #683 closed.
+
+## Cost Summary
+
+Task: PMA M-02/M-06 leasing batch SQL and lock order
+Status: complete
+Files changed: leasing payment/invoice/waiver/receivable services and DTOs; homestay finance query/support; focused tests; API backend spec; task artifacts
+Tests run: touched ESLint, API typecheck/build, focused unit/contract tests, full API unit twice with documented environment/unrelated runner noise, PR CI plus Release Smoke, containing-main CI plus Deploy
+Retries: one command-path correction; one changed mock correction; no business-code failure retried more than twice
+Approx model rounds: 9 substantive implementation/review rounds; CI waits excluded
+Repeated scans avoided: one bounded agent inventory reused; exact files only were reread
+Blocked issues: local PostgreSQL tests skipped because `DATABASE_URL` was unset; PR Release Smoke supplied isolated PostgreSQL/API evidence, while dedicated new PG specs remain CI-discoverable skips unless DATABASE_URL is supplied
+Next step: archive task and start S3C fixture drift as an independent Issue/Trellis/branch closure
