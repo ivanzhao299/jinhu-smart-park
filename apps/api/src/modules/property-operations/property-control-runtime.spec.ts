@@ -293,7 +293,10 @@ test("configure clears an asset mapping only when null is explicitly submitted",
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
       { assertAccess: async () => unit } as never,
       { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
-      { unlinkExistingUnit: async () => { unit.assetUnitId = null; unitSaveCalls += 1; return unit; } } as never
+      {
+        lockUnitLifecycle: async () => undefined,
+        unlinkExistingUnit: async () => { unit.assetUnitId = null; unitSaveCalls += 1; return unit; }
+      } as never
     );
 
     await service.configure(
@@ -320,7 +323,7 @@ test("configure rejects unlink unless the same command explicitly disables opera
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
     { assertAccess: async () => unit } as never,
     { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
-    { unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
+    { lockUnitLifecycle: async () => undefined, unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
   );
   await assert.rejects(
     service.configure(
@@ -352,7 +355,7 @@ test("configure keeps mapping and config unchanged when decommission has an acti
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
     { assertAccess: async () => unit } as never,
     { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
-    { unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
+    { lockUnitLifecycle: async () => undefined, unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
   );
   await assert.rejects(
     service.configure(
