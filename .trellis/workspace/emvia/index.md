@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-09-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1295 | Active |
+| `journal-1.md` | ~1330 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-09-08 | PMA M-04 PropertyListShell 收官 | `2ba560bf`, `fa907536`, `ed683cf9`, `4a944416` | `codex/pma-m04-property-list-shell` |
 | 36 | 2026-09-08 | PMA M-03 shared control-plane E2E closure | `6037f499`, `307b25fc` | `codex/pma-m03-shared-control-plane-e2e` |
 | 35 | 2026-09-08 | PMA M-01 asset projection lifecycle closure | `ea44cfb5`, `4bc566c0`, `061e7c29`, `a27abbfe`, `56987acb` | `codex/fix-pma-m01-asset-projection-lifecycle` |
 | 34 | 2026-09-07 | Fix S3C cross-park fixture drift | `b3110fcd`, `8acc268f` | `codex/fix-s3c-cross-park-fixture-689-closeout` |
