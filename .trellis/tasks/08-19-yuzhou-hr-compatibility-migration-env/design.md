@@ -120,6 +120,17 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 只读 global ID census baseline 通道（2026-09-09）
+
+仅 insert/quarantine 可使用固定 16 表全局 ID 哈希 census；merge/skip 仍走原直连
+collector。同一 REPEATABLE READ READ ONLY 快照证明表完整、无 RLS/继承过滤，
+含其他 scope 与软删除 ID；不读取业务字段、不关闭 RLS。固定工作流输出完整有界
+哈希集合、计数、排序摘要及实际身份/时效，现有 snapshot 聚合不能替代它。
+本地通过 GitHub API 验证固定仓库/workflow/run/attempt/head/artifact digest 并下载
+原 artifact 后，绑定 C/S/M、目标和输入文件，逐 ID 证明不相交，才生成原 touched
+baseline 与 receipt-last 完成标记。不接受用户 JSON 自报工作流成功，不延长 TTL。
+此证据只是快照；执行时的实际 absence/CAS、授权和其他生产门禁不变。
+
 ### 私有 plan 两阶段物化（2026-09-09）
 
 T3 provenance 材料器识别已经受 manifest 约束的 person_insure 可选
