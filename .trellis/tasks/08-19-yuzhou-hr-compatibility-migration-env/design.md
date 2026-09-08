@@ -122,15 +122,26 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 阶段 after 摘要修复边界（2026-09-09）
 
+后续 before 修复采用独立域 `yuzhou-production-touched-phase-before-v1`：
+现存 merge/skip 行的 touched-state 摘要加上已证明缺席的 insert 表/ID 排序列表。
+生产 writer 在本阶段任何业务写入前锁定现存行、查询所有 insert IDs（包括软删除
+行），并比较 sealed before 摘要；SERIALIZABLE/唯一键负责缺席查询后的竞争。
+quarantine 不参与。Lab 没有生产 sealed before，保留其原有 CAS 和隔离检查。
+纯 phase builder 消费完整 baseline 行与 scope、payload、明确 dependency targets，
+产出 before/after 和 bundle descriptors，不造 baseline、授权、A/B 或最终 plan。
+
 `yuzhou-production-touched-phase-state-v1` 只覆盖本阶段非 quarantine 的
 insert/merge/skip_approved 目标行，不是 whole-scope snapshot。按目标表、目标 ID
 排序，包含 scope、phase、实际版本、所有模型白名单字段及派生外键；字段规范化
 复用正式 payload/SQL readback 规则，JSON key 顺序不影响摘要。quarantine 不存在
 业务目标，不加入摘要。每个目标仅出现一次，缺失/重复/版本或字段漂移拒绝。
 预期摘要从投影字段计算；实际摘要从同一事务按 ID 锁定读取并核验的业务行计算，
-不得将预期 hash 当作实际值。beforeCanonicalSha256 仍沿用原契约，本次不改变其
-含义、不声称补齐 baseline 验证。后续 sealed-plan producer 必须显式采用此域，
-旧 label/whole-scope hashes 不可替代新 after 摘要。
+不得将预期 hash 当作实际值。beforeCanonicalSha256 现在采用上述独立的
+`yuzhou-production-touched-phase-before-v1` 域，并在业务写入前验证；它与 after
+摘要不同，包含 insert 不存在标记。后续 sealed-plan producer 必须显式采用这两个域，
+旧 label/whole-scope hashes 不可替代。skip_approved 的行 before/after 摘要必须相同；
+纯 builder 拒绝改变字段的 skip 草案以及非数组 dependencyRefs。完整封存、授权及
+UUID/schema 校验仍由正式 sealed-plan validator 承担，不以本 builder 代替。
 
 - 选择全量历史工资在线只读快照，而不是只存外部归档：约 4.5 万行规模可控，能满足员工历史查询和审计。
 - 不在 T0 实现通用低代码工资引擎：先实现可审计的受限 DSL 和人工复核，降低任意表达式风险。

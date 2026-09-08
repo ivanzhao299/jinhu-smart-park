@@ -3,6 +3,7 @@ import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as MODEL, stableProductionImport
 import { normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
 
 export const PRODUCTION_TOUCHED_PHASE_STATE_VERSION = "yuzhou-production-touched-phase-state-v1";
+export const PRODUCTION_TOUCHED_PHASE_BEFORE_VERSION = "yuzhou-production-touched-phase-before-v1";
 const fail = () => { const error = new Error("PRODUCTION_IMPORT_PHASE_STATE_INVALID"); error.code = error.message; throw error; };
 /** Input is independently projected expected fields OR verified database fields;
  * never expected row hashes. Quarantine has no business row and is excluded by caller. */
@@ -20,4 +21,17 @@ export function computeProductionImportTouchedPhaseState({ phase, targetScope, r
   }).sort((a,b) => a.targetTable < b.targetTable ? -1 : a.targetTable > b.targetTable ? 1 : a.targetId < b.targetId ? -1 : a.targetId > b.targetId ? 1 : 0);
   return createHash("sha256").update(PRODUCTION_TOUCHED_PHASE_STATE_VERSION).update("\0")
     .update(stableProductionImportCanonicalJson({ phase, targetScope: { tenantId: targetScope.tenantId, parkId: targetScope.parkId }, rows: projected })).digest("hex");
+}
+
+export function computeProductionImportTouchedPhaseBefore({ phase, targetScope, rows, absent }) {
+  const presentStateSha256 = computeProductionImportTouchedPhaseState({ phase, targetScope, rows });
+  if (!Array.isArray(absent)) fail();
+  const seen = new Set(rows.map(r => `${r.targetTable}:${r.targetId}`));
+  const missing = absent.map(r => {
+    if (MODEL.targetTables[r.targetTable]?.phase !== phase || !/^[0-9a-f-]{36}$/u.test(r.targetId ?? "")) fail();
+    const key = `${r.targetTable}:${r.targetId}`; if (seen.has(key)) fail(); seen.add(key);
+    return { targetTable: r.targetTable, targetId: r.targetId };
+  }).sort((a,b) => `${a.targetTable}:${a.targetId}` < `${b.targetTable}:${b.targetId}` ? -1 : 1);
+  return createHash("sha256").update(PRODUCTION_TOUCHED_PHASE_BEFORE_VERSION).update("\0")
+    .update(stableProductionImportCanonicalJson({ phase, targetScope: { tenantId: targetScope.tenantId, parkId: targetScope.parkId }, presentStateSha256, absent: missing })).digest("hex");
 }

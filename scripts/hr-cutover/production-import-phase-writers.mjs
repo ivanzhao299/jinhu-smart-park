@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeProductionT1LocalTimestamp } from "./production-t1-local-timestamp.mjs";
-import { computeProductionImportTouchedPhaseState } from "./production-import-phase-state.mjs";
+import { computeProductionImportTouchedPhaseState, computeProductionImportTouchedPhaseBefore } from "./production-import-phase-state.mjs";
 
 import { ProductionImportExecutionError, computeProductionImportPayloadHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -517,6 +517,24 @@ async function writePhase(phaseName, input, options) {
     if (rows.some(row => !["insert", "quarantine"].includes(row.record.disposition))) fail("LAB_IMPORT_DISPOSITION_DENIED", "insert/quarantine only");
     if (input.payloadBundle.targetScope && ["tenantId", "parkId", "scopeSha256"].some(key => input.payloadBundle.targetScope[key] !== input.targetScope[key])) fail("LAB_IMPORT_SCOPE_DENIED", "payload scope differs");
     await validateLabTarget(input.tx, input.targetScope, options.lab);
+  }
+  if (!options.lab) {
+    const present = [], absent = [];
+    for (const table of [...new Set(rows.map(row => row.record.plannedTargetTable))].sort()) {
+      const inserts = rows.filter(row => row.record.plannedTargetTable === table && row.record.disposition === "insert");
+      for (const part of chunks(inserts, options.batchSize)) {
+        // Include soft-deleted rows: any existing ID prevents a new insert.
+        const found = rowsOf(await input.tx.query(`/* hr-prod-phase:before-absent */ SELECT id FROM ${table} WHERE id=ANY($1::uuid[]) FOR UPDATE`, [part.map(row => row.record.targetId)]), "insert absence");
+        if (found.length) fail("PRODUCTION_IMPORT_INSERT_TARGET_EXISTS", table);
+        absent.push(...part.map(row => ({ targetTable: table, targetId: row.record.targetId })));
+      }
+      const existing = rows.filter(row => row.record.plannedTargetTable === table && ["merge", "skip_approved"].includes(row.record.disposition));
+      for (const part of chunks(existing, options.batchSize)) {
+        await selectAndVerifyExisting(input.tx, table, MODEL.targetTables[table], part, input.targetScope);
+        present.push(...part.map(row => ({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version, payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields })));
+      }
+    }
+    if (computeProductionImportTouchedPhaseBefore({ phase: phaseName, targetScope: input.targetScope, rows: present, absent }) !== input.phase.beforeCanonicalSha256) fail("PRODUCTION_IMPORT_PHASE_BEFORE_MISMATCH", phaseName);
   }
   const batchId = options.lab ? await createLabBatch(input.tx, phaseName, options.lab) : await createMigrationBatch(input.tx, input.operationId, phaseName);
   const businessIdentities = new Set();

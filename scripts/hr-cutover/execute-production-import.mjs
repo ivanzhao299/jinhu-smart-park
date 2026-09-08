@@ -39,6 +39,7 @@ export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
   "scripts/hr-cutover/production-import-crypto-provider.mjs",
   "scripts/hr-cutover/production-import-phase-writers.mjs",
   "scripts/hr-cutover/production-import-phase-state.mjs",
+  "scripts/hr-cutover/production-import-plan-phase-builder.mjs",
   "scripts/hr-cutover/production-import-payload-generator.mjs",
   "scripts/hr-cutover/production-t1-local-timestamp.mjs",
   "scripts/hr-cutover/production-import-postgres-adapter.mjs",

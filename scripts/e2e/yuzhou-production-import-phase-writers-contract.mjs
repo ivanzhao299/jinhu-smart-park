@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { computeProductionImportTouchedPhaseState } from "../hr-cutover/production-import-phase-state.mjs";
+import { computeProductionImportTouchedPhaseState, computeProductionImportTouchedPhaseBefore } from "../hr-cutover/production-import-phase-state.mjs";
+import { buildProductionImportPlanPhase } from "../hr-cutover/production-import-plan-phase-builder.mjs";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -71,7 +72,9 @@ function orgRecord(index, disposition = "insert", payload = orgPayload(index), e
   };
 }
 
-function phaseInput(records, payloads, phaseName = "T0") {
+function phaseInput(records, payloads, phaseName = "T0", beforeRows = []) {
+  let beforeCanonicalSha256 = H("invalid-before");
+  try { beforeCanonicalSha256 = computeProductionImportTouchedPhaseBefore({ phase: phaseName, targetScope, rows: beforeRows, absent: records.filter(r => r.disposition === "insert").map(r => ({ targetTable: r.plannedTargetTable, targetId: r.targetId })) }); } catch { /* Intentionally malformed fixtures test writer rejection. */ }
   return {
     operationId,
     targetScope,
@@ -82,7 +85,7 @@ function phaseInput(records, payloads, phaseName = "T0") {
       payloadBundleArtifactSha256: H("artifact"),
       payloadBundleSha256: H("bundle"),
       canonicalizationVersion: "yuzhou-production-import-canonical-json-v1",
-      beforeCanonicalSha256: H("before"),
+      beforeCanonicalSha256,
       expectedAfterCanonicalSha256: H("after"),
       records,
     },
@@ -112,6 +115,52 @@ test("touched phase hash is projected independently and actual SQL row order/typ
   assert.equal(result.afterCanonicalSha256, expected);
   assert.notEqual(result.afterCanonicalSha256, input.phase.expectedAfterCanonicalSha256, "arbitrary expected digest must not be echoed");
   assert.notEqual(expected, computeProductionImportTouchedPhaseState({ phase: "T0", targetScope, rows: [{ ...rows[0], version: 2 }, rows[1]] }));
+});
+
+test("pure phase draft binds absent inserts, quarantine and empty phases to observed before/after", async () => {
+  for (const records of [[orgRecord(901), orgRecord(902, "quarantine")], []]) {
+    const payloads = records.map((_, i) => orgPayload(901 + i));
+    const input = phaseInput(records, payloads);
+    Object.assign(input.payloadBundle, { targetScope, sourceBatchManifestSha256: input.phase.sourceBatchManifestSha256, canonicalizationVersion: input.phase.canonicalizationVersion });
+    const args = { phase: input.phase, payloadBundle: input.payloadBundle, targetScope, baseline: { targetScope, rows: [] } };
+    const phase = buildProductionImportPlanPhase(args);
+    const result = await createProductionImportPhaseWriters({ cryptoProvider }).T0({ ...input, phase, tx: fakeTx() });
+    assert.equal(result.afterCanonicalSha256, phase.expectedAfterCanonicalSha256);
+    assert.equal(phase.beforeCanonicalSha256, input.phase.beforeCanonicalSha256);
+    assert.throws(() => buildProductionImportPlanPhase({ ...args, baseline: { targetScope: { ...targetScope, parkId: "other" }, rows: [] } }), /PRODUCTION_IMPORT_PLAN_PHASE_INVALID/);
+    if (records.length) assert.throws(() => buildProductionImportPlanPhase({ ...args, baseline: { targetScope, rows: [{ targetTable: "sys_org", targetId: records[0].targetId, version: 1, payload: payloads[0], derivedFields: { parent_id: null } }] } }), /PRODUCTION_IMPORT_PLAN_PHASE_INVALID/);
+  }
+});
+
+test("before mismatch, foreign scope and existing insert ID stop before any business write", async () => {
+  for (const mode of ["digest", "scope", "existing"]) {
+    const tx = fakeTx(async sql => sql.includes("before-absent") && mode === "existing" ? { rows: [{ id: orgRecord(903).targetId }] } : { rows: [] });
+    const input = { ...phaseInput([orgRecord(903)], [orgPayload(903)]), tx };
+    if (mode === "digest") input.phase.beforeCanonicalSha256 = H("wrong before");
+    if (mode === "scope") input.targetScope = { ...targetScope, parkId: "other" };
+    await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T0(input), e => e.code === (mode === "existing" ? "PRODUCTION_IMPORT_INSERT_TARGET_EXISTS" : "PRODUCTION_IMPORT_PHASE_BEFORE_MISMATCH"));
+    assert.equal(tx.calls.some(c => c.sql.includes("bulk-insert:") || c.sql.includes("bulk-merge:") || c.sql.includes("create-batch")), false);
+  }
+});
+
+test("pure phase builder requires exact merge and skip baseline values and versions", () => {
+  for (const disposition of ["merge", "skip_approved"]) {
+    const payload = orgPayload(904), old = { targetTable: "sys_org", targetId: orgRecord(904).targetId, version: 7, payload, derivedFields: { parent_id: null } };
+    const record = orgRecord(904, disposition, payload, { expectedTargetBeforeSha256: computeProductionImportTargetCanonicalHash("sys_org", targetScope, payload, old.derivedFields), expectedTargetVersionBefore: 7, targetVersionAfter: disposition === "merge" ? 8 : 7 });
+    const input = phaseInput([record], [payload]);
+    Object.assign(input.payloadBundle, { targetScope, sourceBatchManifestSha256: input.phase.sourceBatchManifestSha256, canonicalizationVersion: input.phase.canonicalizationVersion });
+    const args = { phase: input.phase, payloadBundle: input.payloadBundle, targetScope, baseline: { targetScope, rows: [old] } };
+    assert.equal(buildProductionImportPlanPhase(args).beforeCanonicalSha256, computeProductionImportTouchedPhaseBefore({ phase: "T0", targetScope, rows: [old], absent: [] }));
+    assert.throws(() => buildProductionImportPlanPhase({ ...args, phase: { ...input.phase, records: [{ ...record, dependencyRefs: null }] } }), /PRODUCTION_IMPORT_PLAN_PHASE_INVALID/);
+    if (disposition === "skip_approved") {
+      const changed = { ...payload, org_name: "changed skip" }, payloadSha256 = computeProductionImportPayloadHash(changed);
+      assert.throws(() => buildProductionImportPlanPhase({ ...args,
+        phase: { ...input.phase, records: [{ ...record, payloadSha256, expectedTargetAfterSha256: computeProductionImportTargetCanonicalHash("sys_org", targetScope, changed, old.derivedFields) }] },
+        payloadBundle: { ...input.payloadBundle, records: input.payloadBundle.records.map(p => ({ ...p, payload: changed, payloadSha256 })) },
+      }), /PRODUCTION_IMPORT_PLAN_PHASE_INVALID/);
+    }
+    for (const rows of [[], [{ ...old, version: 6 }], [{ ...old, payload: { ...payload, org_name: "drift" } }], [old, old]]) assert.throws(() => buildProductionImportPlanPhase({ ...args, baseline: { targetScope, rows } }), /PRODUCTION_IMPORT_PLAN_PHASE_INVALID/);
+  }
 });
 
 test("actual after rows reject missing, duplicate, changed fields and changed versions", async () => {
@@ -236,6 +285,7 @@ test("merge and skip lock in bulk and enforce both canonical hash and version CA
     return { rows: [] };
   });
   const input = phaseInput([merge], [afterPayload]);
+  input.phase.beforeCanonicalSha256 = computeProductionImportTouchedPhaseBefore({ phase: "T0", targetScope, rows: [{ targetTable: "sys_org", targetId: merge.targetId, version: 7, payload: beforePayload, derivedFields: { parent_id: null } }], absent: [] });
   input.tx = tx;
   const result = await createProductionImportPhaseWriters({ cryptoProvider })["T0"](input);
   assert.equal(result.records[0].targetVersionAfter, 8);
@@ -287,7 +337,7 @@ test("T1 exact target readback preserves wall-clock microseconds and rejects los
       }
       return { rows: [] };
     });
-    const input = { ...phaseInput([record], [payload], "T1"), tx };
+    const input = { ...phaseInput([record], [payload], "T1", [{ targetTable: table, targetId: record.targetId, version: 3, payload, derivedFields: { employee_id: employeeId } }]), tx };
     if (observed === payload.source_effective_at) assert.equal((await createProductionImportPhaseWriters({ cryptoProvider }).T1(input)).records.length, 1);
     else await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T1(input), e => /^PRODUCTION_IMPORT_/u.test(e.code));
     assert.equal(tx.calls.some(call => /hr-prod-phase:bulk-(?:insert|merge):hr_employment_event/u.test(call.sql)), false);
