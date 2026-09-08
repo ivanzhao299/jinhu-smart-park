@@ -606,6 +606,7 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.doesNotMatch(unitsService, /assertHousingUsageTypeChangeAllowed/);
   assert.match(unitsService, /asset-space:unit:\$\{entity\.assetUnitId\}[\s\S]*lockUnitForPropertyActivityChange/);
   assert.match(unitsService, /lockUnitForPropertyActivityChange/);
+  assert.match(unitsService, /const lockedUnit = await this\.lockUnitForPropertyActivityChange[\s\S]*entity\.assetUnitId = lockedUnit\.asset_unit_id/);
   assert.match(unitsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)/);
   assert.match(unitsService, /dto\.status === 1[\s\S]*FROM asset_unit[\s\S]*is_deleted=false[\s\S]*Restore the asset unit before enabling/);
   assert.match(unitsService, /FOR UPDATE/);

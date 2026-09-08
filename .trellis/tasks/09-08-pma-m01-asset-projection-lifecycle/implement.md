@@ -33,16 +33,16 @@
 
 ## 续跑点
 
-PR #697 第 1 轮 review 提出 1 个 P1（E2E 幂等键，已与首次 Release Smoke 失败同根因修复）及 5 个 P2；已批量补齐 restore 冲突/父链、统一锁顺序、work-order blocker producer 锁和结构化 blockers。第二次 Release Smoke 已走通真实 delete 前置拦截、停用解绑和软删，restore 暴露父级锁 SQL 存在闲置 `$3` 参数并导致 PostgreSQL 无法推断类型；现已将占位符改为连续 `$1..$4` 并补参数绑定断言。第 2 轮 review 另发现 retained disabled 投影可经通用 units update 在源软删后重新启用；现已在启用前按 asset→property 顺序取同一生命周期锁并校验 active source。下一步推送 review 修复、发起第 3（最终）轮 review，并等待 CI/Release Smoke。
+PR #697 第 3（最终）轮 review 已完成，并在 `a27abbfe` 提出 1 个 P2：通用 units update 在生命周期锁前加载旧 mapping，可能在并发 audited unlink 后把旧 `assetUnitId` 写回。已在锁内读取 `biz_unit` 后强制采用最新 `asset_unit_id`，并补静态契约断言；定向测试 17/17、API lint/typecheck、diff check 全绿。此前 PR CI 34178658555（含 Release Smoke 与 property API E2E）已全绿，但该 run 尚未包含最新修复。下一步提交并推送最终 review 修复，等待新 PR CI 全绿后 squash merge；不再发起第 4 轮 review。
 
 ## Cost Summary
 
 Task: M-01 implementation
-Status: ready for PR
-Files changed: assets/property operations services/controllers/tests, property E2E gate/suite/docs/CI scope, Trellis artifacts/spec
-Tests run: 30 focused API tests; property API gate contract; API lint/typecheck/build; JS syntax; diff check
+Status: final review finding fixed; awaiting replacement PR CI
+Files changed: assets/property operations/units services/controllers/tests, property E2E gate/suite/docs/CI scope, Trellis artifacts/spec
+Tests run: 30 focused API tests plus 17-test final review contract; property API gate contract; API lint/typecheck/build; JS syntax; diff check
 Retries: 1 local test-fixture compatibility repair; 1 Release Smoke E2E-key repair; 1 Release Smoke SQL-parameter repair; 2 review batches
 Approx model rounds: COST_GUARD active after threshold
 Repeated scans avoided: two scoped read-only scouts and targeted ranges
 Blocked issues: none
-Next step: commit/push/PR and wait for CI + Release Smoke
+Next step: commit/push final review fix and wait for replacement CI + Release Smoke

@@ -375,6 +375,7 @@ export class UnitsService {
         ]);
       }
       const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      entity.assetUnitId = lockedUnit.asset_unit_id;
       if (dto.status === undefined) entity.status = Number(lockedUnit.status);
       if (dto.status === 1 && lockedUnit.asset_unit_id) {
         const [activeSource] = await manager.query(
