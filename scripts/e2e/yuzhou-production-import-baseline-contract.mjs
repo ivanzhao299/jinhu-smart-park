@@ -116,3 +116,21 @@ test("owned factory connects before SQL and closes on failed connect; borrowed c
   await assert.rejects(() => collectProductionImportBaseline({ ...f.input, client: f.client }, f.options), /PRODUCTION_IMPORT_BASELINE_CLIENT_INVALID/u);
   assert.deepEqual(f.calls, []);
 });
+
+test("Unix socket collector passes explicit host to pg and hashes empty transport components", async t => {
+  const f = setup(t, sql => sql.includes("current_database()") ? { rows: [{ database_name: "synthetic", database_user: "synthetic_reader", server_address: null, server_port: null, database_oid: "123", tenant_exists: true, park_exists: true }] } : undefined);
+  f.binding.serverIdentity.address = null; f.binding.serverIdentity.port = null;
+  f.binding.targetIdentitySha256 = H(`yuzhou-hr-production-target-v1:${[f.binding.database, f.binding.databaseUser, "", "", "123", f.binding.targetScope.tenantId, f.binding.targetScope.parkId].join("\x1f")}`);
+  f.input.connection.host = "/synthetic/postgres-socket";
+  let creations = 0;
+  const value = await collectProductionImportBaseline(f.input, { createClient(options) { creations += 1; assert.equal(options.host, "/synthetic/postgres-socket"); assert.equal(options.port, 5432); return f.client; } });
+  assert.equal(creations, 1); assert.equal(value.targetIdentitySha256, f.binding.targetIdentitySha256);
+});
+
+test("Unix socket observations cannot reuse a TCP identity hash", async t => {
+  const f = setup(t, sql => sql.includes("current_database()") ? { rows: [{ database_name: "synthetic", database_user: "synthetic_reader", server_address: null, server_port: null, database_oid: "123", tenant_exists: true, park_exists: true }] } : undefined);
+  f.binding.serverIdentity.address = null; f.binding.serverIdentity.port = null; f.input.connection.host = "/synthetic/postgres-socket";
+  await assert.rejects(() => collectProductionImportBaseline(f.input, f.options), e => e.code === "PRODUCTION_IMPORT_BASELINE_IDENTITY_MISMATCH");
+  assert.equal(f.calls.some(c => c[0].includes("hr-prod-baseline:absence")), false);
+  assert.equal(f.calls.at(-2)[0], "ROLLBACK"); assert.equal(f.calls.at(-1)[0], "end");
+});

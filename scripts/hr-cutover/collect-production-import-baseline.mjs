@@ -50,7 +50,7 @@ async function collectConnectedBaseline({ client, binding, triple, phases, expir
     await client.query("SELECT set_config('statement_timeout',$1,true),set_config('idle_in_transaction_session_timeout',$1,true),set_config('TimeZone','Asia/Shanghai',true),set_config('application_name','jinhu_hr_prod_import:baseline_readonly',true)", [String(statementTimeoutMs)]);
     const observed = await adapter.probeTarget({ targetIdentitySha256: binding.targetIdentitySha256, targetScope: binding.targetScope });
     // Exact existing snapshot algorithm; current_user intentionally participates.
-    const material = [observed.database, observed.databaseUser, observed.serverIdentity.address, String(observed.serverIdentity.port), observed.serverIdentity.databaseOid, observed.targetScope.tenantId, observed.targetScope.parkId].join("\x1f");
+    const material = [observed.database, observed.databaseUser, observed.serverIdentity.address ?? "", observed.serverIdentity.port === null ? "" : String(observed.serverIdentity.port), observed.serverIdentity.databaseOid, observed.targetScope.tenantId, observed.targetScope.parkId].join("\x1f");
     if (digest(`yuzhou-hr-production-target-v1:${material}`) !== binding.targetIdentitySha256) fail("IDENTITY_MISMATCH");
     const collected = {};
     for (const phase of MODEL.phaseOrder) {

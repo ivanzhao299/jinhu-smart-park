@@ -122,6 +122,12 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 私有 plan 两阶段物化（2026-09-09）
 
+传输身份必须来自实际连接：TCP 为非空 address/合法 port，Unix socket 仅允许
+address=null 且 port=null。collector 对 null/null 使用诊断脚本相同的空串参与
+identity hash；不将 null 转成 0 或字面 "null"。Unix socket 通过显式 pg host 目录
+连接，不在 TCP 失败时回退。本设计支持该形状，不证明当前生产实际使用哪种传输；
+实际 database/user/OID/scope/transport 与固定 identity 仍须完全一致。
+
 定向 baseline collector 使用单连接 REPEATABLE READ READ ONLY 事务，显式 statement/
 idle timeout 与业务时区；目标 probe 和全部分批 ID 查询位于同一快照。目标身份按现有
 snapshot 的 database/user/address/port/oid/tenant/park 与 0x1f 分隔算法重算，不把
