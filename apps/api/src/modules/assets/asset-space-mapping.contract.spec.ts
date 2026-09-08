@@ -11,6 +11,7 @@ const propertyOperationsModule = readFileSync(resolve(process.cwd(), "src/module
 const propertyOperationsController = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.controller.ts"), "utf8");
 const propertyOperationsService = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.service.ts"), "utf8");
 const propertyOperationsDto = readFileSync(resolve(process.cwd(), "src/modules/property-operations/dto/configure-property-unit.dto.ts"), "utf8");
+const workOrdersService = readFileSync(resolve(process.cwd(), "src/modules/work-orders/work-orders.service.ts"), "utf8");
 const mappingDto = readFileSync(resolve(process.cwd(), "src/modules/assets/dto/map-asset-space.dto.ts"), "utf8");
 
 test("mapping endpoints retain granular permissions and true HTTP idempotency", () => {
@@ -52,10 +53,17 @@ test("mapping service is composed without creating an assets and units module cy
   assert.doesNotMatch(propertyOperationsModule, /AssetsModule/u);
 });
 
-test("explicit operating-unit unlink remains the M-01 handoff contract", () => {
+test("M-01 explicit operating-unit decommission and restore lifecycle is enforced", () => {
   assert.match(propertyOperationsController, /@Controller\("property\/units"\)/u);
   assert.match(propertyOperationsController, /@Put\(":unitId\/operation"\)/u);
   assert.match(propertyOperationsDto, /asset_unit_id\?: string \| null/u);
   assert.match(propertyOperationsService, /dto\.asset_unit_id !== null/u);
   assert.match(propertyOperationsService, /unlinkExistingUnit/u);
+  assert.match(propertyOperationsService, /Operating unit must be disabled before unlinking the asset unit/u);
+  assert.match(propertyOperationsService, /Operating unit decommission is blocked/u);
+  assert.match(propertyOperationsService, /lockUnitLifecycle[\s\S]*lock_property_unit_scope/u);
+  assert.match(controller, /@Post\("units\/:id\/restore"\)/u);
+  assert.match(service, /lockUnitLifecycle/u);
+  assert.match(workOrdersService, /async create[\s\S]*lock_property_unit_scope/u);
+  assert.match(workOrdersService, /previousUnitId[\s\S]*lockedUnitIds[\s\S]*\.sort\(\)/u);
 });

@@ -231,4 +231,12 @@ export class AssetsController {
   deleteUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.assetsService.deleteUnit(scope, user, id);
   }
+
+  @Post("units/:id/restore")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_UPDATE)
+  @AuditLog({ module: "房源管理", resource: "asset.unit", action: "恢复", bizType: "asset_unit", bizIdParam: "id" })
+  restoreUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
+    return this.assetsService.restoreUnit(scope, user, id);
+  }
 }

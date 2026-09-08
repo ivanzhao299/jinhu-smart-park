@@ -13,6 +13,7 @@
 - `POST /assets/buildings/:id/operating-building`, body `{ mode: "create" | "link", businessId?: uuid, reason: string }`
 - `POST /assets/floors/:id/operating-floor`, same discriminator contract.
 - `POST /assets/units/:id/operating-unit`, body includes `usageType`, `rentalStatus`, `fittingStatus`, optional operating values, and `reason`.
+- `POST /assets/units/:id/restore` restores the same soft-deleted physical source after scoped parent-chain validation; it never guesses or recreates an operating mapping.
 - Every write requires `X-Idempotency-Key` (8–128 characters).
 - DB mappings: `biz_building.asset_building_id`, `biz_floor.asset_floor_id`, existing `biz_unit.asset_unit_id`, plus append-only `biz_asset_space_mapping_audit`.
 
@@ -23,11 +24,17 @@
 - An active asset object maps to at most one active operating object. The service and database both enforce scope and parent-chain identity.
 - Source numeric values remain PostgreSQL decimal strings through the service; do not round-trip them through JavaScript arithmetic.
 - Create, link, and unlink append reason, operator, idempotency key, source/target ids, and snapshot to immutable audit history.
+- Deleting and restoring an asset unit acquire the same scope/entity/asset advisory lock as mapping. An active operating unit blocks source deletion. Explicit unlink is accepted only in the same operation command that disables the operating configuration and only after the shared transition snapshot reports no current occupancy, contract, checkout, work-order, or unsettled-finance blocker.
+- Mapping changes acquire the asset-unit advisory lock before the shared property-unit lock. Work-order create and unit reassignment acquire the property-unit lock before writing, so a decommission snapshot and blocker-producing writes have a serial order.
+- A generic operating-unit update that loaded a mapping before acquiring those locks must overwrite its in-memory `assetUnitId` with the value reread from the locked `biz_unit` row before saving. It may preserve the latest mapping but must never restore an asset link that a concurrent audited unlink already removed.
+- A retained disabled mapping survives source soft-delete and is validated on restore. A prior explicit unlink remains unlinked after restore; restoration must not infer a target from audit history or equal codes.
 - A trigger function shared by heterogeneous tables must test table-specific fields through `to_jsonb(NEW)->>'field'`; direct `NEW.table_specific_field` access in a branch condition is unsafe because PostgreSQL binds the record field for every attached row type.
 
 ### 4. Validation & Error Matrix
 
 - source absent, deleted, or outside scope -> not found.
+- restore of a non-deleted source, cross-scope source, or source outside data scope -> not found.
+- restore with a retained mapping whose operating parent chain is no longer valid -> conflict and leave the source deleted.
 - parent mapping absent or points at a different source parent -> conflict.
 - target code already active -> conflict; do not silently rename.
 - same idempotency key and same request -> original target.
@@ -46,6 +53,7 @@
 - Static schema assertions: active unique indexes, parent-chain triggers, append-only audit, and `to_jsonb(NEW)` field guards.
 - Controller contract: granular asset create permissions, audit decorator, and true idempotency interceptor.
 - Disposable PostgreSQL: two different keys race on one asset unit; assert one success, one conflict, one `biz_unit`, winning-key replay, and exact decimal strings.
+- Generic operating-unit update contract: after lifecycle and property locks, assert the saved entity uses the locked row's current `asset_unit_id`, including a concurrent unlink that changed it to `NULL`.
 - Browser: authenticated desktop and 390px checks; incomplete parents disable later actions and errors render inside the drawer.
 
 ### 7. Wrong vs Correct
