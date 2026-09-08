@@ -191,14 +191,14 @@ test("manager employee scope is derived from tenant and park bounded organizatio
 test("employee list detail and self projection is an exact allowlist",()=>{
   const row={
     id:"employee-1",employeeCode:"JH-001",fullName:"测试员工",userId:"user-1",primaryOrgId:"org-1",
-    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",
+    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",legacyJobstateCode:"1",legacyJobstateName:"在职人员",
     hireDate:"2026-01-01",departureDate:null,workLocation:"园区",workMobile:"13800000000",workEmail:"employee@example.test",
     probationEndDate:"2026-03-31",attendanceCardNo:"secret-card",tenantId:"tenant-1",parkId:"park-1",
     createBy:"creator",createTime:new Date(),updateBy:"updater",updateTime:new Date(),isDeleted:false,version:7,remark:"internal"
   } as HrEmployeeEntity;
   assert.deepEqual(projectHrEmployee(row),{
     id:"employee-1",employeeCode:"JH-001",fullName:"测试员工",userId:"user-1",primaryOrgId:"org-1",
-    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",
+    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",legacyJobstateCode:"1",legacyJobstateName:"在职人员",
     hireDate:"2026-01-01",departureDate:null,workLocation:"园区",workMobile:"13800000000",workEmail:"employee@example.test"
   });
   for(const forbidden of ["tenantId","parkId","attendanceCardNo","probationEndDate","createBy","createTime","updateBy","updateTime","isDeleted","version","remark"]){

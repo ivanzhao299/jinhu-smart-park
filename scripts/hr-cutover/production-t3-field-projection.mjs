@@ -7,7 +7,10 @@ const SHA = /^[0-9a-f]{64}$/u;
 const hash = value => createHash("sha256").update(value).digest("hex");
 const plain = value => value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
 const kinds = new Set(["oldage", "remedy", "losework", "fund", "wound", "bear"]);
-const symbols = new Map([["普通班次", "standard_shift"], ["晚上班", "night_shift"]]);
+// N1/N2 are documented by the controlled legacy schema as weekend and
+// statutory-holiday markers. N remains unresolved because the source schema
+// provides no stable semantic definition for it.
+const symbols = new Map([["普通班次", "standard_shift"], ["晚上班", "night_shift"], ["N1", "weekend"], ["N2", "statutory_holiday"]]);
 const sourceFields = { "dbo.timekeeptable": ["id", "calendarName", "year", "month"], "dbo.insure_method": ["id", "name", "scope"], "dbo.person_insure": ["id", "year", "month", "employeeCode"] };
 const policyKeys = ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate", "baseFixedAmount", "employerFixedAmount", "employeeFixedAmount", "supplementFixedAmount"];
 const legacyPolicyKeys = ["kind", "variant", "baseRate", "employerRate", "employeeRate", "supplementRate"];

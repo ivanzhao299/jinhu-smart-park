@@ -90,9 +90,15 @@ END $$;
 CREATE TEMP TABLE stg_department(payload jsonb NOT NULL);
 CREATE TEMP TABLE stg_position(payload jsonb NOT NULL);
 CREATE TEMP TABLE stg_employee(payload jsonb NOT NULL);
-COPY stg_department(payload) FROM :'dep_path';
-COPY stg_position(payload) FROM :'pos_path';
-COPY stg_employee(payload) FROM :'emp_path';
+-- JSON payloads contain ordinary backslashes (for example escaped control
+-- characters). PostgreSQL text COPY otherwise treats them as COPY escapes
+-- before jsonb parsing, which can turn an escaped CR into a literal CR and
+-- abort the transaction. CSV mode lets us choose private delimiter/quote/
+-- escape sentinels that do not occur in JSON, so each line remains one field
+-- and the payload is transported byte-for-byte.
+COPY stg_department(payload) FROM :'dep_path' WITH (FORMAT csv, DELIMITER E'\x01', QUOTE E'\x02', ESCAPE E'\x01');
+COPY stg_position(payload) FROM :'pos_path' WITH (FORMAT csv, DELIMITER E'\x01', QUOTE E'\x02', ESCAPE E'\x01');
+COPY stg_employee(payload) FROM :'emp_path' WITH (FORMAT csv, DELIMITER E'\x01', QUOTE E'\x02', ESCAPE E'\x01');
 
 -- Validate every legacy value that this loader will cast before any target write.
 -- The helpers intentionally return only a boolean: the journal must identify the
@@ -202,9 +208,9 @@ INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extr
 SELECT id,'organization','dbo.departmentcode','load','running',138,138,0,0,:'dep_sha',now() FROM b
 UNION ALL SELECT id,'position','dbo.job','load','running',18,18,0,0,:'pos_sha',now() FROM b
 UNION ALL SELECT id,'employee','dbo.person','load','running',2949,
-  (SELECT count(*) FROM stg_employee_decision WHERE decision='map' AND target_domain='employment_status'
+  (SELECT count(*) FROM stg_employee_decision WHERE decision='map' AND target_domain='employee_employment_status'
     AND target_value IN('active','probation','suspended','departed')),0,
-  (SELECT count(*) FROM stg_employee_decision WHERE (decision='map' AND target_domain='employment_status'
+  (SELECT count(*) FROM stg_employee_decision WHERE (decision='map' AND target_domain='employee_employment_status'
     AND target_value IN('active','probation','suspended','departed')) IS NOT TRUE),:'emp_sha',now() FROM b;
 
 INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,legacy_source_id,legacy_hierarchy_level,legacy_manager_reference,planned_headcount,contact_phone,sort_order,status,remark)
@@ -235,16 +241,31 @@ DO $$ BEGIN
     SELECT 1 FROM stg_position s
     WHERE NOT (s.payload->'source' ? 'legacyUptoCode')
   ) THEN RAISE EXCEPTION 'T0 position omitted legacy upto structural field'; END IF;
-  IF EXISTS (
-    SELECT 1 FROM stg_position s
-    WHERE NULLIF(btrim(s.payload->'source'->>'departmentCode'),'') IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM sys_org o
-        WHERE o.tenant_id::text=current_setting('yuzhou.tenant_id') AND o.park_id::text=current_setting('yuzhou.park_id')
-          AND o.org_code=s.payload->'source'->>'departmentCode' AND o.is_deleted=false
-      )
-  ) THEN RAISE EXCEPTION 'T0 position references an unknown organization'; END IF;
 END $$;
+
+CREATE TEMP TABLE stg_position_relation AS
+SELECT s.payload,
+  CASE WHEN (NULLIF(btrim(s.payload->'source'->>'departmentCode'),'') IS NULL
+    OR EXISTS (
+      SELECT 1 FROM sys_org o
+      WHERE o.tenant_id::text=current_setting('yuzhou.tenant_id')
+        AND o.park_id::text=current_setting('yuzhou.park_id')
+        AND o.org_code=btrim(s.payload->'source'->>'departmentCode')
+        AND o.remark LIKE 'Migrated from Yuzhou V10; run='||current_setting('yuzhou.run_id')
+        AND o.is_deleted=false
+    )) AND (NULLIF(btrim(s.payload->'source'->>'parentPositionCode'),'') IS NULL
+      OR EXISTS (SELECT 1 FROM stg_position parent WHERE parent.payload->>'sourceKey'=btrim(s.payload->'source'->>'parentPositionCode')))
+    THEN 'map' ELSE 'quarantine' END AS relation_status,
+  CASE WHEN NULLIF(btrim(s.payload->'source'->>'departmentCode'),'') IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM sys_org o
+      WHERE o.tenant_id::text=current_setting('yuzhou.tenant_id') AND o.park_id::text=current_setting('yuzhou.park_id')
+        AND o.org_code=btrim(s.payload->'source'->>'departmentCode') AND o.is_deleted=false
+    ) THEN 'POSITION_ORG_UNRESOLVED'
+    WHEN NULLIF(btrim(s.payload->'source'->>'parentPositionCode'),'') IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM stg_position parent WHERE parent.payload->>'sourceKey'=btrim(s.payload->'source'->>'parentPositionCode'))
+    THEN 'POSITION_PARENT_UNRESOLVED' ELSE NULL END AS relation_reason
+FROM stg_position s;
 
 INSERT INTO hr_position(tenant_id,park_id,org_id,reports_to_position_id,position_code,position_name,job_family,job_level,headcount_limit,hierarchy_level,sort_order,legacy_source_id,legacy_upto_code,authority,qualification,responsibilities,position_manual,status,remark)
 SELECT :'tenant_id',:'park_id',COALESCE(dept.id,root_org.id),NULL,s.payload->>'sourceKey',s.payload->'source'->>'positionName',
@@ -253,16 +274,17 @@ SELECT :'tenant_id',:'park_id',COALESCE(dept.id,root_org.id),NULL,s.payload->>'s
   NULLIF(btrim(s.payload->'source'->>'authority'),''),NULLIF(btrim(s.payload->'source'->>'qualification'),''),
   NULLIF(btrim(s.payload->'source'->>'responsibilities'),''),NULLIF(btrim(s.payload->'source'->>'positionManual'),''),
   'enabled','Migrated from Yuzhou V10; run='||:'run_id'
-FROM stg_position s
-LEFT JOIN sys_org dept ON dept.tenant_id::text=:'tenant_id' AND dept.park_id::text=:'park_id' AND dept.org_code=s.payload->'source'->>'departmentCode' AND dept.is_deleted=false
-JOIN sys_org root_org ON root_org.tenant_id::text=:'tenant_id' AND root_org.park_id::text=:'park_id' AND root_org.org_code='000' AND root_org.is_deleted=false;
+FROM stg_position_relation s
+LEFT JOIN sys_org dept ON dept.tenant_id::text=:'tenant_id' AND dept.park_id::text=:'park_id' AND dept.org_code=btrim(s.payload->'source'->>'departmentCode') AND dept.is_deleted=false AND dept.remark LIKE 'Migrated from Yuzhou V10; run='||:'run_id'
+JOIN sys_org root_org ON root_org.tenant_id::text=:'tenant_id' AND root_org.park_id::text=:'park_id' AND root_org.org_code='000' AND root_org.is_deleted=false AND root_org.remark LIKE 'Migrated from Yuzhou V10; run='||:'run_id'
+WHERE s.relation_status='map';
 
 UPDATE hr_position child
 SET reports_to_position_id=parent.id
-FROM stg_position source
+FROM stg_position_relation source
 JOIN hr_position parent
   ON parent.tenant_id::text=:'tenant_id' AND parent.park_id::text=:'park_id'
- AND parent.position_code=source.payload->'source'->>'parentPositionCode' AND parent.is_deleted=false
+ AND parent.position_code=btrim(source.payload->'source'->>'parentPositionCode') AND parent.is_deleted=false
 WHERE child.tenant_id::text=:'tenant_id' AND child.park_id::text=:'park_id'
   AND child.position_code=source.payload->>'sourceKey' AND child.is_deleted=false
   AND child.remark='Migrated from Yuzhou V10; run='||:'run_id'
@@ -270,33 +292,47 @@ WHERE child.tenant_id::text=:'tenant_id' AND child.park_id::text=:'park_id'
 
 DO $$ BEGIN
   IF EXISTS (
-    SELECT 1 FROM stg_position source
+    SELECT 1 FROM stg_position_relation source
     JOIN hr_position child ON child.tenant_id::text=current_setting('yuzhou.tenant_id') AND child.park_id::text=current_setting('yuzhou.park_id')
       AND child.position_code=source.payload->>'sourceKey' AND child.is_deleted=false
-    WHERE NULLIF(btrim(source.payload->'source'->>'parentPositionCode'),'') IS NOT NULL
+    WHERE source.relation_status='map' AND NULLIF(btrim(source.payload->'source'->>'parentPositionCode'),'') IS NOT NULL
       AND child.reports_to_position_id IS NULL
   ) THEN RAISE EXCEPTION 'T0 position references an unknown parent position'; END IF;
 END $$;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
 INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status)
-SELECT b.id,'yuzhou-v10','dbo.job','job='||(s.payload->>'sourceKey'),s.payload->>'sourceIdentitySha256',s.payload->>'sourceRowSha256','hr_position',p.id,'loaded'
-FROM stg_position s CROSS JOIN b JOIN hr_position p ON p.tenant_id=:'tenant_id' AND p.park_id=:'park_id' AND p.position_code=s.payload->>'sourceKey' AND p.is_deleted=false;
+SELECT b.id,'yuzhou-v10','dbo.job','job='||(s.payload->>'sourceKey'),s.payload->>'sourceIdentitySha256',s.payload->>'sourceRowSha256','hr_position',p.id,
+  CASE WHEN s.relation_status='map' THEN 'loaded' ELSE 'quarantined' END
+FROM stg_position_relation s CROSS JOIN b
+LEFT JOIN hr_position p ON p.tenant_id=:'tenant_id' AND p.park_id=:'park_id' AND p.position_code=s.payload->>'sourceKey' AND p.is_deleted=false;
+
+WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELECT id,batch_id FROM migration_batch_item WHERE domain='position' AND source_object='dbo.job' AND phase='load')
+INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable)
+SELECT b.id,item.id,'mapping',s.relation_reason,s.payload->>'sourceIdentitySha256',
+  jsonb_build_object('rule',lower(s.relation_reason)),true,false
+FROM b CROSS JOIN item CROSS JOIN stg_position_relation s
+WHERE s.relation_status='quarantine';
 
 WITH valid_employee AS (
-  SELECT * FROM stg_employee_decision WHERE decision='map' AND target_domain='employment_status'
+  SELECT * FROM stg_employee_decision WHERE decision='map' AND target_domain='employee_employment_status'
     AND target_value IN('active','probation','suspended','departed')
   )
-INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,hire_date,probation_end_date,departure_date,remark)
+INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,legacy_jobstate_code,legacy_jobstate_name,hire_date,probation_end_date,departure_date,remark)
 SELECT :'tenant_id',:'park_id',s.payload->>'sourceKey',s.payload->'source'->>'fullName',o.id,p.id,
-  'full_time',s.target_value,
+  CASE WHEN lower(s.payload->'source'->>'legacyStatus')='a' THEN 'temporary' ELSE 'full_time' END,s.target_value,
+  NULLIF(btrim(s.payload->'source'->>'legacyStatus'),'')::varchar(8),
+  CASE lower(s.payload->'source'->>'legacyStatus')
+    WHEN '1' THEN '在职人员' WHEN '2' THEN '退休人员' WHEN '3' THEN '离休人员'
+    WHEN '4' THEN '离职人员' WHEN '5' THEN '内退人员' WHEN '6' THEN '试用人员'
+    WHEN 'a' THEN '临时人员' WHEN 'b' THEN '未办退厂手续' ELSE NULL END,
   NULLIF(btrim(s.payload->'source'->>'hireDate'),'')::date,NULLIF(btrim(s.payload->'source'->>'formalDate'),'')::date,
   CASE WHEN NULLIF(btrim(s.payload->'source'->>'hireDate'),'') IS NOT NULL AND NULLIF(btrim(s.payload->'source'->>'departureDate'),'') IS NOT NULL
       AND btrim(s.payload->'source'->>'departureDate')::date < btrim(s.payload->'source'->>'hireDate')::date THEN NULL
     ELSE NULLIF(btrim(s.payload->'source'->>'departureDate'),'')::date END,
   'Migrated from Yuzhou V10; legacy_status='||(s.payload->'source'->>'legacyStatus')||'; legacy_date_order=review_required; run='||:'run_id'
 FROM valid_employee s
-JOIN sys_org o ON o.tenant_id::text=:'tenant_id' AND o.park_id::text=:'park_id' AND o.org_code=s.payload->'source'->>'departmentCode' AND o.is_deleted=false
+JOIN sys_org o ON o.tenant_id::text=:'tenant_id' AND o.park_id::text=:'park_id' AND o.org_code=btrim(s.payload->'source'->>'departmentCode') AND o.is_deleted=false AND o.remark LIKE 'Migrated from Yuzhou V10; run='||:'run_id'
 LEFT JOIN hr_position p ON p.tenant_id=:'tenant_id' AND p.park_id=:'park_id' AND p.position_code=s.payload->'source'->>'positionCode' AND p.is_deleted=false;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
@@ -314,10 +350,18 @@ UNION ALL
 SELECT b.id,item.id,'mapping','EMPLOYEE_JOB_STATE_UNRESOLVED',s.payload->>'sourceIdentitySha256',
        jsonb_build_object('rule','approved_dictionary_mapping_required'),true,false
 FROM stg_employee_decision s CROSS JOIN b JOIN item ON item.batch_id=b.id
-WHERE (s.decision='map' AND s.target_domain='employment_status' AND s.target_value IN('active','probation','suspended','departed')) IS NOT TRUE;
+WHERE (s.decision='map' AND s.target_domain='employee_employment_status' AND s.target_value IN('active','probation','suspended','departed')) IS NOT TRUE;
 
-UPDATE migration_batch_item i SET loaded_count=x.loaded_count,status=CASE WHEN i.rejected_count>0 THEN 'quarantined' ELSE 'succeeded' END,finished_at=now(),update_time=now()
-FROM (VALUES ('organization',138::bigint),('position',18::bigint),('employee',(SELECT count(*)::bigint FROM hr_employee WHERE tenant_id=:'tenant_id' AND park_id=:'park_id' AND remark LIKE '%run='||:'run_id'))) x(domain,loaded_count)
+WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELECT id,batch_id FROM migration_batch_item WHERE domain='employee' AND source_object='dbo.person' AND phase='load')
+INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable)
+SELECT b.id,item.id,'mapping','EMPLOYEE_POSITION_UNRESOLVED',s.payload->>'sourceIdentitySha256',
+  jsonb_build_object('rule','position_reference_quarantined'),true,false
+FROM b CROSS JOIN item CROSS JOIN stg_employee_decision s
+WHERE NULLIF(btrim(s.payload->'source'->>'positionCode'),'') IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM hr_position p WHERE p.tenant_id=:'tenant_id' AND p.park_id=:'park_id' AND p.position_code=s.payload->'source'->>'positionCode' AND p.is_deleted=false);
+
+UPDATE migration_batch_item i SET loaded_count=x.loaded_count,rejected_count=x.rejected_count,valid_count=x.loaded_count,status=CASE WHEN x.rejected_count>0 THEN 'quarantined' ELSE 'succeeded' END,finished_at=now(),update_time=now()
+FROM (VALUES ('organization',138::bigint,0::bigint),('position',(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND m.target_table='hr_position' AND m.mapping_status='loaded'),(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND m.target_table='hr_position' AND m.mapping_status='quarantined')),('employee',(SELECT count(*)::bigint FROM hr_employee WHERE tenant_id=:'tenant_id' AND park_id=:'park_id' AND remark LIKE '%run='||:'run_id'),(SELECT count(DISTINCT e.source_identity_sha256) FROM migration_error e WHERE e.batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND e.error_code='EMPLOYEE_JOB_STATE_UNRESOLVED'))) x(domain,loaded_count,rejected_count)
 WHERE i.batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND i.domain=x.domain;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')

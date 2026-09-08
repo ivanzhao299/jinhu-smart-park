@@ -12,7 +12,7 @@ export function isHrLegacyPersonCode(value: unknown): value is string {
 }
 
 export type HrEmployeeStatus = (typeof HR_EMPLOYEE_STATUSES)[number];
-export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contractor"] as const;
+export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contractor", "temporary"] as const;
 export type HrEmploymentType = (typeof HR_EMPLOYMENT_TYPES)[number];
 export const HR_ACCESS_ROLES = ["HR_MANAGER", "DEPARTMENT_MANAGER", "EMPLOYEE_SELF_SERVICE"] as const;
 export type HrAccessRole = (typeof HR_ACCESS_ROLES)[number];
