@@ -4,6 +4,8 @@
 >
 > 本文汇总稳定模型和权威来源，不替代可执行规范。若历史 PRD/UAT、本文与实现细节冲突，以 `packages/shared` 的 ABI 和 `.trellis/spec` 的当前可执行契约为准；UAT 只证明其记录的提交、环境和层级。
 
+三模块的模型、状态机、owner workflow、事件/投影、身份/审批与 schema 总图见 [房产业务 canonical 领域蓝图](property-canonical-domain-blueprint.md)。本文保留为快速当前态入口。
+
 ## 1. 领域边界与现行术语
 
 | 概念 | 稳定 code / 数据域 | 当前显示名或职责 |

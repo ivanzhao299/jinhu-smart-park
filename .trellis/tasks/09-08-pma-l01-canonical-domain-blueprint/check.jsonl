@@ -1,0 +1,4 @@
+{"file":"docs/architecture/property-canonical-domain-blueprint.md","reason":"Verify blueprint completeness and no future-boundary overclaim"}
+{"file":"scripts/e2e/property-canonical-domain-blueprint.contract.mjs","reason":"Verify deterministic status/endpoint/schema drift detection"}
+{"file":"package.json","reason":"Verify test gate registration"}
+{"file":".github/workflows/ci.yml","reason":"Verify CI integration"}

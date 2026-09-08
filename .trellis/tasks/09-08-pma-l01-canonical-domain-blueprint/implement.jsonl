@@ -1,0 +1,8 @@
+{"file":"docs/reviews/property-modules-modernization-audit-2026-09-04.md","reason":"L-01 source requirement and PMA-001~007 evidence"}
+{"file":"docs/architecture/property-current-state-index.md","reason":"Current authority entry and terminology"}
+{"file":"docs/architecture/shared-property-foundation.md","reason":"Stable shared property model summary"}
+{"file":".trellis/spec/api/backend/shared-property-occupancy.md","reason":"Executable occupancy and rental projection contract"}
+{"file":".trellis/spec/api/backend/property-approval-domain-effects.md","reason":"Approval owner/effect contract"}
+{"file":"packages/shared/src/index.ts","reason":"Canonical shared enums"}
+{"file":"packages/shared/src/property-business/track-b-endpoint-permissions.ts","reason":"Canonical endpoint permission validator"}
+{"file":"scripts/e2e/property-role-template-reconcile-contract.mjs","reason":"Existing cross-source contract test pattern"}
