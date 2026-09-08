@@ -11,8 +11,8 @@
 - [x] 补隔离 run-id HTTP API E2E 与清理。
 - [x] 运行定向 unit/PG/API E2E、API lint/typecheck/build、diff check。
 - [x] `trellis-check` review，最多三轮；同根因自动修复最多两次。
-- [ ] commit/push/PR，等待 PR CI，squash merge。
-- [ ] 核验 main CI + Deploy 双绿，关闭 Issue，归档任务。
+- [x] commit/push/PR，等待 PR CI，squash merge。
+- [x] 核验 main CI + Deploy 双绿，关闭 Issue，归档任务。
 
 ## 验证命令（按实际脚本校准）
 
@@ -33,16 +33,16 @@
 
 ## 续跑点
 
-PR #697 第 3（最终）轮 review 已完成，并在 `a27abbfe` 提出 1 个 P2：通用 units update 在生命周期锁前加载旧 mapping，可能在并发 audited unlink 后把旧 `assetUnitId` 写回。已在锁内读取 `biz_unit` 后强制采用最新 `asset_unit_id`，并补静态契约断言；定向测试 17/17、API lint/typecheck、diff check 全绿。此前 PR CI 34178658555（含 Release Smoke 与 property API E2E）已全绿，但该 run 尚未包含最新修复。下一步提交并推送最终 review 修复，等待新 PR CI 全绿后 squash merge；不再发起第 4 轮 review。
+PR #697 第 3（最终）轮 review 的 1 个 P2 已由 `56987acb` 修复：通用 units update 在锁内采用最新 `asset_unit_id`，避免并发 audited unlink 后写回旧映射。替换 PR CI `34180956408` 全绿后已 squash merge，main merge SHA 为 `062515eff98d461779f7eeaf65d95a012c0834c2`。同 SHA 的 main CI `34182912206`（含 Release Smoke/property API E2E）与 Deploy Production `34182912123` 均成功；Issue #696 已关闭。未发起第 4 轮 review，满足最多三轮约束。
 
 ## Cost Summary
 
 Task: M-01 implementation
-Status: final review finding fixed; awaiting replacement PR CI
+Status: complete; PR #697 merged, main CI and Deploy green, Issue #696 closed
 Files changed: assets/property operations/units services/controllers/tests, property E2E gate/suite/docs/CI scope, Trellis artifacts/spec
 Tests run: 30 focused API tests plus 17-test final review contract; property API gate contract; API lint/typecheck/build; JS syntax; diff check
-Retries: 1 local test-fixture compatibility repair; 1 Release Smoke E2E-key repair; 1 Release Smoke SQL-parameter repair; 2 review batches
+Retries: 1 local test-fixture compatibility repair; 1 Release Smoke E2E-key repair; 1 Release Smoke SQL-parameter repair; 3 review rounds
 Approx model rounds: COST_GUARD active after threshold
 Repeated scans avoided: two scoped read-only scouts and targeted ranges
 Blocked issues: none
-Next step: commit/push final review fix and wait for replacement CI + Release Smoke
+Next step: archive M-01, then start M-03 strictly serially
