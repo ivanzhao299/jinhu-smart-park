@@ -604,8 +604,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(leasingContractsService, /originalRelations\.some\(\(relation\) => relation\.unit\?\.usageType === UNIT_USAGE_HOUSING\)/);
   assert.match(leasingContractsService, /Housing units cannot be linked to commercial leasing contracts/);
   assert.doesNotMatch(unitsService, /assertHousingUsageTypeChangeAllowed/);
+  assert.match(unitsService, /asset-space:unit:\$\{entity\.assetUnitId\}[\s\S]*lockUnitForPropertyActivityChange/);
   assert.match(unitsService, /lockUnitForPropertyActivityChange/);
   assert.match(unitsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)/);
+  assert.match(unitsService, /dto\.status === 1[\s\S]*FROM asset_unit[\s\S]*is_deleted=false[\s\S]*Restore the asset unit before enabling/);
   assert.match(unitsService, /FOR UPDATE/);
   assert.match(unitsService, /preserveLatestUsageTypeBeforeExistingUnitSave/);
   assert.match(unitsService, /entity\.usageType = Number\(lockedUnit\.usage_type\)/);

@@ -369,7 +369,25 @@ export class UnitsService {
     entity.updateBy = actor.sub;
 
     return this.unitsRepository.manager.transaction(async (manager) => {
+      if (entity.assetUnitId) {
+        await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${scope.tenantId}:${scope.parkId}:asset-space:unit:${entity.assetUnitId}`
+        ]);
+      }
       const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      if (dto.status === undefined) entity.status = Number(lockedUnit.status);
+      if (dto.status === 1 && lockedUnit.asset_unit_id) {
+        const [activeSource] = await manager.query(
+          `SELECT id
+             FROM asset_unit
+            WHERE id=$1 AND tenant_id::text=$2 AND park_id::text=$3 AND is_deleted=false
+            FOR UPDATE`,
+          [lockedUnit.asset_unit_id, scope.tenantId, scope.parkId]
+        ) as Array<{ id: string }>;
+        if (!activeSource) {
+          throw new ConflictException("Restore the asset unit before enabling its operating projection");
+        }
+      }
       if (dto.usageType === undefined) {
         entity.usageType = Number(lockedUnit.usage_type);
       } else {
@@ -398,15 +416,15 @@ export class UnitsService {
     manager: EntityManager,
     scope: TenantParkScope,
     unitId: string
-  ): Promise<{ id: string; usage_type: number }> {
+  ): Promise<{ id: string; usage_type: number; status: number; asset_unit_id: string | null }> {
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
     const [unit] = await manager.query(
-      `SELECT id,usage_type
+      `SELECT id,usage_type,status,asset_unit_id
          FROM biz_unit
         WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false
         FOR UPDATE`,
       [scope.tenantId, scope.parkId, unitId]
-    ) as Array<{ id: string; usage_type: number }>;
+    ) as Array<{ id: string; usage_type: number; status: number; asset_unit_id: string | null }>;
     if (!unit) throw new NotFoundException("Unit not found");
     return unit;
   }
