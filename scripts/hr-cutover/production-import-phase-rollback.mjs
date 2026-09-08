@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { normalizeProductionT1LocalTimestamp } from "./production-t1-local-timestamp.mjs";
 
 import { ProductionImportExecutionError } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -55,12 +56,12 @@ function sqlType(table, rule, field) {
   return "text";
 }
 
-function scopeType(_table) {
-  return "text";
-}
-
 function normalizeDatabaseValue(table, rule, field, value) {
   if (value === null || value === undefined) return value ?? null;
+  if (table === "hr_employment_event" && field === "source_effective_at") {
+    if (typeof value !== "string" || normalizeProductionT1LocalTimestamp(value) !== value) fail("PRODUCTION_IMPORT_T1_TIMESTAMP_READBACK_INVALID", "exact local timestamp text required");
+    return value;
+  }
   if (tableStorage(table).fieldTypes?.[field] === "bigint") return String(value);
   if (rule.integerFields.includes(field)) return Number(value);
   if (rule.booleanFields.includes(field)) return Boolean(value);
@@ -197,9 +198,11 @@ function bindAndValidateControls(operationId, phaseName, requested, controls) {
 async function lockAndVerifyBusinessRows(tx, table, rule, entries, targetScope, expectedState) {
   const storage = tableStorage(table);
   const columns = [...new Set(["id", ...(storage.versioned ? ["version"] : []), ...rule.fieldWhitelist, ...rule.derivedFields])];
+  const projections = columns.map(column => table === "hr_employment_event" && column === "source_effective_at"
+    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at` : column);
   const rows = rowsOf(await tx.query(
     `/* hr-prod-phase-rollback:lock-business:${table} */
-     SELECT ${columns.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
+     SELECT ${projections.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
      FROM ${table}
      WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${storage.softDelete ? " AND is_deleted=false" : ""}
      FOR UPDATE`,
@@ -371,3 +374,120 @@ export function createProductionImportPhaseRollback(options) {
 
 export const PRODUCTION_IMPORT_PHASE_ROLLBACK_TABLES = Object.freeze(Object.keys(MODEL.targetTables));
 export const PRODUCTION_IMPORT_PHASE_ROLLBACK_BATCH_LIMITS = Object.freeze({ minimum: MIN_BATCH_SIZE, maximum: MAX_BATCH_SIZE, default: DEFAULT_BATCH_SIZE });
+
+function labReverseLayers(requested, phase) {
+  const local = new Map(requested.map(entry => [entry.planned.sourceIdentitySha256, entry]));
+  const children = new Map(requested.map(entry => [entry.planned.sourceIdentitySha256, new Set()]));
+  for (const entry of requested) {
+    const row = entry.planned, rule = MODEL.targetTables[row.plannedTargetTable], roles = new Set();
+    if (!Array.isArray(row.dependencyRefs)) fail("LAB_ROLLBACK_DEPENDENCY_INVALID", "dependencies required");
+    for (const ref of row.dependencyRefs) {
+      const spec = rule.foreignKeys.find(key => key.dependencyRole === ref.role);
+      if (!spec || roles.has(ref.role) || spec.targetTable !== ref.expectedTargetTable || MODEL.targetTables[ref.expectedTargetTable]?.phase !== ref.phase || PHASES.indexOf(ref.phase) > PHASES.indexOf(phase)) fail("LAB_ROLLBACK_DEPENDENCY_INVALID", "reference differs");
+      roles.add(ref.role);
+      if (ref.phase !== phase) continue;
+      const parent = local.get(ref.sourceIdentitySha256)?.planned;
+      if (!parent || parent.plannedTargetTable !== ref.expectedTargetTable || (row.disposition === "insert" && parent.disposition !== "insert")) fail("LAB_ROLLBACK_DEPENDENCY_INVALID", "local parent missing");
+      children.get(ref.sourceIdentitySha256).add(row.sourceIdentitySha256);
+    }
+    if (row.disposition === "insert" && rule.foreignKeys.some(key => key.required && !roles.has(key.dependencyRole))) fail("LAB_ROLLBACK_DEPENDENCY_INVALID", "required reference missing");
+  }
+  const emitted = new Set(), layers = [];
+  while (emitted.size < requested.length) {
+    const layer = requested.filter(entry => !emitted.has(entry.planned.sourceIdentitySha256) && [...children.get(entry.planned.sourceIdentitySha256)].every(id => emitted.has(id)));
+    if (!layer.length) fail("LAB_ROLLBACK_DEPENDENCY_INVALID", "dependency cycle");
+    for (const entry of layer) emitted.add(entry.planned.sourceIdentitySha256);
+    layers.push(layer);
+  }
+  return layers;
+}
+
+async function rollbackLabPhase(input, options) {
+  exactKeys(input, ["tx", "phase", "records", "targetScope"], [], "lab reversal input");
+  const { tx, phase, targetScope: scope } = input;
+  if (!tx || typeof tx.query !== "function" || !isObject(scope) || !SHA256.test(scope.scopeSha256 ?? "") ||
+      [scope.tenantId, scope.parkId].some(value => typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(value))) fail("LAB_ROLLBACK_INPUT_INVALID", "scope and transaction required");
+  const requested = validateRequestedRecords(phase, input.records);
+  if (requested.some(({ planned }) => !["insert", "quarantine"].includes(planned.disposition))) fail("LAB_ROLLBACK_DISPOSITION_DENIED", "insert/quarantine only");
+  const layers = labReverseLayers(requested, phase);
+  const targets = rowsOf(await tx.query(
+    `/* hr-lab-rollback:target */ SELECT current_database() AS database_name,
+     EXISTS (SELECT 1 FROM sys_tenant WHERE btrim(tenant_id::text)=$1 AND status=1 AND is_deleted=false
+       AND (expire_time IS NULL OR expire_time>clock_timestamp())) AS tenant_exists,
+     EXISTS (SELECT 1 FROM biz_park WHERE btrim(tenant_id::text)=$1 AND btrim(park_id::text)=$2
+       AND status=1 AND is_deleted=false) AS park_exists`, [scope.tenantId, scope.parkId],
+  ), "lab target");
+  if (targets.length !== 1 || targets[0].database_name !== options.expectedDatabase) fail("LAB_ROLLBACK_DATABASE_DENIED", "exact lab database required");
+  if (!targets[0].tenant_exists || !targets[0].park_exists) fail("LAB_ROLLBACK_SCOPE_DENIED", "active owned scope required");
+  const batches = rowsOf(await tx.query(
+    `/* hr-lab-rollback:lock-batch */ SELECT id::text,run_id,source_system,source_snapshot_sha256,target_database,tool_version,execution_context,status
+     FROM migration_batch WHERE run_id=$1 FOR UPDATE`, [`${options.runId}-${phase.toLowerCase()}`],
+  ), "lab batch");
+  const batch = batches[0];
+  if (batches.length !== 1 || !UUID.test(batch?.id ?? "") || batch.execution_context !== "lab_rehearsal" || batch.target_database !== options.expectedDatabase ||
+      batch.source_system !== MODEL.sourceSystem || batch.source_snapshot_sha256 !== options.sourceSnapshotHash || batch.tool_version !== options.toolVersion) fail("LAB_ROLLBACK_BATCH_MISMATCH", "exact batch binding required");
+  if (batch.status === "rolled_back") fail("LAB_ROLLBACK_ALREADY_APPLIED", "batch already reversed");
+  if (batch.status !== "succeeded") fail("LAB_ROLLBACK_BATCH_MISMATCH", "completed batch required");
+  const later = rowsOf(await tx.query(
+    `/* hr-lab-rollback:later-phases */ SELECT id::text,status FROM migration_batch WHERE run_id=ANY($1::text[]) FOR UPDATE`,
+    [PHASES.slice(PHASES.indexOf(phase) + 1).map(name => `${options.runId}-${name.toLowerCase()}`)],
+  ), "later lab phases");
+  if (later.some(row => row.status !== "rolled_back")) fail("LAB_ROLLBACK_LATER_PHASE_ACTIVE", "reverse later phases first");
+  const maps = rowsOf(await tx.query(
+    `/* hr-lab-rollback:lock-maps */ SELECT id::text,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id::text,mapping_status,is_active
+     FROM legacy_record_map WHERE batch_id=$1::uuid FOR UPDATE`, [batch.id],
+  ), "lab maps");
+  const bySource = new Map(maps.map(map => [map.source_identity_sha256, map]));
+  if (maps.length !== requested.length || bySource.size !== requested.length) fail("LAB_ROLLBACK_MAP_COVERAGE_MISMATCH", "full batch coverage required");
+  const targetIds = new Set();
+  for (const entry of requested) {
+    const row = entry.planned, map = bySource.get(row.sourceIdentitySha256), rule = MODEL.targetTables[row.plannedTargetTable];
+    if (!map || !UUID.test(map.id ?? "") || map.is_active !== true || map.mapping_status !== (row.disposition === "insert" ? "loaded" : "quarantined") ||
+        map.source_system !== MODEL.sourceSystem || row.sourceSystem !== MODEL.sourceSystem || map.source_table !== row.sourceTable || !rule.allowedSourceTables.includes(row.sourceTable) ||
+        map.source_pk_canonical !== row.sourcePkCanonical || row.sourcePkCanonical !== `sha256:${row.sourceIdentitySha256}` || !SHA256.test(row.sourceRowSha256 ?? "") ||
+        map.source_row_sha256 !== row.sourceRowSha256 || map.target_table !== row.plannedTargetTable || map.target_id !== (row.disposition === "insert" ? row.targetId : null)) fail("LAB_ROLLBACK_MAP_COVERAGE_MISMATCH", "map provenance differs");
+    if (row.disposition === "insert" && (!UUID.test(row.targetId ?? "") || row.targetTable !== row.plannedTargetTable || !SHA256.test(row.expectedTargetAfterSha256 ?? "") || row.targetVersionAfter !== 1 || targetIds.has(row.targetId))) fail("LAB_ROLLBACK_MAP_COVERAGE_MISMATCH", "target differs");
+    if (row.disposition === "insert") targetIds.add(row.targetId);
+    Object.assign(entry, { rule, targetScope: scope, control: { target_id: map.target_id, target_table: map.target_table,
+      target_after_sha256: row.expectedTargetAfterSha256, target_version_after: row.targetVersionAfter, disposition: row.disposition } });
+  }
+  // Validate and lock the complete business set before the first deletion.
+  for (const table of new Set(requested.map(entry => entry.planned.plannedTargetTable))) {
+    const entries = requested.filter(entry => entry.planned.plannedTargetTable === table && entry.planned.disposition === "insert");
+    for (const part of chunks(entries, options.batchSize)) await lockAndVerifyBusinessRows(tx, table, MODEL.targetTables[table], part, scope, "insert");
+  }
+  for (const layer of layers) for (const table of new Set(layer.map(entry => entry.planned.plannedTargetTable))) {
+    await deleteInsertedRows(tx, table, MODEL.targetTables[table], layer.filter(entry => entry.planned.plannedTargetTable === table && entry.planned.disposition === "insert"), scope, options.batchSize);
+  }
+  const inactive = rowsOf(await tx.query(
+    `/* hr-lab-rollback:deactivate-maps */ UPDATE legacy_record_map SET is_active=false,mapping_status='rolled_back',update_time=now()
+     WHERE batch_id=$1::uuid AND is_active AND mapping_status IN ('loaded','quarantined') RETURNING id::text`, [batch.id],
+  ), "lab map reversal");
+  if (inactive.length !== maps.length) fail("LAB_ROLLBACK_MAP_COVERAGE_MISMATCH", "map update count differs");
+  // Item status has no reversed value. Preserve load items and append successful
+  // reversal items using the existing phase/status contract.
+  await tx.query(
+    `/* hr-lab-rollback:items */ INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extracted_count,valid_count,loaded_count,rejected_count,started_at,finished_at)
+     SELECT batch_id,domain,source_object,'rollback','succeeded',extracted_count,valid_count,loaded_count,rejected_count,now(),now()
+     FROM migration_batch_item WHERE batch_id=$1::uuid AND phase='load' AND status='succeeded'`, [batch.id],
+  );
+  const finished = rowsOf(await tx.query(
+    `/* hr-lab-rollback:finish */ UPDATE migration_batch SET status='rolled_back',update_time=now()
+     WHERE id=$1::uuid AND status='succeeded' RETURNING id::text`, [batch.id],
+  ), "lab batch reversal");
+  if (finished.length !== 1) fail("LAB_ROLLBACK_BATCH_MISMATCH", "batch update count differs");
+  return { phase, productionImport: "HOLD", status: "rolled_back", sourceCount: requested.length,
+    deletedInsertCount: requested.filter(entry => entry.planned.disposition === "insert").length,
+    quarantineNoopCount: requested.filter(entry => entry.planned.disposition === "quarantine").length, inactiveMapCount: inactive.length };
+}
+
+/** Lab ledger reversal. The caller owns the serializable transaction. */
+export function createLabImportPhaseRollback(options) {
+  exactKeys(options, ["expectedDatabase", "codeSha", "sourceSnapshotHash", "runId"], ["batchSize"], "lab reversal options");
+  const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
+  if (!/^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/u.test(options.expectedDatabase ?? "") || options.expectedDatabase.length > 63 ||
+      !/^[0-9a-f]{40}$/u.test(options.codeSha ?? "") || !SHA256.test(options.sourceSnapshotHash ?? "") || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(options.runId ?? "")) fail("LAB_ROLLBACK_BINDING_INVALID", "lab binding required");
+  if (!Number.isSafeInteger(batchSize) || batchSize < MIN_BATCH_SIZE || batchSize > MAX_BATCH_SIZE) fail("PRODUCTION_IMPORT_PHASE_ROLLBACK_BATCH_SIZE_INVALID", "invalid batch size");
+  const config = Object.freeze({ ...options, batchSize, toolVersion: `lab-import-v1@${options.codeSha}` });
+  return input => rollbackLabPhase(input, config);
+}
