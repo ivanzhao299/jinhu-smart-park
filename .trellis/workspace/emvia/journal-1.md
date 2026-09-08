@@ -1398,3 +1398,37 @@ L-01 Issue #706 / PR #707 已闭环；三模块 canonical 蓝图、34表逐scope
 ### Next Steps
 
 - None - task complete
+
+
+## Session 40: PMA L-02 housing and leasing bounded-context ADR
+
+**Date**: 2026-09-08
+**Task**: PMA L-02 housing and leasing bounded-context ADR
+**Package**: api
+**Branch**: `codex/pma-l02-leasing-boundary-adr`
+
+### Summary
+
+Adopted D-04 dual bounded-context boundary; PR #711 merged. PR CI green. Exact-SHA CI was concurrency-cancelled but exact-SHA Deploy succeeded; verified containing-main 8abcbe4d CI and Deploy both green. Three reviews, final clean; no HR/runtime/schema changes.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a2bc64d3b282712eca0d7b74aeb444d15a4393a1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

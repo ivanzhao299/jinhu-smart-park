@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
+- **Total Sessions**: 40
 - **Last Active**: 2026-09-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1400 | Active |
+| `journal-1.md` | ~1434 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-09-08 | PMA L-02 housing and leasing bounded-context ADR | `a2bc64d3b282712eca0d7b74aeb444d15a4393a1` | `codex/pma-l02-leasing-boundary-adr` |
 | 39 | 2026-09-08 | PMA L-01 canonical 领域蓝图收官 | `78021b36`, `16204c01` | `codex/pma-l01-canonical-domain-blueprint` |
 | 38 | 2026-09-08 | PMA M-05 UI 真实交互测试收官 | `15ab1ae7`, `c648fa83` | `codex/pma-m05-ui-interaction-tests` |
 | 37 | 2026-09-08 | PMA M-04 PropertyListShell 收官 | `2ba560bf`, `fa907536`, `ed683cf9`, `4a944416` | `codex/pma-m04-property-list-shell` |

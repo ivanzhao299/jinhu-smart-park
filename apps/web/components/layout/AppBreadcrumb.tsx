@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { useAuthUser } from "../../lib/auth-context";
 import { findBreadcrumbByPath, getUserDashboardMenus } from "../../lib/menu";
+import { useDynamicBreadcrumbLabel } from "../../lib/dynamic-breadcrumb";
 
 interface AppBreadcrumbProps {
   variant?: "standalone" | "inline";
@@ -13,8 +14,9 @@ interface AppBreadcrumbProps {
 export function AppBreadcrumb({ variant = "standalone" }: AppBreadcrumbProps) {
   const pathname = usePathname();
   const user = useAuthUser();
+  const dynamicLabel = useDynamicBreadcrumbLabel();
   const menus = useMemo(() => getUserDashboardMenus(user), [user]);
-  const { current, parent } = findBreadcrumbByPath(pathname, menus);
+  const { current, parent } = findBreadcrumbByPath(pathname, menus, dynamicLabel);
 
   if (!parent && !current) {
     return null;

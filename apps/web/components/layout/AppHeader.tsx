@@ -12,6 +12,8 @@ import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 import { UserMenu } from "./UserMenu";
+import { CommandPalette } from "./CommandPalette";
+import { isTerminalRoute as matchesTerminalRoute } from "../../lib/routes";
 
 interface AppHeaderProps {
   breadcrumb?: ReactNode;
@@ -26,7 +28,7 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
   const canOpenWorkflowInbox = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
-  const isTerminalRoute = terminalMode ?? (pathname ? TERMINAL_HEADER_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) : false);
+  const isTerminalRoute = terminalMode ?? matchesTerminalRoute(pathname);
 
   const handleThemeChange = () => {
     setTheme(theme === "command-dark" || theme === "dark" ? "enterprise-light" : "command-dark");
@@ -58,6 +60,7 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
       </div>
       <div className="header-actions">
         {sidebarToggleButton("actions")}
+        {!isTerminalRoute ? <CommandPalette /> : null}
         <Link aria-label="客户端下载" className="header-icon-link" href="/system/client-downloads" title="客户端下载">
           <Download size={16} />
         </Link>
@@ -79,12 +82,3 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
     </header>
   );
 }
-
-const TERMINAL_HEADER_PATHS = [
-  "/operations/terminal",
-  "/preview/operations-terminal",
-  "/engineering/terminal",
-  "/tenant/service",
-  "/preview/tenant-service",
-  "/safety/my-inspect-tasks"
-] as const;

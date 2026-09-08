@@ -8,6 +8,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
+import { useListPreferences } from "../../../lib/list-preferences";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
@@ -229,10 +230,10 @@ const emptyRefundForm: RefundFormState = {
 
 export default function LeasingCheckoutsPage() {
   const authUser = useAuthUser();
+  const { preferences: listPreferences, setFiltersOpen } = useListPreferences("leasing.checkouts", authUser);
   const [pageData, setPageData] = useState<PaginatedResult<CheckoutRow>>(emptyPage);
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
@@ -665,7 +666,7 @@ export default function LeasingCheckoutsPage() {
             </button>
           ) : null}
         </>}
-        filtersOpen={filtersOpen}
+        filtersOpen={listPreferences.filtersOpen}
         onFiltersOpenChange={setFiltersOpen}
         onApplyFilters={() => { const next = { ...filters }; setAppliedFilters(next); syncFilterQuery(next); }}
         onResetFilters={() => { const next = { ...emptyFilters }; setFilters(next); setAppliedFilters(next); syncFilterQuery(next); }}

@@ -11,6 +11,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { useListPreferences } from "../../../lib/list-preferences";
 import {
   PropertyListShell,
   PropertyResponsiveRecords,
@@ -165,10 +166,10 @@ const emptyForm: ReceivableFormState = {
 
 export default function LeasingReceivablesPage() {
   const authUser = useAuthUser();
+  const { preferences: listPreferences, setFiltersOpen } = useListPreferences("leasing.receivables", authUser);
   const [pageData, setPageData] = useState<PaginatedResult<ReceivableRow>>(initialPageData);
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
   const [contracts, setContracts] = useState<ContractRow[]>([]);
@@ -477,7 +478,7 @@ export default function LeasingReceivablesPage() {
           ) : null}
           </>
         )}
-        filtersOpen={filtersOpen}
+          filtersOpen={listPreferences.filtersOpen}
         onFiltersOpenChange={setFiltersOpen}
         onApplyFilters={() => setAppliedFilters({ ...filters })}
         onResetFilters={() => {
