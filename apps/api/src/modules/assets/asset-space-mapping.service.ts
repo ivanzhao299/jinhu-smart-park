@@ -156,6 +156,10 @@ export class AssetSpaceMappingService {
     return target;
   }
 
+  lockUnitLifecycle(manager: EntityManager, scope: TenantParkScope, assetId: string) {
+    return this.lock(manager, scope, "unit", assetId);
+  }
+
   private mapParentSpace(scope: TenantParkScope, actorId: string, type: Exclude<SpaceType, "unit">, assetId: string, key: string, dto: MapAssetSpaceDto) {
     return this.dataSource.transaction(async (manager) => {
       await this.lock(manager, scope, type, assetId);

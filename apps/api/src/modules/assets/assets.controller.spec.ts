@@ -23,7 +23,7 @@ const malformedUuidIsHttp400 = async (controller: object, methodName: string) =>
 test("every asset resource route rejects malformed UUIDs at the HTTP boundary", async () => {
   for (const methodName of [
     "detailPark", "updatePark", "deletePark", "detailBuilding", "updateBuilding", "deleteBuilding",
-    "detailFloor", "updateFloor", "deleteFloor", "detailUnit", "updateUnit", "deleteUnit",
+    "detailFloor", "updateFloor", "deleteFloor", "detailUnit", "updateUnit", "deleteUnit", "restoreUnit",
     "mapOperatingBuilding", "mapOperatingFloor", "convertOperatingUnit"
   ]) await malformedUuidIsHttp400(AssetsController, methodName);
 });
@@ -90,7 +90,8 @@ const buildAssetsService = (activeCount: number) => {
     {} as never, {} as never, {} as never, {} as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
     { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
-    {} as never
+    {} as never,
+    { lockUnitLifecycle: async () => undefined } as never
   );
   return { service, entity, wasSaved: () => saved };
 };
@@ -115,4 +116,52 @@ test("asset unit deletion remains a soft delete when no active projection exists
   assert.equal(entity.isDeleted, true);
   assert.equal(entity.updateBy, "actor-1");
   assert.equal(wasSaved(), true);
+});
+
+test("asset unit restore revives the same soft-deleted source without creating a projection", async () => {
+  const entity = { id: "unit-1", buildingId: "building-1", floorId: "floor-1", isDeleted: true, updateBy: "deleter" };
+  let saved = false;
+  const repository = {
+    findOne: async (options: { where: { isDeleted: boolean } }) => {
+      assert.equal(options.where.isDeleted, true);
+      return entity;
+    },
+    save: async () => { saved = true; return entity; }
+  };
+  const manager = { getRepository: () => repository, query: async () => [] };
+  const service = new AssetsService(
+    {} as never, {} as never, {} as never, {} as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never,
+    { lockUnitLifecycle: async () => undefined } as never
+  );
+  const restored = await service.restoreUnit(
+    { tenantId: "tenant-1", parkId: "park-1" }, { sub: "restorer" } as JwtPrincipal, "unit-1"
+  );
+  assert.equal(restored, entity);
+  assert.equal(entity.isDeleted, false);
+  assert.equal(entity.updateBy, "restorer");
+  assert.equal(saved, true);
+});
+
+test("asset unit restore rejects a retained projection with a broken parent chain", async () => {
+  const entity = { id: "unit-1", buildingId: "building-1", floorId: "floor-1", isDeleted: true, updateBy: "deleter" };
+  const repository = { findOne: async () => entity, save: async () => assert.fail("must not save") };
+  const manager = {
+    getRepository: () => repository,
+    query: async () => [{ id: "biz-unit-1", parentsValid: false }]
+  };
+  const service = new AssetsService(
+    {} as never, {} as never, {} as never, {} as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never,
+    { lockUnitLifecycle: async () => undefined } as never
+  );
+  await assert.rejects(
+    service.restoreUnit({ tenantId: "tenant-1", parkId: "park-1" }, { sub: "restorer" } as JwtPrincipal, "unit-1"),
+    /Operating unit mapping is not consistent/u
+  );
+  assert.equal(entity.isDeleted, true);
 });

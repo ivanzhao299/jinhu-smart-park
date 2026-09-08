@@ -52,10 +52,14 @@ test("mapping service is composed without creating an assets and units module cy
   assert.doesNotMatch(propertyOperationsModule, /AssetsModule/u);
 });
 
-test("explicit operating-unit unlink remains the M-01 handoff contract", () => {
+test("M-01 explicit operating-unit decommission and restore lifecycle is enforced", () => {
   assert.match(propertyOperationsController, /@Controller\("property\/units"\)/u);
   assert.match(propertyOperationsController, /@Put\(":unitId\/operation"\)/u);
   assert.match(propertyOperationsDto, /asset_unit_id\?: string \| null/u);
   assert.match(propertyOperationsService, /dto\.asset_unit_id !== null/u);
   assert.match(propertyOperationsService, /unlinkExistingUnit/u);
+  assert.match(propertyOperationsService, /Operating unit must be disabled before unlinking the asset unit/u);
+  assert.match(propertyOperationsService, /Operating unit decommission is blocked/u);
+  assert.match(controller, /@Post\("units\/:id\/restore"\)/u);
+  assert.match(service, /lockUnitLifecycle/u);
 });

@@ -232,6 +232,7 @@ test("configure rejects a stale version before mutating the unit or configuratio
     operatingStatus: "enabled"
   };
   const manager = {
+    query: async () => [],
     getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
       ? {
         findOne: async () => unit,
@@ -276,13 +277,14 @@ test("configure rejects a stale version before mutating the unit or configuratio
 test("configure clears an asset mapping only when null is explicitly submitted", async () => {
   for (const [dto, expected, expectedSaves] of [
     [{ version: 2, operating_status: "enabled" }, "asset-1", 0],
-    [{ version: 2, operating_status: "enabled", asset_unit_id: null }, null, 1]
+    [{ version: 2, operating_status: "disabled", asset_unit_id: null, suspend_reason: "资产源停用解绑" }, null, 1]
   ] as const) {
     let unitSaveCalls = 0;
     const unit: { id: string; tenantId: string; parkId: string; usageType: number; assetUnitId: string | null; updateBy: string | null } =
       { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: "asset-1", updateBy: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled", suspendReason: null, updateBy: null, remark: null };
     const manager = {
+      query: async () => [],
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
         ? { findOne: async () => unit, save: async () => { unitSaveCalls += 1; return unit; } }
         : { findOne: async () => config, save: async () => config }
@@ -305,6 +307,67 @@ test("configure clears an asset mapping only when null is explicitly submitted",
   }
 });
 
+test("configure rejects unlink unless the same command explicitly disables operations", async () => {
+  const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: "asset-1" };
+  const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled" };
+  const manager = {
+    query: async () => [],
+    getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
+      ? { findOne: async () => unit }
+      : { findOne: async () => config }
+  };
+  const service = new PropertyOperationsService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => unit } as never,
+    { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
+    { unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
+  );
+  await assert.rejects(
+    service.configure(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      { sub: "operator-1", username: "operator", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE] },
+      "unit-1", { version: 2, operating_status: "enabled", asset_unit_id: null }
+    ),
+    /must be disabled before unlinking/u
+  );
+});
+
+test("configure keeps mapping and config unchanged when decommission has an active contract blocker", async () => {
+  const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: "asset-1" };
+  const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled" };
+  let saves = 0;
+  const manager = {
+    query: async (sql: string) => sql.includes("CROSS JOIN contracts")
+      ? [{
+          active_occupancy_count: 0, incompatible_occupancy_count: 0, maintenance_or_operations_count: 0,
+          commercial_contract_count: 1, housing_lease_count: 0, homestay_booking_count: 0,
+          pending_checkout_count: 0, open_workorder_count: 0, unsettled_receivable_count: 0
+        }]
+      : [],
+    getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
+      ? { findOne: async () => unit }
+      : { findOne: async () => config, save: async () => { saves += 1; } }
+  };
+  const service = new PropertyOperationsService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => unit } as never,
+    { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
+    { unlinkExistingUnit: async () => assert.fail("must not unlink") } as never
+  );
+  await assert.rejects(
+    service.configure(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      { sub: "operator-1", username: "operator", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE] },
+      "unit-1", { version: 2, operating_status: "disabled", asset_unit_id: null, suspend_reason: "停用解绑" }
+    ),
+    (error: unknown) => typeof error === "object" && error !== null && "getResponse" in error
+      && JSON.stringify((error as { getResponse(): unknown }).getResponse()).includes("存在未结束的商业租赁合同")
+  );
+  assert.equal(saves, 0);
+  assert.equal(unit.assetUnitId, "asset-1");
+  assert.equal(config.operatingStatus, "enabled");
+});
+
 test("configure preserves an omitted remark and clears an explicit null remark", async () => {
   for (const [dto, expected] of [
     [{ version: 2, operating_status: "enabled" }, "既有备注"],
@@ -313,6 +376,7 @@ test("configure preserves an omitted remark and clears an explicit null remark",
     const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingStatus: "enabled", remark: "既有备注" as string | null };
     const manager = {
+      query: async () => [],
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
         ? { findOne: async () => unit, save: async () => unit }
         : { findOne: async () => config, save: async () => config }

@@ -20,6 +20,7 @@ import { AssetBuildingEntity } from "./entities/asset-building.entity";
 import { AssetFloorEntity } from "./entities/asset-floor.entity";
 import { AssetParkEntity } from "./entities/asset-park.entity";
 import { AssetUnitEntity } from "./entities/asset-unit.entity";
+import { AssetSpaceMappingService } from "./asset-space-mapping.service";
 import {
   ensureAssetScopeProvisioned,
   hasProtectedAssetScope,
@@ -41,7 +42,8 @@ export class AssetsService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly dataScopeService: DataScopeService,
-    private readonly fieldPolicyService: FieldPolicyService
+    private readonly fieldPolicyService: FieldPolicyService,
+    private readonly assetSpaceMappingService: AssetSpaceMappingService
   ) {}
 
   async listParks(scope: TenantParkScope, query: AssetQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<AssetParkEntity>> {
@@ -383,6 +385,7 @@ export class AssetsService {
 
   async deleteUnit(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     return this.dataSource.transaction(async (manager) => {
+      await this.assetSpaceMappingService.lockUnitLifecycle(manager, scope, id);
       const repository = manager.getRepository(AssetUnitEntity);
       const where = await this.dataScopeService.buildFindWhere<AssetUnitEntity>(
         scope,
@@ -410,6 +413,44 @@ export class AssetsService {
       entity.updateBy = actor.sub;
       await repository.save(entity);
       return { id };
+    });
+  }
+
+  async restoreUnit(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<AssetUnitEntity> {
+    return this.dataSource.transaction(async (manager) => {
+      await this.assetSpaceMappingService.lockUnitLifecycle(manager, scope, id);
+      const repository = manager.getRepository(AssetUnitEntity);
+      const where = await this.dataScopeService.buildFindWhere<AssetUnitEntity>(
+        scope,
+        actor,
+        "unit",
+        { tenantId: scope.tenantId, parkId: scope.parkId, id, isDeleted: true },
+        { unit: "id", building: "buildingId", floor: "floorId" }
+      );
+      const entity = await repository.findOne({ where, lock: { mode: "pessimistic_write" } });
+      if (!entity) throw new NotFoundException("Deleted unit not found");
+
+      const linkedRows = await manager.query<Array<{ id: string; parentsValid: boolean }>>(
+        `SELECT unit.id::text AS id,
+                (building.id IS NOT NULL AND floor.id IS NOT NULL) AS "parentsValid"
+           FROM biz_unit unit
+           LEFT JOIN biz_building building ON building.id=unit.building_id
+             AND building.tenant_id=unit.tenant_id AND building.park_id=unit.park_id
+             AND building.is_deleted=false AND building.asset_building_id=$4
+           LEFT JOIN biz_floor floor ON floor.id=unit.floor_id
+             AND floor.tenant_id=unit.tenant_id AND floor.park_id=unit.park_id
+             AND floor.building_id=unit.building_id AND floor.is_deleted=false AND floor.asset_floor_id=$5
+          WHERE unit.tenant_id=$1 AND unit.park_id=$2 AND unit.asset_unit_id=$3
+            AND unit.is_deleted=false
+          FOR UPDATE OF unit`,
+        [scope.tenantId, scope.parkId, id, entity.buildingId, entity.floorId]
+      );
+      if (linkedRows.length > 1 || linkedRows.some((row) => !row.parentsValid)) {
+        throw new ConflictException("Operating unit mapping is not consistent with the asset parent chain");
+      }
+      entity.isDeleted = false;
+      entity.updateBy = actor.sub;
+      return repository.save(entity);
     });
   }
 

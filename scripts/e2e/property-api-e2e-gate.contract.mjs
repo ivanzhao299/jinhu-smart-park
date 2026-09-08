@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "../..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 const gate = read("scripts/e2e/property-api-e2e-gate.mjs");
+const assetLifecycle = read("scripts/e2e/asset-projection-lifecycle-api-e2e.mjs");
 const homestay = read("scripts/e2e/homestay-api-e2e.mjs");
 const housing = read("scripts/e2e/housing-rental-api-e2e.mjs");
 const safety = read("scripts/e2e/property-api-e2e-safety.mjs");
@@ -12,9 +13,14 @@ const packageJson = read("package.json");
 const ci = read(".github/workflows/ci.yml");
 const fixtures = read("scripts/e2e/property-api-e2e-fixtures.sql");
 
-for (const suite of [homestay, housing]) {
+for (const suite of [assetLifecycle, homestay, housing]) {
   assert.match(suite, /requirePropertyApiE2eIsolation\(\)/, "every mutating property E2E suite must enforce the shared isolation boundary");
 }
+assert.match(gate, /\["asset-lifecycle", "scripts\/e2e\/asset-projection-lifecycle-api-e2e\.mjs"\]/, "aggregate gate must run the M-01 asset lifecycle suite");
+assert.match(assetLifecycle, /expectedStatus: 409/, "asset lifecycle suite must prove an active projection blocks source deletion");
+assert.match(assetLifecycle, /operating_status: "disabled"[\s\S]*asset_unit_id: null/, "asset lifecycle suite must explicitly disable and unlink before deletion");
+assert.match(assetLifecycle, /units\/\$\{assetUnit\.id\}\/restore/, "asset lifecycle suite must restore the same soft-deleted source through HTTP");
+assert.match(ci, /modules\/\(assets\|/, "asset lifecycle API changes must require Release Smoke");
 assert.match(safety, /jinhu_\(\?:property_api_e2e_/, "gate must only allow disposable database names");
 assert.match(safety, /loopback API/, "gate must reject shared UAT and production API URLs");
 assert.match(safety, /url\.username \|\| url\.password/, "gate must reject credential-bearing API URLs before diagnostics can echo them");

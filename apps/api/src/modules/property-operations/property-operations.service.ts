@@ -241,6 +241,7 @@ export class PropertyOperationsService {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE);
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
+      await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
       const unit = await manager.getRepository(UnitEntity).findOne({
         where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
@@ -272,6 +273,17 @@ export class PropertyOperationsService {
           );
         } else {
           if (unit.assetUnitId) {
+            if (dto.operating_status !== "disabled") {
+              throw new ConflictException("Operating unit must be disabled before unlinking the asset unit");
+            }
+            const snapshot = await this.buildTransitionSnapshot(manager, scope, unitId, "none");
+            if (snapshot.blocking_reasons.length > 0) {
+              throw new ConflictException({
+                message: "Operating unit decommission is blocked",
+                blocking_reasons: snapshot.blocking_reasons,
+                check_snapshot: snapshot
+              });
+            }
             if (!this.assetSpaceMappingService) throw new Error("AssetSpaceMappingService is not configured");
             await this.assetSpaceMappingService.unlinkExistingUnit(
               manager, scope, actor.sub, unitId, unit.assetUnitId, clientKey, dto.remark?.trim() || "物业运营配置解除物理资产关联"
