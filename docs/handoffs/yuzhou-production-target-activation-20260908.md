@@ -29,3 +29,9 @@ checks omitted this entrypoint suite. These preparation/HOLD tests now explicitl
 inject a cloned held contract; a separate test uses the real default activated
 contract and real plan validator to reject a wrong target before payload or DB
 access. Production entrypoint and guards were not changed by this correction.
+
+CI run 34224462902 exposed the same implicit-HOLD assumption in the delegated
+exception preparation contract. That test now checks an explicit held contract
+and separately requires the default activated contract to reject its synthetic
+target. The consolidated follow-up validates every command in the CI sealed and
+unreachable step, including nested preparation suites, rather than only v2 tests.
