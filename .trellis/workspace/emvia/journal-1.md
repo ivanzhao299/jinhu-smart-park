@@ -1258,3 +1258,36 @@ Closed Issue #696 through PR #697 after three review rounds; verified replacemen
 ### Next Steps
 
 - None - task complete
+## Session 36: PMA M-03 shared control-plane E2E closure
+
+**Date**: 2026-09-08
+**Task**: PMA M-03 shared control-plane E2E closure
+**Package**: api
+**Branch**: `codex/pma-m03-shared-control-plane-e2e`
+
+### Summary
+
+Closed M-03 with isolated real API evidence, three review rounds, PR #699 squash merge, exact-SHA main CI and Deploy success, Issue #698 closure, and task archive.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6037f499` | (see git log) |
+| `307b25fc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

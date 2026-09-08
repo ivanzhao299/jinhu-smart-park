@@ -55,3 +55,22 @@ test("property surfaces reuse shared DS and keep domain/API imports out", () => 
   assert.doesNotMatch(source, /homestay|housing|identity|approval/i);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}|linear-gradient|radial-gradient/i);
 });
+
+test("property list shell composes filter, chips, bulk and pagination slots", () => {
+  const source = readFileSync(resolve(__dirname, "PropertyListShell.tsx"), "utf8");
+  const css = readFileSync(resolve(__dirname, "PropertyListShell.module.css"), "utf8");
+
+  assert.match(source, /<PropertyPageSurface>/);
+  assert.match(source, /<PageHeader/);
+  assert.match(source, /<FilterPanel/);
+  assert.match(source, /aria-label="已应用筛选"/);
+  assert.match(source, /aria-label="批量操作"/);
+  assert.match(source, /<PaginationBar/);
+  assert.match(source, /onFiltersOpenChange/);
+  assert.match(source, /onApplyFilters/);
+  assert.match(source, /onResetFilters/);
+  assert.doesNotMatch(source, /apiRequest|fetch\(|PermissionGuard/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /min-block-size: 44px/);
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}|linear-gradient|radial-gradient/i);
+});

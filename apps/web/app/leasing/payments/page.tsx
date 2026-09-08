@@ -1,7 +1,7 @@
 "use client";
-import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
+import { DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
-import { Edit3, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { Edit3, Link2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
@@ -13,7 +13,14 @@ import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
-import { formatPropertyDateTime as formatDateTime, formatPropertyMoney as formatMoney } from "../../../features/property-shared";
+import {
+  formatPropertyDateTime as formatDateTime,
+  formatPropertyMoney as formatMoney,
+  PropertyListShell,
+  PropertyResponsiveRecords,
+  type PropertyFieldDescriptor,
+  type PropertyListFilterChip
+} from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const PAYMENT_ENTITY = "leasing_payment";
@@ -99,6 +106,7 @@ interface ApplyFormRow {
 }
 
 const initialPageData: PaginatedResult<PaymentRow> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyFilters = { keyword: "", parkTenantId: "", payMethod: "", status: "", payStart: "", payEnd: "" };
 const emptyForm: PaymentFormState = {
   payCode: "",
   parkTenantId: "",
@@ -115,7 +123,9 @@ const emptyForm: PaymentFormState = {
 export default function LeasingPaymentsPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<PaymentRow>>(initialPageData);
-  const [filters, setFilters] = useState({ keyword: "", parkTenantId: "", payMethod: "", status: "", payStart: "", payEnd: "" });
+  const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
@@ -152,12 +162,12 @@ export default function LeasingPaymentsPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(pageData.page_size) });
-      if (filters.keyword) params.set("keyword", filters.keyword);
-      if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
-      if (filters.payMethod) params.set("pay_method", filters.payMethod);
-      if (filters.status) params.set("status", filters.status);
-      if (filters.payStart) params.set("pay_start", filters.payStart);
-      if (filters.payEnd) params.set("pay_end", filters.payEnd);
+      if (appliedFilters.keyword) params.set("keyword", appliedFilters.keyword);
+      if (appliedFilters.parkTenantId) params.set("park_tenant_id", appliedFilters.parkTenantId);
+      if (appliedFilters.payMethod) params.set("pay_method", appliedFilters.payMethod);
+      if (appliedFilters.status) params.set("status", appliedFilters.status);
+      if (appliedFilters.payStart) params.set("pay_start", appliedFilters.payStart);
+      if (appliedFilters.payEnd) params.set("pay_end", appliedFilters.payEnd);
       const response = await apiRequest<PaginatedResult<PaymentRow>>(`/leasing/payments?${params.toString()}`, {
         token: getAccessToken()
       });
@@ -167,7 +177,7 @@ export default function LeasingPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [canRead, filters, pageData.page_size]);
+  }, [canRead, appliedFilters, pageData.page_size]);
 
   const loadDicts = useCallback(async () => {
     const codes = ["leasing_payment_method", "leasing_payment_status", "leasing_fee_type", "leasing_receivable_status"];
@@ -213,6 +223,31 @@ export default function LeasingPaymentsPage() {
   }, [applyOpen, editing, loadApplications, loadReceivables]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const recordFields = useMemo<readonly PropertyFieldDescriptor<PaymentRow>[]>(() => [
+    { key: "payCode", label: "收款单号", render: (row) => row.payCode },
+    { key: "tenant", label: "租户企业", render: (row) => row.parkTenant?.companyName ?? tenantName(parkTenants, row.parkTenantId) },
+    { key: "payTime", label: "收款时间", render: (row) => formatDateTime(row.payTime) },
+    { key: "payMethod", label: "收款方式", render: (row) => dictLabel(payMethodItems, row.payMethod) },
+    { key: "payAmount", label: "收款金额", render: (row) => paymentAmountText(row.payAmount, "payAmount", canViewPayAmount, authUser) },
+    { key: "unappliedAmount", label: "未核销金额", render: (row) => paymentAmountText(row.unappliedAmount, "unappliedAmount", canViewUnappliedAmount, authUser) },
+    { key: "payerName", label: "付款人", render: (row) => row.payerName ?? "-" },
+    { key: "bankSerial", label: "银行流水号", render: (row) => bankSerialText(row.bankSerial, canViewBankSerial, authUser) },
+    { key: "status", label: "状态", render: (row) => <DictBadge items={paymentStatusItems} value={row.status} /> }
+  ], [authUser, canViewBankSerial, canViewPayAmount, canViewUnappliedAmount, parkTenants, payMethodItems, paymentStatusItems]);
+  const filterChips = useMemo<PropertyListFilterChip[]>(() => {
+    const chips: PropertyListFilterChip[] = [];
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      setFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+    } });
+    if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
+    if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${tenantName(parkTenants, appliedFilters.parkTenantId)}`);
+    if (appliedFilters.payMethod) add("payMethod", `方式：${dictLabel(payMethodItems, appliedFilters.payMethod)}`);
+    if (appliedFilters.status) add("status", `状态：${dictLabel(paymentStatusItems, appliedFilters.status)}`);
+    if (appliedFilters.payStart) add("payStart", `收款日起：${appliedFilters.payStart}`);
+    if (appliedFilters.payEnd) add("payEnd", `收款日止：${appliedFilters.payEnd}`);
+    return chips;
+  }, [appliedFilters, parkTenants, payMethodItems, paymentStatusItems]);
 
   function openCreate() {
     setEditing(null);
@@ -294,7 +329,7 @@ export default function LeasingPaymentsPage() {
         idempotencyKey: createIdempotencyKey("payment-delete")
       });
       setNotice("收款已删除");
-      await load(pageData.page);
+      await load(pageData.items.length === 1 && pageData.page > 1 ? pageData.page - 1 : pageData.page);
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -345,13 +380,12 @@ export default function LeasingPaymentsPage() {
   }
 
   return (
-    <div className="page-container">
-      <section className="page-header">
-        <div className="header-title">
-          <strong>收款登记</strong>
-          <span>登记租户回款，并核销到一条或多条应收账单</span>
-        </div>
-        <div className="page-actions">
+    <>
+      <PropertyListShell
+        eyebrow="招商租赁"
+        title="收款登记"
+        description="登记租户回款，并核销到一条或多条应收账单"
+        actions={<>
           <button className="primary-button" type="button" onClick={() => load(pageData.page)} disabled={loading}>
             <RefreshCw size={16} /> 刷新
           </button>
@@ -360,11 +394,13 @@ export default function LeasingPaymentsPage() {
               <Plus size={16} /> 新增收款
             </button>
           ) : null}
-        </div>
-      </section>
-
-      <section className="filter-bar">
-        <div className="system-grid-three">
+        </>}
+        filtersOpen={filtersOpen}
+        onFiltersOpenChange={setFiltersOpen}
+        onApplyFilters={() => setAppliedFilters({ ...filters })}
+        onResetFilters={() => { setFilters({ ...emptyFilters }); setAppliedFilters({ ...emptyFilters }); }}
+        appliedFilterChips={filterChips}
+        filters={<div className="system-grid-three">
           <label className="field">
             <span>关键词</span>
             <input value={filters.keyword} onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))} placeholder="单号、付款人、流水号" />
@@ -382,51 +418,20 @@ export default function LeasingPaymentsPage() {
           <DictSelect label="核销状态" value={filters.status} items={paymentStatusItems} allowEmpty onChange={(value) => setFilters((prev) => ({ ...prev, status: value }))} />
           <DateField label="收款开始" value={filters.payStart} onChange={(value) => setFilters((prev) => ({ ...prev, payStart: value }))} />
           <DateField label="收款结束" value={filters.payEnd} onChange={(value) => setFilters((prev) => ({ ...prev, payEnd: value }))} />
-        </div>
-        <div className="filter-actions">
-          <button className="primary-button" type="button" onClick={() => load(1)}>
-            <Search size={16} /> 查询
-          </button>
-        </div>
-      </section>
-
-      <Card >
+        </div>}
+        summary={loading ? "收款台账 · 加载中" : "收款台账"}
+        pagination={{ page: pageData.page, totalPages, total: pageData.total, onPage: (page) => void load(page) }}
+        emptyState={pageData.items.length === 0 && !loading ? <div className="empty-state">暂无收款登记</div> : undefined}
+      >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
-        <div className="system-toolbar">
-          <span className="muted-text">共 {pageData.total} 条</span>
-          <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} / ${totalPages} 页`}</span>
-        </div>
-        <div className="table-scroll">
-          <DataTable >
-            <thead>
-              <tr>
-                <th>收款单号</th>
-                <th>租户企业</th>
-                <th>收款时间</th>
-                <th>收款方式</th>
-                <th>收款金额</th>
-                <th>未核销金额</th>
-                <th>付款人</th>
-                <th>银行流水号</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageData.items.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.payCode}</td>
-                  <td>{row.parkTenant?.companyName ?? tenantName(parkTenants, row.parkTenantId)}</td>
-                  <td>{formatDateTime(row.payTime)}</td>
-                  <td>{dictLabel(payMethodItems, row.payMethod)}</td>
-                  <td>{paymentAmountText(row.payAmount, "payAmount", canViewPayAmount, authUser)}</td>
-                  <td>{paymentAmountText(row.unappliedAmount, "unappliedAmount", canViewUnappliedAmount, authUser)}</td>
-                  <td>{row.payerName ?? "-"}</td>
-                  <td>{bankSerialText(row.bankSerial, canViewBankSerial, authUser)}</td>
-                  <td><DictBadge items={paymentStatusItems} value={row.status} /></td>
-                  <td>
-                    <span className="data-table-actions">
+        <PropertyResponsiveRecords
+          items={pageData.items}
+          fields={recordFields}
+          getKey={(row) => row.id}
+          getTitle={(row) => row.payCode}
+          label="收款登记"
+          renderActions={(row) => <>
                       {canApply ? (
                         <button className="primary-button" type="button" onClick={() => openApply(row)}>
                           <Link2 size={14} /> 核销
@@ -442,15 +447,9 @@ export default function LeasingPaymentsPage() {
                           <Trash2 size={14} /> 删除
                         </button>
                       ) : null}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        </div>
-        {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无收款登记</div> : null}
-      </Card>
+          </>}
+        />
+      </PropertyListShell>
 
       {drawerOpen ? (
         <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
@@ -585,7 +584,7 @@ export default function LeasingPaymentsPage() {
           </section>
         </Drawer>
       ) : null}
-    </div>
+    </>
   );
 }
 

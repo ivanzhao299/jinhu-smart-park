@@ -14,6 +14,7 @@ import { useAuthSessionActions, useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
+import { PropertyListShell, type PropertyListFilterChip } from "../../../features/property-shared";
 import { UnitFormDialog } from "./components/UnitFormDialog";
 import { UnitAttachmentsPanel } from "./components/UnitAttachmentsPanel";
 import { UnitDetailDrawer, type UnitDetailTab } from "./components/UnitDetailDrawer";
@@ -313,6 +314,8 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [listParkId, setListParkId] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [form, setForm] = useState<UnitFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -360,10 +363,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     [floors, form.buildingId]
   );
 
-  const load = useCallback(async (page = 1, override?: Partial<typeof filters>) => {
+  const load = useCallback(async (page = 1, override?: Partial<typeof appliedFilters>) => {
     const generation = scopedDataGeneration.current;
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-updateTime" });
-    const query = { ...filters, ...override };
+    const query = { ...appliedFilters, ...override };
     if (query.buildingId) params.set("building_id", query.buildingId);
     if (query.floorId) params.set("floor_id", query.floorId);
     if (query.usageType) params.set("usage_type", query.usageType);
@@ -376,7 +379,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
       token: getAccessToken()
     });
     if (generation === scopedDataGeneration.current) setPageData(response.data);
-  }, [filters]);
+  }, [appliedFilters]);
 
   const loadLookups = useCallback(async () => {
     const generation = scopedDataGeneration.current;
@@ -421,6 +424,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
 
   const resetFilters = useCallback(() => {
     setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
   }, []);
 
   const ensureParkContext = useCallback(async (targetParkId: string, options: { publishSession?: boolean } = {}) => {
@@ -626,14 +630,14 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
 
   async function exportUnits() {
     await downloadPostFile("/park-units/export", `金湖房源台账_${formatYmd(new Date())}.xlsx`, {
-      ...(filters.buildingId ? { building_id: filters.buildingId } : {}),
-      ...(filters.floorId ? { floor_id: filters.floorId } : {}),
-      ...(filters.usageType ? { usage_type: Number(filters.usageType) } : {}),
-      ...(filters.rentalStatus ? { rental_status: Number(filters.rentalStatus) } : {}),
-      ...(filters.fittingStatus ? { fitting_status: Number(filters.fittingStatus) } : {}),
-      ...(filters.keyword.trim() ? { keyword: filters.keyword.trim() } : {}),
-      ...(filters.minArea ? { min_area: Number(filters.minArea) } : {}),
-      ...(filters.maxArea ? { max_area: Number(filters.maxArea) } : {})
+      ...(appliedFilters.buildingId ? { building_id: appliedFilters.buildingId } : {}),
+      ...(appliedFilters.floorId ? { floor_id: appliedFilters.floorId } : {}),
+      ...(appliedFilters.usageType ? { usage_type: Number(appliedFilters.usageType) } : {}),
+      ...(appliedFilters.rentalStatus ? { rental_status: Number(appliedFilters.rentalStatus) } : {}),
+      ...(appliedFilters.fittingStatus ? { fitting_status: Number(appliedFilters.fittingStatus) } : {}),
+      ...(appliedFilters.keyword.trim() ? { keyword: appliedFilters.keyword.trim() } : {}),
+      ...(appliedFilters.minArea ? { min_area: Number(appliedFilters.minArea) } : {}),
+      ...(appliedFilters.maxArea ? { max_area: Number(appliedFilters.maxArea) } : {})
     });
   }
 
@@ -744,14 +748,32 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     setForm((current) => ({ ...current, buildingId, floorId: firstFloorId }));
   }
 
+  const filterChips = useMemo<PropertyListFilterChip[]>(() => {
+    const chips: PropertyListFilterChip[] = [];
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      setFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+    } });
+    if (appliedFilters.buildingId) add("buildingId", `楼栋：${buildings.find((item) => item.id === appliedFilters.buildingId)?.buildingName ?? "已选"}`);
+    if (appliedFilters.floorId) add("floorId", `楼层：${floors.find((item) => item.id === appliedFilters.floorId)?.floorName ?? "已选"}`);
+    if (appliedFilters.usageType) add("usageType", `用途：${dicts.unit_usage_type?.find((item) => item.itemValue === appliedFilters.usageType)?.itemLabel ?? "已选"}`);
+    if (appliedFilters.rentalStatus) add("rentalStatus", `出租：${dicts.unit_rental_status?.find((item) => item.itemValue === appliedFilters.rentalStatus)?.itemLabel ?? "已选"}`);
+    if (appliedFilters.fittingStatus) add("fittingStatus", `装修：${dicts.unit_fitting_status?.find((item) => item.itemValue === appliedFilters.fittingStatus)?.itemLabel ?? "已选"}`);
+    if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
+    if (appliedFilters.minArea) add("minArea", `面积 ≥ ${appliedFilters.minArea}`);
+    if (appliedFilters.maxArea) add("maxArea", `面积 ≤ ${appliedFilters.maxArea}`);
+    return chips;
+  }, [appliedFilters, buildings, dicts, floors]);
+
   return (
     <PermissionGuard permission={SYSTEM_PERMISSIONS.ASSET_UNIT_LIST} fallback={<ForbiddenInline />}>
-      <main className="content">
-        <header className="header">
-          <div className="header-title">
-            <strong>{title}</strong>
-            <span>维护招商、合同、应收、工单、安全隐患共用的空间主数据</span>
-          </div>
+      <>
+        <PropertyListShell
+          eyebrow="资产中心"
+          title={title}
+          description="维护招商、合同、应收、工单、安全隐患共用的空间主数据"
+          context={accessibleParks.find((park) => park.park_id === effectiveParkId)?.park_name ? `当前园区：${accessibleParks.find((park) => park.park_id === effectiveParkId)?.park_name}` : undefined}
+          actions={<>
           <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.UNIT_CREATE} type="button" disabled={listParkSwitching} onClick={openCreate}>
             <Plus size={16} />
             新增房源
@@ -768,9 +790,13 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             }}
             onExport={() => void exportUnits().catch((error: Error) => setMessage(error.message))}
           />
-        </header>
-
-        <UnitsToolbar
+          </>}
+          filtersOpen={filtersOpen}
+          onFiltersOpenChange={setFiltersOpen}
+          onApplyFilters={() => setAppliedFilters({ ...filters })}
+          onResetFilters={() => { resetFilters(); }}
+          appliedFilterChips={filterChips}
+          filters={<UnitsToolbar
           filters={filters}
           listParkId={effectiveParkId}
           listParkOptions={accessibleParks}
@@ -780,9 +806,11 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           dicts={dicts}
           onListParkChange={(parkId) => void changeListPark(parkId).catch((error: Error) => handleSwitchError(error, setMessage))}
           onFilterChange={updateFilter}
-          onSubmit={() => void load(1).catch((error: Error) => setMessage(error.message))}
-        />
-
+          />}
+          summary={listParkSwitching ? "房源台账 · 切换园区中" : "房源台账"}
+          pagination={{ page: pageData.page, totalPages: Math.max(1, Math.ceil(pageData.total / pageData.page_size)), total: pageData.total, onPage: (page) => void load(page).catch((error: Error) => setMessage(error.message)) }}
+          emptyState={pageData.items.length === 0 ? <div className="empty-state">暂无房源数据</div> : undefined}
+        >
         <UnitsTable
           pageData={pageData}
           dicts={dicts}
@@ -795,8 +823,8 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           onOpenTransition={(row) => void openTransition(row).catch((error: Error) => setMessage(error.message))}
           onOpenStatusLogs={(row) => void openStatusLogs(row).catch((error: Error) => setMessage(error.message))}
           onRemove={(row) => void remove(row).catch((error: Error) => setMessage(error.message))}
-          onPageChange={(page) => void load(page).catch((error: Error) => setMessage(error.message))}
         />
+        </PropertyListShell>
 
         {showAssetConversion ? <AssetSpaceConversionDrawer onClose={() => setShowAssetConversion(false)} onCreated={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))} /> : null}
 
@@ -889,7 +917,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             </button>
           </p>
         ) : null}
-      </main>
+      </>
     </PermissionGuard>
   );
 }

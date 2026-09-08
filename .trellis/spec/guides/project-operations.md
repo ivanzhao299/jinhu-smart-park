@@ -219,6 +219,22 @@ Reference files:
 
 ## Testing And Smoke Scripts
 
+### Disposable Browser UAT API Bootstrap
+
+- A fresh local browser-UAT database is not enough to start the API. `AppModule` validates the Party sensitive-data keyring in every `NODE_ENV`, so the isolated API process must receive a test-only `PARTY_DATA_ENCRYPTION_KEY` of at least 32 characters (and an independent `PARTY_DATA_IDENTITY_HASH_KEY` when the legacy-key fallback is not intended), in addition to `JWT_SECRET` and PostgreSQL settings.
+- Keep these disposable keys in the process environment or a mode-0600 temporary file, never in a committed env file or UAT report. Do not reuse production key material.
+- Before repeating a full migrate/seed/bootstrap rehearsal after an API readiness failure, audit all startup validators and `getOrThrow` configuration reads once. This prevents expensive fresh-schema reruns that only reveal the next missing runtime variable.
+- Workspace Web scripts may already own their port flag. Prefer the documented `WEB_PORT=<isolated-port> pnpm dev:web` contract over appending a second CLI `-p` argument.
+- A failed rehearsal must prove its EXIT cleanup removed only the run-labelled compose project, volume, listener PIDs, and temporary browser profile before retrying.
+
+### Browser UAT Login Interaction Contract
+
+- React/Ant Design login forms must be driven through CDP keyboard events after the form and enabled submit control survive the hydration readiness gate. Assigning `HTMLInputElement.value`, dispatching synthetic `input`/`change`, and calling `click()` is not valid evidence that Ant Design `Form.onFinish` observed the credentials.
+- Clear and type each credential through `Input.dispatchKeyEvent`, submit with a real Enter key sequence, and verify the DOM value before submission. Never persist or print the credential while collecting evidence.
+- Observe `Network.requestWillBeSent` and require the exact login `POST` before waiting for navigation/session storage. Report a missing POST as runner interaction failure (`login_post_not_observed`), distinct from an API authentication rejection or a missing authenticated session.
+- A browser inside a container cannot reach host services through its own `127.0.0.1`. The disposable runner must prove browser-to-Web connectivity using its actual browser-visible origin before treating a hydration/login failure as product evidence.
+
+
 The repository uses focused smoke scripts for first-release slices. Prefer the narrow script related to the touched module before running the full first-release regression.
 
 ### Worktree Dependency And Generated-Artifact Provenance

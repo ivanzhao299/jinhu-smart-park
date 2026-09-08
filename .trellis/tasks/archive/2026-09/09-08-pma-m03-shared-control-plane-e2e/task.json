@@ -1,0 +1,39 @@
+{
+<<<<<<<< HEAD:.trellis/tasks/09-08-pma-m01-asset-projection-lifecycle/task.json
+  "id": "pma-m01-asset-projection-lifecycle",
+  "name": "pma-m01-asset-projection-lifecycle",
+  "title": "PMA M-01 资产投影生命周期对称化",
+  "description": "",
+  "status": "in_progress",
+========
+  "id": "pma-m03-shared-control-plane-e2e",
+  "name": "pma-m03-shared-control-plane-e2e",
+  "title": "PMA M-03 共享控制面独立 E2E",
+  "description": "Issue #698: property operations/identity/approval 独立真实 API E2E，纳入 property-api-e2e-gate 与契约",
+  "status": "completed",
+>>>>>>>> 84986e96 (chore(task): archive 09-08-pma-m03-shared-control-plane-e2e):.trellis/tasks/archive/2026-09/09-08-pma-m03-shared-control-plane-e2e/task.json
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-09-08",
+<<<<<<<< HEAD:.trellis/tasks/09-08-pma-m01-asset-projection-lifecycle/task.json
+  "completedAt": null,
+  "branch": "codex/fix-pma-m01-asset-projection-lifecycle",
+========
+  "completedAt": "2026-09-08",
+  "branch": "codex/pma-m03-shared-control-plane-e2e",
+>>>>>>>> 84986e96 (chore(task): archive 09-08-pma-m03-shared-control-plane-e2e):.trellis/tasks/archive/2026-09/09-08-pma-m03-shared-control-plane-e2e/task.json
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

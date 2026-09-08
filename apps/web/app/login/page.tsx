@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { Alert, Button, Form, Input } from "antd";
 import { Building2, FileText, LockKeyhole, LogIn, PlugZap, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppBranding } from "../../components/branding/useAppBranding";
 import { apiRequest } from "../../lib/api-client";
 import { completeLoginSession, withAuthSessionLock } from "../../lib/auth";
@@ -37,6 +37,9 @@ export default function LoginPage() {
   const branding = useAppBranding();
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
 
   const completeLogin = useCallback(
     async (result: LoginResult, options: { lockAlreadyHeld?: boolean } = {}) => {
@@ -101,7 +104,7 @@ export default function LoginPage() {
             <p>使用平台账号登录。</p>
           </div>
         </div>
-        <Form<LoginFormValues> className="signin-form" layout="vertical" onFinish={handlePasswordSubmit}>
+        <Form<LoginFormValues> className="signin-form" data-browser-uat-ready={hydrated ? "true" : undefined} layout="vertical" onFinish={handlePasswordSubmit}>
           <Form.Item label="账号" name="username" rules={[{ required: true, message: "请输入账号" }]}>
             <Input autoComplete="username" placeholder="请输入账号" prefix={<UserRound size={16} />} size="large" />
           </Form.Item>

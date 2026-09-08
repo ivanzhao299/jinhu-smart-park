@@ -50,6 +50,12 @@ export {
   PropertyResponsiveRecords,
   propertyAccessibleControlClassName
 } from "./ds/PropertyPageSurfaces";
+export { PropertyListShell } from "./ds/PropertyListShell";
+export type {
+  PropertyListFilterChip,
+  PropertyListPagination,
+  PropertyListShellProps
+} from "./ds/PropertyListShell";
 export type {
   PropertyFieldDescriptor,
   PropertyPageSurfaceProps,
