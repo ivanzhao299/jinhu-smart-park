@@ -41,6 +41,7 @@ export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([
   "scripts/hr-cutover/production-import-phase-state.mjs",
   "scripts/hr-cutover/production-import-plan-phase-builder.mjs",
   "scripts/hr-cutover/materialize-production-import-plan.mjs",
+  "scripts/hr-cutover/collect-production-import-baseline.mjs",
   "scripts/hr-cutover/materialize-production-import-frozen-decisions.mjs",
   "scripts/hr-cutover/production-import-candidate-freeze.mjs",
   "scripts/hr-cutover/production-import-real-artifact-bridge.mjs",

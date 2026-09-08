@@ -122,6 +122,14 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 私有 plan 两阶段物化（2026-09-09）
 
+定向 baseline collector 使用单连接 REPEATABLE READ READ ONLY 事务，显式 statement/
+idle timeout 与业务时区；目标 probe 和全部分批 ID 查询位于同一快照。目标身份按现有
+snapshot 的 database/user/address/port/oid/tenant/park 与 0x1f 分隔算法重算，不把
+config hash 当观察结果。insert 检查全局 ID（含软删/其他 scope）；merge/skip 复用
+writer 规范化及 canonical/version 核验，但不请求 FOR UPDATE。结束一律 ROLLBACK，
+只有成功结束只读事务后才允许输出 baseline 与 receipt。它不消除之后的目标漂移，
+生产 writer 仍在实际写事务重新验证。私有配置和输出不包含公开日志中的行或连接信息。
+
 draft 读取按原始字节 SHA 固定的 metadata、四阶段 payload/records 和独立
 touched baseline，复用 phase builder 计算摘要。baseline 必须绑定 C/S/M、目标身份、
 scope、观察时间，逐阶段列出实际 present rows 与已查询缺席的 insert IDs；现有

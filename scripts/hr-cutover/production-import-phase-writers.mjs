@@ -307,17 +307,18 @@ function databaseWriteRow(row, targetScope, { expectedVersion = false } = {}) {
   };
 }
 
-async function selectAndVerifyExisting(tx, table, rule, rows, targetScope, afterWrite = false) {
+async function selectAndVerifyExisting(tx, table, rule, rows, targetScope, afterWrite = false, readOnly = false) {
   const storage = tableStorage(table);
   const columns = [...new Set(["id", ...(storage.versioned ? ["version"] : []), ...rule.fieldWhitelist, ...rule.derivedFields])];
   const projections = columns.map(column => table === "hr_employment_event" && column === "source_effective_at"
-    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at` : column);
+    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at`
+    : readOnly && (rule.dateFields.includes(column) || rule.decimalStringFields.includes(column)) ? `${column}::text AS ${column}` : column);
   const result = rowsOf(await tx.query(
     `/* hr-prod-phase:lock-existing */${afterWrite ? " /* hr-prod-phase:verify-after */" : ""}
      SELECT ${projections.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
      FROM ${table}
      WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${storage.softDelete ? " AND is_deleted=false" : ""}
-     FOR UPDATE`,
+     ${readOnly ? "" : "FOR UPDATE"}`,
     [targetScope.tenantId, targetScope.parkId, rows.map(row => row.record.targetId)],
   ), `lock ${table}`);
   const byId = new Map(result.map(row => [String(row.id), row]));
@@ -331,6 +332,14 @@ async function selectAndVerifyExisting(tx, table, rule, rows, targetScope, after
     if (observed !== row.record.expectedTargetBeforeSha256) fail("PRODUCTION_IMPORT_CAS_PRECONDITION_FAILED", `${table}.${row.record.targetId}`);
     row.targetBefore = { payload, derivedFields: derived, version: Number(current.version), canonicalSha256: observed };
   }
+}
+
+/** Same canonical/CAS checks as the writer, without row locks in READ ONLY. */
+export async function readProductionImportBaselineRows({ tx, table, records, targetScope }) {
+  if (!Object.hasOwn(MODEL.targetTables, table) || !Array.isArray(records) || records.some(r => r.targetTable !== table || !["merge", "skip_approved"].includes(r.disposition))) fail("PRODUCTION_IMPORT_BASELINE_INPUT_INVALID", "invalid baseline selection");
+  const rows = records.map(record => ({ record }));
+  await selectAndVerifyExisting(tx, table, MODEL.targetTables[table], rows, targetScope, false, true);
+  return rows.map(row => ({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version, payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields }));
 }
 
 async function insertRows(tx, table, rule, rows, targetScope, batchSize) {
