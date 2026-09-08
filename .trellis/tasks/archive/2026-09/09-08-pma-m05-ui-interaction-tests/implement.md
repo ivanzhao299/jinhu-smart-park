@@ -26,12 +26,13 @@
 - [x] `pnpm --filter @jinhu/web test:unit:interaction`：4 files / 10 tests passed（隔离 modules-dir；命令脚本自身固定 `NODE_ENV=test`）。
 - [x] 受影响既有测试：housing 33/33、homestay 18/18；property 聚合先通过 45 个后 Node 24/V8 fatal，聚焦复跑剩余文件 5/5 passed。
 - [x] `pnpm --filter @jinhu/web lint`：passed。
-- [ ] `pnpm --filter @jinhu/web typecheck`
-- [ ] `pnpm --filter @jinhu/web build`
+- [x] `pnpm --filter @jinhu/web typecheck`（PR CI `Lint, Typecheck, Build`）。
+- [x] `pnpm --filter @jinhu/web build`（PR CI `Lint, Typecheck, Build`）。
 - [x] Trellis check 本地规格/diff/测试审查；标准依赖环境的 typecheck/build 等待 PR CI。
-- [ ] 最多 3 轮 review。
-- [ ] commit/push；PR `Closes #703`；PR CI；squash merge。
-- [ ] containing-main CI+Deploy 双绿；Issue closed；归档、RBAC ff、删分支、prune。
+- [x] review 干净（0 轮人工修改，未超过 3 轮）。
+- [x] commit/push；PR #704 `Closes #703`；squash merge `c648fa83cd3a5bead900587c4d2278de3a9be6f0`；Issue #703 closed。
+- [x] 门禁裁定方案 2 豁免：PR CI run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34222277639 与 containing-main CI run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34223998536 的唯一失败均为既有 HR cutover fixture `PRODUCTION_IMPORT_CAS_PRECONDITION_FAILED`；本队列禁止触碰 HR。两条 run 的非 HR 门禁（含 lint/typecheck/unit/build）均通过。
+- [x] containing-main Deploy run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34223998470 success。按常设豁免规则满足归档前提；归档、RBAC ff、删分支、prune 在收尾命令完成。
 
 ## Risk files and rollback points
 
@@ -42,11 +43,11 @@
 ## Cost Summary template
 
 Task: PMA M-05 UI 真实交互测试
-Status: in progress — local implementation and mutation proof complete
+Status: complete — PR #704 merged；按方案 2 HR smoke 豁免完成 containing-main 门禁裁定
 Files changed: Web/root package scripts, lockfile, Vitest config/setup, four mounted test files, task artifacts
 Tests run: interaction 10/10; housing 33/33; homestay 18/18; property 45 assertions + focused 5/5; Web lint passed
 Retries: runner/config root causes capped at two fixes; one property V8 crash followed by one focused pass
 Approx model rounds: planning 1, implementation/verification 1
 Repeated scans avoided: two one-round maps reused; exact target files only reread
-Blocked issues: local root-owned stale node_modules prevented authoritative typecheck/build; clean PR CI is the gate
-Next step: commit/push, review and CI closure
+Blocked issues: HR cutover CAS fixture 阻塞 PR/containing-main Release Smoke，按用户裁定跨轨道豁免并记录 run 链接；不在本队列修复
+Next step: archive task, fast-forward main, delete merged branch, prune
