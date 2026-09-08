@@ -22,7 +22,7 @@ type RawRow=Record<string,unknown>;
 const targetContracts:Record<string,{domain:string;values:readonly string[]|null}>={
   employee_job_state:{domain:"employment_status",values:["active","probation","suspended","departed"]},
   employment_event_type:{domain:"employment_event_type",values:["start_probation","confirm_employment","transfer","suspend","depart","resume"]},
-  employment_event_state:{domain:"migration_decision",values:["accepted"]},
+  employment_event_state:{domain:"migration_decision",values:["accepted","needs_review"]},
   contract_type:{domain:"contract_type_code",values:null},
   contract_state:{domain:"contract_status",values:["draft","active","expired","terminated","cancelled"]},
 };

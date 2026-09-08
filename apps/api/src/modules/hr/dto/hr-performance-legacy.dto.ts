@@ -25,6 +25,7 @@ export class HrPerformanceLegacyResultQueryDto extends HrPerformanceLegacyPageQu
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(2147483647)
   source_session_id?: number;
 }
 
@@ -39,5 +40,6 @@ export class HrPerformanceLegacyRubricQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(2147483647)
   source_assessment_id!: number;
 }

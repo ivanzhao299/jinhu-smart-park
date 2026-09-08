@@ -10,4 +10,5 @@ export class HrLegacyArchiveQueryDto {
   @IsOptional() @Transform(optionalTrim) @IsString() @MaxLength(64) record_type?:string;
   @IsOptional() @IsUUID() employee_id?:string;
   @IsOptional() @Transform(optionalTrim) @IsString() @MaxLength(100) keyword?:string;
+  @IsOptional() @IsIn(["SOURCE_STATE_UNCONFIRMED","T2_CONTRACT_MISSING","T3_INT4_INVALID","T3_ATTENDANCE_SYMBOL_UNRESOLVED"]) reason_code?:string;
 }

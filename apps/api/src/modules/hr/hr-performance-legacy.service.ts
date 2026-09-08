@@ -317,6 +317,12 @@ export class HrPerformanceLegacyService {
     return result;
   }
 
+  /**
+   * Read-only projection of dbo.assessmentmaster.  This is intentionally
+   * separate from the per-dimension result endpoint: in the legacy product it
+   * represented the employee/session aggregate after the stored procedures
+   * applied template weighting and the three adjustments.
+   */
   async masters(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -592,7 +598,6 @@ export class HrPerformanceLegacyService {
     });
     return result;
   }
-
   private canReadDefinitions(actor: JwtPrincipal) {
     return (
       has(actor, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) ||

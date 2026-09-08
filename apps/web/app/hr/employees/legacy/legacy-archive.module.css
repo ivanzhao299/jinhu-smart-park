@@ -9,6 +9,9 @@
 .projection dt { color:var(--text-secondary); font-size:13px; }
 .projection dd { margin:6px 0 0; color:var(--text-primary); line-height:1.65; word-break:break-word; }
 .notice { padding:14px 16px; border-left:3px solid var(--color-primary); background:color-mix(in srgb,var(--color-primary) 7%,var(--bg-card)); color:var(--text-secondary); }
+.compatibility { display:grid; gap:6px; margin:18px 0; padding:14px 16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-muted); color:var(--text-secondary); }
+.compatibility strong { color:var(--text-primary); }
+.compatibility span:not(.ds-eyebrow) { overflow-wrap:anywhere; }
 .pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; }
 @media (max-width:520px) {
  .page { gap:16px; }
@@ -20,3 +23,4 @@
  .pagination { align-items:stretch; flex-direction:column; text-align:center; }
  .pagination :global(.ds-button) { width:100%; min-height:44px; justify-content:center; }
 }
+.recordList:global(.ds-mobile-record-list) { display:grid; }

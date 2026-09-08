@@ -17,6 +17,7 @@ import {
 import { hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./performance-legacy.module.css";
+import { parseLegacyQueryId } from "./legacy-query";
 
 type LegacyKind = "templates" | "levels" | "dimensions" | "guides" | "results" | "masters";
 type LegacyRow =
@@ -27,7 +28,7 @@ type LegacyRow =
   | HrPerformanceLegacyResult
   | HrPerformanceLegacyMaster;
 type LegacyPage = PaginatedResult<LegacyRow>;
-type Field = { key: string; label: string; relation?: boolean };
+type Field = { key: string; label: string; relation?: boolean; sensitive?: boolean };
 
 const EMPTY_PAGE: LegacyPage = { items: [], page: 1, page_size: 20, total: 0 };
 const definitionKinds: LegacyKind[] = ["templates", "levels", "dimensions", "guides"];
@@ -125,7 +126,7 @@ const fields: Record<LegacyKind, Field[]> = {
     { key: "sourceTotalValue", label: "旧系统总分" },
     { key: "sourceSelfAppraisal", label: "自我评价" },
     { key: "sourceAppraisal", label: "考核评价" },
-    { key: "sourcePay", label: "绩效金额（按工资权限）" },
+    { key: "sourcePay", label: "绩效金额（按工资权限）", sensitive: true },
     { key: "sourceAssessmentPerson", label: "考核人" },
     { key: "sourceRecordedAt", label: "记录时间" },
     { key: "sourceOperatorCode", label: "操作员编码" },
@@ -173,8 +174,14 @@ function Pager({ result, loading, onPage }: { result: LegacyPage; loading: boole
 
 export function HrPerformanceLegacyPanel() {
   const user = useAuthUser();
+  return <HrPerformanceLegacyContent key={JSON.stringify(user)} />;
+}
+
+function HrPerformanceLegacyContent() {
+  const user = useAuthUser();
   const canDefinitions = hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ) || hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_MANAGE);
   const canResults = [HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ].some(permission => hasPermission(user, permission));
+  const canReadHistoricalPay = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ) || hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ) || (hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ) && hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ));
   const available = useMemo(() => [...(canDefinitions ? definitionKinds : []), ...(canResults ? ["results" as const, "masters" as const] : [])], [canDefinitions, canResults]);
   const [kind, setKind] = useState<LegacyKind>(available[0] ?? "results");
   const [page, setPage] = useState(1);
@@ -182,8 +189,8 @@ export function HrPerformanceLegacyPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sessionText, setSessionText] = useState("");
-  const [sessionFilter, setSessionFilter] = useState<number | undefined>();
   const [sessionError, setSessionError] = useState("");
+  const [sessionFilter, setSessionFilter] = useState<number | undefined>();
   const [rubricAssessmentText, setRubricAssessmentText] = useState("");
   const [rubric, setRubric] = useState<HrPerformanceLegacyRubric | null>(null);
   const [rubricLoading, setRubricLoading] = useState(false);
@@ -234,28 +241,22 @@ export function HrPerformanceLegacyPanel() {
   if (!available.length) return null;
   const selectKind = (next: LegacyKind) => { setKind(next); setPage(1); setResult(EMPTY_PAGE); };
   const applySession = () => {
-    const normalized = sessionText.trim();
-    if (!normalized) {
+    try {
+      setSessionFilter(parseLegacyQueryId(sessionText));
       setSessionError("");
-      setSessionFilter(undefined);
       setPage(1);
-      return;
+    } catch (cause) {
+      setSessionError((cause as Error).message);
     }
-    const sourceSessionId = Number(normalized);
-    if (!/^\d+$/u.test(normalized) || !Number.isSafeInteger(sourceSessionId)) {
-      setSessionError("请输入有效的旧考核批次编号。");
-      return;
-    }
-    setSessionError("");
-    setSessionFilter(sourceSessionId);
-    setPage(1);
   };
   const loadRubric = async () => {
-    const normalized = rubricAssessmentText.trim();
-    const sourceAssessmentId = Number(normalized);
-    if (!/^\d+$/u.test(normalized) || !Number.isSafeInteger(sourceAssessmentId)) {
+    let assessmentId: number | undefined;
+    try {
+      assessmentId = parseLegacyQueryId(rubricAssessmentText);
+      if (assessmentId === undefined) throw new Error("请输入旧考核表编号。");
+    } catch (cause) {
       setRubric(null);
-      setRubricError("请输入有效的旧考核表编号。");
+      setRubricError((cause as Error).message);
       return;
     }
     const current = ++rubricGeneration.current;
@@ -266,7 +267,7 @@ export function HrPerformanceLegacyPanel() {
     setRubric(null);
     setRubricError("");
     try {
-      const response = await hrApi.performanceLegacyRubric(sourceAssessmentId, getAccessToken(), controller.signal);
+      const response = await hrApi.performanceLegacyRubric(assessmentId, getAccessToken(), controller.signal);
       if (current === rubricGeneration.current) setRubric(response);
     } catch (cause) {
       if (current === rubricGeneration.current && !controller.signal.aborted) {
@@ -289,8 +290,8 @@ export function HrPerformanceLegacyPanel() {
     {activeKind === "results" || activeKind === "masters" ? <div className={styles.filters}>
       <label className="form-field"><span>旧考核批次（可选）</span><input type="number" min="0" step="1" inputMode="numeric" value={sessionText} onChange={event => setSessionText(event.target.value)} /></label>
       <button className="ds-button" type="button" onClick={applySession} disabled={loading}>查询</button>
-      {sessionFilter !== undefined ? <button className="ds-button" type="button" onClick={() => { setSessionText(""); setSessionError(""); setSessionFilter(undefined); setPage(1); }}>清除</button> : null}
-      {sessionError ? <p className={styles.state} role="alert">{sessionError}</p> : null}
+      {sessionFilter !== undefined || sessionError ? <button className="ds-button" type="button" onClick={() => { setSessionText(""); setSessionError(""); setSessionFilter(undefined); setPage(1); }}>清除</button> : null}
+      {sessionError ? <p role="alert">{sessionError}</p> : null}
     </div> : null}
     {error ? <div className={styles.state} role="alert"><p>{error}</p><button className="ds-button" type="button" onClick={() => void load()}>重新加载</button></div> : null}
     {!error && loading && !result.items.length ? <p className={styles.state} aria-busy="true">正在加载历史绩效…</p> : null}
@@ -301,7 +302,7 @@ export function HrPerformanceLegacyPanel() {
         return <details className={styles.record} key={row.id}>
           <summary><strong>{rowTitle(activeKind, row)}</strong><span>展开全部字段</span></summary>
           <dl className={styles.fieldGrid}>
-            {fields[activeKind].map(field => <div className={field.relation ? styles.relationField : undefined} key={field.key}><dt>{field.label}{field.relation ? "（现代关系）" : ""}</dt><dd>{field.relation ? relationText(values[field.key]) : valueText(values[field.key])}</dd></div>)}
+            {fields[activeKind].filter(field => !field.sensitive || canReadHistoricalPay).map(field => <div className={field.relation ? styles.relationField : undefined} key={field.key}><dt>{field.label}{field.relation ? "（现代关系）" : ""}</dt><dd>{field.relation ? relationText(values[field.key]) : valueText(values[field.key])}</dd></div>)}
             <div className={styles.relationField}><dt>兼容记录 ID（现代关系）</dt><dd>{row.id}</dd></div>
           </dl>
         </details>;

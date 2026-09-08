@@ -25,6 +25,7 @@ export interface HrEmploymentEventResponseDto {
  createTime:string;
 }
 export class HrContractListQueryDto {
+ @IsOptional() @IsUUID() employee_id?:string;
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;

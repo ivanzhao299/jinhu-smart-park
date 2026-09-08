@@ -8,6 +8,14 @@ import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type ArchiveAccess="park"|"managed_org_tree"|"self"|"none";
 type RawRow=Record<string,unknown>;
+type CompatibilityRelation={classification:string;sourceTable:string;sourceRelation:string;targetTables:string[];targetRelation:string;decision:string};
+
+const COMPATIBILITY_RELATIONS:Readonly<Record<string,CompatibilityRelation>>={
+  SOURCE_STATE_UNCONFIRMED:{classification:"SOURCE_STATE_UNCONFIRMED",sourceTable:"dbo.readjust",sourceRelation:"dbo.person.person = dbo.readjust.person",targetTables:["hr_employment_event"],targetRelation:"hr_employee.id = hr_employment_event.employee_id",decision:"preserve_needs_review"},
+  T2_CONTRACT_MISSING:{classification:"T2_CONTRACT_MISSING",sourceTable:"dbo.compact_c",sourceRelation:"dbo.compact.compact = dbo.compact_c.compact",targetTables:["hr_contract_change"],targetRelation:"hr_contract.id = hr_contract_change.contract_id",decision:"quarantine_without_guessed_parent"},
+  T3_INT4_INVALID:{classification:"T3_INT4_INVALID",sourceTable:"dbo.person_insure",sourceRelation:"dbo.person.person = dbo.person_insure.person",targetTables:["hr_employee_insurance_period","hr_employee_insurance_item"],targetRelation:"hr_employee.id = hr_employee_insurance_period.employee_id; hr_employee_insurance_period.id = hr_employee_insurance_item.period_id",decision:"quarantine_parent_and_children"},
+  T3_ATTENDANCE_SYMBOL_UNRESOLVED:{classification:"T3_ATTENDANCE_SYMBOL_UNRESOLVED",sourceTable:"dbo.timekeeptable",sourceRelation:"dbo.person.tablename = dbo.timekeeptable.tablename",targetTables:["hr_attendance_day"],targetRelation:"hr_attendance_calendar_source.id = hr_attendance_day.calendar_source_id",decision:"preserve_symbol_needs_review"},
+};
 
 export interface HrLegacyArchiveProjection {
   id:string;
@@ -21,6 +29,7 @@ export interface HrLegacyArchiveProjection {
   sourceSystem?:string;
   sourceTable?:string;
   resolutionReasonCode?:string|null;
+  compatibility?:CompatibilityRelation;
 }
 
 @Injectable()
@@ -97,6 +106,7 @@ export class HrLegacyArchiveService {
     if(query.record_type){params.push(query.record_type);predicates.push(`archive.record_type=$${params.length}`);}
     if(query.employee_id){params.push(query.employee_id);predicates.push(`registry.owner_employee_id=$${params.length}`);}
     if(query.keyword){params.push(`%${query.keyword}%`);predicates.push(`archive.display_title ILIKE $${params.length}`);}
+    if(query.reason_code){params.push(query.reason_code);predicates.push(`registry.resolution_reason_code=$${params.length}`);}
     params.push(query.page_size,(query.page-1)*query.page_size);
     const rows=await this.dataSource.query(
       `SELECT archive.id,registry.owner_employee_id AS "employeeId",registry.mapping_status AS "mappingStatus",
@@ -114,7 +124,20 @@ export class HrLegacyArchiveService {
     ) as RawRow[];
     const canReadSensitive=this.has(actor,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SENSITIVE_READ);
     const items=rows.map(row=>this.project(row,canReadSensitive,{includeRestricted:false}));
-    const total=rows[0]?Number(rows[0].totalCount):0;
+    let total=rows[0]?Number(rows[0].totalCount):0;
+    // An out-of-range page has no window-count row. Preserve the filtered,
+    // authorized total so clients can return to a valid page.
+    if(rows.length===0&&query.page>1){
+      const counts=await this.dataSource.query(
+        `SELECT count(*) AS "totalCount"
+         FROM hr_legacy_archive_record archive
+         JOIN hr_legacy_identity_registry registry ON registry.id=archive.identity_registry_id
+          AND registry.tenant_id=archive.tenant_id AND registry.park_id=archive.park_id AND registry.identity_kind='archive_record'
+         WHERE ${predicates.join(" AND ")}`,
+        params.slice(0,-2),
+      ) as RawRow[];
+      total=Number(counts[0]?.totalCount??0);
+    }
     await this.audit(scope,actor,unclaimedOnly?"读取待认领旧档案":"读取旧系统资料",unclaimedOnly?"/hr/legacy-archive/unclaimed":"/hr/legacy-archive",access,items.length);
     return {items,total,page:query.page,page_size:query.page_size};
   }
@@ -155,7 +178,9 @@ export class HrLegacyArchiveService {
       recordType:String(row.recordType),occurredOn:row.occurredOn?String(row.occurredOn).slice(0,10):null,
       displayTitle:String(row.displayTitle),projection:{...publicProjection,...restricted},hasSensitiveSource:Boolean(row.hasSensitiveSource),
     };
-    return canReadSensitive?{...base,sourceSystem:String(row.sourceSystem),sourceTable:String(row.sourceTable),resolutionReasonCode:row.resolutionReasonCode?String(row.resolutionReasonCode):null}:base;
+    if(!canReadSensitive)return base;
+    const reasonCode=row.resolutionReasonCode?String(row.resolutionReasonCode):null;
+    return {...base,sourceSystem:String(row.sourceSystem),sourceTable:String(row.sourceTable),resolutionReasonCode:reasonCode,compatibility:reasonCode?COMPATIBILITY_RELATIONS[reasonCode]:undefined};
   }
 
   private projectFile(row:RawRow,canReadSensitive:boolean) {

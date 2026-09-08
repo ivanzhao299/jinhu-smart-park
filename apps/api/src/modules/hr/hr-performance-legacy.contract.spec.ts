@@ -26,14 +26,14 @@ test("ordinary API CI executes the legacy performance routine parity fast contra
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
-function actor(permission?: string): JwtPrincipal {
+function actor(permission?: string | string[]): JwtPrincipal {
   return {
     sub: "user-1",
     username: "performance-legacy-test",
     tenantId: scope.tenantId,
     parkId: scope.parkId,
     roles: [],
-    permissions: permission ? [permission] : [],
+    permissions: permission ? (Array.isArray(permission) ? permission : [permission]) : [],
   };
 }
 
@@ -57,6 +57,77 @@ function harness() {
     service: new HrPerformanceLegacyService(dataSource, audit),
   };
 }
+
+test("master read SQL executes in PostgreSQL with scope and visibility isolation", {
+  skip: process.env.YUZHOU_PERFORMANCE_READ_PG !== "yes",
+}, async () => {
+  const migration = readFileSync(resolve(__dirname, "../../../../../database/migrations/000302_hr_performance_yuzhou_legacy_master.sql"), "utf8");
+  // Temporary relations shadow application tables; no persistent fixture or real row is used.
+  const sourceColumns = migration.split("\n").filter(line => /^ {2}source_\w+ (integer|varchar|numeric|timestamp)/u.test(line))
+    .map(line => line.trim().replace(/,$/u, "")).join(",\n");
+  const setup = `BEGIN;
+    SET LOCAL search_path=pg_temp;
+    CREATE TEMP TABLE hr_performance_legacy_master_result (
+      id uuid,tenant_id text,park_id text,migration_batch_id uuid,legacy_record_map_id uuid,
+      legacy_template_profile_id uuid,target_cycle_employee_id uuid,target_template_version_id uuid,
+      ${sourceColumns});
+    CREATE TEMP TABLE migration_batch (id uuid,source_system text,execution_context text,status text);
+    CREATE TEMP TABLE legacy_record_map (id uuid,batch_id uuid,source_system text,target_table text,target_id uuid,mapping_status text,is_active boolean);
+    CREATE TEMP TABLE hr_performance_cycle_employee (id uuid,tenant_id text,park_id text,employee_id uuid);
+    CREATE TEMP TABLE hr_employee (id uuid,tenant_id text,park_id text,user_id text,primary_org_id uuid,is_deleted boolean);
+    CREATE TEMP TABLE sys_org (id uuid,parent_id uuid,tenant_id text,park_id text,leader_user_id text,is_deleted boolean,status text);
+    -- This test isolates read scope; formula parity has its own PostgreSQL suite.
+    CREATE FUNCTION pg_temp.hr_scope_test_parity(uuid)
+      RETURNS TABLE(calculated_total numeric,expected_ass_grade text,winning_min_value numeric,winning_candidate_count integer,parity_status text)
+      LANGUAGE sql AS 'SELECT NULL::numeric,NULL::text,NULL::numeric,0,''TOTAL_UNAVAILABLE''::text';
+    INSERT INTO sys_org VALUES
+      ('00000000-0000-4000-8000-000000000001',null,'tenant-1','park-1','user-1',false,'enabled'),
+      ('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','tenant-1','park-1',null,false,'enabled');
+    INSERT INTO hr_performance_legacy_master_result
+      (id,tenant_id,park_id,migration_batch_id,legacy_record_map_id,target_cycle_employee_id,source_master_id,source_session_id,source_pay,source_total_value)
+      SELECT md5('fact'||n)::uuid,'tenant-1',CASE WHEN n=4 THEN 'other-park' ELSE 'park-1' END,
+        md5('batch'||n)::uuid,md5('map'||n)::uuid,md5('cycle'||n)::uuid,n,7,12.3456,79.25
+      FROM generate_series(1,6) n;
+    INSERT INTO migration_batch SELECT md5('batch'||n)::uuid,'yuzhou-v10',
+      CASE WHEN n=5 THEN 'lab_rehearsal' ELSE 'production_import' END,'succeeded' FROM generate_series(1,6) n;
+    INSERT INTO legacy_record_map SELECT md5('map'||n)::uuid,md5('batch'||n)::uuid,'yuzhou-v10',
+      'hr_performance_legacy_master_result',md5('fact'||n)::uuid,'verified',n<>6 FROM generate_series(1,6) n;
+    INSERT INTO hr_performance_cycle_employee SELECT target_cycle_employee_id,tenant_id,park_id,md5('employee'||source_master_id)::uuid FROM hr_performance_legacy_master_result;
+    INSERT INTO hr_employee SELECT md5('employee'||source_master_id)::uuid,tenant_id,park_id,
+      CASE WHEN source_master_id=1 THEN 'user-1' ELSE 'other-user' END,
+      CASE WHEN source_master_id IN (1,2) THEN '00000000-0000-4000-8000-000000000002'::uuid ELSE null END,false
+      FROM hr_performance_legacy_master_result;
+  `;
+  const variants = [
+    { permissions: [HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ], ids: [1], pay: false },
+    { permissions: [HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ, HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ], ids: [1, 2], pay: false },
+    { permissions: [HR_PERMISSIONS.HR_PERFORMANCE_READ], ids: [1, 2, 3], pay: false },
+    { permissions: [HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ], ids: [1, 2, 3], pay: true },
+  ];
+  for (const variant of variants) {
+    const captured = harness();
+    await captured.service.masters(scope, actor(variant.permissions), { page: 1, page_size: 20, source_session_id: 7 });
+    const itemQuery = captured.calls[1];
+    assert.ok(itemQuery);
+    const sql = itemQuery.sql.replace('hr_performance_yuzhou_legacy_grade_parity(fact.id)', 'pg_temp.hr_scope_test_parity(fact.id)').replace(/\$(\d+)/gu, (_, index: string) => {
+      const value = itemQuery.params[Number(index) - 1];
+      return typeof value === "number" ? String(value) : `'${String(value).replaceAll("'", "''")}'`;
+    });
+    const result = spawnSync("docker", ["exec", "-i", "jinhu-smart-park-postgres", "psql", "-X", "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres"], {
+      input: `${setup}\nSELECT coalesce(json_agg(row_to_json(result)),'[]'::json) FROM (${sql}) result;\nROLLBACK;`,
+      encoding: "utf8", timeout: 15000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const rows = JSON.parse(result.stdout.trim()) as Array<Record<string, unknown>>;
+    assert.deepEqual(rows.map(row => row.sourceMasterId), variant.ids);
+    for (const row of rows) {
+      assert.equal(row.sourceTotalValue, "79.25");
+      assert.equal(Object.hasOwn(row, "sourcePay"), true);
+      if (!variant.pay) assert.equal(row.sourcePay, null);
+      if (variant.pay) assert.equal(row.sourcePay, "12.3456");
+    }
+  }
+});
 
 test("legacy definition reads expose all 29 definition fields only from active successful production imports", async () => {
   const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
@@ -472,6 +543,79 @@ test("legacy result filters narrow but cannot widen the resolved access scope", 
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.source_session_id=\$4/u);
   assert.deepEqual(self.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", 7, 25, 25]);
+});
+
+test("legacy master summaries preserve all 21 source fields and project pay with an explicit payroll permission", async () => {
+  const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
+  const masterColumns = [
+    "source_master_id", "source_session_id", "source_person_code", "source_self_grade",
+    "source_ass_grade", "source_self_value", "source_item_value", "source_m_item_value",
+    "source_x_item_value", "source_c_item_value", "source_master_value", "source_timekeep_value",
+    "source_bonus_value", "source_total_value", "source_self_appraisal", "source_appraisal",
+    "source_pay", "source_assessment_person", "source_recorded_at", "source_operator_code",
+    "source_description",
+  ];
+  for (const column of masterColumns) assert.match(source, new RegExp(`fact\\.${column}\\b`, "u"));
+  for (const column of [
+    "source_self_value", "source_item_value", "source_m_item_value", "source_x_item_value",
+    "source_c_item_value", "source_master_value", "source_timekeep_value", "source_bonus_value",
+    "source_total_value",
+  ]) assert.match(source, new RegExp(`fact\\.${column}::text`, "u"));
+
+  const noPay = harness();
+  await noPay.service.masters(scope, actor(HR_PERMISSIONS.HR_PERFORMANCE_READ), page);
+  assert.match(noPay.calls[0]?.sql ?? "", /hr_performance_legacy_master_result/u);
+  assert.equal(noPay.calls[1]?.params[2], false);
+  assert.equal(noPay.audits.length, 1);
+
+  const pay = harness();
+  await pay.service.masters(scope, actor([
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ,
+  ]), page);
+  assert.match(pay.calls[1]?.sql ?? "", /source_pay::text END "sourcePay"/u);
+  assert.equal(pay.audits.length, 1);
+});
+
+test("master queries enforce denied, self, team and park scope independently of payroll permission", async () => {
+  for (const permissions of [[], [HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ]]) {
+    const denied = harness();
+    assert.deepEqual(await denied.service.masters(scope, actor(permissions), page), {
+      items: [], total: 0, page: 2, page_size: 25,
+    });
+    assert.equal(denied.calls.length, 0);
+    assert.equal(denied.audits.length, 0);
+  }
+  for (const permission of [HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ, HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ]) {
+    const restricted = harness();
+    await restricted.service.masters(scope, actor([permission, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ]), { ...page, source_session_id: 7 });
+    for (const call of restricted.calls) {
+      assert.match(call.sql, /fact\.tenant_id=\$1 AND fact\.park_id=\$2/u);
+      assert.match(call.sql, /fact\.source_session_id=\$4/u);
+      assert.match(call.sql, /batch\.execution_context='production_import'/u);
+      assert.match(call.sql, /batch\.status='succeeded'/u);
+      assert.match(call.sql, /record_map\.mapping_status='verified'/u);
+      assert.match(call.sql, /employee\.is_deleted=false/u);
+
+      assert.match(call.sql, permission === HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ
+        ? /employee\.user_id::text=\$3::text/u : /WITH RECURSIVE managed_org/u);
+    }
+    assert.ok(restricted.calls[1]);
+    assert.deepEqual(restricted.calls[1].params, [scope.tenantId, scope.parkId, "user-1", 7, true, 25, 25]);
+    assert.deepEqual((restricted.audits[0] as { afterJson: unknown }).afterJson, {
+      fieldGroups: ["legacy_projection", "compensation"],
+      projection: permission === HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ ? "self" : "managed_org_tree",
+      itemCount: 1,
+    });
+  }
+  const park = harness();
+  await park.service.masters(scope, actor([HR_PERMISSIONS.HR_PERFORMANCE_READ, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ]), { ...page, source_session_id: 7 });
+  assert.ok(park.calls[1]);
+  assert.match(park.calls[1].sql, /source_pay::text END "sourcePay"/u);
+  assert.deepEqual(park.calls[1].params, [scope.tenantId, scope.parkId, 7, true, 25, 25]);
+  assert.deepEqual((park.audits[0] as { afterJson: unknown }).afterJson, {
+    fieldGroups: ["legacy_projection", "compensation"], projection: "park", itemCount: 1,
+  });
 });
 
 test("authorized empty legacy reads still require a successful audit", async () => {
