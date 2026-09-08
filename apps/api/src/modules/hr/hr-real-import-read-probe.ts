@@ -23,6 +23,17 @@ export class HrRealImportReadProbeError extends Error {
 function fail(code: string): never { throw new HrRealImportReadProbeError(code); }
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 
+async function checkedRead(step: string, read: () => Promise<unknown>): Promise<unknown> {
+  try { return await read(); }
+  catch (error) {
+    // Retain only a fixed call-site and PostgreSQL's five-character classifier.
+    // Never retain driver messages, SQL, parameters, response bodies or causes.
+    const driver = object(error) && object(error.driverError) ? error.driverError : error;
+    const state = object(driver) && typeof driver.code === "string" && /^[0-9A-Z]{5}$/.test(driver.code) ? driver.code : null;
+    fail(`HR_READ_PROBE_${step}_FAILED${state ? `_SQLSTATE_${state}` : ""}`);
+  }
+}
+
 function verifyPage(value: unknown, total: number, page: number, size: number): Page {
   if (!object(value) || !Array.isArray(value.items) || value.total !== total || value.page !== page || value.page_size !== size ||
       value.items.length !== Math.min(size, Math.max(0, total - (page - 1) * size))) fail("HR_READ_PROBE_PAGINATION_INVALID");
@@ -42,7 +53,10 @@ export async function verifyHrRealImportReads(input: {
   expectedCounts: HrRealImportExpectedCounts;
 }) {
   try {
-    const { service, scope, actor, expectedCounts } = input;
+    const { service, scope: suppliedScope, actor, expectedCounts } = input;
+    // Migration scopes also carry proof hashes. They are not entity predicates.
+    // Keep the actual business scope exact before any service spreads it.
+    const scope = suppliedScope && { tenantId: suppliedScope.tenantId, parkId: suppliedScope.parkId };
     if (!scope || !actor || !expectedCounts || [scope.tenantId, scope.parkId, actor.sub].some(value => typeof value !== "string" || !value.trim()) ||
         actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId || !Array.isArray(actor.permissions)) fail("HR_READ_PROBE_INPUT_INVALID");
     const domains: Domain[] = ["employees", "contracts", "attendanceCalendars", "insurancePeriods"];
@@ -59,13 +73,14 @@ export async function verifyHrRealImportReads(input: {
     const checks: string[] = [];
     for (const domain of domains) {
       const total = expectedCounts[domain], size = Math.min(20, Math.ceil(total / 2));
-      const first = verifyPage(await readers[domain](actor, 1, size), total, 1, size);
-      const second = verifyPage(await readers[domain](actor, 2, size), total, 2, size);
+      const step = domain.toUpperCase();
+      const first = verifyPage(await checkedRead(`${step}_PAGE1`, () => readers[domain](actor, 1, size)), total, 1, size);
+      const second = verifyPage(await checkedRead(`${step}_PAGE2`, () => readers[domain](actor, 2, size)), total, 2, size);
       const firstSet = new Set(first.items.map(row => row.id));
       if (second.items.some(row => firstSet.has(row.id))) fail("HR_READ_PROBE_PAGE_OVERLAP");
       firstIds[domain] = first.items[0]!.id;
       observedCounts[domain] = first.total;
-      for (const page of [1, 2]) verifyPage(await readers[domain](denied, page, size), 0, page, size);
+      for (const page of [1, 2]) verifyPage(await checkedRead(`${step}_DENIED_PAGE${page}`, () => readers[domain](denied, page, size)), 0, page, size);
       checks.push(`${domain}:positive_count`, `${domain}:pagination`, `${domain}:disjoint_pages`, `${domain}:denied_empty`);
     }
     const details = [
@@ -73,7 +88,7 @@ export async function verifyHrRealImportReads(input: {
       { read: (principal: JwtPrincipal) => service.insurancePeriodDetail(scope, principal, firstIds.insurancePeriods), id: firstIds.insurancePeriods, message: "Insurance period not found", domain: "insurancePeriods" },
     ];
     for (const detail of details) {
-      const value: unknown = await detail.read(actor);
+      const value: unknown = await checkedRead(`${detail.domain.toUpperCase()}_DETAIL`, () => detail.read(actor));
       if (!object(value) || value.id !== detail.id) fail("HR_READ_PROBE_DETAIL_MISMATCH");
       let rejected = false;
       try { await detail.read(denied); }

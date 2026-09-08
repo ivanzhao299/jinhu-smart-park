@@ -23,6 +23,7 @@ function service(mutate?: Mutation, detailDefect?: string) {
   }
   for (const [name, message] of [["contractDetail", "Contract not found"], ["insurancePeriodDetail", "Insurance period not found"]]) {
     methods[name!] = async (_scope: unknown, principal: typeof actor, id: string) => {
+      assert.deepEqual(_scope, scope);
       if (!principal.permissions.length) {
         if (detailDefect === "exposed") return { id, privateValue: "PRIVATE-ROW" };
         if (detailDefect === "leaky404") throw new NotFoundException("PRIVATE-ROW");
@@ -60,7 +61,14 @@ for (const [name, mutate] of [
   ["raw error sanitized", () => { throw new Error("PRIVATE-ROW password=dont-print"); }],
 ] as Array<[string, Mutation]>) test(name, async () => {
   await assert.rejects(verifyHrRealImportReads({ service: service(mutate).adapter, scope, actor, expectedCounts }), error =>
-    error instanceof HrRealImportReadProbeError && /^HR_READ_PROBE_[A-Z_]+$/.test(error.message) && !/PRIVATE|password/.test(error.message));
+    error instanceof HrRealImportReadProbeError && /^HR_READ_PROBE_[A-Z0-9_]+$/.test(error.message) && !/PRIVATE|password/.test(error.message));
+});
+test("driver failure retains exact step and SQLSTATE without private diagnostic", async () => {
+  const stub = service(domain => {
+    if (domain === "insurancePeriods") throw Object.assign(new Error("PRIVATE-ROW"), { driverError: { code: "42703", detail: "PRIVATE-ROW" } });
+  });
+  await assert.rejects(verifyHrRealImportReads({ service: stub.adapter, scope, actor, expectedCounts }), error =>
+    error instanceof HrRealImportReadProbeError && error.code === "HR_READ_PROBE_INSURANCEPERIODS_PAGE1_FAILED_SQLSTATE_42703" && !JSON.stringify(error).includes("PRIVATE"));
 });
 for (const defect of ["exposed", "leaky404", "driver", "wrongId"]) test(`detail defect ${defect} fails safely`, async () => {
   await assert.rejects(verifyHrRealImportReads({ service: service(undefined, defect).adapter, scope, actor, expectedCounts }), error =>
@@ -72,4 +80,16 @@ test("zero expected counts or mismatched actor scope rejected before service acc
     await assert.rejects(verifyHrRealImportReads({ service: stub.adapter, scope, ...input }), HrRealImportReadProbeError);
   }
   assert.equal(stub.calls.length, 0);
+});
+test("migration proof metadata never becomes a TypeORM business scope predicate", async () => {
+  const stub = service();
+  const original = stub.adapter.listInsurancePeriods.bind(stub.adapter);
+  stub.adapter.listInsurancePeriods = async (actualScope, ...args) => {
+    assert.deepEqual(actualScope, scope);
+    return original(actualScope, ...args);
+  };
+  const migrationScope = { ...scope, scopeSha256: "a".repeat(64) };
+  const result = await verifyHrRealImportReads({ service: stub.adapter, scope: migrationScope, actor, expectedCounts });
+  assert.equal(result.status, "PASS");
+  assert.equal(migrationScope.scopeSha256, "a".repeat(64));
 });
