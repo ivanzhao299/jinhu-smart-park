@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify mounted behavior, accessibility, test-gate reachability and frontend checks"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify package/root command wiring and CI-equivalent evidence boundaries"}
