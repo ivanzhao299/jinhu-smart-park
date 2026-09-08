@@ -56,15 +56,15 @@ async function run() {
   const suffix = String(runId).replaceAll(/[^a-zA-Z0-9]/g, "").slice(-18);
 
   const building = await request("/assets/buildings", {
-    method: "POST", token,
+    method: "POST", token, idempotent: true,
     body: { assetParkId: assetPark.id, buildingCode: `M01B${suffix}`, buildingName: `M01楼栋-${suffix}`, floorCount: 1, status: "enabled" }
   });
   const floor = await request("/assets/floors", {
-    method: "POST", token,
+    method: "POST", token, idempotent: true,
     body: { buildingId: building.id, floorCode: `M01F${suffix}`, floorName: `M01楼层-${suffix}`, floorNo: 1, status: "enabled" }
   });
   const assetUnit = await request("/assets/units", {
-    method: "POST", token,
+    method: "POST", token, idempotent: true,
     body: { floorId: floor.id, unitCode: `M01U${suffix}`, unitName: `M01房源-${suffix}`, unitNo: `M01-${suffix}`, buildingArea: 50, rentableArea: 40, status: "enabled" }
   });
   await request(`/assets/buildings/${building.id}/operating-building`, {
@@ -78,7 +78,7 @@ async function run() {
     body: { usageType: 10, rentalStatus: 10, fittingStatus: 10, reason: `M-01 ${runId}` }
   });
 
-  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token, expectedStatus: 409 });
+  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token, idempotent: true, expectedStatus: 409 });
   const operation = await request(`/property/units/${operatingUnit.id}/operation`, { token });
   await request(`/property/units/${operatingUnit.id}/operation`, {
     method: "PUT", token, idempotent: true,
@@ -90,14 +90,14 @@ async function run() {
       remark: `M-01 ${runId}`
     }
   });
-  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token });
+  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token, idempotent: true });
   await request(`/assets/units/${assetUnit.id}`, { token, expectedStatus: 404 });
   const restored = await request(`/assets/units/${assetUnit.id}/restore`, { method: "POST", token, idempotent: true });
   assert(restored.id === assetUnit.id, "restore returns the same physical source identity");
   const restoredDetail = await request(`/assets/units/${assetUnit.id}`, { token });
   assert(restoredDetail.id === assetUnit.id, "restored source is visible without a duplicate projection");
 
-  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token });
+  await request(`/assets/units/${assetUnit.id}`, { method: "DELETE", token, idempotent: true });
   console.log(`[PASS] Asset projection lifecycle API E2E ${runId}`);
 }
 
