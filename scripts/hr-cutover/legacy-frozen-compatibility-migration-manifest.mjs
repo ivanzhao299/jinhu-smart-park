@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-/* global process, structuredClone */
+/* global process, structuredClone, URL */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildLegacyCompatibilityProgress } from "./legacy-compatibility-progress-v2.mjs";
+import { assertProductionImportExecutionActivated } from "./production-import-sealed-plan-lib.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const DEFAULT_CONTRACT = "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json";
@@ -127,9 +128,6 @@ const canonical = value => `${JSON.stringify(value, null, 2)}\n`;
 const digest = value => createHash("sha256").update(value).digest("hex");
 const exactKeys = (value, keys, code, detail) => {
   if (!object(value) || !same(Object.keys(value).sort(), [...keys].sort())) fail(code, detail);
-};
-const count = (value, code, detail) => {
-  if (!Number.isSafeInteger(value) || value < 0) fail(code, detail);
 };
 
 function validateContract(contract) {
@@ -258,10 +256,19 @@ function validateCurrentLedgers(parsed, progress) {
   if (preflight?.contractKind !== "yuzhou_hr_production_import_preflight"
     || preflight.productionImport !== "HOLD"
     || execution?.contractKind !== "yuzhou_hr_production_import_execution"
-    || execution.productionImport !== "HOLD"
-    || execution.activation?.status !== "HOLD"
-    || !same(execution.activation.allowedTargets, [])) {
-    fail("FROZEN_MANIFEST_PRODUCTION_LEDGER_INVALID", "production must remain unreachable and HOLD");
+    || !execution.activation) {
+    fail("FROZEN_MANIFEST_PRODUCTION_LEDGER_INVALID", "production ledger identity invalid");
+  }
+  const held = execution.productionImport === "HOLD" && execution.activation.status === "HOLD"
+    && same(execution.activation.allowedTargets, []);
+  if (!held) {
+    const target = execution.activation.allowedTargets?.[0];
+    try {
+      assertProductionImportExecutionActivated({ target,
+        targetScope: { scopeSha256: target?.targetScopeSha256 } }, execution);
+    } catch {
+      fail("FROZEN_MANIFEST_PRODUCTION_LEDGER_INVALID", "activation requires a valid sole target; it is not production completion evidence");
+    }
   }
   if (roadmap?.schemaVersion !== "2.0.0"
     || roadmap.status !== "IN_PROGRESS"

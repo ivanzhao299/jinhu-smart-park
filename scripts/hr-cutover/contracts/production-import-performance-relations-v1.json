@@ -5,7 +5,7 @@
   "parentPlan": {
     "planKind": "yuzhou_hr_production_import_sealed_execution_plan",
     "formatVersion": 2,
-    "executionContractSha256": "9b740ea972d835aed4913e43bf7dfeb8fb59de8120573e2ca1638a074e24e1d0",
+    "executionContractSha256": "c379e686022d6ef9715d31ffbdcbb18c2d629f2502e697e32edabc4b6a53f36e",
     "requiredSucceededPhase": "T0"
   },
   "sourceEvidence": {

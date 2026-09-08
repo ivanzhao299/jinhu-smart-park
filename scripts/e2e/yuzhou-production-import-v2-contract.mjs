@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global URL, Buffer, structuredClone */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -7,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT,
   ProductionImportExecutionError,
+  assertProductionImportExecutionActivated,
   computeProductionImportPayloadBundleHash,
   computeProductionImportPayloadHash,
   computeProductionImportTargetScopeHash,
@@ -123,7 +125,7 @@ export function v2Fixture() {
       canonicalizationVersion: bundle.canonicalizationVersion,
       beforeCanonicalSha256: H(`${phaseName}:before`),
       expectedAfterCanonicalSha256: H(`${phaseName}:after`),
-      records: byPhase[phaseName].map(({ phase: ignoredPhase, payload: ignoredPayload, ...planned }) => planned),
+      records: byPhase[phaseName].map(({ phase: ignoredPhase, payload: ignoredPayload, ...planned }) => { void ignoredPhase; void ignoredPayload; return planned; }),
     };
   });
   const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: H("source"), mappingContractHash: H("mapping") };
@@ -765,11 +767,12 @@ test("a sealed T5 private stage joins the T0-T3 transaction only after its exact
   }]);
 });
 
-test("v2 repository contract is HOLD with an empty production target allowlist", () => {
+test("v2 repository contract activates only the verified production target", () => {
   assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.formatVersion, 2);
-  assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.status, "HOLD");
-  assert.deepEqual(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.allowedTargets, []);
-  assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.productionImport, "HOLD");
+  assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.status, "PASS");
+  assert.deepEqual(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.allowedTargets, [{ environment: "production", alias: "jinhu-smart-park-production", identitySha256: "06ac3572434dbef9bde1c46e448906c4e86fbee28b36d8a4020ac15fa24a6f13", targetScopeSha256: "dd115030dbdf977460bf3224598f0c15c1e92aec2aca18eb5bbeb656efecb9ab" }]);
+  assert.deepEqual(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.reasonCodes, []);
+  assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.productionImport, "READY");
   const targetTables = Object.values(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.targetTables).flat().sort();
   assert.deepEqual(Object.keys(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.targetTableRules).sort(), targetTables);
   const migration = readFileSync(resolve(ROOT, "database/migrations/000281_hr_yuzhou_production_import_control_v2.sql"), "utf8");
@@ -794,6 +797,25 @@ test("v2 repository contract is HOLD with an empty production target allowlist",
   for (const path of [".github/workflows/deploy-production.yml", "scripts/prod-deploy.sh", "scripts/db-seed-prod.sh", "scripts/hr-cutover/full-domain-lifecycle.sh"]) {
     assert.doesNotMatch(readFileSync(resolve(ROOT, path), "utf8"), /production-import-writer|production-import-execution-v2/u);
   }
+});
+
+test("activation rejects wrong alias, identity, scope and explicitly held contracts", () => {
+  const contract = DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
+  const allowed = contract.activation.allowedTargets[0];
+  const plan = { target: { environment: allowed.environment, alias: allowed.alias, identitySha256: allowed.identitySha256 }, targetScope: { scopeSha256: allowed.targetScopeSha256 } };
+  assert.doesNotThrow(() => assertProductionImportExecutionActivated(plan));
+  for (const key of ["alias", "identitySha256", "scopeSha256"]) {
+    const wrong = structuredClone(plan);
+    if (key === "scopeSha256") wrong.targetScope[key] = H("wrong-scope");
+    else wrong.target[key] = key === "alias" ? "other-production" : H("wrong-target");
+    assert.throws(() => assertProductionImportExecutionActivated(wrong), error => error.code === "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED");
+  }
+  const held = structuredClone(contract);
+  held.activation = { status: "HOLD", allowedTargets: [], reasonCodes: ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"] };
+  held.productionImport = "HOLD";
+  assert.throws(() => assertProductionImportExecutionActivated(plan, held), error => error.code === "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE");
+  // Target activation is not a sealed plan, approval, rehearsal or runtime receipt.
+  assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_SEALED_PLAN_INVALID");
 });
 
 test("scope hash and all four payload bundles are byte/hash/plan bound", () => {

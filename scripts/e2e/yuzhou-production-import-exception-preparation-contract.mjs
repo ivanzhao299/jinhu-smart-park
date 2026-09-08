@@ -1,3 +1,4 @@
+/* global Buffer, structuredClone */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
@@ -16,7 +17,7 @@ import { createProductionImportArtifactCryptoProvider } from "../hr-cutover/exec
 import { materializeProductionImportDelegatedAuthorization } from "../hr-cutover/materialize-production-import-delegated-authorization.mjs";
 import { authorizeDelegatedProductionImport } from "../hr-cutover/production-import-delegated-authorization.mjs";
 import { approvalPolicyHash, productionImportOperatorPublicKeyHash } from "../hr-cutover/production-import-approval-policy.mjs";
-import { computeSealedProductionImportPlanHash, validateSealedProductionImportPlan, assertProductionImportExecutionActivated } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
+import { DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT, computeSealedProductionImportPlanHash, validateSealedProductionImportPlan, assertProductionImportExecutionActivated } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 
 function setup(withChildOrg = false) {
   const f = fixture();
@@ -147,7 +148,11 @@ test("actual private delegate and authorize producers bind nonempty crypto, all 
   assert.deepEqual(orgs.map(record => record.dependencyMode), ["scope", "record_graph"]);
   assert.equal(orgs[1].dependencyRefs[0].sourceIdentitySha256, orgs[0].sourceIdentitySha256);
   assert.equal(plan.phases[0].records.find(record => record.plannedTargetTable === "hr_employee").dependencyRefs.find(ref => ref.role === "primary_org").sourceIdentitySha256, orgs[1].sourceIdentitySha256);
-  assert.throws(() => assertProductionImportExecutionActivated(plan), { code: "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE" });
+  const heldContract = structuredClone(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT);
+  heldContract.activation = { status: "HOLD", allowedTargets: [], reasonCodes: ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"] };
+  heldContract.productionImport = "HOLD";
+  assert.throws(() => assertProductionImportExecutionActivated(plan, heldContract), { code: "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE" });
+  assert.throws(() => assertProductionImportExecutionActivated(plan), { code: "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED" });
   const provider = await createProductionImportArtifactCryptoProvider({ envelopeArtifact: JSON.parse(readFileSync(delegatedConfig.artifacts.envelopes.path)),
     keyFiles: [{ keyReferenceSha256: s.input.keyReferenceSha256, keyFile: p.config.artifacts.keyFile }], plan,
     payloadBundles: Object.fromEntries(generated.bundles.map(bundle => [bundle.phase, Buffer.from(bundle.artifactText)])), decryptEnvelope: decryptProductionImportEnvelope });
