@@ -1220,3 +1220,76 @@ Issue #689 / PR #690: created target-park building-floor-unit fixture hierarchy,
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: PMA M-01 asset projection lifecycle closure
+
+**Date**: 2026-09-08
+**Task**: PMA M-01 asset projection lifecycle closure
+**Package**: api
+**Branch**: `codex/fix-pma-m01-asset-projection-lifecycle`
+
+### Summary
+
+Closed Issue #696 through PR #697 after three review rounds; verified replacement PR CI and exact-sha main CI plus Deploy Production, then archived M-01.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ea44cfb5` | (see git log) |
+| `4bc566c0` | (see git log) |
+| `061e7c29` | (see git log) |
+| `a27abbfe` | (see git log) |
+| `56987acb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 36: PMA M-03 shared control-plane E2E closure
+
+**Date**: 2026-09-08
+**Task**: PMA M-03 shared control-plane E2E closure
+**Package**: api
+**Branch**: `codex/pma-m03-shared-control-plane-e2e`
+
+### Summary
+
+Closed M-03 with isolated real API evidence, three review rounds, PR #699 squash merge, exact-SHA main CI and Deploy success, Issue #698 closure, and task archive.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6037f499` | (see git log) |
+| `307b25fc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
