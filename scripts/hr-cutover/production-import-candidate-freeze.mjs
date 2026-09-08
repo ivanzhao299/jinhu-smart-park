@@ -157,7 +157,18 @@ function prepare(input) {
     for (const kind of dispositions) counts[kind] += observed[kind];
     for (const row of source.records) staged.push(row);
   }
+  // Dependency validation is the last consumer of the full T0 candidate
+  // document. The row index below already retains the per-record objects
+  // needed for coverage, review binding and evidence; keeping the original
+  // phase candidate documents as well needlessly retains the large T3 object
+  // graph for the remainder of the freeze. Preserve only the small T2
+  // resolution summary before releasing the phase-level wrappers.
+  const t2ResolutionEvidence = candidates.T2.resolutionEvidence;
   validateProductionT0CandidateDependencies(candidates.T0, triple, scope, inventory, input.targetInventoryArtifact.sha256);
+  candidates.T0 = null;
+  candidates.T1 = null;
+  candidates.T2 = t2ResolutionEvidence === undefined ? null : { resolutionEvidence: t2ResolutionEvidence };
+  candidates.T3 = null;
   const refs = new Map();
   for (const row of rows.values()) {
     const roles = new Set(), rule = model.targetTables[row.targetTable];
@@ -257,7 +268,7 @@ function prepare(input) {
   }
   const missingReviewCount = [...rows.values()].filter(row => row.candidateDisposition !== "insert" && !reviews.has(row.sourceIdentitySha256)).length;
   const evidence = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_candidate_preparation_evidence", triple, targetScope: scope,
-    ...(Object.hasOwn(candidates.T2, "resolutionEvidence") ? { t2ResolutionEvidence: candidates.T2.resolutionEvidence } : {}),
+    ...(t2ResolutionEvidence === undefined ? {} : { t2ResolutionEvidence }),
     sourceManifestSha256: inventory.sourceManifestSha256, targetIdentitySha256: inventory.targetIdentitySha256,
     candidateArtifactSha256: candidateHashes, phaseArtifactSha256: Object.fromEntries(phases.map(phase => [phase, input.phaseArtifacts[phase].sha256])),
     targetInventoryArtifactSha256: input.targetInventoryArtifact.sha256, targetScopeArtifactSha256: input.targetScopeArtifact.sha256,
