@@ -43,7 +43,7 @@ assert.deepEqual(model.targetTables.hr_employee_insurance_item.decimalStringFiel
 assert.ok(!model.targetTables.hr_employment_event.allowedDispositions.includes("merge"), "immutable event cannot merge");
 assert.ok(model.targetTables.sys_org.allowedDispositions.includes("merge"), "T0 master may merge only with sealed CAS approval");
 
-const payload = { org_code: "001", org_name: "园区", org_type: "company", sort_order: 0, status: "enabled", remark: null };
+const payload = { org_code: "001", org_name: "园区", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
 const canonicalA = stableProductionImportCanonicalJson({ z: [3, { b: 2, a: 1 }], a: "x" });
 const canonicalB = stableProductionImportCanonicalJson({ a: "x", z: [3, { a: 1, b: 2 }] });
 assert.equal(canonicalA, canonicalB, "canonical JSON ignores object insertion order");
@@ -60,7 +60,7 @@ assert.equal(businessA, businessB, "business identity uses the declared unique k
 assert.notEqual(businessA, computeProductionImportBusinessIdentityHash("sys_org", scope, { ...payload, org_code: "002" }, {}, model));
 
 const targetHashA = computeProductionImportTargetCanonicalHash("sys_org", scope, payload, {}, model);
-const targetHashB = computeProductionImportTargetCanonicalHash("sys_org", scope, { status: "enabled", org_type: "company", remark: null, sort_order: 0, org_name: "园区", org_code: "001" }, {}, model);
+const targetHashB = computeProductionImportTargetCanonicalHash("sys_org", scope, { status: "enabled", org_type: "company", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null, sort_order: 0, org_name: "园区", org_code: "001" }, {}, model);
 assert.equal(targetHashA, targetHashB);
 assert.notEqual(targetHashA, computeProductionImportTargetCanonicalHash("sys_org", scope, { ...payload, org_name: "园区集团" }, {}, model));
 

@@ -34,7 +34,7 @@ function t0row(table, sourceTable, code, fields, scope, parents = []) {
 function fixture() {
   const triple = { codeSha: "a".repeat(40), sourceSnapshotHash: hash("source"), mappingContractHash: hash("mapping") };
   const scope = { tenantId: "synthetic-tenant", parkId: "synthetic-park" }; scope.scopeSha256 = computeProductionImportTargetScopeHash(scope);
-  const org = t0row("sys_org", "dbo.departmentcode", "SYN-ORG", { org_code: "SYN-ORG", org_name: "Synthetic org", org_type: "department", sort_order: 0, status: "enabled", remark: null }, scope);
+  const org = t0row("sys_org", "dbo.departmentcode", "SYN-ORG", { org_code: "SYN-ORG", org_name: "Synthetic org", org_type: "department", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null }, scope);
   const employee = t0row("hr_employee", "dbo.person", "SYN-E1", { employee_code: "SYN-E1", full_name: "Synthetic employee", employment_type: "full_time", employment_status: "active", hire_date: null, probation_end_date: null, departure_date: null, work_location: null, work_mobile: null, work_email: null, remark: null }, scope, [["primary_org", org]]);
   const inventory = { formatVersion: 1, kind: "yuzhou_hr_production_target_inventory_readonly", status: "PASS", productionImport: "HOLD", executionReachable: false,
     targetIdentitySha256: hash("target"), targetScopeSha256: scope.scopeSha256, sourceManifestSha256: hash("manifest"), triple,
