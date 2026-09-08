@@ -120,6 +120,19 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 私有 plan 两阶段物化（2026-09-09）
+
+draft 读取按原始字节 SHA 固定的 metadata、四阶段 payload/records 和独立
+touched baseline，复用 phase builder 计算摘要。baseline 必须绑定 C/S/M、目标身份、
+scope、观察时间，逐阶段列出实际 present rows 与已查询缺席的 insert IDs；现有
+全域 snapshot 聚合不能代替它。离线材料器验证这些输入的一致性，不宣称自己执行过 SQL。
+manifest 固定 unsigned plan 和所有输入摘要，不含授权或 sealed hash，避免循环。
+seal 重读原输入并重建 draft，对照原 manifest，再消费 manifest-bound authorization，
+由正式 sealed validator 验证授权、窗口及完整 record graph。没有授权时不生成占位签署。
+输出复用私有 receipt-last emitter：校验失败不写输出；IO 中断可能留下无完成回执的
+私有文件，必须失败关闭、保留审计，不把它们视为已封存包。CLI 不连接数据库，
+不证明输入文档签发者权限，不解除生产执行前的实时目标、备份及一次性消费门禁。
+
 ### 阶段 after 摘要修复边界（2026-09-09）
 
 后续 before 修复采用独立域 `yuzhou-production-touched-phase-before-v1`：
