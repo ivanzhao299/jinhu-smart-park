@@ -22,6 +22,10 @@ const rejects = (code, action) => assert.throws(
 );
 
 test("current M5 manifest is NOT_READY and admits no compatibility item", () => {
+  const execution = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/production-import-execution-v2.json"), "utf8"));
+  assert.equal(execution.activation.status, "PASS");
+  assert.equal(execution.activation.allowedTargets.length, 1);
+  // An activated target is configuration, never compatibility/production evidence.
   const manifest = build();
   assert.equal(manifest.status, "NOT_READY");
   assert.equal(manifest.productionImport, "HOLD");

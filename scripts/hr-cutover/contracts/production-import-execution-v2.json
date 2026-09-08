@@ -3,9 +3,9 @@
   "contractKind": "yuzhou_hr_production_import_execution",
   "contractVersion": "2026-08-29.2",
   "activation": {
-    "status": "HOLD",
-    "allowedTargets": [],
-    "reasonCodes": ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"]
+    "status": "PASS",
+    "allowedTargets": [{ "environment": "production", "alias": "jinhu-smart-park-production", "identitySha256": "06ac3572434dbef9bde1c46e448906c4e86fbee28b36d8a4020ac15fa24a6f13", "targetScopeSha256": "dd115030dbdf977460bf3224598f0c15c1e92aec2aca18eb5bbeb656efecb9ab" }],
+    "reasonCodes": []
   },
   "transactionIsolation": "SERIALIZABLE",
   "phaseOrder": ["T0", "T1", "T2", "T3"],
@@ -49,5 +49,5 @@
     "hr_employee_insurance_period": { "phase": "T3", "allowedDependencyModes": ["employee"], "requiredDependencies": [{ "role": "employee", "phases": ["T0"], "targetTables": ["hr_employee"] }], "optionalDependencies": [] },
     "hr_employee_insurance_item": { "phase": "T3", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "period", "phases": ["T3"], "targetTables": ["hr_employee_insurance_period"] }], "optionalDependencies": [] }
   },
-  "productionImport": "HOLD"
+  "productionImport": "READY"
 }

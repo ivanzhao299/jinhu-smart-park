@@ -49,8 +49,8 @@
     {"stableId":"PAGE_COVERAGE_CONTRACT","path":"scripts/hr-cutover/contracts/legacy-compatibility-coverage-v1.json","sha256":"bdb2ae94e284be66b687a7290241438be3f5586a54d525621752330f29c0f0c2"},
     {"stableId":"PERMISSION_MAPPING","path":"scripts/hr-cutover/contracts/legacy-client-permission-capability-mapping-v1.json","sha256":"8bd5f97df7279c23f15a1710ba340430b9f9f2300eda3d4c094a7f53a88cc90d"},
     {"stableId":"PERMISSION_SOURCE_EVIDENCE","path":"scripts/hr-cutover/contracts/legacy-client-permission-source-receipt-evidence-v1.json","sha256":"64015aca9974062753bc0905402efc58982bbc7ce87cf2aae37f531ebeacc927"},
-    {"stableId":"PRODUCTION_PREFLIGHT","path":"scripts/hr-cutover/contracts/production-import-preflight-v1.json","sha256":"8409f666171b2d4183c372db1bee2a89732971e4b97e988312a0dc65e9179e84"},
-    {"stableId":"PRODUCTION_EXECUTION","path":"scripts/hr-cutover/contracts/production-import-execution-v2.json","sha256":"9b740ea972d835aed4913e43bf7dfeb8fb59de8120573e2ca1638a074e24e1d0"},
+    {"stableId":"PRODUCTION_PREFLIGHT","path":"scripts/hr-cutover/contracts/production-import-preflight-v1.json","sha256":"316bdd4d94bb4777e2dc9b759e8f977dc6eccb93ddc34f7d52911ffc7881906b"},
+    {"stableId":"PRODUCTION_EXECUTION","path":"scripts/hr-cutover/contracts/production-import-execution-v2.json","sha256":"c379e686022d6ef9715d31ffbdcbb18c2d629f2502e697e32edabc4b6a53f36e"},
     {"stableId":"MILESTONE_ROADMAP","path":"scripts/hr-cutover/contracts/hr-enterprise-rewrite-roadmap-v2.json","sha256":"06d5b6ec8b4d61057c1baac8854a1817d974a7a5271e6f3f4167f34578daa17d"}
   ],
   "expectedDenominators": {

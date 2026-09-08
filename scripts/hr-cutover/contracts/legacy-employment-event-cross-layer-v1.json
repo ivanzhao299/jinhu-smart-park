@@ -10,24 +10,24 @@
     "detailRoute": "/hr/employees"
   },
   "sourceBindings": {
-    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "4a96cdf0f499285c3ad1fd8e4997a4dc2fdc72a2774552e48aec1b8a19c2b3ff" },
+    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "37fbbc1afd86310722e5b19a47f7ac5d7b69caeb0d1292cfa10c3c1954710621" },
     "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
     "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "ae48cab4308fcc9861961b89228fc9f57267ab1406f706f59535dcb832e03a40" },
-    "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "c4d880e027c5101cef14cf19c1e755c709c839e25bca86ea825a3a7b563b6d5c" },
-    "targetLoader": { "path": "scripts/load-yuzhou-t1-employment-events.sh", "sha256": "dcad28e24e63b80d947716d2f1d7b55096e08638562f7bc84ed5af8414974be0" },
+    "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "41e7e16babb505174acb3eea85a6a660873f9fb36ba99a1a3baec1518e426299" },
+    "targetLoader": { "path": "scripts/load-yuzhou-t1-employment-events.sh", "sha256": "67fa55fb765396df7204bc2c1c7c71ae5c797f89d3abe4d5c1f8f341afeaa3ef" },
     "targetFoundationMigration": { "path": "database/migrations/000230_hr_employee_foundation.sql", "sha256": "9041f56e6114bca535c23cd83fb88d31f579651d40b31bf975201ce8b06e5631" },
     "targetCompatibilityMigration": { "path": "database/migrations/000237_hr_employment_event_legacy_compatibility.sql", "sha256": "c50dd0cb4e026ef6c3b13be6d3a7bbdce69ea810cb8b54131c46dcaedddc01cf" },
     "targetEventNumberMigration": { "path": "database/migrations/000266_hr_employee_identity_event_number.sql", "sha256": "5d16f76541896e81454537b07ea851bef2a89aaea913ddca9aec92ed1f6d51d9" },
-    "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "3db6e883ab63b6db954bf1cb4e1386c1b76b6cd85df65468b4b9eadc26cd4908" },
+    "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "970e3d2324798ced97bc784284e536596e0d4843eff4c60665290fd932a01456" },
     "apiController": { "path": "apps/api/src/modules/hr/hr.controller.ts", "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051" },
-    "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee" },
-    "apiDto": { "path": "apps/api/src/modules/hr/dto/hr.dto.ts", "sha256": "f3c167775a6c8965a4ada18b72e89fbfd4d1a2d0e7afdd22ba055c98ffe4fab1" },
+    "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "869ce91e5dcf03e85ba5513bd8046283bd80204062adc874313490831725b3ff" },
+    "apiDto": { "path": "apps/api/src/modules/hr/dto/hr.dto.ts", "sha256": "3707d3d8dde2be0724205c830f34243ef66e21abe8b65c024747e023e6c621dd" },
     "apiReadSpec": { "path": "apps/api/src/modules/hr/hr-employment-event-read.spec.ts", "sha256": "66e81f17c1c4dffd558bb13a613d68590fbe3f28a0110caf567073a5e7cd41ef" },
     "lifecycleRoute": { "path": "apps/web/app/hr/lifecycle/page.tsx", "sha256": "9a308469aea7ce4584ae5d3b6996d81909441016660bb487e0fe84aaa05db641" },
     "lifecycleClient": { "path": "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx", "sha256": "4c8ffaafb9f5bf616f9610c4b1c0350bf71bea9ca8e09ef0d117715757cd220a" },
     "employeeRoute": { "path": "apps/web/app/hr/employees/page.tsx", "sha256": "b86fcaa84a73e6de9cf68ee17889226cbef2e69843e4bb73ee2742a9de77f552" },
-    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126" },
-    "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a" }
+    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "d9d2eba54409f6b3092db3465f998a1c7ffead2d181a21939389b82d3447de7f" },
+    "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "a0942c8e6d7b4c948f91d110d8a8a1e8c6946c45f6ee5c5e2ad2da4b9072e09a" }
   },
   "requiredStaticLayers": [
     "source_manifest",
