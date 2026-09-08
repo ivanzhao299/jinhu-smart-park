@@ -1220,3 +1220,41 @@ Issue #689 / PR #690: created target-park building-floor-unit fixture hierarchy,
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: PMA M-01 asset projection lifecycle closure
+
+**Date**: 2026-09-08
+**Task**: PMA M-01 asset projection lifecycle closure
+**Package**: api
+**Branch**: `codex/fix-pma-m01-asset-projection-lifecycle`
+
+### Summary
+
+Closed Issue #696 through PR #697 after three review rounds; verified replacement PR CI and exact-sha main CI plus Deploy Production, then archived M-01.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ea44cfb5` | (see git log) |
+| `4bc566c0` | (see git log) |
+| `061e7c29` | (see git log) |
+| `a27abbfe` | (see git log) |
+| `56987acb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
