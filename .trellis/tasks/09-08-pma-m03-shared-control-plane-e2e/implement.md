@@ -24,6 +24,7 @@
 ## Review log
 
 - Round 1 (`trellis-check`): no code/spec violation found. Confirmed direct HTTP coverage, run-scoped fixture keys, maker/checker rejection, approval reject/execute paths, bounded requests, aggregate reporting, Release Smoke scope trigger, and workflow-owned volume cleanup. Disposable real API execution remains the PR CI evidence gate.
+- Round 1 (PR Codex): 1 valid P1. The maker approval negative path used a fabricated stage and would return an earlier 409 instead of exercising maker-checker 403. Fixed by loading the real pending stage and current request/stage versions; contract now rejects fabricated stage IDs.
 
 ## Cost Summary
 

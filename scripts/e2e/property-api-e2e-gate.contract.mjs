@@ -24,6 +24,8 @@ assert.match(controlPlane, /property\/occupancies\/\$\{occupancy\.id\}\/activate
 assert.match(controlPlane, /property\/occupancies\/\$\{occupancy\.id\}\/release/, "shared suite must release occupancy through the direct endpoint");
 assert.match(controlPlane, /mode-transitions[\s\S]*expectedStatus: 409/, "shared suite must prove blockers reject unsafe mode transitions");
 assert.match(controlPlane, /decision: "reject"/, "shared suite must exercise a rejected approval decision");
+assert.match(controlPlane, /makerDecisionStage\.stageId[\s\S]*makerDecisionDetail\.request\.decisionVersion/, "maker-checker negative coverage must use the real pending approval stage and current versions");
+assert.doesNotMatch(controlPlane, /stageId: crypto\.randomUUID\(\)/, "maker-checker negative coverage must not fail early on a fabricated stage identity");
 assert.match(controlPlane, /approveAndWait/, "shared suite must wait for an approved runtime effect to execute");
 assert.match(controlPlane, /identity-submissions\/\$\{submissionId\}\/claim[\s\S]*expectedStatus: 403/, "shared suite must reject maker identity claims");
 assert.match(controlPlane, /decision: "rejected"/, "shared suite must exercise rejected identity verification");

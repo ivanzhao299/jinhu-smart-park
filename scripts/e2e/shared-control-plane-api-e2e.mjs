@@ -224,11 +224,21 @@ async function run() {
     method: "POST", token, idempotent: true,
     body: { target_mode: "long_rent", reason: "M-03 rejection path" }
   });
+  const makerDecisionDetail = await request(`/property/approvals/${rejectedTransition.request.requestId}`, { token });
+  const makerDecisionStage = makerDecisionDetail.stages.find((candidate) => candidate.stageStatus === "pending");
+  assert(Boolean(makerDecisionStage), "mode transition exposes a real pending stage for maker-checker rejection");
   const makerDecisionKey = key("maker-approval-decision");
   await request(`/property/approvals/${rejectedTransition.request.requestId}/decisions`, {
     method: "POST", token, idempotent: true, expectedStatus: 403,
     idempotencyKey: makerDecisionKey,
-    body: { clientKey: makerDecisionKey, decision: "reject", reason: "maker cannot decide", stageId: crypto.randomUUID(), expectedStageVersion: 1, expectedRequestVersion: 1 }
+    body: {
+      clientKey: makerDecisionKey,
+      decision: "reject",
+      reason: "maker cannot decide",
+      stageId: makerDecisionStage.stageId,
+      expectedStageVersion: makerDecisionStage.version,
+      expectedRequestVersion: makerDecisionDetail.request.decisionVersion
+    }
   });
   await rejectApproval(approverToken, rejectedTransition, "mode transition rejection");
   const afterRejection = await request(`/property/units/${operatingUnit.id}/operation`, { token });
