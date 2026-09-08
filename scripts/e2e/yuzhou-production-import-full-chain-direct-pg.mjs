@@ -15,14 +15,13 @@ const pg = apiRequire("pg");
 import {
   DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT,
 } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
-import { makeFixture as makeSyntheticFixture } from "./production-import-full-chain-test-fixture.mjs";
+import { makeFixture as makeSyntheticFixture, verifyFullChainFixtureReadback } from "./production-import-full-chain-test-fixture.mjs";
 import { buildProductionImportPlanPhase } from "../hr-cutover/production-import-plan-phase-builder.mjs";
 import { createProductionImportPhaseWriters, readProductionImportBaselineRows } from "../hr-cutover/production-import-phase-writers.mjs";
 import { createProductionImportPhaseRollback } from "../hr-cutover/production-import-phase-rollback.mjs";
 import { createProductionImportPostgresAdapter } from "../hr-cutover/production-import-postgres-adapter.mjs";
 import {
   DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL,
-  computeProductionImportTargetCanonicalHash,
 } from "../hr-cutover/production-import-target-model.mjs";
 import { executeSealedProductionImport, rollbackSealedProductionImport } from "../hr-cutover/production-import-writer.mjs";
 
@@ -54,7 +53,6 @@ assert.equal(inspect.status, 0, "the explicit lab PostgreSQL container must exis
 assert.equal(inspect.stdout.trim(), LAB_COMPOSE_PROJECT, "the PostgreSQL container must belong to the explicit lab Compose project");
 
 const H = value => createHash("sha256").update(String(value)).digest("hex");
-const model = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL;
 const pool = new Pool({ host: LAB_HOST, port: LAB_PORT, user: LAB_USER, password: LAB_PASSWORD, database: LAB_DATABASE, max: 2 });
 
 function activatedContract(plan) {
@@ -128,29 +126,14 @@ async function verifyApplied(client, fixture) {
   }
   for (const record of fixture.records) {
     if (record.disposition === "quarantine") continue;
-    const rule = model.targetTables[record.plannedTargetTable];
-    const columns = [...rule.fieldWhitelist, ...rule.derivedFields];
-    const current = (await client.query(`SELECT ${columns.join(",")} FROM ${record.plannedTargetTable} WHERE id=$1`, [record.targetId])).rows[0];
-    const payload = Object.fromEntries(rule.fieldWhitelist.map(field => {
-      let value = current[field];
-      if (value !== null && value !== undefined && record.plannedTargetTable === "hr_contract_legacy_evidence" && field === "size_bytes") value = String(value);
-      else if (value !== null && value !== undefined && rule.integerFields.includes(field)) value = Number(value);
-      if (value !== null && value !== undefined && rule.decimalStringFields.includes(field)) value = String(value);
-      if (value instanceof Date && rule.dateFields.includes(field)) value = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-      if (value instanceof Date && ["hr_employment_event", "hr_contract_change"].includes(record.plannedTargetTable) && ["source_effective_at", "signed_at"].includes(field)) value = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}T${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}:${String(value.getSeconds()).padStart(2, "0")}.${String(value.getMilliseconds()).padStart(3, "0")}`;
-      if (value instanceof Date && rule.timestampFields.includes(field)) value = value.toISOString();
-      return [field, value];
-    }));
-    const derived = Object.fromEntries(rule.derivedFields.map(field => [field, current[field] === null ? null : String(current[field])]));
-    const observed = computeProductionImportTargetCanonicalHash(record.plannedTargetTable, fixture.targetScope, payload, derived);
-    assert.equal(observed, record.expectedTargetAfterSha256, `${record.plannedTargetTable} applied canonical hash`);
+    await verifyFullChainFixtureReadback(client, record, fixture.targetScope);
   }
   const evidence = await client.query("SELECT protected_file_id::text,size_bytes::text FROM hr_contract_legacy_evidence WHERE tenant_id=$1 AND park_id=$2", [fixture.targetScope.tenantId, fixture.targetScope.parkId]);
   assert.deepEqual(evidence.rows, [{ protected_file_id: fixture.protectedFileId, size_bytes: "9223372036854775806" }]);
   const timestamps = await client.query("SELECT source_effective_at::text AS event_at,signed_at::text AS signed_at FROM hr_employment_event CROSS JOIN hr_contract_change WHERE hr_employment_event.tenant_id=$1 AND hr_employment_event.park_id=$2 AND hr_contract_change.tenant_id=$1 AND hr_contract_change.park_id=$2", [fixture.targetScope.tenantId, fixture.targetScope.parkId]);
   assert.equal(timestamps.rows.length, 1);
-  assert.match(timestamps.rows[0].event_at, /^2026-08-29 09:10:11/u);
-  assert.match(timestamps.rows[0].signed_at, /^2026-08-29 09:10:11/u);
+  assert.equal(timestamps.rows[0].event_at, "2026-08-29 09:10:11.123456");
+  assert.equal(timestamps.rows[0].signed_at, "2026-08-29 09:10:11");
 }
 
 async function verifyRolledBack(client, fixture) {

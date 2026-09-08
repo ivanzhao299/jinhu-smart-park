@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT, computeProductionImportPayloadHash, computeProductionImportTargetScopeHash, computeSealedProductionImportPlanHash, productionImportHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash, deriveProductionImportTargetId } from "../hr-cutover/production-import-target-model.mjs";
 import { buildProductionImportPlanPhase } from "../hr-cutover/production-import-plan-phase-builder.mjs";
+import { normalizeProductionT1LocalTimestamp } from "../hr-cutover/production-t1-local-timestamp.mjs";
 const PHASES = ["T0", "T1", "T2", "T3"];
 const H = value => createHash("sha256").update(String(value)).digest("hex");
 const iso = date => date.toISOString();
@@ -15,7 +16,7 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
     sys_org: { org_code: `ORG-${suffix}`, org_name: `Lab Org ${suffix}`, org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: 101 },
     hr_position: { position_code: `POS-${suffix}`, position_name: `Lab Position ${suffix}`, job_family: null, job_level: "L1", headcount_limit: 2, status: "enabled", remark: null, authority: "权限说明", legacy_source_id: 102, legacy_upto_code: "ROOT", position_manual: "  ", qualification: null, responsibilities: "岗位职责" },
     hr_employee: { employee_code: `EMP-${suffix}`, full_name: `Lab Employee ${suffix}`, employment_type: "full_time", employment_status: "active", hire_date: sharedDate, probation_end_date: null, departure_date: null, work_location: "Lab", work_mobile: null, work_email: null, remark: null },
-    hr_employment_event: { event_no: `EVT-${suffix}`, event_type: "onboard", effective_date: sharedDate, before_snapshot: {}, after_snapshot: { state: "active" }, reason: "legacy import", status: "effective", legacy_event_no: `LEG-EVT-${suffix}`, legacy_event_type: "入职", legacy_state: "已生效", source_effective_at: `${timestamp}000+08:00`, migration_decision: "accepted", is_historical_import: true, remark: null },
+    hr_employment_event: { event_no: `EVT-${suffix}`, event_type: "onboard", effective_date: sharedDate, before_snapshot: {}, after_snapshot: { state: "active" }, reason: "legacy import", status: "effective", legacy_event_no: `LEG-EVT-${suffix}`, legacy_event_type: "入职", legacy_state: "已生效", source_effective_at: "2026-08-29T09:10:11.123456+08:00", migration_decision: "accepted", is_historical_import: true, remark: null },
     hr_contract_type: { type_code: `TYPE-${suffix}`, type_name: `Lab Type ${suffix}`, status: "enabled", is_historical_import: true, remark: null },
     hr_contract: { contract_no: `CON-${suffix}`, start_date: sharedDate, end_date: "2027-08-28", probation_end_date: null, status: "active", contract_term_months: 12, signature_date: sharedDate, effective_date: sharedDate, position_title: "Lab", work_type: "full_time", department_name_snapshot: "Lab Org", first_signature_date: sharedDate, last_signature_date: sharedDate, cumulative_term_months: 12, renewal_count: 0, probation_months: null, probation_salary: null, base_salary: "1000.01", confidentiality_agreement: false, non_compete_agreement: false, training_service_agreement: false, legacy_file_reference: null, legacy_text_present: false, is_historical_import: true, legacy_source_identity_sha256: sourceIdentitySha256, legacy_source_row_sha256: H(`${suffix}:contract-row`), source_snapshot: { source: "fixed-lab" }, remark: null },
     hr_contract_change: { sequence_no: 1, change_type: "renewal", previous_start_date: null, previous_end_date: null, new_start_date: sharedDate, new_end_date: "2027-08-28", signed_at: timestamp, is_historical_import: true, legacy_source_identity_sha256: sourceIdentitySha256, legacy_source_row_sha256: H(`${suffix}:change-row`), source_snapshot: { source: "fixed-lab" }, remark: null },
@@ -33,6 +34,40 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
   assert.ok(payload, `missing fixture payload for ${table}`);
   return JSON.parse(JSON.stringify(payload, (_key, value) => typeof value === "bigint" ? value.toString() : value));
 }
+
+export async function verifyFullChainFixtureReadback(client, record, targetScope) {
+  const rule = model.targetTables[record.plannedTargetTable];
+  const columns = [...rule.fieldWhitelist, ...rule.derivedFields];
+  const projections = columns.map(field => {
+    if (record.plannedTargetTable === "hr_employment_event" && field === "source_effective_at") return `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at`;
+    if (record.plannedTargetTable === "hr_contract_change" && field === "signed_at") return `to_char(signed_at,'YYYY-MM-DD"T"HH24:MI:SS.MS') AS signed_at`;
+    return rule.dateFields.includes(field) ? `${field}::text AS ${field}` : field;
+  });
+  const result = await client.query(`SELECT ${projections.join(",")} FROM ${record.plannedTargetTable} WHERE id=$1`, [record.targetId]);
+  assert.equal(result.rows.length, 1, `${record.plannedTargetTable} exact readback row`);
+  const current = result.rows[0];
+  const payload = Object.fromEntries(rule.fieldWhitelist.map(field => {
+    let value = current[field];
+    if (value !== null && value !== undefined && record.plannedTargetTable === "hr_contract_legacy_evidence" && field === "size_bytes") value = String(value);
+    else if (value !== null && value !== undefined && rule.integerFields.includes(field)) value = Number(value);
+    if (value !== null && value !== undefined && rule.decimalStringFields.includes(field)) value = String(value);
+    if (value !== null && value !== undefined && rule.dateFields.includes(field)) assert.equal(typeof value, "string", "date readback must use SQL text");
+    if (value !== null && value !== undefined && record.plannedTargetTable === "hr_employment_event" && field === "source_effective_at") {
+      assert.equal(typeof value, "string", "T1 readback must preserve microseconds as SQL text");
+      assert.equal(normalizeProductionT1LocalTimestamp(value), value, "T1 readback must use exact wall-clock contract");
+    }
+    if (value !== null && value !== undefined && record.plannedTargetTable === "hr_contract_change" && field === "signed_at") {
+      assert.equal(typeof value, "string", "contract signature readback must use SQL text");
+      assert.match(value, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u);
+    }
+    if (value instanceof Date && rule.timestampFields.includes(field)) value = value.toISOString();
+    return [field, value];
+  }));
+  const derived = Object.fromEntries(rule.derivedFields.map(field => [field, current[field] === null ? null : String(current[field])]));
+  const observed = computeProductionImportTargetCanonicalHash(record.plannedTargetTable, targetScope, payload, derived);
+  assert.equal(observed, record.expectedTargetAfterSha256, `${record.plannedTargetTable} applied canonical hash`);
+}
+
 
 function dependency(role, record) {
   return { role, phase: record.phase, sourceIdentitySha256: record.sourceIdentitySha256, expectedTargetTable: record.plannedTargetTable };

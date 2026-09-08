@@ -122,6 +122,12 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 私有 plan 两阶段物化（2026-09-09）
 
+full-chain 独立验收读取 timestamp-without-time-zone 不经过 JS Date：T1 显式
+to_char 微秒 + 固定 +08:00 合同标签；contract_change.signed_at 使用既有毫秒
+wall-clock 格式。日期按 SQL text 读取，普通 timestamptz 仍按 UTC instant 规范化。
+独立验收从实际字段重算 canonical，不复用 writer 返回摘要；T1 合成数据包含非零
+微秒以证明精度保留，损失精度的 Date 值不得作为 T1 readback 证据。
+
 PG full-chain 合成 fixture 的阶段 before/after 必须由正式 phase builder 对
 已知合成 seed baseline 与目标投影计算，不再使用 label hash。seed 后实际按 ID
 回读 baseline、证明 insert 缺席并重新计算比较；只有这些检查通过才进入导入。

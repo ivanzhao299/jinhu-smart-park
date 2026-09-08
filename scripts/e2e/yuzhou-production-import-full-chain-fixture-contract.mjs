@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { makeFixture } from "./production-import-full-chain-test-fixture.mjs";
+import { execFileSync } from "node:child_process";
+import process from "node:process";
+import { URL } from "node:url";
+import { makeFixture, verifyFullChainFixtureReadback } from "./production-import-full-chain-test-fixture.mjs";
 import { computeProductionImportTouchedPhaseBefore, computeProductionImportTouchedPhaseState } from "../hr-cutover/production-import-phase-state.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as MODEL } from "../hr-cutover/production-import-target-model.mjs";
 import { computeSealedProductionImportPlanHash, computeProductionImportPayloadHash, validateSealedProductionImportPlan } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
@@ -55,4 +58,48 @@ test("only SQL bigint size_bytes accepts exact bounded integer text; unsafe numb
   for (const invalid of [Number.MAX_SAFE_INTEGER + 1, "9223372036854775808", "-9223372036854775809", "01", "1.0", "1e3", " 1", "", true]) assert.throws(() => state(invalid));
   const org = f.records.find(r => r.targetTable === "sys_org");
   assert.throws(() => computeProductionImportTouchedPhaseState({ phase: "T0", targetScope: f.targetScope, rows: [{ targetTable: "sys_org", targetId: org.targetId, version: 4, payload: { ...org.payload, sort_order: "1" }, derivedFields: { parent_id: null } }] }));
+});
+
+test("independent SQL field readback verifies all 16 tables without writer-returned hashes", async () => {
+  const f = makeFixture(4, new Date("2026-09-09T01:00:00.000Z"));
+  const byId = new Map(f.records.map(r => [r.sourceIdentitySha256, r])); let count = 0;
+  for (const record of f.records.filter(r => r.disposition !== "quarantine")) {
+    const rule = MODEL.targetTables[record.targetTable];
+    const derived = Object.fromEntries(rule.foreignKeys.map(fk => {
+      const ref = record.dependencyRefs.find(r => r.role === fk.dependencyRole);
+      return [fk.column, ref ? byId.get(ref.sourceIdentitySha256).targetId : null];
+    }));
+    await verifyFullChainFixtureReadback({ async query(sql, ids) {
+      assert.deepEqual(ids, [record.targetId]);
+      for (const date of rule.dateFields) assert.ok(sql.includes(`${date}::text AS ${date}`));
+      count += 1; return { rows: [{ ...record.payload, ...derived }] };
+    } }, record, f.targetScope);
+  }
+  assert.equal(count, 16);
+});
+
+test("old Date path loses T1 evidence; SQL text is microsecond-exact in UTC and Shanghai", () => {
+  const helper = new URL("./production-import-full-chain-test-fixture.mjs", import.meta.url).href;
+  const model = new URL("../hr-cutover/production-import-target-model.mjs", import.meta.url).href;
+  const code = `
+    import assert from 'node:assert/strict';
+    import { makeFixture, verifyFullChainFixtureReadback } from ${JSON.stringify(helper)};
+    import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, computeProductionImportTargetCanonicalHash } from ${JSON.stringify(model)};
+    const f=makeFixture(5,new Date('2026-09-09T01:00:00.000Z'));
+    for(const table of ['hr_employment_event','hr_contract_change']) {
+      const r=f.records.find(r=>r.targetTable===table), field=table==='hr_employment_event'?'source_effective_at':'signed_at';
+      const derived=Object.fromEntries(model.targetTables[table].foreignKeys.map(fk=>{const ref=r.dependencyRefs.find(x=>x.role===fk.dependencyRole);return [fk.column,ref?f.records.find(x=>x.sourceIdentitySha256===ref.sourceIdentitySha256).targetId:null];}));
+      const row={...r.payload,...derived};
+      await verifyFullChainFixtureReadback({async query(sql){assert.ok(sql.includes(table==='hr_employment_event'?'HH24:MI:SS.US':'HH24:MI:SS.MS'));return {rows:[row]};}},r,f.targetScope);
+      const date=new Date(r.payload[field]);
+      if(table==='hr_employment_event') {
+        assert.equal(r.payload[field],'2026-08-29T09:10:11.123456+08:00');
+        const pad=n=>String(n).padStart(2,'0');
+        const old=date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes())+':'+pad(date.getSeconds())+'.'+String(date.getMilliseconds()).padStart(3,'0');
+        assert.notEqual(computeProductionImportTargetCanonicalHash(table,f.targetScope,{...r.payload,[field]:old},derived),r.expectedTargetAfterSha256);
+      }
+      await assert.rejects(()=>verifyFullChainFixtureReadback({async query(){return {rows:[{...row,[field]:date}]};}},r,f.targetScope));
+    }
+  `;
+  for (const TZ of ["UTC", "Asia/Shanghai"]) execFileSync(process.execPath, ["--input-type=module", "-e", code], { env: { TZ }, stdio: "pipe" });
 });
