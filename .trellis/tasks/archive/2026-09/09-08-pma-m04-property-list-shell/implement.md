@@ -26,13 +26,13 @@
 
 ## 4. Closure
 
-- [ ] Trellis check：spec、lint/typecheck/tests、cross-layer/reuse/consistency。
-- [ ] 更新必要 spec（仅有可复用新契约时），记录验证证据与成本摘要。
-- [ ] commit、push feature branch，创建关联 #700 的 PR。
-- [ ] review 最多 3 轮；同根因最多自动修复 2 次。
-- [ ] PR CI 通过后 squash merge；仅通过 `gh pr merge` 更新 main。
-- [ ] 观察 merge SHA 的 main CI 与 Deploy Production 双绿；不手工操作生产。
-- [ ] 确认 #700 closed，归档任务并记录 session。
+- [x] Trellis check：spec、lint/typecheck/tests、cross-layer/reuse/consistency。
+- [x] 更新必要 spec（仅有可复用新契约时），记录验证证据与成本摘要。
+- [x] commit、push feature branch，创建关联 #700 的 PR。
+- [x] review 最多 3 轮；同根因最多自动修复 2 次。
+- [x] PR CI 通过后 squash merge；仅通过 `gh pr merge` 更新 main。
+- [x] 观察 containing-main SHA 的 main CI 与 Deploy Production 双绿；不手工操作生产。
+- [x] 确认 #700 closed，归档任务并记录 session。
 
 ## Rollback Points
 
@@ -86,3 +86,10 @@
 - Agents: 3 one-round read-only explorations (scope/issue, code map, browser recipe); no delegated code changes.
 - Heavy gates: one Web build after final page migration; property/assets suites batched. Disposable browser environment repeated because fresh-schema cleanup was fail-closed; entered `COST_GUARD` before further login-runner work.
 - Production/manual operations: none. Existing fixed-name development container and main Chrome untouched.
+
+## Merge and containing-main evidence — 2026-09-08
+
+- PR #701 squash-merged at `4a944416279d57719fc4ad0439d81f68a264883b`; Issue #700 closed by the PR.
+- The containing-main SHA is `4748117894fec7e6e82d4070908a587c77b36d11` (`git merge-base --is-ancestor 4a944416... origin/main` returned success).
+- CI run `34215740097` completed `success` for the containing-main SHA.
+- Deploy Production run `34215740122` completed `success` at `2026-09-08T11:09:23Z` for the containing-main SHA; no manual production action was taken.

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web component, accessibility, unit-gate, mutation and frontend verification contracts"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse one shared mounted-test setup instead of per-spec DOM mocks"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Root CI reachability, test runner dependency and release verification rules"}

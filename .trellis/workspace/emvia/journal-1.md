@@ -1291,3 +1291,40 @@ Closed M-03 with isolated real API evidence, three review rounds, PR #699 squash
 ### Next Steps
 
 - None - task complete
+
+
+## Session 37: PMA M-04 PropertyListShell 收官
+
+**Date**: 2026-09-08
+**Task**: PMA M-04 PropertyListShell 收官
+**Package**: api
+**Branch**: `codex/pma-m04-property-list-shell`
+
+### Summary
+
+M-04 PR #701 已 squash merge；containing-main 4748117894fe 的 CI 与 Deploy Production 双绿，Issue #700 关闭，任务归档。浏览器 desktop/390px 真实 UAT 缺口按既定决策移交 L-04。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2ba560bf` | (see git log) |
+| `fa907536` | (see git log) |
+| `ed683cf9` | (see git log) |
+| `4a944416` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
