@@ -433,14 +433,14 @@ export class AssetsService {
       const parentRows = await manager.query<Array<{ valid: boolean }>>(
         `SELECT true AS valid
            FROM asset_building building
-           JOIN asset_floor floor ON floor.id=$5 AND floor.building_id=building.id
+           JOIN asset_floor floor ON floor.id=$4 AND floor.building_id=building.id
              AND floor.tenant_id=building.tenant_id AND floor.park_id=building.park_id
              AND floor.is_deleted=false
-          WHERE building.id=$4 AND building.tenant_id::text=$1 AND building.park_id::text=$2
+          WHERE building.id=$3 AND building.tenant_id::text=$1 AND building.park_id::text=$2
             AND building.is_deleted=false
             AND floor.tenant_id::text=$1 AND floor.park_id::text=$2
           FOR UPDATE OF building, floor`,
-        [scope.tenantId, scope.parkId, id, entity.buildingId, entity.floorId]
+        [scope.tenantId, scope.parkId, entity.buildingId, entity.floorId]
       );
       if (parentRows.length !== 1) {
         throw new ConflictException("Asset unit parent building or floor is not active");

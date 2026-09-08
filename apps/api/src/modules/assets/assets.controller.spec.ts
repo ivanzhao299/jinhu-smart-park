@@ -130,7 +130,14 @@ test("asset unit restore revives the same soft-deleted source without creating a
   };
   const manager = {
     getRepository: () => repository,
-    query: async (sql: string) => sql.includes("FROM asset_building") ? [{ valid: true }] : []
+    query: async (sql: string, parameters: unknown[]) => {
+      if (sql.includes("FROM asset_building")) {
+        assert.deepEqual(parameters, ["tenant-1", "park-1", "building-1", "floor-1"]);
+        assert.doesNotMatch(sql, /\$5/u);
+        return [{ valid: true }];
+      }
+      return [];
+    }
   };
   const service = new AssetsService(
     {} as never, {} as never, {} as never, {} as never,

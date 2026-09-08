@@ -33,7 +33,7 @@
 
 ## 续跑点
 
-PR #697 第 1 轮 review 提出 1 个 P1（E2E 幂等键，已与首次 Release Smoke 失败同根因修复）及 5 个 P2；已批量补齐 restore 冲突/父链、统一锁顺序、work-order blocker producer 锁和结构化 blockers。首次 Release Smoke 仅在新 suite 首个缺 key 的 POST 失败，其余迁移/seed/基线均通过；下一步推送修复并等待第 2 次 CI/Release Smoke。
+PR #697 第 1 轮 review 提出 1 个 P1（E2E 幂等键，已与首次 Release Smoke 失败同根因修复）及 5 个 P2；已批量补齐 restore 冲突/父链、统一锁顺序、work-order blocker producer 锁和结构化 blockers。第二次 Release Smoke 已走通真实 delete 前置拦截、停用解绑和软删，restore 暴露父级锁 SQL 存在闲置 `$3` 参数并导致 PostgreSQL 无法推断类型；现已将占位符改为连续 `$1..$4` 并补参数绑定断言。下一步推送该独立根因第 1 次修复并等待第 3 次 CI/Release Smoke。
 
 ## Cost Summary
 
@@ -41,7 +41,7 @@ Task: M-01 implementation
 Status: ready for PR
 Files changed: assets/property operations services/controllers/tests, property E2E gate/suite/docs/CI scope, Trellis artifacts/spec
 Tests run: 30 focused API tests; property API gate contract; API lint/typecheck/build; JS syntax; diff check
-Retries: 1 local test-fixture compatibility repair; 1 Release Smoke E2E-key repair; 1 review batch
+Retries: 1 local test-fixture compatibility repair; 1 Release Smoke E2E-key repair; 1 Release Smoke SQL-parameter repair; 1 review batch
 Approx model rounds: COST_GUARD active after threshold
 Repeated scans avoided: two scoped read-only scouts and targeted ranges
 Blocked issues: none
