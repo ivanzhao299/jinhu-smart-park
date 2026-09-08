@@ -1,3 +1,4 @@
+/* global structuredClone */
 import { createHash } from "node:crypto";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL } from "./production-import-target-model.mjs";
 import { normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
@@ -29,12 +30,20 @@ const scalar = value => value === null || typeof value === "string" || typeof va
 export function verifyProductionT3StagedRecord(row) {
   if (!plain(row) || !Object.hasOwn(sourceFields, row.sourceTable)) fail("T3_SOURCE_TABLE_INVALID");
   const children = row.sourceTable === "dbo.timekeeptable" ? "days" : "items";
-  exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source", children]);
+  const hasCompatibility = Object.hasOwn(row, "legacyCompatibility");
+  exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source", children, ...(hasCompatibility && row.sourceTable === "dbo.person_insure" ? ["legacyCompatibility"] : [])]);
   exact(row.source, sourceFields[row.sourceTable]);
   if (Object.values(row.source).some(value => !scalar(value)) || !["string", "number"].includes(typeof row.source.id)
     || typeof row.sourceKey !== "string" || !row.sourceKey.trim() || row.sourceKey !== String(row.source.id)
     || typeof row.sourceRowSha256 !== "string" || !SHA.test(row.sourceRowSha256)
     || row.sourceIdentitySha256 !== hash(`${row.sourceTable}\0${row.sourceKey}`) || !Array.isArray(row[children])) fail("T3_SOURCE_BINDING_INVALID");
+  if (hasCompatibility) {
+    exact(row.legacyCompatibility, ["legacyFlags", "fieldPresence"]);
+    exact(row.legacyCompatibility.legacyFlags, [...kinds]);
+    exact(row.legacyCompatibility.fieldPresence, ["insureaccount", "inpatient", "hurt", "insure", "insureEmployer", "insureEmployee", "insureSupplement"]);
+    if (Object.values(row.legacyCompatibility.legacyFlags).some(value => !scalar(value))
+      || Object.values(row.legacyCompatibility.fieldPresence).some(value => typeof value !== "boolean")) fail("T3_SOURCE_COMPATIBILITY_INVALID");
+  }
   const seen = new Set();
   for (const item of row[children]) {
     if (children === "days") {
@@ -56,6 +65,8 @@ export function verifyProductionT3StagedRecord(row) {
       if (seen.has(key)) fail("T3_SOURCE_CHILD_DUPLICATE"); seen.add(key);
     }
   }
+  if (hasCompatibility && (seen.size !== kinds.size || row.items.some(item => !kinds.has(item.kind)
+    || row.legacyCompatibility.legacyFlags[item.kind] !== item.legacyFlag))) fail("T3_SOURCE_COMPATIBILITY_INVALID");
   return row;
 }
 
@@ -133,7 +144,8 @@ function attendanceSymbolFacts(symbol) {
 function insurancePeriodFacts(row) {
   const legacyItems = Object.fromEntries([...row.items].sort((a, b) => a.kind.localeCompare(b.kind)).map(item => [item.kind, { legacyBaseNegative: item.legacyBaseNegative, legacyFlag: item.legacyFlag }]));
   return { legacy_id: integer(row.source.id), needs_review: row.items.some(item => item.legacyBaseNegative || item.legacyFlag !== null), is_historical_import: true,
-    source_snapshot: { sourceRowSha256: row.sourceRowSha256, employeeCode: row.source.employeeCode, legacyItems }, remark: null };
+    source_snapshot: { sourceRowSha256: row.sourceRowSha256, employeeCode: row.source.employeeCode, legacyItems,
+      ...(Object.hasOwn(row, "legacyCompatibility") ? { legacyCompatibility: structuredClone(row.legacyCompatibility) } : {}) }, remark: null };
 }
 function insuranceItemFields(item) {
   if (item.legacyBaseNegative && item.contributionBase !== null) fail("T3_LEGACY_BASE_CONTRADICTION");

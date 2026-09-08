@@ -1,0 +1,3 @@
+.recordList:global(.ds-mobile-record-list) {
+  display: grid;
+}

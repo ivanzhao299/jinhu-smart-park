@@ -36,7 +36,7 @@ function inputs() {
   const statePackage = { formatVersion: 1, kind: "yuzhou_core_non_t0_machine_dictionary_package", triple: { ...triple, codeSha: "b".repeat(40), mappingContractHash: hash("old mapping") }, trustedRootSha256: hash("old machine root"), machineActor: { id: "00000000-0000-5000-8000-000000000001", kind: "machine_policy_engine", verifiedAt: "2026-09-01T00:00:00Z" }, evidence: { t1Types: hash(stageBytes.employmentEventTypes), t1States: hash(stageBytes.employmentEventStates), t2Types: hash("t2types"), t2States: hash("t2states") }, dictionaries: ["employment_event_type", "contract_type", "contract_state"].map(dictionaryCode => ({ dictionaryCode })), productionImport: "HOLD" };
   const d = { dictionaryCode: "employment_event_state", sourceTable: "dbo.readjust", sourceSnapshotSha256: ch({ kind: "employment_event_state", source: statePackage.evidence.t1States }), items: states.map(s => {
     const source = { sourceCode: null, sourceName: null, sourceValue: s.sourceValue };
-    return { id: "00000000-0000-5000-8000-000000000001", ...source, sourceIdentitySha256: hash(`dbo.readjust.state\0${s.sourceValue}`), sourceRowSha256: ch(source), decision: s.sourceValue === "1" ? "map" : "reject", targetDomain: s.sourceValue === "1" ? "migration_decision" : null, targetValue: s.sourceValue === "1" ? "accepted" : null, reasonCode: s.sourceValue === "1" ? "EFFECTIVE_SOURCE_STATE" : "SOURCE_NON_EFFECTIVE_STATE" };
+    return { id: "00000000-0000-5000-8000-000000000001", ...source, sourceIdentitySha256: hash(`dbo.readjust.state\0${s.sourceValue}`), sourceRowSha256: ch(source), decision: "map", targetDomain: "migration_decision", targetValue: s.sourceValue === "1" ? "accepted" : "needs_review", reasonCode: s.sourceValue === "1" ? "EFFECTIVE_SOURCE_STATE" : "SOURCE_STATE_UNCONFIRMED" };
   }) };
   statePackage.dictionaries.push(d);
   const attest = (binding = statePackage.triple) => { d.machineAttestationSha256 = ch({ triple: binding, trustedRootSha256: statePackage.trustedRootSha256, dictionaryCode: d.dictionaryCode, sourceSnapshotSha256: d.sourceSnapshotSha256, items: d.items.map(row => Object.fromEntries(Object.entries(row).filter(([key]) => key !== "id"))) }); };
@@ -74,7 +74,8 @@ function refreshEvents(i) {
 
 test("current source semantics independently validate historic state evidence and preserve all events", () => {
   const i = inputs(), original = JSON.stringify(i.statePackage), result = verify(i);
-  assert.equal(result.sourceRecordCount, 6887); assert.equal(result.typeMappings.size, 4); assert.equal(result.stateMappings.size, 2); assert.equal(result.stateMappings.get("0").decision, "reject");
+  assert.equal(result.sourceRecordCount, 6887); assert.equal(result.typeMappings.size, 4); assert.equal(result.stateMappings.size, 2); assert.equal(result.stateMappings.get("0").decision, "map");
+  assert.equal(result.stateMappings.get("0").targetValue, "needs_review");
   assert.equal(JSON.stringify(i.statePackage), original); assert.deepEqual(result.originalTriple, i.statePackage.triple);
 });
 test("state policy and original attestation cannot be replaced with current labels or fresh hashes", () => {
@@ -87,9 +88,9 @@ test("swapped type targets, actual usage drift and changed file bytes fail", () 
   const b = inputs(); b.stageBytes.employmentEvents = Buffer.from("{}\n"); stableFailure(() => verify(b));
   const c = inputs(); c.sourceManifest.mappingContractSha256 = hash("wrong mapping"); stableFailure(() => verify(c));
 });
-test("full current inventory path preserves original dictionary SHA and quarantines only missing employee/non-effective state", t => {
+test("full current inventory path preserves original dictionary SHA and retains unconfirmed state while quarantining missing employees", t => {
   const f = fixture(t), before = readFileSync(f.input.stateDecisionPath), result = materialize(f.input, { head: () => triple.codeSha }), out = JSON.parse(readFileSync(f.input.outputPath));
-  assert.equal(result.recordCount, 6887); assert.deepEqual(result.countByDisposition, { insert: 6885, skip_exact: 0, review_target_collision: 0, quarantine: 2 });
+  assert.equal(result.recordCount, 6887); assert.deepEqual(result.countByDisposition, { insert: 6886, skip_exact: 0, review_target_collision: 0, quarantine: 1 });
   assert.equal(out.eventStateDecisionArtifactSha256, hash(before)); assert.equal(out.targetSnapshotArtifactSha256, hash(readFileSync(f.input.targetInventoryPath))); assert.equal(out.productionImport, "HOLD");
   assert.deepEqual(readFileSync(f.input.stateDecisionPath), before); assert.equal(JSON.stringify(result).includes("SYN-E"), false);
 });

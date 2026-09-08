@@ -14,7 +14,9 @@ const canonicalHash = value => hash(`${canonical(value)}\n`);
 const mode = path => (statSync(path).mode & 0o777).toString(8).padStart(4, "0");
 const fail = code => { throw new Error(code); };
 
-const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", reason: "EFFECTIVE_SOURCE_STATE" }], ["0", { decision: "reject", target: null, reason: "SOURCE_NON_EFFECTIVE_STATE" }]]);
+// Preserve legacy state 0 as a reviewable event: the source schema has no
+// state dictionary/FK and old read paths do not filter it.
+const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", reason: "EFFECTIVE_SOURCE_STATE" }], ["0", { decision: "map", target: "needs_review", reason: "SOURCE_STATE_UNCONFIRMED" }]]);
 export function evaluateCoreT1StatePolicy(sourceValue) {
   const rule = eventStateTargets.get(sourceValue);
   return rule ? Object.freeze({ ...rule }) : null;

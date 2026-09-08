@@ -62,6 +62,16 @@ test("service fails closed on wrong identity kinds and cross-owner file links",(
  assert.match(service,/jsonb_build_object\('legacyFields',hr_legacy_archive_redact_source_fields\(source\.record_payload\)\)/);
 });
 
+test("legacy exception reads use an allowlisted reason-code filter",()=>{
+ const dto=read("apps/api/src/modules/hr/dto/hr-legacy-archive.dto.ts");
+ const service=read("apps/api/src/modules/hr/hr-legacy-archive.service.ts");
+ assert.match(dto,/reason_code/);
+ for(const code of ["SOURCE_STATE_UNCONFIRMED","T2_CONTRACT_MISSING","T3_INT4_INVALID","T3_ATTENDANCE_SYMBOL_UNRESOLVED"])assert.match(dto,new RegExp(code));
+ assert.match(service,/registry\.resolution_reason_code=\$\$\{params\.length\}/);
+ assert.match(service,/COMPATIBILITY_RELATIONS/);
+ for(const relation of ["SOURCE_STATE_UNCONFIRMED","T2_CONTRACT_MISSING","T3_INT4_INVALID","T3_ATTENDANCE_SYMBOL_UNRESOLVED"]){assert.match(service,new RegExp(`${relation}.*sourceTable`,`s`));}
+});
+
 test("list stays summary-only while restricted fields remain detail-only and every read is audited",async()=>{
  const rows=[{id:"archive-1",employeeId:"employee-1",mappingStatus:"mapped",recordType:"profile",occurredOn:"2024-01-01",displayTitle:"历史档案",displaySafeProjection:{department:"A"},restrictedSafeProjection:{identityMasked:"***1"},hasSensitiveSource:true,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",resolutionReasonCode:null,totalCount:"1"}];
  const queries:string[]=[];
@@ -87,6 +97,36 @@ test("list stays summary-only while restricted fields remain detail-only and eve
 test("unclaimed archive read is denied without its exact HR permission",async()=>{
  const service=new HrLegacyArchiveService({query:async()=>[]} as never,{recordOperationRequired:async()=>undefined} as never);
  await assert.rejects(()=>service.listUnclaimed({tenantId:"tenant",parkId:"park"},{sub:"employee",username:"employee",tenantId:"tenant",parkId:"park",roles:[],permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SELF_READ],isSuper:false},{page:1,page_size:20}),ForbiddenException);
+});
+
+test("empty later archive pages retain the exact scoped filtered total",async()=>{
+ const scope={tenantId:"tenant",parkId:"park"};
+ for(const permission of [HR_PERMISSIONS.HR_LEGACY_ARCHIVE_READ,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_TEAM_READ,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SELF_READ,HR_PERMISSIONS.HR_LEGACY_ARCHIVE_UNCLAIMED_READ]){
+  const calls:Array<{sql:string;params:unknown[]}>=[];
+  const audits:unknown[]=[];
+  const service=new HrLegacyArchiveService({query:async(sql:string,params:unknown[])=>{calls.push({sql,params});return calls.length===1?[]:[{totalCount:"21"}];}} as never,{recordOperationRequired:async(input:unknown)=>{audits.push(input);}} as never);
+  const actor={sub:"reader",username:"reader",...scope,roles:[],permissions:[permission],isSuper:false};
+  const query={page:3,page_size:20,keyword:"合成",record_type:"profile",employee_id:"fixture-employee"};
+  const result=permission===HR_PERMISSIONS.HR_LEGACY_ARCHIVE_UNCLAIMED_READ?await service.listUnclaimed(scope,actor,query):await service.list(scope,actor,query);
+  assert.equal(result.total,21);
+  assert.deepEqual(result.items,[]);
+  assert.equal(calls.length,2);
+  assert.deepEqual(calls[1]!.params,calls[0]!.params.slice(0,-2));
+  assert.equal(calls[1]!.sql.slice(calls[1]!.sql.indexOf("WHERE ")),calls[0]!.sql.slice(calls[0]!.sql.indexOf("WHERE ")).split("\n       ORDER BY")[0]);
+  assert.doesNotMatch(calls[1]!.sql,/LIMIT|OFFSET|restricted_safe_projection/);
+  assert.equal(audits.length,1);
+ }
+});
+
+test("archive totals do not add reads for an empty first page or unauthorized reader",async()=>{
+ let reads=0;
+ const service=new HrLegacyArchiveService({query:async()=>{reads++;return [];}} as never,{recordOperationRequired:async()=>undefined} as never);
+ const scope={tenantId:"tenant",parkId:"park"};
+ const actor={sub:"reader",username:"reader",...scope,roles:[],permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_READ],isSuper:false};
+ assert.equal((await service.list(scope,actor,{page:1,page_size:20})).total,0);
+ assert.equal(reads,1);
+ assert.equal((await service.list(scope,{...actor,permissions:[]},{page:3,page_size:20})).total,0);
+ assert.equal(reads,1);
 });
 
 test("detail does not leak source or blob fingerprints and required audit fails closed",async()=>{

@@ -8,7 +8,7 @@ import { computeProductionImportPayloadHash } from "../hr-cutover/production-imp
 const hash = value => createHash("sha256").update(value).digest("hex");
 const key = randomBytes(32);
 const resolver = { resolveKey: async () => key };
-const payload = { org_code: "SYNTHETIC", org_name: "Synthetic department", org_type: "department", sort_order: 1, status: "enabled", remark: null };
+const payload = { org_code: "SYNTHETIC", org_name: "Synthetic department", org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
 function fixture(kind = "before_image") {
   const targetScope = { tenantId: "synthetic-tenant", parkId: "synthetic-park", scopeSha256: hash("synthetic-scope") };
   const canonicalSha256 = computeProductionImportTargetCanonicalHash("sys_org", targetScope, payload, { parent_id: null });

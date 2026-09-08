@@ -72,7 +72,9 @@ DO $$ BEGIN
 END $$;
 
 CREATE TEMP TABLE stg_employment_event(payload jsonb NOT NULL);
-COPY stg_employment_event(payload) FROM :'events_path';
+-- Preserve JSON escape sequences in JSONL; PostgreSQL text COPY would decode
+-- them before the jsonb parser sees the payload.
+COPY stg_employment_event(payload) FROM :'events_path' WITH (FORMAT csv, DELIMITER E'\x02', QUOTE E'\x01', ESCAPE E'\x01');
 DO $$ BEGIN IF (SELECT count(*) FROM stg_employment_event)<>6887 THEN RAISE EXCEPTION 'T1 staging count drift'; END IF; END $$;
 
 CREATE TEMP TABLE stg_employment_event_decision AS
@@ -100,8 +102,8 @@ ON CONFLICT DO NOTHING;
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), classified AS (SELECT * FROM stg_employment_event_decision)
 INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extracted_count,valid_count,loaded_count,rejected_count,checksum_sha256,started_at)
 SELECT b.id,'employment_event','dbo.readjust','load','running',6887,
- count(*) FILTER(WHERE employee_id IS NOT NULL AND type_decision='map' AND type_target_domain='employment_event_type' AND event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND state_decision='map' AND state_target_domain='migration_decision' AND state_target_value='accepted'),0,
- count(*) FILTER(WHERE (employee_id IS NOT NULL AND type_decision='map' AND type_target_domain='employment_event_type' AND event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND state_decision='map' AND state_target_domain='migration_decision' AND state_target_value='accepted') IS NOT TRUE),:'events_sha',now()
+ count(*) FILTER(WHERE employee_id IS NOT NULL AND type_decision='map' AND type_target_domain='employment_event_type' AND event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND state_decision='map' AND state_target_domain='migration_decision' AND state_target_value IN('accepted','needs_review')),0,
+ count(*) FILTER(WHERE (employee_id IS NOT NULL AND type_decision='map' AND type_target_domain='employment_event_type' AND event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND state_decision='map' AND state_target_domain='migration_decision' AND state_target_value IN('accepted','needs_review')) IS NOT TRUE),:'events_sha',now()
 FROM b CROSS JOIN classified GROUP BY b.id;
 
 INSERT INTO hr_employment_event(tenant_id,park_id,employee_id,event_type,effective_date,before_snapshot,after_snapshot,reason,status,
@@ -111,12 +113,12 @@ SELECT :'tenant_id',:'park_id',s.employee_id,s.event_type,(s.payload->'source'->
  jsonb_strip_nulls(jsonb_build_object('orgCode',NULLIF(s.payload->'source'->>'afterOrgCode',''),'positionCode',NULLIF(s.payload->'source'->>'afterPositionCode',''),'employeeState',NULLIF(s.payload->'source'->>'legacyEmployeeState',''))),
  NULLIF(s.payload->'source'->>'reason',''),'effective',s.payload->'source'->>'legacyEventNo',s.payload->'source'->>'legacyEventType',s.payload->'source'->>'legacyState',
  (s.payload->'source'->>'sourceEffectiveAt')::timestamp,
- 'accepted',
+ s.state_target_value,
  true,'Migrated from Yuzhou V10; run='||:'run_id'
 FROM stg_employment_event_decision s
 WHERE s.employee_id IS NOT NULL AND s.type_decision='map' AND s.type_target_domain='employment_event_type'
  AND s.event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume')
- AND s.state_decision='map' AND s.state_target_domain='migration_decision' AND s.state_target_value='accepted';
+ AND s.state_decision='map' AND s.state_target_domain='migration_decision' AND s.state_target_value IN('accepted','needs_review');
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
 INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,is_active)
@@ -127,7 +129,7 @@ WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELE
 INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable)
 SELECT b.id,item.id,'mapping',CASE WHEN s.employee_id IS NULL THEN 'EMPLOYMENT_EVENT_EMPLOYEE_NOT_MAPPED' WHEN (s.type_decision='map' AND s.type_target_domain='employment_event_type' AND s.event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume')) IS NOT TRUE THEN 'EMPLOYMENT_EVENT_TYPE_UNRESOLVED' ELSE 'EMPLOYMENT_EVENT_STATE_UNRESOLVED' END,s.payload->>'sourceIdentitySha256',jsonb_build_object('rule','approved_dictionary_mapping_required'),true,false
 FROM stg_employment_event_decision s CROSS JOIN b JOIN item ON item.batch_id=b.id
-WHERE (s.employee_id IS NOT NULL AND s.type_decision='map' AND s.type_target_domain='employment_event_type' AND s.event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND s.state_decision='map' AND s.state_target_domain='migration_decision' AND s.state_target_value='accepted') IS NOT TRUE;
+WHERE (s.employee_id IS NOT NULL AND s.type_decision='map' AND s.type_target_domain='employment_event_type' AND s.event_type IN('start_probation','confirm_employment','transfer','suspend','depart','resume') AND s.state_decision='map' AND s.state_target_domain='migration_decision' AND s.state_target_value IN('accepted','needs_review')) IS NOT TRUE;
 
 UPDATE migration_batch_item SET loaded_count=(SELECT count(*) FROM legacy_record_map WHERE batch_id=migration_batch_item.batch_id AND target_table='hr_employment_event'),
  status=CASE WHEN rejected_count>0 THEN 'quarantined' ELSE 'succeeded' END,finished_at=now(),update_time=now()

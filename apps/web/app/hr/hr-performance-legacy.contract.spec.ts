@@ -7,6 +7,17 @@ const panel = readFileSync(resolve(__dirname, "performance/HrPerformanceLegacyPa
 const styles = readFileSync(resolve(__dirname, "performance/performance-legacy.module.css"), "utf8");
 const api = readFileSync(resolve(__dirname, "../../lib/hr-api.ts"), "utf8");
 
+test("legacy performance identity remount resets both result and rubric and cancels old requests", () => {
+  assert.match(panel, /export function HrPerformanceLegacyPanel\(\)\s*\{\s*const user = useAuthUser\(\);\s*return <HrPerformanceLegacyContent key=\{JSON\.stringify\(user\)\} \/>;/u);
+  const content = panel.slice(panel.indexOf("function HrPerformanceLegacyContent()"));
+  assert.match(content, /useState<LegacyPage>\(EMPTY_PAGE\)/u);
+  assert.match(content, /useState<HrPerformanceLegacyRubric \| null>\(null\)/u);
+  assert.match(content, /return \(\) => \{ generation\.current\+\+; request\.current\?\.abort\(\); \}/u);
+  assert.match(content, /useEffect\(\(\) => \(\) => \{\s*rubricGeneration\.current\+\+;\s*rubricRequest\.current\?\.abort\(\);/u);
+  assert.match(content, /if \(current === generation\.current\) setResult\(response\)/u);
+  assert.match(content, /if \(current === rubricGeneration\.current\) setRubric\(response\)/u);
+});
+
 test("legacy performance screen exposes all 29 definition, 12 detail, and 21 master source fields", () => {
   const sourceFields = [
     "sourceAssessment", "sourceAssessmentName", "sourceDepartment", "sourceMPercent",
@@ -61,10 +72,11 @@ test("legacy performance rubric reproduces the dynamic grade matrix on desktop a
 });
 
 test("legacy performance filters reject invalid source identifiers before requesting the API", () => {
-  assert.match(panel, /Number\.isSafeInteger\(sourceSessionId\)/u);
-  assert.match(panel, /请输入有效的旧考核批次编号/u);
-  assert.match(panel, /Number\.isSafeInteger\(sourceAssessmentId\)/u);
-  assert.match(panel, /请输入有效的旧考核表编号/u);
+  assert.match(panel, /parseLegacyQueryId\(sessionText\)/u);
+  assert.match(panel, /setSessionError\(\(cause as Error\)\.message\)/u);
+  assert.match(panel, /parseLegacyQueryId\(rubricAssessmentText\)/u);
+  assert.match(panel, /assessmentId === undefined/u);
+  assert.match(panel, /setRubricError\(\(cause as Error\)\.message\)/u);
 });
 
 test("legacy performance fields collapse on phone-width layouts", () => {

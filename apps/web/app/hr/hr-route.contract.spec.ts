@@ -53,7 +53,7 @@ test("department manager directory stays team-scoped without broad employee perm
   const seed=readTrackedFile(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"));
   assert.match(employeePage,/canReadTeam=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_TEAM_READ\)/);
   assert.doesNotMatch(employeePage,/HR_WORK_REPORT_TEAM_REVIEW|HR_PERFORMANCE_MANAGER_REVIEW/);
-  assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
+  assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await fetchEmployeePage/);
   assert.match(employeePage,/isForbiddenError/);
   assert.match(employeePage,/ForbiddenState/);
   assert.match(employeePage,/ds-mobile-record-list \$\{styles\.employeeRecordList\}/);
@@ -124,12 +124,13 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/type="search"/);
   assert.match(employees,/statusFilter/);
   assert.match(employees,/visibleRows\.map/);
-  assert.match(employees,/rows\.length<total/);
-  assert.match(employees,/加载更多员工/);
+  assert.match(employees,/员工目录分页/);
+  assert.match(employees,/上一页/);assert.match(employees,/下一页/);assert.doesNotMatch(employees,/loadMore|加载更多员工/);
   assert.match(employees,/keyword:query\.trim\(\),status:statusFilter/);
   assert.match(employees,/window\.setTimeout\(\(\)=>void load\(\),300\)/);
   assert.match(employees,/当前员工详情不在您的数据权限范围内/);
-  assert.match(employees,/employeeContracts/);
+  assert.match(employees,/EmployeeContracts/);
+  assert.match(employees,/员工合同分页/);assert.doesNotMatch(employees,/keyword:row\.employeeCode/);
   assert.match(employees,/员工生命周期/);
   assert.match(employees,/进入合同台账/);
 });
@@ -243,10 +244,10 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
   assert.match(contracts,/劳动合同/);
   assert.match(contracts,/姓名、员工编号或合同编号/);
-  assert.match(contracts,/加载更多/);
+  assert.match(contracts,/劳动合同分页/);assert.match(contracts,/上一页/);assert.match(contracts,/下一页/);assert.doesNotMatch(contracts,/loadMore|加载更多/);
   assert.match(contracts,/续签与变更历史/);
   assert.match(contracts,/旧系统历史记录/);
-  assert.match(contracts,/hrLoadErrorMessage\(error,"加载劳动合同失败"\)/);
+  assert.match(contracts,/error:hrLoadErrorMessage/);
   assert.match(contracts,/if\(!canRead\)return/);
   assert.match(contracts,/fallback=\{forbidden\}/);
   assert.match(contracts,/canManage/);
@@ -294,7 +295,7 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/selected\.probationEndDate!==undefined/);
   assert.match(contracts,/selected\.positionTitle!==undefined\|\|selected\.workType!==undefined/);
   assert.match(contracts,/selected\.departmentNameSnapshot!==undefined/);
-  assert.match(contracts,/setAction\(null\);try\{setSelected/);
+  assert.match(contracts,/setAction\(null\);return ledger\.pick\(row\)/);
   assert.match(api,/createContract:/);
   assert.match(api,/updateContract:/);
   assert.match(api,/createContractChange:/);
@@ -315,7 +316,15 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  const insurance=readFileSync(resolve(__dirname,"insurance/HrInsuranceClient.tsx"),"utf8");
  const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
- for(const page of [attendance,insurance]){assert.match(page,/ds-page/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/ds-mobile-record/);assert.match(page,/加载更多/);assert.match(page,/if\(!canRead\)return/);}
+ for(const page of [attendance,insurance]){assert.match(page,/ds-page/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/ds-mobile-record/);assert.match(page,/if\(!canRead\)return/);}
+ assert.match(attendance,/历史月历分页/);assert.doesNotMatch(attendance,/loadMoreCalendars|加载更多月历/);
+ assert.match(attendance,/calendarSymbolText\(day\)/);assert.match(attendance,/calendarStyles\.recordList/);
+ // The request queue already has a desktop table: its card alternative must
+ // retain the shared mobile-only visibility instead of the calendar override.
+ assert.match(attendance,/<div className="ds-mobile-record-list">\{requestLoading\?/);
+ assert.match(attendance,/<table aria-label="考勤申请办理队列">/);
+ assert.doesNotMatch(attendance,/<div className=\{`ds-mobile-record-list \$\{calendarStyles\.recordList\}`\}>\{requestLoading\?/);
+ assert.match(insurance,/社保台账分页/);assert.match(insurance,/上一页/);assert.match(insurance,/下一页/);assert.doesNotMatch(insurance,/loadMore|加载更多/);
  assert.match(attendance,/这些日期不是员工实际出勤记录/);
  assert.match(attendance,/未知符号保留待复核/);
  assert.match(insurance,/单位成本仅向 HR 授权岗位开放/);
@@ -325,6 +334,8 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(insurance,/canReadAmount\?<><span>缴费基数/);
  assert.match(insurance,/loadedEmployeeAmount\(rows\)/);
  assert.match(insurance,/safeAmount\(row\.employeeAmount\)/);
+ assert.match(insurance,/reviewReasonCode/);
+ assert.match(insurance,/来源期间缺失或无效/);
  assert.ok(insurance.includes("rows.every(row=>row.employeeAmount!==undefined"));
  assert.match(api,/attendanceCalendars:/);
  assert.match(api,/insurancePeriods:/);

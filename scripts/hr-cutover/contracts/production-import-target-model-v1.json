@@ -12,21 +12,21 @@
     "sys_org": {
       "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.departmentcode"],
-      "fieldWhitelist": ["org_code", "org_name", "org_type", "sort_order", "status", "remark"],
-      "requiredFields": ["org_code", "org_name", "org_type", "sort_order", "status"], "nullableFields": ["remark"],
-      "integerFields": ["sort_order"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "fieldWhitelist": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "contact_phone", "planned_headcount", "legacy_source_id"],
+      "requiredFields": ["org_code", "org_name", "org_type", "sort_order", "status"], "nullableFields": ["remark", "contact_phone", "planned_headcount", "legacy_source_id"],
+      "integerFields": ["sort_order", "planned_headcount", "legacy_source_id"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
       "derivedFields": ["parent_id"], "foreignKeys": [{"column":"parent_id","dependencyRole":"parent_org","targetTable":"sys_org","required":false}],
-      "uniqueKey": ["tenant_id", "park_id", "org_code"], "canonicalFields": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id"],
+      "uniqueKey": ["tenant_id", "park_id", "org_code"], "canonicalFields": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id", "contact_phone", "planned_headcount", "legacy_source_id"],
       "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
     },
     "hr_position": {
       "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.job"],
-      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark"],
-      "requiredFields": ["position_code", "position_name", "status"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark"],
-      "integerFields": ["headcount_limit"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
+      "requiredFields": ["position_code", "position_name", "status"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
+      "integerFields": ["headcount_limit", "legacy_source_id"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
       "derivedFields": ["org_id"], "foreignKeys": [{"column":"org_id","dependencyRole":"org","targetTable":"sys_org","required":true}],
-      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id"],
+      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
       "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
     },
     "hr_employee": {

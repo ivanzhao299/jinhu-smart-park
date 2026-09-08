@@ -7,7 +7,8 @@ const script = readFileSync(resolve(import.meta.dirname, "../hr-cutover/material
 const eventTypes = JSON.parse(readFileSync(resolve(import.meta.dirname, "../hr-cutover/contracts/yuzhou-t1-employment-event-type-decision-v1.json"), "utf8"));
 for (const code of ["employment_event_type", "employment_event_state", "contract_type", "contract_state"]) assert.match(script, new RegExp(code));
 assert.match(script, /machine_attested/);
-assert.match(script, /SOURCE_NON_EFFECTIVE_STATE/);
+assert.match(script, /SOURCE_STATE_UNCONFIRMED/);
+assert.match(script, /needs_review/);
 assert.match(script, /verifyT1EventTypeDecision/);
 assert.match(script, /decision\.decisions/);
 assert.deepEqual(eventTypes.decisions.map(({ sourceValue, targetValue }) => [sourceValue, targetValue]), [["就职", "start_probation"], ["调职", "transfer"], ["离职", "depart"], ["复职", "resume"]]);

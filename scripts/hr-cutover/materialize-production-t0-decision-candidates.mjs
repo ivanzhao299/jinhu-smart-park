@@ -135,6 +135,24 @@ export function parseLegacyPositionHeadcount(value) {
   return { value: numeric, valid: true };
 }
 
+export function projectLegacyT0ExtendedFields(table, source) {
+  const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50] }
+    : { authority: ["authority", 1024], legacy_upto_code: ["legacyUptoCode", 30], position_manual: ["positionManual", 256], qualification: ["qualification", 1024], responsibilities: ["responsibilities", 1024] };
+  const fields = {};
+  let valid = true;
+  for (const [target, [key, max]] of Object.entries(limits)) {
+    const value = source[key] ?? null;
+    if (value !== null && (typeof value !== "string" || [...value].length > max || value.includes("\u0000"))) valid = false;
+    fields[target] = value;
+  }
+  for (const [target, key] of [["legacy_source_id", "legacySourceId"], ...(table === "sys_org" ? [["planned_headcount", "plannedHeadcount"]] : [])]) {
+    const parsed = parseLegacyPositionHeadcount(source[key]);
+    if (!parsed.valid || (target === "planned_headcount" && parsed.value !== null && parsed.value < 0)) valid = false;
+    fields[target] = parsed.value;
+  }
+  return { fields, valid };
+}
+
 function readStage(stagingDir, triple) {
   const manifestBytes = readPrivateBytes(privateFile(resolve(stagingDir, "manifest.json"), "manifest"));
   let manifest;
@@ -307,10 +325,11 @@ function buildCandidates(stage, scope, inventory, jobState) {
   for (const row of [...organizationRowsByCode.values()].sort((left, right) => text(left.sourceKey).length - text(right.sourceKey).length || text(left.sourceKey).localeCompare(text(right.sourceKey)))) {
     const code = text(row.sourceKey);
     const name = text(row.source.orgName);
-    const fields = name === "" ? null : { org_code: code, org_name: name, org_type: integerOr(row.source.rating, 1) <= 1 ? "company" : "department", sort_order: integerOr(row.source.sortOrder, 0), status: "enabled", remark: null };
+    const extended = projectLegacyT0ExtendedFields("sys_org", row.source);
+    const fields = name === "" ? null : { org_code: code, org_name: name, org_type: integerOr(row.source.rating, 1) <= 1 ? "company" : "department", sort_order: integerOr(row.source.sortOrder, 0), status: "enabled", remark: null, ...extended.fields };
     const parent = [...byCode.entries()].filter(([candidateCode]) => candidateCode.length < code.length && code.startsWith(candidateCode)).sort((left, right) => right[0].length - left[0].length)[0]?.[1] ?? null;
     const dependencies = parent ? [link("parent_org", parent, "sys_org", "parent_id")] : [];
-    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "ORG_NAME_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
+    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "ORG_NAME_REQUIRED") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "ORG_LEGACY_FIELDS_INVALID") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     organizations.push(rowCandidate);
     byCode.set(code, rowCandidate);
   }
@@ -321,11 +340,15 @@ function buildCandidates(stage, scope, inventory, jobState) {
     const code = text(row.sourceKey);
     if (positionsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
     const name = text(row.source.positionName);
-    const org = byCode.get(text(row.source.departmentCode)) ?? root;
+    // Only an absent legacy department can use the established root fallback.
+    // A nonempty unresolved reference must not silently become a different org.
+    const departmentCode = text(row.source.departmentCode);
+    const org = departmentCode === "" ? root : byCode.get(departmentCode);
     const headcount = parseLegacyPositionHeadcount(row.source.headcountLimit);
-    const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null };
+    const extended = projectLegacyT0ExtendedFields("hr_position", row.source);
+    const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null, ...extended.fields };
     const dependencies = org ? [link("org", org, "sys_org", "org_id")] : [];
-    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
+    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     positions.push(rowCandidate);
     positionsByCode.set(code, rowCandidate);
   }
@@ -346,6 +369,7 @@ function buildCandidates(stage, scope, inventory, jobState) {
     if (fields === null) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_NAME_REQUIRED");
     else if (!org) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_ORG_REQUIRED");
     else if (!hire.valid || !probation.valid || !departure.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_DATE_INVALID");
+    else if (hire.value && departure.value && departure.value < hire.value) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "EMPLOYEE_DATE_ORDER_INVALID");
     else if (!state || state.decision !== "map") rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_JOB_STATE_UNRESOLVED");
     else if (hasBlockingDependency(dependencies)) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED");
     else rowCandidate = candidate(row, fields, dependencies, scope, inventory);

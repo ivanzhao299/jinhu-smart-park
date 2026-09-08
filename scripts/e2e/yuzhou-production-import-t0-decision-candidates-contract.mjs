@@ -10,7 +10,21 @@ import { tmpdir } from "node:os";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
-import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", {}), { valid: true, fields: { contact_phone: null, legacy_source_id: null, planned_headcount: null } });
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", { contactPhone: "  ", legacySourceId: "2147483647", plannedHeadcount: 0 }), { valid: true, fields: { contact_phone: "  ", legacy_source_id: 2147483647, planned_headcount: 0 } });
+for (const source of [{ plannedHeadcount: -1 }, { plannedHeadcount: 1.5 }, { legacySourceId: "2147483648" }, { contactPhone: "x".repeat(51) }, { contactPhone: 123 }, { contactPhone: "a\u0000b" }]) {
+  assert.equal(projectLegacyT0ExtendedFields("sys_org", source).valid, false);
+}
+for (const [key, column, limit] of [["authority", "authority", 1024], ["legacyUptoCode", "legacy_upto_code", 30], ["positionManual", "position_manual", 256], ["qualification", "qualification", 1024], ["responsibilities", "responsibilities", 1024]]) {
+  for (const value of [null, "", "  ", "岗".repeat(limit), "😀".repeat(limit)]) {
+    const result = projectLegacyT0ExtendedFields("hr_position", { [key]: value });
+    assert.equal(result.valid, true);
+    assert.equal(result.fields[column], value);
+  }
+  for (const value of ["x".repeat(limit + 1), "a\u0000b", 42]) assert.equal(projectLegacyT0ExtendedFields("hr_position", { [key]: value }).valid, false);
+}
 
 const sha = value => createHash("sha256").update(value).digest("hex");
 const codeSha = "a".repeat(40);
@@ -66,7 +80,7 @@ const records = Object.entries(domainRows).flatMap(([domain, rows]) => rows.map(
 for (const [domain, targetTable] of [["departments", "sys_org"], ["positions", "hr_position"], ["employees", "hr_employee"]]) for (const line of readFileSync(join(staging, files[domain]), "utf8").toString().split("\n").filter(Boolean).slice(domainRows[domain].length)) { const row = JSON.parse(line); records.push({ phase: "T0", targetTable, sourceSystem: "yuzhou-v10", sourceTable: row.sourceTable, sourcePkCanonical: `sha256:${row.sourceIdentitySha256}`, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }); }
 const phasePath = join(root, "phase.json"); writePrivate(phasePath, `${JSON.stringify({ formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_phase_staging", triple, phase: "T0", records })}\n`);
 const scope = { tenantId: "tenant", parkId: "park" }; const targetScope = { ...scope, scopeSha256: computeProductionImportTargetScopeHash(scope) };
-const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null };
+const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
 const rootBusiness = computeProductionImportBusinessIdentityHash("sys_org", targetScope, rootFields);
 const rootCanonical = computeProductionImportTargetCanonicalHash("sys_org", targetScope, rootFields);
 const inventoryPath = join(root, "inventory.json"); writePrivate(inventoryPath, `${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_t0_target_inventory_readonly", status: "PASS", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: "d".repeat(64), targetScopeSha256: targetScope.scopeSha256, targetTableCounts: { sys_org: 1, hr_position: 0, hr_employee: 0 }, records: [{ targetTable: "sys_org", businessIdentitySha256: rootBusiness, targetId: "11111111-1111-4111-8111-111111111111", targetCanonicalSha256: rootCanonical, targetVersion: 3 }] })}\n`);
@@ -209,6 +223,104 @@ for (const existingEmployee of [false, true]) {
   assert.equal(invalidArtifact.records.filter(row => row.targetTable === "hr_position" && row.candidateDisposition === "insert").length, 17);
   assert.equal(invalidResult.status, "REVIEW_HOLD");
   assert.equal(invalidResult.productionImport, "HOLD");
+}
+// Exercise the real materializer: an unknown department is not the same as no department.
+for (const [label, departmentCode, expectedDisposition] of [
+  ["null", null, "insert"], ["blank", " ", "insert"], ["unknown", "MISSING-DEPARTMENT", "quarantine"],
+]) {
+  const referenceStage = join(root, `department-${label}-stage`);
+  mkdirSync(referenceStage, { mode: 0o700 });
+  const positionRows = readFileSync(join(staging, files.positions), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  const changed = positionRows[4];
+  changed.source.departmentCode = departmentCode;
+  changed.sourceRowSha256 = sha(canonical(changed.source));
+  const dependentRows = readFileSync(join(staging, files.employees), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  for (const row of dependentRows.slice(0, 3)) {
+    row.source.positionCode = changed.sourceKey;
+    row.sourceRowSha256 = sha(canonical(row.source));
+  }
+  const referenceManifest = JSON.parse(JSON.stringify(manifest));
+  for (const [domain, file] of Object.entries(files)) {
+    const bytes = domain === "positions" ? `${positionRows.map(row => JSON.stringify(row)).join("\n")}\n` : domain === "employees" ? `${dependentRows.map(row => JSON.stringify(row)).join("\n")}\n` : readFileSync(join(staging, file), "utf8");
+    writePrivate(join(referenceStage, file), bytes);
+    referenceManifest.domains[domain].fileSha256 = sha(bytes);
+  }
+  writePrivate(join(referenceStage, "manifest.json"), `${JSON.stringify(referenceManifest)}\n`);
+  const referencePhase = JSON.parse(readFileSync(phasePath, "utf8"));
+  referencePhase.records.find(row => row.sourceIdentitySha256 === changed.sourceIdentitySha256).sourceRowSha256 = changed.sourceRowSha256;
+  for (const row of dependentRows.slice(0, 3)) referencePhase.records.find(record => record.sourceIdentitySha256 === row.sourceIdentitySha256).sourceRowSha256 = row.sourceRowSha256;
+  const referencePhasePath = join(root, `department-${label}-phase.json`);
+  writePrivate(referencePhasePath, `${JSON.stringify(referencePhase)}\n`);
+  const referenceOutput = join(output, `department-${label}.json`);
+  materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: referenceStage,
+    phaseArtifactPath: referencePhasePath, targetInventoryPath: inventoryPath, outputPath: referenceOutput }, { head: () => codeSha });
+  const referenceArtifact = JSON.parse(readFileSync(referenceOutput, "utf8"));
+  const selected = referenceArtifact.records.find(row => row.sourceIdentitySha256 === changed.sourceIdentitySha256);
+  assert.equal(selected.candidateDisposition, expectedDisposition);
+  assert.equal(selected.sourceRowSha256, changed.sourceRowSha256);
+  if (expectedDisposition === "quarantine") {
+    assert.equal(selected.reasonCode, "POSITION_ORG_REQUIRED");
+    assert.equal(selected.dependencyRefs.length, 0);
+    assert.equal(referenceArtifact.records.filter(row => row.candidateDisposition === "quarantine").length, 4);
+    for (const source of dependentRows.slice(0, 3)) {
+      const dependent = referenceArtifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
+      assert.equal(dependent.candidateDisposition, "quarantine");
+      assert.equal(dependent.reasonCode, "DEPENDENCY_UNRESOLVED");
+      assert.equal(dependent.targetFields.full_name, source.source.fullName);
+    }
+    assert.equal(referenceArtifact.records.filter(row => row.targetTable === "hr_employee" && row.candidateDisposition === "insert").length, 2946);
+  } else {
+    assert.equal(selected.dependencyRefs[0].sourceIdentitySha256,
+      artifact.records.find(row => row.targetTable === "sys_org" && row.targetFields.org_code === "000").sourceIdentitySha256);
+  }
+}
+// Source injobdate/awaydate retain their exact normalized dates; impossible order
+// quarantines the complete candidate instead of repairing historical values.
+{
+  const dateStage = join(root, "date-order-stage");
+  mkdirSync(dateStage, { mode: 0o700 });
+  const employeeRows = readFileSync(join(staging, files.employees), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  const cases = [
+    ["2024-01-02", "2024-01-01", "quarantine"],
+    ["2024-01-01", "2024-01-01", "insert"],
+    [null, "2024-01-01", "insert"],
+    ["2024-01-01", null, "insert"],
+    [null, null, "insert"],
+  ];
+  const datePhase = JSON.parse(readFileSync(phasePath, "utf8"));
+  for (const [index, [hireDate, departureDate]] of cases.entries()) {
+    const row = employeeRows[index];
+    Object.assign(row.source, { hireDate, departureDate });
+    row.sourceRowSha256 = sha(canonical(row.source));
+    datePhase.records.find(record => record.sourceIdentitySha256 === row.sourceIdentitySha256).sourceRowSha256 = row.sourceRowSha256;
+  }
+  const dateManifest = structuredClone(manifest);
+  for (const [domain, file] of Object.entries(files)) {
+    const bytes = domain === "employees" ? `${employeeRows.map(row => JSON.stringify(row)).join("\n")}\n` : readFileSync(join(staging, file), "utf8");
+    writePrivate(join(dateStage, file), bytes);
+    dateManifest.domains[domain].fileSha256 = sha(bytes);
+  }
+  writePrivate(join(dateStage, "manifest.json"), `${JSON.stringify(dateManifest)}\n`);
+  const datePhasePath = join(root, "date-order-phase.json");
+  writePrivate(datePhasePath, `${JSON.stringify(datePhase)}\n`);
+  const dateOutput = join(output, "date-order-candidates.json");
+  const dateResult = materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: dateStage,
+    phaseArtifactPath: datePhasePath, outputPath: dateOutput }, { head: () => codeSha });
+  const dateArtifact = JSON.parse(readFileSync(dateOutput, "utf8"));
+  for (const [index, [hireDate, departureDate, disposition]] of cases.entries()) {
+    const source = employeeRows[index];
+    const selected = dateArtifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
+    const original = artifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
+    assert.equal(selected.candidateDisposition, disposition);
+    assert.equal(selected.reasonCode, disposition === "quarantine" ? "EMPLOYEE_DATE_ORDER_INVALID" : null);
+    assert.equal(selected.sourceRowSha256, source.sourceRowSha256);
+    assert.deepEqual(selected.targetFields, { ...original.targetFields, hire_date: hireDate, departure_date: departureDate,
+      remark: disposition === "quarantine" ? "Legacy date requires review" : null });
+    assert.deepEqual(selected.dependencyRefs, original.dependencyRefs);
+    assert.equal(selected.dependencyRefs.length, 2);
+  }
+  assert.equal(dateArtifact.records.filter(row => row.reasonCode === "EMPLOYEE_DATE_ORDER_INVALID").length, 1);
+  assert.equal(dateResult.productionImport, "HOLD");
 }
 chmodSync(scopePath, 0o644);
 assert.throws(() => materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: inventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath: join(output, "bad.json") }, { head: () => codeSha }), error => error instanceof ProductionT0DecisionCandidatesError && error.code === "PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID");
