@@ -128,7 +128,10 @@ test("asset unit restore revives the same soft-deleted source without creating a
     },
     save: async () => { saved = true; return entity; }
   };
-  const manager = { getRepository: () => repository, query: async () => [] };
+  const manager = {
+    getRepository: () => repository,
+    query: async (sql: string) => sql.includes("FROM asset_building") ? [{ valid: true }] : []
+  };
   const service = new AssetsService(
     {} as never, {} as never, {} as never, {} as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
@@ -150,7 +153,9 @@ test("asset unit restore rejects a retained projection with a broken parent chai
   const repository = { findOne: async () => entity, save: async () => assert.fail("must not save") };
   const manager = {
     getRepository: () => repository,
-    query: async () => [{ id: "biz-unit-1", parentsValid: false }]
+    query: async (sql: string) => sql.includes("FROM asset_building")
+      ? [{ valid: true }]
+      : [{ id: "biz-unit-1", parentsValid: false }]
   };
   const service = new AssetsService(
     {} as never, {} as never, {} as never, {} as never,
@@ -164,4 +169,44 @@ test("asset unit restore rejects a retained projection with a broken parent chai
     /Operating unit mapping is not consistent/u
   );
   assert.equal(entity.isDeleted, true);
+});
+
+test("asset unit restore rejects deleted physical parents before changing the source", async () => {
+  const entity = { id: "unit-1", buildingId: "building-1", floorId: "floor-1", isDeleted: true, updateBy: "deleter" };
+  const repository = { findOne: async () => entity, save: async () => assert.fail("must not save") };
+  const manager = { getRepository: () => repository, query: async () => [] };
+  const service = new AssetsService(
+    {} as never, {} as never, {} as never, {} as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never, { lockUnitLifecycle: async () => undefined } as never
+  );
+  await assert.rejects(
+    service.restoreUnit({ tenantId: "tenant-1", parkId: "park-1" }, { sub: "restorer" } as JwtPrincipal, "unit-1"),
+    /parent building or floor is not active/u
+  );
+  assert.equal(entity.isDeleted, true);
+});
+
+test("asset unit restore translates an active code collision to HTTP 409", async () => {
+  const entity = { id: "unit-1", buildingId: "building-1", floorId: "floor-1", isDeleted: true, updateBy: "deleter" };
+  const repository = {
+    findOne: async () => entity,
+    save: async () => { throw { code: "23505" }; }
+  };
+  const manager = {
+    getRepository: () => repository,
+    query: async (sql: string) => sql.includes("FROM asset_building") ? [{ valid: true }] : []
+  };
+  const service = new AssetsService(
+    {} as never, {} as never, {} as never, {} as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never, { lockUnitLifecycle: async () => undefined } as never
+  );
+  await assert.rejects(
+    service.restoreUnit({ tenantId: "tenant-1", parkId: "park-1" }, { sub: "restorer" } as JwtPrincipal, "unit-1"),
+    (error: unknown) => typeof error === "object" && error !== null && "getStatus" in error
+      && (error as { getStatus(): number }).getStatus() === 409
+  );
 });

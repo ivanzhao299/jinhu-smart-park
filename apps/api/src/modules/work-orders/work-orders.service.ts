@@ -507,6 +507,9 @@ export class WorkOrdersService {
       updateBy: actor.sub
     });
     const persist = async (manager: EntityManager) => {
+      if (dto.unit_id) {
+        await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
+      }
       const saved = await manager.getRepository(WorkOrderEntity).save(entity);
       await this.createWorkOrderLog(scope, actor, saved, "create", null, saved.status, "手工创建工单", manager.getRepository(WorkOrderLogEntity));
       return saved;
@@ -743,6 +746,7 @@ export class WorkOrdersService {
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateWorkOrderDto): Promise<WorkOrderEntity> {
     const entity = await this.findOne(scope, id, actor);
+    const previousUnitId = entity.unitId;
     await this.validateDictionaryValues(
       scope,
       dto.wo_type ?? entity.woType,
@@ -798,6 +802,10 @@ export class WorkOrdersService {
     });
     let saved!: WorkOrderEntity;
     await this.workOrdersRepository.manager.transaction(async (manager) => {
+      const lockedUnitIds = [...new Set([previousUnitId, entity.unitId].filter((unitId): unitId is string => Boolean(unitId)))].sort();
+      for (const lockedUnitId of lockedUnitIds) {
+        await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, lockedUnitId]);
+      }
       saved = await manager.getRepository(WorkOrderEntity).save(entity);
       await this.createWorkOrderLog(
         scope,

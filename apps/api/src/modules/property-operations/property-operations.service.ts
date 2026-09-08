@@ -239,14 +239,24 @@ export class PropertyOperationsService {
 
   async configure(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: ConfigurePropertyUnitDto, clientKey?: string) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE);
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    const accessibleUnit = await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
+      const lifecycleAssetId = dto.asset_unit_id === null
+        ? accessibleUnit.assetUnitId
+        : dto.asset_unit_id;
+      if (lifecycleAssetId) {
+        if (!this.assetSpaceMappingService) throw new Error("AssetSpaceMappingService is not configured");
+        await this.assetSpaceMappingService.lockUnitLifecycle(manager, scope, lifecycleAssetId);
+      }
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
       const unit = await manager.getRepository(UnitEntity).findOne({
         where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
       if (!unit) throw new NotFoundException("Property unit not found");
+      if (dto.asset_unit_id === null && unit.assetUnitId !== lifecycleAssetId) {
+        throw new ConflictException("Operating unit asset mapping has changed");
+      }
 
       const configRepository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await configRepository.findOne({
@@ -280,8 +290,8 @@ export class PropertyOperationsService {
             if (snapshot.blocking_reasons.length > 0) {
               throw new ConflictException({
                 message: "Operating unit decommission is blocked",
-                blocking_reasons: snapshot.blocking_reasons,
-                check_snapshot: snapshot
+                errorCode: "property-mode-blocked",
+                blockers: snapshot.blocking_reasons
               });
             }
             if (!this.assetSpaceMappingService) throw new Error("AssetSpaceMappingService is not configured");

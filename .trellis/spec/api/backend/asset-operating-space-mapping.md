@@ -25,6 +25,7 @@
 - Source numeric values remain PostgreSQL decimal strings through the service; do not round-trip them through JavaScript arithmetic.
 - Create, link, and unlink append reason, operator, idempotency key, source/target ids, and snapshot to immutable audit history.
 - Deleting and restoring an asset unit acquire the same scope/entity/asset advisory lock as mapping. An active operating unit blocks source deletion. Explicit unlink is accepted only in the same operation command that disables the operating configuration and only after the shared transition snapshot reports no current occupancy, contract, checkout, work-order, or unsettled-finance blocker.
+- Mapping changes acquire the asset-unit advisory lock before the shared property-unit lock. Work-order create and unit reassignment acquire the property-unit lock before writing, so a decommission snapshot and blocker-producing writes have a serial order.
 - A retained disabled mapping survives source soft-delete and is validated on restore. A prior explicit unlink remains unlinked after restore; restoration must not infer a target from audit history or equal codes.
 - A trigger function shared by heterogeneous tables must test table-specific fields through `to_jsonb(NEW)->>'field'`; direct `NEW.table_specific_field` access in a branch condition is unsafe because PostgreSQL binds the record field for every attached row type.
 
