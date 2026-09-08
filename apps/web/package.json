@@ -14,6 +14,7 @@
     "test:unit:homestay": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/homestay/_components/*.spec.ts",
     "test:unit:housing": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/housing/*.logic.spec.ts app/housing/*.spec.cjs app/housing/_components/*.spec.ts",
     "test:unit:property": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\",\"jsx\":\"react-jsx\"}' node --test --require ts-node/register components/property/*.contract.spec.ts components/property/*.logic.spec.ts features/property-shared/dialog/*.spec.ts features/property-shared/ds/*.spec.ts features/property-shared/navigation/*.spec.ts features/property-shared/presentation/*.spec.ts",
+    "test:unit:interaction": "NODE_ENV=test vitest run --config vitest.config.ts",
     "test:unit:safety": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/safety/*.logic.spec.ts app/safety/inspect-points/*.logic.spec.ts app/safety/inspect-tasks/*.logic.spec.ts components/safety/*.logic.spec.ts components/operations/*.logic.spec.ts",
     "test:unit:system": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/system/*.logic.spec.ts",
     "test:unit:workorders": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/workorders/*.logic.spec.ts",
@@ -34,9 +35,14 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
-    "ts-node": "^10.9.2"
+    "jsdom": "^26.1.0",
+    "ts-node": "^10.9.2",
+    "vitest": "^3.2.4"
   }
 }
