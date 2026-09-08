@@ -1,12 +1,16 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Module, ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { RecordOperationInput } from "../audit/audit.service";
 import { HrPerformanceLegacyService } from "./hr-performance-legacy.service";
 import { HrPerformanceLegacyRelationsService } from "./hr-performance-legacy-relations.service";
+import { HrPerformanceLegacyController } from "./hr-performance-legacy.controller";
+import { HrPerformanceLegacyRelationsController } from "./hr-performance-legacy-relations.controller";
 
 const enabled = process.env.HR_PERFORMANCE_POST_IMPORT_API_PG === "1";
 
@@ -157,6 +161,49 @@ test("actual total-writer data is visible through HR services and disappears aft
       }));
     }
     assert.equal(new Set(assignmentPages).size, applied ? 117 : 0);
+
+    // Exercise the real controllers against the same read-only DataSource and
+    // imported rows. Only identity injection and audit persistence are synthetic;
+    // this is not a JWT/login or global authorization-guard test.
+    let httpActor = actor(HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ, HR_PERMISSIONS.HR_PERFORMANCE_READ);
+    class ReadSurfaceModule {}
+    Module({
+      controllers: [HrPerformanceLegacyController, HrPerformanceLegacyRelationsController],
+      providers: [
+        { provide: HrPerformanceLegacyService, useValue: legacy },
+        { provide: HrPerformanceLegacyRelationsService, useValue: relations },
+      ],
+    })(ReadSurfaceModule);
+    const app = await NestFactory.create(ReadSurfaceModule, { logger: false });
+    app.setGlobalPrefix("api/v1");
+    app.use((req: { user?: JwtPrincipal }, _res: unknown, next: () => void) => { req.user = httpActor; next(); });
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+    try {
+      await app.listen(0, "127.0.0.1");
+      const base = await app.getUrl();
+      for (const item of cases) {
+        const response = await fetch(`${base}/api/v1${item.path}?page=1&page_size=200`);
+        assert.equal(response.status, 200, `${item.path} HTTP status`);
+        const body = await response.json() as { total: number; items: unknown[] };
+        assert.equal(body.total, applied ? item.count : 0, `${item.path} HTTP total`);
+        assert.equal(body.items.length, applied ? item.count : 0, `${item.path} HTTP rows`);
+      }
+      const paged = await fetch(`${base}/api/v1/hr/performance-legacy/relations/source-person-assignments?page=3&page_size=50`);
+      assert.equal(paged.status, 200);
+      const body = await paged.json() as { total: number; items: unknown[]; page: number };
+      assert.equal(body.total, applied ? 117 : 0);
+      assert.equal(body.items.length, applied ? 17 : 0);
+      assert.equal(body.page, 3);
+
+      httpActor = { ...httpActor, parkId: `${scope.parkId}-other` };
+      const foreign = await fetch(`${base}/api/v1/hr/performance-legacy/relations/source-person-assignments`);
+      assert.equal(foreign.status, 200);
+      const foreignBody = await foreign.json() as { total: number; items: unknown[] };
+      assert.equal(foreignBody.total, 0);
+      assert.equal(foreignBody.items.length, 0);
+    } finally {
+      await app.close();
+    }
 
     const deniedAuditCount = audits.length;
     const denied = await relations.sourcePersonAssignments(scope, definitions, page);
