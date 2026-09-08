@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { computeProductionImportTouchedPhaseState } from "../hr-cutover/production-import-phase-state.mjs";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createLabImportPhaseWriters } from "../hr-cutover/production-import-phase-writers.mjs";
@@ -91,7 +92,13 @@ test("lab T0/T1 reuse business semantics, exact lab batch dependencies and encry
   assert.equal(result.batchId, tx.batches.get("fixture-run-t0").id);
   assert.equal(result.productionImport, "HOLD");
   assert.equal(result.payloadBundleSha256, t0.phase.payloadBundleSha256);
-  assert.equal(result.afterCanonicalSha256, t0.phase.expectedAfterCanonicalSha256);
+  const expectedRows = [org, child, employee].map(({ record: r, payload }) => ({ targetTable: r.targetTable, targetId: r.targetId, version: 1, payload,
+    derivedFields: Object.fromEntries(model.targetTables[r.targetTable].foreignKeys.map(fk => {
+      const ref = r.dependencyRefs.find(d => d.role === fk.dependencyRole);
+      return [fk.column, [org, child, employee].find(parent => parent.record.sourceIdentitySha256 === ref?.sourceIdentitySha256)?.record.targetId ?? null];
+    })) }));
+  assert.equal(result.afterCanonicalSha256, computeProductionImportTouchedPhaseState({ phase: "T0", targetScope: scope, rows: expectedRows }));
+  assert.notEqual(result.afterCanonicalSha256, t0.phase.expectedAfterCanonicalSha256);
   assert.equal(result.records[0].targetAfterSha256, employee.record.expectedTargetAfterSha256);
   assert.equal(tx.maps.find(row => row.source_identity_sha256 === employee.record.sourceIdentitySha256).source_row_sha256, employee.record.sourceRowSha256);
   assert.equal(tx.maps.find(row => row.source_identity_sha256 === quarantined.record.sourceIdentitySha256).mapping_status, "quarantined");

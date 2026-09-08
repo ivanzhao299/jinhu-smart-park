@@ -120,6 +120,18 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 阶段 after 摘要修复边界（2026-09-09）
+
+`yuzhou-production-touched-phase-state-v1` 只覆盖本阶段非 quarantine 的
+insert/merge/skip_approved 目标行，不是 whole-scope snapshot。按目标表、目标 ID
+排序，包含 scope、phase、实际版本、所有模型白名单字段及派生外键；字段规范化
+复用正式 payload/SQL readback 规则，JSON key 顺序不影响摘要。quarantine 不存在
+业务目标，不加入摘要。每个目标仅出现一次，缺失/重复/版本或字段漂移拒绝。
+预期摘要从投影字段计算；实际摘要从同一事务按 ID 锁定读取并核验的业务行计算，
+不得将预期 hash 当作实际值。beforeCanonicalSha256 仍沿用原契约，本次不改变其
+含义、不声称补齐 baseline 验证。后续 sealed-plan producer 必须显式采用此域，
+旧 label/whole-scope hashes 不可替代新 after 摘要。
+
 - 选择全量历史工资在线只读快照，而不是只存外部归档：约 4.5 万行规模可控，能满足员工历史查询和审计。
 - 不在 T0 实现通用低代码工资引擎：先实现可审计的受限 DSL 和人工复核，降低任意表达式风险。
 - 不要求 SQL Server 成为长期生产依赖：它只存在于隔离迁移实验室。

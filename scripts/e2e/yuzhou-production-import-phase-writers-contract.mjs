@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { computeProductionImportTouchedPhaseState } from "../hr-cutover/production-import-phase-state.mjs";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -98,21 +99,52 @@ function phaseInput(records, payloads, phaseName = "T0") {
   };
 }
 
+test("touched phase hash is projected independently and actual SQL row order/types normalize", async () => {
+  const records = [orgRecord(801), orgRecord(802)], payloads = [orgPayload(801), orgPayload(802)];
+  const rows = records.map((record, i) => ({ targetTable: "sys_org", targetId: record.targetId, version: 1, payload: payloads[i], derivedFields: { parent_id: null } }));
+  const expected = computeProductionImportTouchedPhaseState({ phase: "T0", targetScope, rows });
+  assert.equal(expected, computeProductionImportTouchedPhaseState({ phase: "T0", targetScope, rows: [...rows].reverse().map(row => ({ ...row, payload: Object.fromEntries(Object.entries(row.payload).reverse()) })) }));
+  assert.throws(() => computeProductionImportTouchedPhaseState({ phase: "T0", targetScope, rows: [rows[0], rows[0]] }), /PRODUCTION_IMPORT_PHASE_STATE_INVALID/);
+  const tx = fakeTx(), query = tx.query.bind(tx);
+  tx.query = async (sql, params) => { const result = await query(sql, params); if (sql.includes("hr-prod-phase:verify-after")) result.rows = result.rows.reverse().map(row => ({ ...row, sort_order: String(row.sort_order), version: String(row.version) })); return result; };
+  const input = { ...phaseInput(records, payloads), tx };
+  const result = await createProductionImportPhaseWriters({ cryptoProvider }).T0(input);
+  assert.equal(result.afterCanonicalSha256, expected);
+  assert.notEqual(result.afterCanonicalSha256, input.phase.expectedAfterCanonicalSha256, "arbitrary expected digest must not be echoed");
+  assert.notEqual(expected, computeProductionImportTouchedPhaseState({ phase: "T0", targetScope, rows: [{ ...rows[0], version: 2 }, rows[1]] }));
+});
+
+test("actual after rows reject missing, duplicate, changed fields and changed versions", async () => {
+  for (const mutate of [() => [], rows => [...rows, rows[0]], rows => rows.map(r => ({ ...r, org_name: "changed" })), rows => rows.map(r => ({ ...r, version: 2 }))]) {
+    const tx = fakeTx(), query = tx.query.bind(tx);
+    tx.query = async (sql, params) => { const result = await query(sql, params); if (sql.includes("hr-prod-phase:verify-after")) result.rows = mutate(result.rows); return result; };
+    await assert.rejects(createProductionImportPhaseWriters({ cryptoProvider }).T0({ ...phaseInput([orgRecord(803)], [orgPayload(803)]), tx }), error => /^PRODUCTION_IMPORT_/u.test(error.code));
+    assert.equal(tx.calls.some(call => call.sql.includes("hr-prod-phase:finish-batch")), false);
+  }
+});
+
 function fakeTx(handler = async () => ({ rows: [] })) {
   const calls = [];
+  const stored = new Map();
   return {
     calls,
     async query(sql, parameters) {
       calls.push({ sql, parameters });
       if (sql.includes("hr-prod-phase:set-current")) return { rows: [{ operation_id: operationId }] };
       if (sql.includes("hr-prod-phase:create-batch")) return { rows: [{ id: BATCH_ID }] };
-      if (sql.includes("hr-prod-phase:bulk-insert:")) return { rows: JSON.parse(parameters[0]).map(row => ({ id: row.id, version: 1 })) };
-      if (sql.includes("hr-prod-phase:bulk-merge:")) return { rows: JSON.parse(parameters[0]).map(row => ({ id: row.id, version: row.expected_version + 1 })) };
+      if (sql.includes("hr-prod-phase:bulk-insert:")) return { rows: JSON.parse(parameters[0]).map(row => { stored.set(row.id, { ...row, version: 1 }); return { id: row.id, version: 1 }; }) };
+      if (sql.includes("hr-prod-phase:bulk-merge:")) return { rows: JSON.parse(parameters[0]).map(row => { stored.set(row.id, { ...row, version: row.expected_version + 1 }); return { id: row.id, version: row.expected_version + 1 }; }) };
+      if (sql.includes("hr-prod-phase:verify-after")) {
+        const table = sql.match(/FROM ([a-z_]+)/u)[1], fields = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables[table].derivedFields;
+        return { rows: parameters[2].map(id => stored.get(id)).filter(Boolean).map(row => ({ ...Object.fromEntries(fields.map(f => [f, null])), ...row })) };
+      }
       if (sql.includes("hr-prod-phase:bulk-map-receipt")) return { rows: JSON.parse(parameters[3]).map(row => ({ source_identity_sha256: row.source_identity_sha256 })) };
       if (sql.includes("hr-prod-phase:bulk-quarantine-map-receipt")) return { rows: JSON.parse(parameters[3]).map(row => ({ source_identity_sha256: row.source_identity_sha256 })) };
       if (sql.includes("hr-prod-phase:bulk-batch-items")) return { rows: JSON.parse(parameters[1]).map((_, index) => ({ id: index + 1 })) };
       if (sql.includes("hr-prod-phase:finish-batch")) return { rows: [{ id: BATCH_ID }] };
-      return handler(sql, parameters, calls);
+      const result = await handler(sql, parameters, calls);
+      if (sql.includes("hr-prod-phase:lock-existing")) for (const row of result.rows) stored.set(row.id, row);
+      return result;
     },
   };
 }

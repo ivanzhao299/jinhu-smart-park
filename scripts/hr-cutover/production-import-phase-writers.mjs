@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeProductionT1LocalTimestamp } from "./production-t1-local-timestamp.mjs";
+import { computeProductionImportTouchedPhaseState } from "./production-import-phase-state.mjs";
 
 import { ProductionImportExecutionError, computeProductionImportPayloadHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -70,7 +71,7 @@ function sqlType(table, rule, field) {
   return "text";
 }
 
-function scopeType(_table) {
+function scopeType() {
   // All current tenant/park scope columns, including sys_org, are varchar.
   return "text";
 }
@@ -306,13 +307,13 @@ function databaseWriteRow(row, targetScope, { expectedVersion = false } = {}) {
   };
 }
 
-async function selectAndVerifyExisting(tx, table, rule, rows, targetScope) {
+async function selectAndVerifyExisting(tx, table, rule, rows, targetScope, afterWrite = false) {
   const storage = tableStorage(table);
   const columns = [...new Set(["id", ...(storage.versioned ? ["version"] : []), ...rule.fieldWhitelist, ...rule.derivedFields])];
   const projections = columns.map(column => table === "hr_employment_event" && column === "source_effective_at"
     ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at` : column);
   const result = rowsOf(await tx.query(
-    `/* hr-prod-phase:lock-existing */
+    `/* hr-prod-phase:lock-existing */${afterWrite ? " /* hr-prod-phase:verify-after */" : ""}
      SELECT ${projections.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
      FROM ${table}
      WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${storage.softDelete ? " AND is_deleted=false" : ""}
@@ -320,7 +321,7 @@ async function selectAndVerifyExisting(tx, table, rule, rows, targetScope) {
     [targetScope.tenantId, targetScope.parkId, rows.map(row => row.record.targetId)],
   ), `lock ${table}`);
   const byId = new Map(result.map(row => [String(row.id), row]));
-  if (byId.size !== rows.length) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_MATCH_REQUIRED", `${table} target count differs`);
+  if (result.length !== rows.length || byId.size !== rows.length) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_MATCH_REQUIRED", `${table} target count differs`);
   for (const row of rows) {
     const current = byId.get(row.record.targetId);
     if (!current || Number(current.version) !== row.record.expectedTargetVersionBefore) fail("PRODUCTION_IMPORT_TARGET_VERSION_PRECONDITION_FAILED", `${table}.${row.record.targetId}`);
@@ -529,6 +530,18 @@ async function writePhase(phaseName, input, options) {
       await insertLabMaps(input.tx, batchId, layer, options.batchSize);
     } else await insertMapsAndReceipts(input.tx, input.operationId, phaseName, batchId, layer, options.batchSize);
   }
+  const verifiedAfter = [];
+  for (const table of new Set(rows.map(row => row.record.plannedTargetTable))) {
+    const touched = rows.filter(row => row.record.plannedTargetTable === table && row.record.disposition !== "quarantine");
+    for (const part of chunks(touched, options.batchSize)) {
+      const copies = part.map(row => ({ ...row, record: { ...row.record,
+        expectedTargetBeforeSha256: row.record.expectedTargetAfterSha256, expectedTargetVersionBefore: row.record.targetVersionAfter } }));
+      await selectAndVerifyExisting(input.tx, table, MODEL.targetTables[table], copies, input.targetScope, true);
+      for (const row of copies) verifiedAfter.push({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version,
+        payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields });
+    }
+  }
+  const afterCanonicalSha256 = computeProductionImportTouchedPhaseState({ phase: phaseName, targetScope: input.targetScope, rows: verifiedAfter });
   const results = await encryptResults(rows, { operationId: input.operationId, phaseName, targetScope: structuredClone(input.targetScope) }, options.cryptoProvider);
   await finishBatch(input.tx, batchId, rows, phaseName);
   return {
@@ -536,7 +549,7 @@ async function writePhase(phaseName, input, options) {
     payloadBundleSha256: input.phase.payloadBundleSha256,
     canonicalizationVersion: input.phase.canonicalizationVersion,
     targetScopeSha256: input.targetScope.scopeSha256,
-    afterCanonicalSha256: input.phase.expectedAfterCanonicalSha256,
+    afterCanonicalSha256,
     records: results,
     ...(options.lab ? { batchId, productionImport: "HOLD" } : {}),
   };
