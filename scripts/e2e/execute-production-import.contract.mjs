@@ -715,7 +715,7 @@ test("pre-sealed before image reaches the writer callback unchanged and remains 
   const operationId = "yzprod-import-20260905T010000Z-abcdef123456";
   const keyReferenceSha256 = H("external-reference-is-not-key-material");
   const key = Buffer.alloc(32, 7);
-  const payload = { org_code: "SYNTHETIC", org_name: "Synthetic department", org_type: "department", sort_order: 1, status: "enabled", remark: null };
+  const payload = { org_code: "SYNTHETIC", org_name: "Synthetic department", org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
   const canonicalSha256 = computeProductionImportTargetCanonicalHash("sys_org", TARGET_SCOPE, payload, { parent_id: null });
   const targetBefore = { payload, derivedFields: { parent_id: null }, version: 2, canonicalSha256 };
   const record = {
