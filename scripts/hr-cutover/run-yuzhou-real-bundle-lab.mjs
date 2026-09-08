@@ -1,8 +1,8 @@
 /* global AbortController: readonly */
 import process from "node:process";
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { readFile, realpath, lstat, readdir, open, statfs } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { readFile, realpath, lstat, readdir, open, statfs, link, unlink } from "node:fs/promises";
 import { constants } from "node:fs";
 import { resolve, join, dirname, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,65 @@ import { decryptProductionImportEnvelope } from "./production-import-crypto-prov
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../.."), HASH = /^[0-9a-f]{64}$/u;
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const fail = () => { throw new Error("LAB_CLI_GUARD"); };
+const receiptFail = () => { throw new Error("LAB_CLI_FINAL_RECEIPT_FAILED"); };
+function receiptIdentity(value) {
+  if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(value.runId ?? "") ||
+      ![value.configSha256, value.manifestSha256].every(v => HASH.test(v ?? "")) ||
+      !/^[0-9a-f]{40}$/u.test(value.binding?.codeSha ?? "") ||
+      !["sourceSnapshotHash", "mappingSha256", "executorSha256"].every(k => HASH.test(value.binding?.[k] ?? ""))) receiptFail();
+  return { runId: value.runId, configSha256: value.configSha256, manifestSha256: value.manifestSha256,
+    binding: Object.fromEntries(["codeSha", "sourceSnapshotHash", "mappingSha256", "executorSha256"].map(k => [k, value.binding[k]])) };
+}
+function receiptResult(result) {
+  if (!["LAB_PASS", "FAILED"].includes(result?.status) || result.productionImport !== "HOLD") receiptFail();
+  const codes = result.failureCodes;
+  if (!Array.isArray(codes) || codes.length > 32 || codes.some(c => typeof c !== "string" ||
+      !/^(?:LAB_(?:OWNER|CLI)_[A-Z_]{1,80}|(?:PRODUCTION_IMPORT_|LAB_IMPORT_|LAB_ROLLBACK_)[A-Z_]{1,96}|SQLSTATE_[0-9A-Z]{5})$/u.test(c))) receiptFail();
+  const flags = Object.fromEntries(["httpVerified", "rollbackVerified", "residualVerified"].map(k => [k, result[k] === true]));
+  if (result.status === "LAB_PASS" && (codes.length || Object.values(flags).some(v => !v))) receiptFail();
+  let counts = null;
+  if (result.counts) { counts = Object.fromEntries(["records", "inserted", "quarantined"].map(k => [k, result.counts[k]])); if (Object.values(counts).some(v => !Number.isSafeInteger(v) || v < 0) || counts.records !== counts.inserted + counts.quarantined) receiptFail(); }
+  if (result.status === "LAB_PASS" && !counts) receiptFail();
+  return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD" };
+}
+async function receiptRoot(stateRoot) {
+  if (!privatePath(stateRoot) || await realpath(stateRoot) !== stateRoot) receiptFail();
+  const stat = await lstat(stateRoot);
+  if (!stat.isDirectory() || (stat.mode & 0o077) || stat.uid !== process.getuid()) receiptFail();
+  return stat;
+}
+/** Integrity-checked local summary, not an independent database observation. */
+export async function readYuzhouLabFinalReceipt({ stateRoot, identity }) {
+  try {
+    await receiptRoot(stateRoot); const expected = receiptIdentity(identity);
+    const path = join(stateRoot, `final-${expected.runId}.json`);
+    const bytes = readBoundedPrivateArtifactBytes(path, "final receipt", 16384);
+    const stored = JSON.parse(bytes.toString("utf8"));
+    const value = { formatVersion: 1, ...expected, result: receiptResult(stored.value?.result), databaseStateIndependentlyVerified: false };
+    if (JSON.stringify(stored.value) !== JSON.stringify(value) || stored.sha256 !== sha(JSON.stringify(value))) receiptFail();
+    return { ...value, receiptSha256: stored.sha256 };
+  } catch { receiptFail(); }
+}
+export async function persistYuzhouLabFinalReceipt({ stateRoot, identity, result }) {
+  let temporary;
+  try {
+    const root = await receiptRoot(stateRoot), id = receiptIdentity(identity);
+    const value = { formatVersion: 1, ...id, result: receiptResult(result), databaseStateIndependentlyVerified: false };
+    const envelope = { value, sha256: sha(JSON.stringify(value)) };
+    const target = join(stateRoot, `final-${id.runId}.json`);
+    temporary = join(stateRoot, `.final-${id.runId}-${randomUUID()}.tmp`);
+    const file = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try { await file.writeFile(JSON.stringify(envelope)); await file.sync(); } finally { await file.close(); }
+    const after = await receiptRoot(stateRoot); if (after.ino !== root.ino || after.dev !== root.dev) receiptFail();
+    // Atomic no-replace publication: an existing receipt always fails closed.
+    await link(temporary, target); await unlink(temporary); temporary = undefined;
+    const dir = await open(stateRoot, constants.O_RDONLY | constants.O_NOFOLLOW); try { await dir.sync(); } finally { await dir.close(); }
+    const readback = await readYuzhouLabFinalReceipt({ stateRoot, identity: id });
+    if (readback.receiptSha256 !== envelope.sha256) receiptFail();
+    return { finalReceiptPersisted: true, finalReceiptSha256: envelope.sha256 };
+  } catch { receiptFail(); }
+  finally { if (temporary) await unlink(temporary).catch(() => {}); }
+}
 const privatePath = p => typeof p === "string" && isAbsolute(p) && resolve(p) === p && !p.includes("\0");
 const exact = (o, keys) => { if (!o || Object.keys(o).sort().join() !== [...keys].sort().join()) fail(); };
 export const LAB_EXECUTION_DEPENDENCIES = Object.freeze([...new Set([...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS,
@@ -80,7 +139,7 @@ export function assertYuzhouLabContainer(c, d) {
 const docker = args => execFileSync("docker", args, { encoding: "utf8", timeout: 15000, maxBuffer: 4 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 async function unusedState(c) {
   const s = await lstat(c.stateRoot); if (!s.isDirectory() || (s.mode & 0o077) || await realpath(c.stateRoot) !== c.stateRoot) fail();
-  for (const name of ["exclusive-owner", `checkpoint-${c.artifacts.runId}.json`, `http-${c.artifacts.runId}.json`]) {
+  for (const name of ["exclusive-owner", `checkpoint-${c.artifacts.runId}.json`, `http-${c.artifacts.runId}.json`, `final-${c.artifacts.runId}.json`]) {
     try { await lstat(join(c.stateRoot, name)); fail(); } catch (e) { if (e.code !== "ENOENT") throw e; }
   }
 }
@@ -137,7 +196,10 @@ export async function runYuzhouLabCli(input) {
             ids.userIds = [...value.createdUserIds]; ids.roleIds = [value.createdRoleId];
           }, verify: async args => { if (abort.signal.aborted) fail(); const receipt = await verifyYuzhouRealImportHttp({ ...args, expectedCounts: manifest.httpCounts }); if (abort.signal.aborted) fail(); return receipt; } });
       } } });
-    return { ...result, operationalCli: true, crashRecoveryImplemented: false };
+    stage = "FINAL_RECEIPT";
+    const receipt = await persistYuzhouLabFinalReceipt({ stateRoot: c.stateRoot,
+      identity: { runId: manifest.runId, manifestSha256: prepared.manifestSha256, configSha256: input.configSha256, binding: manifest.binding }, result });
+    return { ...result, ...receipt, operationalCli: true, crashRecoveryImplemented: false };
   } catch { return { status: "FAILED", failureCodes: [`LAB_CLI_${stage}_FAILED`], productionImport: "HOLD", crashRecoveryImplemented: false }; }
   finally { provider?.destroy(); if (pool) await pool.end().catch(() => {}); process.off("SIGINT", cancel); process.off("SIGTERM", cancel); }
 }
