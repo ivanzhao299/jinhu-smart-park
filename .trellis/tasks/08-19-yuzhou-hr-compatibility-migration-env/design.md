@@ -122,6 +122,15 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 私有 plan 两阶段物化（2026-09-09）
 
+PG full-chain 合成 fixture 的阶段 before/after 必须由正式 phase builder 对
+已知合成 seed baseline 与目标投影计算，不再使用 label hash。seed 后实际按 ID
+回读 baseline、证明 insert 缺席并重新计算比较；只有这些检查通过才进入导入。
+绩效链复用同一 fixture，授权及 sealed hash 在阶段摘要确定后绑定。schema-free
+fixture 测试不等于真实 PostgreSQL 测试，后者只允许独立合成 Release Smoke 环境。
+阶段状态规范化仅对既有 SQL bigint 列 hr_contract_legacy_evidence.size_bytes 使用
+有界十进制整数文本，保留 9223372036854775806，不经 Number 降精度；其余 integer
+字段仍要求 safe integer，空值仍遵守原 nullable 合同。该修复不修改 SQL 或模型门禁。
+
 传输身份必须来自实际连接：TCP 为非空 address/合法 port，Unix socket 仅允许
 address=null 且 port=null。collector 对 null/null 使用诊断脚本相同的空串参与
 identity hash；不将 null 转成 0 或字面 "null"。Unix socket 通过显式 pg host 目录
