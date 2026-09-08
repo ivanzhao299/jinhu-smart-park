@@ -1,3 +1,4 @@
+/* global structuredClone */
 import { createHash } from "node:crypto";
 
 import {
@@ -109,7 +110,11 @@ function scanJson(value, label) {
   if (Array.isArray(value)) return value.forEach((entry, index) => scanJson(entry, `${label}[${index}]`));
   if (!isPlainObject(value)) fail("PRODUCTION_IMPORT_TARGET_FIELD_TYPE_INVALID", `${label} must contain JSON values only`);
   for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_SECRET.test(key)) fail("PRODUCTION_IMPORT_TARGET_FIELD_DENIED", `${label}.${key} forbidden`);
+    // This exact source-presence bit is not an account value. Keep the ban on
+    // account content everywhere else, including strings at this same path.
+    const insurancePresenceBit = label === "hr_employee_insurance_period.source_snapshot.legacyCompatibility.fieldPresence"
+      && key === "insureaccount" && typeof child === "boolean";
+    if (FORBIDDEN_SECRET.test(key) && !insurancePresenceBit) fail("PRODUCTION_IMPORT_TARGET_FIELD_DENIED", `${label}.${key} forbidden`);
     scanJson(child, `${label}.${key}`);
   }
 }

@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { assembleProductionT3DecisionCandidates as assemble, ProductionT3CandidatesError } from "../hr-cutover/production-t3-decision-candidates.mjs";
-import { projectProductionT3Fields as project, buildProductionT3AttendanceSupport as support } from "../hr-cutover/production-t3-field-projection.mjs";
+import { projectProductionT3Fields as project, buildProductionT3AttendanceSupport as support, verifyProductionT3StagedRecord, projectProductionT3InsuranceQuarantineFields } from "../hr-cutover/production-t3-field-projection.mjs";
 import { recoverProductionT3LegacyPolicy as recover } from "../hr-cutover/production-t3-policy-recovery.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as model, stableProductionImportCanonicalJson as canonical,
   computeProductionImportBusinessIdentityHash as businessHash, computeProductionImportTargetCanonicalHash as targetHash,
   deriveProductionImportTargetId as deriveId } from "../hr-cutover/production-import-target-model.mjs";
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
+import { normalizeProductionImportTargetFields } from "../hr-cutover/production-import-payload-generator.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const tables = Object.keys(model.targetTables).filter(table => model.targetTables[table].phase === "T3");
@@ -41,6 +42,41 @@ function insurance(id = 301, employeeCode = "SYN-E1") {
     contributionBase: "100", totalAmount: "16.5", employerAmount: "0", employeeAmount: null, supplementAmount: "0.00",
     legacyBaseNegative: false, legacyFlag: null })) });
 }
+
+test("insurance compatibility survives projection with exact flags and boolean presence", () => {
+  const row = insurance();
+  row.items[0].legacyFlag = " ";
+  row.legacyCompatibility = {
+    legacyFlags: Object.fromEntries(row.items.map(item => [item.kind, item.legacyFlag])),
+    fieldPresence: { insureaccount: true, inpatient: false, hurt: false, insure: true, insureEmployer: false, insureEmployee: true, insureSupplement: false },
+  };
+  verifyProductionT3StagedRecord(row);
+  const output = project(row).find(item => item.targetTable === "hr_employee_insurance_period");
+  assert.equal(output.reasonCode, null);
+  assert.deepEqual(output.targetFields.source_snapshot.legacyCompatibility, row.legacyCompatibility);
+  output.targetFields.source_snapshot.legacyCompatibility.fieldPresence.insureaccount = false;
+  assert.equal(row.legacyCompatibility.fieldPresence.insureaccount, true);
+  const missingPeriod = structuredClone(row); missingPeriod.source.year = null;
+  const quarantined = projectProductionT3InsuranceQuarantineFields(missingPeriod).find(item => item.targetTable === "hr_employee_insurance_period");
+  assert.deepEqual(quarantined.targetFields.source_snapshot.legacyCompatibility, row.legacyCompatibility);
+  for (const mutate of [
+    r => { r.legacyCompatibility.fieldPresence.inpatient = "false"; },
+    r => { delete r.legacyCompatibility.fieldPresence.hurt; },
+    r => { r.legacyCompatibility.extra = true; },
+    r => { r.legacyCompatibility.legacyFlags.oldage = "different"; },
+    r => { r.legacyCompatibility.legacyFlags.fund = {}; },
+  ]) {
+    const invalid = structuredClone(row); mutate(invalid);
+    assert.throws(() => verifyProductionT3StagedRecord(invalid), error => /^T3_SOURCE_/.test(error.code));
+  }
+  assert.equal("legacyCompatibility" in project(insurance())[0].targetFields.source_snapshot, false);
+  for (const snapshot of [
+    { insureaccount: true },
+    { legacyCompatibility: { fieldPresence: { insureaccount: "account-content" } } },
+    { legacyCompatibility: { fieldPresence: { password: false } } },
+  ]) assert.throws(() => normalizeProductionImportTargetFields("hr_employee_insurance_period", { source_snapshot: snapshot }, model.targetTables.hr_employee_insurance_period, { partial: true }),
+    error => error.code === "PRODUCTION_IMPORT_TARGET_FIELD_DENIED");
+});
 function t0row(table, sourceTable, code, fields, scope, parents = []) {
   const identity = hash(`${sourceTable}\0${code}`);
   const derived = Object.fromEntries(parents.map(([role, parent]) => [model.targetTables[table].foreignKeys.find(fk => fk.dependencyRole === role).column, parent.expectedTargetId]));
