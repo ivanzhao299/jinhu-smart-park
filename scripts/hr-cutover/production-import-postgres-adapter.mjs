@@ -47,7 +47,9 @@ function validateBinding(binding) {
     fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "target scope is invalid");
   }
   exactKeys(binding.serverIdentity, ["address", "port", "databaseOid"], [], "binding.serverIdentity");
-  if (typeof binding.serverIdentity.address !== "string" || binding.serverIdentity.address.length === 0 || binding.serverIdentity.address.length > 255 || !Number.isSafeInteger(binding.serverIdentity.port) || binding.serverIdentity.port < 1 || binding.serverIdentity.port > 65535 || !/^[0-9]{1,20}$/u.test(binding.serverIdentity.databaseOid ?? "")) {
+  const unixSocket = binding.serverIdentity.address === null && binding.serverIdentity.port === null;
+  const tcp = typeof binding.serverIdentity.address === "string" && binding.serverIdentity.address.length > 0 && binding.serverIdentity.address.length <= 255 && Number.isSafeInteger(binding.serverIdentity.port) && binding.serverIdentity.port >= 1 && binding.serverIdentity.port <= 65535;
+  if ((!unixSocket && !tcp) || !/^[0-9]{1,20}$/u.test(binding.serverIdentity.databaseOid ?? "")) {
     fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "server/database identity is invalid");
   }
   return {
@@ -174,7 +176,8 @@ export function createProductionImportPostgresAdapter(options) {
       if (rows.length !== 1) fail("PRODUCTION_IMPORT_PG_RESULT_INVALID", "target probe did not return exactly one row");
       const row = rows[0];
       if (row.database_name !== binding.database || row.database_user !== binding.databaseUser) fail("PRODUCTION_IMPORT_PG_CONNECTION_IDENTITY_MISMATCH", "database or user differs from the sealed adapter binding");
-      if (row.server_address !== binding.serverIdentity.address || Number(row.server_port) !== binding.serverIdentity.port || row.database_oid !== binding.serverIdentity.databaseOid) fail("PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH", "server address, port, or database identity differs from the sealed adapter binding");
+      const observedPort = row.server_port === null ? null : Number(row.server_port);
+      if (row.server_address !== binding.serverIdentity.address || observedPort !== binding.serverIdentity.port || row.database_oid !== binding.serverIdentity.databaseOid) fail("PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH", "server address, port, or database identity differs from the sealed adapter binding");
       if (row.tenant_exists !== true || row.park_exists !== true) fail("PRODUCTION_IMPORT_PG_TARGET_SCOPE_MISMATCH", "tenant/park scope is absent from the connected database");
       return Object.freeze({
         database: row.database_name,
