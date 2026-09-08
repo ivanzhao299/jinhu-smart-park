@@ -6,6 +6,7 @@ const root = resolve(import.meta.dirname, "../..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 const gate = read("scripts/e2e/property-api-e2e-gate.mjs");
 const assetLifecycle = read("scripts/e2e/asset-projection-lifecycle-api-e2e.mjs");
+const controlPlane = read("scripts/e2e/shared-control-plane-api-e2e.mjs");
 const homestay = read("scripts/e2e/homestay-api-e2e.mjs");
 const housing = read("scripts/e2e/housing-rental-api-e2e.mjs");
 const safety = read("scripts/e2e/property-api-e2e-safety.mjs");
@@ -13,10 +14,21 @@ const packageJson = read("package.json");
 const ci = read(".github/workflows/ci.yml");
 const fixtures = read("scripts/e2e/property-api-e2e-fixtures.sql");
 
-for (const suite of [assetLifecycle, homestay, housing]) {
+for (const suite of [assetLifecycle, controlPlane, homestay, housing]) {
   assert.match(suite, /requirePropertyApiE2eIsolation\(\)/, "every mutating property E2E suite must enforce the shared isolation boundary");
 }
 assert.match(gate, /\["asset-lifecycle", "scripts\/e2e\/asset-projection-lifecycle-api-e2e\.mjs"\]/, "aggregate gate must run the M-01 asset lifecycle suite");
+assert.match(gate, /\["control-plane", "scripts\/e2e\/shared-control-plane-api-e2e\.mjs"\]/, "aggregate gate must run the M-03 shared control-plane suite");
+assert.match(controlPlane, /source_domain: "operations"/, "shared suite must create a direct operations occupancy");
+assert.match(controlPlane, /property\/occupancies\/\$\{occupancy\.id\}\/activate/, "shared suite must activate occupancy through the direct endpoint");
+assert.match(controlPlane, /property\/occupancies\/\$\{occupancy\.id\}\/release/, "shared suite must release occupancy through the direct endpoint");
+assert.match(controlPlane, /mode-transitions[\s\S]*expectedStatus: 409/, "shared suite must prove blockers reject unsafe mode transitions");
+assert.match(controlPlane, /decision: "reject"/, "shared suite must exercise a rejected approval decision");
+assert.match(controlPlane, /approveAndWait/, "shared suite must wait for an approved runtime effect to execute");
+assert.match(controlPlane, /identity-submissions\/\$\{submissionId\}\/claim[\s\S]*expectedStatus: 403/, "shared suite must reject maker identity claims");
+assert.match(controlPlane, /decision: "rejected"/, "shared suite must exercise rejected identity verification");
+assert.match(controlPlane, /decision: "verified"/, "shared suite must exercise successful identity verification");
+assert.match(controlPlane, /M03B\$\{suffix\}/, "shared suite fixtures must carry the isolated run id");
 assert.match(assetLifecycle, /expectedStatus: 409/, "asset lifecycle suite must prove an active projection blocks source deletion");
 assert.match(assetLifecycle, /operating_status: "disabled"[\s\S]*asset_unit_id: null/, "asset lifecycle suite must explicitly disable and unlink before deletion");
 assert.match(assetLifecycle, /units\/\$\{assetUnit\.id\}\/restore/, "asset lifecycle suite must restore the same soft-deleted source through HTTP");
@@ -116,6 +128,9 @@ for (const suite of [homestay, housing]) {
   assert.match(suite, /version: currentOperation\.version/, "operation writes must use the current optimistic-concurrency version");
   assert.doesNotMatch(suite, /\.operating_mode/, "operation reads must use the current configuredMode response contract");
 }
+assert.match(controlPlane, /requestTimeoutMs = 10000/, "shared control-plane requests must use a bounded per-request deadline");
+assert.match(controlPlane, /AbortController/, "shared control-plane requests must abort hung workflow endpoints");
+assert.match(controlPlane, /createRequestSignal\(options\.signal\)/, "shared control-plane requests must compose approval helper abort signals");
 assert.match(housing, /submission: leaseApproval/, "lease approval must execute before signing");
 assert.match(housing, /submission: purchasePayment/, "purchase payment must execute before transfer");
 assert.match(housing, /transferApproverToken/, "purchase transfer approvals must use a distinct approval actor after payment mutates the source purchase");

@@ -7,6 +7,7 @@ import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
 const root = resolve(import.meta.dirname, "../..");
 const suites = new Map([
   ["asset-lifecycle", "scripts/e2e/asset-projection-lifecycle-api-e2e.mjs"],
+  ["control-plane", "scripts/e2e/shared-control-plane-api-e2e.mjs"],
   ["homestay", "scripts/e2e/homestay-api-e2e.mjs"],
   ["housing", "scripts/e2e/housing-rental-api-e2e.mjs"]
 ]);
