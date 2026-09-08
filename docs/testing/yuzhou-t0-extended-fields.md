@@ -39,3 +39,10 @@ so its failure cannot leave a successfully committed import with incomplete evid
 The six dictionary/T0/T1/T2/T3/exception-relation contract entries pass, as do syntax
 checks for the five shell scripts and two JavaScript mapping inputs. These are
 focused integration checks, not a new full-data rehearsal or release acceptance.
+
+T1 candidate generation and source-revalidation fixtures also use the explicit
+`accepted` / `needs_review` state allowlist. The retained unconfirmed-state event
+is an importable historical fact, not an instruction to apply a live employment
+transition. Missing employee dependencies remain quarantined. Candidate and source
+revalidation tests pass (14 checks); the optional PostgreSQL timestamp comparison
+requires its explicit database configuration and is not included in that count.

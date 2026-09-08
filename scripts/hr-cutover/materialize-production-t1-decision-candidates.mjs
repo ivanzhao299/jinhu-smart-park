@@ -205,7 +205,7 @@ function readStateDecision(path, triple, stage, read) {
   for (const row of dictionary.items) {
     exact(row, ["id", "sourceCode", "sourceName", "sourceValue", "sourceIdentitySha256", "sourceRowSha256", "decision", "targetDomain", "targetValue", "reasonCode"], "PRODUCTION_IMPORT_T1_DECISION_STATE_INVALID", "decision");
     const key = text(row.sourceValue).toLowerCase();
-    if (!key || !expected.has(key) || mappings.has(key) || row.sourceIdentitySha256 !== sha256(`dbo.readjust.state\0${text(row.sourceValue)}`) || !["map", "reject"].includes(row.decision) || (row.decision === "map" && (row.targetDomain !== "migration_decision" || typeof row.targetValue !== "string")) || (row.decision === "reject" && (row.targetDomain !== null || row.targetValue !== null))) fail("PRODUCTION_IMPORT_T1_DECISION_STATE_INVALID", "decision binding");
+    if (!key || !expected.has(key) || mappings.has(key) || row.sourceIdentitySha256 !== sha256(`dbo.readjust.state\0${text(row.sourceValue)}`) || !["map", "reject"].includes(row.decision) || (row.decision === "map" && (row.targetDomain !== "migration_decision" || !["accepted", "needs_review"].includes(row.targetValue))) || (row.decision === "reject" && (row.targetDomain !== null || row.targetValue !== null))) fail("PRODUCTION_IMPORT_T1_DECISION_STATE_INVALID", "decision binding");
     mappings.set(key, row); usage += expected.get(key);
   }
   if (mappings.size !== expected.size || usage !== stage.events.length) fail("PRODUCTION_IMPORT_T1_DECISION_STATE_INVALID", "coverage");
@@ -248,7 +248,7 @@ function candidate(row, t0, typeDecision, stateDecision, inventory = null) {
   let candidateDisposition = "insert", reasonCode = null;
   if (!employee) { candidateDisposition = "quarantine"; reasonCode = "EMPLOYMENT_EVENT_EMPLOYEE_NOT_MAPPED"; }
   else if (!type || type.decision !== "map") { candidateDisposition = "quarantine"; reasonCode = "EMPLOYMENT_EVENT_TYPE_UNRESOLVED"; }
-  else if (!state || state.decision !== "map" || state.targetValue !== "accepted") { candidateDisposition = "quarantine"; reasonCode = "EMPLOYMENT_EVENT_STATE_UNRESOLVED"; }
+  else if (!state || state.decision !== "map" || !["accepted", "needs_review"].includes(state.targetValue)) { candidateDisposition = "quarantine"; reasonCode = "EMPLOYMENT_EVENT_STATE_UNRESOLVED"; }
   else if (!eventNo || !sourceEffectiveAt) { candidateDisposition = "quarantine"; reasonCode = "EMPLOYMENT_EVENT_TIMESTAMP_INVALID"; }
   const dependencyRefs = employee ? [{ role: "employee", phase: "T0", sourceIdentitySha256: employeeIdentity, expectedTargetTable: "hr_employee", candidateDisposition: employee.disposition }] : [];
   const result = { ...sourceRecord(row), candidateDisposition, reasonCode, targetFields: candidateDisposition === "insert" ? fields : null, dependencyRefs, businessIdentitySha256: null, expectedTargetId: null, expectedTargetVersion: null, expectedTargetCanonicalSha256: null };
