@@ -79,6 +79,7 @@
 - Per the user-approved downgrade path, M-04 closes with the component event-wiring interaction spec plus property 48/48, assets 21/21, lint, typecheck and build 192/192. This is not mounted DOM/browser evidence; desktop and 390px validation for all four routes is explicitly transferred to L-04 together with the browser-visible-origin preflight.
 - Two disposable environments were cleaned by scoped traps; the first exposed non-reachable container-private CDP, the second exposed browser-container loopback isolation. No production, shared Chrome, fixed-name development container, HR behavior, migration source, or financial mutation was touched.
 - PR review round 2 found and fixed three P2 regressions: chip removal now synchronizes draft and applied filters on all four pages; the login runner waits for a `useEffect`-published hydration marker; and the three financial lists step back when deletion empties a non-first page. Post-fix property tests are 49/49 and build remains 192/192.
+- Final review round found and fixed two more P2 regressions: unit export now uses the applied filter snapshot, and checkout apply/chip/reset synchronizes checkout-owned URL query keys. No fourth review was requested; final local property tests are 50/50, assets 21/21, lint/typecheck pass, and build remains 192/192.
 
 ### Cost Summary
 

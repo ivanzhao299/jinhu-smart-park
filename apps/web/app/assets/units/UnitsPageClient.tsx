@@ -630,14 +630,14 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
 
   async function exportUnits() {
     await downloadPostFile("/park-units/export", `金湖房源台账_${formatYmd(new Date())}.xlsx`, {
-      ...(filters.buildingId ? { building_id: filters.buildingId } : {}),
-      ...(filters.floorId ? { floor_id: filters.floorId } : {}),
-      ...(filters.usageType ? { usage_type: Number(filters.usageType) } : {}),
-      ...(filters.rentalStatus ? { rental_status: Number(filters.rentalStatus) } : {}),
-      ...(filters.fittingStatus ? { fitting_status: Number(filters.fittingStatus) } : {}),
-      ...(filters.keyword.trim() ? { keyword: filters.keyword.trim() } : {}),
-      ...(filters.minArea ? { min_area: Number(filters.minArea) } : {}),
-      ...(filters.maxArea ? { max_area: Number(filters.maxArea) } : {})
+      ...(appliedFilters.buildingId ? { building_id: appliedFilters.buildingId } : {}),
+      ...(appliedFilters.floorId ? { floor_id: appliedFilters.floorId } : {}),
+      ...(appliedFilters.usageType ? { usage_type: Number(appliedFilters.usageType) } : {}),
+      ...(appliedFilters.rentalStatus ? { rental_status: Number(appliedFilters.rentalStatus) } : {}),
+      ...(appliedFilters.fittingStatus ? { fitting_status: Number(appliedFilters.fittingStatus) } : {}),
+      ...(appliedFilters.keyword.trim() ? { keyword: appliedFilters.keyword.trim() } : {}),
+      ...(appliedFilters.minArea ? { min_area: Number(appliedFilters.minArea) } : {}),
+      ...(appliedFilters.maxArea ? { max_area: Number(appliedFilters.maxArea) } : {})
     });
   }
 

@@ -357,11 +357,29 @@ export default function LeasingCheckoutsPage() {
     { key: "releaseSettlement", label: "房源 / 结算", render: (row) => <StackedCell primary={<DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} />} secondary={<DictBadge items={settlementStatusItems} value={row.settlementStatus} />} /> },
     { key: "statusAmount", label: "状态 / 金额", render: (row) => <StackedCell primary={<DictBadge items={checkoutStatusItems} value={row.status} />} secondary={`应退 ${moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", row.refundAmount)}`} /> }
   ], [authUser, checkoutStatusItems, checkoutTypeItems, releaseStatusItems, settlementStatusItems]);
+  function syncFilterQuery(next: typeof emptyFilters) {
+    const params = new URLSearchParams(window.location.search);
+    const entries = [
+      ["keyword", next.keyword],
+      ["contract_id", next.contractId],
+      ["park_tenant_id", next.parkTenantId],
+      ["checkout_type", next.checkoutType],
+      ["status", next.status]
+    ] as const;
+    for (const [key, value] of entries) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }
   const filterChips = useMemo<PropertyListFilterChip[]>(() => {
     const chips: PropertyListFilterChip[] = [];
     const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      const nextApplied = { ...appliedFilters, [key]: "" };
       setFilters((current) => ({ ...current, [key]: "" }));
-      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters(nextApplied);
+      syncFilterQuery(nextApplied);
     } });
     if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
     if (appliedFilters.contractId) add("contractId", `合同：${contracts.find((item) => item.id === appliedFilters.contractId)?.contractCode ?? "已选"}`);
@@ -649,8 +667,8 @@ export default function LeasingCheckoutsPage() {
         </>}
         filtersOpen={filtersOpen}
         onFiltersOpenChange={setFiltersOpen}
-        onApplyFilters={() => setAppliedFilters({ ...filters })}
-        onResetFilters={() => { setFilters({ ...emptyFilters }); setAppliedFilters({ ...emptyFilters }); }}
+        onApplyFilters={() => { const next = { ...filters }; setAppliedFilters(next); syncFilterQuery(next); }}
+        onResetFilters={() => { const next = { ...emptyFilters }; setFilters(next); setAppliedFilters(next); syncFilterQuery(next); }}
         appliedFilterChips={filterChips}
         filters={<div className="system-grid-three">
           <label className="field">

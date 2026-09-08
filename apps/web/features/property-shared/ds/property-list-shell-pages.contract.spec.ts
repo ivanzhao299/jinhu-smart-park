@@ -22,7 +22,8 @@ test("first-wave property lists use the shared shell with explicit filter and pa
     assert.match(source, /onResetFilters=/);
     assert.match(source, /pagination=/);
     assert.match(source, /setFilters\(\(current\) => \(\{ \.\.\.current, \[key\]:/);
-    assert.match(source, /setAppliedFilters\(\(current\) => \(\{ \.\.\.current, \[key\]:/);
+    if (path.endsWith("checkouts/page.tsx")) assert.match(source, /setAppliedFilters\(nextApplied\)/);
+    else assert.match(source, /setAppliedFilters\(\(current\) => \(\{ \.\.\.current, \[key\]:/);
   }
 });
 
@@ -48,6 +49,19 @@ test("units table removes the fixed desktop action width and uses responsive rec
   assert.match(source, /PropertyFieldDescriptor/);
   assert.doesNotMatch(source, /480px|allow-horizontal-table/);
   assert.doesNotMatch(source, /onPageChange/);
+});
+
+test("units export follows applied filters and checkout filters own their URL state", () => {
+  const units = readFileSync(resolve(webRoot, "app/assets/units/UnitsPageClient.tsx"), "utf8");
+  const checkouts = readFileSync(resolve(webRoot, "app/leasing/checkouts/page.tsx"), "utf8");
+  const exportBody = units.slice(units.indexOf("async function exportUnits"), units.indexOf("async function importUnits"));
+  assert.match(exportBody, /appliedFilters\.buildingId/);
+  assert.match(exportBody, /appliedFilters\.keyword\.trim\(\)/);
+  assert.doesNotMatch(exportBody, /\bfilters\./);
+  assert.match(checkouts, /function syncFilterQuery/);
+  assert.match(checkouts, /window\.history\.replaceState/);
+  assert.match(checkouts, /syncFilterQuery\(nextApplied\)/);
+  assert.equal(checkouts.match(/syncFilterQuery\(next\)/g)?.length, 2);
 });
 
 test("list shell stays out of financial and domain mutation paths", () => {
