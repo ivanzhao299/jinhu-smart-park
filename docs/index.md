@@ -8,6 +8,7 @@
 - [环境矩阵](deployment/environment-matrix.md)
 - [全量产品 UAT 验收矩阵](uat/full-product-acceptance-matrix.md)
 - [房产业务当前态设计索引](architecture/property-current-state-index.md)
+- [ADR D-04：Housing 与 Traditional Leasing 长租边界](architecture/housing-leasing-bounded-context-adr.md)
 - [共享房产底座架构](architecture/shared-property-foundation.md)
 - [共享房产底座专项验证证据](uat/shared-property-foundation-evidence.md)
 - [民宿 MVP 专项验证证据](uat/homestay-mvp-evidence.md)
@@ -136,6 +137,7 @@ node scripts/e2e/first-release-regression.mjs
 - [资产房源页面拆分收口复核](release/assets-units-refactor-closure-review.md)
 - [工单列表页面拆分收口复核](release/workorders-list-refactor-closure-review.md)
 - 架构专项资料：
+  - [architecture/housing-leasing-bounded-context-adr.md](architecture/housing-leasing-bounded-context-adr.md)
   - [architecture/auth-center-roadmap.md](architecture/auth-center-roadmap.md)
   - [architecture/saas-rbac-std.md](architecture/saas-rbac-std.md)
   - [architecture/supplement-integration.md](architecture/supplement-integration.md)
