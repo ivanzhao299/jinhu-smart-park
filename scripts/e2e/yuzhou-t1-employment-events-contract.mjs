@@ -39,6 +39,8 @@ assert.match(load, /YUZHOU_T1_EVENT_TYPE_DECISION_FILE/);
 assert.match(load, /verify-yuzhou-t1-event-type-decision\.mjs/);
 assert.match(load, /employment event type decision contract or staging binding is invalid/);
 assert.match(load, /employment event type decision source snapshot drift/);
+assert.match(load, /COPY stg_employment_event\(payload\) FROM[^;]+FORMAT csv/);
+assert.match(load, /DELIMITER E'\\x02', QUOTE E'\\x01', ESCAPE E'\\x01'/);
 assert.match(load, /type_item\.source_value/);
 assert.doesNotMatch(load, /type_item\.source_name/);
 assert.match(load, /EMPLOYMENT_EVENT_TYPE_UNRESOLVED/);

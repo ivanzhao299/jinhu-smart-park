@@ -25,3 +25,17 @@ full-chain checks passed against the existing isolated target. Neither result is
 production authorization or evidence of full source coverage, API/UI acceptance,
 or production completion. Old candidates, target inventories and frozen references
 must be reviewed against the changed model before use; do not relabel their hashes.
+
+## Mapping integration follow-up
+
+The shared T0-T3 mapping inputs now also preserve T1 state `0` as `needs_review`
+rather than rejecting the historical event. T1 JSONL loading preserves JSON escapes.
+T2 missing-parent evidence names the source/target relationship without inventing
+a parent. T3 preserves insurance flag/presence metadata, not the omitted field
+contents; this is not a claim of complete insurance field compatibility.
+T3 exception relationship evidence is written before the same transaction commits,
+so its failure cannot leave a successfully committed import with incomplete evidence.
+
+The six dictionary/T0/T1/T2/T3/exception-relation contract entries pass, as do syntax
+checks for the five shell scripts and two JavaScript mapping inputs. These are
+focused integration checks, not a new full-data rehearsal or release acceptance.

@@ -311,7 +311,7 @@ WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), item AS (SELE
 INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable)
 SELECT b.id,item.id,'mapping',s.relation_reason,s.payload->>'sourceIdentitySha256',
   jsonb_build_object('rule',lower(s.relation_reason)),true,false
-FROM b CROSS JOIN item CROSS JOIN stg_position_relation s
+FROM b JOIN item ON item.batch_id=b.id CROSS JOIN stg_position_relation s
 WHERE s.relation_status='quarantine';
 
 WITH valid_employee AS (
