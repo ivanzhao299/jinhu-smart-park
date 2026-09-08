@@ -1,6 +1,6 @@
 # 房产业务当前态设计索引
 
-> 当前权威入口。最后核对基线：2026-09-06 `main@a3fac83f`。
+> 当前权威入口。最后核对基线：2026-09-08 `main@16204c01`。
 >
 > 本文汇总稳定模型和权威来源，不替代可执行规范。若历史 PRD/UAT、本文与实现细节冲突，以 `packages/shared` 的 ABI 和 `.trellis/spec` 的当前可执行契约为准；UAT 只证明其记录的提交、环境和层级。
 
@@ -15,9 +15,9 @@
 | 短租经营 | `short_stay` / homestay | 民宿短租，仅住宅用途 `usage_type=70` |
 | 长租经营 | `long_rent` | 根业务现名；住宅 `70` 与办公 `10` 均可进入 |
 | housing | `housing_rental`、`housing:*` | 住房长租租约、住户、交割、住房费用与审批 bounded context |
-| traditional leasing | `leasing:*` | 招商、商业合同、应收、收款、核销、退租 bounded context |
+| traditional leasing | `leasing_contract:*`、`leasing_receivable:*` 等 `leasing_*` 权限族 | 招商、商业合同、应收、收款、核销、退租 bounded context |
 
-housing 与传统 leasing 维持双 bounded context。二者共享物理资产映射、经营模式、占用/房态基础设施、显示与导航原语，但不视为同一合同或财务模型，也不做隐式数据互转。
+housing 与传统 leasing 维持双 bounded context。二者共享物理资产映射、经营模式、占用/房态基础设施、显示与导航原语，但不视为同一合同或财务模型，也不做隐式数据互转。职责、共存原则与未来合并触发条件见 [ADR D-04：Housing 与 Traditional Leasing 长租边界](housing-leasing-bounded-context-adr.md)。
 
 已发布的 property role bundle `bundle_name` 参与签名哈希，数据库中可能保留历史“住房出租”签名名。API 在验证存储签名后按稳定 bundle code 投影“长租经营”现名；这不改变权限集合、definition version/hash 或角色绑定。
 
@@ -66,7 +66,8 @@ housing 与传统 leasing 维持双 bounded context。二者共享物理资产�
 1. `packages/shared`：code、enum、权限、端点和跨端 ABI。
 2. `.trellis/spec`：当前可执行的 scope、事务、锁、幂等、identity、审批和投影契约。
 3. [共享房产底座架构](shared-property-foundation.md)：稳定模型与入口摘要。
-4. `docs/uat` 与归档任务：特定时点的历史证据；历史旧称和旧设计不覆盖以上当前口径。
+4. [ADR D-04](housing-leasing-bounded-context-adr.md)：housing / traditional leasing ownership 与未来边界变更门槛。
+5. `docs/uat` 与归档任务：特定时点的历史证据；历史旧称和旧设计不覆盖以上当前口径。
 
 所有写接口是否具有 replay/conflict 语义，必须以 controller 是否实际挂载 `IdempotencyInterceptor` 为准；仅要求 `X-Idempotency-Key` 的 guard 不等价于完整幂等。
 

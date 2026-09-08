@@ -17,7 +17,7 @@
 | 住房长租 | housing | 个人/家庭/小团队租约、交割、住房费用；不等于 traditional leasing |
 | 传统租赁 | leasing | 招商、企业商业合同、应收、收款、开票、减免与退租 |
 
-housing 与 traditional leasing 维持两个 bounded context。二者共享 scope、空间、Party/展示/导航基础设施和冲突检测，不共享合同主表、财务账本或隐式数据转换。未来合并条件由 L-02 ADR 决定。
+housing 与 traditional leasing 维持两个 bounded context。二者共享 scope、空间、Party/展示/导航基础设施和冲突检测，不共享合同主表、财务账本或隐式数据转换。未来合并条件见 [ADR D-04：Housing 与 Traditional Leasing 长租边界](housing-leasing-bounded-context-adr.md)。
 
 <!-- canonical:property.operating_modes ["none","short_stay","long_rent"] -->
 <!-- canonical:property.operating_statuses ["enabled","suspended","disabled"] -->
@@ -145,6 +145,7 @@ Schema 对照只验证已发布表、check/status 与 scope marker。迁移保�
 
 ## 7. 权威链接
 
+- [ADR D-04：Housing 与 Traditional Leasing 长租边界](housing-leasing-bounded-context-adr.md)
 - [房产业务当前态设计索引](property-current-state-index.md)
 - [共享房产底座](shared-property-foundation.md)
 - [Shared Property Occupancy](../../.trellis/spec/api/backend/shared-property-occupancy.md)

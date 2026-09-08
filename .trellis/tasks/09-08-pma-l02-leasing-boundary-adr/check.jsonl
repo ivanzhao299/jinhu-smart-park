@@ -1,0 +1,3 @@
+{"file":"docs/architecture/property-current-state-index.md","reason":"Verify ADR matches current authority hierarchy and boundary summary"}
+{"file":"docs/architecture/property-canonical-domain-blueprint.md","reason":"Verify context and financial boundary consistency"}
+{"file":"docs/development/cost-controlled-development-mode.md","reason":"Verify task cost/retry reporting"}

@@ -20,9 +20,10 @@
 
 ## 4. Delivery and closure
 
-- [ ] commit/push；PR `Closes #706`；PR CI；squash merge。
-- [ ] exact-SHA 或 containing-main Deploy；containing-main CI 按 HR smoke 常设豁免规则裁定并记录 run。
-- [ ] Issue closed；Trellis archive；RBAC main ff；删分支；prune；journal。
+- [x] commit `78021b36`；PR #707 `Closes #706`；3 轮 review；squash merge `16204c01915ea600b9dc22c5ce94f764a419c01c`；Issue closed。
+- [x] PR CI run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34229396594：非 HR `Lint, Typecheck, Build` success；唯一失败为既有 HR cutover `PRODUCTION_IMPORT_CAS_PRECONDITION_FAILED`，按方案 2 豁免。
+- [x] containing-main CI run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34230911187：非 HR job success，唯一失败同一 HR CAS fixture；containing-main Deploy https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34230911024 success。按常设豁免满足归档门禁。
+- [ ] Trellis archive；RBAC main ff；删分支；prune；journal。
 
 ## Risk files and rollback points
 
