@@ -1,6 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthUser } from "../../lib/auth-context";
@@ -55,7 +56,7 @@ export function CommandPalette() {
 
   const navigate = (href: string) => {
     close();
-    router.push(href);
+    router.push(href as Route);
   };
 
   return <>
