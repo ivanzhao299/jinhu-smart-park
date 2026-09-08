@@ -274,6 +274,54 @@ for (const [label, departmentCode, expectedDisposition] of [
       artifact.records.find(row => row.targetTable === "sys_org" && row.targetFields.org_code === "000").sourceIdentitySha256);
   }
 }
+// Source injobdate/awaydate retain their exact normalized dates; impossible order
+// quarantines the complete candidate instead of repairing historical values.
+{
+  const dateStage = join(root, "date-order-stage");
+  mkdirSync(dateStage, { mode: 0o700 });
+  const employeeRows = readFileSync(join(staging, files.employees), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  const cases = [
+    ["2024-01-02", "2024-01-01", "quarantine"],
+    ["2024-01-01", "2024-01-01", "insert"],
+    [null, "2024-01-01", "insert"],
+    ["2024-01-01", null, "insert"],
+    [null, null, "insert"],
+  ];
+  const datePhase = JSON.parse(readFileSync(phasePath, "utf8"));
+  for (const [index, [hireDate, departureDate]] of cases.entries()) {
+    const row = employeeRows[index];
+    Object.assign(row.source, { hireDate, departureDate });
+    row.sourceRowSha256 = sha(canonical(row.source));
+    datePhase.records.find(record => record.sourceIdentitySha256 === row.sourceIdentitySha256).sourceRowSha256 = row.sourceRowSha256;
+  }
+  const dateManifest = structuredClone(manifest);
+  for (const [domain, file] of Object.entries(files)) {
+    const bytes = domain === "employees" ? `${employeeRows.map(row => JSON.stringify(row)).join("\n")}\n` : readFileSync(join(staging, file), "utf8");
+    writePrivate(join(dateStage, file), bytes);
+    dateManifest.domains[domain].fileSha256 = sha(bytes);
+  }
+  writePrivate(join(dateStage, "manifest.json"), `${JSON.stringify(dateManifest)}\n`);
+  const datePhasePath = join(root, "date-order-phase.json");
+  writePrivate(datePhasePath, `${JSON.stringify(datePhase)}\n`);
+  const dateOutput = join(output, "date-order-candidates.json");
+  const dateResult = materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: dateStage,
+    phaseArtifactPath: datePhasePath, outputPath: dateOutput }, { head: () => codeSha });
+  const dateArtifact = JSON.parse(readFileSync(dateOutput, "utf8"));
+  for (const [index, [hireDate, departureDate, disposition]] of cases.entries()) {
+    const source = employeeRows[index];
+    const selected = dateArtifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
+    const original = artifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
+    assert.equal(selected.candidateDisposition, disposition);
+    assert.equal(selected.reasonCode, disposition === "quarantine" ? "EMPLOYEE_DATE_ORDER_INVALID" : null);
+    assert.equal(selected.sourceRowSha256, source.sourceRowSha256);
+    assert.deepEqual(selected.targetFields, { ...original.targetFields, hire_date: hireDate, departure_date: departureDate,
+      remark: disposition === "quarantine" ? "Legacy date requires review" : null });
+    assert.deepEqual(selected.dependencyRefs, original.dependencyRefs);
+    assert.equal(selected.dependencyRefs.length, 2);
+  }
+  assert.equal(dateArtifact.records.filter(row => row.reasonCode === "EMPLOYEE_DATE_ORDER_INVALID").length, 1);
+  assert.equal(dateResult.productionImport, "HOLD");
+}
 chmodSync(scopePath, 0o644);
 assert.throws(() => materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: inventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath: join(output, "bad.json") }, { head: () => codeSha }), error => error instanceof ProductionT0DecisionCandidatesError && error.code === "PRODUCTION_IMPORT_T0_DECISION_PATH_INVALID");
 console.log("Yuzhou production T0 decision-candidate contract passed: private C/S/M-bound source mapping, exact collision skip, dependency graph, no production write");

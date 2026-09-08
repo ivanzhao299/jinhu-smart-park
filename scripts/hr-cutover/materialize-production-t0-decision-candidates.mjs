@@ -369,6 +369,7 @@ function buildCandidates(stage, scope, inventory, jobState) {
     if (fields === null) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_NAME_REQUIRED");
     else if (!org) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_ORG_REQUIRED");
     else if (!hire.valid || !probation.valid || !departure.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_DATE_INVALID");
+    else if (hire.value && departure.value && departure.value < hire.value) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "EMPLOYEE_DATE_ORDER_INVALID");
     else if (!state || state.decision !== "map") rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_JOB_STATE_UNRESOLVED");
     else if (hasBlockingDependency(dependencies)) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED");
     else rowCandidate = candidate(row, fields, dependencies, scope, inventory);

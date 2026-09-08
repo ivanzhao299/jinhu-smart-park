@@ -548,3 +548,48 @@ export function createProductionImportPhaseWriters(options) {
 
 export const PRODUCTION_IMPORT_PHASE_WRITER_TABLES = Object.freeze(Object.keys(MODEL.targetTables));
 export const PRODUCTION_IMPORT_PHASE_WRITER_BATCH_LIMITS = Object.freeze({ minimum: MIN_BATCH_SIZE, maximum: MAX_BATCH_SIZE, default: DEFAULT_BATCH_SIZE });
+
+/** Internal T0 business-row primitive; the laboratory wrapper owns isolation. */
+export async function probeT0BusinessRows(input, beforeWrite) {
+  const tx = input.tx;
+  if (input.payloadBundle?.targetScope && ["tenantId", "parkId", "scopeSha256"].some(key => input.payloadBundle.targetScope[key] !== input.targetScope[key])) fail("T0_BUSINESS_PROBE_SCOPE_DENIED", "payload scope differs");
+  const rows = bindRows(input.phase, input.payloadBundle, "T0");
+  if (!rows.length || rows.some(row => !["insert", "quarantine"].includes(row.record.disposition) || (row.record.phase !== undefined && row.record.phase !== "T0"))) fail("T0_BUSINESS_PROBE_DISPOSITION_DENIED", "nonempty T0 insert/quarantine only");
+  const tableRows = new Map(Object.entries(MODEL.targetTables).filter(([, rule]) => rule.phase === "T0")
+    .map(([table]) => [table, rows.filter(row => row.record.plannedTargetTable === table && row.record.disposition === "insert")]));
+  await beforeWrite(tableRows);
+  const completed = new Map();
+  const identities = new Set();
+  for (const layer of topologicalLayers(rows, "T0")) {
+    for (const row of layer) {
+      const roles = new Set();
+      for (const ref of row.record.dependencyRefs) {
+        const spec = row.rule.foreignKeys.find(candidate => candidate.dependencyRole === ref.role);
+        if (!spec || roles.has(ref.role) || ref.phase !== "T0" || MODEL.targetTables[ref.expectedTargetTable]?.phase !== "T0" || spec.targetTable !== ref.expectedTargetTable) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", "invalid T0 reference");
+        roles.add(ref.role);
+        const parent = completed.get(ref.sourceIdentitySha256);
+        if (!parent || parent.plannedTargetTable !== spec.targetTable || (row.record.disposition === "insert" && parent.disposition !== "insert")) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", "completed parent required");
+        row.derivedFields[spec.column] = parent.targetId ?? null;
+      }
+      for (const spec of row.rule.foreignKeys) {
+        if (row.record.disposition === "insert" && spec.required && !roles.has(spec.dependencyRole)) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", "required parent absent");
+        row.derivedFields[spec.column] ??= null;
+      }
+    }
+    verifyGeneratedSemantics(layer, input.targetScope, identities);
+    await writeBusinessRows(tx, layer, input.targetScope, DEFAULT_BATCH_SIZE);
+    for (const [table] of tableRows) {
+      const inserted = layer.filter(row => row.record.plannedTargetTable === table && row.record.disposition === "insert");
+      for (const part of chunks(inserted, DEFAULT_BATCH_SIZE)) {
+        await selectAndVerifyExisting(tx, table, MODEL.targetTables[table], part.map(row => ({ ...row,
+          record: { ...row.record, expectedTargetBeforeSha256: row.record.expectedTargetAfterSha256, expectedTargetVersionBefore: 1 },
+        })), input.targetScope);
+      }
+    }
+    for (const row of layer) completed.set(row.record.sourceIdentitySha256, row.record);
+  }
+  return { productionImport: "HOLD", phase: "T0", validation: "business_rows_only",
+    cryptographicMapsValidated: false, quarantineStorage: "external_encrypted_artifact_not_validated",
+    sourceCount: rows.length, insertedCount: rows.filter(row => row.record.disposition === "insert").length,
+    quarantinedCount: rows.filter(row => row.record.disposition === "quarantine").length };
+}
