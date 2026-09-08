@@ -33,6 +33,7 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /Input\.dispatchKeyEvent/u);
   assert.match(browserRunner, /login_post_not_observed/u);
   assert.match(browserRunner, /requestAnimationFrame/u);
+  assert.match(browserRunner, /data-browser-uat-ready/u);
   assert.doesNotMatch(browserRunner, /submit\.click\(\)/u);
   assert.match(browserRunner, /Network\.requestWillBeSent/u);
   assert.match(browserRunner, /Network\.responseReceived/u);

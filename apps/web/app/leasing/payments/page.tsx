@@ -236,7 +236,10 @@ export default function LeasingPaymentsPage() {
   ], [authUser, canViewBankSerial, canViewPayAmount, canViewUnappliedAmount, parkTenants, payMethodItems, paymentStatusItems]);
   const filterChips = useMemo<PropertyListFilterChip[]>(() => {
     const chips: PropertyListFilterChip[] = [];
-    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: "" })) });
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      setFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+    } });
     if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
     if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${tenantName(parkTenants, appliedFilters.parkTenantId)}`);
     if (appliedFilters.payMethod) add("payMethod", `方式：${dictLabel(payMethodItems, appliedFilters.payMethod)}`);
@@ -326,7 +329,7 @@ export default function LeasingPaymentsPage() {
         idempotencyKey: createIdempotencyKey("payment-delete")
       });
       setNotice("收款已删除");
-      await load(pageData.page);
+      await load(pageData.items.length === 1 && pageData.page > 1 ? pageData.page - 1 : pageData.page);
     } catch (err) {
       setError(toErrorMessage(err));
     }

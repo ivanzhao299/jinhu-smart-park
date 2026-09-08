@@ -348,9 +348,9 @@ async function loginThroughUi(browser, browserContextId, { username, password })
     await browser.send("Runtime.enable", {}, sessionId);
     await browser.send("Network.enable", {}, sessionId);
     await waitForReady(browser, sessionId);
-    await waitForExpression(browser, sessionId, `Boolean(document.querySelector('form.signin-form input[autocomplete="username"]') && document.querySelector('form.signin-form input[autocomplete="current-password"]') && !document.querySelector('form.signin-form button[type="submit"]')?.disabled)`, 10000);
+    await waitForExpression(browser, sessionId, `Boolean(document.querySelector('form.signin-form[data-browser-uat-ready="true"] input[autocomplete="username"]') && document.querySelector('form.signin-form[data-browser-uat-ready="true"] input[autocomplete="current-password"]') && !document.querySelector('form.signin-form[data-browser-uat-ready="true"] button[type="submit"]')?.disabled)`, 10000);
     const hydrated = await browser.send("Runtime.evaluate", {
-      expression: `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(Boolean(document.querySelector('form.signin-form button[type="submit"]:not(:disabled)'))))))`,
+      expression: `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(Boolean(document.querySelector('form.signin-form[data-browser-uat-ready="true"] button[type="submit"]:not(:disabled)'))))))`,
       awaitPromise: true,
       returnByValue: true
     }, sessionId);

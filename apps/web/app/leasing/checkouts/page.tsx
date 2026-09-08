@@ -359,7 +359,10 @@ export default function LeasingCheckoutsPage() {
   ], [authUser, checkoutStatusItems, checkoutTypeItems, releaseStatusItems, settlementStatusItems]);
   const filterChips = useMemo<PropertyListFilterChip[]>(() => {
     const chips: PropertyListFilterChip[] = [];
-    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: "" })) });
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      setFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+    } });
     if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
     if (appliedFilters.contractId) add("contractId", `合同：${contracts.find((item) => item.id === appliedFilters.contractId)?.contractCode ?? "已选"}`);
     if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${parkTenants.find((item) => item.id === appliedFilters.parkTenantId)?.companyName ?? "已选"}`);
@@ -445,7 +448,7 @@ export default function LeasingCheckoutsPage() {
       });
       setMessage("退租申请已删除");
       if (detail?.id === row.id) setDrawerOpen(false);
-      await load(pageData.page);
+      await load(pageData.items.length === 1 && pageData.page > 1 ? pageData.page - 1 : pageData.page);
     } catch (error) {
       setMessage(toErrorMessage(error));
     } finally {

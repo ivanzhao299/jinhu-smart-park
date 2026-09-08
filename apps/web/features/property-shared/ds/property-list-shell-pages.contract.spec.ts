@@ -21,6 +21,15 @@ test("first-wave property lists use the shared shell with explicit filter and pa
     assert.match(source, /onApplyFilters=/);
     assert.match(source, /onResetFilters=/);
     assert.match(source, /pagination=/);
+    assert.match(source, /setFilters\(\(current\) => \(\{ \.\.\.current, \[key\]:/);
+    assert.match(source, /setAppliedFilters\(\(current\) => \(\{ \.\.\.current, \[key\]:/);
+  }
+});
+
+test("newly paginated financial lists step back after deleting the last row", () => {
+  for (const path of targetPages.slice(0, 3)) {
+    const source = readFileSync(resolve(webRoot, path), "utf8");
+    assert.match(source, /pageData\.items\.length === 1 && pageData\.page > 1 \? pageData\.page - 1 : pageData\.page/);
   }
 });
 

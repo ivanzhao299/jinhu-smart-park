@@ -78,6 +78,7 @@
 - The one real validation path did not establish a session because the dedicated Chromium boundary could not reach the host Web origin: browser Network evidence recorded `GET /login` as `net::ERR_CONNECTION_REFUSED`; the runner therefore failed closed at `login_form_not_hydrated`. No login POST or product login rejection occurred.
 - Per the user-approved downgrade path, M-04 closes with the component event-wiring interaction spec plus property 48/48, assets 21/21, lint, typecheck and build 192/192. This is not mounted DOM/browser evidence; desktop and 390px validation for all four routes is explicitly transferred to L-04 together with the browser-visible-origin preflight.
 - Two disposable environments were cleaned by scoped traps; the first exposed non-reachable container-private CDP, the second exposed browser-container loopback isolation. No production, shared Chrome, fixed-name development container, HR behavior, migration source, or financial mutation was touched.
+- PR review round 2 found and fixed three P2 regressions: chip removal now synchronizes draft and applied filters on all four pages; the login runner waits for a `useEffect`-published hydration marker; and the three financial lists step back when deletion empties a non-first page. Post-fix property tests are 49/49 and build remains 192/192.
 
 ### Cost Summary
 

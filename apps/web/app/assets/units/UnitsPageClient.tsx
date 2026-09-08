@@ -750,7 +750,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
 
   const filterChips = useMemo<PropertyListFilterChip[]>(() => {
     const chips: PropertyListFilterChip[] = [];
-    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: "" })) });
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => {
+      setFilters((current) => ({ ...current, [key]: "" }));
+      setAppliedFilters((current) => ({ ...current, [key]: "" }));
+    } });
     if (appliedFilters.buildingId) add("buildingId", `楼栋：${buildings.find((item) => item.id === appliedFilters.buildingId)?.buildingName ?? "已选"}`);
     if (appliedFilters.floorId) add("floorId", `楼层：${floors.find((item) => item.id === appliedFilters.floorId)?.floorName ?? "已选"}`);
     if (appliedFilters.usageType) add("usageType", `用途：${dicts.unit_usage_type?.find((item) => item.itemValue === appliedFilters.usageType)?.itemLabel ?? "已选"}`);

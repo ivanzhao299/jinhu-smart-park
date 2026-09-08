@@ -257,7 +257,10 @@ export default function LeasingReceivablesPage() {
     const add = (key: keyof typeof emptyFilters, label: string) => chips.push({
       key,
       label,
-      onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: emptyFilters[key] }))
+      onRemove: () => {
+        setFilters((current) => ({ ...current, [key]: emptyFilters[key] }));
+        setAppliedFilters((current) => ({ ...current, [key]: emptyFilters[key] }));
+      }
     });
     if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
     if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${parkTenants.find((item) => item.id === appliedFilters.parkTenantId)?.companyName ?? "已选"}`);
@@ -379,7 +382,7 @@ export default function LeasingReceivablesPage() {
         idempotencyKey: createIdempotencyKey("receivable-delete")
       });
       setNotice("应收账单已删除");
-      await load(pageData.page);
+      await load(pageData.items.length === 1 && pageData.page > 1 ? pageData.page - 1 : pageData.page);
     } catch (err) {
       setError(toErrorMessage(err));
     }
