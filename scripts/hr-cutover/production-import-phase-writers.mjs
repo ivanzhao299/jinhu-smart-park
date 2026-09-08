@@ -217,7 +217,7 @@ async function createMigrationBatch(tx, operationId, phaseName) {
   return row.id;
 }
 
-async function resolveDependencies(tx, operationId, phaseName, layer) {
+async function resolveDependencies(tx, operationId, phaseName, layer, lookup) {
   // Validate required references even when the whole layer has no references.
   // Quarantined records have no business target and may lack their source parent.
   for (const row of layer) for (const spec of row.rule.foreignKeys) {
@@ -233,7 +233,7 @@ async function resolveDependencies(tx, operationId, phaseName, layer) {
   }
   const identities = [...new Set(references.map(reference => reference.sourceIdentitySha256))];
   if (identities.length === 0) return;
-  const result = rowsOf(await tx.query(
+  const result = lookup ? await lookup(identities, references) : rowsOf(await tx.query(
     `/* hr-prod-phase:resolve-dependencies */
      SELECT map.source_identity_sha256,map.target_table,map.target_id::text,map.mapping_status,
             batch.production_import_phase AS phase
@@ -512,13 +512,22 @@ async function writePhase(phaseName, input, options) {
   if (!input.tx || typeof input.tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", `${phaseName} tx missing`);
   if (typeof input.operationId !== "string" || !isObject(input.targetScope) || !SHA256.test(input.targetScope.scopeSha256 ?? "")) fail("PRODUCTION_IMPORT_PHASE_WRITER_INPUT_INVALID", `${phaseName} operation/scope invalid`);
   const rows = bindRows(input.phase, input.payloadBundle, phaseName);
-  const batchId = await createMigrationBatch(input.tx, input.operationId, phaseName);
+  if (options.lab) {
+    if (rows.some(row => !["insert", "quarantine"].includes(row.record.disposition))) fail("LAB_IMPORT_DISPOSITION_DENIED", "insert/quarantine only");
+    if (input.payloadBundle.targetScope && ["tenantId", "parkId", "scopeSha256"].some(key => input.payloadBundle.targetScope[key] !== input.targetScope[key])) fail("LAB_IMPORT_SCOPE_DENIED", "payload scope differs");
+    await validateLabTarget(input.tx, input.targetScope, options.lab);
+  }
+  const batchId = options.lab ? await createLabBatch(input.tx, phaseName, options.lab) : await createMigrationBatch(input.tx, input.operationId, phaseName);
   const businessIdentities = new Set();
   for (const layer of topologicalLayers(rows, phaseName)) {
-    await resolveDependencies(input.tx, input.operationId, phaseName, layer);
+    await resolveDependencies(input.tx, input.operationId, phaseName, layer, options.lab
+      ? (identities, references) => lookupLabDependencies(input.tx, input.targetScope, phaseName, batchId, identities, references, options.lab) : undefined);
     verifyGeneratedSemantics(layer, input.targetScope, businessIdentities);
     await writeBusinessRows(input.tx, layer, input.targetScope, options.batchSize);
-    await insertMapsAndReceipts(input.tx, input.operationId, phaseName, batchId, layer, options.batchSize);
+    if (options.lab) {
+      await verifyInsertedRows(input.tx, layer, input.targetScope, options.batchSize);
+      await insertLabMaps(input.tx, batchId, layer, options.batchSize);
+    } else await insertMapsAndReceipts(input.tx, input.operationId, phaseName, batchId, layer, options.batchSize);
   }
   const results = await encryptResults(rows, { operationId: input.operationId, phaseName, targetScope: structuredClone(input.targetScope) }, options.cryptoProvider);
   await finishBatch(input.tx, batchId, rows, phaseName);
@@ -529,7 +538,105 @@ async function writePhase(phaseName, input, options) {
     targetScopeSha256: input.targetScope.scopeSha256,
     afterCanonicalSha256: input.phase.expectedAfterCanonicalSha256,
     records: results,
+    ...(options.lab ? { batchId, productionImport: "HOLD" } : {}),
   };
+}
+
+async function validateLabTarget(tx, scope, lab) {
+  if ([scope.tenantId, scope.parkId].some(value => typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(value))) fail("LAB_IMPORT_SCOPE_DENIED", "scope required");
+  const target = oneRow(await tx.query(
+    `/* hr-lab-phase:target */ SELECT current_database() AS database_name,
+     EXISTS (SELECT 1 FROM sys_tenant WHERE btrim(tenant_id::text)=$1 AND status=1 AND is_deleted=false
+       AND (expire_time IS NULL OR expire_time>clock_timestamp())) AS tenant_exists,
+     EXISTS (SELECT 1 FROM biz_park WHERE btrim(tenant_id::text)=$1 AND btrim(park_id::text)=$2
+       AND status=1 AND is_deleted=false) AS park_exists`, [scope.tenantId, scope.parkId],
+  ), "lab target");
+  if (target.database_name !== lab.expectedDatabase) fail("LAB_IMPORT_DATABASE_DENIED", "exact lab database required");
+  if (target.tenant_exists !== true || target.park_exists !== true) fail("LAB_IMPORT_SCOPE_DENIED", "active owned scope required");
+}
+
+async function createLabBatch(tx, phaseName, lab) {
+  const row = oneRow(await tx.query(
+    `/* hr-lab-phase:create-batch */
+     INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,phase,status,tool_version,counts,started_at,execution_context)
+     VALUES ($1,$2,$3,current_database(),'load','running',$4,'{}'::jsonb,now(),'lab_rehearsal') RETURNING id::text AS id`,
+    [`${lab.runId}-${phaseName.toLowerCase()}`, MODEL.sourceSystem, lab.sourceSnapshotHash, lab.toolVersion],
+  ), "lab batch");
+  if (!UUID.test(row.id ?? "")) fail("PRODUCTION_IMPORT_PHASE_WRITER_DATABASE_RESULT_INVALID", "lab batch id invalid");
+  return row.id;
+}
+
+async function lookupLabDependencies(tx, scope, phaseName, batchId, identities, references, lab) {
+  const requested = [...new Set(references.map(ref => ref.phase))].map(phase => ({ phase, run_id: `${lab.runId}-${phase.toLowerCase()}` }));
+  const result = rowsOf(await tx.query(
+    `/* hr-lab-phase:resolve-dependencies */
+     WITH requested AS (SELECT * FROM jsonb_to_recordset($1::jsonb) AS ref(phase text,run_id text))
+     SELECT map.source_identity_sha256,map.target_table,map.target_id::text,map.mapping_status,requested.phase
+     FROM requested JOIN migration_batch batch ON batch.run_id=requested.run_id
+     JOIN legacy_record_map map ON map.batch_id=batch.id
+     WHERE batch.execution_context='lab_rehearsal' AND batch.target_database=$2
+       AND batch.source_snapshot_sha256=$3 AND batch.tool_version=$4 AND batch.source_system=$5
+       AND ((requested.phase=$6 AND batch.id=$7::uuid AND batch.status='running')
+         OR (requested.phase<>$6 AND batch.status='succeeded'))
+       AND map.source_identity_sha256=ANY($8::char(64)[]) AND map.is_active
+       AND map.mapping_status IN ('loaded','quarantined')`,
+    [JSON.stringify(requested), lab.expectedDatabase, lab.sourceSnapshotHash, lab.toolVersion, MODEL.sourceSystem, phaseName, batchId, identities],
+  ), "lab dependencies");
+  if (new Set(result.map(row => row.source_identity_sha256)).size !== result.length) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", "ambiguous lab map");
+  // A batch has no scope columns: prove each mapped parent belongs to this scope.
+  for (const table of new Set(result.map(row => row.target_table))) {
+    if (!MODEL.targetTables[table]) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", "unknown lab target");
+    const ids = result.filter(row => row.target_table === table && row.mapping_status === "loaded").map(row => row.target_id);
+    if (!ids.length) continue;
+    const scoped = rowsOf(await tx.query(
+      `/* hr-lab-phase:parent-scope */ SELECT id::text FROM ${table}
+       WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${tableStorage(table).softDelete ? " AND is_deleted=false" : ""} FOR SHARE`,
+      [scope.tenantId, scope.parkId, ids],
+    ), "lab parent scope");
+    const observed = new Set(scoped.map(row => row.id));
+    if (ids.some(id => !observed.has(id))) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", "parent scope differs");
+  }
+  return result;
+}
+
+async function verifyInsertedRows(tx, layer, scope, batchSize) {
+  for (const table of new Set(layer.map(row => row.record.plannedTargetTable))) {
+    const inserted = layer.filter(row => row.record.plannedTargetTable === table && row.record.disposition === "insert");
+    for (const part of chunks(inserted, batchSize)) await selectAndVerifyExisting(tx, table, MODEL.targetTables[table], part.map(row => ({ ...row,
+      record: { ...row.record, expectedTargetBeforeSha256: row.record.expectedTargetAfterSha256, expectedTargetVersionBefore: 1 },
+    })), scope);
+  }
+}
+
+async function insertLabMaps(tx, batchId, layer, batchSize) {
+  for (const part of chunks(layer, batchSize)) {
+    const maps = part.map(({ record }) => ({ source_system: record.sourceSystem, source_table: record.sourceTable,
+      source_pk_canonical: record.sourcePkCanonical, source_identity_sha256: record.sourceIdentitySha256, source_row_sha256: record.sourceRowSha256,
+      target_table: record.plannedTargetTable, target_id: record.disposition === "quarantine" ? null : record.targetId,
+      mapping_status: record.disposition === "quarantine" ? "quarantined" : "loaded" }));
+    const inserted = rowsOf(await tx.query(
+      `/* hr-lab-phase:insert-maps */ WITH src AS (SELECT * FROM jsonb_to_recordset($2::jsonb)
+       AS row(source_system text,source_table text,source_pk_canonical text,source_identity_sha256 char(64),source_row_sha256 char(64),target_table text,target_id uuid,mapping_status text))
+       INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,is_active)
+       SELECT $1::uuid,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,true FROM src
+       RETURNING source_identity_sha256`, [batchId, JSON.stringify(maps)],
+    ), "lab maps");
+    if (inserted.length !== maps.length || new Set(inserted.map(row => row.source_identity_sha256)).size !== maps.length || inserted.some(row => !maps.some(map => map.source_identity_sha256 === row.source_identity_sha256))) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", "lab map count differs");
+  }
+}
+
+/** Laboratory metadata strategy; caller owns transaction and endpoint isolation. */
+export function createLabImportPhaseWriters(options) {
+  exactKeys(options, ["cryptoProvider", "expectedDatabase", "codeSha", "sourceSnapshotHash", "runId"], ["batchSize"], "lab writer options");
+  if (!/^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/u.test(options.expectedDatabase ?? "") || options.expectedDatabase.length > 63 ||
+      !/^[0-9a-f]{40}$/u.test(options.codeSha ?? "") || !SHA256.test(options.sourceSnapshotHash ?? "") ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(options.runId ?? "")) fail("LAB_IMPORT_BINDING_INVALID", "lab run binding invalid");
+  // Apply the identical batching and encryption-provider contract.
+  createProductionImportPhaseWriters({ cryptoProvider: options.cryptoProvider, ...(options.batchSize === undefined ? {} : { batchSize: options.batchSize }) });
+  const lab = Object.freeze({ expectedDatabase: options.expectedDatabase, codeSha: options.codeSha, sourceSnapshotHash: options.sourceSnapshotHash,
+    runId: options.runId, toolVersion: `lab-import-v1@${options.codeSha}` });
+  const config = Object.freeze({ lab, cryptoProvider: options.cryptoProvider, batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE });
+  return Object.freeze(Object.fromEntries(PHASES.map(phase => [phase, input => writePhase(phase, input, config)])));
 }
 
 /**
