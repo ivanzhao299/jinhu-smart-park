@@ -34,6 +34,7 @@ import {
   type UserContext,
   type UserMenuTreeNode
 } from "@jinhu/shared";
+import { resolveDynamicBreadcrumbLabel, resolveDynamicWebRoute } from "./routes";
 
 export interface MenuNode {
   label: string;
@@ -50,27 +51,17 @@ export interface BreadcrumbMatch {
   current?: MenuNode;
 }
 
-const BREADCRUMB_ROUTE_TEMPLATES = [
-  "/engineering/projects/:id", "/engineering/projects/:id/edit", "/engineering/plans/:id", "/engineering/plans/:id/edit",
-  "/engineering/daily-reports/:id", "/engineering/daily-reports/:id/edit", "/engineering/inspections/:id",
-  "/engineering/inspections/:id/edit", "/engineering/rectifications/:id", "/engineering/acceptances/:id",
-  "/engineering/acceptances/:id/edit",
-  "/iot/devices/:id", "/workorders/:id", "/assets/identity-submissions/:id", "/assets/parties/:id",
-  "/assets/property-occupancies/:id", "/assets/property-operations/:id", "/homestay/bookings/:id",
-  "/homestay/stays/:id", "/homestay/turnovers/:id", "/housing/handovers/:id", "/housing/leases/:id",
-  "/housing/purchases/:id", "/housing/repairs/:id", "/housing/tenants/:id", "/property/approval-incidents/:id",
-  "/property/approvals/:id", "/property/event-delivery-incidents/:id", "/property/notifications/:id"
-] as const;
-
-export function findBreadcrumbByPath(pathname: string, menus: MenuNode[] = dashboardMenus): BreadcrumbMatch {
-  const template = BREADCRUMB_ROUTE_TEMPLATES.find((candidate) => {
-    const pattern = `^${candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(":id", "[^/]+")}/?$`;
-    return new RegExp(pattern).test(pathname);
-  });
-  const menuPath = template ? template.replace("/:id/edit", "").replace("/:id", "") : pathname;
+export function findBreadcrumbByPath(pathname: string, menus: MenuNode[] = dashboardMenus, resolvedLabel?: string | null): BreadcrumbMatch {
+  const dynamicRoute = resolveDynamicWebRoute(pathname);
+  const menuPath = dynamicRoute?.route.menuHref ?? pathname;
   const current = findMenuByPath(menuPath, menus);
   const parent = menus.find((menu) => menu === current || menu.children?.some((child) => child.href === current?.href));
-  return { parent: parent === current ? undefined : parent, current };
+  return {
+    parent: parent === current ? undefined : parent,
+    current: current && dynamicRoute
+      ? { ...current, label: resolveDynamicBreadcrumbLabel(dynamicRoute.route, resolvedLabel) }
+      : current
+  };
 }
 
 const MENU_ICON_MAP: Record<string, LucideIcon> = {
@@ -540,6 +531,22 @@ export function getUserNormalizedMenuTree(user?: MenuTreeUser | null): MenuNode[
 
 export function getUserDashboardAuthorizationMenus(user?: MenuTreeUser | null): MenuNode[] {
   return getDashboardAuthorizationMenus(resolveUserMenuTree(user));
+}
+
+export function getUserCommandMenus(user?: MenuTreeUser | null): MenuNode[] {
+  const visibleMenus = getUserNormalizedMenuTree(user);
+  const enrich = (node: MenuNode): MenuNode => {
+    const metadata = node.href ? findMenuByPath(node.href, dashboardMenus) : undefined;
+    return {
+      ...metadata,
+      ...node,
+      module: node.module ?? metadata?.module,
+      permission: node.permission ?? metadata?.permission,
+      permissions: node.permissions ?? metadata?.permissions,
+      children: node.children?.map(enrich)
+    };
+  };
+  return visibleMenus.map(enrich);
 }
 
 export function filterFirstReleaseMenus(menus: MenuNode[]): MenuNode[] {

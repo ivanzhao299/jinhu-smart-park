@@ -11,6 +11,7 @@ import { API_PREFIX, apiFormRequest, apiRequest, createIdempotencyKey } from "..
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getStoredUser, getToken, switchParkContext } from "../../../lib/auth";
 import { useAuthSessionActions, useAuthUser } from "../../../lib/auth-context";
+import { useListPreferences } from "../../../lib/list-preferences";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
@@ -307,6 +308,7 @@ interface UnitsPageProps {
 export default function UnitsPage({ title = "房间/房源管理" }: UnitsPageProps = {}) {
   const router = useRouter();
   const authUser = useAuthUser();
+  const { preferences: listPreferences, setFiltersOpen } = useListPreferences("assets.units", authUser);
   const sessionActions = useAuthSessionActions();
   const [pageData, setPageData] = useState<PaginatedResult<UnitRow>>(emptyPage);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
@@ -315,7 +317,6 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   const [listParkId, setListParkId] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [form, setForm] = useState<UnitFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -791,7 +792,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             onExport={() => void exportUnits().catch((error: Error) => setMessage(error.message))}
           />
           </>}
-          filtersOpen={filtersOpen}
+          filtersOpen={listPreferences.filtersOpen}
           onFiltersOpenChange={setFiltersOpen}
           onApplyFilters={() => setAppliedFilters({ ...filters })}
           onResetFilters={() => { resetFilters(); }}

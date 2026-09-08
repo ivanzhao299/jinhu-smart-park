@@ -13,10 +13,20 @@ import {
   findMenusByPath,
   getDashboardAuthorizationMenus,
   getDashboardMenus,
+  getUserCommandMenus,
   getUserDashboardMenus,
   getUserNormalizedMenuTree,
   resolveUserMenuTree
 } from "./menu";
+
+test("command menus enrich only API-projected routes without adding canonical siblings", () => {
+  const commands = getUserCommandMenus({
+    menu_tree: [{ label: "资产管理", module: "asset", children: [{ label: "房源", href: "/assets/units", module: "asset" }] }]
+  });
+  assert.deepEqual(commands.flatMap((menu) => menu.children ?? []).map((item) => item.href), ["/assets/units"]);
+  assert.equal(commands[0]?.children?.[0]?.permission, "asset:unit:list");
+  assert.equal(findMenuByPath("/leasing/receivables", commands), undefined);
+});
 
 test("breadcrumbs map declared dynamic route templates without weakening exact menu lookup", () => {
   const menus = getDashboardMenus();
@@ -28,6 +38,7 @@ test("breadcrumbs map declared dynamic route templates without weakening exact m
   const unknown = findBreadcrumbByPath("/engineering/projects/not/too/deep", menus);
   assert.equal(unknown.parent, undefined);
   assert.equal(unknown.current, undefined);
+  assert.equal(findBreadcrumbByPath("/housing/leases/lease-1", []).current, undefined);
 });
 
 test("explicit API empty trees remain authoritative while missing fields use legacy compatibility", () => {

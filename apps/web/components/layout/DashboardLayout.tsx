@@ -27,17 +27,10 @@ import {
   updateParkRoleRecoverySource
 } from "../../lib/park-role-recovery";
 import { resolvePostLoginPath } from "../../lib/post-login-route";
+import { isTerminalRoute as matchesTerminalRoute } from "../../lib/routes";
+import { DynamicBreadcrumbProvider } from "../../lib/dynamic-breadcrumb";
 
 const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
-const TERMINAL_LAYOUT_PATHS = [
-  "/operations/terminal",
-  "/preview/operations-terminal",
-  "/engineering/terminal",
-  "/tenant/service",
-  "/preview/tenant-service",
-  "/safety/my-inspect-tasks"
-] as const;
-
 interface DashboardLayoutProps {
   children: React.ReactNode;
   forceTerminalMode?: boolean;
@@ -46,7 +39,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, forceTerminalMode = false }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const isTerminalRoute = forceTerminalMode || (pathname ? TERMINAL_LAYOUT_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) : false);
+  const isTerminalRoute = forceTerminalMode || matchesTerminalRoute(pathname);
   const [user, setUser] = useState<UserContext | null>(null);
   const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -188,6 +181,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   return (
     <AuthUserContext.Provider value={user}>
       <AuthSessionActionsContext.Provider value={sessionActions}>
+        <DynamicBreadcrumbProvider key={`${user.tenant_id}:${user.park_id}:${pathname}`}>
         <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${mobileNavigation && !sidebarCollapsed ? " mobile-navigation-open" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
           {isTerminalRoute ? (
             <>
@@ -218,6 +212,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
           </div>
           <AdminIssueFeedback />
         </div>
+        </DynamicBreadcrumbProvider>
       </AuthSessionActionsContext.Provider>
     </AuthUserContext.Provider>
   );

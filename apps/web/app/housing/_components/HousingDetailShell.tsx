@@ -19,6 +19,7 @@ import { getAccessToken } from "../../../lib/authz";
 import styles from "./HousingWorkbench.module.css";
 import { HOUSING_RETURN_CONTEXT_POLICY } from "./housing-workbench-contract";
 import { routeUrlObject } from "./housing-route-types";
+import { usePublishDynamicBreadcrumbLabel } from "../../../lib/dynamic-breadcrumb";
 
 export interface DetailDefinition<T> {
   endpoint: string;
@@ -60,6 +61,7 @@ function useDetail<T>(definition: DetailDefinition<T>) {
 export function DetailPage<T>({ definition }: { definition: DetailDefinition<T> }) {
   const searchParams = useSearchParams();
   const { capabilities, data, load, state } = useDetail(definition);
+  usePublishDynamicBreadcrumbLabel(data ? definition.title(data) : null);
   const returnHref = resolveReturnHref(searchParams.get("returnTo"), {
     ...HOUSING_RETURN_CONTEXT_POLICY,
     fallbackHref: definition.listRoute

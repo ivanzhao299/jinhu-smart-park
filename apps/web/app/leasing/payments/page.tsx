@@ -9,6 +9,7 @@ import { FileUploader } from "../../../components/files/FileUploader";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
+import { useListPreferences } from "../../../lib/list-preferences";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
@@ -122,10 +123,10 @@ const emptyForm: PaymentFormState = {
 
 export default function LeasingPaymentsPage() {
   const authUser = useAuthUser();
+  const { preferences: listPreferences, setFiltersOpen } = useListPreferences("leasing.payments", authUser);
   const [pageData, setPageData] = useState<PaginatedResult<PaymentRow>>(initialPageData);
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
@@ -395,7 +396,7 @@ export default function LeasingPaymentsPage() {
             </button>
           ) : null}
         </>}
-        filtersOpen={filtersOpen}
+        filtersOpen={listPreferences.filtersOpen}
         onFiltersOpenChange={setFiltersOpen}
         onApplyFilters={() => setAppliedFilters({ ...filters })}
         onResetFilters={() => { setFilters({ ...emptyFilters }); setAppliedFilters({ ...emptyFilters }); }}
