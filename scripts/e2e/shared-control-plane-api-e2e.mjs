@@ -94,7 +94,7 @@ async function createOperatingUnit(token, suffix) {
   });
   const operatingUnit = await request(`/assets/units/${assetUnit.id}/operating-unit`, {
     method: "POST", token, idempotent: true,
-    body: { usageType: 10, rentalStatus: 10, fittingStatus: 10, reason: `M-03 ${runId}` }
+    body: { usageType: 70, rentalStatus: 10, fittingStatus: 10, reason: `M-03 ${runId}` }
   });
   return { assetUnit, operatingUnit };
 }
@@ -133,7 +133,7 @@ async function decideIdentity({ makerToken, checkerToken, party, decision }) {
   });
   const makerClaimKey = key("identity-maker-claim");
   await request(`/property/identity-submissions/${submissionId}/claim`, {
-    method: "POST", token: makerToken, idempotent: true, expectedStatus: 403,
+    method: "POST", token: makerToken, idempotent: true, expectedStatus: 409,
     idempotencyKey: makerClaimKey,
     body: { clientKey: makerClaimKey, expectedVersion: submitted.version, expectedAssignmentVersion: submitted.assignmentVersion }
   });
@@ -154,6 +154,27 @@ async function decideIdentity({ makerToken, checkerToken, party, decision }) {
     }
   });
   assert(decided.status === decision, `identity submission reaches ${decision}`);
+  const repeatedDecisionKey = key(`identity-repeat-${decision}`);
+  const terminalReplay = await request(`/property/identity-submissions/${submissionId}/decisions`, {
+    method: "POST", token: checkerToken, idempotent: true, expectedStatus: 404,
+    idempotencyKey: repeatedDecisionKey,
+    body: {
+      clientKey: repeatedDecisionKey,
+      decision,
+      expectedVersion: decided.version,
+      expectedAssignmentVersion: decided.assignmentVersion,
+      reason: `Terminal identity ${decision} cannot be decided twice`
+    }
+  });
+  assert(terminalReplay.errorCode === "property-resource-not-found",
+    `terminal identity ${decision} decision is hidden from replay`);
+  const audit = await request(`/property/identity-submissions/${submissionId}/audit?page=1&pageSize=20&order=asc`, {
+    token: makerToken
+  });
+  const eventTypes = audit.items.map((item) => item.eventType);
+  for (const expectedEvent of ["submitted", "claimed", decision]) {
+    assert(eventTypes.includes(expectedEvent), `identity ${decision} retains its ${expectedEvent} audit event`);
+  }
   return decided;
 }
 
@@ -251,6 +272,15 @@ async function run() {
   await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: approvedTransition, label: "shared mode transition" });
   const afterApproval = await request(`/property/units/${operatingUnit.id}/operation`, { token });
   assert(afterApproval.configuredMode === "long_rent", "approved runtime request executes the shared mode transition");
+  const transitionAudit = await request(`/property/mode-transitions?page=1&pageSize=20&order=asc&unitId=${operatingUnit.id}`, { token });
+  const rejectedRequestId = rejectedTransition.request.requestId;
+  const approvedRequestId = approvedTransition.request.requestId;
+  const rejectedAudit = transitionAudit.items.find((item) => item.requestId === rejectedRequestId);
+  const approvedAudit = transitionAudit.items.find((item) => item.requestId === approvedRequestId);
+  assert(rejectedAudit?.decisionStatus === "rejected" && rejectedAudit.executionStatus !== "executed",
+    "rejected mode transition remains visible in audit without a domain effect");
+  assert(approvedAudit?.decisionStatus === "approved" && approvedAudit.executionStatus === "executed",
+    "approved mode transition retains its executed audit trail");
 
   const rejectedParty = await request("/property/parties", {
     method: "POST", token, idempotent: true,

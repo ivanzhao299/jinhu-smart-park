@@ -27,9 +27,12 @@ assert.match(controlPlane, /decision: "reject"/, "shared suite must exercise a r
 assert.match(controlPlane, /makerDecisionStage\.stageId[\s\S]*makerDecisionDetail\.request\.decisionVersion/, "maker-checker negative coverage must use the real pending approval stage and current versions");
 assert.doesNotMatch(controlPlane, /stageId: crypto\.randomUUID\(\)/, "maker-checker negative coverage must not fail early on a fabricated stage identity");
 assert.match(controlPlane, /approveAndWait/, "shared suite must wait for an approved runtime effect to execute");
-assert.match(controlPlane, /identity-submissions\/\$\{submissionId\}\/claim[\s\S]*expectedStatus: 403/, "shared suite must reject maker identity claims");
+assert.match(controlPlane, /identity-submissions\/\$\{submissionId\}\/claim[\s\S]*expectedStatus: 409/, "shared suite must reject maker identity claims through the actor-separation contract");
 assert.match(controlPlane, /decision: "rejected"/, "shared suite must exercise rejected identity verification");
 assert.match(controlPlane, /decision: "verified"/, "shared suite must exercise successful identity verification");
+assert.match(controlPlane, /identity-repeat-\$\{decision\}[\s\S]*expectedStatus: 404[\s\S]*property-resource-not-found/, "shared suite must reject and hide decisions against a terminal identity submission");
+assert.match(controlPlane, /identity-submissions\/\$\{submissionId\}\/audit/, "shared suite must verify that identity workflow audit events remain queryable");
+assert.match(controlPlane, /\/property\/mode-transitions\?page=1&pageSize=20[\s\S]*unitId=/, "shared suite must verify that rejected and executed mode-transition audits remain queryable through the aggregate endpoint");
 assert.match(controlPlane, /M03B\$\{suffix\}/, "shared suite fixtures must carry the isolated run id");
 assert.match(assetLifecycle, /expectedStatus: 409/, "asset lifecycle suite must prove an active projection blocks source deletion");
 assert.match(assetLifecycle, /operating_status: "disabled"[\s\S]*asset_unit_id: null/, "asset lifecycle suite must explicitly disable and unlink before deletion");
