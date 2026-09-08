@@ -238,6 +238,13 @@ function dependencies(plan, overrides = {}) {
   };
 }
 
+function heldContract() {
+  const contract = structuredClone(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT);
+  contract.activation = { status: "HOLD", allowedTargets: [], reasonCodes: ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"] };
+  contract.productionImport = "HOLD";
+  return contract;
+}
+
 function performanceArtifactFixture(options = {}) {
   const value = fixture(options);
   const config = JSON.parse(readFileSync(value.configPath, "utf8"));
@@ -290,7 +297,7 @@ test("performance preparation binds both fact artifacts with the real plan valid
   const value = performanceArtifactFixture();
   let calls = 0;
   const result = await runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, {
-    now: NOW, loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
+    now: NOW, contract: heldContract(), loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
   });
   assert.equal(calls, 0);
   assert.deepEqual(result.domains, value.config.requestedDomains);
@@ -309,7 +316,7 @@ test("performance preparation rejects missing descriptors, swapped bytes and inc
     const configPath = privateJson(value.root, "invalid-performance-entrypoint.json", value.config).path;
     let calls = 0;
     await assert.rejects(() => runProductionImportEntrypoint({ configPath, execute: false }, {
-      now: NOW, loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
+      now: NOW, contract: heldContract(), loadPg: async () => { calls++; }, executeImport: async () => { calls++; },
     }), error => error.code === scenario.code);
     assert.equal(calls, 0);
   }
@@ -476,6 +483,7 @@ test("opt-in 65 MiB sealed plan passes the real validator and rejects byte hash 
   const calls = { database: 0, crypto: 0, writer: 0 };
   const dependencies = {
     now: NOW,
+    contract: heldContract(),
     loadPg: async () => { calls.database++; },
     loadCryptoProviderModule: async () => { calls.crypto++; },
     executeImport: async () => { calls.writer++; },
@@ -520,7 +528,7 @@ test("prepare validates sealed payload artifacts but never loads DB, crypto, or 
 
 test("prepare accepts the synthetic sealed plan through the real shared validator", async () => {
   const value = fixture();
-  const result = await runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, { now: NOW });
+  const result = await runProductionImportEntrypoint({ configPath: value.configPath, execute: false }, { now: NOW, contract: heldContract() });
   assert.equal(result.status, "HOLD");
   assert.equal(result.readOnlyTargetVerified, false);
   assert.equal(result.productionImportExecuted, false);
@@ -539,7 +547,7 @@ test("execute refuses HOLD intent before reading credentials or opening PostgreS
   assert.equal(pgCalls, 0);
 });
 
-test("repository HOLD refuses execute before payload files or database material are read", async () => {
+test("explicit HOLD contract refuses execute before payload files or database material are read", async () => {
   const value = fixture({ intent: "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE", withExecution: true });
   const config = JSON.parse(readFileSync(value.configPath, "utf8"));
   config.artifacts.payloadBundles.T0 = { path: join(value.root, "must-not-be-read.json"), sha256: H("absent") };
@@ -547,11 +555,30 @@ test("repository HOLD refuses execute before payload files or database material 
   let pgCalls = 0;
   await assert.rejects(
     runProductionImportEntrypoint({ configPath: heldConfig, execute: true }, dependencies(value.plan, {
+      contract: heldContract(),
       loadPg: async () => { pgCalls += 1; },
     })),
     error => error.code === "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE",
   );
   assert.equal(pgCalls, 0);
+});
+
+test("default active contract rejects the synthetic wrong target before payload or database access", async () => {
+  assert.equal(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.activation.status, "PASS");
+  for (const execute of [false, true]) {
+    const value = fixture({ intent: "EXECUTE_SEALED_PRODUCTION_IMPORT_ONCE", withExecution: true });
+    const config = JSON.parse(readFileSync(value.configPath, "utf8"));
+    config.artifacts.payloadBundles.T0 = { path: join(value.root, "must-not-be-read.json"), sha256: H("absent") };
+    const configPath = privateJson(value.root, "wrong-target-entrypoint.json", config).path;
+    let calls = 0;
+    await assert.rejects(() => runProductionImportEntrypoint({ configPath, execute }, {
+      now: NOW,
+      loadPg: async () => { calls++; },
+      loadCryptoProviderModule: async () => { calls++; },
+      executeImport: async () => { calls++; },
+    }), error => error.code === "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED");
+    assert.equal(calls, 0);
+  }
 });
 
 test("unbound, tampered, wrong-target, wrong-scope, and stale runtime receipts all fail before PostgreSQL", async () => {

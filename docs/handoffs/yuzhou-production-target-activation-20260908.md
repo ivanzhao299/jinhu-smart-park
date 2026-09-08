@@ -22,3 +22,10 @@ relabel the corrected e1ce8b38 laboratory packet as that release. Retained sourc
 stages and unchanged business payload values can be reused with fresh preparation
 bindings, without SQL source extraction. Runtime receipts remain external artifacts
 to avoid a self-referential Git SHA. Payroll, photos and attachments remain HOLD.
+
+PR 705 CI run 34224122153 exposed four entrypoint test fixtures that implicitly
+depended on the former repository HOLD default. The initial targeted activation
+checks omitted this entrypoint suite. These preparation/HOLD tests now explicitly
+inject a cloned held contract; a separate test uses the real default activated
+contract and real plan validator to reject a wrong target before payload or DB
+access. Production entrypoint and guards were not changed by this correction.
