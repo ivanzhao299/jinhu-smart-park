@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { materializeProductionT3PhaseArtifact, ProductionT3PhaseArtifactError } from "../hr-cutover/materialize-production-t3-phase-artifact.mjs";
+import { verifyProductionT3StagedRecord } from "../hr-cutover/production-t3-field-projection.mjs";
 
 const sha = value => createHash("sha256").update(value).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "yuzhou-production-t3-artifact-"));
@@ -71,6 +72,76 @@ try {
   assert.equal(new Set(artifact.records.map(value => value.sourceIdentitySha256)).size, artifact.records.length);
   assert.deepEqual(artifact.targetTableCounts, result.targetTableCounts);
   assert.doesNotMatch(JSON.stringify(artifact), /fixture-calendar|fixture-symbol|fixture-policy|fixture-employee/u);
+
+  // Rebind only synthetic fixture manifests after changing fixture bytes. The
+  // actual materializer still independently checks every manifest/file digest.
+  const rebindDomain = (domain, bytes) => {
+    privateFile(join(staging, stageDomains[domain].file), bytes);
+    stageDomains[domain].fileSha256 = sha(bytes);
+    privateFile(join(staging, "manifest.json"), `${JSON.stringify(stageManifest)}\n`);
+    const sourceManifest = JSON.parse(readFileSync(sourceManifestPath, "utf8"));
+    sourceManifest.phases.T3.stageManifestSha256 = sha(readFileSync(join(staging, "manifest.json")));
+    sourceManifest.phases.T3.domains[domain].fileSha256 = sha(bytes);
+    privateFile(sourceManifestPath, `${JSON.stringify(sourceManifest)}\n`);
+  };
+  const kinds = ["oldage", "remedy", "losework", "fund", "wound", "bear"], flags = [null, "fixture-private-flag", false, 0, " ", true];
+  const compatible = row("dbo.person_insure", "1", { id: 1, year: 2026, month: 1, employeeCode: "fixture-employee" }, {
+    items: kinds.map((kind, index) => ({ ...insurance.items[0], kind, legacyFlag: flags[index] })),
+    legacyCompatibility: {
+      legacyFlags: Object.fromEntries(kinds.map((kind, index) => [kind, flags[index]])),
+      fieldPresence: { insureaccount: true, inpatient: false, hurt: false, insure: true, insureEmployer: false, insureEmployee: true, insureSupplement: false },
+    },
+  });
+  verifyProductionT3StagedRecord(compatible);
+  const compatibleBytes = `${JSON.stringify(compatible)}\n`;
+  rebindDomain("insurance", compatibleBytes);
+  const compatiblePath = join(output, "compatible.json");
+  const compatibleResult = materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: compatiblePath }, { head: () => codeSha });
+  assert.equal(compatibleResult.recordCount, 14);
+  assert.equal(compatibleResult.targetTableCounts.hr_employee_insurance_item, 6);
+  assert.equal(readFileSync(join(staging, "insurance.jsonl"), "utf8"), compatibleBytes, "compatibility stage must not be rewritten");
+  const compatibleArtifact = JSON.parse(readFileSync(compatiblePath, "utf8"));
+  assert.doesNotMatch(JSON.stringify(compatibleArtifact), /legacyCompatibility|fieldPresence|fixture-private-flag|fixture-employee/u);
+  const withoutCompatibility = structuredClone(compatible); delete withoutCompatibility.legacyCompatibility;
+  verifyProductionT3StagedRecord(withoutCompatibility);
+  rebindDomain("insurance", `${JSON.stringify(withoutCompatibility)}\n`);
+  const legacyPath = join(output, "compatible-legacy.json");
+  materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: legacyPath }, { head: () => codeSha });
+  assert.deepEqual(JSON.parse(readFileSync(legacyPath, "utf8")).records, compatibleArtifact.records, "compatibility changes no source/child provenance identity");
+  const invalidCases = [
+    value => { value.extra = true; },
+    value => { value.legacyCompatibility.extra = true; },
+    value => { value.legacyCompatibility.fieldPresence.inpatient = "false"; },
+    value => { delete value.legacyCompatibility.fieldPresence.hurt; },
+    value => { value.legacyCompatibility.fieldPresence.password = false; },
+    value => { value.legacyCompatibility.legacyFlags.oldage = "different"; },
+    value => { value.legacyCompatibility.legacyFlags.fund = {}; },
+    value => { delete value.legacyCompatibility.legacyFlags.fund; },
+    value => { value.items.pop(); },
+    value => { value.items[1] = structuredClone(value.items[0]); },
+    value => { value.items[0].kind = "unknown"; },
+    value => { value.legacyCompatibility = null; },
+  ];
+  for (const [index, mutate] of invalidCases.entries()) {
+    const invalid = structuredClone(compatible); mutate(invalid);
+    assert.throws(() => verifyProductionT3StagedRecord(invalid));
+    rebindDomain("insurance", `${JSON.stringify(invalid)}\n`);
+    const invalidPath = join(output, `invalid-compatible-${index}.json`);
+    assert.throws(() => materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: invalidPath }, { head: () => codeSha }),
+      error => error instanceof ProductionT3PhaseArtifactError && error.code === "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID" && !error.message.includes("fixture-private-flag"));
+    assert.equal(existsSync(invalidPath), false);
+  }
+  rebindDomain("insurance", compatibleBytes);
+  for (const [domain, value] of [["attendance", attendance], ["policies", policy]]) {
+    rebindDomain(domain, `${JSON.stringify({ ...value, legacyCompatibility: compatible.legacyCompatibility })}\n`);
+    assert.throws(() => materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: join(output, `invalid-${domain}.json`) }, { head: () => codeSha }),
+      error => error.code === "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID");
+    rebindDomain(domain, fixtureFiles[domain][1]);
+  }
+  rebindDomain("insurance", "{fixture-private-parse-content\n");
+  assert.throws(() => materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: join(output, "invalid-json.json") }, { head: () => codeSha }),
+    error => error.code === "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID" && !error.message.includes("fixture-private-parse-content"));
+  rebindDomain("insurance", compatibleBytes);
 
   assert.throws(
     () => materializeProductionT3PhaseArtifact({ stagingDir: staging, triplePath, sourceManifestPath, outputPath: join(output, "drift.json") }, { head: () => "f".repeat(40) }),

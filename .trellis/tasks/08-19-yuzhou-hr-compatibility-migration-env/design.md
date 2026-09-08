@@ -122,6 +122,13 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ### 私有 plan 两阶段物化（2026-09-09）
 
+T3 provenance 材料器识别已经受 manifest 约束的 person_insure 可选
+legacyCompatibility，严格与 production-t3-field-projection 保持相同的六类
+legacyFlags、七个布尔 fieldPresence 与 items flag 一致性合同。其他域不允许此键，
+不得接受任意额外字段。provenance 输出仍只有原 source/child 哈希，不删除或改写
+stage 兼容对象；下游字段投影继续原样保留对象。两模块存在 provenance 依赖方向，
+本次不引入反向循环 import，以共同的合成正负矩阵冻结兼容验证一致性。
+
 full-chain 独立验收读取 timestamp-without-time-zone 不经过 JS Date：T1 显式
 to_char 微秒 + 固定 +08:00 合同标签；contract_change.signed_at 使用既有毫秒
 wall-clock 格式。日期按 SQL text 读取，普通 timestamptz 仍按 UTC instant 规范化。
