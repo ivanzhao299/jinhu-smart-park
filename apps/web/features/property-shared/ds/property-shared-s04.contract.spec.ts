@@ -17,7 +17,8 @@ test("identity draft binds dirty and busy state to the shared leave guard", () =
   assert.match(source, /useDirtyLeaveGuard\(\{ dirty: draftDirty, busy: draftBusy \}\)/);
 });
 
-test("global breadcrumb consumes the route-template matcher", () => {
+test("global breadcrumb consumes the typed matcher and dynamic label provider", () => {
   const source = readFileSync(resolve(root, "components/layout/AppBreadcrumb.tsx"), "utf8");
-  assert.match(source, /findBreadcrumbByPath\(pathname, menus\)/);
+  assert.match(source, /useDynamicBreadcrumbLabel\(\)/);
+  assert.match(source, /findBreadcrumbByPath\(pathname, menus, dynamicLabel\)/);
 });
