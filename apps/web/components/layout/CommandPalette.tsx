@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthUser } from "../../lib/auth-context";
 import { buildNavigationCommands, filterNavigationCommands } from "../../lib/command-palette";
 import { getUserCommandMenus } from "../../lib/menu";
+import styles from "./CommandPalette.module.css";
 
 export function CommandPalette() {
   const user = useAuthUser();
@@ -60,16 +61,16 @@ export function CommandPalette() {
   };
 
   return <>
-    <button ref={triggerRef} aria-label="打开全局导航" className="header-icon-button command-palette-trigger" type="button" onClick={() => setOpen(true)}>
+    <button ref={triggerRef} aria-label="打开全局导航" className={`header-icon-button ${styles.trigger}`} type="button" onClick={() => setOpen(true)}>
       <Search size={16} />
-      <span className="command-palette-shortcut">⌘K</span>
+      <span className={styles.shortcut}>⌘K</span>
     </button>
-    {open ? <div className="command-palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+    {open ? <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <div
         ref={dialogRef}
         aria-label="全局导航"
         aria-modal="true"
-        className="ds-panel command-palette"
+        className={`ds-panel ${styles.palette}`}
         role="dialog"
         onKeyDown={(event) => {
           if (event.key === "Escape") { event.preventDefault(); close(); return; }
@@ -82,7 +83,7 @@ export function CommandPalette() {
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         }}
       >
-        <label className="command-palette-search">
+        <label className={styles.search}>
           <Search aria-hidden="true" size={18} />
           <span className="sr-only">搜索可访问页面</span>
           <input
@@ -101,11 +102,11 @@ export function CommandPalette() {
             }}
           />
         </label>
-        <div className="command-palette-results" id="command-palette-results" role="listbox">
+        <div className={styles.results} id="command-palette-results" role="listbox">
           {results.length ? results.map((command, index) => (
             <button
               aria-selected={index === activeIndex}
-              className={index === activeIndex ? "is-active" : undefined}
+              className={index === activeIndex ? styles.active : undefined}
               id={`command-${index}`}
               key={command.href}
               role="option"
@@ -114,7 +115,7 @@ export function CommandPalette() {
             >
               <span>{command.label}</span><small>{command.group}</small>
             </button>
-          )) : <p className="command-palette-empty">没有匹配的可访问页面</p>}
+          )) : <p className={styles.empty}>没有匹配的可访问页面</p>}
         </div>
         <footer>仅显示当前园区与当前权限下的导航入口 · Esc 关闭</footer>
       </div>
