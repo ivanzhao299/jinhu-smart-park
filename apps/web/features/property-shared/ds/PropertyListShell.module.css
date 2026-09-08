@@ -1,0 +1,67 @@
+.context,
+.filterSection {
+  min-width: 0;
+}
+
+.context {
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
+  font-size: 13px;
+}
+
+.filterSection {
+  display: grid;
+  gap: var(--phoenix-space-2);
+}
+
+.filterToggle {
+  justify-self: end;
+}
+
+.chips,
+.bulkBar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--phoenix-space-2);
+}
+
+.chip {
+  min-height: 32px;
+  border: 1px solid var(--border, var(--phoenix-color-border));
+  border-radius: 999px;
+  background: var(--surface-subtle, var(--phoenix-color-surface-muted));
+  color: var(--text-primary, var(--phoenix-color-text));
+  padding: 4px 10px;
+  font: inherit;
+}
+
+.bulkBar {
+  justify-content: space-between;
+  border: 1px solid var(--border, var(--phoenix-color-border));
+  border-radius: 12px;
+  background: var(--surface-subtle, var(--phoenix-color-surface-muted));
+  padding: 10px 14px;
+}
+
+@media (max-width: 767px) {
+  .filterToggle {
+    justify-self: stretch;
+  }
+
+  .filterToggle,
+  .chip,
+  .bulkBar :global(button),
+  .bulkBar :global(a[href]) {
+    min-block-size: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .chip,
+  .bulkBar {
+    border-color: CanvasText;
+    background-image: none;
+    box-shadow: none;
+  }
+}

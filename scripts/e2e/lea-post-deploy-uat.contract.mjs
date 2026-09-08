@@ -30,6 +30,10 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /input\[autocomplete=.{0,4}username/u);
   assert.match(browserRunner, /button\[type=.{0,4}submit/u);
   assert.match(browserRunner, /method: "ui_form"/u);
+  assert.match(browserRunner, /Input\.dispatchKeyEvent/u);
+  assert.match(browserRunner, /login_post_not_observed/u);
+  assert.match(browserRunner, /requestAnimationFrame/u);
+  assert.doesNotMatch(browserRunner, /submit\.click\(\)/u);
   assert.match(browserRunner, /Network\.requestWillBeSent/u);
   assert.match(browserRunner, /Network\.responseReceived/u);
   assert.match(browserRunner, /SESSION_CREATE: browser_harness_error/u);

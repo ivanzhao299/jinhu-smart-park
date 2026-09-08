@@ -1,7 +1,7 @@
 "use client";
-import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
+import { DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
-import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
+import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Send, Trash2, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -13,7 +13,13 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
-import { ConsequenceDialog } from "../../../features/property-shared";
+import {
+  ConsequenceDialog,
+  PropertyListShell,
+  PropertyResponsiveRecords,
+  type PropertyFieldDescriptor,
+  type PropertyListFilterChip
+} from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const CHECKOUT_ENTITY = "leasing_checkout";
@@ -186,6 +192,7 @@ interface RefundFormState {
 }
 
 const emptyPage: PaginatedResult<CheckoutRow> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyFilters = { keyword: "", contractId: "", parkTenantId: "", checkoutType: "", status: "" };
 const today = () => new Date().toISOString().slice(0, 10);
 const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
@@ -223,7 +230,9 @@ const emptyRefundForm: RefundFormState = {
 export default function LeasingCheckoutsPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<CheckoutRow>>(emptyPage);
-  const [filters, setFilters] = useState({ keyword: "", contractId: "", parkTenantId: "", checkoutType: "", status: "" });
+  const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
@@ -277,11 +286,11 @@ export default function LeasingCheckoutsPage() {
     setMessage(null);
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(pageData.page_size), sort: "-updateTime" });
-      if (filters.keyword) params.set("keyword", filters.keyword);
-      if (filters.contractId) params.set("contract_id", filters.contractId);
-      if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
-      if (filters.checkoutType) params.set("checkout_type", filters.checkoutType);
-      if (filters.status) params.set("status", filters.status);
+      if (appliedFilters.keyword) params.set("keyword", appliedFilters.keyword);
+      if (appliedFilters.contractId) params.set("contract_id", appliedFilters.contractId);
+      if (appliedFilters.parkTenantId) params.set("park_tenant_id", appliedFilters.parkTenantId);
+      if (appliedFilters.checkoutType) params.set("checkout_type", appliedFilters.checkoutType);
+      if (appliedFilters.status) params.set("status", appliedFilters.status);
       const response = await apiRequest<PaginatedResult<CheckoutRow>>(`/leasing/checkouts?${params.toString()}`, { token: getAccessToken() });
       setPageData(response.data);
     } catch (error) {
@@ -289,7 +298,7 @@ export default function LeasingCheckoutsPage() {
     } finally {
       setLoading(false);
     }
-  }, [canRead, filters, pageData.page_size]);
+  }, [canRead, appliedFilters, pageData.page_size]);
 
   const loadDicts = useCallback(async () => {
     const codes = [
@@ -326,6 +335,7 @@ export default function LeasingCheckoutsPage() {
     const contractId = params.get("contract_id") ?? "";
     if (contractId) {
       setFilters((prev) => ({ ...prev, contractId }));
+      setAppliedFilters((prev) => ({ ...prev, contractId }));
       setForm((prev) => ({ ...prev, contractId }));
       setDrawerOpen(true);
     }
@@ -339,6 +349,24 @@ export default function LeasingCheckoutsPage() {
   useEffect(() => {
     void load(1);
   }, [load]);
+
+  const recordFields = useMemo<readonly PropertyFieldDescriptor<CheckoutRow>[]>(() => [
+    { key: "checkout", label: "退租单", render: (row) => <StackedCell primary={row.checkoutCode} secondary={row.code ?? "退租申请"} /> },
+    { key: "contract", label: "合同 / 租户", render: (row) => <StackedCell primary={row.contract ? `${row.contract.contractCode} ${row.contract.contractName}` : row.contractId} secondary={row.parkTenant?.companyName ?? row.contract?.parkTenant?.companyName ?? row.parkTenantId} /> },
+    { key: "typeDate", label: "类型 / 日期", render: (row) => <StackedCell primary={<DictBadge items={checkoutTypeItems} value={row.checkoutType} />} secondary={`计划 ${formatDate(row.plannedCheckoutDate)}`} /> },
+    { key: "releaseSettlement", label: "房源 / 结算", render: (row) => <StackedCell primary={<DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} />} secondary={<DictBadge items={settlementStatusItems} value={row.settlementStatus} />} /> },
+    { key: "statusAmount", label: "状态 / 金额", render: (row) => <StackedCell primary={<DictBadge items={checkoutStatusItems} value={row.status} />} secondary={`应退 ${moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", row.refundAmount)}`} /> }
+  ], [authUser, checkoutStatusItems, checkoutTypeItems, releaseStatusItems, settlementStatusItems]);
+  const filterChips = useMemo<PropertyListFilterChip[]>(() => {
+    const chips: PropertyListFilterChip[] = [];
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({ key, label, onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: "" })) });
+    if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
+    if (appliedFilters.contractId) add("contractId", `合同：${contracts.find((item) => item.id === appliedFilters.contractId)?.contractCode ?? "已选"}`);
+    if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${parkTenants.find((item) => item.id === appliedFilters.parkTenantId)?.companyName ?? "已选"}`);
+    if (appliedFilters.checkoutType) add("checkoutType", `类型：${dictText(checkoutTypeItems, appliedFilters.checkoutType)}`);
+    if (appliedFilters.status) add("status", `状态：${dictText(checkoutStatusItems, appliedFilters.status)}`);
+    return chips;
+  }, [appliedFilters, checkoutStatusItems, checkoutTypeItems, contracts, parkTenants]);
 
   function openCreate(contractId?: string) {
     setEditing(null);
@@ -601,13 +629,12 @@ export default function LeasingCheckoutsPage() {
   }
 
   return (
-    <div className="page-container">
-      <section className="page-header">
-        <div className="header-title">
-          <strong>退租管理</strong>
-          <span>处理正常到期、提前退租与违约终止申请，审批后进入结算和退款登记</span>
-        </div>
-        <div className="page-actions">
+    <>
+      <PropertyListShell
+        eyebrow="招商租赁"
+        title="退租管理"
+        description="处理正常到期、提前退租与违约终止申请，审批后进入结算和退款登记"
+        actions={<>
           <button className="primary-button" type="button" onClick={() => load(pageData.page)} disabled={loading}>
             <RefreshCw size={16} /> 刷新
           </button>
@@ -616,11 +643,13 @@ export default function LeasingCheckoutsPage() {
               <Plus size={16} /> 发起退租
             </button>
           ) : null}
-        </div>
-      </section>
-
-      <section className="filter-bar">
-        <div className="system-grid-three">
+        </>}
+        filtersOpen={filtersOpen}
+        onFiltersOpenChange={setFiltersOpen}
+        onApplyFilters={() => setAppliedFilters({ ...filters })}
+        onResetFilters={() => { setFilters({ ...emptyFilters }); setAppliedFilters({ ...emptyFilters }); }}
+        appliedFilterChips={filterChips}
+        filters={<div className="system-grid-three">
           <label className="field">
             <span>关键词</span>
             <input value={filters.keyword} onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))} placeholder="退租单、合同、租户" />
@@ -653,66 +682,19 @@ export default function LeasingCheckoutsPage() {
               {checkoutStatusItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
             </select>
           </label>
-        </div>
-        <div className="filter-actions">
-          <button className="primary-button" type="button" onClick={() => load(1)}>
-            <Search size={16} /> 查询
-          </button>
-        </div>
-      </section>
-
-      <Card >
+        </div>}
+        summary={loading ? "退租申请 · 加载中" : "退租申请"}
+        pagination={{ page: pageData.page, totalPages: Math.max(1, Math.ceil(pageData.total / pageData.page_size)), total: pageData.total, onPage: (page) => void load(page) }}
+        emptyState={pageData.items.length === 0 && !loading ? <div className="empty-state">暂无退租申请</div> : undefined}
+      >
         {message ? <div className="empty-state">{message}</div> : null}
-        <div className="system-toolbar">
-          <span className="muted-text">共 {pageData.total} 条</span>
-          <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
-        </div>
-        <div className="table-scroll">
-          <DataTable className="allow-horizontal-table">
-            <thead>
-              <tr>
-                <th>退租单</th>
-                <th>合同 / 租户</th>
-                <th>类型 / 日期</th>
-                <th>房源 / 结算</th>
-                <th>状态 / 金额</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageData.items.length === 0 ? (
-                <tr><td colSpan={6}>暂无退租申请</td></tr>
-              ) : pageData.items.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <StackedCell primary={row.checkoutCode} secondary={row.code ?? "退租申请"} />
-                  </td>
-                  <td>
-                    <StackedCell
-                      primary={row.contract ? `${row.contract.contractCode} ${row.contract.contractName}` : row.contractId}
-                      secondary={row.parkTenant?.companyName ?? row.contract?.parkTenant?.companyName ?? row.parkTenantId}
-                    />
-                  </td>
-                  <td>
-                    <StackedCell
-                      primary={<DictBadge items={checkoutTypeItems} value={row.checkoutType} />}
-                      secondary={`计划 ${formatDate(row.plannedCheckoutDate)}`}
-                    />
-                  </td>
-                  <td>
-                    <StackedCell
-                      primary={<DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} />}
-                      secondary={<DictBadge items={settlementStatusItems} value={row.settlementStatus} />}
-                    />
-                  </td>
-                  <td>
-                    <StackedCell
-                      primary={<DictBadge items={checkoutStatusItems} value={row.status} />}
-                      secondary={`应退 ${moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", row.refundAmount)}`}
-                    />
-                  </td>
-                  <td>
-                    <DataTableActions>
+        <PropertyResponsiveRecords
+          items={pageData.items}
+          fields={recordFields}
+          getKey={(row) => row.id}
+          getTitle={(row) => row.checkoutCode}
+          label="退租申请"
+          renderActions={(row) => <>
                       <button className="ds-row-action ds-row-action-view" type="button" onClick={() => openEdit(row)} title="查看">
                         <Eye size={16} />
                         <span className="ds-row-action-label">查看</span>
@@ -729,14 +711,9 @@ export default function LeasingCheckoutsPage() {
                           <span className="ds-row-action-label">删除</span>
                         </button>
                       ) : null}
-                    </DataTableActions>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        </div>
-      </Card>
+          </>}
+        />
+      </PropertyListShell>
 
       {drawerOpen ? (
           <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
@@ -909,7 +886,7 @@ export default function LeasingCheckoutsPage() {
             onChange={(event) => setPendingConsequence((current) => current ? { ...current, opinion: event.target.value } : current)} /></label>
         </div> : null}
       </ConsequenceDialog>
-    </div>
+    </>
   );
 }
 

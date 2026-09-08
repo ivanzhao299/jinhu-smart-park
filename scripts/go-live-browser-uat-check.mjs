@@ -319,16 +319,19 @@ async function loginThroughUi(browser, browserContextId, { username, password })
   const sessionId = attached.sessionId;
   const network = [];
   const requests = new Map();
+  let loginPostObserved = false;
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
     if (message.method === "Network.requestWillBeSent") {
       const request = message.params?.request;
       if (request?.url && /^https?:/u.test(request.url)) {
+        const requestPath = new URL(request.url).pathname;
         requests.set(message.params.requestId, {
           method: request.method,
           url: redactUrl(request.url),
-          path: new URL(request.url).pathname
+          path: requestPath
         });
+        if (request.method === "POST" && requestPath === `${apiPathPrefix}/auth/login`) loginPostObserved = true;
       }
     }
     if (message.method === "Network.responseReceived") {
@@ -345,27 +348,21 @@ async function loginThroughUi(browser, browserContextId, { username, password })
     await browser.send("Runtime.enable", {}, sessionId);
     await browser.send("Network.enable", {}, sessionId);
     await waitForReady(browser, sessionId);
-    await waitForExpression(browser, sessionId, `Boolean(document.querySelector('input[autocomplete="username"]') && document.querySelector('input[autocomplete="current-password"]'))`, 10000);
-    const submitted = await browser.send("Runtime.evaluate", {
-      expression: `(() => {
-        const setValue = (element, value) => {
-          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-          setter.call(element, value);
-          element.dispatchEvent(new Event("input", { bubbles: true }));
-          element.dispatchEvent(new Event("change", { bubbles: true }));
-        };
-        const username = document.querySelector('input[autocomplete="username"]');
-        const password = document.querySelector('input[autocomplete="current-password"]');
-        const submit = document.querySelector('button[type="submit"]');
-        if (!username || !password || !submit) return false;
-        setValue(username, ${JSON.stringify(username)});
-        setValue(password, ${JSON.stringify(password)});
-        submit.click();
-        return true;
-      })()`,
+    await waitForExpression(browser, sessionId, `Boolean(document.querySelector('form.signin-form input[autocomplete="username"]') && document.querySelector('form.signin-form input[autocomplete="current-password"]') && !document.querySelector('form.signin-form button[type="submit"]')?.disabled)`, 10000);
+    const hydrated = await browser.send("Runtime.evaluate", {
+      expression: `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(Boolean(document.querySelector('form.signin-form button[type="submit"]:not(:disabled)'))))))`,
+      awaitPromise: true,
       returnByValue: true
     }, sessionId);
-    if (!submitted.result?.value) return { status: "FAIL", reason: "login_form_not_found", method: "ui_form", network };
+    if (!hydrated.result?.value) return { status: "FAIL", reason: "login_form_not_hydrated", method: "ui_form", network };
+    const usernameTyped = await typeWithKeyboard(browser, sessionId, 'input[autocomplete="username"]', username);
+    const passwordTyped = await typeWithKeyboard(browser, sessionId, 'input[autocomplete="current-password"]', password);
+    if (!usernameTyped || !passwordTyped) return { status: "FAIL", reason: "login_keyboard_input_failed", method: "ui_form", network };
+    await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 }, sessionId);
+    await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 }, sessionId);
+    const loginPostDeadline = Date.now() + 5000;
+    while (!loginPostObserved && Date.now() < loginPostDeadline) await sleep(100);
+    if (!loginPostObserved) return { status: "FAIL", reason: "login_post_not_observed", method: "ui_form", network };
     await waitForExpression(browser, sessionId, `location.pathname !== "/login" && Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token"))`, 15000);
     const evidence = await browser.send("Runtime.evaluate", {
       expression: `({ pathname: location.pathname, hasSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), formStillVisible: Boolean(document.querySelector(".signin-page")) })`,
@@ -383,6 +380,30 @@ async function loginThroughUi(browser, browserContextId, { username, password })
     off();
     await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
   }
+}
+
+async function typeWithKeyboard(browser, sessionId, selector, value) {
+  const focused = await browser.send("Runtime.evaluate", {
+    expression: `(() => { const element = document.querySelector(${JSON.stringify(selector)}); element?.focus(); return document.activeElement === element; })()`,
+    returnByValue: true
+  }, sessionId);
+  if (!focused.result?.value) return false;
+  await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Control", code: "ControlLeft", windowsVirtualKeyCode: 17, modifiers: 2 }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 2 }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 2 }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Control", code: "ControlLeft", windowsVirtualKeyCode: 17 }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8 }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8 }, sessionId);
+  for (const character of value) {
+    await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: character }, sessionId);
+    await browser.send("Input.dispatchKeyEvent", { type: "char", text: character, unmodifiedText: character }, sessionId);
+    await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: character }, sessionId);
+  }
+  const typed = await browser.send("Runtime.evaluate", {
+    expression: `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
+    returnByValue: true
+  }, sessionId);
+  return typed.result?.value === true;
 }
 
 async function browserSessionRequest(browser, browserContextId, path) {

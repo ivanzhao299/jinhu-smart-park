@@ -1,7 +1,7 @@
 "use client";
-import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
+import { DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
-import { BadgePercent, Edit3, History, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { BadgePercent, Edit3, History, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
@@ -11,6 +11,12 @@ import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import {
+  PropertyListShell,
+  PropertyResponsiveRecords,
+  type PropertyFieldDescriptor,
+  type PropertyListFilterChip
+} from "../../../features/property-shared";
 
 const LEASING_MODULE = "leasing";
 const RECEIVABLE_ENTITY = "leasing_receivable";
@@ -127,6 +133,17 @@ interface GenerationResult {
 }
 
 const initialPageData: PaginatedResult<ReceivableRow> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyFilters = {
+  keyword: "",
+  parkTenantId: "",
+  contractId: "",
+  feeType: "",
+  status: "",
+  invoiceStatus: "",
+  dueStart: "",
+  dueEnd: "",
+  overdueOnly: false
+};
 const emptyForm: ReceivableFormState = {
   arCode: "",
   contractId: "",
@@ -149,17 +166,9 @@ const emptyForm: ReceivableFormState = {
 export default function LeasingReceivablesPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<ReceivableRow>>(initialPageData);
-  const [filters, setFilters] = useState({
-    keyword: "",
-    parkTenantId: "",
-    contractId: "",
-    feeType: "",
-    status: "",
-    invoiceStatus: "",
-    dueStart: "",
-    dueEnd: "",
-    overdueOnly: false
-  });
+  const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
   const [contracts, setContracts] = useState<ContractRow[]>([]);
@@ -206,15 +215,15 @@ export default function LeasingReceivablesPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(pageData.page_size) });
-      if (filters.keyword) params.set("keyword", filters.keyword);
-      if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
-      if (filters.contractId) params.set("contract_id", filters.contractId);
-      if (filters.feeType) params.set("fee_type", filters.feeType);
-      if (filters.status) params.set("status", filters.status);
-      if (filters.invoiceStatus) params.set("invoice_status", filters.invoiceStatus);
-      if (filters.dueStart) params.set("due_start", filters.dueStart);
-      if (filters.dueEnd) params.set("due_end", filters.dueEnd);
-      if (filters.overdueOnly) params.set("overdue_only", "true");
+      if (appliedFilters.keyword) params.set("keyword", appliedFilters.keyword);
+      if (appliedFilters.parkTenantId) params.set("park_tenant_id", appliedFilters.parkTenantId);
+      if (appliedFilters.contractId) params.set("contract_id", appliedFilters.contractId);
+      if (appliedFilters.feeType) params.set("fee_type", appliedFilters.feeType);
+      if (appliedFilters.status) params.set("status", appliedFilters.status);
+      if (appliedFilters.invoiceStatus) params.set("invoice_status", appliedFilters.invoiceStatus);
+      if (appliedFilters.dueStart) params.set("due_start", appliedFilters.dueStart);
+      if (appliedFilters.dueEnd) params.set("due_end", appliedFilters.dueEnd);
+      if (appliedFilters.overdueOnly) params.set("overdue_only", "true");
       const response = await apiRequest<PaginatedResult<ReceivableRow>>(`/leasing/receivables?${params.toString()}`, {
         token: getAccessToken()
       });
@@ -224,7 +233,43 @@ export default function LeasingReceivablesPage() {
     } finally {
       setLoading(false);
     }
-  }, [canRead, filters, pageData.page_size]);
+  }, [canRead, appliedFilters, pageData.page_size]);
+
+  const recordFields = useMemo<readonly PropertyFieldDescriptor<ReceivableRow>[]>(() => [
+    { key: "arCode", label: "应收单号", render: (row) => row.arCode },
+    { key: "tenant", label: "租户企业", render: (row) => row.parkTenant?.companyName ?? "-" },
+    { key: "contract", label: "合同编号", render: (row) => row.contract?.contractCode ?? "-" },
+    { key: "feeType", label: "费用类型", render: (row) => dictLabel("leasing_fee_type", row.feeType, dicts) },
+    { key: "period", label: "账期", render: (row) => `${row.periodStart} 至 ${row.periodEnd}` },
+    { key: "dueDate", label: "应收日", render: (row) => row.dueDate },
+    { key: "amountDue", label: "应收金额", render: (row) => formatFieldAmount(row.amountDue, "amountDue", canViewAmountDue, authUser) },
+    { key: "amountPaid", label: "已收金额", render: (row) => formatFieldAmount(row.amountPaid, "amountPaid", canViewAmountPaid, authUser) },
+    { key: "amountWaived", label: "豁免金额", render: (row) => formatFieldAmount(row.amountWaived, "amountWaived", canViewAmountWaived, authUser) },
+    { key: "amountRemain", label: "未收金额", render: (row) => formatFieldAmount(row.amountRemain, "amountRemain", canViewAmountRemain, authUser) },
+    { key: "lateFee", label: "滞纳金", render: (row) => formatFieldAmount(row.lateFee, "lateFee", canViewLateFee, authUser) },
+    { key: "invoiceStatus", label: "开票状态", render: (row) => <StatusPill dictCode="leasing_invoice_status" value={row.invoiceStatus} dicts={dicts} /> },
+    { key: "status", label: "应收状态", render: (row) => <StatusPill dictCode="leasing_receivable_status" value={row.status} dicts={dicts} /> },
+    { key: "overdueDays", label: "逾期天数", render: (row) => row.overdueDays }
+  ], [authUser, canViewAmountDue, canViewAmountPaid, canViewAmountRemain, canViewAmountWaived, canViewLateFee, dicts]);
+
+  const filterChips = useMemo<PropertyListFilterChip[]>(() => {
+    const chips: PropertyListFilterChip[] = [];
+    const add = (key: keyof typeof emptyFilters, label: string) => chips.push({
+      key,
+      label,
+      onRemove: () => setAppliedFilters((current) => ({ ...current, [key]: emptyFilters[key] }))
+    });
+    if (appliedFilters.keyword) add("keyword", `关键词：${appliedFilters.keyword}`);
+    if (appliedFilters.parkTenantId) add("parkTenantId", `租户：${parkTenants.find((item) => item.id === appliedFilters.parkTenantId)?.companyName ?? "已选"}`);
+    if (appliedFilters.contractId) add("contractId", `合同：${contracts.find((item) => item.id === appliedFilters.contractId)?.contractCode ?? "已选"}`);
+    if (appliedFilters.feeType) add("feeType", `费用：${dictLabel("leasing_fee_type", appliedFilters.feeType, dicts)}`);
+    if (appliedFilters.status) add("status", `状态：${dictLabel("leasing_receivable_status", appliedFilters.status, dicts)}`);
+    if (appliedFilters.invoiceStatus) add("invoiceStatus", `开票：${dictLabel("leasing_invoice_status", appliedFilters.invoiceStatus, dicts)}`);
+    if (appliedFilters.dueStart) add("dueStart", `应收日起：${appliedFilters.dueStart}`);
+    if (appliedFilters.dueEnd) add("dueEnd", `应收日止：${appliedFilters.dueEnd}`);
+    if (appliedFilters.overdueOnly) add("overdueOnly", "仅看逾期");
+    return chips;
+  }, [appliedFilters, contracts, dicts, parkTenants]);
 
   const loadDicts = useCallback(async () => {
     const codes = ["leasing_fee_type", "leasing_receivable_status", "leasing_invoice_status"];
@@ -407,13 +452,13 @@ export default function LeasingReceivablesPage() {
   }
 
   return (
-    <div className="page-container">
-      <section className="page-header">
-        <div className="header-title">
-          <strong>应收账单</strong>
-          <span>承接合同、回款、欠费、开票和租户 360 财务视图的基础台账</span>
-        </div>
-        <div className="page-actions">
+    <>
+      <PropertyListShell
+        eyebrow="招商租赁"
+        title="应收账单"
+        description="承接合同、回款、欠费、开票和租户 360 财务视图的基础台账"
+        actions={(
+          <>
           <button className="primary-button" type="button" onClick={() => load(pageData.page)} disabled={loading}>
             <RefreshCw size={16} /> 刷新
           </button>
@@ -427,11 +472,18 @@ export default function LeasingReceivablesPage() {
               <Plus size={16} /> 新增应收
             </button>
           ) : null}
-        </div>
-      </section>
-
-      <section className="filter-bar">
-        <div className="system-grid-three">
+          </>
+        )}
+        filtersOpen={filtersOpen}
+        onFiltersOpenChange={setFiltersOpen}
+        onApplyFilters={() => setAppliedFilters({ ...filters })}
+        onResetFilters={() => {
+          setFilters({ ...emptyFilters });
+          setAppliedFilters({ ...emptyFilters });
+        }}
+        appliedFilterChips={filterChips}
+        filters={(
+          <div className="system-grid-three">
           <label className="field">
             <span>关键词</span>
             <input value={filters.keyword} onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))} placeholder="单号、合同、租户" />
@@ -496,62 +548,28 @@ export default function LeasingReceivablesPage() {
               <option value="1">仅看逾期</option>
             </select>
           </label>
-        </div>
-        <div className="filter-actions">
-          <button className="primary-button" type="button" onClick={() => load(1)}>
-            <Search size={16} /> 查询
-          </button>
-        </div>
-      </section>
-
-      <Card >
+          </div>
+        )}
+        summary={loading ? "应收台账 · 加载中" : "应收台账"}
+        pagination={{
+          page: pageData.page,
+          totalPages: Math.max(1, Math.ceil(pageData.total / pageData.page_size)),
+          total: pageData.total,
+          onPage: (page) => void load(page)
+        }}
+        emptyState={pageData.items.length === 0 && !loading ? <div className="empty-state">暂无应收账单</div> : undefined}
+      >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         {generationResult ? <GenerationResultTable result={generationResult} dicts={dicts} /> : null}
-        <div className="system-toolbar">
-          <span className="muted-text">共 {pageData.total} 条</span>
-          <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
-        </div>
-        <div className="table-scroll">
-          <DataTable >
-            <thead>
-              <tr>
-                <th>应收单号</th>
-                <th>租户企业</th>
-                <th>合同编号</th>
-                <th>费用类型</th>
-                <th>账期</th>
-                <th>应收日</th>
-                <th>应收金额</th>
-                <th>已收金额</th>
-                <th>豁免金额</th>
-                <th>未收金额</th>
-                <th>滞纳金</th>
-                <th>开票状态</th>
-                <th>应收状态</th>
-                <th>逾期天数</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageData.items.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.arCode}</td>
-                  <td>{row.parkTenant?.companyName ?? "-"}</td>
-                  <td>{row.contract?.contractCode ?? "-"}</td>
-                  <td>{dictLabel("leasing_fee_type", row.feeType, dicts)}</td>
-                  <td>{row.periodStart} 至 {row.periodEnd}</td>
-                  <td>{row.dueDate}</td>
-                  <td>{formatFieldAmount(row.amountDue, "amountDue", canViewAmountDue, authUser)}</td>
-                  <td>{formatFieldAmount(row.amountPaid, "amountPaid", canViewAmountPaid, authUser)}</td>
-                  <td>{formatFieldAmount(row.amountWaived, "amountWaived", canViewAmountWaived, authUser)}</td>
-                  <td>{formatFieldAmount(row.amountRemain, "amountRemain", canViewAmountRemain, authUser)}</td>
-                  <td>{formatFieldAmount(row.lateFee, "lateFee", canViewLateFee, authUser)}</td>
-                  <td><StatusPill dictCode="leasing_invoice_status" value={row.invoiceStatus} dicts={dicts} /></td>
-                  <td><StatusPill dictCode="leasing_receivable_status" value={row.status} dicts={dicts} /></td>
-                  <td>{row.overdueDays}</td>
-                  <td>
-                    <span className="data-table-actions">
+        <PropertyResponsiveRecords
+          items={pageData.items}
+          fields={recordFields}
+          getKey={(row) => row.id}
+          getTitle={(row) => row.arCode}
+          label="应收账单"
+          renderActions={(row) => (
+            <>
                       {canUpdate ? (
                         <button className="primary-button" type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={14} /> 编辑
@@ -572,15 +590,10 @@ export default function LeasingReceivablesPage() {
                           <Trash2 size={14} /> 删除
                         </button>
                       ) : null}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        </div>
-        {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无应收账单</div> : null}
-      </Card>
+            </>
+          )}
+        />
+      </PropertyListShell>
 
       {batchDrawerOpen ? (
         <Drawer size="md" onClose={() => setBatchDrawerOpen(false)}>
@@ -758,7 +771,7 @@ export default function LeasingReceivablesPage() {
           <ReceivableStatusTimeline logs={statusLogs} loading={statusLogLoading} dicts={dicts} />
         </Drawer>
       ) : null}
-    </div>
+    </>
   );
 }
 

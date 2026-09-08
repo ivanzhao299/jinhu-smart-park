@@ -1,5 +1,3 @@
-import { Card } from "@jinhu/ui";
-import { Search } from "lucide-react";
 import type { BuildingRow, DictItemRow, FloorRow, UnitFilters, UnitParkOption } from "../types";
 import { DictSelect, NumberField, SelectField, TextField } from "./UnitPageFields";
 
@@ -12,8 +10,7 @@ export function UnitsToolbar({
   visibleFloors,
   dicts,
   onListParkChange,
-  onFilterChange,
-  onSubmit
+  onFilterChange
 }: {
   filters: UnitFilters;
   listParkId: string;
@@ -24,12 +21,9 @@ export function UnitsToolbar({
   dicts: Record<string, DictItemRow[]>;
   onListParkChange: (parkId: string) => void;
   onFilterChange: (key: keyof UnitFilters, value: string) => void;
-  onSubmit: () => void;
 }) {
   return (
-    <Card >
-      <form className="form-stack" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-        <div className="dashboard-grid">
+    <div className="dashboard-grid">
           <SelectField label="查看园区" value={listParkId} disabled={listParkSwitching} onChange={onListParkChange}>
             {listParkOptions.map((park) => (
               <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} ` : ""}{park.park_name}</option>
@@ -53,12 +47,6 @@ export function UnitsToolbar({
           <TextField label="关键词" value={filters.keyword} placeholder="房源编码或名称" onChange={(value) => onFilterChange("keyword", value)} />
           <NumberField label="最小面积" value={filters.minArea} step="0.01" onChange={(value) => onFilterChange("minArea", value)} />
           <NumberField label="最大面积" value={filters.maxArea} step="0.01" onChange={(value) => onFilterChange("maxArea", value)} />
-        </div>
-        <button className="primary-button" type="submit">
-          <Search size={16} />
-          查询
-        </button>
-      </form>
-    </Card>
+    </div>
   );
 }
