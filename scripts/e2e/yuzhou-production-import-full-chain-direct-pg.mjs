@@ -4,8 +4,13 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { realpathSync } from "node:fs";
 
-import pg from "pg";
+const apiRequire = createRequire(new URL("../../apps/api/package.json", import.meta.url));
+const workspaceRoot = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
+assert.ok(realpathSync(apiRequire.resolve("pg")).startsWith(`${workspaceRoot}/`), "PostgreSQL dependency must belong to this worktree");
+const pg = apiRequire("pg");
 
 import {
   DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT,
@@ -69,8 +74,8 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
   const sharedDate = "2026-08-29";
   const timestamp = "2026-08-29T09:10:11.000";
   const values = {
-    sys_org: { org_code: `ORG-${suffix}`, org_name: `Lab Org ${suffix}`, org_type: "department", sort_order: 1, status: "enabled", remark: null },
-    hr_position: { position_code: `POS-${suffix}`, position_name: `Lab Position ${suffix}`, job_family: null, job_level: "L1", headcount_limit: 2, status: "enabled", remark: null },
+    sys_org: { org_code: `ORG-${suffix}`, org_name: `Lab Org ${suffix}`, org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: 101 },
+    hr_position: { position_code: `POS-${suffix}`, position_name: `Lab Position ${suffix}`, job_family: null, job_level: "L1", headcount_limit: 2, status: "enabled", remark: null, authority: "权限说明", legacy_source_id: 102, legacy_upto_code: "ROOT", position_manual: "  ", qualification: null, responsibilities: "岗位职责" },
     hr_employee: { employee_code: `EMP-${suffix}`, full_name: `Lab Employee ${suffix}`, employment_type: "full_time", employment_status: "active", hire_date: sharedDate, probation_end_date: null, departure_date: null, work_location: "Lab", work_mobile: null, work_email: null, remark: null },
     hr_employment_event: { event_no: `EVT-${suffix}`, event_type: "onboard", effective_date: sharedDate, before_snapshot: {}, after_snapshot: { state: "active" }, reason: "legacy import", status: "effective", legacy_event_no: `LEG-EVT-${suffix}`, legacy_event_type: "入职", legacy_state: "已生效", source_effective_at: timestamp, migration_decision: "accepted", is_historical_import: true, remark: null },
     hr_contract_type: { type_code: `TYPE-${suffix}`, type_name: `Lab Type ${suffix}`, status: "enabled", is_historical_import: true, remark: null },
@@ -156,7 +161,7 @@ function makeFixture(iteration, now, employeeOptions = {}) {
   };
 
   const orgBeforePayload = payloadFor("sys_org", `${suffix}-before`, H("unused"), protectedFileId);
-  const orgAfterPayload = { ...orgBeforePayload, org_name: `Lab Org ${suffix} merged` };
+  const orgAfterPayload = { ...orgBeforePayload, org_name: `Lab Org ${suffix} merged`, contact_phone: "  ", planned_headcount: 7, legacy_source_id: 202 };
   const org = add("sys_org", "scope", [], "merge", orgAfterPayload);
   org.expectedTargetBeforeSha256 = computeProductionImportTargetCanonicalHash("sys_org", targetScope, orgBeforePayload, { parent_id: null });
   org.expectedTargetVersionBefore = 3;
@@ -254,8 +259,8 @@ function makeFixture(iteration, now, employeeOptions = {}) {
 
 async function seedExisting(client, fixture) {
   await client.query(
-    `INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark,version)
-     VALUES($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,3)`,
+    `INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark,contact_phone,planned_headcount,legacy_source_id,version)
+     VALUES($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,3)`,
     [fixture.org.targetId, fixture.targetScope.tenantId, fixture.targetScope.parkId, ...Object.values(fixture.orgBeforePayload)],
   );
   const payload = fixture.records.find(record => record.plannedTargetTable === "hr_contract_type").payload;
@@ -332,6 +337,8 @@ async function verifyRolledBack(client, fixture) {
   }
   const org = await client.query("SELECT org_name,version FROM sys_org WHERE id=$1", [fixture.org.targetId]);
   assert.deepEqual(org.rows, [{ org_name: fixture.orgBeforePayload.org_name, version: 3 }]);
+  const restored = await client.query("SELECT contact_phone,planned_headcount,legacy_source_id FROM sys_org WHERE id=$1", [fixture.org.targetId]);
+  assert.deepEqual(restored.rows, [{ contact_phone: fixture.orgBeforePayload.contact_phone, planned_headcount: fixture.orgBeforePayload.planned_headcount, legacy_source_id: fixture.orgBeforePayload.legacy_source_id }]);
   const preserved = await client.query("SELECT count(*)::int AS count,version FROM hr_contract_type WHERE id=$1 GROUP BY version", [fixture.contractType.targetId]);
   assert.deepEqual(preserved.rows, [{ count: 1, version: 1 }]);
   const residual = await client.query(

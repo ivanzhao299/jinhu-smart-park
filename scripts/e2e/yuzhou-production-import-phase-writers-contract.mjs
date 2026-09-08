@@ -33,7 +33,7 @@ function uuid(index) {
 }
 
 function orgPayload(index, name = `Org ${index}`) {
-  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null };
+  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: index };
 }
 
 function orgRecord(index, disposition = "insert", payload = orgPayload(index), extras = {}) {
@@ -141,6 +141,13 @@ test("uses 500-2000 row parameterized JSON batches instead of one query per reco
   assert.equal(tx.calls.filter(call => call.sql.includes("hr-prod-phase:bulk-map-receipt")).length, 2);
   assert(tx.calls.every(call => Array.isArray(call.parameters)));
   assert(tx.calls.length < 15);
+  const insert = tx.calls.find(call => call.sql.includes("hr-prod-phase:bulk-insert:sys_org"));
+  const written = JSON.parse(insert.parameters[0]);
+  assert.equal(written[0].contact_phone, "");
+  assert.equal(written[0].planned_headcount, 0);
+  assert.equal(written[0].legacy_source_id, 1);
+  assert.match(insert.sql, /planned_headcount integer/);
+  assert.match(insert.sql, /legacy_source_id integer/);
 });
 
 test("rejects unsafe batch sizes, unknown options, unknown tables and unknown payload columns before SQL", async () => {
@@ -215,7 +222,7 @@ test("merge and skip lock in bulk and enforce both canonical hash and version CA
 });
 
 test("dependencies resolve only through exact active maps from this operation and missing dependencies fail before business writes", async () => {
-  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null };
+  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null, authority: null, legacy_source_id: null, legacy_upto_code: null, position_manual: null, qualification: null, responsibilities: null };
   const sourceIdentitySha256 = H("position");
   const ownerIdentity = H("org-owner");
   const record = {
