@@ -682,8 +682,11 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       const response = message.params?.response;
       if (response?.url && /^https?:/u.test(response.url)) {
         const request = pendingRequests.get(message.params?.requestId);
-        if (response.status >= 200 && response.status < 400) {
-          successfulRequestStarts.set(response.url, request?.startSequence ?? 0);
+        if (response.status >= 200 && response.status < 400 && request) {
+          successfulRequestStarts.set(request.identity, Math.max(
+            successfulRequestStarts.get(request.identity) ?? 0,
+            request.startSequence
+          ));
         }
         network.push({
           resource_type: message.params?.type ?? "Other",
@@ -696,9 +699,14 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       }
     }
     if (message.method === "Network.requestWillBeSent") {
-      const url = message.params?.request?.url;
+      const request = message.params?.request;
+      const url = request?.url;
       if (url && /^https?:/u.test(url)) {
-        pendingRequests.set(message.params.requestId, { url, startSequence: ++networkSequence });
+        pendingRequests.set(message.params.requestId, {
+          identity: `${request.method ?? "GET"} ${url}`,
+          url,
+          startSequence: ++networkSequence
+        });
       }
     }
     if (message.method === "Network.loadingFinished") pendingRequests.delete(message.params?.requestId);
@@ -802,7 +810,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
       && !(entry.status === "transport_failed" && entry.error === "net::ERR_ABORTED"
-        && successfulRequestStarts.get(failedRequestIdentities.get(entry)?.url)
+        && successfulRequestStarts.get(failedRequestIdentities.get(entry)?.identity)
           > failedRequestIdentities.get(entry)?.startSequence)
     );
     const hardFailure = renderFailure

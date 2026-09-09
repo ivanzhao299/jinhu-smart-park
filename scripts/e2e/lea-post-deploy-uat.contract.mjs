@@ -115,7 +115,9 @@ test("browser UAT redacts user identity and requires picker echo plus anonymous 
   assert.match(browserRunner, /location\.origin === \$\{JSON\.stringify\(new URL\(webBase\)\.origin\)\}/u);
   assert.match(browserRunner, /parsed\.pathname.*parsed\.search/u);
   assert.match(browserRunner, /entry\.error === "net::ERR_ABORTED"/u);
-  assert.match(browserRunner, /successfulRequestStarts\.get\(failedRequestIdentities\.get\(entry\)\?\.url\)/u);
+  assert.match(browserRunner, /identity: `\$\{request\.method \?\? "GET"\} \$\{url\}`/u);
+  assert.match(browserRunner, /Math\.max\(/u);
+  assert.match(browserRunner, /successfulRequestStarts\.get\(failedRequestIdentities\.get\(entry\)\?\.identity\)/u);
   assert.match(browserRunner, /> failedRequestIdentities\.get\(entry\)\?\.startSequence/u);
   assert.match(browserRunner, /routeDigest = sha256\(path\)\.slice\(0, 16\)/u);
   assert.match(browserRunner, /query_sha256=\$\{sha256\(parsed\.search\)\.slice\(0, 16\)\}/u);
