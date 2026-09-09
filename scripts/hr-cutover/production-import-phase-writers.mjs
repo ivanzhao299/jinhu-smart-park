@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeProductionT1LocalTimestamp } from "./production-t1-local-timestamp.mjs";
+import { computeProductionImportTouchedPhaseState, computeProductionImportTouchedPhaseBefore } from "./production-import-phase-state.mjs";
 
 import { ProductionImportExecutionError, computeProductionImportPayloadHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -70,7 +71,7 @@ function sqlType(table, rule, field) {
   return "text";
 }
 
-function scopeType(_table) {
+function scopeType() {
   // All current tenant/park scope columns, including sys_org, are varchar.
   return "text";
 }
@@ -306,21 +307,22 @@ function databaseWriteRow(row, targetScope, { expectedVersion = false } = {}) {
   };
 }
 
-async function selectAndVerifyExisting(tx, table, rule, rows, targetScope) {
+async function selectAndVerifyExisting(tx, table, rule, rows, targetScope, afterWrite = false, readOnly = false) {
   const storage = tableStorage(table);
   const columns = [...new Set(["id", ...(storage.versioned ? ["version"] : []), ...rule.fieldWhitelist, ...rule.derivedFields])];
   const projections = columns.map(column => table === "hr_employment_event" && column === "source_effective_at"
-    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at` : column);
+    ? `to_char(source_effective_at,'YYYY-MM-DD"T"HH24:MI:SS.US')||'+08:00' AS source_effective_at`
+    : readOnly && (rule.dateFields.includes(column) || rule.decimalStringFields.includes(column)) ? `${column}::text AS ${column}` : column);
   const result = rowsOf(await tx.query(
-    `/* hr-prod-phase:lock-existing */
+    `/* hr-prod-phase:lock-existing */${afterWrite ? " /* hr-prod-phase:verify-after */" : ""}
      SELECT ${projections.join(",")}${storage.versioned ? "" : ",1::integer AS version"}
      FROM ${table}
      WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[])${storage.softDelete ? " AND is_deleted=false" : ""}
-     FOR UPDATE`,
+     ${readOnly ? "" : "FOR UPDATE"}`,
     [targetScope.tenantId, targetScope.parkId, rows.map(row => row.record.targetId)],
   ), `lock ${table}`);
   const byId = new Map(result.map(row => [String(row.id), row]));
-  if (byId.size !== rows.length) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_MATCH_REQUIRED", `${table} target count differs`);
+  if (result.length !== rows.length || byId.size !== rows.length) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_MATCH_REQUIRED", `${table} target count differs`);
   for (const row of rows) {
     const current = byId.get(row.record.targetId);
     if (!current || Number(current.version) !== row.record.expectedTargetVersionBefore) fail("PRODUCTION_IMPORT_TARGET_VERSION_PRECONDITION_FAILED", `${table}.${row.record.targetId}`);
@@ -330,6 +332,14 @@ async function selectAndVerifyExisting(tx, table, rule, rows, targetScope) {
     if (observed !== row.record.expectedTargetBeforeSha256) fail("PRODUCTION_IMPORT_CAS_PRECONDITION_FAILED", `${table}.${row.record.targetId}`);
     row.targetBefore = { payload, derivedFields: derived, version: Number(current.version), canonicalSha256: observed };
   }
+}
+
+/** Same canonical/CAS checks as the writer, without row locks in READ ONLY. */
+export async function readProductionImportBaselineRows({ tx, table, records, targetScope }) {
+  if (!Object.hasOwn(MODEL.targetTables, table) || !Array.isArray(records) || records.some(r => r.targetTable !== table || !["merge", "skip_approved"].includes(r.disposition))) fail("PRODUCTION_IMPORT_BASELINE_INPUT_INVALID", "invalid baseline selection");
+  const rows = records.map(record => ({ record }));
+  await selectAndVerifyExisting(tx, table, MODEL.targetTables[table], rows, targetScope, false, true);
+  return rows.map(row => ({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version, payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields }));
 }
 
 async function insertRows(tx, table, rule, rows, targetScope, batchSize) {
@@ -517,6 +527,24 @@ async function writePhase(phaseName, input, options) {
     if (input.payloadBundle.targetScope && ["tenantId", "parkId", "scopeSha256"].some(key => input.payloadBundle.targetScope[key] !== input.targetScope[key])) fail("LAB_IMPORT_SCOPE_DENIED", "payload scope differs");
     await validateLabTarget(input.tx, input.targetScope, options.lab);
   }
+  if (!options.lab) {
+    const present = [], absent = [];
+    for (const table of [...new Set(rows.map(row => row.record.plannedTargetTable))].sort()) {
+      const inserts = rows.filter(row => row.record.plannedTargetTable === table && row.record.disposition === "insert");
+      for (const part of chunks(inserts, options.batchSize)) {
+        // Include soft-deleted rows: any existing ID prevents a new insert.
+        const found = rowsOf(await input.tx.query(`/* hr-prod-phase:before-absent */ SELECT id FROM ${table} WHERE id=ANY($1::uuid[]) FOR UPDATE`, [part.map(row => row.record.targetId)]), "insert absence");
+        if (found.length) fail("PRODUCTION_IMPORT_INSERT_TARGET_EXISTS", table);
+        absent.push(...part.map(row => ({ targetTable: table, targetId: row.record.targetId })));
+      }
+      const existing = rows.filter(row => row.record.plannedTargetTable === table && ["merge", "skip_approved"].includes(row.record.disposition));
+      for (const part of chunks(existing, options.batchSize)) {
+        await selectAndVerifyExisting(input.tx, table, MODEL.targetTables[table], part, input.targetScope);
+        present.push(...part.map(row => ({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version, payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields })));
+      }
+    }
+    if (computeProductionImportTouchedPhaseBefore({ phase: phaseName, targetScope: input.targetScope, rows: present, absent }) !== input.phase.beforeCanonicalSha256) fail("PRODUCTION_IMPORT_PHASE_BEFORE_MISMATCH", phaseName);
+  }
   const batchId = options.lab ? await createLabBatch(input.tx, phaseName, options.lab) : await createMigrationBatch(input.tx, input.operationId, phaseName);
   const businessIdentities = new Set();
   for (const layer of topologicalLayers(rows, phaseName)) {
@@ -529,6 +557,18 @@ async function writePhase(phaseName, input, options) {
       await insertLabMaps(input.tx, batchId, layer, options.batchSize);
     } else await insertMapsAndReceipts(input.tx, input.operationId, phaseName, batchId, layer, options.batchSize);
   }
+  const verifiedAfter = [];
+  for (const table of new Set(rows.map(row => row.record.plannedTargetTable))) {
+    const touched = rows.filter(row => row.record.plannedTargetTable === table && row.record.disposition !== "quarantine");
+    for (const part of chunks(touched, options.batchSize)) {
+      const copies = part.map(row => ({ ...row, record: { ...row.record,
+        expectedTargetBeforeSha256: row.record.expectedTargetAfterSha256, expectedTargetVersionBefore: row.record.targetVersionAfter } }));
+      await selectAndVerifyExisting(input.tx, table, MODEL.targetTables[table], copies, input.targetScope, true);
+      for (const row of copies) verifiedAfter.push({ targetTable: table, targetId: row.record.targetId, version: row.targetBefore.version,
+        payload: row.targetBefore.payload, derivedFields: row.targetBefore.derivedFields });
+    }
+  }
+  const afterCanonicalSha256 = computeProductionImportTouchedPhaseState({ phase: phaseName, targetScope: input.targetScope, rows: verifiedAfter });
   const results = await encryptResults(rows, { operationId: input.operationId, phaseName, targetScope: structuredClone(input.targetScope) }, options.cryptoProvider);
   await finishBatch(input.tx, batchId, rows, phaseName);
   return {
@@ -536,7 +576,7 @@ async function writePhase(phaseName, input, options) {
     payloadBundleSha256: input.phase.payloadBundleSha256,
     canonicalizationVersion: input.phase.canonicalizationVersion,
     targetScopeSha256: input.targetScope.scopeSha256,
-    afterCanonicalSha256: input.phase.expectedAfterCanonicalSha256,
+    afterCanonicalSha256,
     records: results,
     ...(options.lab ? { batchId, productionImport: "HOLD" } : {}),
   };

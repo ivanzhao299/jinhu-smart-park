@@ -883,6 +883,20 @@ test("explicit execution probes exact binding then invokes the existing sealed w
   assert.equal(JSON.stringify(result).includes("fixture-password"), false);
 });
 
+function assertNoAlternateExecutionPath(source) {
+  // Dependency pins are inert data, not imports. Exclude only this exact
+  // declaration after proving every element is a fixed repository-file literal.
+  const blocks = [...source.matchAll(/^export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object\.freeze\(\[([^\]]*)\]\);$/gmu)];
+  assert.equal(blocks.length, 1, "one literal dependency declaration required");
+  const block = blocks[0];
+  assert.match(block[1], /^(?:\s*"(?:scripts|database)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:mjs|json|sql)",)+\s*$/u);
+  const paths = JSON.parse(`[${block[1].replace(/,\s*$/u, "")}]`);
+  assert.deepEqual(paths, [...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS]);
+  assert.equal(new Set(paths).size, paths.length);
+  const executableSource = source.slice(0, block.index) + source.slice(block.index + block[0].length);
+  assert.doesNotMatch(executableSource, /production-import-real-artifact-bridge|full-domain-lifecycle|run-final-rehearsal|docker|child_process.*spawn|\bspawn(?:Sync)?\b|\beval\s*\(|\bnew\s+Function\b/u);
+}
+
 test("entrypoint source has no alternate contract, plugin, shell, or lab execution path", () => {
   const source = readFileSync(new URL("../hr-cutover/execute-production-import.mjs", import.meta.url), "utf8");
   assert.match(source, /DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT/u);
@@ -890,8 +904,25 @@ test("entrypoint source has no alternate contract, plugin, shell, or lab executi
   assert.match(source, /createProductionImportPostgresAdapter/u);
   assert.match(source, /createProductionImportPhaseWriters/u);
   assert.match(source, /ls-files[\s\S]*diff[\s\S]*--cached[\s\S]*rev-parse/u);
-  assert.doesNotMatch(source, /production-import-real-artifact-bridge|full-domain-lifecycle|run-final-rehearsal|docker|child_process.*spawn|eval\(|new Function/u);
+  assertNoAlternateExecutionPath(source);
   assert.ok(ProductionImportEntrypointError);
+});
+
+test("dependency literal exclusion cannot hide imports, rehearsal, spawn or evaluated code", () => {
+  const source = readFileSync(new URL("../hr-cutover/execute-production-import.mjs", import.meta.url), "utf8");
+  for (const executable of [
+    'import bridge from "./production-import-real-artifact-bridge.mjs";',
+    'await import("./production-import-real-artifact-bridge.mjs");',
+    'await import("./run-final-rehearsal.mjs");',
+    'import { spawn } from "node:child_process";',
+    'spawn("anything", []);',
+    'eval ("anything");',
+    'new Function("anything");',
+  ]) assert.throws(() => assertNoAlternateExecutionPath(`${source}\n${executable}`));
+  for (const element of ['...dynamicPaths,', 'getDependencies(),', '"scripts/hr-cutover/production-import-real-artifact-bridge.mjs" + suffix,', 'await import("./production-import-real-artifact-bridge.mjs"),']) {
+    const declaration = 'export const PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS = Object.freeze([';
+    assert.throws(() => assertNoAlternateExecutionPath(source.replace(declaration, `${declaration}\n${element}`)));
+  }
 });
 
 test("synthetic writer database receipt hashes survive CLI aggregation while wrong identity or extra fields fail", async () => {

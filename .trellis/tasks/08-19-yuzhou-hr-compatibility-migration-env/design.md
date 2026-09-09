@@ -120,6 +120,89 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 只读 global ID census baseline 通道（2026-09-09）
+
+仅 insert/quarantine 可使用固定 16 表全局 ID 哈希 census；merge/skip 仍走原直连
+collector。同一 REPEATABLE READ READ ONLY 快照证明表完整、无 RLS/继承过滤，
+含其他 scope 与软删除 ID；不读取业务字段、不关闭 RLS。固定工作流输出完整有界
+哈希集合、计数、排序摘要及实际身份/时效，现有 snapshot 聚合不能替代它。
+本地通过 GitHub API 验证固定仓库/workflow/run/attempt/head/artifact digest 并下载
+原 artifact 后，绑定 C/S/M、目标和输入文件，逐 ID 证明不相交，才生成原 touched
+baseline 与 receipt-last 完成标记。不接受用户 JSON 自报工作流成功，不延长 TTL。
+此证据只是快照；执行时的实际 absence/CAS、授权和其他生产门禁不变。
+
+### 私有 plan 两阶段物化（2026-09-09）
+
+T3 provenance 材料器识别已经受 manifest 约束的 person_insure 可选
+legacyCompatibility，严格与 production-t3-field-projection 保持相同的六类
+legacyFlags、七个布尔 fieldPresence 与 items flag 一致性合同。其他域不允许此键，
+不得接受任意额外字段。provenance 输出仍只有原 source/child 哈希，不删除或改写
+stage 兼容对象；下游字段投影继续原样保留对象。两模块存在 provenance 依赖方向，
+本次不引入反向循环 import，以共同的合成正负矩阵冻结兼容验证一致性。
+
+full-chain 独立验收读取 timestamp-without-time-zone 不经过 JS Date：T1 显式
+to_char 微秒 + 固定 +08:00 合同标签；contract_change.signed_at 使用既有毫秒
+wall-clock 格式。日期按 SQL text 读取，普通 timestamptz 仍按 UTC instant 规范化。
+独立验收从实际字段重算 canonical，不复用 writer 返回摘要；T1 合成数据包含非零
+微秒以证明精度保留，损失精度的 Date 值不得作为 T1 readback 证据。
+
+PG full-chain 合成 fixture 的阶段 before/after 必须由正式 phase builder 对
+已知合成 seed baseline 与目标投影计算，不再使用 label hash。seed 后实际按 ID
+回读 baseline、证明 insert 缺席并重新计算比较；只有这些检查通过才进入导入。
+绩效链复用同一 fixture，授权及 sealed hash 在阶段摘要确定后绑定。schema-free
+fixture 测试不等于真实 PostgreSQL 测试，后者只允许独立合成 Release Smoke 环境。
+阶段状态规范化仅对既有 SQL bigint 列 hr_contract_legacy_evidence.size_bytes 使用
+有界十进制整数文本，保留 9223372036854775806，不经 Number 降精度；其余 integer
+字段仍要求 safe integer，空值仍遵守原 nullable 合同。该修复不修改 SQL 或模型门禁。
+
+传输身份必须来自实际连接：TCP 为非空 address/合法 port，Unix socket 仅允许
+address=null 且 port=null。collector 对 null/null 使用诊断脚本相同的空串参与
+identity hash；不将 null 转成 0 或字面 "null"。Unix socket 通过显式 pg host 目录
+连接，不在 TCP 失败时回退。本设计支持该形状，不证明当前生产实际使用哪种传输；
+实际 database/user/OID/scope/transport 与固定 identity 仍须完全一致。
+
+定向 baseline collector 使用单连接 REPEATABLE READ READ ONLY 事务，显式 statement/
+idle timeout 与业务时区；目标 probe 和全部分批 ID 查询位于同一快照。目标身份按现有
+snapshot 的 database/user/address/port/oid/tenant/park 与 0x1f 分隔算法重算，不把
+config hash 当观察结果。insert 检查全局 ID（含软删/其他 scope）；merge/skip 复用
+writer 规范化及 canonical/version 核验，但不请求 FOR UPDATE。结束一律 ROLLBACK，
+只有成功结束只读事务后才允许输出 baseline 与 receipt。它不消除之后的目标漂移，
+生产 writer 仍在实际写事务重新验证。私有配置和输出不包含公开日志中的行或连接信息。
+
+draft 读取按原始字节 SHA 固定的 metadata、四阶段 payload/records 和独立
+touched baseline，复用 phase builder 计算摘要。baseline 必须绑定 C/S/M、目标身份、
+scope、观察时间，逐阶段列出实际 present rows 与已查询缺席的 insert IDs；现有
+全域 snapshot 聚合不能代替它。离线材料器验证这些输入的一致性，不宣称自己执行过 SQL。
+manifest 固定 unsigned plan 和所有输入摘要，不含授权或 sealed hash，避免循环。
+seal 重读原输入并重建 draft，对照原 manifest，再消费 manifest-bound authorization，
+由正式 sealed validator 验证授权、窗口及完整 record graph。没有授权时不生成占位签署。
+输出复用私有 receipt-last emitter：校验失败不写输出；IO 中断可能留下无完成回执的
+私有文件，必须失败关闭、保留审计，不把它们视为已封存包。CLI 不连接数据库，
+不证明输入文档签发者权限，不解除生产执行前的实时目标、备份及一次性消费门禁。
+
+### 阶段 after 摘要修复边界（2026-09-09）
+
+后续 before 修复采用独立域 `yuzhou-production-touched-phase-before-v1`：
+现存 merge/skip 行的 touched-state 摘要加上已证明缺席的 insert 表/ID 排序列表。
+生产 writer 在本阶段任何业务写入前锁定现存行、查询所有 insert IDs（包括软删除
+行），并比较 sealed before 摘要；SERIALIZABLE/唯一键负责缺席查询后的竞争。
+quarantine 不参与。Lab 没有生产 sealed before，保留其原有 CAS 和隔离检查。
+纯 phase builder 消费完整 baseline 行与 scope、payload、明确 dependency targets，
+产出 before/after 和 bundle descriptors，不造 baseline、授权、A/B 或最终 plan。
+
+`yuzhou-production-touched-phase-state-v1` 只覆盖本阶段非 quarantine 的
+insert/merge/skip_approved 目标行，不是 whole-scope snapshot。按目标表、目标 ID
+排序，包含 scope、phase、实际版本、所有模型白名单字段及派生外键；字段规范化
+复用正式 payload/SQL readback 规则，JSON key 顺序不影响摘要。quarantine 不存在
+业务目标，不加入摘要。每个目标仅出现一次，缺失/重复/版本或字段漂移拒绝。
+预期摘要从投影字段计算；实际摘要从同一事务按 ID 锁定读取并核验的业务行计算，
+不得将预期 hash 当作实际值。beforeCanonicalSha256 现在采用上述独立的
+`yuzhou-production-touched-phase-before-v1` 域，并在业务写入前验证；它与 after
+摘要不同，包含 insert 不存在标记。后续 sealed-plan producer 必须显式采用这两个域，
+旧 label/whole-scope hashes 不可替代。skip_approved 的行 before/after 摘要必须相同；
+纯 builder 拒绝改变字段的 skip 草案以及非数组 dependencyRefs。完整封存、授权及
+UUID/schema 校验仍由正式 sealed-plan validator 承担，不以本 builder 代替。
+
 - 选择全量历史工资在线只读快照，而不是只存外部归档：约 4.5 万行规模可控，能满足员工历史查询和审计。
 - 不在 T0 实现通用低代码工资引擎：先实现可审计的受限 DSL 和人工复核，降低任意表达式风险。
 - 不要求 SQL Server 成为长期生产依赖：它只存在于隔离迁移实验室。

@@ -41,6 +41,24 @@ function adapterFor(client, overrides = {}) {
   return createProductionImportPostgresAdapter({ client, binding: binding(), ownership: "borrowed", ...overrides });
 }
 
+test("Unix socket binding requires exact null/null observation, not zero or TCP", async () => {
+  const unix = binding(); unix.serverIdentity.address = null; unix.serverIdentity.port = null;
+  const database = adapterFor(fakeClient(async () => ({ rows: [probeRow({ server_address: null, server_port: null })] })), { binding: unix });
+  const observed = await database.probeTarget({ targetIdentitySha256: unix.targetIdentitySha256, targetScope: unix.targetScope });
+  assert.deepEqual(observed.serverIdentity, unix.serverIdentity);
+  for (const row of [probeRow(), probeRow({ server_address: null, server_port: 0 }), probeRow({ server_address: null, server_port: "" }), probeRow({ server_address: "", server_port: null })]) {
+    const wrong = adapterFor(fakeClient(async () => ({ rows: [row] })), { binding: unix });
+    await assert.rejects(() => wrong.probeTarget({ targetIdentitySha256: unix.targetIdentitySha256, targetScope: unix.targetScope }), e => e.code === "PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH");
+  }
+});
+
+test("mixed null TCP pairs and empty/zero transport bindings are invalid", () => {
+  for (const [address, port] of [[null, 5432], ["127.0.0.1", null], ["", null], [null, 0], ["", 5432], ["127.0.0.1", 0]]) {
+    const value = binding(); value.serverIdentity = { address, port, databaseOid: "12345" };
+    assert.throws(() => adapterFor(fakeClient(), { binding: value }), e => e.code === "PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID");
+  }
+});
+
 test("executes the writer transaction contract with a fixed SERIALIZABLE boundary and local audit purpose", async () => {
   const client = fakeClient();
   const database = adapterFor(client);

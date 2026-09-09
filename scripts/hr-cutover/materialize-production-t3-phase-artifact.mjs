@@ -109,9 +109,25 @@ export function buildProductionT3AttendanceSymbolProvenance(symbol) {
 }
 
 function validateBaseRow(row, sourceTable, extraKey) {
-  exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source", extraKey], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", sourceTable);
+  const hasCompatibility = plain(row) && Object.hasOwn(row, "legacyCompatibility");
+  exact(row, ["sourceTable", "sourceKey", "sourceIdentitySha256", "sourceRowSha256", "source", extraKey, ...(hasCompatibility && sourceTable === "dbo.person_insure" ? ["legacyCompatibility"] : [])], "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", sourceTable);
   if (row.sourceTable !== sourceTable || typeof row.sourceKey !== "string" || row.sourceKey.trim() === "" || !SHA256.test(row.sourceIdentitySha256 ?? "") || !SHA256.test(row.sourceRowSha256 ?? "") || !plain(row.source) || !Array.isArray(row[extraKey])) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", sourceTable);
   if (row.sourceIdentitySha256 !== sha256(`${sourceTable}\0${row.sourceKey}`)) fail("PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID", sourceTable);
+  if (hasCompatibility) {
+    // Match verifyProductionT3StagedRecord's existing compatibility contract.
+    // That projector imports this module's provenance functions: do not create
+    // a reverse module cycle merely to validate this optional nested object.
+    const kinds = ["oldage", "remedy", "losework", "fund", "wound", "bear"];
+    const code = "PRODUCTION_IMPORT_T3_ARTIFACT_STAGE_INVALID";
+    exact(row.legacyCompatibility, ["legacyFlags", "fieldPresence"], code, "insurance compatibility");
+    exact(row.legacyCompatibility.legacyFlags, kinds, code, "insurance compatibility flags");
+    exact(row.legacyCompatibility.fieldPresence, ["insureaccount", "inpatient", "hurt", "insure", "insureEmployer", "insureEmployee", "insureSupplement"], code, "insurance compatibility presence");
+    const scalar = value => value === null || typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
+    if (Object.values(row.legacyCompatibility.legacyFlags).some(value => !scalar(value))
+      || Object.values(row.legacyCompatibility.fieldPresence).some(value => typeof value !== "boolean")
+      || row.items.length !== kinds.length || new Set(row.items.map(item => plain(item) ? item.kind : undefined)).size !== kinds.length
+      || row.items.some(item => !plain(item) || !kinds.includes(item.kind) || row.legacyCompatibility.legacyFlags[item.kind] !== item.legacyFlag)) fail(code, "insurance compatibility");
+  }
 }
 
 function readStage(stagingDir, sourceManifest) {
