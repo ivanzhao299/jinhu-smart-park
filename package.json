@@ -32,6 +32,7 @@
     "test:e2e:asset-projection-lifecycle-api": "node scripts/e2e/property-api-e2e-gate.mjs --suite asset-lifecycle",
     "test:e2e:shared-control-plane-api": "node scripts/e2e/property-api-e2e-gate.mjs --suite control-plane",
     "test:e2e:property-api-gate-contract": "node scripts/e2e/property-api-e2e-gate.contract.mjs",
+    "test:e2e:browser-uat-contract": "node scripts/e2e/lea-post-deploy-uat.contract.mjs",
     "test:e2e:property-canonical-domain-blueprint": "pnpm --filter @jinhu/shared build && node scripts/e2e/property-canonical-domain-blueprint.contract.mjs && node scripts/e2e/property-canonical-domain-blueprint.mutation.mjs",
     "safety:smoke:access": "node scripts/e2e/safety-module-access-smoke.mjs",
     "safety:fixtures:access": "node scripts/e2e/prepare-safety-access-smoke-fixtures.mjs",

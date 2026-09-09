@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -31,6 +32,11 @@ const pathPrefixes = parseListArg("--path-prefixes");
 const directPaths = parseListArg("--direct-paths");
 const expectForbidden = process.argv.includes("--expect-forbidden");
 const mobilePathPrefixes = parseListArg("--mobile-path-prefixes");
+const viewportMatrix = process.argv.includes("--viewport-matrix");
+const requiredRouteCount = Number(readArg("--require-route-count") ?? 0);
+const requiredCaseCount = Number(readArg("--require-case-count") ?? 0);
+const caseFileArg = readArg("--case-file");
+const caseFile = caseFileArg ? resolve(repoRoot, caseFileArg) : null;
 const evidenceDirArg = readArg("--evidence-dir");
 const evidenceDir = evidenceDirArg ? resolve(repoRoot, evidenceDirArg) : null;
 const runId = readArg("--run-id") ?? process.env.TEST_RUN_ID ?? null;
@@ -43,8 +49,21 @@ const failures = [];
 const warnings = [];
 const results = [];
 const screenshotManifest = [];
+let routeCases = [];
 
 async function main() {
+  try {
+    await run();
+  } catch (error) {
+    fail(`browser UAT harness failed: ${redactDiagnostic(error instanceof Error ? error.message : String(error))}`);
+  }
+  const report = buildReport(Boolean(singleUsername && singlePassword));
+  writeEvidence(report);
+  console.log(JSON.stringify(report, null, 2));
+  if (failures.length > 0) process.exitCode = 1;
+}
+
+async function run() {
   if (Boolean(singleUsername) !== Boolean(singlePassword)) {
     fail("BROWSER_UAT_USERNAME and BROWSER_UAT_PASSWORD must be supplied together");
   }
@@ -52,7 +71,24 @@ async function main() {
   if (!usesSingleUser && !existsSync(envFile)) fail(`missing production env file: ${envFile}`);
   if (!usesSingleUser && !existsSync(credentialsFile)) fail(`missing credentials file: ${credentialsFile}; run pnpm go-live:uat-all -- --reset-passwords first`);
   if (!browserUrl && !existsSync(chromePath)) fail(`missing Chrome executable: ${chromePath}`);
-  if (evidenceDir) mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
+  if (caseFile && !existsSync(caseFile)) fail(`missing browser UAT case file: ${caseFile}`);
+  if (evidenceDir) {
+    mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
+    chmodSync(evidenceDir, 0o700);
+  }
+
+  if (caseFile && failures.length === 0) {
+    try {
+      routeCases = readRouteCases(caseFile);
+      directPaths.push(...routeCases.map((entry) => entry.path));
+      const uniqueRouteCount = new Set(routeCases.map((entry) => entry.path)).size;
+      if (requiredRouteCount > 0 && uniqueRouteCount !== requiredRouteCount) fail(`browser UAT requires ${requiredRouteCount} unique routes, received ${uniqueRouteCount}`);
+      if (requiredCaseCount > 0 && routeCases.length !== requiredCaseCount) fail(`browser UAT requires ${requiredCaseCount} cases, received ${routeCases.length}`);
+      if ((requiredRouteCount > 0 || requiredCaseCount > 0) && (maxPagesPerUser > 0 || pathPrefixes.length > 0)) fail("required route/case counts cannot be combined with page truncation or path-prefix filtering");
+    } catch (error) {
+      fail(`invalid browser UAT case file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   if (failures.length === 0) {
     const credentials = usesSingleUser
@@ -64,10 +100,6 @@ async function main() {
       .filter((user) => usernameFilter.size === 0 || usernameFilter.has(user.username));
     if (users.length === 0) fail("browser UAT selected no users");
     if (failures.length > 0) {
-      const report = buildReport(usesSingleUser);
-      writeLocalReport(reportFile, report);
-      console.log(JSON.stringify(report, null, 2));
-      process.exitCode = 1;
       return;
     }
     const chrome = await launchChrome();
@@ -87,11 +119,6 @@ async function main() {
     }
   }
 
-  const report = buildReport(usesSingleUser);
-
-  writeLocalReport(reportFile, report);
-  console.log(JSON.stringify(report, null, 2));
-  if (failures.length > 0) process.exitCode = 1;
 }
 
 function buildReport(usesSingleUser) {
@@ -103,24 +130,27 @@ function buildReport(usesSingleUser) {
     scope: usesSingleUser ? "single_user_browser_page_uat" : "all_enabled_users_browser_page_uat",
     api_base: redactedApiBase,
     web_base: redactedWebBase,
-    credentials_file: singleUsername && singlePassword ? null : credentialsFile,
-    report_file: reportFile,
+    credentials_file: singleUsername && singlePassword ? null : "[LOCAL_CREDENTIALS_FILE]",
+    report_file: "[LOCAL_REPORT_FILE]",
     users_checked: results.length,
     pages_checked: pagesChecked,
     results,
     screenshot_manifest: screenshotManifest,
+    artifact_manifest: evidenceDir ? "evidence-manifest.json" : null,
+    viewport_matrix: viewportMatrix,
+    case_file: caseFile ? "[LOCAL_CASE_FILE]" : null,
     run_id: runId,
     rewrite_target: redactedRewriteTarget,
     warnings,
     failures
+    ,hcd_evidence_grade: resolveHcdEvidenceGrade(pagesChecked)
   };
 }
 
 async function checkUser(user, password, chrome) {
+  const userRef = `user-${sha256(String(user.username)).slice(0, 12)}`;
   const result = {
-    username: user.username,
-    display_name: user.displayName,
-    role: user.role,
+    user_ref: userRef,
     login: "FAIL",
     menu_source: "rendered_sidebar",
     api_menu_pages_total: 0,
@@ -131,6 +161,7 @@ async function checkUser(user, password, chrome) {
     failed_pages: [],
     warning_pages: [],
     page_evidence: []
+    ,session_isolation: "NOT_RUN"
   };
 
   let session;
@@ -139,7 +170,7 @@ async function checkUser(user, password, chrome) {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     result.failed_pages.push(`SESSION_CREATE: browser_harness_error (${reason})`);
-    fail(`browser UAT ${user.username} could not create an isolated browser session: ${reason}`);
+    fail(`browser UAT ${userRef} could not create an isolated browser session: ${reason}`);
     return result;
   }
   let me;
@@ -147,14 +178,14 @@ async function checkUser(user, password, chrome) {
     const login = await session.login({ username: user.username, password });
     result.login_evidence = login;
     if (login.status !== "PASS") {
-      fail(`browser UAT UI login failed for ${user.username}: ${login.reason}`);
+      fail(`browser UAT UI login failed for ${userRef}: ${login.reason}`);
       return result;
     }
     result.login = "PASS";
     me = await session.currentUser();
     if (!me?.data) {
       result.failed_pages.push("/users/me (browser_session_failed)");
-      fail(`browser UAT browser-session /users/me failed for ${user.username}`);
+      fail(`browser UAT browser-session /users/me failed for ${userRef}`);
       return result;
     }
 
@@ -165,7 +196,7 @@ async function checkUser(user, password, chrome) {
 
   let renderedPages;
   if (directPaths.length > 0) {
-    renderedPages = directPaths.map(normalizeMenuHref).filter(Boolean);
+    renderedPages = Array.from(new Set(directPaths.map(normalizeMenuHref).filter(Boolean)));
   } else {
     let renderedMenu;
     try {
@@ -175,16 +206,16 @@ async function checkUser(user, password, chrome) {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       result.failed_pages.push(`MENU_DISCOVERY: browser_harness_error (${reason})`);
-      fail(`browser UAT ${user.username} could not discover rendered menu pages: browser_harness_error (${reason})`);
+      fail(`browser UAT ${userRef} could not discover rendered menu pages: browser_harness_error (${reason})`);
       return result;
     }
     if (renderedMenu.status === "FAIL") {
       result.failed_pages.push(`MENU_DISCOVERY: ${renderedMenu.reason}`);
-      fail(`browser UAT ${user.username} could not discover rendered menu pages: ${renderedMenu.reason}`);
+      fail(`browser UAT ${userRef} could not discover rendered menu pages: ${renderedMenu.reason}`);
       return result;
     }
     if (renderedMenu.warnings.length > 0) {
-      warnings.push(`${user.username} menu discovery: ${renderedMenu.warnings.slice(0, 2).join(" | ")}`);
+      warnings.push(`${userRef} menu discovery: ${renderedMenu.warnings.slice(0, 2).join(" | ")}`);
     }
     renderedPages = Array.from(new Set(renderedMenu.paths)).map(normalizeMenuHref).filter(Boolean);
   }
@@ -198,38 +229,41 @@ async function checkUser(user, password, chrome) {
 
   if (pages.length === 0) {
     result.failed_pages.push("NO_RENDERED_MENU_PAGE");
-    fail(`browser UAT ${user.username} has no rendered menu pages after optional path filtering`);
+    fail(`browser UAT ${userRef} has no rendered menu pages after optional path filtering`);
     return result;
   }
 
   for (const pagePath of pagesToCheck) {
-    console.log(`[browser-uat] ${user.username} -> ${pagePath}`);
-    result.pages_checked += 1;
+    const pageCases = routeCases.filter((entry) => entry.path === pagePath);
+    const viewports = resolveViewports(pagePath, pageCases);
+    for (const viewport of viewports) {
+      console.log(`[browser-uat] ${user.username} -> ${pagePath} (${viewport.width}px)`);
+      result.pages_checked += 1;
 
-    let pageResult;
-    try {
+      let pageResult;
+      try {
         pageResult = await session.visit({
           path: pagePath,
-          username: user.username,
-        viewport: isMobileTerminalPath(pagePath)
-          ? { width: 390, height: 844, mobile: true, deviceScaleFactor: 3 }
-          : { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
-      });
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      result.failed_pages.push(`${pagePath}: browser_harness_error (${reason})`);
-      fail(`browser UAT ${user.username} failed ${pagePath}: browser_harness_error (${reason})`);
-      continue;
-    }
+          username: userRef,
+          viewport,
+          assertions: pageCases
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        result.failed_pages.push(`${pagePath}@${viewport.width}: browser_harness_error (${reason})`);
+        fail(`browser UAT ${userRef} failed ${pagePath}@${viewport.width}: browser_harness_error (${reason})`);
+        continue;
+      }
 
-    if (pageResult.status === "FAIL") {
-      result.failed_pages.push(`${pagePath}: ${pageResult.reason}`);
-      fail(`browser UAT ${user.username} failed ${pagePath}: ${pageResult.reason}`);
-    } else if (pageResult.warnings.length > 0) {
-      result.warning_pages.push({ path: pagePath, warnings: pageResult.warnings.slice(0, 5) });
-      warnings.push(`${user.username} ${pagePath}: ${pageResult.warnings.slice(0, 2).join(" | ")}`);
+      if (pageResult.status === "FAIL") {
+        result.failed_pages.push(`${pagePath}@${viewport.width}: ${pageResult.reason}`);
+        fail(`browser UAT ${userRef} failed ${pagePath}@${viewport.width}: ${pageResult.reason}`);
+      } else if (pageResult.warnings.length > 0) {
+        result.warning_pages.push({ path: pagePath, viewport: viewport.width, warnings: pageResult.warnings.slice(0, 5) });
+        warnings.push(`${userRef} ${pagePath}@${viewport.width}: ${pageResult.warnings.slice(0, 2).join(" | ")}`);
+      }
+      result.page_evidence.push({ case_ids: pageCases.map((entry) => entry.id), path: pagePath, viewport, ...pageResult });
     }
-    result.page_evidence.push({ path: pagePath, ...pageResult });
   }
 
   if (result.failed_pages.length === 0) {
@@ -238,7 +272,26 @@ async function checkUser(user, password, chrome) {
   console.log(`[browser-uat] ${user.username} done: ${result.page_render_check} (${result.pages_checked}/${result.menu_pages_total})`);
   return result;
   } finally {
-    await session.close();
+    if (result.login === "PASS" && result.session_isolation === "NOT_RUN") {
+      try {
+        const logoutEvidence = await session.logout();
+        result.logout_evidence = logoutEvidence;
+        await session.close();
+        session = null;
+        const anonymousSession = await chrome.createSession();
+        try {
+          result.isolation_evidence = await anonymousSession.auditAnonymous();
+          result.session_isolation = logoutEvidence.status === "PASS" && result.isolation_evidence.status === "PASS" ? "PASS" : "FAIL";
+        } finally {
+          await anonymousSession.close();
+        }
+      } catch (error) {
+        result.session_isolation = "FAIL";
+        result.isolation_error = redactDiagnostic(error instanceof Error ? error.message : String(error));
+      }
+      if (result.session_isolation !== "PASS") fail(`browser UAT session isolation failed for ${userRef}`);
+    }
+    if (session) await session.close();
   }
 }
 
@@ -307,10 +360,80 @@ async function createBrowserSession(browser) {
   return {
     login: (input) => loginThroughUi(browser, browserContextId, input),
     currentUser: () => browserSessionRequest(browser, browserContextId, `${apiPathPrefix}/users/me`),
+    logout: () => logoutThroughUi(browser, browserContextId),
+    auditAnonymous: () => auditAnonymousContext(browser, browserContextId),
     listMenuPaths: (input) => collectRenderedMenuPaths(browser, { ...input, browserContextId }),
     visit: (input) => visitPage(browser, { ...input, browserContextId }),
     close: () => browser.send("Target.disposeBrowserContext", { browserContextId }).catch(() => undefined)
   };
+}
+
+async function logoutThroughUi(browser, browserContextId) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/dashboard`, browserContextId });
+  const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
+  const sessionId = attached.sessionId;
+  const logoutResponses = [];
+  const requests = new Map();
+  const off = browser.onEvent((message) => {
+    if (message.sessionId !== sessionId) return;
+    if (message.method === "Network.requestWillBeSent") requests.set(message.params.requestId, message.params?.request);
+    if (message.method === "Network.responseReceived") {
+      const request = requests.get(message.params?.requestId);
+      const requestPath = request?.url ? new URL(request.url).pathname : "";
+      if (requestPath === `${apiPathPrefix}/auth/logout-cookie` || requestPath === `${apiPathPrefix}/auth/logout`) {
+        logoutResponses.push({ path: requestPath, status: message.params?.response?.status ?? null });
+      }
+    }
+  });
+  try {
+    await browser.send("Runtime.enable", {}, sessionId);
+    await browser.send("Network.enable", {}, sessionId);
+    await waitForReady(browser, sessionId);
+    await waitForExpression(browser, sessionId, `Boolean(document.querySelector("button.user-logout-button"))`, 10000);
+    const clicked = await browser.send("Runtime.evaluate", {
+      expression: `(() => { const button = document.querySelector("button.user-logout-button"); if (!button) return false; button.click(); return true; })()`,
+      returnByValue: true
+    }, sessionId);
+    if (!clicked.result?.value) return { status: "FAIL", reason: "logout_button_not_found" };
+    await waitForExpression(browser, sessionId, `location.pathname === "/login" && !localStorage.getItem("jinhu_access_token") && !sessionStorage.getItem("jinhu_access_token")`, 15000);
+    const evidence = await browser.send("Runtime.evaluate", {
+      expression: `({ pathname: location.pathname, hasStorageSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), cookieNames: document.cookie.split(";").map(value => value.split("=")[0].trim()).filter(Boolean) })`,
+      returnByValue: true
+    }, sessionId);
+    const value = evidence.result?.value ?? {};
+    const serverLogoutSucceeded = logoutResponses.some((entry) => Number(entry.status) >= 200 && Number(entry.status) < 300);
+    return { status: value.pathname === "/login" && !value.hasStorageSession && serverLogoutSucceeded ? "PASS" : "FAIL", serverLogoutSucceeded, logoutResponses, ...value };
+  } finally {
+    off();
+    await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
+  }
+}
+
+async function auditAnonymousContext(browser, browserContextId) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/login`, browserContextId });
+  const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
+  try {
+    await browser.send("Runtime.enable", {}, attached.sessionId);
+    await waitForReady(browser, attached.sessionId);
+    const response = await browser.send("Runtime.evaluate", {
+      expression: `fetch(${JSON.stringify(`${apiPathPrefix}/users/me`)}, { credentials: "same-origin" }).then(response => ({ meStatus: response.status, hasStorageSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), cookieNames: document.cookie.split(";").map(value => value.split("=")[0].trim()).filter(Boolean) }))`,
+      returnByValue: true,
+      awaitPromise: true
+    }, attached.sessionId);
+    const value = response.result?.value ?? {};
+    const cookies = await browser.send("Storage.getCookies", { browserContextId }).catch(() => ({ cookies: [] }));
+    const cookieNames = (cookies.cookies ?? []).map((cookie) => String(cookie.name));
+    const hasAuthCookie = cookieNames.some((name) => /(?:access|auth|refresh|session|token)/iu.test(name));
+    return {
+      status: value.meStatus === 401 && !value.hasStorageSession && !hasAuthCookie ? "PASS" : "FAIL",
+      meStatus: value.meStatus,
+      hasStorageSession: value.hasStorageSession,
+      cookieCount: cookieNames.length,
+      hasAuthCookie
+    };
+  } finally {
+    await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
+  }
 }
 
 async function loginThroughUi(browser, browserContextId, { username, password }) {
@@ -358,7 +481,12 @@ async function loginThroughUi(browser, browserContextId, { username, password })
     const usernameTyped = await typeWithKeyboard(browser, sessionId, 'input[autocomplete="username"]', username);
     const passwordTyped = await typeWithKeyboard(browser, sessionId, 'input[autocomplete="current-password"]', password);
     if (!usernameTyped || !passwordTyped) return { status: "FAIL", reason: "login_keyboard_input_failed", method: "ui_form", network };
-    await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 }, sessionId);
+    const submitFocused = await browser.send("Runtime.evaluate", {
+      expression: `(() => { const button = document.querySelector('form.signin-form[data-browser-uat-ready="true"] button[type="submit"]'); button?.focus(); return document.activeElement === button; })()`,
+      returnByValue: true
+    }, sessionId);
+    if (!submitFocused.result?.value) return { status: "FAIL", reason: "login_submit_focus_failed", method: "ui_form", network };
+    await browser.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", text: "\r", unmodifiedText: "\r", windowsVirtualKeyCode: 13 }, sessionId);
     await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 }, sessionId);
     const loginPostDeadline = Date.now() + 5000;
     while (!loginPostObserved && Date.now() < loginPostDeadline) await sleep(100);
@@ -369,9 +497,11 @@ async function loginThroughUi(browser, browserContextId, { username, password })
       returnByValue: true
     }, sessionId);
     const value = evidence.result?.value ?? {};
+    const loginResponse = network.find((entry) => entry.method === "POST" && entry.path === `${apiPathPrefix}/auth/login`);
+    const loginSucceeded = Number(loginResponse?.status) >= 200 && Number(loginResponse?.status) < 300;
     return {
-      status: value.hasSession && !value.formStillVisible ? "PASS" : "FAIL",
-      reason: value.hasSession ? "" : "no_authenticated_session",
+      status: value.hasSession && !value.formStillVisible && loginSucceeded ? "PASS" : "FAIL",
+      reason: !loginSucceeded ? "login_post_not_successful" : value.hasSession ? "" : "no_authenticated_session",
       method: "ui_form",
       pathname: value.pathname,
       network
@@ -413,7 +543,13 @@ async function browserSessionRequest(browser, browserContextId, path) {
     await browser.send("Runtime.enable", {}, attached.sessionId);
     await waitForReady(browser, attached.sessionId);
     const response = await browser.send("Runtime.evaluate", {
-      expression: `fetch(${JSON.stringify(path)}, { credentials: "same-origin" }).then(async response => ({ status: response.status, body: await response.json() }))`,
+      expression: `(() => {
+        const token = localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token");
+        return fetch(${JSON.stringify(path)}, {
+          credentials: "same-origin",
+          headers: token ? { authorization: "Bearer " + token } : {}
+        }).then(async response => ({ status: response.status, body: await response.json() }));
+      })()`,
       returnByValue: true,
       awaitPromise: true
     }, attached.sessionId);
@@ -502,7 +638,7 @@ async function collectRenderedMenuPaths(browser, { browserContextId, viewport })
   }
 }
 
-async function visitPage(browser, { path, username, browserContextId, viewport }) {
+async function visitPage(browser, { path, username, browserContextId, viewport, assertions }) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}${path}`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
@@ -510,6 +646,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
   const pageWarnings = [];
   const network = [];
   const pendingRequests = new Map();
+  const allowForbidden = expectForbidden || assertions?.some((entry) => entry.expect_forbidden === true);
 
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
@@ -571,7 +708,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
     await browser.send("Page.navigate", { url: `${webBase}${path}` }, sessionId);
     await loadPromise;
     await waitForReady(browser, sessionId);
-    if (expectForbidden) await sleep(2000);
+    if (allowForbidden) await sleep(2000);
     const settleDeadline = Date.now() + 5000;
     let settledAt = null;
     while (Date.now() < settleDeadline) {
@@ -594,7 +731,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
       expression: `(() => {
         const text = document.body?.innerText ?? "";
         return {
-          href: location.href,
+          href: location.origin + location.pathname,
           pathname: location.pathname,
           title: document.title,
           textLength: text.trim().length,
@@ -604,8 +741,8 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
           headline: (document.querySelector("h1, h2, main")?.textContent ?? "").trim().slice(0, 120),
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
-          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
-          ,deviceCapabilities: {
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+          deviceCapabilities: {
             userAgent: navigator.userAgent,
             maxTouchPoints: navigator.maxTouchPoints,
             coarsePointer: matchMedia("(pointer: coarse)").matches,
@@ -620,36 +757,82 @@ async function visitPage(browser, { path, username, browserContextId, viewport }
     }, sessionId);
 
     const value = evaluation.result?.value ?? {};
+    const assertionEvidence = await evaluateCaseAssertions(browser, sessionId, assertions);
     if (evidenceDir) {
       const safeUsername = String(username).replaceAll(/[^A-Za-z0-9_.-]/g, "_");
-      const filename = `${safeUsername}-${String(viewport.width)}-${path.replace(/^\/+/, "").replaceAll("/", "-") || "root"}.png`;
+      const safePath = path.replace(/^\/+/, "").replaceAll(/[^A-Za-z0-9_.-]/g, "-") || "root";
+      const filename = `${safeUsername}-${String(viewport.width)}-${safePath}.png`;
       const screenshot = await browser.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
-      writeFileSync(resolve(evidenceDir, filename), Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
-      screenshotManifest.push({ path, viewport, filename, captured_at: new Date().toISOString() });
+      const screenshotBuffer = Buffer.from(screenshot.data, "base64");
+      const screenshotFile = resolve(evidenceDir, filename);
+      writeFileSync(screenshotFile, screenshotBuffer, { mode: 0o600 });
+      chmodSync(screenshotFile, 0o600);
+      screenshotManifest.push({ path, viewport, filename, bytes: screenshotBuffer.byteLength, sha256: sha256(screenshotBuffer), captured_at: new Date().toISOString() });
     }
-    const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden: expectForbidden });
+    const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden });
     const failedNetwork = network.find((entry) =>
       (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
-      && !(expectForbidden && Number(entry.status) === 403)
+      && !(allowForbidden && Number(entry.status) === 403)
     );
     const hardFailure = renderFailure
-      || (expectForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
+      || (allowForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
       || (viewport.mobile && Math.abs(Number(value.viewportWidth) - viewport.width) > 1
         ? `mobile_viewport_mismatch:${value.viewportWidth}!=${viewport.width}`
         : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
+      || assertionEvidence.failure
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
       status: hardFailure ? "FAIL" : "PASS",
       reason: hardFailure,
       warnings: pageWarnings,
       page: value,
+      assertions: assertionEvidence,
       network
     };
   } finally {
     off();
     await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
   }
+}
+
+async function evaluateCaseAssertions(browser, sessionId, assertions) {
+  if (!assertions?.length) return { status: "NOT_CONFIGURED", failure: "", checks: [] };
+  const configs = assertions.map((entry) => ({
+    id: entry.id,
+    selectors: entry.selectors ?? [],
+    text: entry.text ?? [],
+    absent_text: entry.absent_text ?? [],
+    picker_selectors: entry.picker_selectors ?? [],
+    unknown_fallback_text: entry.unknown_fallback_text ?? []
+    ,detail_selectors: entry.detail_selectors ?? []
+    ,detail_text: entry.detail_text ?? []
+  }));
+  const evaluated = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const configs = ${JSON.stringify(configs)};
+      const bodyText = document.body?.innerText ?? "";
+      const checks = [];
+      for (const config of configs) {
+        for (const selector of config.selectors) checks.push({ id: config.id, kind: "selector", expected: selector, pass: Boolean(document.querySelector(selector)) });
+        for (const expected of config.text) checks.push({ id: config.id, kind: "text", expected, pass: bodyText.includes(expected) });
+        for (const forbidden of config.absent_text) checks.push({ id: config.id, kind: "absent_text", expected: forbidden, pass: !bodyText.includes(forbidden) });
+        for (const selector of config.picker_selectors) {
+          const picker = document.querySelector(selector);
+          const echoed = picker && String(picker.value ?? picker.textContent ?? picker.getAttribute("aria-label") ?? "").trim();
+          checks.push({ id: config.id, kind: "picker_echo", expected: selector, pass: Boolean(echoed) });
+        }
+        for (const expected of config.unknown_fallback_text) checks.push({ id: config.id, kind: "unknown_fallback", expected, pass: bodyText.includes(expected) });
+        for (const selector of config.detail_selectors) checks.push({ id: config.id, kind: "detail_selector", expected: selector, pass: Boolean(document.querySelector(selector)) });
+        for (const expected of config.detail_text) checks.push({ id: config.id, kind: "detail_text", expected, pass: bodyText.includes(expected) });
+      }
+      return checks;
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  const checks = evaluated.result?.value ?? [];
+  const failed = checks.find((check) => !check.pass);
+  return { status: failed ? "FAIL" : "PASS", failure: failed ? `case_assertion_failed:${failed.kind}` : "", checks };
 }
 
 function redactUrl(value, base) {
@@ -901,8 +1084,77 @@ function isMobileTerminalPath(path) {
     || path === "/preview/operations-terminal";
 }
 
+function resolveViewports(path, pageCases) {
+  const desktop = { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 };
+  const phone = { width: 390, height: 844, mobile: true, deviceScaleFactor: 3 };
+  if (viewportMatrix || pageCases.some((entry) => entry.viewport === "both")) return [desktop, phone];
+  if (pageCases.some((entry) => entry.viewport === "mobile") || isMobileTerminalPath(path)) return [phone];
+  return [desktop];
+}
+
+function readRouteCases(file) {
+  const parsed = JSON.parse(readFileSync(file, "utf8"));
+  if (!Array.isArray(parsed?.cases) || parsed.cases.length === 0) throw new Error("browser UAT case file must contain a non-empty cases array");
+  const cases = parsed.cases.map((entry, index) => {
+    const normalizedPath = normalizeMenuHref(entry?.path);
+    if (!entry?.id || !normalizedPath || normalizedPath.includes("[") || normalizedPath.includes("]") || normalizedPath.split("/").includes("..")) throw new Error(`invalid browser UAT case at index ${index}`);
+    for (const field of ["selectors", "text", "absent_text", "picker_selectors", "unknown_fallback_text", "detail_selectors", "detail_text"]) {
+      if (entry[field] !== undefined && (!Array.isArray(entry[field]) || entry[field].some((value) => typeof value !== "string"))) {
+        throw new Error(`browser UAT case ${entry.id} has invalid ${field}`);
+      }
+    }
+    const assertionCount = ["selectors", "text", "absent_text", "picker_selectors", "unknown_fallback_text", "detail_selectors", "detail_text"]
+      .reduce((total, field) => total + (entry[field]?.length ?? 0), 0);
+    if (entry.expect_forbidden !== true && assertionCount === 0) throw new Error(`browser UAT case ${entry.id} has no assertions`);
+    return { ...entry, path: normalizedPath };
+  });
+  const ids = cases.map((entry) => entry.id);
+  if (new Set(ids).size !== ids.length) throw new Error("browser UAT case ids must be unique");
+  return cases;
+}
+
 function writeLocalReport(file, report) {
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  chmodSync(file, 0o600);
+}
+
+function writeEvidence(report) {
+  writeLocalReport(reportFile, report);
+  if (!evidenceDir) return;
+  const evidenceReport = resolve(evidenceDir, "browser-uat-report.json");
+  writeLocalReport(evidenceReport, report);
+  const files = screenshotManifest.map(({ filename, bytes, sha256: digest }) => ({ filename, bytes, sha256: digest }));
+  const reportBuffer = readFileSync(evidenceReport);
+  files.push({ filename: "browser-uat-report.json", bytes: reportBuffer.byteLength, sha256: sha256(reportBuffer) });
+  writeLocalReport(resolve(evidenceDir, "evidence-manifest.json"), {
+    schema_version: 1,
+    run_id: runId,
+    generated_at: new Date().toISOString(),
+    files
+  });
+}
+
+function resolveHcdEvidenceGrade(pagesChecked) {
+  if (!caseFile) return "UNVERIFIED";
+  if (pagesChecked === 0) return "BLOCKED";
+  if (failures.length > 0) return "BLOCKED";
+  const evidence = results.flatMap((result) => result.page_evidence);
+  const configuredCases = new Set(routeCases.map((entry) => entry.id));
+  const evidencedCases = new Set(evidence.flatMap((entry) => entry.case_ids ?? []));
+  const allAssertionsPassed = evidence.every((entry) => entry.assertions?.status === "PASS");
+  const isolationPassed = results.every((result) => result.session_isolation === "PASS");
+  const dualViewportPassed = new Set(routeCases.map((entry) => entry.path)).size > 0
+    && Array.from(new Set(routeCases.map((entry) => entry.path))).every((path) => {
+      const widths = new Set(evidence.filter((entry) => entry.path === path).map((entry) => entry.viewport?.width));
+      return widths.has(1440) && widths.has(390);
+    });
+  if (configuredCases.size === evidencedCases.size && allAssertionsPassed && isolationPassed && dualViewportPassed) return "PASS";
+  return "SURFACE_ONLY";
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function parseCsvLine(line) {

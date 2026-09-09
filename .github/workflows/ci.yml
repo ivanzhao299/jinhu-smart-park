@@ -111,6 +111,9 @@ jobs:
       - name: Verify property API E2E gate contract
         run: pnpm test:e2e:property-api-gate-contract
 
+      - name: Verify browser UAT evidence contract
+        run: pnpm test:e2e:browser-uat-contract
+
       - name: Verify property canonical domain blueprint
         run: pnpm test:e2e:property-canonical-domain-blueprint
 
