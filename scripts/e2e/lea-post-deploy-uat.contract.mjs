@@ -184,6 +184,8 @@ test("browser UAT supports fail-closed response overrides and API-only settling"
   assert.match(browserRunner, /pendingApiRequest/u);
   assert.match(browserRunner, /overrideSettleDeadline/u);
   assert.match(browserRunner, /responseOverrideFailure/u);
+  assert.match(browserRunner, /duplicate_response_without_replacement/u);
+  assert.match(browserRunner, /successfulResponseOverrides/u);
   assert.match(browserRunner, /entry\.url\?\.startsWith/u);
   assert.match(browserRunner, /Input\.dispatchMouseEvent/u);
   assert.match(browserRunner, /options\.allowForbidden && value\.hasForbidden/u);

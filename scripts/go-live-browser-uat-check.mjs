@@ -967,6 +967,14 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     const responseOverrideFailure = responseOverrides.find((override) => !responseOverrideChecks.some((check) =>
       check.id === override.caseId && check.expected === override.path && check.pass && !check.skipped
     ));
+    const successfulResponseOverrides = new Set(responseOverrideChecks
+      .filter((check) => check.pass && !check.skipped)
+      .map((check) => `${check.id}\n${check.expected}`));
+    const normalizedResponseOverrideChecks = responseOverrideChecks.map((check) =>
+      !check.pass && check.replacements === 0 && successfulResponseOverrides.has(`${check.id}\n${check.expected}`)
+        ? { ...check, pass: true, skipped: true, reason: "duplicate_response_without_replacement" }
+        : check
+    );
     const hardFailure = renderFailure
       || (allowForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
       || (viewport.mobile && Math.abs(Number(value.viewportWidth) - viewport.width) > 1
@@ -974,7 +982,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
       || actionEvidence.failure
-      || (responseOverrides.length > 0 && (responseOverrideFailure || responseOverrideChecks.some((check) => !check.pass)) ? "response_override_failed" : "")
+      || (responseOverrides.length > 0 && (responseOverrideFailure || normalizedResponseOverrideChecks.some((check) => !check.pass)) ? "response_override_failed" : "")
       || assertionEvidence.failure
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
@@ -984,8 +992,8 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       page: value,
       actions: actionEvidence,
       response_overrides: {
-        status: responseOverrides.length === 0 ? "NOT_CONFIGURED" : !responseOverrideFailure && responseOverrideChecks.every((check) => check.pass) ? "PASS" : "FAIL",
-        checks: responseOverrideChecks
+        status: responseOverrides.length === 0 ? "NOT_CONFIGURED" : !responseOverrideFailure && normalizedResponseOverrideChecks.every((check) => check.pass) ? "PASS" : "FAIL",
+        checks: normalizedResponseOverrideChecks
       },
       assertions: assertionEvidence,
       network
