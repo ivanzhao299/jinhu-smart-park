@@ -1,0 +1,7 @@
+# Retained quarantine rekey adapter
+
+`rekeyYuzhouRetainedQuarantine(input, { resolveKey })` is an in-memory preparation primitive. Input contains the unchanged `preparedTriple`, source `operationId`, `targetScope`, four ordered `{ phase, records }` objects, the existing provider-format `envelopes` document, and `sides: { A, B }` with new operation IDs and key references. The resolver returns caller-owned 32-byte Buffers; adapter-owned copies are cleared on completion and failure.
+
+Only quarantine records are copied into temporary processing and output overlays. Insert payloads are neither required nor copied. Source ciphertext is authenticated against original record/AAD and payload hash; both new envelopes are decrypted again and checked against the same payload hash. Actual key bytes, not reference labels, must differ between A/B and every source key. The source operation and artifacts are never mutated.
+
+Outputs are two existing-provider-format encrypted envelope documents and source-identity/hash-keyed quarantine binding overlays. A later private materializer must apply overlays only to matching verified records, retain original prepared C/S/M separately from the measured rehearsal C/S/M, and pin all output bytes. This adapter neither produces a rehearsal triple nor claims trust-root provenance, formal A/B execution, authorization, or production readiness. Private emission and dual-run orchestration are deliberately not implemented here.
