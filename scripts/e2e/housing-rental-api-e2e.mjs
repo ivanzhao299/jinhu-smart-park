@@ -551,6 +551,10 @@ async function run() {
     depositReceipt.entryType === "deposit_receipt",
     "deposit receivable payment is registered as a deposit receipt"
   );
+  if (process.env.HCD_BROWSER_FIXTURE_STOP === "active-finance") {
+    console.log(`[HCD_BROWSER_FIXTURE] ${JSON.stringify({ leaseId: lease.id, unitId: unit.id, chargePlanId: propertyChargePlan.id })}`);
+    return;
+  }
 
   await expectRequestStatus("/files", 403, {
     method: "POST",

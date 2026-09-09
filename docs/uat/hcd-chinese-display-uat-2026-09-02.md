@@ -207,6 +207,28 @@
 - #721 保持 OPEN，跟踪 7 个 FAIL Case 所缺的可执行浏览器场景；这些 Case 在完成前不得升级 PASS。
 - #722 保持 OPEN：逐图复核额外发现采购详情“成本分类”直出开放值 `repair`。该字段不属于 HCD-024 原定义，故未越界扩写本任务产品定名。
 
+## 2026-09-09 Issue #721 七 Case 补测尝试
+
+本轮没有把任何遗留 Case 升级为 PASS，终态仍为 **23 PASS / 7 FAIL**。已在新的 disposable 数据库完成 307/307 migration、production-safe seed、bootstrap admin、分离审批账号和产品 API fixture；住房 fixture 停在 active lease + charge plan + receivable，民宿 fixture 停在 checked-out booking + pending turnover + confirmed payment source，并为同房源创建具名工单。以上只证明所需数据态可构造，不替代浏览器交互。
+
+runner 已新增声明式真实动作：CDP 键盘输入、原生 select 键盘选择、RemoteEntityPicker 搜索/选择、按钮/summary 激活、mutation Network 响应等待、刷新及刷新后断言。`pnpm test:e2e:browser-uat-contract` 为 6/6 PASS。
+
+专用 Chromium 严格按同题两次上限执行：第一次使用 Playwright Chromium 容器的 host network，DevTools 仅监听容器 loopback，WSL 不可达；第二次改为显式 loopback 端口映射加容器内转发，WSL 连接持续被 reset。未作第三次浏览器启动，也没有截图、DOM 或 Network interaction report，因此以下七项必须保留 FAIL：
+
+| Case | 本轮数据态 | 本轮裁定 |
+|---|---|---|
+| HCD-006 | 已有 checked-out booking、confirmed payment source | FAIL：未取得浏览器实际选择、保存、刷新回显证据 |
+| HCD-008 | pending turnover 与同房源具名工单均已构造 | FAIL：未取得浏览器 picker 选择/状态回显证据 |
+| HCD-009 | 管理员具备高风险操作权限且有可提交来源 | FAIL：未触发浏览器成功提示 |
+| HCD-013 | 已准备可产生校验/冲突的交互对象 | FAIL：未触发浏览器错误投影 |
+| HCD-017 | 既有 runner 仍需 response-stage 未知码 override | FAIL：未形成浏览器未知值 fixture 证据 |
+| HCD-025 | active lease 与 fixed charge plan 已构造 | FAIL：未取得费用计划选择、保存、刷新回显证据 |
+| HCD-026 | active lease、receivable 与字典数据已构造 | FAIL：未取得费用类型、支付方式、审批目标交互证据 |
+
+ignored 证据位于 `artifacts/hcd-721-20260909/`，包含三个 fixture 日志、脱敏 compose 和 `SHA256SUMS`；manifest 文件 SHA-256 为 `96e004fbe87c7c4da6c7a3bdfa468b3fc6c9e5cdb508981d52b94c9a9d9c94a6`。文本隐私扫描只命中 compose 的环境变量名称，未包含值；没有截图。teardown 后本轮标签容器、命名卷和 `3291/3292/35440/47160/47161` 监听均为零。
+
+#721 必须继续 OPEN。下一轮不得重跑同一容器网络方案；应在可直接监听 WSL loopback 的专用 Linux Chromium 运行库上复用本轮 runner 与 fixture stop points，并补 response-stage unknown-code override 后执行七项双视口交互。
+
 ## D 类临时定名（待产品确认）
 
 - 民宿住客核验：未核验、已核验、已驳回；凭证：已发放、已回收、已遗失、已作废。

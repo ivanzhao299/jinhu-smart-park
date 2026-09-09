@@ -109,6 +109,12 @@ test("browser UAT redacts user identity and requires picker echo plus anonymous 
   assert.match(browserRunner, /user_ref: userRef/u);
   assert.doesNotMatch(browserRunner, /display_name: user\.displayName/u);
   assert.match(browserRunner, /kind: "picker_echo"/u);
+  assert.match(browserRunner, /executeCaseActions/u);
+  assert.match(browserRunner, /case_action_failed:/u);
+  assert.match(browserRunner, /selectWithKeyboard/u);
+  assert.match(browserRunner, /chooseRemotePicker/u);
+  assert.match(browserRunner, /action.type === "reload"/u);
+  assert.match(browserRunner, /expectedResponses/u);
   assert.match(browserRunner, /Storage\.getCookies/u);
   assert.match(browserRunner, /hasAuthCookie/u);
   assert.match(browserRunner, /authorization: "Bearer " \+ token/u);
@@ -126,6 +132,48 @@ test("browser UAT redacts user identity and requires picker echo plus anonymous 
   assert.equal((browserRunner.match(/无法查看此详情/gu) ?? []).length, 2);
   assert.match(browserRunner, /has no assertions/u);
   assert.match(browserRunner, /safePath/u);
+});
+
+test("browser UAT rejects malformed real-interaction definitions", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "jinhu-browser-actions-contract-"));
+  try {
+    const caseFile = resolve(directory, "cases.json");
+    const reportFile = resolve(directory, "report.json");
+    writeFileSync(caseFile, JSON.stringify({ cases: [{
+      id: "HCD-006", path: "/homestay/finance", text: ["财务"],
+      actions: [{ type: "picker", label: "来源流水", query: "missing-option-text" }]
+    }] }));
+    const execution = spawnSync(process.execPath, [
+      new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
+      "--chrome-path", "/bin/true", "--case-file", caseFile, "--report", reportFile
+    ], { encoding: "utf8", env: { ...process.env, BROWSER_UAT_USERNAME: "contract-user", BROWSER_UAT_PASSWORD: "contract-password" } });
+    assert.equal(execution.status, 1);
+    const report = JSON.parse(readFileSync(reportFile, "utf8"));
+    assert.match(report.failures.join(" "), /invalid actions/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("browser UAT rejects unsafe real-interaction response bounds", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "jinhu-browser-action-bounds-contract-"));
+  try {
+    const caseFile = resolve(directory, "cases.json");
+    const reportFile = resolve(directory, "report.json");
+    writeFileSync(caseFile, JSON.stringify({ cases: [{
+      id: "HCD-013", path: "/homestay/finance", text: ["财务"],
+      actions: [{ type: "wait_response", path: "https://outside.invalid/private", method: "post", status: 999, timeout_ms: 120000 }]
+    }] }));
+    const execution = spawnSync(process.execPath, [
+      new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
+      "--chrome-path", "/bin/true", "--case-file", caseFile, "--report", reportFile
+    ], { encoding: "utf8", env: { ...process.env, BROWSER_UAT_USERNAME: "contract-user", BROWSER_UAT_PASSWORD: "contract-password" } });
+    assert.equal(execution.status, 1);
+    const report = JSON.parse(readFileSync(reportFile, "utf8"));
+    assert.match(report.failures.join(" "), /invalid actions/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("housing real API preserves the forged occupancy boundary for residential and office long-rent units", () => {
