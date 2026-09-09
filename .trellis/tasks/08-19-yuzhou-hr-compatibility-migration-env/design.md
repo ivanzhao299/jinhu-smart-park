@@ -120,6 +120,15 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 复用真实 prepared inputs 的新 lab 配置（2026-09-09）
+
+配置物化只更换显式新 runId、独立 database 与当前 executor 指纹。原 prepared
+C/S/M、scope、operationId、envelopes/key descriptors 原样保留，不复制或重新抽取
+业务输入、不读密钥内容。operationId 是既有密文 AAD 的一部分，不得仅改标签。
+共享互斥 stateRoot 不变；已有 lease 拒绝，新 run 的状态文件必须未占用，旧历史
+不删除。输出私有 config 和 receipt-last，仅称 CONFIG_PREPARED，后续仍需真实
+validate/preflight。此重放不是独立密钥/可信根/Compose/网络/卷的正式 A/B 证据。
+
 ### 只读 global ID census baseline 通道（2026-09-09）
 
 仅 insert/quarantine 可使用固定 16 表全局 ID 哈希 census；merge/skip 仍走原直连
