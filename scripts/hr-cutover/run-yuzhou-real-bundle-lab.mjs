@@ -18,6 +18,7 @@ import { createProductionImportArtifactCryptoProvider, readBoundedPrivateArtifac
 import { decryptProductionImportEnvelope } from "./production-import-crypto-provider.mjs";
 import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
 import { validateYuzhouPairSideConfig, prepareYuzhouRetainedQuarantineSide } from "./consume-yuzhou-retained-quarantine-side.mjs";
+import { isDeepStrictEqual } from "node:util";
 import { currentCandidateFreezeRepositorySha } from "./materialize-production-import-frozen-decisions.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../.."), HASH = /^[0-9a-f]{64}$/u;
@@ -62,7 +63,7 @@ function receiptResult(result) {
   if (result.httpFailure !== undefined) {
     httpFailure = sanitizeYuzhouRealHttpLabFailureSummary(result.httpFailure);
     if (result.status !== "FAILED" || Object.keys(httpFailure).sort().join("|") !== Object.keys(result.httpFailure ?? {}).sort().join("|") ||
-      Object.keys(httpFailure).some(key => httpFailure[key] !== result.httpFailure[key])) receiptFail();
+      !isDeepStrictEqual(httpFailure, result.httpFailure)) receiptFail();
   }
   return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD", ...(httpFailure ? { httpFailure } : {}),
     ...(result.sideExecutionProvenance === undefined ? {} : { sideExecutionProvenance: sideProvenance(result.sideExecutionProvenance) }) };
@@ -123,7 +124,7 @@ export const LAB_EXECUTION_DEPENDENCIES = Object.freeze([...new Set([...PRODUCTI
   "scripts/hr-cutover/yuzhou-retained-lab-resource-owner.mjs",
   "scripts/hr-cutover/yuzhou-retained-lab-resource-cleanup.mjs",
   "scripts/db-migrate.sh", "scripts/db-seed-prod.sh",
-  ...["run-yuzhou-real-bundle-lab", "yuzhou-real-bundle-lab-artifacts", "yuzhou-real-bundle-lab-owner", "yuzhou-real-bundle-lab-run-state", "yuzhou-real-bundle-lab-pg-probes", "yuzhou-real-http-lab-runtime", "yuzhou-real-import-http-probe", "production-import-phase-rollback"].map(n => `scripts/hr-cutover/${n}.mjs`),
+  ...["run-yuzhou-real-bundle-lab", "yuzhou-real-bundle-lab-artifacts", "yuzhou-real-bundle-lab-owner", "yuzhou-real-bundle-lab-run-state", "yuzhou-real-bundle-lab-pg-probes", "yuzhou-real-http-lab-runtime", "yuzhou-insurance-lab-timing", "yuzhou-real-import-http-probe", "production-import-phase-rollback"].map(n => `scripts/hr-cutover/${n}.mjs`),
   "pnpm-lock.yaml", "apps/api/package.json", "apps/api/tsconfig.json", "packages/shared/package.json"])] .sort());
 
 export function parseYuzhouLabArgs(argv) {
