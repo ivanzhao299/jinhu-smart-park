@@ -188,6 +188,9 @@ test("browser UAT supports fail-closed response overrides and API-only settling"
   assert.match(browserRunner, /successfulResponseOverrides/u);
   assert.match(browserRunner, /entry\.url\?\.startsWith/u);
   assert.match(browserRunner, /Input\.dispatchMouseEvent/u);
+  assert.doesNotMatch(browserRunner, /element\.parentElement\.open = true/u);
+  assert.doesNotMatch(browserRunner, /setter\?\.call\(control/u);
+  assert.match(browserRunner, /response override case must be isolated on route/u);
   assert.match(browserRunner, /options\.allowForbidden && value\.hasForbidden/u);
   assert.match(browserRunner, /must assert localized forbidden text/u);
   assert.match(browserRunner, /label\?\.control/u);

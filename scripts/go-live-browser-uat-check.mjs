@@ -564,20 +564,7 @@ async function focusLabelledControl(browser, sessionId, labelText, selector) {
 
 async function typeLabelledControl(browser, sessionId, labelText, value) {
   if (!await focusLabelledControl(browser, sessionId, labelText, "input, textarea")) return false;
-  if (await typeWithKeyboard(browser, sessionId, ":focus", value)) return true;
-  const dateValue = await browser.send("Runtime.evaluate", {
-    expression: `(() => {
-      const control = document.activeElement;
-      if (!(control instanceof HTMLInputElement) || control.type !== "date") return false;
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      setter?.call(control, ${JSON.stringify(value)});
-      control.dispatchEvent(new Event("input", { bubbles: true }));
-      control.dispatchEvent(new Event("change", { bubbles: true }));
-      return control.value === ${JSON.stringify(value)};
-    })()`,
-    returnByValue: true
-  }, sessionId);
-  return dateValue.result?.value === true;
+  return typeWithKeyboard(browser, sessionId, ":focus", value);
 }
 
 async function selectWithKeyboard(browser, sessionId, labelText, optionText, optionValue) {
@@ -616,12 +603,6 @@ async function activateByText(browser, sessionId, selector, text) {
         const rect = item.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0 && (item.textContent ?? "").includes(${JSON.stringify(text)});
       });
-      if (element?.tagName === "SUMMARY") {
-        element.scrollIntoView({ block: "center", inline: "center" });
-        element.click();
-        if (element.parentElement?.tagName === "DETAILS" && !element.parentElement.open) element.parentElement.open = true;
-        return { activated: true };
-      }
       element?.scrollIntoView({ block: "center", inline: "center" });
       element?.focus();
       const rect = element?.getBoundingClientRect();
@@ -633,10 +614,19 @@ async function activateByText(browser, sessionId, selector, text) {
   }, sessionId);
   const point = target.result?.value;
   if (!point) return false;
-  if (point.activated) return true;
   await browser.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "left", clickCount: 1 }, sessionId);
   await browser.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "left", clickCount: 1 }, sessionId);
-  return true;
+  const summaryOpened = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const element = Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find((item) => {
+        const rect = item.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (item.textContent ?? "").includes(${JSON.stringify(text)});
+      });
+      return element?.tagName !== "SUMMARY" || (element.parentElement?.tagName === "DETAILS" && element.parentElement.open);
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  return summaryOpened.result?.value === true;
 }
 
 async function chooseRemotePicker(browser, sessionId, labelText, query, optionText) {
@@ -1420,6 +1410,12 @@ function readRouteCases(file) {
   });
   const ids = cases.map((entry) => entry.id);
   if (new Set(ids).size !== ids.length) throw new Error("browser UAT case ids must be unique");
+  for (const path of new Set(cases.map((entry) => entry.path))) {
+    const routeCases = cases.filter((entry) => entry.path === path);
+    if (routeCases.some((entry) => entry.response_overrides?.length > 0) && routeCases.length > 1) {
+      throw new Error(`browser UAT response override case must be isolated on route ${path}`);
+    }
+  }
   return cases;
 }
 
