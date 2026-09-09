@@ -4,7 +4,7 @@
 It does not start Docker, connect to a database, open keys, decrypt envelopes,
 perform source extraction, copy prepared business files, or execute a rehearsal.
 
-Create a private request file containing exactly:
+Create a private request file containing these required keys:
 
 ```json
 {
@@ -14,6 +14,16 @@ Create a private request file containing exactly:
   "outputDirectory": "<existing empty private directory>"
 }
 ```
+
+An optional `baselineCounts` key may explicitly supply the complete 16-table
+count map when the new target's independently observed seed baseline differs.
+Only `sys_org=14` (historical) or `15` (current standard seed) is accepted;
+`hr_contract_type=3` and all other target tables `0` remain mandatory. Omission
+preserves the original map. The receipt records `baselineCountsOverridden`,
+`originalBaselineCounts` and selected `baselineCounts`; the config hash also pins
+the selection. This is not a substitute for preflight: observed counts must match
+the selected exact value, not merely either allowed number. Never delete a valid
+seed organization to make a target match the historical baseline.
 
 Invoke from the clean committed candidate using the raw request digest:
 

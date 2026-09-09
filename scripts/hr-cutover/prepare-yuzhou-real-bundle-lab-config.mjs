@@ -35,7 +35,8 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
   executionBinding = () => computeYuzhouLabExecutionBinding(ROOT),
 } = {}) {
   try {
-    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory"]);
+    const baselineCountsOverridden = !!input && Object.hasOwn(input, "baselineCounts");
+    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory", ...(baselineCountsOverridden ? ["baselineCounts"] : [])]);
     exact(input.existingConfig, ["path", "sha256"]);
     if (!/^[a-f0-9]{64}$/u.test(input.existingConfig.sha256 ?? "") || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(input.runId ?? "") ||
       !/^jinhu_hr_migration_lab_[a-z0-9_]{6,}$/u.test(input.targetDatabase ?? "") || input.targetDatabase.length > 63) fail("INPUT_INVALID");
@@ -50,9 +51,15 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
     c.artifacts.runId = input.runId; c.artifacts.target.database = input.targetDatabase;
     // Validate the entire unchanged remainder, including exact key/envelope descriptors.
     validateYuzhouLabConfig(c);
-    createYuzhouRealBundleLabPgProbes({ expectedDatabase: c.artifacts.target.database, targetScope: c.artifacts.targetScope,
+    const verifyProbeConfig = () => createYuzhouRealBundleLabPgProbes({ expectedDatabase: c.artifacts.target.database, targetScope: c.artifacts.targetScope,
       runId: c.artifacts.runId, codeSha: c.artifacts.binding.codeSha, sourceSnapshotHash: c.artifacts.binding.sourceSnapshotHash,
       baselineCounts: c.baselineCounts, phaseCounts: c.phaseCounts, getHttpFixtureIds: () => ({ userIds: [], roleIds: [] }) });
+    verifyProbeConfig();
+    const originalBaselineCounts = { ...c.baselineCounts };
+    if (baselineCountsOverridden) {
+      exact(input.baselineCounts, Object.keys(originalBaselineCounts));
+      c.baselineCounts = { ...input.baselineCounts }; verifyProbeConfig();
+    }
     const prepared = await prepareYuzhouRealBundleLabArtifacts(c.artifacts);
     if (prepared.status !== "ARTIFACTS_VERIFIED" || prepared.productionImport !== "HOLD") fail("ARTIFACTS_INVALID");
     const rechecked = await executionBinding();
@@ -65,6 +72,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
       configSha256: descriptors["lab-config.json"].sha256, manifestSha256: prepared.manifestSha256, preparerCodeSha,
       preparedTriple: c.artifacts.expectedTriple, executorSha256: actual.executorSha256, runtimeTreeSha256: actual.runtimeTreeSha256,
       dependencyCount: Object.keys(actual.dependencies).length, counts: c.artifacts.expectedCounts,
+      baselineCountsOverridden, originalBaselineCounts, baselineCounts: c.baselineCounts,
       artifacts: descriptors, sourceArtifactsReused: true, cryptoDescriptorsReused: true, keyContentsRead: false,
       databaseContacted: false, databaseWrites: 0, labVerified: false, formalABVerified: false, productionImport: "HOLD" };
     emit(input.outputDirectory, artifacts, receipt, descriptors, LIMIT, "lab-config-preparation-receipt.json");

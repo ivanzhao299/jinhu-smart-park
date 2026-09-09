@@ -59,11 +59,30 @@ test("new config reuses all original files/AAD identity and is accepted by runne
   assert.equal(c.artifacts.preparedRoot, f.c.artifacts.preparedRoot); assert.equal(c.stateRoot, f.c.stateRoot); assert.deepEqual(c.dependencies, f.actual.dependencies);
   assert.equal(c.artifacts.binding.codeSha, "a".repeat(40)); assert.equal(result.preparerCodeSha, "d".repeat(40));
   assert.equal(c.artifacts.binding.executorSha256, f.actual.executorSha256);
+  assert.equal(result.baselineCountsOverridden, false); assert.deepEqual(result.originalBaselineCounts, f.c.baselineCounts);
+  assert.deepEqual(result.baselineCounts, f.c.baselineCounts); assert.deepEqual(c.baselineCounts, f.c.baselineCounts);
   for (const [path, original] of f.inputBytes) assert.deepEqual(await readFile(path), original);
   assert.deepEqual(await readFile(f.input.existingConfig.path), f.originalBytes);
   assert.equal(await readFile(join(f.c.stateRoot, "checkpoint-original-run.json"), "utf8"), "historical-apply-commit-intent");
   assert.deepEqual((await readdir(f.input.outputDirectory)).sort(), ["lab-config-preparation-receipt.json", "lab-config.json"]);
   assert.ok(!JSON.stringify(result).includes(f.root)); assert.ok(!JSON.stringify(result).includes("key-reference"));
+});
+
+test("explicit current 15-org baseline is pinned in config and old/new receipt without changing inputs", async t => {
+  const f = await setup(t); f.input.baselineCounts = { ...f.c.baselineCounts, sys_org: 15 };
+  const receipt = await prepareYuzhouRealBundleLabConfig(f.input, f.options);
+  const bytes = await readFile(join(f.input.outputDirectory, "lab-config.json")), c = JSON.parse(bytes);
+  assert.equal(receipt.baselineCountsOverridden, true); assert.equal(receipt.originalBaselineCounts.sys_org, 14);
+  assert.deepEqual(receipt.baselineCounts, f.input.baselineCounts); assert.deepEqual(c.baselineCounts, f.input.baselineCounts);
+  assert.equal(hash(bytes), receipt.configSha256);
+  assert.notEqual(hash(Buffer.from(bytes.toString().replace('"sys_org":15', '"sys_org":14'))), receipt.configSha256);
+  assert.deepEqual(await readFile(f.input.existingConfig.path), f.originalBytes);
+});
+
+for(const change of [{sys_org:13},{sys_org:16},{hr_contract_type:4},{hr_employee:1}])test(`invalid explicit baseline override ${JSON.stringify(change)} fails closed`,async t=>{
+ const f=await setup(t);f.input.baselineCounts={...f.c.baselineCounts,...change};
+ await assert.rejects(()=>prepareYuzhouRealBundleLabConfig(f.input,f.options),/^Error: LAB_CONFIG_PREPARATION_FAILED$/);
+ assert.deepEqual(await readdir(f.input.outputDirectory),[]);
 });
 
 for (const defect of ["same-run", "same-database", "production", "hash", "scope-override", "state-override", "lease", "checkpoint", "http", "final", "output-used", "input-public", "state-public", "output-symlink", "summary-tamper", "executor-drift", "head-drift", "baseline-counts", "scope-hash"]) test(`refuses ${defect} without success receipt`, async t => {
