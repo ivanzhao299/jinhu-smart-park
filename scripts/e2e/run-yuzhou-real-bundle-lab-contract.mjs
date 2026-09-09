@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm, readFile, chmod, symlink, realpath } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, readFile, chmod, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { parseYuzhouLabArgs, validateYuzhouLabConfig, assertYuzhouLabContainer, assertYuzhouLabCapacity, runYuzhouLabCli, LAB_EXECUTION_DEPENDENCIES, persistYuzhouLabFinalReceipt, readYuzhouLabFinalReceipt } from "../hr-cutover/run-yuzhou-real-bundle-lab.mjs";
+import { parseYuzhouLabArgs, validateYuzhouLabConfig, assertYuzhouLabContainer, assertYuzhouLabCapacity, assertYuzhouLabRuntimeDependencies, runYuzhouLabCli, LAB_EXECUTION_DEPENDENCIES, persistYuzhouLabFinalReceipt, readYuzhouLabFinalReceipt } from "../hr-cutover/run-yuzhou-real-bundle-lab.mjs";
 const hash = "a".repeat(64);
 const receiptId = () => ({ runId: "receipt-contract", configSha256: hash, manifestSha256: hash, binding: { codeSha: "a".repeat(40), sourceSnapshotHash: hash, mappingSha256: hash, executorSha256: hash } });
 test("durable final receipt reloads exact safe identity and never overwrites or proves DB independently", async () => {
@@ -44,6 +44,27 @@ test("failure receipts preserve safe codes; invalid success, paths and symlink t
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 const invalidOperations = ["00000000-0000-4000-8000-000000000001", "yzprod-import-20260908T000000Z-AAAA", "lab-run-invented"];
+test("HTTP safe summary persists and reloads; malicious receipt classifications are rejected",async()=>{
+ const root=await realpath(await mkdtemp(join(tmpdir(),"lab-http-receipt-")));
+ try{
+  const identity=receiptId(),safe={step:"app",errorType:"Error",code:"MODULE_NOT_FOUND",sqlState:null};
+  const result={status:"FAILED",failureCodes:["LAB_OWNER_HTTP_FAILED"],productionImport:"HOLD",httpFailure:safe};
+  for(const change of [{step:"PRIVATE"},{code:"HR_HTTP_PRIVATE"},{sqlState:"PRIVATE"},{message:"PRIVATE"}])await assert.rejects(persistYuzhouLabFinalReceipt({stateRoot:root,identity,result:{...result,httpFailure:{...safe,...change}}}),/LAB_CLI_FINAL_RECEIPT_FAILED/);
+  await persistYuzhouLabFinalReceipt({stateRoot:root,identity,result});
+  assert.deepEqual((await readYuzhouLabFinalReceipt({stateRoot:root,identity})).result.httpFailure,safe);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test("runtime dependency precheck resolves a real built entry without importing/building it",async()=>{
+ const root=await realpath(await mkdtemp(join(tmpdir(),"lab-shared-entry-")));
+ try{
+  await assert.rejects(assertYuzhouLabRuntimeDependencies(root),/^Error: LAB_CLI_RUNTIME_DEPENDENCY_MISSING$/);
+  const pkg=join(root,"node_modules/@jinhu/shared");await mkdir(pkg,{recursive:true});
+  await writeFile(join(pkg,"package.json"),JSON.stringify({name:"@jinhu/shared",main:"dist/index.js"}));
+  await assert.rejects(assertYuzhouLabRuntimeDependencies(root),/^Error: LAB_CLI_RUNTIME_DEPENDENCY_MISSING$/);
+  await mkdir(join(pkg,"dist"));await writeFile(join(pkg,"dist/index.js"),'throw new Error("MUST_NOT_EXECUTE");');
+  await assertYuzhouLabRuntimeDependencies(root);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
 const config = () => ({ formatVersion: 1, artifacts: { preparedRoot: "/private/not-read", expectedSummarySha256: hash, expectedTriple: { codeSha: "a".repeat(40), sourceSnapshotHash: hash, mappingContractHash: hash }, binding: { codeSha: "a".repeat(40), sourceSnapshotHash: hash, mappingSha256: hash, executorSha256: hash }, target: { database: "jinhu_hr_migration_lab_contract" }, targetScope: {}, runId: "contract", operationId: "yzprod-import-20260908T000000Z-aaaaaaaaaaaa", expectedCounts: {}, httpCounts: {} }, stateRoot: "/private/not-read", container: "lab", containerId: hash, imageId: `sha256:${hash}`, port: 15432, dependencies: Object.fromEntries(LAB_EXECUTION_DEPENDENCIES.map(p => [p, hash])), runtimeTreeSha256: hash, envelopes: { path: "/private/not-read", sha256: hash }, keyFiles: [], baselineCounts: {}, phaseCounts: {} });
 test("exact explicit modes; no production, implicit execute, or unknown args", () => {
   for (const mode of ["validate", "preflight", "execute-isolated"]) assert.equal(parseYuzhouLabArgs([`--${mode}`, "--config", "/fixture", "--config-sha256", hash]).mode, mode);

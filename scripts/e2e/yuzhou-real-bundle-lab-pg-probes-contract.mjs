@@ -10,12 +10,21 @@ const base={expectedDatabase:"jinhu_hr_migration_lab_fixture",targetScope:scope,
 function fixture(option={}){const calls=[];const tx={async query(sql,params=[]){calls.push({sql,params});assert.ok(/^\/\* lab-pg:[a-z]+ \*\/ SELECT/u.test(sql));assert.doesNotMatch(sql,/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b/iu);
  if(sql.includes("lab-pg:identity"))return {rows:[{database_name:option.wrongDb?"production":base.expectedDatabase}]};
  if(sql.includes("lab-pg:scope"))return {rows:[{tenant_exists:true,park_exists:!option.wrongScope}]};
- if(sql.includes("lab-pg:count")){const table=/FROM ([a-z_]+) WHERE/u.exec(sql)[1];assert.ok(Object.hasOwn(base.baselineCounts,table));assert.deepEqual(params,[scope.tenantId,scope.parkId]);return {rows:[{n:base.baselineCounts[table]+(option.residual&&table==="hr_employee"?1:0)}]};}
+ if(sql.includes("lab-pg:count")){const table=/FROM ([a-z_]+) WHERE/u.exec(sql)[1];assert.ok(Object.hasOwn(base.baselineCounts,table));assert.deepEqual(params,[scope.tenantId,scope.parkId]);return {rows:[{n:(option.baselineCounts??base.baselineCounts)[table]+(option.residual&&table==="hr_employee"?1:0)}]};}
  if(sql.includes("lab-pg:global"))return {rows:[{active_maps:option.applied?8:option.foreignMaps?1:0,running_batches:0,other_connections:option.other?1:0}]};
  if(sql.includes("lab-pg:fixtures"))return {rows:[{n:option.fixtureLeak?1:0}]};
  if(sql.includes("lab-pg:ledger"))return {rows:option.applied||option.reversed?["t0","t1","t2","t3"].slice(0,option.partial?3:4).map((p,i)=>({id:`00000000-0000-4000-8000-00000000000${i}`,run_id:`fixture-run-${p}`,source_system:model.sourceSystem,source_snapshot_sha256:base.sourceSnapshotHash,target_database:base.expectedDatabase,tool_version:option.foreignRun?"foreign":`lab-import-v1@${base.codeSha}`,execution_context:"lab_rehearsal",phase:"load",status:option.reversed?"rolled_back":"succeeded",records:2,active:option.reversed?0:2,inserted:option.reversed?0:1,quarantined:option.reversed?0:1,reversed:option.reversed?2:0})):[]};
  throw new Error("Unexpected query");}};return {tx,calls};}
 test("baseline preserves exact 14 org/3 contract types and checks only SELECT scope-bound queries",async()=>{const {tx,calls}=fixture();const result=await createYuzhouRealBundleLabPgProbes(base).captureBaseline({tx});assert.deepEqual(result.tableCounts,base.baselineCounts);assert.equal(result.emptyWritableSlice,true);assert.equal(calls[0].sql.includes("identity"),true);});
+for(const count of [14,15])test(`explicit ${count} organization baseline remains exact through residual check`,async()=>{
+ const baselineCounts={...base.baselineCounts,sys_org:count},probe=createYuzhouRealBundleLabPgProbes({...base,baselineCounts});
+ const baseline=await probe.captureBaseline(fixture({baselineCounts}));assert.deepEqual(baseline.tableCounts,baselineCounts);
+ assert.equal((await probe.verifyResidual({...fixture({baselineCounts}),baseline})).baselineRestored,true);
+ await assert.rejects(probe.captureBaseline(fixture({baselineCounts:{...baselineCounts,sys_org:count===14?15:14}})),/LAB_PG_PROBE_GUARD/);
+});
+test("other org totals and changed non-org baselines remain forbidden",()=>{
+ for(const change of [{sys_org:0},{sys_org:13},{sys_org:16},{hr_contract_type:4},{hr_employee:1}])assert.throws(()=>createYuzhouRealBundleLabPgProbes({...base,baselineCounts:{...base.baselineCounts,...change}}),/LAB_PG_PROBE_GUARD/);
+});
 for(const option of ["wrongDb","wrongScope","residual","foreignMaps","other"])test(`${option} rejects baseline`,async()=>{const {tx,calls}=fixture({[option]:true});await assert.rejects(createYuzhouRealBundleLabPgProbes(base).captureBaseline({tx}),/^Error: LAB_PG_PROBE_GUARD$/);if(option==="wrongDb")assert.equal(calls.length,1);});
 test("recovery proves all four exact completed phase batches, absent and reversed states",async()=>{for(const [options,expected] of [[{},"absent"],[{applied:true},"applied"],[{reversed:true},"absent"]]){assert.equal(await createYuzhouRealBundleLabPgProbes(base).resolveApplyState(fixture(options)),expected);}});
 for(const options of [{applied:true,partial:true},{applied:true,foreignRun:true},{foreignMaps:true},{reversed:true,residual:true}])test(`partial/foreign recovery never guesses ${JSON.stringify(options)}`,async()=>{await assert.rejects(createYuzhouRealBundleLabPgProbes(base).resolveApplyState(fixture(options)),/LAB_PG_PROBE_GUARD/);});

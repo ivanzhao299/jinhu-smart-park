@@ -18,7 +18,7 @@ export function createYuzhouRealBundleLabPgProbes({ expectedDatabase, targetScop
       !targetScope || [targetScope.tenantId,targetScope.parkId].some(v => typeof v !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(v)) ||
       targetScope.scopeSha256 !== computeProductionImportTargetScopeHash(targetScope) ||
       !baselineCounts || Object.keys(baselineCounts).length !== TABLES.length || !phaseCounts || Object.keys(phaseCounts).length !== 4) fail();
-  const baselineExpected = Object.fromEntries(TABLES.map(table => { const n = integer(baselineCounts[table]); if (n !== (table === "sys_org" ? 14 : table === "hr_contract_type" ? 3 : 0)) fail(); return [table,n]; }));
+  const baselineExpected = Object.fromEntries(TABLES.map(table => { const n = integer(baselineCounts[table]); if (table === "sys_org" ? ![14,15].includes(n) : n !== (table === "hr_contract_type" ? 3 : 0)) fail(); return [table,n]; }));
   const expectedPhases = PHASES.map(phase => { const p = phaseCounts[phase]; if (!p) fail(); const records=integer(p.records),inserted=integer(p.inserted),quarantined=integer(p.quarantined); if(records!==inserted+quarantined)fail(); return {records,inserted,quarantined}; });
   const scope = { ...targetScope }, runs = PHASES.map(p => `${runId}-${p.toLowerCase()}`), version = `lab-import-v1@${codeSha}`;
   async function query(tx, sql, parameters = []) { try { const r=await tx.query(sql,parameters); if(!Array.isArray(r.rows))fail(); return r.rows; } catch { fail(); } }

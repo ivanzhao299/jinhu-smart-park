@@ -120,6 +120,21 @@ T0/T1 先只读迁移和查询；T3/T4 双轨只算不发。每次全量演练�
 
 ## 9. 关键权衡
 
+### 复用真实 prepared inputs 的新 lab 配置（2026-09-09）
+
+当前标准 migration/production-safe seed 实测增加一个组织，实验 probe 仅允许
+显式组织基线 14 或 15，其余表仍精确 3/0。配置准备可选 baselineCounts 必须是
+完整明确覆盖，调用同一 probe 构造校验；无覆盖原值不变。回执保留旧/新完整
+baseline 和覆盖标记，新 config 字节摘要包含选择；实际 count 必须精确等于所选
+值，不能用允许集合掩盖残留，也不能为适配旧14删除当前 seed 组织。
+
+配置物化只更换显式新 runId、独立 database 与当前 executor 指纹。原 prepared
+C/S/M、scope、operationId、envelopes/key descriptors 原样保留，不复制或重新抽取
+业务输入、不读密钥内容。operationId 是既有密文 AAD 的一部分，不得仅改标签。
+共享互斥 stateRoot 不变；已有 lease 拒绝，新 run 的状态文件必须未占用，旧历史
+不删除。输出私有 config 和 receipt-last，仅称 CONFIG_PREPARED，后续仍需真实
+validate/preflight。此重放不是独立密钥/可信根/Compose/网络/卷的正式 A/B 证据。
+
 ### 只读 global ID census baseline 通道（2026-09-09）
 
 仅 insert/quarantine 可使用固定 16 表全局 ID 哈希 census；merge/skip 仍走原直连
