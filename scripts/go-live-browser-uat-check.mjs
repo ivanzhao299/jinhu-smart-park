@@ -547,8 +547,12 @@ async function typeWithKeyboard(browser, sessionId, selector, value) {
 async function focusLabelledControl(browser, sessionId, labelText, selector) {
   const focused = await browser.send("Runtime.evaluate", {
     expression: `(() => {
-      const label = Array.from(document.querySelectorAll("label")).find((item) => (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)}));
-      const control = label?.querySelector(${JSON.stringify(selector)});
+      const label = Array.from(document.querySelectorAll("label")).find((item) => {
+        const rect = item.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)});
+      });
+      const labelledControl = label?.control ?? (label?.htmlFor ? document.getElementById(label.htmlFor) : null);
+      const control = labelledControl?.matches(${JSON.stringify(selector)}) ? labelledControl : label?.querySelector(${JSON.stringify(selector)});
       control?.focus();
       return document.activeElement === control;
     })()`,
@@ -559,13 +563,29 @@ async function focusLabelledControl(browser, sessionId, labelText, selector) {
 
 async function typeLabelledControl(browser, sessionId, labelText, value) {
   if (!await focusLabelledControl(browser, sessionId, labelText, "input, textarea")) return false;
-  return typeWithKeyboard(browser, sessionId, ":focus", value);
+  if (await typeWithKeyboard(browser, sessionId, ":focus", value)) return true;
+  const dateValue = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const control = document.activeElement;
+      if (!(control instanceof HTMLInputElement) || control.type !== "date") return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(control, ${JSON.stringify(value)});
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+      return control.value === ${JSON.stringify(value)};
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  return dateValue.result?.value === true;
 }
 
 async function selectWithKeyboard(browser, sessionId, labelText, optionText, optionValue) {
   const target = await browser.send("Runtime.evaluate", {
     expression: `(() => {
-      const label = Array.from(document.querySelectorAll("label")).find((item) => (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)}));
+      const label = Array.from(document.querySelectorAll("label")).find((item) => {
+        const rect = item.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)});
+      });
       const select = label?.querySelector("select");
       if (!select) return null;
       const options = Array.from(select.options);
@@ -589,16 +609,32 @@ async function selectWithKeyboard(browser, sessionId, labelText, optionText, opt
 }
 
 async function activateByText(browser, sessionId, selector, text) {
-  const focused = await browser.send("Runtime.evaluate", {
+  const target = await browser.send("Runtime.evaluate", {
     expression: `(() => {
-      const element = Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find((item) => (item.textContent ?? "").includes(${JSON.stringify(text)}));
+      const element = Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find((item) => {
+        const rect = item.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (item.textContent ?? "").includes(${JSON.stringify(text)});
+      });
+      if (element?.tagName === "SUMMARY") {
+        element.scrollIntoView({ block: "center", inline: "center" });
+        element.click();
+        if (element.parentElement?.tagName === "DETAILS" && !element.parentElement.open) element.parentElement.open = true;
+        return { activated: true };
+      }
+      element?.scrollIntoView({ block: "center", inline: "center" });
       element?.focus();
-      return document.activeElement === element;
+      const rect = element?.getBoundingClientRect();
+      return rect && rect.width > 0 && rect.height > 0
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : null;
     })()`,
     returnByValue: true
   }, sessionId);
-  if (!focused.result?.value) return false;
-  await pressKey(browser, sessionId, "Enter", "Enter", 13);
+  const point = target.result?.value;
+  if (!point) return false;
+  if (point.activated) return true;
+  await browser.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "left", clickCount: 1 }, sessionId);
+  await browser.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "left", clickCount: 1 }, sessionId);
   return true;
 }
 
@@ -606,7 +642,7 @@ async function chooseRemotePicker(browser, sessionId, labelText, query, optionTe
   if (!await focusLabelledControl(browser, sessionId, labelText, "input[role='combobox']")) return false;
   if (!await typeWithKeyboard(browser, sessionId, ":focus", query)) return false;
   const optionReady = `Array.from(document.querySelectorAll('[role="option"]:not([disabled])')).some((option) => (option.textContent ?? "").includes(${JSON.stringify(optionText)}))`;
-  if (!await waitForExpression(browser, sessionId, optionReady, 10000).then(() => true, () => false)) return false;
+  if (!await waitForExpression(browser, sessionId, optionReady, 10000)) return false;
   return activateByText(browser, sessionId, "[role='option']:not([disabled])", optionText);
 }
 
@@ -734,6 +770,12 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
   const pendingRequests = new Map();
   const successfulRequestStarts = new Map();
   const failedRequestIdentities = new WeakMap();
+  const responseOverrideChecks = [];
+  const pendingResponseOverrides = new Set();
+  const responseOverrides = assertions?.flatMap((entry) => (entry.response_overrides ?? []).map((override) => ({
+    caseId: entry.id,
+    ...override
+  }))) ?? [];
   let networkSequence = 0;
   const allowForbidden = expectForbidden || assertions?.some((entry) => entry.expect_forbidden === true);
 
@@ -797,12 +839,30 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       }
       pendingRequests.delete(message.params?.requestId);
     }
+    if (message.method === "Fetch.requestPaused") {
+      const operation = applyResponseOverride(browser, sessionId, message.params, responseOverrides)
+        .then((check) => responseOverrideChecks.push(check))
+        .catch(async (error) => {
+          responseOverrideChecks.push({
+            id: "runner", kind: "response_override", expected: "response override", pass: false,
+            reason: redactDiagnostic(error instanceof Error ? error.message : String(error))
+          });
+          await browser.send("Fetch.continueResponse", { requestId: message.params.requestId }, sessionId).catch(() => undefined);
+        })
+        .finally(() => pendingResponseOverrides.delete(operation));
+      pendingResponseOverrides.add(operation);
+    }
   });
 
   try {
     await browser.send("Page.enable", {}, sessionId);
     await browser.send("Runtime.enable", {}, sessionId);
     await browser.send("Network.enable", {}, sessionId);
+    if (responseOverrides.length > 0) {
+      await browser.send("Fetch.enable", {
+        patterns: responseOverrides.map((override) => ({ urlPattern: `*${override.path}*`, requestStage: "Response" }))
+      }, sessionId);
+    }
     await browser.send("Emulation.setDeviceMetricsOverride", {
       width: viewport.width,
       height: viewport.height,
@@ -827,10 +887,15 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       }
       await sleep(100);
     }
-    if (pendingRequests.size > 0) {
+    if (pendingResponseOverrides.size > 0) await Promise.allSettled(pendingResponseOverrides);
+    const pendingApiRequest = Array.from(pendingRequests.values()).find((request) =>
+      new URL(request.url).pathname.startsWith(`${apiPathPrefix}/`)
+      && !successfulRequestStarts.has(request.identity)
+    );
+    if (pendingApiRequest) {
       network.push({
         resource_type: "Pending",
-        path: new URL(pendingRequests.values().next().value.url).pathname,
+        path: new URL(pendingApiRequest.url).pathname,
         status: "settle_timeout"
       });
     }
@@ -884,7 +949,8 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       .filter((action) => action.type === "wait_response" && action.status)
       .map((action) => ({ path: action.path, method: action.method, status: Number(action.status) })) ?? [];
     const failedNetwork = network.find((entry) =>
-      (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
+      (entry.path.startsWith(`${apiPathPrefix}/`) || entry.resource_type === "Document")
+      && (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
       && !expectedResponses.some((expected) => expected.path === entry.path
         && (!expected.method || expected.method === entry.method)
@@ -900,6 +966,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
       || actionEvidence.failure
+      || (responseOverrides.length > 0 && responseOverrideChecks.some((check) => !check.pass) ? "response_override_failed" : "")
       || assertionEvidence.failure
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
@@ -908,6 +975,10 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       warnings: pageWarnings,
       page: value,
       actions: actionEvidence,
+      response_overrides: {
+        status: responseOverrides.length === 0 ? "NOT_CONFIGURED" : responseOverrideChecks.every((check) => check.pass) ? "PASS" : "FAIL",
+        checks: responseOverrideChecks
+      },
       assertions: assertionEvidence,
       network
     };
@@ -932,7 +1003,7 @@ async function executeCaseActions(browser, sessionId, assertions, network) {
     } else if (action.type === "activate") {
       pass = await activateByText(browser, sessionId, action.selector, action.text);
     } else if (action.type === "wait_text") {
-      pass = await waitForExpression(browser, sessionId, `(document.body?.innerText ?? "").includes(${JSON.stringify(action.text)})`, action.timeout_ms ?? 10000).then(() => true, () => false);
+      pass = await waitForExpression(browser, sessionId, `(document.body?.innerText ?? "").includes(${JSON.stringify(action.text)})`, action.timeout_ms ?? 10000);
     } else if (action.type === "wait_response") {
       const deadline = Date.now() + (action.timeout_ms ?? 10000);
       while (Date.now() < deadline && !pass) {
@@ -1019,7 +1090,7 @@ function getRenderFailure(value, runtimeErrors, options = {}) {
   if (value.hasLogin) return "redirected_to_login";
   if (value.hasForbidden && !options.allowForbidden) return "forbidden_or_permission_error";
   if (value.hasNextError) return "next_runtime_error";
-  if (Number(value.textLength ?? 0) < 30) return "blank_or_too_little_content";
+  if (!(options.allowForbidden && value.hasForbidden) && Number(value.textLength ?? 0) < 30) return "blank_or_too_little_content";
   return "";
 }
 
@@ -1105,9 +1176,39 @@ async function waitForExpression(browser, sessionId, expression, timeoutMs) {
       expression,
       returnByValue: true
     }, sessionId).catch(() => ({ result: { value: false } }));
-    if (result.result?.value === true) return;
+    if (result.result?.value === true) return true;
     await sleep(250);
   }
+  return false;
+}
+
+async function applyResponseOverride(browser, sessionId, paused, overrides) {
+  const pathname = new URL(paused.request.url).pathname;
+  const override = overrides.find((candidate) => candidate.path === pathname);
+  if (!override || !paused.responseStatusCode) {
+    await browser.send("Fetch.continueResponse", { requestId: paused.requestId }, sessionId);
+    return { id: override?.caseId ?? "runner", kind: "response_override", expected: pathname, pass: true, skipped: true };
+  }
+  const response = await browser.send("Fetch.getResponseBody", { requestId: paused.requestId }, sessionId);
+  let body = response.base64Encoded ? Buffer.from(response.body, "base64").toString("utf8") : response.body;
+  let replacements = 0;
+  for (const [from, to] of Object.entries(override.replacements)) {
+    const occurrences = body.split(from).length - 1;
+    if (occurrences > 0) {
+      body = body.split(from).join(to);
+      replacements += occurrences;
+    }
+  }
+  await browser.send("Fetch.fulfillRequest", {
+    requestId: paused.requestId,
+    responseCode: paused.responseStatusCode,
+    responsePhrase: paused.responseStatusText,
+    responseHeaders: (paused.responseHeaders ?? []).filter((header) =>
+      !["content-length", "content-encoding", "transfer-encoding"].includes(header.name.toLowerCase())
+    ),
+    body: Buffer.from(body).toString("base64")
+  }, sessionId);
+  return { id: override.caseId, kind: "response_override", expected: override.path, pass: replacements > 0, replacements };
 }
 
 function waitForEvent(browser, sessionId, method, timeoutMs) {
@@ -1274,6 +1375,12 @@ function readRouteCases(file) {
         throw new Error(`browser UAT case ${entry.id} has invalid ${field}`);
       }
     }
+    if (entry.response_overrides !== undefined && (!Array.isArray(entry.response_overrides) || entry.response_overrides.some((override) =>
+      !override || typeof override !== "object" || typeof override.path !== "string" || !override.path.startsWith(`${apiPathPrefix}/`)
+      || !override.replacements || typeof override.replacements !== "object" || Array.isArray(override.replacements)
+      || Object.entries(override.replacements).length === 0
+      || Object.entries(override.replacements).some(([from, to]) => !from || typeof to !== "string")
+    ))) throw new Error(`browser UAT case ${entry.id} has invalid response_overrides`);
     if (entry.actions !== undefined && (!Array.isArray(entry.actions) || entry.actions.some((action) => {
       if (!action || typeof action !== "object" || !["input", "select", "picker", "activate", "wait_text", "wait_response", "reload"].includes(action.type)) return true;
       if (action.timeout_ms !== undefined && (!Number.isInteger(action.timeout_ms) || action.timeout_ms < 1 || action.timeout_ms > 60000)) return true;

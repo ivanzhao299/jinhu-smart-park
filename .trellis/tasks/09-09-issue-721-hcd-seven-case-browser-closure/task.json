@@ -12,7 +12,7 @@
   "assignee": "emvia",
   "createdAt": "2026-09-09",
   "completedAt": null,
-  "branch": "codex/issue-721-hcd-seven-case-browser-closure",
+  "branch": "codex/issue-721-hcd-seven-case-host-chromium-final",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
