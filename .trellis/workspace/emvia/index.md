@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 41
+- **Total Sessions**: 42
 - **Last Active**: 2026-09-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1469 | Active |
+| `journal-1.md` | ~1503 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 42 | 2026-09-09 | PMA L-04 browser UAT baseline closure | `66fd267a` | `codex/pma-l04-browser-uat-baseline` |
 | 41 | 2026-09-09 | PMA L-03 B workbench navigation closure | `9fd3a68e`, `752a9318` | `codex/pma-l03-css-budget-followup` |
 | 40 | 2026-09-08 | PMA L-02 housing and leasing bounded-context ADR | `a2bc64d3b282712eca0d7b74aeb444d15a4393a1` | `codex/pma-l02-leasing-boundary-adr` |
 | 39 | 2026-09-08 | PMA L-01 canonical 领域蓝图收官 | `78021b36`, `16204c01` | `codex/pma-l01-canonical-domain-blueprint` |

@@ -1467,3 +1467,37 @@ Delivered typed routes, dynamic breadcrumbs, permission-scoped command palette, 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: PMA L-04 browser UAT baseline closure
+
+**Date**: 2026-09-09
+**Task**: PMA L-04 browser UAT baseline closure
+**Package**: api
+**Branch**: `codex/pma-l04-browser-uat-baseline`
+
+### Summary
+
+Established isolated real-keyboard browser UAT evidence contracts, executed two bounded dedicated-browser attempts with honest HCD-001..030 BLOCKED classification, passed focused and PR gates, and prepared PR #719 for squash merge.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `66fd267a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
