@@ -47,9 +47,9 @@ const invalidOperations = ["00000000-0000-4000-8000-000000000001", "yzprod-impor
 test("HTTP safe summary persists and reloads; malicious receipt classifications are rejected",async()=>{
  const root=await realpath(await mkdtemp(join(tmpdir(),"lab-http-receipt-")));
  try{
-  const identity=receiptId(),safe={step:"app",errorType:"Error",code:"MODULE_NOT_FOUND",sqlState:null};
+  const identity=receiptId(),safe={step:"verify",errorType:"Error",code:"HR_HTTP_PROBE_TIMEOUT",sqlState:null,requestStep:"insurancePeriods_page2"};
   const result={status:"FAILED",failureCodes:["LAB_OWNER_HTTP_FAILED"],productionImport:"HOLD",httpFailure:safe};
-  for(const change of [{step:"PRIVATE"},{code:"HR_HTTP_PRIVATE"},{sqlState:"PRIVATE"},{message:"PRIVATE"}])await assert.rejects(persistYuzhouLabFinalReceipt({stateRoot:root,identity,result:{...result,httpFailure:{...safe,...change}}}),/LAB_CLI_FINAL_RECEIPT_FAILED/);
+  for(const change of [{step:"PRIVATE"},{code:"HR_HTTP_PRIVATE"},{sqlState:"PRIVATE"},{message:"PRIVATE"},{requestStep:"/hr/contracts/PRIVATE"},{requestStep:"employees_page3"}])await assert.rejects(persistYuzhouLabFinalReceipt({stateRoot:root,identity,result:{...result,httpFailure:{...safe,...change}}}),/LAB_CLI_FINAL_RECEIPT_FAILED/);
   await persistYuzhouLabFinalReceipt({stateRoot:root,identity,result});
   assert.deepEqual((await readYuzhouLabFinalReceipt({stateRoot:root,identity})).result.httpFailure,safe);
  }finally{await rm(root,{recursive:true,force:true});}

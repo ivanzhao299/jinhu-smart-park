@@ -10,6 +10,17 @@ import { LAB_EXECUTION_DEPENDENCIES, validateYuzhouLabConfig, parseYuzhouLabArgs
 import { computeProductionImportPayloadBundleHash, computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as MODEL } from "../hr-cutover/production-import-target-model.mjs";
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+test("explicit dedicated descriptor is config/hash bound without changing crypto or prepared inputs", async t => {
+  const f = await setup(t), name = "jinhu_hr_migration_lab_independent";
+  f.input.resourceDescriptor = { database: name, container: name, containerId: hash("new-container"), imageId: `sha256:${hash("image")}`, port: 25432, composeProject: name,
+    volume: { name, createdAt: "2026-09-09T00:00:00Z" }, network: { name, id: hash("network") } };
+  const receipt = await prepareYuzhouRealBundleLabConfig(f.input, f.options);
+  const c = JSON.parse(await readFile(join(f.input.outputDirectory, "lab-config.json")));
+  assert.deepEqual(c.resourceDescriptor, f.input.resourceDescriptor); assert.equal(c.port, 25432);
+  assert.match(receipt.resourceDescriptorSha256, /^[a-f0-9]{64}$/); assert.equal(receipt.formalABVerified, false);
+  assert.deepEqual(c.keyFiles, f.c.keyFiles); assert.equal(c.stateRoot, f.c.stateRoot);
+  for (const [path, bytes] of f.inputBytes) assert.deepEqual(await readFile(path), bytes);
+});
 async function setup(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "lab-config-prep-"))); t.after(() => rm(root, { recursive: true, force: true }));
   const put = async (name, value) => { const path = join(root, name), bytes = Buffer.from(JSON.stringify(value, null, 2)); await writeFile(path, bytes, { mode: 0o600 }); return { path, sha256: hash(bytes) }; };

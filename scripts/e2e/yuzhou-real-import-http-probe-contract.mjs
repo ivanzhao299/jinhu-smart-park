@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 /* global URL, Response, ReadableStream, TextEncoder */
 import test from "node:test";
 import { verifyYuzhouRealImportHttp, YuzhouRealImportHttpProbeError } from "../hr-cutover/yuzhou-real-import-http-probe.mjs";
-import { cleanupYuzhouRealHttpLab, runYuzhouHttpFixtureTransaction, sanitizeYuzhouRealHttpLabFailure } from "../hr-cutover/yuzhou-real-http-lab-runtime.mjs";
+import { cleanupYuzhouRealHttpLab, runYuzhouHttpFixtureTransaction, sanitizeYuzhouRealHttpLabFailure, sanitizeYuzhouRealHttpLabFailureSummary } from "../hr-cutover/yuzhou-real-http-lab-runtime.mjs";
 
 const uuid = index => `00000000-0000-5000-8000-${String(index).padStart(12, "0")}`;
 const config = { baseUrl: "http://127.0.0.1:3999/api/v1", scope: { tenantId: "fixture-tenant", parkId: "fixture-park" },
@@ -89,7 +89,30 @@ test("nonloopback, credentials in URL, wrong API path, zero counts rejected befo
 test("request timeout aborts and errors remain fixed", async () => {
   await assert.rejects(verifyYuzhouRealImportHttp({ ...config, timeoutMs: 5, fetchImpl: (_url, { signal }) =>
     new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("PRIVATE")), { once: true })) }),
-  error => error.code === "HR_HTTP_PROBE_TIMEOUT");
+  error => error.code === "HR_HTTP_PROBE_TIMEOUT" && error.requestStep === "reader_login");
+});
+test("each of 26 bounded requests propagates its fixed timeout step through runtime sanitization", async () => {
+  const expected = ["reader_login", "reader_me", "denied_login", "denied_me",
+    ...["employees", "contracts", "attendanceCalendars", "insurancePeriods"].flatMap(d => ["page1", "page2", "unauth", "denied"].map(a => `${d}_${a}`)),
+    ...["contracts", "insurancePeriods"].flatMap(d => ["detail", "detail_unauth", "detail_denied"].map(a => `${d}_${a}`))];
+  for (let index = 0; index < expected.length; index++) {
+    const stub = mock(); let count = 0;
+    await assert.rejects(verifyYuzhouRealImportHttp({ ...config, timeoutMs: 5, fetchImpl: (url, init) => {
+      if (count++ !== index) return stub.fetch(url, init);
+      return new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(Error("PRIVATE")), { once: true }));
+    } }), error => {
+      assert.equal(error.code, "HR_HTTP_PROBE_TIMEOUT"); assert.equal(error.requestStep, expected[index]);
+      assert.equal(sanitizeYuzhouRealHttpLabFailure(error, "verify").requestStep, expected[index]); return true;
+    });
+  }
+});
+test("runtime drops path, identifier and unknown request labels; getter cannot swap allowed label for private data", () => {
+  for (const requestStep of ["/hr/contracts/private-id", "PRIVATE_TOKEN", "employees_page3", { toString: () => "reader_login" }]) {
+    assert.equal(sanitizeYuzhouRealHttpLabFailureSummary({ requestStep }).requestStep, undefined);
+  }
+  let reads = 0;
+  assert.equal(sanitizeYuzhouRealHttpLabFailureSummary({ get requestStep() { return reads++ === 0 ? "reader_login" : "PRIVATE"; } }).requestStep, "reader_login");
+  assert.equal(reads, 1);
 });
 test("oversized response stream is cancelled", async () => {
   let cancelled = false;

@@ -13,6 +13,30 @@ type TestAccess="park"|"managed_org_tree"|"self";
 const raw={id:"period-1",employee_id:"employee-1",employee_code:"JH-001",employee_name:"张三",period_year:2025,period_month:7,needs_review:false,review_reason_code:null,legacy_compatibility:{legacyFlags:{fund:"Y"},fieldPresence:{insureaccount:true}}};
 const items=[{insuranceKind:"pension",contributionBase:"5000.00",employeeAmount:"400.00",employerAmount:"800.00",totalAmount:"1200.00",supplementAmount:"0.00",legacyBaseNegative:false}];
 
+test("insurance list batches only current-page items and preserves projections and audit",async()=>{
+ for(const size of [0,1,20]){
+  let reads=0,audits=0;
+  const rows=Array.from({length:size},(_,i)=>({...raw,id:`period-${i}`}));
+  const qb={where(){return this;},andWhere(){return this;},innerJoin(){return this;},select(){return this;},orderBy(){return this;},addOrderBy(){return this;},offset(){return this;},limit(){return this;},clone(){return this;},async getCount(){return size;},async getRawMany(){return rows;}};
+  const args=Array(32).fill({});args[24]={createQueryBuilder:()=>qb};
+  args[25]={find:async(options:{where:{tenantId:string;parkId:string;periodId:{value:string[]};isDeleted:boolean};order:Record<string,string>})=>{
+   reads++;assert.equal(options.where.tenantId,scope.tenantId);assert.equal(options.where.parkId,scope.parkId);assert.equal(options.where.isDeleted,false);
+   assert.deepEqual(options.where.periodId.value,rows.map(row=>row.id));assert.deepEqual(options.order,{insuranceKind:"ASC"});
+   // A period without items must not cause a fallback per-row query.
+   return rows.slice(1).map(row=>({...items[0],periodId:row.id}));
+  }};args[31]={recordOperationRequired:async()=>{audits++;}};
+  const service=Reflect.construct(HrService,args) as HrService;
+  const actor={sub:"user-1",username:"tester",...scope,roles:[],isSuper:false,permissions:[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ]} as JwtPrincipal;
+  const result=await service.listInsurancePeriods(scope,actor,{page:1,page_size:20});
+  assert.equal(reads,size?1:0);assert.equal(audits,1);assert.equal(result.total,size);assert.equal(result.items.length,size);
+  for(let i=0;i<size;i++){
+   const expected=await project("park",false,true,rows[i]);
+   if(i===0)Object.assign(expected,{itemCount:0,employeeAmount:"0.00",supplementAmount:"0.00",employerAmount:"0.00",totalAmount:"0.00"});
+   assert.deepEqual(result.items[i],expected);
+  }
+ }
+});
+
 async function project(access:TestAccess,includeItems=true,canReadAmounts=access==="self",source:Record<string,unknown>=raw){
  const target={insuranceItems:{find:async()=>items}};
  const projector=(HrService.prototype as unknown as {projectInsurancePeriod:(scope:TestScope,row:Record<string,unknown>,access:TestAccess,includeItems:boolean,canReadAmounts:boolean)=>Promise<Record<string,unknown>>}).projectInsurancePeriod;

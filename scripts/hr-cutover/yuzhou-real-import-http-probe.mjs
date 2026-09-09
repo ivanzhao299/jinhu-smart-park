@@ -1,6 +1,11 @@
+/* global URL: readonly, AbortController: readonly, setTimeout: readonly, clearTimeout: readonly, TextDecoder: readonly */
 const DOMAINS = Object.freeze({ employees: "/hr/employees", contracts: "/hr/contracts",
   attendanceCalendars: "/hr/attendance/calendars", insurancePeriods: "/hr/insurance/periods" });
 const READER_PERMISSIONS = Object.freeze(["hr:employee:read", "hr:contract:read", "hr:attendance:read", "hr:insurance:read"]);
+const REQUEST_STEPS = new Set(["reader_login", "reader_me", "denied_login", "denied_me",
+  ...Object.keys(DOMAINS).flatMap(domain => ["page1", "page2", "unauth", "denied"].map(action => `${domain}_${action}`)),
+  ...["contracts", "insurancePeriods"].flatMap(domain => ["detail", "detail_unauth", "detail_denied"].map(action => `${domain}_${action}`))]);
+export function sanitizeYuzhouHttpRequestStep(value) { return REQUEST_STEPS.has(value) ? value : undefined; }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
 export class YuzhouRealImportHttpProbeError extends Error {
@@ -22,6 +27,7 @@ function pageIds(body, total, page, size) {
  */
 export async function verifyYuzhouRealImportHttp({ baseUrl, scope, authorizedCredentials, deniedCredentials, expectedCounts,
   fetchImpl = globalThis.fetch, timeoutMs = 15000, maxResponseBytes = 2 * 1024 * 1024 }) {
+  let requestStep;
   try {
     const base = new URL(baseUrl);
     if (base.protocol !== "http:" || !["127.0.0.1", "[::1]", "localhost"].includes(base.hostname) ||
@@ -34,7 +40,9 @@ export async function verifyYuzhouRealImportHttp({ baseUrl, scope, authorizedCre
     if (!object(expectedCounts) || Object.keys(expectedCounts).length !== 4 || Object.keys(DOMAINS).some(key => !Number.isSafeInteger(expectedCounts[key]) || expectedCounts[key] <= 0)) fail("HR_HTTP_PROBE_COUNTS_INVALID");
     const root = base.href.replace(/\/$/u, "");
     let requests = 0;
-    async function request(path, { token, credentials, status = 200 } = {}) {
+    async function request(path, { token, credentials, status = 200, step } = {}) {
+      requestStep = sanitizeYuzhouHttpRequestStep(step);
+      if (!requestStep) fail("HR_HTTP_PROBE_INPUT_INVALID");
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       let reader;
@@ -72,9 +80,9 @@ export async function verifyYuzhouRealImportHttp({ baseUrl, scope, authorizedCre
       }
     }
     async function login(credentials, denied) {
-      const result = await request("/auth/login", { credentials });
+      const result = await request("/auth/login", { credentials, step: denied ? "denied_login" : "reader_login" });
       if (result.requiresContextSelection || typeof result.accessToken !== "string" || !result.accessToken || result.tokenType !== "Bearer") fail("HR_HTTP_PROBE_LOGIN_INVALID");
-      const me = await request("/auth/me", { token: result.accessToken });
+      const me = await request("/auth/me", { token: result.accessToken, step: denied ? "denied_me" : "reader_me" });
       if (typeof me.id !== "string" || !UUID.test(me.id) || me.username !== credentials.username || me.tenant_id !== scope.tenantId || me.park_id !== scope.parkId ||
           !Array.isArray(me.permissions) || me.permissions.some(permission => typeof permission !== "string")) fail("HR_HTTP_PROBE_IDENTITY_INVALID");
       // /auth/me itself requires this identity-only permission; the denied user
@@ -91,22 +99,22 @@ export async function verifyYuzhouRealImportHttp({ baseUrl, scope, authorizedCre
     const observedCounts = {}, firstIds = {}, checks = ["authorized_login_and_scope", "denied_login_and_scope", "distinct_users"];
     for (const [domain, path] of Object.entries(DOMAINS)) {
       const total = expectedCounts[domain], size = Math.min(20, Math.ceil(total / 2));
-      const first = await request(`${path}?page=1&page_size=${size}`, { token: authorized.token });
+      const first = await request(`${path}?page=1&page_size=${size}`, { token: authorized.token, step: `${domain}_page1` });
       const firstPage = pageIds(first, total, 1, size);
-      const secondPage = pageIds(await request(`${path}?page=2&page_size=${size}`, { token: authorized.token }), total, 2, size);
+      const secondPage = pageIds(await request(`${path}?page=2&page_size=${size}`, { token: authorized.token, step: `${domain}_page2` }), total, 2, size);
       const firstSet = new Set(firstPage);
       if (secondPage.some(id => firstSet.has(id))) fail("HR_HTTP_PROBE_PAGE_OVERLAP");
       firstIds[domain] = firstPage[0]; observedCounts[domain] = first.total;
-      await request(`${path}?page=1&page_size=1`, { status: 401 });
-      await request(`${path}?page=1&page_size=1`, { token: denied.token, status: 403 });
+      await request(`${path}?page=1&page_size=1`, { status: 401, step: `${domain}_unauth` });
+      await request(`${path}?page=1&page_size=1`, { token: denied.token, status: 403, step: `${domain}_denied` });
       checks.push(`${domain}:positive_pages`, `${domain}:disjoint_ids`, `${domain}:unauthenticated_401`, `${domain}:denied_403`);
     }
     for (const domain of ["contracts", "insurancePeriods"]) {
       const path = `${DOMAINS[domain]}/${firstIds[domain]}`;
-      const detail = await request(path, { token: authorized.token });
+      const detail = await request(path, { token: authorized.token, step: `${domain}_detail` });
       if (detail.id !== firstIds[domain]) fail("HR_HTTP_PROBE_DETAIL_INVALID");
-      await request(path, { status: 401 });
-      await request(path, { token: denied.token, status: 403 });
+      await request(path, { status: 401, step: `${domain}_detail_unauth` });
+      await request(path, { token: denied.token, status: 403, step: `${domain}_detail_denied` });
       checks.push(`${domain}:detail`, `${domain}:detail_unauthenticated_401`, `${domain}:detail_denied_403`);
     }
     const live = fetchImpl === globalThis.fetch;
@@ -114,7 +122,8 @@ export async function verifyYuzhouRealImportHttp({ baseUrl, scope, authorizedCre
       httpVerified: live, authenticationVerified: live, importedSourceBindingVerified: false, uiVerified: false,
       auditPersistenceVerified: false, productionImport: "HOLD", observedCounts, requestCount: requests, checks };
   } catch (error) {
-    if (error instanceof YuzhouRealImportHttpProbeError) throw error;
-    fail("HR_HTTP_PROBE_FAILED");
+    const safe = error instanceof YuzhouRealImportHttpProbeError ? error : new YuzhouRealImportHttpProbeError("HR_HTTP_PROBE_FAILED");
+    if (requestStep) safe.requestStep = requestStep;
+    throw safe;
   }
 }

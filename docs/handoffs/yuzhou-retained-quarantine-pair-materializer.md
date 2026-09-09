@@ -1,0 +1,11 @@
+# Private retained quarantine pair materializer
+
+Call `materializeYuzhouRetainedQuarantinePair({ existingConfig: { path, sha256 }, sides: { A, B }, receiptDirectory })`. Each side contains `operationId`, `keyReferenceSha256`, `keyFile: { path, sha256 }`, and `outputDirectory`. All three output directories must already be private, empty, canonical, distinct and non-nested. This is a callable API, not a completed pair execution CLI.
+
+The existing prepared-artifact verifier authenticates the source summary/triple and all phase file hashes. The materializer additionally recomputes payload hashes, reads exact referenced raw 32-byte keys through bounded private NOFOLLOW/hash-checked readers, and delegates authenticated rekeying to the existing pure adapter. Source business payloads are read for verification but never copied to output. Key copies are cleared on success/failure.
+
+Each side receives only `envelopes.json`, `overlays.json`, and a `SIDE_ARTIFACTS_ONLY` receipt. These side receipts are explicitly not readiness markers. After both sides have been read back against their byte pins, `pair-receipt.json` is emitted last into `receiptDirectory` using the existing fsync/readback/owned-marker-cleanup helper. A partial failure may retain non-ready side files for investigation; it never intentionally overwrites or cleans input artifacts. Empty fresh directories are required for retry.
+
+`applyYuzhouQuarantineOverlays(phases, overlays)` deterministically produces an in-memory phase projection. Every quarantine must match exactly one overlay by phase/source identity/source row hash/payload hash; inserts cannot receive overlays and their objects are reused. Only three crypto binding fields are replaced; original reason and all other record fields are preserved. Missing, duplicate or extra overlays fail closed.
+
+The receipt preserves the original prepared triple and source manifest/config hashes. No current executor or rehearsal triple is fabricated. The later pair runner must authenticate the receipt and output pins, associate each side with its operation, keys and dedicated live resources, and independently bind actual execution evidence. `PAIR_QUARANTINE_MATERIALS_READY` is material readiness, not LAB_PASS, formal A/B or production authorization.
