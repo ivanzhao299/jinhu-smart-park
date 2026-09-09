@@ -121,6 +121,7 @@ export const LAB_EXECUTION_DEPENDENCIES = Object.freeze([...new Set([...PRODUCTI
   "scripts/hr-cutover/rekey-yuzhou-retained-quarantine.mjs",
   "scripts/hr-cutover/run-yuzhou-retained-bundle-pair.mjs",
   "scripts/hr-cutover/yuzhou-retained-lab-resource-owner.mjs",
+  "scripts/hr-cutover/yuzhou-retained-lab-resource-cleanup.mjs",
   "scripts/db-migrate.sh", "scripts/db-seed-prod.sh",
   ...["run-yuzhou-real-bundle-lab", "yuzhou-real-bundle-lab-artifacts", "yuzhou-real-bundle-lab-owner", "yuzhou-real-bundle-lab-run-state", "yuzhou-real-bundle-lab-pg-probes", "yuzhou-real-http-lab-runtime", "yuzhou-real-import-http-probe", "production-import-phase-rollback"].map(n => `scripts/hr-cutover/${n}.mjs`),
   "pnpm-lock.yaml", "apps/api/package.json", "apps/api/tsconfig.json", "packages/shared/package.json"])] .sort());
