@@ -15,11 +15,11 @@ Rebuild the property browser UAT harness so a real authenticated run can produce
 
 ## Acceptance Criteria
 
-- [ ] Login POST, `/users/me`, UI logout and fresh-context isolation are evidenced.
-- [ ] A viewport-matrix mode emits separate desktop and phone results for every route.
-- [ ] A declarative case file supplies exact route and DOM/text assertions without credentials.
-- [ ] Evidence files are mode 0600 and have a verifiable SHA-256 manifest.
-- [ ] HCD conclusions retain PASS/SURFACE_ONLY/BLOCKED/UNVERIFIED; only real browser evidence may yield PASS.
+- [x] Login POST, `/users/me`, UI logout and fresh-context isolation are evidenced.
+- [x] A viewport-matrix mode emits separate desktop and phone results for every route.
+- [x] A declarative case file supplies exact route and DOM/text assertions without credentials.
+- [x] Evidence files are mode 0600 and have a verifiable SHA-256 manifest.
+- [x] HCD conclusions retain PASS/SURFACE_ONLY/BLOCKED/UNVERIFIED; only real browser evidence may yield PASS.
 
 ## Notes
 
