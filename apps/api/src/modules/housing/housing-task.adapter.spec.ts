@@ -99,6 +99,22 @@ describe("housing derived property-task resolvers", () => {
     assert.match(statement, /LIMIT \$4::integer/);
   });
 
+  test("projects handover types as Chinese labels with a closed unknown fallback", async () => {
+    const resolver = createHousingTaskResolvers().handover;
+    let statement = "";
+    const manager = port(async (sql) => {
+      statement = sql;
+      return [];
+    });
+
+    await resolver.scanCandidates({ manager, scope, after: null, limit: 1 });
+
+    assert.match(statement, /WHEN 'move_in' THEN '入住'/);
+    assert.match(statement, /WHEN 'move_out' THEN '退租'/);
+    assert.match(statement, /ELSE '未知交割类型'/);
+    assert.doesNotMatch(statement, /\|\| source\.handover_type/);
+  });
+
   test("projects tenant repair work orders into the shared task runtime", async () => {
     const statements: string[] = [];
     const resolver = createHousingTaskResolvers().repair;

@@ -660,6 +660,9 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
   const pageWarnings = [];
   const network = [];
   const pendingRequests = new Map();
+  const successfulRequestSequences = new Map();
+  const failedRequestIdentities = new WeakMap();
+  let networkSequence = 0;
   const allowForbidden = expectForbidden || assertions?.some((entry) => entry.expect_forbidden === true);
 
   const off = browser.onEvent((message) => {
@@ -677,6 +680,9 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     if (message.method === "Network.responseReceived") {
       const response = message.params?.response;
       if (response?.url && /^https?:/u.test(response.url)) {
+        if (response.status >= 200 && response.status < 400) {
+          successfulRequestSequences.set(response.url, ++networkSequence);
+        }
         network.push({
           resource_type: message.params?.type ?? "Other",
           url: redactUrl(response.url),
@@ -695,12 +701,14 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     if (message.method === "Network.loadingFailed") {
       const url = pendingRequests.get(message.params?.requestId);
       if (url) {
-        network.push({
+        const failure = {
           resource_type: message.params?.type ?? "Other",
           path: new URL(url).pathname,
           status: "transport_failed",
           error: message.params?.errorText ?? "unknown"
-        });
+        };
+        network.push(failure);
+        failedRequestIdentities.set(failure, { url, sequence: ++networkSequence });
       }
       pendingRequests.delete(message.params?.requestId);
     }
@@ -788,7 +796,8 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
       && !(entry.status === "transport_failed" && entry.error === "net::ERR_ABORTED"
-        && network.some((candidate) => candidate.path === entry.path && Number(candidate.status) >= 200 && Number(candidate.status) < 400))
+        && successfulRequestSequences.get(failedRequestIdentities.get(entry)?.url)
+          > failedRequestIdentities.get(entry)?.sequence)
     );
     const hardFailure = renderFailure
       || (allowForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
@@ -1096,10 +1105,11 @@ function normalizeMenuHref(href) {
 }
 
 function isMobileTerminalPath(path) {
-  return mobilePathPrefixes.some((prefix) => path.startsWith(prefix))
-    || path === "/operations/terminal"
-    || path === "/engineering/terminal"
-    || path === "/preview/operations-terminal";
+  const pathname = new URL(path, "http://browser-uat.local").pathname;
+  return mobilePathPrefixes.some((prefix) => pathname.startsWith(prefix))
+    || pathname === "/operations/terminal"
+    || pathname === "/engineering/terminal"
+    || pathname === "/preview/operations-terminal";
 }
 
 function resolveViewports(path, pageCases) {

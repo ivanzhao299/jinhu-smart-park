@@ -8519,8 +8519,12 @@ select {
   border-bottom: 1px solid var(--border-soft);
 }
 
-.ds-panel-heading > div {
+.ds-panel-heading > div:first-child {
   min-width: 0;
+}
+
+.ds-panel-heading > div:last-child {
+  flex-shrink: 0;
 }
 
 .ds-panel-heading h1 {
