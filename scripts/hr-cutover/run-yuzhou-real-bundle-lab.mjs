@@ -16,6 +16,7 @@ import { withYuzhouRealHttpLab, sanitizeYuzhouRealHttpLabFailureSummary } from "
 import { verifyYuzhouRealImportHttp } from "./yuzhou-real-import-http-probe.mjs";
 import { createProductionImportArtifactCryptoProvider, readBoundedPrivateArtifactBytes, PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS } from "./execute-production-import.mjs";
 import { decryptProductionImportEnvelope } from "./production-import-crypto-provider.mjs";
+import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../.."), HASH = /^[0-9a-f]{64}$/u;
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -88,6 +89,7 @@ export async function persistYuzhouLabFinalReceipt({ stateRoot, identity, result
 const privatePath = p => typeof p === "string" && isAbsolute(p) && resolve(p) === p && !p.includes("\0");
 const exact = (o, keys) => { if (!o || Object.keys(o).sort().join() !== [...keys].sort().join()) fail(); };
 export const LAB_EXECUTION_DEPENDENCIES = Object.freeze([...new Set([...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS,
+  "scripts/hr-cutover/yuzhou-lab-resource-descriptor.mjs",
   ...["run-yuzhou-real-bundle-lab", "yuzhou-real-bundle-lab-artifacts", "yuzhou-real-bundle-lab-owner", "yuzhou-real-bundle-lab-run-state", "yuzhou-real-bundle-lab-pg-probes", "yuzhou-real-http-lab-runtime", "yuzhou-real-import-http-probe", "production-import-phase-rollback"].map(n => `scripts/hr-cutover/${n}.mjs`),
   "pnpm-lock.yaml", "apps/api/package.json", "apps/api/tsconfig.json", "packages/shared/package.json"])] .sort());
 
@@ -96,7 +98,11 @@ export function parseYuzhouLabArgs(argv) {
   return { mode: argv[0].slice(2), configPath: argv[2], configSha256: argv[4] };
 }
 export function validateYuzhouLabConfig(c) {
-  exact(c, ["formatVersion", "artifacts", "stateRoot", "container", "containerId", "imageId", "port", "dependencies", "runtimeTreeSha256", "envelopes", "keyFiles", "baselineCounts", "phaseCounts"]);
+  exact(c, ["formatVersion", "artifacts", "stateRoot", "container", "containerId", "imageId", "port", "dependencies", "runtimeTreeSha256", "envelopes", "keyFiles", "baselineCounts", "phaseCounts", ...(Object.hasOwn(c, "resourceDescriptor") ? ["resourceDescriptor"] : [])]);
+  if (Object.hasOwn(c, "resourceDescriptor")) {
+    const r = validateYuzhouLabResourceDescriptor(c.resourceDescriptor);
+    if (["container", "containerId", "imageId", "port"].some(k => c[k] !== r[k]) || c.artifacts?.target?.database !== r.database) fail();
+  }
   if (c.formatVersion !== 1 || !/^[A-Za-z0-9_.-]+$/u.test(c.container) || !HASH.test(c.containerId) || !/^sha256:[0-9a-f]{64}$/u.test(c.imageId) || !Number.isInteger(c.port) || c.port < 1024 || c.port > 65535 || !HASH.test(c.runtimeTreeSha256)) fail();
   exact(c.artifacts, ["preparedRoot", "expectedSummarySha256", "expectedTriple", "binding", "target", "targetScope", "runId", "operationId", "expectedCounts", "httpCounts"]);
   exact(c.artifacts.target, ["database"]);
@@ -145,7 +151,8 @@ export async function computeYuzhouLabExecutionBinding(repositoryRoot = ROOT) {
   const runtimeTreeSha256 = sha(JSON.stringify(tree));
   return { dependencies, runtimeTreeSha256, executorSha256: sha(JSON.stringify({ dependencies, runtimeTreeSha256 })) };
 }
-export function assertYuzhouLabContainer(c, d) {
+export function assertYuzhouLabContainer(c, d, resources) {
+  if (c.resourceDescriptor) return assertYuzhouLabResources(c.resourceDescriptor, { ...resources, container: d });
   const p = d?.NetworkSettings?.Ports?.["5432/tcp"];
   if (d?.Id !== c.containerId || d.Image !== c.imageId || d.State?.Running !== true || d.Config?.Labels?.["com.docker.compose.project"] !== "jinhu_hr_migration_lab" || p?.length !== 1 || p[0].HostIp !== "127.0.0.1" || Number(p[0].HostPort) !== c.port) fail();
 }
@@ -188,7 +195,14 @@ export async function runYuzhouLabCli(input) {
     if (abort.signal.aborted) fail();
     if (input.mode === "validate") return { status: "VALIDATED", databaseContacted: false, databaseWrites: 0, productionImport: "HOLD" };
     stage = "TARGET";
-    const inspect = () => { const d = JSON.parse(docker(["inspect", c.container]))[0]; assertYuzhouLabContainer(c, d); return d; };
+    const inspect = () => {
+      const d = JSON.parse(docker(["inspect", c.container]))[0];
+      const resources = c.resourceDescriptor ? {
+        volume: JSON.parse(docker(["volume", "inspect", c.resourceDescriptor.volume.name]))[0],
+        network: JSON.parse(docker(["network", "inspect", c.resourceDescriptor.network.name]))[0],
+      } : undefined;
+      assertYuzhouLabContainer(c, d, resources); return d;
+    };
     const descriptor = inspect(), password = descriptor.Config.Env.find(v => v.startsWith("POSTGRES_PASSWORD="))?.slice(18); if (!password) fail();
     const capacity = docker(["exec", c.container, "sh", "-c", 'd="${PGDATA:-/var/lib/postgresql/data}"; df -Pk "$d" && du -sk "$d"']).trim().split("\n");
     const df = capacity.at(-2)?.trim().split(/\s+/u), used = capacity.at(-1)?.trim().split(/\s+/u);
@@ -201,7 +215,7 @@ export async function runYuzhouLabCli(input) {
     const result = await runYuzhouRealBundleLabOwner({ ...prepared, pool, cryptoProvider: provider, mode: "real", signal: abort.signal, adapters: { ...probes, ...state, verifyBinding,
       verifyHttp: async () => {
         inspect(); if (abort.signal.aborted) fail();
-        return withYuzhouRealHttpLab({ repositoryRoot: ROOT, container: c.container, database: manifest.target.database, scope: manifest.targetScope,
+        return withYuzhouRealHttpLab({ repositoryRoot: ROOT, container: c.container, database: manifest.target.database, scope: manifest.targetScope, resourceDescriptor: c.resourceDescriptor,
           register: async value => {
             if (value.database !== manifest.target.database || value.tenantId !== manifest.targetScope.tenantId || value.parkId !== manifest.targetScope.parkId || value.createdUserIds?.length !== 2 || ![...value.createdUserIds, value.createdRoleId].every(v => /^[0-9a-f-]{36}$/u.test(v))) fail();
             const file = await open(join(c.stateRoot, `http-${manifest.runId}.json`), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);

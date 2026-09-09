@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -67,7 +68,7 @@ export async function cleanupYuzhouRealHttpLab({ app, pool, fixturesCommitted, u
 // Run only in a dedicated orchestration process: Nest reads configuration during
 // module import. This deliberately does not load any worktree .env file.
 // Credentials remain in memory; the caller owns a private run registry.
-export async function withYuzhouRealHttpLab({ repositoryRoot, container, database, scope, register, verify }) {
+export async function withYuzhouRealHttpLab({ repositoryRoot, container, database, scope, register, verify, resourceDescriptor }) {
   const req = createRequire(resolve(repositoryRoot, "apps/api/package.json"));
   if (!/^jinhu_hr_migration_lab_[a-z0-9_]+$/u.test(database) ||
       !/^[a-zA-Z0-9_.-]+$/u.test(container) ||
@@ -75,7 +76,12 @@ export async function withYuzhouRealHttpLab({ repositoryRoot, container, databas
       typeof register !== "function" || typeof verify !== "function") throw new Error("HR_HTTP_LAB_INPUT_INVALID");
   const descriptor = JSON.parse(execFileSync("docker", ["inspect", container], { encoding: "utf8" }))[0];
   const ports = descriptor.NetworkSettings.Ports["5432/tcp"];
-  if (descriptor.Config.Labels["com.docker.compose.project"] !== "jinhu_hr_migration_lab" ||
+  if (resourceDescriptor) {
+    validateYuzhouLabResourceDescriptor(resourceDescriptor);
+    if (resourceDescriptor.container !== container || resourceDescriptor.database !== database) throw new Error("HR_HTTP_LAB_TARGET_INVALID");
+    const inspect = (kind, name) => JSON.parse(execFileSync("docker", [kind, "inspect", name], { encoding: "utf8", timeout: 15000, maxBuffer: 4194304, stdio: ["ignore", "pipe", "pipe"] }))[0];
+    assertYuzhouLabResources(resourceDescriptor, { container: descriptor, volume: inspect("volume", resourceDescriptor.volume.name), network: inspect("network", resourceDescriptor.network.name) });
+  } else if (descriptor.Config.Labels["com.docker.compose.project"] !== "jinhu_hr_migration_lab" ||
       ports?.length !== 1 || ports[0].HostIp !== "127.0.0.1") throw new Error("HR_HTTP_LAB_TARGET_INVALID");
   const password = descriptor.Config.Env.find(x => x.startsWith("POSTGRES_PASSWORD="))?.slice(18);
   if (!password) throw new Error("HR_HTTP_LAB_CONNECTION_UNAVAILABLE");

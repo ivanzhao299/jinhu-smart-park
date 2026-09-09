@@ -222,3 +222,7 @@ UUID/schema 校验仍由正式 sealed-plan validator 承担，不以本 builder 
 - 不在 T0 实现通用低代码工资引擎：先实现可审计的受限 DSL 和人工复核，降低任意表达式风险。
 - 不要求 SQL Server 成为长期生产依赖：它只存在于隔离迁移实验室。
 - 先建立合成 fixture 让管线可测试；真实备份到位后使用同一管线，不写另一套临时脚本。
+
+### 2026-09-09 retained-bundle resource isolation boundary
+
+Optional exact resource descriptors bind dedicated database/container/image/loopback port/Compose project/local volume creation identity/bridge network identity. Both runner and HTTP runtime inspect these bindings; absent descriptors retain the original single-run Compose restriction. Local volume driver options and redirected PGDATA are rejected. Preparation preserves input C/S/M, operation, encrypted artifact references and shared lease root, and pins the descriptor in the config and preparation receipt. Pair descriptor comparison requires distinct resources but is not a formal pair producer: independent trust roots, quarantine re-sealing, live descriptor production and two-run orchestration remain outstanding. No gate or historical evidence applicability changes.

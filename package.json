@@ -56,7 +56,7 @@
     "test:e2e:jh-engineering-project-manager-rbac": "node scripts/e2e/jh-engineering-project-manager-rbac-contract.mjs",
     "test:e2e:property-role-template": "node scripts/e2e/property-role-template-reconcile-contract.mjs",
     "test:e2e:apartment-management": "node scripts/e2e/apartment-management-contract.mjs && node scripts/e2e/responsibility-rbac-governance.mjs",
-    "test:e2e:yuzhou-migration-lab": "node scripts/e2e/yuzhou-migration-lab-contract.mjs && node --test scripts/e2e/prepare-yuzhou-real-bundle-lab-config-contract.mjs scripts/e2e/yuzhou-real-bundle-lab-pg-probes-contract.mjs",
+    "test:e2e:yuzhou-migration-lab": "node scripts/e2e/yuzhou-migration-lab-contract.mjs && node --test scripts/e2e/prepare-yuzhou-real-bundle-lab-config-contract.mjs scripts/e2e/yuzhou-real-bundle-lab-pg-probes-contract.mjs scripts/e2e/yuzhou-lab-resource-descriptor-contract.mjs",
     "test:e2e:yuzhou-backup-restore": "node scripts/e2e/yuzhou-backup-restore-contract.mjs",
     "test:e2e:yuzhou-migration-control": "node scripts/e2e/yuzhou-migration-control-contract.mjs",
     "test:e2e:yuzhou-t0-extract": "node scripts/e2e/yuzhou-t0-extract-contract.mjs",

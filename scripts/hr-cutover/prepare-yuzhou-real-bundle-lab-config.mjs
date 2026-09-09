@@ -36,7 +36,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
 } = {}) {
   try {
     const baselineCountsOverridden = !!input && Object.hasOwn(input, "baselineCounts");
-    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory", ...(baselineCountsOverridden ? ["baselineCounts"] : [])]);
+    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory", ...(baselineCountsOverridden ? ["baselineCounts"] : []), ...(Object.hasOwn(input, "resourceDescriptor") ? ["resourceDescriptor"] : [])]);
     exact(input.existingConfig, ["path", "sha256"]);
     if (!/^[a-f0-9]{64}$/u.test(input.existingConfig.sha256 ?? "") || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(input.runId ?? "") ||
       !/^jinhu_hr_migration_lab_[a-z0-9_]{6,}$/u.test(input.targetDatabase ?? "") || input.targetDatabase.length > 63) fail("INPUT_INVALID");
@@ -49,6 +49,10 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
     c.dependencies = actual.dependencies; c.runtimeTreeSha256 = actual.runtimeTreeSha256;
     c.artifacts.binding.executorSha256 = actual.executorSha256;
     c.artifacts.runId = input.runId; c.artifacts.target.database = input.targetDatabase;
+    if (Object.hasOwn(input, "resourceDescriptor")) {
+      c.resourceDescriptor = input.resourceDescriptor;
+      for (const key of ["container", "containerId", "imageId", "port"]) c[key] = input.resourceDescriptor?.[key];
+    }
     // Validate the entire unchanged remainder, including exact key/envelope descriptors.
     validateYuzhouLabConfig(c);
     const verifyProbeConfig = () => createYuzhouRealBundleLabPgProbes({ expectedDatabase: c.artifacts.target.database, targetScope: c.artifacts.targetScope,
@@ -73,6 +77,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
       preparedTriple: c.artifacts.expectedTriple, executorSha256: actual.executorSha256, runtimeTreeSha256: actual.runtimeTreeSha256,
       dependencyCount: Object.keys(actual.dependencies).length, counts: c.artifacts.expectedCounts,
       baselineCountsOverridden, originalBaselineCounts, baselineCounts: c.baselineCounts,
+      resourceDescriptorSha256: c.resourceDescriptor ? measure(c.resourceDescriptor, LIMIT).sha256 : null,
       artifacts: descriptors, sourceArtifactsReused: true, cryptoDescriptorsReused: true, keyContentsRead: false,
       databaseContacted: false, databaseWrites: 0, labVerified: false, formalABVerified: false, productionImport: "HOLD" };
     emit(input.outputDirectory, artifacts, receipt, descriptors, LIMIT, "lab-config-preparation-receipt.json");
