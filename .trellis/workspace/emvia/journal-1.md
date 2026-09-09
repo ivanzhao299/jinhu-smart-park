@@ -1603,3 +1603,37 @@ Prepared real browser action DSL and disposable fixtures; two dedicated Chromium
 ### Next Steps
 
 - None - task complete
+
+
+## Session 46: Issue 721 HCD 七 Case 宿主 Chromium 终轮
+
+**Date**: 2026-09-09
+**Task**: Issue 721 HCD 七 Case 宿主 Chromium 终轮
+**Package**: api
+**Branch**: `codex/archive-issue-721-hcd-final`
+
+### Summary
+
+宿主级专用 Chromium 完成七 Case 双视口真实交互取证，UAT 30/30 PASS；#729 经三轮 review 与 CI 合并，#721 关闭，main 门禁通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d96f91b6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
