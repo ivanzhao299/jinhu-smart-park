@@ -40,7 +40,7 @@ function fixture(options = {}) {
     checkpoint: async () => { trace.push("checkpoint"); return !options.checkpointFails; },
     createWriters: () => Object.fromEntries(["T0", "T1", "T2", "T3"].map(phase => [phase, async input => { trace.push(`apply:${phase}`); assert.equal(input.phase.payloadBundleArtifactSha256, computeProductionImportPayloadHash(input.payloadBundle)); assert.equal(input.phase.payloadBundleSha256, computeProductionImportPayloadBundleHash(input.payloadBundle)); if (phase === options.applyFails) throw new Error("PII source row"); return { records: input.phase.records }; }])),
     createRollback: () => async ({ phase }) => { trace.push(`reverse:${phase}`); if (options.reverseFails) throw new Error("PII rollback row"); },
-    verifyHttp: async () => { trace.push("http"); if (options.httpFails) throw new Error("password secret"); return { status: "PASS", fixtureCleanup: options.fixtureLeak ? "FAILED" : "PASS", fullAppModule: true, productionImport: "HOLD",
+    verifyHttp: async () => { trace.push("http"); if (options.httpFails) throw new Error("password secret"); if(options.httpFailure)return {status:"FAILED",failure:options.httpFailure}; return { status: "PASS", fixtureCleanup: options.fixtureLeak ? "FAILED" : "PASS", fullAppModule: true, productionImport: "HOLD",
       verification: { status: "CONTRACT_PASS", productionImport: "HOLD", observedCounts: options.httpCountDrift ? {} : Object.fromEntries(Object.entries(manifest.httpCounts).reverse()) } }; },
     resolveApplyState: async () => { trace.push("resolve"); return options.unknownCommit ? "unknown" : "applied"; },
     verifyResidual: async () => { trace.push("residual"); return { baselineRestored: !options.residualFails, activeRunMaps: 0, businessResidualRows: 0, httpFixtureResidualRows: 0 }; },
@@ -58,6 +58,14 @@ test("all eight hashes precede connection; serializable apply/HTTP/reverse/resid
   assert.equal(trace.filter(value => value === "BEGIN ISOLATION LEVEL SERIALIZABLE").length, 2);
   assert.ok(trace.indexOf("checkpoint") < trace.indexOf("COMMIT")); assert.ok(trace.indexOf("http") > trace.indexOf("COMMIT"));
   assert.equal(trace.at(-1), "release"); assert.ok(!JSON.stringify(result).includes("fixture-owner"));
+});
+test("HTTP failure classifications survive owner reversal without raw diagnostics",async()=>{
+ const failure={step:"app",errorType:"Error",code:"MODULE_NOT_FOUND",sqlState:null};
+ const {input}=fixture({httpFailure:failure}),result=await runYuzhouRealBundleLabOwner(input);
+ assert.equal(result.status,"FAILED");assert.deepEqual(result.httpFailure,failure);assert.equal(result.rollbackVerified,true);assert.equal(result.residualVerified,true);
+ const malicious={step:"PRIVATE_STEP",errorType:"PRIVATE_TYPE",code:"HR_HTTP_PRIVATE_PAYLOAD",sqlState:"private",message:"PRIVATE_BODY"};
+ const rejected=await runYuzhouRealBundleLabOwner(fixture({httpFailure:malicious}).input);
+ assert.deepEqual(rejected.httpFailure,{step:"unknown",errorType:"Error",code:null,sqlState:null});assert.ok(!JSON.stringify(rejected).includes("PRIVATE"));
 });
 test("pretty artifact bytes remain independently pinned while canonical identity ignores object key order", async () => {
   const { input } = fixture({ pretty: true, reordered: true });

@@ -1,17 +1,31 @@
 import { createRequire } from "node:module";
+import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+const FAILURE_STEPS = new Set(["target", "permissions", "password_hash", "fixtures", "app", "verify", "login_audit"]);
+const FAILURE_CODES = new Set([
+  "MODULE_NOT_FOUND", "ERR_MODULE_NOT_FOUND",
+  "HR_HTTP_LAB_CONNECTION_UNAVAILABLE", "HR_HTTP_LAB_INPUT_INVALID", "HR_HTTP_LAB_TARGET_INVALID",
+  ...["AUTHORIZED_IDENTITY_INVALID", "COUNTS_INVALID", "DENIED_IDENTITY_INVALID", "DETAIL_INVALID", "FAILED", "IDENTITIES_NOT_DISTINCT", "IDENTITY_INVALID", "IDS_INVALID", "INPUT_INVALID", "LOGIN_INVALID", "PAGE_INVALID", "PAGE_OVERLAP", "REQUEST_FAILED", "RESPONSE_INVALID", "RESPONSE_TOO_LARGE", "STATUS_INVALID", "TIMEOUT"].map(c => `HR_HTTP_PROBE_${c}`),
+]);
+export function sanitizeYuzhouRealHttpLabFailureSummary(value) {
+  try {
+    return { step: FAILURE_STEPS.has(value?.step) ? value.step : "unknown",
+      errorType: ["Error", "TypeError", "RangeError", "SyntaxError"].includes(value?.errorType) ? value.errorType : "Error",
+      code: FAILURE_CODES.has(value?.code) ? value.code : null,
+      sqlState: typeof value?.sqlState === "string" && /^[0-9A-Z]{5}$/u.test(value.sqlState) ? value.sqlState : null,
+      ...(value?.shutdownFailed === true ? { shutdownFailed: true } : {}), ...(value?.cleanupFailed === true ? { cleanupFailed: true } : {}) };
+  } catch { return { step: "unknown", errorType: "Error", code: null, sqlState: null }; }
+}
 export function sanitizeYuzhouRealHttpLabFailure(error, step) {
   try {
     const name = error?.constructor?.name, code = error?.code;
-    return { step, errorType: ["Error", "TypeError", "RangeError", "SyntaxError"].includes(name) ? name : "Error",
-      code: typeof code === "string" && code.length <= 96 && /^HR_HTTP_[A-Z_]+$/u.test(code) ? code : null,
-      sqlState: typeof code === "string" && /^[0-9A-Z]{5}$/u.test(code) ? code : null };
-  } catch { return { step, errorType: "Error", code: null, sqlState: null }; }
+    return sanitizeYuzhouRealHttpLabFailureSummary({ step, errorType: name, code, sqlState: code });
+  } catch { return sanitizeYuzhouRealHttpLabFailureSummary({ step }); }
 }
 
 /** IDs must already be registered. Cleanup intent precedes even BEGIN: a lost

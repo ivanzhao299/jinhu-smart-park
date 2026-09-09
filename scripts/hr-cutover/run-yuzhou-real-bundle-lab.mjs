@@ -12,7 +12,7 @@ import { prepareYuzhouRealBundleLabArtifacts } from "./yuzhou-real-bundle-lab-ar
 import { runYuzhouRealBundleLabOwner } from "./yuzhou-real-bundle-lab-owner.mjs";
 import { createYuzhouLabRunState } from "./yuzhou-real-bundle-lab-run-state.mjs";
 import { createYuzhouRealBundleLabPgProbes } from "./yuzhou-real-bundle-lab-pg-probes.mjs";
-import { withYuzhouRealHttpLab } from "./yuzhou-real-http-lab-runtime.mjs";
+import { withYuzhouRealHttpLab, sanitizeYuzhouRealHttpLabFailureSummary } from "./yuzhou-real-http-lab-runtime.mjs";
 import { verifyYuzhouRealImportHttp } from "./yuzhou-real-import-http-probe.mjs";
 import { createProductionImportArtifactCryptoProvider, readBoundedPrivateArtifactBytes, PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS } from "./execute-production-import.mjs";
 import { decryptProductionImportEnvelope } from "./production-import-crypto-provider.mjs";
@@ -39,7 +39,13 @@ function receiptResult(result) {
   let counts = null;
   if (result.counts) { counts = Object.fromEntries(["records", "inserted", "quarantined"].map(k => [k, result.counts[k]])); if (Object.values(counts).some(v => !Number.isSafeInteger(v) || v < 0) || counts.records !== counts.inserted + counts.quarantined) receiptFail(); }
   if (result.status === "LAB_PASS" && !counts) receiptFail();
-  return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD" };
+  let httpFailure;
+  if (result.httpFailure !== undefined) {
+    httpFailure = sanitizeYuzhouRealHttpLabFailureSummary(result.httpFailure);
+    if (result.status !== "FAILED" || Object.keys(httpFailure).sort().join("|") !== Object.keys(result.httpFailure ?? {}).sort().join("|") ||
+      Object.keys(httpFailure).some(key => httpFailure[key] !== result.httpFailure[key])) receiptFail();
+  }
+  return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD", ...(httpFailure ? { httpFailure } : {}) };
 }
 async function receiptRoot(stateRoot) {
   if (!privatePath(stateRoot) || await realpath(stateRoot) !== stateRoot) receiptFail();
@@ -111,6 +117,13 @@ export function assertYuzhouLabCapacity(hostFreeBytes, pgFreeKiB, pgUsedKiB) {
   if ([hostFreeBytes, pgFreeKiB, pgUsedKiB].some(v => !Number.isSafeInteger(v) || v < 0) ||
       hostFreeBytes < 20 * 1024 ** 3 + 2 * pgUsedKiB * 1024 || pgFreeKiB < 15 * 1024 ** 2) fail();
 }
+/** Resolve the actual candidate package entry before any target loading; never build. */
+export async function assertYuzhouLabRuntimeDependencies(repositoryRoot = ROOT) {
+  try {
+    const entry = createRequire(join(repositoryRoot, "apps/api/package.json")).resolve("@jinhu/shared");
+    if (!(await lstat(entry)).isFile()) throw new Error();
+  } catch { throw new Error("LAB_CLI_RUNTIME_DEPENDENCY_MISSING"); }
+}
 async function privateBytes(descriptor, limit) {
   if (await realpath(descriptor.path) !== descriptor.path) fail();
   const bytes = readBoundedPrivateArtifactBytes(descriptor.path, "private input", limit);
@@ -152,6 +165,7 @@ export async function runYuzhouLabCli(input) {
   try {
     if (!["validate", "preflight", "execute-isolated"].includes(input.mode) || !privatePath(input.configPath) || !HASH.test(input.configSha256 ?? "")) fail();
     const c = validateYuzhouLabConfig(JSON.parse((await privateBytes({ path: input.configPath, sha256: input.configSha256 }, 65536)).toString("utf8")));
+    stage = "RUNTIME_DEPENDENCIES"; await assertYuzhouLabRuntimeDependencies();
     stage = "BINDING";
     const verifyBinding = async () => {
       const actual = await computeYuzhouLabExecutionBinding();

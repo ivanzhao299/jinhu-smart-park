@@ -61,6 +61,15 @@ target ownership, zero competing connections/active maps, expected seed baseline
 and capacity. Ensure frozen API dependencies including `pg` are installed in the
 same candidate; no automatic install/fallback is performed here.
 
+The runner now resolves the fixed `@jinhu/shared` package entry and verifies it is
+a file before binding/artifact loading or any target connection. This catches a
+missing shared build early; it is not a full AppModule startup test and performs
+no automatic build. Failures report `LAB_CLI_RUNTIME_DEPENDENCIES_FAILED`.
+HTTP runtime failures retain only whitelisted step/type/code/SQLSTATE and cleanup
+booleans through owner and durable final receipt. Module paths, messages, stack
+traces and arbitrary `HR_HTTP_*` strings are never retained. Older immutable
+receipts without this optional diagnostic field remain unchanged/readable.
+
 `CONFIG_PREPARED` is neither `LAB_PASS` nor formal A/B equivalence. Independent
 Compose/ports/networks/volumes/crypto trust roots and formal same-C A/B evidence
 remain separate requirements; the production authorization and A/B gates are

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { TextDecoder } from "node:util";
 import { createLabImportPhaseWriters } from "./production-import-phase-writers.mjs";
 import { createLabImportPhaseRollback } from "./production-import-phase-rollback.mjs";
+import { sanitizeYuzhouRealHttpLabFailureSummary } from "./yuzhou-real-http-lab-runtime.mjs";
 import { computeProductionImportPayloadHash, computeProductionImportPayloadBundleHash } from "./production-import-sealed-plan-lib.mjs";
 
 const PHASES = ["T0", "T1", "T2", "T3"];
@@ -53,7 +54,7 @@ function validate(manifest) {
  */
 export async function runYuzhouRealBundleLabOwner({ manifestBytes, manifestSha256, readArtifact, pool, cryptoProvider, adapters, mode = "contract", signal }) {
   let stage = "INPUT", client, ownerLease, locked = false, lockUncertain = false, transaction = false, commitAttempted = false, applied = false;
-  let manifest, prepared, baseline, http = false, reversed = false, residual = false;
+  let manifest, prepared, baseline, httpFailure, http = false, reversed = false, residual = false;
   const failures = [], counts = { records: 0, inserted: 0, quarantined: 0 };
   const note = code => { if (!failures.includes(code)) failures.push(code); };
   const cancelled = () => { if (signal?.aborted) fail(); };
@@ -131,6 +132,8 @@ export async function runYuzhouRealBundleLabOwner({ manifestBytes, manifestSha25
     try {
       stage = "HTTP"; cancelled();
       const receipt = await adapters.verifyHttp({ manifest, counts: { ...counts }, signal });
+      if (receipt?.failure) httpFailure = sanitizeYuzhouRealHttpLabFailureSummary(receipt.failure);
+      if (httpFailure) fail();
       const verification = receipt?.verification;
       if (receipt?.status !== "PASS" || receipt.fixtureCleanup !== "PASS" || receipt.fullAppModule !== true || receipt.productionImport !== "HOLD" ||
           verification?.status !== (mode === "real" ? "PASS" : "CONTRACT_PASS") || verification.productionImport !== "HOLD" ||
@@ -177,5 +180,5 @@ export async function runYuzhouRealBundleLabOwner({ manifestBytes, manifestSha25
   const passed = failures.length === 0 && http && reversed && residual && !applied;
   return { status: passed ? mode === "real" ? "LAB_PASS" : "CONTRACT_PASS" : "FAILED", evidenceKind: mode === "real" ? "injected_io_formal_writers" : "synthetic_adapter_contract",
     operationalCli: false, productionImport: "HOLD", counts, httpVerified: passed && mode === "real", rollbackVerified: reversed && residual,
-    residualVerified: residual, failureCodes: failures };
+    residualVerified: residual, failureCodes: failures, ...(httpFailure ? { httpFailure } : {}) };
 }

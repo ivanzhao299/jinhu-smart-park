@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+/* global URL, Response, ReadableStream, TextEncoder */
 import test from "node:test";
 import { verifyYuzhouRealImportHttp, YuzhouRealImportHttpProbeError } from "../hr-cutover/yuzhou-real-import-http-probe.mjs";
 import { cleanupYuzhouRealHttpLab, runYuzhouHttpFixtureTransaction, sanitizeYuzhouRealHttpLabFailure } from "../hr-cutover/yuzhou-real-http-lab-runtime.mjs";
@@ -149,4 +150,6 @@ test("runtime failure summaries use bounded stable types and never constructor p
  }
  assert.equal(sanitizeYuzhouRealHttpLabFailure(new TypeError("PRIVATE"),"fixtures").errorType,"TypeError");
  assert.equal(sanitizeYuzhouRealHttpLabFailure({code:"23505"},"fixtures").sqlState,"23505");
+ assert.deepEqual(sanitizeYuzhouRealHttpLabFailure({code:"HR_HTTP_PRIVATE_PAYLOAD"},"PRIVATE_STEP"),{step:"unknown",errorType:"Error",code:null,sqlState:null});
+ assert.equal(sanitizeYuzhouRealHttpLabFailure({code:"MODULE_NOT_FOUND"},"app").code,"MODULE_NOT_FOUND");
 });
