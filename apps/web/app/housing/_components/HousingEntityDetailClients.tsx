@@ -12,6 +12,7 @@ import { useRef, useState } from "react";
 import {
   ConsequenceDialog,
   displayEntityName,
+  housingPurchaseCostCategoryLabel,
   PropertyPanelSurface,
   propertyErrorMessage,
   propertyLabels,
@@ -30,6 +31,7 @@ import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
 import { detailUrlObject } from "./housing-route-types";
 import { loadHousingLeases } from "./housing-picker-loaders";
+import { useHousingDisplayDictionaries } from "./use-housing-display-dictionaries";
 
 function HandoverDetail({ capabilities, data }: {
   capabilities: PropertyCapabilityProjection; data: HousingHandoverDetailResponse;
@@ -83,12 +85,13 @@ function PurchaseDetail({ capabilities, data, reload }: {
   capabilities: PropertyCapabilityProjection; data: HousingPurchaseDetailResponse; reload(): Promise<void>;
 }) {
   const files = capabilities.fileCapability("housing_purchase");
+  const dictionaries = useHousingDisplayDictionaries(capabilities.invalidationKey);
   return <div className={styles.stack}>
     <PropertyPanelSurface><DetailGrid rows={[
       ["供应商", data.purchase.vendorName],
       ["房源", displayEntityName(data.purchase.unitName, data.purchase.unitCode, "未关联房源")],
       ["采购日期", data.purchase.purchaseDate],
-      ["成本分类", data.purchase.costCategory], ["总金额", money(data.purchase.totalAmount)],
+      ["成本分类", housingPurchaseCostCategoryLabel(data.purchase.costCategory, dictionaries.purchaseCostCategories)], ["总金额", money(data.purchase.totalAmount)],
       ["审批状态", propertyLabels.purchaseApproval(data.purchase.approvalStatus)], ["付款状态", propertyLabels.purchasePayment(data.purchase.paymentStatus)]
     ]} /></PropertyPanelSurface>
     <PropertyPanelSurface title="采购明细">

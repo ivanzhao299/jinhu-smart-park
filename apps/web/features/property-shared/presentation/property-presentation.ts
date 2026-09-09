@@ -15,6 +15,7 @@ import {
   HOUSING_LEASE_STATUS_LABELS,
   HOUSING_OCCUPANT_ROLE_LABELS,
   HOUSING_PURCHASE_APPROVAL_STATUS_LABELS,
+  HOUSING_PURCHASE_COST_CATEGORY_LABELS,
   HOUSING_PURCHASE_PAYMENT_STATUS_LABELS,
   HOUSING_REPAIR_PRIORITY_LABELS,
   HOUSING_REPAIR_URGENCY_LABELS,
@@ -130,6 +131,19 @@ export function housingChargeTypeLabel(value?: string | null, dictionary?: Reado
 export function housingPaymentMethodLabel(value?: string | null, dictionary?: Readonly<Record<string, string>>): string {
   if (value && dictionary?.[value]?.trim()) return dictionary[value]!.trim();
   return knownLabel(HOUSING_PAYMENT_METHOD_LABELS, value, value ? "其他支付方式" : "未设置支付方式");
+}
+
+export function housingPurchaseCostCategoryLabel(value?: string | null, dictionary?: Readonly<Record<string, string>>): string {
+  if (value && dictionary?.[value]?.trim()) return dictionary[value]!.trim();
+  return knownLabel(HOUSING_PURCHASE_COST_CATEGORY_LABELS, value, value ? "其他采购成本" : "未设置成本分类");
+}
+
+export function housingPurchaseCostCategoryOptions(dictionary?: Readonly<Record<string, string>>) {
+  const tenantLabels = Object.fromEntries(Object.entries(dictionary ?? {})
+    .filter(([, label]) => label.trim())
+    .map(([value, label]) => [value, label.trim()]));
+  return Object.entries({ ...HOUSING_PURCHASE_COST_CATEGORY_LABELS, ...tenantLabels })
+    .map(([value, label]) => ({ value, label: label.trim() }));
 }
 
 export const housingLeaseStatusOptions = Object.entries(HOUSING_LEASE_STATUS_LABELS)

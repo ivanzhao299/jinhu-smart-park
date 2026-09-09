@@ -10,6 +10,8 @@ import {
   homestayPriceSourceLabel,
   housingChargeTypeLabel,
   housingPaymentMethodLabel,
+  housingPurchaseCostCategoryLabel,
+  housingPurchaseCostCategoryOptions,
   housingLeaseStatusOptions,
   propertyLabels,
   workOrderStatusLabel
@@ -74,4 +76,20 @@ test("HCD temporary D-class labels stay Chinese and unknown values use Chinese f
   assert.equal(housingPaymentMethodLabel("bank_transfer"), "银行转账");
   assert.equal(housingPaymentMethodLabel("tenant_custom", { tenant_custom: "园区收款码" }), "园区收款码");
   assert.equal(housingPaymentMethodLabel("future_method"), "其他支付方式");
+});
+
+test("purchase cost categories use standard Chinese, tenant overrides, and a code-free fallback", () => {
+  assert.equal(housingPurchaseCostCategoryLabel("repair"), "维修费用");
+  assert.equal(housingPurchaseCostCategoryLabel("repair", { repair: "租户维修支出" }), "租户维修支出");
+  assert.equal(housingPurchaseCostCategoryLabel("tenant_custom", { tenant_custom: "租户自定义成本" }), "租户自定义成本");
+  assert.equal(housingPurchaseCostCategoryLabel("internal_future_code"), "其他采购成本");
+  assert.doesNotMatch(housingPurchaseCostCategoryLabel("internal_future_code"), /internal_future_code/);
+  assert.deepEqual(housingPurchaseCostCategoryOptions({ repair: "租户维修支出", tenant_custom: "租户自定义成本" }), [
+    { value: "consumable", label: "消耗品" },
+    { value: "supplies", label: "物资用品" },
+    { value: "repair", label: "租户维修支出" },
+    { value: "tenant_custom", label: "租户自定义成本" }
+  ]);
+  assert.ok(housingPurchaseCostCategoryOptions({ repair: "   " })
+    .some(({ value, label }) => value === "repair" && label === "维修费用"));
 });

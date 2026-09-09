@@ -95,6 +95,8 @@ export {
   homestayTurnoverStatusOptions,
   housingChargeTypeLabel,
   housingPaymentMethodLabel,
+  housingPurchaseCostCategoryLabel,
+  housingPurchaseCostCategoryOptions,
   housingPurchaseApprovalStatusOptions,
   housingLeaseStatusOptions,
   propertyLabels,
