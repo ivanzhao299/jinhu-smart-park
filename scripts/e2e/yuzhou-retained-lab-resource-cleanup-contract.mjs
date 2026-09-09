@@ -82,6 +82,17 @@ async function cleanupFixture(t, defect) {
   const httpRegistry = await put(join(stateRoot, `http-${c.artifacts.runId}.json`), { manifestSha256, binding: c.artifacts.binding, database: descriptor.database, tenantId: targetScope.tenantId, parkId: targetScope.parkId,
     createdUserIds: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"], createdRoleId: "00000000-0000-4000-8000-000000000003" });
   const input = { prepareRequest: await put(join(root, "prepare-request.json"), f.input), prepareReceipt, resourceDescriptor, sideConfig, finalReceipt, httpRegistry, outputDirectory };
+  if (defect?.startsWith("recovery")) {
+    const created = { container: { name: descriptor.container, id: descriptor.containerId, imageId: descriptor.imageId }, volume: descriptor.volume, network: descriptor.network };
+    const request = { prepareRequest: input.prepareRequest, failure: await put(join(f.input.outputDirectory, "prepare-failure.json"), { stage: "DATABASE", created, cleanupAttempted: false }),
+      databaseStage: await put(join(f.input.outputDirectory, "stage-99.json"), { stage: "DATABASE", codeSha: "d".repeat(40), runId: f.input.runId, plannedName: f.input.name, created }), compose: await pin(join(f.input.outputDirectory, "compose.json")) };
+    const recoveryPin = await put(join(f.input.outputDirectory, "registry/database-recovery-request.json"), request);
+    prepared.databaseRecovery = { mode: "database_only", originalPrepareCodeSha: "d".repeat(40), recoveryCodeSha: defect === "recovery-code" ? "c".repeat(40) : prepared.codeSha, seedBaselineVerified: true, requestSha256: recoveryPin.sha256 };
+    prepared.artifacts["database-recovery-request.json"] = { sha256: recoveryPin.sha256 };
+    const lease = join(f.leaseRoot, (await readdir(f.leaseRoot))[0]);
+    await put(join(lease, "resume-database-intent.json"), { requestSha256: defect === "recovery-intent" ? h("wrong") : recoveryPin.sha256, originalPrepareCodeSha: "d".repeat(40), recoveryCodeSha: prepared.codeSha, endpointIdentitySha256: prepared.endpointIdentitySha256 });
+    input.prepareReceipt = await put(prepareReceipt.path, prepared);
+  }
   if (defect === "active-writer") await mkdir(join(stateRoot, "exclusive-owner"), { mode: 0o700 });
   f.calls.length = 0; const deleted = [], queries = [];
   const execute = async (file, args, opts) => {
@@ -112,6 +123,11 @@ async function cleanupFixture(t, defect) {
   return { input, execute, createClient, leaseRoot: f.leaseRoot, deleted, queries, calls: f.calls };
 }
 const resolveParent = path => join(path, "..");
+for (const defect of ["recovery-valid", "recovery-code", "recovery-intent"]) test(`cleanup authenticates ${defect} request and recovery commit chain`, async t => {
+  const f = await cleanupFixture(t, defect), r = await cleanupYuzhouRetainedLabResources(f.input, f);
+  assert.equal(r.status, defect === "recovery-valid" ? "DEDICATED_LAB_RESOURCES_REMOVED" : "FAILED");
+  assert.deepEqual(f.deleted, defect === "recovery-valid" ? ["container", "network", "volume"] : []);
+});
 test("cleanup requires fresh readonly residual proof and deletes exact container/network/volume in order", async t => {
   const f = await cleanupFixture(t), result = await cleanupYuzhouRetainedLabResources(f.input, f);
   assert.equal(result.status, "DEDICATED_LAB_RESOURCES_REMOVED"); assert.deepEqual(f.deleted, ["container", "network", "volume"]);

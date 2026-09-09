@@ -49,6 +49,14 @@ export async function cleanupYuzhouRetainedLabResources(input, { execute = execu
         prepared.artifacts?.["resource-descriptor.json"]?.sha256 !== input.resourceDescriptor.sha256 || !same(descriptor, c.resourceDescriptor) ||
         descriptor.database !== request.name || descriptor.imageId !== request.imageId || descriptor.port !== request.port || !c.pairMaterials) fail();
     load({ path: join(request.outputDirectory, "compose.json"), sha256: prepared.composeSourceSha256 });
+    if (prepared.databaseRecovery) {
+      const recovery = prepared.databaseRecovery;
+      if (recovery.mode !== "database_only" || recovery.recoveryCodeSha !== prepared.codeSha || !/^[a-f0-9]{40}$/u.test(recovery.originalPrepareCodeSha ?? "") || recovery.seedBaselineVerified !== true || prepared.artifacts?.["database-recovery-request.json"]?.sha256 !== recovery.requestSha256) fail();
+      const rr = load({ path: join(request.outputDirectory, "registry/database-recovery-request.json"), sha256: recovery.requestSha256 });
+      if (!same(load(rr.prepareRequest), request) || rr.failure.path !== join(request.outputDirectory, "prepare-failure.json") || rr.compose.path !== join(request.outputDirectory, "compose.json") || rr.compose.sha256 !== prepared.composeSourceSha256) fail();
+      const failed = load(rr.failure), last = load(rr.databaseStage);
+      if (failed.stage !== "DATABASE" || last.stage !== "DATABASE" || last.codeSha !== recovery.originalPrepareCodeSha || last.runId !== request.runId || last.plannedName !== request.name || !same(failed.created, last.created) || last.created.container.id !== descriptor.containerId || !same(last.created.volume, descriptor.volume) || !same(last.created.network, descriptor.network)) fail();
+    }
     if (input.finalReceipt.path !== join(c.stateRoot, `final-${c.artifacts.runId}.json`) || input.httpRegistry.path !== join(c.stateRoot, `http-${c.artifacts.runId}.json`)) fail();
     const wrapper = load(input.finalReceipt), identity = { runId: c.artifacts.runId, configSha256: input.sideConfig.sha256, manifestSha256: wrapper.value?.manifestSha256, binding: c.artifacts.binding };
     const final = await readYuzhouLabFinalReceipt({ stateRoot: c.stateRoot, identity }), r = final.result, p = r.sideExecutionProvenance;
@@ -71,6 +79,11 @@ export async function cleanupYuzhouRetainedLabResources(input, { execute = execu
     const ownerPin = read(join(resourceLease, "owner.json"), LIMIT, { bytes: 0, maximum: LIMIT }, () => {});
     const owner = load({ path: join(resourceLease, "owner.json"), sha256: ownerPin.sha256 });
     if (!/^[a-f0-9]{64}$/u.test(owner.ownerNonce ?? "") || sha(owner.ownerNonce) !== prepared.ownerNonceSha256) fail();
+    if (prepared.databaseRecovery) {
+      const expected = { requestSha256: prepared.databaseRecovery.requestSha256, originalPrepareCodeSha: prepared.databaseRecovery.originalPrepareCodeSha, recoveryCodeSha: prepared.codeSha, endpointIdentitySha256: prepared.endpointIdentitySha256 };
+      const intent = read(join(resourceLease, "resume-database-intent.json"), LIMIT, { bytes: 0, maximum: LIMIT }, () => {});
+      if (intent.sha256 !== sha(JSON.stringify(expected))) fail();
+    }
     const checkLease = () => { directory(runtimePath, runtimeStat); load(runtimeOwner); directory(resourceLease, leaseStat); load({ path: join(resourceLease, "owner.json"), sha256: ownerPin.sha256 }); };
     const inspect = async (kind, target) => { checkLease(); const values = JSON.parse(await docker([kind, "inspect", target])); if (values.length !== 1) fail(); return values[0]; };
     const owned = (kind, obj) => {

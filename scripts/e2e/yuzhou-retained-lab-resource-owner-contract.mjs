@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath, readFile, readdir, stat, symli
 import { createServer } from "node:net";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { prepareYuzhouRetainedLabResources, validateYuzhouLocalDockerSocket } from "../hr-cutover/yuzhou-retained-lab-resource-owner.mjs";
+import { prepareYuzhouRetainedLabResources, resumeYuzhouRetainedLabDatabase, validateYuzhouLocalDockerSocket } from "../hr-cutover/yuzhou-retained-lab-resource-owner.mjs";
 async function fixture(t, defect) {
   // Short absolute path stays below macOS sockaddr_un limits, even after realpath.
   const root = await realpath(await mkdtemp("/tmp/lab-resource-owner-")), outputDirectory = join(root, "out");
@@ -46,11 +46,67 @@ async function fixture(t, defect) {
     }
     if (args[1] === "ls") return defect === "existing-volume" && args[0] === "volume" ? name : "";
     if (args[1] === "inspect") return JSON.stringify([objects[args[0]]]);
+    if (defect === "database" && args.some(a => a.includes("TEMPLATE template0"))) throw Error("PRIVATE DATABASE ERROR");
     if (defect === "network" && args[0] === "network" && args[1] === "create") throw Error("RAW DOCKER SECRET");
     return "";
   };
-  return { input, calls, execute, leaseRoot: join(root, "leases"), currentHead: () => "e".repeat(40) };
+  return { input, calls, execute, objects, leaseRoot: join(root, "leases"), currentHead: () => "e".repeat(40) };
 }
+async function resumeFixture(t, defect) {
+  const f = await fixture(t, "database");
+  assert.equal((await prepareYuzhouRetainedLabResources(f.input, f)).failureCode, "LAB_RESOURCE_PREPARE_DATABASE_FAILED");
+  const pin = async (path, value) => { if (value !== undefined) await writeFile(path, JSON.stringify(value), { mode: 0o600 }); return { path, sha256: createHash("sha256").update(await readFile(path)).digest("hex") }; };
+  const out = f.input.outputDirectory, stages = (await readdir(out)).filter(n => /^stage-\d{2}\.json$/u.test(n)).sort();
+  const request = { prepareRequest: await pin(join(out, "original-request.json"), f.input), failure: await pin(join(out, "prepare-failure.json")), databaseStage: await pin(join(out, stages.at(-1))), compose: await pin(join(out, "compose.json")) };
+  const originalFailure = await readFile(request.failure.path), execute = async (file, args, options) => {
+    if (args.some(a => a.includes("TEMPLATE template0") || a.includes("FROM pg_database") || a.startsWith("BEGIN READ ONLY"))) {
+      f.calls.push({ file, args, options });
+      if (args.some(a => a.includes("FROM pg_database"))) return defect === "existing-db" ? "1|0\n" : defect === "sessions" ? "0|1\n" : "0|0\n";
+      if (args.some(a => a.startsWith("BEGIN READ ONLY"))) return defect === "baseline" ? "BEGIN\nf\nROLLBACK\n" : "BEGIN\nt\nROLLBACK\n";
+      return "";
+    }
+    if (defect === "migration" && file === "/bin/sh") throw Error("PRIVATE MIGRATION ERROR");
+    return f.execute(file, args, options);
+  };
+  f.calls.length = 0;
+  return { ...f, request, execute, originalFailure, currentHead: () => "f".repeat(40) };
+}
+test("DATABASE resume reuses exact resources, preserves failure and distinguishes preparation/recovery C", async t => {
+  const f = await resumeFixture(t), r = await resumeYuzhouRetainedLabDatabase(f.request, f);
+  assert.equal(r.status, "DEDICATED_LAB_PREPARED"); assert.equal(r.databaseRecovery.originalPrepareCodeSha, "e".repeat(40)); assert.equal(r.codeSha, "f".repeat(40));
+  assert.equal(r.databaseRecovery.recoveryCodeSha, r.codeSha);
+  assert.deepEqual(await readFile(f.request.failure.path), f.originalFailure);
+  assert.ok(!f.calls.some(c => c.args[1] === "create" || c.args[1] === "start"));
+  assert.equal(f.calls.filter(c => c.args.some(a => a.includes("TEMPLATE template0"))).length, 1);
+  assert.ok(!JSON.stringify(r).includes(f.input.outputDirectory));
+  assert.equal((await resumeYuzhouRetainedLabDatabase(f.request, f)).status, "FAILED");
+});
+for (const defect of ["existing-db", "sessions", "migration", "baseline"]) test(`DATABASE resume rejects ${defect} without success registry`, async t => {
+  const f = await resumeFixture(t, defect), r = await resumeYuzhouRetainedLabDatabase(f.request, f);
+  assert.equal(r.status, "FAILED"); assert.ok(!(await readdir(f.input.outputDirectory)).includes("registry"));
+  assert.deepEqual(await readFile(f.request.failure.path), f.originalFailure);
+  assert.ok(!f.calls.some(c => c.args[1] === "create"));
+  if (["existing-db", "sessions"].includes(defect)) assert.ok(!f.calls.some(c => c.args.some(a => a.includes("TEMPLATE template0"))));
+});
+test("DATABASE resume rejects tampered hash and replaced resource before SQL", async t => {
+  const f = await resumeFixture(t); const bad = { ...f.request, failure: { ...f.request.failure, sha256: "0".repeat(64) } };
+  assert.equal((await resumeYuzhouRetainedLabDatabase(bad, f)).status, "FAILED"); assert.equal(f.calls.length, 0);
+  f.objects.volume.CreatedAt = "2026-09-08T00:00:00Z";
+  assert.equal((await resumeYuzhouRetainedLabDatabase(f.request, f)).status, "FAILED"); assert.ok(!f.calls.some(c => c.args[2] === "psql"));
+});
+test("DATABASE resume exclusive intent permits only one concurrent initialization", async t => {
+  const f = await resumeFixture(t), rs = await Promise.all([resumeYuzhouRetainedLabDatabase(f.request, f), resumeYuzhouRetainedLabDatabase(f.request, f)]);
+  assert.equal(rs.filter(r => r.status === "DEDICATED_LAB_PREPARED").length, 1);
+  assert.equal(f.calls.filter(c => c.args.some(a => a.includes("TEMPLATE template0"))).length, 1);
+});
+for (const defect of ["later-stage", "owner", "image"]) test(`DATABASE resume rejects ${defect} before SQL`, async t => {
+  const f = await resumeFixture(t);
+  if (defect === "later-stage") await writeFile(join(f.input.outputDirectory, "stage-99.json"), JSON.stringify({ stage: "MIGRATE" }), { mode: 0o600 });
+  if (defect === "owner") f.objects.container.Config.Labels["org.jinhu.hr-lab.owner"] = "foreign";
+  if (defect === "image") f.objects.container.Image = `sha256:${"f".repeat(64)}`;
+  assert.equal((await resumeYuzhouRetainedLabDatabase(f.request, f)).status, "FAILED");
+  assert.ok(!f.calls.some(c => c.args[2] === "psql" || c.args[1] === "create"));
+});
 test("prepare creates fresh resources after capacity check, template0 DB, migrations/seeds, private receipt-last registry", async t => {
   const f = await fixture(t), result = await prepareYuzhouRetainedLabResources(f.input, f);
   assert.equal(result.status, "DEDICATED_LAB_PREPARED"); assert.equal(result.evidenceMode, "synthetic_adapter"); assert.equal(result.cleanupImplemented, false);

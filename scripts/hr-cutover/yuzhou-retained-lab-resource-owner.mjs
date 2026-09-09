@@ -33,8 +33,30 @@ function writePrivate(path, bytes) {
   try { writeFileSync(fd, bytes); fsyncSync(fd); } finally { closeSync(fd); }
 }
 function syncDir(path) { const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW); try { fsyncSync(fd); } finally { closeSync(fd); } }
+function loadPinned(pin) {
+  if (!pin || Object.keys(pin).sort().join() !== "path,sha256" || !/^[a-f0-9]{64}$/u.test(pin.sha256 ?? "")) fail();
+  const chunks = [], actual = read(pin.path, LIMIT, { bytes: 0, maximum: LIMIT }, p => chunks.push(Buffer.from(p)));
+  const bytes = Buffer.concat(chunks);
+  try { if (actual.sha256 !== pin.sha256) fail(); return parse(bytes); } finally { bytes.fill(0); chunks.forEach(p => p.fill(0)); }
+}
+function absent(path) { try { lstatSync(path); } catch (e) { if (e.code === "ENOENT") return; throw e; } fail(); }
+/** One retained DATABASE failure only; never recreates resources or steals their lease. */
+export async function resumeYuzhouRetainedLabDatabase(request, options) {
+  try {
+    if (!request || Object.keys(request).sort().join() !== "compose,databaseStage,failure,prepareRequest") fail();
+    const input = loadPinned(request.prepareRequest), failure = loadPinned(request.failure), last = loadPinned(request.databaseStage), compose = loadPinned(request.compose);
+    const output = input.outputDirectory; directory(output);
+    const stages = readdirSync(output).filter(n => /^stage-\d{2}\.json$/u.test(n)).sort();
+    if (!stages.length || request.databaseStage.path !== join(output, stages.at(-1)) || request.failure.path !== join(output, "prepare-failure.json") || request.compose.path !== join(output, "compose.json") ||
+        failure.stage !== "DATABASE" || failure.cleanupAttempted !== false || last.stage !== "DATABASE" || last.runId !== input.runId || last.plannedName !== input.name || !/^[a-f0-9]{40}$/u.test(last.codeSha ?? "") ||
+        JSON.stringify(failure.created) !== JSON.stringify(last.created) || Object.keys(last.created ?? {}).sort().join() !== "container,network,volume" || compose.name !== input.name) fail();
+    absent(join(output, "registry"));
+    return await prepareResources(input, options, { request, last, compose });
+  } catch { return { status: "FAILED", failureCode: "LAB_RESOURCE_RESUME_INPUT_FAILED", cleanupAttempted: false, productionImport: "HOLD" }; }
+}
 /** Creates only fresh dedicated resources. No cleanup entrypoint is provided. */
-export async function prepareYuzhouRetainedLabResources(input, { execute = executeDefault, leaseRoot = join(homedir(), ".jinhu-hr-lab-resource-leases"), currentHead = () => currentCandidateFreezeRepositorySha(ROOT, [SELF, "scripts/db-migrate.sh", "scripts/db-seed-prod.sh"]) } = {}) {
+export async function prepareYuzhouRetainedLabResources(input, options) { return prepareResources(input, options); }
+async function prepareResources(input, { execute = executeDefault, leaseRoot = join(homedir(), ".jinhu-hr-lab-resource-leases"), currentHead = () => currentCandidateFreezeRepositorySha(ROOT, [SELF, "scripts/db-migrate.sh", "scripts/db-seed-prod.sh"]) } = {}, resume) {
   let stage = "INPUT", created = {}, output, original, sequence = 0, ownsOutput = false;
   const abort = new AbortController(), cancel = () => abort.abort();
   process.on("SIGINT", cancel); process.on("SIGTERM", cancel);
@@ -42,14 +64,14 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
     if (!input || Object.keys(input).sort().join() !== ["runId", "name", "imageId", "port", "outputDirectory", "capacityObserver", "dockerHost"].sort().join() ||
         !/^jinhu_hr_migration_lab_[a-z0-9_]{6,40}$/u.test(input.name ?? "") || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(input.runId ?? "") ||
         !/^sha256:[a-f0-9]{64}$/u.test(input.imageId ?? "") || !Number.isInteger(input.port) || input.port < 1024 || input.port > 65535) fail();
-    input = JSON.parse(JSON.stringify(input)); output = input.outputDirectory; original = directory(output); if (readdirSync(output).length) fail();
-    ownsOutput = true;
+    input = JSON.parse(JSON.stringify(input)); output = input.outputDirectory; original = directory(output); if (!resume && readdirSync(output).length) fail();
+    ownsOutput = !resume;
     const observer = input.capacityObserver;
     if (!observer || Object.keys(observer).sort().join() !== ["container", "containerId", "imageId", "port"].sort().join() || !/^[A-Za-z0-9_.-]+$/u.test(observer.container ?? "") || !/^[a-f0-9]{64}$/u.test(observer.containerId ?? "") || !/^sha256:[a-f0-9]{64}$/u.test(observer.imageId ?? "") || !Number.isInteger(observer.port) || observer.port < 1024 || observer.port > 65535) fail();
     const codeSha = currentHead(); if (!/^[a-f0-9]{40}$/u.test(codeSha ?? "")) fail();
     stage = "ENDPOINT"; const socket = validateYuzhouLocalDockerSocket(input.dockerHost);
     const env = { PATH: process.env.PATH, DOCKER_HOST: input.dockerHost, COMPOSE_PROJECT_NAME: input.name, POSTGRES_USER: "jinhu", POSTGRES_DB: input.name };
-    let leasePath, leaseStat; const ownerNonce = randomBytes(32).toString("hex");
+    let leasePath, leaseStat, ownerNonce = randomBytes(32).toString("hex"), composeConfigSha256, descriptor;
     const command = async (file, args, timeout = 30000) => {
       abort.signal.throwIfAborted();
       const now = validateYuzhouLocalDockerSocket(input.dockerHost); if (now.dev !== socket.dev || now.ino !== socket.ino) fail();
@@ -65,10 +87,23 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
     stage = "LEASE";
     const daemonId = (await docker(["info", "--format", "{{.ID}}"])).trim(); if (!/^[A-Za-z0-9:_-]{6,128}$/u.test(daemonId)) fail();
     const endpointIdentitySha256 = sha(JSON.stringify({ daemonId, pathSha256: sha(socket.path), dev: socket.dev, ino: socket.ino }));
-    try { mkdirSync(leaseRoot, { mode: 0o700 }); } catch (e) { if (e.code !== "EEXIST") throw e; }
+    if (!resume) try { mkdirSync(leaseRoot, { mode: 0o700 }); } catch (e) { if (e.code !== "EEXIST") throw e; }
     directory(leaseRoot);
-    const newLease = join(leaseRoot, sha(`${daemonId}:${input.name}`)); mkdirSync(newLease, { mode: 0o700 });
-    leaseStat = directory(newLease); writePrivate(join(newLease, "owner.json"), JSON.stringify({ ownerNonce })); syncDir(newLease); syncDir(leaseRoot); leasePath = newLease;
+    const newLease = join(leaseRoot, sha(`${daemonId}:${input.name}`));
+    if (resume) {
+      leaseStat = directory(newLease);
+      ownerNonce = resume.compose.services?.postgres?.labels?.[OWNER_LABEL];
+      if (!/^[a-f0-9]{64}$/u.test(ownerNonce ?? "")) fail();
+      const owner = read(join(newLease, "owner.json"), LIMIT, { bytes: 0, maximum: LIMIT }, () => {});
+      if (owner.sha256 !== sha(JSON.stringify({ ownerNonce }))) fail();
+      absent(join(newLease, "cleanup-intent.json"));
+      writePrivate(join(newLease, "resume-database-intent.json"), JSON.stringify({ requestSha256: measure(resume.request, LIMIT).sha256, originalPrepareCodeSha: resume.last.codeSha, recoveryCodeSha: codeSha, endpointIdentitySha256 })); syncDir(newLease);
+      ownsOutput = true;
+      created = resume.last.created; composeConfigSha256 = resume.request.compose.sha256; env.COMPOSE_FILE = join(output, "compose.json");
+    } else {
+      mkdirSync(newLease, { mode: 0o700 }); leaseStat = directory(newLease); writePrivate(join(newLease, "owner.json"), JSON.stringify({ ownerNonce })); syncDir(newLease); syncDir(leaseRoot);
+    }
+    leasePath = newLease;
     const owned = (kind, obj) => {
       const labels = kind === "container" ? obj.Config?.Labels : obj.Labels;
       if (labels?.[OWNER_LABEL] !== ownerNonce || (kind === "container" &&
@@ -80,13 +115,20 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
         if ((kind === "volume" && (obj.Name !== identity.name || obj.CreatedAt !== identity.createdAt)) || (kind !== "volume" && obj.Id !== identity.id)) fail();
       }
     };
-    const journal = () => { directory(output, original); writePrivate(join(output, `stage-${String(sequence++).padStart(2, "0")}.json`), JSON.stringify({ stage, runId: input.runId, codeSha, plannedName: input.name, created }) + "\n"); syncDir(output); };
+    const journal = () => { directory(output, original); writePrivate(join(output, `${resume ? "resume-" : ""}stage-${String(sequence++).padStart(2, "0")}.json`), JSON.stringify({ stage, runId: input.runId, codeSha, plannedName: input.name, created }) + "\n"); syncDir(output); };
+    if (resume) {
+      await verifyCreated();
+      if (created.container.name !== input.name || created.container.imageId !== input.imageId) fail();
+      descriptor = { database: input.name, container: input.name, containerId: created.container.id, imageId: input.imageId, port: input.port, composeProject: input.name, volume: created.volume, network: created.network };
+      assertYuzhouLabResources(descriptor, { container: await inspect("container", input.name), volume: await inspect("volume", input.name), network: await inspect("network", input.name) });
+    }
     stage = "CAPACITY";
     const template = '{"Id":{{json .Id}},"Image":{{json .Image}},"State":{{json .State}},"Config":{"Labels":{{json .Config.Labels}}},"NetworkSettings":{"Ports":{{json .NetworkSettings.Ports}}}}';
     assertYuzhouLabContainer(observer, JSON.parse(await docker(["container", "inspect", "--format", template, observer.container])));
     const df = (await docker(["exec", observer.containerId, "df", "-Pk", "/var/lib/postgresql/data"])).trim().split("\n").at(-1).trim().split(/\s+/u);
     const used = Number((await docker(["exec", observer.containerId, "du", "-sk", "/var/lib/postgresql/data"])).trim().split(/\s+/u)[0]);
     const host = statfsSync(output); assertYuzhouLabCapacity(host.bavail * host.bsize, Number(df[3]), used);
+    if (!resume) {
     stage = "ABSENCE";
     for (const kind of ["container", "volume", "network"]) {
       const args = [kind, "ls", ...(kind === "container" ? ["-a"] : []), "--format", kind === "container" ? "{{.Names}}" : "{{.Name}}"];
@@ -103,7 +145,7 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
     const compose = { name: input.name, services: { postgres: { image: input.imageId, pull_policy: "never", container_name: input.name, env_file: [join(output, "postgres.env")],
       labels: { [OWNER_LABEL]: ownerNonce }, ports: [`127.0.0.1:${input.port}:5432`], volumes: ["data:/var/lib/postgresql/data"], networks: ["lab"], restart: "no" } },
       volumes: { data: { external: true, name: input.name } }, networks: { lab: { external: true, name: input.name } } };
-    const composeConfigSha256 = sha(JSON.stringify(compose));
+    composeConfigSha256 = sha(JSON.stringify(compose));
     const composePath = join(output, "compose.json"); writePrivate(composePath, JSON.stringify(compose)); env.COMPOSE_FILE = composePath; syncDir(output);
     stage = "VOLUME"; journal(); await docker(["volume", "create", "--driver", "local", "--label", `com.docker.compose.project=${input.name}`, "--label", `${OWNER_LABEL}=${ownerNonce}`, input.name]);
     const volume = await inspect("volume", input.name); owned("volume", volume); created.volume = { name: volume.Name, createdAt: volume.CreatedAt }; journal();
@@ -117,32 +159,46 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
     let container = await inspect("container", containerId); owned("container", container); if (container.Id !== containerId) fail();
     created.container = { name: input.name, id: container.Id, imageId: container.Image }; journal();
     await verifyCreated(); await docker(["container", "start", containerId]); container = await inspect("container", containerId); owned("container", container);
-    const descriptor = { database: input.name, container: input.name, containerId: container.Id, imageId: input.imageId, port: input.port, composeProject: input.name, volume: created.volume, network: created.network };
+    descriptor = { database: input.name, container: input.name, containerId: container.Id, imageId: input.imageId, port: input.port, composeProject: input.name, volume: created.volume, network: created.network };
     assertYuzhouLabResources(descriptor, { container, volume, network });
+    }
     stage = "READY_CHECK";
     let ready = false;
     // The image's temporary initialization server accepts Unix sockets but not TCP.
     // Wait for the final server, otherwise CREATE DATABASE can race its shutdown.
-    for (let i = 0; i < 60; i++) { await verifyCreated(); try { await docker(["exec", container.Id, "pg_isready", "-h", "127.0.0.1", "-U", "jinhu", "-d", "postgres"]); ready = true; break; } catch { abort.signal.throwIfAborted(); await pause(500, undefined, { signal: abort.signal }); } }
+    for (let i = 0; i < 60; i++) { await verifyCreated(); try { await docker(["exec", descriptor.containerId, "pg_isready", "-h", "127.0.0.1", "-U", "jinhu", "-d", "postgres"]); ready = true; break; } catch { abort.signal.throwIfAborted(); await pause(500, undefined, { signal: abort.signal }); } }
     if (!ready) fail();
-    stage = "DATABASE"; await verifyCreated(); journal(); await docker(["exec", container.Id, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres", "-c", `CREATE DATABASE "${input.name}" TEMPLATE template0;`]);
+    if (resume) {
+      stage = "DATABASE_ABSENCE"; await verifyCreated();
+      const counts = (await docker(["exec", descriptor.containerId, "psql", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres", "-c", `SELECT (SELECT count(*) FROM pg_database WHERE datname='${input.name}')::text || '|' || (SELECT count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_backend_pid())::text;`])).trim();
+      if (counts !== "0|0") fail();
+      absent(join(output, "registry"));
+    }
+    stage = "DATABASE"; await verifyCreated(); journal(); await docker(["exec", descriptor.containerId, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres", "-c", `CREATE DATABASE "${input.name}" TEMPLATE template0;`]);
     stage = "MIGRATE"; await verifyCreated(); journal(); await command("/bin/sh", [join(ROOT, "scripts/db-migrate.sh")], 2700000);
     stage = "SEED"; await verifyCreated(); journal(); env.ALLOW_PRODUCTION_SEED = "yes"; await command("/bin/sh", [join(ROOT, "scripts/db-seed-prod.sh")], 2700000);
     stage = "VERIFY";
     await verifyCreated();
     assertYuzhouLabResources(descriptor, { container: await inspect("container", input.name), volume: await inspect("volume", input.name), network: await inspect("network", input.name) });
+    if (resume) {
+      const baseline = (await docker(["exec", descriptor.containerId, "psql", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", input.name, "-c",
+        `BEGIN READ ONLY; SELECT current_database()='${input.name}' AND (SELECT count(*) FROM sys_tenant WHERE status=1 AND NOT is_deleted AND (expire_time IS NULL OR expire_time>clock_timestamp()))=1 AND (SELECT count(*) FROM biz_park p JOIN sys_tenant t USING(tenant_id) WHERE p.status=1 AND NOT p.is_deleted AND t.status=1 AND NOT t.is_deleted)=1 AND (SELECT count(*) FROM sys_org)=15 AND (SELECT count(*) FROM hr_contract_type)=3 AND (SELECT count(*) FROM hr_employee)=0 AND (SELECT count(*) FROM legacy_record_map)=0 AND (SELECT count(*) FROM migration_batch)=0; ROLLBACK;`])).trim();
+      if (baseline !== "BEGIN\nt\nROLLBACK") fail();
+    }
     if (currentHead() !== codeSha) fail();
     stage = "REGISTRY"; directory(output, original);
     const registry = join(output, "registry"); mkdirSync(registry, { mode: 0o700 }); syncDir(output);
     const artifacts = { "resource-descriptor.json": descriptor }, pins = { "resource-descriptor.json": measure(descriptor, LIMIT) };
+    if (resume) { artifacts["database-recovery-request.json"] = resume.request; pins["database-recovery-request.json"] = measure(resume.request, LIMIT); }
     const receipt = { status: "DEDICATED_LAB_PREPARED", evidenceMode: execute === executeDefault ? "real_commands" : "synthetic_adapter", runId: input.runId, codeSha,
       requestSha256: measure(input, LIMIT).sha256, endpointIdentitySha256, ownerNonceSha256: sha(ownerNonce), composeSourceSha256: composeConfigSha256, artifacts: pins, migrationsApplied: true, productionSeedsApplied: true, bootstrapAdminRun: false,
       importedDataLoaded: false, cleanupImplemented: false, productionImport: "HOLD" };
+    if (resume) receipt.databaseRecovery = { mode: "database_only", originalPrepareCodeSha: resume.last.codeSha, recoveryCodeSha: codeSha, requestSha256: measure(resume.request, LIMIT).sha256, seedBaselineVerified: true };
     emit(registry, artifacts, receipt, pins, LIMIT, "prepare-receipt.json"); return receipt;
   } catch {
     // Journals survive; no automatic deletion. Names/identities contain no credentials/business rows.
-    if (ownsOutput) try { directory(output, original); writePrivate(join(output, "prepare-failure.json"), JSON.stringify({ stage, created, cleanupAttempted: false }) + "\n"); syncDir(output); } catch { /* never overwrite or expose raw errors */ }
-    return { status: "FAILED", failureCode: `LAB_RESOURCE_PREPARE_${stage}_FAILED`, cleanupAttempted: false, productionImport: "HOLD" };
+    if (ownsOutput) try { directory(output, original); writePrivate(join(output, resume ? "resume-failure.json" : "prepare-failure.json"), JSON.stringify({ stage, created, cleanupAttempted: false }) + "\n"); syncDir(output); } catch { /* never overwrite or expose raw errors */ }
+    return { status: "FAILED", failureCode: `LAB_RESOURCE_${resume ? "RESUME" : "PREPARE"}_${stage}_FAILED`, cleanupAttempted: false, productionImport: "HOLD" };
   } finally { process.off("SIGINT", cancel); process.off("SIGTERM", cancel); }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -150,11 +206,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const a = process.argv.slice(2);
     {
-      if (a.length !== 5 || a[0] !== "--prepare" || a[1] !== "--request" || a[3] !== "--request-sha256" || !/^[a-f0-9]{64}$/u.test(a[4] ?? "")) fail();
+      if (a.length !== 5 || !["--prepare", "--resume-database"].includes(a[0]) || a[1] !== "--request" || a[3] !== "--request-sha256" || !/^[a-f0-9]{64}$/u.test(a[4] ?? "")) fail();
       const chunks = [], pin = read(a[2], LIMIT, { bytes: 0, maximum: LIMIT }, p => chunks.push(Buffer.from(p)));
       if (pin.sha256 !== a[4]) fail(); const bytes = Buffer.concat(chunks); let input;
       try { input = parse(bytes); } finally { bytes.fill(0); chunks.forEach(p => p.fill(0)); }
-      result = await prepareYuzhouRetainedLabResources(input);
+      result = a[0] === "--resume-database" ? await resumeYuzhouRetainedLabDatabase(input) : await prepareYuzhouRetainedLabResources(input);
     }
   } catch { result = { status: "FAILED", failureCode: "LAB_RESOURCE_REQUEST_INVALID", productionImport: "HOLD" }; }
   process.stdout.write(`${JSON.stringify(result)}\n`); if (result.status === "FAILED") process.exitCode = 1;
