@@ -236,8 +236,9 @@ async function checkUser(user, password, chrome) {
   for (const pagePath of pagesToCheck) {
     const pageCases = routeCases.filter((entry) => entry.path === pagePath);
     const viewports = resolveViewports(pagePath, pageCases);
+    const reportedPath = redactRoutePath(pagePath);
     for (const viewport of viewports) {
-      console.log(`[browser-uat] ${user.username} -> ${pagePath} (${viewport.width}px)`);
+      console.log(`[browser-uat] ${user.username} -> ${reportedPath} (${viewport.width}px)`);
       result.pages_checked += 1;
 
       let pageResult;
@@ -250,19 +251,19 @@ async function checkUser(user, password, chrome) {
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        result.failed_pages.push(`${pagePath}@${viewport.width}: browser_harness_error (${reason})`);
-        fail(`browser UAT ${userRef} failed ${pagePath}@${viewport.width}: browser_harness_error (${reason})`);
+        result.failed_pages.push(`${reportedPath}@${viewport.width}: browser_harness_error (${reason})`);
+        fail(`browser UAT ${userRef} failed ${reportedPath}@${viewport.width}: browser_harness_error (${reason})`);
         continue;
       }
 
       if (pageResult.status === "FAIL") {
-        result.failed_pages.push(`${pagePath}@${viewport.width}: ${pageResult.reason}`);
-        fail(`browser UAT ${userRef} failed ${pagePath}@${viewport.width}: ${pageResult.reason}`);
+        result.failed_pages.push(`${reportedPath}@${viewport.width}: ${pageResult.reason}`);
+        fail(`browser UAT ${userRef} failed ${reportedPath}@${viewport.width}: ${pageResult.reason}`);
       } else if (pageResult.warnings.length > 0) {
-        result.warning_pages.push({ path: pagePath, viewport: viewport.width, warnings: pageResult.warnings.slice(0, 5) });
-        warnings.push(`${userRef} ${pagePath}@${viewport.width}: ${pageResult.warnings.slice(0, 2).join(" | ")}`);
+        result.warning_pages.push({ path: reportedPath, viewport: viewport.width, warnings: pageResult.warnings.slice(0, 5) });
+        warnings.push(`${userRef} ${reportedPath}@${viewport.width}: ${pageResult.warnings.slice(0, 2).join(" | ")}`);
       }
-      result.page_evidence.push({ case_ids: pageCases.map((entry) => entry.id), path: pagePath, viewport, ...pageResult });
+      result.page_evidence.push({ case_ids: pageCases.map((entry) => entry.id), path: reportedPath, viewport, ...pageResult });
     }
   }
 
@@ -413,8 +414,15 @@ async function auditAnonymousContext(browser, browserContextId) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}/login`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   try {
+    await browser.send("Page.enable", {}, attached.sessionId);
     await browser.send("Runtime.enable", {}, attached.sessionId);
     await waitForReady(browser, attached.sessionId);
+    await waitForExpression(
+      browser,
+      attached.sessionId,
+      `location.origin === ${JSON.stringify(new URL(webBase).origin)}`,
+      10000
+    );
     const response = await browser.send("Runtime.evaluate", {
       expression: `fetch(${JSON.stringify(`${apiPathPrefix}/users/me`)}, { credentials: "same-origin" }).then(response => ({ meStatus: response.status, hasStorageSession: Boolean(localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token")), cookieNames: document.cookie.split(";").map(value => value.split("=")[0].trim()).filter(Boolean) }))`,
       returnByValue: true,
@@ -540,8 +548,15 @@ async function browserSessionRequest(browser, browserContextId, path) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}/dashboard`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   try {
+    await browser.send("Page.enable", {}, attached.sessionId);
     await browser.send("Runtime.enable", {}, attached.sessionId);
     await waitForReady(browser, attached.sessionId);
+    await waitForExpression(
+      browser,
+      attached.sessionId,
+      `location.origin === ${JSON.stringify(new URL(webBase).origin)}`,
+      10000
+    );
     const response = await browser.send("Runtime.evaluate", {
       expression: `(() => {
         const token = localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token");
@@ -610,7 +625,7 @@ async function collectRenderedMenuPaths(browser, { browserContextId, viewport })
           pathname: location.pathname,
           textLength: text.trim().length,
           hasLogin: Boolean(document.querySelector(".signin-page")) || location.pathname === "/login",
-          hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足/.test(text),
+          hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足|无法查看此详情|没有查看该内容的权限|不在当前范围内/.test(text),
           hasNextError: /Application error|Unhandled Runtime Error|ChunkLoadError|Hydration failed/i.test(text),
           hasSidebar: Boolean(sidebar),
           paths: sidebar
@@ -646,6 +661,9 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
   const pageWarnings = [];
   const network = [];
   const pendingRequests = new Map();
+  const successfulRequestStarts = new Map();
+  const failedRequestIdentities = new WeakMap();
+  let networkSequence = 0;
   const allowForbidden = expectForbidden || assertions?.some((entry) => entry.expect_forbidden === true);
 
   const off = browser.onEvent((message) => {
@@ -663,6 +681,13 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     if (message.method === "Network.responseReceived") {
       const response = message.params?.response;
       if (response?.url && /^https?:/u.test(response.url)) {
+        const request = pendingRequests.get(message.params?.requestId);
+        if (response.status >= 200 && response.status < 400 && request) {
+          successfulRequestStarts.set(request.identity, Math.max(
+            successfulRequestStarts.get(request.identity) ?? 0,
+            request.startSequence
+          ));
+        }
         network.push({
           resource_type: message.params?.type ?? "Other",
           url: redactUrl(response.url),
@@ -674,19 +699,28 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       }
     }
     if (message.method === "Network.requestWillBeSent") {
-      const url = message.params?.request?.url;
-      if (url && /^https?:/u.test(url)) pendingRequests.set(message.params.requestId, url);
+      const request = message.params?.request;
+      const url = request?.url;
+      if (url && /^https?:/u.test(url)) {
+        pendingRequests.set(message.params.requestId, {
+          identity: `${request.method ?? "GET"} ${url}`,
+          url,
+          startSequence: ++networkSequence
+        });
+      }
     }
     if (message.method === "Network.loadingFinished") pendingRequests.delete(message.params?.requestId);
     if (message.method === "Network.loadingFailed") {
-      const url = pendingRequests.get(message.params?.requestId);
-      if (url) {
-        network.push({
+      const request = pendingRequests.get(message.params?.requestId);
+      if (request) {
+        const failure = {
           resource_type: message.params?.type ?? "Other",
-          path: new URL(url).pathname,
+          path: new URL(request.url).pathname,
           status: "transport_failed",
           error: message.params?.errorText ?? "unknown"
-        });
+        };
+        network.push(failure);
+        failedRequestIdentities.set(failure, request);
       }
       pendingRequests.delete(message.params?.requestId);
     }
@@ -723,7 +757,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     if (pendingRequests.size > 0) {
       network.push({
         resource_type: "Pending",
-        path: new URL(pendingRequests.values().next().value).pathname,
+        path: new URL(pendingRequests.values().next().value.url).pathname,
         status: "settle_timeout"
       });
     }
@@ -736,7 +770,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
           title: document.title,
           textLength: text.trim().length,
           hasLogin: Boolean(document.querySelector(".signin-page")) || location.pathname === "/login",
-          hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足/.test(text),
+          hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足|无法查看此详情|没有查看该内容的权限|不在当前范围内/.test(text),
           hasNextError: /Application error|Unhandled Runtime Error|ChunkLoadError|Hydration failed/i.test(text),
           headline: (document.querySelector("h1, h2, main")?.textContent ?? "").trim().slice(0, 120),
           viewportWidth: window.innerWidth,
@@ -760,19 +794,24 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     const assertionEvidence = await evaluateCaseAssertions(browser, sessionId, assertions);
     if (evidenceDir) {
       const safeUsername = String(username).replaceAll(/[^A-Za-z0-9_.-]/g, "_");
-      const safePath = path.replace(/^\/+/, "").replaceAll(/[^A-Za-z0-9_.-]/g, "-") || "root";
-      const filename = `${safeUsername}-${String(viewport.width)}-${safePath}.png`;
+      const pathname = new URL(path, "http://browser-uat.local").pathname;
+      const safePath = pathname.replace(/^\/+/, "").replaceAll(/[^A-Za-z0-9_.-]/g, "-") || "root";
+      const routeDigest = sha256(path).slice(0, 16);
+      const filename = `${safeUsername}-${String(viewport.width)}-${safePath}-${routeDigest}.png`;
       const screenshot = await browser.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
       const screenshotBuffer = Buffer.from(screenshot.data, "base64");
       const screenshotFile = resolve(evidenceDir, filename);
       writeFileSync(screenshotFile, screenshotBuffer, { mode: 0o600 });
       chmodSync(screenshotFile, 0o600);
-      screenshotManifest.push({ path, viewport, filename, bytes: screenshotBuffer.byteLength, sha256: sha256(screenshotBuffer), captured_at: new Date().toISOString() });
+      screenshotManifest.push({ path: redactRoutePath(path), viewport, filename, bytes: screenshotBuffer.byteLength, sha256: sha256(screenshotBuffer), captured_at: new Date().toISOString() });
     }
     const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden });
     const failedNetwork = network.find((entry) =>
       (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
+      && !(entry.status === "transport_failed" && entry.error === "net::ERR_ABORTED"
+        && successfulRequestStarts.get(failedRequestIdentities.get(entry)?.identity)
+          > failedRequestIdentities.get(entry)?.startSequence)
     );
     const hardFailure = renderFailure
       || (allowForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
@@ -1072,16 +1111,24 @@ function flattenMenuHrefs(nodes) {
 
 function normalizeMenuHref(href) {
   if (typeof href !== "string" || !href.startsWith("/")) return null;
-  const [path] = href.split("?");
-  if (!path || path.includes(":")) return null;
-  return path;
+  const [rawPathname] = href.split("?");
+  if (rawPathname.split("/").includes("..")) return null;
+  const parsed = new URL(href, "http://browser-uat.local");
+  if (!parsed.pathname || parsed.pathname.includes(":") || parsed.pathname.split("/").includes("..")) return null;
+  return `${parsed.pathname}${parsed.search}`;
+}
+
+function redactRoutePath(path) {
+  const parsed = new URL(path, "http://browser-uat.local");
+  return parsed.search ? `${parsed.pathname}?query_sha256=${sha256(parsed.search).slice(0, 16)}` : parsed.pathname;
 }
 
 function isMobileTerminalPath(path) {
-  return mobilePathPrefixes.some((prefix) => path.startsWith(prefix))
-    || path === "/operations/terminal"
-    || path === "/engineering/terminal"
-    || path === "/preview/operations-terminal";
+  const pathname = new URL(path, "http://browser-uat.local").pathname;
+  return mobilePathPrefixes.some((prefix) => pathname.startsWith(prefix))
+    || pathname === "/operations/terminal"
+    || pathname === "/engineering/terminal"
+    || pathname === "/preview/operations-terminal";
 }
 
 function resolveViewports(path, pageCases) {
@@ -1146,7 +1193,7 @@ function resolveHcdEvidenceGrade(pagesChecked) {
   const isolationPassed = results.every((result) => result.session_isolation === "PASS");
   const dualViewportPassed = new Set(routeCases.map((entry) => entry.path)).size > 0
     && Array.from(new Set(routeCases.map((entry) => entry.path))).every((path) => {
-      const widths = new Set(evidence.filter((entry) => entry.path === path).map((entry) => entry.viewport?.width));
+      const widths = new Set(evidence.filter((entry) => entry.path === redactRoutePath(path)).map((entry) => entry.viewport?.width));
       return widths.has(1440) && widths.has(390);
     });
   if (configuredCases.size === evidencedCases.size && allAssertionsPassed && isolationPassed && dualViewportPassed) return "PASS";

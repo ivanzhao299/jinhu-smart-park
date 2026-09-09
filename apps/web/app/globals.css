@@ -8519,6 +8519,18 @@ select {
   border-bottom: 1px solid var(--border-soft);
 }
 
+.ds-panel-heading > div:first-child {
+  min-width: 0;
+}
+
+.ds-panel-heading > div:last-child {
+  flex-shrink: 0;
+}
+
+.ds-panel-heading h1 {
+  overflow-wrap: anywhere;
+}
+
 .ds-panel-heading .panel-title,
 .role-detail-header .panel-title {
   display: inline-flex;

@@ -148,8 +148,10 @@ const LEASE_SQL = `SELECT source.id::text AS id,source.version,
 
 const HANDOVER_SQL = `SELECT source.id::text AS id,source.version,
   CASE WHEN source.status='completed' THEN 'succeeded' ELSE 'eligible' END AS lifecycle,
-  ('交接 · ' || lease.lease_code || ' · ' || source.handover_type) AS title,
-  (lease.lease_code || ' · ' || source.handover_type) AS "sourceLabel",
+  ('交接 · ' || lease.lease_code || ' · ' || CASE source.handover_type
+    WHEN 'move_in' THEN '入住' WHEN 'move_out' THEN '退租' ELSE '未知交割类型' END) AS title,
+  (lease.lease_code || ' · ' || CASE source.handover_type
+    WHEN 'move_in' THEN '入住' WHEN 'move_out' THEN '退租' ELSE '未知交割类型' END) AS "sourceLabel",
   CASE WHEN source.handover_type='move_out' THEN 80 ELSE 50 END AS priority,
   COALESCE(source.handover_at,source.create_time) AS "dueAt",
   source.create_time AS "createTime",source.update_time AS "updateTime"

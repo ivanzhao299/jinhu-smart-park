@@ -82,7 +82,8 @@ const TASK_CTE = `WITH task AS (
     AND lease.status IN ('pending_approval', 'pending_signature', 'checkout_pending')
   UNION ALL
   SELECT handover.id, 'housing_handover', handover.id,
-         ('交割 · ' || lease.lease_code || ' · ' || handover.handover_type),
+         ('交割 · ' || lease.lease_code || ' · ' || CASE handover.handover_type
+           WHEN 'move_in' THEN '入住' WHEN 'move_out' THEN '退租' ELSE '未知交割类型' END),
          CASE WHEN handover.status='completed' THEN 'completed' ELSE 'pending' END,
          NULL::uuid, NULL::text, COALESCE(handover.handover_at, handover.create_time), lease.unit_id,
          NULL::uuid, NULL::uuid

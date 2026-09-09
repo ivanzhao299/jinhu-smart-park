@@ -112,6 +112,18 @@ test("browser UAT redacts user identity and requires picker echo plus anonymous 
   assert.match(browserRunner, /Storage\.getCookies/u);
   assert.match(browserRunner, /hasAuthCookie/u);
   assert.match(browserRunner, /authorization: "Bearer " \+ token/u);
+  assert.match(browserRunner, /location\.origin === \$\{JSON\.stringify\(new URL\(webBase\)\.origin\)\}/u);
+  assert.match(browserRunner, /parsed\.pathname.*parsed\.search/u);
+  assert.match(browserRunner, /entry\.error === "net::ERR_ABORTED"/u);
+  assert.match(browserRunner, /identity: `\$\{request\.method \?\? "GET"\} \$\{url\}`/u);
+  assert.match(browserRunner, /Math\.max\(/u);
+  assert.match(browserRunner, /successfulRequestStarts\.get\(failedRequestIdentities\.get\(entry\)\?\.identity\)/u);
+  assert.match(browserRunner, /> failedRequestIdentities\.get\(entry\)\?\.startSequence/u);
+  assert.match(browserRunner, /routeDigest = sha256\(path\)\.slice\(0, 16\)/u);
+  assert.match(browserRunner, /query_sha256=\$\{sha256\(parsed\.search\)\.slice\(0, 16\)\}/u);
+  assert.match(browserRunner, /const pathname = new URL\(path, "http:\/\/browser-uat\.local"\)\.pathname/u);
+  assert.match(browserRunner, /无法查看此详情/u);
+  assert.equal((browserRunner.match(/无法查看此详情/gu) ?? []).length, 2);
   assert.match(browserRunner, /has no assertions/u);
   assert.match(browserRunner, /safePath/u);
 });

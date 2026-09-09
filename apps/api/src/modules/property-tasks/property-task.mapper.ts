@@ -14,14 +14,15 @@ export class PropertyTaskMapper {
     allowedActions: readonly PropertyTaskAction[],
     canReadSourceDetails: boolean
   ): PropertyTaskListItem {
+    const labels = visibleLabels(row);
     const item: PropertyTaskListItem = {
       taskId: row.taskId,
       assignmentAuthority: row.assignmentAuthority,
       taskKind: row.taskKind,
       kindLabel: row.kindLabel,
       sourceType: row.sourceType,
-      sourceLabel: row.sourceLabel,
-      title: row.title,
+      sourceLabel: labels.sourceLabel,
+      title: labels.title,
       priority: row.priority,
       dueAt: iso(row.dueAt),
       assignmentStatus: row.assignmentStatus,
@@ -68,6 +69,21 @@ export class PropertyTaskMapper {
     }
     return detail;
   }
+}
+
+function visibleLabels(row: PropertyTaskProjectionRow): { sourceLabel: string; title: string } {
+  if (row.sourceType !== "housing_handover") {
+    return { sourceLabel: row.sourceLabel, title: row.title };
+  }
+  return {
+    sourceLabel: translatePersistedHandoverType(row.sourceLabel),
+    title: translatePersistedHandoverType(row.title)
+  };
+}
+
+function translatePersistedHandoverType(value: string): string {
+  return value.replace(/(^| · )([a-z][a-z0-9_]*)$/u, (_match, separator: string, code: string) =>
+    `${separator}${code === "move_in" ? "入住" : code === "move_out" ? "退租" : "未知交割类型"}`);
 }
 
 function iso(value: Date | string | null): string | null {
