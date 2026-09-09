@@ -544,6 +544,77 @@ async function typeWithKeyboard(browser, sessionId, selector, value) {
   return typed.result?.value === true;
 }
 
+async function focusLabelledControl(browser, sessionId, labelText, selector) {
+  const focused = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const label = Array.from(document.querySelectorAll("label")).find((item) => (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)}));
+      const control = label?.querySelector(${JSON.stringify(selector)});
+      control?.focus();
+      return document.activeElement === control;
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  return focused.result?.value === true;
+}
+
+async function typeLabelledControl(browser, sessionId, labelText, value) {
+  if (!await focusLabelledControl(browser, sessionId, labelText, "input, textarea")) return false;
+  return typeWithKeyboard(browser, sessionId, ":focus", value);
+}
+
+async function selectWithKeyboard(browser, sessionId, labelText, optionText, optionValue) {
+  const target = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const label = Array.from(document.querySelectorAll("label")).find((item) => (item.textContent ?? "").trim().startsWith(${JSON.stringify(labelText)}));
+      const select = label?.querySelector("select");
+      if (!select) return null;
+      const options = Array.from(select.options);
+      const index = options.findIndex((option) => ${optionText ? `option.textContent?.includes(${JSON.stringify(optionText)})` : `option.value === ${JSON.stringify(optionValue)}`});
+      select.focus();
+      return { focused: document.activeElement === select, index };
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  const value = target.result?.value;
+  if (!value?.focused || value.index < 0) return false;
+  await pressKey(browser, sessionId, "Home", "Home", 36);
+  for (let index = 0; index < value.index; index += 1) await pressKey(browser, sessionId, "ArrowDown", "ArrowDown", 40);
+  await pressKey(browser, sessionId, "Enter", "Enter", 13);
+  await sleep(150);
+  const selected = await browser.send("Runtime.evaluate", {
+    expression: `document.activeElement?.selectedIndex === ${value.index}`,
+    returnByValue: true
+  }, sessionId);
+  return selected.result?.value === true;
+}
+
+async function activateByText(browser, sessionId, selector, text) {
+  const focused = await browser.send("Runtime.evaluate", {
+    expression: `(() => {
+      const element = Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find((item) => (item.textContent ?? "").includes(${JSON.stringify(text)}));
+      element?.focus();
+      return document.activeElement === element;
+    })()`,
+    returnByValue: true
+  }, sessionId);
+  if (!focused.result?.value) return false;
+  await pressKey(browser, sessionId, "Enter", "Enter", 13);
+  return true;
+}
+
+async function chooseRemotePicker(browser, sessionId, labelText, query, optionText) {
+  if (!await focusLabelledControl(browser, sessionId, labelText, "input[role='combobox']")) return false;
+  if (!await typeWithKeyboard(browser, sessionId, ":focus", query)) return false;
+  const optionReady = `Array.from(document.querySelectorAll('[role="option"]:not([disabled])')).some((option) => (option.textContent ?? "").includes(${JSON.stringify(optionText)}))`;
+  if (!await waitForExpression(browser, sessionId, optionReady, 10000).then(() => true, () => false)) return false;
+  return activateByText(browser, sessionId, "[role='option']:not([disabled])", optionText);
+}
+
+async function pressKey(browser, sessionId, key, code, windowsVirtualKeyCode) {
+  await browser.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key, code, windowsVirtualKeyCode }, sessionId);
+  await browser.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode }, sessionId);
+}
+
 async function browserSessionRequest(browser, browserContextId, path) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}/dashboard`, browserContextId });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
@@ -690,6 +761,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         }
         network.push({
           resource_type: message.params?.type ?? "Other",
+          method: request?.method ?? "GET",
           url: redactUrl(response.url),
           path: new URL(response.url).pathname,
           status: response.status,
@@ -704,6 +776,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       if (url && /^https?:/u.test(url)) {
         pendingRequests.set(message.params.requestId, {
           identity: `${request.method ?? "GET"} ${url}`,
+          method: request.method ?? "GET",
           url,
           startSequence: ++networkSequence
         });
@@ -761,6 +834,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         status: "settle_timeout"
       });
     }
+    const actionEvidence = await executeCaseActions(browser, sessionId, assertions, network);
     const evaluation = await browser.send("Runtime.evaluate", {
       expression: `(() => {
         const text = document.body?.innerText ?? "";
@@ -806,9 +880,15 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       screenshotManifest.push({ path: redactRoutePath(path), viewport, filename, bytes: screenshotBuffer.byteLength, sha256: sha256(screenshotBuffer), captured_at: new Date().toISOString() });
     }
     const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden });
+    const expectedResponses = assertions?.flatMap((entry) => entry.actions ?? [])
+      .filter((action) => action.type === "wait_response" && action.status)
+      .map((action) => ({ path: action.path, method: action.method, status: Number(action.status) })) ?? [];
     const failedNetwork = network.find((entry) =>
       (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
+      && !expectedResponses.some((expected) => expected.path === entry.path
+        && (!expected.method || expected.method === entry.method)
+        && expected.status === Number(entry.status))
       && !(entry.status === "transport_failed" && entry.error === "net::ERR_ABORTED"
         && successfulRequestStarts.get(failedRequestIdentities.get(entry)?.identity)
           > failedRequestIdentities.get(entry)?.startSequence)
@@ -819,6 +899,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         ? `mobile_viewport_mismatch:${value.viewportWidth}!=${viewport.width}`
         : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
+      || actionEvidence.failure
       || assertionEvidence.failure
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
@@ -826,6 +907,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       reason: hardFailure,
       warnings: pageWarnings,
       page: value,
+      actions: actionEvidence,
       assertions: assertionEvidence,
       network
     };
@@ -833,6 +915,48 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
     off();
     await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
   }
+}
+
+async function executeCaseActions(browser, sessionId, assertions, network) {
+  const actions = assertions?.flatMap((entry) => (entry.actions ?? []).map((action) => ({ caseId: entry.id, ...action }))) ?? [];
+  if (!actions.length) return { status: "NOT_CONFIGURED", failure: "", checks: [] };
+  const checks = [];
+  for (const action of actions) {
+    let pass = false;
+    if (action.type === "input") {
+      pass = await typeLabelledControl(browser, sessionId, action.label, action.value);
+    } else if (action.type === "select") {
+      pass = await selectWithKeyboard(browser, sessionId, action.label, action.option_text, action.value);
+    } else if (action.type === "picker") {
+      pass = await chooseRemotePicker(browser, sessionId, action.label, action.query, action.option_text);
+    } else if (action.type === "activate") {
+      pass = await activateByText(browser, sessionId, action.selector, action.text);
+    } else if (action.type === "wait_text") {
+      pass = await waitForExpression(browser, sessionId, `(document.body?.innerText ?? "").includes(${JSON.stringify(action.text)})`, action.timeout_ms ?? 10000).then(() => true, () => false);
+    } else if (action.type === "wait_response") {
+      const deadline = Date.now() + (action.timeout_ms ?? 10000);
+      while (Date.now() < deadline && !pass) {
+        pass = network.some((entry) => entry.path === action.path
+          && (!action.method || entry.method === action.method)
+          && (!action.status || Number(entry.status) === Number(action.status)));
+        if (!pass) await sleep(100);
+      }
+    } else if (action.type === "reload") {
+      const loaded = waitForEvent(browser, sessionId, "Page.loadEventFired", action.timeout_ms ?? 12000);
+      await browser.send("Page.reload", {}, sessionId);
+      await loaded;
+      await waitForReady(browser, sessionId);
+      pass = true;
+    }
+    checks.push({
+      id: action.caseId,
+      kind: `action_${action.type}`,
+      expected: action.label ?? action.text ?? action.path ?? "reload",
+      pass
+    });
+    if (!pass) return { status: "FAIL", failure: `case_action_failed:${action.type}`, checks };
+  }
+  return { status: "PASS", failure: "", checks };
 }
 
 async function evaluateCaseAssertions(browser, sessionId, assertions) {
@@ -1150,6 +1274,18 @@ function readRouteCases(file) {
         throw new Error(`browser UAT case ${entry.id} has invalid ${field}`);
       }
     }
+    if (entry.actions !== undefined && (!Array.isArray(entry.actions) || entry.actions.some((action) => {
+      if (!action || typeof action !== "object" || !["input", "select", "picker", "activate", "wait_text", "wait_response", "reload"].includes(action.type)) return true;
+      if (action.timeout_ms !== undefined && (!Number.isInteger(action.timeout_ms) || action.timeout_ms < 1 || action.timeout_ms > 60000)) return true;
+      if (["input", "select", "picker"].includes(action.type) && typeof action.label !== "string") return true;
+      if (action.type === "input" && typeof action.value !== "string") return true;
+      if (action.type === "select" && typeof action.option_text !== "string" && typeof action.value !== "string") return true;
+      if (action.type === "picker" && (typeof action.query !== "string" || typeof action.option_text !== "string")) return true;
+      if (action.type === "activate" && (typeof action.selector !== "string" || typeof action.text !== "string")) return true;
+      if (action.type === "wait_text" && typeof action.text !== "string") return true;
+      if (action.type === "wait_response" && (typeof action.path !== "string" || !action.path.startsWith("/") || (action.method !== undefined && !/^[A-Z]+$/.test(action.method)) || (action.status !== undefined && (!Number.isInteger(action.status) || action.status < 100 || action.status > 599)))) return true;
+      return false;
+    }))) throw new Error(`browser UAT case ${entry.id} has invalid actions`);
     const assertionCount = ["selectors", "text", "absent_text", "picker_selectors", "unknown_fallback_text", "detail_selectors", "detail_text"]
       .reduce((total, field) => total + (entry[field]?.length ?? 0), 0);
     if (entry.expect_forbidden !== true && assertionCount === 0) throw new Error(`browser UAT case ${entry.id} has no assertions`);

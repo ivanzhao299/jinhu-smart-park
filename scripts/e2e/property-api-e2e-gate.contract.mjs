@@ -17,6 +17,10 @@ const fixtures = read("scripts/e2e/property-api-e2e-fixtures.sql");
 for (const suite of [assetLifecycle, controlPlane, homestay, housing]) {
   assert.match(suite, /requirePropertyApiE2eIsolation\(\)/, "every mutating property E2E suite must enforce the shared isolation boundary");
 }
+assert.match(homestay, /HCD_BROWSER_FIXTURE_STOP === "after-finance-source"/, "homestay suite must expose its reviewed browser-fixture stop point");
+assert.match(housing, /HCD_BROWSER_FIXTURE_STOP === "active-finance"/, "housing suite must expose its reviewed browser-fixture stop point");
+assert.match(homestay, /\[HCD_BROWSER_FIXTURE\]/, "homestay browser fixture must emit non-secret entity identities");
+assert.match(housing, /\[HCD_BROWSER_FIXTURE\]/, "housing browser fixture must emit non-secret entity identities");
 assert.match(gate, /\["asset-lifecycle", "scripts\/e2e\/asset-projection-lifecycle-api-e2e\.mjs"\]/, "aggregate gate must run the M-01 asset lifecycle suite");
 assert.match(gate, /\["control-plane", "scripts\/e2e\/shared-control-plane-api-e2e\.mjs"\]/, "aggregate gate must run the M-03 shared control-plane suite");
 assert.match(controlPlane, /source_domain: "operations"/, "shared suite must create a direct operations occupancy");

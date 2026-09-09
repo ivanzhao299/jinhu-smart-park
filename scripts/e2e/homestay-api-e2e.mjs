@@ -666,6 +666,10 @@ async function run() {
       reason: "Post-checkout finance registration E2E"
     }
   });
+  if (process.env.HCD_BROWSER_FIXTURE_STOP === "after-finance-source") {
+    console.log(`[HCD_BROWSER_FIXTURE] ${JSON.stringify({ bookingId: booking.id, turnoverId: checkout.turnover.id, unitId: unit.id })}`);
+    return;
+  }
   const refundSources = await request(
     `/homestay/bookings/${booking.id}/finance-sources?entry_type=refund`,
     { token }

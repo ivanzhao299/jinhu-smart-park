@@ -121,6 +121,25 @@ Case IDs must be unique, and detail routes must contain resolved fixture IDs rat
 
 Case results are emitted per route and viewport. A selector/text/picker/unknown-value assertion failure is a hard failure. Dynamic detail cases must use real IDs created in the disposable UAT fixture; template paths such as `[leaseId]` are rejected.
 
+Cases that must prove a real interaction can declare an ordered `actions` array. Supported actions are keyboard-backed `input`, native `select`, remote `picker`, `activate`, `wait_response`, `reload`, and `wait_text`. A persisted picker flow should select the real option, activate the save control, wait for the exact mutation method/path/status, reload, and only then rely on the case assertions for the saved echo. Action evidence never records input values or picker queries. Timeouts must be positive and no greater than 60 seconds.
+
+```json
+{
+  "id": "HCD-006",
+  "path": "/homestay/finance",
+  "viewport": "both",
+  "actions": [
+    { "type": "picker", "label": "来源流水", "query": "fixture code", "option_text": "具名来源流水" },
+    { "type": "activate", "selector": "button", "text": "保存" },
+    { "type": "wait_response", "method": "POST", "path": "/homestay/refunds", "status": 201 },
+    { "type": "reload" },
+    { "type": "wait_text", "text": "具名来源流水" }
+  ],
+  "text": ["具名来源流水"],
+  "absent_text": ["fixture-internal-id"]
+}
+```
+
 When `--evidence-dir` is supplied, the runner writes `browser-uat-report.json`, screenshots, and `evidence-manifest.json`. The manifest records relative filenames, byte sizes, and SHA-256 digests. Evidence files are mode 0600; URLs and diagnostics remain redacted.
 
 ## Canonical Menu Merge Coverage
