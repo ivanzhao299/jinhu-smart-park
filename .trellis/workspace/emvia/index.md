@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 44
+- **Total Sessions**: 45
 - **Last Active**: 2026-09-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1571 | Active |
+| `journal-1.md` | ~1605 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 45 | 2026-09-09 | Issue 722 采购成本分类中文化闭环 | `4cd13fff` | `codex/issue-722-procurement-cost-category-zh` |
 | 44 | 2026-09-09 | Issue 721 HCD seven-case honest residual | `f43b75d4` | `codex/issue-721-hcd-seven-case-browser-closure` |
 | 43 | 2026-09-09 | HCD 30 Case 终局浏览器 UAT | `8b5395b3` | `codex/hcd-30-final-browser-uat` |
 | 42 | 2026-09-09 | PMA L-04 browser UAT baseline closure | `66fd267a` | `codex/pma-l04-browser-uat-baseline` |
