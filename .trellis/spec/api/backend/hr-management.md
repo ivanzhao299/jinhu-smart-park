@@ -634,6 +634,7 @@ VALUES (NULL, 'experience', 'dbo.his', 'not_applicable');
 
 - Never attach an employee ID to a migrated calendar template or describe its dates as actual employee attendance.
 - Insurance scope is enforced by tenant, park, and server-resolved employee IDs. A client employee, keyword, year, month, or review filter may only narrow the result.
+- Insurance list item reads are batched for the authorized current page with tenant/park and non-deleted predicates. Empty pages issue no item query; a period with no items must not fall back to a per-row query. Detail reads retain their scoped lookup and the same explicit projection.
 - `park` may receive employer amounts and item detail; `managed_org_tree` receives employee identity, compliance status, and personal totals without item detail; `self` receives own personal item detail without employee identity or employer amounts.
 - Every response is an explicit allowlist projection. Never return source snapshots, legacy IDs, tenant/park, actor fields, remarks, soft-delete, or version columns.
 - Attendance and insurance reads use required audit before returning the response. An authorized empty result is still a sensitive read and must be audited; only a true `none` scope may return the fail-closed empty page without recording a successful read.

@@ -269,7 +269,11 @@ export class HrService {
   if(employeeIds!==null)qb.andWhere("period.employee_id IN (:...employeeIds)",{employeeIds});if(q.year)qb.andWhere("period.period_year=:year",{year:q.year});if(q.month)qb.andWhere("period.period_month=:month",{month:q.month});if(q.needs_review!==undefined)qb.andWhere("period.needs_review=:needsReview",{needsReview:q.needs_review});if(q.keyword)qb.andWhere("(employee.full_name ILIKE :keyword OR employee.employee_code ILIKE :keyword)",{keyword:`%${q.keyword}%`});
   const total=await qb.getCount();
   const rows=await qb.clone().select(["period.id AS id","period.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","period.period_year AS period_year","period.period_month AS period_month","period.needs_review AS needs_review","period.source_snapshot ->> 'reviewReasonCode' AS review_reason_code","period.source_snapshot -> 'legacyCompatibility' AS legacy_compatibility"]).orderBy("period.period_year","DESC").addOrderBy("period.period_month","DESC").addOrderBy("employee.employee_code","ASC").addOrderBy("period.id","ASC").offset((q.page-1)*q.page_size).limit(q.page_size).getRawMany<Record<string,unknown>>();
-  const items=await Promise.all(rows.map(row=>this.projectInsurancePeriod(scope,row,access,false,canReadAmounts)));
+  const periodIds=rows.map(row=>String(row.id));
+  const pageItems=periodIds.length?await this.insuranceItems.find({where:{...scope,periodId:In(periodIds),isDeleted:false},order:{insuranceKind:"ASC"}}):[];
+  const itemsByPeriod=new Map<string,HrEmployeeInsuranceItemEntity[]>();
+  for(const item of pageItems){const bucket=itemsByPeriod.get(item.periodId)??[];bucket.push(item);itemsByPeriod.set(item.periodId,bucket);}
+  const items=await Promise.all(rows.map(row=>this.projectInsurancePeriod(scope,row,access,false,canReadAmounts,itemsByPeriod.get(String(row.id))??[])));
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:canReadAmounts?["financial","insurance"]:["insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:items.length});
   return {items,total,page:q.page,page_size:q.page_size};
  }
@@ -283,8 +287,8 @@ export class HrService {
   const projected=await this.projectInsurancePeriod(scope,row,access,true,canReadAmounts);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保明细",bizType:"hr_employee_insurance_period",bizId:id,path:"/hr/insurance/periods/:id",fieldGroups:canReadAmounts?["financial","insurance"]:["insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:1});return projected;
  }
  private async ledgerEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal,access:HrLedgerAccessScope){if(access==="park")return null;if(access==="self")return [(await this.myEmployee(scope,actor)).id];const ids=await this.managedEmployeeIds(scope,actor);if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ))ids.push((await this.myEmployee(scope,actor)).id);return [...new Set(ids)];}
- private async projectInsurancePeriod(scope:TenantParkScope,row:Record<string,unknown>,access:HrLedgerAccessScope,includeItems=false,canReadAmounts=access==="self"){
-  const id=String(row.id);const entities=await this.insuranceItems.find({where:{...scope,periodId:id,isDeleted:false},order:{insuranceKind:"ASC"}});const sum=(field:"totalAmount"|"employerAmount"|"employeeAmount"|"supplementAmount")=>entities.reduce((value,item)=>value+hrMoneyToCents(item[field]??"0"),0n);const full=access==="park";
+ private async projectInsurancePeriod(scope:TenantParkScope,row:Record<string,unknown>,access:HrLedgerAccessScope,includeItems=false,canReadAmounts=access==="self",prefetchedItems?:HrEmployeeInsuranceItemEntity[]){
+  const id=String(row.id);const entities=prefetchedItems??await this.insuranceItems.find({where:{...scope,periodId:id,isDeleted:false},order:{insuranceKind:"ASC"}});const sum=(field:"totalAmount"|"employerAmount"|"employeeAmount"|"supplementAmount")=>entities.reduce((value,item)=>value+hrMoneyToCents(item[field]??"0"),0n);const full=access==="park";
   const needsReview=Boolean(row.needs_review);
   const reviewReasonCode=needsReview&&["T3_INT4_INVALID","T3_RECORD_NEEDS_REVIEW"].includes(String(row.review_reason_code))?String(row.review_reason_code):needsReview?"T3_RECORD_NEEDS_REVIEW":null;
   const compatibility=row.legacy_compatibility as {legacyFlags?:Record<string,unknown>;fieldPresence?:Record<string,unknown>}|null;
