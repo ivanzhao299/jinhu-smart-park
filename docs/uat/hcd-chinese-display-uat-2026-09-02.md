@@ -2,7 +2,7 @@
 
 ## 结论
 
-**CLOSED WITH GRADED EVIDENCE / 浏览器基线移交。** PR1 #536、PR2 #537、PR3 #538 均已合入，PR 与 main 门禁为绿色；静态成熟门禁和 HCD 定向测试通过。最终深水轮 `hcd-20260902-r4-final` 已用产品 API 解开住房 Party/租约 fixture 约束，并真实完成住房、民宿 API 主链与防回退断言；本地证据保存在 ignored `artifacts/`。浏览器基建第二次尝试到达真实 UI 登录表单，但未建立认证 session，27 路由均未开始；遵守同题最多两次后停止。因此历史 22 路由仍仅为 `SURFACE_ONLY`，不声明任何浏览器 HCD Case PASS，更不声明全部 30 项 PASS。经用户批准，本轮按上述证据等级诚实收口并归档四个 HCD Trellis 任务，未完成的真实浏览器面移交为独立验证基线重建工作；“归档”不代表将 `BLOCKED` 或 `UNVERIFIED` 升级为 `PASS`。
+**FINAL ADJUDICATED：23 PASS / 7 FAIL。** 2026-09-09 独立终局任务在 L-04 基线上完成真实键盘登录、27 路由 × desktop/mobile 共 54 个单元、逐页 DOM 与 Network 采集、logout 和新 BrowserContext 隔离，并逐项重新裁定 HCD-001—030。历史四轮与 L-04 记录保留在下文，仅作为基建史，不再决定 Case 状态。7 个未实际触发原定义交互或数据态的 Case 如实记 FAIL 并由 #721 跟踪；不以页面可达、静态测试或 API fixture 冒充浏览器 PASS。
 
 ## 已完成交付
 
@@ -149,6 +149,63 @@
 - desktop 与 390px 均保存逐 Case 截图、完整 HTTP(S) Network、console/runtime、设备能力与 rewrite target；390px 宽度模拟不能单独冒充移动设备能力 PASS。
 - 每个含 RUN_ID 的 UI fixture 都需完成 UI 创建/显示、同源 API 读取、同一 disposable DB 反查三联；证据进入可复核的脱敏 artifact manifest，敏感 env 精确删除。
 - 后续任务沿用本报告的 `PASS / SURFACE_ONLY / BLOCKED / UNVERIFIED` 分级，不得用静态、API 或截图观察替代真实浏览器 Case PASS。
+
+## 2026-09-09 终局浏览器裁定
+
+### 执行与证据
+
+- 被测起点为 `origin/main@dcd9a9cf`；bearer header 已存在，但 follow-up probe 会在新 target 的 `about:blank` 上过早判定 ready，导致拿不到 Web origin storage。本任务修正为启用 Page domain 并等待目标进入 Web origin；anonymous audit 同步修正，契约门禁覆盖该行为。
+- 隔离栈使用 disposable PostgreSQL（307/307 migration）、production-safe seed、bootstrap admin、产品 API 民宿/住房 fixture、独占 API `3287`、Web `3288` 和专用 Chromium 151/CDP `47159`。未连接主 Chrome、未操作生产或 HR。
+- 终局矩阵第二轮到达 27/27 路由、54/54 单元；真实 `/auth/login=200`、登录态 `/users/me=200`、logout 两端点 `200`，新 BrowserContext `/users/me=401`、storage/cookie 均无认证残留。54 个页面均无 runner 所采集的 HTTP(S) 失败、console/runtime error、CSS viewport 偏差或横向 document overflow。
+- `M`：ignored `artifacts/hcd-final-20260909/evidence-final-r2/`，54 张截图、逐单元 DOM/Network report；manifest SHA-256 `9d10f6a418f6cfea7f1aa901abfac486a6c5edad5d53634c9e04a2565b639d3e`，55/55 文件重算一致。
+- `N`：ignored `artifacts/hcd-final-20260909/evidence-narrow-r2/`，窄权限 desktop/mobile 截图与 DOM/Network；manifest SHA-256 `841dee52d70bf68cc8278aef337f45b23b7310a28da894fe82557a46f77b67a3`，3/3 文件重算一致。产品实际显示中文权限占位且不泄漏相对方名称；执行器词表修正后的 terminal status 遵守两次上限未第三次复跑，因此只把已观察的产品断言记 PASS，不把 runner 旧 FAIL 隐去。
+- `F`：ignored `artifacts/hcd-final-20260909/evidence-targeted-fix/`，任务标题中文化与详情长标题断行修复后的 2 路由 × 双视口；manifest SHA-256 `ee177bbabeb9a0108c4517fe964cd8150265f5ef3c3e910624884e4df0f2f01b`，5/5 文件重算一致，runner terminal PASS。
+- 隐私门禁逐图复核 54+2+4 张证据截图；可识别字段均来自 disposable synthetic fixture，未出现密码、JWT、Cookie、Authorization、连接串、签名 URL 或真实个人数据。对最终三组 JSON/text 执行敏感模式扫描，无命中。
+
+### 30 Case 裁定矩阵
+
+“证据”中的路由表示 `M` report 内该 Case 的 desktop/mobile 单元及对应 manifest 截图；`F` 为修复后替代证据；`N` 为权限边界补充证据。FAIL 均有 #721，不保留 `BLOCKED`。
+
+| Case | 裁定 | 浏览器证据 / 说明 |
+|---|---|---|
+| HCD-001 | PASS | `M /homestay/tasks`：任务来源、状态为中文，具名任务；双视口 DOM/Network。 |
+| HCD-002 | PASS | `M /homestay/availability`：民宿短租/长租经营与房态中文。 |
+| HCD-003 | PASS | `M /homestay/bookings?...` 与具名订单详情：订单状态中文。 |
+| HCD-004 | PASS | `M` 周转筛选完整中文；具名周转详情状态“已完成”。 |
+| HCD-005 | PASS | `M` 具名订单/入住详情：核验与凭证状态中文。 |
+| HCD-006 | FAIL | #721：未在浏览器实际选择退款/减免来源流水，不能裁定 picker 回显。 |
+| HCD-007 | PASS | `M` 具名订单/入住详情：流水状态与审计动作无原码直出。 |
+| HCD-008 | FAIL | #721：具名周转没有关联工单，工单 picker/status 原定义未实际触发。 |
+| HCD-009 | FAIL | #721：高风险操作由 fixture API 完成，浏览器未触发成功提示。 |
+| HCD-010 | PASS | `M` 具名订单每日房价显示中文“未知价格来源”，无 `date_override` 原码。 |
+| HCD-011 | PASS | `M` 具名订单/入住详情显示 `unitCode / unitName`，不使用固定占位。 |
+| HCD-012 | PASS | `M /homestay/bookings?...`：URL 恢复后 picker 回显 `A1 1F / U01`，不是 UUID/加载占位。 |
+| HCD-013 | FAIL | #721：未在浏览器触发验证、冲突、权限或网络错误，不能以正常页裁定错误投影。 |
+| HCD-014 | PASS | `M` 订单/周转筛选含“未到店”“未完成”等权威中文值。 |
+| HCD-015 | PASS | `M /housing/tenants` 与 Party 详情：核验/同意状态中文。 |
+| HCD-016 | PASS | `M /housing/leases` 与具名详情/账单：完整租约状态中文。 |
+| HCD-017 | FAIL | #721：产品 API 未产生未知 eligibility code；本轮没有可证明“未知阻断原因”的真实浏览器数据态。 |
+| HCD-018 | PASS | `M` 具名交割详情与租约内嵌记录：类型、状态中文。 |
+| HCD-019 | PASS | `F /housing/tasks`：来源/状态中文；修复后交割标题为“入住/退租”，不再直出 `move_in/move_out`。 |
+| HCD-020 | PASS | `M /housing/tasks?status=active`：负责人姓名不可用时显示“未分派”，不回退 UUID。 |
+| HCD-021 | PASS | `M` 具名租约/Party 数据使用名称与中文占位，不回退内部 ID；`N` 补充权限边界。 |
+| HCD-022 | PASS | `M` 具名租约入住人员角色显示“同住人”。 |
+| HCD-023 | PASS | `M` 具名报修详情：状态、优先级、紧急程度中文。 |
+| HCD-024 | PASS | `F` 具名采购详情：审批/付款状态中文；desktop/mobile Network 与 DOM PASS，长标题可断行。 |
+| HCD-025 | FAIL | #721：账单页未打开费用计划 picker，未实际观察计费来源回显。 |
+| HCD-026 | FAIL | #721：财务表单未实际选择费用类型、支付方式和审批目标，不能以列表页裁定 picker。 |
+| HCD-027 | PASS | `M` 采购列表/详情显示具名房源 `A1 2F / U01`，不显示 UUID。 |
+| HCD-028 | PASS | `M` Party 详情角色/来源/状态/provenance 均为中文；`N` 证明窄权限无名称泄漏且有中文占位。 |
+| HCD-029 | PASS | `M /property/approvals`：审批决定与领域执行状态独立显示中文。 |
+| HCD-030 | PASS | `M /assets/identity-submissions`：submission 及当前 Web 可见状态中文；未虚构不存在的 retention 页面。 |
+
+### 修复与新增 Issue
+
+- 修正 browser session/anonymous probe 的 Web-origin readiness，保留 bearer Authorization 传递，并补强 query 路由、被 supersede 的 `ERR_ABORTED` Network 处理和中文权限占位识别；`browser-uat-contract` 5/5 PASS。
+- 修复长租交割任务标题裸 `move_in/move_out`；API 定向测试 12/12 PASS，`F` 双视口 PASS。
+- 共享详情标题增加 `min-width: 0` 与 `overflow-wrap: anywhere`；采购长编号在 390px 从裁切改为断行，定向 contract 2/2、`F` 双视口 PASS。
+- #721 保持 OPEN，跟踪 7 个 FAIL Case 所缺的可执行浏览器场景；这些 Case 在完成前不得升级 PASS。
+- #722 保持 OPEN：逐图复核额外发现采购详情“成本分类”直出开放值 `repair`。该字段不属于 HCD-024 原定义，故未越界扩写本任务产品定名。
 
 ## D 类临时定名（待产品确认）
 

@@ -56,5 +56,7 @@ test("detail shell uses existing surfaces and native modal drawer semantics", ()
   assert.doesNotMatch(source, /boxShadow|backgroundColor|borderColor/);
   assert.match(css, /min-block-size: 44px/);
   assert.match(css, /min-inline-size: 44px/);
+  assert.match(readFileSync(resolve(process.cwd(), "apps/web/app/globals.css"), "utf8"),
+    /\.ds-panel-heading h1\s*\{[^}]*overflow-wrap:\s*anywhere/s);
   assert.doesNotMatch(css, /color:|background:|box-shadow:|border:/);
 });

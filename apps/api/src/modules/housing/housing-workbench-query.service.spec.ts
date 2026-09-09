@@ -64,6 +64,9 @@ test("housing tasks keep strict projections, true totals, and two statements for
     assert.equal(result.items[0]?.dueAt, "2026-08-01T00:00:00.000Z");
     assert.match(statements[0] ?? "", /biz_housing_lease/);
     assert.match(statements[0] ?? "", /biz_housing_handover/);
+    assert.match(statements[0] ?? "", /WHEN 'move_in' THEN '入住'/u);
+    assert.match(statements[0] ?? "", /WHEN 'move_out' THEN '退租'/u);
+    assert.match(statements[0] ?? "", /ELSE '未知交割类型'/u);
     assert.match(statements[0] ?? "", /biz_work_order/);
     assert.match(statements[0] ?? "", /work_order\.assignee_name/u);
     assert.match(statements[0] ?? "", /biz_housing_receivable/);

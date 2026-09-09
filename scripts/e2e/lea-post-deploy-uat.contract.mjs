@@ -112,6 +112,11 @@ test("browser UAT redacts user identity and requires picker echo plus anonymous 
   assert.match(browserRunner, /Storage\.getCookies/u);
   assert.match(browserRunner, /hasAuthCookie/u);
   assert.match(browserRunner, /authorization: "Bearer " \+ token/u);
+  assert.match(browserRunner, /location\.origin === \$\{JSON\.stringify\(new URL\(webBase\)\.origin\)\}/u);
+  assert.match(browserRunner, /parsed\.pathname.*parsed\.search/u);
+  assert.match(browserRunner, /entry\.error === "net::ERR_ABORTED"/u);
+  assert.match(browserRunner, /无法查看此详情/u);
+  assert.equal((browserRunner.match(/无法查看此详情/gu) ?? []).length, 2);
   assert.match(browserRunner, /has no assertions/u);
   assert.match(browserRunner, /safePath/u);
 });
