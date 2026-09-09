@@ -19,6 +19,8 @@ const sources = {
   housingCosts: read("housing/_components/HousingCostSurfaceClients.tsx"),
   housingLease: read("housing/_components/HousingLeaseDetailClient.tsx"),
   housingDetails: read("housing/_components/HousingEntityDetailClients.tsx"),
+  housingPurchaseCreate: read("housing/_components/HousingPurchaseCreatePanel.tsx"),
+  housingDictionaries: read("housing/_components/use-housing-display-dictionaries.ts"),
   housingBilling: read("housing/_components/HousingBillingActions.tsx"),
   housingFinance: read("housing/_components/HousingFinanceActions.tsx"),
   housingHandover: read("housing/_components/HousingHandoverForm.tsx"),
@@ -71,6 +73,17 @@ test("PR1 removes audited raw codes and internal-id fallbacks from visible JSX",
   assert.doesNotMatch(sources.foundation, /conflict\.sourceId \? ` · \$\{conflict\.sourceId\}`/);
   assert.doesNotMatch(Object.values(sources).join("\n"), /申请编号：\$\{[^}]*requestId/);
   assert.doesNotMatch(sources.housingLease + sources.housingDetails + sources.housingRental, /handoverType === "move_in" \? "入住" : "退租"/);
+});
+
+test("Issue 722 localizes purchase cost category in list, detail, and form without displaying raw codes", () => {
+  assert.match(sources.housingCosts, /housingPurchaseCostCategoryLabel\(item\.costCategory, dictionaries\.purchaseCostCategories\)/);
+  assert.match(sources.housingDetails, /housingPurchaseCostCategoryLabel\(data\.purchase\.costCategory, dictionaries\.purchaseCostCategories\)/);
+  assert.match(sources.housingPurchaseCreate, /housingPurchaseCostCategoryOptions\(costCategoryLabels\)/);
+  assert.match(sources.housingPurchaseCreate, /name="cost_category"/);
+  assert.doesNotMatch(sources.housingDetails, /\["成本分类", data\.purchase\.costCategory\]/);
+  assert.doesNotMatch(sources.housingPurchaseCreate, /成本分类<input/);
+  assert.match(sources.housingDictionaries, /"housing_purchase_cost_category"/);
+  assert.match(sources.housingDictionaries, /purchaseCostCategories: labels\(result\.housing_purchase_cost_category\)/);
 });
 
 test("HCD-009 every high-risk feedback surface projects Chinese approval states without request ids", () => {

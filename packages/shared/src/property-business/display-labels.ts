@@ -78,6 +78,14 @@ export const HOUSING_PAYMENT_METHOD_LABELS = {
   bank_transfer: "银行转账", cash: "现金", wechat: "微信", alipay: "支付宝", pos: "POS", other: "其他"
 } as const;
 
+// cost_category is an open tenant dictionary. These are the standard values
+// already emitted by repository fixtures; tenant dict-items may override labels
+// or add values without changing the API/storage contract.
+export const HOUSING_STANDARD_PURCHASE_COST_CATEGORIES = ["consumable", "supplies", "repair"] as const;
+export const HOUSING_PURCHASE_COST_CATEGORY_LABELS = {
+  consumable: "消耗品", supplies: "物资用品", repair: "维修费用"
+} as const satisfies Record<(typeof HOUSING_STANDARD_PURCHASE_COST_CATEGORIES)[number], string>;
+
 export const IDENTITY_SUBMISSION_STATUS_LABELS = {
   draft: "草稿", pending_verification: "待核验", verified: "已核验", rejected: "已驳回",
   withdrawn: "已撤回", superseded: "已被替代"

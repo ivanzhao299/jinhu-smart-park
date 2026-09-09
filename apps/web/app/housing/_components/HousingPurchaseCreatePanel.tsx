@@ -8,6 +8,7 @@ import { PendingAttachmentList } from "../../../components/files/PendingAttachme
 import {
   PropertyPanelSurface,
   RemoteEntityPicker,
+  housingPurchaseCostCategoryOptions,
   type PropertyCapabilityProjection,
   type RemoteEntityOption
 } from "../../../features/property-shared";
@@ -25,6 +26,7 @@ import {
   loadPendingFiles
 } from "./housing-pending-files";
 import { useStableIdempotency } from "./use-stable-idempotency";
+import { useHousingDisplayDictionaries } from "./use-housing-display-dictionaries";
 
 export function HousingPurchaseCreatePanel({
   capabilities,
@@ -43,6 +45,7 @@ export function HousingPurchaseCreatePanel({
   const removeLock = useRef(false);
   const idempotency = useStableIdempotency();
   const fileCapability = capabilities.fileCapability("housing_purchase");
+  const dictionaries = useHousingDisplayDictionaries(capabilities.invalidationKey);
 
   useEffect(() => {
     if (!fileCapability.canRead) return;
@@ -89,12 +92,14 @@ export function HousingPurchaseCreatePanel({
   }
 
   return <PurchaseCreateView capabilities={capabilities} fileCapability={fileCapability} files={files}
-    message={message} onFiles={setFiles} onRemove={removeFile} onSubmit={submit} onUnit={setUnit}
+    costCategoryLabels={dictionaries.purchaseCostCategories} message={message} onFiles={setFiles}
+    onRemove={removeFile} onSubmit={submit} onUnit={setUnit}
     onUploading={setUploading} removing={removing} submitting={submitting} unit={unit} uploading={uploading} />;
 }
 
 function PurchaseCreateView(props: {
   capabilities: PropertyCapabilityProjection;
+  costCategoryLabels: Readonly<Record<string, string>>;
   fileCapability: ReturnType<PropertyCapabilityProjection["fileCapability"]>; files: FileRecord[];
   message: string; onFiles(value: FileRecord[]): void; onRemove(id: string): Promise<void>;
   onSubmit(event: FormEvent<HTMLFormElement>): void; onUnit(value: RemoteEntityOption | null): void;
@@ -108,7 +113,7 @@ function PurchaseCreateView(props: {
         <RemoteEntityPicker authorized={props.capabilities.actionAllowed("housing.purchases.create")}
           contextValid={props.capabilities.moduleAvailable} invalidationKey={props.capabilities.invalidationKey}
           label="关联住房房源（可选）" loadOptions={loadHousingUnits} onChange={props.onUnit} value={props.unit} />
-        <PurchaseFields />
+        <PurchaseFields costCategoryLabels={props.costCategoryLabels} />
         {props.fileCapability.canUpload ? <FileUploader bizType="housing_purchase" compact disabled={locked}
           label="上传采购票据" onUploaded={(file) => props.onFiles([...props.files, file])}
           onUploadingChange={props.onUploading} policyKey="receipt" /> : null}
@@ -122,7 +127,7 @@ function PurchaseCreateView(props: {
   </PropertyPanelSurface>;
 }
 
-function PurchaseFields() {
+function PurchaseFields({ costCategoryLabels }: { costCategoryLabels: Readonly<Record<string, string>> }) {
   const [purchaseDate, setPurchaseDate] = useState("");
   useEffect(() => setPurchaseDate(businessDate()), []);
   return (
@@ -130,7 +135,9 @@ function PurchaseFields() {
       <label>供应商<input maxLength={200} name="vendor_name" required /></label>
       <label>采购日期<input name="purchase_date" onChange={(event) => setPurchaseDate(event.target.value)}
         required type="date" value={purchaseDate} /></label>
-      <label>成本分类<input maxLength={64} name="cost_category" required /></label>
+      <label>成本分类<select name="cost_category" required><option value="">请选择成本分类</option>
+        {housingPurchaseCostCategoryOptions(costCategoryLabels).map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
       <label>物品名称<input maxLength={200} name="item_name" required /></label>
       <label>数量<input min="0.001" name="quantity" required step="0.001" type="number" /></label>
       <label>单位<input maxLength={20} name="unit" /></label>

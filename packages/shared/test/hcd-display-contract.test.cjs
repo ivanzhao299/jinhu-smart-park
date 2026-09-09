@@ -41,6 +41,16 @@ test("HCD query pseudo-values do not pollute persisted turnover status", () => {
   assert.equal(shared.HOUSING_LEASE_STATUSES.includes("closed"), false);
 });
 
+test("housing standard purchase cost category labels exhaust the observed standard catalog", () => {
+  assert.deepEqual(Object.keys(shared.HOUSING_PURCHASE_COST_CATEGORY_LABELS).sort(), [...shared.HOUSING_STANDARD_PURCHASE_COST_CATEGORIES].sort());
+  assert.deepEqual(shared.HOUSING_PURCHASE_COST_CATEGORY_LABELS, {
+    consumable: "消耗品", supplies: "物资用品", repair: "维修费用"
+  });
+  for (const [value, label] of Object.entries(shared.HOUSING_PURCHASE_COST_CATEGORY_LABELS)) {
+    assert.equal(label.includes(value), false);
+  }
+});
+
 test("long-rent current display terminology stays canonical while signed role ABI remains compatible", () => {
   assert.equal(shared.PROPERTY_OPERATING_MODE_LABELS.long_rent, "长租经营");
   assert.equal(shared.PARTY_SOURCE_DOMAIN_LABELS.housing_rental, "长租经营");
