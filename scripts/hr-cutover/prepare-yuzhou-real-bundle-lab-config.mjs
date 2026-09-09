@@ -7,6 +7,7 @@ import { computeYuzhouLabExecutionBinding, validateYuzhouLabConfig } from "./run
 import { prepareYuzhouRealBundleLabArtifacts } from "./yuzhou-real-bundle-lab-artifacts.mjs";
 import { prepareYuzhouRetainedQuarantineSide } from "./consume-yuzhou-retained-quarantine-side.mjs";
 import { createYuzhouRealBundleLabPgProbes } from "./yuzhou-real-bundle-lab-pg-probes.mjs";
+import { stableProductionImportCanonicalJson as canonical } from "./production-import-target-model.mjs";
 import { currentCandidateFreezeRepositorySha, readProductionImportPrivateBytes as read,
   productionImportPrivateDirectory as directory, productionImportCanonicalPath as canonicalPath,
   sameProductionImportPrivateFile as sameFile, parseProductionImportPrivateJson as parse,
@@ -70,7 +71,11 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
       exact(input.baselineCounts, Object.keys(originalBaselineCounts));
       c.baselineCounts = { ...input.baselineCounts }; verifyProbeConfig();
     }
-    const prepared = c.pairMaterials ? await prepareYuzhouRetainedQuarantineSide(c) : await prepareYuzhouRealBundleLabArtifacts(c.artifacts);
+    // The emitter canonicalizes keys. Hash the same shape that the execution
+    // process will parse, not this pre-serialization object's insertion order.
+    measure(c, LIMIT);
+    const executionConfig = JSON.parse(canonical(c));
+    const prepared = executionConfig.pairMaterials ? await prepareYuzhouRetainedQuarantineSide(executionConfig) : await prepareYuzhouRealBundleLabArtifacts(executionConfig.artifacts);
     if (prepared.status !== "ARTIFACTS_VERIFIED" || prepared.productionImport !== "HOLD") fail("ARTIFACTS_INVALID");
     const rechecked = await executionBinding();
     if (JSON.stringify(rechecked) !== JSON.stringify(actual) || currentHead() !== preparerCodeSha) fail("CODE_CHANGED");
