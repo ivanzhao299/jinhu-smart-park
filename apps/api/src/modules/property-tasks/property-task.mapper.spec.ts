@@ -79,4 +79,18 @@ describe("C4 property task mapper wire boundary", () => {
     assert.equal(detail.blockedReason, row.blockedReason);
     assert.deepEqual(validatePropertyTaskDetailWire(detail, true), []);
   });
+
+  it("hides legacy raw handover types while existing projections await reconciliation", () => {
+    const mapper = new PropertyTaskMapper();
+    for (const [code, label] of [["move_in", "入住"], ["move_out", "退租"], ["legacy_code", "未知交割类型"]]) {
+      const item = mapper.toListItem({
+        ...row,
+        sourceType: "housing_handover",
+        title: `交接 · H-001 · ${code}`,
+        sourceLabel: `H-001 · ${code}`
+      }, [], true);
+      assert.equal(item.title, `交接 · H-001 · ${label}`);
+      assert.equal(item.sourceLabel, `H-001 · ${label}`);
+    }
+  });
 });
