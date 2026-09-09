@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
+import { sanitizeYuzhouHttpRequestStep } from "./yuzhou-real-import-http-probe.mjs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -15,17 +16,19 @@ const FAILURE_CODES = new Set([
 ]);
 export function sanitizeYuzhouRealHttpLabFailureSummary(value) {
   try {
+    const requestStep = sanitizeYuzhouHttpRequestStep(value?.requestStep);
     return { step: FAILURE_STEPS.has(value?.step) ? value.step : "unknown",
       errorType: ["Error", "TypeError", "RangeError", "SyntaxError"].includes(value?.errorType) ? value.errorType : "Error",
       code: FAILURE_CODES.has(value?.code) ? value.code : null,
       sqlState: typeof value?.sqlState === "string" && /^[0-9A-Z]{5}$/u.test(value.sqlState) ? value.sqlState : null,
+      ...(requestStep ? { requestStep } : {}),
       ...(value?.shutdownFailed === true ? { shutdownFailed: true } : {}), ...(value?.cleanupFailed === true ? { cleanupFailed: true } : {}) };
   } catch { return { step: "unknown", errorType: "Error", code: null, sqlState: null }; }
 }
 export function sanitizeYuzhouRealHttpLabFailure(error, step) {
   try {
     const name = error?.constructor?.name, code = error?.code;
-    return sanitizeYuzhouRealHttpLabFailureSummary({ step, errorType: name, code, sqlState: code });
+    return sanitizeYuzhouRealHttpLabFailureSummary({ step, errorType: name, code, sqlState: code, requestStep: error?.requestStep });
   } catch { return sanitizeYuzhouRealHttpLabFailureSummary({ step }); }
 }
 

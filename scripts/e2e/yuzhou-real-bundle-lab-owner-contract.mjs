@@ -3,6 +3,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { persistYuzhouLabFinalReceipt, readYuzhouLabFinalReceipt } from "../hr-cutover/run-yuzhou-real-bundle-lab.mjs";
 import { runYuzhouRealBundleLabOwner } from "../hr-cutover/yuzhou-real-bundle-lab-owner.mjs";
 import { computeProductionImportPayloadHash, computeProductionImportPayloadBundleHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { ProductionImportExecutionError } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
@@ -59,11 +63,17 @@ test("all eight hashes precede connection; serializable apply/HTTP/reverse/resid
   assert.ok(trace.indexOf("checkpoint") < trace.indexOf("COMMIT")); assert.ok(trace.indexOf("http") > trace.indexOf("COMMIT"));
   assert.equal(trace.at(-1), "release"); assert.ok(!JSON.stringify(result).includes("fixture-owner"));
 });
-test("HTTP failure classifications survive owner reversal without raw diagnostics",async()=>{
- const failure={step:"app",errorType:"Error",code:"MODULE_NOT_FOUND",sqlState:null};
+test("HTTP failure classifications survive owner reversal and final receipt readback without raw diagnostics",async()=>{
+ const failure={step:"verify",errorType:"Error",code:"HR_HTTP_PROBE_TIMEOUT",sqlState:null,requestStep:"contracts_detail"};
  const {input}=fixture({httpFailure:failure}),result=await runYuzhouRealBundleLabOwner(input);
  assert.equal(result.status,"FAILED");assert.deepEqual(result.httpFailure,failure);assert.equal(result.rollbackVerified,true);assert.equal(result.residualVerified,true);
- const malicious={step:"PRIVATE_STEP",errorType:"PRIVATE_TYPE",code:"HR_HTTP_PRIVATE_PAYLOAD",sqlState:"private",message:"PRIVATE_BODY"};
+ const stateRoot=await realpath(await mkdtemp(join(tmpdir(),"owner-http-step-")));
+ try {
+  const identity={runId:"owner-http-step",configSha256:sha("config"),manifestSha256:input.manifestSha256,binding:JSON.parse(input.manifestBytes).binding};
+  await persistYuzhouLabFinalReceipt({stateRoot,identity,result});
+  assert.deepEqual((await readYuzhouLabFinalReceipt({stateRoot,identity})).result.httpFailure,failure);
+ } finally { await rm(stateRoot,{recursive:true,force:true}); }
+ const malicious={step:"PRIVATE_STEP",errorType:"PRIVATE_TYPE",code:"HR_HTTP_PRIVATE_PAYLOAD",sqlState:"private",message:"PRIVATE_BODY",requestStep:"/hr/contracts/PRIVATE_ID"};
  const rejected=await runYuzhouRealBundleLabOwner(fixture({httpFailure:malicious}).input);
  assert.deepEqual(rejected.httpFailure,{step:"unknown",errorType:"Error",code:null,sqlState:null});assert.ok(!JSON.stringify(rejected).includes("PRIVATE"));
 });
