@@ -2,7 +2,7 @@
 
 ## 结论
 
-**FINAL ADJUDICATED：23 PASS / 7 FAIL。** 2026-09-09 独立终局任务在 L-04 基线上完成真实键盘登录、27 路由 × desktop/mobile 共 54 个单元、逐页 DOM 与 Network 采集、logout 和新 BrowserContext 隔离，并逐项重新裁定 HCD-001—030。历史四轮与 L-04 记录保留在下文，仅作为基建史，不再决定 Case 状态。7 个未实际触发原定义交互或数据态的 Case 如实记 FAIL 并由 #721 跟踪；不以页面可达、静态测试或 API fixture 冒充浏览器 PASS。
+**FINAL ADJUDICATED：30 PASS / 0 FAIL。** 2026-09-09 宿主 Chromium 终轮在 L-04 基线上补齐 #721 七项真实交互，连同既有 23 项形成 HCD-001—030 全通过。历史四轮、L-04 与前一轮 23 PASS / 7 FAIL 记录保留在下文，仅作为基建与裁定史，不再决定当前 Case 状态；终轮仍以双视口截图、DOM、Network、logout 和新 BrowserContext 隔离为准。
 
 ## 已完成交付
 
@@ -173,18 +173,18 @@
 | HCD-003 | PASS | `M /homestay/bookings?...` 与具名订单详情：订单状态中文。 |
 | HCD-004 | PASS | `M` 周转筛选完整中文；具名周转详情状态“已完成”。 |
 | HCD-005 | PASS | `M` 具名订单/入住详情：核验与凭证状态中文。 |
-| HCD-006 | FAIL | #721：未在浏览器实际选择退款/减免来源流水，不能裁定 picker 回显。 |
+| HCD-006 | PASS | #721 终轮：民宿退款来源 picker 在 1440/390 实际选择，POST 201，刷新后重新选择回显。 |
 | HCD-007 | PASS | `M` 具名订单/入住详情：流水状态与审计动作无原码直出。 |
-| HCD-008 | FAIL | #721：具名周转没有关联工单，工单 picker/status 原定义未实际触发。 |
-| HCD-009 | FAIL | #721：高风险操作由 fixture API 完成，浏览器未触发成功提示。 |
+| HCD-008 | PASS | #721 终轮：桌面选择具名工单并开始清洁，手机选择同一工单并完成清洁；刷新后详情保留工单编号与名称。 |
+| HCD-009 | PASS | #721 终轮：退款审批在 1440/390 均由浏览器真实提交并显示中文待审批/待执行成功态。 |
 | HCD-010 | PASS | `M` 具名订单每日房价显示中文“未知价格来源”，无 `date_override` 原码。 |
 | HCD-011 | PASS | `M` 具名订单/入住详情显示 `unitCode / unitName`，不使用固定占位。 |
 | HCD-012 | PASS | `M /homestay/bookings?...`：URL 恢复后 picker 回显 `A1 1F / U01`，不是 UUID/加载占位。 |
-| HCD-013 | FAIL | #721：未在浏览器触发验证、冲突、权限或网络错误，不能以正常页裁定错误投影。 |
+| HCD-013 | PASS | #721 终轮：窄权限审批账号在 1440/390 均进入具名中文 403 页面；匿名隔离复核通过。 |
 | HCD-014 | PASS | `M` 订单/周转筛选含“未到店”“未完成”等权威中文值。 |
 | HCD-015 | PASS | `M /housing/tenants` 与 Party 详情：核验/同意状态中文。 |
 | HCD-016 | PASS | `M /housing/leases` 与具名详情/账单：完整租约状态中文。 |
-| HCD-017 | FAIL | #721：产品 API 未产生未知 eligibility code；本轮没有可证明“未知阻断原因”的真实浏览器数据态。 |
+| HCD-017 | PASS | #721 终轮：response-stage fixture 注入未知资格码，双视口只显示“未知阻断原因”，不泄漏原始码。 |
 | HCD-018 | PASS | `M` 具名交割详情与租约内嵌记录：类型、状态中文。 |
 | HCD-019 | PASS | `F /housing/tasks`：来源/状态中文；修复后交割标题为“入住/退租”，不再直出 `move_in/move_out`。 |
 | HCD-020 | PASS | `M /housing/tasks?status=active`：负责人姓名不可用时显示“未分派”，不回退 UUID。 |
@@ -192,8 +192,8 @@
 | HCD-022 | PASS | `M` 具名租约入住人员角色显示“同住人”。 |
 | HCD-023 | PASS | `M` 具名报修详情：状态、优先级、紧急程度中文。 |
 | HCD-024 | PASS | `F` 具名采购详情：审批/付款状态中文；desktop/mobile Network 与 DOM PASS，长标题可断行。 |
-| HCD-025 | FAIL | #721：账单页未打开费用计划 picker，未实际观察计费来源回显。 |
-| HCD-026 | FAIL | #721：财务表单未实际选择费用类型、支付方式和审批目标，不能以列表页裁定 picker。 |
+| HCD-025 | PASS | #721 终轮：费用计划在 1440/390 实际选择，两个独立 30 天周期 POST 201，刷新后重新打开并回显选择。 |
+| HCD-026 | PASS | #721 终轮：真实登记普通收款后，双视口选择费用类型、支付方式及具名应收，确认弹窗提交减免审批 POST 201。 |
 | HCD-027 | PASS | `M` 采购列表/详情显示具名房源 `A1 2F / U01`，不显示 UUID。 |
 | HCD-028 | PASS | `M` Party 详情角色/来源/状态/provenance 均为中文；`N` 证明窄权限无名称泄漏且有中文占位。 |
 | HCD-029 | PASS | `M /property/approvals`：审批决定与领域执行状态独立显示中文。 |
@@ -228,6 +228,32 @@ runner 已新增声明式真实动作：CDP 键盘输入、原生 select 键盘�
 ignored 证据位于 `artifacts/hcd-721-20260909/`，包含三个 fixture 日志、脱敏 compose 和 `SHA256SUMS`；manifest 文件 SHA-256 为 `96e004fbe87c7c4da6c7a3bdfa468b3fc6c9e5cdb508981d52b94c9a9d9c94a6`。文本隐私扫描只命中 compose 的环境变量名称，未包含值；没有截图。teardown 后本轮标签容器、命名卷和 `3291/3292/35440/47160/47161` 监听均为零。
 
 #721 必须继续 OPEN。下一轮不得重跑同一容器网络方案；应在可直接监听 WSL loopback 的专用 Linux Chromium 运行库上复用本轮 runner 与 fixture stop points，并补 response-stage unknown-code override 后执行七项双视口交互。
+
+## 2026-09-09 Issue #721 宿主 Chromium 终轮
+
+终态更新为 **30 PASS / 0 FAIL**。本节只追加终轮裁定，不删除上方失败尝试与解阻条件历史。
+
+- 使用宿主级专用 Linux Chromium 151.0.7922.34、全新 /tmp user-data-dir 和临时解包的 NSS/NSPR/ALSA 运行库；未连接主 Chrome。CDP 先经 /json/version 轮询通过，再由宿主 loopback relay 接入同一浏览器实例。
+- 复用上轮 disposable fixture stop points，仅补真实浏览器缺口；API/Web/PostgreSQL 均属于 jinhu-hcd-721-host-final 一次性栈，未访问生产、未涉及 HR。
+- 七项均具备 1440 与 390 的截图、DOM assertions、Network evidence；HCD-008/HCD-025 因状态写入不可重复，按桌面与手机顺序分段执行后合并裁定。
+- HCD-026 先以真实普通收款建立可减免前置，再在两个视口分别提交待审批减免；审批未执行，不把待审批请求误述为已减免。
+- 所有 PASS runner 均完成真实 login/logout、新 BrowserContext /users/me=401、Web storage/cookie 隔离。13 张最终截图逐图复核，未发现用户名、手机号、Token、Cookie、密码或其他敏感信息。
+
+最终 evidence manifest SHA-256：
+
+| 证据组 | manifest SHA-256 |
+|---|---|
+| HCD-006/009 | 856505f3f8f34de04a778b4dc66a428d6e8e991d9479cd75f9cd34f772297799 |
+| HCD-008 desktop | 671ff4fce76a641c55d2d3c196546aec3b63be952199958192b0a3ca05272f36 |
+| HCD-008 mobile | d2655bd8d8e2ae9af16d39692233fcb9c4cee42bd57024cfe156453f8196e5f1 |
+| HCD-013 | df606fa46aab87656f5bad8a6bee9ffd5becb99fb991faabd0a92202057bad44 |
+| HCD-017 | 3b48cb7baf9d95bc1eecb8adb9b304c7b5e883a927739a907154018cd8f4c272 |
+| HCD-025 desktop | 120a936d06226667db3986c2337182df39c5703769ee44406313fd2dfae4ca93 |
+| HCD-025 mobile | 6657c7d68d046f284209ee60e520803ba89a6f1eefab1433ef088eb26b085c61 |
+| HCD-026 payment | 9e3ee4cc5bb9e5314fead1500b11eb64c5258229504aa2b056866ac1b67aa8ea |
+| HCD-026 approval | 3a71aab7065e742dae2082e32f8420520290ec235809477d8afb85c65717cc21 |
+
+据此，#721 的七项缺口已闭环，可以由本报告 PR 关闭。上方“必须继续 OPEN”属于前一轮裁定史，不回写抹除。
 
 ## D 类临时定名（待产品确认）
 

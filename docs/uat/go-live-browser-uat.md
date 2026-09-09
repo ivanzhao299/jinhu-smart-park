@@ -111,7 +111,8 @@ pnpm go-live:uat-browser -- \
     {
       "id": "NARROW-001",
       "path": "/housing/finance",
-      "expect_forbidden": true
+      "expect_forbidden": true,
+      "text": ["当前账号没有访问该页面的权限"]
     }
   ]
 }
@@ -139,6 +140,8 @@ Cases that must prove a real interaction can declare an ordered `actions` array.
   "absent_text": ["fixture-internal-id"]
 }
 ```
+
+Unknown-value cases may declare `response_overrides`, each with an exact API `path` and a non-empty `replacements` object. An override case must be the only case on its route so injected data cannot affect sibling assertions. The runner pauses the response through CDP Fetch, replaces the configured byte strings, and fails unless every declared override is observed and changes at least one occurrence. Use this only with disposable fixtures; never use it to conceal an unexpected API response.
 
 When `--evidence-dir` is supplied, the runner writes `browser-uat-report.json`, screenshots, and `evidence-manifest.json`. The manifest records relative filenames, byte sizes, and SHA-256 digests. Evidence files are mode 0600; URLs and diagnostics remain redacted.
 

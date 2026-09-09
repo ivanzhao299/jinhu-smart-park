@@ -5,9 +5,9 @@
 - [x] Add the minimum declarative real-interaction support and contract tests; add disposable fixture setup without altering production semantics.
 - [x] Run targeted static/unit/contract checks before the browser run.
 - [x] Inspect existing processes/ports/resources, then start one isolated PG/API/Web/dedicated-Chromium stack using the L-04 recipe.
-- [ ] Execute all seven cases at 1440 and 390 with real selection/action, mutation observation, reload/back, and localized echo/error assertions. BLOCKED after two dedicated Chromium connectivity attempts; no third attempt permitted.
-- [x] Recompute SHA-256, inspect every screenshot (none generated), scan retained text evidence for secrets/personal data, and teardown only this run's resources.
-- [x] Adjudicate all seven cases: all remain FAIL because browser interaction evidence was not obtained.
+- [x] Execute all seven cases at 1440 and 390 with real selection/action, mutation observation, reload/back, and localized echo/error assertions. Host-level dedicated Chromium removed the prior container-loopback blocker.
+- [x] Recompute SHA-256, inspect all 13 final screenshots, and scan retained text evidence for secrets/personal data.
+- [x] Adjudicate all seven cases PASS from final screenshot/DOM/Network evidence while retaining failed-attempt history.
 - [x] Append the seven-case terminal state and evidence index to the UAT report while preserving the prior adjudication history.
 - [x] Run `trellis-check`, relevant Web/API/shared tests, lint/typecheck/build gates, and review up to three rounds. Two reviews completed; targeted contracts and lint pass. Typecheck/build are delegated to clean CI because the local shell inherited `NODE_ENV=production` and the root-owned workspace install cannot be repaired without changing ownership.
 - [ ] Commit, push only this branch, open a PR closing #721 when justified, wait for CI, squash merge, and observe main under the standing superseded-run/HR-exemption gate without intervention.
@@ -32,7 +32,7 @@
 ## Local gate result
 
 - PASS: `node --check scripts/go-live-browser-uat-check.mjs`
-- PASS: `pnpm test:e2e:browser-uat-contract` (7/7)
+- PASS: `pnpm test:e2e:browser-uat-contract` (8/8)
 - PASS: `node scripts/e2e/property-api-e2e-gate.contract.mjs`
 - PASS: `pnpm lint`
-- BLOCKED locally: `pnpm typecheck` reached Web and failed only because production-only installation omitted `vitest` and Testing Library. A frozen reinstall was stopped by root-owned `node_modules`; no ownership mutation or further retry was performed. `pnpm build` therefore did not start locally and remains a clean-CI gate.
+- BLOCKED locally: `pnpm typecheck` and `pnpm build` reached Web and failed only because the production-only installation omitted `vitest` and Testing Library. No ownership or dependency mutation was performed; both remain clean-CI gates.

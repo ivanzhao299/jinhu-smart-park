@@ -176,6 +176,27 @@ test("browser UAT rejects unsafe real-interaction response bounds", () => {
   }
 });
 
+test("browser UAT supports fail-closed response overrides and API-only settling", () => {
+  assert.match(browserRunner, /Fetch\.requestPaused/u);
+  assert.match(browserRunner, /Fetch\.getResponseBody/u);
+  assert.match(browserRunner, /Fetch\.fulfillRequest/u);
+  assert.match(browserRunner, /response_override_failed/u);
+  assert.match(browserRunner, /pendingApiRequest/u);
+  assert.match(browserRunner, /overrideSettleDeadline/u);
+  assert.match(browserRunner, /responseOverrideFailure/u);
+  assert.match(browserRunner, /duplicate_response_without_replacement/u);
+  assert.match(browserRunner, /successfulResponseOverrides/u);
+  assert.match(browserRunner, /entry\.url\?\.startsWith/u);
+  assert.match(browserRunner, /Input\.dispatchMouseEvent/u);
+  assert.doesNotMatch(browserRunner, /element\.parentElement\.open = true/u);
+  assert.doesNotMatch(browserRunner, /setter\?\.call\(control/u);
+  assert.match(browserRunner, /response override case must be isolated on route/u);
+  assert.match(browserRunner, /options\.allowForbidden && value\.hasForbidden/u);
+  assert.match(browserRunner, /must assert localized forbidden text/u);
+  assert.match(browserRunner, /label\?\.control/u);
+  assert.match(browserRunner, /if \(!await waitForExpression\(browser, sessionId, optionReady, 10000\)\) return false/u);
+});
+
 test("housing real API preserves the forged occupancy boundary for residential and office long-rent units", () => {
   assert.match(housingRunner, /\[10, 70\]\.includes\(Number\(unit\.usageType\)\)/u);
   assert.match(housingRunner, /expectRequestStatus\("\/property\/occupancies", Number\(unit\.usageType\) === 70 \? 403 : 404/u);
