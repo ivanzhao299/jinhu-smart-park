@@ -1535,3 +1535,37 @@ Established isolated real-keyboard browser UAT evidence contracts, executed two 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 44: Issue 721 HCD seven-case honest residual
+
+**Date**: 2026-09-09
+**Task**: Issue 721 HCD seven-case honest residual
+**Package**: api
+**Branch**: `codex/issue-721-hcd-seven-case-browser-closure`
+
+### Summary
+
+Prepared real browser action DSL and disposable fixtures; two dedicated Chromium CDP attempts were blocked, so HCD-006/008/009/013/017/025/026 remain FAIL and Issue 721 remains open. PR 725 and exact-main CI/Release Smoke passed; deploy observation succeeded without HR intervention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f43b75d4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
