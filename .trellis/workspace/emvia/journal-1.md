@@ -1501,3 +1501,37 @@ Established isolated real-keyboard browser UAT evidence contracts, executed two 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 43: HCD 30 Case 终局浏览器 UAT
+
+**Date**: 2026-09-09
+**Task**: HCD 30 Case 终局浏览器 UAT
+**Package**: api
+**Branch**: `codex/hcd-30-final-browser-uat`
+
+### Summary
+
+完成 27 路由双视口真实浏览器矩阵，逐项裁定 HCD-001—030 为 23 PASS/7 FAIL；修正浏览器 probe 与两项 HCD 显示缺陷，保存并复核 SHA-256 证据，登记 #721/#722。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8b5395b3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
