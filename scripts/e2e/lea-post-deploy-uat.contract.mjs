@@ -182,9 +182,12 @@ test("browser UAT supports fail-closed response overrides and API-only settling"
   assert.match(browserRunner, /Fetch\.fulfillRequest/u);
   assert.match(browserRunner, /response_override_failed/u);
   assert.match(browserRunner, /pendingApiRequest/u);
-  assert.match(browserRunner, /!successfulRequestStarts\.has\(request\.identity\)/u);
+  assert.match(browserRunner, /overrideSettleDeadline/u);
+  assert.match(browserRunner, /responseOverrideFailure/u);
+  assert.match(browserRunner, /entry\.url\?\.startsWith/u);
   assert.match(browserRunner, /Input\.dispatchMouseEvent/u);
   assert.match(browserRunner, /options\.allowForbidden && value\.hasForbidden/u);
+  assert.match(browserRunner, /must assert localized forbidden text/u);
   assert.match(browserRunner, /label\?\.control/u);
   assert.match(browserRunner, /if \(!await waitForExpression\(browser, sessionId, optionReady, 10000\)\) return false/u);
 });

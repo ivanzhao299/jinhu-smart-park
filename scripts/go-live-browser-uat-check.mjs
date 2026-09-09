@@ -15,6 +15,7 @@ const tenantId = "10000001";
 const parkId = "20000001";
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
+const webOrigin = new URL(webBase).origin;
 const redactedApiBase = redactUrl(apiBase);
 const redactedWebBase = redactUrl(webBase);
 const apiPathPrefix = new URL(apiBase).pathname.replace(/\/$/u, "");
@@ -830,6 +831,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       if (request) {
         const failure = {
           resource_type: message.params?.type ?? "Other",
+          url: redactUrl(request.url),
           path: new URL(request.url).pathname,
           status: "transport_failed",
           error: message.params?.errorText ?? "unknown"
@@ -888,9 +890,12 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       await sleep(100);
     }
     if (pendingResponseOverrides.size > 0) await Promise.allSettled(pendingResponseOverrides);
+    const overrideSettleDeadline = Date.now() + 2000;
+    while (Date.now() < overrideSettleDeadline && Array.from(pendingRequests.values()).some((request) =>
+      new URL(request.url).pathname.startsWith(`${apiPathPrefix}/`)
+    )) await sleep(100);
     const pendingApiRequest = Array.from(pendingRequests.values()).find((request) =>
       new URL(request.url).pathname.startsWith(`${apiPathPrefix}/`)
-      && !successfulRequestStarts.has(request.identity)
     );
     if (pendingApiRequest) {
       network.push({
@@ -949,7 +954,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       .filter((action) => action.type === "wait_response" && action.status)
       .map((action) => ({ path: action.path, method: action.method, status: Number(action.status) })) ?? [];
     const failedNetwork = network.find((entry) =>
-      (entry.path.startsWith(`${apiPathPrefix}/`) || entry.resource_type === "Document")
+      (entry.path.startsWith(`${apiPathPrefix}/`) || entry.resource_type === "Document" || entry.url?.startsWith(`${webOrigin}/`))
       && (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
       && !(allowForbidden && Number(entry.status) === 403)
       && !expectedResponses.some((expected) => expected.path === entry.path
@@ -959,6 +964,9 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         && successfulRequestStarts.get(failedRequestIdentities.get(entry)?.identity)
           > failedRequestIdentities.get(entry)?.startSequence)
     );
+    const responseOverrideFailure = responseOverrides.find((override) => !responseOverrideChecks.some((check) =>
+      check.id === override.caseId && check.expected === override.path && check.pass && !check.skipped
+    ));
     const hardFailure = renderFailure
       || (allowForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
       || (viewport.mobile && Math.abs(Number(value.viewportWidth) - viewport.width) > 1
@@ -966,7 +974,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
         : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
       || actionEvidence.failure
-      || (responseOverrides.length > 0 && responseOverrideChecks.some((check) => !check.pass) ? "response_override_failed" : "")
+      || (responseOverrides.length > 0 && (responseOverrideFailure || responseOverrideChecks.some((check) => !check.pass)) ? "response_override_failed" : "")
       || assertionEvidence.failure
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
@@ -976,7 +984,7 @@ async function visitPage(browser, { path, username, browserContextId, viewport, 
       page: value,
       actions: actionEvidence,
       response_overrides: {
-        status: responseOverrides.length === 0 ? "NOT_CONFIGURED" : responseOverrideChecks.every((check) => check.pass) ? "PASS" : "FAIL",
+        status: responseOverrides.length === 0 ? "NOT_CONFIGURED" : !responseOverrideFailure && responseOverrideChecks.every((check) => check.pass) ? "PASS" : "FAIL",
         checks: responseOverrideChecks
       },
       assertions: assertionEvidence,
@@ -1090,7 +1098,8 @@ function getRenderFailure(value, runtimeErrors, options = {}) {
   if (value.hasLogin) return "redirected_to_login";
   if (value.hasForbidden && !options.allowForbidden) return "forbidden_or_permission_error";
   if (value.hasNextError) return "next_runtime_error";
-  if (!(options.allowForbidden && value.hasForbidden) && Number(value.textLength ?? 0) < 30) return "blank_or_too_little_content";
+  const minimumTextLength = options.allowForbidden && value.hasForbidden ? 10 : 30;
+  if (Number(value.textLength ?? 0) < minimumTextLength) return "blank_or_too_little_content";
   return "";
 }
 
@@ -1393,6 +1402,9 @@ function readRouteCases(file) {
       if (action.type === "wait_response" && (typeof action.path !== "string" || !action.path.startsWith("/") || (action.method !== undefined && !/^[A-Z]+$/.test(action.method)) || (action.status !== undefined && (!Number.isInteger(action.status) || action.status < 100 || action.status > 599)))) return true;
       return false;
     }))) throw new Error(`browser UAT case ${entry.id} has invalid actions`);
+    if (entry.expect_forbidden === true && !entry.text?.some((value) => /权限|无权|无法访问/u.test(value))) {
+      throw new Error(`browser UAT case ${entry.id} must assert localized forbidden text`);
+    }
     const assertionCount = ["selectors", "text", "absent_text", "picker_selectors", "unknown_fallback_text", "detail_selectors", "detail_text"]
       .reduce((total, field) => total + (entry[field]?.length ?? 0), 0);
     if (entry.expect_forbidden !== true && assertionCount === 0) throw new Error(`browser UAT case ${entry.id} has no assertions`);
