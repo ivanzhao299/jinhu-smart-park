@@ -17,11 +17,29 @@ import { verifyYuzhouRealImportHttp } from "./yuzhou-real-import-http-probe.mjs"
 import { createProductionImportArtifactCryptoProvider, readBoundedPrivateArtifactBytes, PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS } from "./execute-production-import.mjs";
 import { decryptProductionImportEnvelope } from "./production-import-crypto-provider.mjs";
 import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
+import { validateYuzhouPairSideConfig, prepareYuzhouRetainedQuarantineSide } from "./consume-yuzhou-retained-quarantine-side.mjs";
+import { currentCandidateFreezeRepositorySha } from "./materialize-production-import-frozen-decisions.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../.."), HASH = /^[0-9a-f]{64}$/u;
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const fail = () => { throw new Error("LAB_CLI_GUARD"); };
 const receiptFail = () => { throw new Error("LAB_CLI_FINAL_RECEIPT_FAILED"); };
+function sideProvenance(value) {
+  const keys = (v, expected) => v && Object.keys(v).sort().join() === expected.sort().join();
+  if (!keys(value, ["executionCodeSha", "executorSha256", "runtimeTreeSha256", "sourceProvenance"]) ||
+      !/^[a-f0-9]{40}$/u.test(value.executionCodeSha ?? "") || ![value.executorSha256, value.runtimeTreeSha256].every(v => HASH.test(v ?? ""))) receiptFail();
+  const s = value.sourceProvenance;
+  if (!keys(s, ["preparedTriple", "originalConfigSha256", "pairMaterialsReceiptSha256", "side", "currentCommitVerified"]) ||
+      !["A", "B"].includes(s.side) || s.currentCommitVerified !== false || ![s.originalConfigSha256, s.pairMaterialsReceiptSha256].every(v => HASH.test(v ?? "")) ||
+      !keys(s.preparedTriple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"]) || !/^[a-f0-9]{40}$/u.test(s.preparedTriple.codeSha ?? "") ||
+      ![s.preparedTriple.sourceSnapshotHash, s.preparedTriple.mappingContractHash].every(v => HASH.test(v ?? ""))) receiptFail();
+  return JSON.parse(JSON.stringify(value));
+}
+/** Default measures clean, tracked candidate Git state; test seam is not exposed by CLI. */
+export function captureYuzhouSideExecutionCommit({ currentHead = () => currentCandidateFreezeRepositorySha(ROOT, LAB_EXECUTION_DEPENDENCIES) } = {}) {
+  const measured = currentHead(); if (!/^[a-f0-9]{40}$/u.test(measured ?? "")) fail();
+  return () => { if (currentHead() !== measured) fail(); return measured; };
+}
 function receiptIdentity(value) {
   if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(value.runId ?? "") ||
       ![value.configSha256, value.manifestSha256].every(v => HASH.test(v ?? "")) ||
@@ -46,7 +64,8 @@ function receiptResult(result) {
     if (result.status !== "FAILED" || Object.keys(httpFailure).sort().join("|") !== Object.keys(result.httpFailure ?? {}).sort().join("|") ||
       Object.keys(httpFailure).some(key => httpFailure[key] !== result.httpFailure[key])) receiptFail();
   }
-  return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD", ...(httpFailure ? { httpFailure } : {}) };
+  return { status: result.status, counts, ...flags, failureCodes: [...codes], productionImport: "HOLD", ...(httpFailure ? { httpFailure } : {}),
+    ...(result.sideExecutionProvenance === undefined ? {} : { sideExecutionProvenance: sideProvenance(result.sideExecutionProvenance) }) };
 }
 async function receiptRoot(stateRoot) {
   if (!privatePath(stateRoot) || await realpath(stateRoot) !== stateRoot) receiptFail();
@@ -61,6 +80,7 @@ export async function readYuzhouLabFinalReceipt({ stateRoot, identity }) {
     const path = join(stateRoot, `final-${expected.runId}.json`);
     const bytes = readBoundedPrivateArtifactBytes(path, "final receipt", 16384);
     const stored = JSON.parse(bytes.toString("utf8"));
+    checkSideReceiptBinding(stored.value?.result, expected.binding);
     const value = { formatVersion: 1, ...expected, result: receiptResult(stored.value?.result), databaseStateIndependentlyVerified: false };
     if (JSON.stringify(stored.value) !== JSON.stringify(value) || stored.sha256 !== sha(JSON.stringify(value))) receiptFail();
     return { ...value, receiptSha256: stored.sha256 };
@@ -70,6 +90,7 @@ export async function persistYuzhouLabFinalReceipt({ stateRoot, identity, result
   let temporary;
   try {
     const root = await receiptRoot(stateRoot), id = receiptIdentity(identity);
+    checkSideReceiptBinding(result, id.binding);
     const value = { formatVersion: 1, ...id, result: receiptResult(result), databaseStateIndependentlyVerified: false };
     const envelope = { value, sha256: sha(JSON.stringify(value)) };
     const target = join(stateRoot, `final-${id.runId}.json`);
@@ -87,9 +108,17 @@ export async function persistYuzhouLabFinalReceipt({ stateRoot, identity, result
   finally { if (temporary) await unlink(temporary).catch(() => {}); }
 }
 const privatePath = p => typeof p === "string" && isAbsolute(p) && resolve(p) === p && !p.includes("\0");
+function checkSideReceiptBinding(result, binding) {
+  if (result?.sideExecutionProvenance === undefined) return;
+  const p = sideProvenance(result.sideExecutionProvenance), t = p.sourceProvenance.preparedTriple;
+  if (p.executorSha256 !== binding.executorSha256 || t.codeSha !== binding.codeSha || t.sourceSnapshotHash !== binding.sourceSnapshotHash || t.mappingContractHash !== binding.mappingSha256) receiptFail();
+}
 const exact = (o, keys) => { if (!o || Object.keys(o).sort().join() !== [...keys].sort().join()) fail(); };
 export const LAB_EXECUTION_DEPENDENCIES = Object.freeze([...new Set([...PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS,
   "scripts/hr-cutover/yuzhou-lab-resource-descriptor.mjs",
+  "scripts/hr-cutover/consume-yuzhou-retained-quarantine-side.mjs",
+  "scripts/hr-cutover/materialize-yuzhou-retained-quarantine-pair.mjs",
+  "scripts/hr-cutover/rekey-yuzhou-retained-quarantine.mjs",
   ...["run-yuzhou-real-bundle-lab", "yuzhou-real-bundle-lab-artifacts", "yuzhou-real-bundle-lab-owner", "yuzhou-real-bundle-lab-run-state", "yuzhou-real-bundle-lab-pg-probes", "yuzhou-real-http-lab-runtime", "yuzhou-real-import-http-probe", "production-import-phase-rollback"].map(n => `scripts/hr-cutover/${n}.mjs`),
   "pnpm-lock.yaml", "apps/api/package.json", "apps/api/tsconfig.json", "packages/shared/package.json"])] .sort());
 
@@ -98,7 +127,8 @@ export function parseYuzhouLabArgs(argv) {
   return { mode: argv[0].slice(2), configPath: argv[2], configSha256: argv[4] };
 }
 export function validateYuzhouLabConfig(c) {
-  exact(c, ["formatVersion", "artifacts", "stateRoot", "container", "containerId", "imageId", "port", "dependencies", "runtimeTreeSha256", "envelopes", "keyFiles", "baselineCounts", "phaseCounts", ...(Object.hasOwn(c, "resourceDescriptor") ? ["resourceDescriptor"] : [])]);
+  exact(c, ["formatVersion", "artifacts", "stateRoot", "container", "containerId", "imageId", "port", "dependencies", "runtimeTreeSha256", "envelopes", "keyFiles", "baselineCounts", "phaseCounts", ...(Object.hasOwn(c, "resourceDescriptor") ? ["resourceDescriptor"] : []), ...(Object.hasOwn(c, "pairMaterials") ? ["pairMaterials"] : [])]);
+  if (Object.hasOwn(c, "pairMaterials")) validateYuzhouPairSideConfig(c);
   if (Object.hasOwn(c, "resourceDescriptor")) {
     const r = validateYuzhouLabResourceDescriptor(c.resourceDescriptor);
     if (["container", "containerId", "imageId", "port"].some(k => c[k] !== r[k]) || c.artifacts?.target?.database !== r.database) fail();
@@ -174,14 +204,16 @@ export async function runYuzhouLabCli(input) {
     const c = validateYuzhouLabConfig(JSON.parse((await privateBytes({ path: input.configPath, sha256: input.configSha256 }, 65536)).toString("utf8")));
     stage = "RUNTIME_DEPENDENCIES"; await assertYuzhouLabRuntimeDependencies();
     stage = "BINDING";
+    const verifySideCommit = c.pairMaterials ? captureYuzhouSideExecutionCommit() : null;
     const verifyBinding = async () => {
+      verifySideCommit?.();
       const actual = await computeYuzhouLabExecutionBinding();
       if (LAB_EXECUTION_DEPENDENCIES.some(p => actual.dependencies[p] !== c.dependencies[p]) || actual.runtimeTreeSha256 !== c.runtimeTreeSha256 || actual.executorSha256 !== c.artifacts.binding.executorSha256) fail();
       const disk = await statfs(c.stateRoot); if (disk.bavail * disk.bsize < 20 * 1024 ** 3) fail();
       return { binding: c.artifacts.binding, capacityReady: true };
     };
     await verifyBinding(); await unusedState(c);
-    stage = "ARTIFACTS"; const prepared = await prepareYuzhouRealBundleLabArtifacts(c.artifacts), manifest = JSON.parse(Buffer.from(prepared.manifestBytes).toString("utf8"));
+    stage = "ARTIFACTS"; const prepared = c.pairMaterials ? await prepareYuzhouRetainedQuarantineSide(c) : await prepareYuzhouRealBundleLabArtifacts(c.artifacts), manifest = JSON.parse(Buffer.from(prepared.manifestBytes).toString("utf8"));
     const phases = [], payloadBundles = {};
     for (const p of manifest.phases) { phases.push(JSON.parse(Buffer.from(await prepared.readArtifact(p.phaseArtifact.ref)).toString("utf8"))); payloadBundles[p.phase] = Buffer.from(await prepared.readArtifact(p.payloadArtifact.ref)); }
     stage = "CRYPTO";
@@ -225,6 +257,11 @@ export async function runYuzhouLabCli(input) {
           }, verify: async args => { if (abort.signal.aborted) fail(); const receipt = await verifyYuzhouRealImportHttp({ ...args, expectedCounts: manifest.httpCounts }); if (abort.signal.aborted) fail(); return receipt; } });
       } } });
     stage = "FINAL_RECEIPT";
+    if (verifySideCommit) {
+      await verifyBinding();
+      result.sideExecutionProvenance = sideProvenance({ executionCodeSha: verifySideCommit(), executorSha256: c.artifacts.binding.executorSha256,
+        runtimeTreeSha256: c.runtimeTreeSha256, sourceProvenance: prepared.sourceProvenance });
+    }
     const receipt = await persistYuzhouLabFinalReceipt({ stateRoot: c.stateRoot,
       identity: { runId: manifest.runId, manifestSha256: prepared.manifestSha256, configSha256: input.configSha256, binding: manifest.binding }, result });
     return { ...result, ...receipt, operationalCli: true, crashRecoveryImplemented: false };

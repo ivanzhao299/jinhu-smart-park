@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeYuzhouLabExecutionBinding, validateYuzhouLabConfig } from "./run-yuzhou-real-bundle-lab.mjs";
 import { prepareYuzhouRealBundleLabArtifacts } from "./yuzhou-real-bundle-lab-artifacts.mjs";
+import { prepareYuzhouRetainedQuarantineSide } from "./consume-yuzhou-retained-quarantine-side.mjs";
 import { createYuzhouRealBundleLabPgProbes } from "./yuzhou-real-bundle-lab-pg-probes.mjs";
 import { currentCandidateFreezeRepositorySha, readProductionImportPrivateBytes as read,
   productionImportPrivateDirectory as directory, productionImportCanonicalPath as canonicalPath,
@@ -36,7 +37,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
 } = {}) {
   try {
     const baselineCountsOverridden = !!input && Object.hasOwn(input, "baselineCounts");
-    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory", ...(baselineCountsOverridden ? ["baselineCounts"] : []), ...(Object.hasOwn(input, "resourceDescriptor") ? ["resourceDescriptor"] : [])]);
+    exact(input, ["existingConfig", "runId", "targetDatabase", "outputDirectory", ...(baselineCountsOverridden ? ["baselineCounts"] : []), ...(Object.hasOwn(input, "resourceDescriptor") ? ["resourceDescriptor"] : []), ...(Object.hasOwn(input, "pairSide") ? ["pairSide"] : [])]);
     exact(input.existingConfig, ["path", "sha256"]);
     if (!/^[a-f0-9]{64}$/u.test(input.existingConfig.sha256 ?? "") || !/^[A-Za-z0-9][A-Za-z0-9._-]{5,59}$/u.test(input.runId ?? "") ||
       !/^jinhu_hr_migration_lab_[a-z0-9_]{6,}$/u.test(input.targetDatabase ?? "") || input.targetDatabase.length > 63) fail("INPUT_INVALID");
@@ -49,6 +50,11 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
     c.dependencies = actual.dependencies; c.runtimeTreeSha256 = actual.runtimeTreeSha256;
     c.artifacts.binding.executorSha256 = actual.executorSha256;
     c.artifacts.runId = input.runId; c.artifacts.target.database = input.targetDatabase;
+    if (Object.hasOwn(input, "pairSide")) {
+      exact(input.pairSide, ["materials", "operationId", "envelopes", "keyFiles"]);
+      c.pairMaterials = input.pairSide.materials; c.artifacts.operationId = input.pairSide.operationId;
+      c.envelopes = input.pairSide.envelopes; c.keyFiles = input.pairSide.keyFiles;
+    }
     if (Object.hasOwn(input, "resourceDescriptor")) {
       c.resourceDescriptor = input.resourceDescriptor;
       for (const key of ["container", "containerId", "imageId", "port"]) c[key] = input.resourceDescriptor?.[key];
@@ -64,7 +70,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
       exact(input.baselineCounts, Object.keys(originalBaselineCounts));
       c.baselineCounts = { ...input.baselineCounts }; verifyProbeConfig();
     }
-    const prepared = await prepareYuzhouRealBundleLabArtifacts(c.artifacts);
+    const prepared = c.pairMaterials ? await prepareYuzhouRetainedQuarantineSide(c) : await prepareYuzhouRealBundleLabArtifacts(c.artifacts);
     if (prepared.status !== "ARTIFACTS_VERIFIED" || prepared.productionImport !== "HOLD") fail("ARTIFACTS_INVALID");
     const rechecked = await executionBinding();
     if (JSON.stringify(rechecked) !== JSON.stringify(actual) || currentHead() !== preparerCodeSha) fail("CODE_CHANGED");
@@ -78,7 +84,7 @@ export async function prepareYuzhouRealBundleLabConfig(input, {
       dependencyCount: Object.keys(actual.dependencies).length, counts: c.artifacts.expectedCounts,
       baselineCountsOverridden, originalBaselineCounts, baselineCounts: c.baselineCounts,
       resourceDescriptorSha256: c.resourceDescriptor ? measure(c.resourceDescriptor, LIMIT).sha256 : null,
-      artifacts: descriptors, sourceArtifactsReused: true, cryptoDescriptorsReused: true, keyContentsRead: false,
+      artifacts: descriptors, sourceArtifactsReused: true, cryptoDescriptorsReused: !c.pairMaterials, keyContentsRead: false,
       databaseContacted: false, databaseWrites: 0, labVerified: false, formalABVerified: false, productionImport: "HOLD" };
     emit(input.outputDirectory, artifacts, receipt, descriptors, LIMIT, "lab-config-preparation-receipt.json");
     return receipt;
