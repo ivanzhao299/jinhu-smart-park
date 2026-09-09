@@ -1432,3 +1432,72 @@ Adopted D-04 dual bounded-context boundary; PR #711 merged. PR CI green. Exact-S
 ### Next Steps
 
 - None - task complete
+
+
+## Session 41: PMA L-03 B workbench navigation closure
+
+**Date**: 2026-09-09
+**Task**: PMA L-03 B workbench navigation closure
+**Package**: web
+**Branch**: `codex/pma-l03-css-budget-followup`
+
+### Summary
+
+Delivered typed routes, dynamic breadcrumbs, permission-scoped command palette, and scoped list preferences through PRs #713/#715. Exact-main CI and governed exact-SHA full Deploy passed; the intermediate CSS budget and deploy-scope fail-closed evidence is archived with the task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9fd3a68e` | (see git log) |
+| `752a9318` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 42: PMA L-04 browser UAT baseline closure
+
+**Date**: 2026-09-09
+**Task**: PMA L-04 browser UAT baseline closure
+**Package**: api
+**Branch**: `codex/pma-l04-browser-uat-baseline`
+
+### Summary
+
+Established isolated real-keyboard browser UAT evidence contracts, executed two bounded dedicated-browser attempts with honest HCD-001..030 BLOCKED classification, passed focused and PR gates, and prepared PR #719 for squash merge.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `66fd267a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -20,16 +20,18 @@
 - [x] 导航 unit 21/21；targeted ESLint、`git diff --check` passed。Mounted Vitest/typecheck 在本地仅因 stale/root-owned node_modules 缺 Testing Library/Vitest 未执行/失败；L-03 TS 自身错误已清零，等待 clean PR CI。
 - [ ] Desktop/390px browser：独立 Next dev 已启动成功；Chrome connector 未监听，缓存 Chromium 因主机缺 `libnspr4.so` 无法启动，未伪造实机证据。留给 L-04 专用浏览器基线并以 PR mounted tests/CSS contract 先兜底。
 - [x] 3 轮 review：第 1/2 轮 findings 已修，第 3 轮 clean。
-- [ ] PR/CI/merge/containing-main gate；archive/RBAC/branch/prune/journal。
+- [x] PR #713：PR CI 34245050220 全绿并 squash merge 为 `9fd3a68e`。exact-main CI 34246553440 全绿；首次 Deploy 34246553482 由 CSS budget（9768/9700）在部署前阻断。
+- [x] Follow-up PR #715：组件专属样式迁入 CSS Module，`css:check` 9677/9700；PR CI 34247953734 全绿，review clean，merge 为 `752a9318`。exact-main CI 34249168571 全绿；自动 Deploy 34249168609 的 release verification 成功，但因 verified `web`/authoritative `full` scope mismatch fail-closed、未部署；受治理的 exact-SHA full Deploy 34249747038 成功。HR 专项步骤均 skipped，未触碰 HR fixture。本项无需使用 HR smoke 豁免。
+- [ ] archive/RBAC/branch/prune/journal。
 
 ## Cost Summary template
 
 Task: PMA L-03 B 端工作台与全局导航
-Status: implementation and local review complete; delivery pending
+Status: implementation, review, CI, merge and exact-main deployment gate complete; archive pending
 Files changed: web routes/menu/layout/palette/breadcrumb/list preferences, four list pages, tests, CSS, task artifacts
 Tests run: menu/routes/palette 21/21; targeted ESLint; diff check; local Next dev readiness
-Retries: canonical permission enrich test fixed in two attempts; no further retry
+Retries: canonical permission enrich test fixed in two attempts; typed-route CI fix once; post-merge CSS budget root fixed once
 Approx model rounds: planning 1, implementation/check 3
 Repeated scans avoided: three focused one-round scouts
 Blocked issues: local test deps absent; cached Chromium missing host libnspr4
-Next step: commit, clean PR CI, merge and containing-main closure
+Next step: archive, RBAC fast-forward, branch cleanup and journal

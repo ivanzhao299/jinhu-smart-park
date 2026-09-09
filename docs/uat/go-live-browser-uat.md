@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This gate verifies that enabled production users can render their visible menu pages in the local production web app before go-live.
+This gate verifies that enabled users can render their visible menu pages in an isolated local or explicitly targeted test Web environment before go-live.
 
 It is stricter than the API/menu route check because it launches local Chrome in headless mode, injects a real authenticated session, opens each visible page, and fails on:
 
@@ -81,12 +81,47 @@ pnpm go-live:uat-browser -- \
 
 ## What The Script Checks
 
-1. Logs in with a real local UAT password.
+1. Logs in with a real UAT password using keyboard events and requires the observed login POST to return 2xx.
 2. Reads `/users/me`, loads `/dashboard`, and collects links from the actually rendered sidebar after the Web merges and permission-filters its canonical menus.
 3. Records the API menu count plus any rendered-only links, then filters rendered pages by optional `--usernames`, `--path-prefix`, or `--path-prefixes`.
 4. Opens each page in headless Chrome with a real authenticated session.
 5. Waits for tracked API requests to settle, then fails on login redirect, unexpected permission page, runtime error, near-blank render, mobile overflow, HTTP/transport failure, or settle timeout.
-6. Prints per-user and per-page progress so browser UAT no longer looks like a stalled job.
+6. Clicks the real logout control, creates a fresh BrowserContext, and requires `/users/me` to return 401 with no inherited Web storage session.
+7. Prints per-user and per-page progress so browser UAT no longer looks like a stalled job.
+
+## HCD viewport and case matrix
+
+`--viewport-matrix` runs every selected path at both 1440x960 and 390x844. `--case-file` accepts a local JSON file whose `cases` array contains fixture-resolved routes and optional assertions. Multiple cases may share a route and are evaluated together. The case file must not contain credentials. For the final HCD run, add `--require-route-count 27 --require-case-count 30` so an incomplete matrix fails closed.
+
+```json
+{
+  "cases": [
+    {
+      "id": "HCD-012",
+      "path": "/homestay/bookings",
+      "viewport": "both",
+      "selectors": ["main"],
+      "picker_selectors": ["[aria-label='选择房源']"],
+      "text": ["房源"],
+      "absent_text": ["已选择房源"],
+      "unknown_fallback_text": ["未知状态"]
+      ,"detail_selectors": ["main [data-entity-detail]"]
+      ,"detail_text": ["业务编号"]
+    },
+    {
+      "id": "NARROW-001",
+      "path": "/housing/finance",
+      "expect_forbidden": true
+    }
+  ]
+}
+```
+
+Case IDs must be unique, and detail routes must contain resolved fixture IDs rather than `[id]` template placeholders. When required counts are enabled, page truncation and prefix filters are rejected. Reports expose an `hcd_evidence_grade`: environment/session failures are `BLOCKED`, routes without complete case assertions remain `SURFACE_ONLY`, runs without a case file are `UNVERIFIED`, and only complete passing case plus isolation evidence is `PASS`.
+
+Case results are emitted per route and viewport. A selector/text/picker/unknown-value assertion failure is a hard failure. Dynamic detail cases must use real IDs created in the disposable UAT fixture; template paths such as `[leaseId]` are rejected.
+
+When `--evidence-dir` is supplied, the runner writes `browser-uat-report.json`, screenshots, and `evidence-manifest.json`. The manifest records relative filenames, byte sizes, and SHA-256 digests. Evidence files are mode 0600; URLs and diagnostics remain redacted.
 
 ## Canonical Menu Merge Coverage
 

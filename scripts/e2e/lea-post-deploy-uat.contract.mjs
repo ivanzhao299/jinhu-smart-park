@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const browserRunner = readFileSync(new URL("../go-live-browser-uat-check.mjs", import.meta.url), "utf8");
@@ -13,6 +16,10 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
     "--direct-paths",
     "--expect-forbidden",
     "--mobile-path-prefixes",
+    "--viewport-matrix",
+    "--case-file",
+    "--require-route-count",
+    "--require-case-count",
     "Page.captureScreenshot",
     "Network.responseReceived",
     "page_evidence",
@@ -27,6 +34,10 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /safeUsername/u);
   assert.match(browserRunner, /Target\.createBrowserContext/u);
   assert.match(browserRunner, /Target\.disposeBrowserContext/u);
+  assert.match(browserRunner, /logoutThroughUi/u);
+  assert.match(browserRunner, /auditAnonymousContext/u);
+  assert.match(browserRunner, /button\.user-logout-button/u);
+  assert.match(browserRunner, /meStatus === 401/u);
   assert.match(browserRunner, /input\[autocomplete=.{0,4}username/u);
   assert.match(browserRunner, /button\[type=.{0,4}submit/u);
   assert.match(browserRunner, /method: "ui_form"/u);
@@ -48,7 +59,61 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /redactedWebBase/u);
   assert.match(browserRunner, /redactDiagnostic/u);
   assert.match(browserRunner, /run_id/u);
+  assert.match(browserRunner, /evidence-manifest\.json/u);
+  assert.match(browserRunner, /createHash\("sha256"\)/u);
+  assert.match(browserRunner, /case_assertion_failed:/u);
+  assert.match(browserRunner, /picker_selectors/u);
+  assert.match(browserRunner, /unknown_fallback_text/u);
+  assert.match(browserRunner, /detail_selectors/u);
+  assert.match(browserRunner, /hcd_evidence_grade/u);
+  assert.match(browserRunner, /case ids must be unique/u);
+  assert.match(browserRunner, /serverLogoutSucceeded/u);
+  assert.doesNotMatch(browserRunner, /credentials_file:.*credentialsFile/u);
   assert.match(browserRunner, /\^https\?:/u);
+});
+
+test("browser UAT rejects incomplete or unsafe cases while retaining blocked evidence", () => {
+  for (const cases of [
+    [{ id: "HCD-001", path: "/housing", text: ["住房"] }, { id: "HCD-001", path: "/homestay", text: ["民宿"] }],
+    [{ id: "HCD-016", path: "/housing/leases/[leaseId]", detail_text: ["租约"] }],
+    [{ id: "HCD-017", path: "/housing/../system", text: ["系统"] }],
+    [{ id: "HCD-018", path: "/housing/handovers" }]
+  ]) {
+    const directory = mkdtempSync(resolve(tmpdir(), "jinhu-browser-contract-"));
+    try {
+      const caseFile = resolve(directory, "cases.json");
+      const reportFile = resolve(directory, "report.json");
+      writeFileSync(caseFile, JSON.stringify({ cases }));
+      const execution = spawnSync(process.execPath, [
+        new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
+        "--chrome-path", "/bin/true",
+        "--case-file", caseFile,
+        "--report", reportFile
+      ], {
+        encoding: "utf8",
+        env: { ...process.env, BROWSER_UAT_USERNAME: "contract-user", BROWSER_UAT_PASSWORD: "contract-password" }
+      });
+      assert.equal(execution.status, 1);
+      const report = JSON.parse(readFileSync(reportFile, "utf8"));
+      assert.equal(report.status, "FAIL");
+      assert.equal(report.hcd_evidence_grade, "BLOCKED");
+      assert.equal(report.report_file, "[LOCAL_REPORT_FILE]");
+      assert.match(report.failures.join(" "), /invalid browser UAT case file/u);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+test("browser UAT redacts user identity and requires picker echo plus anonymous cookie isolation", () => {
+  assert.match(browserRunner, /user_ref: userRef/u);
+  assert.doesNotMatch(browserRunner, /display_name: user\.displayName/u);
+  assert.match(browserRunner, /kind: "picker_echo"/u);
+  assert.match(browserRunner, /Storage\.getCookies/u);
+  assert.match(browserRunner, /hasAuthCookie/u);
+  assert.match(browserRunner, /authorization: "Bearer " \+ token/u);
+  assert.match(browserRunner, /has no assertions/u);
+  assert.match(browserRunner, /safePath/u);
 });
 
 test("housing real API preserves the forged occupancy boundary for residential and office long-rent units", () => {

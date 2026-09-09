@@ -162,3 +162,13 @@
 ## 历史重启轮解阻条件
 
 Chrome/CDP 已解阻。后续独立浏览器基线任务应按上方移交清单重建真实 UI 登录/session isolation、全资源 Network、设备能力、rewrite target、RUN_ID UI/API/DB 三联以及 residual gate。四个 HCD Trellis 任务在本轮按分级证据归档；后续验证结果须更新新的任务与本报告，不得回写或改称本轮已取得浏览器 PASS。
+
+## L-04 浏览器基线重建（2026-09-09）
+
+- Issue #716 重建通用 CDP 门禁：真实键盘登录必须观察 `/auth/login` 2xx；任意登录后分支都执行真实 logout，并由新 BrowserContext 证明 `/users/me=401` 且无 Web storage 串线。
+- `--viewport-matrix` 对每条选定路由执行 1440x960 与 390x844；声明式 `--case-file` 支持同路由多 Case、picker、未知值、详情和预期 403 断言。最终 HCD 命令必须同时使用 `--require-route-count 27 --require-case-count 30`，重复 ID、模板详情路径、过滤或截断均 fail closed。
+- artifact 写入 mode 0600 的截图、脱敏 JSON report 与 SHA-256 manifest；仅完整 Case、双 viewport 与 session isolation 全通过时，`hcd_evidence_grade` 才为 `PASS`。
+- 非 HR 自动门禁 `pnpm test:e2e:browser-uat-contract` 已接入 CI；本地该契约 4/4、shared HCD 4/4、housing 33/33、homestay 18/18 通过。
+- 专用 Chromium 已用临时解包运行库启动，未连接主 Chrome；但本机现存 Web 安装状态令 `/login` dev 编译返回 500（CSS loader/`.next/required-server-files.json`），本轮 `pages_checked=0`，证据位于 ignored `artifacts/pma-l04-browser-baseline/`。因此 HCD-001..030 浏览器终局仍为 `BLOCKED`，不将静态/契约结果升级为浏览器 PASS。
+- 终局补跑使用全新 disposable PostgreSQL（307/307 migration）、production-safe seed、bootstrap admin、隔离 API/Web 与专用 Chromium profile；民宿、住房产品 API fixture 主链均通过。第一次真实浏览器运行因 Enter 序列未触发登录 POST 而阻断；修正为聚焦 submit 后的真实 Enter 键，第二次已观察 `/auth/login=200`、登录态 `/users/me=200`、UI logout 两端点 `200`，且新 BrowserContext 的 storage/cookie 均为空。
+- 第二次运行随后暴露 runner 自身的会话探针缺少 bearer header，错误地将已经建立的真实登录会话判为失败；该缺陷已修正并加入契约断言。遵守同题最多两次，本轮不作第三次浏览器运行，故 27 路由仍为 `pages_checked=0`，HCD-001..030 终局保持 `BLOCKED`。两次脱敏报告及 SHA-256 manifest 保存在 ignored `artifacts/pma-l04-browser-final/`；不得把已通过的登录/logout/isolation 子门禁外推为 Case PASS。
