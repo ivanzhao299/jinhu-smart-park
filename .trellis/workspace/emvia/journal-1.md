@@ -1569,3 +1569,37 @@ Prepared real browser action DSL and disposable fixtures; two dedicated Chromium
 ### Next Steps
 
 - None - task complete
+
+
+## Session 45: Issue 722 采购成本分类中文化闭环
+
+**Date**: 2026-09-09
+**Task**: Issue 722 采购成本分类中文化闭环
+**Package**: api
+**Branch**: `codex/issue-722-procurement-cost-category-zh`
+
+### Summary
+
+确认采购成本分类为开放租户字典；按既有 shared label 体系完成列表、详情、表单中文化与穷尽/裸码契约；PR #727 squash merge，Issue #722 关闭，PR 与 main CI/Release Smoke 通过，生产部署仅观察成功。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4cd13fff` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
