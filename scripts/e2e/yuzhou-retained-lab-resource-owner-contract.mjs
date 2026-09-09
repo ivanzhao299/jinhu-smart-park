@@ -39,6 +39,11 @@ async function fixture(t, defect) {
     if (args.includes("--format") && args[1] === "inspect") return JSON.stringify({ Id: input.capacityObserver.containerId, Image: imageId, State: { Running: true }, Config: { Labels: { "com.docker.compose.project": "jinhu_hr_migration_lab" } }, NetworkSettings: { Ports: { "5432/tcp": [{ HostIp: "127.0.0.1", HostPort: "15432" }] } } });
     if (args[0] === "exec" && args[2] === "df") return `Filesystem 1024-blocks Used Available Capacity Mounted\n/dev/mock 30000000 100000 ${defect === "capacity" ? 1 : 20000000} 1% /var/lib/postgresql/data\n`;
     if (args[0] === "exec" && args[2] === "du") return "164000 /var/lib/postgresql/data\n";
+    if (args[2] === "pg_isready") {
+      assert.deepEqual(args.slice(2), ["pg_isready", "-h", "127.0.0.1", "-U", "jinhu", "-d", "postgres"]);
+      if (defect === "temporary-server" && calls.filter(c => c.args[2] === "pg_isready").length === 1) throw Error("FINAL_TCP_SERVER_NOT_READY");
+      return "";
+    }
     if (args[1] === "ls") return defect === "existing-volume" && args[0] === "volume" ? name : "";
     if (args[1] === "inspect") return JSON.stringify([objects[args[0]]]);
     if (defect === "network" && args[0] === "network" && args[1] === "create") throw Error("RAW DOCKER SECRET");
@@ -61,6 +66,13 @@ test("prepare creates fresh resources after capacity check, template0 DB, migrat
   assert.deepEqual(f.calls.filter(c => c.file === "/bin/sh").map(c => c.args[0].split("/").at(-1)), ["db-migrate.sh", "db-seed-prod.sh"]);
   assert.ok(!f.calls.some(c => c.args.some(a => /bootstrap|prune|down/u.test(a))));
   assert.equal(JSON.parse(await readFile(join(f.input.outputDirectory, "registry/prepare-receipt.json"))).status, result.status);
+});
+test("temporary Unix-only server cannot release database creation before final TCP readiness", async t => {
+  const f = await fixture(t, "temporary-server"), result = await prepareYuzhouRetainedLabResources(f.input, f);
+  assert.equal(result.status, "DEDICATED_LAB_PREPARED");
+  const ready = f.calls.map((c, i) => c.args[2] === "pg_isready" ? i : -1).filter(i => i >= 0);
+  assert.equal(ready.length, 2);
+  assert.ok(f.calls.findIndex(c => c.args.some(a => a.includes("TEMPLATE template0"))) > ready[1]);
 });
 for (const defect of ["capacity", "existing-volume", "network", "migration", "wrong-id", "wrong-number", "wrong-config-label", "foreign-owner", "ack-loss"]) test(`fails safely at ${defect} without cleanup or ready registry`, async t => {
   const f = await fixture(t, defect), result = await prepareYuzhouRetainedLabResources(f.input, f);

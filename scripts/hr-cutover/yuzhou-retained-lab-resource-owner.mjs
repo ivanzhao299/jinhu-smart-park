@@ -121,7 +121,9 @@ export async function prepareYuzhouRetainedLabResources(input, { execute = execu
     assertYuzhouLabResources(descriptor, { container, volume, network });
     stage = "READY_CHECK";
     let ready = false;
-    for (let i = 0; i < 60; i++) { await verifyCreated(); try { await docker(["exec", container.Id, "pg_isready", "-U", "jinhu", "-d", "postgres"]); ready = true; break; } catch { abort.signal.throwIfAborted(); await pause(500, undefined, { signal: abort.signal }); } }
+    // The image's temporary initialization server accepts Unix sockets but not TCP.
+    // Wait for the final server, otherwise CREATE DATABASE can race its shutdown.
+    for (let i = 0; i < 60; i++) { await verifyCreated(); try { await docker(["exec", container.Id, "pg_isready", "-h", "127.0.0.1", "-U", "jinhu", "-d", "postgres"]); ready = true; break; } catch { abort.signal.throwIfAborted(); await pause(500, undefined, { signal: abort.signal }); } }
     if (!ready) fail();
     stage = "DATABASE"; await verifyCreated(); journal(); await docker(["exec", container.Id, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres", "-c", `CREATE DATABASE "${input.name}" TEMPLATE template0;`]);
     stage = "MIGRATE"; await verifyCreated(); journal(); await command("/bin/sh", [join(ROOT, "scripts/db-migrate.sh")], 2700000);
