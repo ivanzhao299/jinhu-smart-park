@@ -67,6 +67,34 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
     const privateStage = JSON.parse(readFileSync(join(result.output, "private-stage.json"), "utf8"));
     const skill = privateStage.records.find(record => record.targetTable === "hr_employee_skill");
     assert.equal(skill.dependencyRefs[0].sourceIdentitySha256, t0EmployeeIdentity);
+    const decisions = JSON.parse(readFileSync(t0Decisions, "utf8"));
+    const isolatedParent = { ...decisions.records[0], sourceIdentitySha256: hash("dbo.person\0E-002"),
+      sourcePkCanonical: `sha256:${hash("dbo.person\0E-002")}`, candidateDisposition: "quarantine",
+      targetFields: null, expectedTargetId: null, reasonCode: "SYNTHETIC_PARENT_QUARANTINE" };
+    decisions.records.push(isolatedParent);
+    decisions.countByDisposition.quarantine = 1;
+    privateWrite(t0Decisions, decisions);
+    const isolatedChild = { ...JSON.parse(rows.knowhow), employeeCode: "E-002", sourceKey: "two",
+      sourceIdentitySha256: hash("isolated-skill"), sourceRowSha256: hash("isolated-skill-row") };
+    const manifestPath = join(stage, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.domains.knowhow.fileSha256 = privateWrite(join(stage, "knowhow.jsonl"), `${rows.knowhow}\n${JSON.stringify(isolatedChild)}`);
+    manifest.domains.knowhow.rows = 2;
+    manifest.sourceRows = 3;
+    privateWrite(manifestPath, manifest);
+    const mixed = prepareT5ProductionPrivateStage({ stagePath: stage, triplePath: triple, t0DecisionsPath: t0Decisions, outputRoot, runId: "t5mixed01" });
+    const mixedStage = JSON.parse(readFileSync(join(mixed.output, "private-stage.json"), "utf8"));
+    const isolated = mixedStage.records.find(row => row.sourceIdentitySha256 === isolatedChild.sourceIdentitySha256);
+    assert.equal(mixed.recordCount, 231);
+    assert.equal(isolated.disposition, "quarantine");
+    assert.deepEqual(isolated.dependencyRefs, []);
+    assert.equal(Object.hasOwn(isolated, "payload"), false);
+    assert.equal(mixedStage.records.find(row => row.sourceIdentitySha256 === skill.sourceIdentitySha256).disposition, "insert");
+    decisions.records[1].candidateDisposition = "review_target_collision";
+    decisions.countByDisposition.quarantine = 0;
+    decisions.countByDisposition.review_target_collision = 1;
+    privateWrite(t0Decisions, decisions);
+    assert.throws(() => prepareT5ProductionPrivateStage({ stagePath: stage, triplePath: triple, t0DecisionsPath: t0Decisions, outputRoot, runId: "t5reject01" }), { code: "T5_PRIVATE_STAGE_T0_DECISIONS_INVALID" });
     assert.equal(parseT5ProductionPrivateStageArgs(["--stage", stage, "--triple", triple, "--t0-decisions", t0Decisions, "--output-root", outputRoot, "--run-id", "t5private01"]).runId, "t5private01");
   } finally {
     rmSync(root, { recursive: true, force: true });

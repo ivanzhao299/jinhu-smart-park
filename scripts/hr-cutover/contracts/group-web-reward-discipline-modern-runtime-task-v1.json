@@ -44,8 +44,8 @@
     },
     {
       "path": "scripts/hr-cutover/contracts/legacy-reward-discipline-field-map-v1.json",
-      "rawSha256": "5598fdfa5ebf34cf28438436f67477557443629dad76bd08ffdeb736291cb53c",
-      "canonicalSha256": "a5997d9a538150237c0fa5dd0c1d36b525afff19c22f4197ef0c2d63aa8f5424"
+      "rawSha256": "2ea5a48956c0955cbed9f33ce8d01aaf0b3dd205f25a089ea9e50328e0946a0b",
+      "canonicalSha256": "f76c7a0ad996eddaaf07fad113a3e86af62be1e849d3eff00548357073b68ac1"
     }
   ],
   "legacyEntries": [

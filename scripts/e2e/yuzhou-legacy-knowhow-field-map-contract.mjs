@@ -56,7 +56,7 @@ test("complete knowhow field denominator maps four fields and keeps grade semant
   assert.equal(receipt.fields.find(row => row.stableId === "KNOWHOW_GRADE")?.compatibilityCredit, 0);
   assert.deepEqual(receipt.fields.find(row => row.stableId === "KNOWHOW_PERSON")?.targetFields, ["hr_employee_skill.employee_id"]);
   assert.equal(receipt.sourceRelation.readOnly, true);
-  assert.equal(receipt.pipelineEvidenceCount, 6);
+  assert.equal(receipt.pipelineEvidenceCount, 7);
   assert.equal(receipt.modernTargetEvidenceCount, 3);
   assert.equal(receipt.status, "PARTIAL_WITH_EXPLICIT_GAPS");
   assert.equal(receipt.productionImport, "HOLD");
@@ -105,6 +105,12 @@ test("hash drift or contract-only grade promotion cannot create verified credit"
   const drift = fixture();
   drift.contract.pipelineEvidence.find(row => row.stage === "writer").sha256 = "0".repeat(64);
   rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(drift));
+
+  for (const stage of ["transform", "field_projection"]) {
+    const movedCodeDrift = fixture();
+    movedCodeDrift.contract.pipelineEvidence.find(row => row.stage === stage).sha256 = "0".repeat(64);
+    rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(movedCodeDrift));
+  }
 
   const runtimeServiceDrift = fixture();
   runtimeServiceDrift.contract.modernTargetEvidence.find(row => row.surface === "runtime_service").sha256 = "0".repeat(64);

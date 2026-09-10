@@ -26,9 +26,9 @@ export const LEGACY_DEFINITION_LOGIC_COLUMNS=Object.freeze([
 ]);
 
 const DATATYPE_ALIASES=Object.freeze({
-  text:new Set(["字符","字符型","字符串","文本","文本型","string","text","char","nchar","varchar","nvarchar"]),
-  numeric:new Set(["数字","数字型","数值","数值型","number","numeric","decimal","money","float","real","integer","int"]),
-  date:new Set(["日期","日期型","日期时间","时间","date","datetime","smalldatetime","time"])
+  text:new Set(["c","字符","字符型","字符串","文本","文本型","string","text","char","nchar","varchar","nvarchar"]),
+  numeric:new Set(["n","数字","数字型","数值","数值型","number","numeric","decimal","money","float","real","integer","int"]),
+  date:new Set(["d","日期","日期型","日期时间","时间","date","datetime","smalldatetime","time"])
 });
 const text=value=>value===null||value===undefined?null:String(value).trim()||null;
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==="object"?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);

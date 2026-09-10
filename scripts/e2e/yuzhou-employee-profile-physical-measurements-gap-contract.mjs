@@ -47,7 +47,7 @@ test("private stage rejects attempted physical-measurement injection", () => {
 
 test("read-only extraction retains the source columns while writer and rollback stay fail-closed", () => {
   const extractor = read("scripts/extract-yuzhou-t5-legacy-history.sh");
-  const transform = read("scripts/transform-yuzhou-t5-legacy-history.mjs");
+  const transform = read("scripts/hr-cutover/t5-nonfile-field-projection.mjs");
   const writer = read("scripts/hr-cutover/production-import-t5-nonfile-writer.mjs");
   const rollback = read("scripts/hr-cutover/production-import-t5-nonfile-rollback.mjs");
 

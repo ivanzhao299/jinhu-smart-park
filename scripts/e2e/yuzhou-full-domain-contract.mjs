@@ -28,6 +28,19 @@ for (const field of ["triple", "children", "resourceRegistry", "globalLedger", "
 assert.deepEqual(contract.domainOrder, ["T0", "T1", "T2", "T3", "T4", "T5"]);
 assert.deepEqual(contract.rollbackOrder, [...contract.domainOrder].reverse());
 assert.equal(contract.triple.comparison, "byte_exact");
+for (const component of [
+  "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
+  "scripts/hr-cutover/legacy-custom-field-parity.mjs",
+  "scripts/hr-cutover/legacy-employee-profile-physical-measurements-gap.mjs",
+  "scripts/hr-cutover/legacy-professional-title-materialization.mjs",
+  "scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json",
+  "scripts/hr-cutover/contracts/legacy-employee-profile-physical-measurements-gap-v1.json"
+]) {
+  assert.equal(contract.triple.mappingContractComponents.filter(path => path === component).length, 1);
+  const missing = clone(contract);
+  missing.triple.mappingContractComponents = missing.triple.mappingContractComponents.filter(path => path !== component);
+  assert.notEqual(computeMappingContractHash(missing), computeMappingContractHash(contract));
+}
 assert.equal(valid.triple.mappingContractHash, computeMappingContractHash(contract));
 assert.equal(contract.ledger.equation, "source=loaded+quarantined+approvedIgnored");
 assert.deepEqual(contract.sourceProfileBaseline.T4, { salaryTables: 35, payrollRows: 46092, items: 711, formulas: 244, closes: 1431, memberships: 647, taxRules: 9 });

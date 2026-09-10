@@ -1,5 +1,201 @@
 # 全域演练与保留输入的真实接线缺口
 
+## T5代码收口批量验证（2026-09-10）
+
+共享adapter提取后仅两份直接合同引用需要更新（学历/技能），按已审查差异同步及上层冻结清单。17个定向入口共90项测试通过，覆盖保留读取、保护字段实际API源码、字段映射、目标材料、隔离父和UAT断言。全域合同另含14个负例。20个已改JS文件按各自现有global声明分组lint全部通过；初次批量命令重复global导致no-redeclare，已修检查参数，不改源码规避规则。
+
+全域runner原有auditRows函数在HEAD中已无调用，仅allAuditRows使用；移除未使用函数后lint通过，真实审计流程不变。只同步合成valid-parent-manifest的当前M，再跑全域契约通过；此前9dd2a10d属于上一工作字节，不再作为当前M。没有修改真实78fed回执或重新投影63992条材料。未运行全仓构建/真实库UAT，不能称生产可执行；本轮将本任务修改收口为本地提交，发布与当前版数据绑定继续下一步。
+
+## 真实T5完整字段/依赖适配通过并保存63992条目标载荷（2026-09-10）
+
+将现有adaptT5NonfilePrivateStage中的字段/定义/员工依赖转换原样抽成projectT5NonfilePayloadRecords，绑定adapter仍先校验C/S/M及target来源再调用共享函数。纯投影返回records数组，不伪造当前triple、目标回执或生产许可。新增等价性、缺员工隔离、错误定义计数、重复身份及非法技能字段测试；两组4项通过，定向lint/diff通过。
+
+复用上轮25fced6c新投影、4d657845定义证据、a73644c1真实T0候选，逐文件固定SHA并核验同源S。38名隔离员工不进入employeeIndex，正常员工编码/源身份一致。完整adapter实际通过：63992=63131insert+861quarantine；定义19/0，逻辑指纹190/0，自定义值55309/722，档案2911/38，家庭4474/86，技能4/2，证照224/13。记录数包含宽表拆分出的56031自定义值及209定义/逻辑记录，不是源人数增加。
+
+freeze.outputDir下t5-payload-projected-目录，payload-records.json SHA=86e6c2a16fa44499bc31882603e37765fd45476b0ff2dc9333bda6fe7502ec92，78044537字节。既有measure/emit写入读回与receipt-last完成，状态PAYLOAD_PROJECTION_VALIDATED。adapter SHA=23473943128a5dc594c5925ed5bfab965aa5c2b05939ae5fdf91adfe39bd64cf。当前triple绑定/生产key绑定/数据库读回仍false，HOLD；不把旧T0 triple换标签。无重复原始转换/解密、无数据库写入。下一步复用该载荷核对当前版T0决策绑定/完整生产计划入口；无需再次投影整批。
+
+## 7752条真实T5新投影已私有保存并逐项API解密核验（2026-09-10）
+
+固定715ea048旧manifest及各域完整字节hash、defs64bcfb36与职称8b56da93，复用唯一现存受控材料key引用，不新建/回显/复制key。通过readT5RetainedSource→共享materialize→projectT5NonfileStagedRecord生成7752条source-free投影（2949档案/4560家庭/6技能/237证照），源身份去重通过。现有API源码经TypeScript转译实际实例化，不使用dist、模拟decrypt或复制算法：7974个非空保护值逐一验证解密原值、HMAC和掩码一致，4332个空值三属性均null。没有比较旧密文、没有重抽库。
+
+使用现有measure/emit私有receipt-last写入读回；freeze.outputDir下t5-reprojected-目录，projected-records.json SHA=25fced6cfe02d7eeb605d45c713a759406aaff6d7308297f9d76de36f4c7866c，35781385字节，0700目录/0600文件。projection-receipt.json状态REPROJECTION_SAVED、recordCount7752、actualApiServiceVerified=true；sourceIdentityBindingVerified/productionTargetKeyVerified/databaseReadbackVerified均false，HOLD。报告只含聚合数量及实现摘要，原source不进入新材料。
+
+该文件是可复用新投影，不是prepareNonfileStage要求的双stage复制清单，也不是已绑定T0决策的production private-stage。projectT5NonfileStagedRecord仅校验原记录外形并去除source，完整payload/definition/employee依赖验证仍须adaptT5NonfilePrivateStage完成，不能把外形通过误称全部目标模型通过。下一步直接消费此新投影和19定义证据，完成T0决策/来源绑定与完整adapter，不再重复7752条转换或7974次解密。宿主只读容量足够，本轮新材料约34.1MiB，无数据库写入或新演练。
+
+## T5材料入口不再被其他T0隔离记录整批阻断（2026-09-10）
+
+定位现有prepare-yuzhou-production-import-t5-private-stage入口：deriveEmployeeIndex原先要求全T0候选quarantine计数为0，与其后面跳过隔离父员工的分支冲突，也与已验证115条T5关联隔离父的事实不适配。删除这一整批拒绝条件，仍精确校验候选计数、C/S/M、READY_FOR_FREEZE和来源身份，未解决目标碰撞继续拒绝。隔离父不进入可用employeeIndex，现有adapter把对应T5子记录保留为quarantine、无业务payload；不是批准异常父或绕过生产门禁。
+
+扩展现有CLI合成集成测试：正常230条输出后，增加1名隔离父及1条技能子记录，231条输出中正常员工技能仍insert，隔离子quarantine且dependencyRefs为空、无payload；同父改成未解决collision则准备失败。测试通过，定向lint发现已有unused dirname import并移除；未处理真实私有材料或连接数据库。下一步仍需完成当前M的来源/字典绑定及保留源到完整stage准备，不以本合成测试宣称7752真实批次已生成。
+
+## 全域T5运行依赖登记与新映射身份（2026-09-10）
+
+full-domain-contract的mappingContractComponents原来只含原transform，未包含新共享投影及其自定义字段、体征gap、职称字典模块，也未包含transform读取的两份映射/gap合同。本轮补齐这6项，不纳入尚未被全域runner使用的retained reader。全域契约测试断言每项唯一存在，并逐项删除验证M确实变化；原14个负例及全域契约通过，定向lint、runner语法和diff检查通过。
+
+当前工作字节计算M=9dd2a10d7818f92cc49ea3b15bda822475082ff4b22e79f580f2bff0ea04b169。只更新fixtures/valid-parent-manifest.json的合成测试M；未改私有真实manifest、冻结输入、旧回执或源S，不将旧78fed的核心LAB_PASS冒称新M通过。当前仍有未提交修改，因此此M不是已发布版本保证。下一步准备新版本与保留T5原source/defs/职称材料的明确绑定和输出，不重抽旧库、不改写旧成功证据；全域实际UAT尚未执行。
+
+## 复用全域API密钥接线，补精确解密断言（2026-09-10）
+
+纠正上一节下一步判断：run-full-domain-technical-uat已通过readMaterializationKeyFile读取config.target.materializationKeyArtifact，并将同一seed传给API的PARTY_DATA_ENCRYPTION_KEY。technicalUatChildEnvironment只继承白名单环境，不继承宿主指纹key。无需新增配对入口；核心HTTP随机key与全域UAT不能混为一谈。
+
+真正缺口是全域UAT合成profile仅设置id_number_masked而无密文，employee-scenario只检查idNumber键存在，解密返回null也能通过该项。已复用T5保护工厂生成明确合成身份密文，现有fixture INSERT写入id_number_encrypted及对应masked；HR正例必须严格等于固定合成原值，经理/员工掩码例将idNumber列为禁止字段。未改API权限或生产writer，未连接数据库；固定值仅是测试样本。
+
+新增null/错误/空解密及低权限泄漏负例，场景测试2/2通过；修改场景与测试lint、runner语法、diff检查通过。完整全域运行、runner依赖清单审查及真实T5字段API读回尚未执行，本次不是运行UAT通过。下一步核对该runner的源码依赖登记和现有全域准备入口，再将已有T5源投影形成与配置配对的stage；不新增重复runner、不重跑核心实验。
+
+## 目标启动接线审查与空指纹配置回退（2026-09-10）
+
+静态核对发现.env.example及.env.production.example的PARTY_DATA_IDENTITY_HASH_KEY默认空字符串；API将空白值视为未配置并使用legacy hash key。上一轮新增helper拒绝空白会使模板配置下的transform回归，已改为undefined/空串/纯空白按同一规则回退，非空不足32字符及非字符串仍拒绝，合法秘密字节不trim。新增直接调用当前API的模板配置测试，读取/保护测试8/8通过。首次lint缺URL显式import，补node:url后通过。同步四份直接投影引用及冻结清单，33项定向契约通过、diff检查通过；未重新跑其他已通过域。
+
+接线边界：domain-adapter仅给T5 extract传materializationKeyArtifact；核心yuzhou-real-http-lab-runtime启动时独立生成PARTY_DATA_ENCRYPTION_KEY且只配核心读权限。因此核心HTTP通过不是T5敏感字段解密证据，不能将随机API key当stage key。此结论来自代码，不是现网配置观察。现有核心实验不改动、不重跑；下一步为T5独立API验收明确受控key输入及与stage的配对验证，保留核心默认隔离行为。生产目标key身份仍未核验，本轮无真实密钥读取、无stage重写、无数据库写入。
+
+## T5独立指纹密钥兼容修复及API源码回归（2026-09-10）
+
+已停止把新旧密文相同当作迁移前提。合成数据直接调用当前PartySensitiveDataService证明：相同加密seed生成的T5 enc:v1密文可解密；API配置独立PARTY_DATA_IDENTITY_HASH_KEY时，旧转换器指纹不一致。此结论不是生产配置已经采用独立key的证明。
+
+createT5ProtectedValueMaterializer新增显式identityHashSeed，省略时保留旧单key输出，提供时使用独立SHA256/HMAC且不trim秘密字节；显式非法值拒绝且错误不含内容。原transform接入已有PARTY_DATA_IDENTITY_HASH_KEY环境变量。没有更换任何真实密钥，没有读取生产配置或重写stage。加密seed仍遵守原64hex材料合同，尚未支持从目标active keyring自动解析配置；调用方必须绑定目标可读key和稳定指纹key，不能把实验引用当生产配置。
+
+持久化测试直接转译并调用当前API源码而非dist或复制算法：旧配置、独立hash key、带空白的合法秘密、Unicode/trim、旋转后指纹稳定、显式错误key拒绝及非法输入；加上既有读取器测试7/7通过。按已审查的两个源码依赖更新六份合同及两份上层引用（包含reward canonical hash），定向九组65/65通过；未增加功能信用。定向eslint与diff检查通过。不是HTTP/数据库/浏览器验收；未做全仓构建，纯JS修改且容量门禁下不启动构建。
+
+fetch后origin/main仍563af3a1；本地修改未提交发布。下一步核对受控目标实际key配置绑定和完整stage输出接线；不再扫描旧key或重复7752条源恢复/核心装载。
+
+## canonical-key旧批次核验：来源相同，现存key仍不匹配（2026-09-10）
+
+source-rebind-t5-canonical-key-20260901的两份staging目录与t5-candidate-baseline-evidence.json已核对。证据文件SHA=61dd31f8d7e498ba7f923c0f77daa6a72ec3da55cee6580744c0f3bb53552a1f，声明S3ed50及恢复f1faae与当前一致。两份四域文件逐字节相同，均匹配各自manifest及证据中的fileSha256；不是仅比较自报计数。
+
+按兼容reader核对每条来源，与旧715清单全部源身份/源行摘要相同：person_core2949、family4560、ticket237、knowhow6。现存唯一key生成保护对象仍与该批次不匹配：profile非空2446、family非空5305、ticket非空223全部不同；匹配仍只有空值。不能据目录名canonical-key声称当前key已得到验证。未落新密文、未覆盖旧文件、未写库。
+
+历史transform实现检查表明sha256(seed)、上下文HMAC IV及AES-GCM格式没有解释该差异的算法变化；不重试同一key。下一步核查该唯一现存引用的具体配置用途以及目标端实际保护字段服务的key绑定，区别实验配置引用、原加密key与生产读写key。原source已完整保留，不能把密钥引用不明说成原始数据丢失。目录发现首次误读nonfile-stage/manifest不存在，已限定staging-目录后完成，不再扫描同一路径。
+
+## 7752条真实字段投影通过但保护密钥不匹配旧批次（2026-09-10）
+
+domain-adapter明确T5抽取从config.target.materializationKeyArtifact设置YUZHOU_PARTY_DATA_KEY_FILE。限定受控报告根深度3、文件名config且小于200KB查312份配置，去重38个引用，仅1个现存非符号链接0600文件。首轮元数据返回过长未解析，第二轮过滤现存引用完成；不得重复整个发现过程。文件内容仅由既有readMaterializationKeyFile在本地程序使用，不输出、复制或新建密钥。
+
+使用现存引用、已固定defs64bcfb36与职称8b56da93、T5清单715ea048及全部域文件hash，经projectT5RetainedRecord和projectT5NonfileStagedRecord，person_core2949、family4560、knowhow6、ticket237全通过，投影错误0、结构拒绝0。这只是真实字段/形状验证，不是完整stage来源绑定、业务UAT或生产通过。
+
+保护对象与旧materialized对比：profile相同503/不同2446，family相同3815/不同5305，ticket相同14/不同223；相同计数对应空保护值，不能证明密钥相同。没有保存新密文或覆盖旧文件、没有数据库写入。下一步只核对既有source-rebind-t5-canonical-key-20260901两份stage与当前唯一现存key是否匹配，确认旧715清单和新canonical批次的来源/换钥关系，不能凭文件存在将其当旧批次key或生产key。完整输出物化暂不执行，其他已通过投影不重抽。
+
+## 共享保护字段函数已接入，原密钥引用待定位（2026-09-10）
+
+把原transform中的protect和materializationKey派生原样移入t5-nonfile-field-projection.mjs的createT5ProtectedValueMaterializer，使用既有validateMaterializationKeyBytes，原transform调用该工厂。没有新建密钥、改加密算法或读取密钥内容。新增合成测试验证空值、trim、固定上下文的确定性、不同上下文密文不同、旧enc:v1格式可解密、输出无明文及非法seed拒绝；读取器/投影共5项通过，定向lint和diff检查通过。尚未用真实密钥生成三域载荷。
+
+定向元数据检查secure-control-current及production-t0-563af3a1准备根未找到materialization密钥引用；旧dateorder配置只有keyFiles，不可将隔离异常加密密钥当T5原物化密钥。source-rebind-t5-canonical-key-20260901仅见两组历史staging和候选baseline/identity回执，未读业务jsonl或二进制内容。下一步从既有抽取/编排配置或该候选baseline的非敏感引用追踪正确物化keyFile；不生成新key、不重抽库。
+
+本轮再次改变transform与共享投影字节，六份合同及上层引用需在最终投影接线固定后统一审查更新，不得复用前轮摘要或重新赋予兼容信用。未发布、未写库，生产HOLD。字典11项及2949员工职称核对材料保留，无需再读。
+
+## 真实职称字典补齐及2949档案关联通过（2026-09-10）
+
+通过已有只读ETL封套，在子进程内传递SQLCMDPASSWORD，仅SELECT dbo.assignment的assignment/assignmentname并按代码排序；同一SQL先验证数据库READ_ONLY与非sysadmin。未回显凭据、字典值或人员内容。结果11项，先用既有measure/emit保存并读回私有artifact，再由buildLegacyProfessionalTitleDictionary验证；没有重抽人员。
+
+定位freeze-config.outputDir下唯一t5-assignment-source-目录，assignment-source.json SHA=8b56da93823d3896637d032d0df81ffc72ab76413ccedba744dd3abe1b197466，601字节；assignment-source-receipt.json标记sourceReadOnlyChecked/nonAdminChecked=true，sourceIdentityBindingVerified=false，HOLD。该回执不是完整恢复库身份绑定，后续仍需既有verify-source-restore-binding。
+
+按字典精确SHA、715ea048旧T5清单及person_core文件SHA校验，实际通过readT5RetainedSource恢复来源后逐项materializeLegacyProfessionalTitle：2949档案中1855有代码且匹配、1094空、未知0。不猜填空职称、不将职称当岗位。数据库写入0。下一步接入既有保护字段函数及19自定义定义，完成三域真实全字段投影；职称字典和这次核对不再重复读取或重算。
+
+## 奖惩规范摘要修复闭环及职称字典定位（2026-09-10）
+
+奖惩任务verifySources同时检查sourceContracts.rawSha256与canonicalSha256。上轮只同步了reward field-map文件字节摘要，漏同步JSON.stringify(parsed)+换行的规范摘要；其余三个来源字节一致。这是确定的引用同步遗漏，不是新数据或业务功能失败。更新该一个canonicalSha256及上层冻结任务字节引用后，Group Web奖惩9项与冻结清单10项全部通过（19/19），git diff --check通过；READY_NOT_EXECUTED/NOT_READY及零新增信用保持，不是生产放行。
+
+随后只按assignment.raw.json文件名在受控来源报告根深度4、跳过符号链接查找，命中0。此结论仅限此范围，不意味着源表或整机文件不存在；不重复扫描相同范围。下一步利用既有只读ETL入口补读dbo.assignment的assignment/assignmentname两列并先私有保存，核对字典和当前来源身份，再进行person_core真实投影。没有查询人员明文、数据库写入或新装载。本地修改仍未提交发布。
+
+## 三组契约18项与上层冻结10项通过（2026-09-10）
+
+定向追踪四文件旧摘要：访问策略仅员工基础投影增加legacyJobstateCode/Name，DTO新增合同employee_id过滤；Web API增加旧状态、保险兼容、绩效与合同过滤等，档案/家庭接口保留；员工页面有已存在的分页/请求作用域/合同分区变化，家庭渲染块保留，不能称整个页面未变。按此审查更新三份合同相关引用，不修改业务代码，不宣称新浏览器验收。家庭/职称/学历18项全部通过，学历语义缺口仍零信用。
+
+按六份旧合同字节hash定位上层引用，只修改已识别的legacy-frozen-compatibility-migration-manifest-v1与group-web-reward-discipline-modern-runtime-task-v1引用；后者改变后其冻结清单引用同步。兼容进度聚合11项通过、冻结清单10项通过，仍NOT_READY且无生产放行。Group Web奖惩任务测试7通过2失败，尚未完成该独立校验器的根因定位；不得宣称全部回归成功。下一步只读核对group-web-reward-discipline-modern-runtime-task.mjs验证失败具体原因，避免重复全套测试。
+
+当前修改均未提交发布，源文件和数据库未写入；未重跑核心实验。后续还需回到三域真实投影、字典/保护字段及来源身份绑定，不能以本次合同通过替代真实数据迁移。
+
+## 职称/家庭双文件绑定与剩余漂移一次性清点（2026-09-10）
+
+两份合同及校验器新增fieldProjection独立字节绑定，原入口保留：家庭数量声明仍在入口，实际字段表达式在共享投影；职称要求入口调用共享函数及共享函数调用字典投影同时存在。没有删校验或增加分数。
+
+Git按各文件最近30次修改精确找到旧摘要版本：shared/hr.ts对应1f7cabab，变化仅employment type新增temporary；hr.service.ts与hr.entities.ts对应49f914ca，当前employeeProfile方法与HrEmployeeProfileEntity块逐字相同。按此范围审查分别更新家庭权限、职称service、学历entity引用，不修改业务源码。首次13项测试11通过2失败；更新这三处后18项13通过5失败，剩余是其他历史文件摘要不一致，不是共享投影表达式失败。
+
+已一次遍历这三份合同全部path/sha引用，剩余仅四个去重源码：HrEmployeesClient.tsx（家庭/职称/学历），apps/web/lib/hr-api.ts（家庭/学历使用两个不同旧版本），hr-access-policy.ts（职称/学历），dto/hr.dto.ts（学历）。后续必须先按全部旧摘要定位相关语义差异，再批量更新和测试；禁止继续一次失败只改一个摘要的循环。上层冻结引用尚未同步，不能发布或声称六份合同完成。未写数据库、未重抽、未提升兼容信用。
+
+## 投影移动的证据绑定修复进展（2026-09-10）
+
+培训/奖惩的source_aggregate只验证原transform内的train/trainhis及bonuscode/bonusrecord数量声明，实际声明未移动；两合同仅更新已审查transform字节引用，12项测试通过，未提升字段信用。学历transform的highestEducation表达式已经移动，因此路径和摘要改指共享投影；测试随后暴露原有modern surface:database_entity摘要漂移，3项失败，不能称学历合同通过，未自动更改实体摘要。
+
+技能合同拆分transform和field_projection两个强制阶段：前者继续绑定源身份、源行摘要及共享函数调用，后者绑定实际六项技能投影表达式，不能只将路径换成新文件而丢掉行身份计算。pipelineEvidenceCount从6变7仅指源码依赖数，不是兼容分数。5项技能测试通过，并补了两个阶段各自错误hash必拒绝的负例。
+
+职称、家庭两份合同尚待将入口和共享函数分开绑定；本轮没有完成六份合同全部修复，也没有更新上层冻结合同引用或声称release-ready。现有WIP和历史证据全部保留。下一步完成这两份绑定及上层引用核对，学历实体漂移只做定向差异审查；不靠修改业务实体碰运气。无真实库写入、无生产导入、无重复全量实验。
+
+## T5共享投影接线与真实技能六条验证（2026-09-10）
+
+从transform-yuzhou-t5-legacy-history.mjs原样提取四域materialize及字段辅助函数至t5-nonfile-field-projection.mjs，原转换器改调用共享函数，protect/定义/职称字典显式注入。t5-retained-source-reader新增projectT5RetainedRecord：先验证和恢复source，再调用同一投影，不复用旧materialized；仅支持四个明确来源表。未改变加密算法、旧输出格式、映射合同或源摘要。
+
+定向测试共14项通过（读取/接线与旧T5合同5项，physical gap与stage adapter9项）；eslint显式声明原CLI使用的Node全局process/Buffer/console后通过，未关闭规则；git diff --check通过。两次apply_patch组装失败未写文件，根因分别是截取边界命中行内变量和补丁hunk顺序，已定位后纠正，不是数据转换失败。
+
+真实knowhow6条经固定715ea048清单及域字节核验，调用新projectT5RetainedRecord后全部通过既有projectT5NonfileStagedRecord形状校验；5个既有等级语义gap保留，不补造熟练度。数据库写入0，未落新私有副本；不是其余7746条完成，也不是业务API或生产导入通过。
+
+旧transform字节SHA=bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3被六份合同引用：legacy-professional-title-lookup-parity、legacy-knowhow-field-map、legacy-employee-profile-education-source-chain-gap、legacy-family-query-parity、legacy-reward-discipline-field-map、legacy-training-history-field-map。尚未改这些hash或赋予新信用，不能将本地改动报告为release-ready。下一步审查共享实现依赖的正确证据绑定并补受影响合同测试；随后恢复已有职称字典/保护函数接入其余三域，不重跑核心实验。所有本地WIP保留，未提交发布。
+
+## T5兼容来源读取函数落地并经真实文件验证（2026-09-10）
+
+新增scripts/hr-cutover/t5-retained-source-reader.mjs的readT5RetainedSource。默认canonical_json_v1，不自动猜格式；显式json_backslash_doubled_v1只允许逆转一层标准JSON字符串转义，且必须匹配原sourceRowSha256。原摘要匹配优先，不改变字面转义；返回私有深拷贝，不修改输入或hash，错误仅稳定代码。调用者仍须核验外层manifest/文件hash和来源身份。该函数不生成新M、投影业务字段或授予生产权限。
+
+新增yuzhou-t5-retained-source-reader-contract.mjs，3项测试覆盖换行、制表、引号、字面路径/转义、Unicode、NUL、原值优先、非别名引用、错误摘要、未知格式、非法值和拒绝多层重试；全部通过，定向eslint和git diff --check通过。随后实际调用新模块读取已校验715ea048清单和四域文件：person_core原匹配2226/兼容恢复723，family4560/0，knowhow6/0，ticket234/3，总7752全部接受。只输出计数，没有数据库写入、新副本或源重抽。
+
+当前新增读取器及前轮c/n/d修复仍为本地WIP，未发布。读取器尚未接入完整T5材料生产者；下一步用它输出的私有source做现有profile/family/skill/credential投影，补齐专业职称字典及当前来源绑定，不能复用缺新字段的旧materialized来冒充完成。纯JS检查不替代后续真实API/前端验证；本轮不涉及TS或数据库模式，未跑全仓构建。
+
+## T5的726条行摘要差异已定位为历史转义层（2026-09-10）
+
+只读检查初始转换器提交1da0826a，write函数对JSON.stringify(row)执行replaceAll反斜杠加倍，而identity在写入前计算canonical(source)摘要。因此保留文件解析后的部分字符串不等于原摘要计算时的字符串；此前只检查NUL不足以解释普通JSON转义。
+
+本轮先核验manifest字节SHA=715ea048ff69e83daa1fd6636ab1deb15c862b7f63e7940c39f95a86a18f471c及全部四域文件SHA。对原source摘要已匹配的记录保持原样；仅对不匹配者在内存逆转一层标准JSON字符串转义，再与原sourceRowSha256比较。结果person_core原匹配2226、逆转恢复723、未解释0；ticket原匹配234、恢复3、未解释0；family4560及knowhow6全部原匹配。7752条来源摘要均可核对，不修改原文件、原摘要或映射身份，没有数据库写入和新增数据副本。该结果不是源数据损坏，也不需要为这726条重抽全库。
+
+下一步将此兼容读取行为实现为有明确历史格式边界的纯函数：原摘要优先、仅候选逆转且摘要精确相等才接受、失败关闭，并测试真实换行/字面反斜杠/引号/Unicode/NUL及错误摘要。随后接入T5当前投影；当前仅已完成根因验证，尚未完成读取器集成、来源恢复身份绑定或生产放行。
+
+另核对production-import-preflight：316行已有firstWavePhaseOrder的T0–T3入口，241–242行仍要求T0–T5正式pair。缺口不是没有分批writer。本轮未修改该门禁、未新增重复入口、未把核心实验冒充全域通过。候选git fetch完成；保留全部既有WIP。
+
+## T5员工关联与56031个自定义值离线核验（2026-09-10）
+
+固定T0候选a73644c1、T5旧manifest715ea048及defs来源64bcfb36的完整字节hash后离线核对。2949个T0员工编码无重复；T5全部7752条能找到员工：person_core=2911可插入父/38隔离父，family=4495/65，knowhow=4/2，ticket=227/10，未找到员工均0。115条关联隔离父，不能绕开父决定写入。证据在freeze-config.outputDir下t5-association-audit-目录，现有emit写入读回。
+
+旧person_core.source保留全部19列自定义原值。按修复后的真实defs投影56031值，缺列0、非法值0、NULL48591；未写出人员值或重新抽取。旧materialized缺customFields、legacyProfessionalTitleCode、technicalTitle等新字段，因此应从保留source投影，不能直接把旧materialized当当前结构。
+
+另发现行级来源摘要不一致：按当前transformer的canonical(source)重算，person_core匹配2226/不匹配723，ticket匹配234/不匹配3，family4560和knowhow6全匹配；四个文件自身hash仍全部匹配旧清单。NUL逆转假设实测不能解释这726条，实际NUL/字面\\u0000/不安全整数/嵌套值在不匹配记录中均0。不能宣称已修复、损坏或忽略行级证据，不修改原hash。下一步定向追踪旧stage的来源摘要算法/中间转换与这726条差异；不重复已通过的员工关联/自定义字段计算，也不直接重新抽取全库。T5来源绑定和完整新stage仍未完成。
+
+## T5真实c/n/d类型编码兼容修复（2026-09-10）
+
+19条dbo.defs来源已先行私有保存，位于freeze-config.outputDir下唯一t5-defs-source-目录：defs-source.json SHA=64bcfb3626616a905888fa9220e7f9f5c8bebed7b91c032e66f611eb19b01bc9，6316字节。源只读/非sysadmin检查通过；原表达式仅保留在私有文件，从未执行。实际def1–9 datatype=c、def11–15=n、def21–25=d；原解析器缺少这三个缩写，误报DATATYPE_CONFLICT，并非真实字段类别错位。
+
+legacy-custom-field-parity.mjs只增加按类型分组的c/n/d别名，不改原始legacyDatatype、源hash或字段类型，不接受跨类型/未知缩写。新增合成测试覆盖19项、原编码保留、大小写/空白、输入不变、错误分组/未知值拒绝和数值日期投影；6项parity及6项stage-adapter测试通过。首次lint发现测试structuredClone未显式globalThis，已局部修正。没有修改生产数据库、旧映射清单hash或旧成功回执。
+
+对保存的真实源按精确hash校验并调用修复后函数，19定义全部投影成功，190逻辑列中95个非空，必须保留进一步功能分析而非视为已复现。t5-defs-projected-目录defs-evidence.json SHA=4d6578457b00dfa5e30220b771e246c135806133514f7e2719265079c902767a，41683字节；projector SHA=151c6aa819df10c7ee55d5823635bdf44c773c435592671cbf124256dfc04b48。既有emit私有写入/读回通过，sourceIdentityBindingVerified=false、HOLD：源恢复身份正式绑定及与旧7752条staging组合仍未完成，不能自动将旧M改为当前M。下一步复用这两份已保存文件，补正式来源绑定/员工索引，禁止再查询相同defs。本修复尚未提交发布，不重跑已通过的T0–T3实验。
+
+## T5定义只读补查定位真实类型冲突（2026-09-10）
+
+两个受控报告根按defs文件名查找未命中。复用extract-yuzhou-t5-legacy-history.sh的dbo.defs显式19字段SELECT，仅查询定义，不读取人员明细；既有ETL封套由子进程使用，SQLCMDPASSWORD环境传递，不回显密码。SQL同时验证数据库READ_ONLY和非sysadmin，通过后返回JSON。
+
+本轮诊断命令初次错误使用互斥-h/-y参数，已按既有脚本去掉-h；再按既有抽取脚本删除sqlcmd输出CR/LF，JSON解析成功。最终稳定失败位于PROJECT，代码LEGACY_CUSTOM_FIELD_DEFINITION_DATATYPE_CONFLICT，由现有buildLegacyCustomFieldDefinitions抛出，无SQL错误。不是凭据失效、权限或定义不存在；代码固定19字段的类型假设与真实定义不一致，禁止用默认值或伪造definitionEvidence绕过。
+
+没有成功保存defs恢复材料（投影失败发生在SAVE之前），不能声称已补回定义artifact。下一步先按真实源定义核对LEGACY_PERSON_CUSTOM_FIELDS/DATATYPE_ALIASES的具体不一致字段与旧业务语义，必要时调整映射与目标承载；下次读取要先私有保留来源，再投影，避免失败后重复查询。已有7752条人员源文件保持不动，无数据库写入。诊断轮次已偏多，进入成本收敛：不再重试相同投影，不新增Agent、不跑全套测试。
+
+## T5保留来源完整性与定义证据缺口（2026-09-10）
+
+只读定位既有t5-nonfile-materialization-stage-current-20260831内staging-t5nonfilecurrent31/manifest.json，SHA=715ea048ff69e83daa1fd6636ab1deb15c862b7f63e7940c39f95a86a18f471c。四域person_core2949、family4560、knowhow6、ticket237，共7752；全部域文件字节hash匹配原manifest，未复制/重抽。S=3ed50b9a…与本批一致；旧restoreReceipt=87573a33873c6f4e8c4490602fc09ac44b3f1ca9e29c8c486b09bf9cfb6eb4ae，旧M=0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3，不能直接改写成当前f1fa/78fed身份。非文件business SHA=e1c9fd632a045b66aecdda6adbf954d3dd52fc43a95de0d74eb4c7a4bdd31a4a，photo/docs排除。
+
+实际manifest没有definitionEvidence。当前createT5NonfilePrivateStage需要19项自定义定义、190个逻辑列覆盖证据以及当前T0决定/目标范围绑定；这些不能用空对象或新hash占位。受控报告根深度4、单manifest不超过128KiB的定向元数据查找共73份，其中1份非JSON跳过，没有找到带definitionEvidence的T5 materialization manifest。这只是该范围内查找结论，不声称整台机器/原库不存在定义材料。首轮脚本因缺少可选definitionEvidence失败；补缺失检测后四域哈希核验通过。元数据发现首次遇非JSON失败，改为计数跳过后完成；未改业务代码或来源。
+
+下一步最小补回是定位已有T5抽取中的字段定义证据（非人员数据）或从受控只读源读取缺少的定义/逻辑列，再以当前员工决定构建关联；保留原7752条源文件不动。当前尚未完成新员工索引对应或T5新载荷生成，不能称T5已接入。Docker DISK_GUARD下未启动实验/导入/构建/清理。
+
+## 正式pair缺口定性纠正：是验收范围差异，不是缺转换器（2026-09-10）
+
+定向源码链已确认：final-rehearsal-pair.mjs/runFinalPair是现有正式生产前pair生产者；production-import-preflight.mjs/validatePairEvidence消费同一final-rehearsal-pair-v1合同。该合同固定T0–T5全域、两套隔离环境/信任根、技术UAT、25项P0、浏览器角色/视口及会话清理、备份恢复故障演练、pair compare、T5→T0回滚和资源清理。run-yuzhou-retained-bundle-pair的false声明只是它自身不完成上述全部检查，不代表仓库没有正式生产者。
+
+刚通过的current563真实writer运行只覆盖T0–T3、同一个复用隔离库及现有HTTP检查。因此不能仅生成一份转换JSON宣称finalRehearsalPair已满足，也不能再重复同一T0–T3实验期待放行。此前笼统称“正式证据接线缺口”容易误导为最后只剩文件转换，现明确纠正。没有证据证明T4/T5及完整角色浏览器/故障恢复已在本次C/S/M通过。
+
+实际下一工作顺序：保留本次核心载荷/成功回执，先对接T5_NONFILE档案/家庭/技能/证照与当前员工来源身份，再对接T4工资历史；完成相关实际功能验证后，才组合全域最终证据。已定位T5现有生产入口production-import-t5-nonfile-stage-adapter/private-stage/writer/rollback，execute-production-import支持独立t5NonfilePrivateStage绑定；不能把它称为包含T4工资或文件二进制。后续从已有受控T5 stage按hash验证与新员工映射适配入手，不重抽全库。保持Docker DISK_GUARD期间不启动新实验/导入/构建/清理，可继续定向代码与只读源材料审查。整体目标仍为全部历史数据和功能，不以本批成功收缩目标。
+
+## 当前260828条隔离真实装载闭环通过（2026-09-10）
+
+同一配置在实际563af3a1执行execute-isolated，进程22671已正常exit0：LAB_PASS、operationalCli=true、260828=257533insert+3295quarantine、httpVerified/rollbackVerified/residualVerified全部true，failureCodes为空、finalReceiptPersisted=true、HOLD。保留原evidenceKind=injected_io_formal_writers，不改标签；本次确经operational CLI连接真实隔离PG及HTTP。不是独立A/B、生产导入或全域T0–T5验收，crashRecoveryImplemented=false。
+
+current-lab-config中的stateRoot保存final回执。封套文件字节SHA=07cd607e36ce30df7c113e9dfd645eb83553ed3eb9c1afb3d6058deb8747a89e；内部value按实际JSON.stringify摘要重新校验为8e2407350ebb088423bf0a82b085e37d5754d82d259b6be707b32f393dafd454，与程序输出完全一致。两种hash不得混用。随后独立BEGIN READ ONLY复查：sys_org=14、hr_contract_type=3，其余14业务表0；activeMaps/runningBatches/otherClients均0，基线确实恢复。已结束进程，不再轮询或重跑；原开发分支已恢复。
+
+Docker终态可用15593484KiB（低于15GiB门槛），PG目录8546108KiB，保持DISK_GUARD，不启动新装载/构建/清理。没有删除容器、数据或回执。下一步复用本次成功载荷和回执，核对正式生产计划要求的finalRehearsalPair与现有pair消费者接线；run-yuzhou-retained-bundle-pair明确formalFinalRehearsalPairProduced=false，不能把这次或旧pair摘要伪装为正式最终pair。容量恢复前仅允许只读诊断和必要代码工作，不重复完整实验。
+
 ## 当前批次隔离配置与预检通过（2026-09-10）
 
 只读检查旧dateorder隔离数据库：16表仅sys_org=14、hr_contract_type=3，其余0；activeMaps=0、runningBatches=0、otherClients=0，库大小1427258391字节。新字段列存在。复用此已回滚基线，不复制数据库、不清理证据，不将复用库验证当独立A/B。

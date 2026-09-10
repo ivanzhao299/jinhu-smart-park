@@ -17,9 +17,13 @@
       "path": "scripts/extract-yuzhou-t5-legacy-history.sh",
       "sha256": "7223eaf506e98cd2ba5b559f0de6d8d6a9bf7df389eda1a4fb29bc773031b353"
     },
+    "fieldProjection": {
+      "path": "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
+      "sha256": "2f3841721ead94a9d09d7e3c08a83bcadfcbe5841e6597dddca51a3432eff5b0"
+    },
     "familyMaterializer": {
       "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
-      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+      "sha256": "54799f64707dd495e26db9ef2ed086e206b513fc58a9abab78a9a2aa2c365dba"
     },
     "familyLoader": {
       "path": "scripts/load-yuzhou-t5-legacy-history.sh",
@@ -43,7 +47,7 @@
     },
     "permissionContract": {
       "path": "packages/shared/src/hr.ts",
-      "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
+      "sha256": "a0942c8e6d7b4c948f91d110d8a8a1e8c6946c45f6ee5c5e2ad2da4b9072e09a"
     },
     "permissionEvidence": {
       "path": "apps/api/src/modules/hr/hr-employee-materialized-projection.spec.ts",
@@ -51,11 +55,11 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126"
+      "sha256": "e5792044d2efa72b273beba50cff3e15b4a30fdabf289fa20207877cab8838c9"
     },
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "fad24240cdc6aa053ec2e212cf5e377fd5ec72f357fdf7ab11c179de7aa618d2"
+      "sha256": "13015fc3bf2d69d08a83bbd55ca09faae59fb971be173da3291a17e2c76bc370"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
@@ -152,7 +156,7 @@
               "nullContract": "null_or_blank_maps_to_null"
             }
           ],
-          "evidenceSha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+          "evidenceSha256": "54799f64707dd495e26db9ef2ed086e206b513fc58a9abab78a9a2aa2c365dba"
         },
         "readMappings": {
           "applicability": "required",
@@ -197,7 +201,7 @@
               "equivalenceRule": "invalid_required_rows_are_conserved_in_gap_accounting_and_never_silently_dropped"
             }
           ],
-          "evidenceSha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+          "evidenceSha256": "54799f64707dd495e26db9ef2ed086e206b513fc58a9abab78a9a2aa2c365dba"
         },
         "roundingSemantics": {
           "applicability": "not_applicable",
