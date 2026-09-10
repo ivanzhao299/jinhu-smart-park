@@ -1,5 +1,30 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 续接核验：既有结果复用与远端漂移（2026-09-10）
+
+候选HEAD仍为748776cd。本轮fetch后的origin/main为63731906，候选ahead3/behind6；未合并、未覆盖工作树。新增43个文件变更与LAB_EXECUTION_DEPENDENCIES无交集，也没有apps/api或发布workflow变更，但包含packages/shared/src/property-business/display-labels.ts。computeYuzhouLabExecutionBinding散列整个shared/src，因此不能将“迁移脚本无变化”解释为runtimeTreeSha256不变，也不能把旧执行回执重新标为新提交。
+
+既有未提交的pair复用实现经定向核验：17项合同测试通过，两个相关文件ESLint通过，git diff --check通过。新增入口为`--verify-existing --request <private-request> --request-sha256 <sha256>`；请求保留原A/B配置引用和空输出目录，额外提供existingReceipts.A/B各自的receiptSha256及manifestSha256。它不调用数据库runner、不覆盖旧回执；仅在全部匹配时生成新的安全摘要。错误receipt/manifest pin、不同执行代码均失败。输出databaseStateObservedNow=false、formalFinalRehearsalPairProduced=false、productionImport=HOLD，不是当前数据库观察，也不是正式生产演练放行。
+
+后续收尾已补两个真实Node CLI负例：verify-existing缺少existingReceipts，以及execute-isolated带existingReceipts，均在请求层退出1、stderr为空、输出目录为空；不会进入side配置或数据库runner。19项测试、定向ESLint与diff检查通过。
+
+本轮没有真实装载、源重抽、生产写入或新增Agent。实际旧A/B不同提交的事实未解除。不得靠改hash或删除门禁将其拼成成功。生产plan materializer的metadata消费者要求finalRehearsalPair，但只读取其中摘要；实际正式生产者为final-rehearsal-pair.mjs，返回包含contractSha256、sourceFacts和humanUat状态的完整结果。retained pair输出不是该结果，不能仅转换字段名作为生产证据。下一步沿正式生产者检查已保留输入及各阶段适配，复用已有来源，不重新提取。
+
+## 优先级纠正：已成功writer输入不缺这套抽取目录journal（2026-09-10）
+
+此前将新发现的T0目录来源journal作为成功writer输入的前置缺口，追踪对象不正确。源码证明 `production-import-payload-generator.mjs` 把 `decisions.phaseManifests[phase]` 写为sourceBatchManifestSha256；candidate-freeze与real-artifact-bridge证明这个值是phaseArtifact字节SHA，不是旧抽取目录manifest SHA。
+
+从成功运行原配置所指向的四个records文件获取实际引用后，限定phase文件名、非链接、单文件256MiB/总1GiB读取预算，流式核对38个文件（721412782字节），四个来源工件均找到唯一字节匹配：
+
+- T0：3105条，b7ef494f2cb549149ee8a56bea79f144f680f47f2c2e71e4f867c5e1dbf784c6。
+- T1：6887条，df142be203dc5899ef37da56a2f5ec2c729f9961ef248a8a7ba1da479cc8a056。
+- T2：1163条，ee40d818d0bc224e269b36436a20a708566b7c045da22e95af33f6c710ae3069。
+- T3：249673条，617476a3cee4da4cfa76b74b33cfbf1bbafa3643da9ec9243d693ab20a71af0e。
+
+T0匹配工件类型为yuzhou_hr_production_import_real_phase_staging，C/S/M与原成功输入相同。其余三项本轮仅验证引用字节存在，不扩张为新一次字段/业务或来源数据库验证。没有DB写入或源重抽。
+
+立即停止把无journal的最新T0目录当作上述四阶段成功输入的必要材料。新增内容验证器可保留，但不是生产T0–T3链的必经步骤；不要继续为它补一个与实际writer无关的来源流程。下一主攻点回到正式全域pair与当前执行计划的证据适用性。不得以此定位成功宣称正式pair、生产计划或生产导入已完成。
+
 ## 首个实现更新
 
 2026-09-10核验更新：合成planned样例最后更新于29d40d92，其后9个原映射依赖发生变化（T0/T1/T2/T3加载、T0回滚、T1/T3转换及生命周期）。该样例不是历史执行回执。共享T0布局加入正式mappingContractComponents后，仅更新planned样例的M为717597aa5d25b24f7693386adfba527a39f588d6e9f2533e1acd38e015e3d685；生产verifier的精确比较和错误M负例未放宽。全域Slice1合同及14个负例通过；T0新验证9项、生命周期和Slice3回归均通过。没有更新任何真实历史回执身份。
