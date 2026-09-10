@@ -1,0 +1,41 @@
+import { chromium } from '/tmp/property-dialog-audit-browser/node_modules/playwright/index.mjs';
+import fs from 'node:fs';
+const out=new URL('./',import.meta.url).pathname;
+const unitId='11111111-1111-4111-8111-111111111111';
+const user={id:'audit-user',username:'audit',real_name:'隔离审查',tenant_id:'audit-tenant',park_id:'audit-park',roles:[],permissions:['*'],is_super:true,data_scope:'tenant',enabled_modules:['asset','homestay','housing_rental','housing_cost','property','leasing','system','rbac','file','workflow'].map(module_code=>({module_code,enabled:true})),accessible_parks:[{id:'audit-park',park_id:'audit-park',park_name:'隔离园区',enabled:true}],menus:[]};
+const operation={unitId,unitCode:'AUDIT-101',unitName:'隔离审查房源',buildingId:'audit-building',buildingCode:'AUDIT',buildingName:'隔离楼栋',configuredMode:'short_stay',operationStatus:'enabled',assetUnitId:null,assetUnitCode:null,assetUnitName:null,suspendReason:null,remark:null,effectiveTime:null,liveOwningAggregateCounts:{},sharedOccupancy:{activeCount:0,incompatibleCount:0},version:1,canRequestTransition:true,blockers:[],updateTime:null};
+const booking={booking:{id:unitId,bookingCode:'MOCK-STAY-101',status:'confirmed',arrivalDate:'2026-09-01',departureDate:'2026-09-11',unitId,unitCode:'AUDIT-101',unitName:'隔离房源',guestCount:1},guests:[],credentials:[{id:'credential-1',status:'issued',credentialLabel:'房卡 A'}],nights:[],actions:[],ledger:[],finance_visible:false};
+const browser=await chromium.launch({headless:true,executablePath:'/home/jinhuit/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome',args:['--no-sandbox']});
+const all=[];
+try {for(const width of [1440,390]){
+ const context=await browser.newContext({viewport:{width,height:900}});const page=await context.newPage();let mode='error';const writes=[];const errors=[];const unknown=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('dialog',async d=>{errors.push('native-popup:'+d.type());await d.dismiss();});
+ await context.addInitScript(u=>{localStorage.setItem('jinhu_access_token','audit-fixture-token');localStorage.setItem('jinhu_auth_user',JSON.stringify(u));},user);
+ await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url()),path=url.pathname.replace('/api/v1','');let data={items:[],total:0,page:1,pageSize:20};
+  if(req.method()!=='GET'){writes.push({path,body:req.postDataJSON(),key:req.headers()['x-idempotency-key']});await new Promise(r=>setTimeout(r,500));return route.fulfill({status:mode==='success'?200:400,json:mode==='success'?{code:0,data:{request:{requestId:'mock-approval',decisionStatus:'pending',executionStatus:'not_started'}}}:{code:400,message:'隔离 MOCK：提交被拒绝',data:null}});}
+  if(path==='/users/me')data=user;
+  else if(path==='/property/operations')data={items:[operation],total:1,page:1,pageSize:20};
+  else if(path===`/property/units/${unitId}/operation`)data=operation;
+  else if(path===`/homestay/stays/${unitId}`)data=booking;
+  else unknown.push(path);
+  return route.fulfill({json:{code:0,data}});
+ });
+ const result={width,writes,errors,unknown};all.push(result);
+ await page.goto('http://127.0.0.1:3417/assets/property-operations');
+ await page.getByRole('link',{name:'查看详情'}).first().click({timeout:60000});
+ await page.locator('select[name="target_mode"]').selectOption('long_rent');
+ await page.getByRole('button',{name:'提交切换审批',exact:true}).click();
+ const dialog=page.locator('dialog[open]');await dialog.waitFor();
+ result.primaryOpen=await dialog.evaluate(el=>({text:el.innerText,display:getComputedStyle(el).display,color:getComputedStyle(el).color,padding:getComputedStyle(el).padding,rect:el.getBoundingClientRect().toJSON(),textarea:el.querySelector('textarea').getBoundingClientRect().toJSON(),formField:!!el.querySelector('.form-field'),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,bodyOverflow:getComputedStyle(document.body).overflow,focus:document.activeElement?.textContent}));
+ await page.screenshot({path:out+`primary-${width}.png`,fullPage:true});
+ result.emptyDisabled=await dialog.getByRole('button',{name:'提交审批',exact:true}).isDisabled();
+ await dialog.locator('textarea').fill('审查保留输入');await page.keyboard.press('Escape');result.escapeClosed=await dialog.count()===0;result.focusAfterEscape=await page.evaluate(()=>document.activeElement?.textContent);
+ await page.getByRole('button',{name:'提交切换审批',exact:true}).click();result.reasonAfterReopen=await dialog.locator('textarea').inputValue();
+ await dialog.locator('textarea').fill('测试原因');await dialog.getByRole('button',{name:'提交审批',exact:true}).click();result.busyLabel=await dialog.innerText();await dialog.getByRole('alert').waitFor();result.errorVisible=await dialog.getByRole('alert').innerText();
+ result.reasonAfterError=await dialog.locator('textarea').inputValue();result.maxLength=await dialog.locator('textarea').getAttribute('maxlength');
+ await page.screenshot({path:out+`primary-error-${width}.png`,fullPage:true});
+ mode='success';await dialog.getByRole('button',{name:'提交审批',exact:true}).click();await page.getByText('经营模式切换审批已提交。',{exact:true}).waitFor();result.successClosed=await dialog.count()===0;
+ await page.goto(`http://127.0.0.1:3417/homestay/stays/${unitId}`);await page.getByRole('button',{name:'登记未到店',exact:true}).waitFor({timeout:60000});await page.getByRole('button',{name:'登记未到店',exact:true}).click();
+ mode='error';await dialog.locator('textarea').fill('未到店审查');await dialog.getByRole('button',{name:'确认登记未到店',exact:true}).click();result.homestayBusy=await dialog.innerText();await page.waitForTimeout(800);result.homestayErrorInDialog=await dialog.getByRole('alert').count();result.homestayBodyError=await page.getByText('隔离 MOCK：提交被拒绝',{exact:true}).count();await page.screenshot({path:out+`homestay-error-${width}.png`,fullPage:true});
+ await context.close();fs.writeFileSync(out+'browser-results.json',JSON.stringify(all,null,2));
+ }}catch(e){fs.writeFileSync(out+'browser-results.json',JSON.stringify(all,null,2));throw e;}finally{await browser.close();}

@@ -109,7 +109,10 @@ function useDetailMutation(
       if (actionError instanceof ApiError && actionError.status === 409) {
         const actionMessage = propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试");
         setErrorMessage(actionMessage);
-        setState({ kind: "conflict", message: actionMessage });
+        const keepConfirmation = endpoint.endsWith("/no-show") || endpoint.endsWith("/lost");
+        setState(keepConfirmation
+          ? { kind: "ready", stale: true }
+          : { kind: "conflict", message: actionMessage });
       } else {
         const actionMessage = propertyErrorMessage(actionError);
         setMessage(actionMessage);
@@ -216,7 +219,7 @@ function BookingDetail({
     <>
       <BookingOverview data={data} />
       <BookingGuests data={data} />
-      {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} /> : null}
+      {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} busy={submitting} errorMessage={mutationError} /> : null}
       {canReschedule ? <HomestayReschedulePanel booking={booking} mutate={mutate} /> : null}
       <BookingProjections data={data} />
       <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} submitting={submitting} />

@@ -21,7 +21,7 @@ export function DialogActions({
   onCancel
 }: DialogActionsProps) {
   return (
-    <footer>
+    <footer className={`${styles.actions} ds-action-bar`}>
       <button
         autoFocus
         className={`${styles.touchTarget} ds-button`}
@@ -69,7 +69,7 @@ export function DialogContent({
       <header className="ds-panel-heading">
         <h2 id={titleId} tabIndex={-1}>{title}</h2>
       </header>
-      <div id={descriptionId}>
+      <div className={styles.content} id={descriptionId}>
         <p>
           操作对象：<strong>{target.label}</strong>
           <span>（标识：{target.id}）</span>
@@ -105,7 +105,7 @@ export function ReasonField({
     return null;
   }
   return (
-    <div>
+    <div className="form-field">
       <label htmlFor={reasonId}>
         {policy.label ?? "操作原因"}
         {policy.kind === "required" ? "（必填）" : "（选填）"}
@@ -117,6 +117,7 @@ export function ReasonField({
         maxLength={policy.maxLength}
         minLength={policy.kind === "required" ? policy.minLength ?? 1 : undefined}
         onChange={(event) => onChange(event.target.value)}
+        rows={3}
         required={policy.kind === "required"}
         value={reason}
       />

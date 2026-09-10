@@ -1,0 +1,174 @@
+[
+  {
+    "width": 1440,
+    "writes": [
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "测试原因"
+        },
+        "key": "property-mode-transition-28b472bc-6f4b-4059-97ca-516b1efa2842"
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "测试原因"
+        },
+        "key": "property-mode-transition-28b472bc-6f4b-4059-97ca-516b1efa2842"
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/no-show",
+        "body": {
+          "reason": "未到店审查"
+        },
+        "key": "homestay-action-5d31e431-59d8-4d99-816e-fafd3ff41627"
+      }
+    ],
+    "errors": [],
+    "unknown": [
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding"
+    ],
+    "primaryOpen": {
+      "text": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消提交审批",
+      "display": "block",
+      "color": "rgb(0, 0, 0)",
+      "padding": "0px",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 576,
+        "height": 390.5,
+        "top": 0,
+        "right": 576,
+        "bottom": 390.5,
+        "left": 0
+      },
+      "textarea": {
+        "x": 1,
+        "y": 243.5,
+        "width": 574,
+        "height": 96,
+        "top": 243.5,
+        "right": 575,
+        "bottom": 339.5,
+        "left": 1
+      },
+      "formField": false,
+      "scrollWidth": 574,
+      "clientWidth": 574,
+      "bodyOverflow": "visible",
+      "focus": "申请经营模式切换"
+    },
+    "emptyDisabled": true,
+    "escapeClosed": true,
+    "focusAfterEscape": "提交切换审批",
+    "reasonAfterReopen": "",
+    "busyLabel": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消正在提交…",
+    "errorVisible": "隔离 MOCK：提交被拒绝",
+    "reasonAfterError": "测试原因",
+    "maxLength": null,
+    "successClosed": true,
+    "homestayBusy": "确认登记未到店\n\n操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：未到店\n\n订单将进入未到店终态，后续入住操作将不可用。\n登记原因（必填）\n取消确认登记未到店",
+    "homestayErrorInDialog": 0,
+    "homestayBodyError": 2
+  },
+  {
+    "width": 390,
+    "writes": [
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "测试原因"
+        },
+        "key": "property-mode-transition-1a13de8b-cb45-4e3b-a6c1-b05ada537f21"
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "测试原因"
+        },
+        "key": "property-mode-transition-1a13de8b-cb45-4e3b-a6c1-b05ada537f21"
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/no-show",
+        "body": {
+          "reason": "未到店审查"
+        },
+        "key": "homestay-action-cf2e2776-45a2-4b8a-8416-cbb0c91631d2"
+      }
+    ],
+    "errors": [],
+    "unknown": [
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding"
+    ],
+    "primaryOpen": {
+      "text": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消提交审批",
+      "display": "block",
+      "color": "rgb(0, 0, 0)",
+      "padding": "0px",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 358,
+        "height": 360.5,
+        "top": 0,
+        "right": 358,
+        "bottom": 360.5,
+        "left": 0
+      },
+      "textarea": {
+        "x": 1,
+        "y": 243.5,
+        "width": 356,
+        "height": 66,
+        "top": 243.5,
+        "right": 357,
+        "bottom": 309.5,
+        "left": 1
+      },
+      "formField": false,
+      "scrollWidth": 356,
+      "clientWidth": 356,
+      "bodyOverflow": "visible",
+      "focus": "申请经营模式切换"
+    },
+    "emptyDisabled": true,
+    "escapeClosed": true,
+    "focusAfterEscape": "提交切换审批",
+    "reasonAfterReopen": "",
+    "busyLabel": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消正在提交…",
+    "errorVisible": "隔离 MOCK：提交被拒绝",
+    "reasonAfterError": "测试原因",
+    "maxLength": null,
+    "successClosed": true,
+    "homestayBusy": "确认登记未到店\n\n操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：未到店\n\n订单将进入未到店终态，后续入住操作将不可用。\n登记原因（必填）\n取消确认登记未到店",
+    "homestayErrorInDialog": 0,
+    "homestayBodyError": 2
+  }
+]

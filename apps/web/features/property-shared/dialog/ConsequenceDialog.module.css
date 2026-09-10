@@ -1,11 +1,52 @@
 .dialog {
+  margin: auto;
+  padding: var(--phoenix-space-5);
   inline-size: min(36rem, calc(100vw - 2rem));
   max-block-size: calc(100dvh - 2rem);
   max-inline-size: calc(100vw - 2rem);
   overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--text-primary);
+  text-align: start;
+  font-size: var(--font-size-table-body);
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
-.touchTarget {
+.dialog:not([open]) {
+  display: none;
+}
+
+.form,
+.content {
+  display: grid;
+  gap: var(--phoenix-space-4);
+  min-inline-size: 0;
+}
+
+.content ul {
+  padding-inline-start: var(--phoenix-space-5);
+  list-style: disc;
+}
+
+.content li + li {
+  margin-block-start: var(--phoenix-space-2);
+}
+
+.form textarea {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  resize: vertical;
+}
+
+.actions {
+  padding-block-start: var(--phoenix-space-2);
+}
+
+.dialog .actions .touchTarget {
   min-block-size: 44px;
   min-inline-size: 44px;
+  max-inline-size: 100%;
+  white-space: normal;
 }
