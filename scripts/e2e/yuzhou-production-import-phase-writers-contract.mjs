@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { computeProductionImportTouchedPhaseState, computeProductionImportTouchedPhaseBefore } from "../hr-cutover/production-import-phase-state.mjs";
 import { buildProductionImportPlanPhase } from "../hr-cutover/production-import-plan-phase-builder.mjs";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 
 import { computeProductionImportPayloadHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import {
@@ -35,7 +36,7 @@ function uuid(index) {
 }
 
 function orgPayload(index, name = `Org ${index}`) {
-  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: index };
+  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: index, legacy_hierarchy_level: 2, legacy_manager_reference: "M0001" };
 }
 
 function orgRecord(index, disposition = "insert", payload = orgPayload(index), extras = {}) {
@@ -304,7 +305,7 @@ test("merge and skip lock in bulk and enforce both canonical hash and version CA
 });
 
 test("dependencies resolve only through exact active maps from this operation and missing dependencies fail before business writes", async () => {
-  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null, authority: null, legacy_source_id: null, legacy_upto_code: null, position_manual: null, qualification: null, responsibilities: null };
+  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null, authority: null, legacy_source_id: null, legacy_upto_code: null, position_manual: null, qualification: null, responsibilities: null, hierarchy_level: null, sort_order: 0 };
   const sourceIdentitySha256 = H("position");
   const ownerIdentity = H("org-owner");
   const record = {

@@ -51,8 +51,16 @@ function load(path, expected) {
 export async function runYuzhouRetainedBundlePair(input, { runSide = runYuzhouPairSideProcess } = {}) {
   let step = "CONFIG"; const verified = [];
   try {
-    exact(input, ["A", "B", "outputDirectory"]);
+    const existing = input && Object.hasOwn(input, "existingReceipts");
+    exact(input, ["A", "B", "outputDirectory", ...(existing ? ["existingReceipts"] : [])]);
     input = JSON.parse(JSON.stringify(input));
+    if (existing) {
+      exact(input.existingReceipts, ["A", "B"]);
+      for (const side of ["A", "B"]) {
+        exact(input.existingReceipts[side], ["receiptSha256", "manifestSha256"]);
+        if (!Object.values(input.existingReceipts[side]).every(v => /^[a-f0-9]{64}$/u.test(v ?? ""))) fail();
+      }
+    }
     const configs = {};
     for (const side of ["A", "B"]) {
       exact(input[side], ["path", "sha256"]); if (!/^[a-f0-9]{64}$/u.test(input[side].sha256 ?? "")) fail();
@@ -71,10 +79,13 @@ export async function runYuzhouRetainedBundlePair(input, { runSide = runYuzhouPa
       step = side; const c = configs[side], pin = input[side];
       // Recheck immutable config immediately before invoking the one existing lifecycle.
       if (!same(load(pin.path, pin.sha256), c)) fail();
-      const result = await runSide({ mode: "execute-isolated", configPath: pin.path, configSha256: pin.sha256 });
+      const result = existing
+        ? { status: "LAB_PASS", finalReceiptPersisted: true, finalReceiptSha256: input.existingReceipts[side].receiptSha256 }
+        : await runSide({ mode: "execute-isolated", configPath: pin.path, configSha256: pin.sha256 });
       if (result?.status !== "LAB_PASS" || result.finalReceiptPersisted !== true || !/^[a-f0-9]{64}$/u.test(result.finalReceiptSha256 ?? "")) fail();
       const stored = load(join(c.stateRoot, `final-${c.artifacts.runId}.json`));
-      const identity = { runId: c.artifacts.runId, configSha256: pin.sha256, binding: c.artifacts.binding, manifestSha256: stored.value?.manifestSha256 };
+      const identity = { runId: c.artifacts.runId, configSha256: pin.sha256, binding: c.artifacts.binding,
+        manifestSha256: existing ? input.existingReceipts[side].manifestSha256 : stored.value?.manifestSha256 };
       const back = await readYuzhouLabFinalReceipt({ stateRoot: c.stateRoot, identity });
       const r = back.result, provenance = r.sideExecutionProvenance;
       if (back.receiptSha256 !== result.finalReceiptSha256 || r.status !== "LAB_PASS" || r.productionImport !== "HOLD" || r.failureCodes.length ||
@@ -91,10 +102,11 @@ export async function runYuzhouRetainedBundlePair(input, { runSide = runYuzhouPa
       const back = await readYuzhouLabFinalReceipt({ stateRoot: c.stateRoot, identity: { runId: c.artifacts.runId, configSha256: v.configSha256, binding: c.artifacts.binding, manifestSha256: v.manifestSha256 } });
       if (back.receiptSha256 !== v.finalReceiptSha256) fail();
     }
-    const receipt = { status: "RETAINED_PAIR_DATABASE_LIFECYCLES_PASS", evidenceMode: runSide === runYuzhouPairSideProcess ? "real_cli" : "synthetic_adapter", sides: verified, counts: a.artifacts.expectedCounts,
+    const receipt = { status: "RETAINED_PAIR_DATABASE_LIFECYCLES_PASS", evidenceMode: existing ? "verified_existing_receipts" : runSide === runYuzhouPairSideProcess ? "real_cli" : "synthetic_adapter", sides: verified, counts: a.artifacts.expectedCounts,
       preparedTriple: a.artifacts.expectedTriple, executorSha256: a.artifacts.binding.executorSha256, runtimeTreeSha256: a.runtimeTreeSha256,
       sourceConfigSha256: a.pairMaterials.originalConfig.sha256, pairMaterialsReceiptSha256: a.pairMaterials.receipt.sha256,
       databaseRollbackVerified: true, databaseResidualVerified: true, httpVerified: true,
+      ...(existing ? { databaseStateObservedNow: false } : {}),
       dockerResourcesCleaned: false, independentTrustRootsVerified: false, formalFinalRehearsalPairProduced: false, productionImport: "HOLD" };
     directory(input.outputDirectory, outStat); emit(input.outputDirectory, {}, receipt, {}, LIMIT, "pair-lifecycle-receipt.json");
     return receipt;
@@ -104,8 +116,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   let result;
   try {
     const args = process.argv.slice(2);
-    if (args.length !== 5 || args[0] !== "--execute-isolated" || args[1] !== "--request" || args[3] !== "--request-sha256" || !/^[a-f0-9]{64}$/u.test(args[4])) fail();
-    result = await runYuzhouRetainedBundlePair(load(args[2], args[4]));
+    if (args.length !== 5 || !["--execute-isolated", "--verify-existing"].includes(args[0]) || args[1] !== "--request" || args[3] !== "--request-sha256" || !/^[a-f0-9]{64}$/u.test(args[4])) fail();
+    const request = load(args[2], args[4]);
+    if (Object.hasOwn(request, "existingReceipts") !== (args[0] === "--verify-existing")) fail();
+    result = await runYuzhouRetainedBundlePair(request);
   } catch { result = { status: "FAILED", failureCode: "LAB_PAIR_REQUEST_FAILED", productionImport: "HOLD" }; }
   process.stdout.write(`${JSON.stringify(result)}\n`); if (result.status === "FAILED") process.exitCode = 1;
 }

@@ -64,7 +64,7 @@ test("all eight hashes precede connection; serializable apply/HTTP/reverse/resid
   assert.equal(trace.at(-1), "release"); assert.ok(!JSON.stringify(result).includes("fixture-owner"));
 });
 test("HTTP failure classifications survive owner reversal and final receipt readback without raw diagnostics",async()=>{
- const failure={step:"verify",errorType:"Error",code:"HR_HTTP_PROBE_TIMEOUT",sqlState:null,requestStep:"contracts_detail"};
+ const failure={step:"verify",errorType:"Error",code:"HR_HTTP_PROBE_TIMEOUT",sqlState:null,requestStep:"insurancePeriods_page1",insuranceTimings:[{stage:"items",status:"pending",elapsedMs:14900}]};
  const {input}=fixture({httpFailure:failure}),result=await runYuzhouRealBundleLabOwner(input);
  assert.equal(result.status,"FAILED");assert.deepEqual(result.httpFailure,failure);assert.equal(result.rollbackVerified,true);assert.equal(result.residualVerified,true);
  const stateRoot=await realpath(await mkdtemp(join(tmpdir(),"owner-http-step-")));

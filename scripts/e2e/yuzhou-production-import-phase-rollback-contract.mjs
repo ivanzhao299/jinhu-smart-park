@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
+import { URL } from "node:url";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -22,7 +24,7 @@ const targetScope = { tenantId: UUID(9001), parkId: UUID(9002), scopeSha256: H("
 const model = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL;
 
 function orgPayload(index, name = `Org ${index}`) {
-  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
+  return { org_code: `ORG-${index}`, org_name: name, org_type: "department", sort_order: index, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null, legacy_hierarchy_level: 2, legacy_manager_reference: "SYN-MGR" };
 }
 
 function plannedRecord(index, disposition = "skip_approved", overrides = {}) {
@@ -137,7 +139,7 @@ test("insert rollback locks and verifies target ID/version/canonical CAS before 
   const payload = orgPayload(10);
   const record = plannedRecord(10, "insert", { payload });
   const control = controlFor(record, 0);
-  const tx = fakeTx(async (sql, _parameters) => {
+  const tx = fakeTx(async (sql) => {
     if (sql.includes("lock-control")) return { rows: [control] };
     if (sql.includes("dependency-order")) return { rows: [] };
     if (sql.includes("lock-business:sys_org")) return { rows: [{ id: record.targetId, version: 1, ...payload, parent_id: null }] };
@@ -180,7 +182,7 @@ test("merge rollback decrypts the control-table before image, verifies plaintext
       return { plaintextSha256: beforeHash, targetBefore: { payload: beforePayload, derivedFields: { parent_id: null }, version: 7, canonicalSha256: beforeHash } };
     },
   };
-  const tx = fakeTx(async (sql, _parameters) => {
+  const tx = fakeTx(async (sql) => {
     if (sql.includes("lock-control")) return { rows: [control] };
     if (sql.includes("dependency-order")) return { rows: [] };
     if (sql.includes("lock-business:sys_org")) return { rows: [{ id: record.targetId, version: 8, ...afterPayload, parent_id: null }] };

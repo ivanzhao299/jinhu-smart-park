@@ -63,6 +63,10 @@ const targetHashA = computeProductionImportTargetCanonicalHash("sys_org", scope,
 const targetHashB = computeProductionImportTargetCanonicalHash("sys_org", scope, { status: "enabled", org_type: "company", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null, sort_order: 0, org_name: "园区", org_code: "001" }, {}, model);
 assert.equal(targetHashA, targetHashB);
 assert.notEqual(targetHashA, computeProductionImportTargetCanonicalHash("sys_org", scope, { ...payload, org_name: "园区集团" }, {}, model));
+for (const fields of [{ legacy_hierarchy_level: 2 }, { legacy_manager_reference: "M0001" }]) {
+  assert.notEqual(targetHashA, computeProductionImportTargetCanonicalHash("sys_org", scope, { ...payload, ...fields }, {}, model), "legacy organization fields participate in target equality");
+  for (const field of Object.keys(fields)) assert.ok(model.targetTables.sys_org.fieldWhitelist.includes(field));
+}
 
 assert.throws(
   () => validateProductionImportTargetModel({ ...model, targetTables: { ...model.targetTables, sys_org: { ...model.targetTables.sys_org, fieldWhitelist: [...model.targetTables.sys_org.fieldWhitelist, "create_time"] } } }),

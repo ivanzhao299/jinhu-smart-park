@@ -1,0 +1,122 @@
+# 全域演练与保留输入的真实接线缺口
+
+## PR731集成门禁修复（2026-09-10）
+
+c7c5ff76已推送PR731；CI34434000006失败于production-import-v2测试，不是外部权限问题。根因是新组织/岗位/员工字段已进入目标模型，而加密before-image、baseline、全链fixture、回滚及T0库存的部分合成样例没有同步。补齐六份测试/fixture的显式合成字段，包含非空层级/管理者引用、负排序及员工旧状态；不修改真实载荷、生产校验、哈希或授权。全链fixture增加精确字段集合断言，防止后续遗漏被其他路径掩盖。
+
+V2测试151通过、1个65MiB显式opt-in用例保持跳过；同一CI步骤中其余所有pnpm合同命令按失败位置继续运行后通过，未重复此前已通过且未变动的测试。局部lint收尾显式导入Node内置变量并移除未使用测试回调参数。未执行数据库装载、生产写入或新的A/B；三个前端WIP仍排除在PR之外。后续看新提交CI实际结果，不能把本地合同通过当发布成功。
+
+## 岗位关系影响范围与生成器接线（2026-09-10）
+
+继续同一manifest固定的真实来源核对：7条缺父岗位、2条缺组织实际属于同一组7个岗位，无新增依赖后代，27名员工引用这组岗位。未匹配父引用不是全零/-1/null类标记，与现有编码无大小写或纯数字去前导零等价匹配，也不匹配源整数ID；其中3条与一个现有岗位名称精确匹配（名称无歧义），但这只是调查线索，不能自动把名称当编码。其余4条父引用无岗位名称匹配。两个组织引用未发现编码大小写/纯数字等价或源ID匹配。
+
+旧DDL中dbo.job的主键是job；parentjob和department都是可空varchar(30)，该表定义未声明它们的外键。归档过程源码parentjob精确检索无命中，不据此推断运行客户端没有规则。仍需旧页面/完整来源证据才能确定名称引用语义。
+
+在现有materializeProductionT0DecisionCandidates返回的安全摘要增加relationAudit，使用已经由readStage验证的来源，复用现有岗位循环检查。输出只有计数，覆盖缺父/缺组织/循环、名称匹配线索、影响岗位闭包及员工引用；不修改私有候选artifact结构、目标字段、映射决定或授权门禁。合成合同覆盖交叠去重、后代传播、空引用、缺根组织、循环、名称歧义、输入不变及摘要接线；定向合同/ESLint通过。真实内容校验后运行同一函数确认7岗位/27员工、名称唯一匹配3、歧义0。此次没有生成新真实载荷或写数据库，不能称关系问题已经修复。
+
+下一步应从这7个岗位的原始关系处置入手，并明确27人的岗位依赖处置；其余2922名员工只是未受此岗位问题影响，不等于已经通过日期、字典、目标碰撞或其他验收。不可把本统计再变成一项生产签署门禁。
+
+## 真实T0关系核对（2026-09-10，生产载荷准备前）
+
+对已保留T0来源进行只读聚合核对，先固定manifest字节SHA（19841812bfc607f914c45f4877350e7a6903f2440e86a12d49f8645a744772a0），再验证三个域文件SHA、声明行数和每行sourceRowSha256。组织138、岗位18、员工2949；使用当前orderLegacyPositionRows，岗位循环或依赖循环记录0。岗位非空父引用不在岗位编码集合中7条，非空组织引用不在组织集合中2条；两项可能重叠，不可相加为9条。员工组织未匹配0、岗位为空171、非空岗位未匹配0。未读取或输出原始字段值到报告，未写数据库、未生成新载荷。
+
+源码追踪：extract-yuzhou-t0.sh明确从dbo.job.parentjob提取parentPositionCode、dbo.job.department提取departmentCode；load-yuzhou-t0.sh既有关系检查同样要求非空父岗位存在，非空组织匹配。当前decision producer新增父依赖会影响这些真实记录的处置，不能直接沿用旧成功载荷或将7条一概解释为脏数据。下一动作是针对这两类引用核对旧库定义/根节点语义及员工依赖影响，再确定保留、映射或独立隔离；无需重新抽取全库。尚不证明当前源恢复身份、完整候选生成、业务表装载或生产放行。
+
+## T0真实字段类型往返验证（2026-09-10）
+
+基于e3a222ab的真实字段投影修复，更新原yuzhou-t0-extended-fields.pg.mjs识别smallint，并加入员工旧状态两列。读取保留staging，验证各域文件hash、源行hash及138/18/2949行数；不重新连接SQL Server提取、不覆盖源文件。使用已明确标记实验用途的PostgreSQL，CREATE TEMP TABLE后BEGIN READ ONLY，验证jsonb→对应migration列类型→jsonb相等，ROLLBACK后临时表零行；连接退出销毁临时表。业务表写入0。
+
+实际exit0：组织138行/5个扩展字段、岗位18行/8个扩展字段、员工2949行/2个旧状态字段全部roundtrip PASS，三域rollbackRows均0。首次两域验证通过后扩展员工，再运行一次三域测试；不是重新跑全量装载。目标宿主与Docker容量检查通过，未清理其他资源。测试文件ESLint及diff检查通过。
+
+证据范围限定为保留来源的字段类型往返，不证明现行源恢复身份、完整业务表约束、父岗位外键、完整载荷生成、当前代码正式A/B或前端展示。员工employment_type未进入本次两列临时表验证，语义仍由前轮合同测试覆盖。下一步核对真实候选生成及用户端展示，不能把该结果标为生产已导入。
+
+## 员工旧状态与临时工语义（2026-09-10）
+
+收尾同时消除本次触及三份JS文件的27项既有lint诊断：显式导入Node内置项、通过globalThis引用structuredClone，去掉仅为排除对象字段的未使用解构变量（仍返回新对象，不修改入参）。decision与16项writer测试重新通过，三文件ESLint及diff检查通过。此为局部lint通过，不代表全仓质量门禁通过。
+
+继0dae5856后，decision producer按旧T0 SQL规则保留legacyStatus原代码（去首尾空白但不改大小写），生成legacy_jobstate_code/name；1–6、a、b八种固定名称与旧加载器一致，未知代码不猜名称。A/a类employment_type改为temporary，其余full_time；employment_status仍来自原机器字典决定，不能用旧显示名称覆盖或绕开未解析字典隔离。非文本、超过8字符、NUL输入明确隔离。
+
+目标白名单与canonical比较同步加入两列。合成测试覆盖八类、大小写、空值、未知和非法值，集成候选证明A代码为temporary、现代状态仍active。decision、target-model、payload-generator、real-artifact-bridge合同通过。扩大phase-writers测试发现8项失败均由前两轮新增字段使旧合成组织/岗位payload不完整引起；仅补合成字段，保留完整载荷校验后16项写入器测试通过。
+
+源码确认API实体与权限投影已有legacyJobstateCode/Name；Web检索只见hr-api类型声明，尚无已验证页面显示，不宣称用户端闭环。新增字段未从真实来源重生成、未真实装载、未部署。下一步批量核对所有T0新增字段的载荷/数据库和页面接线，不能把旧成功回执当新增字段验证。
+
+## 岗位字段与父子关系接线（2026-09-10）
+
+在22bda329组织修复之后，继续对照实际T0 SQL：source.rating→hierarchy_level，source.sortOrder→sort_order（空值0），source.parentPositionCode→同域父岗位依赖→reports_to_position_id。目标模型、canonical字段、foreignKeys及decision producer一起修改，不使用名称猜测关联。
+
+岗位按父先子后的拓扑次序产生候选，重复编码失败；父引用缺失隔离，循环、自引用以及依赖循环的记录隔离，其余后代通过已有dependency状态传播规则处理。合成测试覆盖逆序输入、重复、自引用、循环及循环后代；集成候选验证P001精确引用P002的来源身份。层级限制非负smallint，排序限制int32且允许负排序值。sort_order为数据库非空列，目标模型明确required，不以nullable绕开，原缺少该字段的冻结载荷需重新由生产者生成。
+
+decision、target-model、payload-generator定向合同通过。两次测试修正分别是模型补必填分类、合成payload补sort_order=0；未改变真实输入或原回执。尚未做真实PG装载、全套下游合同或浏览器验证，不宣称完整上下级业务已验收。员工旧状态字段及A类临时工被统一映射full_time的语义差异仍待下一步处理。
+
+## 字段对齐实修：组织遗留层级与管理者引用（2026-09-10）
+
+候选已无冲突合入origin/main，合并提交e248e563；保留此前所有提交与回执。两条pair合同合并后31项通过。
+
+对照旧T0 SQL加载器与当前生产目标模型，排除parent_id、primary_org_id、position_id、org_id等已有派生外键后，发现实际遗漏：组织legacy_hierarchy_level/legacy_manager_reference，岗位reports_to_position_id/hierarchy_level/sort_order，员工legacy_jobstate_code/legacy_jobstate_name。不能把这些遗漏都归为格式适配问题。
+
+本次只修复组织两列：decision producer从source.rating和source.legacyManagerValue生成字段，目标模型将其加入白名单、可空字段及canonical比较。层级受非负smallint范围约束，管理者引用限10字符且拒绝NUL；仅保留原引用，不推断用户或员工外键。没有修改数据库migration、源文件或真实已生成载荷。
+
+定向decision、target-model、payload-generator合同通过；新增边界和canonical差异断言。首次decision测试因合成目标库存缺少新增层级值而触发正确的collision HOLD，已补合成库存为来源的层级1，没有弱化碰撞规则。ESLint对照HEAD确认producer15项、decision测试2项诊断完全相同，非此次引入；没有宣称lint全绿。未运行真实PostgreSQL写入或前端验收。
+
+岗位与员工上述字段仍未补齐；组织新字段尚未从真实保留源重新生成候选并做数据库验证。先沿该已证明字段缺口继续，不把旧T0载荷或旧成功回执宣称为新增字段覆盖证据。当前修改会改变映射内容，后续须由生产者生成新材料，禁止手改旧哈希。
+
+## 续接核验：既有结果复用与远端漂移（2026-09-10）
+
+候选HEAD仍为748776cd。本轮fetch后的origin/main为63731906，候选ahead3/behind6；未合并、未覆盖工作树。新增43个文件变更与LAB_EXECUTION_DEPENDENCIES无交集，也没有apps/api或发布workflow变更，但包含packages/shared/src/property-business/display-labels.ts。computeYuzhouLabExecutionBinding散列整个shared/src，因此不能将“迁移脚本无变化”解释为runtimeTreeSha256不变，也不能把旧执行回执重新标为新提交。
+
+既有未提交的pair复用实现经定向核验：17项合同测试通过，两个相关文件ESLint通过，git diff --check通过。新增入口为`--verify-existing --request <private-request> --request-sha256 <sha256>`；请求保留原A/B配置引用和空输出目录，额外提供existingReceipts.A/B各自的receiptSha256及manifestSha256。它不调用数据库runner、不覆盖旧回执；仅在全部匹配时生成新的安全摘要。错误receipt/manifest pin、不同执行代码均失败。输出databaseStateObservedNow=false、formalFinalRehearsalPairProduced=false、productionImport=HOLD，不是当前数据库观察，也不是正式生产演练放行。
+
+后续收尾已补两个真实Node CLI负例：verify-existing缺少existingReceipts，以及execute-isolated带existingReceipts，均在请求层退出1、stderr为空、输出目录为空；不会进入side配置或数据库runner。19项测试、定向ESLint与diff检查通过。
+
+本轮没有真实装载、源重抽、生产写入或新增Agent。实际旧A/B不同提交的事实未解除。不得靠改hash或删除门禁将其拼成成功。生产plan materializer的metadata消费者要求finalRehearsalPair，但只读取其中摘要；实际正式生产者为final-rehearsal-pair.mjs，返回包含contractSha256、sourceFacts和humanUat状态的完整结果。retained pair输出不是该结果，不能仅转换字段名作为生产证据。下一步沿正式生产者检查已保留输入及各阶段适配，复用已有来源，不重新提取。
+
+## 优先级纠正：已成功writer输入不缺这套抽取目录journal（2026-09-10）
+
+此前将新发现的T0目录来源journal作为成功writer输入的前置缺口，追踪对象不正确。源码证明 `production-import-payload-generator.mjs` 把 `decisions.phaseManifests[phase]` 写为sourceBatchManifestSha256；candidate-freeze与real-artifact-bridge证明这个值是phaseArtifact字节SHA，不是旧抽取目录manifest SHA。
+
+从成功运行原配置所指向的四个records文件获取实际引用后，限定phase文件名、非链接、单文件256MiB/总1GiB读取预算，流式核对38个文件（721412782字节），四个来源工件均找到唯一字节匹配：
+
+- T0：3105条，b7ef494f2cb549149ee8a56bea79f144f680f47f2c2e71e4f867c5e1dbf784c6。
+- T1：6887条，df142be203dc5899ef37da56a2f5ec2c729f9961ef248a8a7ba1da479cc8a056。
+- T2：1163条，ee40d818d0bc224e269b36436a20a708566b7c045da22e95af33f6c710ae3069。
+- T3：249673条，617476a3cee4da4cfa76b74b33cfbf1bbafa3643da9ec9243d693ab20a71af0e。
+
+T0匹配工件类型为yuzhou_hr_production_import_real_phase_staging，C/S/M与原成功输入相同。其余三项本轮仅验证引用字节存在，不扩张为新一次字段/业务或来源数据库验证。没有DB写入或源重抽。
+
+立即停止把无journal的最新T0目录当作上述四阶段成功输入的必要材料。新增内容验证器可保留，但不是生产T0–T3链的必经步骤；不要继续为它补一个与实际writer无关的来源流程。下一主攻点回到正式全域pair与当前执行计划的证据适用性。不得以此定位成功宣称正式pair、生产计划或生产导入已完成。
+
+## 首个实现更新
+
+2026-09-10核验更新：合成planned样例最后更新于29d40d92，其后9个原映射依赖发生变化（T0/T1/T2/T3加载、T0回滚、T1/T3转换及生命周期）。该样例不是历史执行回执。共享T0布局加入正式mappingContractComponents后，仅更新planned样例的M为717597aa5d25b24f7693386adfba527a39f588d6e9f2533e1acd38e015e3d685；生产verifier的精确比较和错误M负例未放宽。全域Slice1合同及14个负例通过；T0新验证9项、生命周期和Slice3回归均通过。没有更新任何真实历史回执身份。
+
+真实只读核验：在指定受控报告根按departments.jsonl精准发现12套六文件T0材料，选择最新manifest的一套，manifest SHA f07720223dfdb3d2c3adadf87dd129a86ea0b159e10f8f5831268165348762f4。六文件均通过权限/链接/字节哈希检查；manifest声明组织138、岗位18、员工2949，以及三个状态元数据域7/5/8。行数只是声明，未重新解析业务行。manifest pin来自当前本地观察，不是独立源身份背书；sourceBindingVerified/rowCountsVerified/lifecycleReady仍false。未复制/回显业务内容、未写数据库。下一步将这套实际文件hash关联原恢复回执及来源journal，不得把内容验证自动升级为来源或正式A/B通过。
+
+新增 `verify-yuzhou-retained-t0-files.mjs`，消费固定私有目录与预期manifest SHA，校验六类T0文件固定布局、权限、非链接、字节哈希和读前后身份。摘要读取有64KiB上限，业务文件只流式摘要，六文件总读取上限384MiB，支持空文件，不解析或返回个人字段。输出只含固定域名、哈希、字节数与manifest声明行数；明确 `sourceBindingVerified=false`、`rowCountsVerified=false`、`lifecycleReady=false`，不能直接拿去执行load。
+
+T0布局提取为共享常量，原生命周期使用相同布局，不修改原extract/journal门禁。新增9项正负例通过，生命周期回归脚本通过；新文件ESLint通过。原生命周期55项ESLint诊断经HEAD版本对照完全相同，没有在本切片消除。另一个全域contract测试在第31行的样例mappingContractHash与computeMappingContractHash比较失败，两哈希来源须下一步核对，不能盲改样例hash或宣称全域验证通过。相关contract/样例文件本轮均未修改。
+
+当前实现只到内容验证，还需要核对真实保留T0文件的格式、原source run/journal及来源绑定，才可以设计新的retained journal分支。本轮未执行任何真实装载或修改原材料。
+
+## 本轮只读核验
+
+- 当前候选基线为 `7938f4d8`。T0–T3 的真实成功发生在 `163a47b0`；保留原执行身份，不重新标记。
+- `run-yuzhou-retained-bundle-pair.mjs` 只证明两侧数据库生命周期；明确不生成正式全域 pair，也不证明独立可信根和容器资源清理。
+- `final-rehearsal-pair.mjs` 要求全域、P0、备份故障、反向回滚与资源清理；不能以普通 pair 替代。
+- `full-domain-lifecycle.mjs` 的 `extractManifestFacts` 要求 run staging 中的固定文件及哈希；后续 journal 校验仅接受本 run/C/S/M 对应的 `kind=child, phase=extract` 记录。没有已保留输入的独立接入分支。
+- 对指定受控报告根进行了最大5层、仅文件名匹配 final/pair JSON 摘要的限定检索：6739个文件名中没有找到具有 status/rehearsals 的匹配摘要。不是对全机、归档或其他工作树的穷尽检索，不能据此宣称历史证据被删除或从未存在。
+- 主生产计划的阶段是T0–T3；T5非文件存在独立绑定，不应将主计划称为已经覆盖全量工资、照片附件的统一执行器。
+
+## 下一实现边界：显式 retained 输入，而非伪造 extract
+
+1. 先核对旧全域 staging 与当前 prepared payload 的格式：二者不能按文件名互换。按域列出原始提取 manifest、文件哈希、源恢复回执及转换合同；只有存在且验证通过的输入才能接入。
+2. 增加独立的 retained-input descriptor 与纯验证器。它保留原始 source run/triple/manifest，另记录本次消费 run/triple 和经验证的依赖适用性；不修改旧 manifest、日期、C或journal。
+3. 依赖不同或格式不同必须明确失败并列出技术分类；不能通过复制hash、重命名文件或无条件重绑C宣称复用。已存在的脱敏隔离决定与来源守恒必须保留。
+4. 通过后再扩展生命周期：journal使用独立 `retained_input_verified` 事件，不伪造一次 extract 子进程。旧 extract 路径行为不变，load只能消费已校验的两种明确来源之一。
+5. 保留源材料为只读外部引用，清理registry区分 owned 与 retained reference；回滚和cleanup绝不删除原始输入。若旧加载器必须本地staging，应先改其显式输入路径接口，不能私自复制个人数据或用未核验符号链接绕开约束。
+6. 用合成测试覆盖缺失、哈希漂移、跨源/跨域/跨run、映射依赖变化、额外文件、符号链接、重复journal和cleanup误删；再做一个真实域的只读输入验证，不启动全量加载。
+
+## 后续仍需完成
+
+retained输入接线成功不等于正式A/B完成。正式运行仍需当前代码的实际加载/业务和角色验收/故障恢复/回滚证据，生产还需同提交发布、目标基线、备份及执行授权绑定。照片附件和工资发放保持各自执行边界。
+
+本轮未改业务代码、未访问业务行、未重抽、未新建数据库、未运行装载。下一轮优先实现上方第1–2项的一个有界域，不能再次把本说明当作已实现的适配器。

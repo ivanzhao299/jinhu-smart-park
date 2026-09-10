@@ -1,19 +1,61 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import console from "node:console";
 import { createHash } from "node:crypto";
 import fs, { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+const { structuredClone } = globalThis;
 
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
-import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields, orderLegacyPositionRows, projectLegacyEmployeeState, summarizeLegacyT0Relations } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
 
-assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", {}), { valid: true, fields: { contact_phone: null, legacy_source_id: null, planned_headcount: null } });
-assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", { contactPhone: "  ", legacySourceId: "2147483647", plannedHeadcount: 0 }), { valid: true, fields: { contact_phone: "  ", legacy_source_id: 2147483647, planned_headcount: 0 } });
+{
+  const row = (sourceKey, source) => ({ sourceKey, source });
+  const input = {
+    organizations: [row("000", {})],
+    positions: [row("p", { positionName: "Leader", departmentCode: "000" }), row("bad", { parentPositionCode: "Leader", departmentCode: "missing" }), row("child", { parentPositionCode: "bad" })],
+    employees: [row("e", { departmentCode: "000", positionCode: "child" }), row("empty", { departmentCode: "000" }), row("orphan", { departmentCode: "missing", positionCode: "unknown" })],
+  };
+  const before = JSON.stringify(input);
+  const audit = summarizeLegacyT0Relations(input);
+  assert.deepEqual(audit, { positionMissingParentRows: 1, positionMissingOrgRows: 1, positionCycleOrDependentRows: 0, parentUniqueNameMatchRows: 1, parentAmbiguousNameMatchRows: 0, directlyAffectedPositionRows: 1, affectedPositionRows: 2, employeeMissingOrgRows: 1, employeeEmptyPositionRows: 1, employeeUnresolvedPositionRows: 1, employeesWithAffectedPosition: 1 });
+  assert.equal(JSON.stringify(input), before);
+  assert.ok(Object.values(audit).every(value => Number.isSafeInteger(value) && value >= 0));
+  input.positions.push(row("duplicate-name", { positionName: "Leader" }));
+  assert.equal(summarizeLegacyT0Relations(input).parentAmbiguousNameMatchRows, 1);
+  assert.equal(summarizeLegacyT0Relations(input).parentUniqueNameMatchRows, 0);
+  input.positions.push(row("self", { parentPositionCode: "self" }));
+  assert.equal(summarizeLegacyT0Relations(input).positionCycleOrDependentRows, 1);
+  input.organizations = [];
+  assert.equal(summarizeLegacyT0Relations(input).positionMissingOrgRows, 5);
+}
+
+for (const [code, name] of [["1", "在职人员"], ["2", "退休人员"], ["3", "离休人员"], ["4", "离职人员"], ["5", "内退人员"], ["6", "试用人员"], ["a", "临时人员"], ["b", "未办退厂手续"]]) {
+  for (const raw of [code, code.toUpperCase(), ` ${code} `]) {
+    assert.deepEqual(projectLegacyEmployeeState(raw), { valid: true, fields: { legacy_jobstate_code: raw.trim(), legacy_jobstate_name: name, employment_type: code === "a" ? "temporary" : "full_time" } });
+  }
+}
+assert.equal(projectLegacyEmployeeState("UNKNOWN").fields.legacy_jobstate_name, null);
+assert.equal(projectLegacyEmployeeState(null).fields.legacy_jobstate_code, null);
+for (const value of [123, {}, "123456789", "a\u0000b"]) assert.equal(projectLegacyEmployeeState(value).valid, false);
+
+const positionRow = (sourceKey, parentPositionCode) => ({ sourceKey, source: { parentPositionCode } });
+assert.deepEqual(orderLegacyPositionRows([positionRow("child", "parent"), positionRow("parent", "")]).rows.map(r => r.sourceKey), ["parent", "child"]);
+assert.deepEqual([...orderLegacyPositionRows([positionRow("a", "b"), positionRow("b", "a"), positionRow("c", "a"), positionRow("root", "")]).cyclicCodes].sort(), ["a", "b", "c"]);
+assert.equal(orderLegacyPositionRows([positionRow("self", "self")]).cyclicCodes.has("self"), true);
+assert.equal(orderLegacyPositionRows([positionRow("missing", "absent")]).cyclicCodes.size, 0);
+assert.throws(() => orderLegacyPositionRows([positionRow("same", ""), positionRow("same", "")]), ProductionT0DecisionCandidatesError);
+for (const source of [{ rating: -1 }, { rating: 32768 }, { sortOrder: "2147483648" }, { sortOrder: 1.5 }]) assert.equal(projectLegacyT0ExtendedFields("hr_position", source).valid, false);
+assert.equal(projectLegacyT0ExtendedFields("hr_position", { rating: 2, sortOrder: -3 }).fields.sort_order, -3);
+
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", {}), { valid: true, fields: { contact_phone: null, legacy_manager_reference: null, legacy_source_id: null, planned_headcount: null, legacy_hierarchy_level: null } });
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", { contactPhone: "  ", legacySourceId: "2147483647", plannedHeadcount: 0, rating: "32767", legacyManagerValue: "M0001" }), { valid: true, fields: { contact_phone: "  ", legacy_manager_reference: "M0001", legacy_source_id: 2147483647, planned_headcount: 0, legacy_hierarchy_level: 32767 } });
+for (const source of [{ rating: -1 }, { rating: 32768 }, { rating: 1.5 }, { legacyManagerValue: "x".repeat(11) }, { legacyManagerValue: "a\u0000b" }]) assert.equal(projectLegacyT0ExtendedFields("sys_org", source).valid, false);
 for (const source of [{ plannedHeadcount: -1 }, { plannedHeadcount: 1.5 }, { legacySourceId: "2147483648" }, { contactPhone: "x".repeat(51) }, { contactPhone: 123 }, { contactPhone: "a\u0000b" }]) {
   assert.equal(projectLegacyT0ExtendedFields("sys_org", source).valid, false);
 }
@@ -43,7 +85,7 @@ const domainRows = {
     { key: "0001", source: { orgName: "Fixture Department", rating: 2, sortOrder: 1 }, table: "dbo.departmentcode" },
     { key: "000", source: { orgName: "Fixture Root", rating: 1, sortOrder: 0 }, table: "dbo.departmentcode" },
   ],
-  positions: [{ key: "P001", source: { positionName: "Fixture Position", departmentCode: "0001", jobgrade: "family", salarygrade: "level", headcountLimit: " 12 " }, table: "dbo.job" }],
+  positions: [{ key: "P001", source: { positionName: "Fixture Position", departmentCode: "0001", jobgrade: "family", salarygrade: "level", headcountLimit: " 12 ", parentPositionCode: "P002", rating: 2, sortOrder: 7 }, table: "dbo.job" }],
   employees: [{ key: "E001", source: { fullName: "Fixture Person", departmentCode: "0001", positionCode: "P001", legacyStatus: "A", hireDate: "2024-01-01", formalDate: "2024-02-01", departureDate: "" }, table: "dbo.person" }],
 };
 const files = { departments: "departments.jsonl", positions: "positions.jsonl", employees: "employees.jsonl" };
@@ -80,7 +122,7 @@ const records = Object.entries(domainRows).flatMap(([domain, rows]) => rows.map(
 for (const [domain, targetTable] of [["departments", "sys_org"], ["positions", "hr_position"], ["employees", "hr_employee"]]) for (const line of readFileSync(join(staging, files[domain]), "utf8").toString().split("\n").filter(Boolean).slice(domainRows[domain].length)) { const row = JSON.parse(line); records.push({ phase: "T0", targetTable, sourceSystem: "yuzhou-v10", sourceTable: row.sourceTable, sourcePkCanonical: `sha256:${row.sourceIdentitySha256}`, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }); }
 const phasePath = join(root, "phase.json"); writePrivate(phasePath, `${JSON.stringify({ formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_phase_staging", triple, phase: "T0", records })}\n`);
 const scope = { tenantId: "tenant", parkId: "park" }; const targetScope = { ...scope, scopeSha256: computeProductionImportTargetScopeHash(scope) };
-const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
+const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null, legacy_hierarchy_level: 1, legacy_manager_reference: null };
 const rootBusiness = computeProductionImportBusinessIdentityHash("sys_org", targetScope, rootFields);
 const rootCanonical = computeProductionImportTargetCanonicalHash("sys_org", targetScope, rootFields);
 const inventoryPath = join(root, "inventory.json"); writePrivate(inventoryPath, `${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_t0_target_inventory_readonly", status: "PASS", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: "d".repeat(64), targetScopeSha256: targetScope.scopeSha256, targetTableCounts: { sys_org: 1, hr_position: 0, hr_employee: 0 }, records: [{ targetTable: "sys_org", businessIdentitySha256: rootBusiness, targetId: "11111111-1111-4111-8111-111111111111", targetCanonicalSha256: rootCanonical, targetVersion: 3 }] })}\n`);
@@ -94,6 +136,7 @@ job.canonicalDecisionSha256 = canonicalDecisionHash(job);
 const jobPath = join(root, "job.json"); writePrivate(jobPath, `${JSON.stringify(job)}\n`);
 const outputPath = join(output, "candidates.json");
 const result = materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: inventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath }, { head: () => codeSha });
+assert.ok(result.relationAudit && Object.values(result.relationAudit).every(Number.isSafeInteger));
 assert.equal(result.status, "READY_FOR_FREEZE");
 assert.deepEqual(result.targetTableCounts, { sys_org: 138, hr_position: 18, hr_employee: 2949 });
 assert.equal(result.countByDisposition.skip_exact, 1);
@@ -103,6 +146,16 @@ const artifact = JSON.parse(readFileSync(outputPath, "utf8"));
 assert.equal(artifact.records.find(row => row.targetTable === "sys_org" && row.candidateDisposition === "skip_exact").expectedTargetVersion, 3);
 assert.equal(artifact.records.find(row => row.targetTable === "hr_employee").dependencyRefs.length, 2);
 assert.equal(artifact.productionImport, "HOLD");
+const legacyEmployee = artifact.records.find(row => row.targetFields?.employee_code === "E001");
+assert.equal(legacyEmployee.targetFields.employment_type, "temporary");
+assert.equal(legacyEmployee.targetFields.legacy_jobstate_code, "A");
+assert.equal(legacyEmployee.targetFields.legacy_jobstate_name, "临时人员");
+assert.equal(legacyEmployee.targetFields.employment_status, "active");
+const childPosition = artifact.records.find(row => row.targetFields?.position_code === "P001");
+assert.equal(childPosition.targetFields.hierarchy_level, 2);
+assert.equal(childPosition.targetFields.sort_order, 7);
+assert.equal(childPosition.dependencyRefs.length, 2);
+assert.deepEqual(childPosition.dependencyRefs.find(ref => ref.role === "parent_position"), { role: "parent_position", phase: "T0", sourceIdentitySha256: sha("dbo.job\0P002"), expectedTargetTable: "hr_position" });
 for (const [positionCode, expected] of [["P001", 12], ["P002", 0], ["P003", null], ["P004", -1]]) {
   const position = artifact.records.find(row => row.targetTable === "hr_position" && row.targetFields.position_code === positionCode);
   assert.equal(position.targetFields.headcount_limit, expected);

@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { validateYuzhouLabResourceDescriptor, assertYuzhouLabResources } from "./yuzhou-lab-resource-descriptor.mjs";
 import { sanitizeYuzhouHttpRequestStep } from "./yuzhou-real-import-http-probe.mjs";
+import { installInsuranceLabTiming, sanitizeInsuranceLabTimings } from "./yuzhou-insurance-lab-timing.mjs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -11,6 +12,7 @@ import { join, resolve } from "node:path";
 const FAILURE_STEPS = new Set(["target", "permissions", "password_hash", "fixtures", "app", "verify", "login_audit"]);
 const FAILURE_CODES = new Set([
   "MODULE_NOT_FOUND", "ERR_MODULE_NOT_FOUND",
+  "HR_HTTP_LAB_TIMING_INVALID",
   "HR_HTTP_LAB_CONNECTION_UNAVAILABLE", "HR_HTTP_LAB_INPUT_INVALID", "HR_HTTP_LAB_TARGET_INVALID",
   ...["AUTHORIZED_IDENTITY_INVALID", "COUNTS_INVALID", "DENIED_IDENTITY_INVALID", "DETAIL_INVALID", "FAILED", "IDENTITIES_NOT_DISTINCT", "IDENTITY_INVALID", "IDS_INVALID", "INPUT_INVALID", "LOGIN_INVALID", "PAGE_INVALID", "PAGE_OVERLAP", "REQUEST_FAILED", "RESPONSE_INVALID", "RESPONSE_TOO_LARGE", "STATUS_INVALID", "TIMEOUT"].map(c => `HR_HTTP_PROBE_${c}`),
 ]);
@@ -22,6 +24,7 @@ export function sanitizeYuzhouRealHttpLabFailureSummary(value) {
       code: FAILURE_CODES.has(value?.code) ? value.code : null,
       sqlState: typeof value?.sqlState === "string" && /^[0-9A-Z]{5}$/u.test(value.sqlState) ? value.sqlState : null,
       ...(requestStep ? { requestStep } : {}),
+      ...(Array.isArray(value?.insuranceTimings) ? { insuranceTimings: sanitizeInsuranceLabTimings(value.insuranceTimings) } : {}),
       ...(value?.shutdownFailed === true ? { shutdownFailed: true } : {}), ...(value?.cleanupFailed === true ? { cleanupFailed: true } : {}) };
   } catch { return { step: "unknown", errorType: "Error", code: null, sqlState: null }; }
 }
@@ -93,7 +96,7 @@ export async function withYuzhouRealHttpLab({ repositoryRoot, container, databas
     user: "jinhu", password, max: 1, statement_timeout: 15000 });
   const userIds = [randomUUID(), randomUUID()], roleId = randomUUID();
   const { tenantId, parkId } = scope;
-  let app, appInitialized = false, fixturesCommitted = false, verification, failure, scratch;
+  let app, appInitialized = false, fixturesCommitted = false, verification, failure, scratch, insuranceTiming;
   let step = "target";
   const previousDirectory = process.cwd(), previousEnvironment = process.env;
   try {
@@ -140,6 +143,8 @@ export async function withYuzhouRealHttpLab({ repositoryRoot, container, databas
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
     appInitialized = true;
+    const { HrService } = req(resolve(repositoryRoot, "apps/api/src/modules/hr/hr.service.ts"));
+    insuranceTiming = installInsuranceLabTiming(app.get(HrService));
     // These unrelated timers have a 60-second first tick. Stop their normal
     // lifecycle immediately after initialization; no auth/HR provider overrides.
     for (const [file, type] of [["iot-rule.scheduler", "IotRuleScheduler"], ["iot-status.scheduler", "IotStatusScheduler"]]) {
@@ -154,6 +159,8 @@ export async function withYuzhouRealHttpLab({ repositoryRoot, container, databas
     if (audit.rows[0].n !== 2) throw new Error("LOGIN_AUDIT");
   } catch (error) {
     failure = sanitizeYuzhouRealHttpLabFailure(error, step);
+    // Capture pending stages at the HTTP deadline, before shutdown can settle them.
+    if (insuranceTiming) failure.insuranceTimings = insuranceTiming.snapshot();
   } finally {
     try {
       const cleanup = await cleanupYuzhouRealHttpLab({ app, pool, fixturesCommitted, userIds, roleId, tenantId, parkId });
@@ -161,7 +168,7 @@ export async function withYuzhouRealHttpLab({ repositoryRoot, container, databas
     } catch { failure = { ...failure, cleanupFailed: true }; }
     finally {
       try { await pool.end(); } catch { failure = { ...failure, shutdownFailed: true }; }
-      finally { process.chdir(previousDirectory); process.env = previousEnvironment; }
+      finally { insuranceTiming?.restore(); process.chdir(previousDirectory); process.env = previousEnvironment; }
     }
   }
   return { status: failure ? "FAILED" : "PASS", failure: failure ?? null,

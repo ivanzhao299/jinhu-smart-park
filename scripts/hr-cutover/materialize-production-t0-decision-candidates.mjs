@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
+import process from "node:process";
 import { chmodSync, closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 
 import { computeProductionImportTargetScopeHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -136,7 +138,7 @@ export function parseLegacyPositionHeadcount(value) {
 }
 
 export function projectLegacyT0ExtendedFields(table, source) {
-  const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50] }
+  const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50], legacy_manager_reference: ["legacyManagerValue", 10] }
     : { authority: ["authority", 1024], legacy_upto_code: ["legacyUptoCode", 30], position_manual: ["positionManual", 256], qualification: ["qualification", 1024], responsibilities: ["responsibilities", 1024] };
   const fields = {};
   let valid = true;
@@ -149,6 +151,16 @@ export function projectLegacyT0ExtendedFields(table, source) {
     const parsed = parseLegacyPositionHeadcount(source[key]);
     if (!parsed.valid || (target === "planned_headcount" && parsed.value !== null && parsed.value < 0)) valid = false;
     fields[target] = parsed.value;
+  }
+  if (table === "sys_org" || table === "hr_position") {
+    const parsed = parseLegacyPositionHeadcount(source.rating);
+    if (!parsed.valid || (parsed.value !== null && (parsed.value < 0 || parsed.value > 32767))) valid = false;
+    fields[table === "sys_org" ? "legacy_hierarchy_level" : "hierarchy_level"] = parsed.value;
+  }
+  if (table === "hr_position") {
+    const parsed = parseLegacyPositionHeadcount(source.sortOrder);
+    if (!parsed.valid) valid = false;
+    fields.sort_order = parsed.value ?? 0;
   }
   return { fields, valid };
 }
@@ -309,8 +321,72 @@ function link(role, source, targetTable, derivedField) {
 }
 
 function outputDependency(value) {
-  const { derivedField: _derivedField, targetId: _targetId, candidateDisposition: _candidateDisposition, ...result } = value;
+  const result = { ...value };
+  delete result.derivedField; delete result.targetId; delete result.candidateDisposition;
   return result;
+}
+
+export function orderLegacyPositionRows(rows) {
+  const pending = new Map();
+  for (const row of rows) {
+    const code = text(row.sourceKey);
+    if (pending.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
+    pending.set(code, row);
+  }
+  const ordered = [];
+  while (pending.size) {
+    const ready = [...pending.keys()].filter(code => !pending.has(text(pending.get(code).source.parentPositionCode))).sort();
+    if (!ready.length) break;
+    for (const code of ready) { ordered.push(pending.get(code)); pending.delete(code); }
+  }
+  // Remaining nodes are cycles or depend on a cycle; keep them for explicit quarantine.
+  const cyclicCodes = new Set(pending.keys());
+  return { rows: [...ordered, ...[...pending.keys()].sort().map(code => pending.get(code))], cyclicCodes };
+}
+
+export function projectLegacyEmployeeState(value) {
+  const code = nullableText(value);
+  const names = { "1": "在职人员", "2": "退休人员", "3": "离休人员", "4": "离职人员", "5": "内退人员", "6": "试用人员", a: "临时人员", b: "未办退厂手续" };
+  const valid = (value === null || value === undefined || typeof value === "string") && (code === null || ([...code].length <= 8 && !code.includes("\u0000")));
+  return { valid, fields: { legacy_jobstate_code: code, legacy_jobstate_name: code !== null && Object.hasOwn(names, code.toLowerCase()) ? names[code.toLowerCase()] : null, employment_type: code?.toLowerCase() === "a" ? "temporary" : "full_time" } };
+}
+
+// Counts only. Name matches are investigation leads, never mapping decisions.
+// The caller supplies the hash-validated stage used by the candidate builder.
+export function summarizeLegacyT0Relations({ organizations, positions, employees }) {
+  const orgCodes = new Set(organizations.map(row => text(row.sourceKey)));
+  const positionCodes = new Set(positions.map(row => text(row.sourceKey)));
+  const nameCounts = new Map();
+  for (const row of positions) {
+    const name = text(row.source.positionName);
+    if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+  }
+  const missingParents = positions.filter(row => text(row.source.parentPositionCode) && !positionCodes.has(text(row.source.parentPositionCode)));
+  const missingOrgs = positions.filter(row => !orgCodes.has(text(row.source.departmentCode) || "000"));
+  const cyclic = orderLegacyPositionRows(positions).cyclicCodes;
+  const affected = new Set([...missingParents, ...missingOrgs].map(row => text(row.sourceKey)));
+  for (const code of cyclic) affected.add(code);
+  const directCount = affected.size;
+  let previousSize;
+  do {
+    previousSize = affected.size;
+    for (const row of positions) {
+      if (affected.has(text(row.source.parentPositionCode))) affected.add(text(row.sourceKey));
+    }
+  } while (affected.size !== previousSize);
+  return Object.freeze({
+    positionMissingParentRows: missingParents.length,
+    positionMissingOrgRows: missingOrgs.length,
+    positionCycleOrDependentRows: cyclic.size,
+    parentUniqueNameMatchRows: missingParents.filter(row => nameCounts.get(text(row.source.parentPositionCode)) === 1).length,
+    parentAmbiguousNameMatchRows: missingParents.filter(row => (nameCounts.get(text(row.source.parentPositionCode)) ?? 0) > 1).length,
+    directlyAffectedPositionRows: directCount,
+    affectedPositionRows: affected.size,
+    employeeMissingOrgRows: employees.filter(row => !orgCodes.has(text(row.source.departmentCode))).length,
+    employeeEmptyPositionRows: employees.filter(row => !text(row.source.positionCode)).length,
+    employeeUnresolvedPositionRows: employees.filter(row => text(row.source.positionCode) && !positionCodes.has(text(row.source.positionCode))).length,
+    employeesWithAffectedPosition: employees.filter(row => affected.has(text(row.source.positionCode))).length,
+  });
 }
 
 function buildCandidates(stage, scope, inventory, jobState) {
@@ -336,7 +412,8 @@ function buildCandidates(stage, scope, inventory, jobState) {
   const root = byCode.get("000") ?? null;
   const positionsByCode = new Map();
   const positions = [];
-  for (const row of stage.byTable.get("hr_position")) {
+  const positionOrder = orderLegacyPositionRows(stage.byTable.get("hr_position"));
+  for (const row of positionOrder.rows) {
     const code = text(row.sourceKey);
     if (positionsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
     const name = text(row.source.positionName);
@@ -347,8 +424,10 @@ function buildCandidates(stage, scope, inventory, jobState) {
     const headcount = parseLegacyPositionHeadcount(row.source.headcountLimit);
     const extended = projectLegacyT0ExtendedFields("hr_position", row.source);
     const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null, ...extended.fields };
-    const dependencies = org ? [link("org", org, "sys_org", "org_id")] : [];
-    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
+    const parentCode = text(row.source.parentPositionCode), parent = positionsByCode.get(parentCode);
+    const dependencies = [...(org ? [link("org", org, "sys_org", "org_id")] : []), ...(parent ? [link("parent_position", parent, "hr_position", "reports_to_position_id")] : [])];
+    const relationReason = positionOrder.cyclicCodes.has(code) ? "POSITION_PARENT_CYCLE" : parentCode && !parent ? "POSITION_PARENT_UNRESOLVED" : null;
+    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : relationReason ? candidate(row, null, [], scope, inventory, "quarantine", relationReason) : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     positions.push(rowCandidate);
     positionsByCode.set(code, rowCandidate);
   }
@@ -358,15 +437,17 @@ function buildCandidates(stage, scope, inventory, jobState) {
     const position = positionsByCode.get(text(row.source.positionCode)) ?? null;
     const stateIdentity = sha256(`dbo.person.jobstate\0${text(row.source.legacyStatus).toLowerCase()}`);
     const state = jobState.decisions.get(stateIdentity) ?? null;
+    const legacyState = projectLegacyEmployeeState(row.source.legacyStatus);
     const hire = optionalDate(row.source.hireDate), probation = optionalDate(row.source.formalDate), departure = optionalDate(row.source.departureDate);
     const fields = text(row.source.fullName) === "" ? null : {
-      employee_code: text(row.sourceKey), full_name: text(row.source.fullName), employment_type: "full_time", employment_status: state?.decision === "map" ? state.targetEmploymentStatus : null,
+      employee_code: text(row.sourceKey), full_name: text(row.source.fullName), ...legacyState.fields, employment_status: state?.decision === "map" ? state.targetEmploymentStatus : null,
       hire_date: hire.value, probation_end_date: probation.value, departure_date: departure.value, work_location: null, work_mobile: null, work_email: null,
       remark: hire.valid && probation.valid && departure.valid && !(hire.value && departure.value && departure.value < hire.value) ? null : "Legacy date requires review",
     };
     const dependencies = org ? [link("primary_org", org, "sys_org", "primary_org_id"), ...(position ? [link("position", position, "hr_position", "position_id")] : [])] : [];
     let rowCandidate;
     if (fields === null) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_NAME_REQUIRED");
+    else if (!legacyState.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_LEGACY_STATE_INVALID");
     else if (!org) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_ORG_REQUIRED");
     else if (!hire.valid || !probation.valid || !departure.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_DATE_INVALID");
     else if (hire.value && departure.value && departure.value < hire.value) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "EMPLOYEE_DATE_ORDER_INVALID");
@@ -395,6 +476,7 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
   const stagingDir = privateDirectory(input.stagingDir, "staging");
   const triple = validateTriple(readJson(privateFile(input.triplePath, "triple"), "PRODUCTION_IMPORT_T0_DECISION_TRIPLE_INVALID"), head());
   const stage = readStage(stagingDir, triple);
+  const relationAudit = summarizeLegacyT0Relations({ organizations: stage.byTable.get("sys_org"), positions: stage.byTable.get("hr_position"), employees: stage.byTable.get("hr_employee") });
   const phaseArtifactSha256 = readPhaseArtifact(input.phaseArtifactPath, triple, stage);
   const inventory = readInventory(input.targetInventoryPath, triple);
   const targetScope = readScope(input.targetScopePath, inventory.value);
@@ -427,7 +509,7 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
     productionImport: "HOLD",
   };
   writePrivateNew(resolve(input.outputPath), artifact);
-  return Object.freeze({ status: artifact.status, phase: PHASE, recordCount: records.length, targetTableCounts: Object.freeze(Object.fromEntries(["sys_org", "hr_position", "hr_employee"].map(table => [table, records.filter(row => row.targetTable === table).length]))), countByDisposition: Object.freeze({ ...countByDisposition }), artifactSha256: sha256(Buffer.from(`${JSON.stringify(artifact)}\n`, "utf8")), productionImport: "HOLD" });
+  return Object.freeze({ status: artifact.status, phase: PHASE, recordCount: records.length, targetTableCounts: Object.freeze(Object.fromEntries(["sys_org", "hr_position", "hr_employee"].map(table => [table, records.filter(row => row.targetTable === table).length]))), countByDisposition: Object.freeze({ ...countByDisposition }), relationAudit, artifactSha256: sha256(Buffer.from(`${JSON.stringify(artifact)}\n`, "utf8")), productionImport: "HOLD" });
 }
 
 function parseArgs(argv) {

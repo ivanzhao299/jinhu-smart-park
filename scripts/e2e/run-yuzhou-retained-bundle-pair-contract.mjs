@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, URL } from "node:url";
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,9 +70,42 @@ test("serial owner re-reads persisted side receipts and reports DB lifecycle evi
   assert.equal(result.evidenceMode, "synthetic_adapter"); assert.equal(result.dockerResourcesCleaned, false); assert.equal(result.formalFinalRehearsalPairProduced, false);
   assert.deepEqual(JSON.parse(await readFile(join(f.input.outputDirectory, "pair-lifecycle-receipt.json"))), result);
 });
+for (const defect of [null, "receipt-pin", "manifest-pin", "code"]) test(`existing receipt verification never calls runner: ${defect ?? "pass"}`, async t => {
+  const f = await fixture(t, defect === "code" ? "code" : undefined);
+  const existingReceipts = {};
+  for (const side of ["A", "B"]) {
+    const r = await f.runSide({ configPath: f.input[side].path, configSha256: f.input[side].sha256 });
+    existingReceipts[side] = { receiptSha256: r.finalReceiptSha256, manifestSha256: h(`manifest${side}`) };
+  }
+  if (defect === "receipt-pin") existingReceipts.A.receiptSha256 = h("wrong");
+  if (defect === "manifest-pin") existingReceipts.A.manifestSha256 = h("wrong");
+  f.calls.length = 0;
+  const result = await runYuzhouRetainedBundlePair({ ...f.input, existingReceipts }, { runSide: async () => { throw Error("MUST_NOT_EXECUTE"); } });
+  assert.deepEqual(f.calls, []);
+  if (defect) { assert.equal(result.status, "FAILED"); assert.deepEqual(await readdir(f.input.outputDirectory), []); }
+  else { assert.equal(result.status, "RETAINED_PAIR_DATABASE_LIFECYCLES_PASS"); assert.equal(result.evidenceMode, "verified_existing_receipts"); assert.equal(result.databaseStateObservedNow, false); assert.equal(result.formalFinalRehearsalPairProduced, false); }
+});
 for (const defect of ["A-fails", "missing", "tamper", "code"]) test(`fail closed on ${defect}, no success summary or automatic retry`, async t => {
   const f = await fixture(t, defect), result = await runYuzhouRetainedBundlePair(f.input, f);
   assert.equal(result.status, "FAILED"); assert.deepEqual(f.calls, defect === "code" ? ["A", "B"] : ["A"]);
+  assert.deepEqual(await readdir(f.input.outputDirectory), []);
+});
+for (const mode of ["--verify-existing", "--execute-isolated"]) test(`CLI rejects mismatched request mode before opening side configs: ${mode}`, async t => {
+  const f = await fixture(t);
+  const request = { ...f.input };
+  // Invalid side paths make the request-stage failure distinguishable from reaching the runner.
+  request.A = { path: "/nonexistent-synthetic-side-a.json", sha256: h("a") };
+  request.B = { path: "/nonexistent-synthetic-side-b.json", sha256: h("b") };
+  if (mode === "--execute-isolated") request.existingReceipts = {
+    A: { receiptSha256: h("a-receipt"), manifestSha256: h("a-manifest") },
+    B: { receiptSha256: h("b-receipt"), manifestSha256: h("b-manifest") },
+  };
+  const path = join(f.configs.A.stateRoot, "request.json"), bytes = Buffer.from(JSON.stringify(request));
+  await writeFile(path, bytes, { mode: 0o600 });
+  const cli = fileURLToPath(new URL("../hr-cutover/run-yuzhou-retained-bundle-pair.mjs", import.meta.url));
+  const result = spawnSync(process.execPath, [cli, mode, "--request", path, "--request-sha256", h(bytes)], { encoding: "utf8", timeout: 10000, maxBuffer: 65536 });
+  assert.equal(result.error, undefined); assert.equal(result.status, 1); assert.equal(result.stderr, "");
+  assert.deepEqual(JSON.parse(result.stdout), { status: "FAILED", failureCode: "LAB_PAIR_REQUEST_FAILED", productionImport: "HOLD" });
   assert.deepEqual(await readdir(f.input.outputDirectory), []);
 });
 for (const [name, mutate] of [

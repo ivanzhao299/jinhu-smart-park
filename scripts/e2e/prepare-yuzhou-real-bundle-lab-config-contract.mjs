@@ -6,10 +6,19 @@ import { join } from "node:path";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { prepareYuzhouRealBundleLabConfig } from "../hr-cutover/prepare-yuzhou-real-bundle-lab-config.mjs";
+import { prepareYuzhouRealBundleLabArtifacts } from "../hr-cutover/yuzhou-real-bundle-lab-artifacts.mjs";
 import { LAB_EXECUTION_DEPENDENCIES, validateYuzhouLabConfig, parseYuzhouLabArgs } from "../hr-cutover/run-yuzhou-real-bundle-lab.mjs";
 import { computeProductionImportPayloadBundleHash, computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL as MODEL } from "../hr-cutover/production-import-target-model.mjs";
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+test("preparation manifest matches execution from emitted canonical config", async t => {
+  const f = await setup(t);
+  const receipt = await prepareYuzhouRealBundleLabConfig(f.input, f.options);
+  const c = JSON.parse(await readFile(join(f.input.outputDirectory, "lab-config.json")));
+  const executed = await prepareYuzhouRealBundleLabArtifacts(c.artifacts);
+  assert.equal(receipt.manifestSha256, executed.manifestSha256);
+  for (const [path, original] of f.inputBytes) assert.deepEqual(await readFile(path), original);
+});
 test("explicit dedicated descriptor is config/hash bound without changing crypto or prepared inputs", async t => {
   const f = await setup(t), name = "jinhu_hr_migration_lab_independent";
   f.input.resourceDescriptor = { database: name, container: name, containerId: hash("new-container"), imageId: `sha256:${hash("image")}`, port: 25432, composeProject: name,
