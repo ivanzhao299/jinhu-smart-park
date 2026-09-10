@@ -57,15 +57,9 @@ const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|privatekey|
 const FORBIDDEN_VALUE = /postgres(?:ql)?:\/\/|sqlserver:\/\/|Bearer\s+|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}/i;
 const LOAD_COMMON_ENV = ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_BACKUP_SHA256"];
 const canonical = value => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
+import { YUZHOU_T0_EXTRACT_LAYOUT } from "./yuzhou-t0-extract-layout.mjs";
 const EXTRACT_MANIFEST_BINDINGS = {
-  T0: {
-    departments: { file: "departments.jsonl", env: "YUZHOU_DEPARTMENTS_SHA256" },
-    positions: { file: "positions.jsonl", env: "YUZHOU_POSITIONS_SHA256" },
-    employees: { file: "employees.jsonl", env: "YUZHOU_EMPLOYEES_SHA256" },
-    employeeJobStates: { file: "employee-job-states.raw.json" },
-    jobStateCodeMetadata: { file: "job-state-code-metadata.raw.json" },
-    jobStateCodes: { file: "job-state-codes.raw.json" }
-  },
+  T0: YUZHOU_T0_EXTRACT_LAYOUT,
   T1: {
     employmentEvents: { file: "employment-events.jsonl", env: "YUZHOU_T1_EVENTS_SHA256" },
     employmentEventTypes: { file: "employment-event-types.json", env: "YUZHOU_T1_TYPES_SHA256" },

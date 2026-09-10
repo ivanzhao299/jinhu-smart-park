@@ -25,6 +25,7 @@
       "scripts/hr-cutover/contracts/parent-manifest.schema.json",
       "scripts/hr-cutover/domain-adapter.mjs",
       "scripts/hr-cutover/full-domain-lifecycle.mjs",
+      "scripts/hr-cutover/yuzhou-t0-extract-layout.mjs",
       "scripts/hr-cutover/final-rehearsal-pair.mjs",
       "scripts/hr-cutover/materialization-key-contract.mjs",
       "scripts/hr-cutover/source-restore-receipt.mjs",
