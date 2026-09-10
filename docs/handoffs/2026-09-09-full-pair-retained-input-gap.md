@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 岗位字段与父子关系接线（2026-09-10）
+
+在22bda329组织修复之后，继续对照实际T0 SQL：source.rating→hierarchy_level，source.sortOrder→sort_order（空值0），source.parentPositionCode→同域父岗位依赖→reports_to_position_id。目标模型、canonical字段、foreignKeys及decision producer一起修改，不使用名称猜测关联。
+
+岗位按父先子后的拓扑次序产生候选，重复编码失败；父引用缺失隔离，循环、自引用以及依赖循环的记录隔离，其余后代通过已有dependency状态传播规则处理。合成测试覆盖逆序输入、重复、自引用、循环及循环后代；集成候选验证P001精确引用P002的来源身份。层级限制非负smallint，排序限制int32且允许负排序值。sort_order为数据库非空列，目标模型明确required，不以nullable绕开，原缺少该字段的冻结载荷需重新由生产者生成。
+
+decision、target-model、payload-generator定向合同通过。两次测试修正分别是模型补必填分类、合成payload补sort_order=0；未改变真实输入或原回执。尚未做真实PG装载、全套下游合同或浏览器验证，不宣称完整上下级业务已验收。员工旧状态字段及A类临时工被统一映射full_time的语义差异仍待下一步处理。
+
 ## 字段对齐实修：组织遗留层级与管理者引用（2026-09-10）
 
 候选已无冲突合入origin/main，合并提交e248e563；保留此前所有提交与回执。两条pair合同合并后31项通过。

@@ -22,11 +22,11 @@
     "hr_position": {
       "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.job"],
-      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
-      "requiredFields": ["position_code", "position_name", "status"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
-      "integerFields": ["headcount_limit", "legacy_source_id"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
-      "derivedFields": ["org_id"], "foreignKeys": [{"column":"org_id","dependencyRole":"org","targetTable":"sys_org","required":true}],
-      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities"],
+      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order"],
+      "requiredFields": ["position_code", "position_name", "status", "sort_order"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level"],
+      "integerFields": ["headcount_limit", "legacy_source_id", "hierarchy_level", "sort_order"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["org_id", "reports_to_position_id"], "foreignKeys": [{"column":"org_id","dependencyRole":"org","targetTable":"sys_org","required":true},{"column":"reports_to_position_id","dependencyRole":"parent_position","targetTable":"hr_position","required":false}],
+      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order", "reports_to_position_id"],
       "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
     },
     "hr_employee": {

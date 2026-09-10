@@ -150,10 +150,15 @@ export function projectLegacyT0ExtendedFields(table, source) {
     if (!parsed.valid || (target === "planned_headcount" && parsed.value !== null && parsed.value < 0)) valid = false;
     fields[target] = parsed.value;
   }
-  if (table === "sys_org") {
+  if (table === "sys_org" || table === "hr_position") {
     const parsed = parseLegacyPositionHeadcount(source.rating);
     if (!parsed.valid || (parsed.value !== null && (parsed.value < 0 || parsed.value > 32767))) valid = false;
-    fields.legacy_hierarchy_level = parsed.value;
+    fields[table === "sys_org" ? "legacy_hierarchy_level" : "hierarchy_level"] = parsed.value;
+  }
+  if (table === "hr_position") {
+    const parsed = parseLegacyPositionHeadcount(source.sortOrder);
+    if (!parsed.valid) valid = false;
+    fields.sort_order = parsed.value ?? 0;
   }
   return { fields, valid };
 }
@@ -318,6 +323,24 @@ function outputDependency(value) {
   return result;
 }
 
+export function orderLegacyPositionRows(rows) {
+  const pending = new Map();
+  for (const row of rows) {
+    const code = text(row.sourceKey);
+    if (pending.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
+    pending.set(code, row);
+  }
+  const ordered = [];
+  while (pending.size) {
+    const ready = [...pending.keys()].filter(code => !pending.has(text(pending.get(code).source.parentPositionCode))).sort();
+    if (!ready.length) break;
+    for (const code of ready) { ordered.push(pending.get(code)); pending.delete(code); }
+  }
+  // Remaining nodes are cycles or depend on a cycle; keep them for explicit quarantine.
+  const cyclicCodes = new Set(pending.keys());
+  return { rows: [...ordered, ...[...pending.keys()].sort().map(code => pending.get(code))], cyclicCodes };
+}
+
 function buildCandidates(stage, scope, inventory, jobState) {
   const byCode = new Map();
   const organizations = [];
@@ -341,7 +364,8 @@ function buildCandidates(stage, scope, inventory, jobState) {
   const root = byCode.get("000") ?? null;
   const positionsByCode = new Map();
   const positions = [];
-  for (const row of stage.byTable.get("hr_position")) {
+  const positionOrder = orderLegacyPositionRows(stage.byTable.get("hr_position"));
+  for (const row of positionOrder.rows) {
     const code = text(row.sourceKey);
     if (positionsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
     const name = text(row.source.positionName);
@@ -352,8 +376,10 @@ function buildCandidates(stage, scope, inventory, jobState) {
     const headcount = parseLegacyPositionHeadcount(row.source.headcountLimit);
     const extended = projectLegacyT0ExtendedFields("hr_position", row.source);
     const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null, ...extended.fields };
-    const dependencies = org ? [link("org", org, "sys_org", "org_id")] : [];
-    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
+    const parentCode = text(row.source.parentPositionCode), parent = positionsByCode.get(parentCode);
+    const dependencies = [...(org ? [link("org", org, "sys_org", "org_id")] : []), ...(parent ? [link("parent_position", parent, "hr_position", "reports_to_position_id")] : [])];
+    const relationReason = positionOrder.cyclicCodes.has(code) ? "POSITION_PARENT_CYCLE" : parentCode && !parent ? "POSITION_PARENT_UNRESOLVED" : null;
+    const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : relationReason ? candidate(row, null, [], scope, inventory, "quarantine", relationReason) : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     positions.push(rowCandidate);
     positionsByCode.set(code, rowCandidate);
   }
