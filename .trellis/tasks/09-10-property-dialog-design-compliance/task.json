@@ -15,8 +15,8 @@
   "branch": "codex/property-dialog-audit-20260910",
   "base_branch": "main",
   "worktree_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park-property-dialog-audit",
-  "commit": null,
-  "pr_url": null,
+  "commit": "86f56297e290d15228e785fa7fd80deb1cf1cd54",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/733",
   "subtasks": [],
   "children": [],
   "parent": null,
@@ -28,7 +28,7 @@
     "apps/web/app/homestay/_components/HomestayStayActions.tsx",
     "apps/web/components/property/PropertyFoundationControlClient.tsx"
   ],
-  "notes": "G1+G2 reviewed and authorized; G3/G4/G5 excluded; acceptance pending; COST_GUARD",
+  "notes": "BLOCKED: Release Smoke existing HR fixture SQL 14 parameters / 12 placeholders; no HR edits authorized; no merge/deploy/archive; COST_GUARD",
   "meta": {
     "audit_sha": "563af3a1890b89166f664dd5427e47267ae90b7e",
     "review_status": "approved_g1_g2",
@@ -41,6 +41,8 @@
       "R"
     ],
     "real_backend_verified": true,
-    "issue_url": "https://github.com/ivanzhao299/jinhu-smart-park/issues/732"
+    "issue_url": "https://github.com/ivanzhao299/jinhu-smart-park/issues/732",
+    "blocked": true,
+    "blocking_run_id": 34452434760
   }
 }

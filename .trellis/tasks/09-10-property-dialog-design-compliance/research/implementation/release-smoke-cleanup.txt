@@ -1,0 +1,8 @@
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.6942232Z  Container jinhu-smart-park-prod-postgres  Stopping
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.8347285Z  Container jinhu-smart-park-prod-postgres  Stopped
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.8349103Z  Container jinhu-smart-park-prod-postgres  Removing
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.8388194Z  Container jinhu-smart-park-prod-postgres  Removed
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.8395940Z  Volume property-api-e2e-34452434760_postgres-data  Removing
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.8406739Z  Network property-api-e2e-34452434760_default  Removing
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:32.9664471Z  Volume property-api-e2e-34452434760_postgres-data  Removed
+Release Smoke	Tear down release smoke containers	2026-09-10T08:12:33.0109278Z  Network property-api-e2e-34452434760_default  Removed

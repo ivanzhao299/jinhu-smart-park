@@ -1,3 +1,37 @@
+# 发布阻断：不可合并、不可归档
+
+PR #733，产品提交 `86f56297e290d15228e785fa7fd80deb1cf1cd54`。
+CI run https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34452434760 ：
+- Detect Release Smoke Scope：SUCCESS，必要 Release Smoke 已实际触发。
+- Lint, Typecheck, Build：SUCCESS（包含完整单元测试）。
+- Release Smoke：FAILURE；其 property API E2E 后续步骤 SKIPPED，不作PASS。
+- Tear down release smoke containers：SUCCESS。
+- 开PR同时标签事件导致旧run34452433620被取消，该run不计通过。
+
+失败：`Verify Yuzhou production import v2 PostgreSQL controls` 内
+`pnpm test:e2e:yuzhou-production-import-full-chain:pg`：
+`bind message supplies 14 parameters, but prepared statement "" requires 12` / SQLSTATE08P01。
+定向根因：`scripts/e2e/yuzhou-production-import-full-chain-direct-pg.mjs:69–72` 的sys_org INSERT仍只有$1–$12，参数用3个scope值加 `Object.values(fixture.orgBeforePayload)`；`scripts/e2e/production-import-full-chain-test-fixture.mjs:16` 已有11个字段（含legacy_hierarchy_level、legacy_manager_reference），合计14参数。
+前一文件在本PR与origin/main的blob均为 `575db564e7f40aed4423e0e8c6432638a4e3be8d`，无本专项diff。未修改任何HR文件，没有重跑同一已知失败，没有取消或豁免门禁。
+
+按用户限定范围，等待独立授权的HR修复进入main后，再核对漂移并以正常分支更新，重跑必要CI与Release Smoke。PR保持打开；本task保持in_progress并标记blocked。未squash merge，因此没有本修复的main SHA、main CI或自动Deploy，生产清理不适用；不是PASS。
+本地独占API/DB/Next/浏览器已关闭，compose容器/卷无残留，相关三个端口无监听；0600临时凭据文件已移除。见local-cleanup.json。CI清理见pr-ci-result.json及release-smoke-cleanup.txt。
+
+代码review累计3轮：首批G1/G2；浏览器反馈修正；最终范围/请求不变量与发布前检查。后续只做上述门禁根因点验，未开始第4轮产品修改。
+
+## Cost Summary
+Task: Issue732 房产弹窗G1/G2
+Status: BLOCKED / 未闭环，PR733未合并，未部署、未归档
+Files changed: 产品6文件+交互测试1；既有专项工件及本次证据，HR/API/DB/CI源码0
+Tests run: 13定向契约、5交互、shared/API/Web build、Web lint/typecheck、1440/390mock、隔离真实API链路PASS；PR verify PASS，Release Smoke FAIL
+Retries: busy Escape产品2次；民宿409与表格布局各1次；环境及脚本修正见下方记录；远端失败重跑0
+Approx model rounds: 本续作约100（含环境、证据和远端观察），既有COST_GUARD持续
+Repeated scans avoided: 未重扫145文件；无子代理/浏览器基础设施重建；未重建同一DB或重复真实写入
+Blocked issues: main既有HR full-chain PG测试参数14/12不匹配
+Next step: 独立HR修复进入main后续跑必要门禁，再合并与核验自动发布，最后归档
+
+---
+
 # Issue 732 实施与验证（尚未发布闭环）
 
 ## 审核范围
@@ -14,7 +48,7 @@ D11 在基线 563af3a1 的三个原始共享文件与最终实现下分别运行
 ## 本地结果
 - 13 项原状态/源码契约 PASS。
 - 首次 interaction 命令带 `-- consequence-dialog` 实际跑完整 interaction 7文件16测试 PASS；随后精确 `NODE_ENV=test pnpm --filter @jinhu/web exec vitest run --config vitest.config.ts test/interaction/consequence-dialog.test.tsx` 5测试 PASS。
-- shared build、API build、Web typecheck、Web lint PASS；定向 lint 清理原测试已有未使用变量后复验。Web build / PR CI / Release Smoke / main CI / 自动 Deploy：待记录，不作 PASS。
+- shared build、API build、Web typecheck、Web lint PASS；定向 lint 清理原测试已有未使用变量后复验。Web build PASS；远端门禁结果见本文顶部，Release Smoke失败，不作PASS。
 - types 初次缺 shared dist：确认 workspace 依赖 realpath 均在本 worktree，构建 shared 后通过；未修改依赖版本。
 - 精确 vitest 初次忘设 NODE_ENV=test 导致 production React 测试失败，修正命令后通过；不是产品缺陷。
 
