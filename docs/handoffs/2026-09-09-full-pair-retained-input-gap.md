@@ -1,5 +1,17 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 字段对齐实修：组织遗留层级与管理者引用（2026-09-10）
+
+候选已无冲突合入origin/main，合并提交e248e563；保留此前所有提交与回执。两条pair合同合并后31项通过。
+
+对照旧T0 SQL加载器与当前生产目标模型，排除parent_id、primary_org_id、position_id、org_id等已有派生外键后，发现实际遗漏：组织legacy_hierarchy_level/legacy_manager_reference，岗位reports_to_position_id/hierarchy_level/sort_order，员工legacy_jobstate_code/legacy_jobstate_name。不能把这些遗漏都归为格式适配问题。
+
+本次只修复组织两列：decision producer从source.rating和source.legacyManagerValue生成字段，目标模型将其加入白名单、可空字段及canonical比较。层级受非负smallint范围约束，管理者引用限10字符且拒绝NUL；仅保留原引用，不推断用户或员工外键。没有修改数据库migration、源文件或真实已生成载荷。
+
+定向decision、target-model、payload-generator合同通过；新增边界和canonical差异断言。首次decision测试因合成目标库存缺少新增层级值而触发正确的collision HOLD，已补合成库存为来源的层级1，没有弱化碰撞规则。ESLint对照HEAD确认producer15项、decision测试2项诊断完全相同，非此次引入；没有宣称lint全绿。未运行真实PostgreSQL写入或前端验收。
+
+岗位与员工上述字段仍未补齐；组织新字段尚未从真实保留源重新生成候选并做数据库验证。先沿该已证明字段缺口继续，不把旧T0载荷或旧成功回执宣称为新增字段覆盖证据。当前修改会改变映射内容，后续须由生产者生成新材料，禁止手改旧哈希。
+
 ## 续接核验：既有结果复用与远端漂移（2026-09-10）
 
 候选HEAD仍为748776cd。本轮fetch后的origin/main为63731906，候选ahead3/behind6；未合并、未覆盖工作树。新增43个文件变更与LAB_EXECUTION_DEPENDENCIES无交集，也没有apps/api或发布workflow变更，但包含packages/shared/src/property-business/display-labels.ts。computeYuzhouLabExecutionBinding散列整个shared/src，因此不能将“迁移脚本无变化”解释为runtimeTreeSha256不变，也不能把旧执行回执重新标为新提交。

@@ -12,11 +12,11 @@
     "sys_org": {
       "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.departmentcode"],
-      "fieldWhitelist": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "contact_phone", "planned_headcount", "legacy_source_id"],
-      "requiredFields": ["org_code", "org_name", "org_type", "sort_order", "status"], "nullableFields": ["remark", "contact_phone", "planned_headcount", "legacy_source_id"],
-      "integerFields": ["sort_order", "planned_headcount", "legacy_source_id"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "fieldWhitelist": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "contact_phone", "planned_headcount", "legacy_source_id", "legacy_hierarchy_level", "legacy_manager_reference"],
+      "requiredFields": ["org_code", "org_name", "org_type", "sort_order", "status"], "nullableFields": ["remark", "contact_phone", "planned_headcount", "legacy_source_id", "legacy_hierarchy_level", "legacy_manager_reference"],
+      "integerFields": ["sort_order", "planned_headcount", "legacy_source_id", "legacy_hierarchy_level"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
       "derivedFields": ["parent_id"], "foreignKeys": [{"column":"parent_id","dependencyRole":"parent_org","targetTable":"sys_org","required":false}],
-      "uniqueKey": ["tenant_id", "park_id", "org_code"], "canonicalFields": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id", "contact_phone", "planned_headcount", "legacy_source_id"],
+      "uniqueKey": ["tenant_id", "park_id", "org_code"], "canonicalFields": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id", "contact_phone", "planned_headcount", "legacy_source_id", "legacy_hierarchy_level", "legacy_manager_reference"],
       "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
     },
     "hr_position": {

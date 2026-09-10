@@ -136,7 +136,7 @@ export function parseLegacyPositionHeadcount(value) {
 }
 
 export function projectLegacyT0ExtendedFields(table, source) {
-  const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50] }
+  const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50], legacy_manager_reference: ["legacyManagerValue", 10] }
     : { authority: ["authority", 1024], legacy_upto_code: ["legacyUptoCode", 30], position_manual: ["positionManual", 256], qualification: ["qualification", 1024], responsibilities: ["responsibilities", 1024] };
   const fields = {};
   let valid = true;
@@ -149,6 +149,11 @@ export function projectLegacyT0ExtendedFields(table, source) {
     const parsed = parseLegacyPositionHeadcount(source[key]);
     if (!parsed.valid || (target === "planned_headcount" && parsed.value !== null && parsed.value < 0)) valid = false;
     fields[target] = parsed.value;
+  }
+  if (table === "sys_org") {
+    const parsed = parseLegacyPositionHeadcount(source.rating);
+    if (!parsed.valid || (parsed.value !== null && (parsed.value < 0 || parsed.value > 32767))) valid = false;
+    fields.legacy_hierarchy_level = parsed.value;
   }
   return { fields, valid };
 }

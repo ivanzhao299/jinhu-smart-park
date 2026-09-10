@@ -12,8 +12,9 @@ import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusiness
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
 
-assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", {}), { valid: true, fields: { contact_phone: null, legacy_source_id: null, planned_headcount: null } });
-assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", { contactPhone: "  ", legacySourceId: "2147483647", plannedHeadcount: 0 }), { valid: true, fields: { contact_phone: "  ", legacy_source_id: 2147483647, planned_headcount: 0 } });
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", {}), { valid: true, fields: { contact_phone: null, legacy_manager_reference: null, legacy_source_id: null, planned_headcount: null, legacy_hierarchy_level: null } });
+assert.deepEqual(projectLegacyT0ExtendedFields("sys_org", { contactPhone: "  ", legacySourceId: "2147483647", plannedHeadcount: 0, rating: "32767", legacyManagerValue: "M0001" }), { valid: true, fields: { contact_phone: "  ", legacy_manager_reference: "M0001", legacy_source_id: 2147483647, planned_headcount: 0, legacy_hierarchy_level: 32767 } });
+for (const source of [{ rating: -1 }, { rating: 32768 }, { rating: 1.5 }, { legacyManagerValue: "x".repeat(11) }, { legacyManagerValue: "a\u0000b" }]) assert.equal(projectLegacyT0ExtendedFields("sys_org", source).valid, false);
 for (const source of [{ plannedHeadcount: -1 }, { plannedHeadcount: 1.5 }, { legacySourceId: "2147483648" }, { contactPhone: "x".repeat(51) }, { contactPhone: 123 }, { contactPhone: "a\u0000b" }]) {
   assert.equal(projectLegacyT0ExtendedFields("sys_org", source).valid, false);
 }
@@ -80,7 +81,7 @@ const records = Object.entries(domainRows).flatMap(([domain, rows]) => rows.map(
 for (const [domain, targetTable] of [["departments", "sys_org"], ["positions", "hr_position"], ["employees", "hr_employee"]]) for (const line of readFileSync(join(staging, files[domain]), "utf8").toString().split("\n").filter(Boolean).slice(domainRows[domain].length)) { const row = JSON.parse(line); records.push({ phase: "T0", targetTable, sourceSystem: "yuzhou-v10", sourceTable: row.sourceTable, sourcePkCanonical: `sha256:${row.sourceIdentitySha256}`, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }); }
 const phasePath = join(root, "phase.json"); writePrivate(phasePath, `${JSON.stringify({ formatVersion: 1, artifactKind: "yuzhou_hr_production_import_real_phase_staging", triple, phase: "T0", records })}\n`);
 const scope = { tenantId: "tenant", parkId: "park" }; const targetScope = { ...scope, scopeSha256: computeProductionImportTargetScopeHash(scope) };
-const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null };
+const rootFields = { org_code: "000", org_name: "Fixture Root", org_type: "company", sort_order: 0, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: null, legacy_hierarchy_level: 1, legacy_manager_reference: null };
 const rootBusiness = computeProductionImportBusinessIdentityHash("sys_org", targetScope, rootFields);
 const rootCanonical = computeProductionImportTargetCanonicalHash("sys_org", targetScope, rootFields);
 const inventoryPath = join(root, "inventory.json"); writePrivate(inventoryPath, `${JSON.stringify({ formatVersion: 1, kind: "yuzhou_hr_production_t0_target_inventory_readonly", status: "PASS", productionImport: "HOLD", executionReachable: false, targetIdentitySha256: "d".repeat(64), targetScopeSha256: targetScope.scopeSha256, targetTableCounts: { sys_org: 1, hr_position: 0, hr_employee: 0 }, records: [{ targetTable: "sys_org", businessIdentitySha256: rootBusiness, targetId: "11111111-1111-4111-8111-111111111111", targetCanonicalSha256: rootCanonical, targetVersion: 3 }] })}\n`);
