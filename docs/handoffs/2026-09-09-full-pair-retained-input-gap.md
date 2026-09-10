@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 3295条隔离加密准备完成（2026-09-10）
+
+在563af3a1实际干净工作树运行既有materialize-production-import-exception-preparation.mjs mode=prepare，消费固定四域phase/candidates、真实库存/范围及完整choices。复用原受控owner配置唯一keyFiles描述符；只检查32字节、0600、单链接元数据，密钥仅由现有程序延迟读取并使用/清零，未回显、复制或写入Git。生成独立operationId，未执行生产写入。
+
+同受控production-t0-563af3a1-目录的exception-prepare-config.json固定新operationId和全部输入引用/outputDir。产物unsigned-exception-requests.json SHA=96838f8998153af28f58a8be40faf1b014295d5c7ed1a1dca934c83e0fac0af8，10579191字节；crypto-envelopes.json SHA=a1c3338a52b5a8803057cfc2086d83da464cfd08dde6d12e5fe83107975e2501，3637477字节。现有emit写入/读回通过，进程17400exit0。status=AWAITING_EXTERNAL_SIGNATURES、recordCount3295、approvalClaimed=false、signerAuthorityEstablished=false、HOLD。
+
+该状态是prepare接口中间态，不是已证明缺少用户授权，不应再凭名称制造新的外部阻断。下一步用已存在的mode=delegate完成操作者完整性签名与解密/冻结验证，定位既有operatorKeyFile描述符而不读取/回显签名私钥；保持ownerAuthorizationClaimed=false，实际一次性拥有者授权仍按生产执行链另行校验。不能把旧实验授权挪作本operation授权。不要重新生成choices或重复prepare；原开发分支已恢复。
+
 ## 全3295条处置choices已组合（2026-09-10）
 
 T1按候选绑定的type/state字典hash及stage manifest定位，重新调用verifyProductionT1SourceRevalidation验证完整来源与策略。采用原candidate的字段表达式、既有normalizeProductionT1LocalTimestamp和目标normalize；与6811条正常候选targetFields逐项canonical比较全部一致，剩余76条隔离字段完整生成，未伪造员工依赖。quarantine-facts-t1-目录t1-quarantine-facts.json SHA=c59344fc6f2e8334ba805790cebb2e4d1fa4534cd282a170507ac2e865e53c34；原缺员工原因与空依赖保持。
