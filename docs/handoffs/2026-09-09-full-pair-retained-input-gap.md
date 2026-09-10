@@ -1,5 +1,31 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 员工旧状态前端收尾（2026-09-10）
+
+HrEmployeesClient在已经授权并加载的selected员工旁挂载只读EmployeeLegacyState，分别展示legacyJobstateCode/Name、明确区别当前状态和历史状态；缺失/未知值不猜测，React转义输入；类型标签补temporary=临时工。没有新增API调用、扩权或字段编辑入口。
+
+正式test:unit:hr首次运行暴露TSX未转译：单独测试曾带jsx配置，项目入口未带。仅给该测试入口增加jsx=react-jsx，修复后139项全部通过；Web typecheck、三个前端文件ESLint和diff检查通过。组件合成预览使用真实组件与globals.css；DOM量测390/1280宽度下scrollWidth均等于innerWidth。已读取浏览器截图，但截图与视口切换的帧同步不充分，不据此声称完整视觉验收。测试tab、viewport和本次3224预览进程已恢复/关闭。完整带权限的员工页面、实际API及真实历史记录展示仍待验收，不把组件预览当成runtime闭环。
+
+## PR731已合并（2026-09-10 03:58 UTC）
+
+PR CI34434504085已成功，Release Smoke按workflow范围规则跳过。固定head=2f31f30df00650f8ed4ad14c153bf62f2cce2fb0、重新fetch确认候选未落后后，PR731以squash合入main，合并提交563af3a1890b89166f664dd5427e47267ae90b7e。尚无该提交生产运行成功证据，不宣称部署或历史数据导入成功。原候选与未提交前端/本交接WIP均保留，未reset或删分支。上节新T0来源清单仍保留原候选C，不能挪作合并提交的最终生产执行材料。
+
+## 当前提交真实T0来源清单物化（2026-09-10）
+
+使用现有prepareProductionT0Triple与materializeProductionT0PhaseArtifact，没有注入/覆盖head。核对保留source manifest的S=3ed50b9a…、恢复回执f1faae7f…和T0 manifest=19841812…后，在私有受控根新建candidate-t0-20260910前缀输出目录；保留旧输入不动。绑定实际HEAD 2f31f30df00650f8ed4ad14c153bf62f2cce2fb0和来源manifest原M。新triple字节SHA=f31568884c510b015af0c71657247918dd49a005347f62b6f385422d8941d4b9；phase-t0字节SHA=9eb56a344c90c0a25b3fa76da94408467423629a2a36753abcc7911fbd991151。记录数3105（组织138、岗位18、员工2949），READY_FOR_REVIEW、productionImport=HOLD。
+
+此为真实来源身份/行hash清单，不含写入字段，不是decision candidates、payload bundle、正式全域pair或生产放行；尚未组合目标库存和job-state决定。没有重抽、数据库写入或复制业务行。输出目录通过前缀与上述两个精确hash恢复定位，避免重新物化。当前前端与文档WIP意味着工作树尚不满足生产执行的clean检查；不删除或掩盖WIP。
+
+## 来源版本与执行版本核查（2026-09-10，PR731 CI期间）
+
+后续核查修正：execute-production-import.mjs的PRODUCTION_IMPORT_EXECUTION_DEPENDENCY_PATHS明确包含materialize-production-t0-decision-candidates.mjs及目标模型；currentRepositorySha要求依赖已跟踪且暂存/工作区无改动，运行回执也需匹配plan.triple.codeSha。因此不能仅因full-domain M清单不含候选生产者就宣称它不受版本约束。不要新增“必须把该文件塞入全域M”的门禁，也不要据此重抽数据。prepare-production-t0-triple现有行为是保留来源manifest M并绑定当前C；应按这一实际合同准备候选，仍保留正式全域pair消费者的不同适用边界，不能把准备候选成功当作最终pair已通过。
+
+保留production source manifest的M为78fed3f561d3cb703135e84da90f4003fda329575d1a1984c0ecc62283edbe61；当前full-domain组件摘要为717597aa5d25b24f7693386adfba527a39f588d6e9f2533e1acd38e015e3d685。当前清单不包含materialize-production-t0-decision-candidates.mjs；因此该全域M不能单独证明新候选生产者字段覆盖，仍须实际C及执行依赖绑定。
+
+对历史e1ce8b388948d2d7943695bc9d69fb633887035d按其自身清单/字节重算得到0346356c4bfbafa75eb9ee8b32562c8e1226096a4763376c50f8916a3feedb10，也不等于保留source manifest的M。不能把该历史提交误称为78fed3的签发版本。它到当前清单的差异仅见full-domain合同注册、lifecycle提取布局引用及新增共享布局文件；该观察不授权重绑旧回执，也不能证明所有来源转换无变化。
+
+现有prepare-production-t0-triple沿用source manifest中的M并设置当前HEAD；prepareProductionSourceManifest对stage内显式M要求精确一致；job-state重验证也要求source manifest M等于目标triple M。下一步应核对这条生产准备链与执行依赖的具体版本语义，再使用现有入口生成材料，不把不同用途的哈希强行替换。这是接线调查结论，不新增业务签署或生产门禁。
+
 ## PR731集成门禁修复（2026-09-10）
 
 c7c5ff76已推送PR731；CI34434000006失败于production-import-v2测试，不是外部权限问题。根因是新组织/岗位/员工字段已进入目标模型，而加密before-image、baseline、全链fixture、回滚及T0库存的部分合成样例没有同步。补齐六份测试/fixture的显式合成字段，包含非空层级/管理者引用、负排序及员工旧状态；不修改真实载荷、生产校验、哈希或授权。全链fixture增加精确字段集合断言，防止后续遗漏被其他路径掩盖。
