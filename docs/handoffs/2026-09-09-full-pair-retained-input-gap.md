@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 正式候选冻结完成（2026-09-10）
+
+复用本轮delegate的reviewed材料，在实际563af3a1执行现有materialize-production-import-frozen-decisions.mjs；未覆盖head或替换任何输入hash。fetch后的origin/main仍为563af3a1890b89166f664dd5427e47267ae90b7e。程序正常exit0，READY、260828=257533insert+3295quarantine，missingReviewCount=0、目标碰撞0、reasonCodes为空；productionImport=HOLD、approvalClaimed=false。未执行生产写入或重新提取/A/B。
+
+既有受控production-t0-563af3a1-准备根中的freeze-config.json固定全部输入和输出目录。输出已由现有emit完成私有写入、hash读回：candidate-preparation-evidence.json SHA=4d801400e643c23a7b8e08f1c8261fccfe48f723037887799490d2704704f2ec；real-decisions.json SHA=57fb370a74d728d75e01bc7cccca3a8d9e0af6e44c8992d9ab9292fef72c06ea；real-inventory.json SHA=ddab80c5ffa32d4ca9410c7c35bb0e12776bef4bc22f26ad2c3ed28a611a33b9；real-scope.json SHA=f6a822714f8b2998f15d902451a37f7e44d9f70948923ab991ab1e9a9bf14d71。新增约464MiB宿主文件，无Docker写入，容量检查正常。原开发分支已恢复。
+
+下一步消费这些固定wrappers生成实际分域payload与records；不要重复freeze/prepare/delegate。此结果不是已签生产执行计划，也不证明数据库写入或用户端功能通过。materialize-production-import-plan还实际要求当前runtime/baseline、finalRehearsalPair及精确授权绑定；先核对可复用输入，禁止虚构或反复重建已完成材料。
+
 ## 委托完整性校验通过（2026-09-10）
 
 定向旧delegate配置元数据定位唯一operatorKeyFile描述符，文件0600/单链接/119字节；未读取私钥内容到对话。由现有materialize-production-import-exception-preparation.mjs mode=delegate在实际563af3a1执行，沿用本次prepare operationId/keyReference及全部固定输入，程序完成签名、解密一致性和完整freeze/bridge校验。
