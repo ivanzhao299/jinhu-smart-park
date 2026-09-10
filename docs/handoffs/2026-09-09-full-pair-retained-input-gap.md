@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## T2续签分类已接通（2026-09-10）
+
+按归档文件名web_compact_c定向定位并以固定SHA=f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12核验旧routine实际字节；未复制源码或读取数据库。使用563af3a1上的materializeProductionT2ChangeClassifications，在既有production-t0-563af3a1-受控目录生成t2-change-classifications.json，SHA=a69d9d000325340ab73370c49c0de8cf52e43df97ffd7fbc05de8a53cec0654b。357条变更中349续签、8needs_review；8条全部缺父合同，父记录歧义和员工不匹配均0。
+
+以新t2-classified-config.json引用上述分类，通过同版materializeProductionT2DecisionCandidates生成decision-candidates-t2-classified.json，SHA=82409c34341b9d9416847d561e3b1b6d2297d35f384305558fdd50abfcddb4cb。1163=1147insert+16quarantine；原因8条T2_CONTRACT_MISSING、8条T2_PARENT_REQUIRES_REVIEW。无目标碰撞，REVIEW_HOLD。新结果取代旧未分类候选作为后续输入，旧文件保留，不覆盖。分类通过不等于所有续签已可写入，其中仍有父记录依赖隔离。
+
+本次未改映射代码、未弱化校验、未抽取或写生产。候选工作树已恢复开发分支；T0/T1保持原生成结果。下一步T3应引用当前T0候选、同源manifest、同563af3a1库存；随后完整冻结必须使用此次classified T2而非旧T2。
+
 ## T2候选已生成，变更分类待接入（2026-09-10）
 
 更正上一节字典包定位文件名：SHA=716eb6124a18d47c2d45fb548a3d7a74061a51957084d934f947ca5247f80074对应non-t0-dictionaries.json，不是non-t0-dictionaries.machine-package.json。此前精确文件名发现失败是定位错误，不是文件丢失。后续按hash定位，不重建字典包。
