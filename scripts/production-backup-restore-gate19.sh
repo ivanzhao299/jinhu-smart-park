@@ -119,6 +119,7 @@ fail_gate() {
 {
   "run_id": $(json_escape "$RUN_ID"),
   "status": "FAIL",
+  "productionImport": "HOLD",
   "message": $(json_escape "$message"),
   "production_db_write": "temporary_restore_database_only"
 }
@@ -336,6 +337,7 @@ cat > "$REPORT_JSON" <<JSON
 {
   "run_id": $(json_escape "$RUN_ID"),
   "status": "PASS",
+  "productionImport": "HOLD",
   "source_tables": $SOURCE_TABLES,
   "restore_tables": $RESTORE_TABLES,
   "source_tenants": $SOURCE_TENANTS,
