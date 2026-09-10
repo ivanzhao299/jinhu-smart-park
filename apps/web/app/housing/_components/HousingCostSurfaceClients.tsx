@@ -6,6 +6,7 @@ import type {
 import { useMemo, useState } from "react";
 import {
   displayEntityName,
+  housingPurchaseCostCategoryLabel,
   projectPropertyCapabilities,
   housingPurchaseApprovalStatusOptions,
   propertyLabels,
@@ -23,6 +24,7 @@ import {
   housingOrderFilter, housingSortFilter
 } from "./HousingSurfacePrimitives";
 import { detailUrlObject } from "./housing-route-types";
+import { useHousingDisplayDictionaries } from "./use-housing-display-dictionaries";
 
 export function HousingBillingClient() {
   return <HousingCollectionPage<HousingBillingListItem>
@@ -105,6 +107,7 @@ export function HousingRepairsClient() {
 export function HousingPurchasesClient() {
   const user = useAuthUser();
   const capabilities = useMemo(() => projectPropertyCapabilities(user, "housing.purchases"), [user]);
+  const dictionaries = useHousingDisplayDictionaries(capabilities.invalidationKey);
   const [refreshKey, setRefreshKey] = useState(0);
   return <HousingCollectionPage<HousingPurchaseListItem>
     description="内部采购与租客收费保持分账；审批、付款、退款、作废和转收费在 Track B 前不可执行。"
@@ -114,6 +117,7 @@ export function HousingPurchasesClient() {
       { key: "vendor", label: "供应商", render: (item) => item.vendorName },
       { key: "unit", label: "房源", render: (item) => displayEntityName(item.unitName, item.unitCode, "未关联房源") },
       { key: "date", label: "采购日期", render: (item) => item.purchaseDate },
+      { key: "costCategory", label: "成本分类", render: (item) => housingPurchaseCostCategoryLabel(item.costCategory, dictionaries.purchaseCostCategories) },
       { key: "amount", label: "金额", render: (item) => housingMoney(item.totalAmount) },
       { key: "approval", label: "审批", render: (item) => propertyLabels.purchaseApproval(item.approvalStatus) },
       { key: "payment", label: "付款", render: (item) => propertyLabels.purchasePayment(item.paymentStatus) }

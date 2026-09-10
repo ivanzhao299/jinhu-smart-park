@@ -1535,3 +1535,105 @@ Established isolated real-keyboard browser UAT evidence contracts, executed two 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 44: Issue 721 HCD seven-case honest residual
+
+**Date**: 2026-09-09
+**Task**: Issue 721 HCD seven-case honest residual
+**Package**: api
+**Branch**: `codex/issue-721-hcd-seven-case-browser-closure`
+
+### Summary
+
+Prepared real browser action DSL and disposable fixtures; two dedicated Chromium CDP attempts were blocked, so HCD-006/008/009/013/017/025/026 remain FAIL and Issue 721 remains open. PR 725 and exact-main CI/Release Smoke passed; deploy observation succeeded without HR intervention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f43b75d4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 45: Issue 722 采购成本分类中文化闭环
+
+**Date**: 2026-09-09
+**Task**: Issue 722 采购成本分类中文化闭环
+**Package**: api
+**Branch**: `codex/issue-722-procurement-cost-category-zh`
+
+### Summary
+
+确认采购成本分类为开放租户字典；按既有 shared label 体系完成列表、详情、表单中文化与穷尽/裸码契约；PR #727 squash merge，Issue #722 关闭，PR 与 main CI/Release Smoke 通过，生产部署仅观察成功。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4cd13fff` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 46: Issue 721 HCD 七 Case 宿主 Chromium 终轮
+
+**Date**: 2026-09-09
+**Task**: Issue 721 HCD 七 Case 宿主 Chromium 终轮
+**Package**: api
+**Branch**: `codex/archive-issue-721-hcd-final`
+
+### Summary
+
+宿主级专用 Chromium 完成七 Case 双视口真实交互取证，UAT 30/30 PASS；#729 经三轮 review 与 CI 合并，#721 关闭，main 门禁通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d96f91b6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

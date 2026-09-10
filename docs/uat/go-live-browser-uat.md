@@ -111,7 +111,8 @@ pnpm go-live:uat-browser -- \
     {
       "id": "NARROW-001",
       "path": "/housing/finance",
-      "expect_forbidden": true
+      "expect_forbidden": true,
+      "text": ["当前账号没有访问该页面的权限"]
     }
   ]
 }
@@ -120,6 +121,27 @@ pnpm go-live:uat-browser -- \
 Case IDs must be unique, and detail routes must contain resolved fixture IDs rather than `[id]` template placeholders. When required counts are enabled, page truncation and prefix filters are rejected. Reports expose an `hcd_evidence_grade`: environment/session failures are `BLOCKED`, routes without complete case assertions remain `SURFACE_ONLY`, runs without a case file are `UNVERIFIED`, and only complete passing case plus isolation evidence is `PASS`.
 
 Case results are emitted per route and viewport. A selector/text/picker/unknown-value assertion failure is a hard failure. Dynamic detail cases must use real IDs created in the disposable UAT fixture; template paths such as `[leaseId]` are rejected.
+
+Cases that must prove a real interaction can declare an ordered `actions` array. Supported actions are keyboard-backed `input`, native `select`, remote `picker`, `activate`, `wait_response`, `reload`, and `wait_text`. A persisted picker flow should select the real option, activate the save control, wait for the exact mutation method/path/status, reload, and only then rely on the case assertions for the saved echo. Action evidence never records input values or picker queries. Timeouts must be positive and no greater than 60 seconds.
+
+```json
+{
+  "id": "HCD-006",
+  "path": "/homestay/finance",
+  "viewport": "both",
+  "actions": [
+    { "type": "picker", "label": "来源流水", "query": "fixture code", "option_text": "具名来源流水" },
+    { "type": "activate", "selector": "button", "text": "保存" },
+    { "type": "wait_response", "method": "POST", "path": "/homestay/refunds", "status": 201 },
+    { "type": "reload" },
+    { "type": "wait_text", "text": "具名来源流水" }
+  ],
+  "text": ["具名来源流水"],
+  "absent_text": ["fixture-internal-id"]
+}
+```
+
+Unknown-value cases may declare `response_overrides`, each with an exact API `path` and a non-empty `replacements` object. An override case must be the only case on its route so injected data cannot affect sibling assertions. The runner pauses the response through CDP Fetch, replaces the configured byte strings, and fails unless every declared override is observed and changes at least one occurrence. Use this only with disposable fixtures; never use it to conceal an unexpected API response.
 
 When `--evidence-dir` is supplied, the runner writes `browser-uat-report.json`, screenshots, and `evidence-manifest.json`. The manifest records relative filenames, byte sizes, and SHA-256 digests. Evidence files are mode 0600; URLs and diagnostics remain redacted.
 

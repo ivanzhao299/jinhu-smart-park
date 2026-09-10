@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 43
+- **Total Sessions**: 46
 - **Last Active**: 2026-09-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1537 | Active |
+| `journal-1.md` | ~1639 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,9 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 46 | 2026-09-09 | Issue 721 HCD 七 Case 宿主 Chromium 终轮 | `d96f91b6` | `codex/archive-issue-721-hcd-final` |
+| 45 | 2026-09-09 | Issue 722 采购成本分类中文化闭环 | `4cd13fff` | `codex/issue-722-procurement-cost-category-zh` |
+| 44 | 2026-09-09 | Issue 721 HCD seven-case honest residual | `f43b75d4` | `codex/issue-721-hcd-seven-case-browser-closure` |
 | 43 | 2026-09-09 | HCD 30 Case 终局浏览器 UAT | `8b5395b3` | `codex/hcd-30-final-browser-uat` |
 | 42 | 2026-09-09 | PMA L-04 browser UAT baseline closure | `66fd267a` | `codex/pma-l04-browser-uat-baseline` |
 | 41 | 2026-09-09 | PMA L-03 B workbench navigation closure | `9fd3a68e`, `752a9318` | `codex/pma-l03-css-budget-followup` |
