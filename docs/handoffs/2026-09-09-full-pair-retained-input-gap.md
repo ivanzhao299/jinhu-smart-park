@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## T2候选已生成，变更分类待接入（2026-09-10）
+
+更正上一节字典包定位文件名：SHA=716eb6124a18d47c2d45fb548a3d7a74061a51957084d934f947ca5247f80074对应non-t0-dictionaries.json，不是non-t0-dictionaries.machine-package.json。此前精确文件名发现失败是定位错误，不是文件丢失。后续按hash定位，不重建字典包。
+
+同production-t0-563af3a1-受控目录新增phase-t2.json，SHA=56a8bfcc1623b7bceb652d8b726415337b5737657a202261d9186b76343a86a6；1163条=合同类型4+合同802+变更357+旧证据0。已通过563af3a1上的现有生产者完成来源内容与身份核验。t2-config.json固定真实来源/库存/T0/字典描述符，dictionaryRevalidation=source_semantics，changeDecisions=null；库存使用realpath规范路径，不复制内容。
+
+decision-candidates-t2.json SHA=8db2a5e0b855c0cd402c91d97416e8e6e124f5ed892612b617ca4a82796576c8；候选insert799、quarantine364。364中357条T2_DICTIONARY_DECISION_INVALID是尚未接入合同变更分类输入，并非已证明357条旧数据错误；另7条T2_PARENT_REQUIRES_REVIEW。下一步使用现有materialize-production-t2-change-classifications.mjs核对旧续签routine和实际变更字段生成分类，再以新配置/输出重新生成T2，保留此次未分类候选不覆盖。不要把全部变更隔离当作兼容完成。没有生产写入、重抽或A/B。开发分支已恢复。
+
 ## 已发布版本真实候选推进（2026-09-10）
 
 Deploy34435378144成功；运行镜像核验34436689421证明两个组件均为563af3a1890b89166f664dd5427e47267ae90b7e。目标核验34436707349确认单一有效范围，目标身份06ac3572434dbef9bde1c46e448906c4e86fbee28b36d8a4020ac15fa24a6f13。该身份已经存在于已发布production-import-target-allowlist-v1.json；诊断固定返回TARGET_NOT_ALLOWLISTED并未查询清单，不可再据此称登记缺失。
