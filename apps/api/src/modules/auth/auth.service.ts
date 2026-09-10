@@ -1,4 +1,13 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  Optional,
+  UnauthorizedException
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -27,6 +36,7 @@ import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./au
 import { IdentityDirectoryService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/identity-directory.service";
 import { UserEntity } from "../users/entities/user.entity";
 import { isProtectedTenantSuperRole } from "../roles/protected-super-role";
+import { AUTH_REFRESH_SCOPE_WRITER, type AuthRefreshScopeWriter } from "./auth-refresh-scope-writer";
 
 export interface LoginContextOption {
   userId: string;
@@ -118,7 +128,10 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(AuthOauthStateEntity)
     private readonly oauthStateRepository: Repository<AuthOauthStateEntity>,
     @InjectRepository(AuthLoginTicketEntity)
-    private readonly loginTicketRepository: Repository<AuthLoginTicketEntity>
+    private readonly loginTicketRepository: Repository<AuthLoginTicketEntity>,
+    @Optional()
+    @Inject(AUTH_REFRESH_SCOPE_WRITER)
+    private readonly refreshScopeWriter?: AuthRefreshScopeWriter
   ) {}
 
   onModuleInit(): void {
@@ -1071,19 +1084,27 @@ export class AuthService implements OnModuleInit {
   ): Promise<string> {
     const rawToken = randomBytes(48).toString("hex");
     const expiresDays = Number(this.configService.get<string>("AUTH_REFRESH_EXPIRES_DAYS", "30"));
-    await this.refreshTokenRepository.save(
-      this.refreshTokenRepository.create({
-        tenantId: user.tenantId,
-        parkId: user.parkId,
-        userId: user.sub,
-        tokenHash: this.hashToken(rawToken),
-        userAgent: this.normalizeUserAgent(meta.userAgent),
-        ipAddress: meta.ipAddress,
-        expiresAt: new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000),
-        createBy: user.sub,
-        updateBy: user.sub
-      })
-    );
+    const token = this.refreshTokenRepository.create({
+      tenantId: user.tenantId,
+      parkId: user.parkId,
+      userId: user.sub,
+      tokenHash: this.hashToken(rawToken),
+      userAgent: this.normalizeUserAgent(meta.userAgent),
+      ipAddress: meta.ipAddress,
+      expiresAt: new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000),
+      createBy: user.sub,
+      updateBy: user.sub
+    });
+    if (this.refreshScopeWriter) {
+      try {
+        const writer = this.refreshScopeWriter;
+        await this.refreshTokenRepository.manager.transaction((manager) => writer.persist(manager, token));
+      } catch {
+        throw new UnauthorizedException("Refresh token scope unavailable");
+      }
+    } else {
+      await this.refreshTokenRepository.save(token);
+    }
     return rawToken;
   }
 
