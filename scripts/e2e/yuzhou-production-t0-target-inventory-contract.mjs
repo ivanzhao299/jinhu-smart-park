@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import console from "node:console";
 
 import {
   ProductionT0TargetInventoryError,
@@ -17,6 +18,11 @@ const input = {
   ],
 };
 
+// Explicit synthetic legacy fields; never fill missing production projections.
+Object.assign(input.records[0].targetFields, { legacy_hierarchy_level: 1, legacy_manager_reference: "SYN-MGR" });
+Object.assign(input.records[1].targetFields, { hierarchy_level: 2, sort_order: -1 });
+input.records[1].derivedFields.reports_to_position_id = null;
+Object.assign(input.records[2].targetFields, { legacy_jobstate_code: "1", legacy_jobstate_name: "在职人员" });
 const result = materializeProductionT0TargetInventory(input);
 assert.deepEqual(result.targetTableCounts, { hr_employee: 1, hr_position: 1, sys_org: 1 });
 assert.equal(result.status, "PASS");

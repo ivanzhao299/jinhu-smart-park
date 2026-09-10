@@ -13,9 +13,9 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
   const sharedDate = "2026-08-29";
   const timestamp = "2026-08-29T09:10:11.000";
   const values = {
-    sys_org: { org_code: `ORG-${suffix}`, org_name: `Lab Org ${suffix}`, org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: 101 },
-    hr_position: { position_code: `POS-${suffix}`, position_name: `Lab Position ${suffix}`, job_family: null, job_level: "L1", headcount_limit: 2, status: "enabled", remark: null, authority: "权限说明", legacy_source_id: 102, legacy_upto_code: "ROOT", position_manual: "  ", qualification: null, responsibilities: "岗位职责" },
-    hr_employee: { employee_code: `EMP-${suffix}`, full_name: `Lab Employee ${suffix}`, employment_type: "full_time", employment_status: "active", hire_date: sharedDate, probation_end_date: null, departure_date: null, work_location: "Lab", work_mobile: null, work_email: null, remark: null },
+    sys_org: { org_code: `ORG-${suffix}`, org_name: `Lab Org ${suffix}`, org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: "", planned_headcount: 0, legacy_source_id: 101, legacy_hierarchy_level: 2, legacy_manager_reference: "SYN-MGR" },
+    hr_position: { position_code: `POS-${suffix}`, position_name: `Lab Position ${suffix}`, job_family: null, job_level: "L1", headcount_limit: 2, hierarchy_level: 3, sort_order: -2, status: "enabled", remark: null, authority: "权限说明", legacy_source_id: 102, legacy_upto_code: "ROOT", position_manual: "  ", qualification: null, responsibilities: "岗位职责" },
+    hr_employee: { employee_code: `EMP-${suffix}`, full_name: `Lab Employee ${suffix}`, employment_type: "full_time", employment_status: "active", legacy_jobstate_code: "1", legacy_jobstate_name: "在职人员", hire_date: sharedDate, probation_end_date: null, departure_date: null, work_location: "Lab", work_mobile: null, work_email: null, remark: null },
     hr_employment_event: { event_no: `EVT-${suffix}`, event_type: "onboard", effective_date: sharedDate, before_snapshot: {}, after_snapshot: { state: "active" }, reason: "legacy import", status: "effective", legacy_event_no: `LEG-EVT-${suffix}`, legacy_event_type: "入职", legacy_state: "已生效", source_effective_at: "2026-08-29T09:10:11.123456+08:00", migration_decision: "accepted", is_historical_import: true, remark: null },
     hr_contract_type: { type_code: `TYPE-${suffix}`, type_name: `Lab Type ${suffix}`, status: "enabled", is_historical_import: true, remark: null },
     hr_contract: { contract_no: `CON-${suffix}`, start_date: sharedDate, end_date: "2027-08-28", probation_end_date: null, status: "active", contract_term_months: 12, signature_date: sharedDate, effective_date: sharedDate, position_title: "Lab", work_type: "full_time", department_name_snapshot: "Lab Org", first_signature_date: sharedDate, last_signature_date: sharedDate, cumulative_term_months: 12, renewal_count: 0, probation_months: null, probation_salary: null, base_salary: "1000.01", confidentiality_agreement: false, non_compete_agreement: false, training_service_agreement: false, legacy_file_reference: null, legacy_text_present: false, is_historical_import: true, legacy_source_identity_sha256: sourceIdentitySha256, legacy_source_row_sha256: H(`${suffix}:contract-row`), source_snapshot: { source: "fixed-lab" }, remark: null },
@@ -32,6 +32,7 @@ function payloadFor(table, suffix, sourceIdentitySha256, protectedFileId) {
   };
   const payload = values[table];
   assert.ok(payload, `missing fixture payload for ${table}`);
+  assert.deepEqual(Object.keys(payload).sort(), [...model.targetTables[table].fieldWhitelist].sort(), `fixture must explicitly cover the complete ${table} field contract`);
   return JSON.parse(JSON.stringify(payload, (_key, value) => typeof value === "bigint" ? value.toString() : value));
 }
 

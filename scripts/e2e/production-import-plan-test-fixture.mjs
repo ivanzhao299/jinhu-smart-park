@@ -25,7 +25,7 @@ export function fixture(t) {
     targetIdentitySha256: target.identitySha256, targetScopeSha256: targetScope.scopeSha256, observedAt: "2026-09-09T00:10:00.000Z", expiresAt: "2026-09-09T01:30:00.000Z" };
   const baseline = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_touched_baseline", triple, targetIdentitySha256: target.identitySha256, targetScope,
     observedAt: runtime.observedAt, expiresAt: runtime.expiresAt, phases: {}, productionImport: "HOLD" };
-  const payload = { org_code: "SYN", org_name: "Synthetic", org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: 1 };
+  const payload = { org_code: "SYN", org_name: "Synthetic", org_type: "department", sort_order: 1, status: "enabled", remark: null, contact_phone: null, planned_headcount: null, legacy_source_id: 1, legacy_hierarchy_level: 2, legacy_manager_reference: "SYN-MGR" };
   const identity = H("org"), targetId = deriveProductionImportTargetId({ targetScope, targetTable: "sys_org", sourceIdentitySha256: identity });
   const record = { sourceSystem: "yuzhou-v10", sourceTable: "dbo.departmentcode", sourcePkCanonical: `sha256:${identity}`, sourceIdentitySha256: identity, sourceRowSha256: H("row"), payloadSha256: hash(payload), plannedTargetTable: "sys_org",
     dependencyMode: "scope", dependencyRefs: [], disposition: "insert", targetTable: "sys_org", targetId, targetVersionAfter: 1,
@@ -56,5 +56,4 @@ export function fixture(t) {
   };
   return { root, put, config, run, seal, baseline, metadata, runtime, contract, triple };
 }
-
 
