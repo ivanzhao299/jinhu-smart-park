@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import console from "node:console";
 import { createHash } from "node:crypto";
 import fs, { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+const { structuredClone } = globalThis;
 
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
-import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields, orderLegacyPositionRows } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields, orderLegacyPositionRows, projectLegacyEmployeeState } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+
+for (const [code, name] of [["1", "在职人员"], ["2", "退休人员"], ["3", "离休人员"], ["4", "离职人员"], ["5", "内退人员"], ["6", "试用人员"], ["a", "临时人员"], ["b", "未办退厂手续"]]) {
+  for (const raw of [code, code.toUpperCase(), ` ${code} `]) {
+    assert.deepEqual(projectLegacyEmployeeState(raw), { valid: true, fields: { legacy_jobstate_code: raw.trim(), legacy_jobstate_name: name, employment_type: code === "a" ? "temporary" : "full_time" } });
+  }
+}
+assert.equal(projectLegacyEmployeeState("UNKNOWN").fields.legacy_jobstate_name, null);
+assert.equal(projectLegacyEmployeeState(null).fields.legacy_jobstate_code, null);
+for (const value of [123, {}, "123456789", "a\u0000b"]) assert.equal(projectLegacyEmployeeState(value).valid, false);
 
 const positionRow = (sourceKey, parentPositionCode) => ({ sourceKey, source: { parentPositionCode } });
 assert.deepEqual(orderLegacyPositionRows([positionRow("child", "parent"), positionRow("parent", "")]).rows.map(r => r.sourceKey), ["parent", "child"]);
@@ -113,6 +124,11 @@ const artifact = JSON.parse(readFileSync(outputPath, "utf8"));
 assert.equal(artifact.records.find(row => row.targetTable === "sys_org" && row.candidateDisposition === "skip_exact").expectedTargetVersion, 3);
 assert.equal(artifact.records.find(row => row.targetTable === "hr_employee").dependencyRefs.length, 2);
 assert.equal(artifact.productionImport, "HOLD");
+const legacyEmployee = artifact.records.find(row => row.targetFields?.employee_code === "E001");
+assert.equal(legacyEmployee.targetFields.employment_type, "temporary");
+assert.equal(legacyEmployee.targetFields.legacy_jobstate_code, "A");
+assert.equal(legacyEmployee.targetFields.legacy_jobstate_name, "临时人员");
+assert.equal(legacyEmployee.targetFields.employment_status, "active");
 const childPosition = artifact.records.find(row => row.targetFields?.position_code === "P001");
 assert.equal(childPosition.targetFields.hierarchy_level, 2);
 assert.equal(childPosition.targetFields.sort_order, 7);

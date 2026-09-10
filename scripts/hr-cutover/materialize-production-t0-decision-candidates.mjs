@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
+import process from "node:process";
 import { chmodSync, closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 
 import { computeProductionImportTargetScopeHash } from "./production-import-sealed-plan-lib.mjs";
 import {
@@ -319,7 +321,8 @@ function link(role, source, targetTable, derivedField) {
 }
 
 function outputDependency(value) {
-  const { derivedField: _derivedField, targetId: _targetId, candidateDisposition: _candidateDisposition, ...result } = value;
+  const result = { ...value };
+  delete result.derivedField; delete result.targetId; delete result.candidateDisposition;
   return result;
 }
 
@@ -339,6 +342,13 @@ export function orderLegacyPositionRows(rows) {
   // Remaining nodes are cycles or depend on a cycle; keep them for explicit quarantine.
   const cyclicCodes = new Set(pending.keys());
   return { rows: [...ordered, ...[...pending.keys()].sort().map(code => pending.get(code))], cyclicCodes };
+}
+
+export function projectLegacyEmployeeState(value) {
+  const code = nullableText(value);
+  const names = { "1": "在职人员", "2": "退休人员", "3": "离休人员", "4": "离职人员", "5": "内退人员", "6": "试用人员", a: "临时人员", b: "未办退厂手续" };
+  const valid = (value === null || value === undefined || typeof value === "string") && (code === null || ([...code].length <= 8 && !code.includes("\u0000")));
+  return { valid, fields: { legacy_jobstate_code: code, legacy_jobstate_name: code !== null && Object.hasOwn(names, code.toLowerCase()) ? names[code.toLowerCase()] : null, employment_type: code?.toLowerCase() === "a" ? "temporary" : "full_time" } };
 }
 
 function buildCandidates(stage, scope, inventory, jobState) {
@@ -389,15 +399,17 @@ function buildCandidates(stage, scope, inventory, jobState) {
     const position = positionsByCode.get(text(row.source.positionCode)) ?? null;
     const stateIdentity = sha256(`dbo.person.jobstate\0${text(row.source.legacyStatus).toLowerCase()}`);
     const state = jobState.decisions.get(stateIdentity) ?? null;
+    const legacyState = projectLegacyEmployeeState(row.source.legacyStatus);
     const hire = optionalDate(row.source.hireDate), probation = optionalDate(row.source.formalDate), departure = optionalDate(row.source.departureDate);
     const fields = text(row.source.fullName) === "" ? null : {
-      employee_code: text(row.sourceKey), full_name: text(row.source.fullName), employment_type: "full_time", employment_status: state?.decision === "map" ? state.targetEmploymentStatus : null,
+      employee_code: text(row.sourceKey), full_name: text(row.source.fullName), ...legacyState.fields, employment_status: state?.decision === "map" ? state.targetEmploymentStatus : null,
       hire_date: hire.value, probation_end_date: probation.value, departure_date: departure.value, work_location: null, work_mobile: null, work_email: null,
       remark: hire.valid && probation.valid && departure.valid && !(hire.value && departure.value && departure.value < hire.value) ? null : "Legacy date requires review",
     };
     const dependencies = org ? [link("primary_org", org, "sys_org", "primary_org_id"), ...(position ? [link("position", position, "hr_position", "position_id")] : [])] : [];
     let rowCandidate;
     if (fields === null) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_NAME_REQUIRED");
+    else if (!legacyState.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_LEGACY_STATE_INVALID");
     else if (!org) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_ORG_REQUIRED");
     else if (!hire.valid || !probation.valid || !departure.valid) rowCandidate = candidate(row, null, [], scope, inventory, "quarantine", "EMPLOYEE_DATE_INVALID");
     else if (hire.value && departure.value && departure.value < hire.value) rowCandidate = candidate(row, fields, dependencies, scope, inventory, "quarantine", "EMPLOYEE_DATE_ORDER_INVALID");

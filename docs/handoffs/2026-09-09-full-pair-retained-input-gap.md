@@ -1,5 +1,15 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 员工旧状态与临时工语义（2026-09-10）
+
+收尾同时消除本次触及三份JS文件的27项既有lint诊断：显式导入Node内置项、通过globalThis引用structuredClone，去掉仅为排除对象字段的未使用解构变量（仍返回新对象，不修改入参）。decision与16项writer测试重新通过，三文件ESLint及diff检查通过。此为局部lint通过，不代表全仓质量门禁通过。
+
+继0dae5856后，decision producer按旧T0 SQL规则保留legacyStatus原代码（去首尾空白但不改大小写），生成legacy_jobstate_code/name；1–6、a、b八种固定名称与旧加载器一致，未知代码不猜名称。A/a类employment_type改为temporary，其余full_time；employment_status仍来自原机器字典决定，不能用旧显示名称覆盖或绕开未解析字典隔离。非文本、超过8字符、NUL输入明确隔离。
+
+目标白名单与canonical比较同步加入两列。合成测试覆盖八类、大小写、空值、未知和非法值，集成候选证明A代码为temporary、现代状态仍active。decision、target-model、payload-generator、real-artifact-bridge合同通过。扩大phase-writers测试发现8项失败均由前两轮新增字段使旧合成组织/岗位payload不完整引起；仅补合成字段，保留完整载荷校验后16项写入器测试通过。
+
+源码确认API实体与权限投影已有legacyJobstateCode/Name；Web检索只见hr-api类型声明，尚无已验证页面显示，不宣称用户端闭环。新增字段未从真实来源重生成、未真实装载、未部署。下一步批量核对所有T0新增字段的载荷/数据库和页面接线，不能把旧成功回执当新增字段验证。
+
 ## 岗位字段与父子关系接线（2026-09-10）
 
 在22bda329组织修复之后，继续对照实际T0 SQL：source.rating→hierarchy_level，source.sortOrder→sort_order（空值0），source.parentPositionCode→同域父岗位依赖→reports_to_position_id。目标模型、canonical字段、foreignKeys及decision producer一起修改，不使用名称猜测关联。
