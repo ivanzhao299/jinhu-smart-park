@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## 委托完整性校验通过（2026-09-10）
+
+定向旧delegate配置元数据定位唯一operatorKeyFile描述符，文件0600/单链接/119字节；未读取私钥内容到对话。由现有materialize-production-import-exception-preparation.mjs mode=delegate在实际563af3a1执行，沿用本次prepare operationId/keyReference及全部固定输入，程序完成签名、解密一致性和完整freeze/bridge校验。
+
+exception-delegate-config.json固定输出目录。reviewed-candidate-resolutions.json SHA=4b83c27064e927a634d40e74fe9b6caae047bba2a59cf6f073add59afa710ebd，18768217字节；delegated-bridge-evidence.json SHA=64a60780df2dcc11c239d8fb973fa704f50ab3a90927484cb24df59a8cd27717，2105字节。现有emit写入读回完成，进程95470exit0，status=DELEGATED_INTEGRITY_VERIFIED、recordCount3295、ownerAuthorizationClaimed=false、signerAuthorityEstablished=false、HOLD。这证明操作者完整性，不冒充独立外部审批或拥有者生产授权。
+
+原开发分支已恢复。下一步消费该reviewed文件运行现有materialize-production-import-frozen-decisions.mjs保存正式wrappers与冻结证据，不再重复prepare/delegate或重建choices。实际一次性授权、当前备份及隔离执行验证仍须后续核对；不得把上述签名自动解释为历史数据已导入或发薪授权。
+
 ## 3295条隔离加密准备完成（2026-09-10）
 
 在563af3a1实际干净工作树运行既有materialize-production-import-exception-preparation.mjs mode=prepare，消费固定四域phase/candidates、真实库存/范围及完整choices。复用原受控owner配置唯一keyFiles描述符；只检查32字节、0600、单链接元数据，密钥仅由现有程序延迟读取并使用/清零，未回显、复制或写入Git。生成独立operationId，未执行生产写入。
