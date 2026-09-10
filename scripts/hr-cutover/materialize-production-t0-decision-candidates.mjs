@@ -351,6 +351,44 @@ export function projectLegacyEmployeeState(value) {
   return { valid, fields: { legacy_jobstate_code: code, legacy_jobstate_name: code !== null && Object.hasOwn(names, code.toLowerCase()) ? names[code.toLowerCase()] : null, employment_type: code?.toLowerCase() === "a" ? "temporary" : "full_time" } };
 }
 
+// Counts only. Name matches are investigation leads, never mapping decisions.
+// The caller supplies the hash-validated stage used by the candidate builder.
+export function summarizeLegacyT0Relations({ organizations, positions, employees }) {
+  const orgCodes = new Set(organizations.map(row => text(row.sourceKey)));
+  const positionCodes = new Set(positions.map(row => text(row.sourceKey)));
+  const nameCounts = new Map();
+  for (const row of positions) {
+    const name = text(row.source.positionName);
+    if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+  }
+  const missingParents = positions.filter(row => text(row.source.parentPositionCode) && !positionCodes.has(text(row.source.parentPositionCode)));
+  const missingOrgs = positions.filter(row => !orgCodes.has(text(row.source.departmentCode) || "000"));
+  const cyclic = orderLegacyPositionRows(positions).cyclicCodes;
+  const affected = new Set([...missingParents, ...missingOrgs].map(row => text(row.sourceKey)));
+  for (const code of cyclic) affected.add(code);
+  const directCount = affected.size;
+  let previousSize;
+  do {
+    previousSize = affected.size;
+    for (const row of positions) {
+      if (affected.has(text(row.source.parentPositionCode))) affected.add(text(row.sourceKey));
+    }
+  } while (affected.size !== previousSize);
+  return Object.freeze({
+    positionMissingParentRows: missingParents.length,
+    positionMissingOrgRows: missingOrgs.length,
+    positionCycleOrDependentRows: cyclic.size,
+    parentUniqueNameMatchRows: missingParents.filter(row => nameCounts.get(text(row.source.parentPositionCode)) === 1).length,
+    parentAmbiguousNameMatchRows: missingParents.filter(row => (nameCounts.get(text(row.source.parentPositionCode)) ?? 0) > 1).length,
+    directlyAffectedPositionRows: directCount,
+    affectedPositionRows: affected.size,
+    employeeMissingOrgRows: employees.filter(row => !orgCodes.has(text(row.source.departmentCode))).length,
+    employeeEmptyPositionRows: employees.filter(row => !text(row.source.positionCode)).length,
+    employeeUnresolvedPositionRows: employees.filter(row => text(row.source.positionCode) && !positionCodes.has(text(row.source.positionCode))).length,
+    employeesWithAffectedPosition: employees.filter(row => affected.has(text(row.source.positionCode))).length,
+  });
+}
+
 function buildCandidates(stage, scope, inventory, jobState) {
   const byCode = new Map();
   const organizations = [];
@@ -438,6 +476,7 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
   const stagingDir = privateDirectory(input.stagingDir, "staging");
   const triple = validateTriple(readJson(privateFile(input.triplePath, "triple"), "PRODUCTION_IMPORT_T0_DECISION_TRIPLE_INVALID"), head());
   const stage = readStage(stagingDir, triple);
+  const relationAudit = summarizeLegacyT0Relations({ organizations: stage.byTable.get("sys_org"), positions: stage.byTable.get("hr_position"), employees: stage.byTable.get("hr_employee") });
   const phaseArtifactSha256 = readPhaseArtifact(input.phaseArtifactPath, triple, stage);
   const inventory = readInventory(input.targetInventoryPath, triple);
   const targetScope = readScope(input.targetScopePath, inventory.value);
@@ -470,7 +509,7 @@ export function materializeProductionT0DecisionCandidates(input, { head = curren
     productionImport: "HOLD",
   };
   writePrivateNew(resolve(input.outputPath), artifact);
-  return Object.freeze({ status: artifact.status, phase: PHASE, recordCount: records.length, targetTableCounts: Object.freeze(Object.fromEntries(["sys_org", "hr_position", "hr_employee"].map(table => [table, records.filter(row => row.targetTable === table).length]))), countByDisposition: Object.freeze({ ...countByDisposition }), artifactSha256: sha256(Buffer.from(`${JSON.stringify(artifact)}\n`, "utf8")), productionImport: "HOLD" });
+  return Object.freeze({ status: artifact.status, phase: PHASE, recordCount: records.length, targetTableCounts: Object.freeze(Object.fromEntries(["sys_org", "hr_position", "hr_employee"].map(table => [table, records.filter(row => row.targetTable === table).length]))), countByDisposition: Object.freeze({ ...countByDisposition }), relationAudit, artifactSha256: sha256(Buffer.from(`${JSON.stringify(artifact)}\n`, "utf8")), productionImport: "HOLD" });
 }
 
 function parseArgs(argv) {

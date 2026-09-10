@@ -12,7 +12,28 @@ const { structuredClone } = globalThis;
 import { computeProductionImportTargetScopeHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, computeProductionImportBusinessIdentityHash, computeProductionImportTargetCanonicalHash } from "../hr-cutover/production-import-target-model.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
-import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields, orderLegacyPositionRows, projectLegacyEmployeeState } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidatesError, projectLegacyT0ExtendedFields, orderLegacyPositionRows, projectLegacyEmployeeState, summarizeLegacyT0Relations } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+
+{
+  const row = (sourceKey, source) => ({ sourceKey, source });
+  const input = {
+    organizations: [row("000", {})],
+    positions: [row("p", { positionName: "Leader", departmentCode: "000" }), row("bad", { parentPositionCode: "Leader", departmentCode: "missing" }), row("child", { parentPositionCode: "bad" })],
+    employees: [row("e", { departmentCode: "000", positionCode: "child" }), row("empty", { departmentCode: "000" }), row("orphan", { departmentCode: "missing", positionCode: "unknown" })],
+  };
+  const before = JSON.stringify(input);
+  const audit = summarizeLegacyT0Relations(input);
+  assert.deepEqual(audit, { positionMissingParentRows: 1, positionMissingOrgRows: 1, positionCycleOrDependentRows: 0, parentUniqueNameMatchRows: 1, parentAmbiguousNameMatchRows: 0, directlyAffectedPositionRows: 1, affectedPositionRows: 2, employeeMissingOrgRows: 1, employeeEmptyPositionRows: 1, employeeUnresolvedPositionRows: 1, employeesWithAffectedPosition: 1 });
+  assert.equal(JSON.stringify(input), before);
+  assert.ok(Object.values(audit).every(value => Number.isSafeInteger(value) && value >= 0));
+  input.positions.push(row("duplicate-name", { positionName: "Leader" }));
+  assert.equal(summarizeLegacyT0Relations(input).parentAmbiguousNameMatchRows, 1);
+  assert.equal(summarizeLegacyT0Relations(input).parentUniqueNameMatchRows, 0);
+  input.positions.push(row("self", { parentPositionCode: "self" }));
+  assert.equal(summarizeLegacyT0Relations(input).positionCycleOrDependentRows, 1);
+  input.organizations = [];
+  assert.equal(summarizeLegacyT0Relations(input).positionMissingOrgRows, 5);
+}
 
 for (const [code, name] of [["1", "在职人员"], ["2", "退休人员"], ["3", "离休人员"], ["4", "离职人员"], ["5", "内退人员"], ["6", "试用人员"], ["a", "临时人员"], ["b", "未办退厂手续"]]) {
   for (const raw of [code, code.toUpperCase(), ` ${code} `]) {
@@ -115,6 +136,7 @@ job.canonicalDecisionSha256 = canonicalDecisionHash(job);
 const jobPath = join(root, "job.json"); writePrivate(jobPath, `${JSON.stringify(job)}\n`);
 const outputPath = join(output, "candidates.json");
 const result = materializeProductionT0DecisionCandidates({ stagingDir: staging, triplePath, phaseArtifactPath: phasePath, targetInventoryPath: inventoryPath, targetScopePath: scopePath, jobStatePath: jobPath, outputPath }, { head: () => codeSha });
+assert.ok(result.relationAudit && Object.values(result.relationAudit).every(Number.isSafeInteger));
 assert.equal(result.status, "READY_FOR_FREEZE");
 assert.deepEqual(result.targetTableCounts, { sys_org: 138, hr_position: 18, hr_employee: 2949 });
 assert.equal(result.countByDisposition.skip_exact, 1);
