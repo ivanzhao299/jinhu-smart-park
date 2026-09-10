@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import process from "node:process";
+import console from "node:console";
+import { URL } from "node:url";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { projectLegacyT0ExtendedFields } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
+import { projectLegacyT0ExtendedFields, projectLegacyEmployeeState } from "../hr-cutover/materialize-production-t0-decision-candidates.mjs";
 
 // Real retained staging, temporary tables only. Never emit SQL or database diagnostics.
 assert.equal(process.env.YUZHOU_EXTENDED_FIELDS_PG, "yes", "explicit test opt-in required");
@@ -21,24 +24,26 @@ assert.equal(inspect.stdout.trim(), "jinhu_hr_migration_lab", "LAB_IDENTITY_MISM
 const base = resolve(process.env.YUZHOU_TEST_STAGING_DIR);
 const manifest = JSON.parse(readFileSync(resolve(base, "manifest.json"), "utf8"));
 const migration = readFileSync(new URL("../../database/migrations/000295_hr_organization_position_legacy_mapping.sql", import.meta.url), "utf8");
+const employeeMigration = readFileSync(new URL("../../database/migrations/000313_hr_yuzhou_employee_legacy_state.sql", import.meta.url), "utf8");
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const literal = value => `'${JSON.stringify(value).replaceAll("'", "''")}'::jsonb`;
-for (const [domain, table, file, expected] of [["departments", "sys_org", "departments.jsonl", 138], ["positions", "hr_position", "positions.jsonl", 18]]) {
+for (const [domain, table, file, expected] of [["departments", "sys_org", "departments.jsonl", 138], ["positions", "hr_position", "positions.jsonl", 18], ["employees", "hr_employee", "employees.jsonl", 2949]]) {
   const bytes = readFileSync(resolve(base, file));
   assert.equal(sha(bytes), manifest.domains[domain].fileSha256, "STAGING_HASH_MISMATCH");
   const rows = bytes.toString().trim().split("\n").map(JSON.parse);
   assert.equal(rows.length, expected, "STAGING_COUNT_MISMATCH");
   const payloads = rows.map(row => {
     assert.equal(sha(JSON.stringify(row.source, Object.keys(row.source).sort())), row.sourceRowSha256, "SOURCE_ROW_HASH_MISMATCH");
-    const projection = projectLegacyT0ExtendedFields(table, row.source);
+    const projection = table === "hr_employee" ? projectLegacyEmployeeState(row.source.legacyStatus) : projectLegacyT0ExtendedFields(table, row.source);
     assert.equal(projection.valid, true, "SOURCE_PROJECTION_INVALID");
+    if (table === "hr_employee") delete projection.fields.employment_type;
     return projection.fields;
   });
   const columns = Object.keys(payloads[0]);
-  const ddl = migration.split(`ALTER TABLE ${table}\n`)[1]?.split(";")[0];
+  const ddl = (table === "hr_employee" ? employeeMigration : migration).split(`ALTER TABLE ${table}\n`)[1]?.split(";")[0];
   assert.ok(ddl, "MIGRATION_TABLE_NOT_FOUND");
   const types = columns.map(column => {
-    const type = ddl.match(new RegExp(`ADD COLUMN IF NOT EXISTS ${column} (integer|varchar\\(\\d+\\))[,;]?`))?.[1];
+    const type = ddl.match(new RegExp(`ADD COLUMN IF NOT EXISTS ${column} (smallint|integer|varchar\\(\\d+\\))(?=[,;\\s]|$)`))?.[1];
     assert.ok(type, "MIGRATION_COLUMN_TYPE_NOT_FOUND");
     return `${column} ${type}`;
   });

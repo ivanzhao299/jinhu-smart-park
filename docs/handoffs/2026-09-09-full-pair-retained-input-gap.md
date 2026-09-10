@@ -1,5 +1,13 @@
 # 全域演练与保留输入的真实接线缺口
 
+## T0真实字段类型往返验证（2026-09-10）
+
+基于e3a222ab的真实字段投影修复，更新原yuzhou-t0-extended-fields.pg.mjs识别smallint，并加入员工旧状态两列。读取保留staging，验证各域文件hash、源行hash及138/18/2949行数；不重新连接SQL Server提取、不覆盖源文件。使用已明确标记实验用途的PostgreSQL，CREATE TEMP TABLE后BEGIN READ ONLY，验证jsonb→对应migration列类型→jsonb相等，ROLLBACK后临时表零行；连接退出销毁临时表。业务表写入0。
+
+实际exit0：组织138行/5个扩展字段、岗位18行/8个扩展字段、员工2949行/2个旧状态字段全部roundtrip PASS，三域rollbackRows均0。首次两域验证通过后扩展员工，再运行一次三域测试；不是重新跑全量装载。目标宿主与Docker容量检查通过，未清理其他资源。测试文件ESLint及diff检查通过。
+
+证据范围限定为保留来源的字段类型往返，不证明现行源恢复身份、完整业务表约束、父岗位外键、完整载荷生成、当前代码正式A/B或前端展示。员工employment_type未进入本次两列临时表验证，语义仍由前轮合同测试覆盖。下一步核对真实候选生成及用户端展示，不能把该结果标为生产已导入。
+
 ## 员工旧状态与临时工语义（2026-09-10）
 
 收尾同时消除本次触及三份JS文件的27项既有lint诊断：显式导入Node内置项、通过globalThis引用structuredClone，去掉仅为排除对象字段的未使用解构变量（仍返回新对象，不修改入参）。decision与16项writer测试重新通过，三文件ESLint及diff检查通过。此为局部lint通过，不代表全仓质量门禁通过。
