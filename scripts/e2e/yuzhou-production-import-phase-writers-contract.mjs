@@ -305,7 +305,7 @@ test("merge and skip lock in bulk and enforce both canonical hash and version CA
 });
 
 test("dependencies resolve only through exact active maps from this operation and missing dependencies fail before business writes", async () => {
-  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null, authority: null, legacy_source_id: null, legacy_upto_code: null, position_manual: null, qualification: null, responsibilities: null, hierarchy_level: null, sort_order: 0 };
+  const payload = { position_code: "P-1", position_name: "Position", job_family: null, job_level: null, headcount_limit: null, status: "enabled", remark: null, authority: null, legacy_source_id: null, legacy_upto_code: null, position_manual: null, qualification: null, responsibilities: null, hierarchy_level: null, sort_order: 0, legacy_parent_reference: null, legacy_department_reference: null };
   const sourceIdentitySha256 = H("position");
   const ownerIdentity = H("org-owner");
   const record = {
