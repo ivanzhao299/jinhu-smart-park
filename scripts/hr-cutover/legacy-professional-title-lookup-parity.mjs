@@ -18,6 +18,7 @@ const EXPECTED_EVIDENCE = Object.freeze({
   organizationPositionFieldMap: "scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json",
   professionalTitleMaterializer: "scripts/hr-cutover/legacy-professional-title-materialization.mjs",
   t5Transformer: "scripts/transform-yuzhou-t5-legacy-history.mjs",
+  fieldProjection: "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
   profileSchema: "database/migrations/000270_hr_employee_basic_profile_parity.sql",
   professionalTitleCodeSchema: "database/migrations/000295_hr_organization_position_legacy_mapping.sql",
   modernService: "apps/api/src/modules/hr/hr.service.ts",
@@ -107,6 +108,7 @@ function assertReviewedFieldMap(mapping) {
 function assertModernSurface(evidence) {
   const materializer = evidence.professionalTitleMaterializer.toString("utf8");
   const transform = evidence.t5Transformer.toString("utf8");
+  const projection = evidence.fieldProjection.toString("utf8");
   const schema = evidence.profileSchema.toString("utf8");
   const codeSchema = evidence.professionalTitleCodeSchema.toString("utf8");
   const service = evidence.modernService.toString("utf8");
@@ -117,7 +119,8 @@ function assertModernSurface(evidence) {
     || !/materializeLegacyProfessionalTitle/u.test(materializer)
     || !/LEGACY_PROFESSIONAL_TITLE_UNKNOWN_CODE/u.test(materializer)
     || !/legacyProfessionalTitleCode: code, technicalTitle: dictionary\.get\(code\)/u.test(materializer)
-    || !/materializeLegacyProfessionalTitle\(row\.assignment,professionalTitleDictionary\)/u.test(transform)
+    || !/materializeLegacyProfessionalTitle\(row\.assignment,professionalTitleDictionary\)/u.test(projection)
+    || !/materializeT5NonfileRecord\(name,row,\{protect,customFieldDefinitions,professionalTitleDictionary\}\)/u.test(transform)
     || !/technical_title/u.test(schema)
     || !/legacy_professional_title_code/u.test(codeSchema)
     || !/legacy assignment dictionary means professional title, not position/u.test(codeSchema)

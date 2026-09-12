@@ -13,6 +13,7 @@ const EXPECTED_EVIDENCE = Object.freeze({
   routineLedger: "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
   sourceExtractor: "scripts/extract-yuzhou-t5-legacy-history.sh",
   familyMaterializer: "scripts/transform-yuzhou-t5-legacy-history.mjs",
+  fieldProjection: "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
   familyLoader: "scripts/load-yuzhou-t5-legacy-history.sh",
   recordSchema: "database/migrations/000252_hr_lifecycle_employee_records.sql",
   legacyMaterializationSchema: "database/migrations/000276_hr_legacy_employee_profile_materialization.sql",
@@ -130,7 +131,8 @@ function assertSourceRoutine(ledger) {
 
 function assertModernSurface(evidence) {
   const extractor = evidence.sourceExtractor.toString("utf8");
-  const materializer = evidence.familyMaterializer.toString("utf8");
+  const entrypoint = evidence.familyMaterializer.toString("utf8");
+  const materializer = evidence.fieldProjection.toString("utf8");
   const loader = evidence.familyLoader.toString("utf8");
   const recordSchema = evidence.recordSchema.toString("utf8");
   const materializationSchema = evidence.legacyMaterializationSchema.toString("utf8");
@@ -141,7 +143,8 @@ function assertModernSurface(evidence) {
   const page = evidence.modernPage.toString("utf8");
   const webApi = evidence.modernWebApi.toString("utf8");
   if (!/SELECT id,person,member,rela,CONVERT\(varchar\(33\),birthday,126\) birthday,jobunit,jobname,political,tel FROM dbo\.family/u.test(extractor)
-    || !/family:4560/u.test(materializer)
+    || !/family:4560/u.test(entrypoint)
+    || !/materializeT5NonfileRecord\(name,row,\{protect,customFieldDefinitions,professionalTitleDictionary\}\)/u.test(entrypoint)
     || !/if\(name==="family"\).*relationship=text\(row\.rela\)/u.test(materializer)
     || !/birthDate:structuredDate\(row\.birthday,"family\.birthday",gaps\)/u.test(materializer)
     || !/workUnit:text\(row\.jobunit\),jobTitle:text\(row\.jobname\),politicalStatus:text\(row\.political\)/u.test(materializer)

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync, chmodSync, unlinkSync, rmdirSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 
 import { createT5NonfilePrivateStage, ProductionImportT5NonfilePrivateStageError } from "./hr-cutover/production-import-t5-nonfile-private-stage.mjs";
 
@@ -76,7 +76,10 @@ function deriveEmployeeIndex(records, t0DecisionsPath, triple) {
     if (!object(row) || !dispositionKeys.includes(row.candidateDisposition)) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
     observedCounts[row.candidateDisposition] += 1;
   }
-  if (JSON.stringify(observedCounts) !== JSON.stringify(artifact.countByDisposition) || observedCounts.review_target_collision !== 0 || observedCounts.quarantine !== 0) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
+  // Quarantined parents are deliberately excluded from the usable employee index;
+  // the adapter retains their children as quarantine instead of blocking unrelated rows.
+  // Unresolved collisions and count drift still reject the entire preparation.
+  if (JSON.stringify(observedCounts) !== JSON.stringify(artifact.countByDisposition) || observedCounts.review_target_collision !== 0) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
   const t0ByIdentity = new Map();
   for (const row of artifact.records) {
     if (!object(row) || row.targetTable !== "hr_employee") continue;

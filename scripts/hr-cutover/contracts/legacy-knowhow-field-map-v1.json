@@ -137,22 +137,30 @@
     {
       "stage": "transform",
       "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
-      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3",
+      "sha256": "54799f64707dd495e26db9ef2ed086e206b513fc58a9abab78a9a2aa2c365dba",
+      "requiredTokens": [
+        "sourceIdentitySha256:sha(`dbo.${table}\\0${key}`)",
+        "sourceRowSha256:sha(canonical(source))",
+        "materializeT5NonfileRecord(name,row,{protect,customFieldDefinitions,professionalTitleDictionary})"
+      ]
+    },
+    {
+      "stage": "field_projection",
+      "path": "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
+      "sha256": "2f3841721ead94a9d09d7e3c08a83bcadfcbe5841e6597dddca51a3432eff5b0",
       "requiredTokens": [
         "if(name===\"knowhow\")",
         "skillName=text(row.knowhow)",
         "return {kind:\"skill\"",
         "proficiency:null",
         "legacyGrade:text(row.grade)",
-        "note:text(row.memo)",
-        "sourceIdentitySha256:sha(`dbo.${table}\\0${key}`)",
-        "sourceRowSha256:sha(canonical(source))"
+        "note:text(row.memo)"
       ]
     },
     {
       "stage": "private_stage",
       "path": "scripts/hr-cutover/production-import-t5-nonfile-stage-adapter.mjs",
-      "sha256": "904537d25e913b3eabf17f556aa045819d45f6dc3993ea6260b45b5fe46fa58d",
+      "sha256": "23473943128a5dc594c5925ed5bfab965aa5c2b05939ae5fdf91adfe39bd64cf",
       "requiredTokens": [
         "sourceTable: \"dbo.knowhow\"",
         "skill_name: row.materialized.skillName",

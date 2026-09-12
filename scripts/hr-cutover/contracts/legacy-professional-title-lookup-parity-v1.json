@@ -21,9 +21,13 @@
       "path": "scripts/hr-cutover/legacy-professional-title-materialization.mjs",
       "sha256": "2611a41b51193859d61d5b3e9f8280376333a28b8c277c45f8cd4e61074cc7dc"
     },
+    "fieldProjection": {
+      "path": "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
+      "sha256": "2f3841721ead94a9d09d7e3c08a83bcadfcbe5841e6597dddca51a3432eff5b0"
+    },
     "t5Transformer": {
       "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
-      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3"
+      "sha256": "54799f64707dd495e26db9ef2ed086e206b513fc58a9abab78a9a2aa2c365dba"
     },
     "profileSchema": {
       "path": "database/migrations/000270_hr_employee_basic_profile_parity.sql",
@@ -35,11 +39,11 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+      "sha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
     },
     "modernAccessPolicy": {
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
-      "sha256": "1e6dbf17af59cebdc58951ae09593acc4e0902b51ce1b1f3d7466e0eb7e21a84"
+      "sha256": "73c02b343e8615d60332f0de97fea8a9db4b1b40c7d856bb19ed859f869b2417"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
@@ -47,7 +51,7 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126"
+      "sha256": "e5792044d2efa72b273beba50cff3e15b4a30fdabf289fa20207877cab8838c9"
     },
     "materializationEvidence": {
       "path": "scripts/e2e/yuzhou-professional-title-materialization-contract.mjs",
@@ -138,7 +142,7 @@
           "sourceBoundary": "single_scalar_select_without_explicit_transaction",
           "modernBoundary": "immutable_imported_profile_code_label_pair_read_in_one_scoped_repository_query",
           "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_failed_import_rejects_the_profile_pair",
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -171,7 +175,7 @@
               "conservationRule": "one_valid_source_code_label_pair_materializes_to_one_profile_code_label_pair_with_zero_unrelated_writes"
             }
           ],
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
         },
         "dynamicSql": {
           "status": "none",

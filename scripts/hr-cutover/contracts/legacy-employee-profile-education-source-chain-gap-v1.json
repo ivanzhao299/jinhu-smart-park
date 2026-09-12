@@ -63,8 +63,8 @@
     },
     {
       "stage": "transform",
-      "path": "scripts/transform-yuzhou-t5-legacy-history.mjs",
-      "sha256": "bc26bec83267c250a2f7bdf5ea1e647ee38c69db0a2324ea25c4fcb8455603c3",
+      "path": "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
+      "sha256": "2f3841721ead94a9d09d7e3c08a83bcadfcbe5841e6597dddca51a3432eff5b0",
       "requiredTokens": [
         "highestEducation:text(row.secedu)||text(row.edu)"
       ]
@@ -72,7 +72,7 @@
     {
       "stage": "private_stage",
       "path": "scripts/hr-cutover/production-import-t5-nonfile-stage-adapter.mjs",
-      "sha256": "904537d25e913b3eabf17f556aa045819d45f6dc3993ea6260b45b5fe46fa58d",
+      "sha256": "23473943128a5dc594c5925ed5bfab965aa5c2b05939ae5fdf91adfe39bd64cf",
       "requiredTokens": [
         "highestEducation",
         "highest_education: value.highestEducation"
@@ -105,7 +105,7 @@
     {
       "surface": "database_entity",
       "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
-      "sha256": "fe614bdbddb7b730f77e44cd44ad599416a27c35c7ddd899481f56769432f23b",
+      "sha256": "970e3d2324798ced97bc784284e536596e0d4843eff4c60665290fd932a01456",
       "requiredTokens": [
         "name:\"highest_education\"",
         "highestEducation!:string|null"
@@ -114,7 +114,7 @@
     {
       "surface": "api_dto",
       "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
-      "sha256": "f3c167775a6c8965a4ada18b72e89fbfd4d1a2d0e7afdd22ba055c98ffe4fab1",
+      "sha256": "3707d3d8dde2be0724205c830f34243ef66e21abe8b65c024747e023e6c621dd",
       "requiredTokens": [
         "highestEducation?:string"
       ]
@@ -131,7 +131,7 @@
     {
       "surface": "api_projection",
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
-      "sha256": "1e6dbf17af59cebdc58951ae09593acc4e0902b51ce1b1f3d7466e0eb7e21a84",
+      "sha256": "73c02b343e8615d60332f0de97fea8a9db4b1b40c7d856bb19ed859f869b2417",
       "requiredTokens": [
         "highestEducation?: string | null",
         "highestEducation:profile.highestEducation??null"
@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "c9cb4a0aa00e8c2916b1b9bfb7f42f52f0f32ac4917397df399ec35b8bc4828d",
+      "sha256": "13015fc3bf2d69d08a83bbd55ca09faae59fb971be173da3291a17e2c76bc370",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
@@ -149,7 +149,7 @@
     {
       "surface": "web_ui",
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "99cd80eed888fd59570ab3dfaac03735e0555fb8eb0b5fbe23abcbaef5c71126",
+      "sha256": "e5792044d2efa72b273beba50cff3e15b4a30fdabf289fa20207877cab8838c9",
       "requiredTokens": [
         "name=\"highestEducation\"",
         "label=\"最高学历\"",
