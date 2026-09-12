@@ -1,0 +1,298 @@
+apps/web/components/property/property-runtime-slots.logic.ts:2:  ApprovalSummary,
+apps/web/components/property/property-runtime-slots.logic.ts:72:export function propertyApprovalTargetAllowed(
+apps/web/components/property/property-runtime-slots.logic.ts:73:  approval: ApprovalSummary & { sourceType: string },
+apps/web/components/property/property-runtime-slots.logic.ts:76:  return sourceTypes.includes(approval.sourceType);
+apps/web/components/property/PropertyControlPlaneClient.tsx:8:  ApprovalIncidentDetail,
+apps/web/components/property/PropertyControlPlaneClient.tsx:9:  ApprovalIncidentListItem,
+apps/web/components/property/PropertyControlPlaneClient.tsx:49:  | "approval-incidents";
+apps/web/components/property/PropertyControlPlaneClient.tsx:52:  | IncidentListItem | ApprovalIncidentListItem;
+apps/web/components/property/PropertyControlPlaneClient.tsx:54:  | IncidentDetail | ApprovalIncidentDetail;
+apps/web/components/property/PropertyControlPlaneClient.tsx:72:    description: "查看审批、身份、任务和事件投递产生的个人通知。",
+apps/web/components/property/PropertyControlPlaneClient.tsx:84:  "approval-incidents": {
+apps/web/components/property/PropertyControlPlaneClient.tsx:85:    title: "审批执行异常",
+apps/web/components/property/PropertyControlPlaneClient.tsx:86:    description: "查看已耗尽基础设施重试的审批，并按冻结版本重新入队。",
+apps/web/components/property/PropertyControlPlaneClient.tsx:87:    api: "/property/approval-incidents",
+apps/web/components/property/PropertyControlPlaneClient.tsx:88:    route: "/property/approval-incidents",
+apps/web/components/property/PropertyControlPlaneClient.tsx:916:  const row = item as ApprovalIncidentListItem;
+apps/web/components/property/PropertyControlPlaneClient.tsx:939:  } else if (surface === "approval-incidents") {
+apps/web/components/property/PropertyControlPlaneClient.tsx:940:    const incident = detail as ApprovalIncidentDetail;
+apps/web/components/property/PropertyControlPlaneClient.tsx:941:    fields.push(["动作", propertyLabels.approvalAction(incident.actionId)],
+apps/web/components/property/PropertyControlPlaneClient.tsx:959:  const row = detail as ApprovalIncidentDetail;
+apps/web/components/property/PropertyControlPlaneClient.tsx:960:  return { path: `/property/approvals/${row.requestId}/retry`,
+apps/web/components/property/PropertyControlPlaneClient.tsx:1011:      : surface === "approval-incidents" ? "property.approval.incident-retry" : null;
+apps/web/components/property/PropertyControlPlaneClient.tsx:1029:    : surface === "event-incidents" ? "重放事件" : "重试审批执行";
+apps/web/components/property/property-approval-list.logic.ts:3:export function propertyApprovalPageFromQuery(value: string | null): number {
+apps/web/components/property/property-approval-list.logic.ts:8:export function propertyApprovalListQuery(page: number): string {
+apps/web/components/property/property-approval-list.logic.ts:15:export function propertyApprovalPageCount(total: number): number {
+apps/web/components/property/PropertyFoundationControlClient.tsx:139:    description: "按房源查看经营模式切换的申请、审批和执行记录。",
+apps/web/components/property/PropertyFoundationControlClient.tsx:325:          <label className="form-field"><span>审批状态</span><select name="decision_status" value={decisionStatus}
+apps/web/components/property/PropertyFoundationControlClient.tsx:327:            <option value="">全部</option><option value="submitted">{DECISION_STATUS_LABELS.submitted}</option><option value="pending_approval">{DECISION_STATUS_LABELS.pending_approval}</option><option value="approved">{DECISION_STATUS_LABELS.approved}</option><option value="rejected">{DECISION_STATUS_LABELS.rejected}</option><option value="withdrawn">{DECISION_STATUS_LABELS.withdrawn}</option>
+apps/web/components/property/PropertyFoundationControlClient.tsx:548:      <div><dt>审批请求</dt><dd>{row.requestId ? "审批流程已建立" : "历史执行日志"}</dd></div>
+apps/web/components/property/PropertyFoundationControlClient.tsx:551:      <div><dt>审批状态</dt><dd>{formatDecisionStatus(row.decisionStatus)}</dd></div>
+apps/web/components/property/PropertyFoundationControlClient.tsx:554:      <div><dt>审批时间</dt><dd>{formatTime(row.decisionTime)}</dd></div>
+apps/web/components/property/PropertyFoundationControlClient.tsx:612:    { key: "decision", label: "审批状态", render: (item) => formatDecisionStatus((item as ModeTransitionRow).decisionStatus) },
+apps/web/components/property/PropertyFoundationControlClient.tsx:621:    { key: "decisionTime", label: "审批时间", render: (item) => formatTime((item as ModeTransitionRow).decisionTime) },
+apps/web/components/property/PropertyFoundationControlClient.tsx:704:      setFeedback(mode === "force" ? "强制释放审批已提交。" : "人工占用已释放。");
+apps/web/components/property/PropertyFoundationControlClient.tsx:769:      actionLabel={releaseMode === "force" ? "提交强制释放审批" : "确认释放"}
+apps/web/components/property/PropertyFoundationControlClient.tsx:772:        ? ["不会直接删除占用", "审批执行前将重新校验占用版本和状态"]
+apps/web/components/property/PropertyFoundationControlClient.tsx:784:      resultingState={releaseMode === "force" ? "等待审批" : "已释放"}
+apps/web/components/property/PropertyFoundationControlClient.tsx:869:      setFeedback("经营模式切换审批已提交。");
+apps/web/components/property/PropertyFoundationControlClient.tsx:872:      setTransitionFeedback(cause instanceof Error ? cause.message : "模式切换审批提交失败");
+apps/web/components/property/PropertyFoundationControlClient.tsx:907:          <p>所有模式切换均进入审批；此处不会直接修改当前经营模式。</p>
+apps/web/components/property/PropertyFoundationControlClient.tsx:913:              onClick={() => { setFeedback(""); setTransitionFeedback(""); setTransitionOpen(true); }} type="button">提交切换审批</button>
+apps/web/components/property/PropertyFoundationControlClient.tsx:920:      actionLabel="提交审批"
+apps/web/components/property/PropertyFoundationControlClient.tsx:922:      consequences={["当前经营模式不会立即改变", "审批执行前会重新校验占用、合同、工单和财务阻断项"]}
+apps/web/components/property/PropertyFoundationControlClient.tsx:935:      resultingState="等待审批"
+apps/web/components/property/property-approval-return.logic.ts:9:  fallbackHref: "/property/approvals",
+apps/web/components/property/property-approval-return.logic.ts:11:    propertyApprovals: {
+apps/web/components/property/property-approval-return.logic.ts:12:      pathTemplate: "/property/approvals",
+apps/web/components/property/property-approval-return.logic.ts:25:        "page", "keyword", "status", "source_type", "approval_status", "sort", "order",
+apps/web/components/property/property-approval-return.logic.ts:32:export function propertyApprovalReturnHref(encoded: string | null | undefined): string {
+apps/web/components/property/property-approval-return.logic.ts:36:export function propertyApprovalListDetailHref(requestId: string, page: number): string {
+apps/web/components/property/property-approval-return.logic.ts:38:    route: "propertyApprovals",
+apps/web/components/property/property-approval-return.logic.ts:41:  return `/property/approvals/${encodeURIComponent(requestId)}?returnTo=${returnTo}`;
+apps/web/components/property/PropertyApprovalClient.tsx:3:import type { ApprovalSummary, PropertyPaginatedResult } from "@jinhu/shared";
+apps/web/components/property/PropertyApprovalClient.tsx:13:  propertyApprovalPageFromQuery,
+apps/web/components/property/PropertyApprovalClient.tsx:14:  propertyApprovalListQuery,
+apps/web/components/property/PropertyApprovalClient.tsx:15:  propertyApprovalPageCount
+apps/web/components/property/PropertyApprovalClient.tsx:16:} from "./property-approval-list.logic";
+apps/web/components/property/PropertyApprovalClient.tsx:18:  propertyApprovalListDetailHref,
+apps/web/components/property/PropertyApprovalClient.tsx:19:  propertyApprovalReturnHref
+apps/web/components/property/PropertyApprovalClient.tsx:20:} from "./property-approval-return.logic";
+apps/web/components/property/PropertyApprovalClient.tsx:22:interface ApprovalDetail {
+apps/web/components/property/PropertyApprovalClient.tsx:23:  request: ApprovalSummary & {
+apps/web/components/property/PropertyApprovalClient.tsx:43:export function PropertyApprovalListClient() {
+apps/web/components/property/PropertyApprovalClient.tsx:45:  const queryPage = propertyApprovalPageFromQuery(searchParams.get("page"));
+apps/web/components/property/PropertyApprovalClient.tsx:47:  const [data, setData] = useState<PropertyPaginatedResult<ApprovalSummary> | null>(null);
+apps/web/components/property/PropertyApprovalClient.tsx:55:      const response = await apiRequest<PropertyPaginatedResult<ApprovalSummary>>(
+apps/web/components/property/PropertyApprovalClient.tsx:56:        `/property/approvals?${propertyApprovalListQuery(page)}`,
+apps/web/components/property/PropertyApprovalClient.tsx:64:        setError(cause instanceof Error ? cause.message : "审批加载失败");
+apps/web/components/property/PropertyApprovalClient.tsx:72:  const pages = propertyApprovalPageCount(data?.total ?? 0);
+apps/web/components/property/PropertyApprovalClient.tsx:78:      <h1>房产业务审批</h1><p>查看审批决定与领域效果执行的独立状态。</p></div></header>
+apps/web/components/property/PropertyApprovalClient.tsx:81:    {!loading && !error ? <section aria-label="审批列表" className="ds-mobile-record-list">
+apps/web/components/property/PropertyApprovalClient.tsx:83:        <Link href={propertyApprovalListDetailHref(item.requestId, page) as Route}>{propertyLabels.approvalAction(item.actionId)}</Link>
+apps/web/components/property/PropertyApprovalClient.tsx:86:      {data && !data.items.length ? <PropertyPanelSurface><p>暂无可见审批。</p></PropertyPanelSurface> : null}
+apps/web/components/property/PropertyApprovalClient.tsx:98:export function PropertyApprovalDetailClient({ requestId }: { requestId: string }) {
+apps/web/components/property/PropertyApprovalClient.tsx:100:  const returnHref = propertyApprovalReturnHref(searchParams.get("returnTo")) as Route;
+apps/web/components/property/PropertyApprovalClient.tsx:101:  const [detail, setDetail] = useState<ApprovalDetail | null>(null);
+apps/web/components/property/PropertyApprovalClient.tsx:108:      const response = await apiRequest<ApprovalDetail>(
+apps/web/components/property/PropertyApprovalClient.tsx:109:        `/property/approvals/${encodeURIComponent(requestId)}`,
+apps/web/components/property/PropertyApprovalClient.tsx:114:      setFeedback(cause instanceof Error ? cause.message : "审批详情加载失败");
+apps/web/components/property/PropertyApprovalClient.tsx:125:    const clientKey = createIdempotencyKey(`property.approval.${action}`);
+apps/web/components/property/PropertyApprovalClient.tsx:128:        await apiRequest(`/property/approvals/${requestId}/withdraw`, {
+apps/web/components/property/PropertyApprovalClient.tsx:135:        if (!stage) throw new Error("审批阶段已变化，请刷新后重试");
+apps/web/components/property/PropertyApprovalClient.tsx:136:        await apiRequest(`/property/approvals/${requestId}/decisions`, {
+apps/web/components/property/PropertyApprovalClient.tsx:145:      setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
+apps/web/components/property/PropertyApprovalClient.tsx:151:      <h1>房产业务审批详情</h1><p><Link href={returnHref}>返回来源页面</Link></p></div></header>
+apps/web/components/property/PropertyApprovalClient.tsx:154:        <div><dt>动作</dt><dd>{propertyLabels.approvalAction(detail.request.actionId)}</dd></div>
+apps/web/components/property/PropertyApprovalClient.tsx:164:            {detail.request.allowedActions.includes("property.approval.decide") ? <>
+apps/web/components/property/PropertyApprovalClient.tsx:170:            {detail.request.allowedActions.includes("property.approval.withdraw") ? <button
+apps/web/components/property/PropertyRuntimeSlots.tsx:5:  type ApprovalSummary,
+apps/web/components/property/PropertyRuntimeSlots.tsx:6:  type ApprovalDecisionCommand,
+apps/web/components/property/PropertyRuntimeSlots.tsx:26:  propertyApprovalTargetAllowed,
+apps/web/components/property/PropertyRuntimeSlots.tsx:33:export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTypes }: {
+apps/web/components/property/PropertyRuntimeSlots.tsx:34:  approvalSourceTypes: readonly string[];
+apps/web/components/property/PropertyRuntimeSlots.tsx:46:  const canReadApprovals = hasAccess(user, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ, "asset")
+apps/web/components/property/PropertyRuntimeSlots.tsx:49:  const [approvals, setApprovals] = useState<ApprovalSummary[]>([]);
+apps/web/components/property/PropertyRuntimeSlots.tsx:51:  const [approvalError, setApprovalError] = useState("");
+apps/web/components/property/PropertyRuntimeSlots.tsx:53:  const [approvalReasons, setApprovalReasons] = useState<Record<string, string>>({});
+apps/web/components/property/PropertyRuntimeSlots.tsx:54:  const [mutatingApprovalIds, setMutatingApprovalIds] = useState<ReadonlySet<string>>(new Set());
+apps/web/components/property/PropertyRuntimeSlots.tsx:63:  const approvalSourceKey = approvalSourceTypes.join("\u0000");
+apps/web/components/property/PropertyRuntimeSlots.tsx:120:    if (canReadApprovals) {
+apps/web/components/property/PropertyRuntimeSlots.tsx:122:        const sourceTypes = approvalSourceKey.split("\u0000").filter(Boolean);
+apps/web/components/property/PropertyRuntimeSlots.tsx:124:            apiRequest<PropertyPaginatedResult<ApprovalSummary>>(
+apps/web/components/property/PropertyRuntimeSlots.tsx:125:              `/property/approvals?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
+apps/web/components/property/PropertyRuntimeSlots.tsx:132:          setApprovals(listed);
+apps/web/components/property/PropertyRuntimeSlots.tsx:133:          setApprovalError("");
+apps/web/components/property/PropertyRuntimeSlots.tsx:136:            const targetResponse = await apiRequest<ApprovalDetail>(
+apps/web/components/property/PropertyRuntimeSlots.tsx:137:              `/property/approvals/${encodeURIComponent(target.requestId)}`,
+apps/web/components/property/PropertyRuntimeSlots.tsx:141:            if (!propertyApprovalTargetAllowed(targetResponse.data.request, sourceTypes)) {
+apps/web/components/property/PropertyRuntimeSlots.tsx:144:            setApprovals(prependUniquePropertyRuntimeItem(
+apps/web/components/property/PropertyRuntimeSlots.tsx:149:            setApprovalError("");
+apps/web/components/property/PropertyRuntimeSlots.tsx:152:            setApprovals(listed);
+apps/web/components/property/PropertyRuntimeSlots.tsx:153:            setApprovalError("目标审批不可用或无权访问。");
+apps/web/components/property/PropertyRuntimeSlots.tsx:158:        setApprovalError(cause instanceof Error ? cause.message : "共享审批加载失败");
+apps/web/components/property/PropertyRuntimeSlots.tsx:161:  }, [approvalSourceKey, canReadApprovals, canReadTasks, target.requestId,
+apps/web/components/property/PropertyRuntimeSlots.tsx:176:  }, [approvals, tasks, target.requestId, target.taskId]);
+apps/web/components/property/PropertyRuntimeSlots.tsx:228:  async function runApprovalAction(
+apps/web/components/property/PropertyRuntimeSlots.tsx:229:    item: ApprovalSummary,
+apps/web/components/property/PropertyRuntimeSlots.tsx:234:    const reason = approvalReasons[item.requestId]?.trim() ?? "";
+apps/web/components/property/PropertyRuntimeSlots.tsx:236:      setFeedback("驳回或撤回审批前必须填写原因。");
+apps/web/components/property/PropertyRuntimeSlots.tsx:240:    setMutatingApprovalIds((current) => new Set(current).add(item.requestId));
+apps/web/components/property/PropertyRuntimeSlots.tsx:242:      const detail = await apiRequest<ApprovalDetail>(
+apps/web/components/property/PropertyRuntimeSlots.tsx:243:        `/property/approvals/${item.requestId}`,
+apps/web/components/property/PropertyRuntimeSlots.tsx:246:      const clientKey = createIdempotencyKey(`property.approval.${action}`);
+apps/web/components/property/PropertyRuntimeSlots.tsx:248:        await apiRequest(`/property/approvals/${item.requestId}/withdraw`, {
+apps/web/components/property/PropertyRuntimeSlots.tsx:254:        if (!stage) throw new Error("审批当前阶段已变化，请刷新后重试");
+apps/web/components/property/PropertyRuntimeSlots.tsx:255:        const body: ApprovalDecisionCommand = {
+apps/web/components/property/PropertyRuntimeSlots.tsx:263:        await apiRequest(`/property/approvals/${item.requestId}/decisions`, {
+apps/web/components/property/PropertyRuntimeSlots.tsx:268:      setApprovalReasons((current) => ({ ...current, [item.requestId]: "" }));
+apps/web/components/property/PropertyRuntimeSlots.tsx:269:      setFeedback("审批操作已提交。");
+apps/web/components/property/PropertyRuntimeSlots.tsx:273:      setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
+apps/web/components/property/PropertyRuntimeSlots.tsx:276:      setMutatingApprovalIds((current) => {
+apps/web/components/property/PropertyRuntimeSlots.tsx:282:  if (!canReadTasks && !canReadApprovals) return null;
+apps/web/components/property/PropertyRuntimeSlots.tsx:286:      <h2 id={`${module}-runtime-title`}>任务与审批</h2>
+apps/web/components/property/PropertyRuntimeSlots.tsx:287:      <p>领域工作台中的分派、审批决策和效果执行状态。</p>
+apps/web/components/property/PropertyRuntimeSlots.tsx:320:    {canReadApprovals ? <article className={`ds-command-card ${styles.card}`}><div className={styles.cardContent}>
+apps/web/components/property/PropertyRuntimeSlots.tsx:321:      <h2>共享审批状态</h2>
+apps/web/components/property/PropertyRuntimeSlots.tsx:322:      <p>审批通过与领域效果执行分别展示，避免把“已决策”误认为“已完成”。</p>
+apps/web/components/property/PropertyRuntimeSlots.tsx:323:      {approvalError ? <p aria-live="polite">{approvalError}</p> : null}
+apps/web/components/property/PropertyRuntimeSlots.tsx:324:      {!approvalError && !approvals.length ? <p>暂无可见审批。</p> : null}
+apps/web/components/property/PropertyRuntimeSlots.tsx:325:      {approvals.slice(0, 20).map((item) => <div aria-current={item.requestId === target.requestId ? "true" : undefined}
+apps/web/components/property/PropertyRuntimeSlots.tsx:329:        <p><strong>{propertyLabels.approvalAction(item.actionId)}</strong> · {propertyLabels.decisionStatus(item.decisionStatus)} / {propertyLabels.executionStatus(item.executionStatus)}</p>
+apps/web/components/property/PropertyRuntimeSlots.tsx:332:              `/property/approvals/${encodeURIComponent(item.requestId)}`,
+apps/web/components/property/PropertyRuntimeSlots.tsx:335:            ) as Route}>查看审批详情</Link>
+apps/web/components/property/PropertyRuntimeSlots.tsx:337:        {item.allowedActions.length ? <label>审批原因
+apps/web/components/property/PropertyRuntimeSlots.tsx:338:          <input aria-label={`${propertyLabels.approvalAction(item.actionId)}审批原因`} maxLength={1000}
+apps/web/components/property/PropertyRuntimeSlots.tsx:339:            onChange={(event) => setApprovalReasons((current) => ({
+apps/web/components/property/PropertyRuntimeSlots.tsx:341:            }))} value={approvalReasons[item.requestId] ?? ""} />
+apps/web/components/property/PropertyRuntimeSlots.tsx:344:          {item.allowedActions.includes("property.approval.decide") ? <>
+apps/web/components/property/PropertyRuntimeSlots.tsx:345:            <button className="ds-button ds-button-primary" disabled={mutatingApprovalIds.has(item.requestId)}
+apps/web/components/property/PropertyRuntimeSlots.tsx:346:              onClick={() => void runApprovalAction(item, "approve")} type="button">批准</button>
+apps/web/components/property/PropertyRuntimeSlots.tsx:347:            <button className="ds-button" disabled={mutatingApprovalIds.has(item.requestId)}
+apps/web/components/property/PropertyRuntimeSlots.tsx:348:              onClick={() => void runApprovalAction(item, "reject")} type="button">驳回</button>
+apps/web/components/property/PropertyRuntimeSlots.tsx:350:          {item.allowedActions.includes("property.approval.withdraw") ? <button className="ds-button"
+apps/web/components/property/PropertyRuntimeSlots.tsx:351:            disabled={mutatingApprovalIds.has(item.requestId)}
+apps/web/components/property/PropertyRuntimeSlots.tsx:352:            onClick={() => void runApprovalAction(item, "withdraw")} type="button">撤回</button> : null}
+apps/web/components/property/PropertyRuntimeSlots.tsx:360:interface ApprovalDetail {
+apps/web/components/property/PropertyRuntimeSlots.tsx:361:  request: ApprovalSummary & { decisionVersion: number; sourceType: string };
+apps/web/features/property-shared/index.ts:100:  housingPurchaseApprovalStatusOptions,
+apps/web/features/property-shared/access/capability-adapter.ts:39:  readonly approvalRequired: boolean;
+apps/web/features/property-shared/access/capability-adapter.ts:245:      return { allowed: false, approvalRequired: false, blockedUntilTrackB: false };
+apps/web/features/property-shared/access/capability-adapter.ts:247:    const approvalRequired = action.approvalPolicy.requirement === "required";
+apps/web/features/property-shared/access/capability-adapter.ts:249:      action.approvalPolicy.enforcement === "blocked-until-track-b";
+apps/web/features/property-shared/access/capability-adapter.ts:255:      approvalRequired,
+apps/web/features/property-shared/presentation/property-presentation.ts:95:  purchaseApproval: (value?: string | null) => knownLabel(HOUSING_PURCHASE_APPROVAL_STATUS_LABELS, value, "未知审批状态"),
+apps/web/features/property-shared/presentation/property-presentation.ts:98:  decisionStatus: (value?: string | null) => knownLabel(APPROVAL_DECISION_STATUS_LABELS, value, "未知审批状态"),
+apps/web/features/property-shared/presentation/property-presentation.ts:123:  approvalAction: (value?: string | null) => knownLabel(PROPERTY_APPROVAL_ACTION_LABELS, value, "未知审批操作")
+apps/web/features/property-shared/presentation/property-presentation.ts:172:export const housingPurchaseApprovalStatusOptions = Object.entries(HOUSING_PURCHASE_APPROVAL_STATUS_LABELS)
+apps/web/features/property-shared/presentation/property-presentation.ts:220:  if (["pending", "pending_approval", "pending_signature", "expiring", "retry_wait", "unpaid"].includes(value ?? "")) return "warning";
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:4:  CreatePendingPropertyApprovalResult,
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:93:      const response = await apiRequest<CreatePendingPropertyApprovalResult | object>(endpoint, {
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:99:      const result = response.data as Partial<CreatePendingPropertyApprovalResult>;
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:101:        ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:293:    <button className="secondary-button" type="submit">提交取消审批</button>
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:3:import { PROPERTY_BUSINESS_PERMISSIONS, type CreatePendingPropertyApprovalResult, type HomestayFinanceApprovalSource, type HomestayFinanceItem } from "@jinhu/shared";
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:36:      const response = await apiRequest<CreatePendingPropertyApprovalResult | object>(`/homestay/bookings/${bookingId}/ledger`, {
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:47:      const result = response.data as Partial<CreatePendingPropertyApprovalResult>;
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:49:        ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(result.request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(result.request.executionStatus)}。`
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:78:  const approvalAllowed = capability.pageAllowed && capability.moduleAvailable
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:81:  const refundAllowed = approvalAllowed
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:84:  const waiverAllowed = approvalAllowed
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:92:  const [sources, setSources] = useState<HomestayFinanceApprovalSource[]>([]);
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:106:    void apiRequest<HomestayFinanceApprovalSource[]>(`/homestay/bookings/${form.bookingId}/finance-sources?entry_type=${form.entryType}`, {
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:119:    <PropertyPanelSurface title="登记财务流水" description="退款与减免将提交审批；审批完成前不会写入财务流水。">
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:131:            {allowedEntryTypes.includes("refund") ? <option value="refund">退款（需审批）</option> : null}
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:132:            {allowedEntryTypes.includes("waiver") ? <option value="waiver">减免（需审批）</option> : null}
+apps/web/app/homestay/_components/HomestayFinanceEntryPanel.tsx:142:          <button className="primary-button" disabled={!form.bookingId || !allowedEntryTypes.includes(form.entryType)} type="submit">{["refund", "waiver"].includes(form.entryType) ? "提交审批" : "登记流水"}</button>
+apps/web/app/homestay/tasks/page.tsx:7:    <PropertyRuntimeSlots approvalSourceTypes={["homestay-booking"]} module="homestay"
+apps/web/app/housing/_components/housing-workbench-contract.ts:96:        "approval_status",
+apps/web/app/housing/_components/HousingFinanceActions.tsx:46:  const approvalAllowed = capabilities.pageAllowed && capabilities.moduleAvailable
+apps/web/app/housing/_components/HousingFinanceActions.tsx:48:  const refundAllowed = approvalAllowed
+apps/web/app/housing/_components/HousingFinanceActions.tsx:51:  const waiverAllowed = approvalAllowed
+apps/web/app/housing/_components/HousingFinanceActions.tsx:129:    let successMessage = highRiskEntry ? "财务审批申请已提交。" : "普通财务流水已登记。";
+apps/web/app/housing/_components/HousingFinanceActions.tsx:139:      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : successMessage;
+apps/web/app/housing/_components/HousingFinanceActions.tsx:167:              payment: "普通收款", deposit_receipt: "押金收取", refund: "退款（需审批）",
+apps/web/app/housing/_components/HousingFinanceActions.tsx:168:              waiver: "减免（需审批）", deposit_refund: "押金退还（需审批）"
+apps/web/app/housing/_components/HousingFinanceActions.tsx:178:            <button className="ds-button ds-button-primary" type="submit">{submitting ? "提交中…" : highRiskEntry ? "核对并提交审批" : "确认登记"}</button>
+apps/web/app/housing/_components/HousingFinanceActions.tsx:182:      <ConsequenceDialog actionLabel="确认提交财务审批" busy={submitting}
+apps/web/app/housing/_components/HousingFinanceActions.tsx:183:        consequences={["本次操作只提交审批申请，不会立即退款、减免或退还押金。", "审批执行前会重新校验应收余额、原收款人、租约版本和可操作金额。"]}
+apps/web/app/housing/_components/HousingFinanceActions.tsx:192:        resultingState="财务审批申请待处理"
+apps/web/app/housing/_components/HousingCostSurfaceClients.tsx:11:  housingPurchaseApprovalStatusOptions,
+apps/web/app/housing/_components/HousingCostSurfaceClients.tsx:55:    description="仅显示住房子账汇总；退款、减免与押金退还在 Track B 审批接入前不可执行。"
+apps/web/app/housing/_components/HousingCostSurfaceClients.tsx:113:    description="内部采购与租客收费保持分账；审批、付款、退款、作废和转收费在 Track B 前不可执行。"
+apps/web/app/housing/_components/HousingCostSurfaceClients.tsx:122:      { key: "approval", label: "审批", render: (item) => propertyLabels.purchaseApproval(item.approvalStatus) },
+apps/web/app/housing/_components/HousingCostSurfaceClients.tsx:125:    filters={[{ key: "approval_status", label: "审批状态", options: housingPurchaseApprovalStatusOptions },
+apps/web/app/housing/_components/HousingDetailShell.tsx:91:      <h2>需审批的高风险动作</h2>
+apps/web/app/housing/_components/HousingDetailShell.tsx:92:      <p>{labels.join("、")}在 Track B 审批适配器交付前不可执行，页面不会发起 mutation。</p>
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:49:        ? { approval_note: reason?.trim() || undefined }
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:59:      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。`
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:61:          : action === "activate" ? "租约已生效。" : "租约审批申请已提交。";
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:86:    ["approve", "审批租约", data.lease.status === "pending_approval" && eligible],
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:87:    ["void", "作废租约", ["draft", "pending_approval", "pending_signature"].includes(data.lease.status)],
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:117:        consequences={["本次操作只提交审批申请，不会立即改变租约或财务状态。", "审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。"]}
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:121:        reasonPolicy={{ kind: "required", label: "审批说明 / 原因", minLength: 1, maxLength: 500 }}
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:122:        resultingState="审批申请待处理"
+apps/web/app/housing/_components/HousingHandoverForm.tsx:87:      setMessage(request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : "交割记录已完成。");
+apps/web/app/housing/_components/HousingHandoverForm.tsx:184:          <button className="ds-button ds-button-primary" disabled={props.submitting || props.uploading || props.removing || (props.financial && !props.financialAllowed)} type="submit">{props.uploading ? "等待照片上传…" : props.submitting ? "提交中…" : props.financial ? "提交财务退租审批" : "确认完成交割"}</button>
+apps/web/app/housing/_components/HousingHandoverForm.tsx:207:    return <p className={styles.dangerNotice} role="alert">当前岗位缺少财务退租审批申请权限，操作保持关闭。</p>;
+apps/web/app/housing/_components/HousingHandoverForm.tsx:210:    {financial ? "我已核对金额与证据，并确认提交审批。" : "我已核对租约、房源、物品、表底和钥匙信息。"}
+apps/web/app/housing/_components/HousingOverviewSurfaceClients.tsx:50:    ["草稿租约", dashboard.draft_leases], ["待审批", dashboard.pending_approval],
+apps/web/app/housing/_components/HousingOverviewSurfaceClients.tsx:76:    dashboard.pending_approval ? ["待审批租约", dashboard.pending_approval, "/housing/leases?status=pending_approval"] : null,
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:95:      ["审批状态", propertyLabels.purchaseApproval(data.purchase.approvalStatus)], ["付款状态", propertyLabels.purchasePayment(data.purchase.paymentStatus)]
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:125:    ["approve", "提交审批", purchase.approvalStatus === "draft"],
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:126:    ["reject", "驳回采购", purchase.approvalStatus === "draft"],
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:127:    ["pay", "提交付款审批", purchase.approvalStatus === "approved" && purchase.paymentStatus === "unpaid"],
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:128:    ["refund", "提交退款审批", purchase.paymentStatus === "paid" && !hasTransferredItem],
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:129:    ["void", "提交作废审批", purchase.paymentStatus === "unpaid"
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:130:      && !hasTransferredItem && ["draft", "approved", "rejected"].includes(purchase.approvalStatus)]
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:134:    && purchase.approvalStatus === "approved"
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:148:      successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : successMessage;
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:160:  return <PropertyPanelSurface title="采购高风险操作" description="提交后进入审批，不会直接改变付款或收费状态。">
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:174:          onClick={() => { setDialogError(""); setTransferOpen(true); }} type="button">核对并提交转收费审批</button>
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:179:      consequences={["本次操作只提交审批申请，不会立即改变采购、付款或退款状态。", "审批执行前会重新校验采购状态与版本，原因将写入审计记录。"]}
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:191:      resultingState="审批申请待处理"
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:197:    <ConsequenceDialog actionLabel="确认提交转收费审批" busy={busy}
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:199:        `将提交 ${selectedItemIds.length} 条采购明细的转收费审批，不会立即生成租客应收。`,
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:200:        `目标租约为 ${lease?.label ?? "未选择"}，审批执行前会重新校验租约状态、房源、币种及采购版本。`
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:210:      resultingState="转收费审批申请待处理"
+apps/web/app/housing/tasks/page.tsx:11:    <PropertyRuntimeSlots approvalSourceTypes={HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES}
+apps/web/app/leasing/contracts/page.tsx:151:  | "approvals"
+apps/web/app/leasing/contracts/page.tsx:998:  async function submitContractApproval(row: LeasingContractRow) {
+apps/web/app/leasing/contracts/page.tsx:999:    const opinion = window.prompt("请输入提交意见", "提交合同审批");
+apps/web/app/leasing/contracts/page.tsx:1003:      setMessage("合同已提交审批");
+apps/web/app/leasing/contracts/page.tsx:1020:    const opinion = window.prompt("请输入审批意见", "同意");
+apps/web/app/leasing/contracts/page.tsx:1023:    setMessage("合同审批通过，已进入待签章");
+apps/web/app/leasing/contracts/page.tsx:1032:    const opinion = window.prompt("请输入审批意见", rejectReason.trim());
+apps/web/app/leasing/contracts/page.tsx:1308:                          <PermissionButton className="ds-row-action ds-row-action-status" permission={CONTRACT_PERMISSIONS.submit} type="button" onClick={() => void submitContractApproval(row).catch((error: Error) => setMessage(error.message))}>
+apps/web/app/leasing/contracts/page.tsx:1415:                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.submit} type="button" onClick={() => void submitContractApproval(editing).catch((error: Error) => setMessage(error.message))}>
+apps/web/app/leasing/contracts/page.tsx:1417:                          提交审批
+apps/web/app/leasing/contracts/page.tsx:1424:                            审批通过
+apps/web/app/leasing/contracts/page.tsx:1544:                  {contractDetailTab === "approvals" ? <ApprovalTrail records={editing.approveRecords ?? []} statusItems={statusItems} /> : null}
+apps/web/app/leasing/contracts/page.tsx:1859:    { key: "approvals", label: "审批轨迹" },
+apps/web/app/leasing/contracts/page.tsx:2147:        <span className="muted-text">续租合同是新合同记录，继续走合同审批、生效流程</span>
+apps/web/app/leasing/contracts/page.tsx:2206:        <span className="muted-text">退租申请审批后进入结算，结算确认后可登记退款</span>
+apps/web/app/leasing/contracts/page.tsx:2382:function ApprovalTrail({ records, statusItems }: { records: LeasingContractApproveRecord[]; statusItems: DictItemRow[] }) {
+apps/web/app/leasing/contracts/page.tsx:2385:      <h3>审批轨迹</h3>
+apps/web/app/leasing/contracts/page.tsx:2399:            <tr><td colSpan={6}>暂无审批轨迹</td></tr>
+apps/web/app/leasing/contracts/page.tsx:2743:    submit: "提交审批",
+apps/web/app/leasing/contracts/page.tsx:2744:    approve: "审批通过",
+apps/web/app/leasing/contracts/page.tsx:2745:    reject: "审批驳回",
+apps/web/app/leasing/contracts/page.tsx:2757:    submit: "提交审批",
+apps/web/app/leasing/contracts/page.tsx:2758:    approve: "审批通过",
+apps/web/app/leasing/contracts/page.tsx:2759:    reject: "审批驳回",
+apps/web/app/leasing/contracts/page.tsx:2783:    submit: "提交审批",
+apps/web/app/leasing/contracts/page.tsx:2784:    approve: "审批通过",
+apps/web/app/leasing/contracts/page.tsx:2785:    reject: "审批驳回",
+apps/web/app/leasing/receivables/page.tsx:923:    waiver: "豁免审批",
+apps/web/app/leasing/receivables/page.tsx:925:    waiver_approve: "豁免审批",
+apps/web/app/leasing/checkouts/page.tsx:479:    const text = window.prompt(action === "reject" ? "请输入驳回原因" : "请输入审批意见", action === "submit" ? "提交审批" : action === "approve" ? "同意" : "");
+apps/web/app/leasing/checkouts/page.tsx:494:      setMessage(action === "submit" ? "退租申请已提交" : action === "approve" ? "退租申请已审批通过" : "退租申请已驳回");
+apps/web/app/leasing/checkouts/page.tsx:658:        description="处理正常到期、提前退租与违约终止申请，审批后进入结算和退款登记"
+apps/web/app/leasing/checkouts/page.tsx:770:                    <Send size={16} /> 提交审批
+apps/web/app/leasing/checkouts/page.tsx:777:                        <CheckCircle2 size={16} /> 审批通过
+apps/web/app/leasing/checkouts/page.tsx:782:                        <XCircle size={16} /> 审批驳回
+apps/web/app/leasing/waivers/page.tsx:241:      setNotice("豁免申请已提交审批");
+apps/web/app/leasing/waivers/page.tsx:280:      setNotice(actionType === "approve" ? "豁免申请已审批通过" : "豁免申请已驳回");
+apps/web/app/leasing/waivers/page.tsx:304:          <strong>豁免审批</strong>
+apps/web/app/leasing/waivers/page.tsx:305:          <span>处理租金减免、滞纳金豁免和争议金额调整，审批通过后联动应收未收金额</span>
+apps/web/app/leasing/waivers/page.tsx:335:            <span>审批状态</span>
+apps/web/app/leasing/waivers/page.tsx:374:                <th>原因 / 审批</th>
+apps/web/app/leasing/waivers/page.tsx:493:            title={actionType === "approve" ? "审批通过" : "审批驳回"}
+apps/web/app/leasing/waivers/page.tsx:494:            description="对豁免申请进行审批并填写意见。"
+apps/web/app/leasing/waivers/page.tsx:505:              <span>审批意见</span>
+apps/web/app/leasing/contract-changes/page.tsx:386:    const promptText = action === "reject" ? "请输入驳回原因" : "请输入审批意见";
+apps/web/app/leasing/contract-changes/page.tsx:387:    const text = window.prompt(promptText, action === "submit" ? "提交审批" : action === "approve" ? "同意" : action === "effective" ? "确认生效" : "");
+apps/web/app/leasing/contract-changes/page.tsx:588:            description="查看合同变更的基础信息、金额变化与审批轨迹。"
+apps/web/app/leasing/contract-changes/page.tsx:631:            <strong>审批轨迹</strong>
+apps/web/app/leasing/contract-changes/page.tsx:952:  if (action === "submit") return "合同变更已提交审批";
+apps/web/app/leasing/contract-changes/page.tsx:953:  if (action === "approve") return "合同变更已审批通过";
+apps/web/app/leasing/leads/page.tsx:1079:  async function submitQuoteApproval(row: LeasingQuoteRow) {
+apps/web/app/leasing/leads/page.tsx:1085:      body: { opinion: "提交报价审批" }
+apps/web/app/leasing/leads/page.tsx:1087:    setMessage("报价已提交审批");
+apps/web/app/leasing/leads/page.tsx:1097:      body: { opinion: "审批通过" }
+apps/web/app/leasing/leads/page.tsx:1099:    setMessage("报价审批通过");
+apps/web/app/leasing/leads/page.tsx:1779:                          <th>审批记录</th>
+apps/web/app/leasing/leads/page.tsx:1801:                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.submit} type="button" onClick={() => void submitQuoteApproval(quote).catch((error: Error) => setMessage(error.message))}>
+apps/web/app/leasing/leads/page.tsx:2447:  if (quotePrice < refPrice * 0.8) return "报价低于房源参考价 20% 以上，需要运营负责人或高层重点审批";
+apps/web/app/leasing/leads/page.tsx:2448:  if (quotePrice < refPrice * 0.9) return "报价低于房源参考价 10% 以上，需要招商主管或运营负责人审批";

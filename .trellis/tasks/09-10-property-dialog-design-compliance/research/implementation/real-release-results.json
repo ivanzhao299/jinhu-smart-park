@@ -1,0 +1,55 @@
+{
+  "evidence": "REAL isolated API/DB; no route interception",
+  "database": "jinhu_housing_uat_20260910_732",
+  "writes": [
+    {
+      "path": "/api/v1/property/occupancies/efbeb8ab-660e-4f64-bc7d-50a8582fc019/release",
+      "status": 400,
+      "body": {
+        "reason": "原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原",
+        "force": false
+      },
+      "key": "property-occupancy-normal-release-c4e98cf0-cdb0-45a1-a2b1-4ef26d988b50"
+    },
+    {
+      "path": "/api/v1/property/occupancies/efbeb8ab-660e-4f64-bc7d-50a8582fc019/release",
+      "status": 201,
+      "body": {
+        "reason": "专项真实释放验收",
+        "force": false
+      },
+      "key": "property-occupancy-normal-release-73e3305a-1c84-431f-adb3-b43d999cc1d1"
+    }
+  ],
+  "pageErrors": [],
+  "loginPostObserved": true,
+  "releaseFailure": {
+    "error": "reason must be shorter than or equal to 500 characters",
+    "reasonLength": 501,
+    "state": "active"
+  },
+  "releaseAfter": {
+    "id": "efbeb8ab-660e-4f64-bc7d-50a8582fc019",
+    "unitId": "c9d09d23-80bf-4e0c-8dba-4040e4b94417",
+    "unitCode": "M03UD732",
+    "unitName": "M03房源-D732",
+    "sourceDomain": "operations",
+    "sourceType": "manual",
+    "sourceLabel": "运营",
+    "sourceId": "dialog-732",
+    "startAt": "2026-09-10T07:45:27.676Z",
+    "endAt": "2026-09-10T08:46:27.676Z",
+    "status": "released",
+    "holdExpiresAt": null,
+    "releaseReason": "专项真实释放验收",
+    "releasedAt": "2026-09-10T07:50:54.210Z",
+    "version": 2,
+    "updateTime": "2026-09-10T07:50:54.207Z",
+    "canRequestForceRelease": false,
+    "approval": null,
+    "approvalAvailable": false,
+    "allowedActions": []
+  },
+  "status": "failed",
+  "failure": "locator.click: Error: strict mode violation: locator('a[href=\"/assets/property-operations/c9d09d23-80bf-4e0c-8dba-4040e4b94417\"]') resolved to 2 elements:\n    1) <a class=\"ds-button\" href=\"/assets/property-operations/c9d09d23-80bf-4e0c-8dba-4040e4b94417\">查看详情</a> aka getByText('查看详情').first()\n    2) <a class=\"ds-row-action ds-row-action-view ds-button\" href=\"/assets/property-operations/c9d09d23-80bf-4e0c-8dba-4040e4b94417\">查看详情</a> aka getByRole('link', { name: '查看详情' }).first()\n\nCall log:\n\u001b[2m  - waiting for locator('a[href=\"/assets/property-operations/c9d09d23-80bf-4e0c-8dba-4040e4b94417\"]')\u001b[22m\n"
+}

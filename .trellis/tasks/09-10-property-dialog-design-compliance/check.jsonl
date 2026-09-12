@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "共享DS、局部反馈与真实页面验证"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "前后端约束及表单契约"}
+{"file": ".trellis/spec/ui/frontend/component-guidelines.md", "reason": "复用组件边界与token"}
+{"file": "docs/frontend-ui-standards.md", "reason": "表单/Drawer组合规范"}
+{"file": "docs/reviews/property-dialog-design-compliance-audit-2026-09-10.md", "reason": "固定SHA证据、发现、范围与复核门槛"}
