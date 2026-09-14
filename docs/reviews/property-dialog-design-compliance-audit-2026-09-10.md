@@ -178,3 +178,11 @@ Repeated scans avoided: 145文件普查仅一次并缓存；早期截断输出�
 Blocked issues: 缺真实后端验收；G3/G4/G5等需复核
 Next step: 主助手审核后决定修复范围，本轮停止
 ```
+
+## 9. Issue #732 / PR #733 发布闭环（2026-09-14）
+
+PR #733 在 head `47110309566ac032e12cc6045b1639f0eb0dba6e` 上通过合并前必要门禁：run 34684018137 的范围识别、Lint/Typecheck/Build 和实际 Release Smoke 均 SUCCESS。随后通过 head 保护执行 squash merge，产品 merge SHA 为 `cfc7e6dbe5d9e17bf83831c92b3b6ab4cbb43eee`；PR 已 MERGED，Issue #732 已 CLOSED。
+
+对应 main CI run 34793150478 SUCCESS，Lint、Typecheck、Unit tests、Build 全部成功；main push 的 Release Smoke 按工作流条件 SKIPPED，实际 smoke 以合并前相同产品 head 的成功 run 为必要证据。自动 Deploy run 34793150406 SUCCESS：生产 full healthcheck 的 API liveness/readiness 与 Web login 均 OK，部署后 liveness 再次 OK；Docker 自动清理完成并回收 3.006GB。
+
+发布没有手动生产操作、HR 修改或门禁豁免。浏览器 mock 仍不代表真实后端；D11 父 Drawer Escape 行为仍是既有风险，未在本专项修复。
