@@ -18,6 +18,7 @@ import {
   PropertyResponsiveRecords,
   propertyLabels,
   ConsequenceDialog,
+  propertyErrorMessage,
   type PropertyFieldDescriptor
 } from "../../features/property-shared";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
@@ -873,7 +874,7 @@ function OperationWriteControls({ item, onCompleted }: {
       setFeedback("经营模式切换审批已提交。");
       await onCompleted();
     } catch (cause) {
-      setTransitionFeedback(cause instanceof Error ? cause.message : "模式切换审批提交失败");
+      setTransitionFeedback(propertyErrorMessage(cause, "模式切换审批提交失败"));
       return false;
     } finally {
       setBusy(false);

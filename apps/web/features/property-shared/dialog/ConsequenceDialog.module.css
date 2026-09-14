@@ -7,11 +7,27 @@
   overflow: auto;
   overscroll-behavior: contain;
   color: var(--text-primary);
+  background: var(--phoenix-color-surface);
+  border: 1px solid var(--phoenix-color-border);
   text-align: start;
   font-size: var(--font-size-table-body);
   font-weight: 400;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+@supports (background: color-mix(in srgb, white, black)) {
+  .dialog {
+    background: color-mix(in srgb, var(--phoenix-color-surface) 96%, var(--phoenix-color-primary));
+    border-color: color-mix(in srgb, var(--phoenix-color-primary) 18%, var(--phoenix-color-border));
+  }
+}
+
+@supports not (background: color-mix(in srgb, white, black)) {
+  .dialog :global(.ds-button-primary) {
+    background: var(--phoenix-color-primary);
+    color: var(--phoenix-color-on-primary);
+  }
 }
 
 .dialog:not([open]) {
