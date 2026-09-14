@@ -51,10 +51,10 @@ export interface ConsequenceDialogProps {
 }
 
 function reasonIsValid(reason: string, policy: ConsequenceReasonPolicy): boolean {
-  if (policy.kind !== "required") {
-    return true;
-  }
-  return reason.trim().length >= (policy.minLength ?? 1);
+  if (policy.kind === "none") return true;
+  const length = reason.trim().length;
+  return (policy.maxLength === undefined || length <= policy.maxLength)
+    && (policy.kind !== "required" || length >= (policy.minLength ?? 1));
 }
 
 function useNativeDialogLifecycle(
@@ -167,6 +167,9 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
 
   useNativeDialogLifecycle(input.open, dialogRef, triggerRef);
   useEffect(() => {
+    if (input.open && input.busy) dialogRef.current?.focus();
+  }, [input.open, input.busy]);
+  useEffect(() => {
     dispatchDraft({ type: "synchronize", open: input.open, targetId: input.targetId });
   }, [input.open, input.targetId]);
 
@@ -252,10 +255,14 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
       className={`${styles.dialog} ds-panel`}
       onCancel={props.onCancel}
       onClose={() => restoreTriggerFocus(props.triggerRef)}
-      onKeyDown={trapDialogFocus}
+      onKeyDown={(event) => {
+        if (props.busy && event.key === "Escape") event.preventDefault();
+        trapDialogFocus(event);
+      }}
       ref={props.dialogRef}
+      tabIndex={-1}
     >
-      <form method="dialog" onSubmit={(event) => void props.onConfirm(event)}>
+      <form className={styles.form} method="dialog" onSubmit={(event) => void props.onConfirm(event)}>
         <DialogContent
           consequences={props.consequences}
           descriptionId={props.descriptionId}
@@ -274,7 +281,7 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
           reasonId={props.reasonId}
         />
         {props.errorMessage ? (
-          <p aria-live="assertive" className="form-error" role="alert">
+          <p aria-live="assertive" className="ds-field-error" role="alert">
             {props.errorMessage}
           </p>
         ) : null}

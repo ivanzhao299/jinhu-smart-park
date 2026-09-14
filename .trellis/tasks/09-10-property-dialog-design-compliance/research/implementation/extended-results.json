@@ -1,0 +1,710 @@
+[
+  {
+    "width": 1440,
+    "writes": [
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-db844f8d-c7cb-43c8-903a-8e15dfa5a44f",
+        "responseMode": 400
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-db844f8d-c7cb-43c8-903a-8e15dfa5a44f",
+        "responseMode": 403
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-db844f8d-c7cb-43c8-903a-8e15dfa5a44f",
+        "responseMode": 409
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-db844f8d-c7cb-43c8-903a-8e15dfa5a44f",
+        "responseMode": "network"
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-db844f8d-c7cb-43c8-903a-8e15dfa5a44f",
+        "responseMode": 200
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-7998c82a-acd3-4fe3-996d-b9fde8129ccd",
+        "responseMode": 400
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-7998c82a-acd3-4fe3-996d-b9fde8129ccd",
+        "responseMode": 403
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-7998c82a-acd3-4fe3-996d-b9fde8129ccd",
+        "responseMode": 409
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-7998c82a-acd3-4fe3-996d-b9fde8129ccd",
+        "responseMode": "network"
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-7998c82a-acd3-4fe3-996d-b9fde8129ccd",
+        "responseMode": 200
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-e93fed46-a2b0-4622-86ae-2da4deb4ac07",
+        "responseMode": 400
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-e93fed46-a2b0-4622-86ae-2da4deb4ac07",
+        "responseMode": 403
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-e93fed46-a2b0-4622-86ae-2da4deb4ac07",
+        "responseMode": 409
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-e93fed46-a2b0-4622-86ae-2da4deb4ac07",
+        "responseMode": "network"
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-e93fed46-a2b0-4622-86ae-2da4deb4ac07",
+        "responseMode": 200
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-101e146e-1819-4993-ba1a-8d6b53ac464f",
+        "responseMode": 400
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-101e146e-1819-4993-ba1a-8d6b53ac464f",
+        "responseMode": 403
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-101e146e-1819-4993-ba1a-8d6b53ac464f",
+        "responseMode": 409
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-101e146e-1819-4993-ba1a-8d6b53ac464f",
+        "responseMode": "network"
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-101e146e-1819-4993-ba1a-8d6b53ac464f",
+        "responseMode": 200
+      }
+    ],
+    "pageErrors": [],
+    "cases": [
+      {
+        "name": "mode",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "Failed to fetch"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消\n正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "lost",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "网络连接异常，请稍后重试"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "确认凭证遗失\n\n操作对象：房卡 A（标识：credential-1）\n\n执行后状态：已遗失\n\n该凭证将进入遗失终态，不能再登记回收；处置原因将写入审计日志。\n遗失原因（必填）\n取消\n正在提交…"
+            },
+            {
+              "open": false,
+              "text": "确认登记未到店操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）执行后状态：未到店订单将进入未到店终态，后续入住操作将不可用。登记原因（必填）取消正在提交…"
+            },
+            {
+              "open": false,
+              "text": "确认办理入住操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）执行后状态：在住订单将进入在住状态并占用该房源。系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。取消正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "occupancy",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "Failed to fetch"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "释放人工锁房\n\n操作对象：占用记录 11111111-1111-4111-8111-111111111111（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：已释放\n\n该人工锁房将停止阻止后续业务占用\n释放原因将写入审计记录\n释放原因（必填）\n取消\n正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "purchase",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "网络连接异常，请稍后重试"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "D-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变采购、付款或退款状态。\n审批执行前会重新校验采购状态与版本，原因将写入审计记录。\n操作原因（必填）\n取消\n正在提交…"
+            },
+            {
+              "open": false,
+              "text": "NG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-（标识：11111111-1111-4111-8111-111111111111）执行后状态：转收费审批申请待处理将提交 0 条采购明细的转收费审批，不会立即生成租客应收。目标租约为 未选择，审批执行前会重新校验租约状态、房源、币种及采购版本。转收费原因（必填）取消正在提交…"
+            }
+          ]
+        },
+        "short": {
+          "client": 366,
+          "scroll": 642,
+          "width": 574,
+          "scrollWidth": 574
+        },
+        "footerReachable": true,
+        "reflow200": {
+          "client": 574,
+          "scroll": 574,
+          "rect": {
+            "x": 72,
+            "y": 16,
+            "width": 576,
+            "height": 418,
+            "top": 16,
+            "right": 648,
+            "bottom": 434,
+            "left": 72
+          }
+        },
+        "reflowFooter": {
+          "x": 93,
+          "y": 315.09375,
+          "width": 534,
+          "height": 44
+        },
+        "successClosed": true,
+        "closedHidden": true
+      }
+    ],
+    "nested": {
+      "childClosed": true,
+      "parentStillVisible": false
+    }
+  },
+  {
+    "width": 390,
+    "writes": [
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-8d47f821-15ac-4dd8-94e7-87178ef58a55",
+        "responseMode": 400
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-8d47f821-15ac-4dd8-94e7-87178ef58a55",
+        "responseMode": 403
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-8d47f821-15ac-4dd8-94e7-87178ef58a55",
+        "responseMode": 409
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-8d47f821-15ac-4dd8-94e7-87178ef58a55",
+        "responseMode": "network"
+      },
+      {
+        "path": "/property/units/11111111-1111-4111-8111-111111111111/mode-transitions",
+        "body": {
+          "target_mode": "long_rent",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "property-mode-transition-8d47f821-15ac-4dd8-94e7-87178ef58a55",
+        "responseMode": 200
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-29cf64fc-cd80-49fe-82a2-a660ca2990f5",
+        "responseMode": 400
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-29cf64fc-cd80-49fe-82a2-a660ca2990f5",
+        "responseMode": 403
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-29cf64fc-cd80-49fe-82a2-a660ca2990f5",
+        "responseMode": 409
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-29cf64fc-cd80-49fe-82a2-a660ca2990f5",
+        "responseMode": "network"
+      },
+      {
+        "path": "/homestay/bookings/11111111-1111-4111-8111-111111111111/credentials/credential-1/lost",
+        "body": {
+          "reason": "失败后保留有效输入"
+        },
+        "key": "homestay-action-29cf64fc-cd80-49fe-82a2-a660ca2990f5",
+        "responseMode": 200
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-476cdc8f-b4c8-490f-9e37-65d84656a4d1",
+        "responseMode": 400
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-476cdc8f-b4c8-490f-9e37-65d84656a4d1",
+        "responseMode": 403
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-476cdc8f-b4c8-490f-9e37-65d84656a4d1",
+        "responseMode": 409
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-476cdc8f-b4c8-490f-9e37-65d84656a4d1",
+        "responseMode": "network"
+      },
+      {
+        "path": "/property/occupancies/11111111-1111-4111-8111-111111111111/release",
+        "body": {
+          "reason": "失败后保留有效输入",
+          "force": false
+        },
+        "key": "property-occupancy-normal-release-476cdc8f-b4c8-490f-9e37-65d84656a4d1",
+        "responseMode": 200
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-f015d7aa-3115-456c-88f5-26633babc0f4",
+        "responseMode": 400
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-f015d7aa-3115-456c-88f5-26633babc0f4",
+        "responseMode": 403
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-f015d7aa-3115-456c-88f5-26633babc0f4",
+        "responseMode": 409
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-f015d7aa-3115-456c-88f5-26633babc0f4",
+        "responseMode": "network"
+      },
+      {
+        "path": "/housing/purchases/11111111-1111-4111-8111-111111111111/actions",
+        "body": {
+          "action": "pay",
+          "reason": "失败后保留有效输入"
+        },
+        "key": "housing-purchase-pay-f015d7aa-3115-456c-88f5-26633babc0f4",
+        "responseMode": 200
+      }
+    ],
+    "pageErrors": [],
+    "cases": [
+      {
+        "name": "mode",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "Failed to fetch"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "申请经营模式切换\n\n操作对象：AUDIT-101：民宿短租 → 长租经营（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：等待审批\n\n当前经营模式不会立即改变\n审批执行前会重新校验占用、合同、工单和财务阻断项\n切换原因（必填）\n取消\n正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "lost",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "网络连接异常，请稍后重试"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "确认凭证遗失\n\n操作对象：房卡 A（标识：credential-1）\n\n执行后状态：已遗失\n\n该凭证将进入遗失终态，不能再登记回收；处置原因将写入审计日志。\n遗失原因（必填）\n取消\n正在提交…"
+            },
+            {
+              "open": false,
+              "text": "确认登记未到店操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）执行后状态：未到店订单将进入未到店终态，后续入住操作将不可用。登记原因（必填）取消正在提交…"
+            },
+            {
+              "open": false,
+              "text": "确认办理入住操作对象：MOCK-STAY-101 · 2026-09-01 至 2026-09-11（标识：11111111-1111-4111-8111-111111111111）执行后状态：在住订单将进入在住状态并占用该房源。系统会校验主住客身份核验与有效入住凭证，失败时不会推进状态。取消正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "occupancy",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "Failed to fetch"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "释放人工锁房\n\n操作对象：占用记录 11111111-1111-4111-8111-111111111111（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：已释放\n\n该人工锁房将停止阻止后续业务占用\n释放原因将写入审计记录\n释放原因（必填）\n取消\n正在提交…"
+            }
+          ]
+        },
+        "successClosed": true,
+        "closedHidden": true
+      },
+      {
+        "name": "purchase",
+        "errors": [
+          {
+            "status": 400,
+            "alert": "MOCK 400 代表失败"
+          },
+          {
+            "status": 403,
+            "alert": "MOCK 403 代表失败"
+          },
+          {
+            "status": 409,
+            "alert": "MOCK 409 代表失败"
+          },
+          {
+            "status": "network",
+            "alert": "网络连接异常，请稍后重试"
+          }
+        ],
+        "beforeEscape": {
+          "active": "DIALOG",
+          "dialogs": [
+            {
+              "open": true,
+              "text": "D-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变采购、付款或退款状态。\n审批执行前会重新校验采购状态与版本，原因将写入审计记录。\n操作原因（必填）\n取消\n正在提交…"
+            },
+            {
+              "open": false,
+              "text": "NG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-LONG-ID-（标识：11111111-1111-4111-8111-111111111111）执行后状态：转收费审批申请待处理将提交 0 条采购明细的转收费审批，不会立即生成租客应收。目标租约为 未选择，审批执行前会重新校验租约状态、房源、币种及采购版本。转收费原因（必填）取消正在提交…"
+            }
+          ]
+        },
+        "short": {
+          "client": 366,
+          "scroll": 800,
+          "width": 356,
+          "scrollWidth": 356
+        },
+        "footerReachable": true,
+        "reflow200": {
+          "client": 161,
+          "scroll": 161,
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 163,
+            "height": 418,
+            "top": 16,
+            "right": 179,
+            "bottom": 434,
+            "left": 16
+          }
+        },
+        "reflowFooter": {
+          "x": 37,
+          "y": 314.984375,
+          "width": 121,
+          "height": 44
+        },
+        "successClosed": true,
+        "closedHidden": true
+      }
+    ],
+    "nested": {
+      "childClosed": true,
+      "parentStillVisible": false
+    }
+  }
+]

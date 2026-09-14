@@ -1,0 +1,17 @@
+{
+  "project": "jinhu-housing-uat-20260910-732",
+  "stoppedOwnedApiPids": [
+    2456637
+  ],
+  "composeDownExit": 0,
+  "composeDownOutput": " Container jinhu-housing-uat-20260910-732-postgres-1 Stopping \n Container jinhu-housing-uat-20260910-732-postgres-1 Stopped \n Container jinhu-housing-uat-20260910-732-postgres-1 Removing \n Container jinhu-housing-uat-20260910-732-postgres-1 Removed \n Network jinhu-housing-uat-20260910-732_default Removing \n Volume jinhu-housing-uat-20260910-732_pgdata Removing \n Volume jinhu-housing-uat-20260910-732_pgdata Removed \n Network jinhu-housing-uat-20260910-732_default Removed \n",
+  "remainingContainers": "",
+  "remainingVolumes": "",
+  "listeners": "State Recv-Q Send-Q Local Address:Port Peer Address:Port\n",
+  "browser": "all successful and failed runners used finally browser.close; independent temporary profiles",
+  "productionCleanup": "pending automatic Deploy; no manual production operations",
+  "removedDisposableCredentialFiles": [
+    "env.json",
+    "compose.yml"
+  ]
+}

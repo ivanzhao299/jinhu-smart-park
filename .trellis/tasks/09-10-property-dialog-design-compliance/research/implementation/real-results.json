@@ -1,0 +1,253 @@
+{
+  "evidence": "REAL isolated API/DB; no route interception",
+  "database": "jinhu_housing_uat_20260910_732",
+  "writes": [
+    {
+      "path": "/api/v1/property/occupancies/efbeb8ab-660e-4f64-bc7d-50a8582fc019/release",
+      "status": 400,
+      "body": {
+        "reason": "原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原原",
+        "force": false
+      },
+      "key": "property-occupancy-normal-release-c4e98cf0-cdb0-45a1-a2b1-4ef26d988b50"
+    },
+    {
+      "path": "/api/v1/property/occupancies/efbeb8ab-660e-4f64-bc7d-50a8582fc019/release",
+      "status": 201,
+      "body": {
+        "reason": "专项真实释放验收",
+        "force": false
+      },
+      "key": "property-occupancy-normal-release-73e3305a-1c84-431f-adb3-b43d999cc1d1"
+    },
+    {
+      "path": "/api/v1/property/units/c9d09d23-80bf-4e0c-8dba-4040e4b94417/mode-transitions",
+      "status": 201,
+      "body": {
+        "target_mode": "long_rent",
+        "reason": "专项真实模式切换验收"
+      },
+      "key": "property-mode-transition-c59a1591-bf2b-4e94-b30a-149c39e8e9fd"
+    }
+  ],
+  "pageErrors": [],
+  "loginPostObserved": true,
+  "releaseFailure": {
+    "error": "reason must be shorter than or equal to 500 characters",
+    "reasonLength": 501,
+    "state": "active"
+  },
+  "releaseAfter": {
+    "id": "efbeb8ab-660e-4f64-bc7d-50a8582fc019",
+    "unitId": "c9d09d23-80bf-4e0c-8dba-4040e4b94417",
+    "unitCode": "M03UD732",
+    "unitName": "M03房源-D732",
+    "sourceDomain": "operations",
+    "sourceType": "manual",
+    "sourceLabel": "运营",
+    "sourceId": "dialog-732",
+    "startAt": "2026-09-10T07:45:27.676Z",
+    "endAt": "2026-09-10T08:46:27.676Z",
+    "status": "released",
+    "holdExpiresAt": null,
+    "releaseReason": "专项真实释放验收",
+    "releasedAt": "2026-09-10T07:50:54.210Z",
+    "version": 2,
+    "updateTime": "2026-09-10T07:50:54.207Z",
+    "canRequestForceRelease": false,
+    "approval": null,
+    "approvalAvailable": false,
+    "allowedActions": []
+  },
+  "status": "passed",
+  "operationBefore": {
+    "unitId": "c9d09d23-80bf-4e0c-8dba-4040e4b94417",
+    "unitCode": "M03UD732",
+    "unitName": "M03房源-D732",
+    "buildingId": "5398dfdf-36dc-4ae7-a946-d705a56dec00",
+    "buildingCode": "M03BD732",
+    "buildingName": "M03楼栋-D732",
+    "assetUnitId": "3f17bdcd-1b85-4168-a2cc-6b78e8809421",
+    "assetUnitCode": "M03UD732",
+    "assetUnitName": "M03房源-D732",
+    "configuredMode": "none",
+    "operationStatus": "enabled",
+    "effectiveTime": null,
+    "suspendReason": null,
+    "remark": null,
+    "version": 0,
+    "updateTime": "2026-09-10T07:46:27.656Z",
+    "liveOwningAggregateCounts": {
+      "commercialContracts": 0,
+      "housingLeases": 0,
+      "homestayBookings": 0,
+      "pendingCheckouts": 0,
+      "openWorkorders": 0,
+      "unsettledReceivables": 0
+    },
+    "sharedOccupancy": {
+      "activeCount": 0,
+      "incompatibleCount": 0
+    },
+    "blockers": [],
+    "canRequestTransition": true,
+    "approval": null,
+    "approvalAvailable": true,
+    "allowedActions": [
+      "property.operation.update",
+      "property.mode-transition.request"
+    ]
+  },
+  "submitStatus": 201,
+  "submission": {
+    "disposition": "created",
+    "request": {
+      "requestId": "b0b55f57-21fe-447f-b4bf-e263c28b5f30",
+      "tenantId": "10000001",
+      "parkId": "20000001",
+      "actionId": "property.mode-transition.request",
+      "sourceType": "property-operation-config",
+      "sourceId": "9c7632bd-ad62-4abf-8c12-e265f9ad7c39",
+      "sourceExpectedVersion": 1,
+      "requesterId": "c5c7774a-1875-4ae3-a9a6-17df795e3161",
+      "submitterId": "c5c7774a-1875-4ae3-a9a6-17df795e3161",
+      "businessIntentKey": "property-mode:9c7632bd-ad62-4abf-8c12-e265f9ad7c39:1:long_rent",
+      "payloadSchemaVersion": 1,
+      "payloadHash": "642ff2051614e1916b42a892b6f6f3e347b0059fb3a8f7b108f606358a8855b5",
+      "amount": null,
+      "currency": null,
+      "policyId": "b2000000-0000-4000-8000-000000000001",
+      "policyVersion": 1,
+      "policyHash": "32e9db9ec4aa4636bf39af76dec219be0a7d49d14f71e959d2a806977ed19b7a",
+      "decisionStatus": "pending_approval",
+      "executionStatus": "not_started",
+      "decisionVersion": 2,
+      "executionVersion": 1,
+      "submittedAt": "2026-09-10T07:51:19.429Z",
+      "decidedAt": null,
+      "executedAt": null,
+      "createdAt": "2026-09-10T07:51:19.414Z",
+      "updatedAt": "2026-09-10T07:51:19.429Z"
+    }
+  },
+  "operationAfter": {
+    "unitId": "c9d09d23-80bf-4e0c-8dba-4040e4b94417",
+    "unitCode": "M03UD732",
+    "unitName": "M03房源-D732",
+    "buildingId": "5398dfdf-36dc-4ae7-a946-d705a56dec00",
+    "buildingCode": "M03BD732",
+    "buildingName": "M03楼栋-D732",
+    "assetUnitId": "3f17bdcd-1b85-4168-a2cc-6b78e8809421",
+    "assetUnitCode": "M03UD732",
+    "assetUnitName": "M03房源-D732",
+    "configuredMode": "none",
+    "operationStatus": "enabled",
+    "effectiveTime": null,
+    "suspendReason": null,
+    "remark": null,
+    "version": 1,
+    "updateTime": "2026-09-10T07:51:19.388Z",
+    "liveOwningAggregateCounts": {
+      "commercialContracts": 0,
+      "housingLeases": 0,
+      "homestayBookings": 0,
+      "pendingCheckouts": 0,
+      "openWorkorders": 0,
+      "unsettledReceivables": 0
+    },
+    "sharedOccupancy": {
+      "activeCount": 0,
+      "incompatibleCount": 0
+    },
+    "blockers": [],
+    "canRequestTransition": true,
+    "approval": null,
+    "approvalAvailable": true,
+    "allowedActions": [
+      "property.operation.update",
+      "property.mode-transition.request"
+    ]
+  },
+  "requests": {
+    "items": [
+      {
+        "id": "b0b55f57-21fe-447f-b4bf-e263c28b5f30",
+        "requestId": "b0b55f57-21fe-447f-b4bf-e263c28b5f30",
+        "unitId": "c9d09d23-80bf-4e0c-8dba-4040e4b94417",
+        "unitCode": "M03UD732",
+        "unitName": "M03房源-D732",
+        "fromMode": "none",
+        "toMode": "long_rent",
+        "reason": "专项真实模式切换验收",
+        "decisionStatus": "pending_approval",
+        "executionStatus": "not_started",
+        "createTime": "2026-09-10T07:51:19.414Z",
+        "decisionTime": null,
+        "executionTime": null,
+        "operatorId": "c5c7774a-1875-4ae3-a9a6-17df795e3161",
+        "operatorName": "弹窗隔离验收",
+        "version": 1,
+        "checkSnapshot": {
+          "checked_at": "2026-09-10T07:51:19.395Z",
+          "blocking_reasons": [],
+          "housing_lease_count": 0,
+          "open_workorder_count": 0,
+          "active_occupancy_count": 0,
+          "homestay_booking_count": 0,
+          "pending_checkout_count": 0,
+          "commercial_contract_count": 0,
+          "unsettled_receivable_count": 0,
+          "incompatible_occupancy_count": 0,
+          "maintenance_or_operations_count": 0
+        },
+        "legacy": false,
+        "allowedActions": []
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "allowedActions": []
+  },
+  "approval": {
+    "request": {
+      "requestId": "b0b55f57-21fe-447f-b4bf-e263c28b5f30",
+      "actionId": "property.mode-transition.request",
+      "sourceType": "property-operation-config",
+      "sourceId": "9c7632bd-ad62-4abf-8c12-e265f9ad7c39",
+      "sourceExpectedVersion": 1,
+      "requesterId": "c5c7774a-1875-4ae3-a9a6-17df795e3161",
+      "decisionStatus": "pending_approval",
+      "executionStatus": "not_started",
+      "decisionVersion": 2,
+      "executionVersion": 1,
+      "amount": null,
+      "currency": null,
+      "requestedAt": "2026-09-10T07:51:19.414Z",
+      "submittedAt": "2026-09-10T07:51:19.429Z",
+      "decidedAt": null,
+      "executedAt": null,
+      "updatedAt": "2026-09-10T07:51:19.429Z",
+      "allowedActions": [
+        "property.approval.decide",
+        "property.approval.withdraw"
+      ]
+    },
+    "stages": [
+      {
+        "stageId": "9efddfee-061f-405f-980b-7fe6e7a22256",
+        "stageCode": "property-foundation-approval",
+        "stageOrdinal": 1,
+        "requiredCount": 1,
+        "approvedCount": 0,
+        "rejectedCount": 0,
+        "stageStatus": "pending",
+        "version": 1,
+        "eligibilityPolicyHash": "9fe8b170be1aff5f93d704ef26e982d94d6dd01677467362f2391d9c535dcae6"
+      }
+    ],
+    "decisions": []
+  },
+  "uniqueRequestId": "b0b55f57-21fe-447f-b4bf-e263c28b5f30",
+  "configurationUnchangedBeforeExecution": true
+}

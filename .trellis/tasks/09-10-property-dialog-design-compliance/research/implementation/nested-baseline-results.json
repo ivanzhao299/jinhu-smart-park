@@ -1,0 +1,22 @@
+[
+  {
+    "width": 1440,
+    "writes": [],
+    "pageErrors": [],
+    "cases": [],
+    "nested": {
+      "childClosed": true,
+      "parentStillVisible": false
+    }
+  },
+  {
+    "width": 390,
+    "writes": [],
+    "pageErrors": [],
+    "cases": [],
+    "nested": {
+      "childClosed": true,
+      "parentStillVisible": false
+    }
+  }
+]

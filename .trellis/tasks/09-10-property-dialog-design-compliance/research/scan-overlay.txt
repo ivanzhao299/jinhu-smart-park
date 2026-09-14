@@ -1,0 +1,36 @@
+apps/web/components/property/PropertyFoundationControlClient.tsx:768:    {surface === "occupancies" && detail && releaseMode ? <ConsequenceDialog
+apps/web/components/property/PropertyFoundationControlClient.tsx:919:    <ConsequenceDialog
+apps/web/features/property-shared/dialog/ConsequenceDialog.tsx:74:      dialog.showModal();
+apps/web/features/property-shared/dialog/ConsequenceDialog.tsx:249:    <dialog
+apps/web/features/property-shared/detail/drawer-dialog-state.ts:1:export type DrawerDialogCommand = "show-modal" | "close" | "none";
+apps/web/features/property-shared/detail/drawer-dialog-state.ts:8:    return "show-modal";
+apps/web/features/property-shared/detail/CanonicalDetailShell.tsx:106:    <dialog
+apps/web/features/property-shared/detail/CanonicalDetailShell.tsx:141:    if (command === "show-modal") {
+apps/web/features/property-shared/detail/CanonicalDetailShell.tsx:145:      dialog.showModal();
+apps/web/app/homestay/_components/HomestayDetailClient.tsx:295:  <ConsequenceDialog
+apps/web/app/homestay/_components/HomestayStayActions.tsx:111:    <ConsequenceDialog actionLabel="确认登记遗失"
+apps/web/app/homestay/_components/HomestayStayActions.tsx:135:    <ConsequenceDialog actionLabel="确认登记未到店"
+apps/web/app/housing/_components/HousingFinanceActions.tsx:182:      <ConsequenceDialog actionLabel="确认提交财务审批" busy={submitting}
+apps/web/app/housing/_components/HousingLeaseDetailClient.tsx:116:      <ConsequenceDialog actionLabel={pendingHighRisk?.label ?? "确认提交"} busy={busy}
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:178:    <ConsequenceDialog actionLabel={pendingLifecycle?.label ?? "确认提交"} busy={busy}
+apps/web/app/housing/_components/HousingEntityDetailClients.tsx:197:    <ConsequenceDialog actionLabel="确认提交转收费审批" busy={busy}
+apps/web/app/leasing/contracts/page.tsx:1356:            <Drawer size="xl" onClose={() => setShowForm(false)}>
+apps/web/app/leasing/lead-pool/page.tsx:251:            <Drawer size="md" onClose={() => setAssignTarget(null)}>
+apps/web/app/leasing/receivables/page.tsx:603:        <Drawer size="md" onClose={() => setBatchDrawerOpen(false)}>
+apps/web/app/leasing/receivables/page.tsx:654:        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/receivables/page.tsx:767:        <Drawer size="md" onClose={() => setStatusLogTarget(null)}>
+apps/web/app/leasing/checkouts/page.tsx:741:          <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/checkouts/page.tsx:880:      <ConsequenceDialog
+apps/web/app/leasing/waivers/page.tsx:434:        <Drawer size="md" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/waivers/page.tsx:490:        <Drawer size="md" onClose={() => setActionTarget(null)}>
+apps/web/app/leasing/payments/page.tsx:456:        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/payments/page.tsx:507:        <Drawer size="lg" onClose={() => setApplyOpen(false)}>
+apps/web/app/leasing/tenants/page.tsx:1230:            <Drawer size="lg" onClose={() => setShowForm(false)}>
+apps/web/app/leasing/tenants/page.tsx:1286:            <Drawer size="lg" onClose={() => setDetail(null)}>
+apps/web/app/leasing/contract-changes/page.tsx:584:        <Drawer size="lg" onClose={() => { setDetail(null); setFinanceImpact(null); }}>
+apps/web/app/leasing/contract-changes/page.tsx:661:        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/leads/page.tsx:1333:            <Drawer size="md" onClose={() => setShowForm(false)}>
+apps/web/app/leasing/leads/page.tsx:1415:            <Drawer size="lg" onClose={closeDetailDrawer}>
+apps/web/app/leasing/leads/page.tsx:1869:            <Drawer size="md" onClose={() => setShowStatusForm(false)}>
+apps/web/app/leasing/invoices/page.tsx:467:        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+apps/web/app/leasing/invoices/page.tsx:553:        <Drawer size="lg" onClose={() => setDetailOpen(false)}>

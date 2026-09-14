@@ -1,0 +1,94 @@
+[
+  {
+    "width": 1440,
+    "errors": [],
+    "writes": [
+      {
+        "path": "/housing/leases/11111111-1111-4111-8111-111111111111/void",
+        "body": {
+          "reason": "租约审查原因"
+        }
+      }
+    ],
+    "unknown": [
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding"
+    ],
+    "tabFromLast": "测试输入",
+    "shiftTabFromFirst": "提交审批",
+    "closedDialog": {
+      "margin": "0px",
+      "padding": "0px",
+      "position": "fixed",
+      "inset": "0px",
+      "backdrop": "rgba(0, 0, 0, 0.1)"
+    },
+    "backgroundScroll": {
+      "before": 0,
+      "after": 0
+    },
+    "reason501Length": 501,
+    "reason501Validity": true,
+    "documentWidth": {
+      "scroll": 1440,
+      "viewport": 1440
+    },
+    "housingOpen": "确认作废租约\n\n操作对象：MOCK-LEASE-101（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变租约或财务状态。\n审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。\n审批说明 / 原因（必填）\n取消作废租约",
+    "housingBusy": "确认作废租约\n\n操作对象：MOCK-LEASE-101（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变租约或财务状态。\n审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。\n审批说明 / 原因（必填）\n取消正在提交…",
+    "housingError": "隔离 MOCK：操作被拒绝",
+    "housingReasonRetained": "租约审查原因",
+    "housingClosed": true
+  },
+  {
+    "width": 390,
+    "errors": [],
+    "writes": [
+      {
+        "path": "/housing/leases/11111111-1111-4111-8111-111111111111/void",
+        "body": {
+          "reason": "租约审查原因"
+        }
+      }
+    ],
+    "unknown": [
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding",
+      "/tenants/public/branding"
+    ],
+    "tabFromLast": "测试输入",
+    "shiftTabFromFirst": "提交审批",
+    "closedDialog": {
+      "margin": "0px",
+      "padding": "0px",
+      "position": "fixed",
+      "inset": "0px",
+      "backdrop": "rgba(0, 0, 0, 0.1)"
+    },
+    "backgroundScroll": {
+      "before": 0,
+      "after": 0
+    },
+    "reason501Length": 501,
+    "reason501Validity": true,
+    "documentWidth": {
+      "scroll": 390,
+      "viewport": 390
+    },
+    "housingOpen": "确认作废租约\n\n操作对象：MOCK-LEASE-101（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变租约或财务状态。\n审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。\n审批说明 / 原因（必填）\n取消作废租约",
+    "housingBusy": "确认作废租约\n\n操作对象：MOCK-LEASE-101（标识：11111111-1111-4111-8111-111111111111）\n\n执行后状态：审批申请待处理\n\n本次操作只提交审批申请，不会立即改变租约或财务状态。\n审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。\n审批说明 / 原因（必填）\n取消正在提交…",
+    "housingError": "隔离 MOCK：操作被拒绝",
+    "housingReasonRetained": "租约审查原因",
+    "housingClosed": true
+  }
+]
