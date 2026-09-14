@@ -1,0 +1,54 @@
+[
+  {
+    width: 1440,
+    scenario: 'B-refresh',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 1440,
+    scenario: 'create-refresh',
+    passed: true,
+    failure: undefined
+  },
+  { width: 1440, scenario: 'late-B', passed: true, failure: undefined },
+  {
+    width: 1440,
+    scenario: 'late-create',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 1440,
+    scenario: 'late-close-reopen-A',
+    passed: true,
+    failure: undefined
+  },
+  { width: 1440, scenario: 'same-A', passed: true, failure: undefined },
+  {
+    width: 390,
+    scenario: 'B-refresh',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 390,
+    scenario: 'create-refresh',
+    passed: true,
+    failure: undefined
+  },
+  { width: 390, scenario: 'late-B', passed: true, failure: undefined },
+  {
+    width: 390,
+    scenario: 'late-create',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 390,
+    scenario: 'late-close-reopen-A',
+    passed: true,
+    failure: undefined
+  },
+  { width: 390, scenario: 'same-A', passed: true, failure: undefined }
+]

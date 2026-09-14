@@ -32,6 +32,7 @@ export function HousingCollectionView<T>(props: HousingCollectionViewProps<T>) {
         <div><p>长租经营工作台</p><h1>{props.title}</h1><p>{props.description}</p></div>
         {props.toolbar ? <div className={styles.heroActions}>{props.toolbar}</div> : null}
       </header>
+      {props.completionFeedback}
       {props.filters.length ? <HousingFilters {...props} /> : null}
       <div aria-hidden="true" id="housing-list" />
       <PageState
@@ -92,7 +93,8 @@ function HousingRecords<T>(props: HousingCollectionViewProps<T> & { result: Pagi
       {href ? <Link className="ds-button" href={{
         ...href, query: { returnTo }
       }}>查看详情</Link> : null}
-      {props.renderItemActions?.(item, props.capabilities, props.load)}
+      {(!props.disableItemActionsWhenStale || props.state.kind === "ready")
+        ? props.renderItemActions?.(item, props.capabilities, props.load) : null}
     </div>;
   } : undefined;
   return <>

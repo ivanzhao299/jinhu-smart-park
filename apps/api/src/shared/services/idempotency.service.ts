@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHash } from "node:crypto";
 import { DataSource, LessThan, type Repository } from "typeorm";
@@ -182,25 +182,26 @@ export class IdempotencyService {
       expiresAt: new Date(now.getTime() + RETENTION_TTL_MS)
     });
 
-    try {
-      const saved = await repository.save(entity);
-      return {
-        outcome: "began",
-        request: saved
-      };
-    } catch (error) {
-      if (!isUniqueViolation(error)) {
-        throw error;
-      }
-      const existing = await repository.findOne({
-        where: this.scopeWhere(input),
-        lock: { mode: "pessimistic_write" }
-      });
-      if (!existing) {
-        throw error;
-      }
-      return this.resolveExisting(repository, existing, input);
+    const inserted = await repository.createQueryBuilder()
+      .insert().into(IdempotencyRequestEntity).values({ ...entity, responseBody: () => "NULL" })
+      .onConflict('ON CONSTRAINT "uq_sys_idempotency_request_scope" DO NOTHING')
+      .returning(["id"]).execute();
+    const rows: unknown = inserted.raw;
+    if (!Array.isArray(rows) || rows.length > 1) {
+      throw new Error("Unexpected idempotency reservation insert result");
     }
+    // Separate statement: READ COMMITTED sees the committed conflict winner.
+    const existing = await repository.findOne({
+      where: this.scopeWhere(input),
+      lock: { mode: "pessimistic_write" }
+    });
+    if (!existing) {
+      // Cleanup may delete an expired winner between INSERT and SELECT.
+      // No domain handler has run; fail closed without inventing a cached request.
+      throw new ConflictException("Idempotency reservation changed; retry request");
+    }
+    if (rows.length === 1) return { outcome: "began", request: existing };
+    return this.resolveExisting(repository, existing, input);
   }
 
   private async resolveExisting(
@@ -291,12 +292,6 @@ export function getIdempotencyService(): IdempotencyService {
     throw new Error("IdempotencyService has not been initialized");
   }
   return idempotencyServiceSingleton;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const code = (error as { code?: string }).code;
-  return code === "23505";
 }
 
 function normalizeValue(value: unknown): unknown {

@@ -27,11 +27,13 @@ import { useHousingDisplayDictionaries } from "./use-housing-display-dictionarie
 export function HousingFinanceActions({
   item,
   capabilities,
-  reload
+  reload,
+  onCompleted
 }: {
   item: HousingFinanceListItem;
   capabilities: PropertyCapabilityProjection;
   reload(): Promise<void>;
+  onCompleted?(message: string): void;
 }) {
   const [message, setMessage] = useState("");
   const [dialogError, setDialogError] = useState("");
@@ -138,6 +140,7 @@ export function HousingFinanceActions({
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
       successMessage = request?.requestId ? `审批申请已提交。审批状态：${propertyLabels.decisionStatus(request.decisionStatus)}；执行状态：${propertyLabels.executionStatus(request.executionStatus)}。` : successMessage;
       setMessage(successMessage);
+      onCompleted?.(`${item.lease.leaseCode}：${successMessage}`);
       formElement?.reset();
       await reload();
       return true;

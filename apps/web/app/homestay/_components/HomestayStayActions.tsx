@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomestayBookingDetailResponse, HomestayGuestCandidateListResponse } from "@jinhu/shared";
-import { useMemo, useState } from "react";
+import { type RefObject, useMemo, useState } from "react";
 import {
   ConsequenceDialog, PropertyPanelSurface, RemoteEntityPicker,
   type PropertyCapabilityProjection, type RemoteEntityOption
@@ -32,8 +32,9 @@ function loadGuests(bookingId: string) {
 }
 
 export function HomestayStayActions({
-  data, capability, mutate, busy, errorMessage
+  data, capability, mutate, busy, errorMessage, fallbackFocusRef
 }: {
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   data: HomestayBookingDetailResponse;
   capability: PropertyCapabilityProjection;
   mutate: Mutate;
@@ -52,8 +53,8 @@ export function HomestayStayActions({
       {visibility.canIssueCredential && capability.actionAllowed("homestay.stays.issue-credential")
         ? <CredentialIssue bookingId={bookingId} mutate={mutate} /> : null}
       {capability.actionAllowed("homestay.stays.return-credential")
-        ? <CredentialReturns bookingId={bookingId} data={data} mutate={mutate} busy={busy} errorMessage={errorMessage} /> : null}
-      {canNoShow ? <NoShow bookingId={bookingId} data={data} mutate={mutate} busy={busy} errorMessage={errorMessage} /> : null}
+        ? <CredentialReturns fallbackFocusRef={fallbackFocusRef} bookingId={bookingId} data={data} mutate={mutate} busy={busy} errorMessage={errorMessage} /> : null}
+      {canNoShow ? <NoShow fallbackFocusRef={fallbackFocusRef} bookingId={bookingId} data={data} mutate={mutate} busy={busy} errorMessage={errorMessage} /> : null}
     </>
   );
 }
@@ -91,8 +92,9 @@ function CredentialIssue({ bookingId, mutate }: { bookingId: string; mutate: Mut
   </div></PropertyPanelSurface>;
 }
 
-function CredentialReturns({ bookingId, data, mutate, busy, errorMessage }: {
+function CredentialReturns({ bookingId, data, mutate, busy, errorMessage, fallbackFocusRef }: {
   bookingId: string; data: HomestayBookingDetailResponse; mutate: Mutate; busy: boolean; errorMessage: string;
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [lostCredential, setLostCredential] = useState<{ id: string; label: string } | null>(null);
   const issued = data.credentials.filter((item) => item.status === "issued");
@@ -110,7 +112,7 @@ function CredentialReturns({ bookingId, data, mutate, busy, errorMessage }: {
         </button>
       </div>)}
     </div>
-    <ConsequenceDialog busy={busy} errorMessage={errorMessage || undefined} actionLabel="确认登记遗失"
+    <ConsequenceDialog fallbackFocusRef={fallbackFocusRef} busy={busy} errorMessage={errorMessage || undefined} actionLabel="确认登记遗失"
       consequences={["该凭证将进入遗失终态，不能再登记回收；处置原因将写入审计日志。"]}
       onConfirm={(reason) => mutate(
         `/homestay/bookings/${bookingId}/credentials/${lostCredential!.id}/lost`,
@@ -128,13 +130,14 @@ function CredentialReturns({ bookingId, data, mutate, busy, errorMessage }: {
   </PropertyPanelSurface>;
 }
 
-function NoShow({ bookingId, data, mutate, busy, errorMessage }: {
+function NoShow({ bookingId, data, mutate, busy, errorMessage, fallbackFocusRef }: {
   bookingId: string; data: HomestayBookingDetailResponse; mutate: Mutate; busy: boolean; errorMessage: string;
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [open, setOpen] = useState(false);
   return <PropertyPanelSurface title="登记未到店">
     <button className="secondary-button" type="button" onClick={() => setOpen(true)}>登记未到店</button>
-    <ConsequenceDialog busy={busy} errorMessage={errorMessage || undefined} actionLabel="确认登记未到店"
+    <ConsequenceDialog fallbackFocusRef={fallbackFocusRef} busy={busy} errorMessage={errorMessage || undefined} actionLabel="确认登记未到店"
       consequences={["订单将进入未到店终态，后续入住操作将不可用。"]}
       onConfirm={(reason) => mutate(`/homestay/bookings/${bookingId}/no-show`, { reason })}
       onOpenChange={setOpen} open={open}

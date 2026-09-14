@@ -2,6 +2,8 @@
 
 import {
   useEffect,
+  useLayoutEffect,
+  useRef,
   type ButtonHTMLAttributes,
   type FormHTMLAttributes,
   type HTMLAttributes,
@@ -9,6 +11,7 @@ import {
   type ReactNode
 } from 'react';
 import styles from './Drawer.module.css';
+import { registerDrawerEscapeOwner } from './drawer-escape-owner';
 
 type DivPropsWithChildren = HTMLAttributes<HTMLDivElement> & {
   children?: ReactNode;
@@ -39,18 +42,16 @@ export function Drawer({
   closeOnEscape = true,
   ...props
 }: DrawerProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const options = useRef({ onClose, closeOnEscape });
+  useLayoutEffect(() => {
+    options.current = { onClose, closeOnEscape };
+  }, [onClose, closeOnEscape]);
   useEffect(() => {
-    if (!onClose || !closeOnEscape) return undefined;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose?.();
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [closeOnEscape, onClose]);
+    const root = rootRef.current;
+    if (!root) return;
+    return registerDrawerEscapeOwner(root, () => options.current);
+  }, []);
 
   const classNames = [
     styles.drawerPanel,
@@ -63,7 +64,7 @@ export function Drawer({
     : <div aria-hidden="true" className={styles.drawerBackdrop} />;
 
   return (
-    <div className={styles.drawerRoot}>
+    <div className={styles.drawerRoot} ref={rootRef}>
       {overlay}
       {as === 'aside' ? <aside className={classNames} data-ui-drawer-panel="true" {...props} /> : null}
       {as === 'div' ? <div className={classNames} data-ui-drawer-panel="true" {...props} /> : null}

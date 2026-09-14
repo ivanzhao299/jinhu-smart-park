@@ -1,6 +1,12 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import type { HousingLeaseStatus, HousingLedgerEntryType } from "@jinhu/shared";
 
+export class HousingReceivableBalanceError extends ConflictException {
+  constructor() {
+    super("Financial entry exceeds receivable balance");
+  }
+}
+
 export interface HousingFinancialEntry {
   entryType: HousingLedgerEntryType;
   amount: string | number;
@@ -218,7 +224,7 @@ export function applyHousingReceivableMutation(
     || compareHousingMoney(waived, "0.00") < 0
     || compareHousingMoney(calculateHousingMoneyBalance([paid, waived]), receivableAmount) > 0
   ) {
-    throw new ConflictException("Financial entry exceeds receivable balance");
+    throw new HousingReceivableBalanceError();
   }
   const settled = calculateHousingMoneyBalance([paid, waived]);
   return {

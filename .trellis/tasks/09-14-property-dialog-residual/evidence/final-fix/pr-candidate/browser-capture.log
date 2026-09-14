@@ -1,0 +1,26 @@
+[
+  {
+    width: 1440,
+    scenario: 'B-refresh',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 1440,
+    scenario: 'create-refresh',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 390,
+    scenario: 'B-refresh',
+    passed: true,
+    failure: undefined
+  },
+  {
+    width: 390,
+    scenario: 'create-refresh',
+    passed: true,
+    failure: undefined
+  }
+]

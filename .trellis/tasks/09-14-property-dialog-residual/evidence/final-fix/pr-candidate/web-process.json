@@ -1,0 +1,10 @@
+{
+  "pid": 3125884,
+  "previousPid": 3104445,
+  "port": 3427,
+  "cwd": "apps/web",
+  "buildHashes": {
+    "apps/web/.next/BUILD_ID": "5d076de5a70d0ee608c424af121d242d7fd63f55a80a6d463135adda1041d721",
+    "apps/web/.next/build-manifest.json": "316118b55de436e878b48ab00b5f32e4280df4a69b850fa33da59d5484655418"
+  }
+}

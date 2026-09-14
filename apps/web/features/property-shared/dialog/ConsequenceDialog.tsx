@@ -28,6 +28,7 @@ import type {
   ConsequenceTarget
 } from "./types";
 import styles from "./ConsequenceDialog.module.css";
+import { useOwnedScrollLock } from "./useOwnedScrollLock";
 
 export type {
   ConsequenceReasonPolicy,
@@ -45,6 +46,7 @@ export interface ConsequenceDialogProps {
   cancelLabel?: string;
   busy?: boolean;
   errorMessage?: string;
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   children?: ReactNode;
   onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
@@ -60,7 +62,8 @@ function reasonIsValid(reason: string, policy: ConsequenceReasonPolicy): boolean
 function useNativeDialogLifecycle(
   open: boolean,
   dialogRef: RefObject<HTMLDialogElement | null>,
-  triggerRef: RefObject<HTMLElement | null>
+  triggerRef: RefObject<HTMLElement | null>,
+  fallbackFocusRef?: RefObject<HTMLElement | null>
 ) {
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -78,10 +81,10 @@ function useNativeDialogLifecycle(
     return () => {
       if (dialog.open) {
         dialog.close();
-        restoreTriggerFocus(triggerRef);
+        restoreTriggerFocus(triggerRef, fallbackFocusRef);
       }
     };
-  }, [dialogRef, open, triggerRef]);
+  }, [dialogRef, open, triggerRef, fallbackFocusRef]);
 }
 
 export function ConsequenceDialog({
@@ -95,12 +98,13 @@ export function ConsequenceDialog({
   cancelLabel = "取消",
   busy = false,
   errorMessage,
+  fallbackFocusRef,
   children,
   onConfirm,
   onOpenChange
 }: ConsequenceDialogProps) {
   const controller = useConsequenceDialogController({
-    busy, onConfirm, onOpenChange, open, reasonPolicy, targetId: target.id
+    busy, fallbackFocusRef, onConfirm, onOpenChange, open, reasonPolicy, targetId: target.id
   });
 
   if (!isValidDialogContract({
@@ -122,6 +126,7 @@ export function ConsequenceDialog({
       descriptionId={controller.descriptionId}
       dialogRef={controller.dialogRef}
       errorMessage={errorMessage}
+      fallbackFocusRef={fallbackFocusRef}
       onCancel={controller.handleCancel}
       onConfirm={controller.handleSubmit}
       onReasonChange={controller.changeReason}
@@ -141,6 +146,7 @@ export function ConsequenceDialog({
 }
 
 interface ConsequenceDialogControllerInput {
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   busy: boolean;
   onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
@@ -150,6 +156,7 @@ interface ConsequenceDialogControllerInput {
 }
 
 function useConsequenceDialogController(input: ConsequenceDialogControllerInput) {
+  useOwnedScrollLock(input.open);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const activeTargetRef = useRef(input.targetId);
@@ -165,7 +172,21 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
   gateRef.current ??= createSingleFlightGate();
   const reason = visibleDialogReason(draft, input.open, input.targetId);
 
-  useNativeDialogLifecycle(input.open, dialogRef, triggerRef);
+  useNativeDialogLifecycle(input.open, dialogRef, triggerRef, input.fallbackFocusRef);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || !input.open) return;
+    // Next's React root delegates at document, alongside Drawer listeners.
+    // Stop at the owning native dialog before Escape reaches that shared node.
+    function handleEscape(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape" || !(event.target instanceof Element)
+        || event.target.closest("dialog") !== dialog) return;
+      event.stopPropagation();
+      if (input.busy) event.preventDefault();
+    }
+    dialog.addEventListener("keydown", handleEscape);
+    return () => dialog.removeEventListener("keydown", handleEscape);
+  }, [input.open, input.busy]);
   useEffect(() => {
     if (input.open && input.busy) dialogRef.current?.focus();
   }, [input.open, input.busy]);
@@ -178,12 +199,15 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
     input.onOpenChange(false);
   }
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    if (event.target !== event.currentTarget) return;
+    event.stopPropagation();
     event.preventDefault();
     if (!input.busy) {
       requestClose();
     }
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (event.target !== event.currentTarget) return;
     event.preventDefault();
     const gate = gateRef.current;
     if (input.busy || !reasonIsValid(reason, input.reasonPolicy) || !gate?.tryEnter()) {
@@ -230,6 +254,7 @@ function isValidDialogContract(input: DialogContractInput): boolean {
 }
 
 interface ConsequenceDialogSurfaceProps extends DialogContractInput {
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   busy: boolean;
   cancelLabel: string;
   children?: ReactNode;
@@ -254,9 +279,13 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
       aria-labelledby={props.titleId}
       className={`${styles.dialog} ds-panel`}
       onCancel={props.onCancel}
-      onClose={() => restoreTriggerFocus(props.triggerRef)}
+      onClose={(event) => {
+        if (event.target !== event.currentTarget) return;
+        restoreTriggerFocus(props.triggerRef, props.fallbackFocusRef);
+      }}
       onKeyDown={(event) => {
-        if (props.busy && event.key === "Escape") event.preventDefault();
+        if (!(event.target instanceof Element)
+          || event.target.closest("dialog") !== event.currentTarget) return;
         trapDialogFocus(event);
       }}
       ref={props.dialogRef}
@@ -301,10 +330,15 @@ function trapDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
   if (event.key !== "Tab") return;
   const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
     'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]'
-  )).filter((element) => element.getClientRects().length > 0);
+  )).filter((element) => element.getClientRects().length > 0
+    && element.closest("dialog") === event.currentTarget && !element.closest("[inert]"));
   const first = focusable[0];
   const last = focusable.at(-1);
-  if (!first || !last) return;
+  if (!first || !last) {
+    event.preventDefault();
+    event.currentTarget.focus();
+    return;
+  }
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();
@@ -314,8 +348,23 @@ function trapDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
   }
 }
 
-function restoreTriggerFocus(triggerRef: RefObject<HTMLElement | null>) {
+function restoreTriggerFocus(
+  triggerRef: RefObject<HTMLElement | null>,
+  fallbackFocusRef?: RefObject<HTMLElement | null>
+) {
   const trigger = triggerRef.current;
   triggerRef.current = null;
-  queueMicrotask(() => trigger?.focus());
+  if (!trigger) return;
+  queueMicrotask(() => {
+    const candidate = canRestoreFocus(trigger) ? trigger : fallbackFocusRef?.current;
+    if (!candidate || !canRestoreFocus(candidate)) return;
+    const activeModal = document.activeElement?.closest("dialog[open]");
+    if (activeModal && !activeModal.contains(candidate)) return;
+    candidate.focus({ preventScroll: true });
+  });
+}
+
+function canRestoreFocus(element: HTMLElement): boolean {
+  return element.isConnected && !element.matches(":disabled")
+    && !element.closest("[inert], [hidden]") && element.getClientRects().length > 0;
 }

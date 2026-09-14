@@ -1,0 +1,33 @@
+{
+  "oldEvidenceFilesVerified": 1164,
+  "oldEvidenceMismatch": [],
+  "changedSources": [
+    "apps/web/app/leasing/checkouts/page.tsx",
+    "apps/web/test/interaction/consequence-dialog.test.tsx",
+    "apps/web/test/interaction/leasing-checkout-refresh-receipt.test.tsx"
+  ],
+  "runtime": [
+    {
+      "service": "postgres",
+      "id": "736157b900cb814a4203230e8acdae31192a22fa3c3423041ec155b54862bcc9",
+      "pid": 71310,
+      "unchanged": true
+    },
+    {
+      "service": "api",
+      "id": "16836b11fc323a5d2dd88b21f5c4007ab05c3c4dd67929bde6ecd1177425818f",
+      "pid": 25879,
+      "unchanged": true
+    }
+  ],
+  "health": {
+    "http://127.0.0.1:3427": 200,
+    "http://127.0.0.1:3428/api/v1/health": 200,
+    "http://127.0.0.1:3428/api/v1/ready": 200
+  },
+  "phoneProbes": 0,
+  "realFinancialWrites": 0,
+  "commits": 0,
+  "pushes": 0,
+  "productionOperations": 0
+}

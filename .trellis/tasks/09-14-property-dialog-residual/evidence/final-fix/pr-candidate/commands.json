@@ -1,0 +1,34 @@
+[
+  {
+    "command": "NODE_ENV=test pnpm --filter @jinhu/web exec vitest run --config vitest.config.ts test/interaction/consequence-dialog.test.tsx test/interaction/leasing-checkout-refresh-receipt.test.tsx test/interaction/drawer-ownership.test.tsx test/interaction/homestay-detail-query.test.tsx test/interaction/housing-finance-refresh-receipt.test.tsx test/interaction/property-approval-refresh-receipt.test.tsx",
+    "exit": 0
+  },
+  {
+    "command": "pnpm --filter @jinhu/web lint",
+    "exit": 0
+  },
+  {
+    "command": "pnpm --filter @jinhu/web exec eslint test/interaction/consequence-dialog.test.tsx test/interaction/leasing-checkout-refresh-receipt.test.tsx",
+    "exit": 0
+  },
+  {
+    "command": "pnpm --filter @jinhu/web typecheck",
+    "exit": 0
+  },
+  {
+    "command": "pnpm --filter @jinhu/web build",
+    "exit": 0
+  },
+  {
+    "command": "node browser.mjs (PLAYWRIGHT_MODULE / CHROMIUM_EXECUTABLE / LD_LIBRARY_PATH supplied from existing isolated tooling)",
+    "exit": 0
+  },
+  {
+    "command": "CAPTURE_ONLY=1 node browser.mjs (same tooling)",
+    "exit": 0
+  },
+  {
+    "command": "git diff --check",
+    "exit": 0
+  }
+]

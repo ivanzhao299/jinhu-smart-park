@@ -12,7 +12,7 @@ import { assertPropertyHighRiskActionApprovalRequired } from "../../shared/prope
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
-import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
+import { ApprovalExecutionError, propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 import { HousingLeaseEntity, HousingLedgerEntryEntity } from "./entities/housing.entities";
 import {
   calculateHousingDepositBalance,
@@ -142,6 +142,9 @@ export class HousingLeaseApprovalExecutorService {
             AND is_deleted=false FOR UPDATE`, [scope.tenantId, scope.parkId, leaseId]
       ));
     const lease = leases[0];
+    if (lease && lease.version !== input.sourceExpectedVersion) {
+      throw new ApprovalExecutionError("business", "approval-source-changed", "Approval source changed");
+    }
     if (!lease || lease.version !== input.sourceExpectedVersion || lease.status !== payload.fromStatus) {
       throw new ConflictException("Approval source changed");
     }

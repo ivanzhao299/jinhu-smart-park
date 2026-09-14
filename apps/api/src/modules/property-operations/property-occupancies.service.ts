@@ -16,6 +16,7 @@ import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { UnitEntity } from "../units/entities/unit.entity";
+import { ApprovalExecutionError } from "../property-approvals/property-approval.service";
 import type {
   CheckPropertyAvailabilityDto,
   CreatePropertyOccupancyDto,
@@ -588,6 +589,9 @@ export class PropertyOccupanciesService {
       sourceId: string; status: string; version: number;
     }>;
     const occupancy = rows[0];
+    if (occupancy && occupancy.version !== input.sourceExpectedVersion) {
+      throw new ApprovalExecutionError("business", "approval-source-changed", "Approval source changed");
+    }
     if (
       !occupancy
       || occupancy.unitId !== unitId

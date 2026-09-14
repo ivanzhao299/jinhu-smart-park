@@ -1,0 +1,27 @@
+
+ RUN  v3.2.7 <workspace>/apps/web
+
+stderr | test/interaction/consequence-dialog.test.tsx > ConsequenceDialog mounted interactions > keeps focus on the busy dialog and prevents repeated Escape default closing
+Trace: ACT_QUEUE_ORIGIN
+    at process.env.NODE_ENV.exports.act (<workspace>/node_modules/.pnpm/react@19.2.6/node_modules/react/cjs/react.development.js:885:39)
+    at <workspace>/node_modules/.pnpm/@testing-library+react@16.3.3_@testing-library+dom@10.4.1_@types+react-dom@19.2.3_@types+reac_xtpkyc4kz2mzme7e3ah3v47jua/node_modules/@testing-library/react/dist/act-compat.js:46:25
+    at Object.eventWrapper (<workspace>/node_modules/.pnpm/@testing-library+react@16.3.3_@testing-library+dom@10.4.1_@types+react-dom@19.2.3_@types+reac_xtpkyc4kz2mzme7e3ah3v47jua/node_modules/@testing-library/react/dist/pure.js:112:30)
+    at wrapEvent (file://<workspace>/node_modules/.pnpm/@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1/node_modules/@testing-library/user-event/dist/esm/event/wrapEvent.js:5:24)
+    at dispatchDOMEvent (file://<workspace>/node_modules/.pnpm/@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1/node_modules/@testing-library/user-event/dist/esm/event/dispatchEvent.js:47:5)
+    at Document.document.addEventListener.capture (file://<workspace>/node_modules/.pnpm/@testing-library+user-event@14.6.7_@testing-library+dom@10.4.1/node_modules/@testing-library/user-event/dist/esm/document/prepareDocument.js:31:17)
+    at Document.callTheUserObjectsOperation (<workspace>/node_modules/.pnpm/jsdom@26.1.0/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (<workspace>/node_modules/.pnpm/jsdom@26.1.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (<workspace>/node_modules/.pnpm/jsdom@26.1.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at HTMLTextAreaElementImpl._dispatch (<workspace>/node_modules/.pnpm/jsdom@26.1.0/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:217:9)
+
+stderr | test/interaction/consequence-dialog.test.tsx > ConsequenceDialog mounted interactions > keeps focus on the busy dialog and prevents repeated Escape default closing
+A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:
+
+await act(() => ...)
+
+ ✓ test/interaction/consequence-dialog.test.tsx (13 tests | 12 skipped) 129ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 12 skipped (13)
+   Start at  15:40:02
+   Duration  1.08s (transform 275ms, setup 93ms, collect 389ms, tests 129ms, environment 222ms, prepare 78ms)

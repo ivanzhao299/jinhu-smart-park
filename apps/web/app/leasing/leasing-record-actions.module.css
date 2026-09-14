@@ -1,0 +1,35 @@
+/* These leasing lists can expose more actions than their fixed column fits. */
+.records :global(.data-table-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+@media (max-width: 720px) {
+  table.records {
+    width: 100% !important;
+  }
+
+  table.records > tbody > tr {
+    box-sizing: border-box;
+  }
+
+  table.records > tbody > tr > td {
+    height: auto;
+    min-height: 52px;
+  }
+
+  /* Override the contracts list's inline desktop action-column dimensions. */
+  .records > tbody > tr > td:last-child {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .records :global(.data-table-actions) > button {
+    min-height: 44px;
+  }
+}

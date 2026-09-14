@@ -28,6 +28,30 @@ class InMemoryIdempotencyRepository {
     };
   }
 
+  createQueryBuilder() {
+    let entity: IdempotencyRequestEntity;
+    const builder = {
+      insert: () => builder,
+      into: (target: unknown) => { assert.equal(target, IdempotencyRequestEntity); return builder; },
+      values: (value: IdempotencyRequestEntity) => { entity = { ...value, responseBody: null }; return builder; },
+      onConflict: (target: string) => {
+        assert.equal(target, 'ON CONSTRAINT "uq_sys_idempotency_request_scope" DO NOTHING');
+        return builder;
+      },
+      returning: (columns: string[]) => { assert.deepEqual(columns, ["id"]); return builder; },
+      execute: async () => {
+        const existing = [...this.records.values()].find((row) => row.tenantId === entity.tenantId
+          && row.userId === entity.userId && row.requestPath === entity.requestPath
+          && row.idempotencyKey === entity.idempotencyKey);
+        if (existing) return { raw: [] };
+        entity.id = `id-${this.records.size + 1}`;
+        this.records.set(entity.id, entity);
+        return { raw: [{ id: entity.id }] };
+      }
+    };
+    return builder;
+  }
+
   async save(entity: IdempotencyRequestEntity): Promise<IdempotencyRequestEntity> {
     this.records.set(entity.id, entity);
     return entity;
@@ -270,4 +294,11 @@ test("cleanupExpired removes only expired records and respects limit", async () 
 
   const noDelete = await service.cleanupExpired(10);
   assert.equal(noDelete, 0);
+});
+
+test("simultaneous first reservations allow one begin", async () => {
+  const { service } = createService();
+  const results = await Promise.all([service.tryBegin(makeContext()), service.tryBegin(makeContext())]);
+  assert.deepEqual(results.map((result) => result.outcome).sort(), ["began", "processing"]);
+  assert.equal(results[0].request.id, results[1].request.id);
 });

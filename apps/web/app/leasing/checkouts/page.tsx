@@ -1,8 +1,10 @@
 "use client";
+import tableStyles from "../leasing-record-actions.module.css";
 import { DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
+import { useOwnedScrollLock } from "../../../features/property-shared/dialog/useOwnedScrollLock";
 
 import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Send, Trash2, X, XCircle } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { FileUploader } from "../../../components/files/FileUploader";
@@ -16,6 +18,7 @@ import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
   ConsequenceDialog,
+  projectPropertyCapabilities,
   PropertyListShell,
   PropertyResponsiveRecords,
   type PropertyFieldDescriptor,
@@ -229,6 +232,12 @@ const emptyRefundForm: RefundFormState = {
 };
 
 export default function LeasingCheckoutsPage() {
+  const user = useAuthUser();
+  const scopeKey = projectPropertyCapabilities(user, "leasing.checkouts").invalidationKey;
+  return <LeasingCheckoutsContent key={scopeKey} />;
+}
+
+function LeasingCheckoutsContent() {
   const authUser = useAuthUser();
   const { preferences: listPreferences, setFiltersOpen } = useListPreferences("leasing.checkouts", authUser);
   const [pageData, setPageData] = useState<PaginatedResult<CheckoutRow>>(emptyPage);
@@ -246,9 +255,21 @@ export default function LeasingCheckoutsPage() {
   const [effectiveResult, setEffectiveResult] = useState<EffectiveResult | null>(null);
   const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerError, setDrawerError] = useState<string | null>(null);
+  useOwnedScrollLock(drawerOpen);
+  const settlementHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { setDrawerError(null); }, [drawerOpen]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [completion, setCompletion] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const staleRef = useRef(false);
+  const selectionVersion = useRef(0);
+  const completedRow = useRef<{ id: string; selectionVersion: number } | null>(null);
+  const mutationLock = useRef(false);
+  const loadSequence = useRef(0);
+  function markStale(value: boolean) { staleRef.current = value; setStale(value); }
   const [pendingConsequence, setPendingConsequence] = useState<{
     kind: "confirm-settlement" | "effective";
     row: CheckoutRow;
@@ -281,8 +302,10 @@ export default function LeasingCheckoutsPage() {
   const unitRentalStatusItems = dicts.unit_rental_status ?? [];
   const activeContracts = useMemo(() => contracts.filter((item) => item.status === "75"), [contracts]);
 
-  const load = useCallback(async (page = 1) => {
-    if (!canRead) return;
+  const load = useCallback(async (page = 1): Promise<boolean> => {
+    if (!canRead) return false;
+    const sequence = ++loadSequence.current;
+    const completedSelection = completedRow.current;
     setLoading(true);
     setMessage(null);
     try {
@@ -293,11 +316,24 @@ export default function LeasingCheckoutsPage() {
       if (appliedFilters.checkoutType) params.set("checkout_type", appliedFilters.checkoutType);
       if (appliedFilters.status) params.set("status", appliedFilters.status);
       const response = await apiRequest<PaginatedResult<CheckoutRow>>(`/leasing/checkouts?${params.toString()}`, { token: getAccessToken() });
+      if (sequence !== loadSequence.current) return false;
       setPageData(response.data);
+      // A list response may only synchronize the completion in this selection lifecycle.
+      if (completedSelection && completedSelection === completedRow.current
+        && completedSelection.selectionVersion === selectionVersion.current) {
+        const current = response.data.items.find((item) => item.id === completedSelection.id);
+        if (!current) { markStale(true); return false; }
+        setDetail(current); setEditing(current);
+      }
+      markStale(false);
+      return true;
     } catch (error) {
+      if (sequence !== loadSequence.current) return false;
+      markStale(true);
       setMessage(toErrorMessage(error));
+      return false;
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, [canRead, appliedFilters, pageData.page_size]);
 
@@ -390,7 +426,18 @@ export default function LeasingCheckoutsPage() {
     return chips;
   }, [appliedFilters, checkoutStatusItems, checkoutTypeItems, contracts, parkTenants]);
 
+  function endCompletedSelection() {
+    selectionVersion.current += 1;
+    completedRow.current = null;
+  }
+
+  function closeDrawer() {
+    endCompletedSelection();
+    setDrawerOpen(false);
+  }
+
   function openCreate(contractId?: string) {
+    endCompletedSelection();
     setEditing(null);
     setDetail(null);
     setSettlementPreview(null);
@@ -403,6 +450,7 @@ export default function LeasingCheckoutsPage() {
   }
 
   function openEdit(row: CheckoutRow) {
+    endCompletedSelection();
     setEditing(row);
     setDetail(row);
     setForm(formFromCheckout(row));
@@ -466,7 +514,7 @@ export default function LeasingCheckoutsPage() {
         body: {}
       });
       setMessage("退租申请已删除");
-      if (detail?.id === row.id) setDrawerOpen(false);
+      if (detail?.id === row.id) closeDrawer();
       await load(pageData.items.length === 1 && pageData.page > 1 ? pageData.page - 1 : pageData.page);
     } catch (error) {
       setMessage(toErrorMessage(error));
@@ -480,8 +528,10 @@ export default function LeasingCheckoutsPage() {
     if (text === null) return;
     if (action === "reject" && !text.trim()) {
       setMessage("驳回原因必填");
+      setDrawerError("驳回原因必填");
       return;
     }
+    setDrawerError(null);
     setSaving(true);
     setMessage(null);
     try {
@@ -497,6 +547,7 @@ export default function LeasingCheckoutsPage() {
       await load(pageData.page);
     } catch (error) {
       setMessage(toErrorMessage(error));
+      setDrawerError(toErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -526,6 +577,8 @@ export default function LeasingCheckoutsPage() {
   }
 
   async function performConfirmSettlement(row: CheckoutRow) {
+    if (staleRef.current || mutationLock.current) return false;
+    mutationLock.current = true;
     setSaving(true);
     setMessage(null);
     setPendingConsequenceError(null);
@@ -543,12 +596,12 @@ export default function LeasingCheckoutsPage() {
       setEditing(response.data);
       setDetail(response.data);
       setRefundForm((current) => ({ ...current, refundAmount: response.data.refundAmount ?? current.refundAmount }));
-      setMessage("退租结算已确认");
-      try {
-        await load(pageData.page);
-      } catch {
-        setMessage("退租结算已确认，但列表刷新失败，请手动刷新确认最新状态。");
-      }
+      completedRow.current = { id: row.id, selectionVersion: selectionVersion.current };
+      markStale(true);
+      setCompletion("退租结算已确认");
+      const refreshed = await load(pageData.page);
+      setCompletion(refreshed ? "退租结算已确认"
+        : "退租结算已确认，但列表刷新失败，请手动刷新确认最新状态。");
       return true;
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -556,6 +609,7 @@ export default function LeasingCheckoutsPage() {
       setPendingConsequenceError(errorMessage);
       return false;
     } finally {
+      mutationLock.current = false;
       setSaving(false);
     }
   }
@@ -592,6 +646,7 @@ export default function LeasingCheckoutsPage() {
   }
 
   function requestEffectiveCheckout(row: CheckoutRow) {
+    if (staleRef.current || mutationLock.current) return;
     const defaultDate = form.actualCheckoutDate || row.actualCheckoutDate || row.plannedCheckoutDate || today();
     setPendingConsequence({
       kind: "effective", row, actualCheckoutDate: defaultDate, opinion: "退租完成，房源释放"
@@ -600,11 +655,13 @@ export default function LeasingCheckoutsPage() {
   }
 
   async function performEffectiveCheckout(row: CheckoutRow, actualCheckoutDate: string, opinion: string) {
+    if (staleRef.current || mutationLock.current) return false;
     if (!actualCheckoutDate.trim()) {
       setMessage("实际退租日期必填");
       setPendingConsequenceError("实际退租日期必填");
       return false;
     }
+    mutationLock.current = true;
     setSaving(true);
     setMessage(null);
     setPendingConsequenceError(null);
@@ -622,12 +679,15 @@ export default function LeasingCheckoutsPage() {
       setEditing(response.data.checkout);
       setDetail(response.data.checkout);
       setForm(formFromCheckout(response.data.checkout));
-      setMessage("退租已生效，合同已终止并释放房源");
-      try {
-        await Promise.all([load(pageData.page), loadLookups()]);
-      } catch {
-        setMessage("退租已生效，但页面刷新失败，请手动刷新确认最新状态。");
-      }
+      completedRow.current = { id: row.id, selectionVersion: selectionVersion.current };
+      markStale(true);
+      setCompletion("退租已生效，合同已终止并释放房源");
+      const [listRefresh, lookupRefresh] = await Promise.allSettled([load(pageData.page), loadLookups()]);
+      const refreshed = listRefresh.status === "fulfilled" && listRefresh.value
+        && lookupRefresh.status === "fulfilled";
+      markStale(!refreshed);
+      setCompletion(refreshed ? "退租已生效，合同已终止并释放房源"
+        : "退租已生效，但页面刷新失败，请手动刷新确认最新状态。");
       return true;
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -635,6 +695,7 @@ export default function LeasingCheckoutsPage() {
       setPendingConsequenceError(errorMessage);
       return false;
     } finally {
+      mutationLock.current = false;
       setSaving(false);
     }
   }
@@ -709,45 +770,49 @@ export default function LeasingCheckoutsPage() {
         pagination={{ page: pageData.page, totalPages: Math.max(1, Math.ceil(pageData.total / pageData.page_size)), total: pageData.total, onPage: (page) => void load(page) }}
         emptyState={pageData.items.length === 0 && !loading ? <div className="empty-state">暂无退租申请</div> : undefined}
       >
+        {completion ? <div className="ds-panel" role="status">{completion}</div> : null}
+        {stale ? <div className="ds-panel">当前显示的是旧数据，请刷新后再操作。</div> : null}
         {message ? <div className="empty-state">{message}</div> : null}
+        <div className={tableStyles.records}>
         <PropertyResponsiveRecords
           items={pageData.items}
           fields={recordFields}
           getKey={(row) => row.id}
           getTitle={(row) => row.checkoutCode}
           label="退租申请"
-          renderActions={(row) => <>
-                      <button className="ds-row-action ds-row-action-view" type="button" onClick={() => openEdit(row)} title="查看">
+          renderActions={(row) => [
+                      <button key="view" className="ds-row-action ds-row-action-view" type="button" onClick={() => openEdit(row)} title="查看">
                         <Eye size={16} />
                         <span className="ds-row-action-label">查看</span>
-                      </button>
-                      {canUpdate && row.status === "10" ? (
-                        <button className="ds-row-action ds-row-action-edit" type="button" onClick={() => openEdit(row)} title="编辑">
+                      </button>,
+                      canUpdate && row.status === "10" ? (
+                        <button key="edit" className="ds-row-action ds-row-action-edit" type="button" onClick={() => openEdit(row)} title="编辑">
                           <Edit3 size={16} />
                           <span className="ds-row-action-label">编辑</span>
                         </button>
-                      ) : null}
-                      {canDelete && ["10", "50"].includes(row.status) ? (
-                        <button className="ds-row-action ds-row-action-danger" type="button" onClick={() => void remove(row)} title="删除">
+                      ) : null,
+                      canDelete && ["10", "50"].includes(row.status) ? (
+                        <button key="delete" className="ds-row-action ds-row-action-danger" type="button" onClick={() => void remove(row)} title="删除">
                           <Trash2 size={16} />
                           <span className="ds-row-action-label">删除</span>
                         </button>
-                      ) : null}
-          </>}
+                      ) : null
+          ]}
         />
+        </div>
       </PropertyListShell>
 
       {drawerOpen ? (
-          <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
+          <Drawer size="lg" style={{ display: "block", overflowY: "auto" }} onClose={closeDrawer}>
             <DrawerHeader
               eyebrow="招商租赁"
               title={editing ? `退租单 ${editing.checkoutCode}` : "发起退租申请"}
               description="维护退租申请、结算预览、退款登记与房源释放。"
-              onClose={() => setDrawerOpen(false)}
+              onClose={closeDrawer}
               closeIcon={<X size={18} />}
             />
 
-            <DrawerForm onSubmit={saveCheckout}>
+            <DrawerForm style={{ overflow: "visible" }} onSubmit={saveCheckout} onChangeCapture={() => setDrawerError(null)}>
               <div className="system-grid">
                 <TextField label="退租单号" value={form.checkoutCode} onChange={(value) => setFormValue("checkoutCode", value, setForm)} placeholder="为空时自动生成" disabled={Boolean(editing)} />
                 <SelectField label="已生效合同" value={form.contractId} onChange={(value) => setFormValue("contractId", value, setForm)} options={activeContracts.map((contract) => ({ id: contract.id, itemValue: contract.id, itemLabel: `${contract.contractCode} ${contract.contractName}`, status: "enabled" }))} disabled={Boolean(editing)} required />
@@ -759,7 +824,8 @@ export default function LeasingCheckoutsPage() {
               <TextAreaField label="退租原因" value={form.reason} onChange={(value) => setFormValue("reason", value, setForm)} />
               <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
               <DrawerFooter>
-                <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+                {drawerError ? <p className="ds-field-error" style={{ flexBasis: "100%" }} role="alert">{drawerError}</p> : null}
+                <button className="secondary-button" type="button" onClick={closeDrawer}>取消</button>
                 {(!editing || editing.status === "10") && (editing ? canUpdate : canCreate) ? (
                   <button className="primary-button" disabled={saving} type="submit">
                     <CheckCircle2 size={16} /> 保存
@@ -790,7 +856,7 @@ export default function LeasingCheckoutsPage() {
             {detail ? (
               <section className="detail-stack">
                 <div className="system-toolbar">
-                  <h3>结算预览</h3>
+                  <h3 ref={settlementHeadingRef} tabIndex={-1}>结算预览</h3>
                   <span className="muted-text">仅预览和确认结算，不自动生成应收、不释放房源</span>
                 </div>
                 <div className="system-grid">
@@ -805,7 +871,8 @@ export default function LeasingCheckoutsPage() {
                     </button>
                   ) : null}
                   {canConfirmSettlement ? (
-                    <button className="primary-button" disabled={saving || detail.status !== "40"} type="button" onClick={() => {
+                    <button className="primary-button" disabled={saving || stale || detail.status !== "40"} type="button" onClick={() => {
+                      if (staleRef.current || mutationLock.current) return;
                       setPendingConsequenceError(null);
                       setPendingConsequence({ kind: "confirm-settlement", row: detail, actualCheckoutDate: "", opinion: "" });
                     }}>
@@ -867,7 +934,7 @@ export default function LeasingCheckoutsPage() {
                 </div>
                 {canEffective ? (
                   <div className="page-actions">
-                    <button className="primary-button" disabled={saving || detail.status !== "60" || !["30", "40"].includes(detail.settlementStatus)} type="button" onClick={() => requestEffectiveCheckout(detail)}>
+                    <button className="primary-button" disabled={saving || stale || detail.status !== "60" || !["30", "40"].includes(detail.settlementStatus)} type="button" onClick={() => requestEffectiveCheckout(detail)}>
                       <CheckCircle2 size={16} /> 退租生效
                     </button>
                   </div>
@@ -878,6 +945,7 @@ export default function LeasingCheckoutsPage() {
           </Drawer>
       ) : null}
       <ConsequenceDialog
+        fallbackFocusRef={settlementHeadingRef}
         actionLabel={pendingConsequence?.kind === "effective" ? "确认退租生效" : "确认结算"}
         busy={saving}
         consequences={pendingConsequence?.kind === "effective"
