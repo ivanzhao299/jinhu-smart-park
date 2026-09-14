@@ -1,3 +1,18 @@
+# 发布闭环：已合并、自动部署与清理通过
+
+2026-09-14 对 PR #733 做发布前复核：head 精确为 `47110309566ac032e12cc6045b1639f0eb0dba6e`，状态为 OPEN、MERGEABLE/CLEAN；run 34684018137 的 Detect Release Smoke Scope、Lint Typecheck Build、Release Smoke 均 SUCCESS。限定 diff 保持为 6 个产品实现文件、1 个交互测试及本专项 Trellis/报告证据，没有 HR、API、数据库、CI 源码改动。
+
+使用 `gh pr merge 733 --squash --match-head-commit 47110309566ac032e12cc6045b1639f0eb0dba6e` 合并，无 force push。产品 squash merge SHA 为 `cfc7e6dbe5d9e17bf83831c92b3b6ab4cbb43eee`；PR #733 于 2026-09-14T00:34:58Z MERGED，Issue #732 于 2026-09-14T00:34:59Z CLOSED。
+
+- main CI：https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34793150478，head SHA 与产品 merge SHA 相同，SUCCESS。Detect Release Smoke Scope 与 Lint/Typecheck/Unit tests/Build 成功；main push 的 Release Smoke job 按工作流条件 SKIPPED。必要 Release Smoke 证据来自合并前相同产品 head 的 run 34684018137，已实际运行并 SUCCESS。
+- 自动 Deploy：https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/34793150406，head SHA 与产品 merge SHA 相同，SUCCESS。Web release 验证、release marker、生产主机 Deploy、受保护验收账号检查均成功；API/database/full 验证因本次 Web 限定范围按条件 SKIPPED。
+- 部署日志：full healthcheck 中 API liveness、API readiness、Web login 均 OK；部署后独立 `prod:health` 的 API liveness 再次 OK。
+- Docker 清理：以 `PRUNE_DOCKER_AFTER_DEPLOY=yes` 和 `PRUNE_DOCKER_BUILD_CACHE=yes` 自动执行；日志明确 `Production Docker cleanup finished`，回收 3.006GB。清理后列出的生产 API/PostgreSQL healthy，Web 已启动并在 health starting 阶段；其前一 full healthcheck 已确认 Web login OK。
+
+没有手动生产操作，没有修改 HR，没有豁免门禁。mock 证据仍只代表前端故障分级；D11 仍是既有 Drawer Escape 风险，本专项未修。
+
+## 历史阻断记录（已由后续 main 修复解除）
+
 # 发布阻断：不可合并、不可归档
 
 PR #733，产品提交 `86f56297e290d15228e785fa7fd80deb1cf1cd54`。
