@@ -3,11 +3,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { DataSource, type EntityManager } from "typeorm";
 import { UNIT_USAGE_HOUSING, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import type { AllocateApartmentDto, ApartmentUnitCandidateQueryDto, ArchiveDocumentDto, CreateApartmentApplicationDto, CreateApartmentRoomDto, CreateTemplateDto, DecisionDto, GenerateApartmentDocumentDto, HandoverDto, ListApartmentDto, OnlineSignApartmentDocumentDto, PaperSignApartmentDocumentDto, UpdateApartmentRoomDto, UpdateApartmentSettingsDto, VoidApartmentDocumentDto } from "./dto/apartment.dto";
 
 @Injectable()
 export class ApartmentsService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource, private readonly sensitive: PartySensitiveDataService) {}
   private scope(scope: TenantParkScope) { return [scope.tenantId, scope.parkId]; }
 
   async summary(scope: TenantParkScope) {
@@ -117,7 +118,12 @@ export class ApartmentsService {
     if (!dto.applicant_party_id && !dto.applicant_user_id) dto.applicant_user_id=actor.sub;
     if (dto.requested_end_date && dto.requested_start_date>=dto.requested_end_date) throw new BadRequestException("结束日期必须晚于开始日期");
     const code=`APT-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${randomUUID().slice(0,8).toUpperCase()}`;
-    const [row]=await this.dataSource.query(`INSERT INTO biz_apartment_application(tenant_id,park_id,application_code,applicant_party_id,applicant_user_id,applicant_name,applicant_type,organization_name,department_name,job_title,mobile_masked,identity_number_masked,emergency_contact_name,emergency_contact_mobile,household_size,accompanying_names,vehicle_plate,accommodation_notes,policy_accepted,requested_room_type,requested_start_date,requested_end_date,reason,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'draft',$24,$24) RETURNING *`,[...this.scope(scope),code,dto.applicant_party_id??null,dto.applicant_user_id??null,dto.applicant_name,dto.applicant_type,dto.organization_name??null,dto.department_name??null,dto.job_title??null,dto.mobile_masked??null,dto.identity_number_masked??null,dto.emergency_contact_name,dto.emergency_contact_mobile,dto.household_size,dto.accompanying_names??null,dto.vehicle_plate?.toUpperCase()??null,dto.accommodation_notes??null,dto.policy_accepted,dto.requested_room_type,dto.requested_start_date,dto.requested_end_date??null,dto.reason,actor.sub]); return row;
+    const identity=dto.identity_number?this.sensitive.identityProfile(dto.identity_number):null;
+    return this.dataSource.transaction(async manager=>{
+    const [row]=await manager.query(`INSERT INTO biz_apartment_application(tenant_id,park_id,application_code,applicant_party_id,applicant_user_id,applicant_name,applicant_type,organization_name,department_name,job_title,mobile_masked,identity_number_masked,emergency_contact_name,emergency_contact_mobile,household_size,accompanying_names,vehicle_plate,accommodation_notes,policy_accepted,requested_room_type,requested_start_date,requested_end_date,reason,gender,native_place,home_address,health_status,emergency_contact_relationship,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,'draft',$29,$29) RETURNING *`,[...this.scope(scope),code,dto.applicant_party_id??null,dto.applicant_user_id??null,dto.applicant_name,dto.applicant_type,dto.organization_name??null,dto.department_name??null,dto.job_title??null,dto.mobile_masked??null,identity?.masked??dto.identity_number_masked??null,dto.emergency_contact_name,dto.emergency_contact_mobile,dto.household_size,dto.accompanying_names??null,dto.vehicle_plate?.toUpperCase()??null,dto.accommodation_notes??null,dto.policy_accepted,dto.requested_room_type,dto.requested_start_date,dto.requested_end_date??null,dto.reason,dto.gender??null,dto.native_place??null,dto.home_address??null,dto.health_status??null,dto.emergency_contact_relationship??null,actor.sub]);
+      if(identity) await manager.query(`INSERT INTO biz_apartment_application_identity(application_id,identity_number_encrypted,encryption_key_id) VALUES($1,$2,$3)`,[row.id,identity.encrypted,identity.encryptionKeyId]);
+      return row;
+    });
   }
   async submit(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.transition(scope,actor,id,"draft","submitted",`submitted_at=now()`);}
   async cancel(scope:TenantParkScope,actor:JwtPrincipal,id:string){const [r]=await this.dataSource.query(`UPDATE biz_apartment_application SET status='cancelled',update_by=$1,update_time=now(),version=version+1 WHERE id=$2 AND tenant_id=$3 AND park_id=$4 AND status IN ('draft','submitted','approved') AND is_deleted=false RETURNING *`,[actor.sub,id,...this.scope(scope)]);if(!r)throw new ConflictException("当前状态不可取消申请");return r;}
