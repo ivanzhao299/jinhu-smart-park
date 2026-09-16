@@ -80,6 +80,8 @@ export class HrPayrollHistoryService {
     const qb=this.historyBase(scope)
       .select("snapshot.id","id").addSelect("period.period_month","periodMonth")
       .addSelect("book.legacy_scheme","legacyScheme").addSelect("book.book_name","bookName")
+      .addSelect("snapshot.legacy_source_table","legacySourceTable")
+      .addSelect("snapshot.mapping_status","mappingStatus")
       .addSelect("snapshot.gross_amount","grossAmount").addSelect("snapshot.deduction_amount","deductionAmount")
       .addSelect("snapshot.tax_amount","taxAmount").addSelect("snapshot.net_amount","netAmount")
       .addSelect("batch.status","publicationStatus");
@@ -100,6 +102,8 @@ export class HrPayrollHistoryService {
     const qb=this.historyBase(scope).andWhere("snapshot.id=:id",{id})
       .select("snapshot.id","id").addSelect("period.period_month","periodMonth")
       .addSelect("book.legacy_scheme","legacyScheme").addSelect("book.book_name","bookName")
+      .addSelect("snapshot.legacy_source_table","legacySourceTable")
+      .addSelect("snapshot.mapping_status","mappingStatus")
       .addSelect("snapshot.gross_amount","grossAmount").addSelect("snapshot.deduction_amount","deductionAmount")
       .addSelect("snapshot.tax_amount","taxAmount").addSelect("snapshot.net_amount","netAmount")
       .addSelect("batch.status","publicationStatus");

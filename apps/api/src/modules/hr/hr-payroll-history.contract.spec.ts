@@ -87,6 +87,8 @@ test("sensitive reads are allowlisted and required-audited before return",()=>{
  const historyBody=service.slice(service.indexOf("async listHistory"),service.indexOf("async historyItems"));
  assert.doesNotMatch(historyBody,/addSelect\("(?:snapshot\.employee_id|book\.id)"/);
  assert.match(historyBody,/else qb\.addSelect\("employee\.employee_code","employeeCode"\)/);
+ assert.match(historyBody,/snapshot\.legacy_source_table","legacySourceTable"/);
+ assert.match(historyBody,/snapshot\.mapping_status","mappingStatus"/);
  assert.match(service,/await this\.audit[\s\S]*return row/);
  assert.match(service,/await this\.audit[\s\S]*return rows/);
 });

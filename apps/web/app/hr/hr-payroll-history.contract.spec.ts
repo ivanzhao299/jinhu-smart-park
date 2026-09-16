@@ -48,6 +48,9 @@ test("T4 payroll work areas fail closed before sensitive requests",()=>{
 });
 
 test("T4 payroll history is paged, stale-safe, and clears sensitive detail",()=>{
+  assert.match(api,/legacySourceTable:string;mappingStatus:string/);
+  assert.match(payroll,/旧系统来源：\{row\.legacySourceTable\}/);
+  assert.match(payroll,/row\.mappingStatus === "mapped" \? "已映射"/);
   assert.match(payroll,/<Pager\s+page=\{result\.page\}/);
   assert.match(payroll,/abort\.current\?\.abort\(\)/);
   assert.match(payroll,/request\.current\s*!==\s*generation\.current/);
