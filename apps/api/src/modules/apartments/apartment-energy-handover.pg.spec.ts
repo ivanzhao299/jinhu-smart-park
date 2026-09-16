@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DataSource } from "typeorm";
 import { ApartmentsService } from "./apartments.service";
+import { ConfigService } from "@nestjs/config";
+import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 const mutationAllowed = process.env.APARTMENT_PG_TEST_ALLOW_MUTATION === "yes";
@@ -12,7 +14,7 @@ test("apartment handover atomically advances canonical energy readings", {
 }, async () => {
   const dataSource = new DataSource({ type: "postgres", url: databaseUrl });
   await dataSource.initialize();
-  const service = new ApartmentsService(dataSource);
+  const service = new ApartmentsService(dataSource, new PartySensitiveDataService(new ConfigService({ PARTY_DATA_ENCRYPTION_KEY: "test-only-apartment-identity-key-0000000000" })));
   try {
     const [user] = await dataSource.query(`SELECT id FROM sys_user WHERE is_deleted=false LIMIT 1`);
     const [unit] = await dataSource.query(`SELECT tenant_id,park_id,id FROM biz_unit WHERE is_deleted=false AND status=1 LIMIT 1`);

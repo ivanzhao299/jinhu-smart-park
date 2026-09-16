@@ -34,6 +34,11 @@ export class ApartmentApplicationEntity extends AuditableEntity {
   @Column({ name: "job_title", type: "varchar", length: 100, nullable: true }) jobTitle!: string | null;
   @Column({ name: "mobile_masked", type: "varchar", length: 32, nullable: true }) mobileMasked!: string | null;
   @Column({ name: "identity_number_masked", type: "varchar", length: 64, nullable: true }) identityNumberMasked!: string | null;
+  @Column({ type: "varchar", length: 16, nullable: true }) gender!: string | null;
+  @Column({ name: "native_place", type: "varchar", length: 200, nullable: true }) nativePlace!: string | null;
+  @Column({ name: "home_address", type: "varchar", length: 500, nullable: true }) homeAddress!: string | null;
+  @Column({ name: "health_status", type: "varchar", length: 500, nullable: true }) healthStatus!: string | null;
+  @Column({ name: "emergency_contact_relationship", type: "varchar", length: 100, nullable: true }) emergencyContactRelationship!: string | null;
   @Column({ name: "emergency_contact_name", type: "varchar", length: 100, nullable: true }) emergencyContactName!: string | null;
   @Column({ name: "emergency_contact_mobile", type: "varchar", length: 32, nullable: true }) emergencyContactMobile!: string | null;
   @Column({ name: "household_size", type: "integer", default: 1 }) householdSize!: number;
