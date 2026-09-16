@@ -151,3 +151,37 @@ Confirmed the completed T1 migration against the fixed read-only source: 6,887 e
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Issue 732 / PR 733 发布闭环
+
+**Date**: 2026-09-14
+**Task**: Issue 732 / PR 733 发布闭环
+**Package**: api
+**Branch**: `codex/issue-732-release-archive-20260914`
+
+### Summary
+
+PR #733 以 head 保护 squash 合并为 cfc7e6db；main CI 与自动生产部署成功；health/liveness、Docker 清理 3.006GB 验证完成；Issue #732 更新并归档专项任务。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `de1ca555` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

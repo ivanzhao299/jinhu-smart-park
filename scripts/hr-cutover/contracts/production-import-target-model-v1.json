@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "modelKind": "yuzhou_hr_production_import_target_model",
-  "modelVersion": "2026-08-29.1",
+  "modelVersion": "2026-09-11.1",
   "canonicalizationVersion": "yuzhou-production-import-canonical-json-v1",
   "targetIdDerivation": "yuzhou-hr-production-target-id-sha256-v1",
   "businessIdentityDerivation": "yuzhou-hr-production-business-identity-sha256-v1",
@@ -22,11 +22,11 @@
     "hr_position": {
       "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
       "allowedSourceTables": ["dbo.job"],
-      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order"],
-      "requiredFields": ["position_code", "position_name", "status", "sort_order"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level"],
+      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "authority", "legacy_department_reference", "legacy_parent_reference", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order"],
+      "requiredFields": ["position_code", "position_name", "status", "sort_order"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark", "authority", "legacy_department_reference", "legacy_parent_reference", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level"],
       "integerFields": ["headcount_limit", "legacy_source_id", "hierarchy_level", "sort_order"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
       "derivedFields": ["org_id", "reports_to_position_id"], "foreignKeys": [{"column":"org_id","dependencyRole":"org","targetTable":"sys_org","required":true},{"column":"reports_to_position_id","dependencyRole":"parent_position","targetTable":"hr_position","required":false}],
-      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order", "reports_to_position_id"],
+      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_department_reference", "legacy_parent_reference", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order", "reports_to_position_id"],
       "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
     },
     "hr_employee": {

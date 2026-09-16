@@ -23,12 +23,14 @@ import { materializeProductionT0DecisionCandidates, ProductionT0DecisionCandidat
   };
   const before = JSON.stringify(input);
   const audit = summarizeLegacyT0Relations(input);
-  assert.deepEqual(audit, { positionMissingParentRows: 1, positionMissingOrgRows: 1, positionCycleOrDependentRows: 0, parentUniqueNameMatchRows: 1, parentAmbiguousNameMatchRows: 0, directlyAffectedPositionRows: 1, affectedPositionRows: 2, employeeMissingOrgRows: 1, employeeEmptyPositionRows: 1, employeeUnresolvedPositionRows: 1, employeesWithAffectedPosition: 1 });
+  assert.deepEqual(audit, { positionMissingParentRows: 1, positionMissingOrgRows: 1, positionCycleOrDependentRows: 0, parentUniqueNameMatchRows: 1, parentAmbiguousNameMatchRows: 0, parentNameMappedRows: 1, parentReferenceRetainedRows: 0, orgReferenceRetainedRows: 1, directlyAffectedPositionRows: 1, affectedPositionRows: 2, employeeMissingOrgRows: 1, employeeEmptyPositionRows: 1, employeeUnresolvedPositionRows: 1, employeesWithAffectedPosition: 1 });
   assert.equal(JSON.stringify(input), before);
   assert.ok(Object.values(audit).every(value => Number.isSafeInteger(value) && value >= 0));
   input.positions.push(row("duplicate-name", { positionName: "Leader" }));
   assert.equal(summarizeLegacyT0Relations(input).parentAmbiguousNameMatchRows, 1);
   assert.equal(summarizeLegacyT0Relations(input).parentUniqueNameMatchRows, 0);
+  assert.equal(summarizeLegacyT0Relations(input).parentNameMappedRows, 0);
+  assert.equal(summarizeLegacyT0Relations(input).parentReferenceRetainedRows, 1);
   input.positions.push(row("self", { parentPositionCode: "self" }));
   assert.equal(summarizeLegacyT0Relations(input).positionCycleOrDependentRows, 1);
   input.organizations = [];
@@ -277,9 +279,11 @@ for (const existingEmployee of [false, true]) {
   assert.equal(invalidResult.status, "REVIEW_HOLD");
   assert.equal(invalidResult.productionImport, "HOLD");
 }
-// Exercise the real materializer: an unknown department is not the same as no department.
-for (const [label, departmentCode, expectedDisposition] of [
-  ["null", null, "insert"], ["blank", " ", "insert"], ["unknown", "MISSING-DEPARTMENT", "quarantine"],
+// Exercise the real materializer: an unknown department reference is retained
+// as legacy_department_reference while the position binds to the established
+// root org (evidence: dbo.job.department has no FK and no procedure usage).
+for (const [label, departmentCode, expectedLegacyRef] of [
+  ["null", null, null], ["blank", " ", " "], ["unknown", "MISSING-DEPARTMENT", "MISSING-DEPARTMENT"],
 ]) {
   const referenceStage = join(root, `department-${label}-stage`);
   mkdirSync(referenceStage, { mode: 0o700 });
@@ -305,26 +309,71 @@ for (const [label, departmentCode, expectedDisposition] of [
   const referencePhasePath = join(root, `department-${label}-phase.json`);
   writePrivate(referencePhasePath, `${JSON.stringify(referencePhase)}\n`);
   const referenceOutput = join(output, `department-${label}.json`);
-  materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: referenceStage,
+  const referenceResult = materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: referenceStage,
     phaseArtifactPath: referencePhasePath, targetInventoryPath: inventoryPath, outputPath: referenceOutput }, { head: () => codeSha });
   const referenceArtifact = JSON.parse(readFileSync(referenceOutput, "utf8"));
   const selected = referenceArtifact.records.find(row => row.sourceIdentitySha256 === changed.sourceIdentitySha256);
-  assert.equal(selected.candidateDisposition, expectedDisposition);
+  assert.equal(selected.candidateDisposition, "insert");
+  assert.equal(selected.reasonCode, null);
   assert.equal(selected.sourceRowSha256, changed.sourceRowSha256);
-  if (expectedDisposition === "quarantine") {
-    assert.equal(selected.reasonCode, "POSITION_ORG_REQUIRED");
-    assert.equal(selected.dependencyRefs.length, 0);
-    assert.equal(referenceArtifact.records.filter(row => row.candidateDisposition === "quarantine").length, 4);
-    for (const source of dependentRows.slice(0, 3)) {
-      const dependent = referenceArtifact.records.find(row => row.sourceIdentitySha256 === source.sourceIdentitySha256);
-      assert.equal(dependent.candidateDisposition, "quarantine");
-      assert.equal(dependent.reasonCode, "DEPENDENCY_UNRESOLVED");
-      assert.equal(dependent.targetFields.full_name, source.source.fullName);
-    }
-    assert.equal(referenceArtifact.records.filter(row => row.targetTable === "hr_employee" && row.candidateDisposition === "insert").length, 2946);
+  assert.equal(selected.targetFields.legacy_department_reference, expectedLegacyRef);
+  assert.equal(selected.dependencyRefs[0].sourceIdentitySha256,
+    artifact.records.find(row => row.targetTable === "sys_org" && row.targetFields.org_code === "000").sourceIdentitySha256);
+  // Dependent employees keep their valid org and are no longer blocked.
+  assert.equal(referenceArtifact.records.filter(row => row.targetTable === "hr_employee" && row.candidateDisposition === "insert").length, 2949);
+  assert.equal(referenceArtifact.records.filter(row => row.candidateDisposition === "quarantine").length, 0);
+  assert.equal(referenceResult.relationAudit.orgReferenceRetainedRows, departmentCode && String(departmentCode).trim() !== "" ? 1 : 0);
+}
+// Parent references: a unique position-name match maps to that position; a
+// reference with no target entity is retained and the position inserts as a
+// root; a self-name reference is a cycle and quarantines.
+for (const [label, mutate, expected] of [
+  ["mapped", source => { source.parentPositionCode = "Fixture Position 5"; }, { disposition: "insert", parentPositionCode: "Fixture Position 5" }],
+  ["retained", source => { source.parentPositionCode = "Ghost Parent"; }, { disposition: "insert", parentPositionCode: "Ghost Parent" }],
+  ["self-cycle", source => { source.positionName = "Self Name"; source.parentPositionCode = "Self Name"; }, { disposition: "quarantine", reasonCode: "POSITION_PARENT_CYCLE" }],
+]) {
+  const parentStage = join(root, `parent-${label}-stage`);
+  mkdirSync(parentStage, { mode: 0o700 });
+  const positionRows = readFileSync(join(staging, files.positions), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  const changed = positionRows[9]; // P010, parentless in the fixture
+  mutate(changed.source);
+  changed.sourceRowSha256 = sha(canonical(changed.source));
+  const parentManifest = JSON.parse(JSON.stringify(manifest));
+  for (const [domain, file] of Object.entries(files)) {
+    const bytes = domain === "positions" ? `${positionRows.map(row => JSON.stringify(row)).join("\n")}\n` : readFileSync(join(staging, file), "utf8");
+    writePrivate(join(parentStage, file), bytes);
+    parentManifest.domains[domain].fileSha256 = sha(bytes);
+  }
+  writePrivate(join(parentStage, "manifest.json"), `${JSON.stringify(parentManifest)}\n`);
+  const parentPhase = JSON.parse(readFileSync(phasePath, "utf8"));
+  parentPhase.records.find(row => row.sourceIdentitySha256 === changed.sourceIdentitySha256).sourceRowSha256 = changed.sourceRowSha256;
+  const parentPhasePath = join(root, `parent-${label}-phase.json`);
+  writePrivate(parentPhasePath, `${JSON.stringify(parentPhase)}\n`);
+  const parentOutput = join(output, `parent-${label}.json`);
+  const parentResult = materializeProductionT0DecisionCandidates({ ...fullInput, stagingDir: parentStage,
+    phaseArtifactPath: parentPhasePath, targetInventoryPath: inventoryPath, outputPath: parentOutput }, { head: () => codeSha });
+  const parentArtifact = JSON.parse(readFileSync(parentOutput, "utf8"));
+  const selected = parentArtifact.records.find(row => row.sourceIdentitySha256 === changed.sourceIdentitySha256);
+  assert.equal(selected.candidateDisposition, expected.disposition);
+  if (expected.disposition === "quarantine") {
+    assert.equal(selected.reasonCode, expected.reasonCode);
+    assert.equal(selected.targetFields, null);
+    assert.equal(parentArtifact.records.filter(row => row.candidateDisposition === "quarantine").length, 1);
   } else {
-    assert.equal(selected.dependencyRefs[0].sourceIdentitySha256,
-      artifact.records.find(row => row.targetTable === "sys_org" && row.targetFields.org_code === "000").sourceIdentitySha256);
+    assert.equal(selected.reasonCode, null);
+    assert.equal(selected.targetFields.legacy_parent_reference, expected.parentPositionCode);
+    assert.equal(selected.targetFields.position_code, "P010");
+    if (label === "mapped") {
+      // Unique name match maps to P005; the position now carries a parent dependency.
+      assert.equal(selected.dependencyRefs.filter(ref => ref.role === "parent_position").length, 1);
+      assert.equal(selected.dependencyRefs.find(ref => ref.role === "parent_position").sourceIdentitySha256,
+        artifact.records.find(row => row.targetTable === "hr_position" && row.targetFields.position_code === "P005").sourceIdentitySha256);
+      assert.equal(parentResult.relationAudit.parentNameMappedRows, 1);
+    } else {
+      // No target entity: no parent dependency, position inserts as a root.
+      assert.equal(selected.dependencyRefs.filter(ref => ref.role === "parent_position").length, 0);
+      assert.equal(parentResult.relationAudit.parentReferenceRetainedRows, 1);
+    }
   }
 }
 // Source injobdate/awaydate retain their exact normalized dates; impossible order

@@ -660,6 +660,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [releaseError, setReleaseError] = useState("");
   const [releaseMode, setReleaseMode] = useState<"normal" | "force" | null>(null);
   const [mutating, setMutating] = useState(false);
   const releaseKeys = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
@@ -687,6 +688,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
     if (surface !== "occupancies" || releaseMode === null || mutating) return;
     setMutating(true);
     setFeedback("");
+    setReleaseError("");
     const mode = releaseMode;
     const payloadFingerprint = JSON.stringify({ mode, reason: reason?.trim() ?? "" });
     if (releasePayloads.current[mode] !== payloadFingerprint) releaseKeys.current[mode] = null;
@@ -704,8 +706,8 @@ export function PropertyFoundationDetailClient({ id, surface }: {
       setFeedback(mode === "force" ? "强制释放审批已提交。" : "人工占用已释放。");
       await load();
     } catch (cause) {
-      setFeedback(cause instanceof Error ? cause.message : "释放操作失败");
-      throw cause;
+      setReleaseError(cause instanceof Error ? cause.message : "释放操作失败");
+      return false;
     } finally {
       setMutating(false);
     }
@@ -768,6 +770,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
     {surface === "occupancies" && detail && releaseMode ? <ConsequenceDialog
       actionLabel={releaseMode === "force" ? "提交强制释放审批" : "确认释放"}
       busy={mutating}
+      errorMessage={releaseError || undefined}
       consequences={releaseMode === "force"
         ? ["不会直接删除占用", "审批执行前将重新校验占用版本和状态"]
         : ["该人工锁房将停止阻止后续业务占用", "释放原因将写入审计记录"]}
@@ -776,6 +779,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
         if (!open && releaseMode) {
           releaseKeys.current[releaseMode] = null;
           releasePayloads.current[releaseMode] = null;
+          setReleaseError("");
           setReleaseMode(null);
         }
       }}
@@ -931,7 +935,7 @@ function OperationWriteControls({ item, onCompleted }: {
         setTransitionOpen(open);
       }}
       open={transitionOpen}
-      reasonPolicy={{ kind: "required", minLength: 2, label: "切换原因" }}
+      reasonPolicy={{ kind: "required", minLength: 2, maxLength: 500, label: "切换原因" }}
       resultingState="等待审批"
       target={{ id: item.unitId, label: `${item.unitCode}：${formatOperatingMode(item.configuredMode)} → ${formatOperatingMode(targetMode)}` }}
       title="申请经营模式切换"

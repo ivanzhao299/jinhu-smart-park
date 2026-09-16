@@ -67,8 +67,8 @@ function makeFixture(iteration, now, employeeOptions = {}) {
 }
 async function seedExisting(client, fixture) {
   await client.query(
-    `INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark,contact_phone,planned_headcount,legacy_source_id,version)
-     VALUES($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,3)`,
+    `INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark,contact_phone,planned_headcount,legacy_source_id,legacy_hierarchy_level,legacy_manager_reference,version)
+     VALUES($1,$2,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,3)`,
     [fixture.org.targetId, fixture.targetScope.tenantId, fixture.targetScope.parkId, ...Object.values(fixture.orgBeforePayload)],
   );
   const payload = fixture.records.find(record => record.plannedTargetTable === "hr_contract_type").payload;

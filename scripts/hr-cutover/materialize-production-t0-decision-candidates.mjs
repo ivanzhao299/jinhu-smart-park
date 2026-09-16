@@ -138,8 +138,13 @@ export function parseLegacyPositionHeadcount(value) {
 }
 
 export function projectLegacyT0ExtendedFields(table, source) {
+  // legacy_parent_reference / legacy_department_reference preserve the exact
+  // legacy free-text values from dbo.job.parentjob / dbo.job.department even
+  // when the reference resolves (mapped) or has no target entity (retained).
+  // Evidence: dbo.job has no FK on parentjob/department, no stored procedure
+  // reads them, and the full-table extraction proved no matching entity exists.
   const limits = table === "sys_org" ? { contact_phone: ["contactPhone", 50], legacy_manager_reference: ["legacyManagerValue", 10] }
-    : { authority: ["authority", 1024], legacy_upto_code: ["legacyUptoCode", 30], position_manual: ["positionManual", 256], qualification: ["qualification", 1024], responsibilities: ["responsibilities", 1024] };
+    : { authority: ["authority", 1024], legacy_upto_code: ["legacyUptoCode", 30], position_manual: ["positionManual", 256], qualification: ["qualification", 1024], responsibilities: ["responsibilities", 1024], legacy_parent_reference: ["parentPositionCode", 30], legacy_department_reference: ["departmentCode", 30] };
   const fields = {};
   let valid = true;
   for (const [target, [key, max]] of Object.entries(limits)) {
@@ -326,7 +331,7 @@ function outputDependency(value) {
   return result;
 }
 
-export function orderLegacyPositionRows(rows) {
+export function orderLegacyPositionRows(rows, resolveParent = row => text(row.source.parentPositionCode)) {
   const pending = new Map();
   for (const row of rows) {
     const code = text(row.sourceKey);
@@ -335,7 +340,7 @@ export function orderLegacyPositionRows(rows) {
   }
   const ordered = [];
   while (pending.size) {
-    const ready = [...pending.keys()].filter(code => !pending.has(text(pending.get(code).source.parentPositionCode))).sort();
+    const ready = [...pending.keys()].filter(code => !pending.has(resolveParent(pending.get(code)))).sort();
     if (!ready.length) break;
     for (const code of ready) { ordered.push(pending.get(code)); pending.delete(code); }
   }
@@ -351,8 +356,14 @@ export function projectLegacyEmployeeState(value) {
   return { valid, fields: { legacy_jobstate_code: code, legacy_jobstate_name: code !== null && Object.hasOwn(names, code.toLowerCase()) ? names[code.toLowerCase()] : null, employment_type: code?.toLowerCase() === "a" ? "temporary" : "full_time" } };
 }
 
-// Counts only. Name matches are investigation leads, never mapping decisions.
-// The caller supplies the hash-validated stage used by the candidate builder.
+// Counts only. A parent reference that exactly matches exactly one position
+// name is mapped to that position (slice-A evidence: dbo.job.parentjob is a
+// free-text field with no FK and no stored-procedure usage). References with
+// no target entity, ambiguous names, or self-references are retained as
+// legacy_parent_reference and the position inserts as a root. Nonempty org
+// references without a target org are retained as legacy_department_reference
+// and the position binds to the established root org. The caller supplies the
+// hash-validated stage used by the candidate builder.
 export function summarizeLegacyT0Relations({ organizations, positions, employees }) {
   const orgCodes = new Set(organizations.map(row => text(row.sourceKey)));
   const positionCodes = new Set(positions.map(row => text(row.sourceKey)));
@@ -361,9 +372,22 @@ export function summarizeLegacyT0Relations({ organizations, positions, employees
     const name = text(row.source.positionName);
     if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
   }
+  const nameToCode = new Map();
+  for (const row of positions) {
+    const name = text(row.source.positionName);
+    if (name && nameCounts.get(name) === 1) nameToCode.set(name, text(row.sourceKey));
+  }
   const missingParents = positions.filter(row => text(row.source.parentPositionCode) && !positionCodes.has(text(row.source.parentPositionCode)));
   const missingOrgs = positions.filter(row => !orgCodes.has(text(row.source.departmentCode) || "000"));
-  const cyclic = orderLegacyPositionRows(positions).cyclicCodes;
+  const retainedOrgs = positions.filter(row => text(row.source.departmentCode) && !orgCodes.has(text(row.source.departmentCode)));
+  const mappedParents = missingParents.filter(row => nameToCode.has(text(row.source.parentPositionCode)) && nameToCode.get(text(row.source.parentPositionCode)) !== text(row.sourceKey));
+  const retainedParents = missingParents.filter(row => !nameToCode.has(text(row.source.parentPositionCode)) || nameToCode.get(text(row.source.parentPositionCode)) === text(row.sourceKey));
+  const cyclic = orderLegacyPositionRows(positions, row => {
+    const parentCode = text(row.source.parentPositionCode);
+    if (!parentCode) return "";
+    if (positionCodes.has(parentCode)) return parentCode;
+    return nameToCode.get(parentCode) ?? "";
+  }).cyclicCodes;
   const affected = new Set([...missingParents, ...missingOrgs].map(row => text(row.sourceKey)));
   for (const code of cyclic) affected.add(code);
   const directCount = affected.size;
@@ -380,6 +404,9 @@ export function summarizeLegacyT0Relations({ organizations, positions, employees
     positionCycleOrDependentRows: cyclic.size,
     parentUniqueNameMatchRows: missingParents.filter(row => nameCounts.get(text(row.source.parentPositionCode)) === 1).length,
     parentAmbiguousNameMatchRows: missingParents.filter(row => (nameCounts.get(text(row.source.parentPositionCode)) ?? 0) > 1).length,
+    parentNameMappedRows: mappedParents.length,
+    parentReferenceRetainedRows: retainedParents.length,
+    orgReferenceRetainedRows: retainedOrgs.length,
     directlyAffectedPositionRows: directCount,
     affectedPositionRows: affected.size,
     employeeMissingOrgRows: employees.filter(row => !orgCodes.has(text(row.source.departmentCode))).length,
@@ -412,21 +439,52 @@ function buildCandidates(stage, scope, inventory, jobState) {
   const root = byCode.get("000") ?? null;
   const positionsByCode = new Map();
   const positions = [];
-  const positionOrder = orderLegacyPositionRows(stage.byTable.get("hr_position"));
+  // A nonempty legacy parent reference that is not a position code resolves to
+  // the position whose name it uniquely matches (mapped); otherwise it has no
+  // target entity and is retained as legacy_parent_reference with the position
+  // inserting as a root. Same for org references: retained as
+  // legacy_department_reference while the position binds to the established
+  // root. Evidence: dbo.job.parentjob/department are free-text fields with no
+  // FK and no stored-procedure usage (contract JOB_PARENTJOB_UPTO_SEPARATION_V1).
+  const positionNameToCode = new Map();
+  const positionNameCounts = new Map();
+  const positionCodeSet = new Set();
+  for (const row of stage.byTable.get("hr_position")) {
+    positionCodeSet.add(text(row.sourceKey));
+    const name = text(row.source.positionName);
+    if (name) positionNameCounts.set(name, (positionNameCounts.get(name) ?? 0) + 1);
+  }
+  for (const row of stage.byTable.get("hr_position")) {
+    const name = text(row.source.positionName);
+    if (name && positionNameCounts.get(name) === 1) positionNameToCode.set(name, text(row.sourceKey));
+  }
+  const resolvePositionParent = row => {
+    const parentCode = text(row.source.parentPositionCode);
+    if (!parentCode) return "";
+    if (positionCodeSet.has(parentCode)) return parentCode;
+    return positionNameToCode.get(parentCode) ?? "";
+  };
+  const positionOrder = orderLegacyPositionRows(stage.byTable.get("hr_position"), resolvePositionParent);
   for (const row of positionOrder.rows) {
     const code = text(row.sourceKey);
     if (positionsByCode.has(code)) fail("PRODUCTION_IMPORT_T0_DECISION_STAGING_INVALID", "position code duplicate");
     const name = text(row.source.positionName);
-    // Only an absent legacy department can use the established root fallback.
-    // A nonempty unresolved reference must not silently become a different org.
+    // An absent or unknown legacy department binds to the established root org.
+    // The exact legacy text is preserved in legacy_department_reference, so the
+    // unresolved reference is auditable instead of silently becoming another org.
     const departmentCode = text(row.source.departmentCode);
-    const org = departmentCode === "" ? root : byCode.get(departmentCode);
+    const org = departmentCode === "" ? root : (byCode.get(departmentCode) ?? root);
     const headcount = parseLegacyPositionHeadcount(row.source.headcountLimit);
     const extended = projectLegacyT0ExtendedFields("hr_position", row.source);
     const fields = name === "" ? null : { position_code: code, position_name: name, job_family: nullableText(row.source.jobgrade), job_level: nullableText(row.source.salarygrade), headcount_limit: headcount.value, status: "enabled", remark: null, ...extended.fields };
-    const parentCode = text(row.source.parentPositionCode), parent = positionsByCode.get(parentCode);
+    const parentCode = text(row.source.parentPositionCode);
+    let parent = positionsByCode.get(parentCode);
+    if (parentCode && !parent) {
+      const nameMatchCode = positionNameToCode.get(parentCode);
+      if (nameMatchCode && nameMatchCode !== code) parent = positionsByCode.get(nameMatchCode);
+    }
     const dependencies = [...(org ? [link("org", org, "sys_org", "org_id")] : []), ...(parent ? [link("parent_position", parent, "hr_position", "reports_to_position_id")] : [])];
-    const relationReason = positionOrder.cyclicCodes.has(code) ? "POSITION_PARENT_CYCLE" : parentCode && !parent ? "POSITION_PARENT_UNRESOLVED" : null;
+    const relationReason = positionOrder.cyclicCodes.has(code) ? "POSITION_PARENT_CYCLE" : null;
     const rowCandidate = fields === null ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_NAME_REQUIRED") : !headcount.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_HEADCOUNT_INVALID") : !extended.valid ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_LEGACY_FIELDS_INVALID") : !org ? candidate(row, null, [], scope, inventory, "quarantine", "POSITION_ORG_REQUIRED") : relationReason ? candidate(row, null, [], scope, inventory, "quarantine", relationReason) : hasBlockingDependency(dependencies) ? candidate(row, fields, dependencies, scope, inventory, "quarantine", "DEPENDENCY_UNRESOLVED") : candidate(row, fields, dependencies, scope, inventory);
     positions.push(rowCandidate);
     positionsByCode.set(code, rowCandidate);
