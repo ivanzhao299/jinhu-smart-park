@@ -47,6 +47,14 @@ This seed initializes:
 
 It does not create fixed-password users or S2 demo房源数据.
 `000033_wu_enguo_hr_manager.sql` runs after the legacy exact-role convergence and
+locks the user and role sources through validation and assignment, with a five-second
+lock timeout. A timeout aborts instead of granting against a changed identity.
+Run `pnpm test:e2e:wu-enguo-hr-manager` for the static and isolated PostgreSQL
+regressions, including concurrent alias insertion and role disabling. The runner
+uses `PG_BIN` or `pg_config --bindir` and removes its temporary cluster only after
+a successful stop; CI installs PostgreSQL and invokes the same command.
+
+The seed runs after
 HR permission definitions. It adds the scoped `HR_MANAGER` business role to the
 single existing Wu Enguo identity, preserving apartment responsibilities without
 granting system administration or creating an account. Repeated full seed runs

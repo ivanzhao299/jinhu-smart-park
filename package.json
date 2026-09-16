@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "packageManager": "pnpm@9.12.0",
   "scripts": {
+    "test:e2e:wu-enguo-hr-manager": "node scripts/e2e/wu-enguo-hr-manager-contract.mjs && node scripts/e2e/wu-enguo-hr-manager-postgres.mjs",
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @jinhu/web dev",
     "dev:api": "pnpm --filter @jinhu/api start:dev",

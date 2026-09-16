@@ -1,6 +1,9 @@
 -- Run after HR permission seeds and the legacy responsibility-role convergence.
 -- Adds the existing HR business role, not SYSTEM_ADMIN or SUPER_ADMIN.
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+-- Keep exact-one validation and assignment on stable user/role sources.
+LOCK TABLE sys_user, sys_role IN SHARE ROW EXCLUSIVE MODE;
 DO $$
 BEGIN
   IF (SELECT count(*) FROM sys_user WHERE tenant_id='10000001' AND park_id='20000001'

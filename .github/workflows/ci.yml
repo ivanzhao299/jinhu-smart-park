@@ -120,6 +120,12 @@ jobs:
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
 
+      - name: Verify HR manager scoped role assignment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql
+          pnpm test:e2e:wu-enguo-hr-manager
+
       - name: Verify Yuzhou production import stays sealed and unreachable
         run: |
           sh scripts/e2e/production-backup-restore-gate-contract.sh
