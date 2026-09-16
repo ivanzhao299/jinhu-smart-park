@@ -46,6 +46,19 @@ This seed initializes:
 - The reviewed `DEPARTMENT_MANAGER` HR role receives the `hr:employees` page plus atomic employee/profile and document team/self permissions; API managed-organization-tree checks remain mandatory. The role receives no payroll detail, contract salary, credential-document, or insurance-amount permission. Protected HR files require their domain atom even when a caller has generic file access.
 
 It does not create fixed-password users or S2 demo房源数据.
+`000033_wu_enguo_hr_manager.sql` runs after the legacy exact-role convergence and
+locks the user and role sources through validation and assignment, with a five-second
+lock timeout. A timeout aborts instead of granting against a changed identity.
+Run `pnpm test:e2e:wu-enguo-hr-manager` for the static and isolated PostgreSQL
+regressions, including concurrent alias insertion and role disabling. The runner
+uses `PG_BIN` or `pg_config --bindir` and removes its temporary cluster only after
+a successful stop; CI installs PostgreSQL and invokes the same command.
+
+The seed runs after
+HR permission definitions. It adds the scoped `HR_MANAGER` business role to the
+single existing Wu Enguo identity, preserving apartment responsibilities without
+granting system administration or creating an account. Repeated full seed runs
+restore this assignment after `000012` converges the historical role set.
 The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,
 its tenant-wide role, minimum Runner permission, and park binding. Only the protected activation workflow may make
 that account login-capable.
