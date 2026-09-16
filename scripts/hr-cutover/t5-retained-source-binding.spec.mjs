@@ -48,6 +48,18 @@ test("reject byte tampering and malformed JSON with stable errors", () => {
   b.historicalManifest = { bytes, sha256: createHash("sha256").update(bytes).digest("hex") };
   rejects(b, "T5_RETAINED_EVIDENCE_JSON_INVALID");
 });
+test("identical deterministic restore receipts prove provenance, not a fresh runtime probe", () => {
+  const input = fixture();
+  input.currentReceipt = descriptor(receipt("b"));
+  assert.equal(input.currentReceipt.sha256, input.historicalReceipt.sha256);
+  const result = verifyT5RetainedSourceBinding(input);
+  assert.equal(result.sameBackupVerified, true);
+  assert.equal(result.currentRestoreReceiptSha256, result.historicalRestoreReceiptSha256);
+  assert.equal(result.productionImport, "HOLD");
+  assert.equal(result.mappingCompatibilityVerified, false);
+  assert.equal(result.projectionTransformationVerified, false);
+  assert.equal(Object.hasOwn(result, "currentRuntimeVerified"), false);
+});
 test("reject another snapshot or inconsistent backup metadata", () => {
   for (const replacement of [receipt("d", sha("f")), receipt("d", sha("a"), 101)]) {
     const a = fixture(); a.currentReceipt = descriptor(replacement);

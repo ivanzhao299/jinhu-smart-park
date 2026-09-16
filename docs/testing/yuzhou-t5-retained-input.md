@@ -33,6 +33,15 @@ database readback, or business UAT. Retained provenance deliberately keeps
 `mappingCompatibilityVerified=false`, `projectionTransformationVerified=false`,
 and `productionImport=HOLD`. Do not use preparation success as an execution gate.
 
+Restore receipts are deterministic and have no observation timestamp. Re-probing
+an unchanged read-only restore can legitimately produce the same receipt bytes.
+Consequently, historical/current receipt hash equality is allowed here, and
+inequality is not evidence of freshness either. The `currentReceipt` descriptor
+is a caller-pinned provenance input, not a live-source attestation. Before an
+operation requiring current source state, independently probe and validate that
+state through the controlled source workflow; this offline helper cannot replace
+that check. Do not recreate a restore merely to make the receipt hash different.
+
 Focused checks:
 
 ```sh
