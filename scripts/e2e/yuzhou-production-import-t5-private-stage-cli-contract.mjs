@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
 import { parseT5ProductionPrivateStageArgs, prepareT5ProductionPrivateStage } from "../prepare-yuzhou-production-import-t5-private-stage.mjs";
+import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
+import { projectT5NonfileStagedRecord } from "../hr-cutover/production-import-t5-nonfile-stage-adapter.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const privateWrite = (path, value) => { writeFileSync(path, `${typeof value === "string" ? value : JSON.stringify(value)}\n`, { mode: 0o600 }); chmodSync(path, 0o600); return hash(readFileSync(path)); };
@@ -18,7 +20,7 @@ const customFields = () => [
 const definitionEvidence = () => customFields().map(field => ({ code: field.code, valueType: field.valueType, baseClassification: field.valueType, legacyDefinitionId: field.legacyDefinitionId, legacyDatatype: field.legacyDatatype, legacyGroupId: null, legacySortOrder: field.sortOrder, legacyNullable: null, legacyRuleClassification: "inert", sourceIdentitySha256: field.definitionSourceIdentitySha256, sourceRowSha256: field.definitionSourceRowSha256, legacyLogicCoverage: { denominator: 10, presentCount: 0, nullCount: 10, reviewStatus: "no_legacy_logic_value", columns: [["description_d","presentation_expression"],["sqltext","legacy_sql_expression"],["flag","legacy_behavior_flag"],["crosssql","legacy_cross_lookup_sql"],["crosscolselectsql","legacy_cross_column_sql"],["crossrowselectsql","legacy_cross_row_sql"],["crosswhere","legacy_cross_filter"],["querywhere","legacy_query_filter"],["ascount","legacy_aggregate_flag"],["ascount2","legacy_secondary_aggregate_flag"]].map(([column,classification]) => ({ column, classification, execution: "forbidden", isSourceNull: true, sourceValueSha256: null })) } }));
 
 test("private-stage CLI turns a verified T5 stage into 0600 private files and a safe receipt", () => {
-  const root = mkdtempSync(join(tmpdir(), "jinhu-t5-private-stage-"));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "jinhu-t5-private-stage-")));
   try {
     const stage = join(root, "stage");
     const outputRoot = join(root, "out");
@@ -67,6 +69,44 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
     const privateStage = JSON.parse(readFileSync(join(result.output, "private-stage.json"), "utf8"));
     const skill = privateStage.records.find(record => record.targetTable === "hr_employee_skill");
     assert.equal(skill.dependencyRefs[0].sourceIdentitySha256, t0EmployeeIdentity);
+    // Retained mode authenticates old file identities without manufacturing raw source.
+    const history = join(root, "history"); mkdirSync(history, { mode: 0o700 });
+    const descriptor = (name, value) => { const path = join(history, name); return { path, sha256: privateWrite(path, value) }; };
+    const makeReceipt = identity => sealSourceRestoreReceipt({ formatVersion: 1, artifactKind: "yuzhou_hr_source_restore_receipt", sourceSnapshotSha256: source,
+      backup: { sha256: source, bytes: 100, containerCopySha256: source, containerCopyBytes: 100 },
+      identities: Object.fromEntries(["containerSha256", "imageSha256", "databaseSha256", "restoreSha256", "catalogSha256"].map(key => [key, hash(identity)])),
+      state: { online: true, readOnly: true }, etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false }, productionImport: "HOLD" });
+    const historicalReceipt = descriptor("old-receipt.json", makeReceipt("old"));
+    const currentReceipt = descriptor("current-receipt.json", makeReceipt("current"));
+    for (const [name, line] of Object.entries(rows)) privateWrite(join(history, `${name}.jsonl`), line);
+    const historicalManifest = descriptor("manifest.json", { artifactKind: "yuzhou_t5_nonfile_materialization_stage", sourceRows: 2, domains,
+      sourceSnapshotSha256: source, sourceRestoreReceiptSha256: historicalReceipt.sha256, mappingContractSha256: hash("old-mapping"), filesExcluded: ["photo", "docs"], productionImport: "HOLD" });
+    const projectedRows = Object.values(rows).filter(Boolean).map(line => projectT5NonfileStagedRecord(JSON.parse(line)));
+    const projection = descriptor("projection.json", { artifactKind: "retained-projection", formatVersion: 1, productionImport: "HOLD", records: projectedRows, sourceManifestSha256: historicalManifest.sha256, sourceSnapshotSha256: source });
+    const definitions = descriptor("definitions.json", { records: definitionRows });
+    const configPath = join(history, "config.json");
+    const config = { formatVersion: 1, consumerTriple: tripleValue, historicalManifest, historicalReceipt, currentReceipt, projection, definitions };
+    privateWrite(configPath, config);
+    const retainedInput = { retainedConfigPath: configPath, triplePath: triple, t0DecisionsPath: t0Decisions, outputRoot, runId: "retained01" };
+    const retained = prepareT5ProductionPrivateStage(retainedInput);
+    assert.equal(retained.recordCount, result.recordCount);
+    const byIdentity = records => [...records].sort((a, b) => a.sourceIdentitySha256.localeCompare(b.sourceIdentitySha256));
+    assert.deepEqual(byIdentity(JSON.parse(readFileSync(join(retained.output, "private-stage.json"))).records), byIdentity(privateStage.records));
+    const provenance = JSON.parse(readFileSync(join(retained.output, "retained-provenance.json")));
+    assert.equal(provenance.sourceIdentityCoverageVerified, true);
+    assert.equal(provenance.mappingCompatibilityVerified, false);
+    assert.equal(provenance.productionImport, "HOLD");
+    assert.equal(mode(join(retained.output, "retained-provenance.json")), "600");
+    const cli = ["--retained-config", configPath, "--triple", triple, "--t0-decisions", t0Decisions, "--output-root", outputRoot, "--run-id", "retained02"];
+    assert.deepEqual(parseT5ProductionPrivateStageArgs(cli), { ...retainedInput, runId: "retained02" });
+    assert.throws(() => parseT5ProductionPrivateStageArgs([...cli, "--stage", stage]));
+    chmodSync(projection.path, 0o644);
+    assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "badmode01" }), { code: "T5_RETAINED_FILE_UNSAFE" });
+    chmodSync(projection.path, 0o600);
+    const drifted = JSON.parse(readFileSync(projection.path)); drifted.records[0].sourceRowSha256 = hash("wrong-row");
+    config.projection.sha256 = privateWrite(projection.path, drifted); privateWrite(configPath, config);
+    assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "baddrift01" }), { code: "T5_RETAINED_IDENTITY_INVALID" });
+    assert.equal(existsSync(join(outputRoot, "t5-private-baddrift01")), false);
     const decisions = JSON.parse(readFileSync(t0Decisions, "utf8"));
     const isolatedParent = { ...decisions.records[0], sourceIdentitySha256: hash("dbo.person\0E-002"),
       sourcePkCanonical: `sha256:${hash("dbo.person\0E-002")}`, candidateDisposition: "quarantine",

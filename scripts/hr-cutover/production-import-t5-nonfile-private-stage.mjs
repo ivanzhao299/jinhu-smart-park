@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+/* global structuredClone */
 
 import { computeProductionImportPayloadHash } from "./production-import-sealed-plan-lib.mjs";
 import { adaptT5NonfilePrivateStage, projectT5NonfileStagedRecord } from "./production-import-t5-nonfile-stage-adapter.mjs";
@@ -74,6 +74,26 @@ export function createT5NonfilePrivateStage(input) {
   } catch (error) {
     fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", error?.code ?? "staged row invalid");
   }
+  return buildProjectedStage(input, projected);
+}
+
+/** Accept an already authenticated source-free projection without inventing a
+ * raw `source` object. The caller still owns restore/transition evidence and
+ * private-file checks. This hash pins the canonical projected records, not the
+ * enclosing file bytes. No production authorization is granted here.
+ */
+export function createT5NonfilePrivateStageFromProjection(input, expectedProjectionSha256) {
+  exactKeys(input, ["triple", "stageManifest", "definitionEvidence", "employeeIndex", "records"], [], "input");
+  validateTriple(input.triple);
+  validateStageManifest(input.stageManifest, input.triple);
+  if (!Array.isArray(input.records) || !SHA256.test(expectedProjectionSha256 ?? "")
+    || computeProductionImportPayloadHash(input.records) !== expectedProjectionSha256) {
+    fail("PRODUCTION_IMPORT_T5_NONFILE_PRIVATE_STAGE_INVALID", "retained projection hash invalid");
+  }
+  return buildProjectedStage(input, structuredClone(input.records));
+}
+
+function buildProjectedStage(input, projected) {
   let privateStage;
   try {
     privateStage = adaptT5NonfilePrivateStage({
