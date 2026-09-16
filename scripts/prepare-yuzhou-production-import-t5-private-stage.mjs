@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+import process from "node:process";
+import { URL } from "node:url";
 import { existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync, chmodSync, unlinkSync, rmdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { basename, isAbsolute, join, resolve } from "node:path";
 
-import { createT5NonfilePrivateStage, ProductionImportT5NonfilePrivateStageError } from "./hr-cutover/production-import-t5-nonfile-private-stage.mjs";
+import { createT5NonfilePrivateStage, createT5NonfilePrivateStageFromProjection, ProductionImportT5NonfilePrivateStageError } from "./hr-cutover/production-import-t5-nonfile-private-stage.mjs";
+import { readT5RetainedStageInput } from "./hr-cutover/t5-retained-stage-input.mjs";
+import { computeProductionImportPayloadHash } from "./hr-cutover/production-import-sealed-plan-lib.mjs";
 
 const SHA256 = /^[0-9a-f]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -33,12 +37,13 @@ export function parseT5ProductionPrivateStageArgs(argv) {
   for (let index = 0; index < input.length; index += 2) {
     const key = input[index];
     const value = input[index + 1];
-    if (!new Set(["--stage", "--triple", "--t0-decisions", "--output-root", "--run-id"]).has(key) || !value || Object.hasOwn(values, key)) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+    if (!new Set(["--stage", "--retained-config", "--triple", "--t0-decisions", "--output-root", "--run-id"]).has(key) || !value || Object.hasOwn(values, key)) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
     values[key] = value;
   }
-  if (!Object.keys(values).every(key => ["--stage", "--triple", "--t0-decisions", "--output-root", "--run-id"].includes(key)) || Object.keys(values).length !== 5 || !SAFE_RUN_ID.test(values["--run-id"] ?? "")) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
-  for (const key of ["--stage", "--triple", "--t0-decisions", "--output-root"]) if (!isAbsolute(values[key])) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
-  return { stagePath: resolve(values["--stage"]), triplePath: resolve(values["--triple"]), t0DecisionsPath: resolve(values["--t0-decisions"]), outputRoot: resolve(values["--output-root"]), runId: values["--run-id"] };
+  const sourceKey = values["--retained-config"] ? "--retained-config" : "--stage";
+  if (Object.keys(values).length !== 5 || (values["--stage"] && values["--retained-config"]) || !SAFE_RUN_ID.test(values["--run-id"] ?? "")) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+  for (const key of [sourceKey, "--triple", "--t0-decisions", "--output-root"]) if (typeof values[key] !== "string" || !isAbsolute(values[key])) fail("T5_PRIVATE_STAGE_ARGUMENT_INVALID");
+  return { [sourceKey === "--stage" ? "stagePath" : "retainedConfigPath"]: resolve(values[sourceKey]), triplePath: resolve(values["--triple"]), t0DecisionsPath: resolve(values["--t0-decisions"]), outputRoot: resolve(values["--output-root"]), runId: values["--run-id"] };
 }
 
 function readStage(stagePath) {
@@ -118,10 +123,11 @@ function writePrivate(path, value) {
  * not activate or import data.
  */
 export function prepareT5ProductionPrivateStage(input) {
-  if (!input || typeof input !== "object" || Array.isArray(input) || JSON.stringify(Object.keys(input).sort()) !== JSON.stringify(["outputRoot", "runId", "stagePath", "t0DecisionsPath", "triplePath"])) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
+  const retained = input && Object.hasOwn(input, "retainedConfigPath");
+  if (!exactKeys(input, ["outputRoot", "runId", retained ? "retainedConfigPath" : "stagePath", "t0DecisionsPath", "triplePath"])) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
   if (!SAFE_RUN_ID.test(input.runId ?? "")) fail("T5_PRIVATE_STAGE_INPUT_INVALID");
-  const stage = readStage(input.stagePath);
   const triple = parseJson(input.triplePath, "T5_PRIVATE_STAGE_TRIPLE_INVALID");
+  const stage = retained ? readT5RetainedStageInput(input.retainedConfigPath, triple) : readStage(input.stagePath);
   if (!exactKeys(triple, ["codeSha", "sourceSnapshotHash", "mappingContractHash"]) || stage.manifest.sourceSnapshotSha256 !== triple.sourceSnapshotHash || stage.manifest.mappingContractSha256 !== triple.mappingContractHash) fail("T5_PRIVATE_STAGE_TRIPLE_INVALID");
   const employees = deriveEmployeeIndex(stage.records, input.t0DecisionsPath, triple);
   const outputRoot = resolve(input.outputRoot);
@@ -131,7 +137,8 @@ export function prepareT5ProductionPrivateStage(input) {
   if (existsSync(output)) fail("T5_PRIVATE_STAGE_OUTPUT_EXISTS");
   mkdirSync(output, { mode: 0o700 }); chmodSync(output, 0o700);
   try {
-    const generated = createT5NonfilePrivateStage({
+    const build = retained ? value => createT5NonfilePrivateStageFromProjection(value, computeProductionImportPayloadHash(stage.records)) : createT5NonfilePrivateStage;
+    const generated = build({
       triple,
       stageManifest: {
         artifactKind: stage.manifest.artifactKind,
@@ -155,11 +162,12 @@ export function prepareT5ProductionPrivateStage(input) {
       records: stage.records,
     });
     writePrivate(join(output, "private-stage.json"), generated.privateStage);
+    if (retained) writePrivate(join(output, "retained-provenance.json"), stage.provenance);
     writePrivate(join(output, "receipt.json"), generated.receipt);
     return Object.freeze({ output, privateStageSha256: generated.receipt.privateStageSha256, recordCount: generated.receipt.recordCount, productionImport: "HOLD" });
   } catch (error) {
     // Do not surface source values or leave a partially-written usable payload.
-    for (const file of ["private-stage.json", "receipt.json"]) {
+    for (const file of ["private-stage.json", "receipt.json", "retained-provenance.json"]) {
       const path = join(output, file);
       if (existsSync(path) && privateFile(path)) unlinkSync(path);
     }
