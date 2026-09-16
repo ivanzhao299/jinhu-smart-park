@@ -44,7 +44,7 @@ export interface HrCompensationPlan {id:string;planCode:string;planName:string;e
 export interface HrPayrollPeriod {id:string;periodMonth:string;startDate:string;endDate:string;status:string;}
 export interface HrPayrollRun {id:string;periodId:string;runNo:number;correctionOfRunId:string|null;status:string;employeeCount:number;grossTotal:string;deductionTotal:string;netTotal:string;}
 export interface HrPayslip {id:string;runId:string;employeeId:string;grossAmount:string;deductionAmount:string;personalTax:string;netAmount:string;status:string;createTime:string;}
-export interface HrPayrollHistoryRow {id:string;periodMonth:string;legacyScheme:string;bookName:string|null;legacySourceTable:string;mappingStatus:string;employeeCode?:string;employeeName?:string;grossAmount:string|null;deductionAmount:string|null;taxAmount:string|null;netAmount:string|null;publicationStatus:string;}
+export interface HrPayrollHistoryRow {id:string;periodMonth:string;legacyScheme:string;bookName:string|null;legacySourceTable?:string;mappingStatus?:string;employeeCode?:string;employeeName?:string;grossAmount:string|null;deductionAmount:string|null;taxAmount:string|null;netAmount:string|null;publicationStatus:string;}
 export interface HrPayrollHistoryItem {id:string;itemCode:string|null;displayName:string|null;valueType:"decimal"|"text"|"date"|string;isSourceNull:boolean;decimalValue:string|null;textValue:string|null;dateValue:string|null;sortNo:number;}
 export interface HrPayrollBook {id:string;legacyScheme:string;bookName:string|null;status:string;}
 export interface HrPayrollTaxRule {legacyTaxId:number;versionNo:number;baseAmount:string|null;lowerLimit:string|null;upperLimit:string|null;taxPercent:string|null;offsetAmount:string|null;semanticsStatus:"pending_review";}

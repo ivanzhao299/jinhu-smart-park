@@ -44,6 +44,36 @@ test("history month filters reject invalid calendar months before database acces
  assert.equal((await validate(plainToInstance(HrPayrollHistoryQueryDto,{period_from:"2026-01-01",period_to:"2026-12-01"}))).length,0);
 });
 
+test("list and detail select migration provenance only for park readers", async () => {
+ const scope={tenantId:"t",parkId:"p"};
+ for(const permission of [HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ,HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ]){
+  const conditions:string[]=[];
+  const builder=()=>{
+   const aliases:string[]=[];
+   const qb:Record<string,unknown>={};
+   for(const name of ["from","innerJoin","orderBy","addOrderBy","offset","limit"])qb[name]=()=>qb;
+   for(const name of ["where","andWhere"])qb[name]=(sql:string)=>{conditions.push(sql);return qb;};
+   qb.select=(_column:string,alias:string)=>{aliases.splice(0,aliases.length,alias);return qb;};
+   qb.addSelect=(_column:string,alias:string)=>{aliases.push(alias);return qb;};
+   qb.clone=builder;
+   const row=()=>Object.fromEntries(aliases.map(alias=>[alias,alias==="count"?"1":"synthetic"]));
+   qb.getRawOne=async()=>row();
+   qb.getRawMany=async()=>[row()];
+   return qb;
+  };
+  const payroll=new HrPayrollHistoryService({createQueryBuilder:builder,query:async()=>[{id:"synthetic-employee"}]} as never,{recordOperationRequired:async()=>undefined} as never);
+  const page=await payroll.listHistory(scope,actor([permission]),{page:1,page_size:20});
+  const detail=await payroll.historyDetail(scope,actor([permission]),"synthetic-snapshot");
+  for(const row of [page.items[0]!,detail]){
+   for(const key of ["legacySourceTable","mappingStatus","employeeCode","employeeName"])
+    assert.equal(Object.hasOwn(row,key),permission===HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ);
+   assert.equal(Object.hasOwn(row,"netAmount"),true);
+  }
+  if(permission===HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ)
+   assert.equal(conditions.filter(sql=>sql.includes("snapshot.employee_id=:employeeId AND batch.status='published'")).length,2);
+ }
+});
+
 test("historical tax rule pagination is bounded before database access",async()=>{
  const valid=plainToInstance(HrPayrollTaxRuleQueryDto,{page:"2",page_size:"100"});
  assert.equal((await validate(valid)).length,0);

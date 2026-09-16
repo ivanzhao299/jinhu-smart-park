@@ -80,13 +80,13 @@ export class HrPayrollHistoryService {
     const qb=this.historyBase(scope)
       .select("snapshot.id","id").addSelect("period.period_month","periodMonth")
       .addSelect("book.legacy_scheme","legacyScheme").addSelect("book.book_name","bookName")
-      .addSelect("snapshot.legacy_source_table","legacySourceTable")
-      .addSelect("snapshot.mapping_status","mappingStatus")
       .addSelect("snapshot.gross_amount","grossAmount").addSelect("snapshot.deduction_amount","deductionAmount")
       .addSelect("snapshot.tax_amount","taxAmount").addSelect("snapshot.net_amount","netAmount")
       .addSelect("batch.status","publicationStatus");
     if(access==="self")qb.andWhere("snapshot.employee_id=:employeeId AND batch.status='published'",{employeeId});
-    else qb.addSelect("employee.employee_code","employeeCode").addSelect("employee.full_name","employeeName");
+    else qb.addSelect("employee.employee_code","employeeCode").addSelect("employee.full_name","employeeName")
+      .addSelect("snapshot.legacy_source_table","legacySourceTable")
+      .addSelect("snapshot.mapping_status","mappingStatus");
     if(q.employee_id)qb.andWhere("snapshot.employee_id=:filterEmployeeId",{filterEmployeeId:q.employee_id});
     if(q.book_id)qb.andWhere("book.id=:bookId",{bookId:q.book_id});
     if(q.period_from)qb.andWhere("period.period_month>=:periodFrom",{periodFrom:q.period_from});
@@ -102,13 +102,13 @@ export class HrPayrollHistoryService {
     const qb=this.historyBase(scope).andWhere("snapshot.id=:id",{id})
       .select("snapshot.id","id").addSelect("period.period_month","periodMonth")
       .addSelect("book.legacy_scheme","legacyScheme").addSelect("book.book_name","bookName")
-      .addSelect("snapshot.legacy_source_table","legacySourceTable")
-      .addSelect("snapshot.mapping_status","mappingStatus")
       .addSelect("snapshot.gross_amount","grossAmount").addSelect("snapshot.deduction_amount","deductionAmount")
       .addSelect("snapshot.tax_amount","taxAmount").addSelect("snapshot.net_amount","netAmount")
       .addSelect("batch.status","publicationStatus");
     if(access==="self")qb.andWhere("snapshot.employee_id=:employeeId AND batch.status='published'",{employeeId});
-    else qb.addSelect("employee.employee_code","employeeCode").addSelect("employee.full_name","employeeName");
+    else qb.addSelect("employee.employee_code","employeeCode").addSelect("employee.full_name","employeeName")
+      .addSelect("snapshot.legacy_source_table","legacySourceTable")
+      .addSelect("snapshot.mapping_status","mappingStatus");
     const row=await qb.getRawOne<RawRow>();
     if(!row)throw new NotFoundException("Historical payslip not found");
     await this.audit(scope,actor,{resource:"hr.payroll_history",action:"读取历史工资条详情",bizType:"hr_payroll_legacy_snapshot",bizId:id,path:"/hr/payroll/history/:id",fieldGroups:["financial","compensation"],projection:access,itemCount:1});
