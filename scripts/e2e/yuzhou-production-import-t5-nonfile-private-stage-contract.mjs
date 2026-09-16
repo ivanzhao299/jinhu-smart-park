@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { createT5NonfilePrivateStage, ProductionImportT5NonfilePrivateStageError } from "../hr-cutover/production-import-t5-nonfile-private-stage.mjs";
+import { projectT5NonfilePayloadRecords, projectT5NonfileStagedRecord } from "../hr-cutover/production-import-t5-nonfile-stage-adapter.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: hash("source"), mappingContractHash: hash("mapping") };
@@ -30,4 +31,17 @@ test("builds a sealed private T5 stage and an aggregate-only receipt", () => {
 
 test("rejects a stage with a mismatched source binding before a private artifact exists", () => {
   assert.throws(() => createT5NonfilePrivateStage({ triple, stageManifest: { ...manifest, sourceSnapshotSha256: hash("other") }, definitionEvidence, employeeIndex: [], records: [] }), ProductionImportT5NonfilePrivateStageError);
+});
+
+test("unbound field projection reuses bound adapter semantics without claiming migration identity", () => {
+  const employeeIndex = [{ employeeCode: "E-001", sourceIdentitySha256: hash("employee") }];
+  const input = { definitionLogicColumnPresentCount: 0, definitionEvidence, employeeIndex, records: [projectT5NonfileStagedRecord(row)] };
+  const records = projectT5NonfilePayloadRecords(input);
+  const bound = createT5NonfilePrivateStage({ triple, stageManifest: manifest, definitionEvidence, employeeIndex, records: [row] });
+  assert.deepEqual(records, bound.privateStage.records);
+  assert.equal(Object.hasOwn(records, "triple"), false);
+  assert.equal(projectT5NonfilePayloadRecords({ ...input, employeeIndex: [] })[0].disposition, "quarantine");
+  assert.throws(() => projectT5NonfilePayloadRecords({ ...input, definitionLogicColumnPresentCount: 1 }));
+  assert.throws(() => projectT5NonfilePayloadRecords({ ...input, records: [input.records[0], input.records[0]] }));
+  assert.throws(() => projectT5NonfilePayloadRecords({ ...input, records: [{ ...input.records[0], materialized: { ...row.materialized, skillName: null } }] }));
 });

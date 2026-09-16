@@ -5,7 +5,8 @@ const fail = detail => {
 };
 const uuid = value => typeof value === "string" && /^[0-9a-f-]{36}$/iu.test(value);
 const data = response => response?.body?.data;
-const fullOnlyFields = ["dateOfBirth", "remark"];
+export const EMPLOYEE_UAT_SYNTHETIC_IDENTITY = "YUZHOU-UAT-SYNTHETIC-ID";
+const fullOnlyFields = ["idNumber", "dateOfBirth", "remark"];
 const hasNoFullOnlyFields = value => value && typeof value === "object" && fullOnlyFields.every(field => !(field in value));
 
 export async function runYuzhouEmployeeScenario({ runner, inspect, employeeId, outsideEmployeeId }) {
@@ -20,6 +21,7 @@ export async function runYuzhouEmployeeScenario({ runner, inspect, employeeId, o
     bodies: [undefined],
     assert: async responses => ({
       full_profile_projection: data(responses[0])?.masked === false && typeof data(responses[0])?.personalMobile === "string" && "idNumberMasked" in data(responses[0]) && "idNumber" in data(responses[0]) && "dateOfBirth" in data(responses[0]),
+      identity_decrypted_exactly: data(responses[0])?.idNumber === EMPLOYEE_UAT_SYNTHETIC_IDENTITY,
       required_audit_written: await inspect.auditCount(employeeId) > auditBefore
     })
   }));

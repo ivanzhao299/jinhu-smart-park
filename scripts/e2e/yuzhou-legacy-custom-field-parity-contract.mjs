@@ -35,6 +35,23 @@ const definitionRow=(field,index,overrides={})=>({
 const definitionFixture=()=>LEGACY_PERSON_CUSTOM_FIELDS.map((field,index)=>definitionRow(field,index));
 const mappingContract=JSON.parse(readFileSync(resolve(import.meta.dirname,"../hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json"),"utf8"));
 
+test("legacy c/n/d datatype codes retain their source spelling and reject cross-type aliases",()=>{
+  const codes={text:"c",numeric:"n",date:"d"};
+  const rows=LEGACY_PERSON_CUSTOM_FIELDS.map((field,index)=>definitionRow(field,index,{datatype:codes[field.valueType]}));
+  const before=globalThis.structuredClone(rows);
+  const definitions=buildLegacyCustomFieldDefinitions(rows);
+  assert.deepEqual(definitions.map(d=>d.valueType),LEGACY_PERSON_CUSTOM_FIELDS.map(f=>f.valueType));
+  assert.deepEqual(definitions.map(d=>d.legacyDatatype),rows.map(r=>r.datatype));
+  assert.deepEqual(rows,before);
+  assert.equal(buildLegacyCustomFieldDefinitions(rows.map(r=>({...r,datatype:` ${r.datatype.toUpperCase()} `})))[0].legacyDatatype,"C");
+  for(const [index,wrong] of [[0,"n"],[9,"d"],[14,"c"],[0,"x"]]){
+    assert.throws(()=>buildLegacyCustomFieldDefinitions(rows.map((r,i)=>i===index?{...r,datatype:wrong}:r)),/LEGACY_CUSTOM_FIELD_DEFINITION_DATATYPE_CONFLICT/u);
+  }
+  const values=materializeLegacyEmployeeCustomFields({def1:"sample",def11:"0012.3400",def21:"2026-09-10"},definitions);
+  assert.equal(values.find(v=>v.code==="def11").value,"12.34");
+  assert.equal(values.find(v=>v.code==="def21").value,"2026-09-10");
+});
+
 test("dbo.defs contract pins all 17 source columns and 19 person custom fields",()=>{
   assert.equal(LEGACY_DEFINITION_SOURCE_COLUMNS.length,17);
   assert.equal(LEGACY_DEFINITION_LOGIC_COLUMNS.length,10);

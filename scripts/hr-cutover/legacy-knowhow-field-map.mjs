@@ -13,7 +13,7 @@ const EXPECTED_STABLE_IDS = Object.freeze([
   "KNOWHOW_GRADE",
   "KNOWHOW_MEMO",
 ]);
-const EXPECTED_STAGES = Object.freeze(["reviewed_mapping", "read_only_extract", "transform", "private_stage", "writer", "rollback"]);
+const EXPECTED_STAGES = Object.freeze(["reviewed_mapping", "read_only_extract", "transform", "field_projection", "private_stage", "writer", "rollback"]);
 const EXPECTED_TARGET_SURFACES = Object.freeze(["base_migration", "legacy_migration", "runtime_service"]);
 
 export class LegacyKnowhowFieldMapError extends Error {

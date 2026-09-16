@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync, chmodSync, unlinkSync, rmdirSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 
 import { createT5NonfilePrivateStage, ProductionImportT5NonfilePrivateStageError } from "./hr-cutover/production-import-t5-nonfile-private-stage.mjs";
 
@@ -68,7 +68,7 @@ function deriveEmployeeIndex(records, t0DecisionsPath, triple) {
   const artifact = parseJson(t0DecisionsPath, "T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
   const keys = ["formatVersion", "artifactKind", "triple", "phaseArtifactSha256", "targetInventoryArtifactSha256", "targetIdentitySha256", "targetScope", "jobStateDecisionArtifactSha256", "status", "countByDisposition", "records", "productionImport"];
   const dispositionKeys = ["insert", "skip_exact", "review_target_collision", "quarantine"];
-  if (!exactKeys(artifact, keys) || artifact.formatVersion !== 1 || artifact.artifactKind !== "yuzhou_hr_production_import_real_t0_decision_candidates" || JSON.stringify(artifact.triple) !== JSON.stringify(triple) || artifact.productionImport !== "HOLD" || artifact.status !== "READY_FOR_FREEZE" || !Array.isArray(artifact.records)
+  if (!exactKeys(artifact, keys) || artifact.formatVersion !== 1 || artifact.artifactKind !== "yuzhou_hr_production_import_real_t0_decision_candidates" || JSON.stringify(artifact.triple) !== JSON.stringify(triple) || artifact.productionImport !== "HOLD" || !["READY_FOR_FREEZE", "REVIEW_HOLD"].includes(artifact.status) || !Array.isArray(artifact.records)
     || !SHA256.test(artifact.phaseArtifactSha256 ?? "") || !SHA256.test(artifact.targetInventoryArtifactSha256 ?? "") || !SHA256.test(artifact.targetIdentitySha256 ?? "") || !SHA256.test(artifact.jobStateDecisionArtifactSha256 ?? "")
     || !exactKeys(artifact.countByDisposition, dispositionKeys) || !object(artifact.targetScope) || typeof artifact.targetScope.tenantId !== "string" || artifact.targetScope.tenantId.length === 0 || typeof artifact.targetScope.parkId !== "string" || artifact.targetScope.parkId.length === 0 || !SHA256.test(artifact.targetScope.scopeSha256 ?? "")) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
   const observedCounts = Object.fromEntries(dispositionKeys.map(key => [key, 0]));
@@ -76,7 +76,13 @@ function deriveEmployeeIndex(records, t0DecisionsPath, triple) {
     if (!object(row) || !dispositionKeys.includes(row.candidateDisposition)) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
     observedCounts[row.candidateDisposition] += 1;
   }
-  if (JSON.stringify(observedCounts) !== JSON.stringify(artifact.countByDisposition) || observedCounts.review_target_collision !== 0 || observedCounts.quarantine !== 0) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
+  // Quarantined parents are deliberately excluded from the usable employee index;
+  // the adapter retains their children as quarantine instead of blocking unrelated rows.
+  // Unresolved collisions and count drift still reject the entire preparation.
+  if (JSON.stringify(observedCounts) !== JSON.stringify(artifact.countByDisposition) || observedCounts.review_target_collision !== 0) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
+  // Match the T0 producer's status exactly; accepting isolated parents here
+  // prepares HOLD materials only and does not approve their import.
+  if (artifact.status !== (observedCounts.quarantine > 0 ? "REVIEW_HOLD" : "READY_FOR_FREEZE")) fail("T5_PRIVATE_STAGE_T0_DECISIONS_INVALID");
   const t0ByIdentity = new Map();
   for (const row of artifact.records) {
     if (!object(row) || row.targetTable !== "hr_employee") continue;

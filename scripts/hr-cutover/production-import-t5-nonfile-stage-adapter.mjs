@@ -389,10 +389,11 @@ export function adaptT5NonfileSkillStage(input) {
  * private payload-stage object: it is input to the sealed production writer,
  * never a public report or a browser/API response.
  */
-export function adaptT5NonfilePrivateStage(input) {
-  exactKeys(input, ["triple", "stageManifest", "definitionEvidence", "employeeIndex", "records"], "input");
-  validateTriple(input.triple);
-  validateStageBinding(input.stageManifest, input.triple);
+export function projectT5NonfilePayloadRecords(input) {
+  exactKeys(input, ["definitionLogicColumnPresentCount", "definitionEvidence", "employeeIndex", "records"], "projection input");
+  // Pure field/dependency validation, without inventing a current C/S/M or target receipt.
+  // The bound adapter below remains responsible for all migration identity checks.
+  input = { ...input, stageManifest: { definitionLogicColumnPresentCount: input.definitionLogicColumnPresentCount } };
   const definitionEvidence = validateDefinitionEvidence(input.definitionEvidence, input.stageManifest);
   const employees = validateEmployeeIndex(input.employeeIndex);
   if (!Array.isArray(input.records)) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_INVALID", "T5 records must be an array");
@@ -430,5 +431,14 @@ export function adaptT5NonfilePrivateStage(input) {
       ...(canLoad ? { payload: payloadForT5Record(row, rule) } : { quarantineReason: row.materialized.disposition === "quarantined" ? "SOURCE_MATERIALIZATION_QUARANTINED" : "EMPLOYEE_NOT_MAPPED" }),
     });
   }
-  return { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_t5_nonfile_private_payload_stage", phase: "T5", triple: structuredClone(input.triple), sourceSnapshotHash: input.stageManifest.sourceSnapshotHash, sourceRestoreReceiptSha256: input.stageManifest.sourceRestoreReceiptSha256, sourceBusinessSha256: input.stageManifest.nonfileBusinessSha256, mappingContractSha256: input.stageManifest.mappingContractSha256, t0DecisionArtifactSha256: input.stageManifest.t0DecisionArtifactSha256, t0TargetIdentitySha256: input.stageManifest.t0TargetIdentitySha256, t0TargetScopeSha256: input.stageManifest.t0TargetScopeSha256, records: [...definitions.values(), ...definitionLogic.values(), ...records], productionImport: "HOLD" };
+  return [...definitions.values(), ...definitionLogic.values(), ...records];
+}
+
+export function adaptT5NonfilePrivateStage(input) {
+  exactKeys(input, ["triple", "stageManifest", "definitionEvidence", "employeeIndex", "records"], "input");
+  validateTriple(input.triple);
+  validateStageBinding(input.stageManifest, input.triple);
+  const records = projectT5NonfilePayloadRecords({ definitionLogicColumnPresentCount: input.stageManifest.definitionLogicColumnPresentCount,
+    definitionEvidence: input.definitionEvidence, employeeIndex: input.employeeIndex, records: input.records });
+  return { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_t5_nonfile_private_payload_stage", phase: "T5", triple: structuredClone(input.triple), sourceSnapshotHash: input.stageManifest.sourceSnapshotHash, sourceRestoreReceiptSha256: input.stageManifest.sourceRestoreReceiptSha256, sourceBusinessSha256: input.stageManifest.nonfileBusinessSha256, mappingContractSha256: input.stageManifest.mappingContractSha256, t0DecisionArtifactSha256: input.stageManifest.t0DecisionArtifactSha256, t0TargetIdentitySha256: input.stageManifest.t0TargetIdentitySha256, t0TargetScopeSha256: input.stageManifest.t0TargetScopeSha256, records, productionImport: "HOLD" };
 }
