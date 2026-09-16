@@ -3,6 +3,7 @@ import { useEffect,useRef,useState,type FormEvent } from "react";
 import { apartmentsApi,type ApartmentCandidatePage,type ApartmentRecord } from "../../lib/apartments-api";
 import { getAccessToken } from "../../lib/authz";
 import styles from "./ApartmentWorkbench.module.css";
+import { ApartmentApplicantFields, applicantDetails } from "./ApartmentApplicantFields";
 
 const nextDate=(value:string)=>{if(!value)return undefined;const [year,month,day]=value.split("-").map(Number);return new Date(Date.UTC(year!,month!-1,day!+1)).toISOString().slice(0,10)};
 const emptyCandidates:ApartmentCandidatePage={items:[],total:0,page:1,page_size:20,facets:{buildings:[],floors:[]}};
@@ -13,13 +14,13 @@ export function ApartmentCreatePanel({view,onDone,onError}:{view:string;onDone:(
  const candidateRequest=useRef(0);
  const onErrorRef=useRef(onError);onErrorRef.current=onError;
  useEffect(()=>{if(view==='rooms'){const generation=++candidateRequest.current;setCandidateLoading(true);setSelectedUnitId('');const query=new URLSearchParams({page:String(candidatePage),page_size:'20',eligible_only:String(eligibleOnly)});if(candidateKeyword.trim())query.set('keyword',candidateKeyword.trim());if(candidateBuilding)query.set('building_id',candidateBuilding);if(candidateFloor)query.set('floor_id',candidateFloor);void apartmentsApi.unitCandidates(query,getAccessToken()).then(result=>{if(generation===candidateRequest.current)setCandidates(result)}).catch((error:Error)=>{if(generation===candidateRequest.current)onErrorRef.current(error.message)}).finally(()=>{if(generation===candidateRequest.current)setCandidateLoading(false)});}if(view==='applications')void apartmentsApi.settings(getAccessToken()).then(x=>setReason(x.default_application_reason)).catch(()=>undefined)},[candidateBuilding,candidateFloor,candidateKeyword,candidatePage,eligibleOnly,view]);
- const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setBusy(true);const f=new FormData(e.currentTarget);try{
+ const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setBusy(true);const form=e.currentTarget;const f=new FormData(form);try{
   if(view==='rooms')await apartmentsApi.mutate('/apartments/rooms',{unit_id:f.get('unit_id'),room_type:f.get('room_type'),gender_policy:f.get('gender_policy'),capacity:Number(f.get('capacity')),facilities:String(f.get('facilities')||'').split('、').map(x=>x.trim()).filter(Boolean)},getAccessToken());
   if(view==='applications'){
-   const app=await apartmentsApi.mutate<ApartmentRecord>('/apartments/applications',{applicant_name:f.get('applicant_name'),applicant_type:f.get('applicant_type'),organization_name:f.get('organization_name')||undefined,department_name:f.get('department_name')||undefined,job_title:f.get('job_title')||undefined,mobile_masked:f.get('mobile_masked')||undefined,emergency_contact_name:f.get('emergency_contact_name'),emergency_contact_mobile:f.get('emergency_contact_mobile'),household_size:Number(f.get('household_size')),accompanying_names:f.get('accompanying_names')||undefined,vehicle_plate:f.get('vehicle_plate')||undefined,accommodation_notes:f.get('accommodation_notes')||undefined,policy_accepted:f.get('policy_accepted')==='on',requested_room_type:f.get('requested_room_type'),requested_start_date:f.get('requested_start_date'),requested_end_date:f.get('requested_end_date')||undefined,reason:f.get('reason')},getAccessToken());
+   const app=await apartmentsApi.mutate<ApartmentRecord>('/apartments/applications',{...applicantDetails(f),applicant_name:f.get('applicant_name'),applicant_type:f.get('applicant_type'),organization_name:f.get('organization_name')||undefined,department_name:f.get('department_name')||undefined,job_title:f.get('job_title')||undefined,mobile_masked:f.get('mobile_masked')||undefined,emergency_contact_name:f.get('emergency_contact_name'),emergency_contact_mobile:f.get('emergency_contact_mobile'),household_size:Number(f.get('household_size')),accompanying_names:f.get('accompanying_names')||undefined,vehicle_plate:f.get('vehicle_plate')||undefined,accommodation_notes:f.get('accommodation_notes')||undefined,policy_accepted:f.get('policy_accepted')==='on',requested_room_type:f.get('requested_room_type'),requested_start_date:f.get('requested_start_date'),requested_end_date:f.get('requested_end_date')||undefined,reason:f.get('reason')},getAccessToken());
    await apartmentsApi.mutate(`/apartments/applications/${app.id}/submit`,undefined,getAccessToken());
   }
-  e.currentTarget.reset();setStartDate('');await onDone();
+  form.reset();setStartDate('');await onDone();
  }catch(err){onError(err instanceof Error?err.message:'保存失败')}finally{setBusy(false)}};
  if(view!=='rooms'&&view!=='applications')return null;
  return <section className={`ds-panel ${styles.panel}`}>
@@ -35,6 +36,7 @@ export function ApartmentCreatePanel({view,onDone,onError}:{view:string;onDone:(
    <label className="form-field"><span>床位数</span><input name="capacity" type="number" min="1" max="20" defaultValue="1" onFocus={e=>e.currentTarget.select()} required/></label>
    <label className="form-field"><span>设施（顿号分隔）</span><input name="facilities" placeholder="空调、衣柜、热水器"/></label>
   </>:<>
+   <ApartmentApplicantFields/>
    <label className="form-field"><span>入住人姓名</span><input name="applicant_name" maxLength={100} required/></label><label className="form-field"><span>人员类别</span><select name="applicant_type"><option value="internal_employee">集团员工</option><option value="subsidiary_employee">下属企业员工</option><option value="executive">高级管理人员</option><option value="external_talent">引进人才</option></select></label><label className="form-field"><span>手机号（脱敏展示）</span><input name="mobile_masked" maxLength={32} placeholder="138****0000"/></label>
    <label className="form-field"><span>所属单位</span><input name="organization_name" maxLength={200}/></label><label className="form-field"><span>部门</span><input name="department_name" maxLength={200}/></label><label className="form-field"><span>岗位/职务</span><input name="job_title" maxLength={100}/></label>
    <label className="form-field"><span>紧急联系人</span><input name="emergency_contact_name" maxLength={100} required/></label><label className="form-field"><span>紧急联系人手机</span><input name="emergency_contact_mobile" type="tel" inputMode="numeric" pattern="1[0-9]{10}" placeholder="11位手机号" required/></label><label className="form-field"><span>实际入住人数</span><input name="household_size" type="number" min="1" max="10" defaultValue="1" onFocus={e=>e.currentTarget.select()} required/></label>

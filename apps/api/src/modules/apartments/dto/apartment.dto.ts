@@ -37,6 +37,12 @@ export class CreateApartmentApplicationDto {
   @IsOptional() @IsString() @MaxLength(100) job_title?: string;
   @IsOptional() @IsString() @MaxLength(32) mobile_masked?: string;
   @IsOptional() @IsString() @MaxLength(64) identity_number_masked?: string;
+  @IsOptional() @Transform(trim) @IsIn(["male", "female", "unspecified"]) gender?: string;
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.trim().toUpperCase() : value) @Matches(/^(?:\d{15}|\d{17}[\dX])$/, { message: "身份证号应为15位数字或18位数字（末位可为X）" }) identity_number?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(200) native_place?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) home_address?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) health_status?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) emergency_contact_relationship?: string;
   @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(100) emergency_contact_name!: string;
   @Transform(trim) @IsString() @Matches(/^1\d{10}$/, { message: "紧急联系人手机号格式不正确" }) emergency_contact_mobile!: string;
   @IsInt() @Min(1) @Max(10) household_size!: number;

@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { DataSource } from "typeorm";
 import { ApartmentsService } from "./apartments.service";
+import { ConfigService } from "@nestjs/config";
+import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 const mutationAllowed = process.env.APARTMENT_PG_TEST_ALLOW_MUTATION === "yes";
@@ -13,7 +15,7 @@ test("PostgreSQL apartment inclusion keeps reservation occupancy and bed capacit
 }, async () => {
   const dataSource = new DataSource({ type: "postgres", url: databaseUrl });
   await dataSource.initialize();
-  const service = new ApartmentsService(dataSource);
+  const service = new ApartmentsService(dataSource, new PartySensitiveDataService(new ConfigService({ PARTY_DATA_ENCRYPTION_KEY: "test-only-apartment-identity-key-0000000000" })));
   const actorId = randomUUID();
   let roomId: string | undefined;
   try {
