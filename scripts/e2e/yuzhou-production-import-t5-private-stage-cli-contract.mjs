@@ -73,6 +73,7 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
       targetFields: null, expectedTargetId: null, reasonCode: "SYNTHETIC_PARENT_QUARANTINE" };
     decisions.records.push(isolatedParent);
     decisions.countByDisposition.quarantine = 1;
+    decisions.status = "REVIEW_HOLD";
     privateWrite(t0Decisions, decisions);
     const isolatedChild = { ...JSON.parse(rows.knowhow), employeeCode: "E-002", sourceKey: "two",
       sourceIdentitySha256: hash("isolated-skill"), sourceRowSha256: hash("isolated-skill-row") };
@@ -90,6 +91,11 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
     assert.deepEqual(isolated.dependencyRefs, []);
     assert.equal(Object.hasOwn(isolated, "payload"), false);
     assert.equal(mixedStage.records.find(row => row.sourceIdentitySha256 === skill.sourceIdentitySha256).disposition, "insert");
+    assert.equal(mixed.productionImport, "HOLD");
+    decisions.status = "READY_FOR_FREEZE";
+    privateWrite(t0Decisions, decisions);
+    assert.throws(() => prepareT5ProductionPrivateStage({ stagePath: stage, triplePath: triple, t0DecisionsPath: t0Decisions, outputRoot, runId: "t5badstatus01" }), { code: "T5_PRIVATE_STAGE_T0_DECISIONS_INVALID" });
+    decisions.status = "REVIEW_HOLD";
     decisions.records[1].candidateDisposition = "review_target_collision";
     decisions.countByDisposition.quarantine = 0;
     decisions.countByDisposition.review_target_collision = 1;
