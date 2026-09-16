@@ -103,6 +103,24 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
     chmodSync(projection.path, 0o644);
     assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "badmode01" }), { code: "T5_RETAINED_FILE_UNSAFE" });
     chmodSync(projection.path, 0o600);
+    const validProjection = JSON.parse(readFileSync(projection.path));
+    for (const artifactKind of ["unrelated-projection", "", null]) {
+      config.projection.sha256 = privateWrite(projection.path, { ...validProjection, artifactKind });
+      privateWrite(configPath, config);
+      assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "badkind01" }), { code: "T5_RETAINED_PROJECTION_INVALID" });
+      assert.equal(existsSync(join(outputRoot, "t5-private-badkind01")), false);
+    }
+    const validManifest = JSON.parse(readFileSync(historicalManifest.path));
+    const emptyManifest = { ...validManifest, sourceRows: 0, domains: Object.fromEntries(Object.keys(domains).map(name =>
+      [name, { file: `${name}.jsonl`, fileSha256: hash("\n"), rows: 0 }])) };
+    config.historicalManifest.sha256 = privateWrite(historicalManifest.path, emptyManifest);
+    config.projection.sha256 = privateWrite(projection.path, { ...validProjection, records: [], sourceManifestSha256: config.historicalManifest.sha256 });
+    privateWrite(configPath, config);
+    assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "emptyretained01" }), { code: "T5_RETAINED_COVERAGE_INVALID" });
+    assert.equal(existsSync(join(outputRoot, "t5-private-emptyretained01")), false);
+    config.historicalManifest.sha256 = privateWrite(historicalManifest.path, validManifest);
+    config.projection.sha256 = privateWrite(projection.path, validProjection);
+    privateWrite(configPath, config);
     const drifted = JSON.parse(readFileSync(projection.path)); drifted.records[0].sourceRowSha256 = hash("wrong-row");
     config.projection.sha256 = privateWrite(projection.path, drifted); privateWrite(configPath, config);
     assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "baddrift01" }), { code: "T5_RETAINED_IDENTITY_INVALID" });

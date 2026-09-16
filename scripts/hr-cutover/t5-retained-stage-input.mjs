@@ -38,14 +38,14 @@ export function readT5RetainedStageInput(configPath, triple) {
   const currentReceipt = artifact(c.currentReceipt, 262144), projected = artifact(c.projection), definitions = artifact(c.definitions, 262144);
   const p = projected.value, m = historical.value;
   if (!exact(p, ["artifactKind", "formatVersion", "productionImport", "records", "sourceManifestSha256", "sourceSnapshotSha256"])
-    || p.formatVersion !== 1 || p.productionImport !== "HOLD" || !Array.isArray(p.records)
+    || p.artifactKind !== "retained-projection" || p.formatVersion !== 1 || p.productionImport !== "HOLD" || !Array.isArray(p.records)
     || p.sourceSnapshotSha256 !== triple.sourceSnapshotHash || !exact(definitions.value, ["records"])
     || !Array.isArray(definitions.value.records)) fail("T5_RETAINED_PROJECTION_INVALID");
   const provenance = verifyT5RetainedSourceBinding({ historicalManifest: historical, historicalReceipt: oldReceipt, currentReceipt,
     projectionSourceManifestSha256: p.sourceManifestSha256, expectedSourceSnapshotSha256: triple.sourceSnapshotHash,
     historicalMappingContractSha256: m.mappingContractSha256, consumerMappingContractSha256: triple.mappingContractHash });
   if (!exact(m.domains, ["family", "knowhow", "person_core", "ticket"]) || !Number.isSafeInteger(m.sourceRows)
-    || m.sourceRows !== p.records.length || canonical(m.filesExcluded) !== canonical(["photo", "docs"])) fail("T5_RETAINED_COVERAGE_INVALID");
+    || m.sourceRows < 1 || m.sourceRows !== p.records.length || canonical(m.filesExcluded) !== canonical(["photo", "docs"])) fail("T5_RETAINED_COVERAGE_INVALID");
   // Authenticate each retained source file before using only its identity tuple.
   // Never invent a raw-source object for the new, source-free projection.
   const identities = new Map();

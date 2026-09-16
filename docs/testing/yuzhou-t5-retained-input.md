@@ -19,6 +19,10 @@ coverage against the projection. Definition and materialized-field validation us
 the existing adapter. Current T0 decisions determine employee inclusion; quarantined
 parents remain excluded. Unresolved T0 target collisions still reject preparation.
 
+The projection discriminator must be exactly `retained-projection`. Its row count
+must match the historical manifest and be positive; empty retained preparations
+are rejected before output creation, rather than producing an unusable success receipt.
+
 Success writes `private-stage.json`, `retained-provenance.json`, and finally
 `receipt.json` with private permissions. Original `--stage` mode still produces its
 existing two files. Both modes refuse an existing output directory.
