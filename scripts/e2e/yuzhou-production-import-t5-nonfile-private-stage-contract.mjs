@@ -1,8 +1,10 @@
+/* global structuredClone */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { createT5NonfilePrivateStage, ProductionImportT5NonfilePrivateStageError } from "../hr-cutover/production-import-t5-nonfile-private-stage.mjs";
+import { createT5NonfilePrivateStage, createT5NonfilePrivateStageFromProjection, ProductionImportT5NonfilePrivateStageError } from "../hr-cutover/production-import-t5-nonfile-private-stage.mjs";
+import { computeProductionImportPayloadHash } from "../hr-cutover/production-import-sealed-plan-lib.mjs";
 import { projectT5NonfilePayloadRecords, projectT5NonfileStagedRecord } from "../hr-cutover/production-import-t5-nonfile-stage-adapter.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
@@ -44,4 +46,26 @@ test("unbound field projection reuses bound adapter semantics without claiming m
   assert.throws(() => projectT5NonfilePayloadRecords({ ...input, definitionLogicColumnPresentCount: 1 }));
   assert.throws(() => projectT5NonfilePayloadRecords({ ...input, records: [input.records[0], input.records[0]] }));
   assert.throws(() => projectT5NonfilePayloadRecords({ ...input, records: [{ ...input.records[0], materialized: { ...row.materialized, skillName: null } }] }));
+});
+
+test("retained projection uses identical stage, receipt and quarantine semantics", () => {
+  for (const employeeIndex of [[{ employeeCode: "E-001", sourceIdentitySha256: hash("employee") }], []]) {
+    const input = { triple, stageManifest: manifest, definitionEvidence, employeeIndex, records: [row] };
+    const expected = createT5NonfilePrivateStage(input);
+    const projected = { ...input, records: [projectT5NonfileStagedRecord(row)] };
+    const original = structuredClone(projected);
+    const actual = createT5NonfilePrivateStageFromProjection(projected, computeProductionImportPayloadHash(projected.records));
+    assert.deepEqual(actual, expected);
+    assert.deepEqual(projected, original);
+    assert.equal(actual.receipt.productionImport, "HOLD");
+  }
+});
+
+test("retained path rejects drift, raw source, duplicate identity and broken binding", () => {
+  const input = { triple, stageManifest: manifest, definitionEvidence, employeeIndex: [], records: [projectT5NonfileStagedRecord(row)] };
+  const run = value => createT5NonfilePrivateStageFromProjection(value, computeProductionImportPayloadHash(value.records));
+  assert.throws(() => createT5NonfilePrivateStageFromProjection(input, hash("wrong")), ProductionImportT5NonfilePrivateStageError);
+  assert.throws(() => run({ ...input, records: [row] }), ProductionImportT5NonfilePrivateStageError);
+  assert.throws(() => run({ ...input, records: [...input.records, ...input.records] }), ProductionImportT5NonfilePrivateStageError);
+  assert.throws(() => run({ ...input, stageManifest: { ...manifest, mappingContractSha256: hash("wrong") } }), ProductionImportT5NonfilePrivateStageError);
 });
