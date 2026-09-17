@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import console from "node:console";
+import process from "node:process";
+import { URL } from "node:url";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 import {
@@ -53,6 +57,14 @@ assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\
 assert.match(sql, /"probation_salary"::text/u);
 assert.match(sql, /to_char\([^)]*"signed_at"/u);
 assert.match(sql, /'targetIdentityMaterial'/u);
+const scopedSql = buildProductionTargetInventorySql("a".repeat(64));
+assert.match(scopedSql, /FROM validated WHERE encode\(sha256\(/u);
+assert.match(scopedSql, /decode\('00','hex'\)/u);
+assert.match(scopedSql, /HAVING count\(\*\)=1/u);
+assert.throws(() => buildProductionTargetInventorySql("bad"), error => error.code === "PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID");
+const empty = spawnSync(process.execPath, [new URL("../hr-cutover/materialize-production-target-inventory.mjs", import.meta.url).pathname], { input: "", encoding: "utf8" });
+assert.equal(empty.status, 1);
+assert.equal(empty.stderr.trim(), "PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID");
 
 const hostProbe = readFileSync(new URL("../diagnose-yuzhou-hr-production-target-inventory.sh", import.meta.url), "utf8");
 assert.match(hostProbe, /umask 077/u);
@@ -60,5 +72,22 @@ assert.match(hostProbe, /BEGIN TRANSACTION READ ONLY|materialize-production-targ
 assert.match(hostProbe, /trap 'rm -f "\$query" "\$payload" "\$receipt" "\$probe_error"'/u);
 assert.doesNotMatch(hostProbe, /probe="\$\(\{/u, "hash inventory must not be buffered in a shell variable");
 assert.doesNotMatch(hostProbe, /(?:cat|printf).*\$payload/u, "raw production rows must never be printed");
+
+const classifier = hostProbe.slice(hostProbe.indexOf("classify_probe_failure()"), hostProbe.indexOf('\ncd "$deploy_path"'));
+const classify = diagnostic => {
+  const run = spawnSync("sh", ["-c", `${classifier}\nclassify_probe_failure "$1"`, "classifier", diagnostic], { encoding: "utf8" });
+  assert.equal(run.status, 0);
+  assert.equal(run.stderr, "");
+  return run.stdout.trim();
+};
+for (const suffix of ["INPUT_INVALID", "SCOPE_INVALID", "RECORD_INVALID", "DUPLICATE", "FAILED", "ARGUMENT_INVALID"]) {
+  const code = `PRODUCTION_IMPORT_TARGET_INVENTORY_${suffix}`;
+  assert.equal(classify(code), code);
+  assert.equal(classify(`${code}\nprivate-fixture-value`), "YUZHOU_HR_TARGET_INVENTORY_PROBE_FAILED");
+}
+assert.equal(classify("private-fixture-value"), "YUZHOU_HR_TARGET_INVENTORY_PROBE_FAILED");
+assert.equal(classify("permission denied for private-fixture-value"), "YUZHOU_HR_TARGET_INVENTORY_DB_PERMISSION_DENIED");
+assert.match(hostProbe, /YUZHOU_HR_TARGET_INVENTORY_SQL_STAGE_FAILED/u);
+assert.match(hostProbe, /YUZHOU_HR_TARGET_INVENTORY_MATERIALIZE_STAGE_FAILED/u);
 
 console.log("Yuzhou production target inventory contract passed: all 16 T0-T3 target tables become a hash-only read-only inventory.");
