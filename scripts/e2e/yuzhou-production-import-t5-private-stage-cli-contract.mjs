@@ -104,6 +104,18 @@ test("private-stage CLI turns a verified T5 stage into 0600 private files and a 
     assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "badmode01" }), { code: "T5_RETAINED_FILE_UNSAFE" });
     chmodSync(projection.path, 0o600);
     const validProjection = JSON.parse(readFileSync(projection.path));
+    // The retained reprojection producer uses this kind in real migration material.
+    // Accept its identical contract without rewriting historical artifacts.
+    const reprojection = { ...validProjection, artifactKind: "yuzhou_t5_retained_reprojection" };
+    config.projection.sha256 = privateWrite(projection.path, reprojection);
+    privateWrite(configPath, config);
+    const reprojectionResult = prepareT5ProductionPrivateStage({ ...retainedInput, runId: "reprojection01" });
+    assert.deepEqual(byIdentity(JSON.parse(readFileSync(join(reprojectionResult.output, "private-stage.json"))).records), byIdentity(privateStage.records));
+    assert.equal(reprojectionResult.productionImport, "HOLD");
+    config.projection.sha256 = privateWrite(projection.path, { ...reprojection, records: reprojection.records.map((row, index) => index === 0 ? { ...row, sourceRowSha256: hash("reprojection-drift") } : row) });
+    privateWrite(configPath, config);
+    assert.throws(() => prepareT5ProductionPrivateStage({ ...retainedInput, runId: "reprojectiondrift01" }), { code: "T5_RETAINED_IDENTITY_INVALID" });
+    assert.equal(existsSync(join(outputRoot, "t5-private-reprojectiondrift01")), false);
     for (const artifactKind of ["unrelated-projection", "", null]) {
       config.projection.sha256 = privateWrite(projection.path, { ...validProjection, artifactKind });
       privateWrite(configPath, config);
