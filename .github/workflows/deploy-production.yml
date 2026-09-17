@@ -34,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      diagnose_hr_role:
+        description: "Include count-only HR role identity probe in runtime-revision diagnosis. Never grants permissions."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-production
@@ -119,6 +124,7 @@ jobs:
           node scripts/e2e/production-deploy-transfer.contract.mjs
           node scripts/e2e/production-deploy-verified-scope.contract.mjs
           node --test scripts/e2e/production-runtime-revision.contract.mjs
+          node --test scripts/e2e/hr-role-identity.contract.mjs
           sh scripts/e2e/production-backup-restore-gate-contract.sh
           sh scripts/e2e/production-data-disk-mount-contract.sh
           git diff --check
@@ -251,6 +257,27 @@ jobs:
           node scripts/assert-verified-production-deploy-scope.mjs \
             --verified="$VERIFIED_DEPLOY_MODE" \
             --resolved="$RESOLVED_DEPLOY_MODE"
+
+      - name: Diagnose HR role identity counts (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_hr_role }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          if ! probe_error="$(ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "node --input-type=module - '$PROD_DEPLOY_PATH'" < scripts/diagnose-hr-role-identity.mjs \
+            2>&1 > "$RUNNER_TEMP/hr-role-identity-counts.json")"; then
+            case "$probe_error" in
+              HR_ROLE_IDENTITY_PATH_INVALID|HR_ROLE_IDENTITY_PROBE_FAILED|HR_ROLE_IDENTITY_RESULT_INVALID) printf '%s\n' "$probe_error" >&2 ;;
+              *) echo HR_ROLE_IDENTITY_REMOTE_FAILED >&2 ;;
+            esac
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/hr-role-identity-counts.json"
 
       - name: Diagnose production runtime image revisions (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' }}

@@ -7,6 +7,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { identitySql } from '../diagnose-hr-role-identity.mjs';
 
 const bin = process.env.PG_BIN || execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
 const dir = mkdtempSync(join(tmpdir(), 'jinhu-hr-role-test-'));
@@ -56,6 +57,12 @@ try {
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(), '0');
   query('DELETE FROM sys_user WHERE id=3; UPDATE sys_role SET is_super=true WHERE id=1');
   assert.throws(() => query(sql), /HR_MANAGER role missing or ambiguous/);
+  query('ALTER TABLE sys_user ADD COLUMN is_enabled boolean DEFAULT true; UPDATE sys_role SET is_super=false WHERE id=1');
+  const counts = () => JSON.parse(query(identitySql).split('\n').find(line => line.startsWith('{')));
+  assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  query("INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,false)");
+  assert.deepEqual(counts(), {matchingUsers:2,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(),'0');
   console.log('wu-enguo-hr-manager-postgres: PASS (repeat, isolation, concurrency, ambiguity, super-role rejection)');
 } finally {
   if (started) execFileSync(join(bin, 'pg_ctl'), ['-D', join(dir, 'data'), '-m', 'fast', '-w', 'stop'], { stdio: 'pipe' });
