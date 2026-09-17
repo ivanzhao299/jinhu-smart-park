@@ -1,3 +1,5 @@
+/* global structuredClone */
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { TextDecoder } from "node:util";
 
@@ -193,7 +195,7 @@ export function bridgeProductionImportRealArtifacts(input, { model: modelInput =
 
   let generated;
   try {
-    generated = generateProductionImportPayloads(artifacts, { model });
+    generated = generateProductionImportPayloads(artifacts, { model, includeArtifactText: false });
   } catch (error) {
     if (!(error instanceof ProductionImportPayloadGenerationError)) throw error;
     return holdResult({ expectedTriple, phaseEvidence, artifacts, coverage, reasonCode: error.code });
