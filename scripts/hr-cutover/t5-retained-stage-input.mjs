@@ -38,7 +38,7 @@ export function readT5RetainedStageInput(configPath, triple) {
   const currentReceipt = artifact(c.currentReceipt, 262144), projected = artifact(c.projection), definitions = artifact(c.definitions, 262144);
   const p = projected.value, m = historical.value;
   if (!exact(p, ["artifactKind", "formatVersion", "productionImport", "records", "sourceManifestSha256", "sourceSnapshotSha256"])
-    || p.artifactKind !== "retained-projection" || p.formatVersion !== 1 || p.productionImport !== "HOLD" || !Array.isArray(p.records)
+    || !["retained-projection", "yuzhou_t5_retained_reprojection"].includes(p.artifactKind) || p.formatVersion !== 1 || p.productionImport !== "HOLD" || !Array.isArray(p.records)
     || p.sourceSnapshotSha256 !== triple.sourceSnapshotHash || !exact(definitions.value, ["records"])
     || !Array.isArray(definitions.value.records)) fail("T5_RETAINED_PROJECTION_INVALID");
   const provenance = verifyT5RetainedSourceBinding({ historicalManifest: historical, historicalReceipt: oldReceipt, currentReceipt,
