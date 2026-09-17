@@ -1,0 +1,5 @@
+device=device
+accel=null
+user_rot=0
+ime=com.sohu.inputmethod.sogou.xiaomi/.SogouIME
+reverse_after=
