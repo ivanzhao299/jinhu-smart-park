@@ -30,6 +30,9 @@ describe("leasing checkout persistent completion", () => {
     });
     render(view()); await open(action);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("刷新失败"));
+    // Completion is published before the confirmation component finishes closing.
+    // Wait for that lifecycle boundary before querying same-named page actions.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: action === "effective" ? "确认退租生效" : "确认退租结算" })).not.toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent(action === "effective" ? "退租已生效" : "退租结算已确认");
     for (const name of ["确认结算", "退租生效"]) expect(screen.getByRole("button", { name })).toBeDisabled();
     expect(request.mock.calls.filter(([, options]) => options.method === "POST")).toHaveLength(1);
