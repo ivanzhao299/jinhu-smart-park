@@ -6,6 +6,9 @@ const sql = readFileSync(new URL('../../database/seeds/production/000033_wu_engu
 assert.match(sql, /username IN \('wu_enguo','wuenguo'\) AND display_name='吴恩国'/);
 assert.match(sql, /count\(\*\)[\s\S]*<> 1/);
 assert.match(sql, /BEGIN;[\s\S]*SET LOCAL lock_timeout = '5s';[\s\S]*LOCK TABLE sys_user, sys_role IN SHARE ROW EXCLUSIVE MODE;[\s\S]*DO \$\$/);
+assert.match(sql, /username='wu_enguo' AND NOT EXISTS\(SELECT 1 FROM candidates WHERE username='wuenguo'\)/);
+assert.match(sql, /FROM wu_hr_target u JOIN sys_role/);
+assert.doesNotMatch(sql, /UPDATE sys_user|SET is_enabled\s*=/i);
 assert.match(sql, /r\.park_id=u\.park_id/);
 assert.match(sql, /r\.code='HR_MANAGER'/);
 assert.match(sql, /r\.is_super=false/);

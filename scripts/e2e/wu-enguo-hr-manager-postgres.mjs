@@ -7,6 +7,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { identitySql } from '../diagnose-hr-role-identity.mjs';
 
 const bin = process.env.PG_BIN || execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
 const dir = mkdtempSync(join(tmpdir(), 'jinhu-hr-role-test-'));
@@ -17,11 +18,11 @@ try {
   execFileSync(join(bin, 'initdb'), ['-D', join(dir, 'data'), '-A', 'trust', '--no-locale'], { stdio: 'pipe' });
   execFileSync(join(bin, 'pg_ctl'), ['-D', join(dir, 'data'), '-l', join(dir, 'postgres.log'), '-o', `-k ${dir} -p 55489 -c listen_addresses=''`, '-w', 'start'], { stdio: 'pipe' });
   started = true;
-  query(`CREATE TABLE sys_user(id int PRIMARY KEY,tenant_id text,park_id text,username text,display_name text,is_deleted boolean);
+  query(`CREATE TABLE sys_user(id int PRIMARY KEY,tenant_id text,park_id text,username text,display_name text,is_deleted boolean,is_enabled boolean DEFAULT true);
     CREATE TABLE sys_role(id int PRIMARY KEY,tenant_id text,park_id text,code text,is_deleted boolean,is_enabled boolean,is_super boolean);
     CREATE TABLE rel_user_role(tenant_id text,park_id text,user_id int,role_id int,create_time timestamptz,update_time timestamptz,is_deleted boolean,version int,remark text);
     CREATE UNIQUE INDEX role_active ON rel_user_role(tenant_id,park_id,user_id,role_id) WHERE is_deleted=false;
-    INSERT INTO sys_user VALUES(1,'10000001','20000001','wu_enguo','吴恩国',false),(2,'other','other','wu_enguo','吴恩国',false);
+    INSERT INTO sys_user VALUES(1,'10000001','20000001','wu_enguo','吴恩国',false,true),(2,'other','other','wu_enguo','吴恩国',false,true);
     INSERT INTO sys_role VALUES(1,'10000001','20000001','HR_MANAGER',false,true,false),(2,'other','other','HR_MANAGER',false,true,false);
   `);
   query(sql); query(sql);
@@ -42,7 +43,7 @@ try {
       locker.stdin.write(sql.replace('COMMIT;', "SELECT 'LOCK_READY';"));
     });
     for (const mutation of [
-      "INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false)",
+      "INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,true)",
       'UPDATE sys_role SET is_enabled=false WHERE id=1',
     ]) assert.throws(() => query(`SET lock_timeout='100ms'; ${mutation}`), /lock timeout/);
   } finally {
@@ -51,11 +52,33 @@ try {
   }
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND role_id=1 AND NOT is_deleted').trim(), '1');
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=2').trim(), '0');
-  query("UPDATE rel_user_role SET is_deleted=true; INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false)");
+  query("UPDATE rel_user_role SET is_deleted=true; INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,true)");
+  query(sql); query(sql);
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=3 AND NOT is_deleted').trim(),'1');
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id<>3 AND NOT is_deleted').trim(),'0');
+  query("UPDATE rel_user_role SET is_deleted=true; INSERT INTO sys_user VALUES(4,'10000001','20000001','wuenguo','吴恩国',false,true)");
   assert.throws(() => query(sql), /one exact scoped identity/);
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(), '0');
+  query('DELETE FROM sys_user WHERE id=4; UPDATE sys_user SET is_enabled=false WHERE id=3');
+  query(sql);
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=3 AND NOT is_deleted').trim(),'1');
+  assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=3').trim(),'f');
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'0');
+  query('UPDATE rel_user_role SET is_deleted=true');
   query('DELETE FROM sys_user WHERE id=3; UPDATE sys_role SET is_super=true WHERE id=1');
   assert.throws(() => query(sql), /HR_MANAGER role missing or ambiguous/);
+  query('UPDATE sys_role SET is_super=false WHERE id=1');
+  // Actual 000175 fresh-schema shape: only the disabled legacy alias exists.
+  query('UPDATE sys_user SET is_enabled=false WHERE id=1');
+  query(sql); query(sql);
+  assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=1').trim(),'f');
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'1');
+  query('UPDATE rel_user_role SET is_deleted=true; UPDATE sys_user SET is_enabled=true WHERE id=1');
+  const counts = () => JSON.parse(query(identitySql).split('\n').find(line => line.startsWith('{')));
+  assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  query("INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,false)");
+  assert.deepEqual(counts(), {matchingUsers:2,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(),'0');
   console.log('wu-enguo-hr-manager-postgres: PASS (repeat, isolation, concurrency, ambiguity, super-role rejection)');
 } finally {
   if (started) execFileSync(join(bin, 'pg_ctl'), ['-D', join(dir, 'data'), '-m', 'fast', '-w', 'stop'], { stdio: 'pipe' });
