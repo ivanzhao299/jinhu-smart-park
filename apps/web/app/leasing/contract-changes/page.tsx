@@ -1,4 +1,5 @@
 "use client";
+import tableStyles from "../leasing-record-actions.module.css";
 import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, PlayCircle, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
@@ -506,7 +507,7 @@ export default function LeasingContractChangesPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
         </div>
         <div className="table-scroll">
-          <DataTable >
+          <DataTable className={tableStyles.records}>
             <thead>
               <tr>
                 <th>变更单号</th>
@@ -666,7 +667,7 @@ export default function LeasingContractChangesPage() {
             onClose={() => setDrawerOpen(false)}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm onSubmit={submit}>
+          <DrawerForm onSubmit={submit} onChangeCapture={() => setError(null)}>
             <div className="system-grid">
               <label className="field">
                 <span>变更单号</span>
@@ -745,6 +746,7 @@ export default function LeasingContractChangesPage() {
               <textarea value={form.remark} onChange={(event) => setForm((prev) => ({ ...prev, remark: event.target.value }))} />
             </label>
             <DrawerFooter>
+              {error ? <p className="ds-field-error" style={{ flexBasis: "100%" }} role="alert">{error}</p> : null}
               <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
               <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
                 {saving ? "保存中" : "保存草稿"}

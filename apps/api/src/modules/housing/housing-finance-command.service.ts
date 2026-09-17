@@ -22,6 +22,7 @@ import {
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { ApprovalExecutionError } from "../property-approvals/property-approval.service";
 import type { RegisterHousingLedgerEntryDto } from "./dto/housing.dto";
 import {
   HousingLedgerEntryEntity,
@@ -31,7 +32,8 @@ import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
   calculateHousingDepositBalance,
-  formatHousingMoney
+  formatHousingMoney,
+  HousingReceivableBalanceError
 } from "./housing-finance.policy";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
@@ -452,7 +454,7 @@ export class HousingFinanceCommandService {
       || receivable.waivedAmount !== line.receivableWaivedAmount
       || receivable.currency !== line.currency
       || receivable.status === "void") {
-      throw new ConflictException("Approval source changed");
+      throw new ApprovalExecutionError("business", "approval-source-changed", "Approval source changed");
     }
   }
 
@@ -516,10 +518,19 @@ export class HousingFinanceCommandService {
   ) {
     if (entryType === "deposit_refund") return;
     const mutable = { ...receivable } as HousingReceivableEntity;
-    this.applyReceivableEntry(mutable, {
-      entry_type: entryType,
-      amount: String(line.amount)
-    } as RegisterHousingLedgerEntryDto);
+    try {
+      this.applyReceivableEntry(mutable, {
+        entry_type: entryType,
+        amount: String(line.amount)
+      } as RegisterHousingLedgerEntryDto);
+    } catch (error) {
+      if (!(error instanceof HousingReceivableBalanceError)) throw error;
+      throw new ApprovalExecutionError(
+        "business",
+        "housing-receivable-balance-exceeded",
+        error.message
+      );
+    }
     const scope = input.request;
     const updated = typeormQueryRows<{ version: number }>(await input.manager.query(
       `UPDATE biz_housing_receivable SET paid_amount=$5,waived_amount=$6,status=$7,

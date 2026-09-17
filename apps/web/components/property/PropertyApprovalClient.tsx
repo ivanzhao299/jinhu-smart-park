@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { useAuthUser } from "../../lib/auth-context";
+import { projectPropertyCapabilities } from "../../features/property-shared";
 import { getAccessToken } from "../../lib/authz";
 import { PropertyPageSurface, PropertyPanelSurface, propertyLabels } from "../../features/property-shared";
 import styles from "./PropertyControlPlane.module.css";
@@ -96,28 +98,41 @@ export function PropertyApprovalListClient() {
 }
 
 export function PropertyApprovalDetailClient({ requestId }: { requestId: string }) {
+  const user = useAuthUser();
+  const scopeKey = projectPropertyCapabilities(user, "property.approvals").invalidationKey;
+  return <PropertyApprovalDetailContent key={JSON.stringify([requestId, scopeKey])} requestId={requestId} />;
+}
+
+function PropertyApprovalDetailContent({ requestId }: { requestId: string }) {
   const searchParams = useSearchParams();
   const returnHref = propertyApprovalReturnHref(searchParams.get("returnTo")) as Route;
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState("");
   const [mutating, setMutating] = useState(false);
+  const [completion, setCompletion] = useState("");
+  const [stale, setStale] = useState(false);
+  const sequence = useRef(0);
   const lock = useRef(false);
   const load = useCallback(async () => {
+    const current = ++sequence.current;
     try {
       const response = await apiRequest<ApprovalDetail>(
         `/property/approvals/${encodeURIComponent(requestId)}`,
         { token: getAccessToken() ?? undefined }
       );
-      setDetail(response.data); setFeedback("");
+      if (current !== sequence.current) return;
+      setDetail(response.data); setFeedback(""); setStale(false);
     } catch (cause) {
+      if (current !== sequence.current) return;
+      setStale(true);
       setFeedback(cause instanceof Error ? cause.message : "审批详情加载失败");
     }
   }, [requestId]);
   useEffect(() => void load(), [load]);
 
   async function mutate(action: "approve" | "reject" | "withdraw") {
-    if (!detail || lock.current) return;
+    if (!detail || lock.current || stale) return;
     if ((action === "reject" || action === "withdraw") && !reason.trim()) {
       setFeedback("驳回或撤回前必须填写原因。"); return;
     }
@@ -140,7 +155,9 @@ export function PropertyApprovalDetailClient({ requestId }: { requestId: string 
             expectedRequestVersion: detail.request.decisionVersion }
         });
       }
-      setReason(""); await load();
+      ++sequence.current;
+      setCompletion(action === "withdraw" ? "撤回已完成。" : action === "reject" ? "驳回已完成。" : "批准已完成。");
+      setStale(true); setReason(""); await load();
     } catch (cause) {
       setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
     } finally { lock.current = false; setMutating(false); }
@@ -162,18 +179,22 @@ export function PropertyApprovalDetailClient({ requestId }: { requestId: string 
           onChange={(event) => setReason(event.target.value)} value={reason} /></label>
           <div className={styles.toolbar}>
             {detail.request.allowedActions.includes("property.approval.decide") ? <>
-              <button className="ds-button ds-button-primary" disabled={mutating}
+              <button className="ds-button ds-button-primary" disabled={mutating || stale}
                 onClick={() => void mutate("approve")} type="button">批准</button>
-              <button className="ds-button" disabled={mutating}
+              <button className="ds-button" disabled={mutating || stale}
                 onClick={() => void mutate("reject")} type="button">驳回</button>
             </> : null}
             {detail.request.allowedActions.includes("property.approval.withdraw") ? <button
-              className="ds-button" disabled={mutating}
+              className="ds-button" disabled={mutating || stale}
               onClick={() => void mutate("withdraw")} type="button">撤回</button> : null}
           </div>
         </div>
       </PropertyPanelSurface> : null}
     </> : null}
+    {completion ? <PropertyPanelSurface aria-live="polite"><p>{completion}</p></PropertyPanelSurface> : null}
+    {stale ? <PropertyPanelSurface><p>当前显示的是旧数据，请刷新后再操作。</p>
+      <button className="ds-button" disabled={mutating} onClick={() => void load()} type="button">刷新详情</button>
+    </PropertyPanelSurface> : null}
     {feedback ? <PropertyPanelSurface aria-live="polite"><p>{feedback}</p></PropertyPanelSurface> : null}
   </PropertyPageSurface>;
 }

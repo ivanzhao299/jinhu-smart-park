@@ -1,4 +1,5 @@
 "use client";
+import tableStyles from "../leasing-record-actions.module.css";
 import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { Ban, CheckCircle2, Download, Edit3, Plus, RefreshCw, Send, Search, Trash2, X } from "lucide-react";
@@ -1025,6 +1026,7 @@ export default function LeasingContractsPage() {
 
   async function rejectContract(row: LeasingContractRow) {
     const rejectReason = window.prompt("请输入驳回原因");
+    if (rejectReason === null) return;
     if (!rejectReason?.trim()) {
       setMessage("驳回原因必填");
       return;
@@ -1257,7 +1259,7 @@ export default function LeasingContractsPage() {
           {message ? <p className="status-pill">{message}</p> : null}
 
           <Card className=" table-scroll">
-            <DataTable className="allow-horizontal-table">
+            <DataTable className={`allow-horizontal-table ${tableStyles.records}`}>
               <thead>
                 <tr>
                   <th>合同</th>

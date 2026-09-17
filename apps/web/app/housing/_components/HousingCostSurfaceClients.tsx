@@ -51,7 +51,19 @@ export function HousingBillingClient() {
 }
 
 export function HousingFinanceClient() {
+  const user = useAuthUser();
+  const scopeKey = projectPropertyCapabilities(user, "housing.finance").invalidationKey;
+  return <HousingFinanceContent key={scopeKey} />;
+}
+
+function HousingFinanceContent() {
+  const user = useAuthUser();
+  const capabilities = useMemo(() => projectPropertyCapabilities(user, "housing.finance"), [user]);
+  const [receipt, setReceipt] = useState<{ key: string; message: string } | null>(null);
   return <HousingCollectionPage<HousingFinanceListItem>
+    disableItemActionsWhenStale
+    completionFeedback={receipt && receipt.key === capabilities.invalidationKey && capabilities.pageAllowed
+      ? <p className="ds-panel" role="status">{receipt.message}</p> : null}
     description="仅显示住房子账汇总；退款、减免与押金退还在 Track B 审批接入前不可执行。"
     endpoint="/housing/finance" featureId="housing.finance" route="/housing/finance"
     fields={housingFields<HousingFinanceListItem>(
@@ -69,7 +81,8 @@ export function HousingFinanceClient() {
     getKey={(item) => item.lease.id} getTitle={(item) => item.lease.leaseCode
     } readActionId="housing.finance.list"
     renderItemActions={(item, capabilities, reload) =>
-      <HousingFinanceActions capabilities={capabilities} item={item} reload={reload} />}
+      <HousingFinanceActions capabilities={capabilities} item={item} reload={reload}
+        onCompleted={(message) => setReceipt({ key: capabilities.invalidationKey, message })} />}
     title="财务子账"
   />;
 }

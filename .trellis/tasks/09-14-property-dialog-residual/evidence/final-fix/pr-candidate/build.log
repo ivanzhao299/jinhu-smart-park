@@ -1,0 +1,251 @@
+
+> @jinhu/web@0.1.0 build <workspace>/apps/web
+> next build
+
+   ▲ Next.js 15.5.18
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 14.3s
+   Linting and checking validity of types ...
+
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+   Collecting page data ...
+   Generating static pages (0/192) ...
+   Generating static pages (48/192)
+   Generating static pages (96/192)
+   Generating static pages (144/192)
+ ✓ Generating static pages (192/192)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                         Size  First Load JS
+┌ ○ /                                              172 B         103 kB
+├ ○ /_not-found                                    172 B         103 kB
+├ ƒ /[...segments]                               1.44 kB         156 kB
+├ ○ /403                                           852 B         107 kB
+├ ○ /account/security                            1.55 kB         111 kB
+├ ○ /admin/energy/alerts                           185 B         142 kB
+├ ○ /admin/energy/allocation-rules                 186 B         143 kB
+├ ○ /admin/energy/billing-adjustments              183 B         143 kB
+├ ○ /admin/energy/billing-cycles                   188 B         146 kB
+├ ○ /admin/energy/billing-items                    188 B         143 kB
+├ ○ /admin/energy/dashboard                        190 B         145 kB
+├ ○ /admin/energy/meters                           189 B         148 kB
+├ ○ /admin/energy/readings                         187 B         143 kB
+├ ○ /admin/iot/alerts                              187 B         147 kB
+├ ○ /admin/iot/dashboard                           191 B         146 kB
+├ ○ /admin/iot/devices                             191 B         155 kB
+├ ○ /admin/iot/gateways                            183 B         144 kB
+├ ○ /admin/iot/protocol-configs                  4.98 kB         143 kB
+├ ○ /admin/iot/rules                               186 B         145 kB
+├ ○ /admin/iot/scenes                            6.58 kB         144 kB
+├ ○ /admin/iot/scenes/templates                  5.09 kB         143 kB
+├ ○ /admin/organizations                           172 B         103 kB
+├ ○ /admin/roles                                   172 B         103 kB
+├ ○ /admin/users                                   172 B         103 kB
+├ ○ /admin/video-security/alerts                 6.41 kB         144 kB
+├ ○ /admin/video-security/cameras                8.82 kB         151 kB
+├ ○ /admin/video-security/dashboard              3.99 kB         142 kB
+├ ○ /admin/video-security/platform-configs       6.42 kB         144 kB
+├ ○ /ai/assistant                                6.47 kB         148 kB
+├ ○ /apartments                                    144 B         151 kB
+├ ○ /apartments/applications                       144 B         151 kB
+├ ○ /apartments/checkouts                          144 B         151 kB
+├ ○ /apartments/documents                        5.26 kB         146 kB
+├ ○ /apartments/rooms                              144 B         151 kB
+├ ○ /apartments/stays                              144 B         151 kB
+├ ○ /assets/buildings                            5.85 kB         144 kB
+├ ○ /assets/floors                               6.53 kB         153 kB
+├ ○ /assets/identity-submissions                   214 B         173 kB
+├ ƒ /assets/identity-submissions/[submissionId]    215 B         173 kB
+├ ○ /assets/parks                                24.2 kB         162 kB
+├ ○ /assets/parties                              4.49 kB         162 kB
+├ ƒ /assets/parties/[partyId]                    4.83 kB         162 kB
+├ ○ /assets/property-mode-transitions              206 B         167 kB
+├ ○ /assets/property-occupancies                   206 B         167 kB
+├ ƒ /assets/property-occupancies/[occupancyId]     203 B         167 kB
+├ ○ /assets/property-operations                    206 B         167 kB
+├ ƒ /assets/property-operations/[unitId]           203 B         167 kB
+├ ○ /assets/rooms                                  155 B         182 kB
+├ ○ /assets/statistics                           5.17 kB         120 kB
+├ ○ /assets/unit-status-board                    8.94 kB         124 kB
+├ ○ /assets/units                                  156 B         182 kB
+├ ○ /bim/overview                                3.05 kB         109 kB
+├ ○ /cockpit/overview                            3.05 kB         109 kB
+├ ○ /contracts                                     172 B         103 kB
+├ ○ /dashboard                                   1.85 kB         115 kB
+├ ○ /energy/alerts                                 186 B         142 kB
+├ ○ /energy/allocation-rules                       186 B         143 kB
+├ ○ /energy/billing-adjustments                    183 B         143 kB
+├ ○ /energy/billing-cycles                         189 B         146 kB
+├ ○ /energy/billing-items                          186 B         143 kB
+├ ○ /energy/dashboard                              190 B         145 kB
+├ ○ /energy/meters                                 191 B         148 kB
+├ ○ /energy/readings                               187 B         143 kB
+├ ○ /engineering                                    3 kB         109 kB
+├ ○ /engineering/acceptances                     5.12 kB         127 kB
+├ ƒ /engineering/acceptances/[id]                3.36 kB         126 kB
+├ ƒ /engineering/acceptances/[id]/edit             385 B         128 kB
+├ ○ /engineering/acceptances/new                   192 B         127 kB
+├ ○ /engineering/daily-reports                   4.15 kB         127 kB
+├ ƒ /engineering/daily-reports/[id]              3.34 kB         126 kB
+├ ƒ /engineering/daily-reports/[id]/edit           386 B         127 kB
+├ ○ /engineering/daily-reports/new                 191 B         127 kB
+├ ○ /engineering/dashboard                       4.97 kB         127 kB
+├ ○ /engineering/inspections                     5.69 kB         127 kB
+├ ƒ /engineering/inspections/[id]                5.66 kB         127 kB
+├ ƒ /engineering/inspections/[id]/edit             385 B         128 kB
+├ ○ /engineering/inspections/new                   193 B         128 kB
+├ ○ /engineering/plans                           4.31 kB         128 kB
+├ ƒ /engineering/plans/[id]                      2.98 kB         127 kB
+├ ƒ /engineering/plans/[id]/edit                   381 B         128 kB
+├ ○ /engineering/plans/new                         189 B         128 kB
+├ ○ /engineering/projects                        6.91 kB         125 kB
+├ ƒ /engineering/projects/[id]                   10.1 kB         137 kB
+├ ƒ /engineering/projects/[id]/edit                347 B         126 kB
+├ ○ /engineering/projects/new                      188 B         126 kB
+├ ○ /engineering/rectifications                   7.8 kB         126 kB
+├ ƒ /engineering/rectifications/[id]             7.01 kB         125 kB
+├ ○ /engineering/terminal                        15.5 kB         132 kB
+├ ○ /finance/aging                                 172 B         103 kB
+├ ○ /finance/invoices                              172 B         103 kB
+├ ○ /finance/payments                              172 B         103 kB
+├ ○ /finance/receivables                           172 B         103 kB
+├ ○ /homestay                                    2.77 kB         157 kB
+├ ○ /homestay/availability                         207 B         168 kB
+├ ○ /homestay/bookings                             207 B         168 kB
+├ ƒ /homestay/bookings/[bookingId]                 155 B         174 kB
+├ ○ /homestay/dashboard                            207 B         168 kB
+├ ○ /homestay/finance                              207 B         168 kB
+├ ○ /homestay/rates                              5.13 kB         162 kB
+├ ○ /homestay/stays                                207 B         168 kB
+├ ƒ /homestay/stays/[stayId]                       156 B         174 kB
+├ ○ /homestay/tasks                                205 B         172 kB
+├ ○ /homestay/turnovers                            207 B         168 kB
+├ ƒ /homestay/turnovers/[turnoverId]               156 B         174 kB
+├ ○ /housing                                     1.32 kB         156 kB
+├ ○ /housing/billing                               230 B         181 kB
+├ ○ /housing/dashboard                             230 B         181 kB
+├ ○ /housing/finance                               230 B         181 kB
+├ ○ /housing/handovers                             230 B         181 kB
+├ ƒ /housing/handovers/[handoverId]                156 B         177 kB
+├ ○ /housing/leases                                230 B         181 kB
+├ ƒ /housing/leases/[leaseId]                      156 B         177 kB
+├ ○ /housing/purchases                             230 B         181 kB
+├ ƒ /housing/purchases/[purchaseId]                156 B         177 kB
+├ ○ /housing/repairs                               230 B         181 kB
+├ ƒ /housing/repairs/[repairId]                    155 B         177 kB
+├ ○ /housing/tasks                                 220 B         185 kB
+├ ○ /housing/tenants                               230 B         181 kB
+├ ƒ /housing/tenants/[partyId]                     496 B         155 kB
+├ ○ /hr                                           7.2 kB         149 kB
+├ ○ /hr/approvals                                3.85 kB         142 kB
+├ ○ /hr/attendance                               9.82 kB         151 kB
+├ ○ /hr/compensation                              3.1 kB         141 kB
+├ ○ /hr/contracts                                9.62 kB         164 kB
+├ ○ /hr/decision-center                          5.29 kB         147 kB
+├ ○ /hr/employees                                10.8 kB         165 kB
+├ ○ /hr/employees/custom-fields                  5.33 kB         141 kB
+├ ○ /hr/employees/legacy                           144 B         146 kB
+├ ○ /hr/employees/unclaimed                        144 B         146 kB
+├ ○ /hr/feedback-360                             6.46 kB         144 kB
+├ ○ /hr/goals                                    4.66 kB         143 kB
+├ ○ /hr/insurance                                5.91 kB         147 kB
+├ ○ /hr/lifecycle                                10.4 kB         152 kB
+├ ○ /hr/organization                             3.84 kB         142 kB
+├ ○ /hr/payroll                                    10 kB         148 kB
+├ ○ /hr/performance                              14.7 kB         153 kB
+├ ○ /hr/recruitment                              6.66 kB         148 kB
+├ ○ /hr/rewards                                  5.17 kB         160 kB
+├ ○ /hr/talent                                   6.49 kB         144 kB
+├ ○ /hr/training                                 5.66 kB         147 kB
+├ ○ /hr/work-reports                             5.01 kB         143 kB
+├ ○ /invest/funnel                                 172 B         103 kB
+├ ○ /invest/lead-pool                              172 B         103 kB
+├ ○ /invest/leads                                  172 B         103 kB
+├ ○ /iot/alert-rules                             6.52 kB         144 kB
+├ ○ /iot/alerts                                    186 B         147 kB
+├ ○ /iot/dashboard                                 191 B         146 kB
+├ ○ /iot/devices                                   191 B         155 kB
+├ ƒ /iot/devices/[id]                            8.91 kB         150 kB
+├ ○ /iot/gateways                                  184 B         144 kB
+├ ○ /iot/metrics                                 4.98 kB         143 kB
+├ ○ /iot/overview                                  172 B         103 kB
+├ ○ /iot/rules                                     186 B         145 kB
+├ ○ /leasing/aging                               5.47 kB         120 kB
+├ ○ /leasing/checkouts                           11.9 kB         174 kB
+├ ○ /leasing/contract-changes                    9.78 kB         125 kB
+├ ○ /leasing/contracts                           18.5 kB         180 kB
+├ ○ /leasing/funnel                              5.49 kB         120 kB
+├ ○ /leasing/invoices                            6.79 kB         172 kB
+├ ○ /leasing/lead-pool                           6.15 kB         121 kB
+├ ○ /leasing/leads                               17.5 kB         132 kB
+├ ○ /leasing/payments                            7.55 kB         173 kB
+├ ○ /leasing/receivables                         9.72 kB         167 kB
+├ ○ /leasing/refunds                             4.21 kB         119 kB
+├ ○ /leasing/tenants                             16.7 kB         132 kB
+├ ○ /leasing/waivers                             6.56 kB         121 kB
+├ ○ /login                                       38.7 kB         254 kB
+├ ○ /manifest.webmanifest                          172 B         103 kB
+├ ○ /operations/terminal                           156 B         172 kB
+├ ○ /preview/operations-terminal                   155 B         172 kB
+├ ○ /preview/tenant-service                        157 B         159 kB
+├ ○ /property/approval-incidents                   214 B         173 kB
+├ ƒ /property/approval-incidents/[requestId]       215 B         173 kB
+├ ○ /property/approvals                            204 B         161 kB
+├ ƒ /property/approvals/[requestId]                203 B         161 kB
+├ ○ /property/event-delivery-incidents             214 B         173 kB
+├ ƒ /property/event-delivery-incidents/[dlqId]     215 B         173 kB
+├ ○ /property/notifications                        214 B         173 kB
+├ ƒ /property/notifications/[notificationId]       215 B         173 kB
+├ ○ /robots/cleaning                             9.54 kB         147 kB
+├ ○ /robots/overview                             2.69 kB         109 kB
+├ ○ /safety/dashboard                            5.46 kB         143 kB
+├ ○ /safety/emergencies                          12.3 kB         155 kB
+├ ○ /safety/emergency-contacts                      7 kB         145 kB
+├ ○ /safety/emergency-dashboard                  5.58 kB         143 kB
+├ ○ /safety/emergency-plans                      5.56 kB         148 kB
+├ ○ /safety/hazards                                153 B         162 kB
+├ ○ /safety/hazards/overdue                        153 B         162 kB
+├ ○ /safety/inspect-plans                        7.59 kB         145 kB
+├ ○ /safety/inspect-points                       8.41 kB         146 kB
+├ ○ /safety/inspect-tasks                          147 B         152 kB
+├ ○ /safety/inspect-templates                     6.3 kB         144 kB
+├ ○ /safety/my-inspect-tasks                       148 B         152 kB
+├ ○ /safety/work-permits                         11.8 kB         154 kB
+├ ○ /system/attachments                          1.23 kB         147 kB
+├ ○ /system/audit                                  539 B         111 kB
+├ ○ /system/audit/login-logs                     2.31 kB         140 kB
+├ ○ /system/audit/op-logs                        3.25 kB         141 kB
+├ ○ /system/branding                             4.21 kB         147 kB
+├ ○ /system/client-downloads                     3.18 kB         106 kB
+├ ○ /system/code-rules                           4.59 kB         140 kB
+├ ○ /system/data-scopes                          4.34 kB         139 kB
+├ ○ /system/dicts                                5.31 kB         140 kB
+├ ○ /system/field-policies                       4.19 kB         139 kB
+├ ○ /system/files                                1.24 kB         147 kB
+├ ○ /system/modules                              4.55 kB         140 kB
+├ ○ /system/orgs                                 5.84 kB         144 kB
+├ ○ /system/permissions                          6.63 kB         142 kB
+├ ○ /system/roles                                11.2 kB         146 kB
+├ ○ /system/tenants                                732 B         142 kB
+├ ○ /system/users                                10.5 kB         149 kB
+├ ○ /tenant/service                                156 B         159 kB
+├ ○ /workflow/inbox                              4.15 kB         145 kB
+├ ○ /workorders                                  4.66 kB         146 kB
+├ ƒ /workorders/[id]                              6.5 kB         156 kB
+├ ○ /workorders/list                             13.7 kB         161 kB
+├ ○ /workorders/overdue                          4.88 kB         143 kB
+├ ○ /workorders/sla-rules                        5.29 kB         143 kB
+├ ○ /workorders/statistics                         172 B         103 kB
+└ ○ /workorders/stats                            5.13 kB         143 kB
++ First Load JS shared by all                     102 kB
+  ├ chunks/1403cfaa-33c2b74c127517c2.js          54.2 kB
+  ├ chunks/5159-7bcf68ab11c1091e.js              46.2 kB
+  └ other shared chunks (total)                  2.05 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

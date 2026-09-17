@@ -1,0 +1,9 @@
+{
+  "artifactId": "issue740-evidence-pre-review-20260914-1531.tar.gz",
+  "sha256": "b710bf9093e528da8f501317e86b8f160e6ccf2d15bc22548a054827a117a647",
+  "bytes": 28499969,
+  "originalFiles": 1164,
+  "originalBytes": 35470051,
+  "storage": "local private state / jinhu / issue740; not uploaded, not durable remote evidence",
+  "policy": "Keep originals byte-for-byte. Publish only separately sanitized curated evidence after review. Never git add entire task directory."
+}

@@ -804,3 +804,33 @@ test("incident retry cannot bypass module assignment, permission or incident-sco
     assert.equal(context.mutations.length, 0);
   }
 });
+
+
+test("housing balance business rejection terminates while database concurrency and generic conflicts keep retry semantics", async () => {
+  const cases = [
+    { error: new ApprovalExecutionError("business", "housing-receivable-balance-exceeded", "Financial entry exceeds receivable balance"),
+      status: "execution_failed", category: "business", code: "housing-receivable-balance-exceeded" },
+    { error: new ApprovalExecutionError("business", "approval-source-changed", "Approval source changed"),
+      status: "execution_failed", category: "business", code: "approval-source-changed" },
+    ...["40001", "40P01"].flatMap((code) => [
+      { error: Object.assign(new Error("database conflict"), { code }),
+        status: "retry_wait", category: "infra", code: "approval-database-concurrency-conflict" },
+      { error: Object.assign(new Error("database conflict"), { driverError: { code } }),
+        status: "retry_wait", category: "infra", code: "approval-database-concurrency-conflict" }
+    ]),
+    { error: new ConflictException("Approval source changed"),
+      status: "retry_wait", category: "infra", code: "approval-adapter-unexpected" }
+  ];
+  for (const item of cases) {
+    const context = runtime({ financialKinds: ["housing.ledger.refund"], executeError: item.error });
+    const claim = await context.service.claimExecution(scope, context.request.id, "worker-a");
+    await assert.rejects(context.service.executeClaim(scope, claim), ConflictException);
+    assert.equal(context.request.executionStatus, item.status);
+    assert.equal(context.request.lastErrorCategory, item.category);
+    assert.equal(context.request.lastErrorCode, item.code);
+    assert.equal(context.request.claimToken, null);
+    assert.equal(context.request.executedAt, null);
+    assert.equal(context.persistedReceipts.length, 0);
+    assert.equal(context.persistedOutbox.length, 0);
+  }
+});

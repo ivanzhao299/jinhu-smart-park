@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { EntityManager } from "typeorm";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
+import { ApprovalExecutionError } from "../property-approvals/property-approval.service";
 import { HousingPurchaseItemEntity } from "./entities/housing.entities";
 import { addHousingMoneyAmounts } from "./housing-finance.policy";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
@@ -77,6 +78,9 @@ export class HousingPurchaseApprovalExecutorService {
       [scope.tenantId, scope.parkId, leaseId]
     ) as Array<{ version: number; currency: string; status: string }>;
     const lease = leases[0];
+    if (lease && lease.version !== Number(payload.leaseExpectedVersion)) {
+      throw new ApprovalExecutionError("business", "approval-source-changed", "Approval source changed");
+    }
     if (!lease || lease.version !== Number(payload.leaseExpectedVersion)
       || lease.currency !== currency || !["active","expiring","checkout_pending"].includes(lease.status)) {
       throw new ConflictException("Approval source changed");

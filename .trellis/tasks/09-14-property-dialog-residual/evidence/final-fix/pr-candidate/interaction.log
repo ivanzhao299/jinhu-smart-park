@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 <workspace>/apps/web
+
+ ✓ test/interaction/homestay-detail-query.test.tsx (5 tests) 10ms
+ ✓ test/interaction/drawer-ownership.test.tsx (4 tests) 34ms
+ ✓ test/interaction/property-approval-refresh-receipt.test.tsx (8 tests) 350ms
+ ✓ test/interaction/housing-finance-refresh-receipt.test.tsx (4 tests) 374ms
+ ✓ test/interaction/consequence-dialog.test.tsx (13 tests) 580ms
+ ✓ test/interaction/leasing-checkout-refresh-receipt.test.tsx (15 tests) 2197ms
+
+ Test Files  6 passed (6)
+      Tests  49 passed (49)
+   Start at  15:40:26
+   Duration  3.23s (transform 978ms, setup 659ms, collect 2.30s, tests 3.55s, environment 1.47s, prepare 522ms)

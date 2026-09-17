@@ -35,6 +35,8 @@ export interface HousingCollectionPageProps<T> {
   detailHref?(item: T): UrlObject | null;
   renderItemActions?(item: T, capabilities: ReturnType<typeof projectPropertyCapabilities>, reload: () => Promise<void>): ReactNode;
   filters?: readonly HousingFilterDefinition[]; toolbar?: ReactNode; refreshKey?: number;
+  completionFeedback?: ReactNode;
+  disableItemActionsWhenStale?: boolean;
 }
 
 function useCollectionQuery(filters: readonly HousingFilterDefinition[], route: Route) {

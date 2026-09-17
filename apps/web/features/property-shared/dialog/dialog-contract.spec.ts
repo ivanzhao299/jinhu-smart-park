@@ -22,10 +22,13 @@ test("consequence confirmation uses native modal dialog and explicit cancellatio
   assert.match(source, /\.showModal\(\)/);
   assert.match(source, /onCancel=/);
   assert.match(combinedSource, /autoFocus/);
-  assert.match(source, /trigger\?\.focus\(\)/);
+  // Focus restoration (including removed triggers) is covered by mounted interactions.
   assert.doesNotMatch(source, /window\.confirm/);
   assert.match(cssSource, /min-block-size: 44px/);
   assert.match(cssSource, /min-inline-size: 44px/);
+  assert.match(cssSource, /background: var\(--phoenix-color-surface\)/);
+  assert.match(cssSource, /@supports \(background: color-mix/);
+  assert.match(cssSource, /@supports not \(background: color-mix/);
 });
 
 test("dialog exposes stable target, outcome, consequences, and reason policy", () => {

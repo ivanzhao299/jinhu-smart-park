@@ -8,7 +8,7 @@ import type {
 import { StatusPill } from "@jinhu/ui";
 import type { Route } from "next";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanonicalDetailShell,
   ConsequenceDialog,
@@ -32,10 +32,12 @@ import { HomestayStayActions } from "./HomestayStayActions";
 import { HomestayReschedulePanel } from "./HomestayReschedulePanel";
 import { HomestayTurnoverActions } from "./HomestayTurnoverActions";
 import { HOMESTAY_DETAIL_READ_ACTIONS } from "./homestay-workbench.logic";
+import { loadHomestayDetail } from "./homestay-detail-query";
+import { hasPermission } from "../../../lib/permissions";
 
 type DetailKind = "booking" | "stay" | "turnover";
 
-function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean, invalidationKey: string) {
+function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean, invalidationKey: string, canReadBooking: boolean) {
   const [data, setData] = useState<HomestayBookingDetailResponse | HomestayTurnoverDetailResponse | null>(null);
   const [state, setState] = useState<CanonicalDetailState>({ kind: "loading" });
   const load = useCallback(async () => {
@@ -47,15 +49,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
       ? { kind: "ready", stale: true }
       : { kind: "loading" });
     try {
-      const endpoint = kind === "turnover"
-        ? `/homestay/turnovers/${entityId}`
-        : kind === "stay"
-          ? `/homestay/stays/${entityId}`
-          : `/homestay/bookings/${entityId}`;
-      const response = await apiRequest<HomestayBookingDetailResponse | HomestayTurnoverDetailResponse>(
-        endpoint,
-        { token: getAccessToken() ?? undefined }
-      );
+      const response = await loadHomestayDetail(kind, entityId, getAccessToken(), canReadBooking);
       setData(response.data);
       setState({ kind: "ready" });
       return true;
@@ -65,7 +59,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
       else setState({ kind: "failure", message: propertyErrorMessage(loadError, "详情加载失败，请稍后重试") });
       return false;
     }
-  }, [entityId, kind, readAllowed]);
+  }, [entityId, kind, readAllowed, canReadBooking]);
   useEffect(() => void load(), [load, invalidationKey]);
   return { data, load, setState, state };
 }
@@ -109,7 +103,8 @@ function useDetailMutation(
       if (actionError instanceof ApiError && actionError.status === 409) {
         const actionMessage = propertyErrorMessage(actionError, "数据状态已变化，请刷新后重试");
         setErrorMessage(actionMessage);
-        const keepConfirmation = endpoint.endsWith("/no-show") || endpoint.endsWith("/lost");
+        const keepConfirmation = ["/no-show", "/lost", "/check-in", "/check-out"]
+          .some((action) => endpoint.endsWith(action));
         setState(keepConfirmation
           ? { kind: "ready", stale: true }
           : { kind: "conflict", message: actionMessage });
@@ -133,11 +128,12 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
   const capability = useMemo(() => projectPropertyCapabilities(user, featureId), [featureId, user]);
   const query = useDetailQuery(
     kind, entityId, capability.actionAllowed(HOMESTAY_DETAIL_READ_ACTIONS[kind]),
-    capability.invalidationKey
+    capability.invalidationKey, hasPermission(user, "homestay:booking:read")
   );
   const action = useDetailMutation(query.load, query.setState);
   const [attachmentVersion, setAttachmentVersion] = useState(0);
   const returnHref = useReturnHref(kind);
+  const titleRef = useRef<HTMLSpanElement>(null);
 
   const title = kind === "turnover"
     ? "周转详情"
@@ -149,12 +145,12 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
       presentation="full"
       returnControl={<Link className="secondary-button" href={returnHref as Route}>返回列表</Link>}
       state={query.state}
-      title={title}
+      title={<span ref={titleRef} tabIndex={-1}>{title}</span>}
       actions={<button className="secondary-button" type="button" onClick={() => void query.load()}>刷新</button>}
     >
       <div aria-busy={action.submitting} inert={action.submitting}>
       {isBookingDetail(query.data)
-        ? <BookingDetail data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} submitting={action.submitting} />
+        ? <BookingDetail fallbackFocusRef={titleRef} data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} submitting={action.submitting} />
         : query.data
           ? <TurnoverDetail
               capability={capability}
@@ -198,6 +194,7 @@ function isBookingDetail(
 }
 
 function BookingDetail({
+  fallbackFocusRef,
   data,
   kind,
   capability,
@@ -205,6 +202,7 @@ function BookingDetail({
   mutationError,
   submitting
 }: {
+  fallbackFocusRef: RefObject<HTMLElement | null>;
   data: HomestayBookingDetailResponse;
   kind: DetailKind;
   capability: ReturnType<typeof projectPropertyCapabilities>;
@@ -219,10 +217,10 @@ function BookingDetail({
     <>
       <BookingOverview data={data} />
       <BookingGuests data={data} />
-      {isStay ? <HomestayStayActions capability={capability} data={data} mutate={mutate} busy={submitting} errorMessage={mutationError} /> : null}
+      {isStay ? <HomestayStayActions fallbackFocusRef={fallbackFocusRef} capability={capability} data={data} mutate={mutate} busy={submitting} errorMessage={mutationError} /> : null}
       {canReschedule ? <HomestayReschedulePanel booking={booking} mutate={mutate} /> : null}
       <BookingProjections data={data} />
-      <BookingActions booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} submitting={submitting} />
+      <BookingActions fallbackFocusRef={fallbackFocusRef} booking={booking} capability={capability} isStay={isStay} mutate={mutate} mutationError={mutationError} submitting={submitting} />
     </>
   );
 }
@@ -269,7 +267,8 @@ function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
   </section></>;
 }
 
-function BookingActions({ booking, capability, isStay, mutate, mutationError, submitting }: {
+function BookingActions({ booking, capability, isStay, mutate, mutationError, submitting, fallbackFocusRef }: {
+  fallbackFocusRef: RefObject<HTMLElement | null>;
   booking: HomestayBookingDetailResponse["booking"];
   capability: ReturnType<typeof projectPropertyCapabilities>; isStay: boolean;
   mutate(endpoint: string, body?: unknown): Promise<boolean>;
@@ -296,6 +295,7 @@ function BookingActions({ booking, capability, isStay, mutate, mutationError, su
     <button className="secondary-button" type="submit">提交取消审批</button>
   </form> : null}
   <ConsequenceDialog
+    fallbackFocusRef={fallbackFocusRef}
     actionLabel={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
     busy={submitting}
     consequences={pendingStayAction === "check-out"

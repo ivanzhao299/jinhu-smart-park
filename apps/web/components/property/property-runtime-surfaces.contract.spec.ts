@@ -232,7 +232,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /asset_unit_id: assetUnitId\.trim\(\) \|\| null/);
   assert.match(foundation, /transitionPayload\.current !== payloadFingerprint/);
   assert.match(foundation, /errorMessage=\{transitionFeedback \|\| undefined\}/);
-  assert.match(foundation, /setTransitionFeedback\(cause instanceof Error \? cause\.message : "模式切换审批提交失败"\);[\s\S]*return false;/);
+  assert.match(foundation, /setTransitionFeedback\(propertyErrorMessage\(cause, "模式切换审批提交失败"\)\);[\s\S]*return false;/);
   assert.match(foundation, /label: "检查快照"/);
   assert.match(foundation, /modeTransitionSnapshotSummary/);
   assert.match(foundation, /blocking_reasons/);

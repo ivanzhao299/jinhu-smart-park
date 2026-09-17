@@ -274,6 +274,21 @@ test("DEC-04/05/06 housing approval executors are atomic on PostgreSQL", {
       targetReceivableMode: "existing", targetReceivableExpectedVersion: 1,
       targetReceivableOriginalAmount: "40.00", targetReceivableOriginalPaidAmount: "5.00",
       targetReceivableOriginalWaivedAmount: "0.00", targetReceivableOriginalStatus: "partial" };
+    // Synthetic fixture in this random schema: public housing DTOs do not expose currency.
+    await query("SAVEPOINT transfer_currency");
+    await query("UPDATE biz_housing_receivable SET currency='USD' WHERE id=$1", [existingId]);
+    const transferSnapshot = async () => {
+      const tables = ["biz_housing_purchase", "biz_housing_lease", "biz_housing_purchase_item",
+        "biz_housing_receivable", "biz_housing_ledger_entry", "biz_housing_purchase_transfer_effect_audit"];
+      const rows: unknown[] = [];
+      for (const table of tables) rows.push(await query(`SELECT * FROM ${table} ORDER BY id`));
+      return rows;
+    };
+    const currencyBaseline = await transferSnapshot();
+    await assert.rejects(executeTransfer({ query }, existingPayload), /Purchase transfer receivable mode changed/);
+    assert.deepEqual(await transferSnapshot(), currencyBaseline,
+      "currency mismatch must preserve every domain field and create no transfer audit");
+    await query("ROLLBACK TO SAVEPOINT transfer_currency");
     await query("SAVEPOINT transfer_existing");
     await executeTransfer({ query }, existingPayload);
     assert.deepEqual((await query(`SELECT amount::text,version FROM biz_housing_receivable WHERE id=$1`, [existingId]))[0],

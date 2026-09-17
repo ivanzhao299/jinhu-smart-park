@@ -1,0 +1,9 @@
+== 2026-09-16T09:56:57+08:00 env restore (parent direct, codex capacity x2) ==
+docker: daemon ready after user manual restart; original containers survived Exited(255)
+jinhu-housing-uat-20260914-024557-api-1 Up About a minute
+jinhu-housing-uat-20260914-024557-postgres-1 Up 5 minutes
+volume: jinhu-housing-uat-20260914-024557_data (historical DB preserved, no recreate/migrate/seed)
+api: pnpm --filter @jinhu/api build (HEAD 05596d26) + docker start api-1 => health=200 ready=200
+web: WEB_PORT=3427 NEXT_PUBLIC_API_TARGET=http://127.0.0.1:3428 pnpm --filter @jinhu/web start => GET / =307 (login redirect, expected)
+web build: apps/web/.next BUILD_ID from this-session build of 05596d26
+web pid: 138238, log /tmp/issue740-web-start.log

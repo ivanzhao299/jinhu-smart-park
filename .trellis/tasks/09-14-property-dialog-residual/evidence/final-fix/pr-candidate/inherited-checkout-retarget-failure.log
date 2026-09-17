@@ -1,0 +1,1714 @@
+
+ RUN  v3.2.7 <WORKTREE>/apps/web
+
+stderr | test/interaction/issue740-final-review-repro.test.tsx > review V12: a refresh must not retarget the newly selected checkout
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+
+stderr | test/interaction/issue740-final-review-repro.test.tsx > review V12: a refresh must not retarget the newly selected checkout
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+
+stderr | test/interaction/issue740-final-review-repro.test.tsx > review V12: a refresh must not retarget the newly selected checkout
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+
+stderr | test/interaction/issue740-final-review-repro.test.tsx > review V12: a refresh must not retarget the newly selected checkout
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+Invalid prop `className` supplied to `React.Fragment`. React.Fragment can only have `key` and `children` props.
+
+ ❯ test/interaction/issue740-final-review-repro.test.tsx (1 test | 1 failed) 610ms
+   × review V12: a refresh must not retarget the newly selected checkout 609ms
+     → Unable to find an accessible element with the role "heading" and name "退租单 SECOND-740"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  <main
+    class="_pageShell_bc39ce ds-page _accessibilitySurface_62daaf"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="_eyebrow_bc39ce"
+  />
+
+  Name "":
+  <p
+    class="_description_bc39ce"
+  />
+
+  Name "":
+  <p
+    class="_drawerDescription_ba5aa5"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "退租管理":
+  <h1
+    class="_title_bc39ce"
+  />
+
+  Name "退租申请":
+  <h2
+    class="_contentTitle_bc39ce"
+  />
+
+  Name "退租单 CHECKOUT-740":
+  <h2
+    class="_drawerTitle_ba5aa5"
+  />
+
+  Name "结算预览":
+  <h3
+    tabindex="-1"
+  />
+
+  Name "退款登记":
+  <h3 />
+
+  Name "退租生效与房源释放":
+  <h3 />
+
+  --------------------------------------------------
+  button:
+
+  Name "刷新":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  Name "收起筛选":
+  <button
+    aria-expanded="true"
+    class="secondary-button _filterToggle_3c1f5b"
+    type="button"
+  />
+
+  Name "重置":
+  <button
+    class="secondary-button"
+    type="button"
+  />
+
+  Name "应用筛选":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "上一页":
+  <button
+    class="secondary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "下一页":
+  <button
+    class="secondary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "关闭抽屉":
+  <button
+    aria-label="关闭抽屉"
+    class="_drawerBackdrop_ba5aa5"
+    data-drawer-backdrop="true"
+    type="button"
+  />
+
+  Name "关闭":
+  <button
+    aria-label="关闭"
+    class="_drawerCloseButton_ba5aa5"
+    type="button"
+  />
+
+  Name "取消":
+  <button
+    class="secondary-button"
+    type="button"
+  />
+
+  Name "确认结算":
+  <button
+    class="primary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "退租生效":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "列表筛选":
+  <section
+    aria-label="列表筛选"
+    class="_filterSection_3c1f5b"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "关键词":
+  <input
+    placeholder="退租单、合同、租户"
+    value=""
+  />
+
+  Name "退租单号":
+  <input
+    disabled=""
+    placeholder="为空时自动生成"
+    value="SECOND-740"
+  />
+
+  Name "退租原因":
+  <textarea
+    rows="3"
+  />
+
+  Name "备注":
+  <textarea
+    rows="3"
+  />
+
+  Name "结算备注":
+  <textarea
+    rows="3"
+  />
+
+  --------------------------------------------------
+  combobox:
+
+  Name "合同":
+  <select />
+
+  Name "租户企业":
+  <select />
+
+  Name "退租类型":
+  <select />
+
+  Name "状态":
+  <select />
+
+  Name "已生效合同":
+  <select
+    disabled=""
+    required=""
+  />
+
+  Name "退租类型":
+  <select
+    required=""
+  />
+
+  Name "退租后房源状态":
+  <select
+    required=""
+  />
+
+  --------------------------------------------------
+  option:
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  <div
+    class="ds-panel"
+    role="status"
+  />
+
+  --------------------------------------------------
+  article:
+
+  Name "":
+  <article
+    class="ds-mobile-record"
+  />
+
+  Name "":
+  <article
+    class="ds-mobile-record"
+  />
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  --------------------------------------------------
+  table:
+
+  Name "退租申请桌面列表":
+  <table
+    aria-label="退租申请桌面列表"
+    class="_table_5cf304 ds-data-table"
+  />
+
+  Name "":
+  <table
+    class="_table_5cf304 ds-data-table"
+  />
+
+  --------------------------------------------------
+  rowgroup:
+
+  Name "":
+  <thead />
+
+  Name "":
+  <tbody />
+
+  Name "":
+  <thead />
+
+  Name "":
+  <tbody />
+
+  --------------------------------------------------
+  row:
+
+  Name "退租单 合同 / 租户 类型 / 日期 房源 / 结算 状态 / 金额 操作":
+  <tr />
+
+  Name "CHECKOUT-740 退租申请 contract tenant normal 计划 2026-09-14 rentable 30 60 应退 - 查看":
+  <tr />
+
+  Name "SECOND-740 退租申请 contract tenant normal 计划 2026-09-14 rentable 30 40 应退 - 查看":
+  <tr />
+
+  Name "退款单号 退款金额 方式 时间 收款人 收款账号 流水号 状态":
+  <tr />
+
+  Name "暂无退款记录":
+  <tr />
+
+  --------------------------------------------------
+  columnheader:
+
+  Name "退租单":
+  <th
+    scope="col"
+  />
+
+  Name "合同 / 租户":
+  <th
+    scope="col"
+  />
+
+  Name "类型 / 日期":
+  <th
+    scope="col"
+  />
+
+  Name "房源 / 结算":
+  <th
+    scope="col"
+  />
+
+  Name "状态 / 金额":
+  <th
+    scope="col"
+  />
+
+  Name "操作":
+  <th
+    scope="col"
+  />
+
+  Name "退款单号":
+  <th />
+
+  Name "退款金额":
+  <th />
+
+  Name "方式":
+  <th />
+
+  Name "时间":
+  <th />
+
+  Name "收款人":
+  <th />
+
+  Name "收款账号":
+  <th />
+
+  Name "流水号":
+  <th />
+
+  Name "状态":
+  <th />
+
+  --------------------------------------------------
+  cell:
+
+  Name "CHECKOUT-740 退租申请":
+  <td
+    data-label="退租单"
+  />
+
+  Name "contract tenant":
+  <td
+    data-label="合同 / 租户"
+  />
+
+  Name "normal 计划 2026-09-14":
+  <td
+    data-label="类型 / 日期"
+  />
+
+  Name "rentable 30":
+  <td
+    data-label="房源 / 结算"
+  />
+
+  Name "60 应退 -":
+  <td
+    data-label="状态 / 金额"
+  />
+
+  Name "查看":
+  <td
+    data-label="操作"
+  />
+
+  Name "SECOND-740 退租申请":
+  <td
+    data-label="退租单"
+  />
+
+  Name "contract tenant":
+  <td
+    data-label="合同 / 租户"
+  />
+
+  Name "normal 计划 2026-09-14":
+  <td
+    data-label="类型 / 日期"
+  />
+
+  Name "rentable 30":
+  <td
+    data-label="房源 / 结算"
+  />
+
+  Name "40 应退 -":
+  <td
+    data-label="状态 / 金额"
+  />
+
+  Name "查看":
+  <td
+    data-label="操作"
+  />
+
+  Name "暂无退款记录":
+  <td
+    colspan="8"
+    data-label="退款单号"
+  />
+
+  --------------------------------------------------
+  spinbutton:
+
+  Name "扣款金额":
+  <input
+    min="0"
+    step="0.01"
+    type="number"
+    value="0"
+  />
+
+  Name "追加费用":
+  <input
+    min="0"
+    step="0.01"
+    type="number"
+    value="0"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="_pageShell_bc39ce ds-page _accessibilitySurface_62daaf"
+    >
+      <section
+        class="_pageHeader_bc39ce"
+      >
+        <div
+          class="_headerText_bc39ce"
+        >
+          <p
+            class="_eyebrow_bc39ce"
+          >
+            招商租赁
+          </p>
+          <h1
+            class="_title_bc39ce"
+          >
+            退租管理
+          </h1>
+          <p
+            class="_description_bc39ce"
+          >
+            处理正常到期、提前退租与违约终止申请，审批后进入结算和退款登记
+          </p>
+        </div>
+        <div
+          class="_actions_bc39ce"
+        >
+          <button
+            class="primary-button"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-refresh-cw"
+              fill="none"
+              height="16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="16"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"
+              />
+              <path
+                d="M21 3v5h-5"
+              />
+              <path
+                d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
+              />
+              <path
+                d="M8 16H3v5"
+              />
+            </svg>
+             刷新
+          </button>
+        </div>
+      </section>
+      <section
+        aria-label="列表筛选"
+        class="_filterSection_3c1f5b"
+      >
+        <button
+          aria-expanded="true"
+          class="secondary-button _filterToggle_3c1f5b"
+          type="button"
+        >
+          收起筛选
+        </button>
+        <div
+          class="_filterPanel_bc39ce"
+        >
+          <div
+            class="system-grid-three"
+          >
+            <label
+              class="field"
+            >
+              <span>
+                关键词
+              </span>
+              <input
+                placeholder="退租单、合同、租户"
+                value=""
+              />
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                合同
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                租户企业
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                退租类型
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                状态
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+          </div>
+          <span
+            class="_filterActions_bc39ce"
+          >
+            <button
+              class="secondary-button"
+              type="button"
+            >
+              重置
+            </button>
+            <button
+              class="primary-button"
+              type="button"
+            >
+              应用筛选
+            </button>
+          </span>
+        </div>
+      </section>
+      <section
+        class="_contentCard_bc39ce ds-panel ds-section-panel _accessibilitySurface_62daaf"
+      >
+        <div
+          class="_contentHeader_bc39ce"
+        >
+          <div
+            class="_contentTitleGroup_bc39ce"
+          >
+            <h2
+              class="_contentTitle_bc39ce"
+            >
+              退租申请
+            </h2>
+          </div>
+        </div>
+        <div
+          class="ds-panel"
+          role="status"
+        >
+          退租结算已确认
+        </div>
+        <div
+          class="_records_77eeee"
+        >
+          <div
+            class="_responsiveRecords_62daaf"
+          >
+            <div
+              aria-label="退租申请移动列表"
+              class="ds-mobile-record-l...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/interaction/issue740-final-review-repro.test.tsx > review V12: a refresh must not retarget the newly selected checkout
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "退租单 SECOND-740"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  <main
+    class="_pageShell_bc39ce ds-page _accessibilitySurface_62daaf"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="_eyebrow_bc39ce"
+  />
+
+  Name "":
+  <p
+    class="_description_bc39ce"
+  />
+
+  Name "":
+  <p
+    class="_drawerDescription_ba5aa5"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "退租管理":
+  <h1
+    class="_title_bc39ce"
+  />
+
+  Name "退租申请":
+  <h2
+    class="_contentTitle_bc39ce"
+  />
+
+  Name "退租单 CHECKOUT-740":
+  <h2
+    class="_drawerTitle_ba5aa5"
+  />
+
+  Name "结算预览":
+  <h3
+    tabindex="-1"
+  />
+
+  Name "退款登记":
+  <h3 />
+
+  Name "退租生效与房源释放":
+  <h3 />
+
+  --------------------------------------------------
+  button:
+
+  Name "刷新":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  Name "收起筛选":
+  <button
+    aria-expanded="true"
+    class="secondary-button _filterToggle_3c1f5b"
+    type="button"
+  />
+
+  Name "重置":
+  <button
+    class="secondary-button"
+    type="button"
+  />
+
+  Name "应用筛选":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "查看":
+  <button
+    class="ds-row-action ds-row-action-view"
+    title="查看"
+    type="button"
+  />
+
+  Name "上一页":
+  <button
+    class="secondary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "下一页":
+  <button
+    class="secondary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "关闭抽屉":
+  <button
+    aria-label="关闭抽屉"
+    class="_drawerBackdrop_ba5aa5"
+    data-drawer-backdrop="true"
+    type="button"
+  />
+
+  Name "关闭":
+  <button
+    aria-label="关闭"
+    class="_drawerCloseButton_ba5aa5"
+    type="button"
+  />
+
+  Name "取消":
+  <button
+    class="secondary-button"
+    type="button"
+  />
+
+  Name "确认结算":
+  <button
+    class="primary-button"
+    disabled=""
+    type="button"
+  />
+
+  Name "退租生效":
+  <button
+    class="primary-button"
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "列表筛选":
+  <section
+    aria-label="列表筛选"
+    class="_filterSection_3c1f5b"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "关键词":
+  <input
+    placeholder="退租单、合同、租户"
+    value=""
+  />
+
+  Name "退租单号":
+  <input
+    disabled=""
+    placeholder="为空时自动生成"
+    value="SECOND-740"
+  />
+
+  Name "退租原因":
+  <textarea
+    rows="3"
+  />
+
+  Name "备注":
+  <textarea
+    rows="3"
+  />
+
+  Name "结算备注":
+  <textarea
+    rows="3"
+  />
+
+  --------------------------------------------------
+  combobox:
+
+  Name "合同":
+  <select />
+
+  Name "租户企业":
+  <select />
+
+  Name "退租类型":
+  <select />
+
+  Name "状态":
+  <select />
+
+  Name "已生效合同":
+  <select
+    disabled=""
+    required=""
+  />
+
+  Name "退租类型":
+  <select
+    required=""
+  />
+
+  Name "退租后房源状态":
+  <select
+    required=""
+  />
+
+  --------------------------------------------------
+  option:
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "全部":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  Name "请选择":
+  <option
+    value=""
+  />
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  <div
+    class="ds-panel"
+    role="status"
+  />
+
+  --------------------------------------------------
+  article:
+
+  Name "":
+  <article
+    class="ds-mobile-record"
+  />
+
+  Name "":
+  <article
+    class="ds-mobile-record"
+  />
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  Name "":
+  <strong />
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  Name "":
+  <dt />
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  Name "":
+  <dd />
+
+  --------------------------------------------------
+  table:
+
+  Name "退租申请桌面列表":
+  <table
+    aria-label="退租申请桌面列表"
+    class="_table_5cf304 ds-data-table"
+  />
+
+  Name "":
+  <table
+    class="_table_5cf304 ds-data-table"
+  />
+
+  --------------------------------------------------
+  rowgroup:
+
+  Name "":
+  <thead />
+
+  Name "":
+  <tbody />
+
+  Name "":
+  <thead />
+
+  Name "":
+  <tbody />
+
+  --------------------------------------------------
+  row:
+
+  Name "退租单 合同 / 租户 类型 / 日期 房源 / 结算 状态 / 金额 操作":
+  <tr />
+
+  Name "CHECKOUT-740 退租申请 contract tenant normal 计划 2026-09-14 rentable 30 60 应退 - 查看":
+  <tr />
+
+  Name "SECOND-740 退租申请 contract tenant normal 计划 2026-09-14 rentable 30 40 应退 - 查看":
+  <tr />
+
+  Name "退款单号 退款金额 方式 时间 收款人 收款账号 流水号 状态":
+  <tr />
+
+  Name "暂无退款记录":
+  <tr />
+
+  --------------------------------------------------
+  columnheader:
+
+  Name "退租单":
+  <th
+    scope="col"
+  />
+
+  Name "合同 / 租户":
+  <th
+    scope="col"
+  />
+
+  Name "类型 / 日期":
+  <th
+    scope="col"
+  />
+
+  Name "房源 / 结算":
+  <th
+    scope="col"
+  />
+
+  Name "状态 / 金额":
+  <th
+    scope="col"
+  />
+
+  Name "操作":
+  <th
+    scope="col"
+  />
+
+  Name "退款单号":
+  <th />
+
+  Name "退款金额":
+  <th />
+
+  Name "方式":
+  <th />
+
+  Name "时间":
+  <th />
+
+  Name "收款人":
+  <th />
+
+  Name "收款账号":
+  <th />
+
+  Name "流水号":
+  <th />
+
+  Name "状态":
+  <th />
+
+  --------------------------------------------------
+  cell:
+
+  Name "CHECKOUT-740 退租申请":
+  <td
+    data-label="退租单"
+  />
+
+  Name "contract tenant":
+  <td
+    data-label="合同 / 租户"
+  />
+
+  Name "normal 计划 2026-09-14":
+  <td
+    data-label="类型 / 日期"
+  />
+
+  Name "rentable 30":
+  <td
+    data-label="房源 / 结算"
+  />
+
+  Name "60 应退 -":
+  <td
+    data-label="状态 / 金额"
+  />
+
+  Name "查看":
+  <td
+    data-label="操作"
+  />
+
+  Name "SECOND-740 退租申请":
+  <td
+    data-label="退租单"
+  />
+
+  Name "contract tenant":
+  <td
+    data-label="合同 / 租户"
+  />
+
+  Name "normal 计划 2026-09-14":
+  <td
+    data-label="类型 / 日期"
+  />
+
+  Name "rentable 30":
+  <td
+    data-label="房源 / 结算"
+  />
+
+  Name "40 应退 -":
+  <td
+    data-label="状态 / 金额"
+  />
+
+  Name "查看":
+  <td
+    data-label="操作"
+  />
+
+  Name "暂无退款记录":
+  <td
+    colspan="8"
+    data-label="退款单号"
+  />
+
+  --------------------------------------------------
+  spinbutton:
+
+  Name "扣款金额":
+  <input
+    min="0"
+    step="0.01"
+    type="number"
+    value="0"
+  />
+
+  Name "追加费用":
+  <input
+    min="0"
+    step="0.01"
+    type="number"
+    value="0"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="_pageShell_bc39ce ds-page _accessibilitySurface_62daaf"
+    >
+      <section
+        class="_pageHeader_bc39ce"
+      >
+        <div
+          class="_headerText_bc39ce"
+        >
+          <p
+            class="_eyebrow_bc39ce"
+          >
+            招商租赁
+          </p>
+          <h1
+            class="_title_bc39ce"
+          >
+            退租管理
+          </h1>
+          <p
+            class="_description_bc39ce"
+          >
+            处理正常到期、提前退租与违约终止申请，审批后进入结算和退款登记
+          </p>
+        </div>
+        <div
+          class="_actions_bc39ce"
+        >
+          <button
+            class="primary-button"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-refresh-cw"
+              fill="none"
+              height="16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="16"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"
+              />
+              <path
+                d="M21 3v5h-5"
+              />
+              <path
+                d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
+              />
+              <path
+                d="M8 16H3v5"
+              />
+            </svg>
+             刷新
+          </button>
+        </div>
+      </section>
+      <section
+        aria-label="列表筛选"
+        class="_filterSection_3c1f5b"
+      >
+        <button
+          aria-expanded="true"
+          class="secondary-button _filterToggle_3c1f5b"
+          type="button"
+        >
+          收起筛选
+        </button>
+        <div
+          class="_filterPanel_bc39ce"
+        >
+          <div
+            class="system-grid-three"
+          >
+            <label
+              class="field"
+            >
+              <span>
+                关键词
+              </span>
+              <input
+                placeholder="退租单、合同、租户"
+                value=""
+              />
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                合同
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                租户企业
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                退租类型
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+            <label
+              class="field"
+            >
+              <span>
+                状态
+              </span>
+              <select>
+                <option
+                  value=""
+                >
+                  全部
+                </option>
+              </select>
+            </label>
+          </div>
+          <span
+            class="_filterActions_bc39ce"
+          >
+            <button
+              class="secondary-button"
+              type="button"
+            >
+              重置
+            </button>
+            <button
+              class="primary-button"
+              type="button"
+            >
+              应用筛选
+            </button>
+          </span>
+        </div>
+      </section>
+      <section
+        class="_contentCard_bc39ce ds-panel ds-section-panel _accessibilitySurface_62daaf"
+      >
+        <div
+          class="_contentHeader_bc39ce"
+        >
+          <div
+            class="_contentTitleGroup_bc39ce"
+          >
+            <h2
+              class="_contentTitle_bc39ce"
+            >
+              退租申请
+            </h2>
+          </div>
+        </div>
+        <div
+          class="ds-panel"
+          role="status"
+        >
+          退租结算已确认
+        </div>
+        <div
+          class="_records_77eeee"
+        >
+          <div
+            class="_responsiveRecords_62daaf"
+          >
+            <div
+              aria-label="退租申请移动列表"
+              class="ds-mobile-record-l...
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ test/interaction/issue740-final-review-repro.test.tsx:39:17
+     37|   fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+     38|   await waitFor(() => expect(screen.getByRole("button", { name: "刷新" }…
+     39|   expect(screen.getByRole("heading", { name: "退租单 SECOND-740" })).toBe…
+       |                 ^
+     40| });
+     41|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  15:30:47
+   Duration  1.66s (transform 285ms, setup 94ms, collect 440ms, tests 610ms, environment 229ms, prepare 79ms)
+
+undefined
+<WORKTREE>/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.config.ts test/interaction/issue740-final-review-repro.test.tsx
