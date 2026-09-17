@@ -1,8 +1,9 @@
 /** Private preparation integrity adapter. No source access, signing or execution. */
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { TextDecoder } from "node:util";
 import { bridgeProductionImportRealArtifacts } from "./production-import-real-artifact-bridge.mjs";
-import { computeFrozenArtifactHash, normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
+import { computeFrozenArtifactHash, encodeFrozenArtifactBytes, normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
 import { computeProductionImportTargetScopeHash } from "./production-import-sealed-plan-lib.mjs";
 import { validateProductionT0DecisionInventory } from "./materialize-production-t0-decision-candidates.mjs";
 import { validateProductionT0CandidateDependencies } from "./production-t2-decision-candidates.mjs";
@@ -85,9 +86,11 @@ function cryptoEvidence(review) {
   if (ciphertext.length > 8 * 1024 ** 2 || hash(ciphertext) !== (decision.disposition === "merge" ? metadata.ciphertextSha256 : metadata.payloadCiphertextSha256)) fail("EVIDENCE_INVALID");
 }
 
-function prepare(input) {
+function prepare(input, evidenceMode, retainWrappers) {
+  if (!["all", "non_insert"].includes(evidenceMode)) fail("EVIDENCE_MODE_INVALID");
+  if (typeof retainWrappers !== "boolean") fail("WRAPPER_MODE_INVALID");
   exact(input, ["expectedTriple", "phaseArtifacts", "candidateArtifacts", "targetInventoryArtifact", "targetScopeArtifact", "reviewedDecisionsArtifact"]);
-  const triple = structuredClone(input.expectedTriple);
+  const triple = globalThis.structuredClone(input.expectedTriple);
   validateTriple(triple); exact(input.phaseArtifacts, phases); exact(input.candidateArtifacts, phases);
   const inventory = document(input.targetInventoryArtifact), rawScope = document(input.targetScopeArtifact);
   const hasScopeHash = plain(rawScope) && Object.hasOwn(rawScope, "scopeSha256");
@@ -239,7 +242,8 @@ function prepare(input) {
       exact(attestation, ["binding", "signatureBase64", "publicKeyPem"]);
       base64(attestation.signatureBase64);
       if (typeof attestation.publicKeyPem !== "string" || !attestation.publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----\n")) fail("ATTESTATION_INVALID");
-      const { decisionAttestationSha256: _attestationHash, ...unsignedDecision } = decision;
+      const unsignedDecision = { ...decision };
+      delete unsignedDecision.decisionAttestationSha256;
       if (!same(attestation.binding, { triple, targetScope: scope, targetInventoryArtifactSha256: input.targetInventoryArtifact.sha256,
         candidateArtifactSha256: candidateHashes[row.phase], sourceRowSha256: row.sourceRowSha256, decision: unsignedDecision, cryptoEnvelope: review.cryptoEnvelope })) fail("ATTESTATION_BINDING_INVALID");
       if (decision.disposition !== "quarantine" && (!same(decision.targetFields, row.targetFields) || !same(decision.dependencyRefs, refs.get(row.sourceIdentitySha256)))) fail("REVIEW_PROJECTION_INVALID");
@@ -273,7 +277,8 @@ function prepare(input) {
     candidateArtifactSha256: candidateHashes, phaseArtifactSha256: Object.fromEntries(phases.map(phase => [phase, input.phaseArtifacts[phase].sha256])),
     targetInventoryArtifactSha256: input.targetInventoryArtifact.sha256, targetScopeArtifactSha256: input.targetScopeArtifact.sha256,
     reviewedDecisionsArtifactSha256: input.reviewedDecisionsArtifact?.sha256 ?? null, signatureAuthenticityVerified: false,
-    productionImport: "HOLD", records: [...rows.values()].map(row => ({ candidate: row, review: reviews.get(row.sourceIdentitySha256) ?? null })) };
+    productionImport: "HOLD", records: [...rows.values()].filter(row => evidenceMode === "all" || row.candidateDisposition !== "insert")
+      .map(row => ({ candidate: row, review: reviews.get(row.sourceIdentitySha256) ?? null })) };
   const summary = { status: "REVIEW_HOLD", productionImport: "HOLD", approvalClaimed: false, recordCount: rows.size, countByDisposition: counts, targetTableCounts: tableCounts, missingReviewCount };
   if (missingReviewCount) return { summary, evidence, wrappers: null, bridge: null };
   const records = [...rows.values()].map(row => row.candidateDisposition === "insert"
@@ -287,16 +292,26 @@ function prepare(input) {
     phaseManifests: evidence.phaseArtifactSha256, records };
   const wrapper = (role, payload) => ({ formatVersion: 1, artifactKind: `yuzhou_hr_production_import_real_${role}`, triple, payload });
   const wrappers = { decisions: wrapper("decisions", decisions), inventory: wrapper("target_inventory", frozenInventory), scope: wrapper("sealed_scope", sealedScope) };
-  const descriptor = (role, value) => { const bytes = canonical(value) + "\n"; return { path: `prepared-${role}.json`, bytes, sha256: hash(bytes) }; };
-  const bridge = bridgeProductionImportRealArtifacts({ expectedTriple: triple, phaseArtifacts: phases.map(phase => input.phaseArtifacts[phase]),
-    decisionsArtifact: descriptor("decisions", wrappers.decisions), targetInventoryArtifact: descriptor("inventory", wrappers.inventory), sealedScopeArtifact: descriptor("scope", wrappers.scope) });
+  // All candidate/provenance/dependency checks have run. The bridge revalidates
+  // original phase bytes; do not retain the earlier staging graph or indexes.
+  // Default callers still own every candidate through evidence.records.
+  staged.length = 0;
+  rows.clear();
+  refs.clear();
+  const descriptor = (role, value) => { const bytes = encodeFrozenArtifactBytes(value); return { path: `prepared-${role}.json`, bytes, sha256: hash(bytes) }; };
+  const bridgeInput = { expectedTriple: triple, phaseArtifacts: phases.map(phase => input.phaseArtifacts[phase]),
+    decisionsArtifact: descriptor("decisions", wrappers.decisions), targetInventoryArtifact: descriptor("inventory", wrappers.inventory), sealedScopeArtifact: descriptor("scope", wrappers.scope) };
+  // Internal integrity-only consumers do not need the original wrapper graph.
+  // Its exact encoded bytes are already owned by bridgeInput and revalidated.
+  if (!retainWrappers) records.length = 0;
+  const bridge = bridgeProductionImportRealArtifacts(bridgeInput);
   summary.status = bridge.status;
   summary.reasonCodes = bridge.reasonCodes;
-  return { summary, evidence, wrappers: bridge.status === "READY" ? wrappers : null, bridge };
+  return { summary, evidence, wrappers: retainWrappers && bridge.status === "READY" ? wrappers : null, bridge };
 }
 
-export function freezeProductionImportCandidates(input) {
-  try { return prepare(input); }
+export function freezeProductionImportCandidates(input, { evidenceMode = "all", retainWrappers = true } = {}) {
+  try { return prepare(input, evidenceMode, retainWrappers); }
   catch (error) {
     if (error instanceof ProductionImportCandidateFreezeError) throw error;
     // Existing validators include source details; expose only a sanitized code.

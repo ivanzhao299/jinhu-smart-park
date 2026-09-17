@@ -1,5 +1,6 @@
 /* global structuredClone */
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 import {
   computeProductionImportPayloadBundleHash,
@@ -87,6 +88,20 @@ export const computeFrozenArtifactHash = content => {
   updateStableCanonicalHash(hash, content);
   hash.update("\n");
   return hash.digest("hex");
+};
+
+// Reuse the canonical token writer without materializing a canonicalized clone
+// and a whole-document string. The two synchronous passes retain only one
+// UTF-8 buffer; hash/parse consumers continue to validate the exact same bytes.
+export const encodeFrozenArtifactBytes = content => {
+  let size = 1;
+  updateStableCanonicalHash({ update: token => { size += Buffer.byteLength(token, "utf8"); } }, content);
+  const bytes = Buffer.alloc(size);
+  let offset = 0;
+  updateStableCanonicalHash({ update: token => { offset += bytes.write(token, offset, "utf8"); } }, content);
+  bytes[offset++] = 10;
+  if (offset !== size) canonicalValueError("canonical value changed during encoding");
+  return bytes;
 };
 
 function exactKeys(value, required, optional, code, label) {
