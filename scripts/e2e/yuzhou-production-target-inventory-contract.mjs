@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import console from "node:console";
+import { URL } from "node:url";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 import {
@@ -60,5 +63,22 @@ assert.match(hostProbe, /BEGIN TRANSACTION READ ONLY|materialize-production-targ
 assert.match(hostProbe, /trap 'rm -f "\$query" "\$payload" "\$receipt" "\$probe_error"'/u);
 assert.doesNotMatch(hostProbe, /probe="\$\(\{/u, "hash inventory must not be buffered in a shell variable");
 assert.doesNotMatch(hostProbe, /(?:cat|printf).*\$payload/u, "raw production rows must never be printed");
+
+const classifier = hostProbe.slice(hostProbe.indexOf("classify_probe_failure()"), hostProbe.indexOf('\ncd "$deploy_path"'));
+const classify = diagnostic => {
+  const run = spawnSync("sh", ["-c", `${classifier}\nclassify_probe_failure "$1"`, "classifier", diagnostic], { encoding: "utf8" });
+  assert.equal(run.status, 0);
+  assert.equal(run.stderr, "");
+  return run.stdout.trim();
+};
+for (const suffix of ["INPUT_INVALID", "SCOPE_INVALID", "RECORD_INVALID", "DUPLICATE", "FAILED", "ARGUMENT_INVALID"]) {
+  const code = `PRODUCTION_IMPORT_TARGET_INVENTORY_${suffix}`;
+  assert.equal(classify(code), code);
+  assert.equal(classify(`${code}\nprivate-fixture-value`), "YUZHOU_HR_TARGET_INVENTORY_PROBE_FAILED");
+}
+assert.equal(classify("private-fixture-value"), "YUZHOU_HR_TARGET_INVENTORY_PROBE_FAILED");
+assert.equal(classify("permission denied for private-fixture-value"), "YUZHOU_HR_TARGET_INVENTORY_DB_PERMISSION_DENIED");
+assert.match(hostProbe, /YUZHOU_HR_TARGET_INVENTORY_SQL_STAGE_FAILED/u);
+assert.match(hostProbe, /YUZHOU_HR_TARGET_INVENTORY_MATERIALIZE_STAGE_FAILED/u);
 
 console.log("Yuzhou production target inventory contract passed: all 16 T0-T3 target tables become a hash-only read-only inventory.");
