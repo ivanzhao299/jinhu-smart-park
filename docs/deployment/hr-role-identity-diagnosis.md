@@ -26,12 +26,16 @@ survivor or broadening identity scope.
 The maintained `scripts/generate_jinhu_2026_user_import.py` declares `wuenguo`
 as the HR/administration department manager. Seed `000033` selects that exact
 scoped, non-deleted identity; only when it is absent does it support the legacy
-`wu_enguo` alias used by the original apartment seed. A disabled canonical
-identity fails rather than silently falling back. Duplicate selected identities,
+`wu_enguo` alias used by the historical responsibility migration and apartment
+seed. A disabled canonical identity does not redirect grants to the legacy alias.
+Migration `000175` deliberately precreates disabled accounts without initialized
+credentials. The role seed may prepare role metadata for them but never enables
+accounts, initializes credentials or bypasses authentication. Duplicate selected identities,
 missing/disabled/super roles and cross-scope binding remain rejected. Both aliases
 may coexist without granting the new role to both. No account is deleted or merged.
 
 Regression: `node scripts/e2e/wu-enguo-hr-manager-postgres.mjs` covers both enabled
 aliases (the observed production shape), exact canonical selection, legacy-only
-fallback, duplicate canonical rejection, disabled canonical rejection, repeat,
+fallback, duplicate canonical rejection, disabled-account preservation (including
+the fresh-schema legacy-only shape), repeat,
 concurrency and scope isolation.

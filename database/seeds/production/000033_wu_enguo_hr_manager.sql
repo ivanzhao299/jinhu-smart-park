@@ -18,7 +18,9 @@ WHERE username='wuenguo'
    OR (username='wu_enguo' AND NOT EXISTS(SELECT 1 FROM candidates WHERE username='wuenguo'));
 DO $$
 BEGIN
-  IF (SELECT count(*) FROM wu_hr_target) <> 1 OR EXISTS(SELECT 1 FROM wu_hr_target WHERE is_enabled IS NOT TRUE) THEN
+  -- 000175 deliberately provisions disabled, credential-less responsibility
+  -- users. Role metadata can be prepared without activating their login.
+  IF (SELECT count(*) FROM wu_hr_target) <> 1 THEN
     RAISE EXCEPTION 'Wu Enguo HR role requires one exact scoped identity';
   END IF;
   IF (SELECT count(*) FROM sys_role WHERE tenant_id='10000001' AND park_id='20000001'

@@ -60,11 +60,20 @@ try {
   assert.throws(() => query(sql), /one exact scoped identity/);
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(), '0');
   query('DELETE FROM sys_user WHERE id=4; UPDATE sys_user SET is_enabled=false WHERE id=3');
-  assert.throws(() => query(sql), /one exact scoped identity/);
-  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(),'0');
+  query(sql);
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=3 AND NOT is_deleted').trim(),'1');
+  assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=3').trim(),'f');
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'0');
+  query('UPDATE rel_user_role SET is_deleted=true');
   query('DELETE FROM sys_user WHERE id=3; UPDATE sys_role SET is_super=true WHERE id=1');
   assert.throws(() => query(sql), /HR_MANAGER role missing or ambiguous/);
   query('UPDATE sys_role SET is_super=false WHERE id=1');
+  // Actual 000175 fresh-schema shape: only the disabled legacy alias exists.
+  query('UPDATE sys_user SET is_enabled=false WHERE id=1');
+  query(sql); query(sql);
+  assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=1').trim(),'f');
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'1');
+  query('UPDATE rel_user_role SET is_deleted=true; UPDATE sys_user SET is_enabled=true WHERE id=1');
   const counts = () => JSON.parse(query(identitySql).split('\n').find(line => line.startsWith('{')));
   assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0});
   query("INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,false)");
