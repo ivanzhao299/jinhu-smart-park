@@ -211,7 +211,9 @@ function validateStaging(staging, model) {
     if (record.sourceSystem !== model.sourceSystem || !rule.allowedSourceTables.includes(record.sourceTable) || !SHA256.test(record.sourceIdentitySha256 ?? "") || !SHA256.test(record.sourceRowSha256 ?? "") || record.sourcePkCanonical !== `sha256:${record.sourceIdentitySha256}`) fail("PRODUCTION_IMPORT_SOURCE_PROVENANCE_INVALID", `${record.phase}.${record.targetTable}`);
     const key = `${record.phase}:${record.sourceIdentitySha256}`;
     if (staged.has(key) || identities.has(record.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_FROZEN_STAGING_INVALID", `duplicate source identity ${record.sourceIdentitySha256}`);
-    staged.set(key, structuredClone(record));
+    // Synchronous validation indexes are read-only. Output ownership is created
+    // by normalization/buildPlanRecord, not by cloning every indexed input row.
+    staged.set(key, record);
     identities.add(record.sourceIdentitySha256);
   }
   return staged;
@@ -225,7 +227,7 @@ function validateInventory(inventory, model) {
     if (!model.targetTables[row.targetTable] || !SHA256.test(row.businessIdentitySha256 ?? "") || !UUID.test(row.targetId ?? "") || !SHA256.test(row.targetCanonicalSha256 ?? "") || !Number.isSafeInteger(row.targetVersion) || row.targetVersion < 0) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_INVALID", `inventory.records[${index}] invalid`);
     const key = `${row.targetTable}:${row.businessIdentitySha256}`;
     if (records.has(key) || ids.has(`${row.targetTable}:${row.targetId}`)) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_INVALID", `inventory duplicate ${key}`);
-    records.set(key, structuredClone(row));
+    records.set(key, row);
     ids.add(`${row.targetTable}:${row.targetId}`);
   }
   return records;
@@ -238,7 +240,7 @@ function sortedDecisions(decisions, model) {
     if (!Array.isArray(row.dependencyRefs)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${row.targetTable}.dependencyRefs must be an array`);
     const key = `${row.phase}:${row.sourceIdentitySha256}`;
     if (indexed.has(key)) fail("PRODUCTION_IMPORT_FROZEN_DECISIONS_INVALID", `duplicate ${key}`);
-    indexed.set(key, structuredClone(row));
+    indexed.set(key, row);
   }
   for (const row of indexed.values()) for (const reference of row.dependencyRefs) if (!indexed.has(`${reference.phase}:${reference.sourceIdentitySha256}`)) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", `${row.targetTable}.${reference.role ?? "unknown"}`);
   const emitted = new Set();
@@ -338,7 +340,8 @@ function buildPlanRecord(decision, staged, payload, derivedFields, targetScope, 
   return base;
 }
 
-export function generateProductionImportPayloads(input, { model: modelInput = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL } = {}) {
+export function generateProductionImportPayloads(input, { model: modelInput = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL, includeArtifactText = true } = {}) {
+  if (typeof includeArtifactText !== "boolean") fail("PRODUCTION_IMPORT_FROZEN_ARTIFACT_INVALID", "includeArtifactText must be boolean");
   const model = validateProductionImportTargetModel(modelInput);
   const { staging, decisions, inventory, targetScope } = validateFrozenArtifacts(input, model);
   const stagedBySource = validateStaging(staging, model);
@@ -381,8 +384,12 @@ export function generateProductionImportPayloads(input, { model: modelInput = DE
       sourceBatchManifestSha256: decisions.phaseManifests[phase],
       records: rows.map(row => ({ sourceIdentitySha256: row.planRecord.sourceIdentitySha256, sourceRowSha256: row.planRecord.sourceRowSha256, targetTable: row.targetTable, payloadSha256: row.planRecord.payloadSha256, payload: structuredClone(row.payload) })),
     };
-    const artifactText = `${stableProductionImportCanonicalJson(bundle)}\n`;
-    bundles.push({ phase, bundle, payloadBundleSha256: computeProductionImportPayloadBundleHash(bundle), payloadBundleArtifactSha256: sha256(artifactText), artifactText });
+    // Validation-only consumers need the exact hash, not a second full JSON
+    // object graph and retained serialized copy of every generated bundle.
+    const artifactText = includeArtifactText ? `${stableProductionImportCanonicalJson(bundle)}\n` : null;
+    bundles.push({ phase, bundle, payloadBundleSha256: computeProductionImportPayloadBundleHash(bundle),
+      payloadBundleArtifactSha256: includeArtifactText ? sha256(artifactText) : computeFrozenArtifactHash(bundle),
+      ...(includeArtifactText ? { artifactText } : {}) });
     planPhases.push({ phase, ordinal, sourceBatchManifestSha256: decisions.phaseManifests[phase], records: rows.map(row => structuredClone(row.planRecord)) });
   }
   return {
