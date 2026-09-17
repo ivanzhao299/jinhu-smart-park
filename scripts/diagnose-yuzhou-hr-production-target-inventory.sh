@@ -6,6 +6,7 @@ set -eu
 
 mode="${1:-report}"
 deploy_path="${2:-.}"
+target_scope_sha256="${3:-}"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE:-.env.production}"
 
@@ -31,7 +32,7 @@ receipt="$(mktemp)"
 probe_error="$(mktemp)"
 trap 'rm -f "$query" "$payload" "$receipt" "$probe_error"' EXIT HUP INT TERM
 
-node scripts/hr-cutover/materialize-production-target-inventory.mjs --sql > "$query"
+node scripts/hr-cutover/materialize-production-target-inventory.mjs --sql "$target_scope_sha256" > "$query"
 if ! docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
   sh -c 'database_name="${POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$database_name"' \
   < "$query" > "$payload" 2> "$probe_error"; then

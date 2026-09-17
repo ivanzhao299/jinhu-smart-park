@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import console from "node:console";
+import process from "node:process";
 import { URL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -56,6 +57,14 @@ assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\
 assert.match(sql, /"probation_salary"::text/u);
 assert.match(sql, /to_char\([^)]*"signed_at"/u);
 assert.match(sql, /'targetIdentityMaterial'/u);
+const scopedSql = buildProductionTargetInventorySql("a".repeat(64));
+assert.match(scopedSql, /FROM validated WHERE encode\(sha256\(/u);
+assert.match(scopedSql, /decode\('00','hex'\)/u);
+assert.match(scopedSql, /HAVING count\(\*\)=1/u);
+assert.throws(() => buildProductionTargetInventorySql("bad"), error => error.code === "PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID");
+const empty = spawnSync(process.execPath, [new URL("../hr-cutover/materialize-production-target-inventory.mjs", import.meta.url).pathname], { input: "", encoding: "utf8" });
+assert.equal(empty.status, 1);
+assert.equal(empty.stderr.trim(), "PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID");
 
 const hostProbe = readFileSync(new URL("../diagnose-yuzhou-hr-production-target-inventory.sh", import.meta.url), "utf8");
 assert.match(hostProbe, /umask 077/u);

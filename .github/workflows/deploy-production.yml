@@ -34,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      target_scope_sha256:
+        description: "Previously approved target scope hash for the T0-T3 read-only inventory; not an import authorization."
+        required: false
+        default: ""
+        type: string
       diagnose_hr_role:
         description: "Include count-only HR role identity probe in runtime-revision diagnosis. Never grants permissions."
         required: false
@@ -529,11 +534,13 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
           YUZHOU_SOURCE_MANIFEST_JSON: ${{ inputs.source_manifest_json }}
+          YUZHOU_TARGET_SCOPE_SHA256: ${{ inputs.target_scope_sha256 }}
         run: |
           set -eu
+          node --input-type=module -e 'const s=process.env.YUZHOU_TARGET_SCOPE_SHA256 ?? ""; if(s !== "" && !/^[a-f0-9]{64}$/.test(s)) { console.error("PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID"); process.exit(1); }'
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-target-inventory.sh > "$RUNNER_TEMP/yuzhou-hr-production-target-inventory-host.json"
+            "sh -s -- report '$PROD_DEPLOY_PATH' '$YUZHOU_TARGET_SCOPE_SHA256'" < scripts/diagnose-yuzhou-hr-production-target-inventory.sh > "$RUNNER_TEMP/yuzhou-hr-production-target-inventory-host.json"
           node --input-type=module - > "$RUNNER_TEMP/yuzhou-hr-production-target-inventory.json" <<'NODE'
           import { readFileSync } from "node:fs";
           import { verifyProductionSourceManifest } from "./scripts/prepare-yuzhou-production-source-manifest.mjs";
@@ -548,6 +555,7 @@ jobs:
               const receipt = verifyProductionSourceManifest(source);
               const inventory = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/yuzhou-hr-production-target-inventory-host.json", "utf8"));
               if (inventory?.formatVersion !== 1 || inventory.kind !== "yuzhou_hr_production_target_inventory_readonly" || inventory.status !== "PASS" || inventory.productionImport !== "HOLD" || !Array.isArray(inventory.records) || Object.keys(inventory.targetTableCounts ?? {}).length !== 16) throw new Error("inventory invalid");
+              if (process.env.YUZHOU_TARGET_SCOPE_SHA256 && inventory.targetScopeSha256 !== process.env.YUZHOU_TARGET_SCOPE_SHA256) throw new Error("scope mismatch");
               process.stdout.write(`${JSON.stringify({ ...inventory, sourceManifestSha256: receipt.manifestSha256, triple: { codeSha: process.env.GITHUB_SHA, sourceSnapshotHash: source.sourceSnapshotSha256, mappingContractHash: source.mappingContractSha256 } })}\n`);
             }
           } catch {

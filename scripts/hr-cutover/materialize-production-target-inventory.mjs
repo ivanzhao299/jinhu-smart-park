@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
+import process from "node:process";
+import { URL } from "node:url";
 
 import { normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
 import {
@@ -47,7 +49,7 @@ function validateDerivedFields(targetTable, value, rule) {
       fail("PRODUCTION_IMPORT_TARGET_INVENTORY_RECORD_INVALID", `${targetTable}.${field} invalid`);
     }
   }
-  return structuredClone(value);
+  return globalThis.structuredClone(value);
 }
 
 function validateRecord(record, targetScope) {
@@ -117,7 +119,13 @@ function jsonObject(expressions) {
 }
 
 /** Builds the fixed, read-only PostgreSQL projection consumed by the host shell. */
-export function buildProductionTargetInventorySql() {
+export function buildProductionTargetInventorySql(targetScopeSha256 = "") {
+  if (typeof targetScopeSha256 !== "string" || (targetScopeSha256 !== "" && !/^[a-f0-9]{64}$/u.test(targetScopeSha256))) {
+    fail("PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID", "scope hash");
+  }
+  // NUL delimiters must be bytea: PostgreSQL text cannot contain NUL.
+  const scopeFilter = targetScopeSha256 === "" ? "" : ` WHERE encode(sha256(convert_to('yuzhou-hr-production-target-scope-v1','UTF8') || decode('00','hex') || convert_to(tenant_id,'UTF8') || decode('00','hex') || convert_to(park_id,'UTF8')),'hex')='${targetScopeSha256}'`;
+
   const selects = TARGET_TABLES.map((targetTable, index) => {
     const rule = DEFAULT_PRODUCTION_IMPORT_TARGET_MODEL.targetTables[targetTable];
     const alias = `t${index}`;
@@ -127,18 +135,22 @@ export function buildProductionTargetInventorySql() {
     const live = UNVERSIONED_TABLES.has(targetTable) ? "" : ` AND ${alias}.is_deleted=false`;
     return `SELECT '${targetTable}'::text AS target_table,${alias}.id::text AS target_id,${version}::integer AS target_version,${targetFields} AS target_fields,${derivedFields} AS derived_fields FROM public."${targetTable}" ${alias} JOIN single_scope scope ON ${alias}.tenant_id::text=scope.tenant_id AND ${alias}.park_id::text=scope.park_id WHERE true${live}`;
   });
-  return `BEGIN TRANSACTION READ ONLY;\nSET LOCAL search_path = public, pg_catalog;\nWITH hr_scope AS (\n  SELECT DISTINCT btrim(assignment.tenant_id::text) AS tenant_id,btrim(assignment.park_id::text) AS park_id\n  FROM rel_tenant_module assignment JOIN sys_module module ON module.id=assignment.module_id AND module.module_code='hr' AND module.is_deleted=false\n  WHERE assignment.enabled=true AND assignment.status='enabled' AND assignment.is_deleted=false\n    AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())\n    AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())\n), validated AS (\n  SELECT scope.tenant_id,scope.park_id FROM hr_scope scope\n  WHERE EXISTS (SELECT 1 FROM sys_tenant tenant WHERE btrim(tenant.tenant_id::text)=scope.tenant_id AND tenant.status=1 AND tenant.is_deleted=false AND (tenant.expire_time IS NULL OR tenant.expire_time>clock_timestamp()))\n    AND EXISTS (SELECT 1 FROM biz_park park WHERE btrim(park.tenant_id::text)=scope.tenant_id AND btrim(park.park_id::text)=scope.park_id AND park.status=1 AND park.is_deleted=false)\n), single_scope AS (\n  SELECT max(tenant_id) AS tenant_id,max(park_id) AS park_id FROM validated HAVING count(*)=1\n), target_rows AS (\n  ${selects.join("\n  UNION ALL\n  ")}\n)\nSELECT jsonb_build_object(\n  'targetIdentityMaterial',concat_ws(E'\\x1f',current_database(),current_user,coalesce(inet_server_addr()::text,''),coalesce(inet_server_port()::text,''),(SELECT oid::text FROM pg_database WHERE datname=current_database()),scope.tenant_id,scope.park_id),\n  'targetScope',jsonb_build_object('tenantId',scope.tenant_id,'parkId',scope.park_id),\n  'records',coalesce((SELECT jsonb_agg(jsonb_build_object('targetTable',target_table,'targetId',target_id,'targetVersion',target_version,'targetFields',target_fields,'derivedFields',derived_fields) ORDER BY target_table,target_id) FROM target_rows),'[]'::jsonb)\n)::text FROM single_scope scope;\nCOMMIT;\n`;
+  return `BEGIN TRANSACTION READ ONLY;\nSET LOCAL search_path = public, pg_catalog;\nWITH hr_scope AS (\n  SELECT DISTINCT btrim(assignment.tenant_id::text) AS tenant_id,btrim(assignment.park_id::text) AS park_id\n  FROM rel_tenant_module assignment JOIN sys_module module ON module.id=assignment.module_id AND module.module_code='hr' AND module.is_deleted=false\n  WHERE assignment.enabled=true AND assignment.status='enabled' AND assignment.is_deleted=false\n    AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())\n    AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())\n), validated AS (\n  SELECT scope.tenant_id,scope.park_id FROM hr_scope scope\n  WHERE EXISTS (SELECT 1 FROM sys_tenant tenant WHERE btrim(tenant.tenant_id::text)=scope.tenant_id AND tenant.status=1 AND tenant.is_deleted=false AND (tenant.expire_time IS NULL OR tenant.expire_time>clock_timestamp()))\n    AND EXISTS (SELECT 1 FROM biz_park park WHERE btrim(park.tenant_id::text)=scope.tenant_id AND btrim(park.park_id::text)=scope.park_id AND park.status=1 AND park.is_deleted=false)\n), single_scope AS (\n  SELECT max(tenant_id) AS tenant_id,max(park_id) AS park_id FROM validated${scopeFilter} HAVING count(*)=1\n), target_rows AS (\n  ${selects.join("\n  UNION ALL\n  ")}\n)\nSELECT jsonb_build_object(\n  'targetIdentityMaterial',concat_ws(E'\\x1f',current_database(),current_user,coalesce(inet_server_addr()::text,''),coalesce(inet_server_port()::text,''),(SELECT oid::text FROM pg_database WHERE datname=current_database()),scope.tenant_id,scope.park_id),\n  'targetScope',jsonb_build_object('tenantId',scope.tenant_id,'parkId',scope.park_id),\n  'records',coalesce((SELECT jsonb_agg(jsonb_build_object('targetTable',target_table,'targetId',target_id,'targetVersion',target_version,'targetFields',target_fields,'derivedFields',derived_fields) ORDER BY target_table,target_id) FROM target_rows),'[]'::jsonb)\n)::text FROM single_scope scope;\nCOMMIT;\n`;
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  if (process.argv[2] === "--sql" && process.argv.length === 3) {
-    process.stdout.write(buildProductionTargetInventorySql());
+  if (process.argv[2] === "--sql" && (process.argv.length === 3 || process.argv.length === 4)) {
+    try { process.stdout.write(buildProductionTargetInventorySql(process.argv[3] ?? "")); }
+    catch { process.stderr.write("PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID\n"); process.exitCode = 1; }
   } else if (process.argv.length === 2) {
     let body = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", chunk => { body += chunk; });
     process.stdin.on("end", () => {
-      try { process.stdout.write(`${JSON.stringify(materializeProductionTargetInventory(JSON.parse(body)))}\n`); }
+      try {
+        if (!body.trim()) fail("PRODUCTION_IMPORT_TARGET_INVENTORY_SCOPE_INVALID", "no unique active scope");
+        process.stdout.write(`${JSON.stringify(materializeProductionTargetInventory(JSON.parse(body)))}\n`);
+      }
       catch (error) { process.stderr.write(`${error instanceof ProductionTargetInventoryError ? error.code : "PRODUCTION_IMPORT_TARGET_INVENTORY_FAILED"}\n`); process.exitCode = 1; }
     });
   } else {
