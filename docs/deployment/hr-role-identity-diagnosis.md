@@ -20,3 +20,18 @@ Validation: `node --test scripts/e2e/hr-role-identity.contract.mjs`.
 Use the observed classification to build a production-shaped isolated fixture
 before changing the seed. Counts alone never authorize choosing an arbitrary
 survivor or broadening identity scope.
+
+## Canonical responsibility identity
+
+The maintained `scripts/generate_jinhu_2026_user_import.py` declares `wuenguo`
+as the HR/administration department manager. Seed `000033` selects that exact
+scoped, non-deleted identity; only when it is absent does it support the legacy
+`wu_enguo` alias used by the original apartment seed. A disabled canonical
+identity fails rather than silently falling back. Duplicate selected identities,
+missing/disabled/super roles and cross-scope binding remain rejected. Both aliases
+may coexist without granting the new role to both. No account is deleted or merged.
+
+Regression: `node scripts/e2e/wu-enguo-hr-manager-postgres.mjs` covers both enabled
+aliases (the observed production shape), exact canonical selection, legacy-only
+fallback, duplicate canonical rejection, disabled canonical rejection, repeat,
+concurrency and scope isolation.
