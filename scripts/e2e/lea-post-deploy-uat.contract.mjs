@@ -211,6 +211,7 @@ test("office matrix uses real API writes, approval execution, candidate facets a
   assert.match(officeRunner, /rejected\.status !== 409/u);
   assert.match(officeRunner, /requirePropertyApiE2eIsolation\(\)/u);
   assert.match(officeRunner, /Unit usage is not allowed for target operating mode/u);
+  assert.match(officeRunner, /property-mode-usage-not-allowed/u);
   assert.match(officeRunner, /AbortSignal\.timeout\(15000\)/u);
   assert.match(officeRunner, /keyword=\$\{encodeURIComponent\(unitCode\)\}/u);
 });

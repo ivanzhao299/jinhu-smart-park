@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { BadRequestException } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING, UNIT_USAGE_OFFICE } from "@jinhu/shared";
 import {
   ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY
@@ -733,4 +733,59 @@ test("occupancy reads join units with the full tenant and park scope instead of 
   assert.match(service, /endAt: "occupancy\.endAt"/u);
   assert.match(service, /updateTime: "occupancy\.updateTime"/u);
   assert.doesNotMatch(service, /orderBy\([^\n]*occupancy\.start_at/u);
+});
+
+test("office units reject a short-stay transition with a stable usage error code", async () => {
+  const officeUnit = {
+    id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_OFFICE,
+    assetUnitId: null
+  };
+  const manager = {
+    query: async () => [],
+    getRepository: () => ({ findOne: async () => officeUnit })
+  };
+  const service = new PropertyOperationsService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => officeUnit } as never,
+    { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never
+  );
+  await assert.rejects(
+    service.transitionMode(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      {
+        sub: "user-1", username: "operator", tenantId: "tenant-1", parkId: "park-1", roles: [],
+        permissions: [SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE]
+      },
+      "unit-1",
+      { target_mode: "short_stay", reason: "switch" },
+      "client-key"
+    ),
+    (error: unknown) => (error as { getResponse?: () => { errorCode?: string } }).getResponse?.().errorCode
+      === "property-mode-usage-not-allowed"
+  );
+});
+
+test("projected operation exposes office long-rent eligibility and target-aware blockers", async () => {
+  const service = new PropertyOperationsService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never
+  );
+  const project = (service as unknown as { projectOperation: Function }).projectOperation.bind(service);
+  const result = await project(
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { permissions: [SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE] },
+    {
+      unitId: "unit-1", unitCode: "OFF-1", unitName: "Office 1", buildingId: "building-1",
+      usageType: UNIT_USAGE_OFFICE, configuredMode: "long_rent", operationStatus: "enabled",
+      version: 1
+    },
+    {
+      checked_at: new Date().toISOString(), active_occupancy_count: 0, incompatible_occupancy_count: 0,
+      maintenance_or_operations_count: 0, commercial_contract_count: 1, housing_lease_count: 0,
+      homestay_booking_count: 0, pending_checkout_count: 0, open_workorder_count: 0,
+      unsettled_receivable_count: 0, blocking_reasons: []
+    }
+  );
+  assert.deepEqual(result.allowedTargetModes, ["none", "long_rent"]);
+  assert.deepEqual(result.blockers, []);
 });
