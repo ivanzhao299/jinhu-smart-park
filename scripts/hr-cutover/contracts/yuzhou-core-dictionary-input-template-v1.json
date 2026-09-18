@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_core_dictionary_input_template",
+  "sourceSystem": "yuzhou-v10",
+  "productionImport": "HOLD",
+  "instructions": {
+    "fileMode": "0600",
+    "eventState": {
+      "sourceObject": "dbo.readjust.state",
+      "sourceRecordCount": 6887,
+      "sourceDistinctValueCount": 2,
+      "rowShape": { "sourceValue": "<source value>", "usageCount": "<positive integer>" }
+    },
+    "contractType": {
+      "sourceObject": "dbo.compacttypecode",
+      "sourceRecordCount": 4,
+      "sourceDistinctValueCount": 4,
+      "rowShape": { "typeCode": "<source code>", "typeName": "<source name>" }
+    },
+    "contractState": {
+      "sourceObject": "dbo.compact.state",
+      "sourceRecordCount": 802,
+      "sourceDistinctValueCount": 2,
+      "rowShape": { "sourceValue": "<source value>", "usageCount": "<positive integer>" }
+    }
+  }
+}
