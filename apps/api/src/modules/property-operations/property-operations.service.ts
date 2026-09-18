@@ -151,6 +151,7 @@ export class PropertyOperationsService {
       .select("unit.id", "unitId")
       .addSelect("unit.unit_code", "unitCode")
       .addSelect("unit.unit_name", "unitName")
+      .addSelect("unit.usage_type", "usageType")
       .addSelect("unit.building_id", "buildingId")
       .addSelect("building.building_code", "buildingCode")
       .addSelect("building.building_name", "buildingName")
@@ -221,6 +222,7 @@ export class PropertyOperationsService {
       unitId: unit.id,
       unitCode: unit.unitCode,
       unitName: unit.unitName,
+      usageType: unit.usageType,
       buildingId: unit.buildingId,
       buildingCode: location?.buildingCode,
       buildingName: location?.buildingName,
@@ -265,12 +267,16 @@ export class PropertyOperationsService {
       });
       const configuredMode = config?.operatingMode ?? "none";
       if (!isUnitUsageAllowedForPropertyMode(configuredMode, unit.usageType)) {
-        throw new ConflictException(`Unit usage is incompatible with operating mode ${configuredMode}`);
+        throw new ConflictException({
+          message: `Unit usage is incompatible with operating mode ${configuredMode}`,
+          errorCode: "property-mode-usage-not-allowed",
+          details: { usageType: unit.usageType, operatingMode: configuredMode }
+        });
       }
       if ((config?.version ?? 0) !== dto.version) {
         throw new ConflictException({
           message: "Property operation configuration version has changed",
-          errorCode: "property-operation-version-conflict",
+          errorCode: "property-version-conflict",
           currentVersion: config?.version ?? 0
         });
       }
@@ -345,7 +351,11 @@ export class PropertyOperationsService {
         throw new NotFoundException("Property unit not found");
       }
       if (!isUnitUsageAllowedForPropertyMode(dto.target_mode, lockedUnit.usageType)) {
-        throw new ConflictException("Unit usage is not allowed for target operating mode");
+        throw new ConflictException({
+          message: "Unit usage is not allowed for target operating mode",
+          errorCode: "property-mode-usage-not-allowed",
+          details: { usageType: lockedUnit.usageType, targetMode: dto.target_mode }
+        });
       }
       const repository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await repository.findOne({
@@ -370,7 +380,11 @@ export class PropertyOperationsService {
         return { config, transition: null, unchanged: true };
       }
       if (config.operatingStatus !== "enabled" && dto.target_mode !== "none") {
-        throw new ConflictException("Suspended or disabled unit cannot enter an operating mode");
+        throw new ConflictException({
+          message: "Suspended or disabled unit cannot enter an operating mode",
+          errorCode: "property-mode-blocked",
+          details: { operatingStatus: config.operatingStatus, targetMode: dto.target_mode }
+        });
       }
 
       const snapshot = await this.buildTransitionSnapshot(manager, scope, unitId, dto.target_mode);
@@ -439,7 +453,7 @@ export class PropertyOperationsService {
       configId !== input.request.sourceId
       || input.sourceExpectedVersion !== input.request.sourceExpectedVersion
       || !reason || !actorName
-    ) throw new ConflictException("Approval source changed");
+    ) throw new ConflictException({ message: "Approval source changed", errorCode: "approval-source-changed" });
     await input.manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
       scope.tenantId, scope.parkId, unitId
     ]);
@@ -469,7 +483,7 @@ export class PropertyOperationsService {
       || config.operatingMode !== fromMode
       || config.operatingStatus !== payload.operatingStatus
       || !isUnitUsageAllowedForPropertyMode(targetMode, Number(config.usageType))
-    ) throw new ConflictException("Approval source changed");
+    ) throw new ConflictException({ message: "Approval source changed", errorCode: "approval-source-changed" });
     const currentSnapshot = await this.buildTransitionSnapshot(
       input.manager, scope, unitId, targetMode
     );
@@ -479,7 +493,7 @@ export class PropertyOperationsService {
         this.snapshotComparable(payload.checkSnapshot as ModeTransitionCheckSnapshot)
       )
       || currentSnapshot.blocking_reasons.length > 0
-    ) throw new ConflictException("Approval source changed");
+    ) throw new ConflictException({ message: "Approval source changed", errorCode: "approval-source-changed" });
     const manifestRows = await input.manager.query(
       `SELECT invariant_hash AS "effectHash", effect_line_key AS "effectLineKey"
          FROM biz_property_execution_effect_manifest
@@ -507,7 +521,7 @@ export class PropertyOperationsService {
       ]
     ));
     if (updated.length !== 1 || updated[0]!.version !== input.sourceExpectedVersion + 1) {
-      throw new ConflictException("Approval source changed");
+      throw new ConflictException({ message: "Approval source changed", errorCode: "approval-source-changed" });
     }
     const inserted = typeormQueryRows<{ id: string }>(await input.manager.query(
       `INSERT INTO biz_property_mode_transition_log(
@@ -772,12 +786,17 @@ export class PropertyOperationsService {
     const snapshot = projectedSnapshot ?? await this.buildTransitionSnapshot(
       this.dataSource.manager, scope, unitId, configuredMode
     );
-    const blockers = this.snapshotBlockers(snapshot);
+    const usageType = Number(row.usageType);
+    const allowedTargetModes = (Object.keys(PROPERTY_MODE_UNIT_USAGE_ALLOWLIST) as PropertyOperatingMode[])
+      .filter((mode) => isUnitUsageAllowedForPropertyMode(mode, usageType));
+    const blockers = this.snapshotBlockers(snapshot, configuredMode);
     const allowedActions = this.operationAllowedActions(actor);
     return {
       unitId,
       unitCode: String(row.unitCode),
       unitName: String(row.unitName),
+      usageType,
+      allowedTargetModes,
       buildingId: String(row.buildingId),
       buildingCode: row.buildingCode ?? null,
       buildingName: row.buildingName ?? null,
@@ -823,11 +842,11 @@ export class PropertyOperationsService {
     return unit;
   }
 
-  private snapshotBlockers(snapshot: ModeTransitionCheckSnapshot) {
+  private snapshotBlockers(snapshot: ModeTransitionCheckSnapshot, targetMode: PropertyOperatingMode = "none") {
     const rows = [
-      ["commercial-active", "存在未结束的商业租赁合同", snapshot.commercial_contract_count, "commercial_leasing", "leasing_contract"],
-      ["housing-active", "存在仍有效的长租租约", snapshot.housing_lease_count, "housing_rental", "housing_lease"],
-      ["homestay-active", "存在仍有效的民宿订单", snapshot.homestay_booking_count, "homestay", "homestay_booking"],
+      ["commercial-active", "存在未结束的商业租赁合同", targetMode === "long_rent" ? 0 : snapshot.commercial_contract_count, "commercial_leasing", "leasing_contract"],
+      ["housing-active", "存在仍有效的长租租约", targetMode === "long_rent" ? 0 : snapshot.housing_lease_count, "housing_rental", "housing_lease"],
+      ["homestay-active", "存在仍有效的民宿订单", targetMode === "short_stay" ? 0 : snapshot.homestay_booking_count, "homestay", "homestay_booking"],
       ["occupancy-incompatible", "存在与经营模式冲突的占用", snapshot.incompatible_occupancy_count, "property", "property_occupancy"],
       ["operations-blocker", "存在维修、保洁或运营锁房", snapshot.maintenance_or_operations_count, "operations", "operations_task"],
       ["checkout-pending", "存在待退房或待结算记录", snapshot.pending_checkout_count, "commercial_leasing", "leasing_checkout"],
@@ -905,19 +924,19 @@ export class PropertyOperationsService {
           AND relation.unit_id=unit.id AND relation.is_deleted=false AND relation.status=1
           AND contract.is_deleted=false AND contract.status NOT IN ('90','91')
           AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
-      )`,
+      ) AND COALESCE(config.operating_mode, 'none') <> 'long_rent'`,
       "housing-active": `EXISTS (
         SELECT 1 FROM biz_housing_lease lease
         WHERE lease.tenant_id=unit.tenant_id AND lease.park_id=unit.park_id
           AND lease.unit_id=unit.id AND lease.is_deleted=false
           AND lease.status IN ('active','expiring','checkout_pending')
-      )`,
+      ) AND COALESCE(config.operating_mode, 'none') <> 'long_rent'`,
       "homestay-active": `EXISTS (
         SELECT 1 FROM biz_homestay_booking booking
         WHERE booking.tenant_id=unit.tenant_id AND booking.park_id=unit.park_id
           AND booking.unit_id=unit.id AND booking.is_deleted=false
           AND booking.status IN ('confirmed','checked_in')
-      )`,
+      ) AND COALESCE(config.operating_mode, 'none') <> 'short_stay'`,
       "occupancy-incompatible": `EXISTS (
         SELECT 1 FROM biz_property_occupancy occupancy
         WHERE occupancy.tenant_id=unit.tenant_id AND occupancy.park_id=unit.park_id
@@ -1096,7 +1115,8 @@ export class PropertyOperationsService {
         unsettled_receivable_count: Number(row.unsettled_receivable_count ?? 0),
         blocking_reasons: [] as string[]
       };
-      snapshot.blocking_reasons = this.snapshotBlockers(snapshot).map((blocker) => blocker.label);
+      const targetMode = String(requests.find((request) => request.unitId === String(row.unitId))?.targetMode ?? "none") as PropertyOperatingMode;
+      snapshot.blocking_reasons = this.snapshotBlockers(snapshot, targetMode).map((blocker) => blocker.label);
       return [String(row.unitId), snapshot];
     }));
   }
