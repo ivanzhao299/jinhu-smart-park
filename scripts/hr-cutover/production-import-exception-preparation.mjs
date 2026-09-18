@@ -1,5 +1,6 @@
 /** Quarantine preparation and external-signature finalization. No IO or signing. */
 import { createHash, createPublicKey, verify } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { TextDecoder } from "node:util";
 import { freezeProductionImportCandidates } from "./production-import-candidate-freeze.mjs";
 import { normalizeProductionImportTargetFields } from "./production-import-payload-generator.mjs";
@@ -35,7 +36,7 @@ function base64(value, expectedLength) {
 }
 function inputBindings(input) {
   if (input.reviewedDecisionsArtifact !== null) fail("UNSIGNED_INPUT_REQUIRED");
-  return { triple: structuredClone(input.expectedTriple),
+  return { triple: globalThis.structuredClone(input.expectedTriple),
     phaseArtifactSha256: Object.fromEntries(model.phaseOrder.map(phase => [phase, input.phaseArtifacts[phase].sha256])),
     candidateArtifactSha256: Object.fromEntries(model.phaseOrder.map(phase => [phase, input.candidateArtifacts[phase].sha256])),
     targetInventoryArtifactSha256: input.targetInventoryArtifact.sha256, targetScopeArtifactSha256: input.targetScopeArtifact.sha256 };
@@ -68,7 +69,7 @@ function choiceDecision(choice, candidate, candidates) {
     roles.add(ref.role);
   }
   return { phase: choice.phase, targetTable: choice.targetTable, sourceIdentitySha256: choice.sourceIdentitySha256, disposition: "quarantine",
-    targetFields: fields, dependencyRefs: structuredClone(choice.dependencyRefs) };
+    targetFields: fields, dependencyRefs: globalThis.structuredClone(choice.dependencyRefs) };
 }
 function context(operationId, targetScope, keyReferenceSha256, candidate, decision) {
   return { kind: "quarantine", operationId, phaseName: candidate.phase, targetScope, keyReferenceSha256,
@@ -205,7 +206,7 @@ export async function finalizeProductionImportExceptions(input, { resolveKey, in
     const reviewed = { formatVersion: 1, artifactKind: "yuzhou_hr_production_import_reviewed_candidate_resolutions", triple: bindings.triple, targetScope: prepared.targetScope,
       targetInventoryArtifactSha256: bindings.targetInventoryArtifactSha256, candidateArtifactSha256: bindings.candidateArtifactSha256, records };
     const bytes = canonical(reviewed) + "\n";
-    const frozen = freezeProductionImportCandidates({ ...input.freezeInput, reviewedDecisionsArtifact: { path: "finalized-exception-resolutions.json", bytes, sha256: hash(bytes) } });
+    const frozen = freezeProductionImportCandidates({ ...input.freezeInput, reviewedDecisionsArtifact: { path: "finalized-exception-resolutions.json", bytes, sha256: hash(bytes) } }, { evidenceMode: "non_insert", retainWrappers: false });
     if (frozen.summary.status !== "READY") fail("FREEZE_NOT_READY");
     for (const item of frozen.evidence.records) if (originals.has(item.candidate.sourceIdentitySha256) && !same(item.candidate, originals.get(item.candidate.sourceIdentitySha256))) fail("ORIGINAL_EVIDENCE_INVALID");
     return { reviewed, ...(includeBridgeEvidence ? { bridgeEvidence: { targetIdentitySha256: frozen.evidence.targetIdentitySha256,

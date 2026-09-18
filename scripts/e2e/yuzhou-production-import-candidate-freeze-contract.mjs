@@ -7,6 +7,26 @@ import { assembleProductionT2DecisionCandidates } from "../hr-cutover/production
 import { assembleProductionT3DecisionCandidates } from "../hr-cutover/production-t3-decision-candidates.mjs";
 
 const reject = input => assert.throws(() => freeze(input), error => /^CANDIDATE_FREEZE_[A-Z0-9_]+$/u.test(error.code) && error.message === error.code);
+test("non-insert evidence projection preserves full validation and bridge outputs", () => {
+  const input = inputFor(fixture()), full = freeze(input), compact = freeze(input, { evidenceMode: "non_insert" });
+  assert.deepEqual(compact.summary, full.summary);
+  assert.deepEqual(compact.bridge, full.bridge);
+  assert.deepEqual(compact.wrappers, full.wrappers);
+  const integrityOnly = freeze(input, { evidenceMode: "non_insert", retainWrappers: false });
+  assert.equal(integrityOnly.wrappers, null);
+  assert.deepEqual(integrityOnly.bridge, full.bridge);
+  assert.deepEqual(integrityOnly.summary, full.summary);
+  assert.throws(() => freeze(input, { retainWrappers: "false" }), { code: "CANDIDATE_FREEZE_WRAPPER_MODE_INVALID" });
+  assert.equal(compact.evidence.records.length, 0);
+  assert.equal(full.evidence.records.length, 16);
+  const f = fixture(); quarantine(f, "hr_employee_insurance_item", true);
+  const held = inputFor(f), all = freeze(held), onlyExceptions = freeze(held, { evidenceMode: "non_insert" });
+  assert.deepEqual(onlyExceptions.summary, all.summary);
+  assert.deepEqual(onlyExceptions.evidence.records, all.evidence.records.filter(row => row.candidate.candidateDisposition !== "insert"));
+  const corrupt = inputFor(fixture()); corrupt.phaseArtifacts.T3.sha256 = hash("bad phase");
+  assert.throws(() => freeze(corrupt, { evidenceMode: "non_insert" }), { code: "CANDIDATE_FREEZE_BYTE_HASH_MISMATCH" });
+  assert.throws(() => freeze(input, { evidenceMode: "skip_validation" }), { code: "CANDIDATE_FREEZE_EVIDENCE_MODE_INVALID" });
+});
 test("all sixteen producer-shaped tables reach existing bridge/generator without reviews, deterministically and without mutation", () => {
   const input = inputFor(fixture()), saved = structuredClone(input), out = freeze(input);
   assert.equal(out.summary.status, "READY"); assert.equal(out.summary.productionImport, "HOLD");
