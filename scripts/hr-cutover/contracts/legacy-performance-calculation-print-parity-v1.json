@@ -68,11 +68,11 @@
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
-      "sha256": "d721e7e5d28d279c92a520958b9a9ca5222d3ef2e546d4318f1e1cab25ce8a86"
+      "sha256": "fa57bb0688ac4d24dc987ef45f6ae19473a869db251e5048d79871314cdf2d23"
     },
     "legacyWebContract": {
       "path": "apps/web/app/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"
+      "sha256": "019646fc2193ff371846f2ff7be71298c8aa5e28645972bb528e9cf4bb0d91bc"
     }
   },
   "routines": [
@@ -295,7 +295,7 @@
         "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
         "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
         "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
-        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"}]
+        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"019646fc2193ff371846f2ff7be71298c8aa5e28645972bb528e9cf4bb0d91bc"}]
       },
       "review": {"status":"approved","evidenceSha256":"a568f3d4e9962bb6e4951a1d72541289141ea1c504d39a36874b3ed406e71937"}
     }

@@ -39,3 +39,7 @@ ProductionImport remains HOLD: integration does not solve current formal A/B, pr
 ## Next
 
 Finish integrated unit/build/CI and browser checks. Fetch again; merge only validated candidate, deploy with post-health Docker cleanup, verify local=main=runtime identity and health. Then select the next development slice from this preserved backlog against that release baseline.
+
+## Post-integration review
+
+Preserved main performance panel changes were reviewed: identity remount/cancellation, bounded legacy query parser and payroll permission hiding. Its two stale static references in the touched print-parity contract are updated to reviewed main bytes; print-parity 7/7 and professional-title 6/6 pass. This does not add source/production acceptance credit. Hosted refresh-scope PostgreSQL passed in CI run 35500038751. Full local unit gate passed; API/Web production build and browser acceptance continue.
