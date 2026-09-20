@@ -101,6 +101,17 @@ test("permission modernization and current page boundary remain explicit", () =>
   ]);
   assert.equal(permission.fullFieldPermission, "hr:employee_family:read");
   assert.equal(permission.expectedAudit, true);
+  assert.deepEqual(contract.currentModernFamilyPanel, {
+    implementationStatus: "implemented_synthetic_technical_evidence",
+    renderedFields: ["fullName", "relationship", "birthDate", "workUnit", "jobTitle", "politicalStatus", "contact"],
+    fullSensitiveFields: ["fullName", "contact"],
+    maskedFallbackFields: ["fullNameMasked", "contactMasked"],
+    fullFieldPermission: "hr:employee_family:read",
+    fieldAccessGate: "records.fieldAccess.family_equals_true",
+    legacyRuntimeEquivalence: "NOT_CLAIMED",
+    businessUat: "NOT_CLAIMED",
+    compatibilityCreditDelta: 0,
+  });
   assert.equal(contract.nonClaims.allSevenFieldsRenderedOnCurrentSummaryCard, "NOT_CLAIMED");
   assert.equal(contract.nonClaims.otherFamilyReportRoutines, "NOT_CLAIMED");
 });
@@ -124,10 +135,22 @@ test("evidence drift and scope promotion fail closed", () => {
     () => verifyLegacyFamilyQueryParity({ contract: webApiDrift, fixture, repositoryRoot: root }),
     error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_EVIDENCE_DRIFT",
   );
+  const componentDrift = structuredClone(contract);
+  componentDrift.evidenceBindings.modernFamilyComponent.sha256 = "f".repeat(64);
+  assert.throws(
+    () => verifyLegacyFamilyQueryParity({ contract: componentDrift, fixture, repositoryRoot: root }),
+    error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_EVIDENCE_DRIFT",
+  );
   const promoted = structuredClone(contract);
   promoted.nonClaims.allSevenFieldsRenderedOnCurrentSummaryCard = "VERIFIED";
   assert.throws(
     () => verifyLegacyFamilyQueryParity({ contract: promoted, fixture, repositoryRoot: root }),
+    error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_CONTRACT_INVALID",
+  );
+  const credited = structuredClone(contract);
+  credited.currentModernFamilyPanel.compatibilityCreditDelta = 1;
+  assert.throws(
+    () => verifyLegacyFamilyQueryParity({ contract: credited, fixture, repositoryRoot: root }),
     error => error instanceof LegacyFamilyQueryParityError && error.code === "FAMILY_QUERY_CONTRACT_INVALID",
   );
 });
