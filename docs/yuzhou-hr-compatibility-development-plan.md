@@ -289,6 +289,12 @@ pnpm hr:migration:legacy-routine-logic:audit -- --inventory <原子清单绝对�
 
 四个过程引用当前绑定 DDL 不存在的旧版 `assessmentmaster` 字段，已标为 `dormant_schema_drift`，在 catalog/版本证据明确前不得猜测别名。`u_assessmentvalue` 与 `u_assessmentvalueofperson` 的“最后评定分”严格记录为 `itemvalue + timekeepvalue + bonusvalue`，不含同一结果中展示的 `mastervalue`；`web_assquery` 会覆盖传入周期并查询全部周期，现代默认行为应修正为尊重周期，而兼容对照模式需证明旧输入确实不起作用。七个过程当前均为 `pending`，兼容分不增加，生产导入仍为 `HOLD`。
 
+`u_assessmentvalue` 已补齐独立只读查询面：周期名称只通过同批次、已验证的 `dbo.asssession` 关系投影，部门条件只接受受限文字前缀并以转义后的绑定 `LIKE` 参数执行；精确返回旧过程九列。当前清单没有 `assessmentmaster.grade`，因此等级保持显式未解析，绝不以 `assgrade` 猜测。最后评定分使用 PostgreSQL 原生空值传播的 `itemvalue + timekeepvalue + bonusvalue`，主管附加分仅单列展示。该切片仍须真实非空周期、非零主管附加分、空操作数、三角色桌面及 390px UAT，例程状态保持 `pending`、兼容积分保持 0。
+
+`u_assessmentvalueofperson` 已补齐跨全部周期的个人历史只读查询面：人员编码沿用共享的 1-10 位 Unicode 文字/数字/下划线/连字符精确规则，并始终作为绑定参数，tenant/park/team/self 授权另行收窄。八列投影中，周期名称只在同批次关系和映射均为 active verified 时显示，否则为 null；当前清单缺失的 `assessmentmaster.grade` 保持显式未解析，绝不以 `assgrade` 猜测。最后评定分仍严格使用 PostgreSQL 空值传播的 `itemvalue + timekeepvalue + bonusvalue`，主管附加分只展示、不计入。park 查询保留授权范围内的孤儿 master 事实，team/self 未建立现代员工范围时失败关闭。该切片仍须真实非空个人历史、非零主管附加分、空操作数、孤儿差异和三角色桌面及 390px UAT，例程状态保持 `pending`、兼容积分保持 0。
+
+`web_assquery` 已补齐安全修正后的只读区间查询面：旧过程会无条件把传入 `asssession` 改为 `%`，现代端不复制这个“期间输入无效”的历史缺陷，而是要求考核期间并通过同批次 active verified 周期关系精确过滤。可空人员 LIKE 条件、部门前缀及总评定分上下限全部使用绑定参数；部门条件只能收窄服务端确定的 park/team/self 范围，不能充当授权。六列返回保持旧过程顺序和语义，不增加工资、评语、批次或内部映射字段。当前仍须 SQL Server 的“忽略期间”与现代“遵守期间”非空差异对照、周期关系守恒及三角色桌面和 390px UAT，例程状态保持 `pending`、兼容积分保持 0。
+
 `web_ass` / `web_assessmentquery` 的人员编码输入已补充只读聚合证据：`dbo.person.person` 为 `varchar(10)`，2,949 行中实际长度为 2-6 个字符，2 行含汉字；未发现空值、首尾或内部空白、控制字符、其他符号、通配符、SQL 元字符以及精确/去空白/大小写折叠碰撞。API 与 Web 共用 Unicode 文字/数字及 `_`、`-` 的 1-10 个码点输入合同，Web 的输入容量按最多 20 个 UTF-16 单元承载 10 个补充平面字符并通过 `URLSearchParams` 编码，提交时仍由同一共享合同校验；API 仅去除首尾空白并以绑定参数作精确等值查询，不做大小写或 Unicode 改写。该合同是覆盖当前快照的查询安全超集，不宣称与任意 SQL Server `varchar(10)` 代码页或写入字节语义等价；该切片也不代表两个例程已经完整等义，不能据此把 `pending` 提升为 `verified` 或增加兼容分。
 
 两个同列查询的孤儿语义不得合并：`web_ass` 以 `person` 为驱动表，必须排除没有现代员工映射的历史汇总；`web_assessmentquery` 以 `assessmentmaster` 为驱动表，必须保留汇总并把现代员工姓名投影为 `null`/“未建立现代员工映射”。现代 API 强制客户端显式提交 `source_routine=web_ass|web_assessmentquery`，两种模式共用精确人员编码、绑定参数、tenant/park/team/self 范围和必需审计，不提供隐式默认模式。当前只具备合成 matched/orphan 合同证据，两个例程仍须真实非空源守恒与三角色桌面/390px UAT 后才能晋级，兼容分保持不变。

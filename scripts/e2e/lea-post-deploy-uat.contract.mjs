@@ -86,7 +86,7 @@ test("browser UAT rejects incomplete or unsafe cases while retaining blocked evi
       writeFileSync(caseFile, JSON.stringify({ cases }));
       const execution = spawnSync(process.execPath, [
         new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
-        "--chrome-path", "/bin/true",
+        "--chrome-path", process.execPath,
         "--case-file", caseFile,
         "--report", reportFile
       ], {
@@ -145,7 +145,7 @@ test("browser UAT rejects malformed real-interaction definitions", () => {
     }] }));
     const execution = spawnSync(process.execPath, [
       new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
-      "--chrome-path", "/bin/true", "--case-file", caseFile, "--report", reportFile
+      "--chrome-path", process.execPath, "--case-file", caseFile, "--report", reportFile
     ], { encoding: "utf8", env: { ...process.env, BROWSER_UAT_USERNAME: "contract-user", BROWSER_UAT_PASSWORD: "contract-password" } });
     assert.equal(execution.status, 1);
     const report = JSON.parse(readFileSync(reportFile, "utf8"));
@@ -166,7 +166,7 @@ test("browser UAT rejects unsafe real-interaction response bounds", () => {
     }] }));
     const execution = spawnSync(process.execPath, [
       new URL("../go-live-browser-uat-check.mjs", import.meta.url).pathname,
-      "--chrome-path", "/bin/true", "--case-file", caseFile, "--report", reportFile
+      "--chrome-path", process.execPath, "--case-file", caseFile, "--report", reportFile
     ], { encoding: "utf8", env: { ...process.env, BROWSER_UAT_USERNAME: "contract-user", BROWSER_UAT_PASSWORD: "contract-password" } });
     assert.equal(execution.status, 1);
     const report = JSON.parse(readFileSync(reportFile, "utf8"));
@@ -211,6 +211,7 @@ test("office matrix uses real API writes, approval execution, candidate facets a
   assert.match(officeRunner, /rejected\.status !== 409/u);
   assert.match(officeRunner, /requirePropertyApiE2eIsolation\(\)/u);
   assert.match(officeRunner, /Unit usage is not allowed for target operating mode/u);
+  assert.match(officeRunner, /property-mode-usage-not-allowed/u);
   assert.match(officeRunner, /AbortSignal\.timeout\(15000\)/u);
   assert.match(officeRunner, /keyword=\$\{encodeURIComponent\(unitCode\)\}/u);
 });

@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "13015fc3bf2d69d08a83bbd55ca09faae59fb971be173da3291a17e2c76bc370",
+      "sha256": "e3c048dd3f383554bfd18f57ee1750e8eade3b19e5797486d48d62f47f74b345",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
@@ -149,7 +149,7 @@
     {
       "surface": "web_ui",
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "e5792044d2efa72b273beba50cff3e15b4a30fdabf289fa20207877cab8838c9",
+      "sha256": "99e2898a011d2e3d224d347aef838f87036072d263fa05441c2aafd647fc92c0",
       "requiredTokens": [
         "name=\"highestEducation\"",
         "label=\"最高学历\"",

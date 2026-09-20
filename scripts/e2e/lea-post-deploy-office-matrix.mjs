@@ -121,7 +121,12 @@ const rejected = await request(adminToken, `/property/units/${unitId}/mode-trans
   body: { target_mode: "short_stay", reason: "LEA UAT office short-stay rejection" }
 });
 const expectedRejectionMessage = "Unit usage is not allowed for target operating mode";
-if (rejected.status !== 409 || rejected.raw?.message !== expectedRejectionMessage) {
+const expectedRejectionCode = "property-mode-usage-not-allowed";
+if (
+  rejected.status !== 409
+  || rejected.raw?.data?.errorCode !== expectedRejectionCode
+  || rejected.raw?.message !== expectedRejectionMessage
+) {
   throw new Error(`Office short-stay rejection mismatch: ${rejected.status} ${String(rejected.raw?.message)}`);
 }
 
@@ -139,6 +144,7 @@ console.log(JSON.stringify({
     ineligible_reasons: officeCandidate.ineligible_reasons
   },
   short_stay_status: rejected.status,
+  short_stay_error_code: rejected.raw?.data?.errorCode,
   short_stay_message: rejected.raw?.message,
   short_stay_reasons: rejected.raw?.data?.blocking_reasons ?? rejected.raw?.blocking_reasons ?? []
 }, null, 2));

@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/common";
+import { DynamicModule, MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
@@ -10,7 +10,9 @@ import { IdentityDirectoryModule } from "../users/identity-directory.module";
 import { AuthController } from "./auth.controller";
 import { AuthPreValidationRateLimitMiddleware } from "./auth-prevalidation-rate-limit.middleware";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
+import { AUTH_REFRESH_SCOPE_WRITER } from "./auth-refresh-scope-writer";
 import { AuthService } from "./auth.service";
+import { SmartParkRefreshScopeWriter } from "./smart-park-refresh-scope-writer";
 import { AuthLoginTicketEntity } from "./entities/auth-login-ticket.entity";
 import { AuthOauthStateEntity } from "./entities/auth-oauth-state.entity";
 import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
@@ -49,6 +51,19 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
   exports: [AuthService]
 })
 export class AuthModule implements NestModule {
+  static withParkScopeTransition(): DynamicModule {
+    return {
+      module: AuthModule,
+      providers: [
+        SmartParkRefreshScopeWriter,
+        {
+          provide: AUTH_REFRESH_SCOPE_WRITER,
+          useExisting: SmartParkRefreshScopeWriter
+        }
+      ]
+    };
+  }
+
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(AuthPreValidationRateLimitMiddleware).forRoutes(
       { path: "auth/login", method: RequestMethod.POST },

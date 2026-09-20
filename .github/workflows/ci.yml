@@ -74,6 +74,40 @@ jobs:
           echo "required=$required" >> "$GITHUB_OUTPUT"
           printf 'Release Smoke required: %s\n' "$required"
 
+  hr-scope-integration:
+    name: HR Refresh Scope PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-scope-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @jinhu/shared build
+      - name: Verify opt-in persistence and transactional scope failures
+        env:
+          BUSINESS_SCOPE_TEST_DATABASE_URL: postgresql://postgres:synthetic-scope-ci-only@127.0.0.1:5432/postgres
+        run: pnpm --filter @jinhu/api exec node --test --test-force-exit --require ts-node/register src/modules/users/smart-park-identity-transition.pg.spec.ts
+
   verify:
     name: Lint, Typecheck, Build
     runs-on: ubuntu-latest

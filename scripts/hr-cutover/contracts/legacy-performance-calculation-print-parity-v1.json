@@ -24,15 +24,15 @@
   "evidenceBindings": {
     "gradeFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json",
-      "sha256": "1ccd435a5a9cb9565f1717e078cd4011420bd7269bae572a713382b1c09ad056"
+      "sha256": "51f1bdfb4821b27b36a90982046bbeb7e36af5ca3d09606e223849e26b3bc2a6"
     },
     "itemFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
-      "sha256": "df1dc6aca4719ba12808841f1c23d30ca81686a7fde565efd5bf6b4d2228a6ea"
+      "sha256": "eb1520ac4c64615f96b444ce50c90f99786c3b404286885e17d922a8ed34d503"
     },
     "guideFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json",
-      "sha256": "cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"
+      "sha256": "a568f3d4e9962bb6e4951a1d72541289141ea1c504d39a36874b3ed406e71937"
     },
     "masterModel": {
       "path": "database/migrations/000302_hr_performance_yuzhou_legacy_master.sql",
@@ -52,27 +52,27 @@
     },
     "legacyService": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.service.ts",
-      "sha256": "7f49d09872b3616c4221f59855777535b79c003779605a559f9168198eeba944"
+      "sha256": "7b08c7809101764ded22c23fdd142b856cdfb9ffa9e430a248cc075fed959384"
     },
     "legacyController": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.controller.ts",
-      "sha256": "f7000d42f847aacddd4c9d85a9eb6d269c79553ec97cb3b51879f627c6b09dd4"
+      "sha256": "01de9610be7dee6e2a1adefcd0a6fa00a43f390b2bce93f8e0f3e2a180772e03"
     },
     "legacyApiContract": {
       "path": "apps/api/src/modules/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "3c9f0a37a048f6e253c0f4b85a5151d4fa1aab38278bceea5ea682d0308db312"
+      "sha256": "d532c010d01c619c99ad42ee1ec30935c099b720e9af5c53ee07f61325d41d25"
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "fad24240cdc6aa053ec2e212cf5e377fd5ec72f357fdf7ab11c179de7aa618d2"
+      "sha256": "e3c048dd3f383554bfd18f57ee1750e8eade3b19e5797486d48d62f47f74b345"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
-      "sha256": "d721e7e5d28d279c92a520958b9a9ca5222d3ef2e546d4318f1e1cab25ce8a86"
+      "sha256": "fa57bb0688ac4d24dc987ef45f6ae19473a869db251e5048d79871314cdf2d23"
     },
     "legacyWebContract": {
       "path": "apps/web/app/hr/hr-performance-legacy.contract.spec.ts",
-      "sha256": "946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"
+      "sha256": "019646fc2193ff371846f2ff7be71298c8aa5e28645972bb528e9cf4bb0d91bc"
     }
   },
   "routines": [
@@ -295,9 +295,9 @@
         "positive": [{"testId":"u-printassessment-item-grade-matrix","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
         "negative": [{"testId":"u-printassessment-empty-mixed-batch-and-duplicate-guide","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
         "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
-        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"946bd6d808a62f028e29f6a3564ff200d651a4ebade83cefba199aea661dc3a8"}]
+        "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"019646fc2193ff371846f2ff7be71298c8aa5e28645972bb528e9cf4bb0d91bc"}]
       },
-      "review": {"status":"approved","evidenceSha256":"cf8d33b114fb3c9c05397921c18319b6ac5c1b997ea0abe98c673b4d3c245dff"}
+      "review": {"status":"approved","evidenceSha256":"a568f3d4e9962bb6e4951a1d72541289141ea1c504d39a36874b3ed406e71937"}
     }
   ],
   "nonClaims": {

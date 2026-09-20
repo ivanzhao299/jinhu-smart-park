@@ -6,8 +6,11 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequireAnyPermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HrPerformanceLegacyAssessmentMasterQueryDto } from "./dto/hr-performance-legacy-assessment-master.dto";
+import { HrPerformanceLegacyAssessmentValueQueryDto } from "./dto/hr-performance-legacy-assessment-value.dto";
+import { HrPerformanceLegacyWebAssQueryDto } from "./dto/hr-performance-legacy-web-ass-query.dto";
 import {
   HrPerformanceLegacyPageQueryDto,
+  HrPerformanceLegacyPersonSummaryQueryDto,
   HrPerformanceLegacyResultQueryDto,
   HrPerformanceLegacyRubricQueryDto,
 } from "./dto/hr-performance-legacy.dto";
@@ -138,5 +141,47 @@ export class HrPerformanceLegacyController {
     @Query() query: HrPerformanceLegacyAssessmentMasterQueryDto,
   ) {
     return this.service.assessmentMasterQuery(scope, actor, query);
+  }
+
+  @Get("query-reports/assessment-value")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  assessmentValueQuery(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyAssessmentValueQueryDto,
+  ) {
+    return this.service.assessmentValueQuery(scope, actor, query);
+  }
+
+  @Get("query-reports/assessment-value-of-person")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  assessmentValueOfPersonQuery(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyPersonSummaryQueryDto,
+  ) {
+    return this.service.assessmentValueOfPersonQuery(scope, actor, query);
+  }
+
+  @Get("query-reports/web-ass-query")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PERFORMANCE_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,
+    HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ,
+  )
+  webAssQuery(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPerformanceLegacyWebAssQueryDto,
+  ) {
+    return this.service.webAssQuery(scope, actor, query);
   }
 }

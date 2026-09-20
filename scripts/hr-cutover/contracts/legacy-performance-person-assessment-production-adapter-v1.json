@@ -7,7 +7,7 @@
   "transactionIsolation": "SERIALIZABLE",
   "sourceContract": {
     "path": "scripts/hr-cutover/contracts/legacy-performance-person-assessment-source-adapter-v1.json",
-    "sha256": "29e13b7fe4acdb99098e974ff93d76aa03a2cb168890383c00bc3a01b4121c49"
+    "sha256": "b21b10d224d80216a72e0606fda11567b03a95e66d5a4bff8e7bfb473cee48b0"
   },
   "weightRelationMigration": {
     "path": "database/migrations/000307_hr_performance_yuzhou_ass_compute_weight_relation.sql",

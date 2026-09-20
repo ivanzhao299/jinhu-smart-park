@@ -39,6 +39,8 @@ interface OperationRow {
   unitId: string;
   unitCode: string;
   unitName: string;
+  usageType: number;
+  allowedTargetModes: string[];
   buildingId: string;
   buildingCode: string | null;
   buildingName: string | null;
@@ -809,16 +811,24 @@ function OperationWriteControls({ item, onCompleted }: {
   const configureKey = useRef<string | null>(null);
   const transitionKey = useRef<string | null>(null);
   const transitionPayload = useRef<string | null>(null);
+  const allowedTargetModes = useMemo(() => item.allowedTargetModes ?? [], [item.allowedTargetModes]);
+  const targetModes = useMemo(() => {
+    const allowed = allowedTargetModes.length ? allowedTargetModes : ["none"];
+    if (allowed.includes(item.configuredMode)) return allowed;
+    return ["none", ...allowed.filter((mode) => mode !== "none")];
+  }, [allowedTargetModes, item.configuredMode]);
 
   useEffect(() => {
     setStatus(item.operationStatus);
     setAssetUnitId(item.assetUnitId ?? "");
     setSuspendReason(item.suspendReason ?? "");
     setRemark(item.remark ?? "");
-    setTargetMode(item.configuredMode);
+    setTargetMode(allowedTargetModes.includes(item.configuredMode)
+      ? item.configuredMode
+      : (targetModes[0] ?? "none"));
     transitionKey.current = null;
     transitionPayload.current = null;
-  }, [item]);
+  }, [item, targetModes]);
 
   async function configure(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -913,7 +923,10 @@ function OperationWriteControls({ item, onCompleted }: {
           <div className="ds-action-bar">
             <label className="form-field"><span>目标模式</span><select name="target_mode" value={targetMode}
               onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
-            ><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option></select></label>
+            >{targetModes.map((mode) => <option key={mode} value={mode} disabled={!allowedTargetModes.includes(mode)}>
+              {OPERATING_MODE_LABELS[mode as keyof typeof OPERATING_MODE_LABELS] ?? mode}
+              {!allowedTargetModes.includes(mode) ? "（当前数据不合规）" : ""}
+            </option>)}</select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}
               onClick={() => { setFeedback(""); setTransitionFeedback(""); setTransitionOpen(true); }} type="button">提交切换审批</button>
           </div>

@@ -72,7 +72,10 @@ test("master read SQL executes in PostgreSQL with scope and visibility isolation
       legacy_template_profile_id uuid,target_cycle_employee_id uuid,target_template_version_id uuid,
       ${sourceColumns});
     CREATE TEMP TABLE migration_batch (id uuid,source_system text,execution_context text,status text);
-    CREATE TEMP TABLE legacy_record_map (id uuid,batch_id uuid,source_system text,target_table text,target_id uuid,mapping_status text,is_active boolean);
+    CREATE TEMP TABLE legacy_record_map (id uuid,batch_id uuid,source_system text,target_table text,target_id uuid,mapping_status text,is_active boolean,source_table text,source_pk_canonical text,source_identity_sha256 text);
+    CREATE TEMP TABLE hr_performance_legacy_identity_resolution (legacy_master_result_id uuid,tenant_id text,park_id text,migration_batch_id uuid,fact_kind text,person_role text,person_resolution_status text,source_person_identity_sha256 text,owner_t0_record_map_id uuid,target_employee_id uuid);
+    CREATE FUNCTION pg_temp.hr_scope_test_identity(text) RETURNS text LANGUAGE sql AS $$ SELECT md5($1)||md5($1) $$;
+    CREATE FUNCTION pg_temp.hr_scope_test_candidate(text,text,text) RETURNS TABLE(owner_t0_record_map_id uuid,target_employee_id uuid) LANGUAGE sql AS $$ SELECT id,target_id FROM pg_temp.legacy_record_map WHERE source_identity_sha256=$3 AND source_table='dbo.person' $$;
     CREATE TEMP TABLE hr_performance_cycle_employee (id uuid,tenant_id text,park_id text,employee_id uuid);
     CREATE TEMP TABLE hr_employee (id uuid,tenant_id text,park_id text,user_id text,primary_org_id uuid,is_deleted boolean);
     CREATE TEMP TABLE sys_org (id uuid,parent_id uuid,tenant_id text,park_id text,leader_user_id text,is_deleted boolean,status text);
@@ -90,13 +93,21 @@ test("master read SQL executes in PostgreSQL with scope and visibility isolation
       FROM generate_series(1,6) n;
     INSERT INTO migration_batch SELECT md5('batch'||n)::uuid,'yuzhou-v10',
       CASE WHEN n=5 THEN 'lab_rehearsal' ELSE 'production_import' END,'succeeded' FROM generate_series(1,6) n;
-    INSERT INTO legacy_record_map SELECT md5('map'||n)::uuid,md5('batch'||n)::uuid,'yuzhou-v10',
+    INSERT INTO legacy_record_map (id,batch_id,source_system,target_table,target_id,mapping_status,is_active) SELECT md5('map'||n)::uuid,md5('batch'||n)::uuid,'yuzhou-v10',
       'hr_performance_legacy_master_result',md5('fact'||n)::uuid,'verified',n<>6 FROM generate_series(1,6) n;
     INSERT INTO hr_performance_cycle_employee SELECT target_cycle_employee_id,tenant_id,park_id,md5('employee'||source_master_id)::uuid FROM hr_performance_legacy_master_result;
     INSERT INTO hr_employee SELECT md5('employee'||source_master_id)::uuid,tenant_id,park_id,
       CASE WHEN source_master_id=1 THEN 'user-1' ELSE 'other-user' END,
       CASE WHEN source_master_id IN (1,2) THEN '00000000-0000-4000-8000-000000000002'::uuid ELSE null END,false
       FROM hr_performance_legacy_master_result;
+    UPDATE hr_performance_legacy_master_result SET source_person_code='p'||source_master_id;
+    INSERT INTO legacy_record_map (id,source_system,target_table,target_id,mapping_status,is_active,source_table,source_pk_canonical,source_identity_sha256)
+      SELECT md5('owner'||source_master_id)::uuid,'yuzhou-v10','hr_employee',md5('employee'||source_master_id)::uuid,'verified',true,'dbo.person',
+        'sha256:'||pg_temp.hr_scope_test_identity(source_person_code),pg_temp.hr_scope_test_identity(source_person_code)
+      FROM hr_performance_legacy_master_result;
+    INSERT INTO hr_performance_legacy_identity_resolution
+      SELECT id,tenant_id,park_id,migration_batch_id,'master_result','subject','resolved',pg_temp.hr_scope_test_identity(source_person_code),
+        md5('owner'||source_master_id)::uuid,md5('employee'||source_master_id)::uuid FROM hr_performance_legacy_master_result;
   `;
   const variants = [
     { permissions: [HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ], ids: [1], pay: false },
@@ -109,7 +120,7 @@ test("master read SQL executes in PostgreSQL with scope and visibility isolation
     await captured.service.masters(scope, actor(variant.permissions), { page: 1, page_size: 20, source_session_id: 7 });
     const itemQuery = captured.calls[1];
     assert.ok(itemQuery);
-    const sql = itemQuery.sql.replace('hr_performance_yuzhou_legacy_grade_parity(fact.id)', 'pg_temp.hr_scope_test_parity(fact.id)').replace(/\$(\d+)/gu, (_, index: string) => {
+    const sql = itemQuery.sql.replace('hr_performance_yuzhou_legacy_grade_parity(fact.id)', 'pg_temp.hr_scope_test_parity(fact.id)').replaceAll('hr_performance_yuzhou_person_identity_sha256', 'pg_temp.hr_scope_test_identity').replaceAll('hr_performance_yuzhou_t0_person_candidate', 'pg_temp.hr_scope_test_candidate').replace(/\$(\d+)/gu, (_, index: string) => {
       const value = itemQuery.params[Number(index) - 1];
       return typeof value === "number" ? String(value) : `'${String(value).replaceAll("'", "''")}'`;
     });
@@ -127,6 +138,12 @@ test("master read SQL executes in PostgreSQL with scope and visibility isolation
       if (variant.pay) assert.equal(row.sourcePay, "12.3456");
     }
   }
+});
+
+test("final person projections require verified T0 ownership without relaxing the materializer helper", () => {
+  const source = readFileSync(resolve(__dirname, "hr-performance-legacy.service.ts"), "utf8");
+  assert.ok(source.includes("${ownerMapAlias}.mapping_status='verified'"));
+  assert.ok(!source.includes("${ownerMapAlias}.mapping_status IN('loaded','verified')"));
 });
 
 test("legacy definition reads expose all 29 definition fields only from active successful production imports", async () => {
@@ -450,6 +467,9 @@ test("legacy result access is park, managed organization tree, self, or fail-clo
   await team.service.results(scope, teamActor, page);
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_dimension_result_id/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.fact_kind='dimension_result'/u);
+  assert.doesNotMatch(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
   assert.deepEqual(team.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", 25, 25]);
   assert.equal(team.audits.length, 1);
 
@@ -488,12 +508,14 @@ test("legacy master self scope is exact and self payroll permission reveals pay 
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(
     self.calls[0]?.sql ?? "",
-    /\(cycle_employee\.id,cycle_employee\.tenant_id,cycle_employee\.park_id\)=\s*\(fact\.target_cycle_employee_id,fact\.tenant_id,fact\.park_id\)/u,
+    /scope_subject_resolution\.legacy_master_result_id/u,
   );
   assert.match(
     self.calls[0]?.sql ?? "",
-    /\(employee\.id,employee\.tenant_id,employee\.park_id\)=\s*\(cycle_employee\.employee_id,cycle_employee\.tenant_id,cycle_employee\.park_id\)/u,
+    /scope_subject_t0\.candidate_count=1/u,
   );
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_owner_map\.target_table='hr_employee'/u);
+  assert.doesNotMatch(self.calls[0]?.sql ?? "", /fact\.target_cycle_employee_id/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.tenant_id=\$1 AND fact\.park_id=\$2/u);
   assert.deepEqual(self.calls[1]?.params, [scope.tenantId, scope.parkId, "user-1", false, 25, 25]);
   assert.deepEqual(
@@ -778,9 +800,12 @@ test("person-summary keeps web_ass and web_assessmentquery orphan semantics expl
   });
   assert.equal(webAss.calls.length, 2);
   for (const call of webAss.calls) {
-    assert.match(call.sql, /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
-    assert.match(call.sql, /LEFT JOIN hr_employee summary_employee/u);
+    assert.match(call.sql, /JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
+    assert.match(call.sql, /summary_subject_resolution\.person_resolution_status='resolved'/u);
+    assert.match(call.sql, /summary_subject_t0\.candidate_count=1/u);
+    assert.match(call.sql, /JOIN hr_employee summary_employee/u);
     assert.match(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /fact\.target_cycle_employee_id|summary_cycle_employee/u);
     assert.doesNotMatch(call.sql, /web_ass/u);
   }
   assert.deepEqual(webAss.calls[1]?.params, [scope.tenantId, scope.parkId, "LEGACY_01", 25, 25]);
@@ -805,7 +830,16 @@ test("person-summary keeps web_ass and web_assessmentquery orphan semantics expl
   });
   assert.equal(withOrphan.items[1]?.employeeDisplayName, null);
   for (const call of assessmentQuery.calls) {
+    assert.match(call.sql, /LEFT JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
+    assert.match(call.sql, /LEFT JOIN LATERAL/u);
+    assert.match(call.sql, /LEFT JOIN legacy_record_map summary_subject_owner_map/u);
+    assert.match(
+      call.sql,
+      /summary_subject_owner_map\.id=summary_subject_t0\.owner_t0_record_map_id/u,
+    );
+    assert.match(call.sql, /LEFT JOIN hr_employee summary_employee/u);
     assert.doesNotMatch(call.sql, /summary_employee\.id IS NOT NULL/u);
+    assert.doesNotMatch(call.sql, /fact\.target_cycle_employee_id|summary_cycle_employee/u);
     assert.doesNotMatch(call.sql, /web_assessmentquery/u);
   }
   assert.match(
@@ -861,8 +895,9 @@ test("person-summary returns only the six legacy report fields with exact parame
   assert.deepEqual(fixture.calls[1]?.params, [scope.tenantId, scope.parkId, "EMP_01", 25, 25]);
   assert.match(fixture.calls[1]?.sql ?? "", /fact\.source_person_code=\$3/u);
   assert.match(fixture.calls[1]?.sql ?? "", /summary_employee\.full_name "employeeDisplayName"/u);
-  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_cycle_employee summary_cycle_employee/u);
+  assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_performance_legacy_identity_resolution summary_subject_resolution/u);
   assert.match(fixture.calls[1]?.sql ?? "", /LEFT JOIN hr_employee summary_employee/u);
+  assert.doesNotMatch(fixture.calls[1]?.sql ?? "", /fact\.target_cycle_employee_id|summary_cycle_employee/u);
   assert.match(
     fixture.calls[1]?.sql ?? "",
     /ORDER BY fact\.source_session_id DESC NULLS LAST,\s*fact\.source_master_id ASC,\s*fact\.id ASC/u,
@@ -924,8 +959,10 @@ test("person-summary self and team scopes require active employee mapping and on
     actor(HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ),
     { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
-  assert.match(team.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
+  assert.match(team.calls[0]?.sql ?? "", /scope_subject_t0\.candidate_count=1/u);
   assert.match(team.calls[0]?.sql ?? "", /JOIN hr_employee employee/u);
+  assert.doesNotMatch(team.calls[0]?.sql ?? "", /fact\.target_cycle_employee_id/u);
   assert.match(team.calls[0]?.sql ?? "", /WITH RECURSIVE managed_org/u);
   assert.match(team.calls[0]?.sql ?? "", /employee\.primary_org_id IN/u);
   assert.deepEqual(team.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);
@@ -938,7 +975,8 @@ test("person-summary self and team scopes require active employee mapping and on
     actor(HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ),
     { page: 1, page_size: 50, source_person_code: "EMP_01", source_routine: "web_assessmentquery" },
   );
-  assert.match(self.calls[0]?.sql ?? "", /JOIN hr_performance_cycle_employee cycle_employee/u);
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_resolution\.legacy_master_result_id/u);
+  assert.match(self.calls[0]?.sql ?? "", /scope_subject_t0\.candidate_count=1/u);
   assert.match(self.calls[0]?.sql ?? "", /employee\.user_id::text=\$3::text/u);
   assert.match(self.calls[0]?.sql ?? "", /fact\.source_person_code=\$4/u);
   assert.deepEqual(self.calls[0]?.params, [scope.tenantId, scope.parkId, "user-1", "EMP_01"]);

@@ -124,16 +124,22 @@
         "concatenatedParameters": ["asssession", "department"],
         "mutation": "none",
         "risk": "sql_injection_and_query_shape_manipulation",
-        "safeReplacement": "Use bound session and department-prefix parameters; expose the legacy final expression separately from any corrected total."
+        "safeReplacement": "Use bound session and escaped literal department-prefix parameters; expose the legacy final expression separately from any corrected total."
       },
       "knownDifferences": [
-        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"pending explicit dual projection; do not silently substitute sourceTotalValue"},
-        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"implemented as an explicit null-propagating itemvalue + timekeepvalue + bonusvalue projection; mastervalue remains a separate display column and sourceTotalValue is not substituted"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"procedure references assessmentmaster.asssession and assessmentmaster.grade","modernDecision":"session is projected through the verified same-batch dbo.asssession relation; grade remains explicit null and is not guessed from assgrade"},
+        {"code":"DEPARTMENT_PREFIX_INPUT_HARDENED","sourceBehavior":"raw department text is concatenated before an appended percent wildcard","modernDecision":"modern input is a bounded literal prefix; wildcard and escape characters are rejected or escaped before a bound PostgreSQL LIKE parameter is created"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"modern paging uses stable source-session/person/master/id order"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.asssession", "assessmentmaster.grade"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters query-filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "modern dual-value projection", "nonzero-mastervalue conservation fixture", "permission and role UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.assessmentValueQuery","api":"GET /hr/performance-legacy/query-reports/assessment-value","page":"apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValuePanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-assessment-value.contract.spec.ts","testId":"u_assessmentvalue computes the null-propagating legacy final without mastervalue"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-assessment-value.contract.spec.ts","testId":"u_assessmentvalue UI keeps the legacy final separate from displayed mastervalue"}
+      ],
+      "missingEvidence": ["catalog adjudication for the absent assessmentmaster.grade variant", "nonempty source-session conservation against the verified relation", "nonzero-mastervalue and null-operand SQL Server versus PostgreSQL runtime comparison", "park team self desktop and 390px role UAT"]
     },
     {
       "routineId": "RULE-BED041EE4A468EC3",
@@ -151,7 +157,7 @@
         {"sourceExpression":"assessmentmaster.person = @person","behavior":"exact person code with no session restriction"}
       ],
       "outputColumns": [
-        {"ordinal":1,"sourceExpression":"assessmentmaster.asssession","sourceAlias":"考核期间","plannedModernField":"unresolvedLegacySessionText"},
+        {"ordinal":1,"sourceExpression":"assessmentmaster.asssession","sourceAlias":"考核期间","plannedModernField":"compatibleLegacySessionText"},
         {"ordinal":2,"sourceExpression":"assessmentmaster.grade","sourceAlias":"等级","plannedModernField":"unresolvedLegacyGrade"},
         {"ordinal":3,"sourceExpression":"assessmentmaster.itemvalue","sourceAlias":"考核项总分","plannedModernField":"sourceItemValue"},
         {"ordinal":4,"sourceExpression":"assessmentmaster.mastervalue","sourceAlias":"主管附加分","plannedModernField":"sourceMasterValue"},
@@ -168,16 +174,23 @@
         "concatenatedParameters": ["person"],
         "mutation": "none",
         "risk": "sql_injection_and_query_shape_manipulation",
-        "safeReplacement": "Resolve the authenticated self or authorized scoped employee and bind the source person code; never accept it as an authorization boundary."
+        "safeReplacement": "Validate and bind the exact source person code, then independently enforce tenant, park, team or self scope; never accept the source code as an authorization boundary."
       },
       "knownDifferences": [
-        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"pending explicit dual projection and conservation fixture"},
-        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"pending stable descending session order"}
+        {"code":"LEGACY_FINAL_EXCLUDES_MASTERVALUE","sourceBehavior":"last value excludes the displayed mastervalue adjustment","modernDecision":"implemented as an explicit null-propagating itemvalue + timekeepvalue + bonusvalue projection; mastervalue remains a separate display column and sourceTotalValue is not substituted"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"procedure references assessmentmaster.asssession and assessmentmaster.grade","modernDecision":"session text is projected only through an active verified same-batch dbo.asssession relation and is null when that relation is absent; grade remains explicit null and is not guessed from assgrade"},
+        {"code":"EXACT_PERSON_INPUT_HARDENED","sourceBehavior":"raw person text is concatenated into SQL","modernDecision":"modern input uses the shared bounded Unicode legacy-person-code contract and an exact bound PostgreSQL parameter; authorization is separately enforced by tenant park team or self scope"},
+        {"code":"ALL_SESSIONS_UNORDERED","sourceBehavior":"person history has no session filter and no ORDER BY","modernDecision":"modern paging uses stable descending source-session then master and row id order"},
+        {"code":"ORPHAN_MASTER_SCOPE","sourceBehavior":"park-wide query can preserve assessmentmaster rows without a person row","modernDecision":"park scope preserves an authorized source fact without requiring a modern employee binding; team and self scopes fail closed unless their employee scope join is satisfied"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.asssession", "assessmentmaster.grade"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters self/history query expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "self-scope implementation", "nonzero-mastervalue conservation fixture", "employee-role desktop and 390px UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.assessmentValueOfPersonQuery","api":"GET /hr/performance-legacy/query-reports/assessment-value-of-person","page":"apps/web/app/hr/performance/HrPerformanceLegacyAssessmentValueOfPersonPanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-assessment-value-of-person.contract.spec.ts","testId":"u_assessmentvalueofperson keeps the null-propagating final separate from mastervalue"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-assessment-value-of-person.contract.spec.ts","testId":"u_assessmentvalueofperson UI keeps the legacy final separate from displayed mastervalue"}
+      ],
+      "missingEvidence": ["catalog adjudication for the absent assessmentmaster.asssession and assessmentmaster.grade variant", "nonempty source-person and source-session conservation against the verified relation", "nonzero-mastervalue and null-operand SQL Server versus PostgreSQL runtime comparison", "park team self including orphan behavior desktop and 390px role UAT"]
     },
     {
       "routineId": "RULE-0ACE2D87C1774B3B",
@@ -359,17 +372,24 @@
         "discardedParameters": ["asssession"],
         "mutation": "none",
         "risk": "sql_injection_query_shape_manipulation_and_scope_confusion",
-        "safeReplacement": "Derive authorization scope on the server, bind optional person and score filters, and expose the ignored-session behavior only as an explicit legacy comparison mode."
+        "safeReplacement": "Derive authorization scope on the server, honor a bound exact session, bind a bounded optional person LIKE pattern, an escaped literal department prefix, and finite score limits; do not reproduce raw SQL concatenation."
       },
       "knownDifferences": [
-        {"code":"LEGACY_SESSION_PARAMETER_DISCARDED","sourceBehavior":"@asssession is unconditionally set to percent wildcard before the query","modernDecision":"pending approved difference: normal modern filtering should honor period while legacy comparison proves the old input had no effect"},
-        {"code":"RIGHTSCOPE_IS_NOT_AUTHORIZATION","sourceBehavior":"rightscope is concatenated as a department prefix","modernDecision":"server-derived park/team/self scope is mandatory; a department input can only narrow it"},
-        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"pending stable source-session/person/id order"}
+        {"code":"LEGACY_SESSION_PARAMETER_DISCARDED","sourceBehavior":"@asssession is unconditionally set to percent wildcard before the query","modernDecision":"approved safe correction implemented: the modern endpoint requires and honors the exact period through an active verified same-batch session relationship; pending differential runtime evidence must still prove the old input had no effect"},
+        {"code":"CURRENT_SCHEMA_COLUMN_DRIFT","sourceBehavior":"procedure references assessmentmaster.asssession","modernDecision":"the absent source column is adapted only through the active verified same-batch dbo.asssession relationship and is never guessed from another master field"},
+        {"code":"PERSON_LIKE_INPUT_HARDENED","sourceBehavior":"raw person LIKE text is concatenated and empty or null becomes percent wildcard","modernDecision":"modern person pattern is optional, bounded to a safe Unicode code-pattern grammar and passed as a bound PostgreSQL LIKE parameter; omission means no person narrowing without injecting a wildcard"},
+        {"code":"RIGHTSCOPE_IS_NOT_AUTHORIZATION","sourceBehavior":"rightscope is concatenated as a department prefix","modernDecision":"server-derived park team or self scope is mandatory; the bounded literal department prefix is escaped and bound and can only narrow that scope"},
+        {"code":"SCORE_RANGE_INPUT_HARDENED","sourceBehavior":"float limits are concatenated into dynamic SQL","modernDecision":"modern lower and upper limits must be finite bound numeric parameters with lower less than or equal to upper"},
+        {"code":"UNSPECIFIED_RESULT_ORDER","sourceBehavior":"no ORDER BY is present","modernDecision":"modern paging uses stable source-session person master and row id order"}
       ],
       "sourceSchemaStatus": "dormant_schema_drift",
       "missingSourceColumns": ["assessmentmaster.asssession"],
-      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.masters scoped filter expansion","api":"GET /hr/performance-legacy/masters","page":"apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx","status":"not_implemented"},
-      "missingEvidence": ["source schema-variant adjudication", "server-scope and filter implementation", "ignored-session differential fixture", "three-role desktop and 390px UAT"]
+      "modernTarget": {"serviceSymbol":"HrPerformanceLegacyService.webAssQuery","api":"GET /hr/performance-legacy/query-reports/web-ass-query","page":"apps/web/app/hr/performance/HrPerformanceLegacyWebAssQueryPanel.tsx","status":"implemented_pending_runtime_uat"},
+      "implementationEvidence": [
+        {"path":"apps/api/src/modules/hr/hr-performance-legacy-web-ass-query.contract.spec.ts","testId":"web_assquery honors period through a verified session relationship"},
+        {"path":"apps/web/app/hr/hr-performance-legacy-web-ass-query.contract.spec.ts","testId":"web_assquery browser binds all five filters and explicitly honors period"}
+      ],
+      "missingEvidence": ["catalog adjudication for the absent assessmentmaster.asssession variant", "nonempty exact-period conservation through the verified session relationship", "SQL Server ignored-session versus modern honored-session differential fixture", "park team self desktop and 390px role UAT"]
     }
   ],
   "completionPolicy": {
