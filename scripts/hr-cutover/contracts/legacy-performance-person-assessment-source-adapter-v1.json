@@ -33,7 +33,7 @@
     },
     "assessmentFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json",
-      "sha256": "32a611f7af804a0cbc50b36df083d69a6e664ded160ed8fa1b8136d861d527cb"
+      "sha256": "9665fc23c31312ad3e5706e4b1223249f7bd60cf0416c420491ab5ef6f8a4b07"
     },
     "routineLedger": {
       "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",

@@ -130,9 +130,14 @@ test("u_assessmentmaster filters through verified session, mapped employee and s
   assert.match(countSql, /query_session\.source_assessment_type=\$4/u);
   assert.match(countSql, /query_session_map\.target_table='hr_performance_legacy_session'/u);
   assert.match(countSql, /query_session_map\.mapping_status='verified'/u);
-  assert.match(countSql, /JOIN hr_performance_cycle_employee query_cycle_employee/u);
+  assert.match(countSql, /JOIN hr_performance_legacy_identity_resolution query_subject_resolution/u);
+  assert.match(countSql, /query_subject_resolution\.person_resolution_status='resolved'/u);
+  assert.match(countSql, /query_subject_t0\.candidate_count=1/u);
+  assert.match(countSql, /query_subject_owner_map\.source_table='dbo\.person'/u);
   assert.match(countSql, /JOIN hr_employee query_employee/u);
+  assert.doesNotMatch(countSql, /fact\.target_cycle_employee_id|query_cycle_employee/u);
   assert.match(countSql, /JOIN sys_org query_org/u);
+  assert.match(countSql, /query_org\.is_deleted=false/u);
   assert.match(countSql, /query_org\.org_code LIKE \$5 ESCAPE '\\'/u);
   assert.match(countSql, /fact\.tenant_id=\$1 AND fact\.park_id=\$2/u);
   assert.deepEqual(allowed.calls[0]?.params, [

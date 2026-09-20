@@ -117,7 +117,7 @@
     { "role": "modern_submission_schema", "path": "database/migrations/000259_hr_performance_review_calibration.sql", "sha256": "49103b7ec592ec746e93fa149394a72b74bca0dfb97078236a71f1142d0b9549", "requiredTokens": ["CREATE TABLE hr_performance_review_submission (", "dimension_scores jsonb NOT NULL", "dimension_comments jsonb NOT NULL", "submission_type IN('self','manager')"] },
     { "role": "modern_review_runtime", "path": "apps/api/src/modules/hr/hr-performance-review.service.ts", "sha256": "d76e7888afbf93bbd73f43accee26e238772e67dc955c85c67bd2f9249d26f35", "requiredTokens": ["hr_performance_cycle_employee", "template_snapshot", "applicable_org_ids"] },
     { "role": "modern_submission_writer", "path": "apps/api/src/modules/hr/hr-performance-evaluation.service.ts", "sha256": "ec1d11da1ef233f880dc45bf1809e52f80ccdb8d6b886a989eb7c634372c9d03", "requiredTokens": ["async submitSelf", "async submitManager", "INSERT INTO hr_performance_review_submission", "hr_performance_snapshot_score"] },
-    { "role": "modern_runtime_page", "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx", "sha256": "d1e252f5bd63fe296e14b9de7735f0e0a0dff73bed289bb3626c4efbb167597e", "requiredTokens": ["填写自评", "主管评价", "校准调整", "评价说明"] }
+    { "role": "modern_runtime_page", "path": "apps/web/app/hr/performance/HrPerformanceClient.tsx", "sha256": "ae5428355c5df157935ba4bc1a8ca42bc7735a2625935139f287144385580f7e", "requiredTokens": ["填写自评", "主管评价", "校准调整", "评价说明"] }
   ],
   "routineEvidence": {
     "path": "scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json",
