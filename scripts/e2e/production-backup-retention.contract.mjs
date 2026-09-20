@@ -134,6 +134,7 @@ test("workflow opt-in and restore-before-retain ordering; cleanup excludes retai
   const workflow = readFileSync(join(repo, ".github/workflows/production-backup-restore-gate.yml"), "utf8");
   assert.match(workflow, /retain_verified_backup:[\s\S]*?type: boolean[\s\S]*?default: false/u);
   assert.match(gate, /requested_retention="\$\{RETAIN_VERIFIED_BACKUP:-no\}"/u);
+  assert.equal(gate.match(/"productionImport": "HOLD"/gu)?.length, 2);
   assert.ok(gate.indexOf('RETAIN_VERIFIED_BACKUP="$requested_retention"') > gate.indexOf('. "$ENV_FILE"'));
   assert.ok(gate.indexOf('mjs" check') < gate.indexOf("pg_dump -U"));
   assert.ok(gate.indexOf('mjs" retain') > gate.indexOf("## Safety Evidence"));
