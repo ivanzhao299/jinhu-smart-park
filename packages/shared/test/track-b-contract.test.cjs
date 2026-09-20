@@ -154,11 +154,12 @@ test("Track B state machines and wire error catalog have no aliases", () => {
     "task-source-ineligible",
     "task-version-conflict",
     "property-mode-blocked",
+    "property-mode-usage-not-allowed",
     "module-dependency-conflict",
     "property-operation-in-progress",
     "property-runtime-unavailable"
   ]);
-  assert.equal(PROPERTY_ERROR_CODES.length, 28);
+  assert.equal(PROPERTY_ERROR_CODES.length, 29);
   assert.ok(PROPERTY_ERROR_CODES.every((code) => /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(code)));
 });
 

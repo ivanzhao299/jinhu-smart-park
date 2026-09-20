@@ -164,6 +164,7 @@ export const PROPERTY_ERROR_CODES = [
   "task-source-ineligible",
   "task-version-conflict",
   "property-mode-blocked",
+  "property-mode-usage-not-allowed",
   "module-dependency-conflict",
   "property-operation-in-progress",
   "property-runtime-unavailable"

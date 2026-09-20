@@ -14,8 +14,15 @@ import {
   housingPurchaseCostCategoryOptions,
   housingLeaseStatusOptions,
   propertyLabels,
+  propertyErrorMessage,
   workOrderStatusLabel
 } from "./property-presentation";
+
+test("property errors prefer structured domain codes", () => {
+  assert.equal(propertyErrorMessage({ response: { data: { errorCode: "approval-no-eligible-approver" } } }), "当前园区没有可用的独立审批人，请联系管理员配置。");
+  assert.equal(propertyErrorMessage({ response: { data: { errorCode: "property-mode-usage-not-allowed" } } }), "房源用途不支持目标经营模式，请选择允许的模式。");
+  assert.equal(propertyErrorMessage(new Error("conflict")), "数据状态已变化，请刷新后重试");
+});
 
 test("property formatters preserve empty and invalid values honestly", () => {
   assert.equal(formatPropertyMoney("12.5"), "12.50");

@@ -203,6 +203,22 @@ export function displayEntityName(
 }
 
 export function propertyErrorMessage(error: unknown, fallback = "操作失败，请稍后重试"): string {
+  const response = error && typeof error === "object"
+    ? (error as { response?: { data?: unknown; errorCode?: unknown } }).response
+    : undefined;
+  const data = response?.data && typeof response.data === "object"
+    ? response.data as { errorCode?: unknown }
+    : undefined;
+  const errorCode = typeof data?.errorCode === "string"
+    ? data.errorCode
+    : typeof response?.errorCode === "string" ? response.errorCode : "";
+  const codeLabels: Record<string, string> = {
+    "property-mode-usage-not-allowed": "房源用途不支持目标经营模式，请选择允许的模式。",
+    "approval-no-eligible-approver": "当前园区没有可用的独立审批人，请联系管理员配置。",
+    "property-mode-blocked": "当前房源存在经营阻断项，请先处理后再提交。",
+    "approval-source-changed": "房源经营配置已发生变化，请刷新后重试。"
+  };
+  if (errorCode && codeLabels[errorCode]) return codeLabels[errorCode];
   const message = error instanceof Error ? error.message.trim() : "";
   if (!message) return fallback;
   if (/[㐀-鿿]/u.test(message)) return message;

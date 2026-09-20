@@ -211,6 +211,8 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /PROPERTY_OPERATIONS_PAGE[\s\S]*PROPERTY_OPERATION_READ[\s\S]*查看房源经营详情/);
   assert.match(foundation, /Date\.parse\(row\.holdExpiresAt\) > Date\.now\(\)/);
   assert.match(foundation, /OPERATING_MODE_LABELS/);
+  assert.match(foundation, /allowedTargetModes/);
+  assert.match(foundation, /allowedTargetModes\.includes\(mode\)/);
   assert.match(foundation, /OPERATING_STATUS_LABELS/);
   assert.match(foundation, /function formatOperatingMode/);
   assert.match(foundation, /function formatOperatingStatus/);
