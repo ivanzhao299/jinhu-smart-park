@@ -939,4 +939,14 @@ jobs:
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
-        run: node scripts/hr-cutover/yuzhou-t4-private-dispatch.mjs
+        run: |
+          umask 077
+          node scripts/hr-cutover/yuzhou-t4-private-dispatch.mjs > "$RUNNER_TEMP/yuzhou-t4-transport-evidence.jsonl"
+      - name: Retain aggregate transport evidence without log masking
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuzhou-t4-transport-evidence
+          path: ${{ runner.temp }}/yuzhou-t4-transport-evidence.jsonl
+          retention-days: 1
+          if-no-files-found: ignore
