@@ -176,7 +176,7 @@ the import. Private reconciliation receipts remain inside the owned host root.
 
 传输分支的 `diagnose-yuzhou-hr-production-id-census` 使用 `production-import-assigned-scope-id-census.mjs`。生产可以有多个启用人事的范围；它按照执行契约中唯一已授权的范围散列选择目标，明确保留全局范围数量，并要求被选范围恰好存在且有效。所有目标表的 UUID 清点仍覆盖全表，包括其他范围和已软删除记录，不改变业务数据。
 
-结果保存为 `yuzhou-hr-production-assigned-scope-id-census`，使用独立证据种类，分别记录观察器提交和固定生产执行器提交 `a4ce8268489bc9e9e53565252d2e8942b18776cd`。`materialize-production-import-assigned-census-baseline.mjs` 直接核验真实 GitHub 运行、该传输分支、观察器提交、制品 ZIP 散列和完整全局 ID 集，再生成既有受控执行器使用的 touched baseline。该方法不把其他范围数量改成一，也不把观察器提交当作应用运行版本。
+结果保存为 `yuzhou-hr-production-assigned-scope-id-census`，使用独立证据种类，分别记录观察器提交和固定生产执行器提交 `eec13dcb5e6406688406341e35860bcc4217fd75`。`materialize-production-import-assigned-census-baseline.mjs` 直接核验真实 GitHub 运行、该传输分支、观察器提交、制品 ZIP 散列和完整全局 ID 集，再生成既有受控执行器使用的 touched baseline。该方法不把其他范围数量改成一，也不把观察器提交当作应用运行版本。
 
 观察器只读改动在传输分支使用；不得作为业务应用部署合入主分支。最终签署的数据导入计划仍须包含当前执行器的完整演练通过回执、真实 API/Web 运行版本和新鲜目标基线。旧版单范围清点失败回执必须保留。
 
