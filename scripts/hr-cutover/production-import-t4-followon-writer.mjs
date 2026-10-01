@@ -106,6 +106,7 @@ export async function executeT4Followon({ client, binding, authorization, parent
       // snapshot FK, scanning the whole scope for each item. The synthetic
       // 46,092-row EXPLAIN switches to snapshot_pkey after this ANALYZE.
       await client.query("ANALYZE hr_payroll_legacy_snapshot");
+      await client.query("ANALYZE cls");
       for (const shard of "0123456789abcdef") await client.query(T4_INSERT_SHARD, [shard]);
       await client.query("ANALYZE hr_payroll_legacy_snapshot_item");
       for (const statement of T4_SUFFIX_STEPS) await client.query(statement);

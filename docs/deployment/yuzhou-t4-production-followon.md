@@ -172,3 +172,8 @@ change any existing loader or application query.
   clusters stopped and removed. Production remains unexecuted. Next action is
   root review and integration, with a real isolated T4 rehearsal before any
   separately authorized production append.
+
+The follow-on also refreshes the temporary `cls` classification statistics before
+its sixteen item shards, matching the deployed native-loader performance fix.
+Snapshot and classification analysis preserves the existing transaction and
+foreign-key checks; the same actual-source conservation checks still apply.
