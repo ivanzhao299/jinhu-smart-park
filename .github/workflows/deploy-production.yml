@@ -29,6 +29,20 @@ on:
           - diagnose-yuzhou-hr-production-target-inventory
           - diagnose-yuzhou-hr-production-id-census
           - prepare-yuzhou-hr-production-data-volume
+          - prepare-yuzhou-private-import
+          - execute-yuzhou-private-import
+      transport_release_id:
+        description: "Draft release numeric ID for encrypted packet; prepare only."
+        required: false
+        type: string
+      transport_nonce:
+        description: "32 lowercase hex transport nonce; no private values."
+        required: false
+        type: string
+      transport_packet_sha256:
+        description: "SHA-256 of the authenticated encrypted packet."
+        required: false
+        type: string
       source_manifest_json:
         description: "Hash-only Yuzhou source-manifest receipt prepared in the data-custody environment; never provide source rows, files, paths, or credentials."
         required: false
@@ -74,7 +88,7 @@ jobs:
           set -eu
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
           case "$requested" in
-            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume)
+            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume|prepare-yuzhou-private-import|execute-yuzhou-private-import)
               echo "mode=ops-only" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
@@ -386,19 +400,19 @@ jobs:
         run: |
           set -eu
           umask 077
-          node scripts/hr-cutover/production-import-id-census.mjs --shell > "$RUNNER_TEMP/id-census-probe.sh"
+          node scripts/hr-cutover/production-import-assigned-scope-id-census.mjs --shell > "$RUNNER_TEMP/id-census-probe.sh"
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           if ! ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- '$PROD_DEPLOY_PATH'" < "$RUNNER_TEMP/id-census-probe.sh" > "$RUNNER_TEMP/id-census-raw.json" 2>/dev/null; then
             echo PRODUCTION_IMPORT_CENSUS_REMOTE_FAILED >&2; exit 1
           fi
-          node scripts/hr-cutover/production-import-id-census.mjs --bind "$RUNNER_TEMP/id-census-raw.json" > "$RUNNER_TEMP/id-census.json"
+          node scripts/hr-cutover/production-import-assigned-scope-id-census.mjs --bind "$RUNNER_TEMP/id-census-raw.json" > "$RUNNER_TEMP/id-census.json"
 
       - name: Retain Yuzhou global ID census
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-production-id-census' && success() }}
         uses: actions/upload-artifact@v6
         with:
-          name: yuzhou-hr-production-id-census
+          name: yuzhou-hr-production-assigned-scope-id-census
           path: ${{ runner.temp }}/id-census.json
           if-no-files-found: error
           retention-days: 1
@@ -770,3 +784,78 @@ jobs:
             --credentials "$credentials" \
             --api-base https://park.cnjinhu.com/api/v1 \
             --web-base https://park.cnjinhu.com
+
+  private-import:
+    name: Controlled private Yuzhou import transport
+    needs: [classify, verify]
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.deploy_mode == 'prepare-yuzhou-private-import' || inputs.deploy_mode == 'execute-yuzhou-private-import') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout transport helpers
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Checkout exact reviewed executor
+        if: ${{ inputs.deploy_mode == 'prepare-yuzhou-private-import' }}
+        uses: actions/checkout@v5
+        with:
+          ref: dafe8b54510dada1c7bf90663557c54debc89b16
+          path: executor-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install locked pure JavaScript driver
+        if: ${{ inputs.deploy_mode == 'prepare-yuzhou-private-import' }}
+        working-directory: executor-source
+        run: |
+          corepack enable
+          pnpm --filter jinhu-smart-park install --prod --frozen-lockfile --ignore-scripts
+      - name: Verify private transport contracts
+        run: node --test scripts/e2e/yuzhou-private-import-transport-contract.mjs
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          log-public-key: false
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          umask 077
+          if ! ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts 2> "$RUNNER_TEMP/yuzhou-host-keyscan.log"; then
+            echo '{"code":"TRANSPORT_HOST_KEYSCAN_FAILED"}'
+            exit 1
+          fi
+      - name: Enforce production path separation
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          umask 077
+          if ! ssh -p "$PROD_SSH_PORT" -o BatchMode=yes "$PROD_SSH_USER@$PROD_SSH_HOST" "sh -s -- '$PROD_DEPLOY_PATH'" < scripts/validate-production-deploy-path.sh > "$RUNNER_TEMP/yuzhou-path-guard.log" 2>&1; then
+            echo '{"code":"TRANSPORT_DEPLOY_PATH_REJECTED"}'
+            exit 1
+          fi
+      - name: Transfer or execute exact private packet
+        env:
+          TRANSPORT_MODE: ${{ inputs.deploy_mode == 'prepare-yuzhou-private-import' && 'prepare' || 'execute' }}
+          TRANSPORT_RELEASE_ID: ${{ inputs.transport_release_id }}
+          TRANSPORT_NONCE: ${{ inputs.transport_nonce }}
+          TRANSPORT_PACKET_SHA256: ${{ inputs.transport_packet_sha256 }}
+          YUZHOU_IMPORT_TRANSPORT_KEY: ${{ secrets.YUZHOU_IMPORT_TRANSPORT_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: node scripts/hr-cutover/yuzhou-private-import-dispatch.mjs
