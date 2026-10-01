@@ -33,6 +33,8 @@ on:
           - execute-yuzhou-private-import
           - prepare-yuzhou-t4-private-import
           - execute-yuzhou-t4-private-import
+          - prepare-yuzhou-t5-private-import
+          - execute-yuzhou-t5-private-import
       transport_release_id:
         description: "Draft release numeric ID for encrypted packet; prepare only."
         required: false
@@ -90,7 +92,7 @@ jobs:
           set -eu
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
           case "$requested" in
-            prepare-yuzhou-t4-private-import|execute-yuzhou-t4-private-import)
+            prepare-yuzhou-t4-private-import|execute-yuzhou-t4-private-import|prepare-yuzhou-t5-private-import|execute-yuzhou-t5-private-import)
               echo "mode=ops-only" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
@@ -940,3 +942,78 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
         run: node scripts/hr-cutover/yuzhou-t4-private-dispatch.mjs
+
+  t5-private-import:
+    name: Controlled private Yuzhou T5 append transport
+    needs: [classify, verify]
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.deploy_mode == 'prepare-yuzhou-t5-private-import' || inputs.deploy_mode == 'execute-yuzhou-t5-private-import') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout transport helpers
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Checkout exact reviewed executor
+        if: ${{ inputs.deploy_mode == 'prepare-yuzhou-t5-private-import' }}
+        uses: actions/checkout@v5
+        with:
+          ref: 25a4c9df8f8d4ee779d56f5a643358448ae19a28
+          path: executor-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install locked pure JavaScript driver
+        if: ${{ inputs.deploy_mode == 'prepare-yuzhou-t5-private-import' }}
+        working-directory: executor-source
+        run: |
+          corepack enable
+          pnpm --filter jinhu-smart-park install --prod --frozen-lockfile --ignore-scripts
+      - name: Verify private transport contracts
+        run: node --test scripts/e2e/yuzhou-t5-private-transport-contract.mjs
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          log-public-key: false
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          umask 077
+          if ! ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts 2> "$RUNNER_TEMP/yuzhou-host-keyscan.log"; then
+            echo '{"code":"TRANSPORT_HOST_KEYSCAN_FAILED"}'
+            exit 1
+          fi
+      - name: Enforce production path separation
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          umask 077
+          if ! ssh -p "$PROD_SSH_PORT" -o BatchMode=yes "$PROD_SSH_USER@$PROD_SSH_HOST" "sh -s -- '$PROD_DEPLOY_PATH'" < scripts/validate-production-deploy-path.sh > "$RUNNER_TEMP/yuzhou-path-guard.log" 2>&1; then
+            echo '{"code":"TRANSPORT_DEPLOY_PATH_REJECTED"}'
+            exit 1
+          fi
+      - name: Transfer or execute exact private packet
+        env:
+          TRANSPORT_MODE: ${{ inputs.deploy_mode == 'prepare-yuzhou-t5-private-import' && 'prepare' || 'execute' }}
+          TRANSPORT_RELEASE_ID: ${{ inputs.transport_release_id }}
+          TRANSPORT_NONCE: ${{ inputs.transport_nonce }}
+          TRANSPORT_PACKET_SHA256: ${{ inputs.transport_packet_sha256 }}
+          YUZHOU_IMPORT_TRANSPORT_KEY: ${{ secrets.YUZHOU_IMPORT_TRANSPORT_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: node scripts/hr-cutover/yuzhou-t5-private-dispatch.mjs
