@@ -20,8 +20,7 @@ export async function runYuzhouEmployeeScenario({ runner, inspect, employeeId, o
     substitutions: { profileEmployeeId: employeeId },
     bodies: [undefined],
     assert: async responses => ({
-      full_profile_projection: data(responses[0])?.masked === false && typeof data(responses[0])?.personalMobile === "string" && "idNumberMasked" in data(responses[0]) && "idNumber" in data(responses[0]) && "dateOfBirth" in data(responses[0]),
-      identity_decrypted_exactly: data(responses[0])?.idNumber === EMPLOYEE_UAT_SYNTHETIC_IDENTITY,
+      full_profile_projection: data(responses[0])?.masked === false && typeof data(responses[0])?.personalMobile === "string" && "idNumberMasked" in data(responses[0]) && data(responses[0])?.idNumber === EMPLOYEE_UAT_SYNTHETIC_IDENTITY && "dateOfBirth" in data(responses[0]),
       required_audit_written: await inspect.auditCount(employeeId) > auditBefore
     })
   }));
