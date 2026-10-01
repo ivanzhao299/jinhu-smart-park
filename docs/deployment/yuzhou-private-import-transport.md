@@ -172,3 +172,13 @@ sealed plan. Only aggregate counts and `reconciliationStatus` leave the host.
 A post-commit audit failure returns `REQUIRED` while retaining the successful
 import receipt; it must be resolved with a read-only audit, never by replaying
 the import. Private reconciliation receipts remain inside the owned host root.
+
+## T4 follow-on revision binding
+
+The private T4 transport pins the historical payroll executor to
+`87ca6efc0ef39aeca86e7781b9c0842347903a87` and requires the successful core import
+at `00cbab6b93e3cfbcca1c0eb36f0537c3f871860c`. These revisions include the narrow
+rehearsal restore comparison fix. The transport branch is separate from the
+application release; the actual parent receipt, post-core backup, runtime
+revision, one-time authorization and post-commit reconciliation are still
+required before an append is considered complete.

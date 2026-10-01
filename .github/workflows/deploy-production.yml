@@ -809,7 +809,7 @@ jobs:
         if: ${{ inputs.deploy_mode == 'prepare-yuzhou-private-import' }}
         uses: actions/checkout@v5
         with:
-          ref: b4d3252d241d8e884c405b912490edfda7428cfe
+          ref: 00cbab6b93e3cfbcca1c0eb36f0537c3f871860c
           path: executor-source
           fetch-depth: 0
           persist-credentials: false
@@ -884,7 +884,7 @@ jobs:
         if: ${{ inputs.deploy_mode == 'prepare-yuzhou-t4-private-import' }}
         uses: actions/checkout@v5
         with:
-          ref: 36d69d5de3c12f8c7c4da1fa0c90e8336fa45722
+          ref: 87ca6efc0ef39aeca86e7781b9c0842347903a87
           path: executor-source
           fetch-depth: 0
           persist-credentials: false

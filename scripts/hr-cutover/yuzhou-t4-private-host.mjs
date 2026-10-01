@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { EXECUTOR_SHA, hash, fail, nonceRoot, privateInfo, writePrivate, unpack } from './yuzhou-t4-private-packet.mjs';
 
-const CORE_SHA = 'b4d3252d241d8e884c405b912490edfda7428cfe';
+const CORE_SHA = '00cbab6b93e3cfbcca1c0eb36f0537c3f871860c';
 const docker = args => execFileSync('docker', ['--host', 'unix:///var/run/docker.sock', ...args], { encoding: 'utf8', maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 const exact = (x, keys) => { if (!x || Object.keys(x).sort().join(',') !== [...keys].sort().join(',')) fail('TRANSPORT_T4_SHAPE_INVALID'); };
 function ownedDirectory(path) {
