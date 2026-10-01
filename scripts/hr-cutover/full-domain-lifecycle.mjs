@@ -468,6 +468,12 @@ export function verifyT5ExtractBusinessHash(manifest, expectedBusinessSha256) {
     mappingContractSha256: manifest.mappingContractSha256,
     domains: manifest.domains
   };
+  if (Object.hasOwn(manifest, "professionalTitleDictionary")) {
+    const dictionary = manifest.professionalTitleDictionary;
+    exactKeys(dictionary, ["sourceObject", "rows", "sourceSha256", "semantics"], [], "T5.professionalTitleDictionary");
+    if (dictionary.sourceObject !== "dbo.assignment" || dictionary.semantics !== "professional_title_not_position" || !Number.isSafeInteger(dictionary.rows) || dictionary.rows < 0 || !SHA256.test(dictionary.sourceSha256 ?? "")) fail("T5_BASELINE_DRIFT", "T5 professional title dictionary is invalid");
+    business.professionalTitleDictionary = dictionary;
+  }
   const actualBusinessSha256 = createHash("sha256").update(canonical(business)).digest("hex");
   if (manifest.businessSha256 !== actualBusinessSha256 || actualBusinessSha256 !== expectedBusinessSha256) {
     fail("T5_BASELINE_DRIFT", "T5 extract does not match the selected candidate baseline");

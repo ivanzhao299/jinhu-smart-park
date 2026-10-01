@@ -271,6 +271,8 @@ ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mj
 
 preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M 一致、A/B 使用相同 C/S/M、只读 lab 源和六个互不重复的 loopback 端口，并逐项拒绝 DB、Compose、volume、container、role、账号命名空间、目录、凭据或审计路径复用。执行顺序固定为 provision A/B→run A/B 并分别停在 `review_hold`→resume A/B→技术 UAT→25 项 P0 矩阵→备份恢复/故障检测→A/B manifest 比较→T5…T0 rollback→cleanup。`--phase extract` 不需要机器复核工件，它在 A/B 都达到 `review_hold` 后写出受控 checkpoint 并停止；`--phase resume` 才必须提供 checkpoint 与 A/B 各自的 decision/private payload/machine attestation 六件套，缺少、路径复用、受信任根不匹配或任何字节漂移时在 resume 写入前失败。机器凭证只代表可重放技术规则复核，不冒充真人签署；普通部署和生产历史导入仍保持 `HOLD`。任一步失败都会对仍存在的本轮 runtime 执行 registry-scoped `cleanup --recover`；不会继续下一轮或生成 PASS 摘要。
 
+2026-10-01 原生提取兼容性修正：T1 校验绑定原生 manifest 的 `payloadSanitization`；T3 转发本轮已验证源备份；T4 从本轮 extract journal 绑定实际 manifest、文件和工资证据，不复用旧业务哈希。T5 业务哈希包含现行转换器输出的职称字典，且字典语义固定为 `professional_title_not_position`。现行 T5 基线的恢复回执、catalog、映射与业务哈希来自同一只读备份的两次独立提取；两次 23 个数据域及全部文件哈希一致，20,163 条总量不变。该提取证明不等同于完整 A/B 演练通过或生产写入完成。
+
 当前总控还要求技术 UAT 摘要明确给出 `p0Execution=PASS` 和 `p0MatrixChecks=25`。仅绑定 P0 matrix hash、`p0Execution=HOLD` 或旧 46 项 UAT 通过均会返回 `FINAL_PAIR_P0_HOLD`，所以在 25 项真实观察执行器接入并用两套新资源重跑前，最终 A/B 和生产历史导入都保持 HOLD。
 
 目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，其中 Compose default network 必须在 container 停止后按精确 project identity 删除并重新枚举；拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。

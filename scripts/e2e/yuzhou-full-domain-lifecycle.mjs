@@ -144,6 +144,12 @@ try {
   t5Manifest.businessSha256 = t5BusinessHash;
   assert.equal(verifyT5ExtractBusinessHash(t5Manifest, t5BusinessHash), t5BusinessHash, "T5 baseline is verified immediately after extract");
   expectCode("T5_BASELINE_DRIFT", () => verifyT5ExtractBusinessHash(t5Manifest, "0".repeat(64)));
+  const t5TitleBusiness = { formatVersion: t5Manifest.formatVersion, catalogSha256: t5Manifest.catalogSha256, mappingContractSha256: t5Manifest.mappingContractSha256, domains: t5Manifest.domains, professionalTitleDictionary: { sourceObject: "dbo.assignment", rows: 11, sourceSha256: "d".repeat(64), semantics: "professional_title_not_position" } };
+  const t5TitleHash = createHash("sha256").update(canonicalT5Business(t5TitleBusiness)).digest("hex");
+  const t5TitleManifest = { ...t5TitleBusiness, businessSha256: t5TitleHash };
+  assert.equal(verifyT5ExtractBusinessHash(t5TitleManifest, t5TitleHash), t5TitleHash);
+  expectCode("T5_BASELINE_DRIFT", () => verifyT5ExtractBusinessHash({ ...t5TitleManifest, professionalTitleDictionary: { ...t5TitleBusiness.professionalTitleDictionary, sourceSha256: "e".repeat(64) } }, t5TitleHash));
+  expectCode("T5_BASELINE_DRIFT", () => verifyT5ExtractBusinessHash({ ...t5TitleManifest, professionalTitleDictionary: { ...t5TitleBusiness.professionalTitleDictionary, semantics: "position" } }, t5TitleHash));
   const sealedReference = configFor("B", "slice2_reference_b", [45241, 45242, 45243]);
   const sealedRoot = join(sandbox, "sealed-reference");
   mkdirSync(sealedRoot, { recursive: true, mode: 0o700 });
