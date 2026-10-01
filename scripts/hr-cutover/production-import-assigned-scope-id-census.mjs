@@ -8,7 +8,7 @@ import { DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT as CONTRACT } from "./prod
 import { stableProductionImportCanonicalJson as canonical } from "./production-import-target-model.mjs";
 import { verifyProductionSourceManifest } from "../prepare-yuzhou-production-source-manifest.mjs";
 
-export const ASSIGNED_CENSUS_EXECUTOR_SHA = "eec13dcb5e6406688406341e35860bcc4217fd75";
+export const ASSIGNED_CENSUS_EXECUTOR_SHA = "dafe8b54510dada1c7bf90663557c54debc89b16";
 export const ASSIGNED_CENSUS_ARTIFACT = "yuzhou-hr-production-assigned-scope-id-census";
 const target = CONTRACT.activation.allowedTargets;
 if (target.length !== 1) censusFail("ASSIGNED_TARGET_AMBIGUOUS");
