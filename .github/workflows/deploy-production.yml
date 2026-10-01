@@ -961,7 +961,7 @@ jobs:
         if: ${{ inputs.deploy_mode == 'prepare-yuzhou-t5-private-import' }}
         uses: actions/checkout@v5
         with:
-          ref: 25a4c9df8f8d4ee779d56f5a643358448ae19a28
+          ref: 70cad0e6ed82a75e7a853c205cf5014a4d95ccfe
           path: executor-source
           fetch-depth: 0
           persist-credentials: false
