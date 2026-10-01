@@ -127,7 +127,7 @@ test("generated shell executes fake docker JSON exactly; failure never leaks std
 test("workflow route stays diagnostic and execution dependency pins include both implementations", () => {
   const root = resolve(import.meta.dirname, "../.."), workflow = readFileSync(join(root, ".github/workflows/deploy-production.yml"), "utf8");
   assert.match(workflow, /diagnose-yuzhou-hr-production-id-census\|prepare-/u);
-  assert.match(workflow, /production-import-id-census\.mjs --shell/u); assert.match(workflow, /production-import-id-census\.mjs --bind/u);
+  assert.match(workflow, /production-import-(?:assigned-scope-)?id-census\.mjs --shell/u); assert.match(workflow, /production-import-(?:assigned-scope-)?id-census\.mjs --bind/u);
   const conditions = workflow.split("\n").filter(l => l.includes("inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory'"));
   assert.ok(conditions.length > 5); assert.ok(conditions.every(l => l.includes("inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census'")));
   const entry = readFileSync(join(root, "scripts/hr-cutover/execute-production-import.mjs"), "utf8");

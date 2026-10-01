@@ -400,19 +400,19 @@ jobs:
         run: |
           set -eu
           umask 077
-          node scripts/hr-cutover/production-import-id-census.mjs --shell > "$RUNNER_TEMP/id-census-probe.sh"
+          node scripts/hr-cutover/production-import-assigned-scope-id-census.mjs --shell > "$RUNNER_TEMP/id-census-probe.sh"
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           if ! ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- '$PROD_DEPLOY_PATH'" < "$RUNNER_TEMP/id-census-probe.sh" > "$RUNNER_TEMP/id-census-raw.json" 2>/dev/null; then
             echo PRODUCTION_IMPORT_CENSUS_REMOTE_FAILED >&2; exit 1
           fi
-          node scripts/hr-cutover/production-import-id-census.mjs --bind "$RUNNER_TEMP/id-census-raw.json" > "$RUNNER_TEMP/id-census.json"
+          node scripts/hr-cutover/production-import-assigned-scope-id-census.mjs --bind "$RUNNER_TEMP/id-census-raw.json" > "$RUNNER_TEMP/id-census.json"
 
       - name: Retain Yuzhou global ID census
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-production-id-census' && success() }}
         uses: actions/upload-artifact@v6
         with:
-          name: yuzhou-hr-production-id-census
+          name: yuzhou-hr-production-assigned-scope-id-census
           path: ${{ runner.temp }}/id-census.json
           if-no-files-found: error
           retention-days: 1
