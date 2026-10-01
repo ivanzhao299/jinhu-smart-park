@@ -199,6 +199,8 @@ pnpm hr:migration:manifest -- \
 
 任何迁移失败后都必须停止，不能继续 seed、bootstrap 或部署。不得使用 `MIGRATION_BASELINE_ON_NONEMPTY_DB=yes` 掩盖失败初始化。
 
+完整领域演练的工资提取使用准备器复制到独立控制目录的 T4 证据文件。准备器通过 `YUZHOU_T4_SOURCE_EVIDENCE_FILE` 传入该副本，生命周期校验其路径必须等于 `source.t4EvidenceFile`，并按既有 `t4Evidence.sha256` 校验内容；独立工作树不需要依赖旧任务目录。直接使用工资提取脚本时仍保留旧默认路径，指定副本不会绕过备份、恢复回执和只读 ETL 校验。
+
 ## 6. 真实备份到位后的接入门禁
 
 接收备份时登记文件名、字节、SHA-256、接收人和时间；只读复制到本任务专用目录。恢复到命名 volume 后记录 SQL Server 版本、数据库兼容级别、collation、表/列/主键/索引/FK 和 LOB 类型。随后创建只读 ETL 用户，并以稳定主键排序、分块和超时限制抽取。

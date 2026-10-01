@@ -275,6 +275,7 @@ try {
   assert(!existsSync(invalidKey.target.root), "invalid key must fail before provision writes any runtime resource");
   const realT4Gate = configFor("A", "slice2_real_t4_gate", [45031, 45032, 45033]);
   realT4Gate.backend = "lab";
+  realT4Gate.adapterEnv.T4.extract.YUZHOU_T4_SOURCE_EVIDENCE_FILE = realT4Gate.source.t4EvidenceFile;
   const realCredentialRoot = dirname(realT4Gate.target.materializationKeyArtifact);
   Object.assign(realT4Gate.target, {
     jobStateDecisionArtifact: join(realCredentialRoot, "employee-job-state.reviewed.json"),

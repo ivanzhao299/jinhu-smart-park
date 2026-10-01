@@ -158,6 +158,8 @@ function configFor(args, codeSha, mappingContractHash) {
   adapterEnv.T3.extract.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash;
   adapterEnv.T4.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T4.extract.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt;
+  adapterEnv.T4.extract.YUZHOU_T4_SOURCE_EVIDENCE_FILE = t4Copy;
+  adapterEnv.T4.extract.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash;
   adapterEnv.T5.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T5.extract.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt;
   adapterEnv.T4.load = {

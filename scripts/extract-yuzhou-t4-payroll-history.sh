@@ -11,7 +11,7 @@ BACKUP_FILE="${YUZHOU_SOURCE_BACKUP_FILE:-$ROOT_DIR/database/backups/yuzhou-hr/h
 SOURCE_RESTORE_RECEIPT_PATH="${YUZHOU_SOURCE_RESTORE_RECEIPT_PATH:-}"
 MAPPING_CONTRACT_SHA256="${YUZHOU_MAPPING_CONTRACT_SHA256:-}"
 OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
-EVIDENCE="$ROOT_DIR/.trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json"
+EVIDENCE="${YUZHOU_T4_SOURCE_EVIDENCE_FILE:-$ROOT_DIR/.trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json}"
 
 fail() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"

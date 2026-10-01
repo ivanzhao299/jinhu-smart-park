@@ -93,7 +93,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_MAPPING_CONTRACT_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_T4_SOURCE_EVIDENCE_FILE", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
 
@@ -268,6 +268,7 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   }
   if (inside(target.root, target.auditBundle) || !target.auditBundle.endsWith(".json")) fail("CLEANUP_PATH_ESCAPE", "auditBundle must be a controlled JSON artifact outside the runtime root");
   exactKeys(config.adapterEnv, DOMAIN_ORDER, [], "adapterEnv");
+  if (config.backend === "lab" && config.adapterEnv.T4?.extract?.YUZHOU_T4_SOURCE_EVIDENCE_FILE !== config.source.t4EvidenceFile) fail("CONFIG_INVALID", "T4 extractor must use the hash-pinned prepared source evidence copy");
   for (const domain of DOMAIN_ORDER) {
     exactKeys(config.adapterEnv[domain], ["extract", "load", "rollback"], [], `adapterEnv.${domain}`);
     for (const phase of ["extract", "load", "rollback"]) {

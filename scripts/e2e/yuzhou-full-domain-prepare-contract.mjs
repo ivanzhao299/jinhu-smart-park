@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -151,9 +152,43 @@ test("full-domain T3 extraction receives the pinned current source bindings requ
 });
 
 test("full-domain T4 extraction receives the sealed source receipt required by the payroll extractor", () => {
-  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T4.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH"]);
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T4.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_T4_SOURCE_EVIDENCE_FILE", "YUZHOU_MAPPING_CONTRACT_SHA256"]);
   const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
   assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+  assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_T4_SOURCE_EVIDENCE_FILE = t4Copy/);
+  assert.match(source, /adapterEnv\.T4\.extract\.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash/);
+});
+
+test("native T4 extraction reads the prepared evidence path before source access", () => {
+  const root = mkdtempSync(join(tmpdir(), "jinhu-yuzhou-t4-evidence-"));
+  try {
+    const credential = join(root, "etl.env");
+    const backup = join(root, "source.bak");
+    const receipt = join(root, "receipt.json");
+    const evidence = join(root, "prepared-evidence.json");
+    for (const path of [credential, backup, receipt]) writeFileSync(path, "fixture", { mode: 0o600 });
+    writeFileSync(evidence, JSON.stringify({ sourceBackupSha256: "0".repeat(64) }), { mode: 0o600 });
+    const env = {
+      ...process.env,
+      ALLOW_YUZHOU_MIGRATION: "yes",
+      YUZHOU_MIGRATION_RUN_ID: "test-t4-evidence-path",
+      YUZHOU_ETL_CREDENTIAL_FILE: credential,
+      YUZHOU_SOURCE_BACKUP_FILE: backup,
+      YUZHOU_SOURCE_RESTORE_RECEIPT_PATH: receipt,
+      YUZHOU_MAPPING_CONTRACT_SHA256: "a".repeat(64),
+      YUZHOU_T4_SOURCE_EVIDENCE_FILE: evidence,
+    };
+    const script = new URL("../extract-yuzhou-t4-payroll-history.sh", import.meta.url).pathname;
+    const result = spawnSync("sh", [script], { env, encoding: "utf8" });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /source backup SHA-256 mismatch/);
+    assert.doesNotMatch(result.stderr, /source evidence manifest is missing/);
+    const missing = spawnSync("sh", [script], { env: { ...env, YUZHOU_T4_SOURCE_EVIDENCE_FILE: join(root, "missing.json") }, encoding: "utf8" });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /pinned T4 source evidence manifest is missing/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("full-domain T5 extraction receives the sealed source bindings required by the legacy-history extractor", () => {
