@@ -18,7 +18,7 @@
     },
     "extractor": {
       "path": "scripts/extract-yuzhou-t4-payroll-history.sh",
-      "sha256": "1beb5b4b977d099f71dd3fb8d4c71583b91dbb68f7588a4ec6a80453e642ff6a"
+      "sha256": "0d293f497ec017548996d4cccf105eb8054457da2e2aedad21543fd4cd033da9"
     },
     "transformer": {
       "path": "scripts/transform-yuzhou-t4-payroll-history.mjs",
@@ -26,7 +26,7 @@
     },
     "loader": {
       "path": "scripts/sql/load-yuzhou-t4-payroll-history.sql",
-      "sha256": "3ac355946d75e0c2b6c6ef96c66b26e6e1c5db9ede1922cac48c8838672be7e5"
+      "sha256": "d29f899daaba795b7a171554b0cd78e37d43067850988ac6b1ee153b38582ffd"
     },
     "targetSchema": {
       "path": "database/migrations/000248_hr_payroll_legacy_history.sql",

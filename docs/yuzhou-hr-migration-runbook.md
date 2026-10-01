@@ -474,7 +474,7 @@ T4 抽取只允许使用固定备份、只读 SQL Server 恢复库和非 `sa/sys
 
 玉舟已停用且无新增数据，不设计 S0→S1 delta，也不等待停写窗口；固定 backup/catalog/business hash 是唯一源基线。全量抽取仍审计46,092行和2010～2026范围，但生产热候选固定 `YUZHOU_T4_PERIOD_START=2024-01-01`、`YUZHOU_T4_PERIOD_END=2026-12-31`。当前已验证的 T0 映射将候选 8,342 条记录全部唯一关联，因此候选精确守恒为 `8,342 = 8,342 loaded + 0 quarantined`、190,880 条明细、266 条窗口内关账；候选源/加载净额均为15,723,009.9100。2010～2023共37,750行、源净额86,471,046.8900，按 `cold_archive` 归档到历史快照而不写在线工资、工资条或发薪表；其中 34 行暂不能精确关联到目标员工时必须保留为 `employee_unmapped` 历史快照、明细和同数待办，不得丢弃、伪造员工映射或计为拒绝。
 
-真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
+真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。 首次写入工资快照父表后，必须在明细分片前执行 `ANALYZE hr_payroll_legacy_snapshot` 和 `ANALYZE cls`，让新表外键查找采用准确的统计信息；外键、事务和守恒校验保持启用。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
 
 截至 2026-08-31，热历史候选已在全新 `core` 隔离库完成一次真实 `load → rollback → reload → rollback → core cleanup` 闭环：两次装载均得到 `8,342` 个历史工资快照和 `190,880` 个工资项，批次守恒与保护表检查均通过；两次回滚后的活动映射、历史批次、快照和项目均为 `0`，core runtime 的最终 `residualCount=0`。同一受控源的 2010–2023 冷历史也已在独立隔离目标完成两次 `16 分片 load → 对账 → rollback`：每次均为 `37,750` 个历史快照、`887,140` 个明细、`1,165` 个关闭期间和 `34` 个 `employee_unmapped` 待办，检查均通过；每次回滚后历史批次、快照、明细、待办和活动映射均为 `0`，仅保留状态为 `rolled_back` 的迁移审计和失效映射。随后同一隔离目标完成单批次 `full_archive` 的两轮同源真实 `16 分片 load → 对账 → rollback`：每轮均一次性得到全量 `46,092` 个历史快照、`1,078,020` 个明细、`1,431` 个关闭期间、净额 `102,194,056.8000` 和 `34` 个 `employee_unmapped` 待办，0 条校验失败；两次回滚后同样为零业务残留。该结果证明热、冷及全量归档在受控源和隔离目标中的可执行性；它不替代全域 A/B、角色 UAT、生产目标备份/窗口和正式生产授权，生产历史导入与任何正式发薪继续为 `HOLD`。
 
