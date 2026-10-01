@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global console */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -23,5 +24,8 @@ assert.match(load, /INSERT INTO hr_payroll_legacy_snapshot\([\s\S]*ANALYZE hr_pa
 for (const value of ["YUZHOU_T4_LOAD_MODE", "hot_history", "cold_archive", "full_archive", "EXPECTED_ROWS=37750", "EXPECTED_ITEMS=887140", "EXPECTED_NET=86471046.8900", "EXPECTED_CLOSES=1165", "EXPECTED_ROWS=46092", "EXPECTED_ITEMS=1078020", "EXPECTED_NET=102194056.8000", "EXPECTED_CLOSES=1431", "T4 mode period override rejected"]) assert.match(loader, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 for (const pattern of [/LEFT JOIN hr_payroll_item_definition d[\s\S]*LEFT JOIN hr_payroll_item_version v/, /CASE WHEN v\.id IS NULL THEN'unmapped'/, /case_type,subject_hash,evidence_summary,remark\)[\s\S]*'item_unmapped'/, /UNION ALL SELECT c\.id,'hr_payroll_review_case','item_unmapped:'/]) assert.match(load, pattern);
 for (const pattern of [/^printf %s "\$DB"\|grep -Eq '\^jinhu_hr_migration_lab_/m, /com\.docker\.compose\.project/, /NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION/, /REVOKE ALL ON ALL TABLES/, /trap cleanup_role EXIT HUP INT TERM/, /ALTER ROLE yuzhou_t4_loader NOLOGIN/, /REVOKE EXECUTE ON PROCEDURE rollback_yuzhou_t4_payroll_history/, /-U yuzhou_t4_loader/, /CALL rollback_yuzhou_t4_payroll_history/]) assert.match(rollback, pattern);
+
+assert.match(rollback, /BEGIN; SET CONSTRAINTS ALL IMMEDIATE; CALL rollback_yuzhou_t4_payroll_history[\s\S]*COMMIT;/);
+assert.doesNotMatch(rollback, /GRANT (?:SELECT|ALL).*TABLE|DISABLE TRIGGER|session_replication_role/);
 
 console.log("Yuzhou T4 controlled rollback contract passed.");

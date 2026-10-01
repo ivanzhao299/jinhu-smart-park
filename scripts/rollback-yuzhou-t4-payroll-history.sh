@@ -18,6 +18,9 @@ trap cleanup_role EXIT HUP INT TERM
 docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d postgres -q -c "DO \$\$BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='yuzhou_t4_loader')THEN CREATE ROLE yuzhou_t4_loader NOLOGIN NOINHERIT; END IF; END\$\$; ALTER ROLE yuzhou_t4_loader NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;"
 docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -q -c "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM yuzhou_t4_loader; GRANT CONNECT ON DATABASE \"$DB\" TO yuzhou_t4_loader; GRANT USAGE ON SCHEMA public TO yuzhou_t4_loader; GRANT EXECUTE ON PROCEDURE rollback_yuzhou_t4_payroll_history(varchar,varchar) TO yuzhou_t4_loader;"
 docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d postgres -q -c "ALTER ROLE yuzhou_t4_loader LOGIN;"
-docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U yuzhou_t4_loader -d "$DB" -c "CALL rollback_yuzhou_t4_payroll_history('$RUN_ID','$DB');"
+# Deferred reverse-map validators must execute inside the existing definer
+# procedure, before it returns to this deliberately unprivileged loader.
+# Immediate validation preserves every check and grants no table access.
+docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U yuzhou_t4_loader -d "$DB" -c "BEGIN; SET CONSTRAINTS ALL IMMEDIATE; CALL rollback_yuzhou_t4_payroll_history('$RUN_ID','$DB'); COMMIT;"
 cleanup_role
 docker exec "$PG" psql -X -q -A -t -F '|' -U jinhu -d "$DB" -c "SELECT b.status,(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.is_active) FROM migration_batch b WHERE b.run_id='$RUN_ID';"
