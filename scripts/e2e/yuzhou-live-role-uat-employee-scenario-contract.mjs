@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";
 import { runYuzhouEmployeeScenario, EMPLOYEE_UAT_SYNTHETIC_IDENTITY } from "../hr-cutover/yuzhou-live-role-uat-employee-scenario.mjs";
+import { YuzhouLiveRoleUatHttpRunner } from "../hr-cutover/yuzhou-live-role-uat-http-runner.mjs";
 
 const employeeId = "11111111-1111-4111-8111-111111111111";
 const outsideEmployeeId = "22222222-2222-4222-8222-222222222222";
@@ -21,9 +24,38 @@ test("null or wrong decryption and masked identity leaks cannot pass UAT", async
     } };
     await runYuzhouEmployeeScenario({ runner, inspect: { auditCount: async () => auditCount,
       managerProfileSuccessAuditCount: async () => 0 }, employeeId, outsideEmployeeId });
-    assert.equal(observations.get("hr_reads_sensitive_profile").identity_decrypted_exactly, false);
+    assert.equal(observations.get("hr_reads_sensitive_profile").full_profile_projection, false);
     assert.equal(observations.get("manager_reads_masked_team_profile").no_sensitive_fields, false);
     assert.equal(observations.get("employee_reads_masked_self_profile").no_sensitive_fields, false);
+  }
+});
+
+function actualRunnerFixture(idNumber = EMPLOYEE_UAT_SYNTHETIC_IDENTITY) {
+  const taskCard = JSON.parse(readFileSync(new URL("../hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json", import.meta.url)));
+  const apiMatrix = JSON.parse(readFileSync(new URL("../hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json", import.meta.url)));
+  const tokens = Object.fromEntries(["hr_maker", "hr_reviewer", "manager", "employee"].map(actor => [actor, `synthetic-only-${actor}-token`]));
+  let auditCount = 0;
+  const runner = new YuzhouLiveRoleUatHttpRunner({ apiBase: "http://127.0.0.1:3999/api/v1", taskCard, apiMatrix, tokens, idempotencyPrefix: "synthetic-profile-contract", request: async (url, options) => {
+    const full = options.headers.authorization === `Bearer ${tokens.hr_reviewer}`;
+    const outside = url.includes(outsideEmployeeId);
+    if (!outside) auditCount += 1;
+    const payload = outside ? { code: "DENIED" } : { data: full
+      ? { employeeId, masked: false, personalMobile: "synthetic", idNumber, idNumberMasked: "MASKED", dateOfBirth: null, remark: null }
+      : { employeeId, masked: true, idNumberMasked: "MASKED", personalMobile: "masked" } };
+    return { status: outside ? 403 : 200, json: async () => payload };
+  } });
+  return { runner, inspect: { auditCount: async () => auditCount, managerProfileSuccessAuditCount: async () => 0 }, employeeId, outsideEmployeeId };
+}
+
+test("profile scenario passes the real HTTP runner's declared assertion shape", async () => {
+  const result = await runYuzhouEmployeeScenario(actualRunnerFixture());
+  assert.equal(result.observations.length, 5);
+  assert.deepEqual(result.observations[0].assertions, { full_profile_projection: true, required_audit_written: true });
+});
+
+test("real HTTP runner still rejects missing, empty and incorrect decrypted identity", async () => {
+  for (const idNumber of [null, "", "wrong-synthetic-value"]) {
+    await assert.rejects(runYuzhouEmployeeScenario(actualRunnerFixture(idNumber)), error => error.code === "YUZHOU_UAT_HTTP_ASSERTION_FAILED" && error.message.endsWith(": full_profile_projection"));
   }
 });
 
