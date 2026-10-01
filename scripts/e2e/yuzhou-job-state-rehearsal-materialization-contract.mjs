@@ -11,6 +11,8 @@ const { decision, payload, attestation, config } = buildJobStateV2Fixture(), ver
 assert.equal(verified.decisionResult.status, "MACHINE_CANDIDATE"); assert.equal(verified.verificationMode, "machine_attested");
 const sql = buildMaterializationSql(decision, payload, attestation); assert.match(sql, /approved_by=NULL,approved_at=NULL/); assert.match(sql, /verification_mode='machine_attested'/); assert.match(sql, /machine_policy_engine/); assert.doesNotMatch(sql, /human_approved|approvalSubject|approvedAt/); assert.match(buildItemsDigestProbeSql(decision, payload), /machineActor/);
 
+assert.match(sql, /'employee_employment_status'/); assert.doesNotMatch(sql, /'employment_status'/); assert.match(buildItemsDigestProbeSql(decision, payload), /'employee_employment_status'/);
+
 const v1Decision = { formatVersion: 1, artifactKind: "yuzhou_employee_job_state_reviewed_decision" };
 assert.throws(() => verifyMaterializationPackage(v1Decision, payload, attestation, config), /MACHINE_CANDIDATE_V2_REQUIRED|YUZHOU_JOB_STATE_/);
 const v1Payload = { ...payload, formatVersion: 1, approvalSubject: "00000000-0000-4000-8000-000000000202" }; v1Payload.payloadSha256 = canonicalHash(Object.fromEntries(Object.entries(v1Payload).filter(([key]) => key !== "payloadSha256")));

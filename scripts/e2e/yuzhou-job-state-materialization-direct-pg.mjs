@@ -31,6 +31,9 @@ try {
   result = run(["psql", "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", database, "-c", "SELECT verification_mode||':'||verification_actor_kind||':'||(approved_by IS NULL)::text||':'||(approved_at IS NULL)::text||':'||machine_attestation_sha256||':'||machine_evidence_root_sha256||':'||count(*) OVER() FROM hr_legacy_dictionary_version; SELECT count(*) FROM hr_legacy_dictionary_item;"]); assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, new RegExp(`machine_attested:machine_policy_engine:true:true:${attestationSha256}:${fixture.trustedRootSha256}:1`)); assert.match(result.stdout, /\n7\n/u);
 
+  const nativeDomainProbe = run(["psql", "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", database, "-c", "SELECT count(*) FROM hr_legacy_dictionary_item WHERE decision='map' AND target_domain='employee_employment_status' AND target_value IN('active','probation','suspended','departed');"]);
+  assert.equal(nativeDomainProbe.status, 0); assert.equal(Number(nativeDomainProbe.stdout.trim()), fixture.decision.decisions.filter(row => row.decision === "map").length, "mapped states must be consumable by the native T0 loader; raw-only states stay quarantined");
+
   const baseline = result.stdout;
   const driftPayload = structuredClone(fixture.payload); driftPayload.items[0].id = "00000000-0000-4000-8000-000000000088";
   result = run(["psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", database], buildMaterializationSql(fixture.decision, driftPayload, fixture.attestation)); assert.notEqual(result.status, 0); assert.match(result.stderr, /MATERIALIZATION_REPLAY_DRIFT/);
