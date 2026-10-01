@@ -31,6 +31,7 @@ on:
           - prepare-yuzhou-hr-production-data-volume
           - prepare-yuzhou-private-import
           - execute-yuzhou-private-import
+          - diagnose-yuzhou-private-import
       transport_release_id:
         description: "Draft release numeric ID for encrypted packet; prepare only."
         required: false
@@ -41,6 +42,14 @@ on:
         type: string
       transport_packet_sha256:
         description: "SHA-256 of the authenticated encrypted packet."
+        required: false
+        type: string
+      audit_operation_id:
+        description: "Failed private operation identifier; read-only audit only."
+        required: false
+        type: string
+      audit_sealed_plan_sha256:
+        description: "Known sealed plan hash; read-only audit only."
         required: false
         type: string
       source_manifest_json:
@@ -88,7 +97,7 @@ jobs:
           set -eu
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
           case "$requested" in
-            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume|prepare-yuzhou-private-import|execute-yuzhou-private-import)
+            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume|prepare-yuzhou-private-import|execute-yuzhou-private-import|diagnose-yuzhou-private-import)
               echo "mode=ops-only" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
@@ -859,3 +868,46 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
         run: node scripts/hr-cutover/yuzhou-private-import-dispatch.mjs
+
+  private-import-readonly-audit:
+    name: Read-only audit of failed private import
+    needs: [classify, verify]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_mode == 'diagnose-yuzhou-private-import' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout audit helpers
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify read-only audit contracts
+        run: node --test scripts/e2e/yuzhou-private-import-readonly-audit-contract.mjs
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          log-public-key: false
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          umask 077
+          ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts 2> "$RUNNER_TEMP/yuzhou-audit-keyscan.log"
+      - name: Audit exact failed operation without writes
+        env:
+          TRANSPORT_NONCE: ${{ inputs.transport_nonce }}
+          TRANSPORT_PACKET_SHA256: ${{ inputs.transport_packet_sha256 }}
+          AUDIT_OPERATION_ID: ${{ inputs.audit_operation_id }}
+          AUDIT_SEALED_PLAN_SHA256: ${{ inputs.audit_sealed_plan_sha256 }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: node scripts/hr-cutover/yuzhou-private-import-readonly-audit.mjs --dispatch

@@ -532,3 +532,7 @@ pnpm hr:migration:dual-source:rehearse
 ```
 
 A/B 演练均得到 `loaded=115`、`rollbackResidual=0`、`reloaded=115`、`containerResidual=0`、`personalValuesStored=false`。PostgreSQL 随机密码通过 0600 临时 env 文件传递，容器启动后立即删除，结束时删除精确命名容器。该技术闭环不等于 115 人已经完成人工业务认定，也不解除生产 `HOLD`。
+
+### Failed private production execution: read-only audit
+
+Dispatch `diagnose-yuzhou-private-import` on the reviewed diagnostic branch with the failed transport nonce, packet hash, operation identifier and sealed plan hash. The audit verifies the retained prepared configuration and database identity, forces a read-only PostgreSQL connection, and returns only operation/phase counts, scoped employee count, resource limits and sanitized error codes. It neither invokes the writer nor changes the retained host evidence. Keep the original failed workflow and one-shot claims intact; an absent receipt alone never authorizes replay.
