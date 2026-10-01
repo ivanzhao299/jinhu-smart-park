@@ -51,4 +51,5 @@ test('T4 workflow pins the executor and host invokes the actual prepare/execute 
   const host=readFileSync(resolve(root,'scripts/hr-cutover/yuzhou-t4-private-host.mjs'),'utf8');
   assert.match(host,/execute-production-t4-followon\.mjs/u);assert.match(host,/'--mode','execute'/u);assert.match(host,/'--mode','prepare'/u);
   assert.doesNotMatch(host,/diagnose-yuzhou-hr-production-target-inventory/u);
+  assert.match(host,/options: '-c default_transaction_read_only=on -c timezone=Asia\/Shanghai'/u);
 });

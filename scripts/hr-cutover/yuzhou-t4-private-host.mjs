@@ -93,7 +93,7 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
     if (!env.password || !env.database || !env.user || !Number.isSafeInteger(port) || port < 1 || port > 65535) fail('TRANSPORT_DATABASE_UNAVAILABLE');
     const credentials = { host: '127.0.0.1', port, ...env };
     const pg = await import(pathToFileURL(resolve(executor, 'node_modules/pg/lib/index.js')));
-    const client = new pg.default.Client({ ...credentials, connectionTimeoutMillis: 10000, statement_timeout: 300000, options: '-c default_transaction_read_only=on' });
+    const client = new pg.default.Client({ ...credentials, connectionTimeoutMillis: 10000, statement_timeout: 300000, options: '-c default_transaction_read_only=on -c timezone=Asia/Shanghai' });
     await client.connect();
     try {
       const observed = (await client.query('SELECT current_database() AS database,current_user AS "databaseUser",inet_server_addr()::text AS address,inet_server_port() AS port,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS "databaseOid"')).rows[0];

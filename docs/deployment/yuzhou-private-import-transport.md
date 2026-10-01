@@ -182,3 +182,10 @@ rehearsal restore comparison fix. The transport branch is separate from the
 application release; the actual parent receipt, post-core backup, runtime
 revision, one-time authorization and post-commit reconciliation are still
 required before an append is considered complete.
+
+T4's read-only host connection explicitly uses `Asia/Shanghai`, matching the
+writer transaction. Full-row hashes include timestamp JSON, so a server's UTC
+default must not change the parent checksum or post-commit owned-state result.
+`node scripts/e2e/yuzhou-t4-observer-timezone-postgres.mjs` proves the mismatch
+and corrected checksum on a disposable UTC PostgreSQL cluster, and verifies
+that the observer still rejects writes.
