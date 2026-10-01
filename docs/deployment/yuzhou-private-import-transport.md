@@ -95,7 +95,11 @@ any individual artifact is published. A flat allowlist rejects path traversal.
 
 Prepare requires a clean exact executor SHA and matching immutable production
 API/web image revisions. It independently verifies the activated socket target
-identity/scope, then observes the actual TCP database/user/server tuple and
+identity/scope using the existing scoped target-inventory helper with the sole
+approved scope hash from the fixed v2 execution contract. Other active scopes
+do not block this selection. Inventory must report PASS and both exact approved
+hashes; its record details stay on the host and are never returned to the runner.
+It then observes the actual TCP database/user/server tuple and
 compares its database OID with the production Postgres container. It creates
 0600 binding/credential files, then invokes the **real original CLI without
 `--execute`**. Only `STRUCTURE_READY` produces `TRANSPORT_PREPARED`; its config

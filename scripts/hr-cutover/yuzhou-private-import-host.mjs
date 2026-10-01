@@ -17,6 +17,17 @@ export function assertExecutorRoot(executor) {
     execFileSync('git', ['diff', '--cached', '--quiet', '--'], options);
   } catch { fail('TRANSPORT_SOURCE_DRIFT'); }
 }
+export function approvedInventoryTarget(contract) {
+  const targets = contract?.activation?.allowedTargets;
+  if (contract?.activation?.status !== 'PASS' || !Array.isArray(targets) || targets.length !== 1
+    || !/^[a-f0-9]{64}$/u.test(targets[0]?.identitySha256 ?? '')
+    || !/^[a-f0-9]{64}$/u.test(targets[0]?.targetScopeSha256 ?? '')) fail('TRANSPORT_TARGET_DRIFT');
+  return targets[0];
+}
+export function assertScopedInventory(target, allowed) {
+  if (target?.status !== 'PASS' || target.targetIdentitySha256 !== allowed.identitySha256
+    || target.targetScopeSha256 !== allowed.targetScopeSha256) fail('TRANSPORT_TARGET_DRIFT');
+}
 export async function runHost(mode, nonce, packetSha256, deployPath) {
   if (!['prepare', 'execute'].includes(mode) || !/^[a-f0-9]{64}$/u.test(packetSha256 ?? '') || !/^\/[A-Za-z0-9_./-]+$/u.test(deployPath ?? '')) fail('TRANSPORT_ARGUMENT_INVALID');
   const root = nonceRoot(nonce);
@@ -44,10 +55,11 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
     try { runtime = await observeProductionRuntimeRevision(EXECUTOR_SHA); }
     catch { fail('TRANSPORT_RUNTIME_DRIFT'); }
     assertRuntime(runtime);
-    const target = JSON.parse(privateRun('sh', [resolve(executor, 'scripts/diagnose-yuzhou-hr-production-target.sh'), 'report', deployPath]));
     const contract = JSON.parse(readFileSync(resolve(executor, 'scripts/hr-cutover/contracts/production-import-execution-v2.json'), 'utf8'));
-    const allowed = contract.activation.allowedTargets.find(t => t.identitySha256 === target.targetIdentitySha256 && t.targetScopeSha256 === target.targetScopeSha256);
-    if (!allowed) fail('TRANSPORT_TARGET_DRIFT');
+    const allowed = approvedInventoryTarget(contract);
+    // Scope selection comes only from the fixed execution contract. Inventory
+    // rows remain inside this host process and never enter the public summary.
+    assertScopedInventory(JSON.parse(privateRun('sh', [resolve(executor, 'scripts/diagnose-yuzhou-hr-production-target-inventory.sh'), 'report', deployPath, allowed.targetScopeSha256])), allowed);
     const pg = await import(pathToFileURL(resolve(executor, 'node_modules/pg/lib/index.js')));
     const env = JSON.parse(docker(['exec', 'jinhu-smart-park-prod-api', 'node', '-e', 'process.stdout.write(JSON.stringify({database:process.env.POSTGRES_DB,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD}))']));
     const portLines = docker(['port', 'jinhu-smart-park-prod-postgres', '5432/tcp']).trim().split('\n');
