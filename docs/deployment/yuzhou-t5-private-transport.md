@@ -8,4 +8,4 @@ prepare 使用只读数据库连接，注入实际 TCP/socket 一致的连接信
 
 这个分支不会部署业务代码。业务发布和导入必须依次等待核心真实成功、工资真实成功、T5 业务 SHA 的实际备份/恢复及运行版本验证。固定 SHA 需跟随最终审核合并后的执行提交重新核验。临时 secret 和草稿 packet release 在 prepare 后由 custodian 删除，失败也必须清理；不能将“提交成功但对账未完成”当作可重放状态。
 
-验证：`node --test scripts/e2e/yuzhou-t5-private-transport-contract.mjs`。当前执行 SHA 为 `bc18f498db0bd9a4b4c0dcd2784caa09d998cbbf`，尚未激活生产。
+验证：`node --test scripts/e2e/yuzhou-t5-private-transport-contract.mjs`。当前执行 SHA 为 `98570190d98f27c1fdf5fe8414fe343f03e16635`，尚未激活生产。
