@@ -1,6 +1,6 @@
 # 玉舟历史工资追加执行通道
 
-此候选分支只提供受控传输通道，不作为应用版本合并或部署。原 T0–T3 通道不变，工资执行器固定为 `4fc7a1bbf644977c62ac3cd59b45a6ee0ea67190`；生产 API 和 Web 必须实际运行该版本。只有核心导入成功并取得真实回执后，才能发布和运行工资追加版本。
+此候选分支只提供受控传输通道，不作为应用版本合并或部署。原 T0–T3 通道不变，工资执行器固定为 `ca1f5f9f6a4332f3b52058ff2a2e64b59b013155`；生产 API 和 Web 必须实际运行该版本。只有核心导入成功并取得真实回执后，才能发布和运行工资追加版本。
 
 `prepare-yuzhou-t4-private-import` 与 `execute-yuzhou-t4-private-import` 归类为 `ops-only`，只运行独立 `t4-private-import` 作业，不触发应用部署。加密草稿包标签为 `yuzhou-t4-private-<nonce>`，临时目录为 `/tmp/jinhu-yuzhou-t4-<nonce>`。使用者负责在准备作业结束后删除本次草稿与 `YUZHOU_IMPORT_TRANSPORT_KEY`，确认均已不存在；该密钥不得与核心传输并行使用。Actions 的草稿删除失败必须保留真实失败状态，由创建者完成清理。
 
