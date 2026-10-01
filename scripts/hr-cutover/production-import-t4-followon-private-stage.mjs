@@ -1,4 +1,5 @@
 import { readBoundedPrivateArtifactBytes } from "./execute-production-import.mjs";
+import { Buffer } from "node:buffer";
 import { T4_FILES, canonicalT4, exactT4, failT4, hashT4, shaT4, validateT4Binding } from "./production-import-t4-followon-binding.mjs";
 
 export function readT4PrivateArtifact(descriptor, maximumBytes = 8 * 1024 * 1024) {
@@ -42,4 +43,13 @@ export function* t4StageRows(bytes) {
     yield row;
     offset = end + 1;
   }
+}
+
+// PostgreSQL JSONB cannot represent U+0000. This legacy name is not consumed by
+// the payroll projection (employee ownership uses source.person). Encode only
+// its transient staging representation; authenticated source bytes and hashes
+// remain untouched, and the original UTF-8 string can be recovered exactly.
+export function t4PostgresStageRow(row) {
+  if (typeof row.source?.name !== "string" || !row.source.name.includes("\0")) return row;
+  return { ...row, source: { ...row.source, name: { encoding: "utf8-base64", value: Buffer.from(row.source.name, "utf8").toString("base64") } } };
 }

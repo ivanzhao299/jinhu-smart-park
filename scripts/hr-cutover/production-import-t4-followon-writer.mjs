@@ -1,5 +1,5 @@
 import { T4_COUNTS, T4_FILES, T4_TABLES, canonicalT4, failT4, hashT4, sameT4, validateT4Authorization, validateT4Binding } from "./production-import-t4-followon-binding.mjs";
-import { t4StageRows } from "./production-import-t4-followon-private-stage.mjs";
+import { t4PostgresStageRow, t4StageRows } from "./production-import-t4-followon-private-stage.mjs";
 import { T4_INSERT_PREFIX, T4_INSERT_SHARD, T4_SUFFIX_STEPS } from "./production-import-t4-followon-sql.mjs";
 
 const PROTECTED = Object.freeze(["sys_org", "hr_position", "hr_employment_event", "hr_contract_type", "hr_contract", "hr_contract_change", "hr_contract_legacy_evidence", "hr_attendance_import_batch", "hr_attendance_symbol_rule", "hr_attendance_calendar_source", "hr_attendance_day", "hr_insurance_policy", "hr_insurance_policy_item", "hr_employee_insurance_item", "hr_employee", "hr_employee_compensation", "hr_compensation_plan", "hr_compensation_item", "hr_employee_insurance_period", "hr_attendance_request", "hr_attendance_shift", "hr_attendance_punch_event", "hr_attendance_calculation_version", "hr_employee_attendance_daily_result", "hr_attendance_period", "hr_attendance_month_summary", "hr_attendance_payroll_input_batch", "hr_attendance_payroll_input_item", "hr_payroll_run", "hr_payslip", "hr_payslip_item", "biz_user_message", "hr_payroll_payment", "hr_payroll_bank_export", "hr_payroll_tax_submission", "hr_payroll_outbox"]);
@@ -42,7 +42,7 @@ async function loadStage(client, stage, binding) {
     await client.query(`CREATE TEMP TABLE ${TEMP_TABLES[i]}(j jsonb) ON COMMIT DROP`);
     let rows = [];
     const flush = async () => { if (rows.length) await client.query(`INSERT INTO ${TEMP_TABLES[i]} SELECT value FROM jsonb_array_elements($1::jsonb)`, [JSON.stringify(rows)]); rows = []; };
-    for (const row of t4StageRows(bytes)) { rows.push(row); if (rows.length === 100) await flush(); }
+    for (const row of t4StageRows(bytes)) { rows.push(t4PostgresStageRow(row)); if (rows.length === 100) await flush(); }
     await flush();
   }
 }
