@@ -48,7 +48,7 @@ export function recoverCommittedSummary(result, reconciliation, database, codeSh
 }
 export function summarizeSqlErrors(text) {
   const messages = text.split('\n').map(line => line.match(/\bERROR:\s+(.*)$/u)?.[1]).filter(Boolean);
-  const known = /^(?:column|relation|function|operator|permission denied|syntax error|cannot execute|invalid transaction|current transaction|there is no|deadlock detected|canceling statement|out of memory|could not|duplicate key value|insert or update on table|new row for relation|invalid input syntax|type)/u;
+  const known = /^(?:COALESCE|CASE|record|SELECT|missing|unsupported|date\/time|timestamp|not enough|aggregate|input of|bind message|more than|argument|column|relation|function|operator|permission denied|syntax error|cannot|invalid|current transaction|there is no|deadlock detected|canceling statement|out of memory|could not|duplicate key value|insert or update on table|new row for relation|type)/u;
   return messages.map(message => ({ code: /^T4_[A-Z0-9_]+$/u.test(message) ? message : null,
     category: known.test(message) ? message.replace(/"[^"]*"|'[^']*'/gu, '[redacted]').slice(0,180) : 'UNCLASSIFIED_SQL_ERROR',
     column: message.match(/^column "([a-z_][a-z0-9_]*)"/u)?.[1] ?? null,
