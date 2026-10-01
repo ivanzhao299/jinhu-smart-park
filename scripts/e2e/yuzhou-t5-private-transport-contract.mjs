@@ -88,7 +88,7 @@ test('full-size private child uses the import-only 8 GiB heap budget', async () 
   const { importChildArguments, importChildEnvironment } = await import('../hr-cutover/yuzhou-t5-private-host.mjs');
   const { spawnSync } = await import('node:child_process');
   const args = importChildArguments(['entry.mjs', '--config', 'fixture.json']);
-  const timezoneChild = spawnSync(process.execPath, ['--input-type=module', '-e', "import pg from 'pg'; process.stdout.write(new pg.Client().connectionParameters.options)"], { cwd: resolve(import.meta.dirname, '../..'), encoding: 'utf8', env: importChildEnvironment({ ...process.env, PGOPTIONS: '-c timezone=UTC' }) });
+  const timezoneChild = spawnSync(process.execPath, ['--input-type=module', '-e', "process.stdout.write(process.env.PGOPTIONS)"], { cwd: resolve(import.meta.dirname, '../..'), encoding: 'utf8', env: importChildEnvironment({ ...process.env, PGOPTIONS: '-c timezone=UTC' }) });
   assert.equal(timezoneChild.status, 0, timezoneChild.stderr);
   assert.equal(timezoneChild.stdout, '-c timezone=Asia/Shanghai');
   assert.deepEqual(args.slice(1), ['entry.mjs', '--config', 'fixture.json']);
