@@ -33,6 +33,18 @@ export async function auditDatabase(client, operationId, sealedPlanHash, expecte
   return { operationRows: op.length, operationStatus: op[0]?.status ?? 'absent', recordCount: records[0].count,
     selectedScopeEmployeeCount: employees[0].count, phases: phases.map(x => ({ phase: x.phase, status: x.status, plannedCount: Number(x.planned_record_count), appliedCount: Number(x.applied_record_count) })) };
 }
+export function recoverCommittedSummary(result, reconciliation, database, codeSha, sealedPlanHash, scopeHash) {
+  if (result?.status !== 'SUCCEEDED' || result.mode !== 'execute' || result.productionImportExecuted !== true
+    || result.fullProductMigrationComplete !== false || result.sealedPlanSha256 !== sealedPlanHash
+    || result.targetScopeSha256 !== scopeHash || !/^[a-f0-9]{64}$/u.test(result.receiptSha256 ?? '')
+    || reconciliation?.reconciliationStatus !== 'PASS' || database.operationRows !== 1 || database.operationStatus !== 'succeeded'
+    || reconciliation.sourceRecordCount !== database.recordCount || reconciliation.employeesInserted !== database.selectedScopeEmployeeCount
+    || reconciliation.insertedCount + reconciliation.quarantinedCount !== database.recordCount
+    || database.phases.length !== 4 || database.phases.some(x => x.status !== 'succeeded' || x.plannedCount !== x.appliedCount)
+    || reconciliation.verifiedPhaseCount !== 4) fail('TRANSPORT_AUDIT_COMMITTED_RECEIPT_DRIFT');
+  return { code: 'TRANSPORT_EXECUTED_EXACT_SCOPE', codeSha, receiptSha256: result.receiptSha256,
+    sealedPlanSha256: result.sealedPlanSha256, ...reconciliation };
+}
 async function audit(args) {
   const { nonce, packetHash, operationId, sealedPlanHash } = validateAuditArguments(args);
   const root = `/tmp/jinhu-yuzhou-import-${nonce}`;
@@ -68,12 +80,17 @@ async function audit(args) {
     if (identity.database !== binding.database || identity.username !== binding.databaseUser || identity.oid !== binding.serverIdentity.databaseOid || identity.readonly !== 'on') fail('TRANSPORT_AUDIT_DATABASE_IDENTITY_DRIFT');
     database = await auditDatabase(client, operationId, sealedPlanHash, { ...allowed, codeSha: packet.EXECUTOR_SHA }, binding.targetScope);
   } finally { await client.end(); credentials.password = ''; }
+  let committedExecutionSummary = null;
+  if (existsSync(resolve(root, 'execution-receipt.json')) && existsSync(resolve(root, 'reconciliation-receipt.json'))) {
+    committedExecutionSummary = recoverCommittedSummary(readPrivate(resolve(root, 'execution-receipt.json')),
+      readPrivate(resolve(root, 'reconciliation-receipt.json')), database, packet.EXECUTOR_SHA, sealedPlanHash, allowed.targetScopeSha256);
+  }
   const failurePath = resolve(root, 'execute-failure.log');
   let failure = null;
   if (existsSync(failurePath)) { packet.privateInfo(failurePath); failure = summarizePrivateFailure(readFileSync(failurePath, 'utf8')); }
   return { code: 'TRANSPORT_READONLY_AUDIT_COMPLETED', codeSha: packet.EXECUTOR_SHA,
     executionClaimExists: existsSync(resolve(root, 'execution-claimed.json')), executionReceiptExists: existsSync(resolve(root, 'execution-receipt.json')),
-    failure, database, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
+    failure, database, committedExecutionSummary, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
 }
 function dispatch() {
   const e = process.env;

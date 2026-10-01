@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -41,4 +41,16 @@ test('forces read-only connection and never invokes the writer', () => {
   const source = readFileSync(new URL('../hr-cutover/yuzhou-private-import-readonly-audit.mjs', import.meta.url), 'utf8');
   assert.match(source, /default_transaction_read_only=on/u);
   assert.doesNotMatch(source, /writePrivate|writeFile|--execute|runHost\(/u);
+});
+
+test('recovers genuine aggregate receipt and rejects masked or inconsistent evidence', () => {
+  const result = { status: 'SUCCEEDED', mode: 'execute', productionImportExecuted: true, fullProductMigrationComplete: false, sealedPlanSha256: args[3], targetScopeSha256: expected.targetScopeSha256, receiptSha256: 'a'.repeat(64) };
+  const recon = { reconciliationStatus: 'PASS', sourceRecordCount: 40, insertedCount: 39, quarantinedCount: 1, employeesInserted: 3, verifiedPhaseCount: 4 };
+  const database = { operationRows: 1, operationStatus: 'succeeded', recordCount: 40, selectedScopeEmployeeCount: 3, phases: ['T0','T1','T2','T3'].map(phase => ({ phase, status: 'succeeded', plannedCount: 10, appliedCount: 10 })) };
+  const recover = (r = result, a = recon, d = database) => recoverCommittedSummary(r, a, d, expected.codeSha, args[3], expected.targetScopeSha256);
+  assert.equal(recover().receiptSha256, result.receiptSha256);
+  assert.throws(() => recover({ ...result, receiptSha256: 'masked***' }));
+  assert.throws(() => recover(result, { ...recon, insertedCount: 38 }));
+  assert.throws(() => recover(result, recon, { ...database, operationStatus: 'authorized' }));
+  assert.throws(() => recover({ ...result, sealedPlanSha256: 'b'.repeat(64) }));
 });

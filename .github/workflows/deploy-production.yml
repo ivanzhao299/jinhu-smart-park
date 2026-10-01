@@ -910,4 +910,13 @@ jobs:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
-        run: node scripts/hr-cutover/yuzhou-private-import-readonly-audit.mjs --dispatch
+        run: |
+          umask 077
+          node scripts/hr-cutover/yuzhou-private-import-readonly-audit.mjs --dispatch > "$RUNNER_TEMP/yuzhou-private-readonly-audit.json"
+      - name: Retain aggregate read-only evidence without log masking
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuzhou-private-readonly-audit
+          path: ${{ runner.temp }}/yuzhou-private-readonly-audit.json
+          retention-days: 1
+          if-no-files-found: error
