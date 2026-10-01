@@ -78,6 +78,9 @@ const EXTRACT_MANIFEST_BINDINGS = {
   }
 };
 export const EXTRACT_MANIFEST_HEADERS = {
+  T1: {
+    payloadSanitization: "nul_to_literal_escape_v1"
+  },
   T3: {
     artifactKind: "yuzhou_t3_attendance_insurance_stage",
     sourceReadOnly: true,

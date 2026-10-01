@@ -5,6 +5,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import process from "node:process";
 import {
   LifecycleError,
   cleanup,
@@ -190,6 +191,26 @@ try {
   assert(contract.triple.mappingContractComponents.includes("scripts/sql/load-yuzhou-t4-payroll-history.sql"), "T4 SQL must be pinned by the mapping hash");
   assert.doesNotMatch(t4LoaderSource, /digest\(t\|\|x\.id::text/u, "T4 canonical identity must not derive from random target UUIDs");
   assert.match(t4LoaderSource, /source_content_group_hash\|\|':'\|\|i\.legacy_column_name/u, "T4 snapshot-item identity must derive from stable source content");
+
+  const t1ManifestConfig = { runId: configA.runId, target: { stagingRoot: join(sandbox, "t1-manifest-staging") } };
+  const t1ManifestRoot = join(t1ManifestConfig.target.stagingRoot, `staging-${configA.runId}-t1`);
+  mkdirSync(t1ManifestRoot, { recursive: true, mode: 0o700 });
+  chmodSync(t1ManifestRoot, 0o700);
+  privateJson(join(t1ManifestRoot, "employment-events.raw.json"), [{ legacyId: 1, legacyEventNo: "JZ-TEST", reason: "before\u0000after" }]);
+  privateJson(join(t1ManifestRoot, "employment-event-types.raw.json"), [{ sourceValue: "1", usageCount: 1 }]);
+  privateJson(join(t1ManifestRoot, "employment-event-states.raw.json"), []);
+  const t1Transform = spawnSync(process.execPath, [resolve(root, "scripts/transform-yuzhou-t1-employment-events.mjs"), t1ManifestRoot], { encoding: "utf8" });
+  assert.equal(t1Transform.status, 0, t1Transform.stderr);
+  assert.deepEqual(Object.keys(extractManifestFacts(t1ManifestConfig, "T1").env).sort(), ["YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"]);
+  const t1Manifest = JSON.parse(readFileSync(join(t1ManifestRoot, "manifest.json"), "utf8"));
+  privateJson(join(t1ManifestRoot, "manifest.json"), { ...t1Manifest, payloadSanitization: "unknown_policy" });
+  expectCode("EXTRACT_MANIFEST_UNVERIFIED", () => extractManifestFacts(t1ManifestConfig, "T1"));
+  const missingT1Sanitization = { ...t1Manifest };
+  delete missingT1Sanitization.payloadSanitization;
+  privateJson(join(t1ManifestRoot, "manifest.json"), missingT1Sanitization);
+  expectCode("EXTRACT_MANIFEST_UNVERIFIED", () => extractManifestFacts(t1ManifestConfig, "T1"));
+  privateJson(join(t1ManifestRoot, "manifest.json"), { ...t1Manifest, unexpectedHeader: true });
+  expectCode("CONFIG_INVALID", () => extractManifestFacts(t1ManifestConfig, "T1"));
 
   const t3ManifestConfig = { runId: configA.runId, triple: configA.triple, target: { stagingRoot: join(sandbox, "t3-manifest-staging") } };
   const t3ManifestRoot = join(t3ManifestConfig.target.stagingRoot, `staging-${t3ManifestConfig.runId}-t3`);
