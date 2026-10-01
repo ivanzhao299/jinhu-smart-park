@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global URL, process, console */
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -33,6 +34,7 @@ const H=value=>value.repeat(64);
 const ids={
   org:"11111111-1111-4111-8111-111111111111",
   position:"22222222-2222-4222-8222-222222222222",
+  childPosition:"99999999-9999-4999-8999-999999999999",
   employee:"33333333-3333-4333-8333-333333333333",
   contractType:"44444444-4444-4444-8444-444444444444",
   contract:"55555555-5555-4555-8555-555555555555",
@@ -58,13 +60,14 @@ INSERT INTO hr_yuzhou_production_import_phase(
 )
 SELECT '${operation}',phase,ordinal,'planned',repeat((ordinal+1)::text,64)::char(64),planned,repeat((ordinal+2)::text,64)::char(64),
        repeat((ordinal+3)::text,64)::char(64),repeat((ordinal+4)::text,64)::char(64),'yuzhou-production-import-canonical-json-v1'
-FROM (VALUES ('T0',0,3),('T1',1,0),('T2',2,2),('T3',3,0)) AS phases(phase,ordinal,planned);
+FROM (VALUES ('T0',0,4),('T1',1,0),('T2',2,2),('T3',3,0)) AS phases(phase,ordinal,planned);
 
 INSERT INTO hr_yuzhou_production_import_record(
  operation_id,phase,source_identity_sha256,source_row_sha256,disposition,planned_target_table,target_table,target_id,target_after_sha256
 ) VALUES
  ('${operation}','T0','${H("d")}','${H("1")}','insert','sys_org','sys_org','${ids.org}','${H("2")}'),
  ('${operation}','T0','${H("e")}','${H("2")}','insert','hr_position','hr_position','${ids.position}','${H("3")}'),
+ ('${operation}','T0','${H("c")}','${H("2")}','insert','hr_position','hr_position','${ids.childPosition}','${H("3")}'),
  ('${operation}','T0','${H("f")}','${H("3")}','insert','hr_employee','hr_employee','${ids.employee}','${H("4")}'),
  ('${operation}','T2','${H("a")}','${H("4")}','insert','hr_contract_type','hr_contract_type','${ids.contractType}','${H("5")}'),
  ('${operation}','T2','${H("b")}','${H("5")}','insert','hr_contract','hr_contract','${ids.contract}','${H("6")}');
@@ -72,6 +75,8 @@ INSERT INTO hr_yuzhou_production_import_record_dependency(
  operation_id,phase,source_identity_sha256,dependency_role,depends_on_phase,depends_on_source_identity_sha256,expected_target_table
 ) VALUES
  ('${operation}','T0','${H("e")}','org','T0','${H("d")}','sys_org'),
+ ('${operation}','T0','${H("c")}','org','T0','${H("d")}','sys_org'),
+ ('${operation}','T0','${H("c")}','parent_position','T0','${H("e")}','hr_position'),
  ('${operation}','T0','${H("f")}','primary_org','T0','${H("d")}','sys_org'),
  ('${operation}','T0','${H("f")}','position','T0','${H("e")}','hr_position'),
  ('${operation}','T2','${H("b")}','employee','T0','${H("f")}','hr_employee'),
@@ -80,7 +85,16 @@ COMMIT;
 `);
 
 assert.equal(psql(`SELECT execution_contract_version||'|'||target_tenant_id||'|'||target_park_id FROM hr_yuzhou_production_import_operation WHERE operation_id='${operation}';`),"2|tenant-a|park-a");
-assert.equal(psql(`SELECT count(*) FROM hr_yuzhou_production_import_record_dependency WHERE operation_id='${operation}';`),"5");
+assert.equal(psql(`SELECT count(*) FROM hr_yuzhou_production_import_record_dependency WHERE operation_id='${operation}';`),"7");
+
+assert.match(psqlFailure(`BEGIN;
+UPDATE hr_yuzhou_production_import_record_dependency SET expected_target_table='sys_org'
+WHERE operation_id='${operation}' AND source_identity_sha256='${H("c")}' AND dependency_role='parent_position';
+COMMIT;`),/HR_PRODUCTION_IMPORT_V2_DEPENDENCY_(SET_INVALID|TARGET_INVALID)/u);
+assert.match(psqlFailure(`BEGIN;
+UPDATE hr_yuzhou_production_import_record_dependency SET depends_on_source_identity_sha256='${H("c")}'
+WHERE operation_id='${operation}' AND source_identity_sha256='${H("c")}' AND dependency_role='parent_position';
+COMMIT;`),/ck_hr_yuzhou_prod_dependency_identity/u);
 
 assert.match(psqlFailure(`
 BEGIN;
