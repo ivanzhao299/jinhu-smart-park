@@ -79,6 +79,27 @@ async function audit(args) {
     const identity = (await client.query('SELECT current_database() AS database,current_user AS username,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS oid,current_setting(\'default_transaction_read_only\') AS readonly')).rows[0];
     if (identity.database !== binding.database || identity.username !== binding.databaseUser || identity.oid !== binding.serverIdentity.databaseOid || identity.readonly !== 'on') fail('TRANSPORT_AUDIT_DATABASE_IDENTITY_DRIFT');
     database = await auditDatabase(client, operationId, sealedPlanHash, { ...allowed, codeSha: packet.EXECUTOR_SHA }, binding.targetScope);
+    if (database.operationStatus === 'succeeded') {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      try {
+        const checksumSql = `SELECT count(*)::text count,
+          encode(digest(COALESCE(string_agg(encode(digest(jsonb_build_object('record',to_jsonb(r),'map',to_jsonb(m),'employee',to_jsonb(e))::text,'sha256'),'hex'),'' ORDER BY r.phase,r.source_identity_sha256),''),'sha256'),'hex') sha256
+          FROM hr_yuzhou_production_import_record r
+          LEFT JOIN hr_yuzhou_production_import_projection_receipt p USING(operation_id,phase,source_identity_sha256)
+          LEFT JOIN legacy_record_map m ON m.id=p.legacy_record_map_id
+          LEFT JOIN hr_employee e ON r.target_table='hr_employee' AND e.id=r.target_id
+          WHERE r.operation_id=$1`;
+        await client.query('SET LOCAL statement_timeout=300000');
+        const defaultTimezone = (await client.query("SELECT current_setting('TimeZone') AS timezone")).rows[0].timezone;
+        const defaults = (await client.query(checksumSql, [operationId])).rows[0];
+        await client.query("SELECT set_config('TimeZone','Asia/Shanghai',true)");
+        const business = (await client.query(checksumSql, [operationId])).rows[0];
+        database.readonlyTimezoneChecksumComparison = { defaultTimezone, defaultRecordSetSha256: defaults.sha256,
+          businessTimezone: 'Asia/Shanghai', businessRecordSetSha256: business.sha256,
+          defaultCount: Number(defaults.count), businessCount: Number(business.count), sameReadOnlySnapshot: true };
+      } finally { await client.query('ROLLBACK'); }
+    }
+
   } finally { await client.end(); credentials.password = ''; }
   let committedExecutionSummary = null;
   if (existsSync(resolve(root, 'execution-receipt.json')) && existsSync(resolve(root, 'reconciliation-receipt.json'))) {
@@ -99,7 +120,7 @@ function dispatch() {
   if (!/^[A-Za-z0-9.-]+$/u.test(e.PROD_SSH_HOST ?? '') || !/^[A-Za-z0-9_-]+$/u.test(e.PROD_SSH_USER ?? '') || !/^\d{1,5}$/u.test(e.PROD_SSH_PORT ?? '')) fail('TRANSPORT_AUDIT_SSH_INVALID');
   const command = `node --input-type=module - ${args.map(x => `'${x}'`).join(' ')}`;
   const output = execFileSync('ssh', ['-p', e.PROD_SSH_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', `${e.PROD_SSH_USER}@${e.PROD_SSH_HOST}`, command],
-    { input: readFileSync(new URL(import.meta.url)), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024, timeout: 120000 });
+    { input: readFileSync(new URL(import.meta.url)), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024, timeout: 600000 });
   const result = JSON.parse(output);
   if (result.code !== 'TRANSPORT_READONLY_AUDIT_COMPLETED' || result.productionWriteAttempted !== false) fail('TRANSPORT_AUDIT_RESULT_INVALID');
   return result;
