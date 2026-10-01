@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { EXECUTOR_SHA, hash, pack, unpack, validateManifest, nonceRoot, privateInfo } from '../hr-cutover/yuzhou-private-import-packet.mjs';
-import { assertExecutorRoot, assertRuntime, approvedInventoryTarget, assertScopedInventory } from '../hr-cutover/yuzhou-private-import-host.mjs';
+import { assertExecutorRoot, assertRuntime, approvedInventoryTarget, assertScopedInventory, reconcileCoreImport } from '../hr-cutover/yuzhou-private-import-host.mjs';
 
 function fixture(t) {
   const root = mkdtempSync(resolve(tmpdir(), 'yuzhou-transport-test-'));
@@ -100,4 +100,37 @@ test('workflow separates transport from deployment and pins executor; host uses 
   assert.match(host, /assertScopedInventory\(JSON\.parse\(privateRun\('sh', \[resolve\(executor, 'scripts\/diagnose-yuzhou-hr-production-target-inventory\.sh'\), 'report', deployPath, allowed\.targetScopeSha256\]\)\), allowed\)/u);
   assert.doesNotMatch(host, /diagnose-yuzhou-hr-production-target\.sh/u);
   assert.doesNotMatch(host, /executeSealedProductionImport|loadPg:|dependencies:/u);
+});
+
+function reconciliationFixture() {
+  const plan = { operationId: 'synthetic-only-operation', triple: { sourceSnapshotHash: 'a'.repeat(64), mappingContractHash: 'b'.repeat(64) }, target: { identitySha256: 'c'.repeat(64) }, targetScope: { scopeSha256: 'd'.repeat(64) }, phases: ['T0','T1','T2','T3'].map((phase, i) => ({ phase, payloadBundleSha256: String(i).repeat(64), records: i === 0 ? [{ disposition: 'insert', targetTable: 'hr_employee' }, { disposition: 'quarantine', plannedTargetTable: 'hr_employee' }] : [] })) };
+  const result = { sealedPlanSha256: 'e'.repeat(64) };
+  const responses = [
+    [{ status: 'succeeded', code_sha: EXECUTOR_SHA, source_snapshot_sha256: plan.triple.sourceSnapshotHash, mapping_contract_sha256: plan.triple.mappingContractHash, sealed_plan_sha256: result.sealedPlanSha256, target_identity_sha256: plan.target.identitySha256, target_scope_sha256: plan.targetScope.scopeSha256 }],
+    plan.phases.map(p => ({ phase: p.phase, status: 'succeeded', planned_record_count: String(p.records.length), applied_record_count: String(p.records.length), payload_bundle_sha256: p.payloadBundleSha256 })),
+    [{ disposition: 'insert', count: '1', employees: '1' }, { disposition: 'quarantine', count: '1', employees: '0' }],
+  ];
+  const calls = [];
+  const client = { async query(sql, args) { calls.push({sql,args}); return { rows: responses[calls.length - 1] }; } };
+  return { plan, result, responses, client, calls };
+}
+test('post-commit audit counts actual control records using only operation-bound SELECTs', async () => {
+  const f = reconciliationFixture();
+  assert.deepEqual(await reconcileCoreImport(f.client, f.plan, f.result), { reconciliationStatus: 'PASS', sourceRecordCount: 2, insertedCount: 1, quarantinedCount: 1, employeesInserted: 1, verifiedPhaseCount: 4 });
+  assert.equal(f.calls.length, 3);
+  for (const c of f.calls) { assert.match(c.sql, /^SELECT /u); assert.match(c.sql, /WHERE operation_id=\$1/u); assert.deepEqual(c.args, [f.plan.operationId]); }
+});
+test('post-commit audit rejects wrong scope, source, seal, phase digest and record counts', async () => {
+  for (const key of ['target_scope_sha256','source_snapshot_sha256','sealed_plan_sha256','code_sha']) {
+    const f = reconciliationFixture(); f.responses[0][0][key] = 'f'.repeat(64);
+    await assert.rejects(reconcileCoreImport(f.client, f.plan, f.result), { code: 'TRANSPORT_RECONCILIATION_OPERATION_DRIFT' });
+  }
+  for (const key of ['payload_bundle_sha256', 'applied_record_count', 'status']) {
+    const f = reconciliationFixture(); f.responses[1][0][key] = 'wrong';
+    await assert.rejects(reconcileCoreImport(f.client, f.plan, f.result), { code: 'TRANSPORT_RECONCILIATION_PHASE_DRIFT' });
+  }
+  for (const key of ['count','employees']) {
+    const f = reconciliationFixture(); f.responses[2][0][key] = '99';
+    await assert.rejects(reconcileCoreImport(f.client, f.plan, f.result), { code: 'TRANSPORT_RECONCILIATION_COUNT_DRIFT' });
+  }
 });

@@ -74,7 +74,8 @@ try {
     if (key === 'code') continue;
     if (key === 'codeSha' && value === EXECUTOR_SHA) continue;
     if (['packetSha256', 'receiptSha256', 'sealedPlanSha256'].includes(key) && /^[a-f0-9]{64}$/u.test(value)) continue;
-    if (['artifactCount', 'recordCount'].includes(key) && Number.isSafeInteger(value) && value >= 0) continue;
+    if (['artifactCount', 'recordCount', 'sourceRecordCount', 'insertedCount', 'quarantinedCount', 'employeesInserted', 'verifiedPhaseCount'].includes(key) && Number.isSafeInteger(value) && value >= 0) continue;
+    if (key === 'reconciliationStatus' && ['PASS', 'REQUIRED'].includes(value)) continue;
     fail('TRANSPORT_RESULT_INVALID');
   }
   process.stdout.write(`${JSON.stringify(summary)}\n`);

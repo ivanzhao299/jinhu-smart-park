@@ -28,6 +28,20 @@ export function assertScopedInventory(target, allowed) {
   if (target?.status !== 'PASS' || target.targetIdentitySha256 !== allowed.identitySha256
     || target.targetScopeSha256 !== allowed.targetScopeSha256) fail('TRANSPORT_TARGET_DRIFT');
 }
+export async function reconcileCoreImport(client, plan, result) {
+  const op = (await client.query('SELECT status,code_sha,source_snapshot_sha256,mapping_contract_sha256,sealed_plan_sha256,target_identity_sha256,target_scope_sha256 FROM hr_yuzhou_production_import_operation WHERE operation_id=$1', [plan.operationId])).rows;
+  if (op.length !== 1 || op[0].status !== 'succeeded' || op[0].code_sha !== EXECUTOR_SHA || op[0].source_snapshot_sha256 !== plan.triple.sourceSnapshotHash || op[0].mapping_contract_sha256 !== plan.triple.mappingContractHash || op[0].sealed_plan_sha256 !== result.sealedPlanSha256 || op[0].target_identity_sha256 !== plan.target.identitySha256 || op[0].target_scope_sha256 !== plan.targetScope.scopeSha256) fail('TRANSPORT_RECONCILIATION_OPERATION_DRIFT');
+  const phases = (await client.query('SELECT phase,status,planned_record_count,applied_record_count,payload_bundle_sha256 FROM hr_yuzhou_production_import_phase WHERE operation_id=$1 ORDER BY phase', [plan.operationId])).rows;
+  if (phases.length !== 4 || phases.some((p, i) => p.phase !== plan.phases[i].phase || p.status !== 'succeeded' || Number(p.planned_record_count) !== plan.phases[i].records.length || Number(p.applied_record_count) !== plan.phases[i].records.length || p.payload_bundle_sha256 !== plan.phases[i].payloadBundleSha256)) fail('TRANSPORT_RECONCILIATION_PHASE_DRIFT');
+  const rows = (await client.query('SELECT disposition,count(*)::text count,count(*) FILTER(WHERE target_table=\'hr_employee\')::text employees FROM hr_yuzhou_production_import_record WHERE operation_id=$1 GROUP BY disposition ORDER BY disposition', [plan.operationId])).rows;
+  const expected = new Map();
+  for (const p of plan.phases) for (const row of p.records) {
+    const v = expected.get(row.disposition) ?? { count: 0, employees: 0 };
+    v.count += 1; v.employees += Number(row.targetTable === 'hr_employee'); expected.set(row.disposition, v);
+  }
+  if (rows.length !== expected.size || rows.some(r => !expected.has(r.disposition) || Number(r.count) !== expected.get(r.disposition).count || Number(r.employees) !== expected.get(r.disposition).employees)) fail('TRANSPORT_RECONCILIATION_COUNT_DRIFT');
+  return { reconciliationStatus: 'PASS', sourceRecordCount: rows.reduce((n, x) => n + Number(x.count), 0), insertedCount: Number(rows.find(x => x.disposition === 'insert')?.count ?? 0), quarantinedCount: Number(rows.find(x => x.disposition === 'quarantine')?.count ?? 0), employeesInserted: Number(rows.find(x => x.disposition === 'insert')?.employees ?? 0), verifiedPhaseCount: phases.length };
+}
 export async function runHost(mode, nonce, packetSha256, deployPath) {
   if (!['prepare', 'execute'].includes(mode) || !/^[a-f0-9]{64}$/u.test(packetSha256 ?? '') || !/^\/[A-Za-z0-9_./-]+$/u.test(deployPath ?? '')) fail('TRANSPORT_ARGUMENT_INVALID');
   const root = nonceRoot(nonce);
@@ -109,7 +123,24 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
     const result = JSON.parse(raw);
     writePrivate(resolve(root, 'execution-receipt.json'), result);
     if (result.status !== 'SUCCEEDED' || result.fullProductMigrationComplete !== false) fail('TRANSPORT_EXECUTION_FAILED');
-    return { code: 'TRANSPORT_EXECUTED_EXACT_SCOPE', codeSha: EXECUTOR_SHA, receiptSha256: result.receiptSha256, sealedPlanSha256: result.sealedPlanSha256 };
+    // Reconcile control receipts through a fresh read-only connection. A failed
+    // audit must never cause a retry of an already committed import.
+    let reconciliation = { reconciliationStatus: 'REQUIRED' };
+    const auditPool = new pg.default.Pool({ host: credentials.host, port, ...env, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 10000, options: '-c default_transaction_read_only=on' });
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      privateInfo(config.artifacts.sealedPlan.path);
+      const bytes = readFileSync(config.artifacts.sealedPlan.path);
+      if (hash(bytes) !== config.artifacts.sealedPlan.sha256) fail('TRANSPORT_PLAN_BINDING_MISMATCH');
+      reconciliation = await reconcileCoreImport(auditPool, JSON.parse(bytes), result);
+    } catch (error) {
+      writePrivate(resolve(root, 'reconciliation-failure.log'), error?.stack ?? 'TRANSPORT_RECONCILIATION_REQUIRED');
+    } finally {
+      try { await auditPool.end(); }
+      catch { reconciliation = { reconciliationStatus: 'REQUIRED' }; }
+    }
+    writePrivate(resolve(root, 'reconciliation-receipt.json'), reconciliation);
+    return { code: 'TRANSPORT_EXECUTED_EXACT_SCOPE', codeSha: EXECUTOR_SHA, receiptSha256: result.receiptSha256, sealedPlanSha256: result.sealedPlanSha256, ...reconciliation };
   } catch (error) {
     if (!existsSync(log)) writePrivate(log, error?.stack ?? 'TRANSPORT_HOST_FAILED');
     throw error;

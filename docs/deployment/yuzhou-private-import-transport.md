@@ -164,3 +164,11 @@ probe and genuine prepared import using its actual sealed material. Maintain a
 private checkpoint with packet hash/nonce, exact executor and runtime C, workflow
 run ID, prepare/execute state, secret/release cleanup state, and any original
 CLI reason code. Do not place private paths or business rows in public reports.
+
+After a successful committed core import, the host opens a fresh read-only
+connection and reconciles the operation C/S/M, seal and scope, all four phase
+counts and payload digests, and control-record disposition totals against the
+sealed plan. Only aggregate counts and `reconciliationStatus` leave the host.
+A post-commit audit failure returns `REQUIRED` while retaining the successful
+import receipt; it must be resolved with a read-only audit, never by replaying
+the import. Private reconciliation receipts remain inside the owned host root.
