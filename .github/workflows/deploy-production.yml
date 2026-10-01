@@ -803,7 +803,7 @@ jobs:
         if: ${{ inputs.deploy_mode == 'prepare-yuzhou-private-import' }}
         uses: actions/checkout@v5
         with:
-          ref: b4d3252d241d8e884c405b912490edfda7428cfe
+          ref: 00cbab6b93e3cfbcca1c0eb36f0537c3f871860c
           path: executor-source
           fetch-depth: 0
           persist-credentials: false
