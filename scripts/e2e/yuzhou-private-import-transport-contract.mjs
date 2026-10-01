@@ -6,7 +6,20 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { EXECUTOR_SHA, hash, pack, unpack, validateManifest, nonceRoot, privateInfo } from '../hr-cutover/yuzhou-private-import-packet.mjs';
-import { assertExecutorRoot, assertRuntime, approvedInventoryTarget, assertScopedInventory, reconcileCoreImport } from '../hr-cutover/yuzhou-private-import-host.mjs';
+import { assertExecutorRoot, assertRuntime, approvedInventoryTarget, assertScopedInventory, reconcileCoreImport, assertImportMemoryCapacity, importNodeArguments } from '../hr-cutover/yuzhou-private-import-host.mjs';
+
+test('full import memory budget requires room for the process and running services', () => {
+  const gib = 1024 ** 3;
+  assertImportMemoryCapacity(16 * gib, 11 * gib);
+  assert.throws(() => assertImportMemoryCapacity(8 * gib, 7 * gib), { code: 'TRANSPORT_IMPORT_MEMORY_CAPACITY' });
+  assert.throws(() => assertImportMemoryCapacity(16 * gib, 8 * gib), { code: 'TRANSPORT_IMPORT_MEMORY_CAPACITY' });
+});
+test('actual Node child accepts the reviewed 8 GiB import-only heap budget', () => {
+  const args = importNodeArguments('entry.mjs', 'config.json', true);
+  assert.deepEqual(args.slice(1), ['entry.mjs', '--config', 'config.json', '--execute']);
+  const child = spawnSync(process.execPath, [args[0], '--input-type=module', '-e', "import{getHeapStatistics}from'node:v8';process.stdout.write(String(getHeapStatistics().heap_size_limit))"], { encoding: 'utf8' });
+  assert.equal(child.status, 0); assert.ok(Number(child.stdout) >= 8 * 1024 ** 3);
+});
 
 function fixture(t) {
   const root = mkdtempSync(resolve(tmpdir(), 'yuzhou-transport-test-'));
@@ -96,7 +109,8 @@ test('workflow separates transport from deployment and pins executor; host uses 
   assert.match(job, new RegExp(`ref: ${EXECUTOR_SHA}`, 'u'));
   assert.doesNotMatch(job, /prod:deploy|scripts\/deploy\.sh|inputs\.ref|inputs\.url/u);
   assert.match(workflow, /prepare-yuzhou-private-import\|execute-yuzhou-private-import\)/u);
-  assert.match(host, /privateRun\(process\.execPath, \[resolve\(executor, 'scripts\/hr-cutover\/execute-production-import\.mjs'\), '--config', configPath, '--execute'\]\)/u);
+  assert.match(host, /privateRun\(process\.execPath, importNodeArguments\(resolve\(executor, 'scripts\/hr-cutover\/execute-production-import\.mjs'\), configPath, true\)\)/u);
+  assert.ok(host.indexOf('assertImportMemoryCapacity(totalmem(), freemem())') < host.indexOf("writePrivate(resolve(root, 'execution-claimed.json')"));
   assert.match(host, /assertScopedInventory\(JSON\.parse\(privateRun\('sh', \[resolve\(executor, 'scripts\/diagnose-yuzhou-hr-production-target-inventory\.sh'\), 'report', deployPath, allowed\.targetScopeSha256\]\)\), allowed\)/u);
   assert.doesNotMatch(host, /diagnose-yuzhou-hr-production-target\.sh/u);
   assert.doesNotMatch(host, /executeSealedProductionImport|loadPg:|dependencies:/u);

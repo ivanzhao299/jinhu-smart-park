@@ -532,3 +532,7 @@ pnpm hr:migration:dual-source:rehearse
 ```
 
 A/B 演练均得到 `loaded=115`、`rollbackResidual=0`、`reloaded=115`、`containerResidual=0`、`personalValuesStored=false`。PostgreSQL 随机密码通过 0600 临时 env 文件传递，容器启动后立即删除，结束时删除精确命名容器。该技术闭环不等于 115 人已经完成人工业务认定，也不解除生产 `HOLD`。
+
+### Full-size core import process memory
+
+The private host wrapper starts only its import subprocess with `--max-old-space-size=8192`. Before claiming execution it requires at least 12 GiB host memory and 9 GiB free memory, preserving room for running services. This addresses the independently observed 2 GiB Node heap exhaustion during the 260,828-record import; it does not change API runtime memory, business SQL, authorization, or the sealed executor revision. A failed one-shot claim remains retained. Audit operation/phase receipts and scoped business counts before producing any fresh operation or transport.

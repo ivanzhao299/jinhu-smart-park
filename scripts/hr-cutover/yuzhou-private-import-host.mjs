@@ -3,9 +3,17 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync, existsSync, lstatSync, chmodSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { totalmem, freemem } from 'node:os';
 import { EXECUTOR_SHA, fail, hash, nonceRoot, privateInfo, writePrivate, unpack } from './yuzhou-private-import-packet.mjs';
 
 const docker = args => execFileSync('docker', ['--host', 'unix:///var/run/docker.sock', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1024 * 1024 });
+export function assertImportMemoryCapacity(totalBytes, freeBytes) {
+  const gib = 1024 ** 3;
+  if (totalBytes < 12 * gib || freeBytes < 9 * gib) fail('TRANSPORT_IMPORT_MEMORY_CAPACITY');
+}
+export function importNodeArguments(entry, config, execute = false) {
+  return ['--max-old-space-size=8192', entry, '--config', config, ...(execute ? ['--execute'] : [])];
+}
 export function assertRuntime(result) {
   if (result?.status !== 'PASS' || result.expectedCommit !== EXECUTOR_SHA || result.observations?.length !== 2 || result.observations.some(o => o.revision !== EXECUTOR_SHA)) fail('TRANSPORT_RUNTIME_DRIFT');
 }
@@ -108,7 +116,7 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
       };
       config.execution = { runtimeEvidence, cryptoEnvelope, cryptoKeyFiles, databaseBinding: descriptor('database-binding.json', binding), postgresCredentials: descriptor('postgres-credentials.json', credentials) };
       writePrivate(resolve(root, 'private', 'config.json'), config);
-      const raw = privateRun(process.execPath, [resolve(executor, 'scripts/hr-cutover/execute-production-import.mjs'), '--config', resolve(root, 'private', 'config.json')]);
+      const raw = privateRun(process.execPath, importNodeArguments(resolve(executor, 'scripts/hr-cutover/execute-production-import.mjs'), resolve(root, 'private', 'config.json')));
       const summary = JSON.parse(raw);
       if (summary.status !== 'STRUCTURE_READY' || summary.writeAttempted !== false) fail('TRANSPORT_PREPARE_HOLD');
       writePrivate(resolve(root, 'prepared.json'), { packetSha256, codeSha: EXECUTOR_SHA, configSha256: hash(readFileSync(resolve(root, 'private', 'config.json'))) });
@@ -118,8 +126,9 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
     const prepared = JSON.parse(readFileSync(resolve(root, 'prepared.json'), 'utf8'));
     const configPath = resolve(root, 'private', 'config.json'); privateInfo(configPath);
     if (prepared.packetSha256 !== packetSha256 || prepared.codeSha !== EXECUTOR_SHA || prepared.configSha256 !== hash(readFileSync(configPath))) fail('TRANSPORT_PREPARED_BINDING_MISMATCH');
+    assertImportMemoryCapacity(totalmem(), freemem());
     writePrivate(resolve(root, 'execution-claimed.json'), { packetSha256, codeSha: EXECUTOR_SHA });
-    const raw = privateRun(process.execPath, [resolve(executor, 'scripts/hr-cutover/execute-production-import.mjs'), '--config', configPath, '--execute']);
+    const raw = privateRun(process.execPath, importNodeArguments(resolve(executor, 'scripts/hr-cutover/execute-production-import.mjs'), configPath, true));
     const result = JSON.parse(raw);
     writePrivate(resolve(root, 'execution-receipt.json'), result);
     if (result.status !== 'SUCCEEDED' || result.fullProductMigrationComplete !== false) fail('TRANSPORT_EXECUTION_FAILED');
