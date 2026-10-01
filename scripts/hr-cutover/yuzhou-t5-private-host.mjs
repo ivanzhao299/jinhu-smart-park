@@ -7,6 +7,7 @@ import { EXECUTOR_SHA, hash, fail, nonceRoot, privateInfo, writePrivate, unpack 
 
 const CORE_SHA = 'dafe8b54510dada1c7bf90663557c54debc89b16';
 export const importChildArguments = args => ['--max-old-space-size=8192', ...args];
+export const importChildEnvironment = env => ({ ...env, PGOPTIONS: '-c timezone=Asia/Shanghai' });
 const docker = args => execFileSync('docker', ['--host', 'unix:///var/run/docker.sock', ...args], { encoding: 'utf8', maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 const exact = (x, keys) => { if (!x || Object.keys(x).sort().join(',') !== [...keys].sort().join(',')) fail('TRANSPORT_T5_SHAPE_INVALID'); };
 function ownedDirectory(path) {
@@ -84,7 +85,7 @@ export async function runHost(mode, nonce, packetSha256, deployPath) {
   if (!['prepare','execute'].includes(mode) || !/^[a-f0-9]{64}$/u.test(packetSha256 ?? '') || !/^\/[A-Za-z0-9_./-]+$/u.test(deployPath ?? '')) fail('TRANSPORT_ARGUMENT_INVALID');
   const root = nonceRoot(nonce); ownedDirectory(root); const executor = resolve(root, 'executor');
   const privateRun = (args) => {
-    const r = spawnSync(process.execPath, importChildArguments(args), { cwd: executor, encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const r = spawnSync(process.execPath, importChildArguments(args), { cwd: executor, encoding: 'utf8', maxBuffer: 1024 * 1024, env: importChildEnvironment(process.env) });
     if (r.status !== 0) {
       if (!existsSync(resolve(root, `${mode}-failure.log`))) writePrivate(resolve(root, `${mode}-failure.log`), `${r.stdout ?? ''}\n${r.stderr ?? ''}`);
       let code; try { code = JSON.parse(r.stdout).reasonCodes?.[0]; } catch { /* raw detail remains private */ }
