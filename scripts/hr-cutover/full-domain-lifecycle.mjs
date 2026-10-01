@@ -93,7 +93,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_MAPPING_CONTRACT_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_T4_SOURCE_EVIDENCE_FILE", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_T4_SOURCE_EVIDENCE_FILE", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE", "YUZHOU_T4_SOURCE_EVIDENCE_FILE"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
 
@@ -346,6 +346,7 @@ function stagingDir(config, domain) {
 }
 
 export function extractManifestFacts(config, domain) {
+  if (domain === "T4") return extractPayrollManifestFacts(config);
   const definition = EXTRACT_MANIFEST_BINDINGS[domain];
   if (!definition) fail("EXTRACT_MANIFEST_DOMAIN_INVALID", domain);
   const directory = stagingDir(config, domain);
@@ -394,6 +395,37 @@ export function extractManifestFacts(config, domain) {
     bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"),
     env
   };
+}
+
+function extractPayrollManifestFacts(config) {
+  const directory = stagingDir(config, "T4");
+  const readPrivate = path => {
+    if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !statSync(path).isFile() || mode(path) !== "0600") fail("EXTRACT_MANIFEST_UNVERIFIED", "T4 requires private regular extract files");
+    return readFileSync(path);
+  };
+  if (!existsSync(directory) || lstatSync(directory).isSymbolicLink() || !statSync(directory).isDirectory() || mode(directory) !== "0700") fail("EXTRACT_MANIFEST_UNVERIFIED", "T4 requires this run's private extract directory");
+  const bytes = readPrivate(join(directory, "manifest.json"));
+  let manifest;
+  try { manifest = JSON.parse(bytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", "T4 manifest must be JSON"); }
+  exactKeys(manifest, ["formatVersion", "profileVersion", "sourceDatabase", "sourceBackupSha256", "sourceRestoreReceiptSha256", "mappingContractSha256", "catalogAggregateSha256", "actualCatalogSha256", "actualSourceRows", "minimumYear", "maximumYear", "outputFiles", "rawBusinessContentSha256", "businessContentSha256", "productionImport"], [], "T4.manifest");
+  const evidence = JSON.parse(readPrivate(config.source.t4EvidenceFile));
+  if (manifest.formatVersion !== 1 || manifest.productionImport !== "HOLD" || manifest.profileVersion !== evidence.profileVersion || manifest.sourceDatabase !== evidence.sourceDatabase || manifest.catalogAggregateSha256 !== evidence.catalogAggregateSha256
+    || manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash || manifest.sourceRestoreReceiptSha256 !== config.source.sourceRestoreReceiptSha256 || manifest.mappingContractSha256 !== config.triple.mappingContractHash
+    || manifest.actualSourceRows !== "46092" || manifest.minimumYear !== "2010" || manifest.maximumYear !== "2026" || !SHA256.test(manifest.actualCatalogSha256 ?? "")) fail("EXTRACT_MANIFEST_UNVERIFIED", "T4 current extract must bind the pinned source profile and C/S/M");
+  const expected = { "scheme-memberships.jsonl": 647, "items.jsonl": 711, "formulas.jsonl": 244, "tax-rules.jsonl": 9, "closes.jsonl": 1431, "payslips.jsonl": 46092 };
+  exactKeys(manifest.outputFiles, Object.keys(expected), [], "T4.manifest.outputFiles");
+  const files = {};
+  for (const [name, rows] of Object.entries(expected)) {
+    const entry = manifest.outputFiles[name];
+    exactKeys(entry, ["rows", "fileSha256"], [], `T4.${name}`);
+    if (entry.rows !== rows || !SHA256.test(entry.fileSha256 ?? "")) fail("EXTRACT_MANIFEST_UNVERIFIED", "T4 output row profile is invalid");
+    if (createHash("sha256").update(readPrivate(join(directory, name))).digest("hex") !== entry.fileSha256) fail("EXTRACT_MANIFEST_HASH_DRIFT", "T4 output bytes changed");
+    files[name] = entry.fileSha256;
+  }
+  const digest = value => createHash("sha256").update(canonical(value)).digest("hex");
+  if (manifest.rawBusinessContentSha256 !== digest({ catalogSha256: manifest.actualCatalogSha256, files }) || manifest.businessContentSha256 !== digest({ profileVersion: manifest.profileVersion, catalogSha256: manifest.actualCatalogSha256, outputFiles: files })) fail("EXTRACT_MANIFEST_HASH_DRIFT", "T4 business hashes do not match the verified current output files");
+  const env = { YUZHOU_T4_BUSINESS_SHA256: manifest.businessContentSha256 };
+  return { manifestSha256: createHash("sha256").update(bytes).digest("hex"), bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"), env };
 }
 
 export function resolveVerifiedExtractBindings(config, domain) {
@@ -792,7 +824,7 @@ function runAdapter(config, domain, phase) {
       fail("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`);
     }
   } finally { registerControlledFilesystem(config); }
-  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+  const manifest = phase === "extract" && config.backend === "lab" && (Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain) || domain === "T4")
     ? extractManifestFacts(config, domain) : null;
   appendPrivate(paths(config).journal, {
     kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,
@@ -830,7 +862,7 @@ async function runAdapterAsync(config, domain, phase) {
       }
     });
   }); } finally { registerControlledFilesystem(config); }
-  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+  const manifest = phase === "extract" && config.backend === "lab" && (Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain) || domain === "T4")
     ? extractManifestFacts(config, domain) : null;
   appendPrivate(paths(config).journal, {
     kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,

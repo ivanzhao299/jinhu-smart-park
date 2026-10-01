@@ -12,7 +12,6 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
-const T4_BUSINESS_SHA256 = "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800";
 const DEFAULT_TENANT = "10000001";
 const DEFAULT_PARK = "20000001";
 
@@ -164,8 +163,7 @@ function configFor(args, codeSha, mappingContractHash) {
   adapterEnv.T5.extract.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt;
   adapterEnv.T4.load = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
-    YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
-    YUZHOU_T4_BUSINESS_SHA256: T4_BUSINESS_SHA256
+    YUZHOU_TARGET_PARK_ID: DEFAULT_PARK
   };
   adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = t5BusinessSha256;
   adapterEnv.T5.load.YUZHOU_MATERIALIZATION_ACTOR_USER_ID = t5MaterializationActorUserId;

@@ -48,7 +48,7 @@ function childEnvironment(config, domain, phase) {
   const env = {};
   for (const key of BASE_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
   Object.assign(env, config.adapterEnv[domain][phase]);
-  if (config.backend === "lab" && phase === "load" && ["T0", "T1", "T2", "T3"].includes(domain)) {
+  if (config.backend === "lab" && phase === "load" && ["T0", "T1", "T2", "T3", "T4"].includes(domain)) {
     const bindings = resolveVerifiedExtractBindings(config, domain);
     for (const [key, value] of Object.entries(bindings)) {
       if (Object.hasOwn(config.adapterEnv[domain][phase], key) && config.adapterEnv[domain][phase][key] !== value) {
@@ -88,7 +88,10 @@ function childEnvironment(config, domain, phase) {
     YUZHOU_STAGING_DIR: domain === "T4" ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`) : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`)
   });
   if (domain === "T5" && phase === "extract") env.YUZHOU_PARTY_DATA_KEY_FILE = config.target.materializationKeyArtifact;
-  if (domain === "T4" && phase === "load") env.YUZHOU_T4_LOAD_MODE = "full_archive";
+  if (domain === "T4" && phase === "load") {
+    env.YUZHOU_T4_LOAD_MODE = "full_archive";
+    env.YUZHOU_T4_SOURCE_EVIDENCE_FILE = config.source.t4EvidenceFile;
+  }
   if (phase === "rollback") env.ALLOW_YUZHOU_ROLLBACK = "yes";
   const allowed = new Set([...BASE_ENV, ...REQUIRED_FIXED, ...CONTRACT.domains[domain].requiredEnv, ...ADAPTER_ENV_ALLOWLIST[domain][phase], "YUZHOU_FIXTURE_DELAY_MS", "YUZHOU_FIXTURE_FAIL"]);
   for (const key of Object.keys(env)) {

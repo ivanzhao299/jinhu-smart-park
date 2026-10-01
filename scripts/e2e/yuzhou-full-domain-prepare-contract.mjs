@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { configFor, assertRegularFile, deterministicUuid, parseArgs, t5BusinessHashFor } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
 import { readMaterializationKeyFile } from "../hr-cutover/materialization-key-contract.mjs";
-import { ADAPTER_ENV_ALLOWLIST } from "../hr-cutover/full-domain-lifecycle.mjs";
+import { ADAPTER_ENV_ALLOWLIST, extractManifestFacts, resolveVerifiedExtractBindings } from "../hr-cutover/full-domain-lifecycle.mjs";
 
 test("rehearsal preparation accepts only private non-symlink source inputs", () => {
   const root = mkdtempSync(join(tmpdir(), "jinhu-yuzhou-prepare-"));
@@ -196,4 +197,31 @@ test("full-domain T5 extraction receives the sealed source bindings required by 
   const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
   assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup/);
   assert.match(source, /adapterEnv\.T5\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+});
+
+test("T4 load bindings require this run's verified current files, source triple and extract journal", () => {
+  const root = mkdtempSync(join(tmpdir(), "jinhu-yuzhou-t4-current-"));
+  const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+  const canonical = value => value && typeof value === "object" ? `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonical(value[k])}`).join(",")}}` : JSON.stringify(value);
+  const write = (path, value) => writeFileSync(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+  try {
+    const config = { runId: "yzfull-20261001T000000Z-aaaaaaaa-rA", triple: { codeSha: "a".repeat(40), sourceSnapshotHash: "b".repeat(64), mappingContractHash: "c".repeat(64) }, target: { root, stagingRoot: root, evidenceRoot: root }, source: { t4EvidenceFile: join(root, "evidence.json"), sourceRestoreReceiptSha256: "d".repeat(64) } };
+    write(config.source.t4EvidenceFile, { profileVersion: "fixture", sourceDatabase: "fixture", catalogAggregateSha256: "e".repeat(64) });
+    const dir = join(root, `staging-t4-${config.runId}-t4`); mkdirSync(dir, { mode: 0o700 });
+    const files = {}, outputFiles = {};
+    for (const [name, rows] of Object.entries({ "scheme-memberships.jsonl": 647, "items.jsonl": 711, "formulas.jsonl": 244, "tax-rules.jsonl": 9, "closes.jsonl": 1431, "payslips.jsonl": 46092 })) {
+      writeFileSync(join(dir, name), "{}\n", { mode: 0o600 }); files[name] = digest("{}\n"); outputFiles[name] = { rows, fileSha256: files[name] };
+    }
+    const m = { formatVersion: 1, profileVersion: "fixture", sourceDatabase: "fixture", sourceBackupSha256: config.triple.sourceSnapshotHash, sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256, mappingContractSha256: config.triple.mappingContractHash, catalogAggregateSha256: "e".repeat(64), actualCatalogSha256: "f".repeat(64), actualSourceRows: "46092", minimumYear: "2010", maximumYear: "2026", outputFiles, rawBusinessContentSha256: digest(canonical({ catalogSha256: "f".repeat(64), files })), businessContentSha256: digest(canonical({ profileVersion: "fixture", catalogSha256: "f".repeat(64), outputFiles: files })), productionImport: "HOLD" };
+    const path = join(dir, "manifest.json"); write(path, m);
+    const facts = extractManifestFacts(config, "T4");
+    assert.equal(facts.env.YUZHOU_T4_BUSINESS_SHA256, m.businessContentSha256);
+    const journal = { kind: "child", domain: "T4", phase: "extract", childRunId: `${config.runId}-t4`, status: "verified", triple: config.triple, extractManifestSha256: facts.manifestSha256, extractBindingSha256: facts.bindingSha256 };
+    write(join(root, "lifecycle-journal.jsonl"), journal);
+    assert.deepEqual(resolveVerifiedExtractBindings(config, "T4"), facts.env);
+    write(path, { ...m, mappingContractSha256: "0".repeat(64) }); assert.throws(() => extractManifestFacts(config, "T4"), /EXTRACT_MANIFEST_UNVERIFIED/);
+    write(path, { ...m, businessContentSha256: "0".repeat(64) }); assert.throws(() => extractManifestFacts(config, "T4"), /EXTRACT_MANIFEST_HASH_DRIFT/);
+    write(path, m); write(join(root, "lifecycle-journal.jsonl"), { ...journal, childRunId: "other-run" }); assert.throws(() => resolveVerifiedExtractBindings(config, "T4"), /EXTRACT_MANIFEST_BINDING_MISMATCH/);
+    writeFileSync(join(dir, "payslips.jsonl"), "changed\n", { mode: 0o600 }); assert.throws(() => extractManifestFacts(config, "T4"), /EXTRACT_MANIFEST_HASH_DRIFT/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
