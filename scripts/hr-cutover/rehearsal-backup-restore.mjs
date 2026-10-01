@@ -23,6 +23,7 @@ import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { injectAllowlistedFault, validateFaultId } from "./rehearsal-fault-injector.mjs";
+import { platformCatalogSha256 } from "./rehearsal-platform-catalog.mjs";
 import {
   BackupRestoreVerificationError,
   buildFileTreeManifest,
@@ -278,7 +279,7 @@ function captureCanonicalFacts(config, database, fileRoot) {
   const sideEffects = queryFactRows(config, database, config.verification.factSchema, "hr_cutover_side_effect_snapshot", ["table_name", "phase", "locked", "row_hash"]);
   return {
     migrationHistorySha256: digest(migrationHistory),
-    platformCatalogSha256: digest(platformCatalog),
+    platformCatalogSha256: platformCatalogSha256(JSON.parse(platformCatalog)),
     hrLedgerSha256: hashCanonical(global.ledger),
     hrGlobalSha256: global.globalHash,
     hrDomainHashes: global.domainHashes,
