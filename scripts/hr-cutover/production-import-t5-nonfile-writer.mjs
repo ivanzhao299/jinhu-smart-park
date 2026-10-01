@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const SHA256 = /^[0-9a-f]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -174,7 +175,7 @@ function validateRecords(recordsInput) {
     } else if (Object.hasOwn(record, "payload") || typeof record.quarantineReason !== "string" || record.quarantineReason.length === 0 || record.dependencyRefs.length > (config.kind === "custom_value" ? 2 : 1)) {
       fail("PRODUCTION_IMPORT_T5_NONFILE_WRITER_INPUT_INVALID", `quarantine ${index} invalid`);
     }
-    return structuredClone(record);
+    return globalThis.structuredClone(record);
   });
   const definitions = new Map(records.filter(record => record.targetTable === "hr_custom_field_definition" && record.disposition === "insert").map(record => [record.sourceIdentitySha256, record]));
   const logicColumns = new Set(["description_d", "sqltext", "flag", "crosssql", "crosscolselectsql", "crossrowselectsql", "crosswhere", "querywhere", "ascount", "ascount2"]);
@@ -471,4 +472,49 @@ export async function writeT5NonfilePrivateStage(input) {
   ), "finish T5 migration batch");
   if (result.length !== 1 || result[0].id !== batchId) fail("PRODUCTION_IMPORT_T5_NONFILE_DATABASE_RESULT_INVALID", "T5 batch finish differs");
   return { phase: "T5", migrationBatchId: batchId, counts, readbackSha256, afterCanonicalSha256: computeT5NonfileAfterCanonicalSha256(input.targetScope, resultRecords), records: resultRecords };
+}
+
+/** The full-history append has its own database control. Reuse the reviewed
+ * seven-table field insertions only after validating that separate context;
+ * never reopen the parent's consumed T5 phase or fabricate a v2 private stage. */
+export async function writeT5FollowonTypedProjection(input) {
+  exactKeys(input, ["tx", "binding", "batchId", "actorId", "records"], [], "follow-on input");
+  const { validateT5FollowonBinding } = await import("./t5-followon-binding.mjs");
+  const { observeT5CoreOwners } = await import("./t5-followon-core-owners.mjs");
+  validateT5FollowonBinding(input.binding);
+  if (!input.tx || typeof input.tx.query !== "function" || !UUID.test(input.batchId ?? "")
+    || !UUID.test(input.actorId ?? "")) fail("T5_FOLLOWON_TYPED_INPUT_INVALID", "transaction/batch/actor invalid");
+  const records = validateRecords(input.records), binding = input.binding, tx = input.tx;
+  if (input.actorId !== binding.actorId) fail("T5_FOLLOWON_TYPED_ACTOR_DRIFT", "actor is not covered by the signed binding");
+  if (records.length !== binding.counts.typedProjectionRecords) fail("T5_FOLLOWON_TYPED_COUNT_DRIFT", "projection record count differs");
+  const context = rows(await tx.query("SELECT hr_yuzhou_t5_followon_context($1,$2) authorized",
+    [binding.operationId, hash(canonicalJson(binding))]), "authorize follow-on typed writer");
+  if (context.length !== 1 || context[0].authorized !== true) fail("T5_FOLLOWON_TYPED_CONTEXT_INVALID", "independent append context required");
+  const batch = rows(await tx.query(`SELECT id::text FROM migration_batch WHERE id=$1::uuid
+    AND t5_followon_operation_id=$2 AND run_id=$2 AND execution_context='t5_production_followon'
+    AND target_database=current_database() AND status='running' AND source_snapshot_sha256=$3
+    AND tool_version=$4`, [input.batchId, binding.operationId, binding.triple.sourceSnapshotHash,
+    `t5-followon-v1@${binding.executionCodeSha}`]), "verify follow-on batch");
+  if (batch.length !== 1) fail("T5_FOLLOWON_TYPED_CONTEXT_INVALID", "independent migration batch required");
+  const observed = await observeT5CoreOwners(tx, binding, { lock: true });
+  const employees = new Map([...observed.byCode.values()].map(row => [row.source_identity_sha256, row.employee_id]));
+  for (const record of records.filter(row => row.disposition === "insert")) {
+    const employee = record.dependencyRefs.find(row => row.role === "employee");
+    if (employee && !employees.has(employee.sourceIdentitySha256)) fail("T5_FOLLOWON_TYPED_OWNER_DRIFT", "typed dependency is outside the exact core receipt");
+  }
+  const inserted = [];
+  for (const [table, config] of Object.entries(TABLES).filter(([, value]) => value.kind === "employee"))
+    inserted.push(...await insertTable(tx, table, config, binding.targetScope, input.actorId,
+      records.filter(row => row.disposition === "insert" && row.targetTable === table), employees));
+  const insertedDefinitions = await insertCustomDefinitions(tx, input.batchId, binding.targetScope, input.actorId,
+    records.filter(row => row.disposition === "insert" && row.targetTable === "hr_custom_field_definition"));
+  inserted.push(...insertedDefinitions);
+  const definitions = new Map(insertedDefinitions.map(({ record, targetId }) => [record.sourceIdentitySha256, targetId]));
+  inserted.push(...await insertCustomDefinitionLogic(tx, binding.targetScope,
+    records.filter(row => row.disposition === "insert" && row.targetTable === "hr_custom_field_legacy_logic_fingerprint"), definitions));
+  inserted.push(...await insertCustomValues(tx, input.batchId, binding.targetScope, input.actorId,
+    records.filter(row => row.disposition === "insert" && row.targetTable === "hr_employee_custom_value"), employees, definitions));
+  const quarantined = records.filter(row => row.disposition === "quarantine");
+  if (inserted.length + quarantined.length !== records.length) fail("T5_FOLLOWON_TYPED_COUNT_DRIFT", "typed insertion conservation differs");
+  return { inserted, quarantined, coreOwnerReceipt: observed.receipt };
 }

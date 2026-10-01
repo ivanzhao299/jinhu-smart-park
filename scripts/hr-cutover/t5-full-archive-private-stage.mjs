@@ -125,7 +125,8 @@ export function readT5FullArchivePrivateStage(input, binding) {
     present += n;
   }
   if (present !== 95) fail("T5_STAGE_LOGIC_COVERAGE_DRIFT");
-  return { manifest, manifestBytes, catalogBytes, buffers, records, definitionBytes, safeDefinitionEvidenceBytes,
+  return { manifest, manifestBytes, catalogBytes, buffers, records, definitionRecords, definitionEvidence,
+    definitionBytes, safeDefinitionEvidenceBytes,
     receipt: { status: "T5_FULL_ARCHIVE_SOURCE_VERIFIED", domains: 23, sourceRecords: records.length,
       definitionRecords: 19, logicColumns: 190, presentLogicColumns: 95,
       productionBusinessWrites: 0, productionAuthorizationGranted: false } };

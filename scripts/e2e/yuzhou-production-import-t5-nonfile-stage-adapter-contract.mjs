@@ -1,8 +1,9 @@
+/* global structuredClone */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { adaptT5NonfilePrivateStage, adaptT5NonfileSkillStage, ProductionImportT5NonfileStageAdapterError, projectT5NonfileStagedRecord } from "../hr-cutover/production-import-t5-nonfile-stage-adapter.mjs";
+import { adaptT5NonfilePrivateStage, adaptT5NonfileSkillStage, ProductionImportT5NonfileStageAdapterError, projectT5NonfileStagedRecord, projectT5NonfilePayloadRecords } from "../hr-cutover/production-import-t5-nonfile-stage-adapter.mjs";
 
 const h = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: h("source"), mappingContractHash: h("mapping") };
@@ -32,6 +33,26 @@ const definitionEvidence = () => customFields().map(field => ({
     ].map(([column, classification]) => ({ column, classification, execution: "forbidden", isSourceNull: true, sourceValueSha256: null })),
   },
 }));
+
+test("duplicate profile identity is quarantined across the full source, including an unmapped owner", () => {
+  const profile = (suffix, employeeCode, fingerprint) => ({ domain: "employee_profile_raw", employeeCode,
+    sourceTable: "dbo.person.core_residue", sourceKey: suffix, sourceIdentitySha256: h(suffix), sourceRowSha256: h(`row:${suffix}`),
+    materialized: { ...Object.fromEntries(["idType", "gender", "dateOfBirth", "ethnicity", "nativePlace", "politicalStatus",
+      "maritalStatus", "healthStatus", "address", "homePhone", "personalMobile", "personalEmail", "highestEducation", "major",
+      "degree", "graduationSchool", "graduationDate", "foreignLanguage", "jobTitle", "jobGrade", "legacyProfessionalTitleCode", "technicalTitle"].map(key => [key, null])),
+    kind: "profile", disposition: "loaded", gaps: [], customFields: customFields(),
+    idNumber: fingerprint ? { encrypted: "synthetic-ciphertext", masked: "synthetic-mask", fingerprint }
+      : { encrypted: null, masked: null, fingerprint: null } } });
+  const records = [profile("a", "mapped", `hmac256:${h("same")}`), profile("b", "unmapped", `hmac256:${h("same")}`), profile("c", "second", null)];
+  const before = JSON.stringify(records);
+  const output = projectT5NonfilePayloadRecords({ definitionLogicColumnPresentCount: 0, definitionEvidence: definitionEvidence(),
+    employeeIndex: [{ employeeCode: "mapped", sourceIdentitySha256: h("mapped") }, { employeeCode: "second", sourceIdentitySha256: h("second") }], records });
+  const profiles = output.filter(row => row.targetTable === "hr_employee_profile");
+  assert.deepEqual(profiles.map(row => row.disposition), ["quarantine", "quarantine", "insert"]);
+  assert.ok(profiles.slice(0, 2).every(row => row.quarantineReason === "EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS" && !Object.hasOwn(row, "payload")));
+  assert.equal(output.filter(row => row.targetTable === "hr_employee_custom_value" && row.disposition === "insert").length, 38);
+  assert.equal(JSON.stringify(records), before, "original archive and source evidence remain unchanged");
+});
 
 test("adapts reviewed T5 skills with exact T0 employee dependencies and quarantines unmapped rows", () => {
   const output = adaptT5NonfileSkillStage({ triple, stageManifest, employeeIndex: [{ employeeCode: "E-001", sourceIdentitySha256: h("employee") }], records: [skill("one"), skill("two", "E-002")] });

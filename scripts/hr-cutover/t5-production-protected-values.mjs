@@ -64,3 +64,29 @@ export function reencryptT5MaterializedRows(rows, { sourceKeyBytes, productionKe
       sourceRowHashesChanged: false, productionBusinessWrites: 0, productionKeyCompatibilityClaimed: false } };
   } finally { sourceKey.fill(0); targetKey.fill(0); hashKey.fill(0); }
 }
+
+/** Preserve the full original source as authenticated ciphertext. The source
+ * identity and row digest stay outside the envelope for exact reconciliation;
+ * plaintext source fields must not enter public archive projections. */
+export function encryptT5OriginalSourceRows(rows, productionKeyring) {
+  if (!Array.isArray(rows) || !object(productionKeyring) || !(productionKeyring.keys instanceof Map)) fail("T5_CRYPTO_KEYRING_INVALID");
+  const seed = productionKeyring.keys.get(productionKeyring.activeKeyId);
+  if (!Buffer.isBuffer(seed) || seed.toString("utf8").trim().length < 32) fail("T5_CRYPTO_KEYRING_INVALID");
+  const key = digest(seed), seen = new Set();
+  try {
+    return rows.map(row => {
+      if (!object(row) || !object(row.source) || typeof row.sourceTable !== "string"
+        || !/^[a-f0-9]{64}$/u.test(row.sourceIdentitySha256 ?? "")
+        || !/^[a-f0-9]{64}$/u.test(row.sourceRowSha256 ?? "")) fail("T5_CRYPTO_SOURCE_ROW_INVALID");
+      const identity = `${row.sourceTable}:${row.sourceIdentitySha256}`;
+      if (seen.has(identity)) fail("T5_CRYPTO_DUPLICATE_SOURCE_IDENTITY");
+      seen.add(identity);
+      const plain = JSON.stringify(row.source), iv = randomBytes(12);
+      const cipher = createCipheriv("aes-256-gcm", key, iv);
+      const encrypted = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+      return { sourceTable: row.sourceTable, sourceIdentitySha256: row.sourceIdentitySha256,
+        sourceRowSha256: row.sourceRowSha256,
+        encryptedSource: `enc:v1:${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}` };
+    });
+  } finally { key.fill(0); }
+}

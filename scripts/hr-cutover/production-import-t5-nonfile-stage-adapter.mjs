@@ -1,3 +1,4 @@
+/* global structuredClone */
 import { createHash } from "node:crypto";
 
 import { DEFAULT_PRODUCTION_IMPORT_T5_NONFILE_TARGET_MODEL } from "./production-import-t5-nonfile-target-model.mjs";
@@ -401,12 +402,24 @@ export function projectT5NonfilePayloadRecords(input) {
   const records = [];
   const definitions = new Map();
   const definitionLogic = new Map();
+  // Match the native loader's reviewed ambiguity rule before the unique
+  // identity-fingerprint index is reached. Count the whole source profile set,
+  // including profiles whose employee could not be bound to the core import.
+  const profileIdentityCounts = new Map();
+  for (const row of input.records) {
+    const rule = validateNonfileRecord(row);
+    const fingerprint = row.materialized.idNumber?.fingerprint;
+    if (rule.recordKind === "profile" && fingerprint)
+      profileIdentityCounts.set(fingerprint, (profileIdentityCounts.get(fingerprint) ?? 0) + 1);
+  }
   for (const row of input.records) {
     const rule = validateNonfileRecord(row);
     if (seen.has(row.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_T5_NONFILE_STAGE_INVALID", "T5 source identity duplicate");
     seen.add(row.sourceIdentitySha256);
     const employeeSourceIdentitySha256 = employees.get(row.employeeCode);
-    const canLoad = row.materialized.disposition === "loaded" && employeeSourceIdentitySha256;
+    const identityAmbiguous = rule.recordKind === "profile"
+      && (profileIdentityCounts.get(row.materialized.idNumber?.fingerprint) ?? 0) > 1;
+    const canLoad = row.materialized.disposition === "loaded" && employeeSourceIdentitySha256 && !identityAmbiguous;
     if (rule.recordKind === "profile") {
       for (const field of validateCustomFields(row.materialized.customFields)) {
         const evidence = definitionEvidence.get(field.code);
@@ -428,7 +441,7 @@ export function projectT5NonfilePayloadRecords(input) {
       sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256, targetTable: rule.targetTable,
       dependencyMode: "employee", dependencyRefs: employeeSourceIdentitySha256 ? [{ role: "employee", phase: "T0", expectedTargetTable: "hr_employee", sourceIdentitySha256: employeeSourceIdentitySha256 }] : [],
       disposition: canLoad ? "insert" : "quarantine",
-      ...(canLoad ? { payload: payloadForT5Record(row, rule) } : { quarantineReason: row.materialized.disposition === "quarantined" ? "SOURCE_MATERIALIZATION_QUARANTINED" : "EMPLOYEE_NOT_MAPPED" }),
+      ...(canLoad ? { payload: payloadForT5Record(row, rule) } : { quarantineReason: identityAmbiguous ? "EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS" : row.materialized.disposition === "quarantined" ? "SOURCE_MATERIALIZATION_QUARANTINED" : "EMPLOYEE_NOT_MAPPED" }),
     });
   }
   return [...definitions.values(), ...definitionLogic.values(), ...records];

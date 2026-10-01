@@ -4,7 +4,7 @@ import { createDecipheriv, createHash, createHmac } from "node:crypto";
 import test from "node:test";
 import { parsePartyDataKeyring } from "../../apps/api/src/shared/security/party-data-keyring.ts";
 import { createT5ProtectedValueMaterializer } from "../hr-cutover/t5-nonfile-field-projection.mjs";
-import { reencryptT5MaterializedRows } from "../hr-cutover/t5-production-protected-values.mjs";
+import { encryptT5OriginalSourceRows, reencryptT5MaterializedRows } from "../hr-cutover/t5-production-protected-values.mjs";
 
 const sourceKeyBytes = "a".repeat(64);
 const protect = createT5ProtectedValueMaterializer(sourceKeyBytes);
@@ -61,4 +61,19 @@ test("unmaterialized history remains unchanged and an absent active runtime key 
   const source = { source: { history: "synthetic archived history" }, sourceRowSha256: "d".repeat(64) };
   assert.deepEqual(reencryptT5MaterializedRows([source], { sourceKeyBytes, productionKeyring }).records, [source]);
   assert.throws(() => reencryptT5MaterializedRows([row()], { sourceKeyBytes, productionKeyring: { ...productionKeyring, activeKeyId: "missing" } }), /T5_CRYPTO_KEYRING_INVALID/);
+});
+
+test("complete source archives use authenticated API-compatible ciphertext and keep exact source hashes", () => {
+  const source = [{ sourceTable: "dbo.family", sourceIdentitySha256: "a".repeat(64), sourceRowSha256: "b".repeat(64),
+    source: { original: "quotes \" and slash \\ and 中文\n", nullValue: null } }];
+  const first = encryptT5OriginalSourceRows(source, productionKeyring);
+  const second = encryptT5OriginalSourceRows(source, productionKeyring);
+  assert.deepEqual(JSON.parse(decrypt(first[0].encryptedSource)), source[0].source);
+  assert.notEqual(first[0].encryptedSource, second[0].encryptedSource);
+  assert.equal(first[0].sourceRowSha256, source[0].sourceRowSha256);
+  assert.equal(Object.hasOwn(first[0], "source"), false);
+  const damaged = first[0].encryptedSource.replace(/:([a-f0-9]{32}):/u, `:${"0".repeat(32)}:`);
+  assert.throws(() => decrypt(damaged));
+  assert.throws(() => encryptT5OriginalSourceRows([...source, ...source], productionKeyring), /DUPLICATE_SOURCE_IDENTITY/u);
+  assert.throws(() => encryptT5OriginalSourceRows(source, { ...productionKeyring, activeKeyId: "absent" }), /KEYRING_INVALID/u);
 });
