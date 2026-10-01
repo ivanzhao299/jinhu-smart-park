@@ -47,7 +47,7 @@ async function loadStage(client, stage, binding) {
   }
 }
 
-async function assertSourceConservation(client) {
+export async function assertSourceConservation(client) {
   // All arithmetic stays numeric in PostgreSQL, including multiplicity. Never
   // filter source history by the employee's present employment status.
   const result = (await client.query(`SELECT
@@ -62,7 +62,9 @@ async function assertSourceConservation(client) {
   if (!sameT4(result, expected)) failT4("T4_SOURCE_COUNT_CONSERVATION_FAILED");
   // Candidate rows must never be silently admitted through employee_unmapped
   // precedence if their period/catalog/source values are invalid.
-  if ((await client.query(`SELECT EXISTS(SELECT 1 FROM sp_all WHERE (j->'source'->>'year')::int NOT BETWEEN 2010 AND 2026 OR (j->'source'->>'month')::int NOT BETWEEN 1 AND 12 OR NOT EXISTS(SELECT 1 FROM sc WHERE sc.j->'source'->>'scheme'=sp_all.j->>'legacyScheme' AND sc.j->'source'->>'year'=sp_all.j->'source'->>'year' AND sc.j->'source'->>'month'=sp_all.j->'source'->>'month')) invalid`)).rows[0].invalid) failT4("T4_SOURCE_PERIOD_INVALID");
+  // Salary table suffixes retain zero padding ("01"); close metadata uses
+  // integer schemes ("1"). Match the projection's integer/date semantics.
+  if ((await client.query(`SELECT EXISTS(SELECT 1 FROM sp_all WHERE (j->'source'->>'year')::int NOT BETWEEN 2010 AND 2026 OR (j->'source'->>'month')::int NOT BETWEEN 1 AND 12 OR NOT EXISTS(SELECT 1 FROM sc WHERE (sc.j->'source'->>'scheme')::int=(sp_all.j->>'legacyScheme')::int AND (sc.j->'source'->>'year')::int=(sp_all.j->'source'->>'year')::int AND (sc.j->'source'->>'month')::int=(sp_all.j->'source'->>'month')::int)) invalid`)).rows[0].invalid) failT4("T4_SOURCE_PERIOD_INVALID");
 }
 
 async function assertAmounts(client, binding, target = false) {

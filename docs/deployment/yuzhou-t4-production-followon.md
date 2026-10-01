@@ -46,7 +46,9 @@ and stored snapshot totals must match. Full net is `102194056.8000`; hot net is
 `15723009.9100`. Full source/snapshot rows are 46,092 and items are 1,078,020;
 2024–2026 rows/items/closes are 8,342 / 190,880 / 266. Catalog counts are 647
 memberships, 711 items, 244 formulas, 9 tax rules and 1,431 closes. Source
-duplicates or invalid candidates fail the transaction. Unmapped employees
+duplicates or invalid candidates fail the transaction. Period conservation compares scheme/year/month as integers, matching the
+projection SQL: preserved salary-table suffix `01` matches close scheme `1`.
+Missing close periods and out-of-range years/months still reject the transaction. Unmapped employees
 retain immutable historical facts and explicit review cases.
 
 ## Private CLI configuration
