@@ -45,7 +45,7 @@ export function fixtureStage(binding) {
     const values = Array.from({ length: size }, (_, j) => ({ legacyColumn: `U${j}`, systemSummary: ["net_total", "gross_total", "deduction_total", "tax_total"][j] ?? null, value: { kind: "decimal", decimal: j < 2 ? net : "0.0000" } }));
     const year = hot ? (n === 0 ? "2026" : "2024") : (n === 0 ? "2023" : "2010");
     const month = n === 0 ? "12" : "1";
-    lines.push(JSON.stringify(wrap({ year, month, person: i === 46091 ? "fixture-unmapped" : "fixture-employee" }, { sourceTable: "dbo.salary01", legacyScheme: 1, sourceContentGroupSha256: H(`group-${i}`), sourceMultiplicity: "1", disposition: "candidate", values })) + "\n");
+    lines.push(JSON.stringify(wrap({ year, month, person: i === 46091 ? "fixture-unmapped" : "fixture-employee", name: i < 27 ? `Synthetic\0name ${i}` : "Synthetic name" }, { sourceTable: "dbo.salary01", legacyScheme: 1, sourceContentGroupSha256: H(`group-${i}`), sourceMultiplicity: "1", disposition: "candidate", values })) + "\n");
   }
   const buffers = Object.fromEntries([["scheme-memberships", memberships], ["items", items], ["formulas", formulas], ["tax-rules", tax], ["closes", closes]].map(([name, rows]) => [`${name}.jsonl`, Buffer.from(rows.map(row => JSON.stringify(row) + "\n").join(""))]));
   buffers["payslips.jsonl"] = Buffer.from(lines.join(""));

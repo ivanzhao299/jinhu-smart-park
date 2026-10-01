@@ -5,9 +5,23 @@ import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalT4, hashT4, validateT4Authorization, validateT4Binding } from "../hr-cutover/production-import-t4-followon-binding.mjs";
-import { readT4PrivateArtifact, readT4PrivateStage } from "../hr-cutover/production-import-t4-followon-private-stage.mjs";
+import { readT4PrivateArtifact, readT4PrivateStage, t4PostgresStageRow } from "../hr-cutover/production-import-t4-followon-private-stage.mjs";
+import { Buffer } from "node:buffer";
 import { validateT4Runtime } from "../hr-cutover/execute-production-t4-followon.mjs";
 import { fixtureAuthorization, fixtureBinding } from "./yuzhou-t4-followon-fixture.mjs";
+
+test("legacy NUL name has a reversible transient representation without changing source hashes or values", () => {
+  const row = { source: { name: "Synthetic\0姓名\\u0000", person: "fixture-person" }, sourceRowSha256: "a".repeat(64), values: [{ value: { decimal: "12.3400" } }] };
+  const before = JSON.stringify(row), staged = t4PostgresStageRow(row);
+  assert.equal(Buffer.from(staged.source.name.value, "base64").toString("utf8"), row.source.name);
+  assert.equal(staged.source.name.encoding, "utf8-base64");
+  assert.equal(staged.source.person, row.source.person);
+  assert.equal(staged.sourceRowSha256, row.sourceRowSha256);
+  assert.strictEqual(staged.values, row.values);
+  assert.equal(JSON.stringify(row), before);
+  const ordinary = { source: { name: "Synthetic\\u0000" } };
+  assert.strictEqual(t4PostgresStageRow(ordinary), ordinary);
+});
 
 test("T4 authorization explicitly binds full-archive append and parent hashes", () => {
   const binding = fixtureBinding(), authorization = fixtureAuthorization(binding);
