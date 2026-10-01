@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, lstatSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { URL, pathToFileURL } from 'node:url';
 import { totalmem, freemem } from 'node:os';
 import { getHeapStatistics } from 'node:v8';
 
