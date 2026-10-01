@@ -33,7 +33,7 @@
   },
   "targetTableRules": {
     "sys_org": { "phase": "T0", "allowedDependencyModes": ["scope", "record_graph"], "requiredDependencies": [], "optionalDependencies": [{ "role": "parent_org", "phases": ["T0"], "targetTables": ["sys_org"] }] },
-    "hr_position": { "phase": "T0", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "org", "phases": ["T0"], "targetTables": ["sys_org"] }], "optionalDependencies": [] },
+    "hr_position": { "phase": "T0", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "org", "phases": ["T0"], "targetTables": ["sys_org"] }], "optionalDependencies": [{ "role": "parent_position", "phases": ["T0"], "targetTables": ["hr_position"] }] },
     "hr_employee": { "phase": "T0", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "primary_org", "phases": ["T0"], "targetTables": ["sys_org"] }], "optionalDependencies": [{ "role": "position", "phases": ["T0"], "targetTables": ["hr_position"] }] },
     "hr_employment_event": { "phase": "T1", "allowedDependencyModes": ["employee"], "requiredDependencies": [{ "role": "employee", "phases": ["T0"], "targetTables": ["hr_employee"] }], "optionalDependencies": [] },
     "hr_contract_type": { "phase": "T2", "allowedDependencyModes": ["scope"], "requiredDependencies": [], "optionalDependencies": [] },

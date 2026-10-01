@@ -861,6 +861,30 @@ test("an employee-owned record cannot escape to scope or name matching", () => {
   assert.throws(() => validateSealedProductionImportPlan(namePlan, { contract, now: NOW }), error => error.code === "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID");
 });
 
+test("position hierarchy seals only with an earlier active T0 position parent", () => {
+  const { plan } = v2Fixture();
+  const child = findRecord(plan, "hr_position");
+  const parent = structuredClone(child);
+  parent.sourceIdentitySha256 = H("parent-position:identity");
+  parent.sourcePkCanonical = `sha256:${parent.sourceIdentitySha256}`;
+  parent.sourceRowSha256 = H("parent-position:row");
+  parent.targetId = uuid(500);
+  parent.businessIdentitySha256 = H("parent-position:business");
+  plan.phases[0].records.splice(1, 0, parent);
+  child.dependencyRefs.push(ref("parent_position", { ...parent, phase: "T0" }));
+  assert.doesNotThrow(() => validateSealedProductionImportPlan(reseal(plan), { now: NOW }));
+  for (const mutate of [
+    p => { findRecord(p, "hr_position").dependencyRefs.push(ref("parent_position", { ...child, phase: "T0" })); },
+    p => { p.phases[0].records[2].dependencyRefs[1].expectedTargetTable = "sys_org"; },
+    p => { p.phases[0].records[2].dependencyRefs[1].phase = "T1"; },
+    p => { p.phases[0].records[2].dependencyRefs.push(structuredClone(p.phases[0].records[2].dependencyRefs[1])); },
+  ]) {
+    const invalid = structuredClone(plan);
+    mutate(invalid);
+    assert.throws(() => validateSealedProductionImportPlan(reseal(invalid), { now: NOW }), error => error instanceof ProductionImportExecutionError);
+  }
+});
+
 test("parent table, phase, missing required role, cycle and active dependency state fail closed", () => {
   const cases = [
     plan => { findRecord(plan, "hr_contract_change").dependencyRefs[0].expectedTargetTable = "hr_employee"; },
