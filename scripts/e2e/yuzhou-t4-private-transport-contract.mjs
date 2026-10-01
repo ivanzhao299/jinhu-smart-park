@@ -49,6 +49,8 @@ test('post-commit reconciliation rejects published, mutated or incomplete histor
 test('T4 workflow pins the executor and host invokes the actual prepare/execute CLI',()=>{
   const root=resolve(import.meta.dirname,'../..');const wf=readFileSync(resolve(root,'.github/workflows/deploy-production.yml'),'utf8');const job=wf.slice(wf.indexOf('\n  t4-private-import:'));
   assert.match(job,new RegExp(`ref: ${EXECUTOR_SHA}`,'u'));assert.doesNotMatch(job,/prod:deploy|scripts\/deploy\.sh|inputs\.ref/u);
+  assert.match(job, /actions\/upload-artifact@v4/u);
+  assert.match(job, /yuzhou-t4-transport-evidence\.jsonl/u);
   const host=readFileSync(resolve(root,'scripts/hr-cutover/yuzhou-t4-private-host.mjs'),'utf8');
   assert.match(host,/execute-production-t4-followon\.mjs/u);assert.match(host,/'--mode','execute'/u);assert.match(host,/'--mode','prepare'/u);
   assert.doesNotMatch(host,/diagnose-yuzhou-hr-production-target-inventory/u);
