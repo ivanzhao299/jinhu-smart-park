@@ -549,3 +549,5 @@ T5 旧档案加载预检查必须与当前已审查的员工映射及提取器�
 `dbo.assignment`、11 行和 `professional_title_not_position`；旧映射散列、
 缺失/变更字典或变更的来源字节都应在传输数据前拒绝。针对预检查可运行
 `node --test scripts/e2e/yuzhou-t5-loader-preflight-contract.mjs`。
+
+员工本人目录的浏览器验收使用角色实际可见的结果计数 `本页 1 条 · 共 1 条`；分页导航仅对全园区或团队目录权限显示。验收须拒绝零条、多条或仅标题可见的结果，仍保留脱敏与越权否定检查。

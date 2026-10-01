@@ -6,6 +6,8 @@ import test from "node:test";
 import { validateYuzhouLiveRoleUatTaskCard } from "../hr-cutover/yuzhou-live-role-uat-task-card-lib.mjs";
 import { YuzhouLiveRoleUatBrowserMatrixError, validateYuzhouLiveRoleUatBrowserMatrix } from "../hr-cutover/yuzhou-live-role-uat-browser-matrix-lib.mjs";
 
+import { missingVisibleTexts } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
+
 const root = resolve(import.meta.dirname, "../..");
 const load = name => JSON.parse(readFileSync(resolve(root, `scripts/hr-cutover/contracts/${name}`), "utf8"));
 const taskCard = load("yuzhou-live-role-uat-task-card-v1.json");
@@ -33,5 +35,16 @@ test("browser coverage, role, route, masking and assertion drift fail closed", (
     const draft = structuredClone(matrix);
     mutate(draft);
     assert.throws(() => validateYuzhouLiveRoleUatBrowserMatrix(draft, taskCard), error => error instanceof YuzhouLiveRoleUatBrowserMatrixError);
+  }
+});
+
+// The self view uses the shared result-count pill. Pagination is only rendered
+// for all/team directory permissions; a static heading cannot prove one row.
+test("self directory requires exactly one visible employee without HR pagination", () => {
+  const check = matrix.checks.find(item => item.legacyId === 35 && item.actor === "employee");
+  assert.ok(check);
+  assert.deepEqual(missingVisibleTexts("我的档案 本页 1 条 · 共 1 条", check.visibleTexts), []);
+  for (const text of ["我的档案", "我的档案 本页 0 条 · 共 0 条", "我的档案 本页 2 条 · 共 2 条"]) {
+    assert.equal(missingVisibleTexts(text, check.visibleTexts).length, 1);
   }
 });
