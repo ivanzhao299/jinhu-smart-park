@@ -540,3 +540,10 @@ pnpm hr:migration:dual-source:rehearse
 ```
 
 A/B 演练均得到 `loaded=115`、`rollbackResidual=0`、`reloaded=115`、`containerResidual=0`、`personalValuesStored=false`。PostgreSQL 随机密码通过 0600 临时 env 文件传递，容器启动后立即删除，结束时删除精确命名容器。该技术闭环不等于 115 人已经完成人工业务认定，也不解除生产 `HOLD`。
+
+T5 旧档案加载预检查必须与当前已审查的员工映射及提取器一致：使用
+`legacy-employee-profile-materialization-reviewed-v1.json` 的当前固定散列，
+并把 `professionalTitleDictionary` 纳入业务散列。职称字典来源保持
+`dbo.assignment`、11 行和 `professional_title_not_position`；旧映射散列、
+缺失/变更字典或变更的来源字节都应在传输数据前拒绝。针对预检查可运行
+`node --test scripts/e2e/yuzhou-t5-loader-preflight-contract.mjs`。
