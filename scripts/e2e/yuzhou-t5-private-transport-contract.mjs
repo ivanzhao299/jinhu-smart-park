@@ -1,3 +1,4 @@
+import process from 'node:process';
 /* global structuredClone, Buffer */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -78,4 +79,13 @@ test('payroll parent custody requires the actual succeeded operation and unchang
  const parent={plan:{operationId:'synthetic-core',triple}};
  const proof=await actualPayrollParent(client,nonce,parent,executor);assert.equal(proof.ownedStateSha256,hash(canonicalT4(row.owned_state)));
  row.unchanged=false;await assert.rejects(actualPayrollParent(client,nonce,parent,executor),{code:'TRANSPORT_T5_PAYROLL_PARENT_DRIFT'});
+});
+
+test('full-size private child uses the import-only 8 GiB heap budget', async () => {
+  const { importChildArguments } = await import('../hr-cutover/yuzhou-t5-private-host.mjs');
+  const { spawnSync } = await import('node:child_process');
+  const args = importChildArguments(['entry.mjs', '--config', 'fixture.json']);
+  assert.deepEqual(args.slice(1), ['entry.mjs', '--config', 'fixture.json']);
+  const child = spawnSync(process.execPath, [args[0], '--input-type=module', '-e', "import{getHeapStatistics}from'node:v8';process.stdout.write(String(getHeapStatistics().heap_size_limit))"], { encoding: 'utf8' });
+  assert.equal(child.status, 0); assert.ok(Number(child.stdout) >= 8 * 1024 ** 3);
 });
