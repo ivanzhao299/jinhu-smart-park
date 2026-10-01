@@ -57,6 +57,8 @@ test('legitimate empty historical domains remain authenticated empty 0600 files'
 test('T5 workflow pins the executor and host invokes the actual prepare/execute CLI',()=>{
   const root=resolve(import.meta.dirname,'../..');const wf=readFileSync(resolve(root,'.github/workflows/deploy-production.yml'),'utf8');const job=wf.slice(wf.indexOf('\n  t5-private-import:'));
   assert.match(job,new RegExp(`ref: ${EXECUTOR_SHA}`,'u'));assert.doesNotMatch(job,/prod:deploy|scripts\/deploy\.sh|inputs\.ref/u);
+  assert.match(job, /actions\/upload-artifact@v4/u);
+  assert.match(job, /yuzhou-t5-transport-evidence\.jsonl/u);
   const host=readFileSync(resolve(root,'scripts/hr-cutover/yuzhou-t5-private-host.mjs'),'utf8');
   assert.match(host,/execute-production-t5-followon\.mjs/u);assert.match(host,/'--mode','execute'/u);assert.match(host,/'--mode','prepare'/u);
   assert.doesNotMatch(host,/diagnose-yuzhou-hr-production-target-inventory/u);
