@@ -48,6 +48,10 @@ on:
         description: "Failed private operation identifier; read-only audit only."
         required: false
         type: string
+      audit_followon_nonce:
+        description: "Optional retained T4 transport nonce for a read-only failure audit."
+        required: false
+        type: string
       audit_sealed_plan_sha256:
         description: "Known sealed plan hash; read-only audit only."
         required: false
@@ -907,6 +911,7 @@ jobs:
           TRANSPORT_PACKET_SHA256: ${{ inputs.transport_packet_sha256 }}
           AUDIT_OPERATION_ID: ${{ inputs.audit_operation_id }}
           AUDIT_SEALED_PLAN_SHA256: ${{ inputs.audit_sealed_plan_sha256 }}
+          AUDIT_FOLLOWON_NONCE: ${{ inputs.audit_followon_nonce }}
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}

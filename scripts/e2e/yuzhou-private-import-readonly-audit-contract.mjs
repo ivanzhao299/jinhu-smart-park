@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -54,4 +54,12 @@ test('recovers genuine aggregate receipt and rejects masked or inconsistent evid
   assert.throws(() => recover(result, { ...recon, insertedCount: 38 }));
   assert.throws(() => recover(result, recon, { ...database, operationStatus: 'authorized' }));
   assert.throws(() => recover({ ...result, sealedPlanSha256: 'b'.repeat(64) }));
+});
+
+test('optional T4 nonce cannot escape its owned directory and SQL errors exclude private values', () => {
+  assert.equal(validateAuditArguments([...args, 'e'.repeat(32)]).followonNonce, 'e'.repeat(32));
+  assert.throws(() => validateAuditArguments([...args, "../invalid"]));
+  const summary = summarizeSqlErrors(`ERROR: column "fixture_column" does not exist\nERROR: invalid input syntax for type integer: 'private-person-value'\nDETAIL: personal-phone=123456`);
+  assert.equal(summary[0].column, 'fixture_column');
+  assert.doesNotMatch(JSON.stringify(summary), /private-person-value|123456|personal-phone/u);
 });

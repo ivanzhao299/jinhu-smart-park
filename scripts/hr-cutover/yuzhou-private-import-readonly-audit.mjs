@@ -1,5 +1,5 @@
 /* global process */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, lstatSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { URL, pathToFileURL } from 'node:url';
@@ -7,11 +7,12 @@ import { totalmem, freemem } from 'node:os';
 import { getHeapStatistics } from 'node:v8';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
-export function validateAuditArguments([nonce, packetHash, operationId, sealedPlanHash]) {
+export function validateAuditArguments([nonce, packetHash, operationId, sealedPlanHash, followonNonce]) {
   if (!/^[a-f0-9]{32}$/u.test(nonce ?? '') || !/^[a-f0-9]{64}$/u.test(packetHash ?? '')
     || !/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(operationId ?? '')
     || !/^[a-f0-9]{64}$/u.test(sealedPlanHash ?? '')) fail('TRANSPORT_AUDIT_ARGUMENT_INVALID');
-  return { nonce, packetHash, operationId, sealedPlanHash };
+  if (followonNonce !== undefined && !/^[a-f0-9]{32}$/u.test(followonNonce)) fail('TRANSPORT_AUDIT_ARGUMENT_INVALID');
+  return { nonce, packetHash, operationId, sealedPlanHash, followonNonce };
 }
 export function summarizePrivateFailure(text) {
   return {
@@ -45,8 +46,16 @@ export function recoverCommittedSummary(result, reconciliation, database, codeSh
   return { code: 'TRANSPORT_EXECUTED_EXACT_SCOPE', codeSha, receiptSha256: result.receiptSha256,
     sealedPlanSha256: result.sealedPlanSha256, ...reconciliation };
 }
+export function summarizeSqlErrors(text) {
+  const messages = text.split('\n').map(line => line.match(/\bERROR:\s+(.*)$/u)?.[1]).filter(Boolean);
+  const known = /^(?:column|relation|function|operator|permission denied|syntax error|cannot execute|invalid transaction|current transaction|there is no|deadlock detected|canceling statement|out of memory|could not|duplicate key value|insert or update on table|new row for relation|invalid input syntax|type)/u;
+  return messages.map(message => ({ code: /^T4_[A-Z0-9_]+$/u.test(message) ? message : null,
+    category: known.test(message) ? message.replace(/"[^"]*"|'[^']*'/gu, '[redacted]').slice(0,180) : 'UNCLASSIFIED_SQL_ERROR',
+    column: message.match(/^column "([a-z_][a-z0-9_]*)"/u)?.[1] ?? null,
+    relation: message.match(/^relation "((?:public\.)?hr_[a-z0-9_]+)"/u)?.[1] ?? null }));
+}
 async function audit(args) {
-  const { nonce, packetHash, operationId, sealedPlanHash } = validateAuditArguments(args);
+  const { nonce, packetHash, operationId, sealedPlanHash, followonNonce } = validateAuditArguments(args);
   const root = `/tmp/jinhu-yuzhou-import-${nonce}`;
   const info = lstatSync(root);
   if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) fail('TRANSPORT_AUDIT_ROOT_UNSAFE');
@@ -75,6 +84,7 @@ async function audit(args) {
     user: credentials.user, password: credentials.password, max: 1, connectionTimeoutMillis: 5000,
     statement_timeout: 10000, options: '-c default_transaction_read_only=on' });
   let database;
+  let followon = null;
   try {
     const identity = (await client.query('SELECT current_database() AS database,current_user AS username,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS oid,current_setting(\'default_transaction_read_only\') AS readonly')).rows[0];
     if (identity.database !== binding.database || identity.username !== binding.databaseUser || identity.oid !== binding.serverIdentity.databaseOid || identity.readonly !== 'on') fail('TRANSPORT_AUDIT_DATABASE_IDENTITY_DRIFT');
@@ -100,6 +110,36 @@ async function audit(args) {
       } finally { await client.query('ROLLBACK'); }
     }
 
+
+    if (followonNonce) {
+      const followonRoot = `/tmp/jinhu-yuzhou-t4-${followonNonce}`;
+      const st = lstatSync(followonRoot);
+      if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== process.getuid() || (st.mode & 0o777) !== 0o700) fail('TRANSPORT_AUDIT_ROOT_UNSAFE');
+      const preparedT4 = readPrivate(resolve(followonRoot, 'prepared.json'));
+      const configT4Path = resolve(followonRoot, 'private/config.json');
+      if (packet.hash(readFileSync(configT4Path)) !== preparedT4.configSha256) fail('TRANSPORT_AUDIT_PREPARED_DRIFT');
+      const cfg = readPrivate(configT4Path);
+      const readT4Descriptor = d => {
+        if (!d.path.startsWith(`${followonRoot}/private/`) || packet.hash(readFileSync(d.path)) !== d.sha256) fail('TRANSPORT_AUDIT_DESCRIPTOR_DRIFT');
+        return readPrivate(d.path);
+      };
+      const b = readT4Descriptor(cfg.binding);
+      if (b.executionCodeSha !== preparedT4.codeSha || b.parent.operationId !== operationId || b.parent.sealedPlanSha256 !== sealedPlanHash
+        || b.targetIdentitySha256 !== allowed.identitySha256 || b.targetScopeSha256 !== allowed.targetScopeSha256) fail('TRANSPORT_AUDIT_TARGET_DRIFT');
+      const operation = (await client.query('SELECT status,binding_sha256,parent_operation_id FROM hr_yuzhou_t4_followon_operation WHERE operation_id=$1', [b.operationId])).rows;
+      const counts = (await client.query(`SELECT
+        (SELECT count(*)::int FROM hr_yuzhou_t4_followon_authorization_use WHERE operation_id=$1) authorization_uses,
+        (SELECT count(*)::int FROM hr_payroll_legacy_snapshot WHERE tenant_id=$2 AND park_id=$3) snapshots,
+        (SELECT count(*)::int FROM hr_payroll_legacy_snapshot_item WHERE tenant_id=$2 AND park_id=$3) snapshot_items,
+        (SELECT count(*)::int FROM hr_payroll_legacy_batch WHERE batch_code=$1 AND tenant_id=$2 AND park_id=$3) batches`, [b.operationId, b.targetScope.tenantId, b.targetScope.parkId])).rows[0];
+      const claimPath = resolve(followonRoot, 'execution-claimed.json');
+      const claimed = existsSync(claimPath); const claim = claimed ? packet.privateInfo(claimPath) : null;
+      const logs = spawnSync('docker', ['--host','unix:///var/run/docker.sock','logs','--since',new Date((claim?.mtimeMs ?? Date.now())-120000).toISOString(),'--tail','1000','jinhu-smart-park-prod-postgres'], { encoding: 'utf8', maxBuffer: 2*1024*1024 });
+      if (logs.status !== 0) fail('TRANSPORT_AUDIT_POSTGRES_LOG_READ_FAILED');
+      followon = { executionCodeSha: b.executionCodeSha, operationRows: operation.length, operationStatus: operation[0]?.status ?? 'absent',
+        counts, executionClaimExists: claimed, executionReceiptExists: existsSync(resolve(followonRoot,'execution-receipt.json')),
+        sqlErrors: summarizeSqlErrors(`${logs.stdout ?? ''}\n${logs.stderr ?? ''}`) };
+    }
   } finally { await client.end(); credentials.password = ''; }
   let committedExecutionSummary = null;
   if (existsSync(resolve(root, 'execution-receipt.json')) && existsSync(resolve(root, 'reconciliation-receipt.json'))) {
@@ -111,11 +151,12 @@ async function audit(args) {
   if (existsSync(failurePath)) { packet.privateInfo(failurePath); failure = summarizePrivateFailure(readFileSync(failurePath, 'utf8')); }
   return { code: 'TRANSPORT_READONLY_AUDIT_COMPLETED', codeSha: packet.EXECUTOR_SHA,
     executionClaimExists: existsSync(resolve(root, 'execution-claimed.json')), executionReceiptExists: existsSync(resolve(root, 'execution-receipt.json')),
-    failure, database, committedExecutionSummary, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
+    failure, database, committedExecutionSummary, followon, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
 }
 function dispatch() {
   const e = process.env;
   const args = [e.TRANSPORT_NONCE, e.TRANSPORT_PACKET_SHA256, e.AUDIT_OPERATION_ID, e.AUDIT_SEALED_PLAN_SHA256];
+  if (e.AUDIT_FOLLOWON_NONCE) args.push(e.AUDIT_FOLLOWON_NONCE);
   validateAuditArguments(args);
   if (!/^[A-Za-z0-9.-]+$/u.test(e.PROD_SSH_HOST ?? '') || !/^[A-Za-z0-9_-]+$/u.test(e.PROD_SSH_USER ?? '') || !/^\d{1,5}$/u.test(e.PROD_SSH_PORT ?? '')) fail('TRANSPORT_AUDIT_SSH_INVALID');
   const command = `node --input-type=module - ${args.map(x => `'${x}'`).join(' ')}`;
