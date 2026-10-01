@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 
-export const EXECUTOR_SHA = '65639ada24de960bad28b479fa64a120ffdb9fdd';
+export const EXECUTOR_SHA = 'ee38ec665945dc7dc00e2cf803b5e307dc884161';
 const MAGIC = Buffer.from('JHYZPK01');
 const LIMIT = 2_000_000_000;
 export const fail = code => { throw Object.assign(new Error(code), { code }); };

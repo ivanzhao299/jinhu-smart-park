@@ -142,7 +142,7 @@ exposed or widened by this transport. Original successful execution still sets
 Objective: convey existing authorized private material to the existing exact
 production CLI via the existing SSH channel, with separate prepare/execute.
 Implementation base: `ed954495a4dbf16eef945184cd93528d6f85c097`.
-Final execution pin: `65639ada24de960bad28b479fa64a120ffdb9fdd`. The packet
+Final execution pin: `ee38ec665945dc7dc00e2cf803b5e307dc884161`. The packet
 module constant and workflow executor checkout must remain identical. No
 production action is authorized by this document.
 
