@@ -534,3 +534,5 @@ pnpm hr:migration:dual-source:rehearse
 A/B 演练均得到 `loaded=115`、`rollbackResidual=0`、`reloaded=115`、`containerResidual=0`、`personalValuesStored=false`。PostgreSQL 随机密码通过 0600 临时 env 文件传递，容器启动后立即删除，结束时删除精确命名容器。该技术闭环不等于 115 人已经完成人工业务认定，也不解除生产 `HOLD`。
 
 The T4 private wrapper gives only its full-size import/probe child `--max-old-space-size=8192`, matching the independently diagnosed 2 GiB production Node limit. API settings, business SQL and the pinned executor remain unchanged.
+
+Private import child connections pin PGOPTIONS to Asia/Shanghai, matching the host parent observation and core transaction canonicalization. The pin changes only the dedicated session: timestamp JSON checksums must be compared in the same timezone without changing stored timestamps or relaxing parent hashes.

@@ -55,12 +55,16 @@ test('T4 workflow pins the executor and host invokes the actual prepare/execute 
   assert.match(host,/execute-production-t4-followon\.mjs/u);assert.match(host,/'--mode','execute'/u);assert.match(host,/'--mode','prepare'/u);
   assert.doesNotMatch(host,/diagnose-yuzhou-hr-production-target-inventory/u);
   assert.match(host,/options: '-c default_transaction_read_only=on -c timezone=Asia\/Shanghai'/u);
+  assert.match(host,/PGOPTIONS: '-c timezone=Asia\/Shanghai'/u);
 });
 
 test('full-size private child uses the import-only 8 GiB heap budget', async () => {
-  const { importChildArguments } = await import('../hr-cutover/yuzhou-t4-private-host.mjs');
+  const { importChildArguments, importChildEnvironment } = await import('../hr-cutover/yuzhou-t4-private-host.mjs');
   const { spawnSync } = await import('node:child_process');
   const args = importChildArguments(['entry.mjs', '--config', 'fixture.json']);
+  const timezoneChild = spawnSync(process.execPath, ['--input-type=module', '-e', "import pg from 'pg'; process.stdout.write(new pg.Client().connectionParameters.options)"], { cwd: resolve(import.meta.dirname, '../..'), encoding: 'utf8', env: importChildEnvironment({ ...process.env, PGOPTIONS: '-c timezone=UTC' }) });
+  assert.equal(timezoneChild.status, 0, timezoneChild.stderr);
+  assert.equal(timezoneChild.stdout, '-c timezone=Asia/Shanghai');
   assert.deepEqual(args.slice(1), ['entry.mjs', '--config', 'fixture.json']);
   const child = spawnSync(process.execPath, [args[0], '--input-type=module', '-e', "import{getHeapStatistics}from'node:v8';process.stdout.write(String(getHeapStatistics().heap_size_limit))"], { encoding: 'utf8' });
   assert.equal(child.status, 0); assert.ok(Number(child.stdout) >= 8 * 1024 ** 3);
