@@ -1,4 +1,4 @@
-import type { HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage, HrInsuranceOwnedEmployeeOption, HrInsuranceOwnedClose, HrInsuranceOwnedCloseRequest, HrInsuranceOwnedConfirmRequest, HrInsuranceOwnedCorrectRequest, HrInsuranceOwnedPeriod, HrInsuranceOwnedPeriodListItem, HrInsuranceOwnedPreview, HrInsuranceOwnedPreviewRequest, HrInsuranceOwnedRevision, OrgTreeNode, PaginatedResult } from "@jinhu/shared";
+import type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage, HrInsuranceOwnedEmployeeOption, HrInsuranceOwnedClose, HrInsuranceOwnedCloseRequest, HrInsuranceOwnedConfirmRequest, HrInsuranceOwnedCorrectRequest, HrInsuranceOwnedPeriod, HrInsuranceOwnedPeriodListItem, HrInsuranceOwnedPreview, HrInsuranceOwnedPreviewRequest, HrInsuranceOwnedRevision, OrgTreeNode, PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;legacyJobstateCode:string|null;legacyJobstateName:string|null;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrLegacyArchiveFile {id:string;logicalKind:"photo"|"document"|"attachment"|string;logicalName:string;mediaType:string|null;sizeBytes:string|null;availability:string;contentFingerprint?:string;}
@@ -63,6 +63,7 @@ export interface HrPayrollReconciliationDifference {
   reviewStatus: string;
 }
 export interface HrPayrollReconciliationResult {
+  insuranceSource?: HrPayrollInsuranceEvidence | null;
   resultId: string;
   employeeCode: string;
   employeeName: string;

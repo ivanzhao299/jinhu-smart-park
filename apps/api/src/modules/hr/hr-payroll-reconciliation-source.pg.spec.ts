@@ -196,6 +196,11 @@ test("explicit modern insurance sources affect money, reject stale revisions and
  await assert.rejects(()=>payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[selected]}),/stale, foreign or changed/);
  const nextRun=await payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[{...selected,sourceId:next.id,expectedVersion:2,expectedHash:nextPreview.previewHash}]});
  assert.equal((await evidence(nextRun.id)).new_total,"900719925474.0934");assert.deepEqual(await evidence(run.id),firstEvidence);
+ const detailQuery={result_page:1,result_page_size:20};
+ const oldDetail=await payroll.reconciliationDetail(scope,principal,run.id,detailQuery);
+ const newDetail=await payroll.reconciliationDetail(scope,principal,nextRun.id,detailQuery);
+ assert.deepEqual(oldDetail.results[0]!.insuranceSource,{sourceKind:"modern_confirmed",sourceId:first.id,version:"1",snapshotHash:firstPreview.previewHash});
+ assert.deepEqual(newDetail.results[0]!.insuranceSource,{sourceKind:"modern_confirmed",sourceId:next.id,version:"2",snapshotHash:nextPreview.previewHash});
  assert.deepEqual(await db.query("SELECT to_jsonb(i) AS row FROM hr_employee_insurance_item i WHERE tenant_id=$1 AND park_id=$2 ORDER BY id",[scope.tenantId,scope.parkId]),historicalBefore);
  assert.equal((await db.query("SELECT (SELECT count(*) FROM hr_payroll_run)+(SELECT count(*) FROM hr_payslip) AS count"))[0].count,"0");
 });

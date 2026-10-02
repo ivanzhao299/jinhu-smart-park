@@ -61,6 +61,8 @@ import { projectPayrollInsuranceInputs, type PayrollInsuranceAmountFact } from "
 
 import { assertPayrollInsuranceChoices, lockModernPayrollInsuranceSources, type ModernPayrollInsuranceSource } from "./hr-payroll-insurance-source";
 
+import { payrollInsuranceEvidence } from "./hr-payroll-insurance-evidence";
+
 type HistoryAccess=HrPayrollHistoryAccessScope;
 type RawRow=Record<string,unknown>;
 type ReconciliationFormula = {
@@ -704,7 +706,7 @@ export class HrPayrollHistoryService {
     const offset = (q.result_page - 1) * q.result_page_size;
     this.requireReconciliationRead(actor);
     const rows = (await this.dataSource.query(
-      `SELECT r.id,r.status,r.tolerance_amount AS "toleranceAmount",r.employee_count AS "employeeCount",r.difference_count AS "differenceCount",r.engine_version AS "engineVersion",r.create_time AS "createdAt",e.id AS "resultId",employee.employee_code AS "employeeCode",employee.full_name AS "employeeName",e.old_total AS "oldTotal",e.new_total AS "newTotal",e.delta_total AS "deltaTotal",e.review_status AS "reviewStatus"
+      `SELECT r.id,r.status,r.tolerance_amount AS "toleranceAmount",r.employee_count AS "employeeCount",r.difference_count AS "differenceCount",r.engine_version AS "engineVersion",r.create_time AS "createdAt",e.id AS "resultId",employee.employee_code AS "employeeCode",employee.full_name AS "employeeName",e.old_total AS "oldTotal",e.new_total AS "newTotal",e.delta_total AS "deltaTotal",e.review_status AS "reviewStatus",e.insurance_period_id AS "insuranceHistoricalId",e.insurance_modern_revision_id AS "insuranceModernId",(r.frozen_insurance_version->e.employee_id::text)->>'id' AS "insuranceFrozenId",(r.frozen_insurance_version->e.employee_id::text)->>'version' AS "insuranceFrozenVersion",(r.frozen_insurance_version->e.employee_id::text)->>'snapshotVersion' AS "insuranceFrozenFormat",(r.frozen_insurance_version->e.employee_id::text)->>'snapshotHash' AS "insuranceFrozenHash"
       FROM hr_payroll_reconciliation_run r LEFT JOIN LATERAL (SELECT result.* FROM hr_payroll_reconciliation_result result JOIN hr_employee scoped_employee ON scoped_employee.id=result.employee_id AND scoped_employee.tenant_id=result.tenant_id AND scoped_employee.park_id=result.park_id WHERE result.run_id=r.id AND result.tenant_id=r.tenant_id AND result.park_id=r.park_id AND result.is_deleted=false ORDER BY scoped_employee.employee_code,result.id LIMIT $4 OFFSET $5) e ON true LEFT JOIN hr_employee employee ON employee.id=e.employee_id AND employee.tenant_id=e.tenant_id AND employee.park_id=e.park_id
       WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.id=$3 AND r.is_deleted=false ORDER BY employee.employee_code,e.id`,
       [scope.tenantId, scope.parkId, id, q.result_page_size, offset],
@@ -725,6 +727,7 @@ export class HrPayrollHistoryService {
         .filter((row) => row.resultId)
         .map((row) => ({
           resultId: row.resultId,
+          insuranceSource: payrollInsuranceEvidence(row),
           employeeCode: row.employeeCode,
           employeeName: row.employeeName,
           oldTotal: row.oldTotal,
