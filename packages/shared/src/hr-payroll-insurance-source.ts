@@ -2,6 +2,12 @@ export interface HrPayrollInsuranceChoice {
   employeeId: string; sourceKind: "historical" | "modern_confirmed"; sourceId: string;
   expectedVersion: number; expectedHash?: string;
 }
+export interface HrPayrollInsuranceEvidence {
+  sourceKind: "historical" | "modern_confirmed";
+  sourceId: string;
+  version: string;
+  snapshotHash?: string;
+}
 export interface HrPayrollInsuranceSourceRequest {
   legacyBatchId: string; attendanceInputBatchId: string; reconciliationSourceId?: string;
 }
