@@ -23,6 +23,19 @@ import { CanteenSettingsService } from "./canteen-settings.service";
 import { CanteenCommandService } from "./command/canteen-command.service";
 import { CanteenQueryService } from "./query/canteen-query.service";
 import { CanteenPaymentProviderAdapter } from "./adapter/canteen-payment-provider.adapter";
+import { CanteenArchiveController } from "./canteen-archive.controller";
+import { CanteenPosController } from "./canteen-pos.controller";
+import { CanteenOrderController } from "./canteen-order.controller";
+import { CanteenPaymentController } from "./canteen-payment.controller";
+import { CanteenArchiveService } from "./canteen-archive.service";
+import { CanteenCheckoutService } from "./canteen-checkout.service";
+import { CanteenPaymentAppService } from "./canteen-payment-app.service";
+import { CanteenSessionService } from "./canteen-session.service";
+import { CanteenOrderQueryService } from "./canteen-order-query.service";
+import { CanteenWebhookService } from "./canteen-webhook.service";
+import { CanteenNumberService } from "./canteen-number.service";
+import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
+import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
 
 @Module({
   imports: [
@@ -46,13 +59,29 @@ import { CanteenPaymentProviderAdapter } from "./adapter/canteen-payment-provide
       CanteenSettingEntity
     ])
   ],
-  controllers: [CanteenController],
+  controllers: [
+    CanteenController,
+    CanteenArchiveController,
+    CanteenPosController,
+    CanteenOrderController,
+    CanteenPaymentController
+  ],
   providers: [
     CanteenService,
     CanteenSettingsService,
     CanteenCommandService,
     CanteenQueryService,
-    CanteenPaymentProviderAdapter
+    CanteenPaymentProviderAdapter,
+    // M1
+    CanteenArchiveService,
+    CanteenCheckoutService,
+    CanteenPaymentAppService,
+    CanteenSessionService,
+    CanteenOrderQueryService,
+    CanteenWebhookService,
+    CanteenNumberService,
+    CanteenPaymentRegistry,
+    CanteenTimeoutScheduler
   ],
   exports: [CanteenService, CanteenSettingsService]
 })
