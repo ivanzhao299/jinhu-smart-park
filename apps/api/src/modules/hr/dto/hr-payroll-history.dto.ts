@@ -2,6 +2,7 @@ import { Transform } from "class-transformer";
 import {
   IsIn,
   IsInt,
+  IsDateString,
   IsOptional,
   IsString,
   IsUUID,
@@ -70,7 +71,22 @@ export class HrPayrollReconciliationDetailQueryDto {
 export class CreateHrPayrollReconciliationDto {
   @IsUUID() legacyBatchId!: string;
   @IsUUID() attendanceInputBatchId!: string;
+  @IsOptional() @IsUUID() reconciliationSourceId?: string;
   @IsOptional() @IsUUID() supersedesRunId?: string;
+}
+
+export class HrPayrollReconciliationSourcePreviewDto {
+  @IsUUID() legacyBatchId!: string;
+  @IsUUID() bookId!: string;
+  @IsDateString({ strict: true }) @Matches(/^\d{4}-(0[1-9]|1[0-2])-01$/) periodMonth!: string;
+}
+
+export class CreateHrPayrollReconciliationSourceDto extends HrPayrollReconciliationSourcePreviewDto {
+  @Matches(/^[0-9a-f]{64}$/) bindingSha256!: string;
+  @Matches(/^[0-9a-f]{64}$/) sourceSha256!: string;
+  @IsInt() @Min(1) @Max(5000) snapshotCount!: number;
+  @IsInt() @Min(1) @Max(200000) itemCount!: number;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason!: string;
 }
 
 export class HrPayrollReconciliationReviewDto {

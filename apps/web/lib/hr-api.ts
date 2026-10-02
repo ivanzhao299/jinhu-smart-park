@@ -87,7 +87,18 @@ export interface HrPayrollReconciliation {
   resultPageSize?: number;
   resultTotal?: number;
 }
+export interface HrPayrollReconciliationSourcePreview {
+  legacyBatchId: string; bookId: string; periodMonth: string;
+  bindingSha256: string; sourceSha256: string;
+  snapshotCount: number; itemCount: number; employeeCount: number;
+}
+export interface HrPayrollReconciliationSource {
+  id: string; legacyBatchId: string; bookId: string; bookName?: string;
+  periodMonth: string; snapshotCount: number; itemCount: number;
+}
 export interface HrPayrollReconciliationSetup {
+  sourceBatches?: Array<{id:string;createdAt:string;recordCount:number}>;
+  frozenSources?: HrPayrollReconciliationSource[];
   books: Array<{
     id: string;
     bookName: string;
@@ -483,10 +494,21 @@ createPayrollReconciliationPolicy: (
         idempotencyKey: crypto.randomUUID(),
       }),
     ),
+previewPayrollReconciliationSource: (
+    query: {legacyBatchId:string;bookId:string;periodMonth:string}, token?:string, signal?:AbortSignal,
+  ) => unwrap(apiRequest<HrPayrollReconciliationSourcePreview>(
+    `/hr/payroll/reconciliation-sources/preview?${new URLSearchParams(query)}`, {token,signal},
+  )),
+createPayrollReconciliationSource: (
+    body: Omit<HrPayrollReconciliationSourcePreview,"employeeCount"> & {reason:string}, token?:string,
+  ) => unwrap(apiRequest<HrPayrollReconciliationSource>("/hr/payroll/reconciliation-sources", {
+    method:"POST",body,token,idempotencyKey:crypto.randomUUID(),
+  })),
 simulatePayrollReconciliation: (
     body: {
       legacyBatchId: string;
       attendanceInputBatchId: string;
+      reconciliationSourceId?: string;
       supersedesRunId?: string;
     },
     token?: string,

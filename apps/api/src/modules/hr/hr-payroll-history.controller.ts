@@ -21,6 +21,8 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrPayrollReconciliationDto,
+  CreateHrPayrollReconciliationSourceDto,
+  HrPayrollReconciliationSourcePreviewDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -139,6 +141,34 @@ export class HrPayrollHistoryController {
     @CurrentUser() actor: JwtPrincipal,
   ) {
     return this.service.reconciliationSetup(scope, actor);
+  }
+
+  @Get("reconciliation-sources/preview")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)
+  previewReconciliationSource(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPayrollReconciliationSourcePreviewDto,
+  ) {
+    return this.service.previewReconciliationSource(scope, actor, query);
+  }
+
+  @Post("reconciliation-sources")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)
+  @AuditLog({
+    module: "人力资源管理",
+    resource: "hr.payroll_reconciliation_source",
+    action: "冻结工资双轨历史来源",
+    bizType: "hr_payroll_reconciliation_source",
+    captureBody: false,
+  })
+  createReconciliationSource(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Body() dto: CreateHrPayrollReconciliationSourceDto,
+  ) {
+    return this.service.createReconciliationSource(scope, actor, dto);
   }
 
   @Post("reconciliation-policies")

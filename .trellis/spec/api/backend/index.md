@@ -20,6 +20,7 @@ These rules describe the current NestJS API in `apps/api`. Follow them when chan
 Versioned Party sensitive-data keys and tenant-scoped rotation: [Party Sensitive Data Key Rotation](./party-sensitive-data-key-rotation.md).
 
 Human resources lifecycle, goals, performance, protected documents, approvals, and payroll: [HR Management Domain Contract](./hr-management.md).
+Reviewed unpublished payroll comparison sources: [Payroll Reconciliation Source](./hr-payroll-reconciliation-source.md).
 
 T3 historical attendance/insurance field conversion: [Yuzhou T3 Production Projection](./yuzhou-t3-production-projection.md).
 

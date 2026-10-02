@@ -16,6 +16,7 @@ import {
   type HrPayrollPeriod,
   type HrPayrollReconciliation,
   type HrPayrollReconciliationSetup,
+  type HrPayrollReconciliationSource,
   type HrPayrollReviewCase,
   type HrPayrollRun,
   type HrPayrollTaxRule,
@@ -24,6 +25,7 @@ import {
 import { hasPermission } from "../../../lib/permissions";
 import workbenchStyles from "../hr-workbench.module.css";
 import styles from "./payroll.module.css";
+import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
 
 type WorkArea = "online" | "history" | "rules" | "difference";
 type ViewState = "loading" | "ready" | "empty" | "forbidden" | "error";
@@ -268,6 +270,9 @@ function ReconciliationWorkbench({
     [detailState, setDetailState] = useState<ViewState>("empty"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const [preparedSource, setPreparedSource] = useState<HrPayrollReconciliationSource | null>(null);
+  const [sourceChoice, setSourceChoice] = useState("");
+  const simulationWriting = useRef(false);
   const generation = useRef(0),
     abort = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -276,6 +281,9 @@ function ReconciliationWorkbench({
       controller = new AbortController();
     abort.current = controller;
     setState("loading");
+    setReconciliationSetup(null);
+    setPreparedSource(null);
+    setSourceChoice("");
     setSelected(null);
     setDetailTarget(null);
     setDetailState("empty");
@@ -338,24 +346,24 @@ function ReconciliationWorkbench({
     }
   };
   const simulate = async (form: FormData) => {
-    setBusy(true);
-    setMessage("");
+    if (simulationWriting.current || !reconciliationSetup) return;
+    const sourceId = sourceChoice.startsWith("source:") ? sourceChoice.slice(7) : null;
+    const source = sourceId ? [preparedSource, ...(reconciliationSetup.frozenSources ?? [])].find((item) => item?.id === sourceId) : null;
+    const legacyBatchId = source?.legacyBatchId ?? (sourceChoice.startsWith("published:") ? sourceChoice.slice(10) : "");
+    const attendanceInputBatchId = String(form.get("attendanceInputBatchId") ?? "");
+    const attendance = reconciliationSetup.attendanceBatches.find((item) => item.id === attendanceInputBatchId);
+    if (!legacyBatchId || !attendance || (sourceId && (!source || source.periodMonth.slice(0, 7) !== attendance.periodMonth.slice(0, 7)))) {
+      setMessage("请选择有效来源及同月已关闭且生效的考勤输入。"); return;
+    }
+    simulationWriting.current = true; setBusy(true); setMessage("");
     try {
-      await hrApi.simulatePayrollReconciliation(
-        {
-          legacyBatchId: String(form.get("legacyBatchId")),
-          attendanceInputBatchId: String(form.get("attendanceInputBatchId")),
-        },
-        getAccessToken(),
-      );
+      await hrApi.simulatePayrollReconciliation({ legacyBatchId, attendanceInputBatchId, ...(source ? { reconciliationSourceId: source.id } : {}) }, getAccessToken());
       setMessage("模拟完成，未触发发薪。");
       await load();
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "模拟失败");
-    } finally {
-      setBusy(false);
-    }
+    } catch (e) { setMessage(e instanceof Error ? e.message : "模拟失败"); }
+    finally { simulationWriting.current = false; setBusy(false); }
   };
+
   const savePolicy = async (form: FormData) => {
     setBusy(true);
     setMessage("");
@@ -471,6 +479,7 @@ function ReconciliationWorkbench({
             </form>
           </section>
         ) : null}
+        {canReview && reconciliationSetup ? <ReconciliationSourcePreparation setup={reconciliationSetup} onPrepared={(source) => { setPreparedSource(source); setSourceChoice(`source:${source.id}`); }} /> : null}
         {canCalculate ? (
           <section className="ds-panel">
             <div className={workbenchStyles.sectionHeading}>
@@ -481,14 +490,15 @@ function ReconciliationWorkbench({
             </div>
             <form className={workbenchStyles.formGrid} action={simulate}>
               <label className="form-field">
-                <span>旧系统已发布批次</span>
-                <select name="legacyBatchId" required defaultValue="">
+                <span>历史工资核对来源</span>
+                <select name="sourceChoice" required value={sourceChoice} disabled={busy || !reconciliationSetup} onChange={(event) => setSourceChoice(event.target.value)}>
                   <option value="" disabled>请选择历史批次</option>
                   {reconciliationSetup?.legacyBatches.map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.batchCode} · {batch.sourceRowCount} 人
+                    <option key={batch.id} value={`published:${batch.id}`}>
+                      已发布 · {batch.batchCode} · {batch.sourceRowCount} 条记录
                     </option>
                   ))}
+                  {[...(preparedSource ? [preparedSource] : []), ...(reconciliationSetup?.frozenSources ?? []).filter((item) => item.id !== preparedSource?.id)].map((source) => <option key={source.id} value={`source:${source.id}`}>已冻结 · {source.bookName ?? "历史账套"} · {source.periodMonth.slice(0, 7)} · {source.snapshotCount} 条记录</option>)}
                 </select>
               </label>
               <label className="form-field">
