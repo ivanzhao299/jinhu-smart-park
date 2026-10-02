@@ -31,7 +31,7 @@
     },
     "assessmentdetailFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
-      "sha256": "09674dd75e3522d95e64b5e39f1e969a159a690cee9361f1ec57aa7170b4b1c3"
+      "sha256": "8a9d42af3b901e539fafbde01eee391d17e7d4580d80f46477afff3e2d5df1c5"
     },
     "modernSchema": {
       "path": "database/migrations/000258_hr_performance_template_planning.sql",

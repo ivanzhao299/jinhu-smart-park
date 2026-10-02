@@ -18,7 +18,7 @@
     {"stableId":"FIELD_PERFORMANCE_GRADE","path":"scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json","sha256":"18fdc28e413a4714949165914b362585328da3071be7761e316dc38cc55ff1b9"},
     {"stableId":"FIELD_PERFORMANCE_ITEM","path":"scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json","sha256":"814f4323fecf3d4819b3aafbf1f4d17d738663505fcb66af64fd40411942fd26"},
     {"stableId":"FIELD_PERFORMANCE_ITEM_GRADE","path":"scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json","sha256":"fc24e0439d6ac5df9e4fc5f54b19c4c0805d05033ebfdebb9e639179833fd87d"},
-    {"stableId":"FIELD_PERFORMANCE_DETAIL","path":"scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json","sha256":"09674dd75e3522d95e64b5e39f1e969a159a690cee9361f1ec57aa7170b4b1c3"},
+    {"stableId":"FIELD_PERFORMANCE_DETAIL","path":"scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json","sha256":"8a9d42af3b901e539fafbde01eee391d17e7d4580d80f46477afff3e2d5df1c5"},
     {"stableId":"PERFORMANCE_RUNTIME_COVERAGE","path":"scripts/hr-cutover/contracts/legacy-performance-runtime-coverage-v1.json","sha256":"870cabe2b9d7a30a41653d7394fb1d5acadfe87dc766454e05c1a6869f84836b"},
     {"stableId":"ROUTINE_LEDGER","path":"scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json","sha256":"30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"},
     {"stableId":"ROUTINE_BS_READFROMLEAVE","path":"scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json","sha256":"e70cc0bec2a6a80326691d8886633d6c4a8a8ed0e20f46ca22584b61c84fb19c"},
