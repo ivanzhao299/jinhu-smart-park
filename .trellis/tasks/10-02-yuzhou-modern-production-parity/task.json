@@ -28,13 +28,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "Implementation active. Approved T0-T5 import freshly verified after PR775 production deployment. API/Web runtime280d0926, health, cleanup and isolated S3 PostgreSQL11 tests passed. Real-role business UAT, actual payroll reconciliation and standalone HR acceptance remain incomplete. S5 recruitment/training/rewards actual PostgreSQL5 tests passed; legacy rule equivalence and production role acceptance remain incomplete.",
+  "notes": "Implementation active. Approved T0-T5 import freshly verified after PR775 production deployment. API/Web runtime280d0926, health, cleanup and isolated S3 PostgreSQL11 tests passed. Real-role business UAT, actual payroll reconciliation and standalone HR acceptance remain incomplete. S5 recruitment/training/rewards actual PostgreSQL5 tests passed; legacy rule equivalence and production role acceptance remain incomplete. Modern performance SQL database gate passed; precise error, service transaction, HTTP and legacy calculation parity remain incomplete.",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "S5_performance_evidence_then_real_role_module_acceptance",
+    "nextSlice": "S5_modern_performance_service_real_postgres",
     "businessImplementationStarted": true,
     "latestImplementationMergedCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
     "latestDeploymentRunId": 36995050642,

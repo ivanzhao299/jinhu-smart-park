@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "baselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+  "target": "dedicated localhost disposable lab",
+  "productionWrite": false,
+  "tests": [
+    {
+      "topic": "modern-performance-evaluation-sql-gate",
+      "status": "PASS",
+      "transactionRolledBack": true,
+      "scope": "original SQL scoring calibration appeal trigger checks; not service HTTP or role UAT"
+    }
+  ],
+  "auditBoundary": "SQL database gate only; no application audit, HTTP or real-role UAT executed",
+  "startedAt": "2026-10-02T11:03:51.020185+00:00",
+  "isolatedContainerAbsent": true,
+  "temporaryTestCredentialsRemoved": true,
+  "finishedAt": "2026-10-02T11:08:32.611197+00:00"
+}

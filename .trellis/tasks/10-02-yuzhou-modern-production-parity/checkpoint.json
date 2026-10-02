@@ -29,7 +29,7 @@
   "activeRunHandle": null,
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Continue S5 performance legacy/modern business evidence and identified gaps without repeating unchanged tests. On actual existing HR login, verify production role pages. Exact payroll month/book/rule confirmation still required for S3/S4 business inputs. No import replay or source freeze.",
+  "nextAction": "Add modern performance service actual PostgreSQL coverage for full role state chain, precise errors, required-audit rollback and concurrency. Read exact service/specs before implementation. Retain pending bs_ass_compute cross-engine and batch-side-effect parity. No production import replay or payroll freeze.",
   "phases": [
     {
       "id": "S0",
@@ -69,7 +69,7 @@
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T11:02:22.259051+00:00",
+  "updatedAt": "2026-10-02T11:09:11.901542+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -248,6 +248,25 @@
       "isolatedContainerAbsent": true,
       "temporaryTestCredentialsRemoved": true,
       "finishedAt": "2026-10-02T11:01:44.983571+00:00"
+    },
+    "s5PerformancePostgres": {
+      "status": "PASS",
+      "baselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+      "target": "dedicated localhost disposable lab",
+      "productionWrite": false,
+      "tests": [
+        {
+          "topic": "modern-performance-evaluation-sql-gate",
+          "status": "PASS",
+          "transactionRolledBack": true,
+          "scope": "original SQL scoring calibration appeal trigger checks; not service HTTP or role UAT"
+        }
+      ],
+      "auditBoundary": "SQL database gate only; no application audit, HTTP or real-role UAT executed",
+      "startedAt": "2026-10-02T11:03:51.020185+00:00",
+      "isolatedContainerAbsent": true,
+      "temporaryTestCredentialsRemoved": true,
+      "finishedAt": "2026-10-02T11:08:32.611197+00:00"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -277,8 +296,8 @@
     "Authenticated HR/manager/employee browser UAT requires current login session.",
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability."
   ],
-  "currentSlice": "S5_RECRUITMENT_TRAINING_REWARDS_REAL_POSTGRES_5_PASS",
-  "currentSliceEvidence": "research/s5-recruitment-training-rewards-result.md",
+  "currentSlice": "S5_PERFORMANCE_SQL_GATE_PASS_LEGACY_RULE_GAPS_RETAINED",
+  "currentSliceEvidence": "research/s5-performance-result.md",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
     "workspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
