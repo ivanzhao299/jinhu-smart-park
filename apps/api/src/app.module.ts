@@ -14,6 +14,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { BuildingsModule } from "./modules/buildings/buildings.module";
 import { CodeRulesModule } from "./modules/code-rules/code-rules.module";
+import { CanteenModule } from "./modules/canteen/canteen.module";
 import { DataScopesModule } from "./modules/data-scopes/data-scopes.module";
 import { DictsModule } from "./modules/dicts/dicts.module";
 import { EnergyModule } from "./modules/energy/energy.module";
@@ -154,6 +155,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     ParksModule,
     BuildingsModule,
     CodeRulesModule,
+    CanteenModule,
     DataScopesModule,
     FieldPoliciesModule,
     FloorsModule,

@@ -6,6 +6,7 @@ import { APARTMENT_PERMISSIONS } from "./apartment";
 import { HR_PERMISSIONS } from "./hr";
 
 export * from "./property-business";
+export * from "./canteen";
 export * from "./mobile";
 export * from "./apartment";
 export * from "./hr";
