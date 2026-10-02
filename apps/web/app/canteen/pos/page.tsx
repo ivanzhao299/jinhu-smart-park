@@ -428,13 +428,16 @@ export default function PosTerminalPage() {
     }
   }
 
+  /* 后端对超额返回 422（body 仅 {code:422,message,data:null}），统一视为余额不足，转混合/扫码 */
   function isInsufficient(err: unknown): { balance: string; need: string; suggest: string } | null {
     if (err instanceof ApiError && err.status === 422) {
       const body = (err.response ?? {}) as Record<string, unknown>;
       const data = ((body.data as Record<string, unknown>) ?? body) as Record<string, unknown>;
-      if (body.code === "INSUFFICIENT_SUBSIDY" || data.code === "INSUFFICIENT_SUBSIDY") {
-        return { balance: String(data.balance ?? body.balance ?? "0"), need: String(data.need ?? body.need ?? "0"), suggest: String(data.suggest ?? body.suggest ?? "mixed") };
-      }
+      return {
+        balance: String(data.balance ?? body.balance ?? "0"),
+        need: String(data.need ?? body.need ?? "0"),
+        suggest: String(data.suggest ?? body.suggest ?? "mixed")
+      };
     }
     return null;
   }
@@ -454,8 +457,10 @@ export default function PosTerminalPage() {
       const lack = isInsufficient(err);
       if (lack) {
         if (lack.suggest === "qr_pay") {
-          toast(`餐补余额不足 ¥${lack.balance}，请改用扫码收款`);
+          // 餐补余额为 0：直接走全额扫码
           setModal(null);
+          toast("餐补余额为 0，改用全额扫码收款");
+          void clickQrPay();
           return;
         }
         // 转混合支付：餐补扣满 + 差额扫码
