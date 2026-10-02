@@ -73,7 +73,7 @@ on:
         type: boolean
 
 concurrency:
-  group: deploy-production
+  group: ${{ inputs.deploy_mode == 'diagnose-yuzhou-private-import' && 'yuzhou-private-readonly-audit' || 'deploy-production' }}
   cancel-in-progress: false
 
 permissions:
