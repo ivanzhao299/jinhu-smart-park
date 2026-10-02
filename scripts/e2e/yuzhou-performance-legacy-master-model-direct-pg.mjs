@@ -8,12 +8,13 @@ const container = process.env.YUZHOU_PERFORMANCE_PG_CONTAINER ?? "jinhu-smart-pa
 const database = `jinhu_hr_migration_lab_perfmaster_${process.pid}`;
 const model = readFileSync(resolve(root, "database/migrations/000300_hr_performance_yuzhou_legacy_model.sql"), "utf8");
 const master = readFileSync(resolve(root, "database/migrations/000302_hr_performance_yuzhou_legacy_master.sql"), "utf8");
+const totalRounding = readFileSync(resolve(root, "database/migrations/000321_hr_performance_yuzhou_total_rounding.sql"), "utf8");
 const parity = readFileSync(resolve(root, "database/migrations/000304_hr_performance_yuzhou_legacy_master_parity.sql"), "utf8");
 
 function psql(targetDatabase, sql, expectSuccess = true) {
   const result = spawnSync(
     "docker",
-    ["exec", "-i", container, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", targetDatabase],
+    ["exec", "-i", container, "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", targetDatabase],
     { input: sql, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
   );
   if (expectSuccess) assert.equal(result.status, 0, result.stderr);
@@ -244,6 +245,101 @@ try {
     COMMIT;
   `);
 
+  // Expected values come from the unchanged, SHA-frozen SQL Server procedure,
+  // executed with original numeric column types in an owned synthetic database.
+  // Fixture cloning below copies only this test's synthetic records.
+  const crossZeroFixture = [
+    ["hr_performance_legacy_template_profile", template, 101, "dbo.assessmentcode", {
+      source_assessment: 99, source_s_percent: 50, source_m_percent: 0,
+      source_t_percent: 0, source_x_percent: 0, source_c_percent: 0,
+    }],
+    ["hr_performance_legacy_dimension_profile", dimension1, 102, "dbo.assitem", {
+      source_item_id: 99, source_assessment_id: 99, legacy_template_profile_id: id("101"),
+    }],
+    ["hr_performance_legacy_dimension_result", result1, 103, "dbo.assessmentdetail", {
+      source_detail_id: 7100, source_session_id: 13, source_person_code: "S-POS", source_item_id: 99,
+      source_self_value: "0.01", source_m_item_value: 0, source_item_value: 0,
+      source_x_item_value: 0, source_c_item_value: 0, legacy_dimension_profile_id: id("102"),
+    }],
+    ["hr_performance_legacy_dimension_result", result1, 104, "dbo.assessmentdetail", {
+      source_detail_id: 7101, source_session_id: 14, source_person_code: "S-NEG", source_item_id: 99,
+      source_self_value: "-0.01", source_m_item_value: 0, source_item_value: 0,
+      source_x_item_value: 0, source_c_item_value: 0, legacy_dimension_profile_id: id("102"),
+    }],
+    ["hr_performance_legacy_master_result", masterFact, 105, "dbo.assessmentmaster", {
+      source_master_id: 9100, source_session_id: 13, source_person_code: "S-POS",
+      source_self_value: "0.01", source_item_value: 0, source_m_item_value: 0,
+      source_x_item_value: 0, source_c_item_value: 0, source_master_value: "-0.01",
+      source_timekeep_value: 0, source_bonus_value: 0, source_total_value: "-0.01",
+      source_ass_grade: null, legacy_template_profile_id: id("101"),
+    }],
+    ["hr_performance_legacy_master_result", masterFact, 106, "dbo.assessmentmaster", {
+      source_master_id: 9101, source_session_id: 14, source_person_code: "S-NEG",
+      source_self_value: "-0.01", source_item_value: 0, source_m_item_value: 0,
+      source_x_item_value: 0, source_c_item_value: 0, source_master_value: "0.01",
+      source_timekeep_value: 0, source_bonus_value: 0, source_total_value: "0.01",
+      source_ass_grade: "G0", legacy_template_profile_id: id("101"),
+    }],
+    ["hr_performance_legacy_level_rule", levelFact, 107, "dbo.assgradecode", {
+      source_ass_grade: "G0", source_min_value: 0, source_max_value: null,
+    }],
+  ];
+  psql(database, `BEGIN; ${crossZeroFixture.map(([table, sourceId, number, sourceTable, fields]) => {
+    const identity = String(number).padStart(64, "0");
+    const rowId = id(String(number));
+    const mapId = id(String(number + 100));
+    const overrides = JSON.stringify({ ...fields, id: rowId, legacy_record_map_id: mapId,
+      source_identity_sha256: identity, source_row_sha256: identity });
+    return `INSERT INTO legacy_record_map(id,batch_id,source_system,source_table,source_pk_canonical,
+      source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status,is_active)
+      VALUES('${mapId}','${batch}','yuzhou-v10','${sourceTable}','sha256:${identity}',
+      '${identity}','${identity}','${table}','${rowId}','loaded',true);
+      INSERT INTO ${table} SELECT (jsonb_populate_record(NULL::${table},
+        to_jsonb(source) || '${overrides}'::jsonb)).* FROM ${table} source WHERE id='${sourceId}';`;
+  }).join("\n")} SET CONSTRAINTS ALL IMMEDIATE; COMMIT;`);
+
+  // Prove the production predecessor actually exhibits the reported defect.
+  assert.equal(psql(database, `SELECT hr_performance_yuzhou_legacy_full_total('${id("105")}')=0
+    AND hr_performance_yuzhou_legacy_full_total('${id("106")}')=0;`).stdout.trim(), "t");
+  const preservedState = () => psql(database, `SELECT jsonb_build_object(
+    'function', (SELECT jsonb_build_array(oid,proacl,prosecdef,provolatile,proconfig)
+      FROM pg_proc WHERE oid='hr_performance_yuzhou_legacy_full_total(uuid)'::regprocedure),
+    'facts', (SELECT md5(string_agg(row_value, E'\n' ORDER BY row_value)) FROM (
+      SELECT to_jsonb(t)::text row_value FROM hr_performance_legacy_template_profile t UNION ALL
+      SELECT to_jsonb(t)::text FROM hr_performance_legacy_dimension_profile t UNION ALL
+      SELECT to_jsonb(t)::text FROM hr_performance_legacy_dimension_result t UNION ALL
+      SELECT to_jsonb(t)::text FROM hr_performance_legacy_master_result t UNION ALL
+      SELECT to_jsonb(t)::text FROM hr_performance_legacy_level_rule t UNION ALL
+      SELECT to_jsonb(t)::text FROM legacy_record_map t UNION ALL
+      SELECT to_jsonb(t)::text FROM migration_batch t) facts));`).stdout.trim();
+  const beforeCorrection = preservedState();
+  psql(database, totalRounding);
+  assert.equal(preservedState(), beforeCorrection, "migration changed facts, source maps or function privileges");
+  psql(database, totalRounding);
+  assert.equal(preservedState(), beforeCorrection, "migration replay changed facts or privileges");
+  psql(database, `DO $test$
+    DECLARE positive_status text; negative_status text; negative_grade text;
+    BEGIN
+      IF hr_performance_yuzhou_legacy_full_total('${id("105")}') IS DISTINCT FROM -0.01
+        OR hr_performance_yuzhou_legacy_full_total('${id("106")}') IS DISTINCT FROM 0.01 THEN
+        RAISE EXCEPTION 'SQL Server cross-zero half-case totals differ';
+      END IF;
+      SELECT parity_status INTO positive_status FROM hr_performance_yuzhou_legacy_grade_parity('${id("105")}');
+      SELECT parity_status,expected_ass_grade INTO negative_status,negative_grade
+        FROM hr_performance_yuzhou_legacy_grade_parity('${id("106")}');
+      IF positive_status<>'NO_ELIGIBLE_GRADE' OR negative_status<>'MATCH' OR negative_grade<>'G0' THEN
+        RAISE EXCEPTION 'cross-zero grade parity differs: %, %, %',positive_status,negative_status,negative_grade;
+      END IF;
+      IF hr_performance_yuzhou_weighted_detail_total('tenant-a','park-a','${batch}','${id("101")}',13,'S-POS')
+          IS DISTINCT FROM 0.01 THEN RAISE EXCEPTION 'rounded subtotal API changed'; END IF;
+      IF hr_performance_yuzhou_legacy_full_total('${masterFact}') IS DISTINCT FROM 79.00
+        OR hr_performance_yuzhou_legacy_full_total('${unavailableMasterFact}') IS NOT NULL
+        OR hr_performance_yuzhou_legacy_full_total('${positiveRoundingMasterFact}') IS DISTINCT FROM 2.00
+        OR hr_performance_yuzhou_legacy_full_total('${negativeRoundingMasterFact}') IS DISTINCT FROM -2.00 THEN
+        RAISE EXCEPTION 'existing full-total branches regressed';
+      END IF;
+    END $test$;`);
+
   psql(database, `
     BEGIN;
     INSERT INTO legacy_record_map(
@@ -301,7 +397,7 @@ try {
     $test$;
   `);
 
-  console.log("Yuzhou performance master direct PostgreSQL checks passed (total, unavailable/no-grade branches, null defaults, positive/negative half rounding, ambiguity, guard, rollback).")
+  console.log("Yuzhou performance master direct PostgreSQL checks passed (total, unavailable/no-grade branches, null defaults, positive/negative half rounding, cross-zero source oracle, migration replay/fact/ACL preservation, ambiguity, guard, rollback).")
 } finally {
   admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE);`);
 }

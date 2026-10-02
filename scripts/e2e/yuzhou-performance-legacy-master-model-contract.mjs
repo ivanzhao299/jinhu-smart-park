@@ -58,4 +58,12 @@ assert.match(migration, /COALESCE\(master\.source_timekeep_value,0\)/u);
 assert.match(migration, /COALESCE\(master\.source_bonus_value,0\)/u);
 assert.match(migration, /source_total_value remains the comparison baseline/u);
 
-console.log("Yuzhou performance master model contract passed (21/21 source fields and full legacy total semantics).")
+const correction = readFileSync(resolve(root,
+  "database/migrations/000321_hr_performance_yuzhou_total_rounding.sql"), "utf8");
+const executableCorrection = correction.replace(/--[^\n]*/gu, "");
+assert.doesNotMatch(executableCorrection, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|DROP|GRANT|SECURITY\s+DEFINER)\b/iu);
+assert.match(correction, /33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414/u);
+assert.equal((executableCorrection.match(/\bround\(/gu) ?? []).length, 1);
+assert.doesNotMatch(executableCorrection, /hr_performance_yuzhou_weighted_detail_total/u);
+assert.match(executableCorrection, /STABLE SECURITY INVOKER SET search_path=public,pg_temp/u);
+console.log("Yuzhou performance master model contract passed (21 source fields; read-only forward total correction).")
