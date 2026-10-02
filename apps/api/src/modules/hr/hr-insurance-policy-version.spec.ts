@@ -15,6 +15,7 @@ import { HrInsurancePolicyVersionService } from "./hr-insurance-policy-version.s
 import { HrInsurancePreviewController } from "./hr-insurance-preview.controller";
 import { AuditLogInterceptor } from "../../shared/interceptors/audit-log.interceptor";
 import type { CreateHrInsurancePolicyVersionDto } from "./dto/hr-insurance-policy-version.dto";
+import { insuranceSourceFactorsHash } from "./hr-insurance-policy-source";
 
 const scope = { tenantId: "fixture", parkId: "fixture" };
 const actor: JwtPrincipal = { ...scope, sub: randomUUID(), username: "synthetic", roles: [], permissions: [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE] };
@@ -59,6 +60,25 @@ test("policy inputs reject absent dates, invalid names, inverted range and mixed
   const invalid=[{effectiveFrom:undefined},{effectiveThrough:"2025-12"},{policyName:"123.00"},{policyName:"\u3164\u200b"},{reason:" "},{sourcePolicyId:randomUUID(),expectedSourceVersion:1},{items:undefined},{variantNo:"1"}];
   for(const patch of invalid)await assert.rejects(service.create(scope,actor,{...request(),...patch} as CreateHrInsurancePolicyVersionDto),/INVALID|REQUIRED/u);
   assert.equal(queries,0);
+});
+
+test("copy refuses source factor drift even when the parent policy version has not changed", async () => {
+  const sourceId=randomUUID();
+  const factors=HR_INSURANCE_KINDS.map((insurance_kind,i)=>({id:`factor-${i}`,version:1,insurance_kind,base_rate:"0.080000",employer_rate:"0.080000",employee_rate:"0.080000",supplement_rate:"0.000000",base_fixed_amount:null,employer_fixed_amount:null,employee_fixed_amount:null,supplement_fixed_amount:null}));
+  const expected=insuranceSourceFactorsHash(factors);
+  for(const mutation of [{employee_rate:"0.090000"},{version:2}]){
+    let writes=0,audits=0;
+    const db={transaction:async(_isolation:string,fn:(manager:unknown)=>Promise<unknown>)=>fn({query:async(sql:string,params?:unknown[])=>{
+      if(sql.startsWith("INSERT ")){writes++;throw new Error("unexpected insert");}
+      if(sql.includes("FROM hr_insurance_policy_version"))return [];
+      if(sql.includes("FROM hr_insurance_policy_item")){assert.match(sql,/FOR SHARE$/u);assert.deepEqual(params,[sourceId,scope.tenantId,scope.parkId,1]);return factors.map((f,i)=>i===0?{...f,...mutation}:f);}
+      if(sql.includes("FROM hr_insurance_policy ")){assert.match(sql,/FOR UPDATE$/u);return [{id:sourceId,version:7}];}
+      return [];
+    }})};
+    const service=Reflect.construct(HrInsurancePolicyVersionService,[db,{recordOperationRequired:async()=>{audits++;}}]) as HrInsurancePolicyVersionService;
+    await assert.rejects(service.create(scope,actor,{...request(),items:undefined,sourcePolicyId:sourceId,expectedSourceVersion:7,expectedSourceFactorsHash:expected}),/SOURCE_FACTORS_CHANGED/u);
+    assert.equal(writes,0);assert.equal(audits,0);
+  }
 });
 
 test("actual global audit interceptor respects both insurance controllers on success and failure", async () => {

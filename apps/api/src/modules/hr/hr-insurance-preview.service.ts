@@ -1,11 +1,13 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { createHash } from "node:crypto";
+import { isUUID } from "class-validator";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { CreateHrInsuranceReferencePreviewDto, HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
-import { calculateInsurancePreview, HR_INSURANCE_KINDS, type InsuranceCalculationItem } from "./hr-insurance-calculation";
+import { calculateInsurancePreview, HR_INSURANCE_KINDS, normalizeInsurancePolicyFactors, type InsuranceCalculationItem } from "./hr-insurance-calculation";
+import { HR_INSURANCE_SOURCE_FACTOR_COLUMNS, insuranceSourceFactorItems, insuranceSourceFactorsHash, type InsuranceSourceFactor } from "./hr-insurance-policy-source";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 interface PolicyRow { id: string; policy_code: string; policy_name: string | null; version: number; status: string; }
@@ -36,6 +38,38 @@ export class HrInsurancePreviewService {
       ORDER BY p.policy_code,p.id LIMIT $4 OFFSET $5`, [...params, query.page_size, (query.page - 1) * query.page_size]);
     await recordHrSensitiveRead(this.audit, scope, actor, { resource: "hr.insurance_policy", action: "读取社保参考政策目录", bizType: "hr_insurance_policy", path: "/hr/insurance/policies", fieldGroups: ["insurance"], projection: "metadata", itemCount: rows.length });
     return { items: rows.map(p => ({ id: p.id, code: p.policy_code, name: p.policy_name, version: p.version, status: p.status, availableVariants: p.variants })), total: counts[0]?.total ?? 0, page: query.page, page_size: query.page_size, insuranceKinds: [...HR_INSURANCE_KINDS] };
+  }
+
+  async policyDefinition(scope: TenantParkScope, actor: JwtPrincipal, id: string, expectedVersion: number) {
+    this.assertAuthority(actor);
+    if (!isUUID(id) || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 || expectedVersion > 2147483647) throw new BadRequestException("HR_INSURANCE_POLICY_DEFINITION_INPUT_INVALID");
+    const result = await this.db.transaction("REPEATABLE READ", async manager => {
+      await manager.query("SET TRANSACTION READ ONLY");
+      await manager.query("SET LOCAL lock_timeout='2s'");
+      await manager.query("SET LOCAL statement_timeout='15s'");
+      const parents: Array<PolicyRow & { scope_description: string | null }> = await manager.query(
+        "SELECT id,policy_code,policy_name,version,status,scope_description FROM hr_insurance_policy WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false", [id, scope.tenantId, scope.parkId]);
+      if (parents.length !== 1) throw new NotFoundException("HR_INSURANCE_PREVIEW_SOURCE_NOT_FOUND");
+      const parent = parents[0]!;
+      if (parent.version !== expectedVersion) throw new ConflictException("HR_INSURANCE_POLICY_DEFINITION_SOURCE_CHANGED");
+      const variants = [];
+      for (const variantNo of [1, 2]) {
+        const rows: InsuranceSourceFactor[] = await manager.query(
+          `SELECT ${HR_INSURANCE_SOURCE_FACTOR_COLUMNS} FROM hr_insurance_policy_item WHERE policy_id=$1 AND tenant_id=$2 AND park_id=$3 AND variant_no=$4 AND is_deleted=false ORDER BY insurance_kind,id`, [id, scope.tenantId, scope.parkId, variantNo]);
+        if (!rows.length) continue;
+        const items = insuranceSourceFactorItems(rows);
+        let copyEligible = true;
+        try { normalizeInsurancePolicyFactors(items); } catch (error) {
+          if (!(error instanceof BadRequestException)) throw error;
+          copyEligible = false;
+        }
+        variants.push({ variantNo, items, copyEligible, factorsHash: insuranceSourceFactorsHash(rows) });
+      }
+      return { id: parent.id, code: parent.policy_code, name: parent.policy_name, version: parent.version, status: parent.status,
+        scopeDescription: parent.scope_description, variants, mode: "historical_definition" as const, activated: false as const };
+    });
+    await recordHrSensitiveRead(this.audit, scope, actor, { resource: "hr.insurance_policy", action: "读取历史社保政策定义", bizType: "hr_insurance_policy", bizId: id, path: `/hr/insurance/policies/${id}`, fieldGroups: ["insurance"], projection: "full", itemCount: result.variants.reduce((n,v) => n+v.items.length,0) });
+    return result;
   }
 
   async referencePreview(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateHrInsuranceReferencePreviewDto) {

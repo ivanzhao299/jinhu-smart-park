@@ -31,3 +31,9 @@ it("durable policy save transports the caller's stable business request and HTTP
   const signal=new AbortController().signal;await hrApi.createInsurancePolicyVersion(body,"synthetic-token","stable-retry-key",signal);
   expect(apiRequest).toHaveBeenCalledWith("/hr/insurance/policy-versions",{method:"POST",body,token:"synthetic-token",signal,idempotencyKey:"stable-retry-key"});expect(createIdempotencyKey).not.toHaveBeenCalled();
 });
+it("historical definition GET carries the observed parent version and cancellation without a write key",async()=>{
+  const signal=new AbortController().signal;
+  await hrApi.insuranceSourcePolicyDefinition("synthetic/source",7,"synthetic-token",signal);
+  expect(apiRequest).toHaveBeenCalledWith("/hr/insurance/policies/synthetic%2Fsource?expected_version=7",{token:"synthetic-token",signal});
+  expect(createIdempotencyKey).not.toHaveBeenCalled();
+});

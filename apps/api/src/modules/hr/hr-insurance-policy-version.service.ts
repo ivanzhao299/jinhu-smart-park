@@ -10,6 +10,7 @@ import { AuditService } from "../audit/audit.service";
 import { CreateHrInsurancePolicyVersionDto } from "./dto/hr-insurance-policy-version.dto";
 import { HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { HR_INSURANCE_ENGINE_VERSION, normalizeInsurancePolicyFactors } from "./hr-insurance-calculation";
+import { HR_INSURANCE_SOURCE_FACTOR_COLUMNS, insuranceSourceFactorItems, insuranceSourceFactorsHash, type InsuranceSourceFactor } from "./hr-insurance-policy-source";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 interface VersionRow {
@@ -17,11 +18,6 @@ interface VersionRow {
   policy_code: string; policy_name: string; variant_no: number; version_no: number;
   effective_from: string; effective_through: string; definition_sha256: string;
   created_at: Date; definition?: Record<string, unknown>;
-}
-interface SourceFactor {
-  id: string; version: number; insurance_kind: Parameters<typeof normalizeInsurancePolicyFactors>[0][number]["insuranceKind"];
-  base_rate: string | null; employer_rate: string | null; employee_rate: string | null; supplement_rate: string | null;
-  base_fixed_amount: string | null; employer_fixed_amount: string | null; employee_fixed_amount: string | null; supplement_fixed_amount: string | null;
 }
 const columns = "id,request_sha256,created_by,policy_code,policy_name,variant_no,version_no,to_char(effective_from,'YYYY-MM') AS effective_from,to_char(effective_through,'YYYY-MM') AS effective_through,definition_sha256,created_at";
 const sha = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -47,11 +43,11 @@ export class HrInsurancePolicyVersionService {
     dto = plainToInstance(CreateHrInsurancePolicyVersionDto, dto);
     if ((await validate(dto)).length || dto.effectiveFrom > dto.effectiveThrough || !dto.policyName.trim() || !dto.reason.trim()) throw new BadRequestException("HR_INSURANCE_POLICY_VERSION_INPUT_INVALID");
     const fromSource = dto.sourcePolicyId !== undefined;
-    if (fromSource ? !dto.sourcePolicyId || !dto.expectedSourceVersion || dto.items !== undefined : dto.expectedSourceVersion !== undefined || !dto.items) throw new BadRequestException("HR_INSURANCE_POLICY_VERSION_ONE_ORIGIN_REQUIRED");
+    if (fromSource ? !dto.sourcePolicyId || !dto.expectedSourceVersion || dto.items !== undefined : dto.expectedSourceVersion !== undefined || !dto.items || dto.expectedSourceFactorsHash !== undefined) throw new BadRequestException("HR_INSURANCE_POLICY_VERSION_ONE_ORIGIN_REQUIRED");
     const manualItems = fromSource ? null : normalizeInsurancePolicyFactors(dto.items!);
     const request = { tenantId: scope.tenantId, parkId: scope.parkId, createdBy: actor.sub, policyCode: dto.policyCode,
       policyName: dto.policyName.trim(), variantNo: dto.variantNo, effectiveFrom: dto.effectiveFrom, effectiveThrough: dto.effectiveThrough,
-      reason: dto.reason.trim(), sourcePolicyId: dto.sourcePolicyId ?? null, expectedSourceVersion: dto.expectedSourceVersion ?? null, items: manualItems };
+      reason: dto.reason.trim(), sourcePolicyId: dto.sourcePolicyId ?? null, expectedSourceVersion: dto.expectedSourceVersion ?? null, ...(dto.expectedSourceFactorsHash === undefined ? {} : {expectedSourceFactorsHash:dto.expectedSourceFactorsHash}), items: manualItems };
     const requestHash = sha(request);
     try {
       return await this.db.transaction("READ COMMITTED", async manager => {
@@ -74,12 +70,11 @@ export class HrInsurancePolicyVersionService {
           const parents: Array<{ id: string; version: number }> = await manager.query("SELECT id,version FROM hr_insurance_policy WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE", [dto.sourcePolicyId, scope.tenantId, scope.parkId]);
           if (parents.length !== 1) throw new NotFoundException("HR_INSURANCE_POLICY_VERSION_SOURCE_NOT_FOUND");
           if (parents[0]!.version !== dto.expectedSourceVersion) throw new ConflictException("HR_INSURANCE_POLICY_VERSION_SOURCE_CHANGED");
-          const factors: SourceFactor[] = await manager.query("SELECT id,version,insurance_kind,base_rate,employer_rate,employee_rate,supplement_rate,base_fixed_amount,employer_fixed_amount,employee_fixed_amount,supplement_fixed_amount FROM hr_insurance_policy_item WHERE policy_id=$1 AND tenant_id=$2 AND park_id=$3 AND variant_no=$4 AND is_deleted=false ORDER BY insurance_kind,id FOR SHARE", [dto.sourcePolicyId, scope.tenantId, scope.parkId, dto.variantNo]);
-          items = normalizeInsurancePolicyFactors(factors.map(f => ({ insuranceKind: f.insurance_kind, factors: {
-            base: { rate: f.base_rate, fixedAmount: f.base_fixed_amount }, employer: { rate: f.employer_rate, fixedAmount: f.employer_fixed_amount },
-            employee: { rate: f.employee_rate, fixedAmount: f.employee_fixed_amount }, supplement: { rate: f.supplement_rate, fixedAmount: f.supplement_fixed_amount },
-          } })));
-          origin = { kind: "imported_reference", policyId: dto.sourcePolicyId, policyVersion: dto.expectedSourceVersion, variantNo: dto.variantNo, factorsHash: sha(factors) };
+          const factors: InsuranceSourceFactor[] = await manager.query(`SELECT ${HR_INSURANCE_SOURCE_FACTOR_COLUMNS} FROM hr_insurance_policy_item WHERE policy_id=$1 AND tenant_id=$2 AND park_id=$3 AND variant_no=$4 AND is_deleted=false ORDER BY insurance_kind,id FOR SHARE`, [dto.sourcePolicyId, scope.tenantId, scope.parkId, dto.variantNo]);
+          const factorsHash = insuranceSourceFactorsHash(factors);
+          if (dto.expectedSourceFactorsHash !== undefined && dto.expectedSourceFactorsHash !== factorsHash) throw new ConflictException("HR_INSURANCE_POLICY_VERSION_SOURCE_FACTORS_CHANGED");
+          items = normalizeInsurancePolicyFactors(insuranceSourceFactorItems(factors));
+          origin = { kind: "imported_reference", policyId: dto.sourcePolicyId, policyVersion: dto.expectedSourceVersion, variantNo: dto.variantNo, factorsHash };
         }
         const versionNo = (await manager.query("SELECT coalesce(max(version_no),0)+1 AS next FROM hr_insurance_policy_version WHERE tenant_id=$1 AND park_id=$2 AND policy_code=$3 AND variant_no=$4", [scope.tenantId, scope.parkId, dto.policyCode, dto.variantNo]))[0].next as number;
         const definition = { formatVersion: 1, engineVersion: HR_INSURANCE_ENGINE_VERSION, tenantId: scope.tenantId, parkId: scope.parkId,

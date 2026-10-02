@@ -10,6 +10,7 @@ import { LoginLogEntity } from "../audit/entities/login-log.entity";
 import { OpLogEntity } from "../audit/entities/op-log.entity";
 import { HR_INSURANCE_KINDS } from "./hr-insurance-calculation";
 import { HrInsurancePolicyVersionService } from "./hr-insurance-policy-version.service";
+import { HrInsurancePreviewService } from "./hr-insurance-preview.service";
 import type { CreateHrInsurancePolicyVersionDto } from "./dto/hr-insurance-policy-version.dto";
 
 const enabled=process.env.HR_INSURANCE_POLICY_VERSION_PG==="1";
@@ -104,4 +105,41 @@ test("full-schema source parent lock blocks child insert phantoms until definiti
   }
   const result=await pending;assert.equal((await db.query("SELECT count(*)::int n FROM hr_insurance_policy_item WHERE policy_id=$1",[policyId]))[0].n,6);
   assert.equal((await db.query("SELECT count(*)::int n FROM sys_op_log WHERE biz_id=$1 AND method='POST'",[result.id]))[0].n,1);
+});
+
+test("full-schema displayed source hash binds copying, rejects factor drift and preserves durable retries",{skip:!enabled},async()=>{
+  const policyId=randomUUID();
+  await db.query("INSERT INTO hr_insurance_policy(id,tenant_id,park_id,policy_code,policy_name,scope_description) VALUES($1,$2,$3,$4,'合成展示政策','原部门范围')",[policyId,scope.tenantId,scope.parkId,`DISPLAY_${policyId.slice(0,8)}`]);
+  for(const kind of HR_INSURANCE_KINDS)await db.query("INSERT INTO hr_insurance_policy_item(tenant_id,park_id,policy_id,insurance_kind,variant_no,base_rate,employer_rate,employee_rate,supplement_rate,employer_fixed_amount) VALUES($1,$2,$3,$4,1,0.1,0.2,0.08,0,-1.250)",[scope.tenantId,scope.parkId,policyId,kind]);
+  const audit=new AuditService(db.getRepository(LoginLogEntity),db.getRepository(OpLogEntity));
+  const preview=new HrInsurancePreviewService(db,audit);
+  const reader={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_EMPLOYEE_READ]};
+  const before=(await db.query("SELECT md5(string_agg(row_to_json(i)::text,'|' ORDER BY i.id)) AS hash FROM hr_insurance_policy_item i WHERE policy_id=$1",[policyId]))[0].hash;
+  const observed=await preview.policyDefinition(scope,reader,policyId,1);
+  assert.equal(observed.scopeDescription,"原部门范围");assert.equal(observed.activated,false);
+  assert.equal(observed.variants.length,1);assert.equal(observed.variants[0]!.copyEligible,true);
+  assert.equal(observed.variants[0]!.items[0]!.factors.base.fixedAmount,null);
+  assert.equal(observed.variants[0]!.items[0]!.factors.employer.fixedAmount,"-1.250");
+  assert.equal((await db.query("SELECT md5(string_agg(row_to_json(i)::text,'|' ORDER BY i.id)) AS hash FROM hr_insurance_policy_item i WHERE policy_id=$1",[policyId]))[0].hash,before);
+  const dto={...request(),items:undefined,sourcePolicyId:policyId,expectedSourceVersion:1,expectedSourceFactorsHash:observed.variants[0]!.factorsHash};
+  const saved=await service.create(scope,actor,dto);
+  assert.equal((await db.query("SELECT definition->'origin'->>'factorsHash' AS hash FROM hr_insurance_policy_version WHERE id=$1",[saved.id]))[0].hash,dto.expectedSourceFactorsHash);
+  await db.query("UPDATE hr_insurance_policy_item SET employee_rate=0.09 WHERE policy_id=$1 AND insurance_kind='oldage'",[policyId]);
+  const changedRequest={...dto,requestId:randomUUID()};
+  await assert.rejects(service.create(scope,actor,changedRequest),/SOURCE_FACTORS_CHANGED/u);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_insurance_policy_version WHERE request_id=$1",[changedRequest.requestId]))[0].n,0);
+  assert.equal((await service.create(scope,actor,dto)).id,saved.id);
+  const refreshed=await preview.policyDefinition(scope,reader,policyId,1);
+  assert.notEqual(refreshed.variants[0]!.factorsHash,dto.expectedSourceFactorsHash);
+  assert.equal((await service.create(scope,actor,{...changedRequest,expectedSourceFactorsHash:refreshed.variants[0]!.factorsHash})).versionNo,2);
+  await db.query("UPDATE hr_insurance_policy_item SET employee_rate=NULL WHERE policy_id=$1 AND insurance_kind='oldage'",[policyId]);
+  const incomplete=await preview.policyDefinition(scope,reader,policyId,1);
+  assert.equal(incomplete.variants[0]!.copyEligible,false);
+  assert.equal(incomplete.variants[0]!.items.find(i=>i.insuranceKind==='oldage')!.factors.employee.rate,null);
+  await assert.rejects(preview.policyDefinition({...scope,parkId:'foreign'},reader,policyId,1),/SOURCE_NOT_FOUND/u);
+  await assert.rejects(preview.policyDefinition(scope,reader,policyId,2),/SOURCE_CHANGED/u);
+  await db.query("CREATE FUNCTION insurance_definition_fixture_audit_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.resource='hr.insurance_policy' AND NEW.method='GET' THEN RAISE EXCEPTION 'synthetic definition audit failure'; END IF; RETURN NEW; END $$");
+  await db.query("CREATE TRIGGER insurance_definition_fixture_audit_fail BEFORE INSERT ON sys_op_log FOR EACH ROW EXECUTE FUNCTION insurance_definition_fixture_audit_fail()");
+  try{await assert.rejects(preview.policyDefinition(scope,reader,policyId,1),/synthetic definition audit failure/u);}
+  finally{await db.query("DROP TRIGGER insurance_definition_fixture_audit_fail ON sys_op_log");await db.query("DROP FUNCTION insurance_definition_fixture_audit_fail()");}
 });

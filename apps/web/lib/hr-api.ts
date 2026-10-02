@@ -208,9 +208,13 @@ export interface HrInsurancePolicyVersion {
  definitionHash:string;createdAt:string;mode:"immutable_definition";activated:false;
 }
 export interface HrInsurancePolicyVersionDetail extends HrInsurancePolicyVersion {engineVersion:string;items:HrInsurancePolicyFactorItem[];reason:string;originKind:"manual"|"imported_reference";}
+export interface HrInsuranceSourcePolicyDetail {
+ id:string;code:string;name:string|null;version:number;status:string;scopeDescription:string|null;mode:"historical_definition";activated:false;
+ variants:Array<{variantNo:number;copyEligible:boolean;factorsHash:string;items:Array<{insuranceKind:string;factors:Record<HrInsurancePolicyComponent,{rate:string|null;fixedAmount:string|null}>}>}>;
+}
 export interface HrInsurancePolicyVersionRequest {
  requestId:string;policyCode:string;policyName:string;variantNo:number;effectiveFrom:string;effectiveThrough:string;reason:string;
- sourcePolicyId?:string;expectedSourceVersion?:number;items?:HrInsurancePolicyFactorItem[];
+ sourcePolicyId?:string;expectedSourceVersion?:number;expectedSourceFactorsHash?:string;items?:HrInsurancePolicyFactorItem[];
 }
 export interface HrInsuranceReferenceRequest {
  policyId:string; expectedPolicyVersion:number; variantNo:number; employeeId:string;
@@ -224,6 +228,7 @@ export interface HrInsuranceReferenceResult {
 }
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ insuranceSourcePolicyDefinition:(id:string,expectedVersion:number,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceSourcePolicyDetail>(`/hr/insurance/policies/${encodeURIComponent(id)}?${new URLSearchParams({expected_version:String(expectedVersion)})}`,{token,signal})),
  insurancePolicyVersions:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsurancePolicyVersion>>(`/hr/insurance/policy-versions?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
  insurancePolicyVersion:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersionDetail>(`/hr/insurance/policy-versions/${encodeURIComponent(id)}`,{token,signal})),
  createInsurancePolicyVersion:(body:HrInsurancePolicyVersionRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersion&{replayed:boolean}>("/hr/insurance/policy-versions",{method:"POST",body,token,signal,idempotencyKey})),
