@@ -1,6 +1,6 @@
 {
   "status": "READ_ONLY_ADMIN_BROWSER_QUERY_VERIFIED",
-  "observedAt": "2026-10-02T11:52:30.590313+00:00",
+  "observedAt": "2026-10-02T11:56:17.528609+00:00",
   "origin": "https://park.cnjinhu.com",
   "selectedPark": "JH",
   "role": "super administrator",
@@ -34,5 +34,16 @@
     "admin query proof cannot substitute HR manager employee role negative tests",
     "no payroll generation publication or disbursement",
     "deployment776 still in progress at observation"
-  ]
+  ],
+  "contracts": {
+    "total": 798,
+    "pageSize": 50,
+    "pages": 16,
+    "workflowActionsAccepted": false
+  },
+  "legacySafeProjections": {
+    "total": 16211,
+    "pages": 811,
+    "note": "visible compatibility projections; different denominator from all T5 source rows and projection receipts"
+  }
 }
