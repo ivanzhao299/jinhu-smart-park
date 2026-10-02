@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - uses: actions/setup-node@v4
@@ -39,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           node -e 'const os=require("node:os");console.log(JSON.stringify({node:process.version,platform:process.platform,availableParallelism:os.availableParallelism(),sourceCommit:process.env.GITHUB_SHA}))'
-          find src -type f -name '*.spec.ts' -exec node --test --test-force-exit --test-timeout=120000 --test-concurrency=2 --test-reporter=tap --require ts-node/register {} + 2>&1 | tee "$RUNNER_TEMP/api-unit-diagnostic.log"
+          pnpm test:unit 2>&1 | tee "$RUNNER_TEMP/api-unit-diagnostic.log"
       - name: Retain diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
