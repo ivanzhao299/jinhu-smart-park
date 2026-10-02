@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Modern insurance preview arithmetic: [Insurance Calculation](./hr-insurance-calculation.md).
+
 Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-context-writes.md).
 
 Protected tenant SUPER_ADMIN context evaluation: [Tenant Super Control Plane](./tenant-super-control-plane.md).
