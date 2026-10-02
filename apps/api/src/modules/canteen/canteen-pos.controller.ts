@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseInterceptors
 } from "@nestjs/common";
 import { CANTEEN_PERMISSIONS } from "@jinhu/shared";
@@ -15,7 +16,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { CheckoutQrDto, CheckoutSubsidyDto, CloseSessionDto, LookupEmployeeDto, OpenSessionDto } from "./dto/canteen.dto";
+import { CheckoutQrDto, CheckoutSubsidyDto, CloseSessionDto, LookupEmployeeDto, OpenSessionDto, SessionListQueryDto } from "./dto/canteen.dto";
 import { CanteenCheckoutService } from "./canteen-checkout.service";
 import { CanteenSessionService } from "./canteen-session.service";
 import { CanteenSubsidyService } from "./canteen-subsidy.service";
@@ -29,6 +30,12 @@ export class CanteenPosController {
   ) {}
 
   /* ---------------- 收银班次 ---------------- */
+
+  @Get("sessions")
+  @RequirePermissions(CANTEEN_PERMISSIONS.SESSION_VIEW)
+  listSessions(@CurrentScope() scope: TenantParkScope, @Query() query: SessionListQueryDto) {
+    return this.sessions.list(scope, query);
+  }
 
   @Post("sessions/open")
   @UseInterceptors(new IdempotencyInterceptor())

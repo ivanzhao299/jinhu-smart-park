@@ -123,6 +123,17 @@ export class OrderQueryDto {
   @IsOptional() @IsString() contractor_id?: string;
 }
 
+/* ----------------------------- Session list ----------------------------- */
+
+export class SessionListQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page_size?: number = 20;
+  @IsOptional() @IsUUID() outlet_id?: string;
+  // YYYY-MM-DD：按开班自然日过滤 open_time。
+  @IsOptional() @IsString() business_date?: string;
+  @IsOptional() @IsIn(["open", "closed"]) status?: string;
+}
+
 /* ----------------------------- M2 补贴钱包 ----------------------------- */
 
 export class CheckoutSubsidyDto {

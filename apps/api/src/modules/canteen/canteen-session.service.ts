@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import { DataSource, Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import type { OpenSessionDto } from "./dto/canteen.dto";
+import type { OpenSessionDto, SessionListQueryDto } from "./dto/canteen.dto";
 import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
 import { CanteenOrderEntity } from "./entities/canteen-order.entity";
 import { CanteenNumberService } from "./canteen-number.service";
@@ -74,6 +74,30 @@ export class CanteenSessionService {
       order: { openTime: "DESC" }
     });
     return session ?? null;
+  }
+
+  /** 管理端班次/日结列表：分页 + outlet_id / business_date / status 筛选。 */
+  async list(scope: TenantParkScope, query: SessionListQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.page_size ?? 20;
+    const qb = this.sessionRepo
+      .createQueryBuilder("s")
+      .where("s.tenant_id = :t AND s.park_id = :p AND s.is_deleted = false", {
+        t: scope.tenantId,
+        p: scope.parkId
+      });
+    if (query.outlet_id) qb.andWhere("s.outlet_id = :outletId", { outletId: query.outlet_id });
+    if (query.status) qb.andWhere("s.status = :status", { status: query.status });
+    if (query.business_date) {
+      const dayStart = new Date(`${query.business_date}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      if (!Number.isNaN(dayStart.getTime())) {
+        qb.andWhere("s.open_time >= :dayStart AND s.open_time < :dayEnd", { dayStart, dayEnd });
+      }
+    }
+    qb.orderBy("s.open_time", "DESC").skip((page - 1) * pageSize).take(pageSize);
+    const [list, total] = await qb.getManyAndCount();
+    return { list, total, page, pageSize };
   }
 
   async close(scope: TenantParkScope, actor: JwtPrincipal, id: string, remark?: string) {
