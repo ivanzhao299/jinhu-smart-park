@@ -432,6 +432,22 @@
   align-items: end;
 }
 
+.sourcePreparation {
+  display: grid;
+  gap: 18px;
+}
+
+.sourcePreparation > p {
+  margin: 0;
+}
+
+.sourceConfirmation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
 .fullWidth {
   grid-column: 1 / -1;
 }

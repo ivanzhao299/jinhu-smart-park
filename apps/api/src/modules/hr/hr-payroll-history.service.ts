@@ -13,6 +13,7 @@ import {
 import {
   DataSource,
   QueryFailedError,
+  type EntityManager,
   type ObjectLiteral,
   type SelectQueryBuilder,
 } from "typeorm";
@@ -21,6 +22,7 @@ import { AuditService } from "../audit/audit.service";
 import type {
   CreateHrPayrollReconciliationDto,
   CreateHrPayrollReconciliationSourceDto,
+  HrPayrollReconciliationSourcePreviewDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -498,6 +500,31 @@ export class HrPayrollHistoryService {
       `SELECT batch.id,batch.batch_no AS "batchNo",period.period_month AS "periodMonth",batch.batch_type AS "batchType" FROM hr_attendance_payroll_input_batch batch JOIN hr_attendance_period period ON period.id=batch.period_id AND period.tenant_id=batch.tenant_id AND period.park_id=batch.park_id WHERE batch.tenant_id=$1 AND batch.park_id=$2 AND batch.status='effective' AND batch.is_deleted=false AND period.status='closed' AND period.is_deleted=false ORDER BY period.period_month DESC,batch.batch_no DESC LIMIT 100`,
       [scope.tenantId, scope.parkId],
     )) as RawRow[];
+    const sourceBatches = this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW) ? (await this.dataSource.query(
+      `SELECT b.id,b.create_time AS "createdAt",b.loaded_row_count AS "recordCount"
+       FROM hr_payroll_legacy_batch b JOIN hr_yuzhou_t4_followon_operation receipt
+         ON receipt.operation_id=b.batch_code AND receipt.status='succeeded'
+       JOIN migration_batch control ON control.run_id=receipt.operation_id
+         AND control.t4_followon_operation_id=receipt.operation_id AND control.status='succeeded'
+         AND control.target_database=current_database()
+       WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.status='staged' AND b.is_deleted=false
+         AND receipt.binding->'targetScope'->>'tenantId'=b.tenant_id
+         AND receipt.binding->'targetScope'->>'parkId'=b.park_id
+       ORDER BY b.create_time DESC,b.id DESC LIMIT 100`, [scope.tenantId,scope.parkId],
+    )) as RawRow[] : [];
+    const frozenSources = (await this.dataSource.query(
+      `SELECT source.id,source.legacy_batch_id AS "legacyBatchId",source.book_id AS "bookId",
+         book.book_name AS "bookName",source.period_month AS "periodMonth",
+         source.snapshot_count AS "snapshotCount",source.item_count AS "itemCount"
+       FROM hr_payroll_reconciliation_source source
+       JOIN hr_payroll_book book ON book.id=source.book_id AND book.tenant_id=source.tenant_id AND book.park_id=source.park_id
+       JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
+         AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
+       JOIN migration_batch control ON control.run_id=source.operation_id AND control.status='succeeded'
+         AND control.t4_followon_operation_id=source.operation_id AND control.target_database=current_database()
+       WHERE source.tenant_id=$1 AND source.park_id=$2 ORDER BY source.created_at DESC,source.id DESC LIMIT 100`,
+      [scope.tenantId,scope.parkId],
+    )) as RawRow[];
     await this.audit(scope, actor, {
       resource: "hr.payroll_reconciliation_setup",
       action: "读取工资双轨候选",
@@ -510,9 +537,55 @@ export class HrPayrollHistoryService {
         books.length +
         netItems.length +
         legacyBatches.length +
-        attendanceBatches.length,
+        attendanceBatches.length + sourceBatches.length + frozenSources.length,
     });
-    return { books, netItems, legacyBatches, attendanceBatches };
+    return { books, netItems, legacyBatches, attendanceBatches, sourceBatches, frozenSources };
+  }
+
+  private async sourceTransaction<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
+    try {
+      return await this.dataSource.transaction("READ COMMITTED", async (manager) => {
+        await manager.query("SET LOCAL statement_timeout='15s'");
+        await manager.query("SET LOCAL lock_timeout='2s'");
+        return work(manager);
+      });
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        const code = (error.driverError as { code?: string }).code;
+        if (code && ["P0001", "55P03", "57014", "40P01", "40001"].includes(code))
+          throw new ConflictException("历史来源发生变化或暂时忙碌，请重新核对月份并预览后再试");
+      }
+      throw error;
+    }
+  }
+
+  async previewReconciliationSource(scope: TenantParkScope, actor: JwtPrincipal, dto: HrPayrollReconciliationSourcePreviewDto) {
+    if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW))
+      throw new ForbiddenException("Payroll reconciliation review permission is required");
+    return this.sourceTransaction(async (manager) => {
+      const rows = (await manager.query(
+        `WITH candidate AS MATERIALIZED (
+          SELECT hr_build_payroll_reconciliation_source($1,$2,$3,$4,$5::date) AS payload
+        ) SELECT payload->>'legacyBatchId' AS "legacyBatchId",payload->>'bookId' AS "bookId",
+          payload->>'periodMonth' AS "periodMonth",payload->>'bindingSha256' AS "bindingSha256",
+          encode(digest(payload::text,'sha256'),'hex') AS "sourceSha256",
+          jsonb_array_length(payload->'snapshots') AS "snapshotCount",
+          jsonb_array_length(payload->'items') AS "itemCount",
+          (SELECT count(DISTINCT x->>'employee_id')::int FROM jsonb_array_elements(payload->'snapshots') x) AS "employeeCount"
+          FROM candidate`,
+        [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth],
+      )) as Array<{legacyBatchId:string;bookId:string;periodMonth:string;bindingSha256:string;sourceSha256:string;snapshotCount:number;itemCount:number;employeeCount:number}>;
+      const preview = rows[0]!;
+      await this.auditService.recordOperationRequired({
+        tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub, username: actor.username,
+        roleCodes: actor.roles, module: "人力资源管理", resource: "hr.payroll_reconciliation_source",
+        action: "预览工资双轨历史来源", bizType: "hr_payroll_legacy_batch", bizId: dto.legacyBatchId,
+        beforeJson: null, afterJson: { snapshotCount: preview.snapshotCount, itemCount: preview.itemCount },
+        method: "GET", path: "/hr/payroll/reconciliation-sources/preview", success: true,
+        result: "success", requestId: null,
+      }, manager);
+      return preview;
+    });
   }
 
   async createReconciliationSource(
@@ -522,10 +595,7 @@ export class HrPayrollHistoryService {
   ) {
     if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW))
       throw new ForbiddenException("Payroll reconciliation review permission is required");
-    try {
-      return await this.dataSource.transaction("READ COMMITTED", async (manager) => {
-        await manager.query("SET LOCAL statement_timeout='15s'");
-        await manager.query("SET LOCAL lock_timeout='2s'");
+      return this.sourceTransaction(async (manager) => {
         const rows = (await manager.query(
           "SELECT hr_freeze_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11) AS id",
           [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth,
@@ -545,14 +615,6 @@ export class HrPayrollHistoryService {
           bookId: dto.bookId, periodMonth: dto.periodMonth, sourceSha256: dto.sourceSha256,
           snapshotCount: dto.snapshotCount, itemCount: dto.itemCount };
       });
-    } catch (error) {
-      if (error instanceof QueryFailedError) {
-        const code = (error.driverError as { code?: string }).code;
-        if (code && ["P0001", "55P03", "57014", "40P01", "40001"].includes(code))
-          throw new ConflictException("Payroll source evidence changed or is busy; revalidate the selected source");
-      }
-      throw error;
-    }
   }
 
   async createReconciliationPolicy(

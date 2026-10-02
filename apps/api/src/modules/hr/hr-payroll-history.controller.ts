@@ -22,6 +22,7 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrPayrollReconciliationDto,
   CreateHrPayrollReconciliationSourceDto,
+  HrPayrollReconciliationSourcePreviewDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -140,6 +141,16 @@ export class HrPayrollHistoryController {
     @CurrentUser() actor: JwtPrincipal,
   ) {
     return this.service.reconciliationSetup(scope, actor);
+  }
+
+  @Get("reconciliation-sources/preview")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)
+  previewReconciliationSource(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPayrollReconciliationSourcePreviewDto,
+  ) {
+    return this.service.previewReconciliationSource(scope, actor, query);
   }
 
   @Post("reconciliation-sources")

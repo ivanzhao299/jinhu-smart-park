@@ -34,6 +34,21 @@ test("ordinary employee and calculate-only actors cannot freeze history",async()
   const f=fixture();await assert.rejects(()=>f.service.createReconciliationSource(scope,{...actor,permissions},dto),ForbiddenException);assert.equal(f.transactions,0);
  }
 });
+test("preview requires review permission before reading history",async()=>{
+ const f=fixture(); await assert.rejects(()=>f.service.previewReconciliationSource(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},dto),ForbiddenException); assert.equal(f.transactions,0);
+});
+test("preview returns only scoped metadata and keeps its audit in the read transaction",async()=>{
+ const metadata={legacyBatchId:dto.legacyBatchId,bookId:dto.bookId,periodMonth:dto.periodMonth,bindingSha256:dto.bindingSha256,sourceSha256:dto.sourceSha256,snapshotCount:1,itemCount:1,employeeCount:1};
+ const calls:Array<{sql:string;params?:unknown[]}>=[];
+ const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});return [metadata];}};
+ const db={transaction:async(isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>{assert.equal(isolation,"READ COMMITTED");return fn(manager);}};
+ const audit={recordOperationRequired:async(input:Record<string,unknown>,m:unknown)=>{assert.equal(m,manager);assert.equal(input.method,"GET");assert.deepEqual(input.afterJson,{snapshotCount:1,itemCount:1});}};
+ const service=new HrPayrollHistoryService(db as unknown as DataSource,audit as unknown as AuditService);
+ assert.deepEqual(await service.previewReconciliationSource(scope,actor,dto),metadata);
+ assert.match(calls[2]!.sql,/MATERIALIZED/);assert.match(calls[2]!.sql,/hr_build_payroll_reconciliation_source/);
+ assert.deepEqual(calls[2]!.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,dto.periodMonth]);
+ assert.equal(calls.some(call=>/INSERT|UPDATE|DELETE/.test(call.sql)),false);
+});
 test("reviewer uses scoped parameterized transaction, bounded waits and atomic metadata audit",async()=>{
  const f=fixture();const result=await f.service.createReconciliationSource(scope,actor,dto);
  assert.match(f.calls[0]!.sql,/statement_timeout='15s'/);assert.match(f.calls[1]!.sql,/lock_timeout='2s'/);

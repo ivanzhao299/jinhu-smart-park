@@ -37,32 +37,27 @@ CREATE TRIGGER trg_hr_payroll_reconciliation_source_immutable BEFORE UPDATE OR D
   EXECUTE FUNCTION hr_payroll_reconciliation_append_only_guard();
 REVOKE ALL ON hr_payroll_reconciliation_source FROM PUBLIC;
 
--- SECURITY INVOKER: a future permission-checked service owns the transaction.
--- SHARE table locks also exclude importer INSERTs and dedicated rollback DDL.
--- Use READ COMMITTED, so reads after waiting for these locks see committed input.
-CREATE FUNCTION hr_freeze_payroll_reconciliation_source(
+-- Shared locked reader for metadata preview and freezing. No domain writes.
+-- READ COMMITTED reads committed input after waiting for table SHARE locks.
+CREATE FUNCTION hr_build_payroll_reconciliation_source(
   p_tenant varchar, p_park varchar, p_batch uuid, p_book uuid, p_month date,
-  p_binding text, p_expected_source text, p_expected_snapshots integer,
-  p_expected_items integer, p_actor uuid, p_reason text
-) RETURNS uuid LANGUAGE plpgsql SET search_path=pg_catalog,public SET TimeZone='UTC' AS $$
+  p_binding text DEFAULT NULL, p_expected_snapshots integer DEFAULT NULL,
+  p_expected_items integer DEFAULT NULL
+) RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,public SET TimeZone='UTC' AS $$
 DECLARE
   receipt public.hr_yuzhou_t4_followon_operation%ROWTYPE;
   control_id uuid; legacy public.hr_payroll_legacy_batch%ROWTYPE;
-  snapshots jsonb; items jsonb; payload jsonb; actual_hash text; result_id uuid; actual_count bigint;
+  snapshots jsonb; items jsonb; payload jsonb; actual_count bigint;
 BEGIN
   IF current_setting('transaction_isolation')<>'read committed' THEN
     RAISE EXCEPTION 'RECONCILIATION_SOURCE_READ_COMMITTED_REQUIRED';
   END IF;
   IF p_tenant IS NULL OR btrim(p_tenant)='' OR p_park IS NULL OR btrim(p_park)=''
-    OR p_batch IS NULL OR p_book IS NULL OR p_actor IS NULL OR p_month IS NULL
-    OR extract(day FROM p_month)<>1 OR p_binding IS NULL OR p_binding !~ '^[0-9a-f]{64}$'
-    OR p_expected_source IS NULL OR p_expected_source !~ '^[0-9a-f]{64}$'
-    OR p_expected_snapshots IS NULL OR p_expected_snapshots NOT BETWEEN 1 AND 5000
-    OR p_expected_items IS NULL OR p_expected_items NOT BETWEEN 1 AND 200000 THEN
+    OR p_batch IS NULL OR p_book IS NULL OR p_month IS NULL OR extract(day FROM p_month)<>1
+    OR (p_binding IS NOT NULL AND p_binding !~ '^[0-9a-f]{64}$')
+    OR (p_expected_snapshots IS NOT NULL AND p_expected_snapshots NOT BETWEEN 1 AND 5000)
+    OR (p_expected_items IS NOT NULL AND p_expected_items NOT BETWEEN 1 AND 200000) THEN
     RAISE EXCEPTION 'RECONCILIATION_SOURCE_ARGUMENT_INVALID';
-  END IF;
-  IF p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
-    RAISE EXCEPTION 'RECONCILIATION_SOURCE_REASON_REQUIRED';
   END IF;
   SET LOCAL lock_timeout='2s';
   SET LOCAL statement_timeout='15s';
@@ -75,7 +70,7 @@ BEGIN
   END IF;
   SELECT * INTO receipt FROM public.hr_yuzhou_t4_followon_operation
     WHERE operation_id=legacy.batch_code FOR SHARE;
-  IF NOT FOUND OR receipt.status<>'succeeded' OR receipt.binding_sha256<>p_binding
+  IF NOT FOUND OR receipt.status<>'succeeded' OR (p_binding IS NOT NULL AND receipt.binding_sha256<>p_binding)
     OR receipt.binding->'targetScope'->>'tenantId' IS DISTINCT FROM p_tenant
     OR receipt.binding->'targetScope'->>'parkId' IS DISTINCT FROM p_park
     OR receipt.binding->'triple'->>'sourceSnapshotHash' IS DISTINCT FROM legacy.source_backup_hash::text THEN
@@ -91,7 +86,7 @@ BEGIN
     WHERE s.batch_id=p_batch AND s.tenant_id=p_tenant AND s.park_id=p_park
       AND p.book_id=p_book AND p.period_month=p_month AND NOT p.is_deleted AND NOT s.is_deleted
       AND s.mapping_status='mapped' AND s.employee_id IS NOT NULL;
-  IF actual_count<>p_expected_snapshots THEN
+  IF actual_count NOT BETWEEN 1 AND 5000 OR (p_expected_snapshots IS NOT NULL AND actual_count<>p_expected_snapshots) THEN
     RAISE EXCEPTION 'RECONCILIATION_SOURCE_SNAPSHOT_COUNT_DRIFT';
   END IF;
   SELECT COALESCE(jsonb_agg(to_jsonb(s) ORDER BY s.id),'[]'::jsonb) INTO snapshots
@@ -106,7 +101,7 @@ BEGIN
   SELECT count(*) INTO actual_count FROM public.hr_payroll_legacy_snapshot_item i
     WHERE i.tenant_id=p_tenant AND i.park_id=p_park AND NOT i.is_deleted
       AND i.snapshot_id IN (SELECT (x->>'id')::uuid FROM jsonb_array_elements(snapshots) x);
-  IF actual_count<>p_expected_items THEN
+  IF actual_count NOT BETWEEN 1 AND 200000 OR (p_expected_items IS NOT NULL AND actual_count<>p_expected_items) THEN
     RAISE EXCEPTION 'RECONCILIATION_SOURCE_ITEM_COUNT_DRIFT';
   END IF;
   SELECT COALESCE(jsonb_agg(to_jsonb(i) ORDER BY i.id),'[]'::jsonb) INTO items
@@ -126,12 +121,33 @@ BEGIN
   ) THEN RAISE EXCEPTION 'RECONCILIATION_SOURCE_OWNERSHIP_MISMATCH'; END IF;
   payload=jsonb_build_object('formatVersion',1,'tenantId',p_tenant,'parkId',p_park,
     'legacyBatchId',p_batch,'bookId',p_book,'periodMonth',p_month,
-    'operationId',receipt.operation_id,'bindingSha256',p_binding,'snapshots',snapshots,'items',items);
+    'operationId',receipt.operation_id,'bindingSha256',receipt.binding_sha256::text,'snapshots',snapshots,'items',items);
+  RETURN payload;
+END $$;
+REVOKE ALL ON FUNCTION hr_build_payroll_reconciliation_source(varchar,varchar,uuid,uuid,date,text,integer,integer) FROM PUBLIC;
+
+CREATE FUNCTION hr_freeze_payroll_reconciliation_source(
+  p_tenant varchar, p_park varchar, p_batch uuid, p_book uuid, p_month date,
+  p_binding text, p_expected_source text, p_expected_snapshots integer,
+  p_expected_items integer, p_actor uuid, p_reason text
+) RETURNS uuid LANGUAGE plpgsql SET search_path=pg_catalog,public SET TimeZone='UTC' AS $$
+DECLARE payload jsonb; actual_hash text; result_id uuid;
+BEGIN
+  IF p_actor IS NULL OR p_binding IS NULL OR p_binding !~ '^[0-9a-f]{64}$'
+    OR p_expected_source IS NULL OR p_expected_source !~ '^[0-9a-f]{64}$'
+    OR p_expected_snapshots IS NULL OR p_expected_items IS NULL THEN
+    RAISE EXCEPTION 'RECONCILIATION_SOURCE_ARGUMENT_INVALID';
+  END IF;
+  IF p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
+    RAISE EXCEPTION 'RECONCILIATION_SOURCE_REASON_REQUIRED';
+  END IF;
+  payload=public.hr_build_payroll_reconciliation_source(p_tenant,p_park,p_batch,p_book,p_month,
+    p_binding,p_expected_snapshots,p_expected_items);
   actual_hash=encode(public.digest(payload::text,'sha256'),'hex');
   IF actual_hash<>p_expected_source THEN RAISE EXCEPTION 'RECONCILIATION_SOURCE_CONTENT_DRIFT'; END IF;
   INSERT INTO public.hr_payroll_reconciliation_source(tenant_id,park_id,legacy_batch_id,book_id,
     period_month,operation_id,binding_sha256,source_sha256,snapshot_count,item_count,frozen_input,created_by,review_reason)
-    VALUES(p_tenant,p_park,p_batch,p_book,p_month,receipt.operation_id,p_binding,actual_hash,
+    VALUES(p_tenant,p_park,p_batch,p_book,p_month,payload->>'operationId',p_binding,actual_hash,
       p_expected_snapshots,p_expected_items,payload,p_actor,btrim(p_reason))
     ON CONFLICT(tenant_id,park_id,legacy_batch_id,book_id,period_month,source_sha256) DO NOTHING
     RETURNING id INTO result_id;

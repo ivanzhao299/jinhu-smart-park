@@ -46,7 +46,11 @@ SELECT encode(digest(jsonb_build_object('formatVersion',1,'tenantId','t','parkId
 'items',(SELECT jsonb_agg(to_jsonb(i) ORDER BY id) FROM hr_payroll_legacy_snapshot_item i))::text,'sha256'),'hex') $$;
 CREATE FUNCTION fixture_freeze(h text DEFAULT fixture_hash(),n integer DEFAULT 1) RETURNS uuid LANGUAGE sql AS $$
 SELECT hr_freeze_payroll_reconciliation_source('t','p','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000001','2026-07-01',repeat('a',64),h,1,n,'90000000-0000-0000-0000-000000000001','isolated test fixture') $$;
-DO $$ DECLARE a uuid; b uuid; BEGIN
+DO $$ DECLARE a uuid; b uuid; preview jsonb; BEGIN
+ preview=hr_build_payroll_reconciliation_source('t','p','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000001','2026-07-01');
+ IF encode(digest(preview::text,'sha256'),'hex')<>fixture_hash() THEN RAISE EXCEPTION 'preview hash differs from freeze'; END IF;
+ IF jsonb_array_length(preview->'snapshots')<>1 OR jsonb_array_length(preview->'items')<>1 THEN RAISE EXCEPTION 'preview counts differ'; END IF;
+ IF (SELECT count(*) FROM hr_payroll_reconciliation_source)<>0 THEN RAISE EXCEPTION 'preview wrote a source'; END IF;
  a=fixture_freeze(); b=fixture_freeze();
  IF a<>b OR (SELECT count(*) FROM hr_payroll_reconciliation_source)<>1 THEN RAISE EXCEPTION 'replay failed'; END IF;
  IF (SELECT status FROM hr_payroll_legacy_batch)<>'staged' THEN RAISE EXCEPTION 'publication changed'; END IF;
@@ -119,7 +123,7 @@ END $$;
 `);
   console.log('PASS: frozen JSONB numeric projection retains 4 decimals; cross-batch run binding rejected.');
   console.log('PASS: concurrent item append, receipt rollback and rollback DDL blocked; source unchanged.');
-  console.log('PASS: exact period, receipt, ownership, hashes, replay, decimal precision, immutable evidence and failed-source rollback (14 assertions).');
+  console.log('PASS: read-only preview hash/count equality; exact period, receipt, ownership, replay, precision, immutable evidence and failed-source rollback (17 assertions).');
 } finally {
   if(created) { sql(`DROP DATABASE ${database} WITH (FORCE);`, 'postgres');
     const remaining=sql(`SELECT count(*) FROM pg_database WHERE datname='${database}';`,'postgres');
