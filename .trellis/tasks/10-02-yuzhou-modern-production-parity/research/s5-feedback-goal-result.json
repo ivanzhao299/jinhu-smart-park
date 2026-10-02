@@ -1,0 +1,45 @@
+{
+  "status": "MODERN_DATABASE_GATES_PASS_LEGACY_AND_ROLE_ACCEPTANCE_PENDING",
+  "feedback360": {
+    "baselineSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "skipped": 0,
+    "reusedUnchangedAfterGoalTestOnlyFix": true
+  },
+  "goalReport": {
+    "status": "PASS",
+    "baselineSha": "75ca2e98f3d7c689072b5938012c1c2c88bf99db",
+    "target": "dedicated localhost disposable lab",
+    "productionWrite": false,
+    "tests": [
+      {
+        "topic": "goal-report",
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0
+      }
+    ],
+    "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+    "startedAt": "2026-10-02T12:17:59.679622+00:00",
+    "schemaPreparation": "ORIGINAL_MIGRATIONS_THROUGH_320_BEFORE_SYNTHETIC_FIXTURES_NO_CACHE",
+    "isolatedContainerAbsent": true,
+    "temporaryTestCredentialsRemoved": true,
+    "finishedAt": "2026-10-02T12:21:20.079319+00:00"
+  },
+  "firstGoalAttempt": {
+    "tests": 5,
+    "pass": 4,
+    "fail": 1,
+    "cause": "assertion expected immutable but migration268 physical delete guard is55000 deletion forbidden"
+  },
+  "candidateSha": "75ca2e98f3d7c689072b5938012c1c2c88bf99db",
+  "pullRequest": 777,
+  "applicationAndMigrationChanged": false,
+  "productionDeployed": false,
+  "productionWrites": false,
+  "legacyCreditsChanged": false,
+  "businessRoleAccepted": false
+}
