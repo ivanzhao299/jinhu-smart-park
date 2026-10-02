@@ -23,7 +23,7 @@
     {"stableId":"ROUTINE_LEDGER","path":"scripts/hr-cutover/contracts/legacy-routine-logic-ledger-v2.json","sha256":"30a387afe8b8682146e6af929b93ace4b768100b47b6eb1b4dcc64b61ec8385a"},
     {"stableId":"ROUTINE_BS_READFROMLEAVE","path":"scripts/hr-cutover/contracts/legacy-bs-readfromleave-parity-v1.json","sha256":"e70cc0bec2a6a80326691d8886633d6c4a8a8ed0e20f46ca22584b61c84fb19c"},
     {"stableId":"ROUTINE_U_ERRANDRECORDS","path":"scripts/hr-cutover/contracts/legacy-u-errandrecords-parity-v1.json","sha256":"a9096e32b3ff7c5c817c276f044e0114994bd632b51d50ff2ce605b400bc1e6e"},
-    {"stableId":"ROUTINE_U_INPUTBASEPAY","path":"scripts/hr-cutover/contracts/legacy-u-inputbasepay-parity-v1.json","sha256":"dd123bb65241854bfd42e62cc0552a6cb089a70e19422b5cf286ecce9c4424b0"},
+    {"stableId":"ROUTINE_U_INPUTBASEPAY","path":"scripts/hr-cutover/contracts/legacy-u-inputbasepay-parity-v1.json","sha256":"baba86f12aeaa4b5b6865e0bfc6eb3c8fe018848ecd16a4a8383a1474b1d7421"},
     {"stableId":"ROUTINE_U_INPUTJOBPAY","path":"scripts/hr-cutover/contracts/legacy-u-inputjobpay-parity-v1.json","sha256":"2ea12f5e6d9a432188c58143d899a7e59b091f23b42f5aa69306cbdae824eeba"},
     {"stableId":"ROUTINE_ATTENDANCE_SCHEMA_HOOKS","path":"scripts/hr-cutover/contracts/legacy-attendance-item-schema-hook-parity-v1.json","sha256":"f15141dfc136c29a9119972ec91e80cc1a6e5079b064d2c532e6e285e906c025"},
     {"stableId":"ROUTINE_PROFESSIONAL_TITLE_LOOKUP","path":"scripts/hr-cutover/contracts/legacy-professional-title-lookup-parity-v1.json","sha256":"25d13bf6ee1a73f77cf857918d15d2b5d9f188be65c637679010a111e852b626"},

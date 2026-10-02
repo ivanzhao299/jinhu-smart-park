@@ -21,6 +21,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type {
   CreateHrPayrollReconciliationDto,
+  HrPayrollInsuranceOptionsQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
   CreateHrPayrollReconciliationPolicyDto,
@@ -48,12 +49,17 @@ import {
 import {
   HR_PAYROLL_DSL_ENGINE_VERSION,
   HR_PAYROLL_DSL_PARSER_VERSION,
+  HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION,
   assertAcyclicFormulaDependencies,
   assertFormulaEvaluationOrder,
   evaluatePayrollFormula,
   parsePayrollFormula,
   type PayrollAst,
 } from "./hr-payroll-formula-dsl";
+
+import { projectPayrollInsuranceInputs, type PayrollInsuranceAmountFact } from "./hr-payroll-insurance-input";
+
+import { assertPayrollInsuranceChoices, lockModernPayrollInsuranceSources, type ModernPayrollInsuranceSource } from "./hr-payroll-insurance-source";
 
 type HistoryAccess=HrPayrollHistoryAccessScope;
 type RawRow=Record<string,unknown>;
@@ -413,7 +419,7 @@ export class HrPayrollHistoryService {
               formula.raw_expression,
               formula.raw_condition,
               formula.expression_hash,
-              HR_PAYROLL_DSL_PARSER_VERSION,
+              parsed.parserVersion,
               status,
               status === "approved_for_simulation"
                 ? JSON.stringify(parsed.ast)
@@ -754,6 +760,69 @@ export class HrPayrollHistoryService {
     };
   }
 
+  private async lockFrozenPayrollSource(manager: EntityManager, scope: TenantParkScope, dto: { reconciliationSourceId?: string; legacyBatchId: string }) {
+    return ((await manager.query(`SELECT source.id,source.book_id,source.period_month,source.source_sha256,
+            (source.frozen_input->'snapshots')::text AS snapshots_json,
+            (source.frozen_input->'items')::text AS items_json
+           FROM hr_payroll_reconciliation_source source
+           JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
+             AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
+           JOIN migration_batch control ON control.run_id=source.operation_id
+             AND control.t4_followon_operation_id=source.operation_id AND control.status='succeeded'
+             AND control.target_database=current_database()
+           WHERE source.id=$1 AND source.tenant_id=$2 AND source.park_id=$3
+             AND source.legacy_batch_id=$4 FOR SHARE OF source,receipt,control`,
+      [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId])) as RawRow[])[0];
+  }
+
+  async insuranceSourceOptions(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollInsuranceOptionsQueryDto) {
+    if (![HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE, HR_PERMISSIONS.HR_EMPLOYEE_READ,
+      HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ].every(permission => this.has(actor, permission))) {
+      throw new ForbiddenException("Payroll insurance source read permission is required");
+    }
+    return this.dataSource.transaction("REPEATABLE READ", async manager => {
+      await manager.query("SET LOCAL statement_timeout='15s'");
+      const attendance = (await manager.query(`SELECT p.period_month FROM hr_attendance_payroll_input_batch b
+        JOIN hr_attendance_period p ON p.id=b.period_id AND p.tenant_id=b.tenant_id AND p.park_id=b.park_id
+        WHERE b.id=$1 AND b.tenant_id=$2 AND b.park_id=$3 AND NOT b.is_deleted AND NOT p.is_deleted
+          AND b.status='effective' AND p.status='closed'`, [query.attendanceInputBatchId,scope.tenantId,scope.parkId]))[0] as RawRow | undefined;
+      if (!attendance) throw new ConflictException("Selected attendance input is not effective and closed");
+      const month = sqlDate(attendance.period_month);
+      const legacy = (await manager.query("SELECT status FROM hr_payroll_legacy_batch WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted",
+        [query.legacyBatchId,scope.tenantId,scope.parkId]))[0] as RawRow | undefined;
+      const frozen = query.reconciliationSourceId ? await this.lockFrozenPayrollSource(manager,scope,query) : undefined;
+      if (query.reconciliationSourceId && (!frozen || sqlDate(frozen.period_month)!==month)) throw new ConflictException("Frozen source does not match selected period");
+      if (!legacy || (legacy.status!=="published" && !(legacy.status==="staged" && frozen))) throw new ConflictException("Selected payroll source is not available");
+      const employeeSql = frozen ? `SELECT DISTINCT x.employee_id FROM jsonb_to_recordset($4::jsonb) AS x(employee_id uuid) WHERE $3::date IS NOT NULL`
+        : `SELECT DISTINCT s.employee_id FROM hr_payroll_legacy_snapshot s JOIN hr_payroll_book_period p
+           ON p.id=s.book_period_id AND p.tenant_id=s.tenant_id AND p.park_id=s.park_id
+           WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.batch_id=$4::uuid AND s.mapping_status='mapped' AND NOT s.is_deleted AND p.period_month=$3::date`;
+      const base = `WITH candidates AS (${employeeSql}), employees AS (SELECT e.id,e.employee_code,e.full_name FROM candidates c
+        JOIN hr_employee e ON e.id=c.employee_id AND e.tenant_id=$1 AND e.park_id=$2 WHERE NOT e.is_deleted)`;
+      const params = [scope.tenantId,scope.parkId,month,frozen?.snapshots_json ?? query.legacyBatchId];
+      const total = Number((await manager.query(`${base} SELECT count(*)::int AS total FROM employees`,params))[0].total);
+      if (total>5000) throw new ConflictException("Payroll insurance employee count exceeds supported limit");
+      const employees = await manager.query(`${base} SELECT id AS "employeeId",employee_code AS "employeeCode",full_name AS "fullName"
+        FROM employees ORDER BY employee_code,id LIMIT $5 OFFSET $6`,[...params,query.page_size,(query.page-1)*query.page_size]) as Array<{employeeId:string;employeeCode:string;fullName:string}>;
+      const ids = employees.map(employee=>employee.employeeId);
+      const options = ids.length ? await manager.query(`SELECT employee_id AS "employeeId",id AS "sourceId",'historical'::text AS "sourceKind",version AS "expectedVersion",NULL::text AS "expectedHash"
+        FROM hr_employee_insurance_period WHERE tenant_id=$1 AND park_id=$2 AND employee_id=ANY($3::uuid[]) AND NOT is_deleted AND NOT needs_review
+          AND period_year=EXTRACT(YEAR FROM $4::date)::int AND period_month=EXTRACT(MONTH FROM $4::date)::int
+        UNION ALL SELECT r.employee_id,r.id,'modern_confirmed',r.revision_no,p.snapshot_sha256::text
+        FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.employee_id=ANY($3::uuid[]) AND r.period_month=$4::date
+          AND NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision n WHERE n.tenant_id=r.tenant_id AND n.park_id=r.park_id
+            AND n.employee_id=r.employee_id AND n.period_month=r.period_month AND n.revision_no>r.revision_no)
+        ORDER BY "employeeId","sourceKind","sourceId"`,[scope.tenantId,scope.parkId,ids,month]) as RawRow[] : [];
+      await this.auditService.recordOperationRequired({tenantId:scope.tenantId,parkId:scope.parkId,userId:actor.sub,username:actor.username,
+        realName:actor.realName??null,roleCodes:actor.roles,module:"人力资源管理",resource:"hr.payroll_insurance_sources",action:"读取工资社保来源",
+        bizType:"hr_payroll_reconciliation_run",bizId:null,beforeJson:null,afterJson:{employeeCount:employees.length,optionCount:options.length},
+        method:"GET",path:"/hr/payroll/reconciliations/insurance-sources",success:true,result:"success",requestId:null},manager);
+      return {items:employees.map(employee=>({...employee,options:options.filter(option=>option.employeeId===employee.employeeId)
+        .map(option=>({...option,...(option.sourceKind==='historical'?{expectedHash:undefined}: {})}))})),total,page:query.page,page_size:query.page_size,periodMonth:month};
+    });
+  }
+
   async simulateReconciliation(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -763,6 +832,10 @@ export class HrPayrollHistoryService {
       throw new ForbiddenException(
         "Payroll reconciliation calculate permission is required",
       );
+    if (dto.insuranceSources?.some(choice => choice.sourceKind === "modern_confirmed") &&
+      ![HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ].every(permission => this.has(actor, permission))) {
+      throw new ForbiddenException("Modern insurance financial source permission is required");
+    }
     return this.dataSource.transaction(async (manager) => {
       await manager.query(
         "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
@@ -790,22 +863,7 @@ export class HrPayrollHistoryService {
           [dto.legacyBatchId, scope.tenantId, scope.parkId],
         )) as RawRow[]
       )[0];
-      const frozenSource = dto.reconciliationSourceId ? (
-        (await manager.query(
-          `SELECT source.id,source.book_id,source.period_month,source.source_sha256,
-            (source.frozen_input->'snapshots')::text AS snapshots_json,
-            (source.frozen_input->'items')::text AS items_json
-           FROM hr_payroll_reconciliation_source source
-           JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
-             AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
-           JOIN migration_batch control ON control.run_id=source.operation_id
-             AND control.t4_followon_operation_id=source.operation_id AND control.status='succeeded'
-             AND control.target_database=current_database()
-           WHERE source.id=$1 AND source.tenant_id=$2 AND source.park_id=$3
-             AND source.legacy_batch_id=$4 FOR SHARE OF source,receipt,control`,
-          [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId],
-        )) as RawRow[]
-      )[0] : undefined;
+      const frozenSource = dto.reconciliationSourceId ? await this.lockFrozenPayrollSource(manager, scope, dto) : undefined;
       if (dto.reconciliationSourceId && (!frozenSource || sqlDate(frozenSource.period_month) !== sqlDate(attendance.period_month)))
         throw new ConflictException("Frozen payroll source must match the selected scope, batch and closed period");
       if (!legacy || (legacy.status !== "published" && !(frozenSource && legacy.status === "staged")))
@@ -833,7 +891,7 @@ export class HrPayrollHistoryService {
           "No approved formula version is available for simulation",
         );
       const verified = formulas.map((formula) => {
-        if (formula.parser_version !== HR_PAYROLL_DSL_PARSER_VERSION)
+        if (![HR_PAYROLL_DSL_PARSER_VERSION, HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION].includes(formula.parser_version))
           throw new ConflictException(
             "Approved formula parser version is not supported",
           );
@@ -847,6 +905,7 @@ export class HrPayrollHistoryService {
             "Approved formula no longer passes the restricted parser",
           );
         if (
+          parsed.parserVersion !== formula.parser_version ||
           stableJson(parsed.ast) !== stableJson(formula.dsl_ast) ||
           JSON.stringify(parsed.dependencies) !==
             JSON.stringify(formula.dependency_codes)
@@ -952,14 +1011,27 @@ export class HrPayrollHistoryService {
           compensationLatest.set(employeeId, row);
       }
       const compensations = [...compensationLatest.values()];
+      if (dto.insuranceSources) assertPayrollInsuranceChoices(employeeIds, dto.insuranceSources);
+      const modernInsurance = dto.insuranceSources
+        ? await lockModernPayrollInsuranceSources(manager, scope, sqlDate(attendance.period_month), dto.insuranceSources)
+        : new Map<string, ModernPayrollInsuranceSource>();
+      const historicalEmployeeIds = employeeIds.filter(id => !modernInsurance.has(id));
       const [year, month] = sqlDate(attendance.period_month)
           .slice(0, 7)
           .split("-")
           .map(Number),
         insurance = (await manager.query(
           `SELECT id,employee_id,version,needs_review FROM hr_employee_insurance_period WHERE tenant_id=$1 AND park_id=$2 AND employee_id=ANY($3::uuid[]) AND period_year=$4 AND period_month=$5 AND is_deleted=false ORDER BY employee_id,id FOR UPDATE`,
-          [scope.tenantId, scope.parkId, employeeIds, year, month],
+          [scope.tenantId, scope.parkId, historicalEmployeeIds, year, month],
         )) as Array<Record<string, unknown>>;
+      if (dto.insuranceSources) {
+        for (const choice of dto.insuranceSources.filter(choice => choice.sourceKind === "historical")) {
+          const matches = insurance.filter(period => String(period.employee_id) === choice.employeeId);
+          if (matches.length !== 1 || String(matches[0]!.id) !== choice.sourceId || Number(matches[0]!.version) !== choice.expectedVersion) {
+            throw new ConflictException("Selected historical insurance period is stale, foreign or changed");
+          }
+        }
+      }
       if (insurance.some((period) => period.needs_review === true))
         throw new ConflictException(
           "Insurance input requires review before payroll simulation",
@@ -975,7 +1047,7 @@ export class HrPayrollHistoryService {
          ORDER BY period_id,insurance_kind,id FOR SHARE`,
         [scope.tenantId, scope.parkId, insurance.map((period) => period.id)],
       )) as Array<Record<string, unknown>> : [];
-      const insuranceItemsByPeriod = new Map<string, Array<Record<string, unknown>>>();
+      const insuranceItemsByPeriod = new Map<string, Array<PayrollInsuranceAmountFact & Record<string, unknown>>>();
       for (const item of insuranceItems) {
         const periodId = String(item.period_id);
         const entries = insuranceItemsByPeriod.get(periodId) ?? [];
@@ -990,6 +1062,11 @@ export class HrPayrollHistoryService {
           legacyBaseNegative: item.legacy_base_negative === true,
         });
         insuranceItemsByPeriod.set(periodId, entries);
+      }
+      for (const source of modernInsurance.values()) {
+        insurance.push({ id: source.id, employee_id: source.employeeId, version: source.revisionNo,
+          source_kind: "modern_confirmed", snapshot_hash: source.snapshotHash });
+        insuranceItemsByPeriod.set(source.id, source.items.map(item => ({ ...item })));
       }
       const employeeVersions = Object.fromEntries(
           snapshots.map((s) => [
@@ -1017,7 +1094,8 @@ export class HrPayrollHistoryService {
             String(i.employee_id),
             {
               id: String(i.id), version: String(i.version),
-              snapshotVersion: "insurance-facts-v1", needsReview: false,
+              snapshotVersion: i.source_kind === "modern_confirmed" ? "insurance-modern-v1" : "insurance-facts-v1", needsReview: false,
+              ...(i.source_kind === "modern_confirmed" ? { sourceKind: "modern_confirmed", snapshotHash: String(i.snapshot_hash) } : {}),
               items: insuranceItemsByPeriod.get(String(i.id)) ?? [],
             },
           ]),
@@ -1060,6 +1138,8 @@ export class HrPayrollHistoryService {
           },
         ]),
       );
+      const runParserVersion = verified.some(f => f.parser_version === HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION)
+        ? HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION : HR_PAYROLL_DSL_PARSER_VERSION;
       const frozen = {
         employeeVersions,
         compVersions,
@@ -1071,7 +1151,7 @@ export class HrPayrollHistoryService {
         legacyBatchId: dto.legacyBatchId,
         legacySource: frozenSource ? { id: frozenSource.id, sourceSha256: frozenSource.source_sha256,
           bookId: frozenSource.book_id, periodMonth: sqlDate(frozenSource.period_month) } : null,
-        parserVersion: HR_PAYROLL_DSL_PARSER_VERSION,
+        parserVersion: runParserVersion,
         engineVersion: HR_PAYROLL_DSL_ENGINE_VERSION,
       };
       const inputHash = createHash("sha256")
@@ -1084,7 +1164,7 @@ export class HrPayrollHistoryService {
           scope.parkId,
           dto.legacyBatchId,
           dto.attendanceInputBatchId,
-          HR_PAYROLL_DSL_PARSER_VERSION,
+          runParserVersion,
           HR_PAYROLL_DSL_ENGINE_VERSION,
           "0.0000",
           JSON.stringify(employeeVersions),
@@ -1158,10 +1238,14 @@ export class HrPayrollHistoryService {
           "hr:缺勤天数": `${attendanceInput.absence_days}.0000`,
           "hr:缺卡天数": `${attendanceInput.missing_punch_days}.0000`,
         });
+        const employeeFormulas = verified.filter(f => String(f.book_id) === String(snapshot.book_id));
+        const employeeInsurance = insuranceBy.get(employeeId)!;
+        Object.assign(inputs, projectPayrollInsuranceInputs(
+          insuranceItemsByPeriod.get(String(employeeInsurance.id)) ?? [],
+          employeeFormulas.flatMap(formula => formula.dependencies),
+        ));
         const calculated = new Map<string, string>();
-        for (const formula of verified.filter(
-          (f) => String(f.book_id) === String(snapshot.book_id),
-        )) {
+        for (const formula of employeeFormulas) {
           for (const [key, value] of calculated)
             inputs[`payroll:${key}`] = value;
           calculated.set(
@@ -1184,7 +1268,7 @@ export class HrPayrollHistoryService {
         if (resultStatus === "needs_review") differenceCount++;
         const result = (
           (await manager.query(
-            `INSERT INTO hr_payroll_reconciliation_result(tenant_id,park_id,run_id,employee_id,legacy_snapshot_id,employee_version,compensation_version_id,insurance_period_id,attendance_input_item_id,old_total,new_total,delta_total,review_status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14) RETURNING id`,
+            `INSERT INTO hr_payroll_reconciliation_result(tenant_id,park_id,run_id,employee_id,legacy_snapshot_id,employee_version,compensation_version_id,insurance_period_id,attendance_input_item_id,old_total,new_total,delta_total,review_status,create_by,update_by,insurance_modern_revision_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15) RETURNING id`,
             [
               scope.tenantId,
               scope.parkId,
@@ -1193,13 +1277,14 @@ export class HrPayrollHistoryService {
               snapshot.id,
               snapshot.employee_version,
               comp.id,
-              insuranceBy.get(employeeId)!.id,
+              modernInsurance.has(employeeId) ? null : insuranceBy.get(employeeId)!.id,
               attendanceInput.id,
               this.scaledToDecimal(oldTotal),
               this.scaledToDecimal(newTotal),
               this.scaledToDecimal(delta),
               resultStatus,
               actor.sub,
+              modernInsurance.get(employeeId)?.id ?? null,
             ],
           )) as Array<{ id: string }>
         )[0]!;
@@ -1242,7 +1327,10 @@ export class HrPayrollHistoryService {
               JSON.stringify({
                 attendanceInputItemId: attendanceInput.id,
                 compensationVersionId: comp.id,
-                insurancePeriodId: insuranceBy.get(employeeId)!.id,
+                insurancePeriodId: modernInsurance.has(employeeId) ? null : insuranceBy.get(employeeId)!.id,
+                ...(modernInsurance.has(employeeId) ? { insuranceModernRevisionId: modernInsurance.get(employeeId)!.id,
+                  insuranceSourceVersion: modernInsurance.get(employeeId)!.revisionNo,
+                  insuranceSourceHash: modernInsurance.get(employeeId)!.snapshotHash } : {}),
                 formulaVersionId: formula.id,
                 reconciliationPolicyVersionId: policy.policy_version_id,
                 reconciliationPolicyVersionNo: policy.policy_version_no,

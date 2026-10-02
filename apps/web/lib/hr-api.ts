@@ -1,4 +1,4 @@
-import type { OrgTreeNode, PaginatedResult } from "@jinhu/shared";
+import type { HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage, HrInsuranceOwnedEmployeeOption, HrInsuranceOwnedClose, HrInsuranceOwnedCloseRequest, HrInsuranceOwnedConfirmRequest, HrInsuranceOwnedCorrectRequest, HrInsuranceOwnedPeriod, HrInsuranceOwnedPeriodListItem, HrInsuranceOwnedPreview, HrInsuranceOwnedPreviewRequest, HrInsuranceOwnedRevision, OrgTreeNode, PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;legacyJobstateCode:string|null;legacyJobstateName:string|null;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrLegacyArchiveFile {id:string;logicalKind:"photo"|"document"|"attachment"|string;logicalName:string;mediaType:string|null;sizeBytes:string|null;availability:string;contentFingerprint?:string;}
@@ -228,6 +228,13 @@ export interface HrInsuranceReferenceResult {
 }
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ insuranceOwnedEmployees:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsuranceOwnedEmployeeOption>>(`/hr/insurance/owned-periods/employees?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insuranceOwnedPeriods:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsuranceOwnedPeriodListItem>>(`/hr/insurance/owned-periods?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insuranceOwnedPeriod:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedPeriod>(`/hr/insurance/owned-periods/${encodeURIComponent(id)}`,{token,signal})),
+ createInsuranceOwnedPreview:(body:HrInsuranceOwnedPreviewRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedPreview&{replayed:boolean}>("/hr/insurance/owned-periods/preview",{method:"POST",body,token,signal,idempotencyKey})),
+ confirmInsuranceOwnedPeriod:(body:HrInsuranceOwnedConfirmRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedRevision&{replayed:boolean}>("/hr/insurance/owned-periods/confirm",{method:"POST",body,token,signal,idempotencyKey})),
+ closeInsuranceOwnedPeriod:(body:HrInsuranceOwnedCloseRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedClose&{replayed:boolean}>("/hr/insurance/owned-periods/close",{method:"POST",body,token,signal,idempotencyKey})),
+ correctInsuranceOwnedPeriod:(body:HrInsuranceOwnedCorrectRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedRevision&{replayed:boolean}>("/hr/insurance/owned-periods/correct",{method:"POST",body,token,signal,idempotencyKey})),
  insuranceSourcePolicyDefinition:(id:string,expectedVersion:number,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceSourcePolicyDetail>(`/hr/insurance/policies/${encodeURIComponent(id)}?${new URLSearchParams({expected_version:String(expectedVersion)})}`,{token,signal})),
  insurancePolicyVersions:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsurancePolicyVersion>>(`/hr/insurance/policy-versions?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
  insurancePolicyVersion:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersionDetail>(`/hr/insurance/policy-versions/${encodeURIComponent(id)}`,{token,signal})),
@@ -538,19 +545,24 @@ createPayrollReconciliationSource: (
   ) => unwrap(apiRequest<HrPayrollReconciliationSource>("/hr/payroll/reconciliation-sources", {
     method:"POST",body,token,idempotencyKey:crypto.randomUUID(),
   })),
+payrollInsuranceSourceOptions: (query: HrPayrollInsuranceSourceRequest, token?: string, page = 1, signal?: AbortSignal) =>
+  unwrap(apiRequest<HrPayrollInsuranceSourcePage>(`/hr/payroll/reconciliations/insurance-sources?${new URLSearchParams({...query,page:String(page),page_size:"50"})}`, {token,signal})),
 simulatePayrollReconciliation: (
     body: {
       legacyBatchId: string;
       attendanceInputBatchId: string;
       reconciliationSourceId?: string;
       supersedesRunId?: string;
+      insuranceSources?: HrPayrollInsuranceChoice[];
     },
     token?: string,
+    idempotencyKey = createIdempotencyKey("hr-payroll-simulate"),
+    signal?: AbortSignal,
   ) =>
     unwrap(
       apiRequest<HrPayrollReconciliation>(
         "/hr/payroll/reconciliations/simulate",
-        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+        { method: "POST", body, token, idempotencyKey, signal },
       ),
     ),
 reviewPayrollReconciliation: (

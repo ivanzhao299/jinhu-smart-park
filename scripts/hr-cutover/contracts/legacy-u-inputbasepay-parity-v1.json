@@ -35,7 +35,7 @@
             { "sourceField": "person._base", "modernField": "hr_employee_compensation.base_salary", "transform": "canonical_four_place_decimal_projection", "nullContract": "null_remains_null_and_is_never_substituted_with_zero" },
             { "sourceField": "dynamic_salary_item", "modernField": "hr_payroll_reconciliation_input.hr:基本工资", "transform": "reviewed_formula_input_code", "nullContract": "missing_input_blocks_simulation" }
           ],
-          "evidenceSha256": "91b10675d333d1b0500fce68769fa6894fa6d70d89ac2dc8c563bb53621ac325"
+          "evidenceSha256": "f6c9b127b1c6d095b4a251df58631f608e397ed6baee65f6599ff56e0a75b4b0"
         },
         "readMappings": {
           "applicability": "required",

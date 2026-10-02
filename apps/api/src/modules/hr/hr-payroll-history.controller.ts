@@ -21,6 +21,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrPayrollReconciliationDto,
+  HrPayrollInsuranceOptionsQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
   CreateHrPayrollReconciliationPolicyDto,
@@ -129,6 +130,14 @@ export class HrPayrollHistoryController {
     @Query() query: HrPayrollReconciliationQueryDto,
   ) {
     return this.service.listReconciliations(scope, actor, query);
+  }
+
+  @Get("reconciliations/insurance-sources")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE, HR_PERMISSIONS.HR_EMPLOYEE_READ,
+    HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ)
+  insuranceSourceOptions(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPayrollInsuranceOptionsQueryDto) {
+    return this.service.insuranceSourceOptions(scope,actor,query);
   }
 
   @Get("reconciliations/setup")
