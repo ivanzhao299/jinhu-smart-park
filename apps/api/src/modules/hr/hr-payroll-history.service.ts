@@ -12,6 +12,7 @@ import {
 } from "@jinhu/shared";
 import {
   DataSource,
+  QueryFailedError,
   type ObjectLiteral,
   type SelectQueryBuilder,
 } from "typeorm";
@@ -19,6 +20,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type {
   CreateHrPayrollReconciliationDto,
+  CreateHrPayrollReconciliationSourceDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -513,6 +515,46 @@ export class HrPayrollHistoryService {
     return { books, netItems, legacyBatches, attendanceBatches };
   }
 
+  async createReconciliationSource(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreateHrPayrollReconciliationSourceDto,
+  ) {
+    if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW))
+      throw new ForbiddenException("Payroll reconciliation review permission is required");
+    try {
+      return await this.dataSource.transaction("READ COMMITTED", async (manager) => {
+        await manager.query("SET LOCAL statement_timeout='15s'");
+        await manager.query("SET LOCAL lock_timeout='2s'");
+        const rows = (await manager.query(
+          "SELECT hr_freeze_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11) AS id",
+          [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth,
+            dto.bindingSha256, dto.sourceSha256, dto.snapshotCount, dto.itemCount, actor.sub, dto.reason],
+        )) as Array<{ id: string }>;
+        await this.auditService.recordOperationRequired({
+          tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub,
+          username: actor.username, roleCodes: actor.roles, module: "人力资源管理",
+          resource: "hr.payroll_reconciliation_source", action: "冻结工资双轨历史来源",
+          bizType: "hr_payroll_reconciliation_source", bizId: rows[0]!.id,
+          beforeJson: null, afterJson: { sourceSha256: dto.sourceSha256,
+            snapshotCount: dto.snapshotCount, itemCount: dto.itemCount },
+          method: "POST", path: "/hr/payroll/reconciliation-sources",
+          success: true, result: "success", requestId: null,
+        }, manager);
+        return { id: rows[0]!.id, legacyBatchId: dto.legacyBatchId,
+          bookId: dto.bookId, periodMonth: dto.periodMonth, sourceSha256: dto.sourceSha256,
+          snapshotCount: dto.snapshotCount, itemCount: dto.itemCount };
+      });
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        const code = (error.driverError as { code?: string }).code;
+        if (code && ["P0001", "55P03", "57014", "40P01", "40001"].includes(code))
+          throw new ConflictException("Payroll source evidence changed or is busy; revalidate the selected source");
+      }
+      throw error;
+    }
+  }
+
   async createReconciliationPolicy(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -686,9 +728,27 @@ export class HrPayrollHistoryService {
           [dto.legacyBatchId, scope.tenantId, scope.parkId],
         )) as RawRow[]
       )[0];
-      if (!legacy || legacy.status !== "published")
+      const frozenSource = dto.reconciliationSourceId ? (
+        (await manager.query(
+          `SELECT source.id,source.book_id,source.period_month,source.source_sha256,
+            (source.frozen_input->'snapshots')::text AS snapshots_json,
+            (source.frozen_input->'items')::text AS items_json
+           FROM hr_payroll_reconciliation_source source
+           JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
+             AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
+           JOIN migration_batch control ON control.run_id=source.operation_id
+             AND control.t4_followon_operation_id=source.operation_id AND control.status='succeeded'
+             AND control.target_database=current_database()
+           WHERE source.id=$1 AND source.tenant_id=$2 AND source.park_id=$3
+             AND source.legacy_batch_id=$4 FOR SHARE OF source,receipt,control`,
+          [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId],
+        )) as RawRow[]
+      )[0] : undefined;
+      if (dto.reconciliationSourceId && (!frozenSource || sqlDate(frozenSource.period_month) !== sqlDate(attendance.period_month)))
+        throw new ConflictException("Frozen payroll source must match the selected scope, batch and closed period");
+      if (!legacy || (legacy.status !== "published" && !(frozenSource && legacy.status === "staged")))
         throw new ConflictException(
-          "Simulation requires a published immutable legacy batch",
+          "Simulation requires a published immutable legacy batch or a reviewed frozen period source",
         );
       if (dto.supersedesRunId) {
         const prior = (
@@ -703,8 +763,8 @@ export class HrPayrollHistoryService {
           );
       }
       const formulas = (await manager.query(
-        `SELECT f.id,f.book_id,f.item_version_id,f.raw_expression,f.raw_condition,f.dsl_ast,f.dependency_codes,f.parser_version,f.calculation_order,d.item_code,v.item_category FROM hr_payroll_formula_version f JOIN hr_payroll_item_version v ON v.id=f.item_version_id AND v.tenant_id=f.tenant_id AND v.park_id=f.park_id JOIN hr_payroll_item_definition d ON d.id=v.item_definition_id AND d.tenant_id=v.tenant_id AND d.park_id=v.park_id WHERE f.tenant_id=$1 AND f.park_id=$2 AND f.parse_status='approved_for_simulation' AND f.is_deleted=false ORDER BY f.book_id,f.calculation_order,f.id FOR SHARE OF f`,
-        [scope.tenantId, scope.parkId],
+        `SELECT f.id,f.book_id,f.item_version_id,f.raw_expression,f.raw_condition,f.dsl_ast,f.dependency_codes,f.parser_version,f.calculation_order,d.item_code,v.item_category FROM hr_payroll_formula_version f JOIN hr_payroll_item_version v ON v.id=f.item_version_id AND v.tenant_id=f.tenant_id AND v.park_id=f.park_id JOIN hr_payroll_item_definition d ON d.id=v.item_definition_id AND d.tenant_id=v.tenant_id AND d.park_id=v.park_id WHERE f.tenant_id=$1 AND f.park_id=$2 AND ($3::uuid IS NULL OR f.book_id=$3) AND f.parse_status='approved_for_simulation' AND f.is_deleted=false ORDER BY f.book_id,f.calculation_order,f.id FOR SHARE OF f`,
+        [scope.tenantId, scope.parkId, frozenSource?.book_id ?? null],
       )) as ReconciliationFormula[];
       if (!formulas.length)
         throw new ConflictException(
@@ -758,7 +818,13 @@ export class HrPayrollHistoryService {
           })),
         );
       }
-      const snapshots = (await manager.query(
+      const snapshots = (frozenSource ? await manager.query(
+        `SELECT x.id,x.employee_id,x.net_amount,e.version AS employee_version,$4::uuid AS book_id
+         FROM jsonb_to_recordset($1::jsonb) AS x(id uuid,employee_id uuid,net_amount numeric(20,4))
+         JOIN hr_employee e ON e.id=x.employee_id AND e.tenant_id=$2 AND e.park_id=$3
+         ORDER BY x.employee_id,x.id FOR SHARE OF e`,
+        [frozenSource.snapshots_json, scope.tenantId, scope.parkId, frozenSource.book_id],
+      ) : await manager.query(
         `SELECT s.id,s.employee_id,s.net_amount,e.version AS employee_version,p.book_id FROM hr_payroll_legacy_snapshot s JOIN hr_payroll_book_period p ON p.id=s.book_period_id AND p.tenant_id=s.tenant_id AND p.park_id=s.park_id JOIN hr_employee e ON e.id=s.employee_id AND e.tenant_id=s.tenant_id AND e.park_id=s.park_id WHERE s.batch_id=$1 AND s.tenant_id=$2 AND s.park_id=$3 AND s.mapping_status='mapped' AND s.is_deleted=false AND p.period_month=$4::date ORDER BY s.employee_id,s.id FOR SHARE OF s,e`,
         [
           dto.legacyBatchId,
@@ -906,6 +972,8 @@ export class HrPayrollHistoryService {
         attendanceVersions,
         attendanceInputBatchId: dto.attendanceInputBatchId,
         legacyBatchId: dto.legacyBatchId,
+        legacySource: frozenSource ? { id: frozenSource.id, sourceSha256: frozenSource.source_sha256,
+          bookId: frozenSource.book_id, periodMonth: sqlDate(frozenSource.period_month) } : null,
         parserVersion: HR_PAYROLL_DSL_PARSER_VERSION,
         engineVersion: HR_PAYROLL_DSL_ENGINE_VERSION,
       };
@@ -913,7 +981,7 @@ export class HrPayrollHistoryService {
         .update(JSON.stringify(frozen))
         .digest("hex");
       const inserted = (await manager.query(
-        `INSERT INTO hr_payroll_reconciliation_run(tenant_id,park_id,legacy_batch_id,attendance_input_batch_id,parser_version,engine_version,tolerance_amount,status,frozen_employee_version,frozen_compensation_version,frozen_insurance_version,frozen_formula_version,input_snapshot_hash,supersedes_run_id,employee_count,difference_count,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,'calculating',$8,$9,$10,$11,$12,$13,$14,0,$15,$15) RETURNING id`,
+        `INSERT INTO hr_payroll_reconciliation_run(tenant_id,park_id,legacy_batch_id,attendance_input_batch_id,parser_version,engine_version,tolerance_amount,status,frozen_employee_version,frozen_compensation_version,frozen_insurance_version,frozen_formula_version,input_snapshot_hash,supersedes_run_id,employee_count,difference_count,create_by,update_by,reconciliation_source_id) VALUES($1,$2,$3,$4,$5,$6,$7,'calculating',$8,$9,$10,$11,$12,$13,$14,0,$15,$15,$16) RETURNING id`,
         [
           scope.tenantId,
           scope.parkId,
@@ -925,11 +993,12 @@ export class HrPayrollHistoryService {
           JSON.stringify(employeeVersions),
           JSON.stringify(compVersions),
           JSON.stringify(insuranceVersions),
-          JSON.stringify({ formulaVersions, reconciliationPolicies }),
+          JSON.stringify({ formulaVersions, reconciliationPolicies, legacySource: frozen.legacySource }),
           inputHash,
           dto.supersedesRunId ?? null,
           snapshots.length,
           actor.sub,
+          dto.reconciliationSourceId ?? null,
         ],
       )) as Array<{ id: string }>;
       const runId = inserted[0]!.id;
@@ -952,7 +1021,14 @@ export class HrPayrollHistoryService {
           throw new ConflictException(
             "Frozen attendance input is incomplete for a legacy employee",
           );
-        const oldItems = (await manager.query(
+        const oldItems = (frozenSource ? await manager.query(
+          `SELECT d.item_code,i.item_version_id,i.decimal_value FROM jsonb_to_recordset($1::jsonb)
+           AS i(snapshot_id uuid,item_version_id uuid,decimal_value numeric(20,4),value_type text,is_source_null boolean,is_deleted boolean)
+           JOIN hr_payroll_item_version v ON v.id=i.item_version_id AND v.tenant_id=$3 AND v.park_id=$4
+           JOIN hr_payroll_item_definition d ON d.id=v.item_definition_id AND d.tenant_id=v.tenant_id AND d.park_id=v.park_id
+           WHERE i.snapshot_id=$2 AND i.value_type='decimal' AND i.is_source_null=false AND i.is_deleted=false`,
+          [frozenSource.items_json, snapshot.id, scope.tenantId, scope.parkId],
+        ) : await manager.query(
           `SELECT d.item_code,i.item_version_id,i.decimal_value FROM hr_payroll_legacy_snapshot_item i JOIN hr_payroll_item_version v ON v.id=i.item_version_id AND v.tenant_id=i.tenant_id AND v.park_id=i.park_id JOIN hr_payroll_item_definition d ON d.id=v.item_definition_id AND d.tenant_id=v.tenant_id AND d.park_id=v.park_id WHERE i.snapshot_id=$1 AND i.tenant_id=$2 AND i.park_id=$3 AND i.value_type='decimal' AND i.is_source_null=false AND i.is_deleted=false`,
           [snapshot.id, scope.tenantId, scope.parkId],
         )) as Array<Record<string, unknown>>;
