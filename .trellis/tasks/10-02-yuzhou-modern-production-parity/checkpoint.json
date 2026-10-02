@@ -11,18 +11,12 @@
   ],
   "planningStatus": "PLAN_PERSISTED",
   "implementationStatus": "IN_PROGRESS",
-  "workspace": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
+  "workspace": "/Users/mac/.codex/worktrees/yuzhou-modern-status-20261002",
   "planningBaselineSha": "7c3df1c230bde74badbf414acae36030d5fe8709",
   "remoteBaseAtPlanning": "7c3df1c230bde74badbf414acae36030d5fe8709",
-  "runtimeProof": {
-    "runId": 36968318836,
-    "commit": "7c3df1c230bde74badbf414acae36030d5fe8709",
-    "observedAt": "2026-10-02T05:19:19.464Z",
-    "apiAndWebMatch": true
-  },
-  "sourceHistoryImport": "ACTUAL_T0_T5_COMPLETED",
+  "sourceHistoryImport": "APPROVED_T0_T5_SCOPE_COMMITTED_FRESH_READONLY_VERIFIED",
   "quarantinePolicy": "archive_historical_without_current_impact_preserve_evidence",
-  "quarantineClassificationStatus": "CLOSED_BY_HISTORICAL_POLICY",
+  "quarantineClassificationStatus": "CORE_CLOSED_BY_HISTORICAL_POLICY_NONCORE_LIMITS_RETAINED",
   "coreQuarantineTotal": 1608,
   "historicalRepairBudgetHoursInitial": 2,
   "manualReviewGroups": [
@@ -33,17 +27,17 @@
     "H5"
   ],
   "activeRunHandle": {
-    "ciRunId": 36968422499,
-    "ciWatchSession": 97445,
-    "head": "318b1d5e00b451594e73f48597367b251c783ae5"
+    "deployRunId": 36995050642,
+    "deployWatchSession": 1903,
+    "mergedHead": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c"
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Wait on existing CI36968422499, then publish verification commits once. Design scoped frozen simulation source; staged inputs remain blocked because append is allowed.",
+  "nextAction": "Follow existing automatic deployment36995050642, then prove API/Web runtime SHA280d0926, migrations319/320, health and Docker cleanup. Refresh read-only import integrity after deploy. No import replay, source freeze or payroll publication. Continue real-role S1/S2 acceptance and S3/S4 inputs within confirmed business scope.",
   "phases": [
     {
       "id": "S0",
-      "status": "completed_policy_closure"
+      "status": "core_closed_policy_noncore_current_impact_unproven"
     },
     {
       "id": "S1",
@@ -55,11 +49,11 @@
     },
     {
       "id": "S3",
-      "status": "pending"
+      "status": "technical_baseline_verified_business_inputs_pending"
     },
     {
       "id": "S4",
-      "status": "pending"
+      "status": "source_freeze_implemented_release_running_business_amount_acceptance_pending"
     },
     {
       "id": "S5",
@@ -75,12 +69,11 @@
     }
   ],
   "usage": {
-    "goalCumulativeTokensObserved": 326315,
-    "goalCumulativeTimeSecondsObserved": 1244,
-    "observationScope": "cumulative entire active goal; not attributable to this slice",
+    "goalCumulativeTokensObserved": 1806486,
+    "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T05:26:14.629846+00:00",
+  "updatedAt": "2026-10-02T10:24:37.687081+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -182,6 +175,15 @@
         ],
         "implementationConstraint": "Do not simply widen published to staged. A separate simulation source must prove committed import ownership, counts and hashes and freeze the exact selected period facts against append and rollback."
       }
+    },
+    "sourceFreezeSlice": {
+      "apiContracts": 14,
+      "webInteractions": 4,
+      "minimalPostgresAssertions": 17,
+      "fullOriginalSchemaMigrationsThrough": 320,
+      "fullOriginalSchemaServiceIntegration": "PASS",
+      "desktopAnd390pxReactSharedCss": "PASS with synthetic API; not production role UAT",
+      "ciAndReleaseSmoke": "PASS run36991236998"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -235,5 +237,78 @@
     "newDirectSourceBindingMismatches": 0,
     "productionWrite": false,
     "productionDeployed": false
+  },
+  "currentBaselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+  "previousRuntimeProof": {
+    "runId": 36968318836,
+    "commit": "7c3df1c230bde74badbf414acae36030d5fe8709",
+    "observedAt": "2026-10-02T05:19:19.464Z",
+    "apiAndWebMatch": true
+  },
+  "runtimeProof": {
+    "status": "FRESH_POSTDEPLOY_OBSERVATION_PENDING",
+    "expectedCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+    "deployRunId": 36995050642
+  },
+  "latestPreviouslyVerifiedRuntime": {
+    "runId": 36979015069,
+    "commit": "1c055c92c6e1841f741f17026813d81d4d1ea7c4",
+    "scope": "previous release observation; not current runtime proof"
+  },
+  "fullProductMigrationComplete": false,
+  "productionImportProof": {
+    "coreRunId": 36992220736,
+    "integrityRunId": 36992600441,
+    "observedAt": "2026-10-02T09:57:38.616Z",
+    "coreRecords": 260828,
+    "coreInserted": 259220,
+    "coreQuarantined": 1608,
+    "employees": 2938,
+    "contractsNotDeleted": 798,
+    "payrollSnapshots": 46092,
+    "payrollItems": 1078020,
+    "mappedReadableSnapshots": 45947,
+    "extensionSourceRowsIncludingDefinitions": 20182,
+    "extensionProjectionReceipts": 127449,
+    "extensionQuarantinedProjections": 1146,
+    "associatedFiles": 2149,
+    "coreSourceDuplicates": 0,
+    "coreMissingActiveMaps": 0,
+    "extensionSourceDuplicates": 0,
+    "extensionProjectionDuplicates": 0,
+    "activeSourceDuplicates": 0,
+    "payrollOwnedStateMatches": true,
+    "extensionsOwnedStateMatches": true,
+    "coreHashUnchangedSinceReadonlyRun": 36964064420,
+    "databaseWrite": false,
+    "replayExecuted": false,
+    "physicalFileBytesReverified": false,
+    "report": "docs/testing/yuzhou-production-import-proof-20261002.md"
+  },
+  "release775": {
+    "candidateSha": "9531adbfea8feedb359bda43b68cfb1427520966",
+    "mergeSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+    "candidateTreeEqualsMergeTree": true,
+    "ciRunId": 36991236998,
+    "ciConclusion": "success",
+    "backupRunId": 36991729626,
+    "backupConclusion": "success",
+    "backupRetention": "RETAINED_HASH_VERIFIED",
+    "deploymentRunId": 36995050642,
+    "deploymentStatus": "in_progress",
+    "sourceFrozenInProduction": false,
+    "actualPayrollBusinessAcceptance": false
+  },
+  "localBlockers": [
+    "REAL_ROLE_AUTHENTICATED_UAT_PENDING",
+    "PAYROLL_PERIOD_BOOK_RULE_OWNER_CONFIRMATION_PENDING",
+    "CLOSED_ATTENDANCE_COMPENSATION_INSURANCE_INPUTS_MISSING",
+    "GROUP_WEB_AND_POST_BACKUP_INCREMENT_SCOPE_UNCONFIRMED"
+  ],
+  "productionWriteScope": {
+    "authorizedRelease": "PR775 forward schema migrations only; automatic deployment still in progress at checkpoint",
+    "importEvidence": "read-only",
+    "productionSourceFreeze": false,
+    "payrollPublication": false
   }
 }

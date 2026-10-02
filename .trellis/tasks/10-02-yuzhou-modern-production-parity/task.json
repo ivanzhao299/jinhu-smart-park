@@ -12,9 +12,9 @@
   "assignee": "codex",
   "createdAt": "2026-10-02",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/yuzhou-modern-status-20261002",
   "base_branch": "main",
-  "worktree_path": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
+  "worktree_path": "/Users/mac/.codex/worktrees/yuzhou-modern-status-20261002",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
@@ -28,13 +28,15 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "本轮仅规划固化。用户确定历史低价值隔离归档策略；S0影响核验尚待执行，不宣称数据已纠正或业务已启用。",
+  "notes": "Implementation is active. Core historical quarantine policy closure and fresh production import proof completed; PR775 merged and automatic deployment running. Real-role business UAT, actual payroll reconciliation and standalone HR acceptance remain incomplete.",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "S0_then_S1",
-    "businessImplementationStarted": false
+    "nextSlice": "PR775_runtime_then_S1_S2_role_acceptance_and_S3_S4_confirmed_inputs",
+    "businessImplementationStarted": true,
+    "latestImplementationMergedCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+    "latestDeploymentRunId": 36995050642
   }
 }
