@@ -1,0 +1,47 @@
+{
+  "status": "PRODUCTION_READONLY_INPUT_INVENTORY_VERIFIED_NOT_BUSINESS_ACCEPTED",
+  "runId": 36970286373,
+  "diagnosticSha": "ee4f6fafb2ec9d2b4d3354780b3e0d35a5e89355",
+  "operationStatus": "succeeded",
+  "inventory": {
+    "kind": "hr_payroll_simulation_input_inventory",
+    "periodMonth": "2026-07-01",
+    "counts": {
+      "snapshots": 93,
+      "employees": 64,
+      "books": 2,
+      "unpublished_snapshots": 93,
+      "missing_net_snapshots": 0,
+      "effective_attendance_batches": 0,
+      "employees_missing_attendance": 64,
+      "employees_missing_compensation": 64,
+      "employees_missing_insurance": 64,
+      "books_missing_unique_net_mapping": 2
+    },
+    "blockers": [
+      "HISTORY_NOT_PUBLISHED_AND_FROZEN_SOURCE_UNAVAILABLE",
+      "CLOSED_EFFECTIVE_ATTENDANCE_BATCH_NOT_UNIQUE",
+      "ATTENDANCE_EMPLOYEE_INPUT_MISSING",
+      "COMPENSATION_INPUT_MISSING",
+      "INSURANCE_INPUT_MISSING",
+      "APPROVED_NET_MAPPING_MISSING_OR_AMBIGUOUS"
+    ],
+    "structuralPrerequisitesPresent": false,
+    "simulationReady": false,
+    "remainingValidation": [
+      "SELECT_EXACT_LEGACY_AND_ATTENDANCE_BATCH",
+      "VERIFY_APPROVED_FORMULA_AST_AND_DEPENDENCIES",
+      "VERIFY_REQUIRED_LEGACY_ITEM_VALUES",
+      "BUSINESS_PERIOD_AND_RULE_ACCEPTANCE"
+    ],
+    "databaseWrite": false,
+    "sourceFrozen": false,
+    "payrollPublished": false,
+    "paymentEnabled": false,
+    "periodSelection": "LATEST_AVAILABLE_READ_ONLY_DIAGNOSTIC_NOT_BUSINESS_ACCEPTED"
+  },
+  "actualBusinessPeriodChosen": false,
+  "productionWrite": false,
+  "oldImportReplayed": false,
+  "sourceFrozen": false
+}

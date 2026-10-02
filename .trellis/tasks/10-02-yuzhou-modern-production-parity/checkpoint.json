@@ -39,7 +39,7 @@
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Reuse CI run36969513351/watch65979. Publish read-only input inventory after current CI terminal; run through reviewed production read-only path for selected business month, then frozen-source implementation.",
+  "nextAction": "Keep operations candidate ea68d177 fixed while CI36969513351 completes; choose actual payroll period/book before input preparation and scoped freezing. Continue independent operational acceptance.",
   "phases": [
     {
       "id": "S0",
@@ -237,11 +237,13 @@
     "productionDeployed": false
   },
   "currentInputInventoryTool": {
-    "status": "IMPLEMENTED_SYNTHETIC_POSTGRES_VERIFIED",
+    "status": "PRODUCTION_READONLY_VERIFIED",
     "tests": "8/8 PASS",
-    "actualImportedDataInventory": false,
-    "productionObserved": false,
+    "remoteTransportContracts": "12/12 PASS",
+    "actualImportedDataInventory": true,
+    "productionObserved": true,
     "sourceFrozen": false,
-    "simulationReady": false
+    "simulationReady": false,
+    "runId": 36970286373
   }
 }
