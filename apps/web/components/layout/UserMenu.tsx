@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LogOut, MapPin, UserRound } from "lucide-react";
+import { KeyRound, LogOut, MapPin, UserRound, Wallet } from "lucide-react";
 import type { UserParkContext } from "@jinhu/shared";
 import Link from "next/link";
 import type { Route } from "next";
@@ -79,6 +79,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
         </select>
       </label>
       {message ? <span className="user-menu-message" role="alert">{message}</span> : null}
+      <Link className="header-icon-link" aria-label="我的餐补" href="/account/meal-subsidy" title="我的餐补"><Wallet size={15} /></Link>
       <Link className="header-icon-link" aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={15} /></Link>
       <button className="user-logout-button" aria-label="退出登录" title="退出登录" type="button" onClick={() => void logout()}>
         <LogOut size={15} />

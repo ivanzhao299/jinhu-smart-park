@@ -3,8 +3,10 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { canteenApi } from "../../../lib/canteen-api";
+import { ApiError } from "../../../lib/api-client";
 import { getAccessToken, getAuthUser } from "../../../lib/authz";
 import styles from "./pos.module.css";
+import type { PosEmployeeLookup, PosCheckoutSubsidyResult } from "../../../lib/canteen-types";
 
 interface PosDish {
   id: string;
@@ -29,7 +31,7 @@ interface ShiftState {
   refund: number;
 }
 
-type ModalKind = "qr" | "subsidy" | "close" | null;
+type ModalKind = "qr" | "subsidy" | "close" | "lookup" | null;
 
 /* 演示兜底数据：后端 M1 接口未就绪时，POS 仍可完整点单/走流程（界面与冻结原型一致）。 */
 const DEMO_DISHES: PosDish[] = [
@@ -79,10 +81,17 @@ export default function PosTerminalPage() {
   const [online, setOnline] = useState(true);
 
   const [modal, setModal] = useState<ModalKind>(null);
-  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false });
+  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false, subsidyAmount: "0.00", qrAmount: "0.00", isMixed: false });
   const [remain, setRemain] = useState(COUNTDOWN_SECONDS);
-  const [showSuccess, setShowSuccess] = useState<{ amount: string; sub: string } | null>(null);
+  const [showSuccess, setShowSuccess] = useState<{ amount: string; sub: string; subsidyAmount?: string; qrAmount?: string } | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  /* 员工识别（餐补/混合支付共用） */
+  const [lookupCode, setLookupCode] = useState("");
+  const [lookupResult, setLookupResult] = useState<PosEmployeeLookup | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -335,7 +344,7 @@ export default function PosTerminalPage() {
       codeUrl = "DEMO-canteen-qrcode-" + paymentNo;
     }
 
-    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo });
+    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo, subsidyAmount: "0.00", qrAmount: amount, isMixed: false });
     setModal("qr");
 
     const settle = () => {
@@ -367,15 +376,19 @@ export default function PosTerminalPage() {
     toast("已取消收款");
   }
 
-  function finishOrder(amount: string, title: string, sub: string, channel: "qr" | "subsidy") {
-    const amt = Number(amount);
-    setShift((s) => ({
-      ...s,
-      qrTotal: channel === "qr" ? s.qrTotal + amt : s.qrTotal,
-      orders: s.orders + 1
-    }));
+  function finishOrder(amount: string, title: string, sub: string, channel: "qr" | "subsidy" | "mixed", subsidyAmount = "0.00", qrAmount = "0.00") {
+    setShift((s) => {
+      const subAmt = channel === "subsidy" || channel === "mixed" ? Number(subsidyAmount) : 0;
+      const qrAmt = channel === "qr" || channel === "mixed" ? Number(qrAmount || amount) : 0;
+      return {
+        ...s,
+        subsidyTotal: s.subsidyTotal + subAmt,
+        qrTotal: s.qrTotal + qrAmt,
+        orders: s.orders + 1
+      };
+    });
     setModal(null);
-    setShowSuccess({ amount, sub: `${title} · ${sub}` });
+    setShowSuccess({ amount, sub: `${title} · ${sub}`, subsidyAmount, qrAmount });
   }
 
   function nextCustomer() {
@@ -383,9 +396,124 @@ export default function PosTerminalPage() {
     setCart([]);
   }
 
-  /* 员工餐补（M2）：置灰并提示 */
-  function clickSubsidy() {
-    toast("员工餐补虚拟结账（M2 上线）：当前版本未开放，请使用扫码收款");
+  /* ====== 员工餐补 / 混合支付 ====== */
+  function cartItems() {
+    return cart.map((it) => ({ dish_id: it.id, qty: it.qty }));
+  }
+
+  /* 打开员工识别弹层（员工餐补 / 混合支付共用入口） */
+  function openEmployeeLookup() {
+    if (!shiftOpen) return toast("请先开班");
+    if (cart.length === 0) return toast("请先点餐");
+    if (!online) return toast("当前离线：请恢复网络后再核销");
+    setLookupCode("");
+    setLookupResult(null);
+    setLookupError("");
+    setModal("lookup");
+  }
+
+  async function doLookup() {
+    const code = lookupCode.trim();
+    if (!code) return toast("请输入工号 / 手机号 / 账号，或扫描个人用餐码");
+    setLookupLoading(true);
+    setLookupError("");
+    setLookupResult(null);
+    try {
+      const r = await canteenApi.lookupEmployee(code, token);
+      setLookupResult(r);
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "未找到该员工");
+    } finally {
+      setLookupLoading(false);
+    }
+  }
+
+  function isInsufficient(err: unknown): { balance: string; need: string; suggest: string } | null {
+    if (err instanceof ApiError && err.status === 422) {
+      const body = (err.response ?? {}) as Record<string, unknown>;
+      const data = ((body.data as Record<string, unknown>) ?? body) as Record<string, unknown>;
+      if (body.code === "INSUFFICIENT_SUBSIDY" || data.code === "INSUFFICIENT_SUBSIDY") {
+        return { balance: String(data.balance ?? body.balance ?? "0"), need: String(data.need ?? body.need ?? "0"), suggest: String(data.suggest ?? body.suggest ?? "mixed") };
+      }
+    }
+    return null;
+  }
+
+  /* 确认核销：先走纯餐补；余额不足则转混合支付 */
+  async function confirmSubsidyCheckout() {
+    if (!lookupResult) return toast("请先识别员工");
+    setSubmitting(true);
+    const employeeCode = lookupCode.trim();
+    try {
+      const res = await canteenApi.checkoutSubsidy(
+        { outlet_id: outletId, employee_code: employeeCode, items: cartItems(), channel: "subsidy" },
+        token
+      );
+      onSubsidyPaid(res);
+    } catch (err) {
+      const lack = isInsufficient(err);
+      if (lack) {
+        if (lack.suggest === "qr_pay") {
+          toast(`餐补余额不足 ¥${lack.balance}，请改用扫码收款`);
+          setModal(null);
+          return;
+        }
+        // 转混合支付：餐补扣满 + 差额扫码
+        await startMixedCheckout(employeeCode);
+      } else {
+        toast(err instanceof Error ? err.message : "核销失败");
+        setModal(null);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /* 纯餐补成功：虚拟结账，不产生真实收款 */
+  function onSubsidyPaid(res: PosCheckoutSubsidyResult) {
+    setModal(null);
+    setShowSuccess({
+      amount: res.subsidy_amount,
+      sub: "餐补核销 · 非现金 · 订单已完成",
+      subsidyAmount: res.subsidy_amount,
+      qrAmount: "0.00"
+    });
+    setShift((s) => ({ ...s, subsidyTotal: s.subsidyTotal + Number(res.subsidy_amount), orders: s.orders + 1 }));
+    setCart([]);
+  }
+
+  /* 混合支付：建 pending 订单 + 差额出码，补贴在扫码成功回调才扣 */
+  async function startMixedCheckout(employeeCode: string) {
+    const res = await canteenApi.checkoutSubsidy(
+      { outlet_id: outletId, employee_code: employeeCode, items: cartItems(), channel: "mixed" },
+      token
+    );
+    const total = (Number(res.subsidy_amount) + Number(res.qr_pay_amount)).toFixed(2);
+    setQrInfo({
+      orderNo: res.order_no,
+      paymentNo: res.payment_no ?? "",
+      amount: res.qr_pay_amount ?? "0.00",
+      codeUrl: res.code_url ?? "",
+      demo: false,
+      subsidyAmount: res.subsidy_amount ?? "0.00",
+      qrAmount: res.qr_pay_amount ?? "0.00",
+      isMixed: true
+    });
+    setModal("qr");
+
+    const settle = () => {
+      stopCountdown();
+      stopPolling();
+      setModal(null);
+      toast("支付超时：未扫码部分未完成，订单已取消，补贴未扣减");
+    };
+    const onPaid = () => {
+      stopCountdown();
+      stopPolling();
+      finishOrder(total, "混合支付成功", `餐补抵扣 ¥${res.subsidy_amount} + 扫码 ¥${res.qr_pay_amount}`, "mixed", res.subsidy_amount ?? "0.00", res.qr_pay_amount ?? "0.00");
+    };
+    startCountdown(settle);
+    startPolling(res.payment_no ?? "", onPaid, () => { stopCountdown(); setModal(null); toast("支付已关单"); });
   }
 
   return (
@@ -502,12 +630,12 @@ export default function PosTerminalPage() {
             <button className={`${styles.payBtn} ${styles.btnQr}`} type="button" onClick={() => void clickQrPay()}>
               <span className={styles.payBtnIcon}>▦</span>扫码收款
             </button>
-            <button className={`${styles.payBtn} ${styles.btnSubsidy}`} type="button" disabled title="M2 开放">
+            <button className={`${styles.payBtn} ${styles.btnSubsidy}`} type="button" onClick={() => void openEmployeeLookup()}>
               <span className={styles.payBtnIcon}>★</span>员工餐补
             </button>
           </div>
           <div className={styles.paySide}>
-            <button className={styles.mixLink} type="button" onClick={clickSubsidy}>混合支付（M2）</button>
+            <button className={styles.mixLink} type="button" onClick={() => void openEmployeeLookup()}>混合支付（M2）</button>
             <button className={styles.mixLink} type="button" onClick={() => toast("退款/撤单：需 canteen-admin 审核（占位）")}>退款 / 撤单（需权限）</button>
           </div>
         </footer>
@@ -517,7 +645,7 @@ export default function PosTerminalPage() {
           <div className={styles.mask}>
             <div className={`${styles.dialog} ${styles.dialogWide}`}>
               <div className={styles.dlgHead}>
-                <span className={styles.dlgTitle}>扫码收款 · 请顾客扫码支付</span>
+                <span className={styles.dlgTitle}>{qrInfo.isMixed ? "混合支付 · 请顾客扫码支付差额" : "扫码收款 · 请顾客扫码支付"}</span>
                 <button className={styles.dlgX} type="button" onClick={closeQr}>×</button>
               </div>
               <div className={styles.dlgBody}>
@@ -526,8 +654,18 @@ export default function PosTerminalPage() {
                     <canvas ref={canvasRef} width={240} height={240} />
                   </div>
                   <div className={styles.qrRight}>
-                    <div className={styles.qrAmt}><small>应付</small> ¥{qrInfo.amount}</div>
-                    <div className={styles.qrRow}>订单号：<b>{qrInfo.orderNo}</b></div>
+                    {qrInfo.isMixed ? (
+                      <>
+                        <div className={styles.qrRow}><span>餐补抵扣</span><b>-¥{qrInfo.subsidyAmount}</b></div>
+                        <div className={styles.qrAmt}><small>扫码支付差额</small> ¥{qrInfo.qrAmount}</div>
+                        <div className={styles.qrRow}>订单号：<b>{qrInfo.orderNo}</b></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className={styles.qrAmt}><small>应付</small> ¥{qrInfo.amount}</div>
+                        <div className={styles.qrRow}>订单号：<b>{qrInfo.orderNo}</b></div>
+                      </>
+                    )}
                     <div className={styles.qrRow}>支付倒计时：<span className={`${styles.countdown} ${remain <= 30 ? styles.countdownWarn : ""}`}>{remain}s</span></div>
                     <div className={styles.payChannels}>
                       <span className={`${styles.chPill} ${styles.chPillOn}`}>微信</span>
@@ -576,12 +714,68 @@ export default function PosTerminalPage() {
           </div>
         ) : null}
 
+        {/* 弹层：员工识别（餐补/混合支付） */}
+        {modal === "lookup" ? (
+          <div className={styles.mask}>
+            <div className={`${styles.dialog} ${styles.dialogNarrow}`}>
+              <div className={styles.dlgHead}>
+                <span className={styles.dlgTitle}>员工餐补 · 识别员工</span>
+                <button className={styles.dlgX} type="button" onClick={() => setModal(null)}>×</button>
+              </div>
+              <div className={styles.dlgBody}>
+                <div className={styles.lookupRow}>
+                  <input
+                    className={styles.lookupInput}
+                    placeholder="工号 / 手机号 / 账号，或扫描个人码"
+                    value={lookupCode}
+                    onChange={(e) => { setLookupCode(e.target.value); setLookupResult(null); setLookupError(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") void doLookup(); }}
+                    autoFocus
+                  />
+                  <button className={`${styles.btn} ${styles.btnPrimary}`} type="button" onClick={() => void doLookup()} disabled={lookupLoading}>
+                    {lookupLoading ? "识别中…" : "识别"}
+                  </button>
+                </div>
+                {lookupError ? <div className={styles.lookupError}>{lookupError}</div> : null}
+                {lookupResult ? (
+                  <div className={styles.empCard}>
+                    <div className={styles.empName}>{lookupResult.name_masked}</div>
+                    <div className={styles.empGrid}>
+                      <div><span>本期额度</span><b>¥{lookupResult.period_grant}</b></div>
+                      <div><span>已用</span><b>¥{lookupResult.period_consumed}</b></div>
+                      <div><span>剩余可用</span><b className={styles.empBalance}>¥{lookupResult.period_balance}</b></div>
+                      <div><span>到期日</span><b>{lookupResult.expire_date ?? "—"}</b></div>
+                    </div>
+                    <div className={styles.lookupBill}>
+                      <span>本单合计</span><b>¥{cartTotal.toFixed(2)}</b>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className={styles.dlgFoot}>
+                <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setModal(null)}>取消</button>
+                <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={() => void confirmSubsidyCheckout()} disabled={!lookupResult || submitting}>
+                  {submitting ? "核销中…" : "确认核销"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* 成功全屏 */}
         {showSuccess ? (
           <div className={styles.success}>
             <div className={styles.successCheck}>✓</div>
-            <h2>支付成功</h2>
+            <h2>{showSuccess.qrAmount && Number(showSuccess.qrAmount) > 0 ? "支付成功" : "核销成功"}</h2>
             <div className={styles.successAmt}>¥{showSuccess.amount}</div>
+            {showSuccess.subsidyAmount && Number(showSuccess.subsidyAmount) > 0 ? (
+              <div className={styles.successSplit}>
+                <div className={styles.successSplitRow}><span>餐补抵扣（非现金）</span><b>¥{showSuccess.subsidyAmount}</b></div>
+                {showSuccess.qrAmount && Number(showSuccess.qrAmount) > 0 ? (
+                  <div className={styles.successSplitRow}><span>扫码支付（真实）</span><b>¥{showSuccess.qrAmount}</b></div>
+                ) : null}
+              </div>
+            ) : null}
             <div className={styles.successSub}>{showSuccess.sub}</div>
             <button className={styles.btnNext} type="button" onClick={nextCustomer}>下一位 →</button>
           </div>

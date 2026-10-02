@@ -25,7 +25,10 @@ import type {
   SaveCanteenDishInput,
   UpdateCanteenOutletStatusInput,
   UpdateDishShelfInput,
-  UpdateDishStockInput
+  UpdateDishStockInput,
+  CanteenWalletCode,
+  CanteenWalletMe,
+  CanteenWalletTxn
 } from "./canteen-types";
 
 function compactObject(input: Record<string, unknown>): Record<string, unknown> {
@@ -252,6 +255,21 @@ export const canteenApi = {
       idempotencyKey: createIdempotencyKey("canteen-lookup-employee"),
       body: compactObject({ employee_code: employeeCode })
     });
+    return response.data;
+  },
+
+  /* ---------------- 员工本人钱包（个人中心“我的餐补”） ---------------- */
+  async getMyWallet(token?: string): Promise<CanteenWalletMe> {
+    const response = await apiRequest<CanteenWalletMe>("/canteen/wallet/me", { token });
+    return response.data;
+  },
+  async listMyWalletTxns(page = 1, pageSize = 20, token?: string): Promise<CanteenPage<CanteenWalletTxn>> {
+    const params = toPageParams(page, pageSize);
+    const response = await apiRequest<CanteenPage<CanteenWalletTxn>>(`/canteen/wallet/me/txns?${params.toString()}`, { token });
+    return response.data;
+  },
+  async getMyWalletCode(token?: string): Promise<CanteenWalletCode> {
+    const response = await apiRequest<CanteenWalletCode>("/canteen/wallet/me/code", { token });
     return response.data;
   },
 

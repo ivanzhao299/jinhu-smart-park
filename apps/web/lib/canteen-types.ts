@@ -206,19 +206,66 @@ export interface PosCheckoutSubsidyInput {
   outlet_id: string;
   employee_code: string;
   items: Array<{ dish_id: string; qty: number }>;
-  channel: "subsidy";
-  subsidy_apply_amount: number;
+  channel: "subsidy" | "mixed";
+  subsidy_apply_amount?: number;
 }
 export interface PosCheckoutSubsidyResult {
   order_no: string;
-  status: "paid" | string;
+  status: "paid" | "pending" | string;
+  channel: "subsidy" | "mixed" | string;
   subsidy_amount: string;
+  qr_pay_amount: string;
   balance_after: string;
+  payment_no?: string;
+  code_url?: string;
+  provider?: string;
+  expires_in?: number;
+  pay_amount?: string;
 }
 export interface PosEmployeeLookup {
   employee_user_id: string;
   employee_no: string;
   name_masked: string;
   period: string;
+  period_grant: string;
+  period_consumed: string;
+  period_expired: string;
   period_balance: string;
+  expire_date: string | null;
+}
+
+/* ---------------- 员工本人钱包（个人中心“我的餐补”，snake_case 响应） ---------------- */
+export interface CanteenWalletMe {
+  period: string;
+  period_grant: string;
+  period_consumed: string;
+  period_expired: string;
+  period_balance: string;
+  expire_date: string | null;
+}
+
+/** 钱包流水（实体 camelCase）。type: grant=发放 / consume=消费 / expire=过期。 */
+export interface CanteenWalletTxn {
+  id: string;
+  txnNo: string;
+  period: string;
+  type: "grant" | "consume" | "expire" | string;
+  amount: string;
+  balanceAfter: string;
+  txnTime: string;
+}
+
+export interface CanteenWalletCode {
+  code: string;
+  employee_user_id: string;
+  payload: string;
+}
+
+/** 余额不足 422 业务错误体。 */
+export interface CanteenInsufficientSubsidy {
+  code: "INSUFFICIENT_SUBSIDY";
+  message: string;
+  balance: string;
+  need: string;
+  suggest: "mixed" | "qr_pay" | string;
 }
