@@ -132,12 +132,29 @@ async function audit(args) {
         (SELECT count(*)::int FROM hr_payroll_legacy_snapshot WHERE tenant_id=$2 AND park_id=$3) snapshots,
         (SELECT count(*)::int FROM hr_payroll_legacy_snapshot_item WHERE tenant_id=$2 AND park_id=$3) snapshot_items,
         (SELECT count(*)::int FROM hr_payroll_legacy_batch WHERE batch_code=$1 AND tenant_id=$2 AND park_id=$3) batches`, [b.operationId, b.targetScope.tenantId, b.targetScope.parkId])).rows[0];
+      // Observe only the backend holding this exact import scope's advisory lock.
+      // Return a fixed technical category; never expose SQL text or bound values.
+      const activeTransactions = (await client.query(`SELECT a.state,
+        COALESCE(a.wait_event_type,'CPU_OR_IO') wait_type,COALESCE(a.wait_event,'none') wait_event,
+        EXTRACT(EPOCH FROM clock_timestamp()-a.query_start)::int statement_seconds,
+        EXTRACT(EPOCH FROM clock_timestamp()-a.xact_start)::int transaction_seconds,
+        CASE WHEN a.query LIKE '%SELECT EXISTS(SELECT 1 FROM em WHERE n=1%' THEN 'CORE_EMPLOYEE_SCOPE_GUARD'
+          WHEN a.query LIKE '%INSERT INTO hr_payroll_legacy_snapshot_item%' THEN 'WAGE_ITEM_INSERT'
+          WHEN a.query LIKE '%hr_yuzhou_t4_followon_owned_state%' THEN 'OWNED_STATE_HASH'
+          WHEN a.query LIKE '%INSERT INTO legacy_record_map%' THEN 'RECORD_MAP_INSERT'
+          WHEN a.query LIKE '%CREATE TEMP TABLE em%' THEN 'CATALOG_AND_SNAPSHOT_INSERT'
+          WHEN a.query LIKE '%CREATE TEMP TABLE%' OR a.query LIKE '%jsonb_array_elements($1::jsonb)%' THEN 'SOURCE_STAGE'
+          ELSE 'OTHER_T4_STATEMENT' END technical_phase
+        FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+        WHERE a.datname=current_database() AND l.locktype='advisory' AND l.granted AND l.objsubid=1
+          AND l.classid::bigint=((hashtextextended($1,0)>>32)&4294967295)
+          AND l.objid::bigint=(hashtextextended($1,0)&4294967295)`, ['yuzhou-t4:'+b.targetScopeSha256])).rows;
       const claimPath = resolve(followonRoot, 'execution-claimed.json');
       const claimed = existsSync(claimPath); const claim = claimed ? packet.privateInfo(claimPath) : null;
       const logs = spawnSync('docker', ['--host','unix:///var/run/docker.sock','logs','--since',new Date((claim?.mtimeMs ?? Date.now())-120000).toISOString(),'--tail','1000','jinhu-smart-park-prod-postgres'], { encoding: 'utf8', maxBuffer: 2*1024*1024 });
       if (logs.status !== 0) fail('TRANSPORT_AUDIT_POSTGRES_LOG_READ_FAILED');
       followon = { executionCodeSha: b.executionCodeSha, operationRows: operation.length, operationStatus: operation[0]?.status ?? 'absent',
-        counts, executionClaimExists: claimed, executionReceiptExists: existsSync(resolve(followonRoot,'execution-receipt.json')),
+        counts, activeTransactions, executionClaimExists: claimed, executionReceiptExists: existsSync(resolve(followonRoot,'execution-receipt.json')),
         sqlErrors: summarizeSqlErrors(`${logs.stdout ?? ''}\n${logs.stderr ?? ''}`) };
     }
   } finally { await client.end(); credentials.password = ''; }
