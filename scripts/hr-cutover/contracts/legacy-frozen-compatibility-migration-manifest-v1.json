@@ -10,7 +10,7 @@
     {"stableId":"FIELD_ORGANIZATION_POSITION","path":"scripts/hr-cutover/contracts/legacy-organization-position-field-map-v1.json","sha256":"79f50da17934ac2163b957989ecdbe8992c097f717508174031c678e38907f19"},
     {"stableId":"FIELD_PAYROLL","path":"scripts/hr-cutover/contracts/legacy-payroll-rule-family-parity-v1.json","sha256":"84c78befc7c7b7efeba4fad0165381b263591c222e4560ccaa9d1c779167c72d"},
     {"stableId":"FIELD_EMPLOYEE_PROFILE","path":"scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json","sha256":"d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0"},
-    {"stableId":"FIELD_KNOWHOW","path":"scripts/hr-cutover/contracts/legacy-knowhow-field-map-v1.json","sha256":"e38454a5dd7166a95ff3a3fecd04096d448b97a968df354d08bec1d93aea3f40"},
+    {"stableId":"FIELD_KNOWHOW","path":"scripts/hr-cutover/contracts/legacy-knowhow-field-map-v1.json","sha256":"f3f92610176e74174dc85f7c9fdb4c3bb23222f47a2631f774e78f2ab9416df0"},
     {"stableId":"FIELD_REWARD_DISCIPLINE","path":"scripts/hr-cutover/contracts/legacy-reward-discipline-field-map-v1.json","sha256":"2ea5a48956c0955cbed9f33ce8d01aaf0b3dd205f25a089ea9e50328e0946a0b"},
     {"stableId":"FIELD_TRAINING_HISTORY","path":"scripts/hr-cutover/contracts/legacy-training-history-field-map-v1.json","sha256":"c44fd396efd63bcb214dcec9cc0a2e1e6dc7962a4ecebb98773dbbad9c82505d"},
     {"stableId":"FIELD_INSURANCE_POLICY","path":"scripts/hr-cutover/contracts/legacy-insurance-policy-field-map-v1.json","sha256":"2646f453b6319aac3995d7dbec7f4cfe664f0bec980d812b1b555c585409e84e"},

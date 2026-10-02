@@ -1,0 +1,41 @@
+{
+  "status": "PROGRESS_TOOL_RESTORED_NO_NEW_COMPATIBILITY_CREDIT",
+  "reviewedSourceChange": "25a4c9df",
+  "verifiedChanges": [
+    "adapter profile identity ambiguity rule; skill projection unchanged",
+    "writer follow-on entry reuses prior field insertion; old skill columns unchanged"
+  ],
+  "changedHashes": 2,
+  "frozenManifestReferencesUpdated": 1,
+  "tests": {
+    "fieldAndAdapter": 12,
+    "writerAndRollback": 14,
+    "frozenManifest": 10,
+    "progressContracts": 11
+  },
+  "totalTestsPassed": 47,
+  "fieldIdsDenominatorsCreditsGapsUnchanged": true,
+  "gradeDictionaryGapPreserved": true,
+  "progressTool": "PASS",
+  "metricScope": "committed code/source contracts only; not overall product completion",
+  "fieldsWithVerifiedTargetContract": {
+    "numerator": 223,
+    "denominator": 2364,
+    "percent": 9.43
+  },
+  "routineFamiliesImplementedAndTested": {
+    "numerator": 6,
+    "denominator": 212,
+    "percent": 2.83
+  },
+  "groupWebRuntimeTasksPrepared": {
+    "numerator": 10,
+    "denominator": 186,
+    "percent": 5.38,
+    "functionalParityCredit": 0,
+    "status": "ready_not_executed"
+  },
+  "productionReceiptPolicy": "default tool supplies no external production receipt; 0/8 must not override actual completed T0-T5 import",
+  "productionWrite": false,
+  "appCandidateUnchanged": "ea68d177"
+}

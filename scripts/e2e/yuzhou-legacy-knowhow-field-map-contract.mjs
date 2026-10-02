@@ -106,7 +106,7 @@ test("hash drift or contract-only grade promotion cannot create verified credit"
   drift.contract.pipelineEvidence.find(row => row.stage === "writer").sha256 = "0".repeat(64);
   rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(drift));
 
-  for (const stage of ["transform", "field_projection"]) {
+  for (const stage of ["transform", "field_projection", "private_stage"]) {
     const movedCodeDrift = fixture();
     movedCodeDrift.contract.pipelineEvidence.find(row => row.stage === stage).sha256 = "0".repeat(64);
     rejects("KNOWHOW_FIELD_EVIDENCE_DRIFT", () => build(movedCodeDrift));
