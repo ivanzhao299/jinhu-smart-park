@@ -39,7 +39,7 @@
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Wait on existing CI36968422499, then publish verification commits once. Design scoped frozen simulation source; staged inputs remain blocked because append is allowed.",
+  "nextAction": "Reuse CI run36969513351/watch65979. Publish read-only input inventory after current CI terminal; run through reviewed production read-only path for selected business month, then frozen-source implementation.",
   "phases": [
     {
       "id": "S0",
@@ -235,5 +235,13 @@
     "newDirectSourceBindingMismatches": 0,
     "productionWrite": false,
     "productionDeployed": false
+  },
+  "currentInputInventoryTool": {
+    "status": "IMPLEMENTED_SYNTHETIC_POSTGRES_VERIFIED",
+    "tests": "8/8 PASS",
+    "actualImportedDataInventory": false,
+    "productionObserved": false,
+    "sourceFrozen": false,
+    "simulationReady": false
   }
 }
