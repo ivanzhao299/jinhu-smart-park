@@ -27,13 +27,14 @@
     "H5"
   ],
   "activeRunHandle": {
-    "ciRunId": 37000998428,
-    "candidateSha": "f8e562b29f26145c8abc7e2c6f45e5db5438c7e5",
+    "ciRunId": 37001645797,
+    "ciWatchSession": 89578,
+    "candidateSha": "6aae5b17e52507fe24bb8a60b6b576a558f6e719",
     "pullRequest": 776
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Follow existing PR776 CI37000998428 to terminal, verify final candidate and existing baseline evidence limits, then make bounded fix reviewable for release. Performance production module remains unaccepted until release and role UAT. No historical import replay.",
+  "nextAction": "Resume final CI watch89578 for PR776 candidate6aae5b17. Old CI37000998428 superseded and cancellation requested. Reviewed legacy evidence gates35+11 and progress now PASS, credits unchanged. Service/test bytes equal passing PostgreSQL run17a57f2d. Release still unproven until final CI, merged/runtime SHA and role acceptance.",
   "phases": [
     {
       "id": "S0",
@@ -73,7 +74,7 @@
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T11:25:14.471318+00:00",
+  "updatedAt": "2026-10-02T11:32:35.453928+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -292,19 +293,38 @@
       "isolatedContainerAbsent": true,
       "temporaryTestCredentialsRemoved": true,
       "finishedAt": "2026-10-02T11:23:21.976321+00:00",
-      "finalCandidateSha": "f8e562b29f26145c8abc7e2c6f45e5db5438c7e5",
+      "finalCandidateSha": "6aae5b17e52507fe24bb8a60b6b576a558f6e719",
       "serviceAndTestBytesEqualPassingRun": true,
       "pullRequest": 776,
-      "ciRunId": 37000998428,
-      "ciStatus": "in_progress",
+      "ciRunId": 37001645797,
+      "ciStatus": "pending",
       "productionDeployed": false,
       "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
       "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
       "existingServiceContractTests": 14,
-      "baselineLegacyContractFailures": 4,
+      "baselineLegacyContractFailures": 0,
       "apiBuild": "PASS",
       "apiTypecheck": "PASS",
-      "changedFileLint": "PASS"
+      "changedFileLint": "PASS",
+      "ciWatchSession": 89578,
+      "supersededCiRunId": 37000998428,
+      "supersededCiCancellationRequested": true,
+      "historicalBaselineLegacyContractFailures": 4,
+      "reviewedEvidenceContracts": {
+        "tests": 35,
+        "pass": 35,
+        "fail": 0,
+        "skipped": 0
+      },
+      "progressContracts": {
+        "tests": 11,
+        "pass": 11,
+        "fail": 0,
+        "skipped": 0
+      },
+      "compatibilityAggregator": "PASS",
+      "legacyPendingAndCreditsUnchanged": true,
+      "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
