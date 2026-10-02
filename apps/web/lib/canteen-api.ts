@@ -7,6 +7,7 @@ import { apiRequest, createIdempotencyKey } from "./api-client";
 import type {
   CanteenCashierSession,
   CanteenCategory,
+  CanteenDayClosePreview,
   CanteenDish,
   CanteenOrder,
   CanteenOrderItem,
@@ -220,6 +221,11 @@ export const canteenApi = {
   },
   async getCurrentSession(token?: string): Promise<CanteenCashierSession | null> {
     const response = await apiRequest<CanteenCashierSession | null>("/canteen/pos/sessions/current", { token });
+    return response.data;
+  },
+  /* 日结只读预览：聚合口径与结班一致，open 班次存储汇总列恒 0，故用此接口取实时数 */
+  async getCurrentDayClose(token?: string): Promise<CanteenDayClosePreview> {
+    const response = await apiRequest<CanteenDayClosePreview>("/canteen/pos/sessions/current/day-close", { token });
     return response.data;
   },
   async closeSession(sessionId: string, token?: string): Promise<CanteenCashierSession> {

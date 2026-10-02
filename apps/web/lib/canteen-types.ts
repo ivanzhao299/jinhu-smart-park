@@ -129,8 +129,19 @@ export interface CanteenCashierSession {
   closeSnapshot?: Record<string, unknown> | null;
 }
 
-/** 订单分页（后端真实形状） */
-export interface CanteenPage<T> {
+/** 日结只读预览（GET /sessions/current/day-close，snake_case 响应，不关闭班次） */
+export interface CanteenDayClosePreview {
+  session_no: string;
+  status: string;
+  open_time: string;
+  close_time?: string | null;
+  qr_pay_total: string;
+  subsidy_total: string;
+  order_count: number;
+  refund_total: string;
+}
+
+/** 订单分页（后端真实形状） */export interface CanteenPage<T> {
   list: T[];
   total: number;
   page: number;

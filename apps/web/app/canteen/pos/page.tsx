@@ -147,13 +147,7 @@ export default function PosTerminalPage() {
             setShiftOpen(current.status === "open");
             setShiftNo(current.sessionNo ?? "");
             setSessionId(current.id ?? "");
-            /* 刷新/重进后用后端班次汇总校准内存计数 */
-            setShift({
-              qrTotal: Number(current.qrPayTotal ?? 0),
-              subsidyTotal: Number(current.subsidyTotal ?? 0),
-              orders: Number(current.orderCount ?? 0),
-              refund: Number(current.refundTotal ?? 0)
-            });
+            /* 注意：open 班次的存储汇总列恒为 0，不用它校准金额；预览以打开日结时的 day-close 接口为准 */
           }
         } catch {
           /* 无班次视为未开班 */
@@ -248,22 +242,20 @@ export default function PosTerminalPage() {
   }
 
   /* ====== 结班/日结 ====== */
-  /* 打开日结前以后端班次汇总校准预览（内存计数仅作实时增量） */
+  /* 打开日结前调只读预览接口取权威实时汇总；失败则沿用内存计数兜底并提示 */
   async function requestCloseShift() {
     if (!shiftOpen) return toast("当前无进行中班次");
     try {
-      const current = await canteenApi.getCurrentSession(token);
-      if (current) {
-        setSessionId(current.id ?? sessionId);
-        setShift({
-          qrTotal: Number(current.qrPayTotal ?? 0),
-          subsidyTotal: Number(current.subsidyTotal ?? 0),
-          orders: Number(current.orderCount ?? 0),
-          refund: Number(current.refundTotal ?? 0)
-        });
-      }
-    } catch {
-      /* 校准失败：沿用内存计数，仍可开预览 */
+      const dc = await canteenApi.getCurrentDayClose(token);
+      setShift({
+        qrTotal: Number(dc.qr_pay_total ?? 0),
+        subsidyTotal: Number(dc.subsidy_total ?? 0),
+        orders: Number(dc.order_count ?? 0),
+        refund: Number(dc.refund_total ?? 0)
+      });
+      setShiftNo(dc.session_no ?? shiftNo);
+    } catch (error) {
+      toast(error instanceof Error ? `日结预览加载失败：${error.message}（显示本地计数）` : "日结预览加载失败，显示本地计数");
     }
     setModal("close");
   }
