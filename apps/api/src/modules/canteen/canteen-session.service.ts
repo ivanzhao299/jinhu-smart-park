@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { InjectRepository } from "@nestjs/typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import { DataSource, Repository } from "typeorm";
+import type { EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { OpenSessionDto, SessionListQueryDto } from "./dto/canteen.dto";
 import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
@@ -109,23 +110,12 @@ export class CanteenSessionService {
       if (!session) throw new NotFoundException("session not found");
       if (session.status === "closed") throw new BadRequestException("session already closed");
 
-      // 聚合本班订单。
-      const agg = await manager
-        .createQueryBuilder(CanteenOrderEntity, "o")
-        .select("count(*)", "orderCount")
-        .addSelect("COALESCE(sum(o.qr_pay_amount),0)", "qrPayTotal")
-        .addSelect("COALESCE(sum(o.subsidy_amount),0)", "subsidyTotal")
-        .where("o.tenant_id = :t AND o.park_id = :p AND o.cashier_session_id = :sid AND o.is_deleted = false", {
-          t: scope.tenantId,
-          p: scope.parkId,
-          sid: session.id
-        })
-        .andWhere("o.status IN (:...st)", { st: ["paid", "completed"] })
-        .getRawOne<{ orderCount: string; qrPayTotal: string; subsidyTotal: string }>();
-
-      const orderCount = Number(agg?.orderCount ?? 0);
-      const qrPayTotal = Number(agg?.qrPayTotal ?? 0).toFixed(2);
-      const subsidyTotal = Number(agg?.subsidyTotal ?? 0).toFixed(2);
+      // 聚合本班订单（与预览口径完全一致）。
+      const { orderCount, qrPayTotal, subsidyTotal } = await this.aggregateSession(
+        manager,
+        scope,
+        session.id
+      );
 
       session.closeTime = new Date();
       session.qrPayTotal = qrPayTotal;
@@ -146,5 +136,61 @@ export class CanteenSessionService {
       session.updateBy = actor.sub;
       return manager.save(session);
     });
+  }
+
+  /**
+   * 结班/日结只读预览：open 班次不写库、不改状态，按与 close 完全相同的口径
+   * 聚合当前班次订单。触摸屏点「结班/日结」时调用。
+   */
+  async previewCurrent(scope: TenantParkScope, actor: JwtPrincipal) {
+    const session = await this.sessionRepo.findOne({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        cashierUserId: actor.sub,
+        status: "open",
+        isDeleted: false
+      },
+      order: { openTime: "DESC" }
+    });
+    if (!session) throw new NotFoundException("no open session");
+
+    const agg = await this.aggregateSession(this.dataSource.manager, scope, session.id);
+    return {
+      session_no: session.sessionNo,
+      status: session.status,
+      open_time: session.openTime,
+      close_time: session.closeTime,
+      qr_pay_total: agg.qrPayTotal,
+      subsidy_total: agg.subsidyTotal,
+      order_count: agg.orderCount,
+      refund_total: "0.00"
+    };
+  }
+
+  /** 结班聚合口径：本班 status ∈ (paid, completed) 的订单，cancelled/refunded 不计。 */
+  private async aggregateSession(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    sessionId: string
+  ): Promise<{ orderCount: number; qrPayTotal: string; subsidyTotal: string }> {
+    const agg = await manager
+      .createQueryBuilder(CanteenOrderEntity, "o")
+      .select("count(*)", "orderCount")
+      .addSelect("COALESCE(sum(o.qr_pay_amount),0)", "qrPayTotal")
+      .addSelect("COALESCE(sum(o.subsidy_amount),0)", "subsidyTotal")
+      .where("o.tenant_id = :t AND o.park_id = :p AND o.cashier_session_id = :sid AND o.is_deleted = false", {
+        t: scope.tenantId,
+        p: scope.parkId,
+        sid: sessionId
+      })
+      .andWhere("o.status IN (:...st)", { st: ["paid", "completed"] })
+      .getRawOne<{ orderCount: string; qrPayTotal: string; subsidyTotal: string }>();
+
+    return {
+      orderCount: Number(agg?.orderCount ?? 0),
+      qrPayTotal: Number(agg?.qrPayTotal ?? 0).toFixed(2),
+      subsidyTotal: Number(agg?.subsidyTotal ?? 0).toFixed(2)
+    };
   }
 }

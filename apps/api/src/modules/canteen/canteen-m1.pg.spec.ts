@@ -173,6 +173,18 @@ test("M1: archive CRUD, qr checkout happy path + idempotent callback, timeout cl
     });
     assert.ok(logsForOrder >= 1);
 
+    // ===== 4b) 日结只读预览：open 班次实时汇总，不改库 =====
+    const preview = await sessions.previewCurrent(scope as never, actor as never);
+    assert.equal(preview.status, "open");
+    assert.equal(preview.qr_pay_total, "30.00");
+    assert.equal(preview.subsidy_total, "0.00");
+    assert.equal(preview.order_count, 1, "cancelled order must not count; only completed");
+    // 存储列仍为 0、班次仍 open（预览不写库）。
+    const afterPreview = await sessionRepo.findOneByOrFail({ id: session.id });
+    assert.equal(afterPreview.status, "open");
+    assert.equal(afterPreview.qrPayTotal, "0.00");
+    assert.equal(afterPreview.orderCount, 0);
+
     // ===== 5) 第二单：超时未支付 → payment=closed / order=cancelled =====
     const chk2 = await checkout.checkoutQr(
       scope as never, actor as never,

@@ -54,6 +54,12 @@ export class CanteenPosController {
     return this.sessions.current(scope, actor);
   }
 
+  @Get("sessions/current/day-close")
+  @RequirePermissions(CANTEEN_PERMISSIONS.SESSION_VIEW)
+  previewDayClose(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal) {
+    return this.sessions.previewCurrent(scope, actor);
+  }
+
   @Post("sessions/:id/close")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(CANTEEN_PERMISSIONS.SESSION_CLOSE)
