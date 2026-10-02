@@ -14,6 +14,7 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 - `production/000009_jh_leasing_lead_workorder_create_repair.sql`
 - `production/000016_hr_management_foundation.sql`
 - `production/000017_hr_department_manager_directory.sql`
+- `production/000035_hr_insurance_owned_period_catalog.sql`: registers four independent modern insurance-period API capabilities under the insurance page. It creates no accounts, role bindings or business periods; existing catalog drift fails rather than being overwritten. The core seed preserves these parent links on complete replay.
 
 Production execution:
 

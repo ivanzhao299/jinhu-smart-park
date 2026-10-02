@@ -1,5 +1,6 @@
-import { Transform } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 import {
+  ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, ValidateIf, ValidateNested,
   IsIn,
   IsInt,
   IsDateString,
@@ -68,11 +69,33 @@ export class HrPayrollReconciliationDetailQueryDto {
   result_page_size = 20;
 }
 
+export class HrPayrollInsuranceOptionsQueryDto {
+  @IsUUID() legacyBatchId!: string;
+  @IsUUID() attendanceInputBatchId!: string;
+  @IsOptional() @IsUUID() reconciliationSourceId?: string;
+  @Transform(({value}) => Number(value ?? 1)) @IsInt() @Min(1) page = 1;
+  @Transform(({value}) => Number(value ?? 50)) @IsInt() @Min(1) @Max(100) page_size = 50;
+}
+
+export class HrPayrollInsuranceSourceDto {
+  @IsUUID() employeeId!: string;
+  @IsIn(["historical", "modern_confirmed"]) sourceKind!: "historical" | "modern_confirmed";
+  @IsUUID() sourceId!: string;
+  @IsInt() @Min(1) @Max(2147483647) expectedVersion!: number;
+  @ValidateIf(o => o.sourceKind === "modern_confirmed" || o.expectedHash !== undefined)
+  @Matches(/^[0-9a-f]{64}$/u) expectedHash?: string;
+}
+
 export class CreateHrPayrollReconciliationDto {
   @IsUUID() legacyBatchId!: string;
   @IsUUID() attendanceInputBatchId!: string;
   @IsOptional() @IsUUID() reconciliationSourceId?: string;
   @IsOptional() @IsUUID() supersedesRunId?: string;
+  @ValidateIf((_o, value) => value !== undefined)
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5000)
+  @ArrayUnique((item: HrPayrollInsuranceSourceDto) => item?.employeeId)
+  @ValidateNested({ each: true }) @Type(() => HrPayrollInsuranceSourceDto)
+  insuranceSources?: HrPayrollInsuranceSourceDto[];
 }
 
 export class HrPayrollReconciliationSourcePreviewDto {

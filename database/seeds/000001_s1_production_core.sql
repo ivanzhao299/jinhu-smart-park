@@ -830,6 +830,7 @@ permission_parent_map AS (
       WHEN child.code = 'bim:read' THEN 'bim:overview'
       WHEN child.code = 'ai:read' THEN 'ai:assistant'
       WHEN child.code = 'hr:insurance_policy:version_create' THEN 'hr:insurance'
+      WHEN child.code IN ('hr:insurance_period:preview_create', 'hr:insurance_period:confirm', 'hr:insurance_period:close', 'hr:insurance_period:correct') THEN 'hr:insurance'
       WHEN child.code = 'cockpit:read' THEN 'cockpit'
       ELSE NULL
     END
@@ -2108,6 +2109,8 @@ role_permissions AS (
   WHERE role.code = 'SUPER_ADMIN'
     AND role.is_deleted = false
     AND permission.code <> 'asset:party'
+    -- Modern insurance writes require explicit grants; catalog replay must not grant them.
+    AND permission.code NOT IN ('hr:insurance_period:preview_create', 'hr:insurance_period:confirm', 'hr:insurance_period:close', 'hr:insurance_period:correct')
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
   FROM sys_role role
