@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "be8366ea09087fb975feddce0e811ec407bf853636b34f3b87904e3ce50e38cf",
+      "sha256": "2605696ecc0b0aa21b2f435b9f074eaa90b88ace89744ddfb5c6f33fde1561ad",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
