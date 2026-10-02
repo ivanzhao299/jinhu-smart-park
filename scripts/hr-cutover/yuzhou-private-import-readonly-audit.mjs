@@ -40,6 +40,7 @@ export async function inspectCommittedImportIntegrity(client, operationId, scope
   try {
     await connection.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     await connection.query('SET LOCAL statement_timeout=300000');
+    await connection.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
     const readonly = (await connection.query("SELECT current_setting('transaction_read_only') readonly")).rows[0];
     if (readonly.readonly !== 'on') fail('TRANSPORT_AUDIT_NOT_READONLY');
     const core = (await connection.query(`SELECT
@@ -71,7 +72,7 @@ export async function inspectCommittedImportIntegrity(client, operationId, scope
         OR t4_followon_operation_id IN (SELECT operation_id FROM hr_yuzhou_t4_followon_operation WHERE parent_operation_id=$1)
         OR t5_followon_operation_id IN (SELECT operation_id FROM hr_yuzhou_t5_followon_operation WHERE parent_operation_id=$1))
       GROUP BY source_system,source_table,source_identity_sha256 HAVING count(*)>1) d`, [operationId])).rows[0];
-    return { observedAt: new Date().toISOString(), transactionReadOnly: true, core, payroll, extensions,
+    return { observedAt: new Date().toISOString(), transactionReadOnly: true, hashTimezone: 'Asia/Shanghai', core, payroll, extensions,
       ...sourceDuplicates, replayExecuted: false, physicalFileBytesReverified: false };
   } finally {
     try { await connection.query('ROLLBACK'); } finally { connection.release(); }
