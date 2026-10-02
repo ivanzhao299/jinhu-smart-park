@@ -1,4 +1,4 @@
-export type { HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage } from "./hr-payroll-insurance-source";
+export type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage } from "./hr-payroll-insurance-source";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_PERMISSIONS

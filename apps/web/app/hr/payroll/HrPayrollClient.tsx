@@ -603,9 +603,9 @@ function ReconciliationWorkbench({
                 关闭
               </button>
             </div>
-            <div className="ds-mobile-record-list">
+            <div className="ds-scene-grid">
               {selected.results?.map((employee) => (
-                <article className="ds-mobile-record" key={employee.resultId}>
+                <article className="ds-scene-card" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:12}} key={employee.resultId}>
                   <strong>
                     {employee.employeeName} · {employee.employeeCode}
                   </strong>
@@ -614,6 +614,7 @@ function ReconciliationWorkbench({
                     {money(employee.newTotal)} · 差额{" "}
                     {money(employee.deltaTotal)}
                   </span>
+                  <small>{employee.insuranceSource ? `社保输入：${employee.insuranceSource.sourceKind === "modern_confirmed" ? "现代确认" : "历史期间"} · 冻结版本 ${employee.insuranceSource.version}` : "社保输入：未保留可展示的冻结来源"}</small>
                   {employee.differences.map((item) => (
                     <small key={item.id}>
                       {item.itemName}：{money(item.oldAmount)} →{" "}
