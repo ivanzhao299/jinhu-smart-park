@@ -12,7 +12,7 @@
   "sourceBindings": {
     "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "0ef547bc8f475a4e4a4be7b04691e84b2b5a1c97627a5b405d3a76526ec5f4c1" },
     "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
-    "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "ae48cab4308fcc9861961b89228fc9f57267ab1406f706f59535dcb832e03a40" },
+    "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "a6531c98df2dce0138d0d1663267cfc8735c861252f125f156925c5f78d667ea" },
     "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "41e7e16babb505174acb3eea85a6a660873f9fb36ba99a1a3baec1518e426299" },
     "targetLoader": { "path": "scripts/load-yuzhou-t1-employment-events.sh", "sha256": "67fa55fb765396df7204bc2c1c7c71ae5c797f89d3abe4d5c1f8f341afeaa3ef" },
     "targetFoundationMigration": { "path": "database/migrations/000230_hr_employee_foundation.sql", "sha256": "9041f56e6114bca535c23cd83fb88d31f579651d40b31bf975201ce8b06e5631" },

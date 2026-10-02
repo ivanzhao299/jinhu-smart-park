@@ -1,0 +1,19 @@
+{
+  "id": "yuzhou-contract-reminder-inbox",
+  "name": "yuzhou-contract-reminder-inbox",
+  "title": "玉舟 S2 合同提醒全量可达",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-02",
+  "branch": "codex/yuzhou-contract-reminder-paging-20261002",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
+  "parent": "yuzhou-modern-production-parity",
+  "children": [],
+  "relatedFiles": [
+    ".trellis/tasks/10-02-yuzhou-contract-reminder-inbox/prd.md",
+    ".trellis/tasks/10-02-yuzhou-contract-reminder-inbox/checkpoint.json"
+  ]
+}

@@ -1175,3 +1175,9 @@ const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
 if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
 const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
 ```
+
+## Scenario: Complete scoped contract reminder inbox
+
+`GET /hr/contract-reminders` accepts closed-enum `kind`, numeric `window_days` in 30/60/90, status and bounded pagination. Scope SQL is applied before every count, summary and row query; team access retains both managed employee IDs and recipient identity. `active_sixty_day_total` counts all unclosed 60-day contract-expiry reminders in that same scope independently of list filters. Web filters use server predicates, show 50-row pages including rows beyond 100, and reset to page one on filter changes. Context/filter changes immediately hide old records and invalidate reads and mutation refresh callbacks. A last page that shrinks after an action reloads its new last page. No reminder delivery, policy, permissions or migration changes are implied.
+
+Tests cover DTO validation, shared scope in count/summary/rows, denied reads, full-page pagination, filter propagation and context clearing; browser validation includes desktop and phone width.
