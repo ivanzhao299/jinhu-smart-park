@@ -14,7 +14,12 @@
   "workspace": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
   "planningBaselineSha": "7c3df1c230bde74badbf414acae36030d5fe8709",
   "remoteBaseAtPlanning": "7c3df1c230bde74badbf414acae36030d5fe8709",
-  "runtimeProof": "previous_actual_observation_not_refreshed_this_turn",
+  "runtimeProof": {
+    "runId": 36968318836,
+    "commit": "7c3df1c230bde74badbf414acae36030d5fe8709",
+    "observedAt": "2026-10-02T05:19:19.464Z",
+    "apiAndWebMatch": true
+  },
   "sourceHistoryImport": "ACTUAL_T0_T5_COMPLETED",
   "quarantinePolicy": "archive_historical_without_current_impact_preserve_evidence",
   "quarantineClassificationStatus": "CLOSED_BY_HISTORICAL_POLICY",
@@ -27,10 +32,14 @@
     "H4",
     "H5"
   ],
-  "activeRunHandle": null,
+  "activeRunHandle": {
+    "ciRunId": 36968422499,
+    "ciWatchSession": 97445,
+    "head": "318b1d5e00b451594e73f48597367b251c783ae5"
+  },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Wait for old PR774 CI terminal, publish the integrated candidate once, inspect fresh read-only runtime diagnosis, then exact-head CI/release and real-role acceptance",
+  "nextAction": "Reuse running exact-head CI watcher; publish added database proof after CI terminal, then release and real-role business acceptance",
   "phases": [
     {
       "id": "S0",
@@ -71,7 +80,7 @@
     "observationScope": "cumulative entire active goal; not attributable to this slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T12:34:49.306853",
+  "updatedAt": "2026-10-02T05:26:14.629846+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -116,6 +125,27 @@
         "documentWidth": 390
       },
       "diffCheck": "PASS"
+    },
+    "accountLinkRealPostgres": {
+      "status": "LOCAL_REAL_POSTGRES_VERIFIED",
+      "accountAssociationTests": "10/10 PASS",
+      "reminderRunnerRegression": "6/6 PASS",
+      "apiTypecheck": "PASS",
+      "changedTestEslint": "PASS",
+      "runnerSyntax": "PASS",
+      "databaseScope": "existing isolated loopback lab, new generated test schema, deleted after test",
+      "productionWrites": false,
+      "cases": [
+        "audit-only employee mutation",
+        "stale/noop",
+        "scope/status rejection",
+        "departure unlink",
+        "two employee race",
+        "same employee race",
+        "event rollback",
+        "real unique-index 23505 translation",
+        "deleted association release"
+      ]
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -123,9 +153,9 @@
   "s1AnonymousApiAccess": "6/6_DENIED_401",
   "s1HistoryArchiveContracts": "22/22_PASS",
   "s2ExistingWorkflowContracts": "24/24_PASS_RUNTIME_NOT_ACCEPTED",
-  "browserRoleUat": "WAITING_EXISTING_LOGIN_SESSION",
-  "implementationWorkspace": "/Users/mac/.codex/worktrees/yuzhou-current-account-link-20261002/jinhu-smart-park",
-  "implementationCodeSha": "7c3df1c230bde74badbf414acae36030d5fe8709_with_uncommitted_account_link_slice",
+  "browserRoleUat": "PENDING_CURRENT_IDENTITY_CONFIRMATION_NO_LOGIN_TAB",
+  "implementationWorkspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
+  "implementationCodeSha": "318b1d5e00b451594e73f48597367b251c783ae5 plus account-link PostgreSQL verification",
   "s1ReadModel": {
     "employees": 2938,
     "current_employees": 334,
@@ -156,7 +186,7 @@
       "1367a6a9645ebac2eeafa23fd4c9cfc8eb9456f2",
       "cc59f947433211538f90a48d6abc270dd41f4dcb"
     ],
-    "status": "local_integrated_validated_pending_remote_ci",
+    "status": "pushed_ci_running",
     "apiTests": 27,
     "webInteractionTests": 11,
     "apiTypecheck": "PASS",

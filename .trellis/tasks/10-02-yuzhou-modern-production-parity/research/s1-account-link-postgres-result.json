@@ -1,0 +1,21 @@
+{
+  "status": "LOCAL_REAL_POSTGRES_VERIFIED",
+  "accountAssociationTests": "10/10 PASS",
+  "reminderRunnerRegression": "6/6 PASS",
+  "apiTypecheck": "PASS",
+  "changedTestEslint": "PASS",
+  "runnerSyntax": "PASS",
+  "databaseScope": "existing isolated loopback lab, new generated test schema, deleted after test",
+  "productionWrites": false,
+  "cases": [
+    "audit-only employee mutation",
+    "stale/noop",
+    "scope/status rejection",
+    "departure unlink",
+    "two employee race",
+    "same employee race",
+    "event rollback",
+    "real unique-index 23505 translation",
+    "deleted association release"
+  ]
+}
