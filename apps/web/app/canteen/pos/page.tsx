@@ -77,7 +77,9 @@ export default function PosTerminalPage() {
 
   const [shiftOpen, setShiftOpen] = useState(false);
   const [shiftNo, setShiftNo] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [shift, setShift] = useState<ShiftState>({ qrTotal: 0, subsidyTotal: 0, orders: 0, refund: 0 });
+  const [closing, setClosing] = useState(false);
   const [online, setOnline] = useState(true);
 
   const [modal, setModal] = useState<ModalKind>(null);
@@ -144,6 +146,14 @@ export default function PosTerminalPage() {
           if (current) {
             setShiftOpen(current.status === "open");
             setShiftNo(current.sessionNo ?? "");
+            setSessionId(current.id ?? "");
+            /* 刷新/重进后用后端班次汇总校准内存计数 */
+            setShift({
+              qrTotal: Number(current.qrPayTotal ?? 0),
+              subsidyTotal: Number(current.subsidyTotal ?? 0),
+              orders: Number(current.orderCount ?? 0),
+              refund: Number(current.refundTotal ?? 0)
+            });
           }
         } catch {
           /* 无班次视为未开班 */
@@ -228,6 +238,7 @@ export default function PosTerminalPage() {
     try {
       const session = await canteenApi.openSession({ outlet_id: outletId, opening_float: 0 }, token);
       setShiftNo(session.sessionNo ?? "");
+      setSessionId(session.id ?? "");
     } catch {
       setShiftNo("CS" + Date.now().toString().slice(-8));
     }
@@ -237,20 +248,47 @@ export default function PosTerminalPage() {
   }
 
   /* ====== 结班/日结 ====== */
-  function requestCloseShift() {
+  /* 打开日结前以后端班次汇总校准预览（内存计数仅作实时增量） */
+  async function requestCloseShift() {
     if (!shiftOpen) return toast("当前无进行中班次");
+    try {
+      const current = await canteenApi.getCurrentSession(token);
+      if (current) {
+        setSessionId(current.id ?? sessionId);
+        setShift({
+          qrTotal: Number(current.qrPayTotal ?? 0),
+          subsidyTotal: Number(current.subsidyTotal ?? 0),
+          orders: Number(current.orderCount ?? 0),
+          refund: Number(current.refundTotal ?? 0)
+        });
+      }
+    } catch {
+      /* 校准失败：沿用内存计数，仍可开预览 */
+    }
     setModal("close");
   }
 
   async function confirmCloseShift() {
+    if (!sessionId) return toast("未找到当前班次，请重新开班");
+    setClosing(true);
     try {
-      if (outletId) await canteenApi.closeSession(outletId, token);
-    } catch {
-      /* 后端未就绪，前端照常结班 */
+      const closed = await canteenApi.closeSession(sessionId, token);
+      if (closed && closed.status === "closed") {
+        setShiftOpen(false);
+        setSessionId("");
+        setShiftNo("");
+        setShift({ qrTotal: 0, subsidyTotal: 0, orders: 0, refund: 0 });
+        setModal(null);
+        toast("日结完成，数据已上报管理端 / 财务端");
+      } else {
+        toast("结班未确认：后端状态未更新，请重试");
+      }
+    } catch (error) {
+      /* 失败保留开班状态，可重试 */
+      toast(error instanceof Error ? `结班失败：${error.message}` : "结班失败，请重试");
+    } finally {
+      setClosing(false);
     }
-    setShiftOpen(false);
-    setModal(null);
-    toast("日结完成，数据已上报管理端 / 财务端");
   }
 
   /* ====== 扫码收款 ====== */
@@ -713,7 +751,7 @@ export default function PosTerminalPage() {
               </div>
               <div className={styles.dlgFoot}>
                 <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setModal(null)}>再等一会</button>
-                <button className={`${styles.btn} ${styles.btnWarn}`} type="button" onClick={() => void confirmCloseShift()}>确认结班</button>
+                <button className={`${styles.btn} ${styles.btnWarn}`} type="button" onClick={() => void confirmCloseShift()} disabled={closing}>{closing ? "结班中…" : "确认结班"}</button>
               </div>
             </div>
           </div>
