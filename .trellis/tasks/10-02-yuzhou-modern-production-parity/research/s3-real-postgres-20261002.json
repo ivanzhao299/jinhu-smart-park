@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "baselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+  "target": "dedicated localhost disposable lab",
+  "productionWrite": false,
+  "tests": [
+    {
+      "topic": "calculation",
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "topic": "request",
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "topic": "month-close",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0
+    }
+  ],
+  "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+  "startedAt": "2026-10-02T10:38:12.855764+00:00",
+  "isolatedContainerAbsent": true,
+  "temporaryTestCredentialsRemoved": true,
+  "finishedAt": "2026-10-02T10:41:09.290369+00:00"
+}

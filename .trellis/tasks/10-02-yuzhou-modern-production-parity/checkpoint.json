@@ -26,14 +26,10 @@
     "H4",
     "H5"
   ],
-  "activeRunHandle": {
-    "deployRunId": 36995050642,
-    "deployWatchSession": 1903,
-    "mergedHead": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c"
-  },
+  "activeRunHandle": null,
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Follow existing automatic deployment36995050642, then prove API/Web runtime SHA280d0926, migrations319/320, health and Docker cleanup. Refresh read-only import integrity after deploy. No import replay, source freeze or payroll publication. Continue real-role S1/S2 acceptance and S3/S4 inputs within confirmed business scope.",
+  "nextAction": "Continue actual HR role view acceptance after existing browser login, and prepare S3/S4 inputs only after business month/book/rule owner confirmed. Deployment and fresh postdeploy import integrity passed. No import replay, automatic identity binding, historical publication or unconfirmed source freeze.",
   "phases": [
     {
       "id": "S0",
@@ -49,11 +45,11 @@
     },
     {
       "id": "S3",
-      "status": "technical_baseline_verified_business_inputs_pending"
+      "status": "real_postgres_11_pass_business_inputs_pending"
     },
     {
       "id": "S4",
-      "status": "source_freeze_implemented_release_running_business_amount_acceptance_pending"
+      "status": "source_freeze_deployed_business_amount_acceptance_pending"
     },
     {
       "id": "S5",
@@ -73,7 +69,7 @@
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T10:24:37.687081+00:00",
+  "updatedAt": "2026-10-02T10:55:15.339215+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -184,6 +180,40 @@
       "fullOriginalSchemaServiceIntegration": "PASS",
       "desktopAnd390pxReactSharedCss": "PASS with synthetic API; not production role UAT",
       "ciAndReleaseSmoke": "PASS run36991236998"
+    },
+    "s3RealPostgres": {
+      "status": "PASS",
+      "baselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+      "target": "dedicated localhost disposable lab",
+      "productionWrite": false,
+      "tests": [
+        {
+          "topic": "calculation",
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "request",
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "month-close",
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "skipped": 0
+        }
+      ],
+      "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+      "startedAt": "2026-10-02T10:38:12.855764+00:00",
+      "isolatedContainerAbsent": true,
+      "temporaryTestCredentialsRemoved": true,
+      "finishedAt": "2026-10-02T10:41:09.290369+00:00"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -191,7 +221,7 @@
   "s1AnonymousApiAccess": "6/6_DENIED_401",
   "s1HistoryArchiveContracts": "22/22_PASS",
   "s2ExistingWorkflowContracts": "24/24_PASS_RUNTIME_NOT_ACCEPTED",
-  "browserRoleUat": "PENDING_CURRENT_IDENTITY_CONFIRMATION_NO_LOGIN_TAB",
+  "browserRoleUat": "PENDING_EXISTING_HR_LOGIN_IN_VISIBLE_PRODUCTION_TAB",
   "implementationWorkspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
   "implementationCodeSha": "318b1d5e00b451594e73f48597367b251c783ae5 plus account-link PostgreSQL verification",
   "s1ReadModel": {
@@ -213,7 +243,7 @@
     "Authenticated HR/manager/employee browser UAT requires current login session.",
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability."
   ],
-  "currentSlice": "ACCOUNT_LINK_AND_DEPARTURE_ENTRY_LOCAL_VERIFIED_DRAFT_REVIEW",
+  "currentSlice": "PR775_DEPLOYED_IMPORT_INTEGRITY_VERIFIED_BUSINESS_ACCEPTANCE_PENDING",
   "currentSliceEvidence": "research/s2-current-departure-entry-result.json",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
@@ -224,7 +254,7 @@
       "1367a6a9645ebac2eeafa23fd4c9cfc8eb9456f2",
       "cc59f947433211538f90a48d6abc270dd41f4dcb"
     ],
-    "status": "pushed_ci_running",
+    "status": "previous_slice_released_in_PR774",
     "apiTests": 27,
     "webInteractionTests": 11,
     "apiTypecheck": "PASS",
@@ -236,7 +266,8 @@
     },
     "newDirectSourceBindingMismatches": 0,
     "productionWrite": false,
-    "productionDeployed": false
+    "productionDeployed": true,
+    "releaseMergeSha": "1c055c92c6e1841f741f17026813d81d4d1ea7c4"
   },
   "currentBaselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
   "previousRuntimeProof": {
@@ -246,9 +277,18 @@
     "apiAndWebMatch": true
   },
   "runtimeProof": {
-    "status": "FRESH_POSTDEPLOY_OBSERVATION_PENDING",
+    "status": "PASS",
+    "runId": 36997061363,
     "expectedCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
-    "deployRunId": 36995050642
+    "apiCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+    "webCommit": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+    "observedAt": "2026-10-02T10:44:26.249Z",
+    "apiAndWebMatch": true,
+    "restartCounts": {
+      "api": 0,
+      "web": 0
+    },
+    "scope": "running_container_image_revisions_not_business_UAT"
   },
   "latestPreviouslyVerifiedRuntime": {
     "runId": 36979015069,
@@ -259,7 +299,7 @@
   "productionImportProof": {
     "coreRunId": 36992220736,
     "integrityRunId": 36992600441,
-    "observedAt": "2026-10-02T09:57:38.616Z",
+    "observedAt": "2026-10-02T10:45:53.925Z",
     "coreRecords": 260828,
     "coreInserted": 259220,
     "coreQuarantined": 1608,
@@ -283,7 +323,9 @@
     "databaseWrite": false,
     "replayExecuted": false,
     "physicalFileBytesReverified": false,
-    "report": "docs/testing/yuzhou-production-import-proof-20261002.md"
+    "report": "docs/testing/yuzhou-production-import-proof-20261002.md",
+    "postdeployIntegrityRunId": 36997133380,
+    "postdeployCoreHashMatchesPredeploy": true
   },
   "release775": {
     "candidateSha": "9531adbfea8feedb359bda43b68cfb1427520966",
@@ -295,9 +337,19 @@
     "backupConclusion": "success",
     "backupRetention": "RETAINED_HASH_VERIFIED",
     "deploymentRunId": 36995050642,
-    "deploymentStatus": "in_progress",
+    "deploymentStatus": "success",
     "sourceFrozenInProduction": false,
-    "actualPayrollBusinessAcceptance": false
+    "actualPayrollBusinessAcceptance": false,
+    "runtimeRunId": 36997061363,
+    "runtimeStatus": "PASS",
+    "health": "PASS",
+    "productionSeedExecuted": false,
+    "migrationsApplied": [
+      319,
+      320
+    ],
+    "dockerCleanup": "PASS",
+    "dockerBuildCacheReclaimed": "5.42GB"
   },
   "localBlockers": [
     "REAL_ROLE_AUTHENTICATED_UAT_PENDING",
@@ -306,7 +358,7 @@
     "GROUP_WEB_AND_POST_BACKUP_INCREMENT_SCOPE_UNCONFIRMED"
   ],
   "productionWriteScope": {
-    "authorizedRelease": "PR775 forward schema migrations only; automatic deployment still in progress at checkpoint",
+    "authorizedRelease": "PR775 forward migrations319/320 applied; deployment completed; no production seed or import replay",
     "importEvidence": "read-only",
     "productionSourceFreeze": false,
     "payrollPublication": false
