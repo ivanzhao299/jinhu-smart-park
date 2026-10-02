@@ -181,3 +181,11 @@ the import. Private reconciliation receipts remain inside the owned host root.
 观察器只读改动在传输分支使用；不得作为业务应用部署合入主分支。最终签署的数据导入计划仍须包含当前执行器的完整演练通过回执、真实 API/Web 运行版本和新鲜目标基线。旧版单范围清点失败回执必须保留。
 
 针对性检查：`node --test scripts/e2e/yuzhou-assigned-scope-id-census-contract.mjs scripts/e2e/yuzhou-assigned-census-baseline-contract.mjs`。
+
+### Private audit progress observation
+
+On the private audit branch, only `diagnose-yuzhou-private-import` uses a separate
+read-only concurrency group so it can observe an active import. Every production
+write mode retains `deploy-production` with cancellation disabled. The observer
+uses the exact scope advisory lock to report a fixed technical phase and wait
+state; it never returns SQL text or bound values. Production main is unchanged.

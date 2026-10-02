@@ -104,7 +104,7 @@ test("Docker runtime labels and production diagnose routing preserve read-only a
   }
   const workflow = read(".github/workflows/deploy-production.yml"), mode = "diagnose-production-runtime-revision";
   assert.ok(workflow.includes(`- ${mode}`)); assert.ok(workflow.includes(`${mode}|diagnose-000189-scope`));
-  assert.match(workflow, /group: deploy-production\n  cancel-in-progress: false/);
+  assert.match(workflow, /group: \$\{\{ inputs\.deploy_mode == 'diagnose-yuzhou-private-import' && 'yuzhou-private-readonly-audit' \|\| 'deploy-production' \}\}\n  cancel-in-progress: false/);
   const diagnostic = workflow.slice(workflow.indexOf("      - name: Diagnose production runtime image revisions"), workflow.indexOf("      - name: Diagnose 000189"));
   assert.match(diagnostic, /node --input-type=module - --expected-commit '\$GITHUB_SHA'/);
   assert.match(diagnostic, /case "\$runtime_error" in/); assert.match(diagnostic, /actions\/upload-artifact@v6/);
