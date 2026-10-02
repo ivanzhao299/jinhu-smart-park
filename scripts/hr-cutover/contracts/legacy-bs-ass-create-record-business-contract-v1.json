@@ -27,11 +27,11 @@
     },
     "assitemFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
-      "sha256": "eb1520ac4c64615f96b444ce50c90f99786c3b404286885e17d922a8ed34d503"
+      "sha256": "814f4323fecf3d4819b3aafbf1f4d17d738663505fcb66af64fd40411942fd26"
     },
     "assessmentdetailFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
-      "sha256": "6365d2808e20b228033f65e394d06153a103172c2f83bb8628d0cb024895db85"
+      "sha256": "09674dd75e3522d95e64b5e39f1e969a159a690cee9361f1ec57aa7170b4b1c3"
     },
     "modernSchema": {
       "path": "database/migrations/000258_hr_performance_template_planning.sql",

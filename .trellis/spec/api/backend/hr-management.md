@@ -82,6 +82,7 @@ return { responseCount, averageScore };
 - The 360 reference reader is dual-track during compatibility: legacy evidence must name `legacy_000232` and a closed legacy cycle version; modern evidence must name `modern_000260` and freeze the published subject, its `result_published` action number, model version, questionnaire version and publication time. A merely closed modern cycle or an assignment without a published anonymous subject result is not performance evidence.
 - Evidence references are read-only facts and never write payroll, attendance, reward, training, feedback or employee aggregates.
 - Clients submit dimension scores only. Weighted total and level are derived by the server from the frozen template snapshot.
+- Raw PostgreSQL queries must serialize JSONB arrays explicitly with `JSON.stringify`, including applicable organization IDs and frozen goal snapshots. Native JavaScript arrays are bound as PostgreSQL arrays by the driver; service-level PostgreSQL tests must exercise cycle creation and publication rather than only inserting JSON literals through SQL.
 - Planning reads resolve to `park | managed_org_tree | self | none`; query filters only narrow scope and required audit completes before returning cycle data.
 
 ### Tests Required
