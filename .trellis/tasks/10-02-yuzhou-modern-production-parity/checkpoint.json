@@ -29,7 +29,7 @@
   "activeRunHandle": null,
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Continue actual HR role view acceptance after existing browser login, and prepare S3/S4 inputs only after business month/book/rule owner confirmed. Deployment and fresh postdeploy import integrity passed. No import replay, automatic identity binding, historical publication or unconfirmed source freeze.",
+  "nextAction": "Continue S5 performance legacy/modern business evidence and identified gaps without repeating unchanged tests. On actual existing HR login, verify production role pages. Exact payroll month/book/rule confirmation still required for S3/S4 business inputs. No import replay or source freeze.",
   "phases": [
     {
       "id": "S0",
@@ -53,7 +53,7 @@
     },
     {
       "id": "S5",
-      "status": "pending"
+      "status": "in_progress_recruitment_training_rewards_real_postgres_pass_legacy_and_role_uat_pending"
     },
     {
       "id": "S6",
@@ -69,7 +69,7 @@
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T10:55:15.339215+00:00",
+  "updatedAt": "2026-10-02T11:02:22.259051+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -214,6 +214,40 @@
       "isolatedContainerAbsent": true,
       "temporaryTestCredentialsRemoved": true,
       "finishedAt": "2026-10-02T10:41:09.290369+00:00"
+    },
+    "s5RealPostgres": {
+      "status": "PASS",
+      "baselineSha": "280d0926103fcb3d5c1c98e7eeaf3d7255c0da9c",
+      "target": "dedicated localhost disposable lab",
+      "productionWrite": false,
+      "tests": [
+        {
+          "topic": "recruitment",
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "training",
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "rewards",
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "skipped": 0
+        }
+      ],
+      "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+      "startedAt": "2026-10-02T10:56:49.163540+00:00",
+      "isolatedContainerAbsent": true,
+      "temporaryTestCredentialsRemoved": true,
+      "finishedAt": "2026-10-02T11:01:44.983571+00:00"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -243,8 +277,8 @@
     "Authenticated HR/manager/employee browser UAT requires current login session.",
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability."
   ],
-  "currentSlice": "PR775_DEPLOYED_IMPORT_INTEGRITY_VERIFIED_BUSINESS_ACCEPTANCE_PENDING",
-  "currentSliceEvidence": "research/s2-current-departure-entry-result.json",
+  "currentSlice": "S5_RECRUITMENT_TRAINING_REWARDS_REAL_POSTGRES_5_PASS",
+  "currentSliceEvidence": "research/s5-recruitment-training-rewards-result.md",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
     "workspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
