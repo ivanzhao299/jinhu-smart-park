@@ -200,6 +200,18 @@ export interface HrDirectoryUserOption {id:string;username:string;displayName:st
 export interface HrDirectoryOptions {orgs:HrDirectoryOrgOption[];users:HrDirectoryUserOption[];}
 export interface HrInsurancePolicyOption { id:string; code:string; name:string|null; version:number; status:string; availableVariants:number[]; }
 export interface HrInsurancePolicyCatalog extends PaginatedResult<HrInsurancePolicyOption> { insuranceKinds:string[]; }
+export type HrInsurancePolicyKind = "oldage"|"remedy"|"losework"|"wound"|"bear"|"fund";
+export type HrInsurancePolicyComponent = "base"|"employer"|"employee"|"supplement";
+export interface HrInsurancePolicyFactorItem {insuranceKind:HrInsurancePolicyKind;factors:Record<HrInsurancePolicyComponent,{rate:string;fixedAmount:string|null}>;}
+export interface HrInsurancePolicyVersion {
+ id:string;policyCode:string;policyName:string;variantNo:number;versionNo:number;effectiveFrom:string;effectiveThrough:string;
+ definitionHash:string;createdAt:string;mode:"immutable_definition";activated:false;
+}
+export interface HrInsurancePolicyVersionDetail extends HrInsurancePolicyVersion {engineVersion:string;items:HrInsurancePolicyFactorItem[];reason:string;originKind:"manual"|"imported_reference";}
+export interface HrInsurancePolicyVersionRequest {
+ requestId:string;policyCode:string;policyName:string;variantNo:number;effectiveFrom:string;effectiveThrough:string;reason:string;
+ sourcePolicyId?:string;expectedSourceVersion?:number;items?:HrInsurancePolicyFactorItem[];
+}
 export interface HrInsuranceReferenceRequest {
  policyId:string; expectedPolicyVersion:number; variantNo:number; employeeId:string;
  periodYear:number; periodMonth:number; includeFund:boolean;
@@ -212,6 +224,9 @@ export interface HrInsuranceReferenceResult {
 }
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ insurancePolicyVersions:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsurancePolicyVersion>>(`/hr/insurance/policy-versions?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insurancePolicyVersion:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersionDetail>(`/hr/insurance/policy-versions/${encodeURIComponent(id)}`,{token,signal})),
+ createInsurancePolicyVersion:(body:HrInsurancePolicyVersionRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersion&{replayed:boolean}>("/hr/insurance/policy-versions",{method:"POST",body,token,signal,idempotencyKey})),
  organizationTree:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<OrgTreeNode[]>("/orgs/tree",{token,signal})),
  directoryOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrDirectoryOptions>("/hr/directory-options",{token,signal})),
  recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},

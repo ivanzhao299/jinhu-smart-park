@@ -2,6 +2,7 @@
 
 Modern insurance preview arithmetic: [Insurance Calculation](./hr-insurance-calculation.md).
 Scoped reference calculation API: [Insurance Reference Preview](./hr-insurance-reference-preview.md).
+Durable modern policy definitions: [Insurance Policy Versions](./hr-insurance-policy-version.md).
 
 Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-context-writes.md).
 

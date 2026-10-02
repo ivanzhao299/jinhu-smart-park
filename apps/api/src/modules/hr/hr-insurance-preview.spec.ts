@@ -5,6 +5,7 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CreateHrInsuranceReferencePreviewDto } from "./dto/hr-insurance-preview.dto";
 import { HR_INSURANCE_KINDS } from "./hr-insurance-calculation";
@@ -51,6 +52,7 @@ test("reference API binds scoped policy, variant, employee and canonical inputs 
 });
 
 test("all full-scope permissions are mandatory even through direct service calls", async () => {
+  assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrInsurancePreviewController).captureBody,false);
   for (const permissions of [[], [HR_PERMISSIONS.HR_INSURANCE_TEAM_READ], [HR_PERMISSIONS.HR_INSURANCE_SELF_READ], actor.permissions.slice(0, 2), [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ]]) {
     const h = harness(); await assert.rejects(h.service.referencePreview(scope, { ...actor, permissions }, request()), /FORBIDDEN/u);
     assert.equal(h.reads(), 0); assert.equal(h.audits.length, 0);

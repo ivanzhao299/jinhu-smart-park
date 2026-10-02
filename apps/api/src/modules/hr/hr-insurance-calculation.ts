@@ -32,6 +32,32 @@ function formatCents(value: bigint): string {
   return `${value / 100n}.${(value % 100n).toString().padStart(2, "0")}`;
 }
 
+/** Validate a durable policy without substituting an artificial contribution base. */
+export function normalizeInsurancePolicyFactors(items: readonly Omit<InsuranceCalculationItem, "contributionBase">[]) {
+  if (!Array.isArray(items) || items.length !== 6 || new Set(items.map(i => i?.insuranceKind)).size !== 6) fail("six distinct policy kinds required");
+  if (items.some(i => !i || !HR_INSURANCE_KINDS.includes(i.insuranceKind))) fail("unknown policy kind");
+  const canonical = (value: string, scale: number, label: string, nonnegative: boolean) => {
+    const amount = decimal(value, scale, label);
+    if (nonnegative && amount < 0n) fail("negative policy rate");
+    const magnitude = amount < 0n ? -amount : amount;
+    const divisor = 10n ** BigInt(scale);
+    return `${amount < 0n ? "-" : ""}${magnitude / divisor}.${String(magnitude % divisor).padStart(scale, "0")}`;
+  };
+  return HR_INSURANCE_KINDS.map(insuranceKind => {
+    const item = items.find(i => i.insuranceKind === insuranceKind)!;
+    const factors = {} as Record<Component, { rate: string; fixedAmount: string | null }>;
+    for (const component of COMPONENTS) {
+      const factor = item.factors?.[component];
+      if (!factor) fail("missing policy component");
+      factors[component] = {
+        rate: canonical(factor.rate!, 6, "fractional rate", true),
+        fixedAmount: factor.fixedAmount === null ? null : canonical(factor.fixedAmount, 3, "fixed addend", false),
+      };
+    }
+    return { insuranceKind, factors };
+  });
+}
+
 /** Modern calculation only: imported history is never recalculated or mutated. */
 export function calculateInsurancePreview(input: {
   policyVersion: number;

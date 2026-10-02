@@ -4,6 +4,7 @@ import {
 } from "./property-business/permissions";
 import { APARTMENT_PERMISSIONS } from "./apartment";
 import { HR_PERMISSIONS } from "./hr";
+import { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
 
 export * from "./property-business";
 export * from "./mobile";
@@ -478,7 +479,10 @@ export const HOUSING_LEDGER_ENTRY_TYPES = [
 ] as const;
 export type HousingLedgerEntryType = (typeof HOUSING_LEDGER_ENTRY_TYPES)[number];
 
+export { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
+
 export const SYSTEM_PERMISSIONS = {
+  HR_INSURANCE_POLICY_VERSION_CREATE: HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE,
   AI_ASSISTANT: "ai:assistant",
   ADMIN_ISSUE_CREATE: "admin_issue:create",
   ADMIN_ISSUE_READ: "admin_issue:read",
@@ -1020,6 +1024,7 @@ export interface PermissionSeed {
 }
 
 export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
+  { code: HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE, name: "保存社保政策版本", resource: "hr.insurance_policy_version", action: "version_create" },
   { code: SYSTEM_PERMISSIONS.AI_ASSISTANT, name: "AI 工作台", resource: "ai.assistant", action: "page" },
   { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE, name: "提交问题反馈", resource: "ops.admin_issue", action: "create" },
   { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_READ, name: "查看问题反馈", resource: "ops.admin_issue", action: "read" },

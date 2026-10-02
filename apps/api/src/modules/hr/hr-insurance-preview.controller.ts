@@ -5,11 +5,13 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CreateHrInsuranceReferencePreviewDto, HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { HrInsurancePreviewService } from "./hr-insurance-preview.service";
 
 @Controller("hr/insurance")
 @RequireModule("hr")
+@AuditLog({ module: "人力资源管理", resource: "hr.insurance_reference_preview", action: "社保参考试算", captureBody: false })
 export class HrInsurancePreviewController {
   constructor(private readonly service: HrInsurancePreviewService) {}
 
