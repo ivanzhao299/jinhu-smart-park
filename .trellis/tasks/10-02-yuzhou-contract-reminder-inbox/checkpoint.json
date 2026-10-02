@@ -1,0 +1,32 @@
+{
+  "objective": "S2 complete scoped contract reminder inbox",
+  "acceptance": "paged and server-filtered inbox, whole-scope KPI, scope invariants, desktop/mobile",
+  "workspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
+  "baseRevision": "7c3df1c230bde74badbf414acae36030d5fe8709",
+  "status": "implementation_verified_pending_ci_release",
+  "changedFiles": [
+    "HrContractReminderQueryDto",
+    "HrContractReminderService.list",
+    "hrApi.contractReminders",
+    "HrContractsClient",
+    "scoped query and interaction tests",
+    "exact source bindings"
+  ],
+  "validation": {
+    "apiTests": 5,
+    "webInteractionTests": 4,
+    "contractLedgerAndRouteTests": 42,
+    "apiWebTypecheck": "PASS",
+    "changedFileLint": "PASS",
+    "webProductionBuild": "PASS",
+    "browser": "synthetic full-page 1280/390, pages 50/50/13, server type/window filters, no overflow",
+    "isolatedPostgresTests": 6,
+    "temporaryTableCleanup": "PASS",
+    "databaseCommand": "node scripts/verify-hr-contract-reminder-query-pg.mjs"
+  },
+  "evidence": "private modern-contract-reminder-proof-20261002",
+  "productionWrite": false,
+  "goalComplete": false,
+  "blocker": "none for development; real role UAT and business acceptance remain",
+  "nextAction": "Await CI, integrate reviewed PR773/774 candidates, verify runtime and real roles"
+}

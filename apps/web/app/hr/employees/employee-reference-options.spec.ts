@@ -1,0 +1,6 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {loadEmployeeReferenceOptions} from "./employee-reference-options";
+test("position denial preserves independently authorized account and org options",async()=>{const options={orgs:[{id:"org"}],users:[{id:"account"}]};const result=await loadEmployeeReferenceOptions(async()=>options,async()=>{throw new Error("403")});assert.equal(result.directory.status,"fulfilled");if(result.directory.status==="fulfilled")assert.deepEqual(result.directory.value,options);assert.equal(result.positions.status,"rejected")});
+test("missing position permission needs no position request",async()=>{let reads=0;const result=await loadEmployeeReferenceOptions(async()=>{reads++;return {users:["account"]}});assert.equal(reads,1);assert.equal(result.directory.status,"fulfilled");assert.deepEqual(result.positions,{status:"fulfilled",value:undefined})});
+test("directory denial does not discard an independently allowed position response",async()=>{const result=await loadEmployeeReferenceOptions(async()=>{throw new Error("403")},async()=>["position"]);assert.equal(result.directory.status,"rejected");assert.deepEqual(result.positions,{status:"fulfilled",value:["position"]})});

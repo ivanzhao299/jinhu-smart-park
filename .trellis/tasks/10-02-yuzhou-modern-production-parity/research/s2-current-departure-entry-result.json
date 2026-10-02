@@ -1,0 +1,60 @@
+{
+  "slice": "Current employee departure access and exact scoped paging",
+  "status": "LOCAL_VERIFIED_DRAFT_REVIEW_ONLY",
+  "baseSha": "7c3df1c230bde74badbf414acae36030d5fe8709",
+  "productionWrite": false,
+  "validation": {
+    "apiDepartureFilterAndExistingContracts": "4/4 PASS",
+    "webDepartureInteraction": "5/5 PASS",
+    "webAccountInteraction": "2/2 PASS reused after unchanged account component",
+    "webExistingDepartureContract": "1/1 PASS",
+    "departureRuntimeTaskContract": "9/9 PASS; actual role/runtime acceptance still pending",
+    "apiLint": "PASS",
+    "webLint": "PASS",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "desktopStaticEntry": {
+      "viewport": 1280,
+      "documentWidth": 1280
+    },
+    "mobileStaticEntry": {
+      "viewport": 390,
+      "documentWidth": 390
+    },
+    "diffCheck": "PASS"
+  },
+  "changes": [
+    "exact employee detail departure link with lifecycle/read permission gate",
+    "UUID validated server page and API filter narrowing existing park/team/self predicates",
+    "50-row pagination retaining exact employee filter",
+    "context change remount/abort clears previous records",
+    "existing Design System surfaces and confirmed typography/spacing"
+  ],
+  "remaining": [
+    "authenticated production role tasks",
+    "business approval and exact current employee/account pairs",
+    "old wage settlement and archive reopen source branch parity remains unproven",
+    "existing auxiliary historical evidence drift remains; no compatibility credit promoted"
+  ],
+  "skipped": {
+    "historicalImportReplay": "successful batches must not be replayed",
+    "fullHistoricalRestoreAndMigration": "no schema or import changes",
+    "liveProductionWrites": "no reviewed identity pairs or business activation performed",
+    "fullLegacyParityRetest": "previous baseline drift already identified; only selected departure regression rerun"
+  },
+  "changedSourceFiles": {
+    "apps/api/src/modules/hr/dto/hr-departure.dto.ts": "3c212c21b3b8d99ad95ecf84dc70afc8e830b64f3b617a08f4146dee5f69a5c2",
+    "apps/api/src/modules/hr/hr-departure.service.ts": "c3dd028aa91470b6fccebd2431bf7ccd05e1b1893729c111086ead6c72f9dc85",
+    "apps/api/src/modules/hr/hr-departure-filter.contract.spec.ts": "adb3ada0655ae963c4864087bb6b4332c241c6792279dee7c5e99033982a6832",
+    "apps/web/lib/hr-api.ts": "87161e24ff25ee995b52e250ce50cddbaa131542810c21126a74f2c253b6a57b",
+    "apps/web/app/hr/employees/HrEmployeesClient.tsx": "beb1463705385788322ae411547a1a5653e1bb851b320900050f5626d0a802e3",
+    "apps/web/app/hr/employees/EmployeeDepartureLink.tsx": "984729ef1a6028bb1c8751b1eedf96d765c8643b941d561d1206d0cce5af5c4e",
+    "apps/web/app/hr/lifecycle/DepartureApplicationsPanel.tsx": "db4dc5c9c017b21c2a9c0d6aa26996d7885a19e627b69466e50052c92bd72ecb",
+    "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx": "c847fd938e6b1f4b8ba15cf06acded6e9db2a4af28b007d4a60de636d439cfc6",
+    "apps/web/app/hr/lifecycle/page.tsx": "cc2e4f63bf4b64e01dd384792b114565ca10ee2acf86e0cf130782ca4b0ee0d6",
+    "apps/web/app/hr/lifecycle/departure-navigation.ts": "f3af073c26e80312f3551d11d228d7412a952ae595a94ffccba84a4fb95b3d75",
+    "apps/web/test/interaction/hr-departure-navigation.test.tsx": "35aa05e2c4d674819a83691329519b472bae9edb321a51dfdbbad4669314f742"
+  }
+}

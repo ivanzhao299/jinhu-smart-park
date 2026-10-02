@@ -78,15 +78,18 @@ export class HrContractReminderService{
  }
  async list(s:TenantParkScope,a:JwtPrincipal,q:HrContractReminderQueryDto){
   const access=this.access(a);
-  if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
+  if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size,active_sixty_day_total:0};
   const values:unknown[]=[s.tenantId,s.parkId],where=["r.tenant_id=$1","r.park_id=$2",await this.scopeSql(s,a,access,values)];
+  const activeSixtyDayTotal=Number((await this.db.query(`SELECT count(*)::int n FROM hr_contract_reminder r WHERE ${where.join(" AND ")} AND r.reminder_kind='contract_expiry' AND r.window_days=60 AND r.status NOT IN('resolved','cancelled')`,[...values]))[0].n);
   if(q.status){values.push(q.status);where.push(`r.status=$${values.length}`);}
+  if(q.kind){values.push(q.kind);where.push(`r.reminder_kind=$${values.length}`);}
+  if(q.window_days!==undefined){values.push(q.window_days);where.push(`r.window_days=$${values.length}`);}
   const total=Number((await this.db.query(`SELECT count(*)::int n FROM hr_contract_reminder r WHERE ${where.join(" AND ")}`,values))[0].n);
   values.push(q.page_size,(q.page-1)*q.page_size);
   const rows=await this.db.query(`SELECT r.id,r.contract_id,r.employee_id,r.reminder_kind,r.window_days,r.due_date,r.status,r.recipient_user_id FROM hr_contract_reminder r WHERE ${where.join(" AND ")} ORDER BY r.due_date,r.id LIMIT $${values.length-1} OFFSET $${values.length}`,values) as ReminderRow[];
   const items=rows.map(row=>this.project(row));
   await this.auditRequired(s,a,"读取劳动合同提醒",null,access==="managed_org_tree"?"team":access,items.length);
-  return {items,total,page:q.page,page_size:q.page_size};
+  return {items,total,page:q.page,page_size:q.page_size,active_sixty_day_total:activeSixtyDayTotal};
  }
  async detail(s:TenantParkScope,a:JwtPrincipal,id:string){
   const access=this.access(a);

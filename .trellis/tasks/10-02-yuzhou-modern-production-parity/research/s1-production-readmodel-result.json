@@ -1,0 +1,30 @@
+{
+  "status": "ACTUAL_PRODUCTION_READMODEL_OBSERVED",
+  "workflowRunId": 36964343680,
+  "actualProofSha256": "1f4f523616d5b1db1a1c931e4c7e44965109bfb4db60dc6decb88610e5a29724",
+  "scope": "original_import_target",
+  "observed": {
+    "employees": 2938,
+    "current_employees": 334,
+    "account_linked_employees": 0,
+    "contracts": 798,
+    "payroll_snapshots": 46092,
+    "payroll_items": 1078020,
+    "published_history_batches": 0,
+    "mapped_readable_snapshots": 45947,
+    "first_month": "2010-05-01",
+    "last_month": "2026-07-01",
+    "authenticatedApiUat": false
+  },
+  "anonymousApiChecks": "6/6_DENIED_401",
+  "apiContractChecks": "22/22_PASS",
+  "legacyWorkflowTaskContractChecks": "24/24_PASS_NOT_RUNTIME_UAT",
+  "businessWrites": false,
+  "authenticatedRoleUat": "PENDING_EXISTING_LOGIN_SESSION",
+  "nextPriorities": [
+    "controlled_current_employee_account_binding",
+    "explicit_history_publication_and_visibility_policy",
+    "current_role_browser_acceptance",
+    "departure_clearance_entry_discoverability"
+  ]
+}

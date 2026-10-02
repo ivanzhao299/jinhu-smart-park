@@ -1,0 +1,40 @@
+{
+  "id": "yuzhou-modern-production-parity",
+  "name": "yuzhou-modern-production-parity",
+  "title": "玉舟 HR 现代化生产运营与功能复现长任务",
+  "description": "历史导入完成后，低成本收口历史隔离，优先交付当前运营关键闭环与玉舟业务等价，保留独立产品最终验收目标。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "hr-modern-production-parity",
+  "package": "api",
+  "priority": "P0",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/prd.md",
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/design.md",
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/implement.md",
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/manual-review.md",
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
+    ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
+  ],
+  "notes": "本轮仅规划固化。用户确定历史低价值隔离归档策略；S0影响核验尚待执行，不宣称数据已纠正或业务已启用。",
+  "meta": {
+    "planningReady": true,
+    "defaultExecution": "single_agent",
+    "historyImportCommitted": true,
+    "historicalQuarantineMustReachZero": false,
+    "nextSlice": "S0_then_S1",
+    "businessImplementationStarted": false
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "status": "SOURCE_CHAIN_AND_FOCUSED_TESTS_VERIFIED_NOT_BUSINESS_ACCEPTED",
+  "codeBaseline": "153b078f",
+  "testResult": "28/28 PASS",
+  "tests": [
+    "attendance calculation",
+    "attendance requests",
+    "month close",
+    "insurance read projections",
+    "reconciliation contracts",
+    "restricted decimal DSL"
+  ],
+  "confirmedSourceDependencies": [
+    "reconciliation setup lists only published legacy batches",
+    "simulation rejects unpublished legacy batch",
+    "closed effective attendance batch required",
+    "mapped payroll snapshots must match attendance month",
+    "approved formulas and net item mapping required",
+    "frozen compensation and insurance required"
+  ],
+  "actualBusinessPeriodTest": false,
+  "actualAmountReconciliation": false,
+  "productionWrites": false,
+  "nextSlice": "prepare reconciliation input readiness using imported immutable history without automatically publishing employee history; preserve exact source, scope, period and financial rules",
+  "sourceIntegrityFinding": {
+    "unpublishedOrStagedFactsAllowAppend": true,
+    "factUpdatesBlocked": true,
+    "publishedBatchFrozen": true,
+    "evidence": [
+      "database/migrations/000248_hr_payroll_legacy_history.sql:214",
+      "database/migrations/000248_hr_payroll_legacy_history.sql:235",
+      "database/migrations/000264_hr_payroll_legacy_item_bulk_guard.sql:52"
+    ],
+    "implementationConstraint": "Do not simply widen published to staged. A separate simulation source must prove committed import ownership, counts and hashes and freeze the exact selected period facts against append and rollback."
+  }
+}
