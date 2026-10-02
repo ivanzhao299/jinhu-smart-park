@@ -198,6 +198,18 @@ export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;
 export interface HrDirectoryOrgOption {id:string;orgCode:string;orgName:string;status:string;}
 export interface HrDirectoryUserOption {id:string;username:string;displayName:string;realName?:string;status:string;}
 export interface HrDirectoryOptions {orgs:HrDirectoryOrgOption[];users:HrDirectoryUserOption[];}
+export interface HrInsurancePolicyOption { id:string; code:string; name:string|null; version:number; status:string; availableVariants:number[]; }
+export interface HrInsurancePolicyCatalog extends PaginatedResult<HrInsurancePolicyOption> { insuranceKinds:string[]; }
+export interface HrInsuranceReferenceRequest {
+ policyId:string; expectedPolicyVersion:number; variantNo:number; employeeId:string;
+ periodYear:number; periodMonth:number; includeFund:boolean;
+ bases:Array<{insuranceKind:string;contributionBase:string}>;
+}
+export interface HrInsuranceReferenceResult {
+ mode:"reference_only"; confirmationEligible:false; inputHash:string; employeeId:string; periodYear:number; periodMonth:number;
+ policy:Omit<HrInsurancePolicyOption,"availableVariants"> & {variantNo:number};
+ calculation:{engineVersion:string;policyVersion:number;includeFund:boolean;items:Array<{insuranceKind:string;contributionBase:string;amounts:Record<"base"|"employer"|"employee"|"supplement",string>}>;totals:Record<"base"|"employer"|"employee"|"supplement",string>};
+}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
  organizationTree:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<OrgTreeNode[]>("/orgs/tree",{token,signal})),
@@ -323,6 +335,8 @@ export const hrApi={
  ,attendancePayrollVersions:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePayrollVersion[]>(`/hr/attendance/periods/${id}/payroll-input-versions`,{token}))
  ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
  ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
+ ,insurancePolicies:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyCatalog>(`/hr/insurance/policies?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal}))
+ ,insuranceReferencePreview:(body:HrInsuranceReferenceRequest,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceReferenceResult>("/hr/insurance/reference-preview",{method:"POST",body,token,signal,idempotencyKey:createIdempotencyKey("hr-insurance-reference-preview")}))
  ,goalCycles:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token,signal}))
  ,goalOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalOptions>("/hr/goals/options",{token,signal}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))

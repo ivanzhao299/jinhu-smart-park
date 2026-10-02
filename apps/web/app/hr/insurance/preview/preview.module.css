@@ -1,0 +1,16 @@
+.columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.columns > :global(.ds-panel) { padding: 22px; }
+.columns h2 { margin: 0 0 12px; }
+.columns p { margin: 0 0 16px; }
+.search { display: grid; gap: 12px; }
+.search :global(.ds-button) { justify-self: start; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.fields > *, .columns > * { min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; }
+.selector { width: 100%; margin-top: 16px; }
+.records:global(.ds-mobile-record-list) { display: grid; gap: 12px; margin-top: 18px; }
+.records strong, .records span { overflow-wrap: anywhere; }
+@media (min-width: 900px) { .columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) { .fields { grid-template-columns: minmax(0, 1fr); } }
+
+@media (max-width: 720px) { .columns > :global(.ds-panel) { padding: 18px; } }

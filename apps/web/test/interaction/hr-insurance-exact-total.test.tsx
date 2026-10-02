@@ -25,11 +25,13 @@ it("actual insurance page renders the exact loaded-page total", async () => {
   const overview = screen.getByLabelText("社保台账概览");
   expect(await within(overview).findByText("¥ 90071992547429.90")).toBeVisible();
   expect(within(overview).getByText("本页个人缴费")).toBeVisible();
+  expect(screen.getByRole("link", { name: "社保参考试算" })).toHaveAttribute("href", "/hr/insurance/preview");
 });
 it("amount-hidden role cannot see the aggregate even when the response contains amounts", async () => {
   state.user = { id: "synthetic-team-reader", permissions: ["hr:insurance:team_read"] };
   render(<HrInsuranceClient />);
   await screen.findByText("本页 2 条 · 共 2 条");
   expect(screen.queryByText("本页个人缴费")).toBeNull();
+  expect(screen.queryByRole("link", { name: "社保参考试算" })).toBeNull();
   expect(screen.queryByText(/900719925474/)).toBeNull();
 });
