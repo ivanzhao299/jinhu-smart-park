@@ -829,6 +829,7 @@ permission_parent_map AS (
       WHEN child.code = 'video:read' THEN 'video:overview'
       WHEN child.code = 'bim:read' THEN 'bim:overview'
       WHEN child.code = 'ai:read' THEN 'ai:assistant'
+      WHEN child.code = 'hr:insurance_policy:version_create' THEN 'hr:insurance'
       WHEN child.code = 'cockpit:read' THEN 'cockpit'
       ELSE NULL
     END
