@@ -478,6 +478,8 @@ export const HOUSING_LEDGER_ENTRY_TYPES = [
 ] as const;
 export type HousingLedgerEntryType = (typeof HOUSING_LEDGER_ENTRY_TYPES)[number];
 
+export { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
+
 export const SYSTEM_PERMISSIONS = {
   AI_ASSISTANT: "ai:assistant",
   ADMIN_ISSUE_CREATE: "admin_issue:create",
