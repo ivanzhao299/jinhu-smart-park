@@ -160,7 +160,7 @@
     {
       "stage": "private_stage",
       "path": "scripts/hr-cutover/production-import-t5-nonfile-stage-adapter.mjs",
-      "sha256": "23473943128a5dc594c5925ed5bfab965aa5c2b05939ae5fdf91adfe39bd64cf",
+      "sha256": "3f3b788aae261ce4d506d51a9dd51c8bde194f77dcb26ca7b5d1481414c2a273",
       "requiredTokens": [
         "sourceTable: \"dbo.knowhow\"",
         "skill_name: row.materialized.skillName",
@@ -172,7 +172,7 @@
     {
       "stage": "writer",
       "path": "scripts/hr-cutover/production-import-t5-nonfile-writer.mjs",
-      "sha256": "15b0c64a922039c08a5760249a96d65c253b7da4cc539339f731c441f49edfab",
+      "sha256": "27b5895a11e36ab93d423eb9c4245c88658c60e85f8d4053c20f641f66822f6f",
       "requiredTokens": [
         "hr_employee_skill",
         "\"skill_name\", \"proficiency\", \"legacy_grade\", \"note\", \"legacy_source_identity_sha256\", \"legacy_source_row_sha256\"",
