@@ -2,7 +2,8 @@
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import process from "node:process";
+import { fileURLToPath, URL } from "node:url";
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 const EXPECTED = Object.freeze({
@@ -225,7 +226,7 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
     /eventRepo\.save/u.test(sources.apiService);
   const frontendRoutesPassed =
     /import \{ HrLifecycleClient \}/u.test(sources.lifecycleRoute) &&
-    /<HrLifecycleClient\s*\/>/u.test(sources.lifecycleRoute) &&
+    /<HrLifecycleClient(?:\s+employeeId=\{filter\.employeeId\})?\s*\/>/u.test(sources.lifecycleRoute) &&
     /import \{ HrEmployeesClient \}/u.test(sources.employeeRoute) &&
     /<HrEmployeesClient\s*\/>/u.test(sources.employeeRoute);
   const frontendSurfacePassed =
@@ -275,7 +276,7 @@ function materialize(contract, sources) {
   const body = {
     formatVersion: 1,
     artifactKind: "yuzhou_hr_legacy_employment_event_cross_layer_receipt",
-    identity: structuredClone(contract.identity),
+    identity: globalThis.structuredClone(contract.identity),
     sourceBindingSetSha256: digest(canonical(contract.sourceBindings)),
     staticEvidence: {
       status: inspection.gapCodes.length ? "gaps_present" : "complete_review_pending",
@@ -296,7 +297,7 @@ function materialize(contract, sources) {
       evidenceSha256: null,
       compatibilityCredit: 0,
     })),
-    nextImplementationSlices: structuredClone(contract.nextImplementationSlices),
+    nextImplementationSlices: globalThis.structuredClone(contract.nextImplementationSlices),
     status: inspection.gapCodes.length
       ? "STATIC_CROSS_LAYER_GAPS_PRESENT_RUNTIME_PENDING"
       : "STATIC_CHAIN_COMPLETE_RUNTIME_PENDING",

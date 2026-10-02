@@ -53,6 +53,20 @@ test("target migrations entity controller service and modern routes form a stati
   ]) assert.equal(byLayer.get(name)?.status, "verified_static", name);
 });
 
+test("lifecycle route accepts the scoped departure filter and still rejects missing client rendering", () => {
+  const selected = contract();
+  const bound = sources(selected);
+  const routeStatus = (route) => inspectLegacyEmploymentEventCrossLayer({
+    contract: selected, sources: { ...bound, lifecycleRoute: route },
+  }).layers.find((item) => item.layer === "frontend_routes")?.status;
+  const imported = 'import { HrLifecycleClient } from "./HrLifecycleClient";\n';
+  assert.equal(routeStatus(bound.lifecycleRoute), "verified_static");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <HrLifecycleClient/>;}`), "verified_static");
+  assert.equal(routeStatus(`${imported}export default function Page(){return null;}`), "gap");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <OtherClient/>;}`), "gap");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <HrLifecycleClient employeeId={unreviewedId}/>;}`), "gap");
+});
+
 test("employee-event detail projection and required audit close both static gaps without credit", () => {
   const receipt = buildLegacyEmploymentEventCrossLayer({ contract: contract(), repositoryRoot: root });
   const byLayer = new Map(receipt.staticEvidence.layers.map((item) => [item.layer, item]));
@@ -116,7 +130,7 @@ test("hash drift and receipt credit promotion fail closed", () => {
 
   const selected = contract();
   const receipt = buildLegacyEmploymentEventCrossLayer({ contract: selected, repositoryRoot: root });
-  const promoted = structuredClone(receipt);
+  const promoted = globalThis.structuredClone(receipt);
   promoted.runtimeEvidence[0] = {
     surface: "source_readonly_runtime",
     status: "verified",
