@@ -26,10 +26,14 @@
     "H4",
     "H5"
   ],
-  "activeRunHandle": null,
+  "activeRunHandle": {
+    "ciRunId": 37000998428,
+    "candidateSha": "f8e562b29f26145c8abc7e2c6f45e5db5438c7e5",
+    "pullRequest": 776
+  },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Add modern performance service actual PostgreSQL coverage for full role state chain, precise errors, required-audit rollback and concurrency. Read exact service/specs before implementation. Retain pending bs_ass_compute cross-engine and batch-side-effect parity. No production import replay or payroll freeze.",
+  "nextAction": "Follow existing PR776 CI37000998428 to terminal, verify final candidate and existing baseline evidence limits, then make bounded fix reviewable for release. Performance production module remains unaccepted until release and role UAT. No historical import replay.",
   "phases": [
     {
       "id": "S0",
@@ -69,7 +73,7 @@
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T11:09:11.901542+00:00",
+  "updatedAt": "2026-10-02T11:25:14.471318+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -267,6 +271,40 @@
       "isolatedContainerAbsent": true,
       "temporaryTestCredentialsRemoved": true,
       "finishedAt": "2026-10-02T11:08:32.611197+00:00"
+    },
+    "s5PerformanceServicePostgres": {
+      "status": "PASS",
+      "baselineSha": "17a57f2de95038586529d93361b800391b8ac192",
+      "target": "dedicated localhost disposable lab",
+      "productionWrite": false,
+      "tests": [
+        {
+          "topic": "review",
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "skipped": 0
+        }
+      ],
+      "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+      "startedAt": "2026-10-02T11:19:02.034261+00:00",
+      "schemaPreparation": "ORIGINAL_MIGRATIONS_THROUGH_320_BEFORE_SYNTHETIC_FIXTURES",
+      "isolatedContainerAbsent": true,
+      "temporaryTestCredentialsRemoved": true,
+      "finishedAt": "2026-10-02T11:23:21.976321+00:00",
+      "finalCandidateSha": "f8e562b29f26145c8abc7e2c6f45e5db5438c7e5",
+      "serviceAndTestBytesEqualPassingRun": true,
+      "pullRequest": 776,
+      "ciRunId": 37000998428,
+      "ciStatus": "in_progress",
+      "productionDeployed": false,
+      "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
+      "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
+      "existingServiceContractTests": 14,
+      "baselineLegacyContractFailures": 4,
+      "apiBuild": "PASS",
+      "apiTypecheck": "PASS",
+      "changedFileLint": "PASS"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -294,10 +332,11 @@
     "Imported employee account links: 0; no self identity binding in this import scope.",
     "Published historical payroll batches: 0; self history correctly remains unavailable.",
     "Authenticated HR/manager/employee browser UAT requires current login session.",
-    "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability."
+    "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability.",
+    "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed in draftPR776, not yet production. No production mutation used for reproduction."
   ],
-  "currentSlice": "S5_PERFORMANCE_SQL_GATE_PASS_LEGACY_RULE_GAPS_RETAINED",
-  "currentSliceEvidence": "research/s5-performance-result.md",
+  "currentSlice": "PERFORMANCE_CYCLE_JSONB_BUG_FIXED_PR776_DRAFT_CI_RUNNING",
+  "currentSliceEvidence": "research/s5-performance-service-result.json",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
     "workspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",

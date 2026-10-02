@@ -47,3 +47,5 @@ PR775已实现按账套和月份预览、确认冻结以及独立模拟来源选
 S5补充：招聘、培训、奖惩在280d0926原结构临时PostgreSQL实测5项通过、0跳过；并发、版本和状态保护有实际断言。未计作旧端规则等价或生产三角色验收，详见`s5-recruitment-training-rewards-result.md`。
 
 S5绩效补充：280d0926原结构临时PostgreSQL的Phase2-B SQL门禁通过，确认84.14加权值及校准/申诉结构链，事务回滚且临时资源清理。一般异常拒绝检查不证明精确错误；服务层、HTTP、生产岗位和bs_ass_compute旧规则等价仍待验证。见`s5-performance-result.md`。
+
+S5服务实测修正：创建绩效周期在280d0926服务代码上实际报JSONB数组22P02，原直接SQL门禁不能证明服务可用；组织范围和目标快照参数修复后3组实际数据库服务测试通过。PR776候选f8e562b2为草稿、CI37000998428进行中，尚未生产部署，绩效模块仍未业务验收。详见`s5-performance-service-result.json`及修复分支`docs/testing/yuzhou-performance-service-postgres-20261002.md`。
