@@ -26,15 +26,10 @@
     "H4",
     "H5"
   ],
-  "activeRunHandle": {
-    "deployRunId": 37002797414,
-    "deployWatchSession": 46087,
-    "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
-    "pullRequest": 776
-  },
+  "activeRunHandle": null,
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Resume existing deployment watch46087; after success inspect health, migrations and cleanup, then read-only runtime SHA proof. Keep source import sealed; never replay successful batches.",
+  "nextAction": "Continue remaining S1/S2 real-role acceptance and S3/S4 business reconciliation scope. Reuse terminal deployment/runtime/import integrity and original-schema S2 service results while code and environment unchanged; no import replay.",
   "phases": [
     {
       "id": "S0",
@@ -46,7 +41,7 @@
     },
     {
       "id": "S2",
-      "status": "in_progress"
+      "status": "existing_service_real_postgres_6_pass_real_role_and_legacy_parity_pending"
     },
     {
       "id": "S3",
@@ -70,11 +65,11 @@
     }
   ],
   "usage": {
-    "goalCumulativeTokensObserved": 2544555,
+    "goalCumulativeTokensObserved": 2564911,
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T11:56:17.528609+00:00",
+  "updatedAt": "2026-10-02T12:09:45.438357+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -298,7 +293,7 @@
       "pullRequest": 776,
       "ciRunId": 37001645797,
       "ciStatus": "success",
-      "productionDeployed": false,
+      "productionDeployed": true,
       "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
       "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
       "existingServiceContractTests": 14,
@@ -328,10 +323,15 @@
       "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
       "deployRunId": 37002797414,
       "deployWatchSession": 46087,
-      "deployStatus": "in_progress",
+      "deployStatus": "success",
       "predeployBackupRunId": 37001886606,
       "predeployBackupStatus": "PASS",
-      "supersededCiConclusion": "cancelled"
+      "supersededCiConclusion": "cancelled",
+      "runtimeProofRunId": 37004807393,
+      "runtimeRevision": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+      "postdeployImportProofRunId": 37004819860,
+      "postdeployIntegrity": "PASS",
+      "realRoleBusinessAccepted": false
     },
     "s1AdminBrowserRead": {
       "status": "READ_ONLY_ADMIN_BROWSER_QUERY_VERIFIED",
@@ -381,6 +381,55 @@
         "pages": 811,
         "note": "visible compatibility projections; different denominator from all T5 source rows and projection receipts"
       }
+    },
+    "s2ExistingServicePostgres": {
+      "status": "PASS",
+      "baselineSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+      "target": "dedicated localhost disposable lab",
+      "productionWrite": false,
+      "tests": [
+        {
+          "topic": "contract-read",
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "job-change",
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "probation",
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "topic": "lifecycle",
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        }
+      ],
+      "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+      "startedAt": "2026-10-02T12:06:29.502366+00:00",
+      "schemaPreparation": "ORIGINAL_MIGRATIONS_THROUGH_320_BEFORE_SYNTHETIC_FIXTURES_NO_CACHE",
+      "isolatedContainerAbsent": true,
+      "temporaryTestCredentialsRemoved": true,
+      "finishedAt": "2026-10-02T12:09:45.438357+00:00",
+      "rootCauseAudit": {
+        "cacheAttemptsBeforeTests": 2,
+        "cause": "schema ACL references cluster NOLOGIN roles absent from schema dump",
+        "resolution": "execute original migrations unchanged; no ACL or trigger removal",
+        "businessTestFailures": 0
+      },
+      "realRoleBusinessAccepted": false
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -409,9 +458,9 @@
     "Published historical payroll batches: 0; self history correctly remains unavailable.",
     "Authenticated HR/manager/employee browser UAT requires current login session.",
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability.",
-    "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed in merged PR776, production deployment in progress. No production mutation used for reproduction."
+    "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed and deployed in PR776; runtime8e458fa4 verified; real-role business acceptance pending. No production mutation used for reproduction."
   ],
-  "currentSlice": "PERFORMANCE_CYCLE_JSONB_FIX_PR776_MERGED_DEPLOY_RUNNING",
+  "currentSlice": "PR776_DEPLOYED_RUNTIME_AND_IMPORT_INTEGRITY_PASS_S2_EXISTING_SERVICES_6_PG_PASS",
   "currentSliceEvidence": "research/s5-performance-service-result.json",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
@@ -541,5 +590,70 @@
     "duplicateSourceGroups": 0,
     "duplicateProjectionGroups": 0,
     "replayExecuted": false
+  },
+  "release776": {
+    "status": "PASS",
+    "baselineSha": "17a57f2de95038586529d93361b800391b8ac192",
+    "target": "dedicated localhost disposable lab",
+    "productionWrite": false,
+    "tests": [
+      {
+        "topic": "review",
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "skipped": 0
+      }
+    ],
+    "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+    "startedAt": "2026-10-02T11:19:02.034261+00:00",
+    "schemaPreparation": "ORIGINAL_MIGRATIONS_THROUGH_320_BEFORE_SYNTHETIC_FIXTURES",
+    "isolatedContainerAbsent": true,
+    "temporaryTestCredentialsRemoved": true,
+    "finishedAt": "2026-10-02T11:23:21.976321+00:00",
+    "finalCandidateSha": "6aae5b17e52507fe24bb8a60b6b576a558f6e719",
+    "serviceAndTestBytesEqualPassingRun": true,
+    "pullRequest": 776,
+    "ciRunId": 37001645797,
+    "ciStatus": "success",
+    "productionDeployed": true,
+    "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
+    "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
+    "existingServiceContractTests": 14,
+    "baselineLegacyContractFailures": 0,
+    "apiBuild": "PASS",
+    "apiTypecheck": "PASS",
+    "changedFileLint": "PASS",
+    "ciWatchSession": 89578,
+    "supersededCiRunId": 37000998428,
+    "supersededCiCancellationRequested": true,
+    "historicalBaselineLegacyContractFailures": 4,
+    "reviewedEvidenceContracts": {
+      "tests": 35,
+      "pass": 35,
+      "fail": 0,
+      "skipped": 0
+    },
+    "progressContracts": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0
+    },
+    "compatibilityAggregator": "PASS",
+    "legacyPendingAndCreditsUnchanged": true,
+    "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed",
+    "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+    "deployRunId": 37002797414,
+    "deployWatchSession": 46087,
+    "deployStatus": "success",
+    "predeployBackupRunId": 37001886606,
+    "predeployBackupStatus": "PASS",
+    "supersededCiConclusion": "cancelled",
+    "runtimeProofRunId": 37004807393,
+    "runtimeRevision": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+    "postdeployImportProofRunId": 37004819860,
+    "postdeployIntegrity": "PASS",
+    "realRoleBusinessAccepted": false
   }
 }

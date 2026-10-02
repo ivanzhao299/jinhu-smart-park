@@ -1,0 +1,49 @@
+{
+  "status": "PASS",
+  "baselineSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+  "target": "dedicated localhost disposable lab",
+  "productionWrite": false,
+  "tests": [
+    {
+      "topic": "contract-read",
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "topic": "job-change",
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "topic": "probation",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "topic": "lifecycle",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0
+    }
+  ],
+  "auditBoundary": "existing test audit doubles; does not prove real-role production UAT",
+  "startedAt": "2026-10-02T12:06:29.502366+00:00",
+  "schemaPreparation": "ORIGINAL_MIGRATIONS_THROUGH_320_BEFORE_SYNTHETIC_FIXTURES_NO_CACHE",
+  "isolatedContainerAbsent": true,
+  "temporaryTestCredentialsRemoved": true,
+  "finishedAt": "2026-10-02T12:09:45.438357+00:00",
+  "rootCauseAudit": {
+    "cacheAttemptsBeforeTests": 2,
+    "cause": "schema ACL references cluster NOLOGIN roles absent from schema dump",
+    "resolution": "execute original migrations unchanged; no ACL or trigger removal",
+    "businessTestFailures": 0
+  },
+  "realRoleBusinessAccepted": false
+}

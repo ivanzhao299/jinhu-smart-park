@@ -23,7 +23,7 @@
   "pullRequest": 776,
   "ciRunId": 37001645797,
   "ciStatus": "success",
-  "productionDeployed": false,
+  "productionDeployed": true,
   "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
   "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
   "existingServiceContractTests": 14,
@@ -53,8 +53,13 @@
   "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
   "deployRunId": 37002797414,
   "deployWatchSession": 46087,
-  "deployStatus": "in_progress",
+  "deployStatus": "success",
   "predeployBackupRunId": 37001886606,
   "predeployBackupStatus": "PASS",
-  "supersededCiConclusion": "cancelled"
+  "supersededCiConclusion": "cancelled",
+  "runtimeProofRunId": 37004807393,
+  "runtimeRevision": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+  "postdeployImportProofRunId": 37004819860,
+  "postdeployIntegrity": "PASS",
+  "realRoleBusinessAccepted": false
 }
