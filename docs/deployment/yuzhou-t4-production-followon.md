@@ -179,3 +179,13 @@ The follow-on also refreshes the temporary `cls` classification statistics befor
 its sixteen item shards, matching the deployed native-loader performance fix.
 Snapshot and classification analysis preserves the existing transaction and
 foreign-key checks; the same actual-source conservation checks still apply.
+
+### Source employee scope preflight performance
+
+The standalone writer materializes the distinct source person codes once before
+checking resolved employees against the succeeded parent T0 records. This avoids
+repeatedly detoasting the full wage JSON for current employees with no wage
+history. The unique employee rule, exact parent operation, T0 employee table and
+`rollback_status=not_started` requirements are unchanged. Wrong or rolled-back
+parent mappings still abort the complete transaction. No source bytes or values
+are normalized by this preflight.
