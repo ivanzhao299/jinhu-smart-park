@@ -18,8 +18,8 @@ import { CanteenPaymentAppService } from "./canteen-payment-app.service";
 import { CanteenSessionService } from "./canteen-session.service";
 import { CanteenOrderQueryService } from "./canteen-order-query.service";
 import { CanteenWebhookService } from "./canteen-webhook.service";
-import { CanteenNumberService } from "./canteen-number.service";
 import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
+import { RandomizedNumberService } from "./canteen-test-utils";
 import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
 import { CanteenPaymentNotConfiguredError } from "./payment/canteen-payment-provider.port";
 import { WechatNativeCanteenProvider } from "./payment/wechat-native.provider";
@@ -77,7 +77,7 @@ test("M1: archive CRUD, qr checkout happy path + idempotent callback, timeout cl
   const statusLogRepo = ds.getRepository(CanteenStatusLogEntity);
 
   const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo);
-  const numbers = new CanteenNumberService(ds);
+  const numbers = new RandomizedNumberService(ds, suffix);
   const registry = new CanteenPaymentRegistry({
     ...process.env,
     CANTEEN_PAYMENT_DRIVER: "mock",

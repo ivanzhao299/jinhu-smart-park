@@ -19,12 +19,12 @@ import { CanteenMealRecordEntity } from "./entities/canteen-meal-record.entity";
 import { CanteenArchiveService } from "./canteen-archive.service";
 import { CanteenPaymentAppService } from "./canteen-payment-app.service";
 import { CanteenWebhookService } from "./canteen-webhook.service";
-import { CanteenNumberService } from "./canteen-number.service";
+import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
+import { RandomizedNumberService } from "./canteen-test-utils";
 import { CanteenSettingsService } from "./canteen-settings.service";
 import { CanteenSubsidyService } from "./canteen-subsidy.service";
 import { CanteenSubsidyGrantService } from "./canteen-subsidy-grant.service";
 import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
-import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
 import { InsufficientSubsidyException } from "./canteen-subsidy.exception";
 import { periodOf } from "./canteen-subsidy.util";
 
@@ -113,7 +113,7 @@ test(
     const mealRepo = ds.getRepository(CanteenMealRecordEntity);
 
     const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo);
-    const numbers = new CanteenNumberService(ds);
+    const numbers = new RandomizedNumberService(ds, suffix);
     const registry = new CanteenPaymentRegistry({
       ...process.env,
       CANTEEN_PAYMENT_DRIVER: "mock",
