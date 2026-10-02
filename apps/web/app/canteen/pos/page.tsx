@@ -112,12 +112,13 @@ export default function PosTerminalPage() {
               setActiveCat(firstCat.name);
             }
             if (dishList.length > 0) {
+              const catNameById = new Map(catList.map((c) => [c.id, c.name]));
               setDishes(
                 dishList.map((d) => ({
                   id: d.id,
                   name: d.name,
                   price: Number(d.price),
-                  category: d.category_name ?? firstCat?.name ?? "全部",
+                  category: (d.categoryId && catNameById.get(d.categoryId)) ?? firstCat?.name ?? "全部",
                   color: "#1f4e8c",
                   soldout: d.status !== "on_shelf"
                 }))
@@ -133,7 +134,7 @@ export default function PosTerminalPage() {
           if (cancelled) return;
           if (current) {
             setShiftOpen(current.status === "open");
-            setShiftNo(current.session_no);
+            setShiftNo(current.sessionNo ?? "");
           }
         } catch {
           /* 无班次视为未开班 */
@@ -180,7 +181,6 @@ export default function PosTerminalPage() {
     if (modal === "qr" && canvasRef.current) {
       void renderQr(qrInfo.codeUrl);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal, qrInfo]);
 
   const cartTotal = useMemo(() => cart.reduce((s, it) => s + it.price * it.qty, 0), [cart]);
@@ -218,7 +218,7 @@ export default function PosTerminalPage() {
   async function openShift() {
     try {
       const session = await canteenApi.openSession({ outlet_id: outletId, opening_float: 0 }, token);
-      setShiftNo(session.session_no);
+      setShiftNo(session.sessionNo ?? "");
     } catch {
       setShiftNo("CS" + Date.now().toString().slice(-8));
     }

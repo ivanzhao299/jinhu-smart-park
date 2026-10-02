@@ -1,6 +1,6 @@
 "use client";
 
-import { CANTEEN_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { CANTEEN_PERMISSIONS } from "@jinhu/shared";
 import {
   ContentCard,
   DataTable,
@@ -23,12 +23,12 @@ import {
 import { AlertTriangle, Eye, RefreshCw, Search, Clock, QrCode, Wallet, Receipt } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { canteenApi } from "../../../../lib/canteen-api";
-import type { CanteenCashierSession, CanteenOutlet } from "../../../../lib/canteen-types";
+import type { CanteenCashierSession, CanteenOutlet, CanteenPage } from "../../../../lib/canteen-types";
 import { getAccessToken } from "../../../../lib/authz";
 import { PermissionGuard } from "../../../../components/auth/PermissionGuard";
 
 const CANTEEN_MODULE = "canteen";
-const emptyPage: PaginatedResult<CanteenCashierSession> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyPage: CanteenPage<CanteenCashierSession> = { list: [], total: 0, page: 1, pageSize: 20 };
 
 interface Filters {
   outletId: string;
@@ -38,13 +38,15 @@ interface Filters {
 export default function CanteenSessionsPage() {
   const [outlets, setOutlets] = useState<CanteenOutlet[]>([]);
   const [filters, setFilters] = useState<Filters>({ outletId: "", status: "" });
-  const [pageData, setPageData] = useState<PaginatedResult<CanteenCashierSession>>(emptyPage);
+  const [pageData, setPageData] = useState<CanteenPage<CanteenCashierSession>>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<CanteenCashierSession | null>(null);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.pageSize)), [pageData]);
+
+  const outletName = (id: string) => outlets.find((o) => o.id === id)?.name ?? id;
 
   useEffect(() => {
     canteenApi.listOutlets(getAccessToken()).then(setOutlets).catch((e: Error) => setMessage(e.message));
@@ -72,12 +74,12 @@ export default function CanteenSessionsPage() {
   }, [load]);
 
   const summary = useMemo(() => {
-    return pageData.items.reduce(
+    return pageData.list.reduce(
       (s, it) => ({
         open: s.open + (it.status === "open" ? 1 : 0),
-        qr: s.qr + Number(it.qr_pay_total || 0),
-        sub: s.sub + Number(it.subsidy_total || 0),
-        orders: s.orders + (it.order_count || 0)
+        qr: s.qr + Number(it.qrPayTotal || 0),
+        sub: s.sub + Number(it.subsidyTotal || 0),
+        orders: s.orders + (it.orderCount || 0)
       }),
       { open: 0, qr: 0, sub: 0, orders: 0 }
     );
@@ -150,16 +152,16 @@ export default function CanteenSessionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageData.items.map((s) => (
+                {pageData.list.map((s) => (
                   <tr key={s.id}>
-                    <td>{s.session_no}</td>
-                    <td>{s.outlet_name ?? s.outlet_id}</td>
-                    <td>{s.open_time ? new Date(s.open_time).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
-                    <td>{s.close_time ? new Date(s.close_time).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
-                    <td>¥{s.qr_pay_total}</td>
-                    <td>¥{s.subsidy_total}</td>
-                    <td>{s.order_count}</td>
-                    <td>¥{s.refund_total}</td>
+                    <td>{s.sessionNo}</td>
+                    <td>{outletName(s.outletId)}</td>
+                    <td>{s.openTime ? new Date(s.openTime).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
+                    <td>{s.closeTime ? new Date(s.closeTime).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
+                    <td>¥{s.qrPayTotal}</td>
+                    <td>¥{s.subsidyTotal}</td>
+                    <td>{s.orderCount}</td>
+                    <td>¥{s.refundTotal}</td>
                     <td><StatusPill variant={s.status === "open" ? "success" : "muted"}>{s.status === "open" ? "进行中" : "已结班"}</StatusPill></td>
                     <td>
                       <DataTableActions>
@@ -171,7 +173,7 @@ export default function CanteenSessionsPage() {
                     </td>
                   </tr>
                 ))}
-                {pageData.items.length === 0 ? (
+                {pageData.list.length === 0 ? (
                   <tr>
                     <td colSpan={10}><EmptyState compact title="暂无班次" description="收银员在 POS 终端开班后，班次会在此汇总。" /></td>
                   </tr>
@@ -184,16 +186,16 @@ export default function CanteenSessionsPage() {
 
         {detail ? (
           <Drawer size="md" onClose={() => setDetail(null)}>
-            <DrawerHeader eyebrow="班次日结" title={detail.session_no} description={detail.outlet_name ?? ""} onClose={() => setDetail(null)} />
+            <DrawerHeader eyebrow="班次日结" title={detail.sessionNo} description={outletName(detail.outletId)} onClose={() => setDetail(null)} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="班次状态" value={<StatusPill variant={detail.status === "open" ? "success" : "muted"}>{detail.status === "open" ? "进行中" : "已结班"}</StatusPill>} />
-              <DrawerDetailItem label="备用金" value={`¥${detail.opening_float}`} />
-              <DrawerDetailItem label="扫码收款合计" value={`¥${detail.qr_pay_total}`} />
-              <DrawerDetailItem label="餐补核销合计" value={`¥${detail.subsidy_total}`} />
-              <DrawerDetailItem label="订单数" value={detail.order_count} />
-              <DrawerDetailItem label="退款合计" value={`¥${detail.refund_total}`} />
-              <DrawerDetailItem label="开班时间" value={detail.open_time ? new Date(detail.open_time).toLocaleString("zh-CN", { hour12: false }) : "-"} />
-              <DrawerDetailItem label="结班时间" value={detail.close_time ? new Date(detail.close_time).toLocaleString("zh-CN", { hour12: false }) : "-"} />
+              <DrawerDetailItem label="备用金" value={`¥${detail.openingFloat}`} />
+              <DrawerDetailItem label="扫码收款合计" value={`¥${detail.qrPayTotal}`} />
+              <DrawerDetailItem label="餐补核销合计" value={`¥${detail.subsidyTotal}`} />
+              <DrawerDetailItem label="订单数" value={detail.orderCount} />
+              <DrawerDetailItem label="退款合计" value={`¥${detail.refundTotal}`} />
+              <DrawerDetailItem label="开班时间" value={detail.openTime ? new Date(detail.openTime).toLocaleString("zh-CN", { hour12: false }) : "-"} />
+              <DrawerDetailItem label="结班时间" value={detail.closeTime ? new Date(detail.closeTime).toLocaleString("zh-CN", { hour12: false }) : "-"} />
             </DrawerDetailGrid>
           </Drawer>
         ) : null}

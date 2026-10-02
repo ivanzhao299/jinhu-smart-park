@@ -156,17 +156,25 @@ export default function CanteenDishesPage() {
     };
   }, [dishes, categories]);
 
+  // 餐品列表不回品类名，按 categoryId 映射已加载品类
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) map.set(c.id, c.name);
+    return map;
+  }, [categories]);
+
   async function saveDish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dishDrawer) return;
     if (!dishForm.name.trim()) throw new Error("请填写餐品名称");
+    if (!dishForm.category_id) throw new Error("请选择品类");
     const price = Number(dishForm.price);
     if (!Number.isFinite(price) || price < 0) throw new Error("请填写正确的价格");
     const payload = {
       outlet_id: outletId,
-      category_id: dishForm.category_id || null,
+      category_id: dishForm.category_id,
       name: dishForm.name.trim(),
-      price: price.toFixed(2),
+      price,
       unit: dishForm.unit.trim() || "份",
       barcode: dishForm.barcode.trim() || undefined,
       daily_stock: dishForm.daily_stock === "" ? null : Number(dishForm.daily_stock),
@@ -224,13 +232,13 @@ export default function CanteenDishesPage() {
   function openDishEdit(dish: CanteenDish) {
     setDishForm({
       outlet_id: outletId,
-      category_id: dish.category_id ?? "",
+      category_id: dish.categoryId ?? "",
       name: dish.name,
       price: dish.price,
       unit: dish.unit,
       barcode: dish.barcode ?? "",
-      daily_stock: dish.daily_stock == null ? "" : String(dish.daily_stock),
-      need_booking: Boolean(dish.need_booking)
+      daily_stock: dish.dailyStock == null ? "" : String(dish.dailyStock),
+      need_booking: Boolean(dish.needBooking)
     });
     setDishDrawer({ mode: "edit", dish });
   }
@@ -241,7 +249,7 @@ export default function CanteenDishesPage() {
   }
 
   function openCategoryEdit(category: CanteenCategory) {
-    setCategoryForm({ name: category.name, sort_order: String(category.sort_order), status: (category.status as "on" | "off") ?? "on" });
+    setCategoryForm({ name: category.name, sort_order: String(category.sortOrder), status: (category.status as "on" | "off") ?? "on" });
     setCategoryDrawer({ mode: "edit", category });
   }
 
@@ -316,7 +324,7 @@ export default function CanteenDishesPage() {
 
         <ContentCard
           title="餐品列表"
-          description={selectedOutlet ? `当前档口：${selectedOutlet.name}（${selectedOutlet.outlet_no}）` : "请先选择档口"}
+          description={selectedOutlet ? `当前档口：${selectedOutlet.name}（${selectedOutlet.outletNo || "未编号"}）` : "请先选择档口"}
           actions={<StatusPill variant={loading ? "info" : "success"}>{loading ? "加载中" : `${summary.onShelf} 款在售`}</StatusPill>}
         >
           {loadError ? (
@@ -341,13 +349,13 @@ export default function CanteenDishesPage() {
               <tbody>
                 {dishes.map((dish) => (
                   <tr key={dish.id}>
-                    <td>{dish.dish_no}</td>
+                    <td>{dish.dishNo}</td>
                     <td>{dish.name}</td>
-                    <td>{dish.category_name ?? "-"}</td>
+                    <td>{(dish.categoryId && categoryNameById.get(dish.categoryId)) || "-"}</td>
                     <td>¥{dish.price}</td>
                     <td>{dish.unit}</td>
-                    <td>{dish.daily_stock ?? "-"}</td>
-                    <td>{dish.sold_count ?? 0}</td>
+                    <td>{dish.dailyStock ?? "-"}</td>
+                    <td>{dish.soldCount ?? 0}</td>
                     <td><DishStatus status={dish.status} /></td>
                     <td>
                       <DataTableActions>
@@ -399,7 +407,7 @@ export default function CanteenDishesPage() {
             <tbody>
               {categories.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.sort_order}</td>
+                  <td>{c.sortOrder}</td>
                   <td>{c.name}</td>
                   <td><StatusPill variant={c.status === "on" ? "success" : "muted"}>{c.status === "on" ? "启用" : "停用"}</StatusPill></td>
                   <td>
@@ -428,16 +436,16 @@ export default function CanteenDishesPage() {
 
         {detailDish ? (
           <Drawer size="md" onClose={() => setDetailDish(null)}>
-            <DrawerHeader eyebrow="餐品详情" title={detailDish.name} description={`${detailDish.dish_no} · ¥${detailDish.price}/${detailDish.unit}`} onClose={() => setDetailDish(null)} />
+            <DrawerHeader eyebrow="餐品详情" title={detailDish.name} description={`${detailDish.dishNo} · ¥${detailDish.price}/${detailDish.unit}`} onClose={() => setDetailDish(null)} />
             <DrawerDetailGrid>
-              <DrawerDetailItem label="餐品编码" value={detailDish.dish_no} />
+              <DrawerDetailItem label="餐品编码" value={detailDish.dishNo} />
               <DrawerDetailItem label="状态" value={<DishStatus status={detailDish.status} />} />
               <DrawerDetailItem label="价格" value={`¥${detailDish.price}`} />
               <DrawerDetailItem label="单位" value={detailDish.unit} />
               <DrawerDetailItem label="条码" value={detailDish.barcode ?? "-"} />
-              <DrawerDetailItem label="每日库存" value={detailDish.daily_stock ?? "-"} />
-              <DrawerDetailItem label="累计已售" value={detailDish.sold_count ?? 0} />
-              <DrawerDetailItem label="是否预订" value={detailDish.need_booking ? "是" : "否"} />
+              <DrawerDetailItem label="每日库存" value={detailDish.dailyStock ?? "-"} />
+              <DrawerDetailItem label="累计已售" value={detailDish.soldCount ?? 0} />
+              <DrawerDetailItem label="是否预订" value={detailDish.needBooking ? "是" : "否"} />
             </DrawerDetailGrid>
           </Drawer>
         ) : null}

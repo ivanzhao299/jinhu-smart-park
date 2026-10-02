@@ -1,6 +1,6 @@
 "use client";
 
-import { CANTEEN_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { CANTEEN_PERMISSIONS } from "@jinhu/shared";
 import {
   ContentCard,
   DataTable,
@@ -23,12 +23,12 @@ import {
 import { AlertTriangle, Eye, RefreshCw, Search, Receipt, Wallet, QrCode } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { canteenApi } from "../../../../lib/canteen-api";
-import type { CanteenOrder, CanteenOrderItem, CanteenOutlet } from "../../../../lib/canteen-types";
+import type { CanteenOrder, CanteenOrderItem, CanteenOutlet, CanteenPage } from "../../../../lib/canteen-types";
 import { getAccessToken } from "../../../../lib/authz";
 import { PermissionGuard } from "../../../../components/auth/PermissionGuard";
 
 const CANTEEN_MODULE = "canteen";
-const emptyPage: PaginatedResult<CanteenOrder> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyPage: CanteenPage<CanteenOrder> = { list: [], total: 0, page: 1, pageSize: 20 };
 
 interface Filters {
   outletId: string;
@@ -40,7 +40,7 @@ interface Filters {
 export default function CanteenOrdersPage() {
   const [outlets, setOutlets] = useState<CanteenOutlet[]>([]);
   const [filters, setFilters] = useState<Filters>({ outletId: "", businessDate: "", status: "", channel: "" });
-  const [pageData, setPageData] = useState<PaginatedResult<CanteenOrder>>(emptyPage);
+  const [pageData, setPageData] = useState<CanteenPage<CanteenOrder>>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
@@ -48,7 +48,7 @@ export default function CanteenOrdersPage() {
   const [detail, setDetail] = useState<CanteenOrder | null>(null);
   const [detailItems, setDetailItems] = useState<CanteenOrderItem[]>([]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.pageSize)), [pageData]);
 
   useEffect(() => {
     canteenApi.listOutlets(getAccessToken()).then(setOutlets).catch((e: Error) => setMessage(e.message));
@@ -83,9 +83,9 @@ export default function CanteenOrdersPage() {
   }, [load]);
 
   const summary = useMemo(() => {
-    const pay = pageData.items.filter((o) => o.status === "paid" || o.status === "completed");
-    const qr = pay.reduce((s, o) => s + Number(o.qr_pay_amount || 0), 0);
-    const sub = pay.reduce((s, o) => s + Number(o.subsidy_amount || 0), 0);
+    const pay = pageData.list.filter((o) => o.status === "paid" || o.status === "completed");
+    const qr = pay.reduce((s, o) => s + Number(o.qrPayAmount || 0), 0);
+    const sub = pay.reduce((s, o) => s + Number(o.subsidyAmount || 0), 0);
     return { count: pay.length, qr, sub };
   }, [pageData]);
 
@@ -181,17 +181,17 @@ export default function CanteenOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageData.items.map((order) => (
+                {pageData.list.map((order) => (
                   <tr key={order.id}>
-                    <td>{order.order_no}</td>
-                    <td>{order.business_date}</td>
-                    <td>{order.meal_period ?? "-"}</td>
+                    <td>{order.orderNo}</td>
+                    <td>{order.businessDate}</td>
+                    <td>{order.mealPeriod ?? "-"}</td>
                     <td><ChannelPill channel={order.channel} /></td>
-                    <td>¥{order.pay_amount}</td>
-                    <td>¥{order.qr_pay_amount}</td>
-                    <td>¥{order.subsidy_amount}</td>
+                    <td>¥{order.payAmount}</td>
+                    <td>¥{order.qrPayAmount}</td>
+                    <td>¥{order.subsidyAmount}</td>
                     <td><OrderStatusPill status={order.status} /></td>
-                    <td>{order.paid_time ? new Date(order.paid_time).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
+                    <td>{order.paidTime ? new Date(order.paidTime).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
                     <td>
                       <DataTableActions>
                         <button className="table-action-button" type="button" onClick={() => void openDetail(order).catch((e: Error) => setMessage(e.message))}>
@@ -202,7 +202,7 @@ export default function CanteenOrdersPage() {
                     </td>
                   </tr>
                 ))}
-                {pageData.items.length === 0 ? (
+                {pageData.list.length === 0 ? (
                   <tr>
                     <td colSpan={10}><EmptyState compact title="暂无订单" description="调整筛选条件，或等待 POS 终端产生收款流水。" /></td>
                   </tr>
@@ -220,16 +220,16 @@ export default function CanteenOrdersPage() {
 
         {detail ? (
           <Drawer size="lg" onClose={() => setDetail(null)}>
-            <DrawerHeader eyebrow="订单详情" title={detail.order_no} description={`业务日期 ${detail.business_date} · ${detail.meal_period ?? "—"}`} onClose={() => setDetail(null)} />
+            <DrawerHeader eyebrow="订单详情" title={detail.orderNo} description={`业务日期 ${detail.businessDate} · ${detail.mealPeriod ?? "—"}`} onClose={() => setDetail(null)} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="订单状态" value={<OrderStatusPill status={detail.status} />} />
               <DrawerDetailItem label="收款渠道" value={<ChannelPill channel={detail.channel} />} />
-              <DrawerDetailItem label="商品合计" value={`¥${detail.total_amount}`} />
-              <DrawerDetailItem label="折扣" value={`-¥${detail.discount_amount}`} />
-              <DrawerDetailItem label="应付金额" value={`¥${detail.pay_amount}`} />
-              <DrawerDetailItem label="真实收款(扫码)" value={`¥${detail.qr_pay_amount}`} />
-              <DrawerDetailItem label="餐补核销(虚拟)" value={`¥${detail.subsidy_amount}`} />
-              <DrawerDetailItem label="支付时间" value={detail.paid_time ? new Date(detail.paid_time).toLocaleString("zh-CN", { hour12: false }) : "-"} />
+              <DrawerDetailItem label="商品合计" value={`¥${detail.totalAmount}`} />
+              <DrawerDetailItem label="折扣" value={`-¥${detail.discountAmount}`} />
+              <DrawerDetailItem label="应付金额" value={`¥${detail.payAmount}`} />
+              <DrawerDetailItem label="真实收款(扫码)" value={`¥${detail.qrPayAmount}`} />
+              <DrawerDetailItem label="餐补核销(虚拟)" value={`¥${detail.subsidyAmount}`} />
+              <DrawerDetailItem label="支付时间" value={detail.paidTime ? new Date(detail.paidTime).toLocaleString("zh-CN", { hour12: false }) : "-"} />
             </DrawerDetailGrid>
             <div className="page-content">
               <h2 className="panel-title">订单明细</h2>
@@ -245,8 +245,8 @@ export default function CanteenOrdersPage() {
                 <tbody>
                   {detailItems.map((item) => (
                     <tr key={item.id}>
-                      <td>{item.dish_name_snapshot}</td>
-                      <td>¥{item.price_snapshot}</td>
+                      <td>{item.dishNameSnapshot}</td>
+                      <td>¥{item.priceSnapshot}</td>
                       <td>{item.qty}</td>
                       <td>¥{item.amount}</td>
                     </tr>

@@ -1,9 +1,8 @@
 /**
  * 园区餐厅（canteen）typed API 客户端。
- * 路径与字段严格对齐 docs/canteen/api.md 冻结契约；鉴权/幂等复用 apps/web 既有约定。
+ * 请求体/查询用 snake_case（与 dto 一致）；响应实体为 camelCase，分页为 {list,total,page,pageSize}。
  * 实际请求 = API_PREFIX(/api/v1) + 下列 path，对应后端 @Controller("canteen")。
  */
-import type { PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
 import type {
   CanteenCashierSession,
@@ -12,7 +11,7 @@ import type {
   CanteenOrder,
   CanteenOrderItem,
   CanteenOutlet,
-  CanteenPageQuery,
+  CanteenPage,
   CanteenPayment,
   CanteenPaymentStatus,
   CreateCanteenOutletInput,
@@ -37,10 +36,11 @@ function compactObject(input: Record<string, unknown>): Record<string, unknown> 
   return out;
 }
 
-function toPageParams(query: CanteenPageQuery = {}): URLSearchParams {
+/** 列表分页查询参数：page / page_size（snake_case，forbidNonWhitelisted）。 */
+function toPageParams(page: number, pageSize: number): URLSearchParams {
   const params = new URLSearchParams();
-  params.set("page", String(query.page ?? 1));
-  params.set("pageSize", String(query.pageSize ?? 20));
+  params.set("page", String(page));
+  params.set("page_size", String(pageSize));
   return params;
 }
 
@@ -161,14 +161,14 @@ export const canteenApi = {
   },
 
   /* ---------------- Orders 订单/流水 ---------------- */
-  async listOrders(query: Record<string, unknown> & CanteenPageQuery = {}, token?: string): Promise<PaginatedResult<CanteenOrder>> {
-    const params = toPageParams(query);
+  async listOrders(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenOrder>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
         params.set(key, String(value));
       }
     }
-    const response = await apiRequest<PaginatedResult<CanteenOrder>>(`/canteen/orders?${params.toString()}`, { token });
+    const response = await apiRequest<CanteenPage<CanteenOrder>>(`/canteen/orders?${params.toString()}`, { token });
     return response.data;
   },
   async getOrder(id: string, token?: string): Promise<CanteenOrder> {
@@ -190,14 +190,14 @@ export const canteenApi = {
   },
 
   /* ---------------- Payments 支付流水 ---------------- */
-  async listPayments(query: Record<string, unknown> & CanteenPageQuery = {}, token?: string): Promise<PaginatedResult<CanteenPayment>> {
-    const params = toPageParams(query);
+  async listPayments(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenPayment>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
         params.set(key, String(value));
       }
     }
-    const response = await apiRequest<PaginatedResult<CanteenPayment>>(`/canteen/payments?${params.toString()}`, { token });
+    const response = await apiRequest<CanteenPage<CanteenPayment>>(`/canteen/payments?${params.toString()}`, { token });
     return response.data;
   },
   async getPaymentStatus(paymentNo: string, token?: string): Promise<CanteenPaymentStatus> {
@@ -255,15 +255,16 @@ export const canteenApi = {
     return response.data;
   },
 
-  /* ---------------- 管理端：班次/日结查看 ---------------- */
-  async listSessions(query: Record<string, unknown> & CanteenPageQuery = {}, token?: string): Promise<PaginatedResult<CanteenCashierSession>> {
-    const params = toPageParams(query);
+  /* ---------------- 管理端：班次/日结查看 ----------------
+     注：后端 M1 暂未提供班次列表 GET 端点，调用会 404，页面以 ErrorState 优雅呈现，待后端补齐。 */
+  async listSessions(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenCashierSession>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
         params.set(key, String(value));
       }
     }
-    const response = await apiRequest<PaginatedResult<CanteenCashierSession>>(`/canteen/pos/sessions?${params.toString()}`, { token });
+    const response = await apiRequest<CanteenPage<CanteenCashierSession>>(`/canteen/pos/sessions?${params.toString()}`, { token });
     return response.data;
   }
 };
