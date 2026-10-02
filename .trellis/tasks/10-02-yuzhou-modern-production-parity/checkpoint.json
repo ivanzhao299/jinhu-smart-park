@@ -27,14 +27,14 @@
     "H5"
   ],
   "activeRunHandle": {
-    "ciRunId": 37001645797,
-    "ciWatchSession": 89578,
-    "candidateSha": "6aae5b17e52507fe24bb8a60b6b576a558f6e719",
+    "deployRunId": 37002797414,
+    "deployWatchSession": 46087,
+    "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
     "pullRequest": 776
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Resume final CI watch89578 for PR776 candidate6aae5b17. Old CI37000998428 superseded and cancellation requested. Reviewed legacy evidence gates35+11 and progress now PASS, credits unchanged. Service/test bytes equal passing PostgreSQL run17a57f2d. Release still unproven until final CI, merged/runtime SHA and role acceptance.",
+  "nextAction": "Resume existing deployment watch46087; after success inspect health, migrations and cleanup, then read-only runtime SHA proof. Keep source import sealed; never replay successful batches.",
   "phases": [
     {
       "id": "S0",
@@ -70,11 +70,11 @@
     }
   ],
   "usage": {
-    "goalCumulativeTokensObserved": 1806486,
+    "goalCumulativeTokensObserved": 2481784,
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T11:32:35.453928+00:00",
+  "updatedAt": "2026-10-02T11:48:11.534440+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -297,7 +297,7 @@
       "serviceAndTestBytesEqualPassingRun": true,
       "pullRequest": 776,
       "ciRunId": 37001645797,
-      "ciStatus": "pending",
+      "ciStatus": "success",
       "productionDeployed": false,
       "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
       "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
@@ -324,7 +324,14 @@
       },
       "compatibilityAggregator": "PASS",
       "legacyPendingAndCreditsUnchanged": true,
-      "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed"
+      "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed",
+      "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+      "deployRunId": 37002797414,
+      "deployWatchSession": 46087,
+      "deployStatus": "in_progress",
+      "predeployBackupRunId": 37001886606,
+      "predeployBackupStatus": "PASS",
+      "supersededCiConclusion": "cancelled"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -353,9 +360,9 @@
     "Published historical payroll batches: 0; self history correctly remains unavailable.",
     "Authenticated HR/manager/employee browser UAT requires current login session.",
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability.",
-    "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed in draftPR776, not yet production. No production mutation used for reproduction."
+    "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed in merged PR776, production deployment in progress. No production mutation used for reproduction."
   ],
-  "currentSlice": "PERFORMANCE_CYCLE_JSONB_BUG_FIXED_PR776_DRAFT_CI_RUNNING",
+  "currentSlice": "PERFORMANCE_CYCLE_JSONB_FIX_PR776_MERGED_DEPLOY_RUNNING",
   "currentSliceEvidence": "research/s5-performance-service-result.json",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
@@ -474,5 +481,16 @@
     "importEvidence": "read-only",
     "productionSourceFreeze": false,
     "payrollPublication": false
+  },
+  "freshProductionImportProof": {
+    "runId": 37002513074,
+    "status": "PASS",
+    "observedAt": "2026-10-02T11:44:21.851Z",
+    "productionWriteAttempted": false,
+    "coreHashMatchesPreviousProof": true,
+    "payrollAndExtensionsMatchSuccessReceipt": true,
+    "duplicateSourceGroups": 0,
+    "duplicateProjectionGroups": 0,
+    "replayExecuted": false
   }
 }

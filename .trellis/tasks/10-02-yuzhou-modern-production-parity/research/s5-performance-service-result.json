@@ -22,7 +22,7 @@
   "serviceAndTestBytesEqualPassingRun": true,
   "pullRequest": 776,
   "ciRunId": 37001645797,
-  "ciStatus": "pending",
+  "ciStatus": "success",
   "productionDeployed": false,
   "sourceDefect": "JSONB arrays encoded as PostgreSQL arrays in createCycle and publishCycle",
   "firstAttemptStatus": "FAIL_22P02_CYCLE_CREATE",
@@ -49,5 +49,12 @@
   },
   "compatibilityAggregator": "PASS",
   "legacyPendingAndCreditsUnchanged": true,
-  "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed"
+  "reviewedEvidenceAllowlist": "exact reviewed source hash; no guard removed",
+  "mergedSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+  "deployRunId": 37002797414,
+  "deployWatchSession": 46087,
+  "deployStatus": "in_progress",
+  "predeployBackupRunId": 37001886606,
+  "predeployBackupStatus": "PASS",
+  "supersededCiConclusion": "cancelled"
 }
