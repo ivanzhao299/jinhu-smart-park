@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact, remoteAuditSource } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact, remoteAuditSource, inspectCommittedImportIntegrity } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -107,4 +107,24 @@ test('remote source embeds exact read-only inventory helper without unresolved l
   assert.match(source,/dedicated.release\(\)/);
   assert.match(source,/LATEST_AVAILABLE_READ_ONLY_DIAGNOSTIC_NOT_BUSINESS_ACCEPTED/);
   assert.doesNotMatch(source,/simulationReady:true|paymentEnabled:true|--execute/);
+});
+
+test('committed integrity uses a dedicated read-only transaction and releases after failure', async () => {
+  const calls=[];let released=false;
+  const connection={async query(sql) {calls.push(sql);if(sql.includes('current_setting'))return{rows:[{readonly:'off'}]};return{rows:[]};},release(){released=true;}};
+  await assert.rejects(inspectCommittedImportIntegrity({async connect(){return connection;}},args[2],scope),/TRANSPORT_AUDIT_NOT_READONLY/);
+  assert.equal(calls[0],'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  assert.equal(calls.at(-1),'ROLLBACK');assert.equal(released,true);
+  assert.equal(calls.some(s=>s.includes('owned_state')),false);
+});
+test('committed integrity compares retained owned state and counts duplicates without replay', async () => {
+ const calls=[];let released=false;
+ const rows=[[{readonly:'on'}],[{records:40,projection_receipts:40,duplicate_source_keys:0,missing_active_maps:0}],[{status:'succeeded',owned_state_matches:true}],[{status:'succeeded',owned_state_matches:true,source_rows:10}],[{duplicate_active_source_keys:0}]];
+ const connection={async query(sql,params){calls.push({sql,params});if(/^SELECT/u.test(sql))return{rows:rows.shift()};return{rows:[]};},release(){released=true;}};
+ const result=await inspectCommittedImportIntegrity({async connect(){return connection;}},args[2],scope);
+ assert.equal(result.transactionReadOnly,true);assert.equal(result.replayExecuted,false);
+ assert.equal(result.extensions[0].source_rows,10);assert.equal(result.physicalFileBytesReverified,false);
+ assert.equal(released,true);assert.equal(calls.at(-1).sql,'ROLLBACK');
+ for(const call of calls)assert.match(call.sql,/^(?:SELECT|BEGIN|SET LOCAL|ROLLBACK)/);
+ assert.deepEqual(calls.find(c=>c.sql.includes('duplicate_active_source_keys')).params,[args[2]]);
 });

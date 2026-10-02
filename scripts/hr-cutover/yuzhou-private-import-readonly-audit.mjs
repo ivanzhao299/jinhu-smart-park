@@ -35,6 +35,48 @@ export async function auditDatabase(client, operationId, sealedPlanHash, expecte
   return { operationRows: op.length, operationStatus: op[0]?.status ?? 'absent', recordCount: records[0].count,
     selectedScopeEmployeeCount: employees[0].count, phases: phases.map(x => ({ phase: x.phase, status: x.status, plannedCount: Number(x.planned_record_count), appliedCount: Number(x.applied_record_count) })) };
 }
+export async function inspectCommittedImportIntegrity(client, operationId, scope) {
+  const connection = await client.connect();
+  try {
+    await connection.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    await connection.query('SET LOCAL statement_timeout=300000');
+    const readonly = (await connection.query("SELECT current_setting('transaction_read_only') readonly")).rows[0];
+    if (readonly.readonly !== 'on') fail('TRANSPORT_AUDIT_NOT_READONLY');
+    const core = (await connection.query(`SELECT
+      (SELECT count(*)::int FROM hr_yuzhou_production_import_record WHERE operation_id=$1) records,
+      (SELECT count(*)::int FROM hr_yuzhou_production_import_projection_receipt WHERE operation_id=$1) projection_receipts,
+      (SELECT count(*)::int FROM (SELECT phase,source_identity_sha256 FROM hr_yuzhou_production_import_record WHERE operation_id=$1 GROUP BY phase,source_identity_sha256 HAVING count(*)>1) d) duplicate_source_keys,
+      (SELECT count(*)::int FROM hr_yuzhou_production_import_projection_receipt p LEFT JOIN legacy_record_map m ON m.id=p.legacy_record_map_id WHERE p.operation_id=$1 AND (m.id IS NULL OR NOT m.is_active)) missing_active_maps`, [operationId])).rows[0];
+    const payroll = (await connection.query(`SELECT status,
+      hr_yuzhou_t4_followon_owned_state(operation_id)=owned_state AS owned_state_matches,
+      (SELECT count(*)::int FROM hr_yuzhou_t4_followon_authorization_use a WHERE a.operation_id=o.operation_id AND intent='append') append_authorizations,
+      (SELECT count(*)::int FROM hr_yuzhou_t4_followon_authorization_use a WHERE a.operation_id=o.operation_id AND intent='rollback') rollback_authorizations
+      FROM hr_yuzhou_t4_followon_operation o WHERE parent_operation_id=$1 ORDER BY created_at`, [operationId])).rows;
+    const extensions = (await connection.query(`SELECT status,
+      hr_yuzhou_t5_followon_owned_state(operation_id)=owned_state AS owned_state_matches,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_source s WHERE s.operation_id=o.operation_id AND tenant_id=$2 AND park_id=$3) source_rows,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_projection_receipt r WHERE r.operation_id=o.operation_id) projection_receipts,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_projection_receipt r WHERE r.operation_id=o.operation_id AND disposition='quarantine') quarantined_projections,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_projection_receipt r WHERE r.operation_id=o.operation_id AND target_table='sys_file' AND disposition='insert') associated_files,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_authorization_use a WHERE a.operation_id=o.operation_id AND intent='append') append_authorizations,
+      (SELECT count(*)::int FROM hr_yuzhou_t5_followon_authorization_use a WHERE a.operation_id=o.operation_id AND intent='rollback') rollback_authorizations,
+      (SELECT count(*)::int FROM (SELECT source_table,source_identity_sha256 FROM hr_yuzhou_t5_followon_source s WHERE s.operation_id=o.operation_id GROUP BY source_table,source_identity_sha256 HAVING count(*)>1) d) duplicate_source_keys,
+      (SELECT count(*)::int FROM (SELECT target_table,source_identity_sha256 FROM hr_yuzhou_t5_followon_projection_receipt r WHERE r.operation_id=o.operation_id GROUP BY target_table,source_identity_sha256 HAVING count(*)>1) d) duplicate_projection_keys,
+      EXISTS(SELECT 1 FROM hr_yuzhou_t4_followon_operation p WHERE p.operation_id=o.payroll_operation_id AND p.parent_operation_id=$1 AND p.status='succeeded') payroll_parent_succeeded
+      FROM hr_yuzhou_t5_followon_operation o WHERE parent_operation_id=$1 AND binding->'targetScope'->>'tenantId'=$2 AND binding->'targetScope'->>'parkId'=$3 ORDER BY created_at`, [operationId, scope.tenantId, scope.parkId])).rows;
+    const sourceDuplicates = (await connection.query(`SELECT count(*)::int duplicate_active_source_keys FROM (
+      SELECT source_system,source_table,source_identity_sha256 FROM legacy_record_map
+      WHERE is_active AND source_system='yuzhou-v10' AND batch_id IN (
+        SELECT id FROM migration_batch WHERE production_import_operation_id=$1
+        OR t4_followon_operation_id IN (SELECT operation_id FROM hr_yuzhou_t4_followon_operation WHERE parent_operation_id=$1)
+        OR t5_followon_operation_id IN (SELECT operation_id FROM hr_yuzhou_t5_followon_operation WHERE parent_operation_id=$1))
+      GROUP BY source_system,source_table,source_identity_sha256 HAVING count(*)>1) d`, [operationId])).rows[0];
+    return { observedAt: new Date().toISOString(), transactionReadOnly: true, core, payroll, extensions,
+      ...sourceDuplicates, replayExecuted: false, physicalFileBytesReverified: false };
+  } finally {
+    try { await connection.query('ROLLBACK'); } finally { connection.release(); }
+  }
+}
 export function recoverCommittedSummary(result, reconciliation, database, codeSha, sealedPlanHash, scopeHash) {
   if (result?.status !== 'SUCCEEDED' || result.mode !== 'execute' || result.productionImportExecuted !== true
     || result.fullProductMigrationComplete !== false || result.sealedPlanSha256 !== sealedPlanHash
@@ -140,6 +182,7 @@ async function audit(args) {
     if (identity.database !== binding.database || identity.username !== binding.databaseUser || identity.oid !== binding.serverIdentity.databaseOid || identity.readonly !== 'on') fail('TRANSPORT_AUDIT_DATABASE_IDENTITY_DRIFT');
     database = await auditDatabase(client, operationId, sealedPlanHash, { ...allowed, codeSha: packet.EXECUTOR_SHA }, binding.targetScope);
     if (database.operationStatus === 'succeeded') {
+      database.committedImportIntegrity = await inspectCommittedImportIntegrity(client,operationId,binding.targetScope);
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
         const availability = (await client.query(`SELECT
