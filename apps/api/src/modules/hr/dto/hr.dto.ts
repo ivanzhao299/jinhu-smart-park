@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min } from "class-validator";
+import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsNotEmpty,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
 import { HR_EMPLOYEE_STATUSES,HR_EMPLOYMENT_TYPES } from "@jinhu/shared";
 
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
@@ -130,6 +130,11 @@ export class CreateHrEmployeeDto {
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
 export class UpdateHrEmployeeDto extends CreateHrEmployeeDto {}
+export class LinkHrEmployeeAccountDto {
+ @ValidateIf((_object,value)=>value!==null) @IsUUID() userId!:string|null;
+ @ValidateIf((_object,value)=>value!==null) @IsUUID() expectedUserId!:string|null;
+ @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(500) reason!:string;
+}
 export class UpdateHrEmployeeProfileDto {
  @IsOptional() @IsIn(["resident_id","passport","other"]) idType?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) idNumber?:string;

@@ -5,7 +5,7 @@ import { DataSource,ILike,In,IsNull,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,LinkHrEmployeeAccountDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractActionEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
@@ -225,6 +225,25 @@ export class HrService {
    const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:row.departureDate,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
    const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return projectHrEmployee(saved);
   });
+ }
+ async linkEmployeeAccount(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:LinkHrEmployeeAccountDto){
+  try{return await this.dataSource.transaction(async manager=>{
+   const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
+   const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
+   if(!row)throw new NotFoundException("Employee not found");
+   if(row.userId!==dto.expectedUserId)throw new ConflictException("Employee account link changed; reload before retrying");
+   if(dto.userId===row.userId)return projectHrEmployee(row);
+   if(dto.userId){
+    if(row.employmentStatus==="departed")throw new BadRequestException("Departed employees cannot receive a new account link");
+    const account=await manager.getRepository(UserEntity).findOne({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true,status:"enabled"},lock:{mode:"pessimistic_write"}});
+    if(!account)throw new BadRequestException("User is unavailable in current scope");
+    if(await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false,id:Not(id)}}))throw new ConflictException("User is already linked to another employee");
+   }
+   const before=this.eventSnapshot(row);row.userId=dto.userId;row.updateBy=actor.sub;
+   const saved=await repo.save(row);
+   await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:dto.reason,createBy:actor.sub,updateBy:actor.sub}));
+   return projectHrEmployee(saved);
+  });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("User is already linked to another employee");throw error;}
  }
  async listPositions(scope:TenantParkScope){return (await this.positions.find({where:{...scope,isDeleted:false},order:{sortOrder:"ASC",positionCode:"ASC"}})).map(projectHrPosition);}
  async directoryOptions(scope:TenantParkScope){

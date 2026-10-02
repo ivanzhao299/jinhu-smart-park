@@ -1,0 +1,77 @@
+{
+  "status": "HISTORICAL_REMEDIATION_WORKSTREAM_CLOSED_BY_POLICY",
+  "asOf": "2026-10-02",
+  "actualReadonlyRunId": 36964064420,
+  "actualReadonlyProofSha256": "00eadd7445e1ce67dc667158094c0dd787be349c060de7af2be5071e67bc86fb",
+  "sourceQuarantineTotal": 1608,
+  "archivedHistorical": 1572,
+  "dormantHistoricalUncertainty": 36,
+  "activeRepairQueue": 0,
+  "currentEmployeeOrAccountMatchesForElevenQuarantinedEmployees": 0,
+  "activeCommittedCoreDependents": 0,
+  "groups": [
+    {
+      "phase": "T0",
+      "targetTable": "hr_employee",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 11
+    },
+    {
+      "phase": "T1",
+      "targetTable": "hr_employment_event",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 36
+    },
+    {
+      "phase": "T2",
+      "targetTable": "hr_contract_change",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 9
+    },
+    {
+      "phase": "T2",
+      "targetTable": "hr_contract",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 4
+    },
+    {
+      "phase": "T3",
+      "targetTable": "hr_attendance_symbol_rule",
+      "decision": "HISTORICAL_UNCERTAINTY_RETAINED",
+      "count": 1
+    },
+    {
+      "phase": "T3",
+      "targetTable": "hr_employee_insurance_period",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 216
+    },
+    {
+      "phase": "T3",
+      "targetTable": "hr_employee_insurance_item",
+      "decision": "ARCHIVED_HISTORICAL",
+      "count": 1296
+    },
+    {
+      "phase": "T3",
+      "targetTable": "hr_employee_insurance_period",
+      "decision": "HISTORICAL_UNCERTAINTY_RETAINED",
+      "count": 5
+    },
+    {
+      "phase": "T3",
+      "targetTable": "hr_employee_insurance_item",
+      "decision": "HISTORICAL_UNCERTAINTY_RETAINED",
+      "count": 30
+    }
+  ],
+  "limits": [
+    "Current-person lookup covers the eleven quarantined employee codes and scoped nondeleted records only.",
+    "Dependents query covers this committed core import dependency graph; it is not a global cross-system dependency audit.",
+    "Thirty-five invalid insurance period/item rows and one unresolved symbol remain unknown historical semantics, retained without correction or deletion.",
+    "Only reactivate dormant exceptions when a current business case requires them.",
+    "Payroll unmapped145 and photos unmapped6 retained; independent current-source identity reconciliation remains in S1/S5."
+  ],
+  "productionBusinessDataChanged": false,
+  "originalEvidenceRetained": true
+}

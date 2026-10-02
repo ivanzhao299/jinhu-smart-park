@@ -39,7 +39,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
+      "sha256": "c49ab89be0c4a942e86c78caf990e0cf42714b6957816b5f0902a8141d2932a4"
     },
     "modernAccessPolicy": {
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
@@ -47,11 +47,11 @@
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
-      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+      "sha256": "18b00f5e986a188053ed953b533a7947115cdd7a3532b29293dedc56a09bd157"
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "99e2898a011d2e3d224d347aef838f87036072d263fa05441c2aafd647fc92c0"
+      "sha256": "beb1463705385788322ae411547a1a5653e1bb851b320900050f5626d0a802e3"
     },
     "materializationEvidence": {
       "path": "scripts/e2e/yuzhou-professional-title-materialization-contract.mjs",
@@ -142,7 +142,7 @@
           "sourceBoundary": "single_scalar_select_without_explicit_transaction",
           "modernBoundary": "immutable_imported_profile_code_label_pair_read_in_one_scoped_repository_query",
           "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_failed_import_rejects_the_profile_pair",
-          "evidenceSha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
+          "evidenceSha256": "c49ab89be0c4a942e86c78caf990e0cf42714b6957816b5f0902a8141d2932a4"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -175,7 +175,7 @@
               "conservationRule": "one_valid_source_code_label_pair_materializes_to_one_profile_code_label_pair_with_zero_unrelated_writes"
             }
           ],
-          "evidenceSha256": "0fafe339092c3298410b5bc7d82b08e6557a6b1950367498730635b903261000"
+          "evidenceSha256": "c49ab89be0c4a942e86c78caf990e0cf42714b6957816b5f0902a8141d2932a4"
         },
         "dynamicSql": {
           "status": "none",

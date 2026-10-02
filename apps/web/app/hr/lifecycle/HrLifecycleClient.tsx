@@ -44,7 +44,7 @@ const typeLabel: Record<string, string> = {
     waived: "已豁免",
   };
 const initialStatisticsTo=new Date().toISOString().slice(0,10),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
-export function HrLifecycleClient() {
+export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
   const user = useAuthUser(),
     canRead = hasAnyPermission(user, [
       HR_PERMISSIONS.HR_LIFECYCLE_READ,
@@ -318,7 +318,7 @@ export function HrLifecycleClient() {
         ) : null}
         <ProbationApplicationsPanel />
         <JobChangeApplicationsPanel />
-        <DepartureApplicationsPanel />
+        <DepartureApplicationsPanel employeeId={employeeId}/>
         {canReadEmploymentEvents ? (
           <section className="ds-panel">
             <div className={styles.sectionHeading}>

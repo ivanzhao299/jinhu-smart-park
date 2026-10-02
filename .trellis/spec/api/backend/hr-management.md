@@ -1175,3 +1175,19 @@ const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
 if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
 const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
 ```
+
+## Scenario: Reviewed employee account association
+
+- `POST /hr/employees/:id/account-link` reuses `HR_EMPLOYEE_MANAGE`, the HR module guard, idempotency replay and body-free operation audit. It accepts only explicit nullable `userId`, explicit nullable `expectedUserId` and a nonblank review reason.
+- Lock the scoped active employee in a transaction and reject stale expected associations before writes. A new account must be enabled, nondeleted and in the same tenant/park; lock that account, reject an occupied association and translate the existing employee/user unique-index race to conflict.
+- Only `userId` and `updateBy` change; preserve employment status, org, code, dates and all imported facts. Save before/after snapshots and reason as a profile event in the same transaction. No-op does not generate a new event. Departed employees may unlink an old account but cannot gain a new association through this endpoint.
+- The employee detail panel is HR-manage gated, presents the username beside its display name, requires manual identity confirmation and reason, and submits this narrow endpoint rather than a replacement employee DTO. Never infer identity from name or bulk-bind imported people.
+- Service/DTO tests cover stale state, scope/enabled filter, occupied account, unique race, departed/unlink and unchanged fields. UI tests cover the exact narrow payload and required human confirmation; browser layout uses desktop and 390px. Synthetic previews do not establish production role UAT or actual identity correctness.
+
+## Scenario: Employee-scoped departure navigation
+
+- Employee detail links to `/hr/lifecycle?employee_id=<exact employee UUID>#departure-clearance` only when lifecycle page and a departure read permission are available. The server page rejects malformed/repeated employee filters rather than silently showing all employees.
+- `GET /hr/departure-applications` accepts optional UUID `employee_id`; add the parameterized subject predicate after park/team/self access predicates. It only narrows authorization, and count/list use the same predicate.
+- The departure panel preserves this exact filter across 50-row pages, preselects an available employee for a new draft and offers an explicit return to the all-employee view. A changed user or employee context remounts the panel, aborts pending reads and clears prior records.
+- Entry visibility, navigation and pagination do not approve departure, settle amounts, close archives or disable accounts. Existing separate action permissions and clearance/state checks still apply. These changes do not establish old `sp_SetWageFlag` or archive-reopen equivalence.
+- Check API scoped-filter SQL/DTO, real panel navigation/paging/context clearing, existing departure state contracts, two-end typecheck/build and desktop/390px layout. Synthetic component previews remain distinct from authenticated production UAT.
