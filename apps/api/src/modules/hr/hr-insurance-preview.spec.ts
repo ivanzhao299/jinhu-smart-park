@@ -77,3 +77,27 @@ test("HTTP DTO rejects coercion, missing fund choice, extra precision and incomp
     assert.ok((await validate(plainToInstance(CreateHrInsuranceReferencePreviewDto, input))).length > 0);
   }
 });
+
+test("policy selector paginates scoped metadata and audits empty results before responding", async () => {
+  for (const empty of [false, true]) {
+    let reads = 0, audits = 0;
+    const db = { query: async (sql: string, params: unknown[]) => {
+      reads++; assert.deepEqual(params.slice(0, 3), [scope.tenantId, scope.parkId, "%FIXTURE%"]);
+      assert.match(sql, /p\.tenant_id=\$1 AND p\.park_id=\$2 AND p\.is_deleted=false/u);
+      if (sql.includes("count(*)")) return [{ total: empty ? 0 : 25 }];
+      assert.deepEqual(params.slice(3), [20, 20]); assert.match(sql, /ORDER BY p\.policy_code,p\.id LIMIT \$4 OFFSET \$5/u);
+      assert.match(sql, /i\.tenant_id=p\.tenant_id AND i\.park_id=p\.park_id AND i\.is_deleted=false/u);
+      return empty ? [] : [{ id: policyId, policy_code: "FIXTURE", policy_name: "合成政策", version: 1, status: "historical", variants: [1, 2], source_snapshot: { forbidden: true } }];
+    } };
+    const audit = { recordOperationRequired: async (entry: { method: string }) => { audits++; assert.equal(entry.method, "GET"); } };
+    const service = Reflect.construct(HrInsurancePreviewService, [db, audit]) as HrInsurancePreviewService;
+    const result = await service.listPolicies(scope, actor, { page: 2, page_size: 20, keyword: "FIXTURE" });
+    assert.equal(reads, 2); assert.equal(audits, 1); assert.equal(result.total, empty ? 0 : 25);
+    assert.deepEqual(result.insuranceKinds, [...HR_INSURANCE_KINDS]);
+    if (!empty) assert.deepEqual(Object.keys(result.items[0]!), ["id", "code", "name", "version", "status", "availableVariants"]);
+    await assert.rejects(service.listPolicies(scope, { ...actor, permissions: [HR_PERMISSIONS.HR_INSURANCE_TEAM_READ] }, { page: 1, page_size: 20 }), /FORBIDDEN/u);
+    assert.equal(reads, 2);
+    await assert.rejects(service.listPolicies(scope, actor, { page: 1, page_size: 101 }), /QUERY_INVALID/u);
+  }
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY, HrInsurancePreviewController.prototype.policies), actor.permissions);
+});

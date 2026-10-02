@@ -4,8 +4,9 @@ import { createHash } from "node:crypto";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
-import { CreateHrInsuranceReferencePreviewDto } from "./dto/hr-insurance-preview.dto";
+import { CreateHrInsuranceReferencePreviewDto, HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { calculateInsurancePreview, HR_INSURANCE_KINDS, type InsuranceCalculationItem } from "./hr-insurance-calculation";
+import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 interface PolicyRow { id: string; policy_code: string; policy_name: string | null; version: number; status: string; }
 interface FactorRow {
@@ -18,9 +19,27 @@ interface FactorRow {
 export class HrInsurancePreviewService {
   constructor(private readonly db: DataSource, private readonly audit: AuditService) {}
 
-  async referencePreview(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateHrInsuranceReferencePreviewDto) {
+  private assertAuthority(actor: JwtPrincipal) {
     const required = [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ];
     if (!actor.isSuper && !actor.permissions.includes("*") && !required.every(p => actor.permissions.includes(p))) throw new ForbiddenException("HR_INSURANCE_REFERENCE_PREVIEW_FORBIDDEN");
+  }
+
+  async listPolicies(scope: TenantParkScope, actor: JwtPrincipal, query: HrInsurancePolicyQueryDto) {
+    this.assertAuthority(actor);
+    if (!Number.isSafeInteger(query.page) || query.page < 1 || query.page > 1000000 || !Number.isSafeInteger(query.page_size) || query.page_size < 1 || query.page_size > 100 || (query.keyword !== undefined && (typeof query.keyword !== "string" || query.keyword.length > 100))) throw new BadRequestException("HR_INSURANCE_POLICY_QUERY_INVALID");
+    const keyword = `%${query.keyword?.trim() ?? ""}%`;
+    const params = [scope.tenantId, scope.parkId, keyword];
+    const counts: Array<{ total: number }> = await this.db.query("SELECT count(*)::int AS total FROM hr_insurance_policy p WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.is_deleted=false AND (p.policy_code ILIKE $3 OR p.policy_name ILIKE $3)", params);
+    const rows: Array<PolicyRow & { variants: number[] }> = await this.db.query(`SELECT p.id,p.policy_code,p.policy_name,p.version,p.status,
+      ARRAY(SELECT DISTINCT i.variant_no FROM hr_insurance_policy_item i WHERE i.policy_id=p.id AND i.tenant_id=p.tenant_id AND i.park_id=p.park_id AND i.is_deleted=false AND i.variant_no IN(1,2) ORDER BY i.variant_no) AS variants
+      FROM hr_insurance_policy p WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.is_deleted=false AND (p.policy_code ILIKE $3 OR p.policy_name ILIKE $3)
+      ORDER BY p.policy_code,p.id LIMIT $4 OFFSET $5`, [...params, query.page_size, (query.page - 1) * query.page_size]);
+    await recordHrSensitiveRead(this.audit, scope, actor, { resource: "hr.insurance_policy", action: "读取社保参考政策目录", bizType: "hr_insurance_policy", path: "/hr/insurance/policies", fieldGroups: ["insurance"], projection: "metadata", itemCount: rows.length });
+    return { items: rows.map(p => ({ id: p.id, code: p.policy_code, name: p.policy_name, version: p.version, status: p.status, availableVariants: p.variants })), total: counts[0]?.total ?? 0, page: query.page, page_size: query.page_size, insuranceKinds: [...HR_INSURANCE_KINDS] };
+  }
+
+  async referencePreview(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateHrInsuranceReferencePreviewDto) {
+    this.assertAuthority(actor);
     // Revalidate direct service calls, not only HTTP DTOs.
     if (!Number.isSafeInteger(dto.periodYear) || dto.periodYear < 1900 || dto.periodYear > 2100 || !Number.isSafeInteger(dto.periodMonth) || dto.periodMonth < 1 || dto.periodMonth > 12 || ![1, 2].includes(dto.variantNo)) throw new BadRequestException("HR_INSURANCE_PREVIEW_PERIOD_OR_VARIANT_INVALID");
     if (!Array.isArray(dto.bases) || dto.bases.length !== 6 || dto.bases.some(b => !b || !HR_INSURANCE_KINDS.includes(b.insuranceKind)) || new Set(dto.bases.map(b => b.insuranceKind)).size !== 6) throw new BadRequestException("HR_INSURANCE_PREVIEW_SIX_BASES_REQUIRED");

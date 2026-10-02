@@ -13,3 +13,7 @@ Scope: `POST /hr/insurance/reference-preview`. This endpoint calculates from one
 - Before durable confirmation, implement independent immutable policy versions/effective periods, owned previews, current personnel/basis checks, a transactionally revalidated hash and parent locks that also block child insert phantoms, correction/close semantics and payroll references.
 
 Checks: scoped source access and versions, exact numeric rounding, input hash changes, source row conservation, DTO negative cases, required audit failure, permission metadata/direct service authority. Isolated full-schema PostgreSQL tests are opt-in; no real JWT/role/browser or current-business acceptance is implied by synthetic tests.
+
+## Policy catalog
+
+`GET /hr/insurance/policies` uses the same three permissions before reads. Validate bounded pagination and search, select only tenant/park/non-deleted policy metadata and scoped variant numbers, with stable code/ID ordering. Return the calculation kind IDs from the server instead of maintaining a second client enum. Audit empty and populated results before returning. Catalog selection never activates historical policy or authorizes confirmation.

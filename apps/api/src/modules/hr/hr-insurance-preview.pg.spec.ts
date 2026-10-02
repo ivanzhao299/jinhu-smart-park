@@ -69,3 +69,13 @@ test("original-schema foreign sources, stale version and audit failure reject wi
   await assert.rejects(service(true).referencePreview(scope, actor, request()), /audit unavailable/u);
   assert.equal(await factsHash(), before);
 });
+
+test("original-schema policy catalog returns only own scope and honours pagination", { skip: !enabled }, async () => {
+  const before = await factsHash();
+  const catalog = await service().listPolicies(scope, actor, { page: 1, page_size: 1, keyword: "FIXTURE" });
+  assert.equal(catalog.total, 1); assert.equal(catalog.items.length, 1); assert.equal(catalog.items[0]!.id, ids.policy);
+  assert.deepEqual(catalog.items[0]!.availableVariants, [1]);
+  assert.equal((await service().listPolicies(scope, actor, { page: 2, page_size: 1, keyword: "FIXTURE" })).items.length, 0);
+  await assert.rejects(service(true).listPolicies(scope, actor, { page: 1, page_size: 1 }), /audit unavailable/u);
+  assert.equal(await factsHash(), before);
+});
