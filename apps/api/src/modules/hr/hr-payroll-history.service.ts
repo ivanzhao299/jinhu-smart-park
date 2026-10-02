@@ -957,9 +957,40 @@ export class HrPayrollHistoryService {
           .split("-")
           .map(Number),
         insurance = (await manager.query(
-          `SELECT id,employee_id,version FROM hr_employee_insurance_period WHERE tenant_id=$1 AND park_id=$2 AND employee_id=ANY($3::uuid[]) AND period_year=$4 AND period_month=$5 AND is_deleted=false FOR SHARE`,
+          `SELECT id,employee_id,version,needs_review FROM hr_employee_insurance_period WHERE tenant_id=$1 AND park_id=$2 AND employee_id=ANY($3::uuid[]) AND period_year=$4 AND period_month=$5 AND is_deleted=false ORDER BY employee_id,id FOR UPDATE`,
           [scope.tenantId, scope.parkId, employeeIds, year, month],
         )) as Array<Record<string, unknown>>;
+      if (insurance.some((period) => period.needs_review === true))
+        throw new ConflictException(
+          "Insurance input requires review before payroll simulation",
+        );
+      // Parent UPDATE locks also block new child facts through the scoped FK.
+      // Keep exact PostgreSQL numeric strings and source NULLs in the snapshot;
+      // never infer missing amounts or recompute historical policy results.
+      const insuranceItems = insurance.length ? (await manager.query(
+        `SELECT id,period_id,version,insurance_kind,contribution_base,total_amount,
+          employer_amount,employee_amount,supplement_amount,legacy_base_negative
+         FROM hr_employee_insurance_item
+         WHERE tenant_id=$1 AND park_id=$2 AND period_id=ANY($3::uuid[]) AND is_deleted=false
+         ORDER BY period_id,insurance_kind,id FOR SHARE`,
+        [scope.tenantId, scope.parkId, insurance.map((period) => period.id)],
+      )) as Array<Record<string, unknown>> : [];
+      const insuranceItemsByPeriod = new Map<string, Array<Record<string, unknown>>>();
+      for (const item of insuranceItems) {
+        const periodId = String(item.period_id);
+        const entries = insuranceItemsByPeriod.get(periodId) ?? [];
+        entries.push({
+          id: String(item.id), version: String(item.version),
+          insuranceKind: String(item.insurance_kind),
+          contributionBase: item.contribution_base == null ? null : String(item.contribution_base),
+          totalAmount: item.total_amount == null ? null : String(item.total_amount),
+          employerAmount: item.employer_amount == null ? null : String(item.employer_amount),
+          employeeAmount: item.employee_amount == null ? null : String(item.employee_amount),
+          supplementAmount: item.supplement_amount == null ? null : String(item.supplement_amount),
+          legacyBaseNegative: item.legacy_base_negative === true,
+        });
+        insuranceItemsByPeriod.set(periodId, entries);
+      }
       const employeeVersions = Object.fromEntries(
           snapshots.map((s) => [
             String(s.employee_id),
@@ -984,7 +1015,11 @@ export class HrPayrollHistoryService {
         insuranceVersions = Object.fromEntries(
           insurance.map((i) => [
             String(i.employee_id),
-            { id: String(i.id), version: String(i.version) },
+            {
+              id: String(i.id), version: String(i.version),
+              snapshotVersion: "insurance-facts-v1", needsReview: false,
+              items: insuranceItemsByPeriod.get(String(i.id)) ?? [],
+            },
           ]),
         ),
         formulaVersions = Object.fromEntries(

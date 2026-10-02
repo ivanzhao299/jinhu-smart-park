@@ -10,11 +10,13 @@ const databaseUrl=process.env.HR_T4_RECONCILIATION_PG_URL;
 const enabled=process.env.HR_T4_RECONCILIATION_PG_ALLOW_MUTATION==="yes"&&Boolean(databaseUrl);
 
 test("real PostgreSQL reconciliation calculation is serialized, immutable and isolated",{skip:!enabled},async()=>{
+ const target=new URL(databaseUrl!);
+ assert.ok(["127.0.0.1","localhost"].includes(target.hostname),"PostgreSQL fixture must use loopback");
+ assert.match(target.pathname.slice(1),/^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/);
  const db=new DataSource({type:"postgres",url:databaseUrl,ssl:false});await db.initialize();
  const ids={actor:randomUUID(),employee:randomUUID(),plan:randomUUID(),insurancePeriod:randomUUID(),period:randomUUID(),summary:randomUUID(),attendanceBatch:randomUUID(),attendanceItem:randomUUID(),book:randomUUID(),definition:randomUUID(),item:randomUUID(),formula:randomUUID(),bookPeriod:randomUUID(),legacyBatch:randomUUID(),snapshot:randomUUID(),snapshotItem:randomUUID(),policy:randomUUID()};
  const legacyFormulaId=100000+Number.parseInt(ids.formula.slice(0,6),16)%800000;
- const scopeRow=(await db.query("SELECT tenant_id,park_id FROM biz_park WHERE is_deleted=false ORDER BY id LIMIT 1"))[0] as {tenant_id:string;park_id:string};
- const scope={tenantId:scopeRow.tenant_id,parkId:scopeRow.park_id};
+ const scope={tenantId:"reconciliation-fixture",parkId:"reconciliation-fixture"};
  const parsed=parsePayrollFormula("[人事系统.基本工资]+[人事系统.津贴]");assert.ok(parsed.ast);
  const q=(sql:string,params:unknown[]=[])=>db.query(sql,params);
  try{
