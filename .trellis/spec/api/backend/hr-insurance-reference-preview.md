@@ -17,3 +17,9 @@ Checks: scoped source access and versions, exact numeric rounding, input hash ch
 ## Policy catalog
 
 `GET /hr/insurance/policies` uses the same three permissions before reads. Validate bounded pagination and search, select only tenant/park/non-deleted policy metadata and scoped variant numbers, with stable code/ID ordering. Return the calculation kind IDs from the server instead of maintaining a second client enum. Audit empty and populated results before returning. Catalog selection never activates historical policy or authorizes confirmation.
+
+## Historical policy definition
+
+`GET /hr/insurance/policies/:id?expected_version=...` requires the same three permissions and a valid UUID/positive expected version. Read the parent and both available variants in one REPEATABLE READ, READ ONLY transaction; select only scoped non-deleted metadata and factor columns. Preserve the original scope description, exact numeric strings and NULLs. Incomplete factors remain visible with `copyEligible=false`; missing rates never become zero. Original suffixed `2` fields are fixed offsets, not a second percentage scheme.
+
+Return opaque per-variant factor hashes from the same ordered projection used by durable copying; do not expose factor IDs/versions or raw source snapshots. Require the sensitive-read audit after the read transaction and before returning. The response remains `mode=historical_definition`, `activated=false`; the source scope text does not establish modern personnel applicability. Test source conservation, NULL display/copy rejection, source version and scope failures, required audit failure, and unchanged-parent factor drift between viewing and copying.

@@ -28,6 +28,7 @@ export class CreateHrInsurancePolicyVersionDto {
   @IsString() @MinLength(1) @MaxLength(500) reason!: string;
   @IsOptional() @IsUUID() sourcePolicyId?: string;
   @IsOptional() @IsInt() @Min(1) @Max(2147483647) expectedSourceVersion?: number;
+  @IsOptional() @IsString() @Matches(/^[0-9a-f]{64}$/u) expectedSourceFactorsHash?: string;
   @IsOptional() @IsArray() @ArrayMinSize(6) @ArrayMaxSize(6)
   @ValidateNested({ each: true }) @Type(() => HrInsurancePolicyFactorsDto)
   items?: HrInsurancePolicyFactorsDto[];

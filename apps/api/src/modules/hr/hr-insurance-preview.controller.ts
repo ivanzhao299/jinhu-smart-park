@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -25,5 +25,12 @@ export class HrInsurancePreviewController {
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ)
   referencePreview(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreateHrInsuranceReferencePreviewDto) {
     return this.service.referencePreview(scope, actor, dto);
+  }
+
+  @Get("policies/:id")
+  @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ)
+  policyDefinition(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal,
+    @Param("id", ParseUUIDPipe) id: string, @Query("expected_version", ParseIntPipe) expectedVersion: number) {
+    return this.service.policyDefinition(scope, actor, id, expectedVersion);
   }
 }
