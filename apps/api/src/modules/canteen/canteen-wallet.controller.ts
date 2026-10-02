@@ -5,7 +5,7 @@ import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import type { WalletTxnQueryDto } from "./dto/canteen.dto";
+import { WalletTxnQueryDto } from "./dto/canteen.dto";
 import { CanteenSubsidyService } from "./canteen-subsidy.service";
 
 /**
