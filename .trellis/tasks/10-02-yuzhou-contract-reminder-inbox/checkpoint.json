@@ -19,11 +19,14 @@
     "apiWebTypecheck": "PASS",
     "changedFileLint": "PASS",
     "webProductionBuild": "PASS",
-    "browser": "synthetic full-page 1280/390, pages 50/50/13, server type/window filters, no overflow"
+    "browser": "synthetic full-page 1280/390, pages 50/50/13, server type/window filters, no overflow",
+    "isolatedPostgresTests": 6,
+    "temporaryTableCleanup": "PASS",
+    "databaseCommand": "node scripts/verify-hr-contract-reminder-query-pg.mjs"
   },
   "evidence": "private modern-contract-reminder-proof-20261002",
   "productionWrite": false,
   "goalComplete": false,
   "blocker": "none for development; real role UAT and business acceptance remain",
-  "nextAction": "CI, integrate accepted candidate with PR773, release/runtime evidence and role UAT"
+  "nextAction": "Await CI, integrate reviewed PR773/774 candidates, verify runtime and real roles"
 }
