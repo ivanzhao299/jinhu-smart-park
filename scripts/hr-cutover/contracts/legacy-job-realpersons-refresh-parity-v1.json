@@ -31,7 +31,7 @@
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
-      "sha256": "558d93aae41a6a26173d3759ee928a66e9631de8d9344e56e92bfd8fb2333051"
+      "sha256": "18b00f5e986a188053ed953b533a7947115cdd7a3532b29293dedc56a09bd157"
     },
     "modernPage": {
       "path": "apps/web/app/hr/decision-center/HrDecisionCenterClient.tsx",

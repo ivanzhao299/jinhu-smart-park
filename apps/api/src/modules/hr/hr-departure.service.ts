@@ -30,6 +30,7 @@ export class HrDepartureService {
   const access=this.access(a);if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
   const args:unknown[]=[s.tenantId,s.parkId],where=["d.tenant_id=$1","d.park_id=$2","d.is_deleted=false"];
   if(access!=="park"){args.push(a.sub);const actor=`$${args.length}`;where.push(access==="self"?`(d.applicant_user_id=${actor} OR e.user_id=${actor})`:`e.primary_org_id IN(${this.managedOrgSql(actor)})`);}
+  if(q.employee_id){args.push(q.employee_id);where.push(`d.subject_employee_id=$${args.length}`);}
   if(q.status){args.push(q.status);where.push(`d.status=$${args.length}`);}if(q.keyword){args.push(`%${q.keyword}%`);where.push(`(d.application_no ILIKE $${args.length} OR d.application_name ILIKE $${args.length} OR e.employee_code ILIKE $${args.length} OR e.full_name ILIKE $${args.length})`);}
   const from=`FROM hr_departure_application d JOIN hr_employee e ON e.tenant_id=d.tenant_id AND e.park_id=d.park_id AND e.id=d.subject_employee_id LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id WHERE ${where.join(" AND ")}`;
   const count=await this.db.query(`SELECT count(*)::int total ${from}`,args) as Array<{total:number}>;args.push(q.page_size,(q.page-1)*q.page_size);

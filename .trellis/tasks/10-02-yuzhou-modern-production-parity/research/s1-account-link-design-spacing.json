@@ -1,0 +1,33 @@
+{
+  "request": "Unify account link typography and whitespace with existing Design System",
+  "status": "LOCAL_STYLE_VERIFIED_NOT_DEPLOYED",
+  "changedFiles": [
+    "apps/web/app/hr/employees/EmployeeAccountLink.tsx",
+    "apps/web/app/hr/employees/employee-account-link.module.css"
+  ],
+  "fileSha256": {
+    "apps/web/app/hr/employees/EmployeeAccountLink.tsx": "d1b7b032e5339a22a3072d51b7fd0e15a9e3d44f102f71bf9d34080b7b01089a",
+    "apps/web/app/hr/employees/employee-account-link.module.css": "52ae71dc60b3e9aa5ce25666f38546050aff99c2c8b4798399e15b4635e71180"
+  },
+  "validation": {
+    "interactionTests": "2/2 PASS",
+    "eslint": "PASS",
+    "diffCheck": "PASS",
+    "desktopStaticComponent": {
+      "viewport": 1280,
+      "documentWidth": 1280
+    },
+    "mobileStaticComponent": {
+      "viewport": 390,
+      "documentWidth": 390
+    }
+  },
+  "scope": "actual component + shared global and HR styles, synthetic data; not production role UAT",
+  "productionWrite": false,
+  "fullBuild": "not repeated for layout-only change; preceding build belongs to pre-style revision",
+  "preview": {
+    "url": "http://127.0.0.1:3187/",
+    "serverSessionId": 87801,
+    "purpose": "temporary user-visible synthetic style preview"
+  }
+}

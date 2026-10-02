@@ -1,0 +1,64 @@
+{
+  "slice": "S1 current employee account association",
+  "workspace": "/Users/mac/.codex/worktrees/yuzhou-current-account-link-20261002/jinhu-smart-park",
+  "branch": "codex/yuzhou-current-account-link-20261002",
+  "baseSha": "7c3df1c230bde74badbf414acae36030d5fe8709",
+  "status": "LOCAL_IMPLEMENTED_NOT_RELEASED",
+  "productionWrites": false,
+  "accountBindingsApplied": 0,
+  "validation": {
+    "apiServiceDtoAndFoundationTests": "18/18 PASS",
+    "webInteractionTests": "2/2 PASS",
+    "hrManagementFoundation": "PASS",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "changedFileLint": "PASS",
+    "diffCheck": "PASS",
+    "legacyEvidenceTests": "41/58 PASS; 17 FAIL, pre-existing baseline evidence drift",
+    "frozenManifestTests": "3/10 PASS; 7 FAIL, existing progress/evidence readiness"
+  },
+  "browser": {
+    "mode": "actual component SSR with synthetic data, static layout only",
+    "firstDesktop": {
+      "viewport": 1280,
+      "documentWidth": 1280
+    },
+    "firstMobile": {
+      "viewport": 390,
+      "documentWidth": 390
+    },
+    "checkboxCorrection": "20px checkbox and 44px confirmation label",
+    "postCorrectionMobile": "native preview visually observed, viewport unexpectedly 243; exact390 final recheck pending",
+    "authenticatedProduction": "login session still unavailable"
+  },
+  "remaining": [
+    "final 390px corrected-component recheck",
+    "baseline historical hash/progress audit before release candidate acceptance; no source or receipt rewrite",
+    "authenticated real HR/manager/employee tasks",
+    "human confirmed current employee/account pairs before production associations"
+  ],
+  "usage": "unavailable",
+  "files": {
+    ".trellis/spec/api/backend/hr-management.md": "b10b8bfffe9f8dcb72e0a321f96fa552c98ff0e8d35ba509e4c2f147f97155dd",
+    "apps/api/src/modules/hr/dto/hr.dto.ts": "f4c9a0e26914a4561b51562e5256a54d9cf1561f95b3e08f6c1282abe2390875",
+    "apps/api/src/modules/hr/hr.controller.ts": "18b00f5e986a188053ed953b533a7947115cdd7a3532b29293dedc56a09bd157",
+    "apps/api/src/modules/hr/hr.service.ts": "c49ab89be0c4a942e86c78caf990e0cf42714b6957816b5f0902a8141d2932a4",
+    "apps/web/app/hr/employees/HrEmployeesClient.tsx": "2bd634f1afb06ff5da3f2d6ce391976e9a96ab6d9773fed72d41975aa54b4219",
+    "apps/web/lib/hr-api.ts": "6c887b10021ce58c6d2d283a28dc058c67e0f4cc1d8b4fc1bfcc41bf529cce3c",
+    "scripts/hr-cutover/contracts/legacy-attendance-item-schema-hook-parity-v1.json": "f15141dfc136c29a9119972ec91e80cc1a6e5079b064d2c532e6e285e906c025",
+    "scripts/hr-cutover/contracts/legacy-employee-profile-education-source-chain-gap-v1.json": "0e0d351deaa12405967f7a4f44dbb14cb23263e13ba87efff97ccae356df6d8f",
+    "scripts/hr-cutover/contracts/legacy-employment-event-cross-layer-v1.json": "867a27b6b10d80b3382150c8f8f695b3b9842e2522c7a514829feb90ef012af3",
+    "scripts/hr-cutover/contracts/legacy-family-query-parity-v1.json": "ad7c1aabde4484192e5d5a2a8e6808f4b15e2fbc405d3083dc4eb6185a5efb81",
+    "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json": "28370a79477c06c71fa773483ce399e3baca3551cfc3c02361eaf9fc85c9dc4f",
+    "scripts/hr-cutover/contracts/legacy-group-web-organization-cross-layer-v1.json": "c6021ef34a2dcf105001d7657e46fb7bd384356fcd23603469afe9a82b618670",
+    "scripts/hr-cutover/contracts/legacy-job-realpersons-refresh-parity-v1.json": "1d3816e61f931f9c991fc8e741cf6eceb552b96b8e276e970dccb24397d52f40",
+    "scripts/hr-cutover/contracts/legacy-performance-calculation-print-parity-v1.json": "0c66676d06488d3fef93c82a115646ed7724f4632bad3282f43a069b7c4dab78",
+    "scripts/hr-cutover/contracts/legacy-professional-title-lookup-parity-v1.json": "75351cfbced37e9371c1fb779c29b9a4f203d4ba007cc6f4acf4aef509049843",
+    "scripts/hr-cutover/contracts/legacy-staffing-discrepancy-report-parity-v1.json": "70fc654d9c139ebfb80229408935d69fb30b7833772e306e04071c4122cfce71",
+    "apps/api/src/modules/hr/hr-employee-account-link.contract.spec.ts": "2f4e1bd3842e57d3142bfc018d6a975e79b56fa2fa139a1b60c082f7fc5aa169",
+    "apps/web/app/hr/employees/EmployeeAccountLink.tsx": "45eb99e0c64ab7a2188b4b5b092d8d89a798c010efde2fe50edaae52bf00bfd7",
+    "apps/web/test/interaction/hr-employee-account-link.test.tsx": "0e172626d9480b8372c37becaa6c5102f1485bc6d9ac90053a2a4aad07973050"
+  }
+}
