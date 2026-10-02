@@ -51,7 +51,7 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "01a21c14736222d408626c36a21d2d9dffe58af2cf97db0aa1f12fc4598c5b7c"
+      "sha256": "6491104f46a30876aab4f51acb2f0b307d0cf3dda71f7b70b69ee60b1e789430"
     },
     "materializationEvidence": {
       "path": "scripts/e2e/yuzhou-professional-title-materialization-contract.mjs",

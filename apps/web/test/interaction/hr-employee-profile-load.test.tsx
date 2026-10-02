@@ -18,7 +18,7 @@ const profile = (employeeId = "alpha", masked = false): HrEmployeeProfile => ({
   id: `profile-${employeeId}`, employeeId, highestEducation: "Synthetic education", masked,
   idType: null, idNumberMasked: null, jobTitle: employeeId === "foreign" ? "Synthetic foreign title" : null, jobGrade: null, employeeCategory: null,
   technicalTitle: null, technicalGrade: null, personalMobile: null, personalEmail: null,
-  address: null, emergencyContactName: null, emergencyContactMobile: null,
+  address: null, emergencyContactName: null, emergencyContactMobile: null, remark: "Synthetic existing note",
 });
 async function openFirst() {
   await waitFor(() => expect(screen.getAllByRole("button", { name: "查看档案" }).length).toBeGreaterThan(0));
@@ -57,6 +57,8 @@ describe("employee profile read admission", () => {
     vi.mocked(hrApi.profile).mockResolvedValue(profile("alpha", true));
     const view = render(<HrEmployeesClient />); await openFirst();
     expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
+    expect(screen.queryByText(/Synthetic existing note/)).toBeNull();
+    expect(screen.queryByLabelText("档案备注")).toBeNull();
     view.unmount();
     vi.mocked(hrApi.profile).mockResolvedValue(profile("foreign"));
     render(<HrEmployeesClient />); await openFirst();
@@ -93,6 +95,33 @@ describe("employee profile read admission", () => {
     expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
     expect(screen.getByRole("button", { name: "重新加载档案" })).toBeEnabled();
+  });
+
+  it("retains an existing profile remark when saving another field", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByLabelText("档案备注")).toHaveValue("Synthetic existing note");
+    fireEvent.change(screen.getByLabelText("最高学历"), { target: { value: "Synthetic updated education" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ highestEducation: "Synthetic updated education", remark: "Synthetic existing note" }), "synthetic-test-token"));
+  });
+  it("submits an edited remark with the backend length limit", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByLabelText("档案备注")).toHaveAttribute("maxlength", "500");
+    fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "Synthetic amended note" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: "Synthetic amended note" }), "synthetic-test-token"));
+  });
+  it("allows deliberately clearing a remark through the existing replacement API", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: undefined }), "synthetic-test-token"));
   });
 
 });
