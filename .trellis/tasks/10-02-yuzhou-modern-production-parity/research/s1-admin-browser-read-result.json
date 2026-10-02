@@ -1,0 +1,31 @@
+{
+  "status": "READ_ONLY_ADMIN_BROWSER_QUERY_VERIFIED",
+  "observedAt": "2026-10-02T11:52:30.590313+00:00",
+  "origin": "https://park.cnjinhu.com",
+  "selectedPark": "JH",
+  "role": "super administrator",
+  "employees": {
+    "total": 2938,
+    "pageSize": 50,
+    "pages": 59
+  },
+  "historicalPayroll": {
+    "allReadable": 45947,
+    "pageSize": 20,
+    "pages": 2298,
+    "earlyMonth": "2010-05",
+    "earlyMonthRows": 67,
+    "earlyMonthPages": 4,
+    "controlMethod": "native month setValue + submit; DOM fill did not synchronize React state"
+  },
+  "productionBusinessMutations": false,
+  "roleUatAccepted": false,
+  "salaryAmountsReconciled": false,
+  "runtimeVersionClaimed": false,
+  "privateRowsStored": false,
+  "limitations": [
+    "admin query proof cannot substitute HR manager employee role negative tests",
+    "no payroll generation publication or disbursement",
+    "deployment776 still in progress at observation"
+  ]
+}
