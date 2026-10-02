@@ -87,7 +87,8 @@ function simulationFixture(sourceMonth="2026-07-01",missingSource=false){
   if(sql.includes("FROM hr_payroll_reconciliation_policy_current cur"))return [{book_id:dto.bookId,policy_version_id:"policy",policy_version_no:1,net_item_version_id:"item",tolerance_amount:"0.0100",item_code:"NET",formula_version_id:"formula"}];
   if(sql.includes("FROM hr_attendance_payroll_input_item"))return [{id:"attendance-item",employee_id:employee,worked_minutes:9600,late_minutes:0,early_minutes:0,absence_days:0,missing_punch_days:0}];
   if(sql.includes("FROM hr_employee_compensation"))return [{id:"compensation",employee_id:employee,version:1,effective_from:"2026-07-01",base_salary:"120.0000",allowance_amount:"5.0000",variable_target:"0.0000"}];
-  if(sql.includes("FROM hr_employee_insurance_period"))return [{id:"insurance",employee_id:employee,version:1}];
+  if(sql.includes("FROM hr_employee_insurance_period"))return [{id:"insurance",employee_id:employee,version:1,needs_review:false}];
+  if(sql.includes("FROM hr_employee_insurance_item"))return [];
   if(sql.includes("AS i(snapshot_id uuid"))return [{item_code:"NET",item_version_id:"item",decimal_value:"900719925474.1234"}];
   if(sql.startsWith("INSERT INTO hr_payroll_reconciliation_run"))return [{id:"run"}];
   if(sql.startsWith("INSERT INTO hr_payroll_reconciliation_result"))return [{id:"result"}];
