@@ -155,7 +155,7 @@ async function audit(args) {
           JOIN hr_payroll_book book ON book.id=period.book_id AND book.tenant_id=snapshot.tenant_id AND book.park_id=snapshot.park_id
           JOIN hr_payroll_legacy_batch batch ON batch.id=snapshot.batch_id AND batch.tenant_id=snapshot.tenant_id AND batch.park_id=snapshot.park_id
           JOIN hr_employee employee ON employee.id=snapshot.employee_id AND employee.tenant_id=snapshot.tenant_id AND employee.park_id=snapshot.park_id
-          WHERE snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND snapshot.is_deleted=false AND snapshot.mapping_status='mapped'`, [binding.targetScope.tenantId,binding.targetScope.parkId])).rows[0];
+          WHERE snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND snapshot.is_deleted=false AND snapshot.mapping_status='mapped' AND period.is_deleted=false AND book.is_deleted=false AND batch.is_deleted=false AND employee.is_deleted=false`, [binding.targetScope.tenantId,binding.targetScope.parkId])).rows[0];
         database.historyReadModelAvailability = { ...availability,...readable,authenticatedApiUat:false };
         const plan = descriptor(config.artifacts.sealedPlan);
         if (plan.operationId !== operationId || plan.sealing.sealedPlanSha256 !== sealedPlanHash) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
