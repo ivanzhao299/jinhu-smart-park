@@ -21,5 +21,16 @@
   "actualBusinessPeriodTest": false,
   "actualAmountReconciliation": false,
   "productionWrites": false,
-  "nextSlice": "prepare reconciliation input readiness using imported immutable history without automatically publishing employee history; preserve exact source, scope, period and financial rules"
+  "nextSlice": "prepare reconciliation input readiness using imported immutable history without automatically publishing employee history; preserve exact source, scope, period and financial rules",
+  "sourceIntegrityFinding": {
+    "unpublishedOrStagedFactsAllowAppend": true,
+    "factUpdatesBlocked": true,
+    "publishedBatchFrozen": true,
+    "evidence": [
+      "database/migrations/000248_hr_payroll_legacy_history.sql:214",
+      "database/migrations/000248_hr_payroll_legacy_history.sql:235",
+      "database/migrations/000264_hr_payroll_legacy_item_bulk_guard.sql:52"
+    ],
+    "implementationConstraint": "Do not simply widen published to staged. A separate simulation source must prove committed import ownership, counts and hashes and freeze the exact selected period facts against append and rollback."
+  }
 }
