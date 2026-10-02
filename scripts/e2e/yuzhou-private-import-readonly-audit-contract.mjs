@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact, remoteAuditSource } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -95,4 +95,16 @@ test('committed quarantine drift or active dependent rejects impact classificati
   await assert.rejects(auditQuarantineImpact(f.client,f.plan,f.readBundle,scope,'2026-10-02'),/TRANSPORT_AUDIT_QUARANTINE_DEPENDENTS/);
   const g = impactFixture();g.plan.phases[0].records[0].sourceIdentitySha256='tampered';
   await assert.rejects(auditQuarantineImpact(g.client,g.plan,g.readBundle,scope,'2026-10-02'),/TRANSPORT_AUDIT_QUARANTINE_DRIFT/);
+});
+
+
+test('remote source embeds exact read-only inventory helper without unresolved local import', () => {
+  const source=remoteAuditSource();
+  assert.match(source,/async function inspectPayrollSimulationInputs/);
+  assert.doesNotMatch(source,/^import \{ inspectPayrollSimulationInputs \} from/m);
+  assert.match(source,/BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+  assert.match(source,/finally \{if\(begun\)await client.query\("ROLLBACK"\);\}/);
+  assert.match(source,/dedicated.release\(\)/);
+  assert.match(source,/LATEST_AVAILABLE_READ_ONLY_DIAGNOSTIC_NOT_BUSINESS_ACCEPTED/);
+  assert.doesNotMatch(source,/simulationReady:true|paymentEnabled:true|--execute/);
 });

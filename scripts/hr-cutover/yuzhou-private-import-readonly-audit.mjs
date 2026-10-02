@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { URL, pathToFileURL } from 'node:url';
 import { totalmem, freemem } from 'node:os';
 import { getHeapStatistics } from 'node:v8';
+import { inspectPayrollSimulationInputs } from './inspect-payroll-simulation-inputs.mjs';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 export function validateAuditArguments([nonce, packetHash, operationId, sealedPlanHash, followonNonce]) {
@@ -163,6 +164,19 @@ async function audit(args) {
         quarantineImpact = await auditQuarantineImpact(client,plan,phase => descriptor(config.artifacts.payloadBundles[phase]),binding.targetScope,today);
       } finally { await client.query('ROLLBACK'); }
     }
+    if (database.operationStatus === 'succeeded' && database.historyReadModelAvailability?.last_month) {
+      const dedicated = await client.connect();
+      try {
+        database.payrollSimulationInputInventory = {
+          ...(await inspectPayrollSimulationInputs(dedicated, {
+            tenantId: binding.targetScope.tenantId, parkId: binding.targetScope.parkId,
+            periodMonth: database.historyReadModelAvailability.last_month,
+          })),
+          periodSelection: 'LATEST_AVAILABLE_READ_ONLY_DIAGNOSTIC_NOT_BUSINESS_ACCEPTED',
+        };
+      } finally { dedicated.release(); }
+    }
+
     if (database.operationStatus === 'succeeded') {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
@@ -244,6 +258,12 @@ async function audit(args) {
     executionClaimExists: existsSync(resolve(root, 'execution-claimed.json')), executionReceiptExists: existsSync(resolve(root, 'execution-receipt.json')),
     failure, database, committedExecutionSummary, followon, quarantineImpact, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
 }
+export function remoteAuditSource() {
+  const source = readFileSync(new URL(import.meta.url), 'utf8');
+  const localImport = /^import \{ inspectPayrollSimulationInputs \} from '\.\/inspect-payroll-simulation-inputs\.mjs';$/m;
+  if ([...source.matchAll(new RegExp(localImport.source, 'gm'))].length !== 1) fail('TRANSPORT_AUDIT_HELPER_BINDING_INVALID');
+  return source.replace(localImport, inspectPayrollSimulationInputs.toString());
+}
 function dispatch() {
   const e = process.env;
   const args = [e.TRANSPORT_NONCE, e.TRANSPORT_PACKET_SHA256, e.AUDIT_OPERATION_ID, e.AUDIT_SEALED_PLAN_SHA256];
@@ -252,7 +272,7 @@ function dispatch() {
   if (!/^[A-Za-z0-9.-]+$/u.test(e.PROD_SSH_HOST ?? '') || !/^[A-Za-z0-9_-]+$/u.test(e.PROD_SSH_USER ?? '') || !/^\d{1,5}$/u.test(e.PROD_SSH_PORT ?? '')) fail('TRANSPORT_AUDIT_SSH_INVALID');
   const command = `node --input-type=module - ${args.map(x => `'${x}'`).join(' ')}`;
   const output = execFileSync('ssh', ['-p', e.PROD_SSH_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', `${e.PROD_SSH_USER}@${e.PROD_SSH_HOST}`, command],
-    { input: readFileSync(new URL(import.meta.url)), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024, timeout: 600000 });
+    { input: remoteAuditSource(), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024, timeout: 600000 });
   const result = JSON.parse(output);
   if (result.code !== 'TRANSPORT_READONLY_AUDIT_COMPLETED' || result.productionWriteAttempted !== false) fail('TRANSPORT_AUDIT_RESULT_INVALID');
   return result;
