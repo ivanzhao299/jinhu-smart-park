@@ -141,6 +141,22 @@ async function audit(args) {
     if (database.operationStatus === 'succeeded') {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
+        const availability = (await client.query(`SELECT
+          (SELECT count(*)::int FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false) employees,
+          (SELECT count(*)::int FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND employment_status IN ('preboarding','probation','active','suspended')) current_employees,
+          (SELECT count(*)::int FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND user_id IS NOT NULL) account_linked_employees,
+          (SELECT count(*)::int FROM hr_contract WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false) contracts,
+          (SELECT count(*)::int FROM hr_payroll_legacy_snapshot WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false) payroll_snapshots,
+          (SELECT count(*)::int FROM hr_payroll_legacy_snapshot_item WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false) payroll_items,
+          (SELECT count(*)::int FROM hr_payroll_legacy_batch WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='published') published_history_batches`, [binding.targetScope.tenantId,binding.targetScope.parkId])).rows[0];
+        const readable = (await client.query(`SELECT count(*)::int mapped_readable_snapshots,min(period.period_month)::text first_month,max(period.period_month)::text last_month
+          FROM hr_payroll_legacy_snapshot snapshot
+          JOIN hr_payroll_book_period period ON period.id=snapshot.book_period_id AND period.tenant_id=snapshot.tenant_id AND period.park_id=snapshot.park_id
+          JOIN hr_payroll_book book ON book.id=period.book_id AND book.tenant_id=snapshot.tenant_id AND book.park_id=snapshot.park_id
+          JOIN hr_payroll_legacy_batch batch ON batch.id=snapshot.batch_id AND batch.tenant_id=snapshot.tenant_id AND batch.park_id=snapshot.park_id
+          JOIN hr_employee employee ON employee.id=snapshot.employee_id AND employee.tenant_id=snapshot.tenant_id AND employee.park_id=snapshot.park_id
+          WHERE snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND snapshot.is_deleted=false AND snapshot.mapping_status='mapped'`, [binding.targetScope.tenantId,binding.targetScope.parkId])).rows[0];
+        database.historyReadModelAvailability = { ...availability,...readable,authenticatedApiUat:false };
         const plan = descriptor(config.artifacts.sealedPlan);
         if (plan.operationId !== operationId || plan.sealing.sealedPlanSha256 !== sealedPlanHash) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
         const today = (await client.query("SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') today")).rows[0].today;
