@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -62,4 +62,37 @@ test('optional T4 nonce cannot escape its owned directory and SQL errors exclude
   const summary = summarizeSqlErrors(`ERROR: column "fixture_column" does not exist\nERROR: invalid input syntax for type integer: 'private-person-value'\nDETAIL: personal-phone=123456`);
   assert.equal(summary[0].column, 'fixture_column');
   assert.doesNotMatch(JSON.stringify(summary), /private-person-value|123456|personal-phone/u);
+});
+
+function impactFixture(currentEmployees = [], activeDependents = 0) {
+  const rows = [
+    { phase:'T0',sourceIdentitySha256:'employee',plannedTargetTable:'hr_employee',disposition:'quarantine',dependencyRefs:[],payload:{employee_code:'private-fixture',employment_status:'departed',departure_date:'2020-01-01'} },
+    { phase:'T3',sourceIdentitySha256:'period',plannedTargetTable:'hr_employee_insurance_period',disposition:'quarantine',dependencyRefs:[],payload:{period_year:2018} },
+    { phase:'T3',sourceIdentitySha256:'item',plannedTargetTable:'hr_employee_insurance_item',disposition:'quarantine',dependencyRefs:[{role:'period',phase:'T3',sourceIdentitySha256:'period'}],payload:{} },
+    { phase:'T3',sourceIdentitySha256:'invalid',plannedTargetTable:'hr_employee_insurance_period',disposition:'quarantine',dependencyRefs:[],payload:{} }
+  ];
+  const plan = { operationId:args[2], phases:['T0','T3'].map(phase => ({phase,records:rows.filter(r => r.phase === phase)})) };
+  const client = clientFor([rows.map(r => ({phase:r.phase,source_identity_sha256:r.sourceIdentitySha256,planned_target_table:r.plannedTargetTable})),currentEmployees,[{count:activeDependents}]]);
+  return {plan,client,readBundle:phase => ({records:rows.filter(r => r.phase === phase).map(r => ({sourceIdentitySha256:r.sourceIdentitySha256,payload:r.payload}))})};
+}
+test('historical quarantine archive retains invalid periods and follows parent dependencies without private output', async () => {
+  const f = impactFixture();
+  const result = await auditQuarantineImpact(f.client,f.plan,f.readBundle,scope,'2026-10-02');
+  assert.equal(result.total,4);
+  assert.equal(result.groups.filter(g => g.decision === 'ARCHIVED_HISTORICAL').reduce((n,g) => n+g.count,0),3);
+  assert.equal(result.groups.filter(g => g.decision === 'HISTORICAL_UNCERTAINTY_RETAINED').reduce((n,g) => n+g.count,0),1);
+  assert.doesNotMatch(JSON.stringify(result),/private-fixture|sourceIdentity|employee_code/);
+});
+test('current employee or linked account prevents historical employee auto-close', async () => {
+  for (const employee of [{employee_code:'private-fixture',employment_status:'active',linked_account:false},{employee_code:'private-fixture',employment_status:'departed',linked_account:true}]) {
+    const f = impactFixture([employee]);
+    const result = await auditQuarantineImpact(f.client,f.plan,f.readBundle,scope,'2026-10-02');
+    assert.equal(result.groups.find(g => g.targetTable === 'hr_employee').decision,'CURRENT_IMPACT_REVIEW');
+  }
+});
+test('committed quarantine drift or active dependent rejects impact classification', async () => {
+  const f = impactFixture([],1);
+  await assert.rejects(auditQuarantineImpact(f.client,f.plan,f.readBundle,scope,'2026-10-02'),/TRANSPORT_AUDIT_QUARANTINE_DEPENDENTS/);
+  const g = impactFixture();g.plan.phases[0].records[0].sourceIdentitySha256='tampered';
+  await assert.rejects(auditQuarantineImpact(g.client,g.plan,g.readBundle,scope,'2026-10-02'),/TRANSPORT_AUDIT_QUARANTINE_DRIFT/);
 });

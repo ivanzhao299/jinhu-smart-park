@@ -54,6 +54,54 @@ export function summarizeSqlErrors(text) {
     column: message.match(/^column "([a-z_][a-z0-9_]*)"/u)?.[1] ?? null,
     relation: message.match(/^relation "((?:public\.)?hr_[a-z0-9_]+)"/u)?.[1] ?? null }));
 }
+export async function auditQuarantineImpact(client, plan, readBundle, scope, today) {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(today)) fail('TRANSPORT_AUDIT_DATE_INVALID');
+  const records = plan.phases.flatMap(phase => phase.records.filter(r => r.disposition === 'quarantine').map(r => ({ ...r, phase: phase.phase })));
+  const actual = (await client.query(`SELECT phase,source_identity_sha256,planned_target_table FROM hr_yuzhou_production_import_record WHERE operation_id=$1 AND disposition='quarantine' ORDER BY phase,source_identity_sha256`, [plan.operationId])).rows;
+  const actualKeys = new Set(actual.map(r => `${r.phase}:${r.source_identity_sha256}:${r.planned_target_table}`));
+  if (actual.length !== records.length || records.some(r => !actualKeys.has(`${r.phase}:${r.sourceIdentitySha256}:${r.plannedTargetTable}`))) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
+  const payloads = new Map();
+  for (const phase of plan.phases) {
+    const wanted = new Set(records.filter(r => r.phase === phase.phase).map(r => r.sourceIdentitySha256));
+    const bundle = readBundle(phase.phase);
+    for (const r of bundle.records) if (wanted.has(r.sourceIdentitySha256)) payloads.set(`${phase.phase}:${r.sourceIdentitySha256}`, r.payload);
+  }
+  if (payloads.size !== records.length) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
+  const employeeRecords = records.filter(r => r.plannedTargetTable === 'hr_employee');
+  const codes = employeeRecords.map(r => payloads.get(`${r.phase}:${r.sourceIdentitySha256}`).employee_code);
+  if (codes.some(x => typeof x !== 'string' || !x)) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
+  const employees = (await client.query(`SELECT employee_code,employment_status,user_id IS NOT NULL AS linked_account FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND employee_code=ANY($3::text[]) AND is_deleted=false`, [scope.tenantId,scope.parkId,codes])).rows;
+  const current = new Set(employees.filter(e => e.employment_status !== 'departed' || e.linked_account).map(e => e.employee_code));
+  const dependents = (await client.query(`SELECT count(*)::int count FROM hr_yuzhou_production_import_record_dependency d JOIN hr_yuzhou_production_import_record q ON (q.operation_id,q.phase,q.source_identity_sha256)=(d.operation_id,d.depends_on_phase,d.depends_on_source_identity_sha256) JOIN hr_yuzhou_production_import_record c ON (c.operation_id,c.phase,c.source_identity_sha256)=(d.operation_id,d.phase,d.source_identity_sha256) WHERE q.operation_id=$1 AND q.disposition='quarantine' AND c.disposition IN ('insert','merge') AND c.rollback_status='not_started'`, [plan.operationId])).rows[0].count;
+  if (dependents !== 0) fail('TRANSPORT_AUDIT_QUARANTINE_DEPENDENTS');
+  const isPast = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(value) && value < today;
+  const byKey = new Map(records.map(r => [`${r.phase}:${r.sourceIdentitySha256}`,r]));
+  const decisions = new Map();
+  function classify(r) {
+    const key = `${r.phase}:${r.sourceIdentitySha256}`;
+    if (decisions.has(key)) return decisions.get(key);
+    const p = payloads.get(key); let decision = 'HISTORICAL_UNCERTAINTY_RETAINED';
+    if (r.plannedTargetTable === 'hr_employee') {
+      decision = current.has(p.employee_code) ? 'CURRENT_IMPACT_REVIEW' : p.employment_status === 'departed' && isPast(p.departure_date) ? 'ARCHIVED_HISTORICAL' : 'CURRENT_IMPACT_REVIEW';
+    } else if (r.plannedTargetTable === 'hr_employment_event' && isPast(p.effective_date)) decision = 'ARCHIVED_HISTORICAL';
+    else if (r.plannedTargetTable === 'hr_contract' && isPast(p.end_date)) decision = 'ARCHIVED_HISTORICAL';
+    else if (r.plannedTargetTable === 'hr_contract_change' && isPast(p.new_end_date)) decision = 'ARCHIVED_HISTORICAL';
+    else if (r.plannedTargetTable === 'hr_employee_insurance_period' && Number.isInteger(p.period_year) && p.period_year > 1900 && p.period_year < Number(today.slice(0,4))) decision = 'ARCHIVED_HISTORICAL';
+    else if (r.plannedTargetTable === 'hr_employee_insurance_item') {
+      const dep = r.dependencyRefs.find(d => d.role === 'period');
+      const parent = dep && byKey.get(`${dep.phase}:${dep.sourceIdentitySha256}`);
+      if (parent) decision = classify(parent);
+    }
+    decisions.set(key,decision); return decision;
+  }
+  const groups = new Map();
+  for (const r of records) {
+    const decision = classify(r), key = `${r.phase}:${r.plannedTargetTable}:${decision}`;
+    const group = groups.get(key) ?? { phase:r.phase,targetTable:r.plannedTargetTable,decision,count:0 };
+    group.count++; groups.set(key,group);
+  }
+  return { asOf:today,source:'committed_operation_and_hash_verified_private_payloads',total:records.length,activeDependents:dependents,currentEmployeeOrAccountMatches:current.size,groups:[...groups.values()],productionBusinessWrites:false };
+}
 async function audit(args) {
   const { nonce, packetHash, operationId, sealedPlanHash, followonNonce } = validateAuditArguments(args);
   const root = `/tmp/jinhu-yuzhou-import-${nonce}`;
@@ -85,10 +133,20 @@ async function audit(args) {
     statement_timeout: 10000, options: '-c default_transaction_read_only=on' });
   let database;
   let followon = null;
+  let quarantineImpact = null;
   try {
     const identity = (await client.query('SELECT current_database() AS database,current_user AS username,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS oid,current_setting(\'default_transaction_read_only\') AS readonly')).rows[0];
     if (identity.database !== binding.database || identity.username !== binding.databaseUser || identity.oid !== binding.serverIdentity.databaseOid || identity.readonly !== 'on') fail('TRANSPORT_AUDIT_DATABASE_IDENTITY_DRIFT');
     database = await auditDatabase(client, operationId, sealedPlanHash, { ...allowed, codeSha: packet.EXECUTOR_SHA }, binding.targetScope);
+    if (database.operationStatus === 'succeeded') {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      try {
+        const plan = descriptor(config.artifacts.sealedPlan);
+        if (plan.operationId !== operationId || plan.sealing.sealedPlanSha256 !== sealedPlanHash) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
+        const today = (await client.query("SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') today")).rows[0].today;
+        quarantineImpact = await auditQuarantineImpact(client,plan,phase => descriptor(config.artifacts.payloadBundles[phase]),binding.targetScope,today);
+      } finally { await client.query('ROLLBACK'); }
+    }
     if (database.operationStatus === 'succeeded') {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
@@ -168,7 +226,7 @@ async function audit(args) {
   if (existsSync(failurePath)) { packet.privateInfo(failurePath); failure = summarizePrivateFailure(readFileSync(failurePath, 'utf8')); }
   return { code: 'TRANSPORT_READONLY_AUDIT_COMPLETED', codeSha: packet.EXECUTOR_SHA,
     executionClaimExists: existsSync(resolve(root, 'execution-claimed.json')), executionReceiptExists: existsSync(resolve(root, 'execution-receipt.json')),
-    failure, database, committedExecutionSummary, followon, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
+    failure, database, committedExecutionSummary, followon, quarantineImpact, resources: { hostMemoryBytes: totalmem(), hostFreeMemoryBytes: freemem(), nodeHeapLimitBytes: getHeapStatistics().heap_size_limit }, productionWriteAttempted: false };
 }
 function dispatch() {
   const e = process.env;
