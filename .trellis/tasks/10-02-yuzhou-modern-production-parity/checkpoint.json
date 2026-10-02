@@ -39,7 +39,7 @@
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Reuse running exact-head CI watcher; publish added database proof after CI terminal, then release and real-role business acceptance",
+  "nextAction": "Reuse live CI36968422499 currently Unit tests; push the verification increment after terminal; prepare scoped reconciliation input readiness independent of employee history publication",
   "phases": [
     {
       "id": "S0",
@@ -146,6 +146,31 @@
         "real unique-index 23505 translation",
         "deleted association release"
       ]
+    },
+    "s3s4FocusedBaseline": {
+      "status": "SOURCE_CHAIN_AND_FOCUSED_TESTS_VERIFIED_NOT_BUSINESS_ACCEPTED",
+      "codeBaseline": "153b078f",
+      "testResult": "28/28 PASS",
+      "tests": [
+        "attendance calculation",
+        "attendance requests",
+        "month close",
+        "insurance read projections",
+        "reconciliation contracts",
+        "restricted decimal DSL"
+      ],
+      "confirmedSourceDependencies": [
+        "reconciliation setup lists only published legacy batches",
+        "simulation rejects unpublished legacy batch",
+        "closed effective attendance batch required",
+        "mapped payroll snapshots must match attendance month",
+        "approved formulas and net item mapping required",
+        "frozen compensation and insurance required"
+      ],
+      "actualBusinessPeriodTest": false,
+      "actualAmountReconciliation": false,
+      "productionWrites": false,
+      "nextSlice": "prepare reconciliation input readiness using imported immutable history without automatically publishing employee history; preserve exact source, scope, period and financial rules"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
