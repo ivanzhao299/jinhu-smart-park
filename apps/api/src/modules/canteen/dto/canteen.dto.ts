@@ -122,3 +122,29 @@ export class OrderQueryDto {
   @IsOptional() @IsIn(["qr_pay", "subsidy", "mixed"]) channel?: string;
   @IsOptional() @IsString() contractor_id?: string;
 }
+
+/* ----------------------------- M2 补贴钱包 ----------------------------- */
+
+export class CheckoutSubsidyDto {
+  @IsUUID() outlet_id!: string;
+  @IsString() employee_code!: string;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => CheckoutItemDto)
+  items!: CheckoutItemDto[];
+  // subsidy=纯虚拟结账(足额)；mixed=余额不足时餐补扣满+差额扫码。
+  @IsOptional() @IsIn(["subsidy", "mixed"]) channel?: string = "subsidy";
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) subsidy_apply_amount?: number;
+}
+
+export class LookupEmployeeDto {
+  @IsString() employee_code!: string;
+}
+
+export class RunPeriodDto {
+  // 缺省 = 当前账期 YYYY-MM。
+  @IsOptional() @IsString() period?: string;
+}
+
+export class WalletTxnQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page_size?: number = 20;
+}

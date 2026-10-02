@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import type { EntityManager, Repository } from "typeorm";
 import { CanteenOrderEntity } from "./entities/canteen-order.entity";
 import { CanteenPaymentEntity } from "./entities/canteen-payment.entity";
 import { CanteenStatusLogEntity } from "./entities/canteen-status-log.entity";
+import { CanteenSubsidyService } from "./canteen-subsidy.service";
 
 export interface ApplyPaymentSuccessInput {
   paymentNo: string;
@@ -41,7 +42,8 @@ export class CanteenPaymentAppService {
     private readonly orderRepo: Repository<CanteenOrderEntity>,
     @InjectRepository(CanteenStatusLogEntity)
     private readonly statusLogRepo: Repository<CanteenStatusLogEntity>,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Optional() private readonly subsidy?: CanteenSubsidyService
   ) {}
 
   /* --------------------------- 成功落账 --------------------------- */
@@ -83,11 +85,22 @@ export class CanteenPaymentAppService {
     const beforeOrder = order.status;
     // 状态机：pending → completed（真实收款成功即完成）；重复回调不重复改。
     if (order.status === "pending") {
-      order.status = "completed";
       order.paidTime = now;
-      order.qrPayAmount = order.payAmount;
-      order.subsidyAmount = "0.00";
-      await manager.save(order);
+      if (order.channel === "mixed") {
+        // 混合支付：补贴部分在成功回调里最终扣减（写 consume 流水/meal_record），
+        // 建单时已写好 subsidy_amount/qr_pay_amount 分列，这里不覆盖。
+        if (!this.subsidy) {
+          throw new BadRequestException("subsidy settlement service unavailable for mixed order");
+        }
+        await this.subsidy.settleMixedOnPaymentSuccess(manager, order, now);
+        order.status = "completed";
+        await manager.save(order);
+      } else {
+        order.status = "completed";
+        order.qrPayAmount = order.payAmount;
+        order.subsidyAmount = "0.00";
+        await manager.save(order);
+      }
     }
 
     await this.writeLog(manager, payment, "payment", beforePayment, "paid", "payment_success", input.operatorName);
@@ -126,6 +139,10 @@ export class CanteenPaymentAppService {
       order.voidTime = now;
       order.voidReason = input.reason ?? "payment closed / timeout";
       await manager.save(order);
+      // 混合支付关单：从未扣补贴，仅把预留 meal_record 置 voided（不回滚钱包）。
+      if (order.channel === "mixed" && this.subsidy) {
+        await this.subsidy.reverseMixedOnClose(manager, order);
+      }
     }
 
     await this.writeLog(manager, payment, "payment", beforePayment, "closed", "payment_closed", input.operatorName, input.reason);

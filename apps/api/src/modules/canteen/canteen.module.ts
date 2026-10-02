@@ -36,6 +36,11 @@ import { CanteenWebhookService } from "./canteen-webhook.service";
 import { CanteenNumberService } from "./canteen-number.service";
 import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
 import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
+import { CanteenSubsidyService } from "./canteen-subsidy.service";
+import { CanteenSubsidyGrantService } from "./canteen-subsidy-grant.service";
+import { CanteenSubsidyScheduler } from "./canteen-subsidy.scheduler";
+import { CanteenWalletController } from "./canteen-wallet.controller";
+import { CanteenSubsidyController } from "./canteen-subsidy.controller";
 
 @Module({
   imports: [
@@ -64,7 +69,9 @@ import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
     CanteenArchiveController,
     CanteenPosController,
     CanteenOrderController,
-    CanteenPaymentController
+    CanteenPaymentController,
+    CanteenWalletController,
+    CanteenSubsidyController
   ],
   providers: [
     CanteenService,
@@ -81,8 +88,12 @@ import { CanteenTimeoutScheduler } from "./canteen-timeout.scheduler";
     CanteenWebhookService,
     CanteenNumberService,
     CanteenPaymentRegistry,
-    CanteenTimeoutScheduler
+    CanteenTimeoutScheduler,
+    // M2
+    CanteenSubsidyService,
+    CanteenSubsidyGrantService,
+    CanteenSubsidyScheduler
   ],
-  exports: [CanteenService, CanteenSettingsService]
+  exports: [CanteenService, CanteenSettingsService, CanteenSubsidyGrantService]
 })
 export class CanteenModule {}

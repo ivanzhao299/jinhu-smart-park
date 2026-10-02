@@ -15,15 +15,17 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { CheckoutQrDto, CloseSessionDto, OpenSessionDto } from "./dto/canteen.dto";
+import { CheckoutQrDto, CheckoutSubsidyDto, CloseSessionDto, LookupEmployeeDto, OpenSessionDto } from "./dto/canteen.dto";
 import { CanteenCheckoutService } from "./canteen-checkout.service";
 import { CanteenSessionService } from "./canteen-session.service";
+import { CanteenSubsidyService } from "./canteen-subsidy.service";
 
 @Controller("canteen/pos")
 export class CanteenPosController {
   constructor(
     private readonly sessions: CanteenSessionService,
-    private readonly checkout: CanteenCheckoutService
+    private readonly checkout: CanteenCheckoutService,
+    private readonly subsidy: CanteenSubsidyService
   ) {}
 
   /* ---------------- 收银班次 ---------------- */
@@ -69,5 +71,28 @@ export class CanteenPosController {
     @Headers("x-idempotency-key") idempotencyKey: string
   ) {
     return this.checkout.checkoutQr(scope, actor, dto, idempotencyKey);
+  }
+
+  /* ---------------- 员工餐补 ---------------- */
+
+  @Post("lookup-employee")
+  @RequirePermissions(CANTEEN_PERMISSIONS.WALLET_LOOKUP)
+  lookupEmployee(
+    @CurrentScope() scope: TenantParkScope,
+    @Body() dto: LookupEmployeeDto
+  ) {
+    return this.subsidy.lookupEmployee(scope, dto.employee_code);
+  }
+
+  @Post("checkout/subsidy")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(CANTEEN_PERMISSIONS.ORDER_CREATE)
+  checkoutSubsidy(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Body() dto: CheckoutSubsidyDto,
+    @Headers("x-idempotency-key") idempotencyKey: string
+  ) {
+    return this.subsidy.checkout(scope, actor, dto, idempotencyKey);
   }
 }
