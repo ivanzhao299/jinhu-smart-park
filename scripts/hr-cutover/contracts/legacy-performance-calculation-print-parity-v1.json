@@ -24,15 +24,15 @@
   "evidenceBindings": {
     "gradeFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json",
-      "sha256": "51f1bdfb4821b27b36a90982046bbeb7e36af5ca3d09606e223849e26b3bc2a6"
+      "sha256": "18fdc28e413a4714949165914b362585328da3071be7761e316dc38cc55ff1b9"
     },
     "itemFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
-      "sha256": "eb1520ac4c64615f96b444ce50c90f99786c3b404286885e17d922a8ed34d503"
+      "sha256": "814f4323fecf3d4819b3aafbf1f4d17d738663505fcb66af64fd40411942fd26"
     },
     "guideFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitemgradedes-field-map-v1.json",
-      "sha256": "a568f3d4e9962bb6e4951a1d72541289141ea1c504d39a36874b3ed406e71937"
+      "sha256": "fc24e0439d6ac5df9e4fc5f54b19c4c0805d05033ebfdebb9e639179833fd87d"
     },
     "masterModel": {
       "path": "database/migrations/000302_hr_performance_yuzhou_legacy_master.sql",
@@ -64,7 +64,7 @@
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "e4e1beccfba340e04fb9c30b0cae27cd3aba15a39b888ae70cd06dfb809bb886"
+      "sha256": "80e66f43e9bebbb1174bb713abd02e01b6f33c96b1bada475a015b22a7e43d8d"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
@@ -297,7 +297,7 @@
         "permission": [{"testId":"u-printassessment-exact-template-read-and-required-audit","evidenceSha256":"fa94b48b47b61007bb52af21eedfb7811a75f76818ed4b091ee509edbce94763"}],
         "conservation": [{"testId":"u-printassessment-item-and-guide-matrix-conservation","evidenceSha256":"019646fc2193ff371846f2ff7be71298c8aa5e28645972bb528e9cf4bb0d91bc"}]
       },
-      "review": {"status":"approved","evidenceSha256":"a568f3d4e9962bb6e4951a1d72541289141ea1c504d39a36874b3ed406e71937"}
+      "review": {"status":"approved","evidenceSha256":"fc24e0439d6ac5df9e4fc5f54b19c4c0805d05033ebfdebb9e639179833fd87d"}
     }
   ],
   "nonClaims": {

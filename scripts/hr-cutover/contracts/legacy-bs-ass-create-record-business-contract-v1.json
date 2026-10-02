@@ -27,11 +27,11 @@
     },
     "assitemFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assitem-field-map-v1.json",
-      "sha256": "eb1520ac4c64615f96b444ce50c90f99786c3b404286885e17d922a8ed34d503"
+      "sha256": "814f4323fecf3d4819b3aafbf1f4d17d738663505fcb66af64fd40411942fd26"
     },
     "assessmentdetailFieldMap": {
       "path": "scripts/hr-cutover/contracts/legacy-performance-assessmentdetail-field-map-v1.json",
-      "sha256": "6365d2808e20b228033f65e394d06153a103172c2f83bb8628d0cb024895db85"
+      "sha256": "8a9d42af3b901e539fafbde01eee391d17e7d4580d80f46477afff3e2d5df1c5"
     },
     "modernSchema": {
       "path": "database/migrations/000258_hr_performance_template_planning.sql",
@@ -55,11 +55,11 @@
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",
-      "sha256": "d721e7e5d28d279c92a520958b9a9ca5222d3ef2e546d4318f1e1cab25ce8a86"
+      "sha256": "fa57bb0688ac4d24dc987ef45f6ae19473a869db251e5048d79871314cdf2d23"
     },
     "permissionContract": {
       "path": "packages/shared/src/hr.ts",
-      "sha256": "39a514cf3479358bd865904d20f97d5855def303cdb20f1c8d830ec0eb65ff1a"
+      "sha256": "a0942c8e6d7b4c948f91d110d8a8a1e8c6946c45f6ee5c5e2ad2da4b9072e09a"
     }
   },
   "parameters": [

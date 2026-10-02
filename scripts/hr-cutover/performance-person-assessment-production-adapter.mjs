@@ -80,7 +80,7 @@ function validateContract(path = DEFAULT_CONTRACT) {
     fail("PERFORMANCE_PERSON_ASSESSMENT_PRODUCTION_CONTRACT_INVALID", "contract boundary");
   }
   if (contract.sourceContract?.path !== "scripts/hr-cutover/contracts/legacy-performance-person-assessment-source-adapter-v1.json"
-    || contract.sourceContract.sha256 !== "29e13b7fe4acdb99098e974ff93d76aa03a2cb168890383c00bc3a01b4121c49"
+    || contract.sourceContract.sha256 !== "9e0329f8ff264073f0bc699c3d8290bcf29d6791defed857564d369293179880"
     || contract.weightRelationMigration?.path !== "database/migrations/000307_hr_performance_yuzhou_ass_compute_weight_relation.sql"
     || contract.weightRelationMigration.sha256 !== "0467f31888a5fb52c7c63ab1e754a68ab76822b2e177318bf249f71eb1f8887a") {
     fail("PERFORMANCE_PERSON_ASSESSMENT_PRODUCTION_CONTRACT_INVALID", "evidence allowlist");

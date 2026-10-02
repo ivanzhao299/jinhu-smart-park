@@ -287,7 +287,7 @@
     {
       "role": "modern_template_level_writer",
       "path": "apps/api/src/modules/hr/hr-performance-review.service.ts",
-      "sha256": "d76e7888afbf93bbd73f43accee26e238772e67dc955c85c67bd2f9249d26f35",
+      "sha256": "6abe4c17f12615b8c5e0780a53c7722f55c2ee2b704077403ba375547aa93f23",
       "requiredTokens": [
         "INSERT INTO hr_performance_template_level(",
         "Performance levels must uniquely and continuously cover 0.00 through 100.00",
