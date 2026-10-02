@@ -1,0 +1,50 @@
+name: Yuzhou API Unit Diagnostic
+
+on:
+  push:
+    branches:
+      - codex/yuzhou-release-unit-diagnostic-20261003
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yuzhou-api-unit-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  api-unit-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Enable pnpm
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pinned dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build shared contracts
+        run: pnpm --filter @jinhu/shared build
+      - name: Diagnose all API unit tests without production access
+        working-directory: apps/api
+        timeout-minutes: 15
+        shell: bash
+        env:
+          PARTY_DATA_ENCRYPTION_KEY: test-only-party-key-12345678901234567890
+        run: |
+          set -euo pipefail
+          node -e 'const os=require("node:os");console.log(JSON.stringify({node:process.version,platform:process.platform,availableParallelism:os.availableParallelism(),sourceCommit:process.env.GITHUB_SHA}))'
+          find src -type f -name '*.spec.ts' -exec node --test --test-force-exit --test-timeout=120000 --test-concurrency=2 --test-reporter=tap --require ts-node/register {} + 2>&1 | tee "$RUNNER_TEMP/api-unit-diagnostic.log"
+      - name: Retain diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuzhou-api-unit-diagnostic
+          path: ${{ runner.temp }}/api-unit-diagnostic.log
+          if-no-files-found: warn
+          retention-days: 3
