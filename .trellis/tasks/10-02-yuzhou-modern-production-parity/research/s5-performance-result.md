@@ -34,3 +34,7 @@ sh scripts/e2e/verify-hr-performance-evaluation.sh
 补现代绩效服务层真实数据库测试，覆盖配置发布、员工/主管身份动作、校准、确认、申诉、审计失败回滚和并发防重，并核对具体错误原因。复用已有实体/服务和临时实验库，不重新开发已实现业务。
 
 旧端跨引擎对照及批量语义选择、生产三角色桌面/390px、真实绩效规则和岗位签署仍未完成。任何工资联动或源备份增量必须按其具体业务范围处理，不能由本门禁成功触发。
+
+## 后续进展：数值原语（20:24）
+
+SQL Server与PostgreSQL的18组合成数值边界实际对照一致，六组独立预期值核对通过，详见research/s5-rounding-primitives-result.json。本轮没有运行旧bs_ass_compute或读取实际考核事实；全表达式、真实明细/模板与默认、多行副作用仍待证明，旧等价信用不变。现代绩效服务层3项真实数据库验证及PR776生产发布已在后续完成，见research/s5-performance-service-result.json；原文SQL门禁仍保留自身范围限制。

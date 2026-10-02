@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "observedAt": "2026-10-02T12:24:46.282540+00:00",
+  "caseCount": 18,
+  "matchingCases": 18,
+  "mismatchingCases": [],
+  "sqlServerVersion": "16.0.4265.3",
+  "postgresVersionAndReadOnly": "16.15|on",
+  "syntheticInputsOnly": true,
+  "businessRowsRead": false,
+  "sourceProcedureExecuted": false,
+  "productionWrites": false,
+  "routineParityClaimed": false,
+  "legacyCreditChanged": false,
+  "scope": "numeric(18,0) intermediate casts, signed half rounding to2dp, 50/30/20 weighted synthetic components, component null defaults; not full bs_ass_compute/default/multirow semantics",
+  "queryHashes": {
+    "sqlserver.sql": "7eae09714547b7983a3aa55b72970107e68dd8d24f36c25838a822a9ddbd4f1b",
+    "postgres.sql": "4951404fcf67c6446219ff0434877d5ae89bde48c495e41b6ac8e4316a97afa8"
+  },
+  "independentExpectedBoundaryCases": {
+    "positive_components": "1.00",
+    "negative_components": "-1.00",
+    "positive_final_half": "0.01",
+    "negative_final_half": "-0.01",
+    "mixed_sign": "0.91",
+    "null_components": "0.90"
+  },
+  "expectedBoundaryAssertions": "PASS_BOTH_ENGINES",
+  "baselineSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+  "contractSha256": "746c751c07aa174348602dbb57c05dccd6407fe8d0dd01e6ff1b02aaf3900628"
+}

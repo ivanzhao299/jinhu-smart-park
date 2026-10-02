@@ -27,13 +27,14 @@
     "H5"
   ],
   "activeRunHandle": {
+    "ciRunId": 37006377739,
+    "ciWatchSession": 77401,
     "pullRequest": 777,
-    "candidateSha": "75ca2e98f3d7c689072b5938012c1c2c88bf99db",
-    "ciStatus": "in_progress"
+    "candidateSha": "75ca2e98f3d7c689072b5938012c1c2c88bf99db"
   },
   "productionWritesThisTurn": false,
   "blockingPlanningQuestions": [],
-  "nextAction": "Inspect PR777 CI without deployment; continue actual legacy rule comparison using existing controlled SQL Server arithmetic oracle and scoped synthetic inputs. Await actual role/payroll business inputs; never assume diagnostic month approved.",
+  "nextAction": "Resume existing PR777 CI watch77401; full legacy compute requires exact expression/source-template/default/multirow semantics, not merely primitive rounding. Actual role/payroll business inputs pending. No import replay.",
   "phases": [
     {
       "id": "S0",
@@ -69,11 +70,11 @@
     }
   ],
   "usage": {
-    "goalCumulativeTokensObserved": 2608133,
+    "goalCumulativeTokensObserved": 2762572,
     "observationScope": "active goal continuation cumulative; not attributable to this documentation slice",
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-02T12:21:20.079319+00:00",
+  "updatedAt": "2026-10-02T12:24:46.282540+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
@@ -479,6 +480,37 @@
       "productionWrites": false,
       "legacyCreditsChanged": false,
       "businessRoleAccepted": false
+    },
+    "s5RoundingPrimitives": {
+      "status": "PASS",
+      "observedAt": "2026-10-02T12:24:46.282540+00:00",
+      "caseCount": 18,
+      "matchingCases": 18,
+      "mismatchingCases": [],
+      "sqlServerVersion": "16.0.4265.3",
+      "postgresVersionAndReadOnly": "16.15|on",
+      "syntheticInputsOnly": true,
+      "businessRowsRead": false,
+      "sourceProcedureExecuted": false,
+      "productionWrites": false,
+      "routineParityClaimed": false,
+      "legacyCreditChanged": false,
+      "scope": "numeric(18,0) intermediate casts, signed half rounding to2dp, 50/30/20 weighted synthetic components, component null defaults; not full bs_ass_compute/default/multirow semantics",
+      "queryHashes": {
+        "sqlserver.sql": "7eae09714547b7983a3aa55b72970107e68dd8d24f36c25838a822a9ddbd4f1b",
+        "postgres.sql": "4951404fcf67c6446219ff0434877d5ae89bde48c495e41b6ac8e4316a97afa8"
+      },
+      "independentExpectedBoundaryCases": {
+        "positive_components": "1.00",
+        "negative_components": "-1.00",
+        "positive_final_half": "0.01",
+        "negative_final_half": "-0.01",
+        "mixed_sign": "0.91",
+        "null_components": "0.90"
+      },
+      "expectedBoundaryAssertions": "PASS_BOTH_ENGINES",
+      "baselineSha": "8e458fa4e104beb47b68e65d5a8897988470b9ce",
+      "contractSha256": "746c751c07aa174348602dbb57c05dccd6407fe8d0dd01e6ff1b02aaf3900628"
     }
   },
   "s1ActualReadonlyRunId": 36964343680,
@@ -509,7 +541,7 @@
     "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability.",
     "Performance cycle create/publish JSONB array defect reproduced on deployed code baseline280d0926; fixed and deployed in PR776; runtime8e458fa4 verified; real-role business acceptance pending. No production mutation used for reproduction."
   ],
-  "currentSlice": "FEEDBACK360_3_PG_AND_GOAL_REPORT_5_PG_PASS_TEST_ASSERTION_PR777_DRAFT",
+  "currentSlice": "SIGNED_ROUNDING_PRIMITIVES_18_CROSS_ENGINE_PASS_FULL_LEGACY_COMPUTE_PENDING",
   "currentSliceEvidence": "research/s5-performance-service-result.json",
   "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
   "combinedOperationsCandidate": {
