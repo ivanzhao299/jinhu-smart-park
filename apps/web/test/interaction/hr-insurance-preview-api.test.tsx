@@ -26,3 +26,8 @@ it("policy metadata query encodes search and page with no write key", async () =
   expect(options).toEqual({ token: "synthetic-token", signal });
   expect(createIdempotencyKey).not.toHaveBeenCalled();
 });
+it("durable policy save transports the caller's stable business request and HTTP retry key",async()=>{
+  const body={requestId:"synthetic-request",policyCode:"TEST",policyName:"合成政策",variantNo:1,effectiveFrom:"2026-01",effectiveThrough:"2026-12",reason:"合成依据",sourcePolicyId:"synthetic-source",expectedSourceVersion:7};
+  const signal=new AbortController().signal;await hrApi.createInsurancePolicyVersion(body,"synthetic-token","stable-retry-key",signal);
+  expect(apiRequest).toHaveBeenCalledWith("/hr/insurance/policy-versions",{method:"POST",body,token:"synthetic-token",signal,idempotencyKey:"stable-retry-key"});expect(createIdempotencyKey).not.toHaveBeenCalled();
+});

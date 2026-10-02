@@ -35,3 +35,7 @@ it("amount-hidden role cannot see the aggregate even when the response contains 
   expect(screen.queryByRole("link", { name: "社保参考试算" })).toBeNull();
   expect(screen.queryByText(/900719925474/)).toBeNull();
 });
+it("policy reader can reach maintenance without employee catalog permission",()=>{
+  state.user={id:"synthetic-policy-reader",permissions:["hr:insurance:read","hr:insurance_amount:read"]};render(<HrInsuranceClient/>);
+  expect(screen.getByRole("link",{name:"社保政策版本"})).toHaveAttribute("href","/hr/insurance/policies");expect(screen.queryByRole("link",{name:"社保参考试算"})).toBeNull();
+});
