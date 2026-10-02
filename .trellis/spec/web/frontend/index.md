@@ -495,6 +495,8 @@ bypass tenant ownership.
 
 ## Verification
 
+HR insurance exact decimal aggregates and phone layout: [Insurance amounts](./hr-insurance-amounts.md).
+
 For frontend changes, choose the smallest reliable checks:
 
 - `pnpm --filter @jinhu/web lint`
