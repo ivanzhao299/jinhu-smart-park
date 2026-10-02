@@ -31,8 +31,16 @@ const TXN_TYPE_LABEL: Record<string, { label: string; variant: "success" | "info
 
 export default function AccountMealSubsidyPage() {
   const token = getAccessToken();
+
+  /* 钱包概览（卡片 + 到期日）与用餐码独立加载，互不拖垮 */
   const [wallet, setWallet] = useState<CanteenWalletMe | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
   const [walletError, setWalletError] = useState("");
+
+  const [codeError, setCodeError] = useState("");
+  const [codeReady, setCodeReady] = useState(false);
+
+  /* 明细 */
   const [txns, setTxns] = useState<CanteenPage<CanteenWalletTxn>>(emptyTxns);
   const [loadingTxns, setLoadingTxns] = useState(false);
   const [txnError, setTxnError] = useState("");
@@ -41,16 +49,29 @@ export default function AccountMealSubsidyPage() {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const loadWallet = useCallback(async () => {
+    setWalletLoading(true);
     setWalletError("");
     try {
       const w = await canteenApi.getMyWallet(token);
       setWallet(w);
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "加载餐补额度失败");
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [token]);
+
+  const loadCode = useCallback(async () => {
+    setCodeError("");
+    setCodeReady(false);
+    try {
       const code = await canteenApi.getMyWalletCode(token);
       if (qrCanvasRef.current) {
-        await QRCode.toCanvas(qrCanvasRef.current, code.payload, { width: 220, margin: 1 });
+        await QRCode.toCanvas(qrCanvasRef.current, code.payload || code.code, { width: 220, margin: 1 });
       }
+      setCodeReady(true);
     } catch (error) {
-      setWalletError(error instanceof Error ? error.message : "加载餐补信息失败");
+      setCodeError(error instanceof Error ? error.message : "加载用餐码失败");
     }
   }, [token]);
 
@@ -60,7 +81,7 @@ export default function AccountMealSubsidyPage() {
       setTxnError("");
       try {
         const data = await canteenApi.listMyWalletTxns(page, 20, token);
-        setTxns(data);
+        setTxns(data ?? emptyTxns);
       } catch (error) {
         setTxnError(error instanceof Error ? error.message : "加载明细失败");
         setTxns(emptyTxns);
@@ -73,8 +94,9 @@ export default function AccountMealSubsidyPage() {
 
   useEffect(() => {
     void loadWallet();
+    void loadCode();
     void loadTxns(1);
-  }, [loadWallet, loadTxns]);
+  }, [loadWallet, loadCode, loadTxns]);
 
   const filteredTxns = useCallback(() => {
     if (!typeFilter) return txns.list;
@@ -94,6 +116,7 @@ export default function AccountMealSubsidyPage() {
             type="button"
             onClick={() => {
               void loadWallet();
+              void loadCode();
               void loadTxns(txns.page);
             }}
           >
@@ -103,10 +126,6 @@ export default function AccountMealSubsidyPage() {
         }
       />
 
-      {walletError ? (
-        <FeedbackNotice variant="danger" icon={<AlertTriangle size={16} />}>{walletError}</FeedbackNotice>
-      ) : null}
-
       <section className="dashboard-grid canteen-summary-grid">
         <MetricCard icon={<Wallet size={18} />} label="本期额度(元)" value={wallet ? `¥${wallet.period_grant}` : "—"} />
         <MetricCard icon={<Wallet size={18} />} label="已用(元)" value={wallet ? `¥${wallet.period_consumed}` : "—"} />
@@ -114,16 +133,18 @@ export default function AccountMealSubsidyPage() {
         <MetricCard icon={<Wallet size={18} />} label="本期剩余(元)" value={wallet ? `¥${wallet.period_balance}` : "—"} />
       </section>
 
+      {walletError ? (
+        <ErrorState title="餐补额度加载失败" description={walletError} action={<button className="secondary-button" type="button" onClick={() => void loadWallet()}>重试</button>} />
+      ) : null}
+
       <div className={styles.walletGrid}>
         <ContentCard title="出示用餐码" description={wallet ? `账期 ${wallet.period} · 到期 ${wallet.expire_date ?? "—"}` : "本人用餐二维码"}>
-          {walletError ? (
-            <ErrorState title="用餐码加载失败" description={walletError} action={<button className="secondary-button" type="button" onClick={() => void loadWallet()}>重试</button>} />
-          ) : !wallet ? (
-            <LoadingState title="正在加载用餐码" />
+          {codeError ? (
+            <ErrorState title="用餐码加载失败" description={codeError} action={<button className="secondary-button" type="button" onClick={() => void loadCode()}>重试</button>} />
           ) : (
             <div className={styles.codeBox}>
               <canvas ref={qrCanvasRef} width={220} height={220} />
-              <p className="muted-text">向档口收银员出示此码核销餐补</p>
+              {!codeReady ? <p className="muted-text">正在生成用餐码…</p> : <p className="muted-text">向档口收银员出示此码核销餐补</p>}
             </div>
           )}
         </ContentCard>
@@ -186,6 +207,8 @@ export default function AccountMealSubsidyPage() {
         )}
         <PaginationBar page={txns.page} totalPages={totalPages} total={txns.total} onPage={(p) => void loadTxns(p)} />
       </ContentCard>
+
+      {walletLoading && !wallet ? <FeedbackNotice variant="info" icon={<AlertTriangle size={16} />}>正在加载餐补信息…</FeedbackNotice> : null}
     </PageShell>
   );
 }
