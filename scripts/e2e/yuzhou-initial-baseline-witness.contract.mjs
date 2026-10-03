@@ -18,7 +18,7 @@ function fixture() {
   const payload=Object.fromEntries(model.targetTables.hr_employee.fieldWhitelist.map(k=>[k,null]));
   Object.assign(payload,{employee_code:"FIX-1",full_name:"Synthetic",employment_type:"full_time",employment_status:"active",hire_date:"2020-01-01"});
   const payloadRow={sourceIdentitySha256:identity,sourceRowSha256:hash("source-row"),targetTable:"hr_employee",payloadSha256:computeProductionImportPayloadHash(payload),payload};
-  const bundle={artifactKind:"yuzhou_hr_production_import_payload_bundle",canonicalizationVersion:model.canonicalizationVersion,formatVersion:1,phase:"T0",records:[payloadRow],sourceBatchManifestSha256:hash("manifest"),targetScope:scope};
+  const bundle={artifactKind:"yuzhou_hr_production_import_payload_bundle",canonicalizationVersion:model.canonicalizationVersion,formatVersion:2,phase:"T0",records:[payloadRow],sourceBatchManifestSha256:hash("manifest"),targetScope:scope};
   const payloadBytes=Buffer.from(`${JSON.stringify(bundle)}\n`);
   const record={...payloadRow,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",sourcePkCanonical:`sha256:${identity}`,targetId,disposition:"insert",expectedTargetAfterSha256:computeProductionImportTargetCanonicalHash("hr_employee",scope,payload,{primary_org_id:orgId}),dependencyRefs:[{role:"primary_org",phase:"T0",sourceIdentitySha256:orgIdentity,expectedTargetTable:"sys_org"}]};delete record.payload;
   const plan={operationId:"yzprod-import-20261004T120000Z-123456abcdef",targetScope:scope,phases:[{phase:"T0",canonicalizationVersion:model.canonicalizationVersion,payloadBundleArtifactSha256:hash(payloadBytes),payloadBundleSha256:computeProductionImportPayloadBundleHash(bundle),sourceBatchManifestSha256:bundle.sourceBatchManifestSha256,records:[{sourceIdentitySha256:orgIdentity,targetTable:"sys_org",targetId:orgId,disposition:"insert"},record]}]};
@@ -39,6 +39,13 @@ test("real retained bundle shape produces complete original projection and binds
   const noDep=fixture();noDep.plan.phases[0].records[1].dependencyRefs=[];assert.throws(()=>prepareInitialWitnessPackage(noDep),/PREPARATION_INVALID/);
   const forged=fixture();forged.plan.phases[0].records[1].expectedTargetAfterSha256=hash("forged");assert.throws(()=>prepareInitialWitnessPackage(forged),/PREPARATION_INVALID/);
   const tamper=fixture();tamper.payloadBytes=Buffer.from(tamper.payloadBytes.toString().replace("Synthetic","Forged"));assert.throws(()=>prepareInitialWitnessPackage(tamper),/PREPARATION_INVALID/);
+  for (const formatVersion of [1,3]) {
+    const wrongVersion=fixture(),bundle=JSON.parse(wrongVersion.payloadBytes);bundle.formatVersion=formatVersion;
+    wrongVersion.payloadBytes=Buffer.from(`${JSON.stringify(bundle)}\n`);
+    wrongVersion.plan.phases[0].payloadBundleArtifactSha256=hash(wrongVersion.payloadBytes);
+    wrongVersion.plan.phases[0].payloadBundleSha256=computeProductionImportPayloadBundleHash(bundle);
+    assert.throws(()=>prepareInitialWitnessPackage(wrongVersion),/PREPARATION_INVALID/);
+  }
 });
 test("private offline CLI writes exclusive 0600 package and emits only aggregate status",()=>{
   const dir=realpathSync(mkdtempSync(resolve(tmpdir(),"yuzhou-baseline-contract-")));chmodSync(dir,0o700);

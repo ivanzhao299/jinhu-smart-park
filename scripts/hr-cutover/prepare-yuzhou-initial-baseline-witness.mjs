@@ -22,7 +22,7 @@ export function prepareInitialWitnessPackage({ plan, payloadBytes, incrementalPa
   const phases = plan.phases.filter(phase => phase.phase === bundle.phase);
   if (phases.length !== 1 || !["T0","T2"].includes(bundle.phase)) fail();
   const phase = phases[0];
-  if (bundle.artifactKind !== "yuzhou_hr_production_import_payload_bundle" || bundle.formatVersion !== 1
+  if (bundle.artifactKind !== "yuzhou_hr_production_import_payload_bundle" || bundle.formatVersion !== 2
     || bundle.canonicalizationVersion !== model.canonicalizationVersion || phase.canonicalizationVersion !== model.canonicalizationVersion
     || phase.payloadBundleArtifactSha256 !== hash(payloadBytes) || phase.payloadBundleSha256 !== computeProductionImportPayloadBundleHash(bundle)
     || phase.sourceBatchManifestSha256 !== bundle.sourceBatchManifestSha256
