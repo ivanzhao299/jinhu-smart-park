@@ -27,3 +27,11 @@ node --test scripts/hr-cutover/tests/legacy-personnel-alias-observation.test.mjs
 ```
 
 这些 fake-runner 与 SQL 结构检查验证参数、限时、固定 schema、脱敏和失败关闭行为；它们没有执行真实 PostgreSQL，也不能作为生产数据观察或回填证据。父任务需单独执行真实只读查询并核对保留清单摘要。观察器结果不会替代回填计划、独立授权或之后的写入与对账验收。
+
+### 通过部署工作流观察
+
+需要实时核对时，在 GitHub Actions 的 `Deploy Production` 手动运行已有 `diagnose-production-runtime-revision` 模式，并显式勾选 `diagnose_personnel_alias`。分别填写当前期望的 API 与 Web **已合并运行镜像** commit 到 `expected_api_commit` 和 `expected_web_commit`；workflow 的 `GITHUB_SHA` 是观察器代码版本，三者各自独立。若服务近期没有重建，期望值应填实际正在运行的已合并服务 SHA，不要把观察器分支 SHA 冒充服务镜像 SHA。观察器通过 SSH stdin 运行在生产部署目录，不传输候选仓库，也不部署候选分支。
+
+别名 JSON 只在观察器与配对的运行镜像观察都成功后作为 `personnel-alias-observation` artifact 留存 7 天。`NOT_READY` 是有效的只读结果，计数仍保存在 artifact 中；失败时不上传。关闭该布尔输入时不会运行人员别名查询或生成对应 artifact。此模式不会触发迁移、seed、应用 build/restart、release marker 或部署清理。部署路径边界验证先于 SSH observer 步骤。
+
+部署路由回归：`node scripts/e2e/yuzhou-personnel-alias-route.contract.mjs`。该合约也作为生产部署 governance validation 自动执行；同一验证阶段运行 observer fake-runner 合约。它们验证的是工作流路径与固定输出契约，不代表本次已发生实际 production workflow 运行。
