@@ -24,6 +24,8 @@
 
 已接受的先前生产只读观察 `37110884376` 统计到 2,949 条来源且 receipt 全匹配，其中 2,938 条已映射并有 T0 证据，只有 2,859 条精确档案匹配；79 条映射人员的档案关联仍未解释，因此总体保持 `NOT_READY`。来源摘要与保留清单匹配，重复 profile 与缺失 archive 均为 0。该观察报告 2,454 个 native-place 与 68 个 degree 的空目标/有效来源计数组合；它们不是授权写入量或批准的修复记录。新的 `profileGaps` 只用于聚合解释这 79 条差额，并且其 `matched` 必须等于原 `profileMatchedCount`、所有类别合计必须等于 `t0MappedRecords`；它不会放宽原 readiness 条件。
 
+后续只读观察 `37111255718` 将 79 条差额全部归类为 `receiptNotInserted`，其余 profile-gap 原因均为 0；该次观察尚未拆分 quarantine reason 或当前业务关联。新增的 `profileNonInsertSummary` 会对这组行按固定 quarantine 原因桶、离职/非离职/未知状态桶聚合，并报告有 `user_id` 的数量与当前合同候选数量；原始 reason code、人员或账号标识都不输出。当前合同候选仅按同范围未删除、`status='active'` 且结束日为空或不早于上海当前日期计数，故意包含未来开始或开始日期未知的合同；它不是实际在职/合同验收结论。该摘要不检查开放工资或保险期间，也不构成“无当前影响”的证明。身份歧义、物化隔离、未映射员工或 `other` 的数量只帮助决定后续受控复核；不允许按聚合类别猜测来源映射或解锁写入。
+
 `sourceSetSha256` 对观察到的来源行（包括缺少 receipt 的行）按 identity 的 C 顺序生成 UTF-8 文本行 `identity:rowhash`，以 LF 连接且无末尾 LF 后计算 SHA-256；身份和值行都不会返回。该摘要只能与保留在受控本地的来源清单摘要对照，不能单独证明来源保管权、授权或可写入性。固定 schema、额外键、类型错误或数量不守恒会失败关闭；来源重复、缺少 receipt、owner 状态异常、重复 profile、archive/registry 歧义及缺失 archive 以聚合计数报告并使分类保持 `NOT_READY`。当全量 receipt 完整，而未映射历史记录仍存在时，所有已映射记录都通过唯一 T0 owner、profile 与 archive 绑定可标为 `OBSERVED_MATCHED_SUBSET_FOR_REVIEW`；未映射记录继续计数且不进入任何填充值建议。全量唯一映射才可标为 `OBSERVED_READY_FOR_REVIEW`。空范围分类为 `NOT_READY`。所有输出始终标记 `productionImport: HOLD`、`authorizationGranted: false`、`writerPresent: false`；没有写库路径。
 
 只运行不连接数据库的合约测试：

@@ -124,22 +124,27 @@ WITH ops AS (
  SELECT s.id source_id,count(pr.target_table) receipt_count,
    count(pr.target_table) FILTER (WHERE pr.source_row_sha256=s.source_row_sha256) matching_source_row_count,
    count(pr.target_table) FILTER (WHERE pr.source_row_sha256=s.source_row_sha256 AND pr.disposition='insert') matching_insert_count,
-   min(pr.target_id::text)::uuid AS target_id
+   min(pr.target_id::text)::uuid AS target_id,
+   min(pr.reason_code) FILTER (WHERE pr.source_row_sha256=s.source_row_sha256) AS reason_code
  FROM mapped_owner s LEFT JOIN hr_yuzhou_t5_followon_projection_receipt pr
    ON pr.operation_id=s.operation_id AND pr.target_table='hr_employee_profile'
    AND pr.source_identity_sha256=s.source_identity_sha256
  GROUP BY s.id,s.source_row_sha256
 ), profile_gap_basis AS (
  SELECT s.id source_id,s.source_row_sha256,s.source_identity_sha256,s.employee_id,s.tenant_id,s.park_id,
-   q.receipt_count,q.matching_source_row_count,q.matching_insert_count,p.id profile_id,p.tenant_id profile_tenant_id,
+   q.receipt_count,q.matching_source_row_count,q.matching_insert_count,q.reason_code,p.id profile_id,p.tenant_id profile_tenant_id,
    p.park_id profile_park_id,p.employee_id profile_employee_id,p.is_deleted,
    p.legacy_source_identity_sha256 profile_source_identity_sha256,p.legacy_source_row_sha256 profile_source_row_sha256,
-   COALESCE(ap.active_count,0) active_count
+   COALESCE(ap.active_count,0) active_count,
+   CASE WHEN e.id IS NULL OR e.employment_status IS NULL OR e.employment_status='' THEN 'unknown'
+     WHEN e.employment_status='departed' THEN 'departed' ELSE 'nonDeparted' END employment_status_bucket,
+   (e.user_id IS NOT NULL) linked_account
  FROM mapped_owner s JOIN profile_receipt_summary q ON q.source_id=s.id
  LEFT JOIN hr_employee_profile p ON p.id=q.target_id AND q.receipt_count=1 AND q.matching_source_row_count=1 AND q.matching_insert_count=1
  LEFT JOIN active_profile_counts ap ON ap.employee_id=s.employee_id
+ LEFT JOIN hr_employee e ON e.id=s.employee_id AND e.tenant_id=s.tenant_id AND e.park_id=s.park_id AND NOT e.is_deleted
 ), profile_gap_classified AS (
- SELECT source_id,CASE
+ SELECT source_id,employee_id,tenant_id,park_id,reason_code,employment_status_bucket,COALESCE(linked_account,false) linked_account,CASE
    WHEN receipt_count=0 THEN 'receiptMissing'
    WHEN receipt_count>1 THEN 'ambiguousActiveProfiles'
    WHEN matching_source_row_count=0 THEN 'receiptSourceMismatch'
@@ -193,6 +198,24 @@ SELECT json_build_object(
    'targetScopeOrOwnerMismatch',(SELECT count(*) FROM profile_gap_classified WHERE category='targetScopeOrOwnerMismatch'),
    'targetSourceMismatch',(SELECT count(*) FROM profile_gap_classified WHERE category='targetSourceMismatch'),
    'ambiguousActiveProfiles',(SELECT count(*) FROM profile_gap_classified WHERE category='ambiguousActiveProfiles')),
+ 'profileNonInsertSummary',json_build_object(
+   'reasons',json_build_object(
+     'identityAmbiguous',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND reason_code='EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS'),
+     'sourceMaterializationQuarantined',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND reason_code='SOURCE_MATERIALIZATION_QUARANTINED'),
+     'employeeNotMapped',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND reason_code='EMPLOYEE_NOT_MAPPED'),
+     'other',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted'
+       AND reason_code IS DISTINCT FROM 'EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS'
+       AND reason_code IS DISTINCT FROM 'SOURCE_MATERIALIZATION_QUARANTINED'
+       AND reason_code IS DISTINCT FROM 'EMPLOYEE_NOT_MAPPED')),
+   'employmentStatus',json_build_object(
+     'departed',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND employment_status_bucket='departed'),
+     'nonDeparted',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND employment_status_bucket='nonDeparted'),
+     'unknown',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND employment_status_bucket='unknown')),
+   'linkedAccountCount',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted' AND linked_account),
+   'currentContractCandidateCount',(SELECT count(*) FROM profile_gap_classified g WHERE g.category='receiptNotInserted'
+     AND EXISTS (SELECT 1 FROM hr_contract c WHERE c.tenant_id=g.tenant_id AND c.park_id=g.park_id
+       AND c.employee_id=g.employee_id AND NOT c.is_deleted AND c.status='active'
+       AND (c.end_date IS NULL OR c.end_date>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai')::date)))),
  'ambiguousArchiveRegistryCount',(SELECT count(DISTINCT source_id) FROM archive_values WHERE registry_count<>1 OR archive_count>1),
  'missingArchiveCount',(SELECT count(*) FROM mapped_owner m LEFT JOIN archive_values a ON a.source_id=m.id
    WHERE a.archive_count IS NULL OR a.archive_count<>1),
@@ -229,6 +252,8 @@ const countKeys = ['operationCount','sourceRecords','receiptMatchedSourceRecords
 const fieldKeys = ['targetNullSourceValid','existingEqualPreserved','existingDifferentPreserved','whitespaceOnlySource','missingOrInvalidSource'];
 const profileGapKeys = ['matched','receiptMissing','receiptSourceMismatch','receiptNotInserted','targetMissing','targetDeleted',
   'targetScopeOrOwnerMismatch','targetSourceMismatch','ambiguousActiveProfiles'];
+const profileNonInsertReasonKeys = ['identityAmbiguous','sourceMaterializationQuarantined','employeeNotMapped','other'];
+const profileNonInsertStatusKeys = ['departed','nonDeparted','unknown'];
 const DB_SQLSTATE_ERRORS = new Map([
   ['57014','PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
   ['42P01','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
@@ -252,12 +277,25 @@ function safeProbeErrorCode(error) {
 
 function validateResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
-  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps'].sort();
+  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps','profileNonInsertSummary'].sort();
   if (Object.keys(value).sort().join('|') !== expected.join('|') || !countKeys.every(key => Number.isSafeInteger(value[key]) && value[key] >= 0)
     || typeof value.sourceSetSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(value.sourceSetSha256)
     || !value.profileGaps || typeof value.profileGaps !== 'object' || Array.isArray(value.profileGaps)
     || Object.keys(value.profileGaps).sort().join('|') !== [...profileGapKeys].sort().join('|')
     || !profileGapKeys.every(key => Number.isSafeInteger(value.profileGaps[key]) && value.profileGaps[key] >= 0)
+    || !value.profileNonInsertSummary || typeof value.profileNonInsertSummary !== 'object' || Array.isArray(value.profileNonInsertSummary)
+    || Object.keys(value.profileNonInsertSummary).sort().join('|') !== 'currentContractCandidateCount|employmentStatus|linkedAccountCount|reasons'
+    || !value.profileNonInsertSummary.reasons || typeof value.profileNonInsertSummary.reasons !== 'object' || Array.isArray(value.profileNonInsertSummary.reasons)
+    || Object.keys(value.profileNonInsertSummary.reasons).sort().join('|') !== [...profileNonInsertReasonKeys].sort().join('|')
+    || !profileNonInsertReasonKeys.every(key => Number.isSafeInteger(value.profileNonInsertSummary.reasons[key]) && value.profileNonInsertSummary.reasons[key] >= 0)
+    || !value.profileNonInsertSummary.employmentStatus || typeof value.profileNonInsertSummary.employmentStatus !== 'object'
+    || Array.isArray(value.profileNonInsertSummary.employmentStatus)
+    || Object.keys(value.profileNonInsertSummary.employmentStatus).sort().join('|') !== [...profileNonInsertStatusKeys].sort().join('|')
+    || !profileNonInsertStatusKeys.every(key => Number.isSafeInteger(value.profileNonInsertSummary.employmentStatus[key])
+      && value.profileNonInsertSummary.employmentStatus[key] >= 0)
+    || !Number.isSafeInteger(value.profileNonInsertSummary.linkedAccountCount) || value.profileNonInsertSummary.linkedAccountCount < 0
+    || !Number.isSafeInteger(value.profileNonInsertSummary.currentContractCandidateCount)
+    || value.profileNonInsertSummary.currentContractCandidateCount < 0
     || !value.fields || typeof value.fields !== 'object' || Array.isArray(value.fields)
     || Object.keys(value.fields).sort().join('|') !== 'degree|nativePlace') throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   for (const field of Object.values(value.fields)) {
@@ -271,6 +309,10 @@ function validateResult(value) {
     || value.t0MappedRecords > value.mappedRecords || value.profileMatchedCount > value.t0MappedRecords
     || profileGapKeys.reduce((sum,key) => sum+value.profileGaps[key],0) !== value.t0MappedRecords
     || value.profileGaps.matched !== value.profileMatchedCount
+    || profileNonInsertReasonKeys.reduce((sum,key) => sum+value.profileNonInsertSummary.reasons[key],0) !== value.profileGaps.receiptNotInserted
+    || profileNonInsertStatusKeys.reduce((sum,key) => sum+value.profileNonInsertSummary.employmentStatus[key],0) !== value.profileGaps.receiptNotInserted
+    || value.profileNonInsertSummary.linkedAccountCount > value.profileGaps.receiptNotInserted
+    || value.profileNonInsertSummary.currentContractCandidateCount > value.profileGaps.receiptNotInserted
     || Object.values(value.fields).some(field => fieldKeys.reduce((sum,key) => sum+field[key],0) !== value.profileMatchedCount)) {
     throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   }

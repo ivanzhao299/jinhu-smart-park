@@ -11,7 +11,10 @@ const result = (overrides = {}) => ({ operationCount: 1, sourceRecords: 2, recei
   fields: { nativePlace: { ...zeroField(), targetNullSourceValid: 2 }, degree: { ...zeroField(), missingOrInvalidSource: 2 } }, ...overrides,
   profileGaps: { matched: overrides.profileMatchedCount ?? 2, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0,
     targetMissing: 0, targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0,
-    ...overrides.profileGaps } });
+    ...overrides.profileGaps },
+  profileNonInsertSummary: { reasons: { identityAmbiguous: 0, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 0 },
+    employmentStatus: { departed: 0, nonDeparted: 0, unknown: 0 }, linkedAccountCount: 0, currentContractCandidateCount: 0,
+    ...overrides.profileNonInsertSummary } });
 const runnerFor = value => (...args) => {
   assert.equal(args[0], 'docker');
   assert.deepEqual(args[1].slice(0, 7), ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml','exec','-T']);
@@ -80,6 +83,23 @@ test('profile gap categories are aggregate-only, disjoint, and conserve mapped o
   assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileGaps: { ...gaps, targetMissing: 0 } }))),
     /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
   assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileGaps: { ...gaps, privateReason: 1 } }))),
+    /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+});
+
+test('non-insert summary returns only fixed reason and current-impact aggregates', () => {
+  const summary = { reasons: { identityAmbiguous: 1, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 1 },
+    employmentStatus: { departed: 1, nonDeparted: 0, unknown: 1 }, linkedAccountCount: 1, currentContractCandidateCount: 1 };
+  const profileGaps = { matched: 0, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 2, targetMissing: 0,
+    targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0 };
+  const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ t0MappedRecords: 2, profileMatchedCount: 0,
+    profileGaps, profileNonInsertSummary: summary, fields: { nativePlace: zeroField(), degree: zeroField() } })));
+  assert.deepEqual(observed.profileNonInsertSummary, summary);
+  assert.equal(observed.classification, 'NOT_READY');
+  assert.doesNotMatch(JSON.stringify(observed.profileNonInsertSummary), /EMPLOYEE_PROFILE|SOURCE_MATERIALIZATION|EMPLOYEE_NOT_MAPPED|legacy|employee_id|user_id|reason_code/i);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ t0MappedRecords: 2, profileMatchedCount: 0,
+    profileGaps, profileNonInsertSummary: { ...summary, reasons: { ...summary.reasons, other: 0 } },
+    fields: { nativePlace: zeroField(), degree: zeroField() } }))), /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileNonInsertSummary: { ...summary, linkedAccountCount: 3 } }))),
     /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
 });
 
@@ -245,6 +265,9 @@ test('SQL statically binds source, T0 owner, archive, profile, and hash evidence
     "profile_receipt_summary", "profile_gap_classified", "receiptMissing", "receiptSourceMismatch", "receiptNotInserted",
     "targetMissing", "targetDeleted", "targetScopeOrOwnerMismatch", "targetSourceMismatch", "ambiguousActiveProfiles",
     "profile_source_identity_sha256 IS DISTINCT FROM source_identity_sha256", "profile_source_row_sha256 IS DISTINCT FROM source_row_sha256",
+    "min(pr.reason_code) FILTER", "EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS", "SOURCE_MATERIALIZATION_QUARANTINED", "EMPLOYEE_NOT_MAPPED",
+    "employment_status_bucket", "e.employment_status='departed'", "e.user_id IS NOT NULL", "profileNonInsertSummary",
+    "CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'", "c.status='active'", "c.is_deleted",
     "reg.owner_employee_id=s.employee_id", "reg.owner_record_map_id=s.owner_record_map_id",
     "reg.owner_source_identity_sha256=m.source_identity_sha256",
     "count(DISTINCT reg.id) registry_count", "missingSourceReceiptCount",
