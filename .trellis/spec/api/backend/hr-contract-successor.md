@@ -11,3 +11,7 @@ Regress the exact service path in isolated PostgreSQL: create/edit/activate/rene
 ## Existing agreement flags
 
 Map confidentialityAgreement/nonCompeteAgreement/trainingServiceAgreement to the existing boolean columns from 000238. DTOs accept only explicit booleans or omission; reject null and coercion. On updates omit missing flags from persistence values; false is an explicit modern change. Include returned facts in scoped contract detail and append-only action snapshots. Historical rows remain immutable; self projections omit these fields. These are agreement marks, not signature or attachment evidence. Test actual service readback, unrelated-edit preservation, explicit false, historical protection and UI omission independently of business-role acceptance.
+
+## Original historical years
+
+Source catalogue declares compact.compacttime/totalcompacttime/continueyears as initial/total/renewal years. Project only their retained T2 snapshot scalar values as originalTermYears for historical rows with relevant source keys. Accept nonnegative int4 numbers or digit strings; distinguish missing from unconfirmed and preserve zero. Do not convert into modern months, return the raw snapshot, modify history, widen self projections or change scope/audit. Verify source schema hash, actual service PostgreSQL read/scope/immutability, self omission and responsive detail. Original units do not prove the legacy cumulative algorithm or signature semantics.

@@ -76,6 +76,14 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    const cleared=await service.updateContract(scope,actor,created.id,{...f.dto,confidentialityAgreement:false});assert.equal(cleared.confidentialityAgreement,false);assert.equal(cleared.trainingServiceAgreement,true);
    assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
   });
+  await t.test("scoped historical detail reads original year facts without raw snapshot or mutation",async()=>{
+   const f=await fixture({sourceSnapshot:{unconfirmedTerm:2,unconfirmedTotalTerm:5,unconfirmedRenewalYears:0,raw:"synthetic-private"}});
+   Object.assign(service,{contracts,employees,contractTypes:types,contractChanges:db!.getRepository(HrContractChangeEntity),auditService:{recordOperationRequired:async()=>{}}});
+   const reader={...actor,permissions:["hr:contract:read"]};const detail=await service.contractDetail(scope,reader,f.old.id);
+   assert.ok("originalTermYears" in detail);assert.deepEqual(detail.originalTermYears,{initial:{value:2,status:"recorded"},total:{value:5,status:"recorded"},renewal:{value:0,status:"recorded"}});assert.equal(Object.hasOwn(detail,"sourceSnapshot"),false);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+   await assert.rejects(service.contractDetail({...scope,parkId:"synthetic-foreign"},reader,f.old.id),/Contract not found/);
+   const projection=Reflect.get(service,"projectSelfContract") as (row:typeof detail)=>Record<string,unknown>;assert.equal(Object.hasOwn(projection.call(service,detail),"originalTermYears"),false);
+  });
   await t.test("historical mutation and unauthorized salary remain denied",async()=>{
    const f=await fixture();await assert.rejects(service.actContract(scope,actor,f.old.id,{action:"cancel"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContractChange(scope,actor,f.old.id,{changeType:"renewal",newStartDate:"2090-01-01"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);
   });

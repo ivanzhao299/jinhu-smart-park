@@ -1,0 +1,11 @@
+# 原玉舟合同年限在现代详情中的承载
+
+源目录table_columns.md SHA256 11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe明确compact.compacttime为首次签定年限、totalcompacttime为总年限、continueyears为续签年数。u_createallcompact原过程SHA256 16e3e7b609e8b2c9e716ef4e919ef66d1f77d653d16ae1bd70a2e6dcfda3fd0c也按年写初始及总年限。源目录确认单位，不证明全量续签计算规则。
+
+T2已将三项原值保留在历史source_snapshot.unconfirmedTerm/unconfirmedTotalTerm/unconfirmedRenewalYears。此候选只增加originalTermYears窄投影及现代详情，既有范围与敏感读审计保持。仅历史且存在至少一个对应源键时返回；非负int4数字/纯数字字符串显示原年值，NULL/空/缺失显示未登记，负数/小数/异常类型显示未确认。0保持0，不补猜，不从日期推导原值，不换算或覆盖现代月数，不返回整个源快照。
+
+本人简化合同投影继续省略这些原事实。历史不可编辑；现代编辑载荷不增加originalTermYears，现代累计月数和真实签订历史仍独立验收。没有数据库迁移、导入重放或历史行更新。
+
+验证包括3项原事实/异常/非历史单元及3项协议回归、12项Web交互、实际服务随机schema PostgreSQL9项（范围拒绝、历史行不变、本人窄投影），API/Web类型、lint、生产构建，当前候选实际组件及共享CSS的1280/390浏览器。旧可选hr-contract-read.pg.spec.ts的详情白名单同步包含之前已发布三协议字段；该套完整迁移PG未在本片重跑，新PG为entity-synchronized合成schema，不能替代生产触发器或真实岗位验收。
+
+受影响文件及依赖manifest只作精确哈希绑定，不提升全量兼容信用。发布完成需CI、合并/运行版本一致、健康与清理证据；真人岗位验收另记。
