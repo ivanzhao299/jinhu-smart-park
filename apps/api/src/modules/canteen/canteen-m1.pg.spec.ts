@@ -76,7 +76,7 @@ test("M1: archive CRUD, qr checkout happy path + idempotent callback, timeout cl
   const sessionRepo = ds.getRepository(CanteenCashierSessionEntity);
   const statusLogRepo = ds.getRepository(CanteenStatusLogEntity);
 
-  const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo);
+  const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo, statusLogRepo);
   const numbers = new RandomizedNumberService(ds, suffix);
   const registry = new CanteenPaymentRegistry({
     ...process.env,
@@ -87,7 +87,7 @@ test("M1: archive CRUD, qr checkout happy path + idempotent callback, timeout cl
   const checkout = new CanteenCheckoutService(
     ds, numbers, registry, dishRepo, outletRepo, orderRepo, paymentRepo, sessionRepo
   );
-  const sessions = new CanteenSessionService(ds, numbers, sessionRepo, orderRepo);
+  const sessions = new CanteenSessionService(ds, numbers, sessionRepo, orderRepo, statusLogRepo);
   const orderQuery = new CanteenOrderQueryService(orderRepo, orderItemRepo, paymentRepo);
   const webhook = new CanteenWebhookService(registry, paymentApp);
   const scheduler = new CanteenTimeoutScheduler(paymentRepo, paymentApp);

@@ -22,6 +22,8 @@ import { CanteenSettlementService } from "./canteen-settlement.service";
 import { CanteenReportService } from "./canteen-report.service";
 import { CanteenRefundService } from "./canteen-refund.service";
 import { CanteenLogService } from "./canteen-log.service";
+import { CanteenSessionService } from "./canteen-session.service";
+import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
 import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
 import { periodOf } from "./canteen-subsidy.util";
 
@@ -43,7 +45,7 @@ test(
         CanteenOutletEntity, CanteenCategoryEntity, CanteenDishEntity, CanteenOrderEntity,
         CanteenOrderItemEntity, CanteenPaymentEntity, CanteenRefundEntity, CanteenSettlementEntity,
         CanteenSettlementItemEntity, CanteenStatusLogEntity, CanteenWalletEntity, CanteenWalletTxnEntity,
-        CanteenSettingEntity
+        CanteenSettingEntity, CanteenCashierSessionEntity
       ],
       synchronize: false
     });
@@ -68,7 +70,7 @@ test(
     const walletRepo = ds.getRepository(CanteenWalletEntity);
     const txnRepo = ds.getRepository(CanteenWalletTxnEntity);
 
-    const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo);
+    const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo, statusLogRepo);
     const numbers = new RandomizedNumberService(ds, suffix);
     const registry = new CanteenPaymentRegistry({ ...process.env, CANTEEN_PAYMENT_DRIVER: "mock" } as NodeJS.ProcessEnv);
     const settlementSvc = new CanteenSettlementService(
@@ -77,6 +79,8 @@ test(
     const reportSvc = new CanteenReportService(orderRepo, ds.getRepository(CanteenOrderItemEntity), ds.getRepository(CanteenWalletEntity) as never);
     const refundSvc = new CanteenRefundService(refundRepo, orderRepo, paymentRepo, ds, numbers, registry);
     const logSvc = new CanteenLogService(statusLogRepo);
+    const sessionRepo = ds.getRepository(CanteenCashierSessionEntity);
+    const sessionSvc = new CanteenSessionService(ds, numbers, sessionRepo, orderRepo, statusLogRepo);
 
     try {
       const outlet = await archive.createOutlet(scope as never, actor, {
@@ -211,6 +215,18 @@ test(
       for (const want of ["generate", "submit", "reconcile", "dispute", "approve", "settle"]) {
         assert.ok(actions.includes(want), `settlement 日志含 ${want}`);
       }
+
+      // ===== M4: 开班/结班、菜品上下架落 session/dish 审计 =====
+      const opened = await sessionSvc.open(scope as never, actor, { outlet_id: outlet.id, opening_float: 0 } as never);
+      await sessionSvc.close(scope as never, actor, opened.id);
+      // 菜品上架→下架（dish 已建）
+      await archive.changeDishShelf(scope as never, actor, dish.id, { status: "on_shelf" });
+      await archive.changeDishShelf(scope as never, actor, dish.id, { status: "off_shelf" });
+
+      const sessionLogs = await logSvc.list(scope as never, { entity_type: "session", page: 1, page_size: 20 });
+      assert.ok(sessionLogs.total > 0, "session 审计日志>0");
+      const dishLogs = await logSvc.list(scope as never, { entity_type: "dish", page: 1, page_size: 20 });
+      assert.ok(dishLogs.total > 0, "dish 审计日志>0");
     } finally {
       await ds.destroy();
     }

@@ -10,6 +10,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CanteenCategoryEntity } from "./entities/canteen-category.entity";
 import { CanteenDishEntity } from "./entities/canteen-dish.entity";
 import { CanteenOutletEntity } from "./entities/canteen-outlet.entity";
+import { CanteenStatusLogEntity } from "./entities/canteen-status-log.entity";
 import {
   CreateCategoryDto,
   CreateDishDto,
@@ -33,7 +34,9 @@ export class CanteenArchiveService {
     @InjectRepository(CanteenCategoryEntity)
     private readonly categoryRepo: Repository<CanteenCategoryEntity>,
     @InjectRepository(CanteenDishEntity)
-    private readonly dishRepo: Repository<CanteenDishEntity>
+    private readonly dishRepo: Repository<CanteenDishEntity>,
+    @InjectRepository(CanteenStatusLogEntity)
+    private readonly statusLogRepo: Repository<CanteenStatusLogEntity>
   ) {}
 
   /* ----------------------------- Outlets ----------------------------- */
@@ -228,12 +231,29 @@ export class CanteenArchiveService {
 
   async changeDishShelf(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: DishShelfDto) {
     const dish = await this.getDish(scope, id);
+    const before = dish.status;
     dish.status = dto.status;
     const now = new Date();
     dish.shelfTime = dto.status === "on_shelf" ? now : dish.shelfTime;
     dish.unshelfTime = dto.status === "off_shelf" ? now : dish.unshelfTime;
     dish.updateBy = actor.sub;
-    return this.dishRepo.save(dish);
+    const saved = await this.dishRepo.save(dish);
+    await this.statusLogRepo.save(
+      this.statusLogRepo.create({
+        tenantId: saved.tenantId,
+        parkId: saved.parkId,
+        entityType: "dish",
+        entityId: saved.id,
+        beforeStatus: before,
+        afterStatus: saved.status,
+        action: dto.status === "on_shelf" ? "shelf_on" : "shelf_off",
+        reason: saved.name,
+        operatorUserId: actor.sub,
+        operatorName: actor.username ?? null,
+        opTime: new Date()
+      })
+    );
+    return saved;
   }
 
   async adjustDishStock(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: DishStockDto) {

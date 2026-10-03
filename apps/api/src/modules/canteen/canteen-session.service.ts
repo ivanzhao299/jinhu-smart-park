@@ -7,6 +7,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { OpenSessionDto, SessionListQueryDto } from "./dto/canteen.dto";
 import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
 import { CanteenOrderEntity } from "./entities/canteen-order.entity";
+import { CanteenStatusLogEntity } from "./entities/canteen-status-log.entity";
 import { CanteenNumberService } from "./canteen-number.service";
 
 /**
@@ -22,8 +23,34 @@ export class CanteenSessionService {
     @InjectRepository(CanteenCashierSessionEntity)
     private readonly sessionRepo: Repository<CanteenCashierSessionEntity>,
     @InjectRepository(CanteenOrderEntity)
-    private readonly orderRepo: Repository<CanteenOrderEntity>
+    private readonly orderRepo: Repository<CanteenOrderEntity>,
+    @InjectRepository(CanteenStatusLogEntity)
+    private readonly statusLogRepo: Repository<CanteenStatusLogEntity>
   ) {}
+
+  private async logSession(
+    manager: EntityManager,
+    s: CanteenCashierSessionEntity,
+    action: string,
+    actor: JwtPrincipal,
+    reason?: string | null
+  ) {
+    await manager.save(
+      manager.create(CanteenStatusLogEntity, {
+        tenantId: s.tenantId,
+        parkId: s.parkId,
+        entityType: "session",
+        entityId: s.id,
+        beforeStatus: null,
+        afterStatus: s.status,
+        action,
+        reason: reason ?? s.sessionNo,
+        operatorUserId: actor.sub,
+        operatorName: actor.username ?? null,
+        opTime: new Date()
+      })
+    );
+  }
 
   async open(scope: TenantParkScope, actor: JwtPrincipal, dto: OpenSessionDto) {
     return this.dataSource.transaction(async (manager) => {
@@ -59,7 +86,9 @@ export class CanteenSessionService {
         createBy: actor.sub,
         updateBy: actor.sub
       });
-      return manager.save(session);
+      const saved = await manager.save(session);
+      await this.logSession(manager, saved, "open", actor);
+      return saved;
     });
   }
 
@@ -134,7 +163,9 @@ export class CanteenSessionService {
         closedBy: actor.sub
       };
       session.updateBy = actor.sub;
-      return manager.save(session);
+      const saved = await manager.save(session);
+      await this.logSession(manager, saved, "close", actor, remark);
+      return saved;
     });
   }
 

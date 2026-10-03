@@ -112,7 +112,7 @@ test(
     const txnRepo = ds.getRepository(CanteenWalletTxnEntity);
     const mealRepo = ds.getRepository(CanteenMealRecordEntity);
 
-    const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo);
+    const archive = new CanteenArchiveService(outletRepo, categoryRepo, dishRepo, statusLogRepo);
     const numbers = new RandomizedNumberService(ds, suffix);
     const registry = new CanteenPaymentRegistry({
       ...process.env,
