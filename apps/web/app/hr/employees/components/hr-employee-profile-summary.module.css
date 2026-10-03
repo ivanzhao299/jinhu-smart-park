@@ -1,0 +1,37 @@
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.group {
+  min-width: 0;
+  align-content: start;
+}
+
+.group dl > div {
+  align-items: start;
+  padding-block: 8px;
+}
+
+.group dt {
+  flex: 0 0 7em;
+}
+
+.group strong,
+.group dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.group dd {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.group > span {
+  overflow-wrap: anywhere;
+}
