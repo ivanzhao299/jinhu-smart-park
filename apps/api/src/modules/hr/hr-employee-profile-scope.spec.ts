@@ -74,3 +74,22 @@ test("required audit failure rejects the sensitive response",async()=>{
   await assert.rejects(fixture.service.employeeProfile(scope,actor(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ),managedId),/audit unavailable/u);
   assert.deepEqual(fixture.counts(),{profileReads:1,auditCalls:1});
 });
+
+test("ordinary park profile read remains masked without manage permission",async()=>{
+  const fixture=serviceFor();
+  const result=await fixture.service.employeeProfile(scope,actor(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ),managedId);
+  assert.equal(result?.masked,true);
+  assert.equal(result?.personalMobile,"138****5678");
+  for(const field of ["idNumber","dateOfBirth","highestEducation","remark"])
+    assert.equal(field in (result??{}),false);
+  assert.deepEqual(fixture.counts(),{profileReads:1,auditCalls:1});
+});
+
+test("existing manage permission receives the full projection without changing read-only role policy",async()=>{
+  const fixture=serviceFor();
+  const result=await fixture.service.employeeProfile(scope,actor(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE),managedId);
+  assert.equal(result?.masked,false);
+  assert.equal(result?.personalMobile,profile.personalMobile);
+  assert.equal(result?.remark,profile.remark);
+  assert.deepEqual(fixture.counts(),{profileReads:1,auditCalls:1});
+});

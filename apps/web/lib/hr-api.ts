@@ -1,11 +1,14 @@
-import type { OrgTreeNode, PaginatedResult } from "@jinhu/shared";
+import type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage, HrInsuranceOwnedEmployeeOption, HrInsuranceOwnedClose, HrInsuranceOwnedCloseRequest, HrInsuranceOwnedConfirmRequest, HrInsuranceOwnedCorrectRequest, HrInsuranceOwnedPeriod, HrInsuranceOwnedPeriodListItem, HrInsuranceOwnedPreview, HrInsuranceOwnedPreviewRequest, HrInsuranceOwnedRevision, OrgTreeNode, PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
-export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;legacyJobstateCode:string|null;legacyJobstateName:string|null;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
+export interface HrEmployeeAssignmentLabel {name:string|null;status:"available"|"inactive"|"unassigned"|"unavailable";}
+export interface HrEmployeeAssignmentDetails {organization:HrEmployeeAssignmentLabel;position:HrEmployeeAssignmentLabel;manager:HrEmployeeAssignmentLabel;}
+export interface HrEmployeeEmploymentDateDetails {unclassifiedRecordedDate:{date:string|null;status:"unclassified"|"missing"};plannedConfirmation:{dates:string[];status:"recorded"|"planned"|"multiple"|"none"|"unclassified"};confirmedEmployment:{dates:string[];status:"recorded"|"planned"|"multiple"|"none"|"unclassified"};}
+export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;legacyJobstateCode:string|null;legacyJobstateName:string|null;hireDate:string|null;employmentDates?:HrEmployeeEmploymentDateDetails;assignmentDetails?:HrEmployeeAssignmentDetails;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrLegacyArchiveFile {id:string;logicalKind:"photo"|"document"|"attachment"|string;logicalName:string;mediaType:string|null;sizeBytes:string|null;availability:string;contentFingerprint?:string;}
 export interface HrLegacyArchiveRecord {id:string;employeeId:string|null;mappingStatus:"mapped"|"archive_only"|"quarantine"|"resolved";recordType:string;occurredOn:string|null;displayTitle:string;projection:Record<string,unknown>;hasSensitiveSource:boolean;sourceSystem?:string;sourceTable?:string;resolutionReasonCode?:string|null;compatibility?:{classification:string;sourceTable:string;sourceRelation:string;targetTables:string[];targetRelation:string;decision:string};files?:HrLegacyArchiveFile[];}
 export interface HrLegacyArchiveFilters {status?:string;recordType?:string;employeeId?:string;keyword?:string;reasonCode?:string;}
 export interface HrPosition {id:string;orgId:string;positionCode:string;positionName:string;reportsToPositionId:string|null;jobFamily:string|null;jobLevel:string|null;headcountLimit:number|null;hierarchyLevel:number|null;sortOrder:number;authority:string|null;qualification:string|null;responsibilities:string|null;positionManual:string|null;status:string;remark:string|null;}
-export interface HrEmploymentEvent {id:string;eventNo:string|null;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
+export interface HrEmploymentEvent {id:string;eventNo:string|null;eventType:string;effectiveDate:string;reason:string|null;createTime:string;provenance?:{origin:"historical_import"|"modern_business"|"unclassified";effect:"effective"|"voided"|"unconfirmed"};}
 export interface HrEmploymentEventStatistics {from:string;to:string;total:number;employeeCount:number;historicalCount:number;onlineCount:number;byType:Array<{eventType:string;count:number}>;byMonth:Array<{month:string;count:number}>;}
 export interface HrWorkforceDecisionSnapshot {from:string;to:string;employeeTotal:number;activeHeadcount:number;byStatus:Array<{status:string;count:number}>;byType:Array<{type:string;count:number}>;staffing:{positionTotal:number;configuredPositionCount:number;unconfiguredPositionCount:number;headcountLimit:number;activeAssignedHeadcount:number;activeUnassignedHeadcount:number;vacancyCount:number;overCapacityPositionCount:number;};employmentEvents:HrEmploymentEventStatistics;}
 export interface HrEmployeeProfile {id:string;employeeId:string;idType:string|null;idNumber?:string|null;idNumberMasked:string|null;englishName?:string|null;gender?:string|null;dateOfBirth?:string|null;ethnicity?:string|null;nativePlace?:string|null;politicalStatus?:string|null;partyJoinDate?:string|null;heightCm?:string|null;weightKg?:string|null;maritalStatus?:string|null;healthStatus?:string|null;householdRegistration?:string|null;highestEducation?:string|null;major?:string|null;degree?:string|null;foreignLanguage?:string|null;languageLevel?:string|null;graduationDate?:string|null;graduationSchool?:string|null;homePhone?:string|null;jobTitle:string|null;jobGrade:string|null;employeeCategory:string|null;technicalTitle:string|null;technicalGrade:string|null;personalMobile:string|null;personalEmail:string|null;address:string|null;emergencyContactName:string|null;emergencyContactMobile:string|null;remark?:string|null;customFields?:Array<{code:string;label:string;valueType:"text"|"numeric"|"date"|"boolean";group:string|null;sortOrder:number;value:string|null;sourceValid:boolean}>;masked:boolean;}
@@ -63,6 +66,7 @@ export interface HrPayrollReconciliationDifference {
   reviewStatus: string;
 }
 export interface HrPayrollReconciliationResult {
+  insuranceSource?: HrPayrollInsuranceEvidence | null;
   resultId: string;
   employeeCode: string;
   employeeName: string;
@@ -132,8 +136,9 @@ export interface HrPayrollReconciliationSetup {
 export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bookId?:string;employeeId?:string;}
 export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
-export interface HrContract {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;contractTermMonths?:number|null;signatureDate?:string|null;effectiveDate?:string|null;positionTitle?:string|null;workType?:string|null;departmentNameSnapshot?:string|null;probationMonths?:number|null;probationSalary?:string|null;baseSalary?:string|null;remark?:string|null;status:string;isHistoricalImport:boolean;}
-export interface HrContractChange {id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContractOriginalYearFact {value:number|null;status:"recorded"|"missing"|"unconfirmed";}
+export interface HrContract {originalTermYears?:{initial:HrContractOriginalYearFact;total:HrContractOriginalYearFact;renewal:HrContractOriginalYearFact};confidentialityAgreement?:boolean;nonCompeteAgreement?:boolean;trainingServiceAgreement?:boolean;id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;contractTermMonths?:number|null;cumulativeTermMonths?:number|null;firstSignatureDate?:string|null;lastSignatureDate?:string|null;renewalCount?:number|null;signatureDate?:string|null;effectiveDate?:string|null;positionTitle?:string|null;workType?:string|null;departmentNameSnapshot?:string|null;probationMonths?:number|null;probationSalary?:string|null;baseSalary?:string|null;remark?:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContractChange {contractTermMonths?:number;signatureDate?:string;id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
 export interface HrContractAction {id:string;sequenceNo:number;action:string;fromStatus:string|null;toStatus:string;occurredAt:string;}
 export interface HrContractDetail extends HrContract {changes:HrContractChange[];actions:HrContractAction[];}
 export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
@@ -198,8 +203,47 @@ export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;
 export interface HrDirectoryOrgOption {id:string;orgCode:string;orgName:string;status:string;}
 export interface HrDirectoryUserOption {id:string;username:string;displayName:string;realName?:string;status:string;}
 export interface HrDirectoryOptions {orgs:HrDirectoryOrgOption[];users:HrDirectoryUserOption[];}
+export interface HrInsurancePolicyOption { id:string; code:string; name:string|null; version:number; status:string; availableVariants:number[]; }
+export interface HrInsurancePolicyCatalog extends PaginatedResult<HrInsurancePolicyOption> { insuranceKinds:string[]; }
+export type HrInsurancePolicyKind = "oldage"|"remedy"|"losework"|"wound"|"bear"|"fund";
+export type HrInsurancePolicyComponent = "base"|"employer"|"employee"|"supplement";
+export interface HrInsurancePolicyFactorItem {insuranceKind:HrInsurancePolicyKind;factors:Record<HrInsurancePolicyComponent,{rate:string;fixedAmount:string|null}>;}
+export interface HrInsurancePolicyVersion {
+ id:string;policyCode:string;policyName:string;variantNo:number;versionNo:number;effectiveFrom:string;effectiveThrough:string;
+ definitionHash:string;createdAt:string;mode:"immutable_definition";activated:false;
+}
+export interface HrInsurancePolicyVersionDetail extends HrInsurancePolicyVersion {engineVersion:string;items:HrInsurancePolicyFactorItem[];reason:string;originKind:"manual"|"imported_reference";}
+export interface HrInsuranceSourcePolicyDetail {
+ id:string;code:string;name:string|null;version:number;status:string;scopeDescription:string|null;mode:"historical_definition";activated:false;
+ variants:Array<{variantNo:number;copyEligible:boolean;factorsHash:string;items:Array<{insuranceKind:string;factors:Record<HrInsurancePolicyComponent,{rate:string|null;fixedAmount:string|null}>}>}>;
+}
+export interface HrInsurancePolicyVersionRequest {
+ requestId:string;policyCode:string;policyName:string;variantNo:number;effectiveFrom:string;effectiveThrough:string;reason:string;
+ sourcePolicyId?:string;expectedSourceVersion?:number;expectedSourceFactorsHash?:string;items?:HrInsurancePolicyFactorItem[];
+}
+export interface HrInsuranceReferenceRequest {
+ policyId:string; expectedPolicyVersion:number; variantNo:number; employeeId:string;
+ periodYear:number; periodMonth:number; includeFund:boolean;
+ bases:Array<{insuranceKind:string;contributionBase:string}>;
+}
+export interface HrInsuranceReferenceResult {
+ mode:"reference_only"; confirmationEligible:false; inputHash:string; employeeId:string; periodYear:number; periodMonth:number;
+ policy:Omit<HrInsurancePolicyOption,"availableVariants"> & {variantNo:number};
+ calculation:{engineVersion:string;policyVersion:number;includeFund:boolean;items:Array<{insuranceKind:string;contributionBase:string;amounts:Record<"base"|"employer"|"employee"|"supplement",string>}>;totals:Record<"base"|"employer"|"employee"|"supplement",string>};
+}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ insuranceOwnedEmployees:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsuranceOwnedEmployeeOption>>(`/hr/insurance/owned-periods/employees?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insuranceOwnedPeriods:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsuranceOwnedPeriodListItem>>(`/hr/insurance/owned-periods?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insuranceOwnedPeriod:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedPeriod>(`/hr/insurance/owned-periods/${encodeURIComponent(id)}`,{token,signal})),
+ createInsuranceOwnedPreview:(body:HrInsuranceOwnedPreviewRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedPreview&{replayed:boolean}>("/hr/insurance/owned-periods/preview",{method:"POST",body,token,signal,idempotencyKey})),
+ confirmInsuranceOwnedPeriod:(body:HrInsuranceOwnedConfirmRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedRevision&{replayed:boolean}>("/hr/insurance/owned-periods/confirm",{method:"POST",body,token,signal,idempotencyKey})),
+ closeInsuranceOwnedPeriod:(body:HrInsuranceOwnedCloseRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedClose&{replayed:boolean}>("/hr/insurance/owned-periods/close",{method:"POST",body,token,signal,idempotencyKey})),
+ correctInsuranceOwnedPeriod:(body:HrInsuranceOwnedCorrectRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceOwnedRevision&{replayed:boolean}>("/hr/insurance/owned-periods/correct",{method:"POST",body,token,signal,idempotencyKey})),
+ insuranceSourcePolicyDefinition:(id:string,expectedVersion:number,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceSourcePolicyDetail>(`/hr/insurance/policies/${encodeURIComponent(id)}?${new URLSearchParams({expected_version:String(expectedVersion)})}`,{token,signal})),
+ insurancePolicyVersions:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrInsurancePolicyVersion>>(`/hr/insurance/policy-versions?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal})),
+ insurancePolicyVersion:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersionDetail>(`/hr/insurance/policy-versions/${encodeURIComponent(id)}`,{token,signal})),
+ createInsurancePolicyVersion:(body:HrInsurancePolicyVersionRequest,token:string|undefined,idempotencyKey:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyVersion&{replayed:boolean}>("/hr/insurance/policy-versions",{method:"POST",body,token,signal,idempotencyKey})),
  organizationTree:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<OrgTreeNode[]>("/orgs/tree",{token,signal})),
  directoryOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrDirectoryOptions>("/hr/directory-options",{token,signal})),
  recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},
@@ -323,6 +367,8 @@ export const hrApi={
  ,attendancePayrollVersions:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePayrollVersion[]>(`/hr/attendance/periods/${id}/payroll-input-versions`,{token}))
  ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
  ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
+ ,insurancePolicies:(token?:string,page=1,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<HrInsurancePolicyCatalog>(`/hr/insurance/policies?${new URLSearchParams({page:String(page),page_size:"20",keyword})}`,{token,signal}))
+ ,insuranceReferencePreview:(body:HrInsuranceReferenceRequest,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrInsuranceReferenceResult>("/hr/insurance/reference-preview",{method:"POST",body,token,signal,idempotencyKey:createIdempotencyKey("hr-insurance-reference-preview")}))
  ,goalCycles:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token,signal}))
  ,goalOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalOptions>("/hr/goals/options",{token,signal}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
@@ -504,19 +550,24 @@ createPayrollReconciliationSource: (
   ) => unwrap(apiRequest<HrPayrollReconciliationSource>("/hr/payroll/reconciliation-sources", {
     method:"POST",body,token,idempotencyKey:crypto.randomUUID(),
   })),
+payrollInsuranceSourceOptions: (query: HrPayrollInsuranceSourceRequest, token?: string, page = 1, signal?: AbortSignal) =>
+  unwrap(apiRequest<HrPayrollInsuranceSourcePage>(`/hr/payroll/reconciliations/insurance-sources?${new URLSearchParams({...query,page:String(page),page_size:"50"})}`, {token,signal})),
 simulatePayrollReconciliation: (
     body: {
       legacyBatchId: string;
       attendanceInputBatchId: string;
       reconciliationSourceId?: string;
       supersedesRunId?: string;
+      insuranceSources?: HrPayrollInsuranceChoice[];
     },
     token?: string,
+    idempotencyKey = createIdempotencyKey("hr-payroll-simulate"),
+    signal?: AbortSignal,
   ) =>
     unwrap(
       apiRequest<HrPayrollReconciliation>(
         "/hr/payroll/reconciliations/simulate",
-        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+        { method: "POST", body, token, idempotencyKey, signal },
       ),
     ),
 reviewPayrollReconciliation: (

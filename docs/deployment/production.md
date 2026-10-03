@@ -502,6 +502,12 @@ Migration behavior:
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
+### Read-only per-service runtime image revisions
+
+The `diagnose-production-runtime-revision` workflow mode compares the immutable image revision labels on the running API and Web containers against their expected commits. The optional `expected_api_commit` and `expected_web_commit` inputs apply only to this diagnostic mode; each omitted value defaults to the workflow's `GITHUB_SHA`. Complete input strings must be exactly 40 lowercase hexadecimal characters; multiline, quote-bearing, and other malformed values are rejected before any SSH connection. This allows a diagnostic checkout to observe a release with different API and Web revisions while identifying the checked-out observer code separately in the receipt.
+
+The formatVersion 2 receipt reports `expectedApiCommit`, `expectedWebCommit`, and `observerCodeCommit` independently, along with each service's observed revision. The default remains strict: when no overrides are supplied, both services must match the workflow commit. A stale API or Web revision fails the observation. Success remains read-only evidence with `productionImport: "HOLD"` and `authorizationGranted: false`; it does not authorize imports, deployment, migration, seed, container changes, or cleanup. See [runtime image revision observation](./runtime-image-revision-observation.md) for the collector's inspected metadata and evidence limits.
+
 Idempotency cleanup:
 
 - `IDEMPOTENCY_CLEANUP_ENABLED` defaults to `true`.

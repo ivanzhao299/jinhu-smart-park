@@ -12,6 +12,13 @@
 .compatibility { display:grid; gap:6px; margin:18px 0; padding:14px 16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-muted); color:var(--text-secondary); }
 .compatibility strong { color:var(--text-primary); }
 .compatibility span:not(.ds-eyebrow) { overflow-wrap:anywhere; }
+.personnelFacts:global(.ds-scene-card) { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; min-width:0; }
+.personnelFactsIntro { min-width:0; }
+.personnelFactsIntro h3,.personnelFactsIntro p { margin:0; }
+.personnelFactsIntro p { margin-top:6px; color:var(--text-secondary); }
+.personnelFacts :global(.ds-kpi-grid) { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr)); gap:12px; min-width:0; }
+.personnelFacts :global(.ds-kpi-card) { min-width:0; }
+.personnelFacts :global(.ds-kpi-card dd) { overflow-wrap:anywhere; }
 .pagination { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:18px; }
 @media (max-width:520px) {
  .page { gap:16px; }

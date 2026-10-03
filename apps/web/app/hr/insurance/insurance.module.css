@@ -1,3 +1,14 @@
 .recordList:global(.ds-mobile-record-list) {
   display: grid;
 }
+
+@media (max-width: 720px) {
+  .overview:global(.ds-kpi-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview .amountCard {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+}

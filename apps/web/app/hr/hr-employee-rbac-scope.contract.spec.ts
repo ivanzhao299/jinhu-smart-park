@@ -7,6 +7,8 @@ const root=resolve(__dirname,"../../../..");
 const read=(path:string)=>readFileSync(resolve(root,path),"utf8");
 const page=read("apps/web/app/hr/employees/HrEmployeesClient.tsx");
 const api=read("apps/web/lib/hr-api.ts");
+const sensitiveEditorGate=/canManageProfile&&profileReadReady\?<><h3>维护敏感档案/u;
+const sensitiveSaveGate=/if\(!selected\|\|busy\|\|!canManageProfile\|\|!profileReadReady\)return/u;
 
 test("employee directory and profiles use only their exact park team and self atoms",()=>{
   assert.match(page,/canReadAll=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_READ\)/u);
@@ -29,15 +31,29 @@ test("self masked profile and independently permitted detail sections remain usa
   assert.match(page,/hrApi\.contracts\(getAccessToken\(\),page,size,\{employeeId\},selfOnly\)/u);
   assert.match(page,/createEmployeeContracts<HrContract>\(employee\.id,/u);
   assert.match(page,/canReadRecords\?hrApi\.employeeRecords/u);
-  assert.match(page,/profile\.masked\?"脱敏敏感档案":"敏感档案"/u);
+  assert.match(page,/profile\.masked===false\?"敏感档案":"脱敏敏感档案"/u);
 });
 
 test("employee writes remain behind exact manage or transition atoms",()=>{
   assert.match(page,/canManage&&createOpen\?<form/u);
-  assert.match(page,/canManageProfile\?<><h3>维护敏感档案/u);
+  assert.match(page,sensitiveEditorGate);
+  assert.match(page,sensitiveSaveGate);
   assert.match(page,/canManageEmployeeDocuments\?<FileUploader/u);
   assert.match(page,/hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYMENT_TRANSITION\)&&selected\.employmentStatus!=="departed"/u);
   assert.doesNotMatch(page,/canReadTeam[^\n]{0,300}(createEmployee|updateProfile|transition\()/u);
+});
+
+test("sensitive profile maintenance requires both permission and successful read",()=>{
+  assert.match(page,sensitiveEditorGate);
+  assert.match(page,sensitiveSaveGate);
+  for(const weakened of [
+    page.replace("canManageProfile&&profileReadReady?<><h3>维护敏感档案","canManageProfile?<><h3>维护敏感档案"),
+    page.replace("canManageProfile&&profileReadReady?<><h3>维护敏感档案","profileReadReady?<><h3>维护敏感档案"),
+  ])assert.doesNotMatch(weakened,sensitiveEditorGate);
+  for(const weakened of [
+    page.replace("||!profileReadReady)return",")return"),
+    page.replace("||!canManageProfile||!profileReadReady","||!profileReadReady"),
+  ])assert.doesNotMatch(weakened,sensitiveSaveGate);
 });
 
 test("Web employee and profile contracts expose only reviewed response keys",()=>{

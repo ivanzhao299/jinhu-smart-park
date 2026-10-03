@@ -1,5 +1,12 @@
 # @jinhu/api Backend Specs
 
+Scoped employee relationship names and source-separated employment dates: [Employee Detail](./hr-employee-detail-assignment.md).
+
+Modern insurance preview arithmetic: [Insurance Calculation](./hr-insurance-calculation.md).
+Scoped reference calculation API: [Insurance Reference Preview](./hr-insurance-reference-preview.md).
+Durable modern policy definitions: [Insurance Policy Versions](./hr-insurance-policy-version.md).
+Modern confirmation, close, corrections and payroll integration: [Owned Insurance Periods](./hr-insurance-owned-period.md).
+
 Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-context-writes.md).
 
 Protected tenant SUPER_ADMIN context evaluation: [Tenant Super Control Plane](./tenant-super-control-plane.md).
@@ -14,6 +21,8 @@ Physical-to-operating space conversion: [Asset To Operating Space Mapping](./ass
 Apartment operating-space inclusion: [Apartment Inclusion And Availability](./apartment-inclusion-availability.md).
 
 Apartment handover energy ledger: [Apartment Handover Energy Integration](./apartment-handover-energy-integration.md).
+
+Historical to modern contract continuity: [Contract Successor](./hr-contract-successor.md).
 
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 

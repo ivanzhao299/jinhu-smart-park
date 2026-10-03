@@ -1,11 +1,11 @@
 "use client";
 
-import { HR_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { HR_PERMISSIONS, type HrPayrollInsuranceChoice, type PaginatedResult } from "@jinhu/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { isForbiddenError } from "../../../lib/api-client";
+import { createIdempotencyKey, isForbiddenError } from "../../../lib/api-client";
 import {
   hrApi,
   type HrPayrollBook,
@@ -25,6 +25,7 @@ import {
 import { hasPermission } from "../../../lib/permissions";
 import workbenchStyles from "../hr-workbench.module.css";
 import styles from "./payroll.module.css";
+import { PayrollInsuranceSourceSelection } from "./PayrollInsuranceSourceSelection";
 import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
 
 type WorkArea = "online" | "history" | "rules" | "difference";
@@ -256,6 +257,10 @@ function ReconciliationWorkbench({
   canCalculate: boolean;
   canReview: boolean;
 }) {
+  const user=useAuthUser();
+  const contextKey=JSON.stringify([user?.id,user?.tenant_id,user?.park_id,user?.permissions,user?.roles,user?.is_super,user?.data_scope,user?.data_scopes,user?.field_policies]);
+  const simulationContext=useRef(contextKey);simulationContext.current=contextKey;
+  const simulationAbort=useRef<AbortController|null>(null);
   const [page, setPage] = useState(1),
     [result, setResult] =
       useState<PaginatedResult<HrPayrollReconciliation>>(EMPTY_PAGE),
@@ -272,6 +277,11 @@ function ReconciliationWorkbench({
     [busy, setBusy] = useState(false);
   const [preparedSource, setPreparedSource] = useState<HrPayrollReconciliationSource | null>(null);
   const [sourceChoice, setSourceChoice] = useState("");
+  const [attendanceChoice,setAttendanceChoice]=useState("");
+  const [insuranceChoices,setInsuranceChoices]=useState<HrPayrollInsuranceChoice[]|null>(null);
+  const simulationAttempt=useRef<{signature:string;key:string}|null>(null);
+  const selectedFrozenSource=sourceChoice.startsWith("source:")?[preparedSource,...(reconciliationSetup?.frozenSources??[])].find(source=>source?.id===sourceChoice.slice(7)):null;
+  const insuranceRequest=attendanceChoice&&(selectedFrozenSource||sourceChoice.startsWith("published:"))?{legacyBatchId:selectedFrozenSource?.legacyBatchId??sourceChoice.slice(10),attendanceInputBatchId:attendanceChoice,...(selectedFrozenSource?{reconciliationSourceId:selectedFrozenSource.id}:{})}:null;
   const simulationWriting = useRef(false);
   const generation = useRef(0),
     abort = useRef<AbortController | null>(null);
@@ -284,6 +294,9 @@ function ReconciliationWorkbench({
     setReconciliationSetup(null);
     setPreparedSource(null);
     setSourceChoice("");
+    setAttendanceChoice("");
+    setInsuranceChoices(null);
+    simulationAttempt.current=null;
     setSelected(null);
     setDetailTarget(null);
     setDetailState("empty");
@@ -309,11 +322,12 @@ function ReconciliationWorkbench({
       )
         setState(errorState(e));
     }
-  }, [page]);
+  }, [page,contextKey]);
   useEffect(() => {
     void load();
     return () => {
       abort.current?.abort();
+      simulationAbort.current?.abort();
       generation.current += 1;
     };
   }, [load]);
@@ -346,7 +360,7 @@ function ReconciliationWorkbench({
     }
   };
   const simulate = async (form: FormData) => {
-    if (simulationWriting.current || !reconciliationSetup) return;
+    if (simulationWriting.current || !reconciliationSetup || !insuranceChoices) return;
     const sourceId = sourceChoice.startsWith("source:") ? sourceChoice.slice(7) : null;
     const source = sourceId ? [preparedSource, ...(reconciliationSetup.frozenSources ?? [])].find((item) => item?.id === sourceId) : null;
     const legacyBatchId = source?.legacyBatchId ?? (sourceChoice.startsWith("published:") ? sourceChoice.slice(10) : "");
@@ -355,12 +369,19 @@ function ReconciliationWorkbench({
     if (!legacyBatchId || !attendance || (sourceId && (!source || source.periodMonth.slice(0, 7) !== attendance.periodMonth.slice(0, 7)))) {
       setMessage("请选择有效来源及同月已关闭且生效的考勤输入。"); return;
     }
+    const currentContext=contextKey;
+    const writeAbort=new AbortController();simulationAbort.current=writeAbort;
     simulationWriting.current = true; setBusy(true); setMessage("");
     try {
-      await hrApi.simulatePayrollReconciliation({ legacyBatchId, attendanceInputBatchId, ...(source ? { reconciliationSourceId: source.id } : {}) }, getAccessToken());
+      const body={ legacyBatchId, attendanceInputBatchId, ...(source ? { reconciliationSourceId: source.id } : {}), insuranceSources:insuranceChoices };
+      const signature=JSON.stringify(body);
+      if(simulationAttempt.current?.signature!==signature)simulationAttempt.current={signature,key:createIdempotencyKey("hr-payroll-simulate")};
+      await hrApi.simulatePayrollReconciliation(body, getAccessToken(), simulationAttempt.current.key,writeAbort.signal);
+      if(writeAbort.signal.aborted||simulationContext.current!==currentContext)return;
+      simulationAttempt.current=null;
       setMessage("模拟完成，未触发发薪。");
       await load();
-    } catch (e) { setMessage(e instanceof Error ? e.message : "模拟失败"); }
+    } catch (e) { if(!writeAbort.signal.aborted&&simulationContext.current===currentContext)setMessage(e instanceof Error ? e.message : "模拟失败"); }
     finally { simulationWriting.current = false; setBusy(false); }
   };
 
@@ -491,7 +512,7 @@ function ReconciliationWorkbench({
             <form className={workbenchStyles.formGrid} action={simulate}>
               <label className="form-field">
                 <span>历史工资核对来源</span>
-                <select name="sourceChoice" required value={sourceChoice} disabled={busy || !reconciliationSetup} onChange={(event) => setSourceChoice(event.target.value)}>
+                <select name="sourceChoice" required value={sourceChoice} disabled={busy || !reconciliationSetup} onChange={(event) => {setInsuranceChoices(null);setSourceChoice(event.target.value);}}>
                   <option value="" disabled>请选择历史批次</option>
                   {reconciliationSetup?.legacyBatches.map((batch) => (
                     <option key={batch.id} value={`published:${batch.id}`}>
@@ -503,7 +524,7 @@ function ReconciliationWorkbench({
               </label>
               <label className="form-field">
                 <span>已关闭且生效的考勤输入</span>
-                <select name="attendanceInputBatchId" required defaultValue="">
+                <select name="attendanceInputBatchId" required disabled={busy} value={attendanceChoice} onChange={event=>{setInsuranceChoices(null);setAttendanceChoice(event.target.value);}}>
                   <option value="" disabled>请选择考勤输入批次</option>
                   {reconciliationSetup?.attendanceBatches.map((batch) => (
                     <option key={batch.id} value={batch.id}>
@@ -512,7 +533,8 @@ function ReconciliationWorkbench({
                   ))}
                 </select>
               </label>
-              <button className="ds-button ds-button-primary" disabled={busy}>
+              <PayrollInsuranceSourceSelection request={insuranceRequest} disabled={busy} onChange={setInsuranceChoices} />
+              <button className="ds-button ds-button-primary" disabled={busy || !insuranceChoices}>
                 开始只算不发
               </button>
             </form>
@@ -581,9 +603,9 @@ function ReconciliationWorkbench({
                 关闭
               </button>
             </div>
-            <div className="ds-mobile-record-list">
+            <div className="ds-scene-grid">
               {selected.results?.map((employee) => (
-                <article className="ds-mobile-record" key={employee.resultId}>
+                <article className="ds-scene-card" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:12}} key={employee.resultId}>
                   <strong>
                     {employee.employeeName} · {employee.employeeCode}
                   </strong>
@@ -592,6 +614,7 @@ function ReconciliationWorkbench({
                     {money(employee.newTotal)} · 差额{" "}
                     {money(employee.deltaTotal)}
                   </span>
+                  <small>{employee.insuranceSource ? `社保输入：${employee.insuranceSource.sourceKind === "modern_confirmed" ? "现代确认" : "历史期间"} · 冻结版本 ${employee.insuranceSource.version}` : "社保输入：未保留可展示的冻结来源"}</small>
                   {employee.differences.map((item) => (
                     <small key={item.id}>
                       {item.itemName}：{money(item.oldAmount)} →{" "}

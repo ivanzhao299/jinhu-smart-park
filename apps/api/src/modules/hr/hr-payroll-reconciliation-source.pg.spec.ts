@@ -5,8 +5,11 @@ import { after, before, test } from "node:test";
 import { ConflictException } from "@nestjs/common";
 import { DataSource, type EntityManager } from "typeorm";
 import { HR_PERMISSIONS } from "@jinhu/shared";
+import { HrInsuranceOwnedPeriodService } from "./hr-insurance-owned-period.service";
+import { HrInsurancePolicyVersionService } from "./hr-insurance-policy-version.service";
+import { HR_INSURANCE_KINDS } from "./hr-insurance-calculation";
 import { HrPayrollHistoryService } from "./hr-payroll-history.service";
-import { parsePayrollFormula, HR_PAYROLL_DSL_PARSER_VERSION } from "./hr-payroll-formula-dsl";
+import { parsePayrollFormula } from "./hr-payroll-formula-dsl";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { AuditService } from "../audit/audit.service";
 
@@ -44,14 +47,14 @@ before(async () => {
   await manager.query("INSERT INTO hr_yuzhou_t4_followon_operation(operation_id,parent_operation_id,binding_sha256,binding,status,owned_state) VALUES($1,$2,$3,$4,'succeeded','{}')", [operation, parent, hash, JSON.stringify(binding)]);
   await manager.query("INSERT INTO hr_yuzhou_t4_followon_authorization_use(nonce_sha256,authorization_sha256,operation_id,intent) VALUES(repeat('b',64),repeat('c',64),$1,'append')", [operation]);
   await manager.query("INSERT INTO migration_batch(id,run_id,source_system,source_snapshot_sha256,target_database,tool_version,status,execution_context,t4_followon_operation_id) VALUES($1,$2,'yuzhou-v10',$3,current_database(),'t4-followon-v1@'||repeat('a',40),'succeeded','t4_production_followon',$2)", [ids.control, operation, hash]);
-  await manager.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name) VALUES($1,$2,$3,'FIXTURE','Synthetic Employee')", [ids.employee, scope.tenantId, scope.parkId]);
+  await manager.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status) VALUES($1,$2,$3,'FIXTURE','Synthetic Employee','active')", [ids.employee, scope.tenantId, scope.parkId]);
   await manager.query("INSERT INTO hr_payroll_book(id,tenant_id,park_id,legacy_scheme,book_name,source_hash) VALUES($1,$2,$3,1,'Synthetic Book',$4)", [ids.book, scope.tenantId, scope.parkId, hash]);
   await manager.query("INSERT INTO hr_payroll_book_period(id,tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash) VALUES($1,$2,$3,$4,'2026-07-01',0,$5)", [ids.period, scope.tenantId, scope.parkId, ids.book, hash]);
   await manager.query("INSERT INTO hr_payroll_item_definition(id,tenant_id,park_id,book_id,legacy_item_name,item_code) VALUES($1,$2,$3,$4,'NET','NET')", [ids.definition, scope.tenantId, scope.parkId, ids.book]);
   await manager.query("INSERT INTO hr_payroll_item_version(id,tenant_id,park_id,item_definition_id,version_no,display_name,value_type,decimal_scale,legacy_item_type,legacy_add_or_sub,item_category,source_hash,enabled) VALUES($1,$2,$3,$4,1,'NET','decimal',4,'fixture','fixture','summary',$5,true)", [ids.item, scope.tenantId, scope.parkId, ids.definition, hash]);
-  const expression = "[人事系统.基本工资]+0.0034", parsed = parsePayrollFormula(expression);
+  const expression = "[人事系统.基本工资]+0.0134-[人事系统.养老保险个人金额]", parsed = parsePayrollFormula(expression);
   assert.ok(parsed.ast);
-  await manager.query("INSERT INTO hr_payroll_formula_version(id,tenant_id,park_id,book_id,item_version_id,legacy_formula_id,version_no,raw_expression,expression_hash,dsl_ast,dependency_codes,parser_version,calculation_order,parse_status,reviewed_by,reviewed_at,review_reason) VALUES($1,$2,$3,$4,$5,1,1,$6,$7,$8,$9,$10,1,'approved_for_simulation',$11,now(),'synthetic review')", [ids.formula, scope.tenantId, scope.parkId, ids.book, ids.item, expression, createHash("sha256").update(expression).digest("hex"), JSON.stringify(parsed.ast), JSON.stringify(parsed.dependencies), HR_PAYROLL_DSL_PARSER_VERSION, ids.actor]);
+  await manager.query("INSERT INTO hr_payroll_formula_version(id,tenant_id,park_id,book_id,item_version_id,legacy_formula_id,version_no,raw_expression,expression_hash,dsl_ast,dependency_codes,parser_version,calculation_order,parse_status,reviewed_by,reviewed_at,review_reason) VALUES($1,$2,$3,$4,$5,1,1,$6,$7,$8,$9,$10,1,'approved_for_simulation',$11,now(),'synthetic review')", [ids.formula, scope.tenantId, scope.parkId, ids.book, ids.item, expression, createHash("sha256").update(expression).digest("hex"), JSON.stringify(parsed.ast), JSON.stringify(parsed.dependencies), parsed.parserVersion, ids.actor]);
   await manager.query("INSERT INTO hr_payroll_legacy_batch(id,tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status) VALUES($1,$2,$3,$4,$5,$5,$5,1,1,'staged')", [ids.legacy, scope.tenantId, scope.parkId, operation, hash]);
   await manager.query("INSERT INTO hr_payroll_legacy_snapshot(id,tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash,net_amount) VALUES($1,$2,$3,$4,$5,$6,'salary01',$7,$7,'mapped',$7,900719925474.1234)", [ids.snapshot, scope.tenantId, scope.parkId, ids.legacy, ids.period, ids.employee, hash]);
   await manager.query("INSERT INTO hr_payroll_legacy_snapshot_item(id,tenant_id,park_id,snapshot_id,item_version_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value,decimal_value) VALUES($1,$2,$3,$4,$5,'NET','decimal',false,$6,'900719925474.1234',900719925474.1234)", [ids.snapshotItem, scope.tenantId, scope.parkId, ids.snapshot, ids.item, hash]);
@@ -80,7 +83,15 @@ test("full-schema preview, audit rollback, freeze and exact-decimal simulation r
   const simulation = { legacyBatchId: ids.legacy!, attendanceInputBatchId: ids.attendanceBatch!, reconciliationSourceId: source.id };
   await assert.rejects(() => s.simulateReconciliation(scope, actor, simulation), ConflictException);
   assert.equal((await db.query("SELECT count(*)::int AS count FROM hr_payroll_reconciliation_run"))[0].count, 0, "missing input rolls back partial run");
-  await db.query("INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id) VALUES($1,$2,$3,2026,7,1)", [scope.tenantId, scope.parkId, ids.employee]);
+  const insurancePeriod = (await db.query("INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id,needs_review) VALUES($1,$2,$3,2026,7,1,true) RETURNING id", [scope.tenantId, scope.parkId, ids.employee]))[0].id as string;
+  const insuranceItem = randomUUID();
+  await db.query("INSERT INTO hr_employee_insurance_item(id,tenant_id,park_id,period_id,insurance_kind,contribution_base,total_amount,employer_amount,employee_amount,supplement_amount) VALUES($1,$2,$3,$4,'oldage',90071992547409.91,0.10,0.09,0.01,NULL)", [insuranceItem, scope.tenantId, scope.parkId, insurancePeriod]);
+  const auditsBeforeReviewRejection = (await db.query("SELECT count(*)::int AS count FROM source_fixture_audit"))[0].count;
+  await assert.rejects(() => s.simulateReconciliation(scope, actor, simulation), /Insurance input requires review/);
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM hr_payroll_reconciliation_run"))[0].count, 0);
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM source_fixture_audit"))[0].count, auditsBeforeReviewRejection);
+  // This owned synthetic input has no historical source mapping; never update production history.
+  await db.query("UPDATE hr_employee_insurance_period SET needs_review=false WHERE id=$1", [insurancePeriod]);
   await assert.rejects(() => s.simulateReconciliation(scope, actor, { ...simulation, reconciliationSourceId: undefined }), ConflictException);
   await assert.rejects(() => s.simulateReconciliation({ ...scope, parkId: "other" }, actor, simulation), ConflictException);
   const run = await s.simulateReconciliation(scope, actor, simulation);
@@ -89,6 +100,107 @@ test("full-schema preview, audit rollback, freeze and exact-decimal simulation r
   assert.deepEqual(result, { old_total: "900719925474.1234", new_total: "900719925474.1234", delta_total: "0.0000" });
   const binding = (await db.query("SELECT reconciliation_source_id,frozen_formula_version FROM hr_payroll_reconciliation_run WHERE id=$1", [run.id]))[0];
   assert.equal(binding.reconciliation_source_id, source.id); assert.equal(binding.frozen_formula_version.legacySource.sourceSha256, preview.sourceSha256);
+  const insuranceEvidence = async (runId: string) => (await db.query(
+    "SELECT frozen_insurance_version,input_snapshot_hash FROM hr_payroll_reconciliation_run WHERE id=$1", [runId]))[0];
+  const originalEvidence = await insuranceEvidence(run.id);
+  assert.deepEqual(originalEvidence.frozen_insurance_version[ids.employee!], {
+    id: insurancePeriod, version: "1", snapshotVersion: "insurance-facts-v1", needsReview: false,
+    items: [{ id: insuranceItem, version: "1", insuranceKind: "oldage",
+      contributionBase: "90071992547409.91", totalAmount: "0.10", employerAmount: "0.09",
+      employeeAmount: "0.01", supplementAmount: null, legacyBaseNegative: false }],
+  });
+  await db.query("UPDATE hr_employee_insurance_item SET employee_amount=0.02 WHERE id=$1", [insuranceItem]);
+  const changedRun = await s.simulateReconciliation(scope, actor, simulation);
+  const changedEvidence = await insuranceEvidence(changedRun.id);
+  assert.notEqual(changedEvidence.input_snapshot_hash, originalEvidence.input_snapshot_hash,
+    "a fact change must alter the hash even when the period version did not change");
+  assert.equal(changedEvidence.frozen_insurance_version[ids.employee!].items[0].employeeAmount, "0.02");
+  assert.equal((await db.query("SELECT parser_version FROM hr_payroll_reconciliation_run WHERE id=$1", [changedRun.id]))[0].parser_version, "jinhu-payroll-dsl-v2");
+  assert.equal((await db.query("SELECT new_total FROM hr_payroll_reconciliation_result WHERE run_id=$1", [changedRun.id]))[0].new_total, "900719925474.1134");
+  const runsBeforeMissing = (await db.query("SELECT count(*)::int AS count FROM hr_payroll_reconciliation_run"))[0].count;
+  await db.query("UPDATE hr_employee_insurance_item SET employee_amount=NULL WHERE id=$1", [insuranceItem]);
+  await assert.rejects(() => s.simulateReconciliation(scope, actor, simulation), /Required insurance amount is missing/);
+  assert.equal((await db.query("SELECT count(*)::int AS count FROM hr_payroll_reconciliation_run"))[0].count, runsBeforeMissing, "missing monetary input rolls back run creation");
+  await db.query("UPDATE hr_employee_insurance_item SET employee_amount=0.02 WHERE id=$1", [insuranceItem]);
+  assert.deepEqual(await insuranceEvidence(run.id), originalEvidence, "old simulation evidence remains immutable");
+
+  let signalRead!: () => void;
+  const readReached = new Promise<void>((resolve) => { signalRead = resolve; });
+  let releaseRead!: () => void;
+  const continueRead = new Promise<void>((resolve) => { releaseRead = resolve; });
+  const isolatedReader = {
+    transaction: (callback: (manager: EntityManager) => Promise<unknown>) => db.transaction(async (manager) => {
+      const query = manager.query.bind(manager);
+      manager.query = async (sql: string, parameters?: unknown[]) => {
+        const rows = await query(sql, parameters);
+        if (sql.includes("SELECT id,period_id,version,insurance_kind")) {
+          signalRead();
+          await continueRead;
+        }
+        return rows;
+      };
+      return callback(manager);
+    }),
+  } as DataSource;
+  const blockedSimulation = new HrPayrollHistoryService(isolatedReader, {
+    recordOperationRequired: async () => undefined,
+  } as unknown as AuditService).simulateReconciliation(scope, actor, simulation);
+  // Surface an early SQL failure instead of waiting forever for the fixture barrier.
+  await Promise.race([readReached, blockedSimulation.then(() => { throw new Error("reader barrier was skipped"); })]);
+  const writer = db.createQueryRunner();
+  try {
+    await writer.connect(); await writer.startTransaction();
+    await writer.query("SET LOCAL lock_timeout='200ms'");
+    await assert.rejects(() => writer.query(
+      "INSERT INTO hr_employee_insurance_item(tenant_id,park_id,period_id,insurance_kind) VALUES($1,$2,$3,'remedy')",
+      [scope.tenantId, scope.parkId, insurancePeriod]),
+      (error: unknown) => (error as { driverError?: { code?: string } }).driverError?.code === "55P03");
+  } finally {
+    try {
+      if (writer.isTransactionActive) await writer.rollbackTransaction();
+    } finally {
+      try { await writer.release(); } finally { releaseRead(); }
+    }
+  }
+  const lockedRun = await blockedSimulation;
+  assert.equal((await insuranceEvidence(lockedRun.id)).frozen_insurance_version[ids.employee!].items.length, 1);
+
   assert.equal((await db.query("SELECT status FROM hr_payroll_legacy_batch WHERE id=$1", [ids.legacy]))[0].status, "staged");
   assert.equal((await db.query("SELECT (SELECT count(*) FROM hr_payroll_run)+(SELECT count(*) FROM hr_payslip) AS count"))[0].count, "0");
+});
+
+test("explicit modern insurance sources affect money, reject stale revisions and preserve prior results", {skip:!enabled}, async()=>{
+ const principal={...actor,permissions:["*"]};
+ const audit={recordOperationRequired:async()=>undefined} as unknown as AuditService;
+ const owned=new HrInsuranceOwnedPeriodService(db,audit),policies=new HrInsurancePolicyVersionService(db,audit),payroll=service();
+ const source=(await db.query("SELECT id FROM hr_payroll_reconciliation_source WHERE tenant_id=$1 AND park_id=$2 ORDER BY created_at LIMIT 1",[scope.tenantId,scope.parkId]))[0];
+ const policy=await policies.create(scope,principal,{requestId:randomUUID(),policyCode:"SYN-MODERN",policyName:"合成政策",variantNo:1,effectiveFrom:"2026-01",effectiveThrough:"2026-12",reason:"合成验证",
+  items:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,factors:{base:{rate:"0.01",fixedAmount:null},employer:{rate:"0.01",fixedAmount:null},employee:{rate:"0.01",fixedAmount:null},supplement:{rate:"0",fixedAmount:null}}}))});
+ const previewRequest={requestId:randomUUID(),employeeId:ids.employee!,expectedEmployeeVersion:1,policyVersionId:policy.id,expectedDefinitionHash:policy.definitionHash,periodMonth:"2026-07",includeFund:false,
+  bases:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,contributionBase:"3.00"}))};
+ const firstPreview=await owned.preview(scope,principal,previewRequest);
+ const first=await owned.confirm(scope,principal,{requestId:randomUUID(),previewId:firstPreview.id,expectedPreviewHash:firstPreview.previewHash,reason:"合成确认"});
+ const request={legacyBatchId:ids.legacy!,attendanceInputBatchId:ids.attendanceBatch!,reconciliationSourceId:source.id};
+ const historicalBefore=(await db.query("SELECT to_jsonb(i) AS row FROM hr_employee_insurance_item i WHERE tenant_id=$1 AND park_id=$2 ORDER BY id",[scope.tenantId,scope.parkId]));
+ const options=await payroll.insuranceSourceOptions(scope,principal,{...request,page:1,page_size:50});
+ assert.equal(options.total,1);assert.equal(options.items[0]!.options.length,2);
+ const selected={employeeId:ids.employee!,sourceKind:"modern_confirmed" as const,sourceId:first.id,expectedVersion:1,expectedHash:firstPreview.previewHash};
+ const run=await payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[selected]});
+ const evidence=async(id:string)=>(await db.query("SELECT r.frozen_insurance_version,r.input_snapshot_hash,s.insurance_period_id,s.insurance_modern_revision_id,s.new_total FROM hr_payroll_reconciliation_run r JOIN hr_payroll_reconciliation_result s ON s.run_id=r.id WHERE r.id=$1",[id]))[0];
+ const firstEvidence=await evidence(run.id);assert.equal(firstEvidence.new_total,"900719925474.1034");assert.equal(firstEvidence.insurance_period_id,null);assert.equal(firstEvidence.insurance_modern_revision_id,first.id);
+ assert.equal(firstEvidence.frozen_insurance_version[ids.employee!].snapshotHash,firstPreview.previewHash);
+ await assert.rejects(()=>payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[{...selected,expectedHash:"f".repeat(64)}]}),/stale, foreign or changed/);
+ await owned.close(scope,principal,{requestId:randomUUID(),revisionId:first.id,expectedPeriodVersion:1,reason:"合成关账"});
+ const nextPreview=await owned.preview(scope,principal,{...previewRequest,requestId:randomUUID(),bases:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,contributionBase:"4.00"}))});
+ const next=await owned.correct(scope,principal,{requestId:randomUUID(),previewId:nextPreview.id,expectedPreviewHash:nextPreview.previewHash,previousRevisionId:first.id,expectedPeriodVersion:1,reason:"合成更正"});
+ await assert.rejects(()=>payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[selected]}),/stale, foreign or changed/);
+ const nextRun=await payroll.simulateReconciliation(scope,principal,{...request,insuranceSources:[{...selected,sourceId:next.id,expectedVersion:2,expectedHash:nextPreview.previewHash}]});
+ assert.equal((await evidence(nextRun.id)).new_total,"900719925474.0934");assert.deepEqual(await evidence(run.id),firstEvidence);
+ const detailQuery={result_page:1,result_page_size:20};
+ const oldDetail=await payroll.reconciliationDetail(scope,principal,run.id,detailQuery);
+ const newDetail=await payroll.reconciliationDetail(scope,principal,nextRun.id,detailQuery);
+ assert.deepEqual(oldDetail.results[0]!.insuranceSource,{sourceKind:"modern_confirmed",sourceId:first.id,version:"1",snapshotHash:firstPreview.previewHash});
+ assert.deepEqual(newDetail.results[0]!.insuranceSource,{sourceKind:"modern_confirmed",sourceId:next.id,version:"2",snapshotHash:nextPreview.previewHash});
+ assert.deepEqual(await db.query("SELECT to_jsonb(i) AS row FROM hr_employee_insurance_item i WHERE tenant_id=$1 AND park_id=$2 ORDER BY id",[scope.tenantId,scope.parkId]),historicalBefore);
+ assert.equal((await db.query("SELECT (SELECT count(*) FROM hr_payroll_run)+(SELECT count(*) FROM hr_payslip) AS count"))[0].count,"0");
 });

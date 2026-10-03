@@ -35,7 +35,7 @@ test("employee-event list binds actor, exact permission, and tenant-park scope",
  await current.run();
  assert.deepEqual(current.employeeReads,[{where:{id:employeeId,...scope,isDeleted:false}}]);
  const query=current.eventQueries[0] as {select:Record<string,boolean>;where:Array<Record<string,unknown>>};
- assert.deepEqual(Object.keys(query.select).sort(),["createTime","effectiveDate","eventNo","eventType","id","reason"]);
+ assert.deepEqual(Object.keys(query.select).sort(),["createTime","effectiveDate","eventNo","eventType","id","isHistoricalImport","reason","status"]);
  assert.equal(query.where.length,2);
  for(const where of query.where){assert.equal(where.tenantId,scope.tenantId);assert.equal(where.parkId,scope.parkId);assert.equal(where.employeeId,employeeId);assert.equal(where.isDeleted,false);}
  await assert.rejects(current.run({...actor,tenantId:"tenant-2"}),NotFoundException);
@@ -46,8 +46,8 @@ test("employee-event list binds actor, exact permission, and tenant-park scope",
 test("employee-event response is an explicit allowlist without legacy, source, audit, or snapshot fields",async()=>{
  const current=fixture([event]);
  const result=await current.run();
- assert.deepEqual(result,[{id:event.id,eventNo:event.eventNo,eventType:event.eventType,effectiveDate:event.effectiveDate,reason:event.reason,createTime:"2026-09-04T08:00:00.000Z"}]);
- assert.deepEqual(Object.keys(result[0]!).sort(),["createTime","effectiveDate","eventNo","eventType","id","reason"]);
+ assert.deepEqual(result,[{id:event.id,eventNo:event.eventNo,eventType:event.eventType,effectiveDate:event.effectiveDate,reason:event.reason,createTime:"2026-09-04T08:00:00.000Z",provenance:{origin:"historical_import",effect:"effective"}}]);
+ assert.deepEqual(Object.keys(result[0]!).sort(),["createTime","effectiveDate","eventNo","eventType","id","provenance","reason"]);
  for(const forbidden of ["tenantId","parkId","employeeId","employeeName","employeeCode","fullName","mobile","idNumber","beforeSnapshot","afterSnapshot","status","legacyEventNo","legacyEventType","legacyState","sourceEffectiveAt","migrationDecision","isHistoricalImport","createBy","updateBy","updateTime","isDeleted","version","remark","source_ref","source_hash"]){
   assert.equal(forbidden in result[0]!,false,`${forbidden} must not be exposed`);
  }
@@ -62,4 +62,14 @@ test("authorized empty event reads are audited and required-audit failure blocks
  });
  const failed=fixture([event],async()=>{throw new Error("required audit unavailable");});
  await assert.rejects(failed.run(),/required audit unavailable/u);
+});
+
+
+test("event provenance distinguishes modern, voided, and unconfirmed facts without raw metadata",async()=>{
+ const modern=fixture([{...event,isHistoricalImport:false,status:"void"}]);
+ assert.deepEqual((await modern.run())[0]!.provenance,{origin:"modern_business",effect:"voided"});
+ const pending=fixture([{...event,status:"needs_review"}]);
+ assert.deepEqual((await pending.run())[0]!.provenance,{origin:"historical_import",effect:"unconfirmed"});
+ const missing=fixture([{...event,isHistoricalImport:undefined,status:undefined} as unknown as typeof event]);
+ assert.deepEqual((await missing.run())[0]!.provenance,{origin:"unclassified",effect:"unconfirmed"});
 });

@@ -53,6 +53,20 @@ test("target migrations entity controller service and modern routes form a stati
   ]) assert.equal(byLayer.get(name)?.status, "verified_static", name);
 });
 
+test("lifecycle route accepts the scoped departure filter and still rejects missing client rendering", () => {
+  const selected = contract();
+  const bound = sources(selected);
+  const routeStatus = (route) => inspectLegacyEmploymentEventCrossLayer({
+    contract: selected, sources: { ...bound, lifecycleRoute: route },
+  }).layers.find((item) => item.layer === "frontend_routes")?.status;
+  const imported = 'import { HrLifecycleClient } from "./HrLifecycleClient";\n';
+  assert.equal(routeStatus(bound.lifecycleRoute), "verified_static");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <HrLifecycleClient/>;}`), "verified_static");
+  assert.equal(routeStatus(`${imported}export default function Page(){return null;}`), "gap");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <OtherClient/>;}`), "gap");
+  assert.equal(routeStatus(`${imported}export default function Page(){return <HrLifecycleClient employeeId={unreviewedId}/>;}`), "gap");
+});
+
 test("employee-event detail projection and required audit close both static gaps without credit", () => {
   const receipt = buildLegacyEmploymentEventCrossLayer({ contract: contract(), repositoryRoot: root });
   const byLayer = new Map(receipt.staticEvidence.layers.map((item) => [item.layer, item]));
@@ -63,6 +77,17 @@ test("employee-event detail projection and required audit close both static gaps
   assert.equal(receipt.staticEvidence.compatibilityCredit, 0);
   assert.equal(receipt.compatibilityCredit, 0);
   assert.equal(receipt.status, "STATIC_CHAIN_COMPLETE_RUNTIME_PENDING");
+});
+
+test("history evidence requires the bound component to be rendered and does not admit extra query fields", () => {
+  const selected = contract();
+  const bound = sources(selected);
+  const status = (overrides, layer) => inspectLegacyEmploymentEventCrossLayer({
+    contract: selected, sources: { ...bound, ...overrides },
+  }).layers.find((item) => item.layer === layer)?.status;
+  assert.equal(status({ employeeClient: bound.employeeClient.replace(/<HrEmploymentHistory[^>]*\/>/u, "") }, "frontend_read_write_surface"), "gap");
+  assert.equal(status({ employmentHistory: "export function HrEmploymentHistory(){return null;}" }, "frontend_read_write_surface"), "gap");
+  assert.equal(status({ apiService: bound.apiService.replace("status:true,isHistoricalImport:true", "status:true,isHistoricalImport:true,beforeSnapshot:true") }, "detail_response_projection"), "gap");
 });
 
 test("runtime source role desktop and 390 evidence remain pending and production import remains HOLD", () => {
@@ -116,7 +141,7 @@ test("hash drift and receipt credit promotion fail closed", () => {
 
   const selected = contract();
   const receipt = buildLegacyEmploymentEventCrossLayer({ contract: selected, repositoryRoot: root });
-  const promoted = structuredClone(receipt);
+  const promoted = globalThis.structuredClone(receipt);
   promoted.runtimeEvidence[0] = {
     surface: "source_readonly_runtime",
     status: "verified",

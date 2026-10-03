@@ -38,6 +38,16 @@ export interface HrEmployeeProjection {
   workEmail:string|null;
 }
 
+export interface HrEmployeeAssignmentLabel {
+  name:string|null;
+  status:"available"|"inactive"|"unassigned"|"unavailable";
+}
+export interface HrEmployeeAssignmentDetails {
+  organization:HrEmployeeAssignmentLabel;
+  position:HrEmployeeAssignmentLabel;
+  manager:HrEmployeeAssignmentLabel;
+}
+
 export interface HrEmployeeProfileProjection {
   id: string;
   employeeId: string;

@@ -65,6 +65,11 @@ that account login-capable.
 
 Compatibility note: S1-RBAC-STD-FIX unifies `tenant_id` and `park_id` scope columns as string SaaS isolation IDs. Production and development seeds use the default Jinhu scope `tenant_id=10000001` and `park_id=20000001`; UUID values remain only for primary keys such as `id`.
 
+`000034_hr_insurance_policy_catalog.sql` registers the policy-version creation API
+under the existing insurance page in the default scope. It fails on catalog drift
+and provisions no role bindings, accounts or business definitions. Existing HR
+read roles remain read-only for this action; intended creation grants are explicit.
+
 The development account seed `../000002_dev_only_s1_accounts.sql` is intentionally excluded.
 
 The Track B reconciliation seed runs after the default tenant, park, module assignment,

@@ -27,7 +27,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+      "sha256": "55117592fd29e3a5642bfe4a8d8fc00c15fa16a1545a63b838ba87a1179b1a46"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
@@ -93,7 +93,7 @@
               "nullContract": "modern_numeric_fallback_zero_does_not_prove_persisted_row_outcome"
             }
           ],
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "55117592fd29e3a5642bfe4a8d8fc00c15fa16a1545a63b838ba87a1179b1a46"
         },
         "readMappings": {
           "applicability": "required",
@@ -136,7 +136,7 @@
           "sourceBoundary": "single_set_based_update_statement_atomic_under_sql_server_statement_rules",
           "modernBoundary": "read_time_postgresql_aggregate_followed_by_required_audit_without_equivalent_refresh_command",
           "rollbackBehavior": "source_statement_failure_rolls_back_its_update_but_no_modern_mutation_boundary_exists_to_compare",
-          "evidenceSha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+          "evidenceSha256": "55117592fd29e3a5642bfe4a8d8fc00c15fa16a1545a63b838ba87a1179b1a46"
         },
         "nullSemantics": {
           "applicability": "required",

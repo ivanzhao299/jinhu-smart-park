@@ -1,0 +1,20 @@
+import {fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {beforeEach,describe,it,expect,vi} from "vitest";
+import {HrContractsClient} from "../../app/hr/contracts/HrContractsClient";
+import {hrApi,type HrContractDetail} from "../../lib/hr-api";
+const state=vi.hoisted(()=>({user:{id:"actor",permissions:["hr:contract:read"]}}));
+vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
+vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
+vi.mock("../../components/auth/PermissionGuard",()=>({PermissionGuard:({children}:{children:React.ReactNode})=>children}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{contracts:vi.fn(),contract:vi.fn()}}));
+const basic:HrContractDetail={id:"contract",contractNo:"SYN-CONTRACT",contractTypeName:"合成合同",startDate:"2025-01-01",endDate:"2027-01-01",status:"active",isHistoricalImport:false,changes:[],actions:[]};
+beforeEach(()=>{vi.clearAllMocks();state.user={id:"actor",permissions:["hr:contract:read"]};vi.mocked(hrApi.contracts).mockResolvedValue({items:[basic],total:1,page:1,page_size:50});vi.mocked(hrApi.contract).mockResolvedValue(basic);});
+async function open(){await screen.findByRole("button",{name:"查看合同"});fireEvent.click(screen.getByRole("button",{name:"查看合同"}));await screen.findByRole("heading",{name:"SYN-CONTRACT"});}
+describe("contract summary fields retain API facts and scope",()=>{
+ it("shows independent returned dates and zero counts without date inference",async()=>{vi.mocked(hrApi.contract).mockResolvedValue({...basic,cumulativeTermMonths:0,firstSignatureDate:"2016-02-03",lastSignatureDate:"2024-11-12",renewalCount:0});render(<HrContractsClient/>);await open();expect(screen.getByText("累计合同期限：0 个月")).toBeVisible();expect(screen.getByText("首次签订日期：2016-02-03")).toBeVisible();expect(screen.getByText("最近签订日期：2024-11-12")).toBeVisible();expect(screen.getByText("续签次数：0 次")).toBeVisible();expect(screen.queryByRole("button",{name:"办理续签/变更"})).toBeNull();});
+ it("retains explicit null as unregistered instead of manufacturing counts or signatures",async()=>{vi.mocked(hrApi.contract).mockResolvedValue({...basic,cumulativeTermMonths:null,firstSignatureDate:null,lastSignatureDate:null,renewalCount:null});render(<HrContractsClient/>);await open();for(const label of ["累计合同期限","首次签订日期","最近签订日期","续签次数"])expect(screen.getByText(`${label}：未登记`)).toBeVisible();});
+ it("does not manufacture fields omitted by the self projection",async()=>{state.user={id:"actor",permissions:["hr:contract:self_read"]};render(<HrContractsClient/>);await open();for(const label of ["累计合同期限","首次签订日期","最近签订日期","续签次数"])expect(screen.queryByText(new RegExp(label))).toBeNull();});
+ it("hides old summary fields immediately on identity change",async()=>{vi.mocked(hrApi.contract).mockResolvedValue({...basic,cumulativeTermMonths:36,firstSignatureDate:"2016-02-03",lastSignatureDate:"2024-11-12",renewalCount:2});const view=render(<HrContractsClient/>);await open();expect(screen.getByText("续签次数：2 次")).toBeVisible();vi.mocked(hrApi.contracts).mockImplementation(()=>new Promise(()=>{}));state.user={id:"another",permissions:["hr:contract:read"]};view.rerender(<HrContractsClient/>);expect(screen.queryByText("续签次数：2 次")).toBeNull();await waitFor(()=>expect(vi.mocked(hrApi.contracts).mock.calls.length).toBeGreaterThan(2));});
+ it("does not invent summary fields when the detail read fails",async()=>{vi.mocked(hrApi.contract).mockRejectedValue(new Error("synthetic failure"));render(<HrContractsClient/>);fireEvent.click(await screen.findByRole("button",{name:"查看合同"}));await screen.findByRole("alert");expect(screen.queryByRole("heading",{name:"SYN-CONTRACT"})).toBeNull();for(const label of ["累计合同期限","首次签订日期","最近签订日期","续签次数"])expect(screen.queryByText(new RegExp(label))).toBeNull();});
+ it("does not read or show contract facts without a reading capability",async()=>{state.user={id:"actor",permissions:[]};render(<HrContractsClient/>);await screen.findByText(/当前账号拥有劳动合同页面入口，但没有可用的合同读取权限/);expect(hrApi.contracts).not.toHaveBeenCalled();expect(hrApi.contract).not.toHaveBeenCalled();});
+});

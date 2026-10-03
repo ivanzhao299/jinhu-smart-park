@@ -1,0 +1,39 @@
+# Employee profile readonly carriage
+
+`HrEmployeesClient` admits a profile only after its employee ID matches the selected detail and
+the current request scope remains valid. Keep that admission, abort and authenticated-context
+remount behavior when changing profile display.
+
+The maintenance form is not the readonly detail. Display every field in an explicitly authorized
+full API projection without independently requiring a mutation control. Existing API policy still
+returns masked projections to ordinary profile-read permission; only existing manage/super access
+returns full projections. A synthetic full response is not proof of new readonly-role authorization.
+The summary uses
+`HrEmployeeProfileSummary`, shared `ds-mobile-record` surfaces and field groups matching the
+existing form. It does not issue requests or create mutation controls.
+
+Additional sensitive fixed and custom fields require `profile.masked === false`. A missing or
+unknown flag is not full-read authorization. Preserve the existing masked summary for those
+responses. Always use `idNumberMasked` in the summary, including full projection; never use
+raw `idNumber` there. Display null/undefined/empty as unregistered, but preserve numeric text
+including zero, decimals, unknown dictionary values and source validation warnings.
+
+API values are React text, never injected HTML. Wrap both custom group headings and labels,
+as well as long values. Keep shorter cards at their natural height. Verify the real component
+with shared global CSS at desktop and 390px; synthetic layout acceptance does not prove a real
+production role or source-field parity.
+
+Required regressions: explicit full-response renderer fixture (not ordinary-role authorization),
+ordinary read permission receiving a masked API response, masked/unknown projection, identity masking,
+source text/null/zero, failed employee switch and authenticated-context reset. A 33-field form
+or summary does not establish parity for all historical source columns.
+
+The legacy archive labels `person.oldaddr` as 原玉舟籍贯 and `person.edulevel` as
+原玉舟学位 only for `yuzhou-v10` / `employee_profile` / `dbo.person.core_residue`
+with the existing sensitive archive read permission. Read own properties from the
+already-authorized projection; preserve scalar source text, explicit empty values,
+and malformed-value warnings. Do not infer values from the modern profile or write
+them back. Suppress only these exact source keys in the corresponding generic
+detail. Clear the previous detail before another detail request, including failure.
+The shared scene card's two-column icon layout needs a local single-column layout
+for a text-only archive card; verify typography and long values at 390px.

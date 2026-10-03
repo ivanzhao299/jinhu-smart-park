@@ -1,9 +1,12 @@
+export type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage } from "./hr-payroll-insurance-source";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_PERMISSIONS
 } from "./property-business/permissions";
 import { APARTMENT_PERMISSIONS } from "./apartment";
 import { HR_PERMISSIONS } from "./hr";
+import { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
+import { HR_INSURANCE_OWNED_PERMISSIONS } from "./hr-insurance-owned-period";
 
 export * from "./property-business";
 export * from "./canteen";
@@ -479,7 +482,15 @@ export const HOUSING_LEDGER_ENTRY_TYPES = [
 ] as const;
 export type HousingLedgerEntryType = (typeof HOUSING_LEDGER_ENTRY_TYPES)[number];
 
+export { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
+export * from "./hr-insurance-owned-period";
+
 export const SYSTEM_PERMISSIONS = {
+  HR_INSURANCE_PERIOD_PREVIEW_CREATE: HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE,
+  HR_INSURANCE_PERIOD_CONFIRM: HR_INSURANCE_OWNED_PERMISSIONS.CONFIRM,
+  HR_INSURANCE_PERIOD_CLOSE: HR_INSURANCE_OWNED_PERMISSIONS.CLOSE,
+  HR_INSURANCE_PERIOD_CORRECT: HR_INSURANCE_OWNED_PERMISSIONS.CORRECT,
+  HR_INSURANCE_POLICY_VERSION_CREATE: HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE,
   AI_ASSISTANT: "ai:assistant",
   ADMIN_ISSUE_CREATE: "admin_issue:create",
   ADMIN_ISSUE_READ: "admin_issue:read",
@@ -1021,6 +1032,11 @@ export interface PermissionSeed {
 }
 
 export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
+  { code: HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE, name: "生成社保期间预览", resource: "hr.insurance_owned_period", action: "preview_create" },
+  { code: HR_INSURANCE_OWNED_PERMISSIONS.CONFIRM, name: "确认社保期间", resource: "hr.insurance_owned_period", action: "confirm" },
+  { code: HR_INSURANCE_OWNED_PERMISSIONS.CLOSE, name: "社保期间关账", resource: "hr.insurance_owned_period", action: "close" },
+  { code: HR_INSURANCE_OWNED_PERMISSIONS.CORRECT, name: "更正社保期间", resource: "hr.insurance_owned_period", action: "correct" },
+  { code: HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE, name: "保存社保政策版本", resource: "hr.insurance_policy_version", action: "version_create" },
   { code: SYSTEM_PERMISSIONS.AI_ASSISTANT, name: "AI 工作台", resource: "ai.assistant", action: "page" },
   { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE, name: "提交问题反馈", resource: "ops.admin_issue", action: "create" },
   { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_READ, name: "查看问题反馈", resource: "ops.admin_issue", action: "read" },

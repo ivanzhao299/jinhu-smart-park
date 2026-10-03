@@ -2,7 +2,8 @@
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import process from "node:process";
+import { fileURLToPath, URL } from "node:url";
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 const EXPECTED = Object.freeze({
@@ -30,6 +31,7 @@ const EXPECTED_PATHS = Object.freeze({
   lifecycleClient: "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx",
   employeeRoute: "apps/web/app/hr/employees/page.tsx",
   employeeClient: "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+  employmentHistory: "apps/web/app/hr/employees/components/HrEmploymentHistory.tsx",
   hrPermissions: "packages/shared/src/hr.ts",
 });
 
@@ -225,7 +227,7 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
     /eventRepo\.save/u.test(sources.apiService);
   const frontendRoutesPassed =
     /import \{ HrLifecycleClient \}/u.test(sources.lifecycleRoute) &&
-    /<HrLifecycleClient\s*\/>/u.test(sources.lifecycleRoute) &&
+    /<HrLifecycleClient(?:\s+employeeId=\{filter\.employeeId\})?\s*\/>/u.test(sources.lifecycleRoute) &&
     /import \{ HrEmployeesClient \}/u.test(sources.employeeRoute) &&
     /<HrEmployeesClient\s*\/>/u.test(sources.employeeRoute);
   const frontendSurfacePassed =
@@ -235,7 +237,10 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
     /HR_EMPLOYMENT_EVENT_READ/u.test(sources.employeeClient) &&
     /hrApi\.events/u.test(sources.employeeClient) &&
     /hrApi\.transition/u.test(sources.employeeClient) &&
-    /任职历史/u.test(sources.employeeClient) &&
+    /import \{ HrEmploymentHistory \} from "\.\/components\/HrEmploymentHistory"/u.test(sources.employeeClient) &&
+    /<HrEmploymentHistory events=\{events\} recordListClassName=\{styles\.employeeRecordList\}\s*\/>/u.test(sources.employeeClient) &&
+    /任职历史/u.test(sources.employmentHistory) &&
+    /events\.map\(event =>/u.test(sources.employmentHistory) &&
     /确认办理并留痕/u.test(sources.employeeClient) &&
     /HR_EMPLOYMENT_EVENT_READ:\s*"hr:employment_event:read"/u.test(sources.hrPermissions) &&
     /HR_EMPLOYMENT_TRANSITION:\s*"hr:employment:transition"/u.test(sources.hrPermissions);
@@ -243,7 +248,7 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
   const projectedDetail =
     /interface HrEmploymentEventResponseDto[\s\S]{0,300}id:string;[\s\S]{0,300}eventNo:string\|null;[\s\S]{0,300}eventType:string;[\s\S]{0,300}effectiveDate:string;[\s\S]{0,300}reason:string\|null;[\s\S]{0,300}createTime:string;/u.test(sources.apiDto) &&
     /projectHrEmploymentEvent/u.test(sources.apiService) &&
-    /select:\{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true\}/u.test(sources.apiService) &&
+    /select:\{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true,status:true,isHistoricalImport:true\}/u.test(sources.apiService) &&
     /employeeEvents[\s\S]{0,1600}\.map\(projectHrEmploymentEvent\)/u.test(sources.apiService) &&
     /response is an explicit allowlist/u.test(sources.apiReadSpec) &&
     /beforeSnapshot[\s\S]{0,800}source_ref[\s\S]{0,120}source_hash/u.test(sources.apiReadSpec);
@@ -275,7 +280,7 @@ function materialize(contract, sources) {
   const body = {
     formatVersion: 1,
     artifactKind: "yuzhou_hr_legacy_employment_event_cross_layer_receipt",
-    identity: structuredClone(contract.identity),
+    identity: globalThis.structuredClone(contract.identity),
     sourceBindingSetSha256: digest(canonical(contract.sourceBindings)),
     staticEvidence: {
       status: inspection.gapCodes.length ? "gaps_present" : "complete_review_pending",
@@ -296,7 +301,7 @@ function materialize(contract, sources) {
       evidenceSha256: null,
       compatibilityCredit: 0,
     })),
-    nextImplementationSlices: structuredClone(contract.nextImplementationSlices),
+    nextImplementationSlices: globalThis.structuredClone(contract.nextImplementationSlices),
     status: inspection.gapCodes.length
       ? "STATIC_CROSS_LAYER_GAPS_PRESENT_RUNTIME_PENDING"
       : "STATIC_CHAIN_COMPLETE_RUNTIME_PENDING",
