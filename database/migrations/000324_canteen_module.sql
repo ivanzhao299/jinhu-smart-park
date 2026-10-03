@@ -1,4 +1,4 @@
--- 000322_canteen_module.sql
+-- 000324_canteen_module.sql
 -- 园区餐厅（食堂承包经营）模块 M0 基础：biz_canteen_* 数据模型。
 -- 严格对齐 docs/canteen/canteen-design-baseline.md 第 4/5 节与 docs/canteen/data-model.md。
 -- 自包含：仅依赖 uuid-ossp 扩展；跨模块引用（party/users/files）为逻辑外键，不建物理 FK，

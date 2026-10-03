@@ -80,7 +80,7 @@ test("canteen ships the five default permission bundles", () => {
 
 test("canteen migration creates settings with frozen defaults and balance guards", () => {
   const migration = readFileSync(
-    resolve(__dirname, "../../../../../database/migrations/000322_canteen_module.sql"),
+    resolve(__dirname, "../../../../../database/migrations/000324_canteen_module.sql"),
     "utf8"
   );
   assert.match(migration, /CREATE TABLE IF NOT EXISTS biz_canteen_settings/);

@@ -1,4 +1,4 @@
--- 000034_canteen_settings_default.sql
+-- 000036_canteen_settings_default.sql
 -- 园区餐厅 M0：为默认租户/园区写入一行可配置设置默认值（幂等，production-safe，无密钥）。
 -- 与 apps/api/src/modules/canteen/canteen-settings.service.ts 的 DEFAULT_CANTEEN_SETTINGS 保持一致。
 -- 默认范围：tenant_id=10000001, park_id=20000001（S1 默认园区 JH）。新租户/园区由

@@ -1,5 +1,5 @@
 -- canteen_module_rollback.sql
--- 000322_canteen_module.sql 的回滚脚本：按反向依赖 DROP 全部 17 张 biz_canteen_* 表。
+-- 000324_canteen_module.sql 的回滚脚本：按反向依赖 DROP 全部 17 张 biz_canteen_* 表。
 -- 用法（在隔离的 canteen-dev-pg 上）：
 --   psql -h 127.0.0.1 -p 55432 -U jinhu -d jinhu_smart_park -v ON_ERROR_STOP=1 -f scripts/sql/canteen_module_rollback.sql
 -- 说明：仅回滚 M0 数据表；sys_module/sys_permission 等 RBAC 种子为幂等注册，不在此 DROP。
