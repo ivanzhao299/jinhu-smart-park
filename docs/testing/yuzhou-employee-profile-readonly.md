@@ -1,14 +1,17 @@
 # 玉舟现代人员档案只读展示验收
 
-问题：现代维护表单已有33个字段，但没有维护权限的完整档案读取者只能看到简要摘要。
+问题：现代维护表单已有33个字段，但完整API投影的只读摘要只显示少量字段。
 本切片补齐身份、教育语言、职务资格、证件联系方式及备注的只读分组，继续显示证件掩码。
-不改变API/数据库、读取权限、维护请求或历史导入。
+不改变API/数据库、读取权限、维护请求或历史导入。现有后端普通档案读取权限仍返回脱敏投影；
+完整投影仍由既有管理/超级权限控制。前端完整响应测试是展示边界测试，不证明普通只读角色已有全量读取授权。
 
 ## 验证
 
-- `pnpm --filter @jinhu/web test:unit:interaction hr-employee-profile-load.test.tsx hr-employee-profile-summary.test.tsx`：18项通过。
+- `pnpm --filter @jinhu/web test:unit:interaction hr-employee-profile-load.test.tsx hr-employee-profile-summary.test.tsx`：19项通过。
 - `pnpm --filter @jinhu/shared build`、Web `typecheck`、`lint`、`build`；最终结果见发布回执。
-- 完整读取但无维护权限可查看字段，摘要没有编辑控件，也不调用更新接口。
+- API明确返回完整投影时，摘要展示全部字段，没有编辑控件，也不调用更新接口。
+- 真实HrService测试验证普通档案read返回脱敏、manage返回完整；页面测试验证普通读取的脱敏响应不显示新增敏感字段。
+- `hr-employee-profile-scope.spec.ts`：7项通过，包含管理组织范围、员工本人、普通读取、管理读取、无关权限和审计失败拒绝。
 - 脱敏/未知投影不呈现新增敏感字段或自定义字段；原始证件号不进入摘要。
 - 员工读取失败或认证上下文变化，旧完整资料清空；源文本按文本渲染；空值与零区分。
 - 当前组件及全局Design System CSS合成浏览器：1280/390px，33固定字段和一个长标签扩展字段；长地址、连续英文组名/标签均无记录或文档横向溢出；脱敏切换后完整敏感信息和扩展字段移除。

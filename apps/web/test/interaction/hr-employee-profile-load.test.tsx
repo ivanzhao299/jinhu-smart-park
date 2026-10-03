@@ -130,7 +130,7 @@ describe("employee profile read admission", () => {
 
 
 describe("full profile readonly carriage", () => {
-  it("shows authorized education and birth date without profile maintenance permission", async () => {
+  it("renders an explicitly supplied full API projection without adding a maintenance requirement", async () => {
     auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), dateOfBirth: "1990-02-03" });
     render(<HrEmployeesClient />); await openFirst();
@@ -139,6 +139,15 @@ describe("full profile readonly carriage", () => {
     expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
     expect(screen.queryByLabelText("最高学历")).toBeNull();
     expect(hrApi.updateProfile).not.toHaveBeenCalled();
+  });
+  it("keeps an ordinary profile reader's masked API response limited to the existing summary", async () => {
+    auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
+    vi.mocked(hrApi.profile).mockResolvedValue(profile("alpha", true));
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("受保护档案（已脱敏）")).toBeVisible();
+    expect(screen.queryByText("Synthetic education")).toBeNull();
+    expect(screen.queryByText(/Synthetic existing note/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
   });
   it("clears full readonly values when a subsequent employee read fails", async () => {
     auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];

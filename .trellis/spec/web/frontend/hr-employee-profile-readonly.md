@@ -4,8 +4,11 @@
 the current request scope remains valid. Keep that admission, abort and authenticated-context
 remount behavior when changing profile display.
 
-The maintenance form is not the readonly detail. Readers without profile-manage permission
-must be able to inspect every field in an authorized full API projection. The summary uses
+The maintenance form is not the readonly detail. Display every field in an explicitly authorized
+full API projection without independently requiring a mutation control. Existing API policy still
+returns masked projections to ordinary profile-read permission; only existing manage/super access
+returns full projections. A synthetic full response is not proof of new readonly-role authorization.
+The summary uses
 `HrEmployeeProfileSummary`, shared `ds-mobile-record` surfaces and field groups matching the
 existing form. It does not issue requests or create mutation controls.
 
@@ -20,6 +23,7 @@ as well as long values. Keep shorter cards at their natural height. Verify the r
 with shared global CSS at desktop and 390px; synthetic layout acceptance does not prove a real
 production role or source-field parity.
 
-Required regressions: full reader without manage, masked/unknown projection, identity masking,
+Required regressions: explicit full-response renderer fixture (not ordinary-role authorization),
+ordinary read permission receiving a masked API response, masked/unknown projection, identity masking,
 source text/null/zero, failed employee switch and authenticated-context reset. A 33-field form
 or summary does not establish parity for all historical source columns.
