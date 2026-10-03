@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsNotEmpty,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
+import { IsArray,IsBoolean,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsNotEmpty,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
 import { HR_EMPLOYEE_STATUSES,HR_EMPLOYMENT_TYPES } from "@jinhu/shared";
 
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
@@ -90,6 +90,9 @@ export class CreateHrContractDto {
  @IsOptional() @Transform(({value})=>value===""?undefined:Number(value)) @IsInt() @Min(0) @Max(120) probationMonths?:number;
  @IsOptional() @Transform(money) @Matches(MONEY_PATTERN) probationSalary?:string;
  @IsOptional() @Transform(money) @Matches(MONEY_PATTERN) baseSalary?:string;
+ @ValidateIf((_object,value)=>value!==undefined) @IsBoolean() confidentialityAgreement?:boolean;
+ @ValidateIf((_object,value)=>value!==undefined) @IsBoolean() nonCompeteAgreement?:boolean;
+ @ValidateIf((_object,value)=>value!==undefined) @IsBoolean() trainingServiceAgreement?:boolean;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
 export class CreateHrContractChangeDto {
