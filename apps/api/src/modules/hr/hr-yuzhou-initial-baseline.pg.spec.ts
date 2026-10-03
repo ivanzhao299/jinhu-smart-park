@@ -118,7 +118,9 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
       const initialProof=await query();assert.equal(initialProof.status,"PASS");assert.deepEqual(initialProof.domains.map((d:{records:number})=>d.records),[12,2],"quarantined employee/contract receipts and dependencies do not change inserted-original counts or hashes");
       assert.deepEqual(await db.query(`SELECT (SELECT count(*) FROM hr_incremental_initial_baseline) baselines,(SELECT sum(version) FROM hr_employee) versions`),before);
       await db.query(`UPDATE hr_employee SET full_name='Modern edit',version=version+1 WHERE id=$1`,[employees[0]!.initialBaselineWitness!.targetId]);
-      assert.equal((await query()).status,"PASS","modern fields never enter original receipt digest");
+      const modernProof=await query();assert.equal(modernProof.status,"PASS","modern fields never enter original receipt digest");
+      assert.notEqual(modernProof.domains[0].currentTargetRowsSha256,initialProof.domains[0].currentTargetRowsSha256,"full business row fingerprint detects modern name/version updates");
+      assert.equal(modernProof.domains[1].currentTargetRowsSha256,initialProof.domains[1].currentTargetRowsSha256,"employee changes do not affect contract fingerprint");
       await db.query(`UPDATE hr_yuzhou_production_import_phase SET status='rolled_back' WHERE operation_id=$1 AND phase='T0'`,[operationId]);
       assert.equal((await query()).status,"FAIL");
       await db.query(`UPDATE hr_yuzhou_production_import_phase SET status='succeeded' WHERE operation_id=$1 AND phase='T0'`,[operationId]);
@@ -136,7 +138,10 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
       const targetBefore=await db.query(`SELECT full_name,version FROM hr_employee WHERE id=$1`,[anchorOnly.initialBaselineWitness!.targetId]);
       const dto=plainToInstance(PreviewYuzhouIncrementalImportDto,pkg(anchorOnly));await validateOrReject(dto,{whitelist:true,forbidNonWhitelisted:true});
       const preview=result(await service.preview(scope,actor,dto));assert.equal(preview.plan[0]!.action,"unchanged");
+      const baselineCommitBefore=await query();
       assert.equal(result(await service.commit(scope,actor,preview.id)).unchangedCount,1);
+      const baselineCommitAfter=await query();
+      assert.deepEqual(baselineCommitAfter.domains.map((d:{currentTargetRowsSha256:string})=>d.currentTargetRowsSha256),baselineCommitBefore.domains.map((d:{currentTargetRowsSha256:string})=>d.currentTargetRowsSha256),"baseline-only commit leaves complete business rows including versions and timestamps unchanged");
       assert.deepEqual(await db.query(`SELECT full_name,version FROM hr_employee WHERE id=$1`,[anchorOnly.initialBaselineWitness!.targetId]),targetBefore);
       const anchored=(await db.query(`SELECT source_facts_encrypted,baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[anchorOnly.sourceKey]))[0];
       const facts=JSON.parse(sensitive.decrypt(anchored.source_facts_encrypted)!);assert.equal(facts.fullName,"Original 11");assert.equal(facts.hireDate,"2020-01-01");assert.ok(anchored.baseline_encrypted.startsWith("enc:v1:"));

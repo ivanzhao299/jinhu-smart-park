@@ -184,12 +184,21 @@ original AS MATERIALIZED (
  OR (d.phase='T2' AND (d.dependency_role,d.depends_on_phase,d.expected_target_table) IN (('employee','T0','hr_employee'),('contract_type','T2','hr_contract_type'))))) AS valid
  FROM hr_yuzhou_production_import_record_dependency d JOIN original r ON r.phase=d.phase AND r.source_identity_sha256=d.source_identity_sha256
  WHERE d.operation_id=${q(e.operationId)}
+), current_targets AS MATERIALIZED (
+ SELECT r.phase,t.id::text AS target_id,to_jsonb(t)::text AS row_json
+ FROM original r JOIN hr_employee t ON r.target_table='hr_employee' AND t.id=r.target_id
+ WHERE t.tenant_id=${q(e.targetScope.tenantId)} AND t.park_id=${q(e.targetScope.parkId)}
+ UNION ALL
+ SELECT r.phase,t.id::text AS target_id,to_jsonb(t)::text AS row_json
+ FROM original r JOIN hr_contract t ON r.target_table='hr_contract' AND t.id=r.target_id
+ WHERE t.tenant_id=${q(e.targetScope.tenantId)} AND t.park_id=${q(e.targetScope.parkId)}
 ), domain_counts AS (
  SELECT ds.phase,ds.target_table,
  (SELECT count(*) FROM original r WHERE r.phase=ds.phase) AS records,
  (SELECT encode(digest(coalesce(string_agg(r.line||chr(10),'' ORDER BY r.line COLLATE "C"),''),'sha256'),'hex') FROM original r WHERE r.phase=ds.phase) AS record_hash,
  (SELECT count(*) FROM dependencies d WHERE d.phase=ds.phase) AS dependencies,
  (SELECT encode(digest(coalesce(string_agg(d.line||chr(10),'' ORDER BY d.line COLLATE "C"),''),'sha256'),'hex') FROM dependencies d WHERE d.phase=ds.phase) AS dependency_hash,
+ (SELECT encode(digest(coalesce(string_agg(t.row_json||chr(10),'' ORDER BY t.target_id COLLATE "C"),''),'sha256'),'hex') FROM current_targets t WHERE t.phase=ds.phase) AS current_target_rows_hash,
  (SELECT count(*) FROM dependencies d WHERE d.phase=ds.phase AND d.valid) AS eligible_dependencies,
  (SELECT count(*) FROM original r JOIN eligible er ON (er.phase,er.source_identity_sha256,er.target_table)=(r.phase,r.source_identity_sha256,r.target_table)
  WHERE r.phase=ds.phase
@@ -207,7 +216,7 @@ original AS MATERIALIZED (
 SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM bound_operation), 'domains',
  (SELECT json_agg(json_build_object('phase',phase,'targetTable',target_table,'records',records,'recordSetSha256',record_hash,
  'dependencies',dependencies,'dependencySetSha256',dependency_hash,'eligibleRecords',eligible_records,'eligibleDependencies',eligible_dependencies,
- 'availableTargets',available_targets,'acceptedBaselines',accepted_baselines) ORDER BY phase COLLATE "C") FROM domain_counts))::text;
+ 'availableTargets',available_targets,'acceptedBaselines',accepted_baselines,'currentTargetRowsSha256',current_target_rows_hash) ORDER BY phase COLLATE "C") FROM domain_counts))::text;
 ROLLBACK;
 `;
 }
@@ -221,10 +230,10 @@ export function sanitizeOriginalBaselineObservation(raw, expectation = ORIGINAL_
   if (!exactKeys(value,['operationBound','domains']) || typeof value.operationBound!=='boolean' || !Array.isArray(value.domains) || value.domains.length!==2) fail('ORIGINAL_RESULT_INVALID');
   const domains=value.domains.map((d,i)=>{
     const expected=e.domains[i];
-    if (!exactKeys(d,['phase','targetTable','records','recordSetSha256','dependencies','dependencySetSha256','eligibleRecords','eligibleDependencies','availableTargets','acceptedBaselines'])
+    if (!exactKeys(d,['phase','targetTable','records','recordSetSha256','dependencies','dependencySetSha256','eligibleRecords','eligibleDependencies','availableTargets','acceptedBaselines','currentTargetRowsSha256'])
       || d.phase!==expected.phase || d.targetTable!==expected.targetTable
       || !['records','dependencies','eligibleRecords','eligibleDependencies','availableTargets','acceptedBaselines'].every(k=>Number.isSafeInteger(d[k])&&d[k]>=0&&d[k]<=100000)
-      || !['recordSetSha256','dependencySetSha256'].every(k=>typeof d[k]==='string'&&ID.test(d[k]))
+      || !['recordSetSha256','dependencySetSha256','currentTargetRowsSha256'].every(k=>typeof d[k]==='string'&&ID.test(d[k]))
       || d.eligibleRecords>d.records || d.availableTargets>d.records || d.acceptedBaselines>d.records || d.eligibleDependencies>d.dependencies) fail('ORIGINAL_RESULT_INVALID');
     const ready=value.operationBound && d.records===expected.records && d.dependencies===expected.dependencies
       && d.recordSetSha256===expected.recordSetSha256 && d.dependencySetSha256===expected.dependencySetSha256

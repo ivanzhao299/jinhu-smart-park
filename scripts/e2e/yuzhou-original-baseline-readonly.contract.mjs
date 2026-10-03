@@ -11,7 +11,7 @@ import { buildOriginalBaselineReadonlySql, sanitizeOriginalBaselineObservation }
 const root=resolve(import.meta.dirname,'../..');
 const retained=JSON.parse(readFileSync(join(root,'.trellis/tasks/10-04-yuzhou-initial-baseline/research/readonly-original-receipt-expectation.json'),'utf8'));
 const expectation=Object.fromEntries(['operationId','sealedPlanSha256','targetScope','triple','domains'].map(k=>[k,retained[k]]));
-const valid=()=>({operationBound:true,domains:expectation.domains.map(d=>({...d,eligibleRecords:d.records,eligibleDependencies:d.dependencies,availableTargets:d.records,acceptedBaselines:0}))});
+const valid=()=>({operationBound:true,domains:expectation.domains.map(d=>({...d,eligibleRecords:d.records,eligibleDependencies:d.dependencies,availableTargets:d.records,acceptedBaselines:0,currentTargetRowsSha256:'c'.repeat(64)}))});
 const reject=(value)=>assert.throws(()=>sanitizeOriginalBaselineObservation(value),{code:'PRODUCTION_RUNTIME_ORIGINAL_RESULT_INVALID'});
 
 test('fixed SQL matches genuine aggregate expectation, SELECT-only bounded read-only transaction',()=>{
@@ -36,6 +36,10 @@ test('sanitizer permits readiness only, separate accepted baselines and immutabl
   assert.equal(observation.status,'PASS');assert.equal(observation.authorizationGranted,false);assert.equal(observation.productionImport,'HOLD');assert.equal(observation.baselineAnchoring,'HOLD');
   for(const change of [v=>{v.operationBound=false;},v=>{v.domains[0].eligibleRecords--;},v=>{v.domains[0].eligibleDependencies--;},v=>{v.domains[1].availableTargets--;},v=>{v.domains[0].recordSetSha256='a'.repeat(64);},v=>{v.domains[1].dependencySetSha256='a'.repeat(64);}]){const v=valid();change(v);assert.equal(sanitizeOriginalBaselineObservation(JSON.stringify(v)).status,'FAIL');}
   const accepted=valid();accepted.domains[0].acceptedBaselines=1;assert.equal(sanitizeOriginalBaselineObservation(JSON.stringify(accepted)).status,'PASS');
+  const currentEdit=valid();currentEdit.domains[0].currentTargetRowsSha256='d'.repeat(64);assert.equal(sanitizeOriginalBaselineObservation(JSON.stringify(currentEdit)).status,'PASS','current target fingerprint is separate from immutable source readiness');
+  assert.ok(buildOriginalBaselineReadonlySql().includes('to_jsonb(t)::text AS row_json'));
+  assert.ok(buildOriginalBaselineReadonlySql().includes('ORDER BY t.target_id COLLATE "C"'));
+  const invalid=valid();invalid.domains[0].currentTargetRowsSha256='private';reject(JSON.stringify(invalid));
 });
 test('sanitizer fails closed for private/unknown output, invalid sizes and count/hash types',()=>{
   for(const raw of ['not JSON','x'.repeat(16385),null,JSON.stringify({...valid(),privateName:'private'}),JSON.stringify({...valid(),domains:[]})])reject(raw);
