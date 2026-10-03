@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+/* global process, Buffer */
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync, chmodSync, symlinkSync, realpathSync, truncateSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { assembleYuzhouImportFromStaging, materializeYuzhouImportFromStaging, stagingEntryErrorCode } from "../hr-cutover/build-yuzhou-import-from-staging.mjs";
+import { buildYuzhouReusableIncrementalPackage } from "../hr-cutover/build-yuzhou-reusable-incremental-package.mjs";
+const root = resolve(import.meta.dirname, "../.."), base = mkdtempSync(join(realpathSync(tmpdir()), "yuzhou-entry-"));
+const sha = value => createHash("sha256").update(value).digest("hex");
+const put = (path, value) => writeFileSync(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+const json = path => JSON.parse(readFileSync(path, "utf8"));
+const run = (script, ...args) => execFileSync(process.execPath, [join(root, script), ...args], { stdio: "pipe" });
+let checks = 0;
+try {
+  const fixture = join(base, "fixture");
+  run("scripts/e2e/yuzhou-reusable-incremental-package-fixture.mjs", "--root", fixture, "--contract-type-id", "11111111-1111-4111-8111-111111111111");
+  assert.equal(stagingEntryErrorCode(new Error("YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING")), "YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING");
+  for (const message of ["secret /private/path token", "YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING\nprivate row", "YUZHOU_STAGING_ENTRY_UNREVIEWED_CODE"]) assert.equal(stagingEntryErrorCode(new Error(message)), "YUZHOU_STAGING_ENTRY_FAILED"); checks += 4;
+  const original = json(join(fixture, "input.json")), t0 = join(base, "staging-t0"), t2 = join(base, "staging-t2");
+  mkdirSync(t0, { mode: 0o700 }); mkdirSync(t2, { mode: 0o700 });
+  const person = { ...original.employeeRecords[0].source, employeeCode: "CLI-E-001", fullName: 'Name \\ quoted " line\nvalue' };
+  for (const [file, rows] of Object.entries({ "departments.raw.json": [], "positions.raw.json": [], "employees.raw.json": [person], "employee-job-states.raw.json": [], "job-state-code-metadata.raw.json": [], "job-state-codes.raw.json": [] })) put(join(t0, file), rows);
+  const contract = { ...original.records[0].source, contractNo: 'HT-\\"001', typeName: 'Labor \\ "type"' };
+  for (const [file, rows] of Object.entries({ "contract-types.raw.json": [{ typeCode: "LABOR", typeName: contract.typeName }], "contracts.raw.json": [contract], "contract-changes.raw.json": [], "contract-states.raw.json": [{ state: "草稿" }] })) put(join(t2, file), rows);
+  run("scripts/transform-yuzhou-t0.mjs", t0); run("scripts/transform-yuzhou-t2-contracts.mjs", t2);
+  const artifact = original.contractTypeMappingArtifact;
+  artifact.bindings[0].sourceTypeName = contract.typeName;
+  const canonical = value => value === null || typeof value !== "object" ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  artifact.artifactSha256 = sha(canonical({ formatVersion: artifact.formatVersion, sourceSystem: artifact.sourceSystem, targetScope: artifact.targetScope, bindings: artifact.bindings }));
+  const ref = (name, value) => { const path = join(base, name); put(path, value); return { path, sha256: sha(readFileSync(path)) }; };
+  const manifestRef = dir => ({ path: join(dir, "manifest.json"), sha256: sha(readFileSync(join(dir, "manifest.json"))) });
+  const config = { formatVersion: 1, t0Manifest: manifestRef(t0), t2Manifest: manifestRef(t2), includeEmployees: true, extractedAt: original.extractedAt, sourceCustody: { sourceSnapshotSha256: sha("synthetic snapshot"), evidenceSha256: sha("synthetic custody"), declaration: "caller_attests_same_controlled_snapshot" }, jobStateDecisionArtifact: ref("states.json", original.jobStateDecisionArtifact), contractTypeMappingArtifact: ref("types.json", artifact), contractStateResolutions: ref("resolutions.json", original.contractStateResolutions), outputDir: join(base, "output") };
+  const configPath = join(base, "config.json"); put(configPath, config);
+  const assembled = assembleYuzhouImportFromStaging(configPath);
+  assert.equal(assembled.input.employeeRecords[0].source.fullName, person.fullName);
+  assert.equal(assembled.input.records[0].sourceKey, contract.contractNo);
+  assert.equal(assembled.input.records[0].source.typeName, contract.typeName); checks += 3;
+  const direct = buildYuzhouReusableIncrementalPackage(assembled.input), result = materializeYuzhouImportFromStaging(configPath);
+  assert.deepEqual(json(result.packagePath), direct.packageDto); checks++;
+  assert.equal(json(result.coveragePath).sourceFieldCoverage.length, 2);
+  assert.equal(json(join(config.outputDir, "assembly-receipt.json")).accounting.length, 10); checks += 2;
+  for (const file of readdirSync(config.outputDir)) assert.equal(statSync(join(config.outputDir, file)).mode & 0o777, 0o600);
+  assert.equal(statSync(config.outputDir).mode & 0o777, 0o700);
+  assert.ok(!readdirSync(base).some(name => name.startsWith(".yuzhou-staging-"))); checks += 3;
+  const attempt = change => { put(configPath, { ...config, ...change }); return assembleYuzhouImportFromStaging(configPath); };
+  assert.equal(attempt({ t2Manifest: undefined }).input.records.length, 0); checks++;
+  const onlyContracts = attempt({ includeEmployees: false });
+  assert.equal(buildYuzhouReusableIncrementalPackage(onlyContracts.input).manifest.itemCount, 1);
+  assert.deepEqual(onlyContracts.receipt.apiInput, {employee:0,contract:1});
+  assert.deepEqual(onlyContracts.receipt.dependencyIndex, {employee:1}); checks += 3;
+  assert.throws(() => attempt({ t0Manifest: { ...config.t0Manifest, sha256: "0".repeat(64) } }));
+  assert.throws(() => attempt({ sourceCustody: { ...config.sourceCustody, declaration: "same_timestamp" } })); checks += 2;
+  put(configPath, config); chmodSync(configPath, 0o644); assert.throws(() => assembleYuzhouImportFromStaging(configPath)); chmodSync(configPath, 0o600); checks++;
+  const oversized = join(base, "oversized.json"); put(oversized, {}); truncateSync(oversized, 64 * 1024 * 1024 + 1);
+  assert.throws(() => assembleYuzhouImportFromStaging(oversized)); checks++;
+  const alias = join(base, "alias.json"); symlinkSync(configPath, alias); assert.throws(() => assembleYuzhouImportFromStaging(alias)); checks++;
+  // Rehashing a containing file must never repair forged source row digests.
+  const employeesPath = join(t0, "employees.jsonl"), originalEmployees = readFileSync(employeesPath);
+  const originalManifest = readFileSync(config.t0Manifest.path);
+  const stagedPerson = JSON.parse(originalEmployees.toString().trim());
+  stagedPerson.source.fullName = "FORGED PRIVATE VALUE";
+  writeFileSync(employeesPath, `${JSON.stringify(stagedPerson)}\n`);
+  let editedManifest = json(config.t0Manifest.path);
+  editedManifest.domains.employees.fileSha256 = sha(readFileSync(employeesPath));
+  put(config.t0Manifest.path, editedManifest);
+  assert.throws(() => attempt({ t0Manifest: manifestRef(t0) })); checks++;
+  writeFileSync(employeesPath, Buffer.concat([originalEmployees, originalEmployees]));
+  editedManifest.domains.employees.fileSha256 = sha(readFileSync(employeesPath));
+  editedManifest.domains.employees.rows = 2; put(config.t0Manifest.path, editedManifest);
+  assert.throws(() => attempt({ t0Manifest: manifestRef(t0) })); checks++;
+  writeFileSync(employeesPath, originalEmployees); writeFileSync(config.t0Manifest.path, originalManifest);
+  const unresolved = attempt({ contractStateResolutions: ref("unresolved.json", {}) });
+  assert.throws(() => buildYuzhouReusableIncrementalPackage(unresolved.input)); checks++;
+  const missingType = attempt({ contractTypeMappingArtifact: undefined });
+  assert.throws(() => buildYuzhouReusableIncrementalPackage(missingType.input)); checks++;
+  // Public CLI errors cannot include parser excerpts or private field values.
+  put(configPath, { privateMarker: "DO-NOT-PRINT" });
+  let cliError;
+  try { run("scripts/hr-cutover/build-yuzhou-import-from-staging.mjs", "--config", configPath); }
+  catch (error) { cliError = error.stderr.toString(); }
+  assert.equal(cliError, "YUZHOU_STAGING_ENTRY_FAILED\n"); checks++;
+  const scope = artifact.targetScope;
+  config.sourceCustody.targetScope = scope;
+  assert.throws(() => attempt({ sourceCustody: {...config.sourceCustody,targetScope:{...scope,parkId:"OTHER"}} }), /YUZHOU_STAGING_ENTRY_SCOPE_MISMATCH/); checks++;
+  const excludedRow = assembled.input.records[0];
+  const exclusions = { formatVersion: 1, artifactKind: "yuzhou_original_historical_exclusions", sourceSystem: "yuzhou-v10", originalSourceSnapshotSha256: sha("original snapshot"), originalOperationId: "yzprod-import-20261001T010203Z-abcdef123456", originalSealedPlanSha256: sha("original sealed plan"), originalPlanFileSha256: sha("original plan file"), originalExecutionProofFileSha256: sha("original successful execution"), targetScope: scope, policy: "ARCHIVE_UNCHANGED_ORIGINAL_QUARANTINE", entries: [{ domain: "contract", sourceTable: "dbo.compact", sourceKey: `sha256:${excludedRow.sourceIdentitySha256}`, sourceRowSha256: excludedRow.sourceRowSha256, decisionReceiptSha256: sha("original decision receipt"), reasonCode: "ORIGINAL_QUARANTINE" }] };
+  const unchanged = attempt({ historicalExclusions: ref("exclusions.json", exclusions) });
+  assert.equal(unchanged.input.records.length, 0);
+  assert.deepEqual(unchanged.receipt.exclusionEvidence.excluded, { employee: 0, contract: 1 }); checks += 2;
+  // Exact identity but different source facts re-enter the ordinary adapter.
+  exclusions.entries[0].sourceRowSha256 = sha("older facts");
+  const repaired = attempt({ historicalExclusions: ref("changed.json", exclusions) });
+  assert.equal(buildYuzhouReusableIncrementalPackage(repaired.input).manifest.itemCount, 2);
+  assert.equal(repaired.receipt.exclusionEvidence.nonApplicableChanged.length, 1); checks += 2;
+  exclusions.entries[0].sourceKey = `sha256:${sha("not in this snapshot")}`;
+  const absent = attempt({ historicalExclusions: ref("absent.json", exclusions) });
+  assert.equal(absent.receipt.exclusionEvidence.notPresent.length, 1);
+  assert.equal(absent.input.records.length, 1); checks += 2;
+  assert.throws(() => attempt({ historicalExclusions: { ...ref("wrong-digest.json", exclusions), sha256: "0".repeat(64) } })); checks++;
+  exclusions.targetScope = { ...scope, parkId: "OTHER" };
+  assert.throws(() => attempt({ historicalExclusions: ref("wrong-scope.json", exclusions) })); checks++;
+  exclusions.targetScope = scope; exclusions.entries.push({ ...exclusions.entries[0] });
+  assert.throws(() => attempt({ historicalExclusions: ref("duplicate-exclusion.json", exclusions) })); checks++;
+  // A new contract depending on an unchanged excluded employee must fail the
+  // ordinary builder, never be silently omitted or rebound to another employee.
+  const employeeRow=assembled.input.employeeRecords[0];
+  const employeeExclusions={...exclusions,entries:[{...exclusions.entries[0],domain:"employee",sourceTable:"dbo.person",sourceKey:`sha256:${employeeRow.sourceIdentitySha256}`,sourceRowSha256:employeeRow.sourceRowSha256}]};
+  const dangling=attempt({historicalExclusions:ref("employee-exclusions.json",employeeExclusions),outputDir:join(base,"dangling")});
+  assert.equal(dangling.input.employeeRecords.length,0);assert.equal(dangling.input.records.length,1);
+  assert.throws(()=>materializeYuzhouImportFromStaging(configPath),/YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING/);
+  assert.ok(!readdirSync(base).some(name=>name.startsWith(".yuzhou-staging-")||name==="dangling"));checks+=4;
+  let missingError;try{run("scripts/hr-cutover/build-yuzhou-import-from-staging.mjs","--config",configPath);}catch(error){missingError=error.stderr.toString();}
+  assert.equal(missingError,"YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING\n");checks++;
+  const indexDangling=attempt({includeEmployees:false,historicalExclusions:ref("index-exclusions.json",employeeExclusions)});
+  assert.throws(()=>buildYuzhouReusableIncrementalPackage(indexDangling.input),/YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING/);checks++;
+  employeeExclusions.entries[0].sourceRowSha256=sha("older employee facts");
+  const changedEmployee=attempt({historicalExclusions:ref("changed-employee-exclusions.json",employeeExclusions)});
+  assert.equal(buildYuzhouReusableIncrementalPackage(changedEmployee.input).manifest.itemCount,2);
+  assert.equal(changedEmployee.receipt.exclusionEvidence.nonApplicableChanged.length,1);checks+=2;
+  // Hash-valid manifest count drift must still fail, rather than dropping a row.
+  const manifest = json(config.t0Manifest.path); manifest.domains.employees.rows = 0; put(config.t0Manifest.path, manifest);
+  assert.throws(() => attempt({ t0Manifest: manifestRef(t0) })); checks++;
+  // Explicit empty extract emits no API package and remains fully accounted.
+  put(join(t0, "employees.raw.json"), []); run("scripts/transform-yuzhou-t0.mjs", t0);
+  const empty = attempt({ t0Manifest: manifestRef(t0), t2Manifest: undefined, outputDir: join(base, "empty") });
+  assert.equal(buildYuzhouReusableIncrementalPackage(empty.input).manifest.disposition, "no_source_records"); checks++;
+  // An unresolved employee rejects the entire batch, cleans private temporary input.
+  person.legacyStatus = "UNKNOWN"; put(join(t0, "employees.raw.json"), [person]); run("scripts/transform-yuzhou-t0.mjs", t0);
+  put(configPath, { ...config, t0Manifest: manifestRef(t0), outputDir: join(base, "failed") });
+  assert.throws(() => materializeYuzhouImportFromStaging(configPath), /YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_STATE_UNRESOLVED/);
+  assert.ok(!readdirSync(base).some(name => name.startsWith(".yuzhou-staging-") || name === "failed")); checks += 2;
+  let stateError;try{run("scripts/hr-cutover/build-yuzhou-import-from-staging.mjs","--config",configPath);}catch(error){stateError=error.stderr.toString();}
+  assert.equal(stateError,"YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_STATE_UNRESOLVED\n");checks++;
+  process.stdout.write(`Yuzhou staging entry passed (${checks} checks).\n`);
+} finally { rmSync(base, { recursive: true, force: true }); }
