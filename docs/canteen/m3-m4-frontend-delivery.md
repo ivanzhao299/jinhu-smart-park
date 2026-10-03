@@ -81,3 +81,13 @@
 - 实测（DB 55435）：共 44 条；settlement 12（generate/submit/reconcile/dispute/approve/settle 全链路）、order 21（subsidy_checkout 等）、payment 9（payment_success）、refund 2（approve）；session/dish/grant 此库暂无对应事件故为 0（筛选正确，发生即落）。
 - 截图：selfcheck/m34-10-audit-all.png。
 - 回归：后端重启后 结算/报表/退款/POS退款/财务嵌入 均正常加载，无 Cannot GET / 白屏。
+
+---
+
+## session/dish 真实运行链路证据（E2E）
+在 3110/3101 实跑：开班 → 加购青椒牛柳 → 扫码出码(CO202610030014/CP202610030011) → 内部 mock settle 完成一笔 ¥18 成交 → 右键青椒牛柳沽清(下架)卡片即时变售罄 → 右键恢复上架 → 结班/日结(预览 扫码¥18/订单1，确认后班次=未开班)。
+审计页筛选结果：
+- entity_type=session：共 2 条，open(→open) 21:36:34、close(→closed) 21:41:30，CS202610030004，admin。截图 m34-11-session-logs.png。
+- entity_type=dish：共 2 条，shelf_off(on_shelf→off_shelf) 21:40:45、shelf_on(off_shelf→on_shelf) 21:41:00，青椒牛柳，admin。截图 m34-12-dish-logs.png。
+- 状态一致性：交易后青椒牛柳 status=on_shelf，POS 卡片与管理端一致。
+本轮无代码改动，typecheck/build 未重跑。
