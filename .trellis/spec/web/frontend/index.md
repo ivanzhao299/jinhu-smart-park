@@ -495,6 +495,8 @@ bypass tenant ownership.
 
 ## Verification
 
+HR employee full-read and masked summary: [Readonly employee profiles](./hr-employee-profile-readonly.md).
+
 HR insurance exact decimal aggregates and phone layout: [Insurance amounts](./hr-insurance-amounts.md).
 
 For frontend changes, choose the smallest reliable checks:

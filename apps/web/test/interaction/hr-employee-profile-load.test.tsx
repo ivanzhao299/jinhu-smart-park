@@ -5,7 +5,8 @@ import { hrApi, type HrEmployee, type HrEmployeeProfile } from "../../lib/hr-api
 
 vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), updateProfile: vi.fn() } }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-test-token" }));
-vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ id: "synthetic-user", permissions: ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"] }) }));
+const auth = vi.hoisted(() => ({ permissions: ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"] }));
+vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ id: "synthetic-user", permissions: auth.permissions }) }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: {children: React.ReactNode}) => children }));
 
 const employee = (id = "alpha"): HrEmployee => ({
@@ -27,6 +28,7 @@ async function openFirst() {
 }
 
 beforeEach(() => {
+  auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"];
   vi.mocked(hrApi.employees).mockReset().mockResolvedValue({ items: [employee()], total: 1, page: 1, page_size: 50 });
   vi.mocked(hrApi.employee).mockReset().mockImplementation(async id => employee(id));
   vi.mocked(hrApi.profile).mockReset(); vi.mocked(hrApi.updateProfile).mockReset();
@@ -124,4 +126,48 @@ describe("employee profile read admission", () => {
     await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: undefined }), "synthetic-test-token"));
   });
 
+});
+
+
+describe("full profile readonly carriage", () => {
+  it("renders an explicitly supplied full API projection without adding a maintenance requirement", async () => {
+    auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), dateOfBirth: "1990-02-03" });
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("Synthetic education")).toBeVisible();
+    expect(screen.getByText("1990-02-03")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
+    expect(screen.queryByLabelText("最高学历")).toBeNull();
+    expect(hrApi.updateProfile).not.toHaveBeenCalled();
+  });
+  it("keeps an ordinary profile reader's masked API response limited to the existing summary", async () => {
+    auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
+    vi.mocked(hrApi.profile).mockResolvedValue(profile("alpha", true));
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("受保护档案（已脱敏）")).toBeVisible();
+    expect(screen.queryByText("Synthetic education")).toBeNull();
+    expect(screen.queryByText(/Synthetic existing note/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
+  });
+  it("clears full readonly values when a subsequent employee read fails", async () => {
+    auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
+    vi.mocked(hrApi.employees).mockResolvedValue({ items: [employee(), employee("beta")], total: 2, page: 1, page_size: 50 });
+    vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockRejectedValueOnce(new Error("synthetic unavailable"));
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("Synthetic education")).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", { name: "查看档案" })[1]!);
+    await screen.findByRole("heading", { name: "Synthetic beta · 员工详情" });
+    expect(screen.queryByText("Synthetic education")).toBeNull();
+    expect(screen.queryByText(/Synthetic existing note/)).toBeNull();
+  });
+  it("removes prior full readonly values when the authenticated context changes", async () => {
+    auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:read"];
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    const view = render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("Synthetic education")).toBeVisible();
+    auth.permissions = ["hr:employees", "hr:employee:read"];
+    view.rerender(<HrEmployeesClient />);
+    expect(screen.queryByText("Synthetic education")).toBeNull();
+    expect(screen.queryByLabelText("员工档案详情")).toBeNull();
+  });
 });

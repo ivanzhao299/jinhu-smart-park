@@ -31,7 +31,7 @@ test("self masked profile and independently permitted detail sections remain usa
   assert.match(page,/hrApi\.contracts\(getAccessToken\(\),page,size,\{employeeId\},selfOnly\)/u);
   assert.match(page,/createEmployeeContracts<HrContract>\(employee\.id,/u);
   assert.match(page,/canReadRecords\?hrApi\.employeeRecords/u);
-  assert.match(page,/profile\.masked\?"脱敏敏感档案":"敏感档案"/u);
+  assert.match(page,/profile\.masked===false\?"敏感档案":"脱敏敏感档案"/u);
 });
 
 test("employee writes remain behind exact manage or transition atoms",()=>{

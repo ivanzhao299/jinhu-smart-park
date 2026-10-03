@@ -149,7 +149,7 @@
     {
       "surface": "web_ui",
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "20bdb0628b3f2076d6102263b89c45638f30ec5625bd6dc17abdb7366bb61f87",
+      "sha256": "6cf722200f9535c6e707e7e9820487c2fffdbfd4c402d02b9ccb4034967ba1bd",
       "requiredTokens": [
         "name=\"highestEducation\"",
         "label=\"最高学历\"",
