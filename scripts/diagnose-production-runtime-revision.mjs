@@ -253,6 +253,82 @@ export function observeOriginalBaselineReadonly() {
   return sanitizeOriginalBaselineObservation(raw);
 }
 
+
+/** Snapshot-only original T5 aggregate observation; never certifies or writes a baseline. */
+export function buildT5ProfileAggregateReadonlySql() {
+  return `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout='30s';
+SET LOCAL lock_timeout='2s';
+SET LOCAL search_path=pg_catalog,public;
+SET LOCAL TIME ZONE 'Asia/Shanghai';
+WITH operation AS (
+ SELECT o.* FROM public.hr_yuzhou_t5_followon_operation o
+ JOIN public.migration_batch b ON b.t5_followon_operation_id=o.operation_id
+ WHERE o.operation_id='yzprod-import-20261002T012708Z-8d16a426fe54'
+ AND o.binding_sha256='c15e13525f5c03ff06426150a2c7539f61e1a6ce5464af90e537380211b9559e'
+ AND o.status='succeeded' AND o.finished_at IS NOT NULL AND o.rolled_back_at IS NULL
+ AND o.binding->>'executionCodeSha'='7c3df1c230bde74badbf414acae36030d5fe8709'
+ AND o.binding->>'sourceMappingContractSha256'='d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0'
+ AND o.binding->'targetScope'->>'tenantId'='10000001'
+ AND o.binding->'targetScope'->>'parkId'='20000001'
+ AND b.source_system='yuzhou-v10' AND b.execution_context='t5_production_followon'
+ AND b.status='succeeded' AND b.finished_at IS NOT NULL
+ AND b.run_id=o.operation_id AND b.target_database=current_database()
+ AND b.source_snapshot_sha256=o.binding->'triple'->>'sourceSnapshotHash'
+ AND b.tool_version='t5-followon-v1@'||(o.binding->>'executionCodeSha')
+), receipts AS (
+ SELECT r.* FROM public.hr_yuzhou_t5_followon_projection_receipt r
+ WHERE r.operation_id='yzprod-import-20261002T012708Z-8d16a426fe54'
+), profiles AS (
+ SELECT x.* FROM public.hr_employee_profile x JOIN receipts r ON r.target_id=x.id
+ WHERE r.target_table='hr_employee_profile' AND r.disposition='insert'
+ AND x.tenant_id='10000001' AND x.park_id='20000001'
+), profile_hash AS (
+ SELECT count(*) n,encode(public.digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex') h
+ FROM (SELECT encode(public.digest(to_jsonb(x)::text,'sha256'),'hex') row_hash FROM profiles x) q
+), receipt_hash AS (
+ SELECT count(*) n,encode(public.digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex') h
+ FROM (SELECT encode(public.digest(to_jsonb(r)::text,'sha256'),'hex') row_hash FROM receipts r) q
+)
+SELECT json_build_object(
+ 'operationBound',(SELECT count(*)=1 FROM operation),
+ 'profileCount',(SELECT n FROM profile_hash),
+ 'profileReceiptCount',(SELECT count(*) FROM receipts WHERE target_table='hr_employee_profile' AND disposition='insert'),
+ 'profileSha256',(SELECT h FROM profile_hash),
+ 'profileAggregateMatches',COALESCE((SELECT o.owned_state->'hr_employee_profile'->>'count'=p.n::text
+  AND o.owned_state->'hr_employee_profile'->>'sha256'=p.h FROM operation o CROSS JOIN profile_hash p),false),
+ 'receiptCount',(SELECT n FROM receipt_hash),
+ 'receiptSha256',(SELECT h FROM receipt_hash),
+ 'receiptAggregateMatches',COALESCE((SELECT o.owned_state->'receipts'->>'count'=r.n::text
+  AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false)
+)::text;
+ROLLBACK;
+`;
+}
+export function sanitizeT5ProfileAggregateObservation(raw) {
+  let v;
+  try {
+    if (typeof raw !== 'string' || Buffer.byteLength(raw)>16384) fail('T5_RESULT_INVALID');
+    v=JSON.parse(raw);
+  } catch { fail('T5_RESULT_INVALID'); }
+  const keys=['operationBound','profileCount','profileReceiptCount','profileSha256','profileAggregateMatches','receiptCount','receiptSha256','receiptAggregateMatches'];
+  if (!exactKeys(v,keys)
+    || !['operationBound','profileAggregateMatches','receiptAggregateMatches'].every(k=>typeof v[k]==='boolean')
+    || !['profileCount','profileReceiptCount','receiptCount'].every(k=>Number.isSafeInteger(v[k])&&v[k]>=0&&v[k]<=1000000)
+    || !['profileSha256','receiptSha256'].every(k=>typeof v[k]==='string'&&ID.test(v[k]))) fail('T5_RESULT_INVALID');
+  const ready=v.operationBound && v.profileCount>0 && v.profileCount===v.profileReceiptCount && v.profileAggregateMatches && v.receiptAggregateMatches;
+  return {...v,status:ready?'PASS':'FAIL',evidenceScope:'original_t5_profile_aggregate_snapshot_only',baselineCertified:false,productionWrites:false};
+}
+export function observeT5ProfileAggregateReadonly() {
+  let raw;
+  try {
+    raw=execFileSync('docker',['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c',
+      'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
+      {input:buildT5ProfileAggregateReadonlySql(),encoding:'utf8',timeout:40000,maxBuffer:16384,stdio:['pipe','pipe','pipe']});
+  } catch { fail('T5_QUERY_FAILED'); }
+  return sanitizeT5ProfileAggregateObservation(raw);
+}
+
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -271,7 +347,9 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
       observerCodeCommit: values.get("--observer-code-commit") ?? expectedCommit,
     });
     const originalBaseline = observeOriginalBaselineReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline}) + "\n");
+    const t5OriginalProfileAggregate = observeT5ProfileAggregateReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate}) + "\n");
+    // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {
     process.stderr.write(`${error instanceof ProductionRuntimeObservationError ? error.code : "PRODUCTION_RUNTIME_OBSERVATION_FAILED"}\n`);

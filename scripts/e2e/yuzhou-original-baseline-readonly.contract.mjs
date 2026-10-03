@@ -6,7 +6,7 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { buildOriginalBaselineReadonlySql, sanitizeOriginalBaselineObservation } from '../diagnose-production-runtime-revision.mjs';
+import { buildOriginalBaselineReadonlySql, sanitizeOriginalBaselineObservation, buildT5ProfileAggregateReadonlySql } from '../diagnose-production-runtime-revision.mjs';
 
 const root=resolve(import.meta.dirname,'../..');
 const retained=JSON.parse(readFileSync(join(root,'.trellis/tasks/10-04-yuzhou-initial-baseline/research/readonly-original-receipt-expectation.json'),'utf8'));
@@ -50,22 +50,22 @@ test('standalone and stdin prove images first, execute fixed container command, 
   const docker=join(dir,'docker'),log=join(dir,'log'),sql=join(dir,'sql');
   writeFileSync(docker,`#!/usr/bin/env node
 const fs=require('node:fs');const a=process.argv.slice(2);fs.appendFileSync(process.env.TEST_LOG,JSON.stringify(a)+'\\n');
-if(a[2]==='exec'){fs.writeFileSync(process.env.TEST_SQL,fs.readFileSync(0,'utf8'));if(process.env.TEST_FAIL==='query'){console.error('sensitive credentials private row');process.exit(1);}console.log(process.env.TEST_RESULT);process.exit(0);}
+if(a[2]==='exec'){const sql=fs.readFileSync(0,'utf8');fs.writeFileSync(process.env.TEST_SQL,sql);if(process.env.TEST_FAIL==='query'){console.error('sensitive credentials private row');process.exit(1);}console.log(sql.includes('WITH operation AS (')?process.env.TEST_T5_RESULT:process.env.TEST_RESULT);process.exit(0);}
 const id=a.at(-1);const service=id.includes('api')||id==='1'.repeat(64)||id==='sha256:'+'3'.repeat(64)?'api':'web';
 const n=service==='api'?'1':'2',m=service==='api'?'3':'4';const revision=process.env.TEST_FAIL==='image'?'b'.repeat(40):'a'.repeat(40);
 if(a[2]==='image')console.log(JSON.stringify(['sha256:'+m.repeat(64),revision,service]));
 else if(a[5].includes('.Mounts'))console.log('');
 else console.log(JSON.stringify([n.repeat(64),'sha256:'+m.repeat(64),true,false,false,'2026-10-04T12:00:00Z',0,'/jinhu-smart-park-prod-'+service]));
 `,{mode:0o700});
-  for(const stdin of [false,true])for(const failure of ['', 'image','query']){
+  for(const stdin of [false,true])for(const failure of ['', 'image','query','t5-mismatch']){
     writeFileSync(log,'');
     const args=stdin?['--input-type=module','-']:['scripts/diagnose-production-runtime-revision.mjs'];
-    const result=spawnSync(process.execPath,[...args,'--expected-commit','a'.repeat(40)],{cwd:root,input:stdin?readFileSync(join(root,'scripts/diagnose-production-runtime-revision.mjs'),'utf8'):undefined,encoding:'utf8',env:{...process.env,PATH:`${dir}:${process.env.PATH}`,TEST_LOG:log,TEST_SQL:sql,TEST_FAIL:failure,TEST_RESULT:JSON.stringify(valid())}});
+    const result=spawnSync(process.execPath,[...args,'--expected-commit','a'.repeat(40)],{cwd:root,input:stdin?readFileSync(join(root,'scripts/diagnose-production-runtime-revision.mjs'),'utf8'):undefined,encoding:'utf8',env:{...process.env,PATH:`${dir}:${process.env.PATH}`,TEST_LOG:log,TEST_SQL:sql,TEST_FAIL:failure,TEST_RESULT:JSON.stringify(valid()),TEST_T5_RESULT:JSON.stringify({operationBound:true,profileCount:2859,profileReceiptCount:2859,profileSha256:'a'.repeat(64),profileAggregateMatches:failure!=='t5-mismatch',receiptCount:80000,receiptSha256:'b'.repeat(64),receiptAggregateMatches:true})}});
     const calls=readFileSync(log,'utf8').trim().split('\n').map(line=>JSON.parse(line));
     if(failure==='image'){assert.equal(result.status,1);assert.equal(result.stderr,'PRODUCTION_RUNTIME_REVISION_MISMATCH\n');assert.ok(calls.every(a=>a[2]!=='exec'));}
-    else {assert.deepEqual(calls.at(-1),['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c','exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"']);assert.equal(readFileSync(sql,'utf8'),buildOriginalBaselineReadonlySql());
+    else {assert.deepEqual(calls.at(-1),['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c','exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"']);assert.equal(readFileSync(sql,'utf8'),failure==='query'?buildOriginalBaselineReadonlySql():buildT5ProfileAggregateReadonlySql());
       if(failure==='query'){assert.equal(result.status,1);assert.equal(result.stdout,'');assert.equal(result.stderr,'PRODUCTION_RUNTIME_ORIGINAL_QUERY_FAILED\n');}
-      else {assert.equal(result.status,0,result.stderr);assert.equal(JSON.parse(result.stdout).originalBaseline.status,'PASS');}}
+      else {assert.equal(result.status,0,result.stderr);assert.equal(JSON.parse(result.stdout).originalBaseline.status,'PASS');assert.equal(JSON.parse(result.stdout).t5OriginalProfileAggregate.status,failure==='t5-mismatch'?'FAIL':'PASS');}}
   }
   const result=spawnSync(process.execPath,['scripts/diagnose-production-runtime-revision.mjs','--expected-commit','a'.repeat(40),'--operation-id',expectation.operationId],{cwd:root,encoding:'utf8'});assert.equal(result.stderr,'PRODUCTION_RUNTIME_ARGUMENT_INVALID\n');
 });
