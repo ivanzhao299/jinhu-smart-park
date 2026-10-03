@@ -8,6 +8,33 @@ import { observeProductionRuntimeRevision as observe } from "../diagnose-product
 
 const root = resolve(import.meta.dirname, "../.."), commit = "a".repeat(40), old = "b".repeat(40);
 const read = path => readFileSync(join(root, path), "utf8");
+test("narrow deploy transfers every manifest entry even when SSH would drain stdin", t => {
+  const dir = mkdtempSync(join(tmpdir(), "narrow-transfer-stdin-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const bin = join(dir, "bin"), log = join(dir, "transfers.log"), manifest = join(dir, "manifest");
+  mkdirSync(bin);
+  // Reproduce OpenSSH's default behavior: a foreground SSH process forwards
+  // inherited stdin even when its remote mkdir command never reads those bytes.
+  writeFileSync(join(bin, "ssh"), '#!/bin/sh\nif [ "${1-}" != "-n" ]; then cat >/dev/null; fi\n', { mode: 0o700 });
+  writeFileSync(join(bin, "rsync"), '#!/bin/sh\nprintf "transfer\\n" >> "$TEST_LOG"\n', { mode: 0o700 });
+  const match = read(".github/workflows/deploy-production.yml").match(/while IFS=: read -r kind path; do[\s\S]*?done < "\$manifest"/u);
+  assert.ok(match, "actual production transfer loop is present");
+  const run = loop => {
+    writeFileSync(log, "");
+    const content = spawnSync(process.execPath, ["scripts/production-deploy-transfer-manifest.mjs", "web"], { cwd: root, encoding: "utf8" });
+    assert.equal(content.status, 0);
+    writeFileSync(manifest, content.stdout);
+    const result = spawnSync("bash", ["--noprofile", "--norc", "-e", "-c", loop], { cwd: root, encoding: "utf8", env: {
+      PATH: `${bin}:${process.env.PATH}`, TEST_LOG: log, manifest, SSH_OPTS: "",
+      PROD_SSH_USER: "synthetic", PROD_SSH_HOST: "synthetic", PROD_DEPLOY_PATH: "/synthetic/deploy",
+    } });
+    assert.equal(result.status, 0, result.stderr);
+    return readFileSync(log, "utf8").trim().split("\n").length;
+  };
+  const legacy = match[0].replace("ssh -n $SSH_OPTS", "ssh $SSH_OPTS");
+  assert.equal(run(legacy), 1, "unfixed loop silently transfers only the release marker");
+  assert.equal(run(match[0]), 5, "fixed loop transfers the marker and all four Web/package directories");
+});
 function fake(change = () => {}, revisions = { api: commit, web: commit }) {
   const names = new Map(), ids = { api: "1".repeat(64), web: "2".repeat(64) }, calls = [];
   return { calls, now: () => new Date("2026-09-06T01:00:00Z"), runDocker: args => {
