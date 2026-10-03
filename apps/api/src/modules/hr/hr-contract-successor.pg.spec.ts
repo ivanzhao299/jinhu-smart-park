@@ -69,6 +69,13 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    try{await assert.rejects(service.createContract(scope,actor,f.dto),/synthetic action failure/);}finally{holder.appendContractAction=original;}
    assert.equal(await contracts.countBy({employeeId:f.employee.id}),1);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
   });
+  await t.test("agreement flags read back, omitted edits preserve, explicit false clears only modern facts",async()=>{
+   const f=await fixture({confidentialityAgreement:true,nonCompeteAgreement:false,trainingServiceAgreement:true});
+   const created=await service.createContract(scope,actor,{...f.dto,confidentialityAgreement:true,nonCompeteAgreement:false,trainingServiceAgreement:true});assert.equal(created.confidentialityAgreement,true);assert.equal(created.nonCompeteAgreement,false);assert.equal(created.trainingServiceAgreement,true);
+   const retained=await service.updateContract(scope,actor,created.id,{...f.dto,remark:"Synthetic unrelated edit"});assert.equal(retained.confidentialityAgreement,true);assert.equal(retained.trainingServiceAgreement,true);
+   const cleared=await service.updateContract(scope,actor,created.id,{...f.dto,confidentialityAgreement:false});assert.equal(cleared.confidentialityAgreement,false);assert.equal(cleared.trainingServiceAgreement,true);
+   assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
   await t.test("historical mutation and unauthorized salary remain denied",async()=>{
    const f=await fixture();await assert.rejects(service.actContract(scope,actor,f.old.id,{action:"cancel"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContractChange(scope,actor,f.old.id,{changeType:"renewal",newStartDate:"2090-01-01"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);
   });

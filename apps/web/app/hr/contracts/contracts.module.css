@@ -1,3 +1,14 @@
 .recordList:global(.ds-mobile-record-list) {
   display: grid;
 }
+
+/* Contract flags share the checkbox surface, without the form's full-width input. */
+.agreementFlag input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.agreementFlag span {
+  min-width: 0;
+  flex: 1;
+}

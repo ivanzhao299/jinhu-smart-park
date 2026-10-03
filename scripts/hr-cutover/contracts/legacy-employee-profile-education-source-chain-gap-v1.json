@@ -105,7 +105,7 @@
     {
       "surface": "database_entity",
       "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
-      "sha256": "970e3d2324798ced97bc784284e536596e0d4843eff4c60665290fd932a01456",
+      "sha256": "54900fa3c98edfebbf4b11e2da10319fbe5a8f37076bd5539fa990126daa41df",
       "requiredTokens": [
         "name:\"highest_education\"",
         "highestEducation!:string|null"
@@ -114,7 +114,7 @@
     {
       "surface": "api_dto",
       "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
-      "sha256": "32e85fd65e98cb8b205c20b3c374c021e99f042f85b126c0c73cca8b4a5765bd",
+      "sha256": "d416f77980de6a894535e6f6976411ef88aba906cfda1bcfd8d16e7df9f3be19",
       "requiredTokens": [
         "highestEducation?:string"
       ]
@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "e8986a8d8f46808c778964b5474841113a3b4dcb6c8aae3bd98aca2092765ce9",
+      "sha256": "70bd87c97a4d7d65f5e466126f23c2176b654a6d91ce97d34836a0226e590d3e",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
