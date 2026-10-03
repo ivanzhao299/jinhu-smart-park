@@ -12,6 +12,7 @@ const runnerFor = value => (...args) => {
   assert.equal(args[0], 'docker');
   assert.deepEqual(args[1].slice(0, 7), ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml','exec','-T']);
   assert.match(args[1].at(-1), /ON_ERROR_STOP=1/);
+  assert.match(args[1].at(-1), /-v VERBOSITY=sqlstate -v SHOW_CONTEXT=never/);
   assert.equal(args[2].timeout, 15000);
   assert.equal(args[2].cwd, '/srv/jinhu-prod');
   assert.match(args[2].input, /BEGIN TRANSACTION READ ONLY/);
@@ -92,6 +93,37 @@ test('invalid deployment paths and probe errors reveal no private process detail
   }
   assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', () => { throw new Error('/private/db-password ciphertext'); }),
     /^Error: PERSONNEL_ALIAS_PROBE_FAILED$/);
+});
+
+test('known PostgreSQL SQLSTATEs map to fixed categories without exposing server text', () => {
+  const cases = [
+    ['ERROR:  57014\n', 'PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
+    ['ERROR:  42P01\n', 'PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+    ['ERROR:  42501\n', 'PERSONNEL_ALIAS_DB_ACCESS_DENIED'],
+    ['ERROR:  57014: canceling query; password=secret; /srv/private/path\n', 'PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
+    ['ERROR:  42P01: relation private_table does not exist\n', 'PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+    ['ERROR:  42703: column private_column does not exist\n', 'PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+    ['ERROR:  42501: permission denied for private_role\n', 'PERSONNEL_ALIAS_DB_ACCESS_DENIED'],
+  ];
+  for (const [stderr, expected] of cases) {
+    assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', () => {
+      const error = new Error('private command output'); error.stderr = Buffer.from(stderr); throw error;
+    }), error => error.message === expected && !error.message.includes('secret') && !error.message.includes('private'));
+  }
+});
+
+test('unknown, malformed, or multi-line PostgreSQL errors remain generic and redacted', () => {
+  for (const stderr of [
+    'ERROR:  08006: private connection details\n',
+    'ERROR: 57014 query canceled\n',
+    'prefix ERROR:  57014: sensitive detail\n',
+    'ERROR:  42P01: private schema\nDETAIL: credential=secret\n',
+    'database password=secret\n',
+  ]) {
+    assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', () => {
+      const error = new Error('private command output'); error.stderr = Buffer.from(stderr); throw error;
+    }), /^Error: PERSONNEL_ALIAS_PROBE_FAILED$/);
+  }
 });
 
 test('strict output schema rejects extra keys, invalid types, and count drift', () => {

@@ -172,6 +172,26 @@ ROLLBACK;`;
 const countKeys = ['operationCount','sourceRecords','receiptMatchedSourceRecords','missingSourceReceiptCount','mappedRecords','unmappedRecords',
   'otherOwnerStatusRecords','duplicateSourceRows','t0MappedRecords','profileMatchedCount','duplicateProfiles','ambiguousArchiveRegistryCount','missingArchiveCount'];
 const fieldKeys = ['targetNullSourceValid','existingEqualPreserved','existingDifferentPreserved','whitespaceOnlySource','missingOrInvalidSource'];
+const DB_SQLSTATE_ERRORS = new Map([
+  ['57014','PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
+  ['42P01','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42703','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42883','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42804','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42P02','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42704','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42809','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42846','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
+  ['42501','PERSONNEL_ALIAS_DB_ACCESS_DENIED'],
+]);
+
+function safeProbeErrorCode(error) {
+  const stderr = Buffer.isBuffer(error?.stderr) ? error.stderr.toString('utf8') : typeof error?.stderr === 'string' ? error.stderr : '';
+  const lines = stderr.split(/\r?\n/).filter(Boolean);
+  if (lines.length !== 1) return 'PERSONNEL_ALIAS_PROBE_FAILED';
+  const match = /^ERROR:\s+([0-9A-Z]{5})(?::(?:\s|$)|$)/.exec(lines[0]);
+  return match ? DB_SQLSTATE_ERRORS.get(match[1]) ?? 'PERSONNEL_ALIAS_PROBE_FAILED' : 'PERSONNEL_ALIAS_PROBE_FAILED';
+}
 
 function validateResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
@@ -202,12 +222,12 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
   try {
     const output = run('docker', ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml',
       'exec','-T','postgres','sh','-c',
-      'exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
+      'exec psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
     { cwd: deployPath, input: personnelAliasSql, encoding: 'utf8', timeout: 15000, maxBuffer: 8192, stdio: ['pipe','pipe','pipe'] });
     value = validateResult(JSON.parse(output));
   } catch (error) {
     if (error?.message === 'PERSONNEL_ALIAS_RESULT_INVALID') throw error;
-    throw new Error('PERSONNEL_ALIAS_PROBE_FAILED');
+    throw new Error(safeProbeErrorCode(error));
   }
   const matchedSubsetReady = value.sourceRecords > 0 && value.mappedRecords > 0
     && value.t0MappedRecords === value.mappedRecords && value.profileMatchedCount === value.mappedRecords
@@ -229,7 +249,8 @@ if (process.argv[1] === '-' || (process.argv[1] && resolve(process.argv[1]) === 
     if (process.argv.length !== 3) throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
     process.stdout.write(JSON.stringify(diagnosePersonnelAlias(process.argv[2]))+'\n');
   } catch (error) {
-    const allowed = ['PERSONNEL_ALIAS_PATH_INVALID','PERSONNEL_ALIAS_PROBE_FAILED','PERSONNEL_ALIAS_RESULT_INVALID'];
+    const allowed = ['PERSONNEL_ALIAS_PATH_INVALID','PERSONNEL_ALIAS_PROBE_FAILED','PERSONNEL_ALIAS_RESULT_INVALID',
+      'PERSONNEL_ALIAS_DB_TIMEOUT_57014','PERSONNEL_ALIAS_DB_SCHEMA_INVALID','PERSONNEL_ALIAS_DB_ACCESS_DENIED'];
     process.stderr.write((allowed.includes(error.message) ? error.message : 'PERSONNEL_ALIAS_PROBE_FAILED')+'\n');
     process.exitCode = 1;
   }

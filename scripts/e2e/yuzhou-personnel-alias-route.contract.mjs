@@ -52,7 +52,7 @@ assert.match(diagnostic, /node --input-type=module - '\$PROD_DEPLOY_PATH'/);
 assert.match(diagnostic, /< scripts\/diagnose-yuzhou-personnel-alias\.mjs/);
 assert.match(diagnostic, /RUNNER_TEMP\/personnel-alias-observation\.json/);
 assert.match(diagnostic, /2>&1 > "\$RUNNER_TEMP\/personnel-alias-observation\.json"/);
-assert.match(diagnostic, /PERSONNEL_ALIAS_PATH_INVALID\|PERSONNEL_ALIAS_PROBE_FAILED\|PERSONNEL_ALIAS_RESULT_INVALID/);
+assert.match(diagnostic, /PERSONNEL_ALIAS_PATH_INVALID\|PERSONNEL_ALIAS_PROBE_FAILED\|PERSONNEL_ALIAS_RESULT_INVALID\|PERSONNEL_ALIAS_DB_TIMEOUT_57014\|PERSONNEL_ALIAS_DB_SCHEMA_INVALID\|PERSONNEL_ALIAS_DB_ACCESS_DENIED/);
 assert.match(diagnostic, /PERSONNEL_ALIAS_REMOTE_OBSERVATION_FAILED/);
 assert.doesNotMatch(diagnostic, /cat\s+"?\$RUNNER_TEMP|echo\s+"\$observation_error|printf[^\n]*\$PROD_DEPLOY_PATH/);
 assert.doesNotMatch(diagnostic, /(?:rsync|\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|docker\s+(?:build|create|up|restart|prune)|chmod|rm\s+-rf)/);
@@ -117,6 +117,9 @@ try {
   }
   for (const [remoteError, expected] of [
     ['PERSONNEL_ALIAS_PROBE_FAILED', 'PERSONNEL_ALIAS_PROBE_FAILED\n'],
+    ['PERSONNEL_ALIAS_DB_TIMEOUT_57014', 'PERSONNEL_ALIAS_DB_TIMEOUT_57014\n'],
+    ['PERSONNEL_ALIAS_DB_SCHEMA_INVALID', 'PERSONNEL_ALIAS_DB_SCHEMA_INVALID\n'],
+    ['PERSONNEL_ALIAS_DB_ACCESS_DENIED', 'PERSONNEL_ALIAS_DB_ACCESS_DENIED\n'],
     ['sensitive password / host path', 'PERSONNEL_ALIAS_REMOTE_OBSERVATION_FAILED\n'],
     ['PERSONNEL_ALIAS_RESULT_INVALID\nsensitive details', 'PERSONNEL_ALIAS_REMOTE_OBSERVATION_FAILED\n'],
   ]) {

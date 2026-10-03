@@ -12,7 +12,7 @@
 
 ## 生产只读来源观察器
 
-`scripts/diagnose-yuzhou-personnel-alias.mjs <production-deploy-path>` 是独立的聚合观察器。部署路径必须为规范化绝对路径；程序在部署目录内通过 `docker compose exec -T postgres` 启动 `psql -X -qAt -v ON_ERROR_STOP=1`。整条探测设置 15 秒进程上限、5 秒 SQL statement timeout 和 2 秒 lock timeout，并在只读事务中回滚。错误输出使用固定错误码，不包含部署路径、原始 stderr 或数据库内容。
+`scripts/diagnose-yuzhou-personnel-alias.mjs <production-deploy-path>` 是独立的聚合观察器。部署路径必须为规范化绝对路径；程序在部署目录内通过 `docker compose exec -T postgres` 启动 `psql -X -qAt -v ON_ERROR_STOP=1`。整条探测设置 15 秒进程上限、5 秒 SQL statement timeout 和 2 秒 lock timeout，并在只读事务中回滚。psql 使用 `VERBOSITY=sqlstate` 且禁用 context；有限 SQLSTATE 映射为 `PERSONNEL_ALIAS_DB_TIMEOUT_57014`、`PERSONNEL_ALIAS_DB_SCHEMA_INVALID` 或 `PERSONNEL_ALIAS_DB_ACCESS_DENIED`，未知、格式异常或多行错误统一为 `PERSONNEL_ALIAS_PROBE_FAILED`。错误输出不包含部署路径、原始 stderr、SQLSTATE 文本或数据库内容；分类不会放宽查询或超时，也不会改变 HOLD。
 
 观察范围固定为 tenant `10000001`、park `20000001`、T5 来源 `person_core` / `dbo.person.core_residue`。它要求唯一的已成功 T5 followon 与已成功、绑定范围一致的父 core operation；每个来源必须有同 operation、同 identity、同 row hash 的来源 receipt。映射人员还须由父 operation 的 T0 `hr_employee` insert record、成功 T0 migration batch、T0 projection receipt、活跃 `yuzhou-v10` / `dbo.person` `legacy_record_map` 和同范围未删除员工共同证明。这里的 T0 人员身份哈希属于 `dbo.person`，不等于 `person.core_residue` 的来源哈希；二者只通过存储的 `owner_record_map_id` / employee 关系绑定，不按姓名或人员编码猜测。T5 followon 自身也必须有成功 batch。
 

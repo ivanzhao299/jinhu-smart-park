@@ -341,7 +341,7 @@ jobs:
             "node --input-type=module - '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-personnel-alias.mjs \
             2>&1 > "$RUNNER_TEMP/personnel-alias-observation.json")"; then
             case "$observation_error" in
-              PERSONNEL_ALIAS_PATH_INVALID|PERSONNEL_ALIAS_PROBE_FAILED|PERSONNEL_ALIAS_RESULT_INVALID) printf '%s\n' "$observation_error" >&2 ;;
+              PERSONNEL_ALIAS_PATH_INVALID|PERSONNEL_ALIAS_PROBE_FAILED|PERSONNEL_ALIAS_RESULT_INVALID|PERSONNEL_ALIAS_DB_TIMEOUT_57014|PERSONNEL_ALIAS_DB_SCHEMA_INVALID|PERSONNEL_ALIAS_DB_ACCESS_DENIED) printf '%s\n' "$observation_error" >&2 ;;
               *) echo PERSONNEL_ALIAS_REMOTE_OBSERVATION_FAILED >&2 ;;
             esac
             exit 1
