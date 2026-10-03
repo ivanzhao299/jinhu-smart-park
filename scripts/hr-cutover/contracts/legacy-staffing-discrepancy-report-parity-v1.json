@@ -29,7 +29,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "578945e6c7888bda76d2100ea84df022f00aa5af52bd54befa118ec11bb843f8"
+      "sha256": "564c8aa5eabbd33d5a6259580f654be4f02b70611733ecbee70949020768efa0"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",
@@ -129,7 +129,7 @@
               "nullContract": "literal_is_never_null"
             }
           ],
-          "evidenceSha256": "578945e6c7888bda76d2100ea84df022f00aa5af52bd54befa118ec11bb843f8"
+          "evidenceSha256": "564c8aa5eabbd33d5a6259580f654be4f02b70611733ecbee70949020768efa0"
         },
         "readMappings": {
           "applicability": "required",
@@ -161,7 +161,7 @@
           "sourceBoundary": "single_read_only_union_statement_without_explicit_transaction",
           "modernBoundary": "single_read_only_aggregate_query_without_business_mutation",
           "rollbackBehavior": "no_business_state_exists_to_rollback",
-          "evidenceSha256": "578945e6c7888bda76d2100ea84df022f00aa5af52bd54befa118ec11bb843f8"
+          "evidenceSha256": "564c8aa5eabbd33d5a6259580f654be4f02b70611733ecbee70949020768efa0"
         },
         "nullSemantics": {
           "applicability": "required",

@@ -131,7 +131,7 @@
     {
       "surface": "api_projection",
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
-      "sha256": "73c02b343e8615d60332f0de97fea8a9db4b1b40c7d856bb19ed859f869b2417",
+      "sha256": "bd0df8b00436fa7381a047762f49f5bc5265d7b8736193a3ce2d9fc735c3d614",
       "requiredTokens": [
         "highestEducation?: string | null",
         "highestEducation:profile.highestEducation??null"
@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "f6c21826a38cd467ca29242987816d56137021429cb150c14e09f02d14aaddca",
+      "sha256": "9da3e9dec3efa2dfef702297883c826f8103569facf3df203bfa8f3c445d2aaa",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
@@ -149,7 +149,7 @@
     {
       "surface": "web_ui",
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "942b1885024f1770860134a0b6ab9f684633b7cad04d61ce35789b6358fa6eaf",
+      "sha256": "1a7ffc5def9d32df990a8346e3414521b2c28b06e68cac31db922854f2fabe44",
       "requiredTokens": [
         "name=\"highestEducation\"",
         "label=\"最高学历\"",

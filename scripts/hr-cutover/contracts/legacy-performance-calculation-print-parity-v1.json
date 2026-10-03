@@ -64,7 +64,7 @@
     },
     "legacyWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "f6c21826a38cd467ca29242987816d56137021429cb150c14e09f02d14aaddca"
+      "sha256": "9da3e9dec3efa2dfef702297883c826f8103569facf3df203bfa8f3c445d2aaa"
     },
     "legacyPanel": {
       "path": "apps/web/app/hr/performance/HrPerformanceLegacyPanel.tsx",

@@ -55,12 +55,12 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "942b1885024f1770860134a0b6ab9f684633b7cad04d61ce35789b6358fa6eaf"
+      "sha256": "1a7ffc5def9d32df990a8346e3414521b2c28b06e68cac31db922854f2fabe44"
     },
     "modernFamilyComponent": {"path": "apps/web/app/hr/employees/components/HrFamilyRecords.tsx", "sha256": "c8c11d6cd79b65e40e178c793638bcfb3be99a228e1357989e25751dbe1ee1ef"},
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "f6c21826a38cd467ca29242987816d56137021429cb150c14e09f02d14aaddca"
+      "sha256": "9da3e9dec3efa2dfef702297883c826f8103569facf3df203bfa8f3c445d2aaa"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",

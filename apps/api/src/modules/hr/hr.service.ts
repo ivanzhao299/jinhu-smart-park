@@ -12,7 +12,7 @@ import { AuditService } from "../audit/audit.service";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
-import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployee,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrApprovalReviewAccessScope,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrEmployeeProjection,type HrLedgerAccessScope } from "./hr-access-policy";
+import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployee,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrApprovalReviewAccessScope,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrEmployeeAssignmentDetails,type HrEmployeeAssignmentLabel,type HrEmployeeProjection,type HrLedgerAccessScope } from "./hr-access-policy";
 import { approvedLeaveMinutesForWorkDate,projectLeaveRoutineImpact } from "./hr-leave-routine-equivalence";
 import { historicalContractPredecessors } from "./hr-contract-successor";
 import { projectHistoricalContractTerms } from "./hr-contract-original-terms";
@@ -75,7 +75,27 @@ export class HrService {
   return {items:items.map(projectHrEmployee),total,page:q.page,page_size:q.page_size};
  }
  async detailEmployee(scope:TenantParkScope,id:string){const row=await this.employees.findOne({where:{id,...scope,isDeleted:false}});if(!row)throw new NotFoundException("Employee not found");return projectHrEmployee(row);}
- async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.employeeForAccess(scope,actor,id,resolveHrEmployeeAccessScope(actor));}
+ async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){
+  if(actor.tenantId!==scope.tenantId||actor.parkId!==scope.parkId)throw new NotFoundException("Employee not found");
+  const access=resolveHrEmployeeAccessScope(actor),employee=await this.employeeForAccess(scope,actor,id,access);
+  const detail=await this.employees.findOne({select:{id:true,probationEndDate:true},where:{id:employee.id,...scope,isDeleted:false}});
+  if(!detail)throw new NotFoundException("Employee not found");
+  const assignmentDetails=await this.employeeAssignmentDetails(scope,actor,employee,access);
+  return {...employee,probationEndDate:detail.probationEndDate??null,assignmentDetails};
+ }
+ private async employeeAssignmentDetails(scope:TenantParkScope,actor:JwtPrincipal,employee:HrEmployeeProjection,access:HrEmployeeAccessScope):Promise<HrEmployeeAssignmentDetails>{
+  const absent=(assigned:boolean):HrEmployeeAssignmentLabel=>({name:null,status:assigned?"unavailable":"unassigned"});
+  const org=employee.primaryOrgId?await this.orgs.findOne({select:{id:true,orgName:true,status:true},where:{id:employee.primaryOrgId,...scope,isDeleted:false}}):null;
+  const organization:HrEmployeeAssignmentLabel=org?{name:org.orgName,status:org.status==="enabled"?"available":"inactive"}:absent(!!employee.primaryOrgId);
+  const positionRow=employee.positionId&&employee.primaryOrgId&&org?await this.positions.findOne({select:{id:true,positionName:true,status:true},where:{id:employee.positionId,orgId:employee.primaryOrgId,...scope,isDeleted:false}}):null;
+  const position:HrEmployeeAssignmentLabel=positionRow?{name:positionRow.positionName,status:positionRow.status==="enabled"?"available":"inactive"}:absent(!!employee.positionId);
+  let manager=absent(!!employee.managerEmployeeId);
+  if(employee.managerEmployeeId&&employee.managerEmployeeId!==employee.id){
+   try{const row=await this.employeeForAccess(scope,actor,employee.managerEmployeeId,access);manager={name:row.fullName,status:"available"};}
+   catch(error){if(!(error instanceof NotFoundException))throw error;}
+  }
+  return {organization,position,manager};
+ }
  async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return projectHrEmployee(row);}
  async employeeEvents(scope:TenantParkScope,actor:JwtPrincipal,id:string):Promise<HrEmploymentEventResponseDto[]>{
   const canRead=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYMENT_EVENT_READ);
