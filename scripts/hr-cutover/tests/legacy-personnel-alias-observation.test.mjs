@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { diagnosePersonnelAlias, personnelAliasSql } from '../../diagnose-yuzhou-personnel-alias.mjs';
+import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const zeroField = () => ({ targetNullSourceValid: 0, existingEqualPreserved: 0, existingDifferentPreserved: 0, whitespaceOnlySource: 0, missingOrInvalidSource: 0 });
 const result = overrides => ({ operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
@@ -16,6 +17,28 @@ const runnerFor = value => (...args) => {
   assert.equal(args[2].timeout, 15000);
   assert.equal(args[2].cwd, '/srv/jinhu-prod');
   assert.match(args[2].input, /BEGIN TRANSACTION READ ONLY/);
+  return JSON.stringify(value);
+};
+const planValue = overrides => [{ 'Query Identifier': 123, Plan: {
+  'Node Type': 'Aggregate', 'Plan Rows': 1, 'Startup Cost': 2.5, 'Total Cost': 3.5, 'Plan Width': 8,
+  Filter: 'private filter text', Output: ['secret alias'], Plans: [{ 'Node Type': 'Seq Scan', 'Plan Rows': 20,
+    'Startup Cost': 0, 'Total Cost': 1.25, 'Plan Width': 4, 'Relation Name': 'private_table', 'Alias': 'private_alias',
+    'Index Cond': 'sensitive condition' }],
+}, 'Planning Time': 1.75, JIT: { Functions: 3, Options: { Inlining: false, Optimization: true, Expressions: true, Deforming: false },
+  Timing: { Generation: 99 }, private: 'do not expose' }, ...overrides }];
+const planRunner = value => (...args) => {
+  assert.equal(args[0], 'docker');
+  assert.equal(args[2].timeout, 15000);
+  assert.equal(args[2].maxBuffer, 1024 * 1024);
+  assert.equal(args[2].cwd, '/srv/jinhu-prod');
+  assert.match(args[2].input, /^BEGIN TRANSACTION READ ONLY;/);
+  assert.match(args[2].input, /SET LOCAL statement_timeout='5s'/);
+  assert.match(args[2].input, /SET LOCAL lock_timeout='2s'/);
+  assert.match(args[2].input, /EXPLAIN \(FORMAT JSON\)/);
+  assert.doesNotMatch(args[2].input, /\bANALYZE\b/i);
+  const selected = personnelAliasSql.slice(personnelAliasSql.indexOf('WITH ops AS ('), personnelAliasSql.lastIndexOf('\nROLLBACK;'));
+  assert.ok(args[2].input.includes(selected), 'plan must cover the exact count observer SELECT');
+  assert.match(args[2].input, /ROLLBACK;$/);
   return JSON.stringify(value);
 };
 
@@ -124,6 +147,52 @@ test('unknown, malformed, or multi-line PostgreSQL errors remain generic and red
       const error = new Error('private command output'); error.stderr = Buffer.from(stderr); throw error;
     }), /^Error: PERSONNEL_ALIAS_PROBE_FAILED$/);
   }
+});
+
+test('EXPLAIN plan is reconstructed from whitelisted structure and never reports execution or raw plan text', () => {
+  const observed = diagnosePersonnelAliasPlan('/srv/jinhu-prod', planRunner(planValue()));
+  assert.deepEqual(observed, {
+    kind: 'yuzhou_personnel_alias_explain',
+    nodes: [
+      { index: 0, parentIndex: null, nodeType: 'Aggregate', planRows: 1, startupCost: 2.5, totalCost: 3.5, planWidth: 8 },
+      { index: 1, parentIndex: 0, nodeType: 'Seq Scan', planRows: 20, startupCost: 0, totalCost: 1.25, planWidth: 4 },
+    ], planningTimeMs: 1.75,
+    jit: { functions: 3, options: { inlining: false, optimization: true, expressions: true, deforming: false } },
+    productionImport: 'HOLD', authorizationGranted: false, writerPresent: false, executedQuery: false,
+  });
+  assert.doesNotMatch(JSON.stringify(observed), /private|secret|sensitive|Relation Name|Filter|Output|Query Identifier|Timing/);
+  assert.match(personnelAliasExplainSql, /BEGIN TRANSACTION READ ONLY;[\s\S]*EXPLAIN \(FORMAT JSON\)/);
+  assert.doesNotMatch(personnelAliasExplainSql, /\bANALYZE\b/i);
+});
+
+test('EXPLAIN rejects unbounded, malformed, or unknown structural plans with a fixed error', () => {
+  const valid = planValue();
+  const clone = value => structuredClone(value);
+  const unknown = clone(valid); unknown[0].Plan['Node Type'] = 'Private Node';
+  const badCost = clone(valid); badCost[0].Plan['Total Cost'] = Infinity;
+  const badType = clone(valid); badType[0].Plan['Plan Rows'] = '1';
+  const badJit = clone(valid); badJit[0].JIT.Options.Inlining = 'true';
+  const tooDeep = clone(valid); let cursor = tooDeep[0].Plan;
+  for (let i = 0; i < 66; i++) {
+    cursor.Plans = [{ 'Node Type': 'Result', 'Plan Rows': 0, 'Startup Cost': 0, 'Total Cost': 0, 'Plan Width': 0 }];
+    cursor = cursor.Plans[0];
+  }
+  const tooMany = clone(valid); tooMany[0].Plan.Plans = Array.from({ length: 2048 }, () => ({
+    'Node Type': 'Result', 'Plan Rows': 0, 'Startup Cost': 0, 'Total Cost': 0, 'Plan Width': 0,
+  }));
+  for (const value of [null, [], [{ Plan: {} }], unknown, badCost, badType, badJit, tooDeep, tooMany]) {
+    assert.throws(() => sanitizePersonnelAliasPlan(value), /^Error: PERSONNEL_ALIAS_PLAN_INVALID$/);
+  }
+  assert.throws(() => diagnosePersonnelAliasPlan('/srv/jinhu-prod', planRunner([{ Plan: {} }])),
+    /^Error: PERSONNEL_ALIAS_PLAN_INVALID$/);
+});
+
+test('EXPLAIN CLI rejects arbitrary flags before connecting and returns only a fixed code', () => {
+  const source = new URL('../../diagnose-yuzhou-personnel-alias.mjs', import.meta.url);
+  const result = spawnSync(process.execPath, [source.pathname, '--unexpected', '/srv/jinhu-prod'], { encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, '');
+  assert.equal(result.stderr, 'PERSONNEL_ALIAS_PATH_INVALID\n');
 });
 
 test('strict output schema rejects extra keys, invalid types, and count drift', () => {

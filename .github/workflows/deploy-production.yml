@@ -49,6 +49,11 @@ on:
         required: false
         default: false
         type: boolean
+      diagnose_personnel_alias_explain:
+        description: "With the personnel alias probe enabled, collect a bounded non-executing EXPLAIN plan only."
+        required: false
+        default: false
+        type: boolean
       expected_api_commit:
         description: "Optional expected API image revision for diagnose-production-runtime-revision only; defaults to this workflow's GITHUB_SHA."
         required: false
@@ -324,6 +329,7 @@ jobs:
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PERSONNEL_ALIAS_EXPLAIN: ${{ inputs.diagnose_personnel_alias_explain }}
         run: |
           set -eu
           case "$PROD_DEPLOY_PATH" in
@@ -336,12 +342,17 @@ jobs:
               exit 1
               ;;
           esac
+          case "$PERSONNEL_ALIAS_EXPLAIN" in
+            true) observer_command="node --input-type=module - --explain '$PROD_DEPLOY_PATH'" ;;
+            false) observer_command="node --input-type=module - '$PROD_DEPLOY_PATH'" ;;
+            *) echo PERSONNEL_ALIAS_EXPLAIN_FLAG_INVALID >&2; exit 1 ;;
+          esac
           if ! observation_error="$(ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
             "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "node --input-type=module - '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-personnel-alias.mjs \
+            "$observer_command" < scripts/diagnose-yuzhou-personnel-alias.mjs \
             2>&1 > "$RUNNER_TEMP/personnel-alias-observation.json")"; then
             case "$observation_error" in
-              PERSONNEL_ALIAS_PATH_INVALID|PERSONNEL_ALIAS_PROBE_FAILED|PERSONNEL_ALIAS_RESULT_INVALID|PERSONNEL_ALIAS_DB_TIMEOUT_57014|PERSONNEL_ALIAS_DB_SCHEMA_INVALID|PERSONNEL_ALIAS_DB_ACCESS_DENIED) printf '%s\n' "$observation_error" >&2 ;;
+              PERSONNEL_ALIAS_PATH_INVALID|PERSONNEL_ALIAS_PROBE_FAILED|PERSONNEL_ALIAS_RESULT_INVALID|PERSONNEL_ALIAS_DB_TIMEOUT_57014|PERSONNEL_ALIAS_DB_SCHEMA_INVALID|PERSONNEL_ALIAS_DB_ACCESS_DENIED|PERSONNEL_ALIAS_PLAN_INVALID) printf '%s\n' "$observation_error" >&2 ;;
               *) echo PERSONNEL_ALIAS_REMOTE_OBSERVATION_FAILED >&2 ;;
             esac
             exit 1

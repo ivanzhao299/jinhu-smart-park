@@ -169,6 +169,16 @@ SELECT json_build_object(
 );
 ROLLBACK;`;
 
+const selectStart = personnelAliasSql.indexOf('WITH ops AS (');
+const selectEnd = personnelAliasSql.lastIndexOf('\nROLLBACK;');
+if (selectStart < 0 || selectEnd <= selectStart) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
+export const personnelAliasExplainSql = `BEGIN TRANSACTION READ ONLY;
+SET LOCAL statement_timeout='5s';
+SET LOCAL lock_timeout='2s';
+SET LOCAL search_path=public,pg_catalog;
+EXPLAIN (FORMAT JSON) ${personnelAliasSql.slice(selectStart, selectEnd)}
+ROLLBACK;`;
+
 const countKeys = ['operationCount','sourceRecords','receiptMatchedSourceRecords','missingSourceReceiptCount','mappedRecords','unmappedRecords',
   'otherOwnerStatusRecords','duplicateSourceRows','t0MappedRecords','profileMatchedCount','duplicateProfiles','ambiguousArchiveRegistryCount','missingArchiveCount'];
 const fieldKeys = ['targetNullSourceValid','existingEqualPreserved','existingDifferentPreserved','whitespaceOnlySource','missingOrInvalidSource'];
@@ -215,6 +225,54 @@ function validateResult(value) {
   return value;
 }
 
+const planNodeTypes = new Set(['Aggregate','Append','BitmapAnd','Bitmap Heap Scan','Bitmap Index Scan','BitmapOr','CTE Scan','Gather','Gather Merge',
+  'Function Scan','Hash','Hash Join','Incremental Sort','Index Only Scan','Index Scan','Limit','Materialize','Memoize','Merge Append','Merge Join',
+  'Nested Loop','ProjectSet','Result','Sample Scan','SetOp','Sort','Subquery Scan','Seq Scan','Table Function Scan','Tid Scan','Unique','Values Scan','WindowAgg']);
+
+export function sanitizePersonnelAliasPlan(value) {
+  if (!Array.isArray(value) || value.length !== 1 || !value[0] || typeof value[0] !== 'object' || Array.isArray(value[0])) {
+    throw new Error('PERSONNEL_ALIAS_PLAN_INVALID');
+  }
+  const root = value[0];
+  if (!root.Plan) throw new Error('PERSONNEL_ALIAS_PLAN_INVALID');
+  const nodes = [];
+  const visit = (node, parentIndex, depth) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node) || depth > 64 || nodes.length >= 2048
+      || typeof node['Node Type'] !== 'string'
+      || !planNodeTypes.has(node['Node Type']) || !Number.isSafeInteger(node['Plan Rows']) || node['Plan Rows'] < 0
+      || !Number.isSafeInteger(node['Plan Width']) || node['Plan Width'] < 0
+      || typeof node['Startup Cost'] !== 'number' || !Number.isFinite(node['Startup Cost']) || node['Startup Cost'] < 0
+      || typeof node['Total Cost'] !== 'number' || !Number.isFinite(node['Total Cost']) || node['Total Cost'] < node['Startup Cost']
+      || (node.Plans !== undefined && !Array.isArray(node.Plans))) throw new Error('PERSONNEL_ALIAS_PLAN_INVALID');
+    const index = nodes.length;
+    nodes.push({ index, parentIndex, nodeType: node['Node Type'], planRows: node['Plan Rows'], startupCost: node['Startup Cost'],
+      totalCost: node['Total Cost'], planWidth: node['Plan Width'] });
+    for (const child of node.Plans ?? []) visit(child, index, depth + 1);
+  };
+  visit(root.Plan, null, 0);
+  const result = { kind: 'yuzhou_personnel_alias_explain', nodes, productionImport: 'HOLD', authorizationGranted: false,
+    writerPresent: false, executedQuery: false };
+  if (root['Planning Time'] !== undefined) {
+    if (typeof root['Planning Time'] !== 'number' || !Number.isFinite(root['Planning Time']) || root['Planning Time'] < 0) {
+      throw new Error('PERSONNEL_ALIAS_PLAN_INVALID');
+    }
+    result.planningTimeMs = root['Planning Time'];
+  }
+  if (root.JIT !== undefined) {
+    const jit = root.JIT;
+    if (!jit || typeof jit !== 'object' || Array.isArray(jit)
+      || !Number.isSafeInteger(jit.Functions) || jit.Functions < 0 || !jit.Options || typeof jit.Options !== 'object'
+      || Array.isArray(jit.Options) || ['Inlining','Optimization','Expressions','Deforming'].some(key => jit.Options[key] !== undefined
+        && typeof jit.Options[key] !== 'boolean')) {
+      throw new Error('PERSONNEL_ALIAS_PLAN_INVALID');
+    }
+    result.jit = { functions: jit.Functions, options: Object.fromEntries([
+      ['Inlining','inlining'],['Optimization','optimization'],['Expressions','expressions'],['Deforming','deforming'],
+    ].filter(([key]) => jit.Options[key] !== undefined).map(([key,name]) => [name,jit.Options[key]])) };
+  }
+  return result;
+}
+
 export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
   if (typeof deployPath !== 'string' || !isAbsolute(deployPath) || resolve(deployPath) !== deployPath
     || deployPath.includes('\0') || /[\r\n]/.test(deployPath) || deployPath === '/') throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
@@ -244,13 +302,33 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
     productionImport: 'HOLD', authorizationGranted: false, writerPresent: false };
 }
 
+export function diagnosePersonnelAliasPlan(deployPath, run = execFileSync) {
+  if (typeof deployPath !== 'string' || !isAbsolute(deployPath) || resolve(deployPath) !== deployPath
+    || deployPath.includes('\0') || /[\r\n]/.test(deployPath) || deployPath === '/') throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
+  try {
+    const output = run('docker', ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml',
+      'exec','-T','postgres','sh','-c',
+      'exec psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
+    { cwd: deployPath, input: personnelAliasExplainSql, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024, stdio: ['pipe','pipe','pipe'] });
+    return sanitizePersonnelAliasPlan(JSON.parse(output));
+  } catch (error) {
+    if (error?.message === 'PERSONNEL_ALIAS_PLAN_INVALID') throw error;
+    throw new Error(safeProbeErrorCode(error));
+  }
+}
+
 if (process.argv[1] === '-' || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
-    if (process.argv.length !== 3) throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
-    process.stdout.write(JSON.stringify(diagnosePersonnelAlias(process.argv[2]))+'\n');
+    const args = process.argv.slice(2);
+    const explain = args[0] === '--explain';
+    const deployPath = explain ? args[1] : args[0];
+    if (args.length !== (explain ? 2 : 1) || (explain && args[0] !== '--explain') || (!explain && args[0]?.startsWith('--'))) {
+      throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
+    }
+    process.stdout.write(JSON.stringify(explain ? diagnosePersonnelAliasPlan(deployPath) : diagnosePersonnelAlias(deployPath))+'\n');
   } catch (error) {
     const allowed = ['PERSONNEL_ALIAS_PATH_INVALID','PERSONNEL_ALIAS_PROBE_FAILED','PERSONNEL_ALIAS_RESULT_INVALID',
-      'PERSONNEL_ALIAS_DB_TIMEOUT_57014','PERSONNEL_ALIAS_DB_SCHEMA_INVALID','PERSONNEL_ALIAS_DB_ACCESS_DENIED'];
+      'PERSONNEL_ALIAS_DB_TIMEOUT_57014','PERSONNEL_ALIAS_DB_SCHEMA_INVALID','PERSONNEL_ALIAS_DB_ACCESS_DENIED','PERSONNEL_ALIAS_PLAN_INVALID'];
     process.stderr.write((allowed.includes(error.message) ? error.message : 'PERSONNEL_ALIAS_PROBE_FAILED')+'\n');
     process.exitCode = 1;
   }

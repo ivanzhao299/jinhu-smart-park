@@ -14,6 +14,8 @@
 
 `scripts/diagnose-yuzhou-personnel-alias.mjs <production-deploy-path>` 是独立的聚合观察器。部署路径必须为规范化绝对路径；程序在部署目录内通过 `docker compose exec -T postgres` 启动 `psql -X -qAt -v ON_ERROR_STOP=1`。整条探测设置 15 秒进程上限、5 秒 SQL statement timeout 和 2 秒 lock timeout，并在只读事务中回滚。psql 使用 `VERBOSITY=sqlstate` 且禁用 context；有限 SQLSTATE 映射为 `PERSONNEL_ALIAS_DB_TIMEOUT_57014`、`PERSONNEL_ALIAS_DB_SCHEMA_INVALID` 或 `PERSONNEL_ALIAS_DB_ACCESS_DENIED`，未知、格式异常或多行错误统一为 `PERSONNEL_ALIAS_PROBE_FAILED`。错误输出不包含部署路径、原始 stderr、SQLSTATE 文本或数据库内容；分类不会放宽查询或超时，也不会改变 HOLD。
 
+可选 `--explain <production-deploy-path>` 仅对同一精确 SELECT 请求 `EXPLAIN (FORMAT JSON)`，不使用 `ANALYZE`，仍在相同只读事务及超时内。该模式只重建固定 PostgreSQL 节点类型、节点序号/父节点、估算行数/宽度/成本、可选 Planning Time 和受限 JIT 开关/函数数；过滤器、输出别名、表/索引名、条件、SQL 文本及其他原始计划属性都会被丢弃。最多返回 2048 节点、64 层；未知节点或无效/超界计划失败关闭。结果使用独立 `kind`，并固定 `executedQuery: false`、`productionImport: HOLD`、`authorizationGranted: false`、`writerPresent: false`。工作流默认不请求计划，只有同时启用 `diagnose_personnel_alias` 且显式启用默认关闭的 `diagnose_personnel_alias_explain` 才加入固定 `--explain` 参数；非 true/false 值在 SSH 前拒绝。
+
 观察范围固定为 tenant `10000001`、park `20000001`、T5 来源 `person_core` / `dbo.person.core_residue`。它要求唯一的已成功 T5 followon 与已成功、绑定范围一致的父 core operation；每个来源必须有同 operation、同 identity、同 row hash 的来源 receipt。映射人员还须由父 operation 的 T0 `hr_employee` insert record、成功 T0 migration batch、T0 projection receipt、活跃 `yuzhou-v10` / `dbo.person` `legacy_record_map` 和同范围未删除员工共同证明。这里的 T0 人员身份哈希属于 `dbo.person`，不等于 `person.core_residue` 的来源哈希；二者只通过存储的 `owner_record_map_id` / employee 关系绑定，不按姓名或人员编码猜测。T5 followon 自身也必须有成功 batch。
 
 现代档案只在同 operation 的 `hr_employee_profile` receipt 与档案行同时匹配员工、范围、`legacy_source_identity_sha256` 和 `legacy_source_row_sha256` 时计入；该员工在固定范围内必须恰有一条未删除档案。原始值只从同 operation identity registry 与 archive receipt 绑定的 `restricted_safe_projection.legacyFields.oldaddr/edulevel` 读取。观察器不选择、解密或输出 T5 来源密文，也不选择来源原始行、人员身份或任何字段值。字段结果仅是计数：现代列 SQL NULL 且来源为合法非空字符串、来源与现值相等、来源与现值不同、来源缺失/非法，以及单独标记的纯空白来源。纯空白不被 trim 后作为建议值，出现时观察分类保持 `NOT_READY`。
@@ -30,7 +32,7 @@ node --test scripts/hr-cutover/tests/legacy-personnel-alias-observation.test.mjs
 
 ### 通过部署工作流观察
 
-需要实时核对时，在 GitHub Actions 的 `Deploy Production` 手动运行已有 `diagnose-production-runtime-revision` 模式，并显式勾选 `diagnose_personnel_alias`。分别填写当前期望的 API 与 Web **已合并运行镜像** commit 到 `expected_api_commit` 和 `expected_web_commit`；workflow 的 `GITHUB_SHA` 是观察器代码版本，三者各自独立。若服务近期没有重建，期望值应填实际正在运行的已合并服务 SHA，不要把观察器分支 SHA 冒充服务镜像 SHA。观察器通过 SSH stdin 运行在生产部署目录，不传输候选仓库，也不部署候选分支。
+需要实时核对时，在 GitHub Actions 的 `Deploy Production` 手动运行已有 `diagnose-production-runtime-revision` 模式，并显式勾选 `diagnose_personnel_alias`。需要估算查询计划时，再显式勾选默认关闭的 `diagnose_personnel_alias_explain`。分别填写当前期望的 API 与 Web **已合并运行镜像** commit 到 `expected_api_commit` 和 `expected_web_commit`；workflow 的 `GITHUB_SHA` 是观察器代码版本，三者各自独立。若服务近期没有重建，期望值应填实际正在运行的已合并服务 SHA，不要把观察器分支 SHA 冒充服务镜像 SHA。观察器通过 SSH stdin 运行在生产部署目录，不传输候选仓库，也不部署候选分支。
 
 别名 JSON 只在观察器与配对的运行镜像观察都成功后作为 `personnel-alias-observation` artifact 留存 7 天。`NOT_READY` 是有效的只读结果，计数仍保存在 artifact 中；失败时不上传。关闭该布尔输入时不会运行人员别名查询或生成对应 artifact。此模式不会触发迁移、seed、应用 build/restart、release marker 或部署清理。部署路径边界验证先于 SSH observer 步骤。
 
