@@ -41,6 +41,12 @@ import { CanteenSubsidyGrantService } from "./canteen-subsidy-grant.service";
 import { CanteenSubsidyScheduler } from "./canteen-subsidy.scheduler";
 import { CanteenWalletController } from "./canteen-wallet.controller";
 import { CanteenSubsidyController } from "./canteen-subsidy.controller";
+import { CanteenSettlementController } from "./canteen-settlement.controller";
+import { CanteenReportController } from "./canteen-report.controller";
+import { CanteenRefundController } from "./canteen-refund.controller";
+import { CanteenSettlementService } from "./canteen-settlement.service";
+import { CanteenReportService } from "./canteen-report.service";
+import { CanteenRefundService } from "./canteen-refund.service";
 
 @Module({
   imports: [
@@ -71,7 +77,10 @@ import { CanteenSubsidyController } from "./canteen-subsidy.controller";
     CanteenOrderController,
     CanteenPaymentController,
     CanteenWalletController,
-    CanteenSubsidyController
+    CanteenSubsidyController,
+    CanteenSettlementController,
+    CanteenReportController,
+    CanteenRefundController
   ],
   providers: [
     CanteenService,
@@ -92,7 +101,12 @@ import { CanteenSubsidyController } from "./canteen-subsidy.controller";
     // M2
     CanteenSubsidyService,
     CanteenSubsidyGrantService,
-    CanteenSubsidyScheduler
+    CanteenSubsidyScheduler,
+    // M3
+    CanteenSettlementService,
+    CanteenReportService,
+    // M4
+    CanteenRefundService
   ],
   exports: [CanteenService, CanteenSettingsService, CanteenSubsidyGrantService]
 })

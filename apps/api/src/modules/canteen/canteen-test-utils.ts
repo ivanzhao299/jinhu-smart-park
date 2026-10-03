@@ -37,4 +37,10 @@ export class RandomizedNumberService extends CanteenNumberService {
   override mealRecordNo(m: EntityManager, t: string): Promise<string> {
     return super.mealRecordNo(m, t).then((n) => this.stamp(n));
   }
+  override settlementNo(m: EntityManager, t: string): Promise<string> {
+    return super.settlementNo(m, t).then((n) => this.stamp(n));
+  }
+  override refundNo(m: EntityManager, t: string): Promise<string> {
+    return super.refundNo(m, t).then((n) => this.stamp(n));
+  }
 }

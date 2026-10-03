@@ -159,3 +159,50 @@ export class WalletTxnQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page_size?: number = 20;
 }
+
+/* ----------------------------- M3 结算 ----------------------------- */
+
+export class GenerateSettlementDto {
+  @IsUUID() outlet_id!: string;
+  // YYYY-MMA.
+  @IsString() @MinLength(7) period!: string;
+}
+
+export class SettlementListQueryDto {
+  @IsOptional() @IsUUID() outlet_id?: string;
+  @IsOptional() @IsString() period?: string;
+  @IsOptional() @IsString() contractor_id?: string;
+  @IsOptional() @IsIn(["draft", "submitted", "reconciling", "approved", "settled", "disputed"])
+  status?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page_size?: number = 20;
+}
+
+export class DisputeSettlementDto {
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) diff_amount?: number;
+  @IsOptional() @IsString() diff_reason?: string;
+}
+
+export class SettleSettlementDto {
+  @IsOptional() @IsUUID() settle_evidence_file_id?: string;
+  @IsOptional() @IsString() remark?: string;
+}
+
+/* ----------------------------- M3 报表 ----------------------------- */
+
+export class ReportQueryDto {
+  // 日期有界：必填起止，限 31 天窗口。
+  @IsString() start_date!: string;
+  @IsString() end_date!: string;
+  @IsOptional() @IsUUID() outlet_id?: string;
+  @IsOptional() @IsString() meal_period?: string;
+  @IsOptional() @IsString() category_id?: string;
+}
+
+/* ----------------------------- M4 退款 ----------------------------- */
+
+export class CreateRefundDto {
+  @IsUUID() order_id!: string;
+  @IsString() reason!: string;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) amount?: number;
+}

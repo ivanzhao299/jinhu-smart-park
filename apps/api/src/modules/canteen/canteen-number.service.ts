@@ -68,4 +68,12 @@ export class CanteenNumberService {
   mealRecordNo(manager: EntityManager, tenantId: string): Promise<string> {
     return this.nextFor(manager, "biz_canteen_meal_records", "record_no", tenantId, "MR");
   }
+
+  settlementNo(manager: EntityManager, tenantId: string): Promise<string> {
+    return this.nextFor(manager, "biz_canteen_settlements", "settlement_no", tenantId, "SM");
+  }
+
+  refundNo(manager: EntityManager, tenantId: string): Promise<string> {
+    return this.nextFor(manager, "biz_canteen_refunds", "refund_no", tenantId, "RF");
+  }
 }
