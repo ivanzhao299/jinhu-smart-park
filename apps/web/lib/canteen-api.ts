@@ -388,8 +388,16 @@ export const canteenApi = {
       if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
     }
     const suffix = params.toString() ? `?${params.toString()}` : "";
-    const response = await apiRequest<CanteenReportSummary>(`/canteen/reports/sales${suffix}`, { token });
-    return response.data;
+    const response = await apiRequest<Record<string, unknown>>(`/canteen/reports/sales${suffix}`, { token });
+    const d = response.data;
+    return {
+      orderCount: Number(d.order_count ?? d.orderCount ?? 0),
+      totalSales: String(d.sales_total ?? d.totalSales ?? "0"),
+      qrPayTotal: String(d.qr_pay_total ?? d.qrPayTotal ?? "0"),
+      subsidyTotal: String(d.subsidy_total ?? d.subsidyTotal ?? "0"),
+      refundTotal: String(d.refund_total ?? d.refundTotal ?? "0"),
+      avgTicket: String(d.avg_order_value ?? d.avgTicket ?? "0")
+    };
   },
   async getReportShareRows(query: Record<string, unknown> = {}, token?: string): Promise<CanteenReportShareRow[]> {
     const params = new URLSearchParams();
@@ -397,7 +405,11 @@ export const canteenApi = {
       if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
     }
     const suffix = params.toString() ? `?${params.toString()}` : "";
-    const response = await apiRequest<CanteenReportShareRow[]>(`/canteen/reports/dish-ranking${suffix}`, { token });
-    return response.data;
+    const response = await apiRequest<Record<string, unknown>[]>(`/canteen/reports/dish-ranking${suffix}`, { token });
+    return response.data.map((d) => ({
+      name: String(d.dish_name ?? d.name ?? ""),
+      amount: String(d.sales_amount ?? d.amount ?? "0"),
+      orderCount: Number(d.qty ?? d.orderCount ?? 0)
+    }));
   }
 };

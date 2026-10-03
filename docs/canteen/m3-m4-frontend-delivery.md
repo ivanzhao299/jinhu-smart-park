@@ -45,3 +45,29 @@
 - 结算/退款/报表/审计各接口的实际返回字段名（camelCase 实体 vs snake_case DTO）以后端为准微调。
 - `/reports/daily`、`/reports/subsidy-usage`、`/reports/dashboard` 暂未接页面（按需要再加）。
 - POS 退款弹层的小票/打印外设为占位。
+
+---
+
+## 联合 E2E 核验（API 3101 / Web 3110 / DB 55435）
+
+登录 admin（重新登录刷新 enabled_modules 含 canteen），逐项实测：
+
+| 页 | 结论 | 截图 |
+|---|---|---|
+| 结算列表 | SM202610030001=已结算，186/138/48/10/48 分列正确；指标卡 总数1/已结算1/应付48 | m34-01 |
+| 结算详情 | 分列 186/138/48/10/48，items 12单；settled 动作按钮正确隐藏 | m34-02 |
+| 状态机 | 对 2026-09 零数据单 SM...0002 走 生成→提交→对账→挂差异→审批→结算，逐态按钮门控正确 | m34-03/04 |
+| 经营报表 | M3档口+2026-10-01~31：12单/客单15.5/扫码138/餐补48/营业额186；占比条 红烧肉96/青椒54/汤30/米饭6 | m34-05 |
+| 退款/撤单 | RF202610030001=已退款 ¥10 原路退回，详情完整，succeeded 无审批按钮 | m34-06 |
+| 操作审计 | 页正常渲染；后端全局日志路由未暴露（见待联调） | m34-07 |
+| POS 退款 | 入口按权限可见，近20单弹层含渠道/金额/状态/申请退款，终端风格 | m34-08 |
+| 财务嵌入 | /finance/canteen-settlements 不白屏，空态正确 | m34-09 |
+
+### 本轮前端修复
+1. 结算状态机门控修正（settlements/page.tsx）：disputed 态原仅给「开始对账」，但后端拒绝 `reconcile from disputed`（400）；改为 disputed→仅「审批通过」，reconcile 仅 submitted 可用。
+2. 报表字段映射修正（canteen-api.ts）：后端 reports 返回 snake_case（order_count/sales_total/qr_pay_total/subtotal_total/avg_order_value；dish-ranking 返回 dish_name/qty/sales_amount），client 归一到前端 camelCase，否则指标卡全 0。
+3. finance 白屏：补 app/finance/layout.tsx 挂 DashboardLayout。
+
+### 待联调（后端，未改）
+- 审计全局日志：前端 GET /canteen/status-logs 返回 404；后端仅有 /canteen/settlements/status-logs 但需未文档化的 uuid 参数（试 settlement_id/id/target_id/object_id/ref_id 均 400 uuid expected）。需后端给出全局操作日志路由与参数。
+- 结算明细 items 行 refund_amount=0，而汇总 refund_total=10（疑似后端明细退款聚合口径）。

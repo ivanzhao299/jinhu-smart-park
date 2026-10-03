@@ -311,7 +311,7 @@ function ActionRow({ status, busy, onAction }: { status: string; busy: boolean; 
           <button className="primary-button" type="button" disabled={busy} onClick={() => onAction("submit")}>提交</button>
         </PermissionGuard>
       ) : null}
-      {(status === "submitted" || status === "disputed") ? (
+      {status === "submitted" ? (
         <PermissionGuard permission={CANTEEN_PERMISSIONS.SETTLEMENT_RECONCILE} module={CANTEEN_MODULE}>
           <button className="primary-button" type="button" disabled={busy} onClick={() => onAction("reconcile")}>开始对账</button>
         </PermissionGuard>
@@ -321,7 +321,7 @@ function ActionRow({ status, busy, onAction }: { status: string; busy: boolean; 
           <button className="secondary-button" type="button" disabled={busy} onClick={() => onAction("dispute")}>挂差异</button>
         </PermissionGuard>
       ) : null}
-      {status === "reconciling" ? (
+      {(status === "reconciling" || status === "disputed") ? (
         <PermissionGuard permission={CANTEEN_PERMISSIONS.SETTLEMENT_APPROVE} module={CANTEEN_MODULE}>
           <button className="primary-button" type="button" disabled={busy} onClick={() => onAction("approve")}>审批通过</button>
         </PermissionGuard>
