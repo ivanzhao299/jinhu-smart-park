@@ -39,7 +39,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "3a62b757aa7bebaa320765dcc6a84c305d2bfd320b7006cdad78418d195555a6"
+      "sha256": "382f7a8fa567a9fd11604c020c4e8f41282b195e45a6d3948f845ec8013444a9"
     },
     "modernAccessPolicy": {
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
@@ -51,7 +51,7 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "6491104f46a30876aab4f51acb2f0b307d0cf3dda71f7b70b69ee60b1e789430"
+      "sha256": "20bdb0628b3f2076d6102263b89c45638f30ec5625bd6dc17abdb7366bb61f87"
     },
     "materializationEvidence": {
       "path": "scripts/e2e/yuzhou-professional-title-materialization-contract.mjs",
@@ -142,7 +142,7 @@
           "sourceBoundary": "single_scalar_select_without_explicit_transaction",
           "modernBoundary": "immutable_imported_profile_code_label_pair_read_in_one_scoped_repository_query",
           "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_failed_import_rejects_the_profile_pair",
-          "evidenceSha256": "3a62b757aa7bebaa320765dcc6a84c305d2bfd320b7006cdad78418d195555a6"
+          "evidenceSha256": "382f7a8fa567a9fd11604c020c4e8f41282b195e45a6d3948f845ec8013444a9"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -175,7 +175,7 @@
               "conservationRule": "one_valid_source_code_label_pair_materializes_to_one_profile_code_label_pair_with_zero_unrelated_writes"
             }
           ],
-          "evidenceSha256": "3a62b757aa7bebaa320765dcc6a84c305d2bfd320b7006cdad78418d195555a6"
+          "evidenceSha256": "382f7a8fa567a9fd11604c020c4e8f41282b195e45a6d3948f845ec8013444a9"
         },
         "dynamicSql": {
           "status": "none",
