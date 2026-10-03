@@ -101,6 +101,11 @@ function assertTask(task) {
     || task.modernRuntimeContract?.browserTask?.checks?.length !== 4) {
     fail("GROUP_WEB_EMPLOYEE_RUNTIME_MATRIX_INVALID", "modernRuntimeContract");
   }
+  const profileUpdate = task.modernRuntimeContract.apiTasks.find(task => task.id === "profile_update_isolated_fixture");
+  if (profileUpdate?.method !== "PUT" || profileUpdate.path !== "/hr/employees/:id/profile" || profileUpdate.expectedStatus !== 200
+    || JSON.stringify(profileUpdate.assertions) !== JSON.stringify(["idempotency_key", "profile_manage_permission", "synthetic_values_only", "successful_profile_read_expected_version", "stale_409_no_overwrite", "read_after_write"])) {
+    fail("GROUP_WEB_EMPLOYEE_RUNTIME_PROFILE_CAS_TASK_INVALID", "profile_update_isolated_fixture");
+  }
   if (task.runtimeEvidence.requiredLegacyFieldBindings !== 43
     || task.runtimeEvidence.requiredLegacyInteractionSlots !== 11
     || task.runtimeEvidence.requiredLegacyReportLayoutDecision !== 1

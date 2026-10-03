@@ -12,7 +12,7 @@ const managedId="00000000-0000-4000-8000-000000000002";
 const siblingId="00000000-0000-4000-8000-000000000003";
 const actor=(permission:string,sub="10000000-0000-4000-8000-000000000001"):JwtPrincipal=>({sub,username:"actor",tenantId:scope.tenantId,parkId:scope.parkId,roles:[],permissions:[permission]});
 const profile={
-  id:"20000000-0000-4000-8000-000000000001",employeeId:managedId,idType:"resident_id",
+  id:"20000000-0000-4000-8000-000000000001",employeeId:managedId,version:4,idType:"resident_id",
   idNumberMasked:"320812198901011234",idNumberEncrypted:"encrypted-private-value",
   personalMobile:"13812345678",personalEmail:"private@example.com",address:"private address",
   emergencyContactName:"王小明",emergencyContactMobile:"13987654321",remark:"private remark",
@@ -38,6 +38,7 @@ test("department manager receives only an audited masked profile inside the mana
   const fixture=serviceFor();
   const result=await fixture.service.employeeProfile(scope,actor(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ),managedId);
   assert.equal(result?.personalMobile,"138****5678");
+  assert.equal(result?.version,4);
   for(const forbidden of ["idNumberEncrypted","idNumber","tenantId","parkId","createBy","updateBy","remark","dateOfBirth","highestEducation"]){
     assert.equal(forbidden in (result??{}),false,`${forbidden} must not be exposed`);
   }
@@ -80,6 +81,7 @@ test("ordinary park profile read remains masked without manage permission",async
   const result=await fixture.service.employeeProfile(scope,actor(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ),managedId);
   assert.equal(result?.masked,true);
   assert.equal(result?.personalMobile,"138****5678");
+  assert.equal(result?.version,4);
   for(const field of ["idNumber","dateOfBirth","highestEducation","remark"])
     assert.equal(field in (result??{}),false);
   assert.deepEqual(fixture.counts(),{profileReads:1,auditCalls:1});

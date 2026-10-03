@@ -142,6 +142,7 @@ export class LinkHrEmployeeAccountDto {
  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(500) reason!:string;
 }
 export class UpdateHrEmployeeProfileDto {
+ @IsInt() @Min(0) @Max(2147483646) expectedVersion!:number;
  @IsOptional() @IsIn(["resident_id","passport","other"]) idType?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) idNumber?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) englishName?:string;
