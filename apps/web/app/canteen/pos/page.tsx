@@ -7,6 +7,7 @@ import { canteenApi } from "../../../lib/canteen-api";
 import { ApiError } from "../../../lib/api-client";
 import { getAccessToken, getAuthUser } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
+import { tryPrintReceipt } from "../../../lib/canteen-peripherals";
 import styles from "./pos.module.css";
 import type { PosEmployeeLookup, PosCheckoutSubsidyResult, CanteenOrder } from "../../../lib/canteen-types";
 
@@ -458,20 +459,22 @@ export default function PosTerminalPage() {
       setModal(null);
       toast("支付超时，订单已关单");
     };
-    const onPaid = () => {
+    const onPaid = async () => {
       stopCountdown();
       stopPolling();
-      finishOrder(amount, "二维码收款成功 · 已到账统一收款账户", "小票已打印（可选）", "qr");
+      const { note } = await tryPrintReceipt({ orderNo, amount, channel: "qr", lines: [] });
+      finishOrder(amount, "二维码收款成功 · 已到账统一收款账户", note, "qr");
     };
     startCountdown(settle);
     if (!demo) startPolling(paymentNo, onPaid, () => { stopCountdown(); setModal(null); toast("支付已关单"); });
   }
 
   /* 演示模式下“模拟支付成功” */
-  function demoPaySuccess() {
+  async function demoPaySuccess() {
     stopCountdown();
     stopPolling();
-    finishOrder(qrInfo.amount, "二维码收款成功（演示）", "小票已打印（可选）", "qr");
+    const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
+    finishOrder(qrInfo.amount, "二维码收款成功（演示）", note, "qr");
   }
 
   function closeQr() {

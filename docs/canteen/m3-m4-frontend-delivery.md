@@ -91,3 +91,10 @@
 - entity_type=dish：共 2 条，shelf_off(on_shelf→off_shelf) 21:40:45、shelf_on(off_shelf→on_shelf) 21:41:00，青椒牛柳，admin。截图 m34-12-dish-logs.png。
 - 状态一致性：交易后青椒牛柳 status=on_shelf，POS 卡片与管理端一致。
 本轮无代码改动，typecheck/build 未重跑。
+
+---
+
+## M4 收尾：外设抽象 + UAT 清单
+- 新增 `apps/web/lib/canteen-peripherals.ts`：ReceiptPrinter（isAvailable/printReceipt，Null+Browser 占位，配置 NEXT_PUBLIC_CANTEEN_PRINTER 默认 null）、tryPrintReceipt（不可用时如实提示「演示环境未连接小票打印机」）、BarcodeScanner（KeyboardWedgeScanner 键盘楔入聚合回车）。不内置厂商型号/驱动/重型依赖。
+- POS 收款成功小票文案接到 tryPrintReceipt，不再无条件显示「小票已打印」。
+- 新增 `docs/canteen/uat-checklist.md`：按收银员/管理员/员工/承包方财务/审批/审计分组，20+ 用例，已实测标✅并引 selfcheck 图；真实打印机/扫码枪标🟡占位待硬件。
