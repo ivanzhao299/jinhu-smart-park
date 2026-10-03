@@ -13,7 +13,35 @@ export class ProductionRuntimeObservationError extends Error {
 }
 const fail = suffix => { throw new ProductionRuntimeObservationError(`PRODUCTION_RUNTIME_${suffix}`); };
 const docker = args => execFileSync("docker", ["--host", "unix:///var/run/docker.sock", ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 65536, stdio: ["ignore", "pipe", "pipe"] });
-export function observeProductionRuntimeRevision(expectedCommit, { expectedApiCommit = expectedCommit, expectedWebCommit = expectedCommit, observerCodeCommit = expectedCommit, runDocker = docker, now = () => new Date() } = {}) {
+// Hash only application code/build assets. Never inspect environment, storage,
+// credentials or business rows. An image label alone does not prove build input.
+export function observeEmployeeWebBuild(runDocker = docker) {
+  const probe = `const fs=require('node:fs'),crypto=require('node:crypto');
+const root='/app/apps/web', digest=b=>crypto.createHash('sha256').update(b).digest('hex');
+let budget=24*1024*1024;
+const read=p=>{const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.size>8*1024*1024||(budget-=s.size)<0)throw Error('BOUNDS');return fs.readFileSync(p)};
+const src=read(root+'/app/hr/employees/HrEmployeesClient.tsx');
+const cssPath=root+'/app/hr/employees/employees.module.css',css=fs.existsSync(cssPath)?read(cssPath):null;
+const dir=root+'/.next/static/chunks/app/hr/employees';
+const chunks=fs.readdirSync(dir).filter(n=>/^page-[a-f0-9]+\\.js$/.test(n)).map(name=>{const bytes=read(dir+'/'+name);return{name,sha256:digest(bytes),managerCandidatesMarker:bytes.includes(Buffer.from('managerCandidates'))}});
+if(chunks.length!==1)throw Error('CHUNK_COUNT');
+console.log(JSON.stringify({formatVersion:1,artifactKind:'employee_web_build_observation',sourceSha256:digest(src),sourceManagerCandidatesMarker:src.includes(Buffer.from('employeeStyles.managerCandidates')),styleSha256:css?digest(css):null,styleManagerCandidatesMarker:css?css.includes(Buffer.from('.managerCandidates')):false,chunks}));`;
+  try {
+    const raw = runDocker(["exec", "jinhu-smart-park-prod-web", "node", "-e", probe]);
+    if (typeof raw !== "string" || Buffer.byteLength(raw) > 4096) fail("WEB_BUILD_METADATA_INVALID");
+    const value = JSON.parse(raw);
+    if (value?.formatVersion !== 1 || value?.artifactKind !== "employee_web_build_observation"
+      || !ID.test(value.sourceSha256 ?? "") || !(value.styleSha256 === null || ID.test(value.styleSha256 ?? ""))
+      || typeof value.sourceManagerCandidatesMarker !== "boolean" || typeof value.styleManagerCandidatesMarker !== "boolean"
+      || !Array.isArray(value.chunks) || value.chunks.length !== 1
+      || value.chunks.some(row => !/^page-[a-f0-9]+\.js$/u.test(row.name ?? "") || !ID.test(row.sha256 ?? "") || typeof row.managerCandidatesMarker !== "boolean")) fail("WEB_BUILD_METADATA_INVALID");
+    return value;
+  } catch (error) {
+    if (error instanceof ProductionRuntimeObservationError) throw error;
+    fail("WEB_BUILD_OBSERVATION_FAILED");
+  }
+}
+export function observeProductionRuntimeRevision(expectedCommit, { expectedApiCommit = expectedCommit, expectedWebCommit = expectedCommit, observerCodeCommit = expectedCommit, inspectWebBuild = false, runDocker = docker, now = () => new Date() } = {}) {
   try {
     if (typeof expectedCommit !== "string" || !SHA.test(expectedCommit)) fail("EXPECTED_COMMIT_INVALID");
     if (typeof expectedApiCommit !== "string" || !SHA.test(expectedApiCommit)) fail("EXPECTED_API_COMMIT_INVALID");
@@ -54,13 +82,14 @@ export function observeProductionRuntimeRevision(expectedCommit, { expectedApiCo
       }
       return { ...item, revision: image[1] };
     });
+    const webBuild = inspectWebBuild ? observeEmployeeWebBuild(runDocker) : null;
     for (const item of before) {
       const after = inspect(`jinhu-smart-park-prod-${item.service}`, item.service);
       if (after.containerId !== item.containerId || after.imageId !== item.imageId || after.startedAt !== item.startedAt || after.restartCount !== item.restartCount) fail("CONTAINER_CHANGED");
     }
     const observedAt = now().toISOString();
     return { formatVersion: 2, artifactKind: "jinhu_production_runtime_image_observation", status: "PASS", expectedApiCommit, expectedWebCommit, observerCodeCommit,
-      observedAt, observations, evidenceScope: "running_container_image_revisions", productionImport: "HOLD", authorizationGranted: false };
+      observedAt, observations, ...(webBuild ? { webBuild } : {}), evidenceScope: "running_container_image_revisions", productionImport: "HOLD", authorizationGranted: false };
   } catch (error) {
     if (error instanceof ProductionRuntimeObservationError) throw error;
     fail("OBSERVATION_FAILED");
@@ -82,6 +111,7 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
       expectedApiCommit: values.get("--expected-api-commit") ?? expectedCommit,
       expectedWebCommit: values.get("--expected-web-commit") ?? expectedCommit,
       observerCodeCommit: values.get("--observer-code-commit") ?? expectedCommit,
+      inspectWebBuild: true,
     })) + "\n");
   } catch (error) {
     process.stderr.write(`${error instanceof ProductionRuntimeObservationError ? error.code : "PRODUCTION_RUNTIME_OBSERVATION_FAILED"}\n`);

@@ -4,7 +4,37 @@ import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { observeProductionRuntimeRevision as observe } from "../diagnose-production-runtime-revision.mjs";
+import { observeProductionRuntimeRevision as observe, observeEmployeeWebBuild } from "../diagnose-production-runtime-revision.mjs";
+
+test("web build proof reads actual bounded source and compiled assets without exposing code", t => {
+  const dir = mkdtempSync(join(tmpdir(), "employee-web-build-proof-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  mkdirSync(join(dir, "app/hr/employees"), { recursive: true });
+  mkdirSync(join(dir, ".next/static/chunks/app/hr/employees"), { recursive: true });
+  writeFileSync(join(dir, "app/hr/employees/HrEmployeesClient.tsx"), "employeeStyles.managerCandidates");
+  writeFileSync(join(dir, "app/hr/employees/employees.module.css"), ".managerCandidates { grid-column: 1 / -1 }");
+  const chunk = join(dir, ".next/static/chunks/app/hr/employees/page-123abc.js");
+  writeFileSync(chunk, "old build without current class");
+  const runDocker = args => {
+    assert.deepEqual(args.slice(0, 4), ["exec", "jinhu-smart-park-prod-web", "node", "-e"]);
+    assert.ok(!args[4].includes("process.env"));
+    const result = spawnSync(process.execPath, ["-e", args[4].replace("const root='/app/apps/web'", `const root=${JSON.stringify(dir)}`)], { encoding: "utf8" });
+    if (result.status !== 0) throw new Error("synthetic denied");
+    return result.stdout;
+  };
+  const oldBuild = observeEmployeeWebBuild(runDocker);
+  assert.equal(oldBuild.sourceManagerCandidatesMarker, true);
+  assert.equal(oldBuild.styleManagerCandidatesMarker, true);
+  assert.equal(oldBuild.chunks[0].managerCandidatesMarker, false);
+  assert.ok(!JSON.stringify(oldBuild).includes("grid-column"));
+  writeFileSync(chunk, "managerCandidates:compiledCurrentClass");
+  const freshBuild = observeEmployeeWebBuild(runDocker);
+  assert.equal(freshBuild.chunks[0].managerCandidatesMarker, true);
+  assert.notEqual(freshBuild.chunks[0].sha256, oldBuild.chunks[0].sha256);
+  assert.equal(freshBuild.sourceSha256, oldBuild.sourceSha256);
+  writeFileSync(join(dir, ".next/static/chunks/app/hr/employees/page-def456.js"), "second build");
+  assert.throws(() => observeEmployeeWebBuild(runDocker), { code: "PRODUCTION_RUNTIME_WEB_BUILD_OBSERVATION_FAILED" });
+});
 
 const root = resolve(import.meta.dirname, "../.."), commit = "a".repeat(40), old = "b".repeat(40);
 const read = path => readFileSync(join(root, path), "utf8");
