@@ -62,7 +62,7 @@ suite("HR contract read PostgreSQL gate",()=>{
   auditHolder.auditService=originalAudit;
  });
 
- it("creates online drafts transactionally and keeps imported history immutable",async()=>{
+ it("creates online drafts and continues imported contracts under the same normal rules",async()=>{
   const manager={...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE,HR_PERMISSIONS.HR_CONTRACT_READ]};
   await assert.rejects(service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-SALARY-DENIED",startDate:"2027-01-01",baseSalary:"9000.00"}),/Compensation management permission/u);
   const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ]};
@@ -100,7 +100,10 @@ suite("HR contract read PostgreSQL gate",()=>{
   const actions=await dataSource.getRepository(HrContractActionEntity).find({where:{...scope,contractId:created.id},order:{sequenceNo:"ASC"}});
   assert.deepEqual(actions.map(item=>item.action),["created","updated","activated","change_created","change_cancelled","change_created","change_applied","change_created","change_cancelled"]);
   await assert.rejects(dataSource.query("UPDATE hr_contract_action SET remark='tampered' WHERE id=$1",[actions[0]!.id]),/append-only/u);
-  await assert.rejects(service.actContract(scope,manager,contract,{action:"cancel"}),/immutable/u);
-  await assert.rejects(service.createContractChange(scope,manager,contract,{changeType:"renewal",newStartDate:"2028-01-01"}),/immutable/u);
+  await assert.rejects(service.actContract(scope,manager,contract,{action:"cancel"}),/Only a draft/u);
+  const importedDraft=await service.createContractChange(scope,manager,contract,{changeType:"renewal",newStartDate:"2028-01-01",newEndDate:"2028-12-31"});
+  assert.equal(importedDraft.status,"draft");
+  assert.equal((await dataSource.query("SELECT source_snapshot->>'raw' raw,is_historical_import imported FROM hr_contract WHERE id=$1",[contract]))[0]?.raw,"secret");
+  assert.equal((await dataSource.query("SELECT source_snapshot->>'raw' raw,is_historical_import imported FROM hr_contract WHERE id=$1",[contract]))[0]?.imported,true);
  });
 });

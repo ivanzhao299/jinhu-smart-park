@@ -50,6 +50,7 @@ export interface HrEmployeeAssignmentDetails {
 
 export interface HrEmployeeProfileProjection {
   id: string;
+  version: number;
   employeeId: string;
   idType: string | null;
   idNumber?: string | null;
@@ -222,6 +223,7 @@ export function projectHrEmployeeProfile(
   const full=projection==="full";
   const base={
     id: profile.id,
+    version: profile.version,
     employeeId: profile.employeeId,
     idType: profile.idType,
     idNumberMasked: maskIdentity(profile.idNumberMasked),

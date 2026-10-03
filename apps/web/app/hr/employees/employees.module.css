@@ -1,0 +1,74 @@
+.managerCandidates {
+  grid-column: 1 / -1;
+  min-width: 0;
+  align-self: start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.managerCandidates legend {
+  margin: 0;
+  padding: 0;
+  color: var(--form-label-color);
+  font: inherit;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.managerCandidatesSearch {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.managerCandidatesSearch > span {
+  color: var(--form-label-color);
+  font-size: var(--form-label-size);
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.managerCandidatesSearch input,
+.managerCandidates > select {
+  width: 100%;
+  min-width: 0;
+}
+
+.managerCandidatesPager {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding-top: 2px;
+}
+
+.managerCandidatesPager :global(.ds-button),
+.managerCandidatesPageStatus {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.managerCandidatesPageStatus {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .managerCandidates {
+    grid-column: 1 / -1;
+  }
+
+  .managerCandidatesPager {
+    align-items: stretch;
+  }
+
+  .managerCandidatesPager :global(.ds-button) {
+    min-height: 44px;
+  }
+}

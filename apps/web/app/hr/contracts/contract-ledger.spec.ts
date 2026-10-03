@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createContractLedger,clampContractPage,runContractContextAction,type ContractLedgerQuery } from "./contract-ledger";
+import { createContractLedger,clampContractPage,formatContractCalendarDate,runContractContextAction,type ContractLedgerQuery } from "./contract-ledger";
 
 const query:ContractLedgerQuery={contextKey:"tenant/park/user/permissions",canRead:true,canManage:true,selfOnly:false,keyword:"",status:""};
 function deferred<T>() { let resolve!:(value:T)=>void,reject!:(error:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject}; }
@@ -13,6 +13,14 @@ function fixture(){
 }
 async function loaded(){const result=fixture(),pending=result.ledger.load();result.lists[0]!.response.resolve(page(1));result.active[0]!.resolve(57);await pending;return result;}
 const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
+test("contract calendar display preserves source calendar dates without timezone conversion",()=>{
+ assert.equal(formatContractCalendarDate("2005-12-26"),"2005-12-26");
+ assert.equal(formatContractCalendarDate("Mon Dec 26 2005 00:00:00 GMT+0800 (China Standard Time)"),"2005-12-26");
+ assert.equal(formatContractCalendarDate("Mon Dec 26 2005 00:00:00 GMT-0800 (Pacific Standard Time)"),"2005-12-26");
+ assert.equal(formatContractCalendarDate("2005-12-26T23:00:00-08:00"),"2005-12-26");
+ assert.equal(formatContractCalendarDate(null,"无固定期限"),"无固定期限");
+ assert.equal(formatContractCalendarDate("not-a-date"),"not-a-date");
+});
 for(const outcome of ["resolve","reject"] as const)test(`reminder mutation ${outcome} after identity switch does not refresh or publish`,async()=>{
  const work=deferred<number>();let context="old";const calls:string[]=[];
  const pending=runContractContextAction({isCurrent:()=>context==="old",work:()=>work.promise,refresh:async()=>{calls.push("refresh");},success:()=>{calls.push("success");},error:()=>{calls.push("error");},settled:()=>{calls.push("settled");}});

@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { formatPayrollHistoryItemValue } from "./payroll/payroll-history-display";
 
 const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8");
 const css=readFileSync(resolve(__dirname,"payroll/payroll.module.css"),"utf8");
 const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+
+test("history item display uses the exact source item code for non-money decimals",()=>{
+ const money=(value:string|null)=>value==null?"—":`¥${value}`;
+ const decimal={valueType:"decimal",isSourceNull:false,decimalValue:"26.0000",textValue:null,dateValue:null};
+ assert.equal(formatPayrollHistoryItemValue({...decimal,itemCode:"出勤天数"},money),"26 天");
+ assert.equal(formatPayrollHistoryItemValue({...decimal,itemCode:"序号",decimalValue:"3.0000"},money),"3");
+ assert.equal(formatPayrollHistoryItemValue({...decimal,itemCode:"基本工资"},money),"¥26.0000");
+ assert.equal(formatPayrollHistoryItemValue({...decimal,itemCode:"出勤天数",isSourceNull:true},money),"源值为空");
+ assert.equal(formatPayrollHistoryItemValue({...decimal,itemCode:null,decimalValue:"0"},money),"¥0");
+});
 
 test("T4 payroll API contracts use exact paged history and review routes",()=>{
   for(const route of ["/hr/payroll/history?","/hr/payroll/history/${id}","/hr/payroll/history/${id}/items","/hr/payroll/history-books?","/hr/payroll/history-tax-rules?","/hr/payroll/history-items?","/hr/payroll/history-formulas?","/hr/payroll/history-review-cases?"]){

@@ -8,7 +8,7 @@ const read=(path:string)=>readFileSync(resolve(root,path),"utf8");
 const page=read("apps/web/app/hr/employees/HrEmployeesClient.tsx");
 const api=read("apps/web/lib/hr-api.ts");
 const sensitiveEditorGate=/canManageProfile&&profileReadReady\?<><h3>维护敏感档案/u;
-const sensitiveSaveGate=/if\(!selected\|\|busy\|\|!canManageProfile\|\|!profileReadReady\)return/u;
+const sensitiveSaveGate=/if\(!selected\|\|busy\|\|profileSaving\.current\|\|profileConflict\|\|!canManageProfile\|\|!profileReadReady\|\|\(profile!==null&&profile\.employeeId!==selected\.id\)\)return/u;
 
 test("employee directory and profiles use only their exact park team and self atoms",()=>{
   assert.match(page,/canReadAll=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_READ\)/u);
@@ -51,8 +51,9 @@ test("sensitive profile maintenance requires both permission and successful read
     page.replace("canManageProfile&&profileReadReady?<><h3>维护敏感档案","profileReadReady?<><h3>维护敏感档案"),
   ])assert.doesNotMatch(weakened,sensitiveEditorGate);
   for(const weakened of [
-    page.replace("||!profileReadReady)return",")return"),
     page.replace("||!canManageProfile||!profileReadReady","||!profileReadReady"),
+    page.replace("||profileSaving.current||profileConflict",""),
+    page.replace("||(profile!==null&&profile.employeeId!==selected.id)",""),
   ])assert.doesNotMatch(weakened,sensitiveSaveGate);
 });
 

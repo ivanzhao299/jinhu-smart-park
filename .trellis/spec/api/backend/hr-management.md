@@ -392,7 +392,9 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 - Tables: `hr_contract_type`, `hr_contract`, `hr_contract_change`.
 
 ### 3. Contracts
-- Main contracts and renewal/change history are separate immutable historical aggregates; a change never overwrites the main source snapshot.
+- During extraction/loading, main contracts and historical change facts are separate source aggregates; loading a change never overwrites the original main source evidence.
+- After import, a contract is formal operational data on its original ID. `isHistoricalImport` is provenance, never a write-eligibility rule. Draft edit/activate/cancel, active renewal/amendment/termination, and document management follow the same permission, scope, state, salary, date-chain and locking checks as other contracts.
+- Preserve source identity/hash/receipt keys, original import receipts, and append-only action history when business facts change. Applied/cancelled change rows remain terminal by status, not by origin. Normal workflow UI must not classify imported contracts as permanently read-only or require replacement records.
 - Employee and master-contract resolution are exact and scoped. Missing T0 employees or masters are quarantined, not synthesized.
 - Raw contract text and file paths never enter reports or downloadable file references; only presence metadata is migrated until the protected-file phase.
 - Rollback order is change, contract, type and every deletion requires active record-map proof.
@@ -412,7 +414,7 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 
 ### 7. Wrong vs Correct
 - Wrong: update the main contract end date for each `compact_c` row.
-- Correct: append ordered `hr_contract_change` rows linked to the immutable main contract.
+- Correct: append ordered `hr_contract_change` rows linked to the original main contract and preserve immutable source evidence; later authorized business actions update that same contract through its normal state machine.
 
 ## Scenario: Yuzhou historical attendance calendar and insurance migration
 
@@ -1202,3 +1204,50 @@ Reminder query PostgreSQL regression uses `node scripts/verify-hr-contract-remin
 - Check API scoped-filter SQL/DTO, real panel navigation/paging/context clearing, existing departure state contracts, two-end typecheck/build and desktop/390px layout. Synthetic component previews remain distinct from authenticated production UAT.
 
 - Employee-reference loading is capability-separated: only request positions when the actor has `HR_POSITION_READ`, and settle directory/position reads independently. A denied/unavailable optional position read must not discard authorized account or org options. Directory denial must not expose or fabricate users, while a successful independent position response may remain available.
+
+## Scenario: Employee profile compare-and-swap writes
+
+### 1. Scope / Trigger
+
+- Applies to `PUT /hr/employees/:id/profile`, its DTO, `HrService.updateEmployeeProfile`, profile projections and the employee maintenance form.
+
+### 2. Signature
+
+- The request carries required integer `expectedVersion`; active profiles return their current positive `version`, while only a successfully read null profile may be created with `expectedVersion=0`.
+
+### 3. Contracts
+
+- Lock the scoped active employee anchor, then lock every same-scope profile row for that employee. Derive the active set from `is_deleted=false` after the lock; do not filter deleted history out of the locked read.
+- Zero creates exactly one version-1 row only when no profile row of any deletion state exists. A deleted historical row makes zero-version creation a conflict, preserving repair/audit history for a separate reviewed workflow.
+- Reject active ambiguity, absent/stale version and deleted-only history with `ConflictException` before encryption, `save`, audit metadata or any field mutation. One active row plus deleted history remains a normal CAS update.
+- A legal full PUT saves `expectedVersion+1` exactly once, including a no-op. Existing ordinary omitted fields retain full-replacement null semantics; omitted identity data remains unchanged.
+- This endpoint retains its existing permission, IdempotencyInterceptor and body-free audit contract; version protection grants no user, role, account-link or scope capability.
+
+### 4. Validation & Error Matrix
+
+- Missing/non-integer/negative version -> bad request. Active zero/version mismatch, deleted-only history, duplicate active rows or concurrent loser -> conflict with no write. One active row plus one deleted history row and matching version -> one active-row update.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a fresh employee creates profile version 1; a later matching full PUT advances it once. Base: a normal active profile update succeeds despite an unrelated deleted record. Bad: recreating after a soft delete with zero, choosing a newest row from ambiguity, or silently retrying a stale request.
+
+### 6. Tests Required
+
+- DTO/service tests cover missing version, stale/ambiguous/deleted-only no-side-effect paths and active-plus-deleted history. Isolated PostgreSQL tests cover independent first-create/update races, zero against deleted history with no profile/probe write, and the legal active-plus-deleted update.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const active = await profileRepo.find({ where: { ...scope, employeeId, isDeleted: false } });
+if (!active.length && dto.expectedVersion === 0) return profileRepo.save(profileRepo.create(...));
+```
+
+#### Correct
+
+```ts
+const rows = await lockedSameScopeProfiles(manager, scope, employeeId);
+const active = rows.filter(row => !row.isDeleted);
+if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new ConflictException();
+```

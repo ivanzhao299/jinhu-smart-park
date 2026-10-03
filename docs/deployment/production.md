@@ -359,6 +359,8 @@ Android 客户端采用独立构建、轻量发布：`android-app/**` 由 Androi
 
 Use `fast-css` only for runtime design-system polish inside `apps/web/public/runtime-design-system.css`. Durable UI changes in React components, `globals.css`, or page CSS still require `web` or `full` because they are bundled by Next.js.
 
+Narrow deployments read `scripts/production-deploy-transfer-manifest.mjs` line by line. SSH commands inside that loop must use `-n` so they cannot consume subsequent manifest entries from stdin. Without it, only `.release.json` may transfer while the image receives the new revision label over old application source. Verify representative compiled page behavior after deployment; a release marker or image label alone does not prove the application changes reached production.
+
 Docker cleanup is a required post-deploy step. The deployment command should run with `PRUNE_DOCKER_AFTER_DEPLOY=yes` so the server keeps only images used by the current running containers plus active runtime state, and prunes stopped containers and unused images after health checks pass. Build cache is preserved by default so rebuilds stay warm. To reclaim build cache under disk pressure, run:
 
 ```bash

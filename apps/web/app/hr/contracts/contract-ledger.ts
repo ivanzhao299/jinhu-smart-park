@@ -1,4 +1,22 @@
 export const CONTRACT_PAGE_SIZE = 50;
+const CONTRACT_CALENDAR_DATE = /^(\d{4}-\d{2}-\d{2})(?:$|[T ])/;
+const LEGACY_JS_CALENDAR_DATE = /^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{4})(?:\s|$)/;
+const MONTH_NUMBER: Record<string, string> = { Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06", Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12" };
+
+/**
+ * Contract date columns are calendar facts. Preserve the original calendar part
+ * instead of converting an instant through a browser or business timezone.
+ */
+export function formatContractCalendarDate(value: string | null | undefined, absent = "未登记") {
+  if (value == null || value.trim() === "") return absent;
+  const source = value.trim();
+  const dateOnly = CONTRACT_CALENDAR_DATE.exec(source);
+  if (dateOnly) return dateOnly[1]!;
+  const legacy = LEGACY_JS_CALENDAR_DATE.exec(source);
+  if (!legacy) return source;
+  return `${legacy[3]}-${MONTH_NUMBER[legacy[1]!]!}-${legacy[2]!.padStart(2, "0")}`;
+}
+
 /** Mutations may finish after navigation; never refresh or publish for an old identity. */
 export async function runContractContextAction<T>(input: {
   isCurrent(): boolean; work(): Promise<T>; refresh(): Promise<void>;
