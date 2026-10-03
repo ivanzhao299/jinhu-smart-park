@@ -246,7 +246,7 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/姓名、员工编号或合同编号/);
   assert.match(contracts,/劳动合同分页/);assert.match(contracts,/上一页/);assert.match(contracts,/下一页/);assert.doesNotMatch(contracts,/loadMore|加载更多/);
   assert.match(contracts,/续签与变更历史/);
-  assert.match(contracts,/旧系统历史记录/);
+  assert.doesNotMatch(contracts,/旧系统历史记录|旧系统历史|原玉舟/);
   assert.match(contracts,/error:hrLoadErrorMessage/);
   assert.match(contracts,/if\(!canRead\)return/);
   assert.match(contracts,/fallback=\{forbidden\}/);
@@ -288,7 +288,7 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/办理轨迹/);
   assert.match(contracts,/确认生效/);
   assert.match(contracts,/确认变更/);
-  assert.match(contracts,/selected\.isHistoricalImport/);
+  assert.doesNotMatch(contracts,/selected\.isHistoricalImport/);
   assert.match(contracts,/selected\.employeeName\?`\$\{selected\.employeeName\} · `:""/);
   assert.match(contracts,/selected\.employeeName&&selected\.employeeCode\?<span>员工：/);
   assert.match(contracts,/selected\.signatureDate!==undefined\|\|selected\.effectiveDate!==undefined/);

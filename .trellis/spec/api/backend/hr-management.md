@@ -392,7 +392,9 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 - Tables: `hr_contract_type`, `hr_contract`, `hr_contract_change`.
 
 ### 3. Contracts
-- Main contracts and renewal/change history are separate immutable historical aggregates; a change never overwrites the main source snapshot.
+- During extraction/loading, main contracts and historical change facts are separate source aggregates; loading a change never overwrites the original main source evidence.
+- After import, a contract is formal operational data on its original ID. `isHistoricalImport` is provenance, never a write-eligibility rule. Draft edit/activate/cancel, active renewal/amendment/termination, and document management follow the same permission, scope, state, salary, date-chain and locking checks as other contracts.
+- Preserve source identity/hash/receipt keys, original import receipts, and append-only action history when business facts change. Applied/cancelled change rows remain terminal by status, not by origin. Normal workflow UI must not classify imported contracts as permanently read-only or require replacement records.
 - Employee and master-contract resolution are exact and scoped. Missing T0 employees or masters are quarantined, not synthesized.
 - Raw contract text and file paths never enter reports or downloadable file references; only presence metadata is migrated until the protected-file phase.
 - Rollback order is change, contract, type and every deletion requires active record-map proof.
@@ -412,7 +414,7 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 
 ### 7. Wrong vs Correct
 - Wrong: update the main contract end date for each `compact_c` row.
-- Correct: append ordered `hr_contract_change` rows linked to the immutable main contract.
+- Correct: append ordered `hr_contract_change` rows linked to the original main contract and preserve immutable source evidence; later authorized business actions update that same contract through its normal state machine.
 
 ## Scenario: Yuzhou historical attendance calendar and insurance migration
 
