@@ -218,3 +218,17 @@
 .lookupBill { margin-top: 14px; padding-top: 12px; border-top: 2px dashed #e3e9f2; display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; }
 .successSplit { margin-top: 14px; width: 360px; }
 .successSplitRow { display: flex; justify-content: space-between; font-size: 20px; padding: 4px 0; opacity: 0.95; }
+
+/* 长按/右键餐品小菜单 */
+.shelfMenu {
+  width: 320px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+}
+.shelfMenuTitle { font-size: 22px; font-weight: 700; }
+.shelfMenuSub { font-size: 16px; color: #5a6b82; margin-bottom: 6px; }

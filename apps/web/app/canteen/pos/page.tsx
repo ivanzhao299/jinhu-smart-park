@@ -2,9 +2,11 @@
 
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CANTEEN_PERMISSIONS } from "@jinhu/shared";
 import { canteenApi } from "../../../lib/canteen-api";
 import { ApiError } from "../../../lib/api-client";
 import { getAccessToken, getAuthUser } from "../../../lib/authz";
+import { hasPermission } from "../../../lib/permissions";
 import styles from "./pos.module.css";
 import type { PosEmployeeLookup, PosCheckoutSubsidyResult } from "../../../lib/canteen-types";
 
@@ -200,10 +202,42 @@ export default function PosTerminalPage() {
   const cartCount = useMemo(() => cart.reduce((s, it) => s + it.qty, 0), [cart]);
   const visibleDishes = useMemo(() => dishes.filter((d) => d.category === activeCat), [dishes, activeCat]);
 
+  /* ====== 长按/右键沽清（仅 canteen:dish:shelf 权限可见） ====== */
+  const canShelf = hasPermission(getAuthUser(), CANTEEN_PERMISSIONS.DISH_SHELF);
+  const [shelfMenu, setShelfMenu] = useState<PosDish | null>(null);
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lpFired = useRef(false);
+
+  function pressStart(dish: PosDish) {
+    if (!canShelf) return;
+    lpFired.current = false;
+    if (lpTimer.current) clearTimeout(lpTimer.current);
+    lpTimer.current = setTimeout(() => {
+      lpFired.current = true;
+      setShelfMenu(dish);
+    }, 500);
+  }
+  function pressCancel() {
+    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; }
+  }
+  function handleDishTap(dish: PosDish) {
+    if (lpFired.current) { lpFired.current = false; return; }
+    addToCart(dish);
+  }
+  async function applyShelf(dish: PosDish, next: "on_shelf" | "off_shelf") {
+    setShelfMenu(null);
+    try {
+      await canteenApi.updateDishShelf(dish.id, { status: next }, token);
+      setDishes((prev) => prev.map((d) => (d.id === dish.id ? { ...d, soldout: next === "off_shelf" } : d)));
+      toast(next === "off_shelf" ? `已沽清「${dish.name}」` : `已恢复上架「${dish.name}」`);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "沽清操作失败");
+    }
+  }
+
   function addToCart(dish: PosDish) {
     if (dish.soldout) return;
-    setCart((current) => {
-      const ex = current.find((it) => it.id === dish.id);
+    setCart((current) => {      const ex = current.find((it) => it.id === dish.id);
       if (ex) return current.map((it) => (it.id === dish.id ? { ...it, qty: it.qty + 1 } : it));
       return [...current, { id: dish.id, name: dish.name, price: dish.price, qty: 1 }];
     });
@@ -600,8 +634,16 @@ export default function PosTerminalPage() {
                   <button
                     className={`${styles.dish} ${dish.soldout ? styles.dishOff : ""}`}
                     type="button"
-                    disabled={dish.soldout}
-                    onClick={() => addToCart(dish)}
+                    onClick={() => handleDishTap(dish)}
+                    onPointerDown={() => pressStart(dish)}
+                    onPointerUp={pressCancel}
+                    onPointerLeave={pressCancel}
+                    onPointerMove={pressCancel}
+                    onContextMenu={(e) => {
+                      if (!canShelf) return;
+                      e.preventDefault();
+                      setShelfMenu(dish);
+                    }}
                   >
                     <div className={styles.dishImg} style={{ background: dish.color }}>{dish.name.slice(0, 1)}</div>
                     <div className={styles.dishInfo}>
@@ -813,6 +855,22 @@ export default function PosTerminalPage() {
             ) : null}
             <div className={styles.successSub}>{showSuccess.sub}</div>
             <button className={styles.btnNext} type="button" onClick={nextCustomer}>下一位 →</button>
+          </div>
+        ) : null}
+
+        {/* 长按/右键餐品小菜单：沽清 / 恢复上架（仅 DISH_SHELF 权限） */}
+        {shelfMenu ? (
+          <div className={styles.mask} onClick={() => setShelfMenu(null)}>
+            <div className={styles.shelfMenu} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.shelfMenuTitle}>{shelfMenu.name}</div>
+              <div className={styles.shelfMenuSub}>¥{shelfMenu.price.toFixed(2)} · {shelfMenu.soldout ? "当前已沽清" : "当前在售"}</div>
+              {shelfMenu.soldout ? (
+                <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={() => void applyShelf(shelfMenu, "on_shelf")}>恢复上架</button>
+              ) : (
+                <button className={`${styles.btn} ${styles.btnWarn}`} type="button" onClick={() => void applyShelf(shelfMenu, "off_shelf")}>沽清（下架）</button>
+              )}
+              <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setShelfMenu(null)}>取消</button>
+            </div>
           </div>
         ) : null}
 
