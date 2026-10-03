@@ -9,3 +9,21 @@
 规划结果绑定代码、来源观察、快照、范围、合同、员工/档案清单和每行 before hash。记录按来源稳定身份排序，plan hash 对输入顺序稳定。与现代非空值不同的来源字段以 `preservedDifferentFields` 明确报告并原样保留；同一档案中的其他空字段仍可填充。无可填字段但存在不同现代值时标为 `PRESERVED_MODERN_DIFFERENCE`。这只是保留现值的差异记录，不裁决来源矛盾，也不推测应采用哪个值。同值与空来源都不会生成写入建议。要执行任何未来纠正，必须另行获得实时只读保管/范围核验、独立授权、写入器设计和回放对账，不能把本规划结果当成授权。
 
 验证：`node --test scripts/hr-cutover/tests/legacy-personnel-alias-backfill-plan.test.mjs`。
+
+## 生产只读来源观察器
+
+`scripts/diagnose-yuzhou-personnel-alias.mjs <production-deploy-path>` 是独立的聚合观察器。部署路径必须为规范化绝对路径；程序在部署目录内通过 `docker compose exec -T postgres` 启动 `psql -X -qAt -v ON_ERROR_STOP=1`。整条探测设置 15 秒进程上限、5 秒 SQL statement timeout 和 2 秒 lock timeout，并在只读事务中回滚。错误输出使用固定错误码，不包含部署路径、原始 stderr 或数据库内容。
+
+观察范围固定为 tenant `10000001`、park `20000001`、T5 来源 `person_core` / `dbo.person.core_residue`。它要求唯一的已成功 T5 followon 与已成功、绑定范围一致的父 core operation；每个来源必须有同 operation、同 identity、同 row hash 的来源 receipt。映射人员还须由父 operation 的 T0 `hr_employee` insert record、成功 T0 migration batch、T0 projection receipt、活跃 `yuzhou-v10` / `dbo.person` `legacy_record_map` 和同范围未删除员工共同证明。这里的 T0 人员身份哈希属于 `dbo.person`，不等于 `person.core_residue` 的来源哈希；二者只通过存储的 `owner_record_map_id` / employee 关系绑定，不按姓名或人员编码猜测。T5 followon 自身也必须有成功 batch。
+
+现代档案只在同 operation 的 `hr_employee_profile` receipt 与档案行同时匹配员工、范围、`legacy_source_identity_sha256` 和 `legacy_source_row_sha256` 时计入；该员工在固定范围内必须恰有一条未删除档案。原始值只从同 operation identity registry 与 archive receipt 绑定的 `restricted_safe_projection.legacyFields.oldaddr/edulevel` 读取。观察器不选择、解密或输出 T5 来源密文，也不选择来源原始行、人员身份或任何字段值。字段结果仅是计数：现代列 SQL NULL 且来源为合法非空字符串、来源与现值相等、来源与现值不同、来源缺失/非法，以及单独标记的纯空白来源。纯空白不被 trim 后作为建议值，出现时观察分类保持 `NOT_READY`。
+
+`sourceSetSha256` 对观察到的来源行（包括缺少 receipt 的行）按 identity 的 C 顺序生成 UTF-8 文本行 `identity:rowhash`，以 LF 连接且无末尾 LF 后计算 SHA-256；身份和值行都不会返回。该摘要只能与保留在受控本地的来源清单摘要对照，不能单独证明来源保管权、授权或可写入性。固定 schema、额外键、类型错误或数量不守恒会失败关闭；来源重复、缺少 receipt、owner 状态异常、重复 profile、archive/registry 歧义及缺失 archive 以聚合计数报告并使分类保持 `NOT_READY`。当全量 receipt 完整，而未映射历史记录仍存在时，所有已映射记录都通过唯一 T0 owner、profile 与 archive 绑定可标为 `OBSERVED_MATCHED_SUBSET_FOR_REVIEW`；未映射记录继续计数且不进入任何填充值建议。全量唯一映射才可标为 `OBSERVED_READY_FOR_REVIEW`。空范围分类为 `NOT_READY`。所有输出始终标记 `productionImport: HOLD`、`authorizationGranted: false`、`writerPresent: false`；没有写库路径。
+
+只运行不连接数据库的合约测试：
+
+```sh
+node --test scripts/hr-cutover/tests/legacy-personnel-alias-observation.test.mjs
+```
+
+这些 fake-runner 与 SQL 结构检查验证参数、限时、固定 schema、脱敏和失败关闭行为；它们没有执行真实 PostgreSQL，也不能作为生产数据观察或回填证据。父任务需单独执行真实只读查询并核对保留清单摘要。观察器结果不会替代回填计划、独立授权或之后的写入与对账验收。
