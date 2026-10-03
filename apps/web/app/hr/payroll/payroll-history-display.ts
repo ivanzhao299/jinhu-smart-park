@@ -7,7 +7,7 @@ export interface PayrollHistoryDisplayItem {
   dateValue: string | null;
 }
 
-const NON_MONEY_SOURCE_CODES = new Map([
+const NON_MONEY_SOURCE_CODES = new Map<string, string>([
   ["出勤天数", "天"],
   ["序号", ""],
 ] as const);
