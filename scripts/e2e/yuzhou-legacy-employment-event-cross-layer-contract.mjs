@@ -79,6 +79,17 @@ test("employee-event detail projection and required audit close both static gaps
   assert.equal(receipt.status, "STATIC_CHAIN_COMPLETE_RUNTIME_PENDING");
 });
 
+test("history evidence requires the bound component to be rendered and does not admit extra query fields", () => {
+  const selected = contract();
+  const bound = sources(selected);
+  const status = (overrides, layer) => inspectLegacyEmploymentEventCrossLayer({
+    contract: selected, sources: { ...bound, ...overrides },
+  }).layers.find((item) => item.layer === layer)?.status;
+  assert.equal(status({ employeeClient: bound.employeeClient.replace(/<HrEmploymentHistory[^>]*\/>/u, "") }, "frontend_read_write_surface"), "gap");
+  assert.equal(status({ employmentHistory: "export function HrEmploymentHistory(){return null;}" }, "frontend_read_write_surface"), "gap");
+  assert.equal(status({ apiService: bound.apiService.replace("status:true,isHistoricalImport:true", "status:true,isHistoricalImport:true,beforeSnapshot:true") }, "detail_response_projection"), "gap");
+});
+
 test("runtime source role desktop and 390 evidence remain pending and production import remains HOLD", () => {
   const receipt = buildLegacyEmploymentEventCrossLayer({ contract: contract(), repositoryRoot: root });
   assert.deepEqual(receipt.runtimeEvidence, [

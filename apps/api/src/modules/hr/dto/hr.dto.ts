@@ -23,6 +23,7 @@ export interface HrEmploymentEventResponseDto {
  effectiveDate:string;
  reason:string|null;
  createTime:string;
+ provenance:{origin:"historical_import"|"modern_business"|"unclassified";effect:"effective"|"voided"|"unconfirmed"};
 }
 export class HrContractListQueryDto {
  @IsOptional() @IsUUID() employee_id?:string;

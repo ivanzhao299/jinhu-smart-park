@@ -31,6 +31,7 @@ const EXPECTED_PATHS = Object.freeze({
   lifecycleClient: "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx",
   employeeRoute: "apps/web/app/hr/employees/page.tsx",
   employeeClient: "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+  employmentHistory: "apps/web/app/hr/employees/components/HrEmploymentHistory.tsx",
   hrPermissions: "packages/shared/src/hr.ts",
 });
 
@@ -236,7 +237,10 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
     /HR_EMPLOYMENT_EVENT_READ/u.test(sources.employeeClient) &&
     /hrApi\.events/u.test(sources.employeeClient) &&
     /hrApi\.transition/u.test(sources.employeeClient) &&
-    /任职历史/u.test(sources.employeeClient) &&
+    /import \{ HrEmploymentHistory \} from "\.\/components\/HrEmploymentHistory"/u.test(sources.employeeClient) &&
+    /<HrEmploymentHistory events=\{events\} recordListClassName=\{styles\.employeeRecordList\}\s*\/>/u.test(sources.employeeClient) &&
+    /任职历史/u.test(sources.employmentHistory) &&
+    /events\.map\(event =>/u.test(sources.employmentHistory) &&
     /确认办理并留痕/u.test(sources.employeeClient) &&
     /HR_EMPLOYMENT_EVENT_READ:\s*"hr:employment_event:read"/u.test(sources.hrPermissions) &&
     /HR_EMPLOYMENT_TRANSITION:\s*"hr:employment:transition"/u.test(sources.hrPermissions);
@@ -244,7 +248,7 @@ export function inspectLegacyEmploymentEventCrossLayer({ contract, sources }) {
   const projectedDetail =
     /interface HrEmploymentEventResponseDto[\s\S]{0,300}id:string;[\s\S]{0,300}eventNo:string\|null;[\s\S]{0,300}eventType:string;[\s\S]{0,300}effectiveDate:string;[\s\S]{0,300}reason:string\|null;[\s\S]{0,300}createTime:string;/u.test(sources.apiDto) &&
     /projectHrEmploymentEvent/u.test(sources.apiService) &&
-    /select:\{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true\}/u.test(sources.apiService) &&
+    /select:\{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true,status:true,isHistoricalImport:true\}/u.test(sources.apiService) &&
     /employeeEvents[\s\S]{0,1600}\.map\(projectHrEmploymentEvent\)/u.test(sources.apiService) &&
     /response is an explicit allowlist/u.test(sources.apiReadSpec) &&
     /beforeSnapshot[\s\S]{0,800}source_ref[\s\S]{0,120}source_hash/u.test(sources.apiReadSpec);

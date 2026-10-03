@@ -16,7 +16,12 @@ import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,
 import { approvedLeaveMinutesForWorkDate,projectLeaveRoutineImpact } from "./hr-leave-routine-equivalence";
 
 function projectHrPosition(row:HrPositionEntity){return {id:row.id,orgId:row.orgId,positionCode:row.positionCode,positionName:row.positionName,reportsToPositionId:row.reportsToPositionId,jobFamily:row.jobFamily,jobLevel:row.jobLevel,headcountLimit:row.headcountLimit,hierarchyLevel:row.hierarchyLevel,sortOrder:row.sortOrder,authority:row.authority,qualification:row.qualification,responsibilities:row.responsibilities,positionManual:row.positionManual,status:row.status,remark:row.remark};}
-export function projectHrEmploymentEvent(row:HrEmploymentEventEntity):HrEmploymentEventResponseDto {const {id,eventNo,eventType,effectiveDate,reason,createTime}=row;return {id,eventNo,eventType,effectiveDate,reason,createTime:createTime.toISOString()};}
+export function projectHrEmploymentEvent(row:HrEmploymentEventEntity):HrEmploymentEventResponseDto {
+ const {id,eventNo,eventType,effectiveDate,reason,createTime}=row;
+ const origin=row.isHistoricalImport===true?"historical_import":row.isHistoricalImport===false?"modern_business":"unclassified";
+ const effect=row.status==="effective"?"effective":row.status==="void"?"voided":"unconfirmed";
+ return {id,eventNo,eventType,effectiveDate,reason,createTime:createTime.toISOString(),provenance:{origin,effect}};
+}
 
 @Injectable()
 export class HrService {
@@ -73,7 +78,7 @@ export class HrService {
   const canRead=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYMENT_EVENT_READ);
   if(actor.tenantId!==scope.tenantId||actor.parkId!==scope.parkId||!canRead)throw new NotFoundException("Employee not found");
   await this.detailEmployee(scope,id);
-  const rows=await this.events.find({select:{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true},where:[{...scope,employeeId:id,isHistoricalImport:false,isDeleted:false},{...scope,employeeId:id,isHistoricalImport:true,migrationDecision:"accepted",isDeleted:false}],order:{effectiveDate:"DESC",createTime:"DESC"}});
+  const rows=await this.events.find({select:{id:true,eventNo:true,eventType:true,effectiveDate:true,reason:true,createTime:true,status:true,isHistoricalImport:true},where:[{...scope,employeeId:id,isHistoricalImport:false,isDeleted:false},{...scope,employeeId:id,isHistoricalImport:true,migrationDecision:"accepted",isDeleted:false}],order:{effectiveDate:"DESC",createTime:"DESC"}});
   const items=rows.map(projectHrEmploymentEvent);
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employment_event",action:"读取员工任职历史",bizType:"hr_employee",bizId:id,path:"/hr/employees/:id/events",fieldGroups:[],projection:"park",itemCount:items.length});
   return items;
