@@ -27,3 +27,13 @@ Required regressions: explicit full-response renderer fixture (not ordinary-role
 ordinary read permission receiving a masked API response, masked/unknown projection, identity masking,
 source text/null/zero, failed employee switch and authenticated-context reset. A 33-field form
 or summary does not establish parity for all historical source columns.
+
+The legacy archive labels `person.oldaddr` as 原玉舟籍贯 and `person.edulevel` as
+原玉舟学位 only for `yuzhou-v10` / `employee_profile` / `dbo.person.core_residue`
+with the existing sensitive archive read permission. Read own properties from the
+already-authorized projection; preserve scalar source text, explicit empty values,
+and malformed-value warnings. Do not infer values from the modern profile or write
+them back. Suppress only these exact source keys in the corresponding generic
+detail. Clear the previous detail before another detail request, including failure.
+The shared scene card's two-column icon layout needs a local single-column layout
+for a text-only archive card; verify typography and long values at 390px.
