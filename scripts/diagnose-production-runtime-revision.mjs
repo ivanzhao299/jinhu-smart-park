@@ -13,9 +13,12 @@ export class ProductionRuntimeObservationError extends Error {
 }
 const fail = suffix => { throw new ProductionRuntimeObservationError(`PRODUCTION_RUNTIME_${suffix}`); };
 const docker = args => execFileSync("docker", ["--host", "unix:///var/run/docker.sock", ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 65536, stdio: ["ignore", "pipe", "pipe"] });
-export function observeProductionRuntimeRevision(expectedCommit, { runDocker = docker, now = () => new Date() } = {}) {
+export function observeProductionRuntimeRevision(expectedCommit, { expectedApiCommit = expectedCommit, expectedWebCommit = expectedCommit, observerCodeCommit = expectedCommit, runDocker = docker, now = () => new Date() } = {}) {
   try {
     if (typeof expectedCommit !== "string" || !SHA.test(expectedCommit)) fail("EXPECTED_COMMIT_INVALID");
+    if (typeof expectedApiCommit !== "string" || !SHA.test(expectedApiCommit)) fail("EXPECTED_API_COMMIT_INVALID");
+    if (typeof expectedWebCommit !== "string" || !SHA.test(expectedWebCommit)) fail("EXPECTED_WEB_COMMIT_INVALID");
+    if (typeof observerCodeCommit !== "string" || !SHA.test(observerCodeCommit)) fail("OBSERVER_CODE_COMMIT_INVALID");
     const call = args => {
       let result;
       try { result = runDocker(args); } catch { fail("COMMAND_FAILED"); }
@@ -40,7 +43,8 @@ export function observeProductionRuntimeRevision(expectedCommit, { runDocker = d
       const image = json(["image", "inspect", "--format", imageFormat, item.imageId]);
       if (!Array.isArray(image) || image.length !== 3 || image[0] !== item.imageId || image[2] !== item.service) fail("IMAGE_METADATA_INVALID");
       if (typeof image[1] !== "string" || !SHA.test(image[1])) fail("REVISION_UNAVAILABLE");
-      if (image[1] !== expectedCommit) fail("REVISION_MISMATCH");
+      const expectedRevision = item.service === "api" ? expectedApiCommit : expectedWebCommit;
+      if (image[1] !== expectedRevision) fail("REVISION_MISMATCH");
       const destinations = call(["container", "inspect", "--format", "{{range .Mounts}}{{json .Destination}}{{println}}{{end}}", item.containerId]);
       for (const line of destinations ? destinations.split("\n") : []) {
         let path; try { path = JSON.parse(line); } catch { fail("MOUNT_METADATA_INVALID"); }
@@ -55,7 +59,7 @@ export function observeProductionRuntimeRevision(expectedCommit, { runDocker = d
       if (after.containerId !== item.containerId || after.imageId !== item.imageId || after.startedAt !== item.startedAt || after.restartCount !== item.restartCount) fail("CONTAINER_CHANGED");
     }
     const observedAt = now().toISOString();
-    return { formatVersion: 1, artifactKind: "jinhu_production_runtime_image_observation", status: "PASS", expectedCommit,
+    return { formatVersion: 2, artifactKind: "jinhu_production_runtime_image_observation", status: "PASS", expectedApiCommit, expectedWebCommit, observerCodeCommit,
       observedAt, observations, evidenceScope: "running_container_image_revisions", productionImport: "HOLD", authorizationGranted: false };
   } catch (error) {
     if (error instanceof ProductionRuntimeObservationError) throw error;
@@ -65,8 +69,20 @@ export function observeProductionRuntimeRevision(expectedCommit, { runDocker = d
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
-    if (args.length !== 2 || args[0] !== "--expected-commit") fail("ARGUMENT_INVALID");
-    process.stdout.write(JSON.stringify(observeProductionRuntimeRevision(args[1])) + "\n");
+    const values = new Map();
+    for (let i = 0; i < args.length; i += 2) {
+      const flag = args[i];
+      if (!["--expected-commit", "--expected-api-commit", "--expected-web-commit", "--observer-code-commit"].includes(flag)
+        || values.has(flag) || typeof args[i + 1] !== "string" || args[i + 1].startsWith("--")) fail("ARGUMENT_INVALID");
+      values.set(flag, args[i + 1]);
+    }
+    const expectedCommit = values.get("--expected-commit");
+    if (!expectedCommit) fail("ARGUMENT_INVALID");
+    process.stdout.write(JSON.stringify(observeProductionRuntimeRevision(expectedCommit, {
+      expectedApiCommit: values.get("--expected-api-commit") ?? expectedCommit,
+      expectedWebCommit: values.get("--expected-web-commit") ?? expectedCommit,
+      observerCodeCommit: values.get("--observer-code-commit") ?? expectedCommit,
+    })) + "\n");
   } catch (error) {
     process.stderr.write(`${error instanceof ProductionRuntimeObservationError ? error.code : "PRODUCTION_RUNTIME_OBSERVATION_FAILED"}\n`);
     process.exitCode = 1;
