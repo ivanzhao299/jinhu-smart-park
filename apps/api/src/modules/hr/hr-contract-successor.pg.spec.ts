@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import {randomBytes} from "node:crypto";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 import test from "node:test";
 import {DataSource} from "typeorm";
 import {HrService} from "./hr.service";
@@ -8,6 +10,7 @@ import {HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeE
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 
 const required=process.env.HR_CONTRACT_SUCCESSOR_PG_REQUIRED==="1";
+const migrated=process.env.HR_CONTRACT_SUCCESSOR_MIGRATIONS_REQUIRED==="1";
 test("isolated PostgreSQL historical contract to modern successor",{skip:!required,timeout:90000},async t=>{
  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1");assert.ok([55491,55492].includes(Number(process.env.POSTGRES_PORT)));assert.equal(process.env.POSTGRES_DB,"postgres");
  const schema=`hr_successor_${randomBytes(8).toString("hex")}`;
@@ -16,8 +19,21 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
  let db:DataSource|undefined;
  try{
   await admin.query(`CREATE SCHEMA ${schema}`);
-  db=new DataSource({...connection,schema,synchronize:true,entities:[HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeEntity,HrContractActionEntity],extra:{max:6,options:`-c search_path=${schema},public`}});await db.initialize();
-  await db.query(`CREATE TABLE ${schema}.hr_contract_reminder(id uuid,contract_id uuid,tenant_id varchar(64),park_id varchar(64),status text,cancelled_at timestamptz,cancelled_by uuid,cancel_reason text,update_time timestamptz);
+  const entities=[HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeEntity,HrContractActionEntity];
+  const extra={max:6,options:`-c search_path=${schema},public`};
+  if(migrated){
+   // Only the employee dependency is synchronized. Contract tables, constraints and
+   // audit triggers come from these exact checked-in production migrations.
+   const bootstrap=new DataSource({...connection,schema,synchronize:true,entities:[HrEmployeeEntity],extra});await bootstrap.initialize();
+   try{
+    await bootstrap.query(`CREATE UNIQUE INDEX ON hr_employee(tenant_id,park_id,id);
+     CREATE TABLE sys_user(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),UNIQUE(tenant_id,park_id,id))`);
+    const runner=bootstrap.createQueryRunner();await runner.connect();
+    try{for(const file of ["000238_hr_contract_history.sql","000244_hr_contract_online_drafts.sql","000272_hr_contract_legacy_parity.sql","000277_hr_contract_chain_reminder.sql"]){await runner.query(readFileSync(resolve(__dirname,"../../../../../database/migrations",file),"utf8"));}}finally{await runner.release();}
+   }finally{await bootstrap.destroy();}
+  }
+  db=new DataSource({...connection,schema,synchronize:!migrated,entities,extra});await db.initialize();
+  if(!migrated)await db.query(`CREATE TABLE ${schema}.hr_contract_reminder(id uuid,contract_id uuid,tenant_id varchar(64),park_id varchar(64),status text,cancelled_at timestamptz,cancelled_by uuid,cancel_reason text,update_time timestamptz);
    CREATE TABLE ${schema}.hr_contract_reminder_outbox(reminder_id uuid,status text,update_time timestamptz)`);
   const service=Object.create(HrService.prototype) as HrService;Object.assign(service,{dataSource:db});
   const scope={tenantId:"synthetic-tenant",parkId:"synthetic-park"};
@@ -83,6 +99,32 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    assert.ok("originalTermYears" in detail);assert.deepEqual(detail.originalTermYears,{initial:{value:2,status:"recorded"},total:{value:5,status:"recorded"},renewal:{value:0,status:"recorded"}});assert.equal(Object.hasOwn(detail,"sourceSnapshot"),false);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
    await assert.rejects(service.contractDetail({...scope,parkId:"synthetic-foreign"},reader,f.old.id),/Contract not found/);
    const projection=Reflect.get(service,"projectSelfContract") as (row:typeof detail)=>Record<string,unknown>;assert.equal(Object.hasOwn(projection.call(service,detail),"originalTermYears"),false);
+  });
+  await t.test("renewal carries explicit term and signature facts and omission clears stale segment facts",async()=>{
+   const f=await fixture();const created=await service.createContract(scope,actor,{...f.dto,contractTermMonths:24,signatureDate:"2089-12-15"});await contracts.update(created.id,{cumulativeTermMonths:24});await service.actContract(scope,actor,created.id,{action:"activate"});
+   const change=await service.createContractChange(scope,actor,created.id,{changeType:"renewal",newStartDate:"2092-01-01",newEndDate:"2092-12-31",contractTermMonths:12,signatureDate:"2091-12-15"});assert.equal(change.contractTermMonths,12);assert.equal(change.signatureDate,"2091-12-15");
+   const reader={...actor,permissions:["hr:contract:read"]};const detail=await service.contractDetail(scope,reader,created.id);assert.equal(detail.changes[0]?.contractTermMonths,12);assert.equal(detail.changes[0]?.signatureDate,"2091-12-15");assert.equal(Object.hasOwn(detail.changes[0],"sourceSnapshot"),false);
+   await employees.update(f.employee.id,{userId:actor.sub});const self=await service.contractDetail(scope,{...actor,permissions:["hr:contract:self_read"]},created.id);const selfChange=self.changes[0];assert.ok(selfChange);assert.equal(Object.hasOwn(selfChange,"contractTermMonths"),false);assert.equal(Object.hasOwn(selfChange,"signatureDate"),false);
+   await assert.rejects(service.contractDetail({...scope,parkId:"synthetic-foreign"},reader,created.id),/Contract not found/);
+   const holder=service as unknown as {appendContractAction:(...args:unknown[])=>Promise<void>},original=holder.appendContractAction;holder.appendContractAction=async()=>{throw new Error("synthetic apply audit failure");};
+   try{await assert.rejects(service.actContractChange(scope,actor,created.id,change.id,{action:"apply"}),/synthetic apply audit failure/);}finally{holder.appendContractAction=original;}
+   assert.equal((await contracts.findOneByOrFail({id:created.id})).contractTermMonths,24);assert.equal((await db!.getRepository(HrContractChangeEntity).findOneByOrFail({id:change.id})).status,"draft");
+   await service.actContractChange(scope,actor,created.id,change.id,{action:"apply"});const saved=await contracts.findOneByOrFail({id:created.id});assert.equal(saved.contractTermMonths,12);assert.equal(saved.signatureDate,"2091-12-15");assert.equal(saved.cumulativeTermMonths,null);assert.equal((await db!.getRepository(HrContractChangeEntity).findOneByOrFail({id:change.id})).signedAt,null);
+   const next=await service.createContractChange(scope,actor,created.id,{changeType:"renewal",newStartDate:"2093-01-01",newEndDate:"2093-12-31"});await service.actContractChange(scope,actor,created.id,next.id,{action:"apply"});const missing=await contracts.findOneByOrFail({id:created.id});assert.equal(missing.contractTermMonths,null);assert.equal(missing.signatureDate,null);
+   const before=await db!.getRepository(HrContractActionEntity).findOneByOrFail({contractId:created.id,action:"change_created",changeId:change.id});assert.equal(before.snapshot.contractTermMonths,24);assert.equal(before.snapshot.cumulativeTermMonths,24);assert.equal(before.snapshot.signatureDate,"2089-12-15");
+   const actions=await db!.getRepository(HrContractActionEntity).find({where:{contractId:created.id,action:"change_applied"},order:{sequenceNo:"ASC"}});assert.deepEqual(actions[0]?.snapshot.changeFacts,{contractTermMonths:12,signatureDate:"2091-12-15"});assert.ok(actions.every(x=>x.occurredAt instanceof Date));assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
+  await t.test("same-date open-ended renewal cannot inherit prior segment facts",async()=>{
+   const f=await fixture();const created=await service.createContract(scope,actor,{...f.dto,endDate:undefined,contractTermMonths:24,signatureDate:"2089-12-15"});await service.actContract(scope,actor,created.id,{action:"activate"});
+   const change=await service.createContractChange(scope,actor,created.id,{changeType:"renewal",newStartDate:f.dto.startDate});
+   await service.actContractChange(scope,actor,created.id,change.id,{action:"apply"});const saved=await contracts.findOneByOrFail({id:created.id});assert.equal(saved.contractTermMonths,null);assert.equal(saved.signatureDate,null);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
+  if(migrated)await t.test("production contract audit triggers reject mutation and foreign scope",async()=>{
+   const f=await fixture(),created=await service.createContract(scope,actor,f.dto);
+   const [action]=await db!.query("SELECT id FROM hr_contract_action WHERE contract_id=$1",[created.id]);
+   await assert.rejects(db!.query("UPDATE hr_contract_action SET remark='synthetic-tamper' WHERE id=$1",[action.id]),/append-only/);
+   await assert.rejects(db!.query("INSERT INTO hr_contract_action(tenant_id,park_id,contract_id,sequence_no,action,to_status,actor_user_id) VALUES('synthetic-foreign',$1,$2,2,'updated','draft',$3)",[scope.parkId,created.id,actor.sub]),/scope mismatch/);
+   assert.equal(await db!.getRepository(HrContractActionEntity).countBy({contractId:created.id}),1);
   });
   await t.test("historical mutation and unauthorized salary remain denied",async()=>{
    const f=await fixture();await assert.rejects(service.actContract(scope,actor,f.old.id,{action:"cancel"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContractChange(scope,actor,f.old.id,{changeType:"renewal",newStartDate:"2090-01-01"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);

@@ -62,7 +62,7 @@
       {
         "role": "attendance_request_and_daily_calculation_service",
         "path": "apps/api/src/modules/hr/hr.service.ts",
-        "sha256": "241ca3b6c32f41ba17764ac9d37919d6ebadaf9af2b04187714a58659bdad0ad"
+        "sha256": "f112a604f05517ed78d560057bbec4c281db6305ce88c58183c15bafc1b2149e"
       },
       {
         "role": "historical_calendar_day_schema",
