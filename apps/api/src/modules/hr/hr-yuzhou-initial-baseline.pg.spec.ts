@@ -80,10 +80,73 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
           await add(sha("type"),"dbo.compacttypecode","hr_contract_type",typeId,h,h,[]);
           for(const [i,item] of contracts.entries()) await add(item.sourceKey.slice(7),item.sourceTable,"hr_contract",item.initialBaselineWitness!.targetId,hashes[employees.length+i]!,sha(`contract-row-${i}`),[["employee","T0",employees[i]!.sourceKey.slice(7),"hr_employee"],["contract_type","T2",sha("type"),"hr_contract_type"]]);
         }
+        if(process.env.HR_YUZHOU_ORIGINAL_READONLY_PG_ONLY==="1" && ["T0","T2"].includes(phase)) {
+          // Genuine source plans also retain quarantined rows without business targets.
+          // Their receipts/dependencies must not enter the inserted-record expectation.
+          const identity=sha(`quarantined-${phase}`),table=phase==="T0"?"hr_employee":"hr_contract",sourceTable=phase==="T0"?"dbo.person":"dbo.compact";
+          await m.query(`INSERT INTO hr_yuzhou_production_import_record(operation_id,phase,source_identity_sha256,source_row_sha256,disposition,planned_target_table,decision_attestation_sha256,source_system,source_table,source_pk_canonical) VALUES($1,$2,$3,$4,'quarantine',$5,$4,'yuzhou-v10',$6,$7)`,[operationId,phase,identity,h,table,sourceTable,`sha256:${identity}`]);
+          const deps=phase==="T0"?[["primary_org","T0",sha("org"),"sys_org"]]:[["employee","T0",employees[0]!.sourceKey.slice(7),"hr_employee"],["contract_type","T2",sha("type"),"hr_contract_type"]];
+          for(const [role,depPhase,depIdentity,depTable] of deps) await m.query(`INSERT INTO hr_yuzhou_production_import_record_dependency VALUES($1,$2,$3,$4,$5,$6,$7)`,[operationId,phase,identity,role,depPhase,depIdentity,depTable]);
+          const map=(await m.query(`INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,mapping_status) VALUES($1,'yuzhou-v10',$2,$3,$4,$5,$6,'quarantined') RETURNING id`,[batch,sourceTable,`sha256:${identity}`,identity,h,table]))[0].id;
+          await m.query(`INSERT INTO hr_yuzhou_production_import_projection_receipt(operation_id,phase,source_identity_sha256,migration_batch_id,legacy_record_map_id) VALUES($1,$2,$3,$4,$5)`,[operationId,phase,identity,batch,map]);
+        }
         await m.query(`UPDATE hr_yuzhou_production_import_phase SET status='succeeded',finished_at=now() WHERE operation_id=$1 AND phase=$2`,[operationId,phase]);
       }
       await m.query(`UPDATE hr_yuzhou_production_import_operation SET status='succeeded',finished_at=now() WHERE operation_id=$1`,[operationId]);
     });
+    if(process.env.HR_YUZHOU_ORIGINAL_READONLY_PG_ONLY==="1") {
+      const probeSource=`import {buildOriginalBaselineReadonlySql, sanitizeOriginalBaselineObservation} from './scripts/diagnose-production-runtime-revision.mjs'; import {readFileSync} from 'node:fs'; const v=JSON.parse(readFileSync(0,'utf8')); console.log(JSON.stringify(v.raw===undefined?{sql:buildOriginalBaselineReadonlySql(v.expectation)}:sanitizeOriginalBaselineObservation(v.raw,v.expectation)));`;
+      const runProbe=(input:unknown)=>JSON.parse(execFileSync(process.execPath,["--input-type=module","-e",probeSource],{cwd:root,input:JSON.stringify(input),encoding:"utf8"}));
+      const aggregate=(lines:string[])=>sha(lines.sort().map(line=>line+"\n").join(""));
+      const recordFields=["phase","source_system","source_table","source_pk_canonical","source_identity_sha256","source_row_sha256","target_table","target_id","target_after_sha256","target_version_after","disposition"];
+      const depFields=["phase","source_identity_sha256","dependency_role","depends_on_phase","depends_on_source_identity_sha256","expected_target_table"];
+      const domains=[];
+      for(const [phase,targetTable] of [["T0","hr_employee"],["T2","hr_contract"]]) {
+        const records=await db.query(`SELECT ${recordFields.join(",")} FROM hr_yuzhou_production_import_record WHERE operation_id=$1 AND phase=$2 AND target_table=$3`,[operationId,phase,targetTable]);
+        const dependencies=await db.query(`SELECT ${depFields.map(f=>"d."+f).join(",")} FROM hr_yuzhou_production_import_record_dependency d JOIN hr_yuzhou_production_import_record r USING(operation_id,phase,source_identity_sha256) WHERE d.operation_id=$1 AND d.phase=$2 AND r.target_table=$3`,[operationId,phase,targetTable]);
+        domains.push({phase,targetTable,records:records.length,recordSetSha256:aggregate(records.map((r:Record<string,unknown>)=>recordFields.map(f=>String(r[f])).join("\u001f"))),dependencies:dependencies.length,dependencySetSha256:aggregate(dependencies.map((d:Record<string,unknown>)=>depFields.map(f=>String(d[f])).join("\u001f")))});
+      }
+      const expectation={operationId,sealedPlanSha256:sha("fixture"),targetScope:{...scope,scopeSha256:sha(`yuzhou-hr-production-target-scope-v1\0${scope.tenantId}\0${scope.parkId}`)},triple:{codeSha:"a".repeat(40),mappingContractHash:sha("fixture"),sourceSnapshotHash:sha("fixture")},domains};
+      const sql=runProbe({expectation}).sql as string;
+      const query=async()=>{
+        const runner=db!.createQueryRunner();await runner.connect();
+        try {let rows:Record<string,unknown>[]=[];for(const statement of sql.split(";").filter(s=>s.trim())) {const result=await runner.query(statement);if(Array.isArray(result)&&result.length)rows=result;}const found=rows.find((r:Record<string,unknown>)=>typeof r.json_build_object==="string");assert.ok(found);return runProbe({expectation,raw:found.json_build_object});}
+        finally {await runner.release();}
+      };
+      const before=await db.query(`SELECT (SELECT count(*) FROM hr_incremental_initial_baseline) baselines,(SELECT sum(version) FROM hr_employee) versions`);
+      assert.equal((await db.query(`SELECT count(*)::int AS n FROM hr_yuzhou_production_import_record WHERE disposition='quarantine'`))[0].n,2);
+      const initialProof=await query();assert.equal(initialProof.status,"PASS");assert.deepEqual(initialProof.domains.map((d:{records:number})=>d.records),[12,2],"quarantined employee/contract receipts and dependencies do not change inserted-original counts or hashes");
+      assert.deepEqual(await db.query(`SELECT (SELECT count(*) FROM hr_incremental_initial_baseline) baselines,(SELECT sum(version) FROM hr_employee) versions`),before);
+      await db.query(`UPDATE hr_employee SET full_name='Modern edit',version=version+1 WHERE id=$1`,[employees[0]!.initialBaselineWitness!.targetId]);
+      assert.equal((await query()).status,"PASS","modern fields never enter original receipt digest");
+      await db.query(`UPDATE hr_yuzhou_production_import_phase SET status='rolled_back' WHERE operation_id=$1 AND phase='T0'`,[operationId]);
+      assert.equal((await query()).status,"FAIL");
+      await db.query(`UPDATE hr_yuzhou_production_import_phase SET status='succeeded' WHERE operation_id=$1 AND phase='T0'`,[operationId]);
+      await db.query(`DROP INDEX uq_legacy_record_map_active_source`);
+      const duplicate=(await db.query(`INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status) SELECT batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status FROM legacy_record_map WHERE source_identity_sha256=$1 RETURNING id`,[sha("org")]))[0].id;
+      const ambiguous=await query();assert.equal(ambiguous.status,"FAIL");assert.equal(ambiguous.domains[0].eligibleDependencies,1,"dependency chains independently reject ambiguous org mapping");
+      await db.query(`DELETE FROM legacy_record_map WHERE id=$1`,[duplicate]);
+      assert.equal((await query()).status,"PASS");
+      const wrong={...expectation,domains:domains.map((d,i)=>i===0?{...d,recordSetSha256:sha("tampered expectation")}:d)};
+      const runner=db.createQueryRunner();await runner.connect();
+      try {let rows:Record<string,unknown>[]=[];for(const statement of (runProbe({expectation:wrong}).sql as string).split(";").filter(s=>s.trim())) {const result=await runner.query(statement);if(Array.isArray(result)&&result.length)rows=result;}assert.equal(runProbe({expectation:wrong,raw:rows.find((r:Record<string,unknown>)=>typeof r.json_build_object==="string")!.json_build_object}).status,"FAIL");}finally{await runner.release();}
+      await db.transaction(async m=>{await m.query(`UPDATE hr_yuzhou_production_import_record SET rollback_status='deleted_insert',rolled_back_at=now() WHERE operation_id=$1 AND source_identity_sha256=$2`,[operationId,employees[5]!.sourceKey.slice(7)]);await m.query(`UPDATE legacy_record_map SET is_active=false,mapping_status='rolled_back' WHERE source_identity_sha256=$1`,[employees[5]!.sourceKey.slice(7)]);});
+      assert.equal((await query()).status,"FAIL");
+      const anchorOnly={...employees[11]!,fields:{}};
+      const targetBefore=await db.query(`SELECT full_name,version FROM hr_employee WHERE id=$1`,[anchorOnly.initialBaselineWitness!.targetId]);
+      const dto=plainToInstance(PreviewYuzhouIncrementalImportDto,pkg(anchorOnly));await validateOrReject(dto,{whitelist:true,forbidNonWhitelisted:true});
+      const preview=result(await service.preview(scope,actor,dto));assert.equal(preview.plan[0]!.action,"unchanged");
+      assert.equal(result(await service.commit(scope,actor,preview.id)).unchangedCount,1);
+      assert.deepEqual(await db.query(`SELECT full_name,version FROM hr_employee WHERE id=$1`,[anchorOnly.initialBaselineWitness!.targetId]),targetBefore);
+      const anchored=(await db.query(`SELECT source_facts_encrypted,baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[anchorOnly.sourceKey]))[0];
+      const facts=JSON.parse(sensitive.decrypt(anchored.source_facts_encrypted)!);assert.equal(facts.fullName,"Original 11");assert.equal(facts.hireDate,"2020-01-01");assert.ok(anchored.baseline_encrypted.startsWith("enc:v1:"));
+      await db.query(`UPDATE hr_employee SET full_name='Modern after anchor',version=version+1 WHERE id=$1`,[anchorOnly.initialBaselineWitness!.targetId]);
+      const later=result(await service.preview(scope,actor,pkg({...anchorOnly,initialBaselineWitness:undefined,fields:{fullName:"Source next"}})));
+      assert.equal(later.plan[0]!.action,"conflict");assert.ok(later.plan[0]!.conflictFields.includes("fullName"));
+      t.diagnostic("Empty-field authenticated witness DTO anchors encrypted full original facts with zero business change; later same-field modern edit conflicts");
+      t.diagnostic("Readonly original receipt SQL: actual migrations/writer fixture, hash parity, modern edits, independent ambiguous dependency chain, rollback and tamper refusal; business/baseline query writes=0");
+      return;
+    }
     const snapshot=async()=>Promise.all(["hr_employee","hr_contract","legacy_record_map","hr_yuzhou_production_import_record","hr_yuzhou_production_import_projection_receipt","migration_batch"].map(table=>db!.query(`SELECT row_to_json(r) AS row FROM ${table} r ORDER BY row_to_json(r)::text`)));
     const previewCommit=async(item:Input)=>{const dto=plainToInstance(PreviewYuzhouIncrementalImportDto,pkg(item));await validateOrReject(dto,{whitelist:true,forbidNonWhitelisted:true});const p=result(await service.preview(scope,actor,dto));return {preview:p,committed:result(await service.commit(scope,actor,p.id))};};
     const counts=async()=> (await db!.query(`SELECT (SELECT count(*)::int FROM hr_incremental_import_item) items,(SELECT count(*)::int FROM hr_incremental_initial_baseline) baselines,(SELECT count(*)::int FROM hr_incremental_import_revision) revisions`))[0];
