@@ -1,0 +1,15 @@
+.page { min-width: 0; }
+.section { display: grid; gap: 18px; min-width: 0; }
+.section h2, .section p { margin: 0; }
+.section p { line-height: 1.7; }
+.records { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.records > article { min-width: 0; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.confirmation { display: flex; gap: 12px; align-items: flex-start; line-height: 1.7; }
+.confirmation input { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 4px; }
+.page :global(.ds-file-picker-name) { overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 720px) {
+  .page :global(.ds-file-picker) { flex-wrap: wrap; }
+  .actions { align-items: stretch; }
+  .actions > button { width: 100%; }
+}
