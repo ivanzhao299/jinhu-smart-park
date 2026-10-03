@@ -26,7 +26,7 @@
     "lifecycleRoute": { "path": "apps/web/app/hr/lifecycle/page.tsx", "sha256": "cc2e4f63bf4b64e01dd384792b114565ca10ee2acf86e0cf130782ca4b0ee0d6" },
     "lifecycleClient": { "path": "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx", "sha256": "c847fd938e6b1f4b8ba15cf06acded6e9db2a4af28b007d4a60de636d439cfc6" },
     "employeeRoute": { "path": "apps/web/app/hr/employees/page.tsx", "sha256": "b86fcaa84a73e6de9cf68ee17889226cbef2e69843e4bb73ee2742a9de77f552" },
-    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "6cf722200f9535c6e707e7e9820487c2fffdbfd4c402d02b9ccb4034967ba1bd" },
+    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "942b1885024f1770860134a0b6ab9f684633b7cad04d61ce35789b6358fa6eaf" },
     "employmentHistory": { "path": "apps/web/app/hr/employees/components/HrEmploymentHistory.tsx", "sha256": "6f091214e000e7f4c449866e2e7c9015146daadaa7de68acac1d705b5fab5ee2" },
     "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "a0942c8e6d7b4c948f91d110d8a8a1e8c6946c45f6ee5c5e2ad2da4b9072e09a" }
   },

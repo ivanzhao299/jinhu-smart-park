@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HrEmployeesClient } from "../../app/hr/employees/HrEmployeesClient";
 import { hrApi, type HrEmployee, type HrEmployeeProfile } from "../../lib/hr-api";
@@ -169,5 +169,31 @@ describe("full profile readonly carriage", () => {
     view.rerender(<HrEmployeesClient />);
     expect(screen.queryByText("Synthetic education")).toBeNull();
     expect(screen.queryByLabelText("员工档案详情")).toBeNull();
+  });
+});
+
+describe("authorized work contact detail", () => {
+  it("uses the bound detail response rather than old list contacts", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(null);
+    vi.mocked(hrApi.employees).mockResolvedValue({ items: [{...employee(), workMobile: "old-list-contact"}], total: 1, page: 1, page_size: 50 });
+    vi.mocked(hrApi.employee).mockResolvedValue({...employee(), workMobile: "synthetic-current-phone", workEmail: "synthetic@example.invalid", workLocation: "Synthetic current workplace"});
+    render(<HrEmployeesClient />); await openFirst();
+    const summary = within(screen.getByLabelText("工作联系方式"));
+    expect(summary.getByText("synthetic-current-phone")).toBeVisible();
+    expect(summary.getByText("synthetic@example.invalid")).toBeVisible();
+    expect(summary.getByText("Synthetic current workplace")).toBeVisible();
+    expect(summary.queryByText("old-list-contact")).toBeNull();
+    expect(hrApi.employee).toHaveBeenCalledTimes(1);
+  });
+  it("clears prior contacts when another employee detail fails", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(null);
+    vi.mocked(hrApi.employees).mockResolvedValue({ items: [employee(), employee("beta")], total: 2, page: 1, page_size: 50 });
+    vi.mocked(hrApi.employee).mockResolvedValueOnce({...employee(), workMobile: "synthetic-first-contact"}).mockRejectedValueOnce(new Error("synthetic unavailable"));
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByText("synthetic-first-contact")).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", {name: "查看档案"})[1]!);
+    await screen.findByText("加载员工详情失败");
+    expect(screen.queryByText("synthetic-first-contact")).toBeNull();
+    expect(screen.queryByLabelText("工作联系方式")).toBeNull();
   });
 });
