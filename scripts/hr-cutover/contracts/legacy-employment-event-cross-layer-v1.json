@@ -10,7 +10,7 @@
     "detailRoute": "/hr/employees"
   },
   "sourceBindings": {
-    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "2ca2fa325a6a63035ef93f794959dcdcc27143b4e5366c57c96fa499f806f85c" },
+    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "aae1b978554795995e75f64cc94e87c2a8bb2184e91316f0ab29c25c9ab02116" },
     "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
     "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "a6531c98df2dce0138d0d1663267cfc8735c861252f125f156925c5f78d667ea" },
     "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "41e7e16babb505174acb3eea85a6a660873f9fb36ba99a1a3baec1518e426299" },
@@ -20,7 +20,7 @@
     "targetEventNumberMigration": { "path": "database/migrations/000266_hr_employee_identity_event_number.sql", "sha256": "5d16f76541896e81454537b07ea851bef2a89aaea913ddca9aec92ed1f6d51d9" },
     "targetEntity": { "path": "apps/api/src/modules/hr/entities/hr.entities.ts", "sha256": "54900fa3c98edfebbf4b11e2da10319fbe5a8f37076bd5539fa990126daa41df" },
     "apiController": { "path": "apps/api/src/modules/hr/hr.controller.ts", "sha256": "18b00f5e986a188053ed953b533a7947115cdd7a3532b29293dedc56a09bd157" },
-    "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "f112a604f05517ed78d560057bbec4c281db6305ce88c58183c15bafc1b2149e" },
+    "apiService": { "path": "apps/api/src/modules/hr/hr.service.ts", "sha256": "578945e6c7888bda76d2100ea84df022f00aa5af52bd54befa118ec11bb843f8" },
     "apiDto": { "path": "apps/api/src/modules/hr/dto/hr.dto.ts", "sha256": "5c8920e7d39b20deee17cdadfdf11b3f3870bcfc160f087b0936ddcc1200aa9a" },
     "apiReadSpec": { "path": "apps/api/src/modules/hr/hr-employment-event-read.spec.ts", "sha256": "97f2297520469499b4d5274dd18d157c33c8a212f3671ddfea8f56a6c6a5d907" },
     "lifecycleRoute": { "path": "apps/web/app/hr/lifecycle/page.tsx", "sha256": "cc2e4f63bf4b64e01dd384792b114565ca10ee2acf86e0cf130782ca4b0ee0d6" },

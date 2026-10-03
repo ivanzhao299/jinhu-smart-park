@@ -1,11 +1,12 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
-import {randomBytes} from "node:crypto";
+import {randomBytes,createHash} from "node:crypto";
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import test from "node:test";
 import {DataSource} from "typeorm";
 import {HrService} from "./hr.service";
+import {HrContractReminderService} from "./hr-contract-reminder.service";
 import {HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeEntity,HrContractActionEntity} from "./entities/hr.entities";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 
@@ -118,6 +119,41 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    const f=await fixture();const created=await service.createContract(scope,actor,{...f.dto,endDate:undefined,contractTermMonths:24,signatureDate:"2089-12-15"});await service.actContract(scope,actor,created.id,{action:"activate"});
    const change=await service.createContractChange(scope,actor,created.id,{changeType:"renewal",newStartDate:f.dto.startDate});
    await service.actContractChange(scope,actor,created.id,change.id,{action:"apply"});const saved=await contracts.findOneByOrFail({id:created.id});assert.equal(saved.contractTermMonths,null);assert.equal(saved.signatureDate,null);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
+  if(migrated)await t.test("renewal invalidates acknowledged reminders without altering terminal history or delivered outbox",async()=>{
+   await db!.query("INSERT INTO sys_user(id,tenant_id,park_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[actor.sub,scope.tenantId,scope.parkId]);
+   const [policy]=await db!.query("INSERT INTO hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope) VALUES($1,$2,'contract_expiry',60,'employee') RETURNING id",[scope.tenantId,scope.parkId]);
+   for(const via of ["renewal","stale-service"]){
+    const f=await fixture(),created=await service.createContract(scope,actor,f.dto);await service.actContract(scope,actor,created.id,{action:"activate"});
+    const ids:Record<string,string>={};
+    for(const status of ["open","read","acknowledged","resolved","cancelled"]){
+     const digest=createHash("sha256").update(`${created.id}|${status}`).digest("hex");
+     const [row]=await db!.query(`INSERT INTO hr_contract_reminder(tenant_id,park_id,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,window_date,due_date,recipient_scope,recipient_user_id,source_date,source_contract_version,dedupe_key,status,acknowledged_at,acknowledged_by) VALUES($1,$2,$3,$4,$5,1,'contract_expiry',60,'2091-11-01'::date+$9::int,'2091-12-31'::date+$9::int,'employee',$6,'2091-12-31'::date+$9::int,1,$7,$8::varchar,CASE WHEN $8::varchar='acknowledged' THEN '2091-11-01T00:00:00Z'::timestamptz ELSE NULL END,CASE WHEN $8::varchar='acknowledged' THEN $6::uuid ELSE NULL END) RETURNING id`,[scope.tenantId,scope.parkId,created.id,f.employee.id,policy.id,actor.sub,digest,status,["open","read","acknowledged","resolved","cancelled"].indexOf(status)]);ids[status]=String(row.id);
+     await db!.query("INSERT INTO hr_contract_reminder_outbox(tenant_id,park_id,reminder_id,recipient_user_id,dedupe_key,status) VALUES($1,$2,$3,$4,$5,$6)",[scope.tenantId,scope.parkId,row.id,actor.sub,digest,status==="read"?"delivered":"pending"]);
+    }
+    const reminderState=async()=>({
+     reminders:await db!.query("SELECT * FROM hr_contract_reminder WHERE contract_id=$1 ORDER BY id",[created.id]),
+     outboxes:await db!.query("SELECT * FROM hr_contract_reminder_outbox WHERE reminder_id=ANY($1::uuid[]) ORDER BY id",[Object.values(ids)])
+    });const before=await reminderState();
+    const reminderService=new HrContractReminderService(db!,{} as never);
+    await db!.transaction(m=>reminderService.cancelStale(m,{...scope,parkId:"foreign"},created.id,actor.sub,"CONTRACT_RENEWED"));
+    assert.equal(Number((await db!.query("SELECT count(*)::int n FROM hr_contract_reminder WHERE contract_id=$1 AND status IN('open','read','acknowledged')",[created.id]))[0].n),3);
+    assert.deepEqual(await reminderState(),before);
+    if(via==="renewal"){
+     const change=await service.createContractChange(scope,actor,created.id,{changeType:"renewal",newStartDate:"2092-01-01",newEndDate:"2093-12-31"});
+     const holder=service as unknown as {appendContractAction:(...args:unknown[])=>Promise<void>},original=holder.appendContractAction;holder.appendContractAction=async()=>{throw new Error("synthetic reminder audit rollback");};
+     try{await assert.rejects(service.actContractChange(scope,actor,created.id,change.id,{action:"apply"}),/reminder audit rollback/);}finally{holder.appendContractAction=original;}
+     assert.equal(Number((await db!.query("SELECT count(*)::int n FROM hr_contract_reminder WHERE contract_id=$1 AND status IN('open','read','acknowledged')",[created.id]))[0].n),3);
+    assert.deepEqual(await reminderState(),before);
+     await service.actContractChange(scope,actor,created.id,change.id,{action:"apply"});
+    }else await db!.transaction(m=>reminderService.cancelStale(m,scope,created.id,actor.sub,"CONTRACT_RENEWED"));
+    const rows=await db!.query("SELECT id,status,cancel_reason,acknowledged_at,acknowledged_by FROM hr_contract_reminder WHERE contract_id=$1",[created.id]);const byId=new Map<string,Record<string,unknown>>(rows.map((row:Record<string,unknown>)=>[String(row.id),row] as const));
+    const reminder=(status:string)=>{const id=ids[status];assert.ok(id);const row=byId.get(id);assert.ok(row);return row;};
+    for(const status of ["open","read","acknowledged"]){assert.equal(reminder(status).status,"cancelled");assert.equal(reminder(status).cancel_reason,"CONTRACT_RENEWED");}
+    assert.equal(reminder("resolved").status,"resolved");assert.equal(reminder("cancelled").cancel_reason,null);assert.equal(reminder("acknowledged").acknowledged_by,actor.sub);assert.deepEqual(reminder("acknowledged").acknowledged_at,new Date("2091-11-01T00:00:00Z"));
+    const outbox=await db!.query("SELECT reminder_id,status FROM hr_contract_reminder_outbox WHERE reminder_id=ANY($1::uuid[])",[Object.values(ids)]);assert.equal(outbox.find((x:Record<string,unknown>)=>x.reminder_id===ids.read)?.status,"delivered");assert.ok(outbox.filter((x:Record<string,unknown>)=>x.reminder_id!==ids.read).every((x:Record<string,unknown>)=>x.status==="cancelled"));
+    assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+   }
   });
   if(migrated)await t.test("production contract audit triggers reject mutation and foreign scope",async()=>{
    const f=await fixture(),created=await service.createContract(scope,actor,f.dto);

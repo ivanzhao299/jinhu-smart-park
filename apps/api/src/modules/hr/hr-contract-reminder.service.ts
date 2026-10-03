@@ -122,7 +122,7 @@ export class HrContractReminderService{
   });
  }
  async cancelStale(m:EntityManager,s:TenantParkScope,contractId:string,actorId:string,reason:string){
-  await m.query(`UPDATE hr_contract_reminder SET status='cancelled',cancelled_at=now(),cancelled_by=$1,cancel_reason=$2,update_time=now() WHERE tenant_id=$3 AND park_id=$4 AND contract_id=$5 AND status IN('open','read')`,[actorId,reason,s.tenantId,s.parkId,contractId]);
+  await m.query(`UPDATE hr_contract_reminder SET status='cancelled',cancelled_at=now(),cancelled_by=$1,cancel_reason=$2,update_time=now() WHERE tenant_id=$3 AND park_id=$4 AND contract_id=$5 AND status IN('open','read','acknowledged')`,[actorId,reason,s.tenantId,s.parkId,contractId]);
   await m.query(`UPDATE hr_contract_reminder_outbox o SET status='cancelled',update_time=now() FROM hr_contract_reminder r WHERE r.id=o.reminder_id AND r.contract_id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND o.status='pending'`,[contractId,s.tenantId,s.parkId]);
  }
  private auditRequired(s:TenantParkScope,a:JwtPrincipal,action:string,bizId:string|null,projection:"park"|"team"|"self",itemCount:number){return recordHrSensitiveRead(this.audit,s,a,{resource:"hr.contract_reminder",action,bizType:"hr_contract_reminder",bizId,path:"/hr/contract-reminders",fieldGroups:["employment_contract"],projection,itemCount});}
