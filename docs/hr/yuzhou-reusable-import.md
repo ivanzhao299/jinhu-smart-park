@@ -110,3 +110,100 @@ builder 和 witness helper 均按最多 2000 条与 8 MiB 双上限拆包，包�
 未知恢复、modern 冲突/状态保护、篡改/歧义/回滚拒绝、不可重设基线、独立连接并发及失败事务零残留。
 专用库必须新建、断言 current_database，最终仅清理该库并证明残留为零。
 这项验证解决 employee/contract 原始基线恢复代码边界，不宣称 profile、全部 HR 领域或生产接受已完成。
+
+## 从受控 staging 一次构包
+
+已有 T0/T2 提取和转换结果时，可直接运行离线入口；无需人工拼装 `employeeRecords` 或 `records`：
+
+```sh
+node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs \
+  --config /private/yuzhou-next/import-config.json
+```
+
+配置文件和每个引用文件须为独占的普通文件（0600、无符号链接），直属目录为 0700。路径必须绝对且无符号链接祖先；macOS 临时目录应使用解析后的 `/private/var/...` 路径。输出目录必须尚不存在，其直属父目录为 0700。配置格式如下，哈希填写各文件**实际字节**的 SHA-256；示例占位符不是可运行的凭证或映射：
+
+```json
+{
+  "formatVersion": 1,
+  "t0Manifest": {
+    "path": "/private/yuzhou-next/staging-t0/manifest.json",
+    "sha256": "<64 hex SHA-256>"
+  },
+  "t2Manifest": {
+    "path": "/private/yuzhou-next/staging-t2/manifest.json",
+    "sha256": "<64 hex SHA-256>"
+  },
+  "includeEmployees": true,
+  "extractedAt": "2026-10-04T08:00:00Z",
+  "sourceCustody": {
+    "sourceSnapshotSha256": "<64 hex controlled snapshot digest>",
+    "evidenceSha256": "<64 hex custody evidence digest>",
+    "declaration": "caller_attests_same_controlled_snapshot"
+  },
+  "jobStateDecisionArtifact": {
+    "path": "/private/yuzhou-next/reviewed-job-state.json",
+    "sha256": "<64 hex SHA-256>"
+  },
+  "contractTypeMappingArtifact": {
+    "path": "/private/yuzhou-next/reviewed-contract-types.json",
+    "sha256": "<64 hex SHA-256>"
+  },
+  "contractStateResolutions": {
+    "path": "/private/yuzhou-next/reviewed-contract-states.json",
+    "sha256": "<64 hex SHA-256>"
+  },
+  "outputDir": "/private/yuzhou-next/package-output"
+}
+```
+
+`contractStateResolutions` 引用文件内容即前述 `草稿` 等状态到规范状态及审核依据的对象。员工输出依赖有效 job-state 决策；合同输出依赖有效类型绑定和显式状态决策。员工-only 可省略 T2 和两个合同映射引用。合同-only 设 `includeEmployees:false`，仍须提供完整、校验通过的 T0 manifest/员工源行以生成身份依赖索引；不会按姓名猜测员工。空源记录会得到 manifest/coverage/assembly receipt，但没有 API 包。
+
+入口验证实际 T0/T2 转换器的完整 manifest 域、文件名、文件哈希、记录数、行身份和原始行哈希；T2 固定解开转换器加倍的 JSON 传输反斜线，随后验证原哈希，不改写源事实、不修补哈希。单文件上限 64 MiB，整个读取预算 256 MiB（包括配置、manifest 和映射）。同一源身份重复、漏行、未知状态、缺少依赖、兼容漂移或不安全路径都会失败；失败不会发布半批包，临时输入会删除。
+
+输出沿用原 builder 的有序 2000 条/8 MiB 分包和 0600/0700 权限，额外生成私有 `assembly-receipt.json`，记录配置/manifest/映射哈希、源域完整计数和去向。组织、岗位、合同类型/变更、字典等源域仍保留在原 staging，收据声明待处理或映射证据；这些域没有因本入口而得到 API 适配。正式日期、离职日期、组织和 profile 的既有未支持字段继续由 builder 的私有 coverage 说明。
+
+收据的 `requested/excluded/eligible` 统计源主记录是否命中精确历史排除；`apiInput` 单列本次实际员工/合同 API 输入数，`dependencyIndex.employee` 单列合同-only 模式的员工索引数。合同-only 模式的 eligible 员工用作关系索引，不应加到 API 输出条数。成功输出的 `itemCount` 必须等于 `apiInput.employee + apiInput.contract`。若新合同依赖被精确排除的员工，构包报缺失依赖并整批失败，不会顺带静默排除该合同；必须先取得受控的可用依赖或处理来源事实。
+
+CLI 错误只输出预先列举的固定安全代码；解析器、文件系统和未知错误仍统一为 `YUZHOU_STAGING_ENTRY_FAILED`，不会输出来源值、路径或凭据。常见需要处理的错误如下：
+
+| 错误代码 | 后续处理 |
+| --- | --- |
+| `YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_STATE_UNRESOLVED` | 对未决员工来源状态补充审核决策后重新构包 |
+| `YUZHOU_REUSABLE_INCREMENTAL_STATE_UNRESOLVED` | 补充合同状态映射文件中的审核决策 |
+| `YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_MISSING` | 核对合同所引用的员工是否存在于本次有效源行或依赖索引；不得按姓名猜测 |
+| `YUZHOU_REUSABLE_INCREMENTAL_TYPE_MISSING` 或 `YUZHOU_REUSABLE_INCREMENTAL_TYPE_ARTIFACT_REQUIRED` | 核对或补充经审核的合同类型绑定材料 |
+| `YUZHOU_STAGING_ENTRY_SCOPE_MISMATCH` | 对齐明确声明的目标范围与合同类型映射材料 |
+| `YUZHOU_INCREMENTAL_SINGLE_ITEM_EXCEEDS_BYTE_LIMIT` | 处理超限的完整记录，不能删除证明字段或截断源事实 |
+
+未知代码不会直接透传。任何构包错误都不发布半批输出；固定代码只帮助定位需处理的规则或依赖，不代表来源真实性或生产接受。
+
+调用方声明的 snapshot/evidence 哈希只绑定本次准备材料，脚本不独立认证来源真实性，也不因为两个目录时间接近而确认同一来源。输出保持 `productionImport:HOLD`；经过普通工作台预览、显式提交和业务验收才形成生产结果。本入口面向**已受控提取的 JSON staging**，没有 `.bak` 任意文件一键恢复、SQL 连接或生产写入功能。
+
+可选 `historicalExclusions:{"path":"/private/yuzhou-next/original-exclusions.json","sha256":"<64 hex>"}` 引用一次从真实原始 sealed plan 和成功执行证据整理的不可变归档例外材料。使用此选项时，`sourceCustody.targetScope:{"tenantId":"...","parkId":"..."}` 必填，与例外材料和合同类型映射（若提供）的 scope 一致。即使省略历史排除材料，只要配置声明 targetScope，合同类型映射也必须与该 scope 一致。例外文件格式为：
+
+```json
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_original_historical_exclusions",
+  "sourceSystem": "yuzhou-v10",
+  "originalSourceSnapshotSha256": "<64 hex>",
+  "originalOperationId": "yzprod-import-<YYYYMMDDTHHMMSSZ>-<12 hex>",
+  "originalSealedPlanSha256": "<64 hex>",
+  "originalPlanFileSha256": "<64 hex>",
+  "originalExecutionProofFileSha256": "<64 hex>",
+  "targetScope": {"tenantId":"...","parkId":"..."},
+  "policy": "ARCHIVE_UNCHANGED_ORIGINAL_QUARANTINE",
+  "entries": [{
+    "domain": "employee",
+    "sourceTable": "dbo.person",
+    "sourceKey": "sha256:<64 hex stable source identity>",
+    "sourceRowSha256": "<64 hex original source row>",
+    "decisionReceiptSha256": "<64 hex original decision receipt>",
+    "reasonCode": "ORIGINAL_QUARANTINE"
+  }]
+}
+```
+
+条目只支持 employee/dbo.person 和 contract/dbo.compact 的正确配对，身份不能重复，reasonCode 必须为非空大写安全代码。只有**稳定身份与原行哈希都相同**的历史条目会排除；来源内容已变化时记为 `nonApplicableChanged` 并交给普通 builder 校验构包，不能让旧例外永久屏蔽修复后的记录。未出现在本次提取中的旧条目记为 `notPresent`，不代表删除。assembly receipt 保留材料哈希、原 operation/plan/proof 引用、应用条目和 requested/excluded/eligible 计数；未被 API 支持的源域继续留在 staging，不作为排除项。
+
+此材料在离线入口的信任边界内是由调用方提供、通过配置 SHA 固定的历史证据声明。入口不重新加载大体积原 plan、不独立认证生产 operation/decision receipt，也不授予跳过任意新行或生产写入的权限。没有真实原始归档证据时应省略该选项；普通行失败仍使整批失败，不能伪造例外来宣称完整验收。

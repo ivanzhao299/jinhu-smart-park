@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Reusable offline employee/contract staging entry: [Yuzhou Staging Entry](./yuzhou-reusable-staging-entry.md).
+
 Original receipt-bound employee/contract baseline restoration: [Initial HR Baselines](./hr-yuzhou-initial-baseline.md).
 
 Scoped employee relationship names and source-separated employment dates: [Employee Detail](./hr-employee-detail-assignment.md).
