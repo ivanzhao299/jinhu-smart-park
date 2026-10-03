@@ -1,3 +1,7 @@
+import limits from "./hr-yuzhou-incremental-limits.json";
+export const YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES = limits.maxPackageBytes;
+export const YUZHOU_INCREMENTAL_MAX_ITEMS = limits.maxItems;
+import type { YuzhouInitialBaselineWitness } from "./hr-yuzhou-initial-baseline";
 export const YUZHOU_INCREMENTAL_CONTRACT_STATUSES = ["draft", "active", "expired", "terminated", "cancelled"] as const;
 
 export const YUZHOU_INCREMENTAL_PACKAGE_VERSION = 1 as const;
@@ -11,6 +15,7 @@ export type YuzhouIncrementalItem = {
   sourceUpdatedAt?: string;
   rowDigest: string;
   fields: Record<string, unknown>;
+  initialBaselineWitness?: YuzhouInitialBaselineWitness;
 };
 
 export type YuzhouIncrementalPackage = {
@@ -31,7 +36,12 @@ export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackag
   const domainOrder: Record<YuzhouIncrementalDomain, number> = { employee: 0, profile: 1, contract: 2 };
   return {
     ...input,
-    items: [...input.items].map(item => ({ ...item, fields: sortObject(item.fields) })).sort((a, b) =>
+    items: [...input.items].map(item => {
+      const canonical = { ...item, fields: sortObject(item.fields) };
+      if (canonical.sourceUpdatedAt === undefined) delete canonical.sourceUpdatedAt;
+      if (canonical.initialBaselineWitness === undefined) delete canonical.initialBaselineWitness;
+      return canonical;
+    }).sort((a, b) =>
       domainOrder[a.domain] - domainOrder[b.domain]
       || `${a.sourceTable}:${a.sourceKey}`.localeCompare(`${b.sourceTable}:${b.sourceKey}`))
   };

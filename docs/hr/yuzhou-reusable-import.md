@@ -32,7 +32,7 @@ node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs \
 
 `contractTypeMappingArtifact` 是可复用的、不可变的来源类型映射 receipt。每条 binding 必须带 `dbo.compacttypecode` 的来源 key/identity、`sourcePkCanonical`、来源 code/name、同一 tenant/park 中已启用的 `hr_contract_type` UUID、`loaded|verified` 映射状态和原始映射 receipt 的 `mappingEvidenceSha256`。脚本验证整个 artifact 的 SHA-256；合同仅按唯一的已验证 `typeName` binding 取 `contractTypeId`，不能每批人工选择或按目标名称猜测。
 
-输出目录为 `0700`，其中所有文件均为 `0600`。单批生成 `package.json`；超过 2000 个 item 时自动按员工先于合同、稳定来源身份的顺序生成 `package-0001.json` 等，每批最多 2000 条。CLI 返回有序 `packagePaths`，调用方必须按顺序逐包 preview/commit 并核对全部结果；只有单批时 `packagePath` 才非 null，不能拿多批中的第一包当完整抽取。不同批次是独立事务，失败后按原 package 重试并核对后续依赖，不能宣称整个抽取跨批原子提交。空抽取只生成零计数 manifest/coverage，不生成 API package 或 API 导入 receipt。
+输出目录为 `0700`，其中所有文件均为 `0600`。单批生成 `package.json`；超过 2000 个 item 或 8 MiB 精确 JSON 字节时自动按员工先于合同、稳定来源身份的顺序生成 `package-0001.json` 等，每批最多 2000 条且不超过 8 MiB。CLI 返回有序 `packagePaths`，调用方必须按顺序逐包 preview/commit 并核对全部结果；只有单批时 `packagePath` 才非 null，不能拿多批中的第一包当完整抽取。不同批次是独立事务，失败后按原 package 重试并核对后续依赖，不能宣称整个抽取跨批原子提交。空抽取只生成零计数 manifest/coverage，不生成 API package 或 API 导入 receipt。
 
 `manifest.json` format v2 绑定配方、适配器、T0 员工类型规则、job-state verifier、共享 API 字段/枚举契约及原投影/合同语义/目标字段模型文件摘要，另包含工件摘要、来源身份、每行摘要、原始员工事实、字段覆盖和每批 package 摘要。来源顺序不影响分批。来源未变、配方未变时 item/row digest 相同；新抽取日期无需重跑历史 A/B，且不按七月截止、同月或回填日期过滤。
 
@@ -59,4 +59,39 @@ node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs \
 
 PG 测试仅接受 `POSTGRES_HOST=127.0.0.1`、`POSTGRES_PORT=55491` 与独立启用的 `HR_YUZHOU_INCREMENTAL_PG_REQUIRED=1`。测试用管理员连接 postgres 只负责创建/清理临时数据库；业务查询都在新建的 `jinhu_hr_incremental_lab_<24hex>` 专用库，显式断言 `current_database()` 与配置一致。未指定 `POSTGRES_DB` 时随机生成；指定时也必须符合严格名称并成功创建新库，绝不复用现有库。清理断言该库残留为零。凭据仅通过私有进程环境传递，不输出到报告。
 
-该 synthetic fixture 覆盖本次内核与适配器，不代表完整迁移链、历史数据字段基线 bootstrap、真实抽取 A/B 或生产写入已经完成。正常任职状态变更仍待生命周期适配器承接。
+该 synthetic fixture 覆盖本次内核与适配器，不代表完整迁移链、真实原始证据的生产基线接受、真实抽取 A/B 或生产写入已经完成。正常任职状态变更仍待生命周期适配器承接。
+
+## 已有正式数据的一次性原始基线
+
+复用原成功导入留存的 sealed plan 与 T0/T2 payload bundle，离线生成每项 witness：
+
+```sh
+node scripts/hr-cutover/prepare-yuzhou-initial-baseline-witness.mjs \
+  --plan /private/yuzhou/sealed-plan.json \
+  --payload /private/yuzhou/t0-payload.json \
+  --package /private/yuzhou/incremental-package/package.json \
+  --out /private/yuzhou/anchored-package.json
+```
+
+输入文件为无符号链接、单硬链接的 `0600` 文件，输出父目录为实际路径的 `0700` 目录。
+脚本验证 bundle 字节摘要/规范摘要、逐行 payload 摘要、来源身份、scope，以及 sealed plan
+`dependencyRefs` 中 role/phase/source identity 对应的原目标 UUID；原逐行 target hash 必须匹配。
+它只处理原 insert 的 employee/contract；新来源无原行可保留为新增。profile/T5 不附加 witness。
+T0 和 T2 分别对所属包执行；如果同包同时包含两类记录，可将第一步输出作为第二步输入。
+输出已包含首批上传所需的完整逐项证明，不要求向 API 上传整个历史 sealed plan 或 payload bundle。
+`PREPARED_NOT_ACCEPTED` 仅表示离线准备，API 在 preview/commit 仍独立核对当前原始数据库 receipts。
+
+builder 和 witness helper 均按最多 2000 条与 8 MiB 双上限拆包，包含完整 witness、UTF-8 多字节字符、
+包 envelope、分批 manifest ID 和最终换行。builder 输出 `package-0001.json` 等；witness helper
+仅一包时写入 `--out`，多包时写入 `<out>.part-0001.json` 等，按编号依次处理；不会将第一分包
+伪装为完整输出。单条超限返回 `YUZHOU_INCREMENTAL_SINGLE_ITEM_EXCEEDS_BYTE_LIMIT`
+，不截断私有事实。
+后续正常批次只需原稳定 source key 和规范化字段，不再重复附带 witness。
+
+新增 `yuzhou-initial-baseline-witness.contract.mjs` 对比原 writer 与共享 canonical 模型、真实保留格式、
+私有 CLI、精确 UTF-8 大小边界及 2000/2001 分批。
+`HR_YUZHOU_INITIAL_BASELINE_PG_REQUIRED=1` 启用专用 `jinhu_hr_baseline_lab_<24hex>` PostgreSQL 测试，
+实际执行原 235/278/281/282 与新增 329 等迁移；使用合成完整投影与原 writer 哈希，覆盖预览零基线/业务写入、
+未知恢复、modern 冲突/状态保护、篡改/歧义/回滚拒绝、不可重设基线、独立连接并发及失败事务零残留。
+专用库必须新建、断言 current_database，最终仅清理该库并证明残留为零。
+这项验证解决 employee/contract 原始基线恢复代码边界，不宣称 profile、全部 HR 领域或生产接受已完成。

@@ -2,13 +2,15 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { DataSource, type EntityManager } from "typeorm";
 import { createHash } from "node:crypto";
 import { isEmail, isUUID } from "class-validator";
-import { canonicalYuzhouIncrementalPackage, HR_EMPLOYEE_STATUSES, HR_EMPLOYMENT_TYPES, HR_PERMISSIONS, YUZHOU_INCREMENTAL_CONTRACT_STATUSES, YUZHOU_INCREMENTAL_FIELDS, type YuzhouIncrementalItem } from "@jinhu/shared";
+import { canonicalYuzhouIncrementalPackage, HR_EMPLOYEE_STATUSES, HR_EMPLOYMENT_TYPES, HR_PERMISSIONS, YUZHOU_INCREMENTAL_CONTRACT_STATUSES, YUZHOU_INCREMENTAL_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
-type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number };
+import { initialWitnessHash, verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
+
+type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean };
 type OperationRow = { id: string; status: string; package_sha256: string; source_system: string };
 const json = (value: unknown) => JSON.stringify(value);
 const canonicalJson = (value: unknown): string => value === null || typeof value !== "object"
@@ -78,7 +80,9 @@ export class HrYuzhouIncrementalImportService {
 
   private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem) {
     const source = [scope.tenantId, scope.parkId, sourceSystem, item.sourceTable, item.sourceKey];
-    const prior = (await manager.query(`SELECT target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6`, [...source, item.domain]))[0] as Pick<ItemRow, "target_id" | "last_row_sha256" | "field_baseline" | "target_baseline" | "source_facts_encrypted"> | undefined;
+    let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6`, [...source, item.domain]))[0] as ItemRow | undefined;
+    prior = await this.resolveInitialBaseline(manager, scope, sourceSystem, item, prior);
+    const current = prior ? await this.readTarget(manager, scope, item.domain, prior.target_id!) : {};
     let fields = this.normalizedFields(item);
     const base = () => ({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, fields: Object.keys(fields).sort() });
     if (prior && Object.keys(prior.field_baseline).length === 0 && Object.keys(prior.target_baseline).length === 0) return { ...base(), action: "conflict", conflictFields: ["INITIAL_FIELD_BASELINE_UNKNOWN"] };
@@ -88,7 +92,6 @@ export class HrYuzhouIncrementalImportService {
       if (mapped) return { ...base(), action: "conflict", conflictFields: ["INITIAL_FIELD_BASELINE_UNKNOWN"] };
       return { ...base(), action: "create", conflictFields: [] };
     }
-    const current = await this.readTarget(manager, scope, item.domain, prior.target_id!);
     if ("idNumberEncrypted" in fields && current.idNumberFingerprint === prior.target_baseline.idNumberFingerprint && fields.idNumberFingerprint === current.idNumberFingerprint) {
       delete fields.idNumberEncrypted; delete fields.idNumberMasked; delete fields.idNumberFingerprint;
     }
@@ -98,7 +101,7 @@ export class HrYuzhouIncrementalImportService {
     // An unchanged source status must not undo or block a modern lifecycle change.
     // Actual source status revisions require the normal employment event workflow.
     const employmentConflict = item.domain === "employee" && changedFields.includes("employmentStatus");
-    const stateConflict = item.domain === "contract" && (item.fields.contractStatus !== current.targetStatus || (current.targetStatus !== "draft" && changedFields.length > 0));
+    const stateConflict = item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0));
     const conflictFields = [...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))];
     return { ...base(), action: conflictFields.length ? "conflict" : changedFields.length ? "update" : "unchanged", conflictFields };
   }
@@ -140,7 +143,10 @@ export class HrYuzhouIncrementalImportService {
   private async applyItem(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, operation: OperationRow, item: YuzhouIncrementalItem): Promise<"applied" | "unchanged" | "conflict"> {
     this.requireDomainPermission(actor, item.domain);
     const source = [scope.tenantId, scope.parkId, operation.source_system, item.sourceTable, item.sourceKey];
-    const prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6 FOR UPDATE`, [...source, item.domain]))[0] as ItemRow | undefined;
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [json([...source, item.domain])]);
+    let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6 FOR UPDATE`, [...source, item.domain]))[0] as ItemRow | undefined;
+    prior = await this.resolveInitialBaseline(manager, scope, operation.source_system, item, prior, { operation, actor });
+    const current = prior ? await this.readTarget(manager, scope, item.domain, prior.target_id!) : {};
     if (prior && Object.keys(prior.field_baseline).length === 0 && Object.keys(prior.target_baseline).length === 0) return this.revision(manager, operation.id, prior.id, prior.version, "conflict", item.rowDigest, [{ code: "INITIAL_FIELD_BASELINE_UNKNOWN", sourceKey: item.sourceKey }], {}, {});
     if (prior && prior.last_row_sha256 === item.rowDigest) return this.revision(manager, operation.id, prior.id, prior.version, "unchanged", item.rowDigest, [], {}, {});
     if (!prior) {
@@ -148,8 +154,6 @@ export class HrYuzhouIncrementalImportService {
       if (baseline) return this.bootstrapUnknownBaseline(manager, operation, item, source, baseline);
     }
     const target = prior ? { table: prior.target_table!, id: prior.target_id! } : await this.createTarget(manager, scope, actor, operation.source_system, item);
-    const current = prior ? await this.readTarget(manager, scope, item.domain, target.id) : {};
-    if (prior && item.domain === "contract" && item.fields.contractStatus !== current.targetStatus) return this.revision(manager, operation.id, prior.id, prior.version, "conflict", item.rowDigest, [{ field: "contractStatus", code: "NORMAL_CONTRACT_WORKFLOW_REQUIRED" }], prior.target_baseline, current);
     const fields = this.normalizedFields(item);
     // AES-GCM ciphertext is intentionally non-deterministic. Compare identity through
     // the protected fingerprint and do not write an identical sensitive value again.
@@ -158,7 +162,7 @@ export class HrYuzhouIncrementalImportService {
     }
     const priorSource = prior ? JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown> : {};
     const changedFields = prior ? Object.keys(fields).filter(field => json(fields[field]) !== json(this.normalizedFields({ ...item, fields: priorSource })[field])) : Object.keys(fields);
-    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && current.targetStatus !== "draft" && changedFields.length > 0 ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))] : [];
+    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0)) ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))] : [];
     if (conflicts.length) return this.revision(manager, operation.id, prior!.id, prior!.version, "conflict", item.rowDigest, conflicts.map(field => ({ field })), prior!.target_baseline, current);
     const writable = Object.fromEntries(changedFields.map(field => [field, fields[field]]));
     // Compare each source field against the current target projection above.
@@ -168,11 +172,52 @@ export class HrYuzhouIncrementalImportService {
     const applied = !prior && item.domain === "contract" ? Object.keys(writable).map(field => ({ field })) : await this.writeTarget(manager, scope, actor, item.domain, target.id, writable, prior ? Number(current.targetVersion) : undefined);
     const latest = await this.readTarget(manager, scope, item.domain, target.id);
     const targetBaseline = prior ? { ...prior.target_baseline, ...Object.fromEntries(changedFields.map(field => [field, latest[field]])), targetVersion: latest.targetVersion } : latest;
-    const encryptedFacts = this.sensitive.encrypt(json(item.fields));
+    const encryptedFacts = this.sensitive.encrypt(json({ ...priorSource, ...item.fields }));
     let itemId = prior?.id, version = (prior?.version ?? 0) + 1;
-    if (prior) await manager.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,field_baseline=$3::jsonb,target_baseline=$4::jsonb,source_facts_encrypted=$5,source_facts_sha256=$6,version=$7,target_version=$8,last_operation_id=$9,update_time=now() WHERE id=$1`, [prior.id, item.rowDigest, json(fields), json(targetBaseline), encryptedFacts, this.payloadHash(item.fields), version, Number(targetBaseline.targetVersion), operation.id]);
+    if (prior) await manager.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,field_baseline=$3::jsonb,target_baseline=$4::jsonb,source_facts_encrypted=$5,source_facts_sha256=$6,version=$7,target_version=$8,last_operation_id=$9,baseline_encrypted=$10,update_time=now() WHERE id=$1`, [prior.id, item.rowDigest, json(prior.initial_anchor ? {} : fields), json(prior.initial_anchor ? {} : targetBaseline), encryptedFacts, this.payloadHash({ ...priorSource, ...item.fields }), version, Number(targetBaseline.targetVersion), operation.id, prior.initial_anchor ? this.sensitive.encrypt(json({ fields, target:targetBaseline })) : null]);
     else { const inserted = await manager.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15) RETURNING id`, [...source, item.domain, target.table, target.id, item.rowDigest, json(fields), json(targetBaseline), encryptedFacts, this.payloadHash(item.fields), Number(targetBaseline.targetVersion), operation.id]); itemId = inserted[0]!.id; }
-    return this.revision(manager, operation.id, itemId!, version, "applied", item.rowDigest, applied, current, targetBaseline);
+    return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, applied, current, targetBaseline);
+  }
+
+  private async resolveInitialBaseline(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, prior: ItemRow | undefined, commit?: { operation: OperationRow; actor: JwtPrincipal }): Promise<ItemRow | undefined> {
+    if (prior?.baseline_encrypted) {
+      const decoded = this.sensitive.decrypt(prior.baseline_encrypted);
+      if (!decoded) throw new ConflictException("Initial baseline cannot be decrypted");
+      const baseline = JSON.parse(decoded) as { fields: Record<string, unknown>; target: Record<string, unknown> };
+      prior = { ...prior, field_baseline:baseline.fields,target_baseline:baseline.target,initial_anchor:true };
+    }
+    const unknown = !prior || (Object.keys(prior.field_baseline).length === 0 && Object.keys(prior.target_baseline).length === 0);
+    if (!unknown && !item.initialBaselineWitness && !prior?.initial_anchor) return prior;
+    const saved = prior ? (await manager.query(`SELECT witness_sha256,provenance_encrypted FROM hr_incremental_initial_baseline WHERE item_id=$1`, [prior.id]))[0] as { witness_sha256:string; provenance_encrypted:string } | undefined : undefined;
+    if (!unknown) {
+      if (!saved || (item.initialBaselineWitness && saved.witness_sha256 !== initialWitnessHash(item.initialBaselineWitness))) throw new ConflictException("INITIAL_BASELINE_ALREADY_KNOWN");
+      const savedRaw = this.sensitive.decrypt(saved.provenance_encrypted);
+      if (!savedRaw) throw new ConflictException("Initial provenance cannot be decrypted");
+      const savedWitness = (JSON.parse(savedRaw) as { witness:YuzhouInitialBaselineWitness }).witness;
+      if (initialWitnessHash(savedWitness) !== saved.witness_sha256) throw new ConflictException("Initial provenance hash mismatch");
+      const verified = await verifyYuzhouInitialBaseline(manager,scope,item,savedWitness);
+      if (prior!.target_id !== savedWitness.targetId || prior!.target_table !== verified.receipt.target_table) throw new ConflictException("INITIAL_BASELINE_BINDING_MISMATCH");
+      return prior;
+    }
+    const retained = saved ? this.sensitive.decrypt(saved.provenance_encrypted) : null;
+    if (saved && !retained) throw new ConflictException("Initial provenance cannot be decrypted");
+    const witness = item.initialBaselineWitness ?? (retained ? (JSON.parse(retained) as { witness:YuzhouInitialBaselineWitness }).witness : undefined);
+    if (!witness) return prior;
+    if (saved && saved.witness_sha256 !== initialWitnessHash(witness)) throw new ConflictException("INITIAL_BASELINE_ALREADY_ANCHORED");
+    const baseline = await verifyYuzhouInitialBaseline(manager,scope,item,witness);
+    if (sourceSystem !== "yuzhou-v10" || (prior && (prior.target_id !== witness.targetId || prior.target_table !== baseline.receipt.target_table))) throw new ConflictException("INITIAL_BASELINE_BINDING_MISMATCH");
+    const current = await this.readTarget(manager,scope,item.domain,witness.targetId);
+    if (prior) {
+      const accepted = await manager.query(`SELECT 1 FROM hr_incremental_import_revision WHERE item_id=$1 AND outcome IN ('applied','unchanged') LIMIT 1`, [prior.id]);
+      if (accepted[0]) throw new ConflictException("INITIAL_BASELINE_ALREADY_KNOWN");
+    }
+    if (commit && !prior) {
+      const inserted = await manager.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`, [scope.tenantId,scope.parkId,sourceSystem,item.sourceTable,item.sourceKey,item.domain,baseline.receipt.target_table,witness.targetId,baseline.receipt.source_row_sha256,this.sensitive.encrypt(json(baseline.source)),this.payloadHash(baseline.source),Number(current.targetVersion),commit.operation.id]);
+      prior = inserted[0] as ItemRow;
+    }
+    if (commit && !saved) await manager.query(`INSERT INTO hr_incremental_initial_baseline(item_id,operation_id,original_operation_id,original_phase,source_identity_sha256,target_after_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [prior!.id,commit.operation.id,witness.operationId,witness.phase,baseline.receipt.source_identity_sha256,baseline.receipt.target_after_sha256,baseline.witnessSha256,this.sensitive.encrypt(json({ witness, source:baseline.source, target:baseline.target })),commit.actor.sub]);
+    // This ephemeral state is original evidence, never a snapshot of today's fields.
+    return { id:prior?.id ?? "",target_id:witness.targetId,target_table:baseline.receipt.target_table,last_row_sha256:"",field_baseline:baseline.target,target_baseline:baseline.target,source_facts_encrypted:this.sensitive.encrypt(json(baseline.source)),version:prior?.version ?? 0,target_version:Number(current.targetVersion),initial_anchor:true };
   }
 
   private async initialMap(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem) {
@@ -263,7 +308,7 @@ export class HrYuzhouIncrementalImportService {
     if (!actor.isSuper && !actor.permissions.includes("*") && !allowed.some(permission => actor.permissions.includes(permission))) throw new ForbiddenException(`${allowed[0]} permission is required`);
   }
   private payloadHash(value: unknown) { return createHash("sha256").update(canonicalJson(value)).digest("hex"); }
-  private async revision(manager: EntityManager, operationId: string, itemId: string, _revision: number, outcome: "applied"|"unchanged"|"conflict", digest: string, diff: unknown, before: unknown, after: unknown) { const rows = await manager.query(`SELECT coalesce(max(revision_no),0)+1 AS next_revision FROM hr_incremental_import_revision WHERE item_id=$1`, [itemId]) as Array<{next_revision:number}>; await manager.query(`INSERT INTO hr_incremental_import_revision(operation_id,item_id,revision_no,outcome,source_row_sha256,field_diff,before_receipt,after_receipt) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`, [operationId,itemId,Number(rows[0]!.next_revision),outcome,digest,json(diff),json(before),json(after)]); return outcome; }
+  private async revision(manager: EntityManager, operationId: string, itemId: string, _revision: number, outcome: "applied"|"unchanged"|"conflict", digest: string, diff: unknown, before: unknown, after: unknown) { const rows = await manager.query(`SELECT coalesce(max(revision_no),0)+1 AS next_revision FROM hr_incremental_import_revision WHERE item_id=$1`, [itemId]) as Array<{next_revision:number}>; await manager.query(`INSERT INTO hr_incremental_import_revision(operation_id,item_id,revision_no,outcome,source_row_sha256,field_diff,before_receipt,after_receipt) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`, [operationId,itemId,Number(rows[0]!.next_revision),outcome,digest,json(diff),json({ encrypted:this.sensitive.encrypt(json(before)) }),json({ encrypted:this.sensitive.encrypt(json(after)) })]); return outcome; }
   private required(fields: Record<string, unknown>, ...names: string[]) { for (const name of names) if (typeof fields[name] !== "string" || !String(fields[name]).trim()) throw new BadRequestException(`${name} is required`); }
   private packageHash(value: unknown) { return createHash("sha256").update(canonicalJson(value)).digest("hex"); }
 }

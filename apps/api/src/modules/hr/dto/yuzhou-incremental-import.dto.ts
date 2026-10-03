@@ -1,8 +1,17 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsIn, IsObject, IsOptional, IsString, Length, Matches, ValidateNested } from "class-validator";
-import { YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_PACKAGE_VERSION, type YuzhouIncrementalDomain } from "@jinhu/shared";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsIn, IsObject, IsOptional, IsString, IsUUID, Length, Matches, ValidateNested } from "class-validator";
+import { YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_PACKAGE_VERSION, YUZHOU_INITIAL_CANONICALIZATION, type YuzhouIncrementalDomain } from "@jinhu/shared";
 
 const SHA256 = /^[a-f0-9]{64}$/;
+
+export class YuzhouInitialBaselineWitnessDto {
+  @IsIn([1]) version!: 1;
+  @Matches(/^yzprod-import-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$/) operationId!: string;
+  @IsIn(["T0", "T2"]) phase!: "T0" | "T2";
+  @IsIn([YUZHOU_INITIAL_CANONICALIZATION]) canonicalizationVersion!: typeof YUZHOU_INITIAL_CANONICALIZATION;
+  @IsUUID() targetId!: string;
+  @IsObject() projection!: Record<string, unknown>;
+}
 
 export class YuzhouIncrementalItemDto {
   @IsIn(YUZHOU_INCREMENTAL_DOMAINS) domain!: YuzhouIncrementalDomain;
@@ -10,6 +19,8 @@ export class YuzhouIncrementalItemDto {
   @IsString() @Length(1, 256) sourceKey!: string;
   @IsOptional() @IsDateString() sourceUpdatedAt?: string;
   @Matches(SHA256) rowDigest!: string;
+  @IsOptional() @ValidateNested() @Type(() => YuzhouInitialBaselineWitnessDto)
+  initialBaselineWitness?: YuzhouInitialBaselineWitnessDto;
   @IsObject() fields!: Record<string, unknown>;
 }
 
@@ -18,6 +29,6 @@ export class PreviewYuzhouIncrementalImportDto {
   @IsIn(["yuzhou-v10"]) sourceSystem!: "yuzhou-v10";
   @IsString() @Length(1, 128) manifestId!: string;
   @IsDateString() extractedAt!: string;
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(2000) @ValidateNested({ each: true }) @Type(() => YuzhouIncrementalItemDto)
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(YUZHOU_INCREMENTAL_MAX_ITEMS) @ValidateNested({ each: true }) @Type(() => YuzhouIncrementalItemDto)
   items!: YuzhouIncrementalItemDto[];
 }

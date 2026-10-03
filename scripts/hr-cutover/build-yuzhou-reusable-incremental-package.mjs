@@ -13,10 +13,12 @@ import { projectProductionT2Fields, verifyProductionT2StagedRecord } from "./pro
 import { projectLegacyEmployeeState } from "./materialize-production-t0-decision-candidates.mjs";
 import { verifyYuzhouJobStateDecisionArtifact } from "./yuzhou-job-state-decision-artifact-lib.mjs";
 
+import { splitYuzhouIncrementalPackage, serializeIncrementalPackage, incrementalPackageBytes } from "./yuzhou-incremental-package-limits.mjs";
+
 const RECIPE_VERSION = "yuzhou-reusable-incremental-v2";
 const SOURCE_SYSTEM = "yuzhou-v10";
 const SHA256 = /^[a-f0-9]{64}$/u;
-const MAX_BATCH_SIZE = 2000;
+
 const DOMAIN_ORDER = Object.freeze({ employee: 0, profile: 1, contract: 2 });
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const plain = value => value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
@@ -53,7 +55,7 @@ function recipeSha256() {
   // Bind the actual verified projector bytes, not merely a local field list.
   // An unchanged source can therefore reuse the recipe, while mapper drift is
   // visible before package construction rather than silently changing output.
-  const ruleFiles = ["production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts"];
+  const ruleFiles = ["production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts"];
   const ruleHashes = Object.fromEntries(ruleFiles.map(path => [path, sha256(readFileSync(fileURLToPath(new URL(path, import.meta.url))))]));
   return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, adapterSha256: sha256(readFileSync(fileURLToPath(import.meta.url))), ruleHashes, fields: ["employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
 }
@@ -187,13 +189,10 @@ export function buildYuzhouReusableIncrementalPackage(input) {
   for (const item of items) { const key = `${item.domain}\0${item.sourceTable}\0${item.sourceKey}`; if (seen.has(key)) fail("YUZHOU_REUSABLE_INCREMENTAL_SOURCE_DUPLICATE"); seen.add(key); }
   const manifestBinding = { recipeVersion: RECIPE_VERSION, recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: SOURCE_SYSTEM, extractedAt: input.extractedAt, typeMappingArtifactSha256: typeArtifact?.artifactSha256 ?? null, typeMappingTargetScope: typeArtifact?.targetScope ?? null, jobStateArtifactSha256, itemSourceIdentities: items.map(item => item.sourceKey), itemRowDigests: items.map(item => item.rowDigest), declarations, sourceEvidence };
   const manifestId = `yuzhou-reusable-${sha256(canonical(manifestBinding))}`;
-  const packageDtos = Array.from({ length: Math.ceil(items.length / MAX_BATCH_SIZE) }, (_, index) => {
-    const batchItems = items.slice(index * MAX_BATCH_SIZE, (index + 1) * MAX_BATCH_SIZE);
-    return { version: 1, sourceSystem: SOURCE_SYSTEM, manifestId: `${manifestId}-batch-${String(index + 1).padStart(4, "0")}`, extractedAt: input.extractedAt, items: batchItems };
-  });
+  const packageDtos = splitYuzhouIncrementalPackage({ version: 1, sourceSystem: SOURCE_SYSTEM, manifestId, extractedAt: input.extractedAt, items }, { alwaysSuffix:true });
   const packageDto = packageDtos.length === 1 ? packageDtos[0] : null;
   const coverage = { ...YUZHOU_REUSABLE_INCREMENTAL_COVERAGE, sourceFieldCoverage: sourceEvidence.map(value => ({ sourceIdentitySha256: value.sourceIdentitySha256, fieldCoverage: value.fieldCoverage })), pendingSourceRecords: declarations.filter(value => value.disposition !== "api_eligible").map(value => ({ sourceIdentitySha256: value.sourceIdentitySha256, disposition: value.disposition, reasonCode: value.reasonCode })) };
-  return { packageDto, packageDtos, manifest: { formatVersion: 2, artifactKind: "yuzhou_reusable_incremental_package", productionImport: "HOLD", ...manifestBinding, manifestId, packages: packageDtos.map(value => ({ manifestId: value.manifestId, itemCount: value.items.length, packageSha256: sha256(canonical(value)) })), supportedDomains: [...new Set(items.map(item => item.domain))], itemCount: items.length, disposition: items.length ? "api_package_ready" : "no_source_records" }, coverage };
+  return { packageDto, packageDtos, manifest: { formatVersion: 2, artifactKind: "yuzhou_reusable_incremental_package", productionImport: "HOLD", ...manifestBinding, manifestId, packages: packageDtos.map(value => ({ manifestId: value.manifestId, itemCount: value.items.length, packageBytes: incrementalPackageBytes(value), packageSha256: sha256(canonical(value)) })), supportedDomains: [...new Set(items.map(item => item.domain))], itemCount: items.length, disposition: items.length ? "api_package_ready" : "no_source_records" }, coverage };
 }
 
 export function materializeYuzhouReusableIncrementalPackage({ inputPath, outputDir }) {
@@ -204,7 +203,7 @@ export function materializeYuzhouReusableIncrementalPackage({ inputPath, outputD
   } else { mkdirSync(destination, { recursive: true, mode: 0o700 }); chmodSync(destination, 0o700); }
   const result = buildYuzhouReusableIncrementalPackage(readJson(source, "YUZHOU_REUSABLE_INCREMENTAL_INPUT_INVALID"));
   const packagePaths = result.packageDtos.map((value, index) => `${destination}/${result.packageDtos.length === 1 ? "package.json" : `package-${String(index + 1).padStart(4, "0")}.json`}`), manifestPath = `${destination}/manifest.json`, coveragePath = `${destination}/coverage.json`;
-  for (const [index, path] of packagePaths.entries()) writePrivate(path, result.packageDtos[index]);
+  for (const [index, path] of packagePaths.entries()) writeFileSync(path, serializeIncrementalPackage(result.packageDtos[index]), {encoding:"utf8",flag:"wx",mode:0o600});
   writePrivate(manifestPath, result.manifest); writePrivate(coveragePath, result.coverage);
   return { packagePath: packagePaths.length === 1 ? packagePaths[0] : null, packagePaths, manifestPath, coveragePath, manifestId: result.manifest.manifestId, itemCount: result.manifest.itemCount, productionImport: "HOLD" };
 }
