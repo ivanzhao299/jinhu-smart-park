@@ -65,7 +65,7 @@ export class HrContractReminderService{
     INSERT INTO hr_contract_reminder(tenant_id,park_id,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,window_date,due_date,recipient_scope,recipient_user_id,source_date,source_contract_version,dedupe_key)
     SELECT $1,$2,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,source_date-window_days,source_date,recipient_scope,recipient_user_id,source_date,contract_version,
      encode(digest(concat_ws('|',$1,$2,contract_id,reminder_kind,source_date-window_days,rule_version,recipient_user_id),'sha256'),'hex')
-    FROM recipients WHERE source_date-window_days<=current_date
+    FROM recipients WHERE source_date-window_days<=timezone('Asia/Shanghai',now())::date
     ON CONFLICT(tenant_id,park_id,dedupe_key)DO NOTHING RETURNING *
    ),outboxed AS(
     INSERT INTO hr_contract_reminder_outbox(tenant_id,park_id,reminder_id,recipient_user_id,dedupe_key)

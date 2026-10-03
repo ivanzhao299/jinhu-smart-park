@@ -5,6 +5,7 @@ import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import test from "node:test";
 import {DataSource} from "typeorm";
+import {HR_PERMISSIONS} from "@jinhu/shared";
 import {HrService} from "./hr.service";
 import {HrContractReminderService} from "./hr-contract-reminder.service";
 import {HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeEntity,HrContractActionEntity} from "./entities/hr.entities";
@@ -17,9 +18,19 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
  const schema=`hr_successor_${randomBytes(8).toString("hex")}`;
  const connection={type:"postgres" as const,host:"127.0.0.1",port:Number(process.env.POSTGRES_PORT),database:"postgres",username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD};
  const admin=new DataSource(connection);await admin.initialize();
+ const cryptoCatalog="SELECT e.oid,n.nspname,e.extversion FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='pgcrypto'";
+ const cryptoBefore=migrated?await admin.query(cryptoCatalog):[];
  let db:DataSource|undefined;
  try{
   await admin.query(`CREATE SCHEMA ${schema}`);
+  if(migrated){
+   // The generator needs the original baseline's real pgcrypto dependency.
+   // If absent, own it in this disposable schema so final CASCADE removes it.
+   assert.ok(cryptoBefore.every((row:{nspname:string})=>row.nspname==="public"),"Existing pgcrypto must belong to public");
+   if(!cryptoBefore.length)await admin.query(`CREATE EXTENSION pgcrypto WITH SCHEMA ${schema}`);
+   const [crypto]=await admin.query("SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='pgcrypto'");
+   assert.ok(crypto.nspname===schema||crypto.nspname==="public");
+  }
   const entities=[HrEmployeeEntity,HrContractEntity,HrContractTypeEntity,HrContractChangeEntity,HrContractActionEntity];
   const extra={max:6,options:`-c search_path=${schema},public`};
   if(migrated){
@@ -155,6 +166,35 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
     assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
    }
   });
+  if(migrated)await t.test("reminder generation uses Shanghai windows independently of session timezone",async()=>{
+   const dateScope={tenantId:"date-tenant",parkId:"date-park"},dateActor:JwtPrincipal={...dateScope,sub:"00000000-0000-4000-8000-000000000002",username:"synthetic-date",roles:[],permissions:[HR_PERMISSIONS.HR_CONTRACT_REMINDER_RUN]};
+   await db!.query("ALTER TABLE sys_user ADD COLUMN is_deleted boolean DEFAULT false,ADD COLUMN is_enabled boolean DEFAULT true");
+   await db!.query("INSERT INTO sys_user(id,tenant_id,park_id) VALUES($1,$2,$3)",[dateActor.sub,dateScope.tenantId,dateScope.parkId]);
+   const dateType=await types.save(types.create({...dateScope,typeCode:"date-fixed",typeName:"Synthetic date",status:"enabled",isHistoricalImport:false}));
+   await db!.query("INSERT INTO hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope) VALUES($1,$2,'contract_expiry',60,'employee')",[dateScope.tenantId,dateScope.parkId]);
+   for(const offset of [-1,0,1]){
+    const e=await employees.save(employees.create({...dateScope,employeeCode:`date-${offset}`,fullName:"Synthetic date",userId:dateActor.sub,employmentStatus:"active",employmentType:"formal"}));
+    const [day]=await db!.query("SELECT (timezone('Asia/Shanghai',now())::date+60+$1::int)::text due",[offset]);
+    await contracts.save(contracts.create({...dateScope,employeeId:e.id,contractTypeId:dateType.id,contractNo:`date-${offset}`,startDate:"2000-01-01",endDate:String(day.due),status:"active",isHistoricalImport:false,sourceSnapshot:{}}));
+   }
+   for(const zone of ["UTC","Etc/GMT+12","Pacific/Kiritimati"]){
+    const runner=db!.createQueryRunner();await runner.connect();await runner.startTransaction();
+    try{
+     await runner.query("SELECT set_config('TimeZone',$1,true)",[zone]);
+     await runner.query("CREATE TEMP TABLE sys_role(id uuid,tenant_id varchar(64),park_id varchar(64),code varchar(64),is_deleted boolean) ON COMMIT DROP;CREATE TEMP TABLE rel_user_role(user_id uuid,role_id uuid,tenant_id varchar(64),park_id varchar(64),is_deleted boolean) ON COMMIT DROP");
+     const generator=new HrContractReminderService({transaction:async(callback:(manager:typeof runner.manager)=>Promise<unknown>)=>callback(runner.manager)} as never,{recordOperationRequired:async()=>{}} as never);
+     await assert.rejects(generator.run(dateScope,{...dateActor,permissions:[]}),/Contract reminder permission is required/);
+     assert.equal((await generator.run({...dateScope,parkId:"foreign-date-park"},{...dateActor,parkId:"foreign-date-park"})).created,0,`${zone} foreign scope`);
+     assert.equal((await generator.run(dateScope,dateActor)).created,2,zone);
+     assert.equal((await generator.run(dateScope,dateActor)).created,0,`${zone} replay`);
+     const rows=await runner.query("SELECT (window_date-timezone('Asia/Shanghai',now())::date)::int day_offset FROM hr_contract_reminder WHERE tenant_id=$1 AND park_id=$2 ORDER BY window_date",[dateScope.tenantId,dateScope.parkId]);
+     assert.deepEqual(rows.map((row:{day_offset:number})=>row.day_offset),[-1,0],zone);
+     const [outbox]=await runner.query("SELECT count(*)::int n FROM hr_contract_reminder_outbox WHERE tenant_id=$1 AND park_id=$2",[dateScope.tenantId,dateScope.parkId]);assert.equal(outbox.n,2);
+    }finally{await runner.rollbackTransaction();await runner.release();}
+   }
+   const [remaining]=await db!.query("SELECT count(*)::int n FROM hr_contract_reminder WHERE tenant_id=$1 AND park_id=$2",[dateScope.tenantId,dateScope.parkId]);assert.equal(remaining.n,0);
+   const [remainingOutbox]=await db!.query("SELECT count(*)::int n FROM hr_contract_reminder_outbox WHERE tenant_id=$1 AND park_id=$2",[dateScope.tenantId,dateScope.parkId]);assert.equal(remainingOutbox.n,0);
+  });
   if(migrated)await t.test("production contract audit triggers reject mutation and foreign scope",async()=>{
    const f=await fixture(),created=await service.createContract(scope,actor,f.dto);
    const [action]=await db!.query("SELECT id FROM hr_contract_action WHERE contract_id=$1",[created.id]);
@@ -166,6 +206,6 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    const f=await fixture();await assert.rejects(service.actContract(scope,actor,f.old.id,{action:"cancel"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContractChange(scope,actor,f.old.id,{changeType:"renewal",newStartDate:"2090-01-01"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);
   });
  }finally{
-  if(db?.isInitialized)await db.destroy();await admin.query(`DROP SCHEMA ${schema} CASCADE`);const [row]=await admin.query("SELECT NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=$1) clean",[schema]);assert.equal(row.clean,true);await admin.destroy();
+  try{if(db?.isInitialized)await db.destroy();await admin.query(`DROP SCHEMA ${schema} CASCADE`);const [row]=await admin.query("SELECT NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=$1) clean",[schema]);assert.equal(row.clean,true);if(migrated)assert.deepEqual(await admin.query(cryptoCatalog),cryptoBefore,"pgcrypto catalog must return to its original state");}finally{await admin.destroy();}
  }
 });
