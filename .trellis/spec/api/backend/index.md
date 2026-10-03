@@ -1,6 +1,8 @@
 # @jinhu/api Backend Specs
 
-Reusable offline employee/contract staging entry: [Yuzhou Staging Entry](./yuzhou-reusable-staging-entry.md).
+Original and new source-bound profile incremental continuity: [Profile Continuity](./hr-yuzhou-profile-continuity.md).
+
+Reusable offline employee/profile/contract staging entry: [Yuzhou Staging Entry](./yuzhou-reusable-staging-entry.md).
 
 Original receipt-bound employee/contract baseline restoration: [Initial HR Baselines](./hr-yuzhou-initial-baseline.md).
 

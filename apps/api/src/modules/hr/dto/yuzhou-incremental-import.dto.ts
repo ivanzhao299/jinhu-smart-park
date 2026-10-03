@@ -13,6 +13,13 @@ export class YuzhouInitialBaselineWitnessDto {
   @IsObject() projection!: Record<string, unknown>;
 }
 
+export class YuzhouProfileBaselineWitnessDto {
+  @IsIn([1]) version!: 1;
+  @IsIn(["original_t5_whole_set_v1"]) proof!: "original_t5_whole_set_v1";
+  @Matches(/^yzprod-import-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$/) operationId!: string;
+  @Matches(SHA256) bindingSha256!: string;
+}
+
 export class YuzhouIncrementalItemDto {
   @IsIn(YUZHOU_INCREMENTAL_DOMAINS) domain!: YuzhouIncrementalDomain;
   @IsString() @Length(1, 128) sourceTable!: string;
@@ -21,6 +28,8 @@ export class YuzhouIncrementalItemDto {
   @Matches(SHA256) rowDigest!: string;
   @IsOptional() @ValidateNested() @Type(() => YuzhouInitialBaselineWitnessDto)
   initialBaselineWitness?: YuzhouInitialBaselineWitnessDto;
+  @IsOptional() @ValidateNested() @Type(() => YuzhouProfileBaselineWitnessDto)
+  profileBaselineWitness?: YuzhouProfileBaselineWitnessDto;
   @IsObject() fields!: Record<string, unknown>;
 }
 

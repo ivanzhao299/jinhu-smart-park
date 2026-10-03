@@ -207,3 +207,21 @@ CLI 错误只输出预先列举的固定安全代码；解析器、文件系统�
 条目只支持 employee/dbo.person 和 contract/dbo.compact 的正确配对，身份不能重复，reasonCode 必须为非空大写安全代码。只有**稳定身份与原行哈希都相同**的历史条目会排除；来源内容已变化时记为 `nonApplicableChanged` 并交给普通 builder 校验构包，不能让旧例外永久屏蔽修复后的记录。未出现在本次提取中的旧条目记为 `notPresent`，不代表删除。assembly receipt 保留材料哈希、原 operation/plan/proof 引用、应用条目和 requested/excluded/eligible 计数；未被 API 支持的源域继续留在 staging，不作为排除项。
 
 此材料在离线入口的信任边界内是由调用方提供、通过配置 SHA 固定的历史证据声明。入口不重新加载大体积原 plan、不独立认证生产 operation/decision receipt，也不授予跳过任意新行或生产写入的权限。没有真实原始归档证据时应省略该选项；普通行失败仍使整批失败，不能伪造例外来宣称完整验收。
+
+## 原 T5 档案连续增量
+
+固定入口可同时接受 `profileManifest: {path, sha256}`。它引用私有 T5 staging manifest 的 `domains.person_core`：`sourceObject=dbo.person.core_residue`、`file=person_core.jsonl`、`rows` 和实际 `fileSha256`。版本为 1、`productionImport=HOLD`；`yuzhou_t5_nonfile_materialization_stage` 格式另核其 `nonfileBusinessSha256`，manifest 若声明 source snapshot 则须与 caller custody 一致。配置固定所用 manifest 实际字节摘要，不能把不同留存 manifest 冒称原 manifest 等值；原 person_core 文件是否属于原 binding，另按其确切文件摘要证明。现有双反斜杠传输只逆转一次，并用原 row hash 验证。档案 identity 来自原 `id`，员工 dependency 来自 `person`，两者不能混用。只投射 sex/birthday/handtel/email/addr/idcard 六列；生日接受经过日历校验的原本地 ISO datetime，取日期部分。其他列逐字段保留 pending coverage，不使用旧 materialized 密文。
+
+已有原 T5 档案先单独构建 baseline-only 包：配置 `profileBaselineWitness: {path, sha256}`，文件内容为 `{version:1, proof:"original_t5_whole_set_v1", operationId, bindingSha256}`，原操作 ID 使用 `yzprod-import-YYYYMMDDTHHMMSSZ-12hex`。该模式档案 DTO 的 `fields` 为 `{}`。认证在 API 的事务中锁原成功操作防回滚、锁原 profile/source/receipt 集合，以固定 Asia/Shanghai 复算原 PostgreSQL whole-row count/hash 和全 receipt count/hash，与原 immutable owned_state 完全相等后才接受。逐行内部解密原来源、验证 identity/row hash、T0 owner 成功链，并核对原身份证明文 trim 与 certified target fingerprint/hash-key 相容。证明失败明确拒绝，不把当前编辑后的行冒充原基线。首次接收仅写加密账本和不可变 provenance，不改变业务列、版本或时间。
+
+接收后移除 witness，按普通来源变化构包。API 复用已接受的原 source/target 分离基线、三方冲突、权限和版本 CAS；后续合法现代编辑不会再触发全集原摘要门槛。身份证比较用稳定 fingerprint，避免随机密文或旧 trim 与当前去空白/大写规则导致伪变化。新员工先于其新档案排序，仍使用同一 2000 条/8 MiB 分包。
+
+历史档案异常可单独配置 `profileExclusions` 或 `profileFieldAdmissions` pinned 私有文件，格式为 `{formatVersion:1, artifactKind, originalOperationId, originalBindingSha256, targetScope, entries}`。kind 分别为 `yuzhou_original_profile_exclusions`、`yuzhou_original_profile_field_admissions`。每项为 `{sourceIdentitySha256, sourceRowSha256, decisionReceiptSha256, reasonCode}`；field admission 额外要求 `fields`，只能为 gender/dateOfBirth/personalMobile/personalEmail/address/idNumber。scope 必须等于 `sourceCustody.targetScope`；同时提供 witness 时原操作和 binding 也必须相等。
+
+只有原 identity 和完整 row hash 完全相同的异常事实适用：exclusion 排除整行；field admission 仅省略声明的无效字段并保留 pending。行变化进入普通校验；不在新快照的原行计为 notPresent，不解释成删除。receipt 分别记录 requested/excluded/eligible/nonApplicableChanged/notPresent/pendingFields、artifact SHA 和来源声明。私有工件的真实性仍为 caller custody，配置 digest 仅证明完整性，不独立认证原 receipt 或授予生产写权限。没有真实异常证据时不可猜造工件。已有 baseline 不可重置，原 T0/T2 v1 witness 保持兼容。
+
+本地验证使用独立随机数据库和真实迁移，验证 CLI 构包到 API、原基线业务全行不变、重放、新档案、新员工及档案、现代编辑、保护值冲突及双连接 CAS 回滚。合成验证与原集合只读观察均不表示新来源生产导入已验收。
+
+Direct reusable builder 的 profile witness 必须是严格完整 v1；manifestId 绑定 witness 字节与 admission 声明，配方也绑定 shared profile witness contract。禁止传入任意 `profileOmittedFields`。入口向 builder 传递 `profileAdmissionEvidence`（declaration=`caller_attests_original_unchanged_invalid_fields`、targetScope、artifactCanonicalSha256、原 artifact），builder 独立验证声明/摘要/scope/原 operation，并仅对 exact identity+原完整 sourceRowSha 的匹配行推导省略字段。私有工件仍是 caller custody 声明，不因此升级成独立认证的原字段决策。
+
+CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务的 loopback 55491 端口，明确启用并运行个人资料基线、员工/合同原始基线和增量事务套件；这些测试创建独立临时数据库并核对清理残留，不访问生产。通用的 scope 作业通过不能单独证明导入事务通过，需检查 `Verify Yuzhou incremental import continuity transactions` 步骤。
