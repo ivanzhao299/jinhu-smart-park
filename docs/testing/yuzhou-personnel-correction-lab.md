@@ -133,3 +133,5 @@ real source-bound A/B execution. Those remain independent acceptance gates befor
 any production correction design can be approved. The previously observed live
 2456-profile / 2454-native-place / 68-degree plan is a historical read-only result,
 not a hardcoded authorization or synthetic-test expectation.
+
+The optional [typed snapshot laboratory](./yuzhou-personnel-correction-snapshot.md) preserves original source receipts in separate immutable relations and requires independently registered origin and prepare approval. Default execution behavior remains available without a snapshot binding.

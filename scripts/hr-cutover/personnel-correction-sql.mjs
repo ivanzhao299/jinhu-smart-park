@@ -1,3 +1,4 @@
+import { snapshotRelations } from './personnel-correction-snapshot-contract.mjs';
 import { personnelAliasSql } from '../diagnose-yuzhou-personnel-alias.mjs';
 
 // Reuse the reviewed PostgreSQL JSONB algorithm verbatim. Only replace the
@@ -52,3 +53,10 @@ export const rollbackSql = `UPDATE hr_employee_profile p SET
  AND to_jsonb(p)=d.after_image AND p.xmin::text=d.after_xmin
  AND p.tenant_id=d.binding->>'tenantId' AND p.park_id=d.binding->>'parkId'
  AND p.employee_id::text=d.binding->>'employeeId' AND NOT p.is_deleted`;
+
+// Replace only FROM/JOIN relation tokens, never quoted target_table literals or
+// arbitrary caller mappings. Profile remains the real writable public table.
+export const snapshotCorrectionCtes = snapshotRelations.filter(n=>n!=='hr_employee_profile').reduce((sql,name)=>
+ sql.replace(new RegExp(`\\b(FROM|JOIN) ${name}\\b`,'g'),`$1 hr_correction_snapshot.${name}`),correctionCtes)
+ .replace('follow_batch.target_database=current_database()','follow_batch.target_database=$5');
+export const snapshotLockSql = `LOCK TABLE public.hr_employee_profile IN SHARE ROW EXCLUSIVE MODE`;
