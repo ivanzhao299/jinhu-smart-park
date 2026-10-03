@@ -44,6 +44,8 @@ import { CanteenSubsidyController } from "./canteen-subsidy.controller";
 import { CanteenSettlementController } from "./canteen-settlement.controller";
 import { CanteenReportController } from "./canteen-report.controller";
 import { CanteenRefundController } from "./canteen-refund.controller";
+import { CanteenLogController } from "./canteen-log.controller";
+import { CanteenLogService } from "./canteen-log.service";
 import { CanteenSettlementService } from "./canteen-settlement.service";
 import { CanteenReportService } from "./canteen-report.service";
 import { CanteenRefundService } from "./canteen-refund.service";
@@ -80,7 +82,8 @@ import { CanteenRefundService } from "./canteen-refund.service";
     CanteenSubsidyController,
     CanteenSettlementController,
     CanteenReportController,
-    CanteenRefundController
+    CanteenRefundController,
+    CanteenLogController
   ],
   providers: [
     CanteenService,
@@ -106,7 +109,8 @@ import { CanteenRefundService } from "./canteen-refund.service";
     CanteenSettlementService,
     CanteenReportService,
     // M4
-    CanteenRefundService
+    CanteenRefundService,
+    CanteenLogService
   ],
   exports: [CanteenService, CanteenSettingsService, CanteenSubsidyGrantService]
 })

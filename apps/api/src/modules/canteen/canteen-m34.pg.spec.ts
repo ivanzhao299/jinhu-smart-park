@@ -21,6 +21,7 @@ import { RandomizedNumberService } from "./canteen-test-utils";
 import { CanteenSettlementService } from "./canteen-settlement.service";
 import { CanteenReportService } from "./canteen-report.service";
 import { CanteenRefundService } from "./canteen-refund.service";
+import { CanteenLogService } from "./canteen-log.service";
 import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
 import { periodOf } from "./canteen-subsidy.util";
 
@@ -75,6 +76,7 @@ test(
     );
     const reportSvc = new CanteenReportService(orderRepo, ds.getRepository(CanteenOrderItemEntity), ds.getRepository(CanteenWalletEntity) as never);
     const refundSvc = new CanteenRefundService(refundRepo, orderRepo, paymentRepo, ds, numbers, registry);
+    const logSvc = new CanteenLogService(statusLogRepo);
 
     try {
       const outlet = await archive.createOutlet(scope as never, actor, {
@@ -200,6 +202,15 @@ test(
       // 审计：refund 落 status_log
       const rlogs = await statusLogRepo.find({ where: { entityType: "refund", entityId: rf2.id } });
       assert.ok(rlogs.length >= 2, "退款动作落审计");
+
+      // ===== M4: 全局日志查询 GET /status-logs =====
+      const allLogs = await logSvc.list(scope as never, { page: 1, page_size: 50 });
+      assert.ok(allLogs.total > 0, "审计日志 total>0");
+      const setLogs = await logSvc.list(scope as never, { entity_type: "settlement", page: 1, page_size: 50 });
+      const actions = setLogs.list.map((l) => l.action).sort();
+      for (const want of ["generate", "submit", "reconcile", "dispute", "approve", "settle"]) {
+        assert.ok(actions.includes(want), `settlement 日志含 ${want}`);
+      }
     } finally {
       await ds.destroy();
     }
