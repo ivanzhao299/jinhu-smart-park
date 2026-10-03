@@ -321,7 +321,6 @@ export class FileBusinessAccessService {
       FROM hr_contract contract JOIN hr_employee employee ON employee.id=contract.employee_id AND employee.tenant_id=contract.tenant_id AND employee.park_id=contract.park_id
       WHERE contract.id=$1 AND contract.tenant_id=$2 AND contract.park_id=$3 AND contract.is_deleted=false AND employee.is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId,actor.sub]) as Array<{user_id:string|null;is_historical_import:boolean;is_self:boolean;is_team:boolean}>;
     const reference=rows[0];if(!reference)throw new ForbiddenException("HR contract reference is outside the current tenant or park");
-    if(write&&reference.is_historical_import)throw new ForbiddenException("Historical imported contract documents are immutable");
     if(write||parkRead)return;
     if(selfRead&&reference.is_self)return;
     if(teamRead&&reference.is_team)return;

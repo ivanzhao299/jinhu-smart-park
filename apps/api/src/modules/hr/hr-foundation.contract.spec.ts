@@ -100,13 +100,14 @@ test("HR endpoints require module and distinct manager/self permissions",()=>{
  assert.match(controller,/employees\/:id\/profile[\s\S]*HR_EMPLOYEE_PROFILE_READ/);
  assert.match(controller,/employees\/:id\/transitions[\s\S]*HR_EMPLOYMENT_TRANSITION/);
 });
-test("online labor contracts serialize draft state and preserve imported history",()=>{
+test("online labor contracts serialize draft state while source provenance does not gate operations",()=>{
  assert.match(contractDraftMigration,/ADD COLUMN IF NOT EXISTS status/);
  assert.match(contractDraftMigration,/CHECK \(status IN \('draft','effective','cancelled'\)\)/);
  assert.match(contractDraftMigration,/uq_hr_contract_change_one_draft/);
  assert.match(contractDraftMigration,/WHERE is_deleted=false AND status='draft'/);
  assert.match(service,/createContractChange[\s\S]*pessimistic_write/);
- assert.match(service,/Historical imported contracts are immutable/);
+ assert.doesNotMatch(service,/Historical imported contracts are immutable/);
+ assert.doesNotMatch(service,/Historical imported contract changes are immutable/);
  assert.match(service,/Only a draft online contract can be activated or cancelled/);
  assert.match(service,/Only a draft contract change can be applied or cancelled/);
  assert.match(service,/读取劳动合同台账[\s\S]*employment_contract/);
