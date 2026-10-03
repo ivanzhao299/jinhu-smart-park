@@ -92,7 +92,7 @@ test("contract documents preserve park, manager-tree and self scopes with a sepa
  assert.equal(calls.length,2);
  assert.deepEqual(calls[0],["contract-1","tenant-1","park-1","employee-user"]);
  const historical=new FileBusinessAccessService({query:async()=>[{user_id:"employee-user",is_historical_import:true,is_self:true,is_team:false}]} as never,{} as never,unrestrictedDataScopes);
- await assert.rejects(historical.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE]),"hr_contract_document","contract-history","delete"),/immutable/u);
+ await assert.doesNotReject(historical.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE]),"hr_contract_document","contract-history","delete"));
 });
 
 test("HR file atoms cannot enumerate or read non-protected generic files",()=>{

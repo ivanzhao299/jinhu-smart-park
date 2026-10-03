@@ -452,7 +452,6 @@ export class HrService {
    const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
    const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!contract)throw new NotFoundException("Contract not found");
-   if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
    if(contract.status!=="draft")throw new ConflictException("Only a draft online contract can be edited");
    const employee=await employeeRepo.findOne({where:{id:dto.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:dto.contractTypeId,...scope,status:"enabled",isDeleted:false}});
    if(!employee||!type)throw new BadRequestException("Contract references are unavailable in current scope");
@@ -469,7 +468,6 @@ export class HrService {
   const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
   const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!contract)throw new NotFoundException("Contract not found");
-  if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
   if(contract.status!=="draft")throw new ConflictException("Only a draft online contract can be activated or cancelled");
   const employee=await employeeRepo.findOne({where:{id:contract.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:contract.contractTypeId,...scope,isDeleted:false}});
   if(!employee||!type)throw new ConflictException("Contract references are unavailable");
@@ -484,7 +482,6 @@ export class HrService {
    const contractRepo=manager.getRepository(HrContractEntity),changeRepo=manager.getRepository(HrContractChangeEntity);
    const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!contract)throw new NotFoundException("Contract not found");
-   if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
    if(contract.status!=="active")throw new ConflictException("Only an active online contract can create a change draft");
    if(dto.changeType==="renewal"&&contract.endDate&&dto.newStartDate<=contract.endDate)throw new BadRequestException("Renewal must start after the current contract ends");
    if(dto.changeType==="termination"&&!dto.newEndDate)throw new BadRequestException("Termination requires an end date");
@@ -504,10 +501,8 @@ export class HrService {
   const contractRepo=manager.getRepository(HrContractEntity),changeRepo=manager.getRepository(HrContractChangeEntity);
   const contract=await contractRepo.findOne({where:{id:contractId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!contract)throw new NotFoundException("Contract not found");
-  if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
   const change=await changeRepo.findOne({where:{id:changeId,contractId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!change)throw new NotFoundException("Contract change not found");
-  if(change.isHistoricalImport)throw new ConflictException("Historical imported contract changes are immutable");
   if(change.status!=="draft")throw new ConflictException("Only a draft contract change can be applied or cancelled");
   const contractStatusBefore=contract.status;
   const changeFacts=readModernContractChangeFacts(change.sourceSnapshot);
