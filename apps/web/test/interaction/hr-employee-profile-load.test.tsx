@@ -197,3 +197,20 @@ describe("authorized work contact detail", () => {
     expect(screen.queryByLabelText("工作联系方式")).toBeNull();
   });
 });
+
+describe("current assignment detail",()=>{
+ it("shows authorized business labels and source-separated employment dates without internal relationship IDs",async()=>{
+  vi.mocked(hrApi.profile).mockResolvedValue(null);
+  vi.mocked(hrApi.employee).mockResolvedValue({...employee(),primaryOrgId:"INTERNAL-ORG-ID",positionId:"INTERNAL-POSITION-ID",managerEmployeeId:"INTERNAL-MANAGER-ID",employmentDates:{unclassifiedRecordedDate:{date:"2026-10-30",status:"unclassified"},plannedConfirmation:{dates:["2026-10-31"],status:"planned"},confirmedEmployment:{dates:["2026-10-30"],status:"recorded"}},assignmentDetails:{organization:{name:"Synthetic current organization",status:"available"},position:{name:"Synthetic inactive position",status:"inactive"},manager:{name:null,status:"unavailable"}}});
+  render(<HrEmployeesClient/>);await openFirst();const summary=within(screen.getByLabelText("当前任职关系"));
+  expect(summary.getByText("Synthetic current organization")).toBeVisible();expect(summary.getByText("Synthetic inactive position（已停用）")).toBeVisible();expect(summary.getByText("关联信息当前不可用")).toBeVisible();expect(summary.getByText("2026-10-30（用途待核实）")).toBeVisible();expect(summary.getByText("2026-10-31")).toBeVisible();expect(summary.getByText("2026-10-30")).toBeVisible();
+  for(const id of ["INTERNAL-ORG-ID","INTERNAL-POSITION-ID","INTERNAL-MANAGER-ID"])expect(summary.queryByText(id)).toBeNull();
+ });
+ it("does not treat an older detail response as an unassigned relationship or a date classification",async()=>{
+  vi.mocked(hrApi.profile).mockResolvedValue(null);render(<HrEmployeesClient/>);await openFirst();const summary=within(screen.getByLabelText("当前任职关系"));expect(summary.getAllByText("详情尚未提供")).toHaveLength(6);expect(summary.queryByText("未关联")).toBeNull();
+ });
+ it("does not render an invalid saved employment date as null or unregistered",async()=>{
+  vi.mocked(hrApi.profile).mockResolvedValue(null);vi.mocked(hrApi.employee).mockResolvedValue({...employee(),employmentDates:{unclassifiedRecordedDate:{date:null,status:"unclassified"},plannedConfirmation:{dates:[],status:"none"},confirmedEmployment:{dates:[],status:"none"}}});
+  render(<HrEmployeesClient/>);await openFirst();const summary=within(screen.getByLabelText("当前任职关系"));expect(summary.getByText("日期格式待核实")).toBeVisible();expect(summary.queryByText("null（用途待核实）")).toBeNull();
+ });
+});

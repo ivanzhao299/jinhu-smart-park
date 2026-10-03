@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Scoped employee relationship names and source-separated employment dates: [Employee Detail](./hr-employee-detail-assignment.md).
+
 Modern insurance preview arithmetic: [Insurance Calculation](./hr-insurance-calculation.md).
 Scoped reference calculation API: [Insurance Reference Preview](./hr-insurance-reference-preview.md).
 Durable modern policy definitions: [Insurance Policy Versions](./hr-insurance-policy-version.md).
