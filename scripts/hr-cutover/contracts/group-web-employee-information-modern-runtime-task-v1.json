@@ -188,7 +188,7 @@
       {"id":"full_profile_required_audit","method":"GET","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["full_projection", "required_audit_before_response"]},
       {"id":"team_profile_masked","method":"GET","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["masked_projection", "protected_values_absent"]},
       {"id":"self_profile_masked","method":"GET","path":"/hr/employees/me/profile","expectedStatus":200,"assertions":["self_only", "self_masked_projection"]},
-      {"id":"profile_update_isolated_fixture","method":"PUT","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["idempotency_key", "profile_manage_permission", "synthetic_values_only", "read_after_write"]},
+      {"id":"profile_update_isolated_fixture","method":"PUT","path":"/hr/employees/:id/profile","expectedStatus":200,"assertions":["idempotency_key", "profile_manage_permission", "synthetic_values_only", "successful_profile_read_expected_version", "stale_409_no_overwrite", "read_after_write"]},
       {"id":"missing_permission_forbidden","method":"GET","path":"/hr/employees","expectedStatus":403,"assertions":["permission_guard_denies", "employee_rows_absent"]}
     ],
     "browserTask": {

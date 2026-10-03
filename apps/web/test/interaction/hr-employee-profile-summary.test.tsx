@@ -4,7 +4,7 @@ import { HrEmployeeProfileSummary } from "../../app/hr/employees/components/HrEm
 import type { HrEmployeeProfile } from "../../lib/hr-api";
 
 const fullProfile: HrEmployeeProfile = {
-  id: "synthetic-profile", employeeId: "synthetic-employee", masked: false,
+  id: "synthetic-profile", version: 1, employeeId: "synthetic-employee", masked: false,
   idType: "passport", idNumberMasked: "SY****00", idNumber: "SYNTHETIC-RAW-IDENTITY",
   englishName: "Synthetic name", gender: "其他", dateOfBirth: "1990-02-03", ethnicity: "合成民族",
   nativePlace: "合成籍贯", politicalStatus: "合成政治面貌", partyJoinDate: "2010-01-01",

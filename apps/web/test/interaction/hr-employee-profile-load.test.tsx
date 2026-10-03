@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HrEmployeesClient } from "../../app/hr/employees/HrEmployeesClient";
+import { ApiError } from "../../lib/api-client";
 import { hrApi, type HrEmployee, type HrEmployeeProfile } from "../../lib/hr-api";
 
 vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), updateProfile: vi.fn() } }));
@@ -16,7 +17,7 @@ const employee = (id = "alpha"): HrEmployee => ({
   workLocation: null, workMobile: null, workEmail: null,
 });
 const profile = (employeeId = "alpha", masked = false): HrEmployeeProfile => ({
-  id: `profile-${employeeId}`, employeeId, highestEducation: "Synthetic education", masked,
+  id: `profile-${employeeId}`, version: 7, employeeId, highestEducation: "Synthetic education", masked,
   idType: null, idNumberMasked: null, jobTitle: employeeId === "foreign" ? "Synthetic foreign title" : null, jobGrade: null, employeeCategory: null,
   technicalTitle: null, technicalGrade: null, personalMobile: null, personalEmail: null,
   address: null, emergencyContactName: null, emergencyContactMobile: null, remark: "Synthetic existing note",
@@ -35,6 +36,38 @@ beforeEach(() => {
 });
 
 describe("employee profile read admission", () => {
+  it("rejects missing read versions instead of assuming the latest", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), version: undefined } as unknown as HrEmployeeProfile);
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
+    expect(hrApi.updateProfile).not.toHaveBeenCalled();
+  });
+  it("sends zero only after a successful absent-profile read", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValueOnce(null).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 0 }), "synthetic-test-token"));
+  });
+  it("retains edits after 409, blocks retries, and requires explicit discard/reload", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockResolvedValue({ ...profile(), version: 8, highestEducation: "Latest saved value" });
+    vi.mocked(hrApi.updateProfile).mockRejectedValueOnce(new ApiError("stale", 409)).mockResolvedValue({ ...profile(), version: 9 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.change(screen.getByLabelText("最高学历"), { target: { value: "My unsaved edit" } });
+    const form = screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!;
+    fireEvent.submit(form);
+    await screen.findByText("档案已被更新，当前编辑内容已保留。请先核对或复制您的修改，再重新加载最新档案后保存。");
+    expect(screen.getByLabelText("最高学历")).toHaveValue("My unsaved edit");
+    expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, highestEducation: "My unsaved edit" }), "synthetic-test-token");
+    expect(screen.getByRole("button", { name: "保存敏感档案" })).toBeDisabled();
+    fireEvent.submit(form);
+    expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
+    expect(hrApi.profile).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "放弃本次编辑并重新加载" }));
+    await waitFor(() => expect(screen.getByLabelText("最高学历")).toHaveValue("Latest saved value"));
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenLastCalledWith("alpha", expect.objectContaining({ expectedVersion: 8 }), "synthetic-test-token"));
+  });
   it("does not expose a blank replacement form after a failed read", async () => {
     vi.mocked(hrApi.profile).mockRejectedValue(new Error("synthetic unavailable"));
     render(<HrEmployeesClient />); await openFirst();
