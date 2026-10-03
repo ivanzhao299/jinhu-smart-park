@@ -21,13 +21,13 @@ function deferred<T>() { let resolve!: (value: T) => void, reject!: (error: unkn
 function fixture(actor = user) {
   let current = true;
   const calls: { action: string; id?: string; key?: string }[] = [];
-  let nextPreview: () => Promise<unknown> = async () => preview();
+  let nextPreview: (key: string) => Promise<unknown> = async () => preview();
   let nextCommit: () => Promise<unknown> = async () => terminal();
   let nextStatus: () => Promise<unknown> = async () => terminal();
   let keys = 0;
   const store = createImportWorkbench({ user: actor, isCurrent: () => current, transport: {
     key: action => `${action}:${++keys}`,
-    preview: async (_pkg, key) => { calls.push({ action: "preview", key }); return nextPreview(); },
+    preview: async (_pkg, key) => { calls.push({ action: "preview", key }); return nextPreview(key); },
     commit: async (operationId, key) => { calls.push({ action: "commit", id: operationId, key }); return nextCommit(); },
     status: async operationId => { calls.push({ action: "status", id: operationId }); return nextStatus(); }
   } });
@@ -131,9 +131,9 @@ test("selection and preview never auto-submit; duplicate clicks lock synchronous
   assert.deepEqual(f.calls.map(row => row.action), ["preview", "commit"]);
   commit.resolve(terminal()); await pending; await f.store.commit();
   assert.equal(f.calls.length, 2);
-  f.preview(async () => terminal("conflicted"));
+  f.preview(async () => terminal());
   await f.store.preview(); await f.store.commit();
-  assert.equal(f.store.getSnapshot().operation?.status, "conflicted");
+  assert.equal(f.store.getSnapshot().operation?.status, "committed");
   assert.equal(f.calls.length, 3);
 });
 
@@ -147,6 +147,58 @@ test("same-package preview status without plan is bound; status-only recovery ca
   assert.equal(f.store.getSnapshot().summary, null);
   assert.equal(f.store.getSnapshot().canCommit, false);
   assert.deepEqual(f.calls.map(row => row.action), ["preview", "status"]);
+});
+
+test("fresh explicit preview bypasses an interceptor's old cached response while package identity remains one operation", async () => {
+  const f = fixture(), cache = new Map<string, unknown>();
+  let serverCommitted = false;
+  f.preview(async key => {
+    if (!cache.has(key)) cache.set(key, serverCommitted ? terminal() : preview());
+    return cache.get(key);
+  });
+  f.commit(async () => { serverCommitted = true; return terminal(); });
+  await f.store.select(file()); await f.store.preview(); await f.store.commit(); await f.store.preview();
+  const previews = f.calls.filter(call => call.action === "preview");
+  assert.notEqual(previews[0]!.key, previews[1]!.key);
+  assert.equal(f.store.getSnapshot().operation?.id, id);
+  assert.equal(f.store.getSnapshot().operation?.status, "committed");
+  assert.equal(cache.size, 2);
+  await f.store.commit();
+  assert.equal(f.calls.filter(call => call.action === "commit").length, 1);
+});
+
+test("an interrupted preview transport retry reuses its key, while starting a new preview after failure gets a fresh key", async () => {
+  const f = fixture(), interruptedKeys = new Set<string>();
+  f.preview(async key => {
+    if (!interruptedKeys.has(key)) { interruptedKeys.add(key); throw new Error("response lost after server preview"); }
+    return preview();
+  });
+  await f.store.select(file()); await f.store.preview();
+  assert.equal(f.store.getSnapshot().previewRetryAvailable, true);
+  await f.store.preview(true);
+  assert.equal(f.calls[0]!.key, f.calls[1]!.key);
+  assert.equal(f.store.getSnapshot().canCommit, true);
+  assert.equal(f.store.getSnapshot().previewRetryAvailable, false);
+  await f.store.preview();
+  assert.notEqual(f.calls[1]!.key, f.calls[2]!.key);
+  assert.equal(f.store.getSnapshot().previewRetryAvailable, true);
+  await f.store.select(file(text([item("contract", {})]))); await f.store.preview(true);
+  assert.equal(f.calls.length, 3, "file replacement invalidates transport retry ownership");
+});
+
+for (const status of ["committed", "conflicted"] as const) test(`known ${status} outcome cannot regress when reselected-file preview or status returns a stale preview snapshot`, async () => {
+  const f = fixture(); f.status(async () => terminal(status));
+  await f.store.query(id);
+  await f.store.select(file());
+  f.preview(async () => preview());
+  await f.store.preview();
+  assert.equal(f.store.getSnapshot().operation?.status, status);
+  assert.equal(f.store.getSnapshot().canCommit, false);
+  f.status(async () => ({ id, status: "previewed", itemCount: 1 }));
+  await f.store.query(id); await f.store.commit();
+  assert.equal(f.store.getSnapshot().operation?.status, status);
+  assert.deepEqual(f.store.getSnapshot().operation?.results, status === "committed" ? { applied: 0, unchanged: 1, conflicts: 0 } : { applied: 0, unchanged: 0, conflicts: 1 });
+  assert.equal(f.calls.filter(call => call.action === "commit").length, 0);
 });
 
 test("uncertain commit keeps operation/key and requires successful status before explicit retry", async () => {

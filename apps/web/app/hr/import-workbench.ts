@@ -129,6 +129,7 @@ export interface ImportWorkbenchState {
   operation: ImportOperation | null;
   uncertain: boolean;
   canCommit: boolean;
+  previewRetryAvailable: boolean;
   error: string;
 }
 interface ImportTransport {
@@ -138,23 +139,30 @@ interface ImportTransport {
   key: (action: string) => string;
 }
 export function createImportWorkbench(options: { user: UserContext | null; isCurrent: () => boolean; transport: ImportTransport }) {
-  let state: ImportWorkbenchState = { busy: null, summary: null, operation: null, uncertain: false, canCommit: false, error: "" };
+  let state: ImportWorkbenchState = { busy: null, summary: null, operation: null, uncertain: false, canCommit: false, previewRetryAvailable: false, error: "" };
   let pkg: YuzhouIncrementalPackage | null = null;
   let generation = 0;
   let previewKey = "", commitKey = "", boundId = "";
+  const terminalOperations = new Map<string, ImportOperation>();
+  const admitOperation = (operation: ImportOperation): ImportOperation => {
+    const terminal = terminalOperations.get(operation.id);
+    if (terminal) return terminal;
+    if (operation.status !== "previewed") terminalOperations.set(operation.id, operation);
+    return operation;
+  };
   const listeners = new Set<() => void>();
   const publish = (patch: Partial<ImportWorkbenchState>) => { state = { ...state, ...patch }; listeners.forEach(listener => listener()); };
   const current = (epoch: number) => epoch === generation && options.isCurrent();
   const reset = () => {
     generation++; pkg = null; previewKey = ""; commitKey = ""; boundId = "";
-    publish({ busy: null, summary: null, operation: null, uncertain: false, canCommit: false, error: "" });
+    publish({ busy: null, summary: null, operation: null, uncertain: false, canCommit: false, previewRetryAvailable: false, error: "" });
   };
   const canManage = () => !!state.summary && hasModule(options.user, "hr") && missingImportPermissions(options.user, state.summary).length === 0;
   const settle = (epoch: number) => { if (current(epoch)) publish({ busy: null }); };
   return {
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getSnapshot: () => state,
-    cancel: () => { generation++; pkg = null; boundId = ""; },
+    cancel: () => { generation++; pkg = null; boundId = ""; terminalOperations.clear(); },
     async select(file: (Pick<File, "name" | "type" | "size"> & { text(): Promise<string> }) | null) {
       if (!options.isCurrent() || state.busy === "commit" || state.uncertain) return;
       reset();
@@ -166,7 +174,6 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
         const parsed = parseImportPackage(await file.text(), file.name);
         if (!current(epoch)) return;
         pkg = parsed.pkg;
-        previewKey = options.transport.key("hr-import-preview");
         const missing = missingImportPermissions(options.user, parsed.summary);
         publish({ summary: parsed.summary, error: missing.length ? `缺少${missing.join("、")}管理权限，无法预览或提交此包。` : "" });
       } catch (error) {
@@ -174,19 +181,25 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
           : `文件读取或格式校验失败，请选择有效的 JSON 数据包（最大 ${IMPORT_FILE_POLICY.maxBytes / 1024 / 1024} MiB）。` });
       } finally { settle(epoch); }
     },
-    async preview() {
+    async preview(retry = false) {
       if (!options.isCurrent() || state.busy || !pkg || !canManage() || state.uncertain) return;
+      if (retry && (!state.previewRetryAvailable || !previewKey)) return;
+      // A fresh preview must reach the service's current package state, rather than
+      // replaying the interceptor's cached pre-commit response. Only the same
+      // interrupted transport attempt retains its key.
+      if (!retry) previewKey = options.transport.key("hr-import-preview");
       const epoch = generation;
-      publish({ busy: "preview", error: "", canCommit: false });
+      publish({ busy: "preview", error: "", canCommit: false, previewRetryAvailable: false });
       try {
         const result = normalizeImportOperation(await options.transport.preview(pkg, previewKey));
         if (!current(epoch)) return;
         if (result.itemCount !== state.summary!.itemCount) throw new Error("Response count mismatch");
         boundId = result.id;
         commitKey = options.transport.key("hr-import-commit");
-        publish({ operation: result, canCommit: result.status === "previewed", uncertain: false });
+        const operation = admitOperation(result);
+        publish({ operation, canCommit: operation.status === "previewed", uncertain: false });
       } catch {
-        if (current(epoch)) publish({ error: "预览未完成。请检查当前园区、模块权限及源数据包后重试；服务端会校验来源和字段。" });
+        if (current(epoch)) publish({ previewRetryAvailable: true, error: "预览未完成。请检查当前园区、模块权限及源数据包后重试；服务端会校验来源和字段。" });
       } finally { settle(epoch); }
     },
     async commit() {
@@ -197,7 +210,7 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
         const result = normalizeImportOperation(await options.transport.commit(boundId, commitKey));
         if (!current(epoch)) return;
         if (result.id !== boundId || result.itemCount !== state.summary!.itemCount || result.status === "previewed") throw new Error("Commit response mismatch");
-        publish({ operation: result, uncertain: false });
+        publish({ operation: admitOperation(result), uncertain: false });
       } catch {
         if (current(epoch)) publish({ uncertain: true, error: "提交结果尚未确认。请保留操作编号，先查询状态再决定是否重新提交。" });
       } finally { settle(epoch); }
@@ -213,7 +226,8 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
         const result = normalizeImportOperation(await options.transport.status(id));
         if (!current(epoch)) return;
         if (result.id !== id || (boundId === id && result.itemCount !== state.summary?.itemCount)) throw new Error("Status response mismatch");
-        publish({ operation: result, uncertain: false, canCommit: result.status === "previewed" && boundId === id && canManage() });
+        const operation = admitOperation(result);
+        publish({ operation, uncertain: false, previewRetryAvailable: false, canCommit: operation.status === "previewed" && boundId === id && canManage() });
       } catch {
         if (current(epoch)) publish({ error: "状态查询失败。请确认操作编号、当前园区和各模块读取权限后重试。" });
       } finally { settle(epoch); }
