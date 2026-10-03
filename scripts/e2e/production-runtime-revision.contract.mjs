@@ -4,7 +4,28 @@ import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { observeProductionRuntimeRevision as observe, observeEmployeeWebBuild } from "../diagnose-production-runtime-revision.mjs";
+import { observeProductionRuntimeRevision as observe, observeEmployeeWebBuild, observeHostWebSources } from "../diagnose-production-runtime-revision.mjs";
+
+test("host proof distinguishes synced source from another compose build root without disclosing configuration", t => {
+  const dir = mkdtempSync(join(tmpdir(), "host-web-source-proof-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const deploy = join(dir, "deploy"), build = join(dir, "build");
+  for (const root of [deploy, build]) mkdirSync(join(root, "apps/web/app/hr/employees"), { recursive: true });
+  mkdirSync(join(deploy, "infra/docker"), { recursive: true });
+  writeFileSync(join(deploy, "infra/docker/docker-compose.prod.yml"), "synthetic compose file");
+  writeFileSync(join(deploy, ".env.production"), "DB_PASSWORD=synthetic-private\n");
+  writeFileSync(join(deploy, "apps/web/app/hr/employees/HrEmployeesClient.tsx"), "employeeStyles.managerCandidates");
+  writeFileSync(join(build, "apps/web/app/hr/employees/HrEmployeesClient.tsx"), "old source");
+  const result = observeHostWebSources(deploy, args => {
+    assert.deepEqual(args.slice(0, 2), ["compose", "--env-file"]);
+    return JSON.stringify({ services: { web: { build: { context: build }, environment: { DB_PASSWORD: "synthetic-private" } } } });
+  });
+  assert.equal(result.buildRootMatchesDeploymentRoot, false);
+  assert.equal(result.deploymentSource.managerCandidatesMarker, true);
+  assert.equal(result.buildSource.managerCandidatesMarker, false);
+  assert.ok(!JSON.stringify(result).includes("synthetic-private"));
+  assert.ok(!JSON.stringify(result).includes(dir));
+});
 
 test("web build proof reads actual bounded source and compiled assets without exposing code", t => {
   const dir = mkdtempSync(join(tmpdir(), "employee-web-build-proof-"));
@@ -249,7 +270,7 @@ test("actual diagnose shell preserves only a complete allowlisted collector code
     ["PRODUCTION_RUNTIME_UNREVIEWED_CODE", "PRODUCTION_RUNTIME_REMOTE_OBSERVATION_FAILED"]]) {
     const result = spawnSync("sh", ["-s"], { cwd: root, input: script, encoding: "utf8", env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir,
       GITHUB_SHA: commit, EXPECTED_API_COMMIT: old, EXPECTED_WEB_COMMIT: commit, OBSERVER_CODE_COMMIT: commit,
-      PROD_SSH_HOST: "synthetic-host", PROD_SSH_USER: "synthetic-user", PROD_SSH_PORT: "22", TEST_REMOTE_STDERR: stderr } });
+      PROD_SSH_HOST: "synthetic-host", PROD_SSH_USER: "synthetic-user", PROD_SSH_PORT: "22", PROD_DEPLOY_PATH: "/synthetic/deploy", TEST_REMOTE_STDERR: stderr } });
     assert.equal(result.status, 1); assert.equal(result.stdout, ""); assert.equal(result.stderr, `${expected}\n`);
   }
 });

@@ -367,11 +367,12 @@ jobs:
           EXPECTED_API_COMMIT: ${{ steps.runtime-revisions.outputs.api }}
           EXPECTED_WEB_COMMIT: ${{ steps.runtime-revisions.outputs.web }}
           OBSERVER_CODE_COMMIT: ${{ steps.runtime-revisions.outputs.observer }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
         run: |
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           if ! runtime_error="$(ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "node --input-type=module - --expected-commit '$OBSERVER_CODE_COMMIT' --expected-api-commit '$EXPECTED_API_COMMIT' --expected-web-commit '$EXPECTED_WEB_COMMIT' --observer-code-commit '$OBSERVER_CODE_COMMIT'" < scripts/diagnose-production-runtime-revision.mjs \
+            "node --input-type=module - --expected-commit '$OBSERVER_CODE_COMMIT' --expected-api-commit '$EXPECTED_API_COMMIT' --expected-web-commit '$EXPECTED_WEB_COMMIT' --observer-code-commit '$OBSERVER_CODE_COMMIT' --deploy-path '$PROD_DEPLOY_PATH'" < scripts/diagnose-production-runtime-revision.mjs \
             2>&1 > "$RUNNER_TEMP/production-runtime-image-observation.json")"; then
             case "$runtime_error" in
               PRODUCTION_RUNTIME_EXPECTED_COMMIT_INVALID|PRODUCTION_RUNTIME_EXPECTED_API_COMMIT_INVALID|PRODUCTION_RUNTIME_EXPECTED_WEB_COMMIT_INVALID|PRODUCTION_RUNTIME_OBSERVER_CODE_COMMIT_INVALID|PRODUCTION_RUNTIME_ARGUMENT_INVALID|PRODUCTION_RUNTIME_REVISION_UNAVAILABLE|PRODUCTION_RUNTIME_REVISION_MISMATCH|PRODUCTION_RUNTIME_CONTAINER_NOT_RUNNING|PRODUCTION_RUNTIME_CONTAINER_CHANGED|PRODUCTION_RUNTIME_IMAGE_METADATA_INVALID|PRODUCTION_RUNTIME_APPLICATION_MOUNT_OVERRIDE|PRODUCTION_RUNTIME_METADATA_INVALID|PRODUCTION_RUNTIME_MOUNT_METADATA_INVALID|PRODUCTION_RUNTIME_COMMAND_FAILED|PRODUCTION_RUNTIME_OBSERVATION_FAILED)

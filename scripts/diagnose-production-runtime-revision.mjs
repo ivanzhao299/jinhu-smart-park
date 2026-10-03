@@ -3,6 +3,8 @@
 import { execFileSync } from "node:child_process";
 import { resolve, posix } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync, realpathSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 const SHA = /^[0-9a-f]{40}$/u, ID = /^[0-9a-f]{64}$/u, IMAGE = /^sha256:[0-9a-f]{64}$/u;
 const services = ["api", "web"];
@@ -13,6 +15,29 @@ export class ProductionRuntimeObservationError extends Error {
 }
 const fail = suffix => { throw new ProductionRuntimeObservationError(`PRODUCTION_RUNTIME_${suffix}`); };
 const docker = args => execFileSync("docker", ["--host", "unix:///var/run/docker.sock", ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 65536, stdio: ["ignore", "pipe", "pipe"] });
+export function observeHostWebSources(deployPath, runDocker = docker) {
+  try {
+    if (typeof deployPath !== "string" || !posix.isAbsolute(deployPath) || deployPath !== posix.normalize(deployPath) || deployPath.includes("\0")) fail("DEPLOY_PATH_INVALID");
+    const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+    const read = path => { if (statSync(path).size > 1024 * 1024) fail("WEB_BUILD_METADATA_INVALID"); return readFileSync(path); };
+    const sourceAt = root => { const source = read(`${root}/apps/web/app/hr/employees/HrEmployeesClient.tsx`); return { sourceSha256: hash(source), managerCandidatesMarker: source.includes(Buffer.from("employeeStyles.managerCandidates")) }; };
+    // Select only a literal path setting, never execute or disclose the env file.
+    const envPath = `${deployPath}/.env.production`, env = read(envPath).toString("utf8");
+    const match = env.match(/^(?:export\s+)?COMPOSE_FILE\s*=\s*(.*?)\s*$/mu);
+    const configured = match ? match[1].replace(/^(['"])(.*)\1$/u, "$2") : `${deployPath}/infra/docker/docker-compose.prod.yml`;
+    if (!configured || /[$`\r\n\0]/u.test(configured)) fail("DEPLOY_PATH_INVALID");
+    const composePath = posix.resolve(deployPath, configured);
+    const config = JSON.parse(runDocker(["compose", "--env-file", envPath, "-f", composePath, "config", "--format", "json"]));
+    const context = config?.services?.web?.build?.context;
+    if (typeof context !== "string" || !posix.isAbsolute(context) || context.includes("\0")) fail("WEB_BUILD_METADATA_INVALID");
+    return { formatVersion: 1, deploymentSource: sourceAt(deployPath), buildSource: sourceAt(context),
+      buildRootMatchesDeploymentRoot: realpathSync(context) === realpathSync(deployPath),
+      composeFileSha256: hash(read(composePath)), buildRootSha256: hash(realpathSync(context)) };
+  } catch (error) {
+    if (error instanceof ProductionRuntimeObservationError) throw error;
+    fail("WEB_BUILD_OBSERVATION_FAILED");
+  }
+}
 // Hash only application code/build assets. Never inspect environment, storage,
 // credentials or business rows. An image label alone does not prove build input.
 export function observeEmployeeWebBuild(runDocker = docker) {
@@ -101,18 +126,20 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const values = new Map();
     for (let i = 0; i < args.length; i += 2) {
       const flag = args[i];
-      if (!["--expected-commit", "--expected-api-commit", "--expected-web-commit", "--observer-code-commit"].includes(flag)
+      if (!["--expected-commit", "--expected-api-commit", "--expected-web-commit", "--observer-code-commit", "--deploy-path"].includes(flag)
         || values.has(flag) || typeof args[i + 1] !== "string" || args[i + 1].startsWith("--")) fail("ARGUMENT_INVALID");
       values.set(flag, args[i + 1]);
     }
     const expectedCommit = values.get("--expected-commit");
     if (!expectedCommit) fail("ARGUMENT_INVALID");
-    process.stdout.write(JSON.stringify(observeProductionRuntimeRevision(expectedCommit, {
+    const observation = observeProductionRuntimeRevision(expectedCommit, {
       expectedApiCommit: values.get("--expected-api-commit") ?? expectedCommit,
       expectedWebCommit: values.get("--expected-web-commit") ?? expectedCommit,
       observerCodeCommit: values.get("--observer-code-commit") ?? expectedCommit,
       inspectWebBuild: true,
-    })) + "\n");
+    });
+    if (values.has("--deploy-path")) observation.hostWebBuild = observeHostWebSources(values.get("--deploy-path"));
+    process.stdout.write(JSON.stringify(observation) + "\n");
   } catch (error) {
     process.stderr.write(`${error instanceof ProductionRuntimeObservationError ? error.code : "PRODUCTION_RUNTIME_OBSERVATION_FAILED"}\n`);
     process.exitCode = 1;
