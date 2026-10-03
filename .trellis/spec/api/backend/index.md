@@ -20,6 +20,8 @@ Apartment operating-space inclusion: [Apartment Inclusion And Availability](./ap
 
 Apartment handover energy ledger: [Apartment Handover Energy Integration](./apartment-handover-energy-integration.md).
 
+Historical to modern contract continuity: [Contract Successor](./hr-contract-successor.md).
+
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
 Versioned Party sensitive-data keys and tenant-scoped rotation: [Party Sensitive Data Key Rotation](./party-sensitive-data-key-rotation.md).
