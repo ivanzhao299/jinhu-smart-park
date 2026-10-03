@@ -2,10 +2,10 @@
 
 `Deploy Production` now supports `diagnose-production-runtime-revision`. This is an observation-only workflow mode: it runs the checked-out collector through SSH stdin, reads the production host's local Docker socket, and retains `production-runtime-image-observation` for seven days. It does not transfer deployment source, write a host release marker, create/restart containers, run migrations/seeds, perform cleanup or activate imports. Existing `deploy-production` serialization remains in effect.
 
-Select the reviewed commit/ref whose API **and** Web images you expect to observe. The workflow passes its immutable `GITHUB_SHA` as the explicit expected commit; it does not read a runtime-reported version or `.release.json` to choose that value. A standalone authorized read-only invocation is:
+Select the reviewed commit/ref whose API and Web images you expect to observe. By default both service expectations use the workflow's immutable `GITHUB_SHA`; diagnostic-only `expected_api_commit` and `expected_web_commit` inputs may independently name the expected image revisions. Complete strings must each be exactly 40 lowercase hexadecimal characters, and workflow validation rejects malformed values before SSH. The checked-out observer code revision is reported separately. The workflow does not read a runtime-reported version or `.release.json` to choose expectations. A standalone authorized read-only invocation is:
 
 ```sh
-node scripts/diagnose-production-runtime-revision.mjs --expected-commit <40-lowercase-hex-commit>
+node scripts/diagnose-production-runtime-revision.mjs --expected-commit <40-lowercase-hex-commit> --expected-api-commit <40-lowercase-hex-commit> --expected-web-commit <40-lowercase-hex-commit> --observer-code-commit <40-lowercase-hex-commit>
 ```
 
 The collector discovers the fixed API/Web container names, then uses complete container IDs and immutable `sha256:` image IDs. It reads revision and component labels from the **image**, not overrideable container labels or mutable image tags. It rechecks discovery and ID-bound container state, image ID, start time and restart count; stopped, paused, restarting, replaced or mixed-version services fail closed. Only mount destinations are requested: `/`, `/app`, and descendants mounted over the application tree are rejected. The normal `/var/lib/jinhu/files` data volume is allowed. Host mount source paths and container environment are never requested or printed.
@@ -19,7 +19,7 @@ The workflow supplies its commit explicitly to `prod-deploy.sh`. That script fre
 | Deployment path | Revision behavior |
 | --- | --- |
 | Full | Both newly built images carry the supplied commit |
-| API-only / Web-only | Only the rebuilt image changes; unchanged component retains its old revision, so a mixed pair cannot pass as one new full commit |
+| API-only / Web-only | Only the rebuilt image changes; unchanged component retains its old revision. The observer can verify this exact mixed pair when both revisions are supplied independently; default expectations still require both to match `GITHUB_SHA`. |
 | Database-only | No API/Web build; old image labels remain unchanged |
 | Fast CSS | No image rebuild or relabeling; image observation is not evidence of the copied writable-layer CSS |
 | Source rollback rebuild | Explicit empty `RELEASE_COMMIT`; never infer the previous build revision from a possibly mixed host marker. Restored services may operate normally but are revision-unverifiable until a reviewed rebuild |
@@ -28,7 +28,7 @@ The rollback health and cleanup steps are unchanged. This avoids stamping the fa
 
 ## Evidence and limitations
 
-Success writes a JSON artifact with `formatVersion:1`, `artifactKind:"jinhu_production_runtime_image_observation"`, `status:"PASS"`, `expectedCommit`, `observedAt`, and two `observations` containing `service`, `containerId`, `imageId`, `startedAt`, `restartCount`, `revision`. It states `evidenceScope:"running_container_image_revisions"`, `productionImport:"HOLD"`, and `authorizationGranted:false`.
+Success writes a JSON artifact with `formatVersion:2`, `artifactKind:"jinhu_production_runtime_image_observation"`, `status:"PASS"`, `expectedApiCommit`, `expectedWebCommit`, `observerCodeCommit`, `observedAt`, and two `observations` containing `service`, `containerId`, `imageId`, `startedAt`, `restartCount`, `revision`. It states `evidenceScope:"running_container_image_revisions"`, `productionImport:"HOLD"`, and `authorizationGranted:false`. Version 2 makes the split API/Web expectation explicit; consumers of the earlier single-commit v1 shape must not interpret this receipt as v1.
 
 This proves a bounded observation of the running containers' immutable image identities and build labels, with no application mount overrides. It does **not** prove all writable-layer bytes, absence of `docker cp` changes, startup-command/env equivalence, HTTP/browser behavior, database identity, a verified merge, build signer authority, or future runtime stability. Fast-CSS delivery and business acceptance require separate evidence. A Docker-privileged host can forge images; this mechanism is not a defense against a compromised host/build pipeline.
 

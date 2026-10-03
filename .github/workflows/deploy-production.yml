@@ -44,6 +44,16 @@ on:
         required: false
         default: false
         type: boolean
+      expected_api_commit:
+        description: "Optional expected API image revision for diagnose-production-runtime-revision only; defaults to this workflow's GITHUB_SHA."
+        required: false
+        default: ""
+        type: string
+      expected_web_commit:
+        description: "Optional expected Web image revision for diagnose-production-runtime-revision only; defaults to this workflow's GITHUB_SHA."
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: deploy-production
@@ -192,6 +202,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate runtime revision expectations
+        id: runtime-revisions
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' }}
+        env:
+          EXPECTED_API_COMMIT_INPUT: ${{ inputs.expected_api_commit }}
+          EXPECTED_WEB_COMMIT_INPUT: ${{ inputs.expected_web_commit }}
+        run: |
+          set -eu
+          api="${EXPECTED_API_COMMIT_INPUT:-$GITHUB_SHA}"
+          web="${EXPECTED_WEB_COMMIT_INPUT:-$GITHUB_SHA}"
+          valid_sha() { [ "${#1}" -eq 40 ] && case "$1" in *[!0123456789abcdef]*) return 1 ;; *) return 0 ;; esac; }
+          valid_sha "$GITHUB_SHA" || { echo PRODUCTION_RUNTIME_OBSERVER_CODE_COMMIT_INVALID >&2; exit 1; }
+          valid_sha "$api" || { echo PRODUCTION_RUNTIME_EXPECTED_API_COMMIT_INVALID >&2; exit 1; }
+          valid_sha "$web" || { echo PRODUCTION_RUNTIME_EXPECTED_WEB_COMMIT_INVALID >&2; exit 1; }
+          printf 'api=%s\nweb=%s\nobserver=%s\n' "$api" "$web" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -290,15 +316,17 @@ jobs:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          EXPECTED_API_COMMIT: ${{ steps.runtime-revisions.outputs.api }}
+          EXPECTED_WEB_COMMIT: ${{ steps.runtime-revisions.outputs.web }}
+          OBSERVER_CODE_COMMIT: ${{ steps.runtime-revisions.outputs.observer }}
         run: |
           set -eu
-          printf '%s' "$GITHUB_SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo PRODUCTION_RUNTIME_EXPECTED_COMMIT_INVALID >&2; exit 1; }
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           if ! runtime_error="$(ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "node --input-type=module - --expected-commit '$GITHUB_SHA'" < scripts/diagnose-production-runtime-revision.mjs \
+            "node --input-type=module - --expected-commit '$OBSERVER_CODE_COMMIT' --expected-api-commit '$EXPECTED_API_COMMIT' --expected-web-commit '$EXPECTED_WEB_COMMIT' --observer-code-commit '$OBSERVER_CODE_COMMIT'" < scripts/diagnose-production-runtime-revision.mjs \
             2>&1 > "$RUNNER_TEMP/production-runtime-image-observation.json")"; then
             case "$runtime_error" in
-              PRODUCTION_RUNTIME_EXPECTED_COMMIT_INVALID|PRODUCTION_RUNTIME_ARGUMENT_INVALID|PRODUCTION_RUNTIME_REVISION_UNAVAILABLE|PRODUCTION_RUNTIME_REVISION_MISMATCH|PRODUCTION_RUNTIME_CONTAINER_NOT_RUNNING|PRODUCTION_RUNTIME_CONTAINER_CHANGED|PRODUCTION_RUNTIME_IMAGE_METADATA_INVALID|PRODUCTION_RUNTIME_APPLICATION_MOUNT_OVERRIDE|PRODUCTION_RUNTIME_METADATA_INVALID|PRODUCTION_RUNTIME_MOUNT_METADATA_INVALID|PRODUCTION_RUNTIME_COMMAND_FAILED|PRODUCTION_RUNTIME_OBSERVATION_FAILED)
+              PRODUCTION_RUNTIME_EXPECTED_COMMIT_INVALID|PRODUCTION_RUNTIME_EXPECTED_API_COMMIT_INVALID|PRODUCTION_RUNTIME_EXPECTED_WEB_COMMIT_INVALID|PRODUCTION_RUNTIME_OBSERVER_CODE_COMMIT_INVALID|PRODUCTION_RUNTIME_ARGUMENT_INVALID|PRODUCTION_RUNTIME_REVISION_UNAVAILABLE|PRODUCTION_RUNTIME_REVISION_MISMATCH|PRODUCTION_RUNTIME_CONTAINER_NOT_RUNNING|PRODUCTION_RUNTIME_CONTAINER_CHANGED|PRODUCTION_RUNTIME_IMAGE_METADATA_INVALID|PRODUCTION_RUNTIME_APPLICATION_MOUNT_OVERRIDE|PRODUCTION_RUNTIME_METADATA_INVALID|PRODUCTION_RUNTIME_MOUNT_METADATA_INVALID|PRODUCTION_RUNTIME_COMMAND_FAILED|PRODUCTION_RUNTIME_OBSERVATION_FAILED)
                 printf '%s\n' "$runtime_error" >&2 ;;
               *) echo PRODUCTION_RUNTIME_REMOTE_OBSERVATION_FAILED >&2 ;;
             esac
