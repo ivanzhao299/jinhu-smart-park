@@ -14,6 +14,7 @@ export * from "./apartment";
 export * from "./hr";
 export * from "./business-scope";
 export * from "./hr-performance-legacy";
+export * from "./hr-yuzhou-incremental";
 
 export interface ApiResponse<T> {
   code: number;
