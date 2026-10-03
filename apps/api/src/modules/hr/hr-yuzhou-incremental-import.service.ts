@@ -8,6 +8,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
+import { originalProfile, certifyOriginalProfiles, profileWitnessHash, profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { initialWitnessHash, verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
 
 type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean };
@@ -81,6 +82,7 @@ export class HrYuzhouIncrementalImportService {
   private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem) {
     const source = [scope.tenantId, scope.parkId, sourceSystem, item.sourceTable, item.sourceKey];
     let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6`, [...source, item.domain]))[0] as ItemRow | undefined;
+    prior = await this.resolveProfileBaseline(manager, scope, item, prior);
     prior = await this.resolveInitialBaseline(manager, scope, sourceSystem, item, prior);
     const current = prior ? await this.readTarget(manager, scope, item.domain, prior.target_id!) : {};
     let fields = this.normalizedFields(item);
@@ -96,13 +98,13 @@ export class HrYuzhouIncrementalImportService {
       delete fields.idNumberEncrypted; delete fields.idNumberMasked; delete fields.idNumberFingerprint;
     }
     const priorSource = JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown>;
-    const changedFields = Object.keys(fields).filter(field => json(fields[field]) !== json(this.normalizedFields({ ...item, fields: priorSource })[field]));
+    const changedFields = this.changedSourceFields(item, fields, priorSource);
     const relationshipConflicts = this.relationshipConflicts(item, priorSource);
     // An unchanged source status must not undo or block a modern lifecycle change.
     // Actual source status revisions require the normal employment event workflow.
     const employmentConflict = item.domain === "employee" && changedFields.includes("employmentStatus");
     const stateConflict = item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0));
-    const conflictFields = [...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))];
+    const conflictFields = [...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))];
     return { ...base(), action: conflictFields.length ? "conflict" : changedFields.length ? "update" : "unchanged", conflictFields };
   }
 
@@ -145,6 +147,7 @@ export class HrYuzhouIncrementalImportService {
     const source = [scope.tenantId, scope.parkId, operation.source_system, item.sourceTable, item.sourceKey];
     await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [json([...source, item.domain])]);
     let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6 FOR UPDATE`, [...source, item.domain]))[0] as ItemRow | undefined;
+    prior = await this.resolveProfileBaseline(manager, scope, item, prior, { operation, actor });
     prior = await this.resolveInitialBaseline(manager, scope, operation.source_system, item, prior, { operation, actor });
     const current = prior ? await this.readTarget(manager, scope, item.domain, prior.target_id!) : {};
     if (prior && Object.keys(prior.field_baseline).length === 0 && Object.keys(prior.target_baseline).length === 0) return this.revision(manager, operation.id, prior.id, prior.version, "conflict", item.rowDigest, [{ code: "INITIAL_FIELD_BASELINE_UNKNOWN", sourceKey: item.sourceKey }], {}, {});
@@ -161,8 +164,8 @@ export class HrYuzhouIncrementalImportService {
       delete fields.idNumberEncrypted; delete fields.idNumberMasked; delete fields.idNumberFingerprint;
     }
     const priorSource = prior ? JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown> : {};
-    const changedFields = prior ? Object.keys(fields).filter(field => json(fields[field]) !== json(this.normalizedFields({ ...item, fields: priorSource })[field])) : Object.keys(fields);
-    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0)) ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))] : [];
+    const changedFields = prior ? this.changedSourceFields(item, fields, priorSource) : Object.keys(fields);
+    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0)) ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))] : [];
     if (conflicts.length) return this.revision(manager, operation.id, prior!.id, prior!.version, "conflict", item.rowDigest, conflicts.map(field => ({ field })), prior!.target_baseline, current);
     const writable = Object.fromEntries(changedFields.map(field => [field, fields[field]]));
     // Compare each source field against the current target projection above.
@@ -179,7 +182,58 @@ export class HrYuzhouIncrementalImportService {
     return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, applied, current, targetBaseline);
   }
 
+  private targetFieldChanged(field:string,current:Record<string,unknown>,baseline:Record<string,unknown>) {
+    if(["idNumberEncrypted","idNumberMasked","idNumberFingerprint"].includes(field)) return json(current.idNumberFingerprint)!==json(baseline.idNumberFingerprint);
+    return json(current[field])!==json(baseline[field]);
+  }
+
+  private changedSourceFields(item:YuzhouIncrementalItem, fields:Record<string,unknown>, priorSource:Record<string,unknown>) {
+    const old=this.normalizedFields({...item,fields:priorSource});
+    const identityUnchanged = json(fields.idNumberFingerprint)===json(old.idNumberFingerprint);
+    return Object.keys(fields).filter(field => !(identityUnchanged && ["idNumberEncrypted","idNumberMasked","idNumberFingerprint"].includes(field)) && json(fields[field])!==json(old[field]));
+  }
+
+  private async resolveProfileBaseline(manager:EntityManager, scope:TenantParkScope, item:YuzhouIncrementalItem, prior:ItemRow|undefined, commit?:{operation:OperationRow;actor:JwtPrincipal}):Promise<ItemRow|undefined> {
+    if(item.domain!=="profile" || item.sourceTable!=="dbo.person.core_residue") {
+      if(item.profileBaselineWitness) throw new BadRequestException("PROFILE_BASELINE_SOURCE_INVALID");
+      return prior;
+    }
+    const saved=prior ? (await manager.query(`SELECT * FROM hr_incremental_profile_baseline WHERE item_id=$1`,[prior.id]))[0] : undefined;
+    if(saved) {
+      const raw=this.sensitive.decrypt(saved.provenance_encrypted);
+      if(!raw) throw new ConflictException("PROFILE_BASELINE_PROVENANCE_INVALID");
+      const provenance=JSON.parse(raw) as {witness:NonNullable<YuzhouIncrementalItem["profileBaselineWitness"]>};
+      if(profileWitnessHash(provenance.witness)!==saved.witness_sha256 || (item.profileBaselineWitness && profileWitnessHash(item.profileBaselineWitness)!==saved.witness_sha256)) throw new ConflictException("PROFILE_BASELINE_ALREADY_ANCHORED");
+      const original=await originalProfile(manager,scope,item);
+      if(!original || original.operation_id!==saved.original_operation_id || original.target_id!==prior!.target_id || original.binding_sha256!==provenance.witness.bindingSha256) throw new ConflictException("PROFILE_BASELINE_BINDING_MISMATCH");
+      const decoded=this.sensitive.decrypt(prior!.baseline_encrypted ?? null);
+      if(!decoded) throw new ConflictException("PROFILE_BASELINE_PROVENANCE_INVALID");
+      const baseline=JSON.parse(decoded) as {fields:Record<string,unknown>;target:Record<string,unknown>};
+      return {...prior!,field_baseline:baseline.fields,target_baseline:baseline.target,initial_anchor:true};
+    }
+    if(!item.profileBaselineWitness) return prior;
+    if(item.initialBaselineWitness || Object.keys(item.fields).length) throw new BadRequestException("PROFILE_BASELINE_ONLY_REQUIRED");
+    const witness=item.profileBaselineWitness,witnessSha=profileWitnessHash(witness);
+    if(prior) {
+      const accepted=await manager.query(`SELECT 1 FROM hr_incremental_import_revision WHERE item_id=$1 AND outcome IN ('applied','unchanged') LIMIT 1`,[prior.id]);
+      if(accepted.length) throw new ConflictException("PROFILE_BASELINE_ALREADY_KNOWN");
+    }
+    const original=await originalProfile(manager,scope,item);
+    if(!original || original.operation_id!==witness.operationId || original.binding_sha256!==witness.bindingSha256 || (prior && prior.target_id!==original.target_id)) throw new ConflictException("PROFILE_BASELINE_BINDING_MISMATCH");
+    const proof=await certifyOriginalProfiles(manager,original,scope,this.sensitive);
+    const fields=this.normalizedFields({...item,fields:proof.source}),target=proof.target;
+    if(commit) {
+      if(!prior) prior=(await manager.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id) VALUES($1,$2,'yuzhou-v10',$3,$4,'profile','hr_employee_profile',$5,$6,$7,$8,$9,$10) RETURNING *`,[scope.tenantId,scope.parkId,item.sourceTable,item.sourceKey,original.target_id,original.source_row_sha256,this.sensitive.encrypt(json(proof.source)),this.payloadHash(proof.source),Number(target.targetVersion),commit.operation.id]))[0] as ItemRow;
+      await manager.query(`INSERT INTO hr_incremental_profile_baseline(item_id,operation_id,original_operation_id,source_identity_sha256,original_profile_set_sha256,original_receipt_set_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[prior!.id,commit.operation.id,original.operation_id,original.source_identity_sha256,proof.certificate.profiles.sha256,proof.certificate.receipts.sha256,witnessSha,this.sensitive.encrypt(profileCanonical({witness,...proof})),commit.actor.sub]);
+    }
+    return {id:prior?.id??"",target_id:original.target_id,target_table:"hr_employee_profile",last_row_sha256:"",field_baseline:fields,target_baseline:target,source_facts_encrypted:this.sensitive.encrypt(json(proof.source)),version:prior?.version??0,target_version:Number(target.targetVersion),initial_anchor:true};
+  }
+
   private async resolveInitialBaseline(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, prior: ItemRow | undefined, commit?: { operation: OperationRow; actor: JwtPrincipal }): Promise<ItemRow | undefined> {
+    if (item.domain === "profile") {
+      if (item.initialBaselineWitness) throw new BadRequestException("INITIAL_BASELINE_PROFILE_PROOF_UNAVAILABLE");
+      return prior;
+    }
     if (prior?.baseline_encrypted) {
       const decoded = this.sensitive.decrypt(prior.baseline_encrypted);
       if (!decoded) throw new ConflictException("Initial baseline cannot be decrypted");
@@ -221,6 +275,10 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private async initialMap(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem) {
+    if (item.domain === "profile" && item.sourceTable === "dbo.person.core_residue") {
+      const original = await originalProfile(manager,scope,item);
+      if (original) return { table:"hr_employee_profile",id:original.target_id,current:await this.readTarget(manager,scope,item.domain,original.target_id) };
+    }
     const targetTable = item.domain === "employee" ? "hr_employee" : item.domain === "profile" ? "hr_employee_profile" : "hr_contract";
     const sourceIdentity = item.sourceKey.slice("sha256:".length);
     const rows = await manager.query(

@@ -5,6 +5,7 @@
  * Yuzhou incremental-import API package.  It deliberately has no database or
  * network adapter: the API owns preview/commit and its transactional ledger.
  */
+import { verifyProfileSource, projectYuzhouProfile } from "./yuzhou-profile-incremental-projection.mjs";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -31,11 +32,12 @@ const privateDirectory = path => (statSync(path).mode & 0o777) === 0o700;
 
 export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
   supported: [
+    { domain: "profile", sourceTable: "dbo.person.core_residue", adapter: "raw-person-core-profile", dependency: "verified dbo.person employee source identity", eligibility: "six reviewed raw fields; T5 original baseline witness uses fields:{}" },
     { domain: "employee", sourceTable: "dbo.person", adapter: "raw-person-employee", dependency: "verified job-state decision artifact", eligibility: "bounded employee code/name, valid nullable hire date and mapped v2 job state" },
     { domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "explicitly mapped draft, active, expired, terminated or cancelled source status" },
   ],
   pending: [
-    { domain: "profile", reason: "t5-nonfile-field-projection materializes protected profile values using its rehearsal key and has no row identity/hash envelope; API must receive raw protected fields for its own encryption, so its output cannot be replayed as an incremental DTO without a dedicated source-bound bridge" },
+    { domain: "profile_extended_fields", reason: "Only the six catalog-confirmed raw profile fields are projected; other source fields remain explicitly pending and old materialized ciphertext is never replayed" },
     { domain: "contract_type", reason: "API incremental contract DTO has no contract-type creation adapter" },
     { domain: "contract_change", reason: "API incremental contract DTO has no change-history adapter" },
     { domain: "contract_legacy_evidence", reason: "protected attachment/content binding remains a normal file-adapter follow-up" },
@@ -55,7 +57,7 @@ function recipeSha256() {
   // Bind the actual verified projector bytes, not merely a local field list.
   // An unchanged source can therefore reuse the recipe, while mapper drift is
   // visible before package construction rather than silently changing output.
-  const ruleFiles = ["production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts"];
+  const ruleFiles = ["yuzhou-profile-incremental-projection.mjs", "t5-retained-source-reader.mjs", "production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts", "../../packages/shared/src/hr-yuzhou-profile-baseline.ts"];
   const ruleHashes = Object.fromEntries(ruleFiles.map(path => [path, sha256(readFileSync(fileURLToPath(new URL(path, import.meta.url))))]));
   return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, adapterSha256: sha256(readFileSync(fileURLToPath(import.meta.url))), ruleHashes, fields: ["employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
 }
@@ -65,7 +67,7 @@ function verifyInput(input) {
   requireIso(input.extractedAt, "YUZHOU_REUSABLE_INCREMENTAL_EXTRACTED_AT_INVALID");
   const employees = new Map();
   for (const entry of input.employeeIndex) {
-    if (!plain(entry) || typeof entry.employeeCode !== "string" || !entry.employeeCode.trim() || entry.sourceTable !== "dbo.person" || typeof entry.sourceKey !== "string" || !entry.sourceKey.trim()) fail("YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_INDEX_INVALID");
+    if (!plain(entry) || typeof entry.employeeCode !== "string" || !entry.employeeCode.trim() || entry.sourceTable !== "dbo.person" || typeof entry.sourceKey !== "string" || entry.sourceKey !== entry.employeeCode.trim()) fail("YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_INDEX_INVALID");
     const code = entry.employeeCode.trim(), identity = sha256(`${entry.sourceTable}\0${entry.sourceKey}`);
     if (employees.has(code)) fail("YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_AMBIGUOUS");
     employees.set(code, { sourceTable: entry.sourceTable, sourceKey: `sha256:${identity}` });
@@ -166,6 +168,35 @@ function itemForContract(row, employees, states, types) {
   item.rowDigest = sha256(canonical({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, sourceUpdatedAt: null, fields: item.fields }));
   return { item, declaration: { ...declaration, disposition: "api_eligible" }, sourceEvidence };
 }
+function profileAdmissionFields(input) {
+  const reject = () => fail("YUZHOU_PROFILE_ADMISSION_INVALID");
+  const exact = (value, keys) => plain(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+  const scope = value => exact(value, ["tenantId", "parkId"]) && Object.values(value).every(v => typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(v));
+  const operation = value => /^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(value ?? "");
+  const w = input.profileBaselineWitness;
+  if (w !== undefined && (!exact(w, ["version", "proof", "operationId", "bindingSha256"]) || w.version !== 1 || w.proof !== "original_t5_whole_set_v1" || !operation(w.operationId) || !SHA256.test(w.bindingSha256 ?? ""))) fail("YUZHOU_PROFILE_WITNESS_INVALID");
+  // Raw omission maps are not evidence. Derive omissions only from an explicit,
+  // digest-bound original-field custody declaration and an exact unchanged row.
+  if (input.profileOmittedFields !== undefined) reject();
+  if (input.profileAdmissionEvidence === undefined) return {};
+  const e = input.profileAdmissionEvidence, a = e?.artifact;
+  if (!exact(e, ["declaration", "targetScope", "artifactCanonicalSha256", "artifact"]) || e.declaration !== "caller_attests_original_unchanged_invalid_fields" || !scope(e.targetScope)
+    || !exact(a, ["formatVersion", "artifactKind", "originalOperationId", "originalBindingSha256", "targetScope", "entries"]) || a.formatVersion !== 1 || a.artifactKind !== "yuzhou_original_profile_field_admissions"
+    || !operation(a.originalOperationId) || !SHA256.test(a.originalBindingSha256 ?? "") || !scope(a.targetScope) || canonical(a.targetScope) !== canonical(e.targetScope)
+    || !Array.isArray(a.entries) || e.artifactCanonicalSha256 !== sha256(canonical(a)) || (w && (w.operationId !== a.originalOperationId || w.bindingSha256 !== a.originalBindingSha256))) reject();
+  const declarations = new Map(), fields = {};
+  for (const entry of a.entries) {
+    if (!exact(entry, ["sourceIdentitySha256", "sourceRowSha256", "decisionReceiptSha256", "reasonCode", "fields"]) || ![entry.sourceIdentitySha256, entry.sourceRowSha256, entry.decisionReceiptSha256].every(v => typeof v === "string" && SHA256.test(v))
+      || typeof entry.reasonCode !== "string" || !/^[A-Z][A-Z0-9_]{0,127}$/u.test(entry.reasonCode) || !Array.isArray(entry.fields) || !entry.fields.length || new Set(entry.fields).size !== entry.fields.length
+      || entry.fields.some(f => !["gender", "dateOfBirth", "personalMobile", "personalEmail", "address", "idNumber"].includes(f)) || declarations.has(entry.sourceIdentitySha256)) reject();
+    declarations.set(entry.sourceIdentitySha256, entry);
+  }
+  for (const row of input.profileRecords ?? []) {
+    const verified = verifyProfileSource(row), entry = declarations.get(row.sourceIdentitySha256);
+    if (entry && entry.sourceRowSha256 === verified.sourceRowSha256) fields[row.sourceIdentitySha256] = entry.fields;
+  }
+  return fields;
+}
 function writePrivate(path, value) {
   if (existsSync(path)) fail("YUZHOU_REUSABLE_INCREMENTAL_OUTPUT_EXISTS");
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
@@ -182,12 +213,15 @@ export function buildYuzhouReusableIncrementalPackage(input) {
     if (employees.has(code)) fail("YUZHOU_REUSABLE_INCREMENTAL_EMPLOYEE_AMBIGUOUS");
     employees.set(code, { sourceTable: adapted.item.sourceTable, sourceKey: adapted.item.sourceKey });
   }
-  const adapted = [...employeeAdapted, ...input.records.map(row => itemForContract(row, employees, states, types))];
+  if (input.profileRecords !== undefined && !Array.isArray(input.profileRecords)) fail("YUZHOU_PROFILE_SOURCE_INVALID");
+  const omittedFields = profileAdmissionFields(input);
+  const profileAdapted = (input.profileRecords ?? []).map(row => projectYuzhouProfile(row, employees, {baselineWitness:input.profileBaselineWitness,omittedFields:omittedFields[row.sourceIdentitySha256] ?? []}));
+  const adapted = [...employeeAdapted, ...profileAdapted, ...input.records.map(row => itemForContract(row, employees, states, types))];
   const items = adapted.flatMap(value => value.item ? [value.item] : []).sort((left, right) => DOMAIN_ORDER[left.domain] - DOMAIN_ORDER[right.domain] || `${left.sourceTable}\0${left.sourceKey}`.localeCompare(`${right.sourceTable}\0${right.sourceKey}`));
   const declarations = adapted.map(value => value.declaration).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   const sourceEvidence = adapted.map(value => value.sourceEvidence).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   for (const item of items) { const key = `${item.domain}\0${item.sourceTable}\0${item.sourceKey}`; if (seen.has(key)) fail("YUZHOU_REUSABLE_INCREMENTAL_SOURCE_DUPLICATE"); seen.add(key); }
-  const manifestBinding = { recipeVersion: RECIPE_VERSION, recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: SOURCE_SYSTEM, extractedAt: input.extractedAt, typeMappingArtifactSha256: typeArtifact?.artifactSha256 ?? null, typeMappingTargetScope: typeArtifact?.targetScope ?? null, jobStateArtifactSha256, itemSourceIdentities: items.map(item => item.sourceKey), itemRowDigests: items.map(item => item.rowDigest), declarations, sourceEvidence };
+  const manifestBinding = { ...(input.profileBaselineWitness ? { profileBaselineWitness: input.profileBaselineWitness } : {}), ...(input.profileAdmissionEvidence ? { profileAdmissionEvidence: input.profileAdmissionEvidence } : {}), recipeVersion: RECIPE_VERSION, recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: SOURCE_SYSTEM, extractedAt: input.extractedAt, typeMappingArtifactSha256: typeArtifact?.artifactSha256 ?? null, typeMappingTargetScope: typeArtifact?.targetScope ?? null, jobStateArtifactSha256, itemSourceIdentities: items.map(item => item.sourceKey), itemRowDigests: items.map(item => item.rowDigest), declarations, sourceEvidence };
   const manifestId = `yuzhou-reusable-${sha256(canonical(manifestBinding))}`;
   const packageDtos = splitYuzhouIncrementalPackage({ version: 1, sourceSystem: SOURCE_SYSTEM, manifestId, extractedAt: input.extractedAt, items }, { alwaysSuffix:true });
   const packageDto = packageDtos.length === 1 ? packageDtos[0] : null;

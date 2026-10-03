@@ -1,3 +1,4 @@
+export * from "./hr-yuzhou-profile-baseline";
 export type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage } from "./hr-payroll-insurance-source";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,

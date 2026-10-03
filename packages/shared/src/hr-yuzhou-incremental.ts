@@ -1,6 +1,7 @@
 import limits from "./hr-yuzhou-incremental-limits.json";
 export const YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES = limits.maxPackageBytes;
 export const YUZHOU_INCREMENTAL_MAX_ITEMS = limits.maxItems;
+import type { YuzhouProfileBaselineWitness } from "./hr-yuzhou-profile-baseline";
 import type { YuzhouInitialBaselineWitness } from "./hr-yuzhou-initial-baseline";
 export const YUZHOU_INCREMENTAL_CONTRACT_STATUSES = ["draft", "active", "expired", "terminated", "cancelled"] as const;
 
@@ -16,6 +17,7 @@ export type YuzhouIncrementalItem = {
   rowDigest: string;
   fields: Record<string, unknown>;
   initialBaselineWitness?: YuzhouInitialBaselineWitness;
+  profileBaselineWitness?: YuzhouProfileBaselineWitness;
 };
 
 export type YuzhouIncrementalPackage = {
@@ -39,6 +41,7 @@ export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackag
     items: [...input.items].map(item => {
       const canonical = { ...item, fields: sortObject(item.fields) };
       if (canonical.sourceUpdatedAt === undefined) delete canonical.sourceUpdatedAt;
+      if (canonical.profileBaselineWitness === undefined) delete canonical.profileBaselineWitness;
       if (canonical.initialBaselineWitness === undefined) delete canonical.initialBaselineWitness;
       return canonical;
     }).sort((a, b) =>

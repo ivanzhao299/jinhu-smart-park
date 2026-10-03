@@ -43,7 +43,7 @@ const item = result.packageDto.items[0];
 assert.deepEqual(item.fields, { employeeSourceKey: `sha256:${sha("dbo.person\0E-001")}`, employeeSourceTable: "dbo.person", contractTypeId: "00000000-0000-5000-8000-000000000001", contractNo: "HT-2026-001", startDate: "2024-01-01", endDate: "2025-12-31", probationEndDate: "2024-03-31", workType: null, positionTitle: null, contractStatus: "draft" });
 assert.equal(item.rowDigest, sha(JSON.stringify({ domain: "contract", fields: Object.fromEntries(Object.entries(item.fields).sort(([a], [b]) => a.localeCompare(b))), sourceKey: item.sourceKey, sourceTable: "dbo.compact", sourceUpdatedAt: null })));
 assert.equal(result.manifest.supportedDomains[0], "contract");
-assert.ok(result.coverage.pending.some(entry => entry.domain === "profile"));
+assert.ok(result.coverage.pending.some(entry => entry.domain === "profile_extended_fields"));
 assert.equal(result.manifest.declarations[0].normalizedStatus, "draft");
 assert.equal(result.manifest.declarations[0].contractType.targetContractTypeId, item.fields.contractTypeId);
 assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "start_date" && entry.disposition === "carried"));
