@@ -33,7 +33,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "564c8aa5eabbd33d5a6259580f654be4f02b70611733ecbee70949020768efa0"
+      "sha256": "55117592fd29e3a5642bfe4a8d8fc00c15fa16a1545a63b838ba87a1179b1a46"
     },
     "modernController": {
       "path": "apps/api/src/modules/hr/hr.controller.ts",

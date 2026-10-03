@@ -14,6 +14,7 @@ import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
 import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployee,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrApprovalReviewAccessScope,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrEmployeeAssignmentDetails,type HrEmployeeAssignmentLabel,type HrEmployeeProjection,type HrLedgerAccessScope } from "./hr-access-policy";
 import { approvedLeaveMinutesForWorkDate,projectLeaveRoutineImpact } from "./hr-leave-routine-equivalence";
+import { projectHrEmployeeEmploymentDates } from "./hr-employee-employment-date-projection";
 import { historicalContractPredecessors } from "./hr-contract-successor";
 import { projectHistoricalContractTerms } from "./hr-contract-original-terms";
 import { nextContractSegmentTerm,readModernContractChangeFacts,validateModernContractChangeFacts,type ModernContractChangeFacts } from "./hr-contract-change-facts";
@@ -80,8 +81,24 @@ export class HrService {
   const access=resolveHrEmployeeAccessScope(actor),employee=await this.employeeForAccess(scope,actor,id,access);
   const detail=await this.employees.findOne({select:{id:true,probationEndDate:true},where:{id:employee.id,...scope,isDeleted:false}});
   if(!detail)throw new NotFoundException("Employee not found");
+  const employmentDates=await this.employeeEmploymentDateDetails(scope,employee.id,detail.probationEndDate);
   const assignmentDetails=await this.employeeAssignmentDetails(scope,actor,employee,access);
-  return {...employee,probationEndDate:detail.probationEndDate??null,assignmentDetails};
+  return {...employee,employmentDates,assignmentDetails};
+ }
+ private async employeeEmploymentDateDetails(scope:TenantParkScope,employeeId:string,recordedDate:string|null){
+  const [plans,confirmed]=await Promise.all([
+   this.dataSource.query(`SELECT participant.planned_confirmation_date::text "date"
+     FROM hr_probation_application_employee participant
+     JOIN hr_probation_application application ON application.id=participant.application_id AND application.tenant_id=participant.tenant_id AND application.park_id=participant.park_id
+     WHERE participant.tenant_id=$1 AND participant.park_id=$2 AND participant.employee_id=$3 AND participant.is_deleted=false
+       AND participant.status='pending' AND application.is_deleted=false AND application.status IN ('submitted','approved')
+     ORDER BY participant.planned_confirmation_date,participant.id`,[scope.tenantId,scope.parkId,employeeId]),
+   this.dataSource.query(`SELECT effective_date::text "date" FROM hr_employment_event
+     WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false AND is_historical_import=false
+       AND event_type='confirm_employment' AND status='effective'
+     ORDER BY effective_date,id`,[scope.tenantId,scope.parkId,employeeId]),
+  ]);
+  return projectHrEmployeeEmploymentDates({recordedDate,plannedConfirmationDates:plans.map((row:Record<string,unknown>)=>row.date),confirmedEmploymentDates:confirmed.map((row:Record<string,unknown>)=>row.date)});
  }
  private async employeeAssignmentDetails(scope:TenantParkScope,actor:JwtPrincipal,employee:HrEmployeeProjection,access:HrEmployeeAccessScope):Promise<HrEmployeeAssignmentDetails>{
   const absent=(assigned:boolean):HrEmployeeAssignmentLabel=>({name:null,status:assigned?"unavailable":"unassigned"});
@@ -91,7 +108,7 @@ export class HrService {
   const position:HrEmployeeAssignmentLabel=positionRow?{name:positionRow.positionName,status:positionRow.status==="enabled"?"available":"inactive"}:absent(!!employee.positionId);
   let manager=absent(!!employee.managerEmployeeId);
   if(employee.managerEmployeeId&&employee.managerEmployeeId!==employee.id){
-   try{const row=await this.employeeForAccess(scope,actor,employee.managerEmployeeId,access);manager={name:row.fullName,status:"available"};}
+   try{const own=access==="managed_org_tree"?await this.myEmployee(scope,actor):null;const row=own?.id===employee.managerEmployeeId?own:await this.employeeForAccess(scope,actor,employee.managerEmployeeId,access);manager={name:row.fullName,status:"available"};}
    catch(error){if(!(error instanceof NotFoundException))throw error;}
   }
   return {organization,position,manager};

@@ -27,9 +27,10 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
   const ids={
     childPosition:randomUUID(),siblingPosition:randomUUID(),managerUser:randomUUID(),selfUser:randomUUID(),rootOrg:randomUUID(),childOrg:randomUUID(),siblingOrg:randomUUID(),disabledOrg:randomUUID(),
     manager:randomUUID(),managed:randomUUID(),outsideDirect:randomUUID(),disabledOrgEmployee:randomUUID(),foreignTenant:randomUUID(),foreignPark:randomUUID(),
-    deletedOrg:randomUUID(),deletedOrgEmployee:randomUUID()
+    deletedOrg:randomUUID(),deletedOrgEmployee:randomUUID(),probationApplication:randomUUID(),probationParticipant:randomUUID(),confirmationEvent:randomUUID(),voidConfirmationEvent:randomUUID(),historicalConfirmationEvent:randomUUID()
   };
   const suffix=randomUUID().replaceAll("-","").slice(0,10);
+  const modernEventNo=(offset:number)=>`JZ202610${String((Number.parseInt(suffix.slice(0,6),16)%9000)+offset).padStart(4,"0")}`;
   const actor=(sub:string,permissions:string[]):JwtPrincipal=>({sub,username:`p0-${suffix}`,tenantId:scope.tenantId,parkId:scope.parkId,roles:[],permissions});
   const hrActor=actor(ids.managerUser,[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ]);
   const managerActor=actor(ids.managerUser,[HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ]);
@@ -41,7 +42,7 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
     if(isolatedSchema){
       admin=new DataSource(connection);await admin.initialize();await admin.query(`CREATE SCHEMA ${isolatedSchema}`);
       // Schema-only copies. No retained import rows are copied or modified.
-      for(const table of ["sys_user","sys_org","hr_position","hr_employee","hr_employee_profile"])
+      for(const table of ["sys_user","sys_org","hr_position","hr_employee","hr_employee_profile","hr_probation_application","hr_probation_application_employee","hr_employment_event"])
         await admin.query(`CREATE TABLE ${isolatedSchema}.${table} (LIKE public.${table} INCLUDING ALL)`);
     }
     db=new DataSource({...connection,schema:isolatedSchema??undefined,extra:isolatedSchema?{options:`-c search_path=${isolatedSchema},public`}:undefined,entities:[HrEmployeeEntity,HrEmployeeProfileEntity,HrPositionEntity,OrgEntity,UserOrgEntity,PostEntity,UserEntity,UserRoleEntity,RoleEntity,RolePermissionEntity,PermissionEntity]});
@@ -96,6 +97,10 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
   after(async()=>{
     try{
       if(db?.isInitialized){
+        await db.query("DELETE FROM hr_probation_application_employee WHERE id=$1",[ids.probationParticipant]);
+        await db.query("DELETE FROM hr_probation_application WHERE id=$1",[ids.probationApplication]);
+        await db.query("DELETE FROM hr_employment_event WHERE id=$1",[ids.confirmationEvent]);
+        await db.query("DELETE FROM hr_employment_event WHERE id=ANY($1::uuid[])",[[ids.voidConfirmationEvent,ids.historicalConfirmationEvent]]);
         await db.query("DELETE FROM hr_employee_profile WHERE employee_id=ANY($1::uuid[])",[[ids.managed,ids.outsideDirect]]);
         await db.query("DELETE FROM hr_employee WHERE id=ANY($1::uuid[])",[[ids.manager,ids.managed,ids.outsideDirect,ids.disabledOrgEmployee,ids.foreignTenant,ids.foreignPark,ids.deletedOrgEmployee]]);
         await db.query("DELETE FROM hr_position WHERE id=ANY($1::uuid[])",[[ids.childPosition,ids.siblingPosition]]);
@@ -134,13 +139,30 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
     await db.query("UPDATE hr_employee SET position_id=$1 WHERE id=$2",[ids.siblingPosition,ids.managed]);
     assert.deepEqual((await service.detailEmployeeForActor(scope,hrActor,ids.managed)).assignmentDetails.position,{name:null,status:"unavailable"});
     await db.query("UPDATE hr_employee SET position_id=$1 WHERE id=$2",[ids.childPosition,ids.managed]);
-    assert.equal(hr.probationEndDate,"2026-10-30");assert.equal("attendanceCardNo" in hr,false);
+    assert.deepEqual(hr.employmentDates.unclassifiedRecordedDate,{date:"2026-10-30",status:"unclassified"});assert.equal("probationEndDate" in hr,false);assert.equal("attendanceCardNo" in hr,false);
     const team=await service.detailEmployeeForActor(scope,managerActor,ids.managed);
-    assert.deepEqual(team.assignmentDetails.manager,{name:null,status:"unavailable"});
+    assert.deepEqual(team.assignmentDetails.manager,{name:"Manager",status:"available"});
     const self=await service.detailEmployeeForActor(scope,selfActor,ids.outsideDirect);
     assert.deepEqual(self.assignmentDetails.manager,{name:null,status:"unavailable"});
     assert.equal((await service.detailEmployeeForActor(scope,hrActor,ids.disabledOrgEmployee)).assignmentDetails.organization.status,"inactive");
     assert.deepEqual((await service.detailEmployeeForActor(scope,hrActor,ids.deletedOrgEmployee)).assignmentDetails.organization,{name:null,status:"unavailable"});
+  });
+
+  it("detail reads only modern submitted plans and effective confirmation events while retaining the saved date as unclassified",async()=>{
+    await db.query("UPDATE hr_employee SET probation_end_date='2026-10-30' WHERE id=$1",[ids.managed]);
+    await db.query(`INSERT INTO hr_probation_application(id,tenant_id,park_id,application_no,application_name,applicant_user_id,application_date,reason,status,create_by,update_by)
+      VALUES($1,$2,$3,$4,'Synthetic confirmation plan',$5,'2026-10-01','synthetic','submitted',$5,$5)`,[ids.probationApplication,scope.tenantId,scope.parkId,`P0-PROB-${suffix}`,ids.managerUser]);
+    await db.query(`INSERT INTO hr_probation_application_employee(id,tenant_id,park_id,application_id,employee_id,planned_confirmation_date,status,create_by,update_by)
+      VALUES($1,$2,$3,$4,$5,'2026-10-31','pending',$6,$6)`,[ids.probationParticipant,scope.tenantId,scope.parkId,ids.probationApplication,ids.managed,ids.managerUser]);
+    await db.query(`INSERT INTO hr_employment_event(id,tenant_id,park_id,employee_id,event_no,event_type,effective_date,before_snapshot,after_snapshot,status,is_historical_import,create_by,update_by)
+      VALUES($1,$2,$3,$4,$5,'confirm_employment','2026-10-30','{}','{}','effective',false,$6,$6)`,[ids.confirmationEvent,scope.tenantId,scope.parkId,ids.managed,modernEventNo(1),ids.managerUser]);
+    await db.query(`INSERT INTO hr_employment_event(id,tenant_id,park_id,employee_id,event_no,event_type,effective_date,before_snapshot,after_snapshot,status,is_historical_import,create_by,update_by)
+      VALUES($1,$2,$3,$4,$5,'confirm_employment','2026-10-29','{}','{}','void',false,$6,$6)`,[ids.voidConfirmationEvent,scope.tenantId,scope.parkId,ids.managed,modernEventNo(2),ids.managerUser]);
+    await db.query(`INSERT INTO hr_employment_event(id,tenant_id,park_id,employee_id,event_no,event_type,effective_date,before_snapshot,after_snapshot,status,is_historical_import,legacy_event_no,legacy_event_type,source_effective_at,migration_decision,create_by,update_by)
+      VALUES($1,$2,$3,$4,$5,'confirm_employment','2020-10-30','{}','{}','effective',true,$5,'confirm_employment','2020-10-30','accepted',$6,$6)`,[ids.historicalConfirmationEvent,scope.tenantId,scope.parkId,ids.managed,`HIST-${suffix}`,ids.managerUser]);
+    const detail=await service.detailEmployeeForActor(scope,hrActor,ids.managed);
+    assert.deepEqual(detail.employmentDates,{unclassifiedRecordedDate:{date:"2026-10-30",status:"unclassified"},plannedConfirmation:{dates:["2026-10-31"],status:"planned"},confirmedEmployment:{dates:["2026-10-30"],status:"recorded"}});
+    assert.equal("probationEndDate" in detail,false);
   });
 
   it("returns audited masked team and self profiles while cross-person and cross-tree reads fail before audit",async()=>{
