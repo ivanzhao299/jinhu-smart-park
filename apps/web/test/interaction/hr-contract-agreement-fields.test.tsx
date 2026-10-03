@@ -30,10 +30,13 @@ describe("three contract agreement flags preserve facts and edits",()=>{
 
  it("shows original years separately from modern months and preserves zero and unknown",async()=>{
   vi.mocked(hrApi.contract).mockResolvedValue({...basic,isHistoricalImport:true,contractTermMonths:24,cumulativeTermMonths:null,originalTermYears:{initial:{value:2,status:"recorded"},total:{value:null,status:"unconfirmed"},renewal:{value:0,status:"recorded"}}});
-  render(<HrContractsClient/>);await open();expect(screen.getByText("原玉舟首次年限：2 年")).toBeVisible();expect(screen.getByText("原玉舟累计年限：未确认")).toBeVisible();expect(screen.getByText("原玉舟续签年数：0 年")).toBeVisible();expect(screen.getByText("累计合同期限：未登记")).toBeVisible();expect(screen.queryByRole("button",{name:"编辑草稿"})).toBeNull();
+  render(<HrContractsClient/>);await open();expect(screen.getByText("首次登记年限：2 年")).toBeVisible();expect(screen.getByText("累计登记年限：未确认")).toBeVisible();expect(screen.getByText("续签登记年数：0 年")).toBeVisible();expect(screen.getByText("累计合同期限：未登记")).toBeVisible();expect(screen.queryByRole("button",{name:"编辑草稿"})).toBeNull();
  });
  it("missing source years remain missing alongside independent recorded totals",async()=>{
   vi.mocked(hrApi.contract).mockResolvedValue({...basic,isHistoricalImport:true,originalTermYears:{initial:{value:null,status:"missing"},total:{value:5,status:"recorded"},renewal:{value:3,status:"recorded"}}});
-  render(<HrContractsClient/>);await open();expect(screen.getByText("原玉舟首次年限：未登记")).toBeVisible();expect(screen.getByText("原玉舟累计年限：5 年")).toBeVisible();
+  render(<HrContractsClient/>);await open();expect(screen.getByText("首次登记年限：未登记")).toBeVisible();expect(screen.getByText("累计登记年限：5 年")).toBeVisible();
+ });
+ it("shows continuation controls for an imported active contract when the actor can manage it",async()=>{
+  state.user={id:"actor",permissions:["hr:contract:read","hr:contract:manage"]};vi.mocked(hrApi.contract).mockResolvedValue({...basic,status:"active",isHistoricalImport:true});render(<HrContractsClient/>);await open();expect(screen.getByRole("button",{name:"办理续签/变更"})).toBeVisible();
  });
 });
