@@ -39,7 +39,7 @@
     },
     "modernService": {
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "6afdaca8bc1759e4382fbc223f44f7a5229e9ed02c3635f4c0fce79ade087e7a"
+      "sha256": "1c35d1ef77a32004b863a5e117acc03bd607291258cf4d7b7e2b323161935e02"
     },
     "modernAccessPolicy": {
       "path": "apps/api/src/modules/hr/hr-access-policy.ts",
@@ -142,7 +142,7 @@
           "sourceBoundary": "single_scalar_select_without_explicit_transaction",
           "modernBoundary": "immutable_imported_profile_code_label_pair_read_in_one_scoped_repository_query",
           "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_failed_import_rejects_the_profile_pair",
-          "evidenceSha256": "6afdaca8bc1759e4382fbc223f44f7a5229e9ed02c3635f4c0fce79ade087e7a"
+          "evidenceSha256": "1c35d1ef77a32004b863a5e117acc03bd607291258cf4d7b7e2b323161935e02"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -175,7 +175,7 @@
               "conservationRule": "one_valid_source_code_label_pair_materializes_to_one_profile_code_label_pair_with_zero_unrelated_writes"
             }
           ],
-          "evidenceSha256": "6afdaca8bc1759e4382fbc223f44f7a5229e9ed02c3635f4c0fce79ade087e7a"
+          "evidenceSha256": "1c35d1ef77a32004b863a5e117acc03bd607291258cf4d7b7e2b323161935e02"
         },
         "dynamicSql": {
           "status": "none",

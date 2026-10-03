@@ -60,7 +60,7 @@
     "modernFamilyComponent": {"path": "apps/web/app/hr/employees/components/HrFamilyRecords.tsx", "sha256": "c8c11d6cd79b65e40e178c793638bcfb3be99a228e1357989e25751dbe1ee1ef"},
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "70bd87c97a4d7d65f5e466126f23c2176b654a6d91ce97d34836a0226e590d3e"
+      "sha256": "519cc7838162a20af0e70dea9553ba085b88fa9afbbb2ea0461e104b6ea5d785"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
