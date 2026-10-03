@@ -13,9 +13,9 @@ import { canEnterImport, createImportWorkbench, DOMAIN_LABELS, IMPORT_FILE_POLIC
 import styles from "./imports.module.css";
 
 const endpoint = "/hr/imports/yuzhou/incremental";
-async function request(path: string, options: ApiRequestOptions = {}) {
+async function request(path: string, options: ApiRequestOptions = {}, timeoutMs = 30_000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return (await apiRequest<unknown>(path, { ...options, token: getAccessToken(), signal: controller.signal })).data;
   } finally { clearTimeout(timer); }
@@ -38,7 +38,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
   const [store] = useState(() => createImportWorkbench({ user, isCurrent, transport: {
     key: createIdempotencyKey,
     preview: (pkg, key) => request(`${endpoint}/preview`, { method: "POST", body: pkg, idempotencyKey: key }),
-    commit: (id, key) => request(`${endpoint}/${id}/commit`, { method: "POST", idempotencyKey: key }),
+    commit: (id, key) => request(`${endpoint}/${id}/commit`, { method: "POST", idempotencyKey: key }, 90_000),
     status: id => request(`${endpoint}/${id}`)
   } }));
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
@@ -73,6 +73,8 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
       <div className={styles.actions}><button className="ds-button ds-button-primary" type="button"
         disabled={!!state.busy || !state.summary || !!missing || state.uncertain}
         onClick={() => { setQueryId(null); setConfirmed(false); void store.preview(); }}>预览数据包</button>
+        {state.previewRetryAvailable ? <button className="ds-button" type="button" disabled={!!state.busy || state.uncertain}
+          onClick={() => { setQueryId(null); setConfirmed(false); void store.preview(true); }}>重试本次预览</button> : null}
         <span className="ds-field-hint">预览不修改业务记录；提交前由服务端验证来源、权限和字段冲突。</span></div>
     </section>
     <section className={`ds-panel ${styles.section}`} aria-labelledby="preview-heading">
