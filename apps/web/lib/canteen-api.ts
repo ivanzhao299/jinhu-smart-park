@@ -29,7 +29,13 @@ import type {
   UpdateDishStockInput,
   CanteenWalletCode,
   CanteenWalletMe,
-  CanteenWalletTxn
+  CanteenWalletTxn,
+  CanteenSettlement,
+  CanteenSettlementItem,
+  CanteenRefund,
+  CanteenStatusLog,
+  CanteenReportSummary,
+  CanteenReportShareRow
 } from "./canteen-types";
 
 function compactObject(input: Record<string, unknown>): Record<string, unknown> {
@@ -289,6 +295,109 @@ export const canteenApi = {
       }
     }
     const response = await apiRequest<CanteenPage<CanteenCashierSession>>(`/canteen/pos/sessions?${params.toString()}`, { token });
+    return response.data;
+  },
+
+  /* ---------------- M3: 月度结算 ---------------- */
+  async listSettlements(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenSettlement>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
+        params.set(key, String(value));
+      }
+    }
+    const response = await apiRequest<CanteenPage<CanteenSettlement>>(`/canteen/settlements?${params.toString()}`, { token });
+    return response.data;
+  },
+  async generateSettlement(input: { period: string; outlet_id: string }, token?: string): Promise<CanteenSettlement> {
+    const response = await apiRequest<CanteenSettlement>("/canteen/settlements", {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-settlement-generate"),
+      body: compactObject(input as unknown as Record<string, unknown>)
+    });
+    return response.data;
+  },
+  async getSettlement(id: string, token?: string): Promise<CanteenSettlement> {
+    const response = await apiRequest<CanteenSettlement>(`/canteen/settlements/${id}`, { token });
+    return response.data;
+  },
+  async listSettlementItems(id: string, token?: string): Promise<CanteenSettlementItem[]> {
+    const response = await apiRequest<CanteenSettlementItem[]>(`/canteen/settlements/${id}/items`, { token });
+    return response.data;
+  },
+  async settlementTransition(id: string, action: "submit" | "reconcile" | "dispute" | "approve" | "settle", body: Record<string, unknown> = {}, token?: string): Promise<CanteenSettlement> {
+    const response = await apiRequest<CanteenSettlement>(`/canteen/settlements/${id}/${action}`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey(`canteen-settlement-${action}`),
+      body: compactObject(body)
+    });
+    return response.data;
+  },
+
+  /* ---------------- M4: 退款/撤单 ---------------- */
+  async listRefunds(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenRefund>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
+        params.set(key, String(value));
+      }
+    }
+    const response = await apiRequest<CanteenPage<CanteenRefund>>(`/canteen/refunds?${params.toString()}`, { token });
+    return response.data;
+  },
+  async getRefund(id: string, token?: string): Promise<CanteenRefund> {
+    const response = await apiRequest<CanteenRefund>(`/canteen/refunds/${id}`, { token });
+    return response.data;
+  },
+  async requestOrderRefund(orderId: string, input: { amount?: string; reason?: string }, token?: string): Promise<CanteenRefund> {
+    const response = await apiRequest<CanteenRefund>("/canteen/refunds", {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-refund-create"),
+      body: compactObject({ ...input, order_id: orderId } as unknown as Record<string, unknown>)
+    });
+    return response.data;
+  },
+  async auditRefund(id: string, verdict: "approve" | "reject", token?: string): Promise<CanteenRefund> {
+    const response = await apiRequest<CanteenRefund>(`/canteen/refunds/${id}/${verdict}`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey(`canteen-refund-${verdict}`)
+    });
+    return response.data;
+  },
+
+  /* ---------------- M4: 状态变更日志（审计） ---------------- */
+  async listStatusLogs(query: Record<string, unknown> = {}, token?: string): Promise<CanteenPage<CanteenStatusLog>> {
+    const params = toPageParams(Number(query.page) || 1, Number(query.pageSize) || 20);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "" && !["page", "pageSize"].includes(key)) {
+        params.set(key, String(value));
+      }
+    }
+    const response = await apiRequest<CanteenPage<CanteenStatusLog>>(`/canteen/status-logs?${params.toString()}`, { token });
+    return response.data;
+  },
+
+  /* ---------------- M3: 经营报表（形状宽松，字段以后端为准） ---------------- */
+  async getReportSummary(query: Record<string, unknown> = {}, token?: string): Promise<CanteenReportSummary> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiRequest<CanteenReportSummary>(`/canteen/reports/sales${suffix}`, { token });
+    return response.data;
+  },
+  async getReportShareRows(query: Record<string, unknown> = {}, token?: string): Promise<CanteenReportShareRow[]> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiRequest<CanteenReportShareRow[]>(`/canteen/reports/dish-ranking${suffix}`, { token });
     return response.data;
   }
 };

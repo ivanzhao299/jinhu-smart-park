@@ -8,7 +8,7 @@ import { ApiError } from "../../../lib/api-client";
 import { getAccessToken, getAuthUser } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
 import styles from "./pos.module.css";
-import type { PosEmployeeLookup, PosCheckoutSubsidyResult } from "../../../lib/canteen-types";
+import type { PosEmployeeLookup, PosCheckoutSubsidyResult, CanteenOrder } from "../../../lib/canteen-types";
 
 interface PosDish {
   id: string;
@@ -207,6 +207,47 @@ export default function PosTerminalPage() {
   const [shelfMenu, setShelfMenu] = useState<PosDish | null>(null);
   const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lpFired = useRef(false);
+
+  /* ====== 退款/撤单（按权限，终端作业风格） ====== */
+  const canRefund = hasPermission(getAuthUser(), CANTEEN_PERMISSIONS.ORDER_REFUND) || hasPermission(getAuthUser(), CANTEEN_PERMISSIONS.ORDER_CANCEL);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundOrders, setRefundOrders] = useState<CanteenOrder[]>([]);
+  const [refundBusy, setRefundBusy] = useState(false);
+
+  async function openRefund() {
+    if (!canRefund) { toast("无退款/撤单权限"); return; }
+    setRefundOpen(true);
+    try {
+      const data = await canteenApi.listOrders({ outlet_id: outletId, page: 1, pageSize: 20 }, getAccessToken());
+      setRefundOrders(data.list);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "加载订单失败");
+    }
+  }
+  async function doVoid(order: CanteenOrder) {
+    setRefundBusy(true);
+    try {
+      await canteenApi.cancelOrder(order.id, "POS 撤单", getAccessToken());
+      toast(`已撤单 ${order.orderNo}`);
+      await openRefund();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "撤单失败");
+    } finally {
+      setRefundBusy(false);
+    }
+  }
+  async function doRefund(order: CanteenOrder) {
+    setRefundBusy(true);
+    try {
+      await canteenApi.requestOrderRefund(order.id, { reason: "POS 退款申请" }, getAccessToken());
+      toast(`已发起退款 ${order.orderNo}，待 canteen-admin 审核`);
+      await openRefund();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "退款申请失败");
+    } finally {
+      setRefundBusy(false);
+    }
+  }
 
   function pressStart(dish: PosDish) {
     if (!canShelf) return;
@@ -713,7 +754,7 @@ export default function PosTerminalPage() {
           </div>
           <div className={styles.paySide}>
             <button className={styles.mixLink} type="button" onClick={() => void openEmployeeLookup()}>混合支付（M2）</button>
-            <button className={styles.mixLink} type="button" onClick={() => toast("退款/撤单：需 canteen-admin 审核（占位）")}>退款 / 撤单（需权限）</button>
+            <button className={styles.mixLink} type="button" onClick={() => void openRefund()}>退款 / 撤单（需权限）</button>
           </div>
         </footer>
 
@@ -855,6 +896,44 @@ export default function PosTerminalPage() {
             ) : null}
             <div className={styles.successSub}>{showSuccess.sub}</div>
             <button className={styles.btnNext} type="button" onClick={nextCustomer}>下一位 →</button>
+          </div>
+        ) : null}
+
+        {/* 退款/撤单作业（终端风格，按权限） */}
+        {refundOpen ? (
+          <div className={styles.mask} onClick={() => setRefundOpen(false)}>
+            <div className={`${styles.dialog} ${styles.dialogWide}`} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.dlgHead}>
+                <span className={styles.dlgTitle}>退款 / 撤单（近 20 单）</span>
+                <button className={styles.dlgX} type="button" onClick={() => setRefundOpen(false)}>×</button>
+              </div>
+              <div className={styles.dlgBody}>
+                {refundOrders.length === 0 ? (
+                  <div className={styles.lookupError}>暂无订单</div>
+                ) : (
+                  <div className={styles.refundList}>
+                    {refundOrders.map((o) => (
+                      <div key={o.id} className={styles.refundRow}>
+                        <div className={styles.refundInfo}>
+                          <b>{o.orderNo}</b>
+                          <span>{o.businessDate} · {o.channel} · ¥{o.payAmount} · {o.status}</span>
+                        </div>
+                        {o.status === "pending" ? (
+                          <button className={`${styles.btn} ${styles.btnGhost}`} type="button" disabled={refundBusy} onClick={() => void doVoid(o)}>撤单</button>
+                        ) : (o.status === "paid" || o.status === "completed") ? (
+                          <button className={`${styles.btn} ${styles.btnPrimary}`} type="button" disabled={refundBusy} onClick={() => void doRefund(o)}>申请退款</button>
+                        ) : (
+                          <span className={styles.refundDone}>不可操作</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className={styles.dlgFoot}>
+                <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={() => setRefundOpen(false)}>关闭</button>
+              </div>
+            </div>
           </div>
         ) : null}
 

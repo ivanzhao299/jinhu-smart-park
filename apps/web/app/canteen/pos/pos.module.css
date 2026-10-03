@@ -232,3 +232,11 @@
 }
 .shelfMenuTitle { font-size: 22px; font-weight: 700; }
 .shelfMenuSub { font-size: 16px; color: #5a6b82; margin-bottom: 6px; }
+
+/* ===== M4 退款/撤单作业列表 ===== */
+.refundList { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.refundRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--pos-border, rgba(255,255,255,0.12)); border-radius: 12px; }
+.refundInfo { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.refundInfo b { font-size: 16px; }
+.refundInfo span { font-size: 13px; opacity: 0.7; }
+.refundDone { font-size: 13px; opacity: 0.6; }

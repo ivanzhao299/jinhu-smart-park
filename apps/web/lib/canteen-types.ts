@@ -280,3 +280,102 @@ export interface CanteenInsufficientSubsidy {
   need: string;
   suggest: "mixed" | "qr_pay" | string;
 }
+
+/* ---------------- M3: 结算/对账 ---------------- */
+
+/** 月度结算单（实体 camelCase）。 */
+export interface CanteenSettlement {
+  id: string;
+  settlementNo: string;
+  period: string;
+  outletId: string;
+  outletName?: string | null;
+  contractorId?: string | null;
+  contractorName?: string | null;
+  salesTotal: string;
+  qrPayTotal: string;
+  subsidyTotal: string;
+  refundTotal: string;
+  companyPayable: string;
+  status: "draft" | "submitted" | "reconciling" | "approved" | "settled" | "disputed" | string;
+  generatedTime?: string | null;
+  submittedTime?: string | null;
+  reconciledTime?: string | null;
+  approvedTime?: string | null;
+  settledTime?: string | null;
+  financeUserId?: string | null;
+  settleEvidenceFileId?: string | null;
+}
+
+/** 结算/对账明细（按日/餐段，实体 camelCase）。 */
+export interface CanteenSettlementItem {
+  id: string;
+  settlementId: string;
+  bizDate: string;
+  mealPeriod?: string | null;
+  orderCount: number;
+  qrPayAmount: string;
+  subsidyAmount: string;
+  refundAmount: string;
+  source?: string | null;
+  diffAmount: string;
+  diffReason?: string | null;
+}
+
+/* ---------------- M4: 退款/撤单 ---------------- */
+
+/** 退款/撤单单（实体 camelCase）。 */
+export interface CanteenRefund {
+  id: string;
+  refundNo: string;
+  orderId: string;
+  orderNo?: string | null;
+  paymentId?: string | null;
+  walletTxnId?: string | null;
+  type: "void_before_pay" | "refund_after_pay" | string;
+  amount: string;
+  refundChannel: "original_qr" | "subsidy" | string;
+  status: "pending" | "approved" | "succeeded" | "failed" | string;
+  reason?: string | null;
+  operatorUserId?: string | null;
+  operatorName?: string | null;
+  auditUserId?: string | null;
+  finishTime?: string | null;
+  createdAt?: string | null;
+}
+
+/* ---------------- M4: 状态变更日志（审计） ---------------- */
+
+export interface CanteenStatusLog {
+  id: string;
+  entityType: "order" | "payment" | "settlement" | "grant" | "refund" | string;
+  entityId: string;
+  beforeStatus?: string | null;
+  afterStatus: string;
+  action: string;
+  reason?: string | null;
+  operatorUserId?: string | null;
+  operatorName?: string | null;
+  createdAt?: string | null;
+}
+
+/* ---------------- M3: 经营报表（形状以后端为准，宽松） ---------------- */
+
+/** 销售汇总指标。 */
+export interface CanteenReportSummary {
+  orderCount?: number;
+  totalSales?: string;
+  qrPayTotal?: string;
+  subsidyTotal?: string;
+  refundTotal?: string;
+  avgTicket?: string;
+}
+
+/** 分类/餐段/档口占比行。 */
+export interface CanteenReportShareRow {
+  name: string;
+  amount: string;
+  orderCount?: number;
+  ratio?: number;
+}
+
