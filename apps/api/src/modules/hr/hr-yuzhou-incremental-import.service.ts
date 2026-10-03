@@ -95,7 +95,9 @@ export class HrYuzhouIncrementalImportService {
     const priorSource = JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown>;
     const changedFields = Object.keys(fields).filter(field => json(fields[field]) !== json(this.normalizedFields({ ...item, fields: priorSource })[field]));
     const relationshipConflicts = this.relationshipConflicts(item, priorSource);
-    const employmentConflict = item.domain === "employee" && item.fields.employmentStatus !== undefined && item.fields.employmentStatus !== current.employmentStatus;
+    // An unchanged source status must not undo or block a modern lifecycle change.
+    // Actual source status revisions require the normal employment event workflow.
+    const employmentConflict = item.domain === "employee" && changedFields.includes("employmentStatus");
     const stateConflict = item.domain === "contract" && (item.fields.contractStatus !== current.targetStatus || (current.targetStatus !== "draft" && changedFields.length > 0));
     const conflictFields = [...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))];
     return { ...base(), action: conflictFields.length ? "conflict" : changedFields.length ? "update" : "unchanged", conflictFields };
@@ -156,10 +158,14 @@ export class HrYuzhouIncrementalImportService {
     }
     const priorSource = prior ? JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown> : {};
     const changedFields = prior ? Object.keys(fields).filter(field => json(fields[field]) !== json(this.normalizedFields({ ...item, fields: priorSource })[field])) : Object.keys(fields);
-    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && item.fields.employmentStatus !== undefined && item.fields.employmentStatus !== current.employmentStatus ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && current.targetStatus !== "draft" && changedFields.length > 0 ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))] : [];
+    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && current.targetStatus !== "draft" && changedFields.length > 0 ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => json(current[field]) !== json(prior.target_baseline[field]))] : [];
     if (conflicts.length) return this.revision(manager, operation.id, prior!.id, prior!.version, "conflict", item.rowDigest, conflicts.map(field => ({ field })), prior!.target_baseline, current);
     const writable = Object.fromEntries(changedFields.map(field => [field, fields[field]]));
-    const applied = !prior && item.domain === "contract" ? Object.keys(writable).map(field => ({ field })) : await this.writeTarget(manager, scope, actor, item.domain, target.id, writable, prior?.target_version);
+    // Compare each source field against the current target projection above.
+    // The write must use that same observed version: an unrelated legitimate
+    // platform edit advances the aggregate version but is not a source-field
+    // conflict and must not make the next independent source revision stale.
+    const applied = !prior && item.domain === "contract" ? Object.keys(writable).map(field => ({ field })) : await this.writeTarget(manager, scope, actor, item.domain, target.id, writable, prior ? Number(current.targetVersion) : undefined);
     const latest = await this.readTarget(manager, scope, item.domain, target.id);
     const targetBaseline = prior ? { ...prior.target_baseline, ...Object.fromEntries(changedFields.map(field => [field, latest[field]])), targetVersion: latest.targetVersion } : latest;
     const encryptedFacts = this.sensitive.encrypt(json(item.fields));

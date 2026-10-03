@@ -1276,3 +1276,31 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
   the test-owned random database is removed with zero residual.
 - This contract is lab-only. Source-bound A/B and a production correction writer
   are separate pending acceptance; synthetic PG success does not prove either.
+
+
+## Scenario: Repeated employee source updates preserve modern lifecycle continuity
+
+- Compare incoming employee fields with the previously accepted encrypted source
+  facts first. Only genuinely source-changed fields participate in target-baseline
+  conflict detection and the writable patch.
+- An unchanged source `employmentStatus` must preserve a modern lifecycle status
+  change and must not block independent source name/date updates. An actual source
+  status revision requires `NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED` in both preview
+  and commit, even if the target already has that status. Never update status via
+  this existing-row path or silently accept its source baseline without lifecycle
+  handling.
+- Use the version read with the current target comparison for conditional writes;
+  unrelated earlier modern edits are retained, and a later concurrent edit returns
+  409 with no failed target, item or revision write. Same-field modern edits remain
+  conflicts; initial legacy mappings without field evidence remain
+  `INITIAL_FIELD_BASELINE_UNKNOWN`.
+- The raw employee adapter reuses verified v2 job-state decisions and the existing
+  T0 employment-type projector, retaining original stable source identities. Bind
+  executable verifier/projector and shared API contract bytes in the recipe hash.
+  Do not reuse the obsolete formalDate-to-probationEndDate projection; retain
+  unsupported facts privately with per-field pending coverage.
+- Test actual CLI packages through PostgreSQL, including unchanged-source-status
+  with changed modern status, real source status changes, exact replay, conflicting
+  fields, unknown baselines and independent-connection CAS races. A dedicated-DB
+  claim requires a new guarded database, `current_database()` assertion and zero
+  residual cleanup; a postgres random-schema run is only schema isolation.
