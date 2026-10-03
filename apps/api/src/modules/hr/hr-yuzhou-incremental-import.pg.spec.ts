@@ -40,6 +40,8 @@ test("incremental import commits additions and protects exact legacy bindings", 
       CREATE TABLE legacy_record_map(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),batch_id uuid NOT NULL REFERENCES migration_batch(id),source_system varchar(64) NOT NULL,source_table varchar(256) NOT NULL,source_pk_canonical varchar(512) NOT NULL,source_identity_sha256 char(64) NOT NULL,source_row_sha256 char(64) NOT NULL,target_table varchar(256) NOT NULL,target_id uuid,mapping_status varchar(32) NOT NULL,is_active boolean NOT NULL DEFAULT true);
       CREATE UNIQUE INDEX uq_legacy_record_map_active_source ON legacy_record_map(source_system,source_table,source_identity_sha256) WHERE is_active;`);
     await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000327_hr_yuzhou_incremental_import_ledger.sql"),"utf8"));
+    await db.query(`CREATE TABLE hr_yuzhou_production_import_projection_receipt(operation_id varchar(64),phase varchar(8),source_identity_sha256 char(64),PRIMARY KEY(operation_id,phase,source_identity_sha256))`);
+    await db.query(readFileSync(resolve(repoRoot,"database/migrations/000329_hr_incremental_initial_baseline.sql"),"utf8"));
     const sensitive = { encrypt:(value:string)=>Buffer.from(value).toString("base64"), decrypt:(value:string)=>Buffer.from(value,"base64").toString("utf8"), identityProfile:(value:string)=>({encrypted:`enc:${value}`,masked:"**",hash:`h:${value}`}) };
     const service = new HrYuzhouIncrementalImportService(db, sensitive as never);
     const scope={tenantId:"incremental-tenant",parkId:"incremental-park"},actor={sub:"00000000-0000-4000-8000-000000000011",permissions:[HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE,HR_PERMISSIONS.HR_CONTRACT_MANAGE]} as never;
@@ -116,7 +118,7 @@ test("incremental import commits additions and protects exact legacy bindings", 
         proxy.query = async (sql: string, parameters?: unknown[]) => {
           const result = await manager.query(sql, parameters);
           if (sql.startsWith("INSERT INTO hr_employee(")) createdTargets.push(result[0].id as string);
-          if (sql.startsWith("SELECT id,target_table,target_id") && sql.includes("hr_incremental_import_item") && sql.endsWith("FOR UPDATE")) {
+          if (!sameSource && sql.startsWith("SELECT id,target_table,target_id") && sql.includes("hr_incremental_import_item") && sql.endsWith("FOR UPDATE")) {
             assert.equal(result.length, 0);
             arrivals += 1;
             if (arrivals === 2) release();
@@ -128,6 +130,12 @@ test("incremental import commits additions and protects exact legacy bindings", 
       })) as DataSource["transaction"];
       const raceService = new HrYuzhouIncrementalImportService(raceDb, sensitive as never);
       const results = await Promise.allSettled(operations.map(row => raceService.commit(scope, actor, operation(row).id)));
+      if (sameSource) {
+        assert.equal(results.filter(row => row.status === "fulfilled").length,2);
+        assert.equal(createdTargets.length,1);
+        assert.equal(Number((await db!.query(`SELECT count(*)::int AS count FROM hr_incremental_import_item WHERE source_key=$1`,[keys[0]]))[0].count),1);
+        return;
+      }
       assert.equal(results.filter(row => row.status === "fulfilled").length, 1);
       const rejected = results.find(row => row.status === "rejected");
       assert.ok(rejected && rejected.status === "rejected");

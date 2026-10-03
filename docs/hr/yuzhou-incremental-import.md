@@ -11,3 +11,38 @@
 preview 返回逐项 `create`、`update`、`unchanged` 或 `conflict` 动作及允许查看的字段名和冲突字段名；它不返回任何字段值、身份证明或源事实。合同适配器新增时保留审核后的来源状态，已有合同只允许更新 draft：提交前校验日期边界、合同编号唯一性、员工/合同类型当前范围存在性，并写入正式合同 action journal；不会对已有合同执行激活、签署、发布或生成变更。已生效合同仍必须走正常合同变更流程，不能借增量接口直接修改。
 
 尚未实现的适配器包括附件、组织/岗位、考勤、保险、奖惩、培训、绩效、薪酬及工资历史。工资历史属于后续连续性适配范围，不能被当作支付动作自动拒绝或自动发薪。既有初始批次、`legacy_record_map` 和回执是只读基线；本接口不重放、不改写、不推断删除，也不创建登录账号、薪资支付、发布或签署动作。本文件描述待部署代码接口，不表示该接口已经部署到任何环境。
+
+## 首次原始字段基线恢复
+
+已导入的员工 T0 / 合同 T2 可以在每个 item 附带 `initialBaselineWitness`：
+`version=1`、`operationId`、`phase=T0|T2`、
+`canonicalizationVersion=yuzhou-production-import-canonical-json-v1`、`targetId` 和完整 `projection`。
+该 projection 必须包含原模型所有 canonical 字段及 tenant/park（员工 17 个键、合同 32 个键），
+并包含原 dependency receipt 对应的 UUID。字段不可删减，也不可用当前目标值重建。
+API 按原始 `yuzhou-hr-production-target-canonical-sha256-v1` 算法验证逐行 `target_after_sha256`；
+数据库没有逐行 payload hash，本功能不伪造该字段。
+
+服务校验 record → projection receipt → migration batch → active legacy map 的完整链，
+要求原 operation/phase/batch 成功、scope/canonicalization 相同、未回滚、来源键/行哈希/目标一致且无歧义。
+员工组织/岗位及合同员工/类型依赖也通过原同 operation 的 dependency receipt 链验证。
+员工八个支持字段及合同支持字段只能从已验证投影派生；原 probation_end_date 不证明 formalDate。
+profile/T5 尚无相同逐行 hash 凭据，明确不支持此基线恢复。
+
+preview 可以写入现有加密操作暂存，但不建立字段基线、不修改业务行、原 map 或原 receipts。
+commit 按来源身份 advisory lock 串行，独立追加 `hr_incremental_initial_baseline` 加密 provenance，
+再在同一事务执行正常三方比较与目标版本 CAS。新基线的 field/target 比较数据存入加密列，
+新增 revision before/after snapshots 也加密；公开响应仍只有身份摘要、字段名和计数。
+原有未知 conflict 可以恢复，但历史 revision 永不重写。已接受成功 revision 不可重新定基线；
+相同 witness 在后续同对象包中可验证身份后复用，不改变已接受基线，改动 witness 被拒绝。
+相同 package 的 commit 重放返回原操作结果。真实同字段现代维护保留为冲突，未改变的来源状态保留现代状态；
+来源任职状态变化及已有非 draft 合同的字段/状态变更仍必须由正常业务工作流承接。
+仅恢复基线且来源未变化的提交记为 unchanged，不推进业务版本。
+
+`POST /hr/imports/yuzhou/incremental/preview`（加上配置的 `API_PREFIX`，默认完整路径为
+`/api/v1/hr/imports/yuzhou/incremental/preview`）的 JSON 请求上限为共享常量
+`YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES = 8388608`（8 MiB），最多 2000 items；
+它只扩大此预览路由，普通路由保留原 100 KiB JSON 限制。完整 witness 也计入字节数。
+CLI 按实际发送的紧凑 UTF-8 JSON 加换行计算长度并拆包；提交时应原样发送生成文件，
+不要重新美化 JSON。单条记录超过限制会明确失败，不能截断原投影或删除 witness 字段绕过上限。
+
+实际原始保留文件匹配、部署状态和生产 baseline 接受仍分别验收；合成 PG/HTTP 测试不替代生产写入授权。
