@@ -4,7 +4,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { verifyPersonnelCorrectionSnapshot, assertPersonnelCorrectionSnapshotApproval } from './personnel-correction-snapshot.mjs';
-import { snapshotCorrectionCtes, snapshotLockSql, correctionCtes, sealSelect, lockSql, materializeSql, applySql, detailSql, rollbackSql } from './personnel-correction-sql.mjs';
+import { snapshotCorrectionCtes, snapshotLockSql, correctionCtes, sealSelect, profileBeforeSelect, lockSql, materializeSql, applySql, detailSql, rollbackSql } from './personnel-correction-sql.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -14,7 +14,7 @@ const keys = (value, expected) => value && typeof value === 'object' && !Array.i
   && Object.keys(value).sort().join('|') === expected.split(' ').sort().join('|');
 export function correctionExecutionSha256() {
   return hash(['personnel-correction-lab.mjs','personnel-correction-sql.mjs','personnel-correction-snapshot.mjs','personnel-correction-snapshot-contract.mjs',
-    '../../database/migrations/000325_hr_personnel_correction_snapshot.sql',
+    '../../database/migrations/000325_hr_personnel_correction_snapshot.sql','../../database/migrations/000328_hr_personnel_correction_profile_cas.sql',
     '../diagnose-yuzhou-personnel-alias.mjs','../../database/migrations/000324_hr_personnel_correction_ledger.sql']
     .map(path => readFileSync(new URL(path, import.meta.url))).reduce((all, bytes) => Buffer.concat([all, bytes]), Buffer.alloc(0)));
 }
@@ -53,9 +53,9 @@ export function validateCorrectionAuthorization(config, token) {
   if (!keys(target, 'host port database user labId')
     || Object.keys(target).some(key => target[key] !== config[key])) fail('TARGET_BINDING_INVALID');
   const b = payload.binding;
-  if (!keys(b, `operationId idempotencyKey tenantId parkId sourceOperationId parentOperationId triple executionSha256 seal${b?.snapshot ? ' snapshot' : ''}`)
+  if (!keys(b, `operationId idempotencyKey tenantId parkId sourceOperationId parentOperationId triple executionSha256 profileBeforeSha256 seal${b?.snapshot ? ' snapshot' : ''}`)
     || (b.snapshot && (!keys(b.snapshot,'snapshotId manifestSha256') || !uuid.test(b.snapshot.snapshotId) || !sha.test(b.snapshot.manifestSha256)))
-    || !uuid.test(b.operationId) || !uuid.test(b.idempotencyKey)
+    || !sha.test(b.profileBeforeSha256) || !uuid.test(b.operationId) || !uuid.test(b.idempotencyKey)
     || ![b.tenantId,b.parkId].every(v => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(v))
     || ![b.sourceOperationId,b.parentOperationId].every(v => typeof v === 'string' && /^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/.test(v))
     || !keys(b.triple, 'codeSha sourceSnapshotHash mappingContractHash')
@@ -73,7 +73,8 @@ export function validateCorrectionAuthorization(config, token) {
 
 function receipt(binding, action) {
   return { kind: 'isolated_personnel_correction', productionImport: 'HOLD', action,
-    ...binding.seal };
+    ...binding.seal, receiptVersion: 2, profileVersionPolicy: 'monotonic-v1',
+    changedMetadata: ['version'], profileBeforeSha256: binding.profileBeforeSha256 };
 }
 function assertCount(result, expected) { if (result.rowCount !== expected) fail('ROW_COUNT_CONFLICT'); }
 
@@ -91,7 +92,7 @@ export async function executePersonnelCorrectionLab(config, token) {
   try {
     await client.connect();
     await client.query('BEGIN'); begun = true;
-    await client.query("SET LOCAL search_path=pg_catalog,public; SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='10s'; SET LOCAL enable_nestloop=off");
+    await client.query("SET LOCAL search_path=pg_catalog,public; SET LOCAL timezone='UTC'; SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='10s'; SET LOCAL enable_nestloop=off");
     const registered = await client.query(`SELECT 1 FROM public.hr_personnel_correction_lab
       WHERE lab_id=$1 AND database_name=current_database() AND database_name=$2
       AND database_user=current_user AND database_user=$3 AND authority_key_sha256=$4
@@ -138,6 +139,8 @@ export async function executePersonnelCorrectionLab(config, token) {
       const sealed = await client.query(`${activeCtes} ${sealSelect}`, params);
       const equal = await client.query('SELECT $1::jsonb=$2::jsonb ok', [JSON.stringify(sealed.rows[0].seal),JSON.stringify(b.seal)]);
       if (!equal.rows[0].ok) fail('SEAL_CONFLICT');
+      const beforeProfile = await client.query(`${activeCtes} ${profileBeforeSelect}`, params);
+      if (beforeProfile.rows[0].hash !== b.profileBeforeSha256) fail('PROFILE_BEFORE_CONFLICT');
       await client.query(snapshot ? `CREATE TEMP TABLE correction_rows_private ON COMMIT DROP AS ${activeCtes}
         SELECT c.*,to_jsonb(p) full_before FROM correction_rows c JOIN public.hr_employee_profile p ON p.id=c.profile_id` : materializeSql, params);
       const uniqueness = await client.query(`SELECT count(*)::int n,count(DISTINCT profile_id)::int u,
@@ -162,7 +165,7 @@ export async function executePersonnelCorrectionLab(config, token) {
     } else {
       assertCount(await client.query(rollbackSql, [b.operationId]), b.seal.plannedProfiles);
       const restored = await client.query(`SELECT count(*)::int n FROM hr_personnel_correction_detail d
-        JOIN hr_employee_profile p ON p.id=d.profile_id AND to_jsonb(p)=d.before_image WHERE d.operation_id=$1`, [b.operationId]);
+        JOIN hr_employee_profile p ON p.id=d.profile_id AND to_jsonb(p)=d.before_image || jsonb_build_object('version',(d.after_image->>'version')::integer+1) WHERE d.operation_id=$1`, [b.operationId]);
       if (restored.rows[0].n !== b.seal.plannedProfiles) fail('ROLLBACK_CONFLICT');
       await client.query(`INSERT INTO hr_personnel_correction_rollback(operation_id,binding_sha256,actor_sha256,receipt)
         VALUES($1,$2,$3,$4)`, [b.operationId,bindingSha,payload.actorSha256,JSON.stringify(result)]);

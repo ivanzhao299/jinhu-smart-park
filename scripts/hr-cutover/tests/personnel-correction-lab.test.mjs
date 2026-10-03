@@ -1,4 +1,4 @@
-import { URL } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { setTimeout } from 'node:timers';
@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { userInfo } from 'node:os';
 import test from 'node:test';
 import { correctionAuthoritySha256, correctionExecutionSha256, executePersonnelCorrectionLab, validateCorrectionAuthorization } from '../personnel-correction-lab.mjs';
-import { correctionCtes, sealSelect } from '../personnel-correction-sql.mjs';
+import { correctionCtes, sealSelect, profileBeforeSelect } from '../personnel-correction-sql.mjs';
 import { personnelAliasSql } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const digest = v => createHash('sha256').update(v).digest('hex');
@@ -21,7 +21,7 @@ const baseConfig = { ...target, password: '', authorityPublicKey: publicKey };
 const triple = { codeSha: 'a'.repeat(40), sourceSnapshotHash: 'b'.repeat(64), mappingContractHash: 'c'.repeat(64) };
 const op = () => `yzprod-import-20261003T000000Z-${randomBytes(6).toString('hex')}`;
 const dummyBinding = () => ({ operationId: randomUUID(), idempotencyKey: randomUUID(), tenantId: 'synthetic', parkId: 'lab',
- sourceOperationId: op(), parentOperationId: op(), triple, executionSha256: correctionExecutionSha256(),
+ sourceOperationId: op(), parentOperationId: op(), triple, executionSha256: correctionExecutionSha256(), profileBeforeSha256: digest('synthetic-full-before'),
  seal: { sealVersion: 1, mappingVersion: 'yuzhou-personnel-alias-null-fill-v1', plannedProfiles: 2, nativePlaceFills: 1,
  degreeFills: 2, planSha256: digest('p'), beforeSha256: digest('b'), afterSha256: digest('a') } });
 function authorize(binding, config = baseConfig, overrides = {}, privateKey = keys.privateKey) {
@@ -45,7 +45,7 @@ test('independent signed credential validates target, C/S/M, execution bytes, ac
   { issuedAt: Date.now()+10000 }, { nonce: 'true' }, { authorized: true }, { target: { ...target, database: 'other' } }]) {
   assert.throws(() => validateCorrectionAuthorization(baseConfig, authorize(b, baseConfig, override)), /PERSONNEL_CORRECTION_/);
  }
- for (const field of ['executionSha256','sourceOperationId']) {
+ for (const field of ['executionSha256','sourceOperationId','profileBeforeSha256']) {
   assert.throws(() => validateCorrectionAuthorization(baseConfig, authorize({ ...b, [field]: 'invalid' })), /BINDING_INVALID/);
  }
  assert.throws(() => validateCorrectionAuthorization(baseConfig, { authorized: true }), /AUTHORIZATION_INVALID/);
@@ -69,14 +69,36 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
  // Do not accept a database name, URL, remote host or existing lab from the environment.
  validateCorrectionAuthorization(config, authorize(dummyBinding(), config));
  const admin = new Client({ host: config.host, port: config.port, user: config.user, password: config.password, database: 'postgres' });
- let client; let created = false;
+ let client, dataSource, adminJit; let created = false;
  try {
   await admin.connect();
+  adminJit=(await admin.query('SHOW jit')).rows[0].jit;
   await admin.query(`CREATE DATABASE "${config.database}" TEMPLATE template0`); created = true;
+  // Only this fresh disposable DB: avoid JIT startup dominating tiny synthetic
+  // observer plans and exhausting the writer lock timeout during replay tests.
+  await admin.query(`ALTER DATABASE "${config.database}" SET jit=off`);
   client = new Client({ host: config.host, port: config.port, user: config.user, password: config.password, database: config.database });
   await client.connect();
+  assert.equal((await client.query('SHOW jit')).rows[0].jit,'off');
+  assert.equal((await admin.query('SHOW jit')).rows[0].jit,adminJit);
+  await client.query("SET timezone='UTC'");
+  require('ts-node').register({project:fileURLToPath(new URL('../../../apps/api/tsconfig.json',import.meta.url)),transpileOnly:true});
+  require('reflect-metadata');
+  const {DataSource}=require('typeorm');
+  const {HrService}=require('./src/modules/hr/hr.service.ts');
+  const {HrEmployeeEntity,HrEmployeeProfileEntity}=require('./src/modules/hr/entities/hr.entities.ts');
+  dataSource=new DataSource({type:'postgres',host:config.host,port:config.port,database:config.database,username:config.user,password:config.password,entities:[HrEmployeeEntity,HrEmployeeProfileEntity],synchronize:false});
+  await dataSource.initialize();await dataSource.synchronize();
+  const modern=Object.create(HrService.prototype);
+  Object.assign(modern,{dataSource,employees:dataSource.getRepository(HrEmployeeEntity),sensitiveData:{identityProfile:()=>{throw new Error('UNEXPECTED_IDENTITY_WRITE');}},
+   detailEmployee:async(scope,id)=>dataSource.getRepository(HrEmployeeEntity).findOneByOrFail({...scope,id,isDeleted:false})});
+  const modernSave=async(f,index,expectedVersion,fields={})=>{
+   const employeeId=(await client.query('SELECT employee_id FROM hr_employee_profile WHERE id=$1',[f.profiles[index]])).rows[0].employee_id;
+   return modern.updateEmployeeProfile({tenantId:f.b.tenantId,parkId:f.b.parkId},{sub:randomUUID()},employeeId,{expectedVersion,...fields});
+  };
   await client.query(readFileSync(new URL('./personnel-correction-fixture.sql', import.meta.url), 'utf8'));
   await client.query(readFileSync(new URL('../../../database/migrations/000324_hr_personnel_correction_ledger.sql', import.meta.url), 'utf8'));
+  await client.query(readFileSync(new URL('../../../database/migrations/000328_hr_personnel_correction_profile_cas.sql', import.meta.url), 'utf8'));
   await client.query('INSERT INTO hr_personnel_correction_lab(lab_id,database_name,database_user,authority_key_sha256) VALUES($1,$2,$3,$4)',
    [config.labId,config.database,config.user,correctionAuthoritySha256(publicKey)]);
   const insert = async (table, row) => {
@@ -105,7 +127,7 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
     const employee = randomUUID(), map = randomUUID(), source = randomUUID(), registry = randomUUID(), archive = randomUUID(), profile = randomUUID();
     const identity = digest(`synthetic-${counter}-${i}`), rowHash = digest(`row-${counter}-${i}`), owner = digest(`owner-${counter}-${i}`);
     profiles.push(profile);
-    await insert('hr_employee', { id: employee, tenant_id: b.tenantId, park_id: b.parkId, is_deleted: false });
+    await insert('hr_employee', { id: employee, tenant_id: b.tenantId, park_id: b.parkId, is_deleted: false, version:1, employee_code:`SYN-${counter}-${i}`,full_name:'Synthetic',employment_status:'active',employment_type:'full_time' });
     await insert('legacy_record_map', { id: map, target_id: employee, target_table: 'hr_employee', source_system: 'yuzhou-v10', source_table: 'dbo.person',
      is_active: true, mapping_status: 'loaded', source_pk_canonical: `sha256:${owner}`, source_identity_sha256: owner, source_row_sha256: rowHash, batch_id: coreBatch });
     await insert('hr_yuzhou_production_import_record', { operation_id: b.parentOperationId, phase: 'T0', source_identity_sha256: owner,
@@ -121,7 +143,7 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
      owner_employee_id: employee, owner_record_map_id: map, owner_source_system: 'yuzhou-v10', owner_source_table: 'dbo.person', owner_source_identity_sha256: owner });
     await insert('hr_legacy_archive_record', { id: archive, identity_registry_id: registry, tenant_id: b.tenantId, park_id: b.parkId,
      restricted_safe_projection: { legacyFields: { oldaddr: 'Synthetic origin', edulevel: 'Synthetic degree' } } });
-    await insert('hr_employee_profile', { id: profile, tenant_id: b.tenantId, park_id: b.parkId, employee_id: employee, is_deleted: false,
+    await insert('hr_employee_profile', { id: profile, tenant_id: b.tenantId, park_id: b.parkId, employee_id: employee, is_deleted: false, version:1,
      legacy_source_identity_sha256: identity, legacy_source_row_sha256: rowHash, native_place: [null,'','Modern origin'][i], degree: i===2?'Modern degree':null, note: 'unchanged' });
     for (const [table,id] of [['hr_yuzhou_t5_followon_source',source],['hr_legacy_identity_registry',registry],['hr_legacy_archive_record',archive],['hr_employee_profile',profile]]) {
      await insert('hr_yuzhou_t5_followon_projection_receipt', { operation_id: b.sourceOperationId, target_table: table, target_id: id,
@@ -129,11 +151,13 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
     }
    }
    b.seal = (await client.query(`${correctionCtes} ${sealSelect}`, [b.tenantId,b.parkId,b.sourceOperationId,b.parentOperationId])).rows[0].seal;
+   b.profileBeforeSha256=(await client.query(`${correctionCtes} ${profileBeforeSelect}`,[b.tenantId,b.parkId,b.sourceOperationId,b.parentOperationId])).rows[0].hash;
    assert.equal(b.seal.plannedProfiles,2); assert.equal(b.seal.nativePlaceFills,1); assert.equal(b.seal.degreeFills,2);
    return { b, profiles, token: authorize(b, config) };
   }
   const run = token => executePersonnelCorrectionLab(config, token);
   const ledgerCount = async b => Number((await client.query('SELECT count(*) n FROM hr_personnel_correction_operation WHERE operation_id=$1', [b.operationId])).rows[0].n);
+  const businessHash = async b => (await client.query("SELECT encode(digest(jsonb_agg(to_jsonb(p)-'version' ORDER BY id)::text,'sha256'),'hex') hash FROM hr_employee_profile p WHERE tenant_id=$1", [b.tenantId])).rows[0].hash;
   const profileHash = async b => (await client.query("SELECT encode(digest(jsonb_agg(to_jsonb(p) ORDER BY id)::text,'sha256'),'hex') hash FROM hr_employee_profile p WHERE tenant_id=$1", [b.tenantId])).rows[0].hash;
   const lineageTables = ['hr_yuzhou_t5_followon_source','hr_yuzhou_t5_followon_operation',
    'hr_yuzhou_production_import_operation','hr_yuzhou_t5_followon_projection_receipt','legacy_record_map',
@@ -145,18 +169,69 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
    return digest(JSON.stringify(hashes));
   };
   await t.test('atomic apply, NULL-only fill, unchanged original lineage, aggregate-only receipt, exact replay, rollback and rollback replay', async () => {
-   const f = await fixture(), before = await profileHash(f.b);
+   const f = await fixture(), before = await businessHash(f.b);
    const sourceBefore = await lineageHash();
    const first = await run(f.token); assert.equal(first.replay,false); assert.equal(first.plannedProfiles,2);
+   assert.equal(first.receiptVersion,2);assert.deepEqual(first.changedMetadata,['version']);
+   await assert.rejects(modernSave(f,0,1),/profile changed/);
+   const appliedHash=await profileHash(f.b);
    assert.doesNotMatch(JSON.stringify(first), /Synthetic|profileId|employeeId|tenantId|operationId/);
-   assert.equal((await run(f.token)).replay,true);
+   assert.equal((await run(f.token)).replay,true);assert.equal(await profileHash(f.b),appliedHash);
    assert.equal((await client.query('SELECT native_place FROM hr_employee_profile WHERE id=$1', [f.profiles[1]])).rows[0].native_place,'');
    assert.equal(await lineageHash(),sourceBefore);
    const rollback = authorize(f.b,config,{ action: 'rollback' });
-   assert.equal((await run(rollback)).action,'rollback'); assert.equal(await profileHash(f.b),before);
+   assert.equal((await run(rollback)).action,'rollback'); assert.equal(await businessHash(f.b),before);
+   const versions=(await client.query('SELECT version FROM hr_employee_profile WHERE tenant_id=$1 ORDER BY version',[f.b.tenantId])).rows.map(r=>r.version);assert.deepEqual(versions,[1,3,3]);
+   await assert.rejects(modernSave(f,0,1),/profile changed/);await assert.rejects(modernSave(f,0,2),/profile changed/);
    assert.equal((await run(rollback)).replay,true); assert.equal(await lineageHash(),sourceBefore);
    await assert.rejects(run(f.token), /ALREADY_ROLLED_BACK/);
    assert.equal(await ledgerCount(f.b),1);
+  });
+  await t.test('current modern CAS edit remains authoritative and refuses rollback without partial writes',async()=>{
+   const f=await fixture();await run(f.token);
+   const current=await modernSave(f,0,2,{nativePlace:'Synthetic modern retained',degree:'Synthetic modern degree'});assert.equal(current.version,3);
+   const before=await profileHash(f.b);
+   await assert.rejects(run(authorize(f.b,config,{action:'rollback'})),/ROW_COUNT_CONFLICT/);
+   assert.equal(await profileHash(f.b),before);
+   assert.equal((await client.query('SELECT count(*)::int n FROM hr_personnel_correction_rollback WHERE operation_id=$1',[f.b.operationId])).rows[0].n,0);
+   const after=await modernSave(f,0,3,{nativePlace:'Synthetic modern retained',degree:'Synthetic modern degree'});assert.equal(after.version,4);
+  });
+  for(const change of ['version=version+1',"note='modern before apply'"])await t.test('signed full before seal rejects later version or unrelated-field drift',async()=>{
+   const f=await fixture();await client.query(`UPDATE hr_employee_profile SET ${change} WHERE id=$1`,[f.profiles[0]]);
+   const unchangedSeal=(await client.query(`${correctionCtes} ${sealSelect}`,[f.b.tenantId,f.b.parkId,f.b.sourceOperationId,f.b.parentOperationId])).rows[0].seal;assert.deepEqual(unchangedSeal,f.b.seal);
+   const before=await profileHash(f.b);await assert.rejects(run(f.token),/PROFILE_BEFORE_CONFLICT/);
+   assert.equal(await profileHash(f.b),before);assert.equal(await ledgerCount(f.b),0);
+  });
+  await t.test('new detail guard permits exactly one version increment and retains the legacy receipt contract',async()=>{
+   const f=await fixture();
+   const row=(await client.query(`${correctionCtes} SELECT c.binding,c.patch,to_jsonb(p) before_image FROM correction_rows c JOIN hr_employee_profile p ON p.id=c.profile_id ORDER BY c.profile_id LIMIT 1`,[f.b.tenantId,f.b.parkId,f.b.sourceOperationId,f.b.parentOperationId])).rows[0];
+   const receipt={receiptVersion:2,profileVersionPolicy:'monotonic-v1',changedMetadata:['version'],profileBeforeSha256:f.b.profileBeforeSha256};
+   const insertDetail=async(after,r=receipt)=>{
+    await client.query(`INSERT INTO hr_personnel_correction_operation(operation_id,lab_id,idempotency_key,binding_sha256,binding,actor_sha256,receipt) VALUES($1,$2,$3,$4,$5,$6,$7)`,[f.b.operationId,config.labId,f.b.idempotencyKey,digest('guard'),JSON.stringify(f.b),digest('actor'),JSON.stringify(r)]);
+    return client.query(`INSERT INTO hr_personnel_correction_detail(operation_id,profile_id,binding,patch,before_image,after_image,after_xmin) VALUES($1,$2,$3,$4,$5,$6,'synthetic')`,[f.b.operationId,row.before_image.id,JSON.stringify(row.binding),JSON.stringify(row.patch),JSON.stringify(row.before_image),JSON.stringify(after)]);
+   };
+   const expected={...row.before_image,...row.patch,version:row.before_image.version+1};
+   for(const after of [{...expected,version:row.before_image.version},{...expected,version:row.before_image.version+2},{...expected,note:'unrelated'},{...expected,update_time:'2026-01-01T00:00:00+00:00'}]){
+    await client.query('BEGIN');await assert.rejects(insertDetail(after),/DETAIL_INVALID/);await client.query('ROLLBACK');
+   }
+   for(const invalidReceipt of [{...receipt,receiptVersion:1},{...receipt,changedMetadata:['version','update_time']},{...receipt,changedMetadata:[]},{...receipt,profileBeforeSha256:digest('wrong')}]){
+    await client.query('BEGIN');await assert.rejects(insertDetail(expected,invalidReceipt),/DETAIL_INVALID/);await client.query('ROLLBACK');
+   }
+   const originalVersion=row.before_image.version;row.before_image.version=2147483646;
+   await client.query('BEGIN');await assert.rejects(insertDetail({...row.before_image,...row.patch,version:2147483647}),/DETAIL_INVALID/);await client.query('ROLLBACK');row.before_image.version=originalVersion;
+   await client.query('BEGIN');await insertDetail(expected);await client.query('ROLLBACK');
+   await client.query('BEGIN');await insertDetail({...row.before_image,...row.patch},{});await client.query('ROLLBACK');
+   assert.equal(await ledgerCount(f.b),0);
+  });
+  await t.test('version bounds reserve one rollback increment and reject overflow atomically',async()=>{
+   for(const version of [2147483645,2147483646]){
+    const f=await fixture();await client.query('UPDATE hr_employee_profile SET version=$1 WHERE tenant_id=$2',[version,f.b.tenantId]);
+    f.b.profileBeforeSha256=(await client.query(`${correctionCtes} ${profileBeforeSelect}`,[f.b.tenantId,f.b.parkId,f.b.sourceOperationId,f.b.parentOperationId])).rows[0].hash;
+    const token=authorize(f.b,config),before=await profileHash(f.b);
+    if(version===2147483646){await assert.rejects(run(token),/ROW_COUNT_CONFLICT/);assert.equal(await profileHash(f.b),before);assert.equal(await ledgerCount(f.b),0);}
+    else{await run(token);assert.equal((await client.query('SELECT version FROM hr_employee_profile WHERE id=$1',[f.profiles[0]])).rows[0].version,2147483646);
+     await run(authorize(f.b,config,{action:'rollback'}));assert.equal((await client.query('SELECT version FROM hr_employee_profile WHERE id=$1',[f.profiles[0]])).rows[0].version,2147483647);}
+   }
   });
   await t.test('different binding conflicts and nonce/action reuse cannot authorize a second operation', async () => {
    const f = await fixture(); await run(f.token);
@@ -174,7 +249,7 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
    ['owner', f => client.query('UPDATE legacy_record_map SET is_active=false WHERE target_id=(SELECT employee_id FROM hr_employee_profile WHERE id=$1)', [f.profiles[0]])],
    ['target before write', f => client.query("UPDATE hr_employee_profile SET native_place='Later modern' WHERE id=$1", [f.profiles[0]])],
    ['deleted target', f => client.query('UPDATE hr_employee_profile SET is_deleted=true WHERE id=$1', [f.profiles[0]])],
-   ['duplicate active profile', f => client.query('INSERT INTO hr_employee_profile SELECT gen_random_uuid(),tenant_id,park_id,employee_id,is_deleted,legacy_source_identity_sha256,legacy_source_row_sha256,native_place,degree,note FROM hr_employee_profile WHERE id=$1', [f.profiles[0]])],
+   ['duplicate active profile', f => client.query('INSERT INTO hr_employee_profile(id,tenant_id,park_id,employee_id,is_deleted,legacy_source_identity_sha256,legacy_source_row_sha256,native_place,degree,note,version) SELECT gen_random_uuid(),tenant_id,park_id,employee_id,is_deleted,legacy_source_identity_sha256,legacy_source_row_sha256,native_place,degree,note,version FROM hr_employee_profile WHERE id=$1', [f.profiles[0]])],
    ['archive value', f => client.query("UPDATE hr_legacy_archive_record SET restricted_safe_projection=jsonb_build_object('legacyFields',jsonb_build_object('oldaddr','changed','edulevel','changed')) WHERE tenant_id=$1", [f.b.tenantId])],
    ['parent receipt', f => client.query("UPDATE hr_yuzhou_production_import_record SET rollback_status='rolled_back' WHERE operation_id=$1", [f.b.parentOperationId])],
   ];
@@ -267,8 +342,9 @@ test('real PostgreSQL disposable synthetic correction transactions', { skip: pro
    assert.equal(grants.rows[0].n,0);
   });
  } finally {
+  if(dataSource?.isInitialized)await dataSource.destroy();
   if (client) await client.end();
-  if (created) await admin.query(`DROP DATABASE "${config.database}"`);
+  if (created) { await admin.query(`DROP DATABASE "${config.database}"`); assert.equal((await admin.query('SELECT count(*)::int n FROM pg_database WHERE datname=$1',[config.database])).rows[0].n,0); assert.equal((await admin.query('SHOW jit')).rows[0].jit,adminJit); t.diagnostic('disposable correction database removed; residual databases=0; shared admin JIT setting unchanged'); }
   await admin.end();
  }
 });
