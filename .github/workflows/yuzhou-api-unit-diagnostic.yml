@@ -42,11 +42,24 @@ jobs:
           set -euo pipefail
           node -e 'const os=require("node:os");console.log(JSON.stringify({node:process.version,platform:process.platform,availableParallelism:os.availableParallelism(),sourceCommit:process.env.GITHUB_SHA}))'
           pnpm test:unit 2>&1 | tee "$RUNNER_TEMP/api-unit-diagnostic.log"
+      - name: Compare suspected truncated test files
+        working-directory: apps/api
+        timeout-minutes: 3
+        shell: bash
+        env:
+          TS_NODE_TRANSPILE_ONLY: true
+        run: |
+          set -euo pipefail
+          for force in --test-force-exit ''; do
+            node --test $force --test-timeout=120000 --test-concurrency=2 --test-reporter=tap --require ts-node/register src/modules/housing/housing-finance-approval-snapshot.spec.ts src/modules/housing/housing-lease-approval-version.spec.ts 2>&1 | tee -a "$RUNNER_TEMP/runner-force-comparison.log"
+          done
       - name: Retain diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: yuzhou-api-unit-diagnostic
-          path: ${{ runner.temp }}/api-unit-diagnostic.log
+          path: |
+            ${{ runner.temp }}/api-unit-diagnostic.log
+            ${{ runner.temp }}/runner-force-comparison.log
           if-no-files-found: warn
           retention-days: 3
