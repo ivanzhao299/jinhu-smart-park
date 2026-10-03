@@ -117,7 +117,64 @@ test("incremental import commits additions and protects exact legacy bindings", 
     };
     await runRace(true);
     await runRace(false);
+    const employmentChange = operation(await service.preview(scope,actor,pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:employeeKey,fields:{employeeCode:"INC-1",fullName:"Source revision",employmentStatus:"departed"}}],"employment-change")));
+    assert.equal(operation(await service.commit(scope,actor,employmentChange.id)).status,"conflicted");
+    assert.equal((await db.query(`SELECT employment_status FROM hr_employee WHERE id=$1`,[employee.id]))[0].employment_status,"active");
+    // Same-package previews must converge even with independent request keys.
+    const previewPackage = pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:key("preview-race"),fields:{employeeCode:"PREVIEW-RACE",fullName:"Preview race",employmentStatus:"active"}}],"preview-race");
+    const previews = await Promise.all([service.preview(scope,actor,previewPackage),service.preview(scope,actor,previewPackage)]);
+    assert.equal(operation(previews[0]).id,operation(previews[1]).id);
+    assert.equal(Number((await db.query(`SELECT count(*)::int AS count FROM hr_incremental_import_operation WHERE manifest_id='preview-race'`))[0].count),1);
+    await service.commit(scope,actor,operation(previews[0]).id);
+    const emptySource=operation(await service.preview(scope,actor,pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:key("preview-race"),fields:{}}],"empty-source-fields")));
+    await service.commit(scope,actor,emptySource.id);
+    const afterEmpty=operation(await service.preview(scope,actor,pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:key("preview-race"),fields:{fullName:"After empty source"}}],"after-empty-source")));
+    assert.equal(operation(await service.commit(scope,actor,afterEmpty.id)).status,"committed");
+    // Identity clearing removes all protected projections; an unchanged repeat is a no-op.
+    const profileFields = {employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",personalMobile:"13800000000",idNumber:"TEST-IDENTITY"};
+    const setIdentity = operation(await service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:profileKey,fields:profileFields}],"identity-set")));
+    assert.equal(operation(await service.commit(scope,actor,setIdentity.id)).status,"committed");
+    const clearIdentityPackage = pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:profileKey,fields:{...profileFields,idNumber:null}}],"identity-clear");
+    const clearIdentity = operation(await service.preview(scope,actor,clearIdentityPackage));
+    assert.equal(operation(await service.commit(scope,actor,clearIdentity.id)).status,"committed");
+    const clearedIdentity = (await db.query(`SELECT id_number_encrypted,id_number_masked,id_number_fingerprint,version FROM hr_employee_profile WHERE employee_id=$1`,[employee.id]))[0];
+    assert.equal(clearedIdentity.id_number_encrypted,null); assert.equal(clearedIdentity.id_number_masked,null); assert.equal(clearedIdentity.id_number_fingerprint,null);
+    const clearedRepeat = operation(await service.preview(scope,actor,{...clearIdentityPackage,manifestId:"identity-clear-again"}));
+    assert.equal(operation(await service.commit(scope,actor,clearedRepeat.id)).unchangedCount,1);
+    assert.equal((await db.query(`SELECT version FROM hr_employee_profile WHERE employee_id=$1`,[employee.id]))[0].version,clearedIdentity.version);
+    // Relationship/type changes are explicit conflicts, never silently applied source receipts.
+    const profileRelation = pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:profileKey,fields:{...profileFields,idNumber:null,employeeSourceKey:key("different-employee")}}],"profile-relation");
+    const relationPreview = await service.preview(scope,actor,profileRelation);
+    assert.equal((relationPreview as {plan:Array<{action:string}>}).plan[0]!.action,"conflict");
+    assert.equal(operation(await service.commit(scope,actor,operation(relationPreview).id)).status,"conflicted");
+    const contractTypeChange = pkg([{domain:"contract",sourceTable:"dbo.contract",sourceKey:contractKey,fields:{...addition.items[2]!.fields,contractStatus:"expired",contractTypeId:"00000000-0000-4000-8000-000000000099"}}],"contract-type-change");
+    const changedType = operation(await service.preview(scope,actor,contractTypeChange));
+    assert.equal(operation(await service.commit(scope,actor,changedType.id)).status,"conflicted");
+    assert.equal((await db.query(`SELECT contract_type_id FROM hr_contract WHERE contract_no='INC-C-1'`))[0].contract_type_id,type.id);
+    // A source NULL clears a nullable draft field through the real versioned writer.
+    const nullKey = key("nullable-contract");
+    const nullFields = {...addition.items[2]!.fields,contractNo:"NULL-C",startDate:"2026-10-03",endDate:"2027-10-03"};
+    const nullInitial = operation(await service.preview(scope,actor,pkg([{domain:"contract",sourceTable:"dbo.compact",sourceKey:nullKey,fields:nullFields}],"null-initial")));
+    await service.commit(scope,actor,nullInitial.id);
+    const nullRevision = operation(await service.preview(scope,actor,pkg([{domain:"contract",sourceTable:"dbo.compact",sourceKey:nullKey,fields:{...nullFields,endDate:null}}],"null-revision")));
+    assert.equal(operation(await service.commit(scope,actor,nullRevision.id)).status,"committed");
+    assert.equal((await db.query(`SELECT end_date FROM hr_contract WHERE contract_no='NULL-C'`))[0].end_date,null);
+    // All writers serialize the employee anchor before testing active-contract absence.
+    const concurrentEmployee = await db.getRepository(HrEmployeeEntity).save({tenantId:scope.tenantId,parkId:scope.parkId,employeeCode:"ACTIVE-RACE-E",fullName:"Active race",employmentStatus:"active"});
+    const activeEmployeeKey=key("active-race-employee");
+    await db.query(`INSERT INTO migration_batch DEFAULT VALUES RETURNING id`).then(async rows=>db!.query(`INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status) VALUES($1,'yuzhou-v10','dbo.person',$2,$3,$4,'hr_employee',$5,'verified')`,[rows[0].id,activeEmployeeKey,activeEmployeeKey.slice(7),createHash("sha256").update("active-race").digest("hex"),concurrentEmployee.id]));
+    const activeOperations=await Promise.all([0,1].map(index=>service.preview(scope,actor,pkg([{domain:"contract",sourceTable:"dbo.compact",sourceKey:key(`active-race-${index}`),fields:{...addition.items[2]!.fields,employeeSourceKey:activeEmployeeKey,contractStatus:"active",contractNo:`ACTIVE-RACE-${index}`}}],`active-race-${index}`))));
+    const activeResults=await Promise.allSettled(activeOperations.map(row=>service.commit(scope,actor,operation(row).id)));
+    assert.equal(activeResults.filter(row=>row.status==="fulfilled").length,1);
+    const activeRejected=activeResults.find(row=>row.status==="rejected"); assert.ok(activeRejected?.status==="rejected" && activeRejected.reason instanceof ConflictException);
+    assert.equal(Number((await db.query(`SELECT count(*)::int AS count FROM hr_contract WHERE employee_id=$1 AND status='active'`,[concurrentEmployee.id]))[0].count),1);
+    for (const fields of [{hireDate:"2026-02-30"},{employmentType:"arbitrary"},{employmentStatus:null},{fullName:null},{workEmail:"invalid"}]) {
+      await assert.rejects(service.preview(scope,actor,pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:key("invalid-fields"),fields:{employeeCode:"INVALID",fullName:"Invalid",employmentStatus:"active",...fields}}],"invalid-fields")),error=>error instanceof Error && "getStatus" in error && (error as {getStatus:()=>number}).getStatus()===400);
+    }
     const forbiddenActor={sub:"00000000-0000-4000-8000-000000000011",permissions:[HR_PERMISSIONS.HR_EMPLOYEE_MANAGE]} as never; await assert.rejects(service.preview(scope,forbiddenActor,addition),/hr:employee_profile:manage/);
+    await assert.rejects(service.status(scope,forbiddenActor,preview.id),/hr:employee_profile:read/);
+    await assert.rejects(service.status({...scope,parkId:"other-park"},actor,preview.id),/not found/);
+    await assert.rejects(service.commit({...scope,tenantId:"other-tenant"},actor,preview.id),/not found/);
     const invalidContractKey=key("invalid contract"); const invalid=pkg([{domain:"contract",sourceTable:"dbo.contract",sourceKey:invalidContractKey,fields:{employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",contractTypeId:type.id,contractStatus:"draft",contractNo:"INC-C-invalid",startDate:"2026-10-10",endDate:"2026-10-09"}}],"invalid-contract-dates"); const invalidPreview=operation(await service.preview(scope,actor,invalid)); await assert.rejects(service.commit(scope,actor,invalidPreview.id),/Contract end date cannot precede/); assert.equal(Number((await db.query(`SELECT count(*)::int AS count FROM hr_contract WHERE contract_no='INC-C-invalid'`))[0].count),0);
   } finally { if (db?.isInitialized) await db.destroy(); await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.destroy(); }
 });

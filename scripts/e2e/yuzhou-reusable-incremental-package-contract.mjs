@@ -39,12 +39,13 @@ const result = buildYuzhouReusableIncrementalPackage(input);
 assert.deepEqual(input, before, "adapter must not mutate source extraction");
 assert.equal(result.packageDto.items.length, 1);
 const item = result.packageDto.items[0];
-assert.deepEqual(item.fields, { employeeSourceKey: `sha256:${sha("dbo.person\0E-001")}`, employeeSourceTable: "dbo.person", contractTypeId: "00000000-0000-5000-8000-000000000001", contractNo: "HT-2026-001", startDate: "2024-01-01", endDate: "2025-12-31", probationEndDate: "2024-03-31", contractStatus: "draft" });
+assert.deepEqual(item.fields, { employeeSourceKey: `sha256:${sha("dbo.person\0E-001")}`, employeeSourceTable: "dbo.person", contractTypeId: "00000000-0000-5000-8000-000000000001", contractNo: "HT-2026-001", startDate: "2024-01-01", endDate: "2025-12-31", probationEndDate: "2024-03-31", workType: null, positionTitle: null, contractStatus: "draft" });
 assert.equal(item.rowDigest, sha(JSON.stringify({ domain: "contract", fields: Object.fromEntries(Object.entries(item.fields).sort(([a], [b]) => a.localeCompare(b))), sourceKey: item.sourceKey, sourceTable: "dbo.compact", sourceUpdatedAt: null })));
 assert.equal(result.manifest.supportedDomains[0], "contract");
 assert.ok(result.coverage.pending.some(entry => entry.domain === "profile"));
 assert.equal(result.manifest.declarations[0].normalizedStatus, "draft");
 assert.equal(result.manifest.declarations[0].contractType.targetContractTypeId, item.fields.contractTypeId);
+assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "start_date" && entry.disposition === "carried"));
 assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "base_salary" && entry.disposition === "pending_api_adapter"));
 
 const reExtracted = structuredClone(input);
@@ -59,6 +60,8 @@ const unresolvedState = structuredClone(input); unresolvedState.contractStateRes
 assert.throws(() => buildYuzhouReusableIncrementalPackage(unresolvedState), /YUZHOU_REUSABLE_INCREMENTAL_STATE_UNRESOLVED/u);
 const empty = structuredClone(input); empty.records = [];
 assert.equal(buildYuzhouReusableIncrementalPackage(empty).packageDto, null);
+const clearedDate = structuredClone(input); clearedDate.records[0].source.endDate = null; clearedDate.records[0].sourceRowSha256 = sha(canonical(clearedDate.records[0].source));
+assert.equal(buildYuzhouReusableIncrementalPackage(clearedDate).packageDto.items[0].fields.endDate, null);
 const active = structuredClone(input); active.contractStateResolutions["正常"].normalizedStatus = "active";
 const activeResult = buildYuzhouReusableIncrementalPackage(active);
 assert.equal(activeResult.packageDto.items[0].fields.contractStatus, "active");
@@ -78,6 +81,9 @@ try {
   const cliOutput = join(root, "cli-output");
   const cli = JSON.parse(execFileSync(process.execPath, ["scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs", "--input", inputPath, "--output", cliOutput], { encoding: "utf8" }));
   assert.equal(cli.itemCount, 1);
+  const emptyPath = join(root, "empty.json"); writeFileSync(emptyPath, JSON.stringify(empty), {mode:0o600}); chmodSync(emptyPath,0o600);
+  const emptyCli = JSON.parse(execFileSync(process.execPath, ["scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs", "--input", emptyPath, "--output", join(root,"empty-output")], {encoding:"utf8"}));
+  assert.equal(emptyCli.itemCount,0); assert.equal(emptyCli.packagePath,null);
   assert.deepEqual(JSON.parse(readFileSync(join(cliOutput, "package.json"), "utf8")), result.packageDto);
 } finally { rmSync(root, { recursive: true, force: true }); }
 

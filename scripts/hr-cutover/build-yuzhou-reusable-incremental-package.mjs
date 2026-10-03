@@ -25,7 +25,7 @@ const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const privateDirectory = path => (statSync(path).mode & 0o777) === 0o700;
 
 export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
-  supported: [{ domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "only explicitly mapped draft source status" }],
+  supported: [{ domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "explicitly mapped draft, active, expired, terminated or cancelled source status" }],
   pending: [
     { domain: "employee", reason: "build-core-t0-machine-package only materializes the job-state dictionary and requires its DB digest probe; it does not expose authenticated dbo.person rows or the reviewed employee field projection needed by API employee items" },
     { domain: "profile", reason: "t5-nonfile-field-projection materializes protected profile values using its rehearsal key and has no row identity/hash envelope; API must receive raw protected fields for its own encryption, so its output cannot be replayed as an incremental DTO without a dedicated source-bound bridge" },
@@ -48,11 +48,14 @@ function recipeSha256() {
   // Bind the actual verified projector bytes, not merely a local field list.
   // An unchanged source can therefore reuse the recipe, while mapper drift is
   // visible before package construction rather than silently changing output.
-  return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, projectorSha256: sha256(readFileSync(fileURLToPath(new URL("./production-t2-field-projection.mjs", import.meta.url)))), fields: ["employeeSourceKey", "employeeSourceTable", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
+  const ruleFiles = ["production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json"];
+  const ruleHashes = Object.fromEntries(ruleFiles.map(path => [path, sha256(readFileSync(fileURLToPath(new URL(path, import.meta.url))))]));
+  return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, adapterSha256: sha256(readFileSync(fileURLToPath(import.meta.url))), ruleHashes, fields: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
 }
 export const YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 = recipeSha256();
 function verifyInput(input) {
   if (!plain(input) || input.recipeVersion !== RECIPE_VERSION || input.recipeSha256 !== YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 || input.sourceSystem !== SOURCE_SYSTEM || !Array.isArray(input.records) || !Array.isArray(input.employeeIndex) || !plain(input.contractStateResolutions) || !plain(input.contractTypeMappingArtifact)) fail("YUZHOU_REUSABLE_INCREMENTAL_INPUT_INVALID");
+  if (input.records.length > 2000) fail("YUZHOU_REUSABLE_INCREMENTAL_PACKAGE_TOO_LARGE");
   requireIso(input.extractedAt, "YUZHOU_REUSABLE_INCREMENTAL_EXTRACTED_AT_INVALID");
   const employees = new Map();
   for (const entry of input.employeeIndex) {
@@ -64,6 +67,7 @@ function verifyInput(input) {
   const states = new Map();
   for (const [legacyState, declaration] of Object.entries(input.contractStateResolutions)) {
     if (typeof legacyState !== "string" || !legacyState.trim() || !plain(declaration) || !["draft", "active", "expired", "terminated", "cancelled"].includes(declaration.normalizedStatus) || typeof declaration.mappingEvidence !== "string" || !declaration.mappingEvidence.trim()) fail("YUZHOU_REUSABLE_INCREMENTAL_STATE_RESOLUTION_INVALID");
+    if (states.has(legacyState.trim())) fail("YUZHOU_REUSABLE_INCREMENTAL_STATE_AMBIGUOUS");
     states.set(legacyState.trim(), Object.freeze({ normalizedStatus: declaration.normalizedStatus, mappingEvidence: declaration.mappingEvidence }));
   }
   const artifact = input.contractTypeMappingArtifact;
@@ -79,7 +83,7 @@ function verifyInput(input) {
   return { employees, states, types, typeArtifact: artifact };
 }
 function contractFieldCoverage(projectedFields) {
-  const apiFields = new Set(["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"]);
+  const apiFields = new Set(["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus", "contract_no", "start_date", "end_date", "probation_end_date", "work_type", "position_title", "status"]);
   return Object.entries(projectedFields).map(([field, value]) => ({ field, valuePresent: value !== null, disposition: apiFields.has(field) ? "carried" : "pending_api_adapter" }));
 }
 function itemForContract(row, employees, states, types) {
@@ -108,7 +112,6 @@ function itemForContract(row, employees, states, types) {
     positionTitle: f.position_title,
     contractStatus: status.normalizedStatus,
   };
-  for (const key of Object.keys(fields)) if (fields[key] === null) delete fields[key];
   const item = { domain: "contract", sourceTable: row.sourceTable, sourceKey: `sha256:${row.sourceIdentitySha256}`, rowDigest: "", fields };
   item.rowDigest = sha256(canonical({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, sourceUpdatedAt: null, fields: item.fields }));
   return { item, declaration: { ...declaration, disposition: "api_eligible" }, sourceEvidence };
@@ -132,7 +135,7 @@ export function buildYuzhouReusableIncrementalPackage(input) {
   const manifestId = `yuzhou-reusable-${sha256(canonical(manifestBinding))}`;
   const packageDto = items.length ? { version: 1, sourceSystem: SOURCE_SYSTEM, manifestId, extractedAt: input.extractedAt, items } : null;
   const coverage = { ...YUZHOU_REUSABLE_INCREMENTAL_COVERAGE, sourceFieldCoverage: sourceEvidence.map(value => ({ sourceIdentitySha256: value.sourceIdentitySha256, fieldCoverage: value.fieldCoverage })), pendingSourceRecords: declarations.filter(value => value.disposition !== "api_eligible").map(value => ({ sourceIdentitySha256: value.sourceIdentitySha256, disposition: value.disposition, reasonCode: value.reasonCode })) };
-  return { packageDto, manifest: { formatVersion: 1, artifactKind: "yuzhou_reusable_incremental_package", productionImport: "HOLD", ...manifestBinding, manifestId, packageSha256: packageDto ? sha256(canonical(packageDto)) : null, supportedDomains: items.length ? ["contract"] : [], itemCount: items.length, disposition: items.length ? "api_package_ready" : "pending_normal_contract_workflow" }, coverage };
+  return { packageDto, manifest: { formatVersion: 1, artifactKind: "yuzhou_reusable_incremental_package", productionImport: "HOLD", ...manifestBinding, manifestId, packageSha256: packageDto ? sha256(canonical(packageDto)) : null, supportedDomains: items.length ? ["contract"] : [], itemCount: items.length, disposition: items.length ? "api_package_ready" : "no_source_records" }, coverage };
 }
 
 export function materializeYuzhouReusableIncrementalPackage({ inputPath, outputDir }) {
@@ -144,7 +147,7 @@ export function materializeYuzhouReusableIncrementalPackage({ inputPath, outputD
   const result = buildYuzhouReusableIncrementalPackage(readJson(source, "YUZHOU_REUSABLE_INCREMENTAL_INPUT_INVALID"));
   const packagePath = result.packageDto ? `${destination}/package.json` : null, manifestPath = `${destination}/manifest.json`, coveragePath = `${destination}/coverage.json`;
   if (packagePath) writePrivate(packagePath, result.packageDto); writePrivate(manifestPath, result.manifest); writePrivate(coveragePath, result.coverage);
-  return { packagePath, manifestPath, coveragePath, manifestId: result.manifest.manifestId, itemCount: result.packageDto.items.length, productionImport: "HOLD" };
+  return { packagePath, manifestPath, coveragePath, manifestId: result.manifest.manifestId, itemCount: result.manifest.itemCount, productionImport: "HOLD" };
 }
 
 function parseArgs(argv) {

@@ -22,6 +22,6 @@ export class HrYuzhouIncrementalImportController {
   @AuditLog({ module: "人力资源管理", resource: "hr.incremental_import", action: "提交玉舟增量导入", bizType: "hr_incremental_import", bizIdParam: "id", captureBody: false })
   commit(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string) { return this.service.commit(scope, actor, id); }
 
-  @Get(":id") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ)
+  @Get(":id") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ, HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
   status(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string) { return this.service.status(scope, actor, id); }
 }

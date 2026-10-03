@@ -30,7 +30,7 @@ node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs \
 
 `contractTypeMappingArtifact` 是可复用的、不可变的来源类型映射 receipt。每条 binding 必须带 `dbo.compacttypecode` 的来源 key/identity、`sourcePkCanonical`、来源 code/name、同一 tenant/park 中已启用的 `hr_contract_type` UUID、`loaded|verified` 映射状态和原始映射 receipt 的 `mappingEvidenceSha256`。脚本验证整个 artifact 的 SHA-256；合同仅按唯一的已验证 `typeName` binding 取 `contractTypeId`，不能每批人工选择或按目标名称猜测。
 
-输出目录为 `0700`，其中 `package.json`、`manifest.json`、`coverage.json` 均为 `0600`。`package.json` 可直接作为 API preview DTO；API 接受审核状态映射中的 `draft|active|expired|terminated|cancelled`，并将原来源状态写入其导入事实/动作链。`manifest.json` 绑定配方、投影器文件 SHA-256、抽取时间、合同类型 receipt、来源身份、每行摘要、标准化状态声明与原始投影字段。相同来源行与不变配方会产生相同 item 及 row digest；新的抽取时间不会要求重跑历史 A/B。未知字段、篡改的行摘要、未决合同状态、缺失或重复的员工来源关系都会失败，不会静默遗漏。
+输出目录为 `0700`，其中 `package.json`、`manifest.json`、`coverage.json` 均为 `0600`。`package.json` 可直接作为 API preview DTO；API 接受审核状态映射中的 `draft|active|expired|terminated|cancelled`，并将原来源状态写入其导入事实/动作链。`manifest.json` 绑定配方、适配器及其投影/合同语义/目标字段模型规则文件 SHA-256、抽取时间、合同类型 receipt、来源身份、每行摘要、标准化状态声明与原始投影字段。相同来源行与不变配方会产生相同 item 及 row digest；新的抽取时间不会要求重跑历史 A/B。单包上限为 2000 条，超限必须拆分；空抽取只产生计数为零的 manifest/coverage，不生成 API package；显式空日期保留为 null，以便源端清空时参与字段基线比较。未知字段、篡改的行摘要、未决合同状态、缺失或重复的员工来源关系都会失败，不会静默遗漏。
 
 已映射为 `active`、`expired`、`terminated` 或 `cancelled` 的合同绝不会被改写成 draft；它们以同一审核状态进入 API 新增来源事实路径。对已存在的现代合同，状态变化仍须走 API 的冲突/正常变更流程。`coverage.json` 按来源行列出每个已投影字段是 carried 还是 `pending_api_adapter`，因此工资、年限、签署日期、协议标记、历史快照和证据等当前 API 未承接事实不会被当作已导入。
 
