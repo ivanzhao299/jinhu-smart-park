@@ -19,7 +19,7 @@ import { CanteenSettlementService } from "./canteen-settlement.service";
 export class CanteenSettlementController {
   constructor(private readonly svc: CanteenSettlementService) {}
 
-  @Post("generate")
+  @Post()
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(CANTEEN_PERMISSIONS.SETTLEMENT_GENERATE)
   generate(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() body: GenerateSettlementDto) {
