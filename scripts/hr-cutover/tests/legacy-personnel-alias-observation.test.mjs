@@ -5,16 +5,25 @@ import test from 'node:test';
 import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const zeroField = () => ({ targetNullSourceValid: 0, existingEqualPreserved: 0, existingDifferentPreserved: 0, whitespaceOnlySource: 0, missingOrInvalidSource: 0 });
-const result = (overrides = {}) => ({ operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
-  unmappedRecords: 0, otherOwnerStatusRecords: 0, duplicateSourceRows: 0, t0MappedRecords: 2, profileMatchedCount: 2,
-  duplicateProfiles: 0, ambiguousArchiveRegistryCount: 0, missingArchiveCount: 0, sourceSetSha256: 'a'.repeat(64),
-  fields: { nativePlace: { ...zeroField(), targetNullSourceValid: 2 }, degree: { ...zeroField(), missingOrInvalidSource: 2 } }, ...overrides,
-  profileGaps: { matched: overrides.profileMatchedCount ?? 2, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0,
-    targetMissing: 0, targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0,
-    ...overrides.profileGaps },
-  profileNonInsertSummary: { reasons: { identityAmbiguous: 0, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 0 },
-    employmentStatus: { departed: 0, nonDeparted: 0, unknown: 0 }, linkedAccountCount: 0, currentContractCandidateCount: 0,
-    ...overrides.profileNonInsertSummary } });
+const result = (overrides = {}) => {
+  const fields = overrides.fields ?? { nativePlace: { ...zeroField(), targetNullSourceValid: 2 }, degree: { ...zeroField(), missingOrInvalidSource: 2 } };
+  const profileMatchedCount = overrides.profileMatchedCount ?? 2;
+  const nativePlaceFills = fields.nativePlace.targetNullSourceValid;
+  const degreeFills = fields.degree.targetNullSourceValid;
+  return { operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
+    unmappedRecords: 0, otherOwnerStatusRecords: 0, duplicateSourceRows: 0, t0MappedRecords: 2, profileMatchedCount,
+    duplicateProfiles: 0, ambiguousArchiveRegistryCount: 0, missingArchiveCount: 0, sourceSetSha256: 'a'.repeat(64),
+    ...overrides, fields,
+    profileGaps: { matched: profileMatchedCount, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0,
+      targetMissing: 0, targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0,
+      ...overrides.profileGaps },
+    profileNonInsertSummary: { reasons: { identityAmbiguous: 0, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 0 },
+      employmentStatus: { departed: 0, nonDeparted: 0, unknown: 0 }, linkedAccountCount: 0, currentContractCandidateCount: 0,
+      ...overrides.profileNonInsertSummary },
+    correctionPlan: { sealVersion: 1, mappingVersion: 'yuzhou-personnel-alias-null-fill-v1', plannedProfiles: Math.max(nativePlaceFills, degreeFills),
+      nativePlaceFills, degreeFills, planSha256: 'b'.repeat(64), beforeSha256: 'c'.repeat(64), afterSha256: 'd'.repeat(64),
+      ...overrides.correctionPlan } };
+};
 const runnerFor = value => (...args) => {
   assert.equal(args[0], 'docker');
   assert.deepEqual(args[1].slice(0, 7), ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml','exec','-T']);
@@ -101,6 +110,61 @@ test('non-insert summary returns only fixed reason and current-impact aggregates
     fields: { nativePlace: zeroField(), degree: zeroField() } }))), /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
   assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileNonInsertSummary: { ...summary, linkedAccountCount: 3 } }))),
     /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+});
+
+test('correction plan exposes only stable seals and aggregate fill counts while staying HOLD', () => {
+  const raw = result();
+  const first = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(raw));
+  const second = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(raw));
+  assert.deepEqual(first.correctionPlan, second.correctionPlan);
+  assert.deepEqual(first.correctionPlan, { sealVersion: 1, mappingVersion: 'yuzhou-personnel-alias-null-fill-v1', plannedProfiles: 2,
+    nativePlaceFills: 2, degreeFills: 0, planSha256: 'b'.repeat(64), beforeSha256: 'c'.repeat(64), afterSha256: 'd'.repeat(64) });
+  assert.equal(first.correctionPlanStatus, 'MATCHED_SUBSET_FOR_REVIEW');
+  assert.equal(first.classification, 'OBSERVED_READY_FOR_REVIEW');
+  assert.equal(first.productionImport, 'HOLD');
+  assert.equal(first.authorizationGranted, false);
+  assert.equal(first.writerPresent, false);
+  assert.doesNotMatch(JSON.stringify(first.correctionPlan), /"(?:profileId|employeeId|sourceIdentitySha256|native_place|degree)"|籍贯|学位/);
+});
+
+test('correction plan fills only null fields and preserves a different modern value', () => {
+  const fields = { nativePlace: { ...zeroField(), existingDifferentPreserved: 1, missingOrInvalidSource: 1 },
+    degree: { ...zeroField(), targetNullSourceValid: 1, missingOrInvalidSource: 1 } };
+  const correctionPlan = { plannedProfiles: 1, nativePlaceFills: 0, degreeFills: 1 };
+  const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ fields, correctionPlan })));
+  assert.equal(observed.fields.nativePlace.existingDifferentPreserved, 1);
+  assert.equal(observed.correctionPlan.nativePlaceFills, 0);
+  assert.equal(observed.correctionPlan.degreeFills, 1);
+  assert.equal(observed.correctionPlan.plannedProfiles, 1);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ fields,
+    correctionPlan: { plannedProfiles: 1, nativePlaceFills: 1, degreeFills: 1 } }))), /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ correctionPlan: { planSha256: 'not-a-hash' } }))),
+    /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+});
+
+test('correction plan status is separate from NOT_READY and requires only proven identity-quarantine gaps', () => {
+  const profileGaps = { matched: 1, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 1, targetMissing: 0,
+    targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0 };
+  const fields = { nativePlace: { ...zeroField(), targetNullSourceValid: 1 }, degree: { ...zeroField(), missingOrInvalidSource: 1 } };
+  const profileNonInsertSummary = { reasons: { identityAmbiguous: 1, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 0 },
+    employmentStatus: { departed: 1, nonDeparted: 0, unknown: 0 }, linkedAccountCount: 0, currentContractCandidateCount: 0 };
+  const common = { operationCount: 1, sourceRecords: 3, receiptMatchedSourceRecords: 3, mappedRecords: 2, unmappedRecords: 1,
+    t0MappedRecords: 2, profileMatchedCount: 1, profileGaps, profileNonInsertSummary, fields,
+    correctionPlan: { plannedProfiles: 1, nativePlaceFills: 1, degreeFills: 0 } };
+  const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result(common)));
+  assert.equal(observed.classification, 'NOT_READY');
+  assert.equal(observed.correctionPlanStatus, 'MATCHED_SUBSET_FOR_REVIEW');
+  assert.equal(observed.productionImport, 'HOLD');
+  const unknownReason = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ ...common,
+    profileNonInsertSummary: { ...profileNonInsertSummary,
+      reasons: { identityAmbiguous: 0, sourceMaterializationQuarantined: 0, employeeNotMapped: 0, other: 1 } } })));
+  assert.equal(unknownReason.classification, 'NOT_READY');
+  assert.equal(unknownReason.correctionPlanStatus, 'NOT_READY');
+  const whitespace = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ ...common,
+    fields: { nativePlace: { ...zeroField(), whitespaceOnlySource: 1 }, degree: { ...zeroField(), targetNullSourceValid: 1 } },
+    correctionPlan: { plannedProfiles: 1, nativePlaceFills: 0, degreeFills: 1 } })));
+  assert.equal(whitespace.classification, 'NOT_READY');
+  assert.equal(whitespace.correctionPlanStatus, 'NOT_READY');
 });
 
 test('whitespace-only legacy values are surfaced and keep the observation NOT_READY', () => {
@@ -268,6 +332,11 @@ test('SQL statically binds source, T0 owner, archive, profile, and hash evidence
     "min(pr.reason_code) FILTER", "EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS", "SOURCE_MATERIALIZATION_QUARANTINED", "EMPLOYEE_NOT_MAPPED",
     "employment_status_bucket", "e.employment_status='departed'", "e.user_id IS NOT NULL", "profileNonInsertSummary",
     "CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'", "c.status='active'", "c.is_deleted",
+    "correction_rows", "correction_documents", "correction_seal", "archive_count=1",
+    "jsonb_build_object('native_place',c.native_place,'degree',c.degree) before_image",
+    "jsonb_agg(jsonb_build_object('binding',binding,'patch',patch)", "ORDER BY source_identity_sha256::text COLLATE \"C\",profile_id::text COLLATE \"C\"",
+    "digest(convert_to(jsonb_build_object('sealVersion',1,'mappingVersion','yuzhou-personnel-alias-null-fill-v1'",
+    "'planSha256'", "'beforeSha256'", "'afterSha256'", "'plannedProfiles'", "'nativePlaceFills'", "'degreeFills'",
     "reg.owner_employee_id=s.employee_id", "reg.owner_record_map_id=s.owner_record_map_id",
     "reg.owner_source_identity_sha256=m.source_identity_sha256",
     "count(DISTINCT reg.id) registry_count", "missingSourceReceiptCount",
@@ -277,6 +346,8 @@ test('SQL statically binds source, T0 owner, archive, profile, and hash evidence
     "'whitespaceOnlySource'", "oldaddr_json#>>'{}'<>''", "edulevel_json#>>'{}'<>''",
     "source_identity_sha256::text||':'||source_row_sha256::text", 'COLLATE "C"', "E'\\n'", 'ROLLBACK;',
   ]) assert.ok(sql.includes(fragment), `missing SQL contract fragment: ${fragment}`);
+  const correctionJson = sql.slice(sql.indexOf("'correctionPlan',json_build_object("), sql.indexOf("'sourceSetSha256'", sql.indexOf("'correctionPlan',json_build_object(")));
+  assert.doesNotMatch(correctionJson, /'(?:employeeId|profileId|sourceIdentitySha256|native_place|degree|patch|before_image|after_image)'/);
   assert.doesNotMatch(sql, /SELECT[^;]*encrypted_source/s);
   assert.doesNotMatch(sql, /SELECT\s+s\.\*/i);
   assert.doesNotMatch(sql, /ir\.source_identity_sha256=s\.source_identity_sha256/);

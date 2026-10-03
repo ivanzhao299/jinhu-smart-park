@@ -3,6 +3,8 @@ import process from 'node:process';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const CORRECTION_MAPPING_VERSION = 'yuzhou-personnel-alias-null-fill-v1';
+
 // Production observer only. The encrypted T5 source payload is intentionally never selected.
 export const personnelAliasSql = `BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout='5s';
@@ -169,8 +171,41 @@ WITH ops AS (
    CASE WHEN jsonb_typeof(edulevel_json)='string'
       AND edulevel_json#>>'{}'<>'' AND btrim(edulevel_json#>>'{}')<>'' AND char_length(edulevel_json#>>'{}')<=24 THEN edulevel_json#>>'{}' END edulevel,
    COALESCE(jsonb_typeof(oldaddr_json)='string' AND oldaddr_json#>>'{}'<>'' AND btrim(oldaddr_json#>>'{}')='',false) oldaddr_whitespace,
-   COALESCE(jsonb_typeof(edulevel_json)='string' AND edulevel_json#>>'{}'<>'' AND btrim(edulevel_json#>>'{}')='',false) edulevel_whitespace
+ COALESCE(jsonb_typeof(edulevel_json)='string' AND edulevel_json#>>'{}'<>'' AND btrim(edulevel_json#>>'{}')='',false) edulevel_whitespace
  FROM joined
+), correction_rows AS (
+ SELECT jsonb_build_object('tenantId',m.tenant_id,'parkId',m.park_id,'operationId',m.operation_id,
+     'parentOperationId',m.parent_operation_id,'ownerRecordMapId',m.owner_record_map_id,'employeeId',m.employee_id,
+     'sourceIdentitySha256',m.source_identity_sha256,'sourceRowSha256',m.source_row_sha256,'profileId',c.profile_id) binding,
+   jsonb_strip_nulls(jsonb_build_object('native_place',CASE WHEN c.native_place IS NULL THEN c.oldaddr END,
+     'degree',CASE WHEN c.degree IS NULL THEN c.edulevel END)) patch,
+   jsonb_build_object('native_place',c.native_place,'degree',c.degree) before_image,
+   jsonb_build_object('native_place',COALESCE(CASE WHEN c.native_place IS NULL THEN c.oldaddr END,c.native_place),
+     'degree',COALESCE(CASE WHEN c.degree IS NULL THEN c.edulevel END,c.degree)) after_image,
+   m.source_identity_sha256,c.profile_id,c.native_place IS NULL AND c.oldaddr IS NOT NULL native_place_fill,
+   c.degree IS NULL AND c.edulevel IS NOT NULL degree_fill
+ FROM classified c JOIN mapped_owner m ON m.id=c.source_id
+ WHERE c.archive_count=1 AND ((c.native_place IS NULL AND c.oldaddr IS NOT NULL)
+   OR (c.degree IS NULL AND c.edulevel IS NOT NULL))
+), correction_documents AS (
+ SELECT count(*) planned_profiles,count(*) FILTER (WHERE native_place_fill) native_place_fills,
+   count(*) FILTER (WHERE degree_fill) degree_fills,
+   jsonb_agg(jsonb_build_object('binding',binding,'patch',patch)
+     ORDER BY source_identity_sha256::text COLLATE "C",profile_id::text COLLATE "C") plan_rows,
+   jsonb_agg(jsonb_build_object('binding',binding,'before',before_image)
+     ORDER BY source_identity_sha256::text COLLATE "C",profile_id::text COLLATE "C") before_rows,
+   jsonb_agg(jsonb_build_object('binding',binding,'after',after_image)
+     ORDER BY source_identity_sha256::text COLLATE "C",profile_id::text COLLATE "C") after_rows
+ FROM correction_rows
+), correction_seal AS (
+ SELECT planned_profiles,native_place_fills,degree_fills,
+   encode(digest(convert_to(jsonb_build_object('sealVersion',1,'mappingVersion','${CORRECTION_MAPPING_VERSION}',
+     'rows',COALESCE(plan_rows,'[]'::jsonb))::text,'UTF8'),'sha256'),'hex') plan_sha256,
+   encode(digest(convert_to(jsonb_build_object('sealVersion',1,'mappingVersion','${CORRECTION_MAPPING_VERSION}',
+     'rows',COALESCE(before_rows,'[]'::jsonb))::text,'UTF8'),'sha256'),'hex') before_sha256,
+   encode(digest(convert_to(jsonb_build_object('sealVersion',1,'mappingVersion','${CORRECTION_MAPPING_VERSION}',
+     'rows',COALESCE(after_rows,'[]'::jsonb))::text,'UTF8'),'sha256'),'hex') after_sha256
+ FROM correction_documents
 ), hashed AS (
  SELECT encode(digest(COALESCE(string_agg(source_identity_sha256::text||':'||source_row_sha256::text,E'\\n'
    ORDER BY source_identity_sha256::text COLLATE "C",source_row_sha256::text COLLATE "C"),''),'sha256'),'hex') AS source_set_sha256
@@ -216,6 +251,14 @@ SELECT json_build_object(
      AND EXISTS (SELECT 1 FROM hr_contract c WHERE c.tenant_id=g.tenant_id AND c.park_id=g.park_id
        AND c.employee_id=g.employee_id AND NOT c.is_deleted AND c.status='active'
        AND (c.end_date IS NULL OR c.end_date>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai')::date)))),
+ 'correctionPlan',json_build_object(
+   'sealVersion',1,'mappingVersion','yuzhou-personnel-alias-null-fill-v1',
+   'plannedProfiles',(SELECT planned_profiles FROM correction_seal),
+   'nativePlaceFills',(SELECT native_place_fills FROM correction_seal),
+   'degreeFills',(SELECT degree_fills FROM correction_seal),
+   'planSha256',(SELECT plan_sha256 FROM correction_seal),
+   'beforeSha256',(SELECT before_sha256 FROM correction_seal),
+   'afterSha256',(SELECT after_sha256 FROM correction_seal)),
  'ambiguousArchiveRegistryCount',(SELECT count(DISTINCT source_id) FROM archive_values WHERE registry_count<>1 OR archive_count>1),
  'missingArchiveCount',(SELECT count(*) FROM mapped_owner m LEFT JOIN archive_values a ON a.source_id=m.id
    WHERE a.archive_count IS NULL OR a.archive_count<>1),
@@ -277,7 +320,7 @@ function safeProbeErrorCode(error) {
 
 function validateResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
-  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps','profileNonInsertSummary'].sort();
+  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps','profileNonInsertSummary','correctionPlan'].sort();
   if (Object.keys(value).sort().join('|') !== expected.join('|') || !countKeys.every(key => Number.isSafeInteger(value[key]) && value[key] >= 0)
     || typeof value.sourceSetSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(value.sourceSetSha256)
     || !value.profileGaps || typeof value.profileGaps !== 'object' || Array.isArray(value.profileGaps)
@@ -296,6 +339,15 @@ function validateResult(value) {
     || !Number.isSafeInteger(value.profileNonInsertSummary.linkedAccountCount) || value.profileNonInsertSummary.linkedAccountCount < 0
     || !Number.isSafeInteger(value.profileNonInsertSummary.currentContractCandidateCount)
     || value.profileNonInsertSummary.currentContractCandidateCount < 0
+    || !value.correctionPlan || typeof value.correctionPlan !== 'object' || Array.isArray(value.correctionPlan)
+    || Object.keys(value.correctionPlan).sort().join('|') !== 'afterSha256|beforeSha256|degreeFills|mappingVersion|nativePlaceFills|planSha256|plannedProfiles|sealVersion'
+    || value.correctionPlan.sealVersion !== 1 || value.correctionPlan.mappingVersion !== CORRECTION_MAPPING_VERSION
+    || !Number.isSafeInteger(value.correctionPlan.plannedProfiles) || value.correctionPlan.plannedProfiles < 0
+    || !Number.isSafeInteger(value.correctionPlan.nativePlaceFills) || value.correctionPlan.nativePlaceFills < 0
+    || !Number.isSafeInteger(value.correctionPlan.degreeFills) || value.correctionPlan.degreeFills < 0
+    || !/^[0-9a-f]{64}$/.test(value.correctionPlan.planSha256)
+    || !/^[0-9a-f]{64}$/.test(value.correctionPlan.beforeSha256)
+    || !/^[0-9a-f]{64}$/.test(value.correctionPlan.afterSha256)
     || !value.fields || typeof value.fields !== 'object' || Array.isArray(value.fields)
     || Object.keys(value.fields).sort().join('|') !== 'degree|nativePlace') throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   for (const field of Object.values(value.fields)) {
@@ -313,6 +365,11 @@ function validateResult(value) {
     || profileNonInsertStatusKeys.reduce((sum,key) => sum+value.profileNonInsertSummary.employmentStatus[key],0) !== value.profileGaps.receiptNotInserted
     || value.profileNonInsertSummary.linkedAccountCount > value.profileGaps.receiptNotInserted
     || value.profileNonInsertSummary.currentContractCandidateCount > value.profileGaps.receiptNotInserted
+    || value.correctionPlan.plannedProfiles > value.profileMatchedCount
+    || value.correctionPlan.nativePlaceFills > value.fields.nativePlace.targetNullSourceValid
+    || value.correctionPlan.degreeFills > value.fields.degree.targetNullSourceValid
+    || value.correctionPlan.plannedProfiles < Math.max(value.correctionPlan.nativePlaceFills,value.correctionPlan.degreeFills)
+    || value.correctionPlan.plannedProfiles > value.correctionPlan.nativePlaceFills+value.correctionPlan.degreeFills
     || Object.values(value.fields).some(field => fieldKeys.reduce((sum,key) => sum+field[key],0) !== value.profileMatchedCount)) {
     throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   }
@@ -381,6 +438,17 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
     if (error?.message === 'PERSONNEL_ALIAS_RESULT_INVALID') throw error;
     throw new Error(safeProbeErrorCode(error));
   }
+  const correctionPlanReady = value.sourceRecords > 0 && value.receiptMatchedSourceRecords === value.sourceRecords
+    && value.missingSourceReceiptCount === 0 && value.duplicateSourceRows === 0
+    && value.mappedRecords > 0 && value.t0MappedRecords === value.mappedRecords && value.otherOwnerStatusRecords === 0
+    && value.duplicateProfiles === 0 && value.ambiguousArchiveRegistryCount === 0 && value.missingArchiveCount === 0
+    && value.profileGaps.matched === value.profileMatchedCount
+    && profileGapKeys.filter(key => !['matched','receiptNotInserted'].includes(key)).every(key => value.profileGaps[key] === 0)
+    && Object.values(value.fields).every(field => field.whitespaceOnlySource === 0)
+    && value.profileNonInsertSummary.reasons.identityAmbiguous === value.profileGaps.receiptNotInserted
+    && value.profileNonInsertSummary.reasons.sourceMaterializationQuarantined === 0
+    && value.profileNonInsertSummary.reasons.employeeNotMapped === 0 && value.profileNonInsertSummary.reasons.other === 0
+    && value.correctionPlan.plannedProfiles > 0;
   const matchedSubsetReady = value.sourceRecords > 0 && value.mappedRecords > 0
     && value.t0MappedRecords === value.mappedRecords && value.profileMatchedCount === value.mappedRecords
     && value.missingSourceReceiptCount === 0 && value.duplicateSourceRows === 0
@@ -393,6 +461,7 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
     : matchedSubsetReady && value.unmappedRecords > 0 ? 'OBSERVED_MATCHED_SUBSET_FOR_REVIEW' : 'NOT_READY';
   return { kind: 'yuzhou_personnel_alias_observation', ...value,
     classification: value.sourceRecords === 0 ? 'NOT_READY' : classification,
+    correctionPlanStatus: correctionPlanReady ? 'MATCHED_SUBSET_FOR_REVIEW' : 'NOT_READY',
     productionImport: 'HOLD', authorizationGranted: false, writerPresent: false };
 }
 
