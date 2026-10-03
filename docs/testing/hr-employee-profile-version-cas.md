@@ -6,6 +6,10 @@
 
 前端从当前选中人员成功读取的档案携带版本。409后保留输入，禁止自动重试或覆盖，提示核对/复制编辑内容，再由用户明确选择“放弃本次编辑并重新加载”。版本缺失或读取失败不开放表单。普通submit事件用于保留失败时的非受控表单值，避免React form action完成后自动reset。
 
+静态权限契约同时要求保存入口保留精确的 `canManageProfile` 与 `profileReadReady` 条件；CAS 的 `profileSaving`、`profileConflict` 和选中员工绑定检查只能进一步收紧该入口，不能替代、移动或放宽现有维护权限和读取准入。
+
+PR805 的 Web 单元失败曾由旧正则只匹配无 CAS 状态的保存守卫引起，并非权限行为回归。`hr-employee-rbac-scope.contract.spec.ts` 现在同时断言 `profileSaving`、`profileConflict` 和选中员工绑定检查都与 `canManageProfile`、`profileReadReady` 位于同一拒绝守卫中；移除任一权限、读取或 CAS 收紧条件都会失败。聚焦契约 5/5 通过（`/tmp/hr-profile-cas-web-rbac-contract-r3.log`，0600，SHA-256 `d072cf7704277d495456fe8697bff35b33bab259c077fd45cbf3c53a1cfe71bd`）。整个 HR Web 单元集 174/174 通过（`/tmp/hr-profile-cas-web-unit-hr-r3.log`，0600，SHA-256 `c0efb4e692fa0d6c98a0c0477c78653d9f5bc6bed925e46831eb34fc5a0b7ed6`）。
+
 后端新增VersionColumn不存在的列或迁移均不需要；本次不改导入账本、历史源、权限或账号。未来生产补值内核必须自行递增version（直接SQL不会自动运行TypeORM版本逻辑），回退也不能降回旧版本。CAS只是补齐前提，不代表生产修正或真实A/B完成。
 
 发布须同时更新API与Web。旧客户端缺expectedVersion将被拒绝，需刷新获取新页面。不能先单独发布要求新字段的API再沿用旧Web。
