@@ -17,6 +17,7 @@ const runnerFor = value => (...args) => {
   assert.equal(args[2].timeout, 15000);
   assert.equal(args[2].cwd, '/srv/jinhu-prod');
   assert.match(args[2].input, /BEGIN TRANSACTION READ ONLY/);
+  assert.match(args[2].input, /SET LOCAL enable_nestloop=off/);
   return JSON.stringify(value);
 };
 const planValue = overrides => [{ 'Query Identifier': 123, Plan: {
@@ -34,6 +35,7 @@ const planRunner = value => (...args) => {
   assert.match(args[2].input, /^BEGIN TRANSACTION READ ONLY;/);
   assert.match(args[2].input, /SET LOCAL statement_timeout='5s'/);
   assert.match(args[2].input, /SET LOCAL lock_timeout='2s'/);
+  assert.match(args[2].input, /SET LOCAL enable_nestloop=off/);
   assert.match(args[2].input, /EXPLAIN \(FORMAT JSON\)/);
   assert.doesNotMatch(args[2].input, /\bANALYZE\b/i);
   const selected = personnelAliasSql.slice(personnelAliasSql.indexOf('WITH ops AS ('), personnelAliasSql.lastIndexOf('\nROLLBACK;'));
@@ -163,6 +165,10 @@ test('EXPLAIN plan is reconstructed from whitelisted structure and never reports
   assert.doesNotMatch(JSON.stringify(observed), /private|secret|sensitive|Relation Name|Filter|Output|Query Identifier|Timing/);
   assert.match(personnelAliasExplainSql, /BEGIN TRANSACTION READ ONLY;[\s\S]*EXPLAIN \(FORMAT JSON\)/);
   assert.doesNotMatch(personnelAliasExplainSql, /\bANALYZE\b/i);
+  const countQueryStart = personnelAliasSql.indexOf('WITH ops AS (');
+  const planQueryStart = personnelAliasExplainSql.indexOf('EXPLAIN (FORMAT JSON)');
+  assert.equal(personnelAliasExplainSql.slice(0, planQueryStart), personnelAliasSql.slice(0, countQueryStart),
+    'count and plan paths must share identical transaction-local planner settings');
 });
 
 test('EXPLAIN rejects unbounded, malformed, or unknown structural plans with a fixed error', () => {
@@ -209,7 +215,7 @@ test('strict output schema rejects extra keys, invalid types, and count drift', 
 test('SQL statically binds source, T0 owner, archive, profile, and hash evidence without reading ciphertext', () => {
   const sql = personnelAliasSql;
   for (const fragment of [
-    "SET LOCAL statement_timeout='5s'", "SET LOCAL lock_timeout='2s'", "'10000001'", "'20000001'",
+    "SET LOCAL statement_timeout='5s'", "SET LOCAL lock_timeout='2s'", "SET LOCAL enable_nestloop=off", "'10000001'", "'20000001'",
     "s.source_domain='person_core'", "s.source_table='dbo.person.core_residue'", "o.status='succeeded'", "parent.status='succeeded'",
     "follow_batch.status='succeeded'", "follow_batch.t5_followon_operation_id=o.operation_id",
     "parent.code_sha=o.binding->'triple'->>'codeSha'",

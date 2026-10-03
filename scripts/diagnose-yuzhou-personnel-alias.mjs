@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const personnelAliasSql = `BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout='5s';
 SET LOCAL lock_timeout='2s';
+SET LOCAL enable_nestloop=off;
 SET LOCAL search_path=public,pg_catalog;
 WITH ops AS (
  SELECT o.operation_id,o.parent_operation_id
@@ -175,6 +176,7 @@ if (selectStart < 0 || selectEnd <= selectStart) throw new Error('PERSONNEL_ALIA
 export const personnelAliasExplainSql = `BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout='5s';
 SET LOCAL lock_timeout='2s';
+SET LOCAL enable_nestloop=off;
 SET LOCAL search_path=public,pg_catalog;
 EXPLAIN (FORMAT JSON) ${personnelAliasSql.slice(selectStart, selectEnd)}
 ROLLBACK;`;

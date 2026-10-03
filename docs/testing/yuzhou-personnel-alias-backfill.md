@@ -16,6 +16,8 @@
 
 可选 `--explain <production-deploy-path>` 仅对同一精确 SELECT 请求 `EXPLAIN (FORMAT JSON)`，不使用 `ANALYZE`，仍在相同只读事务及超时内。该模式只重建固定 PostgreSQL 节点类型、节点序号/父节点、估算行数/宽度/成本、可选 Planning Time 和受限 JIT 开关/函数数；过滤器、输出别名、表/索引名、条件、SQL 文本及其他原始计划属性都会被丢弃。最多返回 2048 节点、64 层；未知节点或无效/超界计划失败关闭。结果使用独立 `kind`，并固定 `executedQuery: false`、`productionImport: HOLD`、`authorizationGranted: false`、`writerPresent: false`。工作流默认不请求计划，只有同时启用 `diagnose_personnel_alias` 且显式启用默认关闭的 `diagnose_personnel_alias_explain` 才加入固定 `--explain` 参数；非 true/false 值在 SSH 前拒绝。
 
+为减少重复的 nested-loop CTE joins，两个只读路径都在事务内使用 `SET LOCAL enable_nestloop=off`；影响仅限当前事务，不改全局配置、索引、谓词、receipt/hash 范围或超时。计划成本和节点形态只是估算，不能说明此前 timeout 原因，也不构成结果正确性证据。该优化仍属实验性；只有改变后的真实只读 count/hash 查询完成，并与保留的来源清单摘要及原始 count classification 对账通过，才能记录为已验证。未取得该证据前不得声称生产计数或优化效果已证明。
+
 观察范围固定为 tenant `10000001`、park `20000001`、T5 来源 `person_core` / `dbo.person.core_residue`。它要求唯一的已成功 T5 followon 与已成功、绑定范围一致的父 core operation；每个来源必须有同 operation、同 identity、同 row hash 的来源 receipt。映射人员还须由父 operation 的 T0 `hr_employee` insert record、成功 T0 migration batch、T0 projection receipt、活跃 `yuzhou-v10` / `dbo.person` `legacy_record_map` 和同范围未删除员工共同证明。这里的 T0 人员身份哈希属于 `dbo.person`，不等于 `person.core_residue` 的来源哈希；二者只通过存储的 `owner_record_map_id` / employee 关系绑定，不按姓名或人员编码猜测。T5 followon 自身也必须有成功 batch。
 
 现代档案只在同 operation 的 `hr_employee_profile` receipt 与档案行同时匹配员工、范围、`legacy_source_identity_sha256` 和 `legacy_source_row_sha256` 时计入；该员工在固定范围内必须恰有一条未删除档案。原始值只从同 operation identity registry 与 archive receipt 绑定的 `restricted_safe_projection.legacyFields.oldaddr/edulevel` 读取。观察器不选择、解密或输出 T5 来源密文，也不选择来源原始行、人员身份或任何字段值。字段结果仅是计数：现代列 SQL NULL 且来源为合法非空字符串、来源与现值相等、来源与现值不同、来源缺失/非法，以及单独标记的纯空白来源。纯空白不被 trim 后作为建议值，出现时观察分类保持 `NOT_READY`。
