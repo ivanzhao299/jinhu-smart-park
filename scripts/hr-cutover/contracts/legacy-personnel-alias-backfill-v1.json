@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_legacy_personnel_alias_fill_only_backfill",
+  "sourceSystem": "yuzhou-v10",
+  "productionImport": "HOLD",
+  "authorizationGranted": false,
+  "executionReachable": false,
+  "identityResolution": "stable_profile_employee_source_identity_exact",
+  "mappings": [
+    { "sourceField": "oldaddr", "targetField": "nativePlace", "targetColumn": "native_place", "sourceMaxLength": 50, "maxLength": 128 },
+    { "sourceField": "edulevel", "targetField": "degree", "targetColumn": "degree", "sourceMaxLength": 24, "maxLength": 64 }
+  ],
+  "sourceEvidence": {
+    "status": "HASH_BOUND_PROCEDURE_METADATA_AND_COLUMN_TYPES_VERIFIED",
+    "catalogSha256": "8e62d0308c14db70192f5b94f8cc775f2e87032d14f5cbeaee238d1d177f5014",
+    "procedures": {
+      "u_personinfo2003": "adf140a230a553b28eca6558dcd324e7ac84fa58f821be23dab75af59437017a",
+      "web_personinfo_SelectCommand": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868"
+    },
+    "custody": "metadata_only_not_live_source_custody"
+  },
+  "mutationPolicy": "private_fill_null_only_preserve_every_non_null_value",
+  "writer": "absent"
+}
