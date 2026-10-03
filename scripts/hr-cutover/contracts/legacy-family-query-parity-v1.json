@@ -27,7 +27,7 @@
     },
     "familyLoader": {
       "path": "scripts/load-yuzhou-t5-legacy-history.sh",
-      "sha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+      "sha256": "d7920be5d039ed5e5a311f789c6f5a6c4771c34ca12afa72d7d72dd33e590dc7"
     },
     "recordSchema": {
       "path": "database/migrations/000252_hr_lifecycle_employee_records.sql",
@@ -55,12 +55,12 @@
     },
     "modernPage": {
       "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
-      "sha256": "0694038de6eeacbeac29bb355757e2d27ceb166d51b76d643df5407e511ee422"
+      "sha256": "a9aa4e5e88c7d9ddcd908531b9ae95c6d3d0b68dd2fa0cc69e557d3f0b96a8c2"
     },
     "modernFamilyComponent": {"path": "apps/web/app/hr/employees/components/HrFamilyRecords.tsx", "sha256": "c8c11d6cd79b65e40e178c793638bcfb3be99a228e1357989e25751dbe1ee1ef"},
     "modernWebApi": {
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "e4e1beccfba340e04fb9c30b0cae27cd3aba15a39b888ae70cd06dfb809bb886"
+      "sha256": "2605696ecc0b0aa21b2f435b9f074eaa90b88ace89744ddfb5c6f33fde1561ad"
     },
     "syntheticFixture": {
       "path": "scripts/hr-cutover/contracts/legacy-family-query-parity-fixture-v1.json",
@@ -107,7 +107,7 @@
               "nullContract": "null_or_unmatched_source_person_returns_zero_rows_and_missing_or_out_of_scope_modern_employee_fails_closed"
             }
           ],
-          "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+          "evidenceSha256": "d7920be5d039ed5e5a311f789c6f5a6c4771c34ca12afa72d7d72dd33e590dc7"
         },
         "outputFieldMappings": {
           "applicability": "required",
@@ -184,7 +184,7 @@
           "sourceBoundary": "single_select_without_explicit_transaction",
           "modernBoundary": "one_scoped_employee_access_check_then_one_scoped_family_select",
           "rollbackBehavior": "read_has_no_business_state_to_roll_back_and_import_rejects_duplicate_source_identity",
-          "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+          "evidenceSha256": "d7920be5d039ed5e5a311f789c6f5a6c4771c34ca12afa72d7d72dd33e590dc7"
         },
         "nullSemantics": {
           "applicability": "required",
@@ -277,7 +277,7 @@
         "conservation": [
           {
             "testId": "family-query-row-conservation",
-            "evidenceSha256": "bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de"
+            "evidenceSha256": "d7920be5d039ed5e5a311f789c6f5a6c4771c34ca12afa72d7d72dd33e590dc7"
           }
         ]
       },
