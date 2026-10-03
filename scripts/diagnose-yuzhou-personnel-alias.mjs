@@ -120,6 +120,39 @@ WITH ops AS (
 ), exact_profiles AS (
  SELECT p.source_id,p.profile_id,p.native_place,p.degree,p.profile_cardinality,p.active_count
  FROM profiles p WHERE p.profile_cardinality=1 AND p.active_count=1
+), profile_receipt_summary AS (
+ SELECT s.id source_id,count(pr.target_table) receipt_count,
+   count(pr.target_table) FILTER (WHERE pr.source_row_sha256=s.source_row_sha256) matching_source_row_count,
+   count(pr.target_table) FILTER (WHERE pr.source_row_sha256=s.source_row_sha256 AND pr.disposition='insert') matching_insert_count,
+   min(pr.target_id::text)::uuid AS target_id
+ FROM mapped_owner s LEFT JOIN hr_yuzhou_t5_followon_projection_receipt pr
+   ON pr.operation_id=s.operation_id AND pr.target_table='hr_employee_profile'
+   AND pr.source_identity_sha256=s.source_identity_sha256
+ GROUP BY s.id,s.source_row_sha256
+), profile_gap_basis AS (
+ SELECT s.id source_id,s.source_row_sha256,s.source_identity_sha256,s.employee_id,s.tenant_id,s.park_id,
+   q.receipt_count,q.matching_source_row_count,q.matching_insert_count,p.id profile_id,p.tenant_id profile_tenant_id,
+   p.park_id profile_park_id,p.employee_id profile_employee_id,p.is_deleted,
+   p.legacy_source_identity_sha256 profile_source_identity_sha256,p.legacy_source_row_sha256 profile_source_row_sha256,
+   COALESCE(ap.active_count,0) active_count
+ FROM mapped_owner s JOIN profile_receipt_summary q ON q.source_id=s.id
+ LEFT JOIN hr_employee_profile p ON p.id=q.target_id AND q.receipt_count=1 AND q.matching_source_row_count=1 AND q.matching_insert_count=1
+ LEFT JOIN active_profile_counts ap ON ap.employee_id=s.employee_id
+), profile_gap_classified AS (
+ SELECT source_id,CASE
+   WHEN receipt_count=0 THEN 'receiptMissing'
+   WHEN receipt_count>1 THEN 'ambiguousActiveProfiles'
+   WHEN matching_source_row_count=0 THEN 'receiptSourceMismatch'
+   WHEN matching_insert_count=0 THEN 'receiptNotInserted'
+   WHEN profile_id IS NULL THEN 'targetMissing'
+   WHEN is_deleted THEN 'targetDeleted'
+   WHEN profile_tenant_id IS DISTINCT FROM tenant_id OR profile_park_id IS DISTINCT FROM park_id
+     OR profile_employee_id IS DISTINCT FROM employee_id THEN 'targetScopeOrOwnerMismatch'
+   WHEN profile_source_identity_sha256 IS DISTINCT FROM source_identity_sha256
+     OR profile_source_row_sha256 IS DISTINCT FROM source_row_sha256 THEN 'targetSourceMismatch'
+   WHEN active_count<>1 THEN 'ambiguousActiveProfiles'
+   ELSE 'matched' END AS category
+ FROM profile_gap_basis
 ), joined AS (
  SELECT p.source_id,p.profile_id,p.native_place,p.degree,p.profile_cardinality,p.active_count,
    a.oldaddr_json,a.edulevel_json,a.archive_count
@@ -147,9 +180,19 @@ SELECT json_build_object(
  'unmappedRecords',(SELECT count(*) FROM raw WHERE owner_status='unmapped'),
  'otherOwnerStatusRecords',(SELECT count(*) FROM raw WHERE owner_status NOT IN ('mapped','unmapped')),
  'duplicateSourceRows',(SELECT count(*) FROM raw WHERE source_cardinality<>1),
- 't0MappedRecords',(SELECT count(*) FROM mapped_owner),
- 'profileMatchedCount',(SELECT count(*) FROM exact_profiles),
+  't0MappedRecords',(SELECT count(*) FROM mapped_owner),
+  'profileMatchedCount',(SELECT count(*) FROM exact_profiles),
   'duplicateProfiles',(SELECT count(DISTINCT source_id) FROM profiles WHERE profile_cardinality<>1 OR active_count<>1),
+ 'profileGaps',json_build_object(
+   'matched',(SELECT count(*) FROM profile_gap_classified WHERE category='matched'),
+   'receiptMissing',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptMissing'),
+   'receiptSourceMismatch',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptSourceMismatch'),
+   'receiptNotInserted',(SELECT count(*) FROM profile_gap_classified WHERE category='receiptNotInserted'),
+   'targetMissing',(SELECT count(*) FROM profile_gap_classified WHERE category='targetMissing'),
+   'targetDeleted',(SELECT count(*) FROM profile_gap_classified WHERE category='targetDeleted'),
+   'targetScopeOrOwnerMismatch',(SELECT count(*) FROM profile_gap_classified WHERE category='targetScopeOrOwnerMismatch'),
+   'targetSourceMismatch',(SELECT count(*) FROM profile_gap_classified WHERE category='targetSourceMismatch'),
+   'ambiguousActiveProfiles',(SELECT count(*) FROM profile_gap_classified WHERE category='ambiguousActiveProfiles')),
  'ambiguousArchiveRegistryCount',(SELECT count(DISTINCT source_id) FROM archive_values WHERE registry_count<>1 OR archive_count>1),
  'missingArchiveCount',(SELECT count(*) FROM mapped_owner m LEFT JOIN archive_values a ON a.source_id=m.id
    WHERE a.archive_count IS NULL OR a.archive_count<>1),
@@ -184,6 +227,8 @@ ROLLBACK;`;
 const countKeys = ['operationCount','sourceRecords','receiptMatchedSourceRecords','missingSourceReceiptCount','mappedRecords','unmappedRecords',
   'otherOwnerStatusRecords','duplicateSourceRows','t0MappedRecords','profileMatchedCount','duplicateProfiles','ambiguousArchiveRegistryCount','missingArchiveCount'];
 const fieldKeys = ['targetNullSourceValid','existingEqualPreserved','existingDifferentPreserved','whitespaceOnlySource','missingOrInvalidSource'];
+const profileGapKeys = ['matched','receiptMissing','receiptSourceMismatch','receiptNotInserted','targetMissing','targetDeleted',
+  'targetScopeOrOwnerMismatch','targetSourceMismatch','ambiguousActiveProfiles'];
 const DB_SQLSTATE_ERRORS = new Map([
   ['57014','PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
   ['42P01','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
@@ -207,9 +252,12 @@ function safeProbeErrorCode(error) {
 
 function validateResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
-  const expected = [...countKeys,'sourceSetSha256','fields'].sort();
+  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps'].sort();
   if (Object.keys(value).sort().join('|') !== expected.join('|') || !countKeys.every(key => Number.isSafeInteger(value[key]) && value[key] >= 0)
     || typeof value.sourceSetSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(value.sourceSetSha256)
+    || !value.profileGaps || typeof value.profileGaps !== 'object' || Array.isArray(value.profileGaps)
+    || Object.keys(value.profileGaps).sort().join('|') !== [...profileGapKeys].sort().join('|')
+    || !profileGapKeys.every(key => Number.isSafeInteger(value.profileGaps[key]) && value.profileGaps[key] >= 0)
     || !value.fields || typeof value.fields !== 'object' || Array.isArray(value.fields)
     || Object.keys(value.fields).sort().join('|') !== 'degree|nativePlace') throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   for (const field of Object.values(value.fields)) {
@@ -221,6 +269,8 @@ function validateResult(value) {
     || value.missingSourceReceiptCount !== value.sourceRecords-value.receiptMatchedSourceRecords
     || value.mappedRecords + value.unmappedRecords + value.otherOwnerStatusRecords !== value.sourceRecords
     || value.t0MappedRecords > value.mappedRecords || value.profileMatchedCount > value.t0MappedRecords
+    || profileGapKeys.reduce((sum,key) => sum+value.profileGaps[key],0) !== value.t0MappedRecords
+    || value.profileGaps.matched !== value.profileMatchedCount
     || Object.values(value.fields).some(field => fieldKeys.reduce((sum,key) => sum+field[key],0) !== value.profileMatchedCount)) {
     throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   }

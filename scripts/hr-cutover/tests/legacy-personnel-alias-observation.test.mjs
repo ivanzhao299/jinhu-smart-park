@@ -5,10 +5,13 @@ import test from 'node:test';
 import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const zeroField = () => ({ targetNullSourceValid: 0, existingEqualPreserved: 0, existingDifferentPreserved: 0, whitespaceOnlySource: 0, missingOrInvalidSource: 0 });
-const result = overrides => ({ operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
+const result = (overrides = {}) => ({ operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
   unmappedRecords: 0, otherOwnerStatusRecords: 0, duplicateSourceRows: 0, t0MappedRecords: 2, profileMatchedCount: 2,
   duplicateProfiles: 0, ambiguousArchiveRegistryCount: 0, missingArchiveCount: 0, sourceSetSha256: 'a'.repeat(64),
-  fields: { nativePlace: { ...zeroField(), targetNullSourceValid: 2 }, degree: { ...zeroField(), missingOrInvalidSource: 2 } }, ...overrides });
+  fields: { nativePlace: { ...zeroField(), targetNullSourceValid: 2 }, degree: { ...zeroField(), missingOrInvalidSource: 2 } }, ...overrides,
+  profileGaps: { matched: overrides.profileMatchedCount ?? 2, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0,
+    targetMissing: 0, targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0,
+    ...overrides.profileGaps } });
 const runnerFor = value => (...args) => {
   assert.equal(args[0], 'docker');
   assert.deepEqual(args[1].slice(0, 7), ['compose','--env-file','.env.production','-f','infra/docker/docker-compose.prod.yml','exec','-T']);
@@ -62,6 +65,22 @@ test('empty source scope is NOT_READY and never a pass', () => {
   const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(empty));
   assert.equal(observed.classification, 'NOT_READY');
   assert.equal(observed.productionImport, 'HOLD');
+});
+
+test('profile gap categories are aggregate-only, disjoint, and conserve mapped owners', () => {
+  const gaps = { matched: 1, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0, targetMissing: 1,
+    targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0 };
+  const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileMatchedCount: 1, profileGaps: gaps,
+    fields: { nativePlace: { ...zeroField(), targetNullSourceValid: 1 }, degree: { ...zeroField(), missingOrInvalidSource: 1 } } })));
+  assert.deepEqual(observed.profileGaps, gaps);
+  assert.equal(observed.t0MappedRecords, 2);
+  assert.equal(observed.profileMatchedCount, 1);
+  assert.equal(observed.classification, 'NOT_READY');
+  assert.doesNotMatch(JSON.stringify(observed.profileGaps), /identity|employee|private|reason/i);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileGaps: { ...gaps, targetMissing: 0 } }))),
+    /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+  assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ profileGaps: { ...gaps, privateReason: 1 } }))),
+    /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
 });
 
 test('whitespace-only legacy values are surfaced and keep the observation NOT_READY', () => {
@@ -223,6 +242,9 @@ test('SQL statically binds source, T0 owner, archive, profile, and hash evidence
     'ir.source_identity_sha256=m.source_identity_sha256', 'ir.source_row_sha256=m.source_row_sha256',
     'm.id=s.owner_record_map_id', "batch.execution_context='production_import'", "batch.status='succeeded'",
     "count(*) OVER (PARTITION BY s.operation_id,s.source_table,s.source_identity_sha256)", "sr.target_id=s.id AND sr.disposition='insert'",
+    "profile_receipt_summary", "profile_gap_classified", "receiptMissing", "receiptSourceMismatch", "receiptNotInserted",
+    "targetMissing", "targetDeleted", "targetScopeOrOwnerMismatch", "targetSourceMismatch", "ambiguousActiveProfiles",
+    "profile_source_identity_sha256 IS DISTINCT FROM source_identity_sha256", "profile_source_row_sha256 IS DISTINCT FROM source_row_sha256",
     "reg.owner_employee_id=s.employee_id", "reg.owner_record_map_id=s.owner_record_map_id",
     "reg.owner_source_identity_sha256=m.source_identity_sha256",
     "count(DISTINCT reg.id) registry_count", "missingSourceReceiptCount",

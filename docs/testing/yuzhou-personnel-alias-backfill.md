@@ -22,6 +22,8 @@
 
 现代档案只在同 operation 的 `hr_employee_profile` receipt 与档案行同时匹配员工、范围、`legacy_source_identity_sha256` 和 `legacy_source_row_sha256` 时计入；该员工在固定范围内必须恰有一条未删除档案。原始值只从同 operation identity registry 与 archive receipt 绑定的 `restricted_safe_projection.legacyFields.oldaddr/edulevel` 读取。观察器不选择、解密或输出 T5 来源密文，也不选择来源原始行、人员身份或任何字段值。字段结果仅是计数：现代列 SQL NULL 且来源为合法非空字符串、来源与现值相等、来源与现值不同、来源缺失/非法，以及单独标记的纯空白来源。纯空白不被 trim 后作为建议值，出现时观察分类保持 `NOT_READY`。
 
+已接受的先前生产只读观察 `37110884376` 统计到 2,949 条来源且 receipt 全匹配，其中 2,938 条已映射并有 T0 证据，只有 2,859 条精确档案匹配；79 条映射人员的档案关联仍未解释，因此总体保持 `NOT_READY`。来源摘要与保留清单匹配，重复 profile 与缺失 archive 均为 0。该观察报告 2,454 个 native-place 与 68 个 degree 的空目标/有效来源计数组合；它们不是授权写入量或批准的修复记录。新的 `profileGaps` 只用于聚合解释这 79 条差额，并且其 `matched` 必须等于原 `profileMatchedCount`、所有类别合计必须等于 `t0MappedRecords`；它不会放宽原 readiness 条件。
+
 `sourceSetSha256` 对观察到的来源行（包括缺少 receipt 的行）按 identity 的 C 顺序生成 UTF-8 文本行 `identity:rowhash`，以 LF 连接且无末尾 LF 后计算 SHA-256；身份和值行都不会返回。该摘要只能与保留在受控本地的来源清单摘要对照，不能单独证明来源保管权、授权或可写入性。固定 schema、额外键、类型错误或数量不守恒会失败关闭；来源重复、缺少 receipt、owner 状态异常、重复 profile、archive/registry 歧义及缺失 archive 以聚合计数报告并使分类保持 `NOT_READY`。当全量 receipt 完整，而未映射历史记录仍存在时，所有已映射记录都通过唯一 T0 owner、profile 与 archive 绑定可标为 `OBSERVED_MATCHED_SUBSET_FOR_REVIEW`；未映射记录继续计数且不进入任何填充值建议。全量唯一映射才可标为 `OBSERVED_READY_FOR_REVIEW`。空范围分类为 `NOT_READY`。所有输出始终标记 `productionImport: HOLD`、`authorizationGranted: false`、`writerPresent: false`；没有写库路径。
 
 只运行不连接数据库的合约测试：
