@@ -81,6 +81,9 @@ test(
         name: "M34档口", outlet_type: "dine_in", contractor_id: `party-${suffix}`, location: "B1"
       });
       const category = await archive.createCategory(scope as never, actor, outlet.id, { name: "热菜" });
+      const dish = await archive.createDish(scope as never, actor, {
+        outlet_id: outlet.id, category_id: category.id, name: "报表套餐", price: 20
+      });
 
       // 直接造 2 笔已完成订单：一笔 qr 收 20，一笔补贴 15。
       await ds.query(
@@ -90,6 +93,23 @@ test(
          VALUES ($1,$2,$3,$4,$5,$6,'lunch',$7,'qr_pay','20.00','20.00','20.00','0.00','completed',now(),false),
                 ($1,$2,$8,$4,$5,$6,'lunch',$7,'subsidy','15.00','15.00','0.00','15.00','completed',now(),false)`,
         [tenantId, parkId, `CO${suffix}Q1`, outlet.id, outlet.contractorId, TODAY, actorId, `CO${suffix}S1`]
+      );
+      // 订单明细（供 dish-ranking 聚合）。
+      const qrOrderId = (await orderRepo.findOneByOrFail({ orderNo: `CO${suffix}Q1` })).id;
+      const subOrderId = (await orderRepo.findOneByOrFail({ orderNo: `CO${suffix}S1` })).id;
+      await ds.query(
+        `INSERT INTO biz_canteen_order_items
+          (tenant_id,park_id,order_id,dish_id,dish_name_snapshot,price_snapshot,qty,amount,is_deleted)
+         VALUES ($1,$2,$3,$4,'报表套餐','20.00',1,'20.00',false),
+                ($1,$2,$5,$4,'报表套餐','15.00',1,'15.00',false)`,
+        [tenantId, parkId, qrOrderId, dish.id, subOrderId]
+      );
+      // 造 1 笔发放 300（供 subsidy-usage 断言）。
+      await ds.query(
+        `INSERT INTO biz_canteen_subsidy_grants
+          (tenant_id,park_id,grant_no,employee_user_id,employee_no,period,plan_amount,granted_amount,status,is_deleted)
+         VALUES ($1,$2,$3,$4,$3,$5,300,300,'granted',false)`,
+        [tenantId, parkId, `SG${suffix}1`, randomUUID(), PERIOD]
       );
 
       // ===== M3: 结算生成幂等 + 聚合 =====
@@ -122,6 +142,23 @@ test(
       const sales = await reportSvc.sales(scope as never, { start_date: TODAY, end_date: TODAY, outlet_id: outlet.id });
       assert.equal(String(sales.order_count), "2");
       assert.equal(String(sales.qr_pay_total), "20.00");
+
+      // dish-ranking：首行金额>0（修复 i.subtotal→i.amount）
+      const ranking = await reportSvc.dishRanking(scope as never, { start_date: TODAY, end_date: TODAY, outlet_id: outlet.id });
+      assert.ok(Array.isArray(ranking) && ranking.length >= 1, "dish-ranking 有数据");
+      assert.ok(Number((ranking[0] as Record<string, unknown>).sales_amount) > 0, "首行销售额>0");
+
+      // subsidy-usage：发放合计 = 人数 × 300（修复 grants.amount→granted_amount）
+      const usage = await reportSvc.subsidyUsage(scope as never, PERIOD);
+      assert.equal(Number(usage.granted_total), 300, "发放合计=1人×300");
+      assert.equal(usage.grant_count, 1);
+      assert.ok("remaining_total" in usage, "输出剩余");
+
+      // daily / dashboard 不破坏
+      const daily = await reportSvc.daily(scope as never, { start_date: TODAY, end_date: TODAY, outlet_id: outlet.id });
+      assert.ok(Array.isArray(daily));
+      const dash = await reportSvc.dashboard(scope as never, { start_date: TODAY, end_date: TODAY, outlet_id: outlet.id });
+      assert.equal(String(dash.order_count), "2");
 
       // ===== M4: qr 原路退 =====
       const qrOrder = await orderRepo.findOneByOrFail({ orderNo: `CO${suffix}Q1` });

@@ -80,7 +80,7 @@ export class CanteenReportService {
     return this.itemRepo.query(
       `SELECT i.dish_id, d.name AS dish_name,
               SUM(i.qty)::int AS qty,
-              COALESCE(SUM(i.subtotal),0)::numeric AS sales_amount
+              COALESCE(SUM(i.amount),0)::numeric AS sales_amount
          FROM biz_canteen_order_items i
          JOIN biz_canteen_orders o ON o.id = i.order_id
          JOIN biz_canteen_dishes d ON d.id = i.dish_id
@@ -96,17 +96,38 @@ export class CanteenReportService {
   }
 
   async subsidyUsage(scope: TenantParkScope, period: string) {
-    const grants = await this.grantRepo.query(
+    // 发放：granted_amount；消费/过期：wallet_txns(type=consume/expire).amount 聚合（consume 为负，取绝对值）。
+    const grants = (await this.grantRepo.query(
       `SELECT period,
               COUNT(*)::int AS grant_count,
-              COALESCE(SUM(amount),0)::numeric AS granted_total,
-              COALESCE(SUM(consumed_amount),0)::numeric AS consumed_total
+              COALESCE(SUM(granted_amount),0)::numeric AS granted_total
          FROM biz_canteen_subsidy_grants
         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND period=$3
         GROUP BY period`,
       [scope.tenantId, scope.parkId, period]
-    );
-    return grants;
+    )) as Array<Record<string, string | number>>;
+
+    const txns = (await this.grantRepo.query(
+      `SELECT COALESCE(SUM(CASE WHEN type='consume' THEN ABS(amount) ELSE 0 END),0)::numeric AS used_total,
+              COALESCE(SUM(CASE WHEN type='expire' THEN ABS(amount) ELSE 0 END),0)::numeric AS expired_total
+         FROM biz_canteen_wallet_txns
+        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND period=$3`,
+      [scope.tenantId, scope.parkId, period]
+    )) as Array<Record<string, string>>;
+
+    const g = grants[0] ?? { period, grant_count: 0, granted_total: "0.00" };
+    const t = txns[0] ?? { used_total: "0.00", expired_total: "0.00" };
+    const granted = Number(g.granted_total) || 0;
+    const used = Number(t.used_total) || 0;
+    const expired = Number(t.expired_total) || 0;
+    return {
+      period,
+      grant_count: Number(g.grant_count) || 0,
+      granted_total: g.granted_total,
+      used_total: t.used_total,
+      expired_total: t.expired_total,
+      remaining_total: (granted - used - expired).toFixed(2)
+    };
   }
 
   async dashboard(scope: TenantParkScope, q: { start_date: string; end_date: string; outlet_id?: string }) {
