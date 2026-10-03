@@ -30,11 +30,31 @@ assert.match(
   "CI unit tests must use the verified Node 24 runtime",
 );
 const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
-assert.match(
-  apiPackage.scripts?.["test:unit"] || "",
-  /node --test --test-force-exit --test-reporter=dot --require ts-node\/register/,
-  "API unit tests must compact output and exit once all top-level tests finish",
-);
+function assertCompleteApiUnitRunner(command) {
+  assert.match(command, /^pnpm typecheck && TS_NODE_TRANSPILE_ONLY=true /,
+    "API unit tests must pass complete type checking before test-only transpilation");
+  assert.match(command, /find src -type f -name '\*\.spec\.ts' -exec node --test /,
+    "API unit tests must discover every existing spec");
+  for (const option of ["--test-timeout=120000", "--test-concurrency=2", "--test-reporter=spec"]) {
+    assert.ok(command.split(" ").includes(option), `API unit tests require ${option}`);
+  }
+  assert.match(command, /--require ts-node\/register \{\} \+$/,
+    "API unit failures must propagate without a success fallback");
+  assert.doesNotMatch(command, /--test-force-exit|--test-only|--test-name-pattern|--test-skip-pattern|--test-shard|--test-reporter-destination/,
+    "API unit tests must retain complete normal-exit results without filtering");
+}
+const apiUnitRunner = apiPackage.scripts?.["test:unit"] || "";
+assertCompleteApiUnitRunner(apiUnitRunner);
+for (const weakened of [
+  apiUnitRunner.replace("pnpm typecheck && ", ""),
+  apiUnitRunner.replace("'*.spec.ts'", "'fixed.spec.ts'"),
+  apiUnitRunner.replace("--test-timeout=120000", ""),
+  apiUnitRunner.replace("--test-concurrency=2", "--test-concurrency=0"),
+  apiUnitRunner.replace("--test-reporter=spec", "--test-reporter=dot"),
+  apiUnitRunner.replace("node --test ", "node --test --test-force-exit "),
+  apiUnitRunner.replace("--test-reporter=spec", "--test-reporter=spec --test-reporter-destination=/dev/null"),
+  `${apiUnitRunner} || true`,
+]) assert.throws(() => assertCompleteApiUnitRunner(weakened));
 assert.match(source, /^\s{4}environment:\s*production\s*$/m);
 assert.match(source, /secrets\.PROD_DEPLOY_PATH/);
 assert.match(source, /https:\/\/park\.cnjinhu\.com\/api\/v1/);

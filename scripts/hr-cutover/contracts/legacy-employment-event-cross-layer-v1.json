@@ -10,7 +10,7 @@
     "detailRoute": "/hr/employees"
   },
   "sourceBindings": {
-    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "e0a70cb3779dd7a9cc88b5411642a295c34bf4c321f10ce69c2d580be489f58c" },
+    "sourceManifest": { "path": "scripts/hr-cutover/contracts/legacy-frozen-compatibility-migration-manifest-v1.json", "sha256": "ab6c57848645a59acf740e2800de79fae7d52fcfa3c395b7522a0da2df50ef41" },
     "sourceTableMap": { "path": "scripts/hr-cutover/contracts/legacy-modern-table-domain-map-v1.json", "sha256": "0120f13fae3d8c260f493c182370b4aaa5b88867772443b612eb10abb1446f2f" },
     "sourceReviewedMapping": { "path": "scripts/hr-cutover/contracts/legacy-core-domain-reviewed-mapping-v1.json", "sha256": "a6531c98df2dce0138d0d1663267cfc8735c861252f125f156925c5f78d667ea" },
     "sourceTransform": { "path": "scripts/transform-yuzhou-t1-employment-events.mjs", "sha256": "41e7e16babb505174acb3eea85a6a660873f9fb36ba99a1a3baec1518e426299" },
@@ -26,7 +26,7 @@
     "lifecycleRoute": { "path": "apps/web/app/hr/lifecycle/page.tsx", "sha256": "cc2e4f63bf4b64e01dd384792b114565ca10ee2acf86e0cf130782ca4b0ee0d6" },
     "lifecycleClient": { "path": "apps/web/app/hr/lifecycle/HrLifecycleClient.tsx", "sha256": "c847fd938e6b1f4b8ba15cf06acded6e9db2a4af28b007d4a60de636d439cfc6" },
     "employeeRoute": { "path": "apps/web/app/hr/employees/page.tsx", "sha256": "b86fcaa84a73e6de9cf68ee17889226cbef2e69843e4bb73ee2742a9de77f552" },
-    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "a9aa4e5e88c7d9ddcd908531b9ae95c6d3d0b68dd2fa0cc69e557d3f0b96a8c2" },
+    "employeeClient": { "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx", "sha256": "6491104f46a30876aab4f51acb2f0b307d0cf3dda71f7b70b69ee60b1e789430" },
     "hrPermissions": { "path": "packages/shared/src/hr.ts", "sha256": "a0942c8e6d7b4c948f91d110d8a8a1e8c6946c45f6ee5c5e2ad2da4b9072e09a" }
   },
   "requiredStaticLayers": [
