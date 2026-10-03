@@ -1284,7 +1284,7 @@
     {
       "role": "runtime_api",
       "path": "apps/api/src/modules/hr/hr.service.ts",
-      "sha256": "b257a9c1a3c441377ec63bc164875f572458a64c4eed6405274199067af133ee",
+      "sha256": "f112a604f05517ed78d560057bbec4c281db6305ce88c58183c15bafc1b2149e",
       "requiredTokens": [
         "listInsurancePeriods",
         "insurancePeriodDetail",

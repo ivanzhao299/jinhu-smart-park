@@ -16,6 +16,7 @@ import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,
 import { approvedLeaveMinutesForWorkDate,projectLeaveRoutineImpact } from "./hr-leave-routine-equivalence";
 import { historicalContractPredecessors } from "./hr-contract-successor";
 import { projectHistoricalContractTerms } from "./hr-contract-original-terms";
+import { nextContractSegmentTerm,readModernContractChangeFacts,validateModernContractChangeFacts,type ModernContractChangeFacts } from "./hr-contract-change-facts";
 
 function projectHrPosition(row:HrPositionEntity){return {id:row.id,orgId:row.orgId,positionCode:row.positionCode,positionName:row.positionName,reportsToPositionId:row.reportsToPositionId,jobFamily:row.jobFamily,jobLevel:row.jobLevel,headcountLimit:row.headcountLimit,hierarchyLevel:row.hierarchyLevel,sortOrder:row.sortOrder,authority:row.authority,qualification:row.qualification,responsibilities:row.responsibilities,positionManual:row.positionManual,status:row.status,remark:row.remark};}
 export function projectHrEmploymentEvent(row:HrEmploymentEventEntity):HrEmploymentEventResponseDto {
@@ -382,9 +383,9 @@ export class HrService {
   if(predecessors===null)throw new ConflictException("Employee already has an active or draft contract");
   return predecessors;
  }
- private async appendContractAction(manager:import("typeorm").EntityManager,scope:TenantParkScope,contract:HrContractEntity,actorId:string,action:string,fromStatus:string|null,changeId:string|null=null){
+ private async appendContractAction(manager:import("typeorm").EntityManager,scope:TenantParkScope,contract:HrContractEntity,actorId:string,action:string,fromStatus:string|null,changeId:string|null=null,changeFacts?:ModernContractChangeFacts){
   const repo=manager.getRepository(HrContractActionEntity),latest=await repo.findOne({where:{...scope,contractId:contract.id},order:{sequenceNo:"DESC"}});
-  await repo.save(repo.create({...scope,contractId:contract.id,changeId,sequenceNo:(latest?.sequenceNo??0)+1,action,fromStatus,toStatus:contract.status,snapshot:{confidentialityAgreement:contract.confidentialityAgreement,nonCompeteAgreement:contract.nonCompeteAgreement,trainingServiceAgreement:contract.trainingServiceAgreement,historicalPredecessorContractIds:contract.sourceSnapshot.historicalPredecessorContractIds??[],contractNo:contract.contractNo,employeeId:contract.employeeId,contractTypeId:contract.contractTypeId,startDate:contract.startDate,endDate:contract.endDate,probationEndDate:contract.probationEndDate,contractTermMonths:contract.contractTermMonths,signatureDate:contract.signatureDate,effectiveDate:contract.effectiveDate,positionTitle:contract.positionTitle,workType:contract.workType,departmentNameSnapshot:contract.departmentNameSnapshot},actorUserId:actorId,occurredAt:new Date(),createBy:actorId,updateBy:actorId}));
+  await repo.save(repo.create({...scope,contractId:contract.id,changeId,sequenceNo:(latest?.sequenceNo??0)+1,action,fromStatus,toStatus:contract.status,snapshot:{...(changeFacts?{changeFacts}:{}),confidentialityAgreement:contract.confidentialityAgreement,nonCompeteAgreement:contract.nonCompeteAgreement,trainingServiceAgreement:contract.trainingServiceAgreement,historicalPredecessorContractIds:contract.sourceSnapshot.historicalPredecessorContractIds??[],contractNo:contract.contractNo,employeeId:contract.employeeId,contractTypeId:contract.contractTypeId,startDate:contract.startDate,endDate:contract.endDate,probationEndDate:contract.probationEndDate,contractTermMonths:contract.contractTermMonths,cumulativeTermMonths:contract.cumulativeTermMonths,renewalCount:contract.renewalCount,signatureDate:contract.signatureDate,effectiveDate:contract.effectiveDate,positionTitle:contract.positionTitle,workType:contract.workType,departmentNameSnapshot:contract.departmentNameSnapshot},actorUserId:actorId,occurredAt:new Date(),createBy:actorId,updateBy:actorId}));
  }
  async createContract(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrContractDto){
   this.validateContractDto(actor,dto);
@@ -449,8 +450,10 @@ export class HrService {
    if(dto.changeType!=="termination")await this.contractSuccessorPredecessors(manager,scope,contract.employeeId,dto.newStartDate,id);
    if(await changeRepo.exists({where:{...scope,contractId:id,status:"draft",isDeleted:false}}))throw new ConflictException("Contract already has a pending change draft");
    const latest=await changeRepo.findOne({where:{...scope,contractId:id,isDeleted:false},order:{sequenceNo:"DESC"}});
-   const row=await changeRepo.save(changeRepo.create({...scope,contractId:id,sequenceNo:(latest?.sequenceNo??0)+1,changeType:dto.changeType,previousStartDate:contract.startDate,previousEndDate:contract.endDate,newStartDate:dto.newStartDate,newEndDate:dto.newEndDate??null,signedAt:null,status:"draft",isHistoricalImport:false,sourceSnapshot:{},remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
-   await this.appendContractAction(manager,scope,contract,actor.sub,"change_created",contract.status,row.id);return this.projectContractChange(row);
+   if(dto.changeType==="termination"&&dto.contractTermMonths!==undefined)throw new BadRequestException("Termination cannot set a new contract term");
+   const changeFacts=validateModernContractChangeFacts(dto);
+   const row=await changeRepo.save(changeRepo.create({...scope,contractId:id,sequenceNo:(latest?.sequenceNo??0)+1,changeType:dto.changeType,previousStartDate:contract.startDate,previousEndDate:contract.endDate,newStartDate:dto.newStartDate,newEndDate:dto.newEndDate??null,signedAt:null,status:"draft",isHistoricalImport:false,sourceSnapshot:{modernContractFacts:{version:1,...changeFacts}},remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
+   await this.appendContractAction(manager,scope,contract,actor.sub,"change_created",contract.status,row.id,changeFacts);return this.projectContractChange(row);
   });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract already has a pending change draft");throw error;}
  }
  async actContractChange(scope:TenantParkScope,actor:JwtPrincipal,contractId:string,changeId:string,dto:HrContractChangeActionDto){return this.dataSource.transaction(async manager=>{
@@ -463,15 +466,16 @@ export class HrService {
   if(change.isHistoricalImport)throw new ConflictException("Historical imported contract changes are immutable");
   if(change.status!=="draft")throw new ConflictException("Only a draft contract change can be applied or cancelled");
   const contractStatusBefore=contract.status;
+  const changeFacts=readModernContractChangeFacts(change.sourceSnapshot);
   if(dto.action==="apply"){
    if(contract.status!=="active")throw new ConflictException("Only an active online contract can apply a change");
    const employee=await manager.getRepository(HrEmployeeEntity).findOne({where:{id:contract.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!employee)throw new ConflictException("Contract references are unavailable");
    if(change.changeType!=="termination"){const predecessors=await this.contractSuccessorPredecessors(manager,scope,contract.employeeId,change.newStartDate,contractId);contract.sourceSnapshot={...contract.sourceSnapshot,historicalPredecessorContractIds:predecessors};}
-   if(change.changeType==="termination"){contract.endDate=change.newEndDate;contract.status="terminated";}else{contract.startDate=change.newStartDate;contract.endDate=change.newEndDate;if(change.changeType==="renewal"){const count=await changeRepo.count({where:{...scope,contractId,status:"effective",changeType:"renewal",isDeleted:false}});contract.renewalCount=count+1;}}
-   contract.updateBy=actor.sub;await contractRepo.save(contract);await this.cancelContractReminders(manager,scope,contractId,actor.sub,change.changeType==="termination"?"CONTRACT_TERMINATED":"CONTRACT_RENEWED");change.status="effective";change.signedAt=new Date();
+   if(change.changeType==="termination"){contract.endDate=change.newEndDate;contract.status="terminated";}else{contract.contractTermMonths=nextContractSegmentTerm(contract,change,changeFacts);if(change.changeType==="renewal"){contract.signatureDate=changeFacts.signatureDate??null;contract.cumulativeTermMonths=null;}contract.startDate=change.newStartDate;contract.endDate=change.newEndDate;if(change.changeType==="renewal"){const count=await changeRepo.count({where:{...scope,contractId,status:"effective",changeType:"renewal",isDeleted:false}});contract.renewalCount=count+1;}}
+   contract.updateBy=actor.sub;await contractRepo.save(contract);await this.cancelContractReminders(manager,scope,contractId,actor.sub,change.changeType==="termination"?"CONTRACT_TERMINATED":"CONTRACT_RENEWED");change.status="effective";change.signedAt=null;
   }else change.status="cancelled";
-  change.updateBy=actor.sub;const saved=await changeRepo.save(change);await this.appendContractAction(manager,scope,contract,actor.sub,dto.action==="apply"?"change_applied":"change_cancelled",contractStatusBefore,saved.id);return this.projectContractChange(saved);
+  change.updateBy=actor.sub;const saved=await changeRepo.save(change);await this.appendContractAction(manager,scope,contract,actor.sub,dto.action==="apply"?"change_applied":"change_cancelled",contractStatusBefore,saved.id,changeFacts);return this.projectContractChange(saved);
  });}
  async listMyContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
   const employee=await this.myEmployee(scope,actor);
@@ -491,7 +495,7 @@ export class HrService {
   ]);
   if(!employee||!type)throw new NotFoundException("Contract not found");
   const access=resolveHrContractAccessScope(actor),canReadSalary=access.park&&this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ),main=this.projectContract(row,employee,type,canReadSalary);
-  const result={...(access.self&&!access.park&&!access.managedOrgTree?this.projectSelfContract(main):main),changes:changes.map(change=>this.projectContractChange(change)),actions:actions.map(action=>({id:action.id,sequenceNo:action.sequenceNo,action:action.action,fromStatus:action.fromStatus,toStatus:action.toStatus,occurredAt:action.occurredAt.toISOString()}))};
+  const result={...(access.self&&!access.park&&!access.managedOrgTree?this.projectSelfContract(main):main),changes:changes.map(change=>this.projectContractChange(change,access.park||access.managedOrgTree)),actions:actions.map(action=>({id:action.id,sequenceNo:action.sequenceNo,action:action.action,fromStatus:action.fromStatus,toStatus:action.toStatus,occurredAt:action.occurredAt.toISOString()}))};
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.contract",action:"读取劳动合同详情",bizType:"hr_contract",bizId:id,path:"/hr/contracts/:id",fieldGroups:canReadSalary?["employment_contract","financial","compensation"]:["employment_contract"],projection:access.park?"park":access.managedOrgTree?"team":"self",itemCount:1});
   return result;
  }
@@ -523,7 +527,7 @@ export class HrService {
   return [...new Set(ids)];
  }
  private projectContract(row:HrContractEntity,employee:HrEmployeeEntity,type:HrContractTypeEntity,includeSalary=false){return {...projectHistoricalContractTerms(row.isHistoricalImport,row.sourceSnapshot),confidentialityAgreement:row.confidentialityAgreement,nonCompeteAgreement:row.nonCompeteAgreement,trainingServiceAgreement:row.trainingServiceAgreement,id:row.id,employeeId:row.employeeId,employeeCode:employee.employeeCode,employeeName:employee.fullName,contractNo:row.contractNo,contractTypeId:row.contractTypeId,contractTypeName:type.typeName,startDate:row.startDate,endDate:row.endDate,probationEndDate:row.probationEndDate,contractTermMonths:row.contractTermMonths,cumulativeTermMonths:row.cumulativeTermMonths,firstSignatureDate:row.firstSignatureDate,lastSignatureDate:row.lastSignatureDate,renewalCount:row.renewalCount,signatureDate:row.signatureDate,effectiveDate:row.effectiveDate,positionTitle:row.positionTitle,workType:row.workType,departmentNameSnapshot:row.departmentNameSnapshot,probationMonths:row.probationMonths,...(includeSalary?{probationSalary:row.probationSalary,baseSalary:row.baseSalary}:{}),remark:row.remark,status:row.status,isHistoricalImport:row.isHistoricalImport};}
- private projectContractChange(row:HrContractChangeEntity){return {id:row.id,sequenceNo:row.sequenceNo,changeType:row.changeType,previousStartDate:row.previousStartDate,previousEndDate:row.previousEndDate,newStartDate:row.newStartDate,newEndDate:row.newEndDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
+ private projectContractChange(row:HrContractChangeEntity,includeFacts=true){return {...(!row.isHistoricalImport&&includeFacts?readModernContractChangeFacts(row.sourceSnapshot):{}),id:row.id,sequenceNo:row.sequenceNo,changeType:row.changeType,previousStartDate:row.previousStartDate,previousEndDate:row.previousEndDate,newStartDate:row.newStartDate,newEndDate:row.newEndDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
  private projectSelfContract(row:ReturnType<HrService["projectContractRaw"]>|ReturnType<HrService["projectContract"]>){return {id:row.id,contractNo:row.contractNo,contractTypeName:row.contractTypeName,startDate:row.startDate,endDate:row.endDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
  private projectContractRaw(row:Record<string,unknown>){return {id:String(row.id),employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name),contractNo:String(row.contract_no),contractTypeId:String(row.contract_type_id),contractTypeName:String(row.contract_type_name),startDate:row.start_date===null?null:String(row.start_date),endDate:row.end_date===null?null:String(row.end_date),probationEndDate:row.probation_end_date===null?null:String(row.probation_end_date),status:String(row.status),isHistoricalImport:Boolean(row.is_historical_import)};}
 

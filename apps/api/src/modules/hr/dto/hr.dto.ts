@@ -99,6 +99,8 @@ export class CreateHrContractChangeDto {
  @IsIn(["renewal","amendment","termination","correction"]) changeType!:string;
  @IsDateString() newStartDate!:string;
  @IsOptional() @IsDateString() newEndDate?:string;
+ @ValidateIf((_object,value)=>value!==undefined) @IsInt() @Min(0) @Max(1200) contractTermMonths?:number;
+ @ValidateIf((_object,value)=>value!==undefined) @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString({strict:true}) signatureDate?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
 export class HrContractActionDto { @IsIn(["activate","cancel"]) action!:string; }

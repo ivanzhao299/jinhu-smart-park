@@ -114,7 +114,7 @@
     {
       "surface": "api_dto",
       "path": "apps/api/src/modules/hr/dto/hr.dto.ts",
-      "sha256": "d416f77980de6a894535e6f6976411ef88aba906cfda1bcfd8d16e7df9f3be19",
+      "sha256": "5c8920e7d39b20deee17cdadfdf11b3f3870bcfc160f087b0936ddcc1200aa9a",
       "requiredTokens": [
         "highestEducation?:string"
       ]
@@ -140,7 +140,7 @@
     {
       "surface": "web_api",
       "path": "apps/web/lib/hr-api.ts",
-      "sha256": "519cc7838162a20af0e70dea9553ba085b88fa9afbbb2ea0461e104b6ea5d785",
+      "sha256": "f6c21826a38cd467ca29242987816d56137021429cb150c14e09f02d14aaddca",
       "requiredTokens": [
         "highestEducation?:string|null",
         "/hr/employees/${id}/profile"
