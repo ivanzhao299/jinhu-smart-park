@@ -71,3 +71,13 @@
 ### 待联调（后端，未改）
 - 审计全局日志：前端 GET /canteen/status-logs 返回 404；后端仅有 /canteen/settlements/status-logs 但需未文档化的 uuid 参数（试 settlement_id/id/target_id/object_id/ref_id 均 400 uuid expected）。需后端给出全局操作日志路由与参数。
 - 结算明细 items 行 refund_amount=0，而汇总 refund_total=10（疑似后端明细退款聚合口径）。
+
+---
+
+## 审计页最终对齐（后端补 status-logs 后）
+
+- 前端 `/canteen/status-logs` 已上线，分页 {list,total,page,pageSize}，行 camelCase（entityType/beforeStatus/afterStatus/action/operatorName/opTime）。
+- 审计页筛选：对象类型(order/payment/settlement/grant/refund/session/dish)、动作 action、操作人 operator_name、起止日期 start_date/end_date；表格用 StatusPill 标对象类型，时间列取 opTime。门控仍 SETTLEMENT_VIEW。
+- 实测（DB 55435）：共 44 条；settlement 12（generate/submit/reconcile/dispute/approve/settle 全链路）、order 21（subsidy_checkout 等）、payment 9（payment_success）、refund 2（approve）；session/dish/grant 此库暂无对应事件故为 0（筛选正确，发生即落）。
+- 截图：selfcheck/m34-10-audit-all.png。
+- 回归：后端重启后 结算/报表/退款/POS退款/财务嵌入 均正常加载，无 Cannot GET / 白屏。

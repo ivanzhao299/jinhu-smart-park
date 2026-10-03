@@ -356,6 +356,7 @@ export interface CanteenStatusLog {
   reason?: string | null;
   operatorUserId?: string | null;
   operatorName?: string | null;
+  opTime?: string | null;
   createdAt?: string | null;
 }
 
