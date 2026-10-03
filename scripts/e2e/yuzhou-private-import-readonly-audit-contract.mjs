@@ -2,7 +2,7 @@ import { URL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact, remoteAuditSource, inspectCommittedImportIntegrity } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
+import { validateAuditArguments, summarizePrivateFailure, auditDatabase, recoverCommittedSummary, summarizeSqlErrors, auditQuarantineImpact, remoteAuditSource, inspectCommittedImportIntegrity, inspectContractSuccessorImpact } from '../hr-cutover/yuzhou-private-import-readonly-audit.mjs';
 const args = ['a'.repeat(32), 'b'.repeat(64), 'yzprod-import-20261002T010203Z-abcdefabcdef', 'c'.repeat(64)];
 const expected = { codeSha: 'd'.repeat(40), identitySha256: 'e'.repeat(64), targetScopeSha256: 'f'.repeat(64) };
 const scope = { tenantId: 'tenant-fixture', parkId: 'park-fixture' };
@@ -128,3 +128,11 @@ test('committed integrity compares retained owned state and counts duplicates wi
  for(const call of calls)assert.match(call.sql,/^(?:SELECT|BEGIN|SET LOCAL|ROLLBACK)/);
  assert.deepEqual(calls.find(c=>c.sql.includes('duplicate_active_source_keys')).params,[args[2]]);
 });
+
+const contractCounts={current_range_employees:10,historical_active_contracts:4,employees_with_historical_active:3,ended_before_as_of:1,ending_on_or_after_as_of:2,missing_end_date:1,employees_with_multiple_active:1,employees_with_online_contract:1};
+test('contract successor census conserves dated and unknown contracts without exposing rows',async()=>{
+ const calls=[];const client={async query(sql,params){calls.push({sql,params});return{rows:[sql.startsWith('SELECT current_setting')?{readonly:'on'}:{...contractCounts,private_person:'fixture-secret'}]};}};
+ const result=await inspectContractSuccessorImpact(client,scope,'2026-10-03');assert.equal(result.historical_active_contracts,4);assert.equal(result.productionBusinessWrites,false);assert.equal(result.authenticatedWorkflowAcceptance,false);assert.doesNotMatch(JSON.stringify(result),/fixture-secret|private_person/);assert.deepEqual(calls[1].params,[scope.tenantId,scope.parkId,'2026-10-03']);assert.match(calls[1].sql,/c.tenant_id=\$1 AND c.park_id=\$2/);assert.match(calls[1].sql,/end_date<\$3::date/);assert.match(calls[1].sql,/end_date>=\$3::date/);assert.match(calls[1].sql,/end_date IS NULL/);
+});
+test('contract successor census refuses write-enabled connections before business query',async()=>{let calls=0;await assert.rejects(inspectContractSuccessorImpact({async query(){calls++;return{rows:[{readonly:'off'}]};}},scope,'2026-10-03'),/NOT_READONLY/);assert.equal(calls,1);});
+test('contract successor census rejects inconsistent counts and unsafe dates',async()=>{for(const counts of [{...contractCounts,missing_end_date:2},{...contractCounts,employees_with_historical_active:11},{...contractCounts,ended_before_as_of:-1}]){await assert.rejects(inspectContractSuccessorImpact({async query(sql){return{rows:[sql.startsWith('SELECT current_setting')?{readonly:'on'}:counts]};}},scope,'2026-10-03'),/CONTRACT_COUNTS_INVALID/);}await assert.rejects(inspectContractSuccessorImpact({},scope,"2026-10-03';x"),/CONTRACT_DATE_INVALID/);});

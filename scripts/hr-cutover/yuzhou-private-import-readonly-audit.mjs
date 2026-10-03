@@ -35,6 +35,40 @@ export async function auditDatabase(client, operationId, sealedPlanHash, expecte
   return { operationRows: op.length, operationStatus: op[0]?.status ?? 'absent', recordCount: records[0].count,
     selectedScopeEmployeeCount: employees[0].count, phases: phases.map(x => ({ phase: x.phase, status: x.status, plannedCount: Number(x.planned_record_count), appliedCount: Number(x.applied_record_count) })) };
 }
+export async function inspectContractSuccessorImpact(client, scope, asOf) {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(asOf ?? '')) fail('TRANSPORT_AUDIT_CONTRACT_DATE_INVALID');
+  if ((await client.query("SELECT current_setting('transaction_read_only') readonly")).rows[0]?.readonly !== 'on') fail('TRANSPORT_AUDIT_NOT_READONLY');
+  const row = (await client.query(`WITH scoped_employees AS (
+    SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+      AND employment_status IN ('preboarding','probation','active','suspended')
+  ), scoped_contracts AS (
+    SELECT c.employee_id,c.is_historical_import,c.status,c.end_date FROM hr_contract c
+    JOIN scoped_employees e ON e.id=c.employee_id
+    WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.is_deleted=false
+  ), historical_active AS (
+    SELECT employee_id,end_date FROM scoped_contracts WHERE is_historical_import=true AND status='active'
+  ) SELECT
+    (SELECT count(*)::int FROM scoped_employees) current_range_employees,
+    (SELECT count(*)::int FROM historical_active) historical_active_contracts,
+    (SELECT count(DISTINCT employee_id)::int FROM historical_active) employees_with_historical_active,
+    (SELECT count(*)::int FROM historical_active WHERE end_date<$3::date) ended_before_as_of,
+    (SELECT count(*)::int FROM historical_active WHERE end_date>=$3::date) ending_on_or_after_as_of,
+    (SELECT count(*)::int FROM historical_active WHERE end_date IS NULL) missing_end_date,
+    (SELECT count(*)::int FROM (SELECT employee_id FROM scoped_contracts WHERE status='active'
+      GROUP BY employee_id HAVING count(*)>1 AND bool_or(is_historical_import)) d) employees_with_multiple_active,
+    (SELECT count(DISTINCT c.employee_id)::int FROM scoped_contracts c WHERE c.is_historical_import=false
+      AND c.status IN ('draft','active') AND EXISTS(SELECT 1 FROM historical_active h WHERE h.employee_id=c.employee_id)) employees_with_online_contract
+    `, [scope.tenantId, scope.parkId, asOf])).rows[0];
+  const fields=['current_range_employees','historical_active_contracts','employees_with_historical_active','ended_before_as_of','ending_on_or_after_as_of','missing_end_date','employees_with_multiple_active','employees_with_online_contract'];
+  if (!row || fields.some(k => !Number.isSafeInteger(row[k]) || row[k]<0)
+    || row.ended_before_as_of+row.ending_on_or_after_as_of+row.missing_end_date!==row.historical_active_contracts
+    || row.employees_with_historical_active>row.current_range_employees
+    || row.employees_with_historical_active>row.historical_active_contracts
+    || row.employees_with_multiple_active>row.employees_with_historical_active
+    || row.employees_with_online_contract>row.employees_with_historical_active) fail('TRANSPORT_AUDIT_CONTRACT_COUNTS_INVALID');
+  return {asOf,timezone:'Asia/Shanghai',currentRangeDefinition:['preboarding','probation','active','suspended'],
+    ...Object.fromEntries(fields.map(k => [k,row[k]])),productionBusinessWrites:false,authenticatedWorkflowAcceptance:false};
+}
 export async function inspectCommittedImportIntegrity(client, operationId, scope) {
   const connection = await client.connect();
   try {
@@ -205,6 +239,7 @@ async function audit(args) {
         const plan = descriptor(config.artifacts.sealedPlan);
         if (plan.operationId !== operationId || plan.sealing.sealedPlanSha256 !== sealedPlanHash) fail('TRANSPORT_AUDIT_QUARANTINE_DRIFT');
         const today = (await client.query("SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') today")).rows[0].today;
+        database.contractSuccessorImpact = await inspectContractSuccessorImpact(client,binding.targetScope,today);
         quarantineImpact = await auditQuarantineImpact(client,plan,phase => descriptor(config.artifacts.payloadBundles[phase]),binding.targetScope,today);
       } finally { await client.query('ROLLBACK'); }
     }
