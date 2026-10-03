@@ -300,7 +300,12 @@ SELECT json_build_object(
  'receiptCount',(SELECT n FROM receipt_hash),
  'receiptSha256',(SELECT h FROM receipt_hash),
  'receiptAggregateMatches',COALESCE((SELECT o.owned_state->'receipts'->>'count'=r.n::text
-  AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false)
+  AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false),
+ 'profileExclusions',COALESCE((SELECT json_agg(json_build_object(
+  'sourceIdentitySha256',r.source_identity_sha256,'sourceRowSha256',r.source_row_sha256,
+  'decisionReceiptSha256',encode(public.digest(to_jsonb(r)::text,'sha256'),'hex'),'reasonCode',r.reason_code)
+  ORDER BY r.source_identity_sha256 COLLATE "C") FROM receipts r
+  WHERE r.target_table='hr_employee_profile' AND r.disposition='quarantine'), '[]'::json)
 )::text;
 ROLLBACK;
 `;
@@ -308,14 +313,23 @@ ROLLBACK;
 export function sanitizeT5ProfileAggregateObservation(raw) {
   let v;
   try {
-    if (typeof raw !== 'string' || Buffer.byteLength(raw)>16384) fail('T5_RESULT_INVALID');
+    if (typeof raw !== 'string' || Buffer.byteLength(raw)>65536) fail('T5_RESULT_INVALID');
     v=JSON.parse(raw);
   } catch { fail('T5_RESULT_INVALID'); }
-  const keys=['operationBound','profileCount','profileReceiptCount','profileSha256','profileAggregateMatches','receiptCount','receiptSha256','receiptAggregateMatches'];
+  const keys=['operationBound','profileCount','profileReceiptCount','profileSha256','profileAggregateMatches','receiptCount','receiptSha256','receiptAggregateMatches','profileExclusions'];
   if (!exactKeys(v,keys)
     || !['operationBound','profileAggregateMatches','receiptAggregateMatches'].every(k=>typeof v[k]==='boolean')
     || !['profileCount','profileReceiptCount','receiptCount'].every(k=>Number.isSafeInteger(v[k])&&v[k]>=0&&v[k]<=1000000)
     || !['profileSha256','receiptSha256'].every(k=>typeof v[k]==='string'&&ID.test(v[k]))) fail('T5_RESULT_INVALID');
+  if (!Array.isArray(v.profileExclusions) || v.profileExclusions.length>200) fail('T5_RESULT_INVALID');
+  const seen=new Set();
+  for (const e of v.profileExclusions) {
+    if (!exactKeys(e,['sourceIdentitySha256','sourceRowSha256','decisionReceiptSha256','reasonCode'])
+      || !['sourceIdentitySha256','sourceRowSha256','decisionReceiptSha256'].every(k=>typeof e[k]==='string'&&ID.test(e[k]))
+      || typeof e.reasonCode!=='string' || !/^[A-Z][A-Z0-9_]{1,63}$/u.test(e.reasonCode)
+      || seen.has(e.sourceIdentitySha256)) fail('T5_RESULT_INVALID');
+    seen.add(e.sourceIdentitySha256);
+  }
   const ready=v.operationBound && v.profileCount>0 && v.profileCount===v.profileReceiptCount && v.profileAggregateMatches && v.receiptAggregateMatches;
   return {...v,status:ready?'PASS':'FAIL',evidenceScope:'original_t5_profile_aggregate_snapshot_only',baselineCertified:false,productionWrites:false};
 }
@@ -324,7 +338,7 @@ export function observeT5ProfileAggregateReadonly() {
   try {
     raw=execFileSync('docker',['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c',
       'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
-      {input:buildT5ProfileAggregateReadonlySql(),encoding:'utf8',timeout:40000,maxBuffer:16384,stdio:['pipe','pipe','pipe']});
+      {input:buildT5ProfileAggregateReadonlySql(),encoding:'utf8',timeout:40000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});
   } catch { fail('T5_QUERY_FAILED'); }
   return sanitizeT5ProfileAggregateObservation(raw);
 }
