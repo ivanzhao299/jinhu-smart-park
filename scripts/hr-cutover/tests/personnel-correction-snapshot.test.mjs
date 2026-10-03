@@ -11,7 +11,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import { setTimeout as delay } from 'node:timers/promises';
-import { correctionCtes,snapshotCorrectionCtes } from '../personnel-correction-sql.mjs';
+import { correctionCtes,snapshotCorrectionCtes,profileBeforeSelect } from '../personnel-correction-sql.mjs';
 import { snapshotRelations,snapshotColumns,snapshotAggregateSql,snapshotCaptureQueries } from '../personnel-correction-snapshot-contract.mjs';
 import { capturePersonnelCorrectionSnapshot,preparePersonnelCorrectionSnapshotLab,snapshotContractSha256,originIdentity,createPersonnelCorrectionSnapshotLabDescriptor,readPersonnelCorrectionSnapshotLabDescriptor } from '../personnel-correction-snapshot.mjs';
 import { correctionAuthoritySha256,correctionExecutionSha256,executePersonnelCorrectionLab } from '../personnel-correction-lab.mjs';
@@ -278,17 +278,20 @@ test('full migration, typed snapshot host and correction in disposable PostgreSQ
    return signed({version:1,purpose:'ISOLATED_PERSONNEL_CORRECTION',action,nonce:randomUUID(),actorSha256:hash('synthetic-reviewer'),
     issuedAt:Date.now()-1000,expiresAt:Date.now()+600000,target:{host,port,database,user,labId},binding});
   }
-  const b={...base,operationId:randomUUID(),idempotencyKey:randomUUID(),executionSha256:correctionExecutionSha256(),snapshot:prepared.snapshot,seal:prepared.seal};
+  const b={...base,operationId:randomUUID(),idempotencyKey:randomUUID(),executionSha256:correctionExecutionSha256(),snapshot:prepared.snapshot,seal:prepared.seal,profileBeforeSha256:prepared.profileBeforeSha256};
   await subtest('apply, exact replay, SQL NULL preservation and rollback use real profile schema',async()=>{
-   const auth=authorization(b);assert.equal((await executePersonnelCorrectionLab(a.config,auth)).replay,false);
+   const auth=authorization(b);const beforeVersion=(await reader.query('SELECT version FROM public.hr_employee_profile WHERE id=$1',[ids.profile])).rows[0].version;
+   assert.equal((await executePersonnelCorrectionLab(a.config,auth)).replay,false);
+   assert.equal((await reader.query('SELECT version FROM public.hr_employee_profile WHERE id=$1',[ids.profile])).rows[0].version,beforeVersion+1);
    assert.equal((await executePersonnelCorrectionLab(a.config,auth)).replay,true);
    assert.equal((await reader.query('SELECT degree FROM public.hr_employee_profile WHERE id=$1',[ids.profile])).rows[0].degree,'');
    const rollback=authorization(b,'rollback');assert.equal((await executePersonnelCorrectionLab(a.config,rollback)).replay,false);
    assert.equal((await executePersonnelCorrectionLab(a.config,rollback)).replay,true);
    assert.equal((await reader.query('SELECT native_place FROM public.hr_employee_profile WHERE id=$1',[ids.profile])).rows[0].native_place,null);
+   assert.equal((await reader.query('SELECT version FROM public.hr_employee_profile WHERE id=$1',[ids.profile])).rows[0].version,beforeVersion+2);
   });
   await subtest('scope/hash/source drift rejected and unrelated modern edit blocks rollback',async()=>{
-   const fresh={...b,operationId:randomUUID(),idempotencyKey:randomUUID()};
+   const fresh={...b,operationId:randomUUID(),idempotencyKey:randomUUID(),profileBeforeSha256:(await a.c.query(`${snapshotCorrectionCtes} ${profileBeforeSelect}`,[b.tenantId,b.parkId,b.sourceOperationId,b.parentOperationId,origin])).rows[0].hash};
    await assert.rejects(executePersonnelCorrectionLab(a.config,authorization({...fresh,parkId:'other'})),/SCOPE_DRIFT/);
    await assert.rejects(executePersonnelCorrectionLab(a.config,authorization({...fresh,snapshot:{...b.snapshot,manifestSha256:hash('different')}})),/MANIFEST_HASH/);
    await executePersonnelCorrectionLab(a.config,authorization(fresh));

@@ -1251,3 +1251,28 @@ const rows = await lockedSameScopeProfiles(manager, scope, employeeId);
 const active = rows.filter(row => !row.isDeleted);
 if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new ConflictException();
 ```
+
+
+## Scenario: Isolated personnel NULL-fill respects modern profile CAS
+
+- The correction lab may fill only proven SQL NULL `native_place` / `degree`; nonnull
+  values including empty strings survive. Every changed profile increments
+  `version` exactly once, leaving all other metadata unchanged.
+- Apply uses the original observer seals unchanged plus independently signed
+  `profileBeforeSha256` over full selected target rows under UTC. Stale version
+  or unrelated-field changes after review must abort without business/ledger writes.
+- Receipt v2 declares `profileVersionPolicy: monotonic-v1`,
+  `changedMetadata: ["version"]` and the target-before hash. Forward migration 328
+  enforces exactly `before || patch || {version: before.version + 1}`; applied
+  migrations and existing original import/correction receipts remain immutable.
+- Rollback requires exact full after-image and `xmin`, restores only the filled
+  fields and increments the current version again. Any intervening modern edit
+  aborts the entire rollback. Never restore the old version or rewrite source
+  receipts to make reconciliation appear exact.
+- Focused isolated PostgreSQL tests must call the real modern profile save path:
+  old expected versions fail after apply and rollback, a current edit succeeds
+  and prevents rollback, exact replay is unchanged, source lineage hashes stay
+  unchanged, strict receipt enforcement retains legacy compatibility, and only
+  the test-owned random database is removed with zero residual.
+- This contract is lab-only. Source-bound A/B and a production correction writer
+  are separate pending acceptance; synthetic PG success does not prove either.

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { snapshotColumns,snapshotRelations,snapshotCaptureQueries,snapshotAggregateSql,snapshotSchemaSql } from './personnel-correction-snapshot-contract.mjs';
 import { validateCorrectionLabTarget,correctionAuthoritySha256,correctionExecutionSha256 } from './personnel-correction-lab.mjs';
-import { snapshotCorrectionCtes,sealSelect } from './personnel-correction-sql.mjs';
+import { snapshotCorrectionCtes,sealSelect,profileBeforeSelect } from './personnel-correction-sql.mjs';
 const fail = code => { throw new Error(`PERSONNEL_CORRECTION_SNAPSHOT_${code}`); };
 const tripleEqual=(a,b)=>exact(a,'codeSha sourceSnapshotHash mappingContractHash') && exact(b,'codeSha sourceSnapshotHash mappingContractHash') && Object.keys(a).every(k=>a[k]===b[k]);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -14,7 +14,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const exact = (v, names) => v && typeof v==='object' && !Array.isArray(v) && Object.keys(v).sort().join(' ' )===names.split(' ').sort().join(' ');
 export function snapshotContractSha256() {
  return hash(['personnel-correction-snapshot.mjs','personnel-correction-snapshot-contract.mjs','personnel-correction-sql.mjs',
-  '../diagnose-yuzhou-personnel-alias.mjs','../../database/migrations/000325_hr_personnel_correction_snapshot.sql']
+  '../diagnose-yuzhou-personnel-alias.mjs','../../database/migrations/000325_hr_personnel_correction_snapshot.sql','../../database/migrations/000328_hr_personnel_correction_profile_cas.sql']
   .map(p=>readFileSync(new URL(p,import.meta.url))).reduce((a,b)=>Buffer.concat([a,b]),Buffer.alloc(0)));
 }
 function safeError(error) {
@@ -200,15 +200,16 @@ export async function preparePersonnelCorrectionSnapshotLab(config,token,directo
   if(same.rows[0].n!==p.relations.hr_employee_profile.count) fail('PROFILE_BEFORE_DRIFT');
   const params=[p.tenantId,p.parkId,p.sourceOperationId,p.parentOperationId,r.origin_database];
   const seal=(await client.query(`${snapshotCorrectionCtes} ${sealSelect}`,params)).rows[0].seal;
+  const profileBeforeSha256=(await client.query(`${snapshotCorrectionCtes} ${profileBeforeSelect}`,params)).rows[0].hash;
   const descriptor={version:1,purpose:'REVIEW_PERSONNEL_CORRECTION_SNAPSHOT_LAB',productionImport:'HOLD',
    target:{host:config.host,port:config.port,database:config.database,user:config.user,labId:config.labId},
-   binding:{...binding,executionSha256:correctionExecutionSha256(),seal},relations:p.relations};
+   binding:{...binding,executionSha256:correctionExecutionSha256(),profileBeforeSha256,seal},relations:p.relations};
   // A descriptor is only review material. Existing independent apply/rollback
   // authorization remains mandatory, with fresh operation/idempotency/nonce IDs.
   save(directory,`lab-review-${config.labId}.json`,JSON.stringify(descriptor,null,2)+'\n');
   await assertPersonnelCorrectionSnapshotApproval(client,binding.snapshot);
   await client.query('COMMIT');begun=false;
-  return {status:'PREPARED',productionImport:'HOLD',snapshot:binding.snapshot,seal,relations:p.relations};
+  return {status:'PREPARED',productionImport:'HOLD',snapshot:binding.snapshot,seal,profileBeforeSha256,relations:p.relations};
  } catch(error) {if(begun) await client.query('ROLLBACK').catch(()=>{});throw safeError(error);}
  finally {if(client) await client.end().catch(()=>{});}
 }
