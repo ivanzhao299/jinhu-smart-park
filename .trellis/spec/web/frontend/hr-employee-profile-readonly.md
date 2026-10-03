@@ -37,3 +37,5 @@ them back. Suppress only these exact source keys in the corresponding generic
 detail. Clear the previous detail before another detail request, including failure.
 The shared scene card's two-column icon layout needs a local single-column layout
 for a text-only archive card; verify typography and long values at 390px.
+
+For profile maintenance CAS, accept a positive version only from the successful, selected employee's unmasked profile response. Send zero only after that successful response is explicitly null; missing version, masked data, a mismatched employee or a failed read leaves the form unavailable. On HTTP 409 preserve uncontrolled edits, block every retry and provide an explicit “放弃本次编辑并重新加载” action. Selection, scope or authenticated-context changes clear the conflict state. Do not auto-retry, merge, overwrite or present this behavior as a new read or write permission.
