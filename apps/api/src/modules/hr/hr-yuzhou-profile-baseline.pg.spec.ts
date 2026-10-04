@@ -347,6 +347,7 @@ async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:Part
   const materialization=migration("000276_hr_legacy_employee_profile_materialization.sql");
   for(const kind of ["skill","credential"])await db.query(materialization.match(new RegExp(`ALTER TABLE hr_employee_${kind}[\\s\\S]*?;`))![0]);
   await db.query(migration("000338_hr_extended_record_changes.sql"));
+  await db.query(migration("000339_hr_incremental_record_baselines.sql"));
   const actorId=randomUUID();await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
   const parent=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",["yzprod-import-20261004T130000Z-abcdef123456"]))[0];
   const map=(await db.query("SELECT id FROM legacy_record_map WHERE source_identity_sha256=$1 AND source_table='dbo.person' AND is_active",[employeeIdentity]))[0].id;
@@ -404,6 +405,29 @@ async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:Part
     await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$2 WHERE id=$1",[sourceIds[0],encrypted]);
     await historicalMutation("UPDATE legacy_record_map SET is_active=false WHERE id=$1",[map]);await assert.rejects(proof(),/RECORD_ORIGINAL_EVIDENCE_INVALID/);await historicalMutation("UPDATE legacy_record_map SET is_active=true WHERE id=$1",[map]);
     assert.deepEqual(await proof(),before);
+    // Actual forward-migration constraints: ciphertext-only facts and an
+    // immutable provenance row bound to authenticated original certificates.
+    const originalOp=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",[op]))[0];
+    const importId=randomUUID(),itemId=randomUUID(),baselineTable=`hr_incremental_${kind}_baseline`;
+    const cipher=sensitive.encrypt(JSON.stringify({fixture:"synthetic encrypted facts"}));
+    await db.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[importId,scope.tenantId,scope.parkId,`synthetic-record-${kind}`,sha(kind),cipher,actorId]);
+    const insertItem=(id:string,target:string|null,baseline:string|null,fieldBaseline:unknown={})=>db.query(`INSERT INTO hr_incremental_import_item(id,tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,field_baseline,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id,baseline_encrypted) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,$7,$8,$9,$10,$11,$12,3,$13,$14)`,[id,scope.tenantId,scope.parkId,sourceTable,`sha256:${identities[0]}`,kind,target,ids[0],hashes[0],fieldBaseline,cipher,sha("source facts"),importId,baseline]);
+    await assert.rejects(insertItem(randomUUID(),null,cipher),/ck_hr_incremental_record_private_baseline/);
+    await assert.rejects(insertItem(randomUUID(),table,null),/ck_hr_incremental_record_private_baseline/);
+    await assert.rejects(insertItem(randomUUID(),table,cipher,{note:"plaintext"}),/ck_hr_incremental_record_private_baseline/);
+    await insertItem(itemId,table,cipher);
+    const bindingArgs=[itemId,importId,scope.tenantId,scope.parkId,employeeId,ids[0],op,sourceIds[0],identities[0],hashes[0],originalOp.owned_state[table].sha256,originalOp.owned_state.receipts.sha256,originalOp.binding_sha256,sha("witness"),cipher,actorId];
+    const insertProvenance=(args:unknown[])=>db.query(`INSERT INTO ${baselineTable}(item_id,operation_id,tenant_id,park_id,employee_id,record_id,original_operation_id,original_source_id,source_identity_sha256,original_source_row_sha256,original_record_set_sha256,original_receipt_set_sha256,original_binding_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,args);
+    for(const [index,value] of [[3,"foreign"],[5,ids[1]],[7,sourceIds[1]],[8,identities[1]],[9,sha("wrong source")],[10,sha("wrong set")],[11,sha("wrong receipts")],[12,sha("wrong binding")]] as Array<[number,unknown]>){const args=[...bindingArgs];args[index]=value;await assert.rejects(insertProvenance(args),/RECORD_BASELINE_BINDING_INVALID/);}
+    await insertProvenance(bindingArgs);
+    await assert.rejects(db.query(`UPDATE ${baselineTable} SET provenance_encrypted=$2 WHERE item_id=$1`,[itemId,cipher]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+    await assert.rejects(db.query(`DELETE FROM ${baselineTable} WHERE item_id=$1`,[itemId]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_id=$2 WHERE id=$1",[itemId,ids[1]]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET source_key=$2 WHERE id=$1",[itemId,`sha256:${sha("rebind")}`]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_version=2 WHERE id=$1",[itemId]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("DELETE FROM hr_incremental_import_item WHERE id=$1",[itemId]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await db.query("UPDATE hr_incremental_import_item SET version=version+1,last_row_sha256=$2,baseline_encrypted=$3 WHERE id=$1",[itemId,sha("new source facts"),cipher]);
+    assert.deepEqual((await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[ids[0]]))[0],archived);
   }
 }
 

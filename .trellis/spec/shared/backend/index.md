@@ -9,6 +9,8 @@ Reference files:
 
 Prepared family import field comparison and private baseline requirements: [Family Continuity](../../api/backend/hr-yuzhou-family-continuity.md). Shared helper exports do not enable the public family import domain before API/CLI integration.
 
+Prepared skill/credential source comparison and encrypted ledger requirements: [Extended Record Maintenance](../../api/backend/hr-extended-record-maintenance.md). These additive exports do not enable public skill/credential import domains before their executor and raw-entry integration.
+
 ## Contract Ownership
 
 Keep shared contracts stable and explicit:

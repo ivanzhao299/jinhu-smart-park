@@ -36,3 +36,11 @@
 `originalRecordSourceFacts` 复现pin原映射并与认证原目标逐字段比较：技能名称/原等级/备注，不编造proficiency或获得日期；证照类别空值沿用legacy、名称/颁发机构/日期/备注/受保护编号；无效日期或逆序有效期保留原null并注明pending；附件引用仅核验原摘要并pending，不形成关联。加密编号同时核对原值、掩码、指纹。未知kind、列缺失/类型/非法Unicode、原目标与来源事实不一致均拒绝。
 
 `hr-yuzhou-profile-baseline.pg.spec.ts` 在已有原core ownership真实SQL fixture中追加两域独立小型合成T5操作，应用原000317和000338，测试原链、原transport、日期/附件pending、同一原集合的现代编辑/清空/归档及当前值守恒、错误scope、原操作rollback、兄弟receipt漂移、来源ciphertext篡改、inactive owner map和逐字段不相容。复用现有CI实际PG入口，不代表真实新批次或公共增量API已完成。
+
+## 增量比较及加密账本准备
+
+共享 `normalizeYuzhouRecordFields`/`planYuzhouRecordFields` 仅承接已确认的技能3字段、证照7字段。省略保留、显式null参与来源比较；必填文本、长度、Unicode、严格日历、编号掩码拒绝。来源未变保留现代编辑；来源改变且当前字段仍等于原目标基线才写；独立收敛仅接纳来源基线；分歧原子冲突；归档后来源改变返回RECORD_ARCHIVED。部分证照日期更新与当前省略日期合并校验，逆序返回RECORD_DATE_RANGE_INVALID。
+
+前向000339准备skill/credential数据库域，不修改已应用迁移或业务原行。两域要求空明文field/target baseline、非空加密facts/baseline、固定来源及目标表、稳定source key、正版本；identity/scope/domain/target不能重绑、删除或版本倒退。独立skill/credential原基线表有目标/actor/原receipt FK、完整SQL插入binding guard及不可变provenance。SQL仅验证绑定与加密格式，API仍必须核验真实密文及原集合证书，不能以SQL插入成功替代认证。
+
+共享导出和数据库域准备不启用公共API域。`hr-yuzhou-record-plan.spec.ts` 验证三方比较及边界；真实PG原链fixture应用000339，实测两域private baseline、NULL目标表防绕过、provenance scope/source/target/证书错配、不可变凭据、不可重绑来源/目标、不可删除及目标版本倒退，允许加密元数据正常推进，业务目标保持不变。事务执行器、公共preview/commit与raw入口仍待接入。
