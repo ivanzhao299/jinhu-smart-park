@@ -124,6 +124,7 @@ jobs:
         run: |
           node --test scripts/e2e/yuzhou-organization-incremental.contract.mjs scripts/e2e/yuzhou-profile-incremental-projection.contract.mjs scripts/hr-cutover/t5-retained-source-binding.spec.mjs scripts/e2e/yuzhou-staging-import-entry.contract.mjs
           node scripts/e2e/yuzhou-reusable-incremental-package-contract.mjs
+          node --test scripts/e2e/yuzhou-record-incremental-projection.contract.mjs scripts/e2e/yuzhou-record-reusable-package.contract.mjs
           pnpm --filter @jinhu/api exec node --test --require ts-node/register \
             src/modules/hr/hr-yuzhou-organization.pg.spec.ts \
             src/modules/hr/hr-yuzhou-profile-baseline.pg.spec.ts \

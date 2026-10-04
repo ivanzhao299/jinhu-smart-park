@@ -15,6 +15,8 @@ import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INI
 import { ValidationPipe } from "@nestjs/common";
 import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
 import { originalFamily, certifyOriginalFamilies, originalFamilySourceFacts } from "./hr-yuzhou-family-baseline";
+import { originalExtendedRecord, certifyOriginalRecords, originalRecordSourceFacts } from "./hr-yuzhou-record-baseline";
+import { executeYuzhouRecordItem, type YuzhouPreparedRecordItem } from "./hr-yuzhou-record-executor";
 import { mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
@@ -328,12 +330,187 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
     } finally {rmSync(fixtureRoot,{recursive:true,force:true});}
     await verifyFamilyOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
     t.diagnostic("Family original proof and actual DTO/preview/commit/status PASS: source create/update/replay/modern conflicts/archive/rollback plus employee dependency");
+    await verifyExtendedRecordOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
+    t.diagnostic("Skill/credential original proof, internal executor and public DTO/preview/commit/status PASS; production acceptance remains pending");
   } finally {
     if(db?.isInitialized)await db.destroy();
     if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query(`SELECT count(*)::int n FROM pg_database WHERE datname=$1`,[database]))[0].n,0);}
     await admin.destroy();if(created)t.diagnostic("Dedicated profile database identity asserted; residual=0");
   }
 });
+
+/** Small synthetic T5 fixture reuses the same real core ownership chain.
+ * Replica mode installs/tampers historical fixtures only in the random lab DB. */
+async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:PartySensitiveDataService,employeeId:string,employeeIdentity:string) {
+  const migration=(name:string)=>readFileSync(resolve(root,"database/migrations",name),"utf8");
+  const schema=migration("000252_hr_lifecycle_employee_records.sql");
+  await db.query(schema.slice(schema.indexOf("CREATE TABLE hr_employee_experience ("),schema.indexOf("CREATE FUNCTION hr_lifecycle_append_only()")));
+  const materialization=migration("000276_hr_legacy_employee_profile_materialization.sql");
+  for(const kind of ["skill","credential"])await db.query(materialization.match(new RegExp(`ALTER TABLE hr_employee_${kind}[\\s\\S]*?;`))![0]);
+  await db.query(migration("000338_hr_extended_record_changes.sql"));
+  await db.query(migration("000339_hr_incremental_record_baselines.sql"));
+  const actorId=randomUUID();await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
+  const parent=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",["yzprod-import-20261004T130000Z-abcdef123456"]))[0];
+  const map=(await db.query("SELECT id FROM legacy_record_map WHERE source_identity_sha256=$1 AND source_table='dbo.person' AND is_active",[employeeIdentity]))[0].id;
+  const historicalMutation=(sql:string,args:unknown[])=>db.transaction(async m=>{await m.query("SET LOCAL session_replication_role=replica");await m.query(sql,args);});
+  for(const kind of ["skill","credential"] as const){
+    const table=`hr_employee_${kind}`,sourceTable=kind==="skill"?"dbo.knowhow":"dbo.ticket",domain=kind==="skill"?"knowhow":"ticket";
+    const op=`yzprod-import-20261004T15${kind==="skill"?"00":"10"}00Z-abcdef123456`,binding={...parent.binding,operationId:op};
+    const ids=[randomUUID(),randomUUID(),randomUUID()],sourceIds:string[]=[],sources:Array<Record<string,unknown>>=ids.map((_,i)=>kind==="skill"
+      ?{id:2700+i,person:"OLD-0",knowhow:`Synthetic original skill ${i}`,grade:"Original grade",memo:null}
+      :{id:2710+i,person:"OLD-0",tickettype:i===0?null:"synthetic",ticket:i===0?"Synthetic credential 0":'Synthetic credential "1"',ticketno:`SYN-NUMBER-${i}`,org:"Synthetic authority",getdate:"2020-02-29 00:00:00",validdate:i===0?"2030-01-01":"1900-02-29",memo:null,ticketfilename:i===0?null:"synthetic/source.pdf"});
+    const identities=sources.map(source=>sha(`${sourceTable}\0${source.id}`)),hashes=sources.map(source=>sha(canonicalYuzhouInitialJson(source)));
+    await db.transaction(async m=>{
+      await m.query("SET LOCAL session_replication_role=replica");
+      await m.query(`INSERT INTO hr_yuzhou_t5_followon_operation(operation_id,parent_operation_id,payroll_operation_id,binding_sha256,binding,status,finished_at) VALUES($1,$2,$3,$4,$5,'succeeded',now())`,[op,parent.parent_operation_id,parent.payroll_operation_id,sha(canonicalYuzhouInitialJson(binding)),binding]);
+      await m.query(`INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,execution_context,t5_followon_operation_id,status,tool_version) VALUES($1,'yuzhou-v10',$2,current_database(),'t5_production_followon',$1,'succeeded',$3)`,[op,sha("fixture"),`t5-followon-v1@${binding.executionCodeSha}`]);
+      for(const [i,source] of sources.entries()){
+        if(kind==="skill")await m.query(`INSERT INTO ${table}(id,tenant_id,park_id,employee_id,skill_name,legacy_grade,note,create_by,update_by,legacy_source_identity_sha256,legacy_source_row_sha256) VALUES($1,$2,$3,$4,$5,$6,NULL,$7,$7,$8,$9)`,[ids[i],scope.tenantId,scope.parkId,employeeId,source.knowhow,source.grade,actorId,identities[i],hashes[i]]);
+        else{const number=sensitive.identityProfile(String(source.ticketno));await m.query(`INSERT INTO ${table}(id,tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,legacy_file_reference_sha256,create_by,update_by,legacy_source_identity_sha256,legacy_source_row_sha256) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'2020-02-29',$11,NULL,$12,$13,$13,$14,$15)`,[ids[i],scope.tenantId,scope.parkId,employeeId,source.tickettype??"legacy",source.ticket,number.encrypted,number.masked,number.hash,source.org,i===0?"2030-01-01":null,i===0?null:sha(String(source.ticketfilename)),actorId,identities[i],hashes[i]]);}
+        const transported=kind==="credential"&&i===1?{...source,ticket:JSON.stringify(source.ticket).slice(1,-1)}:source;
+        const sourceId=(await m.query(`INSERT INTO hr_yuzhou_t5_followon_source(operation_id,tenant_id,park_id,source_domain,source_table,source_identity_sha256,source_row_sha256,encrypted_source,owner_status,employee_id,owner_record_map_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'mapped',$9,$10) RETURNING id`,[op,scope.tenantId,scope.parkId,domain,sourceTable,identities[i],hashes[i],sensitive.encrypt(JSON.stringify(transported)),employeeId,map]))[0].id;sourceIds.push(sourceId);
+        for(const [target,id] of [[table,ids[i]],["hr_yuzhou_t5_followon_source",sourceId]])await m.query(`INSERT INTO hr_yuzhou_t5_followon_projection_receipt VALUES($1,$2,$3,$4,'insert',$5,NULL)`,[op,target,identities[i],hashes[i],id]);
+      }
+      await m.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
+      const agg=async(q:string,args:unknown[])=>(await m.query(`SELECT count(*)::int count,encode(digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') sha256 FROM (SELECT encode(digest(to_jsonb(x)::text,'sha256'),'hex') h FROM (${q}) x) hashes`,args))[0];
+      const records=await agg(`SELECT * FROM ${table} WHERE id=ANY($1::uuid[])`,[ids]),receipts=await agg("SELECT * FROM hr_yuzhou_t5_followon_projection_receipt WHERE operation_id=$1",[op]);
+      await m.query("UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$2 WHERE operation_id=$1",[op,{[table]:records,receipts}]);
+    });
+    const proof=(targetScope=scope)=>db.transaction(async m=>{
+      const original=await originalExtendedRecord(m,targetScope,kind,identities[0]!,sensitive);assert.ok(original);
+      assert.deepEqual(original.source,sources[0]);
+      const certified=await certifyOriginalRecords(m,original,targetScope,sensitive),facts=originalRecordSourceFacts(original,certified,sensitive);
+      assert.equal(facts.fields[kind==="skill"?"skillName":"credentialName"],sources[0]![kind==="skill"?"knowhow":"ticket"]);
+      const second=await originalExtendedRecord(m,targetScope,kind,identities[1]!,sensitive);assert.ok(second);assert.deepEqual(second.source,sources[1]);
+      const secondFacts=originalRecordSourceFacts(second,certified,sensitive);
+      assert.deepEqual(secondFacts.pendingFields,kind==="credential"?["validTo","attachmentAssociation"]:[]);
+      assert.equal("proficiency" in facts.fields,false);assert.equal("legacyFileReferenceSha256" in facts.fields,false);
+      assert.throws(()=>originalRecordSourceFacts(original,new Map([[original.target_id,{...certified.get(original.target_id),[kind==="skill"?"skill_name":"credential_name"]:"forged"}]]),sensitive),/RECORD_ORIGINAL_FIELD_INCOMPATIBLE/);
+      return certified;
+    });
+    const before=await proof();await assert.rejects(proof({...scope,parkId:"foreign"}),/RECORD_ORIGINAL_EVIDENCE_INVALID/);
+    const service=new HrLifecycleService(db,sensitive,{} as never),actor={...scope,sub:actorId,username:"synthetic",isSuper:true,roles:[],permissions:["*"]};
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[0]!,{expectedVersion:1,...(kind==="skill"?{proficiency:"advanced",legacyGrade:"Modern grade"}:{credentialNumber:null})},"update");
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[0]!,{expectedVersion:2},"archive");
+    const archived=(await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[ids[0]]))[0];
+    assert.deepEqual(await proof(),before);assert.deepEqual((await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[ids[0]]))[0],archived);
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='rolled_back',rolled_back_at=now() WHERE operation_id=$1",[op]);
+    await assert.rejects(proof(),/RECORD_ORIGINAL_EVIDENCE_INVALID/);
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='succeeded',rolled_back_at=NULL WHERE operation_id=$1",[op]);
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[op,identities[1],sha("tampered sibling")]);
+    await assert.rejects(proof(),/RECORD_ORIGINAL_RECEIPTS_CHANGED/);
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[op,identities[1],hashes[1]]);
+    const encrypted=(await db.query("SELECT encrypted_source FROM hr_yuzhou_t5_followon_source WHERE id=$1",[sourceIds[0]]))[0].encrypted_source;
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$2 WHERE id=$1",[sourceIds[0],sensitive.encrypt(JSON.stringify({...sources[0],memo:"tampered"}))]);
+    await assert.rejects(proof(),/RECORD_ORIGINAL_EVIDENCE_INVALID/);
+    await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$2 WHERE id=$1",[sourceIds[0],encrypted]);
+    await historicalMutation("UPDATE legacy_record_map SET is_active=false WHERE id=$1",[map]);await assert.rejects(proof(),/RECORD_ORIGINAL_EVIDENCE_INVALID/);await historicalMutation("UPDATE legacy_record_map SET is_active=true WHERE id=$1",[map]);
+    assert.deepEqual(await proof(),before);
+    // Actual forward-migration constraints: ciphertext-only facts and an
+    // immutable provenance row bound to authenticated original certificates.
+    const originalOp=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",[op]))[0];
+    const importId=randomUUID(),itemId=randomUUID(),baselineTable=`hr_incremental_${kind}_baseline`;
+    const cipher=sensitive.encrypt(JSON.stringify({fixture:"synthetic encrypted facts"}));
+    await db.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[importId,scope.tenantId,scope.parkId,`synthetic-record-${kind}`,sha(kind),cipher,actorId]);
+    const insertItem=(id:string,target:string|null,baseline:string|null,fieldBaseline:unknown={})=>db.query(`INSERT INTO hr_incremental_import_item(id,tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,field_baseline,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id,baseline_encrypted) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,$7,$8,$9,$10,$11,$12,3,$13,$14)`,[id,scope.tenantId,scope.parkId,sourceTable,`sha256:${identities[0]}`,kind,target,ids[0],hashes[0],fieldBaseline,cipher,sha("source facts"),importId,baseline]);
+    await assert.rejects(insertItem(randomUUID(),null,cipher),/ck_hr_incremental_record_private_baseline/);
+    await assert.rejects(insertItem(randomUUID(),table,null),/ck_hr_incremental_record_private_baseline/);
+    await assert.rejects(insertItem(randomUUID(),table,cipher,{note:"plaintext"}),/ck_hr_incremental_record_private_baseline/);
+    await insertItem(itemId,table,cipher);
+    const bindingArgs=[itemId,importId,scope.tenantId,scope.parkId,employeeId,ids[0],op,sourceIds[0],identities[0],hashes[0],originalOp.owned_state[table].sha256,originalOp.owned_state.receipts.sha256,originalOp.binding_sha256,sha("witness"),cipher,actorId];
+    const insertProvenance=(args:unknown[])=>db.query(`INSERT INTO ${baselineTable}(item_id,operation_id,tenant_id,park_id,employee_id,record_id,original_operation_id,original_source_id,source_identity_sha256,original_source_row_sha256,original_record_set_sha256,original_receipt_set_sha256,original_binding_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,args);
+    for(const [index,value] of [[3,"foreign"],[5,ids[1]],[7,sourceIds[1]],[8,identities[1]],[9,sha("wrong source")],[10,sha("wrong set")],[11,sha("wrong receipts")],[12,sha("wrong binding")]] as Array<[number,unknown]>){const args=[...bindingArgs];args[index]=value;await assert.rejects(insertProvenance(args),/RECORD_BASELINE_BINDING_INVALID/);}
+    await insertProvenance(bindingArgs);
+    await assert.rejects(db.query(`UPDATE ${baselineTable} SET provenance_encrypted=$2 WHERE item_id=$1`,[itemId,cipher]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+    await assert.rejects(db.query(`DELETE FROM ${baselineTable} WHERE item_id=$1`,[itemId]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_id=$2 WHERE id=$1",[itemId,ids[1]]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET source_key=$2 WHERE id=$1",[itemId,`sha256:${sha("rebind")}`]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_version=2 WHERE id=$1",[itemId]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await assert.rejects(db.query("DELETE FROM hr_incremental_import_item WHERE id=$1",[itemId]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
+    await db.query("UPDATE hr_incremental_import_item SET version=version+1,last_row_sha256=$2,baseline_encrypted=$3 WHERE id=$1",[itemId,sha("new source facts"),cipher]);
+    assert.deepEqual((await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[ids[0]]))[0],archived);
+    const item=(key:string,fields:Record<string,unknown>):YuzhouPreparedRecordItem=>{
+      const value={domain:kind,sourceTable,sourceKey:key,fields:{employeeSourceTable:"dbo.person",employeeSourceKey:`sha256:${employeeIdentity}`,...fields}};
+      return {...value,rowDigest:sha(canonicalYuzhouInitialJson({...value,sourceUpdatedAt:null}))};
+    };
+    const execute=(value:YuzhouPreparedRecordItem,commit=true)=>db.transaction(async m=>{
+      const operation=randomUUID();
+      if(commit)await m.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[operation,scope.tenantId,scope.parkId,`synthetic-executor-${operation}`,sha(operation),cipher,actorId]);
+      return executeYuzhouRecordItem(m,scope,actor,value,sensitive,async(key,ownerTable)=>{assert.equal(key,`sha256:${employeeIdentity}`);assert.equal(ownerTable,"dbo.person");return employeeId;},commit?operation:undefined);
+    });
+    const originalKey=`sha256:${identities[1]}`,originalItem=item(originalKey,{note:null});
+    assert.equal((await execute(originalItem,false) as {action:string}).action,"unchanged");
+    assert.equal(await execute(originalItem),"unchanged");assert.equal(await execute(originalItem),"unchanged");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[1]]))[0].version,1);
+    assert.equal(await execute(item(originalKey,{note:"Source updated"})),"applied");
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[1]!,{expectedVersion:2,note:"Modern note"},"update");
+    assert.equal(await execute(item(originalKey,{note:"Divergent source"})),"conflict");
+    assert.equal(await execute(item(originalKey,{note:"Source updated"})),"unchanged");
+    assert.equal((await db.query(`SELECT note FROM ${table} WHERE id=$1`,[ids[1]]))[0].note,"Modern note");
+    assert.equal(await execute(item(originalKey,{note:"Modern note"})),"applied");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[1]]))[0].version,3);
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[1]!,{expectedVersion:3},"archive");
+    assert.equal(await execute(item(originalKey,{note:"Resurrection attempt"})),"conflict");
+    const newKey=`sha256:${sha(`${sourceTable}\0new-synthetic`)}`,newItem=item(newKey,kind==="skill"?{skillName:"Synthetic repeatable skill",legacyGrade:"Original raw grade"}:{credentialType:"synthetic",credentialName:"Synthetic repeatable credential",credentialNumber:"SYN-NEW",acquiredDate:"2020-01-01"});
+    assert.equal((await execute(newItem,false) as {action:string}).action,"create");
+    assert.equal(await execute(newItem),"applied");assert.equal(await execute(newItem),"unchanged");
+    const created=(await db.query("SELECT target_id FROM hr_incremental_import_item WHERE domain=$1 AND source_key=$2",[kind,newKey]))[0].target_id;
+    assert.equal((await db.query(`SELECT count(*)::int n FROM ${table}_change WHERE record_id=$1 AND action='create'`,[created]))[0].n,1);
+    await assert.rejects(db.transaction(m=>executeYuzhouRecordItem(m,scope,{...actor,isSuper:false,permissions:[]},newItem,sensitive,async()=>employeeId)),/Forbidden/);
+    const beforeFailure=await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[created]);
+    const ledgerBeforeFailure=await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]);
+    await db.query(`CREATE FUNCTION synthetic_${kind}_executor_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic executor journal failure'; END $$; CREATE TRIGGER synthetic_${kind}_executor_failure BEFORE INSERT ON ${table}_change FOR EACH ROW EXECUTE FUNCTION synthetic_${kind}_executor_failure()`);
+    await assert.rejects(execute(item(newKey,{note:"Rollback source"})),/synthetic executor journal failure/);
+    assert.deepEqual(await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[created]),beforeFailure);
+    assert.deepEqual(await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]),ledgerBeforeFailure);
+    await db.query(`DROP TRIGGER synthetic_${kind}_executor_failure ON ${table}_change`);
+    assert.equal(await execute(item(newKey,{note:"Rollback source"})),"applied");
+    const ledgerBeforeRace=await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]);
+    let raced=false;
+    await assert.rejects(db.transaction(async m=>{
+      const operation=randomUUID();await m.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[operation,scope.tenantId,scope.parkId,operation,sha(operation),cipher,actorId]);
+      const proxy=Object.create(m) as EntityManager;
+      proxy.query=async(sql:string,args?:unknown[])=>{const out=await m.query(sql,args);
+        if(!raced&&sql.startsWith("SELECT to_jsonb(r) snapshot")&&sql.includes(`FROM ${table}`)){
+          raced=true;await service.mutateEmployeeRecord(scope,actor,employeeId,kind,created,{expectedVersion:2,note:"Concurrent modern"},"update");
+        }return out;};
+      return executeYuzhouRecordItem(proxy,scope,actor,item(newKey,{note:"Lost CAS source"}),sensitive,async()=>employeeId,operation);
+    }),/Employee record changed/);
+    assert.equal(raced,true);assert.deepEqual(await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]),ledgerBeforeRace);
+    assert.equal((await db.query(`SELECT note FROM ${table} WHERE id=$1`,[created]))[0].note,"Concurrent modern");
+    const parallel=item(newKey,kind==="skill"?{legacyGrade:"Parallel source"}:{issuingAuthority:"Parallel source"});
+    const outcomes=await Promise.all([execute(parallel),execute(parallel)]);assert.deepEqual(outcomes.sort(),["applied","unchanged"]);
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[created]))[0].version,4);
+    const orphanIdentity=sha(`${sourceTable}\0uncertified-synthetic`);
+    await db.query(`UPDATE ${table} SET legacy_source_identity_sha256=$2,legacy_source_row_sha256=$3 WHERE id=$1`,[created,orphanIdentity,sha("uncertified raw row")]);
+    await assert.rejects(execute(item(`sha256:${orphanIdentity}`,kind==="skill"?{skillName:"Must not duplicate"}:{credentialType:"synthetic",credentialName:"Must not duplicate"})),/RECORD_IMPORT_EVIDENCE_INVALID/);
+    const importer=new HrYuzhouIncrementalImportService(db,sensitive);
+    const publicPackage=async(items:YuzhouIncrementalItem[],manifest=randomUUID())=>requestDto({version:1,sourceSystem:"yuzhou-v10",manifestId:manifest,extractedAt:"2026-10-04T18:00:00Z",items});
+    const publicImport=async(items:YuzhouIncrementalItem[])=>{
+      const dto=await publicPackage(items),preview=result(await importer.preview(scope,actor,dto));
+      return {dto,preview,outcome:result(await importer.commit(scope,actor,preview.id))};
+    };
+    const originalPublic=item(`sha256:${identities[2]}`,{note:"Public source update"});
+    const accepted=await publicImport([originalPublic]);assert.equal(accepted.preview.plan[0]!.action,"update");assert.equal(accepted.outcome.appliedCount,1);
+    assert.equal(result(await importer.commit(scope,actor,accepted.preview.id)).appliedCount,1);
+    assert.equal(result(await importer.preview(scope,actor,accepted.dto)).id,accepted.preview.id);
+    assert.equal(result(await importer.status(scope,actor,accepted.preview.id)).status,"committed");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[2]]))[0].version,2);
+    assert.equal((await publicImport([originalPublic])).outcome.unchangedCount,1);
+    await assert.rejects(importer.preview(scope,{...actor,isSuper:false,permissions:[]},await publicPackage([originalPublic])),/permission is required/);
+    const readOnly={...actor,isSuper:false,permissions:[kind==="skill"?"hr:employee_record:read":"hr:employee_credential:read"]};
+    assert.equal(result(await importer.status(scope,readOnly,accepted.preview.id)).status,"committed");
+    await assert.rejects(importer.commit(scope,readOnly,accepted.preview.id),/permission is required/);
+    const employeeKey=`sha256:${sha(`dbo.person\0public-${kind}`)}`;
+    const employeeItem:Input={domain:"employee",sourceTable:"dbo.person",sourceKey:employeeKey,fields:{employeeCode:`PUBLIC-${kind}`,fullName:"Synthetic dependent employee",employmentStatus:"preboarding"}};
+    const dependent=item(`sha256:${sha(`${sourceTable}\0public-dependent`)}`,kind==="skill"?{skillName:"Synthetic dependent skill"}:{credentialType:"synthetic",credentialName:"Synthetic dependent credential"});
+    dependent.fields.employeeSourceKey=employeeKey;
+    const digestItem=(value:Input):YuzhouIncrementalItem=>({...value,rowDigest:sha(canonicalYuzhouInitialJson({...value,sourceUpdatedAt:null}))});
+    const {rowDigest:_unused,...dependentInput}=dependent;void _unused;
+    const linked=await publicImport([digestItem(dependentInput),digestItem(employeeItem)]);assert.equal(linked.outcome.appliedCount,2);
+    const row=(await db.query(`SELECT r.employee_id,e.employee_code FROM hr_incremental_import_item i JOIN ${table} r ON r.id=i.target_id JOIN hr_employee e ON e.id=r.employee_id WHERE i.domain=$1 AND i.source_key=$2`,[kind,dependent.sourceKey]))[0];assert.equal(row.employee_code,`PUBLIC-${kind}`);
+  }
+}
 
 
 test("first alias proof requires nonempty authenticated original source; malformed Unicode is rejected",async()=>{
