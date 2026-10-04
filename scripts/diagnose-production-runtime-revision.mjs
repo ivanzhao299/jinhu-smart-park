@@ -334,6 +334,31 @@ function observeT5FamilyAggregateReadonly() {
   catch{fail("T5_QUERY_FAILED");}
   return sanitizeT5FamilyAggregateObservation(raw);
 }
+/** Count/hash-only preservation evidence for formal employee records, including
+ * archived rows. Never returns values, performs writes or certifies source mapping. */
+export function buildExtendedRecordReadonlySql(){
+ const domains=["experience","skill","credential"];
+ const pairs=domains.map(kind=>`'${kind}',(SELECT json_build_object('count',count(*)::int,'activeCount',count(*) FILTER(WHERE NOT is_deleted)::int,'sha256',encode(public.digest(COALESCE(string_agg(encode(public.digest(to_jsonb(record)::text,'sha256'),'hex'),'' ORDER BY id),''),'sha256'),'hex')) FROM public.hr_employee_${kind} record WHERE tenant_id='10000001' AND park_id='20000001')`);
+ return `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL TIME ZONE 'Asia/Shanghai';
+SET LOCAL statement_timeout='30s';
+SET LOCAL lock_timeout='2s';
+SELECT json_build_object(${pairs.join(",")})::text;
+ROLLBACK;
+`;
+}
+export function sanitizeExtendedRecordObservation(raw){
+ let value;try{if(typeof raw!=="string"||Buffer.byteLength(raw)>4096)fail("EXTENDED_RESULT_INVALID");value=JSON.parse(raw);}catch{fail("EXTENDED_RESULT_INVALID");}
+ if(!exactKeys(value,["experience","skill","credential"]))fail("EXTENDED_RESULT_INVALID");
+ for(const row of Object.values(value)){
+  if(!exactKeys(row,["count","activeCount","sha256"])||![row.count,row.activeCount].every(n=>Number.isSafeInteger(n)&&n>=0&&n<=1000000)||row.activeCount>row.count||typeof row.sha256!=="string"||!ID.test(row.sha256))fail("EXTENDED_RESULT_INVALID");
+ }
+ return {...value,status:"PASS",evidenceScope:"scoped_formal_extended_records_snapshot_only",productionWrites:false,baselineCertified:false};
+}
+function observeExtendedRecordsReadonly(){
+ let raw;try{raw=execFileSync("docker",["--host","unix:///var/run/docker.sock","exec","-i","jinhu-smart-park-prod-postgres","sh","-c",'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildExtendedRecordReadonlySql(),encoding:"utf8",timeout:40000,maxBuffer:4096,stdio:["pipe","pipe","pipe"]});}catch{fail("EXTENDED_QUERY_FAILED");}
+ return sanitizeExtendedRecordObservation(raw);
+}
 export function sanitizeT5ProfileAggregateObservation(raw) {
   let v;
   try {
@@ -561,7 +586,8 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const t5OriginalProfileAggregate = observeT5ProfileAggregateReadonly();
     const t5QuarantineImpact = observeT5QuarantineImpactReadonly();
     const t5OriginalFamilyAggregate=observeT5FamilyAggregateReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate}) + "\n");
+    const formalExtendedRecords=observeExtendedRecordsReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {
