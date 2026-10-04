@@ -314,6 +314,26 @@ SELECT json_build_object(
 ROLLBACK;
 `;
 }
+/** Same pinned original operation and immutable receipts, current formal family
+ * snapshot only. Current edits can differ from original without invalidating it. */
+export function buildT5FamilyAggregateReadonlySql() {
+  return buildT5ProfileAggregateReadonlySql().replaceAll("hr_employee_profile","hr_employee_family").replaceAll("profile","family");
+}
+export function sanitizeT5FamilyAggregateObservation(raw) {
+  let value;try{value=JSON.parse(raw);}catch{fail("T5_RESULT_INVALID");}
+  const keys=["operationBound","familyCount","familyReceiptCount","familySha256","familyAggregateMatches","receiptCount","receiptSha256","receiptAggregateMatches","familyExclusions"];
+  if(!exactKeys(value,keys))fail("T5_RESULT_INVALID");
+  const translated=Object.fromEntries(Object.entries(value).map(([key,v])=>[key.replaceAll("family","profile"),v]));
+  sanitizeT5ProfileAggregateObservation(JSON.stringify(translated));
+  return {...value,status:value.operationBound&&value.receiptAggregateMatches&&value.familyCount>0&&value.familyCount===value.familyReceiptCount?"PASS":"FAIL",
+    evidenceScope:"current_original_family_targets_snapshot_only",baselineCertified:false,productionWrites:false};
+}
+function observeT5FamilyAggregateReadonly() {
+  let raw;
+  try{raw=execFileSync("docker",["--host","unix:///var/run/docker.sock","exec","-i","jinhu-smart-park-prod-postgres","sh","-c",'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildT5FamilyAggregateReadonlySql(),encoding:"utf8",timeout:40000,maxBuffer:65536,stdio:["pipe","pipe","pipe"]});}
+  catch{fail("T5_QUERY_FAILED");}
+  return sanitizeT5FamilyAggregateObservation(raw);
+}
 export function sanitizeT5ProfileAggregateObservation(raw) {
   let v;
   try {
@@ -540,7 +560,8 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const originalBaseline = observeOriginalBaselineReadonly();
     const t5OriginalProfileAggregate = observeT5ProfileAggregateReadonly();
     const t5QuarantineImpact = observeT5QuarantineImpactReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact}) + "\n");
+    const t5OriginalFamilyAggregate=observeT5FamilyAggregateReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildT5ProfileAggregateReadonlySql, sanitizeT5ProfileAggregateObservation } from '../diagnose-production-runtime-revision.mjs';
+import { buildT5ProfileAggregateReadonlySql, sanitizeT5ProfileAggregateObservation,buildT5FamilyAggregateReadonlySql,sanitizeT5FamilyAggregateObservation } from '../diagnose-production-runtime-revision.mjs';
 const valid=()=>({operationBound:true,profileCount:2859,profileReceiptCount:2859,profileSha256:'a'.repeat(64),profileAggregateMatches:true,receiptCount:80000,receiptSha256:'b'.repeat(64),receiptAggregateMatches:true,profileExclusions:[]});
 test('snapshot query preserves original whole-row digest algorithm and is read only',()=>{
  const sql=buildT5ProfileAggregateReadonlySql();
@@ -23,4 +23,12 @@ test('hashed original exclusion rows remain scoped and strict without private fi
  const entry={sourceIdentitySha256:'c'.repeat(64),sourceRowSha256:'d'.repeat(64),decisionReceiptSha256:'e'.repeat(64),reasonCode:'ORIGINAL_QUARANTINE'};
  const v=valid();v.profileExclusions=[entry];assert.equal(sanitizeT5ProfileAggregateObservation(JSON.stringify(v)).profileExclusions.length,1);
  for(const entries of [[entry,entry],[{...entry,privateName:'private'}],[{...entry,reasonCode:'arbitrary private text'}],Array(201).fill(entry)])assert.throws(()=>sanitizeT5ProfileAggregateObservation(JSON.stringify({...valid(),profileExclusions:entries})),{code:'PRODUCTION_RUNTIME_T5_RESULT_INVALID'});
+});
+
+test("family snapshot permits ordinary current edits without pretending to certify a baseline",()=>{
+ const sql=buildT5FamilyAggregateReadonlySql();assert.match(sql,/REPEATABLE READ READ ONLY/u);assert.ok(sql.includes("hr_employee_family"));assert.ok(!sql.includes("hr_employee_profile"));assert.ok(sql.endsWith("ROLLBACK;\n"));assert.doesNotMatch(sql,/\b(?:INSERT|UPDATE|DELETE|COPY|CALL|DO|FOR SHARE|FOR UPDATE)\b/u);
+ const v=Object.fromEntries(Object.entries(valid()).map(([k,v])=>[k.replaceAll("profile","family"),v]));v.familyAggregateMatches=false;
+ const result=sanitizeT5FamilyAggregateObservation(JSON.stringify(v));assert.equal(result.status,"PASS");assert.equal(result.baselineCertified,false);assert.equal(result.productionWrites,false);
+ v.familyReceiptCount--;assert.equal(sanitizeT5FamilyAggregateObservation(JSON.stringify(v)).status,"FAIL");
+ v.privateName="forbidden";assert.throws(()=>sanitizeT5FamilyAggregateObservation(JSON.stringify(v)));
 });
