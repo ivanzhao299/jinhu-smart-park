@@ -135,7 +135,19 @@ export class CreateHrEmployeeDto {
  @IsOptional() @Transform(trim) @IsEmail() @MaxLength(128) workEmail?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
-export class UpdateHrEmployeeDto extends CreateHrEmployeeDto {}
+export class UpdateHrEmployeeDto extends CreateHrEmployeeDto {
+ @IsInt() @Min(1) @Max(2147483646) expectedVersion!:number;
+}
+export class UpdateHrEmployeeBasicInformationDto {
+ @IsInt() @Min(1) @Max(2147483646) expectedVersion!:number;
+ @ValidateIf((_object,value)=>value!==undefined) @Transform(({value})=>typeof value==="string"?value.replace(/\p{Default_Ignorable_Code_Point}/gu,"").normalize("NFC").trim():value) @IsString() @IsNotEmpty() @Matches(/\p{L}/u) @MaxLength(100) fullName?:string;
+ @ValidateIf((_object,value)=>value!==undefined) @IsIn(HR_EMPLOYMENT_TYPES) employmentType?:string;
+ @IsOptional() @IsDateString({strict:true}) @Matches(/^\d{4}-\d{2}-\d{2}$/) hireDate?:string|null;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(128) workLocation?:string|null;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) workMobile?:string|null;
+ @IsOptional() @Transform(trim) @IsEmail() @MaxLength(128) workEmail?:string|null;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string|null;
+}
 export class LinkHrEmployeeAccountDto {
  @ValidateIf((_object,value)=>value!==null) @IsUUID() userId!:string|null;
  @ValidateIf((_object,value)=>value!==null) @IsUUID() expectedUserId!:string|null;
