@@ -210,7 +210,7 @@ CLI 错误只输出预先列举的固定安全代码；解析器、文件系统�
 
 ## 原 T5 档案连续增量
 
-固定入口可同时接受 `profileManifest: {path, sha256}`。它引用私有 T5 staging manifest 的 `domains.person_core`：`sourceObject=dbo.person.core_residue`、`file=person_core.jsonl`、`rows` 和实际 `fileSha256`。版本为 1、`productionImport=HOLD`；`yuzhou_t5_nonfile_materialization_stage` 格式另核其 `nonfileBusinessSha256`，manifest 若声明 source snapshot 则须与 caller custody 一致。配置固定所用 manifest 实际字节摘要，不能把不同留存 manifest 冒称原 manifest 等值；原 person_core 文件是否属于原 binding，另按其确切文件摘要证明。现有双反斜杠传输只逆转一次，并用原 row hash 验证。档案 identity 来自原 `id`，员工 dependency 来自 `person`，两者不能混用。只投射 sex/birthday/handtel/email/addr/idcard 六列；生日接受经过日历校验的原本地 ISO datetime，取日期部分。其他列逐字段保留 pending coverage，不使用旧 materialized 密文。
+固定入口可同时接受 `profileManifest: {path, sha256}`。它引用私有 T5 staging manifest 的 `domains.person_core`：`sourceObject=dbo.person.core_residue`、`file=person_core.jsonl`、`rows` 和实际 `fileSha256`。版本为 1、`productionImport=HOLD`；`yuzhou_t5_nonfile_materialization_stage` 格式另核其 `nonfileBusinessSha256`，manifest 若声明 source snapshot 则须与 caller custody 一致。配置固定所用 manifest 实际字节摘要，不能把不同留存 manifest 冒称原 manifest 等值；原 person_core 文件是否属于原 binding，另按其确切文件摘要证明。现有双反斜杠传输只逆转一次，并用原 row hash 验证。档案 identity 来自原 `id`，员工 dependency 来自 `person`，两者不能混用。普通包投射 sex/birthday/handtel/email/addr/idcard 六项必需列，并可选接受 oldaddr→nativePlace（籍贯）、edulevel→degree（学位）；生日接受经过日历校验的原本地 ISO datetime，取日期部分。其他列逐字段保留 pending coverage，不使用旧 materialized 密文。
 
 已有原 T5 档案先单独构建 baseline-only 包：配置 `profileBaselineWitness: {path, sha256}`，文件内容为 `{version:1, proof:"original_t5_whole_set_v1", operationId, bindingSha256}`，原操作 ID 使用 `yzprod-import-YYYYMMDDTHHMMSSZ-12hex`。该模式档案 DTO 的 `fields` 为 `{}`。认证在 API 的事务中锁原成功操作防回滚、锁原 profile/source/receipt 集合，以固定 Asia/Shanghai 复算原 PostgreSQL whole-row count/hash 和全 receipt count/hash，与原 immutable owned_state 完全相等后才接受。逐行内部解密原来源、验证 identity/row hash、T0 owner 成功链，并核对原身份证明文 trim 与 certified target fingerprint/hash-key 相容。证明失败明确拒绝，不把当前编辑后的行冒充原基线。首次接收仅写加密账本和不可变 provenance，不改变业务列、版本或时间。
 
@@ -242,3 +242,73 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 组织新增和修改分别使用系统组织 create/update 权限，岗位使用岗位 manage 权限，且相关组织必须在操作者可见范围。批次账目包括五个领域，界面显示中文字段标签、数量和冲突计数。相同操作重复提交不会重复写入，快照缺席不触发删除。
 
 本次合成 CLI/PG 与界面检查只证明实现行为；新增两域部署、真实后续来源批次及业务角色验收由发布记录另行证明。
+
+## 档案别名字段首次接纳与后续修订
+
+现代档案编辑白名单共有 33 项业务字段（不含 `expectedVersion`）。原始适配器当前支持其中 8 项；另外 25 项明确 pending。API 增量白名单还包含来源关系控制项和未有原始来源绑定的 englishName，不能将 API 字段可提交等同于 raw adapter 已映射。
+
+新增别名来自已固定的 procedure 元数据与目录：catalog `8e62d0308c14db70192f5b94f8cc775f2e87032d14f5cbeaee238d1d177f5014`；u_personinfo2003 `adf140a230a553b28eca6558dcd324e7ac84fa58f821be23dab75af59437017a`；web_personinfo_SelectCommand `4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868`。这些是语义证据，不能替代本批来源保管证明。oldaddr 最大 50 个 Unicode 字符，edulevel 最大 24；拒绝非法类型、NUL、孤立代理码和超长源值。字段缺失表示省略、保留目标；显式 null 或空白字符串规范化为 null 并参加基线比较。旧六字段包继续可用，新列不会成为旧包的必需 schema。
+
+已有原 T5 档案的 000330 六字段基线不会因新配方自动扩展。普通包遇到缺少可信来源/目标基线的新字段，preview/commit 返回 `INITIAL_FIELD_BASELINE_UNKNOWN` 和字段名。新档案可以直接携带 8 个已确认字段并建立本次来源基线；已有原档案必须明确执行一次性接纳。
+
+配置增加 pinned 私有文件 `profileAliasAcceptance: {path, sha256}`，文件内容如下。`fields` 可选择一项或同时两项，不能与 `profileBaselineWitness` 一起使用。
+
+```json
+{
+  "version": 1,
+  "proof": "original_t5_alias_fields_v1",
+  "operationId": "yzprod-import-YYYYMMDDTHHMMSSZ-12hex",
+  "bindingSha256": "<original immutable T5 binding SHA-256>",
+  "fields": ["nativePlace", "degree"]
+}
+```
+
+操作顺序固定为：
+
+1. 从已经绑定的受控原 T5 来源构建显式首次接纳包。CLI 仍核验全 raw row、员工关系、摘要和私有文件，但 API `fields` **仅含请求接纳的别名**；其余来源字段在 coverage 标为 `not_requested_alias_acceptance`。marker 同时进入 rowDigest、manifest 和 package hash，不能附加到已接受旧包而沿用旧 digest。
+2. API 验证现有 000330 不可变 provenance、认证原目标完整快照、原集合 certificate、原操作/binding/scope/owner/receipt，再解密原 T5 来源并重验完整 source row hash。首次接纳仅允许认证原来源 trim 后非空、原目标该字段为 null、当前仍为 null、当前 aggregate version 等于认证原目标 version，且输入值等于认证原来源规范值。成功实际填入目标、追加字段基线及 `PROFILE_ALIAS_FIELDS_ACCEPTED` revision；保留原六字段基线内容和不可变历史 receipt/provenance。即使新包来源值等于原 source，也必须执行第一次填入，不能误报 unchanged。
+3. 核对首次接纳结果后移除 `profileAliasAcceptance`，用正常新来源包继续修订。新批 alias 来源已经改变时，先完成上一步原证据接纳，再提交新批正常修订；不需要每批重新分析旧字段语义。相同包重复执行和同源并发都不会重复接纳，后续变更使用已接受字段基线和现代同字段冲突/CAS。
+
+`PROFILE_ALIAS_TARGET_HISTORY_CHANGED` 表示聚合版本已变化，无法证明该字段未经历现代“修改后清空”；即使修改的是其他现代字段，也保守拒绝首次自动接纳。它不限制正常现代档案维护。此类记录需要后续独立、可信的字段变更历史/明确业务接纳证据，不能降低版本、读取当前空值冒充历史空值或重置六字段基线。建议同时接纳两项；仅接纳一项后 version 会变化，另一项尚未知字段不能靠第一次接纳自动取得历史授权。
+
+原来源 null/空白返回 `PROFILE_ALIAS_ORIGINAL_SOURCE_EMPTY`（此限制仅首次原证据接纳，新档案和已接纳字段仍可显式清空）；原目标非空返回 `PROFILE_ALIAS_ORIGINAL_TARGET_NOT_EMPTY`；首次输入不同于原来源返回 `PROFILE_ALIAS_ORIGINAL_SOURCE_CHANGED`；缺 000330 认证基线返回 `PROFILE_ALIAS_ORIGINAL_BASELINE_REQUIRED`。原字段缺失、篡改来源/receipt、错误 scope/owner/binding/certificate 均拒绝；无别名自动回退和字典猜测。比较后发生另一个连接的目标编辑由 CAS 回滚业务目标、账本和接纳 revision。新来源未提供，本地合成验证不代表七月份之后真实新增数据或本次生产接纳已经执行。
+
+完整逐字段矩阵由 `YUZHOU_PROFILE_FIELD_COVERAGE` 固定，并写入每个 `coverage.json` 的 `profileFieldCoverage`；测试断言与现代 DTO 33 项精确一致：
+
+<!-- PROFILE-FIELD-MATRIX -->
+
+| 现代字段 | raw adapter 状态 | 确认来源或待补证据 |
+| --- | --- | --- |
+| address | 支持 | dbo.person.addr |
+| dateOfBirth | 支持 | dbo.person.birthday |
+| degree | 支持 | dbo.person.edulevel |
+| emergencyContactMobile | pending | No verified raw source binding |
+| emergencyContactName | pending | No verified raw source binding |
+| employeeCategory | pending | Exact source dictionary and target representation not bound |
+| englishName | pending | No verified raw source binding |
+| ethnicity | pending | Exact source dictionary and target representation not bound |
+| foreignLanguage | pending | Exact source dictionary and target representation not bound |
+| gender | 支持 | dbo.person.sex |
+| graduationDate | pending | No verified raw date semantics or education precedence |
+| graduationSchool | pending | No verified raw binding or education precedence |
+| healthStatus | pending | person.physical is 体质, not evidence of healthStatus |
+| heightCm | pending | No verified raw measurement and unit contract |
+| highestEducation | pending | person.edu joins educode.edu to eduname; edu/secedu precedence unproven |
+| homePhone | pending | No verified raw source binding |
+| householdRegistration | pending | No verified raw source binding |
+| idNumber | 支持 | dbo.person.idcard |
+| idType | pending | No reviewed raw document-type mapping; do not infer resident_id from idcard |
+| jobGrade | pending | person.grade is 工资标准, not evidence of jobGrade |
+| jobTitle | pending | person.assignment has 职务/职称 conflict; no canonical jobTitle binding |
+| languageLevel | pending | Exact source dictionary and target representation not bound |
+| major | pending | No verified raw source binding |
+| maritalStatus | pending | Exact source dictionary and target representation not bound |
+| nativePlace | 支持 | dbo.person.oldaddr |
+| partyJoinDate | pending | No verified raw date semantics |
+| personalEmail | 支持 | dbo.person.email |
+| personalMobile | 支持 | dbo.person.handtel |
+| politicalStatus | pending | Exact source dictionary and target representation not bound |
+| remark | pending | No verified raw source binding |
+| technicalGrade | pending | No exact scoped dictionary artifact in this raw profile entry |
+| technicalTitle | pending | No exact scoped dictionary artifact in this raw profile entry |
+| weightKg | pending | No verified raw measurement and unit contract |

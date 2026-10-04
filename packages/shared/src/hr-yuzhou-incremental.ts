@@ -18,6 +18,13 @@ export type YuzhouIncrementalItem = {
   fields: Record<string, unknown>;
   initialBaselineWitness?: YuzhouInitialBaselineWitness;
   profileBaselineWitness?: YuzhouProfileBaselineWitness;
+  profileAliasAcceptance?: {
+    version: 1;
+    proof: "original_t5_alias_fields_v1";
+    operationId: string;
+    bindingSha256: string;
+    fields: Array<"nativePlace" | "degree">;
+  };
 };
 
 export type YuzhouIncrementalPackage = {
@@ -32,7 +39,7 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   organization: ["orgCode", "orgName", "orgType", "sortOrder", "status", "remark", "contactPhone", "plannedHeadcount", "legacySourceId", "legacyHierarchyLevel", "legacyManagerReference", "parentSourceKey"],
   position: ["positionCode", "positionName", "jobFamily", "jobLevel", "headcountLimit", "status", "remark", "authority", "legacyDepartmentReference", "legacyParentReference", "legacySourceId", "legacyUptoCode", "positionManual", "qualification", "responsibilities", "hierarchyLevel", "sortOrder", "orgSourceKey", "parentPositionSourceKey"],
   employee: ["orgSourceKey", "positionSourceKey", "employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "workLocation", "workMobile", "workEmail"],
-  profile: ["employeeSourceKey", "employeeSourceTable", "englishName", "gender", "dateOfBirth", "personalMobile", "personalEmail", "address", "idNumber"],
+  profile: ["employeeSourceKey", "employeeSourceTable", "englishName", "gender", "dateOfBirth", "personalMobile", "personalEmail", "address", "idNumber", "nativePlace", "degree"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };
 
@@ -44,6 +51,7 @@ export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackag
       const canonical = { ...item, fields: sortObject(item.fields) };
       if (canonical.sourceUpdatedAt === undefined) delete canonical.sourceUpdatedAt;
       if (canonical.profileBaselineWitness === undefined) delete canonical.profileBaselineWitness;
+      if (canonical.profileAliasAcceptance === undefined) delete canonical.profileAliasAcceptance;
       if (canonical.initialBaselineWitness === undefined) delete canonical.initialBaselineWitness;
       return canonical;
     }).sort((a, b) =>

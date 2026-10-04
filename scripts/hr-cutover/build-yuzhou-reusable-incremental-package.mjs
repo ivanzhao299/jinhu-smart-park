@@ -6,7 +6,7 @@ import { projectYuzhouOrganizationRecords, orderHierarchyItems } from "./yuzhou-
  * Yuzhou incremental-import API package.  It deliberately has no database or
  * network adapter: the API owns preview/commit and its transactional ledger.
  */
-import { verifyProfileSource, projectYuzhouProfile } from "./yuzhou-profile-incremental-projection.mjs";
+import { verifyProfileSource, projectYuzhouProfile, YUZHOU_PROFILE_FIELD_COVERAGE, YUZHOU_PROFILE_ALIAS_EVIDENCE } from "./yuzhou-profile-incremental-projection.mjs";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -32,16 +32,18 @@ const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const privateDirectory = path => (statSync(path).mode & 0o777) === 0o700;
 
 export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
+  profileFieldCoverage: YUZHOU_PROFILE_FIELD_COVERAGE,
+  profileAliasEvidence: YUZHOU_PROFILE_ALIAS_EVIDENCE,
   supported: [
     { domain:"organization", sourceTable:"dbo.departmentcode", adapter:"verified-t0-department", dependency:"source parent identity" },
     { domain:"position", sourceTable:"dbo.job", adapter:"verified-t0-job", dependency:"exact source organization and parent position identities" },
-    { domain: "profile", sourceTable: "dbo.person.core_residue", adapter: "raw-person-core-profile", dependency: "verified dbo.person employee source identity", eligibility: "six reviewed raw fields; T5 original baseline witness uses fields:{}" },
+    { domain: "profile", sourceTable: "dbo.person.core_residue", adapter: "raw-person-core-profile", dependency: "verified dbo.person employee source identity", eligibility: "eight reviewed raw fields (six required, two optional aliases); T5 original baseline witness still certifies six fields with fields:{}" },
     { domain: "employee", sourceTable: "dbo.person", adapter: "raw-person-employee", dependency: "verified job-state decision artifact", eligibility: "bounded employee code/name, valid nullable hire date and mapped v2 job state" },
     { domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "explicitly mapped draft, active, expired, terminated or cancelled source status" },
   ],
   pending: [
     { domain:"company_root_secondary_assignment_station", reason:"Unproven source semantics remain pending; no inferred root or name association" },
-    { domain: "profile_extended_fields", reason: "Only the six catalog-confirmed raw profile fields are projected; other source fields remain explicitly pending and old materialized ciphertext is never replayed" },
+    { domain: "profile_extended_fields", reason: "Eight reviewed raw fields supported; remaining modern profile fields have explicit pending reasons in profileFieldCoverage; original baselines remain six-field-only" },
     { domain: "contract_type", reason: "API incremental contract DTO has no contract-type creation adapter" },
     { domain: "contract_change", reason: "API incremental contract DTO has no change-history adapter" },
     { domain: "contract_legacy_evidence", reason: "protected attachment/content binding remains a normal file-adapter follow-up" },
@@ -221,13 +223,13 @@ export function buildYuzhouReusableIncrementalPackage(input) {
   }
   if (input.profileRecords !== undefined && !Array.isArray(input.profileRecords)) fail("YUZHOU_PROFILE_SOURCE_INVALID");
   const omittedFields = profileAdmissionFields(input);
-  const profileAdapted = (input.profileRecords ?? []).map(row => projectYuzhouProfile(row, employees, {baselineWitness:input.profileBaselineWitness,omittedFields:omittedFields[row.sourceIdentitySha256] ?? []}));
+  const profileAdapted = (input.profileRecords ?? []).map(row => projectYuzhouProfile(row, employees, {baselineWitness:input.profileBaselineWitness,aliasAcceptance:input.profileAliasAcceptance,omittedFields:omittedFields[row.sourceIdentitySha256] ?? []}));
   const adapted = [...hierarchy.adapted, ...employeeAdapted, ...profileAdapted, ...input.records.map(row => itemForContract(row, employees, states, types))];
   const items = orderHierarchyItems(adapted.flatMap(value => value.item ? [value.item] : []).sort((left, right) => DOMAIN_ORDER[left.domain] - DOMAIN_ORDER[right.domain] || `${left.sourceTable}\0${left.sourceKey}`.localeCompare(`${right.sourceTable}\0${right.sourceKey}`)));
   const declarations = adapted.map(value => value.declaration).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   const sourceEvidence = adapted.map(value => value.sourceEvidence).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   for (const item of items) { const key = `${item.domain}\0${item.sourceTable}\0${item.sourceKey}`; if (seen.has(key)) fail("YUZHOU_REUSABLE_INCREMENTAL_SOURCE_DUPLICATE"); seen.add(key); }
-  const manifestBinding = { ...(input.profileBaselineWitness ? { profileBaselineWitness: input.profileBaselineWitness } : {}), ...(input.profileAdmissionEvidence ? { profileAdmissionEvidence: input.profileAdmissionEvidence } : {}), recipeVersion: RECIPE_VERSION, recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: SOURCE_SYSTEM, extractedAt: input.extractedAt, typeMappingArtifactSha256: typeArtifact?.artifactSha256 ?? null, typeMappingTargetScope: typeArtifact?.targetScope ?? null, jobStateArtifactSha256, itemSourceIdentities: items.map(item => item.sourceKey), itemRowDigests: items.map(item => item.rowDigest), declarations, sourceEvidence };
+  const manifestBinding = { ...(input.profileAliasAcceptance ? {profileAliasAcceptance:input.profileAliasAcceptance} : {}), ...(input.profileBaselineWitness ? { profileBaselineWitness: input.profileBaselineWitness } : {}), ...(input.profileAdmissionEvidence ? { profileAdmissionEvidence: input.profileAdmissionEvidence } : {}), recipeVersion: RECIPE_VERSION, recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: SOURCE_SYSTEM, extractedAt: input.extractedAt, typeMappingArtifactSha256: typeArtifact?.artifactSha256 ?? null, typeMappingTargetScope: typeArtifact?.targetScope ?? null, jobStateArtifactSha256, itemSourceIdentities: items.map(item => item.sourceKey), itemRowDigests: items.map(item => item.rowDigest), declarations, sourceEvidence };
   const manifestId = `yuzhou-reusable-${sha256(canonical(manifestBinding))}`;
   const packageDtos = splitYuzhouIncrementalPackage({ version: 1, sourceSystem: SOURCE_SYSTEM, manifestId, extractedAt: input.extractedAt, items }, { alwaysSuffix:true });
   const packageDto = packageDtos.length === 1 ? packageDtos[0] : null;

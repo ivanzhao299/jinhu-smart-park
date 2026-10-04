@@ -77,16 +77,7 @@ export async function certifyOriginalProfiles(manager:EntityManager, original:Or
   const {profiles,receipts}=await certificate;
   // Re-read after table locks: the pre-lock target view cannot be used as the certificate.
   const target=(await manager.query(`SELECT to_jsonb(p) AS original,to_char(date_of_birth,'YYYY-MM-DD') AS dob FROM hr_employee_profile p WHERE id=$1 AND tenant_id=$2 AND park_id=$3`,[original.target_id,scope.tenantId,scope.parkId]))[0];
-  const raw=sensitive.decrypt(original.encrypted_source);
-  if(!raw || raw.length>1024*1024) return reject();
-  let source:Record<string,unknown>;try { source=JSON.parse(raw) as Record<string,unknown>; } catch { return reject(); }
-  if(!object(source)) return reject();
-  if(sha(profileCanonical(source))!==original.source_row_sha256) {
-    const decode=(value:unknown):unknown=>typeof value==="string"?value.replace(/\\(?:u[0-9a-fA-F]{4}|["\\/bfnrt])/gu,t=>JSON.parse(`"${t}"`)):Array.isArray(value)?value.map(decode):object(value)?Object.fromEntries(Object.entries(value).map(([k,v])=>[k,decode(v)])):value;
-    source=decode(source) as Record<string,unknown>;
-    if(sha(profileCanonical(source))!==original.source_row_sha256) return reject();
-  }
-  if(!Number.isInteger(source.id) || Number(source.id)<-2147483648 || Number(source.id)>2147483647 || sha(`dbo.person.core_residue\0${source.id}`)!==original.source_identity_sha256 || typeof source.person!=="string" || sha(`dbo.person\0${source.person.trim()}`)!==original.employee_key.slice(7)) return reject();
+  const source=authenticateOriginalProfileSource(original,sensitive);
   for(const column of ["sex","birthday","idcard","handtel","email","addr"]) if(!Object.hasOwn(source,column) || !(source[column]===null || typeof source[column]==="string")) return reject();
   const text=(value:unknown)=>typeof value==="string"?value.trim()||null:null;
   const p=target.original as Record<string,unknown>,oldId=text(source.idcard);
@@ -101,4 +92,43 @@ export async function certifyOriginalProfiles(manager:EntityManager, original:Or
   const sourceFacts={employeeSourceKey:original.employee_key,employeeSourceTable:"dbo.person",gender:text(source.sex),dateOfBirth:date,personalMobile:text(source.handtel),personalEmail:text(source.email),address:text(source.addr),idNumber:oldId===null?null:oldId.replace(/\s+/gu,"").toUpperCase()};
   const targetFacts={gender:p.gender,dateOfBirth:target.dob,personalMobile:p.personal_mobile,personalEmail:p.personal_email,address:p.address,idNumberEncrypted:p.id_number_encrypted,idNumberMasked:p.id_number_masked,idNumberFingerprint:p.id_number_fingerprint,targetVersion:p.version};
   return {source:sourceFacts,target:targetFacts,certificate:{proof:"original_t5_whole_set_v1",timezone:"Asia/Shanghai",profiles,receipts,sourceRowSha256:original.source_row_sha256,bindingSha256:original.binding_sha256},certifiedOriginalTarget:p};
+}
+
+// Reuse the original transport/hash/owner proof without re-certifying today's
+// mutable whole target set. The immutable 000330 provenance owns the old target.
+function authenticateOriginalProfileSource(original:OriginalProfile,sensitive:PartySensitiveDataService) {
+  const raw=sensitive.decrypt(original.encrypted_source);
+  if(!raw || raw.length>1024*1024) return reject();
+  let source:Record<string,unknown>;try { source=JSON.parse(raw) as Record<string,unknown>; } catch { return reject(); }
+  if(!object(source)) return reject();
+  if(sha(profileCanonical(source))!==original.source_row_sha256) {
+    const decode=(value:unknown):unknown=>typeof value==="string"?value.replace(/\\(?:u[0-9a-fA-F]{4}|["\\/bfnrt])/gu,t=>JSON.parse(`"${t}"`)):Array.isArray(value)?value.map(decode):object(value)?Object.fromEntries(Object.entries(value).map(([k,v])=>[k,decode(v)])):value;
+    source=decode(source) as Record<string,unknown>;
+    if(sha(profileCanonical(source))!==original.source_row_sha256) return reject();
+  }
+  if(!Number.isInteger(source.id) || Number(source.id)<-2147483648 || Number(source.id)>2147483647 || sha(`dbo.person.core_residue\0${source.id}`)!==original.source_identity_sha256 || typeof source.person!=="string" || sha(`dbo.person\0${source.person.trim()}`)!==original.employee_key.slice(7)) return reject();
+  return source;
+}
+
+export function originalProfileAliasProof(original:OriginalProfile, provenance:Record<string,unknown>, sensitive:PartySensitiveDataService, fields:readonly string[]) {
+  const source=authenticateOriginalProfileSource(original,sensitive);
+  const target=provenance.certifiedOriginalTarget,certificate=provenance.certificate;
+  if(!object(target)||!object(certificate)||certificate.sourceRowSha256!==original.source_row_sha256||certificate.bindingSha256!==original.binding_sha256
+    ||target.id!==original.target_id||target.employee_id!==original.employee_id) return reject("PROFILE_ALIAS_PROVENANCE_INVALID");
+  const scope=original.binding.targetScope as Record<string,unknown>;
+  if(target.tenant_id!==scope.tenantId||target.park_id!==scope.parkId) return reject("PROFILE_ALIAS_PROVENANCE_INVALID");
+  const mappings:Record<string,{source:string;column:string;max:number}>={nativePlace:{source:"oldaddr",column:"native_place",max:50},degree:{source:"edulevel",column:"degree",max:24}};
+  const sourceFields:Record<string,unknown>={},targetFields:Record<string,unknown>={};
+  for(const field of fields) {
+    const mapping=mappings[field];if(!mapping) return reject("PROFILE_ALIAS_FIELD_INVALID");
+    if(!Object.prototype.hasOwnProperty.call(source,mapping.source)||!Object.prototype.hasOwnProperty.call(target,mapping.column)) return reject("PROFILE_ALIAS_ORIGINAL_FIELD_MISSING");
+    const value=source[mapping.source];
+    if(value!==null&&(typeof value!=="string"||value.includes("\0")||/\p{Surrogate}/u.test(value)||[...value].length>mapping.max)) return reject("PROFILE_ALIAS_ORIGINAL_FIELD_INVALID");
+    const normalized=typeof value==="string"?value.trim():"";
+    if(!normalized) return reject("PROFILE_ALIAS_ORIGINAL_SOURCE_EMPTY");
+    sourceFields[field]=normalized;
+    targetFields[field]=target[mapping.column];
+  }
+  if(!Number.isInteger(target.version)||Number(target.version)<1) return reject("PROFILE_ALIAS_PROVENANCE_INVALID");
+  return {source:sourceFields,target:targetFields,targetVersion:Number(target.version),sourceRowSha256:original.source_row_sha256};
 }

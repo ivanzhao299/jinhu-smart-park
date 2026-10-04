@@ -88,3 +88,61 @@ test('direct builder binds witness identity and requires exact original-field ad
  // Same identity but changed full source row disables historical omission.
  assert.throws(()=>build({...base,profileRecords:[row({...invalid,addr:'changed'})],profileAdmissionEvidence:evidence}),/EMAIL_INVALID/);
 });
+
+test('modern profile whitelist has an exact supported or pending matrix; aliases never infer dictionaries',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {YUZHOU_PROFILE_FIELD_COVERAGE:matrix}=await import('../hr-cutover/yuzhou-profile-incremental-projection.mjs');
+ const dto=readFileSync('apps/api/src/modules/hr/dto/hr.dto.ts','utf8').split('export class UpdateHrEmployeeProfileDto {')[1].split('\n}')[0];
+ const modern=[...dto.matchAll(/\b(\w+)\?:/gu)].map(match=>match[1]).sort();
+ assert.equal(modern.length,33);assert.deepEqual(matrix.map(r=>r.targetField).sort(),modern);
+ assert.equal(matrix.filter(r=>r.disposition==='supported').length,8);
+ for(const field of ['highestEducation','healthStatus','jobGrade','technicalTitle']) assert.match(matrix.find(r=>r.targetField===field).disposition,/pending/);
+ const out=projectYuzhouProfile(row({...source,oldaddr:' 原籍 ',edulevel:' 学士 ',edu:'01',secedu:'本科',physical:'01',grade:'01'}),employees);
+ assert.equal(out.item.fields.nativePlace,'原籍');assert.equal(out.item.fields.degree,'学士');
+ for(const field of ['edu','secedu','physical','grade']) assert.equal(out.sourceEvidence.fieldCoverage.find(r=>r.field===field).disposition,'pending_api_adapter');
+ assert.ok(!Object.hasOwn(out.item.fields,'highestEducation'));
+});
+
+test('optional alias schema preserves omission/null and validates exact raw lengths and Unicode',()=>{
+ assert.ok(!Object.hasOwn(projectYuzhouProfile(row(source),employees).item.fields,'degree'));
+ const nullable=projectYuzhouProfile(row({...source,oldaddr:null,edulevel:'  '}),employees);
+ assert.equal(nullable.item.fields.nativePlace,null);assert.equal(nullable.item.fields.degree,null);
+ for(const [field,max] of [['oldaddr',50],['edulevel',24]]) {
+   assert.doesNotThrow(()=>projectYuzhouProfile(row({...source,[field]:'𠮷'.repeat(max)}),employees));
+   assert.throws(()=>projectYuzhouProfile(row({...source,[field]:'x'.repeat(max+1)}),employees),/FIELD_INVALID/);
+   for(const value of [1,{},[],true,'bad\0text','\ud800']) assert.throws(()=>projectYuzhouProfile(row({...source,[field]:value}),employees),/SCHEMA_INVALID/);
+ }
+ const witness={version:1,proof:'original_t5_whole_set_v1',operationId:'yzprod-import-20261004T130000Z-abcdef123456',bindingSha256:sha('binding')};
+ const baseline=projectYuzhouProfile(row({...source,oldaddr:'籍贯',edulevel:'学士'}),employees,{baselineWitness:witness});
+ assert.deepEqual(baseline.item.fields,{});
+ assert.equal(baseline.sourceEvidence.fieldCoverage.find(r=>r.field==='oldaddr').disposition,'pending_initial_field_baseline');
+ assert.throws(()=>projectYuzhouProfile(row({...source,oldaddr:'籍贯'}),employees,{omittedFields:['nativePlace']}),/ADMISSION_INVALID/);
+});
+
+test('actual staging CLI carries only requested aliases and binds admission to item/package digests',async()=>{
+ const {mkdtempSync,realpathSync,readFileSync,writeFileSync,rmSync}=await import('node:fs');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {execFileSync}=await import('node:child_process');
+ const root=mkdtempSync(join(realpathSync(tmpdir()),'yuzhou-alias-cli-'));
+ const aliasAcceptance={version:1,proof:'original_t5_alias_fields_v1',operationId:'yzprod-import-20261004T130000Z-abcdef123456',bindingSha256:sha('binding'),fields:['nativePlace','degree']};
+ const extended={...source,oldaddr:'原籍',edulevel:'学士'};
+ try {
+   const input=join(root,'source.json');writeFileSync(input,JSON.stringify({sources:[extended],scope:{tenantId:'fixture',parkId:'fixture'},aliasAcceptance}),{mode:0o600});
+   const out=JSON.parse(execFileSync(process.execPath,['scripts/e2e/yuzhou-profile-staging-fixture.mjs','--root',join(root,'stage'),'--source',input],{encoding:'utf8'}));
+   const pkg=JSON.parse(readFileSync(out.packagePath)),item=pkg.items[0];
+   assert.deepEqual(item.fields,{degree:'学士',nativePlace:'原籍'});assert.deepEqual(item.profileAliasAcceptance,aliasAcceptance);
+   assert.equal(item.rowDigest,sha(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields:item.fields,profileAliasAcceptance:aliasAcceptance})));
+   assert.notEqual(item.rowDigest,sha(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields:item.fields})));
+   const receipt=JSON.parse(readFileSync(join(root,'stage/output/assembly-receipt.json')));assert.equal(receipt.apiInput.profile,1);assert.ok(receipt.mappingReferences.profileAliasAcceptance);
+   for(const bad of [null,{...aliasAcceptance,fields:['healthStatus']},{...aliasAcceptance,fields:['degree','degree']},{...aliasAcceptance,extra:'forged snapshot'},{...aliasAcceptance,bindingSha256:'invalid'}]) assert.throws(()=>projectYuzhouProfile(row(extended),employees,{aliasAcceptance:bad}),/ALIAS_ACCEPTANCE_INVALID/);
+   assert.throws(()=>projectYuzhouProfile(row(source),employees,{aliasAcceptance}),/ALIAS_ACCEPTANCE_INVALID/);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test('profile packages preserve finite partition counts and reject duplicate source identities',async()=>{
+ const {buildYuzhouReusableIncrementalPackage:build,YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256:recipe}=await import('../hr-cutover/build-yuzhou-reusable-incremental-package.mjs');
+ const base={recipeVersion:'yuzhou-reusable-incremental-v2',recipeSha256:recipe,sourceSystem:'yuzhou-v10',extractedAt:'2026-10-04T12:00:00Z',employeeRecords:[],employeeIndex:[{employeeCode:'EMP',sourceTable:'dbo.person',sourceKey:'EMP'}],records:[]};
+ const records=Array.from({length:2001},(_,i)=>row({...source,id:i,oldaddr:'原籍',edulevel:'学士'}));
+ const out=build({...base,profileRecords:records});assert.deepEqual(out.packageDtos.map(p=>p.items.length),[2000,1]);assert.equal(out.manifest.itemCount,2001);assert.equal(out.coverage.profileFieldCoverage.length,33);
+ assert.throws(()=>build({...base,profileRecords:[records[0],records[0]]}),/SOURCE_DUPLICATE/);
+ assert.throws(()=>build({...base,recipeSha256:sha('old recipe'),profileRecords:[records[0]]}),/INPUT_INVALID/);
+});
