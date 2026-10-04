@@ -30,8 +30,12 @@
 - 受控staging入口：67项检查和接口2项通过，包含培训manifest、正式DTO及原行篡改拒绝。
 - Web工作台：24项通过，包含培训字段标签、来源值不展示、完整权限集合。
 - API/Web类型检查、shared构建及定向lint通过。
-- 实际PostgreSQL：9组通过，包含实际CLI构包→公共服务预览/提交/重放/查询、读取/写入权限、跨园区拒绝、预览隔离、并发、现代更正、事务失败和原归档失配链拒绝。测试直接执行未修改000254/000327/000340；其他前置表与原T5链使用合成最小夹具，不能证明全库迁移或真实生产来源已接受。
+- 实际PostgreSQL：10组通过，包含实际CLI构包→公共服务预览/提交/重放/查询、读取/写入权限、跨园区拒绝、预览隔离、并发、现代更正、事务失败和原归档失配链拒绝。测试直接执行未修改000254/000327/000340；其他前置表与原T5链使用合成最小夹具，不能证明全库迁移或真实生产来源已接受。
 
 命令：`node --test scripts/e2e/yuzhou-training-incremental-projection.contract.mjs scripts/e2e/yuzhou-training-reusable-package.contract.mjs scripts/e2e/yuzhou-import-interface.contract.mjs scripts/e2e/yuzhou-record-reusable-package.contract.mjs`，`node scripts/e2e/yuzhou-staging-import-entry.contract.mjs`。PG使用独立临时数据库、127.0.0.1:55491及HR_TRAINING_IMPORT_PG_REQUIRED=1，测试结束只清理本次创建的数据库。
 
-待完成：同包新员工公共提交的完整集成验证、完整迁移/发布检查、CI/合并/生产部署与只读取证、登录后的真实岗位桌面/手机验收、真实新源批次验收。当前未收到后七月新增来源、未运行生产迁移000340、未导入新批次。完整现代化与独立HR产品目标仍保持。
+待完成：发布检查、CI/合并/生产部署与只读取证、登录后的真实岗位桌面/手机验收、真实新源批次验收。当前未收到后七月新增来源、未运行生产迁移000340、未导入新批次。完整现代化与独立HR产品目标仍保持。
+
+同包新增组织、在职员工和培训经固定文件构包→公共预览→提交验证通过；故障注入培训revision后，新组织/员工/参与记录及item/revision全部回滚，操作保留previewed并可在故障解除后成功提交。混合包缺员工manage明确拒绝。该10组PG测试与两个培训离线契约已加入既有CI HR持续导入步骤，复用同一PostgreSQL服务。
+
+完整空库验证通过：直接运行既有db-migrate.sh应用全部当前迁移（包括000340），再次运行校验和重放，再执行生产安全seed两次，均退出0；新临时库有462张public表且培训binding表存在。仅使用本地已有镜像，独立Compose项目/卷，无主库复制或生产数据，结束后本次容器和卷残留0。该结果不替代生产已有数据库升级和备份恢复验证。

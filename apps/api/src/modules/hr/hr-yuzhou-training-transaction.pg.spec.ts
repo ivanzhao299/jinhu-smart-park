@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { randomUUID,randomBytes } from "node:crypto";
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { after,before,test } from "node:test";
 import { DataSource } from "typeorm";
-import { HR_PERMISSIONS } from "@jinhu/shared";
+import { HR_PERMISSIONS, SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { ConfigService } from "@nestjs/config";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
@@ -167,4 +167,57 @@ test('retained archive source is authenticated before first formal acceptance an
  assert.equal(await db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,lookup,op)),'applied');
  assert.equal((await db.query('SELECT original_source_id FROM hr_incremental_training_binding WHERE original_source_id=$1',[id]))[0].original_source_id,id);
  const before=await counts();await db.query(`UPDATE migration_batch SET tool_version='wrong' WHERE run_id=$1`,[originalOp]);const retry=await operation();await assert.rejects(db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,lookup,retry)),/EVIDENCE_INVALID/);assert.deepEqual(await counts(),before);
+});
+
+test('same fixed package creates organization active employee and formal training atomically',{skip:!enabled},async()=>{
+ await db.query(`ALTER TABLE hr_employee ALTER COLUMN id SET DEFAULT uuid_generate_v4(),
+ ADD COLUMN employee_code text,ADD COLUMN full_name text,ADD COLUMN employment_type text,ADD COLUMN employment_status text,
+ ADD COLUMN hire_date date,ADD COLUMN work_location text,ADD COLUMN work_mobile text,ADD COLUMN work_email text,
+ ADD COLUMN create_by uuid,ADD COLUMN update_by uuid,ADD COLUMN version integer DEFAULT 1,ADD COLUMN primary_org_id uuid,ADD COLUMN position_id uuid,
+ ADD COLUMN update_time timestamptz DEFAULT now();
+ ALTER TABLE migration_batch ADD COLUMN id uuid DEFAULT uuid_generate_v4() UNIQUE;
+ ALTER TABLE legacy_record_map ADD COLUMN batch_id uuid REFERENCES migration_batch(id);
+ CREATE TABLE hr_yuzhou_production_import_record(source_system text,source_table text,source_pk_canonical text,target_table text);
+ CREATE TABLE hr_incremental_initial_baseline(item_id uuid PRIMARY KEY,original_operation_id text,witness_sha256 text,provenance_encrypted text);
+ CREATE TABLE sys_org(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id text,park_id text,parent_id uuid,org_code text,org_name text,org_type text,status text,sort_order integer DEFAULT 0,remark text,contact_phone text,planned_headcount integer,legacy_manager_reference text,legacy_source_id integer,legacy_hierarchy_level integer,version integer DEFAULT 1,is_deleted boolean DEFAULT false,create_by uuid,update_by uuid,update_time timestamptz DEFAULT now());`);
+ const dir=mkdtempSync(resolve(tmpdir(),'yuzhou-training-same-package-')),root=resolve(__dirname,'../../../../..');
+ try{
+  execFileSync(process.execPath,['scripts/e2e/yuzhou-reusable-incremental-package-fixture.mjs','--root',dir,'--contract-type-id','00000000-0000-5000-8000-000000000001','--employee-only','yes'],{cwd:root,stdio:'pipe'});
+  const input=JSON.parse(readFileSync(resolve(dir,'input.json'),'utf8'));
+  const raw={legacyCode:'INC-ORG',orgName:'Synthetic package organization',rating:2,sortOrder:0,legacyManagerValue:null,plannedHeadcount:null,contactPhone:null,legacySourceId:null};
+  input.organizationRecords=[{sourceTable:'dbo.departmentcode',sourceKey:'INC-ORG',sourceIdentitySha256:createHash('sha256').update('dbo.departmentcode\0INC-ORG').digest('hex'),sourceRowSha256:digest(raw),source:raw}];
+  const training={id:8765,person:'CLI-E-001',organ:null,coursename:'Synthetic dependency training',startdate:'2020-02-29T00:00:00',enddate:'2020-03-01T00:00:00',hours:8,attainment:null,test:null,trainmoney:null,memo:null};
+  input.trainingRecords=[{sourceTable:'dbo.trainhis',sourceKey:String(training.id),sourceIdentitySha256:digest(`dbo.trainhis\0${training.id}`),sourceRowSha256:digest(training),source:training}];
+  // The source identity hash is over bytes, whereas the row hash uses canonical JSON.
+  input.trainingRecords[0].sourceIdentitySha256=createHash('sha256').update(`dbo.trainhis\0${training.id}`).digest('hex');
+  writeFileSync(resolve(dir,'input.json'),JSON.stringify(input),{mode:0o600});
+  execFileSync(process.execPath,['scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs','--input',resolve(dir,'input.json'),'--output',resolve(dir,'with-training')],{cwd:root,stdio:'pipe'});
+  const dto=JSON.parse(readFileSync(resolve(dir,'with-training/package.json'),'utf8')) as PreviewYuzhouIncrementalImportDto;
+  const service=new HrYuzhouIncrementalImportService(db,sensitive,{buildScopeFilter:async()=>({unrestricted:true,allowed_ids:[]})} as never);
+  const manager={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]};
+  const before=await counts(),preview=await service.preview(scope,manager,dto);
+  assert.deepEqual(await counts(),before);assert.equal(preview.status,'previewed');
+  const committed=await service.commit(scope,manager,String(preview.id));assert.equal(committed.appliedCount,3);
+  const employee=(await db.query(`SELECT id,employment_status,primary_org_id FROM hr_employee WHERE employee_code='CLI-E-001'`))[0];
+  assert.equal(employee.employment_status,'active');assert.ok(employee.primary_org_id);
+  assert.equal((await db.query(`SELECT count(*)::int n FROM hr_training_participant WHERE employee_id=$1 AND status='completed'`,[employee.id]))[0].n,1);
+  assert.equal((await service.commit(scope,manager,String(preview.id))).appliedCount,3);
+  const aggregate=async()=> (await db.query(`SELECT (SELECT count(*)::int FROM sys_org) orgs,(SELECT count(*)::int FROM hr_employee) employees,(SELECT count(*)::int FROM hr_training_participant) training,(SELECT count(*)::int FROM hr_incremental_import_item) items,(SELECT count(*)::int FROM hr_incremental_import_revision) revisions`))[0];
+  const accepted=await aggregate();
+  const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
+  raw.legacyCode='INC-ORG2';input.organizationRecords[0]={sourceTable:'dbo.departmentcode',sourceKey:raw.legacyCode,sourceIdentitySha256:hash('dbo.departmentcode\0'+raw.legacyCode),sourceRowSha256:digest(raw),source:raw};
+  const employeeSource=input.employeeRecords[0];employeeSource.sourceKey='CLI-E-002';employeeSource.source.departmentCode=raw.legacyCode;
+  employeeSource.sourceIdentitySha256=hash('dbo.person\0CLI-E-002');employeeSource.sourceRowSha256=digest(employeeSource.source);
+  training.id=8766;training.person='CLI-E-002';input.trainingRecords[0]={sourceTable:'dbo.trainhis',sourceKey:String(training.id),sourceIdentitySha256:hash('dbo.trainhis\0'+training.id),sourceRowSha256:digest(training),source:training};
+  writeFileSync(resolve(dir,'input.json'),JSON.stringify(input),{mode:0o600});
+  execFileSync(process.execPath,['scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs','--input',resolve(dir,'input.json'),'--output',resolve(dir,'atomic-failure')],{cwd:root,stdio:'pipe'});
+  const failing=JSON.parse(readFileSync(resolve(dir,'atomic-failure/package.json'),'utf8')) as PreviewYuzhouIncrementalImportDto;
+  await assert.rejects(service.preview(scope,{...manager,permissions:manager.permissions.filter(p=>p!==HR_PERMISSIONS.HR_EMPLOYEE_MANAGE)},failing),/permission is required/);
+  const retry=await service.preview(scope,manager,failing);
+  await db.query(`CREATE FUNCTION lab_training_public_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF EXISTS(SELECT 1 FROM hr_incremental_import_item WHERE id=NEW.item_id AND domain='training_history') THEN RAISE EXCEPTION 'synthetic public training failure'; END IF;RETURN NEW;END $$;CREATE TRIGGER lab_training_public_failure BEFORE INSERT ON hr_incremental_import_revision FOR EACH ROW EXECUTE FUNCTION lab_training_public_failure();`);
+  try{await assert.rejects(service.commit(scope,manager,String(retry.id)),/synthetic public training failure/);assert.deepEqual(await aggregate(),accepted);assert.equal((await service.status(scope,manager,String(retry.id))).status,'previewed');}
+  finally{await db.query('DROP TRIGGER lab_training_public_failure ON hr_incremental_import_revision;DROP FUNCTION lab_training_public_failure()');}
+  assert.equal((await service.commit(scope,manager,String(retry.id))).appliedCount,3);
+
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
