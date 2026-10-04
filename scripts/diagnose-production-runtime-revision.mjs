@@ -618,6 +618,57 @@ export function observeCredentialExclusionsReadonly() {
   return sanitizeCredentialExclusionObservation(raw);
 }
 
+/** Training carriage census only; never decrypt source or return personal rows. */
+export function buildTrainingCarriageReadonlySql() {
+  return `${t5ReadonlyOperationSql()}, sources AS (
+ SELECT x.* FROM public.hr_yuzhou_t5_followon_source x JOIN operation o USING(operation_id)
+ WHERE x.tenant_id='10000001' AND x.park_id='20000001'
+ AND x.source_table IN ('dbo.train','dbo.trainhis')
+), plans AS (
+ SELECT * FROM public.hr_training_plan WHERE tenant_id='10000001' AND park_id='20000001' AND NOT is_deleted
+), participants AS (
+ SELECT t.* FROM public.hr_training_participant t JOIN plans p ON p.id=t.plan_id
+ WHERE t.tenant_id='10000001' AND t.park_id='20000001'
+), projections AS (
+ SELECT p.* FROM public.hr_legacy_training_reward_projection p JOIN sources s
+ ON s.source_table=p.source_table AND s.source_identity_sha256=p.source_identity_sha256 AND s.source_row_sha256=p.source_row_sha256
+ WHERE p.tenant_id='10000001' AND p.park_id='20000001' AND p.projection_kind='training_history' AND p.status='staged'
+)
+SELECT json_build_object(
+ 'operationBound',(SELECT count(*)=1 FROM operation),
+ 'trainingSourceCount',(SELECT count(*) FROM sources WHERE source_table='dbo.train'),
+ 'historySourceCount',(SELECT count(*) FROM sources WHERE source_table='dbo.trainhis'),
+ 'mappedHistorySourceCount',(SELECT count(*) FROM sources WHERE source_table='dbo.trainhis' AND owner_status='mapped'),
+ 'historyArchiveCount',(SELECT count(DISTINCT a.id) FROM public.hr_legacy_archive_record a
+ JOIN public.hr_yuzhou_t5_followon_projection_receipt r ON r.target_id=a.id AND r.target_table='hr_legacy_archive_record' AND r.disposition='insert'
+ JOIN sources s ON s.operation_id=r.operation_id AND s.source_identity_sha256=r.source_identity_sha256 AND s.source_row_sha256=r.source_row_sha256
+ WHERE a.tenant_id='10000001' AND a.park_id='20000001' AND a.record_type='training_history' AND s.source_table='dbo.trainhis'),
+ 'formalPlanCount',(SELECT count(*) FROM plans),
+ 'formalParticipantCount',(SELECT count(*) FROM participants),
+ 'formalCompletedParticipantCount',(SELECT count(*) FROM participants WHERE status='completed'),
+ 'formalParticipantsWithScoreCount',(SELECT count(*) FROM participants WHERE score IS NOT NULL),
+ 'formalParticipantsWithCostCount',(SELECT count(*) FROM participants WHERE actual_cost IS NOT NULL),
+ 'sourceBoundProjectionCount',(SELECT count(*) FROM projections),
+ 'sourceBoundLiveProjectionCount',(SELECT count(*) FROM projections x JOIN plans p ON p.id=x.training_plan_id
+ JOIN participants t ON t.id=x.training_participant_id AND t.plan_id=p.id))::text;
+ROLLBACK;
+`;
+}
+export function sanitizeTrainingCarriageObservation(raw) {
+ let v; try { if(typeof raw!=='string'||Buffer.byteLength(raw)>4096) fail('TRAINING_CARRIAGE_RESULT_INVALID'); v=JSON.parse(raw); } catch { fail('TRAINING_CARRIAGE_RESULT_INVALID'); }
+ const counts=['trainingSourceCount','historySourceCount','mappedHistorySourceCount','historyArchiveCount','formalPlanCount','formalParticipantCount','formalCompletedParticipantCount','formalParticipantsWithScoreCount','formalParticipantsWithCostCount','sourceBoundProjectionCount','sourceBoundLiveProjectionCount'];
+ if(!exactKeys(v,['operationBound',...counts])||typeof v.operationBound!=='boolean'||!counts.every(k=>Number.isSafeInteger(v[k])&&v[k]>=0&&v[k]<=1000000)
+ ||v.mappedHistorySourceCount>v.historySourceCount||v.historyArchiveCount>v.historySourceCount
+ ||v.sourceBoundLiveProjectionCount>v.sourceBoundProjectionCount
+ ||['formalCompletedParticipantCount','formalParticipantsWithScoreCount','formalParticipantsWithCostCount'].some(k=>v[k]>v.formalParticipantCount)) fail('TRAINING_CARRIAGE_RESULT_INVALID');
+ return {...v,status:v.operationBound?'PASS':'FAIL',productionWrites:false,sourceFieldsDecrypted:false,
+ evidenceScope:'scoped_training_counts_and_original_source_projection_links_only',businessAcceptance:false};
+}
+export function observeTrainingCarriageReadonly() {
+ let raw; try { raw=execFileSync('docker',['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c','exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildTrainingCarriageReadonlySql(),encoding:'utf8',timeout:40000,maxBuffer:4096,stdio:['pipe','pipe','pipe']}); } catch { fail('TRAINING_CARRIAGE_QUERY_FAILED'); }
+ return sanitizeTrainingCarriageObservation(raw);
+}
+
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -641,7 +692,8 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const t5OriginalFamilyAggregate=observeT5FamilyAggregateReadonly();
     const formalExtendedRecords=observeExtendedRecordsReadonly();
     const originalCredentialExclusions=observeCredentialExclusionsReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions}) + "\n");
+    const trainingCarriage=observeTrainingCarriageReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions,trainingCarriage}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {
