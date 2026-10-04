@@ -73,6 +73,43 @@ await createPayrollRun(scope, actor, { periodId, correctionOfRunId: confirmedRun
 return { responseCount, averageScore };
 ```
 
+## Scenario: Employment transition relationship continuity
+
+### 1. Scope / Trigger
+- Trigger: employee-page lifecycle actions and the transfer command; an unrelated action must not depend on manager candidate availability.
+
+### 2. Signatures
+- `POST /hr/employees/:id/transitions`: `action`, `effectiveDate`, `reason`; transfer may include `primaryOrgId`, `positionId`, `managerEmployeeId`.
+- `HR_EMPLOYEE_TRANSITION_PG_REQUIRED=1` enables the isolated schema test on loopback ports 55491 (CI) or 55497 (owned local proof). It is not a production environment setting.
+
+### 3. Contracts
+- For transfer, omitted `managerEmployeeId` preserves the pessimistically locked row's existing relationship. An explicit UUID follows the existing self/current-scope checks; explicit null retains the clearing contract accepted by `IsOptional`.
+- Transfer organization/position semantics remain unchanged. Relation write and before/after event snapshots commit or roll back together.
+- Only transfer mounts reference controls and loads manager candidates. Confirmation, suspension and resume submit action/date/reason without those dependencies. Switching back to transfer resets readiness; failed candidate loading still blocks transfer.
+
+### 4. Validation & Error Matrix
+- Omitted manager -> preserve; explicit valid manager -> replace; explicit null -> clear.
+- New self/foreign manager -> reject and write no event; event failure -> roll back relation change.
+- Candidate outage during transfer -> disabled submit; switching to suspension -> no candidate controls, ordinary submit remains available.
+
+### 5. Good / Base / Bad Cases
+- Good: transfer leaves the current manager intact when the user selects “保留原关联”.
+- Base: probation confirmation requires only action, date and reason.
+- Bad: `undefined ?? null` clears the stored manager, or a manager lookup outage prevents confirmation.
+
+### 6. Tests Required
+- `hr-employee-transition.pg.spec.ts`: omitted/explicit/null, scope refusal, non-transfer relationship preservation, event rollback; no skipped tests in its CI step.
+- `hr-employee-transition-continuity.test.tsx`: non-transfer no read/no reference payload, outage switching, transfer re-entry readiness, read-only controls absent.
+- Actual desktop and 390px document-width browser checks; synthetic API page proof does not replace production real-role acceptance.
+
+### 7. Wrong vs Correct
+```ts
+// Wrong: a missing transfer reference is treated as a user clear.
+row.managerEmployeeId = dto.managerEmployeeId ?? null;
+// Correct: preserve the relationship from the locked aggregate on omission.
+row.managerEmployeeId = dto.managerEmployeeId === undefined ? row.managerEmployeeId : dto.managerEmployeeId ?? null;
+```
+
 ## Scenario: Versioned performance planning and frozen evidence
 
 ### Contracts
