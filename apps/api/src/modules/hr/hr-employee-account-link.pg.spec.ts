@@ -17,7 +17,7 @@ const id=(n:number)=>`00000000-0000-4000-8000-${n.toString(16).padStart(12,"0")}
 const scope={tenantId:"synthetic-tenant",parkId:"synthetic-park"},actor={sub:id(999)} as JwtPrincipal;
 test("isolated PostgreSQL employee account associations",{skip:!required,timeout:60_000},async t=>{
  const host=process.env.POSTGRES_HOST,port=Number(process.env.POSTGRES_PORT);
- assert.equal(host,"127.0.0.1");assert.ok([55491,55492].includes(port));assert.equal(process.env.POSTGRES_DB,"postgres");
+ assert.equal(host,"127.0.0.1");assert.ok([55491,55492,55497].includes(port));assert.equal(process.env.POSTGRES_DB,"postgres");
  const schema=`hr_account_link_pg_${randomUUID().replaceAll("-","")}`;
  const db=new DataSource({type:"postgres",host,port,database:"postgres",username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,
   schema,uuidExtension:"pgcrypto",installExtensions:false,entities:[HrEmployeeEntity,HrEmploymentEventEntity,UserEntity,UserRoleEntity,RoleEntity,PermissionEntity,RolePermissionEntity]});
@@ -44,7 +44,7 @@ test("isolated PostgreSQL employee account associations",{skip:!required,timeout
   });
   await t.test("ordinary profile updates preserve omitted imported dates in PostgreSQL",async()=>{
    await employee(30,{probationEndDate:"2020-04-01"});
-   await service.updateEmployee(scope,actor,id(30),{employeeCode:"SYN-30",fullName:"Synthetic revised name",employmentStatus:"active"});
+   await service.updateEmployee(scope,actor,id(30),{expectedVersion:1,employeeCode:"SYN-30",fullName:"Synthetic revised name",employmentStatus:"active"});
    const row=await employees.findOneByOrFail({id:id(30)});
    assert.equal(row.hireDate,"2020-01-01");assert.equal(row.probationEndDate,"2020-04-01");assert.equal(row.fullName,"Synthetic revised name");
    const event=await events.findOneByOrFail({employeeId:id(30)});
@@ -52,13 +52,13 @@ test("isolated PostgreSQL employee account associations",{skip:!required,timeout
   });
   await t.test("explicit nullable date updates keep the existing PostgreSQL clearing contract",async()=>{
    await employee(31,{probationEndDate:"2020-04-01"});
-   await service.updateEmployee(scope,actor,id(31),{employeeCode:"SYN-31",fullName:"Synthetic cleared dates",employmentStatus:"active",hireDate:null,probationEndDate:null} as unknown as UpdateHrEmployeeDto);
+   await service.updateEmployee(scope,actor,id(31),{expectedVersion:1,employeeCode:"SYN-31",fullName:"Synthetic cleared dates",employmentStatus:"active",hireDate:null,probationEndDate:null} as unknown as UpdateHrEmployeeDto);
    const row=await employees.findOneByOrFail({id:id(31)});assert.equal(row.hireDate,null);assert.equal(row.probationEndDate,null);
   });
   await t.test("a real event insert failure rolls back the ordinary profile date update",async()=>{
    await employee(32,{probationEndDate:"2020-04-01"});
    await db.query(`ALTER TABLE "${schema}".hr_employment_event ADD CONSTRAINT synthetic_date_event_failure CHECK(employee_id IS DISTINCT FROM '${id(32)}'::uuid)`);
-   await assert.rejects(service.updateEmployee(scope,actor,id(32),{employeeCode:"SYN-32",fullName:"Synthetic rejected update",employmentStatus:"active",hireDate:"2021-01-01"}));
+   await assert.rejects(service.updateEmployee(scope,actor,id(32),{expectedVersion:1,employeeCode:"SYN-32",fullName:"Synthetic rejected update",employmentStatus:"active",hireDate:"2021-01-01"}));
    const row=await employees.findOneByOrFail({id:id(32)});assert.equal(row.fullName,"Synthetic 32");assert.equal(row.hireDate,"2020-01-01");assert.equal(row.probationEndDate,"2020-04-01");assert.equal(await events.countBy({employeeId:id(32)}),0);
   });
   await t.test("stale expected association fails and no-op adds no event",async()=>{

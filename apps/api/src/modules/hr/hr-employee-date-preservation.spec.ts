@@ -9,12 +9,12 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 const scope = { tenantId: "synthetic-tenant", parkId: "synthetic-park" };
 const actor = { sub: "00000000-0000-4000-8000-000000000001" } as JwtPrincipal;
 const dto = (dates: Partial<UpdateHrEmployeeDto> = {}): UpdateHrEmployeeDto => ({
-  employeeCode: "SYN-DATE", fullName: "Synthetic revised name", employmentStatus: "active", ...dates,
+  expectedVersion: 1, employeeCode: "SYN-DATE", fullName: "Synthetic revised name", employmentStatus: "active", ...dates,
 });
 
 function fixture(failAudit = false) {
   let stored: HrEmployeeEntity = Object.assign(new HrEmployeeEntity(), {
-    id: "00000000-0000-4000-8000-000000000011", ...scope, isDeleted: false,
+    id: "00000000-0000-4000-8000-000000000011", ...scope, isDeleted: false, version: 1,
     employeeCode: "SYN-DATE", fullName: "Synthetic original name", employmentStatus: "active",
     hireDate: "2019-06-01", probationEndDate: "2019-09-01", departureDate: null,
   });

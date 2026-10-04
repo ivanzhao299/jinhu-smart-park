@@ -7,7 +7,7 @@ import { DataSource,ILike,In,IsNull,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,LinkHrEmployeeAccountDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,LinkHrEmployeeAccountDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeBasicInformationDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractActionEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
@@ -267,17 +267,45 @@ export class HrService {
    return projectHrEmployee(row);
   });
  }
+ private employeeBasicSnapshot(row:HrEmployeeEntity){
+  const {id,version,fullName,employmentType,hireDate,workLocation,workMobile,workEmail,remark}=row;
+  return {id,version,fullName,employmentType,hireDate,workLocation,workMobile,workEmail,remark};
+ }
+ private assertEmployeeVersion(row:HrEmployeeEntity,expectedVersion:number){
+  if(!Number.isInteger(expectedVersion)||expectedVersion<1)throw new BadRequestException("A current employee version is required");
+  if(row.version!==expectedVersion)throw new ConflictException("Employee information changed; reload before retrying");
+ }
+ async employeeBasicInformation(scope:TenantParkScope,id:string){
+  const row=await this.employees.findOne({where:{...scope,id,isDeleted:false}});
+  if(!row)throw new NotFoundException("Employee not found");
+  return this.employeeBasicSnapshot(row);
+ }
+ async updateEmployeeBasicInformation(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeBasicInformationDto){
+  return this.dataSource.transaction(async manager=>{
+   const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
+   const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
+   if(!row)throw new NotFoundException("Employee not found");
+   this.assertEmployeeVersion(row,dto.expectedVersion);
+   const before=this.eventSnapshot(row);
+   const fields=["fullName","employmentType","hireDate","workLocation","workMobile","workEmail","remark"] as const;
+   Object.assign(row,Object.fromEntries(fields.filter(field=>dto[field]!==undefined).map(field=>[field,dto[field]])),{updateBy:actor.sub});
+   row.version+=1;const saved=await repo.save(row);
+   await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"维护员工基本信息",createBy:actor.sub,updateBy:actor.sub}));
+   return this.employeeBasicSnapshot(saved);
+  });
+ }
  async updateEmployee(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeDto){
   await this.validateEmployeeReferences(scope,dto,id);
   if(dto.userId&&await this.employees.exists({where:{...scope,userId:dto.userId,isDeleted:false,id:Not(id)}}))throw new ConflictException("User is already linked to another employee");
   return this.dataSource.transaction(async manager=>{
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});if(!row)throw new NotFoundException("Employee not found");
-   if(dto.employmentStatus!==row.employmentStatus)throw new BadRequestException("Employment status must be changed through a lifecycle action");
+   this.assertEmployeeVersion(row,dto.expectedVersion);
+   if(dto.employmentStatus!==undefined&&dto.employmentStatus!==row.employmentStatus)throw new BadRequestException("Employment status must be changed through a lifecycle action");
    if(dto.departureDate!==undefined&&dto.departureDate!==row.departureDate)throw new BadRequestException("Departure date must be changed through the approved departure workflow");
    if(dto.employeeCode!==row.employeeCode)throw new ConflictException("Employee code cannot be changed after allocation");
-   const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate===undefined?row.hireDate:dto.hireDate,probationEndDate:dto.probationEndDate===undefined?row.probationEndDate:dto.probationEndDate,departureDate:row.departureDate,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
-   const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return projectHrEmployee(saved);
+   const before=this.eventSnapshot(row);const fields=Object.fromEntries(Object.entries(dto).filter(([field,value])=>field!=="expectedVersion"&&value!==undefined));Object.assign(row,{...fields,userId:dto.userId===undefined?row.userId:dto.userId??null,primaryOrgId:dto.primaryOrgId===undefined?row.primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId===undefined?row.positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId===undefined?row.managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate===undefined?row.hireDate:dto.hireDate,probationEndDate:dto.probationEndDate===undefined?row.probationEndDate:dto.probationEndDate,departureDate:row.departureDate,workLocation:dto.workLocation===undefined?row.workLocation:dto.workLocation??null,workMobile:dto.workMobile===undefined?row.workMobile:dto.workMobile??null,workEmail:dto.workEmail===undefined?row.workEmail:dto.workEmail??null,remark:dto.remark===undefined?row.remark:dto.remark??null,updateBy:actor.sub});
+   row.version+=1;const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return projectHrEmployee(saved);
   });
  }
  async linkEmployeeAccount(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:LinkHrEmployeeAccountDto){
@@ -674,5 +702,5 @@ export class HrService {
  private async mustPosition(scope:TenantParkScope,id:string){if(!await this.positions.exists({where:{id,...scope,isDeleted:false,status:"enabled"}}))throw new BadRequestException("Parent position is unavailable in current scope");}
  private async managedEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal):Promise<string[]>{const manager=await this.myEmployee(scope,actor);const rows=await this.dataSource.query(HR_MANAGED_EMPLOYEE_IDS_SQL,[scope.tenantId,scope.parkId,actor.sub,manager.id]) as Array<{id:string}>;return rows.map(row=>row.id);}
  private async cancelContractReminders(manager:DataSource|import("typeorm").EntityManager,scope:TenantParkScope,contractId:string,actorId:string,reason:string){await manager.query(`UPDATE hr_contract_reminder SET status='cancelled',cancelled_at=now(),cancelled_by=$1,cancel_reason=$2,update_time=now() WHERE tenant_id=$3 AND park_id=$4 AND contract_id=$5 AND status IN('open','read','acknowledged')`,[actorId,reason,scope.tenantId,scope.parkId,contractId]);await manager.query(`UPDATE hr_contract_reminder_outbox o SET status='cancelled',update_time=now() FROM hr_contract_reminder r WHERE r.id=o.reminder_id AND r.contract_id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND o.status='pending'`,[contractId,scope.tenantId,scope.parkId]);}
- private eventSnapshot(row:HrEmployeeEntity){return {employeeCode:row.employeeCode,fullName:row.fullName,userId:row.userId,primaryOrgId:row.primaryOrgId,positionId:row.positionId,managerEmployeeId:row.managerEmployeeId,employmentType:row.employmentType,employmentStatus:row.employmentStatus,legacyJobstateCode:row.legacyJobstateCode,legacyJobstateName:row.legacyJobstateName,hireDate:row.hireDate,departureDate:row.departureDate};}
+ private eventSnapshot(row:HrEmployeeEntity){return {employeeCode:row.employeeCode,fullName:row.fullName,userId:row.userId,primaryOrgId:row.primaryOrgId,positionId:row.positionId,managerEmployeeId:row.managerEmployeeId,employmentType:row.employmentType,employmentStatus:row.employmentStatus,legacyJobstateCode:row.legacyJobstateCode,legacyJobstateName:row.legacyJobstateName,hireDate:row.hireDate,departureDate:row.departureDate,workLocation:row.workLocation,workMobile:row.workMobile,workEmail:row.workEmail,remark:row.remark};}
 }

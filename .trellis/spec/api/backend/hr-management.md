@@ -1341,3 +1341,34 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
   fields, unknown baselines and independent-connection CAS races. A dedicated-DB
   claim requires a new guarded database, `current_database()` assertion and zero
   residual cleanup; a postgres random-schema run is only schema isolation.
+
+
+## Scenario: Formal employee basic-information editing
+
+### 1. Scope / Trigger
+- Modern employee basic editing and all existing `PUT employees/:id` updates; imported rows use the same permission and lifecycle policy.
+
+### 2. Signatures
+- Management-only `GET /hr/employees/:id/basic-information` returns id/version and fullName, employmentType, hireDate, workLocation, workMobile, workEmail, remark.
+- `PATCH /hr/employees/:id/basic-information` takes required positive integer expectedVersion and only these editable fields. Existing PUT now also requires expectedVersion; callers must read the management projection first.
+
+### 3. Contracts
+- Lock the scoped nondeleted employee and compare version before any write. Save exactly expectedVersion+1, including an accepted no-op, and the profile_updated before/after event in one transaction.
+- Omitted fields and account/org/position/manager links are preserved; explicit null clears only nullable submitted fields. Basic PATCH never accepts identifiers, lifecycle status, assignment or account-link fields.
+- The management projection and body-free audit use existing HR_EMPLOYEE_MANAGE; general employee read projection does not gain version/remark or audit snapshots. Public employment events remain metadata-only.
+- Status/departure/code rules remain existing business rules. No source-specific editing ban or original receipt rewrite.
+
+### 4. Validation / Error Matrix
+- Missing/nonpositive version, blank/null name, null/unknown employment type, invalid calendar date or datetime hireDate, malformed email, protected/unknown field -> reject.
+- Stale/concurrent loser ->409 with no write; foreign/deleted target ->404; event insert failure rolls fields and version back.
+
+### 5. Good / Base / Bad Cases
+- Good: change work email while retaining all unrelated relationships. Base: duplicate facts require a fresh version if another operation updated the employee. Bad: send the entire stale row or let old PUT bypass CAS.
+
+### 6. Tests Required
+- Isolated actual PostgreSQL covers both update paths, omission/null, no-op increments, concurrent winner, scoped/deleted denial and event rollback. DTO tests enforce the endpoint whitelist.
+- Actual component interaction covers changed-only payload, no-write unchanged form, read failure/mismatched employee, retained conflict draft with explicit reload, stale scope response, and read-only page gating. Desktop/390px rendering must have no overflow.
+
+### 7. Wrong vs Correct
+- Wrong: `managerEmployeeId: dto.managerEmployeeId ?? null` or reading version before locking.
+- Correct: preserve when undefined; under the locked row compare expectedVersion, apply submitted ordinary fields, and atomically persist the increment plus event.
