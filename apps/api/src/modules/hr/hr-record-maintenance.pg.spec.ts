@@ -10,6 +10,7 @@ import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import type { HrMaintainedRecordKind } from "./hr-record-transaction-write";
+import { recoverCertifiedOriginalRecordSet, type OriginalRecordKind, type OriginalRecordSetCertificate } from "./hr-record-original-set";
 
 test("formal extended records: actual PG CAS, encrypted history, owner scope, archive and rollback",{skip:process.env.HR_RECORDS_PG_REQUIRED!=="1",timeout:60000},async()=>{
   assert.equal(process.env.POSTGRES_HOST,"127.0.0.1");assert.equal(process.env.POSTGRES_PORT,"55495");
@@ -21,7 +22,7 @@ test("formal extended records: actual PG CAS, encrypted history, owner scope, ar
     await admin.query(`CREATE DATABASE "${database}" TEMPLATE template0`);created=true;
     db=new DataSource({...options,database});await db.initialize();rivalDb=new DataSource({...options,database});await rivalDb.initialize();
     assert.equal((await db.query("SELECT current_database() db"))[0].db,database);
-    await db.query(`CREATE EXTENSION "uuid-ossp";
+    await db.query(`CREATE EXTENSION "uuid-ossp"; CREATE EXTENSION pgcrypto;
     CREATE TABLE sys_user(tenant_id varchar(64),park_id varchar(64),id uuid,UNIQUE(tenant_id,park_id,id));
     CREATE TABLE hr_employee(tenant_id varchar(64),park_id varchar(64),id uuid,is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));`);
     const migration=(name:string)=>readFileSync(resolve(__dirname,"../../../../../database/migrations",name),"utf8");
@@ -90,6 +91,44 @@ test("formal extended records: actual PG CAS, encrypted history, owner scope, ar
     const originalPreserved:{legacy_grade:string;legacy_source_row_sha256:string}=(await db.query("SELECT * FROM hr_employee_skill WHERE id=$1",[imported]))[0];
     assert.equal(originalPreserved.legacy_grade,"Original level");assert.equal(originalPreserved.legacy_source_row_sha256,"d".repeat(64));
     assert.equal(Number((await db.query("SELECT count(*) n FROM hr_employee_skill_change WHERE record_id=$1 AND version=2 AND action='update'",[imported]))[0].n),1);
+    // Original T5 rows have no create journal. Certificates are captured before
+    // modern edits in this synthetic fixture, never derived from edited data.
+    for (const kind of ["skill","credential"] as const) {
+      const ids=[randomUUID(),randomUUID()],table=`hr_employee_${kind}`;
+      for (const [index,id] of ids.entries()) {
+        const metadata=[id,s.tenantId,s.parkId,employee,(index===0?"e":"f").repeat(64),(index===0?"1":"2").repeat(64),sub];
+        if(kind==="skill") await db.query(`INSERT INTO ${table}(id,tenant_id,park_id,employee_id,skill_name,legacy_grade,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by) VALUES($1,$2,$3,$4,$8,'Original grade',$5,$6,$7,$7)`,[...metadata,`Synthetic baseline ${index}`]);
+        else {
+          const number=sensitive.identityProfile(`SYN-ORIGINAL-${index}`);
+          await db.query(`INSERT INTO ${table}(id,tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,acquired_date,valid_to,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by) VALUES($1,$2,$3,$4,'synthetic',$8,$9,$10,$11,'2020-02-29','2030-01-01',$5,$6,$7,$7)`,[...metadata,`Synthetic baseline ${index}`,number.encrypted,number.masked,number.hash]);
+        }
+      }
+      const certificate:OriginalRecordSetCertificate=await db.transaction(async m=>{
+        await m.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
+        return (await m.query(`SELECT count(*)::int AS count,encode(digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') AS sha256 FROM (SELECT encode(digest(to_jsonb(r)::text,'sha256'),'hex') h FROM ${table} r WHERE id=ANY($1::uuid[])) hashes`,[ids]))[0] as OriginalRecordSetCertificate;
+      });
+      const proof=(scope=s,keys=ids,cert=certificate,domain:OriginalRecordKind=kind)=>db!.transaction(m=>recoverCertifiedOriginalRecordSet(m,scope,domain,keys,cert,sensitive));
+      const untouched=await proof();assert.equal(untouched.size,2);assert.equal(untouched.get(ids[0]!)!.version,1);
+      await assert.rejects(recoverCertifiedOriginalRecordSet(db.manager,s,kind,ids,certificate,sensitive),/RECORD_ORIGINAL_SET_INVALID/);
+      await assert.rejects(proof({...s,parkId:"foreign"}),/RECORD_ORIGINAL_SET_INVALID/);
+      await assert.rejects(proof(s,[ids[0]!,ids[0]!]),/RECORD_ORIGINAL_SET_INVALID/);
+      await assert.rejects(proof(s,ids,{...certificate,sha256:"0".repeat(64)}),/RECORD_ORIGINAL_SET_INVALID/);
+      await assert.rejects(proof(s,ids,certificate,"experience" as OriginalRecordKind),/RECORD_ORIGINAL_SET_INVALID/);
+      await svc.mutateEmployeeRecord(s,a,employee,kind,ids[0]!,{expectedVersion:1,...(kind==="skill"?{legacyGrade:"Modern grade",proficiency:"advanced"}:{credentialNumber:null,validTo:null})},"update");
+      await svc.mutateEmployeeRecord(s,a,employee,kind,ids[0]!,{expectedVersion:2},"archive");
+      const beforeProof:Array<{snapshot:Record<string,unknown>}>=await db.query(`SELECT to_jsonb(r) snapshot FROM ${table} r WHERE id=ANY($1::uuid[]) ORDER BY id`,[ids]);
+      const restored=await proof();assert.deepEqual(restored,untouched);
+      assert.equal(restored.get(ids[0]!)!.is_deleted,false);
+      if(kind==="credential")assert.equal(sensitive.decrypt(String(restored.get(ids[0]!)!.number_encrypted)),"SYN-ORIGINAL-0");
+      assert.deepEqual(await db.query(`SELECT to_jsonb(r) snapshot FROM ${table} r WHERE id=ANY($1::uuid[]) ORDER BY id`,[ids]),beforeProof);
+      // A version bump without first-before history cannot be treated as an
+      // original baseline, even with a matching caller-supplied current hash.
+      await db.query(`UPDATE ${table} SET version=2 WHERE id=$1`,[ids[1]]);
+      await assert.rejects(proof(),/RECORD_ORIGINAL_SET_INVALID/);
+      await db.query(`UPDATE ${table} SET version=1 WHERE id=$1`,[ids[1]]);
+      await db.query(`UPDATE ${table} SET legacy_source_row_sha256=$2 WHERE id=$1`,[ids[0],"3".repeat(64)]);
+      await assert.rejects(proof(),/RECORD_ORIGINAL_SET_INVALID/);
+    }
   }finally{
     if(rivalDb?.isInitialized)await rivalDb.destroy();if(db?.isInitialized)await db.destroy();
     if(created)await admin.query(`DROP DATABASE "${database}" WITH (FORCE)`);assert.equal((await admin.query("SELECT 1 FROM pg_database WHERE datname=$1",[database])).length,0);await admin.destroy();

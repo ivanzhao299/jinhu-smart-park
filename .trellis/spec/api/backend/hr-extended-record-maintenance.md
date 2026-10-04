@@ -16,3 +16,13 @@
 - 独立 PostgreSQL 专用新数据库 template0；实测并发 CAS、跨租户/园区/员工拒绝、字段保留、日期和掩码错误、清空编号、创建/更新失败回滚、软归档、不可变变更记录以及已有来源记录正常编辑。结束删除专用库并验证无残留。
 - DTO allowlist/空值/版本/真实日期测试，相关家庭维护和 lifecycle 契约回归，API lint/typecheck。
 - 发布前仍需 Web 类型/页面交互、桌面/390px、CI完整迁移及生产证据。
+
+## 原技能、证照完整集合恢复
+
+`recoverCertifiedOriginalRecordSet` 是内部事务证明原语，仅支持静态白名单 skill/credential；它不是导入 endpoint，也不能单独授予来源接纳权限。目标 ID 和 `{count,sha256}` 必须来自已认证原 T5 receipt/owned_state，不能由客户端或当前业务记录生成。
+
+调用方持有事务，按目标表、对应不可变变更表顺序加 SHARE 锁。未维护 v1 行使用当前快照；已维护行必须有 version2 的首个加密 before，恢复 v1 未删除原快照。允许当前记录已归档，但不恢复或改写当前业务行。原/current 的字段集合及 id、tenant、park、employee、原来源身份和行摘要必须一致。缺失首个 history、无法解密、版本不符或来源元数据改变均返回 `RECORD_ORIGINAL_SET_INVALID`。
+
+完整集合通过 PostgreSQL `jsonb_populate_recordset` 重建真实类型，固定 Asia/Shanghai 序列化，以每行 SQL JSON 文本 SHA 排序聚合核对原证书；不以 JavaScript JSON 摘要替代 SQL 证书。无跨请求证书缓存，不修改已应用迁移。
+
+`hr-record-maintenance.pg.spec.ts` 复用现有实际 PG/CI 入口，验证两域多行、未维护与维护/归档混合集合、证照加密编号原值、正常编辑后恢复、无业务写入、事务要求、范围/重复ID/证书/域拒绝、缺首个历史和来源元数据篡改。原操作/回执/owner认证、公共增量账本/API/raw入口尚须分别实现和验证。
