@@ -13,14 +13,14 @@
 | 本地验收 | API UAT 27/27 连跑两遍全绿；typecheck/build 全绿；浏览器 E2E 全路径 + 修复复验通过；RBAC 权限矩阵 9 项 + 浏览器 2 视角验证通过 |
 | 分支 | `codex/canteen-module-20261002`，未推送（远端无此分支）；相对 `origin/main`：**落后 15**（HR #807-#819）、**领先 34** |
 | 本地 main | 落后 origin/main 49（保持阻塞，不动） |
-| 未提交 | `docs/canteen/selfcheck/uat-pos-after-next.png`（中间产物，**不提交**）；`rbac-cashier-pos.png`、`rbac-contractor-dashboard.png`（验收截图，应提交）；`database/migrations/000329_canteen_rbac_roles.sql`（新建，幂等已验证） |
+| 未提交 | `docs/canteen/selfcheck/uat-pos-after-next.png`（中间产物，**不提交**）；`rbac-cashier-pos.png`、`rbac-contractor-dashboard.png`（验收截图，应提交）；`database/migrations/000334_canteen_rbac_roles.sql`（新建，幂等已验证） |
 | 部署管线 | `.github/workflows/deploy-production.yml`：**push main** 触发（+workflow_dispatch）；classify（按 changed files 定 mode）→ verify（按 mode 全量检查）→ deploy（SSH+rsync 直连生产，读取 `.release.json` 旧 commit 作回滚锚点，`db-migrate.sh` 执行迁移） |
 | CI | `ci.yml`：push 任意分支触发（不部署） |
 | 合并冲突预检 | `git merge-tree`：canteen 文件无冲突；落后 15 个 HR commit 与分支内早期 merge 的 HR 内容在 **HR 测试文件**（yuzhou 档案回滚 spec）有交集，需在合并时解决 |
 
 ## 2. 推送前置补齐（必须完成，否则"推送≠完成"）
 
-1. **RBAC 迁移 `000329_canteen_rbac_roles.sql`**（已生成、本地重放幂等验证 5 角色/76 绑定不变）：
+1. **RBAC 迁移 `000334_canteen_rbac_roles.sql`**（已生成、本地重放幂等验证 5 角色/76 绑定不变）：
    - 内容：5 个业务角色 + 76 条角色-权限绑定，幂等（NOT EXISTS），无用户账号、无 bundle 表写入；
    - 目的：生产库经 `db-migrate.sh` 自动补齐角色/权限（否则生产只有 SUPER_ADMIN/AUDITOR，与本地验收不一致）。
 2. **生产用户账号策略**：账号不写死进迁移（避免验收密码入生产）。生产创建 `xu_shuwei`/收银员/财务账号由管理员在系统用户管理界面创建后，按 `rel_user_role` 分配（或部署后运维执行建号 SQL 模板，密码甲方设置）。
@@ -82,4 +82,4 @@
 
 ---
 
-*方案依据：`.github/workflows/deploy-production.yml`、`ci.yml`、`scripts/db-migrate.sh`、`database/migrations/000329_canteen_rbac_roles.sql`（已生成并本地验证幂等）。*
+*方案依据：`.github/workflows/deploy-production.yml`、`ci.yml`、`scripts/db-migrate.sh`、`database/migrations/000334_canteen_rbac_roles.sql`（已生成并本地验证幂等）。*
