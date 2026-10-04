@@ -65,6 +65,19 @@ try {
     CREATE UNIQUE INDEX uq_map_source ON legacy_record_map(source_system,source_table,source_identity_sha256) WHERE is_active;
     ${tableDDL(control,'hr_yuzhou_t5_followon_source')}
     ${tableDDL(control,'hr_yuzhou_t5_followon_projection_receipt')}`);
+  // Financial observer tables use their exact original DDL and constraints.
+  // Unused referenced objects are scoped-ID stubs; this is SQL-observer evidence,
+  // not a full migration or financial writer/trigger acceptance test.
+  for(const name of ['hr_insurance_owned_preview','hr_payroll_legacy_batch','hr_attendance_payroll_input_batch',
+    'hr_payroll_legacy_snapshot','hr_attendance_payroll_input_item','hr_employee_compensation','hr_employee_insurance_period']){
+    await client.query(`CREATE TABLE ${name}(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),UNIQUE(tenant_id,park_id,id))`);
+  }
+  for(const [file,names] of [
+    ['000233_hr_compensation_payroll.sql',['hr_payroll_period','hr_payroll_run','hr_payslip']],
+    ['000248_hr_payroll_legacy_history.sql',['hr_payroll_book','hr_payroll_book_period','hr_payroll_book_membership']],
+    ['000250_hr_payroll_reconciliation_simulation.sql',['hr_payroll_reconciliation_run','hr_payroll_reconciliation_result']],
+    ['000323_hr_insurance_owned_period.sql',['hr_insurance_owned_revision','hr_insurance_owned_close']],
+  ])for(const name of names)await client.query(tableDDL(migration(file),name));
   // Execute the unmodified original owned_state function to authenticate observer
   // parity. Empty target stubs are sufficient for the unrelated table loop.
   for(const name of ['hr_employee_family','hr_employee_skill','hr_employee_credential','hr_custom_field_definition',
@@ -129,6 +142,38 @@ try {
   const profile=randomUUID();
   await client.query(`INSERT INTO hr_employee_profile(id,tenant_id,park_id,employee_id) VALUES($1,'10000001','20000001',$2)`,[profile,employees.get('historical')]);
   await receipt('hr_employee_profile',sha('inserted profile'),sha('profile row'),profile);
+  stage='financial fixtures';
+  for(const label of ['financial_payroll','financial_book','financial_insurance','financial_reconciliation','financial_overlap'])await fixture(label);
+  const period=randomUUID(),run=randomUUID(),book=randomUUID(),bookPeriod=randomUUID(),reconciliation=randomUUID();
+  await client.query(`INSERT INTO hr_payroll_period(id,tenant_id,park_id,period_month,start_date,end_date) VALUES($1,'10000001','20000001','2026-10-01','2026-10-01','2026-10-31'),
+    (uuid_generate_v4(),'10000001','20000001','2026-11-01','2026-11-01','2026-11-30')`,[period]);
+  await client.query(`INSERT INTO hr_payroll_run(id,tenant_id,park_id,period_id,run_no) VALUES($1,'10000001','20000001',$2,1)`,[run,period]);
+  for(const label of ['financial_payroll','financial_overlap','invalid_map','unresolved','missing','ambiguous','deleted_owner'])await client.query(`INSERT INTO hr_payslip(tenant_id,park_id,run_id,employee_id,gross_amount,deduction_amount,net_amount)
+    VALUES('10000001','20000001',$1,$2,0,0,0)`,[run,employees.get(label)]);
+  await client.query(`INSERT INTO hr_payroll_book(id,tenant_id,park_id,legacy_scheme,source_hash) VALUES($1,'10000001','20000001',1,$2)`,[book,sha('book')]);
+  await client.query(`INSERT INTO hr_payroll_book_period(id,tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+    VALUES($1,'10000001','20000001',$2,'2000-01-01',0,$3)`,[bookPeriod,book,sha('period')]);
+  await client.query(`INSERT INTO hr_payroll_book_membership(tenant_id,park_id,book_id,employee_id,legacy_membership_id,legacy_employee_hash,mapping_status,source_hash)
+    VALUES('10000001','20000001',$1,$2,1,$3,'mapped',$3),('10000001','20000001',$1,NULL,2,$3,'employee_unmapped',$3)`,[book,employees.get('financial_book'),sha('member')]);
+  const insurance=randomUUID(),actor=randomUUID();
+  async function addInsurance(id,employee,revision=1,previous=null,month='2026-10-01'){
+    const preview=randomUUID();await client.query(`INSERT INTO hr_insurance_owned_preview VALUES($1,'10000001','20000001')`,[preview]);
+    await client.query(`INSERT INTO hr_insurance_owned_revision(id,tenant_id,park_id,employee_id,period_month,revision_no,preview_id,previous_revision_id,request_id,request_sha256,created_by,reason)
+      VALUES($1,'10000001','20000001',$2,$3,$4,$5,$6,$7,$8,$9,'Synthetic fixture')`,[id,employee,month,revision,preview,previous,randomUUID(),sha('insurance'),actor]);
+  }
+  async function closeInsurance(id){await client.query(`INSERT INTO hr_insurance_owned_close(tenant_id,park_id,revision_id,request_id,request_sha256,created_by,reason)
+    VALUES('10000001','20000001',$1,$2,$3,$4,'Synthetic close')`,[id,randomUUID(),sha('close'),actor]);}
+  await addInsurance(insurance,employees.get('financial_insurance'));
+  await addInsurance(randomUUID(),employees.get('financial_overlap'));
+  const legacyBatch=randomUUID(),attendance=randomUUID(),snapshot=randomUUID(),attendanceItem=randomUUID();
+  for(const [table,id] of [['hr_payroll_legacy_batch',legacyBatch],['hr_attendance_payroll_input_batch',attendance],['hr_payroll_legacy_snapshot',snapshot],['hr_attendance_payroll_input_item',attendanceItem]])
+    await client.query(`INSERT INTO ${table} VALUES($1,'10000001','20000001')`,[id]);
+  async function addReconciliation(id,status='review',supersedes=null){await client.query(`INSERT INTO hr_payroll_reconciliation_run(id,tenant_id,park_id,legacy_batch_id,attendance_input_batch_id,parser_version,engine_version,status,
+    frozen_employee_version,frozen_compensation_version,frozen_insurance_version,frozen_formula_version,input_snapshot_hash,supersedes_run_id,employee_count,difference_count,create_by)
+    VALUES($1,'10000001','20000001',$2,$3,'synthetic','synthetic',$4,'{}','{}','{}','{}',$5,$6,0,0,$7)`,[id,legacyBatch,attendance,status,sha('reconciliation'),supersedes,actor]);}
+  await addReconciliation(reconciliation);await addReconciliation(randomUUID(),'calculating');
+  await client.query(`INSERT INTO hr_payroll_reconciliation_result(tenant_id,park_id,run_id,employee_id,legacy_snapshot_id,employee_version,attendance_input_item_id,old_total,new_total,delta_total,review_status,create_by)
+    VALUES('10000001','20000001',$1,$2,$3,1,$4,0,0,0,'needs_review',$5)`,[reconciliation,employees.get('financial_reconciliation'),snapshot,attendanceItem,actor]);
   await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=hr_yuzhou_t5_followon_owned_state(operation_id)');
   async function observe(sql,sanitize) {
     const results=await client.query(sql);
@@ -138,9 +183,9 @@ try {
   const impact=()=>observe(buildT5QuarantineImpactReadonlySql(),sanitizeT5QuarantineImpactObservation);
   const aggregate=()=>observe(buildT5ProfileAggregateReadonlySql(),sanitizeT5ProfileAggregateObservation);
   stage='classification and original hash parity';
-  const original=await impact();assert.equal(original.status,'PASS');assert.equal(original.quarantineCount,14);
+  const original=await impact();assert.equal(original.status,'PASS');assert.equal(original.quarantineCount,19);
   const historical=new Set(['HISTORICAL','DISABLED_USER','DELETED_CONTRACT','EXPIRED_CONTRACT']);
-  const current=new Set(['ENABLED_USER','PAST_ACTIVE_CONTRACT','FUTURE_ACTIVE_CONTRACT','ACTIVE_EMPLOYEE']);
+  const current=new Set(['ENABLED_USER','PAST_ACTIVE_CONTRACT','FUTURE_ACTIVE_CONTRACT','ACTIVE_EMPLOYEE','FINANCIAL_PAYROLL','FINANCIAL_BOOK','FINANCIAL_INSURANCE','FINANCIAL_RECONCILIATION','FINANCIAL_OVERLAP']);
   for(const group of original.groups){
     assert.equal(group.records,1);
     assert.equal(group.historicalCandidateRecords,Number(historical.has(group.reasonCode)),group.reasonCode);
@@ -151,9 +196,74 @@ try {
   assert.equal(original.groups.find(g=>g.reasonCode==='MISSING').sourceMissingRecords,1);
   assert.equal(original.groups.find(g=>g.reasonCode==='INVALID_MAP').ownerMapInvalidRecords,1);
   assert.equal((await aggregate()).status,'PASS');checks++;
-  stage='read only enforcement';
-  await client.query('BEGIN READ ONLY');
-  await assert.rejects(client.query("UPDATE hr_employee SET remark='forbidden'"),{code:'25006'});await client.query('ROLLBACK');checks++;
+  stage='financial association and uncertainty';
+  const group=(value,label)=>value.groups.find(g=>g.reasonCode===label.toUpperCase());
+  for(const [label,field] of [['financial_payroll','openPayrollRecords'],['financial_book','unclosedLegacyBookRecords'],['financial_insurance','unclosedModernInsuranceRecords'],['financial_reconciliation','pendingReconciliationRecords']]){
+    assert.equal(group(original,label)[field],1);assert.equal(group(original,label).financialDependencyRecords,1);checks++;
+  }
+  const overlap=group(original,'financial_overlap');assert.equal(overlap.financialDependencyRecords,1);assert.equal(overlap.openPayrollRecords,1);assert.equal(overlap.unclosedModernInsuranceRecords,1);checks++;
+  assert.deepEqual(original.financialContext,{openPayrollPeriods:2,openPayrollPeriodsWithoutParticipants:1,unclosedLegacyBookPeriods:1,
+    unclosedLegacyBookPeriodsWithoutMappedMembers:0,unmappedLegacyBookMemberships:1,pendingReconciliationRuns:2,pendingReconciliationRunsWithoutResults:1});checks++;
+  // Restore each temporary synthetic mutation exactly. impact() owns its own
+  // read-only transaction, so fixture changes cannot wrap it in a writable one.
+  async function mutation(label,change,restore){
+    await change();const observed=await impact();assert.equal(observed.status,'PASS');
+    assert.equal(group(observed,label).historicalCandidateRecords,1);assert.equal(group(observed,label).financialDependencyRecords,0);
+    await restore();checks++;
+  }
+  for(const [table,field,bad,good] of [
+    ['hr_payroll_period','status',"'closed'","'open'"],['hr_payroll_period','is_deleted','true','false'],
+    ['hr_payroll_run','status',"'cancelled'","'draft'"],['hr_payroll_run','is_deleted','true','false'],
+    ['hr_payslip','status',"'cancelled'","'draft'"],['hr_payslip','is_deleted','true','false'],
+    ['hr_payroll_run','park_id',"'other'","'20000001'"],['hr_payslip','tenant_id',"'other'","'10000001'"],
+  ])await mutation('financial_payroll',()=>client.query(`UPDATE ${table} SET ${field}=${bad}`),()=>client.query(`UPDATE ${table} SET ${field}=${good}`));
+  await mutation('financial_book',()=>client.query('UPDATE hr_payroll_book_period SET legacy_close_state=1'),()=>client.query('UPDATE hr_payroll_book_period SET legacy_close_state=0'));
+  await mutation('financial_insurance',()=>closeInsurance(insurance),()=>client.query('DELETE FROM hr_insurance_owned_close WHERE revision_id=$1',[insurance]));
+  // Reachable correction ordering: close the old revision, then leave the new
+  // revision open. Closing one month must not close a separate employee-month.
+  const correction=randomUUID(),otherMonth=randomUUID();
+  await closeInsurance(insurance);await addInsurance(correction,employees.get('financial_insurance'),2,insurance);
+  let corrected=await impact();assert.equal(group(corrected,'financial_insurance').unclosedModernInsuranceRecords,1);checks++;
+  await closeInsurance(correction);await addInsurance(otherMonth,employees.get('financial_insurance'),1,null,'2026-11-01');
+  corrected=await impact();assert.equal(group(corrected,'financial_insurance').unclosedModernInsuranceRecords,1);checks++;
+  await client.query('DELETE FROM hr_insurance_owned_revision WHERE id=$1',[otherMonth]);
+  corrected=await impact();assert.equal(group(corrected,'financial_insurance').historicalCandidateRecords,1);checks++;
+  await client.query('DELETE FROM hr_insurance_owned_close WHERE revision_id=ANY($1::uuid[])',[[insurance,correction]]);
+  await client.query('DELETE FROM hr_insurance_owned_revision WHERE id=$1',[correction]);
+  // Adversarial fixture below isolates latest-revision filtering; financial
+  // writer guards would reject creating revision two before closing revision one.
+  const newer=randomUUID();
+  await mutation('financial_insurance',async()=>{await addInsurance(newer,employees.get('financial_insurance'),2,insurance);await closeInsurance(newer);},async()=>{
+    await client.query('DELETE FROM hr_insurance_owned_close WHERE revision_id=$1',[newer]);await client.query('DELETE FROM hr_insurance_owned_revision WHERE id=$1',[newer]);
+  });
+  for(const status of ['accepted','rejected'])await mutation('financial_reconciliation',()=>client.query('UPDATE hr_payroll_reconciliation_run SET status=$1 WHERE id=$2',[status,reconciliation]),
+    ()=>client.query("UPDATE hr_payroll_reconciliation_run SET status='review' WHERE id=$1",[reconciliation]));
+  const successor=randomUUID();await mutation('financial_reconciliation',()=>addReconciliation(successor,'review',reconciliation),()=>client.query('DELETE FROM hr_payroll_reconciliation_run WHERE id=$1',[successor]));
+  stage='actual schema rejects impossible deleted and cross-scope financial facts';
+  for(const table of ['hr_payroll_book','hr_payroll_book_period','hr_payroll_book_membership','hr_payroll_reconciliation_run','hr_payroll_reconciliation_result']){
+    await assert.rejects(client.query(`UPDATE ${table} SET is_deleted=true`),{code:'23514'});checks++;
+  }
+  for(const table of ['hr_payroll_book_membership','hr_insurance_owned_revision','hr_insurance_owned_close','hr_payroll_reconciliation_result']){
+    if(table==='hr_insurance_owned_close')await closeInsurance(insurance);
+    await assert.rejects(client.query(`UPDATE ${table} SET park_id='other'`),{code:'23503'});checks++;
+    if(table==='hr_insurance_owned_close')await client.query('DELETE FROM hr_insurance_owned_close WHERE revision_id=$1',[insurance]);
+  }
+  stage='unmapped membership and missing reconciliation results stay uncertain';
+  await client.query("UPDATE hr_payroll_book_membership SET mapping_status='employee_unmapped',employee_id=NULL WHERE mapping_status='mapped'");
+  const uncertain=await impact();assert.equal(group(uncertain,'financial_book').historicalCandidateRecords,1);
+  assert.equal(uncertain.financialContext.unclosedLegacyBookPeriodsWithoutMappedMembers,1);assert.equal(uncertain.financialContext.unmappedLegacyBookMemberships,2);
+  assert.equal(uncertain.archivalClosureCertified,false);checks++;
+  await client.query("UPDATE hr_payroll_book_membership SET mapping_status='mapped',employee_id=$1 WHERE legacy_membership_id=1",[employees.get('financial_book')]);
+  stage='unknown owners with financial rows remain unknown';
+  for(const label of ['invalid_map','unresolved','missing','ambiguous','deleted_owner']){
+    const g=group(await impact(),label);assert.equal(g.unknownImpactRecords,1);assert.equal(g.financialDependencyRecords,0);checks++;
+  }
+  stage='generated query read only enforcement and snapshot settings';
+  const settings=await client.query(buildT5QuarantineImpactReadonlySql().replace('WITH operation AS (',
+    "SELECT current_setting('transaction_read_only') readonly,current_setting('transaction_isolation') isolation,current_setting('statement_timeout') timeout,current_setting('lock_timeout') lock_timeout; WITH operation AS ("));
+  assert.deepEqual(settings.find(r=>r.rows.length).rows[0],{readonly:'on',isolation:'repeatable read',timeout:'30s',lock_timeout:'2s'});checks++;
+  await assert.rejects(client.query(buildT5QuarantineImpactReadonlySql().replace('WITH operation AS (',
+    "UPDATE hr_employee SET remark='forbidden'; WITH operation AS (")),{code:'25006'});await client.query('ROLLBACK');checks++;
   stage='source drift';
   await client.query('UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=encrypted_source||\'00\' WHERE id=$1',[sources.get('historical')]);
   let result=await impact();assert.equal(result.status,'FAIL');assert.equal(result.sourceAggregateMatches,false);assert.equal(result.receiptAggregateMatches,true);checks++;
@@ -168,7 +278,7 @@ try {
   stage='batch binding drift';
   await client.query("UPDATE migration_batch SET tool_version='wrong'");
   result=await impact();assert.equal(result.status,'FAIL');assert.equal(result.operationBound,false);checks++;
-  process.stdout.write(JSON.stringify({status:'PASS',checks,fixture:'synthetic_actual_317_table_ddl_and_original_owned_state_function',productionWrites:false})+'\n');
+  process.stdout.write(JSON.stringify({status:'PASS',checks,fixture:'synthetic_actual_observer_table_ddl_and_original_owned_state_function',financialWriterTriggersExercised:false,productionWrites:false})+'\n');
 } catch(error) {
   process.stderr.write(`T5_IMPACT_PG_FAIL stage=${stage} code=${/^[A-Z0-9_]{1,40}$/u.test(error?.code??'')?error.code:'ASSERTION_OR_ENVIRONMENT'}\n`);
   process.exitCode=1;

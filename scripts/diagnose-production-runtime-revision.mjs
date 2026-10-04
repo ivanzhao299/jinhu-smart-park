@@ -367,12 +367,52 @@ export function buildT5QuarantineImpactReadonlySql() {
  SELECT source_identity_sha256,source_row_sha256,count(*) source_count,
  max(owner_status) owner_status,max(employee_id::text) employee_id,max(owner_record_map_id::text) owner_map_id
  FROM sources GROUP BY source_identity_sha256,source_row_sha256
+), open_payroll AS MATERIALIZED (
+ SELECT p.id,p.tenant_id,p.park_id FROM public.hr_payroll_period p
+ WHERE p.tenant_id='10000001' AND p.park_id='20000001' AND NOT p.is_deleted AND p.status='open'
+), payroll_participants AS MATERIALIZED (
+ SELECT DISTINCT p.id period_id,s.employee_id FROM open_payroll p
+ JOIN public.hr_payroll_run r ON r.period_id=p.id AND r.tenant_id=p.tenant_id AND r.park_id=p.park_id
+ JOIN public.hr_payslip s ON s.run_id=r.id AND s.tenant_id=r.tenant_id AND s.park_id=r.park_id
+ WHERE NOT r.is_deleted AND r.status<>'cancelled' AND NOT s.is_deleted AND s.status<>'cancelled'
+), open_books AS MATERIALIZED (
+ SELECT p.id,p.book_id,p.tenant_id,p.park_id FROM public.hr_payroll_book_period p
+ JOIN public.hr_payroll_book b ON b.id=p.book_id AND b.tenant_id=p.tenant_id AND b.park_id=p.park_id
+ WHERE p.tenant_id='10000001' AND p.park_id='20000001' AND NOT p.is_deleted AND NOT b.is_deleted AND p.legacy_close_state=0
+), book_members AS MATERIALIZED (
+ SELECT DISTINCT p.id period_id,m.id membership_id,m.employee_id,m.mapping_status FROM open_books p
+ JOIN public.hr_payroll_book_membership m ON m.book_id=p.book_id AND m.tenant_id=p.tenant_id AND m.park_id=p.park_id
+ WHERE NOT m.is_deleted
+), unclosed_insurance AS MATERIALIZED (
+ SELECT DISTINCT r.employee_id FROM public.hr_insurance_owned_revision r
+ WHERE r.tenant_id='10000001' AND r.park_id='20000001'
+ AND NOT EXISTS(SELECT 1 FROM public.hr_insurance_owned_revision n WHERE n.tenant_id=r.tenant_id AND n.park_id=r.park_id
+   AND n.employee_id=r.employee_id AND n.period_month=r.period_month AND n.revision_no>r.revision_no)
+ AND NOT EXISTS(SELECT 1 FROM public.hr_insurance_owned_close c WHERE c.tenant_id=r.tenant_id AND c.park_id=r.park_id AND c.revision_id=r.id)
+), pending_reconciliation AS MATERIALIZED (
+ SELECT r.id,r.tenant_id,r.park_id FROM public.hr_payroll_reconciliation_run r
+ WHERE r.tenant_id='10000001' AND r.park_id='20000001' AND NOT r.is_deleted AND r.status IN ('calculating','review')
+ AND NOT EXISTS(SELECT 1 FROM public.hr_payroll_reconciliation_run n WHERE n.tenant_id=r.tenant_id AND n.park_id=r.park_id
+   AND n.supersedes_run_id=r.id AND NOT n.is_deleted)
+), reconciliation_participants AS MATERIALIZED (
+ SELECT DISTINCT r.id run_id,x.employee_id FROM pending_reconciliation r
+ JOIN public.hr_payroll_reconciliation_result x ON x.run_id=r.id AND x.tenant_id=r.tenant_id AND x.park_id=r.park_id
+ WHERE NOT x.is_deleted
+), financial_owners AS (
+ SELECT employee_id,bool_or(kind='payroll') payroll,bool_or(kind='legacy_book') legacy_book,
+ bool_or(kind='insurance') insurance,bool_or(kind='reconciliation') reconciliation FROM (
+ SELECT employee_id,'payroll' kind FROM payroll_participants
+ UNION ALL SELECT employee_id,'legacy_book' FROM book_members WHERE mapping_status='mapped'
+ UNION ALL SELECT employee_id,'insurance' FROM unclosed_insurance
+ UNION ALL SELECT employee_id,'reconciliation' FROM reconciliation_participants
+ ) f GROUP BY employee_id
 ), classified AS (
- SELECT r.target_table,r.reason_code,e.id employee_id,
+ SELECT r.target_table,r.reason_code,e.id employee_id,f.payroll,f.legacy_book,f.insurance,f.reconciliation,
  CASE WHEN x.source_count IS NULL THEN 'source_missing'
  WHEN x.source_count<>1 THEN 'source_ambiguous'
  WHEN x.owner_status<>'mapped' THEN 'unresolved_owner'
  WHEN e.id IS NULL OR m.id IS NULL THEN 'owner_map_invalid'
+ WHEN f.employee_id IS NOT NULL THEN 'current_impact'
  WHEN e.employment_status='departed' AND NOT EXISTS(
    SELECT 1 FROM public.sys_user u WHERE u.id=e.user_id AND u.tenant_id=e.tenant_id AND NOT u.is_deleted AND u.is_enabled AND u.status<>'disabled'
  ) AND NOT EXISTS(
@@ -389,6 +429,7 @@ export function buildT5QuarantineImpactReadonlySql() {
    AND m.source_pk_canonical='sha256:'||m.source_identity_sha256 AND m.is_active AND m.mapping_status IN ('loaded','verified')
    AND (SELECT count(*) FROM public.legacy_record_map am WHERE am.source_system=m.source_system
     AND am.source_table=m.source_table AND am.source_identity_sha256=m.source_identity_sha256 AND am.is_active)=1
+ LEFT JOIN financial_owners f ON f.employee_id=e.id
  WHERE r.disposition='quarantine'
 ), groups AS (
  SELECT target_table,reason_code,count(*) n,
@@ -398,7 +439,12 @@ export function buildT5QuarantineImpactReadonlySql() {
  count(DISTINCT employee_id) owners,
  count(*) FILTER(WHERE disposition='source_missing') missing_source,
  count(*) FILTER(WHERE disposition='source_ambiguous') ambiguous_source,
- count(*) FILTER(WHERE disposition='owner_map_invalid') invalid_map
+ count(*) FILTER(WHERE disposition='owner_map_invalid') invalid_map,
+ count(*) FILTER(WHERE disposition='current_impact' AND (payroll OR legacy_book OR insurance OR reconciliation)) financial,
+ count(*) FILTER(WHERE disposition='current_impact' AND payroll) payroll,
+ count(*) FILTER(WHERE disposition='current_impact' AND legacy_book) legacy_book,
+ count(*) FILTER(WHERE disposition='current_impact' AND insurance) insurance,
+ count(*) FILTER(WHERE disposition='current_impact' AND reconciliation) reconciliation
  FROM classified GROUP BY target_table,reason_code
 )
 SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),
@@ -407,9 +453,19 @@ SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),
  'receiptAggregateMatches',COALESCE((SELECT o.owned_state->'receipts'->>'count'=r.n::text
   AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false),
  'quarantineCount',(SELECT count(*) FROM classified),
+ 'financialContext',json_build_object(
+  'openPayrollPeriods',(SELECT count(*) FROM open_payroll),
+  'openPayrollPeriodsWithoutParticipants',(SELECT count(*) FROM open_payroll p WHERE NOT EXISTS(SELECT 1 FROM payroll_participants x WHERE x.period_id=p.id)),
+  'unclosedLegacyBookPeriods',(SELECT count(*) FROM open_books),
+  'unclosedLegacyBookPeriodsWithoutMappedMembers',(SELECT count(*) FROM open_books p WHERE NOT EXISTS(SELECT 1 FROM book_members x WHERE x.period_id=p.id AND x.mapping_status='mapped')),
+  'unmappedLegacyBookMemberships',(SELECT count(DISTINCT membership_id) FROM book_members WHERE mapping_status='employee_unmapped'),
+  'pendingReconciliationRuns',(SELECT count(*) FROM pending_reconciliation),
+  'pendingReconciliationRunsWithoutResults',(SELECT count(*) FROM pending_reconciliation r WHERE NOT EXISTS(SELECT 1 FROM reconciliation_participants x WHERE x.run_id=r.id))),
  'groups',COALESCE((SELECT json_agg(json_build_object('targetTable',target_table,'reasonCode',reason_code,'records',n,
   'historicalCandidateRecords',historical,'currentImpactRecords',current_impact,'unknownImpactRecords',unknown_impact,
-  'ownerEmployees',owners,'sourceMissingRecords',missing_source,'sourceAmbiguousRecords',ambiguous_source,'ownerMapInvalidRecords',invalid_map)
+  'ownerEmployees',owners,'sourceMissingRecords',missing_source,'sourceAmbiguousRecords',ambiguous_source,'ownerMapInvalidRecords',invalid_map,
+  'financialDependencyRecords',financial,'openPayrollRecords',payroll,'unclosedLegacyBookRecords',legacy_book,
+  'unclosedModernInsuranceRecords',insurance,'pendingReconciliationRecords',reconciliation)
   ORDER BY target_table,reason_code) FROM groups),'[]'::json))::text;
 ROLLBACK;
 `;
@@ -419,16 +475,30 @@ export function sanitizeT5QuarantineImpactObservation(raw) {
   try { if(typeof raw!=='string'||Buffer.byteLength(raw)>65536) fail('T5_IMPACT_RESULT_INVALID'); v=JSON.parse(raw); }
   catch { fail('T5_IMPACT_RESULT_INVALID'); }
   const count=n=>Number.isSafeInteger(n)&&n>=0&&n<=1000000;
-  if(!exactKeys(v,['operationBound','sourceAggregateMatches','receiptAggregateMatches','quarantineCount','groups'])
+  if(!exactKeys(v,['operationBound','sourceAggregateMatches','receiptAggregateMatches','quarantineCount','financialContext','groups'])
     || !['operationBound','sourceAggregateMatches','receiptAggregateMatches'].every(k=>typeof v[k]==='boolean')
     || !count(v.quarantineCount)||!Array.isArray(v.groups)||v.groups.length>100) fail('T5_IMPACT_RESULT_INVALID');
-  const counts=['records','historicalCandidateRecords','currentImpactRecords','unknownImpactRecords','ownerEmployees','sourceMissingRecords','sourceAmbiguousRecords','ownerMapInvalidRecords'];
+  const contextCounts=['openPayrollPeriods','openPayrollPeriodsWithoutParticipants','unclosedLegacyBookPeriods','unclosedLegacyBookPeriodsWithoutMappedMembers','unmappedLegacyBookMemberships','pendingReconciliationRuns','pendingReconciliationRunsWithoutResults'];
+  const c=v.financialContext;
+  if(!exactKeys(c,contextCounts)||!contextCounts.every(k=>count(c[k]))
+    ||c.openPayrollPeriodsWithoutParticipants>c.openPayrollPeriods
+    ||c.unclosedLegacyBookPeriodsWithoutMappedMembers>c.unclosedLegacyBookPeriods
+    ||c.pendingReconciliationRunsWithoutResults>c.pendingReconciliationRuns
+    ||(c.unclosedLegacyBookPeriods===0&&c.unmappedLegacyBookMemberships!==0)) fail('T5_IMPACT_RESULT_INVALID');
+  const financialCounts=['openPayrollRecords','unclosedLegacyBookRecords','unclosedModernInsuranceRecords','pendingReconciliationRecords'];
+  const counts=['financialDependencyRecords',...financialCounts,'records','historicalCandidateRecords','currentImpactRecords','unknownImpactRecords','ownerEmployees','sourceMissingRecords','sourceAmbiguousRecords','ownerMapInvalidRecords'];
   const seen=new Set();let total=0;
   for(const g of v.groups) {
     if(!exactKeys(g,['targetTable','reasonCode',...counts])||!T5_RECEIPT_TABLES.has(g.targetTable)
       ||typeof g.reasonCode!=='string'||!/^[A-Z][A-Z0-9_]{1,63}$/u.test(g.reasonCode)
       ||!counts.every(k=>count(g[k]))||g.records===0
       ||g.historicalCandidateRecords+g.currentImpactRecords+g.unknownImpactRecords!==g.records
+      ||g.financialDependencyRecords>g.currentImpactRecords
+      ||financialCounts.some(k=>g[k]>g.financialDependencyRecords)
+      ||financialCounts.reduce((sum,k)=>sum+g[k],0)<g.financialDependencyRecords
+      ||(g.openPayrollRecords>0&&c.openPayrollPeriods===c.openPayrollPeriodsWithoutParticipants)
+      ||(g.unclosedLegacyBookRecords>0&&c.unclosedLegacyBookPeriods===c.unclosedLegacyBookPeriodsWithoutMappedMembers)
+      ||(g.pendingReconciliationRecords>0&&c.pendingReconciliationRuns===c.pendingReconciliationRunsWithoutResults)
       ||g.ownerEmployees>g.records||g.sourceMissingRecords+g.sourceAmbiguousRecords+g.ownerMapInvalidRecords>g.unknownImpactRecords) fail('T5_IMPACT_RESULT_INVALID');
     const key=`${g.targetTable}:${g.reasonCode}`;
     if(seen.has(key)) fail('T5_IMPACT_RESULT_INVALID');
@@ -436,8 +506,10 @@ export function sanitizeT5QuarantineImpactObservation(raw) {
   }
   if(total!==v.quarantineCount) fail('T5_IMPACT_RESULT_INVALID');
   return {...v,status:v.operationBound&&v.sourceAggregateMatches&&v.receiptAggregateMatches?'PASS':'FAIL',
-    evidenceScope:'t5_quarantine_current_owner_screen_only',productionWrites:false,archiveDecisionApplied:false,
-    excludedScope:['T4_payroll','future_source_changes','external_systems','unmapped_owner_impact','open_payroll_periods','open_insurance_periods','account_permissions']};
+    evidenceScope:'t5_quarantine_owner_and_potential_financial_dependency_screen_only',productionWrites:false,archiveDecisionApplied:false,
+    financialCountSemantics:'overlapping_record_counts_not_additive_or_employee_counts',financialPeriodSelectionAccepted:false,
+    archivalClosureCertified:false,unrecordedFinancialDependenciesExcluded:false,
+    excludedScope:['T4_payroll','future_source_changes','external_systems','unmapped_owner_impact','unrecorded_financial_dependencies','business_selected_period_and_amount_acceptance','account_permissions']};
 }
 export function observeT5QuarantineImpactReadonly() {
   let raw;
