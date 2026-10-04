@@ -120,6 +120,37 @@ try {
   const changedEmployee=attempt({historicalExclusions:ref("changed-employee-exclusions.json",employeeExclusions)});
   assert.equal(buildYuzhouReusableIncrementalPackage(changedEmployee.input).manifest.itemCount,2);
   assert.equal(changedEmployee.receipt.exclusionEvidence.nonApplicableChanged.length,1);checks+=2;
+  // Reusable raw family mapping, exact historical exclusions and transport.
+  const familyStage=join(base,"staging-family");mkdirSync(familyStage,{mode:0o700});
+  const familySource={id:501,person:person.employeeCode,rela:"子女",member:'Family \\ quoted "member"',tel:null,birthday:"2001-02-03T00:00:00",jobunit:"Source unit",jobname:null,political:null};
+  const familyRow=()=>({sourceTable:"dbo.family",sourceKey:String(familySource.id),sourceIdentitySha256:sha(`dbo.family\0${familySource.id}`),sourceRowSha256:sha(canonical(familySource)),source:familySource,materialized:{fullName:{encrypted:"synthetic-stale-never-use"}}});
+  const familyRef=()=>{
+    writeFileSync(join(familyStage,"family.jsonl"),JSON.stringify(familyRow()).replaceAll("\\","\\\\")+"\n",{mode:0o600});
+    put(join(familyStage,"manifest.json"),{formatVersion:1,productionImport:"HOLD",domains:{family:{sourceObject:"dbo.family",file:"family.jsonl",rows:1,fileSha256:sha(readFileSync(join(familyStage,"family.jsonl")))}}});
+    return {path:join(familyStage,"manifest.json"),sha256:sha(readFileSync(join(familyStage,"manifest.json")))};
+  };
+  const familyConfig={t2Manifest:undefined,includeEmployees:false,familyManifest:familyRef(),outputDir:join(base,"family-output")};
+  const assembledFamily=attempt(familyConfig),familyPackage=buildYuzhouReusableIncrementalPackage(assembledFamily.input);
+  assert.equal(familyPackage.packageDto.items.length,1);assert.equal(familyPackage.packageDto.items[0].domain,"family");
+  assert.equal(familyPackage.packageDto.items[0].fields.fullName,familySource.member);assert.equal(familyPackage.packageDto.items[0].fields.birthDate,"2001-02-03");
+  assert.deepEqual(assembledFamily.receipt.apiInput,{family:1,employee:0,contract:0});checks+=5;
+  put(configPath,{...config,...familyConfig});const familyResult=materializeYuzhouImportFromStaging(configPath);assert.equal(familyResult.itemCount,1);checks++;
+  const familyExclusions={formatVersion:1,artifactKind:"yuzhou_original_family_exclusions",originalOperationId:"yzprod-import-20261001T000000Z-abcdef123456",originalBindingSha256:sha("original family binding"),targetScope:config.sourceCustody.targetScope,entries:[{sourceIdentitySha256:familyRow().sourceIdentitySha256,sourceRowSha256:familyRow().sourceRowSha256,decisionReceiptSha256:sha("original quarantine decision"),reasonCode:"HISTORICAL_NONCORE"}]};
+  const excludedFamily=attempt({...familyConfig,familyExclusions:ref("family-exclusions.json",familyExclusions)});
+  assert.equal(excludedFamily.receipt.familyAccounting.excluded,1);assert.equal(buildYuzhouReusableIncrementalPackage(excludedFamily.input).manifest.itemCount,0);checks+=2;
+  familySource.jobunit="Updated source unit";
+  const changedFamily=attempt({...familyConfig,familyManifest:familyRef(),familyExclusions:ref("family-exclusions.json",familyExclusions)});
+  assert.equal(changedFamily.receipt.familyAccounting.nonApplicableChanged.length,1);assert.equal(buildYuzhouReusableIncrementalPackage(changedFamily.input).manifest.itemCount,1);checks+=2;
+  familySource.birthday="historical invalid date";
+  const invalidDatePackage=buildYuzhouReusableIncrementalPackage(attempt({...familyConfig,familyManifest:familyRef()}).input);
+  assert.ok(!Object.hasOwn(invalidDatePackage.packageDto.items[0].fields,"birthDate"));assert.equal(invalidDatePackage.manifest.declarations[0].pendingFields.length,1);checks+=2;
+  familySource.person="MISSING";
+  assert.throws(()=>buildYuzhouReusableIncrementalPackage(attempt({...familyConfig,familyManifest:familyRef()}).input),/YUZHOU_FAMILY_EMPLOYEE_MISSING/);checks++;
+  familySource.person=person.employeeCode;
+  const malformed=familyRow();malformed.sourceRowSha256=sha("forged row");
+  writeFileSync(join(familyStage,"family.jsonl"),JSON.stringify(malformed).replaceAll("\\","\\\\")+"\n",{mode:0o600});
+  const badManifest=json(join(familyStage,"manifest.json"));badManifest.domains.family.fileSha256=sha(readFileSync(join(familyStage,"family.jsonl")));put(join(familyStage,"manifest.json"),badManifest);
+  assert.throws(()=>attempt({...familyConfig,familyManifest:{path:join(familyStage,"manifest.json"),sha256:sha(readFileSync(join(familyStage,"manifest.json")))}}));checks++;
   // Hash-valid manifest count drift must still fail, rather than dropping a row.
   const manifest = json(config.t0Manifest.path); manifest.domains.employees.rows = 0; put(config.t0Manifest.path, manifest);
   assert.throws(() => attempt({ t0Manifest: manifestRef(t0) })); checks++;

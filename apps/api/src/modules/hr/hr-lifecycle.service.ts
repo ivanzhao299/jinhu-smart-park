@@ -12,9 +12,8 @@ import { AuditService } from "../audit/audit.service";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
-import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { HrFamilyRecordVersionDto, UpdateHrFamilyRecordDto } from "./dto/hr-family-record.dto";
-import { appendFamilyChangeInTransaction, mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
+import { createFamilyRecordInTransaction, mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import {
   CreateHrEmployeeRecordDto,
@@ -656,10 +655,6 @@ export class HrLifecycleService {
   private requireFamilyManage(a:JwtPrincipal){
     if(!this.has(a,HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE))throw new ForbiddenException();
   }
-  private async familyEmployee(manager:EntityManager,s:TenantParkScope,employeeId:string){
-    const rows=await manager.query("SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND NOT is_deleted FOR SHARE",[s.tenantId,s.parkId,employeeId]);
-    if(rows.length!==1)throw new NotFoundException("Employee not found");
-  }
 
   private async createFamilyRecord(s:TenantParkScope,a:JwtPrincipal,employeeId:string,d:CreateHrEmployeeRecordDto){
     this.requireFamilyManage(a);
@@ -667,24 +662,7 @@ export class HrLifecycleService {
       identityNumber:d.identityNumber,contact:d.contact,isEmergencyContact:d.isEmergencyContact,birthDate:d.birthDate,
       workUnit:d.workUnit,jobTitle:d.familyJobTitle,politicalStatus:d.familyPoliticalStatus});
     if(!patch.relationship||!patch.fullName)throw new BadRequestException("Relationship and name are required");
-    return this.db.transaction(async manager=>{
-      await this.familyEmployee(manager,s,employeeId);
-      const name=this.sensitive.identityProfile(patch.fullName!);
-      const identity=patch.identityNumber?this.sensitive.identityProfile(patch.identityNumber):null;
-      const contact=patch.contact?this.sensitive.identityProfile(patch.contact):null;
-      const raw=await manager.query(`INSERT INTO hr_employee_family AS family(tenant_id,park_id,employee_id,relationship,
-        full_name_encrypted,full_name_masked,full_name_fingerprint,identity_encrypted,identity_masked,identity_fingerprint,
-        contact_encrypted,contact_masked,contact_fingerprint,is_emergency_contact,birth_date,work_unit,job_title,political_status,create_by,update_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19) RETURNING to_jsonb(family) snapshot`,
-        [s.tenantId,s.parkId,employeeId,patch.relationship,name.encrypted,name.masked,name.hash,
-        identity?.encrypted??null,identity?.masked??null,identity?.hash??null,contact?.encrypted??null,contact?.masked??null,contact?.hash??null,
-        patch.isEmergencyContact??false,patch.birthDate??null,patch.workUnit??null,patch.jobTitle??null,patch.politicalStatus??null,a.sub]);
-      const rows=typeormQueryRows<{snapshot:Record<string,unknown>}>(raw);
-      if(rows.length!==1||rows[0]?.snapshot.version!==1)throw new ConflictException("Family record creation was not confirmed");
-      const after=rows[0].snapshot;
-      await appendFamilyChangeInTransaction(manager,s,a,employeeId,"create",null,after,this.sensitive);
-      return {id:String(after.id),recordType:"family",version:1};
-    });
+    return this.db.transaction(manager=>createFamilyRecordInTransaction(manager,s,a,employeeId,patch,this.sensitive));
   }
   async updateFamilyRecord(s:TenantParkScope,a:JwtPrincipal,employeeId:string,familyId:string,d:UpdateHrFamilyRecordDto){
     this.requireFamilyManage(a);

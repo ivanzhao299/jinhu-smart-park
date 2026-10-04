@@ -6,7 +6,7 @@ import type { YuzhouInitialBaselineWitness } from "./hr-yuzhou-initial-baseline"
 export const YUZHOU_INCREMENTAL_CONTRACT_STATUSES = ["draft", "active", "expired", "terminated", "cancelled"] as const;
 
 export const YUZHOU_INCREMENTAL_PACKAGE_VERSION = 1 as const;
-export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract"] as const;
+export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family"] as const;
 export type YuzhouIncrementalDomain = (typeof YUZHOU_INCREMENTAL_DOMAINS)[number];
 
 export type YuzhouIncrementalItem = {
@@ -40,11 +40,12 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   position: ["positionCode", "positionName", "jobFamily", "jobLevel", "headcountLimit", "status", "remark", "authority", "legacyDepartmentReference", "legacyParentReference", "legacySourceId", "legacyUptoCode", "positionManual", "qualification", "responsibilities", "hierarchyLevel", "sortOrder", "orgSourceKey", "parentPositionSourceKey"],
   employee: ["orgSourceKey", "positionSourceKey", "employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "workLocation", "workMobile", "workEmail"],
   profile: ["employeeSourceKey", "employeeSourceTable", "englishName", "gender", "dateOfBirth", "personalMobile", "personalEmail", "address", "idNumber", "nativePlace", "degree"],
+  family: ["employeeSourceKey", "employeeSourceTable", "relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };
 
 export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackage): YuzhouIncrementalPackage {
-  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4 };
+  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5 };
   return {
     ...input,
     items: orderYuzhouIncrementalItems([...input.items].map(item => {

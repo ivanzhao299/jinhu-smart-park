@@ -66,3 +66,32 @@ export async function mutateFamilyRecordInTransaction(manager:EntityManager,s:Te
   await appendFamilyChangeInTransaction(manager,s,a,employeeId,action,before,after,sensitive);
   return {id:familyId,recordType:"family",version:Number(after.version),archived:action==="archive"};
 }
+
+
+export async function createFamilyRecordInTransaction(manager:EntityManager,s:TenantParkScope,a:JwtPrincipal,employeeId:string,
+  input:Partial<UpdateHrFamilyRecordDto>,sensitive:PartySensitiveDataService){
+  activeTransaction(manager);
+  if(!a.isSuper&&!a.permissions.includes("*")&&!a.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE))throw new ForbiddenException();
+  if(!input||typeof input!=="object"||Array.isArray(input)||(input.expectedVersion!==undefined&&input.expectedVersion!==1))throw new BadRequestException("Invalid family record patch");
+  const patch=plainToInstance(UpdateHrFamilyRecordDto,{...input,expectedVersion:1});
+  if(validateSync(patch,{whitelist:true,forbidNonWhitelisted:true}).length||!patch.relationship||!patch.fullName)throw new BadRequestException("Relationship and name are required");
+  if(patch.identityNumber?.includes("*"))throw new BadRequestException("A masked identity is not a replacement number");
+
+  const employee=await manager.query("SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND NOT is_deleted FOR SHARE",[s.tenantId,s.parkId,employeeId]);
+  if(employee.length!==1)throw new NotFoundException("Employee not found");
+  const name=sensitive.identityProfile(patch.fullName!);
+  const identity=patch.identityNumber?sensitive.identityProfile(patch.identityNumber):null;
+  const contact=patch.contact?sensitive.identityProfile(patch.contact):null;
+  const raw=await manager.query(`INSERT INTO hr_employee_family AS family(tenant_id,park_id,employee_id,relationship,
+    full_name_encrypted,full_name_masked,full_name_fingerprint,identity_encrypted,identity_masked,identity_fingerprint,
+    contact_encrypted,contact_masked,contact_fingerprint,is_emergency_contact,birth_date,work_unit,job_title,political_status,create_by,update_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19) RETURNING to_jsonb(family) snapshot`,
+    [s.tenantId,s.parkId,employeeId,patch.relationship,name.encrypted,name.masked,name.hash,
+    identity?.encrypted??null,identity?.masked??null,identity?.hash??null,contact?.encrypted??null,contact?.masked??null,contact?.hash??null,
+    patch.isEmergencyContact??false,patch.birthDate??null,patch.workUnit??null,patch.jobTitle??null,patch.politicalStatus??null,a.sub]);
+  const rows=typeormQueryRows<{snapshot:Record<string,unknown>}>(raw);
+  if(rows.length!==1||rows[0]?.snapshot.version!==1)throw new ConflictException("Family record creation was not confirmed");
+  const after=rows[0].snapshot;
+  await appendFamilyChangeInTransaction(manager,s,a,employeeId,"create",null,after,sensitive);
+  return {id:String(after.id),recordType:"family",version:1};
+}

@@ -1,5 +1,5 @@
-/** Fixed reviewed family fields. The public incremental domain is enabled only
- * when API admission, transaction writes and the staging adapter are connected. */
+/** Fixed reviewed family fields shared by the public incremental API.
+ * Original evidence, scoped transaction writes and source custody are admission obligations. */
 export const YUZHOU_FAMILY_SOURCE_FIELDS = ["relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"] as const;
 export type YuzhouFamilySourceField = (typeof YUZHOU_FAMILY_SOURCE_FIELDS)[number];
 export type YuzhouFamilySourceFacts = {

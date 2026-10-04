@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifyFamilySource } from "./yuzhou-family-incremental-projection.mjs";
 /* global process, Buffer */
 import { verifyProfileSource, canonicalProfile } from "./yuzhou-profile-incremental-projection.mjs";
 import { createHash } from "node:crypto";
@@ -14,6 +15,7 @@ const fail = () => { throw new Error("YUZHOU_STAGING_ENTRY_INVALID"); };
 // Only exact reviewed constants may cross the CLI error boundary. Never echo
 // filesystem/parser errors or arbitrary downstream messages.
 const SAFE_ERRORS = new Set([
+  "YUZHOU_FAMILY_SOURCE_INVALID","YUZHOU_FAMILY_SOURCE_SCHEMA_INVALID","YUZHOU_FAMILY_FIELD_INVALID","YUZHOU_FAMILY_EMPLOYEE_MISSING",
   "YUZHOU_ORG_SOURCE_SCHEMA_INVALID","YUZHOU_ORG_SOURCE_INVALID","YUZHOU_ORG_SOURCE_AMBIGUOUS","YUZHOU_ORG_FIELD_INVALID","YUZHOU_POSITION_ORG_UNRESOLVED","YUZHOU_EMPLOYEE_ORG_REQUIRED","YUZHOU_SOURCE_DEPENDENCY_CYCLE",
   "YUZHOU_PROFILE_ALIAS_ACCEPTANCE_INVALID", "YUZHOU_PROFILE_ADMISSION_INVALID", "YUZHOU_PROFILE_WITNESS_INVALID", "YUZHOU_PROFILE_SOURCE_INVALID", "YUZHOU_PROFILE_SOURCE_SCHEMA_INVALID", "YUZHOU_PROFILE_DATE_INVALID", "YUZHOU_PROFILE_FIELD_INVALID", "YUZHOU_PROFILE_EMAIL_INVALID", "YUZHOU_PROFILE_EMPLOYEE_MISSING", "YUZHOU_PROFILE_PROTECTED_INPUT_INVALID",
   "YUZHOU_STAGING_ENTRY_SCOPE_MISMATCH", "YUZHOU_STAGING_ENTRY_ACCOUNTING_MISMATCH",
@@ -59,7 +61,7 @@ export function assembleYuzhouImportFromStaging(configPath) {
   const read = path => { safePath(dirname(path), true); safePath(path); const bytes = readFileSync(path); total += bytes.length; if (bytes.length > MAX_FILE || total > MAX_TOTAL) fail(); return bytes; };
   const reference = ref => { exact(ref, ["path", "sha256"]); if (!SHA.test(ref.sha256)) fail(); const bytes = read(ref.path); if (sha(bytes) !== ref.sha256) fail(); return parser(bytes); };
   const configBytes = read(configPath), config = parser(configBytes);
-  exact(config, ["formatVersion", "t0Manifest", "includeEmployees", "extractedAt", "sourceCustody", "outputDir"], ["includeOrganizations", "includePositions", "includeAssignments", "t2Manifest", "jobStateDecisionArtifact", "contractTypeMappingArtifact", "contractStateResolutions", "historicalExclusions", "profileManifest", "profileBaselineWitness", "profileAliasAcceptance", "profileExclusions", "profileFieldAdmissions"]);
+  exact(config, ["formatVersion", "t0Manifest", "includeEmployees", "extractedAt", "sourceCustody", "outputDir"], ["includeOrganizations", "includePositions", "includeAssignments", "t2Manifest", "jobStateDecisionArtifact", "contractTypeMappingArtifact", "contractStateResolutions", "historicalExclusions", "profileManifest", "profileBaselineWitness", "profileAliasAcceptance", "profileExclusions", "profileFieldAdmissions", "familyManifest", "familyExclusions"]);
   exact(config.sourceCustody, ["sourceSnapshotSha256", "evidenceSha256", "declaration"], ["targetScope"]);
   if (config.formatVersion !== 1 || typeof config.includeEmployees !== "boolean" || !SHA.test(config.sourceCustody.sourceSnapshotSha256) || !SHA.test(config.sourceCustody.evidenceSha256) || config.sourceCustody.declaration !== "caller_attests_same_controlled_snapshot" || typeof config.extractedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(config.extractedAt) || !Number.isFinite(Date.parse(config.extractedAt)) || !isAbsolute(config.outputDir ?? "")) fail();
   for(const key of ["includeOrganizations","includePositions","includeAssignments"]) if(config[key]!==undefined&&typeof config[key]!=="boolean") fail();
@@ -131,25 +133,30 @@ export function assembleYuzhouImportFromStaging(configPath) {
     return false;
   });
   const employees = eligible(t0.employees, "employee"), contracts = eligible(t2?.["dbo.compact"] ?? [], "contract");
-  let profileRecords=[],profileAdmissionEvidence;
-  const profileArtifacts=[];
-  const profileAccounting={requested:0,excluded:0,eligible:0,nonApplicableChanged:[],notPresent:[],pendingFields:[]};
-  if(config.profileManifest) {
-    const manifest=reference(config.profileManifest),entry=manifest.domains?.person_core;
-    if(manifest.formatVersion!==1||manifest.productionImport!=="HOLD"||entry?.sourceObject!=="dbo.person.core_residue"||entry.file!=="person_core.jsonl"||!Number.isSafeInteger(entry.rows)||entry.rows<0||!SHA.test(entry.fileSha256??""))fail();
+  function retainedDomain(ref,domain,table,verify) {
+    const manifest=reference(ref),entry=manifest.domains?.[domain];
+    if(manifest.formatVersion!==1||manifest.productionImport!=="HOLD"||entry?.sourceObject!==table||entry.file!==`${domain}.jsonl`||!Number.isSafeInteger(entry.rows)||entry.rows<0||!SHA.test(entry.fileSha256??""))fail();
     if(manifest.sourceSnapshotSha256!==undefined&&manifest.sourceSnapshotSha256!==config.sourceCustody.sourceSnapshotSha256)fail();
     if(manifest.artifactKind==="yuzhou_t5_nonfile_materialization_stage"){
       const business=Object.fromEntries(["formatVersion","artifactKind","sourceSnapshotSha256","sourceRestoreReceiptSha256","sourceBusinessSha256","sourceCatalogSha256","mappingContractSha256","domains","definitionEvidence"].map(k=>[k,manifest[k]]));
       if(!["sourceSnapshotSha256","sourceRestoreReceiptSha256","sourceBusinessSha256","sourceCatalogSha256","mappingContractSha256","nonfileBusinessSha256"].every(k=>SHA.test(manifest[k]??""))||sha(canonicalProfile(business))!==manifest.nonfileBusinessSha256)fail();
     }
-    const bytes=read(join(dirname(config.profileManifest.path),entry.file));if(sha(bytes)!==entry.fileSha256)fail();
+    const bytes=read(join(dirname(ref.path),entry.file));if(sha(bytes)!==entry.fileSha256)fail();
     const text=bytes.toString("utf8");if(text&&!text.endsWith("\n"))fail();
     const seen=new Set();
-    profileRecords=text?text.slice(0,-1).split("\n").map(line=>{
+    const rows=text?text.slice(0,-1).split("\n").map(line=>{
       let decoded="";for(let i=0;i<line.length;i++){if(line[i]==="\\"){if(line[i+1]!=="\\")fail();i++;}decoded+=line[i];}
-      const row=verifyProfileSource(parser(Buffer.from(decoded)));if(seen.has(row.sourceIdentitySha256))fail();seen.add(row.sourceIdentitySha256);return row;
+      const row=verify(parser(Buffer.from(decoded)));if(seen.has(row.sourceIdentitySha256))fail();seen.add(row.sourceIdentitySha256);return row;
     }):[];
-    if(profileRecords.length!==entry.rows)fail();profileAccounting.requested=profileRecords.length;
+    if(rows.length!==entry.rows)fail();
+    return {rows,entry};
+  }
+  let profileRecords=[],profileAdmissionEvidence;
+  const profileArtifacts=[];
+  const profileAccounting={requested:0,excluded:0,eligible:0,nonApplicableChanged:[],notPresent:[],pendingFields:[]};
+  if(config.profileManifest) {
+    const {rows,entry}=retainedDomain(config.profileManifest,"person_core","dbo.person.core_residue",verifyProfileSource);
+    profileRecords=rows;profileAccounting.requested=rows.length;
     for(const [key,kind] of [["profileExclusions","yuzhou_original_profile_exclusions"],["profileFieldAdmissions","yuzhou_original_profile_field_admissions"]]) {
       if(!config[key])continue;
       const artifact=reference(config[key]);exact(artifact,["formatVersion","artifactKind","originalOperationId","originalBindingSha256","targetScope","entries"]);
@@ -167,8 +174,29 @@ export function assembleYuzhouImportFromStaging(configPath) {
   const profileBaselineWitness=load("profileBaselineWitness");
   if(profileBaselineWitness){exact(profileBaselineWitness,["version","proof","operationId","bindingSha256"]);if(profileBaselineWitness.version!==1||profileBaselineWitness.proof!=="original_t5_whole_set_v1"||!/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(profileBaselineWitness.operationId??"")||!SHA.test(profileBaselineWitness.bindingSha256??""))fail();}
   if(profileBaselineWitness&&profileArtifacts.some(a=>a.originalOperationId!==profileBaselineWitness.operationId||a.originalBindingSha256!==profileBaselineWitness.bindingSha256))fail();
-  const input = { organizationRecords:config.includeOrganizations?t0.departments:[],positionRecords:config.includePositions?t0.positions:[],includeAssignments:config.includeAssignments??Boolean(config.includeOrganizations||config.includePositions),recipeVersion: "yuzhou-reusable-incremental-v2", recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: "yuzhou-v10", extractedAt: config.extractedAt, profileRecords,...(profileAdmissionEvidence?{profileAdmissionEvidence}:{}),profileBaselineWitness,profileAliasAcceptance:load("profileAliasAcceptance"),employeeRecords: config.includeEmployees ? employees : [], employeeIndex: config.includeEmployees ? [] : employees.map(row => ({ employeeCode: row.sourceKey, sourceTable: row.sourceTable, sourceKey: row.sourceKey })), records: contracts, jobStateDecisionArtifact: load("jobStateDecisionArtifact"), contractTypeMappingArtifact: typeArtifact, contractStateResolutions: load("contractStateResolutions") };
-  const receipt = { formatVersion: 1, artifactKind: "yuzhou_staging_assembly", configSha256: sha(configBytes), recipeSha256: input.recipeSha256, sourceCustody: config.sourceCustody, sourceAuthenticity: "caller_declared_not_independently_verified", t0ManifestReference: config.t0Manifest, t2ManifestReference: config.t2Manifest ?? null, t0ManifestSha256: config.t0Manifest.sha256, t2ManifestSha256: config.t2Manifest?.sha256 ?? null, exclusionEvidence: { verification: "caller_declared_original_receipts_not_independently_authenticated", artifactSha256: config.historicalExclusions?.sha256 ?? null, originalReferences: exclusionArtifact ? Object.fromEntries(Object.entries(exclusionArtifact).filter(([key]) => key !== "entries")) : null, requested: { employee: t0.employees.length, contract: t2?.["dbo.compact"].length ?? 0 }, excluded: { employee: t0.employees.length - employees.length, contract: (t2?.["dbo.compact"].length ?? 0) - contracts.length }, eligible: { employee: employees.length, contract: contracts.length }, applied: appliedExclusions, nonApplicableChanged: changedExclusions, notPresent: [...exclusions.keys()].filter(identity => !presentExclusions.has(identity)).map(identity => `sha256:${identity}`) }, mappingReferences: Object.fromEntries(["jobStateDecisionArtifact", "contractTypeMappingArtifact", "contractStateResolutions", "historicalExclusions", "profileManifest", "profileBaselineWitness", "profileAliasAcceptance", "profileExclusions", "profileFieldAdmissions"].filter(key => config[key]).map(key => [key, config[key]])), accounting, ...(config.profileManifest?{profileAccounting,profileArtifactEvidence:profileArtifacts}:{}), apiInput: { ...(config.includeOrganizations?{organization:input.organizationRecords.length}:{}),...(config.includePositions?{position:input.positionRecords.length}:{}),...(config.profileManifest?{profile:profileRecords.length}:{}), employee: input.employeeRecords.length, contract: input.records.length }, dependencyIndex: { employee: input.employeeIndex.length }, productionImport: "HOLD" };
+  let familyRecords=[];
+  const familyAccounting={requested:0,excluded:0,eligible:0,nonApplicableChanged:[],notPresent:[]};
+  if(config.familyManifest){
+    const {rows,entry}=retainedDomain(config.familyManifest,"family","dbo.family",verifyFamilySource);
+    familyRecords=rows;familyAccounting.requested=rows.length;
+    if(config.familyExclusions){
+      const artifact=reference(config.familyExclusions);
+      exact(artifact,["formatVersion","artifactKind","originalOperationId","originalBindingSha256","targetScope","entries"]);
+      if(artifact.formatVersion!==1||artifact.artifactKind!=="yuzhou_original_family_exclusions"||!/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(artifact.originalOperationId??"")||!SHA.test(artifact.originalBindingSha256??"")||scope(artifact.targetScope)!==scope(config.sourceCustody.targetScope)||!Array.isArray(artifact.entries))fail();
+      const exclusions=new Map();
+      for(const entry of artifact.entries){
+        exact(entry,["sourceIdentitySha256","sourceRowSha256","decisionReceiptSha256","reasonCode"]);
+        if(![entry.sourceIdentitySha256,entry.sourceRowSha256,entry.decisionReceiptSha256].every(value=>SHA.test(value??""))||! /^[A-Z][A-Z0-9_]{0,127}$/u.test(entry.reasonCode??"")||exclusions.has(entry.sourceIdentitySha256))fail();
+        exclusions.set(entry.sourceIdentitySha256,entry);
+      }
+      familyRecords=rows.filter(row=>{const entry=exclusions.get(row.sourceIdentitySha256);if(!entry)return true;exclusions.delete(row.sourceIdentitySha256);if(entry.sourceRowSha256!==row.sourceRowSha256){familyAccounting.nonApplicableChanged.push(row.sourceIdentitySha256);return true;}familyAccounting.excluded++;return false;});
+      familyAccounting.notPresent=[...exclusions.keys()];
+    }
+    familyAccounting.eligible=familyRecords.length;
+    accounting.push({phase:"T5",domain:"family",rows:entry.rows,fileSha256:entry.fileSha256,disposition:"family_api_input_and_explicit_pending"});
+  }else if(config.familyExclusions)fail();
+  const input = { organizationRecords:config.includeOrganizations?t0.departments:[],positionRecords:config.includePositions?t0.positions:[],includeAssignments:config.includeAssignments??Boolean(config.includeOrganizations||config.includePositions),recipeVersion: "yuzhou-reusable-incremental-v2", recipeSha256: YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256, sourceSystem: "yuzhou-v10", extractedAt: config.extractedAt, familyRecords, profileRecords,...(profileAdmissionEvidence?{profileAdmissionEvidence}:{}),profileBaselineWitness,profileAliasAcceptance:load("profileAliasAcceptance"),employeeRecords: config.includeEmployees ? employees : [], employeeIndex: config.includeEmployees ? [] : employees.map(row => ({ employeeCode: row.sourceKey, sourceTable: row.sourceTable, sourceKey: row.sourceKey })), records: contracts, jobStateDecisionArtifact: load("jobStateDecisionArtifact"), contractTypeMappingArtifact: typeArtifact, contractStateResolutions: load("contractStateResolutions") };
+  const receipt = { formatVersion: 1, artifactKind: "yuzhou_staging_assembly", configSha256: sha(configBytes), recipeSha256: input.recipeSha256, sourceCustody: config.sourceCustody, sourceAuthenticity: "caller_declared_not_independently_verified", t0ManifestReference: config.t0Manifest, t2ManifestReference: config.t2Manifest ?? null, t0ManifestSha256: config.t0Manifest.sha256, t2ManifestSha256: config.t2Manifest?.sha256 ?? null, exclusionEvidence: { verification: "caller_declared_original_receipts_not_independently_authenticated", artifactSha256: config.historicalExclusions?.sha256 ?? null, originalReferences: exclusionArtifact ? Object.fromEntries(Object.entries(exclusionArtifact).filter(([key]) => key !== "entries")) : null, requested: { employee: t0.employees.length, contract: t2?.["dbo.compact"].length ?? 0 }, excluded: { employee: t0.employees.length - employees.length, contract: (t2?.["dbo.compact"].length ?? 0) - contracts.length }, eligible: { employee: employees.length, contract: contracts.length }, applied: appliedExclusions, nonApplicableChanged: changedExclusions, notPresent: [...exclusions.keys()].filter(identity => !presentExclusions.has(identity)).map(identity => `sha256:${identity}`) }, mappingReferences: Object.fromEntries(["jobStateDecisionArtifact", "contractTypeMappingArtifact", "contractStateResolutions", "historicalExclusions", "profileManifest", "profileBaselineWitness", "profileAliasAcceptance", "profileExclusions", "profileFieldAdmissions", "familyManifest", "familyExclusions"].filter(key => config[key]).map(key => [key, config[key]])), accounting, ...(config.profileManifest?{profileAccounting,profileArtifactEvidence:profileArtifacts}:{}), ...(config.familyManifest?{familyAccounting}:{}), apiInput: { ...(config.familyManifest?{family:familyRecords.length}:{}), ...(config.includeOrganizations?{organization:input.organizationRecords.length}:{}),...(config.includePositions?{position:input.positionRecords.length}:{}),...(config.profileManifest?{profile:profileRecords.length}:{}), employee: input.employeeRecords.length, contract: input.records.length }, dependencyIndex: { employee: input.employeeIndex.length }, productionImport: "HOLD" };
   return { input, receipt, outputDir: config.outputDir };
 }
 
@@ -183,7 +211,7 @@ export function materializeYuzhouImportFromStaging(configPath) {
     const inputPath = join(temporary, "input.json");
     writeFileSync(inputPath, `${JSON.stringify(input)}\n`, { mode: 0o600, flag: "wx" });
     const result = materializeYuzhouReusableIncrementalPackage({ inputPath, outputDir });
-    if (result.itemCount !== input.organizationRecords.length + input.positionRecords.length + input.employeeRecords.length + input.records.length + input.profileRecords.length) throw new Error("YUZHOU_STAGING_ENTRY_ACCOUNTING_MISMATCH");
+    if (result.itemCount !== input.organizationRecords.length + input.positionRecords.length + input.employeeRecords.length + input.records.length + input.profileRecords.length + input.familyRecords.length) throw new Error("YUZHOU_STAGING_ENTRY_ACCOUNTING_MISMATCH");
     writeFileSync(join(outputDir, "assembly-receipt.json"), `${JSON.stringify({ ...receipt, manifestId: result.manifestId, itemCount: result.itemCount }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
     return result;
   } catch (error) { if (outputOwned) rmSync(outputDir, { recursive: true }); throw new Error(stagingEntryErrorCode(error)); }

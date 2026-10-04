@@ -1,4 +1,4 @@
-# 玉舟可复用增量导入包（组织、岗位、员工、档案与合同）
+# 玉舟可复用增量导入包（组织、岗位、员工、档案、合同与家庭成员）
 
 `scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs` 是 SQL Server 抽取之后、`POST /hr/imports/yuzhou/incremental/preview` 之前的离线转换入口。它不访问数据库或网络，也不提交业务数据；API 的预览与提交事务负责写入、权限、幂等账本和冲突处理。
 
@@ -312,3 +312,15 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 | technicalGrade | pending | No exact scoped dictionary artifact in this raw profile entry |
 | technicalTitle | pending | No exact scoped dictionary artifact in this raw profile entry |
 | weightKg | pending | No verified raw measurement and unit contract |
+
+## 固定家庭成员入口（候选代码，待发布）
+
+无需等待所有 HR 模块就位。复用上面的 `build-yuzhou-import-from-staging.mjs --config /absolute/private/import-config.json`，在配置中增加 `familyManifest:{path,sha256}`，指向受控抽取的 T5 manifest；入口读取其中 `family` 域的 `family.jsonl`，复用此前确认的来源身份、哈希、传输编码及七字段映射。新员工可与家庭成员同批提交，按依赖先创建员工。
+
+已确认字段：关系、姓名、联系方式、出生日期、工作单位、职务、政治面貌。来源未提供可信证件号或紧急联系人标记，所以这两项继续按正式页面权限维护，不猜测来源值。旧的加密 materialized 字段不作为新包输入。
+
+历史隔离可增加 `familyExclusions:{path,sha256}` 引用固定回执；仅对原身份和原行哈希完全相同的条目沿用归档决定，来源变化后进入普通增量校验。无效历史日期单独计数，不清空现代日期。
+
+每次操作为：受控抽取 → 固定转换入口生成有序 `package*.json`、`manifest.json`、`coverage.json`、`assembly-receipt.json` → 登录现有导入工作台预览 → 按权限提交 → 查看新增/更新/未变化/冲突结果。原 A/B 分析用于确定并固定规则；同格式新批次不重做整套分析，仅对结构或规则发生变化、未解析的新事实进行处理。重复包不重复创建，现代人工修改采用逐字段来源/原基线/当前值比较保护。
+
+当前未收到七月后新的真实来源文件；本地验证不代表该批次已经生产导入。家庭能力及未发布迁移必须完成部署后才能在生产工作台提交。

@@ -7,17 +7,18 @@ import { hasAnyPermission, hasModule, hasPermission } from "../../lib/permission
 import { parseLocalJson, validateLocalJsonFile } from "../../components/files/local-json-file";
 
 export const IMPORT_FILE_POLICY = { maxBytes: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES };
-export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同" };
+export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员" };
 export const DOMAIN_MANAGE = {
   organization: SYSTEM_PERMISSIONS.ORG_UPDATE,
   position: HR_PERMISSIONS.HR_POSITION_MANAGE,
   employee: HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,
   profile: HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE,
+  family: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   contract: HR_PERMISSIONS.HR_CONTRACT_MANAGE
 };
 export const IMPORT_ENTRY_PERMISSIONS = [
   ...Object.values(DOMAIN_MANAGE), SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_LIST, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
-  HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ
+  HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ, HR_PERMISSIONS.HR_CONTRACT_READ
 ];
 export function canEnterImport(user: UserContext | null): boolean {
   return hasModule(user, "hr") && hasAnyPermission(user, IMPORT_ENTRY_PERMISSIONS);

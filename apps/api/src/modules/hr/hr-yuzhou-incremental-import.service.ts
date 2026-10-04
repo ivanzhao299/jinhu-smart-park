@@ -8,6 +8,8 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
+import { executeYuzhouFamilyItem } from "./hr-yuzhou-family-executor";
+import { normalizeYuzhouFamilyFields } from "@jinhu/shared";
 import { originalProfile, originalProfileAliasProof, certifyOriginalProfiles, profileWitnessHash, profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { initialWitnessHash, verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
 
@@ -44,7 +46,7 @@ export class HrYuzhouIncrementalImportService {
       if (existing[0]) return this.status(scope, actor, existing[0].id, manager);
       await this.prepareHierarchy(manager,scope,actor,pkg.items);
       const plan = [];
-      for (const item of pkg.items) plan.push(await this.previewItem(manager, scope, dto.sourceSystem, item, actor));
+      for (const item of pkg.items) plan.push(await this.previewItem(manager, scope, dto.sourceSystem, item, actor, pkg.items));
       const rows = await manager.query(`INSERT INTO hr_incremental_import_operation(tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,status,item_count,created_by) VALUES($1,$2,$3,$4,$5,$6,'previewed',$7,$8) RETURNING id`, [scope.tenantId, scope.parkId, dto.sourceSystem, dto.manifestId, packageHash, this.sensitive.encrypt(json(pkg)), dto.items.length, actor.sub]) as Array<{ id: string }>;
       return { id: rows[0]!.id, status: "previewed", packageSha256: packageHash, itemCount: dto.items.length, supportedDomains: Object.keys(YUZHOU_INCREMENTAL_FIELDS), plan };
     });
@@ -90,7 +92,8 @@ export class HrYuzhouIncrementalImportService {
     return { ...result, revisions };
   }
 
-  private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, actor: JwtPrincipal) {
+  private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, actor: JwtPrincipal, staged:readonly YuzhouIncrementalItem[] = []) {
+    if(item.domain === "family") return executeYuzhouFamilyItem(manager,scope,actor,item,this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
     const source = [scope.tenantId, scope.parkId, sourceSystem, item.sourceTable, item.sourceKey];
     let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6`, [...source, item.domain]))[0] as ItemRow | undefined;
     prior = await this.resolveProfileBaseline(manager, scope, item, prior);
@@ -146,6 +149,11 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private validateFieldValues(item: YuzhouIncrementalItem) {
+    if(item.domain === "family") {
+      const fields={...item.fields};delete fields.employeeSourceKey;delete fields.employeeSourceTable;
+      try{normalizeYuzhouFamilyFields(fields);}catch{throw new BadRequestException("FAMILY_IMPORT_FIELDS_INVALID");}
+      return;
+    }
     const dates = new Set(["hireDate","dateOfBirth","startDate","endDate","probationEndDate"]);
     const limits: Record<string, number> = { orgCode:64,orgName:100,orgType:32,positionCode:64,positionName:100,jobFamily:64,jobLevel:32,contactPhone:50,legacyManagerReference:10,authority:1024,legacyUptoCode:30,positionManual:256,qualification:1024,responsibilities:1024,legacyParentReference:30,legacyDepartmentReference:30,remark:500,employeeCode:64, fullName:100, employmentType:32, employmentStatus:32, workLocation:128, workMobile:32, workEmail:128, englishName:100, gender:32, personalMobile:32, personalEmail:128, address:500, idNumber:64, nativePlace:128, degree:64, contractNo:64, contractStatus:16, workType:100, positionTitle:100 };
     for (const [field,value] of Object.entries(item.fields)) {
@@ -172,6 +180,11 @@ export class HrYuzhouIncrementalImportService {
 
   private async applyItem(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, operation: OperationRow, item: YuzhouIncrementalItem): Promise<"applied" | "unchanged" | "conflict"> {
     this.requireDomainPermission(actor, item.domain);
+    if(item.domain === "family") {
+      const outcome=await executeYuzhouFamilyItem(manager,scope,actor,item,this.sensitive,(key,table)=>this.employeeTarget(manager,scope,operation.source_system,key,table),operation.id);
+      if(typeof outcome!=="string")throw new ConflictException("FAMILY_IMPORT_OUTCOME_INVALID");
+      return outcome;
+    }
     const source = [scope.tenantId, scope.parkId, operation.source_system, item.sourceTable, item.sourceKey];
     await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [json([...source, item.domain])]);
     let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6 FOR UPDATE`, [...source, item.domain]))[0] as ItemRow | undefined;
@@ -491,8 +504,8 @@ export class HrYuzhouIncrementalImportService {
   }
   private requireDomainPermission(actor: JwtPrincipal, domain: YuzhouIncrementalItem["domain"], access: "read" | "manage" = "manage") {
     if(domain === "organization") { const required=access === "manage" ? [SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE] : [SYSTEM_PERMISSIONS.ORG_LIST,SYSTEM_PERMISSIONS.ORG_UPDATE,SYSTEM_PERMISSIONS.ORG_CREATE]; if(!actor.isSuper && !actor.permissions.includes("*") && required.every(p=>!actor.permissions.includes(p))) throw new ForbiddenException("YUZHOU_ORGANIZATION_PERMISSION_REQUIRED"); return; }
-    const managePermission = domain === "position" ? HR_PERMISSIONS.HR_POSITION_MANAGE : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_MANAGE : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE : HR_PERMISSIONS.HR_CONTRACT_MANAGE;
-    const readPermission = domain === "position" ? HR_PERMISSIONS.HR_POSITION_READ : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_READ : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ : HR_PERMISSIONS.HR_CONTRACT_READ;
+    const managePermission = domain === "family" ? HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE : domain === "position" ? HR_PERMISSIONS.HR_POSITION_MANAGE : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_MANAGE : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE : HR_PERMISSIONS.HR_CONTRACT_MANAGE;
+    const readPermission = domain === "family" ? HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ : domain === "position" ? HR_PERMISSIONS.HR_POSITION_READ : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_READ : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ : HR_PERMISSIONS.HR_CONTRACT_READ;
     const allowed = access === "manage" ? [managePermission] : [readPermission, managePermission];
     if (!actor.isSuper && !actor.permissions.includes("*") && !allowed.some(permission => actor.permissions.includes(permission))) throw new ForbiddenException(`${allowed[0]} permission is required`);
   }

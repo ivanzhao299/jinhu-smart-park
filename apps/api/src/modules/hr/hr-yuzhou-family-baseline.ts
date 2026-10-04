@@ -8,7 +8,7 @@ import { recoverCertifiedOriginalFamilySet, type OriginalFamilySetCertificate } 
 const sha=(text:string)=>createHash("sha256").update(text).digest("hex");
 const object=(v:unknown):v is Record<string,unknown>=>v!==null && typeof v==="object" && !Array.isArray(v);
 const reject=(code="FAMILY_ORIGINAL_EVIDENCE_INVALID"):never=>{throw new ConflictException(code);};
-export type OriginalFamily={operation_id:string;target_id:string;source_identity_sha256:string;source_row_sha256:string;encrypted_source:string;employee_id:string;owner_record_map_id:string;binding_sha256:string;binding:Record<string,unknown>;owned_state:Record<string,OriginalFamilySetCertificate>;employee_key:string;current:Record<string,unknown>;source:Record<string,unknown>};
+export type OriginalFamily={id:string;operation_id:string;target_id:string;source_identity_sha256:string;source_row_sha256:string;encrypted_source:string;employee_id:string;owner_record_map_id:string;binding_sha256:string;binding:Record<string,unknown>;owned_state:Record<string,OriginalFamilySetCertificate>;employee_key:string;current:Record<string,unknown>;source:Record<string,unknown>};
 
 /** Internal original receipt resolver, not an import endpoint or client attestation.
  * Soft deletion is included; its disposition is handled by the eventual planner. */
