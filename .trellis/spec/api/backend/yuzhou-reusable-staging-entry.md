@@ -56,3 +56,9 @@ Wrong: rerun original T0–T5 operation or overwrite modern fields because a sou
 Correct: generate a new package with stable source identity, use existing scoped preview/commit baseline comparison and CAS, preserve modern changes, and route actual lifecycle transitions through normal business operations. Review only changed structure/rules or unresolved new facts rather than repeat complete historical A/B.
 
 Profile continuity, raw transport and independent exact historical exception contracts are specified in [hr-yuzhou-profile-continuity.md](hr-yuzhou-profile-continuity.md). The eight supported raw profile fields, explicit alias-only first acceptance and remaining field matrix are specified there.
+
+## Family raw entry
+
+Optional `familyManifest:{path,sha256}` selects `domains.family` from the existing pinned T5 manifest (`family.jsonl`, sourceObject `dbo.family`). The shared retained-domain reader verifies manifest binding, snapshot, bytes/count, exact transport, identity and source-row hash before fixed seven-field projection. Recipe SHA binds the family projector, original date materializer and shared protocol bytes.
+
+Optional `familyExclusions` references version1 `yuzhou_original_family_exclusions`, binding original operation/binding SHA, targetScope and entries `{sourceIdentitySha256,sourceRowSha256,decisionReceiptSha256,reasonCode}`. Only exact unchanged rows are archived; changed and absent rows are counted separately. Receipt explicitly records caller-declared custody and exclusions; integrity is not independent authentication. Family requested/excluded/eligible counts and actual API input are reconciled. Invalid dates stay pending in package declarations and coverage, never clear modern dates.

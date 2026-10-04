@@ -83,6 +83,18 @@ test("entry ANY capability never grants a mixed package's missing domain permiss
   assert.equal(canEnterImport({ ...user, permissions: [HR_PERMISSIONS.HR_CONTRACT_READ] }), true);
 });
 
+test("family imports use normal record management and family read entry permissions", () => {
+  const family={...item("family",{employeeSourceKey:`sha256:${"c".repeat(64)}`,employeeSourceTable:"dbo.person",relationship:"子女",fullName:"private family text"}),sourceTable:"dbo.family"};
+  const summary=parseImportPackage(text([family]),"family.json").summary;
+  const manager={...user,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE]};
+  assert.equal(canEnterImport(manager),true);
+  assert.deepEqual(missingImportPermissions(manager,summary),[]);
+  const reader={...user,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ]};
+  assert.equal(canEnterImport(reader),true);
+  assert.deepEqual(missingImportPermissions(reader,summary),["家庭成员"]);
+  assert.ok(!JSON.stringify(summary).includes("private family text"));
+});
+
 test("API variants normalize aggregates only; terminal status requires complete result counts", () => {
   assert.deepEqual(normalizeImportOperation(preview()).actions, { create: 0, update: 0, unchanged: 1, conflict: 0 });
   const replay = normalizeImportOperation({ id, status: "previewed", itemCount: 1, appliedCount: 0, unchangedCount: 0, conflictCount: 0, revisions: [] });

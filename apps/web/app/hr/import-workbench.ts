@@ -7,17 +7,18 @@ import { hasAnyPermission, hasModule, hasPermission } from "../../lib/permission
 import { parseLocalJson, validateLocalJsonFile } from "../../components/files/local-json-file";
 
 export const IMPORT_FILE_POLICY = { maxBytes: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES };
-export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同" };
+export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员" };
 export const DOMAIN_MANAGE = {
   organization: SYSTEM_PERMISSIONS.ORG_UPDATE,
   position: HR_PERMISSIONS.HR_POSITION_MANAGE,
   employee: HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,
   profile: HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE,
+  family: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   contract: HR_PERMISSIONS.HR_CONTRACT_MANAGE
 };
 export const IMPORT_ENTRY_PERMISSIONS = [
   ...Object.values(DOMAIN_MANAGE), SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_LIST, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
-  HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ
+  HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ, HR_PERMISSIONS.HR_CONTRACT_READ
 ];
 export function canEnterImport(user: UserContext | null): boolean {
   return hasModule(user, "hr") && hasAnyPermission(user, IMPORT_ENTRY_PERMISSIONS);
@@ -29,6 +30,7 @@ export function importContextKey(user: UserContext | null): string {
 
 const fieldLabels: Record<string, string> = {
   orgCode:"组织编号",orgName:"组织名称",orgType:"组织类型",parentSourceKey:"上级组织",orgSourceKey:"所属组织",positionSourceKey:"任职岗位",parentPositionSourceKey:"上级岗位",positionCode:"岗位编号",positionName:"岗位名称",jobFamily:"岗位类别",jobLevel:"岗位等级",headcountLimit:"岗位编制",plannedHeadcount:"组织编制",status:"启用状态",sortOrder:"排序",contactPhone:"联系电话",legacySourceId:"来源编号",legacyHierarchyLevel:"来源层级",hierarchyLevel:"岗位层级",legacyManagerReference:"来源负责人信息",legacyDepartmentReference:"来源部门信息",legacyParentReference:"来源上级岗位信息",legacyUptoCode:"来源岗位分类",authority:"岗位权限",qualification:"任职资格",responsibilities:"岗位职责",positionManual:"岗位说明",remark:"备注",
+  relationship:"关系",contact:"联系方式",birthDate:"出生日期",workUnit:"工作单位",jobTitle:"职务",politicalStatus:"政治面貌",
   employeeCode: "员工编号", fullName: "姓名", employmentStatus: "任职状态", employmentType: "用工类型", hireDate: "入职日期",
   workLocation: "工作地点", workMobile: "工作手机", workEmail: "工作邮箱", employeeSourceKey: "员工来源关联", employeeSourceTable: "员工来源表关联",
   englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号",

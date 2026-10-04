@@ -7,6 +7,8 @@ Reference files:
 - `apps/api/src/shared/interceptors/response.interceptor.ts`
 - `apps/web/lib/api-client.ts`
 
+Prepared family import field comparison and private baseline requirements: [Family Continuity](../../api/backend/hr-yuzhou-family-continuity.md). Shared helper exports do not enable the public family import domain before API/CLI integration.
+
 ## Contract Ownership
 
 Keep shared contracts stable and explicit:

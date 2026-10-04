@@ -14,6 +14,9 @@ import { HrEmployeeProfileEntity, HrEmployeeEntity, HrContractEntity, HrContract
 import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem } from "@jinhu/shared";
 import { ValidationPipe } from "@nestjs/common";
 import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
+import { originalFamily, certifyOriginalFamilies, originalFamilySourceFacts } from "./hr-yuzhou-family-baseline";
+import { mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
+import { HrLifecycleService } from "./hr-lifecycle.service";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
 const root=resolve(__dirname,"../../../../.."),sha=(s:string)=>createHash("sha256").update(s).digest("hex");
@@ -26,10 +29,10 @@ const requestDto=(value:unknown):Promise<PreviewYuzhouIncrementalImportDto>=>val
 const result=(value:unknown)=>value as {id:string;status:string;appliedCount:number;unchangedCount:number;plan:Array<{action:string;conflictFields:string[]}>};
 
 test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and immutable provenance",{skip:process.env.HR_YUZHOU_PROFILE_BASELINE_PG_REQUIRED!=="1",timeout:90000},async t=>{
-  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); assert.equal(process.env.POSTGRES_PORT,"55491");
+  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); const port=Number(process.env.POSTGRES_PORT);assert.ok([55491,55496].includes(port));
   const database=`jinhu_hr_profile_lab_${randomBytes(12).toString("hex")}`;
   assert.match(database,/^jinhu_hr_profile_lab_[a-f0-9]{24}$/);
-  const connection={type:"postgres" as const,host:"127.0.0.1",port:55491,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,database};
+  const connection={type:"postgres" as const,host:"127.0.0.1",port,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,database};
   const admin=new DataSource({...connection,database:"postgres"});await admin.initialize();
   let db:DataSource|undefined,created=false;
   try {
@@ -323,6 +326,8 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       assert.equal((await db.query(`SELECT count(*)::int n FROM hr_employee_profile WHERE employee_id=$1`,[profile.employeeId]))[0].n,1);
       t.diagnostic("Real CLI producer -> profile baseline -> ordinary three-way/CAS; business baseline equality and rollback asserted");
     } finally {rmSync(fixtureRoot,{recursive:true,force:true});}
+    await verifyFamilyOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
+    t.diagnostic("Family original proof and actual DTO/preview/commit/status PASS: source create/update/replay/modern conflicts/archive/rollback plus employee dependency");
   } finally {
     if(db?.isInitialized)await db.destroy();
     if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query(`SELECT count(*)::int n FROM pg_database WHERE datname=$1`,[database]))[0].n,0);}
@@ -350,3 +355,224 @@ test("first alias proof requires nonempty authenticated original source; malform
   }
   assert.equal(queried,false);
 });
+
+
+/** Reuse the real original core ownership fixture, with a separate T5 operation.
+ * This tiny declared fixture is not a rehearsal or actual source import. */
+async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensitiveDataService,employeeId:string,employeeIdentity:string) {
+  const historicalMutation=(sql:string,args:unknown[])=>db.transaction(async m=>{await m.query("SET LOCAL session_replication_role=replica");await m.query(sql,args);});
+  const migration=(name:string)=>readFileSync(resolve(root,"database/migrations",name),"utf8");
+  await db.query(`CREATE TABLE sys_user(tenant_id varchar(64),park_id varchar(64),id uuid,UNIQUE(tenant_id,park_id,id))`);
+  const schema=migration("000252_hr_lifecycle_employee_records.sql");
+  await db.query(schema.slice(schema.indexOf("CREATE TABLE hr_employee_family ("),schema.indexOf("CREATE TABLE hr_employee_experience (")));
+  const materialization=migration("000276_hr_legacy_employee_profile_materialization.sql");
+  await db.query(materialization.match(/ALTER TABLE hr_employee_family[\s\S]*?;/)![0]);
+  await db.query(migration("000336_hr_family_record_changes.sql"));
+  await db.query(migration("000337_hr_incremental_family_baseline.sql"));
+  const actorId=randomUUID();await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
+  const familyOperation="yzprod-import-20261004T140000Z-abcdef123456";
+  const parent=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",["yzprod-import-20261004T130000Z-abcdef123456"]))[0];
+  const binding={...parent.binding,operationId:familyOperation};
+  const map=(await db.query("SELECT id FROM legacy_record_map WHERE source_identity_sha256=$1 AND source_table='dbo.person' AND is_active",[employeeIdentity]))[0].id;
+  const ids=[randomUUID(),randomUUID(),randomUUID()],sources=ids.map((_,i)=>({id:70+i,person:"OLD-0",rela:"子女",member:i===1?'Synthetic family "1"':"Synthetic family 0",tel:null,birthday:i===1?"1900-02-29":null,jobunit:"原单位",jobname:null,political:null}));
+  const identities=sources.map(source=>sha(`dbo.family\0${source.id}`));
+  const hashes=sources.map(source=>sha(canonicalYuzhouInitialJson(source)));
+  await db.transaction(async m=>{
+    await m.query("SET LOCAL session_replication_role=replica");
+    await m.query(`INSERT INTO hr_yuzhou_t5_followon_operation(operation_id,parent_operation_id,payroll_operation_id,binding_sha256,binding,status,finished_at) VALUES($1,$2,$3,$4,$5,'succeeded',now())`,[familyOperation,parent.parent_operation_id,parent.payroll_operation_id,sha(canonicalYuzhouInitialJson(binding)),binding]);
+    await m.query(`INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,execution_context,t5_followon_operation_id,status,tool_version) VALUES($1,'yuzhou-v10',$2,current_database(),'t5_production_followon',$1,'succeeded',$3)`,[familyOperation,sha("fixture"),`t5-followon-v1@${binding.executionCodeSha}`]);
+    for(let i=0;i<ids.length;i++) {
+      const name=sensitive.identityProfile(sources[i]!.member);
+      await m.query(`INSERT INTO hr_employee_family(id,tenant_id,park_id,employee_id,relationship,full_name_encrypted,full_name_masked,full_name_fingerprint,work_unit,create_by,update_by,legacy_source_identity_sha256,legacy_source_row_sha256) VALUES($1,$2,$3,$4,'子女',$5,$6,$7,'原单位',$8,$8,$9,$10)`,[ids[i],scope.tenantId,scope.parkId,employeeId,name.encrypted,name.masked,name.hash,actorId,identities[i],hashes[i]]);
+      const sourceId=(await m.query(`INSERT INTO hr_yuzhou_t5_followon_source(operation_id,tenant_id,park_id,source_domain,source_table,source_identity_sha256,source_row_sha256,encrypted_source,owner_status,employee_id,owner_record_map_id) VALUES($1,$2,$3,'family','dbo.family',$4,$5,$6,'mapped',$7,$8) RETURNING id`,[familyOperation,scope.tenantId,scope.parkId,identities[i],hashes[i],sensitive.encrypt(JSON.stringify(i===1?{...sources[i],member:JSON.stringify(sources[i]!.member).slice(1,-1)}:sources[i])),employeeId,map]))[0].id;
+      for(const [table,id] of [["hr_employee_family",ids[i]],["hr_yuzhou_t5_followon_source",sourceId]])await m.query(`INSERT INTO hr_yuzhou_t5_followon_projection_receipt VALUES($1,$2,$3,$4,'insert',$5,NULL)`,[familyOperation,table,identities[i],hashes[i],id]);
+    }
+    await m.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
+    const agg=async(q:string,args:unknown[])=>(await m.query(`SELECT count(*)::int AS count,encode(digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') AS sha256 FROM (SELECT encode(digest(to_jsonb(x)::text,'sha256'),'hex') h FROM (${q}) x) hashes`,args))[0];
+    const families=await agg("SELECT * FROM hr_employee_family WHERE id=ANY($1::uuid[])",[ids]),receipts=await agg("SELECT * FROM hr_yuzhou_t5_followon_projection_receipt WHERE operation_id=$1",[familyOperation]);
+    await m.query("UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$2 WHERE operation_id=$1",[familyOperation,{hr_employee_family:families,receipts}]);
+  });
+  const resolveOriginal=(targetScope=scope)=>db.transaction(async m=>{
+    const original=await originalFamily(m,targetScope,identities[0]!,sensitive);assert.ok(original);
+    assert.deepEqual(original.source,sources[0]);
+    const certified=await certifyOriginalFamilies(m,original,targetScope,sensitive);
+    const facts=originalFamilySourceFacts(original,certified,sensitive);
+    assert.equal(facts.fields.workUnit,"原单位");assert.deepEqual(facts.pendingFields,[]);
+    const second=await originalFamily(m,targetScope,identities[1]!,sensitive);assert.ok(second);
+    const secondFacts=originalFamilySourceFacts(second,certified,sensitive);
+    assert.equal(secondFacts.fields.birthDate,null);assert.deepEqual(secondFacts.pendingFields,["birthDate"]);
+    assert.equal("identityNumber" in facts.fields,false);assert.equal("isEmergencyContact" in facts.fields,false);
+    assert.throws(()=>originalFamilySourceFacts(original,new Map([[original.target_id,{...certified.get(original.target_id),work_unit:"invented baseline"}]]),sensitive),/FAMILY_ORIGINAL_FIELD_INCOMPATIBLE/);
+    return certified;
+  });
+  const before=await resolveOriginal();assert.equal(before.size,3);
+  await assert.rejects(resolveOriginal({...scope,parkId:"foreign"}),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await assert.rejects(originalFamily(db.manager,scope,identities[0]!,sensitive),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  assert.equal(await db.transaction(m=>originalFamily(m,scope,sha("absent"),sensitive)),null);
+  const lifecycle=new HrLifecycleService(db,sensitive,{recordOperationRequired:async()=>undefined} as never);
+  const managerActor={sub:actorId,isSuper:true,permissions:["*"]} as never;
+  let certificateLocked!:()=>void,releaseCertificate!:()=>void;
+  const reached=new Promise<void>(resolve=>{certificateLocked=resolve}),released=new Promise<void>(resolve=>{releaseCertificate=resolve});
+  const accepting=db.transaction(async m=>{
+    const original=await originalFamily(m,scope,identities[0]!,sensitive);assert.ok(original);
+    await certifyOriginalFamilies(m,original,scope,sensitive);certificateLocked();await released;
+    return mutateFamilyRecordInTransaction(m,scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"现代单位"},"update",sensitive);
+  });
+  await reached;
+  let competingSettled=false;
+  const competing=lifecycle.updateFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"competing"}).then(()=>{competingSettled=true;return null;},error=>{competingSettled=true;return error;});
+  await new Promise(resolve=>setTimeout(resolve,100));const blocked=!competingSettled;releaseCertificate();
+  assert.equal((await accepting).version,2);assert.equal(blocked,true);
+  assert.match(String(await competing),/Family record changed/);
+  assert.deepEqual(await resolveOriginal(),before);
+  await lifecycle.archiveFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:2});
+  assert.deepEqual(await resolveOriginal(),before);
+  const archived=(await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0];
+  assert.equal(archived.row.is_deleted,true);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='rolled_back',rolled_back_at=now() WHERE operation_id=$1",[familyOperation]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='succeeded',rolled_back_at=NULL WHERE operation_id=$1",[familyOperation]);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2 AND target_table='hr_employee_family'",[familyOperation,identities[1],sha("tamper")]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_RECEIPTS_CHANGED/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2 AND target_table='hr_employee_family'",[familyOperation,identities[1],hashes[1]]);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0],sensitive.encrypt(JSON.stringify({...sources[0],person:"OTHER"}))]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0],sensitive.encrypt(JSON.stringify(sources[0]))]);
+  await historicalMutation("UPDATE legacy_record_map SET is_active=false WHERE id=$1",[map]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE legacy_record_map SET is_active=true WHERE id=$1",[map]);
+  const firstJournal=(await db.query("SELECT to_jsonb(j) AS row FROM hr_employee_family_change j WHERE family_id=$1 AND version=2",[ids[0]]))[0].row;
+  await historicalMutation("DELETE FROM hr_employee_family_change WHERE family_id=$1 AND version=2",[ids[0]]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_SET_INVALID/);
+  await historicalMutation("INSERT INTO hr_employee_family_change SELECT * FROM jsonb_populate_record(NULL::hr_employee_family_change,$1::jsonb)",[JSON.stringify(firstJournal)]);
+  await historicalMutation("UPDATE hr_employee_family_change SET before_encrypted=$2 WHERE family_id=$1 AND version=2",[ids[0],sensitive.encrypt("[]")]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_SET_INVALID/);
+  await historicalMutation("UPDATE hr_employee_family_change SET before_encrypted=$2 WHERE family_id=$1 AND version=2",[ids[0],firstJournal.before_encrypted]);
+  assert.deepEqual(await resolveOriginal(),before);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0],archived);
+  // Persist the actual new schema's encrypted baseline/provenance, independently
+  // of the still-pending API admission. No family source is declared imported.
+  const incrementalOperation=(await db.query(`INSERT INTO hr_incremental_import_operation(tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,'yuzhou-v10',$3,$4,$5,1,$6) RETURNING id`,[scope.tenantId,scope.parkId,randomUUID(),sha("family-schema-fixture"),sensitive.encrypt("{}"),actorId]))[0].id;
+  const itemArgs=[scope.tenantId,scope.parkId,`sha256:${identities[0]}`,ids[0],hashes[0],sensitive.encrypt(JSON.stringify(sources[0])),sha(canonicalYuzhouInitialJson(sources[0])),incrementalOperation,sensitive.encrypt(JSON.stringify({fields:{workUnit:"原单位"},target:{workUnit:"原单位"}}))];
+  const itemSql=`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,source_facts_encrypted,source_facts_sha256,last_operation_id,baseline_encrypted) VALUES($1,$2,'yuzhou-v10','dbo.family',$3,'family','hr_employee_family',$4,$5,$6,$7,$8,$9) RETURNING id`;
+  await assert.rejects(db.query(itemSql,[...itemArgs.slice(0,8),null]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query(itemSql,[...itemArgs.slice(0,8),"plain private baseline"]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query(itemSql.replace("'hr_employee_family'","NULL"),itemArgs),/ck_hr_incremental_family_private_baseline/);
+  const itemId=(await db.query(itemSql,itemArgs))[0].id;
+  await assert.rejects(db.query(`UPDATE hr_incremental_import_item SET field_baseline='{"fullName":"plain private name"}' WHERE id=$1`,[itemId]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_table=NULL WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET source_key=$2 WHERE id=$1",[itemId,`sha256:${sha("rebind")}`]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_id=$2 WHERE id=$1",[itemId,ids[1]]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET domain='profile' WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("DELETE FROM hr_incremental_import_item WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await db.query("UPDATE hr_incremental_import_item SET version=version+1,baseline_encrypted=$2 WHERE id=$1",[itemId,itemArgs[8]]);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET version=1 WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  const storedItem=(await db.query("SELECT field_baseline,target_baseline,baseline_encrypted,source_facts_encrypted FROM hr_incremental_import_item WHERE id=$1",[itemId]))[0];
+  assert.deepEqual(storedItem.field_baseline,{});assert.deepEqual(storedItem.target_baseline,{});assert.match(storedItem.baseline_encrypted,/^enc:v1:/);
+  const sourceId=(await db.query("SELECT id FROM hr_yuzhou_t5_followon_source WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0]]))[0].id;
+  const frozen=(await db.query("SELECT owned_state FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",[familyOperation]))[0].owned_state;
+  const insertBaseline=`INSERT INTO hr_incremental_family_baseline(item_id,operation_id,tenant_id,park_id,employee_id,family_id,original_operation_id,original_source_id,source_identity_sha256,original_source_row_sha256,original_family_set_sha256,original_receipt_set_sha256,original_binding_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`;
+  const baselineArgs=[itemId,incrementalOperation,scope.tenantId,scope.parkId,employeeId,ids[0],familyOperation,sourceId,identities[0],hashes[0],frozen.hr_employee_family.sha256,frozen.receipts.sha256,sha(canonicalYuzhouInitialJson(binding)),sha("family-witness"),sensitive.encrypt(JSON.stringify({originalSource:sources[0],originalTarget:before.get(ids[0]!)})),actorId];
+  for(const [index,value] of [[3,"foreign"],[4,randomUUID()],[9,sha("changed row")],[10,sha("changed set")],[11,sha("changed receipt set")],[12,sha("changed binding")]] as const) {
+    const invalid=[...baselineArgs];invalid[index]=value;
+    await assert.rejects(db.query(insertBaseline,invalid),/FAMILY_BASELINE_BINDING_INVALID/);
+  }
+  const privateInvalid=[...baselineArgs];privateInvalid[14]="plain private provenance";
+  await assert.rejects(db.query(insertBaseline,privateInvalid),/provenance_encrypted_check/);
+  await db.query(insertBaseline,baselineArgs);
+  // The import executor must use this same manager for ledger, target and journal.
+  // Here a real journal INSERT failure verifies transaction reuse, not a mocked
+  // transaction wrapper or a second independently committed maintenance call.
+  const secondItemArgs=[...itemArgs];secondItemArgs[2]=`sha256:${identities[1]}`;secondItemArgs[3]=ids[1];secondItemArgs[4]=hashes[1];
+  const secondItemId=(await db.query(itemSql,secondItemArgs))[0].id;
+  const targetBefore=(await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[1]]))[0];
+  const ledgerBefore=(await db.query("SELECT to_jsonb(i) AS row FROM hr_incremental_import_item i WHERE id=$1",[secondItemId]))[0];
+  await assert.rejects(mutateFamilyRecordInTransaction(db.manager,scope,managerActor,employeeId,ids[1]!,{expectedVersion:1,workUnit:"outside"},"update",sensitive),/active transaction/);
+  await assert.rejects(db.transaction(m=>mutateFamilyRecordInTransaction(m,scope,{sub:actorId,permissions:[],isSuper:false} as never,employeeId,ids[1]!,{expectedVersion:1,workUnit:"denied"},"update",sensitive)),/Forbidden/);
+  const importedCipher=sensitive.encrypt(JSON.stringify({fields:{workUnit:"来源新单位"},target:{workUnit:"来源新单位"}}));
+  const transactionWrite=()=>db.transaction(async m=>{
+    await m.query("UPDATE hr_incremental_import_item SET version=version+1,baseline_encrypted=$2 WHERE id=$1",[secondItemId,importedCipher]);
+    return mutateFamilyRecordInTransaction(m,scope,managerActor,employeeId,ids[1]!,{expectedVersion:1,workUnit:"来源新单位"},"update",sensitive);
+  });
+  await db.query(`CREATE FUNCTION synthetic_family_import_journal_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'SYNTHETIC_IMPORT_JOURNAL_FAILURE'; END $$; CREATE TRIGGER synthetic_family_import_journal_failure BEFORE INSERT ON hr_employee_family_change FOR EACH ROW EXECUTE FUNCTION synthetic_family_import_journal_failure()`);
+  await assert.rejects(transactionWrite(),/SYNTHETIC_IMPORT_JOURNAL_FAILURE/);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[1]]))[0],targetBefore);
+  assert.deepEqual((await db.query("SELECT to_jsonb(i) AS row FROM hr_incremental_import_item i WHERE id=$1",[secondItemId]))[0],ledgerBefore);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family_change WHERE family_id=$1",[ids[1]]))[0].n,0);
+  await db.query("DROP TRIGGER synthetic_family_import_journal_failure ON hr_employee_family_change");
+  assert.equal((await transactionWrite()).version,2);
+  assert.equal((await db.query("SELECT version FROM hr_incremental_import_item WHERE id=$1",[secondItemId]))[0].version,2);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family_change WHERE family_id=$1 AND version=2",[ids[1]]))[0].n,1);
+  await assert.rejects(transactionWrite(),/Family record changed/);
+  assert.equal((await db.query("SELECT version FROM hr_incremental_import_item WHERE id=$1",[secondItemId]))[0].version,2);
+
+  await assert.rejects(db.query("UPDATE hr_incremental_family_baseline SET witness_sha256=$2 WHERE item_id=$1",[itemId,sha("reset")]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+  await assert.rejects(db.query("DELETE FROM hr_incremental_family_baseline WHERE item_id=$1",[itemId]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+  // Genuine DTO -> shared public package -> service preview/commit/status path.
+  // The third original family row has no synthetic manually seeded ledger.
+  const importer=new HrYuzhouIncrementalImportService(db,sensitive);
+  const familyItem=(key:string,fields:Record<string,unknown>):YuzhouIncrementalItem=>{
+    const row={domain:"family" as const,sourceTable:"dbo.family",sourceKey:key,fields:{employeeSourceKey:`sha256:${employeeIdentity}`,employeeSourceTable:"dbo.person",...fields}};
+    return {...row,rowDigest:sha(canonicalYuzhouInitialJson({...row,sourceUpdatedAt:null}))};
+  };
+  const familyPackage=async(items:YuzhouIncrementalItem[])=>requestDto({version:1,sourceSystem:"yuzhou-v10",manifestId:randomUUID(),extractedAt:"2026-10-04T16:00:00Z",items});
+  const previewFamily=async(items:YuzhouIncrementalItem[])=>result(await importer.preview(scope,managerActor,await familyPackage(items)));
+  const importFamily=async(items:YuzhouIncrementalItem[])=>{const preview=await previewFamily(items);return {preview,outcome:result(await importer.commit(scope,managerActor,preview.id))};};
+  const originalApiItem=familyItem(`sha256:${identities[2]}`,{workUnit:"来源首次更新"});
+  const originalPreview=await previewFamily([originalApiItem]);assert.equal(originalPreview.plan[0]!.action,"update");
+  const originalOutcome=result(await importer.commit(scope,managerActor,originalPreview.id));assert.equal(originalOutcome.appliedCount,1);
+  const committedTarget=(await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[2]]))[0];
+  assert.equal(committedTarget.row.work_unit,"来源首次更新");assert.equal(committedTarget.row.version,2);
+  await importer.commit(scope,managerActor,originalPreview.id);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[2]]))[0],committedTarget);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_incremental_family_baseline WHERE family_id=$1",[ids[2]]))[0].n,1);
+  assert.equal((await importFamily([originalApiItem])).outcome.unchangedCount,1);
+  await lifecycle.updateFamilyRecord(scope,managerActor,employeeId,ids[2]!,{expectedVersion:2,contact:"MODERN-CONTACT"});
+  const independent=await importFamily([familyItem(`sha256:${identities[2]}`,{workUnit:"来源再次更新",contact:null})]);
+  assert.equal(independent.outcome.appliedCount,1);
+  const independentTarget=(await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[ids[2]]))[0];
+  assert.equal(sensitive.decrypt(independentTarget.contact_encrypted),"MODERN-CONTACT");assert.equal(independentTarget.work_unit,"来源再次更新");
+  const conflict=await importFamily([familyItem(`sha256:${identities[2]}`,{contact:"DIFFERENT-SOURCE"})]);
+  assert.equal(conflict.outcome.status,"conflicted");assert.equal(conflict.outcome.appliedCount,0);
+  assert.deepEqual((await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[ids[2]]))[0],independentTarget);
+  const converged=await importFamily([familyItem(`sha256:${identities[2]}`,{contact:"MODERN-CONTACT"})]);assert.equal(converged.outcome.appliedCount,1);
+  assert.deepEqual((await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[ids[2]]))[0],independentTarget);
+  const newIdentity=`sha256:${sha("dbo.family\0"+9001)}`;
+  const newFamilyItem=familyItem(newIdentity,{relationship:"父亲",fullName:"New synthetic family",birthDate:"2000-02-29"});
+  const newFamily=await importFamily([newFamilyItem]);assert.equal(newFamily.preview.plan[0]!.action,"create");assert.equal(newFamily.outcome.appliedCount,1);
+  const newTarget=(await db.query("SELECT target_id FROM hr_incremental_import_item WHERE domain='family' AND source_key=$1",[newIdentity]))[0].target_id;
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family_change WHERE family_id=$1 AND action='create'",[newTarget]))[0].n,1);
+  await importer.commit(scope,managerActor,newFamily.preview.id);
+  assert.equal((await importFamily([newFamilyItem])).outcome.unchangedCount,1);
+  const sourceUpdatedNew=await importFamily([familyItem(newIdentity,{contact:"NEW-SOURCE-CONTACT"})]);assert.equal(sourceUpdatedNew.outcome.appliedCount,1);
+  await assert.rejects(importer.preview(scope,{sub:actorId,permissions:[],isSuper:false} as never,await familyPackage([originalApiItem])),/permission is required/);
+  await assert.rejects(importer.preview({...scope,parkId:"foreign"},managerActor,await familyPackage([originalApiItem])),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await lifecycle.archiveFamilyRecord(scope,managerActor,employeeId,ids[2]!,{expectedVersion:4});
+  assert.equal((await importFamily([familyItem(`sha256:${identities[2]}`,{workUnit:"resurrection attempt"})])).outcome.status,"conflicted");
+  assert.equal((await db.query("SELECT is_deleted FROM hr_employee_family WHERE id=$1",[ids[2]]))[0].is_deleted,true);
+  const failedNew=familyItem(`sha256:${sha("dbo.family\0"+9002)}`,{relationship:"子女",fullName:"Rollback source member"});
+  const failedPreview=await previewFamily([failedNew]);
+  await db.query(`CREATE TRIGGER synthetic_family_import_journal_failure BEFORE INSERT ON hr_employee_family_change FOR EACH ROW EXECUTE FUNCTION synthetic_family_import_journal_failure()`);
+  const countBefore=(await db.query("SELECT count(*)::int n FROM hr_employee_family"))[0].n;
+  await assert.rejects(importer.commit(scope,managerActor,failedPreview.id),/SYNTHETIC_IMPORT_JOURNAL_FAILURE/);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family"))[0].n,countBefore);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_incremental_import_item WHERE source_key=$1",[failedNew.sourceKey]))[0].n,0);
+  assert.equal(result(await importer.status(scope,managerActor,failedPreview.id)).status,"previewed");
+  await db.query("DROP TRIGGER synthetic_family_import_journal_failure ON hr_employee_family_change");
+  assert.equal(result(await importer.commit(scope,managerActor,failedPreview.id)).appliedCount,1);
+  const employeeSourceKey=`sha256:${sha("dbo.person\0FAMILY-NEW-EMP")}`;
+  const employeeFields={employeeCode:"FAMILY-NEW-EMP",fullName:"Family new employee",employmentStatus:"active",employmentType:"full_time",orgSourceKey:`sha256:${sha("dbo.departmentcode\0INC-ORG")}`};
+  const employeeRow={domain:"employee" as const,sourceTable:"dbo.person",sourceKey:employeeSourceKey,fields:employeeFields};
+  const employeeItem={...employeeRow,rowDigest:sha(canonicalYuzhouInitialJson({...employeeRow,sourceUpdatedAt:null}))};
+  const dependent=familyItem(`sha256:${sha("dbo.family\0"+9003)}`,{employeeSourceKey,relationship:"子女",fullName:"Dependent source member"});
+  const mixed=await importFamily([dependent,employeeItem]);assert.equal(mixed.outcome.appliedCount,2);
+  const linked=(await db.query(`SELECT f.employee_id,e.employee_code FROM hr_incremental_import_item i JOIN hr_employee_family f ON f.id=i.target_id JOIN hr_employee e ON e.id=f.employee_id WHERE i.domain='family' AND i.source_key=$1`,[dependent.sourceKey]))[0];
+  assert.equal(linked.employee_code,"FAMILY-NEW-EMP");
+  assert.equal((await importFamily([dependent,employeeItem])).outcome.unchangedCount,2);
+  const revisions=await db.query("SELECT field_diff,before_receipt,after_receipt FROM hr_incremental_import_revision WHERE operation_id=$1",[originalPreview.id]);
+  assert.equal(JSON.stringify(revisions).includes("来源首次更新"),false);assert.equal(JSON.stringify(revisions).includes("MODERN-CONTACT"),false);
+
+  assert.deepEqual(await resolveOriginal(),before);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0],archived);
+
+}

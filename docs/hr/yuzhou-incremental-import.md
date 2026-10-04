@@ -4,7 +4,7 @@
 
 `sourceKey` 必须为初始导入相同的 `sha256:<sourceIdentitySha256>` canonical source PK。`rowDigest` 不是调用方自行声明的值：它必须等于服务端以 domain、source table/key、source watermark 和递归排序后的 fields 重算的 SHA-256。相同 source key 才代表同一事实对象；不同备份、月份或抽取时间均不产生新人员身份。
 
-本分支可写适配器为 `organization`、`position`、`employee`、`profile`、`contract`；组织/岗位的发布状态见文末扩展说明。员工新增必须带已审核映射的 `employmentStatus`，接口不会把正式在职源事实猜测成 `preboarding`。新增非待入职员工还必须有确切来源组织，解析到同范围有效组织；待入职 `preboarding` 可以暂未分配组织。缺少组织字段的旧包只保留既有记录回放/原始证据认证的兼容性，不能用于新增在职员工。合同新增必须带已审核映射的 `contractStatus`，允许 `draft|active|expired|terminated|cancelled`，保留来源状态，不能将非 draft 事实重标为 draft。关系通过 `employeeSourceKey` 解析到同范围、同 source system 的增量员工映射；合同类型必须是当前范围已启用的正式 `hr_contract_type` ID。字段集在共享包 `hr-yuzhou-incremental.ts` 中固定，拒绝任意表名、SQL 或字段回调。
+本分支可写适配器为 `organization`、`position`、`employee`、`profile`、`contract`、`family`；组织/岗位的发布状态见文末扩展说明。员工新增必须带已审核映射的 `employmentStatus`，接口不会把正式在职源事实猜测成 `preboarding`。新增非待入职员工还必须有确切来源组织，解析到同范围有效组织；待入职 `preboarding` 可以暂未分配组织。缺少组织字段的旧包只保留既有记录回放/原始证据认证的兼容性，不能用于新增在职员工。合同新增必须带已审核映射的 `contractStatus`，允许 `draft|active|expired|terminated|cancelled`，保留来源状态，不能将非 draft 事实重标为 draft。关系通过 `employeeSourceKey` 解析到同范围、同 source system 的增量员工映射；合同类型必须是当前范围已启用的正式 `hr_contract_type` ID。字段集在共享包 `hr-yuzhou-incremental.ts` 中固定，拒绝任意表名、SQL 或字段回调。
 
 同一规范化包哈希只创建一个操作，包哈希递归规范化 JSON，不受嵌套 key 顺序影响。新的 manifest/extractedAt 可以产生新的 operation；只要同一 source key 的 row digest 相同，它仍只记录 unchanged。新行按稳定 `(sourceSystem, sourceTable, sourceKey)` 建立映射；相同行摘要只记录 unchanged。首次命中初始 `legacy_record_map` 时只建立精确 identity binding，绝不把当前现代目标字段当成初始 source baseline；没有原始逐字段 baseline 的记录返回 `INITIAL_FIELD_BASELINE_UNKNOWN` conflict，默认保留平台字段。该 conflict 不是数据已经更新：后续相同或同月回填的 source row 都继续标为 conflict，直到有受控的原始 baseline 补录。既有映射的员工关系或合同类型变化返回 conflict，不静默忽略；这些关系更正仍走正常业务路径。已有员工的来源任职状态变化返回 `NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED` conflict，必须通过现有转正、离职等生命周期流程，不绕过事件和审批。该冲突是首批适配器的待接入边界，后续需衔接正常生命周期办理或受控来源事实路径，并非将既有数据永久只读。源行变化时，服务逐字段比较上次成功的目标基线：目标字段仍等于基线才以乐观版本更新；否则记录 conflict，保留运营维护字段。操作和项修订在同一事务写入。源包和每条源事实仅以现有 Party 敏感数据服务加密存储，审计不捕获请求体。
 
@@ -67,3 +67,11 @@ CLI 按实际发送的紧凑 UTF-8 JSON 加换行计算长度并拆包；提交�
 ## 组织与岗位持续性扩展
 
 候选实现增加 organization/position 两域、forward migration 000331 和员工来源关系字段。复用原有预览、提交、操作号恢复和加密账本，不重放 T0。首次原始基线认证与之后每批轻量验证分别执行，具体配置和固定适配文件见 [可复用导入入口](yuzhou-reusable-import.md#组织岗位及员工依赖的可重复入口)。系统组织 create/update、HR 岗位 manage 与组织可见范围均独立检查；已有员工任职来源变化返回 NORMAL_JOB_CHANGE_WORKFLOW_REQUIRED。组织与岗位字段基线加密，原记录及原回执不改写。这里描述候选功能，不把前文历史发布证据当作本次两域已上线证据。
+
+## 家庭成员持续导入
+
+家庭来源固定为 `dbo.family`，复用正常 `hr:employee_record:manage` 写权限与 `hr:employee_family:read` 结果查询权限。原始基线由服务端读取已有 T5 原来源/回执与不可变首条维护日志自动认证，调用方无需重新提供全量 A/B 证据或 family witness。首次接受保存独立加密基线，后续按来源/已接受基线/当前正式数据逐字段比较。
+
+新家庭成员依赖确切员工来源身份；同包新员工按依赖先创建。来源归属变更返回冲突，现代维护不被来源未变化字段覆盖，双方同字段不同值冲突，软删除记录不自动恢复。公开结果仅含字段名、版本与计数，不含原始姓名或联系方式。固定原始文件入口及历史异常复用详见 [可复用导入入口](yuzhou-reusable-import.md)。
+
+此段为 PR825 候选能力，生产发布与实际新来源导入分别取证；不把旧发布记录当作本次新增领域已上线证据。
