@@ -38,7 +38,9 @@ const trackBBundleCodes = new Set<string>(
 );
 const historicalPermissionBundles = Object.values(PROPERTY_PERMISSION_BUNDLES)
   .filter((bundle) => !trackBBundleCodes.has(bundle.code));
-const approvedHistoricalDuplicateMigrationNumbers = ["000136", "000286", "000287", "000288"];
+// Both 000332 files are already merged; migration history keys full filenames.
+// Preserve their checksums and restrict this collision to the exact existing pair.
+const approvedHistoricalDuplicateMigrationNumbers = ["000136", "000286", "000287", "000288", "000332"];
 
 function markedRows(source: string, start: string, end: string): string[][] {
   const block = source.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
@@ -72,6 +74,10 @@ test("000183/000184 remain the historical RBAC pair and migration collisions mat
     .filter(([, names]) => names.length > 1)
     .map(([number]) => number);
   assert.deepEqual(sorted(duplicates), approvedHistoricalDuplicateMigrationNumbers);
+  assert.deepEqual(sorted(byNumber.get("000332") ?? []), [
+    "000332_canteen_mock_payment_provider.sql",
+    "000332_hr_employee_custom_value_maintenance.sql"
+  ]);
   assert.equal(basename(baseMigrationPath), "000183_property_business_granular_rbac.sql");
   assert.equal(
     basename(extensionMigrationPath),
