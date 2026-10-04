@@ -14,7 +14,7 @@ test("employee identity is encrypted at rest, excluded from write replay, and re
  const profiles={findOne:async()=>stored};
  const query={where:()=>query,setLock:()=>query,getMany:async()=>stored?[stored]:[]};
  const profileRepo={createQueryBuilder:()=>query,findOne:async()=>stored,create:(value:object)=>value,save:async(value:HrEmployeeProfileEntity)=>{stored=Object.assign(value,{id:"00000000-0000-4000-8000-000000000021",employeeId:"00000000-0000-4000-8000-000000000011"});return stored;}};
- const dataSource={transaction:async(callback:(manager:{getRepository:(entity:unknown)=>typeof profileRepo|typeof employees})=>unknown)=>callback({getRepository:(entity:unknown)=>entity===HrEmployeeEntity?employees:profileRepo}),query:async()=>[{code:"def1",label:"玉舟扩展字段",valueType:"text",group:"扩展档案",sortOrder:"0",value:"历史值",sourceValid:true}]};
+ const dataSource={transaction:async(callback:(manager:{getRepository:(entity:unknown)=>typeof profileRepo|typeof employees})=>unknown)=>callback({getRepository:(entity:unknown)=>entity===HrEmployeeEntity?employees:profileRepo}),query:async()=>[{definitionId:"00000000-0000-4000-8000-000000000031",maintenanceVersion:null,maintainedType:null,maintainedStatus:null,valueEncrypted:null,code:"def1",label:"玉舟扩展字段",valueType:"text",group:"扩展档案",sortOrder:"0",value:"历史值",sourceValid:true}]};
  const sensitive={identityProfile:(value:string)=>({encrypted:`enc:v1:${value}`,masked:"32**************34",hash:`hmac256:${value}`}),decrypt:(value:string|null)=>value?.replace("enc:v1:","")??null};
  const args=Array(33).fill({});args[0]=employees;args[3]=profiles;args[30]=dataSource;args[31]={recordOperationRequired:async()=>{auditCalls+=1;}};args[32]=sensitive;
  const service=Reflect.construct(HrService,args) as HrService,scope={tenantId:"tenant",parkId:"park"},actor={sub:"00000000-0000-4000-8000-000000000001",username:"hr",tenantId:"tenant",parkId:"park",roles:["HR_MANAGER"],permissions:[HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE],isSuper:false};
@@ -26,7 +26,7 @@ test("employee identity is encrypted at rest, excluded from write replay, and re
  assert.equal("idNumber" in writeResult,false);
  const readResult=await service.employeeProfile(scope,actor,"00000000-0000-4000-8000-000000000011");
  assert.equal(readResult?.idNumber,"320812198901011234");
- assert.deepEqual(readResult?.customFields,[{code:"def1",label:"玉舟扩展字段",valueType:"text",group:"扩展档案",sortOrder:0,value:"历史值",sourceValid:true}]);
+ assert.deepEqual(readResult?.customFields,[{definitionId:"00000000-0000-4000-8000-000000000031",version:0,code:"def1",label:"玉舟扩展字段",valueType:"text",group:"扩展档案",sortOrder:0,value:"历史值",sourceValid:true}]);
  assert.equal("idNumberEncrypted" in (readResult??{}),false);
  assert.equal(auditCalls,1);
  // Omission preserves the encrypted identity; an explicit empty form value clears all three representations.

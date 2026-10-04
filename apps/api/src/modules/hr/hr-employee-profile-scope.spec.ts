@@ -27,7 +27,14 @@ function serviceFor(options:{managedIds?:string[];auditError?:Error}={}){
     return null;
   }};
   const profiles={findOne:async({where}:{where:Record<string,unknown>})=>{profileReads+=1;return {...profile,employeeId:String(where.employeeId)};}};
-  const dataSource={query:async()=> (options.managedIds??[managedId]).map(id=>({id}))};
+  const dataSource={query:async(sql:string)=> {
+    if(sql.includes("FROM hr_custom_field_definition"))return [{
+      definitionId:"30000000-0000-4000-8000-000000000001",code:"fixture_note",label:"Fixture note",
+      valueType:"text",group:null,sortOrder:1,value:"source note",sourceValid:true,
+      maintenanceVersion:null,maintainedType:null,maintainedStatus:null,valueEncrypted:null,
+    }];
+    return (options.managedIds??[managedId]).map(id=>({id}));
+  }};
   const audit={recordOperationRequired:async()=>{auditCalls+=1;if(options.auditError)throw options.auditError;}};
   const sensitive={decrypt:()=>"must-not-be-returned"};
   const args=Array(33).fill({});args[0]=employees;args[3]=profiles;args[30]=dataSource;args[31]=audit;args[32]=sensitive;
@@ -93,5 +100,9 @@ test("existing manage permission receives the full projection without changing r
   assert.equal(result?.masked,false);
   assert.equal(result?.personalMobile,profile.personalMobile);
   assert.equal(result?.remark,profile.remark);
+  assert.deepEqual(result?.customFields,[{
+    definitionId:"30000000-0000-4000-8000-000000000001",code:"fixture_note",label:"Fixture note",
+    valueType:"text",group:null,sortOrder:1,value:"source note",sourceValid:true,version:0,
+  }]);
   assert.deepEqual(fixture.counts(),{profileReads:1,auditCalls:1});
 });

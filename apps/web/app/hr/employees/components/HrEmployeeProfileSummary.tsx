@@ -59,7 +59,7 @@ export function HrEmployeeProfileSummary({ profile }: { profile: HrEmployeeProfi
     {[...customGroups].map(([group, fields]) => <article className={`ds-mobile-record ${styles.group}`} key={group}>
       <strong>{group}</strong>
       <dl>{fields.map(field => <div key={field.code}><dt>{field.label || field.code}</dt>
-        <dd>{field.value ?? "未登记"}{field.sourceValid ? null : "（原值类型待校正）"}</dd>
+        <dd>{field.value === null ? "未登记" : field.valueType === "boolean" && field.sourceValid && field.value === "true" ? "是" : field.valueType === "boolean" && field.sourceValid && field.value === "false" ? "否" : field.value}{field.sourceValid ? null : "（原值类型待校正）"}</dd>
       </div>)}</dl>
     </article>)}
   </div>;

@@ -1,3 +1,4 @@
+import { projectHrCustomValue, type HrCustomValueReadRow } from "./hr-custom-value.service";
 import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -639,16 +640,27 @@ export class HrService {
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path,fieldGroups:projection==="full"?["identity","contact","demographic","education","qualification","custom_fields"]:["identity","contact"],projection,itemCount:result?1:0});
   return result;
  }
+ async employeeCustomValues(scope:TenantParkScope,actor:JwtPrincipal,id:string){
+  const access=resolveHrEmployeeProfileAccess(actor);
+  if(access.scope!=="park"||access.projection!=="full")throw new ForbiddenException("Employee profile management permission required");
+  await this.employeeForAccess(scope,actor,id,access.scope);
+  const fields=await this.employeeCustomFields(scope,id);
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_custom_value",action:"读取员工扩展档案",bizType:"hr_employee",bizId:id,path:`/hr/employees/${id}/custom-fields`,fieldGroups:["custom_fields"],projection:"full",itemCount:fields.length});
+  return {employeeId:id,fields};
+ }
  private async employeeCustomFields(scope:TenantParkScope,employeeId:string){
-  const rows=await this.dataSource.query(`SELECT definition.field_code "code",definition.display_label "label",definition.value_type "valueType",definition.field_group "group",definition.sort_order "sortOrder",
+  const rows=await this.dataSource.query(`SELECT definition.id "definitionId",definition.field_code "code",definition.display_label "label",definition.value_type "valueType",definition.field_group "group",definition.sort_order "sortOrder",
    CASE WHEN value.value_status='invalid' THEN value.text_value WHEN definition.value_type='text' THEN value.text_value WHEN definition.value_type='numeric' THEN value.numeric_value::text WHEN definition.value_type='date' THEN to_char(value.date_value,'YYYY-MM-DD') WHEN definition.value_type='boolean' THEN value.boolean_value::text END "value",
-   (value.value_status<>'invalid') "sourceValid"
-   FROM hr_employee_custom_value value JOIN hr_custom_field_definition definition
-     ON (definition.tenant_id,definition.park_id,definition.id)=(value.tenant_id,value.park_id,value.definition_id)
-   WHERE value.tenant_id=$1 AND value.park_id=$2 AND value.employee_id=$3 AND value.is_deleted=false
-     AND definition.is_deleted=false AND definition.status='enabled'
-   ORDER BY definition.sort_order,definition.id`,[scope.tenantId,scope.parkId,employeeId]) as Array<{code:string;label:string;valueType:"text"|"numeric"|"date"|"boolean";group:string|null;sortOrder:number|string;value:string|null;sourceValid:boolean}>;
-  return rows.map(field=>({...field,sortOrder:Number(field.sortOrder)}));
+   COALESCE(value.value_status<>'invalid',true) "sourceValid",
+   maintained.version "maintenanceVersion",maintained.value_type "maintainedType",maintained.value_status "maintainedStatus",maintained.value_encrypted "valueEncrypted"
+   FROM hr_custom_field_definition definition
+   LEFT JOIN hr_employee_custom_value value
+     ON (definition.tenant_id,definition.park_id,definition.id)=(value.tenant_id,value.park_id,value.definition_id) AND value.employee_id=$3 AND NOT value.is_deleted
+   LEFT JOIN hr_employee_custom_value_maintenance maintained
+     ON (definition.tenant_id,definition.park_id,definition.id)=(maintained.tenant_id,maintained.park_id,maintained.definition_id) AND maintained.employee_id=$3
+   WHERE definition.tenant_id=$1 AND definition.park_id=$2 AND NOT definition.is_deleted AND definition.status='enabled'
+   ORDER BY definition.sort_order,definition.id`,[scope.tenantId,scope.parkId,employeeId]) as HrCustomValueReadRow[];
+  return rows.map(field=>projectHrCustomValue(field,value=>this.sensitiveData.decrypt(value)));
  }
  private async employeeForAccess(scope:TenantParkScope,actor:JwtPrincipal,id:string,accessScope:HrEmployeeAccessScope){
   if(accessScope==="park")return this.detailEmployee(scope,id);
