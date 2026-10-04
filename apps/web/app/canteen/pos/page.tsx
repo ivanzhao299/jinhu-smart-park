@@ -463,7 +463,7 @@ export default function PosTerminalPage() {
       stopCountdown();
       stopPolling();
       const { note } = await tryPrintReceipt({ orderNo, amount, channel: "qr", lines: [] });
-      finishOrder(amount, "二维码收款成功 · 已到账统一收款账户", note, "qr");
+      finishOrder(amount, "二维码收款成功 · 已到账统一收款账户", note, "qr", "0.00", amount);
     };
     startCountdown(settle);
     if (!demo) startPolling(paymentNo, onPaid, () => { stopCountdown(); setModal(null); toast("支付已关单"); });
@@ -474,7 +474,7 @@ export default function PosTerminalPage() {
     stopCountdown();
     stopPolling();
     const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
-    finishOrder(qrInfo.amount, "二维码收款成功（演示）", note, "qr");
+    finishOrder(qrInfo.amount, "二维码收款成功（演示）", note, "qr", "0.00", qrInfo.amount);
   }
 
   function closeQr() {
@@ -484,9 +484,9 @@ export default function PosTerminalPage() {
     toast("已取消收款");
   }
 
-  function finishOrder(amount: string, title: string, sub: string, channel: "qr" | "subsidy" | "mixed", subsidyAmount = "0.00", qrAmount = "0.00") {
+  function finishOrder(amount: string, title: string, sub: string, channel: "qr" | "subsidy" | "mixed", subsidyAmount?: string, qrAmount?: string) {
     setShift((s) => {
-      const subAmt = channel === "subsidy" || channel === "mixed" ? Number(subsidyAmount) : 0;
+      const subAmt = channel === "subsidy" || channel === "mixed" ? Number(subsidyAmount ?? "0.00") : 0;
       const qrAmt = channel === "qr" || channel === "mixed" ? Number(qrAmount || amount) : 0;
       return {
         ...s,
@@ -639,8 +639,8 @@ export default function PosTerminalPage() {
             <span className={styles.outletSub}>设备账号：餐厅收银（共用）{demoMode ? " · 演示数据" : ""}</span>
           </div>
           <div className={styles.topDiv} />
-          <div className={styles.topMeta}><span>收银员</span><b>{user?.realName ?? "当班"}</b></div>
-          <div className={styles.topMeta}><span>业务日期</span><b>{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })}</b></div>
+          <div className={styles.topMeta}><span>收银员</span><b suppressHydrationWarning>{user?.realName ?? "当班"}</b></div>
+          <div className={styles.topMeta}><span>业务日期</span><b suppressHydrationWarning>{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })}</b></div>
           <div className={styles.topMeta}><span>当前餐段</span><b>{period}</b></div>
           <div className={styles.topSpacer} />
           <div className={styles.netPill}>
