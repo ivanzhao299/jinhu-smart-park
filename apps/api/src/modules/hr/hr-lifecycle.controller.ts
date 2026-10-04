@@ -30,6 +30,7 @@ import {
   HrLegacyEmployeeMaterializationGapQueryDto,
 } from "./dto/hr-lifecycle.dto";
 import { HrLifecycleService } from "./hr-lifecycle.service";
+import { HrRecordVersionDto, UpdateHrExperienceRecordDto, UpdateHrSkillRecordDto, UpdateHrCredentialRecordDto } from "./dto/hr-record-maintenance.dto";
 import { HrFamilyRecordVersionDto, UpdateHrFamilyRecordDto } from "./dto/hr-family-record.dto";
 @Controller("hr")
 @RequireModule("hr")
@@ -224,4 +225,64 @@ export class HrLifecycleController {
     @Param("familyId",new ParseUUIDPipe()) familyId:string,
     @Body() d:HrFamilyRecordVersionDto,
   ) { return this.service.archiveFamilyRecord(s,a,employeeId,familyId,d); }
+  @Patch("employees/:employeeId/experience/:recordId")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_experience",action:"维护员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  updateExperience(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:UpdateHrExperienceRecordDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"experience",recordId,d,"update");
+  }
+
+  @Post("employees/:employeeId/experience/:recordId/archive")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_experience",action:"归档员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  archiveExperience(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:HrRecordVersionDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"experience",recordId,d,"archive");
+  }
+
+  @Patch("employees/:employeeId/skill/:recordId")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_skill",action:"维护员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  updateSkill(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:UpdateHrSkillRecordDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"skill",recordId,d,"update");
+  }
+
+  @Post("employees/:employeeId/skill/:recordId/archive")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_skill",action:"归档员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  archiveSkill(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:HrRecordVersionDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"skill",recordId,d,"archive");
+  }
+
+  @Patch("employees/:employeeId/credential/:recordId")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_credential",action:"维护员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  updateCredential(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:UpdateHrCredentialRecordDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"credential",recordId,d,"update");
+  }
+
+  @Post("employees/:employeeId/credential/:recordId/archive")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_credential",action:"归档员工档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  archiveCredential(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,@Param("recordId",new ParseUUIDPipe()) recordId:string,
+    @Body() d:HrRecordVersionDto){
+    return this.service.mutateEmployeeRecord(s,a,employeeId,"credential",recordId,d,"archive");
+  }
+
 }

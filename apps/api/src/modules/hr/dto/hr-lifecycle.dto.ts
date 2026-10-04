@@ -97,6 +97,7 @@ export class CreateHrEmployeeRecordDto {
   @IsOptional()
   @IsIn(["basic", "intermediate", "advanced", "expert"])
   proficiency?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) legacyGrade?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
   @IsOptional() @IsDateString() acquiredDate?: string;
   @IsOptional()

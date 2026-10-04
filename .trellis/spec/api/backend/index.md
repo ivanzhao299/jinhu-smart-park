@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Formal experience, skill and credential maintenance: [Extended Record Maintenance](./hr-extended-record-maintenance.md).
+
 Organization/position and employee dependency continuity: [Organization Continuity](./hr-yuzhou-organization-continuity.md).
 
 Original family source/receipt and editable-target baseline proof: [Family Continuity](./hr-yuzhou-family-continuity.md).
