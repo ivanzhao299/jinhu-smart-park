@@ -336,7 +336,7 @@ export const dashboardMenus: MenuNode[] = [
       { label: "人力资源决策中心", href: "/hr/decision-center", permission: "hr:decision_center", module: "hr" },
       { label: "组织与岗位", href: "/hr/organization", permission: "hr:organization", module: "hr" },
       { label: "员工档案", href: "/hr/employees", permission: "hr:employees", module: "hr" },
-      { label: "旧系统资料", href: "/hr/employees/legacy", permission: "hr:legacy_archive", module: "hr" },
+      { label: "档案沿革", href: "/hr/employees/legacy", permission: "hr:legacy_archive", module: "hr" },
       { label: "待认领档案", href: "/hr/employees/unclaimed", permission: "hr:legacy_unclaimed", module: "hr" },
       { label: "招聘管理", href: "/hr/recruitment", permission: "hr:recruitment", module: "hr" },
       { label: "入离职办理", href: "/hr/lifecycle", permission: "hr:lifecycle", module: "hr" },
@@ -580,7 +580,7 @@ export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNo
 function toMenuNode(node: UserMenuTreeNode): MenuNode {
   const children = node.children?.map(toMenuNode).filter((child) => child.label);
   return {
-    label: node.label,
+    label: node.href === "/hr/employees/legacy" && node.label === "旧系统资料" ? "档案沿革" : node.label,
     href: node.href,
     permission: node.permission,
     module: node.module,

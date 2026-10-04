@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 async function openDetail() {
-  fireEvent.click((await screen.findAllByRole("button", { name: "查看安全详情" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: "查看档案详情" }))[0]!);
 }
 
 describe("original confirmation date in the complete archive page", () => {
@@ -99,7 +99,7 @@ describe("original confirmation date in the complete archive page", () => {
     render(<LegacyArchivePageClient />);
     await openDetail();
     expect(await screen.findByText("Synthetic native place")).toBeVisible();
-    fireEvent.click(screen.getAllByRole("button", { name: "查看安全详情" })[1]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "查看档案详情" })[1]!);
     expect(await screen.findByRole("alert")).toHaveTextContent("synthetic failure");
     expect(screen.queryByText("Synthetic native place")).toBeNull();
   });

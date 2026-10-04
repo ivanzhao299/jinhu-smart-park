@@ -5,6 +5,8 @@ import { resolve } from "node:path";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { HrService } from "./hr.service";
 import { HrEmployeeEntity,type HrEmployeeProfileEntity } from "./entities/hr.entities";
+import { ValidationPipe } from "@nestjs/common";
+import { UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 
 test("employee identity is encrypted at rest, excluded from write replay, and revealed only by audited read",async()=>{
  let stored:HrEmployeeProfileEntity|null=null,auditCalls=0;
@@ -27,6 +29,17 @@ test("employee identity is encrypted at rest, excluded from write replay, and re
  assert.deepEqual(readResult?.customFields,[{code:"def1",label:"玉舟扩展字段",valueType:"text",group:"扩展档案",sortOrder:0,value:"历史值",sourceValid:true}]);
  assert.equal("idNumberEncrypted" in (readResult??{}),false);
  assert.equal(auditCalls,1);
+ // Omission preserves the encrypted identity; an explicit empty form value clears all three representations.
+ await service.updateEmployeeProfile(scope,actor,"00000000-0000-4000-8000-000000000011",{expectedVersion:1,remark:"Changed another field"});
+ assert.equal(persisted?.idNumberEncrypted,"enc:v1:320812198901011234");
+ const pipe=new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true});
+ const clear=await pipe.transform({expectedVersion:2,idNumber:""},{type:"body",metatype:UpdateHrEmployeeProfileDto});
+ const clearResult=await service.updateEmployeeProfile(scope,actor,"00000000-0000-4000-8000-000000000011",clear);
+ assert.equal(persisted?.idNumberEncrypted,null);
+ assert.equal(persisted?.idNumberMasked,null);
+ assert.equal(persisted?.idNumberFingerprint,null);
+ assert.equal("idNumber" in clearResult,false);
+ assert.equal(clearResult.version,3);
 });
 
 test("profile management permission can read the profile it manages",()=>{

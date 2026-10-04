@@ -39,3 +39,12 @@ The shared scene card's two-column icon layout needs a local single-column layou
 for a text-only archive card; verify typography and long values at 390px.
 
 For profile maintenance CAS, accept a positive version only from the successful, selected employee's unmasked profile response. Send zero only after that successful response is explicitly null; missing version, masked data, a mismatched employee or a failed read leaves the form unavailable. On HTTP 409 preserve uncontrolled edits, block every retry and provide an explicit “放弃本次编辑并重新加载” action. Selection, scope or authenticated-context changes clear the conflict state. Do not auto-retry, merge, overwrite or present this behavior as a new read or write permission.
+
+
+## Formal profile maintenance and provenance
+
+Current employee status and normal permission-gated maintenance remain the primary work surface for imported and new employees alike. Original employment status and archive links belong in the collapsed `资料来源与沿革` section; they do not replace the modern state or block editing. Keep archive links gated by the existing archive-read permission and source facts scoped to the already-authorized employee response.
+
+The existing profile PUT replaces ordinary fixed fields: empty form values are omitted and the service writes them as null. Identity is the exception: omitted `idNumber` preserves encrypted/masked/fingerprint values, while an explicit empty string clears all three. The full admitted maintenance form always submits its identity control, including an empty string when the operator clears it. A failed, masked, versionless or foreign read must never create that form. Retain the global write/audit/idempotency and expectedVersion guards.
+
+Required regression cases: imported employee remains manageable with provenance collapsed; no archive permission means no archive link; existing identity survives an unrelated edit; clear identity travels through the real form and ValidationPipe/service; every one of the 33 fixed business fields is editable and carried in the same form submission. This proves fixed modern field carriage, not all legacy-source mappings or custom-field maintenance. Desktop/390px synthetic browser inspection and production-role acceptance are recorded separately.

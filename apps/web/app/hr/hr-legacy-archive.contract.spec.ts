@@ -22,7 +22,7 @@ test("legacy and unclaimed pages use separate page and API permission atoms",()=
  assert.match(client,/HR_LEGACY_ARCHIVE_UNCLAIMED_READ/);
  assert.match(legacyPage,/<LegacyArchivePageClient\/>/);
  assert.match(unclaimedPage,/<LegacyArchivePageClient unclaimed\/>/);
- assert.match(client,/原始敏感内容继续保存在加密对象中/);
+ assert.match(client,/敏感内容按权限查看并加密保存/);
  assert.match(client,/不按姓名猜测、不自动创建账号/);
  assert.doesNotMatch(client,/encryptedSourceObjectRef|encryptedBlobRef|sourceIdentitySha256/);
 });
@@ -37,9 +37,9 @@ test("legacy archive page is design-system based and 390px safe",()=>{
  assert.match(css,/\.filters \{ grid-template-columns:1fr/);
  assert.match(css,/\.projection \{ grid-template-columns:1fr/);
  assert.match(css,/width:100%; min-height:44px/);
- assert.match(client,/aria-label="旧系统资料分页"/);
+ assert.match(client,/aria-label="档案沿革分页"/);
  assert.match(client,/Math\.ceil\(total\/PAGE_SIZE\)/);
- assert.match(client,/兼容异常/);
+ assert.match(client,/资料提示/);
  assert.match(client,/兼容关系/);
  assert.match(client,/sourceRelation/);
  assert.match(client,/targetRelation/);
