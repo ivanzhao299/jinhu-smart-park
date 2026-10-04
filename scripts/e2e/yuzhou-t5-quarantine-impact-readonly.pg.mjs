@@ -6,7 +6,7 @@ import process from 'node:process';
 import { URL } from 'node:url';
 import pg from 'pg';
 import { buildT5QuarantineImpactReadonlySql, sanitizeT5QuarantineImpactObservation,
-  buildT5ProfileAggregateReadonlySql, sanitizeT5ProfileAggregateObservation } from '../diagnose-production-runtime-revision.mjs';
+  buildT5ProfileAggregateReadonlySql, sanitizeT5ProfileAggregateObservation, buildCredentialExclusionReadonlySql, sanitizeCredentialExclusionObservation } from '../diagnose-production-runtime-revision.mjs';
 
 // Fixed existing loopback lab only; never connect to an existing business database.
 // Credentials remain in process memory. No schema/data is read from another DB.
@@ -184,6 +184,11 @@ try {
   const aggregate=()=>observe(buildT5ProfileAggregateReadonlySql(),sanitizeT5ProfileAggregateObservation);
   stage='classification and original hash parity';
   const original=await impact();assert.equal(original.status,'PASS');assert.equal(original.quarantineCount,19);
+  const credentialProofRaw=await client.query(buildCredentialExclusionReadonlySql());
+  const credentialProof=sanitizeCredentialExclusionObservation(credentialProofRaw.find(value=>value.rows.length).rows[0].json_build_object);
+  assert.equal(credentialProof.status,'PASS');assert.equal(credentialProof.credentialSourceCount,0);assert.equal(credentialProof.exclusionCount,0);
+  assert.equal(credentialProof.credentialSourcePairsSha256,sha(''));assert.equal(credentialProof.exclusionPairsSha256,sha(''));assert.equal(credentialProof.unmatchedExclusionCount,0);checks++;
+
   const historical=new Set(['HISTORICAL','DISABLED_USER','DELETED_CONTRACT','EXPIRED_CONTRACT']);
   const current=new Set(['ENABLED_USER','PAST_ACTIVE_CONTRACT','FUTURE_ACTIVE_CONTRACT','ACTIVE_EMPLOYEE','FINANCIAL_PAYROLL','FINANCIAL_BOOK','FINANCIAL_INSURANCE','FINANCIAL_RECONCILIATION','FINANCIAL_OVERLAP']);
   for(const group of original.groups){

@@ -565,6 +565,59 @@ export function observeT5QuarantineImpactReadonly() {
   return sanitizeT5QuarantineImpactObservation(raw);
 }
 
+/** Exact original credential source/receipt sets, hashes only; no source decryption. */
+export function buildCredentialExclusionReadonlySql() {
+  return `${t5ReadonlyOperationSql()}, receipts AS (
+ SELECT r.* FROM public.hr_yuzhou_t5_followon_projection_receipt r JOIN operation o USING(operation_id)
+), sources AS (
+ SELECT x.* FROM public.hr_yuzhou_t5_followon_source x JOIN receipts r ON r.target_id=x.id
+ WHERE r.target_table='hr_yuzhou_t5_followon_source' AND r.disposition='insert'
+ AND x.tenant_id='10000001' AND x.park_id='20000001'
+), exclusions AS (
+ SELECT r.* FROM receipts r WHERE r.target_table='hr_employee_credential' AND r.disposition='quarantine'
+ AND r.reason_code='SOURCE_MATERIALIZATION_QUARANTINED'
+), matches AS (
+ SELECT r.source_identity_sha256,r.source_row_sha256,count(s.id) n
+ FROM exclusions r LEFT JOIN sources s ON s.source_identity_sha256=r.source_identity_sha256
+ AND s.source_row_sha256=r.source_row_sha256 AND s.source_table='dbo.ticket' AND s.source_domain='ticket'
+ GROUP BY r.source_identity_sha256,r.source_row_sha256
+), source_hash AS (
+ SELECT count(*) n,encode(public.digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') h
+ FROM (SELECT encode(public.digest(to_jsonb(x)::text,'sha256'),'hex') h FROM sources x) q
+), receipt_hash AS (
+ SELECT count(*) n,encode(public.digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') h
+ FROM (SELECT encode(public.digest(to_jsonb(r)::text,'sha256'),'hex') h FROM receipts r) q
+)
+SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),
+ 'sourceAggregateMatches',COALESCE((SELECT o.owned_state->'hr_yuzhou_t5_followon_source'->>'count'=s.n::text
+ AND o.owned_state->'hr_yuzhou_t5_followon_source'->>'sha256'=s.h FROM operation o CROSS JOIN source_hash s),false),
+ 'receiptAggregateMatches',COALESCE((SELECT o.owned_state->'receipts'->>'count'=r.n::text
+ AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false),
+ 'credentialSourceCount',(SELECT count(*) FROM sources WHERE source_table='dbo.ticket' AND source_domain='ticket'),
+ 'credentialSourcePairsSha256',(SELECT encode(public.digest(COALESCE(string_agg(source_identity_sha256||source_row_sha256,'' ORDER BY source_identity_sha256,source_row_sha256),''),'sha256'),'hex') FROM sources WHERE source_table='dbo.ticket' AND source_domain='ticket'),
+ 'exclusionCount',(SELECT count(*) FROM exclusions),
+ 'exclusionPairsSha256',(SELECT encode(public.digest(COALESCE(string_agg(source_identity_sha256||source_row_sha256,'' ORDER BY source_identity_sha256,source_row_sha256),''),'sha256'),'hex') FROM exclusions),
+ 'exclusionReceiptsSha256',(SELECT encode(public.digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') FROM (SELECT encode(public.digest(to_jsonb(r)::text,'sha256'),'hex') h FROM exclusions r) q),
+ 'unmatchedExclusionCount',(SELECT count(*) FROM matches WHERE n<>1))::text;
+ROLLBACK;
+`;
+}
+export function sanitizeCredentialExclusionObservation(raw) {
+  let v;try {if(typeof raw!=="string"||Buffer.byteLength(raw)>4096)fail("CREDENTIAL_EXCLUSION_RESULT_INVALID");v=JSON.parse(raw);}catch{fail("CREDENTIAL_EXCLUSION_RESULT_INVALID");}
+  const booleans=["operationBound","sourceAggregateMatches","receiptAggregateMatches"];
+  const counts=["credentialSourceCount","exclusionCount","unmatchedExclusionCount"];
+  const hashes=["credentialSourcePairsSha256","exclusionPairsSha256","exclusionReceiptsSha256"];
+  if(!exactKeys(v,[...booleans,...counts,...hashes])||!booleans.every(k=>typeof v[k]==="boolean")
+    ||!counts.every(k=>Number.isSafeInteger(v[k])&&v[k]>=0&&v[k]<=1000000)
+    ||!hashes.every(k=>typeof v[k]==="string"&&/^[a-f0-9]{64}$/u.test(v[k]))
+    ||v.exclusionCount>v.credentialSourceCount||v.unmatchedExclusionCount>v.exclusionCount)fail("CREDENTIAL_EXCLUSION_RESULT_INVALID");
+  return {...v,status:booleans.every(k=>v[k])&&v.unmatchedExclusionCount===0?"PASS":"FAIL",productionWrites:false,archivalClosureCertified:false,evidenceScope:"original_credential_source_and_exclusion_exact_set_hashes_only"};
+}
+export function observeCredentialExclusionsReadonly() {
+  let raw;try{raw=execFileSync("docker",["--host","unix:///var/run/docker.sock","exec","-i","jinhu-smart-park-prod-postgres","sh","-c",'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildCredentialExclusionReadonlySql(),encoding:"utf8",timeout:40000,maxBuffer:4096,stdio:["pipe","pipe","pipe"]});}catch{fail("CREDENTIAL_EXCLUSION_QUERY_FAILED");}
+  return sanitizeCredentialExclusionObservation(raw);
+}
+
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -587,7 +640,8 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const t5QuarantineImpact = observeT5QuarantineImpactReadonly();
     const t5OriginalFamilyAggregate=observeT5FamilyAggregateReadonly();
     const formalExtendedRecords=observeExtendedRecordsReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords}) + "\n");
+    const originalCredentialExclusions=observeCredentialExclusionsReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {

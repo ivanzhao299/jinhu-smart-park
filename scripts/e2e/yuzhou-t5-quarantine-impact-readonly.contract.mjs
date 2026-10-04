@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {buildT5QuarantineImpactReadonlySql,sanitizeT5QuarantineImpactObservation} from '../diagnose-production-runtime-revision.mjs';
+import {buildT5QuarantineImpactReadonlySql,sanitizeT5QuarantineImpactObservation,buildCredentialExclusionReadonlySql,sanitizeCredentialExclusionObservation} from '../diagnose-production-runtime-revision.mjs';
 const group=()=>({targetTable:'hr_employee_profile',reasonCode:'EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS',records:3,historicalCandidateRecords:1,currentImpactRecords:1,unknownImpactRecords:1,ownerEmployees:2,sourceMissingRecords:1,sourceAmbiguousRecords:0,ownerMapInvalidRecords:0,financialDependencyRecords:1,openPayrollRecords:1,unclosedLegacyBookRecords:1,unclosedModernInsuranceRecords:0,pendingReconciliationRecords:0});
 const fixture=()=>({operationBound:true,sourceAggregateMatches:true,receiptAggregateMatches:true,quarantineCount:3,financialContext:{openPayrollPeriods:1,openPayrollPeriodsWithoutParticipants:0,unclosedLegacyBookPeriods:1,unclosedLegacyBookPeriodsWithoutMappedMembers:0,unmappedLegacyBookMemberships:0,pendingReconciliationRuns:0,pendingReconciliationRunsWithoutResults:0},groups:[group()]});
 const check=v=>sanitizeT5QuarantineImpactObservation(JSON.stringify(v));
@@ -63,4 +63,17 @@ test('financial record counts cannot contradict zero recorded participants',()=>
   if(total==='unclosedLegacyBookPeriods')v.financialContext.unmappedLegacyBookMemberships=0;
   invalid(v);
  }
+});
+
+test('credential exclusions expose exact original sets as hashes only under read-only snapshot',()=>{
+ const sql=buildCredentialExclusionReadonlySql();
+ assert.match(sql,/^BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;/u);assert.ok(sql.endsWith('ROLLBACK;\n'));
+ assert.doesNotMatch(sql.replace(/'(?:''|[^'])*'/gu,"''"),/\b(?:INSERT|UPDATE|DELETE|COPY|CALL|DO|FOR SHARE|FOR UPDATE|decrypt)\b/iu);
+ for(const part of ["r.reason_code='SOURCE_MATERIALIZATION_QUARANTINED'","s.source_table='dbo.ticket'","s.source_domain='ticket'",'source_identity_sha256||source_row_sha256',"r.target_table='hr_employee_credential'",'FROM matches WHERE n<>1','to_jsonb(r)::text','to_jsonb(x)::text'])assert.ok(sql.includes(part));
+ const source={operationBound:true,sourceAggregateMatches:true,receiptAggregateMatches:true,credentialSourceCount:237,exclusionCount:3,unmatchedExclusionCount:0,credentialSourcePairsSha256:'a'.repeat(64),exclusionPairsSha256:'b'.repeat(64),exclusionReceiptsSha256:'c'.repeat(64)};
+ const sanitize=v=>sanitizeCredentialExclusionObservation(JSON.stringify(v));
+ assert.equal(sanitize(source).status,'PASS');assert.equal(sanitize(source).productionWrites,false);assert.equal(sanitize(source).archivalClosureCertified,false);
+ for(const key of ['operationBound','sourceAggregateMatches','receiptAggregateMatches'])assert.equal(sanitize({...source,[key]:false}).status,'FAIL');
+ assert.equal(sanitize({...source,unmatchedExclusionCount:1}).status,'FAIL');
+ for(const v of [{...source,employeeName:'private'},{...source,exclusionCount:238},{...source,unmatchedExclusionCount:4},{...source,credentialSourceCount:'237'},{...source,exclusionPairsSha256:'bad'}])assert.throws(()=>sanitize(v),{code:'PRODUCTION_RUNTIME_CREDENTIAL_EXCLUSION_RESULT_INVALID'});
 });
