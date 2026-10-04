@@ -89,6 +89,7 @@ jobs:
           - 5432:5432
           - 55491:5432
           - 55494:5432
+          - 55495:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s
@@ -138,6 +139,15 @@ jobs:
           POSTGRES_PASSWORD: synthetic-scope-ci-only
           HR_CUSTOM_VALUE_PG_REQUIRED: "1"
         run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-custom-value.pg.spec.ts
+
+      - name: Verify family-record maintenance transactions
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "55495"
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-scope-ci-only
+          HR_FAMILY_PG_REQUIRED: "1"
+        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-family-record.pg.spec.ts
 
   verify:
     name: Lint, Typecheck, Build
