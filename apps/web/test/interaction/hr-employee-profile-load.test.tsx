@@ -44,6 +44,8 @@ describe("employee profile read admission", () => {
     const link=within(provenance).getByRole("link",{name:"查看档案沿革",hidden:true});
     expect(link).toHaveAttribute("href","/hr/employees/legacy?employee_id=alpha");
     expect(provenance).not.toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: "档案沿革" })).toHaveAttribute("href", "/hr/employees/legacy");
+    expect(screen.queryByText("旧系统资料")).toBeNull();
   });
   it("clears the identity explicitly for an imported employee without changing current employment", async () => {
     vi.mocked(hrApi.employee).mockResolvedValue({ ...employee(), legacyJobstateCode: "A", legacyJobstateName: "原状态" });

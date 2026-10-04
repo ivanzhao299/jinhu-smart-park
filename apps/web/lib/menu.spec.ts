@@ -285,3 +285,18 @@ test("asset menu exposes the shared property control planes", () => {
   assert.equal(FIRST_RELEASE_MENU_PATH_SET.has("/assets/identity-submissions"), true);
   assert.equal(expected.length, 4);
 });
+
+test("employee provenance labels normalize without changing routes, permissions or custom labels", () => {
+  const route = "/hr/employees/legacy";
+  assert.equal(findMenuByPath(route, getDashboardMenus())?.label, "档案沿革");
+  const node = { label: "旧系统资料", href: route, permission: "hr:legacy_archive", module: "hr" };
+  const user = { menu_tree: [node] };
+  for (const menus of [getUserNormalizedMenuTree(user), getUserCommandMenus(user), getUserDashboardMenus(user)]) {
+    const actual = findMenuByPath(route, menus);
+    assert.equal(actual?.label, "档案沿革");
+    assert.equal(actual?.permission, node.permission);
+    assert.equal(actual?.module, node.module);
+  }
+  assert.equal(findMenuByPath(route, getUserNormalizedMenuTree({ menu_tree: [{ ...node, label: "自定义资料入口" }] }))?.label, "自定义资料入口");
+  assert.equal(findMenuByPath("/other", getDashboardMenus([{ ...node, href: "/other" }]))?.label, "旧系统资料");
+});
