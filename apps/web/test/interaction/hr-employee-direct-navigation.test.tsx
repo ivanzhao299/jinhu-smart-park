@@ -14,7 +14,7 @@ const a="00000001-0001-4001-8001-000000000001",b="00000002-0002-4002-8002-000000
 const employee=(id:string):HrEmployee=>({id,employeeCode:"SYNTHETIC",fullName:id===a?"Synthetic A":"Synthetic B",userId:null,primaryOrgId:null,positionId:null,managerEmployeeId:null,employmentType:"full_time",employmentStatus:"active",legacyJobstateCode:null,legacyJobstateName:null,hireDate:null,departureDate:null,workLocation:null,workMobile:null,workEmail:null});
 beforeEach(()=>{auth.permissions=["hr:employees","hr:employee:read"];vi.mocked(hrApi.employee).mockReset().mockImplementation(async id=>employee(id));vi.mocked(hrApi.employees).mockReset();vi.mocked(hrApi.profile).mockReset();});
 it("server route rejects repeated or malformed employee IDs before rendering a client",async()=>{
- expect(parseEmployeeFilter(undefined).valid).toBe(true);expect(parseEmployeeFilter(a)).toEqual({employeeId:a,valid:true});expect(employeeDetailHref(a)).toBe(`/hr/employees?employee_id=${a}`);
+ expect(parseEmployeeFilter(undefined).valid).toBe(true);expect(parseEmployeeFilter(a)).toEqual({employeeId:a,valid:true});expect(parseEmployeeFilter("AB000001-0001-4001-8001-000000000001")).toEqual({employeeId:"ab000001-0001-4001-8001-000000000001",valid:true});expect(employeeDetailHref(a)).toBe(`/hr/employees?employee_id=${a}`);
  for(const value of ["", "bad", [a], [a,b]])expect(parseEmployeeFilter(value).valid).toBe(false);
  render(await HrEmployeesPage({searchParams:Promise.resolve({employee_id:[a,b]})}));expect(screen.getByRole("heading",{name:"员工定位参数无效"})).toBeInTheDocument();expect(hrApi.employee).not.toHaveBeenCalled();
 });
