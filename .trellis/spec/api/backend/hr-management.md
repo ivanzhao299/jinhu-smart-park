@@ -1377,3 +1377,11 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 ### 7. Wrong vs Correct
 - Wrong: `managerEmployeeId: dto.managerEmployeeId ?? null` or reading version before locking.
 - Correct: preserve when undefined; under the locked row compare expectedVersion, apply submitted ordinary fields, and atomically persist the increment plus event.
+
+### 培训持续导入公共接口（2026-10-05，本地验证）
+
+- shared training_history仅允许employeeSourceTable/Key、courseName/startDate/endDate/hours，固定源dbo.trainhis；不接受其他领域见证或猜测结果字段。
+- 公共preview/commit使用独立executeYuzhouTrainingItem，同包员工预览仅在新源且无prior/原归档时允许占位，提交始终解析正式员工。通用incrementalTable对training_history明确拒绝，防止落入合同表更新。
+- 预览/提交必须同时具备课程、计划、进度manage；查询仅全培训read或完整manage。控制器任一入口权限不能替代服务逐领域全权限。Web同步完整集合。
+- 统一构包trainingRecords/受控staging trainingManifest和接口文件复用同一映射及摘要；单包事务，跨包按依赖顺序，不宣称跨包原子。
+- 9组实际PG含真实CLI包到公共服务；合成最小前置/T5回执夹具不证明全库迁移、生产或真实新增批次已完成。同包员工完整公共提交及发布/岗位验收仍待完成。

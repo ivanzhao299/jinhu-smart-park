@@ -17,7 +17,10 @@ export const positionColumns: Record<string, string> = {
   positionManual:"position_manual",qualification:"qualification",responsibilities:"responsibilities",hierarchyLevel:"hierarchy_level",
   sortOrder:"sort_order",orgSourceKey:"org_id",parentPositionSourceKey:"reports_to_position_id",
 };
-export const incrementalTable = (domain:YuzhouIncrementalItem["domain"]) => ({organization:"sys_org",position:"hr_position",employee:"hr_employee",profile:"hr_employee_profile",contract:"hr_contract",family:"hr_employee_family",skill:"hr_employee_skill",credential:"hr_employee_credential"})[domain];
+export const incrementalTable = (domain:YuzhouIncrementalItem["domain"]) => {
+  if(domain === "training_history")throw new BadRequestException("TRAINING_IMPORT_EXECUTOR_REQUIRED");
+  return ({organization:"sys_org",position:"hr_position",employee:"hr_employee",profile:"hr_employee_profile",contract:"hr_contract",family:"hr_employee_family",skill:"hr_employee_skill",credential:"hr_employee_credential"})[domain];
+};
 export const isHierarchy = (domain:string) => domain === "organization" || domain === "position";
 
 export async function assertOrgVisible(actor:JwtPrincipal, id:string|null, scopes?:DataScopeService) {

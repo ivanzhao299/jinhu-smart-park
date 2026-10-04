@@ -7,7 +7,7 @@ import type { YuzhouInitialBaselineWitness } from "./hr-yuzhou-initial-baseline"
 export const YUZHOU_INCREMENTAL_CONTRACT_STATUSES = ["draft", "active", "expired", "terminated", "cancelled"] as const;
 
 export const YUZHOU_INCREMENTAL_PACKAGE_VERSION = 1 as const;
-export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family", "skill", "credential"] as const;
+export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family", "skill", "credential", "training_history"] as const;
 export type YuzhouIncrementalDomain = (typeof YUZHOU_INCREMENTAL_DOMAINS)[number];
 
 export type YuzhouIncrementalItem = {
@@ -44,11 +44,12 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   family: ["employeeSourceKey", "employeeSourceTable", "relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"],
   skill: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.skill],
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
+  training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };
 
 export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackage): YuzhouIncrementalPackage {
-  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7 };
+  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7, training_history: 8 };
   return {
     ...input,
     items: orderYuzhouIncrementalItems([...input.items].map(item => {

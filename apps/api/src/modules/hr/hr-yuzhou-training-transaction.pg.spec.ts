@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID,randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { after,before,test } from "node:test";
 import { DataSource } from "typeorm";
@@ -12,6 +14,8 @@ import {profileCanonical} from "./hr-yuzhou-profile-baseline";
 import {createHash} from "node:crypto";
 import {executeYuzhouTrainingItem,type TrainingImportItem} from "./hr-yuzhou-training-executor";
 import {createTrainingHistoryInTransaction,correctTrainingHistoryHoursInTransaction} from "./hr-yuzhou-training-transaction";
+import {HrYuzhouIncrementalImportService} from "./hr-yuzhou-incremental-import.service";
+import type {PreviewYuzhouIncrementalImportDto} from "./dto/yuzhou-incremental-import.dto";
 const enabled=process.env.HR_TRAINING_IMPORT_PG_REQUIRED==="1",database=`jinhu_hr_training_import_lab_${randomUUID().replaceAll('-','')}`;
 const scope={tenantId:"10000001",parkId:"20000001"},actorId=randomUUID(),employeeId=randomUUID(),foreignEmployee=randomUUID();
 const actor:JwtPrincipal={sub:actorId,username:"synthetic-training-import",...scope,roles:[],permissions:[HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE]};
@@ -30,6 +34,48 @@ before(async()=>{
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000340_hr_incremental_training_history.sql"),"utf8"));
  await db.query('INSERT INTO sys_user VALUES($1,$2,$3)',[actorId,scope.tenantId,scope.parkId]);
  await db.query('INSERT INTO hr_employee(id,tenant_id,park_id) VALUES($1,$2,$3),($4,$2,\'20000002\')',[employeeId,scope.tenantId,scope.parkId,foreignEmployee]);
+});
+test('actual fixed builder package passes public preview commit replay status and exact permissions',{skip:!enabled},async()=>{
+ const directory=mkdtempSync(resolve(tmpdir(),'yuzhou-training-public-'));
+ try{
+  const root=resolve(__dirname,'../../../../..');
+  execFileSync(process.execPath,['--input-type=module','-e',`
+   import {writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+   import {canonicalProfile} from './scripts/hr-cutover/yuzhou-profile-incremental-projection.mjs';
+   import {materializeYuzhouReusableIncrementalPackage,YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256} from './scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs';
+   const hash=v=>createHash('sha256').update(v).digest('hex'),dir=process.argv[1];
+   const source={id:7654,person:'SYN-PUB',organ:null,coursename:'Synthetic public training',startdate:'2020-02-29T00:00:00',enddate:'2020-03-01T00:00:00',hours:8,attainment:null,test:null,trainmoney:null,memo:null};
+   const row={sourceTable:'dbo.trainhis',sourceKey:String(source.id),sourceIdentitySha256:hash('dbo.trainhis\\0'+source.id),sourceRowSha256:hash(canonicalProfile(source)),source};
+   writeFileSync(dir+'/input.json',JSON.stringify({recipeVersion:'yuzhou-reusable-incremental-v2',recipeSha256:YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256,sourceSystem:'yuzhou-v10',extractedAt:'2026-10-05T00:00:00Z',employeeIndex:[{employeeCode:'SYN-PUB',sourceTable:'dbo.person',sourceKey:'SYN-PUB'}],employeeRecords:[],records:[],trainingRecords:[row]}),{mode:0o600});
+   materializeYuzhouReusableIncrementalPackage({inputPath:dir+'/input.json',outputDir:dir+'/out'});
+  `,directory],{cwd:root,stdio:'pipe'});
+  const dto=JSON.parse(readFileSync(resolve(directory,'out/package.json'),'utf8')) as PreviewYuzhouIncrementalImportDto;
+  const targetKey=String(dto.items[0]!.fields.employeeSourceKey);
+  await db.query(`CREATE TABLE legacy_record_map(source_system text,source_table text,source_pk_canonical text,source_identity_sha256 text,target_table text,target_id uuid,mapping_status text,is_active boolean)`);
+  await db.query(`INSERT INTO legacy_record_map VALUES('yuzhou-v10','dbo.person',$1,$2,'hr_employee',$3,'verified',true)`,[targetKey,targetKey.slice(7),employeeId]);
+  const service=new HrYuzhouIncrementalImportService(db,sensitive),before=await counts();
+  for(const permissions of [[HR_PERMISSIONS.HR_CONTRACT_MANAGE],[HR_PERMISSIONS.HR_TRAINING_READ],[HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE]])await assert.rejects(service.preview(scope,{...actor,permissions},dto),/PERMISSION_REQUIRED/);
+  const preview=await service.preview(scope,actor,dto);assert.equal(preview.status,'previewed');assert.deepEqual(await counts(),before);
+  const id=String(preview.id),committed=await service.commit(scope,actor,id) as Record<string,unknown>;
+  assert.equal(committed.status,'committed');assert.equal(committed.appliedCount,1);
+  const after=await counts();assert.equal(after.participants,before.participants+1);
+  assert.equal((await service.commit(scope,actor,id) as Record<string,unknown>).appliedCount,1);assert.deepEqual(await counts(),after);
+  await assert.rejects(service.status(scope,{...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_READ]},id),/PERMISSION_REQUIRED/);
+  assert.equal((await service.status(scope,{...actor,permissions:[HR_PERMISSIONS.HR_TRAINING_READ]},id) as Record<string,unknown>).status,'committed');
+  await assert.rejects(service.commit(scope,{...actor,permissions:[HR_PERMISSIONS.HR_TRAINING_READ]},id),/PERMISSION_REQUIRED/);
+  await assert.rejects(service.status({...scope,parkId:'20000002'},actor,id),/not found/);
+  const next={...dto,manifestId:dto.manifestId+'-next',extractedAt:'2026-11-05T00:00:00Z'};
+  const replay=await service.preview(scope,actor,next);const replayed=await service.commit(scope,actor,String(replay.id)) as Record<string,unknown>;
+  assert.equal(replayed.unchangedCount,1);assert.deepEqual(await counts(),after);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+test('staged new employee preview has no target writes and never bypasses owner resolution on commit',{skip:!enabled},async()=>{
+ const before=await counts(),value=item('9'),missing=async()=>{throw new Error('synthetic unresolved employee');};
+ const preview=await db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,missing,undefined,true));
+ assert.equal(typeof preview,'object');assert.equal((preview as {action:string}).action,'create');assert.deepEqual(await counts(),before);
+ await assert.rejects(db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,missing,undefined,false)),/unresolved employee/);
+ await assert.rejects(db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,missing,'00000000-0000-5000-8000-000000000001',true)),/unresolved employee/);
+ assert.deepEqual(await counts(),before);
 });
 after(async()=>{if(db?.isInitialized)await db.destroy();if(admin?.isInitialized){try{if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query('SELECT count(*)::int n FROM pg_database WHERE datname=$1',[database]))[0].n,0);}}finally{await admin.destroy();}}});
 const sourceKey=(n:string)=>`sha256:${n.repeat(64)}`;

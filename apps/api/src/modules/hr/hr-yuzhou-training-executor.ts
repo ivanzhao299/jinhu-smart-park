@@ -44,7 +44,7 @@ async function originalSource(m:EntityManager,scope:TenantParkScope,item:Trainin
 }
 
 /** Internal package-transaction executor; public DTO admission remains separate. */
-export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantParkScope,actor:JwtPrincipal,item:TrainingImportItem,sensitive:PartySensitiveDataService,employeeTarget:(key:string,table:string)=>Promise<string>,operationId?:string){
+export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantParkScope,actor:JwtPrincipal,item:TrainingImportItem,sensitive:PartySensitiveDataService,employeeTarget:(key:string,table:string)=>Promise<string>,operationId?:string,stagedEmployee=false){
  if(!m.queryRunner?.isTransactionActive)return invalid();permissions(actor,scope);
  if(item.domain!=='training_history'||item.sourceTable!=='dbo.trainhis'||!/^sha256:[a-f0-9]{64}$/.test(item.sourceKey)||item.fields.employeeSourceTable!=='dbo.person'||typeof item.fields.employeeSourceKey!=='string'||!/^sha256:[a-f0-9]{64}$/.test(item.fields.employeeSourceKey))throw new BadRequestException('TRAINING_IMPORT_SOURCE_INVALID');
  const incoming=business(item.fields);
@@ -53,6 +53,7 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
  const params=[scope.tenantId,scope.parkId,item.sourceKey];
  let prior=(await m.query(`SELECT * FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system='yuzhou-v10' AND domain='training_history' AND source_table='dbo.trainhis' AND source_key=$3 ${operationId?'FOR UPDATE':''}`,params))[0];
  const original=await originalSource(m,scope,item,sensitive);
+ if(!operationId&&!prior&&!original&&stagedEmployee)return {domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,fields:Object.keys(incoming),action:"create",conflictFields:[]};
  const employeeId=await employeeTarget(item.fields.employeeSourceKey,'dbo.person');
  let source:Record<string,unknown>={},baseline:TrainingHistoryFacts|undefined,current:TrainingHistoryFacts|undefined,correctionVersion=0;
  let binding:Record<string,unknown>|undefined;

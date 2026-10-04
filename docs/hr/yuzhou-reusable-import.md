@@ -343,3 +343,7 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 可选 `recordRecords` 接收经验证的 `dbo.knowhow` 和 `dbo.ticket` 原始行，共用 `employeeIndex` 或同包员工稳定来源身份；不接受底层projector的候选结果作为输入。字段、日期和待处理覆盖说明见[固定适配器](./yuzhou-record-incremental-adapter.md)。同格式批次复用recipe及已审定映射；新格式/未知字段只核对受影响部分，不重跑全量历史A/B。
 
 此接入目前是本地开发验收，公共服务及迁移000339尚未生产发布。原3条证照异常已通过生产只读整组摘要精确对应，并仅对不变原行复用原隔离；有必填/结构/归属错误时CLI失败，不静默跳过。不应以手动删除异常行构成“全量导入成功”的证据。后续生产发布和真实批次结果仍需独立核对。
+
+## 培训历史固定入口（本地已接入，待发布）
+
+统一builder可选`trainingRecords`接收经验证dbo.trainhis原始行；受控staging配置可选`trainingManifest`引用trainhis.jsonl及完整摘要/行数manifest，沿用相同读取规则。课程名、本地起止日期、学时与准确员工来源关联生成training_history项；提供方/成绩/考试/费用/备注保留待处理范围。每批无需重新全量分析或A/B，仍检查完整性、关联、权限、幂等和现代修改冲突。发布状态与验收边界见[培训适配](./yuzhou-training-incremental-adapter.md)。

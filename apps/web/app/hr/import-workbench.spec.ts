@@ -35,6 +35,18 @@ function fixture(actor = user) {
     commit: (work: typeof nextCommit) => { nextCommit = work; }, status: (work: typeof nextStatus) => { nextStatus = work; } };
 }
 
+test("training import summaries hide source values and require all three management permissions", () => {
+  const parsed=parseImportPackage(text([{...item("training_history",{courseName:"private course",hours:"8",startDate:"2020-02-29",endDate:"2020-03-01"}),sourceTable:"dbo.trainhis"}]),"training.json");
+  assert.equal(parsed.summary.domains[0]!.domain,"training_history");
+  assert.ok(parsed.summary.domains[0]!.fields.includes("课程名称"));
+  assert.ok(!JSON.stringify(parsed.summary).includes("private course"));
+  const permissions=[HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE];
+  assert.deepEqual(missingImportPermissions({...user,permissions},parsed.summary),[]);
+  for(const missing of permissions)assert.deepEqual(missingImportPermissions({...user,permissions:permissions.filter(p=>p!==missing)},parsed.summary),["培训历史"]);
+  const reader={...user,permissions:[HR_PERMISSIONS.HR_TRAINING_READ]};
+  assert.equal(canEnterImport(reader),true);assert.deepEqual(missingImportPermissions(reader,parsed.summary),["培训历史"]);
+});
+
 test("local JSON selection enforces extension/MIME/bytes and redacts native parser errors", () => {
   validateLocalJsonFile({ name: "SOURCE.JSON", type: "", size: 1 }, IMPORT_FILE_POLICY);
   validateLocalJsonFile({ name: "source.json", type: "application/json", size: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES }, IMPORT_FILE_POLICY);

@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "74f066dad8e85e81eed1f132196f489e6052fe041d8577ee63d02e17dfb266eb",
+  "recipeSha256": "7f1732abccbd41b2ec20759b7258b2809f6d95a60a7090104632c166bdbb23c9",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
@@ -43,6 +43,68 @@
   "productionWrites": false,
   "coverage": {
     "originalRecordExclusionsSha256": "6e078156d66b51f3ccbdb9923919a21c1094a81c91f9806f0fe8434e41b71906",
+    "trainingFieldCoverage": [
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "person",
+        "targetField": "employeeSourceKey",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "coursename",
+        "targetField": "courseName",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "startdate",
+        "targetField": "startDate",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "enddate",
+        "targetField": "endDate",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "hours",
+        "targetField": "hours",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "organ",
+        "disposition": "pending_semantic_or_writer_binding",
+        "reasonCode": "TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "attainment",
+        "disposition": "pending_semantic_or_writer_binding",
+        "reasonCode": "TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "test",
+        "disposition": "pending_semantic_or_writer_binding",
+        "reasonCode": "TRAINING_HISTORY_TEST_RESULT_MAPPING_UNRESOLVED"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "trainmoney",
+        "disposition": "pending_semantic_or_writer_binding",
+        "reasonCode": "TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
+        "sourceField": "memo",
+        "disposition": "pending_semantic_or_writer_binding",
+        "reasonCode": "TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED"
+      }
+    ],
     "recordFieldCoverage": {
       "skill": [
         {
@@ -379,6 +441,13 @@
     },
     "supported": [
       {
+        "domain": "training_history",
+        "sourceTable": "dbo.trainhis",
+        "adapter": "raw-training-history-four-facts",
+        "dependency": "verified dbo.person identity",
+        "eligibility": "API certifies original provenance or creates new source; published snapshot revisions require normal business workflow; no guessed result/provider/cost"
+      },
+      {
         "domain": "skill",
         "sourceTable": "dbo.knowhow",
         "adapter": "raw-skill-three-fields",
@@ -455,7 +524,7 @@
         "reason": "protected attachment/content binding remains a normal file-adapter follow-up"
       },
       {
-        "domain": "attendance_insurance_payroll_training_reward_performance",
+        "domain": "attendance_insurance_payroll_training_plan_reward_performance",
         "reason": "outside the first reusable contract adapter; no record is discarded by this tool"
       }
     ]

@@ -7,7 +7,7 @@ import { hasAnyPermission, hasModule, hasPermission } from "../../lib/permission
 import { parseLocalJson, validateLocalJsonFile } from "../../components/files/local-json-file";
 
 export const IMPORT_FILE_POLICY = { maxBytes: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES };
-export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员", skill:"技能", credential:"证照" };
+export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员", skill:"技能", credential:"证照", training_history:"培训历史" };
 export const DOMAIN_MANAGE = {
   organization: SYSTEM_PERMISSIONS.ORG_UPDATE,
   position: HR_PERMISSIONS.HR_POSITION_MANAGE,
@@ -16,9 +16,12 @@ export const DOMAIN_MANAGE = {
   family: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   skill: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   credential: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
+  training_history: HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,
   contract: HR_PERMISSIONS.HR_CONTRACT_MANAGE
 };
+export const TRAINING_IMPORT_MANAGE = [HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE];
 export const IMPORT_ENTRY_PERMISSIONS = [
+  HR_PERMISSIONS.HR_TRAINING_READ,
   ...Object.values(DOMAIN_MANAGE), SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_LIST, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
   HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ, HR_PERMISSIONS.HR_CONTRACT_READ
 ];
@@ -32,6 +35,7 @@ export function importContextKey(user: UserContext | null): string {
 
 const fieldLabels: Record<string, string> = {
   orgCode:"组织编号",orgName:"组织名称",orgType:"组织类型",parentSourceKey:"上级组织",orgSourceKey:"所属组织",positionSourceKey:"任职岗位",parentPositionSourceKey:"上级岗位",positionCode:"岗位编号",positionName:"岗位名称",jobFamily:"岗位类别",jobLevel:"岗位等级",headcountLimit:"岗位编制",plannedHeadcount:"组织编制",status:"启用状态",sortOrder:"排序",contactPhone:"联系电话",legacySourceId:"来源编号",legacyHierarchyLevel:"来源层级",hierarchyLevel:"岗位层级",legacyManagerReference:"来源负责人信息",legacyDepartmentReference:"来源部门信息",legacyParentReference:"来源上级岗位信息",legacyUptoCode:"来源岗位分类",authority:"岗位权限",qualification:"任职资格",responsibilities:"岗位职责",positionManual:"岗位说明",remark:"备注",
+  courseName:"课程名称",hours:"学时",
   skillName:"技能名称",legacyGrade:"技能等级",note:"备注",credentialType:"证照类别",credentialName:"证照名称",credentialNumber:"证照编号",issuingAuthority:"颁发机构",acquiredDate:"获得日期",validTo:"有效期至",
   relationship:"关系",contact:"联系方式",birthDate:"出生日期",workUnit:"工作单位",jobTitle:"职务",politicalStatus:"政治面貌",
   employeeCode: "员工编号", fullName: "姓名", employmentStatus: "任职状态", employmentType: "用工类型", hireDate: "入职日期",
@@ -95,7 +99,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   } };
 }
 export function missingImportPermissions(user: UserContext | null, summary: PackageSummary): string[] {
-  return summary.domains.filter(row => (row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
+  return summary.domains.filter(row => (row.domain === "training_history" ? !TRAINING_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
 }
 
 export type OperationStatus = "previewed" | "committed" | "conflicted";
