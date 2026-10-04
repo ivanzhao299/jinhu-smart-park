@@ -147,7 +147,7 @@
     {
       "stage": "field_projection",
       "path": "scripts/hr-cutover/t5-nonfile-field-projection.mjs",
-      "sha256": "2f3841721ead94a9d09d7e3c08a83bcadfcbe5841e6597dddca51a3432eff5b0",
+      "sha256": "e162dd825c480ea78d55451abc5430ce0a597049cb58497f0cf9d256258f0ca2",
       "requiredTokens": [
         "if(name===\"knowhow\")",
         "skillName=text(row.knowhow)",
@@ -219,11 +219,23 @@
     {
       "surface": "runtime_service",
       "path": "apps/api/src/modules/hr/hr-lifecycle.service.ts",
-      "sha256": "f39e043b5e68e83c8b0f6bcc4ffcbbec879b574e2725bace68ff2fc63110899c",
+      "sha256": "6d2de609bb322864f850c424d9642ae0e5120bae6a103510758f2ddc4d5d7e6b",
       "requiredTokens": [
-        "SELECT id,skill_name \"skillName\",proficiency,acquired_date \"acquiredDate\",note",
+        "SELECT id,version,skill_name \"skillName\",proficiency,to_char(acquired_date",
         "legacy_grade \"legacyGrade\"",
-        "INSERT INTO hr_employee_skill"
+        "createEmployeeRecordInTransaction(manager,s,a,employeeId,kind,d,this.sensitive)"
+      ]
+    },
+    {
+      "surface": "runtime_write_helper",
+      "path": "apps/api/src/modules/hr/hr-record-transaction-write.ts",
+      "sha256": "6e744599b2052dace40db6970bc26f2a324aa88ad7a6845eaddb47b2a3e50dff",
+      "requiredTokens": [
+        "skillName:\"skill_name\",proficiency:\"proficiency\"",
+        "legacyGrade:\"legacy_grade\"",
+        "INSERT INTO hr_employee_skill AS record",
+        "d.skillName,d.proficiency??null,d.acquiredDate??null,d.note??null,d.legacyGrade??null",
+        "appendEmployeeRecordChangeInTransaction(manager,s,a,employeeId,kind,\"create\""
       ]
     }
   ],
