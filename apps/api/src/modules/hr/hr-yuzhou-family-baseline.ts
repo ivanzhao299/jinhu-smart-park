@@ -1,7 +1,7 @@
 import { ConflictException } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { EntityManager } from "typeorm";
-import type { TenantParkScope } from "@jinhu/shared";
+import type { TenantParkScope, YuzhouFamilySourceFacts } from "@jinhu/shared";
 import type { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { recoverCertifiedOriginalFamilySet, type OriginalFamilySetCertificate } from "./hr-family-original-set";
@@ -96,7 +96,7 @@ export async function certifyOriginalFamilies(manager:EntityManager,original:Ori
 }
 
 
-export type OriginalFamilyFacts={relationship:string;fullName:string;contact:string|null;birthDate:string|null;workUnit:string|null;jobTitle:string|null;politicalStatus:string|null};
+export type OriginalFamilyFacts=YuzhouFamilySourceFacts;
 /** Seven fields from the original executed family mapper, checked against the
  * certified original target. Identity/emergency status have no reviewed source
  * mapping and are deliberately absent, so modern edits cannot be overwritten. */

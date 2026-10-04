@@ -367,6 +367,7 @@ async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensiti
   const materialization=migration("000276_hr_legacy_employee_profile_materialization.sql");
   await db.query(materialization.match(/ALTER TABLE hr_employee_family[\s\S]*?;/)![0]);
   await db.query(migration("000336_hr_family_record_changes.sql"));
+  await db.query(migration("000337_hr_incremental_family_baseline.sql"));
   const actorId=randomUUID();await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
   const familyOperation="yzprod-import-20261004T140000Z-abcdef123456";
   const parent=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",["yzprod-import-20261004T130000Z-abcdef123456"]))[0];
@@ -436,4 +437,39 @@ async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensiti
   await historicalMutation("UPDATE hr_employee_family_change SET before_encrypted=$2 WHERE family_id=$1 AND version=2",[ids[0],firstJournal.before_encrypted]);
   assert.deepEqual(await resolveOriginal(),before);
   assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0],archived);
+  // Persist the actual new schema's encrypted baseline/provenance, independently
+  // of the still-pending API admission. No family source is declared imported.
+  const incrementalOperation=(await db.query(`INSERT INTO hr_incremental_import_operation(tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,'yuzhou-v10',$3,$4,$5,1,$6) RETURNING id`,[scope.tenantId,scope.parkId,randomUUID(),sha("family-schema-fixture"),sensitive.encrypt("{}"),actorId]))[0].id;
+  const itemArgs=[scope.tenantId,scope.parkId,`sha256:${identities[0]}`,ids[0],hashes[0],sensitive.encrypt(JSON.stringify(sources[0])),sha(canonicalYuzhouInitialJson(sources[0])),incrementalOperation,sensitive.encrypt(JSON.stringify({fields:{workUnit:"原单位"},target:{workUnit:"原单位"}}))];
+  const itemSql=`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,source_facts_encrypted,source_facts_sha256,last_operation_id,baseline_encrypted) VALUES($1,$2,'yuzhou-v10','dbo.family',$3,'family','hr_employee_family',$4,$5,$6,$7,$8,$9) RETURNING id`;
+  await assert.rejects(db.query(itemSql,[...itemArgs.slice(0,8),null]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query(itemSql,[...itemArgs.slice(0,8),"plain private baseline"]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query(itemSql.replace("'hr_employee_family'","NULL"),itemArgs),/ck_hr_incremental_family_private_baseline/);
+  const itemId=(await db.query(itemSql,itemArgs))[0].id;
+  await assert.rejects(db.query(`UPDATE hr_incremental_import_item SET field_baseline='{"fullName":"plain private name"}' WHERE id=$1`,[itemId]),/ck_hr_incremental_family_private_baseline/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_table=NULL WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET source_key=$2 WHERE id=$1",[itemId,`sha256:${sha("rebind")}`]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET target_id=$2 WHERE id=$1",[itemId,ids[1]]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET domain='profile' WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await assert.rejects(db.query("DELETE FROM hr_incremental_import_item WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  await db.query("UPDATE hr_incremental_import_item SET version=version+1,baseline_encrypted=$2 WHERE id=$1",[itemId,itemArgs[8]]);
+  await assert.rejects(db.query("UPDATE hr_incremental_import_item SET version=1 WHERE id=$1",[itemId]),/FAMILY_INCREMENTAL_SOURCE_IMMUTABLE/);
+  const storedItem=(await db.query("SELECT field_baseline,target_baseline,baseline_encrypted,source_facts_encrypted FROM hr_incremental_import_item WHERE id=$1",[itemId]))[0];
+  assert.deepEqual(storedItem.field_baseline,{});assert.deepEqual(storedItem.target_baseline,{});assert.match(storedItem.baseline_encrypted,/^enc:v1:/);
+  const sourceId=(await db.query("SELECT id FROM hr_yuzhou_t5_followon_source WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0]]))[0].id;
+  const frozen=(await db.query("SELECT owned_state FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",[familyOperation]))[0].owned_state;
+  const insertBaseline=`INSERT INTO hr_incremental_family_baseline(item_id,operation_id,tenant_id,park_id,employee_id,family_id,original_operation_id,original_source_id,source_identity_sha256,original_source_row_sha256,original_family_set_sha256,original_receipt_set_sha256,original_binding_sha256,witness_sha256,provenance_encrypted,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`;
+  const baselineArgs=[itemId,incrementalOperation,scope.tenantId,scope.parkId,employeeId,ids[0],familyOperation,sourceId,identities[0],hashes[0],frozen.hr_employee_family.sha256,frozen.receipts.sha256,sha(canonicalYuzhouInitialJson(binding)),sha("family-witness"),sensitive.encrypt(JSON.stringify({originalSource:sources[0],originalTarget:before.get(ids[0]!)})),actorId];
+  for(const [index,value] of [[3,"foreign"],[4,randomUUID()],[9,sha("changed row")],[10,sha("changed set")],[11,sha("changed receipt set")],[12,sha("changed binding")]] as const) {
+    const invalid=[...baselineArgs];invalid[index]=value;
+    await assert.rejects(db.query(insertBaseline,invalid),/FAMILY_BASELINE_BINDING_INVALID/);
+  }
+  const privateInvalid=[...baselineArgs];privateInvalid[14]="plain private provenance";
+  await assert.rejects(db.query(insertBaseline,privateInvalid),/provenance_encrypted_check/);
+  await db.query(insertBaseline,baselineArgs);
+  await assert.rejects(db.query("UPDATE hr_incremental_family_baseline SET witness_sha256=$2 WHERE item_id=$1",[itemId,sha("reset")]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+  await assert.rejects(db.query("DELETE FROM hr_incremental_family_baseline WHERE item_id=$1",[itemId]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
+  assert.deepEqual(await resolveOriginal(),before);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0],archived);
+
 }
