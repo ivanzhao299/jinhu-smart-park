@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "./yuzhou-import-interface.contract.mjs";
 /* global process, Buffer */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";

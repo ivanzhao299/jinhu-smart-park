@@ -1,0 +1,463 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_reusable_import_interface",
+  "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
+  "recipeVersion": "yuzhou-reusable-incremental-v2",
+  "recipeSha256": "74f066dad8e85e81eed1f132196f489e6052fe041d8577ee63d02e17dfb266eb",
+  "sourceSystem": "yuzhou-v10",
+  "entries": {
+    "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
+    "verifiedExtract": "node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs --input <private-extract.json> --output <new-private-directory>",
+    "workbench": "/hr/imports"
+  },
+  "api": {
+    "prefix": "configured API_PREFIX; default /api/v1",
+    "preview": {
+      "method": "POST",
+      "path": "/hr/imports/yuzhou/incremental/preview"
+    },
+    "commit": {
+      "method": "POST",
+      "path": "/hr/imports/yuzhou/incremental/:id/commit"
+    },
+    "status": {
+      "method": "GET",
+      "path": "/hr/imports/yuzhou/incremental/:id"
+    },
+    "scope": "existing authenticated tenant/park and per-domain permissions"
+  },
+  "limits": {
+    "maxItems": 2000,
+    "maxPackageBytes": 8388608,
+    "encoding": "compact UTF-8 JSON plus newline, including witnesses and envelope"
+  },
+  "batchPolicy": {
+    "ordering": "process builder packagePaths in returned order; do not sort or submit only the first package",
+    "atomicity": "one transaction per package; no cross-package atomicity claim",
+    "recovery": "query the operation ID after uncertain submission before retrying",
+    "validation": "same-format batches reuse frozen rules; validate integrity, identity, dependencies, scope and modern-field conflicts every batch",
+    "updates": "unchanged facts do not duplicate; modern edits are preserved; employment transitions and effective contract changes use normal workflows",
+    "sourceAbsence": "never implies target deletion"
+  },
+  "inputBoundary": "verified structured extracts or controlled staging; arbitrary SQL Server .bak upload is not supported",
+  "productionWrites": false,
+  "coverage": {
+    "originalRecordExclusionsSha256": "6e078156d66b51f3ccbdb9923919a21c1094a81c91f9806f0fe8434e41b71906",
+    "recordFieldCoverage": {
+      "skill": [
+        {
+          "sourceTable": "dbo.knowhow",
+          "sourceField": "knowhow",
+          "targetField": "skillName",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.knowhow",
+          "sourceField": "grade",
+          "targetField": "legacyGrade",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.knowhow",
+          "sourceField": "memo",
+          "targetField": "note",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "targetField": "proficiency",
+          "disposition": "pending_semantic_binding",
+          "reasonCode": "NO_VERIFIED_GRADE_PROFICIENCY_MAPPING"
+        },
+        {
+          "targetField": "acquiredDate",
+          "disposition": "pending_semantic_binding",
+          "reasonCode": "NO_VERIFIED_SOURCE_DATE"
+        }
+      ],
+      "credential": [
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "tickettype",
+          "targetField": "credentialType",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "ticket",
+          "targetField": "credentialName",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "ticketno",
+          "targetField": "credentialNumber",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "org",
+          "targetField": "issuingAuthority",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "getdate",
+          "targetField": "acquiredDate",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "validdate",
+          "targetField": "validTo",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceTable": "dbo.ticket",
+          "sourceField": "memo",
+          "targetField": "note",
+          "disposition": "fixed_mapping_candidate",
+          "originalBaseline": "server_original_receipt_proof_required"
+        },
+        {
+          "sourceField": "ticketfilename",
+          "disposition": "pending_file_association",
+          "reasonCode": "NO_VERIFIED_ATTACHMENT_ASSOCIATION"
+        }
+      ]
+    },
+    "familyFieldCoverage": [
+      {
+        "sourceField": "rela",
+        "targetField": "relationship",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "member",
+        "targetField": "fullName",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "tel",
+        "targetField": "contact",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "birthday",
+        "targetField": "birthDate",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "jobunit",
+        "targetField": "workUnit",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "jobname",
+        "targetField": "jobTitle",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "sourceField": "political",
+        "targetField": "politicalStatus",
+        "disposition": "supported",
+        "originalBaseline": "server_certified_original_t5"
+      },
+      {
+        "targetField": "identityNumber",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified family source document number"
+      },
+      {
+        "targetField": "isEmergencyContact",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified family source emergency designation"
+      }
+    ],
+    "profileFieldCoverage": [
+      {
+        "targetField": "address",
+        "sourceField": "addr",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "dateOfBirth",
+        "sourceField": "birthday",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "degree",
+        "sourceField": "edulevel",
+        "disposition": "supported",
+        "originalBaseline": false,
+        "sourceMaxLength": 24,
+        "evidence": "hash_bound_procedure_alias",
+        "sourceOptional": true
+      },
+      {
+        "targetField": "emergencyContactMobile",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "emergencyContactName",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "employeeCategory",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "englishName",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "ethnicity",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "foreignLanguage",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "gender",
+        "sourceField": "sex",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "graduationDate",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw date semantics or education precedence"
+      },
+      {
+        "targetField": "graduationSchool",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw binding or education precedence"
+      },
+      {
+        "targetField": "healthStatus",
+        "disposition": "pending_semantic_binding",
+        "reason": "person.physical is 体质, not evidence of healthStatus"
+      },
+      {
+        "targetField": "heightCm",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw measurement and unit contract"
+      },
+      {
+        "targetField": "highestEducation",
+        "disposition": "pending_semantic_binding",
+        "reason": "person.edu joins educode.edu to eduname; edu/secedu precedence unproven"
+      },
+      {
+        "targetField": "homePhone",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "householdRegistration",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "idNumber",
+        "sourceField": "idcard",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "idType",
+        "disposition": "pending_semantic_binding",
+        "reason": "No reviewed raw document-type mapping; do not infer resident_id from idcard"
+      },
+      {
+        "targetField": "jobGrade",
+        "disposition": "pending_semantic_binding",
+        "reason": "person.grade is 工资标准, not evidence of jobGrade"
+      },
+      {
+        "targetField": "jobTitle",
+        "disposition": "pending_semantic_binding",
+        "reason": "person.assignment has 职务/职称 conflict; no canonical jobTitle binding"
+      },
+      {
+        "targetField": "languageLevel",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "major",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "maritalStatus",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "nativePlace",
+        "sourceField": "oldaddr",
+        "disposition": "supported",
+        "originalBaseline": false,
+        "sourceMaxLength": 50,
+        "evidence": "hash_bound_procedure_alias",
+        "sourceOptional": true
+      },
+      {
+        "targetField": "partyJoinDate",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw date semantics"
+      },
+      {
+        "targetField": "personalEmail",
+        "sourceField": "email",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "personalMobile",
+        "sourceField": "handtel",
+        "disposition": "supported",
+        "originalBaseline": true
+      },
+      {
+        "targetField": "politicalStatus",
+        "disposition": "pending_semantic_binding",
+        "reason": "Exact source dictionary and target representation not bound"
+      },
+      {
+        "targetField": "remark",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw source binding"
+      },
+      {
+        "targetField": "technicalGrade",
+        "disposition": "pending_semantic_binding",
+        "reason": "No exact scoped dictionary artifact in this raw profile entry"
+      },
+      {
+        "targetField": "technicalTitle",
+        "disposition": "pending_semantic_binding",
+        "reason": "No exact scoped dictionary artifact in this raw profile entry"
+      },
+      {
+        "targetField": "weightKg",
+        "disposition": "pending_semantic_binding",
+        "reason": "No verified raw measurement and unit contract"
+      }
+    ],
+    "profileAliasEvidence": {
+      "catalogSha256": "8e62d0308c14db70192f5b94f8cc775f2e87032d14f5cbeaee238d1d177f5014",
+      "procedures": {
+        "u_personinfo2003": "adf140a230a553b28eca6558dcd324e7ac84fa58f821be23dab75af59437017a",
+        "web_personinfo_SelectCommand": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868"
+      },
+      "custody": "metadata_only_not_live_source_custody"
+    },
+    "supported": [
+      {
+        "domain": "skill",
+        "sourceTable": "dbo.knowhow",
+        "adapter": "raw-skill-three-fields",
+        "dependency": "verified dbo.person identity",
+        "eligibility": "API authenticates original baseline or creates new source; no inferred proficiency/date"
+      },
+      {
+        "domain": "credential",
+        "sourceTable": "dbo.ticket",
+        "adapter": "raw-credential-seven-fields",
+        "dependency": "verified dbo.person identity",
+        "eligibility": "API authenticates original baseline or creates new source; invalid dates and masked numbers omitted pending; attachment association pending"
+      },
+      {
+        "domain": "family",
+        "sourceTable": "dbo.family",
+        "adapter": "raw-family-seven-fields",
+        "dependency": "verified dbo.person identity",
+        "eligibility": "original baseline certified by API; invalid dates retained pending without clearing modern dates"
+      },
+      {
+        "domain": "organization",
+        "sourceTable": "dbo.departmentcode",
+        "adapter": "verified-t0-department",
+        "dependency": "source parent identity"
+      },
+      {
+        "domain": "position",
+        "sourceTable": "dbo.job",
+        "adapter": "verified-t0-job",
+        "dependency": "exact source organization and parent position identities"
+      },
+      {
+        "domain": "profile",
+        "sourceTable": "dbo.person.core_residue",
+        "adapter": "raw-person-core-profile",
+        "dependency": "verified dbo.person employee source identity",
+        "eligibility": "eight reviewed raw fields (six required, two optional aliases); T5 original baseline witness still certifies six fields with fields:{}"
+      },
+      {
+        "domain": "employee",
+        "sourceTable": "dbo.person",
+        "adapter": "raw-person-employee",
+        "dependency": "verified job-state decision artifact",
+        "eligibility": "bounded employee code/name, valid nullable hire date and mapped v2 job state"
+      },
+      {
+        "domain": "contract",
+        "sourceTable": "dbo.compact",
+        "adapter": "production-t2-field-projection",
+        "dependency": "existing dbo.person source identity and immutable contract-type binding",
+        "eligibility": "explicitly mapped draft, active, expired, terminated or cancelled source status"
+      }
+    ],
+    "pending": [
+      {
+        "domain": "company_root_secondary_assignment_station",
+        "reason": "Unproven source semantics remain pending; no inferred root or name association"
+      },
+      {
+        "domain": "profile_extended_fields",
+        "reason": "Eight reviewed raw fields supported; remaining modern profile fields have explicit pending reasons in profileFieldCoverage; original baselines remain six-field-only"
+      },
+      {
+        "domain": "contract_type",
+        "reason": "API incremental contract DTO has no contract-type creation adapter"
+      },
+      {
+        "domain": "contract_change",
+        "reason": "API incremental contract DTO has no change-history adapter"
+      },
+      {
+        "domain": "contract_legacy_evidence",
+        "reason": "protected attachment/content binding remains a normal file-adapter follow-up"
+      },
+      {
+        "domain": "attendance_insurance_payroll_training_reward_performance",
+        "reason": "outside the first reusable contract adapter; no record is discarded by this tool"
+      }
+    ]
+  }
+}
