@@ -1,5 +1,18 @@
 # 玉舟可复用增量导入包（组织、岗位、员工、档案、合同、家庭成员、技能与证照）
 
+## 可保存的接口描述文件
+
+[yuzhou-import-interface.v1.json](./yuzhou-import-interface.v1.json) 是供旧系统导出工具、后续接入程序和操作人员读取的固定接口描述。它记录现有配方摘要、构包入口、预览/提交/查询路由、分包限制、已支持领域和逐字段待接入范围。覆盖信息直接读取已验证构包程序的导出，不另外维护一份映射规则。文件不包含人员行、凭据或生产地址，也不是实际待导入数据包；能力描述不证明生产发布或真实新批次入库。
+
+```sh
+# 导出当前接口文件，不读取业务源文件或访问数据库。
+node scripts/hr-cutover/describe-yuzhou-import-interface.mjs > /absolute/path/yuzhou-import-interface.v1.json
+# 接入程序使用前核对配方及描述是否仍与当前代码一致。
+node scripts/hr-cutover/describe-yuzhou-import-interface.mjs --check docs/hr/yuzhou-import-interface.v1.json
+```
+
+同格式批次复用此文件指向的固定程序和规则；每批仍生成自己的数据包、预览与提交结果。映射代码改变后重新导出接口描述，只验证受影响规则。多包按构包器返回的 `packagePaths` 顺序逐包处理，提交结果不确定时先查询操作编号。此文件没有扩大支持领域，也没有实现任意 `.bak` 上传后一键导入。
+
 `scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs` 是 SQL Server 抽取之后、`POST /hr/imports/yuzhou/incremental/preview` 之前的离线转换入口。它不访问数据库或网络，也不提交业务数据；API 的预览与提交事务负责写入、权限、幂等账本和冲突处理。
 
 抽取器应从该模块导出的 `YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256` 读取 `recipeSha256`，不得在外部复制或手填映射规则。

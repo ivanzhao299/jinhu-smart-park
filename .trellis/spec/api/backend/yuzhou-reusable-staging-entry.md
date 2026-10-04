@@ -1,5 +1,9 @@
 # Reusable Yuzhou staging entry
 
+## Offline interface descriptor
+
+`node scripts/hr-cutover/describe-yuzhou-import-interface.mjs` exports metadata from the existing recipe/coverage and shared package limits. `--check docs/hr/yuzhou-import-interface.v1.json` fails on drift with a fixed safe error. The committed JSON is a regenerable interface description, not a source package, credentials, current production capability attestation or batch receipt. Rule changes require regeneration; the descriptor must not create or duplicate field mapping rules. The staging contract suite imports its reproducibility, real-builder compatibility and stale-description checks, so existing CI covers the descriptor.
+
 ## 1. Scope / Trigger
 
 Offline T0/T2 and pinned person_core staging to the existing employee/profile/contract incremental package builder. Reuse reviewed mappings and original exclusion receipts for unchanged historical exceptions. This command neither extracts SQL Server backups nor writes production. Organization/position inputs and employee source relationships follow [Organization Continuity](hr-yuzhou-organization-continuity.md); other unsupported fields remain pending.
