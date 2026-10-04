@@ -1,5 +1,11 @@
 import limits from "./hr-yuzhou-incremental-limits.json";
 import { YUZHOU_RECORD_SOURCE_FIELDS } from "./hr-yuzhou-record-incremental";
+import { HR_PERMISSIONS } from "./hr";
+import { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
+export const YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE = [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE] as const;
+export const YUZHOU_INSURANCE_POLICY_KINDS = ["oldage", "remedy", "losework", "fund", "wound", "bear"] as const;
+export const YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS = ["baseRate", "baseFixedAmount", "employerRate", "employerFixedAmount", "employeeRate", "employeeFixedAmount", "supplementRate", "supplementFixedAmount"] as const;
+export type YuzhouInsurancePolicyBaselineWitness = { operationId: string; source: Record<string, unknown>; policy: { targetId: string; projection: Record<string, unknown> }; items: Array<{ targetId: string; projection: Record<string, unknown> }> };
 export const YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES = limits.maxPackageBytes;
 export const YUZHOU_INCREMENTAL_MAX_ITEMS = limits.maxItems;
 import type { YuzhouProfileBaselineWitness } from "./hr-yuzhou-profile-baseline";
@@ -7,7 +13,7 @@ import type { YuzhouInitialBaselineWitness } from "./hr-yuzhou-initial-baseline"
 export const YUZHOU_INCREMENTAL_CONTRACT_STATUSES = ["draft", "active", "expired", "terminated", "cancelled"] as const;
 
 export const YUZHOU_INCREMENTAL_PACKAGE_VERSION = 1 as const;
-export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family", "skill", "credential", "training_history"] as const;
+export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family", "skill", "credential", "training_history", "insurance_policy"] as const;
 export type YuzhouIncrementalDomain = (typeof YUZHOU_INCREMENTAL_DOMAINS)[number];
 
 export type YuzhouIncrementalItem = {
@@ -19,6 +25,7 @@ export type YuzhouIncrementalItem = {
   fields: Record<string, unknown>;
   initialBaselineWitness?: YuzhouInitialBaselineWitness;
   profileBaselineWitness?: YuzhouProfileBaselineWitness;
+  insurancePolicyBaselineWitness?: YuzhouInsurancePolicyBaselineWitness;
   profileAliasAcceptance?: {
     version: 1;
     proof: "original_t5_alias_fields_v1";
@@ -45,11 +52,12 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   skill: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.skill],
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
   training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours"],
+  insurance_policy: ["name", "scopeDescription", "items"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };
 
 export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackage): YuzhouIncrementalPackage {
-  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7, training_history: 8 };
+  const domainOrder: Record<YuzhouIncrementalDomain, number> = { organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7, training_history: 8, insurance_policy: 9 };
   return {
     ...input,
     items: orderYuzhouIncrementalItems([...input.items].map(item => {
@@ -58,6 +66,7 @@ export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackag
       if (canonical.profileBaselineWitness === undefined) delete canonical.profileBaselineWitness;
       if (canonical.profileAliasAcceptance === undefined) delete canonical.profileAliasAcceptance;
       if (canonical.initialBaselineWitness === undefined) delete canonical.initialBaselineWitness;
+      if (canonical.insurancePolicyBaselineWitness === undefined) delete canonical.insurancePolicyBaselineWitness;
       return canonical;
     }).sort((a, b) =>
       domainOrder[a.domain] - domainOrder[b.domain]

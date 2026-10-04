@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "7f1732abccbd41b2ec20759b7258b2809f6d95a60a7090104632c166bdbb23c9",
+  "recipeSha256": "15323b38abf64ba1ad55a3dffa0190b892e945f2fdb84f0bd53b56616cec82fe",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
@@ -103,6 +103,260 @@
         "sourceField": "memo",
         "disposition": "pending_semantic_or_writer_binding",
         "reasonCode": "TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED"
+      }
+    ],
+    "insurancePolicyFieldCoverage": [
+      {
+        "sourceField": "id",
+        "targetField": "sourceIdentity"
+      },
+      {
+        "sourceField": "des",
+        "targetField": "name"
+      },
+      {
+        "sourceField": "rightscope",
+        "targetField": "scopeDescription"
+      },
+      {
+        "sourceField": "oldage",
+        "targetField": "items.oldage.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "oldage2",
+        "targetField": "items.oldage.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "oldage_e",
+        "targetField": "items.oldage.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "oldage_e2",
+        "targetField": "items.oldage.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "oldage_p",
+        "targetField": "items.oldage.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "oldage_p2",
+        "targetField": "items.oldage.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "oldage_pc",
+        "targetField": "items.oldage.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "oldage_pc2",
+        "targetField": "items.oldage.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "remedy",
+        "targetField": "items.remedy.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "remedy2",
+        "targetField": "items.remedy.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "remedy_e",
+        "targetField": "items.remedy.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "remedy_e2",
+        "targetField": "items.remedy.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "remedy_p",
+        "targetField": "items.remedy.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "remedy_p2",
+        "targetField": "items.remedy.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "remedy_pc",
+        "targetField": "items.remedy.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "remedy_pc2",
+        "targetField": "items.remedy.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "losework",
+        "targetField": "items.losework.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "losework2",
+        "targetField": "items.losework.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "losework_e",
+        "targetField": "items.losework.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "losework_e2",
+        "targetField": "items.losework.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "losework_p",
+        "targetField": "items.losework.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "losework_p2",
+        "targetField": "items.losework.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "losework_pc",
+        "targetField": "items.losework.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "losework_pc2",
+        "targetField": "items.losework.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "fund",
+        "targetField": "items.fund.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "fund2",
+        "targetField": "items.fund.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "fund_e",
+        "targetField": "items.fund.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "fund_e2",
+        "targetField": "items.fund.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "fund_p",
+        "targetField": "items.fund.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "fund_p2",
+        "targetField": "items.fund.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "fund_pc",
+        "targetField": "items.fund.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "fund_pc2",
+        "targetField": "items.fund.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "wound",
+        "targetField": "items.wound.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "wound2",
+        "targetField": "items.wound.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "wound_e",
+        "targetField": "items.wound.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "wound_e2",
+        "targetField": "items.wound.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "wound_p",
+        "targetField": "items.wound.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "wound_p2",
+        "targetField": "items.wound.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "wound_pc",
+        "targetField": "items.wound.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "wound_pc2",
+        "targetField": "items.wound.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "bear",
+        "targetField": "items.bear.base.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "bear2",
+        "targetField": "items.bear.base.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "bear_e",
+        "targetField": "items.bear.employer.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "bear_e2",
+        "targetField": "items.bear.employer.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "bear_p",
+        "targetField": "items.bear.employee.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "bear_p2",
+        "targetField": "items.bear.employee.fixedAmount",
+        "transform": "exact_fixed_addend"
+      },
+      {
+        "sourceField": "bear_pc",
+        "targetField": "items.bear.supplement.rate",
+        "transform": "percentage_points_divided_by_100"
+      },
+      {
+        "sourceField": "bear_pc2",
+        "targetField": "items.bear.supplement.fixedAmount",
+        "transform": "exact_fixed_addend"
       }
     ],
     "recordFieldCoverage": {
@@ -441,6 +695,13 @@
     },
     "supported": [
       {
+        "domain": "insurance_policy",
+        "sourceTable": "dbo.insure_method",
+        "adapter": "raw-policy-51-fields",
+        "dependency": "original T3 witness for existing source; stable source identity for new source",
+        "eligibility": "API authenticates original baseline or creates scoped policy and six factors; no activation, personnel eligibility, periods or financial posting"
+      },
+      {
         "domain": "training_history",
         "sourceTable": "dbo.trainhis",
         "adapter": "raw-training-history-four-facts",
@@ -524,8 +785,8 @@
         "reason": "protected attachment/content binding remains a normal file-adapter follow-up"
       },
       {
-        "domain": "attendance_insurance_payroll_training_plan_reward_performance",
-        "reason": "outside the first reusable contract adapter; no record is discarded by this tool"
+        "domain": "attendance_insurance_period_payroll_training_plan_reward_performance",
+        "reason": "outside the currently admitted reusable adapters; no record is discarded by this tool"
       }
     ]
   }

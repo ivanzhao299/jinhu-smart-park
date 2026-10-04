@@ -19,6 +19,7 @@ export const positionColumns: Record<string, string> = {
 };
 export const incrementalTable = (domain:YuzhouIncrementalItem["domain"]) => {
   if(domain === "training_history")throw new BadRequestException("TRAINING_IMPORT_EXECUTOR_REQUIRED");
+  if(domain === "insurance_policy")throw new BadRequestException("INSURANCE_POLICY_IMPORT_EXECUTOR_REQUIRED");
   return ({organization:"sys_org",position:"hr_position",employee:"hr_employee",profile:"hr_employee_profile",contract:"hr_contract",family:"hr_employee_family",skill:"hr_employee_skill",credential:"hr_employee_credential"})[domain];
 };
 export const isHierarchy = (domain:string) => domain === "organization" || domain === "position";

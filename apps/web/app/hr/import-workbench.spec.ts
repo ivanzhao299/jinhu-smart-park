@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION, type UserContext } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE, YUZHOU_INSURANCE_POLICY_KINDS, YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS, YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION, type UserContext } from "@jinhu/shared";
 import { validateLocalJsonFile, parseLocalJson } from "../../components/files/local-json-file";
 import { canEnterImport, createImportWorkbench, DOMAIN_MANAGE, IMPORT_FILE_POLICY, importContextKey, missingImportPermissions, normalizeImportOperation, parseImportPackage } from "./import-workbench";
 
@@ -17,6 +17,17 @@ const text = (items = [item()]) => JSON.stringify(packageValue(items));
 const file = (contents = text(), name = "source.json") => ({ name, type: "application/json", size: Buffer.byteLength(contents), text: async () => contents });
 const preview = (operationId = id) => ({ id: operationId, status: "previewed", itemCount: 1, plan: [{ ...item(), action: "unchanged", conflictFields: [] }] });
 const terminal = (status = "committed", operationId = id) => ({ id: operationId, status, itemCount: 1, appliedCount: 0, unchangedCount: status === "committed" ? 1 : 0, conflictCount: status === "committed" ? 0 : 1, revisions: [] });
+test("insurance nested package summary hides source facts and requires all three manage permissions", () => {
+  const fields = { name: "private policy", scopeDescription: "private scope", items: YUZHOU_INSURANCE_POLICY_KINDS.map(kind => ({ kind, variant: 1, ...Object.fromEntries(YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS.map(field => [field, field.endsWith("Rate") ? "0.125" : null])) })) };
+  const value = { ...item("insurance_policy", fields), sourceTable: "dbo.insure_method" };
+  const parsed = parseImportPackage(text([value]), "policy.json");
+  assert.equal(parsed.summary.domains[0]!.fields.length, 50);
+  assert.equal(JSON.stringify(parsed.summary).includes("private policy"), false); assert.equal(JSON.stringify(parsed.summary).includes("private scope"), false); assert.equal(JSON.stringify(parsed.summary).includes("0.125"), false);
+  const permitted = { ...user, permissions: [...YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE] };
+  assert.equal(canEnterImport(permitted), true); assert.deepEqual(missingImportPermissions(permitted, parsed.summary), []);
+  for (const omitted of YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE) assert.deepEqual(missingImportPermissions({ ...permitted, permissions: permitted.permissions.filter(p => p !== omitted) }, parsed.summary), ["保险政策"]);
+  for (const bad of [{ ...fields, items: fields.items.slice(1) }, { ...fields, items: [fields.items[0], ...fields.items.slice(0, 5)] }, { ...fields, items: fields.items.map((factor,i) => i ? factor : { ...factor, baseRate: 0.125 }) }]) assert.throws(() => parseImportPackage(text([{ ...value, fields: bad }]), "policy.json"), /保险政策字段格式无效/u);
+});
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (error: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { resolve, reject, promise }; }
 function fixture(actor = user) {
   let current = true;
