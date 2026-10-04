@@ -21,7 +21,7 @@ test("published interface is reproducible and usable by the actual frozen builde
   const d = JSON.parse(first.stdout);
   const result = buildYuzhouReusableIncrementalPackage({ recipeVersion:d.recipeVersion, recipeSha256:d.recipeSha256, sourceSystem:d.sourceSystem, extractedAt:"2026-10-05T00:00:00Z", employeeIndex:[], employeeRecords:[], records:[] });
   assert.equal(result.manifest.itemCount, 0); assert.equal(result.packageDtos.length, 0);
-  assert.deepEqual(d.coverage.supported.map(x => x.domain).sort(), ["contract","credential","employee","family","organization","position","profile","skill","training_history"]);
+  assert.deepEqual(d.coverage.supported.map(x => x.domain).sort(), ["contract","credential","employee","family","insurance_policy","organization","position","profile","skill","training_history"]);
   assert.equal(d.limits.maxItems, 2000); assert.equal(d.limits.maxPackageBytes, 8388608);
   assert.equal(d.productionWrites, false);
 });

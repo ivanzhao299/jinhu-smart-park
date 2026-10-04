@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { DataSource, type EntityManager } from "typeorm";
 import { createHash } from "node:crypto";
 import { isEmail, isUUID } from "class-validator";
-import { SYSTEM_PERMISSIONS, canonicalYuzhouIncrementalPackage, HR_EMPLOYEE_STATUSES, HR_EMPLOYMENT_TYPES, HR_PERMISSIONS, YUZHOU_INCREMENTAL_CONTRACT_STATUSES, YUZHOU_INCREMENTAL_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, canonicalYuzhouIncrementalPackage, HR_EMPLOYEE_STATUSES, HR_EMPLOYMENT_TYPES, HR_PERMISSIONS, YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE, YUZHOU_INCREMENTAL_CONTRACT_STATUSES, YUZHOU_INCREMENTAL_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
@@ -11,6 +11,9 @@ import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental
 import { executeYuzhouFamilyItem } from "./hr-yuzhou-family-executor";
 import { executeYuzhouTrainingItem } from "./hr-yuzhou-training-executor";
 import { normalizeTrainingHistoryFacts } from "./hr-yuzhou-training-transaction";
+import { executeYuzhouInsurancePolicyItem } from "./hr-yuzhou-insurance-policy-executor";
+import { normalizeInsurancePolicyFacts } from "./hr-yuzhou-insurance-policy-transaction";
+import { AuditService } from "../audit/audit.service";
 import { executeYuzhouRecordItem } from "./hr-yuzhou-record-executor";
 import { normalizeYuzhouRecordFields } from "@jinhu/shared";
 import { normalizeYuzhouFamilyFields } from "@jinhu/shared";
@@ -38,7 +41,7 @@ const rowDigest = (item: YuzhouIncrementalItem) => createHash("sha256").update(c
 
 @Injectable()
 export class HrYuzhouIncrementalImportService {
-  constructor(private readonly db: DataSource, private readonly sensitive: PartySensitiveDataService, @Optional() private readonly dataScopes?: DataScopeService) {}
+  constructor(private readonly db: DataSource, private readonly sensitive: PartySensitiveDataService, @Optional() private readonly dataScopes?: DataScopeService, @Optional() private readonly audit?: AuditService) {}
 
   async preview(scope: TenantParkScope, actor: JwtPrincipal, dto: PreviewYuzhouIncrementalImportDto) {
     this.validate(dto.items);
@@ -97,6 +100,10 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, actor: JwtPrincipal, staged:readonly YuzhouIncrementalItem[] = []) {
+    if(item.domain === "insurance_policy") {
+      if(!this.audit) throw new ConflictException("INSURANCE_POLICY_IMPORT_AUDIT_UNAVAILABLE");
+      return executeYuzhouInsurancePolicyItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,this.audit);
+    }
     if(item.domain === "training_history") return executeYuzhouTrainingItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
     if(item.domain === "skill" || item.domain === "credential") return executeYuzhouRecordItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
     if(item.domain === "family") return executeYuzhouFamilyItem(manager,scope,actor,item,this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
@@ -133,6 +140,7 @@ export class HrYuzhouIncrementalImportService {
   private validate(items: YuzhouIncrementalItem[]) {
     const seen = new Set<string>();
     for (const item of items) {
+      if(item.insurancePolicyBaselineWitness !== undefined && item.domain !== "insurance_policy") throw new BadRequestException("INSURANCE_POLICY_BASELINE_DOMAIN_INVALID");
       const alias=item.profileAliasAcceptance;
       if(alias !== undefined && (!alias || item.domain!=="profile" || item.sourceTable!=="dbo.person.core_residue" || item.profileBaselineWitness || item.initialBaselineWitness
         || Object.keys(alias).sort().join(",")!=="bindingSha256,fields,operationId,proof,version" || alias.version!==1 || alias.proof!=="original_t5_alias_fields_v1"
@@ -155,6 +163,11 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private validateFieldValues(item: YuzhouIncrementalItem) {
+    if(item.domain === "insurance_policy") {
+      if(item.initialBaselineWitness || item.profileBaselineWitness || item.profileAliasAcceptance || item.sourceTable!=="dbo.insure_method") throw new BadRequestException("INSURANCE_POLICY_IMPORT_SOURCE_INVALID");
+      normalizeInsurancePolicyFacts(item.fields);
+      return;
+    }
     if(item.domain === "training_history") {
       if(item.initialBaselineWitness || item.profileBaselineWitness || item.profileAliasAcceptance || item.sourceTable!=="dbo.trainhis" || item.fields.employeeSourceTable!=="dbo.person" || typeof item.fields.employeeSourceKey!=="string" || !/^sha256:[a-f0-9]{64}$/u.test(item.fields.employeeSourceKey)) throw new BadRequestException("TRAINING_IMPORT_SOURCE_INVALID");
       const fields={...item.fields};delete fields.employeeSourceKey;delete fields.employeeSourceTable;
@@ -197,6 +210,12 @@ export class HrYuzhouIncrementalImportService {
 
   private async applyItem(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, operation: OperationRow, item: YuzhouIncrementalItem): Promise<"applied" | "unchanged" | "conflict"> {
     this.requireDomainPermission(actor, item.domain);
+    if(item.domain === "insurance_policy") {
+      if(!this.audit) throw new ConflictException("INSURANCE_POLICY_IMPORT_AUDIT_UNAVAILABLE");
+      const outcome=await executeYuzhouInsurancePolicyItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,this.audit,operation.id);
+      if(typeof outcome!=="string") throw new ConflictException("INSURANCE_POLICY_IMPORT_OUTCOME_INVALID");
+      return outcome;
+    }
     if(item.domain === "training_history") {
       const outcome=await executeYuzhouTrainingItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,(key,table)=>this.employeeTarget(manager,scope,operation.source_system,key,table),operation.id);
       if(typeof outcome!=="string")throw new ConflictException("TRAINING_IMPORT_OUTCOME_INVALID");
@@ -530,6 +549,11 @@ export class HrYuzhouIncrementalImportService {
     for (const domain of new Set(items.map(item => item.domain))) this.requireDomainPermission(actor, domain, access);
   }
   private requireDomainPermission(actor: JwtPrincipal, domain: YuzhouIncrementalItem["domain"], access: "read" | "manage" = "manage") {
+    if(domain === "insurance_policy") {
+      const required=access==="manage" ? YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE : YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE.slice(0,2);
+      if(!actor.isSuper && !actor.permissions.includes("*") && required.some(p=>!actor.permissions.includes(p))) throw new ForbiddenException("INSURANCE_POLICY_IMPORT_PERMISSION_REQUIRED");
+      return;
+    }
     if(domain === "training_history") {
       const manages=[HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE];
       const allowed=manages.every(p=>actor.permissions.includes(p)) || (access==="read" && actor.permissions.includes(HR_PERMISSIONS.HR_TRAINING_READ));

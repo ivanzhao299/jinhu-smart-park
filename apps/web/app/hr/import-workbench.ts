@@ -1,5 +1,5 @@
 import {
-  SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_FIELDS,
+  SYSTEM_PERMISSIONS, HR_PERMISSIONS, HR_INSURANCE_POLICY_PERMISSIONS, YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE, YUZHOU_INSURANCE_POLICY_KINDS, YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS, YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_FIELDS,
   YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION,
   type UserContext, type YuzhouIncrementalDomain, type YuzhouIncrementalPackage
 } from "@jinhu/shared";
@@ -7,7 +7,7 @@ import { hasAnyPermission, hasModule, hasPermission } from "../../lib/permission
 import { parseLocalJson, validateLocalJsonFile } from "../../components/files/local-json-file";
 
 export const IMPORT_FILE_POLICY = { maxBytes: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES };
-export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员", skill:"技能", credential:"证照", training_history:"培训历史" };
+export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同", family: "家庭成员", skill:"技能", credential:"证照", training_history:"培训历史", insurance_policy:"保险政策" };
 export const DOMAIN_MANAGE = {
   organization: SYSTEM_PERMISSIONS.ORG_UPDATE,
   position: HR_PERMISSIONS.HR_POSITION_MANAGE,
@@ -17,11 +17,13 @@ export const DOMAIN_MANAGE = {
   skill: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   credential: HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,
   training_history: HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,
+  insurance_policy: HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE,
   contract: HR_PERMISSIONS.HR_CONTRACT_MANAGE
 };
 export const TRAINING_IMPORT_MANAGE = [HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE];
 export const IMPORT_ENTRY_PERMISSIONS = [
   HR_PERMISSIONS.HR_TRAINING_READ,
+  HR_PERMISSIONS.HR_INSURANCE_READ,
   ...Object.values(DOMAIN_MANAGE), SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_LIST, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
   HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ, HR_PERMISSIONS.HR_CONTRACT_READ
 ];
@@ -51,6 +53,25 @@ export interface PackageSummary {
 }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const boundedString = (value: unknown, max: number): value is string => typeof value === "string" && value.length > 0 && value.length <= max;
+function insuranceFieldLabels(fields: Record<string, unknown>): string[] {
+  const invalid = (): never => { throw new Error("保险政策字段格式无效，请检查六险种及比例、固定金额格式。"); };
+  if (Object.keys(fields).sort().join(",") !== "items,name,scopeDescription" || !Array.isArray(fields.items) || fields.items.length !== 6) return invalid();
+  for (const [field, max] of [["name",200],["scopeDescription",500]] as const) if (fields[field] !== null && (typeof fields[field] !== "string" || fields[field].length > max || fields[field].includes("\0"))) return invalid();
+  const labels = ["政策名称", "适用范围说明"], seen = new Set<string>();
+  const names = { oldage:"养老保险", remedy:"医疗保险", losework:"失业保险", fund:"公积金", wound:"工伤保险", bear:"生育保险" };
+  const factors = { baseRate:"基础比例", baseFixedAmount:"基础固定金额", employerRate:"单位比例", employerFixedAmount:"单位固定金额", employeeRate:"个人比例", employeeFixedAmount:"个人固定金额", supplementRate:"补充分项比例", supplementFixedAmount:"补充分项固定金额" };
+  for (const item of fields.items) {
+    if (!object(item) || typeof item.kind !== "string" || !YUZHOU_INSURANCE_POLICY_KINDS.includes(item.kind as typeof YUZHOU_INSURANCE_POLICY_KINDS[number]) || seen.has(item.kind) || item.variant !== 1
+      || Object.keys(item).sort().join(",") !== ["kind","variant",...YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS].sort().join(",")) return invalid();
+    seen.add(item.kind);
+    for (const field of YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS) {
+      const value = item[field];
+      if (value !== null && (typeof value !== "string" || value.length > 32 || !/^[+-]?\d+(?:\.\d+)?$/u.test(value))) return invalid();
+      labels.push(`${names[item.kind as keyof typeof names]}·${factors[field]}`);
+    }
+  }
+  return labels;
+}
 export function parseImportPackage(text: string, fileName: string): { pkg: YuzhouIncrementalPackage; summary: PackageSummary } {
   const value = parseLocalJson(text, IMPORT_FILE_POLICY);
   if (!object(value) || value.version !== 1 || value.sourceSystem !== "yuzhou-v10" || !boundedString(value.manifestId, 128)
@@ -62,7 +83,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   const seen = new Set<string>();
   for (const item of value.items) {
     if (!object(item) || !YUZHOU_INCREMENTAL_DOMAINS.includes(item.domain as YuzhouIncrementalDomain)) {
-      throw new Error("数据包包含尚未支持的模块，目前支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能和证照。");
+      throw new Error("数据包包含尚未支持的模块，目前支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照、培训历史和保险政策。");
     }
     const domain = item.domain as YuzhouIncrementalDomain;
     const witness = item.initialBaselineWitness;
@@ -81,13 +102,16 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
     if (seen.has(identity)) throw new Error("数据包包含重复来源记录，请检查后重新选择。");
     seen.add(identity);
     const keys = Object.keys(item.fields);
-    if (keys.some(key => !YUZHOU_INCREMENTAL_FIELDS[domain].includes(key)
+    const insuranceLabels = domain === "insurance_policy" ? insuranceFieldLabels(item.fields) : null;
+    if (domain === "insurance_policy" && item.sourceTable !== "dbo.insure_method") throw new Error("保险政策来源表无效。");
+    if (!insuranceLabels && keys.some(key => !YUZHOU_INCREMENTAL_FIELDS[domain].includes(key)
       || (item.fields as Record<string, unknown>)[key] !== null && typeof (item.fields as Record<string, unknown>)[key] !== "string" && !( ["sortOrder","plannedHeadcount","legacySourceId","legacyHierarchyLevel","headcountLimit","hierarchyLevel"].includes(key) && Number.isSafeInteger((item.fields as Record<string, unknown>)[key])))) {
       throw new Error("数据包包含不支持的字段或字段类型，请检查源数据包。");
     }
     const group = domains.get(domain) ?? { count: 0, fields: new Set<string>() };
     group.count++;
-    keys.forEach(key => group.fields.add(fieldLabels[key]!));
+    if (insuranceLabels) insuranceLabels.forEach(label => group.fields.add(label));
+    else keys.forEach(key => group.fields.add(fieldLabels[key]!));
     domains.set(domain, group);
   }
   // Server validates digests, witnesses, field values and authenticated source/target ownership.
@@ -99,7 +123,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   } };
 }
 export function missingImportPermissions(user: UserContext | null, summary: PackageSummary): string[] {
-  return summary.domains.filter(row => (row.domain === "training_history" ? !TRAINING_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
+  return summary.domains.filter(row => (row.domain === "insurance_policy" ? !YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "training_history" ? !TRAINING_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
 }
 
 export type OperationStatus = "previewed" | "committed" | "conflicted";

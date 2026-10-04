@@ -29,6 +29,19 @@ export class YuzhouProfileAliasAcceptanceDto {
   fields!: Array<"nativePlace" | "degree">;
 }
 
+export class YuzhouInsurancePolicyTargetWitnessDto {
+  @IsUUID() targetId!: string;
+  @IsObject() projection!: Record<string, unknown>;
+}
+export class YuzhouInsurancePolicyBaselineWitnessDto {
+  @Matches(/^yzprod-import-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$/) operationId!: string;
+  @IsObject() source!: Record<string, unknown>;
+  @ValidateNested() @Type(() => YuzhouInsurancePolicyTargetWitnessDto)
+  policy!: YuzhouInsurancePolicyTargetWitnessDto;
+  @IsArray() @ArrayMinSize(6) @ArrayMaxSize(6) @ValidateNested({ each: true }) @Type(() => YuzhouInsurancePolicyTargetWitnessDto)
+  items!: YuzhouInsurancePolicyTargetWitnessDto[];
+}
+
 export class YuzhouIncrementalItemDto {
   @IsIn(YUZHOU_INCREMENTAL_DOMAINS) domain!: YuzhouIncrementalDomain;
   @IsString() @Length(1, 128) sourceTable!: string;
@@ -41,6 +54,8 @@ export class YuzhouIncrementalItemDto {
   profileBaselineWitness?: YuzhouProfileBaselineWitnessDto;
   @IsOptional() @ValidateNested() @Type(() => YuzhouProfileAliasAcceptanceDto)
   profileAliasAcceptance?: YuzhouProfileAliasAcceptanceDto;
+  @IsOptional() @ValidateNested() @Type(() => YuzhouInsurancePolicyBaselineWitnessDto)
+  insurancePolicyBaselineWitness?: YuzhouInsurancePolicyBaselineWitnessDto;
   @IsObject() fields!: Record<string, unknown>;
 }
 

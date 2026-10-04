@@ -2,6 +2,7 @@
 import { originalYuzhouRecordExclusion, YUZHOU_RECORD_ORIGINAL_EXCLUSIONS_SHA256 } from "./yuzhou-record-original-exclusions.mjs";
 import { projectYuzhouExtendedRecord, YUZHOU_RECORD_FIELD_COVERAGE } from "./yuzhou-record-incremental-projection.mjs";
 import { projectYuzhouTrainingHistory, YUZHOU_TRAINING_FIELD_COVERAGE } from "./yuzhou-training-incremental-projection.mjs";
+import { projectYuzhouInsurancePolicy, YUZHOU_INSURANCE_POLICY_FIELD_COVERAGE } from "./yuzhou-insurance-policy-incremental-projection.mjs";
 import { projectYuzhouFamily, YUZHOU_FAMILY_FIELD_COVERAGE } from "./yuzhou-family-incremental-projection.mjs";
 import { projectYuzhouOrganizationRecords, orderHierarchyItems } from "./yuzhou-organization-incremental-projection.mjs";
 /* global process, URL, structuredClone */
@@ -25,7 +26,7 @@ const RECIPE_VERSION = "yuzhou-reusable-incremental-v2";
 const SOURCE_SYSTEM = "yuzhou-v10";
 const SHA256 = /^[a-f0-9]{64}$/u;
 
-const DOMAIN_ORDER = Object.freeze({ organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7, training_history: 8 });
+const DOMAIN_ORDER = Object.freeze({ organization: 0, position: 1, employee: 2, profile: 3, contract: 4, family: 5, skill: 6, credential: 7, training_history: 8, insurance_policy: 9 });
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const plain = value => value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
 const canonical = value => value === null || typeof value !== "object" ? JSON.stringify(value)
@@ -38,11 +39,13 @@ const privateDirectory = path => (statSync(path).mode & 0o777) === 0o700;
 export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
   originalRecordExclusionsSha256: YUZHOU_RECORD_ORIGINAL_EXCLUSIONS_SHA256,
   trainingFieldCoverage: YUZHOU_TRAINING_FIELD_COVERAGE,
+  insurancePolicyFieldCoverage: YUZHOU_INSURANCE_POLICY_FIELD_COVERAGE,
   recordFieldCoverage: YUZHOU_RECORD_FIELD_COVERAGE,
   familyFieldCoverage: YUZHOU_FAMILY_FIELD_COVERAGE,
   profileFieldCoverage: YUZHOU_PROFILE_FIELD_COVERAGE,
   profileAliasEvidence: YUZHOU_PROFILE_ALIAS_EVIDENCE,
   supported: [
+    {domain:"insurance_policy",sourceTable:"dbo.insure_method",adapter:"raw-policy-51-fields",dependency:"original T3 witness for existing source; stable source identity for new source",eligibility:"API authenticates original baseline or creates scoped policy and six factors; no activation, personnel eligibility, periods or financial posting"},
     {domain:"training_history",sourceTable:"dbo.trainhis",adapter:"raw-training-history-four-facts",dependency:"verified dbo.person identity",eligibility:"API certifies original provenance or creates new source; published snapshot revisions require normal business workflow; no guessed result/provider/cost"},
     { domain:"skill",sourceTable:"dbo.knowhow",adapter:"raw-skill-three-fields",dependency:"verified dbo.person identity",eligibility:"API authenticates original baseline or creates new source; no inferred proficiency/date" },
     { domain:"credential",sourceTable:"dbo.ticket",adapter:"raw-credential-seven-fields",dependency:"verified dbo.person identity",eligibility:"API authenticates original baseline or creates new source; invalid dates and masked numbers omitted pending; attachment association pending" },
@@ -59,7 +62,7 @@ export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
     { domain: "contract_type", reason: "API incremental contract DTO has no contract-type creation adapter" },
     { domain: "contract_change", reason: "API incremental contract DTO has no change-history adapter" },
     { domain: "contract_legacy_evidence", reason: "protected attachment/content binding remains a normal file-adapter follow-up" },
-    { domain: "attendance_insurance_payroll_training_plan_reward_performance", reason: "outside the first reusable contract adapter; no record is discarded by this tool" },
+    { domain: "attendance_insurance_period_payroll_training_plan_reward_performance", reason: "outside the currently admitted reusable adapters; no record is discarded by this tool" },
   ],
 });
 
@@ -75,7 +78,7 @@ function recipeSha256() {
   // Bind the actual verified projector bytes, not merely a local field list.
   // An unchanged source can therefore reuse the recipe, while mapper drift is
   // visible before package construction rather than silently changing output.
-  const ruleFiles = ["yuzhou-training-incremental-projection.mjs","yuzhou-record-original-exclusions.mjs","contracts/yuzhou-original-credential-exclusions-v1.json","yuzhou-record-incremental-projection.mjs","../../packages/shared/src/hr-yuzhou-record-incremental.ts","yuzhou-family-incremental-projection.mjs","t5-nonfile-field-projection.mjs","../../packages/shared/src/hr-yuzhou-family-incremental.ts","yuzhou-organization-incremental-projection.mjs","yuzhou-profile-incremental-projection.mjs", "t5-retained-source-reader.mjs", "production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts", "../../packages/shared/src/hr-yuzhou-profile-baseline.ts"];
+  const ruleFiles = ["yuzhou-insurance-policy-incremental-projection.mjs","legacy-insurance-policy-normalization.mjs","yuzhou-training-incremental-projection.mjs","yuzhou-record-original-exclusions.mjs","contracts/yuzhou-original-credential-exclusions-v1.json","yuzhou-record-incremental-projection.mjs","../../packages/shared/src/hr-yuzhou-record-incremental.ts","yuzhou-family-incremental-projection.mjs","t5-nonfile-field-projection.mjs","../../packages/shared/src/hr-yuzhou-family-incremental.ts","yuzhou-organization-incremental-projection.mjs","yuzhou-profile-incremental-projection.mjs", "t5-retained-source-reader.mjs", "production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts", "../../packages/shared/src/hr-yuzhou-profile-baseline.ts"];
   const ruleHashes = Object.fromEntries(ruleFiles.map(path => [path, sha256(readFileSync(fileURLToPath(new URL(path, import.meta.url))))]));
   return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, adapterSha256: sha256(readFileSync(fileURLToPath(import.meta.url))), ruleHashes, fields: ["employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
 }
@@ -256,7 +259,28 @@ export function buildYuzhouReusableIncrementalPackage(input) {
     const projected=projectYuzhouTrainingHistory(row,employees);
     return {item:projected.candidate,declaration:{...projected.declaration,disposition:"api_eligible",admission:"server_original_or_new_source_proof_required"},sourceEvidence:{...projected.sourceEvidence,fieldCoverage:projected.sourceEvidence.fieldCoverage.map(entry=>({...entry,...(entry.disposition==="fixed_mapping_candidate"?{disposition:"supported"}:{})}))}};
   });
-  const adapted = [...trainingAdapted, ...recordAdapted, ...familyAdapted, ...hierarchy.adapted, ...employeeAdapted, ...profileAdapted, ...input.records.map(row => itemForContract(row, employees, states, types))];
+  if(input.insurancePolicyRecords!==undefined&&!Array.isArray(input.insurancePolicyRecords))fail("YUZHOU_INSURANCE_POLICY_SOURCE_INVALID");
+  const witnesses=input.insurancePolicyBaselineWitnesses??{};
+  if(!plain(witnesses))fail("YUZHOU_INSURANCE_POLICY_WITNESS_INVALID");
+  const remaining=new Set(Object.keys(witnesses));
+  const insuranceAdapted=(input.insurancePolicyRecords??[]).map(row=>{
+    const projected=projectYuzhouInsurancePolicy(row),item=projected.candidate;
+    for(const factor of item.fields.items)for(const [key,value] of Object.entries(factor)){
+      if(["kind","variant"].includes(key)||value===null)continue;
+      const [whole,fraction=""]=value.replace(/^[+-]/u,"").split(".");
+      const scale=key.endsWith("Rate")?6:3;
+      if((whole.replace(/^0+/u,"")||"0").length>18-scale||fraction.replace(/0+$/u,"").length>scale)fail("YUZHOU_INSURANCE_POLICY_TARGET_PRECISION_INVALID");
+    }
+    const witness=witnesses[item.sourceKey];
+    if(witness!==undefined){
+      if(!plain(witness)||Object.keys(witness).sort().join(",")!=="items,operationId,policy,source"||!/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(witness.operationId??"")||!plain(witness.source)||!Number.isInteger(witness.source.id)||sha256(`dbo.insure_method\0${witness.source.id}`)!==item.sourceKey.slice(7)||!plain(witness.policy)||!Array.isArray(witness.items)||witness.items.length!==6)fail("YUZHOU_INSURANCE_POLICY_WITNESS_INVALID");
+      for(const target of [witness.policy,...witness.items])if(!plain(target)||Object.keys(target).sort().join(",")!=="projection,targetId"||typeof target.targetId!=="string"||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(target.targetId)||!plain(target.projection))fail("YUZHOU_INSURANCE_POLICY_WITNESS_INVALID");
+      item.insurancePolicyBaselineWitness=structuredClone(witness);remaining.delete(item.sourceKey);
+    }
+    return {item,declaration:{...projected.declaration,disposition:"api_eligible",admission:"server_original_or_new_source_proof_required"},sourceEvidence:{sourceIdentitySha256:row.sourceIdentitySha256,sourceRowSha256:row.sourceRowSha256,fieldCoverage:YUZHOU_INSURANCE_POLICY_FIELD_COVERAGE.map(field=>({...field,disposition:"supported"})),...(witness?{originalWitnessSha256:sha256(canonical(witness))}:{})}};
+  });
+  if(remaining.size)fail("YUZHOU_INSURANCE_POLICY_WITNESS_UNMATCHED");
+  const adapted = [...insuranceAdapted, ...trainingAdapted, ...recordAdapted, ...familyAdapted, ...hierarchy.adapted, ...employeeAdapted, ...profileAdapted, ...input.records.map(row => itemForContract(row, employees, states, types))];
   const items = orderHierarchyItems(adapted.flatMap(value => value.item ? [value.item] : []).sort((left, right) => DOMAIN_ORDER[left.domain] - DOMAIN_ORDER[right.domain] || `${left.sourceTable}\0${left.sourceKey}`.localeCompare(`${right.sourceTable}\0${right.sourceKey}`)));
   const declarations = adapted.map(value => value.declaration).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));
   const sourceEvidence = adapted.map(value => value.sourceEvidence).sort((left, right) => left.sourceIdentitySha256.localeCompare(right.sourceIdentitySha256));

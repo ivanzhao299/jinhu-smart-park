@@ -29,7 +29,7 @@ export function HrImportsClient() {
   return <PermissionGuard module="hr" fallback={<ForbiddenState variant="page" reason="module" />}>
     {canEnterImport(user)
       ? <ImportWorkbench key={context} isCurrent={() => currentContext.current === context} />
-      : <ForbiddenState variant="page" message="当前账号没有组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照或培训导入与结果查询权限。" />}
+      : <ForbiddenState variant="page" message="当前账号没有组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照、培训或保险政策导入与结果查询权限。" />}
   </PermissionGuard>;
 }
 
@@ -60,8 +60,8 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
     {state.error ? <div className="ds-panel" role="alert">{state.error}</div> : null}
     <section className={`ds-panel ${styles.section}`} aria-labelledby="source-heading">
       <div><span className="ds-eyebrow">第一步</span><h2 id="source-heading">选择数据包</h2>
-        <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照和培训历史，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
-        <p className="ds-field-hint">招聘、考勤、薪酬、保险、培训计划和附件等来源尚不支持通过此入口导入。</p></div>
+        <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照、培训历史和保险政策，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
+        <p className="ds-field-hint">招聘、考勤、薪酬、人员参保期间、培训计划和附件等来源尚不支持通过此入口导入。</p></div>
       <LocalJsonFilePicker policy={IMPORT_FILE_POLICY} fileName={state.summary?.fileName} disabled={!!state.busy || state.uncertain}
         onSelect={file => { setQueryId(null); setConfirmed(false); void store.select(file); }} />
       {state.summary ? <div className={styles.records}>
