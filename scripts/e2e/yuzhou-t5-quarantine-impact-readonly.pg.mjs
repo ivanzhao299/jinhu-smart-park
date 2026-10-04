@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import process from 'node:process';
 import { URL } from 'node:url';
 import pg from 'pg';
-import { buildT5QuarantineImpactReadonlySql, sanitizeT5QuarantineImpactObservation,
+import { buildT5QuarantineImpactReadonlySql, sanitizeT5QuarantineImpactObservation,sanitizeCurrentReviewReferences,
   buildT5ProfileAggregateReadonlySql, sanitizeT5ProfileAggregateObservation, buildCredentialExclusionReadonlySql, sanitizeCredentialExclusionObservation } from '../diagnose-production-runtime-revision.mjs';
 
 // Fixed existing loopback lab only; never connect to an existing business database.
@@ -269,6 +269,20 @@ try {
   assert.deepEqual(settings.find(r=>r.rows.length).rows[0],{readonly:'on',isolation:'repeatable read',timeout:'30s',lock_timeout:'2s'});checks++;
   await assert.rejects(client.query(buildT5QuarantineImpactReadonlySql().replace('WITH operation AS (',
     "UPDATE hr_employee SET remark='forbidden'; WITH operation AS (")),{code:'25006'});await client.query('ROLLBACK');checks++;
+  stage='private current review references';
+  const savedState=(await client.query('SELECT owned_state FROM hr_yuzhou_t5_followon_operation')).rows[0].owned_state;
+  await client.query("UPDATE hr_yuzhou_t5_followon_projection_receipt SET reason_code='EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS' WHERE target_table='hr_employee_profile' AND reason_code IN ('ACTIVE_EMPLOYEE','HISTORICAL','UNRESOLVED','MISSING')");
+  await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=hr_yuzhou_t5_followon_owned_state(operation_id)');
+  const privateReview=()=>observe(buildT5QuarantineImpactReadonlySql({reviewReferences:true}),sanitizeCurrentReviewReferences);
+  let refs=await privateReview();assert.equal(refs.references.length,1);assert.equal(refs.references[0].employeeId,employees.get('active_employee'));checks++;
+  await client.query('UPDATE legacy_record_map SET is_active=false WHERE id=$1',[maps.get('active_employee')]);
+  refs=await privateReview();assert.equal(refs.references.length,0);checks++;
+  await client.query('UPDATE legacy_record_map SET is_active=true WHERE id=$1',[maps.get('active_employee')]);
+  await client.query("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=encrypted_source||'00' WHERE id=$1",[sources.get('active_employee')]);
+  await assert.rejects(privateReview(),{code:'PRODUCTION_RUNTIME_REVIEW_RESULT_INVALID'});checks++;
+  await client.query("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=left(encrypted_source,length(encrypted_source)-2) WHERE id=$1",[sources.get('active_employee')]);
+  for(const label of ['active_employee','historical','unresolved','missing'])await client.query('UPDATE hr_yuzhou_t5_followon_projection_receipt SET reason_code=$1 WHERE target_table=\'hr_employee_profile\' AND source_identity_sha256=$2',[label.toUpperCase(),sha(label)]);
+  await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$1',[savedState]);
   stage='source drift';
   await client.query('UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=encrypted_source||\'00\' WHERE id=$1',[sources.get('historical')]);
   let result=await impact();assert.equal(result.status,'FAIL');assert.equal(result.sourceAggregateMatches,false);assert.equal(result.receiptAggregateMatches,true);checks++;

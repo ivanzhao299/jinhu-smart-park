@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Standalone stdin-capable, local Docker read-only observation. No receipt authority. */
 import process from "node:process";
+import { randomBytes, publicEncrypt, createCipheriv, constants } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { resolve, posix } from "node:path";
@@ -395,8 +396,8 @@ export function observeT5ProfileAggregateReadonly() {
 
 const T5_RECEIPT_TABLES = new Set(['hr_employee_profile','hr_employee_family','hr_employee_skill','hr_employee_credential','hr_custom_field_definition','hr_custom_field_legacy_logic_fingerprint','hr_employee_custom_value','hr_legacy_identity_registry','hr_legacy_archive_record','hr_legacy_file_logical_record','hr_legacy_file_blob_object','hr_yuzhou_t5_followon_source','sys_file']);
 /** Counts only; immutable source owners are used without decrypting source values. */
-export function buildT5QuarantineImpactReadonlySql() {
-  return `${t5ReadonlyOperationSql()}, receipts AS (
+export function buildT5QuarantineImpactReadonlySql({reviewReferences=false}={}) {
+  const sql = `${t5ReadonlyOperationSql()}, receipts AS (
  SELECT r.* FROM public.hr_yuzhou_t5_followon_projection_receipt r JOIN operation o USING(operation_id)
 ), sources AS (
  SELECT x.* FROM public.hr_yuzhou_t5_followon_source x JOIN receipts r ON r.target_id=x.id
@@ -452,7 +453,8 @@ export function buildT5QuarantineImpactReadonlySql() {
  UNION ALL SELECT employee_id,'reconciliation' FROM reconciliation_participants
  ) f GROUP BY employee_id
 ), classified AS (
- SELECT r.target_table,r.reason_code,e.id employee_id,f.payroll,f.legacy_book,f.insurance,f.reconciliation,
+ SELECT r.target_table,r.reason_code,r.source_identity_sha256,r.source_row_sha256,
+ encode(public.digest(to_jsonb(r)::text,'sha256'),'hex') receipt_sha256,e.id employee_id,f.payroll,f.legacy_book,f.insurance,f.reconciliation,
  CASE WHEN x.source_count IS NULL THEN 'source_missing'
  WHEN x.source_count<>1 THEN 'source_ambiguous'
  WHEN x.owner_status<>'mapped' THEN 'unresolved_owner'
@@ -512,6 +514,21 @@ SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),
   'financialDependencyRecords',financial,'openPayrollRecords',payroll,'unclosedLegacyBookRecords',legacy_book,
   'unclosedModernInsuranceRecords',insurance,'pendingReconciliationRecords',reconciliation)
   ORDER BY target_table,reason_code) FROM groups),'[]'::json))::text;
+ROLLBACK;
+`;
+  if(!reviewReferences)return sql;
+  return sql.slice(0,sql.indexOf(", groups AS ("))+`
+SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),
+ 'sourceAggregateMatches',COALESCE((SELECT o.owned_state->'hr_yuzhou_t5_followon_source'->>'count'=s.n::text AND o.owned_state->'hr_yuzhou_t5_followon_source'->>'sha256'=s.h FROM operation o CROSS JOIN source_hash s),false),
+ 'receiptAggregateMatches',COALESCE((SELECT o.owned_state->'receipts'->>'count'=r.n::text AND o.owned_state->'receipts'->>'sha256'=r.h FROM operation o CROSS JOIN receipt_hash r),false),
+ 'references',COALESCE((SELECT json_agg(json_build_object(
+  'targetTable',target_table,'reasonCode',reason_code,'employeeId',employee_id,
+  'sourceIdentitySha256',source_identity_sha256,'sourceRowSha256',source_row_sha256,'decisionReceiptSha256',receipt_sha256,
+  'financialFlags',json_build_object('payroll',COALESCE(payroll,false),'legacyBook',COALESCE(legacy_book,false),'insurance',COALESCE(insurance,false),'reconciliation',COALESCE(reconciliation,false)))
+  ORDER BY target_table,source_identity_sha256,source_row_sha256,receipt_sha256)
+ FROM classified WHERE disposition='current_impact' AND
+ ((target_table='hr_employee_profile' AND reason_code='EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS') OR
+  (target_table IN ('hr_employee_family','hr_employee_credential') AND reason_code='SOURCE_MATERIALIZATION_QUARANTINED'))),'[]'::json))::text;
 ROLLBACK;
 `;
 }
@@ -618,6 +635,33 @@ export function observeCredentialExclusionsReadonly() {
   return sanitizeCredentialExclusionObservation(raw);
 }
 
+
+/** Private review references only, never personal values; encrypted before public transport. */
+export function sanitizeCurrentReviewReferences(raw){
+ let v;try{if(typeof raw!=="string"||Buffer.byteLength(raw)>65536)fail("REVIEW_RESULT_INVALID");v=JSON.parse(raw);}catch{fail("REVIEW_RESULT_INVALID");}
+ if(!exactKeys(v,["operationBound","sourceAggregateMatches","receiptAggregateMatches","references"])||![v.operationBound,v.sourceAggregateMatches,v.receiptAggregateMatches].every(x=>x===true)||!Array.isArray(v.references)||v.references.length>500)fail("REVIEW_RESULT_INVALID");
+ const seen=new Set();const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+ for(const r of v.references){
+  if(!exactKeys(r,["targetTable","reasonCode","employeeId","sourceIdentitySha256","sourceRowSha256","decisionReceiptSha256","financialFlags"])||!uuid.test(r.employeeId)||![r.sourceIdentitySha256,r.sourceRowSha256,r.decisionReceiptSha256].every(x=>typeof x==="string"&&ID.test(x)))fail("REVIEW_RESULT_INVALID");
+  if(!(r.targetTable==="hr_employee_profile"&&r.reasonCode==="EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS")&&!( ["hr_employee_family","hr_employee_credential"].includes(r.targetTable)&&r.reasonCode==="SOURCE_MATERIALIZATION_QUARANTINED"))fail("REVIEW_RESULT_INVALID");
+  if(!exactKeys(r.financialFlags,["payroll","legacyBook","insurance","reconciliation"])||!Object.values(r.financialFlags).every(x=>typeof x==="boolean"))fail("REVIEW_RESULT_INVALID");
+  const key=[r.targetTable,r.sourceIdentitySha256,r.sourceRowSha256,r.decisionReceiptSha256].join(":");if(seen.has(key))fail("REVIEW_RESULT_INVALID");seen.add(key);
+ }
+ return v;
+}
+export function encryptCurrentReviewReferences(raw,publicKey){
+ const v=sanitizeCurrentReviewReferences(raw),key=randomBytes(32),iv=randomBytes(12),aad=Buffer.from("yuzhou-t5-current-review-v1:10000001:20000001");
+ const cipher=createCipheriv("aes-256-gcm",key,iv);cipher.setAAD(aad);
+ const ciphertext=Buffer.concat([cipher.update(JSON.stringify(v),"utf8"),cipher.final()]);
+ const wrappedKey=publicEncrypt({key:publicKey,padding:constants.RSA_PKCS1_OAEP_PADDING,oaepHash:"sha256"},key);key.fill(0);
+ return {formatVersion:1,kind:"encrypted_t5_current_review",recordCount:v.references.length,algorithm:"RSA-OAEP-SHA256+A256GCM",aad:aad.toString("base64"),iv:iv.toString("base64"),tag:cipher.getAuthTag().toString("base64"),wrappedKey:wrappedKey.toString("base64"),ciphertext:ciphertext.toString("base64"),productionWrites:false};
+}
+const REVIEW_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmnytf9RRwh+jJQI3r6eJ\nEyrGxxlM9/HQgPhne3NdPEMDQWw5AuabW5JLoVrEcyNZnLoe/Id7TaNj+ZxDxdzZ\ndsVjwI/artF5ZMm7hO1W5GboaCfX8O3DdwSgaqZSQGlAQUKZZniVvUSLBSsDJ3s5\nPM9tbNDGxZiZQYWfU45Q+kDxjpy00zR3ureAq1QaXm8TFus9D5un9VUgZWoPTFfd\nUbWXM0egX0D5wyT46ZyxUSF1IEOR640CTak+BsP8tsklskkbMV+y/4U7TYKf/z3u\nOOttr2f0q4Q8DDkCQ3k/XLkVgsy/3Fi8pugyUl7ja3tu/CmPP9TW6W/RcHBYNTDI\n5wIDAQAB\n-----END PUBLIC KEY-----\n";
+function observeEncryptedCurrentReview(){
+ let raw;try{raw=execFileSync("docker",["--host","unix:///var/run/docker.sock","exec","-i","jinhu-smart-park-prod-postgres","sh","-c",'exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildT5QuarantineImpactReadonlySql({reviewReferences:true}),encoding:"utf8",timeout:40000,maxBuffer:65536,stdio:["pipe","pipe","pipe"]});}catch{fail("REVIEW_QUERY_FAILED");}
+ return encryptCurrentReviewReferences(raw,REVIEW_PUBLIC_KEY);
+}
+
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -641,7 +685,10 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const t5OriginalFamilyAggregate=observeT5FamilyAggregateReadonly();
     const formalExtendedRecords=observeExtendedRecordsReadonly();
     const originalCredentialExclusions=observeCredentialExclusionsReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions}) + "\n");
+    const encryptedCurrentReview=observeEncryptedCurrentReview();
+    const expectedReviewCount=t5QuarantineImpact.groups.filter(g=>(g.targetTable==="hr_employee_profile"&&g.reasonCode==="EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS")||(["hr_employee_family","hr_employee_credential"].includes(g.targetTable)&&g.reasonCode==="SOURCE_MATERIALIZATION_QUARANTINED")).reduce((n,g)=>n+g.currentImpactRecords,0);
+    if(encryptedCurrentReview.recordCount!==expectedReviewCount)fail("REVIEW_SNAPSHOT_CHANGED");
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions,encryptedCurrentReview}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {
