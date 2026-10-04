@@ -152,6 +152,18 @@ try {
   writeFileSync(join(familyStage,"family.jsonl"),JSON.stringify(malformed).replaceAll("\\","\\\\")+"\n",{mode:0o600});
   const badManifest=json(join(familyStage,"manifest.json"));badManifest.domains.family.fileSha256=sha(readFileSync(join(familyStage,"family.jsonl")));put(join(familyStage,"manifest.json"),badManifest);
   assert.throws(()=>attempt({...familyConfig,familyManifest:{path:join(familyStage,"manifest.json"),sha256:sha(readFileSync(join(familyStage,"manifest.json")))}}));checks++;
+  const trainingStage=join(base,"training-stage");mkdirSync(trainingStage,{mode:0o700});
+  const trainingSource={id:7654,person:person.employeeCode,organ:null,coursename:"Synthetic staging course",startdate:"2020-02-29T00:00:00",enddate:"2020-03-01T00:00:00",hours:8,attainment:null,test:null,trainmoney:null,memo:null};
+  const trainingRow={sourceTable:"dbo.trainhis",sourceKey:"7654",sourceIdentitySha256:sha("dbo.trainhis\0"+7654),sourceRowSha256:sha(canonical(trainingSource)),source:trainingSource};
+  const trainingPath=join(trainingStage,"trainhis.jsonl");writeFileSync(trainingPath,JSON.stringify(trainingRow).replaceAll("\\","\\\\")+"\n",{mode:0o600});
+  put(join(trainingStage,"manifest.json"),{formatVersion:1,productionImport:"HOLD",domains:{trainhis:{sourceObject:"dbo.trainhis",file:"trainhis.jsonl",rows:1,fileSha256:sha(readFileSync(trainingPath))}}});
+  const trainingConfig={...config,includeEmployees:false,t2Manifest:undefined,trainingManifest:manifestRef(trainingStage)};
+  const training=attempt(trainingConfig),trainingBuilt=buildYuzhouReusableIncrementalPackage(training.input);
+  assert.equal(training.receipt.apiInput.training_history,1);assert.equal(trainingBuilt.packageDto.items[0].domain,"training_history");checks+=2;
+  const tamperedTraining={...trainingRow,sourceRowSha256:sha("bad training row")};
+  writeFileSync(trainingPath,JSON.stringify(tamperedTraining).replaceAll("\\","\\\\")+"\n");
+  const editedTraining=json(join(trainingStage,"manifest.json"));editedTraining.domains.trainhis.fileSha256=sha(readFileSync(trainingPath));put(join(trainingStage,"manifest.json"),editedTraining);
+  assert.throws(()=>attempt({...trainingConfig,trainingManifest:manifestRef(trainingStage)}));checks++;
   // Hash-valid manifest count drift must still fail, rather than dropping a row.
   const manifest = json(config.t0Manifest.path); manifest.domains.employees.rows = 0; put(config.t0Manifest.path, manifest);
   assert.throws(() => attempt({ t0Manifest: manifestRef(t0) })); checks++;

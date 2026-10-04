@@ -793,6 +793,9 @@ await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
 - Resolve `park | managed_org_tree | self | none` in the service. Team readers receive no employee/participant UUID, cost, score, assessment, or certificate fields and cannot perform participant actions; self readers see only their own row. Cost and certificate fields additionally require their exact permissions.
 - Plan selectors use the exact plan-management permission and return only minimal current course/employee options; they must not depend on broad employee-directory read access.
 - A position-course requirement freezes the selected course version and is scoped to one tenant/park position. It may transition only from `enabled` to `disabled`; changing a rule means retaining the old evidence and creating a fresh requirement. Course managers manage the matrix, while plan managers may read the employee completion-gap projection. Completion is derived only from a non-cancelled plan with a completed participant for the required course and never writes employee, payroll, or performance state.
+- The internal training-history transaction primitive requires an active caller transaction, matching actor tenant/park and exact course/plan/progress permissions. It creates real versioned course, draft plan and roster, then follows legal publish/start/complete transitions with append-only action rows. Reviewed historical dates use Asia/Shanghai completion; unknown score/cost/provider/evaluation remain unset. This primitive does not certify source custody or provide ledger/replay/API admission.
+- The prepared training source executor serializes full source identities and stores encrypted source/target facts in the ordinary item ledger, with immutable scoped training bindings. Preview has no business/baseline effects; commit/replay, corrections, ledger and revision share the caller transaction. An original archive requires server-side receipt/source/operation/parent binding authentication; an unaccepted existing historical projection is never duplicated. Migration 340 and executor preparation alone do not admit the public domain or prove production acceptance.
+- Source hours amendments append a result correction under participant lock and expected correction sequence, retaining frozen original completion and snapshot. The field plan preserves modern corrections on unchanged source, allows convergence, blocks same-field divergence and unknown baselines; published snapshot changes need a separate business revision path.
 - Completion/results are immutable. Corrections append exact `numeric(20,4)` deltas and the latest projection is cumulative; state-changing writes, deduplicated privacy-safe `biz_user_message` rows, and audit records share one transaction and pessimistic/advisory locking.
 - Certificate files require `biz_type='hr_training_certificate'`, `biz_id=participant.id`, matching tenant/park, active state, exact document permission, and required audit before metadata/headers/stream. Generic file deletion must reject referenced certificates.
 
@@ -1374,3 +1377,11 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 ### 7. Wrong vs Correct
 - Wrong: `managerEmployeeId: dto.managerEmployeeId ?? null` or reading version before locking.
 - Correct: preserve when undefined; under the locked row compare expectedVersion, apply submitted ordinary fields, and atomically persist the increment plus event.
+
+### 培训持续导入公共接口（2026-10-05，本地验证）
+
+- shared training_history仅允许employeeSourceTable/Key、courseName/startDate/endDate/hours，固定源dbo.trainhis；不接受其他领域见证或猜测结果字段。
+- 公共preview/commit使用独立executeYuzhouTrainingItem，同包员工预览仅在新源且无prior/原归档时允许占位，提交始终解析正式员工。通用incrementalTable对training_history明确拒绝，防止落入合同表更新。
+- 预览/提交必须同时具备课程、计划、进度manage；查询仅全培训read或完整manage。控制器任一入口权限不能替代服务逐领域全权限。Web同步完整集合。
+- 统一构包trainingRecords/受控staging trainingManifest和接口文件复用同一映射及摘要；单包事务，跨包按依赖顺序，不宣称跨包原子。
+- 10组实际PG含真实CLI包到公共服务；合成最小前置/T5回执夹具不证明全库迁移、生产或真实新增批次已完成。同包新组织/在职员工/培训提交和后续培训失败的整包回滚已验证；发布/岗位验收仍待完成。
