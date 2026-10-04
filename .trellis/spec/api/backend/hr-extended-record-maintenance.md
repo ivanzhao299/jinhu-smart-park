@@ -9,7 +9,7 @@
 - 同事务员工锁、目标锁、版本递增、加密 before/after 追加记录；新增同事务追加 create。变更写入失败，目标写入回滚。
 - 归档仅 is_deleted=true，不删除数据；源身份、源行 hash、原导入回执不变。既有导入记录无 create 变更也允许从 v1 正常维护，首个 update 保存原完整 before。
 - 迁移000338仅创建追加式变更表、索引、FK及不可变触发器，不更新业务历史数据。
-- Web 待接入；本后端候选验证不能宣称生产页面可编辑或该模块已验收。
+- Web 通过 HrExtendedRecordMaintenance 和 HrExtendedRecords 接入，同一员工范围捕获使晚到响应失效。未知/无效版本不允许维护；掩码不作为编号草稿。使用 ds-panel、ds-scene-card、form-field 和既有响应式表单布局。页面技术验收不能替代生产真实角色业务验收。
 
 ## 验证
 

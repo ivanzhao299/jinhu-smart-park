@@ -605,11 +605,11 @@ export class HrLifecycleService {
     const recordFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ);
     const [experiences, skills, family, credentials] = await Promise.all([
       this.db.query(
-        `SELECT id,version,experience_type "type",organization_name "organizationName",title,start_date "startDate",end_date "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
+        `SELECT id,version,experience_type "type",organization_name "organizationName",title,to_char(start_date, 'YYYY-MM-DD') "startDate",to_char(end_date, 'YYYY-MM-DD') "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
         [s.tenantId, s.parkId, employeeId],
       ),
       this.db.query(
-        `SELECT id,version,skill_name "skillName",proficiency,acquired_date "acquiredDate",note${recordFull?',legacy_grade "legacyGrade"':''} FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
+        `SELECT id,version,skill_name "skillName",proficiency,to_char(acquired_date, 'YYYY-MM-DD') "acquiredDate",note${recordFull?',legacy_grade "legacyGrade"':''} FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
         [s.tenantId, s.parkId, employeeId],
       ),
       familyAllowed
@@ -620,7 +620,7 @@ export class HrLifecycleService {
         : Promise.resolve([]),
       credentialAllowed
         ? this.db.query(
-            `SELECT id,version,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note${credentialFull?',legacy_file_reference_sha256 "legacyFileReferenceSha256",number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
+            `SELECT id,version,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",to_char(acquired_date, 'YYYY-MM-DD') "acquiredDate",to_char(valid_to, 'YYYY-MM-DD') "validTo",note${credentialFull?',legacy_file_reference_sha256 "legacyFileReferenceSha256",number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),
@@ -717,7 +717,7 @@ export class HrLifecycleService {
     if (d.recordType === "skill") {
       if (!d.skillName) throw new BadRequestException("Skill name is required");
       const r = await manager.query(
-        `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8) RETURNING id`,
+        `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,legacy_grade,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING id`,
         [
           s.tenantId,
           s.parkId,
@@ -726,6 +726,7 @@ export class HrLifecycleService {
           d.proficiency ?? null,
           d.acquiredDate ?? null,
           d.note ?? null,
+          d.legacyGrade ?? null,
           a.sub,
         ],
       );
@@ -778,6 +779,9 @@ export class HrLifecycleService {
     );
     await recordCreation("experience",r[0].id);
     return { id: r[0].id, recordType: d.recordType, version:1 };
+    }).catch((error:unknown)=>{
+      if((error as {code?:string}).code==="23505")throw new ConflictException("An employee record already uses this name");
+      throw error;
     });
   }
 }

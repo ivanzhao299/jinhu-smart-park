@@ -147,7 +147,8 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: synthetic-scope-ci-only
           HR_FAMILY_PG_REQUIRED: "1"
-        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-family-record.pg.spec.ts
+          HR_RECORDS_PG_REQUIRED: "1"
+        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-family-record.pg.spec.ts src/modules/hr/hr-record-maintenance.pg.spec.ts
 
   verify:
     name: Lint, Typecheck, Build

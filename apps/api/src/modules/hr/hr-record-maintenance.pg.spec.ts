@@ -38,13 +38,14 @@ test("formal extended records: actual PG CAS, encrypted history, owner scope, ar
     const svc=new HrLifecycleService(db,sensitive,{} as never),rival=new HrLifecycleService(rivalDb,sensitive,{} as never);
     const cases=[
       {kind:"experience" as const,input:{recordType:"work",organizationName:"Synthetic org",startDate:"2020-01-01"},patch:{title:"Updated"}},
-      {kind:"skill" as const,input:{recordType:"skill",skillName:"Synthetic skill"},patch:{note:"Updated",legacyGrade:"Level 2"}},
+      {kind:"skill" as const,input:{recordType:"skill",skillName:"Synthetic skill",legacyGrade:"Initial grade"},patch:{note:"Updated",legacyGrade:"Level 2"}},
       {kind:"credential" as const,input:{recordType:"credential",credentialType:"synthetic",credentialName:"Synthetic credential",credentialNumber:"SYN-SECRET",acquiredDate:"2020-01-01"},patch:{note:"Updated"}},
     ];
     for(const c of cases){
       const record=await svc.createRecord(s,a,employee,c.input);assert.equal(record.version,1);
       const table=`hr_employee_${c.kind}`,id=record.id;
       const initial:{number_encrypted:string}=(await db.query(`SELECT * FROM ${table} WHERE id=$1`,[id]))[0];
+      if(c.kind==="skill")assert.equal((await db.query(`SELECT legacy_grade FROM ${table} WHERE id=$1`,[id]))[0].legacy_grade,"Initial grade");
       if(c.kind!=="experience")await db.query(`UPDATE ${table} SET legacy_source_identity_sha256=$2,legacy_source_row_sha256=$3 WHERE id=$1`,[id,"a".repeat(64),"b".repeat(64)]);
       await assert.rejects(svc.mutateEmployeeRecord(s,{...a,permissions:[]},employee,c.kind,id,{expectedVersion:1,...c.patch},"update"),ForbiddenException);
       await assert.rejects(svc.mutateEmployeeRecord({...s,parkId:"foreign"},a,employee,c.kind,id,{expectedVersion:1,...c.patch},"update"),NotFoundException);
