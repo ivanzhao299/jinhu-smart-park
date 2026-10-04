@@ -4,7 +4,7 @@ import { HrEmployeesClient } from "../../app/hr/employees/HrEmployeesClient";
 import { ApiError } from "../../lib/api-client";
 import { hrApi, type HrEmployee, type HrEmployeeProfile } from "../../lib/hr-api";
 
-vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), updateProfile: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), customValues: vi.fn(), updateCustomValue: vi.fn(), updateProfile: vi.fn() } }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-test-token" }));
 const auth = vi.hoisted(() => ({ permissions: ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"] }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ id: "synthetic-user", permissions: auth.permissions }) }));
@@ -32,10 +32,28 @@ beforeEach(() => {
   auth.permissions = ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"];
   vi.mocked(hrApi.employees).mockReset().mockResolvedValue({ items: [employee()], total: 1, page: 1, page_size: 50 });
   vi.mocked(hrApi.employee).mockReset().mockImplementation(async id => employee(id));
+  vi.mocked(hrApi.customValues).mockReset().mockImplementation(async employeeId => ({employeeId,fields:[]}));
   vi.mocked(hrApi.profile).mockReset(); vi.mocked(hrApi.updateProfile).mockReset();
 });
 
 describe("employee profile read admission", () => {
+  it("loads maintainable custom fields for an employee with no basic profile", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(null);
+    vi.mocked(hrApi.customValues).mockResolvedValue({employeeId:"alpha",fields:[{definitionId:"def-id",version:0,code:"def1",label:"Synthetic extension",valueType:"text",group:null,sortOrder:0,value:null,sourceValid:true}]});
+    render(<HrEmployeesClient />); await openFirst();
+    expect(await screen.findByRole("form",{name:"维护Synthetic extension"})).toBeInTheDocument();
+    expect(hrApi.customValues).toHaveBeenCalledWith("alpha","synthetic-test-token",expect.any(AbortSignal));
+    expect(screen.getByRole("button",{name:"保存字段"})).not.toBeDisabled();
+  });
+  it("rejects another employee's custom values when the basic profile is absent", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(null);
+    vi.mocked(hrApi.customValues).mockResolvedValue({employeeId:"foreign",fields:[{definitionId:"foreign-def",version:0,code:"def1",label:"Foreign extension",valueType:"text",group:null,sortOrder:0,value:"foreign private",sourceValid:true}]});
+    render(<HrEmployeesClient />); await openFirst();
+    await screen.findByText("扩展档案加载失败，请重新加载员工详情。");
+    expect(screen.queryByText("foreign private")).toBeNull();
+    expect(screen.queryByRole("button",{name:"保存字段"})).toBeNull();
+  });
+
   it("keeps the exact employee archive link behind its existing read permission", async () => {
     auth.permissions.push("hr:legacy_archive:read");
     vi.mocked(hrApi.profile).mockResolvedValue(profile());

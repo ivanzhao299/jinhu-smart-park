@@ -1,0 +1,24 @@
+.panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  margin-block: 20px;
+}
+
+.panel h3,
+.panel p {
+  margin: 0;
+}
+
+.clearOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 16px;
+  }
+}
