@@ -57,6 +57,6 @@
 
 技能/证照使用同一DTO、preview/commit/status和正常record manage权限；结果读取分别允许record read/credential read或manage。未知字段由共享allowlist及字段normalizer拒绝。原来源认证不能由离线构包授予；preview与commit均在事务内重新验证。
 
-统一CLI的recordRecords通过固定projector生成两域DTO，recipe绑定projector与共享字段规则；同包employee先于child、按现有2000条/8MiB分批。来源漂移、重复和必填错误失败，不自动丢弃；日期/掩码及文件关联pending覆盖必须留在私有manifest。原3条异常回执精确重用及生产首次验收仍未完成。
+统一CLI的recordRecords通过固定projector生成两域DTO，recipe绑定projector与共享字段规则；同包employee先于child、按现有2000条/8MiB分批。来源漂移、重复和必填错误失败，不自动丢弃；日期/掩码及文件关联pending覆盖必须留在私有manifest。原3条异常回执已通过生产只读来源/回执整组摘要对应，仅对不变原行保留原隔离；生产首次增量验收仍未完成。
 
 本地真实PG新增公共DTO/preview/commit/status原首次接纳、同包重放、同事实再预览、只读结果/提交拒绝及同包员工依赖测试。固定入口契约新增digest/排序/重复/2000条边界/pending测试并进入CI。不把本地通过或候选数量一致当作生产导入完成。

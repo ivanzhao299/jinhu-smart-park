@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { originalYuzhouRecordExclusion, YUZHOU_RECORD_ORIGINAL_EXCLUSIONS_SHA256 } from "./yuzhou-record-original-exclusions.mjs";
 import { projectYuzhouExtendedRecord, YUZHOU_RECORD_FIELD_COVERAGE } from "./yuzhou-record-incremental-projection.mjs";
 import { projectYuzhouFamily, YUZHOU_FAMILY_FIELD_COVERAGE } from "./yuzhou-family-incremental-projection.mjs";
 import { projectYuzhouOrganizationRecords, orderHierarchyItems } from "./yuzhou-organization-incremental-projection.mjs";
@@ -34,6 +35,7 @@ const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const privateDirectory = path => (statSync(path).mode & 0o777) === 0o700;
 
 export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
+  originalRecordExclusionsSha256: YUZHOU_RECORD_ORIGINAL_EXCLUSIONS_SHA256,
   recordFieldCoverage: YUZHOU_RECORD_FIELD_COVERAGE,
   familyFieldCoverage: YUZHOU_FAMILY_FIELD_COVERAGE,
   profileFieldCoverage: YUZHOU_PROFILE_FIELD_COVERAGE,
@@ -70,7 +72,7 @@ function recipeSha256() {
   // Bind the actual verified projector bytes, not merely a local field list.
   // An unchanged source can therefore reuse the recipe, while mapper drift is
   // visible before package construction rather than silently changing output.
-  const ruleFiles = ["yuzhou-record-incremental-projection.mjs","../../packages/shared/src/hr-yuzhou-record-incremental.ts","yuzhou-family-incremental-projection.mjs","t5-nonfile-field-projection.mjs","../../packages/shared/src/hr-yuzhou-family-incremental.ts","yuzhou-organization-incremental-projection.mjs","yuzhou-profile-incremental-projection.mjs", "t5-retained-source-reader.mjs", "production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts", "../../packages/shared/src/hr-yuzhou-profile-baseline.ts"];
+  const ruleFiles = ["yuzhou-record-original-exclusions.mjs","contracts/yuzhou-original-credential-exclusions-v1.json","yuzhou-record-incremental-projection.mjs","../../packages/shared/src/hr-yuzhou-record-incremental.ts","yuzhou-family-incremental-projection.mjs","t5-nonfile-field-projection.mjs","../../packages/shared/src/hr-yuzhou-family-incremental.ts","yuzhou-organization-incremental-projection.mjs","yuzhou-profile-incremental-projection.mjs", "t5-retained-source-reader.mjs", "production-t2-field-projection.mjs", "t2-contract-semantics.mjs", "production-import-target-model.mjs", "production-import-payload-generator.mjs", "contracts/production-import-target-model-v1.json", "yuzhou-job-state-decision-artifact-lib.mjs", "materialize-production-t0-decision-candidates.mjs", "../../packages/shared/src/hr-yuzhou-incremental.ts", "../../packages/shared/src/hr.ts", "../../packages/shared/src/hr-yuzhou-incremental-limits.json", "yuzhou-incremental-package-limits.mjs", "prepare-yuzhou-initial-baseline-witness.mjs", "production-import-sealed-plan-lib.mjs", "../../packages/shared/src/hr-yuzhou-initial-baseline.ts", "../../packages/shared/src/hr-yuzhou-profile-baseline.ts"];
   const ruleHashes = Object.fromEntries(ruleFiles.map(path => [path, sha256(readFileSync(fileURLToPath(new URL(path, import.meta.url))))]));
   return sha256(canonical({ recipeVersion: RECIPE_VERSION, sourceSystem: SOURCE_SYSTEM, adapterSha256: sha256(readFileSync(fileURLToPath(import.meta.url))), ruleHashes, fields: ["employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus"] }));
 }
@@ -234,7 +236,13 @@ export function buildYuzhouReusableIncrementalPackage(input) {
   if(input.familyRecords!==undefined&&!Array.isArray(input.familyRecords))fail("YUZHOU_FAMILY_SOURCE_INVALID");
   const familyAdapted=(input.familyRecords??[]).map(row=>projectYuzhouFamily(row,employees));
   if(input.recordRecords!==undefined&&!Array.isArray(input.recordRecords))fail("YUZHOU_RECORD_SOURCE_INVALID");
+  const recordSourceIdentities=new Set();
   const recordAdapted=(input.recordRecords??[]).map(row=>{
+    const key=`${row?.sourceTable}\0${row?.sourceIdentitySha256}`;
+    if(recordSourceIdentities.has(key))fail("YUZHOU_REUSABLE_INCREMENTAL_SOURCE_DUPLICATE");
+    recordSourceIdentities.add(key);
+    const originalExclusion=originalYuzhouRecordExclusion(row);
+    if(originalExclusion)return originalExclusion;
     const projected=projectYuzhouExtendedRecord(row,employees);
     // Offline eligibility never grants database admission: preview/commit authenticate
     // the original receipts and current field baseline under the normal permissions.
