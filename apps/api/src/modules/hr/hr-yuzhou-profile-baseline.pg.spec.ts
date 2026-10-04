@@ -14,6 +14,8 @@ import { HrEmployeeProfileEntity, HrEmployeeEntity, HrContractEntity, HrContract
 import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem } from "@jinhu/shared";
 import { ValidationPipe } from "@nestjs/common";
 import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
+import { originalFamily, certifyOriginalFamilies, originalFamilySourceFacts } from "./hr-yuzhou-family-baseline";
+import { HrLifecycleService } from "./hr-lifecycle.service";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
 const root=resolve(__dirname,"../../../../.."),sha=(s:string)=>createHash("sha256").update(s).digest("hex");
@@ -26,10 +28,10 @@ const requestDto=(value:unknown):Promise<PreviewYuzhouIncrementalImportDto>=>val
 const result=(value:unknown)=>value as {id:string;status:string;appliedCount:number;unchangedCount:number;plan:Array<{action:string;conflictFields:string[]}>};
 
 test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and immutable provenance",{skip:process.env.HR_YUZHOU_PROFILE_BASELINE_PG_REQUIRED!=="1",timeout:90000},async t=>{
-  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); assert.equal(process.env.POSTGRES_PORT,"55491");
+  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); const port=Number(process.env.POSTGRES_PORT);assert.ok([55491,55496].includes(port));
   const database=`jinhu_hr_profile_lab_${randomBytes(12).toString("hex")}`;
   assert.match(database,/^jinhu_hr_profile_lab_[a-f0-9]{24}$/);
-  const connection={type:"postgres" as const,host:"127.0.0.1",port:55491,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,database};
+  const connection={type:"postgres" as const,host:"127.0.0.1",port,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,database};
   const admin=new DataSource({...connection,database:"postgres"});await admin.initialize();
   let db:DataSource|undefined,created=false;
   try {
@@ -323,6 +325,8 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       assert.equal((await db.query(`SELECT count(*)::int n FROM hr_employee_profile WHERE employee_id=$1`,[profile.employeeId]))[0].n,1);
       t.diagnostic("Real CLI producer -> profile baseline -> ordinary three-way/CAS; business baseline equality and rollback asserted");
     } finally {rmSync(fixtureRoot,{recursive:true,force:true});}
+    await verifyFamilyOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
+    t.diagnostic("Family immutable receipts/owner/source plus original-set reconstruction and seven-field mapper PASS after modern update/archive");
   } finally {
     if(db?.isInitialized)await db.destroy();
     if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query(`SELECT count(*)::int n FROM pg_database WHERE datname=$1`,[database]))[0].n,0);}
@@ -350,3 +354,86 @@ test("first alias proof requires nonempty authenticated original source; malform
   }
   assert.equal(queried,false);
 });
+
+
+/** Reuse the real original core ownership fixture, with a separate T5 operation.
+ * This tiny declared fixture is not a rehearsal or actual source import. */
+async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensitiveDataService,employeeId:string,employeeIdentity:string) {
+  const historicalMutation=(sql:string,args:unknown[])=>db.transaction(async m=>{await m.query("SET LOCAL session_replication_role=replica");await m.query(sql,args);});
+  const migration=(name:string)=>readFileSync(resolve(root,"database/migrations",name),"utf8");
+  await db.query(`CREATE TABLE sys_user(tenant_id varchar(64),park_id varchar(64),id uuid,UNIQUE(tenant_id,park_id,id))`);
+  const schema=migration("000252_hr_lifecycle_employee_records.sql");
+  await db.query(schema.slice(schema.indexOf("CREATE TABLE hr_employee_family ("),schema.indexOf("CREATE TABLE hr_employee_experience (")));
+  const materialization=migration("000276_hr_legacy_employee_profile_materialization.sql");
+  await db.query(materialization.match(/ALTER TABLE hr_employee_family[\s\S]*?;/)![0]);
+  await db.query(migration("000336_hr_family_record_changes.sql"));
+  const actorId=randomUUID();await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
+  const familyOperation="yzprod-import-20261004T140000Z-abcdef123456";
+  const parent=(await db.query("SELECT * FROM hr_yuzhou_t5_followon_operation WHERE operation_id=$1",["yzprod-import-20261004T130000Z-abcdef123456"]))[0];
+  const binding={...parent.binding,operationId:familyOperation};
+  const map=(await db.query("SELECT id FROM legacy_record_map WHERE source_identity_sha256=$1 AND source_table='dbo.person' AND is_active",[employeeIdentity]))[0].id;
+  const ids=[randomUUID(),randomUUID()],sources=ids.map((_,i)=>({id:70+i,person:"OLD-0",rela:"子女",member:i===1?'Synthetic family "1"':"Synthetic family 0",tel:null,birthday:i===1?"1900-02-29":null,jobunit:"原单位",jobname:null,political:null}));
+  const identities=sources.map(source=>sha(`dbo.family\0${source.id}`));
+  const hashes=sources.map(source=>sha(canonicalYuzhouInitialJson(source)));
+  await db.transaction(async m=>{
+    await m.query("SET LOCAL session_replication_role=replica");
+    await m.query(`INSERT INTO hr_yuzhou_t5_followon_operation(operation_id,parent_operation_id,payroll_operation_id,binding_sha256,binding,status,finished_at) VALUES($1,$2,$3,$4,$5,'succeeded',now())`,[familyOperation,parent.parent_operation_id,parent.payroll_operation_id,sha(canonicalYuzhouInitialJson(binding)),binding]);
+    await m.query(`INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,execution_context,t5_followon_operation_id,status,tool_version) VALUES($1,'yuzhou-v10',$2,current_database(),'t5_production_followon',$1,'succeeded',$3)`,[familyOperation,sha("fixture"),`t5-followon-v1@${binding.executionCodeSha}`]);
+    for(let i=0;i<ids.length;i++) {
+      const name=sensitive.identityProfile(sources[i]!.member);
+      await m.query(`INSERT INTO hr_employee_family(id,tenant_id,park_id,employee_id,relationship,full_name_encrypted,full_name_masked,full_name_fingerprint,work_unit,create_by,update_by,legacy_source_identity_sha256,legacy_source_row_sha256) VALUES($1,$2,$3,$4,'子女',$5,$6,$7,'原单位',$8,$8,$9,$10)`,[ids[i],scope.tenantId,scope.parkId,employeeId,name.encrypted,name.masked,name.hash,actorId,identities[i],hashes[i]]);
+      const sourceId=(await m.query(`INSERT INTO hr_yuzhou_t5_followon_source(operation_id,tenant_id,park_id,source_domain,source_table,source_identity_sha256,source_row_sha256,encrypted_source,owner_status,employee_id,owner_record_map_id) VALUES($1,$2,$3,'family','dbo.family',$4,$5,$6,'mapped',$7,$8) RETURNING id`,[familyOperation,scope.tenantId,scope.parkId,identities[i],hashes[i],sensitive.encrypt(JSON.stringify(i===1?{...sources[i],member:JSON.stringify(sources[i]!.member).slice(1,-1)}:sources[i])),employeeId,map]))[0].id;
+      for(const [table,id] of [["hr_employee_family",ids[i]],["hr_yuzhou_t5_followon_source",sourceId]])await m.query(`INSERT INTO hr_yuzhou_t5_followon_projection_receipt VALUES($1,$2,$3,$4,'insert',$5,NULL)`,[familyOperation,table,identities[i],hashes[i],id]);
+    }
+    await m.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
+    const agg=async(q:string,args:unknown[])=>(await m.query(`SELECT count(*)::int AS count,encode(digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') AS sha256 FROM (SELECT encode(digest(to_jsonb(x)::text,'sha256'),'hex') h FROM (${q}) x) hashes`,args))[0];
+    const families=await agg("SELECT * FROM hr_employee_family WHERE id=ANY($1::uuid[])",[ids]),receipts=await agg("SELECT * FROM hr_yuzhou_t5_followon_projection_receipt WHERE operation_id=$1",[familyOperation]);
+    await m.query("UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$2 WHERE operation_id=$1",[familyOperation,{hr_employee_family:families,receipts}]);
+  });
+  const resolveOriginal=(targetScope=scope)=>db.transaction(async m=>{
+    const original=await originalFamily(m,targetScope,identities[0]!,sensitive);assert.ok(original);
+    assert.deepEqual(original.source,sources[0]);
+    const certified=await certifyOriginalFamilies(m,original,targetScope,sensitive);
+    const facts=originalFamilySourceFacts(original,certified,sensitive);
+    assert.equal(facts.fields.workUnit,"原单位");assert.deepEqual(facts.pendingFields,[]);
+    const second=await originalFamily(m,targetScope,identities[1]!,sensitive);assert.ok(second);
+    const secondFacts=originalFamilySourceFacts(second,certified,sensitive);
+    assert.equal(secondFacts.fields.birthDate,null);assert.deepEqual(secondFacts.pendingFields,["birthDate"]);
+    assert.equal("identityNumber" in facts.fields,false);assert.equal("isEmergencyContact" in facts.fields,false);
+    assert.throws(()=>originalFamilySourceFacts(original,new Map([[original.target_id,{...certified.get(original.target_id),work_unit:"invented baseline"}]]),sensitive),/FAMILY_ORIGINAL_FIELD_INCOMPATIBLE/);
+    return certified;
+  });
+  const before=await resolveOriginal();assert.equal(before.size,2);
+  await assert.rejects(resolveOriginal({...scope,parkId:"foreign"}),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await assert.rejects(originalFamily(db.manager,scope,identities[0]!,sensitive),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  assert.equal(await db.transaction(m=>originalFamily(m,scope,sha("absent"),sensitive)),null);
+  const lifecycle=new HrLifecycleService(db,sensitive,{recordOperationRequired:async()=>undefined} as never);
+  const managerActor={sub:actorId,isSuper:true,permissions:["*"]} as never;
+  await lifecycle.updateFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"现代单位"});
+  assert.deepEqual(await resolveOriginal(),before);
+  await lifecycle.archiveFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:2});
+  assert.deepEqual(await resolveOriginal(),before);
+  const archived=(await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0];
+  assert.equal(archived.row.is_deleted,true);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='rolled_back',rolled_back_at=now() WHERE operation_id=$1",[familyOperation]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_operation SET status='succeeded',rolled_back_at=NULL WHERE operation_id=$1",[familyOperation]);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2 AND target_table='hr_employee_family'",[familyOperation,identities[1],sha("tamper")]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_RECEIPTS_CHANGED/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$3 WHERE operation_id=$1 AND source_identity_sha256=$2 AND target_table='hr_employee_family'",[familyOperation,identities[1],hashes[1]]);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0],sensitive.encrypt(JSON.stringify({...sources[0],person:"OTHER"}))]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$3 WHERE operation_id=$1 AND source_identity_sha256=$2",[familyOperation,identities[0],sensitive.encrypt(JSON.stringify(sources[0]))]);
+  await historicalMutation("UPDATE legacy_record_map SET is_active=false WHERE id=$1",[map]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_EVIDENCE_INVALID/);
+  await historicalMutation("UPDATE legacy_record_map SET is_active=true WHERE id=$1",[map]);
+  const firstJournal=(await db.query("SELECT to_jsonb(j) AS row FROM hr_employee_family_change j WHERE family_id=$1 AND version=2",[ids[0]]))[0].row;
+  await historicalMutation("DELETE FROM hr_employee_family_change WHERE family_id=$1 AND version=2",[ids[0]]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_SET_INVALID/);
+  await historicalMutation("INSERT INTO hr_employee_family_change SELECT * FROM jsonb_populate_record(NULL::hr_employee_family_change,$1::jsonb)",[JSON.stringify(firstJournal)]);
+  await historicalMutation("UPDATE hr_employee_family_change SET before_encrypted=$2 WHERE family_id=$1 AND version=2",[ids[0],sensitive.encrypt("[]")]);
+  await assert.rejects(resolveOriginal(),/FAMILY_ORIGINAL_SET_INVALID/);
+  await historicalMutation("UPDATE hr_employee_family_change SET before_encrypted=$2 WHERE family_id=$1 AND version=2",[ids[0],firstJournal.before_encrypted]);
+  assert.deepEqual(await resolveOriginal(),before);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[0]]))[0],archived);
+}

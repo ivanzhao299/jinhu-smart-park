@@ -9,6 +9,7 @@ import { DataSource } from "typeorm";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { HrLifecycleService } from "./hr-lifecycle.service";
+import { recoverCertifiedOriginalFamilySet, type OriginalFamilySetCertificate } from "./hr-family-original-set";
 
 test("family maintenance uses scoped CAS, preserves omitted encrypted fields and rolls back failed journals", {
   skip: process.env.HR_FAMILY_PG_REQUIRED !== "1", timeout: 60000,
@@ -48,6 +49,21 @@ test("family maintenance uses scoped CAS, preserves omitted encrypted fields and
     const familyId=record.id;
     await db.query("UPDATE hr_employee_family SET legacy_source_identity_sha256=$2,legacy_source_row_sha256=$3 WHERE id=$1",[familyId,"a".repeat(64),"b".repeat(64)]);
     const initial=(await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[familyId]))[0];
+    await db.query("CREATE EXTENSION pgcrypto");
+    const originalCertificate = await db.transaction(async manager => {
+      await manager.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
+      return (await manager.query(`SELECT count(*)::int AS count,
+        encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex') AS sha256
+        FROM (SELECT encode(digest(to_jsonb(f)::text,'sha256'),'hex') AS row_hash
+          FROM hr_employee_family f WHERE id=$1) original_rows`,[familyId]))[0] as OriginalFamilySetCertificate;
+    });
+    const recoverOriginal = (certificate=originalCertificate,ids=[familyId],targetScope=scope) => db!.transaction(
+      manager => recoverCertifiedOriginalFamilySet(manager,targetScope,ids,certificate,sensitive));
+    const certifiedInitial = await recoverOriginal();
+    assert.equal(certifiedInitial.get(familyId)!.work_unit,initial.work_unit);
+    await assert.rejects(recoverOriginal(originalCertificate,[familyId,familyId]),/FAMILY_ORIGINAL_SET_INVALID/);
+    await assert.rejects(recoverOriginal(originalCertificate,[familyId],{...scope,parkId:"foreign"}),/FAMILY_ORIGINAL_SET_INVALID/);
+    await assert.rejects(recoverCertifiedOriginalFamilySet(db.manager,scope,[familyId],originalCertificate,sensitive),/FAMILY_ORIGINAL_SET_INVALID/);
     const read=await service.listRecords(scope,actor,employeeId);
     assert.equal(read.family[0].version,1);assert.equal(read.family[0].fullName,"Synthetic family");
     assert.equal("identity_encrypted" in read.family[0],false);assert.equal("identityNumber" in read.family[0],false);
@@ -69,12 +85,15 @@ test("family maintenance uses scoped CAS, preserves omitted encrypted fields and
     assert.equal(concurrent.filter(x=>x.status==="rejected").length,1);
     for(const result of concurrent)if(result.status==="rejected")assert.ok(result.reason instanceof ConflictException);
     const maintained=(await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[familyId]))[0];
+    assert.deepEqual(await recoverOriginal(),certifiedInitial);
     for(const column of ["full_name_encrypted","identity_encrypted","contact_encrypted","legacy_source_identity_sha256","legacy_source_row_sha256"])
       assert.equal(maintained[column],initial[column]);
     await service.updateFamilyRecord(scope,actor,employeeId,familyId,{expectedVersion:2,identityNumber:null,isEmergencyContact:false});
     const cleared=(await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[familyId]))[0];
     assert.equal(cleared.version,3);assert.equal(cleared.identity_encrypted,null);assert.equal(cleared.identity_masked,null);assert.equal(cleared.identity_fingerprint,null);
     assert.equal(cleared.contact_encrypted,initial.contact_encrypted);
+    assert.deepEqual(await recoverOriginal(),certifiedInitial);
+    await assert.rejects(recoverOriginal({...originalCertificate,sha256:"0".repeat(64)}),/FAMILY_ORIGINAL_SET_INVALID/);
     const journals=await db.query("SELECT * FROM hr_employee_family_change ORDER BY version");
     assert.equal(journals.length,3);
     for(const journal of journals)assert.match(journal.after_encrypted,/^enc:v1:/);
@@ -92,6 +111,12 @@ test("family maintenance uses scoped CAS, preserves omitted encrypted fields and
     const archived=(await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[familyId]))[0];
     assert.equal(archived.version,4);assert.equal(archived.is_deleted,true);
     assert.equal(archived.legacy_source_row_sha256,initial.legacy_source_row_sha256);
+    assert.deepEqual(await recoverOriginal(),certifiedInitial);
+    assert.deepEqual((await db.query("SELECT * FROM hr_employee_family WHERE id=$1",[familyId]))[0],archived);
+    await db.query("UPDATE hr_employee_family SET legacy_source_row_sha256=$2 WHERE id=$1",[familyId,"c".repeat(64)]);
+    await assert.rejects(recoverOriginal(),/FAMILY_ORIGINAL_SET_INVALID/);
+    await db.query("UPDATE hr_employee_family SET legacy_source_row_sha256=$2 WHERE id=$1",[familyId,initial.legacy_source_row_sha256]);
+    assert.deepEqual(await recoverOriginal(),certifiedInitial);
     assert.equal((await service.listRecords(scope,actor,employeeId)).family.length,0);
     await assert.rejects(service.archiveFamilyRecord(scope,actor,employeeId,familyId,{expectedVersion:4}));
   } finally {
