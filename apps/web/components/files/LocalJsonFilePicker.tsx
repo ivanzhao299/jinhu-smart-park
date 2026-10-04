@@ -27,6 +27,6 @@ export function LocalJsonFilePicker({ policy, fileName, disabled, onSelect }: Lo
       <span className={fileName ? "ds-file-picker-name" : "ds-file-picker-name ds-file-picker-empty"}>{fileName || "未选择文件"}</span>
     </label>
     <span className="ds-field-hint">JSON · 最大 {policy.maxBytes / 1024 / 1024} MiB · 选择文件后需手动预览</span>
-    {fileName ? <button className="ds-button" type="button" disabled={disabled} onClick={() => onSelect(null)}>清除选择</button> : null}
+    {fileName ? <button className="ds-button ds-button-secondary" type="button" disabled={disabled} onClick={() => onSelect(null)}>清除选择</button> : null}
   </div>;
 }

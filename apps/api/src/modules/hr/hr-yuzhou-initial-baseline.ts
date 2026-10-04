@@ -19,7 +19,7 @@ const reject = (): never => { throw new ConflictException("INITIAL_BASELINE_ORIG
 type Receipt = { operation_id: string; phase: string; source_table: string; source_pk_canonical: string; source_identity_sha256: string; target_table: string; target_id: string; target_after_sha256: string; target_version_after: number; source_row_sha256: string };
 
 /** Exact record -> projection receipt -> batch -> active map, all held through commit. */
-async function originalReceipt(manager: EntityManager, scope: TenantParkScope, operationId: string, phase: string, identity: string): Promise<Receipt> {
+export async function originalReceipt(manager: EntityManager, scope: TenantParkScope, operationId: string, phase: string, identity: string): Promise<Receipt> {
   const rows = await manager.query(`
     SELECT r.* FROM hr_yuzhou_production_import_record r
     JOIN hr_yuzhou_production_import_operation o ON o.operation_id=r.operation_id
@@ -57,8 +57,8 @@ async function originalReceipt(manager: EntityManager, scope: TenantParkScope, o
 
 export async function verifyYuzhouInitialBaseline(manager: EntityManager, scope: TenantParkScope, item: YuzhouIncrementalItem, witness: YuzhouInitialBaselineWitness) {
   if (item.domain === "profile") throw new BadRequestException("INITIAL_BASELINE_PROFILE_PROOF_UNAVAILABLE");
-  const table = item.domain === "employee" ? "hr_employee" : "hr_contract";
-  const phase = item.domain === "employee" ? "T0" : "T2";
+  const table = item.domain === "organization" ? "sys_org" : item.domain === "position" ? "hr_position" : item.domain === "employee" ? "hr_employee" : "hr_contract";
+  const phase = item.domain === "contract" ? "T2" : "T0";
   const projection = witness.projection;
   if (witness.version !== 1 || witness.phase !== phase || witness.canonicalizationVersion !== YUZHOU_INITIAL_CANONICALIZATION
     || !projection || typeof projection !== "object" || Array.isArray(projection)
@@ -68,7 +68,9 @@ export async function verifyYuzhouInitialBaseline(manager: EntityManager, scope:
   if (receipt.source_table !== item.sourceTable || receipt.source_pk_canonical !== item.sourceKey || receipt.target_table !== table || receipt.target_id !== witness.targetId) return reject();
   const targetHash = hash(`yuzhou-hr-production-target-canonical-sha256-v1\0${table}\0${canonicalOriginal(projection)}`);
   if (targetHash !== receipt.target_after_sha256) return reject();
-  const rules = table === "hr_employee"
+  const rules = table === "sys_org" ? [{role:"parent_org",column:"parent_id",table:"sys_org",phase:"T0",required:false}]
+    : table === "hr_position" ? [{role:"org",column:"org_id",table:"sys_org",phase:"T0",required:true},{role:"parent_position",column:"reports_to_position_id",table:"hr_position",phase:"T0",required:false}]
+    : table === "hr_employee"
     ? [{ role:"primary_org",column:"primary_org_id",table:"sys_org",phase:"T0",required:true },{ role:"position",column:"position_id",table:"hr_position",phase:"T0",required:false }]
     : [{ role:"employee",column:"employee_id",table:"hr_employee",phase:"T0",required:true },{ role:"contract_type",column:"contract_type_id",table:"hr_contract_type",phase:"T2",required:true }];
   const dependencies = await manager.query(`SELECT * FROM hr_yuzhou_production_import_record_dependency WHERE operation_id=$1 AND phase=$2 AND source_identity_sha256=$3 FOR SHARE`, [witness.operationId,phase,receipt.source_identity_sha256]) as Array<{dependency_role:string;depends_on_phase:string;depends_on_source_identity_sha256:string;expected_target_table:string}>;
@@ -82,11 +84,16 @@ export async function verifyYuzhouInitialBaseline(manager: EntityManager, scope:
     if (dep.target_table !== rule.table || dep.target_id !== projection[rule.column]) return reject();
     dependencyReceipts.set(rule.role,dep);
   }
-  const columns: Record<string,string> = table === "hr_employee"
+  const columns: Record<string,string> = table === "sys_org" || table === "hr_position"
+    ? Object.fromEntries(YUZHOU_INITIAL_PROJECTION_FIELDS[table].filter(c=>!["tenant_id","park_id"].includes(c)).map(c=>[({parent_id:"parentSourceKey",org_id:"orgSourceKey",reports_to_position_id:"parentPositionSourceKey"} as Record<string,string>)[c] ?? c.replace(/_([a-z])/gu,(_,letter:string)=>letter.toUpperCase()),c]))
+    : table === "hr_employee"
     ? {employeeCode:"employee_code",fullName:"full_name",employmentType:"employment_type",employmentStatus:"employment_status",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email"}
     : {contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title"};
   const target = Object.fromEntries(Object.entries(columns).map(([field,column]) => [field,projection[column]]));
   const source = { ...target };
+  for(const [role,field] of (table==="sys_org"?[["parent_org","parentSourceKey"]]:table==="hr_position"?[["org","orgSourceKey"],["parent_position","parentPositionSourceKey"]]:table==="hr_employee"?[["primary_org","orgSourceKey"],["position","positionSourceKey"]]:[])) {
+    source[field!]=dependencyReceipts.get(role!)?.source_pk_canonical??null;
+  }
   if (table === "hr_contract") {
     const employee = dependencyReceipts.get("employee")!;
     if (projection.legacy_source_identity_sha256 !== receipt.source_identity_sha256 || projection.legacy_source_row_sha256 !== receipt.source_row_sha256) return reject();

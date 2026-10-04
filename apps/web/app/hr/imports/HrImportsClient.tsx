@@ -29,7 +29,7 @@ export function HrImportsClient() {
   return <PermissionGuard module="hr" fallback={<ForbiddenState variant="page" reason="module" />}>
     {canEnterImport(user)
       ? <ImportWorkbench key={context} isCurrent={() => currentContext.current === context} />
-      : <ForbiddenState variant="page" message="当前账号没有员工、个人资料或劳动合同导入与结果查询权限。" />}
+      : <ForbiddenState variant="page" message="当前账号没有组织、岗位、员工、个人资料或劳动合同导入与结果查询权限。" />}
   </PermissionGuard>;
 }
 
@@ -53,14 +53,14 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
   return <main className={`content ds-page ${styles.page}`}>
     <section className="ds-hero">
       <div className="ds-hero-copy"><span className="ds-eyebrow">人力资源管理</span><h1>数据导入</h1>
-        <p>选择源数据包，检查预览后明确提交。导入的记录进入正常员工档案和合同台账。</p>
+        <p>选择源数据包，检查预览后明确提交。导入的记录进入正常组织岗位、员工档案和合同台账。</p>
         <p>当前园区：{user?.current_park?.park_name ?? user?.park_name ?? "当前登录园区"}</p></div>
-      <Link className="ds-button" href="/hr/employees">返回员工档案</Link>
+      <Link className="ds-button ds-button-secondary" href="/hr/employees">返回员工档案</Link>
     </section>
     {state.error ? <div className="ds-panel" role="alert">{state.error}</div> : null}
     <section className={`ds-panel ${styles.section}`} aria-labelledby="source-heading">
       <div><span className="ds-eyebrow">第一步</span><h2 id="source-heading">选择数据包</h2>
-        <p>当前园区内支持员工、个人资料、劳动合同，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
+        <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
         <p className="ds-field-hint">招聘、考勤、薪酬、保险、培训和附件等来源尚不支持通过此入口导入。</p></div>
       <LocalJsonFilePicker policy={IMPORT_FILE_POLICY} fileName={state.summary?.fileName} disabled={!!state.busy || state.uncertain}
         onSelect={file => { setQueryId(null); setConfirmed(false); void store.select(file); }} />
@@ -73,7 +73,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
       <div className={styles.actions}><button className="ds-button ds-button-primary" type="button"
         disabled={!!state.busy || !state.summary || !!missing || state.uncertain}
         onClick={() => { setQueryId(null); setConfirmed(false); void store.preview(); }}>预览数据包</button>
-        {state.previewRetryAvailable ? <button className="ds-button" type="button" disabled={!!state.busy || state.uncertain}
+        {state.previewRetryAvailable ? <button className="ds-button ds-button-secondary" type="button" disabled={!!state.busy || state.uncertain}
           onClick={() => { setQueryId(null); setConfirmed(false); void store.preview(true); }}>重试本次预览</button> : null}
         <span className="ds-field-hint">预览不修改业务记录；提交前由服务端验证来源、权限和字段冲突。</span></div>
     </section>
@@ -104,7 +104,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
       <form className={styles.section} onSubmit={event => { event.preventDefault(); setConfirmed(false); void store.query(activeQueryId.trim()); }}>
         <label className="form-field"><span>操作编号</span><input value={activeQueryId} maxLength={36} required disabled={!!state.busy || state.uncertain}
           placeholder="输入预览或提交返回的操作编号" onChange={event => setQueryId(event.target.value)} autoComplete="off" spellCheck={false} /></label>
-        <div className={styles.actions}><button className="ds-button" disabled={!!state.busy || !activeQueryId} type="submit">查询状态</button>
+        <div className={styles.actions}><button className="ds-button ds-button-secondary" disabled={!!state.busy || !activeQueryId} type="submit">查询状态</button>
           <span className="ds-field-hint">查询需要包内所有模块的读取或管理权限。</span></div>
       </form>
     </section>

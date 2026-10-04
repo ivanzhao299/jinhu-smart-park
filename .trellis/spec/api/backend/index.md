@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Organization/position and employee dependency continuity: [Organization Continuity](./hr-yuzhou-organization-continuity.md).
+
 Original and new source-bound profile incremental continuity: [Profile Continuity](./hr-yuzhou-profile-continuity.md).
 
 Reusable offline employee/profile/contract staging entry: [Yuzhou Staging Entry](./yuzhou-reusable-staging-entry.md).

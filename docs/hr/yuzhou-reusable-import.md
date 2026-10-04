@@ -1,4 +1,4 @@
-# 玉舟可复用增量导入包（员工与合同适配器）
+# 玉舟可复用增量导入包（组织、岗位、员工、档案与合同）
 
 `scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs` 是 SQL Server 抽取之后、`POST /hr/imports/yuzhou/incremental/preview` 之前的离线转换入口。它不访问数据库或网络，也不提交业务数据；API 的预览与提交事务负责写入、权限、幂等账本和冲突处理。
 
@@ -32,11 +32,11 @@ node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs \
 
 `contractTypeMappingArtifact` 是可复用的、不可变的来源类型映射 receipt。每条 binding 必须带 `dbo.compacttypecode` 的来源 key/identity、`sourcePkCanonical`、来源 code/name、同一 tenant/park 中已启用的 `hr_contract_type` UUID、`loaded|verified` 映射状态和原始映射 receipt 的 `mappingEvidenceSha256`。脚本验证整个 artifact 的 SHA-256；合同仅按唯一的已验证 `typeName` binding 取 `contractTypeId`，不能每批人工选择或按目标名称猜测。
 
-输出目录为 `0700`，其中所有文件均为 `0600`。单批生成 `package.json`；超过 2000 个 item 或 8 MiB 精确 JSON 字节时自动按员工先于合同、稳定来源身份的顺序生成 `package-0001.json` 等，每批最多 2000 条且不超过 8 MiB。CLI 返回有序 `packagePaths`，调用方必须按顺序逐包 preview/commit 并核对全部结果；只有单批时 `packagePath` 才非 null，不能拿多批中的第一包当完整抽取。不同批次是独立事务，失败后按原 package 重试并核对后续依赖，不能宣称整个抽取跨批原子提交。空抽取只生成零计数 manifest/coverage，不生成 API package 或 API 导入 receipt。
+输出目录为 `0700`，其中所有文件均为 `0600`。单批生成 `package.json`；超过 2000 个 item 或 8 MiB 精确 JSON 字节时自动按组织祖先、组织、上级岗位、岗位、员工、档案和合同的依赖顺序生成 `package-0001.json` 等，每批最多 2000 条且不超过 8 MiB。CLI 返回有序 `packagePaths`，调用方必须按顺序逐包 preview/commit 并核对全部结果；只有单批时 `packagePath` 才非 null，不能拿多批中的第一包当完整抽取。不同批次是独立事务，失败后按原 package 重试并核对后续依赖，不能宣称整个抽取跨批原子提交。空抽取只生成零计数 manifest/coverage，不生成 API package 或 API 导入 receipt。
 
 `manifest.json` format v2 绑定配方、适配器、T0 员工类型规则、job-state verifier、共享 API 字段/枚举契约及原投影/合同语义/目标字段模型文件摘要，另包含工件摘要、来源身份、每行摘要、原始员工事实、字段覆盖和每批 package 摘要。来源顺序不影响分批。来源未变、配方未变时 item/row digest 相同；新抽取日期无需重跑历史 A/B，且不按七月截止、同月或回填日期过滤。
 
-员工编码和姓名遵守 API 的 64/100 字符串长度限制；任职状态必须有 map 决策；hireDate/formalDate 必须是有效日历日期或空值。显式空 hireDate 保留为 null，参与来源字段基线比较。未承接的员工字段保留在私有 manifest 原始事实中，并逐字段标为 pending；部门/岗位关系未被猜测或写入。合同继续使用原投影白名单验证。篡改摘要、重复来源、未决状态和缺失/重复的员工关系均失败。摘要验证和既有工件校验不替代来源抽取的独立保管与真实性证据。
+员工编码和姓名遵守 API 的 64/100 字符串长度限制；任职状态必须有 map 决策；hireDate/formalDate 必须是有效日历日期或空值。显式空 hireDate 保留为 null，参与来源字段基线比较。未承接的员工字段保留在私有 manifest 原始事实中，并逐字段标为 pending；员工源数据包含 departmentCode/positionCode 时，会携带确切来源关系；新增非 preboarding 员工缺少确切有效组织时 API 拒绝；已有员工的无组织字段旧包可以回放，原有员工关系修订进入正常调岗工作流。合同继续使用原投影白名单验证。篡改摘要、重复来源、未决状态和缺失/重复的员工关系均失败。摘要验证和既有工件校验不替代来源抽取的独立保管与真实性证据。
 
 已映射为 `active`、`expired`、`terminated` 或 `cancelled` 的合同绝不会被改写成 draft；它们以同一审核状态进入 API 新增来源事实路径。对已存在的现代合同，状态变化仍须走 API 的冲突/正常变更流程。`coverage.json` 按来源行列出每个已投影字段是 carried 还是 `pending_api_adapter`，因此工资、年限、签署日期、协议标记、历史快照和证据等当前 API 未承接事实不会被当作已导入。
 
@@ -160,9 +160,9 @@ node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs \
 
 入口验证实际 T0/T2 转换器的完整 manifest 域、文件名、文件哈希、记录数、行身份和原始行哈希；T2 固定解开转换器加倍的 JSON 传输反斜线，随后验证原哈希，不改写源事实、不修补哈希。单文件上限 64 MiB，整个读取预算 256 MiB（包括配置、manifest 和映射）。同一源身份重复、漏行、未知状态、缺少依赖、兼容漂移或不安全路径都会失败；失败不会发布半批包，临时输入会删除。
 
-输出沿用原 builder 的有序 2000 条/8 MiB 分包和 0600/0700 权限，额外生成私有 `assembly-receipt.json`，记录配置/manifest/映射哈希、源域完整计数和去向。组织、岗位、合同类型/变更、字典等源域仍保留在原 staging，收据声明待处理或映射证据；这些域没有因本入口而得到 API 适配。正式日期、离职日期、组织和 profile 的既有未支持字段继续由 builder 的私有 coverage 说明。
+输出沿用原 builder 的有序 2000 条/8 MiB 分包和 0600/0700 权限，额外生成私有 `assembly-receipt.json`，记录配置/manifest/映射哈希、源域完整计数和去向。组织、岗位可通过下文的 includeOrganizations/includePositions 接入同一入口；未启用的域及合同类型/变更、字典等继续在收据中声明待处理或映射证据。正式日期、离职日期及各域未支持字段继续由 builder 的私有 coverage 说明。
 
-收据的 `requested/excluded/eligible` 统计源主记录是否命中精确历史排除；`apiInput` 单列本次实际员工/合同 API 输入数，`dependencyIndex.employee` 单列合同-only 模式的员工索引数。合同-only 模式的 eligible 员工用作关系索引，不应加到 API 输出条数。成功输出的 `itemCount` 必须等于 `apiInput.employee + apiInput.contract`。若新合同依赖被精确排除的员工，构包报缺失依赖并整批失败，不会顺带静默排除该合同；必须先取得受控的可用依赖或处理来源事实。
+收据的 `requested/excluded/eligible` 统计源主记录是否命中精确历史排除；`apiInput` 分域列出本次实际组织、岗位、员工、档案和合同 API 输入数，`dependencyIndex.employee` 单列合同-only 模式的员工索引数。合同-only 模式的 eligible 员工用作关系索引，不应加到 API 输出条数。成功输出的 `itemCount` 必须等于 `apiInput.organization + apiInput.position + apiInput.employee + apiInput.profile + apiInput.contract`（未启用域按 0 计）。若新合同依赖被精确排除的员工，构包报缺失依赖并整批失败，不会顺带静默排除该合同；必须先取得受控的可用依赖或处理来源事实。
 
 CLI 错误只输出预先列举的固定安全代码；解析器、文件系统和未知错误仍统一为 `YUZHOU_STAGING_ENTRY_FAILED`，不会输出来源值、路径或凭据。常见需要处理的错误如下：
 
@@ -225,3 +225,20 @@ CLI 错误只输出预先列举的固定安全代码；解析器、文件系统�
 Direct reusable builder 的 profile witness 必须是严格完整 v1；manifestId 绑定 witness 字节与 admission 声明，配方也绑定 shared profile witness contract。禁止传入任意 `profileOmittedFields`。入口向 builder 传递 `profileAdmissionEvidence`（declaration=`caller_attests_original_unchanged_invalid_fields`、targetScope、artifactCanonicalSha256、原 artifact），builder 独立验证声明/摘要/scope/原 operation，并仅对 exact identity+原完整 sourceRowSha 的匹配行推导省略字段。私有工件仍是 caller custody 声明，不因此升级成独立认证的原字段决策。
 
 CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务的 loopback 55491 端口，明确启用并运行个人资料基线、员工/合同原始基线和增量事务套件；这些测试创建独立临时数据库并核对清理残留，不访问生产。通用的 scope 作业通过不能单独证明导入事务通过，需检查 `Verify Yuzhou incremental import continuity transactions` 步骤。
+
+
+## 组织、岗位及员工依赖的可重复入口
+
+本次实现扩展同一个 `build-yuzhou-import-from-staging.mjs` → reusable recipe → API preview/commit 链路。它不是另一套历史重导流程，也不要求等待其余 HR 模块齐备。组织和岗位的已知原字段规则固化在 `yuzhou-organization-incremental-projection.mjs`；配方摘要包含该文件，结构变化或新未知语义会明确失败并保留待处理字段。
+
+固定 staging 配置增加 `includeOrganizations: true`、`includePositions: true`；需要显式声明员工关系时可加 `includeAssignments: true`。两域对应现有 T0 manifest 的 departments / positions 文件。员工源行提供 departmentCode/positionCode 时自动携带来源关系。直接 builder 对应 `organizationRecords` / `positionRecords` 数组，仍使用原 sourceTable/sourceKey/sourceIdentitySha256/sourceRowSha256/source envelope。每个组织、岗位结构列必须保留，包括 nullable 的 `legacyUptoCode`，不能删列后让默认值代替源事实。
+
+组织按已验证部门编号的最长父级前缀建立关系；岗位只按明确部门代码与上级岗位代码建立关系。缺失部门、未知自由文本或按名称猜测的上级不会自动回落到公司根。完整快照应提供完整部门索引；跨包关系从已经接受的增量账本或认证原回执解析。新增岗位必须有组织，新员工必须有提供的有效组织，岗位须属于该组织。来源中未支持的公司根合并、第二任职、station 等字段保留为 pending，不能据此宣称全字段复现。
+
+首次处理已导入组织/岗位时，用现有 `prepare-yuzhou-initial-baseline-witness.mjs` 从原 sealed plan/payload 生成完整 v1 见证。见证支持原 insert/merge/skip_approved dispositions，但 API 仍须核对完整原 target projection/hash 和回执。`fields:{}` 只认证基线，不写业务行。原先有根回落的历史岗位可先以原见证认证其原关系；新的不明确关系仍需补映射，不能把旧回落自动用于未来来源。
+
+之后更换同结构来源文件，重新生成并按有序 packagePaths 执行预览/提交即可。每批只做来源身份、摘要、结构/规则版本、依赖、权限、三方冲突和 CAS 验证；不重复全量分析或历史 A/B。源字段不变保留现代修改；同字段两边都变返回冲突；已有员工来源部门/岗位确实变化返回正常调岗流程要求。原 employee baseline 若早于关系字段扩展，缺失比较事实仅从已保存且再次认证的原 witness 恢复，不能拿当前任职冒充。
+
+组织新增和修改分别使用系统组织 create/update 权限，岗位使用岗位 manage 权限，且相关组织必须在操作者可见范围。批次账目包括五个领域，界面显示中文字段标签、数量和冲突计数。相同操作重复提交不会重复写入，快照缺席不触发删除。
+
+本次合成 CLI/PG 与界面检查只证明实现行为；新增两域部署、真实后续来源批次及业务角色验收由发布记录另行证明。

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseInterceptors } from "@nestjs/common";
-import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
@@ -14,14 +14,14 @@ import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import
 export class HrYuzhouIncrementalImportController {
   constructor(private readonly service: HrYuzhouIncrementalImportService) {}
 
-  @Post("preview") @UseInterceptors(new IdempotencyInterceptor()) @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
+  @Post("preview") @UseInterceptors(new IdempotencyInterceptor()) @RequireAnyPermissions(SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_UPDATE, HR_PERMISSIONS.HR_POSITION_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
   @AuditLog({ module: "人力资源管理", resource: "hr.incremental_import", action: "预览玉舟增量导入", bizType: "hr_incremental_import", captureBody: false })
   preview(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: PreviewYuzhouIncrementalImportDto) { return this.service.preview(scope, actor, dto); }
 
-  @Post(":id/commit") @UseInterceptors(new IdempotencyInterceptor()) @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
+  @Post(":id/commit") @UseInterceptors(new IdempotencyInterceptor()) @RequireAnyPermissions(SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_UPDATE, HR_PERMISSIONS.HR_POSITION_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
   @AuditLog({ module: "人力资源管理", resource: "hr.incremental_import", action: "提交玉舟增量导入", bizType: "hr_incremental_import", bizIdParam: "id", captureBody: false })
   commit(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string) { return this.service.commit(scope, actor, id); }
 
-  @Get(":id") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ, HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
+  @Get(":id") @RequireAnyPermissions(SYSTEM_PERMISSIONS.ORG_LIST, SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_UPDATE, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_POSITION_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ, HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, HR_PERMISSIONS.HR_CONTRACT_MANAGE)
   status(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string) { return this.service.status(scope, actor, id); }
 }

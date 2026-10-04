@@ -1,5 +1,5 @@
 import {
-  HR_PERMISSIONS, YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_FIELDS,
+  SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INCREMENTAL_DOMAINS, YUZHOU_INCREMENTAL_FIELDS,
   YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION,
   type UserContext, type YuzhouIncrementalDomain, type YuzhouIncrementalPackage
 } from "@jinhu/shared";
@@ -7,14 +7,16 @@ import { hasAnyPermission, hasModule, hasPermission } from "../../lib/permission
 import { parseLocalJson, validateLocalJsonFile } from "../../components/files/local-json-file";
 
 export const IMPORT_FILE_POLICY = { maxBytes: YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES };
-export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { employee: "员工", profile: "个人资料", contract: "劳动合同" };
+export const DOMAIN_LABELS: Record<YuzhouIncrementalDomain, string> = { organization: "组织", position: "岗位", employee: "员工", profile: "个人资料", contract: "劳动合同" };
 export const DOMAIN_MANAGE = {
+  organization: SYSTEM_PERMISSIONS.ORG_UPDATE,
+  position: HR_PERMISSIONS.HR_POSITION_MANAGE,
   employee: HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,
   profile: HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE,
   contract: HR_PERMISSIONS.HR_CONTRACT_MANAGE
 };
 export const IMPORT_ENTRY_PERMISSIONS = [
-  ...Object.values(DOMAIN_MANAGE), HR_PERMISSIONS.HR_EMPLOYEE_READ,
+  ...Object.values(DOMAIN_MANAGE), SYSTEM_PERMISSIONS.ORG_CREATE, SYSTEM_PERMISSIONS.ORG_LIST, HR_PERMISSIONS.HR_POSITION_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
   HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, HR_PERMISSIONS.HR_CONTRACT_READ
 ];
 export function canEnterImport(user: UserContext | null): boolean {
@@ -26,6 +28,7 @@ export function importContextKey(user: UserContext | null): string {
 }
 
 const fieldLabels: Record<string, string> = {
+  orgCode:"组织编号",orgName:"组织名称",orgType:"组织类型",parentSourceKey:"上级组织",orgSourceKey:"所属组织",positionSourceKey:"任职岗位",parentPositionSourceKey:"上级岗位",positionCode:"岗位编号",positionName:"岗位名称",jobFamily:"岗位类别",jobLevel:"岗位等级",headcountLimit:"岗位编制",plannedHeadcount:"组织编制",status:"启用状态",sortOrder:"排序",contactPhone:"联系电话",legacySourceId:"来源编号",legacyHierarchyLevel:"来源层级",hierarchyLevel:"岗位层级",legacyManagerReference:"来源负责人信息",legacyDepartmentReference:"来源部门信息",legacyParentReference:"来源上级岗位信息",legacyUptoCode:"来源岗位分类",authority:"岗位权限",qualification:"任职资格",responsibilities:"岗位职责",positionManual:"岗位说明",remark:"备注",
   employeeCode: "员工编号", fullName: "姓名", employmentStatus: "任职状态", employmentType: "用工类型", hireDate: "入职日期",
   workLocation: "工作地点", workMobile: "工作手机", workEmail: "工作邮箱", employeeSourceKey: "员工来源关联", employeeSourceTable: "员工来源表关联",
   englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号",
@@ -50,7 +53,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   const seen = new Set<string>();
   for (const item of value.items) {
     if (!object(item) || !YUZHOU_INCREMENTAL_DOMAINS.includes(item.domain as YuzhouIncrementalDomain)) {
-      throw new Error("数据包包含尚未支持的模块，目前支持员工、个人资料和劳动合同。");
+      throw new Error("数据包包含尚未支持的模块，目前支持组织、岗位、员工、个人资料和劳动合同。");
     }
     const domain = item.domain as YuzhouIncrementalDomain;
     const witness = item.initialBaselineWitness;
@@ -70,7 +73,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
     seen.add(identity);
     const keys = Object.keys(item.fields);
     if (keys.some(key => !YUZHOU_INCREMENTAL_FIELDS[domain].includes(key)
-      || (item.fields as Record<string, unknown>)[key] !== null && typeof (item.fields as Record<string, unknown>)[key] !== "string")) {
+      || (item.fields as Record<string, unknown>)[key] !== null && typeof (item.fields as Record<string, unknown>)[key] !== "string" && !( ["sortOrder","plannedHeadcount","legacySourceId","legacyHierarchyLevel","headcountLimit","hierarchyLevel"].includes(key) && Number.isSafeInteger((item.fields as Record<string, unknown>)[key])))) {
       throw new Error("数据包包含不支持的字段或字段类型，请检查源数据包。");
     }
     const group = domains.get(domain) ?? { count: 0, fields: new Set<string>() };
@@ -87,7 +90,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   } };
 }
 export function missingImportPermissions(user: UserContext | null, summary: PackageSummary): string[] {
-  return summary.domains.filter(row => !hasPermission(user, DOMAIN_MANAGE[row.domain])).map(row => DOMAIN_LABELS[row.domain]);
+  return summary.domains.filter(row => (row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
 }
 
 export type OperationStatus = "previewed" | "committed" | "conflicted";

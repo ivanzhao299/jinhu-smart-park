@@ -113,7 +113,10 @@ try {
   assert.equal(buildYuzhouReusableIncrementalPackage(exact).packageDtos.length, 1);
   const zero = structuredClone(employeeInput); zero.employeeRecords = [];
   const zeroResult = buildYuzhouReusableIncrementalPackage(zero); assert.equal(zeroResult.packageDtos.length, 0); assert.equal(zeroResult.manifest.typeMappingArtifactSha256, null);
-  const evidence = batches.manifest.sourceEvidence[0]; assert.ok("rawSource" in evidence); assert.ok(evidence.fieldCoverage.some(field => field.field === "departmentCode" && field.disposition === "pending_api_adapter")); assert.ok(evidence.fieldCoverage.some(field => field.field === "formalDate" && field.disposition === "pending_semantic_binding"));
+  const evidence = batches.manifest.sourceEvidence[0]; assert.ok("rawSource" in evidence); assert.ok(evidence.fieldCoverage.some(field => field.field === "departmentCode" && field.disposition === "carried" && field.targetField === "orgSourceKey")); assert.ok(evidence.fieldCoverage.some(field => field.field === "formalDate" && field.disposition === "pending_semantic_binding"));
+  const evidenceItem = batches.packageDtos.flatMap(value => value.items).find(item => item.sourceKey === `sha256:${evidence.sourceIdentitySha256}`);
+  assert.equal(evidenceItem.fields.orgSourceKey, `sha256:${sha(`dbo.departmentcode\0${evidence.rawSource.departmentCode}`)}`);
+  assert.equal(evidenceItem.fields.positionSourceKey, `sha256:${sha(`dbo.job\0${evidence.rawSource.positionCode}`)}`);
   const invalidDate = structuredClone(employeeInput); invalidDate.employeeRecords[0].source.hireDate = "2026-02-30"; invalidDate.employeeRecords[0].sourceRowSha256 = sha(canonical(invalidDate.employeeRecords[0].source)); assert.throws(() => buildYuzhouReusableIncrementalPackage(invalidDate), /EMPLOYEE_HIRE_DATE_INVALID/u);
   const identityDrift = structuredClone(employeeInput); identityDrift.employeeRecords[0].sourceIdentitySha256 = "0".repeat(64); assert.throws(() => buildYuzhouReusableIncrementalPackage(identityDrift), /EMPLOYEE_SOURCE_HASH_MISMATCH/u);
   const rowDrift = structuredClone(employeeInput); rowDrift.employeeRecords[0].source.fullName = "row drift"; assert.throws(() => buildYuzhouReusableIncrementalPackage(rowDrift), /EMPLOYEE_SOURCE_HASH_MISMATCH/u);
