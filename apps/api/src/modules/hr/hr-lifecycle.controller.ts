@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseInterceptors,
@@ -29,6 +30,7 @@ import {
   HrLegacyEmployeeMaterializationGapQueryDto,
 } from "./dto/hr-lifecycle.dto";
 import { HrLifecycleService } from "./hr-lifecycle.service";
+import { HrFamilyRecordVersionDto, UpdateHrFamilyRecordDto } from "./dto/hr-family-record.dto";
 @Controller("hr")
 @RequireModule("hr")
 export class HrLifecycleController {
@@ -201,4 +203,25 @@ export class HrLifecycleController {
   ) {
     return this.service.createRecord(s, a, employeeId, d);
   }
+  @Patch("employees/:employeeId/family/:familyId")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_family",action:"维护家庭成员档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  updateFamily(
+    @CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,
+    @Param("familyId",new ParseUUIDPipe()) familyId:string,
+    @Body() d:UpdateHrFamilyRecordDto,
+  ) { return this.service.updateFamilyRecord(s,a,employeeId,familyId,d); }
+
+  @Post("employees/:employeeId/family/:familyId/archive")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE)
+  @AuditLog({module:"人力资源管理",resource:"hr.employee_family",action:"移除家庭成员档案",bizType:"hr_employee",bizIdParam:"employeeId",captureBody:false})
+  archiveFamily(
+    @CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,
+    @Param("employeeId",new ParseUUIDPipe()) employeeId:string,
+    @Param("familyId",new ParseUUIDPipe()) familyId:string,
+    @Body() d:HrFamilyRecordVersionDto,
+  ) { return this.service.archiveFamilyRecord(s,a,employeeId,familyId,d); }
 }

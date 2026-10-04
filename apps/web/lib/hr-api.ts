@@ -182,6 +182,7 @@ export interface HrRewardCase{id:string;code:string;status:string;occurredOn:str
 export interface HrRewardCaseDetail extends HrRewardCase{detailedReason?:string|null;evidenceFileIds?:string[];corrections?:Array<{sequenceNo:number;type:string;summary:string;createdAt:string}>;}
 export interface HrEmployeeFamilyRecord {
  id:string;
+ version?:number;
  relationship:string;
  fullNameMasked:string;
  identityMasked:string|null;
@@ -195,6 +196,8 @@ export interface HrEmployeeFamilyRecord {
  fullName?:string|null;
  contact?:string|null;
 }
+export interface HrFamilyFields {relationship?:string;fullName?:string;identityNumber?:string|null;contact?:string|null;birthDate?:string|null;workUnit?:string|null;jobTitle?:string|null;politicalStatus?:string|null;isEmergencyContact?:boolean;}
+export interface HrFamilyWriteResult {id:string;recordType:"family";version:number;archived?:boolean;}
 export interface HrEmployeeRecords {employeeId:string;experiences:Array<{id:string;type:string;organizationName:string;title:string|null;startDate:string;endDate:string|null;summary:string|null}>;skills:Array<{id:string;skillName:string;proficiency:string|null;acquiredDate:string|null}>;family:HrEmployeeFamilyRecord[];credentials:Array<{id:string;credentialType:string;credentialName:string;numberMasked:string|null;issuingAuthority:string|null;acquiredDate:string|null;validTo:string|null}>;fieldAccess:{family:boolean;credential:boolean};}
 export interface HrContractListFilters {employeeId?:string;keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
 export interface HrAttendanceFilters {year?:number;month?:number;}
@@ -315,6 +318,9 @@ export const hrApi={
  rewardCaseAction:(id:string,action:'submit'|'resubmit'|'withdraw'|'approve'|'return',body:object,token?:string)=>unwrap(apiRequest(`/hr/rewards/cases/${id}/${action}`,{method:'POST',body,token,idempotencyKey:createIdempotencyKey(`hr-reward-${action}`)})),
  lifecycleItemAction:(checklistId:string,itemId:string,body:object,token?:string)=>unwrap(apiRequest<{id:string;status:string;action:string}>(`/hr/lifecycle/checklists/${checklistId}/items/${itemId}/actions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-action")})),
  employeeRecords:(employeeId:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrEmployeeRecords>(`/hr/employees/${employeeId}/records`,{token,signal})),
+ createFamily:(employeeId:string,fields:HrFamilyFields&{relationship:string;fullName:string},token?:string)=>{const {jobTitle,politicalStatus,...body}=fields;return unwrap(apiRequest<HrFamilyWriteResult>(`/hr/employees/${employeeId}/records`,{method:"POST",body:{...body,recordType:"family",familyJobTitle:jobTitle,familyPoliticalStatus:politicalStatus},token,idempotencyKey:createIdempotencyKey("hr-family-create")}));},
+ updateFamily:(employeeId:string,familyId:string,body:HrFamilyFields&{expectedVersion:number},token?:string)=>unwrap(apiRequest<HrFamilyWriteResult>(`/hr/employees/${employeeId}/family/${familyId}`,{method:"PATCH",body,token,idempotencyKey:createIdempotencyKey("hr-family-update")})),
+ archiveFamily:(employeeId:string,familyId:string,expectedVersion:number,token?:string)=>unwrap(apiRequest<HrFamilyWriteResult>(`/hr/employees/${employeeId}/family/${familyId}/archive`,{method:"POST",body:{expectedVersion},token,idempotencyKey:createIdempotencyKey("hr-family-archive")})),
  legacyArchive:(token?:string,page=1,pageSize=20,filters:HrLegacyArchiveFilters={},unclaimed=false,signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.status)query.set("status",filters.status);if(filters.recordType)query.set("record_type",filters.recordType);if(filters.employeeId)query.set("employee_id",filters.employeeId);if(filters.keyword)query.set("keyword",filters.keyword);if(filters.reasonCode)query.set("reason_code",filters.reasonCode);return unwrap(apiRequest<PaginatedResult<HrLegacyArchiveRecord>>(`/hr/legacy-archive${unclaimed?"/unclaimed":""}?${query.toString()}`,{token,signal}));},
  legacyArchiveDetail:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrLegacyArchiveRecord>(`/hr/legacy-archive/${id}`,{token,signal})),
  createEmployeeRecord:(employeeId:string,body:object,token?:string)=>unwrap(apiRequest<{id:string;recordType:string}>(`/hr/employees/${employeeId}/records`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-employee-record")})),

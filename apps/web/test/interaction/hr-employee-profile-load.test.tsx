@@ -4,7 +4,7 @@ import { HrEmployeesClient } from "../../app/hr/employees/HrEmployeesClient";
 import { ApiError } from "../../lib/api-client";
 import { hrApi, type HrEmployee, type HrEmployeeProfile } from "../../lib/hr-api";
 
-vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), customValues: vi.fn(), updateCustomValue: vi.fn(), updateProfile: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), profile: vi.fn(), employeeRecords: vi.fn(), customValues: vi.fn(), updateCustomValue: vi.fn(), updateProfile: vi.fn() } }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-test-token" }));
 const auth = vi.hoisted(() => ({ permissions: ["hr:employees", "hr:employee:read", "hr:employee_profile:manage"] }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ id: "synthetic-user", permissions: auth.permissions }) }));
@@ -52,6 +52,24 @@ describe("employee profile read admission", () => {
     await screen.findByText("扩展档案加载失败，请重新加载员工详情。");
     expect(screen.queryByText("foreign private")).toBeNull();
     expect(screen.queryByRole("button",{name:"保存字段"})).toBeNull();
+  });
+
+  it("rejects another employee's extension records before exposing family writes", async () => {
+    auth.permissions.push("hr:employee_record:read", "hr:employee_record:manage", "hr:employee_family:read");
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.employeeRecords).mockResolvedValue({employeeId:"foreign",experiences:[],skills:[],credentials:[],fieldAccess:{family:true,credential:false},family:[{id:"foreign-family",version:1,relationship:"synthetic",fullName:"Foreign private",fullNameMasked:"F***",identityMasked:null,contactMasked:null,isEmergencyContact:false}]});
+    render(<HrEmployeesClient />); await openFirst();
+    await screen.findByText("扩展档案响应不属于当前员工，请重新加载。");
+    expect(screen.queryByText("Foreign private")).toBeNull();
+    expect(screen.queryByRole("button",{name:"新增家庭成员"})).toBeNull();
+  });
+  it("keeps family mutation controls absent for a normal read-only record role", async () => {
+    auth.permissions.push("hr:employee_record:read", "hr:employee_family:read");
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.employeeRecords).mockResolvedValue({employeeId:"alpha",experiences:[],skills:[],credentials:[],fieldAccess:{family:true,credential:false},family:[{id:"family",version:1,relationship:"synthetic",fullName:"Synthetic family",fullNameMasked:"S***",identityMasked:null,contactMasked:null,isEmergencyContact:false}]});
+    render(<HrEmployeesClient />); await openFirst();
+    expect(await screen.findByText("姓名：Synthetic family")).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"新增家庭成员"})).toBeNull();
   });
 
   it("keeps the exact employee archive link behind its existing read permission", async () => {
