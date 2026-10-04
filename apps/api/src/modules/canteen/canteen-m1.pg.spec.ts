@@ -85,7 +85,7 @@ test("M1: archive CRUD, qr checkout happy path + idempotent callback, timeout cl
   } as NodeJS.ProcessEnv);
   const paymentApp = new CanteenPaymentAppService(paymentRepo, orderRepo, statusLogRepo, ds);
   const checkout = new CanteenCheckoutService(
-    ds, numbers, registry, dishRepo, outletRepo, orderRepo, paymentRepo, sessionRepo
+    ds, numbers, registry
   );
   const sessions = new CanteenSessionService(ds, numbers, sessionRepo, orderRepo, statusLogRepo);
   const orderQuery = new CanteenOrderQueryService(orderRepo, orderItemRepo, paymentRepo);

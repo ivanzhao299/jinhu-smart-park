@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseInterceptors } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Post, Query, UseInterceptors } from "@nestjs/common";
 import { CANTEEN_PERMISSIONS } from "@jinhu/shared";
 import type { TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";

@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
-import { DataSource, EntityManager, Repository } from "typeorm";
+import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CheckoutQrDto } from "./dto/canteen.dto";
 import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
@@ -12,7 +11,7 @@ import { CanteenOutletEntity } from "./entities/canteen-outlet.entity";
 import { CanteenPaymentEntity } from "./entities/canteen-payment.entity";
 import { CanteenStatusLogEntity } from "./entities/canteen-status-log.entity";
 import { CanteenNumberService } from "./canteen-number.service";
-import { addYuan, multiplyYuan, yuanToCents } from "./canteen-money.util";
+import { multiplyYuan, yuanToCents } from "./canteen-money.util";
 import { CanteenPaymentRegistry } from "./payment/canteen-payment-registry";
 
 export interface QrCheckoutResult {
@@ -37,12 +36,7 @@ export class CanteenCheckoutService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly numbers: CanteenNumberService,
-    private readonly registry: CanteenPaymentRegistry,
-    @InjectRepository(CanteenDishEntity) dishRepo: Repository<CanteenDishEntity>,
-    @InjectRepository(CanteenOutletEntity) outletRepo: Repository<CanteenOutletEntity>,
-    @InjectRepository(CanteenOrderEntity) orderRepo: Repository<CanteenOrderEntity>,
-    @InjectRepository(CanteenPaymentEntity) paymentRepo: Repository<CanteenPaymentEntity>,
-    @InjectRepository(CanteenCashierSessionEntity) sessionRepo: Repository<CanteenCashierSessionEntity>
+    private readonly registry: CanteenPaymentRegistry
   ) {
     this.ttlSeconds = Number(process.env.CANTEEN_PAYMENT_TTL_SECONDS ?? 120);
   }

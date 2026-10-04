@@ -92,8 +92,7 @@ export class CanteenSubsidyService {
     @InjectRepository(CanteenCashierSessionEntity) sessionRepo: Repository<CanteenCashierSessionEntity>,
     @InjectRepository(CanteenWalletEntity) private readonly walletRepo: Repository<CanteenWalletEntity>,
     @InjectRepository(CanteenSubsidyGrantEntity) grantRepo: Repository<CanteenSubsidyGrantEntity>,
-    @InjectRepository(CanteenWalletTxnEntity) private readonly txnRepo: Repository<CanteenWalletTxnEntity>,
-    @InjectRepository(CanteenMealRecordEntity) mealRepo: Repository<CanteenMealRecordEntity>
+    @InjectRepository(CanteenWalletTxnEntity) private readonly txnRepo: Repository<CanteenWalletTxnEntity>
   ) {
     this.ttlSeconds = Number(process.env.CANTEEN_PAYMENT_TTL_SECONDS ?? 120);
   }
@@ -295,7 +294,6 @@ export class CanteenSubsidyService {
     payCents: number,
     idempotencyKey: string
   ): Promise<SubsidyCheckoutResult> {
-    const now = new Date();
     const period = periodOf();
     const qrCents = payCents - subsidyCents;
     const subsidyAmount = centsToYuan(subsidyCents);

@@ -123,7 +123,7 @@ test(
     const grantSvc = new CanteenSubsidyGrantService(ds, settings, numbers);
     const subsidy = new CanteenSubsidyService(
       ds, numbers, registry, dishRepo, outletRepo, orderRepo, paymentRepo, sessionRepo,
-      walletRepo, grantRepo, txnRepo, mealRepo
+      walletRepo, grantRepo, txnRepo
     );
     const paymentApp = new CanteenPaymentAppService(paymentRepo, orderRepo, statusLogRepo, ds, subsidy);
     const webhook = new CanteenWebhookService(registry, paymentApp);

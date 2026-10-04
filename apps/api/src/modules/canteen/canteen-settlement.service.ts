@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository } from "typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
@@ -60,7 +60,6 @@ export class CanteenSettlementService {
 
   /** 按账期聚合某档口已完成订单（cancelled/pending 不计）。 */
   private async aggregate(manager: EntityManager, scope: TenantParkScope, outletId: string, period: string) {
-    const like = `${period}%`;
     const rows = (await manager.query(
       `SELECT business_date,
               COUNT(*)::int AS order_count,

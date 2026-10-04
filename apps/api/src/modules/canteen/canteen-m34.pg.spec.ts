@@ -168,7 +168,7 @@ test(
 
       // ===== M4: qr 原路退 =====
       const qrOrder = await orderRepo.findOneByOrFail({ orderNo: `CO${suffix}Q1` });
-      const pay = await ds.query(
+      await ds.query(
         `INSERT INTO biz_canteen_payments
           (tenant_id,park_id,payment_no,order_id,outlet_id,provider,amount,provider_transaction_id,status,idempotency_key,is_deleted)
          VALUES ($1,$2,$3,$4,$5,'mock','20.00','MOCKTXN','paid',$6,false) RETURNING id`,
