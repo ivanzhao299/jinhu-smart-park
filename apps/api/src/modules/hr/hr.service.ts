@@ -245,7 +245,7 @@ export class HrService {
     await this.validateEmployeeReferences(scope,{employeeCode:row.employeeCode,fullName:row.fullName,primaryOrgId:dto.primaryOrgId,positionId:dto.positionId,managerEmployeeId:dto.managerEmployeeId},id);
    }
    const before=this.eventSnapshot(row);
-   if(dto.action==="transfer")Object.assign(row,{primaryOrgId:dto.primaryOrgId,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null});
+   if(dto.action==="transfer")Object.assign(row,{primaryOrgId:dto.primaryOrgId,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId===undefined?row.managerEmployeeId:dto.managerEmployeeId??null});
    else row.employmentStatus=targetByAction[dto.action]!;
    if(dto.action==="confirm_employment")row.probationEndDate=dto.effectiveDate;
    if(dto.action==="resume")row.departureDate=null;
