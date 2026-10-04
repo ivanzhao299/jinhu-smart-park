@@ -35,7 +35,7 @@ test("family maintenance uses scoped CAS, preserves omitted encrypted fields and
       await db.query(materialization.match(new RegExp(`ALTER TABLE hr_employee_${domain}[\\s\\S]*?;`))![0]);
       await db.query(materialization.match(new RegExp(`CREATE UNIQUE INDEX uq_hr_employee_${domain}_legacy_source[\\s\\S]*?;`))![0]);
     }
-    await db.query(migration("000335_hr_family_record_changes.sql"));
+    await db.query(migration("000336_hr_family_record_changes.sql"));
     const scope={tenantId:"synthetic-tenant",parkId:"synthetic-park"},actorId=randomUUID(),employeeId=randomUUID(),otherId=randomUUID();
     const actor={sub:actorId,username:"synthetic",...scope,roles:[],permissions:[HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE,HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ,HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ]};
     await db.query("INSERT INTO sys_user VALUES($1,$2,$3)",[scope.tenantId,scope.parkId,actorId]);
