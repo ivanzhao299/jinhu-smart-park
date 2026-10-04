@@ -53,14 +53,14 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
   return <main className={`content ds-page ${styles.page}`}>
     <section className="ds-hero">
       <div className="ds-hero-copy"><span className="ds-eyebrow">人力资源管理</span><h1>数据导入</h1>
-        <p>选择源数据包，检查预览后明确提交。导入的记录进入正常组织岗位、员工档案、合同台账和家庭成员记录。</p>
+        <p>选择源数据包，检查预览后明确提交。导入的记录进入正常组织岗位、员工档案、合同台账、家庭成员、技能和证照记录。</p>
         <p>当前园区：{user?.current_park?.park_name ?? user?.park_name ?? "当前登录园区"}</p></div>
       <Link className="ds-button ds-button-secondary" href="/hr/employees">返回员工档案</Link>
     </section>
     {state.error ? <div className="ds-panel" role="alert">{state.error}</div> : null}
     <section className={`ds-panel ${styles.section}`} aria-labelledby="source-heading">
       <div><span className="ds-eyebrow">第一步</span><h2 id="source-heading">选择数据包</h2>
-        <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
+        <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能和证照，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
         <p className="ds-field-hint">招聘、考勤、薪酬、保险、培训和附件等来源尚不支持通过此入口导入。</p></div>
       <LocalJsonFilePicker policy={IMPORT_FILE_POLICY} fileName={state.summary?.fileName} disabled={!!state.busy || state.uncertain}
         onSelect={file => { setQueryId(null); setConfirmed(false); void store.select(file); }} />
