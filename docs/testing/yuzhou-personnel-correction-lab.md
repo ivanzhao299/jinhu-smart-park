@@ -11,6 +11,9 @@ the independent ledger; they must never overwrite the original import baseline.
 - `database/migrations/000324_hr_personnel_correction_ledger.sql` creates empty
   lab registration, operation, detail, rollback and authorization-use tables.
   It grants no privileges and contains no business-data backfill.
+- `database/migrations/000328_hr_personnel_correction_profile_cas.sql` adds the
+  exact v2 detail contract without modifying applied migrations 324/325 or legacy
+  ledger rows. It permits only the two-field patch plus exactly `version + 1`.
 - `scripts/hr-cutover/personnel-correction-lab.mjs` exports
   `executePersonnelCorrectionLab(config, signedToken)`. There is deliberately no
   CLI, production adapter, API route, deployment hook or token issuer.
@@ -51,13 +54,20 @@ JSON text) and `signature` (base64 Ed25519 signature). Signed payload v1 contain
 - Binding with correction operation UUID, idempotency UUID, tenant/park, original
   T5 and parent operation IDs, original C/S/M triple, current correction execution
   byte hash and the observer's exact three seals plus all three fill counts.
+  `profileBeforeSha256` separately binds every selected target profile column,
+  including version and metadata. Compute it with `profileBeforeSelect` appended
+  to the selected correction CTE under UTC; snapshot prepare returns this value.
 
 `correctionExecutionSha256()` hashes the writer, SQL wrapper, observer and ledger
-migration bytes, so editing any of them invalidates old tokens. The original C/S/M
+migration bytes (including 328), so editing any of them invalidates old tokens. The original C/S/M
 triple remains independently checked against the persisted import binding. The
 review authority must inspect the concrete PostgreSQL plan and issue the token
 outside the executor; no automatic boolean approval or old import credential is
-accepted. Do not log config, tokens, row IDs or field values.
+accepted. Compatibility with old ledger rows does not make old authorizations
+executable: changed execution bytes and binding require a fresh independent
+review and signature, including a newly reviewed full target-before seal. No
+production canonical correction has been executed by this lab. Do not log config,
+tokens, row IDs or field values.
 
 ## Transaction, replay and rollback contract
 
@@ -69,10 +79,18 @@ concurrent identical submissions to return one commit and one exact replay.
 
 Apply locks the source, receipts, maps, employee and profile tables against writes
 in a fixed order, recomputes the authorized PostgreSQL JSONB seals, and materializes
-only the selected subset in a transaction-local temporary table. It also rejects
+only the selected subset in a transaction-local temporary table. The independently
+signed full target-before hash must also match; version-only or unrelated-column
+edits after review fail with `PROFILE_BEFORE_CONFLICT`. It also rejects
 non-unique source identities, registries and profile ownership. The profile UPDATE
 requires matching scope, employee, source hashes and the full captured before row.
 Only SQL NULL is filled; empty strings and other non-NULL modern values survive.
+Every changed profile advances `version` exactly once. The only intentional
+metadata change is `version`; profile update time/actor and unrelated columns
+remain unchanged. Immutable ledger timestamps and hashed actor identify this
+correction. V2 receipts declare `receiptVersion: 2`,
+`profileVersionPolicy: monotonic-v1`, `changedMetadata: ["version"]` and the
+separate full target-before hash. Existing receipts retain their legacy contract.
 
 Business updates, immutable per-profile detail, aggregate operation receipt and
 nonce consumption commit together. Details retain private full before/after rows,
@@ -87,7 +105,12 @@ Rollback requires a distinct signed action and nonce for the exact original
 binding. It restores only the fields actually filled, and only when the current
 whole row **and xmin** match the saved after-image. Even an edit to an unrelated
 field, or an edit that returns to the same value, blocks rollback. One mismatched
-row aborts the entire rollback. A separate immutable rollback receipt is appended;
+row aborts the entire rollback. Successful rollback restores the two business
+fields and advances the current version once more, never restoring the old version.
+Thus neither pre-apply nor pre-rollback modern forms become valid again. A new
+apply after rollback requires a newly reviewed target-before hash and credential;
+old source snapshots and receipts must not be rewritten. A separate immutable
+rollback receipt is appended;
 original correction evidence is retained. An apply replay after rollback fails.
 UPDATE, DELETE and TRUNCATE are refused on ledger tables; later additions to an
 already committed operation's details are refused. Deferred constraints reject
@@ -115,9 +138,15 @@ Optional test-only settings are `HR_CORRECTION_PG_PORT`, `HR_CORRECTION_PG_USER`
 and `HR_CORRECTION_PG_PASSWORD`; they cannot change host or choose a database.
 Use a private process environment for credentials, never command-line literals.
 The harness creates a new random dedicated database, applies the actual new
-migration over minimal synthetic predecessor relations, uses an ephemeral test
+migrations 324/328 over synthetic predecessor relations and the actual TypeORM
+employee/profile entities, calls the real `HrService.updateEmployeeProfile` CAS
+path, uses an ephemeral test
 signing authority, and drops only the database it successfully created. It never
-modifies an existing named lab, production database or source store. An interrupted
+modifies an existing named lab, production database or source store. The harness
+sets `jit=off` only on its freshly created disposable database to avoid JIT
+startup dominating small synthetic observer plans and replay lock deadlines.
+It verifies the shared administrator session setting is unchanged before and
+afterward. This test tuning is not a production performance result. An interrupted
 harness may leave its newly created disposable database for operator cleanup.
 Without `HR_CORRECTION_PG_TEST=1`, real PostgreSQL coverage is explicitly skipped.
 
@@ -126,8 +155,11 @@ receipt/target/parent drift, NULL vs empty values, duplicate source/profile case
 C/S/M mismatch, atomic failure injection, concurrent replay, rollback and later
 whole-row edits, authority/expiry/nonce/action rejection, late-detail insertion,
 incomplete operation commit, ledger immutability and unchanged original lineage.
+It also proves stale modern saves fail after apply and rollback, a current modern
+edit succeeds and blocks atomic rollback, strict +1-only receipt enforcement,
+legacy receipt compatibility, and zero residual disposable databases.
 
-The minimal fixture proves transaction behavior and the new migration, not the
+The synthetic fixture proves transaction behavior and the forward migration, not the
 full predecessor schema, fresh-schema Release Smoke, historical upgrade path or
 real source-bound A/B execution. Those remain independent acceptance gates before
 any production correction design can be approved. The previously observed live

@@ -820,7 +820,8 @@ jobs:
               esac
               remote_parent="${path%/*}"
               [ "$remote_parent" = "$path" ] && remote_parent="."
-              ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "mkdir -p '$PROD_DEPLOY_PATH/$remote_parent'"
+              # The manifest owns stdin; SSH must not consume the next entries.
+              ssh -n $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "mkdir -p '$PROD_DEPLOY_PATH/$remote_parent'"
               if [ "$kind" = "dir" ]; then
                 rsync -az --delete \
                   --exclude='node_modules/' --exclude='.next/' --exclude='dist/' --exclude='coverage/' \

@@ -392,7 +392,9 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 - Tables: `hr_contract_type`, `hr_contract`, `hr_contract_change`.
 
 ### 3. Contracts
-- Main contracts and renewal/change history are separate immutable historical aggregates; a change never overwrites the main source snapshot.
+- During extraction/loading, main contracts and historical change facts are separate source aggregates; loading a change never overwrites the original main source evidence.
+- After import, a contract is formal operational data on its original ID. `isHistoricalImport` is provenance, never a write-eligibility rule. Draft edit/activate/cancel, active renewal/amendment/termination, and document management follow the same permission, scope, state, salary, date-chain and locking checks as other contracts.
+- Preserve source identity/hash/receipt keys, original import receipts, and append-only action history when business facts change. Applied/cancelled change rows remain terminal by status, not by origin. Normal workflow UI must not classify imported contracts as permanently read-only or require replacement records.
 - Employee and master-contract resolution are exact and scoped. Missing T0 employees or masters are quarantined, not synthesized.
 - Raw contract text and file paths never enter reports or downloadable file references; only presence metadata is migrated until the protected-file phase.
 - Rollback order is change, contract, type and every deletion requires active record-map proof.
@@ -412,7 +414,7 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 
 ### 7. Wrong vs Correct
 - Wrong: update the main contract end date for each `compact_c` row.
-- Correct: append ordered `hr_contract_change` rows linked to the immutable main contract.
+- Correct: append ordered `hr_contract_change` rows linked to the original main contract and preserve immutable source evidence; later authorized business actions update that same contract through its normal state machine.
 
 ## Scenario: Yuzhou historical attendance calendar and insurance migration
 
@@ -1249,3 +1251,56 @@ const rows = await lockedSameScopeProfiles(manager, scope, employeeId);
 const active = rows.filter(row => !row.isDeleted);
 if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new ConflictException();
 ```
+
+
+## Scenario: Isolated personnel NULL-fill respects modern profile CAS
+
+- The correction lab may fill only proven SQL NULL `native_place` / `degree`; nonnull
+  values including empty strings survive. Every changed profile increments
+  `version` exactly once, leaving all other metadata unchanged.
+- Apply uses the original observer seals unchanged plus independently signed
+  `profileBeforeSha256` over full selected target rows under UTC. Stale version
+  or unrelated-field changes after review must abort without business/ledger writes.
+- Receipt v2 declares `profileVersionPolicy: monotonic-v1`,
+  `changedMetadata: ["version"]` and the target-before hash. Forward migration 328
+  enforces exactly `before || patch || {version: before.version + 1}`; applied
+  migrations and existing original import/correction receipts remain immutable.
+- Rollback requires exact full after-image and `xmin`, restores only the filled
+  fields and increments the current version again. Any intervening modern edit
+  aborts the entire rollback. Never restore the old version or rewrite source
+  receipts to make reconciliation appear exact.
+- Focused isolated PostgreSQL tests must call the real modern profile save path:
+  old expected versions fail after apply and rollback, a current edit succeeds
+  and prevents rollback, exact replay is unchanged, source lineage hashes stay
+  unchanged, strict receipt enforcement retains legacy compatibility, and only
+  the test-owned random database is removed with zero residual.
+- This contract is lab-only. Source-bound A/B and a production correction writer
+  are separate pending acceptance; synthetic PG success does not prove either.
+
+
+## Scenario: Repeated employee source updates preserve modern lifecycle continuity
+
+- Compare incoming employee fields with the previously accepted encrypted source
+  facts first. Only genuinely source-changed fields participate in target-baseline
+  conflict detection and the writable patch.
+- An unchanged source `employmentStatus` must preserve a modern lifecycle status
+  change and must not block independent source name/date updates. An actual source
+  status revision requires `NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED` in both preview
+  and commit, even if the target already has that status. Never update status via
+  this existing-row path or silently accept its source baseline without lifecycle
+  handling.
+- Use the version read with the current target comparison for conditional writes;
+  unrelated earlier modern edits are retained, and a later concurrent edit returns
+  409 with no failed target, item or revision write. Same-field modern edits remain
+  conflicts; initial legacy mappings without field evidence remain
+  `INITIAL_FIELD_BASELINE_UNKNOWN`.
+- The raw employee adapter reuses verified v2 job-state decisions and the existing
+  T0 employment-type projector, retaining original stable source identities. Bind
+  executable verifier/projector and shared API contract bytes in the recipe hash.
+  Do not reuse the obsolete formalDate-to-probationEndDate projection; retain
+  unsupported facts privately with per-field pending coverage.
+- Test actual CLI packages through PostgreSQL, including unchanged-source-status
+  with changed modern status, real source status changes, exact replay, conflicting
+  fields, unknown baselines and independent-connection CAS races. A dedicated-DB
+  claim requires a new guarded database, `current_database()` assertion and zero
+  residual cleanup; a postgres random-schema run is only schema isolation.

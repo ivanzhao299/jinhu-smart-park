@@ -1,3 +1,4 @@
+import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { HR_PERMISSIONS,type PaginatedResult,type TenantParkScope } from "@jinhu/shared";
@@ -305,7 +306,7 @@ export class HrService {
   ]);
   return {orgs,users};
  }
- async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){await this.mustOrg(scope,dto.orgId);if(dto.reportsToPositionId)await this.mustPosition(scope,dto.reportsToPositionId);if(await this.positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return projectHrPosition(await this.positions.save(this.positions.create({...scope,...dto,reportsToPositionId:dto.reportsToPositionId??null,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,hierarchyLevel:dto.hierarchyLevel??null,sortOrder:dto.sortOrder??0,authority:dto.authority??null,qualification:dto.qualification??null,responsibilities:dto.responsibilities??null,positionManual:dto.positionManual??null,legacySourceId:null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub})));}
+ async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){return this.positions.manager.transaction(async manager=>{ await lockOrgHierarchy(manager,scope);const positions=manager.getRepository(HrPositionEntity);await this.mustOrg(scope,dto.orgId);if(dto.reportsToPositionId)await this.mustPosition(scope,dto.reportsToPositionId);if(await positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return projectHrPosition(await positions.save(positions.create({...scope,...dto,reportsToPositionId:dto.reportsToPositionId??null,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,hierarchyLevel:dto.hierarchyLevel??null,sortOrder:dto.sortOrder??0,authority:dto.authority??null,qualification:dto.qualification??null,responsibilities:dto.responsibilities??null,positionManual:dto.positionManual??null,legacySourceId:null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub})));});}
 
  async listContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
   const access=resolveHrContractAccessScope(actor);
@@ -452,7 +453,6 @@ export class HrService {
    const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
    const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!contract)throw new NotFoundException("Contract not found");
-   if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
    if(contract.status!=="draft")throw new ConflictException("Only a draft online contract can be edited");
    const employee=await employeeRepo.findOne({where:{id:dto.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:dto.contractTypeId,...scope,status:"enabled",isDeleted:false}});
    if(!employee||!type)throw new BadRequestException("Contract references are unavailable in current scope");
@@ -469,7 +469,6 @@ export class HrService {
   const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
   const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!contract)throw new NotFoundException("Contract not found");
-  if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
   if(contract.status!=="draft")throw new ConflictException("Only a draft online contract can be activated or cancelled");
   const employee=await employeeRepo.findOne({where:{id:contract.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:contract.contractTypeId,...scope,isDeleted:false}});
   if(!employee||!type)throw new ConflictException("Contract references are unavailable");
@@ -484,7 +483,6 @@ export class HrService {
    const contractRepo=manager.getRepository(HrContractEntity),changeRepo=manager.getRepository(HrContractChangeEntity);
    const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!contract)throw new NotFoundException("Contract not found");
-   if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
    if(contract.status!=="active")throw new ConflictException("Only an active online contract can create a change draft");
    if(dto.changeType==="renewal"&&contract.endDate&&dto.newStartDate<=contract.endDate)throw new BadRequestException("Renewal must start after the current contract ends");
    if(dto.changeType==="termination"&&!dto.newEndDate)throw new BadRequestException("Termination requires an end date");
@@ -504,10 +502,8 @@ export class HrService {
   const contractRepo=manager.getRepository(HrContractEntity),changeRepo=manager.getRepository(HrContractChangeEntity);
   const contract=await contractRepo.findOne({where:{id:contractId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!contract)throw new NotFoundException("Contract not found");
-  if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
   const change=await changeRepo.findOne({where:{id:changeId,contractId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
   if(!change)throw new NotFoundException("Contract change not found");
-  if(change.isHistoricalImport)throw new ConflictException("Historical imported contract changes are immutable");
   if(change.status!=="draft")throw new ConflictException("Only a draft contract change can be applied or cancelled");
   const contractStatusBefore=contract.status;
   const changeFacts=readModernContractChangeFacts(change.sourceSnapshot);

@@ -1,5 +1,13 @@
 # @jinhu/api Backend Specs
 
+Organization/position and employee dependency continuity: [Organization Continuity](./hr-yuzhou-organization-continuity.md).
+
+Original and new source-bound profile incremental continuity, including explicit oldaddr/edulevel first-field acceptance: [Profile Continuity](./hr-yuzhou-profile-continuity.md).
+
+Reusable offline employee/profile/contract staging entry: [Yuzhou Staging Entry](./yuzhou-reusable-staging-entry.md).
+
+Original receipt-bound employee/contract baseline restoration: [Initial HR Baselines](./hr-yuzhou-initial-baseline.md).
+
 Scoped employee relationship names and source-separated employment dates: [Employee Detail](./hr-employee-detail-assignment.md).
 
 Modern insurance preview arithmetic: [Insurance Calculation](./hr-insurance-calculation.md).

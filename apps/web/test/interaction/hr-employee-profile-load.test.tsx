@@ -36,6 +36,58 @@ beforeEach(() => {
 });
 
 describe("employee profile read admission", () => {
+  it("keeps the exact employee archive link behind its existing read permission", async () => {
+    auth.permissions.push("hr:legacy_archive:read");
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    const provenance=screen.getByText("资料来源与沿革").closest("details")!;
+    const link=within(provenance).getByRole("link",{name:"查看档案沿革",hidden:true});
+    expect(link).toHaveAttribute("href","/hr/employees/legacy?employee_id=alpha");
+    expect(provenance).not.toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: "档案沿革" })).toHaveAttribute("href", "/hr/employees/legacy");
+    expect(screen.queryByText("旧系统资料")).toBeNull();
+  });
+  it("clears the identity explicitly for an imported employee without changing current employment", async () => {
+    vi.mocked(hrApi.employee).mockResolvedValue({ ...employee(), legacyJobstateCode: "A", legacyJobstateName: "原状态" });
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), idType: "passport", idNumber: "SYN-PASSPORT-001" });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByLabelText("证件号（加密保存）")).toHaveValue("SYN-PASSPORT-001");
+    const provenance=screen.getByText("资料来源与沿革").closest("details")!;
+    expect(provenance).not.toHaveAttribute("open");
+    expect(within(provenance).getByText("原状态")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "查看档案沿革" })).toBeNull();
+    expect(screen.queryByText(/玉舟基础档案|玉舟历史兼容|旧系统资料/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("证件号（加密保存）"), { target: { value: "" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({expectedVersion:7,idNumber:"",idType:"passport"}),"synthetic-test-token"));
+    expect(screen.getByText(/当前状态：在职/)).toBeInTheDocument();
+  });
+  it("preserves the loaded identity when saving another field", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), idType: "passport", idNumber: "SYN-PASSPORT-001" });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.change(screen.getByLabelText("档案备注"), {target:{value:"Edited note"}});
+    fireEvent.submit(screen.getByRole("button", {name:"保存敏感档案"}).closest("form")!);
+    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",expect.objectContaining({idNumber:"SYN-PASSPORT-001",remark:"Edited note",expectedVersion:7}),"synthetic-test-token"));
+  });
+  it("carries edits for all 33 fixed business fields through the real maintenance form", async () => {
+    const expected={idType:"passport",idNumber:"SYN-PASSPORT-002",englishName:"Changed name",gender:"男",dateOfBirth:"1990-02-03",ethnicity:"民族",nativePlace:"籍贯",politicalStatus:"政治面貌",partyJoinDate:"2015-03-04",heightCm:173,weightKg:68,maritalStatus:"婚姻状况",healthStatus:"健康状况",householdRegistration:"户口所在地",highestEducation:"最高学历",major:"专业",degree:"学位",foreignLanguage:"外语",languageLevel:"外语水平",graduationDate:"2013-07-01",graduationSchool:"学校",homePhone:"SYN-HOME",jobTitle:"职务",jobGrade:"级别",employeeCategory:"类别",technicalTitle:"职称",technicalGrade:"职称级别",personalMobile:"SYN-MOBILE",personalEmail:"changed@example.invalid",address:"地址",emergencyContactName:"联系人",emergencyContactMobile:"SYN-CONTACT",remark:"备注"};
+    expect(Object.keys(expected)).toHaveLength(33);
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    const form=screen.getByRole("button",{name:"保存敏感档案"}).closest("form")!;
+    for(const [name,value] of Object.entries(expected)){
+      const control=form.elements.namedItem(name);
+      expect(control,`editable control for ${name}`).not.toBeNull();
+      expect(control).not.toHaveAttribute("readonly");
+      expect(control).not.toBeDisabled();
+      fireEvent.change(control as HTMLInputElement,{target:{value:String(value)}});
+    }
+    fireEvent.submit(form);
+    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",{...expected,expectedVersion:7},"synthetic-test-token"));
+  });
   it("rejects missing read versions instead of assuming the latest", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), version: undefined } as unknown as HrEmployeeProfile);
     render(<HrEmployeesClient />); await openFirst();

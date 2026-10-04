@@ -202,8 +202,18 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    await assert.rejects(db!.query("INSERT INTO hr_contract_action(tenant_id,park_id,contract_id,sequence_no,action,to_status,actor_user_id) VALUES('synthetic-foreign',$1,$2,2,'updated','draft',$3)",[scope.parkId,created.id,actor.sub]),/scope mismatch/);
    assert.equal(await db!.getRepository(HrContractActionEntity).countBy({contractId:created.id}),1);
   });
-  await t.test("historical mutation and unauthorized salary remain denied",async()=>{
-   const f=await fixture();await assert.rejects(service.actContract(scope,actor,f.old.id,{action:"cancel"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContractChange(scope,actor,f.old.id,{changeType:"renewal",newStartDate:"2090-01-01"}),/Historical imported contracts are immutable/);await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);
+  await t.test("imported contracts continue on their original IDs while source evidence and normal guards remain",async()=>{
+   const f=await fixture({status:"draft",sourceSnapshot:{sourceIdentity:"source-identity",sourceRowHash:"source-row-hash",importReceipt:"receipt-1"}});
+   const originalId=f.old.id;
+   const updated=await service.updateContract(scope,actor,originalId,{...f.dto,contractNo:f.old.contractNo,startDate:"1900-01-01",endDate:"1901-12-31",positionTitle:"Modern correction"});
+   assert.equal(updated.id,originalId);assert.equal(updated.isHistoricalImport,true);
+   await service.actContract(scope,actor,originalId,{action:"activate"});
+   const draft=await service.createContractChange(scope,actor,originalId,{changeType:"renewal",newStartDate:"2090-01-01",newEndDate:"2091-12-31"});
+   await service.actContractChange(scope,actor,originalId,draft.id,{action:"apply"});
+   const saved=await contracts.findOneByOrFail({id:originalId});assert.equal(saved.id,originalId);assert.equal(saved.isHistoricalImport,true);assert.equal(saved.sourceSnapshot.sourceIdentity,"source-identity");assert.equal(saved.sourceSnapshot.sourceRowHash,"source-row-hash");assert.equal(saved.sourceSnapshot.importReceipt,"receipt-1");assert.equal(await contracts.countBy({employeeId:f.employee.id}),1);
+   await assert.rejects(service.actContractChange(scope,actor,originalId,draft.id,{action:"cancel"}),/Only a draft/u);
+   await assert.rejects(service.createContractChange({...scope,parkId:"foreign"},actor,originalId,{changeType:"renewal",newStartDate:"2092-01-01"}),/Contract not found/u);
+   await assert.rejects(service.createContract(scope,actor,{...f.dto,baseSalary:"100.00"}),/Compensation management permission/);
   });
  }finally{
   try{if(db?.isInitialized)await db.destroy();await admin.query(`DROP SCHEMA ${schema} CASCADE`);const [row]=await admin.query("SELECT NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=$1) clean",[schema]);assert.equal(row.clean,true);if(migrated)assert.deepEqual(await admin.query(cryptoCatalog),cryptoBefore,"pgcrypto catalog must return to its original state");}finally{await admin.destroy();}

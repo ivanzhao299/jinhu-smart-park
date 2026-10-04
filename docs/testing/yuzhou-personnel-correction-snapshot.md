@@ -37,7 +37,7 @@ Employee/profile column sets must exactly match this code's full-column contract
 other relation projections explicitly name all selected columns. Unknown or
 changed profile columns fail closed. The source and lab source-facing schemas
 must match. Their migration histories need not match: the origin may be at 323
-while the lab has empty structures 324 and 325.
+while the lab has empty structures 324/325 and the forward CAS guard 328.
 
 A separately provisioned registry binds origin database name, SHA-256 of
 PostgreSQL system identifier + database OID + name, successful migration-history
@@ -59,7 +59,7 @@ source identifiers and values stay in 0700 directories and 0600 files.
    `readPersonnelCorrectionSnapshotLabDescriptor(directory)`; do not hand-edit it.
 2. The resource owner provisions exactly those new loopback-only random databases
    on a dedicated PostgreSQL instance. Run the repository's `db-migrate.sh`
-   including its prerequisite/history machinery through 325. Do not invoke
+   including its prerequisite/history machinery through 328. Do not invoke
    seed/bootstrap helpers or insert source data/control receipts. Preserve the
    baseline produced by the existing immutable migrations; the adapter must keep
    platform account counts and hashes unchanged. Do not substitute a minimal
@@ -112,7 +112,8 @@ source identifiers and values stay in 0700 directories and 0600 files.
    or expired registry requires fresh independently registered labs.
 8. The separate correction authority uses that reviewed descriptor to issue the
    existing one-time apply token: fresh operation/idempotency/nonce IDs, action,
-   actor hash, target, C/S/M, current `correctionExecutionSha256()`, returned seals
+   actor hash, target, C/S/M, current `correctionExecutionSha256()`, returned
+   `profileBeforeSha256` and seals
    and `snapshot:{snapshotId,manifestSha256}`. Run the existing
    `executePersonnelCorrectionLab`. Rollback has a separate signed action/token.
    A/B results may only be compared after both targets independently complete
@@ -135,7 +136,12 @@ comparison to the verified registry's original database. There is no global
 `current_database` replacement. Real public profiles stay the writable target.
 Source relation counts/hashes, origin signature, schema and approval are checked
 on every use. Later modern profile edits block rollback by full after image and
-lab `xmin`, using the existing ledger logic.
+lab `xmin`, using the existing ledger logic. Apply and successful rollback each
+advance profile version once; only the two business fields return to their before
+values. The original immutable snapshot stays unchanged. A later fresh correction
+requires the current full target-before hash; the old prepare descriptor cannot
+authorize a profile whose version has advanced. Both executable byte hashes
+include migration 328, invalidating credentials for the previous implementation.
 
 ## Focused validation
 

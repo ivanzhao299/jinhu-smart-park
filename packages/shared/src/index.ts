@@ -1,3 +1,4 @@
+export * from "./hr-yuzhou-profile-baseline";
 export type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage } from "./hr-payroll-insurance-source";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
@@ -15,6 +16,8 @@ export * from "./apartment";
 export * from "./hr";
 export * from "./business-scope";
 export * from "./hr-performance-legacy";
+export * from "./hr-yuzhou-incremental";
+export * from "./hr-yuzhou-initial-baseline";
 
 export interface ApiResponse<T> {
   code: number;

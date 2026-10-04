@@ -16,6 +16,13 @@ export const sealSelect = `SELECT jsonb_build_object('sealVersion',1,
  'planSha256',plan_sha256,'beforeSha256',before_sha256,'afterSha256',after_sha256) seal
  FROM correction_seal`;
 
+// The original observer seals remain unchanged. This independent target seal
+// binds every selected profile column, including version and modern metadata.
+export const profileBeforeSelect = `SELECT encode(digest(convert_to(jsonb_build_object(
+ 'receiptVersion',2,'rows',COALESCE(jsonb_agg(jsonb_build_object('binding',c.binding,'profile',to_jsonb(p))
+ ORDER BY c.profile_id::text COLLATE "C"),'[]'::jsonb))::text,'UTF8'),'sha256'),'hex') hash
+ FROM correction_rows c JOIN public.hr_employee_profile p ON p.id=c.profile_id`;
+
 export const lockSql = `LOCK TABLE hr_yuzhou_t5_followon_operation,
  hr_yuzhou_production_import_operation,migration_batch,hr_yuzhou_t5_followon_source,
  hr_yuzhou_t5_followon_projection_receipt,legacy_record_map,
@@ -31,9 +38,10 @@ export const materializeSql = `CREATE TEMP TABLE correction_rows_private ON COMM
 
 export const applySql = `UPDATE hr_employee_profile p SET
  native_place=CASE WHEN r.patch ? 'native_place' AND p.native_place IS NULL THEN r.patch->>'native_place' ELSE p.native_place END,
- degree=CASE WHEN r.patch ? 'degree' AND p.degree IS NULL THEN r.patch->>'degree' ELSE p.degree END
+ degree=CASE WHEN r.patch ? 'degree' AND p.degree IS NULL THEN r.patch->>'degree' ELSE p.degree END,
+ version=p.version+1
  FROM correction_rows_private r
- WHERE p.id=r.profile_id AND to_jsonb(p)=r.full_before
+ WHERE p.id=r.profile_id AND to_jsonb(p)=r.full_before AND p.version BETWEEN 1 AND 2147483645
  AND p.tenant_id=r.binding->>'tenantId' AND p.park_id=r.binding->>'parkId'
  AND p.employee_id::text=r.binding->>'employeeId' AND NOT p.is_deleted
  AND p.legacy_source_identity_sha256=r.binding->>'sourceIdentitySha256'
@@ -44,13 +52,15 @@ export const detailSql = `INSERT INTO hr_personnel_correction_detail
  SELECT $1,p.id,r.binding,r.patch,r.full_before,to_jsonb(p),p.xmin::text
  FROM correction_rows_private r JOIN hr_employee_profile p ON p.id=r.profile_id
  WHERE jsonb_build_object('native_place',p.native_place,'degree',p.degree)=r.after_image
- AND (to_jsonb(p)-'native_place'-'degree')=(r.full_before-'native_place'-'degree')`;
+ AND p.version=(r.full_before->>'version')::integer+1
+ AND (to_jsonb(p)-'native_place'-'degree'-'version')=(r.full_before-'native_place'-'degree'-'version')`;
 
 export const rollbackSql = `UPDATE hr_employee_profile p SET
  native_place=CASE WHEN d.patch ? 'native_place' THEN d.before_image->>'native_place' ELSE p.native_place END,
- degree=CASE WHEN d.patch ? 'degree' THEN d.before_image->>'degree' ELSE p.degree END
+ degree=CASE WHEN d.patch ? 'degree' THEN d.before_image->>'degree' ELSE p.degree END,
+ version=p.version+1
  FROM hr_personnel_correction_detail d WHERE d.operation_id=$1 AND p.id=d.profile_id
- AND to_jsonb(p)=d.after_image AND p.xmin::text=d.after_xmin
+ AND to_jsonb(p)=d.after_image AND p.xmin::text=d.after_xmin AND p.version BETWEEN 1 AND 2147483646
  AND p.tenant_id=d.binding->>'tenantId' AND p.park_id=d.binding->>'parkId'
  AND p.employee_id::text=d.binding->>'employeeId' AND NOT p.is_deleted`;
 
