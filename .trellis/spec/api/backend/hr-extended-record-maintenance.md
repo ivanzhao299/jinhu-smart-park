@@ -25,7 +25,7 @@
 
 完整集合通过 PostgreSQL `jsonb_populate_recordset` 重建真实类型，固定 Asia/Shanghai 序列化，以每行 SQL JSON 文本 SHA 排序聚合核对原证书；不以 JavaScript JSON 摘要替代 SQL 证书。无跨请求证书缓存，不修改已应用迁移。
 
-`hr-record-maintenance.pg.spec.ts` 复用现有实际 PG/CI 入口，验证两域多行、未维护与维护/归档混合集合、证照加密编号原值、正常编辑后恢复、无业务写入、事务要求、范围/重复ID/证书/域拒绝、缺首个历史和来源元数据篡改。原操作/回执/owner认证、公共增量账本/API/raw入口尚须分别实现和验证。
+`hr-record-maintenance.pg.spec.ts` 复用现有实际 PG/CI 入口，验证两域多行、未维护与维护/归档混合集合、证照加密编号原值、正常编辑后恢复、无业务写入、事务要求、范围/重复ID/证书/域拒绝、缺首个历史和来源元数据篡改。原操作/回执/owner认证见下一节；公共增量API/raw入口仍待连接和验证。
 
 ## 原来源及回执认证链
 
@@ -43,4 +43,12 @@
 
 前向000339准备skill/credential数据库域，不修改已应用迁移或业务原行。两域要求空明文field/target baseline、非空加密facts/baseline、固定来源及目标表、稳定source key、正版本；identity/scope/domain/target不能重绑、删除或版本倒退。独立skill/credential原基线表有目标/actor/原receipt FK、完整SQL插入binding guard及不可变provenance。SQL仅验证绑定与加密格式，API仍必须核验真实密文及原集合证书，不能以SQL插入成功替代认证。
 
-共享导出和数据库域准备不启用公共API域。`hr-yuzhou-record-plan.spec.ts` 验证三方比较及边界；真实PG原链fixture应用000339，实测两域private baseline、NULL目标表防绕过、provenance scope/source/target/证书错配、不可变凭据、不可重绑来源/目标、不可删除及目标版本倒退，允许加密元数据正常推进，业务目标保持不变。事务执行器、公共preview/commit与raw入口仍待接入。
+共享导出和数据库域准备不启用公共API域。`hr-yuzhou-record-plan.spec.ts` 验证三方比较及边界；真实PG原链fixture应用000339，实测两域private baseline、NULL目标表防绕过、provenance scope/source/target/证书错配、不可变凭据、不可重绑来源/目标、不可删除及目标版本倒退，允许加密元数据正常推进，业务目标保持不变。公共preview/commit与raw入口仍待接入；内部事务执行器见下一节。
+
+## 调用方事务执行器准备
+
+`executeYuzhouRecordItem` 只处理skill/credential静态来源表及sha256身份，仍使用prepared item类型，未打开公共domain。调用方事务内分来源advisory锁、ledger行锁、原source/owner/receipt认证、按operation+kind缓存原集合证明、加密原provenance及字段比较。Owner变化冲突，原凭据不匹配拒绝；没有有效原证明却已有同源metadata目标时拒绝创建重复历史行。原ledger的事实与基线仅解密使用，不向revision暴露原值或编号。
+
+新增使用 `createEmployeeRecordInTransaction`，与正常HrLifecycleService技能/证照创建共用DTO验证、独立权限、员工范围锁、protected number、v1快照和同事务create journal。更新使用已有mutate helper及当前版本CAS，不嵌套事务。未变来源保留现代修改；收敛只推进来源基线；归档冲突不复活。每次revision只含字段名、版本和结果。
+
+真实PG原链fixture验证内部preview/create/update、相同来源重复运行、原基线首次接纳、分歧/收敛/归档、权限拒绝、journal失败时目标和ledger回滚及重试；真实竞争连接在观察之后现代修改触发CAS，ledger不变而现代修改保留；并发同源得到applied+unchanged及唯一create journal。既有maintenance PG和lifecycle契约回归通过。内部重复来源验证不证明公共同包重放；公共DTO/preview/commit/status、同包员工依赖、raw入口及生产发布仍须后续独立验证。

@@ -14,7 +14,7 @@ import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { HrFamilyRecordVersionDto, UpdateHrFamilyRecordDto } from "./dto/hr-family-record.dto";
 import { createFamilyRecordInTransaction, mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
-import { appendEmployeeRecordChangeInTransaction, mutateEmployeeRecordInTransaction, type HrMaintainedRecordKind } from "./hr-record-transaction-write";
+import { appendEmployeeRecordChangeInTransaction, createEmployeeRecordInTransaction, mutateEmployeeRecordInTransaction, type HrMaintainedRecordKind } from "./hr-record-transaction-write";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import {
   CreateHrEmployeeRecordDto,
@@ -705,6 +705,10 @@ export class HrLifecycleService {
     if (d.recordType === "family") {
       return this.createFamilyRecord(s,a,employeeId,d);
     }
+    if(d.recordType === "skill" || d.recordType === "credential") {
+      const kind=d.recordType;
+      return this.db.transaction(manager=>createEmployeeRecordInTransaction(manager,s,a,employeeId,kind,d,this.sensitive));
+    }
     return this.db.transaction(async manager=>{
       const owner=await manager.query("SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND NOT is_deleted FOR SHARE",[s.tenantId,s.parkId,employeeId]);
       if(owner.length!==1)throw new NotFoundException("Employee not found");
@@ -714,52 +718,6 @@ export class HrLifecycleService {
         if(!snapshot||snapshot.version!==1)throw new ConflictException("Employee record creation was not confirmed");
         await appendEmployeeRecordChangeInTransaction(manager,s,a,employeeId,kind,"create",null,snapshot,this.sensitive);
       };
-    if (d.recordType === "skill") {
-      if (!d.skillName) throw new BadRequestException("Skill name is required");
-      const r = await manager.query(
-        `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,legacy_grade,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING id`,
-        [
-          s.tenantId,
-          s.parkId,
-          employeeId,
-          d.skillName,
-          d.proficiency ?? null,
-          d.acquiredDate ?? null,
-          d.note ?? null,
-          d.legacyGrade ?? null,
-          a.sub,
-        ],
-      );
-      await recordCreation("skill",r[0].id);
-      return { id: r[0].id, recordType: d.recordType, version:1 };
-    }
-    if (d.recordType === "credential") {
-      if (!d.credentialType || !d.credentialName)
-        throw new BadRequestException("Credential type and name are required");
-      const n = d.credentialNumber
-        ? this.sensitive.identityProfile(d.credentialNumber)
-        : null;
-      const r = await manager.query(
-        `INSERT INTO hr_employee_credential(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING id`,
-        [
-          s.tenantId,
-          s.parkId,
-          employeeId,
-          d.credentialType,
-          d.credentialName,
-          n?.encrypted ?? null,
-          n?.masked ?? null,
-          n?.hash ?? null,
-          d.issuingAuthority ?? null,
-          d.acquiredDate ?? null,
-          d.validTo ?? null,
-          d.note ?? null,
-          a.sub,
-        ],
-      );
-      await recordCreation("credential",r[0].id);
-      return { id: r[0].id, recordType: d.recordType, version:1 };
-    }
     if (!d.organizationName || !d.startDate)
       throw new BadRequestException("Organization and start date are required");
     const r = await manager.query(

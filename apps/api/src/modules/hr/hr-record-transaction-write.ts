@@ -7,6 +7,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { HrRecordVersionDto, UpdateHrCredentialRecordDto, UpdateHrExperienceRecordDto, UpdateHrSkillRecordDto } from "./dto/hr-record-maintenance.dto";
+import { CreateHrEmployeeRecordDto } from "./dto/hr-lifecycle.dto";
 
 const definitions={
   experience:{dto:UpdateHrExperienceRecordDto,fields:{type:"experience_type",organizationName:"organization_name",title:"title",startDate:"start_date",endDate:"end_date",summary:"summary"}},
@@ -14,6 +15,32 @@ const definitions={
   credential:{dto:UpdateHrCredentialRecordDto,fields:{credentialType:"credential_type",credentialName:"credential_name",issuingAuthority:"issuing_authority",acquiredDate:"acquired_date",validTo:"valid_to",note:"note",credentialNumber:"number_encrypted"}},
 } as const;
 export type HrMaintainedRecordKind=keyof typeof definitions;
+
+/** Shared ordinary/import creation; caller owns the transaction and rollback. */
+export async function createEmployeeRecordInTransaction(manager:EntityManager,s:TenantParkScope,a:JwtPrincipal,employeeId:string,
+  kind:"skill"|"credential",input:unknown,sensitive:PartySensitiveDataService){
+  if(!manager.queryRunner?.isTransactionActive)throw new BadRequestException("Record write requires an active transaction");
+  if(!a.isSuper&&!a.permissions.includes("*")&&!a.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE))throw new ForbiddenException();
+  if(!["skill","credential"].includes(kind)||!input||typeof input!=="object"||Array.isArray(input))throw new BadRequestException("Invalid employee record");
+  if(Object.hasOwn(input,"recordType")&&(input as {recordType:unknown}).recordType!==kind)throw new BadRequestException("Invalid employee record type");
+  const d=plainToInstance(CreateHrEmployeeRecordDto,{...input,recordType:kind});
+  if(validateSync(d,{whitelist:true,forbidNonWhitelisted:true}).length||d.credentialNumber?.includes("*"))throw new BadRequestException("Invalid employee record");
+  if(kind==="skill"?!d.skillName:(!d.credentialType||!d.credentialName))throw new BadRequestException("Employee record name and type are required");
+  if(d.acquiredDate&&d.validTo&&d.validTo<d.acquiredDate)throw new BadRequestException("End date must not precede start date");
+  const owner=await manager.query("SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND NOT is_deleted FOR SHARE",[s.tenantId,s.parkId,employeeId]);
+  if(owner.length!==1)throw new NotFoundException("Employee not found");
+  try{
+    let rows:Array<{snapshot:Record<string,unknown>}>;
+    if(kind==="skill")rows=await manager.query(`INSERT INTO hr_employee_skill AS record(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,legacy_grade,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING to_jsonb(record) snapshot`,[s.tenantId,s.parkId,employeeId,d.skillName,d.proficiency??null,d.acquiredDate??null,d.note??null,d.legacyGrade??null,a.sub]);
+    else{const number=d.credentialNumber?sensitive.identityProfile(d.credentialNumber):null;
+      rows=await manager.query(`INSERT INTO hr_employee_credential AS record(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING to_jsonb(record) snapshot`,[s.tenantId,s.parkId,employeeId,d.credentialType,d.credentialName,number?.encrypted??null,number?.masked??null,number?.hash??null,d.issuingAuthority??null,d.acquiredDate??null,d.validTo??null,d.note??null,a.sub]);
+    }
+    const snapshot=rows[0]?.snapshot;
+    if(rows.length!==1||!snapshot||snapshot.version!==1)throw new ConflictException("Employee record creation was not confirmed");
+    await appendEmployeeRecordChangeInTransaction(manager,s,a,employeeId,kind,"create",null,snapshot,sensitive);
+    return {id:String(snapshot.id),recordType:kind,version:1};
+  }catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("An employee record already uses this name");throw error;}
+}
 
 export async function appendEmployeeRecordChangeInTransaction(manager:EntityManager,s:TenantParkScope,a:JwtPrincipal,employeeId:string,
   kind:HrMaintainedRecordKind,action:"create"|"update"|"archive",before:Record<string,unknown>|null,after:Record<string,unknown>,sensitive:PartySensitiveDataService){

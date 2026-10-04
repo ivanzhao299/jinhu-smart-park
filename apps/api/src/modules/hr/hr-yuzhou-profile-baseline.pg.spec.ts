@@ -16,6 +16,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
 import { originalFamily, certifyOriginalFamilies, originalFamilySourceFacts } from "./hr-yuzhou-family-baseline";
 import { originalExtendedRecord, certifyOriginalRecords, originalRecordSourceFacts } from "./hr-yuzhou-record-baseline";
+import { executeYuzhouRecordItem, type YuzhouPreparedRecordItem } from "./hr-yuzhou-record-executor";
 import { mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
@@ -428,6 +429,61 @@ async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:Part
     await assert.rejects(db.query("DELETE FROM hr_incremental_import_item WHERE id=$1",[itemId]),/RECORD_INCREMENTAL_SOURCE_IMMUTABLE/);
     await db.query("UPDATE hr_incremental_import_item SET version=version+1,last_row_sha256=$2,baseline_encrypted=$3 WHERE id=$1",[itemId,sha("new source facts"),cipher]);
     assert.deepEqual((await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[ids[0]]))[0],archived);
+    const item=(key:string,fields:Record<string,unknown>):YuzhouPreparedRecordItem=>{
+      const value={domain:kind,sourceTable,sourceKey:key,fields:{employeeSourceTable:"dbo.person",employeeSourceKey:`sha256:${employeeIdentity}`,...fields}};
+      return {...value,rowDigest:sha(canonicalYuzhouInitialJson({...value,sourceUpdatedAt:null}))};
+    };
+    const execute=(value:YuzhouPreparedRecordItem,commit=true)=>db.transaction(async m=>{
+      const operation=randomUUID();
+      if(commit)await m.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[operation,scope.tenantId,scope.parkId,`synthetic-executor-${operation}`,sha(operation),cipher,actorId]);
+      return executeYuzhouRecordItem(m,scope,actor,value,sensitive,async(key,ownerTable)=>{assert.equal(key,`sha256:${employeeIdentity}`);assert.equal(ownerTable,"dbo.person");return employeeId;},commit?operation:undefined);
+    });
+    const originalKey=`sha256:${identities[1]}`,originalItem=item(originalKey,{note:null});
+    assert.equal((await execute(originalItem,false) as {action:string}).action,"unchanged");
+    assert.equal(await execute(originalItem),"unchanged");assert.equal(await execute(originalItem),"unchanged");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[1]]))[0].version,1);
+    assert.equal(await execute(item(originalKey,{note:"Source updated"})),"applied");
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[1]!,{expectedVersion:2,note:"Modern note"},"update");
+    assert.equal(await execute(item(originalKey,{note:"Divergent source"})),"conflict");
+    assert.equal(await execute(item(originalKey,{note:"Source updated"})),"unchanged");
+    assert.equal((await db.query(`SELECT note FROM ${table} WHERE id=$1`,[ids[1]]))[0].note,"Modern note");
+    assert.equal(await execute(item(originalKey,{note:"Modern note"})),"applied");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[1]]))[0].version,3);
+    await service.mutateEmployeeRecord(scope,actor,employeeId,kind,ids[1]!,{expectedVersion:3},"archive");
+    assert.equal(await execute(item(originalKey,{note:"Resurrection attempt"})),"conflict");
+    const newKey=`sha256:${sha(`${sourceTable}\0new-synthetic`)}`,newItem=item(newKey,kind==="skill"?{skillName:"Synthetic repeatable skill",legacyGrade:"Original raw grade"}:{credentialType:"synthetic",credentialName:"Synthetic repeatable credential",credentialNumber:"SYN-NEW",acquiredDate:"2020-01-01"});
+    assert.equal((await execute(newItem,false) as {action:string}).action,"create");
+    assert.equal(await execute(newItem),"applied");assert.equal(await execute(newItem),"unchanged");
+    const created=(await db.query("SELECT target_id FROM hr_incremental_import_item WHERE domain=$1 AND source_key=$2",[kind,newKey]))[0].target_id;
+    assert.equal((await db.query(`SELECT count(*)::int n FROM ${table}_change WHERE record_id=$1 AND action='create'`,[created]))[0].n,1);
+    await assert.rejects(db.transaction(m=>executeYuzhouRecordItem(m,scope,{...actor,isSuper:false,permissions:[]},newItem,sensitive,async()=>employeeId)),/Forbidden/);
+    const beforeFailure=await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[created]);
+    const ledgerBeforeFailure=await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]);
+    await db.query(`CREATE FUNCTION synthetic_${kind}_executor_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic executor journal failure'; END $$; CREATE TRIGGER synthetic_${kind}_executor_failure BEFORE INSERT ON ${table}_change FOR EACH ROW EXECUTE FUNCTION synthetic_${kind}_executor_failure()`);
+    await assert.rejects(execute(item(newKey,{note:"Rollback source"})),/synthetic executor journal failure/);
+    assert.deepEqual(await db.query(`SELECT to_jsonb(r) row FROM ${table} r WHERE id=$1`,[created]),beforeFailure);
+    assert.deepEqual(await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]),ledgerBeforeFailure);
+    await db.query(`DROP TRIGGER synthetic_${kind}_executor_failure ON ${table}_change`);
+    assert.equal(await execute(item(newKey,{note:"Rollback source"})),"applied");
+    const ledgerBeforeRace=await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]);
+    let raced=false;
+    await assert.rejects(db.transaction(async m=>{
+      const operation=randomUUID();await m.query(`INSERT INTO hr_incremental_import_operation(id,tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,$3,'yuzhou-v10',$4,$5,$6,1,$7)`,[operation,scope.tenantId,scope.parkId,operation,sha(operation),cipher,actorId]);
+      const proxy=Object.create(m) as EntityManager;
+      proxy.query=async(sql:string,args?:unknown[])=>{const out=await m.query(sql,args);
+        if(!raced&&sql.startsWith("SELECT to_jsonb(r) snapshot")&&sql.includes(`FROM ${table}`)){
+          raced=true;await service.mutateEmployeeRecord(scope,actor,employeeId,kind,created,{expectedVersion:2,note:"Concurrent modern"},"update");
+        }return out;};
+      return executeYuzhouRecordItem(proxy,scope,actor,item(newKey,{note:"Lost CAS source"}),sensitive,async()=>employeeId,operation);
+    }),/Employee record changed/);
+    assert.equal(raced,true);assert.deepEqual(await db.query("SELECT to_jsonb(i) row FROM hr_incremental_import_item i WHERE target_id=$1",[created]),ledgerBeforeRace);
+    assert.equal((await db.query(`SELECT note FROM ${table} WHERE id=$1`,[created]))[0].note,"Concurrent modern");
+    const parallel=item(newKey,kind==="skill"?{legacyGrade:"Parallel source"}:{issuingAuthority:"Parallel source"});
+    const outcomes=await Promise.all([execute(parallel),execute(parallel)]);assert.deepEqual(outcomes.sort(),["applied","unchanged"]);
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[created]))[0].version,4);
+    const orphanIdentity=sha(`${sourceTable}\0uncertified-synthetic`);
+    await db.query(`UPDATE ${table} SET legacy_source_identity_sha256=$2,legacy_source_row_sha256=$3 WHERE id=$1`,[created,orphanIdentity,sha("uncertified raw row")]);
+    await assert.rejects(execute(item(`sha256:${orphanIdentity}`,kind==="skill"?{skillName:"Must not duplicate"}:{credentialType:"synthetic",credentialName:"Must not duplicate"})),/RECORD_IMPORT_EVIDENCE_INVALID/);
   }
 }
 
