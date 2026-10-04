@@ -14,6 +14,7 @@ import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { HrFamilyRecordVersionDto, UpdateHrFamilyRecordDto } from "./dto/hr-family-record.dto";
 import { createFamilyRecordInTransaction, mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
+import { appendEmployeeRecordChangeInTransaction, mutateEmployeeRecordInTransaction, type HrMaintainedRecordKind } from "./hr-record-transaction-write";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import {
   CreateHrEmployeeRecordDto,
@@ -604,11 +605,11 @@ export class HrLifecycleService {
     const recordFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ);
     const [experiences, skills, family, credentials] = await Promise.all([
       this.db.query(
-        `SELECT id,experience_type "type",organization_name "organizationName",title,start_date "startDate",end_date "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
+        `SELECT id,version,experience_type "type",organization_name "organizationName",title,start_date "startDate",end_date "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
         [s.tenantId, s.parkId, employeeId],
       ),
       this.db.query(
-        `SELECT id,skill_name "skillName",proficiency,acquired_date "acquiredDate",note${recordFull?',legacy_grade "legacyGrade"':''} FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
+        `SELECT id,version,skill_name "skillName",proficiency,acquired_date "acquiredDate",note${recordFull?',legacy_grade "legacyGrade"':''} FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
         [s.tenantId, s.parkId, employeeId],
       ),
       familyAllowed
@@ -619,7 +620,7 @@ export class HrLifecycleService {
         : Promise.resolve([]),
       credentialAllowed
         ? this.db.query(
-            `SELECT id,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note${credentialFull?',legacy_file_reference_sha256 "legacyFileReferenceSha256",number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
+            `SELECT id,version,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note${credentialFull?',legacy_file_reference_sha256 "legacyFileReferenceSha256",number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),
@@ -643,6 +644,9 @@ export class HrLifecycleService {
       credentials:credentials.map((row:Record<string,unknown>)=>{const {numberEncrypted,...safe}=row;return credentialFull?{...safe,credentialNumber:this.sensitive.decrypt(numberEncrypted as string|null)}:safe;}),
       fieldAccess: { family: familyAllowed, credential: credentialAllowed },
     };
+  }
+  async mutateEmployeeRecord(s:TenantParkScope,a:JwtPrincipal,employeeId:string,kind:HrMaintainedRecordKind,recordId:string,input:unknown,action:"update"|"archive"){
+    return this.db.transaction(manager=>mutateEmployeeRecordInTransaction(manager,s,a,employeeId,kind,recordId,input,action,this.sensitive));
   }
   private validateFamilyPatch(input: unknown) {
     if(input===null||typeof input!=="object"||Array.isArray(input))throw new BadRequestException("Invalid family record patch");
@@ -689,6 +693,10 @@ export class HrLifecycleService {
   ) {
     if (!this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE))
       throw new ForbiddenException();
+    const parsed=plainToInstance(CreateHrEmployeeRecordDto,d);
+    if(!parsed||validateSync(parsed,{whitelist:true,forbidNonWhitelisted:true}).length)throw new BadRequestException("Invalid employee record");
+    d=parsed;
+    if(d.credentialNumber?.includes("*"))throw new BadRequestException("A masked credential is not a replacement number");
     const exists = await this.db.query(
       `SELECT 1 FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false`,
       [s.tenantId, s.parkId, employeeId],
@@ -697,9 +705,18 @@ export class HrLifecycleService {
     if (d.recordType === "family") {
       return this.createFamilyRecord(s,a,employeeId,d);
     }
+    return this.db.transaction(async manager=>{
+      const owner=await manager.query("SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND NOT is_deleted FOR SHARE",[s.tenantId,s.parkId,employeeId]);
+      if(owner.length!==1)throw new NotFoundException("Employee not found");
+      const recordCreation=async(kind:HrMaintainedRecordKind,id:string)=>{
+        const table=`hr_employee_${kind}`;
+        const snapshot=(await manager.query(`SELECT to_jsonb(record) snapshot FROM ${table} record WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND id=$4`,[s.tenantId,s.parkId,employeeId,id]))[0]?.snapshot;
+        if(!snapshot||snapshot.version!==1)throw new ConflictException("Employee record creation was not confirmed");
+        await appendEmployeeRecordChangeInTransaction(manager,s,a,employeeId,kind,"create",null,snapshot,this.sensitive);
+      };
     if (d.recordType === "skill") {
       if (!d.skillName) throw new BadRequestException("Skill name is required");
-      const r = await this.db.query(
+      const r = await manager.query(
         `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8) RETURNING id`,
         [
           s.tenantId,
@@ -712,7 +729,8 @@ export class HrLifecycleService {
           a.sub,
         ],
       );
-      return { id: r[0].id, recordType: d.recordType };
+      await recordCreation("skill",r[0].id);
+      return { id: r[0].id, recordType: d.recordType, version:1 };
     }
     if (d.recordType === "credential") {
       if (!d.credentialType || !d.credentialName)
@@ -720,7 +738,7 @@ export class HrLifecycleService {
       const n = d.credentialNumber
         ? this.sensitive.identityProfile(d.credentialNumber)
         : null;
-      const r = await this.db.query(
+      const r = await manager.query(
         `INSERT INTO hr_employee_credential(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING id`,
         [
           s.tenantId,
@@ -738,11 +756,12 @@ export class HrLifecycleService {
           a.sub,
         ],
       );
-      return { id: r[0].id, recordType: d.recordType };
+      await recordCreation("credential",r[0].id);
+      return { id: r[0].id, recordType: d.recordType, version:1 };
     }
     if (!d.organizationName || !d.startDate)
       throw new BadRequestException("Organization and start date are required");
-    const r = await this.db.query(
+    const r = await manager.query(
       `INSERT INTO hr_employee_experience(tenant_id,park_id,employee_id,experience_type,organization_name,title,start_date,end_date,summary,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING id`,
       [
         s.tenantId,
@@ -757,6 +776,8 @@ export class HrLifecycleService {
         a.sub,
       ],
     );
-    return { id: r[0].id, recordType: d.recordType };
+    await recordCreation("experience",r[0].id);
+    return { id: r[0].id, recordType: d.recordType, version:1 };
+    });
   }
 }
