@@ -22,7 +22,8 @@ test("employee directory and profiles use only their exact park team and self at
 
 test("self masked profile and independently permitted detail sections remain usable",()=>{
   assert.match(api,/myProfile:\(token\?:string,signal\?:AbortSignal\)=>unwrap\(apiRequest<HrEmployeeProfile\|null>\("\/hr\/employees\/me\/profile"/u);
-  assert.match(page,/const isSelf=detail\.userId===user\?\.id/u);
+  assert.match(page,/userId=user\?\.id/u);
+  assert.match(page,/const isSelf=detail\.userId===userId/u);
   assert.match(page,/canReadProfileSelf&&isSelf\?hrApi\.myProfile\(token,controller\.signal\)/u);
   assert.match(page,/const detail=await hrApi\.employee\(row\.id,token,controller\.signal\)/u);
   assert.match(page,/Promise\.allSettled\(\[/u);
