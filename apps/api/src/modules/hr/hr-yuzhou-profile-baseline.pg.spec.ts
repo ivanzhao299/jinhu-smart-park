@@ -15,6 +15,7 @@ import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INI
 import { ValidationPipe } from "@nestjs/common";
 import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
 import { originalFamily, certifyOriginalFamilies, originalFamilySourceFacts } from "./hr-yuzhou-family-baseline";
+import { mutateFamilyRecordInTransaction } from "./hr-family-transaction-write";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
@@ -410,7 +411,19 @@ async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensiti
   assert.equal(await db.transaction(m=>originalFamily(m,scope,sha("absent"),sensitive)),null);
   const lifecycle=new HrLifecycleService(db,sensitive,{recordOperationRequired:async()=>undefined} as never);
   const managerActor={sub:actorId,isSuper:true,permissions:["*"]} as never;
-  await lifecycle.updateFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"现代单位"});
+  let certificateLocked!:()=>void,releaseCertificate!:()=>void;
+  const reached=new Promise<void>(resolve=>{certificateLocked=resolve}),released=new Promise<void>(resolve=>{releaseCertificate=resolve});
+  const accepting=db.transaction(async m=>{
+    const original=await originalFamily(m,scope,identities[0]!,sensitive);assert.ok(original);
+    await certifyOriginalFamilies(m,original,scope,sensitive);certificateLocked();await released;
+    return mutateFamilyRecordInTransaction(m,scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"现代单位"},"update",sensitive);
+  });
+  await reached;
+  let competingSettled=false;
+  const competing=lifecycle.updateFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:1,workUnit:"competing"}).then(()=>{competingSettled=true;return null;},error=>{competingSettled=true;return error;});
+  await new Promise(resolve=>setTimeout(resolve,100));const blocked=!competingSettled;releaseCertificate();
+  assert.equal((await accepting).version,2);assert.equal(blocked,true);
+  assert.match(String(await competing),/Family record changed/);
   assert.deepEqual(await resolveOriginal(),before);
   await lifecycle.archiveFamilyRecord(scope,managerActor,employeeId,ids[0]!,{expectedVersion:2});
   assert.deepEqual(await resolveOriginal(),before);
@@ -467,6 +480,32 @@ async function verifyFamilyOriginalReceipts(db:DataSource,sensitive:PartySensiti
   const privateInvalid=[...baselineArgs];privateInvalid[14]="plain private provenance";
   await assert.rejects(db.query(insertBaseline,privateInvalid),/provenance_encrypted_check/);
   await db.query(insertBaseline,baselineArgs);
+  // The import executor must use this same manager for ledger, target and journal.
+  // Here a real journal INSERT failure verifies transaction reuse, not a mocked
+  // transaction wrapper or a second independently committed maintenance call.
+  const secondItemArgs=[...itemArgs];secondItemArgs[2]=`sha256:${identities[1]}`;secondItemArgs[3]=ids[1];secondItemArgs[4]=hashes[1];
+  const secondItemId=(await db.query(itemSql,secondItemArgs))[0].id;
+  const targetBefore=(await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[1]]))[0];
+  const ledgerBefore=(await db.query("SELECT to_jsonb(i) AS row FROM hr_incremental_import_item i WHERE id=$1",[secondItemId]))[0];
+  await assert.rejects(mutateFamilyRecordInTransaction(db.manager,scope,managerActor,employeeId,ids[1]!,{expectedVersion:1,workUnit:"outside"},"update",sensitive),/active transaction/);
+  await assert.rejects(db.transaction(m=>mutateFamilyRecordInTransaction(m,scope,{sub:actorId,permissions:[],isSuper:false} as never,employeeId,ids[1]!,{expectedVersion:1,workUnit:"denied"},"update",sensitive)),/Forbidden/);
+  const importedCipher=sensitive.encrypt(JSON.stringify({fields:{workUnit:"来源新单位"},target:{workUnit:"来源新单位"}}));
+  const transactionWrite=()=>db.transaction(async m=>{
+    await m.query("UPDATE hr_incremental_import_item SET version=version+1,baseline_encrypted=$2 WHERE id=$1",[secondItemId,importedCipher]);
+    return mutateFamilyRecordInTransaction(m,scope,managerActor,employeeId,ids[1]!,{expectedVersion:1,workUnit:"来源新单位"},"update",sensitive);
+  });
+  await db.query(`CREATE FUNCTION synthetic_family_import_journal_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'SYNTHETIC_IMPORT_JOURNAL_FAILURE'; END $$; CREATE TRIGGER synthetic_family_import_journal_failure BEFORE INSERT ON hr_employee_family_change FOR EACH ROW EXECUTE FUNCTION synthetic_family_import_journal_failure()`);
+  await assert.rejects(transactionWrite(),/SYNTHETIC_IMPORT_JOURNAL_FAILURE/);
+  assert.deepEqual((await db.query("SELECT to_jsonb(f) AS row FROM hr_employee_family f WHERE id=$1",[ids[1]]))[0],targetBefore);
+  assert.deepEqual((await db.query("SELECT to_jsonb(i) AS row FROM hr_incremental_import_item i WHERE id=$1",[secondItemId]))[0],ledgerBefore);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family_change WHERE family_id=$1",[ids[1]]))[0].n,0);
+  await db.query("DROP TRIGGER synthetic_family_import_journal_failure ON hr_employee_family_change");
+  assert.equal((await transactionWrite()).version,2);
+  assert.equal((await db.query("SELECT version FROM hr_incremental_import_item WHERE id=$1",[secondItemId]))[0].version,2);
+  assert.equal((await db.query("SELECT count(*)::int n FROM hr_employee_family_change WHERE family_id=$1 AND version=2",[ids[1]]))[0].n,1);
+  await assert.rejects(transactionWrite(),/Family record changed/);
+  assert.equal((await db.query("SELECT version FROM hr_incremental_import_item WHERE id=$1",[secondItemId]))[0].version,2);
+
   await assert.rejects(db.query("UPDATE hr_incremental_family_baseline SET witness_sha256=$2 WHERE item_id=$1",[itemId,sha("reset")]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
   await assert.rejects(db.query("DELETE FROM hr_incremental_family_baseline WHERE item_id=$1",[itemId]),/INITIAL_BASELINE_PROVENANCE_IMMUTABLE/);
   assert.deepEqual(await resolveOriginal(),before);

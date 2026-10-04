@@ -81,7 +81,10 @@ export async function certifyOriginalFamilies(manager:EntityManager,original:Ori
   if(!manager.queryRunner?.isTransactionActive) return reject();
   // Resolver already holds the operation lock; rollback uses the same order.
   await manager.query("SET LOCAL TIME ZONE 'Asia/Shanghai'");
-  await manager.query("LOCK TABLE hr_employee_family,hr_employee_family_change,hr_yuzhou_t5_followon_source,hr_yuzhou_t5_followon_projection_receipt IN SHARE MODE");
+  // Serialize first-acceptance certificates before upgrading to business writes.
+  // Ordinary mutation takes ROW EXCLUSIVE before its row lock to avoid a cycle.
+  await manager.query("LOCK TABLE hr_employee_family IN SHARE ROW EXCLUSIVE MODE");
+  await manager.query("LOCK TABLE hr_employee_family_change,hr_yuzhou_t5_followon_source,hr_yuzhou_t5_followon_projection_receipt IN SHARE MODE");
   const receipts=(await manager.query(`SELECT count(*)::int AS count,
     encode(digest(COALESCE(string_agg(h,'' ORDER BY h),''),'sha256'),'hex') AS sha256
     FROM (SELECT encode(digest(to_jsonb(r)::text,'sha256'),'hex') h

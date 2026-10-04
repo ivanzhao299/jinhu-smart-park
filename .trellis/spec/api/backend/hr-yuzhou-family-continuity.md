@@ -2,7 +2,7 @@
 
 ## 1. Scope / Trigger
 
-Internal proof for the upcoming reusable `dbo.family` incremental adapter. These functions neither expose an import route nor write business data, original operations, sources or receipts. Original T5 data is formal editable data. Modification and soft deletion must not force original replay or invalidate other source rows.
+Internal proof for the upcoming reusable `dbo.family` incremental adapter. The proof functions do not expose an import route or write original operations, sources or receipts. A shared transactional writer is used by ordinary family maintenance and prepared for the incremental executor; it writes formal targets and encrypted journals in its caller-owned transaction. Original T5 data is formal editable data. Modification and soft deletion must not force original replay or invalidate other source rows.
 
 ## 2. Signatures
 
@@ -13,6 +13,8 @@ Internal proof for the upcoming reusable `dbo.family` incremental adapter. These
 `originalFamilySourceFacts(original, certifiedSet, sensitive)` returns `{fields, pendingFields}` from the pinned executed mapper. The lower-level `recoverCertifiedOriginalFamilySet` accepts only service-authenticated immutable receipt IDs and owned-state certificates, never client claims.
 
 Shared `YuzhouFamilySourceFacts`, `YuzhouFamilyBaselineWitness`, `normalizeYuzhouFamilyFields(value)` and `planYuzhouFamilyFields(incoming, sourceBaseline, current, targetBaseline, archived)` prepare the existing-target field protocol. This does not add `family` to public `YUZHOU_INCREMENTAL_DOMAINS` before the API executor and staging adapter are ready.
+
+`mutateFamilyRecordInTransaction(manager, scope, actor, employeeId, familyId, patch, action, sensitive)` requires an active transaction, normal family-manage permission, validated DTO, scoped non-deleted employee, row version and active family row. `appendFamilyChangeInTransaction` uses the same manager for encrypted snapshots and rejects calls outside a transaction. Ordinary maintenance calls these helpers from its existing transaction; the future import executor must pass its own ledger transaction manager rather than open an independent maintenance transaction.
 
 Forward migration `000337_hr_incremental_family_baseline.sql` prepares the ledger's family domain and durable private provenance. It has not been deployed as an operational import feature.
 
@@ -26,7 +28,7 @@ Receipt aggregation uses the original SQL algorithm: hash every `to_jsonb(row)::
 
 The seven fixed mappings are `rela → relationship`, `member → fullName`, `tel → contact`, `birthday → birthDate`, `jobunit → workUnit`, `jobname → jobTitle`, `political → politicalStatus`. Values use original trim/null rules. Name/contact plaintext, masks and fingerprints must match the certified original target. Birthday preserves the original valid date-prefix convention; malformed original birthday with null target returns `pendingFields:["birthDate"]`, never a fabricated baseline. Identity number and emergency-contact flag have no reviewed source mapping and are absent from imported facts.
 
-Lock order is original operation, family target, family journal, immutable source/receipts. Current mutable snapshots are not original facts. A future planner must reread current targets under its write/CAS locks and preserve archives/modern edits; the proof itself does not decide writes.
+Original certificate lock order is original operation, family table in SHARE ROW EXCLUSIVE, journal and immutable source/receipt tables in SHARE mode. This serializes first acceptance before subsequent target writes. Ordinary mutation obtains ROW EXCLUSIVE on the family table before the row FOR UPDATE lock, preventing a row-lock/table-lock upgrade cycle. The low-level standalone original-set primitive is read-only; do not combine its SHARE-only certificate with writes instead of the serialized entrypoint. Current mutable snapshots are not original facts. A future planner must reread current targets under its write/CAS locks and preserve archives/modern edits; the proof itself does not decide writes.
 
 ### Existing-target field comparison
 
@@ -72,6 +74,8 @@ Good: modern update/archive changes current values while the immutable first bef
 `hr-yuzhou-family-plan.spec.ts`: unchanged source/modern edits, omitted fields, partial updates, atomic divergent conflicts, independent convergence without writes, archived-source behavior, unknown null baseline, strict calendar/field limits and unreviewed fields. Shared build/lint/tests plus both API/Web typechecks remain required.
 
 The real original fixture also applies 000337 and proves encrypted ledger/provenance insertion, plaintext/null rejection (including nullable target-table SQL CHECK semantics), scope/owner/row/certificate/binding mismatch rejection, ledger source/target/domain/delete/counter immutability, allowed encrypted metadata advancement, immutable original provenance and untouched business target. Public family domain/API/CLI/CAS/journal integration and production release remain subsequent acceptance requirements.
+
+Transactional regression uses actual concurrent connections: certificate acceptance blocks competing ordinary maintenance, writes and commits, and the stale competing version is rejected. A real journal INSERT failure rolls back earlier real import-ledger and target updates together; retry succeeds once and a stale retry rolls back its tentative ledger update. Ordinary create/update/archive, two-writer CAS and journal rollback tests remain required. No new public import route has been activated by extracting this writer.
 
 ## 7. Wrong vs Correct
 
