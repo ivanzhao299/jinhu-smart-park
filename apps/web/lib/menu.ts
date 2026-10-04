@@ -22,12 +22,14 @@ import {
   ShieldCheck,
   Tags,
   Users,
+  UtensilsCrossed,
   Video,
   Wrench,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
+  CANTEEN_PERMISSIONS,
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_TRACK_B_SURFACES,
@@ -397,6 +399,28 @@ export const dashboardMenus: MenuNode[] = [
     ]
   },
   {
+    label: "园区餐厅",
+    icon: UtensilsCrossed,
+    module: "canteen",
+    children: [
+      { label: "餐品与品类", href: "/canteen/dishes", permission: CANTEEN_PERMISSIONS.DISH_VIEW, module: "canteen" },
+      { label: "订单与流水", href: "/canteen/orders", permission: CANTEEN_PERMISSIONS.ORDER_VIEW, module: "canteen" },
+      { label: "收银班次/日结", href: "/canteen/sessions", permission: CANTEEN_PERMISSIONS.SESSION_VIEW, module: "canteen" },
+      { label: "结算与对账", href: "/canteen/settlements", permission: CANTEEN_PERMISSIONS.SETTLEMENT_VIEW, module: "canteen" },
+      { label: "经营报表", href: "/canteen/reports", permission: CANTEEN_PERMISSIONS.REPORT_VIEW, module: "canteen" },
+      { label: "退款/撤单", href: "/canteen/refunds", permission: CANTEEN_PERMISSIONS.REFUND_VIEW, module: "canteen" },
+      { label: "操作审计", href: "/canteen/audit", permission: CANTEEN_PERMISSIONS.SETTLEMENT_VIEW, module: "canteen" }
+    ]
+  },
+  {
+    label: "财务管理",
+    icon: FileText,
+    module: "finance",
+    children: [
+      { label: "餐厅结算待办", href: "/finance/canteen-settlements", permission: CANTEEN_PERMISSIONS.SETTLEMENT_VIEW, module: "canteen" }
+    ]
+  },
+  {
     label: "视频安防",
     icon: Video,
     module: "video",
@@ -737,6 +761,9 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   }
   if (href.startsWith("/robots") || permission.startsWith("robot")) {
     return "robot";
+  }
+  if (href.startsWith("/canteen") || permission.startsWith("canteen")) {
+    return "canteen";
   }
   if (href.startsWith("/video") || href.startsWith("/admin/video-security") || permission.startsWith("video")) {
     return "video";

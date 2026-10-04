@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>园区餐厅 · POS 收银终端（高保真静态原型）</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f4e8c'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white'%3E餐%3C/text%3E%3C/svg%3E">
+<style>
+/* ============ 基础与变量 ============ */
+:root{
+  --topbar-h:76px;
+  --pay-h:148px;
+  --ink:#1b2430; --ink-2:#4b586a; --ink-3:#8a97a8;
+  --line:#e3e8ef; --bg:#eef1f5; --panel:#ffffff;
+  --brand:#1f4e8c; --brand-2:#2f6db3;
+  --green:#0b9e6a; --green-d:#087a52;
+  --blue:#2563eb; --blue-d:#1d4fd0;
+  --red:#d64545; --amber:#e08a1e;
+  --soldout:#c2ccd8;
+  --shadow:0 6px 20px rgba(27,36,48,.10);
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+  background:#39424f;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+}
+/* 1920x1080 舞台，按窗口等比缩放居中，保证横屏布局不错乱 */
+#viewport{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+#stage{
+  width:1920px;height:1080px;flex:0 0 auto;
+  transform-origin:center center;
+  display:flex;flex-direction:column;background:var(--bg);
+  border-radius:6px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);
+}
+button{font-family:inherit;border:none;cursor:pointer;}
+button:disabled{cursor:not-allowed;}
+
+/* ============ 顶栏 ============ */
+#topbar{
+  height:var(--topbar-h);flex:0 0 auto;background:linear-gradient(90deg,#18273d,#1f3a5c);
+  color:#fff;display:flex;align-items:center;padding:0 22px;gap:18px;
+}
+.outlet-block{display:flex;flex-direction:column;line-height:1.25;}
+.outlet-name{font-size:24px;font-weight:700;letter-spacing:.5px;}
+.outlet-sub{font-size:14px;color:#b9c7da;margin-top:3px;}
+.top-div{width:1px;height:40px;background:rgba(255,255,255,.18);}
+.top-meta{display:flex;flex-direction:column;line-height:1.3;font-size:14px;color:#cdd9e8;}
+.top-meta b{color:#fff;font-size:16px;font-weight:600;}
+.top-spacer{flex:1;}
+.net-pill{display:flex;align-items:center;gap:8px;font-size:15px;padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.10);}
+.dot{width:10px;height:10px;border-radius:50%;background:#37d68d;box-shadow:0 0 0 3px rgba(55,214,141,.25);}
+.dot.off{background:#d64545;box-shadow:0 0 0 3px rgba(214,69,69,.25);}
+.shift-pill{display:flex;align-items:center;gap:10px;font-size:15px;padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.10);}
+.shift-open{color:#7bf0b8;font-weight:700;}
+.shift-closed{color:#ffb3b3;font-weight:700;}
+.btn-top{height:52px;padding:0 22px;border-radius:11px;font-size:17px;font-weight:600;}
+.btn-open{background:#0b9e6a;color:#fff;}
+.btn-close{background:#e08a1e;color:#fff;}
+
+/* ============ 主体三栏 ============ */
+#main{flex:1;display:flex;min-height:0;}
+/* 左：餐段/分类 + 餐品网格 */
+#dishes-area{flex:1;display:flex;flex-direction:column;min-width:0;padding:16px 18px 12px;}
+.period-tabs{display:flex;gap:12px;margin-bottom:12px;}
+.period-tab{height:52px;padding:0 26px;border-radius:11px;background:#dde4ec;color:var(--ink-2);font-size:18px;font-weight:600;}
+.period-tab.active{background:var(--brand);color:#fff;box-shadow:var(--shadow);}
+.cat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.cat-tab{height:46px;padding:0 20px;border-radius:23px;background:#e6ebf1;color:var(--ink-2);font-size:16px;font-weight:600;}
+.cat-tab.active{background:#fff;color:var(--brand);box-shadow:var(--shadow);border:1px solid var(--brand);}
+#dish-grid{
+  flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:150px;
+  gap:14px;overflow-y:auto;padding-right:4px;
+}
+.dish{
+  background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);
+  display:flex;align-items:center;gap:14px;padding:12px 16px;text-align:left;
+  transition:transform .08s;
+}
+.dish:active{transform:scale(.98);}
+.dish.off{background:#f4f6f9;}
+.dish-img{
+  width:104px;height:104px;flex:0 0 auto;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:46px;color:#fff;font-weight:700;
+}
+.dish-info{flex:1;min-width:0;}
+.dish-name{font-size:20px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dish-tag{font-size:13px;color:var(--ink-3);margin-top:4px;}
+.dish-price{font-size:24px;font-weight:800;color:var(--red);margin-top:8px;}
+.dish-price small{font-size:14px;font-weight:600;}
+.dish.off .dish-name{color:var(--ink-3);}
+.soldout-badge{
+  position:absolute;
+}
+.dish-wrap{position:relative;}
+.dish.off::after{
+  content:"售罄 / 已下架";position:absolute;inset:0;border-radius:var(--radius);
+  background:rgba(244,246,249,.72);display:flex;align-items:center;justify-content:center;
+  color:var(--ink-3);font-size:20px;font-weight:700;letter-spacing:2px;
+}
+
+/* 右：购物车 */
+#cart-panel{
+  width:430px;flex:0 0 auto;background:var(--panel);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;
+}
+.cart-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.cart-title{font-size:20px;font-weight:700;}
+.cart-clear{height:44px;padding:0 16px;border-radius:10px;background:#f1f4f8;color:var(--ink-2);font-size:15px;}
+#cart-list{flex:1;overflow-y:auto;padding:10px 14px;}
+.cart-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-3);gap:14px;}
+.cart-empty .big{font-size:56px;}
+.cart-item{padding:12px 4px;border-bottom:1px dashed var(--line);}
+.ci-top{display:flex;justify-content:space-between;align-items:center;}
+.ci-name{font-size:18px;font-weight:600;}
+.ci-price{font-size:17px;color:var(--red);font-weight:700;}
+.ci-note{font-size:13px;color:var(--ink-3);margin-top:3px;}
+.ci-ctrl{display:flex;align-items:center;gap:10px;margin-top:9px;}
+.ci-btn{width:44px;height:44px;border-radius:10px;background:#eef2f7;color:var(--ink);font-size:22px;font-weight:700;}
+.ci-qty{min-width:40px;text-align:center;font-size:20px;font-weight:700;}
+.ci-del{margin-left:auto;width:44px;height:44px;border-radius:10px;background:#fdecec;color:var(--red);font-size:18px;}
+.cart-total{padding:14px 18px;border-top:1px solid var(--line);}
+.ct-row{display:flex;justify-content:space-between;font-size:16px;color:var(--ink-2);}
+.ct-row.disc{margin-top:6px;}
+.ct-grand{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;}
+.ct-grand .lab{font-size:18px;color:var(--ink-2);}
+.ct-grand .amt{font-size:40px;font-weight:800;color:var(--red);}
+.disc-row{display:flex;gap:10px;margin-top:10px;}
+.disc-btn{flex:1;height:44px;border-radius:10px;background:#f1f4f8;color:var(--ink-2);font-size:15px;}
+
+/* ============ 底部收款区 ============ */
+#paybar{height:var(--pay-h);flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:20px;padding:0 22px;}
+.pay-summary{width:360px;flex:0 0 auto;}
+.pay-summary .t{font-size:15px;color:var(--ink-3);}
+.pay-summary .v{font-size:34px;font-weight:800;color:var(--ink);line-height:1.1;}
+.pay-summary .v small{font-size:16px;color:var(--ink-3);font-weight:600;}
+.pay-btns{flex:1;display:flex;gap:18px;}
+.pay-btn{flex:1;height:104px;border-radius:16px;color:#fff;display:flex;align-items:center;justify-content:center;gap:16px;font-size:30px;font-weight:800;letter-spacing:2px;}
+.pay-btn .ic{font-size:40px;}
+#btnQr{background:linear-gradient(135deg,var(--green),var(--green-d));}
+#btnSubsidy{background:linear-gradient(135deg,var(--blue),var(--blue-d));}
+.pay-btn:active{filter:brightness(1.08);}
+.pay-btn:disabled{background:#c8d2de;color:#eef2f7;}
+.pay-side{width:300px;flex:0 0 auto;display:flex;flex-direction:column;gap:8px;}
+.mix-link{height:46px;border-radius:10px;background:#f1f4f8;color:var(--ink-2);font-size:15px;}
+
+/* ============ 弹层通用 ============ */
+.mask{position:absolute;inset:0;background:rgba(20,28,40,.55);display:none;align-items:center;justify-content:center;z-index:50;}
+.mask.active{display:flex;}
+.dialog{background:var(--panel);border-radius:20px;width:680px;max-height:920px;box-shadow:0 30px 80px rgba(0,0,0,.4);overflow:hidden;display:flex;flex-direction:column;}
+.dlg-head{padding:20px 26px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.dlg-title{font-size:23px;font-weight:800;}
+.dlg-x{width:52px;height:52px;border-radius:12px;background:#f1f4f8;font-size:24px;color:var(--ink-2);}
+.dlg-body{padding:24px 26px;overflow-y:auto;}
+.dlg-foot{padding:18px 26px;border-top:1px solid var(--line);display:flex;gap:14px;justify-content:flex-end;}
+.btn{height:56px;padding:0 26px;border-radius:12px;font-size:18px;font-weight:700;}
+.btn-ghost{background:#eef2f7;color:var(--ink-2);}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-green{background:var(--green);color:#fff;}
+.btn-warn{background:var(--amber);color:#fff;}
+.btn:disabled{background:#d7dee8;color:#fff;}
+
+/* 扫码收款 */
+.qr-wrap{display:flex;gap:28px;align-items:center;}
+#qrCanvas{width:240px;height:240px;border:1px solid var(--line);border-radius:12px;background:#fff;}
+.qr-right{flex:1;}
+.qr-amt{font-size:46px;font-weight:800;color:var(--red);}
+.qr-amt small{font-size:20px;color:var(--ink-3);}
+.qr-row{margin-top:14px;font-size:17px;color:var(--ink-2);}
+.countdown{font-size:22px;font-weight:800;color:var(--blue);}
+.countdown.warn{color:var(--red);}
+.pay-channels{display:flex;gap:10px;margin-top:16px;}
+.ch-pill{padding:8px 16px;border-radius:9px;background:#f1f4f8;font-size:15px;color:var(--ink-2);}
+.ch-pill.on{background:#e7f0ff;color:var(--blue);font-weight:700;}
+.demo-tip{margin-top:18px;background:#fff7e8;border:1px solid #f4ddb0;color:#9a6a17;font-size:14px;padding:10px 14px;border-radius:10px;}
+
+/* 员工餐补 */
+.emp-input{width:100%;height:60px;border:2px solid var(--line);border-radius:12px;padding:0 16px;font-size:20px;}
+.emp-input:focus{outline:none;border-color:var(--blue);}
+.emp-actions{display:flex;gap:12px;margin-top:14px;}
+.emp-card{margin-top:18px;border:1px solid var(--line);border-radius:14px;padding:18px;}
+.emp-name{font-size:24px;font-weight:800;}
+.emp-meta{font-size:15px;color:var(--ink-3);margin-top:5px;}
+.wallet-bar{margin-top:16px;}
+.wb-row{display:flex;justify-content:space-between;font-size:16px;padding:7px 0;border-bottom:1px dashed var(--line);}
+.wb-row b{font-weight:800;}
+.wb-bal{color:var(--green);}
+.wb-expire{color:var(--amber);}
+.dues{display:flex;gap:10px;margin-top:16px;}
+.dues .d{flex:1;background:#f6f8fb;border-radius:10px;padding:12px;text-align:center;}
+.dues .d .k{font-size:14px;color:var(--ink-3);}
+.dues .d .v{font-size:22px;font-weight:800;margin-top:4px;}
+.branch-box{margin-top:16px;border-radius:12px;padding:14px 16px;background:#fff3f0;border:1px solid #f3c6bd;}
+.branch-box h4{font-size:16px;color:#b23a2f;}
+.branch-opts{display:flex;gap:12px;margin-top:12px;}
+.branch-opts .bo{flex:1;height:64px;border-radius:11px;font-size:16px;font-weight:700;}
+
+/* 成功全屏反馈 */
+.success{position:absolute;inset:0;background:var(--green);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:80;color:#fff;}
+.success.show{display:flex;}
+.success .check{width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:90px;}
+.success h2{font-size:46px;margin-top:26px;letter-spacing:3px;}
+.success .s-amt{font-size:74px;font-weight:800;margin-top:14px;}
+.success .s-sub{font-size:22px;margin-top:10px;opacity:.9;}
+#btnNext{margin-top:46px;height:80px;padding:0 60px;border-radius:16px;background:#fff;color:var(--green-d);font-size:26px;font-weight:800;}
+
+/* 结班日结 */
+.settle-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.s-cell{background:#f6f8fb;border-radius:12px;padding:16px;}
+.s-cell .k{font-size:15px;color:var(--ink-3);}
+.s-cell .v{font-size:28px;font-weight:800;margin-top:6px;}
+.s-cell .v.g{color:var(--green);} .s-cell .v.b{color:var(--blue);} .s-cell .v.r{color:var(--red);}
+
+.toast{position:absolute;left:50%;bottom:190px;transform:translateX(-50%);background:rgba(27,36,48,.92);color:#fff;padding:14px 26px;border-radius:12px;font-size:17px;z-index:90;display:none;}
+</style>
+</head>
+<body>
+<div id="viewport">
+ <div id="stage">
+
+  <!-- ===== 顶栏 ===== -->
+  <header id="topbar">
+    <div class="outlet-block">
+      <span class="outlet-name">智慧园区餐厅 · 一楼综合档口</span>
+      <span class="outlet-sub">设备账号：餐厅收银（共用）　档口编号 OLT-0101</span>
+    </div>
+    <div class="top-div"></div>
+    <div class="top-meta"><span>收银员</span><b>王芳（当班）</b></div>
+    <div class="top-meta"><span>业务日期</span><b id="bizDate">2026-10-02 周五</b></div>
+    <div class="top-meta"><span>当前餐段</span><b>午餐 11:00–13:30</b></div>
+    <div class="top-spacer"></div>
+    <div class="net-pill"><span class="dot" id="netDot"></span><span id="netText">Wi-Fi 已连接 · 在线</span></div>
+    <div class="shift-pill">班次状态：<span class="shift-open" id="shiftState">已开班</span></div>
+    <button class="btn-top btn-open" id="btnOpenShift">开班</button>
+    <button class="btn-top btn-close" id="btnCloseShift">结班 / 日结</button>
+  </header>
+
+  <!-- ===== 主体 ===== -->
+  <div id="main">
+    <!-- 餐品区 -->
+    <section id="dishes-area">
+      <div class="period-tabs" id="periodTabs">
+        <button class="period-tab" data-p="早餐">早餐</button>
+        <button class="period-tab active" data-p="午餐">午餐</button>
+        <button class="period-tab" data-p="晚餐">晚餐</button>
+      </div>
+      <div class="cat-row" id="catRow"></div>
+      <div id="dish-grid"></div>
+    </section>
+
+    <!-- 购物车 -->
+    <aside id="cart-panel">
+      <div class="cart-head">
+        <span class="cart-title">当前账单（<span id="cartCount">0</span> 件）</span>
+        <button class="cart-clear" id="btnClear">清空账单</button>
+      </div>
+      <div id="cartList"></div>
+      <div class="cart-total">
+        <div class="ct-row"><span>商品合计</span><span id="sumGoods">¥0.00</span></div>
+        <div class="ct-row disc"><span>整单折扣（占位）</span><span id="sumDisc">-¥0.00</span></div>
+        <div class="disc-row">
+          <button class="disc-btn">抹零 0.5</button>
+          <button class="disc-btn">会员/整单折扣</button>
+        </div>
+        <div class="ct-grand"><span class="lab">应付</span><span class="amt" id="sumTotal">¥0.00</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== 底部收款区 ===== -->
+  <footer id="paybar">
+    <div class="pay-summary">
+      <div class="t">本班次已收（实时）</div>
+      <div class="v">¥<span id="shiftCollected">0.00</span><small>　订单 <span id="shiftOrders">0</span> 笔</small></div>
+    </div>
+    <div class="pay-btns">
+      <button class="pay-btn" id="btnQr"><span class="ic">▦</span>扫码收款</button>
+      <button class="pay-btn" id="btnSubsidy"><span class="ic">★</span>员工餐补</button>
+    </div>
+    <div class="pay-side">
+      <button class="mix-link" id="btnMix">混合支付（餐补 + 扫码）</button>
+      <button class="mix-link" id="btnRefund">退款 / 撤单（需权限）</button>
+    </div>
+  </footer>
+
+  <!-- ===== 弹层：扫码收款 ===== -->
+  <div class="mask" id="maskQr">
+    <div class="dialog" style="width:760px;">
+      <div class="dlg-head"><span class="dlg-title">扫码收款 · 请顾客扫码支付</span><button class="dlg-x" data-close="maskQr">×</button></div>
+      <div class="dlg-body">
+        <div class="qr-wrap">
+          <canvas id="qrCanvas" width="240" height="240"></canvas>
+          <div class="qr-right">
+            <div class="qr-amt"><small>应付</small> ¥<span id="qrAmt">0.00</span></div>
+            <div class="qr-row">订单号：<b id="qrOrderNo">—</b></div>
+            <div class="qr-row">支付倒计时：<span class="countdown" id="qrCountdown">120s</span></div>
+            <div class="pay-channels">
+              <span class="ch-pill on">微信</span><span class="ch-pill on">支付宝</span>
+              <span class="ch-pill">云闪付</span>
+            </div>
+          </div>
+        </div>
+        <div class="demo-tip">演示原型：点击下方“模拟支付成功”或“超时关单”。真实环境由支付平台异步回调 + POS 轮询 `/payments/{no}/status` 驱动。</div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-warn" id="btnTimeout">超时关单</button>
+        <button class="btn btn-green" id="btnPayOk">模拟支付成功</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 弹层：员工餐补 ===== -->
+  <div class="mask" id="maskSubsidy">
+    <div class="dialog" style="width:720px;">
+      <div class="dlg-head"><span class="dlg-title">员工餐补 · 虚拟结账（不走真实资金）</span><button class="dlg-x" data-close="maskSubsidy">×</button></div>
+      <div class="dlg-body">
+        <input class="emp-input" id="empInput" placeholder="扫员工个人码 / 刷卡，或输入工号 / 手机号后四位">
+        <div class="emp-actions">
+          <button class="btn btn-primary" id="btnLookup">查询员工补贴账户</button>
+        </div>
+        <div id="empResult"></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-ghost" data-close="maskSubsidy">取消</button>
+        <button class="btn btn-green" id="btnConfirmSub" disabled>确认核销</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 弹层：结班/日结 ===== -->
+  <div class="mask" id="maskClose">
+    <div class="dialog" style="width:640px;">
+      <div class="dlg-head"><span class="dlg-title">收银班次日结 · 确认结班</span><button class="dlg-x" data-close="maskClose">×</button></div>
+      <div class="dlg-body">
+        <div class="settle-grid">
+          <div class="s-cell"><div class="k">二维码收款合计（真实资金）</div><div class="v g" id="scQr">¥0.00</div></div>
+          <div class="s-cell"><div class="k">餐补核销合计（虚拟）</div><div class="v b" id="scSub">¥0.00</div></div>
+          <div class="s-cell"><div class="k">订单数</div><div class="v" id="scOrders">0</div></div>
+          <div class="s-cell"><div class="k">退款 / 撤单数</div><div class="v r" id="scRefund">0</div></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-ghost" data-close="maskClose">再等一会</button>
+        <button class="btn btn-warn" id="btnDoClose">确认结班</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 成功全屏反馈 ===== -->
+  <div class="success" id="successView">
+    <div class="check">✓</div>
+    <h2>支付成功</h2>
+    <div class="s-amt">¥<span id="sAmt">0.00</span></div>
+    <div class="s-sub" id="sSub">已扣款，小票已打印（可选）</div>
+    <button id="btnNext">下一位 →</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+ </div>
+</div>
+
+<script>
+/* ==================== 假数据 ==================== */
+const DISHES = [
+  {id:'d01',cat:'招牌热菜',name:'红烧肉土豆',price:16.00,color:'#c0563b',soldout:false},
+  {id:'d02',cat:'招牌热菜',name:'香煎鸡腿排',price:14.50,color:'#b9772a',soldout:false},
+  {id:'d03',cat:'招牌热菜',name:'青椒牛柳',price:18.00,color:'#3f8f4f',soldout:false},
+  {id:'d04',cat:'招牌热菜',name:'麻婆豆腐',price:9.00, color:'#b23a2f',soldout:true},
+  {id:'d05',cat:'招牌热菜',name:'西红柿炒蛋',price:10.00,color:'#d66a4a',soldout:false},
+  {id:'d06',cat:'招牌热菜',name:'清蒸鲈鱼',price:22.00,color:'#4a86c4',soldout:false},
+  {id:'d07',cat:'招牌热菜',name:'干锅花菜',price:11.00,color:'#5a9e4a',soldout:false},
+  {id:'d08',cat:'招牌热菜',name:'糖醋里脊',price:15.00,color:'#c98a2a',soldout:false},
+  {id:'d09',cat:'招牌热菜',name:'手撕包菜',price:8.00, color:'#6aa84f',soldout:false},
+  {id:'d10',cat:'招牌热菜',name:'红烧丸子',price:13.00,color:'#a85a3a',soldout:false},
+  {id:'d11',cat:'招牌热菜',name:'蒜蓉西兰花',price:10.00,color:'#3f9e6a',soldout:false},
+  {id:'d12',cat:'招牌热菜',name:'宫保鸡丁',price:14.00,color:'#c47a2a',soldout:true},
+  {id:'d13',cat:'主食',name:'五常米饭',price:2.00,color:'#8a97a8',soldout:false},
+  {id:'d14',cat:'主食',name:'手工馒头',price:1.50,color:'#c9a86a',soldout:false},
+  {id:'d15',cat:'主食',name:'酱油炒饭',price:8.00,color:'#a8743a',soldout:false},
+  {id:'d16',cat:'主食',name:'青菜面',price:9.00, color:'#7aa84f',soldout:false},
+  {id:'d17',cat:'凉菜小碟',name:'凉拌黄瓜',price:4.00,color:'#4a9e5c',soldout:false},
+  {id:'d18',cat:'凉菜小碟',name:'卤蛋',price:2.50,color:'#b08545',soldout:false},
+  {id:'d19',cat:'凉菜小碟',name:'泡椒凤爪',price:6.00,color:'#d66a6a',soldout:false},
+  {id:'d20',cat:'凉菜小碟',name:'拌木耳',price:5.00,color:'#6a4a3a',soldout:false},
+  {id:'d21',cat:'汤品',name:'紫菜蛋花汤',price:3.00,color:'#5a86c4',soldout:false},
+  {id:'d22',cat:'汤品',name:'玉米排骨汤',price:7.00,color:'#c08a3a',soldout:false},
+  {id:'d23',cat:'汤品',name:'冬瓜虾仁汤',price:8.00,color:'#4a9e9e',soldout:false},
+  {id:'d24',cat:'汤品',name:'小米粥',price:3.00,color:'#d6b24a',soldout:false},
+  {id:'d25',cat:'饮品',name:'无糖豆浆',price:3.50,color:'#d8c68a',soldout:false},
+  {id:'d26',cat:'饮品',name:'酸梅汤',price:4.00,color:'#7a4a8c',soldout:true},
+  {id:'d27',cat:'饮品',name:'柠檬水',price:4.00,color:'#9ec44a',soldout:false},
+  {id:'d28',cat:'饮品',name:'热牛奶',price:5.00,color:'#c8d6e0',soldout:false},
+];
+const CATS = ['招牌热菜','主食','凉菜小碟','汤品','饮品'];
+/* 员工假数据（脱敏） */
+const EMP = {name:'张*',empNo:'E10243',dept:'工程部',period:'2026-10',
+  grant:300.00,consumed:186.00,balance:114.00,expire:'2026-10-31（月末未用清零，不结转/不兑现）'};
+
+/* ==================== 状态 ==================== */
+const S = {
+  period:'午餐', cat:CATS[0], cart:[],
+  shiftOpen:true,
+  shift:{qrTotal:0,subsidyTotal:0,orders:0,refund:0},
+  countdownTimer:null, remain:120,
+  empLoaded:false, dueAmount:0, useSubsidy:0,
+};
+
+/* ==================== 工具 ==================== */
+const $ = id=>document.getElementById(id);
+const fmt = n=>'¥'+n.toFixed(2);
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',1800);}
+function money(n){return n.toFixed(2);}
+
+/* ==================== 渲染：分类/餐品 ==================== */
+function renderCats(){
+  $('catRow').innerHTML = CATS.map(c=>`<button class="cat-tab ${c===S.cat?'active':''}" data-c="${c}">${c}</button>`).join('');
+}
+function renderDishes(){
+  const list = DISHES.filter(d=>d.cat===S.cat);
+  $('dish-grid').innerHTML = list.map(d=>`
+    <div class="dish-wrap">
+      <button class="dish ${d.soldout?'off':''}" data-id="${d.id}" ${d.soldout?'disabled':''}>
+        <div class="dish-img" style="background:${d.color};">${d.name.slice(0,1)}</div>
+        <div class="dish-info">
+          <div class="dish-name">${d.name}</div>
+          <div class="dish-tag">份 · 档口现打</div>
+          <div class="dish-price"><small>¥</small>${d.price.toFixed(2)}</div>
+        </div>
+      </button>
+    </div>`).join('');
+}
+
+/* ==================== 渲染：购物车 ==================== */
+function cartTotal(){
+  const goods = S.cart.reduce((s,it)=>s+it.price*it.qty,0);
+  return goods;
+}
+function renderCart(){
+  const box=$('cartList');
+  if(S.cart.length===0){
+    box.innerHTML=`<div class="cart-empty"><div class="big">🍽</div><div>尚未点单<br>点击左侧餐品加入账单</div></div>`;
+  }else{
+    box.innerHTML=S.cart.map((it,i)=>`
+      <div class="cart-item">
+        <div class="ci-top">
+          <span class="ci-name">${it.name}</span>
+          <span class="ci-price">${fmt(it.price*it.qty)}</span>
+        </div>
+        <div class="ci-note">单价 ${fmt(it.price)} · 备注：<span style="color:#b07a2a">加饭/免辣（占位）</span></div>
+        <div class="ci-ctrl">
+          <button class="ci-btn" data-act="dec" data-i="${i}">−</button>
+          <span class="ci-qty">${it.qty}</span>
+          <button class="ci-btn" data-act="inc" data-i="${i}">＋</button>
+          <button class="ci-del" data-act="del" data-i="${i}">删</button>
+        </div>
+      </div>`).join('');
+  }
+  const g=cartTotal();
+  const cnt=S.cart.reduce((s,it)=>s+it.qty,0);
+  $('cartCount').textContent=cnt;
+  $('sumGoods').textContent=fmt(g);
+  $('sumTotal').textContent=fmt(g);
+  $('sumDisc').textContent='-¥0.00';
+}
+function addToCart(id){
+  const d=DISHES.find(x=>x.id===id); if(!d) return;
+  const ex=S.cart.find(x=>x.id===id);
+  if(ex) ex.qty++; else S.cart.push({id:d.id,name:d.name,price:d.price,qty:1});
+  renderCart();
+}
+
+/* ==================== 事件绑定 ==================== */
+$('periodTabs').addEventListener('click',e=>{
+  const b=e.target.closest('.period-tab'); if(!b)return;
+  document.querySelectorAll('.period-tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); S.period=b.dataset.p; toast('已切换餐段：'+S.period);
+});
+$('catRow').addEventListener('click',e=>{
+  const b=e.target.closest('.cat-tab'); if(!b)return;
+  S.cat=b.dataset.c; renderCats(); renderDishes();
+});
+$('dish-grid').addEventListener('click',e=>{
+  const b=e.target.closest('.dish'); if(!b||b.disabled)return;
+  addToCart(b.dataset.id);
+});
+$('cartList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const i=+b.dataset.i, it=S.cart[i];
+  if(b.dataset.act==='inc')it.qty++;
+  if(b.dataset.act==='dec'){it.qty--; if(it.qty<=0)S.cart.splice(i,1);}
+  if(b.dataset.act==='del')S.cart.splice(i,1);
+  renderCart();
+});
+$('btnClear').addEventListener('click',()=>{ if(S.cart.length){S.cart=[];renderCart();toast('账单已清空');} });
+
+/* 弹层开关 */
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close).classList.remove('active')));
+
+/* ==================== 扫码收款 ==================== */
+$('btnQr').addEventListener('click',()=>{
+  if(!S.shiftOpen)return toast('请先开班');
+  if(S.cart.length===0)return toast('请先点餐');
+  const amt=cartTotal(); S.dueAmount=amt;
+  $('qrAmt').textContent=money(amt);
+  $('qrOrderNo').textContent='SO'+Date.now().toString().slice(-8);
+  drawQR();
+  startCountdown();
+  $('maskQr').classList.add('active');
+});
+$('btnMix').addEventListener('click',()=>{
+  if(S.cart.length===0)return toast('请先点餐');
+  // 直接走员工餐补弹层，由余额不足分支体现混合
+  $('empResult').innerHTML=''; S.empLoaded=false; $('btnConfirmSub').disabled=true;
+  $('maskSubsidy').classList.add('active');
+  toast('请识别员工后选择「餐补+扫码」混合');
+});
+function drawQR(){
+  const c=$('qrCanvas'),ctx=c.getContext('2d');
+  const N=25, cell=c.width/N;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle='#111';
+  // 种子伪随机模块（仅占位二维码图形）
+  let seed=20261002;
+  const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(rnd()>0.55)ctx.fillRect(x*cell,y*cell,cell,cell);
+  }
+  // 三个定位角
+  const finder=(fx,fy)=>{ctx.fillStyle='#111';ctx.fillRect(fx*cell,fy*cell,7*cell,7*cell);
+    ctx.fillStyle='#fff';ctx.fillRect((fx+1)*cell,(fy+1)*cell,5*cell,5*cell);
+    ctx.fillStyle='#111';ctx.fillRect((fx+2)*cell,(fy+2)*cell,3*cell,3*cell);};
+  finder(0,0);finder(N-7,0);finder(0,N-7);
+}
+function startCountdown(){
+  stopCountdown(); S.remain=120;
+  const el=$('qrCountdown'); el.classList.remove('warn'); el.textContent=S.remain+'s';
+  S.countdownTimer=setInterval(()=>{
+    S.remain--; el.textContent=S.remain+'s';
+    if(S.remain<=30)el.classList.add('warn');
+    if(S.remain<=0){stopCountdown(); closeQr('支付超时，订单已关单');}
+  },1000);
+}
+function stopCountdown(){if(S.countdownTimer){clearInterval(S.countdownTimer);S.countdownTimer=null;}}
+$('btnTimeout').addEventListener('click',()=>closeQr('超时关单（payment=closed / order=cancelled）'));
+function closeQr(msg){stopCountdown();$('maskQr').classList.remove('active');toast(msg);}
+$('btnPayOk').addEventListener('click',()=>{
+  stopCountdown();
+  const amt=S.dueAmount;
+  S.shift.qrTotal+=amt; S.shift.orders++;
+  finishOrder('二维码收款成功 · 已到账统一收款账户','小票已打印（可选）');
+});
+
+/* ==================== 员工餐补 ==================== */
+$('btnSubsidy').addEventListener('click',()=>{
+  if(!S.shiftOpen)return toast('请先开班');
+  if(S.cart.length===0)return toast('请先点餐');
+  S.dueAmount=cartTotal(); S.empLoaded=false;
+  $('empResult').innerHTML=''; $('empInput').value='';
+  $('btnConfirmSub').disabled=true;
+  $('maskSubsidy').classList.add('active');
+});
+$('btnLookup').addEventListener('click',()=>{
+  // 模拟查询：任意输入均返回演示员工
+  S.empLoaded=true;
+  const due=S.dueAmount;
+  const canSub=Math.min(EMP.balance,due);
+  const short=due-EMP.balance; // >0 表示余额不足
+  $('empResult').innerHTML=`
+    <div class="emp-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="emp-name">${EMP.name}</div>
+          <div class="emp-meta">工号 ${EMP.empNo} · ${EMP.dept} · 账期 ${EMP.period}</div>
+        </div>
+        <span class="ch-pill on" style="font-size:14px;">已识别</span>
+      </div>
+      <div class="wallet-bar">
+        <div class="wb-row"><span>本月补贴额度</span><b>${fmt(EMP.grant)}</b></div>
+        <div class="wb-row"><span>已使用</span><b>${fmt(EMP.consumed)}</b></div>
+        <div class="wb-row wb-bal"><span>剩余可用</span><b>${fmt(EMP.balance)}</b></div>
+        <div class="wb-row wb-expire"><span>到期提示</span><b>${EMP.expire}</b></div>
+      </div>
+      <div class="dues">
+        <div class="d"><div class="k">应付</div><div class="v">${fmt(due)}</div></div>
+        <div class="d"><div class="k">可餐补核销</div><div class="v" style="color:var(--green)">${fmt(canSub)}</div></div>
+        ${short>0?`<div class="d"><div class="k">需自付（扫码）</div><div class="v" style="color:var(--red)">${fmt(short)}</div></div>`:''}
+      </div>
+      ${short>0?`
+        <div class="branch-box">
+          <h4>⚠ 补贴余额不足，本次需混合支付</h4>
+          <div class="branch-opts">
+            <button class="bo" style="background:#e7f0ff;color:var(--blue)" data-branch="mix">餐补 ${fmt(canSub)} + 扫码 ${fmt(short)}</button>
+            <button class="bo" style="background:#f1f4f8;color:var(--ink-2)" data-branch="allqr">全部走扫码（不扣餐补）</button>
+          </div>
+        </div>`:`<div class="demo-tip" style="margin-top:14px;">余额充足：确认后全额从餐补虚拟账户核销，不发生真实资金。</div>`}
+    </div>`;
+  $('btnConfirmSub').disabled=false;
+  S.useSubsidy=canSub;
+});
+$('empResult').addEventListener('click',e=>{
+  const b=e.target.closest('[data-branch]'); if(!b)return;
+  if(b.dataset.branch==='allqr'){
+    S.useSubsidy=0; toast('已改为全部扫码，即将展示收款码');
+    $('maskSubsidy').classList.remove('active');
+    $('qrAmt').textContent=money(S.dueAmount);
+    $('qrOrderNo').textContent='SO'+Date.now().toString().slice(-8);
+    drawQR(); startCountdown(); $('maskQr').classList.add('active');
+  }else{
+    toast('已选择混合：先核销餐补 '+fmt(S.useSubsidy));
+  }
+});
+$('btnConfirmSub').addEventListener('click',()=>{
+  if(!S.empLoaded)return;
+  const due=S.dueAmount, sub=S.useSubsidy;
+  const real=due-sub;
+  // 更新演示员工余额
+  EMP.consumed+=sub; EMP.balance-=sub;
+  S.shift.subsidyTotal+=sub; S.shift.orders++;
+  if(real>0){ S.shift.qrTotal+=real; }
+  $('maskSubsidy').classList.remove('active');
+  finishOrder(
+    (sub>0?`餐补核销 ${fmt(sub)}`:'')+(real>0?` + 扫码自付 ${fmt(real)}`:''),
+    sub>0?'已写补贴流水(consume)与员工用餐记录':'已核销，员工用餐记录已生成'
+  );
+});
+
+/* ==================== 成功反馈 & 清单 ==================== */
+function finishOrder(title,sub){
+  $('sAmt').textContent=money(S.dueAmount);
+  $('sSub').textContent=(title?title+' · ':'')+(sub||'');
+  $('successView').classList.add('show');
+  refreshShiftBar();
+}
+$('btnNext').addEventListener('click',()=>{
+  $('successView').classList.remove('show');
+  S.cart=[]; renderCart();
+});
+function refreshShiftBar(){
+  $('shiftCollected').textContent=money(S.shift.qrTotal+S.shift.subsidyTotal);
+  $('shiftOrders').textContent=S.shift.orders;
+}
+
+/* ==================== 开班 / 结班 ==================== */
+$('btnOpenShift').addEventListener('click',()=>{
+  S.shiftOpen=true;
+  $('shiftState').textContent='已开班'; $('shiftState').className='shift-open';
+  toast('已开班，班次号 CS'+Date.now().toString().slice(-8));
+});
+$('btnCloseShift').addEventListener('click',()=>{
+  if(!S.shiftOpen)return toast('当前无进行中班次');
+  $('scQr').textContent=fmt(S.shift.qrTotal);
+  $('scSub').textContent=fmt(S.shift.subsidyTotal);
+  $('scOrders').textContent=S.shift.orders;
+  $('scRefund').textContent=S.shift.refund;
+  $('maskClose').classList.add('active');
+});
+$('btnDoClose').addEventListener('click',()=>{
+  S.shiftOpen=false;
+  $('shiftState').textContent='已结班'; $('shiftState').className='shift-closed';
+  $('maskClose').classList.remove('active');
+  toast('日结完成，数据已上报管理端 / 财务端');
+});
+$('btnRefund').addEventListener('click',()=>toast('退款/撤单：需 canteen-admin 审核，收银员仅可发起（演示占位）'));
+
+/* ==================== 初始化 ==================== */
+renderCats(); renderDishes(); renderCart(); refreshShiftBar();
+
+/* 1920x1080 舞台等比缩放适配窗口（横屏不变形、无横向溢出） */
+function fitStage(){
+  const s=Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  $('stage').style.transform='scale('+s+')';
+}
+window.addEventListener('resize',fitStage); fitStage();
+</script>
+</body>
+</html>

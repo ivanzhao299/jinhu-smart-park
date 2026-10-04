@@ -7,3 +7,5 @@ export * from './components/DataTable/DataTable';
 export * from './components/Drawer/Drawer';
 export * from './components/Page/Page';
 export * from './components/State/State';
+export * from './components/Tabs/Tabs';
+export * from './components/ShareBar/ShareBar';

@@ -10,6 +10,7 @@ import { HR_INSURANCE_POLICY_PERMISSIONS } from "./hr-insurance-policy";
 import { HR_INSURANCE_OWNED_PERMISSIONS } from "./hr-insurance-owned-period";
 
 export * from "./property-business";
+export * from "./canteen";
 export * from "./mobile";
 export * from "./apartment";
 export * from "./hr";

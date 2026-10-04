@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>园区餐厅模块 · 业务/架构/ER/状态机 可视化图</title>
+<style>
+:root{
+  --ink:#1c2733; --ink2:#4a5766; --ink3:#8494a5;
+  --line:#d9e0e8; --bg:#eef2f6; --panel:#ffffff;
+  --navy:#1f3a5c; --navy2:#2f6db3;
+  --green:#0b9e6a; --greenbg:#e6f6ef;
+  --blue:#2563eb; --bluebg:#eaf1ff;
+  --amber:#d98218; --amberbg:#fdf2df;
+  --red:#d64545; --redbg:#fdecec;
+  --purple:#7a4ad1; --purplebg:#f1eafd;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:28px;}
+.wrap{max-width:1480px;margin:0 auto;}
+header.page{background:linear-gradient(90deg,#18273d,#1f3a5c);color:#fff;border-radius:16px;padding:26px 32px;margin-bottom:22px;}
+header.page h1{font-size:26px;letter-spacing:1px;}
+header.page p{margin-top:8px;color:#bccbdd;font-size:14px;line-height:1.6;}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:13px;color:#dbe6f2;}
+.legend span{display:inline-flex;align-items:center;gap:6px;}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block;}
+
+section.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:24px;box-shadow:0 4px 16px rgba(28,39,51,.05);}
+section.panel > h2{font-size:20px;color:var(--navy);display:flex;align-items:center;gap:10px;}
+section.panel > h2 .no{background:var(--navy);color:#fff;width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;}
+section.panel > .desc{color:var(--ink2);font-size:14px;margin:8px 0 18px;line-height:1.6;}
+
+/* 通用流程节点 */
+.node{background:#f6f8fb;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;font-size:13.5px;line-height:1.45;min-width:120px;}
+.node b{font-size:14px;}
+.node .sub{color:var(--ink3);font-size:12px;margin-top:3px;}
+.node.qr{background:var(--greenbg);border-color:#9fd8c1;}
+.node.sub{background:var(--amberbg);border-color:#eccf9c;}
+.node.ctrl{background:var(--bluebg);border-color:#aac4f5;}
+.node.settle{background:var(--purplebg);border-color:#c9b3ee;}
+.node.bad{background:var(--redbg);border-color:#e8a9a9;}
+.arrow{color:var(--ink3);font-size:20px;display:flex;align-items:center;font-weight:700;}
+.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;}
+.lane{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.lane-label{flex:0 0 118px;font-weight:800;font-size:14px;color:#fff;border-radius:10px;padding:10px;text-align:center;line-height:1.3;}
+.lane-label.a{background:var(--green);} .lane-label.b{background:var(--amber);}
+.lane-label.c{background:var(--navy2);} .lane-label.d{background:var(--purple);}
+
+/* 架构图 */
+.layer{border:1.5px dashed var(--ink3);border-radius:12px;padding:14px;margin-bottom:14px;}
+.layer > .ltitle{font-size:13px;color:var(--ink3);font-weight:700;margin-bottom:10px;letter-spacing:1px;}
+.chips{display:flex;flex-wrap:wrap;gap:10px;}
+.chip{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:9px 13px;font-size:13.5px;line-height:1.35;}
+.chip b{display:block;font-size:13.5px;} .chip span{color:var(--ink3);font-size:12px;}
+.chip.core{background:var(--navy);color:#fff;border-color:var(--navy);}
+.chip.core span{color:#c3d3e6;}
+.chip.end{background:var(--greenbg);border-color:#9fd8c1;}
+.arch-mid{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:14px;align-items:stretch;}
+.colbox{border:1.5px solid var(--line);border-radius:12px;padding:12px;background:#fafbfc;}
+.colbox h4{font-size:13px;color:var(--ink2);margin-bottom:10px;text-align:center;}
+
+/* ER */
+.er-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.tbl{border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;}
+.tbl .th{background:var(--navy);color:#fff;padding:8px 11px;font-size:13px;font-weight:700;}
+.tbl.grp-outlet .th{background:#2f6db3;} .tbl.grp-order .th{background:#0b9e6a;}
+.tbl.grp-sub .th{background:#d98218;} .tbl.grp-settle .th{background:#7a4ad1;}
+.tbl .tb{padding:8px 11px;font-size:12px;color:var(--ink2);line-height:1.7;}
+.tbl .tb .pk{color:var(--red);font-weight:700;}
+.er-rel{margin-top:16px;background:#f6f8fb;border-radius:11px;padding:14px 16px;font-size:13px;line-height:2.0;color:var(--ink2);}
+.er-rel b{color:var(--ink);}
+
+/* 状态机 */
+.statechain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.st{border:1.5px solid var(--ink3);border-radius:22px;padding:8px 16px;font-size:13.5px;font-weight:700;background:#fff;}
+.st.init{background:#eef2f6;} .st.end{background:var(--greenbg);border-color:#9fd8c1;}
+.st.bad{background:var(--redbg);border-color:#e8a9a9;}
+.trans{color:var(--ink3);font-size:12px;}
+.sm-title{font-weight:800;font-size:14px;margin:6px 0 8px;color:var(--navy);}
+.note{font-size:12.5px;color:var(--ink3);margin-top:6px;}
+footer.page{color:var(--ink3);font-size:12.5px;text-align:center;padding:10px 0 26px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="page">
+  <h1>园区餐厅（食堂承包经营）管理模块 — 可视化设计图</h1>
+  <p>本页为离线静态高保真示意图，严格依据冻结设计基线 v1：表名 biz_canteen_*、权限前缀 canteen:*、状态机与端到端流程口径一致。数据为演示占位。</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--green)"></i>二维码真实收款（真实现金）</span>
+    <span><i class="sw" style="background:var(--amber)"></i>员工餐补（虚拟核销）</span>
+    <span><i class="sw" style="background:var(--blue)"></i>系统/定时控制流</span>
+    <span><i class="sw" style="background:var(--purple)"></i>月度结算</span>
+    <span><i class="sw" style="background:var(--red)"></i>异常/终止态</span>
+  </div>
+</header>
+
+<!-- ============ 图1 端到端业务流程 ============ -->
+<section class="panel">
+  <h2><span class="no">1</span>端到端业务流程图</h2>
+  <p class="desc">两条主链路（二维码真实收款 / 员工餐补虚拟结账）并行，辅以月初补贴发放、月末清零与承包方月末对账结算。终端账号共用、补贴账户到人。</p>
+
+  <div class="lane">
+    <div class="lane-label a">A 二维码<br>真实收款</div>
+    <div class="flow">
+      <div class="node qr"><b>POS 点单</b><div class="sub">分类页签+大按钮+数量±</div></div>
+      <div class="arrow">→</div>
+      <div class="node qr"><b>创建订单</b><div class="sub">order=pending<br>channel=qr_pay</div></div>
+      <div class="arrow">→</div>
+      <div class="node qr"><b>支付适配出码</b><div class="sub">微信Native/支付宝当面付<br>precreate 返回 code_url</div></div>
+      <div class="arrow">→</div>
+      <div class="node qr"><b>顾客扫码支付</b><div class="sub">大屏展示动态收款码</div></div>
+      <div class="arrow">→</div>
+      <div class="node ctrl"><b>回调+轮询</b><div class="sub">webhook验签幂等<br>轮询 /payments/{no}/status</div></div>
+      <div class="arrow">→</div>
+      <div class="node qr"><b>payment=paid<br>order=completed</b><div class="sub">打印小票·下一位</div></div>
+    </div>
+  </div>
+  <div class="lane" style="padding-left:128px;">
+    <div class="flow">
+      <div class="node bad"><b>超时未付</b><div class="sub">payment=closed<br>order=cancelled</div></div>
+    </div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-label b">B 员工餐补<br>虚拟结账</div>
+    <div class="flow">
+      <div class="node sub"><b>POS 点单</b></div>
+      <div class="arrow">→</div>
+      <div class="node sub"><b>选“员工餐补”</b></div>
+      <div class="arrow">→</div>
+      <div class="node sub"><b>识别员工</b><div class="sub">个人码/刷卡/工号手机号</div></div>
+      <div class="arrow">→</div>
+      <div class="node sub"><b>查当月钱包余额</b><div class="sub">脱敏展示 张* / 工号 / 剩余</div></div>
+      <div class="arrow">→</div>
+      <div class="node ctrl"><b>余额≥应付？</b></div>
+      <div class="arrow">→</div>
+      <div class="node sub"><b>事务内核销</b><div class="sub">order=subsidy/paid · meal_record<br>wallet_txn=consume · 行锁防超扣</div></div>
+    </div>
+  </div>
+  <div class="lane" style="padding-left:128px;">
+    <div class="flow">
+      <div class="node bad"><b>余额不足分支</b><div class="sub">① 混合 mixed：餐补扣满 + 差额扫码真实收款　② 全部扫码（不扣餐补）</div></div>
+    </div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-label c">补贴<br>发放/清零</div>
+    <div class="flow">
+      <div class="node ctrl"><b>月初定时发放</b><div class="sub">按 rule_snapshot 批量生成<br>grant: scheduled→granted</div></div>
+      <div class="arrow">→</div>
+      <div class="node ctrl"><b>初始化当月额度</b><div class="sub">写 grant 流水 · period_balance</div></div>
+      <div class="arrow">→</div>
+      <div class="node sub"><b>吃则当场扣</b><div class="sub">consume 负向流水</div></div>
+      <div class="arrow">→</div>
+      <div class="node ctrl"><b>月末定时清零</b><div class="sub">未用余额→expire<br>不结转·不兑现·不找零</div></div>
+    </div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-label d">月末<br>对账结算</div>
+    <div class="flow">
+      <div class="node settle"><b>聚合生成</b><div class="sub">按 outlet/承包方/period<br>汇总 order + meal_record</div></div>
+      <div class="arrow">→</div>
+      <div class="node settle"><b>settlement=draft</b><div class="sub">+ settlement_items 按日/餐段</div></div>
+      <div class="arrow">→</div>
+      <div class="node settle"><b>submitted</b><div class="sub">承包方/管理员发起</div></div>
+      <div class="arrow">→</div>
+      <div class="node settle"><b>reconciling</b><div class="sub">财务核对真实收款+员工消费</div></div>
+      <div class="arrow">→</div>
+      <div class="node settle"><b>approved→settled</b><div class="sub">按 company_payable 付款<br>上传凭证归档</div></div>
+      <div class="arrow">⇢</div>
+      <div class="node bad"><b>disputed</b><div class="sub">差异挂起，填 diff_reason<br>处理后回到 reconciling</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图2 模块/集成架构 ============ -->
+<section class="panel">
+  <h2><span class="no">2</span>模块 / 集成架构图</h2>
+  <p class="desc">canteen 作为又一“业态”接入，复用多租户/RBAC/HR/party/财务范式/文件/个人中心底座；终端为 POS、员工、管理、财务、承包方五类入口。</p>
+
+  <div class="arch-mid">
+    <div class="colbox">
+      <h4>复用的既有底座（左侧依赖）</h4>
+      <div class="chips" style="flex-direction:column;">
+        <div class="chip"><b>RBAC / saas-modules</b><span>roles·permissions·data-scopes·field-policies·dicts·code-rules；注册模块码 canteen</span></div>
+        <div class="chip"><b>users / hr / orgs</b><span>员工身份、在岗状态、发放人群（employee_user_id / employee_no）</span></div>
+        <div class="chip"><b>party（商户实体）</b><span>承包方 Contractor；参考 homestay/property 用法</span></div>
+        <div class="chip"><b>leasing-* 财务范式</b><span>receivables/payments/invoices/waivers 的核销·状态机·幂等参考；补贴为独立虚拟台账、与真实资金分账</span></div>
+        <div class="chip"><b>files / attachments</b><span>餐品图片、结算付款凭证</span></div>
+        <div class="chip"><b>account + mobile</b><span>个人中心“我的餐补”：余额/明细/出示个人码</span></div>
+      </div>
+    </div>
+
+    <div class="colbox" style="background:var(--navy);border-color:var(--navy);">
+      <h4 style="color:#fff;">canteen 新模块（中心）</h4>
+      <div class="chips" style="flex-direction:column;">
+        <div class="chip core"><b>API：apps/api/src/modules/canteen</b><span>outlets·dishes·orders·payments(webhook)·wallet·grants·meal-records·refunds·settlements·reports；统一幂等/租户/审计</span></div>
+        <div class="chip core"><b>Web：apps/web/app/canteen</b><span>管理端（菜单/订单/退款/日结/报表）</span></div>
+        <div class="chip core"><b>POS：apps/web/app/canteen/pos</b><span>全屏横屏 16:9 触摸收银；开班/收款/结班</span></div>
+        <div class="chip core"><b>表：biz_canteen_*（16 张）</b><span>金额 numeric(12,2)；写库事务；行锁/乐观锁防超扣</span></div>
+      </div>
+    </div>
+
+    <div class="colbox">
+      <h4>多端入口（右侧）</h4>
+      <div class="chips" style="flex-direction:column;">
+        <div class="chip end"><b>餐厅 POS 终端</b><span>10.1"~15.6" 电容触摸横屏；收银员 canteen-cashier</span></div>
+        <div class="chip end"><b>员工端（移动）</b><span>我的餐补余额/消费明细/出示个人码</span></div>
+        <div class="chip end"><b>管理端</b><span>餐品上下架/定价/订单流水/退款审核/日结</span></div>
+        <div class="chip end"><b>财务端</b><span>结算单对账/差异/审批/付款凭证</span></div>
+        <div class="chip end"><b>承包方视图</b><span>本餐厅经营看板与对账确认（数据范围限定）</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="layer" style="margin-top:14px;">
+    <div class="ltitle">横切关注点（贯穿所有端）</div>
+    <div class="chips">
+      <div class="chip"><b>多租户隔离</b><span>tenant_id + park_id</span></div>
+      <div class="chip"><b>数据范围</b><span>收银员/承包方仅本 outlet；财务公司级；平台全部</span></div>
+      <div class="chip"><b>真实/虚拟分账</b><span>channel=qr_pay / subsidy / mixed；subsidy_amount 与 qr_pay_amount 分列</span></div>
+      <div class="chip"><b>支付端口</b><span>CanteenPaymentProvider，dev=Mock，生产微信/支付宝；不内置商户密钥</span></div>
+      <div class="chip"><b>审计留痕</b><span>status_logs + wallet_txns 只增不改</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图3 ER 实体关系 ============ -->
+<section class="panel">
+  <h2><span class="no">3</span>ER 实体关系图（基线 16 张表）</h2>
+  <p class="desc">所有表均继承 AuditableEntity（id/tenant_id/park_id/审计列/is_deleted/version/remark），下列仅列关键业务字段与关系簇。</p>
+  <div class="er-grid">
+    <div class="tbl grp-outlet"><div class="th">biz_canteen_outlets 餐厅/档口</div><div class="tb"><span class="pk">PK id</span> · outlet_no · name · outlet_type · contractor_id(party) · location · status(open/suspended/closed)</div></div>
+    <div class="tbl grp-outlet"><div class="th">biz_canteen_categories 品类</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">FK outlet_id</span> · name · sort_order · status(on/off)</div></div>
+    <div class="tbl grp-outlet"><div class="th">biz_canteen_dishes 餐品</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">FK outlet_id/category_id</span> · dish_no · name · price · unit · daily_stock · sold_count · status(on_shelf/off_shelf)</div></div>
+    <div class="tbl grp-outlet"><div class="th">biz_canteen_qr_codes 收款码登记</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">FK outlet_id</span> · code_type(dynamic/static) · payload · provider · status · bound_cashier_user_id</div></div>
+
+    <div class="tbl grp-order"><div class="th">biz_canteen_orders 订单</div><div class="tb"><span class="pk">PK id</span> · order_no · <span class="pk">FK outlet_id</span> · contractor_id · business_date · meal_period · cashier_user_id · channel · total/discount/pay/qr_pay/subsidy_amount · status(pending/paid/completed/cancelled/refunded/partial_refunded)</div></div>
+    <div class="tbl grp-order"><div class="th">biz_canteen_order_items 订单明细</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">FK order_id</span> · <span class="pk">FK dish_id</span> · dish_name_snapshot · price_snapshot · qty · amount</div></div>
+    <div class="tbl grp-order"><div class="th">biz_canteen_payments 扫码支付流水</div><div class="tb"><span class="pk">PK id</span> · payment_no · <span class="pk">FK order_id/outlet_id</span> · provider(wechat/alipay) · amount · status(pending/paid/failed/closed/refunded) · provider_transaction_id · idempotency_key</div></div>
+    <div class="tbl grp-order"><div class="th">biz_canteen_refunds 退款/撤单</div><div class="tb"><span class="pk">PK id</span> · refund_no · <span class="pk">FK order_id/payment_id/wallet_txn_id</span> · type(void_before_pay/refund_after_pay) · refund_channel · status(pending/approved/succeeded/failed)</div></div>
+
+    <div class="tbl grp-sub"><div class="th">biz_canteen_wallets 员工补贴钱包</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">UQ employee_user_id</span> · employee_no · period(YYYY-MM) · period_grant/consumed/expired/balance · CHECK balance≥0 · status(active/frozen)</div></div>
+    <div class="tbl grp-sub"><div class="th">biz_canteen_subsidy_grants 月度发放单</div><div class="tb"><span class="pk">PK id</span> · grant_no · period · <span class="pk">UQ(employee,period)</span> · plan/granted_amount · status(scheduled/granted/partially_consumed/consumed/expired) · expire_time · rule_snapshot</div></div>
+    <div class="tbl grp-sub"><div class="th">biz_canteen_wallet_txns 补贴流水</div><div class="tb"><span class="pk">PK id</span> · txn_no · <span class="pk">FK wallet_id/grant_id/order_id/meal_record_id</span> · type(grant/consume/refund/expire) · amount · balance_after（只增不改）</div></div>
+    <div class="tbl grp-sub"><div class="th">biz_canteen_meal_records 用餐记录</div><div class="tb"><span class="pk">PK id</span> · record_no · period · business_date · <span class="pk">FK outlet_id/order_id</span> · employee_user_id · subsidy_used · qr_pay_amount · status(normal/voided/refunded)</div></div>
+
+    <div class="tbl grp-settle"><div class="th">biz_canteen_cashier_sessions 收银班次</div><div class="tb"><span class="pk">PK id</span> · session_no · <span class="pk">FK outlet_id/cashier_user_id</span> · open/close_time · opening_float · qr_pay_total · subsidy_total · order_count · refund_total · status(open/closed)</div></div>
+    <div class="tbl grp-settle"><div class="th">biz_canteen_settlements 月度结算单</div><div class="tb"><span class="pk">PK id</span> · settlement_no · period · <span class="pk">FK outlet_id</span> · contractor_id · sales/qr_pay/subsidy/refund_total · company_payable · status(draft/submitted/reconciling/approved/settled/disputed)</div></div>
+    <div class="tbl grp-settle"><div class="th">biz_canteen_settlement_items 结算明细</div><div class="tb"><span class="pk">PK id</span> · <span class="pk">FK settlement_id</span> · biz_date · meal_period · order_count · qr_pay/subsidy/refund_amount · source · diff_amount/reason</div></div>
+    <div class="tbl grp-settle"><div class="th">biz_canteen_status_logs 状态日志</div><div class="tb"><span class="pk">PK id</span> · entity_type(order/payment/settlement/grant/refund) · entity_id · before/after_status · action · operator_user_id · op_time</div></div>
+  </div>
+  <div class="er-rel">
+    <b>主要关系与基数：</b><br>
+    outlets 1—* categories；outlets 1—* dishes；categories 1—* dishes；outlets 1—* qr_codes。<br>
+    outlets 1—* orders；orders 1—* order_items；orders 1—* payments；orders 1—* refunds；orders 1—0..1 meal_records。<br>
+    users/employees 1—1 wallets（一人一钱包，余额按当前账期）；employees 1—* subsidy_grants（按 period）；wallets 1—* wallet_txns；subsidy_grants 1—* wallet_txns；orders 1—* wallet_txns（consume/refund）。<br>
+    outlets/contractor 1—* settlements（按 period）；settlements 1—* settlement_items（按日/餐段）。outlets/cashier 1—* cashier_sessions。status_logs 为通用日志，关联上述任一实体。
+  </div>
+</section>
+
+<!-- ============ 图4 状态流转 ============ -->
+<section class="panel">
+  <h2><span class="no">4</span>补贴与结算状态流转图</h2>
+  <p class="desc">Order / Payment / Grant(+Wallet) / Settlement 四台状态机，状态值严格对齐基线。</p>
+
+  <div class="sm-title">订单 Order（pending → paid → completed；支付成功即完成）</div>
+  <div class="statechain">
+    <span class="st init">pending 待支付</span><span class="trans">顾客支付/核销</span><span class="arrow">→</span>
+    <span class="st">paid 已支付</span><span class="trans">即时</span><span class="arrow">→</span>
+    <span class="st end">completed 已完成</span>
+    <span class="arrow" style="margin-left:18px;">⇢</span>
+    <span class="st bad">cancelled 已取消</span><span class="trans">paid 前撤单</span>
+    <span class="arrow" style="margin-left:18px;">⇢</span>
+    <span class="st bad">partial_refunded / refunded</span><span class="trans">paid 后原路退</span>
+  </div>
+
+  <div class="sm-title">扫码支付 Payment（真实资金）</div>
+  <div class="statechain">
+    <span class="st init">pending</span><span class="arrow">→</span><span class="st end">paid</span>
+    <span class="arrow" style="margin-left:14px;">⇢</span><span class="st bad">failed</span>
+    <span class="arrow">⇢</span><span class="st bad">closed（超时关单）</span>
+    <span class="arrow" style="margin-left:14px;">paid ⇢</span><span class="st bad">refunded（全额退支付平台）</span>
+  </div>
+
+  <div class="sm-title">补贴发放 Grant / 钱包 Wallet（按月发放，吃则扣，月末清零）</div>
+  <div class="statechain">
+    <span class="st init">scheduled</span><span class="trans">月初发放任务</span><span class="arrow">→</span>
+    <span class="st">granted 已发放</span><span class="arrow">→</span>
+    <span class="st">partially_consumed 部分使用</span><span class="arrow">→</span>
+    <span class="st end">consumed 全部用完</span>
+    <span class="arrow" style="margin-left:14px;">月末定时</span><span class="arrow">⇢</span>
+    <span class="st bad">expired 未用清零</span>
+  </div>
+  <div class="note">wallet_txns 流水类型：grant(+发放) / consume(−消费) / refund(−消费退回，红冲) / expire(−月末清零)；流水只增不改，余额不可为负。</div>
+
+  <div class="sm-title">承包方结算 Settlement（月度对账结账）</div>
+  <div class="statechain">
+    <span class="st init">draft</span><span class="trans">发起</span><span class="arrow">→</span>
+    <span class="st">submitted</span><span class="trans">财务接收</span><span class="arrow">→</span>
+    <span class="st">reconciling 核对中</span><span class="arrow">→</span>
+    <span class="st">approved 已核准</span><span class="trans">付款+凭证</span><span class="arrow">→</span>
+    <span class="st end">settled 已结账</span>
+    <span class="arrow" style="margin-left:14px;">任一环节差异</span><span class="arrow">⇢</span>
+    <span class="st bad">disputed 争议挂起</span><span class="trans">处理后回到 reconciling/submitted</span>
+  </div>
+</section>
+
+<footer class="page">
+  园区餐厅模块可视化图 · 离线静态原型 · 与冻结设计基线 v1 保持一致 · 数据均为演示占位
+</footer>
+</div>
+</body>
+</html>
