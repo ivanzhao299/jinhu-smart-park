@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Standalone stdin-capable, local Docker read-only observation. No receipt authority. */
 import process from "node:process";
+import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { resolve, posix } from "node:path";
@@ -669,6 +670,77 @@ export function observeTrainingCarriageReadonly() {
  return sanitizeTrainingCarriageObservation(raw);
 }
 
+// One-time original policy proof comparison. Hash-only, no source facts or current
+// target values are returned. Does not anchor or update any import baseline.
+const INSURANCE_RECEIPT_SHA256 = "ae1c2aefd5b90ce1fc8c9fd2bfcdfc3c1b087b0b7bcbb67f480e3c766c951dac";
+export function insuranceReceiptSetSha256(rows) {
+  return createHash("sha256").update(JSON.stringify([...rows].sort((a,b)=>a[0].localeCompare(b[0])))).digest("hex");
+}
+export function buildInsuranceOriginalReceiptReadonlySql() {
+ validateOriginalExpectation(ORIGINAL_EXPECTATION);
+ const e=ORIGINAL_EXPECTATION;
+ return `BEGIN TRANSACTION READ ONLY;
+SET LOCAL statement_timeout='30s';
+SET LOCAL search_path=public,pg_catalog;
+WITH operation AS (
+ SELECT * FROM hr_yuzhou_production_import_operation o
+ WHERE o.operation_id='${e.operationId}' AND o.status='succeeded' AND o.execution_contract_version=2
+ AND o.target_tenant_id='${e.targetScope.tenantId}' AND o.target_park_id='${e.targetScope.parkId}'
+ AND o.target_scope_sha256='${e.targetScope.scopeSha256}' AND o.sealed_plan_sha256='${e.sealedPlanSha256}'
+ AND o.code_sha='${e.triple.codeSha}' AND o.source_snapshot_sha256='${e.triple.sourceSnapshotHash}'
+ AND o.mapping_contract_sha256='${e.triple.mappingContractHash}'
+), original AS (
+ SELECT r.source_identity_sha256,r.source_row_sha256,r.target_table,r.target_id,r.target_after_sha256
+ FROM hr_yuzhou_production_import_record r
+ JOIN operation o ON o.operation_id=r.operation_id
+ JOIN hr_yuzhou_production_import_phase p ON (p.operation_id,p.phase)=(r.operation_id,r.phase)
+ JOIN hr_yuzhou_production_import_projection_receipt pr ON (pr.operation_id,pr.phase,pr.source_identity_sha256)=(r.operation_id,r.phase,r.source_identity_sha256)
+ JOIN migration_batch b ON b.id=pr.migration_batch_id
+ JOIN legacy_record_map m ON m.id=pr.legacy_record_map_id AND m.batch_id=b.id
+ WHERE r.phase='T3' AND r.source_table='dbo.insure_method'
+ AND r.target_table IN ('hr_insurance_policy','hr_insurance_policy_item') AND r.target_table=r.planned_target_table
+ AND p.status='succeeded' AND p.canonicalization_version='yuzhou-production-import-canonical-json-v1'
+ AND p.payload_bundle_artifact_sha256 IS NOT NULL AND p.payload_bundle_sha256 IS NOT NULL
+ AND r.rollback_status='not_started' AND r.rolled_back_at IS NULL
+ AND r.disposition IN ('insert','merge','skip_approved') AND r.target_version_after>=1
+ AND r.target_after_sha256 IS NOT NULL AND r.source_system='yuzhou-v10'
+ AND r.source_pk_canonical='sha256:'||r.source_identity_sha256
+ AND b.execution_context='production_import' AND b.status='succeeded'
+ AND b.production_import_operation_id=r.operation_id AND b.production_import_phase=r.phase
+ AND b.source_system=r.source_system AND b.source_snapshot_sha256=o.source_snapshot_sha256
+ AND b.target_database=current_database() AND b.run_id=r.operation_id||'-'||lower(r.phase)
+ AND b.tool_version='prod-import-v2@'||o.code_sha
+ AND m.source_system=r.source_system AND m.source_table=r.source_table AND m.source_pk_canonical=r.source_pk_canonical
+ AND m.source_identity_sha256=r.source_identity_sha256 AND m.source_row_sha256=r.source_row_sha256
+ AND m.target_table=r.target_table AND m.target_id=r.target_id AND m.is_active=true AND m.mapping_status IN ('loaded','verified')
+ AND (SELECT count(*) FROM legacy_record_map a WHERE a.source_system=r.source_system AND a.source_table=r.source_table
+ AND a.source_identity_sha256=r.source_identity_sha256 AND a.is_active=true)=1
+)
+SELECT json_build_object('operationBound',(SELECT count(*)=1 FROM operation),'rows',
+ coalesce((SELECT json_agg(json_build_array(source_identity_sha256,source_row_sha256,target_table,target_id,target_after_sha256)
+ ORDER BY source_identity_sha256) FROM original),'[]'::json))::text;
+ROLLBACK;`;
+}
+export function sanitizeInsuranceOriginalReceiptObservation(raw, expectedSha=INSURANCE_RECEIPT_SHA256) {
+ let v;try{if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('INSURANCE_RECEIPT_RESULT_INVALID');v=JSON.parse(raw);}catch{fail('INSURANCE_RECEIPT_RESULT_INVALID');}
+ const identities=new Set(),targets=new Set(),sha=/^[a-f0-9]{64}$/u,uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
+ if(!sha.test(expectedSha)||!exactKeys(v,['operationBound','rows'])||typeof v.operationBound!=='boolean'||!Array.isArray(v.rows)||v.rows.length>84)fail('INSURANCE_RECEIPT_RESULT_INVALID');
+ for(const r of v.rows){
+  if(!Array.isArray(r)||r.length!==5||!r.every(x=>typeof x==='string')||![r[0],r[1],r[4]].every(x=>sha.test(x))
+   ||!['hr_insurance_policy','hr_insurance_policy_item'].includes(r[2])||!uuid.test(r[3])||identities.has(r[0])||targets.has(r[3]))fail('INSURANCE_RECEIPT_RESULT_INVALID');
+  identities.add(r[0]);targets.add(r[3]);
+ }
+ const policyCount=v.rows.filter(x=>x[2]==='hr_insurance_policy').length,itemCount=v.rows.length-policyCount;
+ const receiptSetSha256=insuranceReceiptSetSha256(v.rows),matches=v.operationBound&&policyCount===12&&itemCount===72&&receiptSetSha256===expectedSha;
+ return {status:matches?'PASS':'MISMATCH',operationBound:v.operationBound,policyCount,itemCount,receiptSetSha256,
+ expectedReceiptSetSha256:expectedSha,productionWrites:false,baselineAccepted:false,sourceFieldsDecrypted:false,
+ evidenceScope:'original_T3_policy_record_receipt_batch_active_map_tuple_hashes_only; not child dependency or live target acceptance'};
+}
+export function observeInsuranceOriginalReceiptsReadonly(){
+ let raw;try{raw=execFileSync('docker',['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-postgres','sh','-c','exec psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{input:buildInsuranceOriginalReceiptReadonlySql(),encoding:'utf8',timeout:40000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});}catch{fail('INSURANCE_RECEIPT_QUERY_FAILED');}
+ return sanitizeInsuranceOriginalReceiptObservation(raw);
+}
+
 if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -693,7 +765,8 @@ if (process.argv[1] === "-" || (process.argv[1] && resolve(process.argv[1]) === 
     const formalExtendedRecords=observeExtendedRecordsReadonly();
     const originalCredentialExclusions=observeCredentialExclusionsReadonly();
     const trainingCarriage=observeTrainingCarriageReadonly();
-    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions,trainingCarriage}) + "\n");
+    const insuranceOriginalReceipts=observeInsuranceOriginalReceiptsReadonly();
+    process.stdout.write(JSON.stringify({...runtime, originalBaseline, t5OriginalProfileAggregate,t5QuarantineImpact,t5OriginalFamilyAggregate,formalExtendedRecords,originalCredentialExclusions,trainingCarriage,insuranceOriginalReceipts}) + "\n");
     // A valid mismatching T5 snapshot must remain downloadable for diagnosis.
     if (originalBaseline.status !== "PASS") process.exitCode = 1;
   } catch (error) {
