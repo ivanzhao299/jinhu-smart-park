@@ -29,7 +29,7 @@ export function HrImportsClient() {
   return <PermissionGuard module="hr" fallback={<ForbiddenState variant="page" reason="module" />}>
     {canEnterImport(user)
       ? <ImportWorkbench key={context} isCurrent={() => currentContext.current === context} />
-      : <ForbiddenState variant="page" message="当前账号没有组织、岗位、员工、个人资料、劳动合同或家庭成员导入与结果查询权限。" />}
+      : <ForbiddenState variant="page" message="当前账号没有组织、岗位、员工、个人资料、劳动合同、家庭成员、技能或证照导入与结果查询权限。" />}
   </PermissionGuard>;
 }
 

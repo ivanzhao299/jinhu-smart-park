@@ -47,8 +47,16 @@
 
 ## 调用方事务执行器准备
 
-`executeYuzhouRecordItem` 只处理skill/credential静态来源表及sha256身份，仍使用prepared item类型，未打开公共domain。调用方事务内分来源advisory锁、ledger行锁、原source/owner/receipt认证、按operation+kind缓存原集合证明、加密原provenance及字段比较。Owner变化冲突，原凭据不匹配拒绝；没有有效原证明却已有同源metadata目标时拒绝创建重复历史行。原ledger的事实与基线仅解密使用，不向revision暴露原值或编号。
+`executeYuzhouRecordItem` 只处理skill/credential静态来源表及sha256身份，使用静态两域item类型，公共增量domain已在本地接入。调用方事务内分来源advisory锁、ledger行锁、原source/owner/receipt认证、按operation+kind缓存原集合证明、加密原provenance及字段比较。Owner变化冲突，原凭据不匹配拒绝；没有有效原证明却已有同源metadata目标时拒绝创建重复历史行。原ledger的事实与基线仅解密使用，不向revision暴露原值或编号。
 
 新增使用 `createEmployeeRecordInTransaction`，与正常HrLifecycleService技能/证照创建共用DTO验证、独立权限、员工范围锁、protected number、v1快照和同事务create journal。更新使用已有mutate helper及当前版本CAS，不嵌套事务。未变来源保留现代修改；收敛只推进来源基线；归档冲突不复活。每次revision只含字段名、版本和结果。
 
 真实PG原链fixture验证内部preview/create/update、相同来源重复运行、原基线首次接纳、分歧/收敛/归档、权限拒绝、journal失败时目标和ledger回滚及重试；真实竞争连接在观察之后现代修改触发CAS，ledger不变而现代修改保留；并发同源得到applied+unchanged及唯一create journal。既有maintenance PG和lifecycle契约回归通过。内部重复来源验证不证明公共同包重放；公共DTO/preview/commit/status、同包员工依赖、raw入口及生产发布仍须后续独立验证。
+
+## 公共增量服务与固定raw入口
+
+技能/证照使用同一DTO、preview/commit/status和正常record manage权限；结果读取分别允许record read/credential read或manage。未知字段由共享allowlist及字段normalizer拒绝。原来源认证不能由离线构包授予；preview与commit均在事务内重新验证。
+
+统一CLI的recordRecords通过固定projector生成两域DTO，recipe绑定projector与共享字段规则；同包employee先于child、按现有2000条/8MiB分批。来源漂移、重复和必填错误失败，不自动丢弃；日期/掩码及文件关联pending覆盖必须留在私有manifest。原3条异常回执精确重用及生产首次验收仍未完成。
+
+本地真实PG新增公共DTO/preview/commit/status原首次接纳、同包重放、同事实再预览、只读结果/提交拒绝及同包员工依赖测试。固定入口契约新增digest/排序/重复/2000条边界/pending测试并进入CI。不把本地通过或候选数量一致当作生产导入完成。

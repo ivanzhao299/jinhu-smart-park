@@ -9,6 +9,8 @@ import { PartySensitiveDataService } from "../../shared/security/party-sensitive
 import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
 import { executeYuzhouFamilyItem } from "./hr-yuzhou-family-executor";
+import { executeYuzhouRecordItem } from "./hr-yuzhou-record-executor";
+import { normalizeYuzhouRecordFields } from "@jinhu/shared";
 import { normalizeYuzhouFamilyFields } from "@jinhu/shared";
 import { originalProfile, originalProfileAliasProof, certifyOriginalProfiles, profileWitnessHash, profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { initialWitnessHash, verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
@@ -93,6 +95,7 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private async previewItem(manager: EntityManager, scope: TenantParkScope, sourceSystem: string, item: YuzhouIncrementalItem, actor: JwtPrincipal, staged:readonly YuzhouIncrementalItem[] = []) {
+    if(item.domain === "skill" || item.domain === "credential") return executeYuzhouRecordItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
     if(item.domain === "family") return executeYuzhouFamilyItem(manager,scope,actor,item,this.sensitive,(key,table)=>this.employeeTarget(manager,scope,sourceSystem,key,table),undefined,staged.some(row=>row.domain==="employee"&&row.sourceTable===item.fields.employeeSourceTable&&row.sourceKey===item.fields.employeeSourceKey));
     const source = [scope.tenantId, scope.parkId, sourceSystem, item.sourceTable, item.sourceKey];
     let prior = (await manager.query(`SELECT id,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,version,target_version,baseline_encrypted FROM hr_incremental_import_item WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND source_table=$4 AND source_key=$5 AND domain=$6`, [...source, item.domain]))[0] as ItemRow | undefined;
@@ -149,6 +152,11 @@ export class HrYuzhouIncrementalImportService {
   }
 
   private validateFieldValues(item: YuzhouIncrementalItem) {
+    if(item.domain === "skill" || item.domain === "credential") {
+      const fields={...item.fields};delete fields.employeeSourceKey;delete fields.employeeSourceTable;
+      try{normalizeYuzhouRecordFields(item.domain,fields);}catch{throw new BadRequestException("RECORD_IMPORT_FIELDS_INVALID");}
+      return;
+    }
     if(item.domain === "family") {
       const fields={...item.fields};delete fields.employeeSourceKey;delete fields.employeeSourceTable;
       try{normalizeYuzhouFamilyFields(fields);}catch{throw new BadRequestException("FAMILY_IMPORT_FIELDS_INVALID");}
@@ -180,6 +188,11 @@ export class HrYuzhouIncrementalImportService {
 
   private async applyItem(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, operation: OperationRow, item: YuzhouIncrementalItem): Promise<"applied" | "unchanged" | "conflict"> {
     this.requireDomainPermission(actor, item.domain);
+    if(item.domain === "skill" || item.domain === "credential") {
+      const outcome=await executeYuzhouRecordItem(manager,scope,actor,{...item,domain:item.domain},this.sensitive,(key,table)=>this.employeeTarget(manager,scope,operation.source_system,key,table),operation.id);
+      if(typeof outcome!=="string")throw new ConflictException("RECORD_IMPORT_OUTCOME_INVALID");
+      return outcome;
+    }
     if(item.domain === "family") {
       const outcome=await executeYuzhouFamilyItem(manager,scope,actor,item,this.sensitive,(key,table)=>this.employeeTarget(manager,scope,operation.source_system,key,table),operation.id);
       if(typeof outcome!=="string")throw new ConflictException("FAMILY_IMPORT_OUTCOME_INVALID");
@@ -504,8 +517,8 @@ export class HrYuzhouIncrementalImportService {
   }
   private requireDomainPermission(actor: JwtPrincipal, domain: YuzhouIncrementalItem["domain"], access: "read" | "manage" = "manage") {
     if(domain === "organization") { const required=access === "manage" ? [SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE] : [SYSTEM_PERMISSIONS.ORG_LIST,SYSTEM_PERMISSIONS.ORG_UPDATE,SYSTEM_PERMISSIONS.ORG_CREATE]; if(!actor.isSuper && !actor.permissions.includes("*") && required.every(p=>!actor.permissions.includes(p))) throw new ForbiddenException("YUZHOU_ORGANIZATION_PERMISSION_REQUIRED"); return; }
-    const managePermission = domain === "family" ? HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE : domain === "position" ? HR_PERMISSIONS.HR_POSITION_MANAGE : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_MANAGE : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE : HR_PERMISSIONS.HR_CONTRACT_MANAGE;
-    const readPermission = domain === "family" ? HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ : domain === "position" ? HR_PERMISSIONS.HR_POSITION_READ : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_READ : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ : HR_PERMISSIONS.HR_CONTRACT_READ;
+    const managePermission = ["family","skill","credential"].includes(domain) ? HR_PERMISSIONS.HR_EMPLOYEE_RECORD_MANAGE : domain === "position" ? HR_PERMISSIONS.HR_POSITION_MANAGE : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_MANAGE : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE : HR_PERMISSIONS.HR_CONTRACT_MANAGE;
+    const readPermission = domain === "skill" ? HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ : domain === "credential" ? HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ : domain === "family" ? HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ : domain === "position" ? HR_PERMISSIONS.HR_POSITION_READ : domain === "employee" ? HR_PERMISSIONS.HR_EMPLOYEE_READ : domain === "profile" ? HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ : HR_PERMISSIONS.HR_CONTRACT_READ;
     const allowed = access === "manage" ? [managePermission] : [readPermission, managePermission];
     if (!actor.isSuper && !actor.permissions.includes("*") && !allowed.some(permission => actor.permissions.includes(permission))) throw new ForbiddenException(`${allowed[0]} permission is required`);
   }

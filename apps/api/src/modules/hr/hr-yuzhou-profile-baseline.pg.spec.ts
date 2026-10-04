@@ -331,7 +331,7 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
     await verifyFamilyOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
     t.diagnostic("Family original proof and actual DTO/preview/commit/status PASS: source create/update/replay/modern conflicts/archive/rollback plus employee dependency");
     await verifyExtendedRecordOriginalReceipts(db,sensitive,employees[0]!.initialBaselineWitness!.targetId,employees[0]!.sourceKey.slice(7));
-    t.diagnostic("Skill/credential original source/receipt/owner and certified target proof PASS; no public incremental adapter claimed");
+    t.diagnostic("Skill/credential original proof, internal executor and public DTO/preview/commit/status PASS; production acceptance remains pending");
   } finally {
     if(db?.isInitialized)await db.destroy();
     if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query(`SELECT count(*)::int n FROM pg_database WHERE datname=$1`,[database]))[0].n,0);}
@@ -356,7 +356,7 @@ async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:Part
   for(const kind of ["skill","credential"] as const){
     const table=`hr_employee_${kind}`,sourceTable=kind==="skill"?"dbo.knowhow":"dbo.ticket",domain=kind==="skill"?"knowhow":"ticket";
     const op=`yzprod-import-20261004T15${kind==="skill"?"00":"10"}00Z-abcdef123456`,binding={...parent.binding,operationId:op};
-    const ids=[randomUUID(),randomUUID()],sourceIds:string[]=[],sources:Array<Record<string,unknown>>=ids.map((_,i)=>kind==="skill"
+    const ids=[randomUUID(),randomUUID(),randomUUID()],sourceIds:string[]=[],sources:Array<Record<string,unknown>>=ids.map((_,i)=>kind==="skill"
       ?{id:2700+i,person:"OLD-0",knowhow:`Synthetic original skill ${i}`,grade:"Original grade",memo:null}
       :{id:2710+i,person:"OLD-0",tickettype:i===0?null:"synthetic",ticket:i===0?"Synthetic credential 0":'Synthetic credential "1"',ticketno:`SYN-NUMBER-${i}`,org:"Synthetic authority",getdate:"2020-02-29 00:00:00",validdate:i===0?"2030-01-01":"1900-02-29",memo:null,ticketfilename:i===0?null:"synthetic/source.pdf"});
     const identities=sources.map(source=>sha(`${sourceTable}\0${source.id}`)),hashes=sources.map(source=>sha(canonicalYuzhouInitialJson(source)));
@@ -484,6 +484,31 @@ async function verifyExtendedRecordOriginalReceipts(db:DataSource,sensitive:Part
     const orphanIdentity=sha(`${sourceTable}\0uncertified-synthetic`);
     await db.query(`UPDATE ${table} SET legacy_source_identity_sha256=$2,legacy_source_row_sha256=$3 WHERE id=$1`,[created,orphanIdentity,sha("uncertified raw row")]);
     await assert.rejects(execute(item(`sha256:${orphanIdentity}`,kind==="skill"?{skillName:"Must not duplicate"}:{credentialType:"synthetic",credentialName:"Must not duplicate"})),/RECORD_IMPORT_EVIDENCE_INVALID/);
+    const importer=new HrYuzhouIncrementalImportService(db,sensitive);
+    const publicPackage=async(items:YuzhouIncrementalItem[],manifest=randomUUID())=>requestDto({version:1,sourceSystem:"yuzhou-v10",manifestId:manifest,extractedAt:"2026-10-04T18:00:00Z",items});
+    const publicImport=async(items:YuzhouIncrementalItem[])=>{
+      const dto=await publicPackage(items),preview=result(await importer.preview(scope,actor,dto));
+      return {dto,preview,outcome:result(await importer.commit(scope,actor,preview.id))};
+    };
+    const originalPublic=item(`sha256:${identities[2]}`,{note:"Public source update"});
+    const accepted=await publicImport([originalPublic]);assert.equal(accepted.preview.plan[0]!.action,"update");assert.equal(accepted.outcome.appliedCount,1);
+    assert.equal(result(await importer.commit(scope,actor,accepted.preview.id)).appliedCount,1);
+    assert.equal(result(await importer.preview(scope,actor,accepted.dto)).id,accepted.preview.id);
+    assert.equal(result(await importer.status(scope,actor,accepted.preview.id)).status,"committed");
+    assert.equal((await db.query(`SELECT version FROM ${table} WHERE id=$1`,[ids[2]]))[0].version,2);
+    assert.equal((await publicImport([originalPublic])).outcome.unchangedCount,1);
+    await assert.rejects(importer.preview(scope,{...actor,isSuper:false,permissions:[]},await publicPackage([originalPublic])),/permission is required/);
+    const readOnly={...actor,isSuper:false,permissions:[kind==="skill"?"hr:employee_record:read":"hr:employee_credential:read"]};
+    assert.equal(result(await importer.status(scope,readOnly,accepted.preview.id)).status,"committed");
+    await assert.rejects(importer.commit(scope,readOnly,accepted.preview.id),/permission is required/);
+    const employeeKey=`sha256:${sha(`dbo.person\0public-${kind}`)}`;
+    const employeeItem:Input={domain:"employee",sourceTable:"dbo.person",sourceKey:employeeKey,fields:{employeeCode:`PUBLIC-${kind}`,fullName:"Synthetic dependent employee",employmentStatus:"preboarding"}};
+    const dependent=item(`sha256:${sha(`${sourceTable}\0public-dependent`)}`,kind==="skill"?{skillName:"Synthetic dependent skill"}:{credentialType:"synthetic",credentialName:"Synthetic dependent credential"});
+    dependent.fields.employeeSourceKey=employeeKey;
+    const digestItem=(value:Input):YuzhouIncrementalItem=>({...value,rowDigest:sha(canonicalYuzhouInitialJson({...value,sourceUpdatedAt:null}))});
+    const {rowDigest:_unused,...dependentInput}=dependent;void _unused;
+    const linked=await publicImport([digestItem(dependentInput),digestItem(employeeItem)]);assert.equal(linked.outcome.appliedCount,2);
+    const row=(await db.query(`SELECT r.employee_id,e.employee_code FROM hr_incremental_import_item i JOIN ${table} r ON r.id=i.target_id JOIN hr_employee e ON e.id=r.employee_id WHERE i.domain=$1 AND i.source_key=$2`,[kind,dependent.sourceKey]))[0];assert.equal(row.employee_code,`PUBLIC-${kind}`);
   }
 }
 
