@@ -39,7 +39,7 @@ export function HrEmployeeProfileSummary({ profile }: { profile: HrEmployeeProfi
   const full = profile.masked === false;
   const customGroups = new Map<string, NonNullable<HrEmployeeProfile["customFields"]>>();
   if (full) for (const field of profile.customFields ?? []) {
-    const group = field.group || "玉舟扩展档案";
+    const group = field.group || "扩展档案";
     const fields = customGroups.get(group) ?? [];
     fields.push(field);
     customGroups.set(group, fields);
