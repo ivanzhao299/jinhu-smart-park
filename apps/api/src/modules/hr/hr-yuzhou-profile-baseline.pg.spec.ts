@@ -12,8 +12,8 @@ import { PartySensitiveDataService } from "../../shared/security/party-sensitive
 import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import.service";
 import { HrEmployeeProfileEntity, HrEmployeeEntity, HrContractEntity, HrContractTypeEntity, HrContractActionEntity } from "./entities/hr.entities";
 import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem } from "@jinhu/shared";
-import { plainToInstance } from "class-transformer";
-import { validateOrReject } from "class-validator";
+import { ValidationPipe } from "@nestjs/common";
+import { originalProfileAliasProof, type OriginalProfile } from "./hr-yuzhou-profile-baseline";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
 const root=resolve(__dirname,"../../../../.."),sha=(s:string)=>createHash("sha256").update(s).digest("hex");
@@ -21,6 +21,8 @@ const scope={tenantId:"baseline-tenant",parkId:"baseline-park"};
 const actor={sub:randomUUID(),isSuper:true,permissions:["*"]} as never;
 const operationId="yzprod-import-20261004T120000Z-123456abcdef";
 type Input=Omit<YuzhouIncrementalItem,"rowDigest">;
+const validationPipe=new ValidationPipe({whitelist:true,transform:true,forbidNonWhitelisted:true});
+const requestDto=(value:unknown):Promise<PreviewYuzhouIncrementalImportDto>=>validationPipe.transform(value,{type:"body",metatype:PreviewYuzhouIncrementalImportDto});
 const result=(value:unknown)=>value as {id:string;status:string;appliedCount:number;unchangedCount:number;plan:Array<{action:string;conflictFields:string[]}>};
 
 test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and immutable provenance",{skip:process.env.HR_YUZHOU_PROFILE_BASELINE_PG_REQUIRED!=="1",timeout:90000},async t=>{
@@ -99,7 +101,8 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
     await db.query(readFileSync(resolve(root,"database/migrations/000330_hr_incremental_profile_baseline.sql"),"utf8"));
     const originalOperation="yzprod-import-20261004T130000Z-abcdef123456",payrollOperation="yzprod-import-20261004T125000Z-abcdef123456";
     const originalSource={id:7,person:"OLD-0",sex:"女",birthday:"1990-02-03T00:00:00",handtel:"13000000000",email:"source@example.test",addr:"Original address",idcard:" ab c ",unknownExtension:"pending"};
-    const profileIdentity=sha("dbo.person.core_residue\0"+originalSource.id),sourceHash=sha(canonicalYuzhouInitialJson(originalSource));
+    const certifiedSource={...originalSource,oldaddr:"原籍",edulevel:"学士"};
+    const profileIdentity=sha("dbo.person.core_residue\0"+originalSource.id),sourceHash=sha(canonicalYuzhouInitialJson(certifiedSource));
     const binding={formatVersion:1,artifactKind:"yuzhou_t5_followon_binding",operationId:originalOperation,intent:"APPEND_T5_FULL_HISTORY_ONCE",executionCodeSha:"7c3df1c230bde74badbf414acae36030d5fe8709",sourceMappingContractSha256:"d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0",triple:{sourceSnapshotHash:sha("fixture")},targetScope:scope,targetScopeSha256:sha(`yuzhou-hr-production-target-scope-v1\0${scope.tenantId}\0${scope.parkId}`),parent:{operationId,sealedPlanSha256:sha("fixture")},payrollParent:{operationId:payrollOperation,bindingSha256:sha("payroll")}};
     const bindingHash=sha(canonicalYuzhouInitialJson(binding));
     const protectedId=sensitive.identityProfile("ab c");
@@ -110,7 +113,7 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       await m.query(`INSERT INTO hr_yuzhou_t5_followon_operation(operation_id,parent_operation_id,payroll_operation_id,binding_sha256,binding,status,finished_at) VALUES($1,$2,$3,$4,$5,'succeeded',now())`,[originalOperation,operationId,payrollOperation,bindingHash,binding]);
       await m.query(`INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,execution_context,t5_followon_operation_id,status,tool_version) VALUES($1,'yuzhou-v10',$2,current_database(),'t5_production_followon',$1,'succeeded',$3)`,[originalOperation,sha("fixture"),`t5-followon-v1@${binding.executionCodeSha}`]);
       const map=(await m.query(`SELECT id FROM legacy_record_map WHERE source_identity_sha256=$1`,[employees[0]!.sourceKey.slice(7)]))[0].id;
-      const sourceId=(await m.query(`INSERT INTO hr_yuzhou_t5_followon_source(operation_id,tenant_id,park_id,source_domain,source_table,source_identity_sha256,source_row_sha256,encrypted_source,owner_status,employee_id,owner_record_map_id) VALUES($1,$2,$3,'person_core','dbo.person.core_residue',$4,$5,$6,'mapped',$7,$8) RETURNING id`,[originalOperation,scope.tenantId,scope.parkId,profileIdentity,sourceHash,sensitive.encrypt(JSON.stringify(originalSource)),profile.employeeId,map]))[0].id;
+      const sourceId=(await m.query(`INSERT INTO hr_yuzhou_t5_followon_source(operation_id,tenant_id,park_id,source_domain,source_table,source_identity_sha256,source_row_sha256,encrypted_source,owner_status,employee_id,owner_record_map_id) VALUES($1,$2,$3,'person_core','dbo.person.core_residue',$4,$5,$6,'mapped',$7,$8) RETURNING id`,[originalOperation,scope.tenantId,scope.parkId,profileIdentity,sourceHash,sensitive.encrypt(JSON.stringify(certifiedSource)),profile.employeeId,map]))[0].id;
       for(const [table,id] of [["hr_employee_profile",profile.id],["hr_yuzhou_t5_followon_source",sourceId]])await m.query(`INSERT INTO hr_yuzhou_t5_followon_projection_receipt VALUES($1,$2,$3,$4,'insert',$5,NULL)`,[originalOperation,table,profileIdentity,sourceHash,id]);
       // Original PostgreSQL algorithm (not the new verifier) freezes commitment.
       await m.query(`SET LOCAL TIME ZONE 'Asia/Shanghai'`);
@@ -120,17 +123,17 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
     });
     const fixtureRoot=mkdtempSync(resolve(realpathSync(tmpdir()),"yuzhou-profile-fixture-"));
     let batch=0;
-    const produce=(source:typeof originalSource,witness?:unknown,includeEmployees=false)=>{
+    const produce=(source:typeof originalSource & {oldaddr?:string|null;edulevel?:string|null},witness?:unknown,includeEmployees=false,aliasAcceptance?:unknown)=>{
       const path=resolve(fixtureRoot,`source-${batch}.json`),out=resolve(fixtureRoot,`batch-${batch++}`);
-      writeFileSync(path,JSON.stringify({sources:[source],scope,witness,includeEmployees}),{mode:0o600});
+      writeFileSync(path,JSON.stringify({sources:[source],scope,witness,includeEmployees,aliasAcceptance}),{mode:0o600});
       const output=JSON.parse(execFileSync(process.execPath,["scripts/e2e/yuzhou-profile-staging-fixture.mjs","--root",out,"--source",path],{cwd:root,encoding:"utf8"}));
       return JSON.parse(readFileSync(output.packagePath,"utf8")) as PreviewYuzhouIncrementalImportDto;
     };
     const witness={version:1,proof:"original_t5_whole_set_v1",operationId:originalOperation,bindingSha256:bindingHash};
-    const commit=async(dto:PreviewYuzhouIncrementalImportDto)=>{const preview=result(await service.preview(scope,actor,dto));return {preview,outcome:result(await service.commit(scope,actor,preview.id))};};
+    const commit=async(dto:PreviewYuzhouIncrementalImportDto)=>{const preview=result(await service.preview(scope,actor,await requestDto(dto)));return {preview,outcome:result(await service.commit(scope,actor,preview.id))};};
     const business=async()=>await db!.query(`SELECT to_jsonb(p) AS row FROM hr_employee_profile p ORDER BY id`);
     try {
-      const anchored=produce(originalSource,witness);await validateOrReject(plainToInstance(PreviewYuzhouIncrementalImportDto,anchored),{whitelist:true,forbidNonWhitelisted:true});
+      const anchored=await requestDto(produce(originalSource,witness));
       const unknown=result(await service.preview(scope,actor,produce(originalSource)));assert.equal(unknown.plan[0]!.action,"conflict");assert.ok(unknown.plan[0]!.conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));
       // Certification must reject current-target edits, wrong scope and original
       // receipt/rollback tampering before admitting any baseline ledger row.
@@ -170,6 +173,111 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       assert.equal(result(await service.commit(scope,actor,initial.preview.id)).unchangedCount,1);
       assert.equal((await commit(produce(originalSource))).outcome.unchangedCount,1);assert.deepEqual(await business(),before);
       await assert.rejects(db.query(`UPDATE hr_incremental_profile_baseline SET created_at=now()`),/IMMUTABLE/);
+      // Explicit alias-only admission uses the authenticated original raw source
+      // and immutable whole-set-certified original null target, never live null.
+      const acceptance={version:1,proof:"original_t5_alias_fields_v1",operationId:originalOperation,bindingSha256:bindingHash,fields:["nativePlace","degree"]};
+      const aliasWire=produce(certifiedSource,undefined,false,acceptance);
+      const aliasDto=await requestDto(aliasWire);
+      assert.deepEqual(JSON.parse(JSON.stringify(aliasDto)),aliasWire);
+      assert.deepEqual(JSON.parse(JSON.stringify(aliasDto.items[0]!.profileAliasAcceptance)),acceptance);
+      for(const marker of [{...acceptance,extra:"forged"},{...acceptance,fields:["degree","degree"]},{...acceptance,proof:"forged"}]) await assert.rejects(requestDto({...aliasWire,items:[{...aliasWire.items[0]!,profileAliasAcceptance:marker}]}));
+      assert.deepEqual(Object.keys(aliasDto.items[0]!.fields).sort(),["degree","nativePlace"]);
+      await assert.rejects(service.preview(scope,actor,{...aliasDto,items:[{...aliasDto.items[0]!,fields:{...aliasDto.items[0]!.fields,englishName:"forged other field"}}]}),/PROFILE_ALIAS_ACCEPTANCE_INVALID/);
+      const oldBaseline=(await db.query(`SELECT baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[`sha256:${profileIdentity}`]))[0].baseline_encrypted;
+      const oldProof=(await db.query(`SELECT provenance_encrypted FROM hr_incremental_profile_baseline`))[0].provenance_encrypted;
+      const oldReceipts=await db.query(`SELECT to_jsonb(r) AS row FROM hr_yuzhou_t5_followon_projection_receipt r ORDER BY target_table`);
+      const unknownAlias=await commit(produce(certifiedSource));
+      assert.ok(unknownAlias.preview.plan[0]!.conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));assert.equal(unknownAlias.outcome.status,"conflicted");
+      await assert.rejects(service.preview(scope,actor,{...aliasDto,items:[{...aliasDto.items[0]!,profileAliasAcceptance:undefined}]}),/rowDigest/);
+      await assert.rejects(service.preview({...scope,parkId:"wrong"},actor,aliasDto),/PROFILE_ALIAS_ORIGINAL_BASELINE_REQUIRED/);
+      await assert.rejects(service.preview(scope,actor,produce(certifiedSource,undefined,false,{...acceptance,bindingSha256:sha("wrong")})),/PROFILE_ALIAS_BINDING_MISMATCH/);
+      const changedOriginal=await commit(produce({...certifiedSource,oldaddr:"Different initial source"},undefined,false,acceptance));
+      assert.ok(changedOriginal.preview.plan[0]!.conflictFields.includes("PROFILE_ALIAS_ORIGINAL_SOURCE_CHANGED"));assert.equal(changedOriginal.outcome.status,"conflicted");
+      const singleAlias=result(await service.preview(scope,actor,produce(certifiedSource,undefined,false,{...acceptance,fields:["nativePlace"]})));
+      assert.equal(singleAlias.plan[0]!.action,"update");
+      // Exercise one-field admission and the remaining-field boundary in a real
+      // PostgreSQL transaction, then roll it back without resetting any baseline.
+      const sandboxRollback=new Error("synthetic alias-order rollback");
+      await assert.rejects(db.transaction(async manager=>{
+        const transactionDb=Object.create(db!) as DataSource;
+        transactionDb.query=manager.query.bind(manager);
+        transactionDb.transaction=(async(fn:(m:EntityManager)=>Promise<unknown>)=>fn(manager)) as DataSource["transaction"];
+        const sandboxService=new HrYuzhouIncrementalImportService(transactionDb,sensitive);
+        assert.equal(result(await sandboxService.commit(scope,actor,singleAlias.id)).appliedCount,1);
+        assert.deepEqual((await manager.query(`SELECT native_place,degree FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0],{native_place:"原籍",degree:null});
+        const remaining=await requestDto(produce(certifiedSource,undefined,false,{...acceptance,fields:["degree"]}));
+        const denied=result(await sandboxService.preview(scope,actor,remaining));
+        assert.ok(denied.plan[0]!.conflictFields.includes("PROFILE_ALIAS_TARGET_HISTORY_CHANGED"));
+        assert.equal(result(await sandboxService.commit(scope,actor,denied.id)).status,"conflicted");
+        throw sandboxRollback;
+      }),error=>error===sandboxRollback);
+      assert.equal((await db.query(`SELECT baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[`sha256:${profileIdentity}`]))[0].baseline_encrypted,oldBaseline);
+      assert.deepEqual((await db.query(`SELECT native_place,degree,version FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0],{native_place:null,degree:null,version:profile.version});
+
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$2 WHERE operation_id=$1 AND target_table='hr_yuzhou_t5_followon_source'`,[originalOperation,sha("wrong alias receipt")]);
+      await assert.rejects(service.preview(scope,actor,aliasDto),/PROFILE_ORIGINAL_EVIDENCE_INVALID/);
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256=$2 WHERE operation_id=$1 AND target_table='hr_yuzhou_t5_followon_source'`,[originalOperation,sourceHash]);
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_source SET employee_id=$2 WHERE source_identity_sha256=$1`,[profileIdentity,employees[1]!.initialBaselineWitness!.targetId]);
+      await assert.rejects(service.preview(scope,actor,aliasDto),/PROFILE_ORIGINAL_EVIDENCE_INVALID/);
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_source SET employee_id=$2 WHERE source_identity_sha256=$1`,[profileIdentity,profile.employeeId]);
+      const sourceStored=(await db.query(`SELECT encrypted_source FROM hr_yuzhou_t5_followon_source WHERE source_identity_sha256=$1`,[profileIdentity]))[0].encrypted_source;
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$2 WHERE source_identity_sha256=$1`,[profileIdentity,sensitive.encrypt(JSON.stringify({...certifiedSource,oldaddr:"tampered"}))]);
+      await assert.rejects(service.preview(scope,actor,aliasDto),/PROFILE_ORIGINAL_EVIDENCE_INVALID/);
+      await historicalMutation(`UPDATE hr_yuzhou_t5_followon_source SET encrypted_source=$2 WHERE source_identity_sha256=$1`,[profileIdentity,sourceStored]);
+      const provenance=JSON.parse(sensitive.decrypt(oldProof)!);
+      for(const kind of ["target","certificate"] as const) {
+        const forged=JSON.parse(JSON.stringify(provenance));
+        if(kind==="target") forged.certifiedOriginalTarget.native_place="Original nonempty";
+        else forged.certificate.profiles.sha256=sha("tampered certificate");
+        await historicalMutation(`UPDATE hr_incremental_profile_baseline SET provenance_encrypted=$1`,[sensitive.encrypt(JSON.stringify(forged))]);
+        if(kind==="certificate") await assert.rejects(service.preview(scope,actor,aliasDto),/PROFILE_ALIAS_PROVENANCE_INVALID/);
+        else {const denied=await commit({...aliasDto,manifestId:randomUUID()});assert.ok(denied.preview.plan[0]!.conflictFields.includes("PROFILE_ALIAS_ORIGINAL_TARGET_NOT_EMPTY"));assert.equal(denied.outcome.status,"conflicted");}
+        await historicalMutation(`UPDATE hr_incremental_profile_baseline SET provenance_encrypted=$1`,[oldProof]);
+      }
+      for(const kind of ["alias","unrelated","edit_clear"] as const) {
+        if(kind==="unrelated") await db.query(`UPDATE hr_employee_profile SET english_name='Modern',version=version+1 WHERE id=$1`,[profile.id]);
+        else await db.query(`UPDATE hr_employee_profile SET native_place='Modern',version=version+1 WHERE id=$1`,[profile.id]);
+        if(kind==="edit_clear") await db.query(`UPDATE hr_employee_profile SET native_place=NULL,version=version+1 WHERE id=$1`,[profile.id]);
+        const denied=await commit({...aliasDto,manifestId:randomUUID()});
+        assert.ok(denied.preview.plan[0]!.conflictFields.includes("PROFILE_ALIAS_TARGET_HISTORY_CHANGED"));assert.equal(denied.outcome.status,"conflicted");
+        assert.equal((await db.query(`SELECT native_place FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0].native_place,kind==="alias"?"Modern":null);
+        // Restore only this synthetic test row between independent negative cases.
+        await db.query(`UPDATE hr_employee_profile SET native_place=NULL,english_name=NULL,version=$2 WHERE id=$1`,[profile.id,profile.version]);
+      }
+      // Competing connection edits after the admission observation: CAS rollback
+      // includes the pending acceptance and the ordinary ledger revision.
+      const aliasPreview=result(await service.preview(scope,actor,aliasDto));assert.equal(aliasPreview.plan[0]!.action,"update");
+      let aliasReached!:()=>void,aliasRelease!:()=>void;const aliasBarrier=new Promise<void>(done=>{aliasReached=done}),aliasResume=new Promise<void>(done=>{aliasRelease=done});let aliasPaused=false;
+      const aliasRaceDb=Object.create(db!) as DataSource;
+      aliasRaceDb.transaction=(async(fn:(m:EntityManager)=>Promise<unknown>)=>db!.transaction(async m=>{const proxy=Object.create(m) as EntityManager;proxy.query=async(sql:string,args?:unknown[])=>{const out=await m.query(sql,args);if(!aliasPaused&&sql.startsWith("SELECT *,")&&sql.includes("FROM hr_employee_profile")){aliasPaused=true;aliasReached();await aliasResume;}return out;};return fn(proxy);})) as DataSource["transaction"];
+      const aliasPending=new HrYuzhouIncrementalImportService(aliasRaceDb,sensitive).commit(scope,actor,aliasPreview.id);
+      await Promise.race([aliasBarrier,new Promise((_,reject)=>setTimeout(()=>reject(new Error("alias CAS barrier timeout")),3000))]);
+      await db.query(`UPDATE hr_employee_profile SET english_name='Concurrent modern',version=version+1 WHERE id=$1`,[profile.id]);aliasRelease();await assert.rejects(aliasPending,/changed concurrently/);
+      assert.equal(result(await service.status(scope,actor,aliasPreview.id)).status,"previewed");
+      assert.equal((await db.query(`SELECT baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[`sha256:${profileIdentity}`]))[0].baseline_encrypted,oldBaseline);
+      await db.query(`UPDATE hr_employee_profile SET english_name=NULL,version=$2 WHERE id=$1`,[profile.id,profile.version]);
+      const storedAlias=JSON.parse(sensitive.decrypt((await db.query(`SELECT package_encrypted FROM hr_incremental_import_operation WHERE id=$1`,[aliasPreview.id]))[0].package_encrypted)!);
+      assert.deepEqual(storedAlias.items[0].profileAliasAcceptance,acceptance);
+      assert.equal(storedAlias.items[0].rowDigest,aliasWire.items[0]!.rowDigest);
+      const otherPreview=result(await service.preview(scope,actor,{...aliasDto,manifestId:randomUUID()}));
+      const admitted=await Promise.all([service.commit(scope,actor,aliasPreview.id),service.commit(scope,actor,otherPreview.id)]);
+      assert.equal(admitted.reduce((sum,out)=>sum+result(out).appliedCount,0),1);
+      assert.deepEqual((await db.query(`SELECT native_place,degree FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0],{native_place:"原籍",degree:"学士"});
+      assert.equal(result(await service.commit(scope,actor,aliasPreview.id)).status,"committed");
+      assert.equal((await db.query(`SELECT count(*)::int n FROM hr_incremental_import_revision WHERE field_diff @> '[{"code":"PROFILE_ALIAS_FIELDS_ACCEPTED"}]'`))[0].n,1);
+      assert.equal((await db.query(`SELECT provenance_encrypted FROM hr_incremental_profile_baseline`))[0].provenance_encrypted,oldProof);
+      assert.deepEqual(await db.query(`SELECT to_jsonb(r) AS row FROM hr_yuzhou_t5_followon_projection_receipt r ORDER BY target_table`),oldReceipts);
+      const accepted=JSON.parse(sensitive.decrypt((await db.query(`SELECT baseline_encrypted FROM hr_incremental_import_item WHERE source_key=$1`,[`sha256:${profileIdentity}`]))[0].baseline_encrypted)!);
+      const oldAccepted=JSON.parse(sensitive.decrypt(oldBaseline)!);
+      for(const key of Object.keys(oldAccepted.fields)) assert.deepEqual(accepted.fields[key],oldAccepted.fields[key]);
+      for(const key of Object.keys(oldAccepted.target).filter(k=>k!=="targetVersion")) assert.deepEqual(accepted.target[key],oldAccepted.target[key]);
+      assert.equal(result(await service.commit(scope,actor,initial.preview.id)).unchangedCount,1);
+      assert.equal((await commit(produce(originalSource))).outcome.unchangedCount,1);
+      assert.equal((await commit(produce(certifiedSource,undefined,false,{...acceptance,fields:["degree"]}))).outcome.unchangedCount,1);
+      assert.equal((await commit(produce({...certifiedSource,oldaddr:"来源修订"}))).outcome.appliedCount,1);
+      await db.query(`UPDATE hr_employee_profile SET native_place='现代籍贯',version=version+1 WHERE id=$1`,[profile.id]);
+      const modernAlias=await commit(produce({...certifiedSource,oldaddr:"冲突来源"}));assert.equal(modernAlias.outcome.status,"conflicted");assert.ok(modernAlias.preview.plan[0]!.conflictFields.includes("nativePlace"));
+      assert.equal((await db.query(`SELECT native_place FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0].native_place,"现代籍贯");
       // No whole-set gate after acceptance; modern edits remain intact.
       await db.query(`UPDATE hr_employee_profile SET english_name='Modern name',version=version+1 WHERE id=$1`,[profile.id]);
       assert.equal((await commit(produce({...originalSource,addr:"Source address revision"}))).outcome.appliedCount,1);
@@ -197,8 +305,11 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       assert.equal(protectedConflict.outcome.status,"conflicted");assert.ok(protectedConflict.preview.plan[0]!.conflictFields.includes("idNumberFingerprint"));
       assert.equal((await db.query(`SELECT id_number_fingerprint FROM hr_employee_profile WHERE id=$1`,[profile.id]))[0].id_number_fingerprint,modernId.hash);
       // A genuinely new source profile for another exact employee is admitted.
-      const newProfile=await commit(produce({...originalSource,id:8,person:"OLD-1",idcard:"NEW-ID"}));
+      const newProfile=await commit(produce({...certifiedSource,id:8,person:"OLD-1",idcard:"NEW-ID"}));
       assert.equal(newProfile.preview.plan[0]!.action,"create");assert.equal(newProfile.outcome.appliedCount,1);
+      assert.deepEqual((await db.query(`SELECT native_place,degree FROM hr_employee_profile WHERE employee_id=$1`,[employees[1]!.initialBaselineWitness!.targetId]))[0],{native_place:"原籍",degree:"学士"});
+      assert.equal((await commit(produce({...certifiedSource,id:8,person:"OLD-1",idcard:"NEW-ID",oldaddr:null}))).outcome.appliedCount,1);
+      assert.equal((await db.query(`SELECT native_place FROM hr_employee_profile WHERE employee_id=$1`,[employees[1]!.initialBaselineWitness!.targetId]))[0].native_place,null);
       assert.equal((await db.query(`SELECT count(*)::int n FROM hr_employee_profile WHERE employee_id=$1`,[employees[1]!.initialBaselineWitness!.targetId]))[0].n,1);
       const duplicateProfile=result(await service.preview(scope,actor,produce({...originalSource,id:10,person:"OLD-1",idcard:"DUPLICATE-ID"})));
       await assert.rejects(service.commit(scope,actor,duplicateProfile.id),/already exists/);
@@ -217,4 +328,25 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
     if(created){await admin.query(`DROP DATABASE "${database}"`);assert.equal((await admin.query(`SELECT count(*)::int n FROM pg_database WHERE datname=$1`,[database]))[0].n,0);}
     await admin.destroy();if(created)t.diagnostic("Dedicated profile database identity asserted; residual=0");
   }
+});
+
+
+test("first alias proof requires nonempty authenticated original source; malformed Unicode is rejected",async()=>{
+  const sensitive=new PartySensitiveDataService({get:(key:string)=>key==="PARTY_DATA_ENCRYPTION_KEY"?"baseline-fixture-only-encryption-key-1234567890":undefined} as never);
+  for(const value of [null,"","  ","\ud800","bad\0text"]) {
+    const source={id:7,person:"EMP",oldaddr:value};
+    const original:OriginalProfile={operation_id:operationId,owner_record_map_id:"map",owned_state:{},original:{},encrypted_source:sensitive.encrypt(JSON.stringify(source)),source_row_sha256:sha(canonicalYuzhouInitialJson(source)),source_identity_sha256:sha("dbo.person.core_residue\0"+7),employee_key:`sha256:${sha("dbo.person\0EMP")}`,target_id:"target",employee_id:"employee",binding_sha256:sha("binding"),binding:{targetScope:scope}};
+    const provenance={certificate:{sourceRowSha256:original.source_row_sha256,bindingSha256:original.binding_sha256},certifiedOriginalTarget:{id:"target",employee_id:"employee",tenant_id:scope.tenantId,park_id:scope.parkId,version:1,native_place:null}};
+    assert.throws(()=>originalProfileAliasProof(original,provenance,sensitive,["nativePlace"]),/PROFILE_ALIAS_ORIGINAL_(SOURCE_EMPTY|FIELD_INVALID)/);
+  }
+  // The global pipe does not validate arbitrary fields' values: the service must
+  // reject invalid new aliases before it opens a transaction or probes a target.
+  let queried=false;
+  const service=new HrYuzhouIncrementalImportService({transaction:()=>{queried=true;throw new Error("unexpected query");}} as unknown as DataSource,sensitive);
+  for(const value of ["\ud800","bad\0text"]) {
+    const item={domain:"profile" as const,sourceTable:"dbo.profile",sourceKey:`sha256:${sha("source")}`,fields:{nativePlace:value}};
+    const dto=await requestDto({version:1,sourceSystem:"yuzhou-v10",manifestId:"unicode-proof",extractedAt:"2026-10-04T12:00:00Z",items:[{...item,rowDigest:sha(canonicalYuzhouInitialJson({...item,sourceUpdatedAt:null}))}]});
+    await assert.rejects(service.preview(scope,actor,dto),/PROFILE_ALIAS_FIELD_INVALID/);
+  }
+  assert.equal(queried,false);
 });

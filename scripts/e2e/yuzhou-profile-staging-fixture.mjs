@@ -25,6 +25,7 @@ if(input.includeEmployees){
  const decision=JSON.parse(readFileSync(join(helper,"input.json"),"utf8")).jobStateDecisionArtifact;
  put(join(root,"job-state.json"),decision);config.jobStateDecisionArtifact=ref(join(root,"job-state.json"));
 }
+if(input.aliasAcceptance){put(join(root,"alias-acceptance.json"),input.aliasAcceptance);config.profileAliasAcceptance=ref(join(root,"alias-acceptance.json"));}
 if(input.witness){put(join(root,"witness.json"),input.witness);config.profileBaselineWitness=ref(join(root,"witness.json"));}
 put(join(root,"config.json"),config);
 process.stdout.write(`${JSON.stringify(materializeYuzhouImportFromStaging(join(root,"config.json")))}\n`);

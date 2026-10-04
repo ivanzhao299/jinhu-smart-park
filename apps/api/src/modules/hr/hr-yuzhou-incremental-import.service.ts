@@ -8,7 +8,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import type { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
 
-import { originalProfile, certifyOriginalProfiles, profileWitnessHash, profileCanonical } from "./hr-yuzhou-profile-baseline";
+import { originalProfile, originalProfileAliasProof, certifyOriginalProfiles, profileWitnessHash, profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { initialWitnessHash, verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
 
 import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
@@ -20,7 +20,7 @@ import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { assertOrgVisible, hierarchyFields, incrementalTable, isHierarchy, organizationColumns, positionColumns, sourceHierarchyTarget, validateHierarchyWrite } from "./hr-yuzhou-organization";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
-type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean };
+type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean; alias_fields?: string[]; alias_conflicts?: string[]; alias_proof?: Record<string,unknown>; alias_original_version?: number };
 type OperationRow = { id: string; status: string; package_sha256: string; source_system: string };
 const json = (value: unknown) => JSON.stringify(value);
 const canonicalJson = (value: unknown): string => value === null || typeof value !== "object"
@@ -28,7 +28,7 @@ const canonicalJson = (value: unknown): string => value === null || typeof value
   : Array.isArray(value)
     ? `[${value.map(canonicalJson).join(",")}]`
     : `{${Object.keys(value as Record<string, unknown>).sort().map(key => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`).join(",")}}`;
-const rowDigest = (item: YuzhouIncrementalItem) => createHash("sha256").update(canonicalJson({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, sourceUpdatedAt: item.sourceUpdatedAt ?? null, fields: item.fields })).digest("hex");
+const rowDigest = (item: YuzhouIncrementalItem) => createHash("sha256").update(canonicalJson({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, sourceUpdatedAt: item.sourceUpdatedAt ?? null, fields: item.fields, ...(item.profileAliasAcceptance ? {profileAliasAcceptance:item.profileAliasAcceptance} : {}) })).digest("hex");
 
 @Injectable()
 export class HrYuzhouIncrementalImportService {
@@ -111,19 +111,26 @@ export class HrYuzhouIncrementalImportService {
       delete fields.idNumberEncrypted; delete fields.idNumberMasked; delete fields.idNumberFingerprint;
     }
     const priorSource = JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown>;
-    const changedFields = this.changedSourceFields(item, fields, priorSource);
+    const changedFields = [...new Set([...this.changedSourceFields(item, fields, priorSource), ...(prior.alias_fields ?? [])])];
     const relationshipConflicts = this.relationshipConflicts(item, priorSource);
     // An unchanged source status must not undo or block a modern lifecycle change.
     // Actual source status revisions require the normal employment event workflow.
     const employmentConflict = item.domain === "employee" && changedFields.includes("employmentStatus");
     const stateConflict = item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0));
-    const conflictFields = [...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))];
+    const conflictFields = [...this.aliasHistoryConflicts(prior,current), ...(prior.alias_conflicts ?? []), ...this.unknownProfileFields(item, priorSource, prior.target_baseline), ...relationshipConflicts, ...(employmentConflict ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(stateConflict ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))];
     return { ...base(), action: conflictFields.length ? "conflict" : changedFields.length ? "update" : "unchanged", conflictFields };
   }
 
   private validate(items: YuzhouIncrementalItem[]) {
     const seen = new Set<string>();
     for (const item of items) {
+      const alias=item.profileAliasAcceptance;
+      if(alias !== undefined && (!alias || item.domain!=="profile" || item.sourceTable!=="dbo.person.core_residue" || item.profileBaselineWitness || item.initialBaselineWitness
+        || Object.keys(alias).sort().join(",")!=="bindingSha256,fields,operationId,proof,version" || alias.version!==1 || alias.proof!=="original_t5_alias_fields_v1"
+        || !/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(alias.operationId) || !/^[a-f0-9]{64}$/u.test(alias.bindingSha256)
+        || !Array.isArray(alias.fields) || !alias.fields.length || new Set(alias.fields).size!==alias.fields.length
+        || Object.keys(item.fields).sort().join(",")!==[...alias.fields].sort().join(",")
+        || alias.fields.some(f=>!["nativePlace","degree"].includes(f)||!Object.prototype.hasOwnProperty.call(item.fields,f)))) throw new BadRequestException("PROFILE_ALIAS_ACCEPTANCE_INVALID");
       const key = `${item.domain}:${item.sourceTable}:${item.sourceKey}`;
       if (seen.has(key)) throw new BadRequestException(`Duplicate source item: ${key}`); seen.add(key);
       if (!/^sha256:[a-f0-9]{64}$/u.test(item.sourceKey)) throw new BadRequestException("sourceKey must be canonical sha256:<sourceIdentity>");
@@ -140,7 +147,7 @@ export class HrYuzhouIncrementalImportService {
 
   private validateFieldValues(item: YuzhouIncrementalItem) {
     const dates = new Set(["hireDate","dateOfBirth","startDate","endDate","probationEndDate"]);
-    const limits: Record<string, number> = { orgCode:64,orgName:100,orgType:32,positionCode:64,positionName:100,jobFamily:64,jobLevel:32,contactPhone:50,legacyManagerReference:10,authority:1024,legacyUptoCode:30,positionManual:256,qualification:1024,responsibilities:1024,legacyParentReference:30,legacyDepartmentReference:30,remark:500,employeeCode:64, fullName:100, employmentType:32, employmentStatus:32, workLocation:128, workMobile:32, workEmail:128, englishName:100, gender:32, personalMobile:32, personalEmail:128, address:500, idNumber:64, contractNo:64, contractStatus:16, workType:100, positionTitle:100 };
+    const limits: Record<string, number> = { orgCode:64,orgName:100,orgType:32,positionCode:64,positionName:100,jobFamily:64,jobLevel:32,contactPhone:50,legacyManagerReference:10,authority:1024,legacyUptoCode:30,positionManual:256,qualification:1024,responsibilities:1024,legacyParentReference:30,legacyDepartmentReference:30,remark:500,employeeCode:64, fullName:100, employmentType:32, employmentStatus:32, workLocation:128, workMobile:32, workEmail:128, englishName:100, gender:32, personalMobile:32, personalEmail:128, address:500, idNumber:64, nativePlace:128, degree:64, contractNo:64, contractStatus:16, workType:100, positionTitle:100 };
     for (const [field,value] of Object.entries(item.fields)) {
       if (["sortOrder","plannedHeadcount","legacySourceId","legacyHierarchyLevel","headcountLimit","hierarchyLevel"].includes(field)) { if ((value===null&&field==="sortOrder") || (value !== null && (!Number.isSafeInteger(value) || Number(value)<(["sortOrder","headcountLimit","legacySourceId"].includes(field)?-2147483648:0) || Number(value)>(["hierarchyLevel","legacyHierarchyLevel"].includes(field)?32767:2147483647)))) throw new BadRequestException("YUZHOU_INTEGER_FIELD_INVALID"); continue; }
       if (value === null) {
@@ -149,6 +156,7 @@ export class HrYuzhouIncrementalImportService {
       }
       if (field.endsWith("SourceKey") && (typeof value !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(value))) throw new BadRequestException("YUZHOU_DEPENDENCY_KEY_INVALID");
       if (typeof value !== "string") throw new BadRequestException(`${field} must be a string or null`);
+      if (["nativePlace","degree"].includes(field) && (value.includes("\0") || /\p{Surrogate}/u.test(value))) throw new BadRequestException("PROFILE_ALIAS_FIELD_INVALID");
       if (limits[field] !== undefined && value.length > limits[field]) throw new BadRequestException(`${field} exceeds its maximum length`);
       if (dates.has(field) && (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || !Number.isFinite(Date.parse(`${value}T00:00:00Z`)) || new Date(`${value}T00:00:00Z`).toISOString().slice(0,10) !== value)) throw new BadRequestException(`${field} must be a valid YYYY-MM-DD date`);
       if (["orgCode","orgName","positionCode","positionName","employeeCode", "fullName", "contractNo"].includes(field) && !value.trim()) throw new BadRequestException(`${field} cannot be empty`);
@@ -185,8 +193,8 @@ export class HrYuzhouIncrementalImportService {
       delete fields.idNumberEncrypted; delete fields.idNumberMasked; delete fields.idNumberFingerprint;
     }
     const priorSource = prior ? JSON.parse(this.sensitive.decrypt(prior.source_facts_encrypted) || "{}") as Record<string, unknown> : {};
-    const changedFields = prior ? this.changedSourceFields(item, fields, priorSource) : Object.keys(fields);
-    const conflicts = prior ? [...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0)) ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))] : [];
+    const changedFields = prior ? [...new Set([...this.changedSourceFields(item, fields, priorSource), ...(prior.alias_fields ?? [])])] : Object.keys(fields);
+    const conflicts = prior ? [...this.aliasHistoryConflicts(prior,current), ...(prior.alias_conflicts ?? []), ...this.unknownProfileFields(item, priorSource, prior.target_baseline), ...this.relationshipConflicts(item, priorSource), ...(item.domain === "employee" && changedFields.includes("employmentStatus") ? ["NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"] : []), ...(item.domain === "contract" && (("contractStatus" in item.fields && item.fields.contractStatus !== priorSource.contractStatus) || (current.targetStatus !== "draft" && changedFields.length > 0)) ? ["NORMAL_CONTRACT_WORKFLOW_REQUIRED"] : []), ...changedFields.filter(field => this.targetFieldChanged(field,current,prior.target_baseline))] : [];
     if (conflicts.length) return this.revision(manager, operation.id, prior!.id, prior!.version, "conflict", item.rowDigest, conflicts.map(field => ({ field })), prior!.target_baseline, current);
     const writable = Object.fromEntries(changedFields.map(field => [field, fields[field]]));
     // Compare each source field against the current target projection above.
@@ -196,12 +204,29 @@ export class HrYuzhouIncrementalImportService {
     const applied = !prior && (item.domain === "contract" || isHierarchy(item.domain)) ? Object.keys(writable).map(field => ({ field })) : await this.writeTarget(manager, scope, actor, item.domain, target.id, writable, prior ? Number(current.targetVersion) : undefined);
     const latest = await this.readTarget(manager, scope, item.domain, target.id);
     const targetBaseline = prior ? { ...prior.target_baseline, ...Object.fromEntries(changedFields.map(field => [field, latest[field]])), targetVersion: latest.targetVersion } : latest;
+    const acceptedFields = { ...prior?.field_baseline, ...fields };
     const encryptedFacts = this.sensitive.encrypt(json({ ...priorSource, ...item.fields }));
     let itemId = prior?.id, version = (prior?.version ?? 0) + 1;
     const encryptedBaseline = prior?.initial_anchor || isHierarchy(item.domain);
-    if (prior) await manager.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,field_baseline=$3::jsonb,target_baseline=$4::jsonb,source_facts_encrypted=$5,source_facts_sha256=$6,version=$7,target_version=$8,last_operation_id=$9,baseline_encrypted=$10,update_time=now() WHERE id=$1`, [prior.id, item.rowDigest, json(encryptedBaseline ? {} : fields), json(encryptedBaseline ? {} : targetBaseline), encryptedFacts, this.payloadHash({ ...priorSource, ...item.fields }), version, Number(targetBaseline.targetVersion), operation.id, encryptedBaseline ? this.sensitive.encrypt(json({ fields, target:targetBaseline })) : null]);
+    if (prior) await manager.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,field_baseline=$3::jsonb,target_baseline=$4::jsonb,source_facts_encrypted=$5,source_facts_sha256=$6,version=$7,target_version=$8,last_operation_id=$9,baseline_encrypted=$10,update_time=now() WHERE id=$1`, [prior.id, item.rowDigest, json(encryptedBaseline ? {} : acceptedFields), json(encryptedBaseline ? {} : targetBaseline), encryptedFacts, this.payloadHash({ ...priorSource, ...item.fields }), version, Number(targetBaseline.targetVersion), operation.id, encryptedBaseline ? this.sensitive.encrypt(json({ fields:acceptedFields, target:targetBaseline })) : null]);
     else { const inserted = await manager.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id,baseline_encrypted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16) RETURNING id`, [...source, item.domain, target.table, target.id, item.rowDigest, json(encryptedBaseline?{}:fields), json(encryptedBaseline?{}:targetBaseline), encryptedFacts, this.payloadHash(item.fields), Number(targetBaseline.targetVersion), operation.id, encryptedBaseline?this.sensitive.encrypt(json({fields,target:targetBaseline})):null]); itemId = inserted[0]!.id; }
-    return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, applied, current, targetBaseline);
+    return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, [...applied, ...(prior?.alias_proof ? [prior.alias_proof] : [])], current, targetBaseline);
+  }
+
+  private aliasHistoryConflicts(prior:ItemRow,current:Record<string,unknown>) {
+    // Aggregate versions cannot distinguish an unrelated edit from an alias
+    // edit followed by clearing. Fail closed until field history can prove it.
+    return prior.alias_fields?.length && Number(current.targetVersion)!==prior.alias_original_version ? ["PROFILE_ALIAS_TARGET_HISTORY_CHANGED"] : [];
+  }
+
+  private unknownProfileFields(item:YuzhouIncrementalItem, priorSource:Record<string,unknown>, baseline:Record<string,unknown>) {
+    if(item.domain!=="profile" || item.sourceTable!=="dbo.person.core_residue") return [];
+    // A full current-target snapshot does not prove that a field was accepted
+    // from this source. Missing source facts (including explicit incoming null)
+    // require an independently evidenced first-field acceptance, never a reset.
+    const unknown=Object.keys(item.fields).filter(field=>!["employeeSourceKey","employeeSourceTable"].includes(field)
+      && (!Object.prototype.hasOwnProperty.call(priorSource,field) || !Object.prototype.hasOwnProperty.call(baseline,field==="idNumber"?"idNumberFingerprint":field)));
+    return unknown.length ? ["INITIAL_FIELD_BASELINE_UNKNOWN",...unknown] : [];
   }
 
   private targetFieldChanged(field:string,current:Record<string,unknown>,baseline:Record<string,unknown>) {
@@ -224,15 +249,34 @@ export class HrYuzhouIncrementalImportService {
     if(saved) {
       const raw=this.sensitive.decrypt(saved.provenance_encrypted);
       if(!raw) throw new ConflictException("PROFILE_BASELINE_PROVENANCE_INVALID");
-      const provenance=JSON.parse(raw) as {witness:NonNullable<YuzhouIncrementalItem["profileBaselineWitness"]>};
+      const provenance=JSON.parse(raw) as Record<string,unknown> & {witness:NonNullable<YuzhouIncrementalItem["profileBaselineWitness"]>};
       if(profileWitnessHash(provenance.witness)!==saved.witness_sha256 || (item.profileBaselineWitness && profileWitnessHash(item.profileBaselineWitness)!==saved.witness_sha256)) throw new ConflictException("PROFILE_BASELINE_ALREADY_ANCHORED");
       const original=await originalProfile(manager,scope,item);
       if(!original || original.operation_id!==saved.original_operation_id || original.target_id!==prior!.target_id || original.binding_sha256!==provenance.witness.bindingSha256) throw new ConflictException("PROFILE_BASELINE_BINDING_MISMATCH");
       const decoded=this.sensitive.decrypt(prior!.baseline_encrypted ?? null);
       if(!decoded) throw new ConflictException("PROFILE_BASELINE_PROVENANCE_INVALID");
       const baseline=JSON.parse(decoded) as {fields:Record<string,unknown>;target:Record<string,unknown>};
-      return {...prior!,field_baseline:baseline.fields,target_baseline:baseline.target,initial_anchor:true};
+      let resolved:ItemRow={...prior!,field_baseline:baseline.fields,target_baseline:baseline.target,initial_anchor:true};
+      if(item.profileAliasAcceptance) {
+        const acceptance=item.profileAliasAcceptance;
+        if(acceptance.operationId!==original.operation_id||acceptance.bindingSha256!==original.binding_sha256) throw new ConflictException("PROFILE_ALIAS_BINDING_MISMATCH");
+        const certificate=provenance.certificate as Record<string,unknown>|undefined;
+        if(!certificate || profileCanonical(certificate.profiles)!==profileCanonical(original.owned_state.hr_employee_profile)
+          || profileCanonical(certificate.receipts)!==profileCanonical(original.owned_state.receipts)
+          || (certificate.profiles as {sha256?:string})?.sha256!==saved.original_profile_set_sha256
+          || (certificate.receipts as {sha256?:string})?.sha256!==saved.original_receipt_set_sha256) throw new ConflictException("PROFILE_ALIAS_PROVENANCE_INVALID");
+        const priorSource=JSON.parse(this.sensitive.decrypt(prior!.source_facts_encrypted)||"{}") as Record<string,unknown>;
+        const missing=acceptance.fields.filter(field=>!Object.prototype.hasOwnProperty.call(priorSource,field));
+        if(missing.length) {
+          const proof=originalProfileAliasProof(original,provenance,this.sensitive,missing);
+          const conflicts=missing.flatMap(field=>proof.target[field]!==null?["PROFILE_ALIAS_ORIGINAL_TARGET_NOT_EMPTY",field]:json(item.fields[field])!==json(proof.source[field])?["PROFILE_ALIAS_ORIGINAL_SOURCE_CHANGED",field]:[]);
+          resolved={...resolved,source_facts_encrypted:this.sensitive.encrypt(json({...priorSource,...proof.source})),target_baseline:{...baseline.target,...proof.target},alias_fields:missing,alias_conflicts:conflicts,alias_original_version:proof.targetVersion,
+            alias_proof:{code:"PROFILE_ALIAS_FIELDS_ACCEPTED",proof:acceptance.proof,fields:missing,originalOperationId:original.operation_id,bindingSha256:original.binding_sha256,sourceRowSha256:proof.sourceRowSha256}};
+        }
+      }
+      return resolved;
     }
+    if(item.profileAliasAcceptance) throw new ConflictException("PROFILE_ALIAS_ORIGINAL_BASELINE_REQUIRED");
     if(!item.profileBaselineWitness) return prior;
     if(item.initialBaselineWitness || Object.keys(item.fields).length) throw new BadRequestException("PROFILE_BASELINE_ONLY_REQUIRED");
     const witness=item.profileBaselineWitness,witnessSha=profileWitnessHash(witness);
@@ -390,8 +434,8 @@ export class HrYuzhouIncrementalImportService {
     if (!employee[0]) throw new BadRequestException("Employee source dependency is outside current scope or unavailable");
     return employee[0].id as string;
   }
-  private async readTarget(manager: EntityManager, scope: TenantParkScope, domain: YuzhouIncrementalItem["domain"], id: string) { const table = incrementalTable(domain); const dates = isHierarchy(domain) ? [] : domain === "employee" ? ["hire_date"] : domain === "profile" ? ["date_of_birth"] : ["start_date", "end_date", "probation_end_date"]; const dateProjection = dates.map(column => `to_char(${column},'YYYY-MM-DD') AS ${column}`).join(","); const rows = await manager.query(`SELECT *${dateProjection ? `,${dateProjection}` : ""} FROM ${table} WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false`, [id,scope.tenantId,scope.parkId]); if (!rows[0]) throw new ConflictException("Incremental target no longer exists"); const row = rows[0] as Record<string, unknown>; const columns: Record<string,string> = { ...(domain === "organization" ? organizationColumns : domain === "position" ? positionColumns : {}),employeeCode:"employee_code",fullName:"full_name",employmentStatus:"employment_status",employmentType:"employment_type",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email",englishName:"english_name",gender:"gender",dateOfBirth:"date_of_birth",personalMobile:"personal_mobile",personalEmail:"personal_email",address:"address",idNumberEncrypted:"id_number_encrypted",idNumberMasked:"id_number_masked",idNumberFingerprint:"id_number_fingerprint",contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title",targetVersion:"version",targetStatus:"status" }; return Object.fromEntries(Object.entries(columns).map(([field,column]) => [field,row[column]])); }
-  private async writeTarget(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, domain: YuzhouIncrementalItem["domain"], id: string, fields: Record<string, unknown>, expectedVersion?: number) { if (!Object.keys(fields).length) return []; const current = await this.readTarget(manager, scope, domain, id); if (domain === "contract" && current.targetStatus !== "draft") throw new ConflictException("Only a draft contract can be updated by incremental import"); if (domain === "contract") await this.validateContractWrite(manager, scope, { ...current, ...fields }, undefined, id); if(domain === "organization" || domain === "position") { fields=await hierarchyFields(manager,scope,actor,domain,fields,this.scopes(manager)); await validateHierarchyWrite(manager,scope,actor,domain,id,{...current,...fields},this.scopes(manager)); } const columns: Record<string, string> = { ...(domain === "organization" ? organizationColumns : domain === "position" ? positionColumns : {}),employeeCode:"employee_code",fullName:"full_name",employmentStatus:"employment_status",employmentType:"employment_type",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email",englishName:"english_name",gender:"gender",dateOfBirth:"date_of_birth",personalMobile:"personal_mobile",personalEmail:"personal_email",address:"address",idNumberEncrypted:"id_number_encrypted",idNumberMasked:"id_number_masked",idNumberFingerprint:"id_number_fingerprint",contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title" }; const entries = Object.entries(fields); if (!entries.length) return []; const table = incrementalTable(domain); const params: unknown[] = [id,scope.tenantId,scope.parkId,actor.sub]; const sets = entries.map(([key,value],index) => { params.push(value); return `${columns[key]}=$${index+5}`; }); const versionCheck = expectedVersion === undefined ? "" : ` AND version=$${params.push(expectedVersion)}`; const updated = await manager.query(`UPDATE ${table} SET ${sets.join(",")},update_by=$4,update_time=now(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false${versionCheck} RETURNING id,version`, params); const rows = typeormQueryRows<{id:string;version:number}>(updated); if (rows.length !== 1 || !rows[0]?.id || (expectedVersion!==undefined && rows[0].version!==expectedVersion+1)) throw new ConflictException("Incremental target changed concurrently"); if (domain === "contract") await this.appendIncrementalContractAction(manager,scope,id,actor.sub,"updated","draft"); return entries.map(([field]) => ({ field })); }
+  private async readTarget(manager: EntityManager, scope: TenantParkScope, domain: YuzhouIncrementalItem["domain"], id: string) { const table = incrementalTable(domain); const dates = isHierarchy(domain) ? [] : domain === "employee" ? ["hire_date"] : domain === "profile" ? ["date_of_birth"] : ["start_date", "end_date", "probation_end_date"]; const dateProjection = dates.map(column => `to_char(${column},'YYYY-MM-DD') AS ${column}`).join(","); const rows = await manager.query(`SELECT *${dateProjection ? `,${dateProjection}` : ""} FROM ${table} WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false`, [id,scope.tenantId,scope.parkId]); if (!rows[0]) throw new ConflictException("Incremental target no longer exists"); const row = rows[0] as Record<string, unknown>; const columns: Record<string,string> = { ...(domain === "organization" ? organizationColumns : domain === "position" ? positionColumns : {}),employeeCode:"employee_code",fullName:"full_name",employmentStatus:"employment_status",employmentType:"employment_type",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email",englishName:"english_name",gender:"gender",dateOfBirth:"date_of_birth",personalMobile:"personal_mobile",personalEmail:"personal_email",address:"address",nativePlace:"native_place",degree:"degree",idNumberEncrypted:"id_number_encrypted",idNumberMasked:"id_number_masked",idNumberFingerprint:"id_number_fingerprint",contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title",targetVersion:"version",targetStatus:"status" }; return Object.fromEntries(Object.entries(columns).map(([field,column]) => [field,row[column]])); }
+  private async writeTarget(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, domain: YuzhouIncrementalItem["domain"], id: string, fields: Record<string, unknown>, expectedVersion?: number) { if (!Object.keys(fields).length) return []; const current = await this.readTarget(manager, scope, domain, id); if (domain === "contract" && current.targetStatus !== "draft") throw new ConflictException("Only a draft contract can be updated by incremental import"); if (domain === "contract") await this.validateContractWrite(manager, scope, { ...current, ...fields }, undefined, id); if(domain === "organization" || domain === "position") { fields=await hierarchyFields(manager,scope,actor,domain,fields,this.scopes(manager)); await validateHierarchyWrite(manager,scope,actor,domain,id,{...current,...fields},this.scopes(manager)); } const columns: Record<string, string> = { ...(domain === "organization" ? organizationColumns : domain === "position" ? positionColumns : {}),employeeCode:"employee_code",fullName:"full_name",employmentStatus:"employment_status",employmentType:"employment_type",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email",englishName:"english_name",gender:"gender",dateOfBirth:"date_of_birth",personalMobile:"personal_mobile",personalEmail:"personal_email",address:"address",nativePlace:"native_place",degree:"degree",idNumberEncrypted:"id_number_encrypted",idNumberMasked:"id_number_masked",idNumberFingerprint:"id_number_fingerprint",contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title" }; const entries = Object.entries(fields); if (!entries.length) return []; const table = incrementalTable(domain); const params: unknown[] = [id,scope.tenantId,scope.parkId,actor.sub]; const sets = entries.map(([key,value],index) => { params.push(value); return `${columns[key]}=$${index+5}`; }); const versionCheck = expectedVersion === undefined ? "" : ` AND version=$${params.push(expectedVersion)}`; const updated = await manager.query(`UPDATE ${table} SET ${sets.join(",")},update_by=$4,update_time=now(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false${versionCheck} RETURNING id,version`, params); const rows = typeormQueryRows<{id:string;version:number}>(updated); if (rows.length !== 1 || !rows[0]?.id || (expectedVersion!==undefined && rows[0].version!==expectedVersion+1)) throw new ConflictException("Incremental target changed concurrently"); if (domain === "contract") await this.appendIncrementalContractAction(manager,scope,id,actor.sub,"updated","draft"); return entries.map(([field]) => ({ field })); }
   private async validateContractWrite(manager: EntityManager, scope: TenantParkScope, fields: Record<string, unknown>, employeeId?: string, excludeId?: string) {
     const startDate = String(fields.startDate ?? ""), endDate = fields.endDate == null ? null : String(fields.endDate), probationEndDate = fields.probationEndDate == null ? null : String(fields.probationEndDate);
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(startDate)) throw new BadRequestException("Contract start date is invalid");

@@ -55,4 +55,4 @@ Wrong: rerun original T0–T5 operation or overwrite modern fields because a sou
 
 Correct: generate a new package with stable source identity, use existing scoped preview/commit baseline comparison and CAS, preserve modern changes, and route actual lifecycle transitions through normal business operations. Review only changed structure/rules or unresolved new facts rather than repeat complete historical A/B.
 
-Profile continuity, raw transport and independent exact historical exception contracts are specified in [hr-yuzhou-profile-continuity.md](hr-yuzhou-profile-continuity.md). Profile extended fields remain pending.
+Profile continuity, raw transport and independent exact historical exception contracts are specified in [hr-yuzhou-profile-continuity.md](hr-yuzhou-profile-continuity.md). The eight supported raw profile fields, explicit alias-only first acceptance and remaining field matrix are specified there.
