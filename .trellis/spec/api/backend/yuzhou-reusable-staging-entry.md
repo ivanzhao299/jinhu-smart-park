@@ -2,7 +2,7 @@
 
 ## 1. Scope / Trigger
 
-Offline T0/T2 and pinned person_core staging to the existing employee/profile/contract incremental package builder. Reuse reviewed mappings and original exclusion receipts for unchanged historical exceptions. This command neither extracts SQL Server backups nor writes production. Additional domains and unsupported fields remain pending.
+Offline T0/T2 and pinned person_core staging to the existing employee/profile/contract incremental package builder. Reuse reviewed mappings and original exclusion receipts for unchanged historical exceptions. This command neither extracts SQL Server backups nor writes production. Organization/position inputs and employee source relationships follow [Organization Continuity](hr-yuzhou-organization-continuity.md); other unsupported fields remain pending.
 
 ## 2. Signatures
 
@@ -20,7 +20,7 @@ T0 verifies all six fixed domains; T2 all four. Validate manifest filenames, cou
 
 Exclusion version 1 is `yuzhou_original_historical_exclusions`, policy `ARCHIVE_UNCHANGED_ORIGINAL_QUARANTINE`, with original snapshot, operation, sealed-plan, plan-file, execution-proof hashes and scope. Operation follows `yzprod-import-YYYYMMDDTHHMMSSZ-12hex`. Entries bind employee/dbo.person or contract/dbo.compact identity and exact row hash, decision hash and reason code. Only unchanged rows are excluded. Changed rows enter normal validation; absent old rows imply no deletion.
 
-Receipt distinguishes requested/excluded/eligible source rows, actual `apiInput` and `dependencyIndex`. Contract-only mode uses verified eligible employees as an index rather than employee output. Materialized item count must equal API employee plus profile plus contract input counts. Pending domains remain accounted for, not silently declared imported.
+Receipt distinguishes requested/excluded/eligible source rows, actual `apiInput` and `dependencyIndex`. Contract-only mode uses verified eligible employees as an index rather than employee output. Materialized item count must equal API organization plus position plus employee plus profile plus contract input counts. Pending domains remain accounted for, not silently declared imported.
 
 Inputs are regular single-link 0600 files under 0700 immediate directories, with absolute paths and no symlink ancestors. Maximum file size is 64 MiB, aggregate input is 256 MiB. Outputs must be new and private. Owned temporary files and partial outputs are removed on failure; existing output is preserved.
 

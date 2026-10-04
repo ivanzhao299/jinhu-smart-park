@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { HR_PERMISSIONS, YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION, type UserContext } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION, type UserContext } from "@jinhu/shared";
 import { validateLocalJsonFile, parseLocalJson } from "../../components/files/local-json-file";
 import { canEnterImport, createImportWorkbench, DOMAIN_MANAGE, IMPORT_FILE_POLICY, importContextKey, missingImportPermissions, normalizeImportOperation, parseImportPackage } from "./import-workbench";
 
@@ -277,4 +277,14 @@ test("route uses inherited authenticated layout, visible denial, safe selector a
   assert.match(page, /idempotencyKey: key/);
   assert.match(picker, /className="sr-only" type="file"/);
   assert.doesNotMatch(page, /localStorage|sessionStorage|console\.|package_encrypted|\.projection/);
+});
+
+
+test("organization/position summary admits numeric mapped fields and keeps domain authority separate",()=>{
+  const summary=parseImportPackage(text([item("organization",{orgName:"private organization",plannedHeadcount:12,sortOrder:0}),item("position",{positionName:"private position",headcountLimit:3}),item("employee",{orgSourceKey:`sha256:${"a".repeat(64)}`})]),"synthetic.json").summary;
+  assert.deepEqual(summary.domains.map(row=>row.domain),["organization","position","employee"]);
+  assert.ok(summary.domains[0]!.fields.includes("组织编制"));assert.ok(!JSON.stringify(summary).includes("private"));
+  assert.deepEqual(missingImportPermissions({...user,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_MANAGE]},summary),["组织","岗位"]);
+  assert.deepEqual(missingImportPermissions({...user,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,HR_PERMISSIONS.HR_POSITION_MANAGE,SYSTEM_PERMISSIONS.ORG_UPDATE]},summary),[]);
+  assert.throws(()=>parseImportPackage(text([item("organization",{plannedHeadcount:1.5})]),"synthetic.json"));
 });

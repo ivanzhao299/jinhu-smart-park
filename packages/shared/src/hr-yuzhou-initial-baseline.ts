@@ -9,6 +9,9 @@ export type YuzhouInitialBaselineWitness = {
   projection: Record<string, unknown>;
 };
 export const YUZHOU_INITIAL_PROJECTION_FIELDS = {
+  "sys_org": ["tenant_id", "park_id", "org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id", "contact_phone", "planned_headcount", "legacy_source_id", "legacy_hierarchy_level", "legacy_manager_reference"],
+  "hr_position": ["tenant_id", "park_id", "position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id", "authority", "legacy_department_reference", "legacy_parent_reference", "legacy_source_id", "legacy_upto_code", "position_manual", "qualification", "responsibilities", "hierarchy_level", "sort_order", "reports_to_position_id"],
+
   "hr_employee": [
     "tenant_id",
     "park_id",

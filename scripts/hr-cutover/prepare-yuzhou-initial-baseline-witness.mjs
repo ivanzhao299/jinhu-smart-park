@@ -39,14 +39,14 @@ export function prepareInitialWitnessPackage({ plan, payloadBytes, incrementalPa
   }
   let witnessed = 0;
   const items = incrementalPackage.items.map(item => {
-    const table = item.domain === "employee" ? "hr_employee" : item.domain === "contract" ? "hr_contract" : null;
+    const table = item.domain === "organization" ? "sys_org" : item.domain === "position" ? "hr_position" : item.domain === "employee" ? "hr_employee" : item.domain === "contract" ? "hr_contract" : null;
     if (!table || model.targetTables[table].phase !== bundle.phase) return item;
     const identity = item.sourceKey.slice(7), record = records.get(`${bundle.phase}:${identity}`), row = payloads.get(identity);
     // New source rows have no original baseline. Never infer one from current targets.
     if (!record && !row) return item;
     if (!record || !row || record.sourcePkCanonical !== item.sourceKey || record.sourceTable !== item.sourceTable
       || record.sourceSystem !== "yuzhou-v10" || record.targetTable !== table || row.targetTable !== table
-      || record.disposition !== "insert" || !record.targetId || row.sourceRowSha256 !== record.sourceRowSha256
+      || !["insert","merge","skip_approved"].includes(record.disposition) || !record.targetId || row.sourceRowSha256 !== record.sourceRowSha256
       || row.payloadSha256 !== record.payloadSha256 || computeProductionImportPayloadHash(row.payload) !== row.payloadSha256) fail();
     const rule = model.targetTables[table], derived = {};
     for (const fk of rule.foreignKeys) {

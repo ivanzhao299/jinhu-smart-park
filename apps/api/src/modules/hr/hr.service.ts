@@ -1,3 +1,4 @@
+import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { HR_PERMISSIONS,type PaginatedResult,type TenantParkScope } from "@jinhu/shared";
@@ -305,7 +306,7 @@ export class HrService {
   ]);
   return {orgs,users};
  }
- async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){await this.mustOrg(scope,dto.orgId);if(dto.reportsToPositionId)await this.mustPosition(scope,dto.reportsToPositionId);if(await this.positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return projectHrPosition(await this.positions.save(this.positions.create({...scope,...dto,reportsToPositionId:dto.reportsToPositionId??null,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,hierarchyLevel:dto.hierarchyLevel??null,sortOrder:dto.sortOrder??0,authority:dto.authority??null,qualification:dto.qualification??null,responsibilities:dto.responsibilities??null,positionManual:dto.positionManual??null,legacySourceId:null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub})));}
+ async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){return this.positions.manager.transaction(async manager=>{ await lockOrgHierarchy(manager,scope);const positions=manager.getRepository(HrPositionEntity);await this.mustOrg(scope,dto.orgId);if(dto.reportsToPositionId)await this.mustPosition(scope,dto.reportsToPositionId);if(await positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return projectHrPosition(await positions.save(positions.create({...scope,...dto,reportsToPositionId:dto.reportsToPositionId??null,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,hierarchyLevel:dto.hierarchyLevel??null,sortOrder:dto.sortOrder??0,authority:dto.authority??null,qualification:dto.qualification??null,responsibilities:dto.responsibilities??null,positionManual:dto.positionManual??null,legacySourceId:null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub})));});}
 
  async listContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
   const access=resolveHrContractAccessScope(actor);
