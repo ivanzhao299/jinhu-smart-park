@@ -47,13 +47,14 @@ export class HrTrainingParticipantResultDto {
  @IsOptional() @IsUUID() certificateFileId?:string;
 }
 export class HrTrainingCorrectionDto {
+ @IsInt() @Min(0) expectedRevision!:number;
  @IsOptional() @IsString() @MaxLength(2000) @Matches(/^[^\0\p{Surrogate}]*$/u) correctedMemo?:string|null;
- @IsOptional() @Transform(trim) @Matches(HOURS) correctedHours?:string;
- @IsOptional() @Transform(trim) @Matches(/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/) correctedScore?:string;
- @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) correctedEvaluation?:string;
- @IsOptional() @Transform(trim) @Matches(DECIMAL) correctedActualCost?:string;
- @IsOptional() @IsUUID() certificateFileId?:string;
- @Transform(trim) @IsString() @MaxLength(1000) reason!:string;
+ @ValidateIf((_object,value)=>value!==undefined) @Transform(trim) @Matches(HOURS) correctedHours?:string;
+ @IsOptional() @Transform(trim) @Matches(/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/) correctedScore?:string|null;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) correctedEvaluation?:string|null;
+ @IsOptional() @Transform(trim) @Matches(DECIMAL) correctedActualCost?:string|null;
+ @IsOptional() @IsUUID() certificateFileId?:string|null;
+ @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) @Matches(/^[^\0\p{Surrogate}]+$/u) reason!:string;
 }
 
 export class HrTrainingPlanFactsDto {

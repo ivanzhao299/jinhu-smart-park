@@ -12,7 +12,7 @@
     {"stableId":"FIELD_EMPLOYEE_PROFILE","path":"scripts/hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json","sha256":"d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0"},
     {"stableId":"FIELD_KNOWHOW","path":"scripts/hr-cutover/contracts/legacy-knowhow-field-map-v1.json","sha256":"7708a06be0fbb22c448f644e73ac364095b2745cc1803eb22b401820f3aafe06"},
     {"stableId":"FIELD_REWARD_DISCIPLINE","path":"scripts/hr-cutover/contracts/legacy-reward-discipline-field-map-v1.json","sha256":"2ea5a48956c0955cbed9f33ce8d01aaf0b3dd205f25a089ea9e50328e0946a0b"},
-    {"stableId":"FIELD_TRAINING_HISTORY","path":"scripts/hr-cutover/contracts/legacy-training-history-field-map-v1.json","sha256":"c44fd396efd63bcb214dcec9cc0a2e1e6dc7962a4ecebb98773dbbad9c82505d"},
+    {"stableId":"FIELD_TRAINING_HISTORY","path":"scripts/hr-cutover/contracts/legacy-training-history-field-map-v1.json","sha256":"53aaf5ee8d93099efb1f26c0e3940ec1996a2051e6ebc33f6c4d417780caa1e4"},
     {"stableId":"FIELD_INSURANCE_POLICY","path":"scripts/hr-cutover/contracts/legacy-insurance-policy-field-map-v1.json","sha256":"74c1d88e9e65523aae95927829636c02cb1eb1e1faea5173bc035319a241cddf"},
     {"stableId":"FIELD_PERFORMANCE_ASSESSMENT","path":"scripts/hr-cutover/contracts/legacy-performance-assessmentcode-field-map-v1.json","sha256":"c183617af3c0bfd3fbc437acf104842b81e61e9be570ddf2c00c9f769b3ab5cc"},
     {"stableId":"FIELD_PERFORMANCE_GRADE","path":"scripts/hr-cutover/contracts/legacy-performance-assgradecode-field-map-v1.json","sha256":"18fdc28e413a4714949165914b362585328da3071be7761e316dc38cc55ff1b9"},
