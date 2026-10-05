@@ -373,3 +373,5 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 ## 培训历史固定入口（本地已接入，待发布）
 
 统一builder可选`trainingRecords`接收经验证dbo.trainhis原始行；受控staging配置可选`trainingManifest`引用trainhis.jsonl及完整摘要/行数manifest，沿用相同读取规则。课程名、本地起止日期、学时与准确员工来源关联生成training_history项；独立备注已接入，成绩候选按0至100的两位精度接入；提供方/考试/费用保留待处理范围。每批无需重新全量分析或A/B，仍检查完整性、关联、权限、幂等和现代修改冲突。发布状态与验收边界见[培训适配](./yuzhou-training-incremental-adapter.md)。
+
+私有生产准备失败时仅返回 `ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_<阶段>`，阶段固定为启动请求/入口校验/加载、请求、发布身份、来源字节、模块加载、只读观察、计划、私有目录、私有配置或来源准备。阶段码只定位失败环节，不包含错误原文、人员行、秘密或生产路径。SSH 层仅透传完全匹配的阶段码；未知或混有其他输出的错误仍降为通用失败。失败不证明生产批次已生成或字段已提交；不能自动重复执行同一失败任务。
