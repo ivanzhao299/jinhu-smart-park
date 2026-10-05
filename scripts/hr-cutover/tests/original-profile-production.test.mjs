@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { prepareOnProductionHost, productionPreparationBootstrap, validatePreparationRequest, runProductionPreparation } from '../prepare-original-profile-production.mjs';
+import { prepareOnProductionHost, productionPreparationBootstrap, validatePreparationRequest, runProductionPreparation, safePreparationFailure } from '../prepare-original-profile-production.mjs';
 import { describeYuzhouImportInterface } from '../describe-yuzhou-import-interface.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const entry='scripts/hr-cutover/prepare-original-profile-production.mjs';
@@ -90,4 +90,26 @@ test('manual production workflow has same deployment mutex and no deploy, creden
   const ruleFiles=builder.match(/const ruleFiles = \[([^\]]+)\]/u)?.[1];assert.ok(ruleFiles);
   for(const match of ruleFiles.matchAll(/"\.\.\/\.\.\/(packages\/shared\/src\/[^"\n]+)"/gu))assert.ok(paths.includes(match[1]),`shared recipe rule must be sealed: ${match[1]}`);
   assert.doesNotMatch(workflow,/upload-artifact|workflow_run|branches:|db:migrate|db:seed|prod:deploy|docker|password|token/i);
+});
+
+test('phase-only failures survive real SSH transport while private errors and paths never escape',()=>{
+  const {root,request}=fixture();try{
+    const path=paths[2],text="export const diagnosePersonnelAlias=()=>{throw Error('synthetic-private-row /private/location secret-value')};";
+    writeFileSync(join(request.deployPath,path),text);request.files.find(file=>file.path===path).sha256=sha(text);
+    const actual=spawnSync(process.execPath,['--input-type=module','-e',productionPreparationBootstrap],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+    assert.equal(actual.status,1);assert.equal(actual.stdout,'');
+    assert.equal(actual.stderr,'ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_OBSERVATION\n');
+    assert.equal(existsSync(join(root,'.jinhu-hr-private-profile-input')),false);
+    writeFileSync(join(request.deployPath,paths[3]),'drift');
+    const drift=spawnSync(process.execPath,['--input-type=module','-e',productionPreparationBootstrap],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+    assert.equal(drift.status,1);assert.equal(drift.stderr,'ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_SOURCE_BYTES\n');
+    const env={PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',PROD_DEPLOY_PATH:'/production/app',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40)};
+    for(const [stderr,expected] of [[actual.stderr,'ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_OBSERVATION'],[actual.stderr+'private-row','ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED'],['private-row /secret/path','ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED']]){
+      assert.throws(()=>runProductionPreparation(env,(binary)=>{
+        if(binary==='git')return paths.join('\n');
+        throw Object.assign(Error('private-row /secret/path'),{stderr});
+      }),error=>error.message===expected);
+    }
+    assert.equal(safePreparationFailure(Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_SECRET_VALUE')),'ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED');
+  }finally{rmSync(root,{recursive:true,force:true})}
 });
