@@ -1,5 +1,21 @@
 # 玉舟可复用增量导入包（组织、岗位、员工、档案、合同、家庭成员、技能与证照）
 
+## 原始档案籍贯与学历补齐的有序批次
+
+`scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs` 组合已有 NULL-only planner、原始档案基线 witness 和固定构包器，不另设 SQL writer。它输出先基线、后字段补齐的编号文件和私有 `receipt.json`；全部基线包必须先成功，再处理任何补齐包。同一档案同时补籍贯和学历时只生成一个 item，避免分两次首次接纳触发原始版本保护。每包仍遵守 2000 条/8 MiB 限制，事务与幂等由现有公共预览/提交/查询接口负责。
+
+输入私有 JSON 包含 `importInput`、`plannerInput`、`originalWitness` 三项。`importInput` 是前述固定构包输入的档案-only 子集：保留配方、日期、员工依赖索引、完整原始 `profileRecords` 和必要的已核验 `profileAdmissionEvidence`；`employeeRecords` 与 `records` 均为空，不混入其他领域。`plannerInput` 使用 `legacy-personnel-alias-backfill-plan.mjs` 已定义的合同、来源绑定、员工和当前档案集合及原始别名源行。三个集合必须由受控准备过程提供；禁止手填人员身份或把当前目标当作原始目标证据。入口重新核对完整源行摘要、原始别名值和员工身份，服务端仍独立认证原操作/范围/回执、原始目标和版本。聚合观察的封存哈希不包含这些逐行输入，不能单独用于构包或授权。
+
+```sh
+node scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs \
+  --input /private/yuzhou/profile-alias-input.json \
+  --output /private/yuzhou/profile-alias-packages
+```
+
+输入须为单链接普通 0600 文件，直属目录 0700；使用无符号链接的绝对规范路径。输出目录必须不存在，其父目录须为 0700。输出文件均为 0600，CLI 只返回计数、摘要和私有输出引用，失败只返回固定代码。原始资料、目标 before-image 和包留在私有环境。所有输入先验证和构包，才发布输出；已有输出不会覆盖或清理。
+
+按 `receipt.executionOrder` 顺序逐包预览、核对和提交；失败、冲突或提交结果不确定时停止，先按操作编号查询，禁止跳过或盲目重提。多个包是多个事务，不能把有序批次称为整批原子提交；具体生产执行前仍需真实来源绑定演练、当前备份和逐包条件回退证据。构包保持 `productionImport=HOLD`，不访问数据库/网络，也不授予生产写入权限；不重放原 T5，不重写历史回执。当前正式字段、岗位验收和生产补齐的完成状态要另取证。
+
 ## 可保存的接口描述文件
 
 [yuzhou-import-interface.v1.json](./yuzhou-import-interface.v1.json) 是供旧系统导出工具、后续接入程序和操作人员读取的固定接口描述。它记录现有配方摘要、构包入口、预览/提交/查询路由、分包限制、已支持领域和逐字段待接入范围。覆盖信息直接读取已验证构包程序的导出，不另外维护一份映射规则。文件不包含人员行、凭据或生产地址，也不是实际待导入数据包；能力描述不证明生产发布或真实新批次入库。
