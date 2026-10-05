@@ -36,6 +36,8 @@ Exact employeeIndex requires sourceTable=dbo.person and raw sourceKey=trimmed em
 
 ## Scenario: Explicit original alias field acceptance
 
+Offline original-alias batch preparation reuses `buildLegacyPersonnelAliasBackfillPlan` and the fixed package builder through `build-yuzhou-profile-alias-batch.mjs`. Authenticate raw identity/hash, full planner-source equality and exact employee owner; never accept an aggregate seal as a private per-row plan. All original baseline packages precede every alias package, including across the 2000-item boundary. Group requested aliases per profile so two first fields use one item/version. Preserve every nonnull modern target, including an empty string. Ordered packages remain separate transactions; stop and query on failed/uncertain operations. No new API writer, auth or migration. Tests must consume the real offline output through public ValidationPipe/preview/commit plus existing CAS/provenance checks; source-bound rehearsal and actual production values remain separate acceptance.
+
 ### 1. Scope / Trigger
 
 Add verified oldaddr→nativePlace and edulevel→degree to the raw profile adapter. Existing original T5 six-field baselines remain immutable evidence, while an explicit alias-only request can establish first-field acceptance from retained original source/target proof. The unknown-field guard applies to `profile/dbo.person.core_residue`; preserve generic `dbo.profile` API behavior.

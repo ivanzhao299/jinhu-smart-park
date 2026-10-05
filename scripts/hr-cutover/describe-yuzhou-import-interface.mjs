@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { YUZHOU_REUSABLE_INCREMENTAL_COVERAGE, YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 } from "./build-yuzhou-reusable-incremental-package.mjs";
 import { YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES } from "./yuzhou-incremental-package-limits.mjs";
+import { YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256 } from "./build-yuzhou-profile-alias-batch.mjs";
 
 /** Metadata only: never reads an extract, credentials, or database. */
 export function describeYuzhouImportInterface() {
@@ -19,6 +20,7 @@ export function describeYuzhouImportInterface() {
     entries: {
       controlledStaging: "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
       verifiedExtract: "node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs --input <private-extract.json> --output <new-private-directory>",
+      originalProfileAliases: "node scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs --input <private-alias-input.json> --output <new-private-directory>",
       workbench: "/hr/imports",
     },
     api: {
@@ -36,6 +38,12 @@ export function describeYuzhouImportInterface() {
       validation: "same-format batches reuse frozen rules; validate integrity, identity, dependencies, scope and modern-field conflicts every batch",
       updates: "unchanged facts do not duplicate; modern edits are preserved; employment transitions and effective contract changes use normal workflows",
       sourceAbsence: "never implies target deletion",
+    },
+    originalProfileAliasPreparation: {
+      codeSha256: YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256,
+      ordering: "complete every baseline package before any alias package; all requested first aliases of a profile share one item",
+      evidence: "raw/planner identity, row digest and owner match; original target and version authenticated again by API",
+      authorizationGranted: false,
     },
     inputBoundary: "verified structured extracts or controlled staging; arbitrary SQL Server .bak upload is not supported",
     productionWrites: false,

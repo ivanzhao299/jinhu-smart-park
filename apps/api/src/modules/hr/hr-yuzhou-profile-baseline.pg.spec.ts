@@ -180,8 +180,26 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       await assert.rejects(db.query(`UPDATE hr_incremental_profile_baseline SET created_at=now()`),/IMMUTABLE/);
       // Explicit alias-only admission uses the authenticated original raw source
       // and immutable whole-set-certified original null target, never live null.
-      const acceptance={version:1,proof:"original_t5_alias_fields_v1",operationId:originalOperation,bindingSha256:bindingHash,fields:["nativePlace","degree"]};
-      const aliasWire=produce(certifiedSource,undefined,false,acceptance);
+      const acceptance={version:1,proof:"original_t5_alias_fields_v1",operationId:originalOperation,bindingSha256:bindingHash,fields:["degree","nativePlace"]};
+      // Consume the actual ordered offline adapter, then exercise its packages
+      // through ValidationPipe and the public preview/commit transaction.
+      const aliasBatch=JSON.parse(execFileSync(process.execPath,["--input-type=module","-e",`
+        import {readFileSync} from 'node:fs';
+        import {buildYuzhouProfileAliasBatch as build} from './scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs';
+        import {YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 as recipe} from './scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs';
+        import {canonicalProfile} from './scripts/hr-cutover/yuzhou-profile-incremental-projection.mjs';
+        import {createHash} from 'node:crypto';
+        const h=v=>createHash('sha256').update(v).digest('hex'),v=JSON.parse(readFileSync(0,'utf8'));
+        const raw={sourceTable:'dbo.person.core_residue',sourceKey:String(v.source.id),sourceIdentitySha256:h('dbo.person.core_residue\\0'+v.source.id),sourceRowSha256:h(canonicalProfile(v.source)),source:v.source};
+        const employeeSourceIdentitySha256=h('dbo.person\\0'+v.source.person);
+        const plannerInput={contract:JSON.parse(readFileSync('./scripts/hr-cutover/contracts/legacy-personnel-alias-backfill-v1.json','utf8')),binding:{codeSha256:h('fixture-code'),sourceEvidenceSha256:h('fixture-evidence'),sourceSnapshotSha256:h('fixture-snapshot'),targetScope:v.scope},employees:[{id:v.employeeId,...v.scope,isDeleted:false,sourceIdentitySha256:employeeSourceIdentitySha256}],profiles:[{id:v.profileId,employeeId:v.employeeId,employeeSourceIdentitySha256,...v.scope,isDeleted:false,sourceIdentitySha256:raw.sourceIdentitySha256,nativePlace:null,degree:null}],sourceRecords:[{sourceIdentitySha256:raw.sourceIdentitySha256,sourceRowSha256:raw.sourceRowSha256,oldaddr:v.source.oldaddr,edulevel:v.source.edulevel}]};
+        const out=build({originalWitness:v.witness,plannerInput,importInput:{recipeVersion:'yuzhou-reusable-incremental-v2',recipeSha256:recipe,sourceSystem:'yuzhou-v10',extractedAt:'2026-10-05T10:00:00Z',employeeRecords:[],employeeIndex:[{employeeCode:v.source.person,sourceTable:'dbo.person',sourceKey:v.source.person}],records:[],profileRecords:[raw]}});
+        console.log(JSON.stringify(out.packages.map(p=>p.packageDto)));
+      `],{cwd:root,input:JSON.stringify({source:certifiedSource,scope,witness,employeeId:profile.employeeId,profileId:profile.id}),encoding:"utf8"})) as PreviewYuzhouIncrementalImportDto[];
+      assert.equal(aliasBatch.length,2);
+      assert.equal((await commit(aliasBatch[0]!)).outcome.unchangedCount,1);
+      assert.deepEqual(await business(),before);
+      const aliasWire=aliasBatch[1]!;
       const aliasDto=await requestDto(aliasWire);
       assert.deepEqual(JSON.parse(JSON.stringify(aliasDto)),aliasWire);
       assert.deepEqual(JSON.parse(JSON.stringify(aliasDto.items[0]!.profileAliasAcceptance)),acceptance);
