@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { prepareOnProductionHost, productionPreparationBootstrap, validatePreparationRequest, runProductionPreparation } from '../prepare-original-profile-production.mjs';
+import { describeYuzhouImportInterface } from '../describe-yuzhou-import-interface.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const entry='scripts/hr-cutover/prepare-original-profile-production.mjs';
 const paths=[entry,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs','scripts/prepare-yuzhou-production-source-manifest.mjs'];
@@ -75,5 +76,6 @@ test('manual production workflow has same deployment mutex and no deploy, creden
   assert.match(workflow,/workflow_dispatch:/);assert.match(workflow,/if: github.ref == 'refs\/heads\/main'/);
   assert.match(workflow,/environment: production/);assert.match(workflow,/group: deploy-production/);
   assert.match(workflow,/validate-production-deploy-path.sh/);assert.match(workflow,/original-profile-production.test.mjs/);
+  assert.equal(describeYuzhouImportInterface().originalProfileSourcePreparation.productionWorkflow,'.github/workflows/prepare-original-profile-input.yml');
   assert.doesNotMatch(workflow,/upload-artifact|workflow_run|branches:|db:migrate|db:seed|prod:deploy|docker|password|token/i);
 });

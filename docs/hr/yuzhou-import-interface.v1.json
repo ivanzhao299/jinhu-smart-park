@@ -43,6 +43,8 @@
   },
   "originalProfileSourcePreparation": {
     "codeSha256": "232d229b14e5bb87ef1164a6003c859026fadadb5d9102955bbde3ad6f759325",
+    "productionWorkflow": ".github/workflows/prepare-original-profile-input.yml",
+    "trigger": "main-only manual dispatch, protected production environment and deployment mutex",
     "source": "existing sealed T5 source in verified production API runtime; read-only repeatable-read snapshot",
     "outputs": "private verified input, versioned before-images and existing ordered batch; metadata only on stdout",
     "productionImport": "HOLD",
