@@ -8,26 +8,31 @@ const CORRECTION_MAPPING_VERSION = 'yuzhou-personnel-alias-null-fill-v1';
 
 // Mirrors certifyOriginalProfiles' PostgreSQL JSON text / sorted row-hash
 // algorithm. An observation is not the API's locked certificate or authorization.
-export const profileBaselineSetCtes = `baseline_sets AS (
+export const profileBaselineSetCtes = `baseline_profile_documents AS (
+   SELECT operation_id,
+     jsonb_build_object('count',count(*)::int,'sha256',
+     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
+   FROM (SELECT r.operation_id,encode(digest(to_jsonb(p)::text,'sha256'),'hex') row_hash
+     FROM ops selected JOIN hr_yuzhou_t5_followon_projection_receipt r USING(operation_id)
+     JOIN hr_employee_profile p ON r.target_id=p.id AND r.target_table='hr_employee_profile'
+       AND r.disposition='insert'
+     WHERE p.tenant_id='10000001' AND p.park_id='20000001') hashes
+   GROUP BY operation_id
+), baseline_receipt_documents AS (
+   SELECT operation_id,
+     jsonb_build_object('count',count(*)::int,'sha256',
+     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
+   FROM (SELECT r.operation_id,encode(digest(to_jsonb(r)::text,'sha256'),'hex') row_hash
+     FROM ops selected JOIN hr_yuzhou_t5_followon_projection_receipt r USING(operation_id)) hashes
+   GROUP BY operation_id
+), baseline_sets AS (
  SELECT o.operation_id,
    COALESCE(o.status='succeeded' AND o.finished_at IS NOT NULL AND o.rolled_back_at IS NULL,false) operation_valid,
-   ph.document profile_document,rh.document receipt_document,o.owned_state
+   COALESCE(ph.document,jsonb_build_object('count',0,'sha256',encode(digest('','sha256'),'hex'))) profile_document,
+   COALESCE(rh.document,jsonb_build_object('count',0,'sha256',encode(digest('','sha256'),'hex'))) receipt_document,o.owned_state
  FROM ops selected JOIN hr_yuzhou_t5_followon_operation o USING(operation_id)
- CROSS JOIN LATERAL (
-   SELECT jsonb_build_object('count',count(*)::int,'sha256',
-     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
-   FROM (SELECT encode(digest(to_jsonb(p)::text,'sha256'),'hex') row_hash
-     FROM hr_employee_profile p JOIN hr_yuzhou_t5_followon_projection_receipt r
-       ON r.target_id=p.id AND r.target_table='hr_employee_profile'
-       AND r.operation_id=o.operation_id AND r.disposition='insert'
-     WHERE p.tenant_id='10000001' AND p.park_id='20000001') hashes
- ) ph
- CROSS JOIN LATERAL (
-   SELECT jsonb_build_object('count',count(*)::int,'sha256',
-     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
-   FROM (SELECT encode(digest(to_jsonb(r)::text,'sha256'),'hex') row_hash
-     FROM hr_yuzhou_t5_followon_projection_receipt r WHERE r.operation_id=o.operation_id) hashes
- ) rh
+ LEFT JOIN baseline_profile_documents ph USING(operation_id)
+ LEFT JOIN baseline_receipt_documents rh USING(operation_id)
 )`;
 export const profileBaselineSetSelect = `json_build_object(
  'operationCount',(SELECT count(*) FROM baseline_sets),

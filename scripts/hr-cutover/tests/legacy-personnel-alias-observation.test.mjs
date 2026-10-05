@@ -419,6 +419,7 @@ test('real PostgreSQL whole-set observation catches profile edits, receipt edits
     await client.query("SET TIME ZONE 'UTC'");
     const observe=async()=>{
       const rows=await client.query(`BEGIN TRANSACTION READ ONLY;
+        SET LOCAL statement_timeout='5s'; SET LOCAL enable_nestloop=off;
         SET LOCAL TIME ZONE 'Asia/Shanghai';
         WITH ops AS (SELECT operation_id FROM hr_yuzhou_t5_followon_operation),${profileBaselineSetCtes}
         SELECT ${profileBaselineSetSelect} result; ROLLBACK;`);
