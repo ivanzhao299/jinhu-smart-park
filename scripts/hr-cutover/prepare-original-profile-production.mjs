@@ -10,6 +10,9 @@ import { pathToFileURL, fileURLToPath, URL } from 'node:url';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const fail=()=>{throw new Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED')};
 const failurePrefix='ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED';
+const readStages=['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT'];
+const readFailureStages=Object.fromEntries(readStages.map(stage=>[
+  `YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n`,`SOURCE_PREPARATION_READ_${stage}`]));
 const sourcePreparationStages={
   YUZHOU_PROFILE_DATE_INVALID:'SOURCE_PREPARATION_PROFILE_DATE',
   YUZHOU_PROFILE_EMAIL_INVALID:'SOURCE_PREPARATION_PROFILE_EMAIL',
@@ -27,7 +30,7 @@ const sourcePreparationStages={
   YUZHOU_PROFILE_ALIAS_SOURCE_ROW_BINDING_INVALID:'SOURCE_PREPARATION_ROW_BINDING',
   YUZHOU_PROFILE_ALIAS_SOURCE_PLAN_DRIFT:'SOURCE_PREPARATION_PLAN_DRIFT',
 };
-const preparationStages=['BOOTSTRAP_REQUEST','BOOTSTRAP_SOURCE','BOOTSTRAP_LOAD','REQUEST','RELEASE','SOURCE_BYTES','MODULE_LOAD','OBSERVATION','PLAN','PRIVATE_ROOT','PRIVATE_CONFIG','SOURCE_PREPARATION','SOURCE_PREPARATION_READ','SOURCE_PREPARATION_COMMAND',...Object.values(sourcePreparationStages)];
+const preparationStages=['BOOTSTRAP_REQUEST','BOOTSTRAP_SOURCE','BOOTSTRAP_LOAD','REQUEST','RELEASE','SOURCE_BYTES','MODULE_LOAD','OBSERVATION','PLAN','PRIVATE_ROOT','PRIVATE_CONFIG','SOURCE_PREPARATION','SOURCE_PREPARATION_READ','SOURCE_PREPARATION_COMMAND',...Object.values(sourcePreparationStages),...Object.values(readFailureStages)];
 export function safePreparationFailure(error) {
   const message=typeof error?.message==='string'?error.message:'';
   return preparationStages.some(stage=>message===`${failurePrefix}_${stage}`)?message:failurePrefix;
@@ -93,6 +96,7 @@ export async function prepareOnProductionHost(request,{load=async path=>import(p
   } catch(error) {
     if(stage==='SOURCE_PREPARATION') {
       if(Object.hasOwn(sourcePreparationStages,error?.message))stage=sourcePreparationStages[error.message];
+      else if(Object.hasOwn(readFailureStages,error?.stderr))stage=readFailureStages[error.stderr];
       else if(error?.stderr==='YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED\n')stage='SOURCE_PREPARATION_READ';
       else if(error?.status!==undefined || error?.code==='ETIMEDOUT')stage='SOURCE_PREPARATION_COMMAND';
     }

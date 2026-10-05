@@ -129,14 +129,23 @@ process.stdin.on('end',async()=>{
  const client=new Client({host:process.env.POSTGRES_HOST,port:Number(process.env.POSTGRES_PORT||5432),
   database:process.env.POSTGRES_DB,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,
   options:'-c default_transaction_read_only=on',connectionTimeoutMillis:5000});
+ let stage='KEYRING';
  try {
   const sensitive=new PartySensitiveDataService(new ConfigService(process.env));
-  await client.connect();const results=await client.query(JSON.parse(input).sql);
+  stage='INPUT';const sql=JSON.parse(input).sql;
+  stage='CONNECT';await client.connect();
+  stage='QUERY';const results=await client.query(sql);
+  stage='ENVELOPE';
   const envelope=results.find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!envelope||!Array.isArray(envelope.rows)||envelope.rows.length>20000)throw Error();
-  for(const row of envelope.rows){const raw=sensitive.decrypt(row.encryptedSource);if(!raw||raw.length>1048576)throw Error();row.source=JSON.parse(raw);delete row.encryptedSource;}
+  for(const row of envelope.rows){stage='DECRYPT';const raw=sensitive.decrypt(row.encryptedSource);if(!raw||raw.length>1048576)throw Error();stage='SOURCE_JSON';row.source=JSON.parse(raw);delete row.encryptedSource;}
+  stage='OUTPUT';
   process.stdout.write(JSON.stringify(envelope));
- }catch{process.stderr.write('YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED\n');process.exitCode=1;}
+ }catch(error){
+  if(stage==='QUERY' && error?.code==='57014')stage='QUERY_TIMEOUT';
+  if(stage==='QUERY' && error?.code==='55P03')stage='QUERY_LOCK';
+  process.stderr.write('YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_'+stage+'\n');process.exitCode=1;
+ }
  finally{await client.end().catch(()=>{});}
 });`;
 
