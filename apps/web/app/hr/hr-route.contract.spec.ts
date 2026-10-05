@@ -44,7 +44,7 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
   }
   assert.match(styles,/overflow-wrap:\s*anywhere/);
   assert.match(styles,/\.formGrid input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\),\s*\.formGrid select,\s*\.formGrid textarea\s*\{[^}]*max-width:\s*100%/);
-  assert.doesNotMatch(styles,/\.formGrid input\s*[,\{]/,"form width rules must not stretch checkbox or radio controls");
+  assert.doesNotMatch(styles,/\.formGrid input\s*[,{]/,"form width rules must not stretch checkbox or radio controls");
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*min-height:\s*44px/);
 });
 
