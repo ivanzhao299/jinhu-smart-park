@@ -65,7 +65,7 @@
   margin-top: 14px;
 }
 
-.formGrid input,
+.formGrid input:not([type="checkbox"]):not([type="radio"]),
 .formGrid select,
 .formGrid textarea {
   width: 100%;
@@ -932,4 +932,10 @@
   .compactKpiGrid :global(.ds-kpi-card) small {
     display: none;
   }
+}
+
+/* Training uses cards as its record surface on both desktop and phone. */
+.page .trainingRecords {
+  display: grid;
+  gap: 14px;
 }

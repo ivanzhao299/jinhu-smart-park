@@ -10,9 +10,13 @@ test("clean hours change appends correction while same-field modern divergence c
  const conflict=planTrainingHistoryFacts(changed,facts,{...facts,hours:"10"},facts);assert.equal(conflict.action,"conflict");assert.deepEqual(conflict.conflictFields,["hours"]);assert.equal(conflict.correctedHours,undefined);
  const converged=planTrainingHistoryFacts(changed,facts,changed,facts);assert.equal(converged.action,"update");assert.equal(converged.correctedHours,undefined);
 });
-test("published snapshot changes and unknown baselines remain explicit conflicts",()=>{
- for(const [key,value] of [["courseName","Changed"],["startDate","2019-12-31"],["endDate","2020-01-03"]]){const plan=planTrainingHistoryFacts({...facts,[key!]:value},facts,facts,facts);assert.equal(plan.action,"conflict");assert.ok(plan.conflictFields.includes(`PUBLISHED_SNAPSHOT:${key}`));}
+test("plan fact changes are independent revisions while unknown baselines remain conflicts",()=>{
+ for(const [key,value] of [["courseName","Changed"],["startDate","2019-12-31"],["endDate","2020-01-03"]]){const plan=planTrainingHistoryFacts({...facts,[key!]:value},facts,facts,facts);assert.equal(plan.action,"update");assert.deepEqual(plan.correctedPlanFacts,{[key!]:value});}
  assert.ok(planTrainingHistoryFacts(facts,{},facts,{}).conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));
+ const modern={...facts,startDate:"2020-01-02",endDate:"2020-01-04"};
+ const protectedPlan=planTrainingHistoryFacts(facts,facts,modern,facts);assert.equal(protectedPlan.action,"unchanged");
+ const crossed=planTrainingHistoryFacts({...facts,endDate:"2020-01-01"},facts,modern,facts);assert.equal(crossed.action,"conflict");
+ const invalidMerged=planTrainingHistoryFacts({...facts,endDate:"2020-01-01"},facts,{...facts,startDate:"2020-01-02"},facts);assert.ok(invalidMerged.conflictFields.includes("TRAINING_PLAN_FACTS_DATE_RANGE_INVALID"));
 });
 test("facts enforce reviewed date/hour schema without echoing rejected contents",()=>{
  for(const value of [{...facts,hours:"0"},{...facts,hours:"8.5"},{...facts,startDate:"2023-02-29"},{...facts,endDate:"2019-01-01"},{...facts,score:"88"},{...facts,courseName:"Secret\0name"}])assert.throws(()=>normalizeTrainingHistoryFacts(value),/TRAINING_IMPORT_FACTS_INVALID/);

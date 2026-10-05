@@ -34,6 +34,7 @@ before(async()=>{
  await db.query(`ALTER TABLE hr_incremental_import_item ADD COLUMN baseline_encrypted text;CREATE TABLE hr_yuzhou_t5_followon_source(id uuid PRIMARY KEY,operation_id text,source_table text,source_identity_sha256 text,tenant_id text,park_id text);`);
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000340_hr_incremental_training_history.sql"),"utf8"));
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000342_hr_training_memo_continuity.sql"),"utf8"));
+ await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000343_hr_training_plan_facts.sql"),"utf8"));
  await db.query('INSERT INTO sys_user VALUES($1,$2,$3)',[actorId,scope.tenantId,scope.parkId]);
  await db.query('INSERT INTO hr_employee(id,tenant_id,park_id) VALUES($1,$2,$3),($4,$2,\'20000002\')',[employeeId,scope.tenantId,scope.parkId,foreignEmployee]);
 });
@@ -69,6 +70,23 @@ test('actual fixed builder package passes public preview commit replay status an
   const next={...dto,manifestId:dto.manifestId+'-next',extractedAt:'2026-11-05T00:00:00Z'};
   const replay=await service.preview(scope,actor,next);const replayed=await service.commit(scope,actor,String(replay.id)) as Record<string,unknown>;
   assert.equal(replayed.unchangedCount,1);assert.deepEqual(await counts(),after);
+  // A subsequent fixed source file goes through the same recipe and public service.
+  execFileSync(process.execPath,['--input-type=module','-e',`
+   import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+   import {canonicalProfile} from './scripts/hr-cutover/yuzhou-profile-incremental-projection.mjs';
+   import {materializeYuzhouReusableIncrementalPackage} from './scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs';
+   const dir=process.argv[1],input=JSON.parse(readFileSync(dir+'/input.json','utf8')),row=input.trainingRecords[0];
+   Object.assign(row.source,{coursename:'Synthetic subsequent course',startdate:'2021-03-01T00:00:00',enddate:'2021-03-02T00:00:00',hours:9,memo:'  subsequent raw note  '});
+   row.sourceRowSha256=createHash('sha256').update(canonicalProfile(row.source)).digest('hex');input.extractedAt='2026-12-05T00:00:00Z';
+   writeFileSync(dir+'/subsequent.json',JSON.stringify(input),{mode:0o600});materializeYuzhouReusableIncrementalPackage({inputPath:dir+'/subsequent.json',outputDir:dir+'/subsequent'});
+  `,directory],{cwd:root,stdio:'pipe'});
+  const updatedDto=JSON.parse(readFileSync(resolve(directory,'subsequent/package.json'),'utf8')) as PreviewYuzhouIncrementalImportDto;
+  const updatedPreview=await service.preview(scope,actor,updatedDto);assert.equal((await service.commit(scope,actor,String(updatedPreview.id))).appliedCount,1);
+  const binding=(await db.query('SELECT b.plan_id,b.participant_id FROM hr_incremental_training_binding b JOIN hr_incremental_import_item i ON i.id=b.item_id WHERE i.source_key=$1',[dto.items[0]!.sourceKey]))[0];
+  assert.equal((await db.query('SELECT course_title FROM hr_training_plan_fact_revision WHERE plan_id=$1',[binding.plan_id]))[0].course_title,'Synthetic subsequent course');
+  assert.equal((await db.query('SELECT corrected_memo FROM hr_training_result_correction WHERE participant_id=$1',[binding.participant_id]))[0].corrected_memo,'  subsequent raw note  ');
+  assert.equal((await db.query("SELECT snapshot->>'courseTitle' title FROM hr_training_plan WHERE id=$1",[binding.plan_id]))[0].title,'Synthetic public training');
+
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
 test('staged new employee preview has no target writes and never bypasses owner resolution on commit',{skip:!enabled},async()=>{
@@ -309,4 +327,68 @@ test('modern check-in and source correction acquire parent before participant an
   if(probe.isTransactionActive)await probe.rollbackTransaction();
   await checkIn;await holder.release();await probe.release();
  }
+});
+
+test('ordinary plan facts revisions cover published active completed states, exact permissions and immutable originals',{skip:!enabled},async()=>{
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const imported=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+ const original=(await db.query('SELECT snapshot,start_date,end_date,completed_at FROM hr_training_plan WHERE id=$1',[imported.planId]))[0];
+ const modern=()=>({expectedRevision:0,courseName:'Modern course title',startDate:'2021-01-02',endDate:'2021-01-03',reason:'Synthetic correction'});
+ await assert.rejects(service.revisePlanFacts(scope,{...actor,permissions:[HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE]},imported.planId,modern()),/Forbidden/);
+ await assert.rejects(service.revisePlanFacts({...scope,parkId:'20000002'},actor,imported.planId,modern()),/Forbidden/);
+ await assert.rejects(service.revisePlanFacts(scope,actor,imported.planId,{...modern(),endDate:'2021-01-01'}),/DATE_RANGE_INVALID/);
+ await assert.rejects(service.revisePlanFacts(scope,actor,imported.planId,{...modern(),startDate:'2021-02-29'}),/FACTS_INVALID/);
+ await assert.rejects(service.revisePlanFacts(scope,actor,imported.planId,{...modern(),reason:' '}),/FACTS_INVALID/);
+ const outcomes=await Promise.allSettled([service.revisePlanFacts(scope,actor,imported.planId,modern()),service.revisePlanFacts(scope,actor,imported.planId,{...modern(),courseName:'Concurrent other title'})]);
+ assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);assert.match(String((outcomes.find(x=>x.status==='rejected') as PromiseRejectedResult).reason),/FACTS_STALE/);
+ assert.deepEqual((await db.query('SELECT snapshot,start_date,end_date,completed_at FROM hr_training_plan WHERE id=$1',[imported.planId]))[0],original);
+ const readActor={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_READ]};
+ const detail=await service.planDetail(scope,readActor,imported.planId);assert.equal(detail.factRevision,1);assert.equal(detail.snapshot.courseTitle,facts.courseName);assert.ok(['Modern course title','Concurrent other title'].includes(detail.courseTitle));
+ const plans=await service.listPlans(scope,readActor,{page:1,page_size:100});const listed=plans.items.find((x:Record<string,unknown>)=>x.id===imported.planId)!;assert.equal(listed.courseTitle,detail.courseTitle);assert.equal(listed.factRevision,1);
+ await assert.rejects(db.query(`UPDATE hr_training_plan_fact_revision SET reason='changed' WHERE plan_id=$1`,[imported.planId]),/append only/);
+ await assert.rejects(db.query('DELETE FROM hr_training_plan_fact_revision WHERE plan_id=$1',[imported.planId]),/append only/);
+ const course=await service.createCourse(scope,actor,{code:`FACT-${randomUUID()}`,title:'Active course',category:'synthetic',hours:'8'});
+ const plan=await service.createPlan(scope,actor,{code:`FACT-${randomUUID()}`,name:'Active plan',courseId:course.id,mandatory:false,startDate:'2026-10-01',endDate:'2026-10-06',budgetAmount:'0',costCurrency:'CNY',employeeIds:[employeeId]});
+ await assert.rejects(service.revisePlanFacts(scope,actor,plan.id,{expectedRevision:0,startDate:'2026-10-02',reason:'Synthetic draft'}),/STATE_INVALID/);
+ await service.publish(scope,actor,plan.id);
+ const datesOnly={...actor,permissions:[HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE]};
+ assert.equal((await service.revisePlanFacts(scope,datesOnly,plan.id,{expectedRevision:0,startDate:'2026-10-02',endDate:'2026-10-07',reason:'Synthetic reschedule'})).sequenceNo,1);
+ await service.start(scope,actor,plan.id);
+ assert.equal((await service.revisePlanFacts(scope,datesOnly,plan.id,{expectedRevision:1,endDate:'2026-10-08',reason:'Synthetic active reschedule'})).sequenceNo,2);
+ await service.cancel(scope,actor,plan.id);
+ await assert.rejects(service.revisePlanFacts(scope,datesOnly,plan.id,{expectedRevision:2,endDate:'2026-10-09',reason:'Synthetic cancelled'}),/STATE_INVALID/);
+});
+
+test('source course dates hours and memo revise atomically, preserve modern changes and retain component versions',{skip:!enabled},async()=>{
+ const value=(changes:Record<string,unknown>={})=>{const v=item('c');Object.assign(v.fields,{memo:null},changes);v.rowDigest=digest({domain:v.domain,sourceTable:v.sourceTable,sourceKey:v.sourceKey,sourceUpdatedAt:null,fields:v.fields});return v;};
+ await execute(value(),await operation());
+ const saved=(await db.query('SELECT i.id,i.target_id,b.plan_id FROM hr_incremental_import_item i JOIN hr_incremental_training_binding b ON b.item_id=i.id WHERE i.source_key=$1',[sourceKey('c')]))[0];
+ const original=(await db.query('SELECT snapshot,start_date,end_date,completed_at FROM hr_training_plan WHERE id=$1',[saved.plan_id]))[0];
+ const changed=value({courseName:'Source revised',startDate:'2022-03-01',endDate:'2022-03-02',hours:'9',memo:'  source note  '});
+ const op=await operation();await assert.rejects(db.transaction(async m=>{await m.query("SELECT set_config('lab.fail_revision','yes',true)");await executeYuzhouTrainingItem(m,scope,actor,changed,sensitive,owner,op);}),/synthetic revision failure/);
+ assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_plan_fact_revision WHERE plan_id=$1',[saved.plan_id]))[0].n),0);assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_result_correction WHERE participant_id=$1',[saved.target_id]))[0].n),0);
+ assert.equal(await execute(changed,await operation()),'applied');assert.equal(await execute(changed,await operation()),'unchanged');
+ const ledger=(await db.query('SELECT * FROM hr_incremental_import_item WHERE id=$1',[saved.id]))[0];assert.equal(ledger.target_version,2);assert.equal(JSON.parse(sensitive.decrypt(ledger.baseline_encrypted)!).planFactRevision,1);
+ assert.deepEqual((await db.query('SELECT snapshot,start_date,end_date,completed_at FROM hr_training_plan WHERE id=$1',[saved.plan_id]))[0],original);
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ await service.revisePlanFacts(scope,actor,saved.plan_id,{expectedRevision:1,courseName:'Modern revised',reason:'Synthetic modern'});
+ assert.equal(await execute(changed,await operation()),'unchanged');
+ assert.equal(await execute(value({courseName:'Source conflict',startDate:'2022-03-01',endDate:'2022-03-02',hours:'9',memo:'  source note  '}),await operation()),'conflict');
+ const converged=value({courseName:'Modern revised',startDate:'2022-03-01',endDate:'2022-03-02',hours:'9',memo:'  source note  '});assert.equal(await execute(converged,await operation()),'applied');
+ assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_plan_fact_revision WHERE plan_id=$1',[saved.plan_id]))[0].n),2);
+});
+
+test('overdue reminders use effective dates after rescheduling and keep message deduplication',{skip:!enabled},async()=>{
+ await db.query(`CREATE TABLE biz_user_message(id uuid DEFAULT uuid_generate_v4(),tenant_id text,park_id text,recipient_id uuid,sender_id uuid,category text,priority text,source_type text,source_id uuid,biz_type text,biz_id uuid,action text,title text,content text,target_url text,unique_key text,payload jsonb,create_by uuid,update_by uuid,is_deleted boolean DEFAULT false);CREATE UNIQUE INDEX lab_training_message_key ON biz_user_message(tenant_id,park_id,recipient_id,unique_key) WHERE is_deleted=false`);
+ const recipient=randomUUID(),employee=randomUUID();await db.query('INSERT INTO sys_user VALUES($1,$2,$3)',[recipient,scope.tenantId,scope.parkId]);await db.query('INSERT INTO hr_employee(id,tenant_id,park_id,user_id) VALUES($1,$2,$3,$4)',[employee,scope.tenantId,scope.parkId,recipient]);
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const course=await service.createCourse(scope,actor,{code:`REM-${randomUUID()}`,title:'Synthetic reminders',category:'synthetic',hours:'8'});
+ const plan=await service.createPlan(scope,actor,{code:`REM-${randomUUID()}`,name:'Synthetic reminders',courseId:course.id,mandatory:false,startDate:'2000-01-01',endDate:'2000-01-02',budgetAmount:'0',costCurrency:'CNY',employeeIds:[employee]});
+ await service.publish(scope,actor,plan.id);await service.start(scope,actor,plan.id);
+ await service.revisePlanFacts(scope,actor,plan.id,{expectedRevision:0,endDate:'2099-01-02',reason:'Synthetic future reschedule'});
+ assert.equal((await service.sendOverdueReminders(scope,actor)).reminded,0);
+ assert.equal(Number((await db.query("SELECT count(*) n FROM biz_user_message WHERE source_id=$1 AND action LIKE 'overdue:%'",[plan.id]))[0].n),0);
+ await service.revisePlanFacts(scope,actor,plan.id,{expectedRevision:1,endDate:'2000-01-03',reason:'Synthetic overdue reschedule'});
+ assert.equal((await service.sendOverdueReminders(scope,actor)).reminded,1);await service.sendOverdueReminders(scope,actor);
+ assert.equal(Number((await db.query("SELECT count(*) n FROM biz_user_message WHERE source_id=$1 AND action LIKE 'overdue:%'",[plan.id]))[0].n),1);
 });
