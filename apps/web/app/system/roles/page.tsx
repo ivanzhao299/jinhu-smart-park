@@ -500,7 +500,7 @@ export default function RolesPage() {
           <Plus size={16} />新增自定义角色
         </PermissionButton>
         {hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE]) ? (
-          <button type="button" onClick={() => void createFromBundles().catch(showError)}>
+          <button className="ds-button ds-button-secondary" type="button" onClick={() => void createFromBundles().catch(showError)}>
             <Layers3 size={16} />按权限包新建
           </button>
         ) : null}
@@ -546,10 +546,10 @@ export default function RolesPage() {
                     <AssignabilityBadge role={selectedRole} />
                   </div>
                   <div className="system-actions">
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? <button type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
-                    {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
+                    <PermissionButton className="ds-button ds-button-secondary" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
+                    <PermissionButton className="ds-button ds-button-secondary" permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
+                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? <button className="ds-button ds-button-secondary" type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
+                    {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton className="danger-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
 
@@ -712,7 +712,7 @@ function RoleTreeItem({ role, selectedId, onSelect, onCreateChild }: { role: Rol
       <div className={`tree-row${selectedId === role.id ? " active" : ""}`}>
         <button className="inline-action-button" type="button" onClick={() => onSelect(role.id)}><FolderTree size={15} />{role.name}</button>
         <AssignabilityBadge role={role} />
-        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} />子角色</PermissionButton>
+        <PermissionButton className="inline-action-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} />子角色</PermissionButton>
       </div>
       {role.children && role.children.length > 0 ? <div className="tree-children">{role.children.map((child) => <RoleTreeItem key={child.id} role={child} selectedId={selectedId} onSelect={onSelect} onCreateChild={onCreateChild} />)}</div> : null}
     </div>
@@ -756,7 +756,7 @@ function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protecte
           </select>
         </div>
         <div className="system-actions">
-          <button type="button" onClick={onPreview} disabled={protectedRole || selectedCodes.length === 0}>预览差异</button>
+          <button className="ds-button ds-button-secondary" type="button" onClick={onPreview} disabled={protectedRole || selectedCodes.length === 0}>预览差异</button>
           {canApply ? <button className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview || applying}><Save size={16} />{applying ? "应用中…" : "应用权限包"}</button> : null}
         </div>
       </div>
@@ -865,7 +865,7 @@ function Meta({ label, value }: { label: string; value: string }) {
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button className={active ? "primary-button" : ""} type="button" onClick={onClick}>{children}</button>;
+  return <button className={`ds-button ${active ? "ds-button-primary" : "ds-button-secondary"}`} type="button" aria-pressed={active} onClick={onClick}>{children}</button>;
 }
 
 function toggleList(id: string, checked: boolean): (current: string[]) => string[] {
