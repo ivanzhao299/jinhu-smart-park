@@ -383,3 +383,5 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 容器内来源读取失败仅返回固定 KEYRING、INPUT、CONNECT、QUERY、QUERY_TIMEOUT、QUERY_LOCK、ENVELOPE、DECRYPT、SOURCE_JSON、OUTPUT 子阶段；查询取消与锁超时只匹配 PostgreSQL 固定 SQLSTATE。异常原文、任意数据库错误码和已解密行不回显，未知或混合输出继续降为通用失败。该诊断不改变查询、超时、解密策略或写入授权。
 
 真实来源容器读取连接显式设置 `default_transaction_read_only=on` 和 `jit=off`，避免复杂来源/归属/回执 CTE 的编译开销占用 5 秒查询窗口。此设置仅作用于该私有准备连接；保留原 SQL、5 秒 statement timeout、2 秒 lock timeout、完整集合摘要与读取前后运行身份核验。真实生产 QUERY_TIMEOUT 与隔离 JIT 实验是不同证据，关闭 JIT 后仍须取得实际生产准备回执才能认定恢复成功。
+
+原始档案私有准备在同一只读 `REPEATABLE READ` 连接中先执行完整观察，再读取完整来源账本、绑定和行；第二条查询复用同一 CTE 谓词，但不重复计算观察 JSON 的全量核验和更正摘要。两条语句各自保持 5 秒 statement timeout、2 秒 lock timeout，第二条完成后回滚，失败也回滚并关闭连接。阶段码区分 OBSERVATION_QUERY 与 ROWS_QUERY；任何一条失败都不输出半批。隔离 PostgreSQL 验证须证明读行计划裁掉未引用的完整集合核验，并通过另一连接在两条语句之间修改版本，确认观察和来源行仍属于同一旧快照。实际准备回执仍另取证。

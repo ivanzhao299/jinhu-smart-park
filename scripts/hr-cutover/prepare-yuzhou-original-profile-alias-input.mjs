@@ -47,6 +47,16 @@ SELECT json_build_object('observation',(${observationSelect}),
    JOIN hr_employee_profile target ON target.id=p.profile_id));
 ROLLBACK;`;
 
+// Preserve every predicate, but avoid putting the complete observation and
+// private row aggregation in one statement. Both execute on the SAME client
+// and REPEATABLE READ snapshot; only the row statement closes the snapshot.
+export const originalProfileAliasObservationSql = personnelAliasSql
+  .slice(0,end)
+  .replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;');
+export const originalProfileAliasRowsSql = originalProfileAliasInputSql
+  .slice(originalProfileAliasInputSql.indexOf('WITH ops AS ('))
+  .replace(`'observation',(${observationSelect}),\n `,'');
+
 export function validateOriginalProfileAliasExpected(expected) {
   exact(expected,['sourceSetSha256','profileCount','aliasProfiles','nativePlaceFills','degreeFills','planSha256','beforeSha256']);
   for (const key of ['sourceSetSha256','planSha256','beforeSha256']) if (!/^[a-f0-9]{64}$/u.test(expected[key] ?? '')) fail('EXPECTED_INVALID');
@@ -132,21 +142,26 @@ process.stdin.on('end',async()=>{
  let stage='KEYRING';
  try {
   const sensitive=new PartySensitiveDataService(new ConfigService(process.env));
-  stage='INPUT';const sql=JSON.parse(input).sql;
+  stage='INPUT';const {observationSql,rowsSql}=JSON.parse(input);
   stage='CONNECT';await client.connect();
-  stage='QUERY';const results=await client.query(sql);
+  stage='OBSERVATION_QUERY';const observedResults=await client.query(observationSql);
+  stage='OBSERVATION_ENVELOPE';
+  const observation=(Array.isArray(observedResults)?observedResults:[observedResults]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
+  if(!observation||typeof observation!=='object'||Array.isArray(observation))throw Error();
+  stage='ROWS_QUERY';const results=await client.query(rowsSql);
   stage='ENVELOPE';
-  const envelope=results.find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
+  const envelope=(Array.isArray(results)?results:[results]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!envelope||!Array.isArray(envelope.rows)||envelope.rows.length>20000)throw Error();
+  envelope.observation=observation;
   for(const row of envelope.rows){stage='DECRYPT';const raw=sensitive.decrypt(row.encryptedSource);if(!raw||raw.length>1048576)throw Error();stage='SOURCE_JSON';row.source=JSON.parse(raw);delete row.encryptedSource;}
   stage='OUTPUT';
   process.stdout.write(JSON.stringify(envelope));
  }catch(error){
-  if(stage==='QUERY' && error?.code==='57014')stage='QUERY_TIMEOUT';
-  if(stage==='QUERY' && error?.code==='55P03')stage='QUERY_LOCK';
+  if(['OBSERVATION_QUERY','ROWS_QUERY'].includes(stage) && error?.code==='57014')stage+='_TIMEOUT';
+  if(['OBSERVATION_QUERY','ROWS_QUERY'].includes(stage) && error?.code==='55P03')stage+='_LOCK';
   process.stderr.write('YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_'+stage+'\n');process.exitCode=1;
  }
- finally{await client.end().catch(()=>{});}
+ finally{await client.query('ROLLBACK').catch(()=>{});await client.end().catch(()=>{});}
 });`;
 
 function privatePath(path,directory=false) {
@@ -165,7 +180,7 @@ export function prepareOriginalProfileAliasInput({configPath,outputDir}, {run=ex
   validateOriginalProfileAliasExpected(config.expected);
   const before=observe(config.expectedRuntimeCommit);
   const raw=run('docker',['--host','unix:///var/run/docker.sock','exec','-i','jinhu-smart-park-prod-api','node','-e',originalProfileAliasReadProgram],
-    {cwd:config.deployPath,input:JSON.stringify({sql:originalProfileAliasInputSql}),encoding:'utf8',timeout:20000,maxBuffer:64*1024*1024,stdio:['pipe','pipe','pipe']});
+    {cwd:config.deployPath,input:JSON.stringify({observationSql:originalProfileAliasObservationSql,rowsSql:originalProfileAliasRowsSql}),encoding:'utf8',timeout:20000,maxBuffer:64*1024*1024,stdio:['pipe','pipe','pipe']});
   const prepared=assembleOriginalProfileAliasInput(JSON.parse(raw),config.expected,now().toISOString());
   const after=observe(config.expectedRuntimeCommit);
   if (canonicalProfile(before.observations)!==canonicalProfile(after.observations)) fail('RUNTIME_CHANGED');
