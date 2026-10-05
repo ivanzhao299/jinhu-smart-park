@@ -10,13 +10,13 @@ import { spawnSync } from 'node:child_process';
 import { prepareOnProductionHost, productionPreparationBootstrap, validatePreparationRequest, runProductionPreparation } from '../prepare-original-profile-production.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const entry='scripts/hr-cutover/prepare-original-profile-production.mjs';
-const paths=[entry,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs'];
+const paths=[entry,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs','scripts/prepare-yuzhou-production-source-manifest.mjs'];
 function fixture(){
   const root=realpathSync(mkdtempSync(join(tmpdir(),'private-profile-host-'))),deployPath=join(root,'deployment');
   mkdirSync(join(deployPath,'scripts/hr-cutover'),{recursive:true});
   const content=[readFileSync(new URL('../prepare-original-profile-production.mjs',import.meta.url),'utf8'),
     `export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=()=>({productionImport:'HOLD',writerPresent:false,aliasProfiles:2});`,
-    `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,'export const observer=true;'];
+    `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,'export const observer=true;','export const manifest=true;'];
   const files=paths.map((path,i)=>{writeFileSync(join(deployPath,path),content[i]);return {path,sha256:sha(content[i])}});
   const request={deployPath,files,expectedRuntimeCommit:'d'.repeat(40)};
   writeFileSync(join(deployPath,'.release.json'),JSON.stringify({commit:request.expectedRuntimeCommit}));
@@ -63,7 +63,10 @@ test('request and SSH argument boundaries reject unexpected paths, hashes, files
       if(binary==='git')return paths.join('\n');
       assert.equal(binary,'ssh');ssh=true;assert.ok(args.includes('BatchMode=yes'));
       assert.match(args.at(-1),/^node --input-type=module -e '/);assert.equal(options.timeout,90000);
-      assert.equal(JSON.parse(options.input).files.length,4);return '{"writerPresent":false}\n';
+      assert.equal(JSON.parse(options.input).files.length,5);
+      const actual=spawnSync('sh',['-c',args.at(-1)],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+      assert.equal(actual.status,0,actual.stderr);assert.equal(JSON.parse(actual.stdout).writerPresent,false);
+      return '{"writerPresent":false}\n';
     });assert.equal(ssh,true);assert.equal(result,'{"writerPresent":false}\n');
   }finally{rmSync(root,{recursive:true,force:true})}
 });

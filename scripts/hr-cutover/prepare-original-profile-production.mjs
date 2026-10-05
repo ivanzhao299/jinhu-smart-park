@@ -9,7 +9,7 @@ import { pathToFileURL, fileURLToPath, URL } from 'node:url';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const fail=()=>{throw new Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED')};
-const sourcePath=path=>typeof path==='string' && /^(scripts\/hr-cutover\/[a-zA-Z0-9_./-]+\.(mjs|json|sql)|scripts\/diagnose-(yuzhou-personnel-alias|production-runtime-revision)\.mjs)$/u.test(path)
+const sourcePath=path=>typeof path==='string' && /^(scripts\/hr-cutover\/[a-zA-Z0-9_./-]+\.(mjs|json|sql)|scripts\/diagnose-(yuzhou-personnel-alias|production-runtime-revision)\.mjs|scripts\/prepare-yuzhou-production-source-manifest\.mjs)$/u.test(path)
   && !path.includes('/../') && !path.includes('/./') && !path.includes('//');
 export function validatePreparationRequest(request) {
   if(!request || Object.keys(request).sort().join(',')!=='deployPath,expectedRuntimeCommit,files'
@@ -25,7 +25,8 @@ export function validatePreparationRequest(request) {
   }
   for(const path of ['scripts/hr-cutover/prepare-original-profile-production.mjs',
     'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs',
-    'scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs'])if(!paths.has(path))fail();
+    'scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs',
+    'scripts/prepare-yuzhou-production-source-manifest.mjs'])if(!paths.has(path))fail();
   return request;
 }
 
@@ -72,7 +73,7 @@ export function runProductionPreparation(env=process.env,run=execFileSync) {
     || env.PROD_SSH_HOST.startsWith('-') || !/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/u.test(env.PROD_SSH_USER??'')
     || !/^\d{1,5}$/u.test(env.PROD_SSH_PORT??'') || Number(env.PROD_SSH_PORT)<1 || Number(env.PROD_SSH_PORT)>65535)fail();
   const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
-  const files=run('git',['ls-files','scripts/hr-cutover','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs'],{cwd:root,encoding:'utf8'})
+  const files=run('git',['ls-files','scripts/hr-cutover','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs','scripts/prepare-yuzhou-production-source-manifest.mjs'],{cwd:root,encoding:'utf8'})
     .trim().split('\n').filter(path=>sourcePath(path) && !path.includes('/tests/') && !path.endsWith('.spec.mjs'))
     .map(path=>({path,sha256:sha(readFileSync(join(root,path)))}));
   const request=validatePreparationRequest({deployPath:env.PROD_DEPLOY_PATH,expectedRuntimeCommit:env.EXPECTED_RUNTIME_COMMIT,files});
