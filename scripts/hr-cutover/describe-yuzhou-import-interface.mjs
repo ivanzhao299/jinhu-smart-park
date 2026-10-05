@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { YUZHOU_REUSABLE_INCREMENTAL_COVERAGE, YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 } from "./build-yuzhou-reusable-incremental-package.mjs";
 import { YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES } from "./yuzhou-incremental-package-limits.mjs";
 import { YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256 } from "./build-yuzhou-profile-alias-batch.mjs";
+import { YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256 } from "./prepare-yuzhou-original-profile-alias-input.mjs";
 
 /** Metadata only: never reads an extract, credentials, or database. */
 export function describeYuzhouImportInterface() {
@@ -21,6 +22,7 @@ export function describeYuzhouImportInterface() {
       controlledStaging: "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
       verifiedExtract: "node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs --input <private-extract.json> --output <new-private-directory>",
       originalProfileAliases: "node scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs --input <private-alias-input.json> --output <new-private-directory>",
+      originalProfileSource: "node scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs --config <private-metadata-config.json> --output <new-private-directory>",
       workbench: "/hr/imports",
     },
     api: {
@@ -38,6 +40,12 @@ export function describeYuzhouImportInterface() {
       validation: "same-format batches reuse frozen rules; validate integrity, identity, dependencies, scope and modern-field conflicts every batch",
       updates: "unchanged facts do not duplicate; modern edits are preserved; employment transitions and effective contract changes use normal workflows",
       sourceAbsence: "never implies target deletion",
+    },
+    originalProfileSourcePreparation: {
+      codeSha256: YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256,
+      source: "existing sealed T5 source in verified production API runtime; read-only repeatable-read snapshot",
+      outputs: "private verified input, versioned before-images and existing ordered batch; metadata only on stdout",
+      productionImport: "HOLD", authorizationGranted: false, writerPresent: false,
     },
     originalProfileAliasPreparation: {
       codeSha256: YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256,

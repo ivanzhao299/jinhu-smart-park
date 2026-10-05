@@ -489,6 +489,11 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
     if (error?.message === 'PERSONNEL_ALIAS_RESULT_INVALID') throw error;
     throw new Error(safeProbeErrorCode(error));
   }
+  return validatePersonnelAliasObservation(value);
+}
+
+export function validatePersonnelAliasObservation(input) {
+  const value = validateResult(input);
   const correctionPlanReady = value.sourceRecords > 0 && value.receiptMatchedSourceRecords === value.sourceRecords
     && value.missingSourceReceiptCount === 0 && value.duplicateSourceRows === 0
     && value.mappedRecords > 0 && value.t0MappedRecords === value.mappedRecords && value.otherOwnerStatusRecords === 0

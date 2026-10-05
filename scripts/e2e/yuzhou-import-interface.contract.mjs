@@ -28,6 +28,9 @@ test("published interface is reproducible and usable by the actual frozen builde
   assert.ok(d.entries.originalProfileAliases.includes("build-yuzhou-profile-alias-batch.mjs"));
   assert.equal(d.originalProfileAliasPreparation.codeSha256,YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256);
   assert.equal(d.originalProfileAliasPreparation.authorizationGranted,false);
+  assert.ok(d.entries.originalProfileSource.includes('prepare-yuzhou-original-profile-alias-input.mjs'));
+  assert.match(d.originalProfileSourcePreparation.codeSha256,/^[a-f0-9]{64}$/u);
+  assert.equal(d.originalProfileSourcePreparation.writerPresent,false);
 });
 
 test("stale interface and invalid CLI arguments fail without echoing input or paths", () => {
