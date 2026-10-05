@@ -346,4 +346,4 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 
 ## 培训历史固定入口（本地已接入，待发布）
 
-统一builder可选`trainingRecords`接收经验证dbo.trainhis原始行；受控staging配置可选`trainingManifest`引用trainhis.jsonl及完整摘要/行数manifest，沿用相同读取规则。课程名、本地起止日期、学时与准确员工来源关联生成training_history项；提供方/成绩/考试/费用/备注保留待处理范围。每批无需重新全量分析或A/B，仍检查完整性、关联、权限、幂等和现代修改冲突。发布状态与验收边界见[培训适配](./yuzhou-training-incremental-adapter.md)。
+统一builder可选`trainingRecords`接收经验证dbo.trainhis原始行；受控staging配置可选`trainingManifest`引用trainhis.jsonl及完整摘要/行数manifest，沿用相同读取规则。课程名、本地起止日期、学时与准确员工来源关联生成training_history项；独立备注已接入，成绩候选按0至100的两位精度接入；提供方/考试/费用保留待处理范围。每批无需重新全量分析或A/B，仍检查完整性、关联、权限、幂等和现代修改冲突。发布状态与验收边界见[培训适配](./yuzhou-training-incremental-adapter.md)。

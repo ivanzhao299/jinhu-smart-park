@@ -53,7 +53,7 @@ test('actual fixed builder package passes public preview commit replay status an
    import {canonicalProfile} from './scripts/hr-cutover/yuzhou-profile-incremental-projection.mjs';
    import {materializeYuzhouReusableIncrementalPackage,YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256} from './scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs';
    const hash=v=>createHash('sha256').update(v).digest('hex'),dir=process.argv[1];
-   const source={id:7654,person:'SYN-PUB',organ:null,coursename:'Synthetic public training',startdate:'2020-02-29T00:00:00',enddate:'2020-03-01T00:00:00',hours:8,attainment:null,test:null,trainmoney:null,memo:null};
+   const source={id:7654,person:'SYN-PUB',organ:null,coursename:'Synthetic public training',startdate:'2020-02-29T00:00:00',enddate:'2020-03-01T00:00:00',hours:8,attainment:'84.50',test:null,trainmoney:null,memo:null};
    const row={sourceTable:'dbo.trainhis',sourceKey:String(source.id),sourceIdentitySha256:hash('dbo.trainhis\\0'+source.id),sourceRowSha256:hash(canonicalProfile(source)),source};
    writeFileSync(dir+'/input.json',JSON.stringify({recipeVersion:'yuzhou-reusable-incremental-v2',recipeSha256:YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256,sourceSystem:'yuzhou-v10',extractedAt:'2026-10-05T00:00:00Z',employeeIndex:[{employeeCode:'SYN-PUB',sourceTable:'dbo.person',sourceKey:'SYN-PUB'}],employeeRecords:[],records:[],trainingRecords:[row]}),{mode:0o600});
    materializeYuzhouReusableIncrementalPackage({inputPath:dir+'/input.json',outputDir:dir+'/out'});
@@ -90,6 +90,7 @@ test('actual fixed builder package passes public preview commit replay status an
   const updatedPreview=await service.preview(scope,actor,updatedDto);assert.equal((await service.commit(scope,actor,String(updatedPreview.id))).appliedCount,1);
   const binding=(await db.query('SELECT b.plan_id,b.participant_id FROM hr_incremental_training_binding b JOIN hr_incremental_import_item i ON i.id=b.item_id WHERE i.source_key=$1',[dto.items[0]!.sourceKey]))[0];
   assert.equal((await db.query('SELECT course_title FROM hr_training_plan_fact_revision WHERE plan_id=$1',[binding.plan_id]))[0].course_title,'Synthetic subsequent course');
+  assert.equal((await db.query('SELECT score FROM hr_training_participant WHERE id=$1',[binding.participant_id]))[0].score,'84.50');
   assert.equal((await db.query('SELECT corrected_memo FROM hr_training_result_correction WHERE participant_id=$1',[binding.participant_id]))[0].corrected_memo,'  subsequent raw note  ');
   assert.equal((await db.query("SELECT snapshot->>'courseTitle' title FROM hr_training_plan WHERE id=$1",[binding.plan_id]))[0].title,'Synthetic public training');
 
@@ -453,4 +454,31 @@ test('overdue reminders use effective dates after rescheduling and keep message 
  await service.revisePlanFacts(scope,actor,plan.id,{expectedRevision:1,endDate:'2000-01-03',reason:'Synthetic overdue reschedule'});
  assert.equal((await service.sendOverdueReminders(scope,actor)).reminded,1);await service.sendOverdueReminders(scope,actor);
  assert.equal(Number((await db.query("SELECT count(*) n FROM biz_user_message WHERE source_id=$1 AND action LIKE 'overdue:%'",[plan.id]))[0].n),1);
+});
+
+test('source scores create, clear, preserve modern changes and roll back with combined facts',{skip:!enabled},async()=>{
+ const scoreKey=`sha256:${randomBytes(32).toString('hex')}`;
+ const incoming=(patch:Record<string,unknown>={})=>{const v=item('e');v.sourceKey=scoreKey;Object.assign(v.fields,{memo:null,score:'84.50'},patch);v.rowDigest=digest({domain:v.domain,sourceTable:v.sourceTable,sourceKey:v.sourceKey,sourceUpdatedAt:null,fields:v.fields});return v;};
+ assert.equal(await execute(incoming(),await operation()),'applied');
+ const stored=(await db.query('SELECT target_id FROM hr_incremental_import_item WHERE source_key=$1',[incoming().sourceKey]))[0];
+ const original=(await db.query('SELECT plan_id,score,completed_hours FROM hr_training_participant WHERE id=$1',[stored.target_id]))[0];assert.equal(original.score,'84.50');
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const reader={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_READ]};
+ const visible=async()=> (await service.planDetail(scope,reader,original.plan_id)).participants[0].score;
+ assert.equal(await visible(),'84.50');
+ await service.correct(scope,actor,stored.target_id,{expectedRevision:0,correctedScore:'90',reason:'Synthetic score maintenance'});
+ assert.equal(await execute(incoming(),await operation()),'unchanged');assert.equal(await visible(),'90.00');
+ assert.equal(await execute(incoming({score:'85.00'}),await operation()),'conflict');assert.equal(await visible(),'90.00');
+ assert.equal(await execute(incoming({score:'90.00'}),await operation()),'applied');
+ assert.equal(await execute(incoming({score:null,hours:'9',memo:'Source note'}),await operation()),'applied');assert.equal(await visible(),null);
+ const correction=(await db.query('SELECT corrected_hours,corrected_memo,score_present,score_cleared FROM hr_training_result_correction WHERE participant_id=$1 ORDER BY sequence_no DESC LIMIT 1',[stored.target_id]))[0];assert.deepEqual(correction,{corrected_hours:'9.00',corrected_memo:'Source note',score_present:true,score_cleared:true});
+ assert.equal(await execute(incoming({score:null,hours:'10',memo:'Source note'}),await operation()),'applied');assert.equal(await visible(),null);
+ assert.deepEqual((await db.query('SELECT plan_id,score,completed_hours FROM hr_training_participant WHERE id=$1',[stored.target_id]))[0],original);
+ const before=await counts();
+ const ledgerBefore=(await db.query('SELECT source_facts_encrypted,baseline_encrypted,version FROM hr_incremental_import_item WHERE target_id=$1',[stored.target_id]))[0];
+ await assert.rejects(db.transaction(async m=>{await executeYuzhouTrainingItem(m,scope,actor,incoming({score:'88.00',hours:'11',memo:'Rollback'}),sensitive,owner,await operation());await m.query('SELECT 1/0');}));
+ assert.deepEqual(await counts(),before);assert.equal(await visible(),null);
+ assert.deepEqual((await db.query('SELECT source_facts_encrypted,baseline_encrypted,version FROM hr_incremental_import_item WHERE target_id=$1',[stored.target_id]))[0],ledgerBefore);
+ const races=await Promise.allSettled(["0.00","100.00"].map(score=>db.transaction(m=>correctTrainingHistoryFactsInTransaction(m,scope,actor,stored.target_id,3,{score}))));assert.equal(races.filter(r=>r.status==='fulfilled').length,1);assert.ok(["0.00","100.00"].includes(String(await visible())));
+ const missing=item('f');missing.sourceKey=`sha256:${randomBytes(32).toString('hex')}`;missing.rowDigest=digest({domain:missing.domain,sourceTable:missing.sourceTable,sourceKey:missing.sourceKey,sourceUpdatedAt:null,fields:missing.fields});assert.equal(await execute(missing,await operation()),'applied');Object.assign(missing.fields,{score:null});missing.rowDigest=digest({domain:missing.domain,sourceTable:missing.sourceTable,sourceKey:missing.sourceKey,sourceUpdatedAt:null,fields:missing.fields});assert.equal(await execute(missing,await operation()),'conflict');
 });

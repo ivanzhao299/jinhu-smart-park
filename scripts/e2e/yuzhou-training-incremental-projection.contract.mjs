@@ -2,17 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {createHash} from "node:crypto";
 import {canonicalProfile} from "../hr-cutover/yuzhou-profile-incremental-projection.mjs";
-import {projectYuzhouTrainingHistory,verifyTrainingHistorySource,YUZHOU_TRAINING_FIELD_COVERAGE} from "../hr-cutover/yuzhou-training-incremental-projection.mjs";
+import {projectYuzhouTrainingHistory,verifyTrainingHistorySource,YUZHOU_TRAINING_FIELD_COVERAGE,projectTrainingScore} from "../hr-cutover/yuzhou-training-incremental-projection.mjs";
 const sha=value=>createHash("sha256").update(value).digest("hex");
 const employees=new Map([["SYN-1",{sourceTable:"dbo.person",sourceKey:`sha256:${sha('dbo.person\0SYN-1')}`}]]);
 const source=()=>({id:1,person:"SYN-1",organ:"Unknown provider meaning",coursename:" Synthetic training ",startdate:"2020-02-29T08:30:00",enddate:"2020-03-01T17:30:00",hours:8,attainment:"88.00",test:"Source label",trainmoney:"12.0000",memo:"Source memo"});
 const row=value=>({sourceTable:"dbo.trainhis",sourceKey:String(value.id),sourceIdentitySha256:sha(`dbo.trainhis\0${value.id}`),sourceRowSha256:sha(canonicalProfile(value)),source:value});
-test("reviewed fields preserve exact source owner and never infer result or financial facts",()=>{
+test("reviewed fields preserve exact source owner and only reviewed scores and never infer financial facts",()=>{
  const original=row(source()),copy=structuredClone(original),p=projectYuzhouTrainingHistory(original,employees);
- assert.deepEqual(p.candidate.fields,{employeeSourceTable:"dbo.person",employeeSourceKey:employees.get("SYN-1").sourceKey,courseName:"Synthetic training",startDate:"2020-02-29",endDate:"2020-03-01",hours:"8",memo:"Source memo"});
+ assert.deepEqual(p.candidate.fields,{employeeSourceTable:"dbo.person",employeeSourceKey:employees.get("SYN-1").sourceKey,courseName:"Synthetic training",startDate:"2020-02-29",endDate:"2020-03-01",hours:"8",memo:"Source memo",score:"88.00"});
  assert.equal(p.admission,"pending_training_api_executor");assert.equal(p.declaration.disposition,"candidate_only");assert.equal("item" in p,false);
- assert.deepEqual(p.declaration.pendingFields,["organ","attainment","test","trainmoney"]);
- for(const key of ["score","actualCost","provider","evaluation","status","currency"])assert.equal(key in p.candidate.fields,false);
+ assert.deepEqual(p.declaration.pendingFields,["organ","test","trainmoney"]);
+ for(const key of ["actualCost","provider","evaluation","status","currency"])assert.equal(key in p.candidate.fields,false);
  assert.deepEqual(original,copy);assert.equal(YUZHOU_TRAINING_FIELD_COVERAGE.length,10);
 });
 test("row hash, stable identity and one legacy escape layer are verified without repairing hashes",()=>{
@@ -44,4 +44,13 @@ test("projected fact digest is stable across extracts and changes only with mapp
 test("errors never expose source names or values and coverage cannot be mutated",()=>{
  assert.throws(()=>projectYuzhouTrainingHistory(row({...source(),coursename:'Secret'.repeat(50)}),employees),error=>error.message==='YUZHOU_TRAINING_NAME_INVALID');
  assert.throws(()=>{YUZHOU_TRAINING_FIELD_COVERAGE[0].targetField='changed';},TypeError);
+});
+
+test("scores preserve exact two-place decimals and reject range or precision without coercion",()=>{
+ for(const [input,expected] of [[0,"0.00"],[100,"100.00"],[82.5,"82.50"],["00088.00","88.00"],["0.01","0.01"],[null,null]]) {
+  assert.equal(projectTrainingScore(input),expected);
+  assert.equal(projectYuzhouTrainingHistory(row({...source(),attainment:input}),employees).candidate.fields.score,expected);
+ }
+ for(const input of [-1,"-0.01","100.01","1.001","1e2","",{},true,Infinity,"0".repeat(17)])assert.throws(()=>projectTrainingScore(input),error=>/YUZHOU_TRAINING_SCORE_(INVALID|OUT_OF_RANGE)/.test(error.message));
+ const before=projectYuzhouTrainingHistory(row(source()),employees),after=projectYuzhouTrainingHistory(row({...source(),attainment:null}),employees);assert.notEqual(before.candidate.rowDigest,after.candidate.rowDigest);
 });

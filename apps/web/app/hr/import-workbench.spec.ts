@@ -47,10 +47,11 @@ function fixture(actor = user) {
 }
 
 test("training import summaries hide source values and require all three management permissions", () => {
-  const parsed=parseImportPackage(text([{...item("training_history",{courseName:"private course",memo:"private memo",hours:"8",startDate:"2020-02-29",endDate:"2020-03-01"}),sourceTable:"dbo.trainhis"}]),"training.json");
+  const parsed=parseImportPackage(text([{...item("training_history",{courseName:"private course",memo:"private memo",score:"84.50",hours:"8",startDate:"2020-02-29",endDate:"2020-03-01"}),sourceTable:"dbo.trainhis"}]),"training.json");
   assert.equal(parsed.summary.domains[0]!.domain,"training_history");
   assert.ok(parsed.summary.domains[0]!.fields.includes("培训备注"));
-  assert.doesNotMatch(JSON.stringify(parsed.summary),/private memo/);
+  assert.doesNotMatch(JSON.stringify(parsed.summary),/private memo|84\.50/);
+  assert.ok(parsed.summary.domains[0]!.fields.includes("培训成绩"));
   assert.ok(parsed.summary.domains[0]!.fields.includes("课程名称"));
   assert.ok(!JSON.stringify(parsed.summary).includes("private course"));
   const permissions=[HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE,HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE];

@@ -1,3 +1,5 @@
+import trainingScorePolicy from "./hr-yuzhou-training-score-policy.json";
+export const YUZHOU_TRAINING_SCORE_POLICY = Object.freeze({ ...trainingScorePolicy });
 import limits from "./hr-yuzhou-incremental-limits.json";
 import { YUZHOU_RECORD_SOURCE_FIELDS } from "./hr-yuzhou-record-incremental";
 import { HR_PERMISSIONS } from "./hr";
@@ -51,7 +53,7 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   family: ["employeeSourceKey", "employeeSourceTable", "relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"],
   skill: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.skill],
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
-  training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours", "memo"],
+  training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours", "memo", "score"],
   insurance_policy: ["name", "scopeDescription", "items"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };

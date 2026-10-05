@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "42c3c520e2ad44f21767a7a580e39ee88fab4d5768452c4add98c28dd1dff236",
+  "recipeSha256": "fd8857abe3f46f9dac9e179f96f6761053030dc1875adb211fa927ecd73b1716",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
@@ -82,15 +82,15 @@
       },
       {
         "sourceTable": "dbo.trainhis",
-        "sourceField": "organ",
-        "disposition": "pending_semantic_or_writer_binding",
-        "reasonCode": "TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED"
+        "sourceField": "attainment",
+        "targetField": "score",
+        "disposition": "fixed_mapping_candidate"
       },
       {
         "sourceTable": "dbo.trainhis",
-        "sourceField": "attainment",
+        "sourceField": "organ",
         "disposition": "pending_semantic_or_writer_binding",
-        "reasonCode": "TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE"
+        "reasonCode": "TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED"
       },
       {
         "sourceTable": "dbo.trainhis",
@@ -704,9 +704,9 @@
       {
         "domain": "training_history",
         "sourceTable": "dbo.trainhis",
-        "adapter": "raw-training-history-facts-and-memo",
+        "adapter": "raw-training-history-facts-memo-score",
         "dependency": "verified dbo.person identity",
-        "eligibility": "API certifies original provenance or creates new source; published snapshot revisions require normal business workflow; no guessed result/provider/cost"
+        "eligibility": "API certifies original provenance or creates new source; published snapshot revisions require normal business workflow; reviewed score 0..100; no guessed test/provider/cost"
       },
       {
         "domain": "skill",

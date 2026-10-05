@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction } from "./hr-yuzhou-training-transaction";
+import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction,normalizeTrainingImportScore } from "./hr-yuzhou-training-transaction";
 const facts={courseName:"Synthetic",startDate:"2020-01-01",endDate:"2020-01-02",hours:"8"};
 test("unchanged source preserves modern hours corrections",()=>{
  const plan=planTrainingHistoryFacts(facts,facts,{...facts,hours:"10"},facts);assert.equal(plan.action,"unchanged");assert.equal(plan.correctedHours,undefined);
@@ -19,7 +19,7 @@ test("plan fact changes are independent revisions while unknown baselines remain
  const invalidMerged=planTrainingHistoryFacts({...facts,endDate:"2020-01-01"},facts,{...facts,startDate:"2020-01-02"},facts);assert.ok(invalidMerged.conflictFields.includes("TRAINING_PLAN_FACTS_DATE_RANGE_INVALID"));
 });
 test("facts enforce reviewed date/hour schema without echoing rejected contents",()=>{
- for(const value of [{...facts,hours:"0"},{...facts,hours:"8.5"},{...facts,startDate:"2023-02-29"},{...facts,endDate:"2019-01-01"},{...facts,score:"88"},{...facts,courseName:"Secret\0name"}])assert.throws(()=>normalizeTrainingHistoryFacts(value),/TRAINING_IMPORT_FACTS_INVALID/);
+ for(const value of [{...facts,hours:"0"},{...facts,hours:"8.5"},{...facts,startDate:"2023-02-29"},{...facts,endDate:"2019-01-01"},{...facts,score:"100.01"},{...facts,courseName:"Secret\0name"}])assert.throws(()=>normalizeTrainingHistoryFacts(value),/TRAINING_IMPORT_FACTS_INVALID/);
 });
 test("business primitive requires an active caller transaction before writes",async()=>{
  await assert.rejects(createTrainingHistoryInTransaction({queryRunner:{isTransactionActive:false}} as never,{tenantId:"t",parkId:"p"},{sub:"",tenantId:"t",parkId:"p"} as never,"", "",facts),/TRAINING_IMPORT_TRANSACTION_REQUIRED/);
@@ -35,4 +35,16 @@ test("memo is independent, nullable, exact, and omission preserves older package
  assert.equal(planTrainingHistoryFacts(old,old,{...old,memo:null},old).action,"unchanged");
  assert.deepEqual(planTrainingHistoryFacts({...old,memo:"来源变化"},old,{...old,memo:"现代变化"},old).conflictFields,["memo"]);
  assert.ok(planTrainingHistoryFacts({...facts,memo:null},facts,{...facts,memo:null},facts).conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));
+});
+
+test("score is optional exact and nullable with modern-source three-way protection",()=>{
+ assert.equal(Object.hasOwn(normalizeTrainingHistoryFacts(facts),"score"),false);
+ for(const [input,expected] of [["0","0.00"],["100.0","100.00"],["84.50","84.50"],[null,null]])assert.equal(normalizeTrainingImportScore(input),expected);
+ for(const score of [undefined,84,"100.01","-1","1.001","1e2",{},"0".repeat(17)])assert.throws(()=>normalizeTrainingHistoryFacts({...facts,score}),/FACTS_INVALID/);
+ const before={...facts,score:"84.50"},modern={...before,score:"90.00"};
+ assert.equal(planTrainingHistoryFacts(before,before,modern,before).action,"unchanged");
+ assert.deepEqual(planTrainingHistoryFacts({...before,score:"85.00"},before,modern,before).conflictFields,["score"]);
+ assert.equal(planTrainingHistoryFacts({...before,score:null},before,before,before).correctedScore,null);
+ assert.equal(planTrainingHistoryFacts(modern,before,modern,before).correctedScore,undefined);
+ assert.ok(planTrainingHistoryFacts({...facts,score:null},facts,{...facts,score:null},facts).conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));
 });
