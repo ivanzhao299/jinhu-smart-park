@@ -12,13 +12,16 @@ import { describeYuzhouImportInterface } from '../describe-yuzhou-import-interfa
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const entry='scripts/hr-cutover/prepare-original-profile-production.mjs';
 const paths=[entry,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs','scripts/prepare-yuzhou-production-source-manifest.mjs'];
+paths.push(...['hr-yuzhou-training-score-policy.json','hr-yuzhou-record-incremental.ts','hr-yuzhou-family-incremental.ts',
+  'hr-yuzhou-incremental.ts','hr.ts','hr-yuzhou-incremental-limits.json','hr-yuzhou-initial-baseline.ts','hr-yuzhou-profile-baseline.ts'].map(path=>`packages/shared/src/${path}`));
 function fixture(){
   const root=realpathSync(mkdtempSync(join(tmpdir(),'private-profile-host-'))),deployPath=join(root,'deployment');
   mkdirSync(join(deployPath,'scripts/hr-cutover'),{recursive:true});
+  mkdirSync(join(deployPath,'packages/shared/src'),{recursive:true});
   const content=[readFileSync(new URL('../prepare-original-profile-production.mjs',import.meta.url),'utf8'),
     `export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=()=>({productionImport:'HOLD',writerPresent:false,aliasProfiles:2});`,
     `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,'export const observer=true;','export const manifest=true;'];
-  const files=paths.map((path,i)=>{writeFileSync(join(deployPath,path),content[i]);return {path,sha256:sha(content[i])}});
+  const files=paths.map((path,i)=>{const text=content[i]??(path.endsWith('.json')?'{}':'export {};');writeFileSync(join(deployPath,path),text);return {path,sha256:sha(text)}});
   const request={deployPath,files,expectedRuntimeCommit:'d'.repeat(40)};
   writeFileSync(join(deployPath,'.release.json'),JSON.stringify({commit:request.expectedRuntimeCommit}));
   return {root,request};
@@ -44,6 +47,11 @@ test('source or release drift fails before import/private output; unsafe private
     writeFileSync(join(request.deployPath,'.release.json'),JSON.stringify({commit:'e'.repeat(40)}));
     await assert.rejects(prepareOnProductionHost(request,{load}));assert.equal(imports,0);
   }finally{rmSync(root,{recursive:true,force:true})}
+  const shared=fixture();try{
+    writeFileSync(join(shared.request.deployPath,'packages/shared/src/hr-yuzhou-training-score-policy.json'),'{"drift":true}');
+    let loads=0;await assert.rejects(prepareOnProductionHost(shared.request,{load:async()=>{loads++;throw Error()}}),/PRIVATE_PREPARATION_FAILED/);
+    assert.equal(loads,0);assert.equal(existsSync(join(shared.root,'.jinhu-hr-private-profile-input')),false);
+  }finally{rmSync(shared.root,{recursive:true,force:true})}
   const other=fixture();try{
     const foreign=join(other.root,'foreign');mkdirSync(foreign,{mode:0o700});writeFileSync(join(foreign,'keep'),'safe');
     symlinkSync(foreign,join(other.root,'.jinhu-hr-private-profile-input'));
@@ -64,7 +72,7 @@ test('request and SSH argument boundaries reject unexpected paths, hashes, files
       if(binary==='git')return paths.join('\n');
       assert.equal(binary,'ssh');ssh=true;assert.ok(args.includes('BatchMode=yes'));
       assert.match(args.at(-1),/^node --input-type=module -e '/);assert.equal(options.timeout,90000);
-      assert.equal(JSON.parse(options.input).files.length,5);
+      assert.equal(JSON.parse(options.input).files.length,paths.length);
       const actual=spawnSync('sh',['-c',args.at(-1)],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
       assert.equal(actual.status,0,actual.stderr);assert.equal(JSON.parse(actual.stdout).writerPresent,false);
       return '{"writerPresent":false}\n';
@@ -75,7 +83,11 @@ test('manual production workflow has same deployment mutex and no deploy, creden
   const workflow=readFileSync(new URL('../../../.github/workflows/prepare-original-profile-input.yml',import.meta.url),'utf8');
   assert.match(workflow,/workflow_dispatch:/);assert.match(workflow,/if: github.ref == 'refs\/heads\/main'/);
   assert.match(workflow,/environment: production/);assert.match(workflow,/group: deploy-production/);
+  assert.match(workflow,/package-manager-cache: false/);
   assert.match(workflow,/validate-production-deploy-path.sh/);assert.match(workflow,/original-profile-production.test.mjs/);
   assert.equal(describeYuzhouImportInterface().originalProfileSourcePreparation.productionWorkflow,'.github/workflows/prepare-original-profile-input.yml');
+  const builder=readFileSync(new URL('../build-yuzhou-reusable-incremental-package.mjs',import.meta.url),'utf8');
+  const ruleFiles=builder.match(/const ruleFiles = \[([^\]]+)\]/u)?.[1];assert.ok(ruleFiles);
+  for(const match of ruleFiles.matchAll(/"\.\.\/\.\.\/(packages\/shared\/src\/[^"\n]+)"/gu))assert.ok(paths.includes(match[1]),`shared recipe rule must be sealed: ${match[1]}`);
   assert.doesNotMatch(workflow,/upload-artifact|workflow_run|branches:|db:migrate|db:seed|prod:deploy|docker|password|token/i);
 });
