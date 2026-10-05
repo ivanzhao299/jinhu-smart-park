@@ -124,12 +124,17 @@ test('actual staging CLI carries only requested aliases and binds admission to i
  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {execFileSync}=await import('node:child_process');
  const root=mkdtempSync(join(realpathSync(tmpdir()),'yuzhou-alias-cli-'));
  const aliasAcceptance={version:1,proof:'original_t5_alias_fields_v1',operationId:'yzprod-import-20261004T130000Z-abcdef123456',bindingSha256:sha('binding'),fields:['nativePlace','degree']};
- const extended={...source,oldaddr:'原籍',edulevel:'学士'};
+ const extended={...source,birthday:'unchanged historical date',email:'unchanged invalid email',idcard:'enc:historical evidence',addr:'x'.repeat(501),oldaddr:'原籍',edulevel:'学士'};
  try {
    const input=join(root,'source.json');writeFileSync(input,JSON.stringify({sources:[extended],scope:{tenantId:'fixture',parkId:'fixture'},aliasAcceptance}),{mode:0o600});
    const out=JSON.parse(execFileSync(process.execPath,['scripts/e2e/yuzhou-profile-staging-fixture.mjs','--root',join(root,'stage'),'--source',input],{encoding:'utf8'}));
    const pkg=JSON.parse(readFileSync(out.packagePath)),item=pkg.items[0];
-   assert.deepEqual(item.fields,{degree:'学士',nativePlace:'原籍'});assert.deepEqual(item.profileAliasAcceptance,aliasAcceptance);
+   assert.deepEqual(item.fields,{degree:'学士',nativePlace:'原籍'});
+   assert.throws(()=>projectYuzhouProfile(row(extended),employees),/DATE_INVALID/);
+   assert.throws(()=>projectYuzhouProfile({...row(extended),sourceRowSha256:sha('tampered')},employees,{aliasAcceptance}));
+   assert.throws(()=>projectYuzhouProfile(row({...extended,oldaddr:'x'.repeat(51)}),employees,{aliasAcceptance}),/FIELD_INVALID/);
+   assert.throws(()=>projectYuzhouProfile(row(extended),employees,{aliasAcceptance,omittedFields:['nativePlace']}),/ADMISSION_INVALID/);
+   assert.equal(projectYuzhouProfile(row(extended),employees,{aliasAcceptance}).sourceEvidence.fieldCoverage.find(field=>field.field==='birthday').disposition,'not_requested_alias_acceptance');assert.deepEqual(item.profileAliasAcceptance,aliasAcceptance);
    assert.equal(item.rowDigest,sha(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields:item.fields,profileAliasAcceptance:aliasAcceptance})));
    assert.notEqual(item.rowDigest,sha(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields:item.fields})));
    const receipt=JSON.parse(readFileSync(join(root,'stage/output/assembly-receipt.json')));assert.equal(receipt.apiInput.profile,1);assert.ok(receipt.mappingReferences.profileAliasAcceptance);

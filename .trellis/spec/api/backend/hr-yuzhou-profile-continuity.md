@@ -98,3 +98,5 @@ Good: original source has aliases, original and current target null and same ver
 Wrong: `if (current.nativePlace === null) baseline.nativePlace = null` or merging modern values into original provenance.
 
 Correct: authenticate original raw source and immutable certified target, require original null plus current equality/version proof, force first alias write, append accepted field receipt, then use normal three-way/CAS on later packages.
+
+Alias-only CLI projection authenticates the complete raw source and employee identity, then validates/projects exactly requested nativePlace/degree. Unrequested historical birthday/email/ID values remain hash-bound source evidence with `not_requested_alias_acceptance` coverage, never ordinary profile writes. Do not run full-profile date/email/ID validation before selecting aliases; normal marker-free imports retain all existing field/admission validation. Regression must run the actual staging CLI and ordered source assembly with invalid unrelated historical fields, reject altered full source hashes and invalid requested aliases, and assert alias-only payloads.

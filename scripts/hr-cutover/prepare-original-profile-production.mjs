@@ -10,7 +10,24 @@ import { pathToFileURL, fileURLToPath, URL } from 'node:url';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const fail=()=>{throw new Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED')};
 const failurePrefix='ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED';
-const preparationStages=['BOOTSTRAP_REQUEST','BOOTSTRAP_SOURCE','BOOTSTRAP_LOAD','REQUEST','RELEASE','SOURCE_BYTES','MODULE_LOAD','OBSERVATION','PLAN','PRIVATE_ROOT','PRIVATE_CONFIG','SOURCE_PREPARATION'];
+const sourcePreparationStages={
+  YUZHOU_PROFILE_DATE_INVALID:'SOURCE_PREPARATION_PROFILE_DATE',
+  YUZHOU_PROFILE_EMAIL_INVALID:'SOURCE_PREPARATION_PROFILE_EMAIL',
+  YUZHOU_PROFILE_PROTECTED_INPUT_INVALID:'SOURCE_PREPARATION_PROFILE_PROTECTED_INPUT',
+  YUZHOU_PROFILE_FIELD_INVALID:'SOURCE_PREPARATION_PROFILE_FIELD',
+  YUZHOU_PROFILE_SOURCE_INVALID:'SOURCE_PREPARATION_PROFILE_IDENTITY',
+  YUZHOU_PROFILE_SOURCE_SCHEMA_INVALID:'SOURCE_PREPARATION_PROFILE_SCHEMA',
+  T5_RETAINED_SOURCE_INVALID:'SOURCE_PREPARATION_RETAINED_SOURCE',
+  YUZHOU_PROFILE_ALIAS_SOURCE_SCHEMA_INVALID:'SOURCE_PREPARATION_ENVELOPE_SCHEMA',
+  YUZHOU_PROFILE_ALIAS_SOURCE_OBSERVATION_DRIFT:'SOURCE_PREPARATION_OBSERVATION_DRIFT',
+  YUZHOU_PROFILE_ALIAS_SOURCE_SOURCE_LEDGER_INVALID:'SOURCE_PREPARATION_SOURCE_LEDGER',
+  YUZHOU_PROFILE_ALIAS_SOURCE_SOURCE_LEDGER_DRIFT:'SOURCE_PREPARATION_SOURCE_LEDGER',
+  YUZHOU_PROFILE_ALIAS_SOURCE_OPERATION_INVALID:'SOURCE_PREPARATION_ORIGINAL_OPERATION',
+  YUZHOU_PROFILE_ALIAS_SOURCE_ROW_SOURCE_RECEIPT_MISMATCH:'SOURCE_PREPARATION_ROW_RECEIPT',
+  YUZHOU_PROFILE_ALIAS_SOURCE_ROW_BINDING_INVALID:'SOURCE_PREPARATION_ROW_BINDING',
+  YUZHOU_PROFILE_ALIAS_SOURCE_PLAN_DRIFT:'SOURCE_PREPARATION_PLAN_DRIFT',
+};
+const preparationStages=['BOOTSTRAP_REQUEST','BOOTSTRAP_SOURCE','BOOTSTRAP_LOAD','REQUEST','RELEASE','SOURCE_BYTES','MODULE_LOAD','OBSERVATION','PLAN','PRIVATE_ROOT','PRIVATE_CONFIG','SOURCE_PREPARATION','SOURCE_PREPARATION_READ','SOURCE_PREPARATION_COMMAND',...Object.values(sourcePreparationStages)];
 export function safePreparationFailure(error) {
   const message=typeof error?.message==='string'?error.message:'';
   return preparationStages.some(stage=>message===`${failurePrefix}_${stage}`)?message:failurePrefix;
@@ -73,7 +90,14 @@ export async function prepareOnProductionHost(request,{load=async path=>import(p
     writeFileSync(configPath,JSON.stringify({deployPath:request.deployPath,expectedRuntimeCommit:request.expectedRuntimeCommit,expected}),{flag:'wx',mode:0o600});
     stage='SOURCE_PREPARATION';
     return collector.prepareOriginalProfileAliasInput({configPath,outputDir:join(control,'result')});
-  } catch {throw new Error(`${failurePrefix}_${stage}`);}
+  } catch(error) {
+    if(stage==='SOURCE_PREPARATION') {
+      if(Object.hasOwn(sourcePreparationStages,error?.message))stage=sourcePreparationStages[error.message];
+      else if(error?.stderr==='YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED\n')stage='SOURCE_PREPARATION_READ';
+      else if(error?.status!==undefined || error?.code==='ETIMEDOUT')stage='SOURCE_PREPARATION_COMMAND';
+    }
+    throw new Error(`${failurePrefix}_${stage}`);
+  }
 }
 
 export const productionPreparationBootstrap=String.raw`

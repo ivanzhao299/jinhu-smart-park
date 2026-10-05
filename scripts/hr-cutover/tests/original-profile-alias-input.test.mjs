@@ -45,6 +45,21 @@ test('real input assembly retains original witness and drives existing ordered p
   assert.equal(prepared.beforeImages[0].version,1);
   assert.equal(prepared.batch.receipt.productionImport,'HOLD');
 });
+test('ordered private batch authenticates unrelated historical invalid fields without writing or validating them as aliases',()=>{
+  const {envelope,expected}=fixture();
+  for(const row of envelope.rows){
+    Object.assign(row.source,{birthday:'historical unknown',email:'historical invalid',idcard:'enc:historical evidence',addr:'x'.repeat(501)});
+    row.sourceRowSha256=sha(canonicalProfile(row.source));
+  }
+  envelope.sourceLedger=envelope.rows.map(({sourceIdentitySha256,sourceRowSha256})=>({sourceIdentitySha256,sourceRowSha256}));
+  expected.sourceSetSha256=sha([...envelope.sourceLedger].sort((a,b)=>a.sourceIdentitySha256<b.sourceIdentitySha256?-1:1).map(row=>`${row.sourceIdentitySha256}:${row.sourceRowSha256}`).join('\n'));
+  envelope.observation.sourceSetSha256=expected.sourceSetSha256;
+  const prepared=assembleOriginalProfileAliasInput(envelope,expected,at);
+  assert.deepEqual(prepared.batch.packages[0].packageDto.items.map(item=>item.fields),[{},{}]);
+  for(const item of prepared.batch.packages.slice(1).flatMap(entry=>entry.packageDto.items))assert.ok(Object.keys(item.fields).every(field=>['nativePlace','degree'].includes(field)));
+  const forged=clone(envelope);forged.rows[0].source.email='changed without digest';
+  assert.throws(()=>assembleOriginalProfileAliasInput(forged,expected,at));
+});
 test('expected seals, original scope/mapper, complete row hashes and employee identities cannot be forged or rebound',()=>{
   const {envelope,expected}=fixture();
   for(const change of [e=>{e.observation.correctionPlan.beforeSha256='e'.repeat(64)},e=>{e.rows.pop()},
