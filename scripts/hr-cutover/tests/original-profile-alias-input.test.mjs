@@ -4,6 +4,9 @@ import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import process from 'node:process';
 import {createRequire} from 'node:module';
 import {spawnSync} from 'node:child_process';
+import {runInNewContext} from 'node:vm';
+import {EventEmitter} from 'node:events';
+import {setImmediate} from 'node:timers';
 import {mkdtempSync,realpathSync,writeFileSync,readFileSync,chmodSync,rmSync,existsSync,statSync,readdirSync,symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
@@ -35,6 +38,29 @@ function fixture() {
   return {envelope:{rows,sourceLedger,observation,operations:[{operationId:binding.operationId,bindingSha256:sha(canonicalProfile(binding)),binding}]},expected};
 }
 const at='2026-10-05T10:00:00.000Z';
+test('actual container reader reports closed stages without private exception text or partial rows',async()=>{
+  for(const stage of ['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT','PASS']){
+    const stdin=new EventEmitter();stdin.setEncoding=()=>{};
+    let stdout='',stderr='',closed=false;
+    const privateError=()=>Object.assign(Error('synthetic private-row /secret/path'),{code:stage==='QUERY_TIMEOUT'?'57014':stage==='QUERY_LOCK'?'55P03':'untrusted private-code'});
+    class Client {
+      async connect(){if(stage==='CONNECT')throw privateError()}
+      async query(){if(stage.startsWith('QUERY'))throw privateError();return [{rows:[{json_build_object:stage==='ENVELOPE'?null:{rows:[{encryptedSource:'synthetic-cipher'}]}}]}]}
+      async end(){closed=true}
+    }
+    class Sensitive {
+      constructor(){if(stage==='KEYRING')throw privateError()}
+      decrypt(){if(stage==='DECRYPT')return null;return stage==='SOURCE_JSON'?'synthetic-private-not-json':'{"value":"synthetic-source"}'}
+    }
+    const proc={env:{},stdin,stdout:{write:value=>{if(stage==='OUTPUT')throw privateError();stdout+=value}},stderr:{write:value=>{stderr+=value}},exitCode:0};
+    runInNewContext(originalProfileAliasReadProgram,{process:proc,require:path=>path.endsWith('/pg')?{Client}:path.endsWith('/@nestjs/config')?{ConfigService:class {}}:{PartySensitiveDataService:Sensitive}});
+    stdin.emit('data',stage==='INPUT'?'bad-json':JSON.stringify({sql:'synthetic query'}));stdin.emit('end');
+    for(let i=0;i<10&&!closed;i++)await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(closed,true);
+    if(stage==='PASS'){assert.equal(proc.exitCode,0);assert.equal(stderr,'');assert.deepEqual(JSON.parse(stdout),{rows:[{source:{value:'synthetic-source'}}]})}
+    else {assert.equal(proc.exitCode,1);assert.equal(stdout,'');assert.equal(stderr,`YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n`);assert.doesNotMatch(stderr,/private-row|secret|untrusted/)}
+  }
+});
 test('real input assembly retains original witness and drives existing ordered public packages',()=>{
   const {envelope,expected}=fixture();const prepared=assembleOriginalProfileAliasInput(envelope,expected,at);
   assert.equal(prepared.batch.receipt.sourceProfiles,2);assert.equal(prepared.batch.receipt.aliasProfiles,2);
