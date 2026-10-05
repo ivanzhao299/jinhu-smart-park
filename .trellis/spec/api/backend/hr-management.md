@@ -1392,3 +1392,11 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 - 预览/提交必须同时具备课程、计划、进度manage；查询仅全培训read或完整manage。控制器任一入口权限不能替代服务逐领域全权限。Web同步完整集合。
 - 统一构包trainingRecords/受控staging trainingManifest和接口文件复用同一映射及摘要；单包事务，跨包按依赖顺序，不宣称跨包原子。
 - 10组实际PG含真实CLI包到公共服务；合成最小前置/T5回执夹具不证明全库迁移、生产或真实新增批次已完成。同包新组织/在职员工/培训提交和后续培训失败的整包回滚已验证；发布/岗位验收仍待完成。
+
+
+## Scenario: Reusable training score source continuity
+
+- `training_history.score` is optional nullable decimal text, exactly at most two fractional digits and 0..100. The raw SQL numeric(18,2) source uses scaled decimal integers and fixed two-place canonicalization; never round, clip, infer exam labels or financial values.
+- Initial formal completion may store score. Later source score/hours/memo amendments share the existing parent/participant locks and correction sequence, append `corrected_score` with `score_cleared`, and retain frozen completion and plan snapshot. No new migration or permission.
+- Read the last `score_present` correction, including NULL, for current-target comparison. Omission preserves older package compatibility; missing accepted score baseline remains an explicit conflict. Source unchanged preserves modern edits; same-field different edits conflict; equal convergence advances provenance without unnecessary correction.
+- CLI→public service→real PG proves exact score, clear plus later independent amendment, modern conflict/convergence, immutable originals, stale/concurrent winner and full fact/ledger rollback. Metadata-only Web summaries expose field labels rather than scores. Range failures preserve raw input and retain the full legacy coverage denominator.

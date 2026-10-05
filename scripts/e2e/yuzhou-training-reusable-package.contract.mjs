@@ -19,9 +19,9 @@ test("fixed training builder binds normalized facts and retains unresolved cover
   assert.deepEqual(source,before);assert.equal(item.domain,"training_history");
   assert.equal(item.fields.employeeSourceKey,`sha256:${sha("dbo.person\0SYN-1")}`);
   assert.equal(item.rowDigest,sha(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields:item.fields})));
-  assert.equal(item.fields.hours,"8");assert.equal(Object.keys(item.fields).length,7);
-  assert.equal(built.manifest.declarations[0].pendingFields.length,4);
-  assert.equal(built.coverage.sourceFieldCoverage[0].fieldCoverage.filter(v=>v.disposition==="supported").length,6);
+  assert.equal(item.fields.hours,"8");assert.equal(Object.keys(item.fields).length,8);
+  assert.equal(built.manifest.declarations[0].pendingFields.length,3);
+  assert.equal(built.coverage.sourceFieldCoverage[0].fieldCoverage.filter(v=>v.disposition==="supported").length,7);
   source.extractedAt="2026-11-05T00:00:00Z";
   assert.deepEqual(buildYuzhouReusableIncrementalPackage(source).packageDto.items,built.packageDto.items);
 });
