@@ -128,7 +128,7 @@ let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>{input
 process.stdin.on('end',async()=>{
  const client=new Client({host:process.env.POSTGRES_HOST,port:Number(process.env.POSTGRES_PORT||5432),
   database:process.env.POSTGRES_DB,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,
-  options:'-c default_transaction_read_only=on',connectionTimeoutMillis:5000});
+  options:'-c default_transaction_read_only=on -c jit=off',connectionTimeoutMillis:5000});
  let stage='KEYRING';
  try {
   const sensitive=new PartySensitiveDataService(new ConfigService(process.env));

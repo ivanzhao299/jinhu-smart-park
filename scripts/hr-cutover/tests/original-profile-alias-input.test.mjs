@@ -44,6 +44,7 @@ test('actual container reader reports closed stages without private exception te
     let stdout='',stderr='',closed=false;
     const privateError=()=>Object.assign(Error('synthetic private-row /secret/path'),{code:stage==='QUERY_TIMEOUT'?'57014':stage==='QUERY_LOCK'?'55P03':'untrusted private-code'});
     class Client {
+      constructor(config){assert.equal(config.options,'-c default_transaction_read_only=on -c jit=off')}
       async connect(){if(stage==='CONNECT')throw privateError()}
       async query(){if(stage.startsWith('QUERY'))throw privateError();return [{rows:[{json_build_object:stage==='ENVELOPE'?null:{rows:[{encryptedSource:'synthetic-cipher'}]}}]}]}
       async end(){closed=true}
@@ -139,7 +140,9 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
   const {PartySensitiveDataService}=require('./dist/shared/security/party-sensitive-data.service.js');
   const key=randomBytes(32).toString('hex');const sensitive=new PartySensitiveDataService(new ConfigService({PARTY_DATA_ENCRYPTION_KEY:key}));
   const database=`jinhu_hr_profile_source_${randomBytes(12).toString('hex')}`;
-  const config={host:'127.0.0.1',port:55491,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD};
+  const port=Number(process.env.POSTGRES_PORT||55491);
+  assert.ok(Number.isSafeInteger(port)&&port>=1024&&port<=65535,'isolated loopback port required');
+  const config={host:'127.0.0.1',port,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD};
   const admin=new Client({...config,database:'postgres'});let client,created=false;
   try {
     await admin.connect();await admin.query(`CREATE DATABASE "${database}" TEMPLATE template0`);created=true;
@@ -180,11 +183,15 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
       return {count:rows.length,sha256:sha(rows.map(r=>sha(r.text)).sort().join(''))}};
     await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$1',[{hr_employee_profile:await seal('hr_employee_profile'),receipts:await seal('hr_yuzhou_t5_followon_projection_receipt')}]);
     const program=originalProfileAliasReadProgram.replaceAll('/app/',`${root}/`);
-    const run=()=>spawnSync(process.execPath,['-e',program],{input:JSON.stringify({sql:originalProfileAliasInputSql}),encoding:'utf8',timeout:20000,maxBuffer:1024*1024,
-      env:{...process.env,POSTGRES_HOST:'127.0.0.1',POSTGRES_PORT:'55491',POSTGRES_DB:database,POSTGRES_USER:config.user,POSTGRES_PASSWORD:config.password,
+    const run=(sql=originalProfileAliasInputSql)=>spawnSync(process.execPath,['-e',program],{input:JSON.stringify({sql}),encoding:'utf8',timeout:20000,maxBuffer:1024*1024,
+      env:{...process.env,POSTGRES_HOST:'127.0.0.1',POSTGRES_PORT:String(config.port),POSTGRES_DB:database,POSTGRES_USER:config.user,POSTGRES_PASSWORD:config.password,
         PARTY_DATA_ENCRYPTION_KEY:key,PARTY_DATA_ACTIVE_KEY_ID:'',PARTY_DATA_ENCRYPTION_KEYRING:''}});
     const result=run();assert.equal(result.status,0,result.stderr);
     const actual=JSON.parse(result.stdout),o=actual.observation;
+    const forcedThresholds=run(originalProfileAliasInputSql.replace('SET LOCAL enable_nestloop=off;',
+      'SET LOCAL enable_nestloop=off; SET LOCAL jit_above_cost=0; SET LOCAL jit_inline_above_cost=0; SET LOCAL jit_optimize_above_cost=0;'));
+    assert.equal(forcedThresholds.status,0,forcedThresholds.stderr);
+    assert.deepEqual(JSON.parse(forcedThresholds.stdout),actual,'JIT cost thresholds must not alter read-only source and receipt facts');
     assert.equal(o.originalBaselineSet.intactWholeSetCount,1);
     assert.equal(o.sourceSetSha256,envelope.observation.sourceSetSha256,'SQL and JS source-set separator must agree');
     assert.doesNotMatch(result.stdout,/enc:v1:|encryptedSource/);
