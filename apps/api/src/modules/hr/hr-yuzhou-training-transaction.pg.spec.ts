@@ -13,7 +13,8 @@ import { PartySensitiveDataService } from "../../shared/security/party-sensitive
 import {profileCanonical} from "./hr-yuzhou-profile-baseline";
 import {createHash} from "node:crypto";
 import {executeYuzhouTrainingItem,type TrainingImportItem} from "./hr-yuzhou-training-executor";
-import {createTrainingHistoryInTransaction,correctTrainingHistoryHoursInTransaction} from "./hr-yuzhou-training-transaction";
+import {createTrainingHistoryInTransaction,correctTrainingHistoryHoursInTransaction,correctTrainingHistoryFactsInTransaction} from "./hr-yuzhou-training-transaction";
+import {HrTrainingService} from "./hr-training.service";
 import {HrYuzhouIncrementalImportService} from "./hr-yuzhou-incremental-import.service";
 import type {PreviewYuzhouIncrementalImportDto} from "./dto/yuzhou-incremental-import.dto";
 const enabled=process.env.HR_TRAINING_IMPORT_PG_REQUIRED==="1",database=`jinhu_hr_training_import_lab_${randomUUID().replaceAll('-','')}`;
@@ -26,12 +27,13 @@ before(async()=>{
  const config={type:"postgres" as const,host:"127.0.0.1",port:55491,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD};
  admin=new DataSource({...config,database:"postgres"});await admin.initialize();await admin.query(`CREATE DATABASE "${database}" TEMPLATE template0`);created=true;
  db=new DataSource({...config,database});await db.initialize();assert.equal((await db.query('SELECT current_database() name'))[0].name,database);
- await db.query(`CREATE EXTENSION "uuid-ossp";CREATE TABLE sys_user(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64));CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),is_deleted boolean DEFAULT false);CREATE TABLE sys_file(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),biz_type text,biz_id uuid,status integer,is_deleted boolean);`);
+ await db.query(`CREATE EXTENSION "uuid-ossp";CREATE TABLE sys_user(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64));CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),is_deleted boolean DEFAULT false,full_name text,user_id uuid);CREATE TABLE sys_file(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),biz_type text,biz_id uuid,status integer,is_deleted boolean);`);
  // Exact real training migration, with only prerequisite owner/file fixtures.
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000254_hr_training_operations.sql"),"utf8"));
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000327_hr_yuzhou_incremental_import_ledger.sql"),"utf8"));
  await db.query(`ALTER TABLE hr_incremental_import_item ADD COLUMN baseline_encrypted text;CREATE TABLE hr_yuzhou_t5_followon_source(id uuid PRIMARY KEY,operation_id text,source_table text,source_identity_sha256 text,tenant_id text,park_id text);`);
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000340_hr_incremental_training_history.sql"),"utf8"));
+ await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000342_hr_training_memo_continuity.sql"),"utf8"));
  await db.query('INSERT INTO sys_user VALUES($1,$2,$3)',[actorId,scope.tenantId,scope.parkId]);
  await db.query('INSERT INTO hr_employee(id,tenant_id,park_id) VALUES($1,$2,$3),($4,$2,\'20000002\')',[employeeId,scope.tenantId,scope.parkId,foreignEmployee]);
 });
@@ -114,6 +116,34 @@ async function operation(){return (await db.query(`INSERT INTO hr_incremental_im
 const owner=async(key:string,table:string)=>{assert.equal(key,employeeKey);assert.equal(table,'dbo.person');return employeeId;};
 async function execute(value:TrainingImportItem,op?:string){return db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,owner,op));}
 let sourceParticipant:string;
+test('formal memo completion corrections clear-null projection and source replay preserve modern changes',{skip:!enabled},async()=>{
+ const incoming=(memo:string|null)=>{const v=item('9');v.fields.memo=memo;v.rowDigest=digest({domain:v.domain,sourceTable:v.sourceTable,sourceKey:v.sourceKey,sourceUpdatedAt:null,fields:v.fields});return v;};
+ assert.equal(await execute(incoming('  source memo\n  '),await operation()),'applied');
+ const binding=(await db.query('SELECT target_id FROM hr_incremental_import_item WHERE source_key=$1',[sourceKey('9')]))[0];
+ const participant=(await db.query('SELECT plan_id,memo FROM hr_training_participant WHERE id=$1',[binding.target_id]))[0];
+ assert.equal(participant.memo,'  source memo\n  ');
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const reader={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_READ]};
+ const visible=async()=> (await service.planDetail(scope,reader,participant.plan_id)).participants[0].memo;
+ assert.equal(await visible(),'  source memo\n  ');
+ await service.correct(scope,actor,binding.target_id,{correctedMemo:'modern',reason:'synthetic memo correction'});
+ assert.equal(await execute(incoming('  source memo\n  '),await operation()),'unchanged');assert.equal(await visible(),'modern');
+ assert.equal(await execute(incoming('source changed'),await operation()),'conflict');assert.equal(await visible(),'modern');
+ assert.equal(await execute(incoming('modern'),await operation()),'applied');
+ assert.equal(await execute(incoming(null),await operation()),'applied');assert.equal(await visible(),null);
+ assert.equal(await execute(incoming(''),await operation()),'applied');assert.equal(await visible(),'');
+ await service.correct(scope,actor,binding.target_id,{correctedHours:'11',reason:'synthetic unrelated correction'});assert.equal(await visible(),'');
+ await service.correct(scope,actor,binding.target_id,{correctedMemo:null,reason:'synthetic explicit clear'});assert.equal(await visible(),null);
+ await assert.rejects(service.correct(scope,{...actor,permissions:[]},binding.target_id,{correctedMemo:'forbidden',reason:'synthetic'}));
+ await assert.rejects(db.query('UPDATE hr_training_participant SET memo=$2 WHERE id=$1',[binding.target_id,'overwrite']),/requires correction/);
+ assert.equal((await db.query('SELECT memo FROM hr_training_participant WHERE id=$1',[binding.target_id]))[0].memo,'  source memo\n  ');
+ const beforeRollback=await counts();
+ await assert.rejects(db.transaction(async m=>{await correctTrainingHistoryFactsInTransaction(m,scope,actor,binding.target_id,5,{memo:'must roll back'});await m.query('SELECT 1/0');}));
+ assert.deepEqual(await counts(),beforeRollback);assert.equal(await visible(),null);
+ const races=await Promise.allSettled(['memo A','memo B'].map(memo=>db.transaction(m=>correctTrainingHistoryFactsInTransaction(m,scope,actor,binding.target_id,5,{memo}))));
+ assert.equal(races.filter(r=>r.status==='fulfilled').length,1);assert.ok(['memo A','memo B'].includes(await visible()));
+
+});
 test('encrypted source ledger provides preview isolation and successful replay',{skip:!enabled},async()=>{
  const before=await counts(),preview=await execute(item('e'));assert.equal(typeof preview,'object');assert.equal((preview as {action:string}).action,'create');assert.deepEqual(await counts(),before);
  const op=await operation();assert.equal(await execute(item('e'),op),'applied');assert.equal(await execute(item('e'),await operation()),'unchanged');
@@ -171,7 +201,7 @@ test('retained archive source is authenticated before first formal acceptance an
 
 test('same fixed package creates organization active employee and formal training atomically',{skip:!enabled},async()=>{
  await db.query(`ALTER TABLE hr_employee ALTER COLUMN id SET DEFAULT uuid_generate_v4(),
- ADD COLUMN employee_code text,ADD COLUMN full_name text,ADD COLUMN employment_type text,ADD COLUMN employment_status text,
+ ADD COLUMN employee_code text,ADD COLUMN employment_type text,ADD COLUMN employment_status text,
  ADD COLUMN hire_date date,ADD COLUMN work_location text,ADD COLUMN work_mobile text,ADD COLUMN work_email text,
  ADD COLUMN create_by uuid,ADD COLUMN update_by uuid,ADD COLUMN version integer DEFAULT 1,ADD COLUMN primary_org_id uuid,ADD COLUMN position_id uuid,
  ADD COLUMN update_time timestamptz DEFAULT now();

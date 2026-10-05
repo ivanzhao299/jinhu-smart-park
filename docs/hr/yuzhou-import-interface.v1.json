@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "15323b38abf64ba1ad55a3dffa0190b892e945f2fdb84f0bd53b56616cec82fe",
+  "recipeSha256": "42c3c520e2ad44f21767a7a580e39ee88fab4d5768452c4add98c28dd1dff236",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
@@ -76,6 +76,12 @@
       },
       {
         "sourceTable": "dbo.trainhis",
+        "sourceField": "memo",
+        "targetField": "memo",
+        "disposition": "fixed_mapping_candidate"
+      },
+      {
+        "sourceTable": "dbo.trainhis",
         "sourceField": "organ",
         "disposition": "pending_semantic_or_writer_binding",
         "reasonCode": "TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED"
@@ -97,12 +103,6 @@
         "sourceField": "trainmoney",
         "disposition": "pending_semantic_or_writer_binding",
         "reasonCode": "TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE"
-      },
-      {
-        "sourceTable": "dbo.trainhis",
-        "sourceField": "memo",
-        "disposition": "pending_semantic_or_writer_binding",
-        "reasonCode": "TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED"
       }
     ],
     "insurancePolicyFieldCoverage": [
@@ -704,7 +704,7 @@
       {
         "domain": "training_history",
         "sourceTable": "dbo.trainhis",
-        "adapter": "raw-training-history-four-facts",
+        "adapter": "raw-training-history-facts-and-memo",
         "dependency": "verified dbo.person identity",
         "eligibility": "API certifies original provenance or creates new source; published snapshot revisions require normal business workflow; no guessed result/provider/cost"
       },

@@ -20,3 +20,15 @@ test("facts enforce reviewed date/hour schema without echoing rejected contents"
 test("business primitive requires an active caller transaction before writes",async()=>{
  await assert.rejects(createTrainingHistoryInTransaction({queryRunner:{isTransactionActive:false}} as never,{tenantId:"t",parkId:"p"},{sub:"",tenantId:"t",parkId:"p"} as never,"", "",facts),/TRAINING_IMPORT_TRANSACTION_REQUIRED/);
 });
+test("memo is independent, nullable, exact, and omission preserves older packages",()=>{
+ for(const memo of [null,"","  独立备注\n原样  "])assert.equal(normalizeTrainingHistoryFacts({...facts,memo}).memo,memo);
+ assert.equal(Object.hasOwn(normalizeTrainingHistoryFacts(facts),"memo"),false);
+ for(const memo of [undefined,42,{},"x".repeat(2001),"bad\0note","bad\ud800"])assert.throws(()=>normalizeTrainingHistoryFacts({...facts,memo}),/FACTS_INVALID/);
+ const old={...facts,memo:"原备注"};
+ assert.equal(planTrainingHistoryFacts(facts,old,{...old,memo:"现代备注"},old).action,"unchanged");
+ assert.equal(planTrainingHistoryFacts({...facts,memo:null},old,old,old).correctedMemo,null);
+ assert.equal(planTrainingHistoryFacts({...facts,memo:""},old,old,old).correctedMemo,"");
+ assert.equal(planTrainingHistoryFacts(old,old,{...old,memo:null},old).action,"unchanged");
+ assert.deepEqual(planTrainingHistoryFacts({...old,memo:"来源变化"},old,{...old,memo:"现代变化"},old).conflictFields,["memo"]);
+ assert.ok(planTrainingHistoryFacts({...facts,memo:null},facts,{...facts,memo:null},facts).conflictFields.includes("INITIAL_FIELD_BASELINE_UNKNOWN"));
+});
