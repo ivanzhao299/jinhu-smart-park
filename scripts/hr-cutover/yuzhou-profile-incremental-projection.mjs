@@ -76,20 +76,25 @@ export function profileSourceFields(source, omittedFields=[]) {
 export function projectYuzhouProfile(row,employees,{baselineWitness,aliasAcceptance,omittedFields=[]}={}) {
   const verified=verifyProfileSource(row),source=verified.source;
   const employee=employees.get(source.person.trim());if(!employee) fail("YUZHOU_PROFILE_EMPLOYEE_MISSING");
-  let fields={employeeSourceKey:employee.sourceKey,employeeSourceTable:employee.sourceTable,...(baselineWitness?{}:profileSourceFields(source,omittedFields))};
-  if(baselineWitness) fields={};
-  else {
-    const limits={gender:32,personalMobile:32,personalEmail:128,address:500,idNumber:64,nativePlace:128,degree:64};
-    for(const key of omittedFields) {if(!Object.values(originalMapped).includes(key))fail("YUZHOU_PROFILE_ADMISSION_INVALID");delete fields[key];}
-    for(const [key,value] of Object.entries(fields)) if(value!==null&&limits[key]&&value.length>limits[key])fail("YUZHOU_PROFILE_FIELD_INVALID");
-    if(fields.personalEmail!==undefined&&fields.personalEmail!==null&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(fields.personalEmail))fail("YUZHOU_PROFILE_EMAIL_INVALID");
-  }
+  let fields;
   if(aliasAcceptance!==undefined) {
     if(baselineWitness || !plain(aliasAcceptance) || Object.keys(aliasAcceptance).sort().join(",")!=="bindingSha256,fields,operationId,proof,version"
       || aliasAcceptance.version!==1 || aliasAcceptance.proof!=="original_t5_alias_fields_v1" || !/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(aliasAcceptance.operationId??"")
       || !/^[a-f0-9]{64}$/u.test(aliasAcceptance.bindingSha256??"") || !Array.isArray(aliasAcceptance.fields) || !aliasAcceptance.fields.length || new Set(aliasAcceptance.fields).size!==aliasAcceptance.fields.length
-      || aliasAcceptance.fields.some(field=>!["nativePlace","degree"].includes(field)||!Object.hasOwn(fields,field))) fail("YUZHOU_PROFILE_ALIAS_ACCEPTANCE_INVALID");
-    fields=Object.fromEntries(aliasAcceptance.fields.map(field=>[field,fields[field]]));
+      || aliasAcceptance.fields.some(field=>!Object.entries(aliases).some(([column,rule])=>rule.targetField===field && Object.hasOwn(source,column)))) fail("YUZHOU_PROFILE_ALIAS_ACCEPTANCE_INVALID");
+    for(const key of omittedFields) if(!Object.values(originalMapped).includes(key))fail("YUZHOU_PROFILE_ADMISSION_INVALID");
+    // Authenticate the complete raw row above, but project only the explicitly
+    // requested aliases. Unchanged historical DOB/email/ID are evidence, not writes.
+    fields=Object.fromEntries(aliasAcceptance.fields.map(field=>{
+      const column=Object.keys(aliases).find(key=>aliases[key].targetField===field),value=source[column];
+      return [field,value===null?null:value.trim()||null];
+    }));
+  } else if(baselineWitness) fields={};
+  else {
+    fields={employeeSourceKey:employee.sourceKey,employeeSourceTable:employee.sourceTable,...profileSourceFields(source,omittedFields)};
+    const limits={gender:32,personalMobile:32,personalEmail:128,address:500,idNumber:64,nativePlace:128,degree:64};
+    for(const [key,value] of Object.entries(fields)) if(value!==null&&limits[key]&&value.length>limits[key])fail("YUZHOU_PROFILE_FIELD_INVALID");
+    if(fields.personalEmail!==undefined&&fields.personalEmail!==null&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(fields.personalEmail))fail("YUZHOU_PROFILE_EMAIL_INVALID");
   }
   const item={domain:"profile",sourceTable:row.sourceTable,sourceKey:`sha256:${row.sourceIdentitySha256}`,rowDigest:"",fields,...(baselineWitness?{profileBaselineWitness:baselineWitness}:{}),...(aliasAcceptance?{profileAliasAcceptance:aliasAcceptance}:{})};
   item.rowDigest=hash(canonicalProfile({domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceUpdatedAt:null,fields,...(aliasAcceptance?{profileAliasAcceptance:aliasAcceptance}:{})}));

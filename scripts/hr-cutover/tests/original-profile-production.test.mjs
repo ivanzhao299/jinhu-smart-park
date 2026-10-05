@@ -113,3 +113,14 @@ test('phase-only failures survive real SSH transport while private errors and pa
     assert.equal(safePreparationFailure(Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_SECRET_VALUE')),'ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED');
   }finally{rmSync(root,{recursive:true,force:true})}
 });
+
+test('collector failures expose only reviewed fixed substage codes, never error text',()=>{
+  for(const [message,stage] of [['YUZHOU_PROFILE_DATE_INVALID','SOURCE_PREPARATION_PROFILE_DATE'],['YUZHOU_PROFILE_ALIAS_SOURCE_OPERATION_INVALID','SOURCE_PREPARATION_ORIGINAL_OPERATION'],['YUZHOU_PROFILE_DATE_INVALID private-row /private/path','SOURCE_PREPARATION'],['toString','SOURCE_PREPARATION']]){
+    const {root,request}=fixture();try{
+      const path=paths[1],text=`export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=()=>{throw Error(${JSON.stringify(message)})};`;
+      writeFileSync(join(request.deployPath,path),text);request.files.find(file=>file.path===path).sha256=sha(text);
+      const actual=spawnSync(process.execPath,['--input-type=module','-e',productionPreparationBootstrap],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+      assert.equal(actual.status,1);assert.equal(actual.stdout,'');assert.equal(actual.stderr,`ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED_${stage}\n`);
+    }finally{rmSync(root,{recursive:true,force:true})}
+  }
+});
