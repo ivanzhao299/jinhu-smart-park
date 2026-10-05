@@ -2,6 +2,8 @@
 
 ## 原始档案籍贯与学历补齐的有序批次
 
+生产只读 `diagnose_personnel_alias` 观察同时返回 `originalBaselineSet` 的六项集合计数，按 API `certifyOriginalProfiles` 的 `Asia/Shanghai` 时区、PostgreSQL JSON 文本和排序行摘要算法，对比原操作 `owned_state` 中的档案与全部回执集合。只有非空档案、有效未回退操作及两套摘要都匹配，才返回 `OBSERVED_INTACT_FOR_API_RECHECK`；其他情况为 `ORIGINAL_SET_NOT_PROVEN`。别名计划的匹配状态独立保留，不能替代原始集合证据。检查不读取明文或加密来源载荷、不锁业务表，只输出计数；该瞬时观察不是提交时的锁定认证，不授予写入权限，也不表示所有来源/版本门槛已通过。正式 API 仍重新认证。
+
 `scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs` 组合已有 NULL-only planner、原始档案基线 witness 和固定构包器，不另设 SQL writer。它输出先基线、后字段补齐的编号文件和私有 `receipt.json`；全部基线包必须先成功，再处理任何补齐包。同一档案同时补籍贯和学历时只生成一个 item，避免分两次首次接纳触发原始版本保护。每包仍遵守 2000 条/8 MiB 限制，事务与幂等由现有公共预览/提交/查询接口负责。
 
 输入私有 JSON 包含 `importInput`、`plannerInput`、`originalWitness` 三项。`importInput` 是前述固定构包输入的档案-only 子集：保留配方、日期、员工依赖索引、完整原始 `profileRecords` 和必要的已核验 `profileAdmissionEvidence`；`employeeRecords` 与 `records` 均为空，不混入其他领域。`plannerInput` 使用 `legacy-personnel-alias-backfill-plan.mjs` 已定义的合同、来源绑定、员工和当前档案集合及原始别名源行。三个集合必须由受控准备过程提供；禁止手填人员身份或把当前目标当作原始目标证据。入口重新核对完整源行摘要、原始别名值和员工身份，服务端仍独立认证原操作/范围/回执、原始目标和版本。聚合观察的封存哈希不包含这些逐行输入，不能单独用于构包或授权。

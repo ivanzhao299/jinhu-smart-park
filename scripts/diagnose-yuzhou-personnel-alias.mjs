@@ -1,9 +1,48 @@
 import { execFileSync } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const CORRECTION_MAPPING_VERSION = 'yuzhou-personnel-alias-null-fill-v1';
+
+// Mirrors certifyOriginalProfiles' PostgreSQL JSON text / sorted row-hash
+// algorithm. An observation is not the API's locked certificate or authorization.
+export const profileBaselineSetCtes = `baseline_profile_documents AS (
+   SELECT operation_id,
+     jsonb_build_object('count',count(*)::int,'sha256',
+     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
+   FROM (SELECT r.operation_id,encode(digest(to_jsonb(p)::text,'sha256'),'hex') row_hash
+     FROM ops selected JOIN hr_yuzhou_t5_followon_projection_receipt r USING(operation_id)
+     JOIN hr_employee_profile p ON r.target_id=p.id AND r.target_table='hr_employee_profile'
+       AND r.disposition='insert'
+     WHERE p.tenant_id='10000001' AND p.park_id='20000001') hashes
+   GROUP BY operation_id
+), baseline_receipt_documents AS (
+   SELECT operation_id,
+     jsonb_build_object('count',count(*)::int,'sha256',
+     encode(digest(COALESCE(string_agg(row_hash,'' ORDER BY row_hash),''),'sha256'),'hex')) document
+   FROM (SELECT r.operation_id,encode(digest(to_jsonb(r)::text,'sha256'),'hex') row_hash
+     FROM ops selected JOIN hr_yuzhou_t5_followon_projection_receipt r USING(operation_id)) hashes
+   GROUP BY operation_id
+), baseline_sets AS (
+ SELECT o.operation_id,
+   COALESCE(o.status='succeeded' AND o.finished_at IS NOT NULL AND o.rolled_back_at IS NULL,false) operation_valid,
+   COALESCE(ph.document,jsonb_build_object('count',0,'sha256',encode(digest('','sha256'),'hex'))) profile_document,
+   COALESCE(rh.document,jsonb_build_object('count',0,'sha256',encode(digest('','sha256'),'hex'))) receipt_document,o.owned_state
+ FROM ops selected JOIN hr_yuzhou_t5_followon_operation o USING(operation_id)
+ LEFT JOIN baseline_profile_documents ph USING(operation_id)
+ LEFT JOIN baseline_receipt_documents rh USING(operation_id)
+)`;
+export const profileBaselineSetSelect = `json_build_object(
+ 'operationCount',(SELECT count(*) FROM baseline_sets),
+ 'validOperationCount',(SELECT count(*) FROM baseline_sets WHERE operation_valid),
+ 'nonEmptyProfileSetCount',(SELECT count(*) FROM baseline_sets WHERE (profile_document->>'count')::int>0),
+ 'matchingProfileSetCount',(SELECT count(*) FROM baseline_sets WHERE profile_document=owned_state->'hr_employee_profile'),
+ 'matchingReceiptSetCount',(SELECT count(*) FROM baseline_sets WHERE receipt_document=owned_state->'receipts'),
+ 'intactWholeSetCount',(SELECT count(*) FROM baseline_sets WHERE operation_valid
+   AND (profile_document->>'count')::int>0 AND profile_document=owned_state->'hr_employee_profile'
+   AND receipt_document=owned_state->'receipts'))`;
 
 // Production observer only. The encrypted T5 source payload is intentionally never selected.
 export const personnelAliasSql = `BEGIN TRANSACTION READ ONLY;
@@ -11,6 +50,7 @@ SET LOCAL statement_timeout='5s';
 SET LOCAL lock_timeout='2s';
 SET LOCAL enable_nestloop=off;
 SET LOCAL search_path=public,pg_catalog;
+SET LOCAL TIME ZONE 'Asia/Shanghai';
 WITH ops AS (
  SELECT o.operation_id,o.parent_operation_id
  FROM hr_yuzhou_t5_followon_operation o
@@ -210,8 +250,9 @@ WITH ops AS (
  SELECT encode(digest(COALESCE(string_agg(source_identity_sha256::text||':'||source_row_sha256::text,E'\\n'
    ORDER BY source_identity_sha256::text COLLATE "C",source_row_sha256::text COLLATE "C"),''),'sha256'),'hex') AS source_set_sha256
  FROM raw
-)
+), ${profileBaselineSetCtes}
 SELECT json_build_object(
+ 'originalBaselineSet',${profileBaselineSetSelect},
  'operationCount',(SELECT count(DISTINCT operation_id) FROM raw),
   'sourceRecords',(SELECT count(*) FROM raw),
   'receiptMatchedSourceRecords',(SELECT count(*) FROM receipt_source),
@@ -287,6 +328,7 @@ SET LOCAL statement_timeout='5s';
 SET LOCAL lock_timeout='2s';
 SET LOCAL enable_nestloop=off;
 SET LOCAL search_path=public,pg_catalog;
+SET LOCAL TIME ZONE 'Asia/Shanghai';
 EXPLAIN (FORMAT JSON) ${personnelAliasSql.slice(selectStart, selectEnd)}
 ROLLBACK;`;
 
@@ -297,6 +339,7 @@ const profileGapKeys = ['matched','receiptMissing','receiptSourceMismatch','rece
   'targetScopeOrOwnerMismatch','targetSourceMismatch','ambiguousActiveProfiles'];
 const profileNonInsertReasonKeys = ['identityAmbiguous','sourceMaterializationQuarantined','employeeNotMapped','other'];
 const profileNonInsertStatusKeys = ['departed','nonDeparted','unknown'];
+const baselineSetKeys = ['operationCount','validOperationCount','nonEmptyProfileSetCount','matchingProfileSetCount','matchingReceiptSetCount','intactWholeSetCount'];
 const DB_SQLSTATE_ERRORS = new Map([
   ['57014','PERSONNEL_ALIAS_DB_TIMEOUT_57014'],
   ['42P01','PERSONNEL_ALIAS_DB_SCHEMA_INVALID'],
@@ -320,7 +363,15 @@ function safeProbeErrorCode(error) {
 
 function validateResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
-  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps','profileNonInsertSummary','correctionPlan'].sort();
+  const expected = [...countKeys,'sourceSetSha256','fields','profileGaps','profileNonInsertSummary','correctionPlan','originalBaselineSet'].sort();
+  const baseline = value.originalBaselineSet;
+  if (!baseline || typeof baseline !== 'object' || Array.isArray(baseline)
+    || Object.keys(baseline).sort().join('|') !== [...baselineSetKeys].sort().join('|')
+    || !baselineSetKeys.every(key => Number.isSafeInteger(baseline[key]) && baseline[key] >= 0)
+    || baseline.operationCount > 1 || baseline.operationCount < value.operationCount
+    || baselineSetKeys.slice(1).some(key => baseline[key] > baseline.operationCount)
+    || baseline.intactWholeSetCount > Math.min(baseline.validOperationCount,baseline.nonEmptyProfileSetCount,
+      baseline.matchingProfileSetCount,baseline.matchingReceiptSetCount)) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
   if (Object.keys(value).sort().join('|') !== expected.join('|') || !countKeys.every(key => Number.isSafeInteger(value[key]) && value[key] >= 0)
     || typeof value.sourceSetSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(value.sourceSetSha256)
     || !value.profileGaps || typeof value.profileGaps !== 'object' || Array.isArray(value.profileGaps)
@@ -462,6 +513,8 @@ export function diagnosePersonnelAlias(deployPath, run = execFileSync) {
   return { kind: 'yuzhou_personnel_alias_observation', ...value,
     classification: value.sourceRecords === 0 ? 'NOT_READY' : classification,
     correctionPlanStatus: correctionPlanReady ? 'MATCHED_SUBSET_FOR_REVIEW' : 'NOT_READY',
+    originalBaselineSetStatus: value.originalBaselineSet.operationCount === 1 && value.originalBaselineSet.intactWholeSetCount === 1
+      ? 'OBSERVED_INTACT_FOR_API_RECHECK' : 'ORIGINAL_SET_NOT_PROVEN',
     productionImport: 'HOLD', authorizationGranted: false, writerPresent: false };
 }
 

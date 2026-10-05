@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { URL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
+import process from 'node:process';
+import { createHash, randomBytes } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, profileBaselineSetCtes, profileBaselineSetSelect, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const zeroField = () => ({ targetNullSourceValid: 0, existingEqualPreserved: 0, existingDifferentPreserved: 0, whitespaceOnlySource: 0, missingOrInvalidSource: 0 });
 const result = (overrides = {}) => {
@@ -13,6 +18,9 @@ const result = (overrides = {}) => {
   return { operationCount: 1, sourceRecords: 2, receiptMatchedSourceRecords: 2, missingSourceReceiptCount: 0, mappedRecords: 2,
     unmappedRecords: 0, otherOwnerStatusRecords: 0, duplicateSourceRows: 0, t0MappedRecords: 2, profileMatchedCount,
     duplicateProfiles: 0, ambiguousArchiveRegistryCount: 0, missingArchiveCount: 0, sourceSetSha256: 'a'.repeat(64),
+    originalBaselineSet: { operationCount: overrides.operationCount ?? 1, validOperationCount: overrides.operationCount ?? 1,
+      nonEmptyProfileSetCount: overrides.operationCount ?? 1, matchingProfileSetCount: overrides.operationCount ?? 1,
+      matchingReceiptSetCount: overrides.operationCount ?? 1, intactWholeSetCount: overrides.operationCount ?? 1 },
     ...overrides, fields,
     profileGaps: { matched: profileMatchedCount, receiptMissing: 0, receiptSourceMismatch: 0, receiptNotInserted: 0,
       targetMissing: 0, targetDeleted: 0, targetScopeOrOwnerMismatch: 0, targetSourceMismatch: 0, ambiguousActiveProfiles: 0,
@@ -77,6 +85,27 @@ test('empty source scope is NOT_READY and never a pass', () => {
   const observed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(empty));
   assert.equal(observed.classification, 'NOT_READY');
   assert.equal(observed.productionImport, 'HOLD');
+});
+
+test('whole-set observation is separate from alias seals and never certifies a write', () => {
+  const intact = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result()));
+  assert.equal(intact.originalBaselineSetStatus, 'OBSERVED_INTACT_FOR_API_RECHECK');
+  const changed = diagnosePersonnelAlias('/srv/jinhu-prod', runnerFor(result({ originalBaselineSet: {
+    operationCount: 1,validOperationCount: 1,nonEmptyProfileSetCount: 1,
+    matchingProfileSetCount: 0,matchingReceiptSetCount: 1,intactWholeSetCount: 0,
+  } })));
+  assert.equal(changed.correctionPlanStatus,'MATCHED_SUBSET_FOR_REVIEW');
+  assert.equal(changed.originalBaselineSetStatus,'ORIGINAL_SET_NOT_PROVEN');
+  assert.equal(changed.authorizationGranted,false);
+  assert.equal(changed.writerPresent,false);
+  for (const originalBaselineSet of [null,{}, { ...intact.originalBaselineSet,privateRows: [] },
+    { ...intact.originalBaselineSet,matchingProfileSetCount: 0 },
+    { ...intact.originalBaselineSet,validOperationCount: '1' }]) {
+    assert.throws(() => diagnosePersonnelAlias('/srv/jinhu-prod',runnerFor(result({ originalBaselineSet }))),
+      /^Error: PERSONNEL_ALIAS_RESULT_INVALID$/);
+  }
+  assert.match(personnelAliasSql,/SET LOCAL TIME ZONE 'Asia\/Shanghai'/);
+  assert.doesNotMatch(personnelAliasSql,/LOCK TABLE|FOR UPDATE|FOR SHARE/);
 });
 
 test('profile gap categories are aggregate-only, disjoint, and conserve mapped owners', () => {
@@ -276,7 +305,7 @@ test('EXPLAIN plan is reconstructed from whitelisted structure and never reports
 
 test('EXPLAIN rejects unbounded, malformed, or unknown structural plans with a fixed error', () => {
   const valid = planValue();
-  const clone = value => structuredClone(value);
+  const clone = value => globalThis.structuredClone(value);
   const unknown = clone(valid); unknown[0].Plan['Node Type'] = 'Private Node';
   const badCost = clone(valid); badCost[0].Plan['Total Cost'] = Infinity;
   const badType = clone(valid); badType[0].Plan['Plan Rows'] = '1';
@@ -358,4 +387,65 @@ test('test remains independent of retained production rows and credentials', () 
   const source = readFileSync(new URL('../../diagnose-yuzhou-personnel-alias.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /hr_legacy_t5_record/);
   assert.doesNotMatch(source, /decrypt|ciphertext/i);
+});
+
+test('real PostgreSQL whole-set observation catches profile edits, receipt edits and empty or invalid operations',
+  { skip: process.env.HR_PROFILE_SET_OBSERVER_PG !== '1' }, async () => {
+  const { Client } = createRequire(new URL('../../../apps/api/package.json',import.meta.url))('pg');
+  const name = `jinhu_hr_profile_set_observer_${randomBytes(12).toString('hex')}`;
+  const config = {host:'127.0.0.1',port:55491,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD};
+  const admin = new Client({...config,database:'postgres'});
+  let created = false, client;
+  try {
+    await admin.connect();
+    await admin.query(`CREATE DATABASE "${name}" TEMPLATE template0`);created=true;
+    client=new Client({...config,database:name});await client.connect();
+    assert.equal((await client.query('SELECT current_database() db')).rows[0].db,name);
+    await client.query(`CREATE EXTENSION pgcrypto;
+      CREATE TABLE hr_yuzhou_t5_followon_operation(operation_id text,status text,finished_at timestamptz,rolled_back_at timestamptz,owned_state jsonb);
+      CREATE TABLE hr_employee_profile(id text,tenant_id text,park_id text,version int,native_place text,updated_at timestamptz);
+      CREATE TABLE hr_yuzhou_t5_followon_projection_receipt(operation_id text,target_id text,target_table text,disposition text,source_row_sha256 text);
+      INSERT INTO hr_yuzhou_t5_followon_operation VALUES('synthetic','succeeded',now(),null,null);
+      INSERT INTO hr_employee_profile VALUES('p1','10000001','20000001',1,null,'2026-10-01T12:00:00+08:00'),('p2','10000001','20000001',1,null,'2026-10-02T12:00:00+08:00');
+      INSERT INTO hr_yuzhou_t5_followon_projection_receipt VALUES('synthetic','p1','hr_employee_profile','insert','one'),('synthetic','p2','hr_employee_profile','insert','two');
+      SET TIME ZONE 'Asia/Shanghai';`);
+    const seal=async table=>{
+      const rows=(await client.query(`SELECT to_jsonb(t)::text text FROM ${table} t`)).rows;
+      const sha=v=>createHash('sha256').update(v).digest('hex');
+      return {count:rows.length,sha256:sha(rows.map(r=>sha(r.text)).sort().join(''))};
+    };
+    const owned={hr_employee_profile:await seal('hr_employee_profile'),receipts:await seal('hr_yuzhou_t5_followon_projection_receipt')};
+    await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$1',[owned]);
+    await client.query("SET TIME ZONE 'UTC'");
+    const observe=async()=>{
+      const rows=await client.query(`BEGIN TRANSACTION READ ONLY;
+        SET LOCAL statement_timeout='5s'; SET LOCAL enable_nestloop=off;
+        SET LOCAL TIME ZONE 'Asia/Shanghai';
+        WITH ops AS (SELECT operation_id FROM hr_yuzhou_t5_followon_operation),${profileBaselineSetCtes}
+        SELECT ${profileBaselineSetSelect} result; ROLLBACK;`);
+      assert.equal((await client.query('SHOW timezone')).rows[0].TimeZone,'UTC');
+      return rows.find(r=>r.rows?.[0]?.result)?.rows[0].result;
+    };
+    assert.deepEqual(await observe(),{operationCount:1,validOperationCount:1,nonEmptyProfileSetCount:1,
+      matchingProfileSetCount:1,matchingReceiptSetCount:1,intactWholeSetCount:1});
+    await client.query("UPDATE hr_employee_profile SET version=version+1 WHERE id='p1'");
+    assert.equal((await observe()).matchingProfileSetCount,0);
+    await client.query("UPDATE hr_employee_profile SET version=1 WHERE id='p1'");
+    await client.query("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256='changed' WHERE target_id='p1'");
+    assert.equal((await observe()).matchingReceiptSetCount,0);
+    await client.query("UPDATE hr_yuzhou_t5_followon_projection_receipt SET source_row_sha256='one' WHERE target_id='p1'");
+    await client.query('UPDATE hr_yuzhou_t5_followon_operation SET rolled_back_at=now()');
+    assert.equal((await observe()).intactWholeSetCount,0);
+    await client.query('UPDATE hr_yuzhou_t5_followon_operation SET rolled_back_at=null,owned_state=null');
+    assert.equal((await observe()).intactWholeSetCount,0);
+    await client.query('DELETE FROM hr_employee_profile');
+    assert.equal((await observe()).nonEmptyProfileSetCount,0);
+  } finally {
+    if(client)await client.end();
+    if(created) {
+      await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);
+      assert.equal((await admin.query('SELECT count(*)::int n FROM pg_database WHERE datname=$1',[name])).rows[0].n,0);
+    }
+    await admin.end();
+  }
 });
