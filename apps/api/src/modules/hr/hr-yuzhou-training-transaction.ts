@@ -5,6 +5,8 @@ import type { EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
+import { lockTrainingParticipantPlan } from "./hr-training-locks";
+
 export type TrainingHistoryFacts = { courseName:string; startDate:string; endDate:string; hours:string; memo?:string|null };
 const requiredKeys=["courseName","startDate","endDate","hours"] as const;
 const keys=[...requiredKeys,"memo"] as const;
@@ -79,6 +81,7 @@ export async function correctTrainingHistoryFactsInTransaction(m:EntityManager,s
  requireTransaction(m,s,a,[HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE]);
  const {hours,memo}=fields;
  if(!isUUID(participantId)||!Number.isSafeInteger(expectedVersion)||expectedVersion<0||(hours===undefined&&memo===undefined)||(hours!==undefined&&(!/^[1-9]\d{0,5}$/.test(hours)||Number(hours)>999999))||(memo!==undefined&&memo!==null&&(typeof memo!=="string"||memo.length>2000||memo.includes("\0")||/\p{Surrogate}/u.test(memo))))throw new BadRequestException("TRAINING_IMPORT_CORRECTION_INVALID");
+ await lockTrainingParticipantPlan(m,s,participantId);
  const rows=await m.query(`SELECT t.id,t.plan_id FROM hr_training_participant t JOIN hr_training_plan p ON p.id=t.plan_id AND p.tenant_id=t.tenant_id AND p.park_id=t.park_id JOIN hr_employee e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id AND e.park_id=t.park_id WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.id=$3 AND t.status='completed' AND NOT p.is_deleted AND p.status='completed' AND NOT e.is_deleted FOR UPDATE OF t`,[s.tenantId,s.parkId,participantId]);
  if(rows.length!==1)throw new NotFoundException("Completed training participant not found");
  const version=Number((await m.query(`SELECT COALESCE(max(sequence_no),0)::int n FROM hr_training_result_correction WHERE tenant_id=$1 AND park_id=$2 AND participant_id=$3`,[s.tenantId,s.parkId,participantId]))[0]?.n);

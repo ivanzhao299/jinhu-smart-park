@@ -6,6 +6,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction,correctTrainingHistoryFactsInTransaction,type TrainingHistoryFacts } from "./hr-yuzhou-training-transaction";
+import { lockTrainingParticipantPlan } from "./hr-training-locks";
 export type TrainingImportItem={domain:"training_history";sourceTable:string;sourceKey:string;rowDigest:string;fields:Record<string,unknown>;sourceUpdatedAt?:string};
 const hash=(v:unknown)=>createHash("sha256").update(profileCanonical(v)).digest("hex");
 const sha=(v:string)=>createHash("sha256").update(v).digest("hex");
@@ -63,6 +64,7 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
   binding=(await m.query('SELECT * FROM hr_incremental_training_binding WHERE item_id=$1',[prior.id]))[0];
   if(!binding||binding.tenant_id!==scope.tenantId||binding.park_id!==scope.parkId||binding.employee_id!==employeeId||binding.participant_id!==prior.target_id||(binding.original_source_id??null)!==(original?.sourceId??null))return invalid();
   if(source.employeeSourceKey!==item.fields.employeeSourceKey||source.employeeSourceTable!=='dbo.person')throw new ConflictException('TRAINING_IMPORT_EMPLOYEE_IMMUTABLE');
+  if(operationId)await lockTrainingParticipantPlan(m,scope,prior.target_id);
   const rows=await m.query(`SELECT p.snapshot->>'courseTitle' name,to_char(p.start_date,'YYYY-MM-DD') start,to_char(p.end_date,'YYYY-MM-DD') finish,
  COALESCE((SELECT corrected_hours FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND corrected_hours IS NOT NULL ORDER BY sequence_no DESC LIMIT 1),t.completed_hours)::text hours,
  CASE WHEN EXISTS(SELECT 1 FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present) THEN (SELECT corrected_memo FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present ORDER BY sequence_no DESC LIMIT 1) ELSE t.memo END memo,

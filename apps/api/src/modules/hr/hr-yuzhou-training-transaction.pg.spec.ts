@@ -251,3 +251,62 @@ test('same fixed package creates organization active employee and formal trainin
 
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test('modern check-in and source correction acquire parent before participant and re-read after waiting',{skip:!enabled},async()=>{
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const course=await service.createCourse(scope,actor,{code:`LOCK-${randomUUID()}`,title:'Synthetic lock order',category:'synthetic',hours:'8'});
+ const plan=await service.createPlan(scope,actor,{code:`LOCK-${randomUUID()}`,name:'Synthetic lock order',courseId:course.id,mandatory:false,startDate:'2026-10-01',endDate:'2026-10-06',budgetAmount:'0',costCurrency:'CNY',employeeIds:[employeeId]});
+ await service.publish(scope,actor,plan.id);await service.start(scope,actor,plan.id);
+ const participant=(await db.query('SELECT id FROM hr_training_participant WHERE plan_id=$1',[plan.id]))[0].id as string;
+ const holder=db.createQueryRunner(),probe=db.createQueryRunner();
+ await holder.connect();await probe.connect();
+ const waitForParent=async(pid:number)=>{
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline){
+   const rows=await db.query(`SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%SELECT p.id FROM hr_training_plan p%'`,[pid]);
+   if(rows.length)return;
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.fail('participant writer did not wait at the parent lock');
+ };
+ let checkIn:Promise<{ok:boolean}>|undefined;
+ try{
+  await holder.startTransaction();await holder.query('SELECT id FROM hr_training_plan WHERE id=$1 FOR UPDATE',[plan.id]);
+  const pid=Number((await holder.query('SELECT pg_backend_pid() pid'))[0].pid);
+  checkIn=service.checkIn(scope,actor,participant).then(()=>({ok:true}),()=>({ok:false}));
+  await waitForParent(pid);
+  await probe.startTransaction();await probe.query('SELECT id FROM hr_training_participant WHERE id=$1 FOR UPDATE NOWAIT',[participant]);await probe.rollbackTransaction();
+  await holder.query(`UPDATE hr_training_plan SET status='cancelled' WHERE id=$1`,[plan.id]);
+  await holder.query(`UPDATE hr_training_participant SET status='cancelled' WHERE id=$1`,[participant]);await holder.commitTransaction();
+  assert.equal((await checkIn).ok,false);
+  assert.equal((await db.query('SELECT status,checked_in_at FROM hr_training_participant WHERE id=$1',[participant]))[0].checked_in_at,null);
+  const imported=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+  await holder.startTransaction();await holder.query('SELECT id FROM hr_training_plan WHERE id=$1 FOR UPDATE',[imported.planId]);
+  const correcting=db.transaction(m=>correctTrainingHistoryFactsInTransaction(m,scope,actor,imported.participantId,0,{memo:'source note'})).then(()=>({ok:true}),error=>({ok:false,error}));
+  try{
+   await waitForParent(pid);
+   await probe.startTransaction();await probe.query('SELECT id FROM hr_training_participant WHERE id=$1 FOR UPDATE NOWAIT',[imported.participantId]);await probe.rollbackTransaction();
+   await holder.query('SELECT id FROM hr_training_participant WHERE id=$1 FOR UPDATE',[imported.participantId]);
+   await holder.query(`INSERT INTO hr_training_result_correction(tenant_id,park_id,participant_id,sequence_no,corrected_hours,reason,create_by) VALUES($1,$2,$3,1,9,'synthetic modern correction',$4)`,[scope.tenantId,scope.parkId,imported.participantId,actorId]);
+   await holder.commitTransaction();const result=await correcting;assert.equal(result.ok,false);assert.match(String('error' in result?result.error:''),/TRAINING_IMPORT_CORRECTION_STALE/);
+   assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_result_correction WHERE participant_id=$1',[imported.participantId]))[0].n),1);
+  }finally{if(holder.isTransactionActive)await holder.rollbackTransaction();await correcting;}
+  const initial=item('f');await execute(initial,await operation());
+  const bound=(await db.query('SELECT target_id FROM hr_incremental_import_item WHERE source_key=$1',[initial.sourceKey]))[0].target_id as string;
+  const parent=(await db.query('SELECT plan_id FROM hr_training_participant WHERE id=$1',[bound]))[0].plan_id as string;
+  await holder.startTransaction();await holder.query('SELECT id FROM hr_training_plan WHERE id=$1 FOR UPDATE',[parent]);
+  const updating=execute(item('f','9'),await operation());
+  try{
+   await waitForParent(pid);
+   await probe.startTransaction();await probe.query('SELECT id FROM hr_training_participant WHERE id=$1 FOR UPDATE NOWAIT',[bound]);await probe.rollbackTransaction();
+   await holder.query('SELECT id FROM hr_training_participant WHERE id=$1 FOR UPDATE',[bound]);
+   await holder.query(`INSERT INTO hr_training_result_correction(tenant_id,park_id,participant_id,sequence_no,corrected_hours,reason,create_by) VALUES($1,$2,$3,1,10,'synthetic modern change',$4)`,[scope.tenantId,scope.parkId,bound,actorId]);await holder.commitTransaction();
+   assert.equal(await updating,'conflict');
+   assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_result_correction WHERE participant_id=$1',[bound]))[0].n),1);
+  }finally{if(holder.isTransactionActive)await holder.rollbackTransaction();await updating;}
+ }finally{
+  if(holder.isTransactionActive)await holder.rollbackTransaction();
+  if(probe.isTransactionActive)await probe.rollbackTransaction();
+  await checkIn;await holder.release();await probe.release();
+ }
+});
