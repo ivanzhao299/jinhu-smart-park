@@ -39,6 +39,7 @@ export class CreateHrTrainingPositionRequirementDto {
  @IsUUID() courseId!:string;
 }
 export class HrTrainingParticipantResultDto {
+ @IsOptional() @IsString() @MaxLength(2000) @Matches(/^[^\0\p{Surrogate}]*$/u) memo?:string|null;
  @Transform(trim) @Matches(HOURS) completedHours!:string;
  @IsOptional() @Transform(trim) @Matches(/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/) score?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) evaluation?:string;
@@ -46,6 +47,7 @@ export class HrTrainingParticipantResultDto {
  @IsOptional() @IsUUID() certificateFileId?:string;
 }
 export class HrTrainingCorrectionDto {
+ @IsOptional() @IsString() @MaxLength(2000) @Matches(/^[^\0\p{Surrogate}]*$/u) correctedMemo?:string|null;
  @IsOptional() @Transform(trim) @Matches(HOURS) correctedHours?:string;
  @IsOptional() @Transform(trim) @Matches(/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/) correctedScore?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) correctedEvaluation?:string;

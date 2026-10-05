@@ -51,7 +51,7 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   family: ["employeeSourceKey", "employeeSourceTable", "relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"],
   skill: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.skill],
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
-  training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours"],
+  training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours", "memo"],
   insurance_policy: ["name", "scopeDescription", "items"],
   contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
 };

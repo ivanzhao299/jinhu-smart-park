@@ -5,7 +5,7 @@ import { HR_PERMISSIONS,type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { profileCanonical } from "./hr-yuzhou-profile-baseline";
-import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction,correctTrainingHistoryHoursInTransaction,type TrainingHistoryFacts } from "./hr-yuzhou-training-transaction";
+import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction,correctTrainingHistoryFactsInTransaction,type TrainingHistoryFacts } from "./hr-yuzhou-training-transaction";
 export type TrainingImportItem={domain:"training_history";sourceTable:string;sourceKey:string;rowDigest:string;fields:Record<string,unknown>;sourceUpdatedAt?:string};
 const hash=(v:unknown)=>createHash("sha256").update(profileCanonical(v)).digest("hex");
 const sha=(v:string)=>createHash("sha256").update(v).digest("hex");
@@ -37,7 +37,7 @@ async function originalSource(m:EntityManager,scope:TenantParkScope,item:Trainin
  const employeeKey=`sha256:${sha(`dbo.person\0${source.person.trim()}`)}`;
  if(item.fields.employeeSourceKey!==employeeKey)return invalid();
  for(const key of ['startdate','enddate'])if(typeof source[key]!=='string'||!/^(?!0000)\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,7})?$/.test(source[key] as string))return invalid();
- normalizeTrainingHistoryFacts({courseName:source.coursename,startDate:(source.startdate as string).slice(0,10),endDate:(source.enddate as string).slice(0,10),hours:String(source.hours)});
+ normalizeTrainingHistoryFacts({courseName:source.coursename,startDate:(source.startdate as string).slice(0,10),endDate:(source.enddate as string).slice(0,10),hours:String(source.hours),memo:source.memo});
  const partial=await m.query(`SELECT id FROM hr_legacy_training_reward_projection WHERE source_table='dbo.trainhis' AND source_identity_sha256=$1`,[item.sourceKey.slice(7)]);
  if(partial.length)throw new ConflictException('TRAINING_ORIGINAL_TARGET_ACCEPTANCE_PENDING');
  return {sourceId:String(row.id),operationId:String(row.operation_id),rowSha256:String(row.source_row_sha256),bindingSha256:String(op.binding_sha256)};
@@ -65,10 +65,11 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
   if(source.employeeSourceKey!==item.fields.employeeSourceKey||source.employeeSourceTable!=='dbo.person')throw new ConflictException('TRAINING_IMPORT_EMPLOYEE_IMMUTABLE');
   const rows=await m.query(`SELECT p.snapshot->>'courseTitle' name,to_char(p.start_date,'YYYY-MM-DD') start,to_char(p.end_date,'YYYY-MM-DD') finish,
  COALESCE((SELECT corrected_hours FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND corrected_hours IS NOT NULL ORDER BY sequence_no DESC LIMIT 1),t.completed_hours)::text hours,
+ CASE WHEN EXISTS(SELECT 1 FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present) THEN (SELECT corrected_memo FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present ORDER BY sequence_no DESC LIMIT 1) ELSE t.memo END memo,
  (SELECT COALESCE(max(sequence_no),0)::int FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id) correction
  FROM hr_training_participant t JOIN hr_training_plan p ON p.id=t.plan_id AND p.tenant_id=t.tenant_id AND p.park_id=t.park_id
  WHERE t.id=$1 AND t.tenant_id=$2 AND t.park_id=$3 AND t.employee_id=$4 AND t.plan_id=$5 AND t.status='completed' AND p.status='completed' AND NOT p.is_deleted ${operationId?'FOR UPDATE OF t':''}`,[prior.target_id,scope.tenantId,scope.parkId,employeeId,binding.plan_id]);
-  if(rows.length!==1)return invalid();const row=rows[0];current={courseName:row.name,startDate:row.start,endDate:row.finish,hours:scalarHours(row.hours)};correctionVersion=row.correction;
+  if(rows.length!==1)return invalid();const row=rows[0];current={courseName:row.name,startDate:row.start,endDate:row.finish,hours:scalarHours(row.hours),memo:row.memo};correctionVersion=row.correction;
  }
  const plan=current?planTrainingHistoryFacts(incoming,source,current,baseline!):undefined;
  if(!operationId)return {domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,fields:Object.keys(incoming),action:plan?.action??'create',conflictFields:plan?.conflictFields??[]};
@@ -80,8 +81,8 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
  VALUES($1,$2,'yuzhou-v10','dbo.trainhis',$3,'training_history','hr_training_participant',$4,$5,$6,$7,$8,$9,1) RETURNING *`,[...params,created.participantId,item.rowDigest,sensitive.encrypt(profileCanonical(source)),hash(source),sensitive.encrypt(profileCanonical({target:baseline,original})),operationId]))[0];
   await m.query(`INSERT INTO hr_incremental_training_binding(item_id,tenant_id,park_id,employee_id,plan_id,participant_id,original_source_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[prior.id,scope.tenantId,scope.parkId,employeeId,created.planId,created.participantId,original?.sourceId??null,actor.sub]);
  }else{
-  if(plan?.correctedHours){const changed=await correctTrainingHistoryHoursInTransaction(m,scope,actor,prior.target_id,correctionVersion,plan.correctedHours);correctionVersion=changed.correctionVersion;current!.hours=plan.correctedHours;}
-  const accepted={...source,...incoming},next={...baseline};for(const field of plan!.changedFields as Array<keyof TrainingHistoryFacts>)next[field]=current![field];
+  if(plan?.correctedHours!==undefined||plan?.correctedMemo!==undefined){const changed=await correctTrainingHistoryFactsInTransaction(m,scope,actor,prior.target_id,correctionVersion,{hours:plan?.correctedHours,memo:plan?.correctedMemo});correctionVersion=changed.correctionVersion;if(plan?.correctedHours!==undefined)current!.hours=plan.correctedHours;if(plan?.correctedMemo!==undefined)current!.memo=plan.correctedMemo;}
+  const accepted={...source,...incoming},next={...baseline};for(const field of plan!.changedFields as Array<keyof TrainingHistoryFacts>){if(field==="memo")next.memo=current!.memo;else next[field]=current![field];}
   await m.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,source_facts_encrypted=$3,source_facts_sha256=$4,baseline_encrypted=$5,version=version+1,target_version=$6,last_operation_id=$7,update_time=now() WHERE id=$1`,[prior.id,item.rowDigest,sensitive.encrypt(profileCanonical(accepted)),hash(accepted),sensitive.encrypt(profileCanonical({target:next,original})),correctionVersion+1,operationId]);
  }
  return revision(m,operationId,prior.id,item.rowDigest,plan?.action==='unchanged'?'unchanged':'applied',plan?.changedFields??Object.keys(incoming),correctionVersion);

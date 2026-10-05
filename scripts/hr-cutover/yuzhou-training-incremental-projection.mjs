@@ -6,9 +6,9 @@ const hash=value=>createHash("sha256").update(value).digest("hex");
 const fail=code=>{throw Object.assign(new Error(code),{code});};
 const plain=value=>value!==null&&typeof value==="object"&&Object.getPrototypeOf(value)===Object.prototype;
 const columns=["id","person","organ","coursename","startdate","enddate","hours","attainment","test","trainmoney","memo"];
-const unresolved={organ:"TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED",attainment:"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE",test:"TRAINING_HISTORY_TEST_RESULT_MAPPING_UNRESOLVED",trainmoney:"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE",memo:"TRAINING_HISTORY_MEMO_TARGET_UNRESOLVED"};
+const unresolved={organ:"TRAINING_HISTORY_ORGAN_PROVIDER_SEMANTICS_UNRESOLVED",attainment:"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE",test:"TRAINING_HISTORY_TEST_RESULT_MAPPING_UNRESOLVED",trainmoney:"TRAINING_HISTORY_RESULT_WRITER_INCOMPLETE"};
 export const YUZHOU_TRAINING_FIELD_COVERAGE=Object.freeze([
- ...Object.entries({person:"employeeSourceKey",coursename:"courseName",startdate:"startDate",enddate:"endDate",hours:"hours"}).map(([sourceField,targetField])=>Object.freeze({sourceTable:"dbo.trainhis",sourceField,targetField,disposition:"fixed_mapping_candidate"})),
+ ...Object.entries({person:"employeeSourceKey",coursename:"courseName",startdate:"startDate",enddate:"endDate",hours:"hours",memo:"memo"}).map(([sourceField,targetField])=>Object.freeze({sourceTable:"dbo.trainhis",sourceField,targetField,disposition:"fixed_mapping_candidate"})),
  ...Object.entries(unresolved).map(([sourceField,reasonCode])=>Object.freeze({sourceTable:"dbo.trainhis",sourceField,disposition:"pending_semantic_or_writer_binding",reasonCode})),
 ]);
 const validText=(value,max)=>typeof value==="string"&&value.length<=max&&!value.includes("\0")&&value.isWellFormed();
@@ -41,7 +41,7 @@ export function projectYuzhouTrainingHistory(row,employees) {
  const startDate=requiredDate(source.startdate),endDate=requiredDate(source.enddate);
  if(endDate<startDate)fail("YUZHOU_TRAINING_DATE_RANGE_INVALID");
  if(!Number.isInteger(source.hours)||source.hours<1||source.hours>999999)fail("YUZHOU_TRAINING_HOURS_INVALID");
- const fields={employeeSourceTable:employee.sourceTable,employeeSourceKey:employee.sourceKey,courseName,startDate,endDate,hours:String(source.hours)};
+ const fields={employeeSourceTable:employee.sourceTable,employeeSourceKey:employee.sourceKey,courseName,startDate,endDate,hours:String(source.hours),memo:source.memo};
  const candidate={domain:"training_history",sourceTable:"dbo.trainhis",sourceKey:`sha256:${row.sourceIdentitySha256}`,fields,rowDigest:""};
  candidate.rowDigest=hash(canonicalProfile({domain:candidate.domain,sourceTable:candidate.sourceTable,sourceKey:candidate.sourceKey,sourceUpdatedAt:null,fields}));
  return {candidate,admission:"pending_training_api_executor",declaration:{sourceIdentitySha256:row.sourceIdentitySha256,sourceRowSha256:row.sourceRowSha256,disposition:"candidate_only",pendingFields:Object.keys(unresolved),pendingReasons:{...unresolved}},sourceEvidence:{sourceIdentitySha256:row.sourceIdentitySha256,sourceRowSha256:row.sourceRowSha256,fieldCoverage:YUZHOU_TRAINING_FIELD_COVERAGE.map(entry=>({...entry}))}};

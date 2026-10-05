@@ -9,9 +9,9 @@ const source=()=>({id:1,person:"SYN-1",organ:"Unknown provider meaning",coursena
 const row=value=>({sourceTable:"dbo.trainhis",sourceKey:String(value.id),sourceIdentitySha256:sha(`dbo.trainhis\0${value.id}`),sourceRowSha256:sha(canonicalProfile(value)),source:value});
 test("reviewed fields preserve exact source owner and never infer result or financial facts",()=>{
  const original=row(source()),copy=structuredClone(original),p=projectYuzhouTrainingHistory(original,employees);
- assert.deepEqual(p.candidate.fields,{employeeSourceTable:"dbo.person",employeeSourceKey:employees.get("SYN-1").sourceKey,courseName:"Synthetic training",startDate:"2020-02-29",endDate:"2020-03-01",hours:"8"});
+ assert.deepEqual(p.candidate.fields,{employeeSourceTable:"dbo.person",employeeSourceKey:employees.get("SYN-1").sourceKey,courseName:"Synthetic training",startDate:"2020-02-29",endDate:"2020-03-01",hours:"8",memo:"Source memo"});
  assert.equal(p.admission,"pending_training_api_executor");assert.equal(p.declaration.disposition,"candidate_only");assert.equal("item" in p,false);
- assert.deepEqual(p.declaration.pendingFields,["organ","attainment","test","trainmoney","memo"]);
+ assert.deepEqual(p.declaration.pendingFields,["organ","attainment","test","trainmoney"]);
  for(const key of ["score","actualCost","provider","evaluation","status","currency"])assert.equal(key in p.candidate.fields,false);
  assert.deepEqual(original,copy);assert.equal(YUZHOU_TRAINING_FIELD_COVERAGE.length,10);
 });
@@ -37,8 +37,8 @@ test("hours must be positive reviewed integers and owner must be exact source id
  assert.equal(projectYuzhouTrainingHistory(row({...source(),hours:999999}),employees).candidate.fields.hours,'999999');
 });
 test("projected fact digest is stable across extracts and changes only with mapped facts or owner",()=>{
- const a=projectYuzhouTrainingHistory(row(source()),employees),b=projectYuzhouTrainingHistory(row({...source(),memo:'changed unreviewed memo'}),employees),c=projectYuzhouTrainingHistory(row({...source(),hours:9}),employees);
- assert.equal(a.candidate.sourceKey,b.candidate.sourceKey);assert.equal(a.candidate.rowDigest,b.candidate.rowDigest);assert.notEqual(a.declaration.sourceRowSha256,b.declaration.sourceRowSha256);assert.notEqual(a.candidate.rowDigest,c.candidate.rowDigest);
+ const a=projectYuzhouTrainingHistory(row(source()),employees),b=projectYuzhouTrainingHistory(row({...source(),memo:'changed memo'}),employees),c=projectYuzhouTrainingHistory(row({...source(),hours:9}),employees);
+ assert.equal(a.candidate.sourceKey,b.candidate.sourceKey);assert.notEqual(a.candidate.rowDigest,b.candidate.rowDigest);assert.notEqual(a.declaration.sourceRowSha256,b.declaration.sourceRowSha256);assert.notEqual(a.candidate.rowDigest,c.candidate.rowDigest);
  const changedOwner=projectYuzhouTrainingHistory(row(source()),new Map([['SYN-1',{sourceTable:'dbo.person',sourceKey:`sha256:${'a'.repeat(64)}`}]]));assert.notEqual(a.candidate.rowDigest,changedOwner.candidate.rowDigest);
 });
 test("errors never expose source names or values and coverage cannot be mutated",()=>{
