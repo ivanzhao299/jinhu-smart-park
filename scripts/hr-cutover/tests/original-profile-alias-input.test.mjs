@@ -11,7 +11,7 @@ import {mkdtempSync,realpathSync,writeFileSync,readFileSync,chmodSync,rmSync,exi
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {URL,fileURLToPath} from 'node:url';
-import {assembleOriginalProfileAliasInput,prepareOriginalProfileAliasInput,originalProfileAliasInputSql,originalProfileAliasReadProgram} from '../prepare-yuzhou-original-profile-alias-input.mjs';
+import {assembleOriginalProfileAliasInput,prepareOriginalProfileAliasInput,originalProfileAliasInputSql,originalProfileAliasObservationSql,originalProfileAliasRowsSql,originalProfileAliasReadProgram} from '../prepare-yuzhou-original-profile-alias-input.mjs';
 import {canonicalProfile} from '../yuzhou-profile-incremental-projection.mjs';
 import {personnelAliasSql} from '../../diagnose-yuzhou-personnel-alias.mjs';
 
@@ -39,14 +39,18 @@ function fixture() {
 }
 const at='2026-10-05T10:00:00.000Z';
 test('actual container reader reports closed stages without private exception text or partial rows',async()=>{
-  for(const stage of ['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT','PASS']){
+  for(const stage of ['KEYRING','INPUT','CONNECT','OBSERVATION_QUERY','OBSERVATION_QUERY_TIMEOUT','OBSERVATION_QUERY_LOCK','OBSERVATION_ENVELOPE','ROWS_QUERY','ROWS_QUERY_TIMEOUT','ROWS_QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT','PASS']){
     const stdin=new EventEmitter();stdin.setEncoding=()=>{};
     let stdout='',stderr='',closed=false;
-    const privateError=()=>Object.assign(Error('synthetic private-row /secret/path'),{code:stage==='QUERY_TIMEOUT'?'57014':stage==='QUERY_LOCK'?'55P03':'untrusted private-code'});
+    const privateError=()=>Object.assign(Error('synthetic private-row /secret/path'),{code:stage.endsWith('_TIMEOUT')?'57014':stage.endsWith('_LOCK')?'55P03':'untrusted private-code'});
     class Client {
       constructor(config){assert.equal(config.options,'-c default_transaction_read_only=on -c jit=off')}
       async connect(){if(stage==='CONNECT')throw privateError()}
-      async query(){if(stage.startsWith('QUERY'))throw privateError();return [{rows:[{json_build_object:stage==='ENVELOPE'?null:{rows:[{encryptedSource:'synthetic-cipher'}]}}]}]}
+      async query(sql){
+        if(sql==='ROLLBACK')return {rows:[]};
+        if((sql==='synthetic-observation'&&stage.startsWith('OBSERVATION_QUERY'))||(sql==='synthetic-rows'&&stage.startsWith('ROWS_QUERY')))throw privateError();
+        return [{rows:[{json_build_object:sql==='synthetic-observation'?(stage==='OBSERVATION_ENVELOPE'?null:{synthetic:true}):stage==='ENVELOPE'?null:{rows:[{encryptedSource:'synthetic-cipher'}]}}]}];
+      }
       async end(){closed=true}
     }
     class Sensitive {
@@ -55,10 +59,10 @@ test('actual container reader reports closed stages without private exception te
     }
     const proc={env:{},stdin,stdout:{write:value=>{if(stage==='OUTPUT')throw privateError();stdout+=value}},stderr:{write:value=>{stderr+=value}},exitCode:0};
     runInNewContext(originalProfileAliasReadProgram,{process:proc,require:path=>path.endsWith('/pg')?{Client}:path.endsWith('/@nestjs/config')?{ConfigService:class {}}:{PartySensitiveDataService:Sensitive}});
-    stdin.emit('data',stage==='INPUT'?'bad-json':JSON.stringify({sql:'synthetic query'}));stdin.emit('end');
+    stdin.emit('data',stage==='INPUT'?'bad-json':JSON.stringify({observationSql:'synthetic-observation',rowsSql:'synthetic-rows'}));stdin.emit('end');
     for(let i=0;i<10&&!closed;i++)await new Promise(resolve=>setImmediate(resolve));
     assert.equal(closed,true);
-    if(stage==='PASS'){assert.equal(proc.exitCode,0);assert.equal(stderr,'');assert.deepEqual(JSON.parse(stdout),{rows:[{source:{value:'synthetic-source'}}]})}
+    if(stage==='PASS'){assert.equal(proc.exitCode,0);assert.equal(stderr,'');assert.deepEqual(JSON.parse(stdout),{rows:[{source:{value:'synthetic-source'}}],observation:{synthetic:true}})}
     else {assert.equal(proc.exitCode,1);assert.equal(stdout,'');assert.equal(stderr,`YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n`);assert.doesNotMatch(stderr,/private-row|secret|untrusted/)}
   }
 });
@@ -109,7 +113,7 @@ test('private preparation observes runtime around read, emits only metadata and 
     let reads=0,observes=0;const observe=()=>{observes++;return {observations:[{service:'api',revision:'a'.repeat(40),containerId:'one'}]}};
     const run=(binary,args,options)=>{reads++;assert.equal(binary,'docker');assert.ok(args.includes('jinhu-smart-park-prod-api'));
       assert.equal(args.at(-1),originalProfileAliasReadProgram);assert.equal(options.timeout,20000);
-      assert.equal(JSON.parse(options.input).sql,originalProfileAliasInputSql);return JSON.stringify(envelope)};
+      assert.deepEqual(JSON.parse(options.input),{observationSql:originalProfileAliasObservationSql,rowsSql:originalProfileAliasRowsSql});return JSON.stringify(envelope)};
     const output=join(root,'output');const result=prepareOriginalProfileAliasInput({configPath:config,outputDir:output},{run,observe,now:()=>new Date(at)});
     assert.equal(reads,1);assert.equal(observes,2);assert.equal(result.writerPresent,false);
     assert.doesNotMatch(JSON.stringify(result),/合成|SYN|output|employeeId|profileId|password/);
@@ -127,6 +131,10 @@ test('private query shares existing CTE, read-only snapshot and digest/decoder s
   const prefix=personnelAliasSql.slice(0,personnelAliasSql.indexOf('\nSELECT json_build_object('));
   assert.ok(originalProfileAliasInputSql.startsWith(prefix.replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;')));
   assert.doesNotMatch(originalProfileAliasInputSql,/UPDATE |DELETE |INSERT |LOCK TABLE|FOR UPDATE|FOR SHARE/);
+  assert.equal(originalProfileAliasObservationSql,personnelAliasSql.slice(0,personnelAliasSql.lastIndexOf('\nROLLBACK;')).replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;'));
+  assert.ok(originalProfileAliasRowsSql.startsWith(prefix.slice(prefix.indexOf('WITH ops AS ('))));
+  assert.doesNotMatch(originalProfileAliasRowsSql,/'observation',|BEGIN TRANSACTION|UPDATE |DELETE |INSERT |LOCK TABLE|FOR UPDATE|FOR SHARE/);
+  assert.match(originalProfileAliasRowsSql,/ROLLBACK;$/);
   assert.match(originalProfileAliasReadProgram,/default_transaction_read_only=on/);
   assert.match(originalProfileAliasReadProgram,/PartySensitiveDataService/);
   assert.doesNotMatch(originalProfileAliasReadProgram,/NestFactory|AppModule|createApplicationContext|console\./);
@@ -182,14 +190,20 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
     const seal=async table=>{const rows=(await client.query(`SELECT to_jsonb(t)::text text FROM ${table} t`)).rows;
       return {count:rows.length,sha256:sha(rows.map(r=>sha(r.text)).sort().join(''))}};
     await client.query('UPDATE hr_yuzhou_t5_followon_operation SET owned_state=$1',[{hr_employee_profile:await seal('hr_employee_profile'),receipts:await seal('hr_yuzhou_t5_followon_projection_receipt')}]);
+    await client.query(originalProfileAliasObservationSql);
+    const rowPlanResults=await client.query(originalProfileAliasRowsSql.replace('WITH ops AS (','EXPLAIN (FORMAT JSON) WITH ops AS ('));
+    const rowPlan=rowPlanResults.find(result=>result.rows?.[0]?.['QUERY PLAN']).rows[0]['QUERY PLAN'][0];
+    const subplans=[];const collect=node=>{if(node['Subplan Name'])subplans.push(node['Subplan Name']);for(const child of node.Plans??[])collect(child)};
+    collect(rowPlan.Plan);
+    assert.ok(subplans.every(name=>!/^CTE (baseline_|correction_|hashed)/.test(name)),'row query prunes complete-set hash and correction-seal work already proven by observation');
     const program=originalProfileAliasReadProgram.replaceAll('/app/',`${root}/`);
-    const run=(sql=originalProfileAliasInputSql)=>spawnSync(process.execPath,['-e',program],{input:JSON.stringify({sql}),encoding:'utf8',timeout:20000,maxBuffer:1024*1024,
+    const run=(queries={observationSql:originalProfileAliasObservationSql,rowsSql:originalProfileAliasRowsSql},readProgram=program)=>spawnSync(process.execPath,['-e',readProgram],{input:JSON.stringify(queries),encoding:'utf8',timeout:20000,maxBuffer:1024*1024,
       env:{...process.env,POSTGRES_HOST:'127.0.0.1',POSTGRES_PORT:String(config.port),POSTGRES_DB:database,POSTGRES_USER:config.user,POSTGRES_PASSWORD:config.password,
         PARTY_DATA_ENCRYPTION_KEY:key,PARTY_DATA_ACTIVE_KEY_ID:'',PARTY_DATA_ENCRYPTION_KEYRING:''}});
     const result=run();assert.equal(result.status,0,result.stderr);
     const actual=JSON.parse(result.stdout),o=actual.observation;
-    const forcedThresholds=run(originalProfileAliasInputSql.replace('SET LOCAL enable_nestloop=off;',
-      'SET LOCAL enable_nestloop=off; SET LOCAL jit_above_cost=0; SET LOCAL jit_inline_above_cost=0; SET LOCAL jit_optimize_above_cost=0;'));
+    const forcedThresholds=run({observationSql:originalProfileAliasObservationSql.replace('SET LOCAL enable_nestloop=off;',
+      'SET LOCAL enable_nestloop=off; SET LOCAL jit_above_cost=0; SET LOCAL jit_inline_above_cost=0; SET LOCAL jit_optimize_above_cost=0;'),rowsSql:originalProfileAliasRowsSql});
     assert.equal(forcedThresholds.status,0,forcedThresholds.stderr);
     assert.deepEqual(JSON.parse(forcedThresholds.stdout),actual,'JIT cost thresholds must not alter read-only source and receipt facts');
     assert.equal(o.originalBaselineSet.intactWholeSetCount,1);
@@ -197,6 +211,16 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
     assert.doesNotMatch(result.stdout,/enc:v1:|encryptedSource/);
     const expected={sourceSetSha256:o.sourceSetSha256,profileCount:o.profileMatchedCount,aliasProfiles:o.correctionPlan.plannedProfiles,nativePlaceFills:o.correctionPlan.nativePlaceFills,degreeFills:o.correctionPlan.degreeFills,planSha256:o.correctionPlan.planSha256,beforeSha256:o.correctionPlan.beforeSha256};
     assert.equal(assembleOriginalProfileAliasInput(actual,expected,at).batch.receipt.aliasProfiles,2);
+    const mutationProgram=program.replace("stage='ROWS_QUERY';",`const writer=new Client({host:process.env.POSTGRES_HOST,port:Number(process.env.POSTGRES_PORT),database:process.env.POSTGRES_DB,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD});
+      if(process.env.POSTGRES_HOST!=='127.0.0.1'||!/^jinhu_hr_profile_source_[a-f0-9]{24}$/.test(process.env.POSTGRES_DB))throw Error();
+      await writer.connect();await writer.query('UPDATE hr_employee_profile SET version=version+1');await writer.end();stage='ROWS_QUERY';`);
+    assert.notEqual(mutationProgram,program);
+    const snapshot=run(undefined,mutationProgram);assert.equal(snapshot.status,0,snapshot.stderr);
+    const snapshotEnvelope=JSON.parse(snapshot.stdout);
+    assert.ok(snapshotEnvelope.rows.every(row=>row.profileVersion===1),'same snapshot retains pre-change row versions');
+    assert.equal(snapshotEnvelope.observation.originalBaselineSet.intactWholeSetCount,1);
+    assert.equal((await client.query('SELECT min(version)::int version FROM hr_employee_profile')).rows[0].version,2,'independent concurrent writer actually changed the disposable fixture');
+    assert.equal(assembleOriginalProfileAliasInput(snapshotEnvelope,expected,at).batch.receipt.sourceProfiles,2);
     await client.query("UPDATE hr_employee_profile SET version=version+1 WHERE id=$1",[envelope.rows[0].profileId]);
     const changed=run();assert.equal(changed.status,0,changed.stderr);
     assert.throws(()=>assembleOriginalProfileAliasInput(JSON.parse(changed.stdout),expected,at),/OBSERVATION_DRIFT/);

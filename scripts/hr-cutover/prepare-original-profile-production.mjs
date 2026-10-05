@@ -10,7 +10,7 @@ import { pathToFileURL, fileURLToPath, URL } from 'node:url';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const fail=()=>{throw new Error('ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED')};
 const failurePrefix='ORIGINAL_PROFILE_PRIVATE_PREPARATION_FAILED';
-const readStages=['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT'];
+const readStages=['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','OBSERVATION_QUERY','OBSERVATION_QUERY_TIMEOUT','OBSERVATION_QUERY_LOCK','OBSERVATION_ENVELOPE','ROWS_QUERY','ROWS_QUERY_TIMEOUT','ROWS_QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT'];
 const readFailureStages=Object.fromEntries(readStages.map(stage=>[
   `YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n`,`SOURCE_PREPARATION_READ_${stage}`]));
 const sourcePreparationStages={

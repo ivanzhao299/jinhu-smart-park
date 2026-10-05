@@ -126,7 +126,7 @@ test('collector failures expose only reviewed fixed substage codes, never error 
 });
 
  test('fixed reader substages survive host bootstrap and transport; appended private output is rejected',()=>{
-  for(const stage of ['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT']){
+  for(const stage of ['KEYRING','INPUT','CONNECT','QUERY','QUERY_TIMEOUT','QUERY_LOCK','OBSERVATION_QUERY','OBSERVATION_QUERY_TIMEOUT','OBSERVATION_QUERY_LOCK','OBSERVATION_ENVELOPE','ROWS_QUERY','ROWS_QUERY_TIMEOUT','ROWS_QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT']){
     for(const suffix of ['', 'private-row']){
       const {root,request}=fixture();try{
         const path=paths[1],stderr=`YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n${suffix}`;
