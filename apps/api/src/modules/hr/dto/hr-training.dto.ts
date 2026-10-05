@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf } from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
 const DECIMAL=/^(0|[1-9]\d{0,15})(\.\d{1,4})?$/;
 const HOURS=/^(0|[1-9]\d{0,5})(\.\d{1,2})?$/;
@@ -54,4 +54,12 @@ export class HrTrainingCorrectionDto {
  @IsOptional() @Transform(trim) @Matches(DECIMAL) correctedActualCost?:string;
  @IsOptional() @IsUUID() certificateFileId?:string;
  @Transform(trim) @IsString() @MaxLength(1000) reason!:string;
+}
+
+export class HrTrainingPlanFactsDto {
+ @IsInt() @Min(0) expectedRevision!:number;
+ @ValidateIf((_object,value)=>value!==undefined) @Transform(trim) @IsString() @MinLength(1) @MaxLength(160) @Matches(/^[^\0\p{Surrogate}]+$/u) courseName?:string;
+ @ValidateIf((_object,value)=>value!==undefined) @IsDateString({strict:true}) @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}$/) startDate?:string;
+ @ValidateIf((_object,value)=>value!==undefined) @IsDateString({strict:true}) @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}$/) endDate?:string;
+ @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) @Matches(/^[^\0\p{Surrogate}]+$/u) reason!:string;
 }

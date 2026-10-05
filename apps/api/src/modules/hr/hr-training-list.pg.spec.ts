@@ -29,6 +29,7 @@ before(async()=>{
     CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id text,park_id text,primary_org_id uuid,user_id uuid);
     CREATE TABLE hr_training_plan(id uuid PRIMARY KEY,tenant_id text,park_id text,plan_code text,plan_name text,status text,mandatory boolean DEFAULT false,start_date date,end_date date,snapshot jsonb DEFAULT '{}',budget_amount numeric,cost_currency text,is_deleted boolean DEFAULT false);
     CREATE TABLE hr_training_participant(id uuid PRIMARY KEY,tenant_id text,park_id text,plan_id uuid,employee_id uuid,status text,actual_cost numeric);
+    CREATE TABLE hr_training_plan_fact_revision(tenant_id text,park_id text,plan_id uuid,course_title text,start_date date,end_date date,sequence_no integer);
     CREATE TABLE hr_training_result_correction(tenant_id text,park_id text,participant_id uuid,corrected_actual_cost numeric,sequence_no integer);
   `);
   await db.query(`INSERT INTO sys_org(id,tenant_id,park_id,parent_id,leader_user_id) VALUES($1,$4,$5,NULL,$6),($2,$4,$5,$1,NULL),($3,$4,$5,NULL,NULL)`,[org,child,sibling,scope.tenantId,scope.parkId,managerId]);

@@ -79,7 +79,7 @@ test("empty later pages count within the same scope and still require audit", as
     const result=await service.listPlans(scope,actor(permission),{page:9,page_size:20,status:"published"});
     assert.equal(result.total,7);assert.deepEqual(result.items,[]);assert.equal(auditCalls,1);assert.equal(calls.length,2);
     const count=calls[1];assert.ok(count);assert.match(count.sql,/COUNT\(DISTINCT p.id\)/);
-    assert.doesNotMatch(count.sql,/LIMIT|OFFSET/);
+    assert.doesNotMatch(count.sql,/LIMIT \$|OFFSET \$/);
     if(permission===HR_PERMISSIONS.HR_TRAINING_READ){assert.deepEqual(count.params,[scope.tenantId,scope.parkId,"published"]);assert.match(count.sql,/p\.status=\$3/);}
     else {assert.deepEqual(count.params,[scope.tenantId,scope.parkId,"30000001","published"]);assert.match(count.sql,/p\.status=\$4/);assert.match(count.sql,permission===HR_PERMISSIONS.HR_TRAINING_SELF_READ?/e\.user_id=\$3/:/leader_user_id=\$3/);}
   }

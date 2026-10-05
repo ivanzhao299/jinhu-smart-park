@@ -5,25 +5,25 @@ import type { EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
+import { lockTrainingParticipantPlan } from "./hr-training-locks";
+
+import { isTrainingCalendarDate, type TrainingPlanFactChanges } from "./hr-training-plan-facts";
+
 export type TrainingHistoryFacts = { courseName:string; startDate:string; endDate:string; hours:string; memo?:string|null };
 const requiredKeys=["courseName","startDate","endDate","hours"] as const;
 const keys=[...requiredKeys,"memo"] as const;
-const snapshotKeys=["courseName","startDate","endDate"] as const;
 const bad=():never=>{throw new BadRequestException("TRAINING_IMPORT_FACTS_INVALID");};
-function date(value:unknown):value is string {
- if(typeof value!=="string"||!/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value))return false;
- const parsed=new Date(`${value}T00:00:00Z`);return Number.isFinite(parsed.valueOf())&&parsed.toISOString().slice(0,10)===value;
-}
 export function normalizeTrainingHistoryFacts(value:unknown):TrainingHistoryFacts {
  if(!value||typeof value!=="object"||Array.isArray(value))return bad();
  const v=value as Record<string,unknown>;
  if(Object.keys(v).some(k=>!keys.includes(k as typeof keys[number]))||!requiredKeys.every(k=>Object.hasOwn(v,k))||typeof v.courseName!=="string"||!v.courseName.trim()||v.courseName.trim().length>160||v.courseName.includes("\0")||/\p{Surrogate}/u.test(v.courseName)
- ||!date(v.startDate)||!date(v.endDate)||v.endDate<v.startDate||typeof v.hours!=="string"||!/^[1-9]\d{0,5}$/.test(v.hours)||Number(v.hours)>999999)return bad();
+ ||!isTrainingCalendarDate(v.startDate)||!isTrainingCalendarDate(v.endDate)||v.endDate<v.startDate||typeof v.hours!=="string"||!/^[1-9]\d{0,5}$/.test(v.hours)||Number(v.hours)>999999)return bad();
  if(Object.hasOwn(v,"memo")&&v.memo!==null&&(typeof v.memo!=="string"||v.memo.length>2000||v.memo.includes("\0")||/\p{Surrogate}/u.test(v.memo)))return bad();
  return {courseName:v.courseName.trim(),startDate:v.startDate,endDate:v.endDate,hours:v.hours,...(Object.hasOwn(v,"memo")?{memo:v.memo as string|null}:{})};
 }
 export function planTrainingHistoryFacts(incoming:unknown,source:Readonly<Partial<TrainingHistoryFacts>>,current:Readonly<TrainingHistoryFacts>,baseline:Readonly<Partial<TrainingHistoryFacts>>) {
  const facts=normalizeTrainingHistoryFacts(incoming),changedFields:string[]=[],conflictFields:string[]=[];
+ const correctedPlanFacts:TrainingPlanFactChanges={};
  let correctedHours:string|undefined;
  let correctedMemo:string|null|undefined;
  for(const key of keys){
@@ -33,11 +33,12 @@ export function planTrainingHistoryFacts(incoming:unknown,source:Readonly<Partia
   changedFields.push(key);
   if(facts[key]===current[key])continue;
   if(current[key]!==baseline[key]){conflictFields.push(key);continue;}
-  if(snapshotKeys.includes(key as typeof snapshotKeys[number]))conflictFields.push(`PUBLISHED_SNAPSHOT:${key}`);
+  if(key==="courseName"||key==="startDate"||key==="endDate")correctedPlanFacts[key]=facts[key];
   else if(key==="hours")correctedHours=facts.hours;
   else if(key==="memo")correctedMemo=facts.memo;
  }
- return {action:conflictFields.length?"conflict" as const:changedFields.length?"update" as const:"unchanged" as const,changedFields,conflictFields,correctedHours:conflictFields.length?undefined:correctedHours,correctedMemo:conflictFields.length?undefined:correctedMemo};
+ if((correctedPlanFacts.endDate??current.endDate)<(correctedPlanFacts.startDate??current.startDate))conflictFields.push("TRAINING_PLAN_FACTS_DATE_RANGE_INVALID");
+ return {action:conflictFields.length?"conflict" as const:changedFields.length?"update" as const:"unchanged" as const,changedFields,conflictFields,correctedPlanFacts:conflictFields.length?undefined:correctedPlanFacts,correctedHours:conflictFields.length?undefined:correctedHours,correctedMemo:conflictFields.length?undefined:correctedMemo};
 }
 function requireTransaction(m:EntityManager,s:TenantParkScope,a:JwtPrincipal,permissions:readonly string[]) {
  if(!m.queryRunner?.isTransactionActive)throw new ConflictException("TRAINING_IMPORT_TRANSACTION_REQUIRED");
@@ -79,6 +80,7 @@ export async function correctTrainingHistoryFactsInTransaction(m:EntityManager,s
  requireTransaction(m,s,a,[HR_PERMISSIONS.HR_TRAINING_PROGRESS_MANAGE]);
  const {hours,memo}=fields;
  if(!isUUID(participantId)||!Number.isSafeInteger(expectedVersion)||expectedVersion<0||(hours===undefined&&memo===undefined)||(hours!==undefined&&(!/^[1-9]\d{0,5}$/.test(hours)||Number(hours)>999999))||(memo!==undefined&&memo!==null&&(typeof memo!=="string"||memo.length>2000||memo.includes("\0")||/\p{Surrogate}/u.test(memo))))throw new BadRequestException("TRAINING_IMPORT_CORRECTION_INVALID");
+ await lockTrainingParticipantPlan(m,s,participantId);
  const rows=await m.query(`SELECT t.id,t.plan_id FROM hr_training_participant t JOIN hr_training_plan p ON p.id=t.plan_id AND p.tenant_id=t.tenant_id AND p.park_id=t.park_id JOIN hr_employee e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id AND e.park_id=t.park_id WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.id=$3 AND t.status='completed' AND NOT p.is_deleted AND p.status='completed' AND NOT e.is_deleted FOR UPDATE OF t`,[s.tenantId,s.parkId,participantId]);
  if(rows.length!==1)throw new NotFoundException("Completed training participant not found");
  const version=Number((await m.query(`SELECT COALESCE(max(sequence_no),0)::int n FROM hr_training_result_correction WHERE tenant_id=$1 AND park_id=$2 AND participant_id=$3`,[s.tenantId,s.parkId,participantId]))[0]?.n);

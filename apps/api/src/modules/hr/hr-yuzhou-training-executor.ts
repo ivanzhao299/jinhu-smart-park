@@ -6,6 +6,8 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { profileCanonical } from "./hr-yuzhou-profile-baseline";
 import { normalizeTrainingHistoryFacts,planTrainingHistoryFacts,createTrainingHistoryInTransaction,correctTrainingHistoryFactsInTransaction,type TrainingHistoryFacts } from "./hr-yuzhou-training-transaction";
+import { lockTrainingParticipantPlan } from "./hr-training-locks";
+import { reviseTrainingPlanFactsInTransaction,trainingPlanFactsJoin,trainingPlanCourseTitle,trainingPlanStartDate,trainingPlanEndDate,trainingPlanFactRevision } from "./hr-training-plan-facts";
 export type TrainingImportItem={domain:"training_history";sourceTable:string;sourceKey:string;rowDigest:string;fields:Record<string,unknown>;sourceUpdatedAt?:string};
 const hash=(v:unknown)=>createHash("sha256").update(profileCanonical(v)).digest("hex");
 const sha=(v:string)=>createHash("sha256").update(v).digest("hex");
@@ -55,7 +57,7 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
  const original=await originalSource(m,scope,item,sensitive);
  if(!operationId&&!prior&&!original&&stagedEmployee)return {domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,fields:Object.keys(incoming),action:"create",conflictFields:[]};
  const employeeId=await employeeTarget(item.fields.employeeSourceKey,'dbo.person');
- let source:Record<string,unknown>={},baseline:TrainingHistoryFacts|undefined,current:TrainingHistoryFacts|undefined,correctionVersion=0;
+ let source:Record<string,unknown>={},baseline:TrainingHistoryFacts|undefined,current:TrainingHistoryFacts|undefined,correctionVersion=0,planFactRevision=0;
  let binding:Record<string,unknown>|undefined;
  if(prior){
   source=decode(sensitive,prior.source_facts_encrypted);if(hash(source)!==prior.source_facts_sha256)return invalid();
@@ -63,30 +65,32 @@ export async function executeYuzhouTrainingItem(m:EntityManager,scope:TenantPark
   binding=(await m.query('SELECT * FROM hr_incremental_training_binding WHERE item_id=$1',[prior.id]))[0];
   if(!binding||binding.tenant_id!==scope.tenantId||binding.park_id!==scope.parkId||binding.employee_id!==employeeId||binding.participant_id!==prior.target_id||(binding.original_source_id??null)!==(original?.sourceId??null))return invalid();
   if(source.employeeSourceKey!==item.fields.employeeSourceKey||source.employeeSourceTable!=='dbo.person')throw new ConflictException('TRAINING_IMPORT_EMPLOYEE_IMMUTABLE');
-  const rows=await m.query(`SELECT p.snapshot->>'courseTitle' name,to_char(p.start_date,'YYYY-MM-DD') start,to_char(p.end_date,'YYYY-MM-DD') finish,
+  if(operationId)await lockTrainingParticipantPlan(m,scope,prior.target_id);
+  const rows=await m.query(`SELECT ${trainingPlanCourseTitle} name,to_char(${trainingPlanStartDate},'YYYY-MM-DD') start,to_char(${trainingPlanEndDate},'YYYY-MM-DD') finish,${trainingPlanFactRevision} plan_revision,
  COALESCE((SELECT corrected_hours FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND corrected_hours IS NOT NULL ORDER BY sequence_no DESC LIMIT 1),t.completed_hours)::text hours,
  CASE WHEN EXISTS(SELECT 1 FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present) THEN (SELECT corrected_memo FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id AND c.memo_present ORDER BY sequence_no DESC LIMIT 1) ELSE t.memo END memo,
  (SELECT COALESCE(max(sequence_no),0)::int FROM hr_training_result_correction c WHERE c.tenant_id=t.tenant_id AND c.park_id=t.park_id AND c.participant_id=t.id) correction
- FROM hr_training_participant t JOIN hr_training_plan p ON p.id=t.plan_id AND p.tenant_id=t.tenant_id AND p.park_id=t.park_id
+ FROM hr_training_participant t JOIN hr_training_plan p ON p.id=t.plan_id AND p.tenant_id=t.tenant_id AND p.park_id=t.park_id ${trainingPlanFactsJoin}
  WHERE t.id=$1 AND t.tenant_id=$2 AND t.park_id=$3 AND t.employee_id=$4 AND t.plan_id=$5 AND t.status='completed' AND p.status='completed' AND NOT p.is_deleted ${operationId?'FOR UPDATE OF t':''}`,[prior.target_id,scope.tenantId,scope.parkId,employeeId,binding.plan_id]);
-  if(rows.length!==1)return invalid();const row=rows[0];current={courseName:row.name,startDate:row.start,endDate:row.finish,hours:scalarHours(row.hours),memo:row.memo};correctionVersion=row.correction;
+  if(rows.length!==1)return invalid();const row=rows[0];current={courseName:row.name,startDate:row.start,endDate:row.finish,hours:scalarHours(row.hours),memo:row.memo};correctionVersion=row.correction;planFactRevision=Number(row.plan_revision);
  }
  const plan=current?planTrainingHistoryFacts(incoming,source,current,baseline!):undefined;
  if(!operationId)return {domain:item.domain,sourceTable:item.sourceTable,sourceKey:item.sourceKey,fields:Object.keys(incoming),action:plan?.action??'create',conflictFields:plan?.conflictFields??[]};
- if(plan?.action==='conflict')return revision(m,operationId,prior.id,item.rowDigest,'conflict',plan.conflictFields,correctionVersion);
+ if(plan?.action==='conflict')return revision(m,operationId,prior.id,item.rowDigest,'conflict',plan.conflictFields,correctionVersion,planFactRevision);
  if(!prior){
   const created=await createTrainingHistoryInTransaction(m,scope,actor,item.sourceKey,employeeId,incoming);
   source={...incoming,employeeSourceKey:item.fields.employeeSourceKey,employeeSourceTable:'dbo.person'};baseline={...incoming};
   prior=(await m.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,source_facts_encrypted,source_facts_sha256,baseline_encrypted,last_operation_id,target_version)
- VALUES($1,$2,'yuzhou-v10','dbo.trainhis',$3,'training_history','hr_training_participant',$4,$5,$6,$7,$8,$9,1) RETURNING *`,[...params,created.participantId,item.rowDigest,sensitive.encrypt(profileCanonical(source)),hash(source),sensitive.encrypt(profileCanonical({target:baseline,original})),operationId]))[0];
+ VALUES($1,$2,'yuzhou-v10','dbo.trainhis',$3,'training_history','hr_training_participant',$4,$5,$6,$7,$8,$9,1) RETURNING *`,[...params,created.participantId,item.rowDigest,sensitive.encrypt(profileCanonical(source)),hash(source),sensitive.encrypt(profileCanonical({target:baseline,original,planFactRevision})),operationId]))[0];
   await m.query(`INSERT INTO hr_incremental_training_binding(item_id,tenant_id,park_id,employee_id,plan_id,participant_id,original_source_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[prior.id,scope.tenantId,scope.parkId,employeeId,created.planId,created.participantId,original?.sourceId??null,actor.sub]);
  }else{
+  if(plan?.correctedPlanFacts&&Object.keys(plan.correctedPlanFacts).length){const revised=await reviseTrainingPlanFactsInTransaction(m,scope,actor,String(binding!.plan_id),planFactRevision,plan.correctedPlanFacts,"source training facts revision");planFactRevision=revised.sequenceNo;Object.assign(current!,plan.correctedPlanFacts);}
   if(plan?.correctedHours!==undefined||plan?.correctedMemo!==undefined){const changed=await correctTrainingHistoryFactsInTransaction(m,scope,actor,prior.target_id,correctionVersion,{hours:plan?.correctedHours,memo:plan?.correctedMemo});correctionVersion=changed.correctionVersion;if(plan?.correctedHours!==undefined)current!.hours=plan.correctedHours;if(plan?.correctedMemo!==undefined)current!.memo=plan.correctedMemo;}
   const accepted={...source,...incoming},next={...baseline};for(const field of plan!.changedFields as Array<keyof TrainingHistoryFacts>){if(field==="memo")next.memo=current!.memo;else next[field]=current![field];}
-  await m.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,source_facts_encrypted=$3,source_facts_sha256=$4,baseline_encrypted=$5,version=version+1,target_version=$6,last_operation_id=$7,update_time=now() WHERE id=$1`,[prior.id,item.rowDigest,sensitive.encrypt(profileCanonical(accepted)),hash(accepted),sensitive.encrypt(profileCanonical({target:next,original})),correctionVersion+1,operationId]);
+  await m.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,source_facts_encrypted=$3,source_facts_sha256=$4,baseline_encrypted=$5,version=version+1,target_version=$6,last_operation_id=$7,update_time=now() WHERE id=$1`,[prior.id,item.rowDigest,sensitive.encrypt(profileCanonical(accepted)),hash(accepted),sensitive.encrypt(profileCanonical({target:next,original,planFactRevision})),correctionVersion+1,operationId]);
  }
- return revision(m,operationId,prior.id,item.rowDigest,plan?.action==='unchanged'?'unchanged':'applied',plan?.changedFields??Object.keys(incoming),correctionVersion);
+ return revision(m,operationId,prior.id,item.rowDigest,plan?.action==='unchanged'?'unchanged':'applied',plan?.changedFields??Object.keys(incoming),correctionVersion,planFactRevision);
 }
-async function revision(m:EntityManager,operationId:string,itemId:string,digest:string,outcome:'applied'|'unchanged'|'conflict',fields:string[],correctionVersion:number){
- await m.query(`INSERT INTO hr_incremental_import_revision(operation_id,item_id,revision_no,outcome,source_row_sha256,field_diff,before_receipt,after_receipt) VALUES($1,$2,(SELECT COALESCE(max(revision_no),0)+1 FROM hr_incremental_import_revision WHERE item_id=$2),$3,$4,$5::jsonb,'{}'::jsonb,$6::jsonb)`,[operationId,itemId,outcome,digest,profileCanonical(fields.map(field=>({field}))),profileCanonical({correctionVersion})]);return outcome;
+async function revision(m:EntityManager,operationId:string,itemId:string,digest:string,outcome:'applied'|'unchanged'|'conflict',fields:string[],correctionVersion:number,planFactRevision:number){
+ await m.query(`INSERT INTO hr_incremental_import_revision(operation_id,item_id,revision_no,outcome,source_row_sha256,field_diff,before_receipt,after_receipt) VALUES($1,$2,(SELECT COALESCE(max(revision_no),0)+1 FROM hr_incremental_import_revision WHERE item_id=$2),$3,$4,$5::jsonb,'{}'::jsonb,$6::jsonb)`,[operationId,itemId,outcome,digest,profileCanonical(fields.map(field=>({field}))),profileCanonical({correctionVersion,planFactRevision})]);return outcome;
 }
