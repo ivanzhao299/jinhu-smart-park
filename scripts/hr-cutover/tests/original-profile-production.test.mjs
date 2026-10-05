@@ -1,0 +1,76 @@
+import test from 'node:test';
+import process from 'node:process';
+import { URL } from 'node:url';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync, statSync, existsSync, symlinkSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { prepareOnProductionHost, productionPreparationBootstrap, validatePreparationRequest, runProductionPreparation } from '../prepare-original-profile-production.mjs';
+const sha=value=>createHash('sha256').update(value).digest('hex');
+const entry='scripts/hr-cutover/prepare-original-profile-production.mjs';
+const paths=[entry,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs'];
+function fixture(){
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'private-profile-host-'))),deployPath=join(root,'deployment');
+  mkdirSync(join(deployPath,'scripts/hr-cutover'),{recursive:true});
+  const content=[readFileSync(new URL('../prepare-original-profile-production.mjs',import.meta.url),'utf8'),
+    `export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=()=>({productionImport:'HOLD',writerPresent:false,aliasProfiles:2});`,
+    `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,'export const observer=true;'];
+  const files=paths.map((path,i)=>{writeFileSync(join(deployPath,path),content[i]);return {path,sha256:sha(content[i])}});
+  const request={deployPath,files,expectedRuntimeCommit:'d'.repeat(40)};
+  writeFileSync(join(deployPath,'.release.json'),JSON.stringify({commit:request.expectedRuntimeCommit}));
+  return {root,request};
+}
+test('actual bootstrap validates source then prepares private config outside deployment; outputs only receipt',()=>{
+  const {root,request}=fixture();try{
+    const result=spawnSync(process.execPath,['--input-type=module','-e',productionPreparationBootstrap],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+    assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{productionImport:'HOLD',writerPresent:false,aliasProfiles:2});
+    assert.doesNotMatch(result.stdout,/deploy|private|config|employee|\/tmp/);
+    const privateRoot=join(root,'.jinhu-hr-private-profile-input');assert.equal(statSync(privateRoot).mode&0o777,0o700);
+    const control=join(privateRoot,readdirSync(privateRoot)[0]);assert.equal(statSync(control).mode&0o777,0o700);
+    assert.equal(statSync(join(control,'config.json')).mode&0o777,0o600);
+    const config=JSON.parse(readFileSync(join(control,'config.json'),'utf8'));
+    assert.equal(config.expected.aliasProfiles,2);assert.equal(config.expectedRuntimeCommit,request.expectedRuntimeCommit);
+  }finally{rmSync(root,{recursive:true,force:true})}
+});
+test('source or release drift fails before import/private output; unsafe private root remains untouched',async()=>{
+  const {root,request}=fixture();let imports=0;try{
+    const load=async()=>{imports++;throw Error('must never import')};
+    writeFileSync(join(request.deployPath,paths[2]),'tampered');
+    await assert.rejects(prepareOnProductionHost(request,{load}),/PRIVATE_PREPARATION_FAILED/);
+    assert.equal(imports,0);assert.equal(existsSync(join(root,'.jinhu-hr-private-profile-input')),false);
+    writeFileSync(join(request.deployPath,'.release.json'),JSON.stringify({commit:'e'.repeat(40)}));
+    await assert.rejects(prepareOnProductionHost(request,{load}));assert.equal(imports,0);
+  }finally{rmSync(root,{recursive:true,force:true})}
+  const other=fixture();try{
+    const foreign=join(other.root,'foreign');mkdirSync(foreign,{mode:0o700});writeFileSync(join(foreign,'keep'),'safe');
+    symlinkSync(foreign,join(other.root,'.jinhu-hr-private-profile-input'));
+    await assert.rejects(prepareOnProductionHost(other.request),/PRIVATE_PREPARATION_FAILED/);
+    assert.equal(readFileSync(join(foreign,'keep'),'utf8'),'safe');assert.deepEqual(readdirSync(foreign),['keep']);
+  }finally{rmSync(other.root,{recursive:true,force:true})}
+});
+test('request and SSH argument boundaries reject unexpected paths, hashes, files and destination options',()=>{
+  const {root,request}=fixture();try{
+    for(const edit of [r=>{r.deployPath='/tmp/../foreign'},r=>{r.files[0].path='../foreign'},r=>{r.files[0].sha256='wrong'},r=>{r.files.push(r.files[0])},r=>{r.files.pop()},r=>{r.extra=true}]){
+      const r=JSON.parse(JSON.stringify(request));edit(r);assert.throws(()=>validatePreparationRequest(r));
+    }
+    for(const bad of [{PROD_SSH_HOST:'-oProxyCommand=bad'},{PROD_SSH_USER:'user;bad'},{PROD_SSH_PORT:'0'},{EXPECTED_RUNTIME_COMMIT:'$bad'}]){
+      assert.throws(()=>runProductionPreparation({PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40),...bad},()=>{throw Error('must not run')}),/PRIVATE_PREPARATION_FAILED/);
+    }
+    let ssh=false;
+    const result=runProductionPreparation({PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',PROD_DEPLOY_PATH:'/production/app',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40)},(binary,args,options)=>{
+      if(binary==='git')return paths.join('\n');
+      assert.equal(binary,'ssh');ssh=true;assert.ok(args.includes('BatchMode=yes'));
+      assert.match(args.at(-1),/^node --input-type=module -e '/);assert.equal(options.timeout,90000);
+      assert.equal(JSON.parse(options.input).files.length,4);return '{"writerPresent":false}\n';
+    });assert.equal(ssh,true);assert.equal(result,'{"writerPresent":false}\n');
+  }finally{rmSync(root,{recursive:true,force:true})}
+});
+test('manual production workflow has same deployment mutex and no deploy, credentials creation or data artifacts',()=>{
+  const workflow=readFileSync(new URL('../../../.github/workflows/prepare-original-profile-input.yml',import.meta.url),'utf8');
+  assert.match(workflow,/workflow_dispatch:/);assert.match(workflow,/if: github.ref == 'refs\/heads\/main'/);
+  assert.match(workflow,/environment: production/);assert.match(workflow,/group: deploy-production/);
+  assert.match(workflow,/validate-production-deploy-path.sh/);assert.match(workflow,/original-profile-production.test.mjs/);
+  assert.doesNotMatch(workflow,/upload-artifact|workflow_run|branches:|db:migrate|db:seed|prod:deploy|docker|password|token/i);
+});

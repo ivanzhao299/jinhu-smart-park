@@ -2,6 +2,8 @@
 
 ## 原始档案籍贯与学历补齐的有序批次
 
+生产端私有准备使用手动工作流 `Prepare Original HR Profile Input`（`.github/workflows/prepare-original-profile-input.yml`），只允许 main，复用 production 环境保护和 `deploy-production` 互斥锁。输入 `expected_runtime_commit` 必须是已验证的完整生产 API/Web 提交。工作流使用既有受保护 SSH 通道，先校验部署路径，再验证发布标记及仓库内相关脚本/契约的逐文件 SHA；当前来源观察与配置由主机生成，不接收人员行或任意脚本参数。真实人员批次保留在部署目录的私有同级目录内，不随 rsync 部署删除，也不作为 Actions artifact 上传。返回值只有准备回执的聚合数量、摘要和 HOLD。该工作流不部署、不迁移、不创建账号或权限、不调用业务提交；后续仍须核对真实公共API批次预览、演练及条件回退。
+
 真实私有输入准备入口为 `prepare-yuzhou-original-profile-alias-input.mjs --config <private-metadata-config.json> --output <new-private-directory>`。配置仅含规范化的 `deployPath`、40位 `expectedRuntimeCommit` 和 `expected`：`sourceSetSha256`、`profileCount`、`aliasProfiles`、`nativePlaceFills`、`degreeFills`、`planSha256`、`beforeSha256`。这些值来自当前生产只读观察，不能用测试值、旧观察或空白占位符替代。配置及父目录为0600/0700，输出必须是私有父目录下的新目录。
 
 该入口在读取前后验证实际 API/Web 镜像、应用挂载和容器身份；API 容器内只实例化既有敏感数据解密服务与只读数据库客户端，不启动 Nest 应用或后台任务。来源、归属、回执、原始档案集合及逐行提取共享同一 `REPEATABLE READ READ ONLY` 快照。完整来源哈希账本重新计算并匹配封存集合，每个源行复用原始摘要/转义层解码，重新核对员工键和原操作绑定，然后交给既有 planner 和有序批次入口。若数据或运行身份漂移，停止且不发布输出。

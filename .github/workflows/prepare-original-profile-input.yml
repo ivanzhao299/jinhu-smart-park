@@ -1,0 +1,57 @@
+name: Prepare Original HR Profile Input
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_runtime_commit:
+        description: "Full verified API/Web production commit; prepare private files only, no business write."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Validate private preparation transport
+        run: node --test scripts/hr-cutover/tests/original-profile-production.test.mjs
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
+      - name: Enforce production path separation
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          ssh -p "$PROD_SSH_PORT" -o BatchMode=yes -o ConnectTimeout=30 "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- '$PROD_DEPLOY_PATH'" < scripts/validate-production-deploy-path.sh
+      - name: Prepare private source batch on production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          EXPECTED_RUNTIME_COMMIT: ${{ inputs.expected_runtime_commit }}
+        run: node scripts/hr-cutover/prepare-original-profile-production.mjs
