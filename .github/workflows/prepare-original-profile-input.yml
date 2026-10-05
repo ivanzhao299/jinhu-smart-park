@@ -26,6 +26,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
       - name: Validate private preparation transport
         run: node --test scripts/hr-cutover/tests/original-profile-production.test.mjs
       - name: Start SSH agent

@@ -75,6 +75,7 @@ test('manual production workflow has same deployment mutex and no deploy, creden
   const workflow=readFileSync(new URL('../../../.github/workflows/prepare-original-profile-input.yml',import.meta.url),'utf8');
   assert.match(workflow,/workflow_dispatch:/);assert.match(workflow,/if: github.ref == 'refs\/heads\/main'/);
   assert.match(workflow,/environment: production/);assert.match(workflow,/group: deploy-production/);
+  assert.match(workflow,/package-manager-cache: false/);
   assert.match(workflow,/validate-production-deploy-path.sh/);assert.match(workflow,/original-profile-production.test.mjs/);
   assert.equal(describeYuzhouImportInterface().originalProfileSourcePreparation.productionWorkflow,'.github/workflows/prepare-original-profile-input.yml');
   assert.doesNotMatch(workflow,/upload-artifact|workflow_run|branches:|db:migrate|db:seed|prod:deploy|docker|password|token/i);
