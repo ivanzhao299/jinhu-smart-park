@@ -115,10 +115,10 @@
     {"role":"history_writer","path":"scripts/load-yuzhou-training-reward-history.sh","sha256":"3b95e0dae65d0f08dfbe77af689e67f8536cd54e6c9bfbee6e26451620c79161","requiredTokens":["INSERT INTO hr_training_course","INSERT INTO hr_training_participant","completed_hours=v.hours"]},
     {"role":"modern_schema","path":"database/migrations/000254_hr_training_operations.sql","sha256":"d84e95815a0aa51c2b58e51b645fcdad45c13a73ca988ac81b635a5e17594427","requiredTokens":["CREATE TABLE hr_training_course (","CREATE TABLE hr_training_participant (","score numeric(8,2)","actual_cost numeric(20,4)"]},
     {"role":"authorized_archive","path":"database/migrations/000256_hr_legacy_t5_history.sql","sha256":"a00798cb1b3867b4865367e3d770143cd673e45f6d0e02b0476d4b60f7ad7ab9","requiredTokens":["record_payload jsonb NOT NULL","'training_course','training_history'"]},
-    {"role":"authorized_archive_writer","path":"scripts/load-yuzhou-t5-legacy-history.sh","sha256":"bb3d4e812c83b7d108fd1eaae0c0ede3195bfee00adc992c74581e856d8e98de","requiredTokens":["INSERT INTO hr_legacy_t5_record","c.payload->'source'"]},
+    {"role":"authorized_archive_writer","path":"scripts/load-yuzhou-t5-legacy-history.sh","sha256":"d7920be5d039ed5e5a311f789c6f5a6c4771c34ca12afa72d7d72dd33e590dc7","requiredTokens":["INSERT INTO hr_legacy_t5_record","c.payload->'source'"]},
     {"role":"projection_rollback","path":"database/migrations/000286_hr_legacy_training_reward_projection.sql","sha256":"c70ac94314d7ea0a02d5410fbfc951aa4b84546e528c2932a3e8a4e4bee79202","requiredTokens":["source_table IN('dbo.trainhis','dbo.bonuscode')","training_participant_id"]},
-    {"role":"runtime_api","path":"apps/api/src/modules/hr/hr-training.service.ts","sha256":"d6766c57c58142ef7053704a44028e1e967809008662d5df7c3cc03210ba3fd0","requiredTokens":["hr_training_participant","completed_hours=$4","score=$5","evaluation=$6","actual_cost=$7"]},
-    {"role":"runtime_page","path":"apps/web/app/hr/training/HrTrainingClient.tsx","sha256":"20c19ae0a97e89adae060faab32ccd3059e1cc416bbaa58420e6ac8cca43f0af","requiredTokens":["培训结果","完成学时","实际费用"]}
+    {"role":"runtime_api","path":"apps/api/src/modules/hr/hr-training.service.ts","sha256":"9eb00b8ab47dc60383ba9364daa1a595fa60a51ddc689643b2ed10baa07ac7b4","requiredTokens":["hr_training_participant","completed_hours=$4","score=$5","evaluation=$6","actual_cost=$7"]},
+    {"role":"runtime_page","path":"apps/web/app/hr/training/TrainingResultForm.tsx","sha256":"a4b02310c3455bb9a77f20465f9bbd20ab1eae4614c9fe2ae0bd9ed5f69e1fd5","requiredTokens":["培训结果","完成学时","实际费用"]}
   ],
   "compatibilityCredit": {"numerator":5,"denominator":23},
   "sourceRowValuesEmitted": false,

@@ -37,6 +37,12 @@ before(async()=>{
  await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000343_hr_training_plan_facts.sql"),"utf8"));
  await db.query('INSERT INTO sys_user VALUES($1,$2,$3)',[actorId,scope.tenantId,scope.parkId]);
  await db.query('INSERT INTO hr_employee(id,tenant_id,park_id) VALUES($1,$2,$3),($4,$2,\'20000002\')',[employeeId,scope.tenantId,scope.parkId,foreignEmployee]);
+ const predecessor=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+ const original=(await db.query(`INSERT INTO hr_training_result_correction(tenant_id,park_id,participant_id,sequence_no,corrected_score,corrected_evaluation,corrected_actual_cost,reason,create_by) VALUES($1,$2,$3,1,78,'Synthetic predecessor',12.25,'Synthetic upgrade',$4) RETURNING id,corrected_score,corrected_evaluation,corrected_actual_cost,reason,create_time`,[scope.tenantId,scope.parkId,predecessor.participantId,actorId]))[0];
+ await db.query(readFileSync(resolve(__dirname,"../../../../../database/migrations/000344_hr_training_result_presence.sql"),"utf8"));
+ const upgraded=(await db.query('SELECT id,corrected_score,corrected_evaluation,corrected_actual_cost,reason,create_time FROM hr_training_result_correction WHERE id=$1',[original.id]))[0];assert.deepEqual(upgraded,original);
+ const flags=(await db.query('SELECT score_present,evaluation_present,cost_present,certificate_present FROM hr_training_result_correction WHERE id=$1',[original.id]))[0];assert.deepEqual(flags,{score_present:true,evaluation_present:true,cost_present:true,certificate_present:false});
+
 });
 test('actual fixed builder package passes public preview commit replay status and exact permissions',{skip:!enabled},async()=>{
  const directory=mkdtempSync(resolve(tmpdir(),'yuzhou-training-public-'));
@@ -133,6 +139,62 @@ function item(n:string,hours='8'):TrainingImportItem {const value={domain:'train
 async function operation(){return (await db.query(`INSERT INTO hr_incremental_import_operation(tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,item_count,created_by) VALUES($1,$2,'yuzhou-v10','synthetic',$3,$4,1,$5) RETURNING id`,[scope.tenantId,scope.parkId,randomBytes(32).toString('hex'),sensitive.encrypt('{}'),actorId]))[0].id as string;}
 const owner=async(key:string,table:string)=>{assert.equal(key,employeeKey);assert.equal(table,'dbo.person');return employeeId;};
 async function execute(value:TrainingImportItem,op?:string){return db.transaction(m=>executeYuzhouTrainingItem(m,scope,actor,value,sensitive,owner,op));}
+test('ordinary result corrections fence concurrent and stale forms without changing original facts',{skip:!enabled},async()=>{
+ const imported=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const original=(await db.query('SELECT completed_at,completed_hours,score FROM hr_training_participant WHERE id=$1',[imported.participantId]))[0];
+ const attempts=await Promise.allSettled([
+  service.correct(scope,actor,imported.participantId,{expectedRevision:0,correctedHours:'9',reason:'Synthetic review'}),
+  service.correct(scope,actor,imported.participantId,{expectedRevision:0,correctedScore:'93',reason:'Synthetic review'})
+ ]);
+ assert.equal(attempts.filter(x=>x.status==='fulfilled').length,1);
+ const won=attempts.find(x=>x.status==='fulfilled');assert.ok(won?.status==='fulfilled');assert.equal(won.value.sequenceNo,1);assert.equal(typeof won.value.id,'string');
+ const failed=attempts.find(x=>x.status==='rejected');assert.ok(failed?.status==='rejected');assert.match(String(failed.reason),/result changed/);
+ await assert.rejects(service.correct(scope,actor,imported.participantId,{expectedRevision:0,correctedMemo:'stale form',reason:'Synthetic stale review'}),/result changed/);
+ await assert.rejects(service.correct(scope,actor,imported.participantId,{expectedRevision:1,correctedMemo:'bad reason',reason:' '}),/reason is required/);
+ assert.equal(Number((await db.query('SELECT count(*) n FROM hr_training_result_correction WHERE participant_id=$1',[imported.participantId]))[0].n),1);
+ assert.deepEqual((await db.query('SELECT completed_at,completed_hours,score FROM hr_training_participant WHERE id=$1',[imported.participantId]))[0],original);
+});
+test('budget and certificate writes require their field permissions even with progress or plan management',{skip:!enabled},async()=>{
+ const imported=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const courseId=(await db.query('SELECT course_id FROM hr_training_plan WHERE id=$1',[imported.planId]))[0].course_id;
+ const plan={code:`Synthetic-${randomUUID()}`,name:'Synthetic budget',courseId,mandatory:false,startDate:'2026-10-05',endDate:'2026-10-06',budgetAmount:'1.0000',costCurrency:'CNY',employeeIds:[employeeId]};
+ await assert.rejects(service.createPlan(scope,actor,plan),/cost permission/);
+ const modernPlan=await service.createPlan(scope,actor,{...plan,budgetAmount:'0.0000'});
+ const fileId=randomUUID();await db.query('INSERT INTO sys_file VALUES($1,$2,$3,$4,$5,1,false)',[fileId,scope.tenantId,scope.parkId,'hr_training_certificate',imported.participantId]);
+ await assert.rejects(service.correct(scope,actor,imported.participantId,{expectedRevision:0,certificateFileId:fileId,reason:'Synthetic certificate'}),/document permission/);
+ const documentActor={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_DOCUMENT_MANAGE]};
+ await assert.rejects(service.correct(scope,documentActor,imported.participantId,{expectedRevision:0,certificateFileId:randomUUID(),reason:'Synthetic wrong certificate'}),/certificate file is invalid/);
+ const accepted=await service.correct(scope,documentActor,imported.participantId,{expectedRevision:0,certificateFileId:fileId,reason:'Synthetic certificate'});assert.equal(accepted.sequenceNo,1);
+ assert.equal((await db.query('SELECT certificate_file_id FROM hr_training_result_correction WHERE participant_id=$1',[imported.participantId]))[0].certificate_file_id,fileId);
+ await service.publish(scope,actor,modernPlan.id);await service.start(scope,actor,modernPlan.id);
+ const participantId=(await db.query('SELECT id FROM hr_training_participant WHERE plan_id=$1',[modernPlan.id]))[0].id;
+ await assert.rejects(service.completeParticipant(scope,actor,participantId,{completedHours:'1',certificateFileId:fileId}),/document permission/);
+ await assert.rejects(service.completeParticipant(scope,documentActor,participantId,{completedHours:'1',certificateFileId:fileId}),/certificate file is invalid/);
+ assert.equal((await db.query('SELECT status FROM hr_training_participant WHERE id=$1',[participantId]))[0].status,'assigned');
+ const completionFile=randomUUID();await db.query('INSERT INTO sys_file VALUES($1,$2,$3,$4,$5,1,false)',[completionFile,scope.tenantId,scope.parkId,'hr_training_certificate',participantId]);
+ await service.completeParticipant(scope,documentActor,participantId,{completedHours:'1',certificateFileId:completionFile});
+ assert.equal((await db.query('SELECT certificate_file_id FROM hr_training_participant WHERE id=$1',[participantId]))[0].certificate_file_id,completionFile);
+});
+test('nullable clears survive unrelated source corrections and agree with cost totals',{skip:!enabled},async()=>{
+ const imported=await db.transaction(m=>createTrainingHistoryInTransaction(m,scope,actor,`sha256:${randomBytes(32).toString('hex')}`,employeeId,facts));
+ const service=new HrTrainingService(db,{recordOperationRequired:async()=>undefined} as never);
+ const writer={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_COST_READ,HR_PERMISSIONS.HR_TRAINING_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_TRAINING_DOCUMENT_READ,HR_PERMISSIONS.HR_TRAINING_READ]};
+ const fileId=randomUUID();await db.query('INSERT INTO sys_file VALUES($1,$2,$3,$4,$5,1,false)',[fileId,scope.tenantId,scope.parkId,'hr_training_certificate',imported.participantId]);
+ await service.correct(scope,writer,imported.participantId,{expectedRevision:0,correctedScore:'84',correctedEvaluation:'Synthetic evaluation',correctedActualCost:'25.5000',certificateFileId:fileId,reason:'Synthetic results'});
+ const value=async()=> (await service.planDetail(scope,writer,imported.planId)).participants[0];
+ assert.equal((await value()).score,'84.00');assert.equal((await value()).actualCost,'25.5000');assert.equal((await value()).certificateFileId,fileId);
+ await assert.rejects(service.correct(scope,actor,imported.participantId,{expectedRevision:1,correctedActualCost:null,reason:'Synthetic clear'}),/cost permission/);
+ await assert.rejects(service.correct(scope,actor,imported.participantId,{expectedRevision:1,certificateFileId:null,reason:'Synthetic clear'}),/document permission/);
+ await service.correct(scope,writer,imported.participantId,{expectedRevision:1,correctedScore:null,correctedEvaluation:null,correctedActualCost:null,certificateFileId:null,reason:'Synthetic clear'});
+ await db.transaction(m=>correctTrainingHistoryHoursInTransaction(m,scope,actor,imported.participantId,2,'9'));
+ const cleared=await value();for(const field of ['score','evaluation','actualCost','certificateFileId'])assert.equal(cleared[field],null);
+ const plans=await service.listPlans(scope,writer,{page:1,page_size:100});assert.equal(plans.items.find((x:{id:string})=>x.id===imported.planId)?.actualCost,'0');
+ await service.correct(scope,writer,imported.participantId,{expectedRevision:3,correctedEvaluation:'',reason:'Synthetic empty text'});assert.equal((await value()).evaluation,'');assert.equal((await value()).score,null);
+ await assert.rejects(db.query('UPDATE hr_training_result_correction SET score_cleared=false WHERE participant_id=$1',[imported.participantId]),/append-only/);
+ assert.equal((await db.query('SELECT completed_hours FROM hr_training_participant WHERE id=$1',[imported.participantId]))[0].completed_hours,'8.00');
+});
 let sourceParticipant:string;
 test('formal memo completion corrections clear-null projection and source replay preserve modern changes',{skip:!enabled},async()=>{
  const incoming=(memo:string|null)=>{const v=item('9');v.fields.memo=memo;v.rowDigest=digest({domain:v.domain,sourceTable:v.sourceTable,sourceKey:v.sourceKey,sourceUpdatedAt:null,fields:v.fields});return v;};
@@ -144,15 +206,15 @@ test('formal memo completion corrections clear-null projection and source replay
  const reader={...actor,permissions:[...actor.permissions,HR_PERMISSIONS.HR_TRAINING_READ]};
  const visible=async()=> (await service.planDetail(scope,reader,participant.plan_id)).participants[0].memo;
  assert.equal(await visible(),'  source memo\n  ');
- await service.correct(scope,actor,binding.target_id,{correctedMemo:'modern',reason:'synthetic memo correction'});
+ await service.correct(scope,actor,binding.target_id,{expectedRevision:0,correctedMemo:'modern',reason:'synthetic memo correction'});
  assert.equal(await execute(incoming('  source memo\n  '),await operation()),'unchanged');assert.equal(await visible(),'modern');
  assert.equal(await execute(incoming('source changed'),await operation()),'conflict');assert.equal(await visible(),'modern');
  assert.equal(await execute(incoming('modern'),await operation()),'applied');
  assert.equal(await execute(incoming(null),await operation()),'applied');assert.equal(await visible(),null);
  assert.equal(await execute(incoming(''),await operation()),'applied');assert.equal(await visible(),'');
- await service.correct(scope,actor,binding.target_id,{correctedHours:'11',reason:'synthetic unrelated correction'});assert.equal(await visible(),'');
- await service.correct(scope,actor,binding.target_id,{correctedMemo:null,reason:'synthetic explicit clear'});assert.equal(await visible(),null);
- await assert.rejects(service.correct(scope,{...actor,permissions:[]},binding.target_id,{correctedMemo:'forbidden',reason:'synthetic'}));
+ await service.correct(scope,actor,binding.target_id,{expectedRevision:3,correctedHours:'11',reason:'synthetic unrelated correction'});assert.equal(await visible(),'');
+ await service.correct(scope,actor,binding.target_id,{expectedRevision:4,correctedMemo:null,reason:'synthetic explicit clear'});assert.equal(await visible(),null);
+ await assert.rejects(service.correct(scope,{...actor,permissions:[]},binding.target_id,{expectedRevision:5,correctedMemo:'forbidden',reason:'synthetic'}));
  await assert.rejects(db.query('UPDATE hr_training_participant SET memo=$2 WHERE id=$1',[binding.target_id,'overwrite']),/requires correction/);
  assert.equal((await db.query('SELECT memo FROM hr_training_participant WHERE id=$1',[binding.target_id]))[0].memo,'  source memo\n  ');
  const beforeRollback=await counts();

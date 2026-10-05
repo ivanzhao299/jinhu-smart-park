@@ -25,6 +25,8 @@
   - `compact?: boolean`
   - `refreshKey?: number`
   - `mutationDisabled?: boolean`
+  - `onSelected?(file: FileRecord): void` for choosing an existing associated active file
+  - `allowDelete?: boolean` (default true; false suppresses deletion controls)
 
 ### 3. Contracts
 - Upload policy source of truth: `FILE_UPLOAD_POLICIES` and `FILE_UPLOAD_BIZ_POLICY_MAP` in `packages/shared/src/index.ts`.
@@ -38,6 +40,7 @@
   generic `/files` endpoint. A custom `uploadPath` is a domain adapter whose route
   parameters own the association; its FormData contains `file`, optional `remark`,
   and the helper-added `original_name`, but no generic association fields.
+- A certificate result form selects existing files through the shared attachment list for the exact participant. Selection is disabled through upload/submission, paginated recovery remains available, and historical certificate evidence remains undeletable in that form. Failed result submissions retain the draft and selected file; rendered result revision is submitted without rebinding to newer facts.
 - Uploaded files must be associated with `biz_type` and, when the business object exists, `biz_id`.
 - Workflows that permit pre-object uploads must reload the current actor's pending
   files after refresh/revisit; relying only on the current-session `onUploaded`
