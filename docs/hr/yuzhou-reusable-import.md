@@ -2,6 +2,12 @@
 
 ## 原始档案籍贯与学历补齐的有序批次
 
+真实私有输入准备入口为 `prepare-yuzhou-original-profile-alias-input.mjs --config <private-metadata-config.json> --output <new-private-directory>`。配置仅含规范化的 `deployPath`、40位 `expectedRuntimeCommit` 和 `expected`：`sourceSetSha256`、`profileCount`、`aliasProfiles`、`nativePlaceFills`、`degreeFills`、`planSha256`、`beforeSha256`。这些值来自当前生产只读观察，不能用测试值、旧观察或空白占位符替代。配置及父目录为0600/0700，输出必须是私有父目录下的新目录。
+
+该入口在读取前后验证实际 API/Web 镜像、应用挂载和容器身份；API 容器内只实例化既有敏感数据解密服务与只读数据库客户端，不启动 Nest 应用或后台任务。来源、归属、回执、原始档案集合及逐行提取共享同一 `REPEATABLE READ READ ONLY` 快照。完整来源哈希账本重新计算并匹配封存集合，每个源行复用原始摘要/转义层解码，重新核对员工键和原操作绑定，然后交给既有 planner 和有序批次入口。若数据或运行身份漂移，停止且不发布输出。
+
+输出为私有 `input.json`、包含目标字段与版本的 `before-images.json`、`batch/` 编号包及准备回执；普通输出只有数量、哈希和 `HOLD` 状态。来源明细、私有路径和解密密钥不能进入日志或公开报告。准备回执不授予写入权限；实际公共预览、幂等提交、冲突核对及条件回退仍需针对真实批次完成。该入口只复用已有 T5 档案事实，后续新来源数据仍走固定 staging/结构化抽取入口。
+
 生产只读 `diagnose_personnel_alias` 观察同时返回 `originalBaselineSet` 的六项集合计数，按 API `certifyOriginalProfiles` 的 `Asia/Shanghai` 时区、PostgreSQL JSON 文本和排序行摘要算法，对比原操作 `owned_state` 中的档案与全部回执集合。只有非空档案、有效未回退操作及两套摘要都匹配，才返回 `OBSERVED_INTACT_FOR_API_RECHECK`；其他情况为 `ORIGINAL_SET_NOT_PROVEN`。别名计划的匹配状态独立保留，不能替代原始集合证据。检查不读取明文或加密来源载荷、不锁业务表，只输出计数；该瞬时观察不是提交时的锁定认证，不授予写入权限，也不表示所有来源/版本门槛已通过。正式 API 仍重新认证。
 
 `scripts/hr-cutover/build-yuzhou-profile-alias-batch.mjs` 组合已有 NULL-only planner、原始档案基线 witness 和固定构包器，不另设 SQL writer。它输出先基线、后字段补齐的编号文件和私有 `receipt.json`；全部基线包必须先成功，再处理任何补齐包。同一档案同时补籍贯和学历时只生成一个 item，避免分两次首次接纳触发原始版本保护。每包仍遵守 2000 条/8 MiB 限制，事务与幂等由现有公共预览/提交/查询接口负责。
