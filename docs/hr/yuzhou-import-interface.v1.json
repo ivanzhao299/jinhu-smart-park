@@ -42,7 +42,7 @@
     "sourceAbsence": "never implies target deletion"
   },
   "originalProfileSourcePreparation": {
-    "codeSha256": "677306cd18f417afe52b3e7bb2aeaae96c7dffa08aaa846ff0b84b2e16bef6be",
+    "codeSha256": "b1e78cc65a0d4d8578a51845ea13b83a5c11f8308dbd8f348faa34bab9081495",
     "productionWorkflow": ".github/workflows/prepare-original-profile-input.yml",
     "trigger": "main-only manual dispatch, protected production environment and deployment mutex",
     "source": "existing sealed T5 source in verified production API runtime; read-only repeatable-read snapshot",

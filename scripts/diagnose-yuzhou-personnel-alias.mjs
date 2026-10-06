@@ -352,9 +352,46 @@ ROLLBACK;`;
 export const originalProfileAliasObservationSql = personnelAliasSql
   .slice(0,end)
   .replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;');
-export const originalProfileAliasRowsSql = originalProfileAliasInputSql
+export const originalProfileAliasReferenceRowsSql = originalProfileAliasInputSql
   .slice(originalProfileAliasInputSql.indexOf('WITH ops AS ('))
   .replace(`'observation',(${observationSelect}),\n `,'');
+
+// The complete observer certifies every mapped source's T0 owner and unique
+// original profile in this SAME immutable snapshot. Do not recompute that graph
+// in the payload read: underestimated materialized CTEs can become quadratic.
+// The assembler still validates the complete certificate, ledger, exact counts,
+// raw source hashes, owner identities and correction seals before any file exists.
+const privateRawEnd = personnelAliasSql.indexOf('), receipt_source AS (');
+if (privateRawEnd < 0) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
+export const originalProfileAliasRowsSql = `${personnelAliasSql.slice(personnelAliasSql.indexOf('WITH ops AS ('),privateRawEnd+1)}
+SELECT json_build_object(
+ 'sourceLedger',(SELECT COALESCE(json_agg(json_build_object('sourceIdentitySha256',source_identity_sha256,
+   'sourceRowSha256',source_row_sha256)),'[]'::json) FROM raw),
+ 'operations',(SELECT json_agg(json_build_object('operationId',o.operation_id,'bindingSha256',o.binding_sha256,'binding',o.binding))
+   FROM ops selected JOIN hr_yuzhou_t5_followon_operation o USING(operation_id)),
+ 'rows',(SELECT COALESCE(json_agg(json_build_object(
+   'sourceIdentitySha256',s.source_identity_sha256,'sourceRowSha256',s.source_row_sha256,
+   'encryptedSource',retained.encrypted_source,'employeeId',s.employee_id,
+   'employeeSourceIdentitySha256',owner.source_identity_sha256,'profileId',p.id,
+   'nativePlace',p.native_place,'degree',p.degree,'profileVersion',p.version)
+   ORDER BY s.source_identity_sha256 COLLATE "C"),'[]'::json)
+   FROM raw s
+   JOIN hr_yuzhou_t5_followon_projection_receipt pr ON pr.operation_id=s.operation_id
+     AND pr.target_table='hr_employee_profile' AND pr.source_identity_sha256=s.source_identity_sha256
+     AND pr.source_row_sha256=s.source_row_sha256 AND pr.disposition='insert'
+   JOIN hr_employee_profile p ON p.id=pr.target_id AND p.tenant_id=s.tenant_id AND p.park_id=s.park_id
+     AND p.employee_id=s.employee_id AND NOT p.is_deleted
+     AND p.legacy_source_identity_sha256=s.source_identity_sha256
+     AND p.legacy_source_row_sha256=s.source_row_sha256
+   JOIN hr_yuzhou_t5_followon_source retained ON retained.id=s.id
+   JOIN legacy_record_map owner ON owner.id=s.owner_record_map_id AND owner.target_id=s.employee_id
+     AND owner.target_table='hr_employee' AND owner.source_system='yuzhou-v10' AND owner.source_table='dbo.person'
+     AND owner.is_active AND owner.mapping_status IN ('loaded','verified')
+     AND owner.source_pk_canonical='sha256:'||owner.source_identity_sha256
+   JOIN hr_employee e ON e.id=s.employee_id AND e.tenant_id=s.tenant_id AND e.park_id=s.park_id AND NOT e.is_deleted
+   WHERE s.receipt_target_id=s.id AND s.receipt_row_sha256=s.source_row_sha256
+     AND s.source_cardinality=1 AND s.owner_status='mapped'));
+ROLLBACK;`;
 
 const selectStart = personnelAliasSql.indexOf('WITH ops AS (');
 const selectEnd = personnelAliasSql.lastIndexOf('\nROLLBACK;');

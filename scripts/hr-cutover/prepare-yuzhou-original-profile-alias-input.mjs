@@ -93,6 +93,8 @@ export function assembleOriginalProfileAliasInput(envelope, expected, extractedA
   return {input,beforeImages,batch};
 }
 
+// The payload uses direct receipt-bound rows; the complete same-snapshot observer
+// certificate is authenticated by assembleOriginalProfileAliasInput before files exist.
 // Never bootstrap Nest or start background jobs. Existing runtime keyring and
 // DB credentials stay in the API container; raw rows travel only through a pipe.
 export const originalProfileAliasReadProgram = String.raw`
