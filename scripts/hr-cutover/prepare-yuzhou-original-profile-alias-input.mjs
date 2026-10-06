@@ -113,7 +113,7 @@ process.stdin.on('end',async()=>{
   stage='OBSERVATION_ENVELOPE';
   const observation=(Array.isArray(observedResults)?observedResults:[observedResults]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!observation||typeof observation!=='object'||Array.isArray(observation))throw Error();
-  stage='ROWS_QUERY';const results=await client.query(rowsSql);
+  stage='ROWS_QUERY';await client.query('SET LOCAL enable_nestloop=on');const results=await client.query(rowsSql);
   stage='ENVELOPE';
   const envelope=(Array.isArray(results)?results:[results]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!envelope||!Array.isArray(envelope.rows)||envelope.rows.length>20000)throw Error();

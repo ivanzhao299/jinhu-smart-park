@@ -41,12 +41,13 @@ const at='2026-10-05T10:00:00.000Z';
 test('actual container reader reports closed stages without private exception text or partial rows',async()=>{
   for(const stage of ['KEYRING','INPUT','CONNECT','OBSERVATION_QUERY','OBSERVATION_QUERY_TIMEOUT','OBSERVATION_QUERY_LOCK','OBSERVATION_ENVELOPE','ROWS_QUERY','ROWS_QUERY_TIMEOUT','ROWS_QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT','PASS']){
     const stdin=new EventEmitter();stdin.setEncoding=()=>{};
-    let stdout='',stderr='',closed=false;
+    let stdout='',stderr='',closed=false;const sqls=[];
     const privateError=()=>Object.assign(Error('synthetic private-row /secret/path'),{code:stage.endsWith('_TIMEOUT')?'57014':stage.endsWith('_LOCK')?'55P03':'untrusted private-code'});
     class Client {
       constructor(config){assert.equal(config.options,'-c default_transaction_read_only=on -c jit=off')}
       async connect(){if(stage==='CONNECT')throw privateError()}
       async query(sql){
+        sqls.push(sql);
         if(sql==='ROLLBACK')return {rows:[]};
         if((sql==='synthetic-observation'&&stage.startsWith('OBSERVATION_QUERY'))||(sql==='synthetic-rows'&&stage.startsWith('ROWS_QUERY')))throw privateError();
         return [{rows:[{json_build_object:sql==='synthetic-observation'?(stage==='OBSERVATION_ENVELOPE'?null:{synthetic:true}):stage==='ENVELOPE'?null:{rows:[{encryptedSource:'synthetic-cipher'}]}}]}];
@@ -62,7 +63,7 @@ test('actual container reader reports closed stages without private exception te
     stdin.emit('data',stage==='INPUT'?'bad-json':JSON.stringify({observationSql:'synthetic-observation',rowsSql:'synthetic-rows'}));stdin.emit('end');
     for(let i=0;i<10&&!closed;i++)await new Promise(resolve=>setImmediate(resolve));
     assert.equal(closed,true);
-    if(stage==='PASS'){assert.equal(proc.exitCode,0);assert.equal(stderr,'');assert.deepEqual(JSON.parse(stdout),{rows:[{source:{value:'synthetic-source'}}],observation:{synthetic:true}})}
+    if(stage==='PASS'){assert.deepEqual(sqls,['synthetic-observation','SET LOCAL enable_nestloop=on','synthetic-rows','ROLLBACK']);assert.equal(proc.exitCode,0);assert.equal(stderr,'');assert.deepEqual(JSON.parse(stdout),{rows:[{source:{value:'synthetic-source'}}],observation:{synthetic:true}})}
     else {assert.equal(proc.exitCode,1);assert.equal(stdout,'');assert.equal(stderr,`YUZHOU_PROFILE_ALIAS_SOURCE_READ_FAILED_${stage}\n`);assert.doesNotMatch(stderr,/private-row|secret|untrusted/)}
   }
 });
