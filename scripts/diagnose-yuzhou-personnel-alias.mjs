@@ -320,6 +320,42 @@ SELECT json_build_object(
 );
 ROLLBACK;`;
 
+const start = personnelAliasSql.indexOf('\nSELECT json_build_object(');
+const end = personnelAliasSql.lastIndexOf('\nROLLBACK;');
+if (start < 0 || end <= start) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
+const observationSelect = personnelAliasSql.slice(start,end).trim().replace(/;$/u,'');
+
+// Reuse the observer's exact source/receipt/owner/archive/profile predicates and
+// whole-set digest inside the SAME read-only snapshot as private row collection.
+export const originalProfileAliasInputSql = `${personnelAliasSql.slice(0,start).replace('BEGIN TRANSACTION READ ONLY;',
+  'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;')}
+SELECT json_build_object('observation',(${observationSelect}),
+ 'sourceLedger',(SELECT COALESCE(json_agg(json_build_object('sourceIdentitySha256',source_identity_sha256,
+   'sourceRowSha256',source_row_sha256)),'[]'::json) FROM raw),
+ 'operations',(SELECT json_agg(json_build_object('operationId',o.operation_id,'bindingSha256',o.binding_sha256,'binding',o.binding))
+   FROM ops selected JOIN hr_yuzhou_t5_followon_operation o USING(operation_id)),
+ 'rows',(SELECT COALESCE(json_agg(json_build_object(
+   'sourceIdentitySha256',s.source_identity_sha256,'sourceRowSha256',s.source_row_sha256,
+   'encryptedSource',retained.encrypted_source,'employeeId',s.employee_id,
+   'employeeSourceIdentitySha256',owner.source_identity_sha256,'profileId',p.profile_id,
+   'nativePlace',p.native_place,'degree',p.degree,'profileVersion',target.version)
+   ORDER BY s.source_identity_sha256 COLLATE "C"),'[]'::json)
+   FROM exact_profiles p JOIN mapped_owner s ON s.id=p.source_id
+   JOIN hr_yuzhou_t5_followon_source retained ON retained.id=s.id
+   JOIN legacy_record_map owner ON owner.id=s.owner_record_map_id
+   JOIN hr_employee_profile target ON target.id=p.profile_id));
+ROLLBACK;`;
+
+// Preserve every predicate, but avoid putting the complete observation and
+// private row aggregation in one statement. Both execute on the SAME client
+// and REPEATABLE READ snapshot; only the row statement closes the snapshot.
+export const originalProfileAliasObservationSql = personnelAliasSql
+  .slice(0,end)
+  .replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;');
+export const originalProfileAliasRowsSql = originalProfileAliasInputSql
+  .slice(originalProfileAliasInputSql.indexOf('WITH ops AS ('))
+  .replace(`'observation',(${observationSelect}),\n `,'');
+
 const selectStart = personnelAliasSql.indexOf('WITH ops AS (');
 const selectEnd = personnelAliasSql.lastIndexOf('\nROLLBACK;');
 if (selectStart < 0 || selectEnd <= selectStart) throw new Error('PERSONNEL_ALIAS_RESULT_INVALID');
@@ -538,6 +574,21 @@ export function diagnosePersonnelAliasPlan(deployPath, run = execFileSync) {
   }
 }
 
+/** Nonexecuting plans of the exact private row SELECT. Never expose expressions or rows. */
+export function diagnoseOriginalProfileRowsPlans(deployPath, run = execFileSync) {
+  const base = personnelAliasExplainSql.slice(0, personnelAliasExplainSql.indexOf('EXPLAIN (FORMAT JSON)'));
+  const queries = [false, true].map(enabled => `${base.replace('SET LOCAL enable_nestloop=off;',
+    `SET LOCAL enable_nestloop=${enabled ? 'on' : 'off'};`)}SET LOCAL jit=off;
+EXPLAIN (FORMAT JSON) ${originalProfileAliasRowsSql}`);
+  return queries.map((sql, index) => {
+    const plan = diagnosePersonnelAliasPlan(deployPath, (...args) => {
+      const options = {...args[2], input: sql};
+      return run(args[0], args[1], options);
+    });
+    return {nestedLoopEnabled: index === 1, ...plan};
+  });
+}
+
 if (process.argv[1] === '-' || (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
   try {
     const args = process.argv.slice(2);
@@ -546,7 +597,8 @@ if (process.argv[1] === '-' || (process.argv[1] && resolve(process.argv[1]) === 
     if (args.length !== (explain ? 2 : 1) || (explain && args[0] !== '--explain') || (!explain && args[0]?.startsWith('--'))) {
       throw new Error('PERSONNEL_ALIAS_PATH_INVALID');
     }
-    process.stdout.write(JSON.stringify(explain ? diagnosePersonnelAliasPlan(deployPath) : diagnosePersonnelAlias(deployPath))+'\n');
+    const observed = explain ? {...diagnosePersonnelAliasPlan(deployPath), privateRowsPlans: diagnoseOriginalProfileRowsPlans(deployPath)} : diagnosePersonnelAlias(deployPath);
+    process.stdout.write(JSON.stringify(observed)+'\n');
   } catch (error) {
     const allowed = ['PERSONNEL_ALIAS_PATH_INVALID','PERSONNEL_ALIAS_PROBE_FAILED','PERSONNEL_ALIAS_RESULT_INVALID',
       'PERSONNEL_ALIAS_DB_TIMEOUT_57014','PERSONNEL_ALIAS_DB_SCHEMA_INVALID','PERSONNEL_ALIAS_DB_ACCESS_DENIED','PERSONNEL_ALIAS_PLAN_INVALID'];

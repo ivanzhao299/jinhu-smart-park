@@ -7,7 +7,7 @@ import test from 'node:test';
 import process from 'node:process';
 import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, profileBaselineSetCtes, profileBaselineSetSelect, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
+import { diagnoseOriginalProfileRowsPlans, originalProfileAliasRowsSql, diagnosePersonnelAlias, diagnosePersonnelAliasPlan, personnelAliasExplainSql, personnelAliasSql, profileBaselineSetCtes, profileBaselineSetSelect, sanitizePersonnelAliasPlan } from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const zeroField = () => ({ targetNullSourceValid: 0, existingEqualPreserved: 0, existingDifferentPreserved: 0, whitespaceOnlySource: 0, missingOrInvalidSource: 0 });
 const result = (overrides = {}) => {
@@ -448,4 +448,32 @@ test('real PostgreSQL whole-set observation catches profile edits, receipt edits
     }
     await admin.end();
   }
+});
+
+test('private row plans cover the exact collector SELECT without executing or exposing source data', () => {
+  const sqls = [];
+  const plans = diagnoseOriginalProfileRowsPlans('/srv/jinhu-prod', (command, args, options) => {
+    assert.equal(command, 'docker');
+    assert.equal(options.timeout, 15000);
+    assert.equal(options.maxBuffer, 1024 * 1024);
+    assert.equal(options.cwd, '/srv/jinhu-prod');
+    assert.match(options.input, /^BEGIN TRANSACTION READ ONLY;/);
+    assert.match(options.input, /SET LOCAL jit=off;/);
+    assert.match(options.input, /statement_timeout='5s'/);
+    assert.match(options.input, /lock_timeout='2s'/);
+    assert.ok(options.input.endsWith(`EXPLAIN (FORMAT JSON) ${originalProfileAliasRowsSql}`));
+    assert.doesNotMatch(options.input, /\bANALYZE\b|^\s*(?:INSERT|UPDATE|DELETE|CREATE|COPY)\b/im);
+    sqls.push(options.input);
+    return JSON.stringify(planValue());
+  });
+  assert.equal(sqls.length, 2);
+  assert.match(sqls[0], /enable_nestloop=off;/);
+  assert.match(sqls[1], /enable_nestloop=on;/);
+  assert.deepEqual(plans.map(p => p.nestedLoopEnabled), [false, true]);
+  for (const plan of plans) {
+    assert.equal(plan.executedQuery, false);
+    assert.equal(plan.writerPresent, false);
+    assert.doesNotMatch(JSON.stringify(plan), /private|secret|sensitive|Relation Name|Filter|Output|Index Cond/);
+  }
+  assert.throws(() => diagnoseOriginalProfileRowsPlans('/srv/jinhu-prod', () => JSON.stringify([{Plan:{}}])), /PERSONNEL_ALIAS_PLAN_INVALID/);
 });
