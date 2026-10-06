@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, lstatSync, realpathSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
-import { personnelAliasSql, validatePersonnelAliasObservation } from '../diagnose-yuzhou-personnel-alias.mjs';
+import { originalProfileAliasInputSql, originalProfileAliasObservationSql, originalProfileAliasRowsSql, validatePersonnelAliasObservation } from '../diagnose-yuzhou-personnel-alias.mjs';
 import { observeProductionRuntimeRevision } from '../diagnose-production-runtime-revision.mjs';
 import { verifyProfileSource, canonicalProfile } from './yuzhou-profile-incremental-projection.mjs';
 import { YUZHOU_REUSABLE_INCREMENTAL_RECIPE_SHA256 } from './build-yuzhou-reusable-incremental-package.mjs';
@@ -19,44 +19,9 @@ const fail = code => { throw new Error(`YUZHOU_PROFILE_ALIAS_SOURCE_${code}`); }
 const exact = (value, keys) => { if (!plain(value) || Object.keys(value).sort().join(',') !== [...keys].sort().join(',')) fail('SCHEMA_INVALID'); };
 export const YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256 = sha(readFileSync(fileURLToPath(import.meta.url)));
 const CODE_SHA256 = YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256;
+export { originalProfileAliasInputSql, originalProfileAliasObservationSql, originalProfileAliasRowsSql };
 const contract = JSON.parse(readFileSync(new URL('./contracts/legacy-personnel-alias-backfill-v1.json',import.meta.url)));
 const scope = Object.freeze({tenantId:'10000001',parkId:'20000001'});
-const start = personnelAliasSql.indexOf('\nSELECT json_build_object(');
-const end = personnelAliasSql.lastIndexOf('\nROLLBACK;');
-if (start < 0 || end <= start) fail('QUERY_INVALID');
-const observationSelect = personnelAliasSql.slice(start,end).trim().replace(/;$/u,'');
-
-// Reuse the observer's exact source/receipt/owner/archive/profile predicates and
-// whole-set digest inside the SAME read-only snapshot as private row collection.
-export const originalProfileAliasInputSql = `${personnelAliasSql.slice(0,start).replace('BEGIN TRANSACTION READ ONLY;',
-  'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;')}
-SELECT json_build_object('observation',(${observationSelect}),
- 'sourceLedger',(SELECT COALESCE(json_agg(json_build_object('sourceIdentitySha256',source_identity_sha256,
-   'sourceRowSha256',source_row_sha256)),'[]'::json) FROM raw),
- 'operations',(SELECT json_agg(json_build_object('operationId',o.operation_id,'bindingSha256',o.binding_sha256,'binding',o.binding))
-   FROM ops selected JOIN hr_yuzhou_t5_followon_operation o USING(operation_id)),
- 'rows',(SELECT COALESCE(json_agg(json_build_object(
-   'sourceIdentitySha256',s.source_identity_sha256,'sourceRowSha256',s.source_row_sha256,
-   'encryptedSource',retained.encrypted_source,'employeeId',s.employee_id,
-   'employeeSourceIdentitySha256',owner.source_identity_sha256,'profileId',p.profile_id,
-   'nativePlace',p.native_place,'degree',p.degree,'profileVersion',target.version)
-   ORDER BY s.source_identity_sha256 COLLATE "C"),'[]'::json)
-   FROM exact_profiles p JOIN mapped_owner s ON s.id=p.source_id
-   JOIN hr_yuzhou_t5_followon_source retained ON retained.id=s.id
-   JOIN legacy_record_map owner ON owner.id=s.owner_record_map_id
-   JOIN hr_employee_profile target ON target.id=p.profile_id));
-ROLLBACK;`;
-
-// Preserve every predicate, but avoid putting the complete observation and
-// private row aggregation in one statement. Both execute on the SAME client
-// and REPEATABLE READ snapshot; only the row statement closes the snapshot.
-export const originalProfileAliasObservationSql = personnelAliasSql
-  .slice(0,end)
-  .replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;');
-export const originalProfileAliasRowsSql = originalProfileAliasInputSql
-  .slice(originalProfileAliasInputSql.indexOf('WITH ops AS ('))
-  .replace(`'observation',(${observationSelect}),\n `,'');
-
 export function validateOriginalProfileAliasExpected(expected) {
   exact(expected,['sourceSetSha256','profileCount','aliasProfiles','nativePlaceFills','degreeFills','planSha256','beforeSha256']);
   for (const key of ['sourceSetSha256','planSha256','beforeSha256']) if (!/^[a-f0-9]{64}$/u.test(expected[key] ?? '')) fail('EXPECTED_INVALID');
@@ -148,7 +113,7 @@ process.stdin.on('end',async()=>{
   stage='OBSERVATION_ENVELOPE';
   const observation=(Array.isArray(observedResults)?observedResults:[observedResults]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!observation||typeof observation!=='object'||Array.isArray(observation))throw Error();
-  stage='ROWS_QUERY';const results=await client.query(rowsSql);
+  stage='ROWS_QUERY';await client.query('SET LOCAL enable_nestloop=on');const results=await client.query(rowsSql);
   stage='ENVELOPE';
   const envelope=(Array.isArray(results)?results:[results]).find(r=>r.rows?.[0]?.json_build_object)?.rows[0].json_build_object;
   if(!envelope||!Array.isArray(envelope.rows)||envelope.rows.length>20000)throw Error();
