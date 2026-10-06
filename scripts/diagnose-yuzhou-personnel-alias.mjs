@@ -356,8 +356,8 @@ export const originalProfileAliasReferenceRowsSql = originalProfileAliasInputSql
   .slice(originalProfileAliasInputSql.indexOf('WITH ops AS ('))
   .replace(`'observation',(${observationSelect}),\n `,'');
 
-// The complete observer certifies every mapped source's T0 owner and unique
-// original profile in this SAME immutable snapshot. Do not recompute that graph
+// The complete observer certifies every mapped source's T0 owner and each
+// selected inserted profile's uniqueness in this SAME immutable snapshot. Do not recompute that graph
 // in the payload read: underestimated materialized CTEs can become quadratic.
 // The assembler still validates the complete certificate, ledger, exact counts,
 // raw source hashes, owner identities and correction seals before any file exists.
