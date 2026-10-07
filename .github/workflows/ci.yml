@@ -1269,7 +1269,9 @@ jobs:
               2>&1 | tee /tmp/release-smoke-logs/property-api-e2e-fixtures.log
 
       - name: Start API
-        run: docker compose -f "$COMPOSE_FILE" up -d api
+        run: |
+          node scripts/hr-cutover/ensure-profile-private-root.mjs --deploy "$GITHUB_WORKSPACE"
+          docker compose -f "$COMPOSE_FILE" up -d api
 
       - name: Wait for API health
         run: |
