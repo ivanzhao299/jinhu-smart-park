@@ -1,5 +1,7 @@
 # Original T5 profile continuity
 
+Private source preparation must accept the original T5 sealed targetScope shape `{tenantId,parkId,scopeSha256}`. Require exactly those keys, fixed tenant/park, a 64-hex outer targetScopeSha256 and equality of the inner scopeSha256; retain authentication of the entire original binding hash. Do not compare this sealed three-key object with the modern two-key target scope. Fixtures must include both committed scope hashes; missing/malformed/mismatched hash, foreign scope, extra fields and unsealed binding mutations must be rejected before materialization.
+
 ## 1. Scope / Trigger
 
 Original followon-only profiles and new raw profiles through the existing incremental API. Never rerun original operations, alter receipts or borrow employee identity for profile identity.

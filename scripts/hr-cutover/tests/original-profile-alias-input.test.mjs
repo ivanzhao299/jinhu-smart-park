@@ -34,7 +34,7 @@ function fixture() {
     profileGaps:{matched:2,receiptMissing:0,receiptSourceMismatch:0,receiptNotInserted:0,targetMissing:0,targetDeleted:0,targetScopeOrOwnerMismatch:0,targetSourceMismatch:0,ambiguousActiveProfiles:0},
     profileNonInsertSummary:{reasons:{identityAmbiguous:0,sourceMaterializationQuarantined:0,employeeNotMapped:0,other:0},employmentStatus:{departed:0,nonDeparted:0,unknown:0},linkedAccountCount:0,currentContractCandidateCount:0},
     correctionPlan:{sealVersion:1,mappingVersion:'yuzhou-personnel-alias-null-fill-v1',plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:expected.planSha256,beforeSha256:expected.beforeSha256,afterSha256:'c'.repeat(64)}};
-  const binding={operationId:'yzprod-import-20261004T130000Z-abcdef123456',intent:'APPEND_T5_FULL_HISTORY_ONCE',targetScope:{tenantId:'10000001',parkId:'20000001'},executionCodeSha:'7c3df1c230bde74badbf414acae36030d5fe8709',sourceMappingContractSha256:'d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0',triple:{sourceSnapshotHash:'d'.repeat(64)}};
+  const binding={operationId:'yzprod-import-20261004T130000Z-abcdef123456',intent:'APPEND_T5_FULL_HISTORY_ONCE',targetScope:{tenantId:'10000001',parkId:'20000001',scopeSha256:'1'.repeat(64)},targetScopeSha256:'1'.repeat(64),executionCodeSha:'7c3df1c230bde74badbf414acae36030d5fe8709',sourceMappingContractSha256:'d44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0',triple:{sourceSnapshotHash:'d'.repeat(64)}};
   return {envelope:{rows,sourceLedger,observation,operations:[{operationId:binding.operationId,bindingSha256:sha(canonicalProfile(binding)),binding}]},expected};
 }
 const at='2026-10-05T10:00:00.000Z';
@@ -76,6 +76,21 @@ test('real input assembly retains original witness and drives existing ordered p
   assert.equal(aliases.length,2);assert.equal(aliases.filter(i=>i.fields.degree).length,1);
   assert.equal(prepared.beforeImages[0].version,1);
   assert.equal(prepared.batch.receipt.productionImport,'HOLD');
+});
+test('original sealed scope requires its committed hash and exact original shape',()=>{
+  const {envelope,expected}=fixture();
+  assert.equal(assembleOriginalProfileAliasInput(envelope,expected,at).batch.receipt.sourceProfiles,2);
+  for(const change of [b=>{delete b.targetScope.scopeSha256},b=>{delete b.targetScopeSha256},
+    b=>{b.targetScope.scopeSha256='2'.repeat(64)},b=>{b.targetScopeSha256='invalid';b.targetScope.scopeSha256='invalid'},
+    b=>{b.targetScope.extra='unexpected'},b=>{b.targetScope=null},b=>{b.targetScope.parkId='foreign'},
+    b=>{b.targetScope.tenantId='foreign'}]){
+    const invalid=clone(envelope),op=invalid.operations[0];change(op.binding);
+    op.bindingSha256=sha(canonicalProfile(op.binding));
+    assert.throws(()=>assembleOriginalProfileAliasInput(invalid,expected,at),/YUZHOU_PROFILE_ALIAS_SOURCE_OPERATION_INVALID/);
+  }
+  const forged=clone(envelope);forged.operations[0].binding.targetScope.scopeSha256='2'.repeat(64);
+  forged.operations[0].binding.targetScopeSha256='2'.repeat(64);
+  assert.throws(()=>assembleOriginalProfileAliasInput(forged,expected,at),/YUZHOU_PROFILE_ALIAS_SOURCE_OPERATION_INVALID/);
 });
 test('ordered private batch authenticates unrelated historical invalid fields without writing or validating them as aliases',()=>{
   const {envelope,expected}=fixture();
