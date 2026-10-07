@@ -11,6 +11,9 @@ test('only fixed scope aggregate SQL runs in read-only transaction with deadline
     assert.equal(cmd,'docker'); assert.ok(args.includes('postgres'));
     assert.equal(options.input,identitySql); assert.equal(options.timeout,15000);
     assert.match(identitySql,/BEGIN TRANSACTION READ ONLY/); assert.match(identitySql,/ROLLBACK;/);
+    assert.match(identitySql,/r\.status='enabled'/);
+    assert.match(identitySql,/p\.status='enabled'/);
+    assert.match(identitySql,/r\.role_scope='tenant' OR r\.park_id='20000001'/);
     assert.doesNotMatch(identitySql,/\b(INSERT|UPDATE|DELETE|GRANT|CREATE|ALTER)\b/i);
     return JSON.stringify(fixture({matchingUsers:2,enabledUsers:1}));
   });

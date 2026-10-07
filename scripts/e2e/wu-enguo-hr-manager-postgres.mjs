@@ -82,6 +82,7 @@ try {
   assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=1').trim(),'f');
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'1');
   query('UPDATE rel_user_role SET is_deleted=true; UPDATE sys_user SET is_enabled=true WHERE id=1');
+  query("ALTER TABLE sys_role ADD COLUMN status text DEFAULT 'enabled', ADD COLUMN role_scope text DEFAULT 'park'; ALTER TABLE sys_permission ADD COLUMN status text DEFAULT 'enabled'");
   const counts = () => JSON.parse(query(identitySql).split('\n').find(line => line.startsWith('{')));
   assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0,selectedUsers:1,enabledSelectedUsers:1,selectedBoundUsers:0,requiredPermissions:5,rolePermissions:5,effectivePermissions:0});
   query("INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,false)");
@@ -92,6 +93,15 @@ try {
   assert.equal(counts().boundUsers,1); assert.equal(counts().selectedBoundUsers,0); assert.equal(counts().effectivePermissions,0);
   query(sql);
   assert.equal(counts().selectedBoundUsers,1); assert.equal(counts().effectivePermissions,5);
+  query("UPDATE sys_role SET status='disabled' WHERE id=1");
+  assert.equal(counts().selectedBoundUsers,1); assert.equal(counts().effectivePermissions,0);
+  query("UPDATE sys_role SET status='enabled',park_id='foreign' WHERE id=1");
+  assert.equal(counts().effectivePermissions,0);
+  query("UPDATE sys_role SET role_scope='tenant' WHERE id=1");
+  assert.equal(counts().effectivePermissions,5);
+  query("UPDATE sys_role SET role_scope='park',park_id='20000001' WHERE id=1; UPDATE sys_permission SET status='disabled' WHERE id=5");
+  assert.equal(counts().effectivePermissions,4);
+  query("UPDATE sys_permission SET status='enabled' WHERE id=5");
   query('UPDATE sys_permission SET is_enabled=false WHERE id=5');
   assert.equal(counts().effectivePermissions,4); assert.equal(counts().rolePermissions,4);
   query('UPDATE sys_permission SET is_enabled=true WHERE id=5; UPDATE rel_role_perm SET is_deleted=true WHERE permission_id=5');

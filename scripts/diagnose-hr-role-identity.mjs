@@ -37,9 +37,10 @@ WITH users AS (
  JOIN sys_role r ON r.id=ur.role_id JOIN rel_role_perm rp ON rp.role_id=r.id
  JOIN sys_permission p ON p.id=rp.permission_id JOIN required q ON q.code=p.code
  WHERE u.is_enabled=true AND ur.tenant_id='10000001' AND ur.park_id='20000001' AND ur.is_deleted=false
- AND r.tenant_id='10000001' AND r.park_id='20000001' AND r.is_deleted=false AND r.is_enabled=true
+ AND r.tenant_id='10000001' AND r.is_deleted=false AND r.is_enabled=true AND r.status='enabled'
+ AND (r.role_scope='tenant' OR r.park_id='20000001')
  AND rp.tenant_id='10000001' AND rp.park_id='20000001' AND rp.is_deleted=false
- AND p.tenant_id='10000001' AND p.park_id='20000001' AND p.is_deleted=false AND p.is_enabled=true
+ AND p.tenant_id='10000001' AND p.is_deleted=false AND p.is_enabled=true AND p.status='enabled'
 )
 SELECT json_build_object(
  'matchingUsers',(SELECT count(*) FROM users),
