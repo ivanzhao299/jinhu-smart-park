@@ -1,0 +1,12 @@
+{
+  "id": "hr-ci-postgres-preflight",
+  "name": "hr-ci-postgres-preflight",
+  "title": "HR发布CI PostgreSQL工具预检",
+  "status": "in_progress",
+  "package": "config",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "branch": "codex/hr-ci-postgres-preflight-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-ci-postgres-preflight-20261008",
+  "createdAt": "2026-10-08"
+}
