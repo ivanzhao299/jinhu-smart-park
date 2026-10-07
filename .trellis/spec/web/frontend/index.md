@@ -8,6 +8,8 @@ Formal employee rehire with scoped search, approval and current assignment: [Emp
 
 Payroll reconciliation preparation and matching months: [Payroll Input Readiness](./hr-payroll-input-readiness.md).
 
+Ordinary payroll ledger business labels, employee visibility and mobile pagination: [Payroll Ledger Presentation](./hr-payroll-ledger-presentation.md).
+
 ## Package Boundary
 
 - Routes live under `apps/web/app`.

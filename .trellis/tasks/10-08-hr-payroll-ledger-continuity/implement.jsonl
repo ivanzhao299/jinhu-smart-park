@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/hr-payroll-ledger-presentation.md", "reason": "Ordinary payroll business display and permissions"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-readiness.md", "reason": "Preserve existing current-period input readiness"}
+{"file": ".trellis/tasks/10-08-hr-payroll-ledger-continuity/prd.md", "reason": "Scoped presentation acceptance and boundaries"}
