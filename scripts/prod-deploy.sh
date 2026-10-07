@@ -105,12 +105,14 @@ deploy_web() {
 }
 
 deploy_api() {
+  node "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" --deploy "$ROOT_DIR"
   compose build api --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
   compose up -d api
   MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
 }
 
 deploy_database() {
+  node "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" --deploy "$ROOT_DIR"
   compose up -d postgres
   wait_for_postgres
   quiesce_api_for_migrations
@@ -120,6 +122,7 @@ deploy_database() {
 }
 
 deploy_full() {
+  node "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" --deploy "$ROOT_DIR"
   compose build api web --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
   compose up -d postgres
   wait_for_postgres

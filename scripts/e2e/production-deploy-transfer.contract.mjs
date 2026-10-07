@@ -1,3 +1,4 @@
+/* global process, console */
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -19,6 +20,7 @@ const expected = {
     "file:.release.json", "dir:database", "file:scripts/bootstrap-admin.sh", "file:scripts/check-init-baseline.sh",
     "file:scripts/db-migrate.sh", "file:scripts/db-seed-prod.sh", "file:scripts/diagnose-000189-asset-scope.sh",
     "file:scripts/diagnose-000194-runtime-control.sh", "file:scripts/prod-deploy.sh",
+    "file:scripts/hr-cutover/ensure-profile-private-root.mjs",
     "file:scripts/repair-000194-retired-runtime-owner.sh",
   ],
 };

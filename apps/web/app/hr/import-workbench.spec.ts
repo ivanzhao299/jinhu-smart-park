@@ -3,10 +3,34 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { SYSTEM_PERMISSIONS, HR_PERMISSIONS, YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE, YUZHOU_INSURANCE_POLICY_KINDS, YUZHOU_INSURANCE_POLICY_FACTOR_FIELDS, YUZHOU_INCREMENTAL_MAX_ITEMS, YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_INITIAL_CANONICALIZATION, type UserContext } from "@jinhu/shared";
 import { validateLocalJsonFile, parseLocalJson } from "../../components/files/local-json-file";
-import { canEnterImport, createImportWorkbench, DOMAIN_MANAGE, IMPORT_FILE_POLICY, importContextKey, missingImportPermissions, normalizeImportOperation, parseImportPackage } from "./import-workbench";
+import { canEnterImport, createImportWorkbench, DOMAIN_MANAGE, IMPORT_FILE_POLICY, importContextKey, missingImportPermissions, normalizeImportOperation, normalizePreparedProfileCatalog, parseImportPackage } from "./import-workbench";
 
 const id = "10000000-0000-4000-8000-000000000001";
 const otherId = "10000000-0000-4000-8000-000000000002";
+test("server package metadata shares commit recovery and keeps interrupted preview key without local raw JSON",async()=>{
+  const selection={batchId:"a".repeat(64),index:0,kind:"baseline" as const,itemCount:1,fields:[]};
+  const keys:string[]=[];let first=true,commits=0;
+  const store=createImportWorkbench({user,isCurrent:()=>true,transport:{key:action=>`${action}-${keys.length}`,
+    preview:async()=>{throw Error("local path must not run")},
+    previewPrepared:async(received,key)=>{assert.deepEqual(received,selection);keys.push(key);if(first){first=false;throw Error("interrupted")}return preview()},
+    commit:async()=>{commits++;throw Error("uncertain")},status:async()=>terminal()}});
+  store.selectPrepared(selection);assert.equal(store.getSnapshot().summary?.fileName,"服务器数据包 1 · 来源基线");
+  await store.preview();assert.equal(store.getSnapshot().previewRetryAvailable,true);
+  await store.preview(true);assert.equal(keys[0],keys[1]);assert.equal(store.getSnapshot().canCommit,true);
+  await store.commit();assert.equal(store.getSnapshot().uncertain,true);
+  store.selectPrepared({...selection,index:1});await store.commit();assert.equal(commits,1);
+  await store.query(id);assert.equal(store.getSnapshot().operation?.status,"committed");assert.equal(store.getSnapshot().uncertain,false);
+});
+test("prepared catalog strips source extras and rejects invalid counters, scope-independent IDs and ordering",()=>{
+  const input=[{id:"a".repeat(64),sourceProfiles:1,aliasProfiles:1,privateRows:["secret-row"],packages:[
+    {index:0,kind:"baseline",itemCount:1,fields:[],canPreview:true,status:"ready",operationId:null,sourceKey:"secret-key"},
+    {index:1,kind:"alias",itemCount:1,fields:["nativePlace"],canPreview:false,status:"ready",operationId:null}]}];
+  assert.doesNotMatch(JSON.stringify(normalizePreparedProfileCatalog(input)),/secret|privateRows|sourceKey/);
+  for(const mutate of [(v:typeof input)=>{v[0]!.id="../unsafe"},(v:typeof input)=>{v[0]!.sourceProfiles=0},
+    (v:typeof input)=>{v[0]!.packages.reverse()},(v:typeof input)=>{v[0]!.packages[1]!.fields=["idNumber"]}]){
+    const invalid=structuredClone(input);mutate(invalid);assert.throws(()=>normalizePreparedProfileCatalog(invalid));
+  }
+});
 const user = { id: "actor", tenant_id: "tenant", park_id: "park", org_id: "org", data_scope: "tenant", is_super: false,
   permissions: Object.values(DOMAIN_MANAGE), enabled_modules: [{ module_code: "hr", enabled: true }], roles: [] } as unknown as UserContext;
 const item = (domain = "employee", fields: Record<string, unknown> = { fullName: "private source text" }, identity = "a") => ({

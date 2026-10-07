@@ -2,15 +2,18 @@
 set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-TEST_ROOT="$(mktemp -d)"
+TEST_BASE="$(mktemp -d)"
+TEST_BASE="$(cd "$TEST_BASE" && pwd -P)"
+TEST_ROOT="$TEST_BASE/deploy"
 
 cleanup() {
-  rm -rf "$TEST_ROOT"
+  rm -rf "$TEST_BASE"
 }
 trap cleanup EXIT HUP INT TERM
 
-mkdir -p "$TEST_ROOT/scripts" "$TEST_ROOT/infra/docker" "$TEST_ROOT/bin"
+mkdir -p "$TEST_ROOT/scripts/hr-cutover" "$TEST_ROOT/infra/docker" "$TEST_ROOT/bin"
 cp "$ROOT_DIR/scripts/prod-deploy.sh" "$TEST_ROOT/scripts/prod-deploy.sh"
+cp "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" "$TEST_ROOT/scripts/hr-cutover/"
 touch "$TEST_ROOT/infra/docker/docker-compose.prod.yml"
 
 for helper in db-migrate.sh db-seed-prod.sh prod-healthcheck.sh prod-docker-cleanup.sh; do
