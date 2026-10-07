@@ -23,6 +23,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   const [switching, setSwitching] = useState(false);
   const [message, setMessage] = useState("");
   const displayName = user?.real_name ?? user?.username ?? "未登录";
+  const accountLabel = user ? `${displayName}（${user.username}）` : displayName;
   const accessibleParks = useMemo(() => (
     (user?.accessible_parks ?? []).filter((park) => park.status === "enabled")
   ), [user?.accessible_parks]);
@@ -58,7 +59,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
 
   return (
     <div className={`user-menu${compact ? " user-menu-compact" : ""}`}>
-      <span aria-label={`当前账号：${displayName}`} className="user-avatar user-profile-trigger" role="img" title={displayName}>
+      <span aria-label={`当前账号：${accountLabel}`} className="user-avatar user-profile-trigger" role="img" title={accountLabel}>
         <UserRound size={16} />
       </span>
       {compact ? null : <span className="user-menu-name">{displayName}</span>}

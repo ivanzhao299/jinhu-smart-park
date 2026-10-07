@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { clearSession } from "../../../lib/auth";
 import { getAccessToken } from "../../../lib/authz";
+import { useAuthUser } from "../../../lib/auth-context";
 import styles from "./security.module.css";
 
 export default function AccountSecurityPage() {
   const router = useRouter();
+  const user = useAuthUser();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const changePassword = async (form: FormData) => {
@@ -50,6 +52,14 @@ export default function AccountSecurityPage() {
           <p>验证当前密码后更新登录凭据。成功后所有园区和设备会话立即失效，需要重新登录。</p>
         </div>
       </section>
+      {user ? <section className="ds-panel" aria-labelledby="current-account-heading">
+        <h2 id="current-account-heading">当前登录账号</h2>
+        <div className="ds-mobile-record-list">
+          <article className="ds-mobile-record"><strong>姓名与账号名</strong><span>{user.real_name} · {user.username}</span></article>
+          <article className="ds-mobile-record"><strong>当前园区</strong><span>{user.current_park?.park_name ?? user.park_name ?? user.park_id}</span></article>
+          <article className="ds-mobile-record"><strong>当前角色</strong><span>{user.roles.map(role => role.role_name).join("、") || "未配置角色"}</span></article>
+        </div>
+      </section> : null}
       <section className="ds-panel">
         <form className={styles.form} action={changePassword}>
           <label className="form-field"><span>当前密码</span><input name="currentPassword" type="password" minLength={6} maxLength={64} autoComplete="current-password" required /></label>
