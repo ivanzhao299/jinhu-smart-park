@@ -10,7 +10,7 @@ import { PartySensitiveDataService } from "../../shared/security/party-sensitive
 import { verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
 import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import.service";
 import { HrEmployeeEntity, HrContractEntity, HrContractTypeEntity, HrContractActionEntity } from "./entities/hr.entities";
-import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
+import { HR_PERMISSIONS, canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
 import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
 import { PreviewYuzhouIncrementalImportDto } from "./dto/yuzhou-incremental-import.dto";
@@ -48,11 +48,11 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
       employees.push({domain:"employee",sourceTable:"dbo.person",sourceKey:`sha256:${sha(`person-${i}`)}`,fields:{employeeCode:employee.employeeCode,fullName:employee.fullName,employmentType:"full_time",employmentStatus:"active",hireDate:"2020-01-01"},initialBaselineWitness:{version:1,operationId,phase:"T0",canonicalizationVersion:YUZHOU_INITIAL_CANONICALIZATION,targetId:employee.id,projection}});
     }
     const contracts:Input[]=[];
-    for(let i=0;i<2;i++) {
-      const contract=await db.getRepository(HrContractEntity).save({...scope,employeeId:employees[i]!.initialBaselineWitness!.targetId,contractTypeId:typeId,contractNo:`ORIG-C-${i}`,startDate:"2020-01-01",endDate:"2030-01-01",status:i===0?"draft":"active",isHistoricalImport:true});
+    for(let i=0;i<8;i++) {
+      const contract=await db.getRepository(HrContractEntity).save({...scope,employeeId:employees[i]!.initialBaselineWitness!.targetId,contractTypeId:typeId,contractNo:`ORIG-C-${i}`,startDate:"2020-01-01",endDate:"2030-01-01",status:[1,4].includes(i)?"active":"draft",contractTermMonths:i>=2?120:null,signatureDate:i>=2?"2019-12-01":null,probationMonths:i>=2?3:null,probationSalary:i>=2?"9000.00":null,baseSalary:i>=2?"12000.00":null,isHistoricalImport:true});
       const identity=sha(`contract-${i}`),rowHash=sha(`contract-row-${i}`);
       const projection:Record<string,unknown>=Object.fromEntries(YUZHOU_INITIAL_PROJECTION_FIELDS.hr_contract.map(k=>[k,null]));
-      Object.assign(projection,{tenant_id:scope.tenantId,park_id:scope.parkId,contract_no:contract.contractNo,start_date:"2020-01-01",end_date:"2030-01-01",status:contract.status,employee_id:contract.employeeId,contract_type_id:typeId,legacy_source_identity_sha256:identity,legacy_source_row_sha256:rowHash,source_snapshot:{"10":"ten","2":"two",nested:{b:null,a:true}},is_historical_import:true,probation_salary:"9000.00",base_salary:"12000.00",renewal_count:0,confidentiality_agreement:false,non_compete_agreement:false,training_service_agreement:false,legacy_text_present:false});
+      Object.assign(projection,{tenant_id:scope.tenantId,park_id:scope.parkId,contract_no:contract.contractNo,start_date:"2020-01-01",end_date:"2030-01-01",status:contract.status,employee_id:contract.employeeId,contract_type_id:typeId,legacy_source_identity_sha256:identity,legacy_source_row_sha256:rowHash,source_snapshot:{"10":"ten","2":"two",nested:{b:null,a:true}},is_historical_import:true,contract_term_months:120,signature_date:"2019-12-01",probation_months:3,probation_salary:"9000.00",base_salary:"12000.00",renewal_count:0,confidentiality_agreement:false,non_compete_agreement:false,training_service_agreement:false,legacy_text_present:false});
       contracts.push({domain:"contract",sourceTable:"dbo.compact",sourceKey:`sha256:${identity}`,fields:{employeeSourceKey:employees[i]!.sourceKey,employeeSourceTable:"dbo.person",contractTypeId:typeId,contractStatus:contract.status,contractNo:contract.contractNo,startDate:"2020-01-01",endDate:"2030-01-01"},initialBaselineWitness:{version:1,operationId,phase:"T2",canonicalizationVersion:YUZHOU_INITIAL_CANONICALIZATION,targetId:contract.id,projection}});
     }
     // Compute hashes with the ORIGINAL writer, not the API implementation under test.
@@ -121,6 +121,129 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
     const life=await previewCommit(lifecycle);assert.ok(life.preview.plan[0]!.conflictFields.includes("NORMAL_EMPLOYMENT_WORKFLOW_REQUIRED"));assert.equal(life.committed.status,"conflicted");
     const c=await previewCommit({...contracts[0]!,fields:{...contracts[0]!.fields,endDate:"2031-01-01"}});assert.equal(c.committed.appliedCount,1);
     const active=await previewCommit({...contracts[1]!,fields:{...contracts[1]!.fields,endDate:"2031-01-01"}});assert.ok(active.preview.plan[0]!.conflictFields.includes("NORMAL_CONTRACT_WORKFLOW_REQUIRED"));assert.equal(active.committed.status,"conflicted");
+    // Faithful older successful encrypted ledger: original provenance/revisions
+    // remain intact; only its mutable comparison subset simulates older code.
+    const contractFields={contractTermMonths:120,signatureDate:"2019-12-01",probationMonths:3,renewalCount:0,confidentialityAgreement:false,nonCompeteAgreement:false,trainingServiceAgreement:false,probationSalary:"9000.00",baseSalary:"12000.00"};
+    const oldContractSubset=async(index:number)=>{
+      const input=contracts[index]!;await previewCommit(input);
+      const ledger=(await db!.query(`SELECT * FROM hr_incremental_import_item WHERE source_key=$1`,[input.sourceKey]))[0];
+      const baseline=JSON.parse(sensitive.decrypt(ledger.baseline_encrypted)!);const source=JSON.parse(sensitive.decrypt(ledger.source_facts_encrypted)!);
+      for(const field of Object.keys(contractFields)){delete baseline.fields[field];delete baseline.target[field];delete source[field];}
+      await db!.query(`UPDATE hr_incremental_import_item SET baseline_encrypted=$2,source_facts_encrypted=$3,source_facts_sha256=$4 WHERE id=$1`,[ledger.id,sensitive.encrypt(JSON.stringify(baseline)),sensitive.encrypt(JSON.stringify(source)),sha(canonicalYuzhouInitialJson(source))]);
+      return {input,ledgerId:ledger.id,provenance:(await db!.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[ledger.id]))[0],revisions:await db!.query(`SELECT * FROM hr_incremental_import_revision WHERE item_id=$1 ORDER BY revision_no`,[ledger.id])};
+    };
+    const oldSubset=await oldContractSubset(2);
+    await db.query(`UPDATE hr_contract SET base_salary='14500.00',confidentiality_agreement=true,version=version+1 WHERE id=$1`,[oldSubset.input.initialBaselineWitness!.targetId]);
+    const beforeAdmission=(await db.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[oldSubset.input.initialBaselineWitness!.targetId]))[0].row;
+    const continuity=result(await service.preview(scope,actor,pkg({...oldSubset.input,initialBaselineWitness:undefined,fields:{...oldSubset.input.fields,...contractFields}})));
+    assert.equal(continuity.plan[0]!.action,"unchanged","certified missing fields must not falsely conflict with modern edits");
+    assert.equal(result(await service.commit(scope,actor,continuity.id)).unchangedCount,1);
+    assert.deepEqual((await db.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[oldSubset.input.initialBaselineWitness!.targetId]))[0].row,beforeAdmission);
+    assert.deepEqual((await db.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[oldSubset.ledgerId]))[0],oldSubset.provenance);
+    const compareState=async(id:string)=>(await db!.query(`SELECT baseline_encrypted,source_facts_encrypted,source_facts_sha256,version,target_version FROM hr_incremental_import_item WHERE id=$1`,[id]))[0];
+    const proofRows=async(id:string)=>(await db!.query(`SELECT field_diff FROM hr_incremental_import_revision WHERE item_id=$1 ORDER BY revision_no`,[id]))
+      .flatMap((row:{field_diff:Record<string,unknown>[]})=>row.field_diff.filter(diff=>diff.code==="CONTRACT_FIELDS_ORIGINAL_WITNESS_ADMITTED"));
+    await t.test("certified field admission is encrypted, value-free, immutable and replay-safe",async()=>{
+      const ledger=await compareState(oldSubset.ledgerId);const baseline=JSON.parse(sensitive.decrypt(ledger.baseline_encrypted)!);
+      assert.equal(baseline.target.baseSalary,"12000.00");assert.equal(baseline.target.confidentialityAgreement,false);
+      assert.equal(JSON.parse(sensitive.decrypt(ledger.source_facts_encrypted)!).baseSalary,"12000.00");
+      const proofs=await proofRows(oldSubset.ledgerId);assert.equal(proofs.length,1);
+      assert.deepEqual((proofs[0]!.fields as string[]).sort(),Object.keys(contractFields).sort());
+      assert.match(String(proofs[0]!.witnessSha256),/^[a-f0-9]{64}$/);
+      assert.doesNotMatch(JSON.stringify(proofs),/12000|9000|14500|2019-12-01/);
+      assert.deepEqual(await db!.query(`SELECT * FROM hr_incremental_import_revision WHERE id=ANY($1::uuid[]) ORDER BY revision_no`,[oldSubset.revisions.map((row:{id:string})=>row.id)]),oldSubset.revisions);
+      const replay=await previewCommit({...oldSubset.input,initialBaselineWitness:undefined,fields:{...oldSubset.input.fields,...contractFields}});
+      assert.equal(replay.committed.unchangedCount,1);assert.equal((await proofRows(oldSubset.ledgerId)).length,1);
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[oldSubset.input.initialBaselineWitness!.targetId]))[0].row,beforeAdmission);
+      const collision=await previewCommit({...oldSubset.input,initialBaselineWitness:undefined,fields:{...oldSubset.input.fields,...contractFields,baseSalary:"13000.00"}});
+      assert.ok(collision.preview.plan[0]!.conflictFields.includes("baseSalary"));assert.equal(collision.committed.status,"conflicted");
+      assert.deepEqual(await compareState(oldSubset.ledgerId),ledger);
+    });
+    await t.test("first changed draft salary writes normally and later admissions never reset accepted facts",async()=>{
+      const old=await oldContractSubset(3),id=old.input.initialBaselineWitness!.targetId;
+      const changed=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,baseSalary:"13000.00"}});
+      assert.equal(changed.preview.plan[0]!.action,"update");assert.equal(changed.committed.appliedCount,1);
+      const before=(await db!.query(`SELECT base_salary,version FROM hr_contract WHERE id=$1`,[id]))[0];assert.equal(before.base_salary,"13000.00");
+      const next=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,...contractFields,baseSalary:"13000.00"}});
+      assert.equal(next.committed.unchangedCount,1);assert.deepEqual((await db!.query(`SELECT base_salary,version FROM hr_contract WHERE id=$1`,[id]))[0],before);
+      const baseline=JSON.parse(sensitive.decrypt((await compareState(old.ledgerId)).baseline_encrypted)!);
+      assert.equal(baseline.fields.baseSalary,"13000.00");assert.equal(baseline.target.baseSalary,"13000.00");
+      assert.equal(JSON.parse(sensitive.decrypt((await compareState(old.ledgerId)).source_facts_encrypted)!).baseSalary,"13000.00");
+      assert.deepEqual((await db!.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[old.ledgerId]))[0],old.provenance);
+      const clear=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,...contractFields,baseSalary:null}});assert.equal(clear.committed.appliedCount,1);
+      const nullReplay=await previewCommit({...old.input,fields:{...old.input.fields,...contractFields,baseSalary:null}});assert.equal(nullReplay.committed.unchangedCount,1);
+      assert.equal((await db!.query(`SELECT base_salary FROM hr_contract WHERE id=$1`,[id]))[0].base_salary,null);
+      assert.equal(JSON.parse(sensitive.decrypt((await compareState(old.ledgerId)).baseline_encrypted)!).target.baseSalary,null);
+      const snapshots=await db!.query(`SELECT snapshot FROM hr_contract_action WHERE contract_id=$1`,[id]);
+      for(const row of snapshots){assert.equal(row.snapshot.baseSalary,undefined);assert.equal(row.snapshot.probationSalary,undefined);}
+    });
+    await t.test("active unchanged original facts preserve modern edits; real changes still need lifecycle workflow",async()=>{
+      const old=await oldContractSubset(4),id=old.input.initialBaselineWitness!.targetId;
+      await db!.query(`UPDATE hr_contract SET base_salary='14500.00',confidentiality_agreement=true,version=version+1 WHERE id=$1`,[id]);
+      const before=(await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row;
+      const admission=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,...contractFields}});
+      assert.equal(admission.preview.plan[0]!.action,"unchanged");assert.equal(admission.committed.unchangedCount,1);
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,before);
+      const changed=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,...contractFields,probationMonths:4}});
+      assert.ok(changed.preview.plan[0]!.conflictFields.includes("NORMAL_CONTRACT_WORKFLOW_REQUIRED"));assert.equal(changed.committed.status,"conflicted");
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,before);
+    });
+    await t.test("salary permission revocation and action failure roll back the original-field admission transaction",async()=>{
+      const old=await oldContractSubset(5),id=old.input.initialBaselineWitness!.targetId;
+      const narrow={...actor as object,isSuper:false,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE]} as never;
+      const dto=pkg({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,baseSalary:"13000.00"}});
+      const beforeLedger=await compareState(old.ledgerId);const beforeTarget=(await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row;
+      const beforeCounts=await counts();await assert.rejects(service.preview(scope,narrow,dto),/COMPENSATION_PERMISSION/);assert.deepEqual(await counts(),beforeCounts);
+      const preview=result(await service.preview(scope,actor,dto));assert.equal(preview.plan[0]!.action,"update");assert.deepEqual(await compareState(old.ledgerId),beforeLedger);
+      await assert.rejects(service.commit(scope,narrow,preview.id),/COMPENSATION_PERMISSION/);assert.deepEqual(await compareState(old.ledgerId),beforeLedger);
+      const beforeAction=(await db!.query(`SELECT count(*)::int n FROM hr_contract_action WHERE contract_id=$1`,[id]))[0].n;
+      await db!.query(`CREATE FUNCTION contract_field_action_failure_lab() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'contract field action failure'; END $$;
+        CREATE TRIGGER contract_field_action_failure_lab BEFORE INSERT ON hr_contract_action FOR EACH ROW EXECUTE FUNCTION contract_field_action_failure_lab()`);
+      try {
+        await assert.rejects(service.commit(scope,actor,preview.id),/contract field action failure/);
+        assert.deepEqual(await compareState(old.ledgerId),beforeLedger);assert.deepEqual(await counts(),beforeCounts);
+        assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,beforeTarget);
+        assert.equal((await db!.query(`SELECT count(*)::int n FROM hr_contract_action WHERE contract_id=$1`,[id]))[0].n,beforeAction);
+        assert.deepEqual((await db!.query(`SELECT status,applied_count FROM hr_incremental_import_operation WHERE id=$1`,[preview.id]))[0],{status:"previewed",applied_count:0});
+      } finally {await db!.query(`DROP TRIGGER contract_field_action_failure_lab ON hr_contract_action;DROP FUNCTION contract_field_action_failure_lab()`);}
+      assert.equal(result(await service.commit(scope,actor,preview.id)).appliedCount,1);
+      assert.deepEqual((await db!.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[old.ledgerId]))[0],old.provenance);
+      const metadata=await service.status(scope,narrow,preview.id);assert.doesNotMatch(JSON.stringify(metadata),/13000|12000|provenance|baseline_encrypted/);
+    });
+    await t.test("same-source concurrent admission has one proof and no business writes",async()=>{
+      const old=await oldContractSubset(6),id=old.input.initialBaselineWitness!.targetId;
+      const dto=()=>pkg({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,...contractFields}});
+      const first=result(await service.preview(scope,actor,dto())),second=result(await service.preview(scope,actor,dto()));
+      const before=(await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row;
+      const both=await Promise.all([service.commit(scope,actor,first.id),service.commit(scope,actor,second.id)]);
+      assert.ok(both.every(value=>result(value).unchangedCount===1));assert.equal((await proofRows(old.ledgerId)).length,1);
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,before);
+      assert.deepEqual((await db!.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[old.ledgerId]))[0],old.provenance);
+    });
+    await t.test("a modern salary edit after preview conflicts at commit without poisoning field admission",async()=>{
+      const old=await oldContractSubset(7),id=old.input.initialBaselineWitness!.targetId;
+      const dto=pkg({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,baseSalary:"13000.00"}});
+      const preview=result(await service.preview(scope,actor,dto));assert.equal(preview.plan[0]!.action,"update");
+      const beforeLedger=await compareState(old.ledgerId);
+      await db!.query(`UPDATE hr_contract SET base_salary='12500.00',version=version+1 WHERE id=$1`,[id]);
+      const modern=(await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row;
+      assert.equal(result(await service.commit(scope,actor,preview.id)).status,"conflicted");
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,modern);
+      assert.deepEqual(await compareState(old.ledgerId),beforeLedger);assert.equal((await proofRows(old.ledgerId)).length,0);
+      const retry=await previewCommit({...old.input,initialBaselineWitness:undefined,fields:{...old.input.fields,baseSalary:"12000.00"}});
+      assert.equal(retry.committed.unchangedCount,1);assert.equal((await proofRows(old.ledgerId)).length,1);
+      assert.deepEqual((await db!.query(`SELECT row_to_json(c) AS row FROM hr_contract c WHERE id=$1`,[id]))[0].row,modern);
+      assert.deepEqual((await db!.query(`SELECT * FROM hr_incremental_initial_baseline WHERE item_id=$1`,[old.ledgerId]))[0],old.provenance);
+    });
+    await t.test("accepted original proof cannot be replaced or moved to a foreign scope",async()=>{
+      const before=await counts();const beforeLedger=await compareState(oldSubset.ledgerId);
+      for(const mutate of [(w:YuzhouInitialBaselineWitness)=>{w.projection.base_salary="14000.00"},(w:YuzhouInitialBaselineWitness)=>{w.targetId=randomUUID()},(w:YuzhouInitialBaselineWitness)=>{w.projection.park_id="foreign"}]) {
+        const forged=structuredClone(oldSubset.input);mutate(forged.initialBaselineWitness!);
+        await assert.rejects(service.preview(scope,actor,pkg({...forged,fields:{...forged.fields,...contractFields}})),/INITIAL_BASELINE_ALREADY_KNOWN/);
+      }
+      await assert.rejects(service.preview({...scope,parkId:"foreign"},actor,pkg({...oldSubset.input,fields:{...oldSubset.input.fields,...contractFields}})));
+      assert.deepEqual(await counts(),before);assert.deepEqual(await compareState(oldSubset.ledgerId),beforeLedger);
+    });
     for(const mutate of [
       (w:YuzhouInitialBaselineWitness)=>{w.projection.full_name="forged";},
       (w:YuzhouInitialBaselineWitness)=>{w.projection.tenant_id="other";},

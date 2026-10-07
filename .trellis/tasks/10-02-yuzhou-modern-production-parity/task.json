@@ -25,7 +25,8 @@
     "10-08-hr-prepared-profile-runtime-continuity",
     "10-08-hr-attendance-employee-selection",
     "10-08-hr-contract-import-terms",
-    "10-08-hr-contract-import-salary"
+    "10-08-hr-contract-import-salary",
+    "10-08-hr-contract-field-baseline"
   ],
   "parent": null,
   "relatedFiles": [

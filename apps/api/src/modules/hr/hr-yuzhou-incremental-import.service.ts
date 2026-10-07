@@ -30,7 +30,7 @@ import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { assertOrgVisible, hierarchyFields, incrementalTable, isHierarchy, organizationColumns, positionColumns, sourceHierarchyTarget, validateHierarchyWrite } from "./hr-yuzhou-organization";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
-type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean; alias_fields?: string[]; alias_conflicts?: string[]; alias_proof?: Record<string,unknown>; alias_original_version?: number };
+type ItemRow = { id: string; target_table: string | null; target_id: string | null; last_row_sha256: string; field_baseline: Record<string, unknown>; target_baseline: Record<string, unknown>; source_facts_encrypted: string; version: number; target_version: number; baseline_encrypted?: string | null; initial_anchor?: boolean; alias_fields?: string[]; alias_conflicts?: string[]; alias_proof?: Record<string,unknown>; alias_original_version?: number; contract_fields_proof?: Record<string,unknown> };
 type OperationRow = { id: string; status: string; package_sha256: string; source_system: string };
 const json = (value: unknown) => JSON.stringify(value);
 const canonicalJson = (value: unknown): string => value === null || typeof value !== "object"
@@ -271,7 +271,7 @@ export class HrYuzhouIncrementalImportService {
     const encryptedBaseline = prior?.initial_anchor || isHierarchy(item.domain);
     if (prior) await manager.query(`UPDATE hr_incremental_import_item SET last_row_sha256=$2,field_baseline=$3::jsonb,target_baseline=$4::jsonb,source_facts_encrypted=$5,source_facts_sha256=$6,version=$7,target_version=$8,last_operation_id=$9,baseline_encrypted=$10,update_time=now() WHERE id=$1`, [prior.id, item.rowDigest, json(encryptedBaseline ? {} : acceptedFields), json(encryptedBaseline ? {} : targetBaseline), encryptedFacts, this.payloadHash({ ...priorSource, ...item.fields }), version, Number(targetBaseline.targetVersion), operation.id, encryptedBaseline ? this.sensitive.encrypt(json({ fields:acceptedFields, target:targetBaseline })) : null]);
     else { const inserted = await manager.query(`INSERT INTO hr_incremental_import_item(tenant_id,park_id,source_system,source_table,source_key,domain,target_table,target_id,last_row_sha256,field_baseline,target_baseline,source_facts_encrypted,source_facts_sha256,target_version,last_operation_id,baseline_encrypted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16) RETURNING id`, [...source, item.domain, target.table, target.id, item.rowDigest, json(encryptedBaseline?{}:fields), json(encryptedBaseline?{}:targetBaseline), encryptedFacts, this.payloadHash(item.fields), Number(targetBaseline.targetVersion), operation.id, encryptedBaseline?this.sensitive.encrypt(json({fields,target:targetBaseline})):null]); itemId = inserted[0]!.id; }
-    return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, [...applied, ...(prior?.alias_proof ? [prior.alias_proof] : [])], current, targetBaseline);
+    return this.revision(manager, operation.id, itemId!, version, prior && changedFields.length === 0 ? "unchanged" : "applied", item.rowDigest, [...applied, ...(prior?.alias_proof ? [prior.alias_proof] : []), ...(prior?.contract_fields_proof ? [prior.contract_fields_proof] : [])], current, targetBaseline);
   }
 
   private aliasHistoryConflicts(prior:ItemRow,current:Record<string,unknown>) {
@@ -383,6 +383,24 @@ export class HrYuzhouIncrementalImportService {
         const source=JSON.parse(this.sensitive.decrypt(prior!.source_facts_encrypted)||"{}") as Record<string,unknown>;
         for(const field of ["orgSourceKey","positionSourceKey"]) if(!(field in source)) source[field]=verified.source[field];
         return {...prior!,source_facts_encrypted:this.sensitive.encrypt(json(source))};
+      }
+      if(item.domain === "contract") {
+        const source=JSON.parse(this.sensitive.decrypt(prior!.source_facts_encrypted)||"{}") as Record<string,unknown>;
+        const fields={...prior!.field_baseline},target={...prior!.target_baseline};
+        const owns=(value:Record<string,unknown>,field:string)=>Object.prototype.hasOwnProperty.call(value,field);
+        const admitted=Object.keys({...incrementalContractTermColumns,...incrementalContractSalaryColumns})
+          .filter(field=>owns(item.fields,field)&&!owns(source,field)&&!owns(fields,field)&&!owns(target,field));
+        if(!admitted.length) return prior;
+        // The retained complete original witness certifies these previously
+        // unaccepted fields. Never replace an existing comparison fact or use
+        // today's target as history. Preview only derives ephemeral state;
+        // the ordinary successful encrypted ledger transaction admits it.
+        for(const field of admitted) {
+          if(!owns(verified.source,field)||!owns(verified.target,field)) throw new ConflictException("CONTRACT_ORIGINAL_FIELD_PROOF_MISSING");
+          source[field]=verified.source[field];fields[field]=verified.target[field];target[field]=verified.target[field];
+        }
+        return {...prior!,field_baseline:fields,target_baseline:target,source_facts_encrypted:this.sensitive.encrypt(json(source)),
+          contract_fields_proof:{code:"CONTRACT_FIELDS_ORIGINAL_WITNESS_ADMITTED",fields:admitted,witnessSha256:saved.witness_sha256}};
       }
       return prior;
     }
