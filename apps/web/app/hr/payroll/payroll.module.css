@@ -10,7 +10,9 @@
 .activeTab { border-color:var(--color-primary); background:color-mix(in srgb,var(--color-primary) 10%,var(--bg-card)); color:var(--color-primary); box-shadow:inset 3px 0 0 var(--color-primary); }
 .toolbar { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .filters { display:grid; grid-template-columns:repeat(2,minmax(0,220px)) auto; gap:12px; align-items:end; }
-.pager { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:16px; }
+.pager { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:12px; margin-top:16px; }
+.pager > span { flex:0 0 auto; white-space:nowrap; }
+.pager :global(.ds-button) { min-height:44px; white-space:nowrap; }
 .reviewActions { display:grid; gap:12px; margin-top:16px; }
 .catalogGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .mobileNotice { display:none; }

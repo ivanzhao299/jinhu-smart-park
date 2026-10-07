@@ -1,0 +1,30 @@
+{
+  "id": "hr-payroll-ledger-continuity",
+  "name": "hr-payroll-ledger-continuity",
+  "title": "工资业务台账统一入口与分页留白",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "hr-payroll",
+  "package": "web",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-ledger-continuity-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-payroll-ledger-continuity-20261008",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "Six existing payroll contracts, scoped source typecheck and lint passed; actual component desktop1280/mobile390 synthetic browser verified detail/page/month/self/no-permission. No production data acceptance or historical correction claim. Release queued after PR866 to keep one writer. Rebased after PR866; Web/shared/UI/dependencies unchanged, local validation remains applicable.",
+  "meta": {
+    "baseSha": "756c1549abc7d08c78249ca15bda39be83434a57",
+    "fullLocalWebTypecheck": "not available with retained dependencies (missing Vitest/testing-library); scoped actual component/source check passed",
+    "browser": "Synthetic transport; actual component/global CSS; not production-role UAT"
+  }
+}

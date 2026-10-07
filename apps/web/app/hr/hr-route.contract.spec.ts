@@ -105,7 +105,7 @@ test("HR enterprise panels keep text away from rounded borders on desktop and ph
 test("payroll training and rewards share the enterprise HR page hierarchy",()=>{
  const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8"),payrollCss=readFileSync(resolve(__dirname,"payroll/payroll.module.css"),"utf8"),training=readFileSync(resolve(__dirname,"training/HrTrainingClient.tsx"),"utf8"),rewards=readFileSync(resolve(__dirname,"rewards/HrRewardsClient.tsx"),"utf8");
  assert.match(payroll,/className={`ds-panel \$\{styles\.workspaceNav\}`}/);
- for(const label of ["在线工资","历史工资","规则复核","双轨差异"])assert.match(payroll,new RegExp(`label: "${label}"`));
+ for(const label of ["工资核算","工资台账","规则复核","双轨差异"])assert.match(payroll,new RegExp(`label: "${label}"`));
  assert.match(payroll,/description: "工资期间、批次复核与冻结"/);
  assert.match(payrollCss,/\.tabs \{ display:grid; grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
  assert.match(payrollCss,/@media \(max-width:420px\)[\s\S]*?\.tabs \{ grid-template-columns:1fr; \}/);

@@ -60,9 +60,9 @@ test("T4 payroll work areas fail closed before sensitive requests",()=>{
 
 test("T4 payroll history is paged, stale-safe, and clears sensitive detail",()=>{
   assert.match(api,/legacySourceTable\?:string;mappingStatus\?:string/);
-  assert.match(payroll,/旧系统来源：\{row\.legacySourceTable\}/);
-  assert.match(payroll,/!selfOnly\s*\?\s*<small>旧系统来源：/);
-  assert.match(payroll,/row\.mappingStatus === "mapped" \? "已映射"/);
+  assert.doesNotMatch(payroll,/旧系统来源：|旧系统工资台账|row\.legacySourceTable/);
+  assert.match(payroll,/!selfOnly\s*\?\s*<small>\{row\.publicationStatus === "published" \? "员工可见" : "员工暂不可见"\}/);
+  assert.match(payroll,/label: "工资台账", description: "按月份查看工资记录与逐项明细"/);
   assert.match(payroll,/<Pager\s+page=\{result\.page\}/);
   assert.match(payroll,/abort\.current\?\.abort\(\)/);
   assert.match(payroll,/request\.current\s*!==\s*generation\.current/);
