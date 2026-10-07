@@ -235,10 +235,26 @@ jobs:
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
 
+      - name: Verify HR CI PostgreSQL preparation contract
+        run: node scripts/e2e/hr-postgres-tool-preflight-contract.mjs
+
       - name: Verify HR manager scoped role assignment
+        timeout-minutes: 5
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y postgresql
+          pg_tools_ready() {
+            local pg_bin="${PG_BIN:-}"
+            if [ -z "$pg_bin" ]; then
+              pg_bin="$(pg_config --bindir 2>/dev/null)" || return 1
+            fi
+            [ -n "$pg_bin" ] && [ -x "$pg_bin/initdb" ] && [ -x "$pg_bin/pg_ctl" ] && [ -x "$pg_bin/psql" ]
+          }
+          if ! pg_tools_ready; then
+            echo 'Installing missing PostgreSQL tools for the HR regression.'
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y postgresql
+          fi
+          pg_tools_ready || { echo '::error::PostgreSQL initdb, pg_ctl and psql are required for the HR regression.'; exit 1; }
+          echo 'PostgreSQL tools ready; running the HR role regression.'
           pnpm test:e2e:wu-enguo-hr-manager
 
       - name: Verify Yuzhou production import stays sealed and unreachable

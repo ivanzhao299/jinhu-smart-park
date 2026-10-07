@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "10-08-hr-contract-review-continuity",
-    "10-08-hr-employee-directory-export"
+    "10-08-hr-employee-directory-export",
+    "10-08-hr-payroll-input-readiness"
   ],
   "parent": null,
   "relatedFiles": [
@@ -31,13 +32,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "长任务持续实施。S0 已归档收口；合同信息补全 PR861 已合并、正在生产发布。当前并行实现 S1/S5 员工目录筛选导出；实际 HR 角色页面、当前业务期间金额对账与独立产品验收仍未完成。",
+  "notes": "长任务继续。合同信息补全 PR861 生产运行已核验；员工目录导出 PR862 已合并、生产部署中。S3/S4 已补工资核对输入准备与同月联动，真实组件检查通过；实际 HR 角色验收、档案业务补充批次提交、当前期间金额核对与独立产品验收仍未完成。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "S1_directory_export_and_S2_contract_runtime_acceptance",
+    "nextSlice": "S3_S4_payroll_input_readiness_and_release_runtime_verification",
     "businessImplementationStarted": true
   }
 }

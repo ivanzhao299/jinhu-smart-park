@@ -22,6 +22,8 @@ pnpm test:unit
 
 ## 2. 首发核心回归包
 
+CI 的 HR 角色回归先检测 `PG_BIN` 或 `pg_config --bindir` 下的 `initdb`、`pg_ctl`、`psql`；工具完整时直接运行原回归，缺少时才安装 PostgreSQL 并再次检测。安装网络重试有界，整段准备和角色回归最长 5 分钟；安装失败不会跳过测试或继续发布。命令桩验证入口为 `node scripts/e2e/hr-postgres-tool-preflight-contract.mjs`，不安装真实软件、不访问数据库。
+
 统一入口：
 
 ```bash
