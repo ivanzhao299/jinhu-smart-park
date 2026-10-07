@@ -48,11 +48,12 @@ test("history month filters reject invalid calendar months before database acces
 test("list and detail select migration provenance only for park readers", async () => {
  const scope={tenantId:"t",parkId:"p"};
  for(const permission of [HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ,HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ]){
-  const conditions:string[]=[];
+  const conditions:string[]=[],orders:string[][]=[];
   const builder=()=>{
    const aliases:string[]=[];
    const qb:Record<string,unknown>={};
-   for(const name of ["from","innerJoin","orderBy","addOrderBy","offset","limit"])qb[name]=()=>qb;
+   for(const name of ["from","innerJoin","offset","limit"])qb[name]=()=>qb;
+   for(const name of ["orderBy","addOrderBy"])qb[name]=(column?:string,direction?:string)=>{if(column)orders.push([column,direction!]);return qb;};
    for(const name of ["where","andWhere"])qb[name]=(sql:string)=>{conditions.push(sql);return qb;};
    qb.select=(_column:string,alias:string)=>{aliases.splice(0,aliases.length,alias);return qb;};
    qb.addSelect=(_column:string,alias:string)=>{aliases.push(alias);return qb;};
@@ -64,6 +65,7 @@ test("list and detail select migration provenance only for park readers", async 
   };
   const payroll=new HrPayrollHistoryService({createQueryBuilder:builder,query:async()=>[{id:"synthetic-employee"}]} as never,{recordOperationRequired:async()=>undefined} as never);
   const page=await payroll.listHistory(scope,actor([permission]),{page:1,page_size:20});
+  assert.deepEqual(orders,[["period.period_month","DESC"],["book.legacy_scheme","ASC"],["employee.employee_code","ASC"],["snapshot.id","ASC"]]);
   const detail=await payroll.historyDetail(scope,actor([permission]),"synthetic-snapshot");
   for(const row of [page.items[0]!,detail]){
    for(const key of ["legacySourceTable","mappingStatus","employeeCode","employeeName"])

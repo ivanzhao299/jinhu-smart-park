@@ -10,6 +10,8 @@ Payroll reconciliation preparation and matching months: [Payroll Input Readiness
 
 Ordinary payroll ledger business labels, employee visibility and mobile pagination: [Payroll Ledger Presentation](./hr-payroll-ledger-presentation.md).
 
+Complete filtered payroll CSV with existing HR/self scope: [Payroll Ledger Export](./hr-payroll-ledger-export.md).
+
 ## Package Boundary
 
 - Routes live under `apps/web/app`.

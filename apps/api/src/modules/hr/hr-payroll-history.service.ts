@@ -103,7 +103,7 @@ export class HrPayrollHistoryService {
     if(q.book_id)qb.andWhere("book.id=:bookId",{bookId:q.book_id});
     if(q.period_from)qb.andWhere("period.period_month>=:periodFrom",{periodFrom:q.period_from});
     if(q.period_to)qb.andWhere("period.period_month<=:periodTo",{periodTo:q.period_to});
-    const {items,total}=await this.paginate(qb,q.page,q.page_size,"period.period_month DESC,book.legacy_scheme ASC,employee.employee_code ASC");
+    const {items,total}=await this.paginate(qb,q.page,q.page_size,"period.period_month DESC,book.legacy_scheme ASC,employee.employee_code ASC,snapshot.id ASC");
     return this.auditedPage(scope,actor,q,items,total,"读取历史工资条","/hr/payroll/history",access);
   }
 
