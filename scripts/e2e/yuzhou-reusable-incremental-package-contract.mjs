@@ -40,7 +40,7 @@ const result = buildYuzhouReusableIncrementalPackage(input);
 assert.deepEqual(input, before, "adapter must not mutate source extraction");
 assert.equal(result.packageDto.items.length, 1);
 const item = result.packageDto.items[0];
-assert.deepEqual(item.fields, { employeeSourceKey: `sha256:${sha("dbo.person\0E-001")}`, employeeSourceTable: "dbo.person", contractTypeId: "00000000-0000-5000-8000-000000000001", contractNo: "HT-2026-001", startDate: "2024-01-01", endDate: "2025-12-31", probationEndDate: "2024-03-31", workType: null, positionTitle: null, contractStatus: "draft", contractTermMonths: 24, signatureDate: "2023-12-20", probationMonths: 3, renewalCount: 0, confidentialityAgreement: false, nonCompeteAgreement: false, trainingServiceAgreement: false });
+assert.deepEqual(item.fields, { employeeSourceKey: `sha256:${sha("dbo.person\0E-001")}`, employeeSourceTable: "dbo.person", contractTypeId: "00000000-0000-5000-8000-000000000001", contractNo: "HT-2026-001", startDate: "2024-01-01", endDate: "2025-12-31", probationEndDate: "2024-03-31", workType: null, positionTitle: null, contractStatus: "draft", contractTermMonths: 24, signatureDate: "2023-12-20", probationMonths: 3, renewalCount: 0, confidentialityAgreement: false, nonCompeteAgreement: false, trainingServiceAgreement: false, probationSalary: "9000.00", baseSalary: "12000.00" });
 assert.equal(item.rowDigest, sha(JSON.stringify({ domain: "contract", fields: Object.fromEntries(Object.entries(item.fields).sort(([a], [b]) => a.localeCompare(b))), sourceKey: item.sourceKey, sourceTable: "dbo.compact", sourceUpdatedAt: null })));
 assert.equal(result.manifest.supportedDomains[0], "contract");
 for (const field of ["contract_term_months","signature_date","probation_months","renewal_count","confidentiality_agreement","non_compete_agreement","training_service_agreement"]) assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry=>entry.field===field&&entry.disposition==="carried"));
@@ -48,7 +48,7 @@ assert.ok(result.coverage.pending.some(entry => entry.domain === "profile_extend
 assert.equal(result.manifest.declarations[0].normalizedStatus, "draft");
 assert.equal(result.manifest.declarations[0].contractType.targetContractTypeId, item.fields.contractTypeId);
 assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "start_date" && entry.disposition === "carried"));
-assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "base_salary" && entry.disposition === "pending_api_adapter"));
+assert.ok(result.coverage.sourceFieldCoverage[0].fieldCoverage.some(entry => entry.field === "base_salary" && entry.disposition === "carried"));
 
 const reExtracted = structuredClone(input);
 reExtracted.extractedAt = "2026-10-04T08:00:00Z";

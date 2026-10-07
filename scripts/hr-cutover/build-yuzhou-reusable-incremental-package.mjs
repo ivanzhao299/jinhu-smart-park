@@ -54,7 +54,7 @@ export const YUZHOU_REUSABLE_INCREMENTAL_COVERAGE = Object.freeze({
     { domain:"position", sourceTable:"dbo.job", adapter:"verified-t0-job", dependency:"exact source organization and parent position identities" },
     { domain: "profile", sourceTable: "dbo.person.core_residue", adapter: "raw-person-core-profile", dependency: "verified dbo.person employee source identity", eligibility: "eight reviewed raw fields (six required, two optional aliases); T5 original baseline witness still certifies six fields with fields:{}" },
     { domain: "employee", sourceTable: "dbo.person", adapter: "raw-person-employee", dependency: "verified job-state decision artifact", eligibility: "bounded employee code/name, valid nullable hire date and mapped v2 job state" },
-    { domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "explicit source status plus reviewed date-derived term, signature date, probation months, renewal count and three agreement flags; salary and history remain pending" },
+    { domain: "contract", sourceTable: "dbo.compact", adapter: "production-t2-field-projection", dependency: "existing dbo.person source identity and immutable contract-type binding", eligibility: "explicit source status plus reviewed date-derived term, signature date, probation months, renewal count and three agreement flags; canonical probation/base salary; history remains pending" },
   ],
   pending: [
     { domain:"company_root_secondary_assignment_station", reason:"Unproven source semantics remain pending; no inferred root or name association" },
@@ -157,7 +157,7 @@ function itemForEmployee(row, jobStateDecisions, hierarchy) {
   return { item, declaration: { sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256, sourceLegacyState: row.source.legacyStatus ?? null, normalizedStatus: decision.targetEmploymentStatus, stateDecisionSha256: sha256(canonical(decision)), disposition: "api_eligible" }, sourceEvidence: { sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256, rawSource: structuredClone(row.source), fieldCoverage } };
 }
 function contractFieldCoverage(projectedFields) {
-  const apiFields = new Set(["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus", "contract_no", "start_date", "end_date", "probation_end_date", "work_type", "position_title", "status", "contractTermMonths", "signatureDate", "probationMonths", "renewalCount", "confidentialityAgreement", "nonCompeteAgreement", "trainingServiceAgreement", "contract_term_months", "signature_date", "probation_months", "renewal_count", "confidentiality_agreement", "non_compete_agreement", "training_service_agreement"]);
+  const apiFields = new Set(["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractStatus", "contract_no", "start_date", "end_date", "probation_end_date", "work_type", "position_title", "status", "contractTermMonths", "signatureDate", "probationMonths", "renewalCount", "confidentialityAgreement", "nonCompeteAgreement", "trainingServiceAgreement", "contract_term_months", "signature_date", "probation_months", "renewal_count", "confidentiality_agreement", "non_compete_agreement", "training_service_agreement", "probationSalary", "baseSalary", "probation_salary", "base_salary"]);
   return Object.entries(projectedFields).map(([field, value]) => ({ field, valuePresent: value !== null, disposition: apiFields.has(field) ? "carried" : "pending_api_adapter" }));
 }
 function itemForContract(row, employees, states, types) {
@@ -192,6 +192,8 @@ function itemForContract(row, employees, states, types) {
     confidentialityAgreement: f.confidentiality_agreement,
     nonCompeteAgreement: f.non_compete_agreement,
     trainingServiceAgreement: f.training_service_agreement,
+    probationSalary: f.probation_salary,
+    baseSalary: f.base_salary,
   };
   const item = { domain: "contract", sourceTable: row.sourceTable, sourceKey: `sha256:${row.sourceIdentitySha256}`, rowDigest: "", fields };
   item.rowDigest = sha256(canonical({ domain: item.domain, sourceTable: item.sourceTable, sourceKey: item.sourceKey, sourceUpdatedAt: null, fields: item.fields }));
