@@ -39,3 +39,11 @@ aliases (the observed production shape), exact canonical selection, legacy-only
 fallback, duplicate canonical rejection, disabled-account preservation (including
 the fresh-schema legacy-only shape), repeat,
 concurrency and scope isolation.
+
+## Profile import access check
+
+The count-only probe also follows seed000033's canonical `wuenguo` selection, falling back to `wu_enguo` only when the canonical identity is absent. `selectedClassification` distinguishes a disabled or duplicated selected identity, missing HR_MANAGER binding and incomplete effective profile capabilities. The old alias-wide `classification` remains descriptive and is not a blocker merely because both valid aliases coexist.
+
+The five checked capabilities are `hr`, `hr:employees`, `hr:employee:read`, `hr:employee_profile:read`, and `hr:employee_profile:manage`. `rolePermissions` describes the existing HR_MANAGER catalog, while `effectivePermissions` describes the selected enabled user's scoped, enabled role/permission links. Neither proves tenant module activation, field/data-scope policies, authenticated request success or permission-change authorization. After correcting the identified configuration through the existing administration path, refresh login and verify the actual page and preview. The probe never performs the correction.
+
+A reviewed ops branch can run this same read-only workflow with explicit expected API/Web runtime937 pins; no application redeploy or re-preparation of the already sealed source batch is required for diagnostic changes.
