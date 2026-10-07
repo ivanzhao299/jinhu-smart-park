@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "objective": "以低成本历史隔离收口为起点，交付现代化生产运营及玉舟关键功能等价，保留独立HR产品最终目标",
+  "version": 2,
+  "objective": "按低成本长任务计划实施玉舟 HR 现代化生产运营与功能复现，分模块生产验收，保留独立HR产品最终验收",
   "acceptance": [
     "historical_quarantine_classified_without_forced_full_repair",
     "current_operations_role_uat",
@@ -11,229 +11,104 @@
   ],
   "planningStatus": "PLAN_PERSISTED",
   "implementationStatus": "IN_PROGRESS",
-  "workspace": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
-  "planningBaselineSha": "7c3df1c230bde74badbf414acae36030d5fe8709",
-  "remoteBaseAtPlanning": "7c3df1c230bde74badbf414acae36030d5fe8709",
+  "goalStatus": "active",
+  "workspace": "/tmp/jinhu-hr-account-identity-20261007",
+  "implementationBaselineSha": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
   "runtimeProof": {
-    "runId": 36968318836,
-    "commit": "7c3df1c230bde74badbf414acae36030d5fe8709",
-    "observedAt": "2026-10-02T05:19:19.464Z",
-    "apiAndWebMatch": true
+    "runId": 37675988036,
+    "commit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
+    "observedAt": "2026-10-07T19:39:03.893Z",
+    "apiCommit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
+    "webCommit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
+    "apiAndWebMatch": true,
+    "deployRunId": 37674101927,
+    "dockerCleanupStarted": 1,
+    "dockerCleanupFinished": 1,
+    "scope": "Technical runtime integrity; not business acceptance"
   },
-  "sourceHistoryImport": "ACTUAL_T0_T5_COMPLETED",
-  "quarantinePolicy": "archive_historical_without_current_impact_preserve_evidence",
+  "sourceHistoryImport": "ACTUAL_T0_T5_COMPLETED_NOT_REPLAYED",
+  "historyObservationBoundary": "Accepted import scope and older readonly counts are preserved in research/checkpoint-2026-10-02.json; they are not current live totals",
   "quarantineClassificationStatus": "CLOSED_BY_HISTORICAL_POLICY",
   "coreQuarantineTotal": 1608,
-  "historicalRepairBudgetHoursInitial": 2,
-  "manualReviewGroups": [
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5"
-  ],
-  "activeRunHandle": {
-    "ciRunId": 36968422499,
-    "ciWatchSession": 97445,
-    "head": "318b1d5e00b451594e73f48597367b251c783ae5"
-  },
-  "productionWritesThisTurn": false,
-  "blockingPlanningQuestions": [],
-  "nextAction": "Wait on existing CI36968422499, then publish verification commits once. Design scoped frozen simulation source; staged inputs remain blocked because append is allowed.",
-  "phases": [
-    {
-      "id": "S0",
-      "status": "completed_policy_closure"
-    },
-    {
-      "id": "S1",
-      "status": "in_progress"
-    },
-    {
-      "id": "S2",
-      "status": "in_progress"
-    },
-    {
-      "id": "S3",
-      "status": "pending"
-    },
-    {
-      "id": "S4",
-      "status": "pending"
-    },
-    {
-      "id": "S5",
-      "status": "pending"
-    },
-    {
-      "id": "S6",
-      "status": "pending"
-    },
-    {
-      "id": "S7",
-      "status": "pending"
-    }
-  ],
-  "usage": {
-    "goalCumulativeTokensObserved": 326315,
-    "goalCumulativeTimeSecondsObserved": 1244,
-    "observationScope": "cumulative entire active goal; not attributable to this slice",
-    "thisSliceUsage": "unavailable"
-  },
-  "updatedAt": "2026-10-02T05:26:14.629846+00:00",
   "archivedHistorical": 1572,
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
-  "s0ActualReadonlyRunId": 36964064420,
-  "s0ReadonlyCodeSha": "664113c9",
-  "validation": {
-    "readonlyContracts": 11,
-    "historyAndArchiveContracts": 22,
-    "readonlyLint": "PASS",
-    "productionImpactAudit": "PASS",
-    "accountLinkSlice": {
-      "apiServiceDtoAndFoundationTests": "18/18 PASS",
-      "webInteractionTests": "2/2 PASS",
-      "hrManagementFoundation": "PASS",
-      "apiTypecheck": "PASS",
-      "webTypecheck": "PASS",
-      "apiBuild": "PASS",
-      "webBuild": "PASS final combined candidate",
-      "changedFileLint": "PASS",
-      "diffCheck": "PASS",
-      "legacyEvidenceTests": "41/58 PASS; 17 FAIL, pre-existing baseline evidence drift",
-      "frozenManifestTests": "3/10 PASS; 7 FAIL, existing progress/evidence readiness"
+  "activeRunHandle": null,
+  "currentSlice": "PREPARED_PROFILE_RUNTIME_CONTINUITY_IN_PROGRESS",
+  "currentSliceTask": "10-08-hr-prepared-profile-runtime-continuity",
+  "preparedProfileInput": {
+    "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
+    "preparationRunId": 37658598558,
+    "sourceProfiles": 2859,
+    "aliasProfiles": 2456,
+    "nativePlaceFills": 2454,
+    "degreeFills": 68,
+    "businessCommitProof": "UNPROVEN",
+    "currentCatalogVisibility": "Await compatibility fix release and real-user observation"
+  },
+  "phases": [
+    {
+      "id": "S0",
+      "status": "historical_remediation_closed"
     },
-    "departureEntrySlice": {
-      "apiDepartureFilterAndExistingContracts": "4/4 PASS",
-      "webDepartureInteraction": "5/5 PASS",
-      "webAccountInteraction": "2/2 PASS reused after unchanged account component",
-      "webExistingDepartureContract": "1/1 PASS",
-      "departureRuntimeTaskContract": "9/9 PASS; actual role/runtime acceptance still pending",
-      "apiLint": "PASS",
-      "webLint": "PASS",
-      "apiTypecheck": "PASS",
-      "webTypecheck": "PASS",
-      "apiBuild": "PASS",
-      "webBuild": "PASS",
-      "desktopStaticEntry": {
-        "viewport": 1280,
-        "documentWidth": 1280
-      },
-      "mobileStaticEntry": {
-        "viewport": 390,
-        "documentWidth": 390
-      },
-      "diffCheck": "PASS"
+    {
+      "id": "S1",
+      "status": "formal_maintenance_and_directory_runtime_verified_real_role_acceptance_pending"
     },
-    "accountLinkRealPostgres": {
-      "status": "LOCAL_REAL_POSTGRES_VERIFIED",
-      "accountAssociationTests": "10/10 PASS",
-      "reminderRunnerRegression": "6/6 PASS",
-      "apiTypecheck": "PASS",
-      "changedTestEslint": "PASS",
-      "runnerSyntax": "PASS",
-      "databaseScope": "existing isolated loopback lab, new generated test schema, deleted after test",
-      "productionWrites": false,
-      "cases": [
-        "audit-only employee mutation",
-        "stale/noop",
-        "scope/status rejection",
-        "departure unlink",
-        "two employee race",
-        "same employee race",
-        "event rollback",
-        "real unique-index 23505 translation",
-        "deleted association release"
-      ]
+    {
+      "id": "S2",
+      "status": "rehire_and_contract_review_runtime_verified_business_acceptance_pending"
     },
-    "s3s4FocusedBaseline": {
-      "status": "SOURCE_CHAIN_AND_FOCUSED_TESTS_VERIFIED_NOT_BUSINESS_ACCEPTED",
-      "codeBaseline": "153b078f",
-      "testResult": "28/28 PASS",
-      "tests": [
-        "attendance calculation",
-        "attendance requests",
-        "month close",
-        "insurance read projections",
-        "reconciliation contracts",
-        "restricted decimal DSL"
-      ],
-      "confirmedSourceDependencies": [
-        "reconciliation setup lists only published legacy batches",
-        "simulation rejects unpublished legacy batch",
-        "closed effective attendance batch required",
-        "mapped payroll snapshots must match attendance month",
-        "approved formulas and net item mapping required",
-        "frozen compensation and insurance required"
-      ],
-      "actualBusinessPeriodTest": false,
-      "actualAmountReconciliation": false,
-      "productionWrites": false,
-      "nextSlice": "prepare reconciliation input readiness using imported immutable history without automatically publishing employee history; preserve exact source, scope, period and financial rules",
-      "sourceIntegrityFinding": {
-        "unpublishedOrStagedFactsAllowAppend": true,
-        "factUpdatesBlocked": true,
-        "publishedBatchFrozen": true,
-        "evidence": [
-          "database/migrations/000248_hr_payroll_legacy_history.sql:214",
-          "database/migrations/000248_hr_payroll_legacy_history.sql:235",
-          "database/migrations/000264_hr_payroll_legacy_item_bulk_guard.sql:52"
-        ],
-        "implementationConstraint": "Do not simply widen published to staged. A separate simulation source must prove committed import ownership, counts and hashes and freeze the exact selected period facts against append and rollback."
-      }
+    {
+      "id": "S3",
+      "status": "input_readiness_runtime_verified_actual_period_unaccepted"
+    },
+    {
+      "id": "S4",
+      "status": "input_readiness_runtime_verified_actual_period_unaccepted"
+    },
+    {
+      "id": "S5",
+      "status": "partial_reproduction_evidence_remaining"
+    },
+    {
+      "id": "S6",
+      "status": "release_integrity_verified_operational_acceptance_remaining"
+    },
+    {
+      "id": "S7",
+      "status": "independent_product_acceptance_unproven"
     }
-  },
-  "s1ActualReadonlyRunId": 36964343680,
-  "s1ActualReadonlyStatus": "SUCCESS",
-  "s1AnonymousApiAccess": "6/6_DENIED_401",
-  "s1HistoryArchiveContracts": "22/22_PASS",
-  "s2ExistingWorkflowContracts": "24/24_PASS_RUNTIME_NOT_ACCEPTED",
-  "browserRoleUat": "PENDING_CURRENT_IDENTITY_CONFIRMATION_NO_LOGIN_TAB",
-  "implementationWorkspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
-  "implementationCodeSha": "318b1d5e00b451594e73f48597367b251c783ae5 plus account-link PostgreSQL verification",
-  "s1ReadModel": {
-    "employees": 2938,
-    "current_employees": 334,
-    "account_linked_employees": 0,
-    "contracts": 798,
-    "payroll_snapshots": 46092,
-    "payroll_items": 1078020,
-    "published_history_batches": 0,
-    "mapped_readable_snapshots": 45947,
-    "first_month": "2010-05-01",
-    "last_month": "2026-07-01",
-    "authenticatedApiUat": false
-  },
-  "currentOperationsGaps": [
-    "Imported employee account links: 0; no self identity binding in this import scope.",
-    "Published historical payroll batches: 0; self history correctly remains unavailable.",
-    "Authenticated HR/manager/employee browser UAT requires current login session.",
-    "Legacy departure wage/archive entries map to employee route, actual action panel is lifecycle; improve discoverability."
   ],
-  "currentSlice": "ACCOUNT_LINK_AND_DEPARTURE_ENTRY_LOCAL_VERIFIED_DRAFT_REVIEW",
-  "currentSliceEvidence": "research/s2-current-departure-entry-result.json",
-  "latestStyleEvidence": "research/s1-account-link-design-spacing.json",
-  "combinedOperationsCandidate": {
-    "workspace": "/Users/mac/.codex/worktrees/yuzhou-contract-reminder-paging-20261002/jinhu-smart-park",
-    "branch": "codex/yuzhou-contract-reminder-paging-20261002",
-    "sourceCommits": [
-      "286529cea0c7c455a285c765f547355cdd6806b4",
-      "1367a6a9645ebac2eeafa23fd4c9cfc8eb9456f2",
-      "cc59f947433211538f90a48d6abc270dd41f4dcb"
-    ],
-    "status": "pushed_ci_running",
-    "apiTests": 27,
-    "webInteractionTests": 11,
-    "apiTypecheck": "PASS",
-    "webProductionBuild": "PASS",
-    "oldEvidenceTests": {
-      "pass": 37,
-      "fail": 21,
-      "sameAsExactMainBaseline": true
+  "currentOperationsGaps": [
+    "Authenticated real HR/manager/employee business tasks are not accepted yet; login limits only corresponding UAT",
+    "Prepared source catalog and original-profile business commit require separate evidence",
+    "Actual payroll period/account/rules and decimal amount reconciliation need business confirmation",
+    "Original Windows/GroupWeb rule and runtime equivalence are not proved by target routes",
+    "Independent HR composition, migration/recovery and M0-M5/P0-P4 final acceptance remain incomplete"
+  ],
+  "completedSlices": [
+    {
+      "pr": 861,
+      "slice": "contract_review_continuity",
+      "status": "runtime_verified_business_uat_pending"
     },
-    "newDirectSourceBindingMismatches": 0,
-    "productionWrite": false,
-    "productionDeployed": false
-  }
+    {
+      "pr": 862,
+      "slice": "employee_directory_export",
+      "status": "runtime_verified"
+    },
+    {
+      "pr": 863,
+      "slice": "payroll_input_readiness",
+      "ciRunId": 37670444580,
+      "status": "runtime_verified_actual_period_unaccepted"
+    }
+  ],
+  "nextAction": "Finish prepared-profile cross-release reuse, then confirm real catalog and staged source commit; real-role/period waiting must not block independent implementation",
+  "previousCheckpoint": "research/checkpoint-2026-10-02.json",
+  "usage": {
+    "thisSliceUsage": "unavailable"
+  },
+  "updatedAt": "2026-10-07T19:46:46.969687+00:00"
 }

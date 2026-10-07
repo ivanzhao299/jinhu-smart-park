@@ -45,7 +45,8 @@ test("actual ordered producer files admit metadata only and reject unsafe/tamper
       assert.equal(repository.package(scope,batch.id,0).pkg.items.length,5);
       assert.doesNotMatch(JSON.stringify(repository.list(scope)),/原籍|学士|sourceKey|sourceIdentity|directory|input.json/);
       assert.deepEqual(repository.list({...scope,tenantId:"foreign"}),[]);
-      assert.deepEqual(new HrPreparedProfileBatchRepository(root,"b".repeat(40)).list(scope),[]);
+      assert.deepEqual(new HrPreparedProfileBatchRepository(root,"b".repeat(40)).list(scope),repository.list(scope));
+      assert.deepEqual(new HrPreparedProfileBatchRepository(root,"invalid-runtime").list(scope),[]);
       assert.throws(()=>repository.package(scope,"../private",0));
     });
     await t.test("payload hash, symlink and permissions",()=>{
@@ -54,11 +55,23 @@ test("actual ordered producer files admit metadata only and reject unsafe/tamper
       rmSync(packagePath);symlinkSync(join(result,"input.json"),packagePath);assert.throws(()=>repository.package(scope,batch.id,0));
       rmSync(packagePath);writeFileSync(packagePath,packageText,{mode:0o600});
     });
+    await t.test("producer revision and collector contract remain validated",()=>{
+      const original=JSON.parse(preparationText.toString());
+      for(const change of [(r:Record<string,unknown>)=>{r.runtimeCommit="invalid"},
+        (r:Record<string,unknown>)=>{r.collectorSha256="f".repeat(64)}]){
+        const preparation=structuredClone(original);change(preparation);
+        writeFileSync(preparationPath,JSON.stringify(preparation));assert.throws(()=>repository.list(scope));
+      }
+      writeFileSync(preparationPath,preparationText);
+      assert.equal(new HrPreparedProfileBatchRepository(root,"b".repeat(40)).package(scope,batch.id,0).pkg.items.length,5);
+    });
     await t.test("receipt hash and resealed foreign scope/order rejected",()=>{
       const original=JSON.parse(receiptText.toString());
       for(const change of [(r:Record<string,unknown>)=>{r.targetScope={tenantId:"foreign",parkId:scope.parkId}},
         (r:Record<string,unknown>)=>{(r.executionOrder as Array<Record<string,unknown>>)[0]!.kind="alias"},
-        (r:Record<string,unknown>)=>{r.sourceProfiles="5"}]){
+        (r:Record<string,unknown>)=>{r.sourceProfiles="5"},
+        (r:Record<string,unknown>)=>{r.recipeSha256="f".repeat(64)},
+        (r:Record<string,unknown>)=>{r.adapterSha256="f".repeat(64)}]){
         const receipt=structuredClone(original);change(receipt);delete receipt.receiptSha256;receipt.receiptSha256=hash(canonical(receipt));
         const preparation=JSON.parse(preparationText.toString());preparation.batchReceiptSha256=receipt.receiptSha256;
         writeFileSync(receiptPath,JSON.stringify(receipt));writeFileSync(preparationPath,JSON.stringify(preparation));assert.throws(()=>repository.list(scope));
