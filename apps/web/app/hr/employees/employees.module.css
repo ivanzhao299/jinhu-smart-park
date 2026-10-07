@@ -72,3 +72,6 @@
     min-height: 44px;
   }
 }
+
+.exportControl { display: flex; flex-direction: column; gap: .5rem; max-width: 100%; }
+.exportControl > span { overflow-wrap: anywhere; }

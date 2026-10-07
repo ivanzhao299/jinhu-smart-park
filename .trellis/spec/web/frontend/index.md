@@ -2,6 +2,8 @@
 
 These rules describe the current Next.js management frontend in `apps/web`.
 
+Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).
+
 Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
 
 ## Package Boundary
