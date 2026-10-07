@@ -10,6 +10,8 @@ import test from "node:test";
 import { DataSource, EntityManager } from "typeorm";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
 import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import.service";
+import { HrPreparedProfileBatchService } from "./hr-prepared-profile-batch.service";
+import { HrPreparedProfileBatchRepository } from "./hr-prepared-profile-batch.repository";
 import { HrEmployeeProfileEntity, HrEmployeeEntity, HrContractEntity, HrContractTypeEntity, HrContractActionEntity } from "./entities/hr.entities";
 import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem } from "@jinhu/shared";
 import { ValidationPipe } from "@nestjs/common";
@@ -197,6 +199,19 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
         console.log(JSON.stringify(out.packages.map(p=>p.packageDto)));
       `],{cwd:root,input:JSON.stringify({source:certifiedSource,scope,witness,employeeId:profile.employeeId,profileId:profile.id}),encoding:"utf8"})) as PreviewYuzhouIncrementalImportDto[];
       assert.equal(aliasBatch.length,2);
+      // Only delivery is replaced by a lab fixture: these are actual producer
+      // packages, and ordering, DTO validation, source certificates and ledger
+      // transactions use the real adapter, database and import service.
+      const preparedId=sha("synthetic prepared batch");
+      const preparedRepository={package:(receivedScope:typeof scope,id:string,index:number)=>{
+        assert.deepEqual(receivedScope,scope);assert.equal(id,preparedId);
+        assert.ok(index===0||index===1);return {pkg:aliasBatch[index]!};
+      }} as unknown as HrPreparedProfileBatchRepository;
+      const prepared=new HrPreparedProfileBatchService(preparedRepository,service,db!);
+      await assert.rejects(prepared.preview(scope,actor,preparedId,1),/Previous prepared package/);
+      const preparedBaseline=result(await prepared.preview(scope,actor,preparedId,0));
+      assert.deepEqual(preparedBaseline.plan,[{action:"unchanged"}]);
+      assert.deepEqual(await business(),before);
       assert.equal((await commit(aliasBatch[0]!)).outcome.unchangedCount,1);
       assert.deepEqual(await business(),before);
       const aliasWire=aliasBatch[1]!;
@@ -269,7 +284,7 @@ test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and i
       }
       // Competing connection edits after the admission observation: CAS rollback
       // includes the pending acceptance and the ordinary ledger revision.
-      const aliasPreview=result(await service.preview(scope,actor,aliasDto));assert.equal(aliasPreview.plan[0]!.action,"update");
+      const aliasPreview=result(await prepared.preview(scope,actor,preparedId,1));assert.deepEqual(aliasPreview.plan,[{action:"update"}]);
       let aliasReached!:()=>void,aliasRelease!:()=>void;const aliasBarrier=new Promise<void>(done=>{aliasReached=done}),aliasResume=new Promise<void>(done=>{aliasRelease=done});let aliasPaused=false;
       const aliasRaceDb=Object.create(db!) as DataSource;
       aliasRaceDb.transaction=(async(fn:(m:EntityManager)=>Promise<unknown>)=>db!.transaction(async m=>{const proxy=Object.create(m) as EntityManager;proxy.query=async(sql:string,args?:unknown[])=>{const out=await m.query(sql,args);if(!aliasPaused&&sql.startsWith("SELECT *,")&&sql.includes("FROM hr_employee_profile")){aliasPaused=true;aliasReached();await aliasResume;}return out;};return fn(proxy);})) as DataSource["transaction"];

@@ -135,6 +135,12 @@ services:
       - "${API_PUBLISHED_HOST:-127.0.0.1}:${API_PUBLISHED_PORT:-3001}:3001"
     volumes:
       - api-files-data:/var/lib/jinhu/files
+      - type: bind
+        source: ../../../.jinhu-hr-private-profile-input
+        target: /var/lib/jinhu/hr-private-profile-input
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test:
         [

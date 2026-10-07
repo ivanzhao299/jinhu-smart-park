@@ -42,7 +42,7 @@ const fieldLabels: Record<string, string> = {
   memo:"培训备注",relationship:"关系",contact:"联系方式",birthDate:"出生日期",workUnit:"工作单位",jobTitle:"职务",politicalStatus:"政治面貌",
   employeeCode: "员工编号", fullName: "姓名", employmentStatus: "任职状态", employmentType: "用工类型", hireDate: "入职日期",
   workLocation: "工作地点", workMobile: "工作手机", workEmail: "工作邮箱", employeeSourceKey: "员工来源关联", employeeSourceTable: "员工来源表关联",
-  englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号",
+  englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号", nativePlace:"籍贯", degree:"学历",
   contractTypeId: "合同类型", contractStatus: "合同状态", contractNo: "合同编号", startDate: "开始日期", endDate: "结束日期",
   probationEndDate: "试用期结束日期", workType: "工作类型", positionTitle: "岗位名称"
 };
@@ -50,6 +50,30 @@ export interface PackageSummary {
   fileName: string;
   itemCount: number;
   domains: { domain: YuzhouIncrementalDomain; count: number; fields: string[] }[];
+}
+export interface PreparedPackageSelection { batchId: string; index: number; kind: "baseline" | "alias"; itemCount: number; fields: string[] }
+export interface PreparedProfileCatalog { id: string; sourceProfiles: number; aliasProfiles: number; packages: Array<PreparedPackageSelection & {status:string;operationId:string|null;canPreview:boolean}> }
+export function normalizePreparedProfileCatalog(value: unknown): PreparedProfileCatalog[] {
+  if (!Array.isArray(value) || value.length > 8) throw new Error("服务器批次摘要无效。");
+  const seen = new Set<string>();
+  return value.map(batch=>{
+    if (!object(batch) || typeof batch.id!=="string" || !/^[a-f0-9]{64}$/.test(batch.id) || seen.has(batch.id)
+      || !Number.isSafeInteger(batch.sourceProfiles) || Number(batch.sourceProfiles)<1 || Number(batch.sourceProfiles)>20000
+      || !Number.isSafeInteger(batch.aliasProfiles) || Number(batch.aliasProfiles)<1 || Number(batch.aliasProfiles)>Number(batch.sourceProfiles)
+      || !Array.isArray(batch.packages) || !batch.packages.length || batch.packages.length>32) throw new Error("服务器批次摘要无效。");
+    seen.add(batch.id);const batchId=batch.id;let aliasSeen=false;
+    const packages=batch.packages.map((entry:unknown,index:number)=>{
+      if (!object(entry) || entry.index!==index || !["baseline","alias"].includes(String(entry.kind))
+        || !Number.isSafeInteger(entry.itemCount) || Number(entry.itemCount)<1 || Number(entry.itemCount)>YUZHOU_INCREMENTAL_MAX_ITEMS
+        || !Array.isArray(entry.fields) || new Set(entry.fields).size!==entry.fields.length || entry.fields.some(field=>!["nativePlace","degree"].includes(String(field)))
+        || typeof entry.canPreview!=="boolean" || !["ready","previewed","committed","conflicted"].includes(String(entry.status))
+        || entry.operationId!==null && (typeof entry.operationId!=="string" || !isOperationId(entry.operationId))) throw new Error("服务器数据包摘要无效。");
+      if (entry.kind==="alias") aliasSeen=true;
+      if (entry.kind==="baseline" && (aliasSeen || entry.fields.length) || entry.kind==="alias" && !entry.fields.length || index===0 && entry.kind!=="baseline") throw new Error("服务器数据包顺序无效。");
+      return {batchId,index,kind:entry.kind as "baseline"|"alias",itemCount:Number(entry.itemCount),fields:entry.fields as string[],status:String(entry.status),operationId:entry.operationId as string|null,canPreview:entry.canPreview};
+    });
+    return {id:batchId,sourceProfiles:Number(batch.sourceProfiles),aliasProfiles:Number(batch.aliasProfiles),packages};
+  });
 }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const boundedString = (value: unknown, max: number): value is string => typeof value === "string" && value.length > 0 && value.length <= max;
@@ -173,10 +197,12 @@ interface ImportTransport {
   commit: (id: string, key: string) => Promise<unknown>;
   status: (id: string) => Promise<unknown>;
   key: (action: string) => string;
+  previewPrepared?: (selection: PreparedPackageSelection, key: string) => Promise<unknown>;
 }
 export function createImportWorkbench(options: { user: UserContext | null; isCurrent: () => boolean; transport: ImportTransport }) {
   let state: ImportWorkbenchState = { busy: null, summary: null, operation: null, uncertain: false, canCommit: false, previewRetryAvailable: false, error: "" };
   let pkg: YuzhouIncrementalPackage | null = null;
+  let prepared: PreparedPackageSelection | null = null;
   let generation = 0;
   let previewKey = "", commitKey = "", boundId = "";
   const terminalOperations = new Map<string, ImportOperation>();
@@ -190,7 +216,7 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
   const publish = (patch: Partial<ImportWorkbenchState>) => { state = { ...state, ...patch }; listeners.forEach(listener => listener()); };
   const current = (epoch: number) => epoch === generation && options.isCurrent();
   const reset = () => {
-    generation++; pkg = null; previewKey = ""; commitKey = ""; boundId = "";
+    generation++; pkg = null; prepared = null; previewKey = ""; commitKey = ""; boundId = "";
     publish({ busy: null, summary: null, operation: null, uncertain: false, canCommit: false, previewRetryAvailable: false, error: "" });
   };
   const canManage = () => !!state.summary && hasModule(options.user, "hr") && missingImportPermissions(options.user, state.summary).length === 0;
@@ -198,7 +224,23 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
   return {
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getSnapshot: () => state,
-    cancel: () => { generation++; pkg = null; boundId = ""; terminalOperations.clear(); },
+    cancel: () => { generation++; pkg = null; prepared = null; boundId = ""; terminalOperations.clear(); },
+    selectPrepared(selection: PreparedPackageSelection) {
+      if (!options.isCurrent() || state.busy || state.uncertain || !options.transport.previewPrepared) return;
+      reset();
+      if (!/^[a-f0-9]{64}$/.test(selection.batchId) || !Number.isSafeInteger(selection.index) || selection.index < 0 || selection.index >= 32
+        || !["baseline","alias"].includes(selection.kind) || !Number.isSafeInteger(selection.itemCount) || selection.itemCount < 1
+        || selection.itemCount > YUZHOU_INCREMENTAL_MAX_ITEMS || !Array.isArray(selection.fields)
+        || selection.fields.some(field=>!["nativePlace","degree"].includes(field)) || new Set(selection.fields).size!==selection.fields.length
+        || selection.kind==="baseline" && selection.fields.length>0 || selection.kind==="alias" && !selection.fields.length) {
+        publish({error:"服务器数据包摘要无效，请刷新批次列表。"}); return;
+      }
+      prepared = {batchId:selection.batchId,index:selection.index,kind:selection.kind,itemCount:selection.itemCount,fields:[...selection.fields]};
+      const summary: PackageSummary = {fileName:`服务器数据包 ${selection.index+1} · ${selection.kind==="baseline"?"来源基线":"字段补齐"}`,
+        itemCount:selection.itemCount,domains:[{domain:"profile",count:selection.itemCount,fields:selection.fields.map(field=>field==="nativePlace"?"籍贯":"学历")}]};
+      const missing=missingImportPermissions(options.user,summary);
+      publish({summary,error:missing.length?`缺少${missing.join("、")}管理权限，无法预览或提交此包。`:""});
+    },
     async select(file: (Pick<File, "name" | "type" | "size"> & { text(): Promise<string> }) | null) {
       if (!options.isCurrent() || state.busy === "commit" || state.uncertain) return;
       reset();
@@ -218,7 +260,7 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
       } finally { settle(epoch); }
     },
     async preview(retry = false) {
-      if (!options.isCurrent() || state.busy || !pkg || !canManage() || state.uncertain) return;
+      if (!options.isCurrent() || state.busy || (!pkg && !prepared) || !canManage() || state.uncertain) return;
       if (retry && (!state.previewRetryAvailable || !previewKey)) return;
       // A fresh preview must reach the service's current package state, rather than
       // replaying the interceptor's cached pre-commit response. Only the same
@@ -227,7 +269,8 @@ export function createImportWorkbench(options: { user: UserContext | null; isCur
       const epoch = generation;
       publish({ busy: "preview", error: "", canCommit: false, previewRetryAvailable: false });
       try {
-        const result = normalizeImportOperation(await options.transport.preview(pkg, previewKey));
+        const response = prepared ? await options.transport.previewPrepared!(prepared, previewKey) : await options.transport.preview(pkg!, previewKey);
+        const result = normalizeImportOperation(response);
         if (!current(epoch)) return;
         if (result.itemCount !== state.summary!.itemCount) throw new Error("Response count mismatch");
         boundId = result.id;

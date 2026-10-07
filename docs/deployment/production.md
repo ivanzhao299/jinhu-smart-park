@@ -20,6 +20,8 @@ First release target environment verification execution record: [first-release-t
 
 This is the active Production deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
+Server-prepared HR batches use the deployment directory's dedicated sibling `.jinhu-hr-private-profile-input`. API/full/database deployment checks or creates it with mode0700 before Compose starts the API; unsafe existing permissions or symlinks fail closed. The API mounts only that directory read-only at `/var/lib/jinhu/hr-private-profile-input`; Web has no mount. Keep its files0600 and exclude this private directory from public backups or artifacts. For manual first-release Compose/API startup, run `node scripts/hr-cutover/ensure-profile-private-root.mjs --deploy "$(pwd -P)"` first. The host must have Node.js available for this check and the existing private preparation workflow. `JINHU_RUNTIME_COMMIT` is set from the reviewed API image build argument, and only matching prepared batches are selectable; earlier private batches remain retained.
+
 ## 1. Prepare Environment
 
 Copy the template and replace every placeholder secret:

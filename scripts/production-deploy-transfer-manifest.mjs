@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process */
 
 const manifests = {
   "fast-css": [
@@ -28,6 +29,7 @@ const manifests = {
     "file:scripts/diagnose-000189-asset-scope.sh",
     "file:scripts/diagnose-000194-runtime-control.sh",
     "file:scripts/prod-deploy.sh",
+    "file:scripts/hr-cutover/ensure-profile-private-root.mjs",
     "file:scripts/repair-000194-retired-runtime-owner.sh",
   ],
 };

@@ -9,10 +9,15 @@ import { LocalJsonFilePicker } from "../../../components/files/LocalJsonFilePick
 import { useAuthUser } from "../../../lib/auth-context";
 import { apiRequest, createIdempotencyKey, type ApiRequestOptions } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { hasPermission } from "../../../lib/permissions";
+import { HR_PERMISSIONS } from "@jinhu/shared";
+import { PreparedProfileBatches } from "./PreparedProfileBatches";
 import { canEnterImport, createImportWorkbench, DOMAIN_LABELS, IMPORT_FILE_POLICY, importContextKey, missingImportPermissions } from "../import-workbench";
 import styles from "./imports.module.css";
 
 const endpoint = "/hr/imports/yuzhou/incremental";
+const preparedEndpoint = "/hr/imports/yuzhou/prepared-profile";
+const loadPrepared = () => request(preparedEndpoint);
 async function request(path: string, options: ApiRequestOptions = {}, timeoutMs = 30_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -38,6 +43,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
   const [store] = useState(() => createImportWorkbench({ user, isCurrent, transport: {
     key: createIdempotencyKey,
     preview: (pkg, key) => request(`${endpoint}/preview`, { method: "POST", body: pkg, idempotencyKey: key }),
+    previewPrepared: (selection,key) => request(`${preparedEndpoint}/${selection.batchId}/packages/${selection.index}/preview`,{method:"POST",idempotencyKey:key}),
     commit: (id, key) => request(`${endpoint}/${id}/commit`, { method: "POST", idempotencyKey: key }, 90_000),
     status: id => request(`${endpoint}/${id}`)
   } }));
@@ -58,6 +64,9 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
       <Link className="ds-button ds-button-secondary" href="/hr/employees">返回员工档案</Link>
     </section>
     {state.error ? <div className="ds-panel" role="alert">{state.error}</div> : null}
+    {hasPermission(user,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE)?<PreparedProfileBatches load={loadPrepared} disabled={!!state.busy||state.uncertain}
+      isCurrent={isCurrent} refreshKey={`${operation?.id??""}:${operation?.status??""}`}
+      select={selection=>{setQueryId(null);setConfirmed(false);store.selectPrepared(selection);void store.preview();}}/>:null}
     <section className={`ds-panel ${styles.section}`} aria-labelledby="source-heading">
       <div><span className="ds-eyebrow">第一步</span><h2 id="source-heading">选择数据包</h2>
         <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照、培训历史和保险政策，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
@@ -96,7 +105,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
           <button className="ds-button ds-button-primary" type="button" disabled={!!state.busy || !confirmed} onClick={() => void store.commit()}>确认提交此数据包</button>
         </div> : operation.status === "previewed" && !state.uncertain ? <p>如需提交，请在当前园区重新选择此数据包并预览，以确认对应文件和管理权限。</p> : null}
         {state.uncertain ? <button type="button" className="ds-button ds-button-primary" disabled={!!state.busy} onClick={() => void store.query(operation.id)}>查询本次提交状态</button> : null}
-      </> : <p>选择文件并点击“预览数据包”，将在此显示新增、更新、不变和冲突数量。</p>}
+      </> : <p>选择数据包并预览，将在此显示新增、更新、不变和冲突数量。</p>}
     </section>
     <section className={`ds-panel ${styles.section}`} aria-labelledby="result-heading">
       <div><span className="ds-eyebrow">结果查询</span><h2 id="result-heading">按操作编号恢复结果</h2>
