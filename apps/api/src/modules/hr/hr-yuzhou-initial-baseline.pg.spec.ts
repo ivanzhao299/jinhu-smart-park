@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { DataSource, EntityManager } from "typeorm";
 import { PartySensitiveDataService } from "../../shared/security/party-sensitive-data.service";
+import { verifyYuzhouInitialBaseline } from "./hr-yuzhou-initial-baseline";
 import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import.service";
 import { HrEmployeeEntity, HrContractEntity, HrContractTypeEntity, HrContractActionEntity } from "./entities/hr.entities";
 import { canonicalYuzhouInitialJson, YUZHOU_INITIAL_CANONICALIZATION, YUZHOU_INITIAL_PROJECTION_FIELDS, type YuzhouIncrementalItem, type YuzhouInitialBaselineWitness } from "@jinhu/shared";
@@ -51,7 +52,7 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
       const contract=await db.getRepository(HrContractEntity).save({...scope,employeeId:employees[i]!.initialBaselineWitness!.targetId,contractTypeId:typeId,contractNo:`ORIG-C-${i}`,startDate:"2020-01-01",endDate:"2030-01-01",status:i===0?"draft":"active",isHistoricalImport:true});
       const identity=sha(`contract-${i}`),rowHash=sha(`contract-row-${i}`);
       const projection:Record<string,unknown>=Object.fromEntries(YUZHOU_INITIAL_PROJECTION_FIELDS.hr_contract.map(k=>[k,null]));
-      Object.assign(projection,{tenant_id:scope.tenantId,park_id:scope.parkId,contract_no:contract.contractNo,start_date:"2020-01-01",end_date:"2030-01-01",status:contract.status,employee_id:contract.employeeId,contract_type_id:typeId,legacy_source_identity_sha256:identity,legacy_source_row_sha256:rowHash,source_snapshot:{"10":"ten","2":"two",nested:{b:null,a:true}},is_historical_import:true,renewal_count:0,confidentiality_agreement:false,non_compete_agreement:false,training_service_agreement:false,legacy_text_present:false});
+      Object.assign(projection,{tenant_id:scope.tenantId,park_id:scope.parkId,contract_no:contract.contractNo,start_date:"2020-01-01",end_date:"2030-01-01",status:contract.status,employee_id:contract.employeeId,contract_type_id:typeId,legacy_source_identity_sha256:identity,legacy_source_row_sha256:rowHash,source_snapshot:{"10":"ten","2":"two",nested:{b:null,a:true}},is_historical_import:true,probation_salary:"9000.00",base_salary:"12000.00",renewal_count:0,confidentiality_agreement:false,non_compete_agreement:false,training_service_agreement:false,legacy_text_present:false});
       contracts.push({domain:"contract",sourceTable:"dbo.compact",sourceKey:`sha256:${identity}`,fields:{employeeSourceKey:employees[i]!.sourceKey,employeeSourceTable:"dbo.person",contractTypeId:typeId,contractStatus:contract.status,contractNo:contract.contractNo,startDate:"2020-01-01",endDate:"2030-01-01"},initialBaselineWitness:{version:1,operationId,phase:"T2",canonicalizationVersion:YUZHOU_INITIAL_CANONICALIZATION,targetId:contract.id,projection}});
     }
     // Compute hashes with the ORIGINAL writer, not the API implementation under test.
@@ -87,6 +88,10 @@ test("original receipt baselines: real PostgreSQL proof, isolation, CAS and immu
     const snapshot=async()=>Promise.all(["hr_employee","hr_contract","legacy_record_map","hr_yuzhou_production_import_record","hr_yuzhou_production_import_projection_receipt","migration_batch"].map(table=>db!.query(`SELECT row_to_json(r) AS row FROM ${table} r ORDER BY row_to_json(r)::text`)));
     const previewCommit=async(item:Input)=>{const dto=plainToInstance(PreviewYuzhouIncrementalImportDto,pkg(item));await validateOrReject(dto,{whitelist:true,forbidNonWhitelisted:true});const p=result(await service.preview(scope,actor,dto));return {preview:p,committed:result(await service.commit(scope,actor,p.id))};};
     const counts=async()=> (await db!.query(`SELECT (SELECT count(*)::int FROM hr_incremental_import_item) items,(SELECT count(*)::int FROM hr_incremental_initial_baseline) baselines,(SELECT count(*)::int FROM hr_incremental_import_revision) revisions`))[0];
+    // Read certified original salary facts, never infer them from the modern target.
+    const certified=await db.transaction(m=>verifyYuzhouInitialBaseline(m,scope,pkg(contracts[0]!).items[0]!,contracts[0]!.initialBaselineWitness!));
+    assert.equal(certified.source.probationSalary,"9000.00");assert.equal(certified.source.baseSalary,"12000.00");
+    assert.equal((await db.query(`SELECT base_salary FROM hr_contract WHERE id=$1`,[contracts[0]!.initialBaselineWitness!.targetId]))[0].base_salary,null);
     const original=await snapshot();
     const validated=plainToInstance(PreviewYuzhouIncrementalImportDto,pkg(employees[0]!));
     await validateOrReject(validated,{whitelist:true,forbidNonWhitelisted:true});

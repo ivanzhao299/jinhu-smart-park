@@ -45,6 +45,7 @@ const fieldLabels: Record<string, string> = {
   englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号", nativePlace:"籍贯", degree:"学历",
   contractTypeId: "合同类型", contractStatus: "合同状态", contractNo: "合同编号", startDate: "开始日期", endDate: "结束日期",
   probationEndDate: "试用期结束日期", workType: "工作类型", positionTitle: "岗位名称",
+  probationSalary:"试用期工资",baseSalary:"基本工资",
   contractTermMonths:"合同期限（月）",signatureDate:"签署日期",probationMonths:"试用月数",renewalCount:"续签次数",confidentialityAgreement:"保密协议",nonCompeteAgreement:"竞业限制协议",trainingServiceAgreement:"培训服务协议"
 };
 export interface PackageSummary {
@@ -148,7 +149,9 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
   } };
 }
 export function missingImportPermissions(user: UserContext | null, summary: PackageSummary): string[] {
-  return summary.domains.filter(row => (row.domain === "insurance_policy" ? !YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "training_history" ? !TRAINING_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
+  const missing = summary.domains.filter(row => (row.domain === "insurance_policy" ? !YUZHOU_INSURANCE_POLICY_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "training_history" ? !TRAINING_IMPORT_MANAGE.every(p=>hasPermission(user,p)) : row.domain === "organization" ? !hasAnyPermission(user,[SYSTEM_PERMISSIONS.ORG_CREATE,SYSTEM_PERMISSIONS.ORG_UPDATE]) : !hasPermission(user, DOMAIN_MANAGE[row.domain]))).map(row => DOMAIN_LABELS[row.domain]);
+  if (summary.domains.some(row=>row.domain === "contract" && row.fields.some(label=>[fieldLabels.probationSalary,fieldLabels.baseSalary].includes(label))) && !hasPermission(user,HR_PERMISSIONS.HR_COMPENSATION_MANAGE)) missing.push("合同薪酬维护");
+  return missing;
 }
 
 export type OperationStatus = "previewed" | "committed" | "conflicted";

@@ -117,4 +117,4 @@ Private preparation transport distinguishes deployed source commit (.release.jso
 
 ## Contract-only reusable recipe expansion
 
-The prepared profile reader admits exactly the original 5ba25c32 and reviewed 161530bd recipe SHA-256 values, with unchanged pinned collector e2de6e37 and alias adapter 267c7ac6. No dynamic current-recipe bypass or arbitrary fingerprint acceptance. Current actual producer files, legacy fingerprint package retrieval and unknown resealed fingerprints must regress together. Contract fields do not invalidate already prepared profile packages; this does not attest production commit.
+The prepared profile reader admits exactly the original 5ba25c32, reviewed seven-term 161530bd and salary-expanded 31f6aa4b recipe SHA-256 values, with unchanged pinned collector e2de6e37 and alias adapter 267c7ac6. No dynamic current-recipe bypass or arbitrary fingerprint acceptance. Current actual producer files, legacy fingerprint package retrieval and unknown resealed fingerprints must regress together. Contract fields do not invalidate already prepared profile packages; this does not attest production commit.

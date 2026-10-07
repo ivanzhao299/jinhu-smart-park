@@ -82,6 +82,10 @@ CLI 按实际发送的紧凑 UTF-8 JSON 加换行计算长度并拆包；提交�
 
 API严格接受整数（合同期限0..1200月、试用0..120月、续签次数非负int4）、真实YYYY-MM-DD日期和明确布尔值。缺省字段保持旧格式兼容；显式false是来源事实。新合同保留字段和动作快照；同来源回放不新增，源字段未变不覆盖现代修改；同字段现代变化或非草稿修改仍进入冲突/正常合同流程。认证的完整原始T2见证可以恢复这些字段基线，已接受的旧基线不会自动重建。
 
-导入工作台识别数值和布尔字段，展示中文字段名。工资金额、累计期限、合同变更履历及附件仍不在本次扩展内。新配方摘要与描述文件一同更新；既有已生成API包不携带配方摘要校验，继续按原字段/摘要提交，不要求重做原始人员准备或历史A/B。
+导入工作台识别数值和布尔字段，展示中文字段名。七项条款扩展本身不含工资；下述薪酬增量补充承载两项金额。累计期限、合同变更履历及附件仍待完成。新配方摘要与描述文件一同更新；既有已生成API包不携带配方摘要校验，继续按原字段/摘要提交，不要求重做原始人员准备或历史A/B。
 
 服务端准备批次读取器保留原始人员配方5ba25c32，并精确允许合同条款扩展后的161530bd配方；收集器和人员适配器固定摘要不变，未知配方仍拒绝。现有2859份人员准备结果不因本次合同字段扩展重做。
+
+## Contract salary reusable import
+
+The fixed T2 projection now carries probationSalary/baseSalary into the same formal contract. Values are null or canonical nonnegative fixed-two-decimal strings within numeric(18,2); no JavaScript amount conversion. Explicit fields, including null, require both existing contract management and compensation management at preview and commit. Omitted salaries preserve old packages and existing values; source-unchanged fields preserve modern edits, changed same-field values conflict, and non-draft contracts retain normal workflow requirements. Public contract action snapshots and import summaries omit amounts; encrypted revision snapshots retain audit evidence and ordinary salary reads retain their existing permission. Complete authenticated original T2 witnesses can restore these facts, but accepted baselines are never rebuilt. This feature does not publish payroll or attest an actual production source batch.

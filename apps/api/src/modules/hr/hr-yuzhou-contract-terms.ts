@@ -1,4 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
+import { normalizeHrMoney } from "./hr-money";
 
 /** Existing formal columns only; original years and signature history stay separate. */
 export const incrementalContractTermColumns: Record<string, string> = {
@@ -24,6 +25,18 @@ export function validateIncrementalContractTerm(field: string, value: unknown): 
     const maximum = field === "probationMonths" ? 120 : field === "contractTermMonths" ? 1200 : 2147483647;
     if ((value === null && field === "renewalCount") || (value !== null && (!Number.isInteger(value)
       || Number(value) < 0 || Number(value) > maximum))) throw new BadRequestException("CONTRACT_TERM_INTEGER_INVALID");
+  }
+  return true;
+}
+
+/** Salary is deliberately excluded from public contract action snapshots. */
+export const incrementalContractSalaryColumns: Record<string, string> = {
+  probationSalary: "probation_salary", baseSalary: "base_salary",
+};
+export function validateIncrementalContractSalary(field: string, value: unknown): boolean {
+  if (!Object.prototype.hasOwnProperty.call(incrementalContractSalaryColumns, field)) return false;
+  if (value !== null && (typeof value !== "string" || normalizeHrMoney(value,field) !== value)) {
+    throw new BadRequestException("CONTRACT_SALARY_CANONICAL_DECIMAL_REQUIRED");
   }
   return true;
 }

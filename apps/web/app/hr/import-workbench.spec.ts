@@ -370,3 +370,14 @@ test("contract import summary accepts formal numeric and boolean terms without e
   assert.doesNotMatch(JSON.stringify(parsed.summary),/2023-12-20|contractTermMonths|true|false/);
   for(const fields of [{probationMonths:0.5},{renewalCount:true},{confidentialityAgreement:1}]) assert.throws(()=>parseImportPackage(text([item("contract",fields)]),"bad.json"));
 });
+
+test("salary-bearing contract summary hides amounts and requires existing compensation permission, including null",()=>{
+  for(const value of [null,"9999999999999999.99"]) {
+    const parsed=parseImportPackage(text([item("contract",{baseSalary:value,probationSalary:"0.00"})]),"salary.json");
+    assert.doesNotMatch(JSON.stringify(parsed.summary),/9999999999999999|0\.00/);
+    assert.deepEqual(missingImportPermissions(user,parsed.summary),["合同薪酬维护"]);
+    assert.deepEqual(missingImportPermissions({...user,permissions:[...user.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE]},parsed.summary),[]);
+  }
+  const old=parseImportPackage(text([item("contract",{contractNo:"older-package"})]),"old.json");
+  assert.deepEqual(missingImportPermissions(user,old.summary),[]);
+});

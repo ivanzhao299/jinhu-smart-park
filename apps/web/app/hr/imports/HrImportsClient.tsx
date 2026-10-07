@@ -70,7 +70,7 @@ function ImportWorkbench({ isCurrent }: { isCurrent: () => boolean }) {
     <section className={`ds-panel ${styles.section}`} aria-labelledby="source-heading">
       <div><span className="ds-eyebrow">第一步</span><h2 id="source-heading">选择数据包</h2>
         <p>当前园区内支持组织、岗位、员工、个人资料、劳动合同、家庭成员、技能、证照、培训历史和保险政策，每包最多 {YUZHOU_INCREMENTAL_MAX_ITEMS} 条。混合包需要每个所含模块的管理权限。</p>
-        <p className="ds-field-hint">招聘、考勤、薪酬、人员参保期间、培训计划和附件等来源尚不支持通过此入口导入。</p></div>
+        <p className="ds-field-hint">合同可包含试用期工资和基本工资，需要薪酬维护权限。招聘、考勤、工资核算历史、人员参保期间、培训计划和附件等来源尚不支持通过此入口导入。</p></div>
       <LocalJsonFilePicker policy={IMPORT_FILE_POLICY} fileName={state.summary?.fileName} disabled={!!state.busy || state.uncertain}
         onSelect={file => { setQueryId(null); setConfirmed(false); void store.select(file); }} />
       {state.summary ? <div className={styles.records}>

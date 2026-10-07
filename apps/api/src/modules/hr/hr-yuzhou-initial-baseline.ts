@@ -1,4 +1,4 @@
-import { incrementalContractTermColumns } from "./hr-yuzhou-contract-terms";
+import { incrementalContractSalaryColumns, incrementalContractTermColumns } from "./hr-yuzhou-contract-terms";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { EntityManager } from "typeorm";
@@ -89,7 +89,7 @@ export async function verifyYuzhouInitialBaseline(manager: EntityManager, scope:
     ? Object.fromEntries(YUZHOU_INITIAL_PROJECTION_FIELDS[table].filter(c=>!["tenant_id","park_id"].includes(c)).map(c=>[({parent_id:"parentSourceKey",org_id:"orgSourceKey",reports_to_position_id:"parentPositionSourceKey"} as Record<string,string>)[c] ?? c.replace(/_([a-z])/gu,(_,letter:string)=>letter.toUpperCase()),c]))
     : table === "hr_employee"
     ? {employeeCode:"employee_code",fullName:"full_name",employmentType:"employment_type",employmentStatus:"employment_status",hireDate:"hire_date",workLocation:"work_location",workMobile:"work_mobile",workEmail:"work_email"}
-    : {contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title",...incrementalContractTermColumns};
+    : {contractNo:"contract_no",startDate:"start_date",endDate:"end_date",probationEndDate:"probation_end_date",workType:"work_type",positionTitle:"position_title",...incrementalContractTermColumns,...incrementalContractSalaryColumns};
   const target = Object.fromEntries(Object.entries(columns).map(([field,column]) => [field,projection[column]]));
   const source = { ...target };
   for(const [role,field] of (table==="sys_org"?[["parent_org","parentSourceKey"]]:table==="hr_position"?[["org","orgSourceKey"],["parent_position","parentPositionSourceKey"]]:table==="hr_employee"?[["primary_org","orgSourceKey"],["position","positionSourceKey"]]:[])) {
