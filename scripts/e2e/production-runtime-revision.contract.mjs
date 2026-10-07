@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, realpathSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import process from "node:process";
 import { observeProductionRuntimeRevision as observe } from "../diagnose-production-runtime-revision.mjs";
 
 const root = resolve(import.meta.dirname, "../.."), commit = "a".repeat(40), old = "b".repeat(40);
@@ -134,9 +135,13 @@ test("actual standalone and SSH-stdin CLIs suppress subprocess sensitive stderr"
 });
 
 test("build argument is frozen before env load, correct for full/narrow builds and absent for non-build modes", t => {
-  const dir = mkdtempSync(join(tmpdir(), "runtime-build-synthetic-")); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const parent = realpathSync(mkdtempSync(join(tmpdir(), "runtime-build-synthetic-")));
+  const dir = join(parent,"deploy"); mkdirSync(dir);
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
   mkdirSync(join(dir, "scripts")); mkdirSync(join(dir, "bin"));
   writeFileSync(join(dir, "scripts/prod-deploy.sh"), read("scripts/prod-deploy.sh"));
+  mkdirSync(join(dir,"scripts/hr-cutover"));
+  writeFileSync(join(dir,"scripts/hr-cutover/ensure-profile-private-root.mjs"),read("scripts/hr-cutover/ensure-profile-private-root.mjs"));
   for (const name of ["db-migrate", "diagnose-000189-asset-scope", "repair-000194-retired-runtime-owner", "diagnose-000194-runtime-control", "prod-healthcheck", "prod-docker-cleanup"]) writeFileSync(join(dir, `scripts/${name}.sh`), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
   writeFileSync(join(dir, "bin/docker"), "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$TEST_LOG\"\n", { mode: 0o700 });
   const envPath = join(dir, "synthetic.env"); writeFileSync(envPath, `RELEASE_COMMIT=${old}\nRUN_PRODUCTION_SEED=no\n`);
@@ -144,6 +149,7 @@ test("build argument is frozen before env load, correct for full/narrow builds a
     const log = join(dir, `${mode}-${supplied || "none"}.log`);
     const env = { ...process.env, PATH: `${dir}/bin:${process.env.PATH}`, ENV_FILE: envPath, COMPOSE_FILE: join(dir, "unused.yml"), TEST_LOG: log, PROD_DEPLOY_MODE: mode, RELEASE_COMMIT: supplied, PRUNE_DOCKER_AFTER_DEPLOY: "no" };
     const result = spawnSync("sh", [join(dir, "scripts/prod-deploy.sh")], { encoding: "utf8", env }); assert.equal(result.status, 0, result.stderr);
+    assert.equal(lstatSync(join(parent,".jinhu-hr-private-profile-input")).mode & 0o777,0o700);
     const commands = readFileSync(log, "utf8"), builds = commands.split("\n").filter(line => line.includes(" build "));
     assert.equal(builds.length, mode === "database" ? 0 : 1);
     if (builds.length) { assert.ok(builds[0].endsWith(`--build-arg RELEASE_COMMIT=${supplied}`)); assert.ok(!builds[0].includes(old)); }
@@ -160,7 +166,7 @@ test("Docker runtime labels and production diagnose routing preserve read-only a
   }
   const workflow = read(".github/workflows/deploy-production.yml"), mode = "diagnose-production-runtime-revision";
   assert.ok(workflow.includes(`- ${mode}`)); assert.ok(workflow.includes(`${mode}|diagnose-000189-scope`));
-  assert.match(workflow, /group: deploy-production\n  cancel-in-progress: false/);
+  assert.match(workflow, /group: deploy-production\n {2}cancel-in-progress: false/);
   const validation = workflow.slice(workflow.indexOf("      - name: Validate runtime revision expectations"), workflow.indexOf("      - name: Start SSH agent"));
   assert.ok(validation.length > 0); assert.ok(workflow.indexOf("Validate runtime revision expectations") < workflow.indexOf("Start SSH agent"));
   assert.match(validation, /inputs\.expected_api_commit/); assert.match(validation, /inputs\.expected_web_commit/);
@@ -183,7 +189,7 @@ test("workflow validates runtime overrides before any SSH and defaults omitted v
   try {
     const workflow = read(".github/workflows/deploy-production.yml");
     const step = workflow.slice(workflow.indexOf("      - name: Validate runtime revision expectations"), workflow.indexOf("      - name: Start SSH agent"));
-    const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /u, "")).join("\n");
+    const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^ {10}/u, "")).join("\n");
     const run = (api = "", web = "", observer = commit) => {
       const output = join(dir, "github-output"); writeFileSync(output, "");
       return { output, result: spawnSync("sh", ["-s"], { cwd: root, input: script, encoding: "utf8", env: { ...process.env,
@@ -211,9 +217,9 @@ test("malformed multiline and quote-bearing workflow values never reach SSH", ()
   try {
     const workflow = read(".github/workflows/deploy-production.yml");
     const validation = workflow.slice(workflow.indexOf("      - name: Validate runtime revision expectations"), workflow.indexOf("      - name: Start SSH agent"));
-    const script = validation.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /u, "")).join("\n");
+    const script = validation.split("        run: |\n")[1].split("\n").map(line => line.replace(/^ {10}/u, "")).join("\n");
     const diagnostic = workflow.slice(workflow.indexOf("      - name: Diagnose production runtime image revisions"), workflow.indexOf("      - name: Retain production runtime image observation"));
-    const diagnosticScript = diagnostic.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /u, "")).join("\n");
+    const diagnosticScript = diagnostic.split("        run: |\n")[1].split("\n").map(line => line.replace(/^ {10}/u, "")).join("\n");
     const sshPath = join(dir, "ssh"), marker = join(dir, "ssh-called");
     writeFileSync(sshPath, `#!/bin/sh\nprintf called > '${marker}'\nexit 99\n`, { mode: 0o700 });
     for (const api of [`${commit}\n${old}`, `${commit}\n' --observer-code-commit '${old}`]) {
@@ -238,7 +244,7 @@ test("actual diagnose shell preserves only a complete allowlisted collector code
   writeFileSync(join(dir, "ssh"), "#!/bin/sh\nprintf '%s\\n' \"$TEST_REMOTE_STDERR\" >&2\nexit 1\n", { mode: 0o700 });
   const workflow = read(".github/workflows/deploy-production.yml");
   const step = workflow.slice(workflow.indexOf("      - name: Diagnose production runtime image revisions"), workflow.indexOf("      - name: Retain production runtime image observation"));
-  const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /u, "")).join("\n");
+  const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^ {10}/u, "")).join("\n");
   for (const [stderr, expected] of [["PRODUCTION_RUNTIME_REVISION_UNAVAILABLE", "PRODUCTION_RUNTIME_REVISION_UNAVAILABLE"],
     ["PRODUCTION_RUNTIME_APPLICATION_MOUNT_OVERRIDE", "PRODUCTION_RUNTIME_APPLICATION_MOUNT_OVERRIDE"],
     ["sensitive credential host path", "PRODUCTION_RUNTIME_REMOTE_OBSERVATION_FAILED"],
