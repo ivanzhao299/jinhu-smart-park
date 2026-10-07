@@ -2,6 +2,8 @@
 
 These rules describe the current Next.js management frontend in `apps/web`.
 
+Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
+
 ## Package Boundary
 
 - Routes live under `apps/web/app`.
