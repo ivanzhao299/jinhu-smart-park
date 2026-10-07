@@ -13,7 +13,7 @@ import {join,resolve} from 'node:path';
 import {URL,fileURLToPath} from 'node:url';
 import {assembleOriginalProfileAliasInput,prepareOriginalProfileAliasInput,originalProfileAliasInputSql,originalProfileAliasObservationSql,originalProfileAliasRowsSql,originalProfileAliasReadProgram} from '../prepare-yuzhou-original-profile-alias-input.mjs';
 import {canonicalProfile} from '../yuzhou-profile-incremental-projection.mjs';
-import {personnelAliasSql} from '../../diagnose-yuzhou-personnel-alias.mjs';
+import {originalProfileAliasReferenceRowsSql,personnelAliasSql} from '../../diagnose-yuzhou-personnel-alias.mjs';
 
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -133,7 +133,8 @@ test('private query shares existing CTE, read-only snapshot and digest/decoder s
   assert.ok(originalProfileAliasInputSql.startsWith(prefix.replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;')));
   assert.doesNotMatch(originalProfileAliasInputSql,/UPDATE |DELETE |INSERT |LOCK TABLE|FOR UPDATE|FOR SHARE/);
   assert.equal(originalProfileAliasObservationSql,personnelAliasSql.slice(0,personnelAliasSql.lastIndexOf('\nROLLBACK;')).replace('BEGIN TRANSACTION READ ONLY;','BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;'));
-  assert.ok(originalProfileAliasRowsSql.startsWith(prefix.slice(prefix.indexOf('WITH ops AS ('))));
+  assert.ok(originalProfileAliasRowsSql.startsWith(personnelAliasSql.slice(personnelAliasSql.indexOf('WITH ops AS ('),personnelAliasSql.indexOf('), receipt_source AS (')+1)));
+  assert.doesNotMatch(originalProfileAliasRowsSql,/mapped_owner AS|t0 AS|exact_profiles AS|baseline_sets AS/);
   assert.doesNotMatch(originalProfileAliasRowsSql,/'observation',|BEGIN TRANSACTION|UPDATE |DELETE |INSERT |LOCK TABLE|FOR UPDATE|FOR SHARE/);
   assert.match(originalProfileAliasRowsSql,/ROLLBACK;$/);
   assert.match(originalProfileAliasReadProgram,/default_transaction_read_only=on/);
@@ -202,6 +203,9 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
       env:{...process.env,POSTGRES_HOST:'127.0.0.1',POSTGRES_PORT:String(config.port),POSTGRES_DB:database,POSTGRES_USER:config.user,POSTGRES_PASSWORD:config.password,
         PARTY_DATA_ENCRYPTION_KEY:key,PARTY_DATA_ACTIVE_KEY_ID:'',PARTY_DATA_ENCRYPTION_KEYRING:''}});
     const result=run();assert.equal(result.status,0,result.stderr);
+    const reference=run({observationSql:originalProfileAliasObservationSql,rowsSql:originalProfileAliasReferenceRowsSql});
+    assert.equal(reference.status,0,reference.stderr);
+    assert.deepEqual(JSON.parse(result.stdout),JSON.parse(reference.stdout),'direct payload read equals the original fully repeated receipt/owner/profile graph in one snapshot');
     const actual=JSON.parse(result.stdout),o=actual.observation;
     const forcedThresholds=run({observationSql:originalProfileAliasObservationSql.replace('SET LOCAL enable_nestloop=off;',
       'SET LOCAL enable_nestloop=off; SET LOCAL jit_above_cost=0; SET LOCAL jit_inline_above_cost=0; SET LOCAL jit_optimize_above_cost=0;'),rowsSql:originalProfileAliasRowsSql});
@@ -212,6 +216,25 @@ test('actual read-only SQL and runtime crypto produce verified packages in a fre
     assert.doesNotMatch(result.stdout,/enc:v1:|encryptedSource/);
     const expected={sourceSetSha256:o.sourceSetSha256,profileCount:o.profileMatchedCount,aliasProfiles:o.correctionPlan.plannedProfiles,nativePlaceFills:o.correctionPlan.nativePlaceFills,degreeFills:o.correctionPlan.degreeFills,planSha256:o.correctionPlan.planSha256,beforeSha256:o.correctionPlan.beforeSha256};
     assert.equal(assembleOriginalProfileAliasInput(actual,expected,at).batch.receipt.aliasProfiles,2);
+    // The payload SELECT deliberately does not repeat the T0 graph. Its rows
+    // must never become accepted evidence when that same-snapshot certificate fails.
+    for (const [breakSql, restoreSql] of [
+      ["UPDATE hr_yuzhou_production_import_phase SET status='failed'", "UPDATE hr_yuzhou_production_import_phase SET status='succeeded'"],
+      ["UPDATE hr_yuzhou_production_import_record SET rollback_status='rolled_back'", "UPDATE hr_yuzhou_production_import_record SET rollback_status='not_started'"],
+      ["UPDATE hr_yuzhou_t5_followon_projection_receipt SET disposition='quarantine' WHERE target_table='hr_employee_profile'", "UPDATE hr_yuzhou_t5_followon_projection_receipt SET disposition='insert' WHERE target_table='hr_employee_profile'"],
+    ]) {
+      await client.query(breakSql);
+      const rejected=run();assert.equal(rejected.status,0,rejected.stderr);
+      assert.throws(()=>assembleOriginalProfileAliasInput(JSON.parse(rejected.stdout),expected,at),/OBSERVATION_DRIFT/);
+      await client.query(restoreSql);
+    }
+    const duplicate=randomUUID();
+    await client.query('INSERT INTO hr_employee_profile(id,tenant_id,park_id,employee_id,is_deleted,version) VALUES($1,$2,$3,$4,false,1)',[duplicate,'10000001','20000001',envelope.rows[0].employeeId]);
+    const ambiguous=run();assert.equal(ambiguous.status,0,ambiguous.stderr);
+    assert.throws(()=>assembleOriginalProfileAliasInput(JSON.parse(ambiguous.stdout),expected,at),/OBSERVATION_DRIFT/);
+    await client.query('DELETE FROM hr_employee_profile WHERE id=$1',[duplicate]);
+    const restored=run();assert.equal(restored.status,0,restored.stderr);
+    assert.deepEqual(JSON.parse(restored.stdout),actual,'all isolated tamper cases restored the exact certified envelope');
     const mutationProgram=program.replace("stage='ROWS_QUERY';",`const writer=new Client({host:process.env.POSTGRES_HOST,port:Number(process.env.POSTGRES_PORT),database:process.env.POSTGRES_DB,user:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD});
       if(process.env.POSTGRES_HOST!=='127.0.0.1'||!/^jinhu_hr_profile_source_[a-f0-9]{24}$/.test(process.env.POSTGRES_DB))throw Error();
       await writer.connect();await writer.query('UPDATE hr_employee_profile SET version=version+1');await writer.end();stage='ROWS_QUERY';`);
