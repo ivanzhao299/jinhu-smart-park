@@ -44,7 +44,8 @@ const fieldLabels: Record<string, string> = {
   workLocation: "工作地点", workMobile: "工作手机", workEmail: "工作邮箱", employeeSourceKey: "员工来源关联", employeeSourceTable: "员工来源表关联",
   englishName: "英文姓名", gender: "性别", dateOfBirth: "出生日期", personalMobile: "个人手机", personalEmail: "个人邮箱", address: "联系地址", idNumber: "证件号", nativePlace:"籍贯", degree:"学历",
   contractTypeId: "合同类型", contractStatus: "合同状态", contractNo: "合同编号", startDate: "开始日期", endDate: "结束日期",
-  probationEndDate: "试用期结束日期", workType: "工作类型", positionTitle: "岗位名称"
+  probationEndDate: "试用期结束日期", workType: "工作类型", positionTitle: "岗位名称",
+  contractTermMonths:"合同期限（月）",signatureDate:"签署日期",probationMonths:"试用月数",renewalCount:"续签次数",confidentialityAgreement:"保密协议",nonCompeteAgreement:"竞业限制协议",trainingServiceAgreement:"培训服务协议"
 };
 export interface PackageSummary {
   fileName: string;
@@ -129,7 +130,7 @@ export function parseImportPackage(text: string, fileName: string): { pkg: Yuzho
     const insuranceLabels = domain === "insurance_policy" ? insuranceFieldLabels(item.fields) : null;
     if (domain === "insurance_policy" && item.sourceTable !== "dbo.insure_method") throw new Error("保险政策来源表无效。");
     if (!insuranceLabels && keys.some(key => !YUZHOU_INCREMENTAL_FIELDS[domain].includes(key)
-      || (item.fields as Record<string, unknown>)[key] !== null && typeof (item.fields as Record<string, unknown>)[key] !== "string" && !( ["sortOrder","plannedHeadcount","legacySourceId","legacyHierarchyLevel","headcountLimit","hierarchyLevel"].includes(key) && Number.isSafeInteger((item.fields as Record<string, unknown>)[key])))) {
+      || (item.fields as Record<string, unknown>)[key] !== null && typeof (item.fields as Record<string, unknown>)[key] !== "string" && !( ["sortOrder","plannedHeadcount","legacySourceId","legacyHierarchyLevel","headcountLimit","hierarchyLevel"].includes(key) && Number.isSafeInteger((item.fields as Record<string, unknown>)[key])) && !(domain === "contract" && (["contractTermMonths","probationMonths","renewalCount"].includes(key) && Number.isSafeInteger((item.fields as Record<string,unknown>)[key]) || ["confidentialityAgreement","nonCompeteAgreement","trainingServiceAgreement"].includes(key) && typeof (item.fields as Record<string,unknown>)[key] === "boolean")))) {
       throw new Error("数据包包含不支持的字段或字段类型，请检查源数据包。");
     }
     const group = domains.get(domain) ?? { count: 0, fields: new Set<string>() };

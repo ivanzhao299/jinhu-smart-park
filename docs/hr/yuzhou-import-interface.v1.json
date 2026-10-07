@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e",
+  "recipeSha256": "161530bdc3e45693ee8063b408edef1eb9936bd96f6d69934c4d9f1029943d0c",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",
@@ -783,7 +783,7 @@
         "sourceTable": "dbo.compact",
         "adapter": "production-t2-field-projection",
         "dependency": "existing dbo.person source identity and immutable contract-type binding",
-        "eligibility": "explicitly mapped draft, active, expired, terminated or cancelled source status"
+        "eligibility": "explicit source status plus reviewed date-derived term, signature date, probation months, renewal count and three agreement flags; salary and history remain pending"
       }
     ],
     "pending": [

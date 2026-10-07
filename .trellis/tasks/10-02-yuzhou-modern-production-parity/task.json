@@ -23,7 +23,8 @@
     "10-08-hr-employee-directory-export",
     "10-08-hr-payroll-input-readiness",
     "10-08-hr-prepared-profile-runtime-continuity",
-    "10-08-hr-attendance-employee-selection"
+    "10-08-hr-attendance-employee-selection",
+    "10-08-hr-contract-import-terms"
   ],
   "parent": null,
   "relatedFiles": [

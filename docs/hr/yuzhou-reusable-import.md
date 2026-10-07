@@ -81,7 +81,7 @@ node scripts/hr-cutover/build-yuzhou-reusable-incremental-package.mjs \
 
 员工编码和姓名遵守 API 的 64/100 字符串长度限制；任职状态必须有 map 决策；hireDate/formalDate 必须是有效日历日期或空值。显式空 hireDate 保留为 null，参与来源字段基线比较。未承接的员工字段保留在私有 manifest 原始事实中，并逐字段标为 pending；员工源数据包含 departmentCode/positionCode 时，会携带确切来源关系；新增非 preboarding 员工缺少确切有效组织时 API 拒绝；已有员工的无组织字段旧包可以回放，原有员工关系修订进入正常调岗工作流。合同继续使用原投影白名单验证。篡改摘要、重复来源、未决状态和缺失/重复的员工关系均失败。摘要验证和既有工件校验不替代来源抽取的独立保管与真实性证据。
 
-已映射为 `active`、`expired`、`terminated` 或 `cancelled` 的合同绝不会被改写成 draft；它们以同一审核状态进入 API 新增来源事实路径。对已存在的现代合同，状态变化仍须走 API 的冲突/正常变更流程。`coverage.json` 按来源行列出每个已投影字段是 carried 还是 `pending_api_adapter`，因此工资、年限、签署日期、协议标记、历史快照和证据等当前 API 未承接事实不会被当作已导入。
+已映射为 `active`、`expired`、`terminated` 或 `cancelled` 的合同绝不会被改写成 draft；它们以同一审核状态进入 API 新增来源事实路径。对已存在的现代合同，状态变化仍须走 API 的冲突/正常变更流程。`coverage.json` 按来源行列出每个已投影字段是 carried 还是 `pending_api_adapter`，合同期限月数、签署日期、试用月数、续签次数及三类协议标记已由固定投影承载至正式合同；工资金额、原始年数/累计算法、历史快照和证据等未承接部分仍明确列为 pending，不会被当作已导入。
 
 当前 raw adapter 支持员工编码、姓名、任职状态/类型、入职日期，以及已确认状态和员工/类型关系的合同主记录。`formalDate` 为 `pending_semantic_binding`，离职日期为 `pending_lifecycle_adapter`，部门/岗位及其他未承接字段为 `pending_api_adapter`。敏感档案、合同类型、合同变更、合同历史证据以及考勤、社保、工资、培训、奖惩、绩效仍待独立适配。首批 package 不证明这些领域或全部字段已经完成。
 
