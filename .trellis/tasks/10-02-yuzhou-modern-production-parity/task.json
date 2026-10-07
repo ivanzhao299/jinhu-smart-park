@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "10-08-hr-contract-review-continuity"
+  ],
   "parent": null,
   "relatedFiles": [
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/prd.md",

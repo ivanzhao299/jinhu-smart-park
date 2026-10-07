@@ -60,6 +60,41 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    const unchanged=JSON.stringify(await contracts.findOneByOrFail({id:old.id}));
    return{old,dto,unchanged,employee};
   }
+  const reviewer={...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE]} as JwtPrincipal;
+  await t.test("information review preserves identity, source evidence and omitted salary; requires separate activation",async()=>{
+   const f=await fixture({status:"needs_review",startDate:null,endDate:null,baseSalary:"1234.00",sourceSnapshot:{synthetic:true,originalNumber:"retained"}});
+   const completed=await service.reviewContractInformation(scope,reviewer,f.old.id,{...f.dto,contractNo:f.old.contractNo,expectedVersion:f.old.version});
+   assert.equal(completed.id,f.old.id);assert.equal(completed.status,"draft");assert.equal(completed.version,f.old.version+1);assert.equal("baseSalary" in completed,false);
+   const saved=await contracts.findOneByOrFail({id:f.old.id});assert.equal(saved.baseSalary,"1234.00");assert.equal(saved.sourceSnapshot.originalNumber,"retained");
+   const action=await db!.getRepository(HrContractActionEntity).findOneByOrFail({contractId:f.old.id});assert.equal(action.fromStatus,"needs_review");assert.equal(action.toStatus,"draft");assert.equal((action.snapshot.previousInformation as Record<string,unknown>).startDate,null);assert.equal(JSON.stringify(action.snapshot).includes("1234.00"),false);
+   await service.actContract(scope,reviewer,f.old.id,{action:"activate"});assert.equal((await contracts.findOneByOrFail({id:f.old.id})).status,"active");
+  });
+  await t.test("review rejects wrong scope, missing authority, salary writes, stale versions and invalid dates without changing data",async()=>{
+   const f=await fixture({status:"needs_review",startDate:null,endDate:null});const dto={...f.dto,contractNo:f.old.contractNo,expectedVersion:f.old.version};
+   await assert.rejects(service.reviewContractInformation(scope,actor,f.old.id,dto),/permission/);
+   await assert.rejects(service.reviewContractInformation({...scope,parkId:"foreign"},reviewer,f.old.id,dto),/not found/);
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,{...dto,baseSalary:"100.00"}),/permission/i);
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,{...dto,expectedVersion:999}),/changed/);
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,{...dto,startDate:"2090-02-30"}),/valid calendar date/);
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,{...dto,expectedVersion:"1" as unknown as number}),/expected version/);
+   assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
+  await t.test("review rejects wrong states, duplicate numbers, another draft and pending changes",async()=>{
+   const active=await fixture();await assert.rejects(service.reviewContractInformation(scope,reviewer,active.old.id,{...active.dto,expectedVersion:active.old.version}),/awaiting information review/);
+   const f=await fixture({status:"needs_review",startDate:null,endDate:null}),other=await fixture();const dto={...f.dto,contractNo:f.old.contractNo,expectedVersion:f.old.version};
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,{...dto,contractNo:other.old.contractNo}),/already exists/);
+   const created=await service.createContract(scope,actor,f.dto);await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,dto),/active or draft contract/);
+   await service.actContract(scope,actor,created.id,{action:"cancel"});
+   const changes=db!.getRepository(HrContractChangeEntity);await changes.save(changes.create({...scope,contractId:f.old.id,sequenceNo:1,changeType:"amendment",newStartDate:"2090-01-01",status:"draft",isHistoricalImport:false,sourceSnapshot:{}}));
+   await assert.rejects(service.reviewContractInformation(scope,reviewer,f.old.id,dto),/pending contract change/);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:f.old.id})),f.unchanged);
+  });
+  await t.test("concurrent review has one winner and audit failure rolls back the contract",async()=>{
+   const f=await fixture({status:"needs_review",startDate:null,endDate:null});const dto={...f.dto,contractNo:f.old.contractNo,expectedVersion:f.old.version};
+   const results=await Promise.allSettled([service.reviewContractInformation(scope,reviewer,f.old.id,dto),service.reviewContractInformation(scope,reviewer,f.old.id,dto)]);assert.equal(results.filter(r=>r.status==="fulfilled").length,1);assert.equal(await db!.getRepository(HrContractActionEntity).countBy({contractId:f.old.id}),1);
+   const g=await fixture({status:"needs_review",startDate:null,endDate:null});
+   const failing=Object.create(service) as HrService;Object.assign(failing,{appendContractAction:async()=>{throw new Error("synthetic audit failure");}});
+   await assert.rejects(failing.reviewContractInformation(scope,reviewer,g.old.id,{...g.dto,contractNo:g.old.contractNo,expectedVersion:g.old.version}),/synthetic audit failure/);assert.equal(JSON.stringify(await contracts.findOneByOrFail({id:g.old.id})),g.unchanged);
+  });
   await t.test("create edit activate renew and apply preserve historical facts and bind predecessor",async()=>{
    const f=await fixture();const created=await service.createContract(scope,actor,f.dto);
    const edited=await service.updateContract(scope,actor,created.id,{...f.dto,startDate:"2090-02-01"});assert.equal(edited.startDate,"2090-02-01");
@@ -71,7 +106,7 @@ test("isolated PostgreSQL historical contract to modern successor",{skip:!requir
    const actions=await db!.getRepository(HrContractActionEntity).find({where:{contractId:created.id},order:{sequenceNo:"ASC"}});assert.deepEqual(actions.map(r=>r.action),["created","updated","activated","change_created","change_applied"]);assert.ok(actions.every(r=>JSON.stringify(r.snapshot.historicalPredecessorContractIds)===JSON.stringify([f.old.id])));
   });
   await t.test("future unknown overlapping and modern duplicate contracts reject without partial write",async()=>{
-   for(const overrides of [{endDate:null},{endDate:"2090-12-31"},{isHistoricalImport:false},{status:"draft"}]){
+   for(const overrides of [{endDate:null},{endDate:"2090-12-31"},{isHistoricalImport:false,endDate:null},{status:"draft"}]){
     const f=await fixture(overrides);await assert.rejects(service.createContract(scope,actor,f.dto),/active or draft contract/);assert.equal(await contracts.countBy({employeeId:f.employee.id}),1);
    }
    const f=await fixture();await assert.rejects(service.createContract(scope,actor,{...f.dto,startDate:"1901-12-31"}),/active or draft contract/);
