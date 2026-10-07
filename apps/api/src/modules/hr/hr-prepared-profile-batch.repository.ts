@@ -14,6 +14,7 @@ function invalid(): never { throw new BadRequestException("Prepared HR batch int
 const fixedScope = { tenantId: "10000001", parkId: "20000001" };
 const collector = "e2de6e37d8007dd713002f437d714c7e454a64370c1a24efae3e98eac11eb632";
 const adapter = "267c7ac63394f81a53c62fa30b3bbf51f0fddbe34eb113bbad304b591a77d136";
+const recipe = "5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e";
 export interface PreparedProfilePackage { index: number; kind: "baseline" | "alias"; itemCount: number; fields: string[]; packageSha256: string; manifestId: string }
 export interface PreparedProfileBatch { id: string; sourceProfiles: number; aliasProfiles: number; packages: PreparedProfilePackage[] }
 interface LocatedBatch { directory: string; metadata: PreparedProfileBatch }
@@ -56,10 +57,12 @@ export class HrPreparedProfileBatchRepository {
       const preparation: unknown = JSON.parse(this.read(join(result,"preparation-receipt.json"),owner,65536));
       if (!object(preparation) || preparation.formatVersion !== 1 || preparation.kind !== "yuzhou_original_profile_alias_private_preparation"
         || preparation.collectorSha256 !== collector || !sha(preparation.batchReceiptSha256)
+        || typeof preparation.runtimeCommit !== "string" || !/^[a-f0-9]{40}$/.test(preparation.runtimeCommit)
         || !sha(preparation.inputSha256) || !sha(preparation.beforeImagesSha256)
         || preparation.productionImport !== "HOLD" || preparation.authorizationGranted !== false || preparation.writerPresent !== false) invalid();
-      // Retained earlier versions remain private, but are not selectable in this runtime.
-      if (preparation.runtimeCommit !== this.runtimeCommit) continue;
+      // The producer revision records provenance. Frozen producer/adapter/recipe
+      // compatibility admits the same bytes after unrelated application releases;
+      // the ordinary preview/commit kernel still rechecks current target evidence.
       const directory = join(result,"batch"); this.directory(directory,owner);
       const receipt: unknown = JSON.parse(this.read(join(directory,"receipt.json"),owner,262144));
       if (!object(receipt)) invalid();
@@ -71,7 +74,7 @@ export class HrPreparedProfileBatchRepository {
         || core.executionOrder.length < 1 || core.executionOrder.length > 32 || !object(preparation.expected)
         || !Number.isSafeInteger(core.sourceProfiles) || Number(core.sourceProfiles) < 1 || Number(core.sourceProfiles) > 20000
         || !Number.isSafeInteger(core.aliasProfiles) || Number(core.aliasProfiles) < 1 || Number(core.aliasProfiles) > Number(core.sourceProfiles)
-        || !sha(core.recipeSha256) || !sha(core.plannerSha256)
+        || core.recipeSha256 !== recipe || !sha(core.plannerSha256)
         || core.sourceProfiles !== preparation.sourceProfiles || core.sourceProfiles !== preparation.expected.profileCount
         || core.aliasProfiles !== preparation.aliasProfiles || core.aliasProfiles !== preparation.expected.aliasProfiles
         || core.nativePlaceFills !== preparation.expected.nativePlaceFills || core.degreeFills !== preparation.expected.degreeFills) invalid();

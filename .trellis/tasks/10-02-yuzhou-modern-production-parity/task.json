@@ -14,14 +14,15 @@
   "completedAt": null,
   "branch": null,
   "base_branch": "main",
-  "worktree_path": "/Users/mac/.codex/worktrees/yuzhou-period-source-compatibility-20261002/jinhu-smart-park",
+  "worktree_path": "/tmp/jinhu-hr-account-identity-20261007",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
   "children": [
     "10-08-hr-contract-review-continuity",
     "10-08-hr-employee-directory-export",
-    "10-08-hr-payroll-input-readiness"
+    "10-08-hr-payroll-input-readiness",
+    "10-08-hr-prepared-profile-runtime-continuity"
   ],
   "parent": null,
   "relatedFiles": [
@@ -32,13 +33,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "长任务继续。合同信息补全 PR861 生产运行已核验；员工目录导出 PR862 已合并、生产部署中。S3/S4 已补工资核对输入准备与同月联动，真实组件检查通过；实际 HR 角色验收、档案业务补充批次提交、当前期间金额核对与独立产品验收仍未完成。",
+  "notes": "完整长任务继续。PR861/862/863均有生产技术运行证据；真实岗位、档案补充业务提交、实际工资金额对账、原业务规则等价与独立产品验收未完成。当前修复已准备档案包跨发布复用，避免无关部署导致批次隐藏和重复准备。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "S3_S4_payroll_input_readiness_and_release_runtime_verification",
+    "nextSlice": "prepared_profile_runtime_continuity_then_business_acceptance",
     "businessImplementationStarted": true
   }
 }
