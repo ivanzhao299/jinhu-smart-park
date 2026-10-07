@@ -59,7 +59,10 @@ export function assembleOriginalProfileAliasInput(envelope, expected, extractedA
   const b = op.binding;
   if (!plain(b) || sha(canonicalProfile(b)) !== op.bindingSha256 || b.operationId !== op.operationId
     || !/^yzprod-import-\d{8}T\d{6}Z-[a-f0-9]{12}$/u.test(op.operationId)
-    || b.intent !== 'APPEND_T5_FULL_HISTORY_ONCE' || canonicalProfile(b.targetScope) !== canonicalProfile(scope)
+    || b.intent !== 'APPEND_T5_FULL_HISTORY_ONCE' || !plain(b.targetScope)
+    || Object.keys(b.targetScope).sort().join(',') !== 'parkId,scopeSha256,tenantId'
+    || b.targetScope.tenantId !== scope.tenantId || b.targetScope.parkId !== scope.parkId
+    || !/^[a-f0-9]{64}$/u.test(b.targetScopeSha256 ?? '') || b.targetScope.scopeSha256 !== b.targetScopeSha256
     || b.executionCodeSha !== '7c3df1c230bde74badbf414acae36030d5fe8709'
     || b.sourceMappingContractSha256 !== 'd44b0f904fb3240d45a52b8dc8a3510ce5622ecb6f7f41356fbe6e48fa53b7e0'
     || !plain(b.triple) || !/^[a-f0-9]{64}$/u.test(b.triple.sourceSnapshotHash ?? '')) fail('OPERATION_INVALID');
