@@ -95,6 +95,9 @@ export class CreateHrContractDto {
  @ValidateIf((_object,value)=>value!==undefined) @IsBoolean() trainingServiceAgreement?:boolean;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
+export class ReviewHrContractInformationDto extends CreateHrContractDto {
+ @IsInt() @Min(1) @Max(2147483647) expectedVersion!:number;
+}
 export class CreateHrContractChangeDto {
  @IsIn(["renewal","amendment","termination","correction"]) changeType!:string;
  @IsDateString() newStartDate!:string;
