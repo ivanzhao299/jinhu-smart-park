@@ -12,6 +12,14 @@ export class HrOnboardingListDto {
  @IsOptional() @IsIn(["draft","submitted","returned","approved","cancelled","confirmed"]) status?:string;
 }
 
+export class HrRehireOptionsDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsIn(["employee","manager"]) kind:"employee"|"manager"="employee";
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsUUID() employeeId?:string;
+}
+
 export class SaveHrOnboardingApplicationDto {
  @IsOptional() @IsIn(["initial","rehire"]) entryType?:"initial"|"rehire";
  @ValidateIf(d=>d.entryType==="rehire"||d.expectedEmployeeVersion!==undefined) @IsInt() @Min(1) expectedEmployeeVersion?:number;

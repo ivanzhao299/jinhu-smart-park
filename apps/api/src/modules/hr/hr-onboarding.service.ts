@@ -2,7 +2,7 @@ import { BadRequestException,ConflictException,Injectable,NotFoundException,Forb
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { HrOnboardingActionDto,HrOnboardingListDto,HrOnboardingReviewDto,SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
+import { HrOnboardingActionDto,HrOnboardingListDto,HrRehireOptionsDto,HrOnboardingReviewDto,SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
 import { firstHrMutationRow } from "./hr-query-result";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
@@ -12,6 +12,21 @@ type ApplicationRow=Record<string,unknown>&{id:string;employee_id:string;candida
 export class HrOnboardingService {
  constructor(private readonly db:DataSource){}
 
+ async rehireOptions(s:TenantParkScope,a:JwtPrincipal,q:HrRehireOptionsDto){
+  this.assertRehirePermission(a,"rehire");
+  const params:unknown[]=[s.tenantId,s.parkId],where=["tenant_id=$1","park_id=$2","is_deleted=false",q.kind==="manager"?"employment_status IN ('probation','active','suspended')":"employment_status='departed'"];
+  if(q.keyword){params.push(`%${q.keyword}%`);where.push(`(full_name ILIKE $${params.length} OR employee_code ILIKE $${params.length})`);}
+  if(q.employeeId){params.push(q.employeeId);where.push(`id=$${params.length}`);}
+  const count=await this.db.query(`SELECT count(*)::int total FROM hr_employee WHERE ${where.join(" AND ")}`,params);
+  params.push(q.page_size,(q.page-1)*q.page_size);
+  const items=await this.db.query(`SELECT id,employee_code "employeeCode",full_name "employeeName",version,primary_org_id "orgId",position_id "positionId",hire_date::text "hireDate",departure_date::text "departureDate" FROM hr_employee WHERE ${where.join(" AND ")} ORDER BY full_name,id LIMIT $${params.length-1} OFFSET $${params.length}`,params);
+  const [orgs,positions]=q.kind==="employee"?await Promise.all([
+   this.db.query(`SELECT id,org_name "orgName" FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='enabled' ORDER BY org_name,id`,[s.tenantId,s.parkId]),
+   this.db.query(`SELECT p.id,p.org_id "orgId",p.position_name "positionName" FROM hr_position p JOIN sys_org o ON o.id=p.org_id AND o.tenant_id=p.tenant_id AND o.park_id=p.park_id WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.is_deleted=false AND p.status='enabled' AND o.is_deleted=false AND o.status='enabled' ORDER BY p.position_name,p.id`,[s.tenantId,s.parkId]),
+  ]):[[],[]];
+  return {items,total:Number(count[0]?.total??0),page:q.page,page_size:q.page_size,orgs,positions};
+ }
+
  async list(s:TenantParkScope,q:HrOnboardingListDto){
   const params:unknown[]=[s.tenantId,s.parkId],where=["a.tenant_id=$1","a.park_id=$2","a.is_deleted=false"];
   if(q.entryType){params.push(q.entryType);where.push(`a.entry_type=$${params.length}`);}
@@ -20,7 +35,7 @@ export class HrOnboardingService {
   if(q.keyword){params.push(`%${q.keyword}%`);where.push(`(a.application_no ILIKE $${params.length} OR a.application_name ILIKE $${params.length} OR e.employee_code ILIKE $${params.length} OR e.full_name ILIKE $${params.length})`);}
   const count=await this.db.query(`SELECT count(*)::int total FROM hr_onboarding_application a JOIN hr_employee e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id AND e.park_id=a.park_id WHERE ${where.join(" AND ")}`,params) as Array<{total:number}>;
   params.push(q.page_size,(q.page-1)*q.page_size);
-  const items=await this.db.query(`SELECT a.entry_type "entryType",a.expected_employee_version "expectedEmployeeVersion",a.target_org_id "targetOrgId",a.target_position_id "targetPositionId",a.target_manager_employee_id "targetManagerEmployeeId",a.rehire_before_snapshot "previousEmployment",a.id,a.application_no "applicationNo",a.application_name "applicationName",a.employee_id "employeeId",e.employee_code "employeeCode",e.full_name "employeeName",a.candidate_id "candidateId",a.application_date::text "applicationDate",a.planned_hire_date::text "plannedHireDate",a.probation_months "probationMonths",a.attendance_card_no "attendanceCardNo",a.status,a.review_comment "reviewComment",a.reviewed_at "reviewedAt",a.confirmed_at "confirmedAt",a.remark FROM hr_onboarding_application a JOIN hr_employee e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id AND e.park_id=a.park_id WHERE ${where.join(" AND ")} ORDER BY a.application_date DESC,a.create_time DESC,a.id LIMIT $${params.length-1} OFFSET $${params.length}`,params);
+  const items=await this.db.query(`SELECT a.applicant_user_id "applicantUserId",o.org_name "targetOrgName",p.position_name "targetPositionName",mgr.full_name "targetManagerName",a.entry_type "entryType",a.expected_employee_version "expectedEmployeeVersion",a.target_org_id "targetOrgId",a.target_position_id "targetPositionId",a.target_manager_employee_id "targetManagerEmployeeId",a.rehire_before_snapshot "previousEmployment",a.id,a.application_no "applicationNo",a.application_name "applicationName",a.employee_id "employeeId",e.employee_code "employeeCode",e.full_name "employeeName",a.candidate_id "candidateId",a.application_date::text "applicationDate",a.planned_hire_date::text "plannedHireDate",a.probation_months "probationMonths",a.attendance_card_no "attendanceCardNo",a.status,a.review_comment "reviewComment",a.reviewed_at "reviewedAt",a.confirmed_at "confirmedAt",a.remark FROM hr_onboarding_application a JOIN hr_employee e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id AND e.park_id=a.park_id LEFT JOIN sys_org o ON o.id=a.target_org_id AND o.tenant_id=a.tenant_id AND o.park_id=a.park_id LEFT JOIN hr_position p ON p.id=a.target_position_id AND p.tenant_id=a.tenant_id AND p.park_id=a.park_id LEFT JOIN hr_employee mgr ON mgr.id=a.target_manager_employee_id AND mgr.tenant_id=a.tenant_id AND mgr.park_id=a.park_id WHERE ${where.join(" AND ")} ORDER BY a.application_date DESC,a.create_time DESC,a.id LIMIT $${params.length-1} OFFSET $${params.length}`,params);
   return {items,total:Number(count[0]?.total??0),page:q.page,page_size:q.page_size};
  }
 

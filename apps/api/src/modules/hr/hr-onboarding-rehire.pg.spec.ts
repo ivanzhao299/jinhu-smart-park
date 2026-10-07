@@ -25,8 +25,8 @@ test("approved rehiring preserves the employee and historical evidence in real P
   await db.query(`CREATE SCHEMA "${schema}"`);
   await db.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public`);
   await db.query(`CREATE TABLE sys_user(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),status text DEFAULT 'enabled',UNIQUE(tenant_id,park_id,id));
-   CREATE TABLE sys_org(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),status text DEFAULT 'enabled',is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));
-   CREATE TABLE hr_position(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),org_id uuid,status text DEFAULT 'enabled',is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));
+   CREATE TABLE sys_org(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),org_name text DEFAULT 'Synthetic department',status text DEFAULT 'enabled',is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));
+   CREATE TABLE hr_position(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),org_id uuid,position_name text DEFAULT 'Synthetic position',status text DEFAULT 'enabled',is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));
    CREATE TABLE hr_candidate(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),converted_employee_id uuid,stage text,is_deleted boolean DEFAULT false,UNIQUE(tenant_id,park_id,id));
    CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),employee_code text,full_name text,employment_status text,primary_org_id uuid,position_id uuid,manager_employee_id uuid,user_id uuid,hire_date date,departure_date date,probation_end_date date,version integer DEFAULT 1,is_deleted boolean DEFAULT false,update_by uuid,update_time timestamptz,UNIQUE(tenant_id,park_id,id));
    CREATE TABLE hr_employment_event(id uuid DEFAULT uuid_generate_v4(),tenant_id varchar(64),park_id varchar(64),employee_id uuid,event_type text,effective_date date,before_snapshot jsonb,after_snapshot jsonb,reason text,status text,create_by uuid,update_by uuid);
@@ -39,9 +39,21 @@ test("approved rehiring preserves the employee and historical evidence in real P
   const employee=async(status="departed",departure:string|null="2026-01-01")=>{const id=randomUUID();await db.query(`INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status,primary_org_id,position_id,manager_employee_id,user_id,hire_date,departure_date) VALUES($1,$2,$3,$4,'Synthetic employee',$5,$6,$7,$8,$9,'2020-01-01',$10)`,[id,scope.tenantId,scope.parkId,`SYN-${id}`,status,orgId,positionId,randomUUID(),makerId,departure]);return id;};
   const dto=(id:string,extra:Partial<SaveHrOnboardingApplicationDto>={}):SaveHrOnboardingApplicationDto=>({entryType:"rehire",expectedEmployeeVersion:1,targetOrgId:orgId,targetPositionId:positionId,targetManagerEmployeeId:null,employeeId:id,applicationName:"Synthetic rehire",applicationDate:"2026-02-01",plannedHireDate:"2026-02-02",probationMonths:0,attendanceCardNo:String(Math.floor(Math.random()*1e12)),...extra});
   const approved=async(id:string,extra:Partial<SaveHrOnboardingApplicationDto>={})=>{const app=await service.create(scope,actor,dto(id,extra));await service.act(scope,actor,app.id,{action:"submit"});await service.review(scope,reviewer,app.id,{action:"approve"});return app;};
+  await t.test("rehire options are scoped, searchable and paginated without unrelated private fields",async()=>{
+   const departed=await employee(),manager=await employee("active",null);
+   const base={page:1,page_size:1,kind:"employee" as const};
+   const found=await service.rehireOptions(scope,actor,{...base,employeeId:departed});assert.equal(found.total,1);assert.equal(found.items[0].id,departed);assert.equal(found.items[0].version,1);
+   assert.equal(found.orgs[0].id,orgId);assert.equal(found.positions[0].id,positionId);assert.equal(found.items[0].user_id,undefined);
+   const foreign=await service.rehireOptions({...scope,parkId:"foreign"},actor,base);assert.equal(foreign.total,0);assert.deepEqual(foreign.orgs,[]);
+   const managers=await service.rehireOptions(scope,actor,{...base,kind:"manager",keyword:`SYN-${manager}`});assert.equal(managers.total,1);assert.equal(managers.items[0].id,manager);
+   await assert.rejects(service.rehireOptions(scope,{...actor,permissions:[]},base),/Rehire requires employee management/);
+   await employee();const page=await service.rehireOptions(scope,actor,{...base,page:2});assert.equal(page.items.length,1);assert.ok(page.total>=2);
+  });
   await t.test("the same employee returns through approval; old dates and assignment survive as event evidence",async()=>{
    const id=await employee();await db.query(`INSERT INTO hr_contract VALUES($1,$2,'expired')`,[randomUUID(),id]);
    const app=await service.create(scope,actor,dto(id));
+   const listed=await service.list(scope,{page:1,page_size:20,entryType:"rehire",employeeId:id});
+   assert.equal(listed.total,1);assert.equal(listed.items[0].targetOrgName,"Synthetic department");assert.equal(listed.items[0].targetPositionName,"Synthetic position");assert.equal(listed.items[0].applicantUserId,makerId);assert.equal(listed.items[0].applicationDate,"2026-02-01");
    await assert.rejects(service.confirm(scope,actor,app.id),/Only approved/);
    await service.act(scope,actor,app.id,{action:"submit"});
    await assert.rejects(service.review(scope,actor,app.id,{action:"approve"}),/Applicants cannot review/);
@@ -102,6 +114,7 @@ test("approved rehiring preserves the employee and historical evidence in real P
    const id=await employee("preboarding",null);const d=dto(id,{entryType:"initial",expectedEmployeeVersion:undefined,targetOrgId:undefined,targetPositionId:undefined,targetManagerEmployeeId:undefined,probationMonths:3});
    const app=await service.create(scope,actor,d);await service.act(scope,actor,app.id,{action:"submit"});await service.review(scope,reviewer,app.id,{action:"approve"});await service.confirm(scope,actor,app.id);
    assert.equal((await db.query(`SELECT employment_status FROM hr_employee WHERE id=$1`,[id]))[0].employment_status,"probation");
+   assert.equal((await service.list(scope,{page:1,page_size:20,entryType:"rehire",employeeId:id})).total,0);
   });
   await t.test("a final action insertion failure also rolls back every confirmation effect",async()=>{
    const id=await employee(),app=await approved(id);

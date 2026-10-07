@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
+import { HrRehireOptionsDto, SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
 
 const employeeId="00000000-0000-4000-8000-000000000001";
 const initial={applicationName:"Formal entry",employeeId,applicationDate:"2026-02-01",plannedHireDate:"2026-02-02",probationMonths:0,attendanceCardNo:"12345"};
@@ -20,3 +20,8 @@ test("rehire requests require a positive version, current assignment and explici
 });
 
 test("initial onboarding retains its existing request shape",async()=>{assert.equal((await errors(initial)).length,0);});
+
+test("rehire reference queries enforce bounded pages and valid search scope",async()=>{
+ assert.equal((await validate(plainToInstance(HrRehireOptionsDto,{page:"2",page_size:"20",kind:"manager",employeeId}))).length,0);
+ for(const input of [{page:0},{page_size:101},{kind:"all"},{employeeId:"invalid"},{keyword:"x".repeat(101)}])assert.ok((await validate(plainToInstance(HrRehireOptionsDto,input))).length>0);
+});

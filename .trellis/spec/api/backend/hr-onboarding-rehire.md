@@ -35,6 +35,13 @@ Use the existing onboarding aggregate for an employment cycle after departure.
   preboarding-only confirmation. Finished applications no longer reserve the
   unique active employee/card slot. The employee card uniqueness remains in force.
 
+The manage-only `GET /hr/onboarding-applications/rehire-options` also enforces
+employee management/transition authority. Employee/manager choices are scoped,
+searchable and paginated with bounded page size. Return only identity labels,
+version and employment-date/assignment references; no contact, credentials or
+full employee profile. Application lists expose scoped current assignment labels
+and maker identity, and accept exact employee and entry-type filters.
+
 Required tests: DTO conditional requirements; real PostgreSQL applying 000269 and
 000345; concurrent confirmation; repeated employment cycles; maker/checker;
 permission/scope/date/assignment validation; stale approval cancellation; returned

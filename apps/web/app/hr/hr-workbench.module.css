@@ -941,3 +941,14 @@
 }
 
 .trainingResultFields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* Rehire records carry complete workflow text instead of a leading icon slot. */
+.rehireRecords { grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); margin-top: 18px; }
+.rehireRecord { grid-template-columns: minmax(0, 1fr); }
+.rehireRecord > * { min-width: 0; }
+.rehireRecord .actionRow > button, .rehireForm .actionRow > button { flex: 0 0 auto; white-space: nowrap; }
+.rehireForm { min-width: 0; margin: 0; padding: 0; border: 0; }
+.rehireForm legend { margin-bottom: 16px; }
+
+.rehireForm .actionRow :global(.ds-button) { width: auto; min-height: 44px; }
+.rehirePagination :global(.ds-button) { min-height: 44px; white-space: nowrap; flex: 0 0 auto; }

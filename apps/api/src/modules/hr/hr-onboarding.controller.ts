@@ -7,13 +7,14 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
-import { HrOnboardingActionDto,HrOnboardingListDto,HrOnboardingReviewDto,SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
+import { HrOnboardingActionDto,HrOnboardingListDto,HrRehireOptionsDto,HrOnboardingReviewDto,SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
 import { HrOnboardingService } from "./hr-onboarding.service";
 
 @Controller("hr/onboarding-applications") @RequireModule("hr")
 export class HrOnboardingController {
  constructor(private readonly service:HrOnboardingService){}
  @Get() @RequirePermissions(HR_PERMISSIONS.HR_ONBOARDING_READ) list(@CurrentScope()s:TenantParkScope,@Query()q:HrOnboardingListDto){return this.service.list(s,q);}
+ @Get("rehire-options") @RequirePermissions(HR_PERMISSIONS.HR_ONBOARDING_MANAGE) rehireOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrRehireOptionsDto){return this.service.rehireOptions(s,a,q);}
  @Post() @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_ONBOARDING_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.onboarding_application",action:"创建入职申请",bizType:"hr_onboarding_application",captureBody:false}) create(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Body()d:SaveHrOnboardingApplicationDto){return this.service.create(s,a,d);}
  @Put(":id") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_ONBOARDING_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.onboarding_application",action:"修改入职申请",bizType:"hr_onboarding_application",bizIdParam:"id",captureBody:false}) update(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:SaveHrOnboardingApplicationDto){return this.service.update(s,a,id,d);}
  @Post(":id/actions") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_ONBOARDING_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.onboarding_application",action:"提交或取消入职申请",bizType:"hr_onboarding_application",bizIdParam:"id",captureBody:false}) act(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:HrOnboardingActionDto){return this.service.act(s,a,id,d);}
