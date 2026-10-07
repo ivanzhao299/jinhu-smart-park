@@ -19,8 +19,8 @@ function fixture(){
   mkdirSync(join(deployPath,'scripts/hr-cutover'),{recursive:true});
   mkdirSync(join(deployPath,'packages/shared/src'),{recursive:true});
   const content=[readFileSync(new URL('../prepare-original-profile-production.mjs',import.meta.url),'utf8'),
-    `export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=()=>({productionImport:'HOLD',writerPresent:false,aliasProfiles:2});`,
-    `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,'export const observer=true;','export const manifest=true;'];
+    `import {readFileSync} from 'node:fs';export const validateOriginalProfileAliasExpected=()=>{};export const prepareOriginalProfileAliasInput=({configPath},{observe})=>{const c=JSON.parse(readFileSync(configPath));observe(c.expectedRuntimeCommit);observe(c.expectedRuntimeCommit);return {productionImport:'HOLD',writerPresent:false,aliasProfiles:2};};`,
+    `export const diagnosePersonnelAlias=()=>({originalBaselineSetStatus:'OBSERVED_INTACT_FOR_API_RECHECK',correctionPlanStatus:'MATCHED_SUBSET_FOR_REVIEW',sourceSetSha256:'${'a'.repeat(64)}',profileMatchedCount:2,correctionPlan:{plannedProfiles:2,nativePlaceFills:2,degreeFills:1,planSha256:'${'b'.repeat(64)}',beforeSha256:'${'c'.repeat(64)}'}});`,`export const observeProductionRuntimeRevision=(source,options)=>{if(source!==options.observerCodeCommit||![options.expectedApiCommit,options.expectedWebCommit].every(x=>/^[a-f0-9]{40}$/.test(x)))throw Error();return {observations:[]};};`,'export const manifest=true;'];
   const files=paths.map((path,i)=>{const text=content[i]??(path.endsWith('.json')?'{}':'export {};');writeFileSync(join(deployPath,path),text);return {path,sha256:sha(text)}});
   const request={deployPath,files,expectedRuntimeCommit:'d'.repeat(40)};
   writeFileSync(join(deployPath,'.release.json'),JSON.stringify({commit:request.expectedRuntimeCommit}));
@@ -38,6 +38,23 @@ test('actual bootstrap validates source then prepares private config outside dep
     assert.equal(config.expected.aliasProfiles,2);assert.equal(config.expectedRuntimeCommit,request.expectedRuntimeCommit);
   }finally{rmSync(root,{recursive:true,force:true})}
 });
+test('mixed component versions survive actual bootstrap, configuration and observer injection',()=>{
+  const {root,request}=fixture();try{
+    request.expectedApiCommit='a'.repeat(40);request.expectedWebCommit='b'.repeat(40);
+    const result=spawnSync(process.execPath,['--input-type=module','-e',productionPreparationBootstrap],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
+    assert.equal(result.status,0,result.stderr);
+    const privateRoot=join(root,'.jinhu-hr-private-profile-input');
+    const config=JSON.parse(readFileSync(join(privateRoot,readdirSync(privateRoot)[0],'config.json'),'utf8'));
+    assert.equal(config.expectedRuntimeCommit,request.expectedApiCommit);
+    const legacy={...request};delete legacy.expectedApiCommit;delete legacy.expectedWebCommit;
+    const fallback=validatePreparationRequest(legacy);
+    assert.equal(fallback.expectedApiCommit,request.expectedRuntimeCommit);assert.equal(fallback.expectedWebCommit,request.expectedRuntimeCommit);
+    for(const key of ['expectedApiCommit','expectedWebCommit'])for(const value of ['',null,undefined,'invalid',42]){
+      assert.throws(()=>validatePreparationRequest({...request,[key]:value}));
+    }
+  }finally{rmSync(root,{recursive:true,force:true})}
+});
+
 test('source or release drift fails before import/private output; unsafe private root remains untouched',async()=>{
   const {root,request}=fixture();let imports=0;try{
     const load=async()=>{imports++;throw Error('must never import')};
@@ -64,15 +81,16 @@ test('request and SSH argument boundaries reject unexpected paths, hashes, files
     for(const edit of [r=>{r.deployPath='/tmp/../foreign'},r=>{r.files[0].path='../foreign'},r=>{r.files[0].sha256='wrong'},r=>{r.files.push(r.files[0])},r=>{r.files.pop()},r=>{r.extra=true}]){
       const r=JSON.parse(JSON.stringify(request));edit(r);assert.throws(()=>validatePreparationRequest(r));
     }
-    for(const bad of [{PROD_SSH_HOST:'-oProxyCommand=bad'},{PROD_SSH_USER:'user;bad'},{PROD_SSH_PORT:'0'},{EXPECTED_RUNTIME_COMMIT:'$bad'}]){
+    for(const bad of [{PROD_SSH_HOST:'-oProxyCommand=bad'},{PROD_SSH_USER:'user;bad'},{PROD_SSH_PORT:'0'},{EXPECTED_RUNTIME_COMMIT:'$bad'},{EXPECTED_API_COMMIT:'$bad'},{EXPECTED_WEB_COMMIT:'$bad'}]){
       assert.throws(()=>runProductionPreparation({PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40),...bad},()=>{throw Error('must not run')}),/PRIVATE_PREPARATION_FAILED/);
     }
     let ssh=false;
-    const result=runProductionPreparation({PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',PROD_DEPLOY_PATH:'/production/app',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40)},(binary,args,options)=>{
+    const result=runProductionPreparation({PROD_SSH_HOST:'host',PROD_SSH_USER:'user',PROD_SSH_PORT:'22',PROD_DEPLOY_PATH:'/production/app',EXPECTED_RUNTIME_COMMIT:'a'.repeat(40),EXPECTED_API_COMMIT:'b'.repeat(40),EXPECTED_WEB_COMMIT:'c'.repeat(40)},(binary,args,options)=>{
       if(binary==='git')return paths.join('\n');
       assert.equal(binary,'ssh');ssh=true;assert.ok(args.includes('BatchMode=yes'));
       assert.match(args.at(-1),/^node --input-type=module -e '/);assert.equal(options.timeout,90000);
       assert.equal(JSON.parse(options.input).files.length,paths.length);
+      assert.equal(JSON.parse(options.input).expectedApiCommit,'b'.repeat(40));assert.equal(JSON.parse(options.input).expectedWebCommit,'c'.repeat(40));
       const actual=spawnSync('sh',['-c',args.at(-1)],{input:JSON.stringify(request),encoding:'utf8',timeout:5000});
       assert.equal(actual.status,0,actual.stderr);assert.equal(JSON.parse(actual.stdout).writerPresent,false);
       return '{"writerPresent":false}\n';
@@ -85,6 +103,9 @@ test('manual production workflow has same deployment mutex and no deploy, creden
   assert.match(workflow,/environment: production/);assert.match(workflow,/group: deploy-production/);
   assert.match(workflow,/package-manager-cache: false/);
   assert.match(workflow,/validate-production-deploy-path.sh/);assert.match(workflow,/original-profile-production.test.mjs/);
+  assert.match(workflow,/run: node --test scripts\/hr-cutover\/tests\/original-profile-production.test.mjs scripts\/hr-cutover\/tests\/original-profile-alias-input.test.mjs/);
+  assert.match(workflow,/EXPECTED_API_COMMIT: \$\{\{ inputs.expected_api_commit \}\}/);
+  assert.match(workflow,/EXPECTED_WEB_COMMIT: \$\{\{ inputs.expected_web_commit \}\}/);
   assert.equal(describeYuzhouImportInterface().originalProfileSourcePreparation.productionWorkflow,'.github/workflows/prepare-original-profile-input.yml');
   const builder=readFileSync(new URL('../build-yuzhou-reusable-incremental-package.mjs',import.meta.url),'utf8');
   const ruleFiles=builder.match(/const ruleFiles = \[([^\]]+)\]/u)?.[1];assert.ok(ruleFiles);

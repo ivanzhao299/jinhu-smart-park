@@ -13,15 +13,15 @@
   "implementationStatus": "IN_PROGRESS",
   "goalStatus": "active",
   "workspace": "/tmp/jinhu-hr-account-identity-20261007",
-  "implementationBaselineSha": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
+  "implementationBaselineSha": "205272e66b1d4810cbf85122d6c25174a41cd64e",
   "runtimeProof": {
-    "runId": 37675988036,
-    "commit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
-    "observedAt": "2026-10-07T19:39:03.893Z",
-    "apiCommit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
+    "runId": 37679996394,
+    "commit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
+    "observedAt": "2026-10-07T20:11:07.283Z",
+    "apiCommit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
     "webCommit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
-    "apiAndWebMatch": true,
-    "deployRunId": 37674101927,
+    "apiAndWebMatch": false,
+    "deployRunId": 37678720339,
     "dockerCleanupStarted": 1,
     "dockerCleanupFinished": 1,
     "scope": "Technical runtime integrity; not business acceptance"
@@ -34,8 +34,8 @@
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
   "activeRunHandle": null,
-  "currentSlice": "PREPARED_PROFILE_RUNTIME_CONTINUITY_IN_PROGRESS",
-  "currentSliceTask": "10-08-hr-prepared-profile-runtime-continuity",
+  "currentSlice": "PROFILE_PREPARER_DUAL_RUNTIME_IN_PROGRESS",
+  "currentSliceTask": "10-08-hr-profile-preparer-dual-runtime",
   "preparedProfileInput": {
     "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
     "preparationRunId": 37658598558,
@@ -44,7 +44,7 @@
     "nativePlaceFills": 2454,
     "degreeFills": 68,
     "businessCommitProof": "UNPROVEN",
-    "currentCatalogVisibility": "Await compatibility fix release and real-user observation"
+    "currentCatalogVisibility": "Compatible reader deployed; real-user catalog and business commit remain unproved"
   },
   "phases": [
     {
@@ -103,12 +103,17 @@
       "slice": "payroll_input_readiness",
       "ciRunId": 37670444580,
       "status": "runtime_verified_actual_period_unaccepted"
+    },
+    {
+      "pr": 865,
+      "slice": "prepared_profile_runtime_continuity",
+      "status": "runtime_verified_catalog_and_business_commit_pending"
     }
   ],
-  "nextAction": "Finish prepared-profile cross-release reuse, then confirm real catalog and staged source commit; real-role/period waiting must not block independent implementation",
+  "nextAction": "Validate/deploy source preparation transport for separate API/Web image revisions without changing frozen collector; reuse existing prepared catalog, no recollection or successful old import replay. Real-role waiting remains local.",
   "previousCheckpoint": "research/checkpoint-2026-10-02.json",
   "usage": {
     "thisSliceUsage": "unavailable"
   },
-  "updatedAt": "2026-10-07T19:46:46.969687+00:00"
+  "updatedAt": "2026-10-07T20:14:27.672936+00:00"
 }

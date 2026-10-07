@@ -4,8 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       expected_runtime_commit:
-        description: "Full verified API/Web production commit; prepare private files only, no business write."
+        description: "Full deployed source commit (.release.json); component defaults below use this SHA. Private preparation only."
         required: true
+        type: string
+      expected_api_commit:
+        description: "Full verified API image commit; omit only when it equals the deployed source commit."
+        required: false
+        type: string
+      expected_web_commit:
+        description: "Full verified Web image commit; omit only when it equals the deployed source commit."
+        required: false
         type: string
 
 permissions:
@@ -28,7 +36,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Validate private preparation transport
-        run: node --test scripts/hr-cutover/tests/original-profile-production.test.mjs
+        run: node --test scripts/hr-cutover/tests/original-profile-production.test.mjs scripts/hr-cutover/tests/original-profile-alias-input.test.mjs
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -55,4 +63,6 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
           EXPECTED_RUNTIME_COMMIT: ${{ inputs.expected_runtime_commit }}
+          EXPECTED_API_COMMIT: ${{ inputs.expected_api_commit }}
+          EXPECTED_WEB_COMMIT: ${{ inputs.expected_web_commit }}
         run: node scripts/hr-cutover/prepare-original-profile-production.mjs

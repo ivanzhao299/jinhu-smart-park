@@ -44,6 +44,7 @@ export function describeYuzhouImportInterface() {
     originalProfileSourcePreparation: {
       codeSha256: YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256,
       productionWorkflow: ".github/workflows/prepare-original-profile-input.yml",
+      runtimeInputs: { expected_runtime_commit: "deployed source commit matching .release.json", expected_api_commit: "verified API image commit; defaults to deployed source commit", expected_web_commit: "verified Web image commit; defaults to deployed source commit" },
       trigger: "main-only manual dispatch, protected production environment and deployment mutex",
       source: "existing sealed T5 source in verified production API runtime; read-only repeatable-read snapshot",
       outputs: "private verified input, versioned before-images and existing ordered batch; metadata only on stdout",
