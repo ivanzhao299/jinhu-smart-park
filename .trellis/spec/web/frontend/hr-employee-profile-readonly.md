@@ -56,3 +56,13 @@ Required regression cases: imported employee remains manageable with provenance 
 Use the existing detail/optional-section admission and abort/generation protection. A foreign detail or scope denial must not publish a target. Target/auth context changes clear previous data. Keep a return-to-directory link and refresh the exact target after a lifecycle action rather than requiring it in the first list page. Private exception materials can link here, but real employee IDs remain outside public repository files and screenshots.
 
 Verification covers malformed/repeated server input, direct detail without list fetch, missing capability, scope denial, foreign response and late response after target change, plus ordinary directory/profile/transition regressions and desktop390px rendering. Technical synthetic evidence does not prove actual HR-role business acceptance.
+
+## Preserving existing profile dictionary values
+
+The gender field is a server-validated string, not a closed enum. The full maintenance
+form must retain an admitted nonempty stored value as a selectable option when it is
+absent from the standard choices. Do not infer its meaning, relabel it as another
+value, disable the selected option, or turn an unrelated edit into a clear. An explicit
+selection of another value or the unregistered option still uses the ordinary replacement
+API. Regression coverage must submit the actual maintenance form with a nonstandard
+text value and numeric text including zero, plus deliberate replacement and clearing.
