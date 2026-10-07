@@ -49,6 +49,23 @@ test("actual ordered producer files admit metadata only and reject unsafe/tamper
       assert.deepEqual(new HrPreparedProfileBatchRepository(root,"invalid-runtime").list(scope),[]);
       assert.throws(()=>repository.package(scope,"../private",0));
     });
+    await t.test("original frozen recipe remains admissible after contract-only expansion",()=>{
+      const receipt=JSON.parse(receiptText.toString());
+      receipt.recipeSha256="5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e";
+      delete receipt.receiptSha256;receipt.receiptSha256=hash(canonical(receipt));
+      const preparation=JSON.parse(preparationText.toString());preparation.batchReceiptSha256=receipt.receiptSha256;
+      writeFileSync(receiptPath,JSON.stringify(receipt));writeFileSync(preparationPath,JSON.stringify(preparation));
+      try {
+        const oldBatch=repository.list(scope)[0]!;
+        assert.equal(repository.package(scope,oldBatch.id,0).pkg.items.length,5);
+        const aliasCount=oldBatch.packages.filter(entry=>entry.kind==="alias")
+          .reduce((count,entry)=>count+repository.package(scope,oldBatch.id,entry.index).pkg.items.length,0);
+        assert.equal(aliasCount,3);
+      } finally {
+        writeFileSync(receiptPath,receiptText);writeFileSync(preparationPath,preparationText);
+      }
+      assert.equal(repository.list(scope)[0]!.id,batch.id);
+    });
     await t.test("payload hash, symlink and permissions",()=>{
       writeFileSync(packagePath,"{}");assert.throws(()=>repository.package(scope,batch.id,0));writeFileSync(packagePath,packageText);
       chmodSync(packagePath,0o644);assert.throws(()=>repository.package(scope,batch.id,0));chmodSync(packagePath,0o600);
