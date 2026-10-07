@@ -107,6 +107,23 @@ describe("employee profile read admission", () => {
     fireEvent.submit(screen.getByRole("button", {name:"保存敏感档案"}).closest("form")!);
     await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",expect.objectContaining({idNumber:"SYN-PASSPORT-001",remark:"Edited note",expectedVersion:7}),"synthetic-test-token"));
   });
+  it.each(["未说明", "1", "0"])("preserves an existing gender value %s when editing another field", async gender => {
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), gender });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), gender });
+    render(<HrEmployeesClient />); await openFirst();
+    expect(screen.getByLabelText("性别")).toHaveValue(gender);
+    fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "Edited note" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender, remark: "Edited note" }), "synthetic-test-token"));
+  });
+  it.each(["女", ""])("allows an operator to replace or clear an existing gender value", async gender => {
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), gender: "未说明" });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.change(screen.getByLabelText("性别"), { target: { value: gender } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender: gender || undefined }), "synthetic-test-token"));
+  });
   it("carries edits for all 33 fixed business fields through the real maintenance form", async () => {
     const expected={idType:"passport",idNumber:"SYN-PASSPORT-002",englishName:"Changed name",gender:"男",dateOfBirth:"1990-02-03",ethnicity:"民族",nativePlace:"籍贯",politicalStatus:"政治面貌",partyJoinDate:"2015-03-04",heightCm:173,weightKg:68,maritalStatus:"婚姻状况",healthStatus:"健康状况",householdRegistration:"户口所在地",highestEducation:"最高学历",major:"专业",degree:"学位",foreignLanguage:"外语",languageLevel:"外语水平",graduationDate:"2013-07-01",graduationSchool:"学校",homePhone:"SYN-HOME",jobTitle:"职务",jobGrade:"级别",employeeCategory:"类别",technicalTitle:"职称",technicalGrade:"职称级别",personalMobile:"SYN-MOBILE",personalEmail:"changed@example.invalid",address:"地址",emergencyContactName:"联系人",emergencyContactMobile:"SYN-CONTACT",remark:"备注"};
     expect(Object.keys(expected)).toHaveLength(33);
