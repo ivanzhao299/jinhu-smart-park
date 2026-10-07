@@ -1,0 +1,30 @@
+{
+  "id": "hr-profile-preparer-dual-runtime",
+  "name": "hr-profile-preparer-dual-runtime",
+  "title": "档案准备支持 API 与 Web 分别核验版本",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "operations",
+  "scope": "hr-cutover",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "completedAt": null,
+  "branch": "codex/hr-profile-preparer-dual-runtime-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-account-identity-20261007",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "55 focused tests passed, one unchanged SQL/crypto PostgreSQL test skipped; collector/adapter bytes unchanged; deployment and actual new preparation unproved. Existing prepared files must not be recollected.",
+  "meta": {
+    "baseSha": "205272e66b1d4810cbf85122d6c25174a41cd64e",
+    "deploymentClassification": "full",
+    "businessWrites": false
+  }
+}

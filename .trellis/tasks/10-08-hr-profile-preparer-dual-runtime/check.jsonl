@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/api/backend/hr-yuzhou-profile-continuity.md", "reason": "Frozen collector and source continuity"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Production workflow, receipts and cleanup"}
+{"file": ".trellis/tasks/10-08-hr-profile-preparer-dual-runtime/design.md", "reason": "Stable import interface semantics"}

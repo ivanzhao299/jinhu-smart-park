@@ -41,11 +41,15 @@ const sharedRules=['hr-yuzhou-training-score-policy.json','hr-yuzhou-record-incr
 const sourcePath=path=>typeof path==='string' && /^(scripts\/hr-cutover\/[a-zA-Z0-9_./-]+\.(mjs|json|sql)|scripts\/diagnose-(yuzhou-personnel-alias|production-runtime-revision)\.mjs|scripts\/prepare-yuzhou-production-source-manifest\.mjs|packages\/shared\/src\/(hr-yuzhou-[a-z-]+\.(ts|json)|hr\.ts))$/u.test(path)
   && !path.includes('/../') && !path.includes('/./') && !path.includes('//');
 export function validatePreparationRequest(request) {
-  if(!request || Object.keys(request).sort().join(',')!=='deployPath,expectedRuntimeCommit,files'
+  const keys=request && Object.keys(request);
+  if(!keys || !['deployPath','expectedRuntimeCommit','files'].every(key=>keys.includes(key))
+    || keys.some(key=>!['deployPath','expectedRuntimeCommit','expectedApiCommit','expectedWebCommit','files'].includes(key))
     || typeof request.deployPath!=='string' || !/^\/[A-Za-z0-9_./-]+$/u.test(request.deployPath)
     || resolve(request.deployPath)!==request.deployPath || request.deployPath==='/'
     || !/^[a-f0-9]{40}$/u.test(request.expectedRuntimeCommit??'') || !Array.isArray(request.files)
     || request.files.length<3 || request.files.length>1000)fail();
+  for(const key of ['expectedApiCommit','expectedWebCommit'])if(Object.hasOwn(request,key)
+    && (typeof request[key]!=='string' || !/^[a-f0-9]{40}$/u.test(request[key])))fail();
   const paths=new Set();
   for(const file of request.files){
     if(!file || Object.keys(file).sort().join(',')!=='path,sha256' || !sourcePath(file.path)
@@ -56,13 +60,23 @@ export function validatePreparationRequest(request) {
     'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs',
     'scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs',
     'scripts/prepare-yuzhou-production-source-manifest.mjs',...sharedRules])if(!paths.has(path))fail();
-  return request;
+  return {...request,expectedApiCommit:request.expectedApiCommit??request.expectedRuntimeCommit,
+    expectedWebCommit:request.expectedWebCommit??request.expectedRuntimeCommit};
+}
+
+export function preparationRuntimeObserver(request,runtime) {
+  return apiCommit=>{
+    if(apiCommit!==request.expectedApiCommit)fail();
+    return runtime.observeProductionRuntimeRevision(request.expectedRuntimeCommit,{
+      expectedApiCommit:request.expectedApiCommit,expectedWebCommit:request.expectedWebCommit,
+      observerCodeCommit:request.expectedRuntimeCommit});
+  };
 }
 
 export async function prepareOnProductionHost(request,{load=async path=>import(pathToFileURL(path))}={}) {
   let stage='REQUEST';
   try {
-    validatePreparationRequest(request);
+    request=validatePreparationRequest(request);
     stage='RELEASE';
     if(realpathSync(request.deployPath)!==request.deployPath)fail();
     if(JSON.parse(readFileSync(join(request.deployPath,'.release.json'),'utf8')).commit!==request.expectedRuntimeCommit)fail();
@@ -73,6 +87,7 @@ export async function prepareOnProductionHost(request,{load=async path=>import(p
     stage='MODULE_LOAD';
     const observer=await load(join(request.deployPath,'scripts/diagnose-yuzhou-personnel-alias.mjs'));
     const collector=await load(join(request.deployPath,'scripts/hr-cutover/prepare-yuzhou-original-profile-alias-input.mjs'));
+    const runtime=await load(join(request.deployPath,'scripts/diagnose-production-runtime-revision.mjs'));
     stage='OBSERVATION';
     const observation=observer.diagnosePersonnelAlias(request.deployPath);
     if(observation.originalBaselineSetStatus!=='OBSERVED_INTACT_FOR_API_RECHECK'
@@ -90,9 +105,10 @@ export async function prepareOnProductionHost(request,{load=async path=>import(p
     if(!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(privateRoot)!==privateRoot || (stat.mode&0o777)!==0o700)fail();
     stage='PRIVATE_CONFIG';
     const control=mkdtempSync(join(privateRoot,'preparation-'));const configPath=join(control,'config.json');
-    writeFileSync(configPath,JSON.stringify({deployPath:request.deployPath,expectedRuntimeCommit:request.expectedRuntimeCommit,expected}),{flag:'wx',mode:0o600});
+    writeFileSync(configPath,JSON.stringify({deployPath:request.deployPath,expectedRuntimeCommit:request.expectedApiCommit,expected}),{flag:'wx',mode:0o600});
     stage='SOURCE_PREPARATION';
-    return collector.prepareOriginalProfileAliasInput({configPath,outputDir:join(control,'result')});
+    return collector.prepareOriginalProfileAliasInput({configPath,outputDir:join(control,'result')},
+      {observe:preparationRuntimeObserver(request,runtime)});
   } catch(error) {
     if(stage==='SOURCE_PREPARATION') {
       if(Object.hasOwn(sourcePreparationStages,error?.message))stage=sourcePreparationStages[error.message];
@@ -124,11 +140,15 @@ export function runProductionPreparation(env=process.env,run=execFileSync) {
   if(!/^[a-f0-9]{40}$/u.test(env.EXPECTED_RUNTIME_COMMIT??'') || !/^[A-Za-z0-9_.-]+$/u.test(env.PROD_SSH_HOST??'')
     || env.PROD_SSH_HOST.startsWith('-') || !/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/u.test(env.PROD_SSH_USER??'')
     || !/^\d{1,5}$/u.test(env.PROD_SSH_PORT??'') || Number(env.PROD_SSH_PORT)<1 || Number(env.PROD_SSH_PORT)>65535)fail();
+  for(const key of ['EXPECTED_API_COMMIT','EXPECTED_WEB_COMMIT'])if(env[key]
+    && (typeof env[key]!=='string' || !/^[a-f0-9]{40}$/u.test(env[key])))fail();
   const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
   const files=run('git',['ls-files','scripts/hr-cutover','scripts/diagnose-yuzhou-personnel-alias.mjs','scripts/diagnose-production-runtime-revision.mjs','scripts/prepare-yuzhou-production-source-manifest.mjs','packages/shared/src'],{cwd:root,encoding:'utf8'})
     .trim().split('\n').filter(path=>sourcePath(path) && !path.includes('/tests/') && !path.endsWith('.spec.mjs'))
     .map(path=>({path,sha256:sha(readFileSync(join(root,path)))}));
-  const request=validatePreparationRequest({deployPath:env.PROD_DEPLOY_PATH,expectedRuntimeCommit:env.EXPECTED_RUNTIME_COMMIT,files});
+  const request=validatePreparationRequest({deployPath:env.PROD_DEPLOY_PATH,expectedRuntimeCommit:env.EXPECTED_RUNTIME_COMMIT,files,
+    ...(env.EXPECTED_API_COMMIT?{expectedApiCommit:env.EXPECTED_API_COMMIT}:{}),
+    ...(env.EXPECTED_WEB_COMMIT?{expectedWebCommit:env.EXPECTED_WEB_COMMIT}:{})});
   const command=`node --input-type=module -e '${productionPreparationBootstrap.replaceAll("'","'\\''")}'`;
   try {return run('ssh',['-p',env.PROD_SSH_PORT,'-o','BatchMode=yes','-o','ConnectTimeout=30','-o','ServerAliveInterval=30',
     '-o','ServerAliveCountMax=2',`${env.PROD_SSH_USER}@${env.PROD_SSH_HOST}`,command],

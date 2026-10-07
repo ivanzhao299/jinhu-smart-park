@@ -14,6 +14,8 @@ import {URL,fileURLToPath} from 'node:url';
 import {assembleOriginalProfileAliasInput,prepareOriginalProfileAliasInput,originalProfileAliasInputSql,originalProfileAliasObservationSql,originalProfileAliasRowsSql,originalProfileAliasReadProgram} from '../prepare-yuzhou-original-profile-alias-input.mjs';
 import {canonicalProfile} from '../yuzhou-profile-incremental-projection.mjs';
 import {originalProfileAliasReferenceRowsSql,personnelAliasSql} from '../../diagnose-yuzhou-personnel-alias.mjs';
+import {preparationRuntimeObserver} from '../prepare-original-profile-production.mjs';
+import {observeProductionRuntimeRevision} from '../../diagnose-production-runtime-revision.mjs';
 
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -38,6 +40,38 @@ function fixture() {
   return {envelope:{rows,sourceLedger,observation,operations:[{operationId:binding.operationId,bindingSha256:sha(canonicalProfile(binding)),binding}]},expected};
 }
 const at='2026-10-05T10:00:00.000Z';
+test('unchanged real collector uses transport callback and actual image observer for mixed revisions',()=>{
+  for(const scenario of ['mixed','legacy','wrong-api','wrong-web','changed']){
+    const {envelope,expected}=fixture(),root=realpathSync(mkdtempSync(join(tmpdir(),'profile-mixed-runtime-')));
+    chmodSync(root,0o700);
+    const request={expectedRuntimeCommit:'d'.repeat(40),expectedApiCommit:'a'.repeat(40),expectedWebCommit:scenario==='legacy'?'a'.repeat(40):'b'.repeat(40)};
+    let observations=0,reads=0;
+    const runDocker=args=>{
+      if(args[0]==='image'){
+        const api=args.at(-1)==='sha256:'+'1'.repeat(64),service=api?'api':'web';
+        const revision=scenario===`wrong-${service}`?'f'.repeat(40):api?request.expectedApiCommit:request.expectedWebCommit;
+        return JSON.stringify([args.at(-1),revision,service]);
+      }
+      if(args[3].includes('.Mounts'))return '';
+      const api=args.at(-1).endsWith('-api')||args.at(-1)==='1'.repeat(64),service=api?'api':'web';
+      return JSON.stringify([(api?'1':'2').repeat(64),'sha256:'+(api?'1':'2').repeat(64),true,false,false,'2026-10-08T00:00:00.000Z',scenario==='changed'&&observations>1?1:0,`/jinhu-smart-park-prod-${service}`]);
+    };
+    const observe=preparationRuntimeObserver(request,{observeProductionRuntimeRevision:(source,options)=>{
+      observations++;return observeProductionRuntimeRevision(source,{...options,runDocker});
+    }});
+    const config=join(root,'config.json'),outputDir=join(root,'output');
+    writeFileSync(config,JSON.stringify({deployPath:root,expectedRuntimeCommit:request.expectedApiCommit,expected}),{mode:0o600});
+    try{
+      const prepare=()=>prepareOriginalProfileAliasInput({configPath:config,outputDir},{observe,run:()=>{reads++;return JSON.stringify(envelope)},now:()=>new Date(at)});
+      if(['mixed','legacy'].includes(scenario)){
+        const receipt=prepare();assert.equal(receipt.runtimeCommit,request.expectedApiCommit);assert.equal(receipt.sourceProfiles,2);assert.equal(receipt.writerPresent,false);assert.equal(reads,1);assert.equal(observations,2);
+      }else{
+        assert.throws(prepare);assert.equal(existsSync(outputDir),false);assert.equal(reads,scenario==='changed'?1:0);
+      }
+      assert.throws(()=>observe('f'.repeat(40)));
+    }finally{rmSync(root,{recursive:true,force:true})}
+  }
+});
 test('actual container reader reports closed stages without private exception text or partial rows',async()=>{
   for(const stage of ['KEYRING','INPUT','CONNECT','OBSERVATION_QUERY','OBSERVATION_QUERY_TIMEOUT','OBSERVATION_QUERY_LOCK','OBSERVATION_ENVELOPE','ROWS_QUERY','ROWS_QUERY_TIMEOUT','ROWS_QUERY_LOCK','ENVELOPE','DECRYPT','SOURCE_JSON','OUTPUT','PASS']){
     const stdin=new EventEmitter();stdin.setEncoding=()=>{};
