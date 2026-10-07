@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Attendance operation scoped employee candidates: [Attendance Employee Options](./hr-attendance-employee-options.md).
+
 Formal experience, skill and credential maintenance: [Extended Record Maintenance](./hr-extended-record-maintenance.md).
 
 Organization/position and employee dependency continuity: [Organization Continuity](./hr-yuzhou-organization-continuity.md).

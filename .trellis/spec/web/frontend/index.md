@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Attendance operation complete scoped employee selection: [Attendance Employee Selection](./hr-attendance-employee-selection.md).
+
 These rules describe the current Next.js management frontend in `apps/web`.
 
 Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).
