@@ -54,7 +54,7 @@ export default function AccountSecurityPage() {
       </section>
       {user ? <section className="ds-panel" aria-labelledby="current-account-heading">
         <h2 id="current-account-heading">当前登录账号</h2>
-        <div className="ds-mobile-record-list">
+        <div className={styles.records}>
           <article className="ds-mobile-record"><strong>姓名与账号名</strong><span>{user.real_name} · {user.username}</span></article>
           <article className="ds-mobile-record"><strong>当前园区</strong><span>{user.current_park?.park_name ?? user.park_name ?? user.park_id}</span></article>
           <article className="ds-mobile-record"><strong>当前角色</strong><span>{user.roles.map(role => role.role_name).join("、") || "未配置角色"}</span></article>
