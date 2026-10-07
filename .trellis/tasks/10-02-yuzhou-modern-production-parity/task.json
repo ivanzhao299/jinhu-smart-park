@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-08-hr-contract-review-continuity"
+    "10-08-hr-contract-review-continuity",
+    "10-08-hr-employee-directory-export"
   ],
   "parent": null,
   "relatedFiles": [
@@ -30,13 +31,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "本轮仅规划固化。用户确定历史低价值隔离归档策略；S0影响核验尚待执行，不宣称数据已纠正或业务已启用。",
+  "notes": "长任务持续实施。S0 已归档收口；合同信息补全 PR861 已合并、正在生产发布。当前并行实现 S1/S5 员工目录筛选导出；实际 HR 角色页面、当前业务期间金额对账与独立产品验收仍未完成。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "S0_then_S1",
-    "businessImplementationStarted": false
+    "nextSlice": "S1_directory_export_and_S2_contract_runtime_acceptance",
+    "businessImplementationStarted": true
   }
 }

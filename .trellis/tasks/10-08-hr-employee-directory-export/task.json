@@ -1,0 +1,31 @@
+{
+  "id": "hr-employee-directory-export",
+  "name": "hr-employee-directory-export",
+  "title": "HR员工目录筛选导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": "web",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "completedAt": null,
+  "branch": "codex/hr-employee-directory-export-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-account-identity-20261007",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/employees/employee-directory-export.ts",
+    "apps/web/app/hr/employees/EmployeeDirectoryExport.tsx",
+    "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+    "apps/web/lib/hr-api.ts"
+  ],
+  "notes": "",
+  "meta": {}
+}
