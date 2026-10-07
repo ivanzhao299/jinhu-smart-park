@@ -27,6 +27,7 @@ import workbenchStyles from "../hr-workbench.module.css";
 import styles from "./payroll.module.css";
 import { PayrollInsuranceSourceSelection } from "./PayrollInsuranceSourceSelection";
 import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
+import { PayrollInputReadiness } from "./PayrollInputReadiness";
 import { formatPayrollHistoryItemValue } from "./payroll-history-display";
 
 type WorkArea = "online" | "history" | "rules" | "difference";
@@ -282,7 +283,17 @@ function ReconciliationWorkbench({
   const [insuranceChoices,setInsuranceChoices]=useState<HrPayrollInsuranceChoice[]|null>(null);
   const simulationAttempt=useRef<{signature:string;key:string}|null>(null);
   const selectedFrozenSource=sourceChoice.startsWith("source:")?[preparedSource,...(reconciliationSetup?.frozenSources??[])].find(source=>source?.id===sourceChoice.slice(7)):null;
-  const insuranceRequest=attendanceChoice&&(selectedFrozenSource||sourceChoice.startsWith("published:"))?{legacyBatchId:selectedFrozenSource?.legacyBatchId??sourceChoice.slice(10),attendanceInputBatchId:attendanceChoice,...(selectedFrozenSource?{reconciliationSourceId:selectedFrozenSource.id}:{})}:null;
+  const selectedPublishedSource = sourceChoice.startsWith("published:") ? reconciliationSetup?.legacyBatches.find(batch => batch.id === sourceChoice.slice(10)) : null;
+  const selectedAttendance = reconciliationSetup?.attendanceBatches.find(batch => batch.id === attendanceChoice);
+  const availableAttendance = (reconciliationSetup?.attendanceBatches ?? []).filter(batch => !selectedFrozenSource || batch.periodMonth.slice(0, 7) === selectedFrozenSource.periodMonth.slice(0, 7));
+  const inputPairReady = Boolean((selectedFrozenSource || selectedPublishedSource) && selectedAttendance && (!selectedFrozenSource || selectedFrozenSource.periodMonth.slice(0, 7) === selectedAttendance.periodMonth.slice(0, 7)));
+  const insuranceRequest=inputPairReady?{legacyBatchId:selectedFrozenSource?.legacyBatchId??selectedPublishedSource?.id??"",attendanceInputBatchId:attendanceChoice,...(selectedFrozenSource?{reconciliationSourceId:selectedFrozenSource.id}:{})}:null;
+  const chooseSource = (value: string, frozen?: HrPayrollReconciliationSource) => {
+    setInsuranceChoices(null);
+    const nextFrozen = frozen ?? [preparedSource, ...(reconciliationSetup?.frozenSources ?? [])].find(source => source?.id === value.slice(7));
+    if (value.startsWith("source:") && (!nextFrozen || !selectedAttendance || nextFrozen.periodMonth.slice(0, 7) !== selectedAttendance.periodMonth.slice(0, 7))) setAttendanceChoice("");
+    setSourceChoice(value);
+  };
   const simulationWriting = useRef(false);
   const generation = useRef(0),
     abort = useRef<AbortController | null>(null);
@@ -361,7 +372,7 @@ function ReconciliationWorkbench({
     }
   };
   const simulate = async (form: FormData) => {
-    if (simulationWriting.current || !reconciliationSetup || !insuranceChoices) return;
+    if (simulationWriting.current || !reconciliationSetup || !insuranceChoices || !inputPairReady) return;
     const sourceId = sourceChoice.startsWith("source:") ? sourceChoice.slice(7) : null;
     const source = sourceId ? [preparedSource, ...(reconciliationSetup.frozenSources ?? [])].find((item) => item?.id === sourceId) : null;
     const legacyBatchId = source?.legacyBatchId ?? (sourceChoice.startsWith("published:") ? sourceChoice.slice(10) : "");
@@ -430,6 +441,7 @@ function ReconciliationWorkbench({
   };
   return (
     <>
+      {canCalculate && reconciliationSetup ? <PayrollInputReadiness setup={reconciliationSetup} sourceSelected={Boolean(selectedFrozenSource || selectedPublishedSource)} frozenSource={selectedFrozenSource ?? null} attendance={inputPairReady ? selectedAttendance : undefined} insuranceSelected={inputPairReady && Boolean(insuranceChoices)} canReadAttendance={hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_READ) || hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ)} /> : null}
       <div className={styles.desktopSensitive}>
         {message ? (
           <p className="form-error" role="alert">
@@ -501,7 +513,7 @@ function ReconciliationWorkbench({
             </form>
           </section>
         ) : null}
-        {canReview && reconciliationSetup ? <ReconciliationSourcePreparation setup={reconciliationSetup} onPrepared={(source) => { setPreparedSource(source); setSourceChoice(`source:${source.id}`); }} /> : null}
+        {canReview && reconciliationSetup ? <ReconciliationSourcePreparation setup={reconciliationSetup} onPrepared={(source) => { setPreparedSource(source); chooseSource(`source:${source.id}`, source); }} /> : null}
         {canCalculate ? (
           <section className="ds-panel">
             <div className={workbenchStyles.sectionHeading}>
@@ -513,7 +525,7 @@ function ReconciliationWorkbench({
             <form className={workbenchStyles.formGrid} action={simulate}>
               <label className="form-field">
                 <span>历史工资核对来源</span>
-                <select name="sourceChoice" required value={sourceChoice} disabled={busy || !reconciliationSetup} onChange={(event) => {setInsuranceChoices(null);setSourceChoice(event.target.value);}}>
+                <select name="sourceChoice" required value={sourceChoice} disabled={busy || !reconciliationSetup} onChange={(event) => chooseSource(event.target.value)}>
                   <option value="" disabled>请选择历史批次</option>
                   {reconciliationSetup?.legacyBatches.map((batch) => (
                     <option key={batch.id} value={`published:${batch.id}`}>
@@ -525,9 +537,9 @@ function ReconciliationWorkbench({
               </label>
               <label className="form-field">
                 <span>已关闭且生效的考勤输入</span>
-                <select name="attendanceInputBatchId" required disabled={busy} value={attendanceChoice} onChange={event=>{setInsuranceChoices(null);setAttendanceChoice(event.target.value);}}>
+                <select name="attendanceInputBatchId" required disabled={busy || !reconciliationSetup || availableAttendance.length === 0} value={attendanceChoice} onChange={event=>{setInsuranceChoices(null);setAttendanceChoice(event.target.value);}}>
                   <option value="" disabled>请选择考勤输入批次</option>
-                  {reconciliationSetup?.attendanceBatches.map((batch) => (
+                  {availableAttendance.map((batch) => (
                     <option key={batch.id} value={batch.id}>
                       {String(batch.periodMonth).slice(0, 7)} · 批次 {batch.batchNo}
                     </option>
@@ -535,7 +547,7 @@ function ReconciliationWorkbench({
                 </select>
               </label>
               <PayrollInsuranceSourceSelection request={insuranceRequest} disabled={busy} onChange={setInsuranceChoices} />
-              <button className="ds-button ds-button-primary" disabled={busy || !insuranceChoices}>
+              <button className="ds-button ds-button-primary" disabled={busy || !insuranceChoices || !inputPairReady}>
                 开始只算不发
               </button>
             </form>

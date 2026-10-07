@@ -14,6 +14,8 @@
 .reviewActions { display:grid; gap:12px; margin-top:16px; }
 .catalogGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .mobileNotice { display:none; }
+.inputReadiness { display:grid; gap:14px; }
+.inputReadiness .inputReadinessCard { grid-template-columns:minmax(0,1fr); min-width:0; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (max-width:720px) {
   .workspaceNav { grid-template-columns:1fr; gap:16px; }

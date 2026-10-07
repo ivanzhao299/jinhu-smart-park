@@ -1,0 +1,31 @@
+{
+  "id": "hr-payroll-input-readiness",
+  "name": "hr-payroll-input-readiness",
+  "title": "工资双轨核对输入准备与同月联动",
+  "description": "显示工资来源、已关账考勤和社保准备状态，已知月份联动并保留已发布来源校验",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": "web",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-input-readiness-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-account-identity-20261007",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/payroll/HrPayrollClient.tsx",
+    "apps/web/app/hr/payroll/PayrollInputReadiness.tsx",
+    "apps/web/app/hr/payroll/payroll.module.css",
+    "apps/web/test/interaction/hr-payroll-input-readiness.test.tsx"
+  ],
+  "notes": "7项真实组件交互检查、当前源码Web类型和lint通过；桌面1280/手机390 CSS视口无横向溢出。合成数据浏览器证据不替代真实岗位验收。",
+  "meta": {}
+}

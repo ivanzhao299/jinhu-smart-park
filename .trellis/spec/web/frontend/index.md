@@ -6,6 +6,8 @@ Employee directory scoped, complete filtered CSV: [Employee Directory Export](./
 
 Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
 
+Payroll reconciliation preparation and matching months: [Payroll Input Readiness](./hr-payroll-input-readiness.md).
+
 ## Package Boundary
 
 - Routes live under `apps/web/app`.
