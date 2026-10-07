@@ -362,3 +362,11 @@ test("organization/position summary admits numeric mapped fields and keeps domai
   assert.deepEqual(missingImportPermissions({...user,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,HR_PERMISSIONS.HR_POSITION_MANAGE,SYSTEM_PERMISSIONS.ORG_UPDATE]},summary),[]);
   assert.throws(()=>parseImportPackage(text([item("organization",{plannedHeadcount:1.5})]),"synthetic.json"));
 });
+
+
+test("contract import summary accepts formal numeric and boolean terms without exposing values",()=>{
+  const parsed=parseImportPackage(text([item("contract",{contractTermMonths:24,signatureDate:"2023-12-20",probationMonths:3,renewalCount:0,confidentialityAgreement:false,nonCompeteAgreement:true,trainingServiceAgreement:false})]),"contracts.json");
+  assert.deepEqual(parsed.summary.domains[0]!.fields,["合同期限（月）","签署日期","试用月数","续签次数","保密协议","竞业限制协议","培训服务协议"].sort());
+  assert.doesNotMatch(JSON.stringify(parsed.summary),/2023-12-20|contractTermMonths|true|false/);
+  for(const fields of [{probationMonths:0.5},{renewalCount:true},{confidentialityAgreement:1}]) assert.throws(()=>parseImportPackage(text([item("contract",fields)]),"bad.json"));
+});

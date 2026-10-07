@@ -55,7 +55,7 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
   training_history: ["employeeSourceKey", "employeeSourceTable", "courseName", "startDate", "endDate", "hours", "memo", "score"],
   insurance_policy: ["name", "scopeDescription", "items"],
-  contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle"]
+  contract: ["employeeSourceKey", "employeeSourceTable", "contractTypeId", "contractStatus", "contractNo", "startDate", "endDate", "probationEndDate", "workType", "positionTitle", "contractTermMonths", "signatureDate", "probationMonths", "renewalCount", "confidentialityAgreement", "nonCompeteAgreement", "trainingServiceAgreement"]
 };
 
 export function canonicalYuzhouIncrementalPackage(input: YuzhouIncrementalPackage): YuzhouIncrementalPackage {

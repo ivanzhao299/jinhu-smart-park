@@ -14,7 +14,12 @@ function invalid(): never { throw new BadRequestException("Prepared HR batch int
 const fixedScope = { tenantId: "10000001", parkId: "20000001" };
 const collector = "e2de6e37d8007dd713002f437d714c7e454a64370c1a24efae3e98eac11eb632";
 const adapter = "267c7ac63394f81a53c62fa30b3bbf51f0fddbe34eb113bbad304b591a77d136";
-const recipe = "5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e";
+// Exact reviewed fingerprints. Contract-only recipe expansion leaves the pinned
+// profile collector/alias adapter unchanged; retain original prepared batches.
+const recipes = new Set([
+  "5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e",
+  "161530bdc3e45693ee8063b408edef1eb9936bd96f6d69934c4d9f1029943d0c",
+]);
 export interface PreparedProfilePackage { index: number; kind: "baseline" | "alias"; itemCount: number; fields: string[]; packageSha256: string; manifestId: string }
 export interface PreparedProfileBatch { id: string; sourceProfiles: number; aliasProfiles: number; packages: PreparedProfilePackage[] }
 interface LocatedBatch { directory: string; metadata: PreparedProfileBatch }
@@ -74,7 +79,7 @@ export class HrPreparedProfileBatchRepository {
         || core.executionOrder.length < 1 || core.executionOrder.length > 32 || !object(preparation.expected)
         || !Number.isSafeInteger(core.sourceProfiles) || Number(core.sourceProfiles) < 1 || Number(core.sourceProfiles) > 20000
         || !Number.isSafeInteger(core.aliasProfiles) || Number(core.aliasProfiles) < 1 || Number(core.aliasProfiles) > Number(core.sourceProfiles)
-        || core.recipeSha256 !== recipe || !sha(core.plannerSha256)
+        || !sha(core.recipeSha256) || !recipes.has(core.recipeSha256) || !sha(core.plannerSha256)
         || core.sourceProfiles !== preparation.sourceProfiles || core.sourceProfiles !== preparation.expected.profileCount
         || core.aliasProfiles !== preparation.aliasProfiles || core.aliasProfiles !== preparation.expected.aliasProfiles
         || core.nativePlaceFills !== preparation.expected.nativePlaceFills || core.degreeFills !== preparation.expected.degreeFills) invalid();
