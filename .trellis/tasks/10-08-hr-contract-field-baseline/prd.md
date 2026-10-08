@@ -1,0 +1,5 @@
+# Original-witness contract field continuity
+
+Already accepted original contract ledgers predate the nine formal term/salary fields. Fixed packages must continuously use those same formal records. Admit only entirely absent comparison fields carried by the incoming package and certified by the SAME saved complete original T2 witness. Never rebase accepted facts or infer history from the modern row; preserve immutable provenance/revisions, ordinary salary permission, draft/lifecycle, replay, CAS and rollback. No new source batch or production business write in this delivery.
+
+Acceptance: reproduce the exact old-subset failure in real PG; prove unchanged source preserves modern salary/flags and business version; changed draft field updates; accepted changed fields never reset; active unchanged facts admit while real changes require normal workflow; malformed/foreign/changed witness rejects; permission revocation, concurrency and action failure roll back. Fixed recipe and prepared packages unchanged. Focused checks, CI, latest-base merge/deploy and actual component runtime proof. Full modernization remains active.

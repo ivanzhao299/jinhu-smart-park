@@ -89,3 +89,11 @@ API严格接受整数（合同期限0..1200月、试用0..120月、续签次数�
 ## Contract salary reusable import
 
 The fixed T2 projection now carries probationSalary/baseSalary into the same formal contract. Values are null or canonical nonnegative fixed-two-decimal strings within numeric(18,2); no JavaScript amount conversion. Explicit fields, including null, require both existing contract management and compensation management at preview and commit. Omitted salaries preserve old packages and existing values; source-unchanged fields preserve modern edits, changed same-field values conflict, and non-draft contracts retain normal workflow requirements. Public contract action snapshots and import summaries omit amounts; encrypted revision snapshots retain audit evidence and ordinary salary reads retain their existing permission. Complete authenticated original T2 witnesses can restore these facts, but accepted baselines are never rebuilt. This feature does not publish payroll or attest an actual production source batch.
+
+## 已导入合同新增字段的连续更新
+
+此前接受的完整原始合同见证保留了条款和金额，但旧版本的比较基线只记录了当时支持的字段。现在对输入携带且此前三份比较映射均没有的九项正式字段，重新验证同一份保存的原始T2见证，从原始投影补齐比较事实。已经接受的值（包括null）保持原样；不从现代记录反推历史，不重建整份基线，不重放原始导入。
+
+预览不写业务记录或字段基线；成功提交通过现有加密台账保存，并在修订记录中保留字段名和见证摘要。来源没有变化时保留现代修改及业务版本，真实变化仍按三方比较、并发检查、合同状态和薪酬权限处理。原始见证、旧修订不改写；失败和冲突不会污染字段接纳。已有终态操作保留原结果，新数据包走新的正常预览与提交。
+
+本次只修改API及其验证、规格文档，固定配方/来源切片/已生成包/现代页面保持兼容。真实HR岗位验收、人员准备包正式提交及新来源批次仍需分别取证，完整现代化目标保持进行中。
