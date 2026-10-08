@@ -1,0 +1,16 @@
+.editor:global(.ds-panel) { padding: 24px; }
+.editor, .row { display: grid; gap: 16px; min-width: 0; }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.row { padding: 16px; margin: 0; }
+.anchor { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 12px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+.actions button, .editor > button { min-height: 44px; white-space: nowrap; }
+.editor > button { justify-self: start; }
+.records:global(.ds-mobile-record-list) { display: grid; }
+.records :global(.ds-mobile-record) { grid-template-columns: minmax(0, 1fr); }
+.details { display: grid; gap: 12px; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .editor:global(.ds-panel) { padding: 16px; }
+  .fields, .anchor { grid-template-columns: minmax(0, 1fr); }
+  .actions button:global(.ds-button) { width: auto; flex: 1 1 auto; }
+}

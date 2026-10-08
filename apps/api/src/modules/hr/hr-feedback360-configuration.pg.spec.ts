@@ -60,6 +60,30 @@ test("actual 000260 configuration reads preserve all draft/published fields and 
     assert.equal(versions[0]!.currentVersionNo, 1);
     assert.equal((versions[0]!.dimensions as Array<{ description: string }>)[0]!.description, "新版说明");
     await assert.rejects(db.query("UPDATE hr_competency_model SET current_version_no=2 WHERE id=$1", [first.id]), /immutable/);
+    const original = await service.configuration(scope, actor), cycleId = randomUUID();
+    await db.query("INSERT INTO hr_feedback360_cycle(id,tenant_id,park_id,cycle_code,cycle_name,model_version_id,questionnaire_version_id,model_snapshot,questionnaire_snapshot,nomination_end,response_end,create_by,update_by) VALUES($1,$2,$3,'SYN-CYCLE','保留旧周期',$4,$5,$6,$7,'2090-01-01','2090-02-01',$8,$8)", [cycleId, scope.tenantId, scope.parkId, first.versionId, questionnaire.versionId, original.models.find(x => x.versionId === first.versionId), original.questionnaires[0], actor.sub]);
+    const frozen = (await db.query("SELECT model_snapshot,questionnaire_snapshot FROM hr_feedback360_cycle WHERE id=$1", [cycleId]))[0];
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000346_hr_feedback_configuration_versions.sql"), "utf8"));
+    const modelBody = { modelCode: "SYN-MODEL", modelName: "配置模型", versionName: "延续模型", scaleMin: 1.25, scaleMax: 7.5, dimensions, expectedVersionId: String(first.versionId) };
+    const attempts = await Promise.allSettled(["并发甲", "并发乙"].map(versionName => service.createModelVersion(scope, actor, String(first.id), { ...modelBody, versionName })));
+    assert.equal(attempts.filter(x => x.status === "fulfilled").length, 1); assert.equal(attempts.filter(x => x.status === "rejected").length, 1);
+    const latest = (await service.configuration(scope, actor)).models.find(x => x.id === first.id && x.versionNo === 3)!;
+    assert.equal(latest.versionStatus, "draft");
+    await assert.rejects(service.publishModel(scope, actor, nextVersionId));
+    await service.publishModel(scope, actor, String(latest.versionId));
+    const questionnaireBody = { questionnaireCode: "SYN-QUEST", questionnaireName: "配置问卷", versionName: "延续问卷", modelVersionId: String(latest.versionId), questions, expectedVersionId: String(questionnaire.versionId) };
+    const qAttempts = await Promise.allSettled(["问卷甲", "问卷乙"].map(versionName => service.createQuestionnaireVersion(scope, actor, String(questionnaire.id), { ...questionnaireBody, versionName })));
+    assert.equal(qAttempts.filter(x => x.status === "fulfilled").length, 1); assert.equal(qAttempts.filter(x => x.status === "rejected").length, 1);
+    const qLatest = (await service.configuration(scope, actor)).questionnaires.find(x => x.versionNo === 2)!;
+    await service.publishQuestionnaire(scope, actor, String(qLatest.versionId));
+    assert.deepEqual((await service.configuration(scope, actor)).questionnaires.find(x => x.versionId === questionnaire.versionId)!.questions, questions);
+    assert.deepEqual((await db.query("SELECT model_snapshot,questionnaire_snapshot FROM hr_feedback360_cycle WHERE id=$1", [cycleId]))[0], frozen);
+    await assert.rejects(db.query("UPDATE hr_competency_model SET current_version_no=1 WHERE id=$1", [first.id]), /regress/);
+    await assert.rejects(db.query("UPDATE hr_competency_model SET current_version_no=999 WHERE id=$1", [first.id]), /scoped version/);
+    await assert.rejects(db.query("UPDATE hr_competency_model SET model_name='changed' WHERE id=$1", [first.id]), /immutable/);
+    await assert.rejects(db.query("UPDATE hr_feedback_questionnaire SET questionnaire_name='changed' WHERE id=$1", [questionnaire.id]), /immutable/);
+    await assert.rejects(db.query("UPDATE hr_feedback_question SET question_text='changed' WHERE questionnaire_version_id=$1", [questionnaire.versionId]), /immutable/);
+    await assert.rejects(db.query("UPDATE hr_feedback360_cycle SET model_snapshot='{}'::jsonb WHERE id=$1", [cycleId]), /immutable/);
   } finally {
     if (db?.isInitialized) await db.destroy();
     if (admin.isInitialized) { if (created) { await admin.query(`DROP DATABASE ${database}`); assert.equal((await admin.query("SELECT count(*)::int total FROM pg_database WHERE datname=$1", [database]))[0].total, 0); } await admin.destroy(); }

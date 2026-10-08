@@ -1,9 +1,10 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, ValidationPipe } from "@nestjs/common";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { HrFeedback360Service } from "./hr-feedback360.service";
+import { CreateHrCompetencyModelVersionDto, CreateHrFeedbackQuestionnaireVersionDto } from "./dto/hr-feedback360.dto";
 
 const scope = { tenantId: "synthetic-tenant", parkId: "synthetic-park" };
 const actor = { ...scope, sub: "00000000-0000-4000-8000-000000000001", username: "synthetic", roles: [], permissions: [HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE] };
@@ -50,4 +51,41 @@ test("failed configuration snapshot cannot return partial data or claim successf
 
 test("required read audit failure is propagated", async () => {
   const f = fixture(false, true); await assert.rejects(f.service.configuration(scope, actor), /audit failure/);
+});
+
+const versionId = "00000000-0000-4000-8000-000000000002";
+const modelBody = { modelCode: "SYN-MODEL", modelName: "Synthetic model", versionName: "Next version", scaleMin: 1, scaleMax: 5, dimensions: [{ code: "ACTUAL", name: "Actual dimension", weight: 1, anchors: [{ level: 1, text: "Basic behavior" }, { level: 5, text: "Target behavior" }] }], expectedVersionId: versionId };
+const questionnaireBody = { questionnaireCode: "SYN-QUEST", questionnaireName: "Synthetic questionnaire", versionName: "Next version", modelVersionId: versionId, questions: [{ code: "ACTUAL_Q", dimensionCode: "ACTUAL", text: "Actual question", type: "rating" as const, required: true }], expectedVersionId: versionId };
+
+test("new version writes require exact configuration authority and matching scope before a transaction", async () => {
+  for (const principal of [{ ...actor, permissions: [HR_PERMISSIONS.HR_FEEDBACK_READ] }, { ...actor, parkId: "foreign" }]) {
+    const f = fixture();
+    await assert.rejects(f.service.createModelVersion(scope, principal, versionId, modelBody), ForbiddenException);
+    await assert.rejects(f.service.createQuestionnaireVersion(scope, principal, versionId, questionnaireBody), ForbiddenException);
+    assert.equal(f.isolations.length, 0);
+  }
+});
+
+test("stale pointers and changed identities cannot insert a new configuration", async () => {
+  for (const changedIdentity of [false, true]) {
+    const calls: string[] = [];
+    const query = async (sql: string) => {
+      calls.push(sql);
+      return sql.includes("FOR UPDATE") ? [{ model_code: "SYN-MODEL", model_name: changedIdentity ? "Changed" : modelBody.modelName, status: "published", current_version_no: 1 }] : [{ id: "stale-version" }];
+    };
+    const service = new HrFeedback360Service({ transaction: async (fn: (m: { query: typeof query }) => unknown) => fn({ query }) } as never, {} as never, {} as never);
+    await assert.rejects(service.createModelVersion(scope, actor, versionId, modelBody), ConflictException);
+    assert.ok(calls.every(sql => !/INSERT|UPDATE hr_competency/.test(sql)));
+    assert.equal(calls.length, changedIdentity ? 1 : 2);
+  }
+});
+
+test("actual ValidationPipe preserves inherited full configuration and optimistic UUID constraints", async () => {
+  const pipe = new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true });
+  const model = (body: unknown) => pipe.transform(body, { type: "body", metatype: CreateHrCompetencyModelVersionDto });
+  const questionnaire = (body: unknown) => pipe.transform(body, { type: "body", metatype: CreateHrFeedbackQuestionnaireVersionDto });
+  assert.equal((await model(modelBody)).expectedVersionId, versionId);
+  assert.equal((await questionnaire(questionnaireBody)).expectedVersionId, versionId);
+  for (const body of [{ ...modelBody, expectedVersionId: "wrong" }, { ...modelBody, dimensions: [] }, { ...modelBody, dimensions: [{ ...modelBody.dimensions[0], weight: .12345 }] }, { ...modelBody, extra: true }]) await assert.rejects(model(body));
+  for (const body of [{ ...questionnaireBody, expectedVersionId: "wrong" }, { ...questionnaireBody, questions: [] }, { ...questionnaireBody, questions: [{ ...questionnaireBody.questions[0], type: "wrong" }] }, { ...questionnaireBody, questions: [{ ...questionnaireBody.questions[0], required: "true" }] }]) await assert.rejects(questionnaire(body));
 });
