@@ -1,0 +1,13 @@
+{
+  "id": "hr-performance-template-workflow",
+  "title": "绩效评价模板正式配置闭环",
+  "status": "in_progress",
+  "priority": "P1",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "branch": "codex/hr-performance-template-workflow-20261008",
+  "worktree_path": "/private/tmp/jinhu-hr-performance-template-workflow-20261008",
+  "baseSha": "a912c94a75f4f2b44e61715e2e2d937e617b0b83",
+  "phase": "research_and_design",
+  "writer": "root",
+  "nextAction": "Verify existing schema/trigger constraints then implement editable configuration and version continuation"
+}

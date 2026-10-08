@@ -1,0 +1,15 @@
+.editor:global(.ds-panel) { padding: 24px; }
+.editor > button { justify-self: start; min-height: 44px; }
+.editor { display: grid; gap: 16px; min-width: 0; }
+.fields, .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; margin: 0; }
+.fields { border: 0; padding: 0; }
+.row { padding: 16px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+.actions button { min-height: 44px; white-space: nowrap; }
+.records:global(.ds-mobile-record-list) { display: grid; }
+.records :global(.ds-mobile-record) { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 640px) {
+  .editor:global(.ds-panel) { padding: 16px; }
+  .fields, .row { grid-template-columns: minmax(0, 1fr); }
+  .actions button:global(.ds-button) { width: auto; flex: 1 1 auto; }
+}

@@ -1002,3 +1002,5 @@ Reference files:
 Prepared profile normal-user execution and same-operation preview recovery: [Prepared Profile Import Command](./hr-prepared-profile-import-command.md).
 
 - [hr-reward-employee-options](./hr-reward-employee-options.md) — Reward operation candidates and draft continuity.
+
+- [Performance template workflow](./hr-performance-template-workflow.md) — Enterprise configuration and immutable version continuation.

@@ -1,0 +1,13 @@
+# Implementation design from current schema
+
+Baseline: a912c94a75f4f2b44e61715e2e2d937e617b0b83.
+
+Observed contracts: migration000258 template code/name identity immutable; version name/version_no/total_weight immutable even for draft. Published version and children frozen. Existing createTemplate accepts full dimension and level arrays, validates total/unique codes/ranges/coverage, writes v1. Existing templates returns current-version projection. publishTemplate locks version and template, sets published and current pointer; cycles select published exact version and freeze snapshot.
+
+Chosen route: avoid changing applied migration/identity guards. Editing a saved draft is continued by a fresh appended draft version with explicit version name, preserving old draft as evidence. Add scoped template detail/version draft creation endpoints with exact TEMPLATE_MANAGE, principal tenant/park check, parent row lock and expected current version identity to reject stale edits. Reuse existing validation and child-insert logic after exact source review. New version is draft; publishing remains a separate explicit operation. Prevent older draft publication from silently replacing current newer version; require current pointer match or conflict. No migration planned unless current trigger/schema analysis proves missing invariant.
+
+Modern editor: 1..30 dimension rows code/name/weight in percentage/score range and 1..20 level rows code/name/min/max, add/delete/reorder. Explicit validated conversion aligns PostgreSQL weight precision4 and score precision2, never client total-score calculation. Load detail with exact identity and strict response decoder; configurable defaults only editable input, no automatic publication. Existing TEMPLATE_MANAGE-only role must reach templates without calling unauthorized cycle/review APIs.
+
+Continuity: full auth context workspace key, request abortion/generation checks, draft/open-edit retention after rejected request; single synchronous mutation writer, cancel/reopen guards, successful write vs failed refresh separate notice. Use global DS and layout-only responsive component CSS. Existing reviews/calibration/appeal behavior and field projection retained.
+
+Validation batch: new API service/DTO/controller scope and conflict tests; temporary real PostgreSQL applying actual relevant migrations to prove appended draft, old version unchanged, publication freeze/current pointer conflict and cycle snapshot continuity. Existing performance contract/evaluation tests plus actual Web editor cases and desktop390 render. No production configuration or formal review creation during validation. One combined API/Web release after accepted checks.
