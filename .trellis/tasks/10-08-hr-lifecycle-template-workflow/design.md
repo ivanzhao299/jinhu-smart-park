@@ -1,0 +1,7 @@
+# 设计
+
+复用createTemplate/publishTemplateVersion及immutable版本快照。新增模板管理专用详情GET提供最新已发布版本及最小任务字段；assignment专用template-options只返回既有列表摘要，不扩大原templates endpoint权限。服务/路由双端准确权限及tenant/park。现有列表查询可提取私有scopedhelper避免重复，禁止跳过service授权。
+
+Web模板编辑器采用受控任务数组+稳定本地key，显式submit事件，项目增删/上移下移、required和defaultDueDays。新版本表单从管理详情加载并展示当前版本，所有响应和保存绑定完整用户上下文；新版本以现有POST /templates/:id/versions生成新version，无旧项更新。ASSIGN和MANAGE独立加载各自候选/列表，局部失败不阻断已授权其他模块。明确成功/失败避免load清除mutationmessage。
+
+清单创建保留原employeeId/eventId/templateVersionId/dueDate契约，失败不reset输入。零migration、零auth变更、零生产业务写入。训练PR878发布期间本候选独立基于main698；最后提交前同步最新main并验证共用hr-api和规范索引。

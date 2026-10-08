@@ -177,6 +177,9 @@ export interface HrDepartureEmployeeOptions extends PaginatedResult<HrDepartureE
 
 export interface HrDepartureOptions {employees:Array<{id:string;employeeCode:string;employeeName:string;orgId:string|null;orgName:string|null;employmentStatus:string}>;}
 export interface HrLifecycleChecklist {id:string;employeeId:string;employeeName:string;type:string;status:string;dueDate:string|null;itemCount:number;doneCount:number;overdueCount:number;}
+export interface HrLifecycleTemplateItem {code:string;name:string;category:string;defaultDueDays?:number|null;required:boolean;}
+export interface HrLifecycleTemplateDetail extends HrLifecycleTemplate {items:HrLifecycleTemplateItem[];}
+export interface HrLifecycleTemplatePayload {code:string;name:string;type:"onboarding"|"offboarding";items:HrLifecycleTemplateItem[];}
 export interface HrLifecycleTemplate {id:string;code:string;name:string;type:string;versionId:string;versionNo:number;itemCount:number;}
 export interface HrLifecycleItem {id:string;itemCode:string;itemName:string;category:string;sequenceNo:number;status:string;responsibleUserId:string|null;dueDate:string|null;required:boolean;completedAt:string|null;overdue:boolean;}
 export interface HrLifecycleChecklistDetail {id:string;employeeId:string;employeeName:string;type:string;status:string;dueDate:string|null;items:HrLifecycleItem[];}
@@ -304,6 +307,9 @@ export const hrApi={
  closeDepartureArchive:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrDepartureApplication>(`/hr/departure-applications/${id}/archive`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-departure-archive")})),
  applyDepartureApplication:(id:string,token?:string)=>unwrap(apiRequest<HrDepartureApplication>(`/hr/departure-applications/${id}/apply`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-departure-apply")})),
  lifecycleChecklists:(token?:string,page=1,pageSize=20,signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrLifecycleChecklist>>(`/hr/lifecycle/checklists?page=${page}&page_size=${pageSize}`,{token,signal})),
+ lifecycleTemplateOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrLifecycleTemplate[]>("/hr/lifecycle/template-options",{token,signal})),
+ lifecycleTemplateDetail:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrLifecycleTemplateDetail>(`/hr/lifecycle/templates/${id}`,{token,signal})),
+ publishLifecycleTemplateVersion:(id:string,body:{items:HrLifecycleTemplateItem[]},token?:string)=>unwrap(apiRequest<{templateId:string;versionId:string;versionNo:number;itemCount:number}>(`/hr/lifecycle/templates/${id}/versions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-template-version")})),
  lifecycleTemplates:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrLifecycleTemplate[]>("/hr/lifecycle/templates",{token,signal})),
  createLifecycleTemplate:(body:object,token?:string)=>unwrap(apiRequest<HrLifecycleTemplate>("/hr/lifecycle/templates",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-template")})),
  createLifecycleChecklist:(body:object,token?:string)=>unwrap(apiRequest<HrLifecycleChecklist>("/hr/lifecycle/checklists",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-checklist")})),

@@ -22,6 +22,8 @@ import {ProbationApplicationsPanel} from "./ProbationApplicationsPanel";
 import {JobChangeApplicationsPanel} from "./JobChangeApplicationsPanel";
 import {RehireApplicationsPanel} from "./RehireApplicationsPanel";
 import {DepartureApplicationsPanel} from "./DepartureApplicationsPanel";
+import {LifecycleTemplateManager} from "./LifecycleTemplateManager";
+import {lifecycleTemplateSummaries} from "./lifecycle-template-data";
 import {HrEmployeeSelection} from "../components/HrEmployeeSelection";
 const typeLabel: Record<string, string> = {
     onboarding: "入职",
@@ -71,6 +73,7 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
     [loading, setLoading] = useState(true),
     [detailLoading, setDetailLoading] = useState(false),
     [error, setError] = useState(""),
+    [success,setSuccess] = useState(""),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [templates, setTemplates] = useState<HrLifecycleTemplate[]>([]),
@@ -84,6 +87,8 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
     [statisticsLoading, setStatisticsLoading] = useState(false),
     [statisticsError, setStatisticsError] = useState(""),
     [busy, setBusy] = useState(false);
+  const createFlight=useRef(false),alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const generation = useRef(0),
     listAbort = useRef<AbortController | null>(null),
     detailAbort = useRef<AbortController | null>(null),
@@ -126,11 +131,11 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
     }
   }, [canRead, page]);
   const loadTemplates=useCallback(async()=>{
-    if(!canAssign&&!canManageTemplates)return;
+    if(!canAssign)return;
     const c=new AbortController();templateAbort.current?.abort();templateAbort.current=c;
-    try{const value=await hrApi.lifecycleTemplates(getAccessToken(),c.signal);if(!c.signal.aborted)setTemplates(value);}
+    try{const value=await hrApi.lifecycleTemplateOptions(getAccessToken(),c.signal);if(!c.signal.aborted)setTemplates(lifecycleTemplateSummaries(value));}
     catch(e){if(!c.signal.aborted)setError(hrLoadErrorMessage(e,"加载清单模板失败"));}
-  },[canAssign,canManageTemplates]);
+  },[canAssign]);
   useEffect(()=>{void loadTemplates();return()=>templateAbort.current?.abort();},[loadTemplates]);
   const loadUsers=useCallback(async()=>{
     if(!canAssign)return;
@@ -227,35 +232,6 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
       setBusy(false);
     }
   };
-  const createTemplate = async (form: FormData) => {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await hrApi.createLifecycleTemplate(
-        {
-          code: String(form.get("code")),
-          name: String(form.get("name")),
-          type: String(form.get("type")),
-          items: [
-            {
-              code: String(form.get("itemCode")),
-              name: String(form.get("itemName")),
-              category: String(form.get("category")),
-              required: true,
-            },
-          ],
-        },
-        getAccessToken(),
-      );
-      await loadTemplates();
-      await load();
-    } catch (e) {
-      setError(hrLoadErrorMessage(e, "发布模板失败"));
-    } finally {
-      setBusy(false);
-    }
-  };
   const selectEmployee = async (employeeId: string) => {
     eventAbort.current?.abort();
     eventAbort.current=null;
@@ -274,10 +250,12 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
     }
   };
   const createChecklist = async (form: FormData) => {
-    if (busy) return;
-    if (!selectedEmployeeId) {setError("请明确选择员工后创建清单。");return;}
+    if (createFlight.current||busy) return false;
+    if (!selectedEmployeeId) {setError("请明确选择员工后创建清单。");return false;}
+    createFlight.current=true;
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       await hrApi.createLifecycleChecklist(
         {
@@ -288,11 +266,16 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
         },
         getAccessToken(),
       );
+      if(!alive.current)return false;
+      setSuccess("入离职清单已创建。");
       await load();
+      return true;
     } catch (e) {
-      setError(hrLoadErrorMessage(e, "创建清单失败"));
+      if(alive.current)setError(hrLoadErrorMessage(e, "创建清单失败"));
+      return false;
     } finally {
-      setBusy(false);
+      createFlight.current=false;
+      if(alive.current)setBusy(false);
     }
   };
   const forbidden = (
@@ -332,6 +315,7 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
             </button>
           </section>
         ) : null}
+        {success?<section className="ds-panel"><p role="status">{success}</p></section>:null}
         <ProbationApplicationsPanel />
         <JobChangeApplicationsPanel />
         <DepartureApplicationsPanel employeeId={employeeId}/>
@@ -365,53 +349,11 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
             </> : null}
           </section>
         ) : null}
-        {canManageTemplates ? (
-          <section className="ds-panel">
-            <h2>发布清单模板</h2>
-            <form className={styles.formGrid} action={createTemplate}>
-              <label className="form-field">
-                <span>模板编号</span>
-                <input name="code" required maxLength={64} />
-              </label>
-              <label className="form-field">
-                <span>模板名称</span>
-                <input name="name" required maxLength={160} />
-              </label>
-              <label className="form-field">
-                <span>适用环节</span>
-                <select name="type">
-                  <option value="onboarding">入职</option>
-                  <option value="offboarding">离职</option>
-                </select>
-              </label>
-              <label className="form-field">
-                <span>首个任务编号</span>
-                <input name="itemCode" required maxLength={64} />
-              </label>
-              <label className="form-field">
-                <span>首个任务</span>
-                <input name="itemName" required maxLength={160} />
-              </label>
-              <label className="form-field">
-                <span>任务分类</span>
-                <select name="category">
-                  <option value="documents">资料</option>
-                  <option value="contract">合同</option>
-                  <option value="account">账号</option>
-                  <option value="asset">资产</option>
-                  <option value="training">培训</option>
-                </select>
-              </label>
-              <button className="ds-button ds-button-primary" disabled={busy}>
-                发布模板
-              </button>
-            </form>
-          </section>
-        ) : null}
+        {canManageTemplates?<LifecycleTemplateManager onSaved={loadTemplates}/>:null}
         {canAssign ? (
           <section className="ds-panel">
             <h2>创建入离职清单</h2>
-            <form className={styles.formGrid} action={createChecklist}>
+            <form className={styles.formGrid} onSubmit={event=>{event.preventDefault();const form=event.currentTarget;void createChecklist(new FormData(form)).then(saved=>{if(saved&&alive.current){form.reset();void selectEmployee("");}});}}>
               <HrEmployeeSelection selectedId={selectedEmployeeId} onChange={(id)=>void selectEmployee(id)} disabled={busy} purpose="lifecycle"/>
               <label className="form-field">
                 <span>模板版本</span>

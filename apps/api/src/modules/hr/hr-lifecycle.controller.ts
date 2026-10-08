@@ -52,6 +52,12 @@ export class HrLifecycleController {
   ) {
     return this.service.list(s, a, q);
   }
+  @Get("lifecycle/template-options")
+  @RequirePermissions(HR_PERMISSIONS.HR_LIFECYCLE_ASSIGN)
+  templateOptions(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal){return this.service.templateOptions(s,a);}
+  @Get("lifecycle/templates/:id")
+  @RequirePermissions(HR_PERMISSIONS.HR_LIFECYCLE_TEMPLATE_MANAGE)
+  templateDetail(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal,@Param("id",new ParseUUIDPipe()) id:string){return this.service.templateDetail(s,a,id);}
   @Get("lifecycle/templates")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_LIFECYCLE_READ,

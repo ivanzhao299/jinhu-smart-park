@@ -1,6 +1,9 @@
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsNotEmpty,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -30,25 +33,29 @@ export class HrLifecycleListDto {
   @IsOptional() @IsUUID() employee_id?: string;
 }
 export class HrLifecycleTemplateItemDto {
-  @Transform(trim) @IsString() @MaxLength(64) code!: string;
-  @Transform(trim) @IsString() @MaxLength(160) name!: string;
-  @Transform(trim) @IsString() @MaxLength(32) category!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(64) code!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(160) name!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(32) category!: string;
   @IsOptional() @IsInt() @Min(-365) @Max(365) defaultDueDays?: number;
   @IsOptional() @IsBoolean() required?: boolean;
 }
 export class CreateHrLifecycleTemplateDto {
-  @Transform(trim) @IsString() @MaxLength(64) code!: string;
-  @Transform(trim) @IsString() @MaxLength(160) name!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(64) code!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(160) name!: string;
   @IsIn(["onboarding", "offboarding"]) type!: string;
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(50)
+  @ArrayUnique((item:HrLifecycleTemplateItemDto)=>item.code)
   @ValidateNested({ each: true })
   @Type(() => HrLifecycleTemplateItemDto)
   items!: HrLifecycleTemplateItemDto[];
 }
 export class CreateHrLifecycleTemplateVersionDto {
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(50)
+  @ArrayUnique((item:HrLifecycleTemplateItemDto)=>item.code)
   @ValidateNested({ each: true })
   @Type(() => HrLifecycleTemplateItemDto)
   items!: HrLifecycleTemplateItemDto[];
