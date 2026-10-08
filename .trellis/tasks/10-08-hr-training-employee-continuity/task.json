@@ -1,0 +1,16 @@
+{
+  "id": "hr-training-employee-continuity",
+  "name": "hr-training-employee-continuity",
+  "title": "培训参训人员搜索多选与操作延续",
+  "status": "in_progress",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "base_branch": "main",
+  "branch": "codex/hr-training-employee-continuity-20261008",
+  "worktree_path": "/tmp/jinhu-hr-training-employee-continuity-20261008",
+  "baseSha": "6985319d63e890454cc329f519b10ea5ff2d72ea"
+}

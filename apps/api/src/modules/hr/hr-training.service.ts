@@ -8,6 +8,7 @@ import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { lockTrainingParticipantPlan } from "./hr-training-locks";
 import { reviseTrainingPlanFactsInTransaction,trainingPlanFactsJoin,trainingPlanCourseTitle,trainingPlanStartDate,trainingPlanEndDate,trainingPlanFactRevision } from "./hr-training-plan-facts";
+import { HrTrainingEmployeeOptionsDto } from "./dto/hr-training-employee-options.dto";
 type Access="park"|"managed_org_tree"|"self"|"none";
 @Injectable()
 export class HrTrainingService {
@@ -19,6 +20,26 @@ export class HrTrainingService {
  async listCourses(s:TenantParkScope,a:JwtPrincipal){
   if(this.access(a)==="none")return [];
   return this.db.query(`SELECT c.id,c.course_code "code",v.version_no "versionNo",v.title,v.category,v.provider,v.hours::text,c.status FROM hr_training_course c JOIN hr_training_course_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.course_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.is_deleted=false ORDER BY v.title,c.id`,[s.tenantId,s.parkId]);
+ }
+ async employeeOptions(s:TenantParkScope,a:JwtPrincipal,q:HrTrainingEmployeeOptionsDto){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE);
+  if(a.tenantId!==s.tenantId||a.parkId!==s.parkId)throw new ForbiddenException();
+  const keyword=q.keyword?.trim(),params:unknown[]=[s.tenantId,s.parkId];
+  let filter="tenant_id=$1 AND park_id=$2 AND is_deleted=false AND employment_status IN('preboarding','probation','active','suspended')";
+  if(keyword){params.push(`%${keyword.replace(/[\\%_]/g,"\\$&")}%`);filter+=" AND (full_name ILIKE $3 OR employee_code ILIKE $3)";}
+  const [items,count]=await Promise.all([
+   this.db.query(`SELECT id,employee_code "employeeCode",full_name "fullName" FROM hr_employee WHERE ${filter} ORDER BY employee_code,id LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,q.page_size,(q.page-1)*q.page_size]),
+   this.db.query(`SELECT count(*)::int total FROM hr_employee WHERE ${filter}`,params)
+  ]);
+  const projected=items.map((row:{id:string;employeeCode:string;fullName:string})=>({id:row.id,employeeCode:row.employeeCode,fullName:row.fullName}));
+  await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.training_employee_options",action:"读取培训参训员工候选",bizType:"hr_employee",path:"/hr/training/employee-options",fieldGroups:["identity"],projection:"metadata",itemCount:projected.length});
+  return {items:projected,total:count[0].total,page:q.page,page_size:q.page_size};
+ }
+ async courseOptions(s:TenantParkScope,a:JwtPrincipal){
+  await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE);
+  if(a.tenantId!==s.tenantId||a.parkId!==s.parkId)throw new ForbiddenException();
+  const courses=await this.db.query(`SELECT c.id,v.title,v.hours::text hours FROM hr_training_course c JOIN hr_training_course_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.course_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.status='enabled' AND c.is_deleted=false ORDER BY v.title,c.id`,[s.tenantId,s.parkId]);
+  return {courses};
  }
  async planOptions(s:TenantParkScope,a:JwtPrincipal){
   await this.assertManage(a,HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE);

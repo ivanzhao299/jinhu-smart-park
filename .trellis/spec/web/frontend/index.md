@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Training operation complete multi-employee selection: [Training Employee Selection](./hr-training-employee-selection.md).
+
 Probation participant and operational application continuity: [Probation Continuity](./hr-probation-participant-continuity.md).
 
 Lifecycle checklist complete employee selection: [Lifecycle Employee Selection](./hr-lifecycle-employee-selection.md).

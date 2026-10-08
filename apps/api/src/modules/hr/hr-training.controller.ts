@@ -8,11 +8,14 @@ import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.in
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CreateHrTrainingCourseDto,CreateHrTrainingCourseVersionDto,CreateHrTrainingPlanDto,CreateHrTrainingPositionRequirementDto,HrTrainingCorrectionDto,HrTrainingListDto,HrTrainingParticipantResultDto,HrTrainingPlanFactsDto } from "./dto/hr-training.dto";
+import { HrTrainingEmployeeOptionsDto } from "./dto/hr-training-employee-options.dto";
 import { HrTrainingService } from "./hr-training.service";
 @Controller("hr/training") @RequireModule("hr")
 export class HrTrainingController {
  constructor(private readonly service:HrTrainingService){}
  @Get("courses") @RequireAnyPermissions(HR_PERMISSIONS.HR_TRAINING_READ,HR_PERMISSIONS.HR_TRAINING_TEAM_READ,HR_PERMISSIONS.HR_TRAINING_SELF_READ) courses(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.listCourses(s,a);}
+ @Get("course-options") @RequirePermissions(HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE) courseOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.courseOptions(s,a);}
+ @Get("employee-options") @RequirePermissions(HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE) employeeOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrTrainingEmployeeOptionsDto){return this.service.employeeOptions(s,a,q);}
  @Get("plan-options") @RequirePermissions(HR_PERMISSIONS.HR_TRAINING_PLAN_MANAGE) planOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.planOptions(s,a);}
  @Get("requirement-options") @RequirePermissions(HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE) requirementOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.requirementOptions(s,a);}
  @Get("position-requirements") @RequirePermissions(HR_PERMISSIONS.HR_TRAINING_COURSE_MANAGE) positionRequirements(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.listPositionRequirements(s,a);}

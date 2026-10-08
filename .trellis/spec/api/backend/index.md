@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Training operation scoped employee candidates: [Training Employee Options](./hr-training-employee-options.md).
+
 Attendance operation scoped employee candidates: [Attendance Employee Options](./hr-attendance-employee-options.md).
 
 Formal experience, skill and credential maintenance: [Extended Record Maintenance](./hr-extended-record-maintenance.md).

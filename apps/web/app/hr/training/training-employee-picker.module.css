@@ -1,0 +1,9 @@
+.picker { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: 0; }
+.records { display: grid; gap: .5rem; min-width: 0; max-height: 22rem; overflow-y: auto; }
+.record { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.record span, .choice span { min-width: 0; overflow-wrap: anywhere; }
+.choice { display: flex; align-items: center; gap: .75rem; min-height: 44px; cursor: pointer; }
+.choice input { width: 20px; height: 20px; flex-shrink: 0; }
+.pages { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .75rem; }
+.picker .records .record button:global(.ds-button), .picker .pages button:global(.ds-button) { width: auto; min-height: 44px; flex: 0 0 auto; white-space: nowrap; }
+.picker .records .record span { flex: 1 1 auto; }
