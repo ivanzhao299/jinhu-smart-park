@@ -309,6 +309,8 @@ export const hrApi={
  createLifecycleChecklist:(body:object,token?:string)=>unwrap(apiRequest<HrLifecycleChecklist>("/hr/lifecycle/checklists",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-checklist")})),
  lifecycleChecklist:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrLifecycleChecklistDetail>(`/hr/lifecycle/checklists/${id}`,{token,signal})),
  trainingCourses:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTrainingCourse[]>("/hr/training/courses",{token,signal})),
+ trainingCourseOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{courses:Array<Pick<HrTrainingCourse,"id"|"title"|"hours">>}>("/hr/training/course-options",{token,signal})),
+ trainingEmployeeOptions:(page:number,keyword:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{items:Array<Pick<HrEmployee,"id"|"employeeCode"|"fullName">>;total:number;page:number;page_size:number}>(`/hr/training/employee-options?page=${page}&page_size=20&keyword=${encodeURIComponent(keyword)}`,{token,signal})),
  trainingPlanOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{courses:Array<Pick<HrTrainingCourse,"id"|"title"|"hours">>;employees:Array<Pick<HrEmployee,"id"|"employeeCode"|"fullName">>}>("/hr/training/plan-options",{token,signal})),
  trainingRequirementOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{courses:Array<Pick<HrTrainingCourse,"id"|"title">>;positions:Array<{id:string;positionCode:string;positionName:string}>}>("/hr/training/requirement-options",{token,signal})),
  trainingPositionRequirements:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTrainingPositionRequirement[]>("/hr/training/position-requirements",{token,signal})),
