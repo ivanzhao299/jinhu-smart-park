@@ -11,7 +11,7 @@ vi.mock("../../app/hr/lifecycle/ProbationApplicationsPanel",()=>({ProbationAppli
 vi.mock("../../app/hr/lifecycle/JobChangeApplicationsPanel",()=>({JobChangeApplicationsPanel:()=>null}));
 vi.mock("../../app/hr/lifecycle/DepartureApplicationsPanel",()=>({DepartureApplicationsPanel:()=>null}));
 vi.mock("../../app/hr/lifecycle/RehireApplicationsPanel",()=>({RehireApplicationsPanel:()=>null}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{employees:vi.fn(),lifecycleChecklists:vi.fn(),lifecycleChecklist:vi.fn(),lifecycleTemplates:vi.fn(),directoryOptions:vi.fn(),events:vi.fn(),createLifecycleChecklist:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{employees:vi.fn(),lifecycleChecklists:vi.fn(),lifecycleChecklist:vi.fn(),lifecycleTemplateOptions:vi.fn(),directoryOptions:vi.fn(),events:vi.fn(),createLifecycleChecklist:vi.fn()}}));
 
 const employee=(index:number,status="active")=>({id:`employee-${index}`,fullName:`Synthetic ${index}`,employeeCode:`SYN-${index}`,employmentStatus:status}) as HrEmployee;
 const candidates=(page=1,items=Array.from({length:20},(_,index)=>employee((page-1)*20+index+1)),total=121)=>({items,page,page_size:20,total});
@@ -25,7 +25,7 @@ beforeEach(()=>{
  state.user={id:"actor",park_id:"park-a",permissions:["hr:lifecycle:read","hr:lifecycle:assign","hr:employee:read"]};
  vi.mocked(hrApi.employees).mockImplementation(async(_token,page=1)=>candidates(page));
  vi.mocked(hrApi.lifecycleChecklists).mockResolvedValue({items:[checklist],page:1,page_size:20,total:1});
- vi.mocked(hrApi.lifecycleTemplates).mockResolvedValue([template]);
+ vi.mocked(hrApi.lifecycleTemplateOptions).mockResolvedValue([template]);
  vi.mocked(hrApi.lifecycleChecklist).mockResolvedValue(detail);
  vi.mocked(hrApi.directoryOptions).mockResolvedValue({users:[],orgs:[]});
  vi.mocked(hrApi.events).mockResolvedValue([]);
@@ -120,18 +120,18 @@ it("clears form, detail and pending events when employee navigation changes",asy
 
 it("checklist paging leaves independent pending templates, assignees and selected employee events running",async()=>{
  let finishTemplates!:(value:HrLifecycleTemplate[])=>void,finishUsers!:(value:{users:HrDirectoryUserOption[];orgs:[]})=>void,finishEvents!:(value:HrEmploymentEvent[])=>void;
- vi.mocked(hrApi.lifecycleTemplates).mockImplementationOnce(()=>new Promise(resolve=>{finishTemplates=resolve;}));
+ vi.mocked(hrApi.lifecycleTemplateOptions).mockImplementationOnce(()=>new Promise(resolve=>{finishTemplates=resolve;}));
  vi.mocked(hrApi.directoryOptions).mockImplementationOnce(()=>new Promise(resolve=>{finishUsers=resolve;}));
  vi.mocked(hrApi.events).mockImplementationOnce(()=>new Promise(resolve=>{finishEvents=resolve;}));
  vi.mocked(hrApi.lifecycleChecklists).mockImplementation(async(_token,page=1)=>({items:[checklist],page,page_size:20,total:21}));
  render(<HrLifecycleClient/>);await screen.findByRole("option",{name:"Synthetic 1 · SYN-1"});fireEvent.change(screen.getByLabelText("员工"),{target:{value:"employee-1"}});
- const templateSignal=vi.mocked(hrApi.lifecycleTemplates).mock.calls[0]![1]!,userSignal=vi.mocked(hrApi.directoryOptions).mock.calls[0]![1]!,eventSignal=vi.mocked(hrApi.events).mock.calls[0]![2]!;
+ const templateSignal=vi.mocked(hrApi.lifecycleTemplateOptions).mock.calls[0]![1]!,userSignal=vi.mocked(hrApi.directoryOptions).mock.calls[0]![1]!,eventSignal=vi.mocked(hrApi.events).mock.calls[0]![2]!;
  fireEvent.click(screen.getByRole("button",{name:"下一页"}));await screen.findByText("第 2 页");
  expect(templateSignal.aborted).toBe(false);expect(userSignal.aborted).toBe(false);expect(eventSignal.aborted).toBe(false);
  await act(async()=>{finishTemplates([template]);finishUsers({users:[{id:"assignee-1",username:"synthetic",displayName:"Synthetic assignee",status:"enabled"}],orgs:[]});finishEvents([departure]);});
  expect(await screen.findByRole("option",{name:/Synthetic template/})).toBeVisible();expect(await screen.findByRole("option",{name:"2090-01-01 · Synthetic departure"})).toBeVisible();expect(screen.getByLabelText("员工")).toHaveValue("employee-1");
  fireEvent.click(screen.getByRole("button",{name:"查看任务"}));expect(await screen.findByRole("option",{name:"Synthetic assignee"})).toBeVisible();
- expect(hrApi.lifecycleTemplates).toHaveBeenCalledTimes(1);expect(hrApi.directoryOptions).toHaveBeenCalledTimes(1);expect(hrApi.events).toHaveBeenCalledTimes(1);
+ expect(hrApi.lifecycleTemplateOptions).toHaveBeenCalledTimes(1);expect(hrApi.directoryOptions).toHaveBeenCalledTimes(1);expect(hrApi.events).toHaveBeenCalledTimes(1);
 });
 
 it("removes the cancelled detail loading state when paging away from a pending detail",async()=>{

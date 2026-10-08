@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API contracts and permissions"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "DS form and asynchronous page contracts"}
+{"file": ".trellis/spec/web/frontend/hr-lifecycle-employee-selection.md", "reason": "existing lifecycle action employee selection compatibility"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared pre-modification rules"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "template contract and snapshot flow"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse editing and API patterns"}
+{"file": ".trellis/tasks/10-08-hr-lifecycle-template-workflow/research/current-code-gaps.md", "reason": "current scoped facts"}

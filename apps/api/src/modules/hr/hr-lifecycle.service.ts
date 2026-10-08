@@ -167,19 +167,41 @@ export class HrLifecycleService {
       };
     });
   }
+  private assertTemplateScope(s:TenantParkScope,a:JwtPrincipal){
+    if(a.tenantId!==s.tenantId||a.parkId!==s.parkId)throw new ForbiddenException();
+  }
+  async templateOptions(s:TenantParkScope,a:JwtPrincipal){
+    if(!this.has(a,HR_PERMISSIONS.HR_LIFECYCLE_ASSIGN))throw new ForbiddenException();
+    this.assertTemplateScope(s,a);
+    return this.templateSummaries(s);
+  }
+  async templateDetail(s:TenantParkScope,a:JwtPrincipal,id:string){
+    if(!this.has(a,HR_PERMISSIONS.HR_LIFECYCLE_TEMPLATE_MANAGE))throw new ForbiddenException();
+    this.assertTemplateScope(s,a);
+    const rows=await this.db.query(`SELECT t.id,t.template_code "code",t.template_name "name",t.checklist_type "type",v.id "versionId",v.version_no "versionNo",
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('code',i.item_code,'name',i.item_name,'category',i.category,'defaultDueDays',i.default_due_days,'required',i.required) ORDER BY i.sequence_no,i.id)
+        FROM hr_lifecycle_checklist_template_item i WHERE i.tenant_id=t.tenant_id AND i.park_id=t.park_id AND i.template_version_id=v.id),'[]'::jsonb) items
+      FROM hr_lifecycle_checklist_template t JOIN LATERAL (SELECT id,version_no FROM hr_lifecycle_checklist_template_version WHERE tenant_id=t.tenant_id AND park_id=t.park_id AND template_id=t.id AND status='published' ORDER BY version_no DESC LIMIT 1) v ON true
+      WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.id=$3 AND t.is_deleted=false AND t.status='enabled'`,[s.tenantId,s.parkId,id]);
+    if(!rows[0])throw new NotFoundException("Template not found");
+    return {...rows[0],itemCount:rows[0].items.length};
+  }
   async listTemplates(s: TenantParkScope, a: JwtPrincipal) {
     if (
       !this.has(a, HR_PERMISSIONS.HR_LIFECYCLE_TEMPLATE_MANAGE) &&
       !this.has(a, HR_PERMISSIONS.HR_LIFECYCLE_READ)
     )
       throw new ForbiddenException();
+    return this.templateSummaries(s);
+  }
+  private templateSummaries(s:TenantParkScope){
     return this.db.query(
       `SELECT t.id,t.template_code "code",t.template_name "name",t.checklist_type "type",v.id "versionId",v.version_no "versionNo",COUNT(i.id)::int "itemCount"
        FROM hr_lifecycle_checklist_template t
        JOIN LATERAL (SELECT id,version_no FROM hr_lifecycle_checklist_template_version WHERE tenant_id=t.tenant_id AND park_id=t.park_id AND template_id=t.id AND status='published' ORDER BY version_no DESC LIMIT 1) v ON true
        LEFT JOIN hr_lifecycle_checklist_template_item i ON i.tenant_id=t.tenant_id AND i.park_id=t.park_id AND i.template_version_id=v.id
        WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.is_deleted=false AND t.status='enabled'
-       GROUP BY t.id,v.id,v.version_no ORDER BY t.checklist_type,t.template_name`,
+       GROUP BY t.id,v.id,v.version_no ORDER BY t.checklist_type,t.template_name,t.id`,
       [s.tenantId, s.parkId],
     );
   }

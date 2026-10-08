@@ -1,0 +1,7 @@
+.editor, .items { display: grid; gap: 1rem; min-width: 0; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: .75rem; min-width: 0; }
+.item { min-width: 0; margin: 0; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; min-width: 0; }
+.editor .item .actions button:global(.ds-button), .editor > .actions button:global(.ds-button) { width: auto; flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+.records { display: grid; gap: .75rem; }
+.record { min-width: 0; overflow-wrap: anywhere; }
