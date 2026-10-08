@@ -1004,3 +1004,5 @@ Prepared profile normal-user execution and same-operation preview recovery: [Pre
 - [hr-reward-employee-options](./hr-reward-employee-options.md) — Reward operation candidates and draft continuity.
 
 - [Performance template workflow](./hr-performance-template-workflow.md) — Enterprise configuration and immutable version continuation.
+
+- [360 configuration context](./hr-feedback-configuration-workflow.md) — Complete scoped model/questionnaire versions without employee authority.

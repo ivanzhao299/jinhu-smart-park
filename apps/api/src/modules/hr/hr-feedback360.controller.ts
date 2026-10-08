@@ -33,6 +33,14 @@ import { HrFeedback360Service } from "./hr-feedback360.service";
 @Controller("hr/feedback360-v2") @RequireModule("hr")
 export class HrFeedback360Controller {
   constructor(private readonly service: HrFeedback360Service) {}
+  @Get("configuration")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_FEEDBACK_READ,
+    HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,
+  )
+  configuration(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal) {
+    return this.service.configuration(s, a);
+  }
   @Get("options")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,

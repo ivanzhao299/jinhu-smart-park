@@ -199,6 +199,66 @@ export class HrFeedback360Service {
     });
     return rows;
   }
+  async configuration(s: TenantParkScope, a: JwtPrincipal) {
+    this.assertActorScope(s, a);
+    if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE) && !has(a, HR_PERMISSIONS.HR_FEEDBACK_READ)) {
+      throw new ForbiddenException("360 configuration permission required");
+    }
+    // Version and child collections must come from one database snapshot.
+    // Configuration authority never grants employee/response/result reads.
+    const result = await this.db.transaction("REPEATABLE READ", async (m) => {
+      const models = await m.query(`
+        SELECT r.id,r.model_code "modelCode",r.model_name "modelName",r.status "status",
+          r.current_version_no "currentVersionNo",v.id "versionId",v.version_no "versionNo",
+          v.version_name "versionName",v.status "versionStatus",
+          v.scale_min::text "scaleMin",v.scale_max::text "scaleMax",
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'code',d.dimension_code,'name',d.dimension_name,'description',d.description,
+            'weight',d.weight::text,'anchors',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+              'level',b.level_value::text,'text',b.anchor_text) ORDER BY b.sort_order,b.id)
+              FROM hr_competency_behavior_anchor b
+              WHERE (b.dimension_id,b.tenant_id,b.park_id)=(d.id,d.tenant_id,d.park_id)),'[]'::jsonb)
+          ) ORDER BY d.sort_order,d.id) FROM hr_competency_dimension d
+          WHERE (d.model_version_id,d.tenant_id,d.park_id)=(v.id,v.tenant_id,v.park_id)),'[]'::jsonb) "dimensions"
+        FROM hr_competency_model r JOIN hr_competency_model_version v
+          ON (v.model_id,v.tenant_id,v.park_id)=(r.id,r.tenant_id,r.park_id)
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
+        ORDER BY r.model_name,r.id,v.version_no DESC,v.id`, [s.tenantId, s.parkId]) as Row[];
+      const questionnaires = await m.query(`
+        SELECT r.id,r.questionnaire_code "questionnaireCode",r.questionnaire_name "questionnaireName",
+          r.status "status",r.current_version_no "currentVersionNo",v.id "versionId",
+          v.version_no "versionNo",v.version_name "versionName",v.status "versionStatus",
+          v.model_version_id "modelVersionId",mr.model_name "modelName",mv.version_name "modelVersionName",
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'code',q.question_code,'text',q.question_text,'type',q.question_type,
+            'required',q.required,'dimensionCode',d.dimension_code) ORDER BY q.sort_order,q.id)
+            FROM hr_feedback_question q JOIN hr_competency_dimension d
+              ON (d.id,d.tenant_id,d.park_id)=(q.dimension_id,q.tenant_id,q.park_id)
+              AND d.model_version_id=v.model_version_id
+            WHERE (q.questionnaire_version_id,q.tenant_id,q.park_id)=(v.id,v.tenant_id,v.park_id)
+          ),'[]'::jsonb) "questions"
+        FROM hr_feedback_questionnaire r JOIN hr_feedback_questionnaire_version v
+          ON (v.questionnaire_id,v.tenant_id,v.park_id)=(r.id,r.tenant_id,r.park_id)
+        JOIN hr_competency_model_version mv
+          ON (mv.id,mv.tenant_id,mv.park_id)=(v.model_version_id,v.tenant_id,v.park_id)
+        JOIN hr_competency_model mr
+          ON (mr.id,mr.tenant_id,mr.park_id)=(mv.model_id,mv.tenant_id,mv.park_id)
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
+        ORDER BY r.questionnaire_name,r.id,v.version_no DESC,v.id`, [s.tenantId, s.parkId]) as Row[];
+      return { models, questionnaires };
+    });
+    await recordHrSensitiveRead(this.audit, s, a, {
+      resource: "hr.feedback360_configuration",
+      action: "读取360模型与问卷配置",
+      bizType: "hr_competency_model",
+      bizId: null,
+      path: "/hr/feedback360-v2/configuration",
+      fieldGroups: ["feedback"],
+      projection: "park",
+      itemCount: result.models.length + result.questionnaires.length,
+    });
+    return result;
+  }
   async createModel(
     s: TenantParkScope,
     a: JwtPrincipal,

@@ -39,6 +39,21 @@ export interface HrFeedback360Task {id:string;cycleName:string;subjectName:strin
 export interface HrFeedback360Cycle {id:string;cycleCode:string;cycleName:string;nominationEnd:string;responseEnd:string;minimumAnonymousResponses:number;status:string;subjectCount:number;}
 export interface HrFeedback360Result {cycleName:string;subjectName:string;publishedAt:string;dimensions:Array<{dimensionCode:string;averageScore:string}>;}
 export interface HrFeedback360Options {employees:Array<{id:string;fullName:string;employeeCode:string;orgId:string|null}>;models:Array<{id:string;modelName:string;versionName:string}>;questionnaires:Array<{id:string;questionnaireName:string;versionName:string;modelVersionId:string}>;subjects:Array<{id:string;cycleName:string;subjectName:string;status:string}>;}
+export interface HrFeedback360ConfigurationVersion {
+ id:string;status:"draft"|"published"|"retired";currentVersionNo:number;
+ versionId:string;versionNo:number;versionName:string;versionStatus:"draft"|"published"|"retired";
+}
+export interface HrFeedback360ConfiguredModel extends HrFeedback360ConfigurationVersion {
+ modelCode:string;modelName:string;scaleMin:string;scaleMax:string;
+ dimensions:Array<{code:string;name:string;description:string|null;weight:string;anchors:Array<{level:string;text:string}>}>;
+}
+export interface HrFeedback360ConfiguredQuestionnaire extends HrFeedback360ConfigurationVersion {
+ questionnaireCode:string;questionnaireName:string;modelVersionId:string;modelName:string;modelVersionName:string;
+ questions:Array<{code:string;dimensionCode:string;text:string;type:"rating"|"text";required:boolean}>;
+}
+export interface HrFeedback360Configuration {
+ models:HrFeedback360ConfiguredModel[];questionnaires:HrFeedback360ConfiguredQuestionnaire[];
+}
 export interface HrFeedback360Nomination {id:string;subjectId:string;cycleName:string;subjectName:string;nomineeName:string;relationType:string;status:string;canDecide:boolean;}
 export interface HrTalentOptions {employees:Array<{id:string;employeeCode:string;fullName:string;orgId:string|null}>;positions:Array<{id:string;positionCode:string;positionName:string}>;}
 export interface HrTalentProfile {id:string;snapshotNo:number;asOfDate:string;employeeName:string;employeeCode:string;performanceSource:Record<string,unknown>;feedbackSource:Record<string,unknown>;createdAt:string;}
@@ -468,6 +483,7 @@ export const hrApi={
  ,myFeedbackAssignments:(token?:string)=>unwrap(apiRequest<HrFeedbackAssignment[]>("/hr/feedback/assignments/me",{token}))
  ,submitFeedback:(id:string,body:object,token?:string)=>unwrap(apiRequest<{id:string}>(`/hr/feedback/assignments/${id}/submit`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,feedback360Options:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrFeedback360Options>("/hr/feedback360-v2/options",{token,signal}))
+ ,feedback360Configuration:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrFeedback360Configuration>("/hr/feedback360-v2/configuration",{token,signal}))
  ,feedback360Models:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<Array<{id:string;modelCode:string;modelName:string;status:string;versionId:string;versionName:string;versionStatus:string;dimensions:unknown[]}>>("/hr/feedback360-v2/models",{token,signal}))
  ,createFeedback360Model:(body:object,token?:string)=>unwrap(apiRequest<{id:string;versionId:string;status:string}>("/hr/feedback360-v2/models",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-feedback360-model")}))
  ,publishFeedback360Model:(id:string,token?:string)=>unwrap(apiRequest(`/hr/feedback360-v2/models/${id}/publish`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-feedback360-model-publish")}))

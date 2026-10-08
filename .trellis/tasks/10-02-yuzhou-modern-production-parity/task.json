@@ -33,7 +33,8 @@
     "10-08-hr-prepared-profile-import-command",
     "10-08-hr-lifecycle-template-workflow",
     "10-08-hr-reward-employee-continuity",
-    "10-08-hr-performance-template-workflow"
+    "10-08-hr-performance-template-workflow",
+    "10-08-hr-feedback-configuration-workflow"
   ],
   "parent": null,
   "relatedFiles": [
