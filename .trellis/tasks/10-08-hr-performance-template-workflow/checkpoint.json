@@ -1,0 +1,28 @@
+{
+  "objective": "Modern performance template editable configuration and published version continuity",
+  "workspace": "/private/tmp/jinhu-hr-performance-template-workflow-20261008",
+  "revision": "a912c94a75f4f2b44e61715e2e2d937e617b0b83",
+  "changedFiles": [
+    "dto/hr-performance-review.dto.ts",
+    "hr-performance-review.controller.ts",
+    "hr-performance-review.service.ts",
+    "hr-performance-template-version.spec.ts",
+    "task artifacts"
+  ],
+  "evidence": "API detail/append draft version implemented; scope/identity/stale checks, parent lock then current version lookup and old draft publication conflict;20/20 new+existing API tests, typecheck, lint and diff check PASS",
+  "activeRunHandle": null,
+  "blocker": null,
+  "nextAction": "Commit/PR latest a912 main and serial CI/deploy/cleanup/runtime proof; real-role business and full parity acceptance remain",
+  "phase": "LOCAL_VERIFIED_RELEASE_PENDING",
+  "validation": {
+    "apiTests": "20/20 PASS",
+    "webTests": "13/13 PASS default timeout",
+    "postgres": "1/1 PASS actual000258 guards and scoped cleanup",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "apiLint": "PASS",
+    "webLint": "PASS",
+    "diffCheck": "PASS",
+    "browser": "actual synthetic desktop1275/1275 mobile385/385; save failure then V2 retry preserved; parent unlocked"
+  }
+}
