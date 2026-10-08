@@ -1,0 +1,16 @@
+{
+  "id": "hr-departure-employee-continuity",
+  "name": "hr-departure-employee-continuity",
+  "title": "离职办理员工搜索分页与业务延续",
+  "status": "in_progress",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "worktree_path": "/private/tmp/jinhu-hr-payroll-ledger-continuity-20261008",
+  "base_branch": "main",
+  "branch": "codex/hr-departure-employee-continuity-20261008",
+  "notes": "用户明确减少导入投入，推进现代化与功能复现。"
+}

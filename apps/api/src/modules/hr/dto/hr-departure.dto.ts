@@ -2,6 +2,7 @@ import { Transform } from "class-transformer";
 import { ArrayMaxSize,IsArray,IsDateString,IsIn,IsInt,IsNotEmpty,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min } from "class-validator";
 
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
+const candidatePageNumber=({value}:{value:unknown})=>typeof value==="number"?value:typeof value==="string"&&/^\d+$/.test(value)?Number(value):Number.NaN;
 
 export class HrDepartureListDto {
  @IsOptional() @IsUUID() employee_id?:string;
@@ -9,6 +10,15 @@ export class HrDepartureListDto {
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
  @IsOptional() @IsIn(["draft","submitted","returned","approved","cancelled","applied"]) status?:string;
+}
+
+export class HrDepartureEmployeeOptionsDto {
+ @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(2147483647) page=1;
+ @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsIn(["application","handover"]) purpose:"application"|"handover"="application";
+ @IsOptional() @IsUUID() selected_id?:string;
+ @IsOptional() @IsUUID() exclude_employee_id?:string;
 }
 
 export class SaveHrDepartureDto {

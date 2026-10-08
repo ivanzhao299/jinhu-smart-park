@@ -7,7 +7,7 @@ import {RequireAnyPermissions,RequirePermissions} from "../../shared/decorators/
 import {IdempotencyInterceptor} from "../../shared/interceptors/idempotency.interceptor";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 import {AuditLog} from "../audit/decorators/audit-log.decorator";
-import {HrDepartureActionDto,HrDepartureArchiveDto,HrDepartureHandoverDto,HrDepartureInterviewDto,HrDepartureListDto,HrDepartureReviewDto,HrDepartureSurveyDto,HrDepartureWageDto,SaveHrDepartureDto} from "./dto/hr-departure.dto";
+import {HrDepartureActionDto,HrDepartureArchiveDto,HrDepartureEmployeeOptionsDto,HrDepartureHandoverDto,HrDepartureInterviewDto,HrDepartureListDto,HrDepartureReviewDto,HrDepartureSurveyDto,HrDepartureWageDto,SaveHrDepartureDto} from "./dto/hr-departure.dto";
 import {HrDepartureService} from "./hr-departure.service";
 
 @Controller("hr/departure-applications") @RequireModule("hr")
@@ -15,6 +15,7 @@ export class HrDepartureController {
  constructor(private readonly service:HrDepartureService){}
  @Get() @RequireAnyPermissions(HR_PERMISSIONS.HR_DEPARTURE_READ,HR_PERMISSIONS.HR_DEPARTURE_TEAM_READ,HR_PERMISSIONS.HR_DEPARTURE_SELF_READ) list(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrDepartureListDto){return this.service.list(s,a,q);}
  @Get("options") @RequirePermissions(HR_PERMISSIONS.HR_DEPARTURE_MANAGE) options(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.options(s,a);}
+ @Get("employee-options") @RequireAnyPermissions(HR_PERMISSIONS.HR_DEPARTURE_MANAGE,HR_PERMISSIONS.HR_DEPARTURE_HANDOVER) employeeOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrDepartureEmployeeOptionsDto){return this.service.employeeOptions(s,a,q);}
  @Post() @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_DEPARTURE_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.departure_application",action:"创建离职申请",bizType:"hr_departure_application",captureBody:false}) create(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Body()d:SaveHrDepartureDto){return this.service.create(s,a,d);}
  @Put(":id") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_DEPARTURE_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.departure_application",action:"修改离职申请",bizType:"hr_departure_application",bizIdParam:"id",captureBody:false}) update(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:SaveHrDepartureDto){return this.service.update(s,a,id,d);}
  @Post(":id/actions") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_DEPARTURE_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.departure_application",action:"提交或取消离职申请",bizType:"hr_departure_application",bizIdParam:"id",captureBody:false}) act(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:HrDepartureActionDto){return this.service.act(s,a,id,d);}
