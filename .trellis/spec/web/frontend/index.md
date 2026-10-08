@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Contract operation lazy employee search and paging: [Contract Employee Selection](./hr-contract-employee-selection.md).
+
 Attendance operation complete scoped employee selection: [Attendance Employee Selection](./hr-attendance-employee-selection.md).
 
 These rules describe the current Next.js management frontend in `apps/web`.
