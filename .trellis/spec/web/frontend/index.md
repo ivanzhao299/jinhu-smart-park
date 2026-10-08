@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Lifecycle checklist complete employee selection: [Lifecycle Employee Selection](./hr-lifecycle-employee-selection.md).
+
 Contract operation lazy employee search and paging: [Contract Employee Selection](./hr-contract-employee-selection.md).
 
 Attendance operation complete scoped employee selection: [Attendance Employee Selection](./hr-attendance-employee-selection.md).

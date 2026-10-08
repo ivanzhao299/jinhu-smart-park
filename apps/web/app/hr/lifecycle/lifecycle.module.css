@@ -1,0 +1,4 @@
+.checklistRecords:global(.ds-mobile-record-list) {
+  display: grid;
+  gap: 12px;
+}
