@@ -10,17 +10,18 @@ import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "./hr-employee-selection.module.css";
 
 export type HrEmployeeOption=Pick<HrEmployee,"id"|"fullName"|"employeeCode">;
-interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation";}
+interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward";}
 const pageSize=20;
-const contractEligible=(employee:HrEmployee)=>["preboarding","probation","active"].includes(employee.employmentStatus);
+type EmployeeCandidate=HrEmployeeOption & Partial<Pick<HrEmployee,"employmentStatus">>;
+const contractEligible=(employee:EmployeeCandidate)=>["preboarding","probation","active"].includes(employee.employmentStatus??"");
 
 /** Uses the existing scoped directory; opening a contract never scans all employee pages. */
 export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disabled,purpose}:Props){
- const user=useAuthUser(),allowed=hasAnyPermission(user,[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
- const eligible=(employee:HrEmployee)=>purpose==="lifecycle"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
- const domain=purpose==="contract"?"合同":purpose==="probation"?"转正":"清单";
+ const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
+ const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
+ const domain=purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
  const [draft,setDraft]=useState(""),[keyword,setKeyword]=useState("");
- const [rows,setRows]=useState<HrEmployee[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0);
+ const [rows,setRows]=useState<EmployeeCandidate[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0);
  const [retained,setRetained]=useState<HrEmployeeOption|undefined>(currentEmployee);
  const [loading,setLoading]=useState(false),[error,setError]=useState("");
  const pending=useRef<AbortController|null>(null);
@@ -30,7 +31,8 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
   const current=()=>pending.current===controller&&!controller.signal.aborted;
   setLoading(true);setRows([]);setError("");
   try{
-   const result=await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
+   const result=purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
+   if(!Array.isArray(result.items)||result.items.some(row=>!row||typeof row.id!=="string"||!row.id.trim()||typeof row.employeeCode!=="string"||typeof row.fullName!=="string"))throw new Error("员工候选响应无效，请重试。");
    if(!current())return;
    if(result.page!==requestedPage||result.page_size!==pageSize||!Number.isSafeInteger(result.total)||result.total<0||result.items.length>pageSize||new Set(result.items.map(row=>row.id)).size!==result.items.length)throw new Error("员工候选分页响应无效，请重试。");
    if(requestedPage>Math.max(1,Math.ceil(result.total/pageSize))){await loadPage(1,query);return;}

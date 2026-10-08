@@ -31,10 +31,28 @@ import {
   VersionHrRewardCategoryDto,
 } from "./dto/hr-rewards.dto";
 import { HrRewardsService } from "./hr-rewards.service";
+import { HrRewardEmployeeOptionsDto } from "./dto/hr-reward-employee-options.dto";
 @Controller("hr/rewards")
 @RequireModule("hr")
 export class HrRewardsController {
   constructor(private readonly service: HrRewardsService) {}
+  @Get("employee-options")
+  @RequirePermissions(HR_PERMISSIONS.HR_REWARD_MANAGE)
+  employeeOptions(
+    @CurrentScope() s: TenantParkScope,
+    @CurrentUser() a: JwtPrincipal,
+    @Query() q: HrRewardEmployeeOptionsDto,
+  ) {
+    return this.service.employeeOptions(s, a, q);
+  }
+  @Get("case-options")
+  @RequirePermissions(HR_PERMISSIONS.HR_REWARD_MANAGE)
+  caseOptions(
+    @CurrentScope() s: TenantParkScope,
+    @CurrentUser() a: JwtPrincipal,
+  ) {
+    return this.service.caseOptions(s, a);
+  }
   @Get("categories")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_REWARD_READ,

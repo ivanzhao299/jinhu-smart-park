@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API pre-development and quality"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web pre-development and quality"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "existing reward authority and business state"}
+{"file": ".trellis/spec/api/backend/hr-training-employee-options.md", "reason": "exact scoped operation candidates"}
+{"file": ".trellis/spec/web/frontend/hr-training-employee-selection.md", "reason": "paged drafts context and failure continuity"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "contracts across service API forms"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse current patterns without new abstractions"}
+{"file": ".trellis/tasks/10-08-hr-reward-employee-continuity/research/current-code-gaps.md", "reason": "confirmed bounded code gaps"}

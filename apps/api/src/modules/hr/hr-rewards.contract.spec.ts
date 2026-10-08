@@ -118,7 +118,8 @@ test("web reward workbench has readable selectors paging cancellation and mobile
   assert.match(page, /listAbort\.current\?\.abort/);
   assert.match(page, /detailAbort\.current\?\.abort/);
   assert.match(page, /generation\.current/);
-  assert.match(page, /employees\.map/);
+  assert.match(page, /<HrEmployeeSelection/);
+  assert.match(page, /purpose="reward"/);
   assert.match(page, /categories\.map/);
   assert.match(page, /step="0\.0001"/);
   assert.doesNotMatch(page, /tenantId|parkId|输入 UUID/);

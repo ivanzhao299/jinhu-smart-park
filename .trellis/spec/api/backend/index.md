@@ -1000,3 +1000,5 @@ Reference files:
 - `scripts/e2e/first-release-regression.mjs`
 
 Prepared profile normal-user execution and same-operation preview recovery: [Prepared Profile Import Command](./hr-prepared-profile-import-command.md).
+
+- [hr-reward-employee-options](./hr-reward-employee-options.md) — Reward operation candidates and draft continuity.

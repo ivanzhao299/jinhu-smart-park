@@ -530,3 +530,5 @@ For frontend changes, choose the smallest reliable checks:
 Reference files:
 - `AGENTS.md`
 - `docs/testing/how-to-run-tests.md`
+
+- [hr-reward-employee-selection](./hr-reward-employee-selection.md) — Reward operation candidates and draft continuity.
