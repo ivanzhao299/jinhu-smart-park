@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/hr-contract-employee-selection.md", "reason": "preserve original shared picker contract"}
+{"file": ".trellis/spec/web/frontend/hr-lifecycle-employee-selection.md", "reason": "context cleanup and separate request lifetimes"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse employee paging"}

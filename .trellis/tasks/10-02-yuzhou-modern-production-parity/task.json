@@ -28,7 +28,8 @@
     "10-08-hr-contract-import-salary",
     "10-08-hr-contract-field-baseline",
     "10-08-hr-contract-employee-search",
-    "10-08-hr-lifecycle-employee-search"
+    "10-08-hr-lifecycle-employee-search",
+    "10-08-hr-probation-participant-continuity"
   ],
   "parent": null,
   "relatedFiles": [

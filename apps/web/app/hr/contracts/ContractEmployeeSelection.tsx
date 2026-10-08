@@ -7,5 +7,5 @@ type EmployeeOption=Pick<HrEmployee,"id"|"fullName"|"employeeCode">;
 interface Props {selectedId:string;currentEmployee?:EmployeeOption;onChange:(id:string)=>void;disabled:boolean;}
 
 export function ContractEmployeeSelection(props:Props){
- return <HrEmployeeSelection {...props} purpose="contract"/>;
+ return <HrEmployeeSelection {...props} onChange={id=>props.onChange(id)} purpose="contract"/>;
 }
