@@ -44,3 +44,7 @@ Tests ran through `TEST_NODE_MODULES_DIR=/tmp/hr-profile-test-runtime-20261007/n
 ## Boundaries
 
 No remaining scoped source defect identified. Parent reported actual native browser Save succeeded with an empty candidate selector and complete employee-1/employee-101 payload before the visual refinement. Parent owns final desktop/390px recheck after rebuilding these final visual bytes, and has synchronized the specs. Reviewer inspected the pre-refinement desktop screenshot to confirm the button/grid issues. Synthetic/local gates do not establish production role acceptance. No API/auth/database/source-recipe changes, production data writes, commits or pushes. All reviewer processes completed. Overall S0-S7/independent HR goal remains incomplete.
+
+## CI contract synchronization
+
+CI 37713239482 passed HR PostgreSQL, lint and typecheck, but the sole Web HR contract failure still required the removed UTC `today()` call. Updated only `hr-job-change.contract.spec.ts` to require `row.effectiveDate>businessDate()`; its focused Node test passed 1/1. Existing actual Shanghai boundary interactions remain intact. Production source and browser-tested bytes unchanged, so the 68 actual interaction results remain valid. Retain failed CI evidence and rerun full required CI on the new candidate.
