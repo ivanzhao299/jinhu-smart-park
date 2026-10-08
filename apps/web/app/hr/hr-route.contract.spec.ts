@@ -180,10 +180,14 @@ test("HR pages normalize neutral buttons without changing other modules",()=>{
 
 test("HR T6 performance freezes templates, scoped options and cycles before evaluation",()=>{
   const performance=readFileSync(resolve(__dirname,"performance/HrPerformanceClient.tsx"),"utf8");
+  const templates=readFileSync(resolve(__dirname,"performance/PerformanceTemplates.tsx"),"utf8");
+  const editor=readFileSync(resolve(__dirname,"performance/PerformanceTemplateEditor.tsx"),"utf8");
   assert.match(performance,/performanceOptionsV2/);
-  assert.match(performance,/mode==="template"\?<form/);
+  assert.match(performance,/<PerformanceTemplates/);
+  assert.match(templates,/<PerformanceTemplateEditor/);
+  assert.match(editor,/<form[\s\S]*onSubmit=/);
   assert.match(performance,/mode==="cycle"\?<form/);
-  assert.match(performance,/发布模板/);
+  assert.match(templates,/发布模板/);
   assert.match(performance,/发布周期/);
   assert.doesNotMatch(performance,/hrApi\.employees|finalScore|name="score"/);
 });
