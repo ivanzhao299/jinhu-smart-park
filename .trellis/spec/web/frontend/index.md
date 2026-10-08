@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Probation participant and operational application continuity: [Probation Continuity](./hr-probation-participant-continuity.md).
+
 Lifecycle checklist complete employee selection: [Lifecycle Employee Selection](./hr-lifecycle-employee-selection.md).
 
 Contract operation lazy employee search and paging: [Contract Employee Selection](./hr-contract-employee-selection.md).

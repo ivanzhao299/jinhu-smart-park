@@ -2,3 +2,35 @@
   display: grid;
   gap: 12px;
 }
+
+.participantList {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.participantAdd {
+  grid-column: 1 / -1;
+  align-self: start;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.participantRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.participantRow > * { min-width: 0; }
+.participantRow button { min-height: 44px; }
+
+@media (max-width: 640px) {
+  .participantRow { grid-template-columns: minmax(0, 1fr); }
+  .participantAdd { width: 100%; justify-self: stretch; }
+}

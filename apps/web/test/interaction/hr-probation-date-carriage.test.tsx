@@ -18,7 +18,7 @@ const application: HrProbationApplication = {
 
 beforeEach(() => {
   auth.canRead = true;
-  vi.mocked(hrApi.probationApplications).mockReset().mockResolvedValue({ items: [application], total: 1, page: 1, page_size: 50 });
+  vi.mocked(hrApi.probationApplications).mockReset().mockResolvedValue({ items: [application], total: 1, page: 1, page_size: 20 });
   vi.mocked(hrApi.employees).mockReset();
   vi.mocked(hrApi.confirmProbationApplication).mockReset();
 });
@@ -37,7 +37,7 @@ describe("probation dates use the authorized workflow facts", () => {
   it("retains each participant's plan, confirmation date and the separate processing timestamp", async () => {
     vi.mocked(hrApi.probationApplications).mockResolvedValue({ items: [{ ...application, status: "confirmed", confirmedAt: "2026-10-03T01:00:00.000Z",
       participants: [{ ...application.participants[0]!, confirmedDate: "2026-10-01", status: "confirmed" },
-        { ...application.participants[0]!, id: "other-participant", employeeId: "other-employee", employeeName: "Other employee", plannedConfirmationDate: "2026-10-02", confirmedDate: "2026-10-02", status: "confirmed" }] }], total: 1, page: 1, page_size: 50 });
+        { ...application.participants[0]!, id: "other-participant", employeeId: "other-employee", employeeName: "Other employee", plannedConfirmationDate: "2026-10-02", confirmedDate: "2026-10-02", status: "confirmed" }] }], total: 1, page: 1, page_size: 20 });
     render(<ProbationApplicationsPanel />);
     const first = await screen.findByRole("region", { name: "Synthetic employee · 转正日期" });
     expect(within(first).getByText("已确认转正日期").nextElementSibling).toHaveTextContent("2026-10-01");
@@ -46,7 +46,7 @@ describe("probation dates use the authorized workflow facts", () => {
     expect(screen.getByText("确认办理时间：2026-10-03T01:00:00.000Z")).toBeVisible();
   });
   it("keeps unknown participant state explicit without inferring confirmation from a plan", async () => {
-    vi.mocked(hrApi.probationApplications).mockResolvedValue({ items: [{ ...application, participants: [{ ...application.participants[0]!, status: "unknown" }] }], total: 1, page: 1, page_size: 50 });
+    vi.mocked(hrApi.probationApplications).mockResolvedValue({ items: [{ ...application, participants: [{ ...application.participants[0]!, status: "unknown" }] }], total: 1, page: 1, page_size: 20 });
     render(<ProbationApplicationsPanel />);
     expect(await screen.findByText("状态待核对")).toBeVisible();
     expect(screen.getByText("已确认转正日期").nextElementSibling).toHaveTextContent("未登记");

@@ -1,0 +1,1 @@
+共享HrEmployeeSelection增添probation用途与既有status过滤，以及向调用者传递已授权option元数据的可选第二回调参数，既有合同/清单语义保持。转正独立受控participant数组与日期，不读取当页checkbox作为全量名单。原申请种子来源list participants。两个申请组件完整auth key包裹，列表独立页码/total与AbortController；候选失败不影响列表。复用businessDate和route-owned layout grid。重试和保存保持原API状态链。
