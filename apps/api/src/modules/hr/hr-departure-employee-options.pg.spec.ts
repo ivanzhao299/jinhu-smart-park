@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+import {randomUUID} from "node:crypto";
+import {before,after,test} from "node:test";
+import {DataSource} from "typeorm";
+import {HR_PERMISSIONS} from "@jinhu/shared";
+import {HrDepartureService} from "./hr-departure.service";
+import {HrDepartureEmployeeOptionsDto} from "./dto/hr-departure.dto";
+const enabled=process.env.HR_DEPARTURE_OPTIONS_PG_TEST==="1",scope={tenantId:"tenant",parkId:"park"};
+const leader=randomUUID(),org=randomUUID(),child=randomUUID(),foreignOrg=randomUUID(),target=randomUUID();
+const schema=`departure_options_${randomUUID().replaceAll("-","")}`;
+let db:DataSource,service:HrDepartureService;
+const actor=(permissions:string[])=>({sub:leader,username:"test",...scope,roles:[],permissions});
+const query=(values:Partial<HrDepartureEmployeeOptionsDto>={})=>Object.assign(new HrDepartureEmployeeOptionsDto(),values);
+before(async()=>{
+ if(!enabled)return;
+ if(process.env.POSTGRES_HOST!=="127.0.0.1"||process.env.POSTGRES_PORT!=="15481"||process.env.POSTGRES_DB!=="hr_departure_options_gate")throw new Error("Requires exclusively owned departure options fixture database");
+ db=new DataSource({type:"postgres",host:"127.0.0.1",port:15481,username:"jinhu",database:"hr_departure_options_gate",extra:{options:`-c search_path=${schema}`}});await db.initialize();
+ await db.query(`CREATE SCHEMA "${schema}"`);
+ await db.query(`CREATE TABLE sys_org(id uuid PRIMARY KEY,tenant_id text,park_id text,parent_id uuid,leader_user_id uuid,is_deleted boolean DEFAULT false,status text DEFAULT 'enabled',org_name text); CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id text,park_id text,employee_code text,full_name text,primary_org_id uuid,is_deleted boolean DEFAULT false,employment_status text DEFAULT 'active')`);
+ await db.query(`INSERT INTO sys_org(id,tenant_id,park_id,parent_id,leader_user_id,org_name) VALUES($1,'tenant','park',NULL,$2,'team'),($3,'tenant','park',$1,NULL,'child'),($4,'tenant','park',NULL,NULL,'foreign team')`,[org,leader,child,foreignOrg]);
+ await db.query(`INSERT INTO hr_employee SELECT gen_random_uuid(),'tenant','park','E-'||lpad(n::text,4,'0'),'Employee '||lpad(n::text,4,'0'),$1::uuid,false,'active' FROM generate_series(1,520)n`,[child]);
+ await db.query(`INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,primary_org_id) VALUES($1,'tenant','park','LITERAL','Literal %_\\',$2),($3,'tenant','park','FOREIGN','Forbidden team',$4),(gen_random_uuid(),'other','park','OTHER','Other tenant',$2),(gen_random_uuid(),'tenant','other','PARK','Other park',$2)`,[target,child,randomUUID(),foreignOrg]);
+ await db.query(`INSERT INTO hr_employee VALUES(gen_random_uuid(),'tenant','park','DELETED','Deleted',$1,true,'active'),(gen_random_uuid(),'tenant','park','DEPARTED','Departed',$1,false,'departed')`,[child]);
+ service=new HrDepartureService(db,{recordOperationRequired:async()=>undefined} as never);
+});
+after(async()=>{if(!db?.isInitialized)return;try{await db.query(`DROP SCHEMA "${schema}" CASCADE`);const remaining=await db.query("SELECT 1 FROM pg_namespace WHERE nspname=$1",[schema]);assert.equal(remaining.length,0);}finally{await db.destroy();}});
+test("actual PG pages beyond 500 and selected lookup remain team-scoped with literal search",{skip:!enabled},async()=>{
+ const team=actor([HR_PERMISSIONS.HR_DEPARTURE_TEAM_READ,HR_PERMISSIONS.HR_DEPARTURE_MANAGE]);
+ const first=await service.employeeOptions(scope,team,query());assert.equal(first.total,521);assert.equal(first.items.length,20);
+ const last=await service.employeeOptions(scope,team,query({page:26}));assert.equal(last.items.length,20);assert.equal(last.items[0].employeeCode,"E-0501");
+ const found=await service.employeeOptions(scope,team,query({keyword:"E-0501"}));assert.equal(found.items.length,1);assert.equal(found.items[0].id,last.items[0].id);
+ const literal=await service.employeeOptions(scope,team,query({keyword:"%_\\"}));assert.equal(literal.items.length,1);assert.equal(literal.items[0].id,target);
+ const selected=await service.employeeOptions(scope,team,query({selected_id:target,keyword:"absent"}));assert.equal(selected.items.length,0);assert.equal(selected.selected.id,target);
+ const foreign=(await db.query(`SELECT id FROM hr_employee WHERE employee_code='FOREIGN'`))[0].id;
+ assert.equal((await service.employeeOptions(scope,team,query({selected_id:foreign}))).selected,null);
+ const park=await service.employeeOptions(scope,actor([HR_PERMISSIONS.HR_DEPARTURE_READ,HR_PERMISSIONS.HR_DEPARTURE_MANAGE]),query());assert.equal(park.total,522);
+ const handover=await service.employeeOptions(scope,actor([HR_PERMISSIONS.HR_DEPARTURE_TEAM_READ,HR_PERMISSIONS.HR_DEPARTURE_HANDOVER]),query({purpose:"handover",exclude_employee_id:target,keyword:"%_\\"}));assert.equal(handover.total,0);
+});

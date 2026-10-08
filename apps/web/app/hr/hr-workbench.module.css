@@ -952,3 +952,11 @@
 
 .rehireForm .actionRow :global(.ds-button) { width: auto; min-height: 44px; }
 .rehirePagination :global(.ds-button) { min-height: 44px; white-space: nowrap; flex: 0 0 auto; }
+
+/* Departure actions remain reachable on desktop and phone. */
+.departureRecords { display: grid; gap: 12px; min-width: 0; }
+.departureRecords > article { min-width: 0; overflow-wrap: anywhere; }
+
+.departurePickerPages { align-items: center; }
+.departurePickerPages :global(.ds-button) { width: auto; flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+.departurePickerPages > span { flex: 1 1 110px; text-align: center; }

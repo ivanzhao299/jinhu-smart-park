@@ -3,7 +3,7 @@ import {HR_PERMISSIONS,type TenantParkScope} from "@jinhu/shared";
 import {DataSource,EntityManager} from "typeorm";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 import {AuditService} from "../audit/audit.service";
-import {HrDepartureActionDto,HrDepartureArchiveDto,HrDepartureHandoverDto,HrDepartureInterviewDto,HrDepartureListDto,HrDepartureReviewDto,HrDepartureSurveyDto,HrDepartureWageDto,SaveHrDepartureDto} from "./dto/hr-departure.dto";
+import {HrDepartureActionDto,HrDepartureArchiveDto,HrDepartureEmployeeOptionsDto,HrDepartureHandoverDto,HrDepartureInterviewDto,HrDepartureListDto,HrDepartureReviewDto,HrDepartureSurveyDto,HrDepartureWageDto,SaveHrDepartureDto} from "./dto/hr-departure.dto";
 import {firstHrMutationRow} from "./hr-query-result";
 import {recordHrSensitiveRead} from "./hr-sensitive-read-audit";
 
@@ -39,6 +39,25 @@ export class HrDepartureService {
  }
 
  async options(s:TenantParkScope,a:JwtPrincipal){this.require(a,HR_PERMISSIONS.HR_DEPARTURE_MANAGE);const park=this.has(a,HR_PERMISSIONS.HR_DEPARTURE_READ),args:unknown[]=[s.tenantId,s.parkId],filter=park?"":(args.push(a.sub),` AND e.primary_org_id IN(${this.managedOrgSql("$3")})`);const employees=await this.db.query(`SELECT e.id,e.employee_code "employeeCode",e.full_name "employeeName",e.primary_org_id "orgId",o.org_name "orgName",e.employment_status "employmentStatus" FROM hr_employee e LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id WHERE e.tenant_id=$1 AND e.park_id=$2 AND e.is_deleted=false AND e.employment_status IN('probation','active','suspended')${filter} ORDER BY e.full_name,e.id LIMIT 500`,args);return {employees};}
+
+ async employeeOptions(s:TenantParkScope,a:JwtPrincipal,q:HrDepartureEmployeeOptionsDto){
+  this.require(a,q.purpose==="handover"?HR_PERMISSIONS.HR_DEPARTURE_HANDOVER:HR_PERMISSIONS.HR_DEPARTURE_MANAGE);
+  if(a.tenantId!==s.tenantId||a.parkId!==s.parkId)throw new ForbiddenException("Departure scope mismatch");
+  const park=this.has(a,HR_PERMISSIONS.HR_DEPARTURE_READ);
+  if(!park&&!this.has(a,HR_PERMISSIONS.HR_DEPARTURE_TEAM_READ))throw new ForbiddenException("Departure employee is outside the permitted scope");
+  const args:unknown[]=[s.tenantId,s.parkId],where=["e.tenant_id=$1","e.park_id=$2","e.is_deleted=false","e.employment_status IN('probation','active','suspended')"];
+  if(!park){args.push(a.sub);where.push(`e.primary_org_id IN(${this.managedOrgSql(`$${args.length}`)})`);}
+  if(q.exclude_employee_id){args.push(q.exclude_employee_id);where.push(`e.id<>$${args.length}`);}
+  const from=`FROM hr_employee e LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id WHERE ${where.join(" AND ")}`;
+  const projection='e.id,e.employee_code "employeeCode",e.full_name "employeeName",e.primary_org_id "orgId",o.org_name "orgName",e.employment_status "employmentStatus"';
+  const selected=q.selected_id?(await this.db.query(`SELECT ${projection} ${from} AND e.id=$${args.length+1}`,[...args,q.selected_id]))[0]??null:null;
+  if(q.keyword){args.push(`%${q.keyword.replace(/[\\%_]/g,"\\$&")}%`);where.push(`(e.full_name ILIKE $${args.length} OR e.employee_code ILIKE $${args.length})`);}
+  const searched=`FROM hr_employee e LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id WHERE ${where.join(" AND ")}`;
+  const count=await this.db.query(`SELECT count(*)::int total ${searched}`,args) as Array<{total:number}>;
+  const items=await this.db.query(`SELECT ${projection} ${searched} ORDER BY e.full_name,e.id LIMIT $${args.length+1} OFFSET $${args.length+2}`,[...args,q.page_size,(q.page-1)*q.page_size]);
+  await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.departure_employee_options",action:"读取离职员工候选",bizType:"hr_departure_application",bizId:null,path:"/hr/departure-applications/employee-options",fieldGroups:[],projection:park?"park":"team",itemCount:items.length+(selected?1:0)});
+  return {items,total:Number(count[0]?.total??0),page:q.page,page_size:q.page_size,selected};
+ }
 
  async create(s:TenantParkScope,a:JwtPrincipal,d:SaveHrDepartureDto){this.require(a,HR_PERMISSIONS.HR_DEPARTURE_MANAGE);this.validate(d);try{return await this.db.transaction(async m=>{const employee=await this.employeeFacts(m,s,a,d.employeeId);const no=await this.nextNo(m,s,d.plannedDepartureDate);const rows=await m.query(`INSERT INTO hr_departure_application(tenant_id,park_id,application_no,application_name,applicant_user_id,subject_employee_id,application_date,planned_departure_date,departure_type,reason,before_snapshot,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$5,$5) RETURNING *`,[s.tenantId,s.parkId,no,d.applicationName,a.sub,d.employeeId,d.applicationDate,d.plannedDepartureDate,d.departureType,d.reason,JSON.stringify(this.snapshot(employee))]) as Row[];await this.append(m,s,rows[0]!.id,"created",null,"draft",a.sub);return this.detail(m,s,rows[0]!.id,this.sensitive(a));});}catch(e){this.translate(e);}}
  async update(s:TenantParkScope,a:JwtPrincipal,id:string,d:SaveHrDepartureDto){this.require(a,HR_PERMISSIONS.HR_DEPARTURE_MANAGE);this.validate(d);try{return await this.db.transaction(async m=>{const row=await this.lock(m,s,id);if(!["draft","returned"].includes(row.status))throw new ConflictException("Only draft or returned departure applications can be edited");await this.assertOperationScope(m,s,a,row.subject_employee_id);const employee=await this.employeeFacts(m,s,a,d.employeeId,id);const applicationNo=dateOnly(row.planned_departure_date)!.slice(0,7)===d.plannedDepartureDate.slice(0,7)?row.application_no:await this.nextNo(m,s,d.plannedDepartureDate);await m.query(`UPDATE hr_departure_application SET application_no=$1,application_name=$2,subject_employee_id=$3,application_date=$4,planned_departure_date=$5,departure_type=$6,reason=$7,before_snapshot=$8,update_by=$9,update_time=now(),version=version+1 WHERE id=$10`,[applicationNo,d.applicationName,d.employeeId,d.applicationDate,d.plannedDepartureDate,d.departureType,d.reason,JSON.stringify(this.snapshot(employee)),a.sub,id]);await this.append(m,s,id,"updated",row.status,row.status,a.sub);return this.detail(m,s,id,this.sensitive(a));});}catch(e){this.translate(e);}}

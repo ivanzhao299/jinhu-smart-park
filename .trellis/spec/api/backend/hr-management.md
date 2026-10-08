@@ -1400,3 +1400,37 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 - Initial formal completion may store score. Later source score/hours/memo amendments share the existing parent/participant locks and correction sequence, append `corrected_score` with `score_cleared`, and retain frozen completion and plan snapshot. No new migration or permission.
 - Read the last `score_present` correction, including NULL, for current-target comparison. Omission preserves older package compatibility; missing accepted score baseline remains an explicit conflict. Source unchanged preserves modern edits; same-field different edits conflict; equal convergence advances provenance without unnecessary correction.
 - CLI→public service→real PG proves exact score, clear plus later independent amendment, modern conflict/convergence, immutable originals, stale/concurrent winner and full fact/ledger rollback. Metadata-only Web summaries expose field labels rather than scores. Range failures preserve raw input and retain the full legacy coverage denominator.
+
+## Scenario: Departure employee candidate continuity
+
+### 1. Scope / Trigger
+- Departure application and handover employee selection must search the complete authorized active directory, including employees beyond the old 500-row options cap. No schema or lifecycle write changes.
+
+### 2. Signatures
+- `GET /hr/departure-applications/employee-options?purpose=application|handover&page=1&page_size=20&keyword=<text>&selected_id=<UUID>&exclude_employee_id=<UUID>`.
+- Web: `hrApi.departureEmployeeOptions(purpose,page,keyword,token,signal,selectedId,excludeEmployeeId)`; each `DepartureEmployeePicker` owns its selection and candidate pagination.
+
+### 3. Contracts
+- `GET /hr/departure-applications/employee-options` is an action-owned candidate endpoint. `purpose=application` requires departure manage; `purpose=handover` requires departure handover. Both also require departure park read or team read, and principal tenant/park must match current scope. Generic employee read and self departure read do not authorize candidates.
+- Validated `page` is 1..2147483647, `page_size` defaults to 20 and caps at 100; both accept only scalar integer numbers or decimal-digit strings, rejecting arrays, booleans and unsafe offsets. Trimmed keyword caps at 100. Literal name/code search escapes percent, underscore and backslash, uses bound SQL parameters, and sorts by name plus unique employee ID. Count, page, excluded subject and optional UUID `selected_id` lookup share active-state tenant/park/managed-tree scope; selected lookup is independent of the search/page.
+- Response is `{items,total,page,page_size,selected}` inside the standard API envelope. Each item/selected has only `id,employeeCode,employeeName,orgId,orgName,employmentStatus`; selected is nullable. Active-state set is `probation|active|suspended`. Required metadata audit completes before response and contains no search/employee values. No new production environment variables.
+- Existing `options` remains compatible. New application and handover selectors maintain separate search/page/selection state, abort stale reads and retain current authorized detail bindings outside the candidate page. Explicit clearing must not rehydrate a routed selection. Failed saves/clearance submissions preserve fields; reset only after success or explicit abandonment.
+
+### 4. Validation & Error Matrix
+- Invalid/repeated page, invalid purpose/UUID, unknown query field, oversized keyword or page size -> HTTP400 before SQL.
+- Missing exact action/scope permission or mismatched principal tenant/park -> HTTP403 before candidate access.
+- Foreign/deleted/inactive/excluded selected employee -> `selected:null`; keyword miss/out-of-range page -> empty items with scoped total.
+- Required audit failure -> failed response; network/save failure in Web -> visible error with retained selection/draft; stale/aborted read -> ignored.
+
+### 5. Good/Base/Bad Cases
+- Good: find employee501 by code, retain their original ID after another search and save that ID.
+- Base: edit a previously authorized application whose employee is outside the current candidate page.
+- Bad: infer invalid binding from the first page, widen the candidate list with generic employee read, or coerce repeated page values into a number.
+
+### 6. Tests Required
+- Verify candidates beyond 500, real PostgreSQL literal search and scope boundaries, selected foreign records, exact operation permissions, audit failure, stale responses and failed form drafts. Use an exclusively owned disposable PostgreSQL fixture, not shared/production databases. Each test run creates a random schema with connection-level search_path, drops only that schema and asserts its removal so repeat runs need no table reset. Desktop and 390px records/actions must remain visible without overflow.
+- `hr-departure-employee-options.contract.spec.ts` exercises the real Nest ValidationPipe; `hr-departure-employee-options.pg.spec.ts` is opt-in with `HR_DEPARTURE_OPTIONS_PG_TEST=1`, exact loopback15481 and database `hr_departure_options_gate`. `hr-departure-employee-options.test.tsx` plus navigation tests exercise actual component behavior. These fixtures do not establish production role acceptance.
+
+### 7. Wrong vs Correct
+- Wrong: `Number(query.page)` without scalar/type/range validation; `[...first500Employees]` as the complete directory.
+- Correct: validate integer scalar pages before deriving OFFSET; use scoped count/search/page SQL plus independently scoped selected lookup, retaining the form's explicit selection across pages.
