@@ -10,6 +10,7 @@ import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
+import { HrRewardEmployeeOptionsDto } from "./dto/hr-reward-employee-options.dto";
 import {
   CreateHrRewardCaseDto,
   CreateHrRewardCategoryDto,
@@ -44,10 +45,47 @@ export class HrRewardsService {
   }
   async categories(s: TenantParkScope, a: JwtPrincipal) {
     if (this.access(a) === "none") return [];
+    return this.categoryOptions(s);
+  }
+  private categoryOptions(s: TenantParkScope, enabledOnly = false) {
     return this.db.query(
-      `SELECT c.id,c.category_code "code",v.version_no "versionNo",v.kind,v.name,v.impact_level "impactLevel",c.status FROM hr_reward_discipline_category c JOIN hr_reward_discipline_category_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.category_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.is_deleted=false ORDER BY v.kind,v.name,c.id`,
+      `SELECT c.id,c.category_code "code",v.version_no "versionNo",v.kind,v.name,v.impact_level "impactLevel",c.status FROM hr_reward_discipline_category c JOIN hr_reward_discipline_category_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.category_id=c.id AND v.version_no=c.current_version_no WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.is_deleted=false${enabledOnly ? " AND c.status='enabled'" : ""} ORDER BY v.kind,v.name,c.id`,
       [s.tenantId, s.parkId],
     );
+  }
+  private requireOperationScope(s: TenantParkScope, a: JwtPrincipal) {
+    this.require(a, HR_PERMISSIONS.HR_REWARD_MANAGE);
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId)
+      throw new ForbiddenException();
+  }
+  async caseOptions(s: TenantParkScope, a: JwtPrincipal) {
+    this.requireOperationScope(s, a);
+    return { categories: await this.categoryOptions(s, true) };
+  }
+  async employeeOptions(
+    s: TenantParkScope,
+    a: JwtPrincipal,
+    q: HrRewardEmployeeOptionsDto,
+  ) {
+    this.requireOperationScope(s, a);
+    const keyword = q.keyword?.trim();
+    const params: unknown[] = [s.tenantId, s.parkId];
+    let filter = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND employment_status IN('preboarding','probation','active','suspended')";
+    if (keyword) {
+      params.push(`%${keyword.replace(/[\\%_]/g, "\\$&")}%`);
+      filter += " AND (full_name ILIKE $3 OR employee_code ILIKE $3)";
+    }
+    const [rows, count] = await Promise.all([
+      this.db.query(`SELECT id,employee_code "employeeCode",full_name "fullName" FROM hr_employee WHERE ${filter} ORDER BY employee_code,id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, q.page_size, (q.page - 1) * q.page_size]),
+      this.db.query(`SELECT count(*)::int total FROM hr_employee WHERE ${filter}`, params),
+    ]);
+    const items = rows.map((row: { id: string; employeeCode: string; fullName: string }) => ({ id: row.id, employeeCode: row.employeeCode, fullName: row.fullName }));
+    await recordHrSensitiveRead(this.audit, s, a, {
+      resource: "hr.reward_employee_options", action: "读取奖惩办理员工候选",
+      bizType: "hr_employee", path: "/hr/rewards/employee-options",
+      fieldGroups: ["identity"], projection: "metadata", itemCount: items.length,
+    });
+    return { items, total: count[0].total, page: q.page, page_size: q.page_size };
   }
   async options(s: TenantParkScope, a: JwtPrincipal) {
     this.require(a, HR_PERMISSIONS.HR_REWARD_MANAGE);

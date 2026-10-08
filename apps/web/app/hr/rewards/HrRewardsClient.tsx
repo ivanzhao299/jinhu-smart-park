@@ -9,7 +9,6 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import {
   hrApi,
-  type HrEmployee,
   type HrRewardCase,
   type HrRewardCaseDetail,
   type HrRewardCategory,
@@ -17,6 +16,8 @@ import {
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
+import rewardStyles from "./reward-workflow.module.css";
+import { HrEmployeeSelection } from "../components/HrEmployeeSelection";
 const labels: Record<string, string> = {
   draft: "草稿",
   submitted: "待审核",
@@ -27,6 +28,11 @@ const labels: Record<string, string> = {
   discipline: "处分",
 };
 export function HrRewardsClient() {
+  const user = useAuthUser();
+  return <HrRewardsWorkspace key={JSON.stringify(user)} />;
+}
+
+function HrRewardsWorkspace() {
   const user = useAuthUser(),
     canRead = hasAnyPermission(user, [
       HR_PERMISSIONS.HR_REWARD_READ,
@@ -49,18 +55,22 @@ export function HrRewardsClient() {
       canDocumentManage && hasPermission(user, SYSTEM_PERMISSIONS.FILE_DELETE);
   const [cases, setCases] = useState<HrRewardCase[]>([]),
     [categories, setCategories] = useState<HrRewardCategory[]>([]),
-    [employees, setEmployees] = useState<
-      Array<Pick<HrEmployee, "id" | "employeeCode" | "fullName">>
-    >([]),
+    [selectedEmployeeId, setSelectedEmployeeId] = useState(""),
     [detail, setDetail] = useState<HrRewardCaseDetail | null>(null),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [evidenceRefresh, setEvidenceRefresh] = useState(0),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [optionError, setOptionError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [refreshWarning, setRefreshWarning] = useState("");
   const listAbort = useRef<AbortController | null>(null),
+    categoryAbort = useRef<AbortController | null>(null),
     detailAbort = useRef<AbortController | null>(null),
+    busyRef = useRef(false),
+    alive = useRef(true),
     generation = useRef(0),
     pageSize = 20;
   const clearDetail = () => {
@@ -68,45 +78,64 @@ export function HrRewardsClient() {
     detailAbort.current = null;
     setDetail(null);
   };
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveDetail = false) => {
     if (!canRead) {
       setLoading(false);
-      return;
+      return true;
     }
     const g = ++generation.current,
       c = new AbortController();
     listAbort.current?.abort();
     listAbort.current = c;
-    clearDetail();
+    if (!preserveDetail) clearDetail();
     setLoading(true);
     setError("");
     try {
-      const token = getAccessToken(),
-        [rows, options] = await Promise.all([
-          hrApi.rewardCases(token, page, pageSize, undefined, c.signal),
-          canManage
-            ? hrApi.rewardOptions(token, c.signal)
-            : hrApi
-                .rewardCategories(token, c.signal)
-                .then((categories) => ({ categories, employees: [] })),
-        ]);
-      if (g !== generation.current) return;
+      const rows = await hrApi.rewardCases(getAccessToken(), page, pageSize, undefined, c.signal);
+      if (g !== generation.current || c.signal.aborted) return false;
       setCases(rows.items);
       setTotal(rows.total);
-      setCategories(options.categories);
-      setEmployees(options.employees);
+      return true;
     } catch (e) {
       if ((e as Error).name !== "AbortError" && g === generation.current) {
         setCases([]);
-        setCategories([]);
-        setEmployees([]);
         setTotal(0);
         setError(hrLoadErrorMessage(e, "加载奖惩事项失败"));
       }
+      return false;
     } finally {
       if (g === generation.current) setLoading(false);
     }
-  }, [canManage, canRead, page]);
+  }, [canRead, page]);
+  const loadCategories = useCallback(async () => {
+    if (!canManage && !canRead) return true;
+    const c = new AbortController();
+    categoryAbort.current?.abort();
+    categoryAbort.current = c;
+    setOptionError("");
+    try {
+      const rows = canManage
+        ? (await hrApi.rewardCaseOptions(getAccessToken(), c.signal)).categories
+        : await hrApi.rewardCategories(getAccessToken(), c.signal);
+      if (c.signal.aborted || categoryAbort.current !== c) return false;
+      if (!Array.isArray(rows) || rows.some(row => !row || typeof row.id !== "string" || typeof row.name !== "string")) throw new Error("奖惩类别响应无效，请重试。");
+      setCategories(rows);
+      return true;
+    } catch (e) {
+      if (!c.signal.aborted && categoryAbort.current === c) {
+        setOptionError(hrLoadErrorMessage(e, "加载奖惩类别失败"));
+      }
+      return false;
+    }
+  }, [canManage, canRead]);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
+  useEffect(() => {
+    void loadCategories();
+    return () => categoryAbort.current?.abort();
+  }, [loadCategories]);
   useEffect(() => {
     void load();
     return () => {
@@ -128,17 +157,31 @@ export function HrRewardsClient() {
         setError(hrLoadErrorMessage(e, "加载奖惩详情失败"));
     }
   };
-  const mutate = async (job: () => Promise<unknown>, message: string) => {
-    if (busy) return;
+  const mutate = async (job: () => Promise<unknown>, message: string, preserveDetail = false) => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setBusy(true);
     setError("");
+    setNotice("");
+    setRefreshWarning("");
     try {
       await job();
-      await load();
+      if (!alive.current) return false;
+      setNotice("操作已保存。");
+      try {
+        const refreshed = await Promise.all([load(preserveDetail), loadCategories()]);
+        if (alive.current && refreshed.some(value => !value))
+          setRefreshWarning("保存已成功，页面刷新失败，请刷新后核对。");
+      } catch {
+        if (alive.current) setRefreshWarning("保存已成功，页面刷新失败，请刷新后核对。");
+      }
+      return alive.current;
     } catch (e) {
-      setError(hrLoadErrorMessage(e, message));
+      if (alive.current) setError(hrLoadErrorMessage(e, message));
+      return false;
     } finally {
-      setBusy(false);
+      busyRef.current = false;
+      if (alive.current) setBusy(false);
     }
   };
   const create = async (form: FormData) => {
@@ -168,6 +211,7 @@ export function HrRewardsClient() {
           getAccessToken(),
       ),
       "创建奖惩事项失败",
+      true,
     );
   };
   const update = async (form: FormData) => {
@@ -210,6 +254,7 @@ export function HrRewardsClient() {
           getAccessToken(),
         ),
       "创建奖惩类别失败",
+      true,
     );
   const forbidden = (
     <main className={`content ds-page ${styles.page}`}>
@@ -235,7 +280,7 @@ export function HrRewardsClient() {
           <button
             className="ds-button"
             disabled={loading}
-            onClick={() => void load()}
+            onClick={() => void Promise.all([load(), loadCategories()])}
           >
             {loading ? "刷新中" : "刷新"}
           </button>
@@ -251,11 +296,14 @@ export function HrRewardsClient() {
             </button>
           </section>
         ) : null}
+        {notice ? <p role="status">{notice}</p> : null}
+        {refreshWarning ? <p role="alert">{refreshWarning}</p> : null}
+        {optionError ? <section className="ds-panel"><p className="form-error" role="alert">{optionError}</p><button type="button" className="ds-button" onClick={() => void loadCategories()}>重试类别</button></section> : null}
         {canManage ? (
           <>
             <section className="ds-panel">
               <h2>奖惩类别</h2>
-              <form className={styles.formGrid} action={createCategory}>
+              <form className={styles.formGrid} onSubmit={async event => { event.preventDefault(); const form = event.currentTarget; if (await createCategory(new FormData(form))) form.reset(); }}>
                 <label className="form-field">
                   <span>类别编号</span>
                   <input name="categoryCode" required maxLength={64} />
@@ -287,22 +335,13 @@ export function HrRewardsClient() {
             </section>
             <section className="ds-panel">
               <h2>新增奖惩事项</h2>
-            <form className={styles.formGrid} action={create}>
+            <form className={styles.formGrid} onSubmit={async event => { event.preventDefault(); const form = event.currentTarget; if (await create(new FormData(form))) { form.reset(); setSelectedEmployeeId(""); } }}>
               <label className="form-field">
                 <span>事项编号</span>
                 <input name="code" required maxLength={64} />
               </label>
-              <label className="form-field">
-                <span>员工</span>
-                <select name="employee" required>
-                  <option value="">请选择</option>
-                  {employees.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.fullName} · {x.employeeCode}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <HrEmployeeSelection selectedId={selectedEmployeeId} onChange={setSelectedEmployeeId} disabled={busy} purpose="reward" />
+              <input type="hidden" name="employee" value={selectedEmployeeId} />
               <label className="form-field">
                 <span>类别</span>
                 <select name="category" required>
@@ -352,7 +391,7 @@ export function HrRewardsClient() {
         ) : null}
         <section className="ds-panel">
           <h2>奖惩事项</h2>
-          <div className="ds-mobile-record-list">
+          <div className={`ds-mobile-record-list ${rewardStyles.records}`}>
             {loading ? (
               <p>正在加载…</p>
             ) : cases.length ? (
@@ -520,7 +559,7 @@ export function HrRewardsClient() {
               <p className={styles.desktopSensitive}>{detail.detailedReason}</p>
             ) : null}
             {canManage && ["draft", "returned"].includes(detail.status) ? (
-              <form key={detail.id} className={styles.formGrid} action={update}>
+              <form key={detail.id} className={styles.formGrid} onSubmit={async event => { event.preventDefault(); const form = event.currentTarget; if (await update(new FormData(form))) form.reset(); }}>
                 <label className="form-field">
                   <span>发生日期</span>
                   <input name="occurredOn" type="date" required defaultValue={detail.occurredOn} />

@@ -335,6 +335,8 @@ export const hrApi={
  correctTraining:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/training/participants/${id}/corrections`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-training-correction")})),
  rewardCategories:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrRewardCategory[]>("/hr/rewards/categories",{token,signal})),
  rewardOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{categories:HrRewardCategory[];employees:Array<Pick<HrEmployee,"id"|"employeeCode"|"fullName">>}>('/hr/rewards/options',{token,signal})),
+ rewardCaseOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{categories:HrRewardCategory[]}>("/hr/rewards/case-options",{token,signal})),
+ rewardEmployeeOptions:(page=1,keyword="",token?:string,signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:"20"});if(keyword.trim())query.set("keyword",keyword.trim());return unwrap(apiRequest<PaginatedResult<Pick<HrEmployee,"id"|"employeeCode"|"fullName">>>(`/hr/rewards/employee-options?${query}`,{token,signal}));},
  rewardCases:(token?:string,page=1,pageSize=20,status?:string,signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)q.set("status",status);return unwrap(apiRequest<PaginatedResult<HrRewardCase>>(`/hr/rewards/cases?${q}`,{token,signal}));},
  rewardCase:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrRewardCaseDetail>(`/hr/rewards/cases/${id}`,{token,signal})),
  createRewardCategory:(body:object,token?:string)=>unwrap(apiRequest<HrRewardCategory>('/hr/rewards/categories',{method:'POST',body,token,idempotencyKey:createIdempotencyKey('hr-reward-category')})),
