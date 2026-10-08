@@ -7,7 +7,6 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import {
   hrApi,
-  type HrEmployee,
   type HrDirectoryUserOption,
   type HrEmploymentEvent,
   type HrEmploymentEventStatistics,
@@ -18,10 +17,12 @@ import {
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
+import lifecycleStyles from "./lifecycle.module.css";
 import {ProbationApplicationsPanel} from "./ProbationApplicationsPanel";
 import {JobChangeApplicationsPanel} from "./JobChangeApplicationsPanel";
 import {RehireApplicationsPanel} from "./RehireApplicationsPanel";
 import {DepartureApplicationsPanel} from "./DepartureApplicationsPanel";
+import {HrEmployeeSelection} from "../components/HrEmployeeSelection";
 const typeLabel: Record<string, string> = {
     onboarding: "入职",
     offboarding: "离职",
@@ -46,6 +47,11 @@ const typeLabel: Record<string, string> = {
   };
 const initialStatisticsTo=new Date().toISOString().slice(0,10),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
 export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
+  const user=useAuthUser();
+  return <HrLifecycleContext key={JSON.stringify([user,employeeId])} employeeId={employeeId}/>;
+}
+
+function HrLifecycleContext({employeeId}:{employeeId?:string}) {
   const user = useAuthUser(),
     canRead = hasAnyPermission(user, [
       HR_PERMISSIONS.HR_LIFECYCLE_READ,
@@ -68,7 +74,8 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [templates, setTemplates] = useState<HrLifecycleTemplate[]>([]),
-    [employees, setEmployees] = useState<HrEmployee[]>([]),
+    [selectedEmployeeId, setSelectedEmployeeId] = useState(""),
+    [selectedEventId, setSelectedEventId] = useState(""),
     [users, setUsers] = useState<HrDirectoryUserOption[]>([]),
     [events, setEvents] = useState<HrEmploymentEvent[]>([]),
     [statistics, setStatistics] = useState<HrEmploymentEventStatistics | null>(null),
@@ -81,12 +88,15 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
     listAbort = useRef<AbortController | null>(null),
     detailAbort = useRef<AbortController | null>(null),
     eventAbort = useRef<AbortController | null>(null),
+    templateAbort = useRef<AbortController | null>(null),
+    usersAbort = useRef<AbortController | null>(null),
     statisticsAbort = useRef<AbortController | null>(null),
     pageSize = 20;
   const clearDetail = () => {
     detailAbort.current?.abort();
     detailAbort.current = null;
     setDetail(null);
+    setDetailLoading(false);
   };
   const load = useCallback(async () => {
     if (!canRead) {
@@ -101,25 +111,10 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
     setError("");
     clearDetail();
     try {
-      const token = getAccessToken();
-      const [r, t, e, refs] = await Promise.all([
-        hrApi.lifecycleChecklists(token, page, pageSize, c.signal),
-        canAssign || canManageTemplates
-          ? hrApi.lifecycleTemplates(token, c.signal)
-          : Promise.resolve([]),
-        canAssign
-          ? hrApi.employees(token, 1, 100)
-          : Promise.resolve({ items: [], total: 0, page: 1, page_size: 100 }),
-        canAssign
-          ? hrApi.directoryOptions(token, c.signal)
-          : Promise.resolve({ users: [], orgs: [] }),
-      ]);
-      if (g !== generation.current) return;
+      const r=await hrApi.lifecycleChecklists(getAccessToken(), page, pageSize, c.signal);
+      if (g !== generation.current || c.signal.aborted) return;
       setRows(r.items);
       setTotal(r.total);
-      setTemplates(t);
-      setEmployees(e.items);
-      setUsers(refs.users);
     } catch (e) {
       if ((e as Error).name !== "AbortError" && g === generation.current) {
         setRows([]);
@@ -129,7 +124,21 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
     } finally {
       if (g === generation.current) setLoading(false);
     }
-  }, [canAssign, canManageTemplates, canRead, page]);
+  }, [canRead, page]);
+  const loadTemplates=useCallback(async()=>{
+    if(!canAssign&&!canManageTemplates)return;
+    const c=new AbortController();templateAbort.current?.abort();templateAbort.current=c;
+    try{const value=await hrApi.lifecycleTemplates(getAccessToken(),c.signal);if(!c.signal.aborted)setTemplates(value);}
+    catch(e){if(!c.signal.aborted)setError(hrLoadErrorMessage(e,"加载清单模板失败"));}
+  },[canAssign,canManageTemplates]);
+  useEffect(()=>{void loadTemplates();return()=>templateAbort.current?.abort();},[loadTemplates]);
+  const loadUsers=useCallback(async()=>{
+    if(!canAssign)return;
+    const c=new AbortController();usersAbort.current?.abort();usersAbort.current=c;
+    try{const value=await hrApi.directoryOptions(getAccessToken(),c.signal);if(!c.signal.aborted)setUsers(value.users);}
+    catch(e){if(!c.signal.aborted)setError(hrLoadErrorMessage(e,"加载办理账号失败"));}
+  },[canAssign]);
+  useEffect(()=>{void loadUsers();return()=>usersAbort.current?.abort();},[loadUsers]);
   const loadStatistics = useCallback(async (from:string,to:string) => {
     if (!canReadEmploymentEvents) return;
     const controller=new AbortController();
@@ -152,9 +161,10 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
       generation.current++;
       listAbort.current?.abort();
       detailAbort.current?.abort();
-      eventAbort.current?.abort();
     };
   }, [load]);
+  // Candidate dependencies belong to the form, not the checklist list page.
+  useEffect(()=>()=>eventAbort.current?.abort(),[]);
   useEffect(()=>{
     void loadStatistics(initialStatisticsFrom,initialStatisticsTo);
     return()=>statisticsAbort.current?.abort();
@@ -238,6 +248,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
         },
         getAccessToken(),
       );
+      await loadTemplates();
       await load();
     } catch (e) {
       setError(hrLoadErrorMessage(e, "发布模板失败"));
@@ -247,6 +258,9 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
   };
   const selectEmployee = async (employeeId: string) => {
     eventAbort.current?.abort();
+    eventAbort.current=null;
+    setSelectedEmployeeId(employeeId);
+    setSelectedEventId("");
     setEvents([]);
     if (!employeeId) return;
     const c = new AbortController();
@@ -261,14 +275,15 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
   };
   const createChecklist = async (form: FormData) => {
     if (busy) return;
+    if (!selectedEmployeeId) {setError("请明确选择员工后创建清单。");return;}
     setBusy(true);
     setError("");
     try {
       await hrApi.createLifecycleChecklist(
         {
-          employeeId: String(form.get("employee")),
+          employeeId: selectedEmployeeId,
           templateVersionId: String(form.get("template")),
-          employmentEventId: String(form.get("event")) || undefined,
+          employmentEventId: selectedEventId || undefined,
           dueDate: String(form.get("dueDate")) || undefined,
         },
         getAccessToken(),
@@ -302,7 +317,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
           <button
             className="ds-button"
             disabled={loading}
-            onClick={() => {void load();void loadStatistics(statisticsFrom,statisticsTo);}}
+            onClick={() => {void load();void loadTemplates();void loadUsers();void loadStatistics(statisticsFrom,statisticsTo);}}
           >
             {loading ? "刷新中" : "刷新"}
           </button>
@@ -312,7 +327,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
             <p className="form-error" role="alert">
               {error}
             </p>
-            <button className="ds-button" onClick={() => void load()}>
+            <button className="ds-button" onClick={() => {void load();void loadTemplates();void loadUsers();}}>
               重试
             </button>
           </section>
@@ -397,21 +412,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
           <section className="ds-panel">
             <h2>创建入离职清单</h2>
             <form className={styles.formGrid} action={createChecklist}>
-              <label className="form-field">
-                <span>员工</span>
-                <select
-                  name="employee"
-                  required
-                  onChange={(event) => void selectEmployee(event.target.value)}
-                >
-                  <option value="">请选择</option>
-                  {employees.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.fullName} · {x.employeeCode}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <HrEmployeeSelection selectedId={selectedEmployeeId} onChange={(id)=>void selectEmployee(id)} disabled={busy} purpose="lifecycle"/>
               <label className="form-field">
                 <span>模板版本</span>
                 <select name="template" required>
@@ -425,7 +426,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
               </label>
               <label className="form-field">
                 <span>离职任职事件</span>
-                <select name="event">
+                <select name="event" value={selectedEventId} onChange={event=>setSelectedEventId(event.target.value)}>
                   <option value="">入职清单无需选择</option>
                   {events
                     .filter((x) => x.eventType === "depart")
@@ -448,7 +449,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
         ) : null}
         <section className="ds-panel">
           <h2>待办清单</h2>
-          <div className="ds-mobile-record-list">
+          <div className={`ds-mobile-record-list ${lifecycleStyles.checklistRecords}`}>
             {loading ? (
               <p>正在加载…</p>
             ) : rows.length ? (
@@ -510,7 +511,7 @@ export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
                 关闭
               </button>
             </div>
-            <div className="ds-mobile-record-list">
+            <div className={`ds-mobile-record-list ${lifecycleStyles.checklistRecords}`}>
               {detail.items.length ? (
                 detail.items.map((i) => (
                   <article className="ds-mobile-record" key={i.id}>
