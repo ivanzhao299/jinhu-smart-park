@@ -43,7 +43,7 @@ it("actual contract form requires deliberate target and sends that target to the
 });
 
 it.each(["permission","failure"])("actual edit retains the original employee when directory access is unavailable: %s",async mode=>{
- const contract:HrContractDetail={id:"contract",employeeId:"employee-9",employeeName:"Synthetic 9",employeeCode:"SYN-9",contractTypeId:"type",contractNo:"SYN-EDIT",startDate:"2090-01-01",status:"draft",isHistoricalImport:true,changes:[],actions:[]};
+ const contract:HrContractDetail={id:"contract",employeeId:"employee-9",employeeName:"Synthetic 9",employeeCode:"SYN-9",contractTypeId:"type",contractTypeName:"Synthetic type",endDate:null,contractNo:"SYN-EDIT",startDate:"2090-01-01",status:"draft",isHistoricalImport:true,changes:[],actions:[]};
  if(mode==="permission")state.user={id:"actor",permissions:["hr:contract:read","hr:contract:manage"]};
  else vi.mocked(hrApi.employees).mockRejectedValue(new Error("synthetic directory failure"));
  vi.mocked(hrApi.contracts).mockResolvedValue({items:[contract],page:1,page_size:50,total:1});vi.mocked(hrApi.contract).mockResolvedValue(contract);vi.mocked(hrApi.updateContract).mockResolvedValue(contract);

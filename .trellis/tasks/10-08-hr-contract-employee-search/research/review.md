@@ -30,3 +30,7 @@
 - `hr-contract-employee-selection.test.tsx`: `3161de97fab4f2d9e588d07ffb8f032f4fb1555daba8f338b09ea9278774eba1`
 
 No API/DB/source-recipe/auth changes, production data writes, commits or pushes performed. No active reviewer run remains. Overall S0-S7 and independent HR modernization remain incomplete.
+
+## Full CI follow-up
+
+Full CI found the added edit-test fixture omitted required `contractTypeName` and nullable `endDate`. Both synthetic fields were supplied; production TSX/CSS unchanged. Full CI remains the complete test-source type gate.
