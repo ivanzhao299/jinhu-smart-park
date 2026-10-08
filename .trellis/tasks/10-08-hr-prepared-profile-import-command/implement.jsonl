@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/api/backend/hr-yuzhou-profile-continuity.md", "reason": "原档案baseline/alias及正常catalog顺序合同"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "私有工件、API入口与不重试业务写入"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有服务端内核不复制源转换"}
+{"file": "apps/api/src/modules/hr/hr-yuzhou-incremental-import.service.ts", "reason": "existing previewed same-operation current plan replay; terminal no rewrite"}
+{"file": "apps/api/src/modules/hr/hr-yuzhou-incremental-import.pg.spec.ts", "reason": "actual isolated PG replay zero rows and modern conflict verification"}
+{"file": ".trellis/spec/api/backend/hr-prepared-profile-import-command.md", "reason": "normal user command and same operation recovery contract"}

@@ -994,3 +994,5 @@ Reference files:
 - `package.json`
 - `docs/testing/how-to-run-tests.md`
 - `scripts/e2e/first-release-regression.mjs`
+
+Prepared profile normal-user execution and same-operation preview recovery: [Prepared Profile Import Command](./hr-prepared-profile-import-command.md).

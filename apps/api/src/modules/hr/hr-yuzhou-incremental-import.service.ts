@@ -51,10 +51,11 @@ export class HrYuzhouIncrementalImportService {
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [json([scope.tenantId, scope.parkId, dto.sourceSystem, packageHash])]);
       const existing = await manager.query(`SELECT id,status,package_sha256 FROM hr_incremental_import_operation WHERE tenant_id=$1 AND park_id=$2 AND source_system=$3 AND package_sha256=$4 FOR UPDATE`, [scope.tenantId, scope.parkId, dto.sourceSystem, packageHash]) as OperationRow[];
       this.requirePackagePermissions(actor, dto.items, "manage");
-      if (existing[0]) return this.status(scope, actor, existing[0].id, manager);
+      if (existing[0] && existing[0].status !== "previewed") return this.status(scope, actor, existing[0].id, manager);
       await this.prepareHierarchy(manager,scope,actor,pkg.items);
       const plan = [];
       for (const item of pkg.items) plan.push(await this.previewItem(manager, scope, dto.sourceSystem, item, actor, pkg.items));
+      if (existing[0]) return { ...await this.status(scope, actor, existing[0].id, manager), supportedDomains: Object.keys(YUZHOU_INCREMENTAL_FIELDS), plan };
       const rows = await manager.query(`INSERT INTO hr_incremental_import_operation(tenant_id,park_id,source_system,manifest_id,package_sha256,package_encrypted,status,item_count,created_by) VALUES($1,$2,$3,$4,$5,$6,'previewed',$7,$8) RETURNING id`, [scope.tenantId, scope.parkId, dto.sourceSystem, dto.manifestId, packageHash, this.sensitive.encrypt(json(pkg)), dto.items.length, actor.sub]) as Array<{ id: string }>;
       return { id: rows[0]!.id, status: "previewed", packageSha256: packageHash, itemCount: dto.items.length, supportedDomains: Object.keys(YUZHOU_INCREMENTAL_FIELDS), plan };
     });

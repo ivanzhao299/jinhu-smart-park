@@ -29,7 +29,8 @@
     "10-08-hr-contract-field-baseline",
     "10-08-hr-contract-employee-search",
     "10-08-hr-lifecycle-employee-search",
-    "10-08-hr-probation-participant-continuity"
+    "10-08-hr-probation-participant-continuity",
+    "10-08-hr-prepared-profile-import-command"
   ],
   "parent": null,
   "relatedFiles": [

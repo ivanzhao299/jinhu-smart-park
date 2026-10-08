@@ -1,0 +1,32 @@
+{
+  "id": "hr-prepared-profile-import-command",
+  "name": "hr-prepared-profile-import-command",
+  "title": "Reusable normal-API prepared profile import command",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-08",
+  "completedAt": null,
+  "branch": "codex/hr-prepared-profile-import-command-20261008",
+  "base_branch": "main",
+  "worktree_path": "/tmp/jinhu-hr-payroll-ledger-continuity-20261008",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "scripts/hr-cutover/import-yuzhou-prepared-profile.mjs",
+    "scripts/hr-cutover/tests/prepared-profile-import-command.test.mjs",
+    "apps/api/src/modules/hr/hr-yuzhou-incremental-import.service.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-incremental-import.pg.spec.ts",
+    "docs/hr/yuzhou-prepared-profile-import-command.md"
+  ],
+  "notes": "复用已准备来源，正常账号单包导入；真实生产提交另留证据，登录依赖不阻断全任务。",
+  "meta": {}
+}
