@@ -63,9 +63,32 @@ test("incremental import commits additions and protects exact legacy bindings", 
       {domain:"profile",sourceTable:"dbo.profile",sourceKey:profileKey,fields:{employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",personalMobile:"13800000000"}},
       {domain:"contract",sourceTable:"dbo.contract",sourceKey:contractKey,fields:{employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",contractTypeId:type.id,contractStatus:"draft",contractNo:"INC-C-1",startDate:"2026-10-03"}}
     ],"addition");
+    const inventory = async () => (await db!.query(`SELECT (SELECT count(*) FROM hr_employee)::int AS employees,(SELECT count(*) FROM hr_employee_profile)::int AS profiles,(SELECT count(*) FROM hr_contract)::int AS contracts,(SELECT count(*) FROM hr_incremental_import_operation)::int AS operations,(SELECT count(*) FROM hr_incremental_import_item)::int AS items,(SELECT count(*) FROM hr_incremental_import_revision)::int AS revisions`))[0];
+    const firstPlan = await service.preview(scope,actor,addition);
+    const beforeReplay = await inventory();
+    const replayPlan = await service.preview(scope,actor,addition);
+    assert.equal(replayPlan.id,firstPlan.id);
+    assert.equal(replayPlan.packageSha256,firstPlan.packageSha256);
+    assert.equal(replayPlan.itemCount,3);
+    assert.deepEqual(replayPlan.plan,firstPlan.plan);
+    assert.deepEqual(await inventory(),beforeReplay,"preview replay must not create business or ledger rows");
+    await assert.rejects(service.preview(scope,{...actor as object,permissions:[]} as never,addition), /permission/i);
     const preview=operation(await service.preview(scope,actor,addition)); assert.deepEqual((preview as unknown as {plan:Array<{action:string;fields:string[]}>}).plan.map(item=>item.action),["create","create","create"]); assert.equal(JSON.stringify((preview as unknown as {plan:unknown}).plan).includes("Initial"),false); const committed=operation(await service.commit(scope,actor,preview.id)); assert.equal(committed.status,"committed"); assert.equal(committed.appliedCount,3); const bridgedContract=(await db.query(`SELECT status,contract_type_id FROM hr_contract WHERE contract_no='INC-C-1'`))[0]; assert.equal(bridgedContract.status,"draft"); assert.equal(bridgedContract.contract_type_id,type.id); assert.equal(Number((await db.query(`SELECT count(*)::int AS count FROM hr_contract_action`))[0].count),1);
     const retry=operation(await service.commit(scope,actor,preview.id)); assert.equal(retry.appliedCount,3);
     const repeated=operation(await service.preview(scope,actor,addition)); assert.equal(repeated.id,preview.id);
+    assert.equal("plan" in repeated,false,"terminal replay returns original result without replanning");
+    const refreshPackage=pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:employeeKey,fields:{employeeCode:"INC-1",fullName:"Fresh source",employmentStatus:"active"}}],"preview-plan-refresh");
+    const refreshFirst=await service.preview(scope,actor,refreshPackage);
+    assert.equal((refreshFirst.plan as Array<{action:string}>)[0]?.action,"update");
+    await db.query(`UPDATE hr_employee SET full_name='Modern preview edit',version=version+1 WHERE employee_code='INC-1'`);
+    const beforeRefresh=await inventory();
+    const refreshAgain=await service.preview(scope,actor,refreshPackage);
+    assert.equal(refreshAgain.id,refreshFirst.id);
+    assert.equal(refreshAgain.packageSha256,refreshFirst.packageSha256);
+    assert.equal((refreshAgain.plan as Array<{action:string}>)[0]?.action,"conflict");
+    assert.deepEqual(await inventory(),beforeRefresh);
+    assert.equal((await db.query(`SELECT full_name FROM hr_employee WHERE employee_code='INC-1'`))[0].full_name,"Modern preview edit");
+    await db.query(`UPDATE hr_employee SET full_name='Initial',version=version+1 WHERE employee_code='INC-1'`);
     const revised=pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:employeeKey,sourceUpdatedAt:"2026-10-03T02:00:00.000Z",fields:{employeeCode:"INC-1",fullName:"Source revision",employmentStatus:"active"}}],"revision");
     const revision=operation(await service.preview(scope,actor,revised)); const revisionStatus=operation(await service.commit(scope,actor,revision.id)); assert.equal(revisionStatus.status,"committed",JSON.stringify(revisionStatus)); assert.equal(revisionStatus.appliedCount,1,JSON.stringify(revisionStatus));
     const employee=(await db.query(`SELECT id,full_name FROM hr_employee WHERE employee_code='INC-1'`))[0]; assert.equal(employee.full_name,"Source revision",JSON.stringify({employee,items:await db.query(`SELECT target_id,last_row_sha256,field_baseline,target_baseline,version FROM hr_incremental_import_item WHERE source_key=$1`,[employeeKey])}));

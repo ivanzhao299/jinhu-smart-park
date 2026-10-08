@@ -154,6 +154,7 @@ jobs:
           HR_INSURANCE_EXECUTOR_PG_REQUIRED: "1"
         run: |
           node --test scripts/e2e/yuzhou-organization-incremental.contract.mjs scripts/e2e/yuzhou-profile-incremental-projection.contract.mjs scripts/hr-cutover/t5-retained-source-binding.spec.mjs scripts/e2e/yuzhou-staging-import-entry.contract.mjs
+          node --test scripts/hr-cutover/tests/prepared-profile-import-command.test.mjs
           node scripts/e2e/yuzhou-reusable-incremental-package-contract.mjs
           node --test scripts/e2e/yuzhou-initial-baseline-witness.contract.mjs
           node --test scripts/e2e/yuzhou-record-incremental-projection.contract.mjs scripts/e2e/yuzhou-record-reusable-package.contract.mjs scripts/e2e/yuzhou-training-incremental-projection.contract.mjs scripts/e2e/yuzhou-training-reusable-package.contract.mjs scripts/e2e/yuzhou-insurance-policy-incremental-projection.contract.mjs scripts/e2e/yuzhou-insurance-policy-reusable-package.contract.mjs
