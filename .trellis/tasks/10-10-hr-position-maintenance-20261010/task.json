@@ -13,7 +13,7 @@
   "createdAt": "2026-10-10",
   "completedAt": null,
   "branch": "codex/hr-position-maintenance-20261010",
-  "base_branch": "codex/hr-position-maintenance-20261010",
+  "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
   "commit": null,
   "pr_url": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Candidate integrated with main80097f945; modern UI and DB verified locally. Await CI and ordered production release; real-role/independent-product acceptance remains unproven.",
   "meta": {}
 }
