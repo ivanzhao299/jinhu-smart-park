@@ -21,3 +21,9 @@
 @media (max-width: 640px) {
   .reviewDimension { grid-template-columns: minmax(0, 1fr); }
 }
+
+.reviewWorkbench { --form-control-height: var(--form-control-height-touch); }
+
+.records :global(.ds-mobile-record) > div:first-child { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+
+.reviewWorkbench :global(.ds-button) { min-height: var(--form-control-height-touch); }

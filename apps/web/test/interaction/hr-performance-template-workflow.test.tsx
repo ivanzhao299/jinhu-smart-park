@@ -6,7 +6,7 @@ import { HrPerformanceClient } from "../../app/hr/performance/HrPerformanceClien
 import { PerformanceTemplateEditor } from "../../app/hr/performance/PerformanceTemplateEditor";
 import { PerformanceTemplates } from "../../app/hr/performance/PerformanceTemplates";
 import type { HrPerformanceTemplateDetailV2 } from "../../lib/hr-api";
-const state = vi.hoisted(() => ({ user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: { performanceTemplatesV2: vi.fn(), performanceTemplateDetailV2: vi.fn(), createPerformanceTemplateV2: vi.fn(), createPerformanceTemplateVersionV2: vi.fn(), publishPerformanceTemplateV2: vi.fn(), performanceCyclesV2: vi.fn(), performanceReviewsV2: vi.fn() } }));
+const state = vi.hoisted(() => ({ user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: { performanceTemplatesV2: vi.fn(), performanceTemplateDetailV2: vi.fn(), createPerformanceTemplateV2: vi.fn(), createPerformanceTemplateVersionV2: vi.fn(), publishPerformanceTemplateV2: vi.fn(), performanceCyclesV2: vi.fn(), performanceReviewPageV2: vi.fn() } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: state.api }));
@@ -37,7 +37,7 @@ it("template-only operator uses actual full page without cycle/review APIs and s
   const second = within(screen.getByRole("group", { name: "维度2" })); change("维度编号", "quality", second); change("维度名称", "Quality", second); change("权重（%）", "40", second);
   fireEvent.click(second.getByRole("button", { name: "维度上移" })); fireEvent.submit(form);
   await waitFor(() => expect(state.api.createPerformanceTemplateV2).toHaveBeenCalledWith(expect.objectContaining({ dimensions: [expect.objectContaining({ code: "quality", weight: .4 }), expect.objectContaining({ code: "work", weight: .6 })] }), "synthetic-token"));
-  expect(state.api.performanceCyclesV2).not.toHaveBeenCalled(); expect(state.api.performanceReviewsV2).not.toHaveBeenCalled();
+  expect(state.api.performanceCyclesV2).not.toHaveBeenCalled(); expect(state.api.performanceReviewPageV2).not.toHaveBeenCalled();
 });
 it("failed creation preserves fields and all configured rows", async () => {
   state.api.createPerformanceTemplateV2.mockRejectedValueOnce(new Error("save rejected"));
@@ -61,7 +61,7 @@ it("read-only template role sees complete configuration with no write controls",
   state.user.permissions = [HR_PERMISSIONS.HR_PERFORMANCE_PAGE, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ]; render(<HrPerformanceClient />);
   fireEvent.click(await screen.findByRole("button", { name: "查看模板配置" })); await screen.findByText(/权重100%/);
   expect(screen.queryByRole("button", { name: "创建评价模板" })).toBeNull(); expect(screen.queryByRole("button", { name: "保存模板草稿" })).toBeNull();
-  expect(state.api.performanceCyclesV2).not.toHaveBeenCalled(); expect(state.api.performanceReviewsV2).not.toHaveBeenCalled();
+  expect(state.api.performanceCyclesV2).not.toHaveBeenCalled(); expect(state.api.performanceReviewPageV2).not.toHaveBeenCalled();
 });
 it("context replacement clears draft and ignores late detail from previous scope", async () => {
   let finish!: (value: HrPerformanceTemplateDetailV2) => void; state.api.performanceTemplateDetailV2.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));

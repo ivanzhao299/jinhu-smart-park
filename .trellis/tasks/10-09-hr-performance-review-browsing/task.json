@@ -1,0 +1,33 @@
+{
+  "id": "hr-performance-review-browsing",
+  "name": "hr-performance-review-browsing",
+  "title": "绩效评价按周期状态连续浏览",
+  "description": "现代绩效按周期、状态筛选及服务端分页，保留原评分/签收/申诉连续办理",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": "hr",
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-09",
+  "completedAt": null,
+  "branch": "codex/hr-performance-review-browsing-20261009",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr-performance-evaluation.service.ts",
+    "apps/web/app/hr/performance/HrPerformanceClient.tsx"
+  ],
+  "notes": "",
+  "meta": {
+    "localValidated": true,
+    "realRoleUat": "pending",
+    "legacyRuleEquivalence": "not_claimed"
+  }
+}
