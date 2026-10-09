@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FORMAL_PAYROLL_ROLES, HR_PERMISSIONS, type FormalPayrollDefinition, type FormalPayrollItem, type FormalPayrollRuleSet, type FormalPayrollRuleVersion } from "@jinhu/shared";
+import { FORMAL_PAYROLL_ROLES, HR_PERMISSIONS, type FormalPayrollBookOption, type FormalPayrollDefinition, type FormalPayrollItem, type FormalPayrollRuleSet, type FormalPayrollRuleVersion } from "@jinhu/shared";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
@@ -9,6 +9,7 @@ import { createIdempotencyKey } from "../../../lib/api-client";
 import { hrApi } from "../../../lib/hr-api";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./payroll-modern.module.css";
+import { payrollBookLabel, payrollBookOptions } from "./payroll-book-label";
 
 const roles = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
 const statuses: Record<string, string> = { draft: "草稿", submitted: "待复核", approved: "已批准", rejected: "已拒绝" };
@@ -27,6 +28,9 @@ function RuleWorkspace() {
   const [definition, setDefinition] = useState<FormalPayrollDefinition>(blankDefinition), [editing, setEditing] = useState(false);
   const [reason, setReason] = useState(""), [reviewReason, setReviewReason] = useState(""), [month, setMonth] = useState("");
   const [code, setCode] = useState(""), [name, setName] = useState("");
+  const [books, setBooks] = useState<FormalPayrollBookOption[]>([]), [bookPage, setBookPage] = useState(1), [bookTotal, setBookTotal] = useState(0);
+  const [book, setBook] = useState<FormalPayrollBookOption | null>(null), [bookKeyword, setBookKeyword] = useState(""), [bookSearch, setBookSearch] = useState("");
+  const [bookLoading, setBookLoading] = useState(false), [bookError, setBookError] = useState(""), [bookRefresh, setBookRefresh] = useState(0);
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const alive = useRef(true), request = useRef<AbortController | null>(null), lock = useRef(false);
   const retry = useRef<{ signature: string; key: string } | null>(null);
@@ -49,6 +53,17 @@ function RuleWorkspace() {
     } finally { if (alive.current && request.current === controller) setLoading(false); }
   }, [canRead, current?.id, page, rulePage]);
   useEffect(() => { void load().catch(() => undefined); return () => request.current?.abort(); }, [load]);
+  useEffect(() => {
+    if (!canRead || !canManage) return;
+    const controller = new AbortController(); setBookLoading(true); setBookError("");
+    void hrApi.payrollBookOptions({ page: bookPage, pageSize: 20, keyword: bookSearch }, getAccessToken(), controller.signal).then(result => {
+      if (!alive.current || controller.signal.aborted) return;
+      setBooks(result.items); setBookTotal(result.total);
+    }).catch(cause => {
+      if (alive.current && !controller.signal.aborted) setBookError(hrLoadErrorMessage(cause, "加载工资账套失败"));
+    }).finally(() => { if (alive.current && !controller.signal.aborted) setBookLoading(false); });
+    return () => controller.abort();
+  }, [canRead, canManage, bookPage, bookSearch, bookRefresh]);
   const write = async (action: string, body: unknown, operation: (key: string) => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(""); setNotice("");
@@ -69,18 +84,32 @@ function RuleWorkspace() {
   };
   const changeItem = (index: number, change: Partial<FormalPayrollItem>) => setDefinition(value => ({ ...value, items: value.items.map((item, i) => i === index ? { ...item, ...change } : item) }));
   const editable = canManage && editing && (!selected || selected.status === "draft");
+  const bookOptions = payrollBookOptions(book ? [book, ...books] : books);
   if (!canRead) return null;
   return <section className={`ds-panel ${styles.workspace}`} aria-labelledby="modern-payroll-rules">
     <div className={styles.actions}><h2 id="modern-payroll-rules">工资业务规则</h2><button className="secondary-button" type="button" disabled={loading || busy} onClick={() => void load().catch(() => undefined)}>刷新规则</button></div>
     <p>按业务项目维护计算顺序、金额来源和生效月份。已批准版本保留，后续调整新增版本。</p>
     {error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
-    {canManage ? <form className={styles.fields} onSubmit={event => {
+    {canManage ? <form className={styles.workspace} onSubmit={event => {
       event.preventDefault(); if (!code.trim() || !name.trim()) return;
-      const body = { ruleCode: code.trim(), displayName: name.trim() };
-      void write("hr-rule-create", body, async key => { const created = await hrApi.createPayrollRules(body, getAccessToken(), key); if (alive.current) { setCurrent(created); setCode(""); setName(""); setSelected(null); setEditing(false); setPage(1); } });
+      const body = { ruleCode: code.trim(), displayName: name.trim(), ...(book ? { sourceBookId: book.id } : {}) };
+      void write("hr-rule-create", body, async key => { const created = await hrApi.createPayrollRules(body, getAccessToken(), key); if (alive.current) { setCurrent(created); setCode(""); setName(""); setBook(null); setBookRefresh(value => value + 1); setSelected(null); setEditing(false); setPage(1); } });
     }}>
-      <label className="form-field"><span>规则编号</span><input required maxLength={64} disabled={busy} value={code} onChange={event => setCode(event.target.value)} /></label>
+      <div className={styles.fields}><label className="form-field"><span>规则编号</span><input required maxLength={64} disabled={busy} value={code} onChange={event => setCode(event.target.value)} /></label>
       <label className="form-field"><span>规则名称</span><input required maxLength={100} disabled={busy} value={name} onChange={event => setName(event.target.value)} /></label>
+      </div>
+      <div className={styles.workspace}>
+        <div className={styles.fields}><label className="form-field"><span>关联工资账套（可选）</span><select disabled={busy || bookLoading || !!bookError} value={book?.id ?? ""} onChange={event => setBook(bookOptions.find(value => value.id === event.target.value) ?? null)}>
+          <option value="">独立规则，不关联账套</option>
+          {bookOptions.map(value => <option value={value.id} key={value.id}>{value.label}</option>)}
+        </select></label>
+        <div className={styles.actions}><label className="form-field"><span>搜索工资账套名称或编号</span><input maxLength={100} disabled={busy} value={bookKeyword} onChange={event => setBookKeyword(event.target.value)} /></label><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => { setBookSearch(bookKeyword.trim()); setBookPage(1); setBookRefresh(value => value + 1); }}>搜索账套</button></div>
+        </div>
+        {bookError ? <p className="form-error" role="alert">{bookError}</p> : bookLoading ? <p>正在加载工资账套…</p> : <p>{bookTotal ? `有 ${bookTotal} 个可关联账套。` : "当前搜索没有可关联账套，可创建独立规则。"}</p>}
+        <div className={styles.actions}><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage <= 1} onClick={() => setBookPage(value => value - 1)}>账套上一页</button><span>第 {bookPage} / {Math.max(1, Math.ceil(bookTotal / 20))} 页</span><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage * 20 >= bookTotal} onClick={() => setBookPage(value => value + 1)}>账套下一页</button><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => setBookRefresh(value => value + 1)}>刷新账套</button></div>
+        <p>已关联的账套在对应工资规则中维护；关联保留业务关系，计算使用独立批准的生效规则。</p>
+        {book ? <p>本次关联：{payrollBookLabel(book)}<button type="button" className="secondary-button" disabled={busy} onClick={() => setBook(null)}>取消关联选择</button></p> : null}
+      </div>
       <div className={styles.actions}><button className="secondary-button" disabled={busy} type="submit">新建规则</button></div>
     </form> : null}
     <label className="form-field"><span>选择工资规则</span><select value={current?.id ?? ""} disabled={busy || loading} onChange={event => {
@@ -88,6 +117,7 @@ function RuleWorkspace() {
     }}><option value="">请选择规则</option>{current && !sets.some(rule => rule.id === current.id) ? <option value={current.id}>{current.displayName}</option> : null}{sets.map(rule => <option key={rule.id} value={rule.id}>{rule.displayName} · {rule.ruleCode}</option>)}</select></label>
     <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || rulePage <= 1} onClick={() => setRulePage(value => value - 1)} type="button">规则上一页</button><span>第 {rulePage} / {Math.max(1, Math.ceil(ruleTotal / 20))} 页</span><button className="secondary-button" disabled={busy || loading || rulePage * 20 >= ruleTotal} onClick={() => setRulePage(value => value + 1)} type="button">规则下一页</button></div>
     {current ? <>
+      <p>关联账套：{current.sourceBook ? payrollBookLabel(current.sourceBook) : current.sourceBookId ? "关联账套暂不可用" : "独立工资规则"}</p>
       <div className={styles.actions}><h3>{current.displayName}的版本</h3>{canManage ? <button className="secondary-button" type="button" disabled={busy || loading} onClick={() => { setSelected(null); setDefinition(blankDefinition()); setReason(""); setEditing(true); }}>新增版本</button> : null}</div>
       {loading ? <p>正在加载版本…</p> : <div className={`ds-mobile-record-list ${styles.records}`}>{versions.map(version => <article className="ds-mobile-record" key={version.id}><strong>第 {version.revisionNo} 版 · {statuses[version.status] ?? version.status}</strong><span>{version.effectiveFrom ? `${version.effectiveFrom} 起生效` : "尚未生效"} · {version.definition.items.length} 个项目</span><button className="secondary-button" type="button" disabled={busy} onClick={() => choose(version)}>查看版本</button></article>)}{!versions.length ? <p>当前页暂无版本。</p> : null}</div>}
       <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || page <= 1} onClick={() => { setSelected(null); setEditing(false); setPage(value => value - 1); }} type="button">版本上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</span><button className="secondary-button" disabled={busy || loading || page * 20 >= total} onClick={() => { setSelected(null); setEditing(false); setPage(value => value + 1); }} type="button">版本下一页</button></div>

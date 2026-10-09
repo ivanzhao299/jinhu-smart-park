@@ -9,7 +9,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrPayrollRuleSetDto, CreateHrPayrollRuleVersionDto, HrPayrollEffectiveRuleQueryDto,
-  HrPayrollFormalRuleQueryDto, ReviewHrPayrollRuleVersionDto, SubmitHrPayrollRuleVersionDto,
+  HrPayrollFormalRuleQueryDto, HrPayrollBookOptionsQueryDto, ReviewHrPayrollRuleVersionDto, SubmitHrPayrollRuleVersionDto,
   UpdateHrPayrollRuleVersionDto,
 } from "./dto/hr-payroll-formal-rule.dto";
 import { HrPayrollFormalRuleService } from "./hr-payroll-formal-rule.service";
@@ -23,6 +23,8 @@ export class HrPayrollFormalRuleController {
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: HrPayrollFormalRuleQueryDto) { return this.service.listSets(scope, actor, query); }
   @Post() @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_MANAGE) @UseInterceptors(new IdempotencyInterceptor())
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreateHrPayrollRuleSetDto) { return this.service.createSet(scope, actor, dto); }
+  @Get("book-options") @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE)
+  bookOptions(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: HrPayrollBookOptionsQueryDto) { return this.service.bookOptions(scope, actor, query); }
   @Get(":id/versions") @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)
   versions(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string, @Query() query: HrPayrollFormalRuleQueryDto) { return this.service.listVersions(scope, actor, id, query); }
   @Get(":id/effective") @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)

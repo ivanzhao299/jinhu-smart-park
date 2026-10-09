@@ -5,10 +5,14 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DataSource } from "typeorm";
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Module, NotFoundException, ValidationPipe } from "@nestjs/common";
+import { NestFactory, Reflector } from "@nestjs/core";
+import type { Request } from "express";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import type { AuditService } from "../audit/audit.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { PermissionGuard } from "../../shared/guards/permission.guard";
+import { HrPayrollFormalRuleController } from "./hr-payroll-formal-rule.controller";
 import { HrPayrollFormalInputService } from "./hr-payroll-formal-input.service";
 import { HrPayrollFormalRuleService } from "./hr-payroll-formal-rule.service";
 import { HrPayrollFormalRunService } from "./hr-payroll-formal-run.service";
@@ -29,6 +33,7 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     // Only original catalog FK prerequisite is a fixture. The entire new migration is executed unchanged.
     await db.query(`CREATE EXTENSION "uuid-ossp"; CREATE TABLE hr_payroll_book(
       id uuid,tenant_id varchar(64),park_id varchar(64),is_deleted boolean DEFAULT false,
+      book_name text DEFAULT '正式工资账套',source_system text DEFAULT 'yuzhou-v10',legacy_scheme int DEFAULT 1,
       UNIQUE(tenant_id,park_id,id));
       CREATE TABLE hr_payroll_period(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),period_month date,start_date date,end_date date,status text,is_deleted boolean DEFAULT false);
       CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),version int,hire_date date,departure_date date,is_deleted boolean DEFAULT false,employee_code text DEFAULT 'SYNTHETIC',full_name text DEFAULT '合成员工');
@@ -59,8 +64,39 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     const sourceBook = randomUUID(), foreignBook = randomUUID();
     await db.query("INSERT INTO hr_payroll_book(id,tenant_id,park_id) VALUES($1,$2,$3),($4,$2,$5)", [sourceBook, tenantId, parkId, foreignBook, randomUUID()]);
     await assert.rejects(() => service.createSet(scope, creator, { ruleCode: "FOREIGN", displayName: "异园区引用", sourceBookId: foreignBook }), NotFoundException);
+    const candidate = await service.bookOptions(scope, creator, { page: 1, pageSize: 1 });
+    assert.equal(candidate.total, 1); assert.equal(candidate.items[0]?.id, sourceBook);
+    assert.equal(candidate.items[0]?.bookName, "正式工资账套");
+    assert.equal((await service.bookOptions(scope, creator, { page: 2, pageSize: 1 })).total, 1);
+    assert.deepEqual((await service.bookOptions(scope, creator, { page: 2, pageSize: 1 })).items, []);
+    assert.equal((await service.bookOptions(scope, creator, { page: 1, pageSize: 20, keyword: "1" })).total, 1);
+    assert.equal((await service.bookOptions(scope, creator, { page: 1, pageSize: 20, keyword: "%" })).total, 0);
+    failAudit = true;
+    await assert.rejects(() => service.bookOptions(scope, creator, { page: 1, pageSize: 20 }), /audit unavailable/);
+    failAudit = false;
+    // Actual Nest route, DTO, permission guard and database service, using synthetic local principals.
+    class BookOptionsFixture {}
+    Module({ controllers: [HrPayrollFormalRuleController], providers: [{ provide: HrPayrollFormalRuleService, useValue: service }] })(BookOptionsFixture);
+    const http = await NestFactory.create(BookOptionsFixture, { logger: false });
+    http.use((req: Request & { user?: JwtPrincipal }, _response: unknown, next: () => void) => {
+      req.user = req.header("x-fixture-role") === "reader" ? { ...creator, permissions: [HR_PERMISSIONS.HR_PAYROLL_RULE_READ] } : creator; next();
+    });
+    http.useGlobalGuards(new PermissionGuard(new Reflector()));
+    http.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+    try {
+      await http.listen(0, "127.0.0.1");
+      const url = `${await http.getUrl()}/hr/payroll/rules/book-options`;
+      const response = await fetch(`${url}?page=1&pageSize=20&keyword=1`);
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).items[0].id, sourceBook);
+      assert.equal((await fetch(url, { headers: { "x-fixture-role": "reader" } })).status, 403);
+      assert.equal((await fetch(`${url}?pageSize=101`)).status, 400);
+    } finally { await http.close(); }
     const mapped = await service.createSet(scope, creator, { ruleCode: "MAPPED", displayName: "延续业务账套", sourceBookId: sourceBook });
     assert.equal(mapped.sourceBookId, sourceBook);
+    assert.equal(mapped.sourceBook?.bookName, "正式工资账套");
+    assert.equal((await service.bookOptions(scope, creator, { page: 1, pageSize: 20 })).total, 0);
+    assert.equal((await service.listSets(scope, creator, { page: 1, pageSize: 20 })).items[0]?.sourceBook?.id, sourceBook);
     await assert.rejects(() => service.createSet(scope, creator, { ruleCode: "DUPLICATE", displayName: "重复映射", sourceBookId: sourceBook }), ConflictException);
     const rules = await service.createSet(scope, creator, { ruleCode: "SYNTHETIC", displayName: "合成测试工资规则" });
     const input = { expectedHeadRevision: 0, definition, reason: "合成规则并发测试" };

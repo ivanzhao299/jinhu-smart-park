@@ -23,6 +23,9 @@ test("rule authority rejects every public read/write before database or audit ac
   const { scope, actor, service, probes } = fixture();
   const id = randomUUID();
   await assert.rejects(() => service.listSets(scope, actor, { page: 1, pageSize: 20 }), ForbiddenException);
+  for (const permissions of [[], [HR_PERMISSIONS.HR_PAYROLL_MANAGE], [HR_PERMISSIONS.HR_PAYROLL_RULE_READ]]) {
+    await assert.rejects(() => service.bookOptions(scope, { ...actor, permissions }, { page: 1, pageSize: 20 }), ForbiddenException);
+  }
   await assert.rejects(() => service.listVersions(scope, actor, id, { page: 1, pageSize: 20 }), ForbiddenException);
   await assert.rejects(() => service.effective(scope, actor, id, { month: "2026-10" }), ForbiddenException);
   await assert.rejects(() => service.createSet(scope, actor, { ruleCode: "RULE", displayName: "规则" }), ForbiddenException);
@@ -38,6 +41,8 @@ test("business names and queries reject punctuation, invisible-only text, excess
     await assert.rejects(() => service.createSet(scope, actor, { ruleCode: "RULE", displayName }), BadRequestException);
   }
   await assert.rejects(() => service.listSets(scope, actor, { page: 0, pageSize: 20 }), BadRequestException);
+  await assert.rejects(() => service.bookOptions(scope, actor, { page: 1, pageSize: 101 }), BadRequestException);
+  await assert.rejects(() => service.bookOptions(scope, actor, { page: 1, pageSize: 20, keyword: "x".repeat(101) }), BadRequestException);
   await assert.rejects(() => service.listSets(scope, actor, { page: 1, pageSize: 200 }), BadRequestException);
   await assert.rejects(() => service.listSets(scope, actor, { page: 1, pageSize: 20, injected: true } as never), BadRequestException);
   assert.equal(probes(), 0);
