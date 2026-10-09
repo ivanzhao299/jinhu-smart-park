@@ -8,7 +8,7 @@ const read=(path:string)=>readFileSync(resolve(root,path),"utf8");
 const page=read("apps/web/app/hr/employees/HrEmployeesClient.tsx");
 const api=read("apps/web/lib/hr-api.ts");
 const sensitiveEditorGate=/canManageProfile&&profileReadReady\?<>/u;
-const sensitiveSaveGate=/if\(!selected\|\|busy\|\|profileSaving\.current\|\|profileConflict\|\|!canManageProfile\|\|!profileReadReady\|\|\(profile!==null&&profile\.employeeId!==selected\.id\)\)return/u;
+const sensitiveSaveGate=/if\(!selected\|\|busy\|\|mutationFlight\.current\|\|profileSaving\.current\|\|profileConflict\|\|!canManageProfile\|\|!profileReadReady\|\|\(profile!==null&&profile\.employeeId!==selected\.id\)\)return/u;
 
 test("employee directory and profiles use only their exact park team and self atoms",()=>{
   assert.match(page,/canReadAll=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_READ\)/u);

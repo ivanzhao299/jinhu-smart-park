@@ -75,3 +75,6 @@
 
 .exportControl { display: flex; flex-direction: column; gap: .5rem; max-width: 100%; }
 .exportControl > span { overflow-wrap: anywhere; }
+
+.operationForm :global(.ds-button), .operationForm input, .operationForm select { min-height: 44px; }
+.operationForm > p { grid-column: 1 / -1; margin-block: 8px; }
