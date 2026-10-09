@@ -9,3 +9,5 @@
 - No new DDL or migration replay on production, no historical import replay, no production test business writes.
 - Existing full-repository/migration release-smoke not rerun locally; original migrations exercised only in focused disposable fixture; CI remains next gate.
 - Real-role production UAT and complete source-rule equivalence remain pending. Audit retains timing/version and reasonChanged, not historic free-text reason content. Imported approved facts remain terminal under normal approval rules.
+
+CI首轮发现旧M6静态测试对整个HrService禁止AS version，与本轮独立操作令牌内部查询冲突。按公开投影约束修正静态范围，保留保险字段白名单和考勤本人/他人/读者动态断言；补充本人可编辑投影仍无raw version。相关15项通过，业务代码未变化，重新提交完整CI。

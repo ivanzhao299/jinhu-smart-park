@@ -53,5 +53,6 @@ test("attendance optimistic edit token is only an own-operation projection",()=>
  const project=(HrService.prototype as unknown as {projectAttendanceRequest:(row:Record<string,unknown>,access:string,user?:string,edit?:boolean)=>Record<string,unknown>}).projectAttendanceRequest;
  const row={id:"synthetic",version:7,request_no:"SYN",request_type:"correction",attendance_date:"2026-10-12",start_at:null,end_at:null,duration_minutes:0,legacy_declared_days:null,reason:"synthetic",status:"returned",submitted_at:null,reviewed_at:null,review_comment:null,employee_user_id:"self",employee_id:"employee",employee_name:"synthetic",employee_code:"SYN"};
  assert.equal(project(row,"self","self",true).editVersion,7);
+ assert.equal(project(row,"self","self",true).version,undefined);
  for(const item of [project(row,"self","self",false),project(row,"park","other",true)]){assert.equal(item.editVersion,undefined);assert.equal(item.version,undefined);}
 });

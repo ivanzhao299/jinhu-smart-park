@@ -73,7 +73,10 @@ test("M6 Slice 1 adds no write route or historical schema mutation",()=>{
  for(const route of ["attendance/calendars","insurance/periods","insurance/periods/me","insurance/periods/:id"])assert.match(controller,new RegExp(`@Get\\("${route}"\\)`));
  assert.doesNotMatch(controller,/@(?:Post|Put|Delete)\("(?:attendance\/calendars|insurance\/)/);
  assert.doesNotMatch(service,/getRepository\((?:HrAttendanceCalendarSourceEntity|HrAttendanceDayEntity|HrEmployeeInsurancePeriodEntity|HrEmployeeInsuranceItemEntity)\)[\s\S]{0,120}\.save\(/);
- for(const field of ["source_snapshot","legacy_id","tenant_id","park_id","create_by","update_by","remark","version"])assert.doesNotMatch(service,new RegExp(`AS ${field}\\b`));
+ for(const field of ["source_snapshot","legacy_id","tenant_id","park_id","create_by","update_by","remark"])assert.doesNotMatch(service,new RegExp(`AS ${field}\\b`));
+ // Internal attendance version supports the permission-gated own-operation
+ // editVersion token. Insurance projection keys are asserted above; attendance
+ // raw-version exclusion is asserted by hr-attendance-request.spec.ts.
  assert.match(service,/reviewReasonCode/);
 });
 
