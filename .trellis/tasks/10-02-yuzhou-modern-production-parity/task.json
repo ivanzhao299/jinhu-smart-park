@@ -51,7 +51,8 @@
     "10-09-hr-goal-execution-workflow",
     "10-09-hr-attendance-request-continuation",
     "10-09-hr-performance-review-browsing",
-    "10-09-hr-goal-version-continuation"
+    "10-09-hr-goal-version-continuation",
+    "10-09-hr-feedback-operation-continuity"
   ],
   "parent": null,
   "relatedFiles": [

@@ -555,3 +555,5 @@ Attendance returned-request correction and approval continuity: [Request Continu
 
 - [Goal definition continuity](../../api/backend/hr-goal-definition-continuity.md) — Exact CHANGE editor, domain version conflict and immutable history.
 - [Performance review browsing](./hr-performance-review-browsing.md) — Scoped period/status filters, bounded reviews and continuation.
+
+- [360 operation continuity](../../api/backend/hr-feedback-operation-continuity.md) — Independent reads, cycle operation authority and retained retries.

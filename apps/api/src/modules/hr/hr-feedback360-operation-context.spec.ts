@@ -1,0 +1,13 @@
+import "reflect-metadata";
+import {HrFeedback360Controller} from "./hr-feedback360.controller";
+import {PERMISSIONS_KEY,ANY_PERMISSIONS_KEY} from "../../shared/decorators/permissions.decorator";
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {HR_PERMISSIONS as H} from "@jinhu/shared";
+import {HrFeedback360Service} from "./hr-feedback360.service";
+const scope={tenantId:'tenant',parkId:'park'},actor={...scope,sub:'actor',username:'synthetic',roles:[],permissions:[] as string[]};
+test('360 cycle operation context rejects unrelated atoms before database access',async()=>{let calls=0;const s=new HrFeedback360Service({query:async()=>{calls++;return[]}} as never,{} as never,{} as never);for(const permissions of [[],[H.HR_FEEDBACK_READ],[H.HR_FEEDBACK_TEAM_READ],[H.HR_FEEDBACK_SELF_READ],[H.HR_FEEDBACK_RESPOND]])await assert.rejects(s.cycleOperationContext(scope,{...actor,permissions}),/management permission/);for(const isSuper of [false,true])await assert.rejects(s.cycleOperationContext(scope,{...actor,parkId:'foreign',permissions:[H.HR_FEEDBACK_CYCLE_MANAGE],isSuper}),/scope is unavailable/);assert.equal(calls,0);});
+test('cycle manager reads scoped cycle projection with required empty-result audit',async()=>{const queries:{sql:string;params:unknown[]}[]=[],audits:Record<string,unknown>[]=[];const s=new HrFeedback360Service({query:async(sql:string,params:unknown[])=>{queries.push({sql,params});return[]}} as never,{recordOperationRequired:async(d:Record<string,unknown>)=>{audits.push(d)}} as never,{} as never);assert.deepEqual(await s.cycleOperationContext(scope,{...actor,permissions:[H.HR_FEEDBACK_CYCLE_MANAGE]}),[]);assert.deepEqual(queries[0]!.params,['tenant','park']);assert.match(queries[0]!.sql,/c.tenant_id=\$1 AND c.park_id=\$2/);assert.equal(audits[0]!.path,'/hr/feedback360-v2/cycles/operation-context');assert.deepEqual(audits[0]!.afterJson,{fieldGroups:['feedback'],projection:'park',itemCount:0});});
+test('cycle operation context fails closed when required audit fails',async()=>{const s=new HrFeedback360Service({query:async()=>[]} as never,{recordOperationRequired:async()=>{throw Error('audit unavailable')}} as never,{} as never);await assert.rejects(s.cycleOperationContext(scope,{...actor,permissions:[H.HR_FEEDBACK_CYCLE_MANAGE]}),/audit unavailable/);});
+
+test("cycle operation controller requires the exact cycle management atom",()=>{const method=HrFeedback360Controller.prototype.cycleOperationContext;assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,method),[H.HR_FEEDBACK_CYCLE_MANAGE]);assert.equal(Reflect.getMetadata(ANY_PERMISSIONS_KEY,method),undefined);});
