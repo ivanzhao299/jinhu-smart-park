@@ -13,9 +13,9 @@
   "implementationStatus": "IN_PROGRESS",
   "goalStatus": "active",
   "workspace": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
-  "implementationBaselineSha": "faf64d80aef2bdd0ff55261d335aef9f6537b80f",
+  "implementationBaselineSha": "cf807cd7393246550413522cb0936f1f785b38c5",
   "runtimeProof": {
-    "runId": null,
+    "runId": 37987582142,
     "observedAt": "2026-10-09T20:32:19.824Z",
     "apiCommit": "faf64d80aef2bdd0ff55261d335aef9f6537b80f",
     "webCommit": "faf64d80aef2bdd0ff55261d335aef9f6537b80f",
@@ -136,8 +136,10 @@
     },
     "attendanceResultExport": {
       "pr": 916,
-      "status": "CI_SUCCESS_ORDERED_RELEASE_RUNNING",
-      "checkpoint": "/Users/mac/.codex/artifacts/hr-attendance-result-export-20261010/checkpoint.json"
+      "status": "MERGED_DEPLOY_RUNNING",
+      "checkpoint": "/Users/mac/.codex/artifacts/hr-attendance-result-export-20261010/checkpoint.json",
+      "commit": "cf807cd7393246550413522cb0936f1f785b38c5",
+      "deployRunId": 37987740994
     }
   }
 }
