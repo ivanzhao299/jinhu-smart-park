@@ -8,3 +8,5 @@
 - Full CI and sequential production deploy/runtime verification pending latest-main integration afterPR910.
 
 Integrated latest main10488ec07 (PR910). Only conflict was parent child-task list; all other fields equal; both task links preserved. Business source paths are disjoint. Proportionate combined validation follows.
+
+Integrated validation:46 interaction tests across talent/reward continuity/correction/self-appeal/payroll-link passed;230 HR regressions passed; Web typecheck and affected ESLint passed. Browser evidence reused: talent component, global/shared CSS and relevant inputs/dependencies unchanged by reward-only integration.
