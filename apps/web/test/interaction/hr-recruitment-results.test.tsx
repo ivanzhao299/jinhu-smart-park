@@ -5,7 +5,7 @@ import {hrApi,type HrOnboardingApplication,type HrCandidate,type HrRequisition} 
 const auth=vi.hoisted(()=>({user:{id:"hr",permissions:["hr:recruitment","hr:requisition:read","hr:candidate:read","hr:onboarding:read","hr:onboarding:manage"],enabled_modules:[{module_code:"hr"}]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>auth.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{recruitmentRequisitions:vi.fn(),recruitmentCandidates:vi.fn(),onboardingApplications:vi.fn(),onboardingApplicationAction:vi.fn(),directoryOptions:vi.fn(),positions:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{recruitmentRequisitions:vi.fn(),recruitmentCandidates:vi.fn(),recruitmentCandidateDetail:vi.fn(),onboardingApplications:vi.fn(),onboardingApplicationAction:vi.fn(),directoryOptions:vi.fn(),positions:vi.fn()}}));
 const row=(number:number,extra:Partial<HrOnboardingApplication>={}):HrOnboardingApplication=>({id:`application-${number}`,entryType:"initial",applicationNo:`SYN-${number}`,applicationName:`合成入职${number}`,employeeId:`employee-${number}`,employeeName:`合成员工${number}`,candidateId:null,applicationDate:"2026-10-01",plannedHireDate:"2026-10-10",probationMonths:3,attendanceCardNo:"123",status:"draft",reviewComment:null,reviewedAt:null,confirmedAt:null,remark:null,...extra});
 const req:HrRequisition={id:"req",requisitionCode:"SYN-REQ",title:"合成招聘需求",orgId:"org",orgName:"合成部门",positionId:null,positionName:null,headcount:1,hiredCount:0,ownerUserId:"hr",ownerName:null,plannedOnboardDate:null,status:"open"};
 const candidate:HrCandidate={id:"candidate",candidateNo:"SYN-C",fullName:"合成候选人",requisitionId:"req",requisitionTitle:"合成招聘需求",stage:"screening",source:null,expectedOnboardDate:null,latestEvaluation:null,mobileMasked:null,emailMasked:null,identityMasked:null,convertedEmployeeId:null};
@@ -41,4 +41,24 @@ it("does not render a rehire response in the initial onboarding ledger",async()=
 
 it("page access alone does not query operational ledgers without their read permissions",async()=>{
  auth.user={...auth.user,permissions:["hr:recruitment"]};render(<HrRecruitmentClient/>);await screen.findByRole("heading",{name:"招聘管理"});expect(hrApi.onboardingApplications).not.toHaveBeenCalled();expect(hrApi.recruitmentCandidates).not.toHaveBeenCalled();expect(hrApi.recruitmentRequisitions).not.toHaveBeenCalled();
+});
+
+const sensitive = {...candidate,mobile:"SYN-PHONE",email:"synthetic@example.invalid",identityNumber:"SYN-IDENTITY"};
+it("authorized candidate contact is projected for the exact selected candidate",async()=>{
+ auth.user.permissions.push("hr:candidate:sensitive_read");vi.mocked(hrApi.recruitmentCandidateDetail).mockResolvedValue(sensitive);
+ render(<HrRecruitmentClient/>);fireEvent.click(await screen.findByRole("button",{name:"下一动作"}));
+ await screen.findByText("电话：SYN-PHONE");expect(screen.getByText("邮箱：synthetic@example.invalid")).toBeInTheDocument();expect(screen.getByText("证件：SYN-IDENTITY")).toBeInTheDocument();
+ expect(hrApi.recruitmentCandidateDetail).toHaveBeenCalledWith("candidate","synthetic-token",expect.any(AbortSignal));
+ fireEvent.click(screen.getByRole("button",{name:"关闭"}));expect(screen.queryByText("电话：SYN-PHONE")).toBeNull();expect(vi.mocked(hrApi.recruitmentCandidateDetail).mock.calls[0]?.[2]?.aborted).toBe(true);
+});
+it("candidate read alone never requests or exposes contact even with an overbroad list row",async()=>{
+ vi.mocked(hrApi.recruitmentCandidates).mockResolvedValue(list([sensitive]));render(<HrRecruitmentClient/>);
+ fireEvent.click(await screen.findByRole("button",{name:"下一动作"}));expect(hrApi.recruitmentCandidateDetail).not.toHaveBeenCalled();expect(screen.queryByText(/SYN-PHONE|synthetic@example.invalid|SYN-IDENTITY/)).toBeNull();
+});
+it("revoked contact authority cancels the in-flight detail and discards late private projection",async()=>{
+ auth.user.permissions.push("hr:candidate:sensitive_read");let resolve:(value:typeof sensitive)=>void=()=>{};
+ vi.mocked(hrApi.recruitmentCandidateDetail).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));
+ const view=render(<HrRecruitmentClient/>);fireEvent.click(await screen.findByRole("button",{name:"下一动作"}));await waitFor(()=>expect(hrApi.recruitmentCandidateDetail).toHaveBeenCalledTimes(1));
+ const signal=vi.mocked(hrApi.recruitmentCandidateDetail).mock.calls[0]?.[2];auth.user={...auth.user,permissions:auth.user.permissions.filter(p=>p!=="hr:candidate:sensitive_read")};view.rerender(<HrRecruitmentClient/>);
+ await screen.findByText("合成候选人 · 筛选");expect(signal?.aborted).toBe(true);await act(async()=>resolve(sensitive));expect(screen.queryByText(/SYN-PHONE|synthetic@example.invalid|SYN-IDENTITY/)).toBeNull();
 });

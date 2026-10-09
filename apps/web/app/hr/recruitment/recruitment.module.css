@@ -45,3 +45,5 @@
   .choice span, .chosen span { width: 100%; }
   .choice button:global(.ds-button), .chosen button:global(.ds-button) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 }
+
+.candidateDetail :global(.ds-button) { min-height: 44px; }
