@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Talent authorized operations on desktop and phones: [Talent Operations](./hr-talent-mobile-operations.md).
+
 Complete scoped contract and insurance CSV: [Ledger Exports](./hr-contract-insurance-ledger-exports.md).
 
 Modern payroll business rule authoring and version review: [Modern Rule Maintenance](./hr-payroll-modern-rule-maintenance.md).

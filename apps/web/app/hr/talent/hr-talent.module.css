@@ -1,0 +1,15 @@
+.workspace :global(.ds-button),
+.workspace input,
+.workspace select {
+  min-height: 44px;
+}
+
+.records {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+
+@media (max-width: 720px) {
+  .workspace :global(.ds-data-table) > tbody > tr > td {
+    height: auto;
+  }
+}
