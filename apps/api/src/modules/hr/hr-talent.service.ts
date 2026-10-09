@@ -28,6 +28,8 @@ import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 import type { HrTalentEmployeeOptionsDto } from "./dto/hr-talent-employee-options.dto";
 
+import type { HrTalentProfilePageDto } from "./dto/hr-talent-profile-page.dto";
+
 type Row = Record<string, unknown>;
 type Access = "park" | "managed_org_tree" | "self" | "none";
 const has = (a: JwtPrincipal, p: string) =>
@@ -270,6 +272,31 @@ export class HrTalentService {
           : "park",
     );
     return rows;
+  }
+
+  async profilePage(s: TenantParkScope, a: JwtPrincipal, q: HrTalentProfilePageDto) {
+    this.assertScope(s, a);
+    if (![HR_PERMISSIONS.HR_TALENT_READ, HR_PERMISSIONS.HR_TALENT_TEAM_READ, HR_PERMISSIONS.HR_TALENT_SELF_READ].some(permission => has(a, permission)))
+      throw new ForbiddenException("Talent profile read permission required");
+    if (!Number.isInteger(q.page) || q.page < 1 || q.page > 2147483647 || !Number.isInteger(q.page_size) || q.page_size < 1 || q.page_size > 100)
+      throw new BadRequestException("Invalid talent profile page");
+    const access = this.access(s, a), params: unknown[] = [s.tenantId, s.parkId, a.sub];
+    let filter = `p.tenant_id=$1 AND p.park_id=$2 AND $3::uuid IS NOT NULL${this.employeePredicate(access, "e", "$3")}`;
+    if (q.employeeId) { params.push(q.employeeId); filter += ` AND e.id=$${params.length}`; }
+    const keyword = q.keyword?.trim();
+    if (keyword) {
+      params.push(`%${keyword.replace(/[\\%_]/g, "\\$&")}%`);
+      filter += ` AND (e.full_name ILIKE $${params.length} OR e.employee_code ILIKE $${params.length})`;
+    }
+    const from = `FROM hr_talent_profile_snapshot p JOIN hr_employee e ON(e.id,e.tenant_id,e.park_id)=(p.employee_id,p.tenant_id,p.park_id) WHERE ${filter}`;
+    const result = await this.db.transaction("REPEATABLE READ", async manager => {
+      await manager.query("SET TRANSACTION READ ONLY");
+      const summary = (await manager.query(`SELECT count(*)::int total,count(DISTINCT p.employee_id)::int "employeeCount" ${from}`, params))[0] as {total: number; employeeCount: number};
+      const items: Row[] = await manager.query(`SELECT p.id,p.snapshot_no "snapshotNo",p.as_of_date "asOfDate",e.full_name "employeeName",e.employee_code "employeeCode",p.performance_source-'id' "performanceSource",p.feedback_source-'subjectId' "feedbackSource",p.created_at "createdAt" ${from} ORDER BY p.created_at DESC,p.id DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`, [...params, q.page_size, (q.page-1)*q.page_size]);
+      return {...summary,items,page:q.page,page_size:q.page_size};
+    });
+    await this.auditRead(s,a,"hr.talent_profile","hr_talent_profile_snapshot","/hr/talent/profiles-page",result.items.length,access === "managed_org_tree" ? "team" : access === "self" ? "self" : "park");
+    return result;
   }
 
   async createSession(

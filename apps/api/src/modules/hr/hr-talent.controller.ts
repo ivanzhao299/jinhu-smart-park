@@ -32,6 +32,7 @@ import {
   TransitionHrDevelopmentPlanDto,
 } from "./dto/hr-talent.dto";
 import { HrTalentEmployeeOptionsDto } from "./dto/hr-talent-employee-options.dto";
+import { HrTalentProfilePageDto } from "./dto/hr-talent-profile-page.dto";
 import { HrTalentService } from "./hr-talent.service";
 
 const readAtoms = [
@@ -60,6 +61,10 @@ export class HrTalentController {
     HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE)
   employeeOptions(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal,
     @Query() q: HrTalentEmployeeOptionsDto) { return this.service.employeeOptions(s, a, q); }
+  @Get("profiles-page")
+  @RequireAnyPermissions(...readAtoms)
+  profilePage(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal,
+    @Query() q: HrTalentProfilePageDto) { return this.service.profilePage(s, a, q); }
   @Get("profiles") @RequireAnyPermissions(...readAtoms) profiles(
     @CurrentScope() s: TenantParkScope,
     @CurrentUser() a: JwtPrincipal,

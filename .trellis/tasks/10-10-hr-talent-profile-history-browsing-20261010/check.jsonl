@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/api/backend/hr-talent-profile-history.md", "reason": "Same snapshot, legacy source and existing scope/permission contract"}
+{"file": ".trellis/spec/web/frontend/hr-talent-profile-history.md", "reason": "Independent complete history, counts, retry and draft continuity"}
+{"file": ".trellis/spec/web/frontend/hr-talent-employee-selection.md", "reason": "Keep existing five operation forms unchanged"}

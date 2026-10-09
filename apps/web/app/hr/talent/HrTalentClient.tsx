@@ -1,6 +1,6 @@
 "use client";
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { ApiError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -10,7 +10,6 @@ import {
   type HrDevelopmentPlan,
   type HrSuccessionRow,
   type HrTalentOptions,
-  type HrTalentProfile,
   type HrTalentSession,
   type HrTalentSubject,
 } from "../../../lib/hr-api";
@@ -18,6 +17,7 @@ import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import {type HrEmployeeOption} from "../components/HrEmployeeSelection";
+import {TalentProfileHistory} from "./TalentProfileHistory";
 import {TalentEmployeePicker} from "./TalentEmployeePicker";
 import talentStyles from "./hr-talent.module.css";
 
@@ -65,7 +65,6 @@ function TalentView() {
       HR_PERMISSIONS.HR_TALENT_SELF_READ,
     ]);
   const [options, setOptions] = useState(EMPTY_OPTIONS),
-    [profiles, setProfiles] = useState<HrTalentProfile[]>([]),
     [sessions, setSessions] = useState<HrTalentSession[]>([]),
     [subjects, setSubjects] = useState<HrTalentSubject[]>([]),
     [succession, setSuccession] = useState<HrSuccessionRow[]>([]),
@@ -77,6 +76,8 @@ function TalentView() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [panel, setPanel] = useState<Panel>(null);
+  const [profileEmployeeCount,setProfileEmployeeCount]=useState<number|null>(null);
+  const [profileRefreshKey,setProfileRefreshKey]=useState(0);
   const [profileEmployees,setProfileEmployees]=useState<HrEmployeeOption[]>([]);
   const [sessionEmployees,setSessionEmployees]=useState<HrEmployeeOption[]>([]);
   const [successorEmployees,setSuccessorEmployees]=useState<HrEmployeeOption[]>([]);
@@ -96,11 +97,10 @@ function TalentView() {
     setError("");
     try {
       const token = getAccessToken();
-      const [o, p, s, sc, d] = await Promise.all([
+      const [o, s, sc, d] = await Promise.all([
         canSuccessionManage
           ? hrApi.talentOptions(token, c.signal)
           : Promise.resolve(EMPTY_OPTIONS),
-        canRead ? hrApi.talentProfiles(token, c.signal) : Promise.resolve([]),
         canReview ||
         hasPermission(user, HR_PERMISSIONS.HR_TALENT_TEAM_READ) ||
         hasPermission(user, HR_PERMISSIONS.HR_TALENT_READ)
@@ -115,7 +115,6 @@ function TalentView() {
       ]);
       if (g !== generation.current) return;
       setOptions(o);
-      setProfiles(p);
       setSessions(s);
       setSuccession(sc);
       setPlans(d);
@@ -171,7 +170,7 @@ function TalentView() {
       await fn();
       setMessage(ok);
       setPanel(null);
-      if(panel==="profile")setProfileEmployees([]);
+      if(panel==="profile"){setProfileEmployees([]);setProfileRefreshKey(value=>value+1);}
       if(panel==="session")setSessionEmployees([]);
       if(panel==="successor")setSuccessorEmployees([]);
       if(panel==="plan")setPlanEmployees([]);
@@ -188,10 +187,6 @@ function TalentView() {
       setBusy(false);
     }
   };
-  const latestProfiles = useMemo(
-    () => new Set(profiles.map((x) => x.employeeCode)).size,
-    [profiles],
-  );
   const freezeProfile = (f: FormData) =>
     act(
       () =>
@@ -310,8 +305,8 @@ function TalentView() {
         <section className={`ds-kpi-grid ${styles.compactKpiGrid}`}>
           <article className="ds-kpi-card">
             <span>人才画像</span>
-            <strong>{latestProfiles}</strong>
-            <small>冻结来源版本</small>
+            <strong>{profileEmployeeCount??"—"}</strong>
+            <small>当前画像查询涉及人数</small>
           </article>
           <article className="ds-kpi-card">
             <span>盘点会议</span>
@@ -548,6 +543,7 @@ function TalentView() {
             正在加载人才发展工作台…
           </section>
         ) : null}
+        {canRead?<TalentProfileHistory busy={busy} refreshKey={profileRefreshKey} onEmployeeCount={setProfileEmployeeCount}/>:null}
         {!loading && !forbidden ? (
           <>
             <section className="ds-panel">
@@ -717,39 +713,6 @@ function TalentView() {
                 </table>
               </div>
             </section>
-            {profiles.length ? (
-              <section className="ds-panel">
-                <div className={styles.sectionHeading}>
-                  <div>
-                    <span className="ds-eyebrow">冻结档案</span>
-                    <h2>人才画像</h2>
-                  </div>
-                </div>
-                <div className={`ds-scene-grid ${talentStyles.records}`}>
-                  {profiles.map((x) => (
-                    <article className="ds-mobile-record" key={x.id}>
-                      <strong>
-                        {x.employeeName} · {x.employeeCode}
-                      </strong>
-                      <span>
-                        数据时点 {x.asOfDate} · 第 {x.snapshotNo} 版
-                      </span>
-                      <span>
-                        绩效：
-                        {String(
-                          x.performanceSource?.finalLevelCode ??
-                            "暂无已确认结果",
-                        )}{" "}
-                        · 360：
-                        {String(
-                          x.feedbackSource?.cycleName ?? "暂无已发布结果",
-                        )}
-                      </span>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
             {canSuccessionRead ? (
               <section className="ds-panel">
                 <div className={styles.sectionHeading}>
