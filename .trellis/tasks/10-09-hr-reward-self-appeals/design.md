@@ -1,0 +1,2 @@
+# 设计
+依赖PR903追加操作组件。detail现有访问限定完成后，服务端派生canAppeal；required audit先成功再读取scope+case+type=appeal+create_by=actor的ownAppeals摘要。canAppealfalse不返回本人历史。POST复用既有corrections route、IdempotencyInterceptor和approved行锁序号；进入事务前核对scope和对应actionpermission及非空输入，锁内复验实际employee.user_id。详情/写操作仍由服务端决定。组件支持correction/appeal两种模式，稳定键独立，frontgate必须有SELF_READ且服务端canAppeal===true。旧后端无capability不显示入口。

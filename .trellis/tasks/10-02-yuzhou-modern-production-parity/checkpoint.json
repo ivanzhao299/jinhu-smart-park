@@ -12,8 +12,8 @@
   "planningStatus": "PLAN_PERSISTED",
   "implementationStatus": "IN_PROGRESS",
   "goalStatus": "active",
-  "workspace": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "implementationBaselineSha": "f03ab9dcd72b0dc5f0f832c1efcc532de1a64074",
+  "workspace": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "implementationBaselineSha": "b5a0284ecd020a2a673ae6ab64a2d559c82817a9",
   "runtimeProof": {
     "runId": 37679996394,
     "commit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
@@ -34,8 +34,8 @@
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
   "activeRunHandle": null,
-  "currentSlice": "REWARD_APPROVED_CORRECTIONS_VALIDATED_RELEASE_PENDING",
-  "currentSliceTask": ".trellis/tasks/10-09-hr-reward-approved-corrections",
+  "currentSlice": "REWARD_SELF_APPEALS_VALIDATED_RELEASE_PENDING",
+  "currentSliceTask": ".trellis/tasks/10-09-hr-reward-self-appeals",
   "preparedProfileInput": {
     "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
     "preparationRunId": 37658598558,
@@ -126,5 +126,6 @@
     "mergedSha": "f03ab9dcd72b0dc5f0f832c1efcc532de1a64074",
     "deployRun": 37949665492,
     "status": "DEPLOY_RUNNING"
-  }
+  },
+  "baselineBoundary": "PR903 merged-main integrated; source/test/config tree preserved through rebase"
 }

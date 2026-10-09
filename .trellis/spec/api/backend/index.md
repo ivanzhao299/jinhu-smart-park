@@ -1027,3 +1027,5 @@ Attendance returned-request correction and approval continuity: [Request Continu
 - [360 operational reference pages](hr-feedback-reference-options.md) — Exact operation pagination, cross-page selection and independent recovery.
 
 - [Reward category versions](hr-reward-category-versions.md) — Complete current definitions, historical references and retained publication drafts.
+
+Employee own-case appeal and personal history: [Self Appeal Workflow](./hr-reward-self-appeals.md).

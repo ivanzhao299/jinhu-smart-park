@@ -9,3 +9,7 @@ it('correction preserves caller retry key and exact append-only route/body',asyn
  expect(apiRequest).toHaveBeenCalledWith('/hr/rewards/cases/case/corrections',{method:'POST',body,token:'synthetic-token',idempotencyKey:'stable-key'});
  expect(createIdempotencyKey).not.toHaveBeenCalled();
 });
+it('self appeal uses stable caller key and appeal-only body on existing append route',async()=>{
+ vi.mocked(apiRequest).mockResolvedValue({data:{id:'appeal',sequenceNo:2}} as Awaited<ReturnType<typeof apiRequest>>);
+ const body={type:'appeal' as const,summary:'本人申诉',reason:'本人说明'};await hrApi.appendRewardAppeal('case',body,'synthetic-token','appeal-stable-key');expect(apiRequest).toHaveBeenLastCalledWith('/hr/rewards/cases/case/corrections',{method:'POST',body,token:'synthetic-token',idempotencyKey:'appeal-stable-key'});
+});

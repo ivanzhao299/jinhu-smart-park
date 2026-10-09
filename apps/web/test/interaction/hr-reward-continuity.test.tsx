@@ -9,7 +9,7 @@ vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("../../components/files/FileUploader", () => ({ FileUploader: () => null }));
 vi.mock("../../components/files/AttachmentList", () => ({ AttachmentList: () => null }));
-vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn(), appendRewardCorrection: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn(), appendRewardCorrection: vi.fn(), appendRewardAppeal: vi.fn() } }));
 
 const employee = (n: number) => ({ id: `employee-${n}`, employeeCode: `SYN-${n}`, fullName: `Synthetic ${n}` });
 const category = { id: "category-1", code: "SYN-REWARD", versionNo: 1, name: "Synthetic category", kind: "reward" as const, impactLevel: "normal", status: "enabled" };
@@ -215,4 +215,26 @@ it("pending correction cannot publish success or read history after identity cha
   state.user={...state.user,id:"actor-b",park_id:"park-b"};view.rerender(<HrRewardsClient />);
   await act(async()=>resolve({id:"correction-1",sequenceNo:1}));
   expect(screen.queryByText(/第 1 条更正已保存/)).not.toBeInTheDocument();expect(screen.queryByLabelText("更正摘要")).not.toBeInTheDocument();expect(hrApi.rewardCase).toHaveBeenCalledTimes(1);
+});
+
+it("self role uses authoritative own-case capability to submit appeal without HR correction controls",async()=>{
+ state.user.permissions=["hr:rewards","hr:reward:self_read"];
+ vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",canAppeal:true,ownAppeals:[]});vi.mocked(hrApi.appendRewardAppeal).mockResolvedValue({id:"appeal-1",sequenceNo:2});
+ render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));
+ fireEvent.change(await screen.findByLabelText("申诉摘要"),{target:{value:"本人申请复核"}});fireEvent.change(screen.getByLabelText("申诉原因"),{target:{value:"补充本人说明"}});
+ fireEvent.submit(screen.getByRole("form",{name:"提交本人奖惩申诉"}));await screen.findByText("第 2 条申诉已保存，原审批记录保留。");
+ expect(hrApi.appendRewardAppeal).toHaveBeenCalledWith(row.id,{type:"appeal",summary:"本人申请复核",reason:"补充本人说明"},"synthetic-token",expect.any(String));expect(hrApi.appendRewardCorrection).not.toHaveBeenCalled();expect(screen.queryByLabelText("更正原因")).not.toBeInTheDocument();
+});
+it("self permission alone and stale capability without self permission never expose appeal form",async()=>{
+ state.user.permissions=["hr:rewards","hr:reward:self_read"];vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",canAppeal:false});
+ const view=render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"关闭"});expect(screen.queryByLabelText("申诉原因")).not.toBeInTheDocument();
+ state.user={...state.user,id:"read-user",permissions:["hr:rewards","hr:reward:read"]};vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",canAppeal:true,ownAppeals:[]});view.rerender(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"关闭"});expect(screen.queryByLabelText("申诉原因")).not.toBeInTheDocument();
+});
+it("HR correction and own appeal retain independent drafts and share the parent write lock",async()=>{
+ state.user.permissions=["hr:rewards","hr:reward:read","hr:reward:manage","hr:reward:self_read"];
+ vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",canAppeal:true,ownAppeals:[],corrections:[]});
+ let reject!:(e:Error)=>void;vi.mocked(hrApi.appendRewardAppeal).mockReturnValue(new Promise((_,r)=>{reject=r;}));render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));
+ fireEvent.change(await screen.findByLabelText("更正摘要"),{target:{value:"HR独立草稿"}});fireEvent.change(screen.getByLabelText("更正原因"),{target:{value:"HR独立原因"}});fireEvent.change(screen.getByLabelText("申诉摘要"),{target:{value:"本人独立草稿"}});fireEvent.change(screen.getByLabelText("申诉原因"),{target:{value:"本人独立原因"}});
+ fireEvent.submit(screen.getByRole("form",{name:"提交本人奖惩申诉"}));expect(screen.getByRole("button",{name:"保存追加更正"})).toBeDisabled();fireEvent.submit(screen.getByRole("form",{name:"追加奖惩更正"}));expect(hrApi.appendRewardCorrection).not.toHaveBeenCalled();
+ await act(async()=>reject(Error("合成申诉失败")));expect(screen.getByLabelText("更正摘要")).toHaveValue("HR独立草稿");expect(screen.getByLabelText("申诉摘要")).toHaveValue("本人独立草稿");
 });

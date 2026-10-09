@@ -561,7 +561,8 @@ function HrRewardsWorkspace() {
             {detail.detailedReason ? (
               <p className={styles.desktopSensitive}>{detail.detailedReason}</p>
             ) : null}
-            <RewardCorrections key={`corrections-${detail.id}`} detail={detail} canManage={canManage} busy={busy} publish={job => mutate(job, "追加更正失败", true)} />
+            {canManage || detail.corrections !== undefined ? <RewardCorrections key={`corrections-${detail.id}`} detail={detail} canManage={canManage} busy={busy} publish={job => mutate(job, "追加更正失败", true)} /> : null}
+            {hasPermission(user, HR_PERMISSIONS.HR_REWARD_SELF_READ) && detail.canAppeal === true ? <RewardCorrections key={`appeals-${detail.id}`} detail={detail} canManage={false} mode="appeal" busy={busy} publish={job => mutate(job, "提交申诉失败", true)} /> : null}
             {canManage && ["draft", "returned"].includes(detail.status) ? (
               <form key={detail.id} className={styles.formGrid} onSubmit={async event => { event.preventDefault(); const form = event.currentTarget; if (await update(new FormData(form))) form.reset(); }}>
                 <label className="form-field">

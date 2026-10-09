@@ -220,7 +220,7 @@ export interface HrRewardCategoryVersion {id:string;versionNo:number;kind:"rewar
 export interface HrRewardCategoryVersions extends PaginatedResult<HrRewardCategoryVersion> {category:{id:string;code:string;status:string;currentVersionNo:number};}
 export interface HrRewardCategory{id:string;code:string;versionNo:number;kind:"reward"|"discipline";name:string;impactLevel:string;status:string;}
 export interface HrRewardCase{id:string;code:string;status:string;occurredOn:string;employeeName:string;kind:string;categoryName:string|null;impactLevel:string;summary:string;amountSuggestion?:string|null;currency?:string|null;}
-export interface HrRewardCaseDetail extends HrRewardCase{detailedReason?:string|null;evidenceFileIds?:string[];corrections?:Array<{sequenceNo:number;type:string;summary:string;createdAt:string}>;}
+export interface HrRewardCaseDetail extends HrRewardCase{canAppeal?:boolean;ownAppeals?:Array<{sequenceNo:number;type:"appeal";summary:string;createdAt:string}>;detailedReason?:string|null;evidenceFileIds?:string[];corrections?:Array<{sequenceNo:number;type:string;summary:string;createdAt:string}>;}
 export interface HrEmployeeFamilyRecord {
  id:string;
  version?:number;
@@ -403,6 +403,7 @@ export const hrApi={
  createRewardCategory:(body:object,token?:string)=>unwrap(apiRequest<HrRewardCategory>('/hr/rewards/categories',{method:'POST',body,token,idempotencyKey:createIdempotencyKey('hr-reward-category')})),
  createRewardCase:(body:object,token?:string)=>unwrap(apiRequest<HrRewardCase>('/hr/rewards/cases',{method:'POST',body,token,idempotencyKey:createIdempotencyKey('hr-reward-case')})),
  updateRewardCase:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrRewardCase>(`/hr/rewards/cases/${id}`,{method:'PUT',body,token,idempotencyKey:createIdempotencyKey('hr-reward-case-update')})),
+ appendRewardAppeal:(id:string,body:{type:"appeal";summary:string;reason:string},token?:string,idempotencyKey=createIdempotencyKey("hr-reward-appeal"))=>unwrap(apiRequest<{id:string;sequenceNo:number}>(`/hr/rewards/cases/${id}/corrections`,{method:"POST",body,token,idempotencyKey})),
  appendRewardCorrection:(id:string,body:{type:"correction";summary:string;reason:string},token?:string,idempotencyKey=createIdempotencyKey("hr-reward-correction"))=>unwrap(apiRequest<{id:string;sequenceNo:number}>(`/hr/rewards/cases/${id}/corrections`,{method:"POST",body,token,idempotencyKey})),
  rewardCaseAction:(id:string,action:'submit'|'resubmit'|'withdraw'|'approve'|'return',body:object,token?:string)=>unwrap(apiRequest(`/hr/rewards/cases/${id}/${action}`,{method:'POST',body,token,idempotencyKey:createIdempotencyKey(`hr-reward-${action}`)})),
  lifecycleItemAction:(checklistId:string,itemId:string,body:object,token?:string)=>unwrap(apiRequest<{id:string;status:string;action:string}>(`/hr/lifecycle/checklists/${checklistId}/items/${itemId}/actions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-lifecycle-action")})),
