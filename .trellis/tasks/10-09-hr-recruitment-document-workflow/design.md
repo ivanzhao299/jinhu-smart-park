@@ -1,0 +1,8 @@
+# 设计
+新增路由内CandidateDocuments：两类材料共用配置表，各自FileUploader及AttachmentList，复用现有共享政策/验证/预览。按候选人ID key挂载，父RecruitmentView已有完整身份key。读取/上传/删除权限取domain与generic交集。
+
+onUploadingChange使用同步ref聚合两类上传状态，父组件同步锁和render状态共同阻止刷新、换人、关闭与人事提交。业务busy期间上传和材料删除禁用，成功上传只刷新相应类型的关联列表。
+
+共享AttachmentList紧凑分页去除onSelected前置条件，否则只读材料在20条后失联。仅此一行行为修复，实际共享组件回归覆盖只读/证书选择及上传锁。
+
+源分支依赖PR890精确候选4f541fb3；发布工作区复用且无生产数据写入，提交前rebase其最新合并版本并核对树。无API/DDL变更。

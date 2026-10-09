@@ -181,7 +181,7 @@ export function AttachmentList({
           ) : (
             <p className="attachment-empty">{emptyLabel}</p>
           )}
-          {onSelected && data.total > data.page_size ? <div className="pagination-actions"><button className="ds-button" type="button" disabled={mutationDisabled || data.page <= 1} onClick={() => void load(data.page - 1).catch(() => setMessage("附件列表加载失败"))}>上一页附件</button><span>第 {data.page} 页</span><button className="ds-button" type="button" disabled={mutationDisabled || data.page * data.page_size >= data.total} onClick={() => void load(data.page + 1).catch(() => setMessage("附件列表加载失败"))}>下一页附件</button></div> : null}
+          {data.total > data.page_size ? <div className="pagination-actions"><button className="ds-button" type="button" disabled={mutationDisabled || data.page <= 1} onClick={() => void load(data.page - 1).catch(() => setMessage("附件列表加载失败"))}>上一页附件</button><span>第 {data.page} 页</span><button className="ds-button" type="button" disabled={mutationDisabled || data.page * data.page_size >= data.total} onClick={() => void load(data.page + 1).catch(() => setMessage("附件列表加载失败"))}>下一页附件</button></div> : null}
           {message ? <p className="status-pill">{message}</p> : null}
           <FilePreview file={previewFile} objectUrl={previewUrl} onClose={closePreview} />
         </>
