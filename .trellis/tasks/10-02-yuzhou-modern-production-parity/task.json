@@ -14,7 +14,7 @@
   "completedAt": null,
   "branch": null,
   "base_branch": "main",
-  "worktree_path": "/tmp/jinhu-hr-account-identity-20261007",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
@@ -72,7 +72,8 @@
     "10-10-hr-attendance-result-export-20261010",
     "10-10-hr-attendance-shift-rule-continuity-20261010",
     "10-10-hr-attendance-schedule-continuity-20261010",
-    "10-10-hr-attendance-approved-fact-continuity-20261010"
+    "10-10-hr-attendance-approved-fact-continuity-20261010",
+    "10-10-hr-approved-request-recalculation-20261010"
   ],
   "parent": null,
   "relatedFiles": [
@@ -83,13 +84,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "现代化优先：PR895工作汇报已合并、完整生产发布跟踪中；当前补齐目标周期和目标执行的现代页面办理链。真实岗位、实际工资月份/规则/金额、原业务等价和独立HR验收保留。",
+  "notes": "现代化优先：已完成批准考勤申请有界多日重算 C 片段，等待父会话浏览器、构建和 PR919 依赖发布复核。PR919候选 d7a1cffa5781b09e39fc31b69973e67f35a8908c 由 watcher36961 / CI37998668358 独立跟踪。真实岗位、实际工资月份/规则/金额、原业务等价和独立HR验收保留。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "performance_review_browsing_publication_then_real_business_acceptance",
+    "nextSlice": "parent_browser_build_and_pr919_release_verification_then_same_tree_integration",
     "businessImplementationStarted": true
   }
 }
