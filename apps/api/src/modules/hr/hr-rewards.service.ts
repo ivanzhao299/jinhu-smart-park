@@ -526,11 +526,16 @@ export class HrRewardsService {
     id: string,
     d: HrRewardCorrectionDto,
   ) {
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId)
+      throw new ForbiddenException();
+    if (!["correction", "appeal"].includes(d.type) || typeof d.summary !== "string" || typeof d.reason !== "string" || !d.summary.trim() || !d.reason.trim() || d.summary.trim().length > 300 || d.reason.trim().length > 1000)
+      throw new BadRequestException("请填写有效的摘要和原因。");
+    this.require(a, d.type === "appeal" ? HR_PERMISSIONS.HR_REWARD_SELF_READ : HR_PERMISSIONS.HR_REWARD_MANAGE);
     return this.db.transaction(async (m) => {
       const c = await this.lock(m, s, id);
       if (c.status !== "approved")
         throw new ConflictException(
-          "Only approved cases accept append-only correction or appeal",
+          "只有已批准的事项可以追加更正或申诉。",
         );
       if (d.type === "appeal") {
         if (
@@ -550,7 +555,7 @@ export class HrRewardsService {
         row = (
           await m.query(
             `INSERT INTO hr_reward_discipline_correction(tenant_id,park_id,case_id,sequence_no,correction_type,summary,reason,create_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,sequence_no "sequenceNo"`,
-            [s.tenantId, s.parkId, id, no, d.type, d.summary, d.reason, a.sub],
+            [s.tenantId, s.parkId, id, no, d.type, d.summary.trim(), d.reason.trim(), a.sub],
           )
         )[0];
       await m.query(
@@ -636,6 +641,8 @@ export class HrRewardsService {
     });
   }
   async list(s: TenantParkScope, a: JwtPrincipal, q: HrRewardListDto) {
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId)
+      throw new ForbiddenException();
     const access = this.access(a);
     if (access === "none")
       return { items: [], page: q.page, pageSize: q.page_size, total: 0 };
@@ -661,7 +668,7 @@ export class HrRewardsService {
     if (access === "self") where.push(`e.user_id=$5 AND c.status='approved'`);
     if (access === "managed_org_tree")
       where.push(
-        `e.primary_org_id IN(WITH RECURSIVE managed_org AS(SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$5 AND status='enabled' AND is_deleted=false UNION ALL SELECT o.id FROM sys_org o JOIN managed_org p ON o.parent_id=p.id WHERE o.tenant_id=$1 AND o.park_id=$2 AND o.status='enabled' AND o.is_deleted=false) SELECT id FROM managed_org)`,
+        `(e.primary_org_id IN(WITH RECURSIVE managed_org AS(SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$5 AND status='enabled' AND is_deleted=false UNION ALL SELECT o.id FROM sys_org o JOIN managed_org p ON o.parent_id=p.id WHERE o.tenant_id=$1 AND o.park_id=$2 AND o.status='enabled' AND o.is_deleted=false) SELECT id FROM managed_org)${this.has(a, HR_PERMISSIONS.HR_REWARD_SELF_READ) ? " OR (e.user_id=$5 AND c.status='approved')" : ""})`,
       );
     const rows = await this.db.query(
       `SELECT c.id,c.case_code "code",c.status,c.occurred_on "occurredOn",e.full_name "employeeName",COALESCE(c.category_snapshot->>'kind',v.kind) kind,COALESCE(c.category_snapshot->>'name',v.name) "categoryName",c.impact_level "impactLevel",c.fact_summary "summary",${amount ? `c.amount_suggestion::text "amountSuggestion",c.currency,` : ``}COUNT(*) OVER()::int "totalCount" FROM hr_reward_discipline_case c JOIN hr_employee e ON e.tenant_id=c.tenant_id AND e.park_id=c.park_id AND e.id=c.employee_id JOIN hr_reward_discipline_category_version v ON v.tenant_id=c.tenant_id AND v.park_id=c.park_id AND v.id=c.category_version_id WHERE ${where.join(" AND ")} ORDER BY c.occurred_on DESC,c.id LIMIT $3 OFFSET $4`,
@@ -684,7 +691,9 @@ export class HrRewardsService {
     return { items, page: q.page, pageSize: q.page_size, total };
   }
   async detail(s: TenantParkScope, a: JwtPrincipal, id: string) {
-    const access = this.access(a);
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId)
+      throw new ForbiddenException();
+    let access = this.access(a);
     if (access === "none") throw new NotFoundException("Reward case not found");
     const c = (
       await this.db.query(
@@ -695,11 +704,14 @@ export class HrRewardsService {
     if (!c) throw new NotFoundException("Reward case not found");
     if (access === "self" && (c.user_id !== a.sub || c.status !== "approved"))
       throw new NotFoundException("Reward case not found");
+    const canAppeal = c.status === "approved" && c.user_id === a.sub && this.has(a, HR_PERMISSIONS.HR_REWARD_SELF_READ);
     if (
       access === "managed_org_tree" &&
       !(await this.inManagedTree(this.db, s, a, c.primary_org_id))
-    )
-      throw new NotFoundException("Reward case not found");
+    ) {
+      if (canAppeal) access = "self";
+      else throw new NotFoundException("Reward case not found");
+    }
     const amount =
         access === "park" && this.has(a, HR_PERMISSIONS.HR_REWARD_AMOUNT_READ),
       reason =
@@ -721,7 +733,15 @@ export class HrRewardsService {
       projection: access === "managed_org_tree" ? "team" : access,
       itemCount: 1,
     });
+    const ownAppeals = canAppeal
+      ? await this.db.query(
+          `SELECT sequence_no "sequenceNo",correction_type "type",summary,create_time "createdAt" FROM hr_reward_discipline_correction WHERE tenant_id=$1 AND park_id=$2 AND case_id=$3 AND correction_type='appeal' AND create_by=$4 ORDER BY sequence_no`,
+          [s.tenantId, s.parkId, id, a.sub],
+        )
+      : undefined;
     const safe = {
+      canAppeal,
+      ...(canAppeal ? { ownAppeals } : {}),
       id: c.id,
       code: c.case_code,
       status: c.status,

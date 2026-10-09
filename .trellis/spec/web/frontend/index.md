@@ -563,3 +563,5 @@ Attendance returned-request correction and approval continuity: [Request Continu
 - [Reward category versions](../../api/backend/hr-reward-category-versions.md) — Complete current definitions, historical references and retained publication drafts.
 
 Approved reward append-only corrections: [Reward Correction Workflow](./hr-reward-approved-corrections.md).
+
+Employee own-case appeal and personal history: [Self Appeal Workflow](../../api/backend/hr-reward-self-appeals.md).

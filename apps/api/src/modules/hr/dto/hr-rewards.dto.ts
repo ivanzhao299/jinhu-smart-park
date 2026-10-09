@@ -92,8 +92,8 @@ export class HrRewardReviewDto {
 }
 export class HrRewardCorrectionDto {
   @IsIn(["correction", "appeal"]) type!: string;
-  @Transform(trim) @IsString() @MaxLength(300) summary!: string;
-  @Transform(trim) @IsString() @MaxLength(1000) reason!: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(300) summary!: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(1000) reason!: string;
 }
 export class HrRewardLinkDto {
   @IsIn(["payroll_input", "performance_reference"]) targetType!: string;
