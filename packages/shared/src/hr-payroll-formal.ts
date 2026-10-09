@@ -17,6 +17,7 @@ export type FormalPayrollEmployeeInput = {
   settlementStart?: string; settlementEnd?: string;
 };
 export type FormalPayrollInput = {
+  correctionWindowId?: string;
   id: string; periodId: string; ruleSetId: string; ruleVersionId: string; revisionNo: number; version: number;
   status: string; employees: FormalPayrollEmployeeInput[]; reason: string;
 };
@@ -39,14 +40,14 @@ export type FormalPayrollRunDetail = FormalPayrollPage<FormalPayrollTotals & {
   items: Array<{ code: string; role: FormalPayrollRole; decimalValue: string; amount: string | null }>;
 }> & {
   id: string; periodId: string; runNo: number; version: number; status: string; inputId: string; ruleVersionId: string;
-  employeeCount: number; totals: FormalPayrollTotals; canReview: boolean; canConfirm: boolean;
+  employeeCount: number; totals: FormalPayrollTotals; canReview: boolean; canConfirm: boolean; canCancel?: boolean;
 };
 
 export type FormalPayrollPreparation = FormalPayrollPage<{
   employeeId:string;expectedEmployeeVersion:number;employeeCode:string;fullName:string;
   hireDate:string|null;departureDate:string|null;requiresSettlementWindow:boolean;
   eligibility:{eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null;
-}> & {period:{id:string;month:string;startDate:string;endDate:string};
+}> & {correctionWindowId?:string;correctionOfRunId?:string;correctionEmployeeCount?:number;period:{id:string;month:string;startDate:string;endDate:string};
   rule:{id:string;ruleSetId:string;displayName:string;definition:FormalPayrollDefinition};expectedHeadRevision:number};
 
 export type FormalPayrollRunOptions = FormalPayrollPage<{
@@ -56,3 +57,16 @@ export type FormalPayrollRunOptions = FormalPayrollPage<{
   requires:{compensation:boolean;attendance:boolean;insurance:boolean};canCreateBase:boolean;overlappingEmployeeCount:number;
   attendanceBatches:Array<{id:string;batchNo:number;batchType:string;missingEmployeeCount:number}>;
   correctionRuns:Array<{id:string;runNo:number;employeeCount:number}>;};
+
+export type FormalPayrollPeriodAction = { expectedVersion: number; reason: string };
+export type FormalPayrollCorrectionWindow = {
+  id: string; periodId: string; originalRunId: string; originalRunVersion: number; ruleSetId: string;
+  inputHeadAtOpen: number; status: "open" | "completed" | "cancelled"; version: number; completedRunId: string | null;
+};
+export type FormalPayrollPeriodLifecycle = {
+  id: string; month: string; status: string; version: number; confirmedRunCount: number; pendingRunCount: number;
+  correctionWindow: (FormalPayrollCorrectionWindow & { ruleName: string; originalRunNo: number;
+    activeResult: { id: string; runNo: number; version: number; status: string } | null }) | null;
+};
+export type FormalPayrollCorrectionOption = { id: string; runNo: number; version: number; employeeCount: number; ruleName: string };
+export type FormalPayrollCorrectionPreparation = { periodId: string; month: string; windowId: string; ruleSetId: string; ruleName: string; originalRunId: string; originalRunNo: number };

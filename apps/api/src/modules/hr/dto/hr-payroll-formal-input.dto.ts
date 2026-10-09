@@ -29,6 +29,7 @@ export class ConfirmHrPayrollFormalInputDto {
   @IsInt() @Min(1) @Max(2147483646) expectedVersion!: number;
 }
 export class HrPayrollFormalInputQueryDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() correctionWindowId?: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() periodId!: string;
   @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId?: string;
   @Type(() => Number) @IsInt() @Min(1) page = 1;

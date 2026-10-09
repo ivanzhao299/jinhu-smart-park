@@ -136,3 +136,28 @@ test("book options encode literal searches and cancellation; create preserves ex
     assert.equal(new Headers(calls[1]!.init?.headers).get("X-Idempotency-Key"), "book-binding-key");
   } finally { globalThis.fetch = originalFetch; }
 });
+
+
+test("closed-period transport carries scoped window selection, abort signals and exact retry keys", async () => {
+  const originalFetch=globalThis.fetch,calls:Array<{url:string;init?:RequestInit}>=[];
+  globalThis.fetch=async(url,init)=>{calls.push({url:String(url),init});return new Response(JSON.stringify({code:0,message:"success",data:{id:"synthetic"}}),{headers:{"Content-Type":"application/json"}});};
+  try {
+    const signal=new AbortController().signal;
+    await hrApi.payrollPreparation({periodId:"period",ruleSetId:"rules",correctionWindowId:"window",keyword:"合成 员工"},undefined,signal);
+    const preparation=new URL(calls.at(-1)!.url,"http://localhost");
+    assert.equal(preparation.pathname,"/api/v1/hr/payroll/inputs/preparation");assert.equal(preparation.searchParams.get("correctionWindowId"),"window");assert.equal(preparation.searchParams.get("keyword"),"合成 员工");assert.equal(calls.at(-1)!.init!.signal,signal);
+    await hrApi.payrollInputs({periodId:"period",correctionWindowId:"window"},undefined,signal);
+    assert.equal(new URL(calls.at(-1)!.url,"http://localhost").searchParams.get("correctionWindowId"),"window");
+    await hrApi.payrollPeriodLifecycle("period",undefined,signal);assert.equal(calls.at(-1)!.url,"/api/v1/hr/payroll/periods/period/lifecycle");assert.equal(calls.at(-1)!.init!.signal,signal);
+    await hrApi.payrollCorrectionOptions("period",{page:2,pageSize:10},undefined,signal);assert.equal(calls.at(-1)!.url,"/api/v1/hr/payroll/periods/period/correction-options?page=2&pageSize=10");
+    const action={expectedVersion:2,reason:"明确操作理由"};
+    const writes=[
+      {path:"periods/period/close",body:action,run:()=>hrApi.closePayrollPeriod("period",action,undefined,"stable-key")},
+      {path:"periods/period/correction-windows",body:{...action,originalRunId:"original",expectedRunVersion:3},run:()=>hrApi.openPayrollCorrection("period",{...action,originalRunId:"original",expectedRunVersion:3},undefined,"stable-key")},
+      {path:"correction-windows/window/cancel",body:action,run:()=>hrApi.cancelPayrollCorrection("window",action,undefined,"stable-key")},
+      {path:"correction-windows/window/complete",body:{...action,completedRunId:"result"},run:()=>hrApi.completePayrollCorrection("window",{...action,completedRunId:"result"},undefined,"stable-key")},
+      {path:"formal-runs/result/cancel",body:action,run:()=>hrApi.cancelFormalPayrollRun("result",action,undefined,"stable-key")},
+    ];
+    for(const write of writes){await write.run();await write.run();for(const call of calls.slice(-2)){assert.equal(call.url,`/api/v1/hr/payroll/${write.path}`);assert.equal(call.init!.method,"POST");assert.deepEqual(JSON.parse(call.init!.body as string),write.body);assert.equal(new Headers(call.init!.headers).get("X-Idempotency-Key"),"stable-key");}}
+  } finally {globalThis.fetch=originalFetch;}
+});

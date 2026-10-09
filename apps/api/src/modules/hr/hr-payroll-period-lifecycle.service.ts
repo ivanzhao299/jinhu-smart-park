@@ -8,12 +8,13 @@ import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-
 import { AuditService } from "../audit/audit.service";
 import { CloseHrPayrollPeriodDto, CompleteHrPayrollCorrectionWindowDto, OpenHrPayrollCorrectionWindowDto } from "./dto/hr-payroll-period-lifecycle.dto";
 import { buildHrSensitiveReadAuditInput } from "./hr-sensitive-read-audit";
+import { HrPayrollFormalInputDetailQueryDto } from "./dto/hr-payroll-formal-input.dto";
 
 type PeriodRow = { id: string; month: string; status: string; version: number };
 type WindowRow = { id: string; period_id: string; original_run_id: string; original_run_version: number;
   rule_set_id: string; input_head_at_open: number; status: "open" | "completed" | "cancelled"; version: number; completed_run_id: string | null };
 
-/** Period lifecycle foundation. Public routes are wired with the complete correction consumer workflow. */
+/** Period lifecycle and explicit closed-period correction windows. */
 @Injectable()
 export class HrPayrollPeriodLifecycleService {
   constructor(private readonly db: DataSource, private readonly audit: AuditService) {}
@@ -63,9 +64,37 @@ export class HrPayrollPeriodLifecycleService {
       const period = await this.period(manager, scope, id);
       const [counts]: Array<{ confirmed: number; pending: number }> = await manager.query("SELECT count(*) FILTER(WHERE status='confirmed')::int AS confirmed,count(*) FILTER(WHERE status NOT IN('confirmed','cancelled'))::int AS pending FROM hr_payroll_run WHERE period_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [id, scope.tenantId, scope.parkId]);
       const windows: WindowRow[] = await manager.query("SELECT * FROM hr_payroll_correction_window WHERE period_id=$1 AND tenant_id=$2 AND park_id=$3 AND status='open'", [id, scope.tenantId, scope.parkId]);
+      const window = windows[0];
+      const labels: Array<{ rule_name: string; run_no: number }> = window ? await manager.query(`SELECT s.display_name AS rule_name,r.run_no FROM hr_payroll_rule_set s JOIN hr_payroll_run r ON r.tenant_id=s.tenant_id AND r.park_id=s.park_id
+        WHERE s.id=$1 AND r.id=$2 AND s.tenant_id=$3 AND s.park_id=$4`, [window.rule_set_id, window.original_run_id, scope.tenantId, scope.parkId]) : [];
+      const results: Array<{ id: string; run_no: number; status: string; version: number }> = window ? await manager.query(`SELECT r.id,r.run_no,r.status,r.version FROM hr_payroll_run r JOIN hr_payroll_formal_input i
+        ON (i.id,i.tenant_id,i.park_id)=(r.formal_input_id,r.tenant_id,r.park_id) WHERE i.correction_window_id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND NOT r.is_deleted AND r.status<>'cancelled' ORDER BY r.run_no DESC LIMIT 1`, [window.id, scope.tenantId, scope.parkId]) : [];
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, { resource: "hr.payroll_period", action: "读取工资关账状态", bizType: "hr_payroll_period", bizId: id,
         path: "/hr/payroll/periods/:id/lifecycle", fieldGroups: ["financial"], projection: "metadata", itemCount: 1 }), manager);
-      return { ...period, confirmedRunCount: counts!.confirmed, pendingRunCount: counts!.pending, correctionWindow: windows[0] ? this.projectWindow(windows[0]) : null };
+      return { ...period, confirmedRunCount: counts!.confirmed, pendingRunCount: counts!.pending,
+        correctionWindow: window ? { ...this.projectWindow(window), ruleName: labels[0]!.rule_name, originalRunNo: labels[0]!.run_no,
+          activeResult: results[0] ? { id: results[0].id, runNo: results[0].run_no, status: results[0].status, version: results[0].version } : null } : null };
+    });
+  }
+  async correctionOptions(scope: TenantParkScope, actor: JwtPrincipal, id: string, value: HrPayrollFormalInputDetailQueryDto) {
+    this.authority(actor, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
+    const dto = await this.input(HrPayrollFormalInputDetailQueryDto, value, id);
+    return this.transaction(async manager => {
+      const period = await this.period(manager, scope, id);
+      if (period.status !== "closed") throw new ConflictException("Correction choices require a closed payroll period");
+      const rows: Array<{ id: string; run_no: number; version: number; employee_count: number; rule_name: string; total: number }> = await manager.query(`WITH eligible AS (
+        SELECT r.id,r.run_no,r.version,r.employee_count,s.display_name AS rule_name FROM hr_payroll_run r
+        JOIN hr_payroll_formal_run_evidence e ON (e.run_id,e.tenant_id,e.park_id)=(r.id,r.tenant_id,r.park_id)
+        JOIN hr_payroll_rule_version v ON (v.id,v.tenant_id,v.park_id)=(e.rule_version_id,e.tenant_id,e.park_id)
+        JOIN hr_payroll_rule_set s ON (s.id,s.tenant_id,s.park_id)=(v.rule_set_id,v.tenant_id,v.park_id)
+        WHERE r.period_id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND r.status='confirmed' AND NOT r.is_deleted
+        AND NOT EXISTS(SELECT 1 FROM hr_payroll_run successor WHERE (successor.correction_of_run_id,successor.tenant_id,successor.park_id)=(r.id,r.tenant_id,r.park_id) AND NOT successor.is_deleted AND successor.status<>'cancelled'))
+        SELECT page.*,totals.total FROM (SELECT count(*)::int AS total FROM eligible) totals LEFT JOIN LATERAL
+        (SELECT * FROM eligible ORDER BY run_no DESC,id LIMIT $4 OFFSET $5) page ON true`, [id, scope.tenantId, scope.parkId, dto.pageSize, (dto.page - 1) * dto.pageSize]);
+      const items = rows.filter(row => row.id).map(row => ({ id: row.id, runNo: row.run_no, version: row.version, employeeCount: row.employee_count, ruleName: row.rule_name }));
+      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, { resource: "hr.payroll_period", action: "读取可更正工资批次", bizType: "hr_payroll_period", bizId: id,
+        path: "/hr/payroll/periods/:id/correction-options", fieldGroups: ["financial"], projection: "metadata", itemCount: items.length }), manager);
+      return { items, total: rows[0]!.total, page: dto.page, page_size: dto.pageSize };
     });
   }
   async close(scope: TenantParkScope, actor: JwtPrincipal, id: string, value: CloseHrPayrollPeriodDto) {

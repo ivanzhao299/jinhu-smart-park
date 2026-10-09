@@ -107,6 +107,7 @@ export class HrPayrollFormalRunService {
       return { id: row.id as string, periodId: row.period_id as string, runNo: row.run_no as number, version: row.version as number,
         status: row.status as string, inputId: row.input_id as string, ruleVersionId: row.rule_version_id as string,
         employeeCount: row.employee_count as number, totals: row.totals as { grossAmount: string; deductionAmount: string; personalTax: string; netAmount: string },
+        canCancel: permitted(HR_PERMISSIONS.HR_PAYROLL_MANAGE) && row.actionable === true && ["calculated", "reviewing"].includes(row.status),
         canReview: permitted(HR_PERMISSIONS.HR_PAYROLL_REVIEW) && row.actionable === true && row.status === "calculated" && row.create_by !== actor.sub,
         canConfirm: permitted(HR_PERMISSIONS.HR_PAYROLL_CONFIRM) && row.actionable === true && row.status === "reviewing" && row.create_by !== actor.sub,
         items: selected.map(result => ({ employeeId: result.employeeId, employeeCode: byId.get(result.employeeId)?.employee_code ?? null,

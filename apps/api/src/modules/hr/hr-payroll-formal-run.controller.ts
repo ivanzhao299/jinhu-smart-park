@@ -31,4 +31,7 @@ export class HrPayrollFormalRunController {
   @Post(":id/confirm") @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_CONFIRM, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ)
   @UseInterceptors(new IdempotencyInterceptor())
   confirm(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string, @Body() dto: TransitionHrPayrollFormalRunDto) { return this.service.transition(scope, actor, id, "confirm", dto); }
+  @Post(":id/cancel") @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ)
+  @UseInterceptors(new IdempotencyInterceptor())
+  cancel(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string, @Body() dto: TransitionHrPayrollFormalRunDto) { return this.service.transition(scope, actor, id, "cancel", dto); }
 }

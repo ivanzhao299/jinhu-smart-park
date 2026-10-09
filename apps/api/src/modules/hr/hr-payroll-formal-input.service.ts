@@ -119,15 +119,15 @@ export class HrPayrollFormalInputService {
     return this.transaction(async manager => {
       const periods = await manager.query("SELECT id FROM hr_payroll_period WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false", [dto.periodId, scope.tenantId, scope.parkId]);
       if (periods.length !== 1) throw new NotFoundException("Payroll period not found");
-      const params = [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId ?? null];
-      const rows: Array<InputRow & { display_name: string; employee_count: number; total: number }> = await manager.query(`SELECT i.id,i.period_id,i.rule_set_id,i.rule_version_id,i.revision_no,i.version,i.status,
+      const params = [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId ?? null, dto.correctionWindowId ?? null];
+      const rows: Array<InputRow & { display_name: string; employee_count: number; total: number }> = await manager.query(`SELECT i.id,i.period_id,i.rule_set_id,i.rule_version_id,i.revision_no,i.version,i.status,i.correction_window_id,
         s.display_name,jsonb_array_length(i.employees) AS employee_count,count(*) OVER()::int AS total
         FROM hr_payroll_formal_input i JOIN hr_payroll_rule_set s ON (s.id,s.tenant_id,s.park_id)=(i.rule_set_id,i.tenant_id,i.park_id)
-        WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.period_id=$3 AND ($4::uuid IS NULL OR i.rule_set_id=$4)
-        ORDER BY s.display_name,i.revision_no DESC,i.id LIMIT $5 OFFSET $6`, [...params, dto.pageSize, (dto.page - 1) * dto.pageSize]);
-      const total = rows[0]?.total ?? (await manager.query("SELECT count(*)::int AS total FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND ($4::uuid IS NULL OR rule_set_id=$4)", params))[0].total;
+        WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.period_id=$3 AND ($4::uuid IS NULL OR i.rule_set_id=$4) AND ($5::uuid IS NULL OR i.correction_window_id=$5)
+        ORDER BY s.display_name,i.revision_no DESC,i.id LIMIT $6 OFFSET $7`, [...params, dto.pageSize, (dto.page - 1) * dto.pageSize]);
+      const total = rows[0]?.total ?? (await manager.query("SELECT count(*)::int AS total FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND ($4::uuid IS NULL OR rule_set_id=$4) AND ($5::uuid IS NULL OR correction_window_id=$5)", params))[0].total;
       await this.readAudit(manager, scope, actor, rows.length, false);
-      return { items: rows.map(row => ({ id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
+      return { items: rows.map(row => ({ ...(row.correction_window_id ? { correctionWindowId: row.correction_window_id } : {}), id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
         displayName: row.display_name, revisionNo: row.revision_no, version: row.version, status: row.status, employeeCount: row.employee_count })), total, page: dto.page, page_size: dto.pageSize };
     });
   }
@@ -146,6 +146,9 @@ export class HrPayrollFormalInputService {
       const predicate = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND ($4::uuid IS NULL OR id IN (SELECT employee_id FROM hr_payslip WHERE run_id=$4 AND tenant_id=$1 AND park_id=$2 AND NOT is_deleted)) AND ($3='' OR position(lower($3) in lower(full_name))>0 OR position(lower($3) in lower(employee_code))>0)";
       const rows: Array<{id:string;version:number;employee_code:string;full_name:string;hire_date:string|null;departure_date:string|null;total:number}> = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date,count(*) OVER()::int AS total FROM hr_employee WHERE ${predicate} ORDER BY employee_code,id LIMIT $5 OFFSET $6`, [...params, dto.pageSize, (dto.page-1)*dto.pageSize]);
       const total = rows[0]?.total ?? (await manager.query(`SELECT count(*)::int AS total FROM hr_employee WHERE ${predicate}`, params))[0].total;
+      const correctionEmployeeCount: number | undefined = period.correctionWindow
+        ? (await manager.query("SELECT count(*)::int AS total FROM hr_payslip WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [period.correctionWindow.originalRunId, scope.tenantId, scope.parkId]))[0].total
+        : undefined;
       const items = rows.map(employee => {
         let eligibility: {eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null = null;
         try {
@@ -156,7 +159,7 @@ export class HrPayrollFormalInputService {
           hireDate:employee.hire_date,departureDate:employee.departure_date,eligibility,requiresSettlementWindow:eligibility===null};
       });
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {resource:"hr.payroll_input",action:"读取当期工资准备",bizType:"hr_payroll_formal_input",bizId:null,path:"/hr/payroll/inputs/preparation",fieldGroups:["identity","payroll_input"],projection:"full",itemCount:items.length}),manager);
-      return {...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
+      return {...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId,correctionEmployeeCount} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
         rule:{id:rule.id,ruleSetId:dto.ruleSetId,displayName:sets[0].display_name,definition:rule.definition},expectedHeadRevision:heads[0].head,
         items,total,page:dto.page,page_size:dto.pageSize};
     });
