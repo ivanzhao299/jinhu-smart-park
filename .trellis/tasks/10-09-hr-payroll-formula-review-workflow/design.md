@@ -1,0 +1,7 @@
+# 设计
+
+基线cb7de8100e991be42c5b8b4a655c10a204cc37f0。扩展现有formulaDetail受RULE_READ保护的范围投影，加入原表达式/原条件/版本号/解析器及后端重新解析的可复核提示，不返回工资金额、员工或AST执行能力。复用parsePayrollFormula并与现有reviewFormula条件要求一致，保留必须成功的元数据审计。审批接口不扩大权限，不改写既有公式版本。
+
+Web独立PayrollFormulaReview组件在rules工作区显示，不依赖手机隐藏的历史复核区。共享类型新增detail与GET helper，现有review helper沿用。查询状态和账套为空表示全部，无业务默认。列表与详情分别AbortController/generation，身份变动整块重置。同步写锁及committed标记区分保存/刷新；只有RULE_READ+FORMULA_REVIEW显示动作，终态/不可安全解析不显示批准。明确批准仅用于模拟，公式正文只读保留源语义。
+
+不新建数据库迁移，不修改解析引擎或金融规则；模拟所需缺件仍服务拒绝。真实角色/业务规则由后续验收确认。

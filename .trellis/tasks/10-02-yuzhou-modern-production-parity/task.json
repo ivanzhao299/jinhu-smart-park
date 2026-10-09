@@ -34,7 +34,8 @@
     "10-08-hr-lifecycle-template-workflow",
     "10-08-hr-reward-employee-continuity",
     "10-08-hr-performance-template-workflow",
-    "10-08-hr-feedback-configuration-workflow"
+    "10-08-hr-feedback-configuration-workflow",
+    "10-09-hr-payroll-formula-review-workflow"
   ],
   "parent": null,
   "relatedFiles": [

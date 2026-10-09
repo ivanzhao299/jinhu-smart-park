@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Payroll formula actual-source review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
+
 Training operation scoped employee candidates: [Training Employee Options](./hr-training-employee-options.md).
 
 Lifecycle full template and assignment version workflow: [Lifecycle Template Workflow](./hr-lifecycle-template-workflow.md).

@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Payroll formula desktop and mobile review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
+
 Training operation complete multi-employee selection: [Training Employee Selection](./hr-training-employee-selection.md).
 
 Lifecycle complete template editor and version workflow: [Lifecycle Template Workflow](./hr-lifecycle-template-workflow.md).
