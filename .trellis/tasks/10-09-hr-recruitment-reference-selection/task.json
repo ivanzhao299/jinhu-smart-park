@@ -1,0 +1,30 @@
+{
+  "id": "hr-recruitment-reference-selection",
+  "name": "hr-recruitment-reference-selection",
+  "title": "招聘与入职新建表单的完整业务选择",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-09",
+  "completedAt": null,
+  "branch": "codex/hr-recruitment-reference-selection-20261009",
+  "base_branch": "codex/hr-recruitment-reference-selection-20261009",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "localValidation": "PASS",
+    "dependsOnPr": 889,
+    "businessAcceptance": "Pending real roles; no synthetic production writes"
+  }
+}

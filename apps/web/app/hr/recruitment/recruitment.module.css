@@ -23,3 +23,17 @@
   max-width: 320px;
   margin-block: 16px;
 }
+
+.picker { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: 8px 0; }
+.picker legend { margin-bottom: 12px; }
+.choices { display: grid; gap: 8px; max-height: 22rem; overflow-y: auto; margin-top: 12px; }
+.choice, .chosen { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.choice span, .chosen span { min-width: 0; overflow-wrap: anywhere; }
+.chosen { margin-top: 12px; }
+.pages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.picker button:global(.ds-button) { width: auto; min-height: 44px; flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 720px) {
+  .choice, .chosen { align-items: flex-start; flex-direction: column; }
+  .choice span, .chosen span { width: 100%; }
+  .choice button:global(.ds-button), .chosen button:global(.ds-button) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
