@@ -6,7 +6,7 @@
   "status": "in_progress",
   "dev_type": null,
   "scope": null,
-  "package": "api",
+  "package": "web",
   "priority": "P2",
   "creator": "codex",
   "assignee": "codex",

@@ -32,3 +32,7 @@ it("shared reason labels remain visible on the real insurance page",async()=>{
  vi.mocked(hrApi.insurancePeriods).mockResolvedValue({page:1,page_size:30,total:1,items:[{id:"review",periodYear:0,periodMonth:0,needsReview:true,reviewReasonCode:"T3_INT4_INVALID",itemCount:0}]});render(<HrInsuranceClient/>);expect((await screen.findAllByText(/来源期间缺失或无效/)).length).toBeGreaterThan(0);
 });
 it("no read authority shows no export button",()=>{auth.user.permissions=[];render(<><HrContractsClient/><HrInsuranceClient/></>);expect(screen.queryByRole("button",{name:/导出筛选/})).toBeNull();});
+
+it("employee profile insurance export preserves exact employee across every fetched page",async()=>{
+ const employeeId="11111111-1111-4111-8111-111111111111";render(<HrInsuranceClient employeeId={employeeId}/>);const button=screen.getByRole("button",{name:"导出筛选社保"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);await screen.findByText("已导出 101 条匹配社保。");const calls=vi.mocked(hrApi.insurancePeriods).mock.calls.filter(c=>c[2]===100);expect(calls.map(c=>c[1])).toEqual([1,2,1]);expect(calls.every(c=>c[3]?.employeeId===employeeId)).toBe(true);
+});
