@@ -6,3 +6,5 @@
 - Actual full component with synthetic API: desktop1275=scrollWidth1275, profile/development records visible. Phone390 viewport document385=scrollWidth385, minimum visible button44. Subject and succession use labeled cards. Failed decision/profile drafts preserved in browser. Read-only role has no management controls.
 - No production business writes, credentials/permissions/API/DDL/global CSS changes, import replay or new business rules.
 - Full CI and sequential production deploy/runtime verification pending latest-main integration afterPR910.
+
+Integrated latest main10488ec07 (PR910). Only conflict was parent child-task list; all other fields equal; both task links preserved. Business source paths are disjoint. Proportionate combined validation follows.

@@ -22,3 +22,7 @@ Good: 原记录保留、下一条更正独立编号。Base: 只读HR查看服务
 ## 7. Wrong vs Correct
 Wrong: `rewardCaseAction(id,"approve")` 重走审批或 PUT 原记录。
 Correct: 独立幂等 corrections POST，已确认后独立重读详情。
+
+## Authorized business fields on phones
+
+New and draft-edit reward detailed reason and amount suggestions remain visible at every viewport only with REASON_READ/AMOUNT_READ. List amounts and detail reasons use the same explicit gates; do not hide authorized fields through desktopSensitive. Create dispatch gates match edit, preserve decimal strings (including0), and numeric controls match backend16integer/4fraction bounds. This does not change approved-item correction, appeal, approval or payroll-link semantics.

@@ -246,3 +246,22 @@ it("payroll association requires approved detail and exact read plus payroll-lin
  const view=render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByText("本员工暂无有效工资输入，请先完成对应月份的考勤月结或补正。");expect(hrApi.rewardPayrollLinkOptions).toHaveBeenCalledTimes(1);
  view.unmount();state.user.permissions=["hr:rewards","hr:reward:read"];render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:/^关闭$/});expect(screen.queryByRole("region",{name:"奖惩工资输入关联"})).not.toBeInTheDocument();expect(hrApi.rewardPayrollLinkOptions).toHaveBeenCalledTimes(1);
 });
+
+
+it.each(["0","123.4567"])("authorized reward create retains and transports reason and amount %s",async amount=>{
+ state.user.permissions.push("hr:reward_amount:read","hr:reward_reason:read");vi.mocked(hrApi.createRewardCase).mockRejectedValueOnce(new Error("sensitive draft rejected"));
+ render(<HrRewardsClient/>);const f=await fillCase();fireEvent.change(screen.getByLabelText("详细原因"),{target:{value:"合成详细依据"}});fireEvent.change(screen.getByLabelText("金额建议"),{target:{value:amount}});
+ fireEvent.submit(f);await screen.findByText(/sensitive draft rejected/);expect(screen.getByLabelText("详细原因")).toHaveValue("合成详细依据");expect(screen.getByLabelText("金额建议")).toHaveValue(Number(amount));
+ fireEvent.submit(f);await waitFor(()=>expect(hrApi.createRewardCase).toHaveBeenCalledTimes(2));expect(hrApi.createRewardCase).toHaveBeenLastCalledWith(expect.objectContaining({detailedReason:"合成详细依据",amountSuggestion:amount,currency:"CNY"}),"synthetic-token");
+});
+it("authorized reward edit retains reason and decimal amount after failure",async()=>{
+ state.user.permissions.push("hr:reward_amount:read","hr:reward_reason:read");vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,detailedReason:"合成原依据",amountSuggestion:"12.3456",currency:"CNY"});vi.mocked(hrApi.updateRewardCase).mockRejectedValueOnce(new Error("sensitive edit rejected"));
+ render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"保存修改"});expect(screen.getByText("合成原依据",{selector:"p"})).toBeVisible();const f=screen.getByRole("button",{name:"保存修改"}).closest("form")!;
+ fireEvent.change(f.querySelector('[name="reason"]')!,{target:{value:"合成新依据"}});fireEvent.change(f.querySelector('[name="amount"]')!,{target:{value:"0"}});fireEvent.submit(f);await screen.findByText(/sensitive edit rejected/);
+ expect(f.querySelector('[name="reason"]')).toHaveValue("合成新依据");expect(f.querySelector('[name="amount"]')).toHaveValue(0);expect(hrApi.updateRewardCase).toHaveBeenCalledWith(row.id,expect.objectContaining({detailedReason:"合成新依据",amountSuggestion:"0",currency:"CNY"}),"synthetic-token");
+});
+it("reward reason and amount stay absent without field permissions even in an overbroad response",async()=>{
+ vi.mocked(hrApi.rewardCases).mockResolvedValue({items:[{...row,amountSuggestion:"123.4567",currency:"CNY"}],total:1,page:1,page_size:20});vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,detailedReason:"合成受限原因",amountSuggestion:"123.4567",currency:"CNY"});
+ render(<HrRewardsClient/>);const f=await fillCase();fireEvent.submit(f);await waitFor(()=>expect(hrApi.createRewardCase).toHaveBeenCalledTimes(1));expect(vi.mocked(hrApi.createRewardCase).mock.calls[0]![0]).not.toHaveProperty("detailedReason");expect(vi.mocked(hrApi.createRewardCase).mock.calls[0]![0]).not.toHaveProperty("amountSuggestion");
+ fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"保存修改"});expect(screen.queryByText("合成受限原因")).toBeNull();expect(screen.queryByText(/123\.4567/)).toBeNull();expect(screen.queryByLabelText("详细原因")).toBeNull();expect(screen.queryByLabelText("金额建议")).toBeNull();
+});
