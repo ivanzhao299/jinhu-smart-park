@@ -80,7 +80,8 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:16-alpine
+        # Docker Official Image via its public mirror; avoid shared-runner Hub pull limits.
+        image: public.ecr.aws/docker/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: synthetic-scope-ci-only
@@ -384,7 +385,12 @@ jobs:
         run: mkdir -p /tmp/release-smoke-logs
 
       - name: Start PostgreSQL
-        run: docker compose -f "$COMPOSE_FILE" up -d postgres
+        run: |
+          # Keep the production Compose definition unchanged; preload its CI-only image.
+          postgres_image=public.ecr.aws/docker/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+          docker pull "$postgres_image"
+          docker tag "$postgres_image" postgres:16-alpine
+          docker compose -f "$COMPOSE_FILE" up -d postgres
 
       - name: Wait for PostgreSQL health
         run: |
