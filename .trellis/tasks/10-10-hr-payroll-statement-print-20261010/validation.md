@@ -8,3 +8,9 @@
 ## Latest main integration
 
 Integrated PR913 main140f2740e77893ca0e1c77f5180ecb3455105315. Only two documentation overlaps: parent task childlists unioned after all other JSON fields proved equal; specindex retained both entries. No production source conflicts. Combined54 interactions (print/export16 plus talent38), Webtypecheck and affected lint PASS. Earlier230HR retained: payroll amount/unit/contract inputs unchanged. Browser actual payroll source/CSS same as inspected. Final CI required; PR913 deployment37976961716 remains watched independently before next merge.
+
+## Production validation recovery
+
+PR913 full deploy37976961716 stopped before host deployment:1 of703 interactions failed because a test read the summary spy immediately after DOM text appeared, before the passive useEffect callback. Receivednull(expectedloading), expected3. Production source/UI semantics unchanged; fix six spy assertions to await their own callback withwaitFor, no sleeps or disabled assertions. Bundle fix in this candidate before its merge. Rerun only failed verification job for unchanged PR913 after this focused diagnosis; its host deploy must still complete/API-Web140f verified before this PR merges. Old PR914 watcher44085 deliberately terminated130 before changing its pinned head; replace watcher only after new candidate validation/CI.
+
+Recovery validation: all 96 Web interaction files / 713 tests passed; affected test ESLint and Web typecheck passed. Latest origin/main remains 140f2740e77893ca0e1c77f5180ecb3455105315. No production source change in this recovery; actual PDF pagination remains unverified.
