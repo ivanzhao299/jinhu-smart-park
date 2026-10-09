@@ -1,0 +1,30 @@
+{
+  "id": "hr-feedback-operation-continuity",
+  "name": "hr-feedback-operation-continuity",
+  "title": "360评价工作台办理连续性",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api,web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-09",
+  "completedAt": null,
+  "branch": "codex/hr-feedback-operation-continuity-20261009",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr-feedback360.controller.ts",
+    "apps/api/src/modules/hr/hr-feedback360.service.ts",
+    "apps/web/app/hr/feedback-360/HrFeedbackClient.tsx"
+  ],
+  "notes": "来源缺口已核实；PR899发布观察器拥有另一工作区，不得修改或重复部署。单代理低成本推进，无历史重导。",
+  "meta": {}
+}

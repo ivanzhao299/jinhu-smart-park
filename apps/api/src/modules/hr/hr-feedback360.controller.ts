@@ -156,6 +156,9 @@ export class HrFeedback360Controller {
   ) {
     return this.service.publishQuestionnaire(s, a, id);
   }
+  @Get("cycles/operation-context")
+  @RequirePermissions(HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE)
+  cycleOperationContext(@CurrentScope() s:TenantParkScope,@CurrentUser() a:JwtPrincipal){return this.service.cycleOperationContext(s,a);}
   @Get("cycles")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_FEEDBACK_READ,

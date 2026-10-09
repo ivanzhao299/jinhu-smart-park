@@ -1,0 +1,5 @@
+.workspace .records { display: grid; gap: 12px; margin-top: 16px; }
+.workspace :global(.ds-button), .workspace .fields input:not([type="checkbox"]):not([type="radio"]), .workspace .fields select { min-height: 44px; }
+.workspace textarea { min-height: 100px; }
+.fields { display: contents; min-width: 0; }
+.fields h2 { grid-column: 1 / -1; }

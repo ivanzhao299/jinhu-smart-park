@@ -745,7 +745,13 @@ export class HrFeedback360Service {
       return { id: cycleId, status: "nominating" };
     });
   }
-  async cycles(s: TenantParkScope, a: JwtPrincipal, q: HrFeedback360QueryDto) {
+  async cycleOperationContext(s:TenantParkScope,a:JwtPrincipal){
+    this.assertActorScope(s,a);
+    if(!has(a,HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE))throw new ForbiddenException("360 cycle management permission required");
+    return this.cycleRows(s,a,{},"/hr/feedback360-v2/cycles/operation-context");
+  }
+  async cycles(s:TenantParkScope,a:JwtPrincipal,q:HrFeedback360QueryDto){return this.cycleRows(s,a,q,"/hr/feedback360-v2/cycles");}
+  private async cycleRows(s:TenantParkScope,a:JwtPrincipal,q:HrFeedback360QueryDto,auditPath:string){
     const access = this.access(s, a);
     if (access === "none") return [];
     let sql =
@@ -764,7 +770,7 @@ export class HrFeedback360Service {
       action: "读取360评价周期",
       bizType: "hr_feedback360_cycle",
       bizId: q.cycle_id ?? null,
-      path: "/hr/feedback360-v2/cycles",
+      path: auditPath,
       fieldGroups: ["feedback"],
       projection: access === "managed_org_tree" ? "team" : access,
       itemCount: rows.length,
