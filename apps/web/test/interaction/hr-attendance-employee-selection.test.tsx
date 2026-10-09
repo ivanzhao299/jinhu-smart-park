@@ -64,3 +64,48 @@ it("attendance defaults use the Shanghai business day and month across UTC midni
  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-09-30T16:30:00Z"));
  try{render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");expect(screen.getByLabelText("业务日期")).toHaveValue("2026-10-01");expect(screen.getByLabelText("期间月份")).toHaveValue("2026-10");}finally{vi.useRealTimers();}
 });
+
+async function prepareManualPunch(){
+ render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");
+ fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});
+ fireEvent.change(screen.getByLabelText("打卡时间",{exact:true}),{target:{value:"2026-10-09T09:00"}});
+}
+it("manual punch needs no technical key and retries the same payload with the same event key",async()=>{
+ vi.mocked(hrApi.createAttendancePunch).mockRejectedValueOnce(new Error("合成响应中断")).mockResolvedValueOnce({id:"punch-1"});
+ await prepareManualPunch();expect(screen.queryByText("事件唯一键")).toBeNull();
+ const submit=screen.getByRole("button",{name:"录入打卡事件"});fireEvent.click(submit);await screen.findByText("合成响应中断");
+ expect(screen.getByLabelText("打卡时间",{exact:true})).toHaveValue("2026-10-09T09:00");
+ fireEvent.click(submit);await screen.findByText("人工打卡已补录。");
+ const calls=vi.mocked(hrApi.createAttendancePunch).mock.calls;expect(calls).toHaveLength(2);expect(calls[0]?.[0]).toEqual(calls[1]?.[0]);
+ expect(calls[0]?.[0]).toEqual({employeeId:"employee-1",occurredAt:new Date("2026-10-09T09:00").toISOString(),eventType:"clock_in",source:"manual",eventKey:expect.stringMatching(/^manual-punch-/)});
+ expect(screen.getByLabelText("打卡时间",{exact:true})).toHaveValue("");expect(submit).toBeDisabled();
+});
+it("manual punch changes event keys when time, type or target employee changes",async()=>{
+ vi.mocked(hrApi.createAttendancePunch).mockRejectedValue(new Error("合成提交失败"));await prepareManualPunch();
+ const submit=screen.getByRole("button",{name:"录入打卡事件"});
+ for(let attempt=0;attempt<4;attempt++){
+  if(attempt===1)fireEvent.change(screen.getByLabelText("打卡时间",{exact:true}),{target:{value:"2026-10-09T10:00"}});
+  if(attempt===2)fireEvent.change(screen.getByLabelText("打卡类型",{exact:true}),{target:{value:"clock_out"}});
+  if(attempt===3)fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-2"}});
+  fireEvent.click(submit);await waitFor(()=>expect(hrApi.createAttendancePunch).toHaveBeenCalledTimes(attempt+1));await waitFor(()=>expect(submit).toBeEnabled());
+ }
+ const payloads=vi.mocked(hrApi.createAttendancePunch).mock.calls.map(call=>call[0] as {eventKey:string});expect(new Set(payloads.map(body=>body.eventKey)).size).toBe(4);
+});
+it("manual punch locks repeated clicks and inputs while a request is pending",async()=>{
+ let resolve:(value:{id:string})=>void=()=>{};vi.mocked(hrApi.createAttendancePunch).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));await prepareManualPunch();
+ const submit=screen.getByRole("button",{name:"录入打卡事件"});act(()=>{fireEvent.click(submit);fireEvent.click(submit)});
+ expect(hrApi.createAttendancePunch).toHaveBeenCalledTimes(1);expect(screen.getByLabelText("打卡时间",{exact:true})).toBeDisabled();expect(screen.getByLabelText("打卡类型",{exact:true})).toBeDisabled();expect(screen.getByLabelText("考勤员工")).toBeDisabled();
+ await act(async()=>resolve({id:"punch-1"}));await screen.findByText("人工打卡已补录。");
+});
+it("a failed daily refresh preserves committed punch success and does not reload shifts",async()=>{
+ vi.mocked(hrApi.createAttendancePunch).mockResolvedValue({id:"punch-1"});await prepareManualPunch();
+ const shiftReads=vi.mocked(hrApi.attendanceShifts).mock.calls.length;vi.mocked(hrApi.attendanceDaily).mockRejectedValueOnce(new Error("合成日结果刷新失败"));
+ fireEvent.click(screen.getByRole("button",{name:"录入打卡事件"}));await screen.findByText("人工打卡已补录。");await screen.findByText("合成日结果刷新失败");
+ expect(screen.getByLabelText("打卡时间",{exact:true})).toHaveValue("");expect(hrApi.attendanceShifts).toHaveBeenCalledTimes(shiftReads);expect(hrApi.createAttendancePunch).toHaveBeenCalledTimes(1);
+});
+it("scope changes discard punch drafts and ignore an older in-flight completion",async()=>{
+ let resolve:(value:{id:string})=>void=()=>{};vi.mocked(hrApi.createAttendancePunch).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));
+ const {rerender}=render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});fireEvent.change(screen.getByLabelText("打卡时间",{exact:true}),{target:{value:"2026-10-09T09:00"}});fireEvent.click(screen.getByRole("button",{name:"录入打卡事件"}));
+ state.user={...state.user,id:"next-operator"};rerender(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");await act(async()=>resolve({id:"old-punch"}));
+ expect(screen.getByLabelText("打卡时间",{exact:true})).toHaveValue("");expect(screen.getByLabelText("考勤员工")).toHaveValue("");expect(screen.queryByText("人工打卡已补录。")).toBeNull();
+});

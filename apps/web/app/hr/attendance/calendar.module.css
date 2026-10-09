@@ -16,3 +16,17 @@
   max-width: 100%;
   overflow-wrap: break-word;
 }
+
+.manualPunchFields {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.manualPunchFields > div {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .manualPunchFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
