@@ -10,3 +10,5 @@
 Integrated latest main10488ec07 (PR910). Only conflict was parent child-task list; all other fields equal; both task links preserved. Business source paths are disjoint. Proportionate combined validation follows.
 
 Integrated validation:46 interaction tests across talent/reward continuity/correction/self-appeal/payroll-link passed;230 HR regressions passed; Web typecheck and affected ESLint passed. Browser evidence reused: talent component, global/shared CSS and relevant inputs/dependencies unchanged by reward-only integration.
+
+CI37970101286 found an additional API-owned Web source contract that still required desktopSensitive/mobile-only lists. Updated only that obsolete assertion to all-viewport authorized DS grids/tables; no API implementation change. Focused contract validation and one corrected CI follow.
