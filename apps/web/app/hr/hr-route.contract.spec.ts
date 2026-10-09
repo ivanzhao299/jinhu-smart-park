@@ -25,8 +25,11 @@ test("HR operational forms collapse to one column on phone width", () => {
 
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*\.formGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(styles, /\.capabilityCard\s*\{[\s\S]*grid-template-columns:\s*1fr/);
-  assert.match(organization, /ds-mobile-record-list/);
-  assert.match(organization, /type="number" min="0" max="100000" step="1"/);
+  assert.match(organization, /<PositionWorkbench/);
+  const positions=readFileSync(resolve(__dirname,"organization/PositionWorkbench.tsx"),"utf8");
+  assert.match(positions, /ds-mobile-record-list/);
+  assert.match(positions, /key:"headcountLimit",label:"编制人数",max:100000/);
+  assert.match(positions, /type="number" min=\{0\} max=\{f.max\} step=\{1\}/);
   assert.match(reports, /ds-mobile-record-list/);
   assert.match(reports, /name="hours" type="number"[\s\S]*?min="0" max="744" step="0\.25"/);
 });

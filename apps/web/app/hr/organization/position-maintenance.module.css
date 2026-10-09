@@ -1,0 +1,30 @@
+.records {
+  display: grid;
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 12px;
+}
+
+.actions > button,
+.records button {
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.form {
+  align-items: start;
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.editor button {
+  min-height: 44px;
+}

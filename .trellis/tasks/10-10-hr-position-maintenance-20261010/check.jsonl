@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/api/backend/hr-yuzhou-organization-continuity.md", "reason": "Preserve original source bindings and shared hierarchy lock"}
+{"file": ".trellis/spec/api/backend/hr-position-maintenance.md", "reason": "Formal scoped create/read/edit and assignment concurrency"}
+{"file": ".trellis/spec/web/frontend/hr-position-maintenance.md", "reason": "Complete modern form and retained retry semantics"}

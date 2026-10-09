@@ -119,14 +119,14 @@ export class CreateHrContractChangeDto {
 export class HrContractActionDto { @IsIn(["activate","cancel"]) action!:string; }
 export class HrContractChangeActionDto { @IsIn(["apply","cancel"]) action!:string; }
 export class CreateHrPositionDto {
- @IsUUID() orgId!:string; @Transform(trim) @IsString() @MaxLength(64) positionCode!:string;
- @Transform(trim) @IsString() @MaxLength(100) positionName!:string;
+ @IsUUID() orgId!:string; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(64) positionCode!:string;
+ @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(100) positionName!:string;
  @IsOptional() @IsUUID() reportsToPositionId?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) jobFamily?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) jobLevel?:string;
- @IsOptional() @IsInt() @Min(0) headcountLimit?:number;
- @IsOptional() @IsInt() @Min(0) hierarchyLevel?:number;
- @IsOptional() @IsInt() @Min(0) sortOrder?:number;
+ @IsOptional() @IsInt() @Min(0) @Max(100000) headcountLimit?:number;
+ @IsOptional() @IsInt() @Min(0) @Max(32767) hierarchyLevel?:number;
+ @IsOptional() @IsInt() @Min(0) @Max(2147483647) sortOrder?:number;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) authority?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) qualification?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(1024) responsibilities?:string;

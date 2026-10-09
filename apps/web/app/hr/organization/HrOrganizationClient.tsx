@@ -4,38 +4,24 @@ import { HR_PERMISSIONS, SYSTEM_PERMISSIONS, type OrgTreeNode } from "@jinhu/sha
 import { useCallback, useEffect, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { useAuthUser } from "../../../lib/auth-context";
+import {PositionWorkbench} from "./PositionWorkbench";
 import { getAccessToken } from "../../../lib/authz";
-import { hrApi, type HrDirectoryOrgOption, type HrPosition } from "../../../lib/hr-api";
+import { hrApi } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
 import styles from "../hr-workbench.module.css";
 
 export function HrOrganizationClient() {
+  const user=useAuthUser();
+  return <HrOrganizationSession key={JSON.stringify(user)}/>;
+}
+function HrOrganizationSession() {
   const user = useAuthUser();
   const canManage = hasPermission(user, HR_PERMISSIONS.HR_POSITION_MANAGE);
   const canReadOrgTree = hasPermission(user, SYSTEM_PERMISSIONS.ORG_LIST);
-  const [rows, setRows] = useState<HrPosition[]>([]);
-  const [orgs, setOrgs] = useState<HrDirectoryOrgOption[]>([]);
   const [orgTree, setOrgTree] = useState<OrgTreeNode[]>([]);
   const [orgTreeStatus, setOrgTreeStatus] = useState<"loading" | "ready" | "empty" | "forbidden" | "error">("loading");
   const [orgTreeMessage, setOrgTreeMessage] = useState("");
   const [expandedOrgIds, setExpandedOrgIds] = useState<Set<string>>(new Set());
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setMessage("");
-      const token = getAccessToken();
-      const [positions, references] = await Promise.all([
-        hrApi.positions(token),
-        canManage ? hrApi.directoryOptions(token) : Promise.resolve({ orgs: [], users: [] })
-      ]);
-      setRows(positions);
-      setOrgs(references.orgs);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "加载岗位失败");
-    }
-  }, [canManage]);
 
   const loadOrgTree = useCallback(async () => {
     if (!canReadOrgTree) {
@@ -60,7 +46,6 @@ export function HrOrganizationClient() {
     }
   }, [canReadOrgTree]);
 
-  useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadOrgTree(); }, [loadOrgTree]);
 
   const toggleOrganization = (id: string) => {
@@ -70,28 +55,6 @@ export function HrOrganizationClient() {
       else next.add(id);
       return next;
     });
-  };
-
-  const create = async (form: FormData) => {
-    try {
-      setBusy(true);
-      setMessage("");
-      await hrApi.createPosition({
-        orgId: String(form.get("orgId")),
-        positionCode: String(form.get("positionCode")),
-        positionName: String(form.get("positionName")),
-        jobFamily: String(form.get("jobFamily") ?? "") || undefined,
-        jobLevel: String(form.get("jobLevel") ?? "") || undefined,
-        headcountLimit: String(form.get("headcountLimit") ?? "") ? Number(form.get("headcountLimit")) : undefined,
-        remark: String(form.get("remark") ?? "") || undefined
-      }, getAccessToken());
-      await load();
-      setMessage("岗位已创建");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "创建岗位失败");
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -109,18 +72,8 @@ export function HrOrganizationClient() {
           {orgTreeStatus === "empty" ? <p className={styles.organizationTreeState}>当前范围暂无组织数据。</p> : null}
           {orgTreeStatus === "ready" ? <nav className={styles.organizationTree} aria-label="组织结构树"><OrganizationTreeNodes nodes={orgTree} expandedOrgIds={expandedOrgIds} onToggle={toggleOrganization} /></nav> : null}
         </section>
-        {canManage ? <form className={`ds-panel ${styles.formGrid}`} action={create}>
-          <label className="form-field"><span>所属组织</span><select name="orgId" required><option value="">请选择组织</option>{orgs.map((org) => <option key={org.id} value={org.id}>{org.orgName}</option>)}</select></label>
-          <label className="form-field"><span>岗位编码</span><input name="positionCode" maxLength={64} required /></label>
-          <label className="form-field"><span>岗位名称</span><input name="positionName" maxLength={100} required /></label>
-          <label className="form-field"><span>职族</span><input name="jobFamily" maxLength={100} /></label>
-          <label className="form-field"><span>职级</span><input name="jobLevel" maxLength={64} /></label>
-          <label className="form-field"><span>编制人数</span><input name="headcountLimit" type="number" min="0" max="100000" step="1" /></label>
-          <label className="form-field"><span>备注</span><input name="remark" maxLength={500} /></label>
-          <button className="ds-button ds-button-primary" disabled={busy}>新增岗位</button>
-        </form> : null}
-        {message ? <p className="form-error" role="alert">{message}</p> : null}
-        <section className="ds-panel"><div className="ds-mobile-record-list">{rows.length ? rows.map((row) => <article className="ds-mobile-record" key={row.id}><strong>{row.positionName}</strong><span>{row.positionCode}</span><span>{row.jobFamily || "未设置职族"} · {row.jobLevel || "未设置职级"}</span><span>编制：{row.headcountLimit ?? "未限制"}</span></article>) : <p>暂无岗位，可由人力资源负责人创建。</p>}</div></section>
+        <PositionWorkbench canManage={canManage} canRead={hasPermission(user,HR_PERMISSIONS.HR_POSITION_READ)}/>
+
       </main>
     </PermissionGuard>
   );
