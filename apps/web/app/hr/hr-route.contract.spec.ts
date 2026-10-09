@@ -395,7 +395,7 @@ test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave
 
 test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
- assert.match(attendance,/HR_ATTENDANCE_OPERATE/);assert.match(attendance,/员工事实/);assert.match(attendance,/团队考勤异常/);assert.match(attendance,/我的考勤日历/);assert.match(attendance,/班次、排班、打卡与重算/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/if\(!canOperate\)return/);
+ assert.match(attendance,/HR_ATTENDANCE_OPERATE/);assert.match(attendance,/员工事实/);assert.match(attendance,/团队日考勤/);assert.match(attendance,/员工日考勤/);assert.match(attendance,/我的考勤日历/);assert.match(attendance,/班次、排班、打卡与重算/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/if\(!canOperate\)return/);
  for(const method of ["attendanceShifts","createAttendanceShift","createAttendanceSchedule","createAttendancePunch","attendanceDaily","recalculateAttendance"])assert.match(api,new RegExp(`${method}:`));
 });
 

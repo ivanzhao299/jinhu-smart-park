@@ -36,6 +36,14 @@ Good: HR pages beyond employee100 in a selected month and daily result31, retain
 
 Actual-page interaction: day32, period25, summary employee101, independent paging, date/status reset, cancellation, failure/retry, period switching during payroll metadata, permission/context reset and mutation refresh. Transport test asserts GET URLs/defaults/signals. Desktop and390px browser check must show later records, wrapping paging,44px controls and no horizontal overflow. Synthetic fixtures do not prove real-role production business acceptance.
 
+Daily headings follow actual read scope: full HR, team, self. Page/filter/CSV share Chinese daily-status labels for all backend result states; unknown states remain explicit. Ordinary records show correction state, not internal calculation UUIDs.
+
+## Scoped result exports
+
+Daily exports retain from/to/status; selected month exports bind period ID, calendar month and active summary version. Reuse ScopedLedgerExport,100-row pages,5000-row limit and first-page drift recheck. A failure or row-version mismatch yields no partial file. This is live pagination, not an atomic snapshot or original-system report equivalence.
+
+Use the same server HR/team/self scope and one captured token; cancel on full identity/filter/period/enabled changes and unmount. Export only business dates, punch times, attendance quantities and state; self omits employee identity. Exclude internal IDs, calculation traces, anomaly payloads, source JSON and payroll input metadata. Punch columns explicitly use Asia/Shanghai; preserve null, zero and fractional days. Reject invalid calendar dates and quantities. Shared formula-safe UTF8 CSV and44px DS buttons apply.
+
 ## 7. Wrong vs Correct
 
 ```ts
