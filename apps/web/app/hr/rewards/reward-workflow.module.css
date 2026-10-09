@@ -1,2 +1,6 @@
 .records:global(.ds-mobile-record-list) { display: grid; }
 .records :global(.ds-mobile-record) { grid-template-columns: minmax(0, 1fr); }
+.corrections { display: grid; gap: 1rem; min-width: 0; }
+.corrections p { overflow-wrap: anywhere; }
+.corrections button { min-height: 44px; white-space: normal; }
+.wide { grid-column: 1 / -1; min-width: 0; }

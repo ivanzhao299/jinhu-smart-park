@@ -9,7 +9,7 @@ vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("../../components/files/FileUploader", () => ({ FileUploader: () => null }));
 vi.mock("../../components/files/AttachmentList", () => ({ AttachmentList: () => null }));
-vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn(), appendRewardCorrection: vi.fn() } }));
 
 const employee = (n: number) => ({ id: `employee-${n}`, employeeCode: `SYN-${n}`, fullName: `Synthetic ${n}` });
 const category = { id: "category-1", code: "SYN-REWARD", versionNo: 1, name: "Synthetic category", kind: "reward" as const, impactLevel: "normal", status: "enabled" };
@@ -187,3 +187,32 @@ it("successful category creation preserves an unrelated open edit draft", async 
 
 it("read-only rewards page does not expose or read category version maintenance",async()=>{state.user.permissions=["hr:rewards","hr:reward:read"];render(<HrRewardsClient/>);await screen.findByText("Existing reward");expect(screen.queryByRole("button",{name:/维护版本/})).toBeNull();expect(hrApi.rewardCategoryVersions).not.toHaveBeenCalled();});
 it("category publication shares the real page write lock and closes before a failed list refresh",async()=>{vi.mocked(hrApi.rewardCategoryVersions).mockResolvedValue({category:{id:category.id,code:category.code,status:'enabled',currentVersionNo:1},items:[{id:'v1',versionNo:1,kind:'reward',name:category.name,impactLevel:'normal',description:'原制度说明',createdAt:'2026-10-09'}],total:1,page:1,page_size:20});let finish=()=>{};vi.mocked(hrApi.publishRewardCategoryVersion).mockImplementation(()=>new Promise(resolve=>{finish=()=>resolve({id:'v2',versionNo:2,kind:'reward',name:category.name,impactLevel:'normal'});}));render(<HrRewardsClient/>);fireEvent.click(await screen.findByRole('button',{name:'维护版本 Synthetic category'}));await screen.findByDisplayValue('原制度说明');const f=screen.getByRole('form',{name:'发布奖惩类别版本'});fireEvent.submit(f);fireEvent.submit(f);expect(hrApi.publishRewardCategoryVersion).toHaveBeenCalledTimes(1);expect(screen.getByRole('button',{name:'保存草稿'})).toBeDisabled();expect(screen.getByRole('button',{name:'新增类别'})).toBeDisabled();vi.mocked(hrApi.rewardCases).mockRejectedValueOnce(Error('合成列表刷新失败'));await act(async()=>finish());await screen.findByText('保存已成功，页面刷新失败，请刷新后核对。');expect(screen.queryByRole('form',{name:'发布奖惩类别版本'})).toBeNull();expect(screen.getByText('操作已保存。')).toHaveAttribute('role','status');});
+
+it("approved manager can append a correction while preserving immutable approved summary", async () => {
+  vi.mocked(hrApi.rewardCase).mockResolvedValue({ ...row, status: "approved", corrections: [] });
+  vi.mocked(hrApi.appendRewardCorrection).mockResolvedValue({id:"correction-1",sequenceNo:1});
+  render(<HrRewardsClient />);
+  await screen.findByText("Existing reward"); fireEvent.click(screen.getByRole("button",{name:"查看"}));
+  fireEvent.change(await screen.findByLabelText("更正摘要"),{target:{value:"补充事实"}});
+  fireEvent.change(screen.getByLabelText("更正原因"),{target:{value:"复核说明"}});
+  fireEvent.submit(screen.getByRole("form",{name:"追加奖惩更正"}));
+  await screen.findByText("第 1 条更正已保存，原审批记录保留。");
+  expect(hrApi.appendRewardCorrection).toHaveBeenCalledWith(row.id,{type:"correction",summary:"补充事实",reason:"复核说明"},"synthetic-token",expect.any(String));
+  expect(hrApi.updateRewardCase).not.toHaveBeenCalled();
+});
+it("readonly approved detail shows authorized history without correction controls", async () => {
+  state.user.permissions=["hr:rewards","hr:reward:read"];
+  vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",corrections:[{sequenceNo:1,type:"appeal",summary:"授权摘要",createdAt:"2090-01-02"}]});
+  render(<HrRewardsClient />); await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));
+  await screen.findByText("授权摘要");expect(screen.queryByLabelText("更正原因")).not.toBeInTheDocument();
+});
+it("pending correction cannot publish success or read history after identity changes", async () => {
+  let resolve!:(value:{id:string;sequenceNo:number})=>void;
+  vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",corrections:[]});
+  vi.mocked(hrApi.appendRewardCorrection).mockReturnValue(new Promise(r=>{resolve=r;}));
+  const view=render(<HrRewardsClient />);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));
+  fireEvent.change(await screen.findByLabelText("更正摘要"),{target:{value:"未完成草稿"}});fireEvent.change(screen.getByLabelText("更正原因"),{target:{value:"合成复核"}});fireEvent.submit(screen.getByRole("form",{name:"追加奖惩更正"}));
+  state.user={...state.user,id:"actor-b",park_id:"park-b"};view.rerender(<HrRewardsClient />);
+  await act(async()=>resolve({id:"correction-1",sequenceNo:1}));
+  expect(screen.queryByText(/第 1 条更正已保存/)).not.toBeInTheDocument();expect(screen.queryByLabelText("更正摘要")).not.toBeInTheDocument();expect(hrApi.rewardCase).toHaveBeenCalledTimes(1);
+});

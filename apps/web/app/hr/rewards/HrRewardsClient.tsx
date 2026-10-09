@@ -19,6 +19,7 @@ import styles from "../hr-workbench.module.css";
 import rewardStyles from "./reward-workflow.module.css";
 import {RewardCategoryVersions} from "./RewardCategoryVersions";
 import { HrEmployeeSelection } from "../components/HrEmployeeSelection";
+import { RewardCorrections } from "./RewardCorrections";
 const labels: Record<string, string> = {
   draft: "草稿",
   submitted: "待审核",
@@ -552,7 +553,7 @@ function HrRewardsWorkspace() {
               <h2>
                 {detail.employeeName} · {detail.categoryName}
               </h2>
-              <button className="ds-button" onClick={clearDetail}>
+              <button className="ds-button" disabled={busy} onClick={clearDetail}>
                 关闭
               </button>
             </div>
@@ -560,6 +561,7 @@ function HrRewardsWorkspace() {
             {detail.detailedReason ? (
               <p className={styles.desktopSensitive}>{detail.detailedReason}</p>
             ) : null}
+            <RewardCorrections key={`corrections-${detail.id}`} detail={detail} canManage={canManage} busy={busy} publish={job => mutate(job, "追加更正失败", true)} />
             {canManage && ["draft", "returned"].includes(detail.status) ? (
               <form key={detail.id} className={styles.formGrid} onSubmit={async event => { event.preventDefault(); const form = event.currentTarget; if (await update(new FormData(form))) form.reset(); }}>
                 <label className="form-field">
