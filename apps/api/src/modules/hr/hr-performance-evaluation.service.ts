@@ -63,6 +63,25 @@ export class HrPerformanceEvaluationService{
   return result;
  }
 
+ async rewardEvidence(s:TenantParkScope,a:JwtPrincipal,id:string,q:{page:number;page_size:number}) {
+  if(a.tenantId!==s.tenantId||a.parkId!==s.parkId)throw new ForbiddenException("Performance scope mismatch");
+  if(![HR_PERMISSIONS.HR_PERFORMANCE_READ,HR_PERMISSIONS.HR_PERFORMANCE_TEAM_READ,HR_PERMISSIONS.HR_PERFORMANCE_SELF_READ].some(p=>has(a,p)))throw new ForbiddenException("Performance read permission required");
+  if(!Number.isInteger(q.page)||q.page<1||q.page>2147483647||!Number.isInteger(q.page_size)||q.page_size<1||q.page_size>100)throw new BadRequestException("Invalid evidence page");
+  const filter=this.reviewFilter(s,a,{},id);
+  const result=await this.db.transaction("REPEATABLE READ",async manager=>{
+   await manager.query("SET TRANSACTION READ ONLY");
+   if(!(await manager.query(`SELECT ce.id ${filter.from}`,filter.args))[0])throw new NotFoundException("Performance review not found");
+   const from="FROM hr_performance_evidence_reference WHERE tenant_id=$1 AND park_id=$2 AND cycle_employee_id=$3 AND source_type='reward'";
+   const args=[s.tenantId,s.parkId,id];
+   const total=Number((await manager.query(`SELECT count(*)::int total ${from}`,args))[0].total);
+   const rows=await manager.query(`SELECT id,source_version "sourceVersion",create_time "capturedAt",source_snapshot->'caseCode' "caseCode",source_snapshot->'kind' kind,source_snapshot->'occurredOn' "occurredOn" ${from} ORDER BY create_time,id LIMIT $4 OFFSET $5`,[...args,q.page_size,(q.page-1)*q.page_size]) as Row[];
+   const items=rows.map(r=>({id:r.id,sourceVersion:r.sourceVersion,capturedAt:r.capturedAt,caseCode:typeof r.caseCode==="string"&&r.caseCode.length>0&&r.caseCode.length<=64?r.caseCode:null,kind:typeof r.kind==="string"&&["reward","discipline"].includes(r.kind)?r.kind:null,occurredOn:typeof r.occurredOn==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(r.occurredOn)?r.occurredOn:null}));
+   return {reviewId:id,items,total,page:q.page,page_size:q.page_size};
+  });
+  await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.performance_reward_evidence",action:"读取绩效奖惩依据",bizType:"hr_performance_review",bizId:id,path:"/hr/performance-v2/reviews/:id/reward-evidence",fieldGroups:[],projection:filter.access==="managed_org_tree"?"team":filter.access as "park"|"self",itemCount:result.items.length});
+  return result;
+ }
+
  async calibrationOptions(s:TenantParkScope,a:JwtPrincipal){if(!has(a,HR_PERMISSIONS.HR_PERFORMANCE_CALIBRATE))throw new ForbiddenException("Performance calibration permission required");const users=await this.db.query(`SELECT u.id,u.display_name "displayName" FROM sys_user u WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.is_deleted=false AND u.is_enabled=true AND u.status='enabled' AND EXISTS(SELECT 1 FROM rel_user_role ur JOIN sys_role r ON(r.id,r.tenant_id,r.park_id)=(ur.role_id,ur.tenant_id,ur.park_id) WHERE ur.tenant_id=u.tenant_id AND ur.park_id=u.park_id AND ur.user_id=u.id AND ur.is_deleted=false AND r.is_deleted=false AND r.code IN('HR_MANAGER','DEPARTMENT_MANAGER')) ORDER BY u.display_name,u.id`,[s.tenantId,s.parkId]);await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.performance_calibration",action:"读取绩效校准参会选项",bizType:"hr_performance_calibration",bizId:null,path:"/hr/performance-v2/calibration-options",fieldGroups:[],projection:"park",itemCount:users.length});return{users};}
  async batches(s:TenantParkScope,a:JwtPrincipal){if(!has(a,HR_PERMISSIONS.HR_PERFORMANCE_CALIBRATE))return [];const rows=await this.db.query(`SELECT b.id,b.cycle_id "cycleId",b.batch_name "batchName",b.meeting_at "meetingAt",b.status,EXISTS(SELECT 1 FROM hr_performance_calibration_participant p WHERE p.tenant_id=b.tenant_id AND p.park_id=b.park_id AND p.batch_id=b.id AND p.participant_user_id=$3)"canAct" FROM hr_performance_calibration_batch b WHERE b.tenant_id=$1 AND b.park_id=$2 ORDER BY b.meeting_at DESC,b.id`,[s.tenantId,s.parkId,a.sub]);await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.performance_calibration",action:"读取绩效校准批次",bizType:"hr_performance_calibration",bizId:null,path:"/hr/performance-v2/calibration-batches",fieldGroups:[],projection:"park",itemCount:rows.length});return rows;}
 
