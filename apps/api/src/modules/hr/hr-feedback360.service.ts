@@ -24,6 +24,7 @@ import type {
 } from "./dto/hr-feedback360.dto";
 import { HrNotificationService } from "./hr-notification.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
+import type {HrFeedback360EmployeeOptionsDto,HrFeedback360SubjectOptionsDto} from "./dto/hr-feedback360-options.dto";
 type Row = Record<string, unknown>;
 type Access = "park" | "managed_org_tree" | "self" | "none";
 const has = (a: JwtPrincipal, p: string) =>
@@ -104,18 +105,8 @@ export class HrFeedback360Service {
     }
     return row;
   }
-  async options(s: TenantParkScope, a: JwtPrincipal) {
-    this.assertActorScope(s, a);
-    if (
-      ![
-        HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,
-        HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE,
-        HR_PERMISSIONS.HR_FEEDBACK_NOMINATE,
-        HR_PERMISSIONS.HR_FEEDBACK_NOMINATION_REVIEW,
-        HR_PERMISSIONS.HR_FEEDBACK_RESULT_PUBLISH,
-      ].some((p) => has(a, p))
-    ) throw new ForbiddenException("360 options permission required");
-    const access = this.access(s, a);
+  private employeeCandidateQuery(s:TenantParkScope,a:JwtPrincipal){
+    const access=this.access(s,a);
     let employeeSql =
       `SELECT id,full_name "fullName",employee_code "employeeCode",primary_org_id "orgId" FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND employment_status='active'`;
     const p: unknown[] = [s.tenantId, s.parkId];
@@ -131,23 +122,82 @@ export class HrFeedback360Service {
         WHERE me.tenant_id=$1 AND me.park_id=$2 AND me.user_id=$3 AND me.is_deleted=false
       )`, p.push(a.sub);
     } else if (access === "none") employeeSql += " AND false";
-    employeeSql += " ORDER BY full_name,id LIMIT 500";
-    const [employees, models, questionnaires, subjects] = await Promise.all([
-      this.db.query(employeeSql, p),
-      has(a, HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE)
-        ? this.db.query(
-          `SELECT v.id,m.model_name "modelName",v.version_name "versionName" FROM hr_competency_model_version v JOIN hr_competency_model m ON(m.id,m.tenant_id,m.park_id)=(v.model_id,v.tenant_id,v.park_id) WHERE v.tenant_id=$1 AND v.park_id=$2 AND v.status='published' AND m.is_deleted=false ORDER BY m.model_name,v.version_no DESC`,
-          [s.tenantId, s.parkId],
-        )
-        : [],
-      has(a, HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE)
-        ? this.db.query(
-          `SELECT v.id,q.questionnaire_name "questionnaireName",v.version_name "versionName",v.model_version_id "modelVersionId" FROM hr_feedback_questionnaire_version v JOIN hr_feedback_questionnaire q ON(q.id,q.tenant_id,q.park_id)=(v.questionnaire_id,v.tenant_id,v.park_id) WHERE v.tenant_id=$1 AND v.park_id=$2 AND v.status='published' AND q.is_deleted=false ORDER BY q.questionnaire_name,v.version_no DESC`,
-          [s.tenantId, s.parkId],
-        )
-        : [],
-      this.subjectOptions(s, a),
+    return {sql:employeeSql,params:p};
+  }
+  private subjectCandidateQuery(s:TenantParkScope,a:JwtPrincipal,includeCodes=false){
+    const access=this.access(s,a);
+    let sql =
+      `SELECT x.id,${includeCodes?'c.cycle_code "cycleCode",e.employee_code "employeeCode",':""}c.cycle_name "cycleName",e.full_name "subjectName",x.status FROM hr_feedback360_subject x JOIN hr_feedback360_cycle c ON(c.id,c.tenant_id,c.park_id)=(x.cycle_id,x.tenant_id,x.park_id) JOIN hr_employee e ON(e.id,e.tenant_id,e.park_id)=(x.employee_id,x.tenant_id,x.park_id) WHERE x.tenant_id=$1 AND x.park_id=$2`;
+    const p: unknown[] = [s.tenantId, s.parkId];
+    if (access === "managed_org_tree") {
+      sql += ` AND e.primary_org_id IN(${this.managedOrgSql("$3")})`,
+        p.push(a.sub);
+    } else if (access === "self") sql += ` AND e.user_id=$3`, p.push(a.sub);
+    return {sql,params:p};
+  }
+  private async cycleOptionRows(s:TenantParkScope){
+    const [models,questionnaires]=await Promise.all([
+      this.db.query(`SELECT v.id,m.model_name "modelName",v.version_name "versionName" FROM hr_competency_model_version v JOIN hr_competency_model m ON(m.id,m.tenant_id,m.park_id)=(v.model_id,v.tenant_id,v.park_id) WHERE v.tenant_id=$1 AND v.park_id=$2 AND v.status='published' AND m.is_deleted=false ORDER BY m.model_name,v.version_no DESC`,[s.tenantId,s.parkId]),
+      this.db.query(`SELECT v.id,q.questionnaire_name "questionnaireName",v.version_name "versionName",v.model_version_id "modelVersionId" FROM hr_feedback_questionnaire_version v JOIN hr_feedback_questionnaire q ON(q.id,q.tenant_id,q.park_id)=(v.questionnaire_id,v.tenant_id,v.park_id) WHERE v.tenant_id=$1 AND v.park_id=$2 AND v.status='published' AND q.is_deleted=false ORDER BY q.questionnaire_name,v.version_no DESC`,[s.tenantId,s.parkId]),
     ]);
+    return {models,questionnaires};
+  }
+  async cycleOptions(s:TenantParkScope,a:JwtPrincipal){
+    this.assertActorScope(s,a);
+    if(!has(a,HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE))throw new ForbiddenException("360 cycle management permission required");
+    const result=await this.cycleOptionRows(s);
+    await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.feedback360_cycle_options",action:"读取360周期配置选项",bizType:"hr_feedback360_cycle",path:"/hr/feedback360-v2/cycle-options",fieldGroups:["feedback"],projection:"metadata",itemCount:result.models.length+result.questionnaires.length});
+    return result;
+  }
+  private async candidatePage(query:{sql:string;params:unknown[]},q:HrFeedback360EmployeeOptionsDto,order:string){
+    return this.db.transaction("REPEATABLE READ",async m=>{
+      const items:Row[]=await m.query(`${query.sql} ORDER BY ${order} LIMIT $${query.params.length+1} OFFSET $${query.params.length+2}`,[...query.params,q.page_size,(q.page-1)*q.page_size]);
+      const count:Row[]=await m.query(`SELECT count(*)::int total FROM (${query.sql}) candidates`,query.params);
+      const total=Number(count[0]?.total??0);
+      if(!Number.isSafeInteger(total)||total<0)throw new Error("360 candidate count unavailable");
+      return {items,total,page:q.page,page_size:q.page_size};
+    });
+  }
+  async employeeOptions(s:TenantParkScope,a:JwtPrincipal,q:HrFeedback360EmployeeOptionsDto){
+    this.assertActorScope(s,a);
+    if(![HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE,HR_PERMISSIONS.HR_FEEDBACK_NOMINATE].some(p=>has(a,p)))throw new ForbiddenException("360 employee operation permission required");
+    const query=this.employeeCandidateQuery(s,a),keyword=q.keyword?.trim();
+    if(keyword){const arg=`$${query.params.push(`%${keyword.replace(/[\\%_]/g,"\\$&")}%`)}`;query.sql+=` AND (full_name ILIKE ${arg} OR employee_code ILIKE ${arg})`;}
+    const result=await this.candidatePage(query,q,"employee_code,id");
+    const items=result.items.map(r=>({id:r.id,employeeCode:r.employeeCode,fullName:r.fullName}));
+    await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.feedback360_employee_options",action:"读取360员工候选",bizType:"hr_employee",path:"/hr/feedback360-v2/employee-options",fieldGroups:["identity"],projection:this.access(s,a)==="managed_org_tree"?"team":this.access(s,a)==="self"?"self":"park",itemCount:items.length});
+    return {...result,items};
+  }
+  async subjectOperationOptions(s:TenantParkScope,a:JwtPrincipal,q:HrFeedback360SubjectOptionsDto){
+    this.assertActorScope(s,a);
+    if(!["nominate","publish"].includes(q.purpose)||!has(a,q.purpose==="publish"?HR_PERMISSIONS.HR_FEEDBACK_RESULT_PUBLISH:HR_PERMISSIONS.HR_FEEDBACK_NOMINATE))throw new ForbiddenException("360 subject operation permission required");
+    const query=this.subjectCandidateQuery(s,a,true),keyword=q.keyword?.trim();
+    query.sql+=q.purpose==="publish"?" AND x.status IN('responding','closed')":" AND x.status IN('nominating','responding')";
+    if(keyword){const arg=`$${query.params.push(`%${keyword.replace(/[\\%_]/g,"\\$&")}%`)}`;query.sql+=` AND (e.full_name ILIKE ${arg} OR e.employee_code ILIKE ${arg} OR c.cycle_name ILIKE ${arg} OR c.cycle_code ILIKE ${arg})`;}
+    const result=await this.candidatePage(query,q,"c.create_time DESC,c.id,e.employee_code,x.id");
+    const items=result.items.map(r=>({id:r.id,cycleCode:r.cycleCode,cycleName:r.cycleName,employeeCode:r.employeeCode,subjectName:r.subjectName,status:r.status}));
+    await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.feedback360_subject_options",action:"读取360办理对象",bizType:"hr_feedback360_subject",path:"/hr/feedback360-v2/subject-options",fieldGroups:["identity","feedback"],projection:this.access(s,a)==="managed_org_tree"?"team":this.access(s,a)==="self"?"self":"park",itemCount:items.length});
+    return {...result,items};
+  }
+  async options(s: TenantParkScope, a: JwtPrincipal) {
+    this.assertActorScope(s, a);
+    if (
+      ![
+        HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,
+        HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE,
+        HR_PERMISSIONS.HR_FEEDBACK_NOMINATE,
+        HR_PERMISSIONS.HR_FEEDBACK_NOMINATION_REVIEW,
+        HR_PERMISSIONS.HR_FEEDBACK_RESULT_PUBLISH,
+      ].some((p) => has(a, p))
+    ) throw new ForbiddenException("360 options permission required");
+    const access = this.access(s, a);
+    const query=this.employeeCandidateQuery(s,a);
+    const [employees,setup,subjects]=await Promise.all([
+      this.db.query(`${query.sql} ORDER BY full_name,id LIMIT 500`,query.params),
+      has(a,HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE)?this.cycleOptionRows(s):{models:[],questionnaires:[]},
+      this.subjectOptions(s,a),
+    ]);
+    const {models,questionnaires}=setup;
     await recordHrSensitiveRead(this.audit, s, a, {
       resource: "hr.feedback360_options",
       action: "读取360业务选择项",
@@ -164,20 +214,10 @@ export class HrFeedback360Service {
     });
     return { employees, models, questionnaires, subjects };
   }
-  private async subjectOptions(s: TenantParkScope, a: JwtPrincipal) {
-    const access = this.access(s, a);
-    if (access === "none") return [];
-    let sql =
-      `SELECT x.id,c.cycle_name "cycleName",e.full_name "subjectName",x.status FROM hr_feedback360_subject x JOIN hr_feedback360_cycle c ON(c.id,c.tenant_id,c.park_id)=(x.cycle_id,x.tenant_id,x.park_id) JOIN hr_employee e ON(e.id,e.tenant_id,e.park_id)=(x.employee_id,x.tenant_id,x.park_id) WHERE x.tenant_id=$1 AND x.park_id=$2`;
-    const p: unknown[] = [s.tenantId, s.parkId];
-    if (access === "managed_org_tree") {
-      sql += ` AND e.primary_org_id IN(${this.managedOrgSql("$3")})`,
-        p.push(a.sub);
-    } else if (access === "self") sql += ` AND e.user_id=$3`, p.push(a.sub);
-    return this.db.query(
-      `${sql} ORDER BY c.create_time DESC,e.full_name LIMIT 500`,
-      p,
-    );
+  private async subjectOptions(s:TenantParkScope,a:JwtPrincipal){
+    if(this.access(s,a)==="none")return [];
+    const query=this.subjectCandidateQuery(s,a);
+    return this.db.query(`${query.sql} ORDER BY c.create_time DESC,e.full_name LIMIT 500`,query.params);
   }
   async models(s: TenantParkScope, a: JwtPrincipal) {
     if (!this.principalInScope(s, a)) return [];

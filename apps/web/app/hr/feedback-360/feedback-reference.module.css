@@ -1,0 +1,10 @@
+.picker { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: 0; }
+.picker legend { font-weight: 700; margin-bottom: 12px; }
+.controls { min-width: 0; }
+.pages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.records { display: grid; gap: 8px; min-width: 0; max-height: 22rem; overflow-y: auto; }
+.selected, .choice { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.selected span, .choice span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.choice { min-height: 44px; cursor: pointer; }
+.choice input { width: 20px; height: 20px; flex: 0 0 20px; }
+.picker .selected button:global(.ds-button), .pages button:global(.ds-button) { width: auto; min-height: 44px; flex: 0 0 auto; white-space: nowrap; }

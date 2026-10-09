@@ -1023,3 +1023,5 @@ Attendance returned-request correction and approval continuity: [Request Continu
 - [Performance review browsing](./hr-performance-review-browsing.md) — Scoped period/status filters, bounded reviews and continuation.
 
 - [360 operation continuity](./hr-feedback-operation-continuity.md) — Independent reads, cycle operation authority and retained retries.
+
+- [360 operational reference pages](hr-feedback-reference-options.md) — Exact operation pagination, cross-page selection and independent recovery.
