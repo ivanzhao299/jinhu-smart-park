@@ -359,7 +359,7 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(insurance,/loadedEmployeeAmount\(rows\)/);
  assert.match(insurance,/safeAmount\(row\.employeeAmount\)/);
  assert.match(insurance,/reviewReasonCode/);
- assert.match(insurance,/来源期间缺失或无效/);
+ assert.match(insurance,/insuranceReviewReasonLabels as reviewReasonLabels/);
  // Missing-amount behavior is exercised in insurance-amount.spec.ts and the
  // rendered page in hr-insurance-exact-total.test.tsx; bind the page to that owner.
  assert.match(insurance,/import \{ loadedEmployeeAmount \} from "\.\/insurance-amount"/);

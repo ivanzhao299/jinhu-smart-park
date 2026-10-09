@@ -13,10 +13,11 @@ import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
 import styles from "../hr-workbench.module.css";
 import { createContractLedger,contractPageCount,clampContractPage,formatContractCalendarDate,runContractContextAction } from "./contract-ledger";
+import {ScopedLedgerExport} from "../ScopedLedgerExport";
+import {contractLedgerCsv,contractStatusLabels as statusLabels} from "./contract-ledger-export";
 import contractStyles from "./contracts.module.css";
 import {ContractEmployeeSelection} from "./ContractEmployeeSelection";
 
-const statusLabels:Record<string,string>={draft:"草稿",active:"履行中",expired:"已到期",terminated:"已终止",cancelled:"已取消",needs_review:"待复核"};
 const changeLabels:Record<string,string>={renewal:"续签",amendment:"变更",termination:"终止",correction:"更正",needs_review:"待复核"};
 const actionLabels:Record<string,string>={created:"创建合同",updated:"编辑合同",activated:"合同生效",cancelled:"取消合同",change_created:"创建变更",change_applied:"应用变更",change_cancelled:"取消变更"};
 const reminderKindLabels:Record<string,string>={contract_expiry:"合同到期",probation_expiry:"试用期到期"};
@@ -83,6 +84,7 @@ export function HrContractsClient(){
  return <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_CONTRACTS_PAGE} fallback={forbidden}>
   <main className={`content ds-page ${styles.page}`}>
    <section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">员工生命周期</span><h1>{selfOnly?"我的劳动合同":"劳动合同"}</h1></div></section>
+   <section className="ds-panel" aria-label="合同台账导出"><p>导出当前筛选范围的完整合同台账，可用 Excel 打开；最多 5000 条，超过时请缩小筛选范围。</p><ScopedLedgerExport contextKey={JSON.stringify([contextKey,keyword.trim(),status])} enabled={canRead&&!loading&&!saving&&!action&&keyword.trim()===debouncedKeyword} label="合同" fetchPage={(page,size,signal,token)=>hrApi.contracts(token,page,size,{keyword:keyword.trim()||undefined,status:status||undefined},selfOnly,signal)} serialize={rows=>contractLedgerCsv(rows,selfOnly)} fileName="合同台账.csv"/></section>
    {canManage?<section className="ds-panel"><div className={styles.sectionHeading}><div><span className="ds-eyebrow">合同办理</span><h2>{action==="review"?"补全合同信息":action==="edit"?"编辑合同草稿":"在线合同业务"}</h2></div><button type="button" className="ds-button" onClick={()=>{setContractForm(emptyContract);setAction(current=>current==="contract"?null:"contract");}}>{action==="contract"?"收起新建":"新建合同"}</button></div>
     {action==="contract"||action==="edit"||action==="review"?<form className={styles.formGrid} onSubmit={event=>void saveContract(event)}>
      <ContractEmployeeSelection key={`${contextKey}:${action}:${selected?.id??"new"}`} selectedId={contractForm.employeeId} currentEmployee={(action==="edit"||action==="review")&&selected?.employeeId?{id:selected.employeeId,fullName:selected.employeeName??"当前合同员工",employeeCode:selected.employeeCode??""}:undefined} disabled={saving} onChange={employeeId=>setContractForm(previous=>({...previous,employeeId}))}/>

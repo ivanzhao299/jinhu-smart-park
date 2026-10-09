@@ -1,0 +1,9 @@
+# Contract and insurance scoped live CSV
+
+Use ScopedLedgerExport with the existing collectScopedExport/csvDocument/downloadCsv. Read every100-row page up to5000 records and recheck page1. No partial file after failure/duplicate/cardinality/total drift. This remains live paged querying, not an atomic snapshot, statutory report or original report parity proof.
+
+Capture one access token per run, propagate AbortSignal, use a synchronous mutex and render-time identity/filter/enabled fence. Effect cleanup permanently aborts on identity/filter/enabled changes and unmount. Parent context includes tenant/park, permissions/roles/data scopes/field policies and actual active filters; insurance employeeId must survive when entered from employee profile. Disable startup while loading, keyword debounce or contract editing/saving. Each request uses the same HR/team/self entry and filters as the table.
+
+Contract export whitelist: non-self employee code/name, contract number/type, calendar start/end/probation-end and business state; never salary, contact/identity-document/account IDs, attachments, remarks or source fields. Reuse contract calendar date formatting and shared state labels. Insurance whitelist: non-self employee code/name, year/month/kind count/review state, personal/supplement amounts only under the existing amount authority, employer/total only full park and non-self. Preserve exact decimal strings and unknown/null fields; invalid source periods remain blank with review state. Unexpected response fields do not widen exports. Formula-safe quoted UTF8 CSV supports Excel but cannot control spreadsheet automatic numeric precision.
+
+Use DS buttons with44px touch height. Inspect real components at desktop/390 using synthetic data, separate from actual production role acceptance. Test both parent pages plus shared cancellation/limits/failure/duplicate/paging behavior and allowlists. No new permissions, route, schema, salary mutation or import replay.
