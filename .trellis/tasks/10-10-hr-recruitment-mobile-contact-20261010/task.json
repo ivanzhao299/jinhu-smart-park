@@ -1,0 +1,31 @@
+{
+  "id": "hr-recruitment-mobile-contact-20261010",
+  "name": "hr-recruitment-mobile-contact-20261010",
+  "title": "招聘候选人授权联系资料手机可达",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-recruitment-mobile-contact-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/recruitment/HrRecruitmentClient.tsx",
+    "apps/web/app/hr/recruitment/recruitment.module.css",
+    "apps/web/test/interaction/hr-recruitment-results.test.tsx",
+    "apps/web/app/hr/hr-recruitment.contract.spec.ts"
+  ],
+  "notes": "",
+  "meta": {}
+}
