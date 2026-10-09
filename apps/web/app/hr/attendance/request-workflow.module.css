@@ -1,0 +1,11 @@
+.workflow { --form-control-height:var(--form-control-height-touch); display:grid; gap:1.5rem; min-width:0; }
+.records { display:grid !important; }
+.fields { display:contents; min-width:0; }
+.full { grid-column:1/-1; min-width:0; overflow-wrap:anywhere; }
+.pagination { flex-wrap:wrap; }
+.pagination span { flex:1 1 12rem; }
+.workflow input,.workflow select,.workflow button { min-height:44px; }
+.workflow textarea { min-height:100px; }
+.workflow label { min-width:0; }
+.workflow > :global(.ds-panel) { padding:22px; }
+@media(max-width:520px) { .workflow { gap:16px; } .workflow > :global(.ds-panel) { padding:16px; } }

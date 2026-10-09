@@ -1,0 +1,52 @@
+import "reflect-metadata";
+import assert from "node:assert/strict";
+import {randomUUID} from "node:crypto";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
+import test from "node:test";
+import {DataSource} from "typeorm";
+import {BadRequestException,ConflictException,ForbiddenException,NotFoundException} from "@nestjs/common";
+import {HR_PERMISSIONS as H} from "@jinhu/shared";
+import type {JwtPrincipal} from "../../shared/types/jwt-principal";
+import {AuditService} from "../audit/audit.service";
+import {OpLogEntity} from "../audit/entities/op-log.entity";
+import {HrEmployeeEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttendanceRequestEntity} from "./entities/hr.entities";
+import {HrService} from "./hr.service";
+
+test("isolated PostgreSQL: returned edits, ownership/version races, audit rollback and original approval continuation",{skip:process.env.HR_ATTENDANCE_EDIT_PG_REQUIRED!=="1"},async()=>{
+ const connection={type:"postgres" as const,host:"127.0.0.1",port:Number(process.env.HR_ATTENDANCE_EDIT_PG_PORT??15484),username:"postgres"};
+ const database=`hr_attendance_edit_${randomUUID().replaceAll("-","")}`,admin=new DataSource({...connection,database:"postgres"});let db:DataSource|undefined;
+ await admin.initialize();await admin.query(`CREATE DATABASE "${database}"`);
+ try{
+  const bootstrap=new DataSource({...connection,database,entities:[HrEmployeeEntity,OpLogEntity],synchronize:true});await bootstrap.initialize();await bootstrap.destroy();
+  db=new DataSource({...connection,database,entities:[HrEmployeeEntity,OpLogEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttendanceRequestEntity]});await db.initialize();
+  for(const migration of ['000234_hr_approval_workflow.sql','000245_hr_attendance_requests.sql','000297_hr_attendance_business_trip_legacy_source.sql'])await db.query(readFileSync(resolve(__dirname,'../../../../../database/migrations',migration),'utf8'));
+  const scope={tenantId:"edit-tenant",parkId:"edit-park"},user=randomUUID(),other=randomUUID(),reviewer=randomUUID();
+  const actor=(sub=user,permissions:string[]=[H.HR_ATTENDANCE_REQUEST]):JwtPrincipal=>({sub,username:"synthetic",...scope,roles:[],permissions,isSuper:false});
+  const employee=await db.getRepository(HrEmployeeEntity).save({ ...scope,employeeCode:"SYN",fullName:"Synthetic",userId:user,employmentStatus:"active"});
+  await db.getRepository(HrEmployeeEntity).save({...scope,employeeCode:"OTHER",fullName:"Other synthetic",userId:other,employmentStatus:"active"});
+  const audit=new AuditService(undefined!,db.getRepository(OpLogEntity));let failAudit=false;
+  const args=Array(32).fill(undefined);args[0]=db.getRepository(HrEmployeeEntity);args[26]=db.getRepository(HrAttendanceRequestEntity);args[29]={publishAttendanceRequestSubmitted:async()=>{},publishAttendanceRequestReviewed:async()=>{}};args[30]=db;args[31]={recordOperationRequired:async(...input:Parameters<AuditService['recordOperationRequired']>)=>{if(failAudit)throw new Error('synthetic audit failure');return audit.recordOperationRequired(...input);}};
+  const service=Reflect.construct(HrService,args) as HrService,initial={requestType:"leave",startAt:"2026-10-12T08:00:00+08:00",endAt:"2026-10-12T17:00:00+08:00",reason:"synthetic original"};
+  const created=await service.createAttendanceRequest(scope,actor(),initial);assert.equal(created.editVersion!,1);
+  const edit={...initial,reason:"synthetic changed",endAt:"2026-10-12T18:00:00+08:00",expectedVersion:created.editVersion!};
+  await assert.rejects(service.updateAttendanceRequest(scope,actor(user,[]),created.id,edit),ForbiddenException);
+  await assert.rejects(service.updateAttendanceRequest(scope,actor(other),created.id,edit),NotFoundException);
+  await assert.rejects(service.updateAttendanceRequest({...scope,parkId:"other-park"},actor(),created.id,edit),NotFoundException);
+  await assert.rejects(service.updateAttendanceRequest(scope,actor(),created.id,{...edit,requestType:"overtime"}),BadRequestException);
+  const race=await Promise.allSettled([service.updateAttendanceRequest(scope,actor(),created.id,edit),service.updateAttendanceRequest(scope,actor(),created.id,{...edit,reason:"synthetic concurrent"})]);
+  assert.equal(race.filter(r=>r.status==='fulfilled').length,1);assert.equal(race.filter(r=>r.status==='rejected'&&r.reason instanceof ConflictException).length,1);
+  let current=(await db.getRepository(HrAttendanceRequestEntity).findOneByOrFail({id:created.id}));assert.equal(current.version,2);assert.equal(current.requestNo,created.requestNo);assert.equal(current.employeeId,employee.id);
+  const auditRows=await db.getRepository(OpLogEntity).find();assert.equal(auditRows.length,1);assert.ok(auditRows[0]);assert.equal(auditRows[0].beforeJson?.version,1);assert.equal(auditRows[0].afterJson?.version,2);assert.equal(auditRows[0].afterJson?.reasonChanged,true);assert.doesNotMatch(JSON.stringify(auditRows),/synthetic changed|synthetic concurrent|synthetic original/);
+  failAudit=true;await assert.rejects(service.updateAttendanceRequest(scope,actor(),created.id,{...edit,expectedVersion:2,reason:"rollback"}),/synthetic audit failure/);failAudit=false;
+  assert.deepEqual(await db.getRepository(HrAttendanceRequestEntity).findOneByOrFail({id:created.id}),current);assert.equal(await db.getRepository(OpLogEntity).count(),1);
+  await db.getRepository(HrApprovalRequestEntity).update({id:current.approvalRequestId!},{status:"submitted"});await assert.rejects(service.updateAttendanceRequest(scope,actor(),created.id,{...edit,expectedVersion:2}),ConflictException);await db.getRepository(HrApprovalRequestEntity).update({id:current.approvalRequestId!},{status:"draft"});
+  await service.submitAttendanceRequest(scope,actor(),created.id);await assert.rejects(service.updateAttendanceRequest(scope,actor(),created.id,{...edit,expectedVersion:3}),ConflictException);
+  await service.reviewAttendanceRequest(scope,actor(reviewer,[H.HR_ATTENDANCE_READ]),created.id,'reject',{comment:"synthetic supplement required"});current=await db.getRepository(HrAttendanceRequestEntity).findOneByOrFail({id:created.id});
+  const changed=await service.updateAttendanceRequest(scope,actor(),created.id,{...edit,expectedVersion:current.version,reason:"synthetic supplement"});assert.equal(changed.status,'returned');assert.equal(changed.reviewComment,'synthetic supplement required');assert.equal(changed.requestNo,created.requestNo);
+  await service.submitAttendanceRequest(scope,actor(),created.id);await service.reviewAttendanceRequest(scope,actor(reviewer,[H.HR_ATTENDANCE_READ]),created.id,'approve',{});current=await db.getRepository(HrAttendanceRequestEntity).findOneByOrFail({id:created.id});assert.equal(current.status,'approved');await assert.rejects(service.updateAttendanceRequest(scope,actor(),created.id,{...edit,expectedVersion:current.version}),ConflictException);
+  const actions=await db.query('SELECT action FROM hr_approval_action ORDER BY create_time,id');assert.deepEqual(actions.map((r:{action:string})=>r.action),['submit','return','resubmit','approve']);
+  const correction=await service.createAttendanceRequest(scope,actor(),{requestType:'correction',attendanceDate:'2026-10-13',reason:'synthetic correction'});const corrected=await service.updateAttendanceRequest(scope,actor(),correction.id,{requestType:'correction',attendanceDate:'2026-10-14',reason:'synthetic corrected date',expectedVersion:correction.editVersion!});assert.equal(corrected.attendanceDate,'2026-10-14');assert.equal(corrected.durationMinutes,0);
+  await service.cancelAttendanceRequest(scope,actor(),correction.id);await assert.rejects(service.updateAttendanceRequest(scope,actor(),correction.id,{requestType:'correction',attendanceDate:'2026-10-15',reason:'cancelled edit',expectedVersion:corrected.editVersion!+1}),ConflictException);
+ }finally{if(db?.isInitialized)await db.destroy();await admin.query(`DROP DATABASE "${database}" WITH (FORCE)`);assert.equal((await admin.query('SELECT 1 FROM pg_database WHERE datname=$1',[database])).length,0);await admin.destroy();}
+});

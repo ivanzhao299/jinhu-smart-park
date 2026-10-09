@@ -338,18 +338,16 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
 });
 
 test("HR M6 historical attendance and insurance ledgers are scoped, paged, and mobile-first",()=>{
- const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8");
  const insurance=readFileSync(resolve(__dirname,"insurance/HrInsuranceClient.tsx"),"utf8");
  const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
  for(const page of [attendance,insurance]){assert.match(page,/ds-page/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/ds-mobile-record/);assert.match(page,/if\(!canRead\)return/);}
  assert.match(attendance,/历史月历分页/);assert.doesNotMatch(attendance,/loadMoreCalendars|加载更多月历/);
  assert.match(attendance,/calendarSymbolText\(day\)/);assert.match(attendance,/calendarStyles\.recordList/);
- // The request queue already has a desktop table: its card alternative must
- // retain the shared mobile-only visibility instead of the calendar override.
- assert.match(attendance,/<div className="ds-mobile-record-list">\{requestLoading\?/);
- assert.match(attendance,/<table aria-label="考勤申请办理队列">/);
- assert.doesNotMatch(attendance,/<div className=\{`ds-mobile-record-list \$\{calendarStyles\.recordList\}`\}>\{requestLoading\?/);
+ assert.match(attendance,/AttendanceRequestWorkflow/);
+ assert.match(attendance,/考勤申请分页/);
+ assert.match(attendance,/local\.records/);
  assert.match(insurance,/社保台账分页/);assert.match(insurance,/上一页/);assert.match(insurance,/下一页/);assert.doesNotMatch(insurance,/loadMore|加载更多/);
  assert.match(attendance,/这些日期不是员工实际出勤记录/);
  assert.match(attendance,/未知符号保留待复核/);
@@ -373,13 +371,13 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
 });
 
 test("HR M6 attendance requests expose explicit self and approval actions without unauthorized calls",()=>{
- const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
  for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
 });
 
 test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave impact",()=>{
- const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  for(const field of ["leavePlannedMinutes","leaveEffectiveMinutes","leaveDayCount","leaveMinutes"])assert.match(api,new RegExp(`${field}:number`));
  assert.match(attendance,/row\.status==="approved"\?`已计入/);
  assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
@@ -388,13 +386,13 @@ test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave
 });
 
 test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{
- const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  assert.match(attendance,/HR_ATTENDANCE_OPERATE/);assert.match(attendance,/员工事实/);assert.match(attendance,/团队考勤异常/);assert.match(attendance,/我的考勤日历/);assert.match(attendance,/班次、排班、打卡与重算/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/if\(!canOperate\)return/);
  for(const method of ["attendanceShifts","createAttendanceShift","createAttendanceSchedule","createAttendancePunch","attendanceDaily","recalculateAttendance"])assert.match(api,new RegExp(`${method}:`));
 });
 
 test("HR attendance uses task-grouped enterprise controls and a one-column phone layout",()=>{
- const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),css=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),css=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
  for(const label of ["当日排班","班次模板","人工打卡","日考勤重算","结果状态","期间月份"])assert.match(attendance,new RegExp(label));
  for(const className of ["operationGrid","operationGroup","operationFields","compactFilterBar","periodToolbar","timeRange"])assert.match(attendance,new RegExp(`styles\\.${className}`));
  assert.match(css,/\.operationGrid\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
@@ -407,7 +405,7 @@ test("HR attendance uses task-grouped enterprise controls and a one-column phone
  assert.match(phone,/\.operationGroup > :global\(\.ds-button\),[\s\S]*width:\s*100%/);
 });
 
-test("HR M6 month close keeps review, recovery and correction versions explicit",()=>{const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");for(const label of ["月结期间与工资输入版本","新建月结期间","恢复并重算","确认封账","创建更正批次","生成新更正版本","旧快照保持不变","工资输入版本链","相对上一批次变更"])assert.match(attendance,new RegExp(label));assert.match(attendance,/canCorrect=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_CORRECT\)/);assert.match(attendance,/canCorrect&&period\.status==="closed"/);assert.match(attendance,/canPayrollInput&&period\.status==="closed"/);assert.match(attendance,/ds-mobile-record-list/);for(const method of ["attendancePeriods","createAttendancePeriod","calculateAttendancePeriod","closeAttendancePeriod","correctAttendancePeriod","attendanceMonthSummaries","payrollAttendanceInputs","attendancePayrollVersions"])assert.match(api,new RegExp(`${method}:`));});
+test("HR M6 month close keeps review, recovery and correction versions explicit",()=>{const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");for(const label of ["月结期间与工资输入版本","新建月结期间","恢复并重算","确认封账","创建更正批次","生成新更正版本","旧快照保持不变","工资输入版本链","相对上一批次变更"])assert.match(attendance,new RegExp(label));assert.match(attendance,/canCorrect=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_CORRECT\)/);assert.match(attendance,/canCorrect&&period\.status==="closed"/);assert.match(attendance,/canPayrollInput&&period\.status==="closed"/);assert.match(attendance,/ds-mobile-record-list/);for(const method of ["attendancePeriods","createAttendancePeriod","calculateAttendancePeriod","closeAttendancePeriod","correctAttendancePeriod","attendanceMonthSummaries","payrollAttendanceInputs","attendancePayrollVersions"])assert.match(api,new RegExp(`${method}:`));});
 test("work reports expose Yuzhou work-log fields and audited draft cancellation",()=>{const page=readFileSync(resolve(__dirname,"work-reports/HrWorkReportsClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");for(const label of ["标题","问题与建议","撤销草稿","审计记录会保留"])assert.match(page,new RegExp(label));assert.match(page,/name="title" maxLength=\{64\}/);assert.match(page,/name="questionsAndSuggestions" maxLength=\{4000\}/);assert.match(api,/cancelWorkReport:/);assert.match(api,/method:"DELETE"/);});
 
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{

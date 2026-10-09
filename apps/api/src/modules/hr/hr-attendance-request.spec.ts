@@ -14,7 +14,7 @@ import { HrService } from "./hr.service";
 const actor=(permissions:string[]):JwtPrincipal=>({sub:"user-1",username:"tester",tenantId:"tenant-1",parkId:"park-1",roles:[],permissions,isSuper:false});
 
 test("attendance request write routes use exact action permissions, idempotency and body-free audit",()=>{
- for(const method of ["createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest"] as const){assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_ATTENDANCE_REQUEST]);assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);}
+ for(const method of ["createAttendanceRequest","updateAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest"] as const){assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_ATTENDANCE_REQUEST]);assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);}
  for(const method of ["approveAttendanceRequest","rejectAttendanceRequest"] as const){assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_ATTENDANCE_APPROVE]);assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);}
 });
 
@@ -44,6 +44,15 @@ test("attendance request listing is fail-closed without exact read permission",a
 
 test("attendance request source never captures reason or medical details in audit metadata",()=>{
  const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
- for(const method of ["创建考勤申请草稿","提交考勤申请","取消考勤申请","批准考勤申请","退回考勤申请"])assert.match(controller,new RegExp(`action:"${method}"[^}]*captureBody:false`));
+ for(const method of ["创建考勤申请草稿","修改考勤申请","提交考勤申请","取消考勤申请","批准考勤申请","退回考勤申请"])assert.match(controller,new RegExp(`action:"${method}"[^}]*captureBody:false`));
  assert.doesNotMatch(controller,/captureBody:true/);
+});
+
+
+test("attendance optimistic edit token is only an own-operation projection",()=>{
+ const project=(HrService.prototype as unknown as {projectAttendanceRequest:(row:Record<string,unknown>,access:string,user?:string,edit?:boolean)=>Record<string,unknown>}).projectAttendanceRequest;
+ const row={id:"synthetic",version:7,request_no:"SYN",request_type:"correction",attendance_date:"2026-10-12",start_at:null,end_at:null,duration_minutes:0,legacy_declared_days:null,reason:"synthetic",status:"returned",submitted_at:null,reviewed_at:null,review_comment:null,employee_user_id:"self",employee_id:"employee",employee_name:"synthetic",employee_code:"SYN"};
+ assert.equal(project(row,"self","self",true).editVersion,7);
+ assert.equal(project(row,"self","self",true).version,undefined);
+ for(const item of [project(row,"self","self",false),project(row,"park","other",true)]){assert.equal(item.editVersion,undefined);assert.equal(item.version,undefined);}
 });

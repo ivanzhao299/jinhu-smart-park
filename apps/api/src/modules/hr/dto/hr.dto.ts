@@ -66,6 +66,10 @@ export class CreateHrAttendanceRequestDto {
  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() attendanceDate?:string;
  @Transform(trim) @IsString() @MaxLength(2000) reason!:string;
 }
+export class UpdateHrAttendanceRequestDto extends CreateHrAttendanceRequestDto {
+ @IsInt() @Min(1) expectedVersion!:number;
+}
+
 export class ReviewHrAttendanceRequestDto { @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
 export class HrAttendanceDailyQueryDto {
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1; @Transform(({value})=>Number(value??31)) @IsInt() @Min(1) @Max(100) page_size=31;
