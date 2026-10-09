@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/web/frontend/hr-payroll-ledger-presentation.md", "reason": "Preserve amount, self identity and scoped payroll ledger semantics"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-statement-print.md", "reason": "Selected statement lifecycle, allowlist and shared print contract"}
