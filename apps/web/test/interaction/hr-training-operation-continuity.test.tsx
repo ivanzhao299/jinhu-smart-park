@@ -24,3 +24,21 @@ it("course commit is not reported as failed or left as a retry draft when option
 it("identity replacement ignores old committed result and performs no stale reload",async()=>{let finish=()=>{};state.api.correctTraining.mockImplementation(()=>new Promise(resolve=>{finish=()=>resolve({});}));const {rerender}=render(<HrTrainingClient/>);await screen.findByText("合成培训计划");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"保存培训结果更正"});change(form("保存培训结果更正"),"reason","旧上下文依据");change(form("保存培训结果更正"),"scoreAction","write");change(form("保存培训结果更正"),"score","81");fireEvent.submit(form("保存培训结果更正"));expect(state.api.correctTraining).toHaveBeenCalledTimes(1);state.user={...state.user,park_id:"other"};rerender(<HrTrainingClient/>);await waitFor(()=>expect(state.api.trainingPlans).toHaveBeenCalledTimes(2));await act(async()=>finish());expect(state.api.trainingPlans).toHaveBeenCalledTimes(2);expect(state.api.trainingPlan).toHaveBeenCalledTimes(1);expect(screen.queryByText(/培训操作已保存/)).toBeNull();});
 
 it("committed plan clears submitted participants even if subsequent options fail",async()=>{state.api.trainingEmployeeOptions.mockResolvedValue({items:[{id:"employee",fullName:"合成参训人",employeeCode:"SYN-E"}],total:1,page:1,page_size:20});render(<HrTrainingClient/>);fireEvent.click(await screen.findByRole("checkbox",{name:"合成参训人 · SYN-E"}));const f=form("创建计划");for(const [n,v] of Object.entries({code:"SYN-NEW",name:"合成新计划",course:"course",startDate:"2026-10-10",endDate:"2026-10-11"}))change(f,n,v);state.api.trainingCourseOptions.mockRejectedValueOnce(new Error("合成计划选项失败"));fireEvent.submit(f);await screen.findByText("合成计划选项失败");await waitFor(()=>expect(f.elements.namedItem("name")).toHaveValue(""));expect(new FormData(f).getAll("employees")).toEqual([]);expect(state.api.createTrainingPlan).toHaveBeenCalledTimes(1);expect(state.api.createTrainingPlan).toHaveBeenCalledWith(expect.objectContaining({name:"合成新计划",employeeIds:["employee"]}),"synthetic-token");});
+
+
+it("authorized training operator sees cost projections and submits the exact nonzero budget",async()=>{
+ state.user.permissions.push(H.HR_TRAINING_COST_READ);
+ state.api.trainingPlans.mockResolvedValue({items:[{...plan,budgetAmount:"123.4567",actualCost:"22.1234",costCurrency:"CNY"}],total:1});
+ state.api.trainingPlan.mockResolvedValue({...detail,participants:detail.participants.map(p=>({...p,actualCost:"22.1234"}))});
+ state.api.trainingEmployeeOptions.mockResolvedValue({items:[{id:"employee",fullName:"合成参训人",employeeCode:"SYN-E"}],total:1,page:1,page_size:20});
+ render(<HrTrainingClient/>);await screen.findByText("预算 123.4567 CNY · 已发生 22.1234");
+ fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByText("费用 22.1234");
+ fireEvent.click(await screen.findByRole("checkbox",{name:"合成参训人 · SYN-E"}));const f=form("创建计划");
+ for(const [n,v]of Object.entries({code:"SYN-COST",name:"合成费用计划",course:"course",startDate:"2026-10-10",endDate:"2026-10-11",budgetAmount:"123.4567"}))change(f,n,v);
+ fireEvent.submit(f);await waitFor(()=>expect(state.api.createTrainingPlan).toHaveBeenCalledWith(expect.objectContaining({budgetAmount:"123.4567",employeeIds:["employee"]}),"synthetic-token"));
+});
+it("training costs stay absent without authority even if the response includes them",async()=>{
+ state.api.trainingPlans.mockResolvedValue({items:[{...plan,budgetAmount:"123.4567",actualCost:"22.1234",costCurrency:"CNY"}],total:1});
+ state.api.trainingPlan.mockResolvedValue({...detail,participants:detail.participants.map(p=>({...p,actualCost:"22.1234"}))});
+ await open();expect(screen.queryByRole("spinbutton",{name:/^预算$/})).toBeNull();expect(screen.queryByText(/123\.4567|22\.1234/)).toBeNull();expect(screen.queryByLabelText("实际费用操作")).toBeNull();
+});
