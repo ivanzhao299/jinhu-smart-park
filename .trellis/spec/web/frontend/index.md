@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Editable employee-day schedule operations: [Schedule Continuity](./hr-attendance-schedule-continuity.md).
+
 Selected payroll detail printing: [Payroll Statements](./hr-payroll-statement-print.md).
 
 Talent complete profile history: [Talent Profile History](./hr-talent-profile-history.md).

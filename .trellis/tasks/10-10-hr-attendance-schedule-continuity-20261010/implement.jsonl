@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "Attendance append/month freeze contracts"}
+{"file": ".trellis/spec/api/backend/hr-attendance-employee-options.md", "reason": "Action-specific scope and required audit"}
+{"file": ".trellis/spec/web/frontend/hr-attendance-employee-selection.md", "reason": "Explicit selection and stale read ownership"}
+{"file": ".trellis/spec/web/frontend/hr-attendance-result-browsing.md", "reason": "Independent ledger and operation state"}
