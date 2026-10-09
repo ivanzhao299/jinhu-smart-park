@@ -1,0 +1,25 @@
+.records:global(.ds-mobile-record-list) {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pagination :global(.ds-button) {
+  min-height: 44px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.pagination > span {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.pagination {
+  margin-top: 16px;
+}
+
+.statusFilter {
+  max-width: 320px;
+  margin-block: 16px;
+}

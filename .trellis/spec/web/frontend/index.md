@@ -20,6 +20,8 @@ Attendance complete scoped daily, period and month-summary browsing: [Attendance
 
 Attendance manual punch business inputs and retry continuity: [Manual Punch](./hr-attendance-manual-punch.md).
 
+Recruitment and initial onboarding complete result browsing: [Recruitment Results](./hr-recruitment-results.md).
+
 These rules describe the current Next.js management frontend in `apps/web`.
 
 Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).

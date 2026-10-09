@@ -40,7 +40,8 @@
     "10-09-hr-payroll-book-selection",
     "10-09-hr-payroll-period-close-correction",
     "10-09-hr-attendance-complete-results",
-    "10-09-hr-attendance-manual-punch"
+    "10-09-hr-attendance-manual-punch",
+    "10-09-hr-recruitment-complete-results"
   ],
   "parent": null,
   "relatedFiles": [
@@ -51,13 +52,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "优先现代化日常运营及原功能复现。PR886工资关账更正已生产技术核验；PR887考勤完整结果已合并、生产部署跟踪中。人工补打卡业务化继续推进。历史导入仅增量维护；真实岗位、实际工资金额、原业务等价及独立HR验收仍待完成。",
+  "notes": "PR886及887生产技术核验完成；PR888人工补打卡生产部署及运行镜像核验完成。当前修复招聘/候选人/初次入职桌面列表隐藏与入职前100条截断。真实岗位、实际工资月份/规则/金额、原业务等价及独立HR验收保留。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "attendance_manual_punch_business_operation_then_role_and_business_acceptance",
+    "nextSlice": "recruitment_complete_results_then_real_current_month_and_role_acceptance",
     "businessImplementationStarted": true
   }
 }
