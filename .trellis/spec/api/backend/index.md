@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Talent complete profile history: [Talent Profile History](./hr-talent-profile-history.md).
+
 Talent complete scoped employee candidates: [Talent Employee Options](./hr-talent-employee-options.md).
 
 Modern payroll rule drafts, review and effective interpretation: [Formal Payroll Rules](./hr-payroll-formal-rules.md).

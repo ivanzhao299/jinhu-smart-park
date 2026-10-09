@@ -9,7 +9,7 @@ vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: {
-  talentEmployeeOptions: vi.fn(), talentOptions: vi.fn(), talentProfiles: vi.fn(), talentSessions: vi.fn(), talentSuccession: vi.fn(),
+  talentEmployeeOptions: vi.fn(), talentOptions: vi.fn(), talentProfilePage: vi.fn(), talentProfiles: vi.fn(), talentSessions: vi.fn(), talentSuccession: vi.fn(),
   developmentPlans: vi.fn(), talentSubjects: vi.fn(), createTalentProfile: vi.fn(),
   decideTalentSubject: vi.fn(), createTalentSession: vi.fn(), createCriticalPosition: vi.fn(), createSuccessor: vi.fn(),
 } }));
@@ -19,7 +19,7 @@ beforeEach(() => {
   state.user = { permissions: [H.HR_TALENT_READ, H.HR_TALENT_PROFILE_CREATE, H.HR_TALENT_REVIEW, H.HR_SUCCESSION_MANAGE] };
   vi.mocked(hrApi.talentEmployeeOptions).mockResolvedValue({items:[{id:"employee-a",fullName:"合成员工",employeeCode:"SYN-E"}],total:1,page:1,page_size:20});
   vi.mocked(hrApi.talentOptions).mockResolvedValue({ employees: [{ id: "employee-a", fullName: "合成员工", employeeCode: "SYN-E", orgId: null }], positions: [] });
-  vi.mocked(hrApi.talentProfiles).mockResolvedValue([{ id: "profile-a", snapshotNo: 1, asOfDate: "2090-01-01", employeeName: "合成员工", employeeCode: "SYN-E", performanceSource: {}, feedbackSource: {}, createdAt: "2090-01-01" }]);
+  vi.mocked(hrApi.talentProfilePage).mockResolvedValue({page:1,page_size:20,total:1,employeeCount:1,items:[{ id: "profile-a", snapshotNo: 1, asOfDate: "2090-01-01", employeeName: "合成员工", employeeCode: "SYN-E", performanceSource: {}, feedbackSource: {}, createdAt: "2090-01-01" }]});
   vi.mocked(hrApi.talentSessions).mockResolvedValue([{ id: "session-a", sessionCode: "SYN-S", sessionName: "合成盘点", reviewDate: "2090-01-01", status: "active", subjectCount: 1 }]);
   vi.mocked(hrApi.talentSubjects).mockResolvedValue([{ id: "subject-a", employeeName: "合成员工", employeeCode: "SYN-E", profileAsOf: "2090-01-01", performanceBand: null, potentialBand: null, nineBox: null, potentialScore: null, reason: null }]);
   vi.mocked(hrApi.talentSuccession).mockResolvedValue([{ criticalPositionId: "position-a", positionName: "合成岗位", criticality: "critical", positionRisk: "high", candidateName: "合成候选", employeeCode: "SYN-C", readiness: "ready_now", candidateRisk: "low", riskReason: "合成依据", assessedAt: "2090-01-01" }]);

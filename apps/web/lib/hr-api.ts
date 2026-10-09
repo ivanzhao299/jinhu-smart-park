@@ -572,6 +572,7 @@ export const hrApi={
  ,feedback360Results:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrFeedback360Result[]>("/hr/feedback360-v2/results",{token,signal}))
  ,talentEmployeeOptions:(page:number,keyword:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{items:Array<Pick<HrEmployee,"id"|"employeeCode"|"fullName">>;total:number;page:number;page_size:number}>(`/hr/talent/employee-options?page=${page}&page_size=20&keyword=${encodeURIComponent(keyword)}`,{token,signal}))
  ,talentOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentOptions>("/hr/talent/options",{token,signal}))
+ ,talentProfilePage:(page:number,keyword:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{items:HrTalentProfile[];total:number;employeeCount:number;page:number;page_size:number}>(`/hr/talent/profiles-page?page=${page}&page_size=20&keyword=${encodeURIComponent(keyword)}`,{token,signal}))
  ,talentProfiles:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentProfile[]>("/hr/talent/profiles",{token,signal}))
  ,createTalentProfile:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/talent/profiles",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-talent-profile")}))
  ,talentSessions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentSession[]>("/hr/talent/sessions",{token,signal}))
