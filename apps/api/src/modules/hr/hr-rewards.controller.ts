@@ -32,6 +32,7 @@ import {
 } from "./dto/hr-rewards.dto";
 import { HrRewardCategoryVersionsQueryDto } from "./dto/hr-reward-category-versions.dto";
 import { HrRewardsService } from "./hr-rewards.service";
+import { HrRewardPayrollLinkOptionsDto } from "./dto/hr-reward-payroll-link-options.dto";
 import { HrRewardEmployeeOptionsDto } from "./dto/hr-reward-employee-options.dto";
 @Controller("hr/rewards")
 @RequireModule("hr")
@@ -242,6 +243,14 @@ export class HrRewardsController {
   ) {
     return this.service.correct(s, a, id, d);
   }
+  @Get("cases/:id/payroll-link-options")
+  @RequirePermissions(HR_PERMISSIONS.HR_REWARD_READ, HR_PERMISSIONS.HR_REWARD_LINK_PAYROLL)
+  payrollLinkOptions(
+    @CurrentScope() s: TenantParkScope,
+    @CurrentUser() a: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Query() q: HrRewardPayrollLinkOptionsDto,
+  ) { return this.service.payrollLinkOptions(s, a, id, q); }
   @Post("cases/:id/links")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequireAnyPermissions(

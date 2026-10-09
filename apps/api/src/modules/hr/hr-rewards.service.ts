@@ -571,12 +571,30 @@ export class HrRewardsService {
       return row;
     });
   }
+  async payrollLinkOptions(s: TenantParkScope, a: JwtPrincipal, id: string, q: {page:number;page_size:number}) {
+    this.require(a, HR_PERMISSIONS.HR_REWARD_READ);
+    this.require(a, HR_PERMISSIONS.HR_REWARD_LINK_PAYROLL);
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId) throw new ForbiddenException();
+    return this.db.transaction("REPEATABLE READ", async m => {
+      const c = (await m.query(`SELECT id,status,employee_id FROM hr_reward_discipline_case WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false`,[s.tenantId,s.parkId,id]))[0];
+      if (!c) throw new NotFoundException("奖惩事项不存在。");
+      if (c.status !== "approved") throw new ConflictException("只有已批准的事项可以关联工资输入。");
+      const existing = (await m.query(`SELECT l.id,l.target_id "targetId",l.target_version "targetVersion",l.status,l.create_time "createdAt",to_char(p.period_month,'YYYY-MM') "periodMonth",b.batch_no "batchNo",b.batch_type "batchType" FROM hr_reward_discipline_link l LEFT JOIN hr_attendance_payroll_input_item i ON i.tenant_id=l.tenant_id AND i.park_id=l.park_id AND i.id=l.target_id AND i.employee_id=$4 LEFT JOIN hr_attendance_payroll_input_batch b ON b.tenant_id=i.tenant_id AND b.park_id=i.park_id AND b.id=i.batch_id LEFT JOIN hr_attendance_period p ON p.tenant_id=b.tenant_id AND p.park_id=b.park_id AND p.id=b.period_id WHERE l.tenant_id=$1 AND l.park_id=$2 AND l.case_id=$3 AND l.target_type='payroll_input'`,[s.tenantId,s.parkId,id,c.employee_id]))[0] ?? null;
+      const from = `FROM hr_attendance_payroll_input_item i JOIN hr_attendance_payroll_input_batch b ON b.tenant_id=i.tenant_id AND b.park_id=i.park_id AND b.id=i.batch_id JOIN hr_attendance_period p ON p.tenant_id=b.tenant_id AND p.park_id=b.park_id AND p.id=b.period_id WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.employee_id=$3 AND i.is_deleted=false AND b.status='effective' AND b.is_deleted=false`;
+      const items = await m.query(`SELECT i.id,i.version,to_char(p.period_month,'YYYY-MM') "periodMonth",b.batch_no "batchNo",b.batch_type "batchType" ${from} ORDER BY p.period_month DESC,b.batch_no DESC,i.id LIMIT $4 OFFSET $5`,[s.tenantId,s.parkId,c.employee_id,q.page_size,(q.page-1)*q.page_size]);
+      const total = Number((await m.query(`SELECT count(*)::int total ${from}`,[s.tenantId,s.parkId,c.employee_id]))[0].total);
+      await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.reward_payroll_link",action:"读取奖惩工资关联候选",bizType:"hr_reward_case",bizId:id,path:"/hr/rewards/cases/:id/payroll-link-options",fieldGroups:[],projection:"park",itemCount:items.length+(existing?1:0)});
+      return {caseId:id,status:c.status,existing,items,total,page:q.page,page_size:q.page_size};
+    });
+  }
   async link(
     s: TenantParkScope,
     a: JwtPrincipal,
     id: string,
     d: HrRewardLinkDto,
   ) {
+    if (a.tenantId !== s.tenantId || a.parkId !== s.parkId) throw new ForbiddenException();
+    if (!["payroll_input","performance_reference"].includes(d.targetType)) throw new BadRequestException("关联类型无效。");
     const permission =
       d.targetType === "payroll_input"
         ? HR_PERMISSIONS.HR_REWARD_LINK_PAYROLL
@@ -596,10 +614,11 @@ export class HrRewardsService {
                FROM hr_attendance_payroll_input_item i
                JOIN hr_attendance_payroll_input_batch b
                  ON b.tenant_id=i.tenant_id AND b.park_id=i.park_id AND b.id=i.batch_id
+               JOIN hr_attendance_period p ON p.tenant_id=b.tenant_id AND p.park_id=b.park_id AND p.id=b.period_id
                WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.id=$3
                  AND i.employee_id=$5 AND i.version=$4 AND i.is_deleted=false
                  AND b.status='effective' AND b.is_deleted=false
-               FOR SHARE OF i,b`,
+               FOR SHARE OF i,b,p`,
               [s.tenantId, s.parkId, d.targetId, d.targetVersion, c.employee_id],
             )
           )[0],

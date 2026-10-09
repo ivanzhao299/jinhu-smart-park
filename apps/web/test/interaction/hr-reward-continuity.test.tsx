@@ -9,7 +9,7 @@ vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("../../components/files/FileUploader", () => ({ FileUploader: () => null }));
 vi.mock("../../components/files/AttachmentList", () => ({ AttachmentList: () => null }));
-vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn(), appendRewardCorrection: vi.fn(), appendRewardAppeal: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { rewardCases: vi.fn(), rewardCategories: vi.fn(), rewardCaseOptions: vi.fn(), rewardEmployeeOptions: vi.fn(), employees: vi.fn(), rewardCase: vi.fn(), createRewardCase: vi.fn(), updateRewardCase: vi.fn(), createRewardCategory: vi.fn(), rewardCategoryVersions:vi.fn(), publishRewardCategoryVersion:vi.fn(), rewardCaseAction: vi.fn(), appendRewardCorrection: vi.fn(), appendRewardAppeal: vi.fn(), rewardPayrollLinkOptions:vi.fn(), linkRewardPayrollInput:vi.fn() } }));
 
 const employee = (n: number) => ({ id: `employee-${n}`, employeeCode: `SYN-${n}`, fullName: `Synthetic ${n}` });
 const category = { id: "category-1", code: "SYN-REWARD", versionNo: 1, name: "Synthetic category", kind: "reward" as const, impactLevel: "normal", status: "enabled" };
@@ -237,4 +237,12 @@ it("HR correction and own appeal retain independent drafts and share the parent 
  fireEvent.change(await screen.findByLabelText("更正摘要"),{target:{value:"HR独立草稿"}});fireEvent.change(screen.getByLabelText("更正原因"),{target:{value:"HR独立原因"}});fireEvent.change(screen.getByLabelText("申诉摘要"),{target:{value:"本人独立草稿"}});fireEvent.change(screen.getByLabelText("申诉原因"),{target:{value:"本人独立原因"}});
  fireEvent.submit(screen.getByRole("form",{name:"提交本人奖惩申诉"}));expect(screen.getByRole("button",{name:"保存追加更正"})).toBeDisabled();fireEvent.submit(screen.getByRole("form",{name:"追加奖惩更正"}));expect(hrApi.appendRewardCorrection).not.toHaveBeenCalled();
  await act(async()=>reject(Error("合成申诉失败")));expect(screen.getByLabelText("更正摘要")).toHaveValue("HR独立草稿");expect(screen.getByLabelText("申诉摘要")).toHaveValue("本人独立草稿");
+});
+
+it("payroll association requires approved detail and exact read plus payroll-link permissions",async()=>{
+ state.user.permissions=["hr:rewards","hr:reward:read","hr:reward:link_payroll"];
+ vi.mocked(hrApi.rewardCase).mockResolvedValue({...row,status:"approved",corrections:[]});
+ vi.mocked(hrApi.rewardPayrollLinkOptions).mockResolvedValue({caseId:row.id,status:"approved",existing:null,items:[],total:0,page:1,page_size:20});
+ const view=render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByText("本员工暂无有效工资输入，请先完成对应月份的考勤月结或补正。");expect(hrApi.rewardPayrollLinkOptions).toHaveBeenCalledTimes(1);
+ view.unmount();state.user.permissions=["hr:rewards","hr:reward:read"];render(<HrRewardsClient/>);await screen.findByText("Existing reward");fireEvent.click(screen.getByRole("button",{name:"查看"}));await screen.findByRole("button",{name:"关闭",exact:true});expect(screen.queryByRole("region",{name:"奖惩工资输入关联"})).not.toBeInTheDocument();expect(hrApi.rewardPayrollLinkOptions).toHaveBeenCalledTimes(1);
 });
