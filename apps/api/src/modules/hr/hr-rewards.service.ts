@@ -10,6 +10,7 @@ import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
+import type { HrRewardCategoryVersionsQueryDto } from "./dto/hr-reward-category-versions.dto";
 import { HrRewardEmployeeOptionsDto } from "./dto/hr-reward-employee-options.dto";
 import {
   CreateHrRewardCaseDto,
@@ -135,13 +136,25 @@ export class HrRewardsService {
       }
     });
   }
+  async categoryVersions(s:TenantParkScope,a:JwtPrincipal,id:string,q:HrRewardCategoryVersionsQueryDto){
+    this.requireOperationScope(s,a);
+    const result=await this.db.transaction("REPEATABLE READ",async m=>{
+      const category=(await m.query(`SELECT id,category_code "code",status,current_version_no "currentVersionNo" FROM hr_reward_discipline_category WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false`,[s.tenantId,s.parkId,id]))[0];
+      if(!category)throw new NotFoundException("Reward category not found");
+      const items=await m.query(`SELECT id,version_no "versionNo",kind,name,impact_level "impactLevel",description,create_time "createdAt" FROM hr_reward_discipline_category_version WHERE tenant_id=$1 AND park_id=$2 AND category_id=$3 ORDER BY version_no DESC,id LIMIT $4 OFFSET $5`,[s.tenantId,s.parkId,id,q.page_size,(q.page-1)*q.page_size]);
+      const count=await m.query(`SELECT count(*)::int total FROM hr_reward_discipline_category_version WHERE tenant_id=$1 AND park_id=$2 AND category_id=$3`,[s.tenantId,s.parkId,id]);
+      return {category,items,total:count[0].total,page:q.page,page_size:q.page_size};
+    });
+    await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.reward_category_versions",action:"读取奖惩类别版本",bizType:"hr_reward_category",bizId:id,path:"/hr/rewards/categories/:id/versions",fieldGroups:[],projection:"metadata",itemCount:result.items.length});
+    return result;
+  }
   async versionCategory(
     s: TenantParkScope,
     a: JwtPrincipal,
     id: string,
     d: VersionHrRewardCategoryDto,
   ) {
-    this.require(a, HR_PERMISSIONS.HR_REWARD_MANAGE);
+    this.requireOperationScope(s,a);
     return this.db.transaction(async (m) => {
       const c = (
         await m.query(
@@ -150,6 +163,7 @@ export class HrRewardsService {
         )
       )[0];
       if (!c) throw new NotFoundException("Reward category not found");
+      if(d.expectedVersionNo!==undefined&&d.expectedVersionNo!==Number(c.current_version_no))throw new ConflictException("奖惩类别已更新，请重新读取现行版本后发布。");
       const no = Number(c.current_version_no) + 1,
         v = (
           await m.query(

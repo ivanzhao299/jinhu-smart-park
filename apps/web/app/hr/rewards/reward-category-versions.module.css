@@ -1,0 +1,8 @@
+.versions { display: grid; gap: 14px; margin-top: 20px; min-width: 0; }
+.versions h3, .versions p { margin: 0; }
+.editor { display: grid; gap: 16px; padding: 20px; min-width: 0; }
+.wide { grid-column: 1 / -1; }
+.records { display: grid; gap: 10px; min-width: 0; }
+.records :global(.ds-mobile-record) { display: grid; gap: 8px; padding: 14px; }
+@media (max-width: 720px) { .editor { padding: 16px; } }
+.versions :global(.ds-button) { min-height: 44px; }

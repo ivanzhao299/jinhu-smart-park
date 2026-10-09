@@ -1,0 +1,36 @@
+"use client";
+import {useCallback,useEffect,useRef,useState} from "react";
+import {ApiError} from "../../../lib/api-client";
+import {getAccessToken} from "../../../lib/authz";
+import {hrApi,type HrRewardCategory,type HrRewardCategoryVersion,type HrRewardCategoryVersions} from "../../../lib/hr-api";
+import {hrLoadErrorMessage} from "../hr-errors";
+import {useHrResource} from "../use-hr-resource";
+import styles from "../hr-workbench.module.css";
+import local from "./reward-category-versions.module.css";
+const impacts={minor:"轻微",normal:"一般",major:"重大",critical:"严重"};
+type Publish=(job:()=>Promise<unknown>)=>Promise<boolean>;
+function checked(value:HrRewardCategoryVersions,id:string,page:number){
+ if(!value||value.category?.id!==id||!Number.isSafeInteger(value.category.currentVersionNo)||value.category.currentVersionNo<1||typeof value.category.code!=="string"||!["enabled","disabled"].includes(value.category.status)||value.page!==page||value.page_size!==20||!Number.isSafeInteger(value.total)||value.total<0||!Array.isArray(value.items)||value.items.length>20||value.items.length>value.total||value.items.some(r=>!r||typeof r.id!=="string"||!r.id||!Number.isSafeInteger(r.versionNo)||r.versionNo<1||r.versionNo>value.category.currentVersionNo||!["reward","discipline"].includes(r.kind)||typeof r.name!=="string"||!Object.hasOwn(impacts,r.impactLevel)||(r.description!==null&&typeof r.description!=="string")||typeof r.createdAt!=="string")||new Set(value.items.map(r=>r.id)).size!==value.items.length||new Set(value.items.map(r=>r.versionNo)).size!==value.items.length)throw Error("奖惩类别版本响应无效，请重试。");
+ return value;
+}
+export function RewardCategoryVersions({categories,busy,publish}:{categories:HrRewardCategory[];busy:boolean;publish:Publish}){
+ const [selected,setSelected]=useState<string|null>(null);
+ return <div className={local.versions}><h3>维护现行类别与版本历史</h3><p>新版本用于后续事项；已提交事项保留原制度版本。</p><div className={styles.recordActions}>{categories.map(c=><button type="button" className="ds-button" key={c.id} disabled={busy} onClick={()=>setSelected(c.id)}>维护版本 {c.name}</button>)}</div>{selected?<CategoryEditor key={selected} id={selected} busy={busy} publish={publish} close={()=>setSelected(null)}/>:null}</div>;
+}
+function CategoryEditor({id,busy,publish,close}:{id:string;busy:boolean;publish:Publish;close:()=>void}){
+ const [page,setPage]=useState(1),[draft,setDraft]=useState<HrRewardCategoryVersion|null>(null),[error,setError]=useState("");
+ const read=useCallback((signal:AbortSignal)=>hrApi.rewardCategoryVersions(id,page,getAccessToken(),signal).then(v=>checked(v,id,page)),[id,page]);
+ const resource=useHrResource(true,read,"读取奖惩类别历史失败"),alive=useRef(true),writing=useRef(false),key=useRef(crypto.randomUUID()),fingerprint=useRef<string|null>(null);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;}},[]);
+ useEffect(()=>{if(!draft&&page===1&&resource.data){const current=resource.data.items.find(v=>v.versionNo===resource.data!.category.currentVersionNo);if(current)setDraft(current);}},[draft,page,resource.data]);
+ const submit=async(form:FormData)=>{
+  if(busy||writing.current||!draft||!resource.data||resource.loading||resource.error||resource.data.category.status!=="enabled"||resource.data.category.currentVersionNo!==draft.versionNo)return;
+  const body={expectedVersionNo:draft.versionNo,kind:String(form.get("kind")),name:String(form.get("name")).trim(),impactLevel:String(form.get("impactLevel")),description:String(form.get("description")).trim()},next=JSON.stringify(body);
+  if(fingerprint.current!==null&&fingerprint.current!==next){setError("上次发布结果尚未确认，请保持原内容重试，或刷新核对后重新办理。");return;}
+  fingerprint.current=next;writing.current=true;setError("");
+  try{await publish(async()=>{try{const result=await hrApi.publishRewardCategoryVersion(id,body,getAccessToken(),key.current);if(!result||typeof result.id!=="string"||!result.id||result.versionNo!==body.expectedVersionNo+1)throw Error("发布响应未确认，请保持原内容重试或刷新核对。");if(alive.current)close();return result;}catch(e){if(alive.current){if(e instanceof ApiError&&[400,403,404,422].includes(e.status)){key.current=crypto.randomUUID();fingerprint.current=null;}setError(hrLoadErrorMessage(e,"发布类别版本失败"));}throw e;}});}finally{writing.current=false;}
+ };
+ const reload=()=>{if(busy||writing.current)return;setError("");setDraft(null);fingerprint.current=null;key.current=crypto.randomUUID();if(page!==1)setPage(1);else void resource.load();};
+ const ready=!!resource.data&&!resource.loading&&!resource.error,pages=Math.max(1,Math.ceil((resource.data?.total??0)/20));
+ return <section className={`ds-panel ${local.editor}`} aria-label="奖惩类别版本维护"><h3>类别 {resource.data?.category.code??"版本维护"}</h3>{resource.loading?<p>正在读取类别版本…</p>:null}{resource.error?<p role="alert" className="form-error">{resource.error}<button type="button" className="ds-button" disabled={busy} onClick={()=>void resource.load()}>重试类别历史</button></p>:null}{draft?<form className={styles.formGrid} aria-label="发布奖惩类别版本" onSubmit={e=>{e.preventDefault();void submit(new FormData(e.currentTarget));}}><p className={local.wide}>基于版本 {draft.versionNo} 发布新版本。已提交事项不受影响。</p><label className="form-field"><span>版本类型</span><select name="kind" defaultValue={draft.kind} disabled={busy} required><option value="reward">奖励</option><option value="discipline">处分</option></select></label><label className="form-field"><span>版本名称</span><input name="name" defaultValue={draft.name} maxLength={120} required disabled={busy}/></label><label className="form-field"><span>版本默认影响级别</span><select name="impactLevel" defaultValue={draft.impactLevel} disabled={busy} required>{Object.entries(impacts).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className={`form-field ${local.wide}`}><span>制度说明</span><textarea name="description" defaultValue={draft.description??""} maxLength={1000} disabled={busy}/></label><div className={styles.formActions}><button className="ds-button ds-button-primary" disabled={busy||!ready||resource.data?.category.status!=="enabled"||resource.data?.category.currentVersionNo!==draft.versionNo}>发布类别新版本</button></div></form>:ready?<p>未能读取现行定义，请重新读取后编辑。</p>:null}{draft&&resource.data&&resource.data.category.currentVersionNo!==draft.versionNo?<p role="alert">现行类别已更新，请保留需要的草稿内容，再重载现行定义。</p>:null}{error?<p role="alert" className="form-error">{error}</p>:null}<div className={styles.recordActions}><button type="button" className="ds-button" disabled={busy} onClick={reload}>放弃草稿并重载现行定义</button><button type="button" className="ds-button" disabled={busy} onClick={close}>关闭版本维护</button></div><h3>版本历史</h3><div className={styles.recordActions}><button type="button" className="ds-button" disabled={busy||!ready||page<=1} onClick={()=>setPage(page-1)}>版本上一页</button><span>第 {page} / {pages} 页 · 共 {resource.data?.total??0} 个版本</span><button type="button" className="ds-button" disabled={busy||!ready||page>=pages} onClick={()=>setPage(page+1)}>版本下一页</button></div>{resource.data?<div className={`ds-mobile-record-list ${local.records}`}>{resource.data.items.map(v=><article className="ds-mobile-record" key={v.id}><strong>版本 {v.versionNo} · {v.name}</strong><span>{v.kind==="reward"?"奖励":"处分"} · {impacts[v.impactLevel]} · {v.createdAt}</span><p>{v.description||"无制度说明"}</p></article>)}</div>:null}</section>;
+}

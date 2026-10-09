@@ -12,6 +12,8 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
+  ValidateIf,
 } from "class-validator";
 const trim = ({ value }: { value: unknown }) =>
   typeof value === "string" ? value.trim() : value;
@@ -39,8 +41,9 @@ export class CreateHrRewardCategoryDto {
   description?: string;
 }
 export class VersionHrRewardCategoryDto {
+  @ValidateIf((_object,value)=>value!==undefined) @IsInt() @Min(1) @Max(2147483647) expectedVersionNo?: number;
   @IsIn(["reward", "discipline"]) kind!: string;
-  @Transform(trim) @IsString() @MaxLength(120) name!: string;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(120) name!: string;
   @IsIn(["minor", "normal", "major", "critical"]) impactLevel!: string;
   @IsOptional()
   @Transform(trim)
