@@ -1,3 +1,4 @@
+import { lockPayrollPeriodContext } from "./hr-payroll-period-context";
 import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
@@ -73,9 +74,9 @@ export class HrPayrollFormalRunService {
       const insuranceByEmployee = new Map(insurance.map(source=>[source.employee_id,source]));
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope,actor,{resource:"hr.payroll_run",action:"读取正式核算来源选项",bizType:"hr_payroll_formal_input",bizId:prepared.input.id,path:"/hr/payroll/formal-runs/options",fieldGroups:["identity","payroll_input",...(requires.attendance ? ["attendance" as const] : []),...(requires.insurance ? ["insurance" as const] : [])],projection:"full",itemCount:employees.length}),manager);
       return {inputId:prepared.input.id,inputVersion:prepared.input.version,periodId:period.id,month:period.month,employeeCount:employeeIds.length,requires,
-        canCreateBase:overlaps[0].count===0,overlappingEmployeeCount:overlaps[0].count,
+        canCreateBase:!period.correctionWindow && overlaps[0].count===0,overlappingEmployeeCount:overlaps[0].count,
         attendanceBatches:attendance.map(batch=>({id:batch.id,batchNo:batch.batch_no,batchType:batch.batch_type,missingEmployeeCount:employeeIds.length-batch.covered})),
-        correctionRuns:corrections.map(run=>({id:run.id,runNo:run.run_no,employeeCount:run.employee_count})),
+        correctionRuns:corrections.filter(run=>!period.correctionWindow || run.id===period.correctionWindow.originalRunId).map(run=>({id:run.id,runNo:run.run_no,employeeCount:run.employee_count})),
         items:employees.map(employee=>{const source=insuranceByEmployee.get(employee.id);return {employeeId:employee.id,employeeCode:employee.employee_code,fullName:employee.full_name,
           insuranceSource:source ? {employeeId:employee.id,sourceKind:"modern_confirmed" as const,sourceId:source.id,expectedVersion:source.revision_no,expectedHash:source.snapshot_sha256} : null};}),
         total:employeeIds.length,page:dto.page,page_size:dto.pageSize};
@@ -89,6 +90,10 @@ export class HrPayrollFormalRunService {
     if (!isUUID(id) || (await validate(dto, { whitelist: true, forbidNonWhitelisted: true })).length) throw new BadRequestException("Invalid payroll detail query");
     return this.db.transaction(async manager => {
       const rows = await manager.query(`SELECT r.id,r.period_id,r.run_no,r.status,r.version,r.create_by,r.employee_count,e.input_id,e.rule_version_id,
+        (EXISTS(SELECT 1 FROM hr_payroll_period p JOIN hr_payroll_formal_input i ON i.id=e.input_id AND i.tenant_id=p.tenant_id AND i.park_id=p.park_id
+          WHERE p.id=r.period_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id AND NOT p.is_deleted
+          AND ((p.status='open' AND i.correction_window_id IS NULL) OR (p.status='closed' AND EXISTS(SELECT 1 FROM hr_payroll_correction_window w
+            WHERE (w.id,w.period_id,w.tenant_id,w.park_id,w.original_run_id)=(i.correction_window_id,p.id,p.tenant_id,p.park_id,r.correction_of_run_id) AND w.status='open'))))) AS actionable,
         e.snapshot->'totals' AS totals,COALESCE((SELECT jsonb_agg(value ORDER BY ordinality)
           FROM jsonb_array_elements(e.snapshot->'results') WITH ORDINALITY WHERE ordinality>$4 AND ordinality<=$5),'[]'::jsonb) AS results
         FROM hr_payroll_run r JOIN hr_payroll_formal_run_evidence e ON (e.run_id,e.tenant_id,e.park_id)=(r.id,r.tenant_id,r.park_id)
@@ -102,8 +107,8 @@ export class HrPayrollFormalRunService {
       return { id: row.id as string, periodId: row.period_id as string, runNo: row.run_no as number, version: row.version as number,
         status: row.status as string, inputId: row.input_id as string, ruleVersionId: row.rule_version_id as string,
         employeeCount: row.employee_count as number, totals: row.totals as { grossAmount: string; deductionAmount: string; personalTax: string; netAmount: string },
-        canReview: permitted(HR_PERMISSIONS.HR_PAYROLL_REVIEW) && row.status === "calculated" && row.create_by !== actor.sub,
-        canConfirm: permitted(HR_PERMISSIONS.HR_PAYROLL_CONFIRM) && row.status === "reviewing" && row.create_by !== actor.sub,
+        canReview: permitted(HR_PERMISSIONS.HR_PAYROLL_REVIEW) && row.actionable === true && row.status === "calculated" && row.create_by !== actor.sub,
+        canConfirm: permitted(HR_PERMISSIONS.HR_PAYROLL_CONFIRM) && row.actionable === true && row.status === "reviewing" && row.create_by !== actor.sub,
         items: selected.map(result => ({ employeeId: result.employeeId, employeeCode: byId.get(result.employeeId)?.employee_code ?? null,
           fullName: byId.get(result.employeeId)?.full_name ?? null, ...result.calculation })),
         total: row.employee_count as number, page: dto.page, page_size: dto.pageSize };
@@ -136,6 +141,7 @@ export class HrPayrollFormalRunService {
       const prepared = await this.inputs.lockConfirmedInput(manager, scope, actor, dto.inputId, dto.expectedInputVersion);
       const { period, rule } = prepared, roster = prepared.input.employees;
       const employeeIds = roster.map(employee => employee.employeeId);
+      if (period.correctionWindow && dto.correctionOfRunId !== period.correctionWindow.originalRunId) throw new ConflictException("Select the original run bound to this correction window");
       if (dto.correctionOfRunId) {
         const original = await manager.query("SELECT id FROM hr_payroll_run WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND period_id=$4 AND status='confirmed' AND NOT is_deleted FOR SHARE", [dto.correctionOfRunId, scope.tenantId, scope.parkId, period.id]);
         if (original.length !== 1) throw new ConflictException("Correction must reference a confirmed run in this period");
@@ -201,41 +207,40 @@ export class HrPayrollFormalRunService {
       throw error;
     }
   }
-  async transition(scope: TenantParkScope, actor: JwtPrincipal, id: string, action: "review" | "confirm", input: TransitionHrPayrollFormalRunDto) {
+  async transition(scope: TenantParkScope, actor: JwtPrincipal, id: string, action: "review" | "confirm" | "cancel", input: TransitionHrPayrollFormalRunDto) {
     const required = [HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ,
-      action === "review" ? HR_PERMISSIONS.HR_PAYROLL_REVIEW : HR_PERMISSIONS.HR_PAYROLL_CONFIRM];
+      action === "cancel" ? HR_PERMISSIONS.HR_PAYROLL_MANAGE : action === "review" ? HR_PERMISSIONS.HR_PAYROLL_REVIEW : HR_PERMISSIONS.HR_PAYROLL_CONFIRM];
     if (!actor.isSuper && !actor.permissions.includes("*") && !required.every(permission => actor.permissions.includes(permission))) throw new ForbiddenException("Payroll review permission required");
     const dto = plainToInstance(TransitionHrPayrollFormalRunDto, input);
-    if (!isUUID(id) || !["review", "confirm"].includes(action) || (await validate(dto, { whitelist: true, forbidNonWhitelisted: true })).length) throw new BadRequestException("Invalid payroll review input");
+    if (!isUUID(id) || !["review", "confirm", "cancel"].includes(action) || (await validate(dto, { whitelist: true, forbidNonWhitelisted: true })).length) throw new BadRequestException("Invalid payroll review input");
     return this.db.transaction(async manager => {
       await manager.query("SET LOCAL lock_timeout='3s'");
       await manager.query("SET LOCAL statement_timeout='20s'");
-      const lookup = await manager.query("SELECT period_id FROM hr_payroll_run WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [id, scope.tenantId, scope.parkId]);
+      const lookup = await manager.query("SELECT r.period_id,i.correction_window_id FROM hr_payroll_run r LEFT JOIN hr_payroll_formal_input i ON (i.id,i.tenant_id,i.park_id)=(r.formal_input_id,r.tenant_id,r.park_id) WHERE r.id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND NOT r.is_deleted", [id, scope.tenantId, scope.parkId]);
       if (lookup.length !== 1) throw new NotFoundException("Payroll run not found");
-      const periods = await manager.query("SELECT status FROM hr_payroll_period WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted FOR UPDATE", [lookup[0].period_id, scope.tenantId, scope.parkId]);
-      if (periods.length !== 1 || periods[0].status !== "open") throw new ConflictException("Payroll period is closed or unavailable");
+      await lockPayrollPeriodContext(manager, scope, lookup[0].period_id, lookup[0].correction_window_id);
       const rows = await manager.query(`SELECT r.id,r.version,r.status,r.create_by,e.snapshot
         FROM hr_payroll_run r JOIN hr_payroll_formal_run_evidence e ON (e.run_id,e.tenant_id,e.park_id)=(r.id,r.tenant_id,r.park_id)
         WHERE r.id=$1 AND r.tenant_id=$2 AND r.park_id=$3 AND NOT r.is_deleted FOR UPDATE OF r FOR SHARE OF e`, [id, scope.tenantId, scope.parkId]);
       if (rows.length !== 1) throw new NotFoundException("Formal payroll run not found");
       const run = rows[0];
-      if (run.version !== dto.expectedVersion || run.status !== (action === "review" ? "calculated" : "reviewing")) throw new ConflictException("Payroll status or version changed; refresh before review");
-      if (run.create_by === actor.sub) throw new ForbiddenException("Payroll calculation authors cannot review or confirm their own run");
+      if (run.version !== dto.expectedVersion || (action === "cancel" ? !["calculated", "reviewing"].includes(run.status) : run.status !== (action === "review" ? "calculated" : "reviewing"))) throw new ConflictException("Payroll status or version changed; refresh before review");
+      if (action !== "cancel" && run.create_by === actor.sub) throw new ForbiddenException("Payroll calculation authors cannot review or confirm their own run");
       const totals = await manager.query("SELECT count(*)::int AS count,COALESCE(sum(gross_amount),0)::text AS gross,COALESCE(sum(deduction_amount),0)::text AS deduction,COALESCE(sum(personal_tax),0)::text AS tax,COALESCE(sum(net_amount),0)::text AS net FROM hr_payslip WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [id, scope.tenantId, scope.parkId]);
       const expected = run.snapshot.totals;
       if (totals[0].count !== run.snapshot.results.length || normalizeHrMoney(totals[0].gross) !== expected.grossAmount
         || normalizeHrMoney(totals[0].deduction) !== expected.deductionAmount || normalizeHrMoney(totals[0].tax) !== expected.personalTax
         || normalizeHrMoney(totals[0].net) !== expected.netAmount) throw new ConflictException("Payroll results do not match frozen calculation evidence");
       await manager.query("INSERT INTO hr_payroll_formal_run_action(run_id,tenant_id,park_id,action,actor_id,version_before,reason) VALUES($1,$2,$3,$4,$5,$6,$7)", [id, scope.tenantId, scope.parkId, action, actor.sub, dto.expectedVersion, dto.reason]);
-      const status = action === "review" ? "reviewing" : "confirmed";
+      const status = action === "cancel" ? "cancelled" : action === "review" ? "reviewing" : "confirmed";
       await manager.query(`UPDATE hr_payroll_run SET status=$4::varchar,version=version+1,update_by=$5::uuid,update_time=now(),
         reviewed_at=CASE WHEN $4::varchar='reviewing' THEN now() ELSE reviewed_at END,
         confirmed_at=CASE WHEN $4::varchar='confirmed' THEN now() ELSE confirmed_at END,
         confirmed_by=CASE WHEN $4::varchar='confirmed' THEN $5::uuid ELSE confirmed_by END
         WHERE id=$1 AND tenant_id=$2 AND park_id=$3`, [id, scope.tenantId, scope.parkId, status, actor.sub]);
-      if (action === "confirm") await manager.query("UPDATE hr_payslip SET status='confirmed',update_by=$4,update_time=now(),version=version+1 WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [id, scope.tenantId, scope.parkId, actor.sub]);
+      if (action === "confirm" || action === "cancel") await manager.query("UPDATE hr_payslip SET status=$5,update_by=$4,update_time=now(),version=version+1 WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [id, scope.tenantId, scope.parkId, actor.sub, status]);
       await this.audit.recordOperationRequired({ ...scope, userId: actor.sub, username: actor.username, realName: actor.realName ?? null, roleCodes: actor.roles,
-        module: "人力资源管理", resource: "hr.payroll_run", action: action === "review" ? "复核正式工资" : "确认正式工资", bizType: "hr_payroll_run", bizId: id,
+        module: "人力资源管理", resource: "hr.payroll_run", action: action === "cancel" ? "取消未确认工资" : action === "review" ? "复核正式工资" : "确认正式工资", bizType: "hr_payroll_run", bizId: id,
         beforeJson: { status: run.status, version: run.version }, afterJson: { status, version: run.version + 1 }, method: "POST",
         path: `/hr/payroll/formal-runs/:id/${action}`, success: true, result: "success", requestId: null }, manager);
       return { id, status, version: run.version + 1 };

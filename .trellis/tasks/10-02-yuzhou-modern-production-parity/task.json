@@ -37,7 +37,8 @@
     "10-08-hr-feedback-configuration-workflow",
     "10-09-hr-payroll-formula-review-workflow",
     "10-09-hr-payroll-modern-run-workflow",
-    "10-09-hr-payroll-book-selection"
+    "10-09-hr-payroll-book-selection",
+    "10-09-hr-payroll-period-close-correction"
   ],
   "parent": null,
   "relatedFiles": [
