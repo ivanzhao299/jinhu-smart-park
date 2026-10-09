@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Modern payroll rule drafts, review and effective interpretation: [Formal Payroll Rules](./hr-payroll-formal-rules.md).
+
 Payroll formula actual-source review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
 
 Training operation scoped employee candidates: [Training Employee Options](./hr-training-employee-options.md).

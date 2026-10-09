@@ -12,7 +12,6 @@ import {
   type HrPayrollCatalogItem,
   type HrPayrollHistoryItem,
   type HrPayrollHistoryRow,
-  type HrPayrollPeriod,
   type HrPayrollReconciliation,
   type HrPayrollReconciliationSetup,
   type HrPayrollReconciliationSource,
@@ -28,6 +27,11 @@ import { PayrollInsuranceSourceSelection } from "./PayrollInsuranceSourceSelecti
 import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
 import { PayrollInputReadiness } from "./PayrollInputReadiness";
 import { PayrollFormulaReview } from "./PayrollFormulaReview";
+import { PayrollRuleMaintenance } from "./PayrollRuleMaintenance";
+import { PayrollRunCreation } from "./PayrollRunCreation";
+import { PayrollInputOperations } from "./PayrollInputOperations";
+import { PayrollInputPreparation } from "./PayrollInputPreparation";
+import { PayrollRunOperations } from "./PayrollRunOperations";
 import { PayrollLedgerExport } from "./PayrollLedgerExport";
 import { formatPayrollHistoryItemValue } from "./payroll-history-display";
 
@@ -98,6 +102,7 @@ function StatePanel({state,onRetry}:{state:ViewState;onRetry:()=>void}){
 }
 
 export function HrPayrollClient() {
+  const [payrollRefresh,setPayrollRefresh]=useState(0);
   const user = useAuthUser();
   const canManage = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
   const canReadOnline = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ);
@@ -156,7 +161,7 @@ export function HrPayrollClient() {
       ...(canHistory || canSelfHistory
         ? [{ id: "history" as const, label: "工资台账", description: "按月份查看工资记录与逐项明细" }]
         : []),
-      ...(canRules ? [{ id: "rules" as const, label: "规则复核", description: "历史公式解析与人工复核" }] : []),
+      ...(canRules ? [{ id: "rules" as const, label: "规则复核", description: "工资规则制定、版本生效与复核" }] : []),
       ...(canDifference
         ? [{ id: "difference" as const, label: "双轨差异", description: "新旧口径模拟与差异审阅" }]
         : []),
@@ -227,20 +232,20 @@ export function HrPayrollClient() {
           </section>
         ) : null}
         {area === "online" && (canReadOnline || canSelfOnline) ? (
-          <OnlinePayroll
+          <><PayrollInputPreparation/><PayrollInputOperations/><PayrollRunCreation onCreated={()=>setPayrollRefresh(value=>value+1)}/><PayrollRunOperations key={payrollRefresh}/><OnlinePayroll
             canManage={canManage}
             canRead={canReadOnline}
             canReadDetail={canReadOnlineDetail}
             selfOnly={!canReadOnline}
             canReview={canReviewOnline}
             canConfirm={canConfirmOnline}
-          />
+          /></>
         ) : null}
         {area === "history" && (canHistory || canSelfHistory) ? (
           <HistoryPayroll selfOnly={!canHistory} />
         ) : null}
         {area === "rules" && canRules ? (
-          <><PayrollFormulaReview/><RuleReview canAct={canReviewRules} /></>
+          <><PayrollRuleMaintenance/><PayrollFormulaReview/><RuleReview canAct={canReviewRules} /></>
         ) : null}
         {area === "difference" && canDifference ? (
           <ReconciliationWorkbench
@@ -677,13 +682,12 @@ function ReconciliationWorkbench({
 }
 
 function OnlinePayroll({canManage,canRead,canReadDetail,selfOnly,canReview,canConfirm}:{canManage:boolean;canRead:boolean;canReadDetail:boolean;selfOnly:boolean;canReview:boolean;canConfirm:boolean}){
-  const [periods,setPeriods]=useState<HrPayrollPeriod[]>([]),[runs,setRuns]=useState<HrPayrollRun[]>([]),[slips,setSlips]=useState<HrPayslip[]>([]),[runSlips,setRunSlips]=useState<HrPayslip[]>([]);
-  const [selectedRun,setSelectedRun]=useState<HrPayrollRun|null>(null),[detailTarget,setDetailTarget]=useState<HrPayrollRun|null>(null),[detailState,setDetailState]=useState<ViewState>("empty"),[setup,setSetup]=useState<"period"|"run"|null>(null),[message,setMessage]=useState(""),[state,setState]=useState<ViewState>("loading");
+  const [runs,setRuns]=useState<HrPayrollRun[]>([]),[slips,setSlips]=useState<HrPayslip[]>([]),[runSlips,setRunSlips]=useState<HrPayslip[]>([]);
+  const [selectedRun,setSelectedRun]=useState<HrPayrollRun|null>(null),[detailTarget,setDetailTarget]=useState<HrPayrollRun|null>(null),[detailState,setDetailState]=useState<ViewState>("empty"),[setup,setSetup]=useState<"period"|null>(null),[message,setMessage]=useState(""),[state,setState]=useState<ViewState>("loading");
   const detailGeneration=useRef(0),detailAbort=useRef<AbortController|null>(null);
-  const load=useCallback(async()=>{setState("loading");try{const token=getAccessToken();if(canRead){const [p,r]=await Promise.all([hrApi.payrollPeriods(token),hrApi.payrollRuns(token)]);setPeriods(p);setRuns(r);setState(r.length?"ready":"empty");}else if(selfOnly){const rows=await hrApi.myPayslips(token);setSlips(rows);setState(rows.length?"ready":"empty");}}catch(e){setState(errorState(e));}},[canRead,selfOnly]);
+  const load=useCallback(async()=>{setState("loading");try{const token=getAccessToken();if(canRead){const r=await hrApi.payrollRuns(token);setRuns(r);setState(r.length?"ready":"empty");}else if(selfOnly){const rows=await hrApi.myPayslips(token);setSlips(rows);setState(rows.length?"ready":"empty");}}catch(e){setState(errorState(e));}},[canRead,selfOnly]);
   useEffect(()=>{void load();return()=>{detailAbort.current?.abort();detailGeneration.current+=1;};},[load]);
   const createPeriod=async(form:FormData)=>{try{await hrApi.createPayrollPeriod({periodMonth:`${String(form.get("periodMonth"))}-01`,startDate:String(form.get("startDate")),endDate:String(form.get("endDate"))},getAccessToken());setSetup(null);await load();}catch(e){setMessage(e instanceof Error?e.message:"创建期间失败");}};
-  const createRun=async(form:FormData)=>{try{await hrApi.createPayrollRun({periodId:String(form.get("periodId")),correctionOfRunId:String(form.get("correctionOfRunId"))||undefined},getAccessToken());setSetup(null);await load();}catch(e){setMessage(e instanceof Error?e.message:"生成工资失败");}};
   const inspect=async(run:HrPayrollRun)=>{if(!canReadDetail)return;detailAbort.current?.abort();const current=++detailGeneration.current,controller=new AbortController();detailAbort.current=controller;setDetailTarget(run);setSelectedRun(null);setRunSlips([]);setDetailState("loading");try{const rows=await hrApi.payrollRunPayslips(run.id,getAccessToken(),controller.signal);if(current!==detailGeneration.current)return;setSelectedRun(run);setRunSlips(rows);setDetailState(rows.length?"ready":"empty");}catch(e){if(current===detailGeneration.current&&!(e instanceof DOMException&&e.name==="AbortError"))setDetailState(errorState(e));}};
   const closeDetail=()=>{detailAbort.current?.abort();detailGeneration.current+=1;setSelectedRun(null);setDetailTarget(null);setRunSlips([]);setDetailState("empty");};
   const runAction=async(run:HrPayrollRun,action:"review"|"confirm")=>{try{if(action==="review")await hrApi.reviewPayrollRun(run.id,getAccessToken());else await hrApi.confirmPayrollRun(run.id,getAccessToken());await load();}catch(e){setMessage(e instanceof Error?e.message:"操作失败");}};
@@ -691,12 +695,11 @@ function OnlinePayroll({canManage,canRead,canReadDetail,selfOnly,canReview,canCo
   if(state==="loading"||state==="forbidden"||state==="error")return <StatePanel state={state} onRetry={()=>void load()}/>;
   return <>
     {message?<p className="form-error" role="alert">{message}</p>:null}
-    {canManage?<div className={styles.toolbar}><button className="ds-button" type="button" onClick={()=>setSetup(setup==="period"?null:"period")}>工资期间</button><button className="ds-button ds-button-primary" type="button" onClick={()=>setSetup(setup==="run"?null:"run")}>生成批次</button></div>:null}
-    {setup==="period"?<form className={`ds-panel ${workbenchStyles.formGrid}`} action={createPeriod}><div className={workbenchStyles.sectionHeading}><h2>创建工资期间</h2></div><label className="form-field"><span>工资月份</span><input name="periodMonth" type="month" required/></label><label className="form-field"><span>周期开始</span><input name="startDate" type="date" required/></label><label className="form-field"><span>周期结束</span><input name="endDate" type="date" required/></label><button className="ds-button ds-button-primary">保存期间</button></form>:null}
-    {setup === "run" ? <form className={`ds-panel ${workbenchStyles.formGrid}`} action={createRun}><div className={workbenchStyles.sectionHeading}><h2>生成工资批次</h2></div><label className="form-field"><span>工资期间</span><select name="periodId" required>{periods.map(p=><option value={p.id} key={p.id}>{p.periodMonth}</option>)}</select></label><label className="form-field"><span>更正原批次</span><select name="correctionOfRunId"><option value="">基础批次</option>{runs.filter(r=>r.status==="confirmed").map(r=><option value={r.id} key={r.id}>批次 {r.runNo}</option>)}</select></label><button className="ds-button ds-button-primary">生成批次</button></form>:null}
-    <section className="ds-panel"><div className={workbenchStyles.sectionHeading}><h2>{canRead?"工资批次":"我的工资条"}</h2><span className={styles.srOnly}>待确认</span></div><div className="ds-mobile-record-list">{state==="empty"?<p className={workbenchStyles.emptyState}>暂无数据。</p>:canRead?runs.map(r=><article className="ds-mobile-record" key={r.id}><strong>批次 {r.runNo} · {statusLabel[r.status]??r.status}</strong><span>{r.employeeCount} 人 · 应发 {money(r.grossTotal)} · 实发 {money(r.netTotal)}</span><div className={styles.toolbar}>{canReadDetail?<button className="ds-button" type="button" onClick={()=>void inspect(r)}>查看工资条</button>:null}{canReview&&r.status==="calculated"?<button className="ds-button" type="button" onClick={()=>void runAction(r,"review")}>提交复核</button>:null}{canConfirm&&r.status==="reviewing"?<button className="ds-button ds-button-primary" type="button" onClick={()=>void runAction(r,"confirm")}>确认并冻结</button>:null}</div></article>):slips.map(s=><article className="ds-mobile-record" key={s.id}><strong>实发 {money(s.netAmount)}</strong><span>应发 {money(s.grossAmount)} · 扣款 {money(s.deductionAmount)} · 个税 {money(s.personalTax)}</span><small>仅限本人数据</small></article>)}</div></section>
+    {canManage?<div className={styles.toolbar}><button className="secondary-button" type="button" onClick={()=>setSetup(setup==="period"?null:"period")}>工资期间</button></div>:null}
+    {setup==="period"?<form className={`ds-panel ${workbenchStyles.formGrid}`} action={createPeriod}><div className={workbenchStyles.sectionHeading}><h2>创建工资期间</h2></div><label className="form-field"><span>工资月份</span><input name="periodMonth" type="month" required/></label><label className="form-field"><span>周期开始</span><input name="startDate" type="date" required/></label><label className="form-field"><span>周期结束</span><input name="endDate" type="date" required/></label><button className="primary-button">保存期间</button></form>:null}
+    <section className="ds-panel"><div className={workbenchStyles.sectionHeading}><h2>{canRead?"工资批次":"我的工资条"}</h2><span className={styles.srOnly}>待确认</span></div><div className="ds-mobile-record-list">{state==="empty"?<p className={workbenchStyles.emptyState}>暂无数据。</p>:canRead?runs.map(r=><article className="ds-mobile-record" key={r.id}><strong>批次 {r.runNo} · {statusLabel[r.status]??r.status}</strong><span>{r.employeeCount} 人 · 应发 {money(r.grossTotal)} · 实发 {money(r.netTotal)}</span><div className={styles.toolbar}>{canReadDetail?<button className="ds-button" type="button" onClick={()=>void inspect(r)}>查看工资条</button>:null}{canReview&&!r.usesApprovedInputs&&r.status==="calculated"?<button className="ds-button" type="button" onClick={()=>void runAction(r,"review")}>提交复核</button>:null}{canConfirm&&!r.usesApprovedInputs&&r.status==="reviewing"?<button className="ds-button ds-button-primary" type="button" onClick={()=>void runAction(r,"confirm")}>确认并冻结</button>:null}</div></article>):slips.map(s=><article className="ds-mobile-record" key={s.id}><strong>实发 {money(s.netAmount)}</strong><span>应发 {money(s.grossAmount)} · 扣款 {money(s.deductionAmount)} · 个税 {money(s.personalTax)}</span><small>仅限本人数据</small></article>)}</div></section>
     {detailState==="loading"||detailState==="forbidden"||detailState==="error"?<StatePanel state={detailState} onRetry={()=>detailTarget&&void inspect(detailTarget)}/>:null}
-    {selectedRun?<section className="ds-panel"><div className={workbenchStyles.sectionHeading}><h2>批次 {selectedRun.runNo} · 工资条</h2><button className="ds-button" type="button" onClick={closeDetail}>关闭明细</button></div><div className="ds-mobile-record-list">{runSlips.length?runSlips.map(s=><article className="ds-mobile-record" key={s.id}><strong>实发 {money(s.netAmount)}</strong><span>应发 {money(s.grossAmount)} · 扣款 {money(s.deductionAmount)} · 个税 {money(s.personalTax)}</span>{canManage&&selectedRun.status!=="confirmed"?<details><summary>校正工资条</summary><form className={workbenchStyles.formGrid} action={adjust}><input type="hidden" name="payslipId" value={s.id}/><label className="form-field"><span>扣款</span><input name="deductionAmount" type="number" min="0" step="0.01" defaultValue={s.deductionAmount}/></label><label className="form-field"><span>个税</span><input name="personalTax" type="number" min="0" step="0.01" defaultValue={s.personalTax}/></label><label className="form-field"><span>校正原因</span><input name="reason" maxLength={500} required/></label><button className="ds-button ds-button-primary">保存校正</button></form></details>:selectedRun.status==="confirmed"?<span>已确认冻结</span>:null}</article>):<p className={workbenchStyles.emptyState}>该批次暂无工资条。</p>}</div></section>:null}
+    {selectedRun?<section className="ds-panel"><div className={workbenchStyles.sectionHeading}><h2>批次 {selectedRun.runNo} · 工资条</h2><button className="ds-button" type="button" onClick={closeDetail}>关闭明细</button></div><div className="ds-mobile-record-list">{runSlips.length?runSlips.map(s=><article className="ds-mobile-record" key={s.id}><strong>实发 {money(s.netAmount)}</strong><span>应发 {money(s.grossAmount)} · 扣款 {money(s.deductionAmount)} · 个税 {money(s.personalTax)}</span>{canManage&&!selectedRun.usesApprovedInputs&&selectedRun.status!=="confirmed"?<details><summary>校正工资条</summary><form className={workbenchStyles.formGrid} action={adjust}><input type="hidden" name="payslipId" value={s.id}/><label className="form-field"><span>扣款</span><input name="deductionAmount" type="number" min="0" step="0.01" defaultValue={s.deductionAmount}/></label><label className="form-field"><span>个税</span><input name="personalTax" type="number" min="0" step="0.01" defaultValue={s.personalTax}/></label><label className="form-field"><span>校正原因</span><input name="reason" maxLength={500} required/></label><button className="ds-button ds-button-primary">保存校正</button></form></details>:selectedRun.status==="confirmed"?<span>已确认冻结</span>:null}</article>):<p className={workbenchStyles.emptyState}>该批次暂无工资条。</p>}</div></section>:null}
   </>;
 }
 
