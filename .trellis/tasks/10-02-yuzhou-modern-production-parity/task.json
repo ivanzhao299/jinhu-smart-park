@@ -47,7 +47,8 @@
     "10-09-hr-performance-operation-workflow",
     "10-09-hr-employee-operation-continuity",
     "10-09-hr-training-operation-continuity",
-    "10-09-hr-work-report-bounded-workflow"
+    "10-09-hr-work-report-bounded-workflow",
+    "10-09-hr-goal-execution-workflow"
   ],
   "parent": null,
   "relatedFiles": [
@@ -58,13 +59,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "现代化优先：PR888已生产技术核验；PR889完整招聘入职列表已合并、生产部署跟踪中。当前补齐新建表单跨页选择和失败草稿连续性。真实角色、实际工资月份/规则/金额、原业务等价和独立HR验收保留。",
+  "notes": "现代化优先：PR895工作汇报已合并、完整生产发布跟踪中；当前补齐目标周期和目标执行的现代页面办理链。真实岗位、实际工资月份/规则/金额、原业务等价和独立HR验收保留。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "recruitment_reference_selection_and_draft_continuity_then_real_business_acceptance",
+    "nextSlice": "goal_execution_workflow_then_real_business_acceptance",
     "businessImplementationStarted": true
   }
 }

@@ -548,3 +548,5 @@ Reference files:
 - [Employee operation continuity](./hr-employee-operation-continuity.md) — Creation and employment transitions preserve rejected drafts and separate committed writes from read failures.
 
 - [Work-report bounded workflow](../../api/backend/hr-work-report-page.md) — Independent self/team pages, retained failed drafts/reviews, and desktop-visible shared record cards.
+
+- [Goal execution workflow](../../api/backend/hr-goal-operation-context.md) — Independent exact operation contexts, cycle/goal transitions, retained failures and all-width DS records.

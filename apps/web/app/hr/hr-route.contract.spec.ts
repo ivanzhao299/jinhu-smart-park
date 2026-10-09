@@ -168,7 +168,8 @@ test("HR M4 goals use an execution ledger with explicit actions",()=>{
   assert.match(goals,/目标台账/);
   assert.match(goals,/分解目标/);
   assert.match(goals,/action === "goal" \? <form/);
-  assert.match(goals,/action === "checkin" \? <form/);
+  assert.match(goals,/action==="checkin"\?<CheckinForm/);
+  assert.match(goals,/aria-label="本人进度办理"/);
   assert.match(goals,/当前范围暂无目标/);
 });
 
