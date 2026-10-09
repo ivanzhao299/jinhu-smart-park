@@ -13,3 +13,6 @@
 ## 发布依赖修复
 
 CI37990764401两次数据库任务均在Docker Hub拉取PostgreSQL服务镜像时遭匿名限流，尚未执行数据库测试；类型、lint、单测和构建成功。CI工作流改用Docker官方ECR Public分发并固定OCI摘要，Release Smoke预载同一摘要，生产Compose不改。工作流变更保留自动完整Release Smoke；不跳过或放宽检查。公开清单SHA-256已核验，下载/实际版本及新CI继续验证。
+
+- 发布依赖修复实测：公开镜像已下载并实际运行PostgreSQL16.15；自动移除版本检查容器。新CI37992726785的HR PostgreSQL任务实际成功（日志含x86_64 PostgreSQL16.15），原限流原因解除。
+- 同轮CI出现已有招聘附件测试时序：上传成功提示先于附件刷新effect，立即断言第三次查询不可靠。核对实际FileUploader回调和AttachmentList effect后，测试明确等待刷新后的新材料出现，并保留三次请求、准确关联、只刷新简历及录用材料不变的断言。聚焦8项与完整743项全部通过，业务代码未改。
