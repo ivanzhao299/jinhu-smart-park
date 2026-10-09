@@ -552,3 +552,4 @@ Reference files:
 - [Goal execution workflow](../../api/backend/hr-goal-operation-context.md) — Independent exact operation contexts, cycle/goal transitions, retained failures and all-width DS records.
 
 Attendance returned-request correction and approval continuity: [Request Continuation](../../api/backend/hr-attendance-request-edit.md).
+- [Performance review browsing](./hr-performance-review-browsing.md) — Scoped period/status filters, bounded reviews and continuation.
