@@ -57,3 +57,8 @@ export class HrPayrollFormalRuleQueryDto {
 export class HrPayrollEffectiveRuleQueryDto {
   @IsString() @Matches(/^(?:19\d{2}|20\d{2}|2100)-(?:0[1-9]|1[0-2])$/u) month!: string;
 }
+
+export class HrPayrollBookOptionsQueryDto extends HrPayrollFormalRuleQueryDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @IsString() @MaxLength(100) keyword?: string;
+}

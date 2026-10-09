@@ -2,9 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PayrollRuleMaintenance } from "../../app/hr/payroll/PayrollRuleMaintenance";
+import { payrollBookOptions } from "../../app/hr/payroll/payroll-book-label";
 
 const state = vi.hoisted(() => ({ user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: {
-  payrollRules: vi.fn(), payrollRuleVersions: vi.fn(), createPayrollRules: vi.fn(), createPayrollRuleVersion: vi.fn(),
+  payrollBookOptions: vi.fn(), payrollRules: vi.fn(), payrollRuleVersions: vi.fn(), createPayrollRules: vi.fn(), createPayrollRuleVersion: vi.fn(),
   updatePayrollRuleVersion: vi.fn(), submitPayrollRuleVersion: vi.fn(), reviewPayrollRuleVersion: vi.fn(),
 } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
@@ -20,6 +21,7 @@ const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_
 beforeEach(() => {
   vi.resetAllMocks(); state.user = { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [HR_PERMISSIONS.HR_PAYROLL_RULE_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW] };
   state.api.payrollRules.mockResolvedValue(page([rule])); state.api.payrollRuleVersions.mockResolvedValue(page([draft]));
+  state.api.payrollBookOptions.mockResolvedValue(page([]));
   state.api.updatePayrollRuleVersion.mockResolvedValue({ ...draft, version: 2 });
   state.api.submitPayrollRuleVersion.mockResolvedValue({ ...draft, version: 2, status: "submitted" });
 });
@@ -39,6 +41,40 @@ it("read-only operators inspect every project without authoring or approval cont
   expect(screen.getAllByLabelText("计算公式")[1]).toHaveValue("[应发]-[税]");
   expect(screen.queryByRole("button", { name: "编辑草稿" })).toBeNull();
   expect(screen.queryByRole("button", { name: "新增版本" })).toBeNull();
+  expect(state.api.payrollBookOptions).not.toHaveBeenCalled();
+});
+
+it("book choice survives paging and failed creation with a stable retry identity; successful binding is response-owned", async () => {
+  const book = { id: "book-one", bookName: "生产工资", scheme: 1, bookCode: "yuzhou-v10:1" };
+  state.api.payrollBookOptions.mockImplementation(async ({ page: number }: { page: number }) => ({ items: number === 1 ? [book] : [], total: 21, page: number, page_size: 20 }));
+  state.api.createPayrollRules.mockRejectedValueOnce(new Error("synthetic create failed")).mockResolvedValue({ ...rule, id: "created-rules", sourceBookId: book.id, sourceBook: book });
+  render(<PayrollRuleMaintenance />);
+  await screen.findByRole("option", { name: "生产工资 · 账套 1" });
+  fireEvent.change(screen.getByLabelText("关联工资账套（可选）"), { target: { value: book.id } });
+  fireEvent.click(screen.getByRole("button", { name: "账套下一页" }));
+  await waitFor(() => expect(state.api.payrollBookOptions.mock.calls.at(-1)?.[0].page).toBe(2));
+  await waitFor(() => expect(screen.getByLabelText("关联工资账套（可选）")).not.toBeDisabled());
+  expect(screen.getByLabelText("关联工资账套（可选）")).toHaveValue(book.id);
+  fireEvent.change(screen.getByLabelText("规则编号"), { target: { value: "PAY" } });
+  fireEvent.change(screen.getByLabelText("规则名称"), { target: { value: "正式工资" } });
+  fireEvent.click(screen.getByRole("button", { name: "新建规则" })); await screen.findByText("synthetic create failed");
+  expect(screen.getByLabelText("关联工资账套（可选）")).toHaveValue(book.id);
+  fireEvent.click(screen.getByRole("button", { name: "新建规则" })); await screen.findByText("操作已保存。");
+  expect(state.api.createPayrollRules.mock.calls[0]).toEqual(state.api.createPayrollRules.mock.calls[1]);
+  expect(state.api.createPayrollRules.mock.calls[0]?.[0]).toEqual({ ruleCode: "PAY", displayName: "正式工资", sourceBookId: book.id });
+  expect(screen.getByLabelText("关联工资账套（可选）")).toHaveValue("");
+  expect(screen.getByText("关联账套：生产工资 · 账套 1")).toBeVisible();
+});
+
+it("candidate failure can be refreshed and does not prevent independent rules", async () => {
+  state.api.payrollBookOptions.mockRejectedValueOnce(new Error("candidate unavailable"));
+  state.api.createPayrollRules.mockResolvedValue(rule);
+  render(<PayrollRuleMaintenance />); await screen.findByText("candidate unavailable");
+  fireEvent.change(screen.getByLabelText("规则编号"), { target: { value: "PAY" } });
+  fireEvent.change(screen.getByLabelText("规则名称"), { target: { value: "正式工资" } });
+  fireEvent.click(screen.getByRole("button", { name: "新建规则" })); await screen.findByText("操作已保存。");
+  expect(state.api.createPayrollRules.mock.calls[0]?.[0]).toEqual({ ruleCode: "PAY", displayName: "正式工资" });
+  await waitFor(() => expect(screen.queryByText("candidate unavailable")).toBeNull());
 });
 it("failed draft save retains fields and reuses the exact retry identity and expected version", async () => {
   state.api.updatePayrollRuleVersion.mockRejectedValueOnce(new Error("synthetic save failed")); render(<PayrollRuleMaintenance />); await open();
@@ -75,6 +111,18 @@ it("approval requires explicit month and reason, rejected response retains the d
 });
 it("context changes abort reads and discard selected financial rule drafts", async () => {
   const view = render(<PayrollRuleMaintenance />); await open(); const signal = state.api.payrollRuleVersions.mock.calls[0]![3] as AbortSignal;
+  const bookSignal = state.api.payrollBookOptions.mock.calls[0]![2] as AbortSignal;
   state.user = { ...state.user, park_id: "other" }; view.rerender(<PayrollRuleMaintenance />);
   await waitFor(() => expect(signal.aborted).toBe(true)); expect(screen.queryByRole("region", { name: "规则版本编辑" })).toBeNull();
+  expect(bookSignal.aborted).toBe(true);
+});
+
+it("book labels normalize invisible names, deduplicate identities and disambiguate business codes without UUIDs", () => {
+  const options = payrollBookOptions([
+    { id: "uuid-one", bookName: "\u200B  工资  账套 ", scheme: 1, bookCode: "a:1" },
+    { id: "uuid-one", bookName: "工资 账套", scheme: 1, bookCode: "a:1" },
+    { id: "uuid-two", bookName: "工资 账套", scheme: 1, bookCode: "b:1" },
+    { id: "uuid-three", bookName: "\u200B123", scheme: 3, bookCode: "a:3" },
+  ]);
+  expect(options.map(value => value.label)).toEqual(["工资 账套 · 账套 1（a:1）", "工资 账套 · 账套 1（b:1）", "工资账套 3"]);
 });

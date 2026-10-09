@@ -6,7 +6,8 @@ export const FORMAL_PAYROLL_COMPENSATION_POLICIES = ["full_period_single", "cale
 export type FormalPayrollCompensationPolicy = typeof FORMAL_PAYROLL_COMPENSATION_POLICIES[number];
 export type FormalPayrollDefinition = { roundingPolicy: "line_items_half_up"; compensationPolicy?: FormalPayrollCompensationPolicy; items: readonly FormalPayrollItem[] };
 export type FormalPayrollPage<T> = PaginatedResult<T>;
-export type FormalPayrollRuleSet = { id: string; ruleCode: string; displayName: string; sourceBookId: string | null; headRevision: number };
+export type FormalPayrollBookOption = { id: string; bookName: string | null; bookCode: string; scheme: number };
+export type FormalPayrollRuleSet = { id: string; ruleCode: string; displayName: string; sourceBookId: string | null; sourceBook?: FormalPayrollBookOption | null; headRevision: number };
 export type FormalPayrollRuleVersion = {
   id: string; ruleSetId: string; revisionNo: number; version: number; status: string;
   definition: FormalPayrollDefinition; reason: string; effectiveFrom: string | null; reviewReason: string | null;

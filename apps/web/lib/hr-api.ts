@@ -1,4 +1,4 @@
-import type { FormalPayrollDefinition, FormalPayrollEmployeeInput, FormalPayrollPage, FormalPayrollRuleSet, FormalPayrollRuleVersion, FormalPayrollInput, FormalPayrollInputListItem, FormalPayrollInputDetail, FormalPayrollRunSelection, FormalPayrollRunResult, FormalPayrollRunDetail, FormalPayrollRunListItem, FormalPayrollPreparation, FormalPayrollRunOptions } from "@jinhu/shared";
+import type { FormalPayrollBookOption, FormalPayrollDefinition, FormalPayrollEmployeeInput, FormalPayrollPage, FormalPayrollRuleSet, FormalPayrollRuleVersion, FormalPayrollInput, FormalPayrollInputListItem, FormalPayrollInputDetail, FormalPayrollRunSelection, FormalPayrollRunResult, FormalPayrollRunDetail, FormalPayrollRunListItem, FormalPayrollPreparation, FormalPayrollRunOptions } from "@jinhu/shared";
 import type { HrPayrollInsuranceEvidence, HrPayrollInsuranceChoice, HrPayrollInsuranceSourceRequest, HrPayrollInsuranceSourcePage, HrInsuranceOwnedEmployeeOption, HrInsuranceOwnedClose, HrInsuranceOwnedCloseRequest, HrInsuranceOwnedConfirmRequest, HrInsuranceOwnedCorrectRequest, HrInsuranceOwnedPeriod, HrInsuranceOwnedPeriodListItem, HrInsuranceOwnedPreview, HrInsuranceOwnedPreviewRequest, HrInsuranceOwnedRevision, OrgTreeNode, PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployeeAssignmentLabel {name:string|null;status:"available"|"inactive"|"unassigned"|"unavailable";}
@@ -271,6 +271,7 @@ export interface HrInsuranceReferenceResult {
 }
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ payrollBookOptions:(query:{page?:number;pageSize?:number;keyword?:string}={},token?:string,signal?:AbortSignal)=>unwrap(apiRequest<FormalPayrollPage<FormalPayrollBookOption>>(`/hr/payroll/rules/book-options?page=${query.page??1}&pageSize=${query.pageSize??20}&keyword=${encodeURIComponent(query.keyword??"")}`,{token,signal})),
  payrollRules:(query:{page?:number;pageSize?:number}={},token?:string,signal?:AbortSignal)=>unwrap(apiRequest<FormalPayrollPage<FormalPayrollRuleSet>>(`/hr/payroll/rules?page=${query.page??1}&pageSize=${query.pageSize??20}`,{token,signal})),
  payrollRuleVersions:(id:string,query:{page?:number;pageSize?:number}={},token?:string,signal?:AbortSignal)=>unwrap(apiRequest<FormalPayrollPage<FormalPayrollRuleVersion>>(`/hr/payroll/rules/${id}/versions?page=${query.page??1}&pageSize=${query.pageSize??20}`,{token,signal})),
  payrollEffectiveRule:(id:string,month:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<FormalPayrollRuleVersion>(`/hr/payroll/rules/${id}/effective?month=${encodeURIComponent(month)}`,{token,signal})),

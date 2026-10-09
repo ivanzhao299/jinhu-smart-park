@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { HR_PERMISSIONS, type FormalPayrollBookOption, type TenantParkScope } from "@jinhu/shared";
 import { plainToInstance, type ClassConstructor } from "class-transformer";
 import { validate } from "class-validator";
 import { DataSource, type EntityManager } from "typeorm";
@@ -9,13 +9,14 @@ import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-
 import { AuditService } from "../audit/audit.service";
 import {
   CreateHrPayrollRuleSetDto, CreateHrPayrollRuleVersionDto, HrPayrollEffectiveRuleQueryDto,
-  HrPayrollFormalRuleQueryDto, ReviewHrPayrollRuleVersionDto, SubmitHrPayrollRuleVersionDto,
+  HrPayrollFormalRuleQueryDto, HrPayrollBookOptionsQueryDto, ReviewHrPayrollRuleVersionDto, SubmitHrPayrollRuleVersionDto,
   UpdateHrPayrollRuleVersionDto,
 } from "./dto/hr-payroll-formal-rule.dto";
 import { buildFormalPayrollDefinitionEvidence, type FormalPayrollDefinition } from "./hr-payroll-formal-calculation";
-import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
+import { buildHrSensitiveReadAuditInput, recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
-type SetRow = { id: string; rule_code: string; display_name: string; source_book_id: string | null; head_revision: number };
+type SetRow = { id: string; rule_code: string; display_name: string; source_book_id: string | null; head_revision: number; source_book?: FormalPayrollBookOption | null };
+const bookProjection = "jsonb_build_object('id',b.id,'bookName',b.book_name,'bookCode',b.source_system||':'||b.legacy_scheme::text,'scheme',b.legacy_scheme)";
 export type FormalRuleVersionRow = {
   id: string; rule_set_id: string; revision_no: number; version: number; status: string;
   definition: FormalPayrollDefinition; definition_evidence: ReturnType<typeof buildFormalPayrollDefinitionEvidence>; definition_sha256: string; reason: string;
@@ -73,23 +74,46 @@ export class HrPayrollFormalRuleService {
     this.authority(actor, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
     const dto = await this.validated(CreateHrPayrollRuleSetDto, input);
     return this.transaction(async manager => {
+      let sourceBook: FormalPayrollBookOption | null = null;
       if (dto.sourceBookId) {
-        const source = await manager.query("SELECT id FROM hr_payroll_book WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR SHARE", [dto.sourceBookId, scope.tenantId, scope.parkId]);
+        const source = await manager.query(`SELECT ${bookProjection} AS book FROM hr_payroll_book b WHERE b.id=$1 AND b.tenant_id=$2 AND b.park_id=$3 AND b.is_deleted=false FOR SHARE`, [dto.sourceBookId, scope.tenantId, scope.parkId]);
         if (source.length !== 1) throw new NotFoundException("Payroll book not found");
+        sourceBook = source[0].book;
       }
       const row = typeormQueryRows<SetRow>(await manager.query("INSERT INTO hr_payroll_rule_set(tenant_id,park_id,rule_code,display_name,source_book_id,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,rule_code,display_name,source_book_id,head_revision", [scope.tenantId, scope.parkId, dto.ruleCode, dto.displayName, dto.sourceBookId ?? null, actor.sub]))[0]!;
       await this.auditWrite(manager, scope, actor, row.id, "创建工资规则集", { headRevision: 0 });
-      return { id: row.id, ruleCode: row.rule_code, displayName: row.display_name, sourceBookId: row.source_book_id, headRevision: row.head_revision };
+      return { id: row.id, ruleCode: row.rule_code, displayName: row.display_name, sourceBookId: row.source_book_id, sourceBook, headRevision: row.head_revision };
     });
   }
 
   async listSets(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollFormalRuleQueryDto) {
     this.authority(actor);
     const dto = await this.validated(HrPayrollFormalRuleQueryDto, query);
-    const rows: SetRow[] = await this.db.query("SELECT id,rule_code,display_name,source_book_id,head_revision FROM hr_payroll_rule_set WHERE tenant_id=$1 AND park_id=$2 ORDER BY display_name,id LIMIT $3 OFFSET $4", [scope.tenantId, scope.parkId, dto.pageSize, (dto.page - 1) * dto.pageSize]);
+    const rows: SetRow[] = await this.db.query(`SELECT r.id,r.rule_code,r.display_name,r.source_book_id,r.head_revision,CASE WHEN b.id IS NULL THEN NULL ELSE ${bookProjection} END AS source_book FROM hr_payroll_rule_set r LEFT JOIN hr_payroll_book b ON b.id=r.source_book_id AND b.tenant_id=r.tenant_id AND b.park_id=r.park_id WHERE r.tenant_id=$1 AND r.park_id=$2 ORDER BY r.display_name,r.id LIMIT $3 OFFSET $4`, [scope.tenantId, scope.parkId, dto.pageSize, (dto.page - 1) * dto.pageSize]);
     const [{ total }] = await this.db.query("SELECT count(*)::int AS total FROM hr_payroll_rule_set WHERE tenant_id=$1 AND park_id=$2", [scope.tenantId, scope.parkId]);
     await this.auditRead(scope, actor, rows.length);
-    return { items: rows.map(row => ({ id: row.id, ruleCode: row.rule_code, displayName: row.display_name, sourceBookId: row.source_book_id, headRevision: row.head_revision })), total, page: dto.page, page_size: dto.pageSize };
+    return { items: rows.map(row => ({ id: row.id, ruleCode: row.rule_code, displayName: row.display_name, sourceBookId: row.source_book_id, sourceBook: row.source_book ?? null, headRevision: row.head_revision })), total, page: dto.page, page_size: dto.pageSize };
+  }
+
+  async bookOptions(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollBookOptionsQueryDto) {
+    this.authority(actor);
+    this.authority(actor, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
+    const dto = await this.validated(HrPayrollBookOptionsQueryDto, query);
+    return this.transaction(async manager => {
+      // One statement keeps the candidate page and total in the same read snapshot.
+      const [result]: Array<{ items: FormalPayrollBookOption[]; total: number }> = await manager.query(`WITH candidates AS (
+        SELECT b.* FROM hr_payroll_book b WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.is_deleted=false
+        AND NOT EXISTS (SELECT 1 FROM hr_payroll_rule_set r WHERE r.tenant_id=b.tenant_id AND r.park_id=b.park_id AND r.source_book_id=b.id)
+        AND ($3='' OR strpos(lower(coalesce(b.book_name,'')),lower($3))>0 OR b.legacy_scheme::text=$3)
+      ), page AS (SELECT b.*,${bookProjection} AS book FROM candidates b ORDER BY b.book_name NULLS LAST,b.source_system,b.legacy_scheme,b.id LIMIT $4 OFFSET $5)
+      SELECT coalesce((SELECT jsonb_agg(book ORDER BY book_name NULLS LAST,source_system,legacy_scheme,id) FROM page),'[]'::jsonb) AS items,
+        (SELECT count(*)::int FROM candidates) AS total`, [scope.tenantId, scope.parkId, dto.keyword ?? "", dto.pageSize, (dto.page - 1) * dto.pageSize]);
+      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {
+        resource: "hr.payroll_rule", action: "读取可关联工资账套", bizType: "hr_payroll_rule",
+        path: "/hr/payroll/rules/book-options", fieldGroups: ["legacy_definition_metadata"], projection: "metadata", itemCount: result!.items.length,
+      }), manager);
+      return { ...result!, page: dto.page, page_size: dto.pageSize };
+    });
   }
 
   async listVersions(scope: TenantParkScope, actor: JwtPrincipal, id: string, query: HrPayrollFormalRuleQueryDto) {

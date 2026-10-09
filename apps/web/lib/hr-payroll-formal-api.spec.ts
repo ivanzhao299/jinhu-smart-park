@@ -117,3 +117,22 @@ test("formal payroll source options bind selected confirmed input and version", 
     assert.equal(init?.signal,abort.signal);assert.equal(init?.body,undefined);
   } finally {globalThis.fetch=originalFetch;}
 });
+
+
+test("book options encode literal searches and cancellation; create preserves explicit book association", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = async (url, init) => { calls.push({ url: String(url), init }); return new Response(JSON.stringify({ code: 0, data: { items: [], total: 0, page: 2, page_size: 20 } }), { headers: { "Content-Type": "application/json" } }); };
+  try {
+    const abort = new AbortController();
+    await hrApi.payrollBookOptions({ page: 2, keyword: "工资 & 1%" }, undefined, abort.signal);
+    const url = new URL(calls[0]!.url, "http://localhost");
+    assert.equal(url.pathname, "/api/v1/hr/payroll/rules/book-options");
+    assert.equal(url.searchParams.get("keyword"), "工资 & 1%");
+    assert.equal(url.searchParams.get("page"), "2"); assert.equal(calls[0]!.init?.signal, abort.signal);
+    const body = { ruleCode: "PAY", displayName: "正式工资", sourceBookId: "book" };
+    await hrApi.createPayrollRules(body, undefined, "book-binding-key");
+    assert.deepEqual(JSON.parse(calls[1]!.init!.body as string), body);
+    assert.equal(new Headers(calls[1]!.init?.headers).get("X-Idempotency-Key"), "book-binding-key");
+  } finally { globalThis.fetch = originalFetch; }
+});
