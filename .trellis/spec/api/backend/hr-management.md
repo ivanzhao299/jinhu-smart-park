@@ -830,6 +830,7 @@ await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
 
 - Shift and schedule semantics use the `Asia/Shanghai` local business date. Cross-midnight shifts retain the scheduled start date and an explicit punch window.
 - Raw punch events are immutable facts. A reused identity with different content is a conflict, while identical replay returns the original event.
+- For scheduled days, the actual referenced shift owns `ruleVersion`; the caller compatibility parameter cannot relabel it. Freeze shift ID/code, local start/end, cross-midnight flag, both grace minutes, version and timezone in protected source trace. An unavailable referenced shift fails before writing; an unscheduled rest day retains the compatibility version. Existing historical calculation rows stay unchanged.
 - Every recalculation appends a new immutable calculation version and daily-result row. It never updates or deletes an earlier result.
 - Recalculation takes an employee write lock so concurrent calculations serialize and receive distinct versions. Reads select the latest version per employee and business date with deterministic ordering.
 - Results retain source event IDs, schedule/shift identity, rule/calculation version, calculation window, and any approved correction request ID. A correction is evidence for a new version, not an edit to an old result.

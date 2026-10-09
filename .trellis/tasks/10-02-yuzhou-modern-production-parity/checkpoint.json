@@ -12,19 +12,18 @@
   "planningStatus": "PLAN_PERSISTED",
   "implementationStatus": "IN_PROGRESS",
   "goalStatus": "active",
-  "workspace": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
-  "implementationBaselineSha": "b5a0284ecd020a2a673ae6ab64a2d559c82817a9",
+  "workspace": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "implementationBaselineSha": "cf807cd7393246550413522cb0936f1f785b38c5",
   "runtimeProof": {
-    "runId": 37679996394,
-    "commit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
-    "observedAt": "2026-10-07T20:11:07.283Z",
-    "apiCommit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
-    "webCommit": "67aa7f29308066eada80dfb8555ad5953b44c8a3",
-    "apiAndWebMatch": false,
-    "deployRunId": 37678720339,
+    "runId": 37987582142,
+    "observedAt": "2026-10-09T20:32:19.824Z",
+    "apiCommit": "faf64d80aef2bdd0ff55261d335aef9f6537b80f",
+    "webCommit": "faf64d80aef2bdd0ff55261d335aef9f6537b80f",
+    "apiAndWebMatch": true,
+    "deployRunId": 37985569180,
     "dockerCleanupStarted": 1,
     "dockerCleanupFinished": 1,
-    "scope": "Technical runtime integrity; not business acceptance"
+    "scope": "Technical runtime integrity; real-role and business acceptance remain pending"
   },
   "sourceHistoryImport": "ACTUAL_T0_T5_COMPLETED_NOT_REPLAYED",
   "historyObservationBoundary": "Accepted import scope and older readonly counts are preserved in research/checkpoint-2026-10-02.json; they are not current live totals",
@@ -34,8 +33,8 @@
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
   "activeRunHandle": null,
-  "currentSlice": "REWARD_SELF_APPEALS_VALIDATED_RELEASE_PENDING",
-  "currentSliceTask": ".trellis/tasks/10-09-hr-reward-self-appeals",
+  "currentSlice": "ATTENDANCE_SHIFT_RULE_CONTINUITY_LOCAL_VALIDATED",
+  "currentSliceTask": ".trellis/tasks/10-10-hr-attendance-shift-rule-continuity-20261010",
   "preparedProfileInput": {
     "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
     "preparationRunId": 37658598558,
@@ -113,7 +112,7 @@
   "nextAction": "奖惩类别版本完整CI与顺序发布；PR901同一观察器跟进生产版本；继续现代化和业务复现，不重做历史导入",
   "previousCheckpoint": "research/checkpoint-2026-10-02.json",
   "usage": "unavailable",
-  "updatedAt": "2026-10-09T14:55:53.186877+00:00",
+  "updatedAt": "2026-10-09T20:31:32.899592+00:00",
   "currentRuntimeObservation": {
     "pr": 901,
     "apiRuntimeSha": "bd486e60a8692d059ee8dbb90abb50361119c083",
@@ -127,5 +126,20 @@
     "deployRun": 37949665492,
     "status": "DEPLOY_RUNNING"
   },
-  "baselineBoundary": "PR903 merged-main integrated; source/test/config tree preserved through rebase"
+  "baselineBoundary": "PR903 merged-main integrated; source/test/config tree preserved through rebase",
+  "priority": "Modern production workflows and legacy function reproduction; historical import only for incremental intake and current-business impact",
+  "latestReleaseEvidence": {
+    "positionMaintenance": {
+      "pr": 915,
+      "status": "DEPLOYED_RUNTIME_VERIFIED",
+      "commit": "faf64d80aef2bdd0ff55261d335aef9f6537b80f"
+    },
+    "attendanceResultExport": {
+      "pr": 916,
+      "status": "MERGED_DEPLOY_RUNNING",
+      "checkpoint": "/Users/mac/.codex/artifacts/hr-attendance-result-export-20261010/checkpoint.json",
+      "commit": "cf807cd7393246550413522cb0936f1f785b38c5",
+      "deployRunId": 37987740994
+    }
+  }
 }

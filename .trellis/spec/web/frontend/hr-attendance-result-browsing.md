@@ -57,3 +57,7 @@ if (controller.signal.aborted) return;
 setSummaries(response.items);
 setSummaryTotal(response.total);
 ```
+
+## Shift rule continuity
+
+Expose existing late/early grace fields as integer minutes 0..240, default0, and the new-shift rule version. New shift drafts do not govern employee-day recalculation: the server resolves the saved schedule and its shift. Preserve failed drafts; after successful creation clear code/name and report a subsequent list refresh failure as committed success with refresh error. Scope changes discard operation drafts and older completions. Use the existing DS fields and responsive operation groups.
