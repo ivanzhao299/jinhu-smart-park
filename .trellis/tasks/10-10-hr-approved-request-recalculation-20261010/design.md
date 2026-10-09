@@ -9,3 +9,5 @@ Web新增薄传输类型与计划GET，现有recalculateAttendance增加可选id
 部分成功也刷新当前日/月视图；刷新失败单列，保持成功日与重试位置。沿用月份锁、review回退、closed不变及显式更正，不增加迁移、工资规则、权限或生产导入。
 
 独立工作树C：/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009，分支codex/hr-approved-request-recalculation-20261010，基线5bea1106cf694a36c89832ddaaeef273cf8c117f。A为PR919候选 d7a1cffa5781b09e39fc31b69973e67f35a8908c 与发布跟踪器36961（CI37998668358）独占，不得修改。
+
+发布时间安排：PR919合并并证明同树后即可基于最新main整合本批、并行执行CI；本批合并/生产部署仍等待前一批运行版本证明。这样缩短等待且不重叠生产发布。

@@ -12,7 +12,7 @@
   "assignee": "codex",
   "createdAt": "2026-10-10",
   "completedAt": null,
-  "branch": "codex/hr-approved-request-recalculation-20261010",
+  "branch": "codex/hr-approved-request-recalculation-release-20261010",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
   "commit": null,
@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "C owns approved-request bounded multi-day recalculation only. Depends on PR919 release candidate d7a1cffa5781b09e39fc31b69973e67f35a8908c; no import replay or production writes. A release watcher36961 and CI37998668358 remain independent.",
   "meta": {
-    "nextSlice": "Focused/API/Web/full752/browser/build passed; integrate latest main after PR919 runtime proof, then release this slice."
+    "nextSlice": "Run single PR CI against latest main while PR919 deploys; merge/deploy only after preceding runtime proof.",
+    "integrationBaseSha": "3c4db4a21d8a2f0be8cd07e29ee76e7b0d67dbb9"
   }
 }
