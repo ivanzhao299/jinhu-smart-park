@@ -566,3 +566,5 @@ Approved reward append-only corrections: [Reward Correction Workflow](./hr-rewar
 
 Employee own-case appeal and personal history: [Self Appeal Workflow](../../api/backend/hr-reward-self-appeals.md).
 - [hr-reward-payroll-link](hr-reward-payroll-link.md) — 奖惩工资输入关联正式业务合同。
+
+Modern performance frozen reward evidence: [Reward Evidence](./hr-performance-reward-evidence.md).
