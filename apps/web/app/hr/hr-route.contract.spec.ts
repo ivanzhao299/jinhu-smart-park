@@ -225,12 +225,20 @@ test("HR M4 approvals separate applicant records from reviewer queue",()=>{
 
 test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8");
+  const modern=readFileSync(resolve(__dirname,"payroll/PayrollModernOperations.tsx"),"utf8");
+  const periods=readFileSync(resolve(__dirname,"payroll/PayrollPeriodOperations.tsx"),"utf8");
   const creation=readFileSync(resolve(__dirname,"payroll/PayrollRunCreation.tsx"),"utf8");
   const operations=readFileSync(resolve(__dirname,"payroll/PayrollRunOperations.tsx"),"utf8");
   assert.match(payroll,/待复核/);
   assert.match(payroll,/待确认/);
-  assert.match(payroll,/<PayrollRunCreation onCreated=/);
-  assert.match(payroll,/<PayrollRunOperations key=\{payrollRefresh\}/);
+  assert.match(payroll,/<PayrollModernOperations onCreated=/);
+  assert.match(payroll,/refresh=\{payrollRefresh\}/);
+  assert.match(modern,/<PayrollPeriodOperations refresh=\{periodRefresh\} onUseCorrection=\{setCorrection\}/);
+  assert.match(modern,/<PayrollInputPreparation correction=\{correction\}/);
+  assert.match(modern,/<PayrollRunCreation correction=\{correction\} onCreated=/);
+  assert.match(modern,/<PayrollRunOperations key=\{runRefresh\} onChanged=/);
+  assert.match(periods,/确认关账/);
+  assert.match(periods,/继续准备更正输入及核算/);
   assert.match(creation,/正式工资生成与更正/);
   assert.match(creation,/更正保留原批次/);
   assert.match(operations,/canReview && detail\.canReview/);
