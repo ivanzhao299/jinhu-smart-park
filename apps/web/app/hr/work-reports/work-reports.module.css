@@ -1,0 +1,6 @@
+.workspace :global(.ds-button),
+.workspace input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.workspace select { min-height: 44px; }
+.workspace fieldset { min-width: 0; }
+.workspace textarea { min-height: 100px; }
+.workspace .records { display: grid; gap: 12px; margin-top: 16px; }

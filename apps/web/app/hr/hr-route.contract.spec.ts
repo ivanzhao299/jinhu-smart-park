@@ -28,7 +28,7 @@ test("HR operational forms collapse to one column on phone width", () => {
   assert.match(organization, /ds-mobile-record-list/);
   assert.match(organization, /type="number" min="0" max="100000" step="1"/);
   assert.match(reports, /ds-mobile-record-list/);
-  assert.match(reports, /type="number" min="0" max="744" step="0\.25"/);
+  assert.match(reports, /name="hours" type="number"[\s\S]*?min="0" max="744" step="0\.25"/);
 });
 
 test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
@@ -159,7 +159,8 @@ test("HR M4 work reports are record-first and keep write forms behind explicit a
   assert.match(reports,/editing\?<form/);
   assert.match(reports,/团队待审/);
   assert.match(reports,/<details className=\{styles\.actionDisclosure\}>/);
-  assert.match(reports,/mine\.length===0/);
+  assert.match(reports,/mine\.data\.items\.length/);
+  assert.match(reports,/当前筛选没有个人汇报/);
 });
 
 test("HR M4 goals use an execution ledger with explicit actions",()=>{

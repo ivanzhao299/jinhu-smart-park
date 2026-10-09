@@ -1,5 +1,5 @@
 import {Transform,Type} from "class-transformer";
-import {ArrayMaxSize,IsArray,IsDateString,IsIn,IsNumber,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
+import {ArrayMaxSize,IsArray,IsDateString,IsIn,IsInt,IsNumber,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
 const number=({value}:{value:unknown})=>value===undefined||value===""?undefined:Number(value);
 
@@ -13,3 +13,10 @@ export class HrGoalCheckinT6Dto{@Transform(number)@IsNumber()@Min(0)@Max(1)progr
 export class HrWorkReportGoalSuggestionDto{@IsUUID()goalId!:string;@IsOptional()@Transform(number)@IsNumber()@Min(0)@Max(1)proposedProgress?:number;@IsOptional()@Transform(number)@IsNumber()proposedCurrentValue?:number;@IsOptional()@Transform(trim)@IsString()@MaxLength(2000)suggestionSummary?:string;}
 export class SaveHrWorkReportDraftDto{@IsIn(["daily","weekly","monthly"])reportType!:string;@IsDateString()periodStart!:string;@IsDateString()periodEnd!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(64)title?:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(10000)completedWork?:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(10000)nextPlan?:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(5000)risks?:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(4000)questionsAndSuggestions?:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(5000)collaborationNeeds?:string;@IsOptional()@Transform(number)@IsNumber()@Min(0)@Max(744)hours?:number;@IsOptional()@IsArray()@ArrayMaxSize(100)@ValidateNested({each:true})@Type(()=>HrWorkReportGoalSuggestionDto)goalSuggestions?:HrWorkReportGoalSuggestionDto[];}
 export class ReviewHrWorkReportT6Dto{@IsIn(["confirmed","returned"])action!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(1000)comment?:string;}
+
+export class HrWorkReportPageQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) @Max(1000000) page=1;
+ @Transform(({value})=>Number(value??20)) @IsIn([20]) page_size=20;
+ @IsOptional() @IsIn(["daily","weekly","monthly"]) report_type?:string;
+ @IsOptional() @IsIn(["draft","submitted","resubmitted","confirmed","returned"]) status?:string;
+}

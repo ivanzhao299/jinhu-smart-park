@@ -21,6 +21,8 @@ export interface HrGoal {id:string;cycleId:string;parentGoalId:string|null;goalL
 export interface HrGoalOptions {canCreateGroup:boolean;orgs:Array<{id:string;orgName:string}>;employees:Array<{id:string;fullName:string}>;}
 export interface HrGoalCheckin {id:string;goalId:string;progress:string;currentValue:string|null;summary:string;risks:string|null;confidence:string;nextAction:string|null;createTime:string;}
 export interface HrWorkReport {id:string;employeeName:string|null;reportType:string;periodStart:string;periodEnd:string;title:string|null;completedWork:string;nextPlan:string|null;risks:string|null;questionsAndSuggestions:string|null;collaborationNeeds:string|null;hours:string|null;status:string;submissionNo:number;reviewComment:string|null;submittedAt:string|null;reviewedAt:string|null;goalSuggestions:Array<{goalId:string;goalName?:string;proposedProgress:string|null;proposedCurrentValue:string|null;suggestionSummary:string|null}>;}
+export interface HrWorkReportPage {items:HrWorkReport[];total:number;page:number;page_size:20;summary:{pending:number;returned:number};}
+export interface HrWorkReportFilters {report_type?:string;status?:string;}
 export interface HrWorkReportAction {id:string;actionType:string;fromStatus:string|null;toStatus:string;submissionNo:number;comment:string|null;createTime:string;}
 export interface HrPerformanceCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}
 export interface HrPerformancePlan {id:string;cycleId:string;employeeId:string;managerEmployeeId:string|null;status:string;selfScore:string|null;managerScore:string|null;calibratedScore:string|null;finalScore:string|null;selfSummary:string|null;managerComment:string|null;calibrationComment:string|null;}
@@ -466,6 +468,7 @@ export const hrApi={
  ,changeGoal:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrGoal>(`/hr/goals/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
  ,goalCheckins:(id:string,token?:string)=>unwrap(apiRequest<HrGoalCheckin[]>(`/hr/goals/${id}/checkins`,{token}))
  ,createGoalCheckin:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrGoalCheckin>(`/hr/goals/${id}/checkins`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,workReportsPage:(team:boolean,page=1,filters:HrWorkReportFilters={},token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrWorkReportPage>(`/hr/work-reports/${team?"team":"me"}/page?${new URLSearchParams({page:String(page),page_size:"20",...(filters.report_type?{report_type:filters.report_type}:{}),...(filters.status?{status:filters.status}:{})})}`,{token,signal}))
  ,myWorkReports:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrWorkReport[]>("/hr/work-reports/me",{token,signal}))
  ,createWorkReport:(body:object,token?:string)=>unwrap(apiRequest<HrWorkReport>("/hr/work-reports/me",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,updateWorkReport:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrWorkReport>(`/hr/work-reports/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))

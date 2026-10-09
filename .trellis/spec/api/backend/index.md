@@ -1012,3 +1012,5 @@ Prepared profile normal-user execution and same-operation preview recovery: [Pre
 - [Performance template workflow](./hr-performance-template-workflow.md) — Enterprise configuration and immutable version continuation.
 
 - [360 configuration context](./hr-feedback-configuration-workflow.md) — Complete scoped model/questionnaire versions without employee authority.
+
+- [Work-report bounded browsing](./hr-work-report-page.md) — Exact independent read authority, filtered totals, consistent pages and batched goal suggestions.
