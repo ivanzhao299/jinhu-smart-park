@@ -17,6 +17,7 @@ import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import rewardStyles from "./reward-workflow.module.css";
+import {RewardCategoryVersions} from "./RewardCategoryVersions";
 import { HrEmployeeSelection } from "../components/HrEmployeeSelection";
 const labels: Record<string, string> = {
   draft: "草稿",
@@ -279,8 +280,8 @@ function HrRewardsWorkspace() {
           <div className={styles.heroActions}>
           <button
             className="ds-button"
-            disabled={loading}
-            onClick={() => void Promise.all([load(), loadCategories()])}
+            disabled={loading||busy}
+            onClick={() => {if(busyRef.current)return;void Promise.all([load(), loadCategories()]);}}
           >
             {loading ? "刷新中" : "刷新"}
           </button>
@@ -332,6 +333,7 @@ function HrRewardsWorkspace() {
                   新增类别
                 </button>
               </form>
+              <RewardCategoryVersions categories={categories} busy={busy} publish={job=>mutate(job,"发布奖惩类别失败",true)}/>
             </section>
             <section className="ds-panel">
               <h2>新增奖惩事项</h2>

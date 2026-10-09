@@ -12,8 +12,8 @@
   "planningStatus": "PLAN_PERSISTED",
   "implementationStatus": "IN_PROGRESS",
   "goalStatus": "active",
-  "workspace": "/tmp/jinhu-hr-account-identity-20261007",
-  "implementationBaselineSha": "205272e66b1d4810cbf85122d6c25174a41cd64e",
+  "workspace": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "implementationBaselineSha": "bd486e60a8692d059ee8dbb90abb50361119c083",
   "runtimeProof": {
     "runId": 37679996394,
     "commit": "205272e66b1d4810cbf85122d6c25174a41cd64e",
@@ -34,8 +34,8 @@
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
   "activeRunHandle": null,
-  "currentSlice": "PROFILE_PREPARER_DUAL_RUNTIME_IN_PROGRESS",
-  "currentSliceTask": "10-08-hr-profile-preparer-dual-runtime",
+  "currentSlice": "REWARD_CATEGORY_VERSIONS_VALIDATED_RELEASE_PENDING",
+  "currentSliceTask": ".trellis/tasks/10-09-hr-reward-category-versions",
   "preparedProfileInput": {
     "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
     "preparationRunId": 37658598558,
@@ -110,10 +110,8 @@
       "status": "runtime_verified_catalog_and_business_commit_pending"
     }
   ],
-  "nextAction": "Validate/deploy source preparation transport for separate API/Web image revisions without changing frozen collector; reuse existing prepared catalog, no recollection or successful old import replay. Real-role waiting remains local.",
+  "nextAction": "奖惩类别版本完整CI与顺序发布；PR901同一观察器跟进生产版本；继续现代化和业务复现，不重做历史导入",
   "previousCheckpoint": "research/checkpoint-2026-10-02.json",
-  "usage": {
-    "thisSliceUsage": "unavailable"
-  },
-  "updatedAt": "2026-10-07T20:14:27.672936+00:00"
+  "usage": "unavailable",
+  "updatedAt": "2026-10-09T14:55:53.186877+00:00"
 }

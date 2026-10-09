@@ -30,6 +30,7 @@ import {
   UpdateHrRewardDraftDto,
   VersionHrRewardCategoryDto,
 } from "./dto/hr-rewards.dto";
+import { HrRewardCategoryVersionsQueryDto } from "./dto/hr-reward-category-versions.dto";
 import { HrRewardsService } from "./hr-rewards.service";
 import { HrRewardEmployeeOptionsDto } from "./dto/hr-reward-employee-options.dto";
 @Controller("hr/rewards")
@@ -114,6 +115,9 @@ export class HrRewardsController {
   ) {
     return this.service.createCategory(s, a, d);
   }
+  @Get("categories/:id/versions")
+  @RequirePermissions(HR_PERMISSIONS.HR_REWARD_MANAGE)
+  categoryVersions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrRewardCategoryVersionsQueryDto){return this.service.categoryVersions(s,a,id,q);}
   @Post("categories/:id/versions")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(HR_PERMISSIONS.HR_REWARD_MANAGE)

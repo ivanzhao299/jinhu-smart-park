@@ -559,3 +559,5 @@ Attendance returned-request correction and approval continuity: [Request Continu
 - [360 operation continuity](../../api/backend/hr-feedback-operation-continuity.md) — Independent reads, cycle operation authority and retained retries.
 
 - [360 operational reference pages](../../api/backend/hr-feedback-reference-options.md) — Exact operation pagination, cross-page selection and independent recovery.
+
+- [Reward category versions](../../api/backend/hr-reward-category-versions.md) — Complete current definitions, historical references and retained publication drafts.
