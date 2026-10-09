@@ -27,6 +27,6 @@
     "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
     ".github/workflows/ci.yml"
   ],
-  "notes": "Based on main591d200d5 after same-tree dependency proof and byte-identical patch integration; local20PG+1contract/745Web pass. PR918 runtime proof pending; no import replay.",
+  "notes": "Latest cumulative candidate includes918 schedules and919 approval continuity. Predecessor production run37996455886 failed before host update (deploy skipped); release once after fresh job proof and all checks. No import replay.",
   "meta": {}
 }

@@ -37,3 +37,11 @@ No production writes, migration/schema changes, permissions, historical imports,
 - Dependency PR918 merged591d200d5; its production deployment must reach runtime verification before this slice is rebased/released. The full modernization goal remains incomplete: real-role production operations, actual wage rules/amounts, original-client equivalence and cutover/recovery/independent-product acceptance remain separate requirements.
 
 - Integration gate: fetched latestmain591d200d5; PR918 authored/merged parent trees both26073a85666a1f99d1552d1218d9be97f774077e. Rebased the owned working changes onto main with autostash; pre/post binary patches byte-identical, untracked task/test/spec files retained. No conflict or code/input/dependency change; relevant existing results remain applicable.
+
+## Cumulative release after predecessor predeploy failure
+
+PR918 merged591d200d5 passed its CI, but production run37996455886 failed during full predeploy verification in an existing daily-export interaction. GitHub job evidence confirms Deploy to production host was skipped. Its watcher75400 is terminal1. PR919 watcher67736 was stopped (terminal130) before updating this candidate.
+
+The failed test waited for an enabled export button without proving the replacement filter dataset had rendered. The fixture now distinguishes filtered employee identities and waits for the visible filtered ledger before exporting; it still checks101 records, exact filter/token/page traversal and exclusion of internal facts. Focused14 tests, Web types and affected lint passed; full suite result recorded externally.
+
+Release plan: use the latest cumulative PR919 candidate to ship both918 schedules and919 approval continuity in one deployment after all required CI/Release Smoke checks. Immediately before merge re-query predecessor job state and require terminal predeploy failure plus skipped host update, and verify current main remains591d200d5. Do not retry the obsolete918 deployment. API/Web runtime equality, health and Docker cleanup remain mandatory for the combined latest release. No production business write or historical import replay.

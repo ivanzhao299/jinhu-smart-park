@@ -83,14 +83,16 @@ it("an invalid date range makes no new query and exposes a recoverable local err
 });
 it.each(["hr:attendance:read","hr:attendance:team_read"])("daily export collects 101 filtered records with %s using the same token and excludes internal facts",async permission=>{
  state.user.permissions=["hr:attendance",permission];
- vi.mocked(hrApi.attendanceDaily).mockImplementation(async(_token,current=1,size=31)=>page(Array.from({length:Math.min(size,101-(current-1)*size)},(_,i)=>daily(`员工${(current-1)*size+i+1}`)),101,current,size));
+ vi.mocked(hrApi.attendanceDaily).mockImplementation(async(_token,current=1,size=31,query)=>page(Array.from({length:Math.min(size,101-(current-1)*size)},(_,i)=>({...daily(`${query?.status==="late"?"迟到":""}员工${(current-1)*size+i+1}`),resultStatus:query?.status==="late"?"late":"normal"})),101,current,size));
  render(<HrAttendanceClient/>);await screen.findByText("日结果第 1 / 4 页 · 共 101 条");expect(screen.getByRole("heading",{name:permission==="hr:attendance:read"?"员工日考勤":"团队日考勤"})).toBeInTheDocument();expect(screen.queryByText(/synthetic-version/)).toBeNull();expect(screen.getAllByText("正常 · 工作 480 分钟").length).toBe(31);expect(screen.getByRole("option",{name:"缺勤"})).toHaveValue("absence");
  fireEvent.change(screen.getByLabelText("日结果状态"),{target:{value:"late"}});
+ // Wait for the filtered ledger, not a transient enabled button from the previous query.
+ await screen.findByText("迟到员工1 · 2026-10-01");
  await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选日考勤"})).toBeEnabled());
  fireEvent.click(screen.getByRole("button",{name:"导出筛选日考勤"}));await screen.findByText("已导出 101 条匹配日考勤。");
  const calls=vi.mocked(hrApi.attendanceDaily).mock.calls.filter(c=>c[2]===100);
  expect(calls.map(c=>c[1])).toEqual([1,2,1]);expect(calls.every(c=>c[0]==="synthetic-token"&&c[3]?.status==="late"&&c[4] instanceof AbortSignal)).toBe(true);
- const csv=vi.mocked(downloadCsv).mock.calls[0]![0];expect(csv).toContain("员工101");expect(csv).not.toContain("synthetic-version");expect(csv).not.toContain("anomalyCodes");
+ const csv=vi.mocked(downloadCsv).mock.calls[0]![0];expect(csv).toContain("迟到员工101");expect(csv).not.toContain("synthetic-version");expect(csv).not.toContain("anomalyCodes");
 });
 it("self export omits even unexpectedly returned employee identity",async()=>{
  state.user.permissions=["hr:attendance","hr:attendance:self_read"];
