@@ -39,7 +39,12 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
   for(const page of pages){
     const source=readFileSync(resolve(__dirname,page),"utf8");
     assert.match(source,/ds-page/,`${page} must use ds-page`);
-    assert.match(source,/ds-mobile-record-list/,`${page} must expose mobile records`);
+    if(page === "talent/HrTalentClient.tsx") {
+      assert.match(source,/ds-scene-grid/,"talent records must remain visible on desktop and phones");
+      assert.doesNotMatch(source,/styles\.desktopSensitive/);
+    } else {
+      assert.match(source,/ds-mobile-record-list/,`${page} must expose mobile records`);
+    }
     assert.match(source,/ds-mobile-record/,`${page} must render mobile record cards`);
   }
   assert.match(styles,/overflow-wrap:\s*anywhere/);

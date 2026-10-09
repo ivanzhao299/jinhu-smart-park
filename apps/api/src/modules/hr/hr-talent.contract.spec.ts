@@ -68,9 +68,10 @@ test("seed keeps succession away from managers and employees", () => {
   assert.doesNotMatch(seed, /\('DEPARTMENT_MANAGER','hr:succession/);
   assert.match(seed, /'hr:development:self_action'/);
 });
-test("Web provides desktop review and mobile development actions", () => {
-  assert.match(web, /desktopSensitive/);
-  assert.match(web, /ds-mobile-record-list/);
+test("Web provides authorized talent review and development records on desktop and phones", () => {
+  assert.doesNotMatch(web, /styles\.desktopSensitive/);
+  assert.match(web, /ds-scene-grid/);
+  assert.match(web, /ds-data-table/);
   assert.match(web, /九宫格决策/);
   assert.match(web, /关键岗位与候选/);
   assert.match(web, /发展计划与行动/);

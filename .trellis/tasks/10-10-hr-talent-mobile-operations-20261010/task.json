@@ -1,0 +1,31 @@
+{
+  "id": "hr-talent-mobile-operations-20261010",
+  "name": "hr-talent-mobile-operations-20261010",
+  "title": "人才盘点与继任规划手机端授权办理",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-talent-mobile-operations-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/talent/HrTalentClient.tsx",
+    "apps/web/app/hr/talent/hr-talent.module.css",
+    "apps/web/test/interaction/hr-talent-operations.test.tsx",
+    "apps/web/app/hr/hr-route.contract.spec.ts"
+  ],
+  "notes": "",
+  "meta": {}
+}

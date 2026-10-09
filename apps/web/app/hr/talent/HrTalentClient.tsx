@@ -17,6 +17,7 @@ import {
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
+import talentStyles from "./hr-talent.module.css";
 
 const EMPTY_OPTIONS: HrTalentOptions = { employees: [], positions: [] };
 const statusLabel: Record<string, string> = {
@@ -259,14 +260,14 @@ export function HrTalentClient() {
     );
   return (
     <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_TALENT_PAGE}>
-      <main className={`content ds-page ${styles.page}`}>
+      <main className={`content ds-page ${styles.page} ${talentStyles.workspace}`}>
         <section className="ds-hero">
           <div className="ds-hero-copy">
             <span className="ds-eyebrow">人才与发展</span>
             <h1>人才发展</h1>
             <p>盘点人才、安排继任，并推动个人发展行动。</p>
           </div>
-          <div className={`${styles.heroActions} ${styles.desktopSensitive}`}>
+          <div className={styles.heroActions}>
             {canProfile ? (
               <button
                 className="ds-button"
@@ -319,10 +320,13 @@ export function HrTalentClient() {
             <small>待推进</small>
           </article>
         </section>
-        {panel === "profile" ? (
+        {canProfile && panel === "profile" ? (
           <form
-            className={`ds-panel ${styles.formGrid} ${styles.desktopSensitive}`}
-            action={freezeProfile}
+            className={`ds-panel ${styles.formGrid}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void freezeProfile(new FormData(event.currentTarget));
+            }}
           >
             <h2>冻结人才画像</h2>
             <label className="form-field">
@@ -345,10 +349,13 @@ export function HrTalentClient() {
             </button>
           </form>
         ) : null}
-        {panel === "session" ? (
+        {canReview && panel === "session" ? (
           <form
-            className={`ds-panel ${styles.formGrid} ${styles.desktopSensitive}`}
-            action={createSession}
+            className={`ds-panel ${styles.formGrid}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createSession(new FormData(event.currentTarget));
+            }}
           >
             <h2>创建人才盘点会</h2>
             <label className="form-field">
@@ -394,10 +401,13 @@ export function HrTalentClient() {
             </button>
           </form>
         ) : null}
-        {panel === "position" ? (
+        {canSuccessionManage && panel === "position" ? (
           <form
-            className={`ds-panel ${styles.formGrid} ${styles.desktopSensitive}`}
-            action={createPosition}
+            className={`ds-panel ${styles.formGrid}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createPosition(new FormData(event.currentTarget));
+            }}
           >
             <h2>登记关键岗位</h2>
             <label className="form-field">
@@ -435,10 +445,13 @@ export function HrTalentClient() {
             </button>
           </form>
         ) : null}
-        {panel === "successor" ? (
+        {canSuccessionManage && panel === "successor" ? (
           <form
-            className={`ds-panel ${styles.formGrid} ${styles.desktopSensitive}`}
-            action={createSuccessor}
+            className={`ds-panel ${styles.formGrid}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createSuccessor(new FormData(event.currentTarget));
+            }}
           >
             <h2>评估继任候选</h2>
             <label className="form-field">
@@ -495,8 +508,11 @@ export function HrTalentClient() {
             </button>
           </form>
         ) : null}
-        {panel === "plan" ? (
-          <form className={`ds-panel ${styles.formGrid}`} action={createPlan}>
+        {canDevelopmentManage && panel === "plan" ? (
+          <form className={`ds-panel ${styles.formGrid}`} onSubmit={(event) => {
+              event.preventDefault();
+              void createPlan(new FormData(event.currentTarget));
+            }}>
             <h2>创建个人发展计划</h2>
             <label className="form-field">
               <span>员工</span>
@@ -560,7 +576,7 @@ export function HrTalentClient() {
         ) : null}
         {!loading && !forbidden ? (
           <>
-            <section className={`ds-panel ${styles.desktopSensitive}`}>
+            <section className="ds-panel">
               <div className={styles.sectionHeading}>
                 <div>
                   <span className="ds-eyebrow">人才盘点</span>
@@ -624,7 +640,7 @@ export function HrTalentClient() {
                 </button>
               ) : null}
               <div className="ds-table-shell">
-                <table>
+                <table className="ds-data-table">
                   <thead>
                     <tr>
                       <th>员工</th>
@@ -637,21 +653,23 @@ export function HrTalentClient() {
                   <tbody>
                     {subjects.map((x) => (
                       <tr key={x.id}>
-                        <td>
+                        <td data-label="员工">
                           {x.employeeName}
                           <br />
                           <small>{x.employeeCode}</small>
                         </td>
-                        <td>{x.profileAsOf}</td>
-                        <td>{x.nineBox ?? "待评估"}</td>
-                        <td>{x.potentialScore ?? "—"}</td>
-                        <td>
+                        <td data-label="画像时点">{x.profileAsOf}</td>
+                        <td data-label="九宫格">{x.nineBox ?? "待评估"}</td>
+                        <td data-label="潜力">{x.potentialScore ?? "—"}</td>
+                        <td data-label="操作">
                           {canReview ? (
-                            <details>
+                            <details className={styles.actionDisclosure}>
                               <summary>记录决议</summary>
                               <form
                                 className={styles.formGrid}
-                                action={(f) => {
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const f = new FormData(event.currentTarget);
                                   const reason = String(f.get("reason"));
                                   return void act(
                                     () =>
@@ -681,18 +699,20 @@ export function HrTalentClient() {
                                   );
                                 }}
                               >
-                                <select name="performanceBand">
+                                <select name="performanceBand" aria-label="绩效档位">
                                   <option value="high">高绩效</option>
                                   <option value="medium">中绩效</option>
                                   <option value="low">低绩效</option>
                                 </select>
-                                <select name="potentialBand">
+                                <select name="potentialBand" aria-label="潜力档位">
                                   <option value="high">高潜力</option>
                                   <option value="medium">中潜力</option>
                                   <option value="low">低潜力</option>
                                 </select>
                                 <input
                                   name="potentialScore"
+                                  aria-label="潜力分数"
+                                  onFocus={(event) => event.target.select()}
                                   type="number"
                                   min="0"
                                   max="100"
@@ -701,6 +721,7 @@ export function HrTalentClient() {
                                 />
                                 <textarea
                                   name="reason"
+                                  aria-label="决议依据"
                                   minLength={4}
                                   required
                                 />
@@ -730,7 +751,7 @@ export function HrTalentClient() {
                     <h2>人才画像</h2>
                   </div>
                 </div>
-                <div className="ds-mobile-record-list">
+                <div className={`ds-scene-grid ${talentStyles.records}`}>
                   {profiles.map((x) => (
                     <article className="ds-mobile-record" key={x.id}>
                       <strong>
@@ -756,7 +777,7 @@ export function HrTalentClient() {
               </section>
             ) : null}
             {canSuccessionRead ? (
-              <section className={`ds-panel ${styles.desktopSensitive}`}>
+              <section className="ds-panel">
                 <div className={styles.sectionHeading}>
                   <div>
                     <span className="ds-eyebrow">继任规划</span>
@@ -786,7 +807,7 @@ export function HrTalentClient() {
                   </div>
                 </div>
                 <div className="ds-table-shell">
-                  <table>
+                  <table className="ds-data-table">
                     <thead>
                       <tr>
                         <th>关键岗位</th>
@@ -800,12 +821,12 @@ export function HrTalentClient() {
                         <tr
                           key={`${x.criticalPositionId}-${x.employeeCode ?? i}`}
                         >
-                          <td>{x.positionName}</td>
-                          <td>{x.candidateName ?? "尚无候选"}</td>
-                          <td>
+                          <td data-label="关键岗位">{x.positionName}</td>
+                          <td data-label="候选人">{x.candidateName ?? "尚无候选"}</td>
+                          <td data-label="准备度">
                             {x.readiness ? statusLabel[x.readiness] : "—"}
                           </td>
-                          <td>{x.candidateRisk ?? x.positionRisk}</td>
+                          <td data-label="风险">风险：{x.candidateRisk ?? x.positionRisk}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -820,7 +841,7 @@ export function HrTalentClient() {
                   <h2>发展计划与行动</h2>
                 </div>
               </div>
-              <div className="ds-mobile-record-list">
+              <div className={`ds-scene-grid ${talentStyles.records}`}>
                 {plans.length ? (
                   plans.map((plan) => (
                     <article className="ds-mobile-record" key={plan.id}>
@@ -914,7 +935,9 @@ export function HrTalentClient() {
                           <summary>添加行动</summary>
                           <form
                             className={styles.formGrid}
-                            action={(f) =>
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              const f = new FormData(event.currentTarget);
                               void act(
                                 () =>
                                   hrApi.addDevelopmentAction(
@@ -929,8 +952,8 @@ export function HrTalentClient() {
                                     getAccessToken(),
                                   ),
                                 "发展行动已分配",
-                              )
-                            }
+                              );
+                            }}
                           >
                             <input
                               name="actionName"
