@@ -2,6 +2,8 @@
 
 Modern payroll rule drafts, review and effective interpretation: [Formal Payroll Rules](./hr-payroll-formal-rules.md).
 
+Payroll period close and explicit correction-window foundation: [Payroll Period Lifecycle](./hr-payroll-period-lifecycle.md).
+
 Payroll formula actual-source review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
 
 Training operation scoped employee candidates: [Training Employee Options](./hr-training-employee-options.md).

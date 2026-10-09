@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PayrollRunOperations } from "../../app/hr/payroll/PayrollRunOperations";
 const state = vi.hoisted(() => ({ user: { id: "reviewer", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: {
-  formalPayrollRuns: vi.fn(), formalPayrollRun: vi.fn(), reviewFormalPayrollRun: vi.fn(), confirmFormalPayrollRun: vi.fn(),
+  formalPayrollRuns: vi.fn(), formalPayrollRun: vi.fn(), reviewFormalPayrollRun: vi.fn(), confirmFormalPayrollRun: vi.fn(), cancelFormalPayrollRun: vi.fn(),
 } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
@@ -66,4 +66,19 @@ it("context changes abort financial reads and clear selected employee amounts", 
   const view = render(<PayrollRunOperations />); await open(); const signal = state.api.formalPayrollRun.mock.calls[0]![3] as AbortSignal;
   state.user = { ...state.user, park_id: "other" }; view.rerender(<PayrollRunOperations />);
   expect(signal.aborted).toBe(true); expect(screen.queryByRole("region", { name: "批次工资明细" })).toBeNull();
+});
+
+it("pending cancellation retains reason/retry identity and cannot repeat after committed reload failure", async () => {
+  state.user.permissions.push(HR_PERMISSIONS.HR_PAYROLL_MANAGE);
+  state.api.formalPayrollRun.mockResolvedValue({...detail,canCancel:true});
+  state.api.cancelFormalPayrollRun.mockRejectedValueOnce(new Error("合成取消失败"));
+  render(<PayrollRunOperations/>);await open();
+  fireEvent.change(screen.getByLabelText("批次操作理由"),{target:{value:"废弃未确认结果后重算"}});
+  fireEvent.click(screen.getByRole("button",{name:"取消未确认批次"}));await screen.findByText("合成取消失败");
+  expect(screen.getByLabelText("批次操作理由")).toHaveValue("废弃未确认结果后重算");
+  state.api.cancelFormalPayrollRun.mockResolvedValue({id:"run",status:"cancelled",version:2});
+  state.api.formalPayrollRun.mockRejectedValue(new Error("reload failed"));
+  fireEvent.click(screen.getByRole("button",{name:"取消未确认批次"}));await screen.findByText(/操作已提交，刷新失败/);
+  expect(state.api.cancelFormalPayrollRun.mock.calls[0]).toEqual(state.api.cancelFormalPayrollRun.mock.calls[1]);
+  expect(screen.queryByRole("button",{name:"取消未确认批次"})).toBeNull();
 });

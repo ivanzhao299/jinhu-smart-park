@@ -28,10 +28,7 @@ import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparati
 import { PayrollInputReadiness } from "./PayrollInputReadiness";
 import { PayrollFormulaReview } from "./PayrollFormulaReview";
 import { PayrollRuleMaintenance } from "./PayrollRuleMaintenance";
-import { PayrollRunCreation } from "./PayrollRunCreation";
-import { PayrollInputOperations } from "./PayrollInputOperations";
-import { PayrollInputPreparation } from "./PayrollInputPreparation";
-import { PayrollRunOperations } from "./PayrollRunOperations";
+import { PayrollModernOperations } from "./PayrollModernOperations";
 import { PayrollLedgerExport } from "./PayrollLedgerExport";
 import { formatPayrollHistoryItemValue } from "./payroll-history-display";
 
@@ -232,7 +229,8 @@ export function HrPayrollClient() {
           </section>
         ) : null}
         {area === "online" && (canReadOnline || canSelfOnline) ? (
-          <><PayrollInputPreparation/><PayrollInputOperations/><PayrollRunCreation onCreated={()=>setPayrollRefresh(value=>value+1)}/><PayrollRunOperations key={payrollRefresh}/><OnlinePayroll
+          <><PayrollModernOperations onCreated={()=>setPayrollRefresh(value=>value+1)}/><OnlinePayroll
+            refresh={payrollRefresh}
             canManage={canManage}
             canRead={canReadOnline}
             canReadDetail={canReadOnlineDetail}
@@ -681,12 +679,12 @@ function ReconciliationWorkbench({
   );
 }
 
-function OnlinePayroll({canManage,canRead,canReadDetail,selfOnly,canReview,canConfirm}:{canManage:boolean;canRead:boolean;canReadDetail:boolean;selfOnly:boolean;canReview:boolean;canConfirm:boolean}){
+function OnlinePayroll({canManage,canRead,canReadDetail,selfOnly,canReview,canConfirm,refresh=0}:{canManage:boolean;canRead:boolean;canReadDetail:boolean;selfOnly:boolean;canReview:boolean;canConfirm:boolean;refresh?:number}){
   const [runs,setRuns]=useState<HrPayrollRun[]>([]),[slips,setSlips]=useState<HrPayslip[]>([]),[runSlips,setRunSlips]=useState<HrPayslip[]>([]);
   const [selectedRun,setSelectedRun]=useState<HrPayrollRun|null>(null),[detailTarget,setDetailTarget]=useState<HrPayrollRun|null>(null),[detailState,setDetailState]=useState<ViewState>("empty"),[setup,setSetup]=useState<"period"|null>(null),[message,setMessage]=useState(""),[state,setState]=useState<ViewState>("loading");
   const detailGeneration=useRef(0),detailAbort=useRef<AbortController|null>(null);
   const load=useCallback(async()=>{setState("loading");try{const token=getAccessToken();if(canRead){const r=await hrApi.payrollRuns(token);setRuns(r);setState(r.length?"ready":"empty");}else if(selfOnly){const rows=await hrApi.myPayslips(token);setSlips(rows);setState(rows.length?"ready":"empty");}}catch(e){setState(errorState(e));}},[canRead,selfOnly]);
-  useEffect(()=>{void load();return()=>{detailAbort.current?.abort();detailGeneration.current+=1;};},[load]);
+  useEffect(()=>{void load();return()=>{detailAbort.current?.abort();detailGeneration.current+=1;};},[load,refresh]);
   const createPeriod=async(form:FormData)=>{try{await hrApi.createPayrollPeriod({periodMonth:`${String(form.get("periodMonth"))}-01`,startDate:String(form.get("startDate")),endDate:String(form.get("endDate"))},getAccessToken());setSetup(null);await load();}catch(e){setMessage(e instanceof Error?e.message:"创建期间失败");}};
   const inspect=async(run:HrPayrollRun)=>{if(!canReadDetail)return;detailAbort.current?.abort();const current=++detailGeneration.current,controller=new AbortController();detailAbort.current=controller;setDetailTarget(run);setSelectedRun(null);setRunSlips([]);setDetailState("loading");try{const rows=await hrApi.payrollRunPayslips(run.id,getAccessToken(),controller.signal);if(current!==detailGeneration.current)return;setSelectedRun(run);setRunSlips(rows);setDetailState(rows.length?"ready":"empty");}catch(e){if(current===detailGeneration.current&&!(e instanceof DOMException&&e.name==="AbortError"))setDetailState(errorState(e));}};
   const closeDetail=()=>{detailAbort.current?.abort();detailGeneration.current+=1;setSelectedRun(null);setDetailTarget(null);setRunSlips([]);setDetailState("empty");};

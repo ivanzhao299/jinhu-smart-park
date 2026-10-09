@@ -1,3 +1,4 @@
+import { lockPayrollPeriodContext, assertPayrollCorrectionRoster, type PayrollPeriodContext } from "./hr-payroll-period-context";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, type EntityManager } from "typeorm";
@@ -12,8 +13,8 @@ import { ConfirmHrPayrollFormalInputDto, CreateHrPayrollFormalInputDto, HrPayrol
 import { buildHrSensitiveReadAuditInput } from "./hr-sensitive-read-audit";
 import { resolvePayrollEligibility } from "./hr-payroll-eligibility";
 
-type InputRow = { id: string; period_id: string; rule_set_id: string; rule_version_id: string; revision_no: number; version: number; status: string; employees: HrPayrollFormalEmployeeInputDto[]; reason: string; created_by: string; authored_by: string; snapshot_sha256: string };
-type PeriodRow = { id: string; month: string; start_date: string; end_date: string; status: string };
+type InputRow = { correction_window_id?: string | null; id: string; period_id: string; rule_set_id: string; rule_version_id: string; revision_no: number; version: number; status: string; employees: HrPayrollFormalEmployeeInputDto[]; reason: string; created_by: string; authored_by: string; snapshot_sha256: string };
+type PeriodRow = PayrollPeriodContext;
 
 @Injectable()
 export class HrPayrollFormalInputService {
@@ -50,13 +51,11 @@ export class HrPayrollFormalInputService {
       throw error;
     }
   }
-  private async period(manager: EntityManager, scope: TenantParkScope, id: string): Promise<PeriodRow> {
-    const rows = await manager.query("SELECT id,to_char(period_month,'YYYY-MM') AS month,to_char(start_date,'YYYY-MM-DD') AS start_date,to_char(end_date,'YYYY-MM-DD') AS end_date,status FROM hr_payroll_period WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE", [id, scope.tenantId, scope.parkId]);
-    if (rows.length !== 1) throw new NotFoundException("Payroll period not found");
-    if (rows[0].status !== "open") throw new ConflictException("Payroll period is closed");
-    return rows[0];
+  private period(manager: EntityManager, scope: TenantParkScope, id: string, windowId?: string | null) {
+    return lockPayrollPeriodContext(manager, scope, id, windowId);
   }
   private async employeeInputs(manager: EntityManager, scope: TenantParkScope, period: PeriodRow, ruleSetId: string, ruleVersionId: string, employees: HrPayrollFormalEmployeeInputDto[]) {
+    await assertPayrollCorrectionRoster(manager, scope, period, ruleSetId, employees.map(employee => employee.employeeId));
     const rule = await this.rules.lockEffectiveVersion(manager, scope, ruleSetId, period.month, ruleVersionId);
     const direct = rule.definition.items.filter(item => item.expression === null).map(item => item.code).sort();
     if (new Set(employees.map(employee => employee.employeeId)).size !== employees.length) throw new BadRequestException("Duplicate payroll employees");
@@ -86,7 +85,7 @@ export class HrPayrollFormalInputService {
     return result;
   }
   private project(row: InputRow) {
-    return { id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
+    return { ...(row.correction_window_id ? { correctionWindowId: row.correction_window_id } : {}), id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
       revisionNo: row.revision_no, version: row.version, status: row.status, employees: row.employees, reason: row.reason };
   }
   private auditWrite(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal, row: InputRow, action: string) {
@@ -101,10 +100,11 @@ export class HrPayrollFormalInputService {
     if (!isUUID(id) || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("Invalid confirmed payroll input selection");
     const selected: InputRow[] = await manager.query("SELECT * FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [id, scope.tenantId, scope.parkId]);
     if (selected.length !== 1) throw new NotFoundException("Payroll input not found");
-    const period = await this.period(manager, scope, selected[0]!.period_id);
+    const period = await this.period(manager, scope, selected[0]!.period_id, selected[0]!.correction_window_id);
     const rule = await this.rules.lockEffectiveVersion(manager, scope, selected[0]!.rule_set_id, period.month, selected[0]!.rule_version_id);
     const rows: InputRow[] = await manager.query("SELECT * FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3 FOR SHARE", [id, scope.tenantId, scope.parkId]);
     const row = rows[0]!;
+    if (period.correctionWindow && row.revision_no <= period.correctionWindow.inputHeadAtOpen) throw new ConflictException("Select a new input revision for this correction window");
     if (row.status !== "confirmed" || row.version !== expectedVersion) throw new ConflictException("Payroll input is not confirmed or its selected version changed");
     const latest: Array<{ id: string }> = await manager.query("SELECT id FROM hr_payroll_formal_input WHERE period_id=$1 AND rule_set_id=$2 AND tenant_id=$3 AND park_id=$4 AND status='confirmed' ORDER BY revision_no DESC LIMIT 1 FOR SHARE", [row.period_id, row.rule_set_id, scope.tenantId, scope.parkId]);
     if (latest[0]?.id !== row.id) throw new ConflictException("A newer confirmed payroll input exists; refresh selection");
@@ -119,15 +119,15 @@ export class HrPayrollFormalInputService {
     return this.transaction(async manager => {
       const periods = await manager.query("SELECT id FROM hr_payroll_period WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false", [dto.periodId, scope.tenantId, scope.parkId]);
       if (periods.length !== 1) throw new NotFoundException("Payroll period not found");
-      const params = [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId ?? null];
-      const rows: Array<InputRow & { display_name: string; employee_count: number; total: number }> = await manager.query(`SELECT i.id,i.period_id,i.rule_set_id,i.rule_version_id,i.revision_no,i.version,i.status,
+      const params = [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId ?? null, dto.correctionWindowId ?? null];
+      const rows: Array<InputRow & { display_name: string; employee_count: number; total: number }> = await manager.query(`SELECT i.id,i.period_id,i.rule_set_id,i.rule_version_id,i.revision_no,i.version,i.status,i.correction_window_id,
         s.display_name,jsonb_array_length(i.employees) AS employee_count,count(*) OVER()::int AS total
         FROM hr_payroll_formal_input i JOIN hr_payroll_rule_set s ON (s.id,s.tenant_id,s.park_id)=(i.rule_set_id,i.tenant_id,i.park_id)
-        WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.period_id=$3 AND ($4::uuid IS NULL OR i.rule_set_id=$4)
-        ORDER BY s.display_name,i.revision_no DESC,i.id LIMIT $5 OFFSET $6`, [...params, dto.pageSize, (dto.page - 1) * dto.pageSize]);
-      const total = rows[0]?.total ?? (await manager.query("SELECT count(*)::int AS total FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND ($4::uuid IS NULL OR rule_set_id=$4)", params))[0].total;
+        WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.period_id=$3 AND ($4::uuid IS NULL OR i.rule_set_id=$4) AND ($5::uuid IS NULL OR i.correction_window_id=$5)
+        ORDER BY s.display_name,i.revision_no DESC,i.id LIMIT $6 OFFSET $7`, [...params, dto.pageSize, (dto.page - 1) * dto.pageSize]);
+      const total = rows[0]?.total ?? (await manager.query("SELECT count(*)::int AS total FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND ($4::uuid IS NULL OR rule_set_id=$4) AND ($5::uuid IS NULL OR correction_window_id=$5)", params))[0].total;
       await this.readAudit(manager, scope, actor, rows.length, false);
-      return { items: rows.map(row => ({ id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
+      return { items: rows.map(row => ({ ...(row.correction_window_id ? { correctionWindowId: row.correction_window_id } : {}), id: row.id, periodId: row.period_id, ruleSetId: row.rule_set_id, ruleVersionId: row.rule_version_id,
         displayName: row.display_name, revisionNo: row.revision_no, version: row.version, status: row.status, employeeCount: row.employee_count })), total, page: dto.page, page_size: dto.pageSize };
     });
   }
@@ -137,14 +137,18 @@ export class HrPayrollFormalInputService {
     if (!actor.isSuper && !actor.permissions.includes("*") && !actor.permissions.includes(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)) throw new ForbiddenException("Payroll rule read permission required");
     const dto = await this.dto(HrPayrollFormalPreparationQueryDto, input);
     return this.transaction(async manager => {
-      const period = await this.period(manager, scope, dto.periodId);
+      const period = await this.period(manager, scope, dto.periodId, dto.correctionWindowId);
+      await assertPayrollCorrectionRoster(manager, scope, period, dto.ruleSetId);
       const rule = await this.rules.lockEffectiveVersion(manager, scope, dto.ruleSetId, period.month);
       const sets = await manager.query("SELECT display_name FROM hr_payroll_rule_set WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [dto.ruleSetId, scope.tenantId, scope.parkId]);
       const heads = await manager.query("SELECT coalesce(max(revision_no),0)::int AS head FROM hr_payroll_formal_input WHERE period_id=$1 AND rule_set_id=$2 AND tenant_id=$3 AND park_id=$4", [dto.periodId, dto.ruleSetId, scope.tenantId, scope.parkId]);
-      const params = [scope.tenantId, scope.parkId, dto.keyword ?? ""];
-      const predicate = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND ($3='' OR position(lower($3) in lower(full_name))>0 OR position(lower($3) in lower(employee_code))>0)";
-      const rows: Array<{id:string;version:number;employee_code:string;full_name:string;hire_date:string|null;departure_date:string|null;total:number}> = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date,count(*) OVER()::int AS total FROM hr_employee WHERE ${predicate} ORDER BY employee_code,id LIMIT $4 OFFSET $5`, [...params, dto.pageSize, (dto.page-1)*dto.pageSize]);
+      const params = [scope.tenantId, scope.parkId, dto.keyword ?? "", period.correctionWindow?.originalRunId ?? null];
+      const predicate = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND ($4::uuid IS NULL OR id IN (SELECT employee_id FROM hr_payslip WHERE run_id=$4 AND tenant_id=$1 AND park_id=$2 AND NOT is_deleted)) AND ($3='' OR position(lower($3) in lower(full_name))>0 OR position(lower($3) in lower(employee_code))>0)";
+      const rows: Array<{id:string;version:number;employee_code:string;full_name:string;hire_date:string|null;departure_date:string|null;total:number}> = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date,count(*) OVER()::int AS total FROM hr_employee WHERE ${predicate} ORDER BY employee_code,id LIMIT $5 OFFSET $6`, [...params, dto.pageSize, (dto.page-1)*dto.pageSize]);
       const total = rows[0]?.total ?? (await manager.query(`SELECT count(*)::int AS total FROM hr_employee WHERE ${predicate}`, params))[0].total;
+      const correctionEmployeeCount: number | undefined = period.correctionWindow
+        ? (await manager.query("SELECT count(*)::int AS total FROM hr_payslip WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [period.correctionWindow.originalRunId, scope.tenantId, scope.parkId]))[0].total
+        : undefined;
       const items = rows.map(employee => {
         let eligibility: {eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null = null;
         try {
@@ -155,7 +159,7 @@ export class HrPayrollFormalInputService {
           hireDate:employee.hire_date,departureDate:employee.departure_date,eligibility,requiresSettlementWindow:eligibility===null};
       });
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {resource:"hr.payroll_input",action:"读取当期工资准备",bizType:"hr_payroll_formal_input",bizId:null,path:"/hr/payroll/inputs/preparation",fieldGroups:["identity","payroll_input"],projection:"full",itemCount:items.length}),manager);
-      return {period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
+      return {...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId,correctionEmployeeCount} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
         rule:{id:rule.id,ruleSetId:dto.ruleSetId,displayName:sets[0].display_name,definition:rule.definition},expectedHeadRevision:heads[0].head,
         items,total,page:dto.page,page_size:dto.pageSize};
     });
@@ -167,7 +171,7 @@ export class HrPayrollFormalInputService {
       const rows: InputRow[] = await manager.query("SELECT * FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [id, scope.tenantId, scope.parkId]);
       if (rows.length !== 1) throw new NotFoundException("Payroll input not found");
       const row = rows[0]!;
-      const [availability] = await manager.query("SELECT p.status='open' AND p.is_deleted=false AND $4=(SELECT max(i.revision_no) FROM hr_payroll_formal_input i WHERE i.period_id=$1 AND i.rule_set_id=$5 AND i.tenant_id=$2 AND i.park_id=$3) AS actionable FROM hr_payroll_period p WHERE p.id=$1 AND p.tenant_id=$2 AND p.park_id=$3",[row.period_id,scope.tenantId,scope.parkId,row.revision_no,row.rule_set_id]);
+      const [availability] = await manager.query("SELECT ((p.status='open' AND $6::uuid IS NULL) OR (p.status='closed' AND EXISTS(SELECT 1 FROM hr_payroll_correction_window w WHERE (w.id,w.period_id,w.tenant_id,w.park_id,w.rule_set_id)=($6,p.id,p.tenant_id,p.park_id,$5) AND w.status='open' AND $4>w.input_head_at_open))) AND p.is_deleted=false AND $4=(SELECT max(i.revision_no) FROM hr_payroll_formal_input i WHERE i.period_id=$1 AND i.rule_set_id=$5 AND i.tenant_id=$2 AND i.park_id=$3) AS actionable FROM hr_payroll_period p WHERE p.id=$1 AND p.tenant_id=$2 AND p.park_id=$3",[row.period_id,scope.tenantId,scope.parkId,row.revision_no,row.rule_set_id,row.correction_window_id ?? null]);
       const granted=(permission:string)=>actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission);
       const actionable=row.status==="draft" && availability?.actionable===true;
       const selected = row.employees.slice((dto.page - 1) * dto.pageSize, dto.page * dto.pageSize);
@@ -182,19 +186,19 @@ export class HrPayrollFormalInputService {
     this.authority(actor);
     const dto = await this.dto(CreateHrPayrollFormalInputDto, input);
     return this.transaction(async manager => {
-      const period = await this.period(manager, scope, dto.periodId);
+      const period = await this.period(manager, scope, dto.periodId, dto.correctionWindowId);
       const employees = await this.employeeInputs(manager, scope, period, dto.ruleSetId, dto.ruleVersionId, dto.employees);
       const [{ head }] = await manager.query("SELECT coalesce(max(revision_no),0)::int AS head FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND rule_set_id=$4", [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId]);
       if (head !== dto.expectedHeadRevision) throw new ConflictException("Payroll input list changed; refresh");
-      const row = typeormQueryRows<InputRow>(await manager.query("INSERT INTO hr_payroll_formal_input(tenant_id,park_id,period_id,rule_set_id,rule_version_id,revision_no,employees,snapshot_sha256,reason,created_by,authored_by) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,repeat('0',64),$8,$9,$9) RETURNING *", [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId, dto.ruleVersionId, head + 1, JSON.stringify(employees), dto.reason, actor.sub]))[0]!;
+      const row = typeormQueryRows<InputRow>(await manager.query("INSERT INTO hr_payroll_formal_input(tenant_id,park_id,period_id,rule_set_id,rule_version_id,revision_no,employees,snapshot_sha256,reason,created_by,authored_by,correction_window_id) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,repeat('0',64),$8,$9,$9,$10) RETURNING *", [scope.tenantId, scope.parkId, dto.periodId, dto.ruleSetId, dto.ruleVersionId, head + 1, JSON.stringify(employees), dto.reason, actor.sub, dto.correctionWindowId ?? null]))[0]!;
       await this.auditWrite(manager, scope, actor, row, "保存工资项目输入");
       return this.project(row);
     });
   }
   private async lock(manager: EntityManager, scope: TenantParkScope, id: string, expectedVersion: number) {
-    const identity = await manager.query("SELECT period_id FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [id, scope.tenantId, scope.parkId]);
+    const identity = await manager.query("SELECT period_id,correction_window_id FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [id, scope.tenantId, scope.parkId]);
     if (identity.length !== 1) throw new NotFoundException("Payroll input not found");
-    const period = await this.period(manager, scope, identity[0].period_id);
+    const period = await this.period(manager, scope, identity[0].period_id, identity[0].correction_window_id);
     const rows: InputRow[] = await manager.query("SELECT * FROM hr_payroll_formal_input WHERE id=$1 AND tenant_id=$2 AND park_id=$3 FOR UPDATE", [id, scope.tenantId, scope.parkId]);
     if (rows[0]!.version !== expectedVersion || rows[0]!.status !== "draft") throw new ConflictException("Only the current draft can be changed; confirmed inputs require a new revision");
     const [{ head }] = await manager.query("SELECT max(revision_no)::int AS head FROM hr_payroll_formal_input WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3 AND rule_set_id=$4", [scope.tenantId, scope.parkId, rows[0]!.period_id, rows[0]!.rule_set_id]);

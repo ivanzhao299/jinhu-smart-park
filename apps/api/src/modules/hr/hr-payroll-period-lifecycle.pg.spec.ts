@@ -1,0 +1,196 @@
+import "reflect-metadata";
+import assert from "node:assert/strict";
+import test from "node:test";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { DataSource } from "typeorm";
+import type { AuditService } from "../audit/audit.service";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { HrPayrollFormalRuleService } from "./hr-payroll-formal-rule.service";
+import { HrPayrollFormalInputService } from "./hr-payroll-formal-input.service";
+import { HrPayrollFormalRunService } from "./hr-payroll-formal-run.service";
+import { HrPayrollPeriodLifecycleService } from "./hr-payroll-period-lifecycle.service";
+
+test("actual payroll close and correction-window foundation preserves frozen results, scope, concurrency and required audit", { skip: process.env.HR_PAYROLL_PERIOD_LIFECYCLE_PG_REQUIRED !== "1" }, async () => {
+  assert.equal(process.env.POSTGRES_HOST, "127.0.0.1");
+  assert.equal(process.env.POSTGRES_PORT, "15490");
+  const database = `jinhu_hr_period_lab_${randomUUID().replaceAll("-", "")}`;
+  const connection = { type: "postgres" as const, host: "127.0.0.1", port: 15490, username: "postgres" };
+  const admin = await new DataSource({ ...connection, database: "postgres" }).initialize();
+  let db: DataSource | undefined;
+  try {
+    await admin.query(`CREATE DATABASE "${database}"`);
+    db = await new DataSource({ ...connection, database }).initialize();
+    // Only the employee and catalog prerequisites are synthetic fixtures. All listed migrations are unchanged.
+    await db.query(`CREATE EXTENSION "uuid-ossp";
+      CREATE TABLE hr_payroll_book(id uuid,tenant_id varchar(64),park_id varchar(64),is_deleted boolean DEFAULT false,book_name text,legacy_scheme int,UNIQUE(tenant_id,park_id,id));
+      CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),version int,hire_date date,departure_date date,is_deleted boolean DEFAULT false,employee_code text,full_name text);
+      CREATE TABLE test_required_audit(id uuid DEFAULT uuid_generate_v4(),metadata jsonb NOT NULL);`);
+    for (const migration of ["000233_hr_compensation_payroll", "000243_hr_payroll_concurrency_integrity", "000347_hr_payroll_formal_rules", "000348_hr_payroll_formal_inputs", "000349_hr_payroll_formal_run_evidence", "000350_hr_payroll_formal_run_ledger_bridge"]) {
+      await db.query(readFileSync(resolve(__dirname, `../../../../../database/migrations/${migration}.sql`), "utf8"));
+    }
+    const scope = { tenantId: randomUUID(), parkId: randomUUID() }, periodId = randomUUID(), emptyId = randomUUID(), legacyClosed = randomUUID(), employeeId = randomUUID();
+    const author: JwtPrincipal = { ...scope, sub: randomUUID(), username: "synthetic-author", roles: [], permissions: ["*"] };
+    const reviewer = { ...author, sub: randomUUID(), username: "synthetic-reviewer" };
+    let failAudit = false;
+    const audit = { recordOperationRequired: async (value: object, manager: { query: DataSource["query"] }) => {
+      if (failAudit) throw new Error("required audit unavailable");
+      await manager.query("INSERT INTO test_required_audit(metadata) VALUES($1::jsonb)", [JSON.stringify(value)]);
+    } } as unknown as AuditService;
+    await db.query("INSERT INTO hr_payroll_period(id,tenant_id,park_id,period_month,start_date,end_date,status) VALUES($1,$4,$5,'2026-10-01','2026-10-01','2026-10-31','open'),($2,$4,$5,'2026-11-01','2026-11-01','2026-11-30','open'),($3,$4,$5,'2026-09-01','2026-09-01','2026-09-30','closed')", [periodId, emptyId, legacyClosed, scope.tenantId, scope.parkId]);
+    await db.query("INSERT INTO hr_employee VALUES($1,$2,$3,1,'2026-01-01',null,false,'SYNTHETIC','合成员工')", [employeeId, scope.tenantId, scope.parkId]);
+    const rules = new HrPayrollFormalRuleService(db, audit), inputs = new HrPayrollFormalInputService(db, rules, audit), runs = new HrPayrollFormalRunService(db, inputs, audit);
+    const set = await rules.createSet(scope, author, { ruleCode: "CLOSE_TEST", displayName: "关账合成验证" });
+    const draft = await rules.createVersion(scope, author, set.id, { expectedHeadRevision: 0, reason: "明确直接输入", definition: { roundingPolicy: "line_items_half_up", items: [
+      { code: "收入", role: "earning", expression: null }, { code: "税", role: "tax", expression: null },
+      { code: "应发", role: "gross", expression: "[收入]" }, { code: "实发", role: "net", expression: "[应发]-[税]" },
+    ] } });
+    const submitted = await rules.submitVersion(scope, author, draft.id, { expectedVersion: draft.version });
+    await rules.reviewVersion(scope, reviewer, draft.id, { expectedVersion: submitted.version, decision: "approve", effectiveFrom: "2026-10", reason: "独立核对" });
+    const payload = { periodId, ruleSetId: set.id, ruleVersionId: draft.id, expectedHeadRevision: 0, reason: "当期合成输入", employees: [{ employeeId, expectedEmployeeVersion: 1, directItems: { 收入: "123.45", 税: "0.00" } }] };
+    // Seed the pre-351 input through the unchanged 348 guard, including its independent confirmation.
+    // Current service creates new window inputs later; it cannot create a new-column row before upgrade.
+    const [input] = await db.query("INSERT INTO hr_payroll_formal_input(tenant_id,park_id,period_id,rule_set_id,rule_version_id,revision_no,employees,snapshot_sha256,reason,created_by,authored_by) VALUES($1,$2,$3,$4,$5,1,$6::jsonb,repeat('0',64),$7,$8,$8) RETURNING id,version", [scope.tenantId, scope.parkId, periodId, set.id, draft.id, JSON.stringify(payload.employees), payload.reason, author.sub]);
+    await db.query("UPDATE hr_payroll_formal_input SET status='confirmed',confirmed_by=$2,confirmed_at=now(),version=version+1 WHERE id=$1", [input.id, reviewer.sub]);
+    const confirmedInput = { version: 2 };
+    const originalInputHash = (await db.query("SELECT snapshot_sha256 FROM hr_payroll_formal_input WHERE id=$1", [input.id]))[0].snapshot_sha256;
+    const run = await runs.create(scope, author, { inputId: input.id, expectedInputVersion: confirmedInput.version });
+    const originalResult = (await db.query("SELECT snapshot FROM hr_payroll_formal_run_evidence WHERE run_id=$1", [run.id]))[0].snapshot;
+    // Upgrade over real input/run evidence and a historical closed period, not only an empty schema.
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000351_hr_payroll_period_close_correction.sql"), "utf8"));
+    assert.equal((await db.query("SELECT snapshot_sha256 FROM hr_payroll_formal_input WHERE id=$1", [input.id]))[0].snapshot_sha256, originalInputHash);
+    const lifecycle = new HrPayrollPeriodLifecycleService(db, audit);
+    assert.equal((await db.query("SELECT status,version FROM hr_payroll_period WHERE id=$1", [legacyClosed]))[0].status, "closed");
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM hr_payroll_period_close"))[0].n, 0);
+    assert.equal((await db.query("SELECT correction_window_id FROM hr_payroll_formal_input WHERE id=$1", [input.id]))[0].correction_window_id, null);
+    await assert.rejects(() => lifecycle.close(scope, reviewer, emptyId, { expectedVersion: 1, reason: "空期间" }), ConflictException);
+    await assert.rejects(() => lifecycle.close(scope, reviewer, periodId, { expectedVersion: 1, reason: "仍有待复核结果" }), ConflictException);
+    await assert.rejects(() => lifecycle.close({ ...scope, parkId: randomUUID() }, reviewer, periodId, { expectedVersion: 1, reason: "跨范围" }), NotFoundException);
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_period SET status='closed',version=2 WHERE id=$1", [periodId]), /governed payroll/);
+    const reviewed = await runs.transition(scope, reviewer, run.id, "review", { expectedVersion: run.version, reason: "独立复核" });
+    const confirmed = await runs.transition(scope, reviewer, run.id, "confirm", { expectedVersion: reviewed.version, reason: "独立确认" });
+    // A detached close action cannot be committed without the matching period transition.
+    await assert.rejects(() => db!.query("INSERT INTO hr_payroll_period_close(tenant_id,park_id,period_id,period_version,reason,created_by) VALUES($1,$2,$3,1,'遗漏更新',$4)", [scope.tenantId, scope.parkId, periodId, reviewer.sub]), /commit together/);
+    failAudit = true;
+    await assert.rejects(() => lifecycle.close(scope, reviewer, periodId, { expectedVersion: 1, reason: "事务失败" }), /audit unavailable/);
+    failAudit = false;
+    assert.equal((await db.query("SELECT status FROM hr_payroll_period WHERE id=$1", [periodId]))[0].status, "open");
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM hr_payroll_period_close"))[0].n, 0);
+    const closeRace = await Promise.allSettled([1, 2].map(() => lifecycle.close(scope, reviewer, periodId, { expectedVersion: 1, reason: "本月核对完成" })));
+    assert.equal(closeRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(closeRace.filter(r => r.status === "rejected").length, 1);
+    for (const sql of ["UPDATE hr_payroll_period SET status='open' WHERE id=$1", "UPDATE hr_payroll_period SET end_date='2026-11-01' WHERE id=$1", "UPDATE hr_payroll_period SET is_deleted=true WHERE id=$1", "DELETE FROM hr_payroll_period WHERE id=$1"]) await assert.rejects(() => db!.query(sql, [periodId]), /frozen/);
+    await assert.rejects(() => db!.query("DELETE FROM hr_payroll_period_close"), /immutable/);
+    await assert.rejects(() => inputs.create(scope, author, { ...payload, expectedHeadRevision: 1 }), /closed/);
+    await assert.rejects(() => db!.transaction(manager => inputs.lockConfirmedInput(manager, scope, author, input.id, confirmedInput.version)), /period is closed/);
+    const selection = { expectedVersion: 2, originalRunId: run.id, expectedRunVersion: confirmed.version, reason: "核对后更正项目输入" };
+    await assert.rejects(() => lifecycle.openCorrection(scope, author, periodId, { ...selection, expectedVersion: 1 }), ConflictException);
+    await assert.rejects(() => lifecycle.openCorrection(scope, author, periodId, { ...selection, expectedRunVersion: 1 }), ConflictException);
+    await assert.rejects(() => lifecycle.openCorrection(scope, author, periodId, { ...selection, originalRunId: randomUUID() }), ConflictException);
+    failAudit = true;
+    await assert.rejects(() => lifecycle.openCorrection(scope, author, periodId, selection), /audit unavailable/);
+    failAudit = false;
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM hr_payroll_correction_window"))[0].n, 0);
+    const openingRace = await Promise.allSettled([1, 2].map(() => lifecycle.openCorrection(scope, author, periodId, selection)));
+    assert.equal(openingRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(openingRace.filter(r => r.status === "rejected").length, 1);
+    const window = openingRace.flatMap(r => r.status === "fulfilled" ? [r.value] : [])[0]!;
+    assert.equal(window.inputHeadAtOpen, 1);
+    const context = await lifecycle.context(scope, author, periodId);
+    assert.equal(context.status, "closed"); assert.equal(context.confirmedRunCount, 1); assert.equal(context.pendingRunCount, 0);
+    assert.equal(context.correctionWindow!.id, window.id);
+    for (const forbidden of ["snapshot", "created_by", "123.45", "snapshot_sha256"]) assert.equal(JSON.stringify(context).includes(forbidden), false);
+    failAudit = true; await assert.rejects(() => lifecycle.context(scope, author, periodId), /audit unavailable/); failAudit = false;
+    await assert.rejects(() => lifecycle.completeCorrection(scope, reviewer, window.id, { expectedVersion: 1, completedRunId: run.id, reason: "原结果不是更正结果" }), ConflictException);
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_correction_window SET reason='覆盖' WHERE id=$1", [window.id]), /immutable/);
+    await assert.rejects(() => db!.query("DELETE FROM hr_payroll_correction_window WHERE id=$1", [window.id]), /cannot be deleted/);
+    failAudit = true; await assert.rejects(() => lifecycle.cancelCorrection(scope, reviewer, window.id, { expectedVersion: 1, reason: "取消回滚" }), /audit unavailable/); failAudit = false;
+    assert.equal((await lifecycle.context(scope, author, periodId)).correctionWindow!.version, 1);
+    await assert.rejects(() => lifecycle.cancelCorrection({ ...scope, parkId: randomUUID() }, reviewer, window.id, { expectedVersion: 1, reason: "跨范围" }), NotFoundException);
+    const cancelRace = await Promise.allSettled([1, 2].map(() => lifecycle.cancelCorrection(scope, reviewer, window.id, { expectedVersion: 1, reason: "核对后无需更正" })));
+    assert.equal(cancelRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(cancelRace.filter(r => r.status === "rejected").length, 1);
+    assert.equal((await lifecycle.context(scope, author, periodId)).correctionWindow, null);
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_correction_window SET status='open',version=version+1,closed_by=null,closed_at=null,close_reason=null WHERE id=$1", [window.id]), /immutable/);
+    const replacement = await lifecycle.openCorrection(scope, author, periodId, selection);
+    assert.notEqual(replacement.id, window.id);
+    const outsider = randomUUID();
+    await db.query("INSERT INTO hr_employee VALUES($1,$2,$3,1,'2026-01-01',null,false,'OUTSIDE','名单外合成员工')", [outsider, scope.tenantId, scope.parkId]);
+    const preparation = await inputs.preparation(scope, author, { periodId, ruleSetId: set.id, correctionWindowId: replacement.id, page: 1, pageSize: 1 });
+    assert.equal(preparation.correctionWindowId, replacement.id);
+    assert.equal(preparation.correctionOfRunId, run.id);
+    assert.equal(preparation.total, 1); assert.equal(preparation.items[0]!.employeeId, employeeId);
+    assert.equal((await inputs.preparation(scope, author, { periodId, ruleSetId: set.id, correctionWindowId: replacement.id, page: 2, pageSize: 1 })).total, 1);
+    await assert.rejects(() => inputs.preparation(scope, author, { periodId, ruleSetId: randomUUID(), correctionWindowId: replacement.id, page: 1, pageSize: 1 }), /original payroll rule/);
+    await assert.rejects(() => inputs.create(scope, author, { ...payload, expectedHeadRevision: 1, correctionWindowId: replacement.id, employees: [{ ...payload.employees[0]!, employeeId: outsider }] }), /original employee roster/);
+    // A cancelled window cannot be reused, even though the period is still closed.
+    await assert.rejects(() => inputs.create(scope, author, { ...payload, expectedHeadRevision: 1, correctionWindowId: window.id }), /window changed or closed/);
+    const correctionInput = await inputs.create(scope, author, { ...payload, expectedHeadRevision: 1, correctionWindowId: replacement.id });
+    assert.equal(correctionInput.correctionWindowId, replacement.id);
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_formal_input SET employees=$2::jsonb,version=version+1 WHERE id=$1", [correctionInput.id, JSON.stringify([{ ...payload.employees[0]!, employeeId: outsider }])]), /original roster/);
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_formal_input SET correction_window_id=$2,version=version+1 WHERE id=$1", [correctionInput.id, window.id]), /current correction window/);
+    assert.equal((await inputs.detail(scope, author, correctionInput.id, { page: 1, pageSize: 20 })).canEdit, true);
+    const editedInput = await inputs.update(scope, author, correctionInput.id, { expectedVersion: correctionInput.version, reason: "更正收入", employees: [{ ...payload.employees[0]!, directItems: { 收入: "125.45", 税: "0.00" } }] });
+    const correctionConfirmed = await inputs.confirm(scope, reviewer, correctionInput.id, { expectedVersion: editedInput.version });
+    const correctionPayload = { inputId: correctionInput.id, expectedInputVersion: correctionConfirmed.version, correctionOfRunId: run.id, correctionReason: "更正直接收入" };
+    await assert.rejects(() => runs.create(scope, author, { inputId: correctionInput.id, expectedInputVersion: correctionConfirmed.version }), /original run bound/);
+    const choices = await runs.options(scope, author, { inputId: correctionInput.id, expectedInputVersion: correctionConfirmed.version, page: 1, pageSize: 20 });
+    assert.equal(choices.canCreateBase, false); assert.deepEqual(choices.correctionRuns.map(r => r.id), [run.id]);
+    const calculateRace = await Promise.allSettled([1, 2].map(() => runs.create(scope, author, correctionPayload)));
+    assert.equal(calculateRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(calculateRace.filter(r => r.status === "rejected").length, 1);
+    const correction = calculateRace.flatMap(r => r.status === "fulfilled" ? [r.value] : [])[0]!;
+    assert.equal(correction.netAmount, "125.45");
+    const newEvidence = (await db.query("SELECT snapshot FROM hr_payroll_formal_run_evidence WHERE run_id=$1", [correction.id]))[0].snapshot;
+    assert.equal(newEvidence.period.correctionWindow.id, replacement.id);
+    await assert.rejects(() => lifecycle.cancelCorrection(scope, reviewer, replacement.id, { expectedVersion: 1, reason: "已有待复核结果" }), ConflictException);
+    await assert.rejects(() => lifecycle.completeCorrection(scope, reviewer, replacement.id, { expectedVersion: 1, completedRunId: correction.id, reason: "结果未确认" }), ConflictException);
+    assert.equal((await runs.detail(scope, reviewer, correction.id, { page: 1, pageSize: 20 })).canReview, true);
+    const correctionReviewed = await runs.transition(scope, reviewer, correction.id, "review", { expectedVersion: correction.version, reason: "独立复核更正结果" });
+    const correctionFinal = await runs.transition(scope, reviewer, correction.id, "confirm", { expectedVersion: correctionReviewed.version, reason: "确认更正结果" });
+    await assert.rejects(() => runs.transition(scope, author, correction.id, "cancel", { expectedVersion: correctionFinal.version, reason: "不得取消已确认结果" }), ConflictException);
+    failAudit = true;
+    await assert.rejects(() => lifecycle.completeCorrection(scope, reviewer, replacement.id, { expectedVersion: 1, completedRunId: correction.id, reason: "事务回滚" }), /audit unavailable/);
+    failAudit = false;
+    const completeRace = await Promise.allSettled([1, 2].map(() => lifecycle.completeCorrection(scope, reviewer, replacement.id, { expectedVersion: 1, completedRunId: correction.id, reason: "更正核对完成" })));
+    assert.equal(completeRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(completeRace.filter(r => r.status === "rejected").length, 1);
+    assert.equal((await lifecycle.context(scope, author, periodId)).correctionWindow, null);
+    await assert.rejects(() => runs.create(scope, author, correctionPayload), /window changed or closed/);
+    await assert.rejects(() => lifecycle.openCorrection(scope, author, periodId, selection), ConflictException);
+    const nextWindow = await lifecycle.openCorrection(scope, author, periodId, { ...selection, originalRunId: correction.id, expectedRunVersion: correctionFinal.version });
+    assert.equal(nextWindow.inputHeadAtOpen, 2);
+    const abandonedInput = await inputs.create(scope, author, { ...payload, expectedHeadRevision: 2, correctionWindowId: nextWindow.id });
+    const abandonedConfirmed = await inputs.confirm(scope, reviewer, abandonedInput.id, { expectedVersion: abandonedInput.version });
+    const abandonedRun = await runs.create(scope, author, { inputId: abandonedInput.id, expectedInputVersion: abandonedConfirmed.version, correctionOfRunId: correction.id, correctionReason: "待核对更正" });
+    failAudit = true;
+    await assert.rejects(() => runs.transition(scope, author, abandonedRun.id, "cancel", { expectedVersion: abandonedRun.version, reason: "取消回滚" }), /audit unavailable/);
+    failAudit = false;
+    assert.equal((await db.query("SELECT status FROM hr_payroll_run WHERE id=$1", [abandonedRun.id]))[0].status, "calculated");
+    const abandonRace = await Promise.allSettled([1, 2].map(() => runs.transition(scope, author, abandonedRun.id, "cancel", { expectedVersion: abandonedRun.version, reason: "核对后取消待复核更正" })));
+    assert.equal(abandonRace.filter(r => r.status === "fulfilled").length, 1);
+    assert.equal(abandonRace.filter(r => r.status === "rejected").length, 1);
+    assert.equal((await db.query("SELECT status FROM hr_payslip WHERE run_id=$1", [abandonedRun.id]))[0].status, "cancelled");
+    await lifecycle.cancelCorrection(scope, reviewer, nextWindow.id, { expectedVersion: 1, reason: "结束合成验证" });
+    assert.deepEqual((await db.query("SELECT snapshot FROM hr_payroll_formal_run_evidence WHERE run_id=$1", [run.id]))[0].snapshot, originalResult);
+    assert.equal((await db.query("SELECT net_amount::text,status FROM hr_payslip WHERE run_id=$1", [run.id]))[0].net_amount, "123.45");
+    assert.equal((await db.query("SELECT status FROM hr_payroll_period WHERE id=$1", [periodId]))[0].status, "closed");
+    // Ordinary open-period cancellation also permits an exact-input retry with a new run number.
+    const retryInput = await inputs.create(scope, author, { ...payload, periodId: emptyId });
+    const retryConfirmed = await inputs.confirm(scope, reviewer, retryInput.id, { expectedVersion: retryInput.version });
+    const retryPayload = { inputId: retryInput.id, expectedInputVersion: retryConfirmed.version };
+    const cancelledBase = await runs.create(scope, author, retryPayload);
+    await runs.transition(scope, author, cancelledBase.id, "cancel", { expectedVersion: cancelledBase.version, reason: "取消后重试" });
+    assert.equal((await runs.options(scope, author, { ...retryPayload, page: 1, pageSize: 20 })).canCreateBase, true);
+    const retriedBase = await runs.create(scope, author, retryPayload);
+    assert.equal(retriedBase.runNo, cancelledBase.runNo + 1);
+    await runs.transition(scope, author, retriedBase.id, "cancel", { expectedVersion: retriedBase.version, reason: "结束合成验证" });
+  } finally {
+    if (db?.isInitialized) await db.destroy();
+    await admin.query(`DROP DATABASE IF EXISTS "${database}" WITH(FORCE)`);
+    assert.equal((await admin.query("SELECT datname FROM pg_database WHERE datname=$1", [database])).length, 0);
+    await admin.destroy();
+  }
+});

@@ -67,3 +67,49 @@ it("auth context changes abort reads and discard the prior draft", async () => {
   state.user={...state.user,park_id:"other",permissions:[]};view.rerender(<PayrollInputPreparation/>);
   expect(signal.aborted).toBe(true);expect(screen.queryByLabelText("合成员工 · 收入")).toBeNull();
 });
+
+it("closed-period correction binds its window and requires the complete original roster", async () => {
+  const correction = { periodId: "period", month: "2026-10", windowId: "window", ruleSetId: "rules", ruleName: "工资规则", originalRunId: "original", originalRunNo: 1 };
+  state.api.payrollPreparation.mockResolvedValue({ ...data, correctionWindowId: "window", correctionOfRunId: "original", correctionEmployeeCount: 2, total: 2 });
+  render(<PayrollInputPreparation correction={correction}/>);
+  fireEvent.click(await screen.findByLabelText("选择 合成员工（SYN）")); fill();
+  expect(state.api.payrollPeriods).not.toHaveBeenCalled(); expect(state.api.payrollRules).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("工资期间")).toBeDisabled(); expect(screen.getByLabelText("工资规则")).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" })); await screen.findByText("更正须保留原完整名单，请选择全部 2 位员工。"); expect(state.api.createPayrollInput).not.toHaveBeenCalled();
+  state.api.payrollPreparation.mockResolvedValue({ ...data, correctionWindowId: "window", correctionOfRunId: "original", correctionEmployeeCount: 1, total: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "查询员工" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "保存工资输入草稿" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" })); await waitFor(() => expect(state.api.createPayrollInput).toHaveBeenCalledTimes(1));
+  expect(state.api.createPayrollInput.mock.calls[0]![0].correctionWindowId).toBe("window");
+  expect(state.api.payrollPreparation.mock.calls[0]![0].correctionWindowId).toBe("window");
+});
+
+it("a stale correction response cannot enable preparation or keep the previous context draft", async () => {
+  const correction = { periodId: "period", month: "2026-10", windowId: "window", ruleSetId: "rules", ruleName: "工资规则", originalRunId: "original", originalRunNo: 1 };
+  state.api.payrollPreparation.mockResolvedValue({ ...data, correctionWindowId: "old-window" });
+  render(<PayrollInputPreparation correction={correction}/>);
+  await screen.findByText("更正窗口已变化，请刷新期间状态后继续。"); expect(screen.getByRole("button", { name: "保存工资输入草稿" })).toBeDisabled();
+});
+
+
+it("correction search totals never replace the complete original roster count", async () => {
+  const correction = { periodId: "period", month: "2026-10", windowId: "window", ruleSetId: "rules", ruleName: "工资规则", originalRunId: "original", originalRunNo: 1 };
+  const second = { ...candidate, employeeId: "second", employeeCode: "SECOND", fullName: "第二员工" };
+  const complete = { ...data, correctionWindowId: "window", correctionOfRunId: "original", correctionEmployeeCount: 2, total: 2, items: [candidate, second] };
+  state.api.payrollPreparation.mockResolvedValue(complete);
+  render(<PayrollInputPreparation correction={correction}/>);
+  fireEvent.click(await screen.findByLabelText("选择 合成员工（SYN）")); fill();
+  state.api.payrollPreparation.mockResolvedValue({ ...complete, total: 1, items: [second] });
+  fireEvent.change(screen.getByLabelText("搜索员工"), { target: { value: "第二" } });
+  fireEvent.click(screen.getByRole("button", { name: "查询员工" }));
+  await waitFor(() => expect(screen.queryByLabelText("选择 合成员工（SYN）")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" }));
+  await screen.findByText("更正须保留原完整名单，请选择全部 2 位员工。");
+  expect(state.api.createPayrollInput).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByLabelText("选择 第二员工（SECOND）"));
+  fireEvent.change(screen.getByLabelText("第二员工 · 收入"), { target: { value: "100.00" } });
+  fireEvent.change(screen.getByLabelText("第二员工 · 税"), { target: { value: "0" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" }));
+  await waitFor(() => expect(state.api.createPayrollInput).toHaveBeenCalledTimes(1));
+  expect(state.api.createPayrollInput.mock.calls[0]![0].employees.map((row: { employeeId: string }) => row.employeeId)).toEqual(["employee", "second"]);
+});

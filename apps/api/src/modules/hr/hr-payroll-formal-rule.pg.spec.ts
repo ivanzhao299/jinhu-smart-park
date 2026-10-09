@@ -35,7 +35,7 @@ test("actual rule migration and service enforce draft concurrency, review, effec
       id uuid,tenant_id varchar(64),park_id varchar(64),is_deleted boolean DEFAULT false,
       book_name text DEFAULT '正式工资账套',source_system text DEFAULT 'yuzhou-v10',legacy_scheme int DEFAULT 1,
       UNIQUE(tenant_id,park_id,id));
-      CREATE TABLE hr_payroll_period(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),period_month date,start_date date,end_date date,status text,is_deleted boolean DEFAULT false);
+      CREATE TABLE hr_payroll_period(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),period_month date,start_date date,end_date date,status text,is_deleted boolean DEFAULT false,version int DEFAULT 1,update_by uuid,update_time timestamptz);
       CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),version int,hire_date date,departure_date date,is_deleted boolean DEFAULT false,employee_code text DEFAULT 'SYNTHETIC',full_name text DEFAULT '合成员工');
       CREATE TABLE test_required_audit(id uuid DEFAULT uuid_generate_v4(), metadata jsonb NOT NULL);`);
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000347_hr_payroll_formal_rules.sql"), "utf8"));
@@ -45,6 +45,7 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000243_hr_payroll_concurrency_integrity.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000349_hr_payroll_formal_run_evidence.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000350_hr_payroll_formal_run_ledger_bridge.sql"), "utf8"));
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000351_hr_payroll_period_close_correction.sql"), "utf8"));
     const tenantId = randomUUID(), parkId = randomUUID(), scope = { tenantId, parkId };
     const creator: JwtPrincipal = { sub: randomUUID(), username: "synthetic-author", tenantId, parkId, roles: [], permissions: [HR_PERMISSIONS.HR_PAYROLL_READ, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_PAYROLL_REVIEW, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_RULE_READ, HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW] };
     const reviewer = { ...creator, sub: randomUUID(), username: "synthetic-reviewer" };
@@ -214,9 +215,8 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     await db.query("UPDATE hr_employee SET version=3 WHERE id=$1", [employeeId]);
     await assert.rejects(() => db!.transaction(manager => inputService.lockConfirmedInput(manager, scope, creator, inputDraft.id, confirmedInput.version)), /employee changed/);
     await db.query("UPDATE hr_employee SET version=2 WHERE id=$1", [employeeId]);
-    await db.query("UPDATE hr_payroll_period SET status='closed' WHERE id=$1", [periodId]);
-    await assert.rejects(() => db!.transaction(manager => inputService.lockConfirmedInput(manager, scope, creator, inputDraft.id, confirmedInput.version)), /period is closed/);
-    await db.query("UPDATE hr_payroll_period SET status='open' WHERE id=$1", [periodId]);
+    // Governed close is irreversible; the lifecycle PG suite proves closed-input rejection.
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_period SET status='closed' WHERE id=$1", [periodId]), /governed payroll period close/);
     await assert.rejects(() => db!.query("UPDATE hr_payroll_formal_input SET reason='overwrite',version=version+1 WHERE id=$1", [inputDraft.id]), /immutable/);
     await assert.rejects(() => inputService.create(scope, creator, { ...payload, expectedHeadRevision: 1,
       employees: [{ ...payload.employees[0]!, expectedEmployeeVersion: 2, directItems: { 收入: 10 as unknown as string, 税: "0" } }] }), BadRequestException);

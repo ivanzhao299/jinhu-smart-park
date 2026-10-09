@@ -16,6 +16,7 @@ export class HrPayrollFormalInputPayloadDto {
   @IsString() @MinLength(1) @MaxLength(1000) reason!: string;
 }
 export class CreateHrPayrollFormalInputDto extends HrPayrollFormalInputPayloadDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() correctionWindowId?: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() periodId!: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId!: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleVersionId!: string;
@@ -28,6 +29,7 @@ export class ConfirmHrPayrollFormalInputDto {
   @IsInt() @Min(1) @Max(2147483646) expectedVersion!: number;
 }
 export class HrPayrollFormalInputQueryDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() correctionWindowId?: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() periodId!: string;
   @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId?: string;
   @Type(() => Number) @IsInt() @Min(1) page = 1;
@@ -38,6 +40,7 @@ export class HrPayrollFormalInputDetailQueryDto {
   @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize = 20;
 }
 export class HrPayrollFormalPreparationQueryDto extends HrPayrollFormalInputDetailQueryDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() correctionWindowId?: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() periodId!: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId!: string;
   @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.trim() : value)

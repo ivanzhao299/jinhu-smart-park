@@ -16,12 +16,14 @@ function money(value: string) {
   const match = /^(-?)(\d+)\.(\d{2})$/u.exec(value);
   return match ? `¥${match[1]}${match[2]!.replace(/\B(?=(\d{3})+(?!\d))/gu, ",")}.${match[3]}` : "金额暂不可用";
 }
-export function PayrollRunOperations() {
-  const user = useAuthUser(); return <RunWorkspace key={JSON.stringify(user)} />;
+type Props = { onChanged?: () => void };
+export function PayrollRunOperations(props:Props) {
+  const user = useAuthUser(); return <RunWorkspace key={JSON.stringify(user)} {...props}/>;
 }
-function RunWorkspace() {
+function RunWorkspace({onChanged}:Props) {
   const user = useAuthUser(), canRead = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ);
   const canDetail = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ) && hasPermission(user, HR_PERMISSIONS.HR_EMPLOYEE_READ);
+  const canCancel = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
   const canReview = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_REVIEW), canConfirm = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_CONFIRM);
   const [month, setMonth] = useState(""), [status, setStatus] = useState(""), [page, setPage] = useState(1);
   const [rows, setRows] = useState<FormalPayrollRunListItem[]>([]), [total, setTotal] = useState(0);
@@ -55,17 +57,18 @@ function RunWorkspace() {
     finally { if (alive.current && detailRequest.current === controller) setDetailLoading(false); }
   }, [canDetail, selected?.id, detailPage]);
   useEffect(() => { setExpanded(new Set()); void loadDetail().catch(() => undefined); return () => detailRequest.current?.abort(); }, [loadDetail]);
-  const transition = async (action: "review" | "confirm") => {
-    if (!detail || lock.current || committed || detailLoading || !reason.trim() || (action === "review" ? !canReview || !detail.canReview : !canConfirm || !detail.canConfirm)) return;
+  const transition = async (action: "review" | "confirm" | "cancel") => {
+    if (!detail || lock.current || committed || detailLoading || !reason.trim() || (action === "cancel" ? !canCancel || !detail.canCancel : action === "review" ? !canReview || !detail.canReview : !canConfirm || !detail.canConfirm)) return;
     lock.current = true; setBusy(true); setDetailError(""); setNotice("");
     const body = { expectedVersion: detail.version, reason: reason.trim() }, signature = JSON.stringify({ id: detail.id, action, body });
     if (retry.current?.signature !== signature) retry.current = { signature, key: createIdempotencyKey(`hr-payroll-${action}`) };
     try {
-      const result = await (action === "review" ? hrApi.reviewFormalPayrollRun : hrApi.confirmFormalPayrollRun)(detail.id, body, getAccessToken(), retry.current.key);
+      const result = await (action === "cancel" ? hrApi.cancelFormalPayrollRun : action === "review" ? hrApi.reviewFormalPayrollRun : hrApi.confirmFormalPayrollRun)(detail.id, body, getAccessToken(), retry.current.key);
       if (!alive.current) return;
       setCommitted(true); retry.current = null; setReason("");
-      setDetail(value => value ? { ...value, status: result.status, version: result.version, canReview: false, canConfirm: false } : value);
-      setNotice(action === "review" ? "批次已复核。" : "批次及工资条已确认。");
+      setDetail(value => value ? { ...value, status: result.status, version: result.version, canReview: false, canConfirm: false, canCancel: false } : value);
+      setNotice(action === "cancel" ? "未确认批次已取消，金额与证据保留。" : action === "review" ? "批次已复核。" : "批次及工资条已确认。");
+      onChanged?.();
       try { await Promise.all([loadList(), loadDetail()]); }
       catch { if (alive.current) { setCommitted(true); setDetailError("操作已提交，刷新失败；请刷新查看最新状态，勿重复提交。"); } }
     } catch (cause) { if (alive.current) setDetailError(hrLoadErrorMessage(cause, "工资批次操作失败")); }
@@ -84,7 +87,7 @@ function RunWorkspace() {
       <div className="ds-kpi-grid">{([{ field: "grossAmount", label: "应发合计" }, { field: "deductionAmount", label: "扣款合计" }, { field: "personalTax", label: "税额合计" }, { field: "netAmount", label: "实发合计" }] as const).map(item => <article className="ds-kpi-card" key={item.field}><span>{item.label}</span><strong>{money(detail.totals[item.field])}</strong></article>)}</div>
       {!detailLoading ? <div className={`ds-mobile-record-list ${styles.records}`}>{detail.items.map(employee => <article className="ds-mobile-record" key={employee.employeeId}><strong>{employee.fullName ?? "员工信息暂不可用"} · {employee.employeeCode ?? "编号暂不可用"}</strong><span>应发 {money(employee.grossAmount)} · 扣款 {money(employee.deductionAmount)}</span><span>税额 {money(employee.personalTax)} · 实发 {money(employee.netAmount)}</span><button className="secondary-button" type="button" onClick={() => setExpanded(value => { const next = new Set(value); if (next.has(employee.employeeId)) next.delete(employee.employeeId); else next.add(employee.employeeId); return next; })}>{expanded.has(employee.employeeId) ? "收起工资分项" : `查看工资分项（${employee.items.length}项）`}</button>{expanded.has(employee.employeeId) ? <dl className={styles.amounts}>{employee.items.map(item => <div className={styles.amountRow} key={item.code}><dt>{item.code} · {roles[item.role]}</dt><dd>{item.amount === null ? item.decimalValue : money(item.amount)}</dd></div>)}</dl> : null}</article>)}{!detail.items.length ? <p>当前页暂无员工工资条。</p> : null}</div> : null}
       <div className={styles.actions}><button className="secondary-button" type="button" disabled={busy || detailLoading || detailPage <= 1} onClick={() => setDetailPage(value => value - 1)}>员工上一页</button><span>第 {detail.page} / {Math.max(1, Math.ceil(detail.total / 20))} 页 · 共 {detail.total} 位员工</span><button className="secondary-button" type="button" disabled={busy || detailLoading || detailPage * 20 >= detail.total} onClick={() => setDetailPage(value => value + 1)}>员工下一页</button></div>
-      {(canReview && detail.canReview || canConfirm && detail.canConfirm) ? <><label className="form-field"><span>复核或确认理由</span><textarea required maxLength={500} value={reason} disabled={busy || committed || detailLoading} onChange={event => setReason(event.target.value)} /></label><div className={styles.actions}>{canReview && detail.canReview ? <button className="primary-button" type="button" disabled={busy || committed || detailLoading || !reason.trim()} onClick={() => void transition("review")}>复核此批次</button> : null}{canConfirm && detail.canConfirm ? <button className="primary-button" type="button" disabled={busy || committed || detailLoading || !reason.trim()} onClick={() => void transition("confirm")}>确认批次及工资条</button> : null}</div></> : null}
+      {(canReview && detail.canReview || canConfirm && detail.canConfirm || canCancel && detail.canCancel) ? <><label className="form-field"><span>{canCancel && detail.canCancel ? "批次操作理由" : "复核或确认理由"}</span><textarea required maxLength={500} value={reason} disabled={busy || committed || detailLoading} onChange={event => setReason(event.target.value)} /></label><div className={styles.actions}>{canReview && detail.canReview ? <button className="primary-button" type="button" disabled={busy || committed || detailLoading || !reason.trim()} onClick={() => void transition("review")}>复核此批次</button> : null}{canConfirm && detail.canConfirm ? <button className="primary-button" type="button" disabled={busy || committed || detailLoading || !reason.trim()} onClick={() => void transition("confirm")}>确认批次及工资条</button> : null}{canCancel && detail.canCancel ? <button className="secondary-button" type="button" disabled={busy || committed || detailLoading || !reason.trim()} onClick={() => void transition("cancel")}>取消未确认批次</button> : null}</div></> : null}
     </section> : null}
   </section>;
 }
