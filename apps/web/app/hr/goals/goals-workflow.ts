@@ -1,4 +1,4 @@
-import type {HrGoal,HrGoalCycle,HrGoalManagementContext,HrGoalOptions,HrGoalCheckin} from "../../../lib/hr-api";
+import type {HrGoal,HrGoalCycle,HrGoalManagementContext,HrGoalOptions,HrGoalCheckin,HrGoalChangeContext,HrGoalChangeDetail} from "../../../lib/hr-api";
 const text=(v:unknown)=>typeof v==="string";
 const nullableText=(v:unknown)=>v==null||text(v);
 export function requireGoalRows(value:HrGoal[]):HrGoal[]{
@@ -12,3 +12,10 @@ export function requireGoalOptions(value:HrGoalOptions):HrGoalOptions{if(!value|
 
 export function requireCheckinGoals(value:HrGoal[]):HrGoal[]{requireGoalRows(value);if(value.some(g=>g.status!=="active"||g.goalLevel!=="employee"||!text(g.ownerEmployeeId)))throw new Error("本人进度办理目标无效，请重新读取。");return value;}
 export function requireGoalHistory(value:HrGoalCheckin[]):HrGoalCheckin[]{if(!Array.isArray(value)||value.some(c=>!c||![c.id,c.goalId,c.progress,c.summary,c.confidence,c.createTime].every(text)||![c.currentValue,c.risks,c.nextAction].every(nullableText)))throw new Error("目标进展记录无效，请重新读取。");return value;}
+
+export function requireGoalChangeContext(value:HrGoalChangeContext):HrGoalChangeContext{requireGoalContext(value);requireGoalOptions(value);requireGoalCycles(value.cycles);return value;}
+export function requireGoalChangeDetail(value:HrGoalChangeDetail):HrGoalChangeDetail{
+ if(!value||!value.goal)throw new Error("目标版本详情无效，请重新读取。");requireGoalRows([value.goal]);
+ if(!(value.goal.metricDefinition===null||text(value.goal.metricDefinition))||!Array.isArray(value.collaborators)||value.collaborators.some(c=>!c||!text(c.employeeId)||!nullableText(c.employeeName))||!Array.isArray(value.versions)||value.versions.some(v=>!v||!Number.isSafeInteger(v.versionNo)||v.versionNo<1||!text(v.changeReason)||!text(v.createdAt)||!v.snapshot||typeof v.snapshot!=="object"||Array.isArray(v.snapshot)))throw new Error("目标版本详情无效，请重新读取。");
+ return value;
+}
