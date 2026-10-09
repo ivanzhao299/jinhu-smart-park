@@ -1,0 +1,6 @@
+# 设计
+GET /hr/goals/management-context, exact HR_GOAL_MANAGE。服务重复精确门控；单参数化SQL按同一tenant/park、管理组织树及员工连接计算can_manage。返回items只含可办理目标，parents只含非员工可选上级的最小字段；非全园区管理者的集团draft不进入结果，其他组织记录均不进入。required敏感读审计只记数量/投影/字段组。
+
+Web managementGoalContext读方法+goalCycleAction/goalAction写方法沿用既有IdempotencyInterceptor路由。页面分开加载cycles、management-context、readable-goals、options和checkin-context，generation/abort控制；写成功关闭旧操作表单并刷新，刷新错误不推翻已提交；写失败保留DOM输入，所有操作和目标切换写中互锁，用户上下文key隔离。台账只按管理上下文呈现动作；普通只读与本人checkin各按精确权限。
+
+本人进度也使用精确HR_GOAL_CHECKIN的GET /hr/goals/checkin-context，仅本人拥有且active的员工目标，不含协作者/其他人目标。避免进度权限被迫依赖HR_EMPLOYEE_SELF_READ或普通目标读。空结果required审计。

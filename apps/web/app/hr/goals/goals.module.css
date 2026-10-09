@@ -1,0 +1,9 @@
+.workspace .records { display: grid; gap: 12px; margin-top: 16px; }
+.workspace :global(.ds-button),
+.workspace input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.workspace select { min-height: 44px; }
+.workspace textarea { min-height: 100px; }
+.workspace fieldset { min-width: 0; }
+.progressFields { display: contents; }
+
+.actionForm { grid-template-columns: minmax(0, 1fr); }
