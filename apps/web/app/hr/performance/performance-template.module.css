@@ -13,3 +13,11 @@
   .fields, .row { grid-template-columns: minmax(0, 1fr); }
   .actions button:global(.ds-button) { width: auto; flex: 1 1 auto; }
 }
+
+.operationForm { min-width: 0; }
+.operationForm > div, .operationForm > p { grid-column: 1 / -1; }
+.reviewDimension { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 16px; min-width: 0; }
+.operationForm :global(.ds-button) { min-height: 44px; }
+@media (max-width: 640px) {
+  .reviewDimension { grid-template-columns: minmax(0, 1fr); }
+}
