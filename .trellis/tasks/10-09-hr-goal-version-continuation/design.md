@@ -1,0 +1,9 @@
+# 技术设计
+
+复用hr_goal、hr_goal_version、hr_goal_action及原层级/权重/期间数据库校验。增加精确CHANGE操作上下文和详情，返回完整当前metricDefinition、协作者ID、口径版本与可见历史快照。普通目录投影保持原字段，不暴露内部来源信息；变更读取完成required sensitive-read audit后返回。
+
+PUT原changeGoal扩展expectedVersionNo，锁当前目标后验证原组织/员工范围及domain current_version_no，再验证请求新范围。由原事务追加版本、changed动作和协作者更换；同一事务required audit。既有进度不覆盖。操作权限和组织范围分离：CHANGE可管理其实际管理子树，CHANGE+READ具备既有park范围；不能要求无关MANAGE才能进入变更专用读取。
+
+Web独立变更工作流/精确选项与详情，复用HR原资源读和同步写互斥；用受控定义表单保持失败草稿，完整携带未改变协作者。历史与编辑绑定目标ID及domain版本。只修改本切片相关接口/页面/测试，无角色授予或认证扩展。
+
+回退应用；无新增数据库结构。旧未使用的changeGoal adapter补稳定幂等参数，DTO必须提供expectedVersionNo以防陈旧覆盖；仓内所有调用一并核对。

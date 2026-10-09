@@ -1018,4 +1018,6 @@ Prepared profile normal-user execution and same-operation preview recovery: [Pre
 - [Goal operation contexts](./hr-goal-operation-context.md) — Scoped draft management, own active checkins and modern explicit state actions.
 
 Attendance returned-request correction and approval continuity: [Request Continuation](./hr-attendance-request-edit.md).
+
+- [Goal definition continuity](./hr-goal-definition-continuity.md) — Exact CHANGE editor, domain version conflict and immutable history.
 - [Performance review browsing](./hr-performance-review-browsing.md) — Scoped period/status filters, bounded reviews and continuation.

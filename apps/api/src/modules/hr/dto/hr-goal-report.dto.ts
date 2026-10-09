@@ -1,3 +1,4 @@
+import {OmitType} from "@nestjs/mapped-types";
 import {Transform,Type} from "class-transformer";
 import {ArrayMaxSize,IsArray,IsDateString,IsIn,IsInt,IsNumber,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
@@ -6,7 +7,11 @@ const number=({value}:{value:unknown})=>value===undefined||value===""?undefined:
 export class HrGoalListQueryDto{@IsOptional()@IsUUID()cycle_id?:string;@IsOptional()@IsIn(["draft","active","completed","cancelled"])status?:string;}
 export class CreateHrGoalCycleT6Dto{@Transform(trim)@IsString()@MaxLength(64)cycleCode!:string;@Transform(trim)@IsString()@MaxLength(100)cycleName!:string;@IsDateString()startDate!:string;@IsDateString()endDate!:string;}
 export class CreateHrGoalT6Dto{@IsUUID()cycleId!:string;@IsOptional()@IsUUID()parentGoalId?:string;@IsIn(["group","department","employee"])goalLevel!:string;@Transform(trim)@IsString()@MaxLength(200)goalName!:string;@IsOptional()@IsUUID()ownerOrgId?:string;@IsOptional()@IsUUID()ownerEmployeeId?:string;@Transform(number)@IsNumber()@Min(.0001)@Max(1)weight!:number;@IsIn(["numeric","percentage","milestone","count","currency"])metricType!:string;@Transform(trim)@IsString()@MaxLength(100)metricName!:string;@Transform(number)@IsNumber()targetValue!:number;@Transform(trim)@IsString()@MaxLength(32)unit!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(1000)metricDefinition?:string;@IsDateString()startDate!:string;@IsDateString()dueDate!:string;@IsOptional()@IsArray()@ArrayMaxSize(50)@IsUUID("4",{each:true})collaboratorEmployeeIds?:string[];}
-export class ChangeHrGoalDto extends CreateHrGoalT6Dto{@Transform(trim)@IsString()@MaxLength(1000)changeReason!:string;}
+export class ChangeHrGoalDto extends OmitType(CreateHrGoalT6Dto,["targetValue"] as const){
+ @Transform(number) @IsInt() @Min(1) expectedVersionNo!:number;
+ @IsOptional() @Transform(({value})=>value===null?null:number({value})) @IsNumber() targetValue?:number|null;
+ @Transform(trim) @IsString() @MaxLength(1000) changeReason!:string;
+}
 export class HrGoalCycleActionDto{@IsIn(["activate","close"])action!:"activate"|"close";}
 export class HrGoalActionDto{@IsIn(["activate","complete","cancel"])action!:"activate"|"complete"|"cancel";@Transform(trim)@IsString()@MaxLength(1000)reason!:string;}
 export class HrGoalCheckinT6Dto{@Transform(number)@IsNumber()@Min(0)@Max(1)progress!:number;@IsOptional()@Transform(number)@IsNumber()currentValue?:number;@Transform(trim)@IsString()@MaxLength(2000)summary!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(2000)risks?:string;@IsIn(["high","medium","low"])confidence!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(2000)nextAction?:string;}
