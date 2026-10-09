@@ -1,0 +1,5 @@
+# Design
+
+PayrollStatementActions接收HistoryPayroll已成功读取的row/items及selfOnly/既有money格式函数。React portal到body下唯一print-area；屏幕只露出DS按钮，打印使用现有共享表格样式，局部CSS仅决定所选打印面的布局和排除其余页面（避免隐藏占位导致空白页）。无弹窗/新请求/第三方服务/HTML字符串。
+
+HistoryPayroll以完整当前user上下文为key，身份/园区/权限改变同步卸载旧状态和portal。原generation/AbortController继续防止迟到明细回填。成功明细挂载动作；所有加载/拒绝/错误路径不挂载。原unit显示语义与空值保持，未知值不补零。

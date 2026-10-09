@@ -1,0 +1,15 @@
+.action { min-height:44px; white-space:normal; }
+.statement { overflow-wrap:anywhere; }
+@media print {
+  :global(body):has(.statement) { background:#fff !important; color:#000 !important; }
+  :global(body):has(.statement) > :not(.statement) { display:none !important; }
+  .statement { position:static; width:100%; }
+  .statement h1 { font-size:20px; }
+  .statement table { margin-block:16px; }
+  .statement caption { text-align:left; font-weight:600; margin-bottom:6px; }
+  .statement thead { display:table-header-group; }
+  .statement th,.statement td { white-space:pre-wrap; }
+  .statement tbody th { background:#fff !important; font-weight:400; text-align:left; }
+  .items { table-layout:fixed; }
+  .items th:first-child { width:65%; }
+}
