@@ -42,7 +42,8 @@ export function TrainingResultForm({ participant, mode, busy, onSubmit }: {
     try {
       const payload = trainingResultPayload(new FormData(event.currentTarget), mode, participant.correctionVersion, canCost, canCertificate);
       flight.current = true;
-      await onSubmit(payload);
+      const saved = await onSubmit(payload);
+      if (!saved) setMessage("培训结果未保存，已保留本次填写，请核对错误提示后重试。");
     } catch (error) { setMessage(error instanceof Error ? error.message : "提交结果失败"); }
     finally { flight.current = false; }
   }}>
