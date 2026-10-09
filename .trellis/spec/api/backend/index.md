@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Talent complete scoped employee candidates: [Talent Employee Options](./hr-talent-employee-options.md).
+
 Modern payroll rule drafts, review and effective interpretation: [Formal Payroll Rules](./hr-payroll-formal-rules.md).
 
 Payroll period close and explicit correction-window foundation: [Payroll Period Lifecycle](./hr-payroll-period-lifecycle.md).

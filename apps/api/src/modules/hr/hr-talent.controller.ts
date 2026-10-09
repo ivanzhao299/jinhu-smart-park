@@ -31,6 +31,7 @@ import {
   TransitionHrDevelopmentActionDto,
   TransitionHrDevelopmentPlanDto,
 } from "./dto/hr-talent.dto";
+import { HrTalentEmployeeOptionsDto } from "./dto/hr-talent-employee-options.dto";
 import { HrTalentService } from "./hr-talent.service";
 
 const readAtoms = [
@@ -53,6 +54,12 @@ export class HrTalentController {
   options(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal) {
     return this.service.options(s, a);
   }
+  @Get("employee-options")
+  @RequireAnyPermissions(...readAtoms, HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,
+    HR_PERMISSIONS.HR_TALENT_REVIEW, HR_PERMISSIONS.HR_SUCCESSION_MANAGE,
+    HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE)
+  employeeOptions(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal,
+    @Query() q: HrTalentEmployeeOptionsDto) { return this.service.employeeOptions(s, a, q); }
   @Get("profiles") @RequireAnyPermissions(...readAtoms) profiles(
     @CurrentScope() s: TenantParkScope,
     @CurrentUser() a: JwtPrincipal,

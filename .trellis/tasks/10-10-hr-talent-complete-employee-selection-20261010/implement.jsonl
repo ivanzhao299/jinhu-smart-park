@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/api/backend/hr-talent-employee-options.md", "reason": "Exact talent permissions, scope, strict query and minimal projection"}
+{"file": ".trellis/spec/web/frontend/hr-talent-employee-selection.md", "reason": "Five independent selection drafts, retention, lazy requests, desktop/phone"}

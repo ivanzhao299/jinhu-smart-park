@@ -9,7 +9,7 @@ vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../components/auth/PermissionGuard", () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: {
-  talentOptions: vi.fn(), talentProfiles: vi.fn(), talentSessions: vi.fn(), talentSuccession: vi.fn(),
+  talentEmployeeOptions: vi.fn(), talentOptions: vi.fn(), talentProfiles: vi.fn(), talentSessions: vi.fn(), talentSuccession: vi.fn(),
   developmentPlans: vi.fn(), talentSubjects: vi.fn(), createTalentProfile: vi.fn(),
   decideTalentSubject: vi.fn(), createTalentSession: vi.fn(), createCriticalPosition: vi.fn(), createSuccessor: vi.fn(),
 } }));
@@ -17,6 +17,7 @@ vi.mock("../../lib/hr-api", () => ({ hrApi: {
 beforeEach(() => {
   vi.resetAllMocks();
   state.user = { permissions: [H.HR_TALENT_READ, H.HR_TALENT_PROFILE_CREATE, H.HR_TALENT_REVIEW, H.HR_SUCCESSION_MANAGE] };
+  vi.mocked(hrApi.talentEmployeeOptions).mockResolvedValue({items:[{id:"employee-a",fullName:"合成员工",employeeCode:"SYN-E"}],total:1,page:1,page_size:20});
   vi.mocked(hrApi.talentOptions).mockResolvedValue({ employees: [{ id: "employee-a", fullName: "合成员工", employeeCode: "SYN-E", orgId: null }], positions: [] });
   vi.mocked(hrApi.talentProfiles).mockResolvedValue([{ id: "profile-a", snapshotNo: 1, asOfDate: "2090-01-01", employeeName: "合成员工", employeeCode: "SYN-E", performanceSource: {}, feedbackSource: {}, createdAt: "2090-01-01" }]);
   vi.mocked(hrApi.talentSessions).mockResolvedValue([{ id: "session-a", sessionCode: "SYN-S", sessionName: "合成盘点", reviewDate: "2090-01-01", status: "active", subjectCount: 1 }]);
@@ -29,6 +30,7 @@ it("freezes the exact chosen employee and date through the existing operation", 
   render(<HrTalentClient />);
   await screen.findByRole("option", { name: /合成盘点/ });
   fireEvent.click(screen.getByRole("button", { name: "冻结画像" }));
+  await screen.findByRole("option",{name:"合成员工 · SYN-E"});
   fireEvent.change(screen.getByLabelText("员工"), { target: { value: "employee-a" } });
   fireEvent.change(screen.getByLabelText("数据时点"), { target: { value: "2090-01-02" } });
   fireEvent.submit(screen.getByRole("button", { name: "确认冻结" }).closest("form")!);

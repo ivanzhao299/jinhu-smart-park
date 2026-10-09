@@ -26,6 +26,8 @@ import { HrNotificationService } from "./hr-notification.service";
 import { firstHrMutationRow } from "./hr-query-result";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
+import type { HrTalentEmployeeOptionsDto } from "./dto/hr-talent-employee-options.dto";
+
 type Row = Record<string, unknown>;
 type Access = "park" | "managed_org_tree" | "self" | "none";
 const has = (a: JwtPrincipal, p: string) =>
@@ -161,6 +163,30 @@ export class HrTalentService {
           : "park",
     );
     return { employees, positions };
+  }
+
+  async employeeOptions(s: TenantParkScope, a: JwtPrincipal, q: HrTalentEmployeeOptionsDto) {
+    this.assertScope(s, a);
+    const allowed = [HR_PERMISSIONS.HR_TALENT_READ, HR_PERMISSIONS.HR_TALENT_TEAM_READ,
+      HR_PERMISSIONS.HR_TALENT_SELF_READ, HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,
+      HR_PERMISSIONS.HR_TALENT_REVIEW, HR_PERMISSIONS.HR_SUCCESSION_MANAGE,
+      HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE].some(permission => has(a, permission));
+    const access = this.access(s, a);
+    if (!allowed || access === "none") throw new ForbiddenException("Talent options permission required");
+    const params: unknown[] = [s.tenantId, s.parkId, a.sub];
+    let filter = `e.tenant_id=$1 AND e.park_id=$2 AND $3::uuid IS NOT NULL AND e.is_deleted=false AND e.employment_status='active'${this.employeePredicate(access, "e", "$3")}`;
+    const keyword = q.keyword?.trim();
+    if (keyword) {
+      params.push(`%${keyword.replace(/[\\%_]/g, "\\$&")}%`);
+      filter += ` AND (e.full_name ILIKE $4 OR e.employee_code ILIKE $4)`;
+    }
+    const [rows, count] = await Promise.all([
+      this.db.query(`SELECT e.id,e.employee_code "employeeCode",e.full_name "fullName" FROM hr_employee e WHERE ${filter} ORDER BY e.employee_code,e.id LIMIT $${params.length+1} OFFSET $${params.length+2}`, [...params, q.page_size, (q.page-1)*q.page_size]),
+      this.db.query(`SELECT count(*)::int total FROM hr_employee e WHERE ${filter}`, params),
+    ]);
+    const items: Array<{id: string; employeeCode: string; fullName: string}> = rows.map((row: {id: string; employeeCode: string; fullName: string}) => ({id: row.id, employeeCode: row.employeeCode, fullName: row.fullName}));
+    await recordHrSensitiveRead(this.audit, s, a, {resource: "hr.talent_employee_options", action: "读取人才员工候选", bizType: "hr_employee", path: "/hr/talent/employee-options", fieldGroups: ["identity"], projection: access === "managed_org_tree" ? "team" : access === "self" ? "self" : "park", itemCount: items.length});
+    return {items, total: count[0].total, page: q.page, page_size: q.page_size};
   }
 
   async createProfile(

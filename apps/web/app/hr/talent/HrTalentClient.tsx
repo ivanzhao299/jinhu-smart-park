@@ -17,6 +17,8 @@ import {
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
+import {type HrEmployeeOption} from "../components/HrEmployeeSelection";
+import {TalentEmployeePicker} from "./TalentEmployeePicker";
 import talentStyles from "./hr-talent.module.css";
 
 const EMPTY_OPTIONS: HrTalentOptions = { employees: [], positions: [] };
@@ -34,6 +36,10 @@ const statusLabel: Record<string, string> = {
 };
 type Panel = "profile" | "session" | "position" | "successor" | "plan" | null;
 export function HrTalentClient() {
+  const user=useAuthUser();
+  return <TalentView key={JSON.stringify(user)}/>;
+}
+function TalentView() {
   const user = useAuthUser(),
     canProfile = hasPermission(user, HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE),
     canReview = hasPermission(user, HR_PERMISSIONS.HR_TALENT_REVIEW),
@@ -71,6 +77,12 @@ export function HrTalentClient() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [panel, setPanel] = useState<Panel>(null);
+  const [profileEmployees,setProfileEmployees]=useState<HrEmployeeOption[]>([]);
+  const [sessionEmployees,setSessionEmployees]=useState<HrEmployeeOption[]>([]);
+  const [successorEmployees,setSuccessorEmployees]=useState<HrEmployeeOption[]>([]);
+  const [planEmployees,setPlanEmployees]=useState<HrEmployeeOption[]>([]);
+  const [actionOwners,setActionOwners]=useState<Record<string,HrEmployeeOption[]>>({});
+  const [openActionPlans,setOpenActionPlans]=useState<Record<string,boolean>>({});
   const generation = useRef(0),
     controllerRef = useRef<AbortController | null>(null),
     inFlight = useRef(false);
@@ -85,11 +97,7 @@ export function HrTalentClient() {
     try {
       const token = getAccessToken();
       const [o, p, s, sc, d] = await Promise.all([
-        canRead ||
-        canProfile ||
-        canReview ||
-        canSuccessionManage ||
-        canDevelopmentManage
+        canSuccessionManage
           ? hrApi.talentOptions(token, c.signal)
           : Promise.resolve(EMPTY_OPTIONS),
         canRead ? hrApi.talentProfiles(token, c.signal) : Promise.resolve([]),
@@ -154,7 +162,7 @@ export function HrTalentClient() {
       });
     return () => c.abort();
   }, [selectedSession]);
-  const act = async (fn: () => Promise<unknown>, ok: string) => {
+  const act = async (fn: () => Promise<unknown>, ok: string, onCommitted?:()=>void) => {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
@@ -163,6 +171,11 @@ export function HrTalentClient() {
       await fn();
       setMessage(ok);
       setPanel(null);
+      if(panel==="profile")setProfileEmployees([]);
+      if(panel==="session")setSessionEmployees([]);
+      if(panel==="successor")setSuccessorEmployees([]);
+      if(panel==="plan")setPlanEmployees([]);
+      onCommitted?.();
       await load();
       if (selectedSession)
         setSubjects(
@@ -329,17 +342,7 @@ export function HrTalentClient() {
             }}
           >
             <h2>冻结人才画像</h2>
-            <label className="form-field">
-              <span>员工</span>
-              <select name="employeeId" required>
-                <option value="">请选择</option>
-                {options.employees.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.fullName} · {x.employeeCode}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TalentEmployeePicker name="employeeId" selected={profileEmployees} onChange={setProfileEmployees} disabled={busy}/>
             <label className="form-field">
               <span>数据时点</span>
               <input name="asOfDate" type="date" required />
@@ -354,7 +357,7 @@ export function HrTalentClient() {
             className={`ds-panel ${styles.formGrid}`}
             onSubmit={(event) => {
               event.preventDefault();
-              void createSession(new FormData(event.currentTarget));
+              if(sessionEmployees.length) void createSession(new FormData(event.currentTarget));
             }}
           >
             <h2>创建人才盘点会</h2>
@@ -386,17 +389,8 @@ export function HrTalentClient() {
               <span>潜力口径</span>
               <textarea name="potentialDefinition" required maxLength={1000} />
             </label>
-            <label className="form-field">
-              <span>盘点员工</span>
-              <select name="employeeIds" multiple size={6} required>
-                {options.employees.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.fullName} · {x.employeeCode}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button disabled={busy} className="ds-button ds-button-primary">
+            <TalentEmployeePicker name="employeeIds" multiple selected={sessionEmployees} onChange={setSessionEmployees} disabled={busy}/>
+            <button disabled={busy||!sessionEmployees.length} className="ds-button ds-button-primary">
               创建会议
             </button>
           </form>
@@ -472,17 +466,7 @@ export function HrTalentClient() {
                 ))}
               </select>
             </label>
-            <label className="form-field">
-              <span>候选员工</span>
-              <select name="employeeId" required>
-                <option value="">请选择</option>
-                {options.employees.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.fullName} · {x.employeeCode}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TalentEmployeePicker name="employeeId" selected={successorEmployees} onChange={setSuccessorEmployees} disabled={busy}/>
             <label className="form-field">
               <span>准备度</span>
               <select name="readiness">
@@ -514,17 +498,7 @@ export function HrTalentClient() {
               void createPlan(new FormData(event.currentTarget));
             }}>
             <h2>创建个人发展计划</h2>
-            <label className="form-field">
-              <span>员工</span>
-              <select name="employeeId" required>
-                <option value="">请选择</option>
-                {options.employees.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.fullName} · {x.employeeCode}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TalentEmployeePicker name="employeeId" selected={planEmployees} onChange={setPlanEmployees} disabled={busy}/>
             <label className="form-field">
               <span>计划编码</span>
               <input name="planCode" required />
@@ -931,13 +905,15 @@ export function HrTalentClient() {
                       ))}
                       {canDevelopmentManage &&
                       !["completed", "cancelled"].includes(plan.status) ? (
-                        <details>
+                        <details onToggle={event=>{const open=event.currentTarget.open;setOpenActionPlans(previous=>({...previous,[plan.id]:open}));}}>
                           <summary>添加行动</summary>
                           <form
                             className={styles.formGrid}
                             onSubmit={(event) => {
                               event.preventDefault();
-                              const f = new FormData(event.currentTarget);
+                              const form = event.currentTarget;
+                              const f = new FormData(form);
+                              if(!actionOwners[plan.id]?.length)return;
                               void act(
                                 () =>
                                   hrApi.addDevelopmentAction(
@@ -952,6 +928,7 @@ export function HrTalentClient() {
                                     getAccessToken(),
                                   ),
                                 "发展行动已分配",
+                                ()=>{form.reset();setActionOwners(previous=>({...previous,[plan.id]:[]}));},
                               );
                             }}
                           >
@@ -960,18 +937,11 @@ export function HrTalentClient() {
                               placeholder="行动名称"
                               required
                             />
-                            <select name="ownerEmployeeId" required>
-                              <option value="">负责人</option>
-                              {options.employees.map((x) => (
-                                <option key={x.id} value={x.id}>
-                                  {x.fullName}
-                                </option>
-                              ))}
-                            </select>
+                            {openActionPlans[plan.id]?<TalentEmployeePicker name="ownerEmployeeId" selected={actionOwners[plan.id]??[]} onChange={rows=>setActionOwners(previous=>({...previous,[plan.id]:rows}))} disabled={busy}/>:null}
                             <input name="dueDate" type="date" required />
                             <button
                               className="ds-button ds-button-primary"
-                              disabled={busy}
+                              disabled={busy||!actionOwners[plan.id]?.length}
                             >
                               添加
                             </button>
