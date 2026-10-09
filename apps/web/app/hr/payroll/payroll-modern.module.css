@@ -1,0 +1,15 @@
+.workspace { display: grid; gap: 16px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions button { min-height: 44px; flex-shrink: 0; white-space: nowrap; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.records:global(.ds-mobile-record-list) { display: grid; }
+.records :global(.ds-mobile-record) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.project { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.expression { white-space: pre-wrap; overflow-wrap: anywhere; }
+.amounts { display: grid; gap: 12px; margin: 0; }
+.amountRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
+.amountRow dt { overflow-wrap: anywhere; }
+.amountRow dd { margin: 0; flex-shrink: 0; white-space: nowrap; }
+.workspace :global(.form-field) { min-width: 0; }
+.workspace input, .workspace select, .workspace textarea { max-width: 100%; min-width: 0; }
+@media (max-width: 640px) { .actions button { flex: 1 1 auto; } }

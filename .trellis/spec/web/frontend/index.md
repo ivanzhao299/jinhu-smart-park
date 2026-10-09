@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Modern payroll business rule authoring and version review: [Modern Rule Maintenance](./hr-payroll-modern-rule-maintenance.md).
+
 Payroll formula desktop and mobile review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
 
 Training operation complete multi-employee selection: [Training Employee Selection](./hr-training-employee-selection.md).

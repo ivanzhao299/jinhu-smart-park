@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import {
  HR_ENTITIES,HrApprovalRequestEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeProfileEntity,
@@ -36,6 +36,11 @@ suite("HR payroll PostgreSQL concurrency gate",()=>{
   return rows[0]!.id;
  }
 
+ async function createRecordedRun(periodId:string){
+  const [row]=await dataSource.query("INSERT INTO hr_payroll_run(tenant_id,park_id,period_id,run_no,status,employee_count,gross_total,deduction_total,net_total,calculated_at) VALUES($1,$2,$3,1,'calculated',0,0,0,0,now()) RETURNING id",[scope.tenantId,scope.parkId,periodId]);
+  return row as {id:string};
+ }
+
  before(async()=>{
   dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),
    database:process.env.POSTGRES_DB??"jinhu_hr_payroll_gate",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,
@@ -56,22 +61,21 @@ suite("HR payroll PostgreSQL concurrency gate",()=>{
  beforeEach(reset);
  after(async()=>{if(dataSource?.isInitialized){await reset();await dataSource.destroy();}});
 
- it("serializes duplicate base-run creation to one committed winner",async()=>{
+ it("retired simplified creation rejects both requests without persisted payroll",async()=>{
   const periodId=await createPeriod();
   const results=await Promise.allSettled([
    service.createPayrollRun(scope,actor,{periodId}),
    service.createPayrollRun(scope,actor,{periodId})
   ]);
-  assert.equal(results.filter(result=>result.status==="fulfilled").length,1);
-  const rejected=results.find(result=>result.status==="rejected") as PromiseRejectedResult;
-  assert.ok(rejected.reason instanceof ConflictException);
+  assert.equal(results.filter(result=>result.status==="fulfilled").length,0);
+  for(const result of results){assert.equal(result.status,"rejected");if(result.status==="rejected")assert.ok(result.reason instanceof BadRequestException);}
   const rows=await dataSource.query("SELECT count(*)::int AS count FROM hr_payroll_run WHERE tenant_id=$1 AND park_id=$2 AND period_id=$3",[scope.tenantId,scope.parkId,periodId]) as Array<{count:number}>;
-  assert.equal(rows[0]!.count,1);
+  assert.equal(rows[0]!.count,0);
  });
 
  it("serializes concurrent review so a stale second writer gets a conflict",async()=>{
   const periodId=await createPeriod();
-  const run=await service.createPayrollRun(scope,actor,{periodId});
+  const run=await createRecordedRun(periodId);
   const results=await Promise.allSettled([
    service.transitionPayrollRun(scope,actor,run.id,"review"),
    service.transitionPayrollRun(scope,actor,run.id,"review")
@@ -85,7 +89,7 @@ suite("HR payroll PostgreSQL concurrency gate",()=>{
 
  it("rolls back an unbalanced run update at the database boundary",async()=>{
   const periodId=await createPeriod();
-  const run=await service.createPayrollRun(scope,actor,{periodId});
+  const run=await createRecordedRun(periodId);
   await assert.rejects(dataSource.transaction(manager=>manager.query(
    "UPDATE hr_payroll_run SET gross_total=100,deduction_total=10,net_total=95 WHERE id=$1",[run.id]
   )),/ck_hr_payroll_totals_balance/);
