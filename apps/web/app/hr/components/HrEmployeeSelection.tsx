@@ -10,16 +10,16 @@ import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "./hr-employee-selection.module.css";
 
 export type HrEmployeeOption=Pick<HrEmployee,"id"|"fullName"|"employeeCode">;
-interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward";}
+interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward"|"talent";required?:boolean;}
 const pageSize=20;
 type EmployeeCandidate=HrEmployeeOption & Partial<Pick<HrEmployee,"employmentStatus">>;
 const contractEligible=(employee:EmployeeCandidate)=>["preboarding","probation","active"].includes(employee.employmentStatus??"");
 
 /** Uses the existing scoped directory; opening a contract never scans all employee pages. */
-export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disabled,purpose}:Props){
- const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
- const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
- const domain=purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
+export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disabled,purpose,required=true}:Props){
+ const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="talent"?[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,HR_PERMISSIONS.HR_TALENT_REVIEW,HR_PERMISSIONS.HR_SUCCESSION_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE]:purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
+ const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"||purpose==="talent"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
+ const domain=purpose==="talent"?"人才":purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
  const [draft,setDraft]=useState(""),[keyword,setKeyword]=useState("");
  const [rows,setRows]=useState<EmployeeCandidate[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0);
  const [retained,setRetained]=useState<HrEmployeeOption|undefined>(currentEmployee);
@@ -31,7 +31,7 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
   const current=()=>pending.current===controller&&!controller.signal.aborted;
   setLoading(true);setRows([]);setError("");
   try{
-   const result=purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
+   const result=purpose==="talent"?await hrApi.talentEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
    if(!Array.isArray(result.items)||result.items.some(row=>!row||typeof row.id!=="string"||!row.id.trim()||typeof row.employeeCode!=="string"||typeof row.fullName!=="string"))throw new Error("员工候选响应无效，请重试。");
    if(!current())return;
    if(result.page!==requestedPage||result.page_size!==pageSize||!Number.isSafeInteger(result.total)||result.total<0||result.items.length>pageSize||new Set(result.items.map(row=>row.id)).size!==result.items.length)throw new Error("员工候选分页响应无效，请重试。");
@@ -47,9 +47,9 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
  return <div className={styles.employeeSelector}>
   <div className={styles.employeeFields}>
    <label className="form-field"><span>搜索{domain}员工</span><input maxLength={100} placeholder="姓名或员工编号" value={draft} disabled={disabled||!allowed} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();search();}}}/></label>
-   <label className="form-field"><span>员工</span><select required={purpose!=="probation"} value={selectedId} disabled={disabled||loading||!allowed} onChange={event=>{
+   <label className="form-field"><span>员工</span><select required={required&&purpose!=="probation"} value={selectedId} disabled={disabled||loading||!allowed} onChange={event=>{
     const row=rows.find(employee=>employee.id===event.target.value);
-    if(row&&eligible(row)){setRetained(row);if(purpose==="probation")onChange(row.id,row);else onChange(row.id);}
+    if(row&&eligible(row)){setRetained(row);if(purpose==="probation")onChange(row.id,row);else if(purpose==="talent")onChange(row.id,{id:row.id,fullName:row.fullName,employeeCode:row.employeeCode});else onChange(row.id);}
     else if(event.target.value===""){setRetained(undefined);onChange("");}
    }}><option value="">请选择员工</option>
     {selected&&!rows.some(row=>row.id===selected.id)?<option value={selected.id}>{selected.fullName} · {selected.employeeCode}（已选）</option>:null}

@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Talent complete scoped employee selection: [Talent Employee Selection](./hr-talent-employee-selection.md).
+
 Talent authorized operations on desktop and phones: [Talent Operations](./hr-talent-mobile-operations.md).
 
 Complete scoped contract and insurance CSV: [Ledger Exports](./hr-contract-insurance-ledger-exports.md).
