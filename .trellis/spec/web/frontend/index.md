@@ -544,3 +544,5 @@ Reference files:
 - [hr-reward-employee-selection](./hr-reward-employee-selection.md) — Reward operation candidates and draft continuity.
 
 - [Performance template workflow](./hr-performance-template-workflow.md) — Enterprise configuration and immutable version continuation.
+
+- [Employee operation continuity](./hr-employee-operation-continuity.md) — Creation and employment transitions preserve rejected drafts and separate committed writes from read failures.

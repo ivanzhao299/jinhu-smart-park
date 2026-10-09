@@ -1,0 +1,2 @@
+# 设计
+现代员工页面显式onSubmit+FormData，成功才reset。新增与任职动作共用同步mutationFlight；沿用已有requestScope并补组件alive保护finally。页面刷新/详情读取增加仅供已提交操作使用的allowDuringWrite参数，普通查询和未触发的debounce不得在提交中清除草稿；clearSelection与pick不能提前清掉busy。成功提示和读取错误分别承载。上级候选接收disabled并禁用搜索/选择/翻页。数据和权限仍以服务器为准。
