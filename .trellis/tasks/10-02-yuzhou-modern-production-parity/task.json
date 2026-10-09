@@ -48,7 +48,8 @@
     "10-09-hr-employee-operation-continuity",
     "10-09-hr-training-operation-continuity",
     "10-09-hr-work-report-bounded-workflow",
-    "10-09-hr-goal-execution-workflow"
+    "10-09-hr-goal-execution-workflow",
+    "10-09-hr-attendance-request-continuation"
   ],
   "parent": null,
   "relatedFiles": [
@@ -65,7 +66,7 @@
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "goal_execution_workflow_then_real_business_acceptance",
+    "nextSlice": "attendance_returned_edit_publication_then_real_business_acceptance",
     "businessImplementationStarted": true
   }
 }

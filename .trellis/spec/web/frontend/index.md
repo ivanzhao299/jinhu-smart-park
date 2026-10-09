@@ -550,3 +550,5 @@ Reference files:
 - [Work-report bounded workflow](../../api/backend/hr-work-report-page.md) — Independent self/team pages, retained failed drafts/reviews, and desktop-visible shared record cards.
 
 - [Goal execution workflow](../../api/backend/hr-goal-operation-context.md) — Independent exact operation contexts, cycle/goal transitions, retained failures and all-width DS records.
+
+Attendance returned-request correction and approval continuity: [Request Continuation](../../api/backend/hr-attendance-request-edit.md).

@@ -1,0 +1,7 @@
+# 设计
+
+复用hr.controller.ts/hr.service.ts的AttendanceRequest和原审批事务。新增PUT attendance/requests/:id，精确REQUEST、IdempotencyInterceptor、body-free AuditLog；更新DTO复用创建字段并增加expectedVersion，requestType不可变。本人具备精确REQUEST权限时列表/详情带editVersion；本人写响应带editVersion，其他普通读不暴露内部version。
+
+事务锁序保持employee→request→approval。仅当前用户绑定employee及同tenant/park非删除记录；draft/returned且version匹配，审批投影状态同申请。复用validateAttendanceRequest对日期/时间/事由校验。更新主申请及审批updateBy，保留reviewed元数据与原编号/来源事实。使用既有AuditService.recordOperationRequired(input,manager)记录白名单变更字段、版本/时间和reasonChanged标记，不保存历史事由原文，不将HR自由文本写入通用日志；审计失败回滚。审批动作是否支持edit应先核对数据库约束；不凭实体string推断。无现有表可表达不可变办理轨迹时，应明确缺口并选择既有审计能力，不偷偷塞入comment。
+
+Web提取请求队列/表单为独立组件（现有打卡/月结保持原入口）；同一身份上下文重挂载，真实page/total分页且Abort/generation。使用确定编辑目标和版本回填时间，按本地datetime输入→ISO往返，不将UTC截断当本地时间。稳定幂等键绑定一次具体提交；不同payload冲突须明确提示，不默默覆盖未知结果。所有约束按钮/字段及失败保留必须实际组件验证。
