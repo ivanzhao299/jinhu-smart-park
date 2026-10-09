@@ -1,0 +1,6 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web implementation guidelines"}
+{"file":".trellis/spec/web/frontend/hr-attendance-schedule-continuity.md","reason":"Existing schedule versioned writes and reads"}
+{"file":".trellis/spec/web/frontend/hr-attendance-employee-selection.md","reason":"Existing operation employee identity and scope"}
+{"file":".trellis/spec/web/frontend/hr-attendance-result-browsing.md","reason":"Existing refresh ownership and sequential action continuity"}
+{"file":".trellis/spec/web/frontend/file-upload-and-form-controls.md","reason":"Constrained date and selector inputs"}
+{"file":".trellis/spec/guides/index.md","reason":"Shared project thinking guide entry"}
