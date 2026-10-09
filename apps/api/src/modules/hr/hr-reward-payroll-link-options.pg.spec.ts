@@ -1,0 +1,43 @@
+import "reflect-metadata";
+import assert from "node:assert/strict";
+import {randomUUID} from "node:crypto";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
+import test from "node:test";
+import {BadRequestException,ConflictException} from "@nestjs/common";
+import {DataSource,type EntityManager} from "typeorm";
+import {HR_PERMISSIONS as H} from "@jinhu/shared";
+import type {JwtPrincipal} from "../../shared/types/jwt-principal";
+import {HrRewardsService} from "./hr-rewards.service";
+const required=process.env.HR_REWARD_PAYROLL_LINK_PG_REQUIRED==='1';
+test('owned PG payroll references page completely, enforce version/employee, serialize uniqueness and preserve retained links',{skip:!required},async()=>{
+ if(process.env.POSTGRES_HOST!=='127.0.0.1'||process.env.POSTGRES_PORT!=='15490')throw Error('Reward payroll fixture requires owned loopback15490');
+ const connection={type:'postgres' as const,host:'127.0.0.1',port:15490,username:'postgres'},name=`hr_reward_payroll_${randomUUID().replace(/-/g,'')}`;
+ const admin=new DataSource({...connection,database:'postgres'});let db:DataSource|undefined,other:DataSource|undefined,created=false;
+ try{
+  await admin.initialize();await admin.query(`CREATE DATABASE ${name}`);created=true;db=new DataSource({...connection,database:name});other=new DataSource({...connection,database:name});await db.initialize();await other.initialize();
+  // Owned minimal SQL fixture plus the production append-only trigger; not full migration acceptance.
+  await db.query(`CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id text,park_id text,user_id uuid,primary_org_id uuid,full_name text);
+CREATE TABLE hr_reward_discipline_category_version(id uuid PRIMARY KEY,tenant_id text,park_id text,kind text,name text,description text);
+CREATE TABLE hr_reward_discipline_case(id uuid PRIMARY KEY,tenant_id text,park_id text,employee_id uuid,category_version_id uuid,status text,is_deleted boolean DEFAULT false);
+CREATE TABLE hr_attendance_period(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id text,park_id text,period_month date);
+CREATE TABLE hr_attendance_payroll_input_batch(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id text,park_id text,period_id uuid,batch_no int,batch_type text,status text DEFAULT 'effective',is_deleted boolean DEFAULT false);
+CREATE TABLE hr_attendance_payroll_input_item(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id text,park_id text,batch_id uuid,employee_id uuid,version int DEFAULT 1,is_deleted boolean DEFAULT false);
+CREATE TABLE hr_reward_discipline_link(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id text,park_id text,case_id uuid,target_type text,target_id uuid,target_version int,status text DEFAULT 'linked',create_by uuid,create_time timestamptz DEFAULT now(),UNIQUE(tenant_id,park_id,case_id,target_type));`);
+  const migration=readFileSync(resolve(process.cwd(),'../../database/migrations/000255_hr_reward_discipline_operations.sql'),'utf8'),fn=migration.match(/CREATE OR REPLACE FUNCTION fn_hr_reward_append_only\(\)[\s\S]*?END \$\$;/)![0];await db.query(fn);await db.query('CREATE TRIGGER payroll_link_immutable BEFORE UPDATE OR DELETE ON hr_reward_discipline_link FOR EACH ROW EXECUTE FUNCTION fn_hr_reward_append_only()');
+  const scope={tenantId:'tenant',parkId:'park'},actor:JwtPrincipal={...scope,sub:randomUUID(),username:'synthetic',roles:[],permissions:[H.HR_REWARD_READ,H.HR_REWARD_LINK_PAYROLL]},ids={employee:randomUUID(),version:randomUUID(),case:randomUUID()},audit={recordOperationRequired:async()=>{}} as never,service=new HrRewardsService(db,audit),writer=new HrRewardsService(other,audit);
+  await db.query("INSERT INTO hr_employee VALUES($1,'tenant','park',$2,$3,'合成员工')",[ids.employee,actor.sub,randomUUID()]);await db.query("INSERT INTO hr_reward_discipline_category_version VALUES($1,'tenant','park','reward','合成奖励','制度')",[ids.version]);await db.query("INSERT INTO hr_reward_discipline_case VALUES($1,'tenant','park',$2,$3,'approved',false)",[ids.case,ids.employee,ids.version]);
+  for(let n=1;n<=43;n++)await db.query("WITH p AS(INSERT INTO hr_attendance_period(tenant_id,park_id,period_month)VALUES('tenant','park','2090-01-01'::date+($2::int-1)*interval '1 month') RETURNING id),b AS(INSERT INTO hr_attendance_payroll_input_batch(tenant_id,park_id,period_id,batch_no,batch_type)SELECT 'tenant','park',id,1,'close' FROM p RETURNING id) INSERT INTO hr_attendance_payroll_input_item(tenant_id,park_id,batch_id,employee_id)SELECT 'tenant','park',id,$1 FROM b",[ids.employee,n]);
+  const foreign=randomUUID();await db.query("INSERT INTO hr_attendance_payroll_input_item(id,tenant_id,park_id,batch_id,employee_id)SELECT $1,'tenant','park',batch_id,$2 FROM hr_attendance_payroll_input_item LIMIT 1",[foreign,randomUUID()]);
+  await db.query("INSERT INTO hr_attendance_payroll_input_item(tenant_id,park_id,batch_id,employee_id,is_deleted)SELECT 'tenant','park',batch_id,employee_id,true FROM hr_attendance_payroll_input_item LIMIT 1");
+  const pages=[];for(let page=1;page<=3;page++)pages.push(await service.payrollLinkOptions(scope,actor,ids.case,{page,page_size:20}));assert.deepEqual(pages.map(p=>p.items.length),[20,20,3]);assert.ok(pages.every(p=>p.total===43&&p.existing===null));const all=pages.flatMap(p=>p.items) as {id:string;version:number}[];assert.equal(new Set(all.map(r=>r.id)).size,43);
+  await assert.rejects(service.link(scope,actor,ids.case,{targetType:'payroll_input',targetId:foreign,targetVersion:1}),BadRequestException);
+  const stale=all[0]!;await db.query('UPDATE hr_attendance_payroll_input_item SET version=2 WHERE id=$1',[stale.id]);await assert.rejects(service.link(scope,actor,ids.case,{targetType:'payroll_input',targetId:stale.id,targetVersion:1}),BadRequestException);
+  const beforeCase=await db.query('SELECT * FROM hr_reward_discipline_case'),beforeTargets=await db.query('SELECT * FROM hr_attendance_payroll_input_item ORDER BY id');
+  const race=await Promise.allSettled([service.link(scope,actor,ids.case,{targetType:'payroll_input',targetId:all[1]!.id,targetVersion:1}),writer.link(scope,actor,ids.case,{targetType:'payroll_input',targetId:all[2]!.id,targetVersion:1})]);assert.equal(race.filter(r=>r.status==='fulfilled').length,1);assert.equal(race.filter(r=>r.status==='rejected'&&r.reason instanceof ConflictException).length,1);assert.deepEqual(await db.query('SELECT * FROM hr_reward_discipline_case'),beforeCase);assert.deepEqual(await db.query('SELECT * FROM hr_attendance_payroll_input_item ORDER BY id'),beforeTargets);
+  const linked=await service.payrollLinkOptions(scope,actor,ids.case,{page:1,page_size:20});assert.ok(linked.existing);assert.equal(linked.existing.status,'linked');const linkedBatch=(await db.query('SELECT batch_id FROM hr_attendance_payroll_input_item WHERE id=$1',[linked.existing.targetId]))[0].batch_id;
+  const originalTransaction=db.transaction.bind(db);let injected=false;db.transaction=((level:unknown,callback?: (m:EntityManager)=>Promise<unknown>)=>typeof level==='string'?originalTransaction('REPEATABLE READ',async m=>{const query=m.query.bind(m);m.query=async(sql:string,args?:unknown[])=>{const rows=await query(sql,args);if(!injected&&sql.startsWith('SELECT id,status,employee_id')){injected=true;await other!.query("UPDATE hr_attendance_payroll_input_batch SET status='superseded' WHERE id=$1",[linkedBatch]);}return rows;};return callback!(m);}):originalTransaction(level as (m:EntityManager)=>Promise<unknown>))as typeof db.transaction;
+  const snapshot=await service.payrollLinkOptions(scope,actor,ids.case,{page:1,page_size:20});assert.equal(snapshot.total,43);db.transaction=originalTransaction;const latest=await service.payrollLinkOptions(scope,actor,ids.case,{page:1,page_size:20});assert.equal(latest.total,42);assert.equal(latest.existing.id,linked.existing.id);assert.equal(latest.existing.periodMonth,linked.existing.periodMonth);assert.equal(latest.existing.targetVersion,1);
+  const empty=await service.payrollLinkOptions(scope,actor,ids.case,{page:999,page_size:20});assert.equal(empty.total,42);assert.deepEqual(empty.items,[]);await assert.rejects(db.query('UPDATE hr_reward_discipline_link SET target_version=2 WHERE id=$1',[linked.existing.id]),/append-only/);assert.equal((await db.query('SELECT count(*)::int total FROM hr_reward_discipline_link'))[0].total,1);
+ }finally{if(other?.isInitialized)await other.destroy();if(db?.isInitialized)await db.destroy();if(admin.isInitialized){if(created){await admin.query(`DROP DATABASE ${name}`);assert.equal((await admin.query('SELECT count(*)::int total FROM pg_database WHERE datname=$1',[name]))[0].total,0);}await admin.destroy();}}
+});

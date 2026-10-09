@@ -1029,3 +1029,4 @@ Attendance returned-request correction and approval continuity: [Request Continu
 - [Reward category versions](hr-reward-category-versions.md) — Complete current definitions, historical references and retained publication drafts.
 
 Employee own-case appeal and personal history: [Self Appeal Workflow](./hr-reward-self-appeals.md).
+- [hr-reward-payroll-link-options](hr-reward-payroll-link-options.md) — 奖惩工资输入关联正式业务合同。

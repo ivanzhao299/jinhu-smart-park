@@ -19,6 +19,7 @@ import styles from "../hr-workbench.module.css";
 import rewardStyles from "./reward-workflow.module.css";
 import {RewardCategoryVersions} from "./RewardCategoryVersions";
 import { HrEmployeeSelection } from "../components/HrEmployeeSelection";
+import { RewardPayrollLink } from "./RewardPayrollLink";
 import { RewardCorrections } from "./RewardCorrections";
 const labels: Record<string, string> = {
   draft: "草稿",
@@ -147,6 +148,7 @@ function HrRewardsWorkspace() {
     };
   }, [load]);
   const open = async (id: string) => {
+    if (busyRef.current) return;
     clearDetail();
     const c = new AbortController();
     detailAbort.current = c;
@@ -416,6 +418,7 @@ function HrRewardsWorkspace() {
                   <div className={styles.recordActions}>
                     <button
                       className="ds-button"
+                      disabled={busy}
                       onClick={() => void open(x.id)}
                     >
                       查看
@@ -531,7 +534,7 @@ function HrRewardsWorkspace() {
             <div className={styles.recordActions}>
               <button
                 className="ds-button"
-                disabled={page === 1 || loading}
+                disabled={busy || page === 1 || loading}
                 onClick={() => setPage((x) => Math.max(1, x - 1))}
               >
                 上一页
@@ -539,7 +542,7 @@ function HrRewardsWorkspace() {
               <span>第 {page} 页</span>
               <button
                 className="ds-button"
-                disabled={page * pageSize >= total || loading}
+                disabled={busy || page * pageSize >= total || loading}
                 onClick={() => setPage((x) => x + 1)}
               >
                 下一页
@@ -561,6 +564,7 @@ function HrRewardsWorkspace() {
             {detail.detailedReason ? (
               <p className={styles.desktopSensitive}>{detail.detailedReason}</p>
             ) : null}
+            {detail.status === "approved" && hasPermission(user, HR_PERMISSIONS.HR_REWARD_READ) && hasPermission(user, HR_PERMISSIONS.HR_REWARD_LINK_PAYROLL) ? <RewardPayrollLink key={`payroll-${detail.id}`} id={detail.id} busy={busy} publish={job => mutate(job, "关联工资输入失败", true)} /> : null}
             {canManage || detail.corrections !== undefined ? <RewardCorrections key={`corrections-${detail.id}`} detail={detail} canManage={canManage} busy={busy} publish={job => mutate(job, "追加更正失败", true)} /> : null}
             {hasPermission(user, HR_PERMISSIONS.HR_REWARD_SELF_READ) && detail.canAppeal === true ? <RewardCorrections key={`appeals-${detail.id}`} detail={detail} canManage={false} mode="appeal" busy={busy} publish={job => mutate(job, "提交申诉失败", true)} /> : null}
             {canManage && ["draft", "returned"].includes(detail.status) ? (
