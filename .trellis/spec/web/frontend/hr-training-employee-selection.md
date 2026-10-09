@@ -47,3 +47,7 @@ Interaction regressions also cover malformed rows/count/page/cardinality, retry 
 External refresh/open/close/paging cannot switch the target while writing. Explicit submit events retain rejected course, plan, requirement and plan-fact drafts. `TrainingResultForm` and `TrainingPlanFactsForm` display local failed-save feedback; only successful writes remove/reset the submitted draft. Read-only/operation-only permission intersections and certificates remain unchanged.
 
 Regression assertions: rejected facts retain reason/dates; rejected requirement retains exact selectors; score zero is transported explicitly; committed detail read failure removes old result form and keeps saved status; list failure remains visible after successful detail; concurrent submit sends one write and disables switching; identity replacement starts only the new reads. Browser desktop/390px must show retained zero/reason, 44px controls and no horizontal overflow.
+
+## Authorized mobile costs
+
+Training budget input, plan budget/actual cost and participant actual cost use the same HR_TRAINING_COST_READ gates at every width. Do not apply desktopSensitive to these authorized fields: a hidden budget input silently leaves default0 when a phone operator creates a plan. Budget uses backend-compatible16 integer/4 fraction bounds and select-on-focus. Other page desktopSensitive rules remain untouched; unauthorized amounts remain absent from render and backend projections.
