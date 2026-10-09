@@ -5,7 +5,7 @@ import {plainToInstance} from "class-transformer";
 import {validate} from "class-validator";
 import {HR_PERMISSIONS} from "@jinhu/shared";
 import {BadRequestException,ForbiddenException,ValidationPipe} from "@nestjs/common";
-import {PERMISSIONS_KEY} from "../../shared/decorators/permissions.decorator";
+import {ANY_PERMISSIONS_KEY} from "../../shared/decorators/permissions.decorator";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 import {HrTalentEmployeeOptionsDto} from "./dto/hr-talent-employee-options.dto";
 import {HrTalentController} from "./hr-talent.controller";
@@ -18,7 +18,8 @@ test("existing talent authority, stable bounded projection and metadata audit",a
  assert.match(calls[0]!.sql,/ORDER BY e.employee_code,e.id LIMIT \$4 OFFSET \$5/);assert.deepEqual(calls[0]!.params,["tenant-a","park-a","synthetic",20,600]);
  assert.match(calls[0]!.sql,/employment_status='active'/);
  assert.equal((audits[0] as {path:string}).path,"/hr/talent/employee-options");assert.deepEqual((audits[0] as {afterJson:unknown}).afterJson,{fieldGroups:["identity"],projection:"park",itemCount:1});
- assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrTalentController.prototype.employeeOptions),Reflect.getMetadata(PERMISSIONS_KEY,HrTalentController.prototype.options));
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrTalentController.prototype.employeeOptions),[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,HR_PERMISSIONS.HR_TALENT_REVIEW,HR_PERMISSIONS.HR_SUCCESSION_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE]);
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrTalentController.prototype.employeeOptions),Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrTalentController.prototype.options));
 });
 test("foreign scope and unrelated read authority reject before database access",async()=>{
  for(const denied of [{...actor,permissions:[]},{...actor,permissions:[HR_PERMISSIONS.HR_SUCCESSION_READ]},{...actor,permissions:[HR_PERMISSIONS.HR_EMPLOYEE_READ]},{...actor,tenantId:"foreign"},{...actor,parkId:"foreign"}]){const {service,calls}=fixture();await assert.rejects(service.employeeOptions(scope,denied,{page:1,page_size:20}),ForbiddenException);assert.equal(calls.length,0);}

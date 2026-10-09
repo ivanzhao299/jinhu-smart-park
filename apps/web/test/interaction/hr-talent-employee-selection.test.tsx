@@ -10,7 +10,7 @@ const state=vi.hoisted(()=>({user:{id:"operator",parkId:"park-a",permissions:[] 
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../components/auth/PermissionGuard",()=>({PermissionGuard:({children}:{children:React.ReactNode})=>children}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{talentEmployeeOptions:vi.fn(),talentOptions:vi.fn(),talentProfiles:vi.fn(),talentSessions:vi.fn(),talentSubjects:vi.fn(),talentSuccession:vi.fn(),developmentPlans:vi.fn(),createTalentProfile:vi.fn(),createTalentSession:vi.fn(),createSuccessor:vi.fn(),createDevelopmentPlan:vi.fn(),addDevelopmentAction:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{talentEmployeeOptions:vi.fn(),talentOptions:vi.fn(),talentProfilePage:vi.fn(),talentProfiles:vi.fn(),talentSessions:vi.fn(),talentSubjects:vi.fn(),talentSuccession:vi.fn(),developmentPlans:vi.fn(),createTalentProfile:vi.fn(),createTalentSession:vi.fn(),createSuccessor:vi.fn(),createDevelopmentPlan:vi.fn(),addDevelopmentAction:vi.fn()}}));
 const first={id:"employee-1",employeeCode:"SYN-001",fullName:"合成人员1"},later={id:"employee-601",employeeCode:"SYN-601",fullName:"合成人员601"};
 const result=(items:HrEmployeeOption[],page=1,total=601)=>({items,page,total,page_size:20});
 function Picker({initial=[]}:{initial?:HrEmployeeOption[]}){const [selected,setSelected]=useState(initial);return <form aria-label="合成盘点"><TalentEmployeePicker name="employeeIds" multiple selected={selected} onChange={setSelected} disabled={false}/></form>;}
@@ -19,6 +19,7 @@ beforeEach(()=>{
  vi.resetAllMocks();state.user={id:"operator",parkId:"park-a",permissions:[H.HR_TALENT_REVIEW]};
  vi.mocked(hrApi.talentEmployeeOptions).mockImplementation(async(page,keyword)=>result(keyword?[later]:[first],page,keyword?1:601));
  for(const method of ["talentProfiles","talentSessions","talentSubjects","talentSuccession","developmentPlans"] as const)vi.mocked(hrApi[method]).mockResolvedValue([]);
+ vi.mocked(hrApi.talentProfilePage).mockResolvedValue({items:[],page:1,page_size:20,total:0,employeeCount:0});
  vi.mocked(hrApi.talentOptions).mockResolvedValue({employees:[],positions:[]});
 });
 it("retains unique original IDs across pages, literal searches and candidate outages, with removal",async()=>{
@@ -61,7 +62,7 @@ it("loads action owner candidates only on disclosure and keeps independent plan 
  fireEvent.change(within(card).getByPlaceholderText("行动名称"),{target:{value:"完成实操"}});const form=within(card).getByRole("button",{name:"添加"}).closest("form")!;fireEvent.change(form.querySelector('[name="dueDate"]')!,{target:{value:"2026-12-01"}});fireEvent.submit(form);await waitFor(()=>expect(hrApi.addDevelopmentAction).toHaveBeenCalledWith("a",{actionName:"完成实操",ownerEmployeeId:first.id,dueDate:"2026-12-01"},"synthetic-token"));expect(otherCard.querySelector<HTMLInputElement>('[name="ownerEmployeeId"]')?.value).toBe(first.id);expect(card.querySelector('[name="ownerEmployeeId"]')).toBeNull();
 });
 it("read-only actors issue no employee candidate or compatibility option reads",async()=>{
- state.user.permissions=[H.HR_TALENT_READ];render(<HrTalentClient/>);await waitFor(()=>expect(hrApi.talentProfiles).toHaveBeenCalled());expect(hrApi.talentEmployeeOptions).not.toHaveBeenCalled();expect(hrApi.talentOptions).not.toHaveBeenCalled();
+ state.user.permissions=[H.HR_TALENT_READ];render(<HrTalentClient/>);await waitFor(()=>expect(hrApi.talentProfilePage).toHaveBeenCalled());expect(hrApi.talentEmployeeOptions).not.toHaveBeenCalled();expect(hrApi.talentOptions).not.toHaveBeenCalled();
 });
 it("succession-only management submits the searched candidate ID with assessment evidence",async()=>{
  state.user.permissions=[H.HR_SUCCESSION_MANAGE];vi.mocked(hrApi.talentSuccession).mockResolvedValue([{criticalPositionId:"position-a",positionName:"合成关键岗位",criticality:"critical",positionRisk:"high",candidateName:null,employeeCode:null,readiness:null,candidateRisk:null,riskReason:null,assessedAt:null}]);

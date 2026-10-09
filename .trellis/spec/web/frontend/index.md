@@ -2,6 +2,8 @@
 
 Selected payroll detail printing: [Payroll Statements](./hr-payroll-statement-print.md).
 
+Talent complete profile history: [Talent Profile History](./hr-talent-profile-history.md).
+
 Talent complete scoped employee selection: [Talent Employee Selection](./hr-talent-employee-selection.md).
 
 Talent authorized operations on desktop and phones: [Talent Operations](./hr-talent-mobile-operations.md).
