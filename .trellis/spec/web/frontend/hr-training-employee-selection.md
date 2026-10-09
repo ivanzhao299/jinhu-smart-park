@@ -39,3 +39,11 @@ Interaction regressions also cover malformed rows/count/page/cardinality, retry 
 
 - Wrong: `setItems(result.items)` publishes unchecked values or replacing selected with the current page.
 - Correct: validate/project the candidate response; keep selected state independent and clear it only after confirmed success or context reset.
+
+## Committed operations and refresh boundaries
+
+`HrTrainingWorkspace.mutate(job, failureMessage, refreshId?)` returns true when the write committed even if its subsequent read fails. Hold the synchronous mutation ref through the refresh, ignore unmounted identity completions, clear stale detail/list action projections on commit, and show saved status separately from load errors. Refresh list once and optional target detail once; do not read detail before the list refresh or convert a committed result into false because a read failed. Preserve list-read warnings when detail succeeds. Detail responses must match the requested plan ID.
+
+External refresh/open/close/paging cannot switch the target while writing. Explicit submit events retain rejected course, plan, requirement and plan-fact drafts. `TrainingResultForm` and `TrainingPlanFactsForm` display local failed-save feedback; only successful writes remove/reset the submitted draft. Read-only/operation-only permission intersections and certificates remain unchanged.
+
+Regression assertions: rejected facts retain reason/dates; rejected requirement retains exact selectors; score zero is transported explicitly; committed detail read failure removes old result form and keeps saved status; list failure remains visible after successful detail; concurrent submit sends one write and disables switching; identity replacement starts only the new reads. Browser desktop/390px must show retained zero/reason, 44px controls and no horizontal overflow.

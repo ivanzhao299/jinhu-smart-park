@@ -1,0 +1,5 @@
+.workspace :global(.ds-button),
+.workspace input:not([type="checkbox"]),
+.workspace select {
+  min-height: 44px;
+}

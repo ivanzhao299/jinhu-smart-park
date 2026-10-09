@@ -10,12 +10,13 @@ export function trainingPlanFactsPayload(form:FormData,current:TrainingPlanFacts
   ...(endDate!==current.endDate.slice(0,10)?{endDate}:{})};
 }
 export function TrainingPlanFactsForm({current,canCourse,busy,className,onSubmit}:{current:TrainingPlanFactsFormValue;canCourse:boolean;busy:boolean;className:string|undefined;onSubmit:(form:FormData)=>Promise<unknown>}){
- const [start,setStart]=useState(current.startDate.slice(0,10)),[end,setEnd]=useState(current.endDate.slice(0,10));
- return <form className={className} action={async form=>{await onSubmit(form);}}>
+ const [start,setStart]=useState(current.startDate.slice(0,10)),[end,setEnd]=useState(current.endDate.slice(0,10)),[message,setMessage]=useState("");
+ return <form className={className} onSubmit={event=>{event.preventDefault();if(busy)return;setMessage("");void onSubmit(new FormData(event.currentTarget)).then(saved=>{if(saved!==true)setMessage("课程及日期未保存，已保留本次填写，请核对错误提示后重试。");});}}>
+  <fieldset disabled={busy} style={{display:"contents"}}>
   {canCourse?<label className="form-field"><span>课程名称</span><input name="courseName" defaultValue={current.courseTitle??""} required maxLength={160}/></label>:<p>课程：{current.courseTitle??"未登记"}</p>}
   <label className="form-field"><span>开始日期</span><input name="startDate" type="date" required value={start} max={end||undefined} onChange={e=>setStart(e.target.value)}/></label>
   <label className="form-field"><span>结束日期</span><input name="endDate" type="date" required value={end} min={start||undefined} onChange={e=>setEnd(e.target.value)}/></label>
   <label className="form-field"><span>修改原因</span><input name="reason" required maxLength={1000}/></label>
   <button className="ds-button ds-button-primary" disabled={busy}>保存课程及日期</button>
- </form>;
+ </fieldset>{message?<p className="form-error" role="alert">{message}</p>:null}</form>;
 }
