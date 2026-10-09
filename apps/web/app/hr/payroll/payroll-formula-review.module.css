@@ -1,0 +1,8 @@
+.workspace { display: grid; gap: 16px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions button { min-height: 44px; white-space: nowrap; }
+.records:global(.ds-mobile-record-list) { display: grid; }
+.records :global(.ds-mobile-record) { grid-template-columns: minmax(0, 1fr); }
+.detail { display: grid; gap: 12px; min-width: 0; }
+.expression { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+@media (max-width: 640px) { .actions button { flex: 1 1 auto; } }

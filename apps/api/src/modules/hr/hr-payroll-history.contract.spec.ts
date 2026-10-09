@@ -115,8 +115,15 @@ test("sensitive reads are allowlisted and required-audited before return",()=>{
  assert.match(service,/recordHrSensitiveRead\(this\.auditService/);
  assert.match(service,/projectReviewEvidence/);
  for(const forbidden of ["source_hash","source_content_group_hash","legacy_employee_hash","legacy_department_hash","source_backup_hash","manifest_hash","tenant_id","park_id"])assert.doesNotMatch(service,new RegExp(`addSelect\\([^\\n]*${forbidden}`));
- const formulaBody=service.slice(service.indexOf("async listFormulas"),service.indexOf("async listReviewCases"));
+ const formulaBody=service.slice(service.indexOf("async listFormulas"),service.indexOf("async formulaDetail"));
  assert.doesNotMatch(formulaBody,/addSelect\([^\n]*(?:raw_expression|raw_condition|source_hash|version_no|tenant_id|park_id)/i);
+ const formulaDetail=service.slice(service.indexOf("async formulaDetail"),service.indexOf("async listReviewCases"));
+ assert.match(formulaDetail,/this\.requireRuleRead\(actor\)/);
+ assert.match(formulaDetail,/formula\.tenant_id=:tenantId AND formula\.park_id=:parkId AND formula\.id=:id/);
+ assert.match(formulaDetail,/formula\.raw_expression","rawExpression"/);
+ assert.match(formulaDetail,/formula\.raw_condition","rawCondition"/);
+ assert.match(formulaDetail,/await this\.audit/);
+ assert.doesNotMatch(formulaDetail,/addSelect\([^\n]*(?:source_hash|tenant_id|park_id)/i);
  const historyBody=service.slice(service.indexOf("async listHistory"),service.indexOf("async historyItems"));
  assert.doesNotMatch(historyBody,/addSelect\("(?:snapshot\.employee_id|book\.id)"/);
  assert.match(historyBody,/else qb\.addSelect\("employee\.employee_code","employeeCode"\)/);

@@ -228,7 +228,7 @@ export class HrPayrollHistoryService {
       .leftJoin("hr_payroll_item_version","item","item.id=formula.item_version_id AND item.tenant_id=formula.tenant_id AND item.park_id=formula.park_id")
       .where("formula.tenant_id=:tenantId AND formula.park_id=:parkId AND formula.is_deleted=false AND book.is_deleted=false",scope)
       .select("formula.id","id").addSelect("book.id","bookId").addSelect("book.legacy_scheme","legacyScheme")
-      .addSelect("item.display_name","itemName")
+      .addSelect("book.book_name","bookName").addSelect("item.display_name","itemName")
       .addSelect("formula.parse_status","parseStatus").addSelect("formula.dependency_codes","dependencyCodes")
       .addSelect("formula.calculation_order","calculationOrder").addSelect("formula.reviewed_at","reviewedAt").addSelect("formula.review_reason","reviewReason");
     if(q.book_id)qb.andWhere("book.id=:bookId",{bookId:q.book_id});
@@ -238,19 +238,22 @@ export class HrPayrollHistoryService {
     return {...result,page:q.page,page_size:q.page_size};
   }
 
-  async formulaDetail(scope:TenantParkScope,actor:JwtPrincipal,id:string) {
+  async formulaDetail(scope:TenantParkScope,actor:JwtPrincipal,id:string):Promise<RawRow & {rawExpression:string;rawCondition:string|null;syntax:Pick<ReturnType<typeof parsePayrollFormula>,"status"|"parserVersion"|"dependencies"|"reason">;approvalEligibility:"terminal"|"blocked"|"syntax_ready"}> {
     this.requireRuleRead(actor);
     const row=await this.dataSource.createQueryBuilder().from("hr_payroll_formula_version","formula")
       .innerJoin("hr_payroll_book","book","book.id=formula.book_id AND book.tenant_id=formula.tenant_id AND book.park_id=formula.park_id")
       .leftJoin("hr_payroll_item_version","item","item.id=formula.item_version_id AND item.tenant_id=formula.tenant_id AND item.park_id=formula.park_id")
       .where("formula.tenant_id=:tenantId AND formula.park_id=:parkId AND formula.id=:id AND formula.is_deleted=false AND book.is_deleted=false",{...scope,id})
       .select("formula.id","id").addSelect("book.id","bookId").addSelect("book.legacy_scheme","legacyScheme")
-      .addSelect("item.display_name","itemName")
+      .addSelect("book.book_name","bookName").addSelect("item.display_name","itemName")
+      .addSelect("formula.version_no","versionNo").addSelect("formula.raw_expression","rawExpression").addSelect("formula.raw_condition","rawCondition").addSelect("formula.parser_version","parserVersion")
       .addSelect("formula.parse_status","parseStatus").addSelect("formula.dependency_codes","dependencyCodes")
       .addSelect("formula.calculation_order","calculationOrder").addSelect("formula.reviewed_at","reviewedAt").addSelect("formula.review_reason","reviewReason").getRawOne<RawRow>();
     if(!row)throw new NotFoundException("Payroll formula not found");
     await this.audit(scope,actor,{resource:"hr.payroll_formula",action:"读取历史工资公式详情",bizType:"hr_payroll_formula_version",bizId:id,path:"/hr/payroll/history-formulas/:id",fieldGroups:["compensation"],projection:"admin",itemCount:1});
-    return row;
+    const parsed = parsePayrollFormula(String(row.rawExpression), row.rawCondition == null ? null : String(row.rawCondition));
+    const terminal = ["approved_for_simulation", "rejected"].includes(String(row.parseStatus));
+    return { ...row, rawExpression: String(row.rawExpression), rawCondition: row.rawCondition == null ? null : String(row.rawCondition), syntax: { status: parsed.status, parserVersion: parsed.parserVersion, dependencies: parsed.dependencies, reason: parsed.reason }, approvalEligibility: terminal ? "terminal" : !parsed.ast || String(row.rawCondition ?? "").trim() ? "blocked" : "syntax_ready" };
   }
 
   async listReviewCases(scope:TenantParkScope,actor:JwtPrincipal,q:HrPayrollCatalogQueryDto) {
