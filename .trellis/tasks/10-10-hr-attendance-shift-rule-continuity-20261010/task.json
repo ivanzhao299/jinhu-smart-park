@@ -1,0 +1,31 @@
+{
+  "id": "hr-attendance-shift-rule-continuity-20261010",
+  "name": "hr-attendance-shift-rule-continuity-20261010",
+  "title": "班次宽限规则与日考勤计算版本连续性",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-attendance-shift-rule-continuity-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/api/src/modules/hr/hr-attendance-calculation.pg.spec.ts",
+    "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
+    "apps/web/test/interaction/hr-attendance-employee-selection.test.tsx"
+  ],
+  "notes": "",
+  "meta": {}
+}

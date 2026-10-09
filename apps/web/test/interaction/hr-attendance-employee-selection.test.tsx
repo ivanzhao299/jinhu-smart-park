@@ -8,7 +8,7 @@ import {hrApi,type HrAttendanceEmployeeOption} from "../../lib/hr-api";
 const state=vi.hoisted(()=>({user:{id:"operator",permissions:["hr:attendance","hr:attendance:operate","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{attendanceEmployeeOptions:vi.fn(),attendanceShifts:vi.fn(),attendanceRequests:vi.fn(),attendanceDaily:vi.fn(),attendancePeriods:vi.fn(),attendanceCalendars:vi.fn(),createAttendanceSchedule:vi.fn(),createAttendancePunch:vi.fn(),recalculateAttendance:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{attendanceEmployeeOptions:vi.fn(),attendanceShifts:vi.fn(),attendanceRequests:vi.fn(),attendanceDaily:vi.fn(),attendancePeriods:vi.fn(),attendanceCalendars:vi.fn(),createAttendanceShift:vi.fn(),createAttendanceSchedule:vi.fn(),createAttendancePunch:vi.fn(),recalculateAttendance:vi.fn()}}));
 const employee=(number:number)=>({id:`employee-${number}`,employeeCode:`SYN-${String(number).padStart(3,"0")}`,fullName:`合成人员${number}`});
 function Selection(){const [selected,setSelected]=useState<HrAttendanceEmployeeOption|null>(null);return <AttendanceEmployeeSelection selected={selected} onChange={setSelected}/>;}
 const response=(items=[employee(1)],total=205,page=1)=>({items,total,page,page_size:20});
@@ -108,4 +108,37 @@ it("scope changes discard punch drafts and ignore an older in-flight completion"
  const {rerender}=render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});fireEvent.change(screen.getByLabelText("打卡时间",{exact:true}),{target:{value:"2026-10-09T09:00"}});fireEvent.click(screen.getByRole("button",{name:"录入打卡事件"}));
  state.user={...state.user,id:"next-operator"};rerender(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");await act(async()=>resolve({id:"old-punch"}));
  expect(screen.getByLabelText("打卡时间",{exact:true})).toHaveValue("");expect(screen.getByLabelText("考勤员工")).toHaveValue("");expect(screen.queryByText("人工打卡已补录。")).toBeNull();
+});
+
+async function prepareShift(){
+ render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");
+ fireEvent.change(screen.getByLabelText("班次编码"),{target:{value:"SYN-GRACE"}});
+ fireEvent.change(screen.getByLabelText("班次名称"),{target:{value:"合成宽限班"}});
+}
+it("shift creation submits integer grace bounds and preserves a failed draft",async()=>{
+ vi.mocked(hrApi.createAttendanceShift).mockRejectedValueOnce(new Error("合成班次保存失败"));await prepareShift();
+ const submit=screen.getByRole("button",{name:"创建班次"}),late=screen.getByLabelText("迟到宽限（分钟）"),early=screen.getByLabelText("早退宽限（分钟）");
+ for(const invalid of ["", "-1", "241", "1.5"]){fireEvent.change(late,{target:{value:invalid}});expect(submit).toBeDisabled()}
+ fireEvent.change(late,{target:{value:"0"}});fireEvent.change(early,{target:{value:"240"}});fireEvent.change(screen.getByLabelText("班次规则版本"),{target:{value:"grace-v2"}});
+ fireEvent.click(submit);await screen.findByText("合成班次保存失败");
+ expect(hrApi.createAttendanceShift).toHaveBeenCalledWith({shiftCode:"SYN-GRACE",shiftName:"合成宽限班",startLocal:"09:00",endLocal:"18:00",lateGraceMinutes:0,earlyGraceMinutes:240,ruleVersion:"grace-v2"},"synthetic-token");
+ expect(screen.getByLabelText("班次编码")).toHaveValue("SYN-GRACE");expect(early).toHaveValue(240);
+});
+it("created shift remains successful when list refresh fails and clears only its identity draft",async()=>{
+ vi.mocked(hrApi.createAttendanceShift).mockResolvedValueOnce({id:"created"});await prepareShift();vi.mocked(hrApi.attendanceShifts).mockRejectedValueOnce(new Error("合成列表刷新失败"));
+ fireEvent.click(screen.getByRole("button",{name:"创建班次"}));await screen.findByText("班次已创建。合成列表刷新失败");
+ expect(screen.getByLabelText("班次编码")).toHaveValue("");expect(screen.getByRole("button",{name:"创建班次"})).toBeDisabled();expect(hrApi.createAttendanceShift).toHaveBeenCalledTimes(1);
+});
+it("recalculation does not submit a new shift draft as the saved schedule rule",async()=>{
+ render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});
+ fireEvent.change(screen.getByLabelText("班次规则版本"),{target:{value:"unassigned-draft"}});fireEvent.click(screen.getByRole("button",{name:"重算员工日考勤"}));
+ await waitFor(()=>expect(hrApi.recalculateAttendance).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-1",ruleVersion:"v1"}),"synthetic-token"));
+ expect(screen.getByText(/重算使用员工当日已保存排班/)).toBeInTheDocument();
+});
+
+it("shift request synchronously blocks duplicate clicks and editing its pending draft",async()=>{
+ let resolve:(value:{id:string})=>void=()=>{};vi.mocked(hrApi.createAttendanceShift).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));await prepareShift();
+ const submit=screen.getByRole("button",{name:"创建班次"});act(()=>{fireEvent.click(submit);fireEvent.click(submit)});expect(hrApi.createAttendanceShift).toHaveBeenCalledTimes(1);
+ expect(screen.getByLabelText("班次编码")).toBeDisabled();expect(screen.getByLabelText("班次开始时间")).toBeDisabled();expect(screen.getByLabelText("迟到宽限（分钟）")).toBeDisabled();
+ await act(async()=>resolve({id:"created"}));await screen.findByText("考勤运营操作已完成。");expect(submit).toBeDisabled();
 });
