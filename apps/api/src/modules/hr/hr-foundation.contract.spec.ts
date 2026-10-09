@@ -10,6 +10,7 @@ const root=resolve(__dirname,"../../../../..");
 const migration=readFileSync(resolve(root,"database/migrations/000230_hr_employee_foundation.sql"),"utf8");
 const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
 const service=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
+const formalPayrollService=readFileSync(resolve(__dirname,"hr-payroll-formal-run.service.ts"),"utf8");
 const accessPolicy=readFileSync(resolve(__dirname,"hr-access-policy.ts"),"utf8");
 const performanceMigration=readFileSync(resolve(root,"database/migrations/000232_hr_performance_feedback.sql"),"utf8");
 const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
@@ -57,11 +58,12 @@ test("HR approvals support submit, return, resubmit, approve and withdraw with a
 });
 test("payroll freezes confirmed snapshots and requires correction runs",()=>{
  for(const table of ["hr_compensation_plan","hr_employee_compensation","hr_payroll_period","hr_payroll_run","hr_payslip","hr_payslip_item"])assert.match(payrollMigration,new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
- assert.match(service,/Correction must reference a confirmed run/);
+ assert.match(formalPayrollService,/Correction must reference a confirmed run in this period/);
  assert.match(service,/Only calculated payroll can enter review/);
  assert.match(service,/Only reviewed payroll can be confirmed/);
  assert.match(service,/status:"confirmed"/);
- assert.match(service,/compensationSnapshot/);
+ assert.match(formalPayrollService,/INSERT INTO hr_payslip\([\s\S]*compensation_snapshot/);
+ assert.match(formalPayrollService,/snapshot: row\.frozenSources/);
  assert.match(service,/Confirmed payroll cannot be adjusted; create a correction run/);
  assert.match(service,/Deductions and tax cannot exceed gross amount/);
 });
