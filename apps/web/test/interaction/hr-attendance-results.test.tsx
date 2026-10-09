@@ -45,7 +45,7 @@ it("period25 and summary employee101 remain reachable with independent paginatio
  fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[0]!);await screen.findByText(/period-a-员工1 ·/);
  fireEvent.click(screen.getByRole("button",{name:"汇总下一页"}));await screen.findByText(/period-a-员工101 ·/);
  expect(vi.mocked(hrApi.attendanceMonthSummaries).mock.calls.at(-1)?.slice(0,4)).toEqual(["period-a","synthetic-token",2,100]);
- fireEvent.click(screen.getByRole("button",{name:"期间下一页"}));await screen.findByText("2024-10 · open");
+ fireEvent.click(screen.getByRole("button",{name:"期间下一页"}));await screen.findByText("2024-10 · 待计算");
  expect(screen.getByText("汇总第 2 / 2 页 · 共 101 人")).toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"查看汇总"}));await screen.findByText(/period-25-员工1 ·/);expect(screen.queryByText(/period-a-员工101/)).toBeNull();
  expect(screen.getByText("汇总第 1 / 2 页 · 共 101 人")).toBeInTheDocument();

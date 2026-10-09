@@ -1,0 +1,11 @@
+# Approved attendance fact continuity
+
+Approve retains the existing request/approval/action/notification transaction and scope rules. Derive affected Shanghai business dates using an exclusive end instant, lock distinct months in chronological order, then employee and request. Recheck the locked request version and month span against the preflight read. Reject calculating months; atomically reopen review months. Return/reject does not invalidate the month. Notification failure rolls all approval and month changes back.
+
+Closed months permit late approval and remain closed. Their old daily facts, summaries and payroll-input quantities are immutable. Require day recalculation followed by the explicit correction operation to produce a new summary/input batch; supersede the old batch through the existing version chain.
+
+Month calculation/correction compares each current approved request's date and type/ID source set against the latest daily fact. Approved dates without schedules must still have a current daily result. Missing/empty historical source traces are compatible only when the expected source set is empty. An actual matching nonempty trace must pass, not merely make negative fixtures fail. SQL date keys used in these maps are `work_date::text`, avoiding driver Date-object/string mismatches. Keep the daily calculation's existing Shanghai overlap semantics; do not invent dates for undated historical requests.
+
+Close also compares the complete employee set and latest daily-result IDs with the active summary. A newly present employee or changed daily result makes an old review summary stale, even if its existing rows are internally consistent.
+
+Verification: actual PostgreSQL suites for requests, calculation, month close and approved-fact continuity run sequentially in mandatory Release Smoke against its disposable `jinhu_release_smoke` database. The dedicated continuity suite otherwise requires its owned loopback `approved_fact_gate` database on55498. Cover both real advisory-lock waiter orders, request version/date drift, approved dates with no schedule, positive matching-source recovery, frozen closed input and explicit correction, notification rollback, return semantics and omitted/current employee daily snapshots. Never run these fixtures against production.

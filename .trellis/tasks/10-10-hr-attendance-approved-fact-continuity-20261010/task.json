@@ -1,0 +1,32 @@
+{
+  "id": "hr-attendance-approved-fact-continuity-20261010",
+  "name": "hr-attendance-approved-fact-continuity-20261010",
+  "title": "考勤审批后日结果与月结连续性",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-attendance-approved-fact-continuity-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/api/src/modules/hr/hr-attendance-approved-facts.pg.spec.ts",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx",
+    "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
+    ".github/workflows/ci.yml"
+  ],
+  "notes": "Based on main591d200d5 after same-tree dependency proof and byte-identical patch integration; local20PG+1contract/745Web pass. PR918 runtime proof pending; no import replay.",
+  "meta": {}
+}

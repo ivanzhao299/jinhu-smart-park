@@ -25,6 +25,27 @@ test("attendance request timing is server-authoritative and type-shaped",()=>{
  for(const dto of [{requestType:"correction",startAt:"2026-08-24T08:00:00Z",reason:"x"},{requestType:"leave",attendanceDate:"2026-08-24",reason:"x"},{requestType:"overtime",startAt:"2026-08-24T08:00:30Z",endAt:"2026-08-24T09:00:00Z",reason:"x"},{requestType:"business_trip",startAt:"2026-08-25T08:00:00Z",endAt:"2026-08-24T08:00:00Z",reason:"x"},{requestType:"leave",startAt:"2026-08-24T08:00:00Z",endAt:"2026-10-01T08:00:00Z",reason:"x"}])assert.throws(()=>validate.call({},dto),BadRequestException);
 });
 
+test("approved-request day ownership uses Shanghai dates and excludes an exact ending midnight",()=>{
+ const dates=(HrService.prototype as unknown as {attendanceRequestWorkDates:(row:{attendanceDate:string|null;startAt:Date|null;endAt:Date|null})=>string[]}).attendanceRequestWorkDates;
+ const months=(HrService.prototype as unknown as {attendanceRequestMonths:(row:{attendanceDate:string|null;startAt:Date|null;endAt:Date|null})=>string[]}).attendanceRequestMonths;
+ const timed={attendanceDate:null,startAt:new Date("2026-12-31T16:00:00.000Z"),endAt:new Date("2027-01-02T16:00:00.000Z")};
+ assert.deepEqual(dates.call(HrService.prototype,timed),["2027-01-01","2027-01-02"]);
+ assert.deepEqual(months.call(HrService.prototype,timed),["2027-01-01"]);
+ assert.deepEqual(dates.call(HrService.prototype,{attendanceDate:null,startAt:null,endAt:null}),[]);
+ const longest={attendanceDate:null,startAt:new Date("2027-01-31T20:00:00+08:00"),endAt:new Date("2027-03-03T20:00:00+08:00")};
+ assert.equal(dates.call(HrService.prototype,longest).length,32);
+ assert.deepEqual(months.call(HrService.prototype,longest),["2027-01-01","2027-02-01","2027-03-01"]);
+ assert.deepEqual(dates.call(HrService.prototype,{attendanceDate:null,startAt:new Date("2026-12-31T23:00:00+08:00"),endAt:new Date("2027-01-01T01:00:00+08:00")}),["2026-12-31","2027-01-01"]);
+});
+
+test("attendance approval implementation locks affected months before employee, rejects calculating, and retains closed inputs",()=>{
+ const source=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
+ assert.match(source,/prepareAttendanceFactChanges\(manager,scope,expectedMonths,actor\.sub\)[\s\S]*requestRepo/);
+ assert.match(source,/period\?\.status==="calculating"/);
+ assert.doesNotMatch(source,/period\?\.status==="closed"/);
+ assert.match(source,/row\.version!==existing\.version/);
+});
+
 test("returning an attendance request requires an actionable comment",async()=>{
  const service=Reflect.construct(HrService,Array(32).fill({})) as HrService;
  await assert.rejects(service.reviewAttendanceRequest({tenantId:"tenant-1",parkId:"park-1"},actor([HR_PERMISSIONS.HR_ATTENDANCE_APPROVE]),"00000000-0000-4000-8000-000000000001","reject",{}),BadRequestException);
