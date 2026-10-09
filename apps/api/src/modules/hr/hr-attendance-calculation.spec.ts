@@ -39,7 +39,7 @@ test("shift grace DTO accepts zero and240, rejecting fractional, negative and co
 });
 test("an existing schedule with an unavailable shift fails before allocating a calculation version",async()=>{
  const service=Object.create(HrService.prototype) as HrService,accessed:unknown[]=[];
- const manager={getRepository:(entity:unknown)=>{
+ const manager={query:async()=>[],getRepository:(entity:unknown)=>{
   accessed.push(entity);
   if(entity===HrEmployeeEntity)return {findOne:async()=>({id:"synthetic-employee"})};
   if(entity===HrEmployeeScheduleEntity)return {findOne:async()=>({id:"synthetic-schedule",shiftId:"missing-shift"})};

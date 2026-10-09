@@ -883,7 +883,7 @@ await appendDailyResult(manager, nextVersion, immutableTrace);
 
 ### 2. Signatures
 
-- Period operation requires `hr:attendance:operate`; final close and post-close correction require `hr:attendance:close`.
+- Period operation requires `hr:attendance:operate`; final close requires `hr:attendance:close` and post-close correction requires `hr:attendance:correct`.
 - Payroll input reads require the exact high-sensitivity `hr:attendance:payroll_input_read` permission and required audit.
 - Period and employee-summary reads continue to resolve server-side `park | managed_org_tree | self | none` attendance scope.
 

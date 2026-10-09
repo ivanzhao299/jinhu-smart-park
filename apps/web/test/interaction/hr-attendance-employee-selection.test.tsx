@@ -8,12 +8,12 @@ import {hrApi,type HrAttendanceEmployeeOption} from "../../lib/hr-api";
 const state=vi.hoisted(()=>({user:{id:"operator",permissions:["hr:attendance","hr:attendance:operate","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{attendanceEmployeeOptions:vi.fn(),attendanceShifts:vi.fn(),attendanceRequests:vi.fn(),attendanceDaily:vi.fn(),attendancePeriods:vi.fn(),attendanceCalendars:vi.fn(),createAttendanceShift:vi.fn(),createAttendanceSchedule:vi.fn(),createAttendancePunch:vi.fn(),recalculateAttendance:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{attendanceSchedule:vi.fn(),updateAttendanceSchedule:vi.fn(),attendanceEmployeeOptions:vi.fn(),attendanceShifts:vi.fn(),attendanceRequests:vi.fn(),attendanceDaily:vi.fn(),attendancePeriods:vi.fn(),attendanceCalendars:vi.fn(),createAttendanceShift:vi.fn(),createAttendanceSchedule:vi.fn(),createAttendancePunch:vi.fn(),recalculateAttendance:vi.fn()}}));
 const employee=(number:number)=>({id:`employee-${number}`,employeeCode:`SYN-${String(number).padStart(3,"0")}`,fullName:`合成人员${number}`});
 function Selection(){const [selected,setSelected]=useState<HrAttendanceEmployeeOption|null>(null);return <AttendanceEmployeeSelection selected={selected} onChange={setSelected}/>;}
 const response=(items=[employee(1)],total=205,page=1)=>({items,total,page,page_size:20});
 beforeEach(()=>{
- vi.clearAllMocks();state.user={id:"operator",permissions:["hr:attendance","hr:attendance:operate","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]};
+ vi.clearAllMocks();vi.mocked(hrApi.attendanceSchedule).mockResolvedValue(null);vi.mocked(hrApi.createAttendanceSchedule).mockResolvedValue({id:"schedule",employeeId:"employee-101",workDate:"2026-10-10",shiftId:"shift",shiftName:"合成班次",startLocal:"09:00",endLocal:"18:00",version:1,requiresRecalculation:true});state.user={id:"operator",permissions:["hr:attendance","hr:attendance:operate","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]};
  vi.mocked(hrApi.attendanceEmployeeOptions).mockImplementation(async(_token,page=1,keyword="")=>keyword?response([employee(101)],1,1):response(Array.from({length:Math.min(20,205-(page-1)*20)},(_,index)=>employee((page-1)*20+index+1)),205,page));
  vi.mocked(hrApi.attendanceShifts).mockResolvedValue([{id:"shift",shiftCode:"SYN",shiftName:"合成班次",startLocal:"09:00",endLocal:"18:00",crossesMidnight:false,lateGraceMinutes:0,earlyGraceMinutes:0,ruleVersion:"v1",status:"enabled"}]);
  vi.mocked(hrApi.attendanceRequests).mockResolvedValue({items:[],total:0,page:1,page_size:30});
@@ -53,10 +53,10 @@ it("identity changes and unmount cancel pending reads",async()=>{
 it("actual attendance page passes explicit later employee to schedule",async()=>{
  render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");expect(screen.getByRole("button",{name:"保存当日排班"})).toBeDisabled();expect(screen.getByRole("button",{name:"录入打卡事件"})).toBeDisabled();
  fireEvent.change(screen.getByLabelText("搜索考勤员工"),{target:{value:"SYN-101"}});fireEvent.click(screen.getByRole("button",{name:"搜索员工"}));await screen.findByText("员工第 1 / 1 页 · 共 1 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-101"}});
- fireEvent.click(screen.getByRole("button",{name:"保存当日排班"}));await waitFor(()=>expect(hrApi.createAttendanceSchedule).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-101",shiftId:"shift"}),"synthetic-token"));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"保存当日排班"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"保存当日排班"}));await waitFor(()=>expect(hrApi.createAttendanceSchedule).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-101",shiftId:"shift"}),"synthetic-token",expect.any(String)));
 });
 it("actual attendance scope change resets the selected employee and pending operation form",async()=>{
- const {rerender}=render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});expect(screen.getByRole("button",{name:"保存当日排班"})).toBeEnabled();
+ const {rerender}=render(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");fireEvent.change(screen.getByLabelText("考勤员工"),{target:{value:"employee-1"}});await waitFor(()=>expect(screen.getByRole("button",{name:"保存当日排班"})).toBeEnabled());
  state.user={...state.user,id:"another-operator"};rerender(<HrAttendanceClient/>);await screen.findByText("员工第 1 / 11 页 · 共 205 人");expect(screen.getByLabelText("考勤员工")).toHaveValue("");expect(screen.getByRole("button",{name:"保存当日排班"})).toBeDisabled();
 });
 

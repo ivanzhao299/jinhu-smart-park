@@ -77,6 +77,8 @@ export class HrAttendanceDailyQueryDto {
  @IsOptional() @IsDateString() from?:string; @IsOptional() @IsDateString() to?:string; @IsOptional() @IsIn(["normal","late","early_leave","missing_punch","absence","rest","corrected"]) status?:string;
 }
 export class CreateHrAttendanceShiftDto { @Transform(trim) @IsString() @MaxLength(64) shiftCode!:string;@Transform(trim) @IsString() @MaxLength(100) shiftName!:string;@Matches(/^([01]\d|2[0-3]):[0-5]\d$/) startLocal!:string;@Matches(/^([01]\d|2[0-3]):[0-5]\d$/) endLocal!:string;@IsOptional() @IsInt() @Min(0) @Max(240) lateGraceMinutes?:number;@IsOptional() @IsInt() @Min(0) @Max(240) earlyGraceMinutes?:number;@Transform(trim) @IsString() @MaxLength(32) ruleVersion!:string; }
+export class HrEmployeeScheduleQueryDto { @IsUUID() employee_id!:string; @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString({strict:true}) work_date!:string; }
+export class UpdateHrEmployeeScheduleDto { @IsUUID() shiftId!:string; @IsInt() @Min(1) expectedVersion!:number; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(500) reason!:string; }
 export class CreateHrEmployeeScheduleDto { @IsUUID() employeeId!:string;@IsUUID() shiftId!:string;@IsDateString() workDate!:string; }
 export class CreateHrAttendancePunchDto { @IsUUID() employeeId!:string;@Transform(trim) @IsString() @MaxLength(160) eventKey!:string;@IsDateString({strict:true}) occurredAt!:string;@IsIn(["clock_in","clock_out","unknown"]) eventType!:string;@IsIn(["terminal","mobile","import","manual"]) source!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(100) deviceCode?:string; }
 export class RecalculateHrAttendanceDto { @IsUUID() employeeId!:string;@IsDateString() workDate!:string;@Transform(trim) @IsString() @MaxLength(32) ruleVersion!:string; }

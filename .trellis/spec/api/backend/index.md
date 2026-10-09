@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Editable employee-day schedule and month continuity: [Schedule Continuity](./hr-attendance-schedule-continuity.md).
+
 Talent complete profile history: [Talent Profile History](./hr-talent-profile-history.md).
 
 Talent complete scoped employee candidates: [Talent Employee Options](./hr-talent-employee-options.md).
