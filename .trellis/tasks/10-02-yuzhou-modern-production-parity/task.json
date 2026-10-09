@@ -46,7 +46,8 @@
     "10-09-hr-recruitment-document-workflow",
     "10-09-hr-performance-operation-workflow",
     "10-09-hr-employee-operation-continuity",
-    "10-09-hr-training-operation-continuity"
+    "10-09-hr-training-operation-continuity",
+    "10-09-hr-work-report-bounded-workflow"
   ],
   "parent": null,
   "relatedFiles": [

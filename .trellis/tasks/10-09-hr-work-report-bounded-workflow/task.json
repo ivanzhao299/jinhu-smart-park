@@ -1,0 +1,29 @@
+{
+  "id": "hr-work-report-bounded-workflow",
+  "name": "hr-work-report-bounded-workflow",
+  "title": "工作汇报分权限分页与审核办理",
+  "description": "",
+  "status": "review",
+  "dev_type": null,
+  "scope": null,
+  "package": "api,web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-09",
+  "completedAt": null,
+  "branch": "codex/hr-work-report-bounded-workflow-20261009",
+  "base_branch": "codex/hr-work-report-bounded-workflow-20261009",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-recruitment-reference-selection-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr-goal-report.service.ts",
+    "apps/web/app/hr/work-reports/HrWorkReportsClient.tsx"
+  ],
+  "notes": "Isolated query PG passed; real component 11 interactions passed; no historical import replay; no production test writes.",
+  "meta": {}
+}
