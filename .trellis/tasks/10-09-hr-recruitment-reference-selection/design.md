@@ -1,0 +1,6 @@
+# 设计
+招聘路由内复用一个领域选择组件，两种kind拥有独立实例状态。复用现有recruitmentRequisitions和recruitmentCandidates接口，需求按status查询，人员按stage=hired查询。选择快照投影为id/label/可选employeeId，保留在父表单，不从主列表重新解析。
+
+查询使用AbortController和页/关键字代际，校验page/page_size/total/rows及业务标签。共享DS卡片、按钮、form-field，仅局部布局CSS。父表单显式onSubmit并同步ref锁，成功后reset和清选择，失败保留浏览器值。父RecruitmentView现有完整身份key负责作用域重置。
+
+无服务端规则变动。已有API仍在写入时重新核对关联和状态。PR889是代码依赖；当前隔离分支从精确候选ad539f8开始，提交前rebase已合并SHA，串行发布，保留原发布工作区清洁。
