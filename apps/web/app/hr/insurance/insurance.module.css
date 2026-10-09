@@ -12,3 +12,7 @@
     order: 1;
   }
 }
+
+.ledger :global(.ds-button) {
+  min-height: 44px;
+}

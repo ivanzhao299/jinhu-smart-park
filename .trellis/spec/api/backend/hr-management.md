@@ -1434,3 +1434,7 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 ### 7. Wrong vs Correct
 - Wrong: `Number(query.page)` without scalar/type/range validation; `[...first500Employees]` as the complete directory.
 - Correct: validate integer scalar pages before deriving OFFSET; use scoped count/search/page SQL plus independently scoped selected lookup, retaining the form's explicit selection across pages.
+
+## Employee-specific insurance read context
+
+GET insurance/periods and insurance/periods/me accept optional employee_id validated as one UUID by HrInsurancePeriodQueryDto. Add the exact period.employee_id predicate to the existing tenant/park/nondeleted and ledgerEmployeeIds range; do not replace or bypass existing team/self authority. Preserve pagination, amount permission projection and required read audit, including empty scopes. This read-only filter neither updates imported rows nor creates owned periods or payroll amounts. Frontend employee deep links must use exact IDs, not names, and reject malformed/repeated navigation instead of silently expanding scope.

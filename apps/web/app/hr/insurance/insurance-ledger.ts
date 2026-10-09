@@ -1,7 +1,7 @@
 export const INSURANCE_PAGE_SIZE = 30;
 export interface InsuranceLedgerQuery {
   contextKey: string; canRead: boolean; selfOnly: boolean;
-  keyword: string; year: string; month: string; reviewOnly: boolean;
+  keyword: string; year: string; month: string; reviewOnly: boolean; employeeId?: string;
 }
 export function insurancePageCount(total: number) { return Math.max(1, Math.ceil(total / INSURANCE_PAGE_SIZE)); }
 export function clampInsurancePage(page: number, total: number) {
