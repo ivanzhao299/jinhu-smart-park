@@ -1,3 +1,18 @@
 .recordList:global(.ds-mobile-record-list) {
   display: grid;
 }
+
+.resultPagination {
+  align-items: center;
+}
+
+.resultPagination :global(.ds-button) {
+  min-height: 44px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.resultPagination > span {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}

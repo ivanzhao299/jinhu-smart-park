@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web scope and DS/error contracts"}
+{"file": ".trellis/spec/web/frontend/hr-attendance-result-browsing.md", "reason": "Complete result paging and request ownership"}
+{"file": ".trellis/spec/web/frontend/hr-attendance-employee-selection.md", "reason": "Preserve existing employee operations"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide routing"}
