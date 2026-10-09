@@ -30,6 +30,7 @@ import {
   HrFeedback360QueryDto,
   SubmitHrFeedback360Dto,
 } from "./dto/hr-feedback360.dto";
+import {HrFeedback360EmployeeOptionsDto,HrFeedback360SubjectOptionsDto} from "./dto/hr-feedback360-options.dto";
 import { HrFeedback360Service } from "./hr-feedback360.service";
 
 @Controller("hr/feedback360-v2") @RequireModule("hr")
@@ -43,6 +44,15 @@ export class HrFeedback360Controller {
   configuration(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal) {
     return this.service.configuration(s, a);
   }
+  @Get("employee-options")
+  @RequireAnyPermissions(HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE,HR_PERMISSIONS.HR_FEEDBACK_NOMINATE)
+  employeeOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrFeedback360EmployeeOptionsDto){return this.service.employeeOptions(s,a,q);}
+  @Get("subject-options")
+  @RequireAnyPermissions(HR_PERMISSIONS.HR_FEEDBACK_NOMINATE,HR_PERMISSIONS.HR_FEEDBACK_RESULT_PUBLISH)
+  subjectOperationOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrFeedback360SubjectOptionsDto){return this.service.subjectOperationOptions(s,a,q);}
+  @Get("cycle-options")
+  @RequirePermissions(HR_PERMISSIONS.HR_FEEDBACK_CYCLE_MANAGE)
+  cycleOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.cycleOptions(s,a);}
   @Get("options")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,

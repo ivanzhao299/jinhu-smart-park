@@ -1,0 +1,11 @@
+# 设计
+
+依赖PR900最新候选24c2d219b及最终合并版本；当前工作区只完成来源研究和计划，生产观察器拥有PR900工作区，不得修改。PR900合并后先把本工作区整合到最新main，保留其独立资源/重试机制，才写360客户端代码。
+
+新增精确操作候选GET：employee-options（CYCLE_MANAGE或NOMINATE），subject-options（purpose=nominate或publish，各要求对应精确原子），cycle-options（CYCLE_MANAGE，独立模型/问卷元数据）。保留旧options兼容，不以去掉LIMIT后一次全量拉取解决。复用既有access/managedOrgSql/本人候选范围和原写入资格；不扩展协作关系规则。
+
+分页DTO沿用严格标量十进制page/page_size与trim100字搜索词规范；参数化字面ILIKE转义反斜线/百分号/下划线。候选/COUNT在REPEATABLE READ事务内同谓词读取。最小投影；必需审计完成才响应。请求范围和purpose精确权限在SQL前检查，foreign super同样拒绝。
+
+前端只读取当前操作需要的数据；周期metadata不再连带读取500员工和subjects，提名审批只读自己的队列。复用培训候选分页/跨页选择的已有模式和DS表面，增加适配360域的最小选择组件；不泛化重写无关培训业务。周期多选保留已验证对象、最多500；提名员工和对象单选；发布对象按对应状态分页搜索并继续原状态办理。新分页payload统一校验items/total/page/page_size/重复ID/状态，旧响应不可覆盖新查询。已选引用从实际返回的对象形成并由原写事务再次验证；身份/显式新业务动作清理旧选择，提交失败不清空。
+
+旧options仍存在的兼容上限不能再作为现代页面数据来源；公开缺口记录协作方来源和真实岗位UAT未完成，不声称完整360等价。
