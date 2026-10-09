@@ -71,7 +71,8 @@
     "10-10-hr-position-maintenance-20261010",
     "10-10-hr-attendance-result-export-20261010",
     "10-10-hr-attendance-shift-rule-continuity-20261010",
-    "10-10-hr-attendance-schedule-continuity-20261010"
+    "10-10-hr-attendance-schedule-continuity-20261010",
+    "10-10-hr-attendance-approved-fact-continuity-20261010"
   ],
   "parent": null,
   "relatedFiles": [

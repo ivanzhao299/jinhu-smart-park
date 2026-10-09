@@ -1,0 +1,3 @@
+{"file_path": ".trellis/spec/api/backend/hr-management.md", "reason": "attendance requests, calculation and month contracts"}
+{"file_path": ".trellis/spec/api/backend/hr-attendance-schedule-continuity.md", "reason": "month locking and immutable inputs"}
+{"file_path": ".trellis/spec/guides/index.md", "reason": "shared guidance"}

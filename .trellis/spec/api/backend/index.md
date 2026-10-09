@@ -1,5 +1,6 @@
 # @jinhu/api Backend Specs
 
+Approved attendance source/month-close continuity: [Approved Facts](./hr-attendance-approved-fact-continuity.md).
 Editable employee-day schedule and month continuity: [Schedule Continuity](./hr-attendance-schedule-continuity.md).
 
 Talent complete profile history: [Talent Profile History](./hr-talent-profile-history.md).

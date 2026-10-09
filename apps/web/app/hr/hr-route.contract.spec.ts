@@ -387,7 +387,7 @@ test("HR M6 attendance requests expose explicit self and approval actions withou
 test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave impact",()=>{
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  for(const field of ["leavePlannedMinutes","leaveEffectiveMinutes","leaveDayCount","leaveMinutes"])assert.match(api,new RegExp(`${field}:number`));
- assert.match(attendance,/row\.status==="approved"\?`已计入/);
+ assert.match(attendance,/row\.status==="approved"\?`已批准计入/);
  assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
  assert.match(attendance,/row\.leaveMinutes>0/);
  assert.match(attendance,/已批准请假/);

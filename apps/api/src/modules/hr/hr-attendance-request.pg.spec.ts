@@ -8,7 +8,7 @@ import { HR_PERMISSIONS } from "@jinhu/shared";
 import { DataSource,EntitySchema } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
-import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceRequestEntity,HrEmployeeEntity } from "./entities/hr.entities";
+import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendancePeriodEntity,HrAttendanceRequestEntity,HrEmployeeEntity } from "./entities/hr.entities";
 import { HrService } from "./hr.service";
 
 const required=process.env.HR_ATTENDANCE_REQUEST_PG_REQUIRED==="1";
@@ -34,7 +34,7 @@ suite("HR attendance request PostgreSQL gate",()=>{
  const actor=(sub:string,permissions:string[]=[]):JwtPrincipal=>({sub,username:`attendance-${sub.slice(0,8)}`,tenantId:scope.tenantId,parkId:scope.parkId,roles:[],permissions});
 
  before(async()=>{
-  dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),database:process.env.POSTGRES_DB??"jinhu_smart_park",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,entities:[organizationReadSchema,HrEmployeeEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttendanceRequestEntity]});
+  dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),database:process.env.POSTGRES_DB??"jinhu_smart_park",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,entities:[organizationReadSchema,HrEmployeeEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttendanceRequestEntity,HrAttendancePeriodEntity]});
   await dataSource.initialize();
   employeeUser=randomUUID();reviewerUser=randomUUID();employeeId=randomUUID();
   await dataSource.query("INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash,status) VALUES($1,$2,$3,$4,'Attendance employee','not-a-login-hash','enabled'),($5,$2,$3,$6,'Attendance reviewer','not-a-login-hash','enabled')",[employeeUser,scope.tenantId,scope.parkId,`att-e-${employeeUser.slice(0,8)}`,reviewerUser,`att-r-${reviewerUser.slice(0,8)}`]);
@@ -49,6 +49,7 @@ suite("HR attendance request PostgreSQL gate",()=>{
   await dataSource.query("DELETE FROM hr_approval_action WHERE request_id IN(SELECT id FROM hr_approval_request WHERE create_by=$1)",[employeeUser]);
   await dataSource.query("DELETE FROM hr_attendance_request WHERE create_by=$1",[employeeUser]);
   await dataSource.query("DELETE FROM hr_approval_request WHERE create_by=$1",[employeeUser]);
+  await dataSource.query("DELETE FROM hr_attendance_period WHERE create_by=$1",[employeeUser]);
   await dataSource.query("DELETE FROM hr_employee WHERE id=$1",[employeeId]);
   await dataSource.query("DELETE FROM sys_user WHERE id IN($1,$2)",[employeeUser,reviewerUser]);
   await dataSource.destroy();
@@ -72,5 +73,30 @@ suite("HR attendance request PostgreSQL gate",()=>{
   await assert.rejects(service.submitAttendanceRequest(scope,employee,overlapping.id),ConflictException);
   const states=await dataSource.query("SELECT status FROM hr_attendance_request WHERE id IN($1,$2) ORDER BY id",[created.id,overlapping.id]);
   assert.deepEqual(states.map((row:{status:string})=>row.status).sort(),["approved","draft"]);
+ });
+ it("approves a cross-month request by reopening every affected review period",async()=>{
+  const employee=actor(employeeUser),reviewer=actor(reviewerUser,[HR_PERMISSIONS.HR_ATTENDANCE_READ]);
+  await dataSource.query("INSERT INTO hr_attendance_period(tenant_id,park_id,period_month,status,active_version,create_by,update_by) VALUES($1,$2,'2026-01-01','review',1,$3,$3),($1,$2,'2026-02-01','review',1,$3,$3)",[scope.tenantId,scope.parkId,employeeUser]);
+  const created=await service.createAttendanceRequest(scope,employee,{requestType:"business_trip",startAt:"2026-01-31T20:00:00+08:00",endAt:"2026-02-01T04:00:00+08:00",reason:"cross-month approval continuity"});
+  await service.submitAttendanceRequest(scope,employee,created.id);
+  assert.equal((await service.reviewAttendanceRequest(scope,reviewer,created.id,"approve",{})).status,"approved");
+  const periods=await dataSource.query("SELECT period_month,status FROM hr_attendance_period WHERE tenant_id=$1 AND park_id=$2 AND period_month IN('2026-01-01','2026-02-01') ORDER BY period_month",[scope.tenantId,scope.parkId]);
+  assert.equal(periods.length,2);
+  assert.deepEqual(periods.map((row:{status:string})=>row.status),["open","open"]);
+ });
+ it("keeps a closed period immutable on approval and rolls back approval when notification persistence fails",async()=>{
+  const employee=actor(employeeUser),reviewer=actor(reviewerUser,[HR_PERMISSIONS.HR_ATTENDANCE_READ]);
+  await dataSource.query("INSERT INTO hr_attendance_period(tenant_id,park_id,period_month,status,active_version,create_by,update_by) VALUES($1,$2,'2026-03-01','closed',1,$3,$3),($1,$2,'2026-04-01','review',1,$3,$3)",[scope.tenantId,scope.parkId,employeeUser]);
+  const closedRequest=await service.createAttendanceRequest(scope,employee,{requestType:"correction",attendanceDate:"2026-03-15",reason:"closed-period correction approval"});
+  await service.submitAttendanceRequest(scope,employee,closedRequest.id);
+  assert.equal((await service.reviewAttendanceRequest(scope,reviewer,closedRequest.id,"approve",{})).status,"approved");
+  assert.equal((await dataSource.query("SELECT status FROM hr_attendance_period WHERE tenant_id=$1 AND park_id=$2 AND period_month='2026-03-01'",[scope.tenantId,scope.parkId]))[0].status,"closed");
+  const rollbackRequest=await service.createAttendanceRequest(scope,employee,{requestType:"correction",attendanceDate:"2026-04-15",reason:"notification rollback approval"});
+  await service.submitAttendanceRequest(scope,employee,rollbackRequest.id);
+  const target=service as unknown as {notifications:{publishAttendanceRequestReviewed:()=>Promise<void>}},original=target.notifications;
+  target.notifications={publishAttendanceRequestReviewed:async()=>{throw new Error("synthetic notification failure");}};
+  try{await assert.rejects(service.reviewAttendanceRequest(scope,reviewer,rollbackRequest.id,"approve",{}),/synthetic notification failure/u);}finally{target.notifications=original;}
+  const [request,period]=await Promise.all([dataSource.query("SELECT status FROM hr_attendance_request WHERE id=$1",[rollbackRequest.id]),dataSource.query("SELECT status FROM hr_attendance_period WHERE tenant_id=$1 AND park_id=$2 AND period_month='2026-04-01'",[scope.tenantId,scope.parkId])]);
+  assert.equal(request[0].status,"submitted");assert.equal(period[0].status,"review");
  });
 });

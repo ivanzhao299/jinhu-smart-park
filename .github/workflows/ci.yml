@@ -1261,6 +1261,23 @@ jobs:
                   AND permission.code <> 'admin_issue:runner';")"
           test "$excessive_permission_count" = "0"
 
+      - name: Verify approved attendance facts and immutable month corrections
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          HR_ATTENDANCE_REQUEST_PG_REQUIRED: "1"
+          HR_ATTENDANCE_CALC_PG_REQUIRED: "1"
+          HR_ATTENDANCE_CLOSE_PG_REQUIRED: "1"
+          HR_ATTENDANCE_APPROVED_FACT_PG_REQUIRED: "1"
+        run: |
+          set -o pipefail
+          pnpm --filter @jinhu/shared build
+          pnpm --filter @jinhu/api exec node --test --test-concurrency=1 --test-timeout=120000 --require ts-node/register \
+            src/modules/hr/hr-attendance-request.pg.spec.ts \
+            src/modules/hr/hr-attendance-calculation.pg.spec.ts \
+            src/modules/hr/hr-attendance-month-close.pg.spec.ts \
+            src/modules/hr/hr-attendance-approved-facts.pg.spec.ts \
+            2>&1 | tee /tmp/release-smoke-logs/hr-attendance-approved-facts.log
+
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log
 
