@@ -21,6 +21,6 @@
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
-  "notes": "Explicit dependency PR911 candidate7c3636e08; no import replay; single writer.",
+  "notes": "Local integrated validation PASS107 interactions/230 WebHR/12 API/realPG602; latest maina90b80591; recruitmentfe727e5 bundled; awaiting one combined CI/full release/runtime. No import replay.",
   "meta": {}
 }
