@@ -16,6 +16,8 @@ Contract operation lazy employee search and paging: [Contract Employee Selection
 
 Attendance operation complete scoped employee selection: [Attendance Employee Selection](./hr-attendance-employee-selection.md).
 
+Attendance complete scoped daily, period and month-summary browsing: [Attendance Result Browsing](./hr-attendance-result-browsing.md).
+
 These rules describe the current Next.js management frontend in `apps/web`.
 
 Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).
