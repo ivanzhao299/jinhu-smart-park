@@ -50,6 +50,7 @@
     "10-09-hr-work-report-bounded-workflow",
     "10-09-hr-goal-execution-workflow",
     "10-09-hr-attendance-request-continuation",
+    "10-09-hr-performance-review-browsing",
     "10-09-hr-goal-version-continuation"
   ],
   "parent": null,
@@ -67,7 +68,7 @@
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "attendance_returned_edit_publication_then_real_business_acceptance",
+    "nextSlice": "performance_review_browsing_publication_then_real_business_acceptance",
     "businessImplementationStarted": true
   }
 }

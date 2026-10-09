@@ -1,5 +1,5 @@
 import {Transform,Type} from "class-transformer";
-import {ArrayMaxSize,ArrayMinSize,IsArray,IsDateString,IsIn,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
+import {ArrayMaxSize,ArrayMinSize,IsArray,IsDateString,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
 const number=({value}:{value:unknown})=>Number(value);
 export class HrPerformanceDimensionDto{@Transform(trim)@IsString()@MaxLength(64)code!:string;@Transform(trim)@IsString()@MaxLength(120)name!:string;@Transform(number)@IsNumber({maxDecimalPlaces:4})@Min(.0001)@Max(1)weight!:number;@IsOptional()@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMin?:number;@IsOptional()@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMax?:number;@IsOptional()@IsObject()scoringGuide?:Record<string,unknown>;}
@@ -16,3 +16,8 @@ export class SubmitHrPerformanceAppealDto{@Transform(trim)@IsString()@MaxLength(
 export class ResolveHrPerformanceAppealDto{@IsIn(["upheld","rejected"])decision!:"upheld"|"rejected";@Transform(trim)@IsString()@MaxLength(2000)reason!:string;@IsOptional()@IsObject()dimensionScores?:Record<string,number>;}
 
 export class CreateHrPerformanceTemplateVersionDto extends CreateHrPerformanceTemplateDto { @IsUUID() expectedVersionId!: string; }
+
+export class HrPerformanceReviewPageQueryDto extends HrPerformanceReviewQueryDto {
+ @IsOptional() @Type(()=>Number) @IsInt() @Min(1) @Max(1000000) page?:number;
+ @IsOptional() @Type(()=>Number) @IsInt() @Min(1) @Max(100) pageSize?:number;
+}

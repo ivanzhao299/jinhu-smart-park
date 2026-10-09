@@ -1020,3 +1020,4 @@ Prepared profile normal-user execution and same-operation preview recovery: [Pre
 Attendance returned-request correction and approval continuity: [Request Continuation](./hr-attendance-request-edit.md).
 
 - [Goal definition continuity](./hr-goal-definition-continuity.md) — Exact CHANGE editor, domain version conflict and immutable history.
+- [Performance review browsing](./hr-performance-review-browsing.md) — Scoped period/status filters, bounded reviews and continuation.
