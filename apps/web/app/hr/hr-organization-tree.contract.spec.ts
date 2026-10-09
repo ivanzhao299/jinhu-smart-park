@@ -13,8 +13,12 @@ test("HR organization page reads the scoped system organization tree without rep
   assert.match(page, /hasPermission\(user, SYSTEM_PERMISSIONS\.ORG_LIST\)/);
   assert.match(page, /hrApi\.organizationTree\(getAccessToken\(\)\)/);
   assert.match(page, /permission=\{HR_PERMISSIONS\.HR_ORGANIZATION_PAGE\}/);
-  assert.match(page, /hrApi\.positions\(token\)/);
-  assert.match(page, /hrApi\.createPosition/);
+  assert.match(page, /<PositionWorkbench canManage=\{canManage\} canRead=/);
+  const positions=readFileSync(resolve(__dirname,"organization/PositionWorkbench.tsx"),"utf8");
+  assert.match(positions, /hrApi\.positions\(getAccessToken\(\),signal\)/);
+  assert.match(positions, /hrApi\.createPosition/);
+  assert.match(positions, /hrApi\.updatePosition/);
+  assert.doesNotMatch(positions, /hrApi\.directoryOptions/);
   assert.doesNotMatch(page, /legacyManagerReference|legacyCompanyManagerReference|legacy_source_id/);
 });
 

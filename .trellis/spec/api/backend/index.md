@@ -1036,3 +1036,7 @@ Employee own-case appeal and personal history: [Self Appeal Workflow](./hr-rewar
 - [hr-reward-payroll-link-options](hr-reward-payroll-link-options.md) — 奖惩工资输入关联正式业务合同。
 
 Modern performance frozen reward evidence: [Reward Evidence](./hr-performance-reward-evidence.md).
+
+## Formal position maintenance
+
+Ordinary editable positions, scoped contexts, assignment concurrency and historical continuity: [hr-position-maintenance.md](./hr-position-maintenance.md). Read before changing position maintenance or employee-to-position relationship guards.
