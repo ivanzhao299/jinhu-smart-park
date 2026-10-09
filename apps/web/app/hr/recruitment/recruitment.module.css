@@ -24,6 +24,14 @@
   margin-block: 16px;
 }
 
+.documents { margin-block: 16px; min-width: 0; }
+.documentCard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-content: start; min-width: 0; padding: 16px; }
+.documentCard h3, .documentCard p { margin: 0; overflow-wrap: anywhere; }
+.documents :global(.file-uploader-compact) { grid-template-columns: minmax(0, 1fr); }
+.documents :global(.pagination-actions) { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.documents .documentCard button { min-height: 44px; white-space: normal; }
+.documents :global(.ds-file-picker) { min-height: 44px; }
+
 .picker { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: 8px 0; }
 .picker legend { margin-bottom: 12px; }
 .choices { display: grid; gap: 8px; max-height: 22rem; overflow-y: auto; margin-top: 12px; }
