@@ -1,0 +1,28 @@
+{
+  "id": "hr-approved-request-recalculation-20261010",
+  "name": "hr-approved-request-recalculation-20261010",
+  "title": "已批准考勤申请多日重算连续办理",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-approved-request-recalculation-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "C owns approved-request bounded multi-day recalculation only. Depends on PR919 release candidate d7a1cffa5781b09e39fc31b69973e67f35a8908c; no import replay or production writes. A release watcher36961 and CI37998668358 remain independent.",
+  "meta": {
+    "nextSlice": "Focused/API/Web/full752/browser/build passed; integrate latest main after PR919 runtime proof, then release this slice."
+  }
+}

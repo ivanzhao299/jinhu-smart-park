@@ -4,6 +4,9 @@
 .full { grid-column:1/-1; min-width:0; overflow-wrap:anywhere; }
 .pagination { flex-wrap:wrap; }
 .pagination span { flex:1 1 12rem; }
+.recalculation { display:grid; gap:10px; margin-top:8px; }
+.recalculationPlan { display:grid; gap:8px; padding:12px; min-width:0; overflow-wrap:anywhere; }
+.recalculationDays { display:flex; flex-wrap:wrap; gap:6px; }
 .workflow input,.workflow select,.workflow button { min-height:44px; }
 .workflow textarea { min-height:100px; }
 .workflow label { min-width:0; }
