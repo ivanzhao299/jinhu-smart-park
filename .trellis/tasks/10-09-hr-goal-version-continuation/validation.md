@@ -2,10 +2,12 @@
 
 - API typecheck、lint、build通过；14项相关单元/合同测试通过，无跳过。
 - 原迁移PostgreSQL测试1项通过；应用原000231/000257及触发器，测试并发、回滚、不可变历史、父子期限和原对象范围；目录和事务审计表为合成fixture。实验库已删除、容器停止。
-- Web新定义及原执行实际组件交互26项通过，HR回归222项通过；Web typecheck/lint通过，build通过（207个静态页）。
+- Web新定义及原执行实际组件交互27项通过，HR回归222项通过；Web typecheck/lint通过，build通过（207个静态页）。
 - 实际组件共享CSS本地合成浏览器桌面1280/390px：手机scrollWidth385，控件最小44px，保存失败草稿保留；图片为合成数据，非生产岗位验收。临时浏览器关闭、viewport恢复、服务器停止。
 - 无新增DDL、历史重导0、生产测试写入0。
 - 原历史快照中未保存的关系不补造；目录名称是当前可用标签，不能当作历史冻结名称。已结束目标只读。
 - 后续：最新主干整合、完整CI、顺序部署清理和API/Web版本核验；真实岗位及旧系统完整规则核对仍独立保留。
 
-最新主干 f0885dfcf14ea7963f6d64b26f66755a5f1f0308 已整合；API/Web typecheck、目标26项和绩效21项交互通过。原已有Next ESLint插件提示和canteen-peripherals无效disable警告保留，非本切片引入。
+最新主干 f0885dfcf14ea7963f6d64b26f66755a5f1f0308 已整合；API/Web typecheck、目标27项和绩效21项交互通过。原已有Next ESLint插件提示和canteen-peripherals无效disable警告保留，非本切片引入。
+
+最终历史名称修正后Web typecheck、目标页面eslint、27项交互通过；已有浏览器输入/布局未改变，最终全量构建由新候选CI再次执行。
