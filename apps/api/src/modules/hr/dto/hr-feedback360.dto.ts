@@ -72,6 +72,10 @@ export class HrFeedbackQuestionDto {
   @IsOptional() @IsBoolean()
   required?: boolean;
 }
+export class CreateHrCompetencyModelVersionDto extends CreateHrCompetencyModelDto {
+  @IsUUID()
+  expectedVersionId!: string;
+}
 export class CreateHrFeedbackQuestionnaireDto {
   @Transform(trim) @Matches(/^[A-Z][A-Z0-9_-]{1,31}$/)
   questionnaireCode!: string;
@@ -87,6 +91,10 @@ export class CreateHrFeedbackQuestionnaireDto {
   @ValidateNested({ each: true })
   @Type(() => HrFeedbackQuestionDto)
   questions!: HrFeedbackQuestionDto[];
+}
+export class CreateHrFeedbackQuestionnaireVersionDto extends CreateHrFeedbackQuestionnaireDto {
+  @IsUUID()
+  expectedVersionId!: string;
 }
 export class CreateHrFeedback360CycleDto {
   @Transform(trim) @Matches(/^[A-Z][A-Z0-9_-]{1,31}$/)

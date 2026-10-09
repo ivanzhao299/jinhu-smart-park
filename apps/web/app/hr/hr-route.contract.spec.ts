@@ -194,9 +194,13 @@ test("HR T6 performance freezes templates, scoped options and cycles before eval
 
 test("HR T6 360 feedback uses frozen setup, governed nominations and anonymous results",()=>{
   const feedback=readFileSync(resolve(__dirname,"feedback-360/HrFeedbackClient.tsx"),"utf8");
+  const configuration=readFileSync(resolve(__dirname,"feedback-360/FeedbackConfiguration.tsx"),"utf8");
+  const editor=readFileSync(resolve(__dirname,"feedback-360/FeedbackConfigurationEditor.tsx"),"utf8");
   assert.match(feedback,/待我评价/);
-  assert.match(feedback,/panel==="model"\?<form/);
-  assert.match(feedback,/panel==="questionnaire"\?<form/);
+  assert.match(feedback,/<FeedbackConfiguration onPublished=\{load\}/);
+  assert.match(configuration,/<FeedbackConfigurationEditor/);
+  assert.match(editor,/<form[\s\S]*onSubmit=/);
+  assert.match(editor,/保存配置草稿/);
   assert.match(feedback,/panel==="cycle"\?<form/);
   assert.match(feedback,/评价人提名/);
   assert.match(feedback,/待审批提名/);

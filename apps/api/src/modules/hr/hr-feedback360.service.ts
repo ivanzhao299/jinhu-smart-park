@@ -13,9 +13,11 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type {
   CreateHrCompetencyModelDto,
+  CreateHrCompetencyModelVersionDto,
   CreateHrFeedback360CycleDto,
   CreateHrFeedbackNominationDto,
   CreateHrFeedbackQuestionnaireDto,
+  CreateHrFeedbackQuestionnaireVersionDto,
   DecideHrFeedbackNominationDto,
   HrFeedback360QueryDto,
   SubmitHrFeedback360Dto,
@@ -199,17 +201,67 @@ export class HrFeedback360Service {
     });
     return rows;
   }
-  async createModel(
-    s: TenantParkScope,
-    a: JwtPrincipal,
-    d: CreateHrCompetencyModelDto,
-  ) {
+  async configuration(s: TenantParkScope, a: JwtPrincipal) {
     this.assertActorScope(s, a);
-    if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)) {
-      throw new ForbiddenException(
-        "Competency-model management permission required",
-      );
+    if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE) && !has(a, HR_PERMISSIONS.HR_FEEDBACK_READ)) {
+      throw new ForbiddenException("360 configuration permission required");
     }
+    // Version and child collections must come from one database snapshot.
+    // Configuration authority never grants employee/response/result reads.
+    const result = await this.db.transaction("REPEATABLE READ", async (m) => {
+      const models = await m.query(`
+        SELECT r.id,r.model_code "modelCode",r.model_name "modelName",r.status "status",
+          r.current_version_no "currentVersionNo",v.id "versionId",v.version_no "versionNo",
+          v.version_name "versionName",v.status "versionStatus",
+          v.scale_min::text "scaleMin",v.scale_max::text "scaleMax",
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'code',d.dimension_code,'name',d.dimension_name,'description',d.description,
+            'weight',d.weight::text,'anchors',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+              'level',b.level_value::text,'text',b.anchor_text) ORDER BY b.sort_order,b.id)
+              FROM hr_competency_behavior_anchor b
+              WHERE (b.dimension_id,b.tenant_id,b.park_id)=(d.id,d.tenant_id,d.park_id)),'[]'::jsonb)
+          ) ORDER BY d.sort_order,d.id) FROM hr_competency_dimension d
+          WHERE (d.model_version_id,d.tenant_id,d.park_id)=(v.id,v.tenant_id,v.park_id)),'[]'::jsonb) "dimensions"
+        FROM hr_competency_model r JOIN hr_competency_model_version v
+          ON (v.model_id,v.tenant_id,v.park_id)=(r.id,r.tenant_id,r.park_id)
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
+        ORDER BY r.model_name,r.id,v.version_no DESC,v.id`, [s.tenantId, s.parkId]) as Row[];
+      const questionnaires = await m.query(`
+        SELECT r.id,r.questionnaire_code "questionnaireCode",r.questionnaire_name "questionnaireName",
+          r.status "status",r.current_version_no "currentVersionNo",v.id "versionId",
+          v.version_no "versionNo",v.version_name "versionName",v.status "versionStatus",
+          v.model_version_id "modelVersionId",mr.model_name "modelName",mv.version_name "modelVersionName",
+          COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'code',q.question_code,'text',q.question_text,'type',q.question_type,
+            'required',q.required,'dimensionCode',d.dimension_code) ORDER BY q.sort_order,q.id)
+            FROM hr_feedback_question q JOIN hr_competency_dimension d
+              ON (d.id,d.tenant_id,d.park_id)=(q.dimension_id,q.tenant_id,q.park_id)
+              AND d.model_version_id=v.model_version_id
+            WHERE (q.questionnaire_version_id,q.tenant_id,q.park_id)=(v.id,v.tenant_id,v.park_id)
+          ),'[]'::jsonb) "questions"
+        FROM hr_feedback_questionnaire r JOIN hr_feedback_questionnaire_version v
+          ON (v.questionnaire_id,v.tenant_id,v.park_id)=(r.id,r.tenant_id,r.park_id)
+        JOIN hr_competency_model_version mv
+          ON (mv.id,mv.tenant_id,mv.park_id)=(v.model_version_id,v.tenant_id,v.park_id)
+        JOIN hr_competency_model mr
+          ON (mr.id,mr.tenant_id,mr.park_id)=(mv.model_id,mv.tenant_id,mv.park_id)
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
+        ORDER BY r.questionnaire_name,r.id,v.version_no DESC,v.id`, [s.tenantId, s.parkId]) as Row[];
+      return { models, questionnaires };
+    });
+    await recordHrSensitiveRead(this.audit, s, a, {
+      resource: "hr.feedback360_configuration",
+      action: "读取360模型与问卷配置",
+      bizType: "hr_competency_model",
+      bizId: null,
+      path: "/hr/feedback360-v2/configuration",
+      fieldGroups: ["feedback"],
+      projection: "park",
+      itemCount: result.models.length + result.questionnaires.length,
+    });
+    return result;
+  }
+  private validateModelConfiguration(d: CreateHrCompetencyModelDto) {
     if (d.scaleMax <= d.scaleMin) {
       throw new BadRequestException("Competency scale is invalid");
     }
@@ -235,45 +287,63 @@ export class HrFeedback360Service {
         );
       }
     }
+  }
+  private async insertModelVersion(m: EntityManager, s: TenantParkScope, a: JwtPrincipal, d: CreateHrCompetencyModelDto, rootId: unknown, versionNo: number) {
+    const version = (await m.query(
+      `INSERT INTO hr_competency_model_version(tenant_id,park_id,model_id,version_no,version_name,scale_min,scale_max,create_by)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`,
+      [
+        s.tenantId,
+        s.parkId,
+        rootId,
+        versionNo,
+        d.versionName,
+        d.scaleMin,
+        d.scaleMax,
+        a.sub,
+      ],
+    ))[0] as Row;
+    for (const [i, x] of d.dimensions.entries()) {
+      const dim = (await m.query(
+        `INSERT INTO hr_competency_dimension(tenant_id,park_id,model_version_id,dimension_code,dimension_name,description,weight,sort_order)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`,
+        [
+          s.tenantId,
+          s.parkId,
+          version.id,
+          x.code,
+          x.name,
+          x.description ?? null,
+          x.weight,
+          i,
+        ],
+      ))[0] as Row;
+      for (const [j, b] of x.anchors.entries()) {
+        await m.query(
+          `INSERT INTO hr_competency_behavior_anchor(tenant_id,park_id,dimension_id,level_value,anchor_text,sort_order)VALUES($1,$2,$3,$4,$5,$6)`,
+          [s.tenantId, s.parkId, dim.id, b.level, b.text, j],
+        );
+      }
+    }
+    return version;
+  }
+  async createModel(
+    s: TenantParkScope,
+    a: JwtPrincipal,
+    d: CreateHrCompetencyModelDto,
+  ) {
+    this.assertActorScope(s, a);
+    if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)) {
+      throw new ForbiddenException(
+        "Competency-model management permission required",
+      );
+    }
+    this.validateModelConfiguration(d);
     return this.db.transaction(async (m) => {
       try {
         const root = (await m.query(
           `INSERT INTO hr_competency_model(tenant_id,park_id,model_code,model_name,create_by,update_by)VALUES($1,$2,$3,$4,$5,$5)RETURNING id`,
           [s.tenantId, s.parkId, d.modelCode, d.modelName, a.sub],
         ))[0] as Row;
-        const version = (await m.query(
-          `INSERT INTO hr_competency_model_version(tenant_id,park_id,model_id,version_no,version_name,scale_min,scale_max,create_by)VALUES($1,$2,$3,1,$4,$5,$6,$7)RETURNING id`,
-          [
-            s.tenantId,
-            s.parkId,
-            root.id,
-            d.versionName,
-            d.scaleMin,
-            d.scaleMax,
-            a.sub,
-          ],
-        ))[0] as Row;
-        for (const [i, x] of d.dimensions.entries()) {
-          const dim = (await m.query(
-            `INSERT INTO hr_competency_dimension(tenant_id,park_id,model_version_id,dimension_code,dimension_name,description,weight,sort_order)VALUES($1,$2,$3,$4,$5,$6,$7,$8)RETURNING id`,
-            [
-              s.tenantId,
-              s.parkId,
-              version.id,
-              x.code,
-              x.name,
-              x.description ?? null,
-              x.weight,
-              i,
-            ],
-          ))[0] as Row;
-          for (const [j, b] of x.anchors.entries()) {
-            await m.query(
-              `INSERT INTO hr_competency_behavior_anchor(tenant_id,park_id,dimension_id,level_value,anchor_text,sort_order)VALUES($1,$2,$3,$4,$5,$6)`,
-              [s.tenantId, s.parkId, dim.id, b.level, b.text, j],
-            );
-          }
-        }
+        const version = await this.insertModelVersion(m, s, a, d, root.id, 1);
         return { id: root.id, versionId: version.id, status: "draft" };
       } catch (e) {
         if ((e as { code?: string }).code === "23505") {
@@ -283,6 +353,55 @@ export class HrFeedback360Service {
       }
     });
   }
+  private requireConfigurationManager(s: TenantParkScope, a: JwtPrincipal) {
+    this.assertActorScope(s, a);
+    if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)) throw new ForbiddenException("360 configuration management permission required");
+  }
+  private async nextConfigurationVersion(m: EntityManager, s: TenantParkScope, kind: "model" | "questionnaire", rootId: string, expectedVersionId: string, code: string, name: string) {
+    const table = kind === "model" ? "hr_competency_model" : "hr_feedback_questionnaire";
+    const column = kind === "model" ? "model" : "questionnaire";
+    const root = (await m.query(`SELECT * FROM ${table} WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`, [s.tenantId, s.parkId, rootId]))[0] as Row | undefined;
+    if (!root) throw new NotFoundException("360 configuration not found");
+    if (root.status === "retired" || root[`${column}_code`] !== code || root[`${column}_name`] !== name) throw new ConflictException("360 configuration identity is immutable or retired");
+    // Read the pointer only after acquiring the parent lock.
+    const current = (await m.query(`SELECT id FROM ${table}_version WHERE tenant_id=$1 AND park_id=$2 AND ${column}_id=$3 AND version_no=$4`, [s.tenantId, s.parkId, rootId, root.current_version_no]))[0] as Row | undefined;
+    if (current?.id !== expectedVersionId) throw new ConflictException("360 configuration version changed; reload before saving");
+    const maximum = num((await m.query(`SELECT max(version_no)::int maximum FROM ${table}_version WHERE tenant_id=$1 AND park_id=$2 AND ${column}_id=$3`, [s.tenantId, s.parkId, rootId]))[0]?.maximum);
+    if (!Number.isInteger(maximum) || maximum < 1 || maximum >= 2147483647) throw new ConflictException("360 configuration version limit reached");
+    return maximum + 1;
+  }
+  async createModelVersion(s: TenantParkScope, a: JwtPrincipal, rootId: string, d: CreateHrCompetencyModelVersionDto) {
+    this.requireConfigurationManager(s, a);
+    this.validateModelConfiguration(d);
+    return this.db.transaction(async m => {
+      const versionNo = await this.nextConfigurationVersion(m, s, "model", rootId, d.expectedVersionId, d.modelCode, d.modelName);
+      const version = await this.insertModelVersion(m, s, a, d, rootId, versionNo);
+      await m.query("UPDATE hr_competency_model SET current_version_no=$4,update_by=$5,update_time=now() WHERE tenant_id=$1 AND park_id=$2 AND id=$3", [s.tenantId, s.parkId, rootId, versionNo, a.sub]);
+      return { id: rootId, versionId: version.id, versionNo, status: "draft" };
+    });
+  }
+  async createQuestionnaireVersion(s: TenantParkScope, a: JwtPrincipal, rootId: string, d: CreateHrFeedbackQuestionnaireVersionDto) {
+    this.requireConfigurationManager(s, a);
+    if (new Set(d.questions.map(x => x.code)).size !== d.questions.length) throw new BadRequestException("Question codes must be unique");
+    return this.db.transaction(async m => {
+      const versionNo = await this.nextConfigurationVersion(m, s, "questionnaire", rootId, d.expectedVersionId, d.questionnaireCode, d.questionnaireName);
+      const dimensions = await this.questionnaireDimensions(m, s, d);
+      const version = await this.insertQuestionnaireVersion(m, s, a, d, rootId, versionNo, dimensions);
+      await m.query("UPDATE hr_feedback_questionnaire SET current_version_no=$4,update_by=$5,update_time=now() WHERE tenant_id=$1 AND park_id=$2 AND id=$3", [s.tenantId, s.parkId, rootId, versionNo, a.sub]);
+      return { id: rootId, versionId: version.id, versionNo, status: "draft" };
+    });
+  }
+  private async publicationVersion(m: EntityManager, s: TenantParkScope, kind: "model" | "questionnaire", versionId: string): Promise<Row> {
+    const table = kind === "model" ? "hr_competency_model" : "hr_feedback_questionnaire";
+    const column = kind === "model" ? "model" : "questionnaire";
+    const target = (await m.query(`SELECT ${column}_id root_id FROM ${table}_version WHERE tenant_id=$1 AND park_id=$2 AND id=$3`, [s.tenantId, s.parkId, versionId]))[0] as Row | undefined;
+    if (!target) throw new NotFoundException("360 configuration version not found");
+    const root = (await m.query(`SELECT * FROM ${table} WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`, [s.tenantId, s.parkId, target.root_id]))[0] as Row | undefined;
+    if (!root) throw new NotFoundException("360 configuration not found");
+    const version = (await m.query(`SELECT * FROM ${table}_version WHERE tenant_id=$1 AND park_id=$2 AND id=$3 FOR UPDATE`, [s.tenantId, s.parkId, versionId]))[0] as Row | undefined;
+    if (!version || root.status === "retired" || version.status !== "draft" || version.version_no !== root.current_version_no) throw new ConflictException("Only the current 360 draft version can be published");
+    return { ...version, root_id: root.id };
+  }
   async publishModel(s: TenantParkScope, a: JwtPrincipal, versionId: string) {
     this.assertActorScope(s, a);
     if (!has(a, HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)) {
@@ -291,14 +410,7 @@ export class HrFeedback360Service {
       );
     }
     return this.db.transaction(async (m) => {
-      const v = (await m.query(
-        `SELECT v.*,m.id root_id FROM hr_competency_model_version v JOIN hr_competency_model m ON(m.id,m.tenant_id,m.park_id)=(v.model_id,v.tenant_id,v.park_id) WHERE v.id=$3 AND v.tenant_id=$1 AND v.park_id=$2 FOR UPDATE OF v,m`,
-        [s.tenantId, s.parkId, versionId],
-      ))[0] as Row | undefined;
-      if (!v) throw new NotFoundException("Competency model version not found");
-      if (v.status !== "draft") {
-        throw new ConflictException("Competency model version is not draft");
-      }
+      const v = await this.publicationVersion(m, s, "model", versionId);
       const weight = (await m.query(
         `SELECT count(*)::int count,COALESCE(sum(weight),0)::text weight FROM hr_competency_dimension WHERE tenant_id=$1 AND park_id=$2 AND model_version_id=$3`,
         [s.tenantId, s.parkId, versionId],
@@ -319,6 +431,61 @@ export class HrFeedback360Service {
       return { id: versionId, status: "published" };
     });
   }
+  private async insertQuestionnaireVersion(m: EntityManager, s: TenantParkScope, a: JwtPrincipal, d: CreateHrFeedbackQuestionnaireDto, rootId: unknown, versionNo: number, byCode: Map<string, string>) {
+    const v = (await m.query(
+      `INSERT INTO hr_feedback_questionnaire_version(tenant_id,park_id,questionnaire_id,model_version_id,version_no,version_name,create_by)VALUES($1,$2,$3,$4,$5,$6,$7)RETURNING id`,
+      [
+        s.tenantId,
+        s.parkId,
+        rootId,
+        d.modelVersionId,
+        versionNo,
+        d.versionName,
+        a.sub,
+      ],
+    ))[0] as Row;
+    for (const [i, x] of d.questions.entries()) {
+      await m.query(
+        `INSERT INTO hr_feedback_question(tenant_id,park_id,questionnaire_version_id,dimension_id,question_code,question_text,question_type,required,sort_order)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          s.tenantId,
+          s.parkId,
+          v.id,
+          byCode.get(x.dimensionCode),
+          x.code,
+          x.text,
+          x.type ?? "rating",
+          x.required ?? true,
+          i,
+        ],
+      );
+    }
+    return v;
+  }
+  private async questionnaireDimensions(m: EntityManager, s: TenantParkScope, d: CreateHrFeedbackQuestionnaireDto) {
+    const model = (await m.query(
+      `SELECT v.id FROM hr_competency_model_version v JOIN hr_competency_model r ON(r.id,r.tenant_id,r.park_id)=(v.model_id,v.tenant_id,v.park_id) WHERE v.id=$3 AND v.tenant_id=$1 AND v.park_id=$2 AND v.status='published' AND r.is_deleted=false AND r.status<>'retired'`,
+      [s.tenantId, s.parkId, d.modelVersionId],
+    ))[0];
+    if (!model) {
+      throw new BadRequestException(
+        "Published competency model version is required",
+      );
+    }
+    const dims = await m.query(
+      `SELECT id,dimension_code FROM hr_competency_dimension WHERE tenant_id=$1 AND park_id=$2 AND model_version_id=$3`,
+      [s.tenantId, s.parkId, d.modelVersionId],
+    ) as Row[];
+    const byCode = new Map(
+      dims.map((x) => [text(x.dimension_code), id(x.id)]),
+    );
+    if (d.questions.some((x) => !byCode.has(x.dimensionCode))) {
+      throw new BadRequestException(
+        "Question dimension is outside the model version",
+      );
+    }
+    return byCode;
+  }
   async createQuestionnaire(
     s: TenantParkScope,
     a: JwtPrincipal,
@@ -334,27 +501,7 @@ export class HrFeedback360Service {
       throw new BadRequestException("Question codes must be unique");
     }
     return this.db.transaction(async (m) => {
-      const model = (await m.query(
-        `SELECT id FROM hr_competency_model_version WHERE id=$3 AND tenant_id=$1 AND park_id=$2 AND status='published'`,
-        [s.tenantId, s.parkId, d.modelVersionId],
-      ))[0];
-      if (!model) {
-        throw new BadRequestException(
-          "Published competency model version is required",
-        );
-      }
-      const dims = await m.query(
-        `SELECT id,dimension_code FROM hr_competency_dimension WHERE tenant_id=$1 AND park_id=$2 AND model_version_id=$3`,
-        [s.tenantId, s.parkId, d.modelVersionId],
-      ) as Row[];
-      const byCode = new Map(
-        dims.map((x) => [text(x.dimension_code), id(x.id)]),
-      );
-      if (d.questions.some((x) => !byCode.has(x.dimensionCode))) {
-        throw new BadRequestException(
-          "Question dimension is outside the model version",
-        );
-      }
+      const byCode = await this.questionnaireDimensions(m, s, d);
       try {
         const root = (await m.query(
           `INSERT INTO hr_feedback_questionnaire(tenant_id,park_id,questionnaire_code,questionnaire_name,create_by,update_by)VALUES($1,$2,$3,$4,$5,$5)RETURNING id`,
@@ -366,33 +513,7 @@ export class HrFeedback360Service {
             a.sub,
           ],
         ))[0] as Row;
-        const v = (await m.query(
-          `INSERT INTO hr_feedback_questionnaire_version(tenant_id,park_id,questionnaire_id,model_version_id,version_no,version_name,create_by)VALUES($1,$2,$3,$4,1,$5,$6)RETURNING id`,
-          [
-            s.tenantId,
-            s.parkId,
-            root.id,
-            d.modelVersionId,
-            d.versionName,
-            a.sub,
-          ],
-        ))[0] as Row;
-        for (const [i, x] of d.questions.entries()) {
-          await m.query(
-            `INSERT INTO hr_feedback_question(tenant_id,park_id,questionnaire_version_id,dimension_id,question_code,question_text,question_type,required,sort_order)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [
-              s.tenantId,
-              s.parkId,
-              v.id,
-              byCode.get(x.dimensionCode),
-              x.code,
-              x.text,
-              x.type ?? "rating",
-              x.required ?? true,
-              i,
-            ],
-          );
-        }
+        const v = await this.insertQuestionnaireVersion(m, s, a, d, root.id, 1, byCode);
         return { id: root.id, versionId: v.id, status: "draft" };
       } catch (e) {
         if ((e as { code?: string }).code === "23505") {
@@ -414,14 +535,7 @@ export class HrFeedback360Service {
       );
     }
     return this.db.transaction(async (m) => {
-      const v = (await m.query(
-        `SELECT v.*,q.id root_id FROM hr_feedback_questionnaire_version v JOIN hr_feedback_questionnaire q ON(q.id,q.tenant_id,q.park_id)=(v.questionnaire_id,v.tenant_id,v.park_id) WHERE v.id=$3 AND v.tenant_id=$1 AND v.park_id=$2 FOR UPDATE OF v,q`,
-        [s.tenantId, s.parkId, versionId],
-      ))[0] as Row | undefined;
-      if (!v) throw new NotFoundException("Questionnaire version not found");
-      if (v.status !== "draft") {
-        throw new ConflictException("Questionnaire version is not draft");
-      }
+      const v = await this.publicationVersion(m, s, "questionnaire", versionId);
       if (
         !num(
           (await m.query(

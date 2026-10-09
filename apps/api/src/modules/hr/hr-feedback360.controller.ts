@@ -21,9 +21,11 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrCompetencyModelDto,
+  CreateHrCompetencyModelVersionDto,
   CreateHrFeedback360CycleDto,
   CreateHrFeedbackNominationDto,
   CreateHrFeedbackQuestionnaireDto,
+  CreateHrFeedbackQuestionnaireVersionDto,
   DecideHrFeedbackNominationDto,
   HrFeedback360QueryDto,
   SubmitHrFeedback360Dto,
@@ -33,6 +35,14 @@ import { HrFeedback360Service } from "./hr-feedback360.service";
 @Controller("hr/feedback360-v2") @RequireModule("hr")
 export class HrFeedback360Controller {
   constructor(private readonly service: HrFeedback360Service) {}
+  @Get("configuration")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_FEEDBACK_READ,
+    HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,
+  )
+  configuration(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal) {
+    return this.service.configuration(s, a);
+  }
   @Get("options")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE,
@@ -69,6 +79,13 @@ export class HrFeedback360Controller {
   ) {
     return this.service.createModel(s, a, d);
   }
+  @Post("models/:id/versions")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)
+  @AuditLog({ module: "人力资源管理", resource: "hr.feedback360_model", action: "继续胜任力模型版本", bizType: "hr_competency_model", bizIdParam: "id", captureBody: false })
+  createModelVersion(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string, @Body() d: CreateHrCompetencyModelVersionDto) {
+    return this.service.createModelVersion(s, a, id, d);
+  }
   @Post("models/:id/publish")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)
@@ -103,6 +120,13 @@ export class HrFeedback360Controller {
     @Body() d: CreateHrFeedbackQuestionnaireDto,
   ) {
     return this.service.createQuestionnaire(s, a, d);
+  }
+  @Post("questionnaires/:id/versions")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(HR_PERMISSIONS.HR_FEEDBACK_MODEL_MANAGE)
+  @AuditLog({ module: "人力资源管理", resource: "hr.feedback360_questionnaire", action: "继续360问卷版本", bizType: "hr_feedback_questionnaire", bizIdParam: "id", captureBody: false })
+  createQuestionnaireVersion(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal, @Param("id", new ParseUUIDPipe()) id: string, @Body() d: CreateHrFeedbackQuestionnaireVersionDto) {
+    return this.service.createQuestionnaireVersion(s, a, id, d);
   }
   @Post("questionnaires/:id/publish")
   @UseInterceptors(new IdempotencyInterceptor())

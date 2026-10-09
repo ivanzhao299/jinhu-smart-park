@@ -1,0 +1,9 @@
+# 设计
+
+基线7f57de9443e111dea450b221249097c0455e2769。现有模型/问卷Create DTO和发布接口复用。现有options模型/问卷仅允许CYCLE_MANAGE读取，不适合作为MODEL_MANAGE配置上下文；新GET configuration只投影模型与问卷配置，不读取员工、周期、回答或结果。
+
+配置读取采用REPEATABLE READ只读业务查询事务，版本及子项在同一快照中；完整保留量表、description、weight精度4、锚点精度2、题目type/required和modelVersionId。所有join带tenant/park；排除已删除根，按根名称、版本序号和稳定ID排序。READ或MODEL_MANAGE精确授权及actor scope在SQL前验证；复用现有HR敏感读取审计，仅数量/字段组，不捕获配置正文。
+
+000260根guard在published后禁止任何改变，version identity也不可改。完整版本延续需要新的forward-only迁移允许受控版本指针更新、事务父锁+expectedVersionId，并保持旧版本/子项/周期快照不可改；不能编辑已应用000260，也不能跳过冻结guard。已以000346和新增版本接口实施；根身份保持不可修改，只允许既有范围内版本指针和更新元数据。发布沿用父锁后版本锁，拒绝非当前草稿。
+
+Web已实现独立配置上下文：基于完整配置挑选实际发布模型维度；模型/问卷多行表单稳定key、增删排序、显式onSubmit，失败留输入；保存回执与刷新分别处理。发布动作明确，范围切换重置，桌面手机均用共享Design。
