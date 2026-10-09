@@ -2,6 +2,9 @@ import {act,fireEvent,render,screen,waitFor,within} from "@testing-library/react
 import {beforeEach,expect,it,vi} from "vitest";
 import {HrAttendanceClient} from "../../app/hr/attendance/HrAttendanceClient";
 import {hrApi,type HrAttendanceDailyResult,type HrAttendancePeriod,type HrAttendanceMonthSummary} from "../../lib/hr-api";
+import {downloadCsv} from "../../lib/scoped-csv-export";
+import type * as CsvModule from "../../lib/scoped-csv-export";
+vi.mock("../../lib/scoped-csv-export",async()=>({...await vi.importActual<typeof CsvModule>("../../lib/scoped-csv-export"),downloadCsv:vi.fn()}));
 const state=vi.hoisted(()=>({user:{id:"reader",permissions:["hr:attendance","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
@@ -77,4 +80,50 @@ it("successful period close clears its detail and reloads the first period page"
 it("an invalid date range makes no new query and exposes a recoverable local error",async()=>{
  render(<HrAttendanceClient/>);await screen.findByText("日员工1 · 2026-10-01");fireEvent.change(screen.getByLabelText("日结果开始日期"),{target:{value:"2026-10-10"}});await waitFor(()=>expect(hrApi.attendanceDaily).toHaveBeenCalledTimes(2));
  fireEvent.change(screen.getByLabelText("日结果结束日期"),{target:{value:"2026-10-01"}});await screen.findByText("开始日期不能晚于结束日期。");expect(hrApi.attendanceDaily).toHaveBeenCalledTimes(2);expect(within(screen.getByRole("navigation",{name:"日考勤结果分页"})).getByRole("button",{name:"日结果下一页"})).toBeDisabled();
+});
+it.each(["hr:attendance:read","hr:attendance:team_read"])("daily export collects 101 filtered records with %s using the same token and excludes internal facts",async permission=>{
+ state.user.permissions=["hr:attendance",permission];
+ vi.mocked(hrApi.attendanceDaily).mockImplementation(async(_token,current=1,size=31)=>page(Array.from({length:Math.min(size,101-(current-1)*size)},(_,i)=>daily(`员工${(current-1)*size+i+1}`)),101,current,size));
+ render(<HrAttendanceClient/>);await screen.findByText("日结果第 1 / 4 页 · 共 101 条");expect(screen.getByRole("heading",{name:permission==="hr:attendance:read"?"员工日考勤":"团队日考勤"})).toBeInTheDocument();expect(screen.queryByText(/synthetic-version/)).toBeNull();expect(screen.getAllByText("正常 · 工作 480 分钟").length).toBe(31);expect(screen.getByRole("option",{name:"缺勤"})).toHaveValue("absence");
+ fireEvent.change(screen.getByLabelText("日结果状态"),{target:{value:"late"}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选日考勤"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选日考勤"}));await screen.findByText("已导出 101 条匹配日考勤。");
+ const calls=vi.mocked(hrApi.attendanceDaily).mock.calls.filter(c=>c[2]===100);
+ expect(calls.map(c=>c[1])).toEqual([1,2,1]);expect(calls.every(c=>c[0]==="synthetic-token"&&c[3]?.status==="late"&&c[4] instanceof AbortSignal)).toBe(true);
+ const csv=vi.mocked(downloadCsv).mock.calls[0]![0];expect(csv).toContain("员工101");expect(csv).not.toContain("synthetic-version");expect(csv).not.toContain("anomalyCodes");
+});
+it("self export omits even unexpectedly returned employee identity",async()=>{
+ state.user.permissions=["hr:attendance","hr:attendance:self_read"];
+ vi.mocked(hrApi.attendanceDaily).mockImplementation(async(_token,current=1,size=31)=>page([daily("不应导出的姓名")],1,current,size));
+ render(<HrAttendanceClient/>);await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选日考勤"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选日考勤"}));await screen.findByText("已导出 1 条匹配日考勤。");
+ expect(screen.getByRole("heading",{name:"我的考勤日历"})).toBeInTheDocument();expect(vi.mocked(downloadCsv).mock.calls[0]![0]).not.toMatch(/员工编号|姓名|不应导出的姓名/);
+});
+it("changing a daily filter cancels an in-flight export even when the transport returns late",async()=>{
+ let finish!:(value:ReturnType<typeof page<HrAttendanceDailyResult>>)=>void;
+ vi.mocked(hrApi.attendanceDaily).mockImplementation(async(_token,current=1,size=31)=>page([daily("当前")],1,current,size));
+ render(<HrAttendanceClient/>);await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选日考勤"})).toBeEnabled());
+ vi.mocked(hrApi.attendanceDaily).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选日考勤"}));const signal=vi.mocked(hrApi.attendanceDaily).mock.calls.at(-1)![4];
+ fireEvent.change(screen.getByLabelText("日结果状态"),{target:{value:"normal"}});expect(signal?.aborted).toBe(true);
+ await act(async()=>finish(page([daily("过期")],1,1,100)));expect(downloadCsv).not.toHaveBeenCalled();
+});
+it("monthly export collects the selected period and refuses a changed summary version",async()=>{
+ vi.mocked(hrApi.attendanceMonthSummaries).mockImplementation(async(id,_token,current=1,size=100)=>page(Array.from({length:Math.min(size,101-(current-1)*size)},(_,i)=>summary(`${id}-员工${(current-1)*size+i+1}`)),101,current,size));
+ render(<HrAttendanceClient/>);await screen.findByText("期间第 1 / 2 页 · 共 25 期");fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[1]!);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());vi.mocked(hrApi.attendanceMonthSummaries).mockClear();
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选月考勤汇总"}));await screen.findByText("已导出 101 条匹配月考勤汇总。");
+ const calls=vi.mocked(hrApi.attendanceMonthSummaries).mock.calls;expect(calls.map(c=>c[2])).toEqual([1,2,1]);expect(calls.every(c=>c[0]==="period-b"&&c[1]==="synthetic-token"&&c[3]===100&&c[4] instanceof AbortSignal)).toBe(true);
+ expect(vi.mocked(downloadCsv).mock.calls[0]![0]).toContain("2026-09");expect(vi.mocked(downloadCsv).mock.calls[0]![0]).toContain("period-b-员工101");
+ vi.mocked(downloadCsv).mockClear();vi.mocked(hrApi.attendanceMonthSummaries).mockImplementation(async(_id,_token,current=1,size=100)=>page([{...summary("changed"),summaryVersion:2}],1,current,size));
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选月考勤汇总"}));await screen.findByText("考勤汇总版本已变化，请刷新期间后重新导出。");expect(downloadCsv).not.toHaveBeenCalled();
+});
+it("switching the selected month permanently cancels its export",async()=>{
+ vi.mocked(hrApi.attendanceMonthSummaries).mockImplementation(async(id,_token,current=1,size=100)=>page([summary(id)],1,current,size));
+ render(<HrAttendanceClient/>);await screen.findByText("期间第 1 / 2 页 · 共 25 期");fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[0]!);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());
+ let finish!:(value:ReturnType<typeof page<HrAttendanceMonthSummary>>)=>void;
+ vi.mocked(hrApi.attendanceMonthSummaries).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));fireEvent.click(screen.getByRole("button",{name:"导出筛选月考勤汇总"}));const signal=vi.mocked(hrApi.attendanceMonthSummaries).mock.calls.at(-1)![4];
+ fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[1]!);expect(signal?.aborted).toBe(true);await act(async()=>finish(page([summary("过期")],1,1,100)));expect(downloadCsv).not.toHaveBeenCalled();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());
 });

@@ -1,0 +1,32 @@
+{
+  "id": "hr-attendance-result-export-20261010",
+  "name": "hr-attendance-result-export-20261010",
+  "title": "考勤日结果与月汇总完整导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "hr-attendance",
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-attendance-result-export-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
+    "apps/web/app/hr/attendance/attendance-result-export.ts",
+    "apps/web/app/hr/attendance/attendance-result-export.spec.ts",
+    "apps/web/test/interaction/hr-attendance-results.test.tsx",
+    "apps/web/app/hr/attendance/attendance-result-presentation.ts"
+  ],
+  "notes": "Integrated with main faf64d80a (#915). Existing payroll/position release remains serialized; pending own CI, deployment and runtime/real-role evidence.",
+  "meta": {}
+}
