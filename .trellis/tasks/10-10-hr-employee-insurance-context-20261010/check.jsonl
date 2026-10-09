@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "社保读取范围与字段投影"}
+{"file": ".trellis/spec/web/frontend/hr-insurance-amounts.md", "reason": "准确员工上下文与金额展示"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "DTO到页面的参数延续"}

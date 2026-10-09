@@ -26,3 +26,12 @@ it("a committed transition remains successful when list refresh fails",async()=>
 it("direct employee navigation preserves committed status when detail refresh fails",async()=>{render(<HrEmployeesClient employeeId="employee-1"/>);await screen.findByRole("heading",{name:"合成员工employee-1 · 员工详情"});fillTransition();vi.mocked(hrApi.employee).mockRejectedValueOnce(new Error("合成详情失败"));fireEvent.submit(transitionForm());await screen.findByText("任职变动已保存并留痕。");await screen.findByText(/加载员工详情失败/);expect(screen.queryByRole("button",{name:"确认办理并留痕"})).toBeNull();expect(hrApi.employees).not.toHaveBeenCalled();});
 it("identity replacement drops pending drafts and prevents old transition reload",async()=>{let done!:(value:HrEmployee)=>void;vi.mocked(hrApi.transition).mockImplementationOnce(()=>new Promise(resolve=>{done=resolve}));const view=await openTransition();fillTransition();fireEvent.submit(transitionForm());auth.user={...auth.user,park_id:"other"};view.rerender(<HrEmployeesClient/>);await screen.findByRole("button",{name:"查看与办理"});const reads=vi.mocked(hrApi.employees).mock.calls.length;await act(async()=>done(employee()));expect(hrApi.employees).toHaveBeenCalledTimes(reads);expect(screen.queryByText("任职变动已保存并留痕。")).toBeNull();expect(screen.queryByRole("button",{name:"确认办理并留痕"})).toBeNull();});
 it("unmounted employee creation does not reload the departed scope",async()=>{let done!:(value:HrEmployee)=>void;vi.mocked(hrApi.createEmployee).mockImplementationOnce(()=>new Promise(resolve=>{done=resolve}));const view=await openCreate();fireEvent.submit(createForm());const reads=vi.mocked(hrApi.employees).mock.calls.length;view.unmount();await act(async()=>done(employee("created","preboarding")));expect(hrApi.employees).toHaveBeenCalledTimes(reads);});
+
+it("employee detail links to exact employee insurance only with insurance read authority",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";current=employee(id);auth.user.permissions.push(H.HR_INSURANCE_TEAM_READ);
+ render(<HrEmployeesClient employeeId={id}/>);await screen.findByRole("heading",{name:`合成员工${id} · 员工详情`});
+ expect(screen.getByRole("link",{name:"进入社保台账"})).toHaveAttribute("href",`/hr/insurance?employee_id=${id}`);
+});
+it("employee profile authority alone does not show insurance navigation",async()=>{
+ await openTransition();expect(screen.queryByRole("link",{name:"进入社保台账"})).toBeNull();
+});

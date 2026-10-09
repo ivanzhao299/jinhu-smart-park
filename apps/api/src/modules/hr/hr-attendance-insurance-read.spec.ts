@@ -118,3 +118,20 @@ test("empty authorized insurance scopes are audited before returning",async()=>{
  assert.deepEqual(await service.listInsurancePeriods(scope,actor,{page:1,page_size:20}),{items:[],total:0,page:1,page_size:20});
  assert.equal(audits,1);
 });
+
+
+test("employee insurance filter intersects park, team and forced self scope without changing amount authority",async()=>{
+ const target="11111111-1111-4111-8111-111111111111";
+ for(const entry of [{permission:HR_PERMISSIONS.HR_INSURANCE_READ,ids:null,forceSelf:false},{permission:HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,ids:["team-member"],forceSelf:false},{permission:HR_PERMISSIONS.HR_INSURANCE_SELF_READ,ids:["self-member"],forceSelf:true}]){
+  const predicates:Array<{sql:string;params?:unknown}>=[];let audits=0;
+  const qb={where(sql:string,params:unknown){predicates.push({sql,params});return this;},andWhere(sql:string,params:unknown){predicates.push({sql,params});return this;},innerJoin(){return this;},select(){return this;},orderBy(){return this;},addOrderBy(){return this;},offset(){return this;},limit(){return this;},clone(){return this;},async getCount(){return 0;},async getRawMany(){return [];}};
+  const args=Array(32).fill({});args[24]={createQueryBuilder:()=>qb};args[31]={recordOperationRequired:async()=>{audits++;}};
+  const service=Reflect.construct(HrService,args) as HrService;Object.assign(service,{ledgerEmployeeIds:async()=>entry.ids});
+  const actor={sub:"user-1",username:"tester",...scope,roles:[],isSuper:false,permissions:[entry.permission]} as JwtPrincipal;
+  assert.equal((await service.listInsurancePeriods(scope,actor,{page:1,page_size:30,employee_id:target},entry.forceSelf)).total,0);
+  assert(predicates.some(p=>p.sql.includes("period.tenant_id=:tenantId AND period.park_id=:parkId")&&JSON.stringify(p.params)===JSON.stringify(scope)));
+  assert.deepEqual(predicates.find(p=>p.sql==="period.employee_id=:employeeId")?.params,{employeeId:target});
+  if(entry.ids)assert.deepEqual(predicates.find(p=>p.sql==="period.employee_id IN (:...employeeIds)")?.params,{employeeIds:entry.ids});
+  assert.equal(audits,1);
+ }
+});
