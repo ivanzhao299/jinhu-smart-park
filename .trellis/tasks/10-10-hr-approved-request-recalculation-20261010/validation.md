@@ -11,6 +11,7 @@
 - `TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS","moduleResolution":"node","jsx":"react-jsx"}' pnpm --filter @jinhu/web exec node --test --require ts-node/register app/hr/attendance/approved-request-recalculation.contract.spec.ts app/hr/hr-route.contract.spec.ts`：30/30 通过。
 - `pnpm --filter @jinhu/api lint`
 - `pnpm --filter @jinhu/web lint`
+- `pnpm --filter @jinhu/web test:unit:hr`：父会话完整 HR 契约/逻辑测试235/235通过，0失败，0跳过。
 - `git diff --check`
 
 聚焦证据涵盖：operate 权限和租户园区边界、必需读取审计失败、批准状态、无日期和 32 天上限、上海结束零点边界；顺序部分成功、失败日期同键继续且成功日期不重放、停止、版本/员工/日期漂移、StrictMode 和快速点击、卸载、刷新失败、身份范围在途切换。
