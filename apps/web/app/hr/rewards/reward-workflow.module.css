@@ -4,3 +4,7 @@
 .corrections p { overflow-wrap: anywhere; }
 .corrections button { min-height: 44px; white-space: normal; }
 .wide { grid-column: 1 / -1; min-width: 0; }
+
+.workspace :global(.ds-button),
+.workspace input:not([type="checkbox"]),
+.workspace select { min-height: 44px; }

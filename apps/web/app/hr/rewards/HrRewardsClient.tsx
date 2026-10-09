@@ -200,11 +200,11 @@ function HrRewardsWorkspace() {
             categoryId: String(form.get("category")),
             occurredOn: String(form.get("occurredOn")),
             factSummary: String(form.get("summary")),
-            ...(typeof reason === "string" && reason
+            ...(canReason && typeof reason === "string" && reason
               ? { detailedReason: reason }
               : {}),
             impactLevel: String(form.get("impactLevel")),
-            ...(typeof amount === "string" && amount
+            ...(canAmount && typeof amount === "string" && amount
               ? {
                   amountSuggestion: amount,
                   currency: "CNY",
@@ -261,7 +261,7 @@ function HrRewardsWorkspace() {
       true,
     );
   const forbidden = (
-    <main className={`content ds-page ${styles.page}`}>
+    <main className={`content ds-page ${styles.page} ${rewardStyles.workspace}`}>
       <section className="ds-panel">
         <ForbiddenState message="无权访问奖惩管理" />
       </section>
@@ -273,7 +273,7 @@ function HrRewardsWorkspace() {
       permission={HR_PERMISSIONS.HR_REWARDS_PAGE}
       fallback={forbidden}
     >
-      <main className={`content ds-page ${styles.page}`}>
+      <main className={`content ds-page ${styles.page} ${rewardStyles.workspace}`}>
         <section className="ds-hero">
           <div className="ds-hero-copy">
             <span className="ds-eyebrow">人事运营 · 员工关系</span>
@@ -376,15 +376,15 @@ function HrRewardsWorkspace() {
                 <input name="summary" required maxLength={300} />
               </label>
               {canReason ? (
-                <label className={`form-field ${styles.desktopSensitive}`}>
+                <label className="form-field">
                   <span>详细原因</span>
                   <textarea name="reason" maxLength={3000} />
                 </label>
               ) : null}
               {canAmount ? (
-                <label className={`form-field ${styles.desktopSensitive}`}>
+                <label className="form-field">
                   <span>金额建议</span>
-                  <input name="amount" type="number" min="0" step="0.0001" />
+                  <input name="amount" type="number" min="0" max="9999999999999999.9999" step="0.0001" onFocus={event=>event.currentTarget.select()} />
                 </label>
               ) : null}
               <button className="ds-button ds-button-primary" disabled={busy}>
@@ -411,7 +411,7 @@ function HrRewardsWorkspace() {
                   </span>
                   <span>{x.summary}</span>
                   {canAmount && x.amountSuggestion ? (
-                    <span className={styles.desktopSensitive}>
+                    <span>
                       建议金额 {x.amountSuggestion} {x.currency}
                     </span>
                   ) : null}
@@ -561,8 +561,8 @@ function HrRewardsWorkspace() {
               </button>
             </div>
             <p>{detail.summary}</p>
-            {detail.detailedReason ? (
-              <p className={styles.desktopSensitive}>{detail.detailedReason}</p>
+            {canReason && detail.detailedReason ? (
+              <p>{detail.detailedReason}</p>
             ) : null}
             {detail.status === "approved" && hasPermission(user, HR_PERMISSIONS.HR_REWARD_READ) && hasPermission(user, HR_PERMISSIONS.HR_REWARD_LINK_PAYROLL) ? <RewardPayrollLink key={`payroll-${detail.id}`} id={detail.id} busy={busy} publish={job => mutate(job, "关联工资输入失败", true)} /> : null}
             {canManage || detail.corrections !== undefined ? <RewardCorrections key={`corrections-${detail.id}`} detail={detail} canManage={canManage} busy={busy} publish={job => mutate(job, "追加更正失败", true)} /> : null}
@@ -583,8 +583,8 @@ function HrRewardsWorkspace() {
                   <span>事实摘要</span>
                   <input name="summary" required maxLength={300} defaultValue={detail.summary} />
                 </label>
-                {canReason ? <label className={`form-field ${styles.desktopSensitive}`}><span>详细原因</span><textarea name="reason" maxLength={3000} defaultValue={detail.detailedReason ?? ""} /></label> : null}
-                {canAmount ? <label className={`form-field ${styles.desktopSensitive}`}><span>金额建议</span><input name="amount" type="number" min="0" step="0.0001" defaultValue={detail.amountSuggestion ?? ""} /></label> : null}
+                {canReason ? <label className="form-field"><span>详细原因</span><textarea name="reason" maxLength={3000} defaultValue={detail.detailedReason ?? ""} /></label> : null}
+                {canAmount ? <label className="form-field"><span>金额建议</span><input name="amount" type="number" min="0" max="9999999999999999.9999" step="0.0001" onFocus={event=>event.currentTarget.select()} defaultValue={detail.amountSuggestion ?? ""} /></label> : null}
                 <button className="ds-button ds-button-primary" disabled={busy}>保存修改</button>
               </form>
             ) : null}
