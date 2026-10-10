@@ -275,11 +275,22 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
 
 test("HR M4 compensation keeps plan ledger separate from sensitive assignment",()=>{
   const compensation=readFileSync(resolve(__dirname,"compensation/HrCompensationClient.tsx"),"utf8");
-  assert.match(compensation,/方案台账/);
-  assert.match(compensation,/action === "plan" \? <form/);
-  assert.match(compensation,/action === "assignment" \? <form/);
-  assert.match(compensation,/排除已离职员工/);
-  assert.match(compensation,/仅对授权人事人员开放/);
+  const editor=readFileSync(resolve(__dirname,"compensation/CompensationAssignmentEditor.tsx"),"utf8");
+  const picker=readFileSync(resolve(__dirname,"compensation/CompensationEmployeePicker.tsx"),"utf8");
+  const ledger=readFileSync(resolve(__dirname,"compensation/CompensationAssignmentLedger.tsx"),"utf8");
+  const approvals=readFileSync(resolve(__dirname,"approvals/HrApprovalsClient.tsx"),"utf8");
+  assert.match(compensation,/<CompensationAssignmentLedger refreshVersion=\{revision\}\/>/);
+  assert.match(compensation,/<ApprovedCompensationRequestsPanel/);
+  assert.match(compensation,/<CompensationEmployeePicker/);
+  assert.match(compensation,/<CompensationAssignmentEditor/);
+  assert.match(compensation,/canFulfill=canManage && canRead && hasPermission\(user,H\.HR_APPROVAL_PARK_REVIEW\)/);
+  assert.match(compensation,/薪酬方案/);
+  assert.match(picker,/历史任职状态不直接决定工资核算资格/);
+  assert.match(editor,/选择结束此记录/);
+  assert.match(editor,/按原请求重试定薪/);
+  assert.match(ledger,/金额是薪酬设置，工资核算仍需核对/);
+  assert.match(approvals,/HR_APPROVAL_PARK_REVIEW\).*HR_COMPENSATION_MANAGE\).*HR_COMPENSATION_READ/);
+  assert.match(approvals,/前往薪酬申请办理/);
 });
 
 test("HR M5 labor contracts are list-first, server-filtered, and history-aware",()=>{

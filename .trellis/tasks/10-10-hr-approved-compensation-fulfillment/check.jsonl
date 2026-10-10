@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/10-10-hr-approved-compensation-fulfillment/research/api-contract.md", "reason": "exact source period transaction and API contract"}
+{"file": ".trellis/spec/api/backend/hr-compensation-assignment-ledger.md", "reason": "existing read scope exact numeric and audit"}
+{"file": ".trellis/spec/web/frontend/hr-compensation-assignment-ledger.md", "reason": "identity sensitive-state and DS baseline"}

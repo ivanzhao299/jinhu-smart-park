@@ -1,4 +1,4 @@
-.panel { display: grid; gap: 16px; min-width: 0; }
+.panel { --form-control-height: var(--form-control-height-touch); display: grid; gap: 16px; min-width: 0; }
 .panel p, .panel span, .panel strong { overflow-wrap: anywhere; }
 .panel :global(.ds-button) { min-height: 44px; white-space: normal; }
 .search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
@@ -15,3 +15,6 @@
  .search label { flex-basis: 100%; }
  .pagination span { flex-basis: 100%; order: -1; }
 }
+.editorFields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.editorFields legend { margin-bottom: 12px; }
+.panel :global(.form-field) input, .panel :global(.form-field) select { min-height: 44px; min-width: 0; max-width: 100%; }
