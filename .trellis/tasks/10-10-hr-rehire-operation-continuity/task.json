@@ -1,0 +1,19 @@
+{
+  "name": "hr-rehire-operation-continuity",
+  "status": "in_progress",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "packages": [
+    "api",
+    "web"
+  ],
+  "base_branch": "main",
+  "created_at": "2026-10-10",
+  "id": "hr-rehire-operation-continuity",
+  "title": "离职员工回聘正式连续办理",
+  "branch": "codex/hr-rehire-operation-continuity-20261010",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "relatedFiles": [],
+  "meta": {
+    "baselineSha": "2330f7c7c88f3743110d6d1723a529fb345a6543"
+  }
+}
