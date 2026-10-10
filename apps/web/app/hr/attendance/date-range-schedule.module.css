@@ -1,0 +1,4 @@
+.editor{display:grid;gap:14px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.editor header{display:grid;gap:4px}.editor h3{margin:0}.editor small{color:var(--text-secondary)}
+.days,.planDays{display:flex;flex-wrap:wrap;gap:8px}.editor :global(.ds-button){min-height:44px}.days label{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-card);cursor:pointer}.days input{width:18px;height:18px}.plan{display:grid;gap:8px}.planDays{max-height:180px;overflow:auto}
+@media (max-width:720px){.days{gap:6px}.days label{flex:1 1 142px;min-width:0}.planDays{max-height:none}.editor :global(.ds-button){min-height:44px}}
