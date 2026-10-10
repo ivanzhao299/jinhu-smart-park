@@ -31,6 +31,7 @@ import { PayrollRuleMaintenance } from "./PayrollRuleMaintenance";
 import { PayrollModernOperations } from "./PayrollModernOperations";
 import { PayrollLedgerExport } from "./PayrollLedgerExport";
 import { PayrollStatementActions } from "./PayrollStatementActions";
+import { PayrollReconciliationReview } from "./PayrollReconciliationReview";
 import { formatPayrollHistoryItemValue } from "./payroll-history-display";
 
 type WorkArea = "online" | "history" | "rules" | "difference";
@@ -43,6 +44,11 @@ const statusLabel: Record<string, string> = {
   reviewing: "复核中",
   confirmed: "已确认冻结",
   paid: "已发放",
+};
+const reconciliationStatusLabel: Record<string, string> = {
+  review: "复核中",
+  accepted: "已接受",
+  rejected: "已拒绝",
 };
 const ruleStatusLabel: Record<string, string> = {
   review_required:"待复核",
@@ -348,13 +354,13 @@ function ReconciliationWorkbench({
       generation.current += 1;
     };
   }, [load]);
-  const open = async (row: HrPayrollReconciliation, resultPage = 1) => {
+  const open = async (row: HrPayrollReconciliation, resultPage = 1, preserveSelected = false) => {
     abort.current?.abort();
     const current = ++generation.current,
       controller = new AbortController();
     abort.current = controller;
     setDetailTarget(row);
-    setSelected(null);
+    if (!preserveSelected) setSelected(null);
     setDetailState("loading");
     try {
       const detail = await hrApi.payrollReconciliation(
@@ -366,6 +372,10 @@ function ReconciliationWorkbench({
       );
       if (current === generation.current) {
         setSelected(detail);
+        setResult((previous) => ({
+          ...previous,
+          items: previous.items.map((item) => item.id === detail.id ? { ...item, status: detail.status } : item),
+        }));
         setDetailState("ready");
       }
     } catch (e) {
@@ -419,27 +429,6 @@ function ReconciliationWorkbench({
       await load();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "策略保存失败");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const review = async (form: FormData) => {
-    if (!selected) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      await hrApi.reviewPayrollReconciliation(
-        selected.id,
-        {
-          decision: String(form.get("decision")),
-          comment: String(form.get("comment")),
-        },
-        getAccessToken(),
-      );
-      setMessage("复核意见已记录。");
-      await open(detailTarget ?? selected);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "复核失败");
     } finally {
       setBusy(false);
     }
@@ -573,7 +562,7 @@ function ReconciliationWorkbench({
                 result.items.map((row) => (
                   <article className="ds-mobile-record" key={row.id}>
                     <strong>
-                      {new Date(row.createdAt).toLocaleString("zh-CN")} · 复核中
+                      {new Date(row.createdAt).toLocaleString("zh-CN")} · {reconciliationStatusLabel[row.status] ?? "状态不可用"}
                     </strong>
                     <span>
                       {row.employeeCount} 人 · {row.differenceCount} 人超出容差
@@ -597,9 +586,9 @@ function ReconciliationWorkbench({
             />
           </section>
         )}
-        {detailState === "loading" ||
+        {(detailState === "loading" ||
         detailState === "forbidden" ||
-        detailState === "error" ? (
+        detailState === "error") && !selected ? (
           <StatePanel
             state={detailState}
             onRetry={() => selected && void open(selected)}
@@ -621,6 +610,7 @@ function ReconciliationWorkbench({
                 关闭
               </button>
             </div>
+            {detailState === "error" || detailState === "forbidden" ? <p className="form-error">最新差异读取失败。<button className="ds-button" type="button" onClick={() => void open(detailTarget ?? selected, selected.resultPage ?? 1, true)}>重试读取</button></p> : null}
             <div className="ds-scene-grid">
               {selected.results?.map((employee) => (
                 <article className="ds-scene-card" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:12}} key={employee.resultId}>
@@ -650,25 +640,13 @@ function ReconciliationWorkbench({
                 detailTarget && void open(detailTarget, nextPage)
               }
             />
-            {canReview ? (
-              <form className={workbenchStyles.formGrid} action={review}>
-                <label className="form-field">
-                  <span>复核结论</span>
-                  <select name="decision">
-                    <option value="request_follow_up">继续核查</option>
-                    <option value="accept_explanation">接受差异说明</option>
-                    <option value="reject_explanation">拒绝差异说明</option>
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>复核意见</span>
-                  <textarea name="comment" required maxLength={1000} />
-                </label>
-                <button className="ds-button ds-button-primary" disabled={busy}>
-                  记录复核
-                </button>
-              </form>
-            ) : null}
+            <PayrollReconciliationReview
+              key={`${selected.id}:${contextKey}`}
+              reconciliation={selected}
+              canReview={canReview}
+              contextKey={contextKey}
+              onWritten={async () => { await open(detailTarget ?? selected, selected.resultPage ?? 1, true); }}
+            />
           </section>
         ) : null}
       </div>

@@ -110,6 +110,25 @@ export interface HrPayrollReconciliationDifference {
   toleranceAmount: string;
   reviewStatus: string;
 }
+export interface HrPayrollReconciliationReviewAction {
+  id: string;
+  sequenceNo: number;
+  decision: string;
+  comment: string;
+  createdAt: string;
+  resultId: string | null;
+  itemDifferenceId: string | null;
+  employeeCode: string | null;
+  employeeName: string | null;
+  itemName: string | null;
+}
+export interface HrPayrollReconciliationReviewReceipt {
+  id: string;
+  sequenceNo: number;
+  decision: string;
+  comment: string;
+  createdAt: string;
+}
 export interface HrPayrollReconciliationResult {
   insuranceSource?: HrPayrollInsuranceEvidence | null;
   resultId: string;
@@ -696,6 +715,16 @@ payrollReconciliation: (
         { token, signal },
       ),
     ),
+payrollReconciliationReviewActions: (
+    id: string,
+    token?: string,
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ) => unwrap(apiRequest<PaginatedResult<HrPayrollReconciliationReviewAction>>(
+    `/hr/payroll/reconciliations/${id}/review-actions?${new URLSearchParams({page:String(page),page_size:String(pageSize)})}`,
+    { token, signal },
+  )),
 payrollReconciliationSetup: (token?: string, signal?: AbortSignal) =>
     unwrap(
       apiRequest<HrPayrollReconciliationSetup>(
@@ -760,11 +789,13 @@ reviewPayrollReconciliation: (
       itemDifferenceId?: string;
     },
     token?: string,
+    idempotencyKey = createIdempotencyKey("hr-payroll-reconciliation-review"),
+    signal?: AbortSignal,
   ) =>
     unwrap(
-      apiRequest<HrPayrollReviewAction>(
+      apiRequest<HrPayrollReconciliationReviewReceipt>(
         `/hr/payroll/reconciliations/${id}/review-actions`,
-        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+        { method: "POST", body, token, idempotencyKey, signal },
       ),
     )
  ,myApprovals:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/me",{token,signal}))

@@ -1053,3 +1053,5 @@ Modern performance frozen reward evidence: [Reward Evidence](./hr-performance-re
 Ordinary editable positions, scoped contexts, assignment concurrency and historical continuity: [hr-position-maintenance.md](./hr-position-maintenance.md). Read before changing position maintenance or employee-to-position relationship guards.
 
 - [Payroll source-period discovery](hr-payroll-source-period-discovery.md) — scoped actual month/count discovery and comparison preparation.
+
+Payroll per-person/item difference reviews and append-only history: [Reconciliation Review Continuity](./hr-payroll-reconciliation-review-continuity.md).

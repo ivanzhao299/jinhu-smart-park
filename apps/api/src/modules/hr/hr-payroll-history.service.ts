@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -30,6 +31,7 @@ import type {
   HrPayrollFormulaReviewDto,
   HrPayrollHistoryQueryDto,
   HrPayrollReconciliationDetailQueryDto,
+  HrPayrollReconciliationReviewActionQueryDto,
   HrPayrollReconciliationQueryDto,
   HrPayrollReconciliationReviewDto,
   HrPayrollReviewActionDto,
@@ -807,6 +809,67 @@ export class HrPayrollHistoryService {
     };
   }
 
+  async listReconciliationReviewActions(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    q: HrPayrollReconciliationReviewActionQueryDto,
+  ) {
+    this.requireReconciliationRead(actor);
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+      const run = ((await manager.query(
+        "SELECT id FROM hr_payroll_reconciliation_run WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false",
+        [id, scope.tenantId, scope.parkId],
+      )) as RawRow[])[0];
+      if (!run) throw new NotFoundException("Payroll reconciliation run not found");
+      const params = [scope.tenantId, scope.parkId, id];
+      const count = ((await manager.query(
+        `SELECT COUNT(*)::int AS total
+           FROM hr_payroll_reconciliation_review_action action
+          WHERE action.tenant_id=$1 AND action.park_id=$2 AND action.run_id=$3
+            AND action.is_deleted=false`,
+        params,
+      )) as RawRow[])[0];
+      const rows = (await manager.query(
+        `SELECT action.id,action.sequence_no AS "sequenceNo",action.decision,action.comment,
+                action.create_time AS "createdAt",CASE WHEN action.item_difference_id IS NOT NULL THEN result.id ELSE action.result_id END AS "resultId",
+                action.item_difference_id AS "itemDifferenceId",
+                employee.employee_code AS "employeeCode",employee.full_name AS "employeeName",
+                item.display_name AS "itemName"
+           FROM hr_payroll_reconciliation_review_action action
+           LEFT JOIN hr_payroll_reconciliation_item_difference difference
+             ON difference.id=action.item_difference_id AND difference.tenant_id=action.tenant_id
+            AND difference.park_id=action.park_id AND difference.is_deleted=false
+           LEFT JOIN hr_payroll_reconciliation_result result
+             ON result.id=COALESCE(action.result_id,difference.result_id) AND result.tenant_id=action.tenant_id
+            AND result.park_id=action.park_id AND result.run_id=action.run_id
+            AND result.is_deleted=false
+           LEFT JOIN hr_employee employee
+             ON employee.id=result.employee_id AND employee.tenant_id=result.tenant_id
+            AND employee.park_id=result.park_id AND employee.is_deleted=false
+           LEFT JOIN hr_payroll_item_version item
+             ON result.id IS NOT NULL AND item.id=difference.item_version_id AND item.tenant_id=difference.tenant_id
+            AND item.park_id=difference.park_id AND item.is_deleted=false
+          WHERE action.tenant_id=$1 AND action.park_id=$2 AND action.run_id=$3
+            AND action.is_deleted=false
+          ORDER BY action.sequence_no ASC,action.id ASC
+          LIMIT $4 OFFSET $5`,
+        [...params, q.page_size, (q.page - 1) * q.page_size],
+      )) as RawRow[];
+      await this.auditService.recordOperationRequired({
+        tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub,
+        username: actor.username, roleCodes: actor.roles, module: "人力资源管理",
+        resource: "hr.payroll_reconciliation", action: "读取工资双轨复核记录",
+        bizType: "hr_payroll_reconciliation_run", bizId: id, beforeJson: null,
+        afterJson: { page: q.page, pageSize: q.page_size, total: Number(count?.total ?? 0) },
+        method: "GET", path: "/hr/payroll/reconciliations/:id/review-actions",
+        success: true, result: "success", requestId: null,
+      }, manager);
+      return { items: rows, total: Number(count?.total ?? 0), page: q.page, page_size: q.page_size };
+    });
+  }
+
   private async lockFrozenPayrollSource(manager: EntityManager, scope: TenantParkScope, dto: { reconciliationSourceId?: string; legacyBatchId: string }) {
     return ((await manager.query(`SELECT source.id,source.book_id,source.period_month,source.source_sha256,
             (source.frozen_input->'snapshots')::text AS snapshots_json,
@@ -1417,6 +1480,10 @@ export class HrPayrollHistoryService {
       throw new ForbiddenException(
         "Payroll reconciliation review permission is required",
       );
+    if (dto.resultId && dto.itemDifferenceId)
+      throw new BadRequestException(
+        "Select either a payroll result or an item difference, not both",
+      );
     return this.dataSource.transaction(async (manager) => {
       const run = (
         (await manager.query(
@@ -1443,7 +1510,7 @@ export class HrPayrollHistoryService {
       if (dto.itemDifferenceId) {
         const target = (
           (await manager.query(
-            "SELECT d.id FROM hr_payroll_reconciliation_item_difference d JOIN hr_payroll_reconciliation_result r ON r.id=d.result_id AND r.tenant_id=d.tenant_id AND r.park_id=d.park_id WHERE d.id=$1 AND r.run_id=$2 AND d.tenant_id=$3 AND d.park_id=$4 AND d.is_deleted=false FOR SHARE OF d",
+            "SELECT d.id,d.result_id FROM hr_payroll_reconciliation_item_difference d JOIN hr_payroll_reconciliation_result r ON r.id=d.result_id AND r.tenant_id=d.tenant_id AND r.park_id=d.park_id AND r.is_deleted=false WHERE d.id=$1 AND r.run_id=$2 AND d.tenant_id=$3 AND d.park_id=$4 AND d.is_deleted=false FOR SHARE OF d,r",
             [dto.itemDifferenceId, id, scope.tenantId, scope.parkId],
           )) as RawRow[]
         )[0];

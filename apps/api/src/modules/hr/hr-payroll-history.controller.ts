@@ -30,6 +30,7 @@ import {
   HrPayrollFormulaReviewDto,
   HrPayrollHistoryQueryDto,
   HrPayrollReconciliationDetailQueryDto,
+  HrPayrollReconciliationReviewActionQueryDto,
   HrPayrollReconciliationQueryDto,
   HrPayrollReconciliationReviewDto,
   HrPayrollReviewActionDto,
@@ -217,6 +218,20 @@ export class HrPayrollHistoryController {
     @Query() query: HrPayrollReconciliationDetailQueryDto,
   ) {
     return this.service.reconciliationDetail(scope, actor, id, query);
+  }
+
+  @Get("reconciliations/:id/review-actions")
+  @RequireAnyPermissions(
+    HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE,
+    HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW,
+  )
+  reconciliationReviewActions(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Query() query: HrPayrollReconciliationReviewActionQueryDto,
+  ) {
+    return this.service.listReconciliationReviewActions(scope, actor, id, query);
   }
 
   @Post("reconciliations/simulate")
