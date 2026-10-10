@@ -1,0 +1,33 @@
+{
+  "id": "hr-payroll-rule-readiness",
+  "name": "hr-payroll-rule-readiness",
+  "title": "工资核对规则准备与操作导航",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-rule-readiness-20261011",
+  "base_branch": "codex/hr-payroll-rule-readiness-20261011",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "owner": "wuenguo",
+    "latestObservedMonth": "2026-07",
+    "latestCompleteMonth": "UNVERIFIED",
+    "productionBusinessWrites": false,
+    "localValidation": "7 interaction, lint,typecheck,22 API source contracts and1280/390 actual-component browser PASS",
+    "technicalDelivery": "CI_PRODUCTION_PENDING"
+  }
+}

@@ -3,7 +3,7 @@
   "name": "hr-payroll-production-readiness-evidence",
   "title": "真实生产工资期间与输入准备取证",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-11",
-  "completedAt": null,
+  "completedAt": "2026-10-11",
   "branch": "codex/hr-payroll-production-readiness-evidence-20261011",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "commit": null,
-  "pr_url": null,
+  "commit": "d5afe4d7dcf799b6716c8d605176052f63c3b364",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/944",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -30,9 +30,10 @@
   "notes": "",
   "meta": {
     "localValidation": "final 350-migration PostgreSQL fixture, 39 focused contracts, deploy verified scope, YAML and syntax PASS; cleanup0",
-    "technicalDelivery": "PENDING_CI_AND_PRODUCTION_OBSERVATION",
+    "technicalDelivery": "DEPLOYED_RUNTIME_AND_ACTUAL_READONLY_PRODUCTION_EVIDENCE_VERIFIED",
     "businessCompleteMonthOwner": "wuenguo",
     "latestCompleteMonth": "UNVERIFIED",
-    "productionBusinessWrites": false
+    "productionBusinessWrites": false,
+    "observerRun": 38077184878
   }
 }
