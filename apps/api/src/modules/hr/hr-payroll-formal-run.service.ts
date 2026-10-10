@@ -60,14 +60,20 @@ export class HrPayrollFormalRunService {
       const prepared = await this.inputs.lockConfirmedInput(manager, scope, actor, dto.inputId, dto.expectedInputVersion);
       const {period,rule} = prepared, employeeIds = prepared.input.employees.map(employee => employee.employeeId);
       const requires = this.requirements([...new Set(rule.definition_evidence.items.flatMap(item => item.dependencies))]);
-      const attendance: Array<{id:string;batch_no:number;batch_type:string;covered:number}> = requires.attendance ? await manager.query(`SELECT b.id,b.batch_no,b.batch_type,(SELECT count(DISTINCT i.employee_id)::int FROM hr_attendance_payroll_input_item i WHERE (i.batch_id,i.tenant_id,i.park_id)=(b.id,b.tenant_id,b.park_id) AND NOT i.is_deleted AND i.employee_id=ANY($4::uuid[])) AS covered
+      if (!requires.attendance && dto.attendanceInputBatchId) throw new BadRequestException("This rule does not use attendance inputs");
+      const selected = employeeIds.slice((dto.page-1)*dto.pageSize,dto.page*dto.pageSize);
+      const attendance: Array<{id:string;batch_no:number;batch_type:string;covered:number;selected_employee_ids:string[]|null}> = requires.attendance ? await manager.query(`SELECT b.id,b.batch_no,b.batch_type,count(DISTINCT i.employee_id)::int AS covered,
+          CASE WHEN b.id=$6::uuid THEN array_remove(array_agg(DISTINCT i.employee_id) FILTER (WHERE i.employee_id=ANY($5::uuid[])),NULL)::uuid[] ELSE NULL END AS selected_employee_ids
         FROM hr_attendance_payroll_input_batch b JOIN hr_attendance_period p ON (p.id,p.tenant_id,p.park_id)=(b.period_id,b.tenant_id,b.park_id)
-        WHERE b.tenant_id=$1 AND b.park_id=$2 AND NOT b.is_deleted AND NOT p.is_deleted AND b.status='effective' AND p.status='closed' AND p.period_month=$3::date ORDER BY b.batch_no DESC,b.id`,[scope.tenantId,scope.parkId,`${period.month}-01`,employeeIds]) : [];
+        LEFT JOIN hr_attendance_payroll_input_item i ON (i.batch_id,i.tenant_id,i.park_id)=(b.id,b.tenant_id,b.park_id) AND NOT i.is_deleted AND i.employee_id=ANY($4::uuid[])
+        WHERE b.tenant_id=$1 AND b.park_id=$2 AND NOT b.is_deleted AND NOT p.is_deleted AND b.status='effective' AND p.status='closed' AND p.period_month=$3::date
+        GROUP BY b.id,b.batch_no,b.batch_type ORDER BY b.batch_no DESC,b.id`,[scope.tenantId,scope.parkId,`${period.month}-01`,employeeIds,selected,dto.attendanceInputBatchId ?? null]) : [];
+      const selectedAttendance = dto.attendanceInputBatchId ? attendance.find(batch => batch.id === dto.attendanceInputBatchId) : undefined;
+      if (dto.attendanceInputBatchId && !selectedAttendance) throw new BadRequestException("Attendance batch is not current, closed or in this month");
       const overlaps = await manager.query(`SELECT count(DISTINCT s.employee_id)::int AS count FROM hr_payslip s JOIN hr_payroll_run r ON (r.id,r.tenant_id,r.park_id)=(s.run_id,s.tenant_id,s.park_id) WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.period_id=$3 AND NOT r.is_deleted AND NOT s.is_deleted AND r.status<>'cancelled' AND s.employee_id=ANY($4::uuid[])`,[scope.tenantId,scope.parkId,period.id,employeeIds]);
       const corrections: Array<{id:string;run_no:number;employee_count:number}> = await manager.query(`SELECT r.id,r.run_no,r.employee_count FROM hr_payroll_run r WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.period_id=$3 AND NOT r.is_deleted AND r.status='confirmed'
         AND NOT EXISTS(SELECT 1 FROM hr_payroll_run successor WHERE successor.tenant_id=r.tenant_id AND successor.park_id=r.park_id AND successor.correction_of_run_id=r.id AND NOT successor.is_deleted AND successor.status<>'cancelled')
         AND (SELECT array_agg(s.employee_id ORDER BY s.employee_id) FROM hr_payslip s WHERE (s.run_id,s.tenant_id,s.park_id)=(r.id,r.tenant_id,r.park_id) AND NOT s.is_deleted)=$4::uuid[] ORDER BY r.run_no DESC,r.id`,[scope.tenantId,scope.parkId,period.id,[...employeeIds].sort()]);
-      const selected = employeeIds.slice((dto.page-1)*dto.pageSize,dto.page*dto.pageSize);
       const employees: Array<{id:string;employee_code:string;full_name:string}> = selected.length ? await manager.query("SELECT id,employee_code,full_name FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[]) AND NOT is_deleted ORDER BY id",[scope.tenantId,scope.parkId,selected]) : [];
       const insurance: Array<{employee_id:string;id:string;revision_no:number;snapshot_sha256:string}> = requires.insurance && selected.length ? await manager.query(`SELECT r.employee_id,r.id,r.revision_no,p.snapshot_sha256 FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON (p.id,p.tenant_id,p.park_id)=(r.preview_id,r.tenant_id,r.park_id)
         WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.period_month=$3::date AND r.employee_id=ANY($4::uuid[]) AND NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision newer WHERE (newer.tenant_id,newer.park_id,newer.employee_id,newer.period_month)=(r.tenant_id,r.park_id,r.employee_id,r.period_month) AND newer.revision_no>r.revision_no) ORDER BY r.employee_id`,[scope.tenantId,scope.parkId,`${period.month}-01`,selected]) : [];
@@ -76,8 +82,10 @@ export class HrPayrollFormalRunService {
       return {inputId:prepared.input.id,inputVersion:prepared.input.version,periodId:period.id,month:period.month,employeeCount:employeeIds.length,requires,
         canCreateBase:!period.correctionWindow && overlaps[0].count===0,overlappingEmployeeCount:overlaps[0].count,
         attendanceBatches:attendance.map(batch=>({id:batch.id,batchNo:batch.batch_no,batchType:batch.batch_type,missingEmployeeCount:employeeIds.length-batch.covered})),
+        selectedAttendanceBatchId:selectedAttendance?.id ?? null,
         correctionRuns:corrections.filter(run=>!period.correctionWindow || run.id===period.correctionWindow.originalRunId).map(run=>({id:run.id,runNo:run.run_no,employeeCount:run.employee_count})),
         items:employees.map(employee=>{const source=insuranceByEmployee.get(employee.id);return {employeeId:employee.id,employeeCode:employee.employee_code,fullName:employee.full_name,
+          attendanceCovered:selectedAttendance ? (selectedAttendance.selected_employee_ids ?? []).includes(employee.id) : null,
           insuranceSource:source ? {employeeId:employee.id,sourceKind:"modern_confirmed" as const,sourceId:source.id,expectedVersion:source.revision_no,expectedHash:source.snapshot_sha256} : null};}),
         total:employeeIds.length,page:dto.page,page_size:dto.pageSize};
     });

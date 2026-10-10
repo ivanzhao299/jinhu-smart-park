@@ -1,0 +1,33 @@
+{
+  "id": "hr-payroll-attendance-coverage",
+  "name": "hr-payroll-attendance-coverage",
+  "title": "工资考勤来源缺员明细",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api,web,shared",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-attendance-coverage-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "Independent check passed; full-schema PostgreSQL 1 pass / 0 skip / 0 fail; isolated database cleaned residual0; actual component desktop1280 and mobile390 pass. Business-role UAT and latest complete actual payroll period/rules remain pending. No production HR business writes.",
+  "meta": {
+    "baseline": "d319f7fcfc064eb6ce35db3e72711fd92570ce1d",
+    "productionBusinessWrites": false,
+    "localValidation": "PASS",
+    "realPostgres": "PASS",
+    "browser": "PASS",
+    "artifact": "/Users/mac/.codex/artifacts/hr-payroll-attendance-coverage-20261011"
+  }
+}

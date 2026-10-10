@@ -118,6 +118,16 @@ test("formal payroll source options bind selected confirmed input and version", 
   } finally {globalThis.fetch=originalFetch;}
 });
 
+test("formal payroll source options carry an explicit attendance inspection batch", async () => {
+  const originalFetch=globalThis.fetch;
+  let url="";
+  globalThis.fetch=async(value)=>{url=String(value);return new Response(JSON.stringify({code:0,message:"success",data:{items:[],total:0,page:1,page_size:20}}),{headers:{"Content-Type":"application/json"}});};
+  try {
+    await hrApi.formalPayrollRunOptions({inputId:"confirmed",expectedInputVersion:7,attendanceInputBatchId:"attendance",page:1,pageSize:20});
+    assert.equal(url,"/api/v1/hr/payroll/formal-runs/options?inputId=confirmed&expectedInputVersion=7&page=1&pageSize=20&attendanceInputBatchId=attendance");
+  } finally { globalThis.fetch=originalFetch; }
+});
+
 
 test("book options encode literal searches and cancellation; create preserves explicit book association", async () => {
   const originalFetch = globalThis.fetch;

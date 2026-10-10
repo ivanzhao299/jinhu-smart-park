@@ -30,4 +30,5 @@ export class HrPayrollFormalRunQueryDto {
 export class HrPayrollFormalRunOptionsQueryDto extends HrPayrollFormalInputDetailQueryDto {
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() inputId!: string;
   @Type(() => Number) @IsInt() @Min(1) @Max(2147483647) expectedInputVersion!: number;
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() attendanceInputBatchId?: string;
 }
