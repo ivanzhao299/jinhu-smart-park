@@ -69,6 +69,15 @@ export class HrPayrollReconciliationDetailQueryDto {
   result_page_size = 20;
 }
 
+export class HrPayrollReconciliationReviewActionQueryDto {
+  @Transform(({ value }) => Number(value ?? 1)) @IsInt() @Min(1) page = 1;
+  @Transform(({ value }) => Number(value ?? 20))
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  page_size = 20;
+}
+
 export class HrPayrollInsuranceOptionsQueryDto {
   @IsUUID() legacyBatchId!: string;
   @IsUUID() attendanceInputBatchId!: string;

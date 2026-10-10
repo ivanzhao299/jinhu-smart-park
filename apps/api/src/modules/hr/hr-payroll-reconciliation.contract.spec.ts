@@ -7,6 +7,7 @@ const root=resolve(__dirname,"../../../../..");
 const migration=readFileSync(resolve(root,"database/migrations/000250_hr_payroll_reconciliation_simulation.sql"),"utf8");
 const controller=readFileSync(resolve(root,"apps/api/src/modules/hr/hr-payroll-history.controller.ts"),"utf8");
 const service=readFileSync(resolve(root,"apps/api/src/modules/hr/hr-payroll-history.service.ts"),"utf8");
+const dto=readFileSync(resolve(root,"apps/api/src/modules/hr/dto/hr-payroll-history.dto.ts"),"utf8");
 const dsl=readFileSync(resolve(root,"apps/api/src/modules/hr/hr-payroll-formula-dsl.ts"),"utf8");
 const entities=readFileSync(resolve(root,"apps/api/src/modules/hr/entities/hr.entities.ts"),"utf8");
 const productionSeed=readFileSync(resolve(root,"database/seeds/production/000018_hr_payroll_history_rbac.sql"),"utf8");
@@ -40,6 +41,19 @@ test("simulation requires exact permissions, idempotency, body-free audit and fr
  assert.match(service,/Frozen insurance input is incomplete for a legacy employee/u);
  assert.match(service,/Legacy payroll item required by an approved formula is missing/u);
  assert.doesNotMatch(service,/snapshot\.net_amount \?\? "0"|old\?\.decimal_value \?\? "0"|comp\?\.base_salary \?\? "0"/u);
+});
+test("reconciliation review history is bounded, scoped, ordered and required-audited",()=>{
+ assert.match(dto,/class HrPayrollReconciliationReviewActionQueryDto[\s\S]*@Min\(1\) page = 1[\s\S]*@Max\(100\)[\s\S]*page_size = 20/u);
+ assert.match(controller,/@Get\("reconciliations\/:id\/review-actions"\)[\s\S]*RequireAnyPermissions\([\s\S]*HR_PAYROLL_RECONCILIATION_CALCULATE,[\s\S]*HR_PAYROLL_RECONCILIATION_REVIEW/u);
+ assert.match(service,/async listReconciliationReviewActions[\s\S]*requireReconciliationRead\(actor\)[\s\S]*SET TRANSACTION ISOLATION LEVEL REPEATABLE READ[\s\S]*tenant_id=\$2 AND park_id=\$3 AND is_deleted=false/u);
+ assert.match(service,/COUNT\(\*\)::int AS total[\s\S]*ORDER BY action\.sequence_no ASC,action\.id ASC[\s\S]*LIMIT \$4 OFFSET \$5[\s\S]*recordOperationRequired/u);
+ assert.match(service,/CASE WHEN action\.item_difference_id IS NOT NULL THEN result\.id ELSE action\.result_id END AS "resultId"[\s\S]*action\.item_difference_id AS "itemDifferenceId"/u);
+ assert.match(service,/LEFT JOIN hr_payroll_item_version item[\s\S]*ON result\.id IS NOT NULL AND item\.id=difference\.item_version_id/u);
+});
+test("reconciliation review rejects ambiguous targets before write SQL and preserves item parent scope",()=>{
+ assert.match(service,/if \(dto\.resultId && dto\.itemDifferenceId\)[\s\S]*BadRequestException[\s\S]*return this\.dataSource\.transaction/u);
+ assert.match(service,/JOIN hr_payroll_reconciliation_result r ON r\.id=d\.result_id[\s\S]*r\.is_deleted=false[\s\S]*r\.run_id=\$2[\s\S]*FOR SHARE OF d,r/u);
+ assert.match(service,/!dto\.resultId[\s\S]*!dto\.itemDifferenceId[\s\S]*dto\.decision !== "request_follow_up"[\s\S]*UPDATE hr_payroll_reconciliation_run SET status/u);
 });
 test("DSL uses a standalone parser and BigInt evaluator with hard limits",()=>{
  assert.match(dsl,/LIMITS=\{expression:2000,tokens:256,depth:24,dependencies:64\}/u);

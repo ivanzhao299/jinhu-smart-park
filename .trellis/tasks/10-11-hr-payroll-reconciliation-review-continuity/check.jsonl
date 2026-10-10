@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-payroll-reconciliation-source.md", "reason": "Immutable simulation, read authority, audit and no payments"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-readiness.md", "reason": "Existing desktop review boundary and exact source reset"}
+{"file": ".trellis/spec/web/frontend/hr-contract-operation-continuity.md", "reason": "Retained retry and committed write/read failure separation"}
+{"file": ".trellis/spec/api/backend/hr-payroll-reconciliation-review-continuity.md", "reason": "New mutually exclusive target schema, paged same-snapshot history and retry/receipt contracts"}

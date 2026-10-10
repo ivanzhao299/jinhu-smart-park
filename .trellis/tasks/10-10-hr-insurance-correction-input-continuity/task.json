@@ -27,5 +27,15 @@
     "apps/web/test/interaction/hr-insurance-owned-periods.test.tsx"
   ],
   "notes": "Full scope review PASS. 12 interaction, 242 HR tests, lint/typecheck/build PASS. Desktop/390px synthetic browser PASS; no production writes. Latest complete actual payroll reconciliation owned by Wu Enguo, calculate only.",
-  "meta": {}
+  "meta": {},
+  "technical_delivery": {
+    "pr": 942,
+    "mergedSha": "edff10081ff1a9b27bd44e8e8189fe4ccfa8b4a6",
+    "apiRuntimeSha": "db0177a600c52a4dea60ce9e9925d680415f9154",
+    "webRuntimeSha": "edff10081ff1a9b27bd44e8e8189fe4ccfa8b4a6",
+    "deployRun": 38065477125,
+    "observerRun": 38066030218,
+    "status": "DEPLOYED_RUNTIME_VERIFIED"
+  },
+  "business_acceptance": "PENDING_REAL_HR_ROLE_UAT"
 }

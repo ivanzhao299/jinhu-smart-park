@@ -28,6 +28,15 @@ test("T4 payroll API contracts use exact paged history and review routes",()=>{
   assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
 });
 
+test("reconciliation write refresh keeps the confirmed review workspace mounted",()=>{
+  assert.match(payroll,/const open = async \(row: HrPayrollReconciliation, resultPage = 1, preserveSelected = false\)/);
+  assert.match(payroll,/if \(!preserveSelected\) setSelected\(null\)/);
+  assert.match(payroll,/\) && !selected \? \(/);
+  assert.match(payroll,/onWritten=\{async \(\) => \{ await open\(detailTarget \?\? selected, selected\.resultPage \?\? 1, true\); \}\}/);
+  assert.match(payroll,/detailState === "error" \|\| detailState === "forbidden" \? <p className="form-error">最新差异读取失败。/);
+  assert.match(payroll,/items: previous\.items\.map\(\(item\) => item\.id === detail\.id \? \{ \.\.\.item, status: detail\.status \} : item\)/);
+});
+
 test("M3 historical tax rule catalog is paged, semantics-safe, and phone-visible",()=>{
   assert.match(api,/interface HrPayrollTaxRule \{legacyTaxId:number;versionNo:number;baseAmount:string\|null;lowerLimit:string\|null;upperLimit:string\|null;taxPercent:string\|null;offsetAmount:string\|null;semanticsStatus:"pending_review";\}/);
   const taxApi=api.slice(api.indexOf("payrollHistoryTaxRules"),api.indexOf("payrollHistoryCatalogItems"));
