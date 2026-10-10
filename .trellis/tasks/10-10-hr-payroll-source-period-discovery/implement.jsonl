@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "小型入口；按实际API/Web层定向读取完整适用规范"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用既有来源预览、审计和DS组件"}

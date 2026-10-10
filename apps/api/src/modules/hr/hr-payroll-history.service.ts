@@ -24,6 +24,7 @@ import type {
   HrPayrollInsuranceOptionsQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
+  HrPayrollReconciliationSourcePeriodQueryDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -596,6 +597,46 @@ export class HrPayrollHistoryService {
         result: "success", requestId: null,
       }, manager);
       return preview;
+    });
+  }
+
+  async reconciliationSourcePeriods(scope: TenantParkScope,actor: JwtPrincipal,q: HrPayrollReconciliationSourcePeriodQueryDto) {
+    if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)) throw new ForbiddenException("Payroll reconciliation review permission is required");
+    const page=q.page??1,pageSize=q.pageSize??50,offset=(page-1)*pageSize;
+    return this.sourceTransaction(async manager=>{
+      const rows=await manager.query(`WITH eligible AS (
+        SELECT legacy.id FROM hr_payroll_legacy_batch legacy
+        JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=legacy.batch_code AND receipt.status='succeeded'
+          AND receipt.binding->'targetScope'->>'tenantId'=legacy.tenant_id AND receipt.binding->'targetScope'->>'parkId'=legacy.park_id
+          AND receipt.binding->'triple'->>'sourceSnapshotHash'=legacy.source_backup_hash::text
+        WHERE legacy.id=$3 AND legacy.tenant_id=$1 AND legacy.park_id=$2 AND NOT legacy.is_deleted AND legacy.status='staged' AND legacy.published_at IS NULL
+          AND EXISTS(SELECT 1 FROM migration_batch control WHERE control.run_id=receipt.operation_id AND control.t4_followon_operation_id=receipt.operation_id AND control.target_database=current_database() AND control.status='succeeded')
+      ), scoped_snapshots AS (
+        SELECT snapshot.id,snapshot.tenant_id,snapshot.park_id,snapshot.book_period_id,snapshot.mapping_status,snapshot.employee_id,period.period_month
+        FROM hr_payroll_legacy_snapshot snapshot
+        JOIN hr_payroll_book_period period ON period.id=snapshot.book_period_id AND period.tenant_id=snapshot.tenant_id AND period.park_id=snapshot.park_id AND NOT period.is_deleted
+        JOIN hr_payroll_book book ON book.id=period.book_id AND book.tenant_id=period.tenant_id AND book.park_id=period.park_id AND NOT book.is_deleted
+        WHERE snapshot.batch_id IN(SELECT id FROM eligible) AND snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND NOT snapshot.is_deleted AND period.book_id=$4
+      ), item_counts AS (
+        SELECT item.snapshot_id,item.tenant_id,item.park_id,count(*)::int item_count
+        FROM hr_payroll_legacy_snapshot_item item
+        JOIN scoped_snapshots snapshot ON snapshot.id=item.snapshot_id AND snapshot.tenant_id=item.tenant_id AND snapshot.park_id=item.park_id
+        WHERE NOT item.is_deleted
+        GROUP BY item.snapshot_id,item.tenant_id,item.park_id
+      ), grouped AS (
+        SELECT snapshot.period_month::text period_month,count(snapshot.id)::int record_count,
+          count(snapshot.id) FILTER(WHERE snapshot.mapping_status='mapped' AND snapshot.employee_id IS NOT NULL)::int mapped_record_count,
+          count(snapshot.id) FILTER(WHERE snapshot.mapping_status IS DISTINCT FROM 'mapped' OR snapshot.employee_id IS NULL)::int unmapped_record_count,
+          count(DISTINCT snapshot.employee_id) FILTER(WHERE snapshot.mapping_status='mapped' AND snapshot.employee_id IS NOT NULL)::int mapped_employee_count,
+          coalesce(sum(item_counts.item_count) FILTER(WHERE snapshot.mapping_status='mapped' AND snapshot.employee_id IS NOT NULL),0)::int mapped_item_count
+        FROM scoped_snapshots snapshot
+        LEFT JOIN item_counts ON item_counts.snapshot_id=snapshot.id AND item_counts.tenant_id=snapshot.tenant_id AND item_counts.park_id=snapshot.park_id
+        GROUP BY snapshot.period_month
+      ), totals AS (SELECT count(*)::int total FROM grouped), paged AS (SELECT * FROM grouped ORDER BY period_month DESC LIMIT $5 OFFSET $6)
+      SELECT paged.period_month "periodMonth",paged.record_count "recordCount",paged.mapped_record_count "mappedRecordCount",paged.unmapped_record_count "unmappedRecordCount",paged.mapped_employee_count "mappedEmployeeCount",paged.mapped_item_count "mappedItemCount",totals.total FROM totals LEFT JOIN paged ON true ORDER BY paged.period_month DESC NULLS LAST`,[scope.tenantId,scope.parkId,q.legacyBatchId,q.bookId,pageSize,offset]) as Array<Record<string,unknown>>;
+      const total=Number(rows[0]?.total??0),items=rows.filter(row=>row.periodMonth!==null&&row.periodMonth!==undefined).map(row=>({periodMonth:String(row.periodMonth),recordCount:Number(row.recordCount),mappedRecordCount:Number(row.mappedRecordCount),unmappedRecordCount:Number(row.unmappedRecordCount),mappedEmployeeCount:Number(row.mappedEmployeeCount),mappedItemCount:Number(row.mappedItemCount)}));
+      await this.auditService.recordOperationRequired({tenantId:scope.tenantId,parkId:scope.parkId,userId:actor.sub,username:actor.username,roleCodes:actor.roles,module:"人力资源管理",resource:"hr.payroll_reconciliation_source",action:"读取可用工资来源月份",bizType:"hr_payroll_legacy_batch",bizId:q.legacyBatchId,beforeJson:null,afterJson:{bookId:q.bookId,page,pageSize,total},method:"GET",path:"/hr/payroll/reconciliation-sources/periods",success:true,result:"success",requestId:null},manager);
+      return {items,total,page,pageSize};
     });
   }
 

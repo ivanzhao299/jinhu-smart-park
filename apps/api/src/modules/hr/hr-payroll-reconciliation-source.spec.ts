@@ -7,7 +7,7 @@ import { validate } from "class-validator";
 import { DataSource, QueryFailedError } from "typeorm";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { HrPayrollHistoryService } from "./hr-payroll-history.service";
-import { CreateHrPayrollReconciliationSourceDto } from "./dto/hr-payroll-history.dto";
+import { CreateHrPayrollReconciliationSourceDto, HrPayrollReconciliationSourcePeriodQueryDto } from "./dto/hr-payroll-history.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { AuditService } from "../audit/audit.service";
 import { HR_PAYROLL_DSL_PARSER_VERSION, parsePayrollFormula } from "./hr-payroll-formula-dsl";
@@ -37,6 +37,26 @@ test("ordinary employee and calculate-only actors cannot freeze history",async()
 });
 test("preview requires review permission before reading history",async()=>{
  const f=fixture(); await assert.rejects(()=>f.service.previewReconciliationSource(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},dto),ForbiddenException); assert.equal(f.transactions,0);
+});
+test("available source months require review permission, validate the query, and keep their audit in the read transaction",async()=>{
+ const query={legacyBatchId:dto.legacyBatchId,bookId:dto.bookId,page:2,pageSize:50};
+ assert.equal((await validate(plainToInstance(HrPayrollReconciliationSourcePeriodQueryDto,query))).length,0);
+ for(const patch of [{legacyBatchId:"nope"},{page:0},{pageSize:101},{pageSize:1.2}]) assert.ok((await validate(plainToInstance(HrPayrollReconciliationSourcePeriodQueryDto,{...query,...patch}))).length>0);
+ const calls:Array<{sql:string;params?:unknown[]}>=[];let auditManager:unknown;
+ const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});return sql.includes("WITH eligible")?[{periodMonth:"2026-07-01",recordCount:"2",mappedRecordCount:"1",unmappedRecordCount:"1",mappedEmployeeCount:"1",mappedItemCount:"3",total:"51"}]:[];}};
+ const db={transaction:async(isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>{assert.equal(isolation,"READ COMMITTED");return fn(manager);}};
+ const audit={recordOperationRequired:async(input:Record<string,unknown>,m:unknown)=>{auditManager=m;assert.equal(input.method,"GET");assert.equal(input.action,"读取可用工资来源月份");assert.deepEqual(input.afterJson,{bookId:query.bookId,page:2,pageSize:50,total:51});}};
+ const service=new HrPayrollHistoryService(db as unknown as DataSource,audit as unknown as AuditService);
+ await assert.rejects(()=>service.reconciliationSourcePeriods(scope,{...actor,permissions:[]},query),ForbiddenException);
+ assert.equal(calls.length,0);
+ assert.deepEqual(await service.reconciliationSourcePeriods(scope,actor,query),{items:[{periodMonth:"2026-07-01",recordCount:2,mappedRecordCount:1,unmappedRecordCount:1,mappedEmployeeCount:1,mappedItemCount:3}],total:51,page:2,pageSize:50});
+ assert.equal(auditManager,manager);assert.match(calls.find(call=>call.sql.includes("WITH eligible"))!.sql,/migration_batch/);assert.match(calls.find(call=>call.sql.includes("WITH eligible"))!.sql,/scoped_snapshots/);
+});
+test("available source months do not escape when their required audit fails",async()=>{
+ const manager={query:async(sql:string)=>sql.includes("WITH eligible")?[{total:"0"}]:[]};
+ const db={transaction:async(_isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>fn(manager)};
+ const service=new HrPayrollHistoryService(db as unknown as DataSource,{recordOperationRequired:async()=>{throw new Error("audit unavailable");}} as unknown as AuditService);
+ await assert.rejects(()=>service.reconciliationSourcePeriods(scope,actor,{legacyBatchId:dto.legacyBatchId,bookId:dto.bookId}),/audit unavailable/);
 });
 test("preview returns only scoped metadata and keeps its audit in the read transaction",async()=>{
  const metadata={legacyBatchId:dto.legacyBatchId,bookId:dto.bookId,periodMonth:dto.periodMonth,bindingSha256:dto.bindingSha256,sourceSha256:dto.sourceSha256,snapshotCount:1,itemCount:1,employeeCount:1};

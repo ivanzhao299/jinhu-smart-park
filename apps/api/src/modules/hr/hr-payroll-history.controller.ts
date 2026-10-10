@@ -24,6 +24,7 @@ import {
   HrPayrollInsuranceOptionsQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
+  HrPayrollReconciliationSourcePeriodQueryDto,
   CreateHrPayrollReconciliationPolicyDto,
   HrPayrollCatalogQueryDto,
   HrPayrollFormulaReviewDto,
@@ -160,6 +161,12 @@ export class HrPayrollHistoryController {
     @Query() query: HrPayrollReconciliationSourcePreviewDto,
   ) {
     return this.service.previewReconciliationSource(scope, actor, query);
+  }
+
+  @Get("reconciliation-sources/periods")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)
+  reconciliationSourcePeriods(@CurrentScope() scope: TenantParkScope,@CurrentUser() actor: JwtPrincipal,@Query() query: HrPayrollReconciliationSourcePeriodQueryDto) {
+    return this.service.reconciliationSourcePeriods(scope,actor,query);
   }
 
   @Post("reconciliation-sources")

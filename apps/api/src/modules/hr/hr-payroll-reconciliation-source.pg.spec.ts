@@ -204,3 +204,69 @@ test("explicit modern insurance sources affect money, reject stale revisions and
  assert.deepEqual(await db.query("SELECT to_jsonb(i) AS row FROM hr_employee_insurance_item i WHERE tenant_id=$1 AND park_id=$2 ORDER BY id",[scope.tenantId,scope.parkId]),historicalBefore);
  assert.equal((await db.query("SELECT (SELECT count(*) FROM hr_payroll_run)+(SELECT count(*) FROM hr_payslip) AS count"))[0].count,"0");
 });
+
+
+test("available source periods retain exact scoped counts, cross-year ordering and totals on empty pages", {skip:!enabled}, async()=>{
+  const s=service(),query={legacyBatchId:ids.legacy!,bookId:ids.book!,pageSize:50};
+  await db.query(`WITH months AS (SELECT n,(date '2020-01-01'+(n||' months')::interval)::date AS period_value FROM generate_series(0,50) n), periods AS (
+    INSERT INTO hr_payroll_book_period(id,tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+    SELECT gen_random_uuid(),$1,$2,$3,period_value,0,$4 FROM months RETURNING id,period_month
+  ) INSERT INTO hr_payroll_legacy_snapshot(id,tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash,net_amount)
+    SELECT gen_random_uuid(),$1,$2,$5,p.id,CASE WHEN extract(month FROM p.period_month)::int%2=0 THEN $6::uuid ELSE NULL END,'salary01',$4,encode(digest(p.period_month::text,'sha256'),'hex'),CASE WHEN extract(month FROM p.period_month)::int%2=0 THEN 'mapped' ELSE 'employee_unmapped' END,$4,1 FROM periods p`,[scope.tenantId,scope.parkId,ids.book,hash,ids.legacy,ids.employee]);
+  await db.query(`INSERT INTO hr_payroll_legacy_snapshot_item(id,tenant_id,park_id,snapshot_id,item_version_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value,decimal_value)
+    SELECT gen_random_uuid(),$1,$2,$3,$4,'EXTRA_'||n,'decimal',false,$5,'1',1 FROM generate_series(1,3) n`,[scope.tenantId,scope.parkId,ids.snapshot,ids.item,hash]);
+  const first=await s.reconciliationSourcePeriods(scope,actor,{...query,page:1});
+  assert.equal(first.total,52);assert.equal(first.items.length,50);
+  assert.deepEqual(first.items[0],{periodMonth:"2026-07-01",recordCount:1,mappedRecordCount:1,unmappedRecordCount:0,mappedEmployeeCount:1,mappedItemCount:4});
+  assert.ok(first.items.every((row,i)=>i===0||first.items[i-1]!.periodMonth>row.periodMonth));
+  assert.ok(first.items.some(row=>row.mappedRecordCount===1&&row.mappedItemCount===0),"zero details remain visible, not complete");
+  assert.ok(first.items.some(row=>row.unmappedRecordCount===1&&row.mappedEmployeeCount===0));
+  assert.ok(first.items.every(row=>row.recordCount===row.mappedRecordCount+row.unmappedRecordCount));
+  const second=await s.reconciliationSourcePeriods(scope,actor,{...query,page:2});
+  assert.equal(second.total,52);assert.deepEqual(second.items.map(row=>row.periodMonth),["2020-02-01","2020-01-01"]);
+  const beyond=await s.reconciliationSourcePeriods(scope,actor,{...query,page:99});
+  assert.deepEqual(beyond.items,[]);assert.equal(beyond.total,52);
+  for(const other of [{...scope,tenantId:"foreign-tenant"},{...scope,parkId:"foreign-park"}]) {
+    const result=await s.reconciliationSourcePeriods(other,{...actor,...other},query);assert.deepEqual(result.items,[]);assert.equal(result.total,0);
+  }
+  assert.equal((await s.reconciliationSourcePeriods(scope,actor,{...query,bookId:randomUUID()})).total,0);
+  assert.equal((await s.reconciliationSourcePeriods(scope,actor,{...query,legacyBatchId:randomUUID()})).total,0);
+  assert.ok((await db.query("SELECT count(*)::int count FROM source_fixture_audit WHERE method='GET'"))[0].count>0);
+});
+
+test("source discovery rejects mismatched receipts, scope, source hashes and missing or failed controls",{skip:!enabled},async()=>{
+  const s=service(),query={legacyBatchId:ids.legacy!,bookId:ids.book!};
+  const empty=async()=>assert.equal((await s.reconciliationSourcePeriods(scope,actor,query)).total,0);
+  for(const patch of ["status='failed'","source_backup_hash=repeat('b',64)","batch_code='missing-source-receipt'"]) {
+    await db.query(`UPDATE hr_payroll_legacy_batch SET ${patch} WHERE id=$1`,[ids.legacy]);
+    try{await empty();}finally{await db.query("UPDATE hr_payroll_legacy_batch SET status='staged',source_backup_hash=$2,batch_code=$3 WHERE id=$1",[ids.legacy,hash,operation]);}
+  }
+  for(const kind of ["wrong-scope","missing-control","failed-control","rolled-back"]){
+    const op=`yzprod-import-20261002T000000Z-${randomUUID().replaceAll("-","").slice(0,12)}`;
+    await db.transaction("SERIALIZABLE",async manager=>{
+      const binding=(await manager.query("SELECT binding FROM hr_yuzhou_t4_followon_operation WHERE operation_id=$1",[operation]))[0].binding;
+      binding.operationId=op;if(kind==="wrong-scope")binding.targetScope={...scope,parkId:"foreign-park"};
+      const sha=createHash("sha256").update(op).digest("hex");
+      await manager.query("INSERT INTO hr_yuzhou_t4_followon_operation(operation_id,parent_operation_id,binding_sha256,binding,status,owned_state,rolled_back_at) VALUES($1,$2,$3,$4,$5::varchar,'{}',CASE WHEN $5::varchar='rolled_back' THEN now() END)",[op,parent,sha,JSON.stringify(binding),kind==="rolled-back"?"rolled_back":"succeeded"]);
+      if(kind!=="missing-control"){
+        await manager.query("INSERT INTO hr_yuzhou_t4_followon_authorization_use(nonce_sha256,authorization_sha256,operation_id,intent) VALUES($1,$2,$3,'append')",[createHash("sha256").update(op+"nonce").digest("hex"),createHash("sha256").update(op+"auth").digest("hex"),op]);
+        await manager.query("INSERT INTO migration_batch(id,run_id,source_system,source_snapshot_sha256,target_database,tool_version,status,execution_context,t4_followon_operation_id) VALUES($1,$2,'yuzhou-v10',$3,current_database(),'t4-followon-v1@'||repeat('a',40),$4,'t4_production_followon',$2)",[randomUUID(),op,hash,kind==="failed-control"?"failed":"succeeded"]);
+      }
+    });
+    await db.query("UPDATE hr_payroll_legacy_batch SET batch_code=$2 WHERE id=$1",[ids.legacy,op]);
+    try{await empty();}finally{await db.query("UPDATE hr_payroll_legacy_batch SET batch_code=$2 WHERE id=$1",[ids.legacy,operation]);}
+  }
+  assert.equal((await s.reconciliationSourcePeriods(scope,actor,query)).total,52,"valid binding remains readable");
+});
+
+test("archive schema rejects deleted facts and cross-scope references rather than admitting impossible source rows",{skip:!enabled},async()=>{
+  // These source tables forbid soft-deleted rows and use composite scope FKs.
+  // Verify actual constraints; never disable them to manufacture invalid fixtures.
+  await assert.rejects(()=>db.query("INSERT INTO hr_payroll_book(tenant_id,park_id,legacy_scheme,source_hash,is_deleted) VALUES($1,$2,2,$3,true)",[scope.tenantId,scope.parkId,hash]),/ck_hr_payroll_book_not_deleted/);
+  await assert.rejects(()=>db.query("INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash,is_deleted) VALUES($1,$2,$3,'2019-01-01',0,$4,true)",[scope.tenantId,scope.parkId,ids.book,hash]),/ck_hr_payroll_book_period_not_deleted/);
+  await assert.rejects(()=>db.query("INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,is_deleted) VALUES($1,$2,'deleted-fixture',$3,$3,$3,0,true)",[scope.tenantId,scope.parkId,hash]),/ck_hr_payroll_legacy_batch_not_deleted/);
+  await assert.rejects(()=>db.query("INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash,is_deleted) VALUES($1,$2,$3,$4,$5,'salary02',$6,$6,'mapped',$6,true)",[scope.tenantId,scope.parkId,ids.legacy,ids.period,ids.employee,hash]),/ck_hr_payroll_legacy_snapshot_not_deleted/);
+  await assert.rejects(()=>db.query("INSERT INTO hr_payroll_legacy_snapshot_item(tenant_id,park_id,snapshot_id,item_version_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value,decimal_value,is_deleted) VALUES($1,$2,$3,$4,'DELETED','decimal',false,$5,'1',1,true)",[scope.tenantId,scope.parkId,ids.snapshot,ids.item,hash]),/ck_hr_payroll_legacy_snapshot_item_not_deleted/);
+  for(const foreign of [{...scope,tenantId:"foreign-tenant"},{...scope,parkId:"foreign-park"}])await assert.rejects(()=>db.query("INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash) VALUES($1,$2,$3,'2019-01-01',0,$4)",[foreign.tenantId,foreign.parkId,ids.book,hash]),/fk_hr_payroll_book_period_book/);
+  assert.equal((await service().reconciliationSourcePeriods(scope,actor,{legacyBatchId:ids.legacy!,bookId:ids.book!})).total,52);
+});

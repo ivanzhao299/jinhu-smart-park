@@ -1,0 +1,3 @@
+# 设计
+增加现有hr-payroll-history controller/service下read-only source-periods查询与validated DTO；源表hr_payroll_legacy_batch、hr_yuzhou_t4_followon_operation、migration_batch、hr_payroll_book、hr_payroll_book_period、hr_payroll_legacy_snapshot/item。先读实际schema与000319函数，不猜字段。按有效绑定限定eligible source，用一次SQL快照投影分页与total，避免逐月build完整JSON和N+1查询。mapped条件与函数一致，明细计数避免JOIN膨胀。月份输出YYYY-MM-DD；number类型显式转换。以sourceTransaction和recordOperationRequired保证审计事务；不得把SQL私密payload输出。
+在现有hr-api增加窄类型/方法，既有准备组件嵌入月份选择或小型组件（避免新页面），复用样式与请求取消/actor-context guard。手动月份仍可用，选择已发现月份使现有预览失效后重新preview。所有数量仅概况，不能绕过现有冻结校验。实现读取/晚返回/角色变化保护时检查父组件上下文是否可靠，不依赖猜测。
