@@ -1,0 +1,28 @@
+{
+  "id": "hr-performance-result-export",
+  "name": "hr-performance-result-export",
+  "title": "绩效评价台账与维度明细导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-performance-result-export-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baselineSha": "c1b05023ffff4e0a83e9bd1fb343bd6e937d5aa9"
+  }
+}
