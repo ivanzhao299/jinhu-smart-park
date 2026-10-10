@@ -2,23 +2,28 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS as H } from "@jinhu/shared";
+import {compensationLedgerExportCsv} from "../../app/hr/compensation/compensation-ledger-export";
 import { CompensationAssignmentLedger } from "../../app/hr/compensation/CompensationAssignmentLedger";
 import { ApiError } from "../../lib/api-client";
 import { HrCompensationClient } from "../../app/hr/compensation/HrCompensationClient";
 import { CompensationAssignmentEditor } from "../../app/hr/compensation/CompensationAssignmentEditor";
 import { CompensationEmployeePicker } from "../../app/hr/compensation/CompensationEmployeePicker";
 import { hrApi, type HrApprovedCompensationRequest, type HrCompensationAssignment, type HrCompensationEmployeeOption, type HrCompensationPlan } from "../../lib/hr-api";
+import {downloadCsv} from "../../lib/scoped-csv-export";
+import type * as CsvModule from "../../lib/scoped-csv-export";
 
 const state = vi.hoisted(() => ({user:{id:"actor",park_id:"park",permissions:[] as string[]}}));
 vi.mock("../../lib/auth-context",() => ({useAuthUser:() => state.user}));
 vi.mock("../../lib/authz",() => ({getAccessToken:() => "synthetic-token"}));
-vi.mock("../../lib/hr-api",() => ({hrApi:{assignCompensation:vi.fn(),compensationAssignments:vi.fn(),compensationPlans:vi.fn(),employees:vi.fn(),compensationEmployeeOptions:vi.fn(),approvedCompensationRequests:vi.fn(),createCompensationPlan:vi.fn(),fulfillCompensationApproval:vi.fn()}}));
+vi.mock("../../lib/hr-api",() => ({hrApi:{assignCompensation:vi.fn(),compensationAssignments:vi.fn(),compensationAssignmentExport:vi.fn(),compensationPlans:vi.fn(),employees:vi.fn(),compensationEmployeeOptions:vi.fn(),approvedCompensationRequests:vi.fn(),createCompensationPlan:vi.fn(),fulfillCompensationApproval:vi.fn()}}));
+vi.mock("../../lib/scoped-csv-export",async original=>({...await original<typeof CsvModule>(),downloadCsv:vi.fn()}));
 vi.mock("../../components/auth/PermissionGuard",()=>({PermissionGuard:({children}:{children:ReactNode})=><>{children}</>}));
 const row:HrCompensationAssignment={id:"record",employeeId:"employee",employeeCode:"SYN001",employeeName:"合成员工",planId:"plan",planCode:"PLAN001",planName:"合成方案",effectiveFrom:"2026-09-01",effectiveTo:null,baseSalary:"9999999999999999.99",allowanceAmount:"0.01",variableTarget:"0.00",status:"active",version:2};
 const result=(page=1,total=1,items=[row]) => ({items,total,page,page_size:20});
 beforeEach(() => {
  vi.resetAllMocks(); state.user={id:"actor",park_id:"park",permissions:[H.HR_COMPENSATION_PAGE,H.HR_COMPENSATION_READ]};
  vi.mocked(hrApi.compensationAssignments).mockImplementation(async (_token,page=1) => result(page));
+ vi.mocked(hrApi.compensationAssignmentExport).mockResolvedValue({items:[row],total:1,snapshotAt:"2026-10-10T00:00:00.000Z"});
  vi.mocked(hrApi.compensationPlans).mockResolvedValue([]);
  vi.mocked(hrApi.employees).mockResolvedValue({items:[],total:0,page:1,page_size:100});
  vi.mocked(hrApi.assignCompensation).mockResolvedValue({id:"record",assignment:{...row,version:1},replaced:null});
@@ -61,6 +66,16 @@ it("rejects invalid or inverted effective-date projections",async () => {
  vi.mocked(hrApi.compensationAssignments).mockResolvedValueOnce(result(1,1,[{...row,effectiveFrom:"2026-02-30"}])).mockResolvedValueOnce(result(1,1,[{...row,effectiveTo:"2026-08-31"}]));
  const view=render(<CompensationAssignmentLedger/>);await screen.findByText("定薪台账响应无法核对，请重新读取。");fireEvent.click(screen.getByRole("button",{name:"重试读取定薪台账"}));await screen.findByText("定薪台账响应无法核对，请重新读取。");expect(screen.queryByText("合成员工 · SYN001")).toBeNull();view.unmount();
 });
+it("exports only the applied filter once and rejects malformed responses without a file",async () => {
+ render(<CompensationAssignmentLedger/>);await screen.findByText("合成员工 · SYN001");
+ fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));
+ await screen.findByText("已导出 1 条薪酬设置记录。");expect(hrApi.compensationAssignmentExport).toHaveBeenCalledTimes(1);expect(vi.mocked(hrApi.compensationAssignmentExport)).toHaveBeenCalledWith("synthetic-token","",undefined,expect.any(AbortSignal));expect(downloadCsv).toHaveBeenCalledWith(expect.stringContaining("9999999999999999.99"),"员工定薪台账.csv");
+ vi.mocked(hrApi.compensationAssignmentExport).mockResolvedValueOnce({items:[{...row,baseSalary:"=1+1"}],total:1,snapshotAt:"bad"});fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));await screen.findByText("定薪导出响应无法核对，请重新读取。");expect(downloadCsv).toHaveBeenCalledTimes(1);
+});
+it("aborts an export and drops an abort-ignoring late response after context changes",async () => {
+ let resolve!:(value:{items:HrCompensationAssignment[];total:number;snapshotAt:string})=>void;vi.mocked(hrApi.compensationAssignmentExport).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));
+ const view=render(<CompensationAssignmentLedger/>);await screen.findByText("合成员工 · SYN001");fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));const signal=vi.mocked(hrApi.compensationAssignmentExport).mock.calls[0]![3]!;state.user={...state.user,park_id:"next"};view.rerender(<CompensationAssignmentLedger/>);expect(signal.aborted).toBe(true);await act(async()=>resolve({items:[row],total:1,snapshotAt:"2026-10-10T00:00:00.000Z"}));expect(downloadCsv).not.toHaveBeenCalled();
+});
 it("drops parent plan and employee context synchronously when identity changes",async () => {
  vi.mocked(hrApi.compensationPlans).mockResolvedValue([{id:"plan",planCode:"OLD",planName:"旧园区方案",effectiveFrom:"2026-09-01",effectiveTo:null,status:"active",currency:"CNY"}]);
  vi.mocked(hrApi.employees).mockResolvedValue({items:[{id:"employee",employeeCode:"OLD001",fullName:"旧园区员工",userId:null,primaryOrgId:null,positionId:null,managerEmployeeId:null,employmentType:"formal",employmentStatus:"active",legacyJobstateCode:null,legacyJobstateName:null,hireDate:null,departureDate:null,workLocation:null,workMobile:null,workEmail:null}],total:1,page:1,page_size:100});
@@ -96,3 +111,46 @@ it("keeps an approved-source receipt when the source queue refresh fails",async 
  state.user={id:"actor",park_id:"park",permissions:[H.HR_COMPENSATION_PAGE,H.HR_COMPENSATION_READ,H.HR_COMPENSATION_MANAGE,H.HR_APPROVAL_PARK_REVIEW]};vi.mocked(hrApi.compensationPlans).mockResolvedValue([plan]);vi.mocked(hrApi.approvedCompensationRequests).mockResolvedValueOnce({items:[source],total:1,page:1,page_size:20}).mockRejectedValueOnce(new Error("来源队列刷新失败"));vi.mocked(hrApi.compensationAssignments).mockImplementation(async(_token,_page,_size,_keyword,_signal,employeeId)=>employeeId?{items:[],total:0,page:1,page_size:20}:result());const receipt={id:"new",assignment:{...row,id:"new",effectiveFrom:"2026-09-01",baseSalary:"1234.50",allowanceAmount:"0.00",variableTarget:"0.00",version:1},replaced:null,sourceApprovalId:source.id,sourceApprovalVersion:source.version,fulfilledAt:"2026-10-10T00:00:00.000Z"};vi.mocked(hrApi.fulfillCompensationApproval).mockResolvedValue(receipt);
  render(<HrCompensationClient/>);fireEvent.click(await screen.findByRole("button",{name:"办理薪酬变更"}));await screen.findByText("此员工尚无定薪记录。");fillAssignment();fireEvent.submit(screen.getByRole("button",{name:"保存定薪并完成办理"}).closest("form")!);await screen.findByRole("status",{name:"正式定薪回执"});await screen.findByText("来源队列刷新失败");expect(screen.getByText("薪酬申请已关联正式定薪记录。")).toBeInTheDocument();expect(hrApi.fulfillCompensationApproval).toHaveBeenCalledTimes(1);
 });
+
+const exportReceipt=(items=[row])=>({items,total:items.length,snapshotAt:"2026-10-10T00:00:00.000Z"});
+it.each(["search edit","query","refresh","revision","permission","unmount"])("cancels export on %s even when transport ignores abort",async change=>{
+ let finish!:(value:ReturnType<typeof exportReceipt>)=>void;
+ vi.mocked(hrApi.compensationAssignmentExport).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const view=render(<CompensationAssignmentLedger refreshVersion={0}/>);await screen.findByText("合成员工 · SYN001");
+ fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));const signal=vi.mocked(hrApi.compensationAssignmentExport).mock.calls[0]![3]!;
+ if(change==="search edit")fireEvent.change(screen.getByLabelText("查找员工或薪酬方案"),{target:{value:"SYN001"}});
+ else if(change==="query")fireEvent.click(screen.getByRole("button",{name:"查询定薪记录"}));
+ else if(change==="refresh")fireEvent.click(screen.getByRole("button",{name:"刷新定薪台账"}));
+ else if(change==="revision")view.rerender(<CompensationAssignmentLedger refreshVersion={1}/>);
+ else if(change==="permission"){state.user={...state.user,permissions:[]};view.rerender(<CompensationAssignmentLedger/>);}
+ else view.unmount();
+ expect(signal.aborted).toBe(true);await act(async()=>finish(exportReceipt()));expect(downloadCsv).not.toHaveBeenCalled();
+});
+it("restarts after filter cancellation without old finally unlocking the newer download",async()=>{
+ let first!:(value:ReturnType<typeof exportReceipt>)=>void,second!:(value:ReturnType<typeof exportReceipt>)=>void;
+ vi.mocked(hrApi.compensationAssignmentExport).mockImplementationOnce(()=>new Promise(resolve=>{first=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{second=resolve;}));
+ render(<CompensationAssignmentLedger/>);await screen.findByText("合成员工 · SYN001");fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));
+ fireEvent.change(screen.getByLabelText("查找员工或薪酬方案"),{target:{value:"SYN001"}});expect(screen.getByRole("button",{name:"导出当前筛选定薪台账"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"查询定薪记录"}));await waitFor(()=>expect(screen.getByRole("button",{name:"导出当前筛选定薪台账"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));expect(hrApi.compensationAssignmentExport).toHaveBeenLastCalledWith("synthetic-token","SYN001",undefined,expect.any(AbortSignal));
+ await act(async()=>first(exportReceipt()));expect(downloadCsv).not.toHaveBeenCalled();expect(screen.getByRole("button",{name:"导出当前筛选定薪台账"})).toBeDisabled();
+ await act(async()=>second(exportReceipt()));expect(downloadCsv).toHaveBeenCalledTimes(1);expect(screen.getByRole("button",{name:"导出当前筛选定薪台账"})).toBeEnabled();
+});
+it("keeps download failures local and permits a new export",async()=>{
+ vi.mocked(hrApi.compensationAssignmentExport).mockRejectedValueOnce(new Error("导出读取失败"));render(<CompensationAssignmentLedger/>);await screen.findByText("合成员工 · SYN001");
+ fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));await screen.findByText("导出读取失败");expect(downloadCsv).not.toHaveBeenCalled();expect(screen.getByText("合成员工 · SYN001")).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"导出当前筛选定薪台账"}));await screen.findByText("已导出 1 条薪酬设置记录。");expect(downloadCsv).toHaveBeenCalledTimes(1);
+});
+it("exports all snapshot rows beyond a UI page with exact amounts and an explicit safe whitelist",()=>{
+ const items=Array.from({length:21},(_,i)=>({...row,id:`row-${i}`,employeeCode:`SYN${i+1}`,employeeName:i===20?' \t=FORMULA(),"Q"\nnext':row.employeeName,secret:"PRIVATE-EXTRA",employeeId:"PRIVATE-EMPLOYEE-ID"}));
+ const value=compensationLedgerExportCsv(exportReceipt(items));expect(value.total).toBe(21);expect(value.csv.startsWith("\uFEFF")).toBe(true);expect(value.csv).toContain('"SYN21"');expect(value.csv).toContain("9999999999999999.99");expect(value.csv).toContain("0.01");expect(value.csv).toContain("启用");expect(value.csv).toContain("' \t=FORMULA()");expect(value.csv).toContain('""Q""');expect(value.csv).not.toContain("PRIVATE-");
+ expect(compensationLedgerExportCsv(exportReceipt([])).total).toBe(0);
+});
+it.each([
+ {items:null,total:0,snapshotAt:"2026-10-10T00:00:00.000Z"},
+ {...exportReceipt(),total:-1}, {...exportReceipt(),total:1.5}, {...exportReceipt(),total:2},
+ exportReceipt([row,row]), {...exportReceipt(),snapshotAt:"2026-02-30T00:00:00.000Z"},
+ {...exportReceipt(),snapshotAt:"2026-10-10T25:00:00.000Z"}, {...exportReceipt(),snapshotAt:"2026-10-10T00:00:00Z"},
+ exportReceipt([{...row,baseSalary:"NaN"}]),exportReceipt([{...row,effectiveTo:"2026-02-30"}]),
+ exportReceipt(Array.from({length:5001},(_,i)=>({...row,id:`oversize-${i}`}))),
+])("rejects malformed or incomplete snapshots without serializing them %#",value=>{expect(()=>compensationLedgerExportCsv(value)).toThrow("定薪导出响应无法核对");});

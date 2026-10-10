@@ -1,5 +1,8 @@
 # @jinhu/web Frontend Specs
 
+Formal salary-setting CSV export: [Compensation Ledger Export](./hr-compensation-ledger-export.md).
+
+
 Employee formal compensation records: [Compensation Assignment Ledger](./hr-compensation-assignment-ledger.md).
 Approved salary source fulfillment and effective-period continuity: [Approved Compensation Fulfillment](./hr-approved-compensation-fulfillment.md).
 
