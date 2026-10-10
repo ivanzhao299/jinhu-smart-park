@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "Read exact core lifecycle and approvals contracts; no source-import expansion"}
+{"file": ".trellis/spec/web/frontend/hr-job-change-operation-continuity.md", "reason": "Existing formal state and retry constraints"}
+{"file": ".trellis/spec/web/frontend/hr-approval-content-history.md", "reason": "Source request history/versions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "End to end API field ownership"}

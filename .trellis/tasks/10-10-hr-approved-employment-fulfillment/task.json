@@ -1,0 +1,19 @@
+{
+  "id": "hr-approved-employment-fulfillment",
+  "name": "hr-approved-employment-fulfillment",
+  "title": "\u5df2\u6279\u51c6\u4efb\u804c\u7533\u8bf7\u8854\u63a5\u6b63\u5f0f\u5c97\u4f4d\u53d8\u66f4",
+  "status": "in_progress",
+  "package": "api,web",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "branch": "codex/hr-approved-employment-fulfillment-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "children": [],
+  "meta": {
+    "baselineSha": "3fadc7542c959bfc224aca5ac47096a87d9f8974"
+  }
+}

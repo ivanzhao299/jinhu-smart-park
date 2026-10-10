@@ -27,6 +27,7 @@
 - Confirmed payroll and payslips are immutable. Corrections create a new run; they do not overwrite the confirmed snapshot.
 - `hr_employee_document` is a protected file type. Generic file permissions do not replace HR profile permission and employee scope checks.
 - Salary, sensitive profile, approvals, and 360 bodies use audit metadata without captured request bodies.
+- Approved `employment_change` requests are only a source for an authorized fulfilment draft: both `HR_APPROVAL_PARK_REVIEW` and `HR_JOB_CHANGE_MANAGE` are required in controller and service. The source ID, tenant/park, approved type/status, version and subject employee must be locked and checked in the same transaction; one scoped source links to one dedicated job-change application. The linked draft retains that source employee through later edits, and employee assignment changes only through the existing dedicated apply transaction.
 
 ### 4. Validation & Error Matrix
 

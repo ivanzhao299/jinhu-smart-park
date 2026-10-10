@@ -78,7 +78,7 @@ function JobChangeApplicationsContent(){
   void execute({kind:editing?"update":"create",id:editing?.id,status:editing?.status,body,token:getAccessToken(),key:createIdempotencyKey("hr-job-change-save")});
  };
  const action=(row:HrJobChangeApplication,kind:Operation["kind"])=>{if(lock.current||unresolved.current||editing)return;const comment=opinions[row.id]?.trim()??"";if(kind==="return"&&!comment){setMessage("请填写具体退回意见，便于申请人修改。");return;}void execute({kind,id:row.id,status:row.status,comment,token:getAccessToken(),key:createIdempotencyKey(`hr-job-change-${kind}`)});};
- return <section className="ds-panel">
+ return <section id="job-change-applications" className="ds-panel">
   <div className={styles.sectionHeading}><div><span className="ds-eyebrow">人事办理</span><h2>岗位变更申请</h2></div><span>{loading?"加载中":`共 ${total} 条`}</span></div>
   {message?<p role="status">{message}</p>:null}{retry?<button type="button" className="ds-button ds-button-secondary" disabled={busy} onClick={()=>void execute(retry)}>按原请求重试</button>:null}
   {error?<p className="form-error" role="alert">{error}</p>:null}
@@ -86,8 +86,9 @@ function JobChangeApplicationsContent(){
   {(error||optionsError)?<button type="button" className="ds-button ds-button-secondary" disabled={blocked} onClick={()=>{void load();void loadOptions();}}>重试申请和基础数据</button>:null}
   {canManage?<form key={editing?.id??"new"} className={styles.formGrid} onSubmit={event=>{event.preventDefault();save();}}>
    <label className="form-field"><span>申请名称</span><input name="applicationName" maxLength={128} value={draft.applicationName} disabled={blocked} onChange={event=>setDraft({...draft,applicationName:event.target.value})} required/></label>
-   <HrEmployeeSelection purpose="job_change" selectedId={employeeId} currentEmployee={editing?{id:editing.employeeId,fullName:editing.employeeName,employeeCode:editing.employeeCode}:undefined} onChange={setEmployeeId} disabled={blocked}/>
+   <HrEmployeeSelection purpose="job_change" selectedId={employeeId} currentEmployee={editing?{id:editing.employeeId,fullName:editing.employeeName,employeeCode:editing.employeeCode}:undefined} onChange={setEmployeeId} disabled={blocked||!!editing?.sourceApprovalId}/>
 
+   {editing?.sourceApprovalId?<p>员工已绑定原任职申请；可修改岗位和办理信息，不能更换办理对象。</p>:null}
    <label className="form-field"><span>变更类型</span><select name="changeType" value={draft.changeType} disabled={blocked} onChange={event=>setDraft({...draft,changeType:event.target.value})}><option value="transfer">岗位调动</option><option value="promotion">晋升</option><option value="demotion">降职</option><option value="rotation">轮岗</option><option value="organization_change">部门调整</option></select></label>
    <label className="form-field"><span>申请日期</span><input name="applicationDate" type="date" value={draft.applicationDate} disabled={blocked} onChange={event=>setDraft({...draft,applicationDate:event.target.value})} required/></label>
    <label className="form-field"><span>生效日期</span><input name="effectiveDate" type="date" value={draft.effectiveDate} disabled={blocked} onChange={event=>setDraft({...draft,effectiveDate:event.target.value})} required/></label>

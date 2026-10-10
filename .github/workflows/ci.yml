@@ -134,6 +134,15 @@ jobs:
           POSTGRES_PASSWORD: synthetic-scope-ci-only
           HR_ONBOARDING_REHIRE_PG_REQUIRED: "1"
         run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-onboarding-rehire.pg.spec.ts
+      - name: Verify approved employment request fulfillment transactions
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "55491"
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-scope-ci-only
+          HR_APPROVED_EMPLOYMENT_JOB_CHANGE_PG_REQUIRED: "1"
+        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-approved-employment-job-change.pg.spec.ts
       - name: Verify opt-in persistence and transactional scope failures
         env:
           BUSINESS_SCOPE_TEST_DATABASE_URL: postgresql://postgres:synthetic-scope-ci-only@127.0.0.1:5432/postgres

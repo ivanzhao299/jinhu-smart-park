@@ -11,6 +11,12 @@ export class HrJobChangeListDto {
  @IsOptional() @IsIn(["draft","submitted","returned","approved","cancelled","applied"]) status?:string;
 }
 
+export class HrApprovedEmploymentRequestListDto {
+ @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(2147483647) page=1;
+ @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+}
+
 export class HrJobChangeEmployeeOptionsDto {
  @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(2147483647) page=1;
  @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(100) page_size=20;
@@ -26,6 +32,10 @@ export class SaveHrJobChangeDto {
  @IsUUID() afterOrgId!:string;
  @IsOptional() @IsUUID() afterPositionId?:string;
  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(2000) reason!:string;
+}
+
+export class CreateHrJobChangeFromApprovalDto extends SaveHrJobChangeDto {
+ @Transform(candidatePageNumber) @IsInt() @Min(1) @Max(2147483647) expectedApprovalVersion!:number;
 }
 
 export class HrJobChangeActionDto {

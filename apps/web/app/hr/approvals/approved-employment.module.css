@@ -1,0 +1,4 @@
+.panel { display: grid; gap: 16px; min-width: 0; }
+.fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.panel :global(.ds-button) { min-height: 44px; white-space: normal; }
+.panel p, .panel span, .panel strong { overflow-wrap: anywhere; }
