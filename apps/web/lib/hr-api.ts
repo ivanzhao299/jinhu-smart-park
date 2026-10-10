@@ -173,7 +173,7 @@ export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bo
 export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
 export interface HrApproval {version?:number;id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
 export interface HrApprovalRevision {expectedVersion:number;title:string;description:string;reason:string;}
-export interface HrApprovalContent {title:string;description:string;version:number;}
+export interface HrApprovalContent {title:string|null;description:string|null;version:number|null;}
 export interface HrApprovalHistoryAction {id:string;action:string;comment:string|null;beforeStatus:string;afterStatus:string;createTime:string;actorDisplayName:string|null;beforeContent:HrApprovalContent|null;afterContent:HrApprovalContent|null;}
 export interface HrApprovalHistory {request:HrApproval;actions:HrApprovalHistoryAction[];}
 export interface HrContractOriginalYearFact {value:number|null;status:"recorded"|"missing"|"unconfirmed";}
