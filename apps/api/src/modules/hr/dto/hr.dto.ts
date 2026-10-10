@@ -204,6 +204,15 @@ export class UpdateHrEmployeeProfileDto {
  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) emergencyContactMobile?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
+export class FulfillHrApprovedProfileDto extends UpdateHrEmployeeProfileDto {
+ @IsUUID() employeeId!:string;
+ @IsInt() @Min(1) @Max(2147483646) expectedApprovalVersion!:number;
+}
+export class HrApprovedProfileFulfillmentListDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) @Max(2147483647) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+}
 export class HrEmploymentTransitionDto {
  @IsIn(["start_probation","confirm_employment","transfer","suspend","resume","depart"]) action!:string;
  @IsDateString() effectiveDate!:string;

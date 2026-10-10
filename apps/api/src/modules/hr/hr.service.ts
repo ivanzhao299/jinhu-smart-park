@@ -3,11 +3,11 @@ import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { HR_PERMISSIONS,type PaginatedResult,type TenantParkScope } from "@jinhu/shared";
-import { DataSource,ILike,In,Not,type Repository } from "typeorm";
+import { DataSource,EntityManager,ILike,In,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,UpdateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,ReviewHrContractInformationDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,HrEmployeeScheduleQueryDto,UpdateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceEmployeeOptionsQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,LinkHrEmployeeAccountDto,RecalculateHrAttendanceDto,ReviseHrApprovalDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeBasicInformationDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,UpdateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,ReviewHrContractInformationDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,FulfillHrApprovedProfileDto,HrApprovedProfileFulfillmentListDto,HrEmployeeScheduleQueryDto,UpdateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceEmployeeOptionsQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventResponseDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,LinkHrEmployeeAccountDto,RecalculateHrAttendanceDto,ReviseHrApprovalDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeBasicInformationDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractActionEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
@@ -252,8 +252,10 @@ export class HrService {
 
  async updateEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){
   await this.detailEmployee(scope,id);
-  if(!Number.isInteger(dto.expectedVersion)||dto.expectedVersion<0||dto.expectedVersion>2147483646)throw new BadRequestException("Employee profile expectedVersion must be a non-negative integer");
-  return this.dataSource.transaction(async manager=>{
+  return this.dataSource.transaction(manager=>this.saveEmployeeProfile(manager,scope,actor,id,dto));
+ }
+ private async saveEmployeeProfile(manager:EntityManager,scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){
+   if(!Number.isInteger(dto.expectedVersion)||dto.expectedVersion<0||dto.expectedVersion>2147483646)throw new BadRequestException("Employee profile expectedVersion must be a non-negative integer");
    // The employee anchor serializes first-profile creation, where no profile row exists to lock.
    const employee=await manager.getRepository(HrEmployeeEntity).findOne({where:{...scope,id,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!employee)throw new NotFoundException("Employee not found");
@@ -267,6 +269,36 @@ export class HrService {
    Object.assign(row,{idType:dto.idType??null,englishName:dto.englishName??null,gender:dto.gender??null,dateOfBirth:dto.dateOfBirth??null,ethnicity:dto.ethnicity??null,nativePlace:dto.nativePlace??null,politicalStatus:dto.politicalStatus??null,partyJoinDate:dto.partyJoinDate??null,heightCm:dto.heightCm===undefined?null:String(dto.heightCm),weightKg:dto.weightKg===undefined?null:String(dto.weightKg),maritalStatus:dto.maritalStatus??null,healthStatus:dto.healthStatus??null,householdRegistration:dto.householdRegistration??null,highestEducation:dto.highestEducation??null,major:dto.major??null,degree:dto.degree??null,foreignLanguage:dto.foreignLanguage??null,languageLevel:dto.languageLevel??null,graduationDate:dto.graduationDate??null,graduationSchool:dto.graduationSchool??null,homePhone:dto.homePhone??null,jobTitle:dto.jobTitle??null,jobGrade:dto.jobGrade??null,employeeCategory:dto.employeeCategory??null,technicalTitle:dto.technicalTitle??null,technicalGrade:dto.technicalGrade??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null,updateBy:actor.sub,version:dto.expectedVersion+1});
    if(identity!==undefined)Object.assign(row,{idNumberEncrypted:identity?.encrypted??null,idNumberMasked:identity?.masked??null,idNumberFingerprint:identity?.hash??null});
    try{const saved=await repo.save(row);return projectHrEmployeeProfile(saved,"full")!;}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Employee identity number already exists");throw error;}
+ }
+
+ private requireApprovedProfileFulfillment(scope:TenantParkScope,actor:JwtPrincipal){
+  if(actor.tenantId!==scope.tenantId||actor.parkId!==scope.parkId||!this.hasPermission(actor,HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW)||!this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE))throw new ForbiddenException("Approved profile fulfillment requires approval review and employee profile management permissions");
+ }
+ async approvedProfileFulfillments(scope:TenantParkScope,actor:JwtPrincipal,q:HrApprovedProfileFulfillmentListDto){
+  this.requireApprovedProfileFulfillment(scope,actor);
+  const term=q.keyword?` AND (r.request_no ILIKE $3 OR r.title ILIKE $3 OR coalesce(r.payload->>'description','') ILIKE $3 OR e.employee_code ILIKE $3 OR e.full_name ILIKE $3)`:"";
+  const params=q.keyword?[scope.tenantId,scope.parkId,`%${q.keyword}%`,q.page_size,(q.page-1)*q.page_size]:[scope.tenantId,scope.parkId,q.page_size,(q.page-1)*q.page_size];
+  const offset=q.keyword?4:3,base=`FROM hr_approval_request r JOIN hr_employee e ON e.tenant_id=r.tenant_id AND e.park_id=r.park_id AND e.id=r.subject_employee_id AND e.is_deleted=false LEFT JOIN hr_profile_approval_fulfillment f ON f.tenant_id=r.tenant_id AND f.park_id=r.park_id AND f.approval_request_id=r.id WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.request_type='profile_change' AND r.status='approved'${term}`;
+  const total=Number((await this.dataSource.query(`SELECT count(*)::int total ${base}`,params.slice(0,q.keyword?3:2)))[0]?.total??0);
+  const rows=await this.dataSource.query(`SELECT r.id,r.request_no,r.title,r.payload->>'description' description,r.subject_employee_id,r.version,r.completed_at,e.employee_code,e.full_name employee_name,f.profile_id,f.before_version,f.after_version,f.field_names,f.fulfilled_at ${base} ORDER BY r.completed_at DESC,r.id DESC LIMIT $${offset} OFFSET $${offset+1}`,params);
+  const result={items:rows.map((row:Record<string,unknown>)=>({id:row.id,requestNo:row.request_no,title:row.title,description:row.description??null,subjectEmployeeId:row.subject_employee_id,employeeCode:row.employee_code,employeeName:row.employee_name,version:Number(row.version),completedAt:row.completed_at,fulfillment:row.profile_id?{profileId:row.profile_id,beforeVersion:Number(row.before_version),afterVersion:Number(row.after_version),fieldNames:row.field_names??[],fulfilledAt:row.fulfilled_at}:null})),total,page:q.page,page_size:q.page_size};
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.approval",action:"读取已批准档案申请办理队列",bizType:"hr_approval",bizId:null,path:"/hr/approvals/profile-fulfillments",fieldGroups:["approval_payload"],projection:"park",itemCount:result.items.length});
+  return result;
+ }
+ async fulfillApprovedProfile(scope:TenantParkScope,actor:JwtPrincipal,approvalId:string,dto:FulfillHrApprovedProfileDto){
+  this.requireApprovedProfileFulfillment(scope,actor);
+  return this.dataSource.transaction(async manager=>{
+   const source=(await manager.query(`SELECT id,subject_employee_id,version FROM hr_approval_request WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND request_type='profile_change' AND status='approved' AND is_deleted=false FOR UPDATE`,[approvalId,scope.tenantId,scope.parkId]))[0] as {id:string;subject_employee_id:string;version:number}|undefined;
+   if(!source)throw new NotFoundException("Approved profile request not found");
+   if(source.subject_employee_id!==dto.employeeId)throw new BadRequestException("Profile fulfillment employee must match the approved request");
+   if(Number(source.version)!==dto.expectedApprovalVersion)throw new ConflictException("Approved profile request changed; reload before saving");
+   const existing=(await manager.query(`SELECT id FROM hr_profile_approval_fulfillment WHERE tenant_id=$1 AND park_id=$2 AND approval_request_id=$3 FOR UPDATE`,[scope.tenantId,scope.parkId,approvalId]))[0];
+   if(existing)throw new ConflictException("Approved profile request has already been fulfilled");
+   const before=dto.expectedVersion;
+   const profile=await this.saveEmployeeProfile(manager,scope,actor,dto.employeeId,dto);
+   const fieldNames=Object.keys(dto).filter(key=>key!=="employeeId"&&key!=="expectedApprovalVersion"&&key!=="expectedVersion"&&dto[key as keyof FulfillHrApprovedProfileDto]!==undefined);
+   const link=(await manager.query(`INSERT INTO hr_profile_approval_fulfillment(tenant_id,park_id,approval_request_id,employee_id,profile_id,source_version,before_version,after_version,field_names,fulfilled_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING fulfilled_at`,[scope.tenantId,scope.parkId,approvalId,dto.employeeId,profile.id,source.version,before,profile.version,JSON.stringify(fieldNames),actor.sub]))[0] as {fulfilled_at:Date};
+   return {sourceApprovalId:approvalId,sourceApprovalVersion:Number(source.version),employeeId:dto.employeeId,profileId:profile.id,beforeVersion:before,afterVersion:profile.version,fieldNames,profile,fulfilledAt:link.fulfilled_at};
   });
  }
 

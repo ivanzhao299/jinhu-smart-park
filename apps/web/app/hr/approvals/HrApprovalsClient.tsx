@@ -10,6 +10,7 @@ import { hrApi, type HrApproval, type HrApprovalRevision } from "../../../lib/hr
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
 import styles from "../hr-workbench.module.css";
 import { ApprovalRecordDetails } from "./ApprovalRecordDetails";
+import { ApprovedProfileRequestsPanel } from "./ApprovedProfileRequestsPanel";
 import { ApprovedEmploymentRequestsPanel } from "./ApprovedEmploymentRequestsPanel";
 
 const labels: Record<string, string> = { employment_change: "任职变动", profile_change: "档案变更", compensation_change: "薪酬变更", draft: "草稿", submitted: "待审核", pending: "待审核", approved: "已通过", returned: "已退回", withdrawn: "已撤回" };
@@ -30,7 +31,7 @@ const responseMatches = (operation:Operation,result:unknown):result is HrApprova
 
 export function HrApprovalsClient() {
  const user = useAuthUser(), canSelf = hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE), canReview = hasAnyPermission(user, [HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW, HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW]);
- const [fulfillmentBlocked,setFulfillmentBlocked]=useState(false);
+ const [fulfillmentBlocked,setFulfillmentBlocked]=useState(false),[profileFulfillmentBlocked,setProfileFulfillmentBlocked]=useState(false);
  const contextKey = JSON.stringify([user?.id, user?.park_id, user?.permissions]);
  const [mine,setMine] = useState<HrApproval[]>([]), [pending,setPending] = useState<HrApproval[]>([]), [mineLoading,setMineLoading] = useState(false), [pendingLoading,setPendingLoading] = useState(false), [mineError,setMineError] = useState(""), [pendingError,setPendingError] = useState("");
  const [message,setMessage] = useState(""), [showCreate,setShowCreate] = useState(false), [draft,setDraft] = useState<Draft>(emptyDraft), [reviewDrafts,setReviewDrafts] = useState<Record<string,{action:string;comment:string}>>({}), [retry,setRetry] = useState<Operation|null>(null), [writing,setWriting] = useState(false);
@@ -88,11 +89,12 @@ export function HrApprovalsClient() {
  const act=(id:string,action:string)=>{if(!canSelf||unresolved.current||editingId!==null)return;void execute({generation:generation.current,kind:"action",id,body:{action},token:getAccessToken(),key:createIdempotencyKey(`hr-approval-${action}`)});};
  const review=(event:React.FormEvent<HTMLFormElement>,id:string)=>{event.preventDefault();if(!canReview||unresolved.current||editingId!==null)return;const body=reviewDrafts[id]??{action:"approve",comment:""};void execute({generation:generation.current,kind:"review",id,body,token:getAccessToken(),key:createIdempotencyKey("hr-approval-review")});};
  const revise=(id:string,body:HrApprovalRevision)=>{if(!canSelf||unresolved.current||editingId!==id)return;void execute({generation:generation.current,kind:"revise",id,body:{...body},token:getAccessToken(),key:createIdempotencyKey("hr-approval-revise")});};
- const noAccess=!canSelf&&!canReview, blocked=writing||!!unresolved.current||editingId!==null||fulfillmentBlocked;
+ const noAccess=!canSelf&&!canReview, blocked=writing||!!unresolved.current||editingId!==null||fulfillmentBlocked||profileFulfillmentBlocked;
  return <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_APPROVALS_PAGE} fallback={<main className={`content ds-page ${styles.page}`}><section className="ds-panel"><h1>无权访问人事审批</h1><p>请联系管理员配置本人申请或审批权限。</p></section></main>}><main className={`content ds-page ${styles.page}`}>
-  <section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">人事流程</span><h1>人事审批</h1><p>查看申请进度，按职责办理审核；任职、档案和薪酬调整请在对应业务页面办理。</p></div><div className={styles.heroActions}>{canSelf?<button type="button" className="ds-button ds-button-primary" disabled={blocked} onClick={()=>setShowCreate(value=>!value)}>{showCreate?"收起申请":"发起申请"}</button>:null}</div></section>
+  <section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">人事流程</span><h1>人事审批</h1><p>查看申请进度并按职责办理审核；已批准的任职和档案申请可在本页完成正式办理，薪酬调整仍在对应业务页面办理。</p></div><div className={styles.heroActions}>{canSelf?<button type="button" className="ds-button ds-button-primary" disabled={blocked} onClick={()=>setShowCreate(value=>!value)}>{showCreate?"收起申请":"发起申请"}</button>:null}</div></section>
   {noAccess?<section className="ds-panel"><h2>暂无可用审批权限</h2><p>当前账号尚未配置申请或审核权限，请联系管理员。</p></section>:<>
-   <ApprovedEmploymentRequestsPanel blocked={writing||!!retry||editingId!==null} onBlockedChange={setFulfillmentBlocked}/>
+   <ApprovedEmploymentRequestsPanel blocked={writing||!!retry||editingId!==null||profileFulfillmentBlocked} onBlockedChange={setFulfillmentBlocked}/>
+   <ApprovedProfileRequestsPanel blocked={writing||!!retry||editingId!==null||fulfillmentBlocked} onBlockedChange={setProfileFulfillmentBlocked}/>
    <section className="ds-kpi-grid" aria-label="审批概览">{canSelf?<><article className="ds-kpi-card"><span>我的申请</span><strong>{mine.length}</strong><small>当前可见记录</small></article><article className="ds-kpi-card"><span>进行中</span><strong>{active}</strong><small>草稿、待审或退回</small></article></>:null}{canReview?<article className="ds-kpi-card"><span>待我审核</span><strong>{pending.length}</strong><small>需要审批处理</small></article>:null}</section>
    {showCreate&&canSelf?<form className={`ds-panel ${styles.formGrid}`} onSubmit={create}><div className={styles.sectionHeading}><div><span className="ds-eyebrow">新申请</span><h2>发起人事申请</h2></div></div><label className="form-field"><span>申请类型</span><select value={draft.requestType} disabled={blocked} onChange={event=>setDraft(value=>({...value,requestType:event.target.value}))}><option value="employment_change">任职变动</option><option value="profile_change">档案变更</option><option value="compensation_change">薪酬变更</option></select></label><label className="form-field"><span>申请标题</span><input value={draft.title} disabled={blocked} required maxLength={200} onChange={event=>setDraft(value=>({...value,title:event.target.value}))}/></label><label className="form-field"><span>申请说明</span><textarea value={draft.description} disabled={blocked} required maxLength={3000} onChange={event=>setDraft(value=>({...value,description:event.target.value}))}/></label><div className={styles.formActions}><button className="ds-button ds-button-primary" disabled={blocked}>保存草稿</button><button type="button" className="ds-button" disabled={blocked} onClick={()=>setShowCreate(false)}>取消</button></div></form>:null}
    {message?<p className="form-error" role="alert">{message}</p>:null}{retry?<button type="button" className="ds-button ds-button-secondary" disabled={writing} onClick={()=>void execute(retry)}>按原请求重试</button>:null}

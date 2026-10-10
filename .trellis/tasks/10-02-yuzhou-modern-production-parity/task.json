@@ -89,7 +89,8 @@
     "10-10-hr-payroll-source-period-discovery",
     "10-10-hr-contract-operation-continuity",
     "10-10-hr-approved-employment-fulfillment",
-    "10-10-hr-profile-maintenance-continuity"
+    "10-10-hr-profile-maintenance-continuity",
+    "10-10-hr-approved-profile-fulfillment"
   ],
   "parent": null,
   "relatedFiles": [
