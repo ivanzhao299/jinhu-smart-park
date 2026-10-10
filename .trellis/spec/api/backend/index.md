@@ -1,6 +1,7 @@
 # @jinhu/api Backend Specs
 
 Employee formal compensation records: [Compensation Assignment Ledger](./hr-compensation-assignment-ledger.md).
+Approved salary source fulfillment and effective-period continuity: [Approved Compensation Fulfillment](./hr-approved-compensation-fulfillment.md).
 
 Workforce department and enabled-position aggregate ledgers: [Workforce Detail Ledgers](./hr-workforce-detail-ledgers.md).
 

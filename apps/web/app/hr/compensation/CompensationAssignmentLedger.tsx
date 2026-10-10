@@ -6,25 +6,13 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
 import { hrApi, type HrCompensationAssignment } from "../../../lib/hr-api";
+import { validCompensationAssignment as validAssignment } from "./compensation-contract";
 import styles from "../hr-workbench.module.css";
 import local from "./compensation-ledger.module.css";
 
 type Props = { refreshVersion?: number };
 type Snapshot = { key: string; items: HrCompensationAssignment[]; total: number };
 const statusLabels: Record<string, string> = { active: "启用", inactive: "停用", draft: "草稿", void: "作废", superseded: "已替代" };
-function validDate(value: unknown) {
- const match = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value) : null;
- if (!match) return false;
- const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
- const days = [31, year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
- return month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1]!;
-}
-function validAssignment(row: HrCompensationAssignment) {
- return !!row && [row.id,row.employeeId,row.employeeCode,row.employeeName,row.planId,row.planCode,row.planName,row.status].every(value => typeof value === "string" && !!value)
-  && validDate(row.effectiveFrom) && (row.effectiveTo === null || validDate(row.effectiveTo)) && (!row.effectiveTo || row.effectiveTo >= row.effectiveFrom)
-  && [row.baseSalary,row.allowanceAmount,row.variableTarget].every(value => typeof value === "string" && /^\d{1,16}(?:\.\d{1,2})?$/u.test(value))
-  && Number.isSafeInteger(row.version) && row.version >= 1;
-}
 
 export function CompensationAssignmentLedger(props: Props) {
  const user = useAuthUser();
