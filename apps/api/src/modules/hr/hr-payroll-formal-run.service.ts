@@ -9,13 +9,14 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { CreateHrPayrollFormalRunDto, HrPayrollFormalRunQueryDto, HrPayrollFormalRunOptionsQueryDto, TransitionHrPayrollFormalRunDto } from "./dto/hr-payroll-formal-run.dto";
 import { HrPayrollFormalInputService } from "./hr-payroll-formal-input.service";
-import { lockPayrollCompensationSegments, requiresPayrollCompensationInputs } from "./hr-payroll-compensation-input";
+import { inspectPayrollCompensationCoverage, lockPayrollCompensationSegments, readPayrollCompensationCoverageMetadata, requiresPayrollCompensationInputs, type PayrollCompensationCoverage } from "./hr-payroll-compensation-input";
 import { HR_PAYROLL_INSURANCE_REFERENCE_CODES } from "./hr-payroll-insurance-input";
 import { assertPayrollInsuranceChoices, lockModernPayrollInsuranceSources } from "./hr-payroll-insurance-source";
 import { calculateFormalPayrollWithSources, type FormalPayrollAttendanceSource } from "./hr-payroll-formal-source-calculation";
 import { hrMoneyToCents, hrCentsToMoney, normalizeHrMoney } from "./hr-money";
 import { HrPayrollFormalInputDetailQueryDto } from "./dto/hr-payroll-formal-input.dto";
 import { buildHrSensitiveReadAuditInput } from "./hr-sensitive-read-audit";
+import { resolvePayrollEligibility } from "./hr-payroll-eligibility";
 
 @Injectable()
 export class HrPayrollFormalRunService {
@@ -62,6 +63,28 @@ export class HrPayrollFormalRunService {
       const requires = this.requirements([...new Set(rule.definition_evidence.items.flatMap(item => item.dependencies))]);
       if (!requires.attendance && dto.attendanceInputBatchId) throw new BadRequestException("This rule does not use attendance inputs");
       const selected = employeeIds.slice((dto.page-1)*dto.pageSize,dto.page*dto.pageSize);
+      const compensationCoverage = requires.compensation ? await (async () => {
+        const sources = await readPayrollCompensationCoverageMetadata(manager, scope, employeeIds, period.start_date, period.end_date);
+        const rows: Array<{id:string;hire_date:string|null;departure_date:string|null}> = employeeIds.length ? await manager.query(`SELECT id,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date
+          FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[]) AND NOT is_deleted ORDER BY id`, [scope.tenantId, scope.parkId, employeeIds]) : [];
+        if (rows.length !== employeeIds.length) throw new ConflictException("Payroll employee is no longer available");
+        const employeeById = new Map(rows.map(row => [row.id, row]));
+        const inputById = new Map(prepared.input.employees.map(employee => [employee.employeeId, employee]));
+        const byEmployee = new Map<string, PayrollCompensationCoverage>();
+        for (const employeeId of employeeIds) {
+          const employee = employeeById.get(employeeId)!, input = inputById.get(employeeId)!;
+          try {
+            const eligibility = resolvePayrollEligibility({ periodStart: period.start_date, periodEnd: period.end_date, hireDate: employee.hire_date, departureDate: employee.departure_date,
+              settlementStart: input.settlementStart, settlementEnd: input.settlementEnd, eligibilityReason: input.eligibilityReason });
+            byEmployee.set(employeeId, inspectPayrollCompensationCoverage({ periodStart: period.start_date, periodEnd: period.end_date, ...eligibility, policy: rule.definition.compensationPolicy, segments: sources.get(employeeId) ?? [] }));
+          } catch (error) {
+            if (!(error instanceof BadRequestException)) throw error;
+            byEmployee.set(employeeId, { status: "invalid_metadata", sourceCount: 0, message: "Invalid payroll eligibility metadata", exceptionKind: "bad_request" });
+          }
+        }
+        const count = (status: PayrollCompensationCoverage["status"]) => [...byEmployee.values()].filter(value => value.status === status).length;
+        return { byEmployee, summary: { coveredCount: count("covered"), missingOrIncompleteCount: count("missing_or_incomplete"), overlapCount: count("overlap"), incompatiblePolicyCount: count("incompatible_policy"), invalidMetadataCount: count("invalid_metadata"), unsupportedCurrencyCount: count("unsupported_currency") } };
+      })() : null;
       const attendance: Array<{id:string;batch_no:number;batch_type:string;covered:number;selected_employee_ids:string[]|null}> = requires.attendance ? await manager.query(`SELECT b.id,b.batch_no,b.batch_type,count(DISTINCT i.employee_id)::int AS covered,
           CASE WHEN b.id=$6::uuid THEN array_remove(array_agg(DISTINCT i.employee_id) FILTER (WHERE i.employee_id=ANY($5::uuid[])),NULL)::uuid[] ELSE NULL END AS selected_employee_ids
         FROM hr_attendance_payroll_input_batch b JOIN hr_attendance_period p ON (p.id,p.tenant_id,p.park_id)=(b.period_id,b.tenant_id,b.park_id)
@@ -78,13 +101,15 @@ export class HrPayrollFormalRunService {
       const insurance: Array<{employee_id:string;id:string;revision_no:number;snapshot_sha256:string}> = requires.insurance && selected.length ? await manager.query(`SELECT r.employee_id,r.id,r.revision_no,p.snapshot_sha256 FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON (p.id,p.tenant_id,p.park_id)=(r.preview_id,r.tenant_id,r.park_id)
         WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.period_month=$3::date AND r.employee_id=ANY($4::uuid[]) AND NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision newer WHERE (newer.tenant_id,newer.park_id,newer.employee_id,newer.period_month)=(r.tenant_id,r.park_id,r.employee_id,r.period_month) AND newer.revision_no>r.revision_no) ORDER BY r.employee_id`,[scope.tenantId,scope.parkId,`${period.month}-01`,selected]) : [];
       const insuranceByEmployee = new Map(insurance.map(source=>[source.employee_id,source]));
-      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope,actor,{resource:"hr.payroll_run",action:"读取正式核算来源选项",bizType:"hr_payroll_formal_input",bizId:prepared.input.id,path:"/hr/payroll/formal-runs/options",fieldGroups:["identity","payroll_input",...(requires.attendance ? ["attendance" as const] : []),...(requires.insurance ? ["insurance" as const] : [])],projection:"full",itemCount:employees.length}),manager);
+      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope,actor,{resource:"hr.payroll_run",action:"读取正式核算来源选项",bizType:"hr_payroll_formal_input",bizId:prepared.input.id,path:"/hr/payroll/formal-runs/options",fieldGroups:["identity","payroll_input",...(requires.compensation ? ["compensation" as const] : []),...(requires.attendance ? ["attendance" as const] : []),...(requires.insurance ? ["insurance" as const] : [])],projection:"full",itemCount:employees.length}),manager);
       return {inputId:prepared.input.id,inputVersion:prepared.input.version,periodId:period.id,month:period.month,employeeCount:employeeIds.length,requires,
         canCreateBase:!period.correctionWindow && overlaps[0].count===0,overlappingEmployeeCount:overlaps[0].count,
         attendanceBatches:attendance.map(batch=>({id:batch.id,batchNo:batch.batch_no,batchType:batch.batch_type,missingEmployeeCount:employeeIds.length-batch.covered})),
         selectedAttendanceBatchId:selectedAttendance?.id ?? null,
         correctionRuns:corrections.filter(run=>!period.correctionWindow || run.id===period.correctionWindow.originalRunId).map(run=>({id:run.id,runNo:run.run_no,employeeCount:run.employee_count})),
-        items:employees.map(employee=>{const source=insuranceByEmployee.get(employee.id);return {employeeId:employee.id,employeeCode:employee.employee_code,fullName:employee.full_name,
+        compensationCoverage:compensationCoverage?.summary ?? null,
+        items:employees.map(employee=>{const source=insuranceByEmployee.get(employee.id), coverage=compensationCoverage?.byEmployee.get(employee.id);return {employeeId:employee.id,employeeCode:employee.employee_code,fullName:employee.full_name,
+          compensationCoverage:coverage ? { status: coverage.status, sourceCount: coverage.sourceCount } : null,
           attendanceCovered:selectedAttendance ? (selectedAttendance.selected_employee_ids ?? []).includes(employee.id) : null,
           insuranceSource:source ? {employeeId:employee.id,sourceKind:"modern_confirmed" as const,sourceId:source.id,expectedVersion:source.revision_no,expectedHash:source.snapshot_sha256} : null};}),
         total:employeeIds.length,page:dto.page,page_size:dto.pageSize};

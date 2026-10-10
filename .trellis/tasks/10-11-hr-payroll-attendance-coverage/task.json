@@ -3,7 +3,7 @@
   "name": "hr-payroll-attendance-coverage",
   "title": "工资考勤来源缺员明细",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api,web,shared",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-11",
-  "completedAt": null,
+  "completedAt": "2026-10-11",
   "branch": "codex/hr-payroll-attendance-coverage-20261011",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "commit": null,
-  "pr_url": null,
+  "commit": "64f3ee1bb3473b0755104d520c0df2341daaef39",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/947",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -28,6 +28,9 @@
     "localValidation": "PASS",
     "realPostgres": "PASS",
     "browser": "PASS",
-    "artifact": "/Users/mac/.codex/artifacts/hr-payroll-attendance-coverage-20261011"
+    "artifact": "/Users/mac/.codex/artifacts/hr-payroll-attendance-coverage-20261011",
+    "deployRun": 38085300903,
+    "observerRun": 38086503776,
+    "businessRoleUat": "PENDING"
   }
 }

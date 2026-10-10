@@ -52,10 +52,12 @@ export type FormalPayrollPreparation = FormalPayrollPage<{
 
 export type FormalPayrollRunOptions = FormalPayrollPage<{
   employeeId:string;employeeCode:string;fullName:string;
+  compensationCoverage:null|{status:"covered"|"missing_or_incomplete"|"overlap"|"incompatible_policy"|"invalid_metadata"|"unsupported_currency";sourceCount:number};
   attendanceCovered:boolean|null;
   insuranceSource:NonNullable<FormalPayrollRunSelection["insuranceSources"]>[number]|null;
 }> & {inputId:string;inputVersion:number;periodId:string;month:string;employeeCount:number;
   requires:{compensation:boolean;attendance:boolean;insurance:boolean};canCreateBase:boolean;overlappingEmployeeCount:number;
+  compensationCoverage:null|{coveredCount:number;missingOrIncompleteCount:number;overlapCount:number;incompatiblePolicyCount:number;invalidMetadataCount:number;unsupportedCurrencyCount:number};
   attendanceBatches:Array<{id:string;batchNo:number;batchType:string;missingEmployeeCount:number}>;
   selectedAttendanceBatchId:string|null;
   correctionRuns:Array<{id:string;runNo:number;employeeCount:number}>;};
