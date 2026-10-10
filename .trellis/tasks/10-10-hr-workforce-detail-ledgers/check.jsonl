@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "小型入口，避免大规格自动注入截断；API/Web索引按相关场景完整定向读取"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "小型入口，避免大规格自动注入截断；API/Web索引按相关场景完整定向读取"}
+{"file": ".trellis/spec/web/frontend/hr-performance-result-exports.md", "reason": "小型入口，避免大规格自动注入截断；API/Web索引按相关场景完整定向读取"}

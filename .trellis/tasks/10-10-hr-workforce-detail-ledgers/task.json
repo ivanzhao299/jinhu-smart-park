@@ -1,0 +1,29 @@
+{
+  "id": "hr-workforce-detail-ledgers",
+  "name": "hr-workforce-detail-ledgers",
+  "title": "部门与岗位人员编制明细及完整导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-workforce-detail-ledgers-20261010",
+  "base_branch": "codex/hr-workforce-detail-ledgers-20261010",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baselineSha": "4c2a376e6b12662eb14916eb5d3f44c13098f283",
+    "predecessorPr": 932
+  }
+}

@@ -1,0 +1,11 @@
+# Workforce department and position detail ledgers
+
+Existing GET /hr/decision-center/workforce retains HR_DECISION_CENTER_PAGE authority, park aggregate projection and required hr.decision_center.workforce sensitive-read audit. It extends its single WITH database snapshot with departments and positions. No new HR writes, permissions or schema; no employee identity/contact/salary or internal UUID projection.
+
+Employees are tenant/park scoped and not deleted. Department rows count direct primary_org_id membership once, without descendant accumulation. Organizations are independently tenant/park/deleted scoped, including visible zero-employee and disabled organizations; null, deleted or foreign organization references collapse into a single unassigned row. plannedHeadcount is original sys_org.planned_headcount, never position sums; null and zero remain distinct. Sum(employeeTotal) matches snapshot employeeTotal; sum(activeCount+probationCount) matches activeHeadcount.
+
+Position rows include all scoped nondeleted enabled positions, even empty positions. Organization labels/codes use the same scoped organization source. Position occupancy uses current active+probation employees by actual position_id, independent of their primary organization. Null headcountLimit yields null vacancyCount/overCapacityCount; zero is configured zero. Configured vacancy=max(limit-assigned,0); overcapacity=max(assigned-limit,0). Disabled/deleted/missing positions remain in existing activeUnassignedHeadcount semantics. Detail sums must reconcile existing staffing totals; do not silently remove any original field.
+
+Date from/to filters employment events only; workforce and staffing are current snapshot, not historical as-of counts. Keep range validation and mandatory audit failure behavior.
+
+Verification: hr-workforce-decision-snapshot.spec.ts and isolated actual-query hr-workforce-decision-snapshot.pg.spec.ts. PG fixture requires HR_WORKFORCE_DETAIL_PG_REQUIRED=1 and uses an isolated disposable database; test source creates only test prerequisites and existing migration tables. Cover scope/deleted references, empty departments/positions, direct/cross-department assignment, null/zero/positive vacancy/overcapacity and conservation. Never use production business writes as tests.
