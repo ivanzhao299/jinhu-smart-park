@@ -98,7 +98,8 @@
     "10-11-hr-payroll-reconciliation-review-continuity",
     "10-11-hr-payroll-production-readiness-evidence",
     "10-11-hr-payroll-rule-readiness",
-    "10-11-hr-insurance-period-ledger"
+    "10-11-hr-insurance-period-ledger",
+    "10-11-hr-payroll-attendance-coverage"
   ],
   "parent": null,
   "relatedFiles": [

@@ -26,6 +26,7 @@ test("formal payroll authority and invalid source selection fail before transact
   await assert.rejects(() => service.create(scope, author, { ...selection, correctionReason: "理由无原批次" }), BadRequestException);
   await assert.rejects(() => service.create(scope, author, { ...selection, expectedInputVersion: 0 }), BadRequestException);
   await assert.rejects(() => service.options(scope, author, {inputId:selection.inputId,expectedInputVersion:0,page:1,pageSize:20}), BadRequestException);
+  await assert.rejects(() => service.options(scope, author, {inputId:selection.inputId,expectedInputVersion:1,attendanceInputBatchId:"not-a-uuid",page:1,pageSize:20}), BadRequestException);
   assert.equal(probes, 0);
 });
 

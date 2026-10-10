@@ -3,7 +3,7 @@
   "name": "hr-insurance-period-ledger",
   "title": "社保期间按月状态检索与完整台账导出",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api,web",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-11",
-  "completedAt": null,
+  "completedAt": "2026-10-11",
   "branch": "codex/hr-insurance-period-ledger-20261011",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "commit": null,
-  "pr_url": null,
+  "commit": "d319f7fcfc064eb6ce35db3e72711fd92570ce1d",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/946",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -31,6 +31,9 @@
   "notes": "Real isolated full-schema PostgreSQL month/status/current-history test PASS. Independent review and desktop/mobile browser acceptance in progress. Real-role business UAT remains separate; no production HR business writes.",
   "meta": {
     "productionBusinessWrites": false,
-    "baseline": "95b6257d724e7ca64671a21a9cd3e2a8aa57b90e"
+    "baseline": "95b6257d724e7ca64671a21a9cd3e2a8aa57b90e",
+    "deployRun": 38081861295,
+    "observerRun": 38082957992,
+    "businessRoleUat": "pending"
   }
 }

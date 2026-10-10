@@ -52,10 +52,12 @@ export type FormalPayrollPreparation = FormalPayrollPage<{
 
 export type FormalPayrollRunOptions = FormalPayrollPage<{
   employeeId:string;employeeCode:string;fullName:string;
+  attendanceCovered:boolean|null;
   insuranceSource:NonNullable<FormalPayrollRunSelection["insuranceSources"]>[number]|null;
 }> & {inputId:string;inputVersion:number;periodId:string;month:string;employeeCount:number;
   requires:{compensation:boolean;attendance:boolean;insurance:boolean};canCreateBase:boolean;overlappingEmployeeCount:number;
   attendanceBatches:Array<{id:string;batchNo:number;batchType:string;missingEmployeeCount:number}>;
+  selectedAttendanceBatchId:string|null;
   correctionRuns:Array<{id:string;runNo:number;employeeCount:number}>;};
 
 export type FormalPayrollPeriodAction = { expectedVersion: number; reason: string };
