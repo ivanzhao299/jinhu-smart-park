@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API permission scope DTO audit and tests"}
+{"file": ".trellis/spec/web/frontend/hr-lifecycle-employee-selection.md", "reason": "shared selection compatibility and cancellation"}
+{"file": ".trellis/spec/web/frontend/hr-job-change-operation-continuity.md", "reason": "dedicated workflow identity retry and confirmed state"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "API Web DTO pagination contract"}

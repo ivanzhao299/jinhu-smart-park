@@ -3,7 +3,7 @@ import { HR_PERMISSIONS,type TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
-import { HrJobChangeActionDto,HrJobChangeListDto,HrJobChangeReviewDto,SaveHrJobChangeDto } from "./dto/hr-job-change.dto";
+import { HrJobChangeActionDto,HrJobChangeEmployeeOptionsDto,HrJobChangeListDto,HrJobChangeReviewDto,SaveHrJobChangeDto } from "./dto/hr-job-change.dto";
 import { firstHrMutationRow } from "./hr-query-result";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
@@ -41,13 +41,24 @@ export class HrJobChangeService {
   return {applicationId:id,actions};
  }
 
- async options(s:TenantParkScope,a:JwtPrincipal){
+ async options(s:TenantParkScope,a:JwtPrincipal,includeEmployees=true){
   const park=this.has(a,HR_PERMISSIONS.HR_JOB_CHANGE_READ),args:unknown[]=[s.tenantId,s.parkId],employeeFilter=park?"":(args.push(a.sub),` AND e.primary_org_id IN(${this.managedOrgSql("$3")})`);
   const [employees,orgs,positions]=await Promise.all([
-   this.db.query(`SELECT e.id,e.employee_code "employeeCode",e.full_name "employeeName",e.primary_org_id "orgId",e.position_id "positionId",o.org_name "orgName",p.position_name "positionName" FROM hr_employee e LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id LEFT JOIN hr_position p ON p.tenant_id=e.tenant_id AND p.park_id=e.park_id AND p.id=e.position_id WHERE e.tenant_id=$1 AND e.park_id=$2 AND e.is_deleted=false AND e.employment_status IN('probation','active','suspended')${employeeFilter} ORDER BY e.full_name,e.id LIMIT 500`,args),
+   includeEmployees?this.db.query(`SELECT e.id,e.employee_code "employeeCode",e.full_name "employeeName",e.primary_org_id "orgId",e.position_id "positionId",o.org_name "orgName",p.position_name "positionName" FROM hr_employee e LEFT JOIN sys_org o ON o.tenant_id=e.tenant_id AND o.park_id=e.park_id AND o.id=e.primary_org_id LEFT JOIN hr_position p ON p.tenant_id=e.tenant_id AND p.park_id=e.park_id AND p.id=e.position_id WHERE e.tenant_id=$1 AND e.park_id=$2 AND e.is_deleted=false AND e.employment_status IN('probation','active','suspended')${employeeFilter} ORDER BY e.full_name,e.id LIMIT 500`,args):Promise.resolve([]),
    this.db.query(`SELECT id,org_name "orgName" FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='enabled' ORDER BY sort_order,org_name,id`,[s.tenantId,s.parkId]),
    this.db.query(`SELECT id,org_id "orgId",position_code "positionCode",position_name "positionName" FROM hr_position WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='enabled' ORDER BY position_name,id`,[s.tenantId,s.parkId])
   ]);return {employees,orgs,positions};
+ }
+
+ async employeeOptions(s:TenantParkScope,a:JwtPrincipal,q:HrJobChangeEmployeeOptionsDto){
+  const park=this.has(a,HR_PERMISSIONS.HR_JOB_CHANGE_READ),args:unknown[]=[s.tenantId,s.parkId],where=["e.tenant_id=$1","e.park_id=$2","e.is_deleted=false","e.employment_status IN('probation','active','suspended')"];
+  if(!park){args.push(a.sub);where.push(`e.primary_org_id IN(${this.managedOrgSql(`$${args.length}`)})`);}
+  if(q.keyword){args.push(`%${q.keyword.replace(/[\\%_]/g,"\\$&")}%`);where.push(`(e.full_name ILIKE $${args.length} ESCAPE '\\' OR e.employee_code ILIKE $${args.length} ESCAPE '\\')`);}
+  const predicate=where.join(" AND "),count=await this.db.query(`SELECT count(*)::int total FROM hr_employee e WHERE ${predicate}`,args) as Array<{total:number}>;
+  args.push(q.page_size,(q.page-1)*q.page_size);
+  const items=await this.db.query(`SELECT e.id,e.full_name "fullName",e.employee_code "employeeCode" FROM hr_employee e WHERE ${predicate} ORDER BY e.full_name ASC,e.id ASC LIMIT $${args.length-1} OFFSET $${args.length}`,args);
+  await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.job_change_employee_option",action:"读取岗位变更员工候选",bizType:"hr_employee",bizId:null,path:"/hr/job-change-applications/employee-options",fieldGroups:[],projection:park?"park":"team",itemCount:items.length});
+  return {items,total:Number(count[0]?.total??0),page:q.page,page_size:q.page_size};
  }
 
  async create(s:TenantParkScope,a:JwtPrincipal,d:SaveHrJobChangeDto){this.validate(d);try{return await this.db.transaction(async m=>{

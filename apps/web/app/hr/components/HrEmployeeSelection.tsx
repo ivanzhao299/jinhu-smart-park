@@ -10,16 +10,16 @@ import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "./hr-employee-selection.module.css";
 
 export type HrEmployeeOption=Pick<HrEmployee,"id"|"fullName"|"employeeCode">;
-interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward"|"talent";required?:boolean;}
+interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward"|"talent"|"job_change";required?:boolean;}
 const pageSize=20;
 type EmployeeCandidate=HrEmployeeOption & Partial<Pick<HrEmployee,"employmentStatus">>;
 const contractEligible=(employee:EmployeeCandidate)=>["preboarding","probation","active"].includes(employee.employmentStatus??"");
 
 /** Uses the existing scoped directory; opening a contract never scans all employee pages. */
 export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disabled,purpose,required=true}:Props){
- const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="talent"?[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,HR_PERMISSIONS.HR_TALENT_REVIEW,HR_PERMISSIONS.HR_SUCCESSION_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE]:purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
- const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"||purpose==="talent"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
- const domain=purpose==="talent"?"人才":purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
+ const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="job_change"?[HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE]:purpose==="talent"?[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,HR_PERMISSIONS.HR_TALENT_REVIEW,HR_PERMISSIONS.HR_SUCCESSION_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE]:purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
+ const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"||purpose==="talent"||purpose==="job_change"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
+ const domain=purpose==="job_change"?"岗位变更":purpose==="talent"?"人才":purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
  const [draft,setDraft]=useState(""),[keyword,setKeyword]=useState("");
  const [rows,setRows]=useState<EmployeeCandidate[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0);
  const [retained,setRetained]=useState<HrEmployeeOption|undefined>(currentEmployee);
@@ -31,7 +31,7 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
   const current=()=>pending.current===controller&&!controller.signal.aborted;
   setLoading(true);setRows([]);setError("");
   try{
-   const result=purpose==="talent"?await hrApi.talentEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
+   const result=purpose==="job_change"?await hrApi.jobChangeEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="talent"?await hrApi.talentEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
    if(!Array.isArray(result.items)||result.items.some(row=>!row||typeof row.id!=="string"||!row.id.trim()||typeof row.employeeCode!=="string"||typeof row.fullName!=="string"))throw new Error("员工候选响应无效，请重试。");
    if(!current())return;
    if(result.page!==requestedPage||result.page_size!==pageSize||!Number.isSafeInteger(result.total)||result.total<0||result.items.length>pageSize||new Set(result.items.map(row=>row.id)).size!==result.items.length)throw new Error("员工候选分页响应无效，请重试。");
@@ -61,7 +61,7 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
    <button type="button" className="ds-button ds-button-secondary" disabled={disabled||loading||page<=1} onClick={()=>void load(page-1)}>员工上一页</button>
    <span role="status">{loading?"正在加载员工…":`员工目录第 ${page} / ${pages} 页 · 共 ${total} 人`}</span>
    <button type="button" className="ds-button ds-button-secondary" disabled={disabled||loading||page>=pages} onClick={()=>void load(page+1)}>员工下一页</button>
-  </nav>:<p>{purpose==="contract"?"当前权限不能查询员工目录；可保留本合同的员工，选择其他员工需要员工读取权限。":purpose==="probation"?"当前权限不能查询员工目录；可维护已授权申请的参与人，增加员工需要员工读取权限。":"当前权限不能查询员工目录；选择清单员工需要员工读取权限。"}</p>}
+  </nav>:<p>{purpose==="job_change"?"当前权限不能选择岗位变更员工；可保留原申请员工。":purpose==="contract"?"当前权限不能查询员工目录；可保留本合同的员工，选择其他员工需要员工读取权限。":purpose==="probation"?"当前权限不能查询员工目录；可维护已授权申请的参与人，增加员工需要员工读取权限。":"当前权限不能查询员工目录；选择清单员工需要员工读取权限。"}</p>}
   {selected?<p>当前{domain}员工：{selected.fullName} · {selected.employeeCode}</p>:null}
   {error?<p className="form-error" role="alert">{error}</p>:allowed&&!loading&&!rows.length?<p>{purpose==="contract"?"当前条件下没有员工。离职或停职员工不能作为新的合同办理对象。":"当前条件下没有员工。"}</p>:null}
  </div>;

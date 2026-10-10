@@ -7,6 +7,7 @@ import {hrApi,type HrJobChangeApplication,type HrJobChangeOptions} from "../../.
 import {hasAnyPermission,hasPermission} from "../../../lib/permissions";
 import {hrLoadErrorMessage} from "../hr-errors";
 import {ApiError,createIdempotencyKey} from "../../../lib/api-client";
+import {HrEmployeeSelection} from "../components/HrEmployeeSelection";
 import {JobChangeHistory} from "./JobChangeHistory";
 import {businessDate} from "../../../lib/business-date";
 import lifecycleStyles from "./lifecycle.module.css";
@@ -47,7 +48,7 @@ function JobChangeApplicationsContent(){
  const loadOptions=useCallback(async()=>{
   if(!canManage)return;
   const c=new AbortController();optionsAbort.current?.abort();optionsAbort.current=c;setOptionsError("");
-  try{const refs=await hrApi.jobChangeOptions(getAccessToken(),c.signal);if(!c.signal.aborted&&optionsAbort.current===c)setOptions(refs);}
+  try{const refs=await hrApi.jobChangeOptions(getAccessToken(),c.signal,false);if(!c.signal.aborted&&optionsAbort.current===c)setOptions(refs);}
   catch(reason){if(!c.signal.aborted&&optionsAbort.current===c)setOptionsError(hrLoadErrorMessage(reason,"加载岗位变更基础数据失败"));}
  },[canManage]);
  useEffect(()=>{void load();return()=>abortRef.current?.abort();},[load]);
@@ -85,7 +86,8 @@ function JobChangeApplicationsContent(){
   {(error||optionsError)?<button type="button" className="ds-button ds-button-secondary" disabled={blocked} onClick={()=>{void load();void loadOptions();}}>重试申请和基础数据</button>:null}
   {canManage?<form key={editing?.id??"new"} className={styles.formGrid} onSubmit={event=>{event.preventDefault();save();}}>
    <label className="form-field"><span>申请名称</span><input name="applicationName" maxLength={128} value={draft.applicationName} disabled={blocked} onChange={event=>setDraft({...draft,applicationName:event.target.value})} required/></label>
-   <label className="form-field"><span>员工</span><select name="employeeId" disabled={blocked} value={employeeId} onChange={e=>setEmployeeId(e.target.value)} required><option value="">请选择</option>{editing?.employeeId&&!options.employees.some(x=>x.id===editing.employeeId)?<option value={editing.employeeId}>{editing.employeeName} · {editing.employeeCode}（当前申请）</option>:null}{options.employees.map(x=><option key={x.id} value={x.id}>{x.employeeName} · {x.employeeCode}</option>)}</select></label>
+   <HrEmployeeSelection purpose="job_change" selectedId={employeeId} currentEmployee={editing?{id:editing.employeeId,fullName:editing.employeeName,employeeCode:editing.employeeCode}:undefined} onChange={setEmployeeId} disabled={blocked}/>
+
    <label className="form-field"><span>变更类型</span><select name="changeType" value={draft.changeType} disabled={blocked} onChange={event=>setDraft({...draft,changeType:event.target.value})}><option value="transfer">岗位调动</option><option value="promotion">晋升</option><option value="demotion">降职</option><option value="rotation">轮岗</option><option value="organization_change">部门调整</option></select></label>
    <label className="form-field"><span>申请日期</span><input name="applicationDate" type="date" value={draft.applicationDate} disabled={blocked} onChange={event=>setDraft({...draft,applicationDate:event.target.value})} required/></label>
    <label className="form-field"><span>生效日期</span><input name="effectiveDate" type="date" value={draft.effectiveDate} disabled={blocked} onChange={event=>setDraft({...draft,effectiveDate:event.target.value})} required/></label>
