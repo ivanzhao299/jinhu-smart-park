@@ -1454,7 +1454,7 @@ GET insurance/periods and insurance/periods/me accept optional employee_id valid
 - Queue: `GET /hr/approvals/profile-fulfillments?page=<int>&page_size=<1..100>&keyword=<trimmed text>` returns `{items,total,page,page_size}`; every item carries the original source `id`, `subjectEmployeeId`, `version`, description and optional fulfilment receipt.
 - Fulfilment: `POST /hr/approvals/:id/profile-fulfillment` accepts the complete `UpdateHrEmployeeProfileDto` field set plus `employeeId`, `expectedApprovalVersion` and `expectedVersion`; `IdempotencyInterceptor` and `captureBody:false` are mandatory.
 - Receipt: `{sourceApprovalId,sourceApprovalVersion,employeeId,profileId,beforeVersion,afterVersion,fieldNames,profile}`. `fieldNames` describes fields explicitly submitted in this attempt; it does not claim every value changed.
-- Database: `hr_profile_approval_fulfillment` has one scoped source link and references scoped approval, employee and profile identities. Before composite foreign keys, the referenced real table must have the matching non-partial `UNIQUE(tenant_id,park_id,id)` constraint.
+- Database: `hr_profile_approval_fulfillment` has one scoped source link and references scoped approval, employee and profile identities. Before composite foreign keys, the referenced real table must have a matching non-partial unique index or `UNIQUE(tenant_id,park_id,id)` constraint; its key columns must be exactly ordered `tenant_id,park_id,id`.
 
 ### 3. Contracts
 
@@ -1469,7 +1469,7 @@ GET insurance/periods and insurance/periods/me accept optional employee_id valid
 - Source employee or approval version mismatch, an already linked source, ambiguous/stale profile, or competing profile write -> `BadRequestException`/`ConflictException` with no receipt or profile partial write.
 - Queue keyword count and row queries use the same bound keyword parameter set; a keyword cannot make the count query omit `$3`.
 - Invalid/masked/foreign profile projections, invalid receipt identity/version, aborted/unmounted reads, or stale context -> client denies write/publish. An explicit `null` profile is the supported first-create case with `expectedVersion=0`.
-- A composite FK whose parent lacks the real schema unique identity -> migration failure; add and exercise the parent scoped unique in the migration fixture rather than pre-seeding it in the test table.
+- A composite FK whose parent lacks the real schema identity, has a partial unique index, or has the wrong key order -> migration must add the matching scoped unique before creating the FK. Catalog checks must distinguish a compatible non-partial unique index from an incompatible shape; the fixture exercises missing, compatible-existing, and wrong-shape cases.
 
 ### 5. Good / Base / Bad Cases
 
@@ -1481,7 +1481,7 @@ GET insurance/periods and insurance/periods/me accept optional employee_id valid
 
 - Web interaction tests assert both permissions, complete 33-control serialization, identity clear, profile projection refusal, source/employee/version binding, frozen original retry, known-conflict reload, receipt continuity, context abort and cross-panel mutex.
 - API contract tests assert exact route permissions, body-free audit/idempotency, transaction primitive and all scoped link constraints.
-- Opt-in owned-loopback PostgreSQL tests create the source table without pre-added `(tenant_id,park_id,id)` uniqueness, run migration `000355`, then prove source single effect, different-source profile CAS, rollback, scope/type/status/employee rejection and keyword count pagination.
+- Opt-in owned-loopback PostgreSQL tests run migration `000355` against missing source uniqueness, an already compatible non-partial employee unique index, and a wrong-shape profile unique index; then prove source single effect, different-source profile CAS, rollback, scope/type/status/employee rejection and keyword count pagination.
 - Run API lint/typecheck and relevant pre-existing employee-profile contract/service/materialization tests; run Web lint/typecheck/interaction and desktop plus 390px rendered checks. Synthetic evidence does not replace production real-role UAT.
 
 ### 7. Wrong vs Correct

@@ -20,7 +20,9 @@ test("approved profile fulfillment keeps the source, profile and receipt in one 
  assert.match(service,/fieldNames=Object\.keys\(dto\)[\s\S]{0,260}expectedVersion/);
  assert.match(migration,/uq_hr_profile_approval_fulfillment_source/);
  assert.match(migration,/uq_hr_profile_approval_fulfillment_profile_version/);
-	 assert.match(migration,/uq_hr_approval_request_scope_id[\s\S]{0,180}hr_approval_request/);
+ assert.match(migration,/hr_approval_request[\s\S]{0,900}uq_hr_approval_request_scope_id/);
+ assert.match(migration,/pg_index[\s\S]{0,300}indisunique[\s\S]{0,300}indpred IS NULL[\s\S]{0,300}indnkeyatts=3/);
+ assert.match(migration,/attname='tenant_id'[\s\S]{0,180}attname='park_id'[\s\S]{0,180}attname='id'/);
  assert.match(migration,/fk_hr_profile_approval_fulfillment_source[\s\S]{0,180}hr_approval_request/);
  assert.match(migration,/fk_hr_profile_approval_fulfillment_employee[\s\S]{0,160}hr_employee/);
  assert.match(migration,/fk_hr_profile_approval_fulfillment_profile[\s\S]{0,180}hr_employee_profile/);
