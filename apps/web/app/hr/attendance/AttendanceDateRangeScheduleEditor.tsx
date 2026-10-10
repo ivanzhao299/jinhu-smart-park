@@ -43,6 +43,7 @@ export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,emplo
  const live=(id:number,context:string,access:typeof token)=>mounted.current&&generation.current===id&&owner.current===context&&getAccessToken()===access;
  const inspect=async()=>{
   if(flight.current||disabled||!employeeId||!targetShift||!chosen.length)return;
+  if(getAccessToken()!==token){setPlan(current=>current?{...current,ready:false}:null);setMessage("登录状态已变化，请重新核对日期范围排班。");return}
   const context=signature,access=getAccessToken(),id=begin();
   const previous=plan?.signature===context?plan:null;
   setPlan(previous?{...previous,ready:false}:null);
@@ -68,6 +69,7 @@ export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,emplo
  };
  const run=async()=>{
   if(flight.current||disabled||!plan?.ready||plan.signature!==signature||!targetShift)return;
+  if(getAccessToken()!==token){setPlan({...plan,ready:false});setMessage("登录状态已变化，请重新核对日期范围排班。");return}
   if(plan.items.some(item=>item.operation?.kind==="update"&&!item.operation.body.reason))return;
   const context=signature,access=getAccessToken(),id=begin();stop.current=false;
   let success=false;
