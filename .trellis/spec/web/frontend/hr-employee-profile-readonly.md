@@ -66,3 +66,7 @@ value, disable the selected option, or turn an unrelated edit into a clear. An e
 selection of another value or the unregistered option still uses the ordinary replacement
 API. Regression coverage must submit the actual maintenance form with a nonstandard
 text value and numeric text including zero, plus deliberate replacement and clearing.
+
+## Unified formal employment history
+
+All authorized events share one ordinary business record list, independent of origin. Show the actual business type, exact effective date, existing effect and reason; retain same-day events and never infer effectiveness from historical/modern origin. Known event types use business Chinese labels; unknown types remain raw facts. Existing origin metadata belongs in a default-collapsed per-record `资料来源与沿革` disclosure. This changes presentation only, not event permissions, mutations or archival provenance. Missing effect stays unconfirmed and future values must not silently become effective. Preserve the separate original archive-date reader and its source/permission validation. Verify collapsed/revealed source facts, all events and desktop390px actual-component layout.

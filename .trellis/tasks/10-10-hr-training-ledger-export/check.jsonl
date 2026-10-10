@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/hr-contract-insurance-ledger-exports.md", "reason": "shared scoped CSV contract"}
+{"file": ".trellis/spec/web/frontend/hr-training-employee-selection.md", "reason": "training scope and operation continuity"}
+{"file": "apps/web/lib/scoped-csv-export.ts", "reason": "reuse CSV and complete paging"}

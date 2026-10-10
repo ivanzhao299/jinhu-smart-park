@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LegacyEmploymentDate } from "../../app/hr/employees/legacy/LegacyEmploymentDate";
 import { HrEmploymentHistory } from "../../app/hr/employees/components/HrEmploymentHistory";
@@ -41,19 +41,40 @@ describe("employment dates keep source and effect separate", () => {
     view.rerender(<LegacyEmploymentDate record={{ ...source(null), projection: { probationEndDate: "2026-12-01" } }} canReadSensitive />);
     expect(screen.queryByRole("heading", { name: "原玉舟转正日期" })).toBeNull();
   });
-  it("retains multiple events with different origins and effects instead of choosing one confirmation date", () => {
+  it("retains same-day events as uniform business records while keeping their sources collapsed", () => {
     render(<HrEmploymentHistory events={[
       event("history", { origin: "historical_import", effect: "unconfirmed" }),
       event("modern", { origin: "modern_business", effect: "effective" }),
       event("void", { origin: "modern_business", effect: "voided" }),
       event("old-response"),
     ]} />);
-    expect(screen.getAllByText("2026-10-01")).toHaveLength(4);
-    expect(screen.getByText("历史导入")).toBeInTheDocument();
-    expect(screen.getAllByText("现代业务")).toHaveLength(2);
+    expect(screen.getAllByText("生效日期：2026-10-01")).toHaveLength(4);
+    expect(screen.getAllByText("转正")).toHaveLength(4);
     expect(screen.getByText("已生效")).toBeInTheDocument();
     expect(screen.getByText("已作废")).toBeInTheDocument();
-    expect(screen.getByText("来源未提供")).toBeInTheDocument();
     expect(screen.getAllByText("生效状态未确认")).toHaveLength(2);
+    expect(screen.getAllByText("资料来源与沿革")).toHaveLength(4);
+    expect(screen.getByText("记录来源：历史导入")).not.toBeVisible();
+    for(const label of screen.getAllByText("记录来源：现代业务"))expect(label).not.toBeVisible();
+    const [firstProvenance] = screen.getAllByText("资料来源与沿革");
+    expect(firstProvenance).toBeDefined();
+    fireEvent.click(firstProvenance!);
+    expect(screen.getByText("记录来源：历史导入")).toBeVisible();
+  });
+  it("uses existing Chinese labels but preserves unknown event and provenance values", () => {
+    render(<HrEmploymentHistory events={[{
+      ...event("unknown", { origin: "unclassified", effect: "unconfirmed" }),
+      eventType: "future_transition",
+      provenance: { origin: "external_future" as "unclassified", effect: "future_effect" as "unconfirmed" },
+    }]} />);
+    expect(screen.getByText("future_transition")).toBeVisible();
+    expect(screen.getByText("future_effect")).toBeVisible();
+    expect(screen.getByText("记录来源：external_future")).not.toBeVisible();
+    fireEvent.click(screen.getByText("资料来源与沿革"));
+    expect(screen.getByText("记录来源：external_future")).toBeVisible();
+  });
+  it("uses the established Chinese label for profile updates", () => {
+    render(<HrEmploymentHistory events={[{ ...event("profile"), eventType: "profile_updated" }]} />);
+    expect(screen.getByText("档案更新")).toBeVisible();
   });
 });
