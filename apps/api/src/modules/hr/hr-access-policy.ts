@@ -140,8 +140,8 @@ export function projectHrPayslip(row: HrPayslipEntity, selfOnly: boolean) {
 }
 
 export function projectHrApproval(row: HrApprovalRequestEntity) {
-  const {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt}=row;
-  return {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt};
+  const {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt,version}=row;
+  return {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt,version};
 }
 
 export function projectHrEmployee(row:HrEmployeeEntity):HrEmployeeProjection {

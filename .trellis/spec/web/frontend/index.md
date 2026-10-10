@@ -583,3 +583,5 @@ Employee own-case appeal and personal history: [Self Appeal Workflow](../../api/
 Modern performance frozen reward evidence: [Reward Evidence](./hr-performance-reward-evidence.md).
 
 Formal editable positions and complete create/edit fields: [Position Maintenance](./hr-position-maintenance.md).
+
+Approval content revision and chronological history: [Content Revision and History](./hr-approval-content-history.md).

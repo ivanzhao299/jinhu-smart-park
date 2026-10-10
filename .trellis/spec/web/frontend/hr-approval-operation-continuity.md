@@ -1,7 +1,7 @@
 # HR Approval Operation Continuity
 
 ## Scope
-`HrApprovalsClient.tsx` uses existing approval endpoints only. Approval state/audit does not establish employment, profile or payroll effects. Returned-request editing and action-history viewing require separate business work.
+`HrApprovalsClient.tsx` uses approval endpoints with a shared write lifecycle. Approval state/audit does not establish employment, profile or payroll effects. Returned-request editing and history follow [Content Revision and History](./hr-approval-content-history.md).
 
 ## Permissions
 Read/create/self actions require `HR_APPROVAL_SELF_MANAGE`; pending/review accept `HR_APPROVAL_PARK_REVIEW` or `HR_APPROVAL_TEAM_REVIEW`. Do not call an endpoint without its permission. Backend retains team scope and maker/checker enforcement.
@@ -13,7 +13,7 @@ Mine and pending have independent loading/error/refresh state and abort signals.
 Use controlled forms and a synchronous ref mutex. Freeze target, action, body, context and idempotency key for uncertain writes; retry the original request. Known rejection retains editable form content. Validate success target/status and create payload before publishing.
 
 ## Confirmed state
-Publish confirmed success before independent refresh. Abort the preceding section read; retain confirmed mine records/status and hide reviewed pending IDs until readback acknowledges them. Stale or failed refresh must not reverse a confirmed operation.
+Publish confirmed success before independent refresh. Abort the preceding section read; retain confirmed mine records/status and hide reviewed pending IDs until readback acknowledges them. For versioned approvals, matching status alone is insufficient: readback must also reach the confirmed version. Stale or failed refresh must not reverse a confirmed operation.
 
 ## Layout
 Use shared `ds-mobile-record` with the existing always-visible `employeeRecordList` grid for approval records. `ds-scene-card` expects an icon/copy two-column structure; placing title/description/form directly into it narrows text into the icon column. Verify actual compiled component on desktop and 390px phone width.
