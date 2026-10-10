@@ -1,0 +1,17 @@
+.panel { display: grid; gap: 16px; min-width: 0; }
+.panel p, .panel span, .panel strong { overflow-wrap: anywhere; }
+.panel :global(.ds-button) { min-height: 44px; white-space: normal; }
+.search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.search label { flex: 1 1 280px; min-width: 0; }
+.records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.amounts { display: flex; flex-wrap: wrap; gap: 16px 24px; margin: 8px 0 0; }
+.amounts div { min-width: 0; }
+.amounts dt { font-size: 0.875rem; }
+.amounts dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+@media (max-width: 640px) {
+ .records { grid-template-columns: minmax(0, 1fr); }
+ .search { align-items: stretch; }
+ .search label { flex-basis: 100%; }
+ .pagination span { flex-basis: 100%; order: -1; }
+}

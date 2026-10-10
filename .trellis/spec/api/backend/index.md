@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Employee formal compensation records: [Compensation Assignment Ledger](./hr-compensation-assignment-ledger.md).
+
 Workforce department and enabled-position aggregate ledgers: [Workforce Detail Ledgers](./hr-workforce-detail-ledgers.md).
 
 Approved attendance source/month-close continuity: [Approved Facts](./hr-attendance-approved-fact-continuity.md).

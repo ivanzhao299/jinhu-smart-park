@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/api/backend/hr-compensation-assignment-ledger.md", "reason": "exact scoped audited read contract"}
+{"file": ".trellis/spec/web/frontend/hr-compensation-assignment-ledger.md", "reason": "salary ledger query snapshot and responsive contract"}
