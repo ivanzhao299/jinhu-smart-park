@@ -1,0 +1,30 @@
+{
+  "id": "hr-approval-returned-edit-history",
+  "name": "hr-approval-returned-edit-history",
+  "title": "退回人事申请修改与完整审批轨迹",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-approval-returned-edit-history-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baselineSha": "f343ade2adc588edf6df244680a3178a3599a60f",
+    "evidence": "/Users/mac/.codex/artifacts/hr-approval-returned-edit-history-20261010",
+    "phase": "local-validated-release-pending"
+  }
+}
