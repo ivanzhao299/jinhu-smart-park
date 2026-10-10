@@ -73,7 +73,8 @@
     "10-10-hr-attendance-shift-rule-continuity-20261010",
     "10-10-hr-attendance-schedule-continuity-20261010",
     "10-10-hr-attendance-approved-fact-continuity-20261010",
-    "10-10-hr-approved-request-recalculation-20261010"
+    "10-10-hr-approved-request-recalculation-20261010",
+    "10-10-hr-employee-organization-filter"
   ],
   "parent": null,
   "relatedFiles": [
@@ -90,7 +91,7 @@
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "parent_browser_build_and_pr919_release_verification_then_same_tree_integration",
+    "nextSlice": "employee_organization_filter_modern_directory_and_matching_export",
     "businessImplementationStarted": true
   }
 }

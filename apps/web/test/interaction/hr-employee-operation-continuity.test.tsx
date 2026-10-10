@@ -27,6 +27,35 @@ it("direct employee navigation preserves committed status when detail refresh fa
 it("identity replacement drops pending drafts and prevents old transition reload",async()=>{let done!:(value:HrEmployee)=>void;vi.mocked(hrApi.transition).mockImplementationOnce(()=>new Promise(resolve=>{done=resolve}));const view=await openTransition();fillTransition();fireEvent.submit(transitionForm());auth.user={...auth.user,park_id:"other"};view.rerender(<HrEmployeesClient/>);await screen.findByRole("button",{name:"查看与办理"});const reads=vi.mocked(hrApi.employees).mock.calls.length;await act(async()=>done(employee()));expect(hrApi.employees).toHaveBeenCalledTimes(reads);expect(screen.queryByText("任职变动已保存并留痕。")).toBeNull();expect(screen.queryByRole("button",{name:"确认办理并留痕"})).toBeNull();});
 it("unmounted employee creation does not reload the departed scope",async()=>{let done!:(value:HrEmployee)=>void;vi.mocked(hrApi.createEmployee).mockImplementationOnce(()=>new Promise(resolve=>{done=resolve}));const view=await openCreate();fireEvent.submit(createForm());const reads=vi.mocked(hrApi.employees).mock.calls.length;view.unmount();await act(async()=>done(employee("created","preboarding")));expect(hrApi.employees).toHaveBeenCalledTimes(reads);});
 
+it("managed directory organization filtering resets the page and selection while retaining other filters",async()=>{
+ auth.user.permissions.push(H.HR_EMPLOYEE_MANAGE);
+ vi.mocked(hrApi.directoryOptions).mockResolvedValue({orgs:[{id:"org-1",orgCode:"ONE",orgName:"合成组织一",status:"active"},{id:"org-2",orgCode:"TWO",orgName:"合成组织二",status:"active"}],users:[]});
+ vi.mocked(hrApi.employees).mockImplementation(async(_token,p=1,size=50)=>({items:[current],total:101,page:p,page_size:size}));
+ render(<HrEmployeesClient/>);
+ const organization=await screen.findByLabelText("所属组织");
+ fireEvent.change(screen.getByLabelText("搜索员工"),{target:{value:"合成"}});
+ fireEvent.change(screen.getByLabelText("任职状态"),{target:{value:"active"}});
+ await screen.findByRole("button",{name:"查看与办理"});
+ fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+ await screen.findByText("第 2 / 3 页 · 共 101 条 · 每页 50 条");
+ fireEvent.click(screen.getByRole("button",{name:"查看与办理"}));
+ await screen.findByRole("heading",{name:"合成员工employee-1 · 员工详情"});
+ fireEvent.change(organization,{target:{value:"org-2"}});
+ await screen.findByText("第 1 / 3 页 · 共 101 条 · 每页 50 条");
+ await waitFor(()=>expect(vi.mocked(hrApi.employees).mock.lastCall?.slice(1,4)).toEqual([1,50,{keyword:"合成",status:"active",orgId:"org-2"}]));
+ expect(screen.queryByRole("heading",{name:"合成员工employee-1 · 员工详情"})).toBeNull();
+ fireEvent.change(organization,{target:{value:""}});
+ await waitFor(()=>expect(vi.mocked(hrApi.employees).mock.lastCall?.slice(1,4)).toEqual([1,50,{keyword:"合成",status:"active"}]));
+});
+
+it("does not render an organization selector when managed directory options fail",async()=>{
+ auth.user.permissions.push(H.HR_EMPLOYEE_MANAGE);
+ vi.mocked(hrApi.directoryOptions).mockRejectedValueOnce(new Error("合成组织目录失败"));
+ render(<HrEmployeesClient/>);
+ await screen.findByText("账号和组织选项加载失败");
+ expect(screen.queryByLabelText("所属组织")).toBeNull();
+});
+
 it("employee detail links to exact employee insurance only with insurance read authority",async()=>{
  const id="11111111-1111-4111-8111-111111111111";current=employee(id);auth.user.permissions.push(H.HR_INSURANCE_TEAM_READ);
  render(<HrEmployeesClient employeeId={id}/>);await screen.findByRole("heading",{name:`合成员工${id} · 员工详情`});
