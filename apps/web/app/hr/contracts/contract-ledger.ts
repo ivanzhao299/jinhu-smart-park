@@ -41,11 +41,11 @@ export function createContractLedger<T extends { id: string }, D extends T>(api:
   error(error: unknown, fallback: string): string;
 }) {
   let query: ContractLedgerQuery | null = null, listGeneration = 0, detailGeneration = 0, interaction = 0;
-  let state = { contextKey: "", rows: [] as T[], total: 0, activeTotal: 0, page: 1, loading: false, detailLoading: false, saving: false, selected: null as D | null, message: "" };
+  let state = { contextKey: "", rows: [] as T[], total: 0, activeTotal: 0, page: 1, loading: false, detailLoading: false, saving: false, selected: null as D | null, receipt: null as { result: unknown; label: string; refreshFailed: boolean } | null, message: "" };
   const listeners = new Set<() => void>();
   const publish = (next: Partial<typeof state>) => { state = { ...state, ...next }; listeners.forEach(listener => listener()); };
   const cancel = () => { listGeneration++; detailGeneration++; interaction++; };
-  function invalidate() { cancel(); publish({ rows: [], total: 0, activeTotal: 0, page: 1, loading: false, detailLoading: false, saving: false, selected: null, message: "" }); }
+  function invalidate() { cancel(); publish({ rows: [], total: 0, activeTotal: 0, page: 1, loading: false, detailLoading: false, saving: false, selected: null, receipt: null, message: "" }); }
   function configure(next: ContractLedgerQuery) {
     if (JSON.stringify(next) === JSON.stringify(query)) return;
     query = { ...next }; invalidate(); publish({ contextKey: next.contextKey });
@@ -64,13 +64,13 @@ export function createContractLedger<T extends { id: string }, D extends T>(api:
           result.page !== page || result.page_size !== CONTRACT_PAGE_SIZE || !Array.isArray(result.items) || result.items.length > CONTRACT_PAGE_SIZE ||
           new Set(result.items.map(row => row.id)).size !== result.items.length) throw new Error("合同分页响应无效");
       if (page > contractPageCount(result.total)) { publish({ total: result.total }); return await loadPage(contractPageCount(result.total), internal); }
-      publish({ rows: result.items, total: result.total, activeTotal }); return true;
+      publish({ rows: result.items, total: result.total, activeTotal, receipt: state.receipt ? { ...state.receipt, refreshFailed: false } : null }); return true;
     } catch (error) { if (current()) publish({ rows: [], message: api.error(error, "加载劳动合同失败") }); return false; }
     finally { if (current()) publish({ loading: false }); }
   }
   async function select(id: string, internal = false): Promise<boolean> {
     if (!query?.canRead || (!internal && (state.loading || !state.rows.some(row => row.id === id)))) return false;
-    if (!internal) { interaction++; publish({ saving: false }); }
+    if (!internal) { interaction++; publish({ saving: false, receipt: null }); }
     const generation = ++detailGeneration, list = listGeneration, requestQuery = query;
     const current = () => generation === detailGeneration && list === listGeneration && query === requestQuery;
     publish({ selected: null, detailLoading: true, message: "" });
@@ -82,19 +82,22 @@ export function createContractLedger<T extends { id: string }, D extends T>(api:
     } catch (error) { if (current()) publish({ selected: null, message: api.error(error, "加载合同详情失败") }); return false; }
     finally { if (current()) publish({ detailLoading: false }); }
   }
-  async function mutate(work: () => Promise<unknown>, options: { selectedId?: string; refreshList: boolean; success: string; failure: string; onSuccess?: () => void }) {
+  async function mutate(work: () => Promise<unknown>, options: { selectedId?: string; refreshList: boolean; success: string; failure: string; receipt?: (result: unknown) => string; onSuccess?: () => void }) {
     if (state.saving || !query?.canManage) return;
     const requestQuery = query, owner = interaction;
     const current = () => query === requestQuery && interaction === owner;
     publish({ saving: true, message: "" });
     try {
-      await work();
+      const result = await work();
       if (!current()) return;
+      const receipt = { result, label: options.receipt?.(result) ?? options.success, refreshFailed: false };
+      publish({ receipt });
       options.onSuccess?.();
-      if (options.refreshList && !await loadPage(state.page, true)) return;
+      let refreshFailed = false;
+      if (options.refreshList && !await loadPage(state.page, true)) refreshFailed = true;
       if (!current()) return;
-      if (options.selectedId && !await select(options.selectedId, true)) return;
-      if (current()) publish({ message: options.success });
+      if (!refreshFailed && options.selectedId && !await select(options.selectedId, true)) refreshFailed = true;
+      if (current()) publish({ receipt: { ...receipt, refreshFailed }, message: refreshFailed ? `${options.success} 已提交；刷新读取失败，请使用“刷新本页”重试读取。` : options.success });
     } catch (error) { if (current()) publish({ message: api.error(error, options.failure) }); }
     finally { if (current()) publish({ saving: false }); }
   }
