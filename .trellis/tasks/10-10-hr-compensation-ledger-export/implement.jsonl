@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-compensation-assignment-ledger.md", "reason": "existing exact scope/decimal/audit baseline"}
+{"file": ".trellis/spec/web/frontend/hr-compensation-assignment-ledger.md", "reason": "sensitive state/DS baseline"}
+{"file": ".trellis/spec/web/frontend/hr-contract-insurance-ledger-exports.md", "reason": "CSV safety and existing pagination limitations"}
+{"file": ".trellis/spec/guides/index.md", "reason": "thinking guides entry"}
