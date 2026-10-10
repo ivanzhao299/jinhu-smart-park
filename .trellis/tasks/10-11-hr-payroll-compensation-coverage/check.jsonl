@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-payroll-formal-rules.md", "reason": "formal source authority and exact amounts"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-readiness.md", "reason": "truthful source readiness"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "shared controls and mobile"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "single full-schema PG writer and release proof"}

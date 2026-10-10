@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { projectPayrollCompensationInputs, type PayrollCompensationSegment } from "./hr-payroll-compensation-input";
+import { BadRequestException, ConflictException } from "@nestjs/common";
+import { inspectPayrollCompensationCoverage, projectPayrollCompensationInputs, type PayrollCompensationSegment } from "./hr-payroll-compensation-input";
 
 const segment = (id: string, from: string, through: string | null, salary: string): PayrollCompensationSegment => ({
   id, version: 1, effectiveFrom: from, effectiveThrough: through, planId: "plan", planVersion: 2,
@@ -46,4 +47,23 @@ test("only requested salary fields are read, and rounding occurs after summing a
   assert.deepEqual(projectPayrollCompensationInputs({ ...input, policy: "calendar_day_prorated",
     segments: [segment("a", "2026-10-01", "2026-10-15", "0.01"), segment("b", "2026-10-16", null, "0.01")] }), { 基本工资: "0.0100" });
   assert.deepEqual(projectPayrollCompensationInputs({ ...input, segments: [segment("max", "2026-10-01", null, "9999999999999999.99")] }), { 基本工资: "9999999999999999.9900" });
+});
+
+test("amount-free coverage preserves projector range classifications without exposing a salary", () => {
+  const metadata = (segments: PayrollCompensationSegment[], policy = input.policy) => inspectPayrollCompensationCoverage({
+    periodStart: input.periodStart, periodEnd: input.periodEnd, eligibleStart: input.eligibleStart, eligibleEnd: input.eligibleEnd, policy,
+    segments: segments.map(({ baseSalary: _baseSalary, allowanceAmount: _allowanceAmount, variableTarget: _variableTarget, ...segment }) => ({ ...segment, currency: "CNY" })),
+  });
+  assert.equal(metadata(input.segments).status, "covered");
+  assert.equal(metadata([]).status, "missing_or_incomplete");
+  assert.equal(metadata([segment("a", "2026-10-01", "2026-10-15", "1"), segment("b", "2026-10-15", null, "2")]).status, "overlap");
+  assert.equal(metadata(input.segments, null as never).status, "incompatible_policy");
+  assert.equal(inspectPayrollCompensationCoverage({ periodStart: input.periodStart, periodEnd: input.periodEnd, eligibleStart: input.eligibleStart, eligibleEnd: input.eligibleEnd, policy: input.policy,
+    segments: [{ ...input.segments[0]!, currency: "USD" }] }).status, "unsupported_currency");
+});
+
+test("range extraction preserves legacy exception classes and messages", () => {
+  assert.throws(() => projectPayrollCompensationInputs({ ...input, segments: [{ ...input.segments[0]!, version: 0 }] }), (error: unknown) => error instanceof ConflictException && error.message === "Duplicate or invalid compensation source version");
+  assert.throws(() => projectPayrollCompensationInputs({ ...input, segments: [segment("bad-range", "2026-10-20", "2026-10-10", "1")] }), (error: unknown) => error instanceof ConflictException && error.message === "Invalid compensation source range");
+  assert.throws(() => projectPayrollCompensationInputs({ ...input, periodEnd: "2026-02-30" }), (error: unknown) => error instanceof BadRequestException && error.message === "Invalid compensation date");
 });

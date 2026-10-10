@@ -99,7 +99,8 @@
     "10-11-hr-payroll-production-readiness-evidence",
     "10-11-hr-payroll-rule-readiness",
     "10-11-hr-insurance-period-ledger",
-    "10-11-hr-payroll-attendance-coverage"
+    "10-11-hr-payroll-attendance-coverage",
+    "10-11-hr-payroll-compensation-coverage"
   ],
   "parent": null,
   "relatedFiles": [
