@@ -171,7 +171,11 @@ export interface HrPayrollReconciliationSetup {
 }
 export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bookId?:string;employeeId?:string;}
 export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
-export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
+export interface HrApproval {version?:number;id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
+export interface HrApprovalRevision {expectedVersion:number;title:string;description:string;reason:string;}
+export interface HrApprovalContent {title:string|null;description:string|null;version:number|null;}
+export interface HrApprovalHistoryAction {id:string;action:string;comment:string|null;beforeStatus:string;afterStatus:string;createTime:string;actorDisplayName:string|null;beforeContent:HrApprovalContent|null;afterContent:HrApprovalContent|null;}
+export interface HrApprovalHistory {request:HrApproval;actions:HrApprovalHistoryAction[];}
 export interface HrContractOriginalYearFact {value:number|null;status:"recorded"|"missing"|"unconfirmed";}
 export interface HrContract {version?:number;originalTermYears?:{initial:HrContractOriginalYearFact;total:HrContractOriginalYearFact;renewal:HrContractOriginalYearFact};confidentialityAgreement?:boolean;nonCompeteAgreement?:boolean;trainingServiceAgreement?:boolean;id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;contractTermMonths?:number|null;cumulativeTermMonths?:number|null;firstSignatureDate?:string|null;lastSignatureDate?:string|null;renewalCount?:number|null;signatureDate?:string|null;effectiveDate?:string|null;positionTitle?:string|null;workType?:string|null;departmentNameSnapshot?:string|null;probationMonths?:number|null;probationSalary?:string|null;baseSalary?:string|null;remark?:string|null;status:string;isHistoricalImport:boolean;}
 export interface HrContractChange {contractTermMonths?:number;signatureDate?:string;id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
@@ -737,4 +741,7 @@ reviewPayrollReconciliation: (
  ,createApproval:(body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>("/hr/approvals",{method:"POST",body,token,idempotencyKey}))
  ,approvalAction:(id:string,body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/actions`,{method:"POST",body,token,idempotencyKey}))
  ,reviewApproval:(id:string,body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/review`,{method:"POST",body,token,idempotencyKey}))
+ ,approvalHistory:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrApprovalHistory>(`/hr/approvals/${id}/history`,{token,signal}))
+ ,reviseApproval:(id:string,body:HrApprovalRevision,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/revisions`,{method:"POST",body,token,idempotencyKey}))
+
 };

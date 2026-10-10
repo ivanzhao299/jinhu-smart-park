@@ -361,6 +361,40 @@
   gap: 12px;
 }
 
+.approvalHistoryList {
+  display: grid;
+  gap: 12px;
+}
+
+.approvalHistoryRecord {
+  align-content: start;
+}
+
+.approvalContentChanges {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.approvalContentChanges p {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.32fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.approvalContentChanges strong {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.approvalContentChanges span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .heroSummary {
   display: grid;
   gap: 6px;

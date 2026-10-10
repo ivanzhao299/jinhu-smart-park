@@ -77,7 +77,8 @@
     "10-10-hr-employee-organization-filter",
     "10-10-hr-approval-operation-continuity",
     "10-10-hr-training-ledger-export",
-    "10-10-hr-employment-history-business-surface"
+    "10-10-hr-employment-history-business-surface",
+    "10-10-hr-approval-returned-edit-history"
   ],
   "parent": null,
   "relatedFiles": [

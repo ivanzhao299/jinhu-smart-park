@@ -26,6 +26,7 @@
   ],
   "notes": "",
   "meta": {
-    "batchWith": "10-10-hr-training-ledger-export"
+    "batchWith": "10-10-hr-training-ledger-export",
+    "baselineSha": "870f8554199977cd33a2a1ef7c41fc0fca910eea"
   }
 }

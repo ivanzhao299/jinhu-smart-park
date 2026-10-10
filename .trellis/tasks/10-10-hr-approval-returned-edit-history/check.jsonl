@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API conventions, use bounded direct read if injected truncation"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR approval lifecycle and scope, focus applicable approval sections with direct reads"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide routing"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Request DTO service persistence history and UI data flow"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Forward migrations and production release expectations"}
