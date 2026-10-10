@@ -1,4 +1,4 @@
-import { Body,Controller,Get,Param,ParseUUIDPipe,Post,Put,Query,UseInterceptors } from "@nestjs/common";
+import { Body,Controller,DefaultValuePipe,Get,Param,ParseBoolPipe,ParseUUIDPipe,Post,Put,Query,UseInterceptors } from "@nestjs/common";
 import { HR_PERMISSIONS,type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -7,14 +7,15 @@ import { RequireAnyPermissions,RequirePermissions } from "../../shared/decorator
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
-import { HrJobChangeActionDto,HrJobChangeListDto,HrJobChangeReviewDto,SaveHrJobChangeDto } from "./dto/hr-job-change.dto";
+import { HrJobChangeActionDto,HrJobChangeEmployeeOptionsDto,HrJobChangeListDto,HrJobChangeReviewDto,SaveHrJobChangeDto } from "./dto/hr-job-change.dto";
 import { HrJobChangeService } from "./hr-job-change.service";
 
 @Controller("hr/job-change-applications") @RequireModule("hr")
 export class HrJobChangeController {
  constructor(private readonly service:HrJobChangeService){}
  @Get() @RequireAnyPermissions(HR_PERMISSIONS.HR_JOB_CHANGE_READ,HR_PERMISSIONS.HR_JOB_CHANGE_TEAM_READ,HR_PERMISSIONS.HR_JOB_CHANGE_SELF_READ) list(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrJobChangeListDto){return this.service.list(s,a,q);}
- @Get("options") @RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE) options(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal){return this.service.options(s,a);}
+ @Get("options") @RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE) options(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query("include_employees",new DefaultValuePipe(true),ParseBoolPipe)includeEmployees:boolean){return this.service.options(s,a,includeEmployees);}
+ @Get("employee-options") @RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE) employeeOptions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrJobChangeEmployeeOptionsDto){return this.service.employeeOptions(s,a,q);}
  @Get(":id/history") @RequireAnyPermissions(HR_PERMISSIONS.HR_JOB_CHANGE_READ,HR_PERMISSIONS.HR_JOB_CHANGE_TEAM_READ,HR_PERMISSIONS.HR_JOB_CHANGE_SELF_READ) history(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string){return this.service.history(s,a,id);}
  @Post() @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.job_change_application",action:"创建岗位变更申请",bizType:"hr_job_change_application",captureBody:false}) create(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Body()d:SaveHrJobChangeDto){return this.service.create(s,a,d);}
  @Put(":id") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.job_change_application",action:"修改岗位变更申请",bizType:"hr_job_change_application",bizIdParam:"id",captureBody:false}) update(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:SaveHrJobChangeDto){return this.service.update(s,a,id,d);}

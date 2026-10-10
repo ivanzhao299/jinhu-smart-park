@@ -7,12 +7,12 @@ import {hrApi,type HrJobChangeApplication} from "../../lib/hr-api";
 const state=vi.hoisted(()=>({user:{id:"actor",park_id:"park-a",permissions:["hr:job_change:read","hr:job_change:manage","hr:job_change:apply"]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{jobChangeApplications:vi.fn(),jobChangeOptions:vi.fn(),createJobChangeApplication:vi.fn(),updateJobChangeApplication:vi.fn(),jobChangeApplicationAction:vi.fn(),reviewJobChangeApplication:vi.fn(),applyJobChangeApplication:vi.fn(),jobChangeHistory:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{jobChangeApplications:vi.fn(),jobChangeOptions:vi.fn(),jobChangeEmployeeOptions:vi.fn(),createJobChangeApplication:vi.fn(),updateJobChangeApplication:vi.fn(),jobChangeApplicationAction:vi.fn(),reviewJobChangeApplication:vi.fn(),applyJobChangeApplication:vi.fn(),jobChangeHistory:vi.fn()}}));
 const row=(n:number,status="draft",effectiveDate="2090-01-01"):HrJobChangeApplication=>({version:1,id:`application-${n}`,applicationNo:`SYN-${n}`,applicationName:`Change ${n}`,employeeId:`employee-${n}`,employeeCode:`SYN-${n}`,employeeName:`Synthetic ${n}`,applicationDate:"2090-01-01",effectiveDate,changeType:"transfer",beforeOrgId:"old-org",beforeOrgName:"Old",beforePositionId:null,beforePositionName:null,afterOrgId:"new-org",afterOrgName:"New",afterPositionId:null,afterPositionName:null,reason:"Synthetic change",status,reviewComment:null,reviewedAt:null,appliedAt:null});
 const list=(page=1,items=Array.from({length:20},(_,i)=>row((page-1)*20+i+1)),total=51)=>({items,page,page_size:20,total});
 const options={employees:[{id:"employee-1",employeeCode:"SYN-1",employeeName:"Synthetic 1",orgId:"old-org",orgName:"Old",positionId:null,positionName:null}],orgs:[{id:"new-org",orgName:"New"}],positions:[]};
 
-beforeEach(()=>{vi.clearAllMocks();state.user={id:"actor",park_id:"park-a",permissions:["hr:job_change:read","hr:job_change:manage","hr:job_change:apply"]};vi.mocked(hrApi.jobChangeApplications).mockImplementation(async(_token,page=1)=>list(page));vi.mocked(hrApi.jobChangeOptions).mockResolvedValue(options);vi.mocked(hrApi.createJobChangeApplication).mockResolvedValue(row(1));vi.mocked(hrApi.updateJobChangeApplication).mockResolvedValue(row(1));});
+beforeEach(()=>{vi.clearAllMocks();state.user={id:"actor",park_id:"park-a",permissions:["hr:job_change:read","hr:job_change:manage","hr:job_change:apply"]};vi.mocked(hrApi.jobChangeApplications).mockImplementation(async(_token,page=1)=>list(page));vi.mocked(hrApi.jobChangeOptions).mockResolvedValue(options);vi.mocked(hrApi.jobChangeEmployeeOptions).mockResolvedValue({items:[{id:"employee-1",fullName:"Synthetic 1",employeeCode:"SYN-1"}],total:1,page:1,page_size:20});vi.mocked(hrApi.createJobChangeApplication).mockResolvedValue(row(1));vi.mocked(hrApi.updateJobChangeApplication).mockResolvedValue(row(1));});
 
 it("pages past application50 and renders desktop cards with a scoped grid class",async()=>{
  render(<JobChangeApplicationsPanel/>);
@@ -158,4 +158,29 @@ it("loads ordered business history with real return feedback and suppresses late
  let finish!:(value:Awaited<ReturnType<typeof hrApi.jobChangeHistory>>)=>void;vi.mocked(hrApi.jobChangeHistory).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));fireEvent.click(screen.getByRole("button",{name:"刷新记录"}));await waitFor(()=>expect(hrApi.jobChangeHistory).toHaveBeenCalledTimes(2));
  const signal=vi.mocked(hrApi.jobChangeHistory).mock.calls[1]![2]!;state.user={...state.user,park_id:"park-b"};view.rerender(<JobChangeApplicationsPanel/>);expect(signal.aborted).toBe(true);
  await act(async()=>finish({applicationId:"application-1",actions:[]}));expect(screen.queryByRole("region",{name:"SYN-1办理记录"})).toBeNull();
+});
+
+
+it("selects employee501 beyond the old batch and saves the explicit target without directory permission",async()=>{
+ state.user.permissions=["hr:job_change:manage","hr:job_change:team_read"];
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[],0));
+ vi.mocked(hrApi.jobChangeEmployeeOptions).mockImplementation(async(page=1)=>({items:Array.from({length:Math.min(20,501-(page-1)*20)},(_,index)=>{const n=(page-1)*20+index+1;return {id:`employee-${n}`,fullName:`Synthetic ${n}`,employeeCode:`SYN-${n}`};}),total:501,page,page_size:20}));
+ vi.mocked(hrApi.createJobChangeApplication).mockImplementation(async body=>({...row(501),...body,afterPositionId:null}));
+ render(<JobChangeApplicationsPanel/>);await screen.findByText("员工目录第 1 / 26 页 · 共 501 人");
+ for(let page=2;page<=26;page++){fireEvent.click(screen.getByRole("button",{name:"员工下一页"}));await screen.findByText(`员工目录第 ${page} / 26 页 · 共 501 人`);}
+ fireEvent.change(screen.getByLabelText("员工"),{target:{value:"employee-501"}});fireEvent.change(screen.getByLabelText("申请名称"),{target:{value:"第501名员工岗位变更"}});fireEvent.change(screen.getByLabelText("调整后部门"),{target:{value:"new-org"}});fireEvent.change(screen.getByLabelText("变更原因"),{target:{value:"按实际岗位安排办理"}});fireEvent.click(screen.getByRole("button",{name:"保存申请草稿"}));
+ await waitFor(()=>expect(hrApi.createJobChangeApplication).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-501"}),"synthetic-token",expect.any(String)));
+ expect(hrApi.jobChangeOptions).toHaveBeenCalledWith("synthetic-token",expect.any(AbortSignal),false);
+ expect(vi.mocked(hrApi.jobChangeEmployeeOptions).mock.calls.at(-1)?.[0]).toBe(26);
+});
+
+it("retains a selected employee across search, empty results and candidate failure",async()=>{
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[],0));render(<JobChangeApplicationsPanel/>);await screen.findByText("员工目录第 1 / 1 页 · 共 1 人");fireEvent.change(screen.getByLabelText("员工"),{target:{value:"employee-1"}});
+ vi.mocked(hrApi.jobChangeEmployeeOptions).mockResolvedValueOnce({items:[],total:0,page:1,page_size:20});fireEvent.change(screen.getByLabelText("搜索岗位变更员工"),{target:{value:"none"}});fireEvent.click(screen.getByRole("button",{name:"搜索员工"}));await screen.findByText("员工目录第 1 / 1 页 · 共 0 人");expect(screen.getByLabelText("员工")).toHaveValue("employee-1");
+ vi.mocked(hrApi.jobChangeEmployeeOptions).mockRejectedValueOnce(new Error("Synthetic candidate unavailable"));fireEvent.click(screen.getByRole("button",{name:"搜索员工"}));expect(await screen.findByText("Synthetic candidate unavailable")).toBeVisible();expect(screen.getByLabelText("员工")).toHaveValue("employee-1");
+});
+
+it("cancels stale scoped employee search on identity replacement",async()=>{
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[],0));let finish!:(value:Awaited<ReturnType<typeof hrApi.jobChangeEmployeeOptions>>)=>void;vi.mocked(hrApi.jobChangeEmployeeOptions).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));const view=render(<JobChangeApplicationsPanel/>);await waitFor(()=>expect(hrApi.jobChangeEmployeeOptions).toHaveBeenCalledTimes(1));const signal=vi.mocked(hrApi.jobChangeEmployeeOptions).mock.calls[0]![3]!;
+ state.user={...state.user,park_id:"park-b"};view.rerender(<JobChangeApplicationsPanel/>);expect(signal.aborted).toBe(true);await act(async()=>finish({items:[{id:"stale",fullName:"Stale Employee",employeeCode:"STALE"}],total:1,page:1,page_size:20}));expect(screen.queryByRole("option",{name:/Stale Employee/})).toBeNull();
 });
