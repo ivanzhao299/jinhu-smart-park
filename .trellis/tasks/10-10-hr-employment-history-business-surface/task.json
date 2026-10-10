@@ -1,0 +1,31 @@
+{
+  "id": "hr-employment-history-business-surface",
+  "name": "hr-employment-history-business-surface",
+  "title": "任职历史统一正式业务展示",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-training-ledger-export-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/employees/components/HrEmploymentHistory.tsx",
+    "apps/web/test/interaction/hr-employment-date-provenance.test.tsx"
+  ],
+  "notes": "",
+  "meta": {
+    "batchWith": "10-10-hr-training-ledger-export"
+  }
+}
