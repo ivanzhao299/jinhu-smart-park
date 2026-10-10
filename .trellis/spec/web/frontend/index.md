@@ -17,6 +17,7 @@ Modern payroll business rule authoring and version review: [Modern Rule Maintena
 Payroll formula desktop and mobile review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
 
 Training operation complete multi-employee selection: [Training Employee Selection](./hr-training-employee-selection.md).
+Training plan and participant scoped CSV: [Training Ledger Exports](./hr-training-ledger-exports.md).
 
 Lifecycle complete template editor and version workflow: [Lifecycle Template Workflow](./hr-lifecycle-template-workflow.md).
 

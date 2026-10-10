@@ -1,0 +1,35 @@
+{
+  "id": "hr-training-ledger-export",
+  "name": "hr-training-ledger-export",
+  "title": "培训计划与结果台账导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-training-ledger-export-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/training/HrTrainingClient.tsx",
+    "apps/web/app/hr/training/TrainingParticipantExport.tsx",
+    "apps/web/app/hr/training/training-ledger-export.ts",
+    "apps/web/app/hr/hr-training-ledger-export.spec.ts",
+    "apps/web/test/interaction/hr-training-ledger-export.test.tsx",
+    "apps/web/lib/hr-api.ts"
+  ],
+  "notes": "",
+  "meta": {
+    "baselineSha": "f343ade2adc588edf6df244680a3178a3599a60f"
+  }
+}
