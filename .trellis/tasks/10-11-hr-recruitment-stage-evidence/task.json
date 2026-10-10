@@ -1,0 +1,29 @@
+{
+  "id": "hr-recruitment-stage-evidence",
+  "name": "hr-recruitment-stage-evidence",
+  "title": "招聘阶段评价与办理轨迹",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api,web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-recruitment-stage-evidence-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "Local API12/Web14, full-original-schema PG1 and actual desktop390 component acceptance passed; independent review fixed fixture adapter, original-schema actor SQL and exact local retry. Production release and real role UAT pending. No production HR writes/import replay.",
+  "meta": {
+    "baseline": "dc35c220732efb5fad2f2e09e22bf167fd9229c2",
+    "productionBusinessWrites": false
+  }
+}

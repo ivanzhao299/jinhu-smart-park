@@ -3,7 +3,7 @@
   "name": "hr-payroll-compensation-coverage",
   "title": "工资薪酬区间覆盖核对",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api,web,shared",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-11",
-  "completedAt": null,
+  "completedAt": "2026-10-11",
   "branch": "codex/hr-payroll-compensation-coverage-20261011",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "commit": null,
-  "pr_url": null,
+  "commit": "dc35c220732efb5fad2f2e09e22bf167fd9229c2",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/948",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -30,6 +30,8 @@
     "owner": "wuenguo",
     "mode": "calculate_only_no_payment",
     "latestCompletePeriodConfirmed": false,
-    "evidence": "/Users/mac/.codex/artifacts/hr-payroll-compensation-coverage-20261011"
+    "evidence": "/Users/mac/.codex/artifacts/hr-payroll-compensation-coverage-20261011",
+    "deployRun": 38088831281,
+    "observerRun": 38090109758
   }
 }
