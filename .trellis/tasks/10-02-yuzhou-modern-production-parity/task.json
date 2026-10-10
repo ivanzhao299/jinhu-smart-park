@@ -95,7 +95,8 @@
     "10-10-hr-approved-compensation-fulfillment",
     "10-10-hr-compensation-ledger-export",
     "10-10-hr-insurance-correction-input-continuity",
-    "10-11-hr-payroll-reconciliation-review-continuity"
+    "10-11-hr-payroll-reconciliation-review-continuity",
+    "10-11-hr-payroll-production-readiness-evidence"
   ],
   "parent": null,
   "relatedFiles": [

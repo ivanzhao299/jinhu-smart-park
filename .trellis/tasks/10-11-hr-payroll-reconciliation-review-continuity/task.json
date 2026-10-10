@@ -16,7 +16,7 @@
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
   "commit": null,
-  "pr_url": null,
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/943",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -34,5 +34,19 @@
   ],
   "notes": "Independent full-scope check PASS; API/Web lint/typecheck/build PASS; API contract6, isolated PG1 after350 migrations cleanup0; Web HR243 + focused3 PASS; actual-component desktop1280/mobile390 synthetic browser PASS. Production latest complete actual period and Wu Enguo role UAT pending; calculate only, no pay.",
   "meta": {},
-  "business_acceptance": "PENDING_REAL_HR_ROLE_UAT"
+  "business_acceptance": "PENDING_REAL_HR_ROLE_UAT",
+  "technical_delivery": {
+    "pr": 943,
+    "mergedSha": "fb78a5272f5a4ad2e62116ed7f813bb6b589ebc1",
+    "apiRuntimeSha": "fb78a5272f5a4ad2e62116ed7f813bb6b589ebc1",
+    "webRuntimeSha": "fb78a5272f5a4ad2e62116ed7f813bb6b589ebc1",
+    "deployRun": 38069507437,
+    "observerRun": 38070806425,
+    "deployScope": "full",
+    "cleanup": "PASS",
+    "cleanupStarted": 1,
+    "cleanupFinished": 1,
+    "status": "DEPLOYED_RUNTIME_VERIFIED",
+    "artifact": "/Users/mac/.codex/artifacts/hr-payroll-reconciliation-review-continuity-20261011/runtime-observer/production-runtime-image-observation.json"
+  }
 }

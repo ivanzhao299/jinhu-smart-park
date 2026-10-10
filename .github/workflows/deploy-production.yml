@@ -44,6 +44,11 @@ on:
         required: false
         default: false
         type: boolean
+      diagnose_payroll_readiness:
+        description: "Include count-only payroll month and input-readiness evidence in runtime-revision diagnosis. Read-only and never calculates or pays."
+        required: false
+        default: false
+        type: boolean
       diagnose_personnel_alias:
         description: "Include the count/hash-only Yuzhou personnel alias probe in runtime-revision diagnosis. Read-only; never authorizes or performs a write."
         required: false
@@ -150,6 +155,7 @@ jobs:
           node scripts/e2e/production-deploy-verified-scope.contract.mjs
           node --test scripts/e2e/production-runtime-revision.contract.mjs
           node --test scripts/e2e/hr-role-identity.contract.mjs
+          node --test scripts/e2e/hr-payroll-readiness.contract.mjs
           node --test scripts/hr-cutover/tests/legacy-personnel-alias-observation.test.mjs
           node scripts/e2e/yuzhou-personnel-alias-route.contract.mjs
           sh scripts/e2e/production-backup-restore-gate-contract.sh
@@ -322,6 +328,27 @@ jobs:
           fi
           cat "$RUNNER_TEMP/hr-role-identity-counts.json"
 
+      - name: Diagnose HR payroll readiness counts (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_payroll_readiness }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          if ! probe_error="$(ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "node --input-type=module - '$PROD_DEPLOY_PATH'" < scripts/diagnose-hr-payroll-readiness.mjs \
+            2>&1 > "$RUNNER_TEMP/hr-payroll-readiness-observation.json")"; then
+            case "$probe_error" in
+              HR_PAYROLL_READINESS_PATH_INVALID|HR_PAYROLL_READINESS_PROBE_FAILED|HR_PAYROLL_READINESS_RESULT_INVALID) printf '%s\n' "$probe_error" >&2 ;;
+              *) echo HR_PAYROLL_READINESS_REMOTE_FAILED >&2 ;;
+            esac
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/hr-payroll-readiness-observation.json"
+
       - name: Diagnose Yuzhou personnel alias counts and hash (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_personnel_alias }}
         env:
@@ -387,6 +414,15 @@ jobs:
         with:
           name: production-runtime-image-observation
           path: ${{ runner.temp }}/production-runtime-image-observation.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain HR payroll readiness observation
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_payroll_readiness && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: hr-payroll-readiness-observation
+          path: ${{ runner.temp }}/hr-payroll-readiness-observation.json
           if-no-files-found: error
           retention-days: 7
 
