@@ -1,0 +1,17 @@
+"use client";
+import { useCallback,useEffect,useRef,useState } from "react";
+import { getAccessToken } from "../../../lib/authz";
+import { hrApi,type HrCandidateStageAction } from "../../../lib/hr-api";
+import { hrLoadErrorMessage } from "../hr-errors";
+import styles from "./recruitment.module.css";
+
+const labels:Record<string,string>={talent_pool:"人才库",screening:"筛选",interview:"面试",offer:"Offer",hired:"已录用",rejected:"未通过",withdrawn:"已退出"};
+function valid(row:HrCandidateStageAction){return typeof row.id==="string"&&Number.isInteger(row.sequenceNo)&&row.sequenceNo>0&&typeof row.fromStage==="string"&&typeof row.toStage==="string"&&typeof row.occurredAt==="string"&&typeof row.actorDisplayName==="string"&&(row.evaluation===null||typeof row.evaluation==="string");}
+export function CandidateStageHistory({candidateId,disabled,revision}:{candidateId:string;disabled:boolean;revision:number}){
+ const [items,setItems]=useState<HrCandidateStageAction[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const request=useRef<AbortController|null>(null),generation=useRef(0),mounted=useRef(true),pageSize=20;
+ const load=useCallback(async(targetPage=page)=>{request.current?.abort();const controller=new AbortController(),current=++generation.current;request.current=controller;setLoading(true);setError("");try{const result=await hrApi.recruitmentCandidateActions(candidateId,getAccessToken(),targetPage,pageSize,controller.signal);if(controller.signal.aborted||!mounted.current||current!==generation.current)return;if(!Array.isArray(result.items)||!Number.isSafeInteger(result.total)||result.total<0||result.page!==targetPage||result.page_size!==pageSize||result.items.some(row=>!valid(row)))throw new Error("候选人阶段轨迹响应无效，请重试。");setItems(result.items);setTotal(result.total);setPage(targetPage);}catch(e){if(!controller.signal.aborted&&mounted.current&&current===generation.current)setError(hrLoadErrorMessage(e,"读取候选人阶段轨迹失败"));}finally{if(mounted.current&&current===generation.current)setLoading(false);}},[candidateId,page]);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;request.current?.abort();};},[]);
+ useEffect(()=>{setPage(1);void load(1);},[candidateId,revision]);
+ return <section className={styles.history} aria-label="候选人阶段轨迹"><h3>阶段办理轨迹</h3>{loading?<p role="status">正在读取阶段轨迹…</p>:error?<p className="form-error" role="alert">{error}<button type="button" className="ds-button" disabled={disabled} onClick={()=>void load()}>重试读取</button></p>:<><div className={`ds-mobile-record-list ${styles.historyRecords}`}>{items.length?items.map(row=><article className="ds-mobile-record" key={row.id}><strong>#{row.sequenceNo} · {labels[row.fromStage]??row.fromStage} → {labels[row.toStage]??row.toStage}</strong><span>{row.actorDisplayName} · {new Date(row.occurredAt).toLocaleString("zh-CN")}</span>{row.evaluation?<small>评价：{row.evaluation}</small>:<small>未填写评价</small>}</article>):<p>尚无阶段办理轨迹。</p>}</div>{total>pageSize?<nav className={styles.pagination} aria-label="候选人阶段轨迹分页"><button type="button" className="ds-button" disabled={disabled||page<=1} onClick={()=>void load(page-1)}>轨迹上一页</button><span>第 {page} / {Math.max(1,Math.ceil(total/pageSize))} 页 · 共 {total} 条</span><button type="button" className="ds-button" disabled={disabled||page*pageSize>=total} onClick={()=>void load(page+1)}>轨迹下一页</button></nav>:null}</>}</section>;
+}

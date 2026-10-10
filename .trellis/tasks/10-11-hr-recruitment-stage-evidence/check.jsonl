@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/hr-recruitment-results.md", "reason": "existing recruitment/onboarding surface"}
+{"file": ".trellis/spec/web/frontend/hr-contract-operation-continuity.md", "reason": "matched receipts and retry/read failure separation"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "busy upload locks and bounded evaluation"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "root-only full-schema PG lifecycle and release proof"}

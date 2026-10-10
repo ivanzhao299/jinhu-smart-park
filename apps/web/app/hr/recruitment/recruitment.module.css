@@ -47,3 +47,6 @@
 }
 
 .candidateDetail :global(.ds-button) { min-height: 44px; }
+.history { display: grid; gap: 12px; margin-top: 16px; }
+.history h3 { margin: 0; }
+.historyRecords { display: grid; gap: 10px; }
