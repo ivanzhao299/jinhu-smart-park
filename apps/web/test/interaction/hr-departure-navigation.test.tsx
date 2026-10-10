@@ -11,7 +11,7 @@ vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../lib/hr-api",()=>({hrApi:{departureApplications:vi.fn(),departureOptions:vi.fn()}}));
 const employeeId="00000000-0000-4000-8000-000000000011";
-const row=(page:number)=>({id:`row-${page}`,employeeId,employeeName:`Test employee page ${page}`,status:"draft",applicationNo:`APP-${page}`,applicationDate:"2026-10-01",plannedDepartureDate:"2026-10-03"});
+const row=(page:number)=>({version:1,id:`row-${page}`,employeeId,employeeName:`Test employee page ${page}`,status:"draft",applicationNo:`APP-${page}`,applicationDate:"2026-10-01",plannedDepartureDate:"2026-10-03"});
 beforeEach(()=>{vi.clearAllMocks();state.user={id:"actor",permissions:[HR_PERMISSIONS.HR_DEPARTURE_READ]};vi.mocked(hrApi.departureApplications).mockImplementation(async(_token,page=1)=>({items:[row(page)],page,page_size:50,total:113}) as Awaited<ReturnType<typeof hrApi.departureApplications>>)});
 describe("departure navigation",()=>{
  it("preserves exact identity and rejects invalid or repeated query parameters",()=>{expect(departureWorkflowHref(employeeId)).toBe(`/hr/lifecycle?employee_id=${employeeId}#departure-clearance`);expect(parseDepartureEmployeeFilter(employeeId)).toEqual({employeeId,valid:true});for(const invalid of ["E-1","",[employeeId]])expect(parseDepartureEmployeeFilter(invalid).valid).toBe(false);expect(parseDepartureEmployeeFilter(undefined).valid).toBe(true)});
