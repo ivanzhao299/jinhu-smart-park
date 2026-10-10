@@ -1,0 +1,5 @@
+# 设计
+
+修复现有ProbationApplicationsPanel与Web API方法，并返回已有数据库application.version，后端已有真实reviewComment和confirm事务，不加DDL/新权限/新业务规则。API现有五种写方法增加末尾可选原键参数，默认仍生成新键，保持其他调用兼容。受控Draft/participants独立于列表，意见按申请存储。遵循已有JobChange连续办理语义；先搜索共享状态工具，必要局部逻辑保持类型明确，避免复制整组件。
+
+确认回执以实际现有响应ID、状态、业务正文和participants核对；使用实际持久化version；较旧列表不能覆盖已确认回执，同版本需核对结果，较新授权结果可更新。不能在客户端生成业务version。API共享project为list及所有写回读投影实际row.version，不加DDL。读失败与写失败分开；原键重试保留原body/token，不改为新的业务请求。批准只显示待授权确认；confirmed才展示生效结果。身份变更使用现有按user key隔离，alive和读取消抑制旧回调。全局DS及原参与人布局继续使用。

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/hr-probation-participant-continuity.md", "reason": "participants full writer and date separation"}
+{"file": ".trellis/spec/web/frontend/hr-job-change-operation-continuity.md", "reason": "existing operation continuity semantics"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web shared API/DS/quality"}
+{"file": ".trellis/spec/guides/index.md", "reason": "reuse and crosslayer guide entry"}

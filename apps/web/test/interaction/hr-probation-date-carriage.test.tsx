@@ -9,7 +9,7 @@ vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-test-token"
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ permissions: auth.canRead ? ["hr:lifecycle:read"] : [] }) }));
 
 const application: HrProbationApplication = {
-  id: "synthetic-application", applicationNo: "SYN-1", applicationName: "Synthetic probation",
+  version: 1, id: "synthetic-application", applicationNo: "SYN-1", applicationName: "Synthetic probation",
   applicationDate: "2026-09-01", reason: "Synthetic reason", status: "approved", reviewComment: null,
   reviewedAt: null, confirmedAt: null,
   participants: [{ id: "synthetic-participant", employeeId: "synthetic-employee", employeeCode: "SYN-A",
