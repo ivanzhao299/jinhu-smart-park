@@ -72,3 +72,15 @@ it("suppresses stale refresh errors after token replacement",async()=>{
  await waitFor(()=>expect(refresh).toHaveBeenCalledTimes(1));token="scope-b";await act(async()=>reject(new Error("刷新失败")));
  expect(screen.queryByText(/结果列表刷新失败/)).toBeNull();expect(api.createAttendanceSchedule).toHaveBeenCalledTimes(2);
 });
+it("requires a new preview if the token changes before confirmation without a render",async()=>{
+ render(<Host/>);await prepare();token="scope-b";
+ fireEvent.click(screen.getByRole("button",{name:"确认按日期顺序保存"}));
+ expect(api.createAttendanceSchedule).not.toHaveBeenCalled();expect(api.updateAttendanceSchedule).not.toHaveBeenCalled();
+ expect(screen.getByText(/登录状态已变化/)).toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"确认按日期顺序保存"})).toBeDisabled();
+});
+it("does not start preview under a token different from the rendered context",()=>{
+ render(<Host/>);selectRange();token="scope-b";
+ fireEvent.click(screen.getByRole("button",{name:"核对日期范围排班"}));
+ expect(api.attendanceSchedule).not.toHaveBeenCalled();expect(screen.getByText(/登录状态已变化/)).toBeInTheDocument();
+});
