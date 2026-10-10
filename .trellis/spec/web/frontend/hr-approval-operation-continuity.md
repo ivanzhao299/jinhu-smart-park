@@ -20,3 +20,6 @@ Use shared `ds-mobile-record` with the existing always-visible `employeeRecordLi
 
 ## Verification
 Interaction tests cover permission separation, independent failures, form retention, mutex/original-key retry, invalid responses, late context completions, stale/failed readback and cross-context lock ownership. Local synthetic browser evidence is separate from real-role production acceptance.
+
+## Approved employment handoff
+The dedicated approved-employment queue is visible only when park approval review and job-change manage permissions are both present. Queue search is bounded and paginated. Choosing a source fixes its employee/version and requires explicitly entered structured job-change fields. Source create/link is atomic and unique; a confirmed draft receipt survives independent queue failures, while uncertain attempts freeze fields and retain the original body/key. Block generic approval mutations while a handoff is selected or unresolved. Generic profile/compensation approvals remain separate until their own formal domain handoffs exist.

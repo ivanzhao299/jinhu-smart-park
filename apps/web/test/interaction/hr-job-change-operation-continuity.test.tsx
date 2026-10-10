@@ -184,3 +184,14 @@ it("cancels stale scoped employee search on identity replacement",async()=>{
  vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[],0));let finish!:(value:Awaited<ReturnType<typeof hrApi.jobChangeEmployeeOptions>>)=>void;vi.mocked(hrApi.jobChangeEmployeeOptions).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));const view=render(<JobChangeApplicationsPanel/>);await waitFor(()=>expect(hrApi.jobChangeEmployeeOptions).toHaveBeenCalledTimes(1));const signal=vi.mocked(hrApi.jobChangeEmployeeOptions).mock.calls[0]![3]!;
  state.user={...state.user,park_id:"park-b"};view.rerender(<JobChangeApplicationsPanel/>);expect(signal.aborted).toBe(true);await act(async()=>finish({items:[{id:"stale",fullName:"Stale Employee",employeeCode:"STALE"}],total:1,page:1,page_size:20}));expect(screen.queryByRole("option",{name:/Stale Employee/})).toBeNull();
 });
+
+it("keeps the employee bound to the approved source while allowing job-change details to be edited",async()=>{
+ const linked={...row(1),sourceApprovalId:"synthetic-source",sourceApprovalVersion:7};
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[linked],1));
+ vi.mocked(hrApi.updateJobChangeApplication).mockResolvedValue({...linked,reason:"经核对的新办理原因"});
+ render(<JobChangeApplicationsPanel/>);fireEvent.click(await screen.findByRole("button",{name:"修改"}));
+ expect(screen.getByLabelText("员工")).toBeDisabled();
+ expect(screen.getByText("员工已绑定原任职申请；可修改岗位和办理信息，不能更换办理对象。")).toBeVisible();
+ fireEvent.change(screen.getByLabelText("变更原因"),{target:{value:"经核对的新办理原因"}});fireEvent.click(screen.getByRole("button",{name:"保存修改"}));
+ await waitFor(()=>expect(hrApi.updateJobChangeApplication).toHaveBeenCalledWith("application-1",expect.objectContaining({employeeId:"employee-1",reason:"经核对的新办理原因"}),"synthetic-token",expect.any(String)));
+});
