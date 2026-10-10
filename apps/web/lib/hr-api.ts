@@ -79,6 +79,7 @@ export interface HrSuccessionRow {criticalPositionId:string;positionName:string;
 export interface HrDevelopmentPlan {id:string;planCode:string;planName:string;developmentGoal:string;startDate:string;endDate:string;status:string;employeeName:string;actions:Array<{id:string;actionName:string;ownerName:string;dueDate:string;status:string;evidence:unknown[];canAct:boolean}>;}
 export interface HrFeedbackCycle {id:string;performanceCycleId:string;cycleName:string;anonymous:boolean;minimumAnonymousResponses:number;status:string;}
 export interface HrCompensationPlan {id:string;planCode:string;planName:string;effectiveFrom:string;effectiveTo:string|null;status:string;currency:string;}
+export interface HrCompensationAssignment {id:string;employeeId:string;employeeCode:string;employeeName:string;planId:string;planCode:string;planName:string;effectiveFrom:string;effectiveTo:string|null;baseSalary:string;allowanceAmount:string;variableTarget:string;status:string;version:number;}
 export interface HrPayrollPeriod {id:string;periodMonth:string;startDate:string;endDate:string;status:string;}
 export interface HrPayrollRun {usesApprovedInputs?:boolean;id:string;periodId:string;runNo:number;correctionOfRunId:string|null;status:string;employeeCount:number;grossTotal:string;deductionTotal:string;netTotal:string;}
 export interface HrPayslip {id:string;runId:string;employeeId:string;grossAmount:string;deductionAmount:string;personalTax:string;netAmount:string;status:string;createTime:string;}
@@ -623,6 +624,7 @@ export const hrApi={
  ,addDevelopmentAction:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/development-plans/${id}/actions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-action")}))
  ,transitionDevelopmentAction:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/development-actions/${id}/transitions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-transition")}))
  ,compensationPlans:(token?:string)=>unwrap(apiRequest<HrCompensationPlan[]>("/hr/compensation/plans",{token}))
+ ,compensationAssignments:(token?:string,page=1,pageSize=20,keyword="",signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrCompensationAssignment>>(`/hr/compensation/assignments?${new URLSearchParams({page:String(page),page_size:String(pageSize),keyword})}`,{token,signal}))
  ,createCompensationPlan:(body:object,token?:string)=>unwrap(apiRequest<HrCompensationPlan>("/hr/compensation/plans",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,assignCompensation:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/compensation/assignments",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,payrollPeriods:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollPeriod[]>("/hr/payroll/periods",{token,signal}))

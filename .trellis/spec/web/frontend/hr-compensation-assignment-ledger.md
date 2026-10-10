@@ -1,0 +1,7 @@
+# Employee compensation ledger surface
+
+The compensation page mounts CompensationAssignmentLedger only with HR_COMPENSATION_READ. It uses existing formal compensation assignments rather than imported/new data labels. Show searchable server paging20, employee and plan codes/names, status/version/effective range and exact monetary strings. Include departed employee records. Monetary values are salary settings, not calculated or paid wages. Unknown statuses remain visible as source text.
+
+Remount on identity/context/permissions. Abort and generation guards reject superseded reads. Bind displayed snapshot to complete query and external refresh revision synchronously; loading/failure must not leave old salary rows visible. Validate minimal API projection before display; bad monetary values cannot become guessed zeroes. Empty later pages reset to1; search resets page. Successful ordinary assignment writes trigger independent ledger refresh, preserving write-success message even if ledger read fails.
+
+Use DS panels/mobile records/buttons and small domain layout CSS, minimum44px new controls, wrap pagination labels and single column at390px. Actual compiled full-page desktop1280/phone390 browser check with syntheticAPI proves presentation only, never production data or role UAT. Interaction tests cover search/page, stale/failure/retry, malformed projection, identity/permissions and confirmed-write refresh.

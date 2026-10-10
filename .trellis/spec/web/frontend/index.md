@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Employee formal compensation records: [Compensation Assignment Ledger](./hr-compensation-assignment-ledger.md).
+
 Current workforce department and position ledgers: [Workforce Detail Ledgers](./hr-workforce-detail-ledgers.md).
 
 Editable employee-day schedule operations: [Schedule Continuity](./hr-attendance-schedule-continuity.md).

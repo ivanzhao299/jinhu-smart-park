@@ -90,7 +90,8 @@
     "10-10-hr-contract-operation-continuity",
     "10-10-hr-approved-employment-fulfillment",
     "10-10-hr-profile-maintenance-continuity",
-    "10-10-hr-approved-profile-fulfillment"
+    "10-10-hr-approved-profile-fulfillment",
+    "10-10-hr-compensation-assignment-ledger"
   ],
   "parent": null,
   "relatedFiles": [

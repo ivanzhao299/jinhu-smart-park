@@ -1,0 +1,7 @@
+# Employee compensation assignment ledger
+
+GET /hr/compensation/assignments requires HR_COMPENSATION_READ at controller and service plus exact actor tenant/park. Page/page_size are bounded, keyword is literal escaped parameterized search across employee name/code and plan name/code. Only nondeleted assignments with same-scope nondeleted employee and plan references are projected; departed employees remain visible. Count and items use one REPEATABLE READ transaction snapshot. Stable order effective_from DESC,id DESC; return items,total,page,page_size, including empty pages.
+
+Projection contains assignment id/employee id/name/code/plan id/name/code/effective dates/baseSalary/allowanceAmount/variableTarget/status/version only. Monetary values remain PostgreSQL numeric text; dates use YYYY-MM-DD and null ending dates. No salary sum, payroll output, rate, eligibility inference or mutation. Mandatory sensitive-read audit uses financial+compensation and park projection before returning, including empty results; audit failure rejects read.
+
+Keep this read separate from approved compensation fulfillment and payroll rule approval. Wu Enguo owns latest complete actual payroll period/rules, calculate only; actual production payroll period still requires evidence. Verify exact query behavior in disposable PostgreSQL, literal wildcards, deleted/foreign references, departed retention, stable pagination/empty result, exact numeric text, permission/scope and audit failure.

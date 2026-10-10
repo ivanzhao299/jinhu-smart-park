@@ -3,17 +3,25 @@
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { useCallback, useEffect, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { hrApi, type HrCompensationPlan, type HrEmployee } from "../../../lib/hr-api";
 import styles from "../hr-workbench.module.css";
+import { CompensationAssignmentLedger } from "./CompensationAssignmentLedger";
 
 type CompensationAction = "plan" | "assignment" | null;
 
 export function HrCompensationClient() {
+  const user = useAuthUser();
+  return <HrCompensationContent key={JSON.stringify(user)} />;
+}
+
+function HrCompensationContent() {
   const [plans, setPlans] = useState<HrCompensationPlan[]>([]);
   const [employees, setEmployees] = useState<HrEmployee[]>([]);
   const [message, setMessage] = useState("");
   const [action, setAction] = useState<CompensationAction>(null);
+  const [ledgerRefresh, setLedgerRefresh] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -29,7 +37,7 @@ export function HrCompensationClient() {
     catch (error) { setMessage(error instanceof Error ? error.message : "创建方案失败"); }
   };
   const assign = async (form: FormData) => {
-    try { await hrApi.assignCompensation({ employeeId: String(form.get("employeeId")), planId: String(form.get("planId")), effectiveFrom: String(form.get("effectiveFrom")), baseSalary: String(form.get("baseSalary")), allowanceAmount: String(form.get("allowanceAmount") || "0"), variableTarget: String(form.get("variableTarget") || "0") }, getAccessToken()); setMessage("员工定薪已生效"); setAction(null); }
+    try { await hrApi.assignCompensation({ employeeId: String(form.get("employeeId")), planId: String(form.get("planId")), effectiveFrom: String(form.get("effectiveFrom")), baseSalary: String(form.get("baseSalary")), allowanceAmount: String(form.get("allowanceAmount") || "0"), variableTarget: String(form.get("variableTarget") || "0") }, getAccessToken()); setMessage("员工定薪已保存，请在台账核对生效日期和金额。"); setAction(null); setLedgerRefresh(value => value + 1); }
     catch (error) { setMessage(error instanceof Error ? error.message : "员工定薪失败"); }
   };
 
@@ -40,6 +48,7 @@ export function HrCompensationClient() {
       {action === "plan" ? <form className={`ds-panel ${styles.formGrid}`} action={create}><div className={styles.sectionHeading}><div><span className="ds-eyebrow">方案设置</span><h2>创建薪酬方案</h2></div></div><label className="form-field"><span>方案编码</span><input name="planCode" required /></label><label className="form-field"><span>方案名称</span><input name="planName" required /></label><label className="form-field"><span>生效日期</span><input name="effectiveFrom" type="date" required /></label><label className="form-field"><span>失效日期</span><input name="effectiveTo" type="date" /></label><div className={styles.formActions}><button className="ds-button ds-button-primary">保存方案</button><button type="button" className="ds-button" onClick={() => setAction(null)}>取消</button></div></form> : null}
       {action === "assignment" ? <form className={`ds-panel ${styles.formGrid}`} action={assign}><div className={styles.sectionHeading}><div><span className="ds-eyebrow">员工定薪</span><h2>设置员工薪酬</h2></div></div><label className="form-field"><span>员工</span><select name="employeeId">{employees.filter((item) => item.employmentStatus !== "departed").map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label><label className="form-field"><span>薪酬方案</span><select name="planId">{plans.map((item) => <option key={item.id} value={item.id}>{item.planName}</option>)}</select></label><label className="form-field"><span>生效日期</span><input name="effectiveFrom" type="date" required /></label><label className="form-field"><span>基本工资</span><input name="baseSalary" type="number" min="0" step="0.01" required /></label><label className="form-field"><span>津贴</span><input name="allowanceAmount" type="number" min="0" step="0.01" defaultValue="0" /></label><label className="form-field"><span>目标浮动薪资</span><input name="variableTarget" type="number" min="0" step="0.01" defaultValue="0" /></label><div className={styles.formActions}><button className="ds-button ds-button-primary">确认定薪</button><button type="button" className="ds-button" onClick={() => setAction(null)}>取消</button></div></form> : null}
       {message ? <p className="form-error" role="status">{message}</p> : null}
+      <CompensationAssignmentLedger refreshVersion={ledgerRefresh}/>
       <section className="ds-panel"><div className={styles.sectionHeading}><div><span className="ds-eyebrow">方案台账</span><h2>薪酬方案</h2></div></div><div className="ds-mobile-record-list">{plans.length === 0 ? <p className={styles.emptyState}>暂无薪酬方案。</p> : plans.map((plan) => <article className="ds-mobile-record" key={plan.id}><strong>{plan.planName}</strong><span>{plan.planCode}</span><span>{plan.effectiveFrom} 起生效{plan.effectiveTo ? ` · ${plan.effectiveTo} 失效` : ""}</span></article>)}</div></section>
     </main>
   </PermissionGuard>;
