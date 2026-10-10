@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API service DTO permission auditing and test contracts"}
+{"file": ".trellis/spec/web/frontend/hr-approval-operation-continuity.md", "reason": "existing safe retry and write-read continuity pattern"}
+{"file": ".trellis/spec/web/frontend/hr-approval-content-history.md", "reason": "existing scoped read history and minimal content patterns"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "align backend response and frontend state"}

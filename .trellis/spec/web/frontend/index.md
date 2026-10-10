@@ -40,6 +40,8 @@ These rules describe the current Next.js management frontend in `apps/web`.
 Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).
 Human resources approval operation continuity: [HR Approval Operation Continuity](./hr-approval-operation-continuity.md).
 
+Formal job change review, return feedback and application history: [Job Change Operation Continuity](./hr-job-change-operation-continuity.md).
+
 Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
 
 Payroll reconciliation preparation and matching months: [Payroll Input Readiness](./hr-payroll-input-readiness.md).
