@@ -1,0 +1,7 @@
+# 设计
+
+现有RehireApplicationsPanel已使用完整auth/employeeId key隔离并有分页选人、expectedEmployeeVersion和基本流程。补齐受控业务草稿与冻结操作、成功回执和版本覆盖，保持现有后端权威规则。优先参考已验证DepartureApplicationsPanel，不复制与回聘无关清场逻辑，不新增通用认证基础设施。
+
+hr-onboarding.service.ts仅list SELECT a.version和共享project实际row.version读投影；API包装器只加末尾optional key。回聘receipt依据真实version和目标状态验证，创建原body比对、修改原ID/version比对，确认必须实际confirmedAt。历史before snapshot不能用本次字段替代。初次入职的既有消费者兼容，相关adapter/招聘流程需聚焦回归。
+
+单请求锁和pending frozen operation阻止未知提交重建；保留原key/token/闭包/目标版本，精确后端两个409仍pending。受控草稿本体与pendingbody分离；真实拒绝允许修正再发新操作。成功记录先入receipt覆盖表再独立读；仅真实新版本可覆盖。活跃identity标识在unmount后阻止任何后续读取和状态回写。

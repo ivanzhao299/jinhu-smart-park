@@ -36,3 +36,11 @@ Verify real component interactions for employee/version/assignment payloads,
 search paging, exact employee filtering, failure retention, refreshed drafts,
 park reviewer/maker separation, authority changes, cancellation and future dates.
 Local synthetic browser evidence is separate from production role acceptance.
+
+## Formal operation continuity
+
+Rehire controls own complete drafts for names/dates/probation including0/card/remark and current assignments. Selected employee version remains the actual loaded version; editing explicitly refreshes employee options. All existing onboarding write adapters accept optional final idempotency keys without changing default prefixes. Pending unknown outcomes freeze original body/token/key/employee/application version; ordinary4xx reject definitively but the exact backend processing/reservation-changed409 messages retain the original operation. Disable competing edits/searches/pages while unresolved.
+
+Existing application list and mutation projection expose stored application version, with no schema,backfill or rule changes. Rehire reads and mutation receipts require real positive versions; same-ID/employee/rehire target,state and version advancement must match before declaring success. Creation also matches frozen assignment/body. Confirmation requires actual confirmedAt. A success receipt is displayed before a separate refresh; an older/equal inconsistent list cannot erase it,while a genuinely newer version may replace it. Show actual review/confirmation times,card and remarks in the existing authorized scope; approval alone is not effective rehire.
+
+Unmount or full auth/employee-context replacement prevents all late writes from launching further reads or affecting a new identity. Cover actualpublic service version projection and adapters plus retained/rejected/unknown/late/future/self-review component cases. Do not fabricate personnel production writes for acceptance.

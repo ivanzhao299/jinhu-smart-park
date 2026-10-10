@@ -83,7 +83,8 @@
     "10-10-hr-job-change-employee-selection",
     "10-10-hr-probation-operation-continuity",
     "10-10-hr-departure-operation-continuity",
-    "10-10-hr-performance-result-export"
+    "10-10-hr-performance-result-export",
+    "10-10-hr-rehire-operation-continuity"
   ],
   "parent": null,
   "relatedFiles": [

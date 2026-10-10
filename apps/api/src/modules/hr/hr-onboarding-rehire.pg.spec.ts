@@ -52,14 +52,17 @@ test("approved rehiring preserves the employee and historical evidence in real P
   await t.test("the same employee returns through approval; old dates and assignment survive as event evidence",async()=>{
    const id=await employee();await db.query(`INSERT INTO hr_contract VALUES($1,$2,'expired')`,[randomUUID(),id]);
    const app=await service.create(scope,actor,dto(id));
+   assert.equal(app.version,1);
    const listed=await service.list(scope,{page:1,page_size:20,entryType:"rehire",employeeId:id});
-   assert.equal(listed.total,1);assert.equal(listed.items[0].targetOrgName,"Synthetic department");assert.equal(listed.items[0].targetPositionName,"Synthetic position");assert.equal(listed.items[0].applicantUserId,makerId);assert.equal(listed.items[0].applicationDate,"2026-02-01");
+   assert.equal(listed.total,1);assert.equal(listed.items[0].version,app.version);assert.equal(listed.items[0].targetOrgName,"Synthetic department");assert.equal(listed.items[0].targetPositionName,"Synthetic position");assert.equal(listed.items[0].applicantUserId,makerId);assert.equal(listed.items[0].applicationDate,"2026-02-01");
    await assert.rejects(service.confirm(scope,actor,app.id),/Only approved/);
-   await service.act(scope,actor,app.id,{action:"submit"});
+   const submitted=await service.act(scope,actor,app.id,{action:"submit"});assert.equal(submitted.version,2);
    await assert.rejects(service.review(scope,actor,app.id,{action:"approve"}),/Applicants cannot review/);
-   await service.review(scope,reviewer,app.id,{action:"approve"});
+   const reviewed=await service.review(scope,reviewer,app.id,{action:"approve"});assert.equal(reviewed.version,3);assert.ok(reviewed.reviewedAt);
    const results=await Promise.allSettled([service.confirm(scope,actor,app.id),service.confirm(scope,actor,app.id)]);
    assert.equal(results.filter(x=>x.status==="fulfilled").length,1,results.map(x=>x.status==="rejected"?String(x.reason):"ok").join(" | "));
+   const confirmed=results.find(x=>x.status==="fulfilled");assert.ok(confirmed?.status==="fulfilled");assert.equal(confirmed.value.version,4);assert.ok(confirmed.value.confirmedAt);
+   const persisted=(await db.query(`SELECT version FROM hr_onboarding_application WHERE id=$1`,[app.id]))[0];assert.equal(confirmed.value.version,persisted.version);
    const rows=await db.query(`SELECT id,employment_status,hire_date::text,departure_date,manager_employee_id,user_id,version FROM hr_employee WHERE id=$1`,[id]);
    assert.deepEqual(rows[0],{id,employment_status:"active",hire_date:"2026-02-02",departure_date:null,manager_employee_id:null,user_id:makerId,version:2});
    const events=await db.query(`SELECT * FROM hr_employment_event WHERE employee_id=$1`,[id]);assert.equal(events.length,1);
@@ -106,7 +109,8 @@ test("approved rehiring preserves the employee and historical evidence in real P
    const manager=await employee("active",null),id=await employee(),app=await service.create(scope,actor,dto(id,{targetManagerEmployeeId:manager}));
    await service.act(scope,actor,app.id,{action:"submit"});await service.review(scope,reviewer,app.id,{action:"return",comment:"Refresh assignment"});
    await db.query(`UPDATE hr_employee SET version=version+1 WHERE id=$1`,[id]);
-   await service.update(scope,actor,app.id,dto(id,{expectedEmployeeVersion:2,targetManagerEmployeeId:manager}));
+   const updated=await service.update(scope,actor,app.id,dto(id,{expectedEmployeeVersion:2,targetManagerEmployeeId:manager}));assert.equal(updated.version,4);assert.equal(updated.status,"draft");assert.equal(updated.expectedEmployeeVersion,2);
+   const current=await service.list(scope,{page:1,page_size:20,entryType:"rehire",employeeId:id});assert.equal(current.items[0].version,updated.version);
    await service.act(scope,actor,app.id,{action:"submit"});await service.review(scope,reviewer,app.id,{action:"approve"});await service.confirm(scope,actor,app.id);
    assert.equal((await db.query(`SELECT manager_employee_id FROM hr_employee WHERE id=$1`,[id]))[0].manager_employee_id,manager);
   });

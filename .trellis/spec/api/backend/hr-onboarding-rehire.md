@@ -50,3 +50,13 @@ refresh; initial onboarding regression; append/effect failure atomic rollback.
 The former client entry `client.employment_change.004` has pending behavioral
 observation. This modern workflow is not evidence of complete historical rule
 parity. UI and production role acceptance must be separately recorded.
+
+## Application receipt version
+
+The existing application list selects the persisted `a.version`; the shared
+mutation projection returns that same stored value from `RETURNING`. Do not
+derive an application version from the employee version or invent a client
+increment. Public create/update/action/review/confirm tests must exercise the
+projection through their transaction entry points, including the existing
+application-action audit and employment event on confirmation. This read
+projection adds no schema, backfill or state-machine rule.
