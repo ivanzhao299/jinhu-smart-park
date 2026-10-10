@@ -17,11 +17,13 @@ test("Yuzhou basic profile fields have typed persistence and privacy controls",(
 });
 
 test("profile API and UI cover the legacy field groups without leaking source values",()=>{
- const dto=read("apps/api/src/modules/hr/dto/hr.dto.ts"),ui=read("apps/web/app/hr/employees/HrEmployeesClient.tsx");
+ const dto=read("apps/api/src/modules/hr/dto/hr.dto.ts"),ui=read("apps/web/app/hr/employees/HrEmployeesClient.tsx"),sharedForm=read("apps/web/app/hr/employees/components/HrFixedProfileFields.tsx");
  for(const field of ["englishName","gender","dateOfBirth","ethnicity","nativePlace","politicalStatus","heightCm","weightKg","highestEducation","major","degree","foreignLanguage","graduationSchool","homePhone","jobTitle","employeeCategory","technicalTitle"])assert.match(dto,new RegExp(field));
  assert.match(ui,/YuzhouBasicProfileFields/);
- assert.match(ui,/证件号（加密保存）/);
- assert.match(ui,/type="number"/);
+ assert.match(ui,/buildProfileSaveBody/);
+ assert.match(sharedForm,/证件号（加密保存）/);
+ assert.match(sharedForm,/type="number"/);
+ assert.match(sharedForm,/idNumber:String\(form\.get\("idNumber"\)\?\?""\)/);
  const evidence=JSON.parse(read("scripts/hr-cutover/contracts/yuzhou-employee-basic-profile-source-evidence-v1.json")) as {legacyId:number;legacyFieldEvidenceHash:string;personalValuesRecorded:boolean;credentialsRecorded:boolean;targetControls:{productionImport:string}};
  assert.equal(evidence.legacyId,35);
  assert.equal(evidence.legacyFieldEvidenceHash,"61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622");

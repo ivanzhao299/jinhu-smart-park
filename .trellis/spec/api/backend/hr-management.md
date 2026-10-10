@@ -1441,3 +1441,66 @@ if (!active.length && (rows.length || dto.expectedVersion !== 0)) throw new Conf
 ## Employee-specific insurance read context
 
 GET insurance/periods and insurance/periods/me accept optional employee_id validated as one UUID by HrInsurancePeriodQueryDto. Add the exact period.employee_id predicate to the existing tenant/park/nondeleted and ledgerEmployeeIds range; do not replace or bypass existing team/self authority. Preserve pagination, amount permission projection and required read audit, including empty scopes. This read-only filter neither updates imported rows nor creates owned periods or payroll amounts. Frontend employee deep links must use exact IDs, not names, and reject malformed/repeated navigation instead of silently expanding scope.
+
+## Scenario: Approved profile request formal fulfilment
+
+### 1. Scope / Trigger
+
+- Trigger: an approved `profile_change` request must become a controlled employee-profile update without replaying an import or interpreting its free-text description as field values.
+- Applies to `GET /hr/approvals/profile-fulfillments`, `POST /hr/approvals/:id/profile-fulfillment`, `hr_profile_approval_fulfillment`, and the shared Web `HrFixedProfileFields` form used by both ordinary profile maintenance and source fulfilment.
+
+### 2. Signatures
+
+- Queue: `GET /hr/approvals/profile-fulfillments?page=<int>&page_size=<1..100>&keyword=<trimmed text>` returns `{items,total,page,page_size}`; every item carries the original source `id`, `subjectEmployeeId`, `version`, description and optional fulfilment receipt.
+- Fulfilment: `POST /hr/approvals/:id/profile-fulfillment` accepts the complete `UpdateHrEmployeeProfileDto` field set plus `employeeId`, `expectedApprovalVersion` and `expectedVersion`; `IdempotencyInterceptor` and `captureBody:false` are mandatory.
+- Receipt: `{sourceApprovalId,sourceApprovalVersion,employeeId,profileId,beforeVersion,afterVersion,fieldNames,profile}`. `fieldNames` describes fields explicitly submitted in this attempt; it does not claim every value changed.
+- Database: `hr_profile_approval_fulfillment` has one scoped source link and references scoped approval, employee and profile identities. Before composite foreign keys, the referenced real table must have the matching non-partial `UNIQUE(tenant_id,park_id,id)` constraint.
+
+### 3. Contracts
+
+- Controller and direct service access both require the exact conjunction `HR_APPROVAL_PARK_REVIEW` and `HR_EMPLOYEE_PROFILE_MANAGE`; tenant/park principal and scope must match.
+- In one transaction, lock the approved `profile_change` source, require its original subject employee and source version, reject an existing link, call the transaction-manager profile save primitive, then insert the receipt link. The employee anchor/profile locks retain first-create and current-profile CAS behavior.
+- The Web never maps source description to profile fields. It reads an unmasked profile for the fixed source employee first; the shared form serializes all 33 existing profile controls, including an explicit empty `idNumber` for encrypted identity clearing. Ordinary profile editing uses the same serializer.
+- An unknown transport outcome, malformed receipt or `409` processing response freezes the exact source/body/token/idempotency key and retries it. A known rejection retains the editable draft; a known version conflict requires explicit profile reload. A confirmed receipt remains visible if the independent queue read is stale or fails.
+
+### 4. Validation & Error Matrix
+
+- Missing either exact permission, principal/scope mismatch -> `ForbiddenException`; foreign, deleted, non-approved or non-profile source -> safe `NotFoundException`.
+- Source employee or approval version mismatch, an already linked source, ambiguous/stale profile, or competing profile write -> `BadRequestException`/`ConflictException` with no receipt or profile partial write.
+- Queue keyword count and row queries use the same bound keyword parameter set; a keyword cannot make the count query omit `$3`.
+- Invalid/masked/foreign profile projections, invalid receipt identity/version, aborted/unmounted reads, or stale context -> client denies write/publish. An explicit `null` profile is the supported first-create case with `expectedVersion=0`.
+- A composite FK whose parent lacks the real schema unique identity -> migration failure; add and exercise the parent scoped unique in the migration fixture rather than pre-seeding it in the test table.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an authorized park reviewer/profile manager changes an explicit address and clears an identity number for the source employee; profile version and source receipt commit together.
+- Base: no profile exists, `expectedVersion=0`, and the first profile plus one source receipt commit atomically.
+- Bad: use a team-review permission, pass another employee ID, let description populate address fields, issue a fresh idempotency key after an unknown result, or create a scoped FK against only a primary `id` key.
+
+### 6. Tests Required
+
+- Web interaction tests assert both permissions, complete 33-control serialization, identity clear, profile projection refusal, source/employee/version binding, frozen original retry, known-conflict reload, receipt continuity, context abort and cross-panel mutex.
+- API contract tests assert exact route permissions, body-free audit/idempotency, transaction primitive and all scoped link constraints.
+- Opt-in owned-loopback PostgreSQL tests create the source table without pre-added `(tenant_id,park_id,id)` uniqueness, run migration `000355`, then prove source single effect, different-source profile CAS, rollback, scope/type/status/employee rejection and keyword count pagination.
+- Run API lint/typecheck and relevant pre-existing employee-profile contract/service/materialization tests; run Web lint/typecheck/interaction and desktop plus 390px rendered checks. Synthetic evidence does not replace production real-role UAT.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await profiles.save(profile);
+await links.insert({ approvalRequestId });
+// retries create a new body/key after a timeout
+```
+
+#### Correct
+
+```ts
+return dataSource.transaction(async manager => {
+  const source = await lockApprovedProfileSource(manager, scope, approvalId);
+  const profile = await saveEmployeeProfile(manager, scope, actor, source.subjectEmployeeId, dto);
+  return insertScopedFulfilmentReceipt(manager, source, profile, dto);
+});
+// The client retries the original frozen body, token and idempotency key.
+```
