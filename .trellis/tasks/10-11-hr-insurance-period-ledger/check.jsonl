@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "backend standards; read full index beyond injection if needed"}
+{"file": ".trellis/spec/api/backend/hr-insurance-owned-period.md", "reason": "immutable insurance inputs"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "frontend design and authorization"}
+{"file": ".trellis/spec/web/frontend/hr-contract-insurance-ledger-exports.md", "reason": "scoped complete export"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "month and enum controls"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "release and PG evidence"}

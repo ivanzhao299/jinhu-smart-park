@@ -1,0 +1,36 @@
+{
+  "id": "hr-insurance-period-ledger",
+  "name": "hr-insurance-period-ledger",
+  "title": "社保期间按月状态检索与完整台账导出",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api,web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-insurance-period-ledger-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/dto/hr-insurance-owned-period.dto.ts",
+    "apps/api/src/modules/hr/hr-insurance-owned-period.service.ts",
+    "apps/api/src/modules/hr/hr-insurance-owned-period.controller.ts",
+    "apps/web/app/hr/insurance/periods/HrInsuranceOwnedPeriodsClient.tsx",
+    "apps/web/app/hr/insurance/periods/period-ledger-export.ts",
+    "apps/web/lib/hr-api.ts"
+  ],
+  "notes": "Real isolated full-schema PostgreSQL month/status/current-history test PASS. Independent review and desktop/mobile browser acceptance in progress. Real-role business UAT remains separate; no production HR business writes.",
+  "meta": {
+    "productionBusinessWrites": false,
+    "baseline": "95b6257d724e7ca64671a21a9cd3e2a8aa57b90e"
+  }
+}

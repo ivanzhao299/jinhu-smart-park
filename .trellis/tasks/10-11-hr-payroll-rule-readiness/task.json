@@ -3,7 +3,7 @@
   "name": "hr-payroll-rule-readiness",
   "title": "工资核对规则准备与操作导航",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "web",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-11",
-  "completedAt": null,
+  "completedAt": "2026-10-11",
   "branch": "codex/hr-payroll-rule-readiness-20261011",
   "base_branch": "codex/hr-payroll-rule-readiness-20261011",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
-  "commit": null,
-  "pr_url": null,
+  "commit": "95b6257d724e7ca64671a21a9cd3e2a8aa57b90e",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/945",
   "subtasks": [],
   "children": [],
   "parent": "10-02-yuzhou-modern-production-parity",
@@ -28,6 +28,9 @@
     "latestCompleteMonth": "UNVERIFIED",
     "productionBusinessWrites": false,
     "localValidation": "7 interaction, lint,typecheck,22 API source contracts and1280/390 actual-component browser PASS",
-    "technicalDelivery": "CI_PRODUCTION_PENDING"
+    "technicalDelivery": "DEPLOYED_RUNTIME_VERIFIED",
+    "deployRun": 38079177338,
+    "observerRun": 38079857691,
+    "businessRoleUat": "PENDING"
   }
 }

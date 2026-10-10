@@ -89,6 +89,26 @@ test("full-schema exact lifecycle coexists with history; catalog survives full s
   assert.deepEqual(await history(), before);
 });
 
+test("full-schema period filters keep count/data scoped and current independent of status", { skip: !enabled }, async () => {
+  const october = await fixture();
+  const first = await service.confirm(scope, actor, confirmation(await service.preview(scope, actor, october)));
+  await service.close(scope, actor, { requestId: randomUUID(), revisionId: first.id, expectedPeriodVersion: first.revisionNo, reason: "合成关账" });
+  const correctionPreview = await service.preview(scope, actor, { ...october, requestId: randomUUID(), includeFund: true });
+  const correction = await service.correct(scope, actor, { ...confirmation(correctionPreview), previousRevisionId: first.id, expectedPeriodVersion: first.revisionNo });
+  const november = await service.confirm(scope, actor, confirmation(await service.preview(scope, actor, { ...october, requestId: randomUUID(), periodMonth: "2026-11" })));
+  const all = await service.list(scope, actor, { page: 1, page_size: 20, keyword: `SYNTHETIC-${october.employeeId}` });
+  assert.equal(all.total, 3); assert.deepEqual(all.items.map(item => item.id), [november.id, correction.id, first.id]);
+  const octoberRows = await service.list(scope, actor, { page: 1, page_size: 20, keyword: `SYNTHETIC-${october.employeeId}`, period_month: "2026-10" });
+  assert.equal(octoberRows.total, 2); assert.deepEqual(octoberRows.items.map(item => [item.id, item.status, item.current]), [[correction.id, "confirmed", true], [first.id, "closed", false]]);
+  const closedCurrent = await service.list(scope, actor, { page: 1, page_size: 20, keyword: `SYNTHETIC-${october.employeeId}`, status: "closed", revision: "current" });
+  assert.equal(closedCurrent.total, 0);
+  const closedHistory = await service.list(scope, actor, { page: 1, page_size: 20, keyword: `SYNTHETIC-${october.employeeId}`, status: "closed", revision: "history" });
+  assert.deepEqual(closedHistory.items.map(item => item.id), [first.id]); assert.equal(closedHistory.total, 1);
+  const currentPage = await service.list(scope, actor, { page: 1, page_size: 1, keyword: `SYNTHETIC-${october.employeeId}`, revision: "current" });
+  const currentSecondPage = await service.list(scope, actor, { page: 2, page_size: 1, keyword: `SYNTHETIC-${october.employeeId}`, revision: "current" });
+  assert.equal(currentPage.total, 2); assert.equal(currentSecondPage.total, 2); assert.notEqual(currentPage.items[0]?.id, currentSecondPage.items[0]?.id);
+});
+
 test("full-schema stable retries precede employee drift and reject actor/content or source changes", { skip: !enabled }, async () => {
   const dto = await fixture(), preview = await service.preview(scope, actor, dto), confirm = confirmation(preview);
   const confirmed = await service.confirm(scope, actor, confirm);

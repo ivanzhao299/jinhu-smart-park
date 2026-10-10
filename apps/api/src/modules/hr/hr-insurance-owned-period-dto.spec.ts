@@ -4,7 +4,7 @@ import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { HR_INSURANCE_KINDS } from "./hr-insurance-calculation";
-import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto } from "./dto/hr-insurance-owned-period.dto";
+import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto, HrInsuranceOwnedPeriodListQueryDto } from "./dto/hr-insurance-owned-period.dto";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const hash = "a".repeat(64);
@@ -32,5 +32,13 @@ test("confirm, close and correction require independent request and observed ver
   assert.ok((await validate(plainToInstance(CorrectHrInsuranceOwnedPeriodDto, confirm()), options)).length);
   for (const patch of [{ reason: "  " }, { expectedPreviewHash: hash.toUpperCase() }, { previewId: null }, { requestId: null }, { amounts: [] }]) {
     assert.ok((await validate(plainToInstance(ConfirmHrInsuranceOwnedPeriodDto, { ...confirm(), ...patch }), options)).length);
+  }
+});
+
+test("owned period list accepts only explicit month, state and revision filters", async () => {
+  const valid = { page: "2", page_size: "100", keyword: "员工", period_month: "2026-10", status: "closed", revision: "history" };
+  assert.equal((await validate(plainToInstance(HrInsuranceOwnedPeriodListQueryDto, valid), options)).length, 0);
+  for (const patch of [{ period_month: "2026-13" }, { period_month: "2026-1" }, { status: "open" }, { revision: "latest" }, { page_size: "101" }]) {
+    assert.ok((await validate(plainToInstance(HrInsuranceOwnedPeriodListQueryDto, { ...valid, ...patch }), options)).length);
   }
 });
