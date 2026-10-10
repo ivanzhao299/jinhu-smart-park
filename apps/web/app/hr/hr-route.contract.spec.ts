@@ -45,6 +45,11 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
     if(page === "talent/HrTalentClient.tsx") {
       assert.match(source,/ds-scene-grid/,"talent records must remain visible on desktop and phones");
       assert.doesNotMatch(source,/styles\.desktopSensitive/);
+    } else if(page === "approvals/HrApprovalsClient.tsx") {
+      assert.match(source,/className=\{styles\.employeeRecordList\}/,"approval records must remain visible on desktop and phones");
+      const recordGrid=styles.match(/\.employeeRecordList\s*\{([^}]*)\}/)?.[1]??"";
+      assert.match(recordGrid,/display:\s*grid/);
+      assert.doesNotMatch(recordGrid,/display:\s*none/);
     } else {
       assert.match(source,/ds-mobile-record-list/,`${page} must expose mobile records`);
     }
@@ -225,12 +230,17 @@ test("HR T6 360 feedback uses frozen setup, governed nominations and anonymous r
 test("HR M4 approvals separate applicant records from reviewer queue",()=>{
   const approvals=readFileSync(resolve(__dirname,"approvals/HrApprovalsClient.tsx"),"utf8");
   assert.match(approvals,/待我审核/);
-  assert.match(approvals,/showCreate \? <form/);
+  assert.match(approvals,/showCreate\s*&&\s*canSelf\s*\?\s*<form/);
+  assert.match(approvals,/onSubmit=\{create\}/);
   assert.match(approvals,/审核申请/);
   assert.match(approvals,/提交审核/);
   assert.match(approvals,/重新提交/);
   assert.match(approvals,/撤回/);
-  assert.match(approvals,/hrLoadErrorMessage\(error, "加载审批失败"\)/);
+  assert.match(approvals,/HR_APPROVAL_SELF_MANAGE/);
+  assert.match(approvals,/HR_APPROVAL_PARK_REVIEW,\s*HR_PERMISSIONS\.HR_APPROVAL_TEAM_REVIEW/);
+  assert.match(approvals,/setMineError/);
+  assert.match(approvals,/setPendingError/);
+  assert.doesNotMatch(approvals,/Promise\.all/);
 });
 
 test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{

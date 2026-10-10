@@ -18,3 +18,7 @@
 - Browser found shared scene-card icon-column misuse; switched to existing DS record surface and always-visible record grid, then recompiled/rechecked. No global CSS changes.
 - Evidence: `/Users/mac/.codex/artifacts/hr-approval-operation-continuity-20261010/`.
 - CI/release and actual-role UAT remain separately recorded; local evidence does not establish production business acceptance.
+
+## CI contract synchronization
+
+CI38012211908 exposed two legacy static route assertions requiring the old mobile-only list class and old form/error-loader syntax. Updated them to assert the actual always-visible DS record grid, controlled permission-gated create form, exact self/team/park atoms and independent error sections. Application source did not change. Full `pnpm --filter @jinhu/web test:unit:hr`: 235/235 PASS, zero skipped; targeted route-contract lint and diff check PASS. Existing 9 interaction tests and desktop/390px component evidence remain current because application source/dependencies are unchanged.
