@@ -369,3 +369,12 @@ Reference files:
 - `docs/index.md`
 - `docs/deployment/production.md`
 - `docs/release/production-go-live-checklist.md`
+
+
+## Payroll preparation observations
+
+- `scripts/diagnose-hr-payroll-readiness.mjs` is a fixed-scope aggregate observer, enabled explicitly with `diagnose_payroll_readiness` only in runtime-revision diagnosis. Keep its default false and retain the named observation artifact; it must not deploy, migrate, seed, freeze, calculate or pay.
+- Use a single bounded `REPEATABLE READ READ ONLY` transaction and fixed SQL. Return only strict, bounded month/count/state facts. SQL, permission, transport or shape failures must fail closed with fixed codes, never substitute zero counts or print raw database errors.
+- Count source and run entities separately to prevent join fanout. Follow authoritative source scope, deletion, receipt, binding and current-database control predicates; synthetic schema fixtures must not disable immutable guards to create impossible rows.
+- Latest observed payroll month comes from payroll facts, independently of attendance/insurance months. A maximum 24-month ordered list must expose its total and truncation. Counts never establish a complete period, employee coverage, amount equivalence or payment authority; Wu Enguo confirms the latest complete actual period and rules for calculate-only acceptance.
+- Bind actual production observation to its workflow/code revision and verified API/Web runtime receipt. Local fixtures and a healthy deployment cannot stand in for actual production input evidence or HR-role business acceptance.

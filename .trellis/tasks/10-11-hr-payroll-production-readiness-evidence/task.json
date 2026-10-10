@@ -1,0 +1,38 @@
+{
+  "id": "hr-payroll-production-readiness-evidence",
+  "name": "hr-payroll-production-readiness-evidence",
+  "title": "真实生产工资期间与输入准备取证",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-production-readiness-evidence-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "scripts/diagnose-hr-payroll-readiness.mjs",
+    "scripts/e2e/hr-payroll-readiness.contract.mjs",
+    "scripts/e2e/hr-payroll-readiness.pg.mjs",
+    ".github/workflows/deploy-production.yml",
+    "docs/deployment/hr-payroll-readiness-diagnosis.md"
+  ],
+  "notes": "",
+  "meta": {
+    "localValidation": "final 350-migration PostgreSQL fixture, 39 focused contracts, deploy verified scope, YAML and syntax PASS; cleanup0",
+    "technicalDelivery": "PENDING_CI_AND_PRODUCTION_OBSERVATION",
+    "businessCompleteMonthOwner": "wuenguo",
+    "latestCompleteMonth": "UNVERIFIED",
+    "productionBusinessWrites": false
+  }
+}
