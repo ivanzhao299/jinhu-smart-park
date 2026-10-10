@@ -588,3 +588,5 @@ Modern performance frozen reward evidence: [Reward Evidence](./hr-performance-re
 Formal editable positions and complete create/edit fields: [Position Maintenance](./hr-position-maintenance.md).
 
 Approval content revision and chronological history: [Content Revision and History](./hr-approval-content-history.md).
+
+Modern performance evaluation summary and dimension ledgers: [Performance Result Exports](./hr-performance-result-exports.md).
