@@ -1,0 +1,3 @@
+# 设计
+
+复用HrDepartureService现有锁定和状态事务。API只投影已有持久化version、reviewedAt，保持sensitive字段白名单；列表和写回执同一project。Web对现有十类写入统一捕获原请求与回执，完整受控申请和清场草稿。原employee picker保留授权检索，不借用员工目录权限。以真实version协调旧刷新，接受更高授权版本。实际审核意见取代固定模板，终态保留已办证据，未来日期和未完成清场不能确认离职。
