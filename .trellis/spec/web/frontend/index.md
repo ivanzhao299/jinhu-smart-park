@@ -602,3 +602,5 @@ Modern performance evaluation summary and dimension ledgers: [Performance Result
 - [Payroll source-period discovery](hr-payroll-source-period-discovery.md) — scoped actual month/count discovery and comparison preparation.
 
 - [Contract operation continuity](hr-contract-operation-continuity.md) — retained retries, matched write receipts and read recovery.
+
+- [Insurance correction input continuity](hr-insurance-correction-inputs.md) — exact original bases, explicit fund choice, prior/new comparison and immutable correction requests.

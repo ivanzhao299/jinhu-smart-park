@@ -70,3 +70,44 @@ it("closed current period correction binds predecessor and fixed month with a fr
   render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const form = await fill(true); expect(form.getByLabelText("核算月份")).toBeDisabled(); expect(hrApi.insuranceOwnedEmployees).toHaveBeenCalledWith("synthetic-token", 1, employee.employeeCode, expect.any(AbortSignal));
   fireEvent.click(form.getByRole("button", { name: "生成期间预览" })); await form.findByLabelText("待确认预览"); fireEvent.change(form.getByLabelText("操作依据"), { target: { value: "合成更正" } }); fireEvent.click(form.getByRole("button", { name: "确认更正" })); expect(await screen.findByText("2026-10 · 版本 2 已确认")).toBeVisible(); expect(hrApi.correctInsuranceOwnedPeriod).toHaveBeenCalledWith(expect.objectContaining({ previousRevisionId: period.id, expectedPeriodVersion: 1, expectedPreviewHash: preview.previewHash }), "synthetic-token", expect.any(String), expect.any(AbortSignal));
 });
+it("closed correction carries reordered six exact original bases and an explicit fund choice while requiring fresh employee and policy", async () => {
+  const exactBases = ["9007199254740991.01", "2.30", "3.40", "4.50", "5.60", "6.70"];
+  const closed = { ...period, status: "closed" as const, calculation: { ...calculation, includeFund: true, items: [...kinds].reverse().map((insuranceKind, index) => ({ ...calculation.items[index]!, insuranceKind, contributionBase: exactBases[kinds.indexOf(insuranceKind)]! })) } };
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [closed], total: 1, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockResolvedValue(closed);
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const form = await screen.findByLabelText("更正社保期间");
+  expect(within(form).getByLabelText("公积金汇总")).toHaveValue("include"); expect(within(form).getAllByRole("spinbutton").map(input => (input as HTMLInputElement).value)).toEqual(exactBases); expect(within(form).getByText(/仍须明确选择员工和政策版本/)).toBeVisible();
+  expect(within(form).getByLabelText("员工")).toHaveValue(""); expect(within(form).getByLabelText("政策版本")).toHaveValue("");
+});
+it("incomplete original correction warns without guessing and new creation remains empty", async () => {
+  const incomplete = { ...period, status: "closed" as const, calculation: { ...calculation, includeFund: undefined as unknown as boolean, items: [...calculation.items.slice(0, 4), { ...calculation.items[0]!, contributionBase: "bad" }] } };
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [incomplete], total: 1, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockResolvedValue(incomplete);
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const correction = await screen.findByLabelText("更正社保期间");
+  expect(within(correction).getByRole("alert")).toHaveTextContent(/原记录输入不完整/); expect(within(correction).getByLabelText("公积金汇总")).toHaveValue(""); expect(within(correction).getAllByRole("spinbutton").some(input => (input as HTMLInputElement).value === "")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "新建期间" })); const fresh = await screen.findByLabelText("新建社保期间"); expect(within(fresh).getByLabelText("公积金汇总")).toHaveValue(""); expect(within(fresh).getAllByRole("spinbutton").every(input => (input as HTMLInputElement).value === "")).toBe(true);
+});
+it("incomplete original detail stays readable and withholds its amount comparison", async () => {
+  const incomplete = { ...period, status: "closed" as const, calculation: { ...calculation, items: undefined as unknown as typeof calculation.items, totals: undefined as unknown as typeof calculation.totals } };
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [incomplete], total: 1, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockResolvedValue(incomplete);
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); const detail = await screen.findByLabelText("现代期间详情"); expect(within(detail).getByRole("alert")).toHaveTextContent("核算结果不完整"); fireEvent.click(within(detail).getByRole("button", { name: "更正期间" })); const correction = await screen.findByLabelText("更正社保期间"); expect(within(correction).getByText("原金额对照不完整，需补齐原输入后再以新预览核对。")).toBeVisible();
+});
+it("malformed original amount text is withheld instead of appearing as a valid comparison", async () => {
+  const malformed = { ...period, status: "closed" as const, calculation: { ...calculation, totals: { ...calculation.totals, employer: "not-a-decimal" } } };
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [malformed], total: 1, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockResolvedValue(malformed);
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); const detail = await screen.findByLabelText("现代期间详情"); expect(within(detail).getByRole("alert")).toHaveTextContent("核算结果不完整"); expect(within(detail).queryByText(/单位 ¥ not-a-decimal/)).toBeNull();
+  fireEvent.click(within(detail).getByRole("button", { name: "更正期间" })); const correction = await screen.findByLabelText("更正社保期间"); expect(within(correction).getByRole("alert")).toHaveTextContent("核算结果不完整");
+});
+it("editing a correction input clears its preview while retaining the readonly original comparison", async () => {
+  const closed = { ...period, status: "closed" as const }; vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [closed], total: 1, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockResolvedValue(closed);
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" })); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const form = await fill(true);
+  fireEvent.click(form.getByRole("button", { name: "生成期间预览" })); await form.findByLabelText("待确认预览"); fireEvent.change(form.getAllByRole("spinbutton")[0]!, { target: { value: "11.00" } });
+  expect(form.queryByLabelText("待确认预览")).toBeNull(); expect(form.getByLabelText("原版本输入与结果")).toHaveTextContent("基数 10.00");
+});
+it("correction failures retain the original retry key and switching closed targets resets the carried draft", async () => {
+  const second = { ...period, id: "second-revision", periodMonth: "2026-11", revisionNo: 4, employeeCode: "SYN-2", calculation: { ...calculation, includeFund: true, items: kinds.map((insuranceKind, index) => ({ ...calculation.items[index]!, insuranceKind, contributionBase: `${index + 20}.00` })) } };
+  const first = { ...period, status: "closed" as const }; const closedSecond = { ...second, status: "closed" as const };
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [first, closedSecond], total: 2, page: 1, page_size: 20 }); vi.mocked(hrApi.insuranceOwnedPeriod).mockImplementation(id => Promise.resolve(id === second.id ? closedSecond : first)); vi.mocked(hrApi.correctInsuranceOwnedPeriod).mockRejectedValueOnce(new Error("synthetic failure"));
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findAllByRole("button", { name: "查看期间" }).then(buttons => buttons[0]!)); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const firstForm = await fill(true);
+  fireEvent.click(firstForm.getByRole("button", { name: "生成期间预览" })); await firstForm.findByLabelText("待确认预览"); fireEvent.change(firstForm.getByLabelText("操作依据"), { target: { value: "保留重试" } }); fireEvent.click(firstForm.getByRole("button", { name: "确认更正" })); await firstForm.findByRole("alert"); fireEvent.click(firstForm.getByRole("button", { name: "确认更正" })); await waitFor(() => expect(hrApi.correctInsuranceOwnedPeriod).toHaveBeenCalledTimes(2));
+  const retries = vi.mocked(hrApi.correctInsuranceOwnedPeriod).mock.calls; expect(retries[0]![0]).toEqual(retries[1]![0]); expect(retries[0]![2]).toBe(retries[1]![2]); fireEvent.click(screen.getAllByRole("button", { name: "查看期间" })[1]!); fireEvent.click(await screen.findByRole("button", { name: "更正期间" })); const secondForm = await screen.findByLabelText("更正社保期间");
+  expect(within(secondForm).getByLabelText("核算月份")).toHaveValue("2026-11"); expect(within(secondForm).getByLabelText("公积金汇总")).toHaveValue("include"); expect((within(secondForm).getAllByRole("spinbutton")[0] as HTMLInputElement).value).toBe("20.00");
+});

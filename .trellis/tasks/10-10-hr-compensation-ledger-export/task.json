@@ -22,5 +22,17 @@
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {},
+  "technical_delivery": {
+    "status": "DEPLOYED_RUNTIME_VERIFIED",
+    "pr": 941,
+    "merged_sha": "db0177a600c52a4dea60ce9e9925d680415f9154",
+    "api_runtime_sha": "db0177a600c52a4dea60ce9e9925d680415f9154",
+    "web_runtime_sha": "db0177a600c52a4dea60ce9e9925d680415f9154",
+    "deploy_run": 38061063494,
+    "observer_run": 38062168605,
+    "health": "PASS",
+    "docker_cleanup": "PASS"
+  },
+  "business_acceptance": "PENDING_REAL_HR_ROLE_UAT"
 }

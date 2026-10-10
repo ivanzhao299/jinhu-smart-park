@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-insurance-owned-period.md", "reason": "Existing immutable financial contract"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "Exact constrained input requirements"}
+{"file": ".trellis/spec/web/frontend/hr-insurance-amounts.md", "reason": "Exact insurance display and DS"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing controls and helpers"}
