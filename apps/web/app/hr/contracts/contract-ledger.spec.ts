@@ -91,3 +91,12 @@ test("new selection during mutation detail followup wins; failed active total bl
  const other=fixture(),load=other.ledger.load();other.lists[0]!.response.resolve(page(1));other.active[0]!.reject(new Error("failed"));await load;
  assert.equal(other.ledger.getSnapshot().rows.length,0);assert.equal(other.ledger.getSnapshot().message,"加载劳动合同失败");
 });
+
+for(const failure of ["list","detail"] as const)test(`committed receipt survives ${failure} refresh failure and read retry never repeats write`,async()=>{
+ const {ledger,lists,active,details}=await loaded();const receipt={id:"row-0",contractNo:"SYN-CONTRACT",status:"draft"};let writes=0;
+ const pending=ledger.mutate(async()=>{writes++;return receipt;},{selectedId:"row-0",refreshList:failure==="list",success:"saved",failure:"write failed",receipt:r=>(r as typeof receipt).contractNo});await tick();assert.deepEqual(ledger.getSnapshot().receipt?.result,receipt);
+ if(failure==="list"){lists[1]!.response.reject(new Error("offline"));active[1]!.resolve(57);}else details[0]!.response.reject(new Error("offline"));await pending;
+ assert.equal(ledger.getSnapshot().receipt?.label,"SYN-CONTRACT");assert.equal(ledger.getSnapshot().receipt?.refreshFailed,true);assert.match(ledger.getSnapshot().message,/saved.*已提交/);assert.equal(writes,1);
+ const retry=ledger.load();const last=lists.at(-1)!;last.response.resolve(page(1));active.at(-1)!.resolve(57);await retry;assert.deepEqual(ledger.getSnapshot().receipt?.result,receipt);assert.equal(ledger.getSnapshot().receipt?.refreshFailed,false);assert.equal(writes,1);
+ ledger.configure({...query,contextKey:"different-user"});assert.equal(ledger.getSnapshot().receipt,null);
+});

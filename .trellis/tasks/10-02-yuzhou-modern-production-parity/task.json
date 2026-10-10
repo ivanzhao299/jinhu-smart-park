@@ -86,7 +86,8 @@
     "10-10-hr-performance-result-export",
     "10-10-hr-rehire-operation-continuity",
     "10-10-hr-workforce-detail-ledgers",
-"10-10-hr-payroll-source-period-discovery"
+    "10-10-hr-payroll-source-period-discovery",
+    "10-10-hr-contract-operation-continuity"
   ],
   "parent": null,
   "relatedFiles": [

@@ -1,0 +1,20 @@
+{
+  "id": "hr-contract-operation-continuity",
+  "name": "hr-contract-operation-continuity",
+  "title": "合同新建续签变更的重试与回执连续性",
+  "status": "in_progress",
+  "package": "web",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "branch": "codex/hr-contract-operation-continuity-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "children": [],
+  "meta": {
+    "baselineSha": "7d5a428ea50278f230e6ddbcb98fd758842f43c3",
+    "predecessorPr": 934
+  }
+}
