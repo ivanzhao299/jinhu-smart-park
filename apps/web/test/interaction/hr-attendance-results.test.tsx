@@ -113,7 +113,8 @@ it("changing a daily filter cancels an in-flight export even when the transport 
 it("monthly export collects the selected period and refuses a changed summary version",async()=>{
  vi.mocked(hrApi.attendanceMonthSummaries).mockImplementation(async(id,_token,current=1,size=100)=>page(Array.from({length:Math.min(size,101-(current-1)*size)},(_,i)=>summary(`${id}-员工${(current-1)*size+i+1}`)),101,current,size));
  render(<HrAttendanceClient/>);await screen.findByText("期间第 1 / 2 页 · 共 25 期");fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[1]!);
- await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());vi.mocked(hrApi.attendanceMonthSummaries).mockClear();
+ // Wait for the selected period's facts before collecting its export pages.
+ await screen.findByText(/period-b-员工1 ·/);await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());vi.mocked(hrApi.attendanceMonthSummaries).mockClear();
  fireEvent.click(screen.getByRole("button",{name:"导出筛选月考勤汇总"}));await screen.findByText("已导出 101 条匹配月考勤汇总。");
  const calls=vi.mocked(hrApi.attendanceMonthSummaries).mock.calls;expect(calls.map(c=>c[2])).toEqual([1,2,1]);expect(calls.every(c=>c[0]==="period-b"&&c[1]==="synthetic-token"&&c[3]===100&&c[4] instanceof AbortSignal)).toBe(true);
  expect(vi.mocked(downloadCsv).mock.calls[0]![0]).toContain("2026-09");expect(vi.mocked(downloadCsv).mock.calls[0]![0]).toContain("period-b-员工101");
