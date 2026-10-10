@@ -1,0 +1,31 @@
+{
+  "id": "hr-payroll-source-period-discovery",
+  "name": "hr-payroll-source-period-discovery",
+  "title": "工资核对可用月份与记录概况",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api+web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-source-period-discovery-20261010",
+  "base_branch": "codex/hr-payroll-source-period-discovery-20261010",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baselineSha": "0949a5e9a8ccf7fdf05ce59b34192e823f8a2784",
+    "predecessorPr": 933,
+    "owner": "吴恩国",
+    "dataSelection": "最新完整真实数据，月份待生产核实"
+  }
+}

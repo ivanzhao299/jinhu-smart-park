@@ -592,3 +592,5 @@ Formal editable positions and complete create/edit fields: [Position Maintenance
 Approval content revision and chronological history: [Content Revision and History](./hr-approval-content-history.md).
 
 Modern performance evaluation summary and dimension ledgers: [Performance Result Exports](./hr-performance-result-exports.md).
+
+- [Payroll source-period discovery](hr-payroll-source-period-discovery.md) — scoped actual month/count discovery and comparison preparation.

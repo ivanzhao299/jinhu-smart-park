@@ -480,6 +480,22 @@
   margin: 0;
 }
 
+.sourcePeriodList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.sourcePeriodList > p,
+.sourcePeriodList > .actionRow {
+  grid-column: 1 / -1;
+}
+
+.sourcePeriodList :global(.ds-button) {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 .sourceConfirmation {
   display: flex;
   align-items: center;
@@ -761,6 +777,10 @@
 }
 
 @media (max-width: 520px) {
+  .sourcePeriodList {
+    grid-template-columns: 1fr;
+  }
+
   .page {
     gap: 16px;
   }

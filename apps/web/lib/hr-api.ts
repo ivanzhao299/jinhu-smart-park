@@ -132,6 +132,7 @@ export interface HrPayrollReconciliationSourcePreview {
   bindingSha256: string; sourceSha256: string;
   snapshotCount: number; itemCount: number; employeeCount: number;
 }
+export interface HrPayrollReconciliationSourcePeriod {periodMonth:string;recordCount:number;mappedRecordCount:number;unmappedRecordCount:number;mappedEmployeeCount:number;mappedItemCount:number;}
 export interface HrPayrollReconciliationSource {
   id: string; legacyBatchId: string; bookId: string; bookName?: string;
   periodMonth: string; snapshotCount: number; itemCount: number;
@@ -699,6 +700,7 @@ previewPayrollReconciliationSource: (
   ) => unwrap(apiRequest<HrPayrollReconciliationSourcePreview>(
     `/hr/payroll/reconciliation-sources/preview?${new URLSearchParams(query)}`, {token,signal},
   )),
+payrollReconciliationSourcePeriods:(query:{legacyBatchId:string;bookId:string},token?:string,page=1,pageSize=50,signal?:AbortSignal)=>unwrap(apiRequest<{items:HrPayrollReconciliationSourcePeriod[];total:number;page:number;pageSize:number}>(`/hr/payroll/reconciliation-sources/periods?${new URLSearchParams({legacyBatchId:query.legacyBatchId,bookId:query.bookId,page:String(page),pageSize:String(pageSize)})}`,{token,signal})),
 createPayrollReconciliationSource: (
     body: Omit<HrPayrollReconciliationSourcePreview,"employeeCount"> & {reason:string}, token?:string,
   ) => unwrap(apiRequest<HrPayrollReconciliationSource>("/hr/payroll/reconciliation-sources", {

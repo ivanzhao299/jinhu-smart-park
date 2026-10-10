@@ -104,6 +104,13 @@ export class HrPayrollReconciliationSourcePreviewDto {
   @IsDateString({ strict: true }) @Matches(/^\d{4}-(0[1-9]|1[0-2])-01$/) periodMonth!: string;
 }
 
+export class HrPayrollReconciliationSourcePeriodQueryDto {
+  @IsUUID() legacyBatchId!: string;
+  @IsUUID() bookId!: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize?: number = 50;
+}
+
 export class CreateHrPayrollReconciliationSourceDto extends HrPayrollReconciliationSourcePreviewDto {
   @Matches(/^[0-9a-f]{64}$/) bindingSha256!: string;
   @Matches(/^[0-9a-f]{64}$/) sourceSha256!: string;
