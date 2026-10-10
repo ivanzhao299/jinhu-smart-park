@@ -731,9 +731,9 @@ reviewPayrollReconciliation: (
         { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
       ),
     )
- ,myApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/me",{token}))
- ,pendingApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/pending",{token}))
- ,createApproval:(body:object,token?:string)=>unwrap(apiRequest<HrApproval>("/hr/approvals",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
- ,approvalAction:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/actions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
- ,reviewApproval:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/review`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,myApprovals:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/me",{token,signal}))
+ ,pendingApprovals:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/pending",{token,signal}))
+ ,createApproval:(body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>("/hr/approvals",{method:"POST",body,token,idempotencyKey}))
+ ,approvalAction:(id:string,body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/actions`,{method:"POST",body,token,idempotencyKey}))
+ ,reviewApproval:(id:string,body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrApproval>(`/hr/approvals/${id}/review`,{method:"POST",body,token,idempotencyKey}))
 };

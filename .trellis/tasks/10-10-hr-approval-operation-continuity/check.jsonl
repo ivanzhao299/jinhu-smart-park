@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "read full584lines directly; injected entry exceeds size limit"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "constrained selectors and preserve failed forms"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared guides"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse DS and existing API state machine"}

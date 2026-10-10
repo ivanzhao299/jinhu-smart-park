@@ -37,6 +37,7 @@ Recruitment and initial onboarding complete result browsing: [Recruitment Result
 These rules describe the current Next.js management frontend in `apps/web`.
 
 Employee directory scoped, complete filtered CSV: [Employee Directory Export](./hr-employee-directory-export.md).
+Human resources approval operation continuity: [HR Approval Operation Continuity](./hr-approval-operation-continuity.md).
 
 Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
 

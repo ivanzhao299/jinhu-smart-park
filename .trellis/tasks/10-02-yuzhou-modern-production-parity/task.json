@@ -74,7 +74,8 @@
     "10-10-hr-attendance-schedule-continuity-20261010",
     "10-10-hr-attendance-approved-fact-continuity-20261010",
     "10-10-hr-approved-request-recalculation-20261010",
-    "10-10-hr-employee-organization-filter"
+    "10-10-hr-employee-organization-filter",
+    "10-10-hr-approval-operation-continuity"
   ],
   "parent": null,
   "relatedFiles": [
