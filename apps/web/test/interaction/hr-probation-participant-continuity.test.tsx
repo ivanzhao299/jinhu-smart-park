@@ -10,7 +10,7 @@ vi.mock("../../lib/hr-api",()=>({hrApi:{employees:vi.fn(),probationApplications:
 const employee=(n:number)=>({id:`employee-${n}`,fullName:`Synthetic ${n}`,employeeCode:`SYN-${n}`,employmentStatus:"probation"}) as HrEmployee;
 const candidates=(page=1,items=Array.from({length:20},(_,i)=>employee((page-1)*20+i+1)),total=121)=>({items,page,page_size:20,total});
 const participant=(n:number,date="2090-02-01")=>({id:`participant-${n}`,employeeId:`employee-${n}`,employeeName:`Synthetic ${n}`,employeeCode:`SYN-${n}`,plannedConfirmationDate:date,confirmedDate:null,status:"pending"});
-const application=(n:number,participants=[participant(199)]):HrProbationApplication=>({id:`application-${n}`,applicationNo:`SYN-APP-${n}`,applicationName:`Application ${n}`,applicationDate:"2090-01-01",reason:"Synthetic reason",status:"draft",reviewComment:null,reviewedAt:null,confirmedAt:null,participants});
+const application=(n:number,participants=[participant(199)]):HrProbationApplication=>({version:1,id:`application-${n}`,applicationNo:`SYN-APP-${n}`,applicationName:`Application ${n}`,applicationDate:"2090-01-01",reason:"Synthetic reason",status:"draft",reviewComment:null,reviewedAt:null,confirmedAt:null,participants});
 const list=(page=1,items=Array.from({length:20},(_,i)=>application((page-1)*20+i+1)),total=51)=>({items,page,page_size:20,total});
 function form(){return screen.getByRole("button",{name:/保存(修改|申请草稿)/}).closest("form")!;}
 function participantEditor(){return screen.getByRole("group",{name:"试用期员工与计划转正日期"});}
@@ -123,11 +123,11 @@ it("allows native validity with a retained participant and no unadded candidate 
  vi.mocked(hrApi.probationApplications).mockResolvedValue(list(1,[application(1,[participant(199),participant(200)])],1));vi.mocked(hrApi.updateProbationApplication).mockRejectedValue(new Error("Synthetic conflict"));
  render(<ProbationApplicationsPanel/>);fireEvent.click(await screen.findByRole("button",{name:"修改"}));await screen.findByRole("option",{name:"Synthetic 1 · SYN-1"});
  expect(screen.getByLabelText("员工")).toHaveValue("");expect(form().checkValidity()).toBe(true);fireEvent.change(screen.getByLabelText("申请名称"),{target:{value:"Corrected name"}});fireEvent.change(within(participantEditor()).getAllByLabelText("计划转正日期")[0]!,{target:{value:"2090-05-01"}});
- fireEvent.submit(form());await screen.findByText("Synthetic conflict");await act(async()=>{});expect(screen.getByLabelText("申请名称")).toHaveValue("Corrected name");expect(within(participantEditor()).getAllByLabelText("计划转正日期")[0]).toHaveValue("2090-05-01");expect(screen.getByRole("button",{name:"移除 Synthetic 200"})).toBeVisible();
+ fireEvent.submit(form());await screen.findByText(/Synthetic conflict/);await act(async()=>{});expect(screen.getByLabelText("申请名称")).toHaveValue("Corrected name");expect(within(participantEditor()).getAllByLabelText("计划转正日期")[0]).toHaveValue("2090-05-01");expect(screen.getByRole("button",{name:"移除 Synthetic 200"})).toBeVisible();
 });
 
 it("keeps the deliberately opened application and complete participant payload across application pagination",async()=>{
  vi.mocked(hrApi.probationApplications).mockImplementation(async(_token,page=1)=>list(page,[application(page===1?1:21,[participant(page===1?199:299)])],21));
  render(<ProbationApplicationsPanel/>);fireEvent.click(await screen.findByRole("button",{name:"修改"}));fireEvent.click(within(screen.getByRole("navigation",{name:"转正申请分页"})).getByRole("button",{name:"下一页"}));await screen.findByText(/Application 21 · 草稿/);
- fireEvent.submit(form());await waitFor(()=>expect(hrApi.updateProbationApplication).toHaveBeenCalledTimes(1));expect(vi.mocked(hrApi.updateProbationApplication).mock.calls[0]).toEqual(["application-1",expect.objectContaining({participants:[{employeeId:"employee-199",plannedConfirmationDate:"2090-02-01"}]}),"synthetic-token"]);
+ fireEvent.submit(form());await waitFor(()=>expect(hrApi.updateProbationApplication).toHaveBeenCalledTimes(1));expect(vi.mocked(hrApi.updateProbationApplication).mock.calls[0]).toEqual(["application-1",expect.objectContaining({participants:[{employeeId:"employee-199",plannedConfirmationDate:"2090-02-01"}]}),"synthetic-token",expect.any(String)]);
 });
