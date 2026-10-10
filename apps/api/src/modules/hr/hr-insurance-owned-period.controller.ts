@@ -7,7 +7,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
-import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto } from "./dto/hr-insurance-owned-period.dto";
+import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto, HrInsuranceOwnedPeriodListQueryDto } from "./dto/hr-insurance-owned-period.dto";
 import { HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { HrInsuranceOwnedPeriodService } from "./hr-insurance-owned-period.service";
 
@@ -39,7 +39,7 @@ export class HrInsuranceOwnedPeriodController {
   correct(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CorrectHrInsuranceOwnedPeriodDto) { return this.service.correct(scope, actor, dto); }
 
   @Get()
-  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: HrInsurancePolicyQueryDto) { return this.service.list(scope, actor, query); }
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: HrInsuranceOwnedPeriodListQueryDto) { return this.service.list(scope, actor, query); }
 
   @Get("employees")
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE)

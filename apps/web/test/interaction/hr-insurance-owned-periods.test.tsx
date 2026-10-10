@@ -40,6 +40,25 @@ it("denied roles and disabled module issue no reads; readers do not probe action
   view.rerender(<HrInsuranceOwnedPeriodsClient />); await screen.findByText(/没有已确认/);
   expect(screen.queryByRole("button", { name: "新建期间" })).toBeNull(); expect(hrApi.insuranceOwnedEmployees).not.toHaveBeenCalled(); expect(hrApi.insurancePolicyVersions).not.toHaveBeenCalled();
 });
+it("submits month, status and revision filters together, clears detail state and fences export until submission", async () => {
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [period], total: 1, page: 1, page_size: 20 });
+  render(<HrInsuranceOwnedPeriodsClient />); await screen.findByRole("button", { name: "查看期间" });
+  fireEvent.click(screen.getByRole("button", { name: "查看期间" })); await screen.findByLabelText("现代期间详情");
+  fireEvent.change(screen.getByLabelText("所属月份"), { target: { value: "2026-10" } }); fireEvent.change(screen.getByLabelText("关账状态"), { target: { value: "closed" } }); fireEvent.change(screen.getByLabelText("版本范围"), { target: { value: "history" } });
+  expect(screen.getByRole("button", { name: "导出筛选现代社保期间" })).toBeDisabled(); fireEvent.click(screen.getByRole("button", { name: "搜索期间" }));
+  await waitFor(() => expect(hrApi.insuranceOwnedPeriods).toHaveBeenLastCalledWith("synthetic-token", 1, { keyword: undefined, periodMonth: "2026-10", status: "closed", revision: "history" }, expect.any(AbortSignal)));
+  expect(screen.queryByLabelText("现代期间详情")).toBeNull(); expect(screen.getByRole("button", { name: "导出筛选现代社保期间" })).toBeEnabled();
+});
+it("releases the export fence when a detail request is aborted by an explicit filter change", async () => {
+  let finish!: (value: HrInsuranceOwnedPeriodListItem) => void;
+  vi.mocked(hrApi.insuranceOwnedPeriods).mockResolvedValue({ items: [period], total: 1, page: 1, page_size: 20 });
+  vi.mocked(hrApi.insuranceOwnedPeriod).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<HrInsuranceOwnedPeriodsClient />); fireEvent.click(await screen.findByRole("button", { name: "查看期间" }));
+  expect(screen.getByRole("button", { name: "导出筛选现代社保期间" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("所属月份"), { target: { value: "2026-10" } }); fireEvent.click(screen.getByRole("button", { name: "搜索期间" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "导出筛选现代社保期间" })).toBeEnabled());
+  await act(async () => finish(period)); expect(screen.queryByLabelText("现代期间详情")).toBeNull();
+});
 it("explicit preview binds observed employee and policy; confirm uses returned hash and reason", async () => {
   render(<HrInsuranceOwnedPeriodsClient />); const form = await fill();
   fireEvent.click(form.getByRole("button", { name: "生成期间预览" })); await form.findByLabelText("待确认预览");

@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
-import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto } from "./dto/hr-insurance-owned-period.dto";
+import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, CorrectHrInsuranceOwnedPeriodDto, CreateHrInsuranceOwnedPreviewDto, HrInsuranceOwnedPeriodListQueryDto } from "./dto/hr-insurance-owned-period.dto";
 import { HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { calculateInsurancePreview, HR_INSURANCE_KINDS, type InsuranceCalculationItem } from "./hr-insurance-calculation";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
@@ -183,14 +183,23 @@ export class HrInsuranceOwnedPeriodService {
     });
   }
 
-  async list(scope: TenantParkScope, actor: JwtPrincipal, value: HrInsurancePolicyQueryDto) {
+  async list(scope: TenantParkScope, actor: JwtPrincipal, value: HrInsuranceOwnedPeriodListQueryDto) {
     this.authority(actor);
-    const query = await this.input(HrInsurancePolicyQueryDto, value);
+    const query = await this.input(HrInsuranceOwnedPeriodListQueryDto, value);
     return this.db.transaction("REPEATABLE READ", async manager => {
-      const params = [scope.tenantId, scope.parkId, `%${query.keyword?.trim() ?? ""}%`];
-      const filter = "r.tenant_id=$1 AND r.park_id=$2 AND NOT e.is_deleted AND (e.employee_code ILIKE $3 OR e.full_name ILIKE $3)";
-      const total = (await manager.query(`SELECT count(*)::int AS n FROM hr_insurance_owned_revision r JOIN hr_employee e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id AND e.park_id=r.park_id WHERE ${filter}`, params))[0].n as number;
-      const rows: Array<RevisionRow & { employee_code: string; full_name: string; closed: boolean; current: boolean }> = await manager.query(`SELECT ${revisionColumns},e.employee_code,e.full_name,EXISTS(SELECT 1 FROM hr_insurance_owned_close c WHERE c.tenant_id=r.tenant_id AND c.park_id=r.park_id AND c.revision_id=r.id) AS closed,NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision next WHERE next.tenant_id=r.tenant_id AND next.park_id=r.park_id AND next.employee_id=r.employee_id AND next.period_month=r.period_month AND next.revision_no>r.revision_no) AS current FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id JOIN hr_employee e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id AND e.park_id=r.park_id WHERE ${filter} ORDER BY r.period_month DESC,e.employee_code,r.revision_no DESC,r.id LIMIT $4 OFFSET $5`, [...params, query.page_size, (query.page - 1) * query.page_size]);
+      const params: unknown[] = [scope.tenantId, scope.parkId, `%${query.keyword?.trim() ?? ""}%`];
+      const predicates = ["r.tenant_id=$1", "r.park_id=$2", "NOT e.is_deleted", "(e.employee_code ILIKE $3 OR e.full_name ILIKE $3)"];
+      const current = "NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision next WHERE next.tenant_id=r.tenant_id AND next.park_id=r.park_id AND next.employee_id=r.employee_id AND next.period_month=r.period_month AND next.revision_no>r.revision_no)";
+      const closed = "EXISTS(SELECT 1 FROM hr_insurance_owned_close c WHERE c.tenant_id=r.tenant_id AND c.park_id=r.park_id AND c.revision_id=r.id)";
+      if (query.period_month) { params.push(`${query.period_month}-01`); predicates.push(`r.period_month=$${params.length}::date`); }
+      if (query.status) predicates.push(query.status === "closed" ? closed : `NOT ${closed}`);
+      // Current/history always probes every later revision, independent of the status filter above.
+      if (query.revision) predicates.push(query.revision === "current" ? current : `NOT ${current}`);
+      const filter = predicates.join(" AND ");
+      const from = "hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id JOIN hr_employee e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id AND e.park_id=r.park_id";
+      const total = (await manager.query(`SELECT count(*)::int AS n FROM ${from} WHERE ${filter}`, params))[0].n as number;
+      const limitIndex = params.length + 1, offsetIndex = params.length + 2;
+      const rows: Array<RevisionRow & { employee_code: string; full_name: string; closed: boolean; current: boolean }> = await manager.query(`SELECT ${revisionColumns},e.employee_code,e.full_name,${closed} AS closed,${current} AS current FROM ${from} WHERE ${filter} ORDER BY r.period_month DESC,e.employee_code,r.revision_no DESC,r.id LIMIT $${limitIndex} OFFSET $${offsetIndex}`, [...params, query.page_size, (query.page - 1) * query.page_size]);
       await this.auditRead(manager, scope, actor, rows.length);
       return { items: rows.map(row => ({ ...this.revisionProjection(row), employeeCode: row.employee_code, fullName: row.full_name, status: row.closed ? "closed" : "confirmed", current: row.current })), total, page: query.page, page_size: query.page_size };
     });
