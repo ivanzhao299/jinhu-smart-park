@@ -13,3 +13,12 @@ test("approved employment fulfillment is permission-gated, source-versioned, lin
  assert.match(migration,/uq_hr_job_change_approval_fulfillment_source UNIQUE/);assert.match(migration,/uq_hr_job_change_approval_fulfillment_target UNIQUE/);assert.match(migration,/FOREIGN KEY\(tenant_id,park_id,approval_request_id\)/);assert.match(migration,/FOREIGN KEY\(tenant_id,park_id,job_change_application_id\)/);
  assert.doesNotMatch(service,/UPDATE hr_employee SET[^`]*createFromApproval/);
 });
+
+// Route :id identifies the source request; target IDs are recorded by fulfillment history.
+test("from-approval operation audit identifies the source approval rather than a job-change ID",()=>{
+ const route=controller.split(' @Post("from-approval/:id")')[1]?.split(' @Put(":id")')[0];
+ assert.ok(route);
+ assert.match(route,/resource:"hr\.approval"/);
+ assert.match(route,/bizType:"hr_approval",bizIdParam:"id",captureBody:false/);
+ assert.doesNotMatch(route,/bizType:"hr_job_change_application"/);
+});

@@ -86,7 +86,7 @@ describe("employee profile read admission", () => {
   it("clears the identity explicitly for an imported employee without changing current employment", async () => {
     vi.mocked(hrApi.employee).mockResolvedValue({ ...employee(), legacyJobstateCode: "A", legacyJobstateName: "原状态" });
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), idType: "passport", idNumber: "SYN-PASSPORT-001" });
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     expect(screen.getByLabelText("证件号（加密保存）")).toHaveValue("SYN-PASSPORT-001");
     const provenance=screen.getByText("资料来源与沿革").closest("details")!;
@@ -96,39 +96,39 @@ describe("employee profile read admission", () => {
     expect(screen.queryByText(/玉舟基础档案|玉舟历史兼容|旧系统资料/)).toBeNull();
     fireEvent.change(screen.getByLabelText("证件号（加密保存）"), { target: { value: "" } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({expectedVersion:7,idNumber:"",idType:"passport"}),"synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({expectedVersion:7,idNumber:"",idType:"passport"}),"synthetic-test-token",expect.any(String)));
     expect(screen.getByText(/当前状态：在职/)).toBeInTheDocument();
   });
   it("preserves the loaded identity when saving another field", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), idType: "passport", idNumber: "SYN-PASSPORT-001" });
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.change(screen.getByLabelText("档案备注"), {target:{value:"Edited note"}});
     fireEvent.submit(screen.getByRole("button", {name:"保存敏感档案"}).closest("form")!);
-    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",expect.objectContaining({idNumber:"SYN-PASSPORT-001",remark:"Edited note",expectedVersion:7}),"synthetic-test-token"));
+    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",expect.objectContaining({idNumber:"SYN-PASSPORT-001",remark:"Edited note",expectedVersion:7}),"synthetic-test-token",expect.any(String)));
   });
   it.each(["未说明", "1", "0"])("preserves an existing gender value %s when editing another field", async gender => {
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), gender });
-    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), gender });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), gender, version:8 });
     render(<HrEmployeesClient />); await openFirst();
     expect(screen.getByLabelText("性别")).toHaveValue(gender);
     fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "Edited note" } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender, remark: "Edited note" }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender, remark: "Edited note" }), "synthetic-test-token",expect.any(String)));
   });
   it.each(["女", ""])("allows an operator to replace or clear an existing gender value", async gender => {
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), gender: "未说明" });
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.change(screen.getByLabelText("性别"), { target: { value: gender } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender: gender || undefined }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, gender: gender || undefined }), "synthetic-test-token",expect.any(String)));
   });
   it("carries edits for all 33 fixed business fields through the real maintenance form", async () => {
     const expected={idType:"passport",idNumber:"SYN-PASSPORT-002",englishName:"Changed name",gender:"男",dateOfBirth:"1990-02-03",ethnicity:"民族",nativePlace:"籍贯",politicalStatus:"政治面貌",partyJoinDate:"2015-03-04",heightCm:173,weightKg:68,maritalStatus:"婚姻状况",healthStatus:"健康状况",householdRegistration:"户口所在地",highestEducation:"最高学历",major:"专业",degree:"学位",foreignLanguage:"外语",languageLevel:"外语水平",graduationDate:"2013-07-01",graduationSchool:"学校",homePhone:"SYN-HOME",jobTitle:"职务",jobGrade:"级别",employeeCategory:"类别",technicalTitle:"职称",technicalGrade:"职称级别",personalMobile:"SYN-MOBILE",personalEmail:"changed@example.invalid",address:"地址",emergencyContactName:"联系人",emergencyContactMobile:"SYN-CONTACT",remark:"备注"};
     expect(Object.keys(expected)).toHaveLength(33);
     vi.mocked(hrApi.profile).mockResolvedValue(profile());
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     const form=screen.getByRole("button",{name:"保存敏感档案"}).closest("form")!;
     for(const [name,value] of Object.entries(expected)){
@@ -139,7 +139,7 @@ describe("employee profile read admission", () => {
       fireEvent.change(control as HTMLInputElement,{target:{value:String(value)}});
     }
     fireEvent.submit(form);
-    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",{...expected,expectedVersion:7},"synthetic-test-token"));
+    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha",{...expected,expectedVersion:7},"synthetic-test-token",expect.any(String)));
   });
   it("rejects missing read versions instead of assuming the latest", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), version: undefined } as unknown as HrEmployeeProfile);
@@ -149,10 +149,10 @@ describe("employee profile read admission", () => {
   });
   it("sends zero only after a successful absent-profile read", async () => {
     vi.mocked(hrApi.profile).mockResolvedValueOnce(null).mockResolvedValue(profile());
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 0 }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 0 }), "synthetic-test-token",expect.any(String)));
   });
   it("retains edits after 409, blocks retries, and requires explicit discard/reload", async () => {
     vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockResolvedValue({ ...profile(), version: 8, highestEducation: "Latest saved value" });
@@ -163,7 +163,7 @@ describe("employee profile read admission", () => {
     fireEvent.submit(form);
     await screen.findByText("档案已被更新，当前编辑内容已保留。请先核对或复制您的修改，再重新加载最新档案后保存。");
     expect(screen.getByLabelText("最高学历")).toHaveValue("My unsaved edit");
-    expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, highestEducation: "My unsaved edit" }), "synthetic-test-token");
+    expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ expectedVersion: 7, highestEducation: "My unsaved edit" }), "synthetic-test-token",expect.any(String));
     expect(screen.getByRole("button", { name: "保存敏感档案" })).toBeDisabled();
     fireEvent.submit(form);
     expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
@@ -171,7 +171,7 @@ describe("employee profile read admission", () => {
     fireEvent.click(screen.getByRole("button", { name: "放弃本次编辑并重新加载" }));
     await waitFor(() => expect(screen.getByLabelText("最高学历")).toHaveValue("Latest saved value"));
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenLastCalledWith("alpha", expect.objectContaining({ expectedVersion: 8 }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenLastCalledWith("alpha", expect.objectContaining({ expectedVersion: 8 }), "synthetic-test-token",expect.any(String)));
   });
   it("does not expose a blank replacement form after a failed read", async () => {
     vi.mocked(hrApi.profile).mockRejectedValue(new Error("synthetic unavailable"));
@@ -218,50 +218,143 @@ describe("employee profile read admission", () => {
   });
   it("removes edit admission when a successful save cannot be read back", async () => {
     vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockRejectedValueOnce(new Error("synthetic readback unavailable"));
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await screen.findByText("档案已保存，但重新读取失败，请重新加载。");
+    await screen.findByText("敏感档案已保存，但重新读取失败。可只重新读取档案，无需再次保存。");
     expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
-    expect(screen.getByRole("button", { name: "重新加载档案" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "保存敏感档案" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "重新读取已保存档案" })).toBeEnabled();
+  });
+  it("retries an unknown outcome with the exact retained profile request and freezes its draft", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockRejectedValueOnce(new Error("synthetic lost response")).mockResolvedValueOnce({ ...profile(), version: 8 }).mockResolvedValueOnce({ ...profile(), version: 9 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.change(screen.getByLabelText("最高学历"), { target: { value: "Retained draft" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await screen.findByText(/档案保存结果未确认/);
+    expect(screen.getByLabelText("最高学历")).toBeDisabled();
+    const first=vi.mocked(hrApi.updateProfile).mock.calls[0]!;
+    fireEvent.click(screen.getByRole("button", { name: "重试原保存" }));
+    await waitFor(()=>expect(hrApi.updateProfile).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(hrApi.updateProfile).mock.calls[1]).toEqual(first);
+    await screen.findByText(/敏感档案已保存，但重新读取失败/);
+    fireEvent.change(screen.getByLabelText("最高学历"), { target: { value: "Next version" } });
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(hrApi.updateProfile).mock.calls[2]).toEqual(["alpha", expect.objectContaining({ expectedVersion: 8, highestEducation: "Next version" }), "synthetic-test-token", expect.any(String)]);
+    expect(vi.mocked(hrApi.updateProfile).mock.calls[2]![3]).not.toBe(first[3]);
+  });
+  it("keeps an idempotency-processing 409 frozen and retries its exact request", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockRejectedValueOnce(new ApiError("The same idempotency key is still processing", 409)).mockResolvedValueOnce({ ...profile(), version: 8 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await screen.findByText(/档案保存结果未确认/);
+    const first = vi.mocked(hrApi.updateProfile).mock.calls[0]!;
+    expect(screen.getByRole("button", { name: "保存敏感档案" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "重试原保存" }));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(hrApi.updateProfile).mock.calls[1]).toEqual(first);
+  });
+  it("freezes custom-value controls while a profile save outcome is pending", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue({ ...profile(), customFields: [{ definitionId: "extension", version: 2, code: "extension", label: "保留扩展字段", valueType: "text", group: null, sortOrder: 0, value: "retained", sourceValid: true }] });
+    vi.mocked(hrApi.updateProfile).mockReturnValue(new Promise(() => {}));
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledOnce());
+    expect(screen.getByRole("textbox", { name: "保留扩展字段" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "清空此字段" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存字段" })).toBeDisabled();
+    expect(hrApi.updateCustomValue).not.toHaveBeenCalled();
+  });
+  it("keeps a malformed successful receipt retryable without a follow-up read", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), version: 7 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await screen.findByText(/档案保存结果未确认/);
+    expect(hrApi.profile).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "重试原保存" })).toBeEnabled();
+  });
+  it("suppresses a late profile receipt after unmount without starting readback", async () => {
+    let resolve: (value: HrEmployeeProfile) => void = () => {};
+    vi.mocked(hrApi.profile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockReturnValue(new Promise(done => { resolve = done; }));
+    const view = render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledOnce());
+    view.unmount();
+    resolve({ ...profile(), version: 8 });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(hrApi.profile).toHaveBeenCalledTimes(1);
+  });
+  it("recovers a saved receipt with a read-only retry", async () => {
+    vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockRejectedValueOnce(new Error("synthetic readback unavailable")).mockResolvedValueOnce({ ...profile(), version: 7, highestEducation: "Stale" }).mockResolvedValueOnce({ ...profile(), version: 9, highestEducation: "Recovered" });
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), version: 8 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await screen.findByText(/敏感档案已保存，但重新读取失败/);
+    fireEvent.click(screen.getByRole("button", { name: "重新读取已保存档案" }));
+    await screen.findByText("档案已保存，但重新读取失败，请稍后重试。");
+    expect(screen.getByLabelText("最高学历")).toHaveValue("Synthetic education");
+    expect(screen.getByRole("button", { name: "重新读取已保存档案" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "重新读取已保存档案" }));
+    await screen.findByText("已读取已保存的最新档案。");
+    expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
+    expect(hrApi.profile).toHaveBeenCalledTimes(4);
+    expect(screen.getByLabelText("最高学历")).toHaveValue("Recovered");
+  });
+  it("synchronously suppresses duplicate saved-profile recovery clicks", async () => {
+    let resolve: (value: HrEmployeeProfile) => void = () => {};
+    vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockRejectedValueOnce(new Error("synthetic readback unavailable")).mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({ ...profile(), version: 8 });
+    render(<HrEmployeesClient />); await openFirst();
+    fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
+    await screen.findByText(/敏感档案已保存，但重新读取失败/);
+    const recover = screen.getByRole("button", { name: "重新读取已保存档案" });
+    fireEvent.click(recover); fireEvent.click(recover);
+    await waitFor(() => expect(hrApi.profile).toHaveBeenCalledTimes(3));
+    resolve({ ...profile(), version: 8 });
+    await screen.findByText("已读取已保存的最新档案。");
   });
   it("requires reload when a successful save reads back only a masked profile", async () => {
     vi.mocked(hrApi.profile).mockResolvedValueOnce(profile()).mockResolvedValueOnce(profile("alpha", true));
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await screen.findByText("档案已保存，请重新加载后再维护。");
+    await screen.findByText("敏感档案已保存，但重新读取失败。可只重新读取档案，无需再次保存。");
     expect(hrApi.updateProfile).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "保存敏感档案" })).toBeNull();
-    expect(screen.getByRole("button", { name: "重新加载档案" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "保存敏感档案" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "重新读取已保存档案" })).toBeEnabled();
   });
 
   it("retains an existing profile remark when saving another field", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue(profile());
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     expect(screen.getByLabelText("档案备注")).toHaveValue("Synthetic existing note");
     fireEvent.change(screen.getByLabelText("最高学历"), { target: { value: "Synthetic updated education" } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ highestEducation: "Synthetic updated education", remark: "Synthetic existing note" }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ highestEducation: "Synthetic updated education", remark: "Synthetic existing note" }), "synthetic-test-token",expect.any(String)));
   });
   it("submits an edited remark with the backend length limit", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue(profile());
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     expect(screen.getByLabelText("档案备注")).toHaveAttribute("maxlength", "500");
     fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "Synthetic amended note" } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: "Synthetic amended note" }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: "Synthetic amended note" }), "synthetic-test-token",expect.any(String)));
   });
   it("allows deliberately clearing a remark through the existing replacement API", async () => {
     vi.mocked(hrApi.profile).mockResolvedValue(profile());
-    vi.mocked(hrApi.updateProfile).mockResolvedValue(profile());
+    vi.mocked(hrApi.updateProfile).mockResolvedValue({...profile(),version:8});
     render(<HrEmployeesClient />); await openFirst();
     fireEvent.change(screen.getByLabelText("档案备注"), { target: { value: "" } });
     fireEvent.submit(screen.getByRole("button", { name: "保存敏感档案" }).closest("form")!);
-    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: undefined }), "synthetic-test-token"));
+    await waitFor(() => expect(hrApi.updateProfile).toHaveBeenCalledWith("alpha", expect.objectContaining({ remark: undefined }), "synthetic-test-token",expect.any(String)));
   });
 
 });

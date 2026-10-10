@@ -1,0 +1,30 @@
+{
+  "id": "hr-profile-maintenance-continuity",
+  "name": "hr-profile-maintenance-continuity",
+  "title": "员工敏感档案连续维护与真实保存回执",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web,api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-profile-maintenance-continuity-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baselineSha": "0f816730ceab6b337d52714b01ac6a0b14706789",
+    "payrollOwner": "吴恩国",
+    "payrollSource": "latest complete real production data; calculate only; actual period unverified"
+  }
+}

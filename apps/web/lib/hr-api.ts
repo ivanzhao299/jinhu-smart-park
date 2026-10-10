@@ -459,7 +459,7 @@ export const hrApi={
  myProfile:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrEmployeeProfile|null>("/hr/employees/me/profile",{token,signal,skipUnauthorizedReset:true})),
  customValues:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{employeeId:string;fields:NonNullable<HrEmployeeProfile["customFields"]>}>(`/hr/employees/${id}/custom-fields`,{token,signal})),
  updateCustomValue:(id:string,definitionId:string,body:{expectedVersion:number;value:string|null},token?:string)=>unwrap(apiRequest<{definitionId:string;version:number;valueStatus:"valid"|"null"}>(`/hr/employees/${id}/custom-fields/${definitionId}`,{method:"PUT",body,token,idempotencyKey:createIdempotencyKey("hr-custom-value")})),
- updateProfile:(id:string,body:{expectedVersion:number}&Record<string,unknown>,token?:string)=>unwrap(apiRequest<HrEmployeeProfile>(`/hr/employees/${id}/profile`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()})),
+ updateProfile:(id:string,body:{expectedVersion:number}&Record<string,unknown>,token?:string,idempotencyKey=createIdempotencyKey("hr-employee-profile"))=>unwrap(apiRequest<HrEmployeeProfile>(`/hr/employees/${id}/profile`,{method:"PUT",body,token,idempotencyKey})),
  transition:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}/transitions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),
  positions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPosition[]>("/hr/positions",{token,signal})),
  positionMaintenanceOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPositionMaintenanceOptions>("/hr/positions/maintenance-options",{token,signal})),
