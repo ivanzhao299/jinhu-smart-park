@@ -256,6 +256,8 @@ export function HrPayrollClient() {
           <ReconciliationWorkbench
             canCalculate={canCalculateDifference}
             canReview={canReviewDifference}
+            canReadRules={canRules}
+            onOpenRules={() => setArea("rules")}
           />
         ) : null}
       </main>
@@ -266,14 +268,19 @@ export function HrPayrollClient() {
 function ReconciliationWorkbench({
   canCalculate,
   canReview,
+  canReadRules,
+  onOpenRules,
 }: {
   canCalculate: boolean;
   canReview: boolean;
+  canReadRules: boolean;
+  onOpenRules: () => void;
 }) {
   const user=useAuthUser();
   const contextKey=JSON.stringify([user?.id,user?.tenant_id,user?.park_id,user?.permissions,user?.roles,user?.is_super,user?.data_scope,user?.data_scopes,user?.field_policies]);
   const simulationContext=useRef(contextKey);simulationContext.current=contextKey;
   const simulationAbort=useRef<AbortController|null>(null);
+  const policyFormRef=useRef<HTMLFormElement|null>(null);
   const [page, setPage] = useState(1),
     [result, setResult] =
       useState<PaginatedResult<HrPayrollReconciliation>>(EMPTY_PAGE),
@@ -435,7 +442,7 @@ function ReconciliationWorkbench({
   };
   return (
     <>
-      {canCalculate && reconciliationSetup ? <PayrollInputReadiness setup={reconciliationSetup} sourceSelected={Boolean(selectedFrozenSource || selectedPublishedSource)} frozenSource={selectedFrozenSource ?? null} attendance={inputPairReady ? selectedAttendance : undefined} insuranceSelected={inputPairReady && Boolean(insuranceChoices)} canReadAttendance={hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_READ) || hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ)} /> : null}
+      {canCalculate && reconciliationSetup ? <PayrollInputReadiness setup={reconciliationSetup} sourceSelected={Boolean(selectedFrozenSource || selectedPublishedSource)} frozenSource={selectedFrozenSource ?? null} attendance={inputPairReady ? selectedAttendance : undefined} insuranceSelected={inputPairReady && Boolean(insuranceChoices)} canReadAttendance={hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_READ) || hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ)} canReadRules={canReadRules} canReviewReconciliation={canReview} onOpenRules={onOpenRules} onOpenPolicy={() => { policyFormRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); policyFormRef.current?.focus(); }} /> : null}
       <div className={styles.desktopSensitive}>
         {message ? (
           <p className="form-error" role="alert">
@@ -450,7 +457,7 @@ function ReconciliationWorkbench({
                 <h2>账套净额核对策略</h2>
               </div>
             </div>
-            <form className={workbenchStyles.formGrid} action={savePolicy}>
+            <form ref={policyFormRef} className={workbenchStyles.formGrid} action={savePolicy} tabIndex={-1}>
               <label className="form-field">
                 <span>工资账套</span>
                 <select
