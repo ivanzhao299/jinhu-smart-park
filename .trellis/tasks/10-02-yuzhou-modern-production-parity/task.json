@@ -81,7 +81,8 @@
     "10-10-hr-approval-returned-edit-history",
     "10-10-hr-job-change-operation-continuity",
     "10-10-hr-job-change-employee-selection",
-    "10-10-hr-probation-operation-continuity"
+    "10-10-hr-probation-operation-continuity",
+    "10-10-hr-departure-operation-continuity"
   ],
   "parent": null,
   "relatedFiles": [

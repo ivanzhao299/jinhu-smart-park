@@ -13,5 +13,5 @@ it("all five probation writes forward caller retry keys and immutable bodies",as
 
 it("existing probation callers without an explicit key still receive generated action keys",async()=>{
  await hrApi.createProbationApplication({},"token");await hrApi.updateProbationApplication("application",{},"token");await hrApi.probationApplicationAction("application","resubmit","token");await hrApi.reviewProbationApplication("application","approve","","token");await hrApi.confirmProbationApplication("application","token");
- expect(createIdempotencyKey.mock.calls.map(call=>call[0])).toEqual(["hr-probation-create","hr-probation-update","hr-probation-resubmit","hr-probation-approve","hr-probation-confirm"]);expect(apiRequest).toHaveBeenCalledTimes(5);for(const call of vi.mocked(apiRequest).mock.calls)expect(call[1]).toEqual(expect.objectContaining({idempotencyKey:"generated-key"}));
+ expect(vi.mocked(createIdempotencyKey).mock.calls.map(call=>call[0])).toEqual(["hr-probation-create","hr-probation-update","hr-probation-resubmit","hr-probation-approve","hr-probation-confirm"]);expect(apiRequest).toHaveBeenCalledTimes(5);for(const call of vi.mocked(apiRequest).mock.calls)expect(call[1]).toEqual(expect.objectContaining({idempotencyKey:"generated-key"}));
 });

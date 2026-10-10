@@ -10,7 +10,7 @@ vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../lib/hr-api",()=>({hrApi:{departureApplications:vi.fn(),departureEmployeeOptions:vi.fn(),createDepartureApplication:vi.fn(),updateDepartureApplication:vi.fn(),recordDepartureHandover:vi.fn()}}));
 const option=(n:number)=>({id:`employee-${n}`,employeeName:`员工${n}`,employeeCode:`E${n}`,orgId:null,orgName:null,employmentStatus:"active"});
 const response=(n=1,total=620):HrDepartureEmployeeOptions=>({items:[option(n)],page:1,page_size:20,total,selected:null});
-const row=(status="draft"):HrDepartureApplication=>({id:`application-${status}`,employeeId:"employee-601",employeeName:"员工601",employeeCode:"E601",applicationName:"保留名称",reason:"原原因",status,applicationNo:"LZ2026100001",applicationDate:"2026-10-01",plannedDepartureDate:"2026-10-08",departureType:"主动离职",orgName:null,interviewStatus:"pending",surveyStatus:"pending",handoverStatus:"pending",wageStatus:"pending",archiveStatus:"open",appliedAt:null});
+const row=(status="draft"):HrDepartureApplication=>({version:1,id:`application-${status}`,employeeId:"employee-601",employeeName:"员工601",employeeCode:"E601",applicationName:"保留名称",reason:"原原因",status,applicationNo:"LZ2026100001",applicationDate:"2026-10-01",plannedDepartureDate:"2026-10-08",departureType:"主动离职",orgName:null,interviewStatus:"pending",surveyStatus:"pending",handoverStatus:"pending",wageStatus:"pending",archiveStatus:"open",appliedAt:null});
 beforeEach(()=>{vi.resetAllMocks();state.user={id:"actor",permissions:[HR_PERMISSIONS.HR_DEPARTURE_READ,HR_PERMISSIONS.HR_DEPARTURE_MANAGE,HR_PERMISSIONS.HR_DEPARTURE_HANDOVER]};vi.mocked(hrApi.departureApplications).mockResolvedValue({items:[row(),row("approved")],total:2,page:1,page_size:50});vi.mocked(hrApi.departureEmployeeOptions).mockImplementation(async(_purpose,page,keyword)=>({...response(keyword?601:page===2?21:1),page:page??1}));});
 describe("departure employee selection continuity",()=>{
  it("preserves the bound off-page employee and the entire failed edit draft",async()=>{
@@ -20,7 +20,7 @@ describe("departure employee selection continuity",()=>{
   fireEvent.change(screen.getByLabelText("员工搜索"),{target:{value:"other"}});await waitFor(()=>expect(hrApi.departureEmployeeOptions).toHaveBeenLastCalledWith("application",1,"other","synthetic-token",expect.any(AbortSignal),undefined,undefined));
   fireEvent.change(screen.getByLabelText("离职原因"),{target:{value:"失败也保留的原因"}});fireEvent.click(screen.getByRole("button",{name:"保存修改"}));
   await screen.findByRole("alert");expect(employee).toHaveValue("employee-601");expect(screen.getByLabelText("离职原因")).toHaveValue("失败也保留的原因");expect(screen.getByLabelText("申请名称")).toHaveValue("保留名称");
-  expect(hrApi.updateDepartureApplication).toHaveBeenCalledWith("application-draft",expect.objectContaining({employeeId:"employee-601",reason:"失败也保留的原因"}),"synthetic-token");
+  expect(hrApi.updateDepartureApplication).toHaveBeenCalledWith("application-draft",expect.objectContaining({employeeId:"employee-601",reason:"失败也保留的原因"}),"synthetic-token",expect.any(String));
  });
  it("searches beyond 500 and retains the chosen original id after paging",async()=>{
   render(<DepartureEmployeePicker purpose="application" name="employeeId" label="员工"/>);await screen.findByRole("option",{name:"员工1 · E1"});
@@ -48,7 +48,7 @@ describe("departure employee selection continuity",()=>{
   fireEvent.click(screen.getByRole("button",{name:"办理清场"}));await screen.findByRole("option",{name:"员工1 · E1"});fireEvent.change(screen.getByLabelText("接交员工"),{target:{value:"employee-1"}});
   expect(screen.getByLabelText("员工")).toHaveValue("employee-601");expect(screen.getByLabelText("接交员工")).toHaveValue("employee-1");
   fireEvent.change(screen.getByLabelText("离职原因"),{target:{value:"新申请原因"}});fireEvent.click(screen.getByRole("button",{name:"保存申请草稿"}));await screen.findByRole("alert");
-  expect(hrApi.createDepartureApplication).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-601",reason:"新申请原因"}),"synthetic-token");expect(screen.getByLabelText("员工")).toHaveValue("employee-601");expect(screen.getByLabelText("离职原因")).toHaveValue("新申请原因");expect(screen.getByLabelText("接交员工")).toHaveValue("employee-1");
+  expect(hrApi.createDepartureApplication).toHaveBeenCalledWith(expect.objectContaining({employeeId:"employee-601",reason:"新申请原因"}),"synthetic-token",expect.any(String));expect(screen.getByLabelText("员工")).toHaveValue("employee-601");expect(screen.getByLabelText("离职原因")).toHaveValue("新申请原因");expect(screen.getByLabelText("接交员工")).toHaveValue("employee-1");
  });
  it("no departure scope exposes no picker or generic employee query",async()=>{state.user.permissions=[HR_PERMISSIONS.HR_DEPARTURE_SELF_READ,HR_PERMISSIONS.HR_DEPARTURE_MANAGE];render(<DepartureApplicationsPanel/>);await screen.findByText("离职申请与清场");expect(hrApi.departureEmployeeOptions).not.toHaveBeenCalled();expect(screen.queryByLabelText("员工搜索")).toBeNull();});
 });
