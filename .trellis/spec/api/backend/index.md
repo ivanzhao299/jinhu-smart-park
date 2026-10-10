@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Workforce department and enabled-position aggregate ledgers: [Workforce Detail Ledgers](./hr-workforce-detail-ledgers.md).
+
 Approved attendance source/month-close continuity: [Approved Facts](./hr-attendance-approved-fact-continuity.md).
 Editable employee-day schedule and month continuity: [Schedule Continuity](./hr-attendance-schedule-continuity.md).
 

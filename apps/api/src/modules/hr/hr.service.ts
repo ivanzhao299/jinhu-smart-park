@@ -167,7 +167,7 @@ export class HrService {
   if(!Number.isFinite(from)||!Number.isFinite(to)||from>to)throw new BadRequestException("Workforce decision snapshot date range is invalid");
   if(to-from>maxSpan)throw new BadRequestException("Workforce decision snapshot range exceeds 25 years");
   const rows=await this.dataSource.query(`WITH workforce AS (
-    SELECT employment_status,employment_type,position_id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+    SELECT employment_status,employment_type,primary_org_id,position_id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
    ), workforce_totals AS (
     SELECT count(*)::int employee_total,count(*) FILTER(WHERE employment_status IN ('active','probation'))::int active_headcount FROM workforce
    ), workforce_by_status AS (
@@ -176,14 +176,35 @@ export class HrService {
    ), workforce_by_type AS (
     SELECT coalesce(jsonb_agg(jsonb_build_object('type',employment_type,'count',employee_count) ORDER BY employee_count DESC,employment_type),'[]'::jsonb) items
     FROM (SELECT employment_type,count(*)::int employee_count FROM workforce GROUP BY employment_type) grouped
+   ), organizations AS (
+    SELECT id,org_code,org_name,status,planned_headcount FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+   ), department_details AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'code',department_code,'name',department_name,'status',department_status,'employeeTotal',employee_total,
+      'activeCount',active_count,'probationCount',probation_count,'preboardingCount',preboarding_count,
+      'suspendedCount',suspended_count,'departedCount',departed_count,'plannedHeadcount',planned_headcount
+    ) ORDER BY (department_code IS NULL),department_name,department_code),'[]'::jsonb) items
+    FROM (
+      SELECT organization.org_code department_code,coalesce(organization.org_name,'未归属') department_name,
+        coalesce(organization.status,'unassigned') department_status,organization.planned_headcount,
+        count(workforce.employment_status)::int employee_total,
+        count(*) FILTER(WHERE workforce.employment_status='active')::int active_count,
+        count(*) FILTER(WHERE workforce.employment_status='probation')::int probation_count,
+        count(*) FILTER(WHERE workforce.employment_status='preboarding')::int preboarding_count,
+        count(*) FILTER(WHERE workforce.employment_status='suspended')::int suspended_count,
+        count(*) FILTER(WHERE workforce.employment_status='departed')::int departed_count
+      FROM organizations organization FULL OUTER JOIN workforce ON workforce.primary_org_id=organization.id
+      WHERE organization.id IS NOT NULL OR workforce.employment_status IS NOT NULL
+      GROUP BY organization.org_code,organization.org_name,organization.status,organization.planned_headcount
+    ) grouped
    ), active_workforce AS (
     SELECT position_id FROM workforce WHERE employment_status IN ('active','probation')
    ), enabled_positions AS (
-    SELECT id,headcount_limit FROM hr_position WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='enabled'
+    SELECT id,org_id,position_code,position_name,headcount_limit FROM hr_position WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND status='enabled'
    ), staffing_by_position AS (
-    SELECT position.id,position.headcount_limit,count(workforce.position_id)::int assigned_headcount
+    SELECT position.id,position.org_id,position.position_code,position.position_name,position.headcount_limit,count(workforce.position_id)::int assigned_headcount
     FROM enabled_positions position LEFT JOIN active_workforce workforce ON workforce.position_id=position.id
-    GROUP BY position.id,position.headcount_limit
+    GROUP BY position.id,position.org_id,position.position_code,position.position_name,position.headcount_limit
    ), staffing_totals AS (
     SELECT count(*)::int position_total,
       count(*) FILTER(WHERE headcount_limit IS NOT NULL)::int configured_position_count,
@@ -196,6 +217,14 @@ export class HrService {
    ), staffing_unassigned AS (
     SELECT count(*) FILTER(WHERE position.id IS NULL)::int active_unassigned_headcount
     FROM active_workforce workforce LEFT JOIN enabled_positions position ON position.id=workforce.position_id
+   ), position_details AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'orgCode',organization.org_code,'orgName',coalesce(organization.org_name,'未归属'),'positionCode',position.position_code,'positionName',position.position_name,
+      'headcountLimit',position.headcount_limit,'activeHeadcount',position.assigned_headcount,
+      'vacancyCount',CASE WHEN position.headcount_limit IS NULL THEN NULL ELSE greatest(position.headcount_limit-position.assigned_headcount,0) END,
+      'overCapacityCount',CASE WHEN position.headcount_limit IS NULL THEN NULL ELSE greatest(position.assigned_headcount-position.headcount_limit,0) END
+    ) ORDER BY coalesce(organization.org_name,'未归属'),position.position_code,position.position_name),'[]'::jsonb) items
+    FROM staffing_by_position position LEFT JOIN organizations organization ON organization.id=position.org_id
    ), filtered_events AS (
     SELECT event_type,effective_date,employee_id,is_historical_import FROM hr_employment_event
     WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
@@ -209,10 +238,12 @@ export class HrService {
    ), event_by_month AS (
     SELECT coalesce(jsonb_agg(jsonb_build_object('month',month_key,'count',event_count) ORDER BY month_key),'[]'::jsonb) items
     FROM (SELECT to_char(date_trunc('month',effective_date),'YYYY-MM') month_key,count(*)::int event_count FROM filtered_events GROUP BY date_trunc('month',effective_date)) grouped
-   ) SELECT workforce_totals.employee_total,workforce_totals.active_headcount,workforce_by_status.items "byStatus",workforce_by_type.items "byType",staffing_totals.position_total,staffing_totals.configured_position_count,staffing_totals.unconfigured_position_count,staffing_totals.headcount_limit,staffing_totals.active_assigned_headcount,staffing_totals.vacancy_count,staffing_totals.over_capacity_position_count,staffing_unassigned.active_unassigned_headcount,event_totals.total,event_totals.employee_count,event_totals.historical_count,event_totals.online_count,event_by_type.items "eventByType",event_by_month.items "eventByMonth"
-   FROM workforce_totals CROSS JOIN workforce_by_status CROSS JOIN workforce_by_type CROSS JOIN staffing_totals CROSS JOIN staffing_unassigned CROSS JOIN event_totals CROSS JOIN event_by_type CROSS JOIN event_by_month`,[scope.tenantId,scope.parkId,q.from,q.to]);
+   ) SELECT workforce_totals.employee_total,workforce_totals.active_headcount,workforce_by_status.items "byStatus",workforce_by_type.items "byType",department_details.items departments,staffing_totals.position_total,staffing_totals.configured_position_count,staffing_totals.unconfigured_position_count,staffing_totals.headcount_limit,staffing_totals.active_assigned_headcount,staffing_totals.vacancy_count,staffing_totals.over_capacity_position_count,staffing_unassigned.active_unassigned_headcount,position_details.items positions,event_totals.total,event_totals.employee_count,event_totals.historical_count,event_totals.online_count,event_by_type.items "eventByType",event_by_month.items "eventByMonth"
+   FROM workforce_totals CROSS JOIN workforce_by_status CROSS JOIN workforce_by_type CROSS JOIN department_details CROSS JOIN staffing_totals CROSS JOIN staffing_unassigned CROSS JOIN position_details CROSS JOIN event_totals CROSS JOIN event_by_type CROSS JOIN event_by_month`,[scope.tenantId,scope.parkId,q.from,q.to]);
   const row=(rows[0]??{}) as Record<string,unknown>,counts=(value:unknown,key:string)=>Array.isArray(value)?value.map(item=>({[key]:String((item as Record<string,unknown>)[key]),count:Number((item as Record<string,unknown>).count)})):[];
-  const result={from:q.from,to:q.to,employeeTotal:Number(row.employee_total??0),activeHeadcount:Number(row.active_headcount??0),byStatus:counts(row.byStatus,"status"),byType:counts(row.byType,"type"),staffing:{positionTotal:Number(row.position_total??0),configuredPositionCount:Number(row.configured_position_count??0),unconfiguredPositionCount:Number(row.unconfigured_position_count??0),headcountLimit:Number(row.headcount_limit??0),activeAssignedHeadcount:Number(row.active_assigned_headcount??0),activeUnassignedHeadcount:Number(row.active_unassigned_headcount??0),vacancyCount:Number(row.vacancy_count??0),overCapacityPositionCount:Number(row.over_capacity_position_count??0)},employmentEvents:{total:Number(row.total??0),employeeCount:Number(row.employee_count??0),historicalCount:Number(row.historical_count??0),onlineCount:Number(row.online_count??0),byType:counts(row.eventByType,"eventType"),byMonth:counts(row.eventByMonth,"month")}};
+  const departmentRows=Array.isArray(row.departments)?row.departments.map(item=>{const value=item as Record<string,unknown>;return {code:typeof value.code==="string"?value.code:null,name:String(value.name??"未归属"),status:String(value.status??"unassigned"),employeeTotal:Number(value.employeeTotal??0),activeCount:Number(value.activeCount??0),probationCount:Number(value.probationCount??0),preboardingCount:Number(value.preboardingCount??0),suspendedCount:Number(value.suspendedCount??0),departedCount:Number(value.departedCount??0),plannedHeadcount:value.plannedHeadcount==null?null:Number(value.plannedHeadcount)};}):[];
+  const positionRows=Array.isArray(row.positions)?row.positions.map(item=>{const value=item as Record<string,unknown>;return {orgCode:typeof value.orgCode==="string"?value.orgCode:null,orgName:String(value.orgName??"未归属"),positionCode:String(value.positionCode??""),positionName:String(value.positionName??""),headcountLimit:value.headcountLimit==null?null:Number(value.headcountLimit),activeHeadcount:Number(value.activeHeadcount??0),vacancyCount:value.vacancyCount==null?null:Number(value.vacancyCount),overCapacityCount:value.overCapacityCount==null?null:Number(value.overCapacityCount)};}):[];
+  const result={from:q.from,to:q.to,employeeTotal:Number(row.employee_total??0),activeHeadcount:Number(row.active_headcount??0),byStatus:counts(row.byStatus,"status"),byType:counts(row.byType,"type"),departments:departmentRows,staffing:{positionTotal:Number(row.position_total??0),configuredPositionCount:Number(row.configured_position_count??0),unconfiguredPositionCount:Number(row.unconfigured_position_count??0),headcountLimit:Number(row.headcount_limit??0),activeAssignedHeadcount:Number(row.active_assigned_headcount??0),activeUnassignedHeadcount:Number(row.active_unassigned_headcount??0),vacancyCount:Number(row.vacancy_count??0),overCapacityPositionCount:Number(row.over_capacity_position_count??0)},positions:positionRows,employmentEvents:{total:Number(row.total??0),employeeCount:Number(row.employee_count??0),historicalCount:Number(row.historical_count??0),onlineCount:Number(row.online_count??0),byType:counts(row.eventByType,"eventType"),byMonth:counts(row.eventByMonth,"month")}};
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.decision_center.workforce",action:"读取人员决策聚合",bizType:"hr_employee",bizId:null,path:"/hr/decision-center/workforce",fieldGroups:[],projection:"park",itemCount:result.employeeTotal});
   return result;
  }

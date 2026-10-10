@@ -1,0 +1,6 @@
+# 技术设计
+
+扩展现有HrService.workforceDecisionSnapshot单个WITH查询，添加部门/岗位聚合，响应增加departments/positions数组，保留全部既有字段。共享同一数据库快照，沿用当前园区聚合权限。每个员工在部门台账最多一行；聚合前先限制组织scope。部门行可用code+name等构成展示键，不输出UUID；未知部门为单一null汇总行。全部真实组织可包含零员工及禁用组织，显示状态。
+岗位沿用现有enabled_positions及staffing_by_position。聚合里使用id但投影只返回名称编码。编制null时缺编/超编均null；0是真实0，超编=max(assigned-limit,0)。组织标签JOIN必须相同tenant/park且未删除；不可解析显示未归属。
+前端复用现有CSV工具和DS手机记录模式，新增独立明细组件，页面分页50，完整CSV来源为同一响应的全部数组。加载期间及失败时不允许把旧结果当新日期导出；日期期间仅作用于异动，人员/编制是当前快照并明确说明。
+后端既有test仅测mockSQL不足，补充可在已有PostgreSQL测试设施执行的实际查询数据用例。不要新建生产测试数据。无DDL/迁移/发布流程变更。

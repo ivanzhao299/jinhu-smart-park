@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Current workforce department and position ledgers: [Workforce Detail Ledgers](./hr-workforce-detail-ledgers.md).
+
 Editable employee-day schedule operations: [Schedule Continuity](./hr-attendance-schedule-continuity.md).
 
 Selected payroll detail printing: [Payroll Statements](./hr-payroll-statement-print.md).
