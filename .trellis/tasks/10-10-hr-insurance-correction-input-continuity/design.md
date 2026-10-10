@@ -1,0 +1,7 @@
+# 设计
+
+复用HrInsuranceOwnedPeriodsClient的Editor，初始化时从target.calculation逐险种取原基数及显式includeFund。使用小型本地纯helper验证结构，输出可沿用的精确输入和缺项说明，不新增通用框架。原数据只读展示在更正上下文，新预览继续使用现有Amounts。policy选择保持明确，definition读取与哈希不改变。reuse policy-rate.ts显示百分数。
+
+不得原地修改target，按目标id的现有key重置草稿；新建无target不得带入上一目标。原计算不完整时只展示可确认字段并要求人工补齐，不抛到全页，不猜金额。持久化仍由既有API及事务完成，本片仅前端输入连续性和核对展示。
+
+回退：回退Web本片，不操作数据库。生产验证为部署和运行版本，合成UI不等于真实岗位UAT。

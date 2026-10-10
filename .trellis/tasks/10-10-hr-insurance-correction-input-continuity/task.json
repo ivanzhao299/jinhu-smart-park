@@ -1,0 +1,31 @@
+{
+  "id": "hr-insurance-correction-input-continuity",
+  "name": "hr-insurance-correction-input-continuity",
+  "title": "社保期间更正沿用原输入与核对",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": "codex/hr-insurance-correction-input-continuity-20261010",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/insurance/periods/HrInsuranceOwnedPeriodsClient.tsx",
+    "apps/web/app/hr/insurance/periods/correction-input.ts",
+    "apps/web/app/hr/insurance/periods/periods.module.css",
+    "apps/web/test/interaction/hr-insurance-owned-periods.test.tsx"
+  ],
+  "notes": "Full scope review PASS. 12 interaction, 242 HR tests, lint/typecheck/build PASS. Desktop/390px synthetic browser PASS; no production writes. Latest complete actual payroll reconciliation owned by Wu Enguo, calculate only.",
+  "meta": {}
+}
