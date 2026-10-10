@@ -1,0 +1,7 @@
+# 设计
+
+复用既有读接口和共享CSV采集器。hrApi.trainingPlans返回类型纠正为真实pageSize合同，导出适配器映射成ExportPage。状态筛选加入现有load依赖，列表/导出完全共用；完整user上下文key的workspace继续清理所有旧请求。
+
+计划导出使用ScopedLedgerExport，身份/范围/字段策略/筛选组成contextKey。参与记录导出为route-local组件，重新读取选定detail，核对ID及数组上限后白名单序列化；同步ref锁、AbortController、渲染时context fence和finally释放。只读结果不是数据库原子快照。
+
+纯序列化函数与页面/下载组件分工。复用csvDocument，按实际backend access优先级导出最小字段，不自动扩大可见费用。无数据库更改或新增通用抽象。

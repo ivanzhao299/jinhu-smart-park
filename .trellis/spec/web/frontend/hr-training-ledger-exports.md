@@ -1,0 +1,11 @@
+# Training scoped live CSV ledgers
+
+Use existing ScopedLedgerExport for the plan list: identical active status and scope, all 100-row pages up to 5000 records, and page-one recheck. Normalize actual API `pageSize` to collector `page_size`; never synthesize response metadata from requested page size. Invalid, duplicate, partial, changed-total or failed pages must not produce a file.
+
+Selected-plan participant export reads the existing detail again with one captured token and AbortSignal. Check exact plan ID, required plan fields and participant array, bounded at 5000. Synchronous mutual exclusion, render-time identity/scope/plan/enabled fence and cleanup cancellation prevent duplicate downloads and late responses after context changes. Parent context includes the entire current auth user, status, selected ID and revision.
+
+Backend scope precedence is park READ, then TEAM_READ, then SELF_READ. Plan fields are explicit business facts: code, name, course, dates, state, mandatory, scoped participant/completed counts and fact revision. Budget, actual cost and currency require COST_READ. Participant fields are plan facts plus status, check-in, hours and correction version; omit employee name for self-only, omit score/evaluation/memo/cost for team-only even if a response unexpectedly contains them. Non-team results may include score/evaluation/memo; non-team cost still requires COST_READ. Never export IDs, source snapshots, attachment IDs or certificate links.
+
+Reuse csvDocument for BOM, quotes/newlines and formula protection; preserve exact decimal strings, null/zero distinctions and unknown state text. Export does not calculate payroll, statutory totals or missing facts. Existing backend scope/field policy remains authoritative.
+
+Use shared DS controls and mobile records, with desktop and 390px actual component inspection. Cover filter/page reset, actual pagination metadata, all-page collection, injected private fields, self/team/cost scopes, failure/retry, double-click and late-response cancellation. This is live querying, not an atomic database snapshot, original Windows/GroupWeb report format parity or real production role acceptance. No import replay, new API, schema or permission.
