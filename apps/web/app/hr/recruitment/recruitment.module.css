@@ -50,3 +50,12 @@
 .history { display: grid; gap: 12px; margin-top: 16px; }
 .history h3 { margin: 0; }
 .historyRecords { display: grid; gap: 10px; }
+.assessment { display: grid; gap: 16px; margin-top: 16px; min-width: 0; }
+.sectionTitle, .assessmentActions { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.sectionTitle h3, .assessmentHistory h4 { margin: 0; }
+.assessmentGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.assessmentItem { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--ds-border,#d9d9d9); border-radius: 10px; min-width: 0; }
+.assessmentItem input, .assessmentItem textarea { min-width: 0; width: 100%; }
+.assessmentItem textarea { min-height: 72px; resize: vertical; }
+.assessmentHistory { display: grid; gap: 10px; }
+@media (max-width:720px) { .assessmentGrid { grid-template-columns: minmax(0,1fr); } }

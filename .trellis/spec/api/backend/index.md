@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Formal candidate assessment scores and version history: [Candidate Assessment](./hr-candidate-assessment.md).
+
 Formal salary-setting snapshot export: [Compensation Ledger Export](./hr-compensation-ledger-export.md).
 
 

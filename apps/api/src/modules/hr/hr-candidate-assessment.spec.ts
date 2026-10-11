@@ -1,0 +1,15 @@
+import "reflect-metadata";
+import assert from "node:assert/strict";
+import test from "node:test";
+import {plainToInstance} from "class-transformer";
+import {validate} from "class-validator";
+import type {DataSource} from "typeorm";
+import type {JwtPrincipal} from "../../shared/types/jwt-principal";
+import {SaveHrCandidateAssessmentDto} from "./dto/hr-recruitment.dto";
+import {HrRecruitmentService} from "./hr-recruitment.service";
+const body={expectedVersion:0,heartTest:"999999999999999999",heartMemo:null,knowledgeTest:"0",knowledgeMemo:null,jobTest:null,jobMemo:null,assignmentTest:null,assignmentMemo:null,knowhowTest:"9999999999999999.99",knowhowMemo:null,faceTest:"-1.20",faceMemo:null,totalTest:null,totalTestMemo:null};
+const errors=(input:unknown)=>validate(plainToInstance(SaveHrCandidateAssessmentDto,input),{whitelist:true,forbidNonWhitelisted:true});
+test("assessment DTO preserves signed precision strings and nullable zero",async()=>{assert.deepEqual(await errors(body),[]);assert.deepEqual(await errors({...body,heartTest:null,faceTest:"0"}),[]);});
+for(const [field,value] of [["heartTest","1000000000000000000"],["heartTest","1.2"],["faceTest","10000000000000000"],["faceTest","1.234"],["faceTest",1.2],["heartMemo","字".repeat(201)],["expectedVersion",-1],["totalTest",""]] as const)test(`assessment DTO rejects invalid ${field} ${String(value).slice(0,25)}`,async()=>{assert.ok((await errors({...body,[field]:value})).length>0);});
+test("complete assessment snapshot rejects omitted and unrelated fields",async()=>{const partial:Partial<typeof body>={...body};delete partial.heartMemo;assert.ok((await errors(partial)).length);assert.ok((await errors({...body,stage:"hired"})).length);});
+test("assessment services reject unauthorized callers before database access",async()=>{let queries=0;const db={transaction:async()=>{queries++;throw new Error("must not query");}} as unknown as DataSource;const service=new HrRecruitmentService(db,{} as never,{} as never),scope={tenantId:"t",parkId:"p"},actor={...scope,sub:"actor",username:"none",permissions:[],roles:[]} as JwtPrincipal;await assert.rejects(service.candidateAssessment(scope,actor,"id"));await assert.rejects(service.listCandidateAssessmentHistory(scope,actor,"id",{page:1,page_size:1}));await assert.rejects(service.saveCandidateAssessment(scope,actor,"id",body));assert.equal(queries,0);});
