@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import { diagnosePayrollReadiness, payrollReadinessSql } from '../diagnose-hr-payroll-readiness.mjs';
+import { payrollSourceCoverageSql, validatePayrollSourceCoverage } from '../diagnose-hr-payroll-source-coverage.mjs';
 
 const database = process.env.POSTGRES_DB ?? '';
 const enabled = process.env.HR_PAYROLL_READINESS_PG === '1';
@@ -71,4 +72,76 @@ test('migrated PostgreSQL proves published source observation, invalid staged ex
   const rejected = psql("BEGIN READ ONLY; INSERT INTO hr_payroll_book(tenant_id,park_id,legacy_scheme,book_name,source_hash) VALUES('10000001','20000001',1,'forbidden-write',repeat('d',64)); ROLLBACK;", true);
   assert.ok(rejected instanceof Error, 'PostgreSQL must reject a write in the read-only transaction');
   assert.match(String(rejected.stderr), /read-only transaction/i);
+  psql(`
+    INSERT INTO hr_payroll_book(tenant_id,park_id,legacy_scheme,book_name,source_hash)
+      VALUES('10000001','20000001',2,'coverage-second-book',repeat('a',64));
+    INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status)
+      VALUES('10000001','20000001','coverage-published',repeat('a',64),repeat('a',64),repeat('a',64),4,4,'staged');
+    INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+      SELECT '10000001','20000001',id,'2026-07-01',0,repeat('a',64) FROM hr_payroll_book WHERE book_name='coverage-second-book';
+    INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash,source_multiplicity)
+      SELECT '10000001','20000001',batch.id,period.id,CASE WHEN n=1 THEN employee.id ELSE NULL END,'salary02',repeat('a',64),encode(digest('coverage-'||n,'sha256'),'hex'),
+        CASE n WHEN 1 THEN 'mapped' WHEN 2 THEN 'employee_unmapped' ELSE 'duplicate_source' END,repeat('a',64),CASE WHEN n=3 THEN 3 ELSE 1 END
+      FROM hr_payroll_legacy_batch batch CROSS JOIN hr_payroll_book_period period
+      CROSS JOIN (SELECT id FROM hr_employee WHERE employee_code='READINESS') employee CROSS JOIN generate_series(1,3) n
+      WHERE batch.batch_code='coverage-published' AND period.period_month='2026-07-01' AND period.book_id=(SELECT id FROM hr_payroll_book WHERE book_name='coverage-second-book');
+    INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+      SELECT '10000001','20000001',batch.id,period.id,employee.id,'salary01',repeat('a',64),encode(digest(batch.batch_code,'sha256'),'hex'),'mapped',repeat('a',64)
+      FROM hr_payroll_legacy_batch batch CROSS JOIN hr_payroll_book_period period CROSS JOIN (SELECT id FROM hr_employee WHERE employee_code='READINESS') employee
+      WHERE batch.batch_code IN('coverage-published','readiness-invalid-staged') AND period.period_month='2026-07-01'
+        AND period.book_id=(SELECT id FROM hr_payroll_book WHERE book_name='readiness-fixture');
+    INSERT INTO hr_payroll_legacy_snapshot_item(tenant_id,park_id,snapshot_id,legacy_column_name,value_type,is_source_null,raw_value,source_hash)
+      SELECT '10000001','20000001',snapshot.id,'unresolved'||n,'unmapped',true,NULL,repeat('a',64)
+      FROM hr_payroll_legacy_snapshot snapshot JOIN hr_payroll_book_period period ON period.id=snapshot.book_period_id
+      JOIN hr_payroll_legacy_batch batch ON batch.id=snapshot.batch_id CROSS JOIN generate_series(1,2) n
+      WHERE batch.batch_code='coverage-published' AND snapshot.legacy_source_table='salary01' AND period.period_month='2026-07-01';
+    UPDATE hr_payroll_legacy_batch SET status='published',published_at=clock_timestamp(),published_by=gen_random_uuid() WHERE batch_code='coverage-published';
+    INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+      SELECT 'foreign-tenant','20000001',id,'2026-07-01',0,repeat('c',64) FROM hr_payroll_book WHERE book_name='foreign-readiness-fixture';
+    INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status)
+      VALUES('foreign-tenant','20000001','foreign-coverage-staged',repeat('c',64),repeat('c',64),repeat('c',64),1,1,'staged');
+    INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+      SELECT 'foreign-tenant','20000001',batch.id,period.id,'salary01',repeat('c',64),repeat('e',64),'employee_unmapped',repeat('c',64)
+      FROM hr_payroll_legacy_batch batch JOIN hr_payroll_book_period period ON period.tenant_id=batch.tenant_id AND period.park_id=batch.park_id
+      WHERE batch.batch_code='foreign-coverage-staged' AND period.period_month='2026-07-01';
+    INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status)
+      SELECT '10000001','20000001','coverage-'||label,repeat('b',64),repeat('b',64),repeat('b',64),1,1,'unpublished'
+      FROM (VALUES('failed'),('unpublished')) cases(label);
+    INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+      SELECT '10000001','20000001',batch.id,period.id,'salary01',repeat('b',64),encode(digest(batch.batch_code,'sha256'),'hex'),'employee_unmapped',repeat('b',64)
+      FROM hr_payroll_legacy_batch batch CROSS JOIN hr_payroll_book_period period
+      WHERE batch.batch_code IN('coverage-failed','coverage-unpublished') AND period.period_month='2026-07-01'
+        AND period.book_id=(SELECT id FROM hr_payroll_book WHERE book_name='readiness-fixture');
+    UPDATE hr_payroll_legacy_batch SET status='failed' WHERE batch_code='coverage-failed';
+    INSERT INTO hr_payroll_book(tenant_id,park_id,legacy_scheme,book_name,source_hash)
+      VALUES('10000001','foreign-park',1,'coverage-wrong-park',repeat('c',64));
+    INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status)
+      VALUES('10000001','foreign-park','coverage-wrong-park',repeat('c',64),repeat('c',64),repeat('c',64),1,1,'unpublished');
+    INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+      SELECT '10000001','foreign-park',id,'2026-07-01',0,repeat('c',64) FROM hr_payroll_book WHERE book_name='coverage-wrong-park';
+    INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+      SELECT '10000001','foreign-park',batch.id,period.id,'salary01',repeat('c',64),repeat('c',64),'employee_unmapped',repeat('c',64)
+      FROM hr_payroll_legacy_batch batch JOIN hr_payroll_book_period period ON period.tenant_id=batch.tenant_id AND period.park_id=batch.park_id
+      WHERE batch.batch_code='coverage-wrong-park';
+  `);
+  const coverage=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2026-07-01')).trim()),'2026-07-01');
+  assert.equal(coverage.totals.snapshotCount,8);
+  assert.equal(coverage.totals.sourceRowCount,10);
+  assert.equal(coverage.totals.bookCount,2);
+  assert.equal(coverage.totals.employeeCount,1);
+  assert.equal(coverage.totals.mappedCount,4);
+  assert.equal(coverage.totals.unmappedCount,3);
+  assert.equal(coverage.totals.duplicateSourceCount,1);
+  assert.equal(coverage.totals.eligibleSourceCount,5);
+  assert.equal(coverage.totals.unqualifiedBatchCount,3);
+  assert.equal(coverage.totals.itemCount,2);
+  assert.equal(coverage.totals.unresolvedItemCount,2);
+  assert.equal(coverage.totals.duplicateEmployeeExtraCount,2);
+  assert.deepEqual(coverage.books.map(book=>[book.scheme,book.snapshotCount,book.employeeCount]),[[1,5,1],[2,3,1]]);
+  const emptyMonth=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2024-07-01')).trim()),'2024-07-01');
+  assert.equal(emptyMonth.totals.snapshotCount,0);assert.equal(emptyMonth.books.length,2);
+  const controlled=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2028-01-01')).trim()),'2028-01-01');
+  assert.equal(controlled.totals.snapshotCount,1);assert.equal(controlled.totals.eligibleSourceCount,1);
+  const unavailable=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2030-01-01')).trim()),'2030-01-01');
+  assert.equal(unavailable.totals.snapshotCount,1);assert.equal(unavailable.totals.unqualifiedBatchCount,1);
 });

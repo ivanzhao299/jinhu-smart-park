@@ -1,0 +1,7 @@
+# 设计
+
+复用既有runtime诊断和SSH stdin Node模式，新增自包含工资覆盖观察脚本与可选月份输入。SSH脚本不能依赖尚未同步到生产的本地模块；回执条件与现有readiness保持相同，用实际PG正反例验证。月份以env进入runner，严格YYYY-MM-01校验后才进入SSH参数，脚本再次校验。
+
+全体同月snapshot不按batch状态或关联状态提前过滤。分类为可用来源/不合格批次/不可用账套期间，后两者优先级互斥；关联状态和源重复是独立维度。项目先按snapshot聚合，员工数独立distinct，账套按legacy_scheme分组，最多35组；每组保留实际bookCount避免不同source_system相同编号被冒充唯一账套。不输出book/employee UUID或名称。验证总数与各组/分类守恒，未知字段/畸形数值拒绝。生产源记录本来append-only且有FK，不为负例关闭约束。
+
+仅新增诊断能力，但当前classifier将脚本/workflow变更识别为full，因此遵循完整发布。观察代码SHA与API/Web运行SHA分别记录，以真实运行证据为准。回退为不传月份，既有默认诊断不变。

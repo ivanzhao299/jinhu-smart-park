@@ -49,6 +49,11 @@ on:
         required: false
         default: false
         type: boolean
+      payroll_coverage_month:
+        description: "Optional explicit YYYY-MM-01 source coverage census with payroll readiness. Read-only; includes unavailable sources."
+        required: false
+        default: ""
+        type: string
       diagnose_personnel_alias:
         description: "Include the count/hash-only Yuzhou personnel alias probe in runtime-revision diagnosis. Read-only; never authorizes or performs a write."
         required: false
@@ -156,6 +161,7 @@ jobs:
           node --test scripts/e2e/production-runtime-revision.contract.mjs
           node --test scripts/e2e/hr-role-identity.contract.mjs
           node --test scripts/e2e/hr-payroll-readiness.contract.mjs
+          node --test scripts/e2e/hr-payroll-source-coverage.contract.mjs
           node --test scripts/hr-cutover/tests/legacy-personnel-alias-observation.test.mjs
           node scripts/e2e/yuzhou-personnel-alias-route.contract.mjs
           sh scripts/e2e/production-backup-restore-gate-contract.sh
@@ -349,6 +355,32 @@ jobs:
           fi
           cat "$RUNNER_TEMP/hr-payroll-readiness-observation.json"
 
+      - name: Diagnose HR payroll source coverage (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_payroll_readiness && inputs.payroll_coverage_month != '' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PAYROLL_COVERAGE_MONTH: ${{ inputs.payroll_coverage_month }}
+        run: |
+          set -eu
+          if [[ ! "$PAYROLL_COVERAGE_MONTH" =~ ^(19|20|21)[0-9]{2}-(0[1-9]|1[0-2])-01$ ]]; then
+            echo HR_PAYROLL_COVERAGE_MONTH_INVALID >&2
+            exit 1
+          fi
+          if ! probe_error="$(ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "node --input-type=module - '$PROD_DEPLOY_PATH' '$PAYROLL_COVERAGE_MONTH'" < scripts/diagnose-hr-payroll-source-coverage.mjs \
+            2>&1 > "$RUNNER_TEMP/hr-payroll-source-coverage-observation.json")"; then
+            case "$probe_error" in
+              HR_PAYROLL_COVERAGE_ARGUMENTS_INVALID|HR_PAYROLL_COVERAGE_PATH_INVALID|HR_PAYROLL_COVERAGE_MONTH_INVALID|HR_PAYROLL_COVERAGE_PROBE_FAILED|HR_PAYROLL_COVERAGE_RESULT_INVALID) printf '%s\n' "$probe_error" >&2 ;;
+              *) echo HR_PAYROLL_COVERAGE_REMOTE_FAILED >&2 ;;
+            esac
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/hr-payroll-source-coverage-observation.json"
+
       - name: Diagnose Yuzhou personnel alias counts and hash (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_personnel_alias }}
         env:
@@ -423,6 +455,15 @@ jobs:
         with:
           name: hr-payroll-readiness-observation
           path: ${{ runner.temp }}/hr-payroll-readiness-observation.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain HR payroll source coverage observation
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_payroll_readiness && inputs.payroll_coverage_month != '' && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: hr-payroll-source-coverage-observation
+          path: ${{ runner.temp }}/hr-payroll-source-coverage-observation.json
           if-no-files-found: error
           retention-days: 7
 
