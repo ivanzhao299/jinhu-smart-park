@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDateString,IsEmail,IsIn,IsInt,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min } from "class-validator";
+import { IsDateString,IsDefined,IsEmail,IsIn,IsInt,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
 const pageNumber=({value}:{value:unknown})=>value===undefined?1:typeof value==="string"&&/^\d+$/u.test(value)?Number(value):value;
 export class HrRecruitmentListDto {@Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;@IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;@IsOptional() @IsIn(["draft","open","paused","closed","cancelled"]) status?:string;@IsOptional() @IsIn(["talent_pool","screening","interview","offer","hired","rejected","withdrawn"]) stage?:string;}
@@ -8,3 +8,22 @@ export class CreateHrRequisitionDto {@Transform(trim) @IsString() @MaxLength(64)
 export class CreateHrCandidateDto {@IsUUID() requisitionId!:string;@Transform(trim) @IsString() @MaxLength(64) candidateNo!:string;@Transform(trim) @IsString() @MaxLength(100) fullName!:string;@IsOptional() @Transform(trim) @Matches(/^\+?[0-9 -]{6,24}$/) mobile?:string;@IsOptional() @Transform(trim) @IsEmail() @MaxLength(160) email?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(64) identityNumber?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(64) source?:string;@IsOptional() @IsDateString() expectedOnboardDate?:string;}
 export class HrCandidateStageDto {@IsIn(["screening","interview","offer","rejected","withdrawn"]) toStage!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(2000) evaluation?:string;}
 export class HrCandidateConvertDto {@Transform(trim) @Matches(/^[A-Za-z0-9_-]{1,64}$/) employeeCode!:string;@IsOptional() @IsDateString() hireDate?:string;@IsOptional() @IsUUID() positionId?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(128) workLocation?:string;}
+const decimal0=/^-?\d{1,18}$/u,decimal2=/^-?\d{1,16}(?:\.\d{1,2})?$/u;
+const nullableTrim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
+export class SaveHrCandidateAssessmentDto {
+ @IsInt() @Min(0) expectedVersion!:number;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal0) heartTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) heartMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal0) knowledgeTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) knowledgeMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal0) jobTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) jobMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal0) assignmentTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) assignmentMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal2) knowhowTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) knowhowMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal2) faceTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) faceMemo!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal2) totalTest!:string|null;
+ @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) totalTestMemo!:string|null;
+}
