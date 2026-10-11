@@ -1,0 +1,11 @@
+# Work-report operation continuity
+
+`/hr/work-reports` reuses the existing scoped work-report state machine and action-history API. All five write routes have `IdempotencyInterceptor`; Web adapters accept an optional operation key after token, with a fresh-key fallback for compatibility callers.
+
+The mounted identity-scoped workspace owns one synchronous writer and one unresolved operation containing fingerprint, captured job/payload, success message, editor disposition and key. A lost response, 409 processing/conflict or server failure retains that operation. “重试原操作” replays exactly the captured request; changed content or another target cannot replace it. Explicit 400/403/404/422 rejection clears it to allow correction. Confirmed success clears it and publishes the receipt before independently caught list refreshes. Identity/park/authority replacement unmounts the workspace and suppresses old completion. Keys are not persisted across reload; after reload, inspect the authoritative list before another action. No automatic retries or offline payroll/HR writes.
+
+`WorkReportHistory` loads only when an authorized rendered record is expanded. The existing endpoint enforces self/team scope and required read audit. `hrApi.workReportActions(id, token?, signal?)` propagates cancellation. Close, identity/list replacement and write start abort old requests. A safe projection validates unique IDs, known actions/statuses, nonnegative integer submission numbers, comment and date before rendering. Snapshot/actor or extra fields are never displayed. A failed/invalid history read has a dedicated retry and does not disable normal report operations.
+
+Use existing DS panels/cards/buttons; route-local CSS sets only layout/wrapping and 44px controls. Desktop and390px must keep long comments readable without horizontal overflow.
+
+Tests: actual adapter requests, actual-page five-operation lost response/exact retry, changed-input guard, definite rejection correction, same-frame writer lock, success/read separation, lazy history/projection/error/cancellation/context. Browser fixture uses actual page/shared CSS with synthetic API; it is not real-role or production business acceptance. No database/schema/permission/state-machine change, historical import replay or real production test reports.
