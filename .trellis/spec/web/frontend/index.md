@@ -606,3 +606,5 @@ Modern performance evaluation summary and dimension ledgers: [Performance Result
 - [Insurance correction input continuity](hr-insurance-correction-inputs.md) — exact original bases, explicit fund choice, prior/new comparison and immutable correction requests.
 
 Payroll per-person/item difference reviews and append-only history: [Reconciliation Review Continuity](../../api/backend/hr-payroll-reconciliation-review-continuity.md).
+
+Work-report draft/submission/review exact retries and scoped business history: [Work-report operation continuity](./hr-work-report-operation-continuity.md).
