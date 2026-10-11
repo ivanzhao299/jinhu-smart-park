@@ -25,3 +25,11 @@ Good: masked manager corrects only the name, preserving all encrypted contact re
 ## 7. Wrong vs Correct
 Wrong: `dto.mobile ?? null` treats omission as clearing; `beforeJson: decryptedProfile` records private contacts; `expectedVersion=0` ignores stage/conversion versions.
 Correct: apply only present validated fields, use canonical fingerprints for same-value detection, keep encrypted complete snapshots in append-only history, audit only versions, and compare against the locked actual `hr_candidate.version`.
+
+## 8. Future conversion to employee profile
+
+Conversion locks the candidate and employee before `transferCandidateProfile` reads scoped source triples and locks the target profile, inside the existing conversion transaction. No historical replay/backfill. With no source private facts it creates no empty profile; with facts it requires HR_EMPLOYEE_PROFILE_MANAGE, while automated internal transfer returns no plaintext and does not add sensitive-detail read privileges. The existing conversion permission remains required. Personal contact fields map only to profile personal_mobile/personal_email, never employee work contact fields. Source ciphertext/mask/fingerprint must all be present, canonical and mutually consistent; email >128 or mobile >32 fails explicitly. Identity type is not inferred.
+
+Existing matching fields are retained, missing fields are filled, and unrelated columns remain unchanged. Different values, incomplete existing identity, any deleted/ambiguous profile or identity uniqueness collision cause409 and roll back the entire employee/checklist/conversion/headcount/stage transaction. Caller employee lock serializes profile creation with ordinary profile maintenance. Changed profile increments its global version once; unchanged target keeps its version. Conversion evidence and required same-manager audit contain only source version, profile ID, before/after versions and written column names. No contacts, fingerprints or ciphertext enter these receipts.
+
+Tests: `hr-candidate-profile-transfer.spec.ts` and guarded `hr-candidate-profile-transfer.pg.spec.ts`; the latter requires HR_CANDIDATE_TRANSFER_PG=1, HR_CANDIDATE_TRANSFER_ISOLATED=yes, loopback15432 and unique isolated full-schema database. Real permissions/UAT and original client parity remain separate.
