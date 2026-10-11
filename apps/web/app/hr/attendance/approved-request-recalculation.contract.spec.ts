@@ -9,7 +9,7 @@ test("approved request recalculation keeps a bounded sequential plan and per-dat
  const component=read("ApprovedRequestRecalculation.tsx"),api=read("../../../lib/hr-api.ts");
  assert.match(api,/attendanceRequestRecalculationPlan:/);
  assert.match(api,/recalculateAttendance:\(body:object,token\?:string,idempotencyKey\?:string\)/);
- assert.match(component,/plan\.workDates\.length<=32/);
+ assert.match(component,/plan\.workDates\.length<=33/);
  assert.match(component,/for\(const date of current\.workDates\)/);
  assert.match(component,/if\(stopRequested\.current\)break/);
  assert.match(component,/const key=keys\.current\.get\(date\)\?\?crypto\.randomUUID\(\)/);

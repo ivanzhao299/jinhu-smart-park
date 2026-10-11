@@ -40,7 +40,7 @@ test("approved-request day ownership uses Shanghai dates and excludes an exact e
 
 test("attendance approval implementation locks affected months before employee, rejects calculating, and retains closed inputs",()=>{
  const source=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
- assert.match(source,/prepareAttendanceFactChanges\(manager,scope,expectedMonths,actor\.sub\)[\s\S]*requestRepo/);
+ assert.match(source,/for\(const month of expectedMonths\)await this\.lockAttendanceMonth\(manager,scope,month\)[\s\S]*requestRepo/);
  assert.match(source,/period\?\.status==="calculating"/);
  assert.doesNotMatch(source,/period\?\.status==="closed"/);
  assert.match(source,/row\.version!==existing\.version/);

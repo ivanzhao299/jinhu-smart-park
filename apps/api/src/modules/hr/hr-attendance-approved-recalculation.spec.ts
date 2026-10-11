@@ -24,6 +24,7 @@ test("approved-request recalculation plan is an audited operate-only metadata ro
 test("approved-request recalculation plan is bounded, scoped, and derives dates from the shared Shanghai helper",async()=>{
  const service=Object.create(HrService.prototype) as HrService;
  Object.defineProperties(service,{
+  dataSource:{value:{manager:{query:async()=>[]}}},
   attendanceRequests:{value:{findOne:async()=>({
    id:"request-1",requestNo:"ATT-1",requestType:"leave",version:5,employeeId:"employee-1",status:"approved",attendanceDate:null,
    startAt:new Date("2026-12-31T16:00:00.000Z"),endAt:new Date("2027-01-02T16:00:00.000Z")
@@ -34,21 +35,21 @@ test("approved-request recalculation plan is bounded, scoped, and derives dates 
  const result=await service.attendanceRequestRecalculationPlan(scope,actor([HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]),"request-1");
  assert.deepEqual(result,{requestId:"request-1",requestNo:"ATT-1",requestType:"leave",requestVersion:5,employeeId:"employee-1",employeeCode:"E-1",employeeName:"员工甲",workDates:["2027-01-01","2027-01-02"]});
  const source=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
- assert.match(source,/const workDates=this\.attendanceRequestWorkDates\(request\)/);
+ assert.match(source,/const workDates=this\.attendanceRequestAffectedDates\(request,scheduledDates\)/);
  assert.match(source,/request\.status!=="approved"/);
  assert.match(source,/where:\{id,\.\.\.scope,isDeleted:false\}/);
 });
 
 test("approved-request recalculation plan rejects operate permission gaps and non-approved requests",async()=>{
  const service=Object.create(HrService.prototype) as HrService;
- Object.defineProperties(service,{attendanceRequests:{value:{findOne:async()=>({status:"submitted"})}},employees:{value:{findOne:async()=>null}},auditService:{value:{recordOperationRequired:async()=>undefined}}});
+ Object.defineProperties(service,{dataSource:{value:{manager:{query:async()=>[]}}},attendanceRequests:{value:{findOne:async()=>({status:"submitted"})}},employees:{value:{findOne:async()=>null}},auditService:{value:{recordOperationRequired:async()=>undefined}}});
  await assert.rejects(service.attendanceRequestRecalculationPlan(scope,actor([]),"request-1"),ForbiddenException);
  await assert.rejects(service.attendanceRequestRecalculationPlan(scope,actor([HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]),"request-1"),ConflictException);
 });
 
 test("approved-request recalculation plan rejects a mismatched actor scope before reads and keeps required audit failures visible",async()=>{
  let requestReads=0;const service=Object.create(HrService.prototype) as HrService;
- Object.defineProperties(service,{attendanceRequests:{value:{findOne:async()=>{requestReads++;return {id:"request-1",requestNo:"ATT-1",requestType:"correction",version:1,employeeId:"employee-1",status:"approved",attendanceDate:"2026-10-10",startAt:null,endAt:null};}}},employees:{value:{findOne:async()=>({id:"employee-1",employeeCode:"E-1",fullName:"员工甲"})}},auditService:{value:{recordOperationRequired:async()=>{throw new Error("required audit unavailable");}}}});
+ Object.defineProperties(service,{dataSource:{value:{manager:{query:async()=>[]}}},attendanceRequests:{value:{findOne:async()=>{requestReads++;return {id:"request-1",requestNo:"ATT-1",requestType:"correction",version:1,employeeId:"employee-1",status:"approved",attendanceDate:"2026-10-10",startAt:null,endAt:null};}}},employees:{value:{findOne:async()=>({id:"employee-1",employeeCode:"E-1",fullName:"员工甲"})}},auditService:{value:{recordOperationRequired:async()=>{throw new Error("required audit unavailable");}}}});
  await assert.rejects(service.attendanceRequestRecalculationPlan(scope,{...actor([HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]),parkId:"other-park"},"request-1"),ForbiddenException);
  assert.equal(requestReads,0);
  await assert.rejects(service.attendanceRequestRecalculationPlan(scope,actor([HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]),"request-1"),/required audit unavailable/);
