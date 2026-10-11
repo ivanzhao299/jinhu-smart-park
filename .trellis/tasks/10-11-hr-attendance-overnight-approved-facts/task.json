@@ -25,8 +25,9 @@
     "apps/api/src/modules/hr/hr-attendance-approved-window.ts",
     "apps/api/src/modules/hr/hr-attendance-overnight-approved-facts.pg.spec.ts",
     "apps/web/app/hr/attendance/ApprovedRequestRecalculation.tsx",
-    ".github/workflows/ci.yml"
+    ".github/workflows/ci.yml",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx"
   ],
-  "notes": "Local acceptance passed: 28 PG, 21 API focused, 8 Web interaction +2 contract, API/Web checks and browser desktop/390. Release and real-role UAT tracked separately.",
+  "notes": "Final local checks: API21 focused, Web23 interaction +2 contract, typechecks and focused lint; previous candidate PG28 pass, final employee-first lock regression requires exact-candidate CI. Browser actual request workflow desktop/390, synthetic API only.",
   "meta": {}
 }
