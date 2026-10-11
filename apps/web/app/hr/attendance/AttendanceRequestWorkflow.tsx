@@ -1,45 +1,937 @@
 "use client";
-import {useCallback,useEffect,useRef,useState} from "react";
-import {hrApi,type HrAttendanceRequest} from "../../../lib/hr-api";
-import {leaveLedgerApi} from "../../../lib/hr-leave-ledger-api";
-import type {HrLeaveType} from "@jinhu/shared";
-import {getAccessToken} from "../../../lib/authz";
-import {ApiError} from "../../../lib/api-client";
-import {hrLoadErrorMessage} from "../hr-errors";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { hrApi, type HrAttendanceRequest } from "../../../lib/hr-api";
+import { leaveLedgerApi } from "../../../lib/hr-leave-ledger-api";
+import type { HrLeaveType } from "@jinhu/shared";
+import { getAccessToken } from "../../../lib/authz";
+import { ApiError } from "../../../lib/api-client";
+import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import local from "./request-workflow.module.css";
-import {ApprovedRequestRecalculation} from "./ApprovedRequestRecalculation";
+import { BusinessTripDeclaredDaysPanel } from "./BusinessTripDeclaredDaysPanel";
+import { ApprovedRequestRecalculation } from "./ApprovedRequestRecalculation";
 
-const types:Record<string,string>={leave:"请假",overtime:"加班",business_trip:"出差",correction:"考勤更正"};
-const states:Record<string,string>={draft:"草稿",submitted:"待审批",approved:"已批准",returned:"已退回",cancelled:"已取消"};
-const empty={requestType:"leave",startAt:"",endAt:"",attendanceDate:"",reason:""};
-type LeaveSelection=undefined|null|HrLeaveType;
-function localTime(value:string|null){if(!value)return "";const d=new Date(value);if(!Number.isFinite(d.getTime()))return "";const pad=(n:number)=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
-type Operation={kind:"create"}|{kind:"edit"|"review"|"submit"|"cancel";row:HrAttendanceRequest};
-export function AttendanceRequestWorkflow({canRequest,canApprove,canOperate,busy,onBusyChange,onApproved}: {canRequest:boolean;canApprove:boolean;canOperate:boolean;busy:boolean;onBusyChange:(value:boolean)=>void;onApproved?:()=>Promise<void>}){
- const [rows,setRows]=useState<HrAttendanceRequest[]>([]),[total,setTotal]=useState(0),[query,setQuery]=useState({page:1,type:"",status:""}),[loading,setLoading]=useState(true),[readError,setReadError]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState(""),[operation,setOperation]=useState<Operation|null>(null),[form,setForm]=useState(empty),[comment,setComment]=useState(""),[leaveTypes,setLeaveTypes]=useState<HrLeaveType[]>([]),[leaveTypePage,setLeaveTypePage]=useState(1),[leaveTypeTotal,setLeaveTypeTotal]=useState(0),[leaveTypeLoading,setLeaveTypeLoading]=useState(false),[leaveTypeError,setLeaveTypeError]=useState(""),[leaveSelection,setLeaveSelection]=useState<LeaveSelection>(undefined);
- const request=useRef<AbortController|null>(null),generation=useRef(0),leaveTypeRequest=useRef<AbortController|null>(null),leaveTypeGeneration=useRef(0),mounted=useRef(true),writing=useRef(false),writeKey=useRef(crypto.randomUUID());
- const load=useCallback(async()=>{request.current?.abort();const controller=new AbortController(),owner=++generation.current;request.current=controller;setRows([]);setReadError("");setLoading(true);try{const result=await hrApi.attendanceRequests(getAccessToken(),query.page,30,{type:query.type||undefined,status:query.status||undefined},controller.signal);if(controller.signal.aborted||owner!==generation.current||!mounted.current)return false;if(!Array.isArray(result.items)||!Number.isSafeInteger(result.total)||result.total<0||result.items.some(r=>(canRequest&&r.isSelf&&["draft","returned"].includes(r.status)&&(!Number.isSafeInteger(r.editVersion)||Number(r.editVersion)<1))||!types[r.requestType]||!states[r.status]))throw new Error("考勤申请返回不完整，请刷新后重试。");setTotal(result.total);const last=Math.max(1,Math.ceil(result.total/30));if(query.page>last){setQuery(q=>({...q,page:last}));return true;}setRows(result.items);return true;}catch(e){if(!controller.signal.aborted&&owner===generation.current&&mounted.current){setTotal(0);setReadError(hrLoadErrorMessage(e,"读取考勤申请失败"));}return false;}finally{if(owner===generation.current&&mounted.current)setLoading(false);}},[query,canRequest]);
- useEffect(()=>{mounted.current=true;void load();return()=>{generation.current++;request.current?.abort();};},[load]);useEffect(()=>()=>{mounted.current=false;leaveTypeGeneration.current++;leaveTypeRequest.current?.abort();},[]);
- const locked=busy||writing.current;
- const changeQuery=(next:typeof query)=>{if(locked)return;request.current?.abort();generation.current++;setRows([]);setTotal(0);setLoading(true);setOperation(null);setError("");setQuery(next);};
- const loadLeaveTypes=useCallback(async(page:number)=>{leaveTypeRequest.current?.abort();const controller=new AbortController(),owner=++leaveTypeGeneration.current,token=getAccessToken();leaveTypeRequest.current=controller;setLeaveTypeLoading(true);setLeaveTypeError("");try{let requested=page;for(;;){const result=await leaveLedgerApi.types(requested,token,controller.signal);if(controller.signal.aborted||owner!==leaveTypeGeneration.current||token!==getAccessToken()||!mounted.current)return false;if(result.page!==requested||result.page_size!==20)throw new Error("假期类型分页返回不完整，请重新读取。");const last=Math.max(1,Math.ceil(result.total/20));if(requested>last){requested=last;continue;}setLeaveTypes(result.items);setLeaveTypeTotal(result.total);setLeaveTypePage(requested);return true;}}catch(e){if(!controller.signal.aborted&&owner===leaveTypeGeneration.current&&token===getAccessToken()&&mounted.current){setLeaveTypes([]);setLeaveTypeTotal(0);setLeaveTypeError(hrLoadErrorMessage(e,"读取假期类型失败"));}return false;}finally{if(owner===leaveTypeGeneration.current&&token===getAccessToken()&&mounted.current)setLeaveTypeLoading(false);}},[]);
- const open=(next:Operation)=>{if(locked)return;writeKey.current=crypto.randomUUID();setError("");setComment("");setOperation(next);setLeaveSelection(undefined);setLeaveTypePage(1);setLeaveTypeTotal(0);setLeaveTypes([]);setLeaveTypeError("");if(next.kind==="create"||(next.kind==="edit"&&next.row.requestType==="leave"))void loadLeaveTypes(1);setForm(next.kind==="edit"?{requestType:next.row.requestType,startAt:localTime(next.row.startAt),endAt:localTime(next.row.endAt),attendanceDate:next.row.attendanceDate??"",reason:next.row.reason}:empty);};
- const mutate=async(job:()=>Promise<unknown>,success:string,afterSuccess?:()=>Promise<void>)=>{if(writing.current||busy)return;writing.current=true;onBusyChange(true);setError("");setNotice("");try{await job();if(!mounted.current)return;setOperation(null);setForm(empty);setComment("");setNotice(success);const [refreshed,periodRefresh]=await Promise.all([load(),Promise.resolve().then(()=>afterSuccess?.()).then(()=>null).catch(error=>hrLoadErrorMessage(error,"期间状态刷新失败"))]);if(mounted.current&&(!refreshed||periodRefresh))setNotice(success+` ${periodRefresh??"列表刷新失败"}，请刷新核对，勿重复办理。`);}catch(e){if(mounted.current){if(e instanceof ApiError&&[400,403,404,422].includes(e.status))writeKey.current=crypto.randomUUID();setError(hrLoadErrorMessage(e,"办理考勤申请失败"));}}finally{writing.current=false;if(mounted.current)onBusyChange(false);}};
- const save=()=>{if(!operation||!["create","edit"].includes(operation.kind))return;const timed=form.requestType!=="correction";if(!form.reason.trim()){setError("请填写申请事由。");return;}if(timed&&(!form.startAt||!form.endAt||!Number.isFinite(new Date(form.startAt).getTime())||!Number.isFinite(new Date(form.endAt).getTime())||new Date(form.endAt)<=new Date(form.startAt))){setError("结束时间须晚于开始时间。");return;}if(form.requestType==="leave"&&leaveSelection!==undefined&&leaveSelection!==null&&(leaveTypeLoading||leaveTypeError)){setError("假期类型目录尚未可用，请重新读取后再保存已变更的类型。");return;}const leavePatch=form.requestType!=="leave"||leaveSelection===undefined?{}:leaveSelection===null?{leaveTypeId:null}:{leaveTypeId:leaveSelection.id,expectedLeaveTypeVersion:leaveSelection.version};const body={requestType:form.requestType,reason:form.reason.trim(),...(timed?{startAt:new Date(form.startAt).toISOString(),endAt:new Date(form.endAt).toISOString()}:{attendanceDate:form.attendanceDate}),...leavePatch};const selected=operation;void mutate(()=>selected.kind==="edit"?hrApi.updateAttendanceRequest(selected.row.id,{...body,expectedVersion:selected.row.editVersion},getAccessToken(),writeKey.current):hrApi.createAttendanceRequest(body,getAccessToken(),writeKey.current),selected.kind==="edit"?"申请修改已保存，请核对后重新提交。":"申请草稿已保存，请核对后提交审批。");};
- const transition=(decision?:"approve"|"reject")=>{if(!operation||operation.kind==="create"||operation.kind==="edit")return;const selected=operation;if(selected.kind==="review"&&decision==="reject"&&!comment.trim()){setError("退回申请时请填写补充要求。");return;}const approved=selected.kind==="review"&&decision==="approve";void mutate(()=>selected.kind==="submit"?hrApi.submitAttendanceRequest(selected.row.id,getAccessToken(),writeKey.current):selected.kind==="cancel"?hrApi.cancelAttendanceRequest(selected.row.id,getAccessToken(),writeKey.current):hrApi.reviewAttendanceRequest(selected.row.id,decision!,comment.trim()||undefined,getAccessToken(),writeKey.current),selected.kind==="submit"?"考勤申请已提交。":selected.kind==="cancel"?"考勤申请已取消。":approved?"考勤申请已批准。请重算涉及日期，再重新计算并核对月结期间。":"考勤申请已退回。",approved?onApproved:undefined);};
- const controls=(row:HrAttendanceRequest)=><div className={styles.actionRow}>{canRequest&&row.isSelf&&["draft","returned"].includes(row.status)?<><button className="ds-button ds-button-secondary" disabled={locked} onClick={()=>open({kind:"edit",row})}>修改申请</button><button className="ds-button ds-button-secondary" disabled={locked} onClick={()=>open({kind:"submit",row})}>{row.status==="returned"?"重新提交":"提交审批"}</button></>:null}{canRequest&&row.isSelf&&["draft","submitted","returned"].includes(row.status)?<button className="ds-button ds-button-secondary" disabled={locked} onClick={()=>open({kind:"cancel",row})}>取消申请</button>:null}{canApprove&&!row.isSelf&&row.status==="submitted"?<button className="ds-button ds-button-secondary" disabled={locked} onClick={()=>open({kind:"review",row})}>审核</button>:null}</div>;
- const selectedLeaveType=leaveSelection!==undefined&&leaveSelection!==null?leaveSelection:null;
- const time=(row:HrAttendanceRequest)=>row.attendanceDate??`${row.startAt?new Date(row.startAt).toLocaleString("zh-CN"):"未登记"} 至 ${row.endAt?new Date(row.endAt).toLocaleString("zh-CN"):"未登记"}`;
- return <section className={local.workflow} aria-label="考勤申请连续办理">
-  <section className="ds-panel"><div className={styles.sectionHeading}><div><span className="ds-eyebrow">办理队列</span><h2>{canApprove?"团队与园区申请":"我的申请"}</h2></div>{canRequest?<button className="ds-button ds-button-primary" disabled={locked} onClick={()=>open({kind:"create"})}>新建申请</button>:null}</div>
-  {notice?<p role="status">{notice}</p>:null}{readError?<p role="alert" className="form-error">{readError}</p>:null}
-  <div className={styles.filterBar}><label className="form-field"><span>类型</span><select disabled={locked} value={query.type} onChange={e=>changeQuery({...query,page:1,type:e.target.value})}><option value="">全部类型</option>{Object.entries(types).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className="form-field"><span>状态</span><select disabled={locked} value={query.status} onChange={e=>changeQuery({...query,page:1,status:e.target.value})}><option value="">全部状态</option>{Object.entries(states).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></div>
-  {loading?<p role="status">正在加载考勤申请…</p>:<div className={`ds-mobile-record-list ${local.records}`}>{rows.length?rows.map(row=><article className="ds-mobile-record" key={row.id}><strong>{row.employeeName?`${row.employeeName} · `:""}{types[row.requestType]} · {states[row.status]}</strong><span>{row.requestNo}{row.editVersion?` · 版本 ${row.editVersion}`:""}</span>{row.employeeCode||row.organizationName?<span>{row.employeeCode} {row.organizationName}</span>:null}<span>{time(row)}</span>{row.requestType==="business_trip"&&row.legacyDeclaredDays!==null?<span>原登记申报：{row.legacyDeclaredDays} 天</span>:null}{row.requestType==="leave"?<><span>{row.leaveTypeName?`假期类型：${row.leaveTypeName}（冻结版本 ${row.leaveTypeVersion}）`:"假期类型：待核对分类"}</span><span>{row.status==="cancelled"?"已取消，不计入日考勤":`申请时长 ${row.durationMinutes} 分钟；实际请假分钟以排班日结果为准`}</span></>:null}<span>{row.reason}</span>{row.reviewComment?<span>审批意见：{row.reviewComment}</span>:null}{controls(row)}{canOperate&&row.status==="approved"?<ApprovedRequestRecalculation row={row} busy={busy} onBusyChange={onBusyChange} onRecalculated={async()=>{await onApproved?.();}}/>:null}</article>):<p>当前范围没有考勤申请。</p>}</div>}
-  <nav className={`${styles.actionRow} ${local.pagination}`} aria-label="考勤申请分页"><button className="ds-button ds-button-secondary" disabled={locked||loading||query.page<=1} onClick={()=>changeQuery({...query,page:query.page-1})}>申请上一页</button><span role="status">第 {query.page} / {Math.max(1,Math.ceil(total/30))} 页 · 共 {total} 条 · 每页 30 条</span><button className="ds-button ds-button-secondary" disabled={locked||loading||query.page>=Math.max(1,Math.ceil(total/30))} onClick={()=>changeQuery({...query,page:query.page+1})}>申请下一页</button><button className="ds-button ds-button-secondary" disabled={locked||loading} onClick={()=>{setOperation(null);void load();}}>刷新申请</button></nav></section>
-  {operation?<form className={`ds-panel ${styles.formGrid}`} aria-label={operation.kind==="create"?"新建考勤申请":operation.kind==="edit"?"修改考勤申请":"办理考勤申请"} key={operation.kind==="create"?"create":`${operation.kind}-${operation.row.id}-${operation.row.editVersion}`} onSubmit={e=>{e.preventDefault();if(operation.kind==="create"||operation.kind==="edit")save();else if(operation.kind!=="review")transition();}}><fieldset disabled={locked} className={local.fields}><div className={styles.sectionHeading}><h2>{operation.kind==="create"?"新建考勤申请":operation.kind==="edit"?"修改考勤申请":operation.kind==="review"?"审批办理":operation.kind==="submit"?"提交审批":"取消申请"}</h2></div>
-  {operation.kind!=="create"?<p className={local.full}>{operation.row.employeeName?`${operation.row.employeeName}${operation.row.employeeCode?`（${operation.row.employeeCode}）`:""} · `:""}{operation.row.requestNo} · {types[operation.row.requestType]} · {time(operation.row)} · {operation.row.reason}{operation.row.reviewComment?` · 上次审批意见：${operation.row.reviewComment}`:""}</p>:null}
-  {operation.kind==="create"||operation.kind==="edit"?<><label className="form-field"><span>申请类型</span><select disabled={operation.kind==="edit"} value={form.requestType} onChange={e=>setForm({...empty,requestType:e.target.value})}>{Object.entries(types).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>{form.requestType==="leave"?<div className={`form-field ${local.full}`}><span>假期类型</span>{operation.kind==="edit"&&operation.row.leaveTypeName?<p>当前冻结类型：{operation.row.leaveTypeName}（版本 {operation.row.leaveTypeVersion}）</p>:operation.kind==="edit"?<p>当前未分类；不修改会保留原记录。</p>:null}<select aria-label="假期类型" disabled={leaveTypeLoading||locked} value={leaveSelection===undefined?"":leaveSelection===null?"__clear__":leaveSelection.id} onChange={e=>{const value=e.target.value;if(!value){setLeaveSelection(undefined);return;}if(value==="__clear__"){setLeaveSelection(null);return;}const selected=leaveTypes.find(type=>type.id===value)??(selectedLeaveType?.id===value?selectedLeaveType:undefined);if(selected)setLeaveSelection(selected);}}><option value="">{operation.kind==="edit"?"保留当前分类":"待核对分类"}</option>{operation.kind==="edit"&&operation.row.leaveTypeId?<option value="__clear__">明确清除分类</option>:null}{selectedLeaveType&&!leaveTypes.some(type=>type.id===selectedLeaveType.id)?<option value={selectedLeaveType.id}>已选择：{selectedLeaveType.typeCode} · {selectedLeaveType.typeName} · 版本 {selectedLeaveType.version}</option>:null}{leaveTypes.filter(type=>type.enabled).map(type=><option key={type.id} value={type.id}>{type.typeCode} · {type.typeName} · 版本 {type.version}</option>)}</select>{leaveTypeLoading?<p role="status">正在加载假期类型…</p>:null}{leaveTypeError?<p role="alert" className="form-error">{leaveTypeError} <button type="button" className="ds-button ds-button-secondary" onClick={()=>void loadLeaveTypes(leaveTypePage)}>重试读取类型</button></p>:null}<div className={styles.actionRow}><button type="button" className="ds-button ds-button-secondary" disabled={leaveTypeLoading||leaveTypePage<=1} onClick={()=>void loadLeaveTypes(leaveTypePage-1)}>类型上一页</button><span>类型第 {leaveTypePage} / {Math.max(1,Math.ceil(leaveTypeTotal/20))} 页</span><button type="button" className="ds-button ds-button-secondary" disabled={leaveTypeLoading||leaveTypePage>=Math.max(1,Math.ceil(leaveTypeTotal/20))} onClick={()=>void loadLeaveTypes(leaveTypePage+1)}>类型下一页</button></div></div>:null}{form.requestType==="correction"?<label className="form-field"><span>需更正日期</span><input type="date" required value={form.attendanceDate} onChange={e=>setForm({...form,attendanceDate:e.target.value})}/></label>:<><label className="form-field"><span>开始时间</span><input type="datetime-local" required value={form.startAt} onChange={e=>setForm({...form,startAt:e.target.value})}/></label><label className="form-field"><span>结束时间</span><input type="datetime-local" required min={form.startAt||undefined} value={form.endAt} onChange={e=>setForm({...form,endAt:e.target.value})}/></label></>}<label className={`form-field ${local.full}`}><span>申请事由</span><textarea autoFocus required maxLength={2000} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></label></>:operation.kind==="review"?<label className={`form-field ${local.full}`}><span>审批意见</span><textarea autoFocus maxLength={1000} placeholder="退回时必填，批准时可选" value={comment} onChange={e=>setComment(e.target.value)}/></label>:<p className={local.full}>{operation.kind==="submit"?"请核对申请内容。退回申请可先修改，再重新提交。":"取消后不能继续提交该申请。"}</p>}
-  <div className={styles.formActions}>{operation.kind==="review"?<><button type="button" className="ds-button ds-button-primary" onClick={()=>transition("approve")}>批准</button><button type="button" className="ds-button ds-button-secondary" onClick={()=>transition("reject")}>退回补充</button></>:<button className="ds-button ds-button-primary" autoFocus={operation.kind==="submit"||operation.kind==="cancel"}>{operation.kind==="create"?"保存草稿":operation.kind==="edit"?"保存修改":"确认办理"}</button>}<button type="button" className="ds-button ds-button-secondary" onClick={()=>setOperation(null)}>返回队列</button></div></fieldset>{error?<p role="alert" className={`form-error ${local.full}`}>{error}</p>:null}</form>:null}
- </section>;
+const types: Record<string, string> = {
+  leave: "请假",
+  overtime: "加班",
+  business_trip: "出差",
+  correction: "考勤更正",
+};
+const states: Record<string, string> = {
+  draft: "草稿",
+  submitted: "待审批",
+  approved: "已批准",
+  returned: "已退回",
+  cancelled: "已取消",
+};
+const empty = {
+  requestType: "leave",
+  startAt: "",
+  endAt: "",
+  attendanceDate: "",
+  declaredDays: "",
+  reason: "",
+};
+type LeaveSelection = undefined | null | HrLeaveType;
+function localTime(value: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${
+    pad(d.getHours())
+  }:${pad(d.getMinutes())}`;
+}
+type Operation = { kind: "create" } | {
+  kind: "edit" | "review" | "submit" | "cancel";
+  row: HrAttendanceRequest;
+};
+export function AttendanceRequestWorkflow({
+  canRequest,
+  canApprove,
+  canOperate,
+  busy,
+  onBusyChange,
+  onApproved,
+}: {
+  canRequest: boolean;
+  canApprove: boolean;
+  canOperate: boolean;
+  busy: boolean;
+  onBusyChange: (value: boolean) => void;
+  onApproved?: () => Promise<void>;
+}) {
+  const [rows, setRows] = useState<HrAttendanceRequest[]>([]),
+    [total, setTotal] = useState(0),
+    [query, setQuery] = useState({ page: 1, type: "", status: "" }),
+    [loading, setLoading] = useState(true),
+    [readError, setReadError] = useState(""),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [operation, setOperation] = useState<Operation | null>(null),
+    [form, setForm] = useState(empty),
+    [comment, setComment] = useState(""),
+    [leaveTypes, setLeaveTypes] = useState<HrLeaveType[]>([]),
+    [leaveTypePage, setLeaveTypePage] = useState(1),
+    [leaveTypeTotal, setLeaveTypeTotal] = useState(0),
+    [leaveTypeLoading, setLeaveTypeLoading] = useState(false),
+    [leaveTypeError, setLeaveTypeError] = useState(""),
+    [leaveSelection, setLeaveSelection] = useState<LeaveSelection>(undefined);
+  const request = useRef<AbortController | null>(null),
+    generation = useRef(0),
+    leaveTypeRequest = useRef<AbortController | null>(null),
+    leaveTypeGeneration = useRef(0),
+    mounted = useRef(true),
+    writing = useRef(false),
+    writeKey = useRef(crypto.randomUUID());
+  const load = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController(), owner = ++generation.current;
+    request.current = controller;
+    setRows([]);
+    setReadError("");
+    setLoading(true);
+    try {
+      const result = await hrApi.attendanceRequests(
+        getAccessToken(),
+        query.page,
+        30,
+        { type: query.type || undefined, status: query.status || undefined },
+        controller.signal,
+      );
+      if (
+        controller.signal.aborted || owner !== generation.current ||
+        !mounted.current
+      ) return false;
+      if (
+        !Array.isArray(result.items) || !Number.isSafeInteger(result.total) ||
+        result.total < 0 || result.items.some((r) =>
+          (canRequest && r.isSelf && ["draft", "returned"].includes(r.status) &&
+            (!Number.isSafeInteger(r.editVersion) ||
+              Number(r.editVersion) < 1)) ||
+          !types[r.requestType] || !states[r.status]
+        )
+      ) {
+        throw new Error("考勤申请返回不完整，请刷新后重试。");
+      }
+      setTotal(result.total);
+      const last = Math.max(1, Math.ceil(result.total / 30));
+      if (query.page > last) {
+        setQuery((q) => ({ ...q, page: last }));
+        return true;
+      }
+      setRows(result.items);
+      return true;
+    } catch (e) {
+      if (
+        !controller.signal.aborted && owner === generation.current &&
+        mounted.current
+      ) {
+        setTotal(0);
+        setReadError(hrLoadErrorMessage(e, "读取考勤申请失败"));
+      }
+      return false;
+    } finally {
+      if (owner === generation.current && mounted.current) setLoading(false);
+    }
+  }, [query, canRequest]);
+  useEffect(() => {
+    mounted.current = true;
+    void load();
+    return () => {
+      generation.current++;
+      request.current?.abort();
+    };
+  }, [load]);
+  useEffect(() => () => {
+    mounted.current = false;
+    leaveTypeGeneration.current++;
+    leaveTypeRequest.current?.abort();
+  }, []);
+  const locked = busy || writing.current;
+  const changeQuery = (next: typeof query) => {
+    if (locked) return;
+    request.current?.abort();
+    generation.current++;
+    setRows([]);
+    setTotal(0);
+    setLoading(true);
+    setOperation(null);
+    setError("");
+    setQuery(next);
+  };
+  const loadLeaveTypes = useCallback(async (page: number) => {
+    leaveTypeRequest.current?.abort();
+    const controller = new AbortController(),
+      owner = ++leaveTypeGeneration.current,
+      token = getAccessToken();
+    leaveTypeRequest.current = controller;
+    setLeaveTypeLoading(true);
+    setLeaveTypeError("");
+    try {
+      let requested = page;
+      for (;;) {
+        const result = await leaveLedgerApi.types(
+          requested,
+          token,
+          controller.signal,
+        );
+        if (
+          controller.signal.aborted || owner !== leaveTypeGeneration.current ||
+          token !== getAccessToken() || !mounted.current
+        ) return false;
+        if (result.page !== requested || result.page_size !== 20) {
+          throw new Error("假期类型分页返回不完整，请重新读取。");
+        }
+        const last = Math.max(1, Math.ceil(result.total / 20));
+        if (requested > last) {
+          requested = last;
+          continue;
+        }
+        setLeaveTypes(result.items);
+        setLeaveTypeTotal(result.total);
+        setLeaveTypePage(requested);
+        return true;
+      }
+    } catch (e) {
+      if (
+        !controller.signal.aborted && owner === leaveTypeGeneration.current &&
+        token === getAccessToken() && mounted.current
+      ) {
+        setLeaveTypes([]);
+        setLeaveTypeTotal(0);
+        setLeaveTypeError(hrLoadErrorMessage(e, "读取假期类型失败"));
+      }
+      return false;
+    } finally {
+      if (
+        owner === leaveTypeGeneration.current && token === getAccessToken() &&
+        mounted.current
+      ) setLeaveTypeLoading(false);
+    }
+  }, []);
+  const open = (next: Operation) => {
+    if (locked) return;
+    writeKey.current = crypto.randomUUID();
+    setError("");
+    setComment("");
+    setOperation(next);
+    setLeaveSelection(undefined);
+    setLeaveTypePage(1);
+    setLeaveTypeTotal(0);
+    setLeaveTypes([]);
+    setLeaveTypeError("");
+    if (
+      next.kind === "create" ||
+      (next.kind === "edit" && next.row.requestType === "leave")
+    ) void loadLeaveTypes(1);
+    setForm(
+      next.kind === "edit"
+        ? {
+          requestType: next.row.requestType,
+          startAt: localTime(next.row.startAt),
+          endAt: localTime(next.row.endAt),
+          attendanceDate: next.row.attendanceDate ?? "",
+          declaredDays: next.row.declaredDays == null
+            ? ""
+            : String(next.row.declaredDays),
+          reason: next.row.reason,
+        }
+        : empty,
+    );
+  };
+  const mutate = async (
+    job: () => Promise<unknown>,
+    success: string,
+    afterSuccess?: () => Promise<void>,
+  ) => {
+    if (writing.current || busy) return;
+    writing.current = true;
+    onBusyChange(true);
+    setError("");
+    setNotice("");
+    try {
+      await job();
+      if (!mounted.current) return;
+      setOperation(null);
+      setForm(empty);
+      setComment("");
+      setNotice(success);
+      const [refreshed, periodRefresh] = await Promise.all([
+        load(),
+        Promise.resolve().then(() => afterSuccess?.()).then(() => null).catch(
+          (error) => hrLoadErrorMessage(error, "期间状态刷新失败"),
+        ),
+      ]);
+      if (mounted.current && (!refreshed || periodRefresh)) {
+        setNotice(
+          success +
+            ` ${periodRefresh ?? "列表刷新失败"}，请刷新核对，勿重复办理。`,
+        );
+      }
+    } catch (e) {
+      if (mounted.current) {
+        if (e instanceof ApiError && [400, 403, 404, 422].includes(e.status)) {
+          writeKey.current = crypto.randomUUID();
+        }
+        setError(hrLoadErrorMessage(e, "办理考勤申请失败"));
+      }
+    } finally {
+      writing.current = false;
+      if (mounted.current) onBusyChange(false);
+    }
+  };
+  const save = () => {
+    if (!operation || !["create", "edit"].includes(operation.kind)) return;
+    const timed = form.requestType !== "correction";
+    if (!form.reason.trim()) {
+      setError("请填写申请事由。");
+      return;
+    }
+    if (
+      timed &&
+      (!form.startAt || !form.endAt ||
+        !Number.isFinite(new Date(form.startAt).getTime()) ||
+        !Number.isFinite(new Date(form.endAt).getTime()) ||
+        new Date(form.endAt) <= new Date(form.startAt))
+    ) {
+      setError("结束时间须晚于开始时间。");
+      return;
+    }
+    if (
+      form.requestType === "leave" && leaveSelection !== undefined &&
+      leaveSelection !== null && (leaveTypeLoading || leaveTypeError)
+    ) {
+      setError("假期类型目录尚未可用，请重新读取后再保存已变更的类型。");
+      return;
+    }
+    const leavePatch =
+      form.requestType !== "leave" || leaveSelection === undefined
+        ? {}
+        : leaveSelection === null
+        ? { leaveTypeId: null }
+        : {
+          leaveTypeId: leaveSelection.id,
+          expectedLeaveTypeVersion: leaveSelection.version,
+        };
+    const declaredDays = form.requestType === "business_trip"
+      ? form.declaredDays === "" ? null : Number(form.declaredDays)
+      : undefined;
+    if (form.requestType === "business_trip" && (typeof declaredDays === "number" && (!Number.isSafeInteger(declaredDays) || declaredDays < 0))) {
+      setError("申报天数应为非负整数，或明确留空。");
+      return;
+    }
+    const body = {
+      requestType: form.requestType,
+      reason: form.reason.trim(),
+      ...(timed
+        ? {
+          startAt: new Date(form.startAt).toISOString(),
+          endAt: new Date(form.endAt).toISOString(),
+        }
+        : { attendanceDate: form.attendanceDate }),
+      ...leavePatch,
+      ...(form.requestType === "business_trip" ? { declaredDays } : {}),
+    };
+    const selected = operation;
+    void mutate(
+      () =>
+        selected.kind === "edit"
+          ? hrApi.updateAttendanceRequest(
+            selected.row.id,
+            { ...body, expectedVersion: selected.row.editVersion },
+            getAccessToken(),
+            writeKey.current,
+          )
+          : hrApi.createAttendanceRequest(
+            body,
+            getAccessToken(),
+            writeKey.current,
+          ),
+      selected.kind === "edit"
+        ? "申请修改已保存，请核对后重新提交。"
+        : "申请草稿已保存，请核对后提交审批。",
+    );
+  };
+  const transition = (decision?: "approve" | "reject") => {
+    if (
+      !operation || operation.kind === "create" || operation.kind === "edit"
+    ) return;
+    const selected = operation;
+    if (
+      selected.kind === "review" && decision === "reject" && !comment.trim()
+    ) {
+      setError("退回申请时请填写补充要求。");
+      return;
+    }
+    const approved = selected.kind === "review" && decision === "approve";
+    void mutate(
+      () =>
+        selected.kind === "submit"
+          ? hrApi.submitAttendanceRequest(
+            selected.row.id,
+            getAccessToken(),
+            writeKey.current,
+          )
+          : selected.kind === "cancel"
+          ? hrApi.cancelAttendanceRequest(
+            selected.row.id,
+            getAccessToken(),
+            writeKey.current,
+          )
+          : hrApi.reviewAttendanceRequest(
+            selected.row.id,
+            decision!,
+            comment.trim() || undefined,
+            getAccessToken(),
+            writeKey.current,
+          ),
+      selected.kind === "submit"
+        ? "考勤申请已提交。"
+        : selected.kind === "cancel"
+        ? "考勤申请已取消。"
+        : approved
+        ? "考勤申请已批准。请重算涉及日期，再重新计算并核对月结期间。"
+        : "考勤申请已退回。",
+      approved ? onApproved : undefined,
+    );
+  };
+  const controls = (row: HrAttendanceRequest) => (
+    <div className={styles.actionRow}>
+      {canRequest && row.isSelf && ["draft", "returned"].includes(row.status)
+        ? (
+          <>
+            <button
+              className="ds-button ds-button-secondary"
+              disabled={locked}
+              onClick={() => open({ kind: "edit", row })}
+            >
+              修改申请
+            </button>
+            <button
+              className="ds-button ds-button-secondary"
+              disabled={locked}
+              onClick={() =>
+                open({ kind: "submit", row })}
+            >
+              {row.status === "returned" ? "重新提交" : "提交审批"}
+            </button>
+          </>
+        )
+        : null}
+      {canRequest && row.isSelf &&
+          ["draft", "submitted", "returned"].includes(row.status)
+        ? (
+          <button
+            className="ds-button ds-button-secondary"
+            disabled={locked}
+            onClick={() => open({ kind: "cancel", row })}
+          >
+            取消申请
+          </button>
+        )
+        : null}
+      {canApprove && !row.isSelf && row.status === "submitted"
+        ? (
+          <button
+            className="ds-button ds-button-secondary"
+            disabled={locked}
+            onClick={() => open({ kind: "review", row })}
+          >
+            审核
+          </button>
+        )
+        : null}
+    </div>
+  );
+  const selectedLeaveType =
+    leaveSelection !== undefined && leaveSelection !== null
+      ? leaveSelection
+      : null;
+  const time = (row: HrAttendanceRequest) =>
+    row.attendanceDate ??
+      `${
+        row.startAt ? new Date(row.startAt).toLocaleString("zh-CN") : "未登记"
+      } 至 ${
+        row.endAt ? new Date(row.endAt).toLocaleString("zh-CN") : "未登记"
+      }`;
+  return (
+    <section className={local.workflow} aria-label="考勤申请连续办理">
+      <section className="ds-panel">
+        <div className={styles.sectionHeading}>
+          <div>
+            <span className="ds-eyebrow">办理队列</span>
+            <h2>{canApprove ? "团队与园区申请" : "我的申请"}</h2>
+          </div>
+          {canRequest
+            ? (
+              <button
+                className="ds-button ds-button-primary"
+                disabled={locked}
+                onClick={() => open({ kind: "create" })}
+              >
+                新建申请
+              </button>
+            )
+            : null}
+        </div>
+        {notice ? <p role="status">{notice}</p> : null}
+        {readError
+          ? <p role="alert" className="form-error">{readError}</p>
+          : null}
+        <div className={styles.filterBar}>
+          <label className="form-field">
+            <span>类型</span>
+            <select
+              disabled={locked}
+              value={query.type}
+              onChange={(e) =>
+                changeQuery({ ...query, page: 1, type: e.target.value })}
+            >
+              <option value="">全部类型</option>
+              {Object.entries(types).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>状态</span>
+            <select
+              disabled={locked}
+              value={query.status}
+              onChange={(e) =>
+                changeQuery({ ...query, page: 1, status: e.target.value })}
+            >
+              <option value="">全部状态</option>
+              {Object.entries(states).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {loading
+          ? <p role="status">正在加载考勤申请…</p>
+          : (
+            <div className={`ds-mobile-record-list ${local.records}`}>
+              {rows.length
+                ? rows.map((row) => (
+                  <article className="ds-mobile-record" key={row.id}>
+                    <strong>
+                      {row.employeeName ? `${row.employeeName} · ` : ""}
+                      {types[row.requestType]} · {states[row.status]}
+                    </strong>
+                    <span>
+                      {row.requestNo}
+                      {row.editVersion ? ` · 版本 ${row.editVersion}` : ""}
+                    </span>
+                    {row.employeeCode || row.organizationName
+                      ? <span>{row.employeeCode} {row.organizationName}</span>
+                      : null}
+                    <span>{time(row)}</span>
+                    {row.requestType === "business_trip"
+                      ?
+                        <span>申报天数：{row.declaredDays == null ? "未申报" : `${row.declaredDays} 天`}</span>
+                      : null}
+                    {row.requestType === "leave"
+                      ? (
+                        <>
+                          <span>
+                            {row.leaveTypeName
+                              ? `假期类型：${row.leaveTypeName}（冻结版本 ${row.leaveTypeVersion}）`
+                              : "假期类型：待核对分类"}
+                          </span>
+                          <span>
+                            {row.status === "cancelled"
+                              ? "已取消，不计入日考勤"
+                              : `申请时长 ${row.durationMinutes} 分钟；实际请假分钟以排班日结果为准`}
+                          </span>
+                        </>
+                      )
+                      : null}
+                    <span>{row.reason}</span>
+                    {row.reviewComment
+                      ? <span>审批意见：{row.reviewComment}</span>
+                      : null}
+                    {controls(row)}
+                    {canOperate && row.requestType === "business_trip" && row.status === "approved" ? <BusinessTripDeclaredDaysPanel row={row} busy={busy} onBusyChange={onBusyChange} onSaved={async receipt => {
+                      setRows(current => current.map(item => item.id === receipt.id ? { ...item, declaredDays: receipt.declaredDays, amendVersion: receipt.amendVersion } : item));
+                      setNotice("出差申报天数已更正，请重算涉及日期并核对月结。");
+                      await onApproved?.();
+                    }} /> : null}
+                    {canOperate && row.status === "approved"
+                      ? (
+                        <ApprovedRequestRecalculation
+                          row={row}
+                          busy={busy}
+                          onBusyChange={onBusyChange}
+                          onRecalculated={async () => {
+                            await onApproved?.();
+                          }}
+                        />
+                      )
+                      : null}
+                  </article>
+                ))
+                : <p>当前范围没有考勤申请。</p>}
+            </div>
+          )}
+        <nav
+          className={`${styles.actionRow} ${local.pagination}`}
+          aria-label="考勤申请分页"
+        >
+          <button
+            className="ds-button ds-button-secondary"
+            disabled={locked || loading || query.page <= 1}
+            onClick={() => changeQuery({ ...query, page: query.page - 1 })}
+          >
+            申请上一页
+          </button>
+          <span role="status">
+            第 {query.page} / {Math.max(1, Math.ceil(total / 30))} 页 · 共{" "}
+            {total} 条 · 每页 30 条
+          </span>
+          <button
+            className="ds-button ds-button-secondary"
+            disabled={locked || loading ||
+              query.page >= Math.max(1, Math.ceil(total / 30))}
+            onClick={() => changeQuery({ ...query, page: query.page + 1 })}
+          >
+            申请下一页
+          </button>
+          <button
+            className="ds-button ds-button-secondary"
+            disabled={locked || loading}
+            onClick={() => {
+              setOperation(null);
+              void load();
+            }}
+          >
+            刷新申请
+          </button>
+        </nav>
+      </section>
+      {operation
+        ? (
+          <form
+            className={`ds-panel ${styles.formGrid}`}
+            aria-label={operation.kind === "create"
+              ? "新建考勤申请"
+              : operation.kind === "edit"
+              ? "修改考勤申请"
+              : "办理考勤申请"}
+            key={operation.kind === "create"
+              ? "create"
+              : `${operation.kind}-${operation.row.id}-${operation.row.editVersion}`}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (
+                operation.kind === "create" || operation.kind === "edit"
+              ) save();
+              else if (operation.kind !== "review") transition();
+            }}
+          >
+            <fieldset disabled={locked} className={local.fields}>
+              <div className={styles.sectionHeading}>
+                <h2>
+                  {operation.kind === "create"
+                    ? "新建考勤申请"
+                    : operation.kind === "edit"
+                    ? "修改考勤申请"
+                    : operation.kind === "review"
+                    ? "审批办理"
+                    : operation.kind === "submit"
+                    ? "提交审批"
+                    : "取消申请"}
+                </h2>
+              </div>
+              {operation.kind !== "create"
+                ? (
+                  <p className={local.full}>
+                    {operation.row.employeeName
+                      ? `${operation.row.employeeName}${
+                        operation.row.employeeCode
+                          ? `（${operation.row.employeeCode}）`
+                          : ""
+                      } · `
+                      : ""}
+                    {operation.row.requestNo} ·{" "}
+                    {types[operation.row.requestType]} · {time(operation.row)} ·
+                    {" "}
+                    {operation.row.reason}
+                    {operation.row.reviewComment
+                      ? ` · 上次审批意见：${operation.row.reviewComment}`
+                      : ""}
+                  </p>
+                )
+                : null}
+              {operation.kind === "create" || operation.kind === "edit"
+                ? (
+                  <>
+                    <label className="form-field">
+                      <span>申请类型</span>
+                      <select
+                        disabled={operation.kind === "edit"}
+                        value={form.requestType}
+                        onChange={(e) =>
+                          setForm({ ...empty, requestType: e.target.value })}
+                      >
+                        {Object.entries(types).map(([value, label]) => (
+                          <option value={value} key={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {form.requestType === "leave"
+                      ? (
+                        <div className={`form-field ${local.full}`}>
+                          <span>假期类型</span>
+                          {operation.kind === "edit" &&
+                              operation.row.leaveTypeName
+                            ? (
+                              <p>
+                                当前冻结类型：{operation.row
+                                  .leaveTypeName}（版本{" "}
+                                {operation.row.leaveTypeVersion}）
+                              </p>
+                            )
+                            : operation.kind === "edit"
+                            ? <p>当前未分类；不修改会保留原记录。</p>
+                            : null}
+                          <select
+                            aria-label="假期类型"
+                            disabled={leaveTypeLoading || locked}
+                            value={leaveSelection === undefined
+                              ? ""
+                              : leaveSelection === null
+                              ? "__clear__"
+                              : leaveSelection.id}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (!value) {
+                                setLeaveSelection(undefined);
+                                return;
+                              }
+                              if (value === "__clear__") {
+                                setLeaveSelection(null);
+                                return;
+                              }
+                              const selected =
+                                leaveTypes.find((type) => type.id === value) ??
+                                  (selectedLeaveType?.id === value
+                                    ? selectedLeaveType
+                                    : undefined);
+                              if (selected) setLeaveSelection(selected);
+                            }}
+                          >
+                            <option value="">
+                              {operation.kind === "edit"
+                                ? "保留当前分类"
+                                : "待核对分类"}
+                            </option>
+                            {operation.kind === "edit" &&
+                                operation.row.leaveTypeId
+                              ? <option value="__clear__">明确清除分类</option>
+                              : null}
+                            {selectedLeaveType && !leaveTypes.some((type) =>
+                                type.id === selectedLeaveType.id
+                              )
+                              ? (
+                                <option value={selectedLeaveType.id}>
+                                  已选择：{selectedLeaveType.typeCode} ·{" "}
+                                  {selectedLeaveType.typeName} · 版本{" "}
+                                  {selectedLeaveType.version}
+                                </option>
+                              )
+                              : null}
+                            {leaveTypes.filter((type) =>
+                              type.enabled
+                            ).map(
+                              (type) => (
+                                <option key={type.id} value={type.id}>
+                                  {type.typeCode} · {type.typeName} · 版本{" "}
+                                  {type.version}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                          {leaveTypeLoading
+                            ? <p role="status">正在加载假期类型…</p>
+                            : null}
+                          {leaveTypeError
+                            ? (
+                              <p role="alert" className="form-error">
+                                {leaveTypeError}{" "}
+                                <button
+                                  type="button"
+                                  className="ds-button ds-button-secondary"
+                                  onClick={() =>
+                                    void loadLeaveTypes(leaveTypePage)}
+                                >
+                                  重试读取类型
+                                </button>
+                              </p>
+                            )
+                            : null}
+                          <div className={styles.actionRow}>
+                            <button
+                              type="button"
+                              className="ds-button ds-button-secondary"
+                              disabled={leaveTypeLoading || leaveTypePage <= 1}
+                              onClick={() =>
+                                void loadLeaveTypes(leaveTypePage - 1)}
+                            >
+                              类型上一页
+                            </button>
+                            <span>
+                              类型第 {leaveTypePage} /{" "}
+                              {Math.max(1, Math.ceil(leaveTypeTotal / 20))} 页
+                            </span>
+                            <button
+                              type="button"
+                              className="ds-button ds-button-secondary"
+                              disabled={leaveTypeLoading ||
+                                leaveTypePage >=
+                                  Math.max(1, Math.ceil(leaveTypeTotal / 20))}
+                              onClick={() =>
+                                void loadLeaveTypes(leaveTypePage + 1)}
+                            >
+                              类型下一页
+                            </button>
+                          </div>
+                        </div>
+                      )
+                      : null}
+                    {form.requestType === "correction"
+                      ? (
+                        <label className="form-field">
+                          <span>需更正日期</span>
+                          <input
+                            type="date"
+                            required
+                            value={form.attendanceDate}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                attendanceDate: e.target.value,
+                              })}
+                          />
+                        </label>
+                      )
+                      : (
+                        <>
+                          <label className="form-field">
+                            <span>开始时间</span>
+                            <input
+                              type="datetime-local"
+                              required
+                              value={form.startAt}
+                              onChange={(e) =>
+                                setForm({ ...form, startAt: e.target.value })}
+                            />
+                          </label>
+                          <label className="form-field">
+                            <span>结束时间</span>
+                            <input
+                              type="datetime-local"
+                              required
+                              min={form.startAt || undefined}
+                              value={form.endAt}
+                              onChange={(e) =>
+                                setForm({ ...form, endAt: e.target.value })}
+                            />
+                          </label>
+                        </>
+                      )}
+                    {form.requestType === "business_trip" && (
+                      <label className="form-field">
+                        <span>申报天数</span>
+                        <input type="number" min="0" max="2147483647" step="1" inputMode="numeric" onFocus={event => event.currentTarget.select()} placeholder="留空表示未申报" value={form.declaredDays} onChange={(e) => setForm({ ...form, declaredDays: e.target.value })}/>
+                      </label>
+                    )}
+                    <label className={`form-field ${local.full}`}>
+                      <span>申请事由</span>
+                      <textarea
+                        autoFocus
+                        required
+                        maxLength={2000}
+                        value={form.reason}
+                        onChange={(e) =>
+                          setForm({ ...form, reason: e.target.value })}
+                      />
+                    </label>
+                  </>
+                )
+                : operation.kind === "review"
+                ? (
+                  <label className={`form-field ${local.full}`}>
+                    <span>审批意见</span>
+                    <textarea
+                      autoFocus
+                      maxLength={1000}
+                      placeholder="退回时必填，批准时可选"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                  </label>
+                )
+                : (
+                  <p className={local.full}>
+                    {operation.kind === "submit"
+                      ? "请核对申请内容。退回申请可先修改，再重新提交。"
+                      : "取消后不能继续提交该申请。"}
+                  </p>
+                )}
+              <div className={styles.formActions}>
+                {operation.kind === "review"
+                  ? (
+                    <>
+                      <button
+                        type="button"
+                        className="ds-button ds-button-primary"
+                        onClick={() => transition("approve")}
+                      >
+                        批准
+                      </button>
+                      <button
+                        type="button"
+                        className="ds-button ds-button-secondary"
+                        onClick={() => transition("reject")}
+                      >
+                        退回补充
+                      </button>
+                    </>
+                  )
+                  : (
+                    <button
+                      className="ds-button ds-button-primary"
+                      autoFocus={operation.kind === "submit" ||
+                        operation.kind === "cancel"}
+                    >
+                      {operation.kind === "create"
+                        ? "保存草稿"
+                        : operation.kind === "edit"
+                        ? "保存修改"
+                        : "确认办理"}
+                    </button>
+                  )}
+                <button
+                  type="button"
+                  className="ds-button ds-button-secondary"
+                  onClick={() => setOperation(null)}
+                >
+                  返回队列
+                </button>
+              </div>
+            </fieldset>
+            {error
+              ? (
+                <p role="alert" className={`form-error ${local.full}`}>
+                  {error}
+                </p>
+              )
+              : null}
+          </form>
+        )
+        : null}
+    </section>
+  );
 }

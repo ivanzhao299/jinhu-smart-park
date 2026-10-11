@@ -1278,6 +1278,8 @@ jobs:
           HR_ATTENDANCE_CLOSE_PG_REQUIRED: "1"
           HR_ATTENDANCE_APPROVED_FACT_PG_REQUIRED: "1"
           HR_ATTENDANCE_OVERNIGHT_PG_REQUIRED: "1"
+          HR_TRIP_FORMAL_PG_REQUIRED: "1"
+          HR_TRIP_FORMAL_ISOLATED: "yes"
         run: |
           set -o pipefail
           pnpm --filter @jinhu/shared build
@@ -1287,6 +1289,7 @@ jobs:
             src/modules/hr/hr-attendance-month-close.pg.spec.ts \
             src/modules/hr/hr-attendance-approved-facts.pg.spec.ts \
             src/modules/hr/hr-attendance-overnight-approved-facts.pg.spec.ts \
+            src/modules/hr/hr-business-trip-formal.pg.spec.ts \
             2>&1 | tee /tmp/release-smoke-logs/hr-attendance-approved-facts.log
 
       - name: Bootstrap admin

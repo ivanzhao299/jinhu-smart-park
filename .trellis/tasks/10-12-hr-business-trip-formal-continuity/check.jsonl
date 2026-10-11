@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR domain, scoped permissions and payroll boundaries"}
+{"file": ".trellis/spec/api/backend/hr-attendance-request-edit.md", "reason": "Draft/returned versioned edits"}
+{"file": ".trellis/spec/api/backend/hr-attendance-approved-fact-continuity.md", "reason": "Approved source/month/correction locks and immutable closed facts"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Formal fields across persistence/API/UI/import"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse version/audit/idempotency contracts"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Forward migrations/release evidence"}
+{"file": ".trellis/tasks/10-12-hr-business-trip-formal-continuity/research/source-findings.md", "reason": "Verified source semantics and exact baseline"}

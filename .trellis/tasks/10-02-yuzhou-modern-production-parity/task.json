@@ -115,7 +115,8 @@
     "10-11-hr-payroll-source-coverage",
     "10-11-hr-attendance-work-calendar",
     "10-11-hr-payroll-insurance-coverage",
-    "10-11-hr-approved-leave-cancellation"
+    "10-11-hr-approved-leave-cancellation",
+    "10-12-hr-business-trip-formal-continuity"
   ],
   "parent": null,
   "relatedFiles": [
