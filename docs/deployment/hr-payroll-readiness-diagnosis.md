@@ -73,3 +73,23 @@ Validation also includes
 opt-in `scripts/e2e/hr-payroll-readiness.pg.mjs` against a fully migrated,
 explicitly named disposable review database. Never run its synthetic fixtures
 against production or a shared business database.
+
+The same monthly artifact includes `insuranceCoverage` for the distinct employees
+in eligible, mapped payroll snapshots whose scoped employee record is available.
+This narrower denominator is explicit as `cohortEmployeeCount`; the original
+all-source `totals` and per-book census remain unchanged. Cross-book snapshots
+are retained, while a person's insurance options are counted once.
+
+`historicalOnlyCount`, `modernOnlyCount`, `bothCount` and `neitherCount` partition
+that cohort. Historical availability requires one non-deleted same-month period
+with `needs_review=false`. Modern availability requires one latest same-month
+revision with its scoped preview. Additional counters expose missing periods,
+review flags and ambiguous sources without selecting a survivor. Current schema
+uniqueness rejects multiple active historical periods and duplicate revision
+numbers; defensive ambiguity counters do not authorize bypassing those constraints.
+
+These counts establish source option availability only. Version/hash must still
+match when a source is selected. `insuranceAmountCompleteness` remains
+`UNVERIFIED`: only business-approved formula dependencies determine which kinds
+and amount components are required. No missing amount is interpreted as zero.
+The query returns no personal rows or amounts and makes no business writes.

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const countKeys = ['bookCount','snapshotCount','sourceRowCount','mappedCount','unmappedCount','duplicateSourceCount','quarantinedCount','employeeCount','itemCount','unresolvedItemCount','eligibleSourceCount','unqualifiedBatchCount','unavailableReferenceCount','unavailableEmployeeCount','duplicateEmployeeExtraCount'];
 const additiveKeys = countKeys.filter(key => key !== 'employeeCount');
+const insuranceKeys = ['cohortEmployeeCount','historicalOnlyCount','modernOnlyCount','bothCount','neitherCount','historicalAmbiguousCount','historicalNeedsReviewCount','noHistoricalPeriodCount','modernAmbiguousCount','noModernRevisionCount'];
 export function payrollSourceCoverageSql(month) {
   if (typeof month !== 'string' || !/^(?:19|20|21)\d{2}-(?:0[1-9]|1[0-2])-01$/.test(month)) throw new Error('HR_PAYROLL_COVERAGE_MONTH_INVALID');
   const aggregates = `count(DISTINCT book.id)::int AS "bookCount",count(f.id)::int AS "snapshotCount",
@@ -60,11 +61,43 @@ snapshots AS (
  SELECT s.*,COALESCE(i.item_count,0) AS item_count,COALESCE(i.unresolved_item_count,0) AS unresolved_item_count,
  COALESCE(d.extra_count,0) AS duplicate_employee_extra FROM snapshots s
  LEFT JOIN items i ON i.snapshot_id=s.id LEFT JOIN employee_duplicates d ON d.owner_id=s.id
+), insurance_cohort AS (
+ SELECT DISTINCT employee_id FROM facts WHERE source_class='eligible' AND mapping_status='mapped' AND NOT employee_unavailable
+), historical_insurance AS (
+ SELECT c.employee_id,count(p.id)::int AS period_count,bool_or(p.needs_review) AS needs_review
+ FROM insurance_cohort c LEFT JOIN hr_employee_insurance_period p ON p.employee_id=c.employee_id
+  AND p.tenant_id='10000001' AND p.park_id='20000001' AND NOT p.is_deleted
+  AND p.period_year=EXTRACT(YEAR FROM date '${month}')::int AND p.period_month=EXTRACT(MONTH FROM date '${month}')::int
+ GROUP BY c.employee_id
+), modern_insurance AS (
+ SELECT c.employee_id,count(p.id)::int AS revision_count FROM insurance_cohort c
+ LEFT JOIN hr_insurance_owned_revision r ON r.employee_id=c.employee_id AND r.tenant_id='10000001' AND r.park_id='20000001'
+  AND r.period_month=date '${month}' AND NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision newer
+   WHERE newer.tenant_id=r.tenant_id AND newer.park_id=r.park_id AND newer.employee_id=r.employee_id
+    AND newer.period_month=r.period_month AND newer.revision_no>r.revision_no)
+ LEFT JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id
+ GROUP BY c.employee_id
+), insurance_options AS (
+ SELECT h.period_count,h.needs_review,m.revision_count,
+  (h.period_count=1 AND NOT COALESCE(h.needs_review,false)) AS historical_ok,(m.revision_count=1) AS modern_ok
+ FROM historical_insurance h JOIN modern_insurance m ON m.employee_id=h.employee_id
+), insurance_counts AS (
+ SELECT count(*)::int AS "cohortEmployeeCount",
+ count(*) FILTER(WHERE historical_ok AND NOT modern_ok)::int AS "historicalOnlyCount",
+ count(*) FILTER(WHERE modern_ok AND NOT historical_ok)::int AS "modernOnlyCount",
+ count(*) FILTER(WHERE historical_ok AND modern_ok)::int AS "bothCount",
+ count(*) FILTER(WHERE NOT historical_ok AND NOT modern_ok)::int AS "neitherCount",
+ count(*) FILTER(WHERE period_count>1)::int AS "historicalAmbiguousCount",
+ count(*) FILTER(WHERE needs_review)::int AS "historicalNeedsReviewCount",
+ count(*) FILTER(WHERE period_count=0)::int AS "noHistoricalPeriodCount",
+ count(*) FILTER(WHERE revision_count>1)::int AS "modernAmbiguousCount",
+ count(*) FILTER(WHERE revision_count=0)::int AS "noModernRevisionCount" FROM insurance_options
 ), book_counts AS (
  SELECT book.legacy_scheme AS scheme,${aggregates} FROM books book LEFT JOIN facts f ON f.book_id=book.id GROUP BY book.legacy_scheme
 ), totals AS (SELECT ${aggregates} FROM books book LEFT JOIN facts f ON f.book_id=book.id)
 SELECT json_build_object('periodMonth','${month}','totals',(SELECT row_to_json(totals) FROM totals),
- 'books',COALESCE((SELECT json_agg(book_counts ORDER BY scheme) FROM book_counts),'[]'::json));
+ 'books',COALESCE((SELECT json_agg(book_counts ORDER BY scheme) FROM book_counts),'[]'::json),
+ 'insuranceCoverage',(SELECT row_to_json(insurance_counts) FROM insurance_counts));
 ROLLBACK;`;
 }
 
@@ -76,7 +109,7 @@ export function validatePayrollSourceCoverage(value, month) {
     && object.sourceRowCount>=object.snapshotCount && object.employeeCount<=object.snapshotCount
     && object.unresolvedItemCount<=object.itemCount && object.unavailableEmployeeCount<=object.mappedCount
     && object.duplicateEmployeeExtraCount<=object.mappedCount;
-  if (!exactKeys(value,['periodMonth','totals','books']) || value.periodMonth!==month || !counts(value.totals)
+  if (!exactKeys(value,['periodMonth','totals','books','insuranceCoverage']) || value.periodMonth!==month || !counts(value.totals)
     || !Array.isArray(value.books) || value.books.length>35) throw new Error('HR_PAYROLL_COVERAGE_RESULT_INVALID');
   let previous=0;
   for (const book of value.books) {
@@ -87,7 +120,15 @@ export function validatePayrollSourceCoverage(value, month) {
   if (additiveKeys.some(key=>value.books.reduce((sum,book)=>sum+book[key],0)!==value.totals[key])
     || value.totals.employeeCount>value.books.reduce((sum,book)=>sum+book.employeeCount,0)
     || value.books.some(book=>book.employeeCount>value.totals.employeeCount)) throw new Error('HR_PAYROLL_COVERAGE_RESULT_INVALID');
-  return {kind:'hr_payroll_source_coverage_counts',...value,amountReconciliation:'UNVERIFIED',businessAcceptance:'UNVERIFIED',productionWrites:0};
+  const insurance=value.insuranceCoverage;
+  if (!exactKeys(insurance,insuranceKeys) || insuranceKeys.some(key=>!Number.isSafeInteger(insurance[key]) || insurance[key]<0)
+    || insurance.cohortEmployeeCount>value.totals.employeeCount
+    || insuranceKeys.slice(1).some(key=>insurance[key]>insurance.cohortEmployeeCount)
+    || ['historicalOnlyCount','modernOnlyCount','bothCount','neitherCount'].reduce((sum,key)=>sum+insurance[key],0)!==insurance.cohortEmployeeCount
+    || insurance.historicalOnlyCount+insurance.bothCount+insurance.noHistoricalPeriodCount+insurance.historicalAmbiguousCount>insurance.cohortEmployeeCount
+    || insurance.modernOnlyCount+insurance.bothCount+insurance.noModernRevisionCount+insurance.modernAmbiguousCount!==insurance.cohortEmployeeCount
+    || insurance.historicalNeedsReviewCount+insurance.noHistoricalPeriodCount>insurance.cohortEmployeeCount) throw new Error('HR_PAYROLL_COVERAGE_RESULT_INVALID');
+  return {kind:'hr_payroll_source_coverage_counts',...value,insuranceAmountCompleteness:'UNVERIFIED',amountReconciliation:'UNVERIFIED',businessAcceptance:'UNVERIFIED',productionWrites:0};
 }
 
 export function diagnosePayrollSourceCoverage(deployPath, month, run=execFileSync) {
