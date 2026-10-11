@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API patterns; read checklist and relevant sections"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Frontend conventions; DS and mobile"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR scope/audit/recruitment"}
+{"file": ".trellis/spec/api/backend/hr-candidate-assessment.md", "reason": "Adjacent versioned snapshot and rollback patterns"}
+{"file": ".trellis/spec/web/frontend/hr-recruitment-results.md", "reason": "Parent busy and draft lifecycle"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "Constrained inputs and backend agreement"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guides"}
+{"file": ".trellis/tasks/10-11-hr-candidate-interview-workflow/research/source-boundary.md", "reason": "Limits of original-source evidence"}

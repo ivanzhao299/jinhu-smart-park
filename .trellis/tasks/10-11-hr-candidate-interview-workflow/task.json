@@ -1,0 +1,30 @@
+{
+  "id": "hr-candidate-interview-workflow",
+  "name": "hr-candidate-interview-workflow",
+  "title": "候选人面试安排、记录及结果连续办理",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-candidate-interview-workflow-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planningReady": true,
+    "baselineSha": "25da169fa255e9c7e06c73e5b7acf61484e988de",
+    "productionBusinessWrites": false
+  }
+}

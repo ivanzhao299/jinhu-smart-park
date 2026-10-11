@@ -1,0 +1,20 @@
+import {fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {expect,it,vi} from "vitest";
+import {HrRecruitmentClient} from "../../app/hr/recruitment/HrRecruitmentClient";
+import {hrApi} from "../../lib/hr-api";
+const gate=vi.hoisted(()=>({attempt:()=>{}}));
+vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>({id:"hr",permissions:["hr:recruitment","hr:candidate:read","hr:candidate:stage"],enabled_modules:[{module_code:"hr"}]})}));
+vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
+vi.mock("../../app/hr/recruitment/CandidateAssessment",()=>({CandidateAssessment:()=>null}));
+vi.mock("../../app/hr/recruitment/CandidateStageHistory",()=>({CandidateStageHistory:()=>null}));
+vi.mock("../../app/hr/recruitment/CandidateInterviews",()=>({CandidateInterviews:({candidateId,onBusyChange}:{candidateId:string;onBusyChange:(busy:boolean)=>void})=><button onClick={()=>{onBusyChange(true);gate.attempt();}}>开始合成面试保存 {candidateId}</button>}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{recruitmentCandidates:vi.fn(),moveRecruitmentCandidate:vi.fn()}}));
+it("synchronously blocks parent refresh close selection and stage writes from the same child-save event",async()=>{
+ vi.mocked(hrApi.recruitmentCandidates).mockResolvedValue({items:[1,2].map(n=>({id:`candidate-${n}`,candidateNo:`SYN-${n}`,fullName:`合成候选人${n}`,stage:"screening",requisitionId:"req",requisitionTitle:"合成需求",source:null,expectedOnboardDate:null,latestEvaluation:null,mobileMasked:null,emailMasked:null,identityMasked:null,convertedEmployeeId:null})),total:2,page:1,page_size:20});
+ render(<HrRecruitmentClient/>);await screen.findByText(/合成候选人1/);fireEvent.click(screen.getAllByRole("button",{name:"下一动作"})[0]!);await screen.findByRole("button",{name:"开始合成面试保存 candidate-1"});
+ const refresh=screen.getByRole("button",{name:"刷新"}),close=screen.getByRole("button",{name:"关闭"}),next=screen.getAllByRole("button",{name:"下一动作"})[1]!,move=screen.getByRole("button",{name:"面试"});
+ const reads=vi.mocked(hrApi.recruitmentCandidates).mock.calls.length;
+ gate.attempt=()=>{fireEvent.click(refresh);fireEvent.click(close);fireEvent.click(next);fireEvent.click(move);};
+ fireEvent.click(screen.getByRole("button",{name:"开始合成面试保存 candidate-1"}));
+ await waitFor(()=>expect(refresh).toBeDisabled());expect(screen.getByRole("button",{name:"开始合成面试保存 candidate-1"})).toBeInTheDocument();expect(hrApi.recruitmentCandidates).toHaveBeenCalledTimes(reads);expect(hrApi.moveRecruitmentCandidate).not.toHaveBeenCalled();
+});
