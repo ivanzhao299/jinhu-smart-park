@@ -248,6 +248,26 @@ if (enabled) {
   await assert.rejects(rest.put(scope,admin,employee.id,"2026-07-06",{expectedVersion:0,isRest:true,reason:"Synthetic schedule conflict"}),/已有排班/);
   await assert.rejects(db.query("INSERT INTO hr_employee_rest_day(tenant_id,park_id,employee_id,work_date,is_rest,version,updated_by) VALUES($1,$2,$3,$4,true,1,$5)",[scope.tenantId,scope.parkId,employee.id,"2026-07-06",adminId]),/conflicts with schedule/);
  });
+ it("rest-day quantities and versions flow through daily facts, month close and explicit frozen-input corrections",async()=>{
+  const id=randomUUID(),userId=randomUUID(),requestOwner=actor(userId,[P.HR_ATTENDANCE_REQUEST,P.HR_ATTENDANCE_SELF_READ]),operator={...admin,permissions:[...admin.permissions,P.HR_ATTENDANCE_CLOSE,P.HR_ATTENDANCE_CORRECT,P.HR_ATTENDANCE_PAYROLL_INPUT_READ]},date="2028-05-01";
+  await db.query("INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash) VALUES($1::uuid,$2,$3,$1::text,'Synthetic rest month owner','not-a-login-hash')",[userId,scope.tenantId,scope.parkId]);
+  await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,user_id,employment_status) VALUES($1,$2,$3,'REST-MONTH','Synthetic rest month',$4,'active')",[id,scope.tenantId,scope.parkId,userId]);
+  const request=await hr.createAttendanceRequest(scope,requestOwner,{requestType:"leave",startAt:date+"T09:00:00+08:00",endAt:date+"T17:00:00+08:00",reason:"Synthetic rest month leave",leaveTypeId:typeId,expectedLeaveTypeVersion:23});await hr.submitAttendanceRequest(scope,requestOwner,request.id);await hr.reviewAttendanceRequest(scope,operator,request.id,"approve",{});
+  const day=()=>hr.recalculateAttendanceDay(scope,operator,{employeeId:id,workDate:date,ruleVersion:"rest-month-v1"});
+  assert.equal((await day()).leaveMinutes,480);
+  const period=await hr.createAttendancePeriod(scope,operator,{periodMonth:"2028-05-01"});await rest.put(scope,operator,id,date,{expectedVersion:0,isRest:true,reason:"Synthetic explicit rest"});
+  await assert.rejects(hr.calculateAttendancePeriod(scope,operator,period.id),/个人休息安排已变化/);
+  const first=await day();assert.equal(first.leaveMinutes,0);assert.equal(first.resultStatus,"rest");
+  const daily=await db.getRepository(entities.HrEmployeeAttendanceDailyResultEntity).findOneByOrFail({id:first.id});assert.equal(daily.sourceTrace.employeeRestDayBasis,"registered-employee-rest-v1");assert.deepEqual(daily.sourceTrace.leaveBasis,{kind:"explicit_employee_rest"});assert.equal((daily.sourceTrace.employeeRestDaySource as {version:number}).version,1);
+  await hr.calculateAttendancePeriod(scope,operator,period.id);await hr.closeAttendancePeriod(scope,operator,period.id);const frozen=await hr.payrollAttendanceInputs(scope,operator,period.id);assert.equal(frozen.items[0]!.approvedLeaveMinutes,0);
+  const [summary]=await db.query("SELECT source_daily_trace FROM hr_attendance_month_summary WHERE period_id=$1 AND summary_version=1",[period.id]);assert.equal(summary.source_daily_trace[0].employeeRestDaySource.version,1);
+  await rest.put(scope,operator,id,date,{expectedVersion:1,isRest:true,reason:"Synthetic amended rest reason"});assert.equal((await hr.payrollAttendanceInputs(scope,operator,period.id)).batchId,frozen.batchId);
+  await assert.rejects(hr.createAttendanceCorrectionBatch(scope,operator,period.id,{reason:"Synthetic stale correction"}),/个人休息安排已变化/);
+  await day();await hr.createAttendanceCorrectionBatch(scope,operator,period.id,{reason:"Synthetic rest version correction"});assert.equal((await hr.payrollAttendanceInputs(scope,operator,period.id)).items[0]!.approvedLeaveMinutes,0);
+  await rest.put(scope,operator,id,date,{expectedVersion:2,isRest:false,reason:"Synthetic rest cancellation"});await assert.rejects(day(),/尚无明确排班/);
+  const [shift]=await db.query("SELECT id FROM hr_attendance_shift WHERE shift_code='BALANCE-DAY'");await hr.createEmployeeSchedule(scope,operator,{employeeId:id,workDate:date,shiftId:shift.id});assert.equal((await day()).leaveMinutes,480);
+  await hr.createAttendanceCorrectionBatch(scope,operator,period.id,{reason:"Synthetic scheduled work correction"});assert.equal((await hr.payrollAttendanceInputs(scope,operator,period.id)).items[0]!.approvedLeaveMinutes,480);assert.equal((await db.query("SELECT approved_leave_minutes FROM hr_attendance_payroll_input_item WHERE batch_id=$1",[frozen.batchId]))[0].approved_leave_minutes,0);
+ });
  it("calculating month blocks rest changes; closed month facts retain the closed state",async()=>{
   const [employee]=await db.query("SELECT id FROM hr_employee WHERE employee_code='REST-GATE' AND tenant_id=$1 AND park_id=$2",[scope.tenantId,scope.parkId]);
   const period=await hr.createAttendancePeriod(scope,admin,{periodMonth:"2026-09-01"});await db.query("UPDATE hr_attendance_period SET status='calculating' WHERE id=$1",[period.id]);
