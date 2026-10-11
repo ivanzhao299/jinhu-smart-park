@@ -17,7 +17,7 @@ beforeEach(()=>{
  vi.mocked(hrApi.recruitmentRequisitions).mockImplementation(async(_token,page=1,_size,filters)=>list([req((page-1)*20+1,filters?.status??"open")],25,page));
  vi.mocked(hrApi.recruitmentCandidates).mockImplementation(async(_token,page=1,_size,filters)=>list(filters?.stage==="hired"?[candidate((page-1)*20+1)]:[],filters?.stage==="hired"?105:0,page));
  vi.mocked(hrApi.onboardingApplications).mockResolvedValue(list([]));vi.mocked(hrApi.directoryOptions).mockResolvedValue({orgs:[],users:[]});vi.mocked(hrApi.positions).mockResolvedValue([]);
- vi.mocked(hrApi.createRecruitmentCandidate).mockResolvedValue(candidate(1));vi.mocked(hrApi.createOnboardingApplication).mockResolvedValue(application);
+ vi.mocked(hrApi.createRecruitmentCandidate).mockResolvedValue(candidate(1));vi.mocked(hrApi.createOnboardingApplication).mockImplementation(async body=>({...application,...body,version:1}));
 });
 it("selects an off-page requisition independently of the ledger and retains candidate draft on failure",async()=>{
  render(<HrRecruitmentClient/>);await screen.findByRole("button",{name:"选择 合成岗位1 · R-1"});
@@ -34,8 +34,8 @@ it("creates initial onboarding from candidate101 with the exact employee binding
  fireEvent.change(screen.getByLabelText("申请名称"),{target:{value:"合成后续入职"}});fireEvent.change(screen.getByLabelText("申请日期"),{target:{value:"2026-10-01"}});fireEvent.change(screen.getByLabelText("入职日期"),{target:{value:"2026-10-10"}});fireEvent.change(screen.getByLabelText("考勤卡号"),{target:{value:"123"}});
  fireEvent.change(screen.getByLabelText("预入职人员选择搜索"),{target:{value:"另一个搜索"}});await screen.findByRole("button",{name:"选择 合成人员1 · C-1"});
  vi.mocked(hrApi.createOnboardingApplication).mockRejectedValueOnce(new Error("合成申请写入失败"));fireEvent.click(screen.getByRole("button",{name:"保存入职申请草稿"}));await screen.findByText("合成申请写入失败");
- expect(hrApi.createOnboardingApplication).toHaveBeenCalledWith(expect.objectContaining({candidateId:"candidate-101",employeeId:"employee-101",applicationName:"合成后续入职"}),"synthetic-token");expect(screen.getByLabelText("申请名称")).toHaveValue("合成后续入职");expect(screen.getByText("已选：合成人员101 · C-101")).toBeInTheDocument();
- fireEvent.click(screen.getByRole("button",{name:"保存入职申请草稿"}));await screen.findByText("入职申请草稿已保存，可继续提交审批。");expect(screen.getByLabelText("申请名称")).toHaveValue("");expect(screen.getByRole("button",{name:"保存入职申请草稿"})).toBeDisabled();
+ expect(hrApi.createOnboardingApplication).toHaveBeenCalledWith(expect.objectContaining({candidateId:"candidate-101",employeeId:"employee-101",applicationName:"合成后续入职"}),"synthetic-token",expect.any(String));expect(screen.getByLabelText("申请名称")).toHaveValue("合成后续入职");expect(screen.getByText("已选：合成人员101 · C-101")).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"重试原入职请求"}));await screen.findByText("入职申请草稿已保存，可继续提交审批。");expect(screen.getByLabelText("申请名称")).toHaveValue("");expect(screen.getByRole("button",{name:"保存入职申请草稿"})).toBeDisabled();
 });
 it("keeps an independent chosen reference through read failure and retry",async()=>{
  const onChange=vi.fn();const {rerender}=render(<RecruitmentReferencePicker kind="candidate" canRead selected={null} onChange={onChange}/>);fireEvent.click(await screen.findByRole("button",{name:"选择 合成人员1 · C-1"}));
@@ -66,7 +66,7 @@ it("retains the failed conversion draft before resuming onboarding",async()=>{
  render(<HrRecruitmentClient/>);fireEvent.click(await screen.findByRole("button",{name:"下一动作"}));const field=screen.getByLabelText("员工编号");fireEvent.change(field,{target:{value:"SYN-E2"}});fireEvent.submit(field.closest("form")!);await screen.findByText("合成转入失败");expect(field).toHaveValue("SYN-E2");expect(hrApi.convertRecruitmentCandidate).toHaveBeenCalledWith("candidate-2",expect.objectContaining({employeeCode:"SYN-E2"}),"synthetic-token",expect.any(String));
 });
 it("keeps edited onboarding values after a rejected update",async()=>{
- vi.mocked(hrApi.onboardingApplications).mockResolvedValue(list([application]));vi.mocked(hrApi.updateOnboardingApplication).mockRejectedValueOnce(new Error("合成修改失败"));render(<HrRecruitmentClient/>);fireEvent.click(await screen.findByRole("button",{name:"编辑"}));const form=screen.getByRole("button",{name:"保存修改"}).closest("form")!;const field=within(form).getByLabelText("申请名称");fireEvent.change(field,{target:{value:"修改草稿保留"}});fireEvent.submit(form);await screen.findByText("合成修改失败");expect(field).toHaveValue("修改草稿保留");expect(hrApi.updateOnboardingApplication).toHaveBeenCalledWith("application",expect.objectContaining({applicationName:"修改草稿保留",employeeId:"employee-101",candidateId:"candidate-101"}),"synthetic-token");
+ vi.mocked(hrApi.onboardingApplications).mockResolvedValue(list([application]));vi.mocked(hrApi.updateOnboardingApplication).mockRejectedValueOnce(new Error("合成修改失败"));render(<HrRecruitmentClient/>);fireEvent.click(await screen.findByRole("button",{name:"编辑"}));const form=screen.getByRole("button",{name:"保存修改"}).closest("form")!;const field=within(form).getByLabelText("申请名称");fireEvent.change(field,{target:{value:"修改草稿保留"}});fireEvent.submit(form);await screen.findByText("合成修改失败");expect(field).toHaveValue("修改草稿保留");expect(hrApi.updateOnboardingApplication).toHaveBeenCalledWith("application",expect.objectContaining({applicationName:"修改草稿保留",employeeId:"employee-101",candidateId:"candidate-101"}),"synthetic-token",expect.any(String));
 });
 it.each(["wrongPage","badLabel","badEmployee","oversized","badTotal"])("rejects unusable option payload: %s",async(kind)=>{
  const row=candidate(1),value=list([row],1,1);

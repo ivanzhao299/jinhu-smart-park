@@ -107,7 +107,8 @@
     "10-11-hr-candidate-profile-continuity",
     "10-11-hr-requisition-continuity",
     "10-11-hr-candidate-conversion-profile",
-    "10-11-hr-candidate-conversion-ui"
+    "10-11-hr-candidate-conversion-ui",
+    "10-11-hr-initial-onboarding-continuity"
   ],
   "parent": null,
   "relatedFiles": [
