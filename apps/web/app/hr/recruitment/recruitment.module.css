@@ -98,3 +98,9 @@
 @media (max-width:640px) { .conversionReceipt dl { grid-template-columns:minmax(0,1fr); } .conversionReceipt dd { margin-bottom:.5rem; } }
 
 .onboardingFields { grid-column: 1 / -1; border: 0; margin: 0; padding: 0; min-width: 0; }
+
+.ledgerFilters { --form-control-height: var(--form-control-height-touch, 44px); display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-block: 16px; min-width: 0; }
+.ledgerFilters :global(.form-field) input, .ledgerFilters :global(.form-field) select { width: 100%; min-width: 0; min-height: var(--form-control-height-touch, 44px); }
+.ledgerFilterActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.ledgerFilterActions :global(.ds-button) { min-height: 44px; max-width: 100%; flex: 0 0 auto; white-space: normal; }
+@media (max-width: 640px) { .ledgerFilters { grid-template-columns: minmax(0, 1fr); } }
