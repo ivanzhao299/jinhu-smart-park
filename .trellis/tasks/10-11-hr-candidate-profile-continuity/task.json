@@ -1,0 +1,31 @@
+{
+  "id": "hr-candidate-profile-continuity",
+  "name": "hr-candidate-profile-continuity",
+  "title": "正式候选人资料更正、岗位需求关联及完整历史",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-candidate-profile-continuity-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "Local API9/9, profile Web15/15 plus unchanged surrounding16/16, API/Web lint/typecheck, full-schema realPG1/1 skip0 PASS and uniqueDB cleaned residual0. Desktop1280/mobile390 actual-parent synthetic browser verified, no overflow. Owner confirmation: Wu Enguo latest complete actual payroll data, month unverified, calculate-only. Release pending.",
+  "meta": {
+    "planningReady": true,
+    "baselineSha": "5f700773a692cab3ce5c4f584ab5c0bf2cfbdcab",
+    "productionBusinessWrites": false,
+    "localValidation": "PASS"
+  }
+}

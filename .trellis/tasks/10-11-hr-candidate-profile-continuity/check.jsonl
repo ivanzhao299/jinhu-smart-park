@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API contracts, permissions, DTO, idempotency, transactions/migrations"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR domain boundaries and sensitive projection"}
+{"file": ".trellis/spec/api/backend/hr-candidate-assessment.md", "reason": "current transaction/version/history pattern"}
+{"file": ".trellis/spec/api/backend/hr-candidate-interview.md", "reason": "parent-integrated modern profile sibling"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web DS, projections, retries"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "constrained fields"}
+{"file": ".trellis/spec/guides/index.md", "reason": "cross-layer guide"}
+{"file": ".trellis/tasks/10-11-hr-candidate-profile-continuity/research/current-boundary.md", "reason": "verified source and scope"}

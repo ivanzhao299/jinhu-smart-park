@@ -68,3 +68,10 @@
 .interviewConflict { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .interviewConflict > h4, .interviewConflict > .actionRow { grid-column: 1 / -1; }
 @media (max-width:720px) { .interviewForm, .interviewConflict { grid-template-columns: minmax(0,1fr); } }
+
+.profile,.profileOptions { display:grid; gap:1rem; min-width:0; overflow-wrap:anywhere; }
+.profileForm { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+.profileActions { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
+.profileForm > .profileActions { grid-column:1 / -1; }
+.profileForm input,.profileForm textarea { width:100%; min-width:0; }
+@media (max-width:640px) { .profileForm { grid-template-columns:minmax(0,1fr); } }

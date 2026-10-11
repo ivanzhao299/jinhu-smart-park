@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Formal partial candidate profile corrections and encrypted immutable history: [Candidate Profile Continuity](./hr-candidate-profile.md).
+
 Formal candidate assessment scores and version history: [Candidate Assessment](./hr-candidate-assessment.md).
 
 Formal candidate interview schedule/result records and immutable versions: [Candidate Interview Workflow](./hr-candidate-interview.md).
