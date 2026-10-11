@@ -39,3 +39,37 @@ migrate, seed, import HR data, create a source, freeze input, calculate a run,
 or change permissions. It is production-import `HOLD` evidence only.
 
 Validation: `node --test scripts/e2e/hr-payroll-readiness.contract.mjs`.
+
+For an explicitly selected month's complete imported-source census, also pass
+`-f payroll_coverage_month=2026-07-01`. This optional input accepts only a first
+day in `YYYY-MM-01` format (1900–2199), requires the payroll-readiness switch,
+and retains a separate `hr-payroll-source-coverage-observation` artifact.
+Supply the independently verified `expected_api_commit` and
+`expected_web_commit` when observation code and running application differ.
+
+The census includes every scoped snapshot for that month, including failed,
+unpublished and receipt-unqualified batches. It reports all scoped book numbers,
+including zero-record books, and partitions snapshots into eligible source,
+unqualified batch and unavailable reference counts. Mapping states are a
+separate complete partition. `sourceRowCount` sums source multiplicity, whereas
+`snapshotCount` counts imported normalized rows. `employeeCount` is distinct
+across all books: summing per-book employee counts can count a person twice.
+`duplicateEmployeeExtraCount` flags multiple mapped snapshots for the same
+employee/book/month; it neither chooses a survivor nor removes a record.
+Items are aggregated independently to prevent snapshot fanout, and unresolved
+item references remain visible. No employee or book names, UUIDs, salary
+amounts, source payloads or batch credentials are returned.
+
+Count conservation establishes census coverage only. It does not prove source
+approval, input completeness, amount equality or business acceptance. Former
+employees are retained; a missing/deleted mapped employee is reported separately.
+The existing latest-month readiness query is unchanged. Omitting the new month
+does not execute the census. Deployment classification remains unchanged: a
+script/workflow change currently requires full release validation; the actual
+diagnostic invocation never deploys or writes business data.
+
+Validation also includes
+`node --test scripts/e2e/hr-payroll-source-coverage.contract.mjs` and the
+opt-in `scripts/e2e/hr-payroll-readiness.pg.mjs` against a fully migrated,
+explicitly named disposable review database. Never run its synthetic fixtures
+against production or a shared business database.
