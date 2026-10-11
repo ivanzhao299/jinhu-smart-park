@@ -1,0 +1,4 @@
+{"type": "spec", "path": ".trellis/spec/api/backend/hr-compensation-ledger-export.md", "reason": "snapshot export scope and real PG acceptance"}
+{"type": "spec", "path": ".trellis/spec/web/frontend/hr-recruitment-results.md", "reason": "recruitment list state and locked business processing"}
+{"type": "spec", "path": ".trellis/spec/guides/project-operations.md", "reason": "single root, isolated candidate and serial release"}
+{"type":"spec","path":".trellis/spec/api/backend/hr-recruitment-ledger-export.md","reason":"current recruitment snapshot export contract"}

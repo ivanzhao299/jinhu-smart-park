@@ -1,5 +1,8 @@
 # @jinhu/api Backend Specs
 
+Recruitment full filtered requisition and masked candidate snapshots: [Recruitment Ledger Exports](./hr-recruitment-ledger-export.md).
+
+
 Formal partial candidate profile corrections and encrypted immutable history: [Candidate Profile Continuity](./hr-candidate-profile.md).
 
 Formal candidate assessment scores and version history: [Candidate Assessment](./hr-candidate-assessment.md).
