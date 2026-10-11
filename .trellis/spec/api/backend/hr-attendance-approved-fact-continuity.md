@@ -27,3 +27,38 @@ Daily traces carry businessTripDeclaredDaysSources (id/version/declaredDays); mo
 The modern panel uses global DS buttons/cards, preserves uncertain retries with the original key/body, validates matching write receipts, rejects identity/version drift and paginates all history. Desktop history cards must use the route records class because the global mobile-only list is hidden at desktop widths. These days do not establish payable units, travel allowance or deduction policy.
 
 For raw formal-field-only draft edits, an unchanged TypeORM entity save may perform no UPDATE and leave version unchanged. Set the scoped formal field and exactly beforeVersion+1 with a CAS after the entity save, handling both saved-version outcomes (unchanged or +1), then return/audit that final version. Real concurrent edits changing only declared days must yield one success and one version conflict.
+
+## Approved interval quantity continuity
+
+### 1. Scope / Trigger
+Overtime and business-trip intervals feed accurate attendance facts. They do not establish payable units, declared days, travel allowances or legacy errand.pay semantics.
+
+### 2. Signatures
+`approvedQuantityForWindow(requests, type, start, end)` returns `{availability,durationMs,sources,unknownSources}`. New daily responses and traces carry `approvedIntervalQuantities={basis,windowStart,windowEnd,overtime,businessTrip}`. Migration367 adds nullable bigint `approved_overtime_ms` / `approved_business_trip_ms` to month summaries and frozen input items; entity/API fields are string|null `approvedOvertimeMs` / `approvedBusinessTripMs`, range0..2678400000.
+
+### 3. Contracts
+Count exact half-open Shanghai calendar days, independently of saved shift/event windows. The separate scoped quantity query retains missing/reversed approved endpoints; leave/overnight source selection stays unchanged. Explicit empty valid sources yield0; incomplete old traces and malformed/unknown facts yieldnull. Month traces retain the whole footprint, and month calculation/close/correction compares it to current approved request versions/content. Old missing footprints remain null-compatible; no backfill of old summaries or frozen inputs.
+Correction differences use integer decimal strings, with `previous_unknown` or `current_unknown` and null delta when unavailable. Null→null is not a quantity change; availability transitions or nonzero bigint differences count as changed employees.
+New formula references `hr:批准加班区间分钟` / `hr:批准出差区间分钟` use parser v4 and manual business review. Frozen evidence retains exact milliseconds. Only the formula projection converts the summed milliseconds to four-decimal minutes with half-up rounding. Formal source options mark missing new quantities uncovered only when the selected approved rule references them. Both formal and reconciliation consumers reject unknown referenced values. Existing v1/v2/v3 parser evidence remains unchanged.
+
+### 4. Validation & Error Matrix
+Invalid/non-increasing/unsafe window -> RangeError. Invalid approved endpoint -> unknown quantity with source/version/reason. Missing, duplicate-date or inconsistent daily footprint -> null monthly quantity. Existing new footprint differs from current approved source -> ConflictException requiring daily recalculation. Referenced frozen null/invalid quantity -> ConflictException; no zero substitution. Month/current source matches -> calculation/close allowed. Existing unrelated formula does not require new fields.
+
+### 5. Good/Base/Bad Cases
+Good:23-07 shift plus20-01 approved overtime gives calendar quantities4h and1h. Base:no approved intervals yields explicit0. Bad:unavailable old frozen value is used as0, or the daily event window counts the same overtime twice. Full31day value2678400000 must survive beyond int32.
+
+### 6. Tests Required
+Kernel overlap/type/status/Shanghai cross-month millisecond conservation; real PG daily source projection and version preservation; month close/current-source positive recovery/stale rejection/frozen old nulls/explicit correction/bigint differences; formal options whole-cohort coverage and actual formal payslip frozen evidence; reconciliation v4 and source-hash distinction for equal rounded results. Real missing endpoints cannot be newly inserted under current DB shape constraints: anomaly tests may inject at the read boundary, explicitly reporting this limitation while keeping transactions and persistence real. Full service flow must exercise approved request->daily->month->close->formal result in a rolled-back isolated fixture.
+
+### 7. Wrong vs Correct
+Wrong:`Math.floor(dayMs/60000)` before summing days, or `Number(null)` as a payroll input. Correct:sum exact milliseconds in immutable facts, preserve null, and project once at the reviewed formula boundary. Test lifecycle actions use the governed cancel transition rather than direct payroll status updates; fixture reads/repos stay bound to the same rollback transaction.
+
+## Explicit business-trip month allocation
+
+Migration368 adds append-only scoped allocation history and nullable `approved_business_trip_declared_days` on monthly summaries/frozen payroll inputs. Old facts are never backfilled. OPERATE users register all intersecting Shanghai half-open calendar months explicitly; each integer is nonnegative and their sum equals the current formal declaration. The server rejects incomplete sources, negative/null declarations, unsupported spans over31days, duplicate/missing/extra months and totals that differ. It never distributes days proportionally.
+
+Read current state/history in a repeatable-read snapshot and audit the scoped read. Registration takes month→employee→request locks, verifies the pre-read identity/span and expected version, increments the request version once, appends an immutable allocation bound to the new version and requires transactional audit. A later declaration amendment makes that allocation stale. Review months reopen for recalculation; closed batches stay closed and require explicit correction. Allocation presence makes daily declared-day version footprints mandatory.
+
+Month quantities deduplicate requests and consume only current allocations. Persist `sourceTripAllocationTrace` internally; compare it with current source/version/allocation facts before closing or correcting. Missing/stale/invalid allocation yields null; a newly calculated month without trip sources yields explicit0. Original frozen nulls survive and unknown→known corrections carry `previous_unknown` with null delta and increment changed-employee count.
+
+`hr:批准出差申报天数` uses DSLv5 with manual review. Formal options and both payroll consumers require this fact only for dependent rules, preserve exact decimal integers and reject unknown; old parser versions remain compatible. These declared days establish neither travel payment nor attendance deduction policy. Test actual allocation→daily→month→close→formal and reconciliation flows in isolated PostgreSQL, alongside scope, CAS, audit rollback, immutable history, month boundaries and closed correction.

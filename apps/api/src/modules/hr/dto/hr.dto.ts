@@ -1,5 +1,5 @@
-import { Transform } from "class-transformer";
-import { IsArray,IsBoolean,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsNotEmpty,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { ArrayMinSize,ArrayMaxSize,ValidateNested,IsArray,IsBoolean,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsNotEmpty,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min,ValidateIf } from "class-validator";
 import { HR_EMPLOYEE_STATUSES,HR_EMPLOYMENT_TYPES } from "@jinhu/shared";
 
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
@@ -275,3 +275,6 @@ export class AdjustHrPayslipDto { @Transform(money) @IsString() @Matches(MONEY_P
 export class CreateHrApprovalDto { @IsIn(["employment_change","profile_change","compensation_change"]) requestType!:string;@Transform(trim) @IsString() @MaxLength(200) title!:string;@IsObject() payload!:Record<string,unknown>; }
 export class HrApprovalActionDto { @IsIn(["submit","approve","return","withdraw","resubmit"]) action!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
 export class ReviseHrApprovalDto { @IsInt() @Min(1) expectedVersion!:number;@Transform(trim) @IsString() @IsNotEmpty() @MaxLength(200) title!:string;@Transform(trim) @IsString() @IsNotEmpty() @MaxLength(3000) description!:string;@Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!:string; }
+
+export class HrBusinessTripMonthAllocationRowDto { @Matches(/^\d{4}-(0[1-9]|1[0-2])$/) month!:string; @IsInt() @Min(0) @Max(2147483647) days!:number; }
+export class CreateHrBusinessTripMonthAllocationDto { @IsInt() @Min(1) expectedVersion!:number; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!:string; @IsArray() @ArrayMinSize(1) @ArrayMaxSize(3) @ValidateNested({each:true}) @Type(()=>HrBusinessTripMonthAllocationRowDto) allocations!:HrBusinessTripMonthAllocationRowDto[]; }

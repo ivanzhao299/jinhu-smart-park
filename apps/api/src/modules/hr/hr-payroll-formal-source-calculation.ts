@@ -1,4 +1,4 @@
-import { HR_PAYROLL_ATTENDANCE_FIELDS, projectApprovedLeavePayrollInput } from "./hr-payroll-attendance-input";
+import { HR_PAYROLL_ATTENDANCE_FIELDS, projectApprovedLeavePayrollInput, projectApprovedIntervalPayrollInput, projectApprovedTripDeclaredDaysPayrollInput } from "./hr-payroll-attendance-input";
 import { ConflictException } from "@nestjs/common";
 import type { FormalPayrollDefinition, FormalPayrollEmployeeInput } from "@jinhu/shared";
 import { calculateFormalPayroll, buildFormalPayrollDefinitionEvidence } from "./hr-payroll-formal-calculation";
@@ -8,7 +8,7 @@ import { projectPayrollInsuranceInputs, type PayrollInsuranceAmountFact, HR_PAYR
 
 export type FormalPayrollAttendanceSource = {
   id: string; batchId: string; workedMinutes: string; lateMinutes: string; earlyMinutes: string;
-  absenceDays: string; missingPunchDays: string; approvedLeaveMinutes?: string | null;
+  absenceDays: string; missingPunchDays: string; approvedLeaveMinutes?: string | null; approvedOvertimeMs?: string | null; approvedBusinessTripMs?: string | null; approvedBusinessTripDeclaredDays?: string | null;
 };
 const attendanceFields = HR_PAYROLL_ATTENDANCE_FIELDS;
 
@@ -35,7 +35,7 @@ export function calculateFormalPayrollWithSources(definition: FormalPayrollDefin
   for (const [code, field] of attendanceRequired) {
     const value = source.attendance![field];
     if (typeof value !== "string" || !/^\d{1,16}(?:\.\d{1,4})?$/u.test(value)) throw new ConflictException("Invalid exact attendance source value");
-    hrInputs[code] = field === "approvedLeaveMinutes" ? projectApprovedLeavePayrollInput(value) : value;
+    hrInputs[code] = field === "approvedBusinessTripDeclaredDays" ? projectApprovedTripDeclaredDaysPayrollInput(value) : field === "approvedLeaveMinutes" ? projectApprovedLeavePayrollInput(value) : field === "approvedOvertimeMs" || field === "approvedBusinessTripMs" ? projectApprovedIntervalPayrollInput(value) : value;
   }
   const insuranceRequired = dependencies.some(code => code.startsWith("hr:") && HR_PAYROLL_INSURANCE_REFERENCE_CODES.has(code.slice(3)));
   if (insuranceRequired && !source.insurance) throw new ConflictException("Required confirmed insurance source is missing");

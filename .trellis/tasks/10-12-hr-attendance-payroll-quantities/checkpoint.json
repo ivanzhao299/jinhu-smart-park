@@ -1,0 +1,112 @@
+{
+  "objective": "Approved attendance quantities to frozen payroll inputs",
+  "status": "in_progress",
+  "workspace": "/Users/mac/.codex/worktrees/hr-attendance-payroll-quantities-20261012",
+  "baseRevision": "71b0b7a2800e845113f6af413b6f248f9f676cb9",
+  "acceptedPayrollScope": {
+    "month": "2026-07",
+    "owner": "wuenguo",
+    "coverage": "all imported records and all corresponding books",
+    "records": 93,
+    "distinctEmployees": 64,
+    "items": 2295,
+    "books": [
+      34,
+      35
+    ],
+    "mode": "calculate_only_no_payment"
+  },
+  "currentStep": "day/month/frozen quantities and explicit trip allocation locally integrated and browser verified; release pending",
+  "wholeFeatureComplete": false,
+  "actualAmountTrial": "NOT_EXECUTED",
+  "productionWrites": 0,
+  "nextAction": "Commit validated isolated candidate; CI/release-smoke; merge; deploy with cleanup and runtime SHA proof. Retain actual July amount and source pay semantics as separate gaps.",
+  "changedCodeFiles": [
+    "apps/api/src/modules/hr/dto/hr.dto.ts",
+    "apps/api/src/modules/hr/entities/hr.entities.ts",
+    "apps/api/src/modules/hr/hr-attendance-approved-quantity.spec.ts",
+    "apps/api/src/modules/hr/hr-attendance-approved-quantity.ts",
+    "apps/api/src/modules/hr/hr-attendance-calculation.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-attendance-interval-summary.spec.ts",
+    "apps/api/src/modules/hr/hr-attendance-interval-summary.ts",
+    "apps/api/src/modules/hr/hr-attendance-month-close.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.spec.ts",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.ts",
+    "apps/api/src/modules/hr/hr-payroll-attendance-coverage.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-payroll-attendance-input.spec.ts",
+    "apps/api/src/modules/hr/hr-payroll-attendance-input.ts",
+    "apps/api/src/modules/hr/hr-payroll-formal-run.service.ts",
+    "apps/api/src/modules/hr/hr-payroll-formal-source-calculation.spec.ts",
+    "apps/api/src/modules/hr/hr-payroll-formal-source-calculation.ts",
+    "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts",
+    "apps/api/src/modules/hr/hr-payroll-history.service.ts",
+    "apps/api/src/modules/hr/hr-payroll-reconciliation-source.spec.ts",
+    "apps/api/src/modules/hr/hr.controller.ts",
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/web/app/hr/attendance/AttendancePayrollLeaveFacts.tsx",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx",
+    "apps/web/app/hr/attendance/BusinessTripDeclaredDaysPanel.tsx",
+    "apps/web/app/hr/attendance/BusinessTripMonthAllocationPanel.tsx",
+    "apps/web/app/hr/attendance/HrAttendanceClient.tsx",
+    "apps/web/app/hr/attendance/attendance-interval-quantity.spec.ts",
+    "apps/web/app/hr/attendance/attendance-interval-quantity.ts",
+    "apps/web/app/hr/attendance/attendance-result-export.spec.ts",
+    "apps/web/app/hr/attendance/attendance-result-export.ts",
+    "apps/web/app/hr/payroll/PayrollRuleMaintenance.tsx",
+    "apps/web/lib/hr-api.ts",
+    "apps/web/test/interaction/hr-attendance-payroll-leave-facts.test.tsx",
+    "apps/web/test/interaction/hr-business-trip-month-allocation.test.tsx",
+    "database/migrations/000367_hr_attendance_interval_payroll_facts.sql",
+    "database/migrations/000368_hr_business_trip_month_allocations.sql"
+  ],
+  "validation": {
+    "apiUnit": {
+      "pass": 2514,
+      "fail": 0,
+      "skipped": 195,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/api-unit-integration-final.log"
+    },
+    "combinedPostgres": {
+      "pass": 21,
+      "fail": 0,
+      "skipped": 0,
+      "ownedDatabaseRemoved": true,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/attendance-payroll-integration-final-pg.log"
+    },
+    "apiBuild": "PASS",
+    "apiLint": "PASS",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "webLint": "PASS",
+    "webInteraction": {
+      "suites": 4,
+      "pass": 35,
+      "fail": 0
+    },
+    "webQuantityAndCsv": {
+      "pass": 11,
+      "fail": 0
+    },
+    "browser": {
+      "kind": "actual_components_with_synthetic_transport",
+      "desktopWidth": 1280,
+      "desktopScrollWidth": 1275,
+      "mobileWidth": 390,
+      "mobileScrollWidth": 385,
+      "formControlsMinHeight": 44,
+      "registrationVersion": 25,
+      "historyRecord21Reachable": true,
+      "consoleErrors": 0,
+      "sourceHashes": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/browser/source-hashes.json"
+    }
+  },
+  "skippedChecks": {
+    "productionDeployment": "next release step, not yet performed",
+    "productionRoleUat": "No authenticated production UI session in current browser; synthetic actual-component acceptance only",
+    "realJulyAmountTrial": "effective payroll inputs and confirmed policies still pending"
+  },
+  "validationEvidence": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/validation.json",
+  "activeRunHandles": [],
+  "previousGoalTurnClassification": "progress"
+}

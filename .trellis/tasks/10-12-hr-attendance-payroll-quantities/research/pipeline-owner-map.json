@@ -1,0 +1,80 @@
+{
+  "daily": {
+    "path": "apps/api/src/modules/hr/hr.service.ts",
+    "symbols": {
+      "async recalculateAttendanceDay": [
+        698
+      ],
+      "async listAttendanceDaily": [
+        697
+      ],
+      "private async assertAttendanceApprovedRequestFacts": [
+        752
+      ],
+      "private async createAttendanceMonthSummaries": [
+        759
+      ],
+      "private async createPayrollInputBatch": [
+        760
+      ],
+      "async attendancePayrollVersions": [
+        707
+      ]
+    }
+  },
+  "frozenAttendance": {
+    "path": "apps/api/src/modules/hr/entities/hr.entities.ts",
+    "symbols": {
+      "export class HrAttendanceMonthSummaryEntity": [
+        494
+      ],
+      "export class HrAttendancePayrollInputItemEntity": [
+        498
+      ]
+    }
+  },
+  "formalSources": {
+    "path": "apps/api/src/modules/hr/hr-payroll-formal-source-calculation.ts",
+    "symbols": {
+      "export type FormalPayrollAttendanceSource": [
+        9
+      ],
+      "for (const [code, field]": [
+        35
+      ]
+    }
+  },
+  "formalOptions": {
+    "path": "apps/api/src/modules/hr/hr-payroll-formal-run.service.ts",
+    "symbols": {
+      "i.approved_leave_minutes IS NOT NULL": [
+        92
+      ],
+      "approved_leave_minutes::text": [
+        161
+      ]
+    }
+  },
+  "reconciliation": {
+    "path": "apps/api/src/modules/hr/hr-payroll-history.service.ts",
+    "symbols": {
+      "i.approved_leave_minutes": [
+        1107
+      ],
+      "projectApprovedLeavePayrollInput(attendanceInput": [
+        1355
+      ]
+    }
+  },
+  "formula": {
+    "path": "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts",
+    "symbols": {
+      "const HR_REFERENCE_CODES": [
+        12
+      ],
+      "export function parsePayrollFormula": [
+        50
+      ]
+    }
+  }
+}

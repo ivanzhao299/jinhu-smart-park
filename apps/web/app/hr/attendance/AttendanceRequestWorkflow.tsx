@@ -555,7 +555,7 @@ export function AttendanceRequestWorkflow({
                     {controls(row)}
                     {canOperate && row.requestType === "business_trip" && row.status === "approved" ? <BusinessTripDeclaredDaysPanel row={row} busy={busy} onBusyChange={onBusyChange} onSaved={async receipt => {
                       setRows(current => current.map(item => item.id === receipt.id ? { ...item, declaredDays: receipt.declaredDays, amendVersion: receipt.amendVersion } : item));
-                      setNotice("出差申报天数已更正，请重算涉及日期并核对月结。");
+                      setNotice("出差申报数量已更新，请重算涉及日期并核对月结。");
                       await onApproved?.();
                     }} /> : null}
                     {canOperate && row.status === "approved"
