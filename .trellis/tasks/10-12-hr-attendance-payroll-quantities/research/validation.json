@@ -41,7 +41,8 @@
     "apps/web/test/interaction/hr-attendance-payroll-leave-facts.test.tsx": "288bf84e2b4a3ed6b648ae8e1b1b6aa5964003d688115f9de2fa605d952a858c",
     "apps/web/test/interaction/hr-business-trip-month-allocation.test.tsx": "8b2b65f7031853086378bfe960223c3e49935fcd08586f1e36ba96d724108060",
     "database/migrations/000367_hr_attendance_interval_payroll_facts.sql": "e469abacf6bdd6d321e16fcb838019889422696fcd2c38594ddb5aa344e776fa",
-    "database/migrations/000368_hr_business_trip_month_allocations.sql": "4df31cd4623029eac0432948ede2cfb15eb639e1c1b13bee39c71923e460f8fa"
+    "database/migrations/000368_hr_business_trip_month_allocations.sql": "4df31cd4623029eac0432948ede2cfb15eb639e1c1b13bee39c71923e460f8fa",
+    "apps/api/src/modules/hr/hr-attendance-approved-facts.pg.spec.ts": "9a96e46746a871d14c5ab6a4a1dbb24b26a5dc37726703b27989877f8f78faca"
   },
   "checks": {
     "apiUnit": {
@@ -82,6 +83,13 @@
       "historyRecord21Reachable": true,
       "consoleErrors": 0,
       "sourceHashes": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/browser/source-hashes.json"
+    },
+    "approvedFactsRegression": {
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "ownedContainerRemoved": true,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/approved-fact-regression.log"
     }
   },
   "limitations": [
@@ -89,5 +97,14 @@
     "Missing/reversed source anomaly uses read-boundary injection because current DB schema prevents new invalid rows",
     "Browser proof uses actual components with synthetic transport; production role UAT remains pending",
     "No production deployment yet; source errand.pay formal semantics remain pending"
-  ]
+  ],
+  "ciRecovery": {
+    "firstCandidate": "0200af22747cde293c721940ce9326c58ca74ad4",
+    "firstRun": 38180408439,
+    "failures": [
+      "host port55494 busy before HR PostgreSQL tests",
+      "stale-snapshot test expected generic text before new interval footprint validation"
+    ],
+    "fix": "Update exact stale-quantity footprint rejection assertion; 5 actual PG tests passed; no business code change"
+  }
 }

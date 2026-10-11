@@ -83,6 +83,8 @@ if(required&&(!process.env.POSTGRES_PASSWORD||process.env.POSTGRES_HOST!=="127.0
   await recalculate(date);
   // Reproduce an existing stale review projection while retaining the real new daily version.
   await db.query("UPDATE hr_attendance_period SET status='review' WHERE id=$1",[p.id]);
-  await assert.rejects(service.closeAttendancePeriod(scope,reviewer,p.id),/daily facts changed/);assert.equal((await period(p.id)).status,"review");
+  // The saved quantity footprint also belongs to the superseded daily snapshot.
+  // Its source validation rejects before the generic daily-ID set comparison.
+  await assert.rejects(service.closeAttendancePeriod(scope,reviewer,p.id),/批准加班或出差区间汇总未完整保存/);assert.equal((await period(p.id)).status,"review");
  });
 });
