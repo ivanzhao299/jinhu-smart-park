@@ -42,3 +42,12 @@ export class SaveHrCandidateAssessmentDto {
  @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @Matches(decimal2) totalTest!:string|null;
  @IsDefined() @ValidateIf((_,v)=>v!==null) @Transform(nullableTrim) @IsString() @MaxLength(200) totalTestMemo!:string|null;
 }
+
+export class HrRequisitionExportDto {
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsIn(["draft","open","paused","closed","cancelled"]) status?:string;
+}
+export class HrCandidateExportDto {
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsIn(["talent_pool","screening","interview","offer","hired","rejected","withdrawn"]) stage?:string;
+}

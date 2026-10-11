@@ -67,3 +67,10 @@ useInitialOnboardingOperation局部持有精确body/token/key及期望回执，�
 - Automatic list reads preserve open candidate/requisition operations, sensitive detail, unsaved child drafts, inline onboarding edits and confirmed operation receipts. Keep keyed inline onboarding records mounted while unrelated ledgers load; clear main ledger matches immediately when their queries start. Changing the onboarding page/status clears its previous matches. Failed queries clear their result rows so older matches are not presented under new conditions. Manual refresh retains its existing close-selection behavior.
 - Every filter callback checks synchronous business locks, including uncertain initial-onboarding requests. Starting a business operation cancels and invalidates outstanding list reads so late reads cannot overwrite confirmed results. Account/park context changes remount the view and clear both draft and applied filters.
 - Filter forms use shared DS controls and layout-only module CSS, independent accessible names, 44px touch controls and a single-column layout at 390px. Browser proof using synthetic records is layout/interaction evidence only; actual role business acceptance remains separate.
+
+## 招聘需求及候选人完整台账导出
+两个主列表按已应用关键词和状态/阶段导出完整快照CSV，最多5000条；超过上限明确拒绝，不把当前页冒充完整导出。输入尚未搜索时禁用导出并提示。候选人文件只投影脱敏字段，使用共享CSV公式转义、UTF8 BOM和下载工具。
+
+父页共享导出请求集合；开始业务办理、材料上传、入职提交或刷新列表时同步取消旧请求。输入改变、重新搜索、身份/权限/园区重建和卸载也取消；渲染上下文及请求身份检查拒绝不遵守abort的迟到响应。取消立即释放按钮，旧请求finally不得解锁新请求。后端必须验证READ、tenant/park、组织树范围，REPEATABLE READ生成时间和完整投影，必需读取审计失败不返回。
+
+测试覆盖真实PG独立连接并发快照、组织/租户/园区/权限、21条及5000/5001、空集、日期/脱敏；实际父页交互覆盖应用条件、同帧重复、取消后重试、业务锁、畸形响应及身份/卸载；桌面1280和手机390检查文字换行、无溢出及44px按钮。合成验收不等于真实岗位或原客户端报表等价验收。

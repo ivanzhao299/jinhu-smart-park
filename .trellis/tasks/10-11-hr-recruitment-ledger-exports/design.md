@@ -1,0 +1,9 @@
+# 设计
+
+基线main0b128eea59e2b726eb8a2c023def0bc0a1d160ff，复用空闲洁净隔离checkout，分支codex/hr-recruitment-ledger-exports-20261011。
+
+HrRecruitmentService列表和两个导出共享局部SQL构造/SELECT helpers，保留既有keyword/status/stage和团队组织树语义，不另建权限或通用报表框架。两个无分页Export DTO分别允许keyword+status及keyword+stage；静态/export路由声明在/:id之前。正式台账投影字段使用原公开/脱敏字段，日期保持日历文本。复用HrSensitiveRead审计和现有REPEATABLE READ导出模式。
+
+Web复用scoped-csv-export，局部RecruitmentLedgerExport组件传入已应用条件、输入状态和业务disabled，维护同步controller/上下文代际防重复和旧下载；父级在业务开始时使导出失效。明确显示导出使用的已应用条件，输入尚未搜索时禁用。筛选组件可通过onDraftChange通知父页，两个领域互不耦合，不干扰参考选择器。
+
+不触及DB migration、既有写事务、金额规则、导入接口或字段权限扩张。实际HR/负责人业务验收另记，合成下载和PG机制不能冒充源报表等价。
