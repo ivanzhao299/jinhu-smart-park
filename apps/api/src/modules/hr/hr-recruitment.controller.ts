@@ -9,15 +9,22 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CreateHrCandidateDto,CreateHrRequisitionDto,HrCandidateConvertDto,HrCandidateStageActionListDto,HrCandidateStageDto,HrRecruitmentListDto,SaveHrCandidateAssessmentDto } from "./dto/hr-recruitment.dto";
 import { HrRecruitmentService } from "./hr-recruitment.service";
+import { HrCandidateProfileIdempotencyInterceptor } from "./hr-candidate-profile-idempotency.interceptor";
+import { HrCandidateProfileService } from "./hr-candidate-profile.service";
+import { HrCandidateProfileListDto,SaveHrCandidateProfileDto } from "./dto/hr-candidate-profile.dto";
 import { HrCandidateInterviewService } from "./hr-candidate-interview.service";
 import { HrCandidateInterviewListDto,SaveHrCandidateInterviewDto } from "./dto/hr-candidate-interview.dto";
 @Controller("hr/recruitment") @RequireModule("hr")
 export class HrRecruitmentController {
- constructor(private readonly service:HrRecruitmentService,private readonly interviews:HrCandidateInterviewService){}
+ constructor(private readonly service:HrRecruitmentService,private readonly interviews:HrCandidateInterviewService,private readonly profiles:HrCandidateProfileService){}
  @Get("requisitions") @RequireAnyPermissions(HR_PERMISSIONS.HR_REQUISITION_READ,HR_PERMISSIONS.HR_REQUISITION_TEAM_READ) listRequisitions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrRecruitmentListDto){return this.service.listRequisitions(s,a,q);}
  @Post("requisitions") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(HR_PERMISSIONS.HR_REQUISITION_MANAGE) @AuditLog({module:"人力资源管理",resource:"hr.requisition",action:"创建招聘需求",bizType:"hr_recruitment_requisition",captureBody:false}) createRequisition(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Body()d:CreateHrRequisitionDto){return this.service.createRequisition(s,a,d);}
  @Get("candidates") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) listCandidates(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrRecruitmentListDto){return this.service.listCandidates(s,a,q);}
  @Get("candidates/:id/stage-actions") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) stageActions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrCandidateStageActionListDto){return this.service.listCandidateStageActions(s,a,id,q);}
+ @Get("candidates/:id/profile") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) profile(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string){return this.profiles.current(s,a,id);}
+ @Get("candidates/:id/profile-history") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) profileHistory(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrCandidateProfileListDto){return this.profiles.history(s,a,id,q);}
+ @Get("candidates/:id/profile/requisition-options") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ,HR_PERMISSIONS.HR_CANDIDATE_MANAGE) profileRequisitions(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrCandidateProfileListDto){return this.profiles.requisitionOptions(s,a,id,q);}
+ @Put("candidates/:id/profile") @UseInterceptors(HrCandidateProfileIdempotencyInterceptor) @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ,HR_PERMISSIONS.HR_CANDIDATE_MANAGE) saveProfile(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:SaveHrCandidateProfileDto){return this.profiles.update(s,a,id,d);}
  @Get("candidates/:id/assessment") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) assessment(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string){return this.service.candidateAssessment(s,a,id);}
  @Get("candidates/:id/assessment-history") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) assessmentHistory(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrCandidateStageActionListDto){return this.service.listCandidateAssessmentHistory(s,a,id,q);}
  @Get("candidates/:id/interviews") @RequirePermissions(HR_PERMISSIONS.HR_CANDIDATE_READ) interviewsList(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Query()q:HrCandidateInterviewListDto){return this.interviews.list(s,a,id,q);}
