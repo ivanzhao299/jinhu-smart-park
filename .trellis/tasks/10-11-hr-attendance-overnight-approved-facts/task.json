@@ -1,0 +1,33 @@
+{
+  "id": "hr-attendance-overnight-approved-facts",
+  "name": "hr-attendance-overnight-approved-facts",
+  "title": "跨夜排班批准申请归属与请假计算闭环",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": "api,web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-attendance-overnight-approved-facts-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/api/src/modules/hr/hr-attendance-approved-window.ts",
+    "apps/api/src/modules/hr/hr-attendance-overnight-approved-facts.pg.spec.ts",
+    "apps/web/app/hr/attendance/ApprovedRequestRecalculation.tsx",
+    ".github/workflows/ci.yml",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx"
+  ],
+  "notes": "Final local checks: API21 focused, Web23 interaction +2 contract, typechecks and focused lint; previous candidate PG28 pass, final employee-first lock regression requires exact-candidate CI. Browser actual request workflow desktop/390, synthetic API only.",
+  "meta": {}
+}

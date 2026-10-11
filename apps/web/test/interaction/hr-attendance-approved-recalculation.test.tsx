@@ -46,3 +46,8 @@ it("keeps successful dates visible when the result refresh fails and stops futur
 it("stops the remaining dates and does not publish an old completion when scope changes in flight",async()=>{
  let finish:(value:unknown)=>void=()=>{};api.recalculateAttendance.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));render(<Harness/>);await inspect();fireEvent.click(screen.getByRole("button",{name:"确认按日期顺序重算"}));await waitFor(()=>expect(api.recalculateAttendance).toHaveBeenCalledTimes(1));token="scope-b";await act(async()=>finish({id:"first"}));await screen.findByText(/当前身份范围已变化/);expect(api.recalculateAttendance).toHaveBeenCalledTimes(1);expect(screen.getByText(/2026-10-10 · 办理中/)).toBeInTheDocument();expect(refreshed).not.toHaveBeenCalled();
 });
+
+it("accepts 33 ordered affected dates including a preceding night shift, but rejects 34",async()=>{
+ const dates=Array.from({length:33},(_,index)=>new Date(Date.UTC(2026,11,30+index)).toISOString().slice(0,10));api.attendanceRequestRecalculationPlan.mockResolvedValue(plan(3,dates));const view=render(<Harness/>);fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));await screen.findByText(/日期范围：2026-12-30/);fireEvent.click(screen.getByRole("button",{name:"确认按日期顺序重算"}));await waitFor(()=>expect(api.recalculateAttendance).toHaveBeenCalledTimes(33));expect(api.recalculateAttendance.mock.calls[0]?.[0].workDate).toBe("2026-12-30");view.unmount();
+ api.attendanceRequestRecalculationPlan.mockResolvedValue(plan(3,[...dates,"2027-02-01"]));api.recalculateAttendance.mockClear();render(<Harness/>);fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));await screen.findByText(/重算计划返回不完整/);expect(api.recalculateAttendance).not.toHaveBeenCalled();
+});

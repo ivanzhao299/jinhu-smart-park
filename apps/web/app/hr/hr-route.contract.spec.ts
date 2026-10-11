@@ -405,10 +405,11 @@ test("HR M6 attendance requests expose explicit self and approval actions withou
  for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
 });
 
-test("HR M2 bs_readfromLeave equivalent distinguishes planned and approved leave impact",()=>{
+test("HR leave source reference stays distinct from requested duration and actual scheduled daily impact",()=>{
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  for(const field of ["leavePlannedMinutes","leaveEffectiveMinutes","leaveDayCount","leaveMinutes"])assert.match(api,new RegExp(`${field}:number`));
- assert.match(attendance,/row\.status==="approved"\?`已批准计入/);
+ assert.match(attendance,/申请时长 \$\{row\.durationMinutes\} 分钟；实际请假分钟以排班日结果为准/);
+ assert.doesNotMatch(attendance,/已批准计入 \$\{row\.leaveEffectiveMinutes\}/);
  assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
  assert.match(attendance,/row\.leaveMinutes>0/);
  assert.match(attendance,/已批准请假/);

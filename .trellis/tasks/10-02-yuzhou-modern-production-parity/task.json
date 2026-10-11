@@ -110,7 +110,8 @@
     "10-11-hr-candidate-conversion-ui",
     "10-11-hr-initial-onboarding-continuity",
     "10-11-hr-recruitment-ledger-filters",
-    "10-11-hr-recruitment-ledger-exports"
+    "10-11-hr-recruitment-ledger-exports",
+    "10-11-hr-attendance-overnight-approved-facts"
   ],
   "parent": null,
   "relatedFiles": [
