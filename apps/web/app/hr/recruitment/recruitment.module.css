@@ -51,6 +51,10 @@
 .history h3 { margin: 0; }
 .historyRecords { display: grid; gap: 10px; }
 .assessment { display: grid; gap: 16px; margin-top: 16px; min-width: 0; }
+.interviews { display: grid; gap: 16px; margin-top: 16px; min-width: 0; }
+.interviewForm { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; min-width: 0; }
+.interviewForm textarea { min-height: 88px; resize: vertical; }
+.interviewHistory { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--ds-border,#d9d9d9); border-radius: 10px; }
 .sectionTitle, .assessmentActions { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .sectionTitle h3, .assessmentHistory h4 { margin: 0; }
 .assessmentGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
@@ -59,3 +63,8 @@
 .assessmentItem textarea { min-height: 72px; resize: vertical; }
 .assessmentHistory { display: grid; gap: 10px; }
 @media (max-width:720px) { .assessmentGrid { grid-template-columns: minmax(0,1fr); } }
+
+.interviewSnapshot, .interviewConflict { display: grid; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.interviewConflict { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.interviewConflict > h4, .interviewConflict > .actionRow { grid-column: 1 / -1; }
+@media (max-width:720px) { .interviewForm, .interviewConflict { grid-template-columns: minmax(0,1fr); } }

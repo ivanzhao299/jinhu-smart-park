@@ -14,7 +14,7 @@
   "completedAt": null,
   "branch": null,
   "base_branch": "main",
-  "worktree_path": "/Users/mac/.codex/worktrees/hr-training-operation-continuity-20261009",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
@@ -102,7 +102,8 @@
     "10-11-hr-payroll-attendance-coverage",
     "10-11-hr-payroll-compensation-coverage",
     "10-11-hr-recruitment-stage-evidence",
-    "10-11-hr-candidate-assessment"
+    "10-11-hr-candidate-assessment",
+    "10-11-hr-candidate-interview-workflow"
   ],
   "parent": null,
   "relatedFiles": [
@@ -113,13 +114,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "现代化优先：已完成批准考勤申请有界多日重算 C 片段，等待父会话浏览器、构建和 PR919 依赖发布复核。PR919候选 d7a1cffa5781b09e39fc31b69973e67f35a8908c 由 watcher36961 / CI37998668358 独立跟踪。真实岗位、实际工资月份/规则/金额、原业务等价和独立HR验收保留。",
+  "notes": "PR950候选人测评正式维护/完整版本历史已生产部署并独立核验API/Web25da169fa255e9c7e06c73e5b7acf61484e988de；CI38097449266、部署38099453614、运行观察38100565589及健康/Docker清理均通过。当前推进多轮面试安排、记录、结果和纠错；保留原GroupWeb23/25/26逐字段规则等价、实际HR岗位、吴恩国负责最新完整工资只算不发及独立HR最终验收。历史导入不重放。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "employee_organization_filter_modern_directory_and_matching_export",
+    "nextSlice": "candidate_interview_scheduling_results_and_history",
     "businessImplementationStarted": true
   }
 }
