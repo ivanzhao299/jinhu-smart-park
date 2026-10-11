@@ -112,7 +112,8 @@
     "10-11-hr-recruitment-ledger-filters",
     "10-11-hr-recruitment-ledger-exports",
     "10-11-hr-attendance-overnight-approved-facts",
-    "10-11-hr-payroll-source-coverage"
+    "10-11-hr-payroll-source-coverage",
+    "10-11-hr-attendance-work-calendar"
   ],
   "parent": null,
   "relatedFiles": [

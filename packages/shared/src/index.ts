@@ -1769,3 +1769,5 @@ export interface FileRecord {
 
 export * from "./hr-yuzhou-family-incremental";
 export * from "./hr-yuzhou-record-incremental";
+
+export * from "./hr-attendance-work-calendar";
