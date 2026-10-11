@@ -1772,3 +1772,4 @@ export * from "./hr-yuzhou-record-incremental";
 
 export * from "./hr-attendance-work-calendar";
 export * from "./hr-attendance-leave-cancellation";
+export * from "./hr-attendance-leave-ledger";

@@ -10,6 +10,14 @@ export class HrLeaveLedgerPageDto {
 export class HrLeaveQuotaListDto extends HrLeaveLedgerPageDto {
  @ValidateIf((_o, v) => v !== undefined) @IsUUID() employee_id?: string;
 }
+export class HrLeaveBalanceEmployeeQueryDto extends HrLeaveLedgerPageDto {
+ @ValidateIf((_o, v) => v !== undefined) @Transform(trim) @IsString() @MaxLength(100) keyword?: string;
+}
+export class HrLeaveBalanceQueryDto extends HrLeaveLedgerPageDto {
+ @ValidateIf((_o, v) => v !== undefined) @IsUUID() employee_id?: string;
+ @IsDateString({ strict: true }) @Matches(/^(?:19|20|21)\d{2}-\d{2}-\d{2}$/u) from!: string;
+ @IsDateString({ strict: true }) @Matches(/^(?:19|20|21)\d{2}-\d{2}-\d{2}$/u) to!: string;
+}
 export class HrLeaveTypeCodeDto {
  @Matches(/^[A-Z][A-Z0-9_]{0,31}$/u) code!: string;
 }

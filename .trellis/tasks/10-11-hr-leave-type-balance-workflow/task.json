@@ -13,7 +13,7 @@
   "createdAt": "2026-10-11",
   "completedAt": null,
   "branch": "codex/hr-leave-type-balance-workflow-20261011",
-  "base_branch": "codex/hr-leave-type-balance-workflow-20261011",
+  "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-leave-type-balance-workflow-20261011",
   "commit": null,
   "pr_url": null,
@@ -25,10 +25,13 @@
     "apps/api/src/modules/hr/hr-attendance-leave-ledger.service.ts",
     "apps/api/src/modules/hr/hr-attendance-leave-ledger.controller.ts",
     "apps/api/src/modules/hr/hr-attendance-leave-type-selection.ts",
-    "apps/api/src/modules/hr/hr.service.ts"
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/api/src/modules/hr/hr-attendance-leave-balance.service.ts",
+    "apps/web/app/hr/attendance/LeaveBalancePanel.tsx",
+    "packages/shared/src/hr-attendance-leave-ledger.ts"
   ],
   "notes": "",
   "meta": {
-    "phase": "backend_ledger_and_request_classification_validated_balance_read_model_and_ui_pending"
+    "phase": "balance_read_api_and_ui_validated_type_quota_edit_rest_days_pending"
   }
 }

@@ -1,4 +1,5 @@
 import { approvedLeaveMinutesForWindow } from "./hr-attendance-approved-window";
+import type { HrLeaveBalanceBlocker } from "@jinhu/shared";
 import {
   effectiveApprovedLeaveFragments,
   type ApprovedLeaveSource,
@@ -15,13 +16,7 @@ export interface LeaveBalanceOpening {
   adjustmentMinutes: number;
 }
 
-export type LeaveBalanceBlocker =
-  | "opening_unknown"
-  | "schedule_coverage_incomplete"
-  | "source_coverage_incomplete"
-  | "approved_leave_undated"
-  | "leave_classification_incomplete"
-  | "leave_type_overlap";
+export type LeaveBalanceBlocker = HrLeaveBalanceBlocker;
 
 export interface LeaveBalanceInput {
   from: Date;

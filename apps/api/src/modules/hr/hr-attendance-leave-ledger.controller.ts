@@ -6,12 +6,17 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { CreateHrLeaveQuotaDto, HrLeaveLedgerPageDto, HrLeaveQuotaListDto, HrLeaveTypeCodeDto, PutHrLeaveQuotaDto, PutHrLeaveTypeDto } from "./dto/hr-attendance-leave-ledger.dto";
+import { CreateHrLeaveQuotaDto, HrLeaveBalanceEmployeeQueryDto, HrLeaveBalanceQueryDto, HrLeaveLedgerPageDto, HrLeaveQuotaListDto, HrLeaveTypeCodeDto, PutHrLeaveQuotaDto, PutHrLeaveTypeDto } from "./dto/hr-attendance-leave-ledger.dto";
 import { HrAttendanceLeaveLedgerService } from "./hr-attendance-leave-ledger.service";
+import { HrAttendanceLeaveBalanceService } from "./hr-attendance-leave-balance.service";
 
 @Controller("hr/attendance") @RequireModule("hr")
 export class HrAttendanceLeaveLedgerController {
- constructor(private readonly service: HrAttendanceLeaveLedgerService) {}
+ constructor(private readonly service: HrAttendanceLeaveLedgerService, private readonly balance: HrAttendanceLeaveBalanceService) {}
+ @Get("leave-balance-employees") @RequireAnyPermissions(HR_PERMISSIONS.HR_ATTENDANCE_OPERATE, HR_PERMISSIONS.HR_ATTENDANCE_REQUEST, HR_PERMISSIONS.HR_ATTENDANCE_READ, HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ, HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ)
+ balanceEmployees(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal, @Query() q: HrLeaveBalanceEmployeeQueryDto) { return this.balance.employees(s, a, q); }
+ @Get("leave-balances") @RequireAnyPermissions(HR_PERMISSIONS.HR_ATTENDANCE_OPERATE, HR_PERMISSIONS.HR_ATTENDANCE_REQUEST, HR_PERMISSIONS.HR_ATTENDANCE_READ, HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ, HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ)
+ balances(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal, @Query() q: HrLeaveBalanceQueryDto) { return this.balance.report(s, a, q); }
  @Get("leave-types") @RequireAnyPermissions(HR_PERMISSIONS.HR_ATTENDANCE_OPERATE, HR_PERMISSIONS.HR_ATTENDANCE_REQUEST, HR_PERMISSIONS.HR_ATTENDANCE_READ, HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ, HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ, HR_PERMISSIONS.HR_ATTENDANCE_APPROVE)
  types(@CurrentScope() s: TenantParkScope, @CurrentUser() a: JwtPrincipal, @Query() q: HrLeaveLedgerPageDto) { return this.service.types(s, a, q); }
  @Get("leave-types/:code/history") @RequirePermissions(HR_PERMISSIONS.HR_ATTENDANCE_OPERATE)

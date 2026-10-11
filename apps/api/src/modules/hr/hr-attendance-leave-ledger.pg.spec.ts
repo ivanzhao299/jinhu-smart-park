@@ -10,6 +10,7 @@ import * as entities from "./entities/hr.entities";
 import { HrService } from "./hr.service";
 import { HrAttendanceLeaveLedgerService } from "./hr-attendance-leave-ledger.service";
 import { HrAttendanceLeaveCancellationService } from "./hr-attendance-leave-cancellation.service";
+import { HrAttendanceLeaveBalanceService } from "./hr-attendance-leave-balance.service";
 
 const enabled = process.env.HR_LEAVE_LEDGER_PG === "1";
 if (enabled) {
@@ -19,7 +20,7 @@ if (enabled) {
  assert.ok(process.env.POSTGRES_PASSWORD);
 }
 (enabled ? describe : describe.skip)("Leave type/quota and request/cancellation PostgreSQL workflow", () => {
- let db: DataSource, ledger: HrAttendanceLeaveLedgerService, hr: HrService, cancel: HrAttendanceLeaveCancellationService;
+ let db: DataSource, ledger: HrAttendanceLeaveLedgerService, hr: HrService, cancel: HrAttendanceLeaveCancellationService, balance: HrAttendanceLeaveBalanceService;
  let failAudit = false, typeId = "", quotaId = "";
  const scope = { tenantId: "10000001", parkId: "20000001" }, adminId = randomUUID(), ownerId = randomUUID(), employeeId = randomUUID();
  const actor = (sub: string, permissions: string[]): JwtPrincipal => ({ ...scope, sub, username: "synthetic-leave", roles: [], permissions });
@@ -36,6 +37,7 @@ if (enabled) {
    if (event.method !== "GET") { assert.ok(m); await m.query("INSERT INTO leave_ledger_gate_audit(event) VALUES($1::jsonb)", [JSON.stringify(event)]); }
   } } as unknown as AuditService;
   ledger = new HrAttendanceLeaveLedgerService(db, audit);
+  balance = new HrAttendanceLeaveBalanceService(db, audit);
   const args = Array(33).fill(undefined); args[0] = db.getRepository(entities.HrEmployeeEntity); args[18] = db.getRepository(entities.HrApprovalRequestEntity); args[26] = db.getRepository(entities.HrAttendanceRequestEntity); args[29] = { publishAttendanceRequestSubmitted: async () => undefined, publishAttendanceRequestReviewed: async () => undefined }; args[30] = db; args[31] = audit;
   hr = Reflect.construct(HrService, args) as HrService; cancel = new HrAttendanceLeaveCancellationService(db, audit, hr);
  });
@@ -115,5 +117,88 @@ if (enabled) {
   assert.equal((await ledger.types(scope, owner, { ...page, page: 2 })).items.length, 1);
   const [request] = await db.query("SELECT leave_type_name name,leave_type_version version FROM hr_attendance_request WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND status='approved'", [scope.tenantId, scope.parkId, employeeId]);
   assert.equal(request.version, 4); assert.equal(request.name, "合成年假4");
+ });
+ const range = () => ({ ...page, from: "2026-07-01", to: "2026-07-02" });
+ const annual = (report: Awaited<ReturnType<HrAttendanceLeaveBalanceService["report"]>>) => report.items.find(row => row.leaveTypeId === typeId)!;
+ it("balance identifies missing schedules and openings, pages all types and never assigns missing quota adjustments zero", async () => {
+  const report = await balance.report(scope, owner, range());
+  assert.deepEqual(report.missingScheduleDates, ["2026-07-01"]); assert.equal(annual(report).balanceMinutes, null);
+  assert.equal(annual(report).observedMinutes, 0); assert.equal(annual(report).openingMinutes, 480);
+  assert.equal(report.total, 21); assert.equal(report.items.length, 20);
+  const last = await balance.report(scope, owner, { ...range(), page: 2 }); assert.equal(last.items.length, 1);
+  assert.equal(last.items[0]!.openingMinutes, null); assert.equal(last.items[0]!.adjustmentMinutes, null);
+  assert.equal(report.basis, "registered_system_facts"); assert.match(report.basisHash, /^[a-f0-9]{64}$/);
+ });
+ it("balance consumes actual approved leave and source-bound cancellation using current saved shift", async () => {
+  const shift = randomUUID();
+  await db.query("INSERT INTO hr_attendance_shift(id,tenant_id,park_id,shift_code,shift_name,start_local,end_local,rule_version) VALUES($1,$2,$3,'BALANCE-DAY','Synthetic day','09:00','17:00','v1')", [shift, scope.tenantId, scope.parkId]);
+  await db.query("INSERT INTO hr_employee_schedule(tenant_id,park_id,employee_id,shift_id,work_date) VALUES($1,$2,$3,$4,'2026-07-01')", [scope.tenantId, scope.parkId, employeeId, shift]);
+  const request = await hr.createAttendanceRequest(scope, owner, { requestType: "leave", startAt: "2026-07-01T09:00:00+08:00", endAt: "2026-07-01T12:00:00+08:00", reason: "Synthetic balance leave", leaveTypeId: typeId, expectedLeaveTypeVersion: 23 });
+  await hr.submitAttendanceRequest(scope, owner, request.id); await hr.reviewAttendanceRequest(scope, admin, request.id, "approve", {});
+  const before = await balance.report(scope, owner, range()); assert.equal(annual(before).consumedMinutes, 180); assert.equal(annual(before).balanceMinutes, 240);
+  const source = await db.getRepository(entities.HrAttendanceRequestEntity).findOneByOrFail({ id: request.id });
+  const cut = await cancel.create(scope, owner, { sourceRequestId: source.id, expectedSourceVersion: source.version, startAt: "2026-07-01T10:00:00+08:00", endAt: "2026-07-01T11:00:00+08:00", reason: "Synthetic returned hour" });
+  const submitted = await cancel.act(scope, owner, cut.id, { expectedVersion: cut.version, action: "submit" }); await cancel.act(scope, admin, cut.id, { expectedVersion: submitted.version, action: "approve" });
+  const after = await balance.report(scope, owner, range()); assert.equal(annual(after).consumedMinutes, 120); assert.equal(annual(after).balanceMinutes, 300);
+  assert.notEqual(after.basisHash, before.basisHash); assert.equal(after.sources.cancellations.length, 1); assert.equal(after.sources.requests[0]!.version, source.version);
+  const shiftedOpening = await balance.report(scope, owner, { ...page, from: "2026-07-02", to: "2026-07-03" }); assert.equal(annual(shiftedOpening).openingMinutes, null);
+ });
+ it("overnight work includes the preceding work-date window and clips at opening midnight", async () => {
+  const shift = randomUUID();
+  await db.query("INSERT INTO hr_attendance_shift(id,tenant_id,park_id,shift_code,shift_name,start_local,end_local,crosses_midnight,rule_version) VALUES($1,$2,$3,'BALANCE-NIGHT','Synthetic night','23:00','07:00',true,'v1')", [shift, scope.tenantId, scope.parkId]);
+  await db.query("INSERT INTO hr_employee_schedule(tenant_id,park_id,employee_id,shift_id,work_date) VALUES($1,$2,$3,$4,'2026-06-30')", [scope.tenantId, scope.parkId, employeeId, shift]);
+  const request = await hr.createAttendanceRequest(scope, owner, { requestType: "leave", startAt: "2026-06-30T23:00:00+08:00", endAt: "2026-07-01T07:00:00+08:00", reason: "Synthetic overnight", leaveTypeId: typeId, expectedLeaveTypeVersion: 23 });
+  await hr.submitAttendanceRequest(scope, owner, request.id); await hr.reviewAttendanceRequest(scope, admin, request.id, "approve", {});
+  const report = await balance.report(scope, owner, range()); assert.equal(annual(report).consumedMinutes, 540); assert.equal(annual(report).balanceMinutes, -120);
+  assert.equal(report.sources.schedules.length, 2); assert.deepEqual(report.missingScheduleDates, []);
+ });
+ it("unclassified actual working leave marks balances unknown and full cancellation restores exact projection", async () => {
+  const request = await hr.createAttendanceRequest(scope, owner, { requestType: "leave", startAt: "2026-07-01T14:00:00+08:00", endAt: "2026-07-01T15:00:00+08:00", reason: "Synthetic unclassified" });
+  await hr.submitAttendanceRequest(scope, owner, request.id); await hr.reviewAttendanceRequest(scope, admin, request.id, "approve", {});
+  const before = await balance.report(scope, owner, range()); assert.equal(before.unclassifiedMinutes, 60); assert.equal(annual(before).balanceMinutes, null); assert.ok(annual(before).blockers.includes("leave_classification_incomplete"));
+  const source = await db.getRepository(entities.HrAttendanceRequestEntity).findOneByOrFail({ id: request.id });
+  const cut = await cancel.create(scope, owner, { sourceRequestId: source.id, expectedSourceVersion: source.version, startAt: source.startAt!.toISOString(), endAt: source.endAt!.toISOString(), reason: "Synthetic complete return" });
+  const submitted = await cancel.act(scope, owner, cut.id, { expectedVersion: cut.version, action: "submit" }); await cancel.act(scope, admin, cut.id, { expectedVersion: submitted.version, action: "approve" });
+  const after = await balance.report(scope, owner, range()); assert.equal(after.unclassifiedMinutes, 0); assert.equal(annual(after).balanceMinutes, -120);
+ });
+ it("uses one repeatable read snapshot even while another transaction changes quota", async () => {
+  const createRunner = db.createQueryRunner.bind(db); let reached!: () => void, resume!: () => void, paused = false;
+  const ready = new Promise<void>(resolve => { reached = resolve; }), release = new Promise<void>(resolve => { resume = resolve; });
+  db.createQueryRunner = mode => {
+   const runner = createRunner(mode), query = runner.query.bind(runner);
+   runner.query = (async (sql: string, params?: unknown[], structured?: boolean) => {
+    const rows = structured ? await query(sql, params, true) : await query(sql, params);
+    if (!paused && sql.startsWith("SELECT id,type_code")) {
+     paused = true;
+     const [settings] = await query("SELECT current_setting('transaction_isolation') isolation,current_setting('transaction_read_only') readonly");
+     assert.equal(settings.isolation, "repeatable read"); assert.equal(settings.readonly, "on"); reached(); await release;
+    }
+    return rows;
+   }) as typeof runner.query; return runner;
+  };
+  const pending = balance.report(scope, owner, range());
+  try {
+   await Promise.race([ready, pending.then(() => { throw new Error("Read did not reach snapshot barrier"); })]);
+   await ledger.putQuota(scope, admin, quotaId, { expectedVersion: 23, openingMinutes: 600, adjustmentMinutes: 0, reason: "Synthetic concurrent quota correction" });
+   resume(); const old = await pending; assert.equal(annual(old).openingMinutes, 480); assert.equal(annual(old).balanceMinutes, -120);
+  } finally { resume(); db.createQueryRunner = createRunner; }
+  const fresh = await balance.report(scope, owner, range()); assert.equal(annual(fresh).openingMinutes, 600); assert.equal(annual(fresh).balanceMinutes, 60);
+ });
+ it("scopes employee options and balances to self, managed descendants or park operation", async () => {
+  const managerUser = randomUUID(), managerEmployee = randomUUID(), otherUser = randomUUID(), otherEmployee = randomUUID(), parent = randomUUID(), child = randomUUID();
+  for (const id of [managerUser, otherUser]) await db.query("INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash) VALUES($1::uuid,$2,$3,$1::text,'Synthetic account','not-a-login-hash')", [id, scope.tenantId, scope.parkId]);
+  for (const [id, user] of [[managerEmployee, managerUser], [otherEmployee, otherUser]]) await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,user_id,employment_status) VALUES($1::uuid,$2,$3,$1::text,'Synthetic employee',$4,'active')", [id, scope.tenantId, scope.parkId, user]);
+  await db.query("INSERT INTO sys_org(id,tenant_id,park_id,org_code,org_name,org_type,leader_user_id,status) VALUES($1::uuid,$2,$3,$1::text,'Synthetic parent','department',$4,'enabled')", [parent, scope.tenantId, scope.parkId, managerUser]);
+  await db.query("INSERT INTO sys_org(id,tenant_id,park_id,org_code,org_name,org_type,parent_id,status) VALUES($1::uuid,$2,$3,$1::text,'Synthetic child','department',$4,'enabled')", [child, scope.tenantId, scope.parkId, parent]);
+  await db.query("UPDATE hr_employee SET primary_org_id=$2 WHERE id=$1", [employeeId, child]);
+  const manager = actor(managerUser, [P.HR_ATTENDANCE_TEAM_READ]);
+  assert.deepEqual((await balance.employees(scope, manager, page)).items.map(row => row.id), [employeeId]);
+  assert.deepEqual((await balance.employees(scope, owner, page)).items.map(row => row.id), [employeeId]);
+  await balance.report(scope, manager, { ...range(), employee_id: employeeId });
+  await assert.rejects(balance.report(scope, manager, { ...range(), employee_id: otherEmployee }), /无权查看/);
+  await assert.rejects(balance.report(scope, owner, { ...range(), employee_id: managerEmployee }), /无权查看/);
+  await assert.rejects(balance.employees({ ...scope, parkId: "foreign" }, owner, page), /园区不匹配/);
+  const operator = actor(adminId, [P.HR_ATTENDANCE_OPERATE]); const first = await balance.employees(scope, operator, { page: 1, page_size: 1 }), second = await balance.employees(scope, operator, { page: 2, page_size: 1 });
+  assert.equal(first.total, 3); assert.notEqual(first.items[0]!.id, second.items[0]!.id); assert.ok(!("userId" in first.items[0]!));
  });
 });

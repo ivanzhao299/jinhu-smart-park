@@ -1,0 +1,8 @@
+.panel {min-width:0;padding:clamp(1rem,2vw,1.5rem);}
+.panel :global(.ds-button), .panel input, .panel select {min-height:44px;max-width:100%;}
+.row {display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin-block:1rem;}
+.row > label {flex:1 1 12rem;min-width:0;}
+.row > span {flex:1 1 12rem;overflow-wrap:anywhere;align-self:center;}
+.panel .records {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem;margin-block:1rem;}
+.records > article {min-width:0;overflow-wrap:anywhere;}
+.panel p, .panel summary {overflow-wrap:anywhere;}
