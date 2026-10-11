@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/hr-recruitment-results.md", "reason": "Recruitment workflows and locks"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "DS and existing API patterns"}
+{"file": ".trellis/tasks/10-11-hr-candidate-conversion-ui/design.md", "reason": "Bounded business result continuity"}
