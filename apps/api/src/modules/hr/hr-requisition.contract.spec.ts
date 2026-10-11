@@ -6,7 +6,7 @@ const root=join(__dirname,"../../../../..");
 const read=(path:string)=>readFileSync(join(root,path),"utf8");
 test("requisition maintenance exposes scoped detail history options and generic idempotent CAS write",()=>{
  const controller=read("apps/api/src/modules/hr/hr-recruitment.controller.ts"),service=read("apps/api/src/modules/hr/hr-requisition.service.ts");
- for(const route of ["requisitions/:id","requisitions/:id/history","requisitions/:id/reference-options"])assert.match(controller,new RegExp(`@Get\\(\"${route.replaceAll("/","\\/")}\"\\)`));
+ for(const route of ["requisitions/:id","requisitions/:id/history","requisitions/:id/reference-options"])assert.match(controller,new RegExp(`@Get\\("${route.replaceAll("/","\\/")}"\\)`));
  assert.match(controller,/@Put\("requisitions\/:id"\) @UseInterceptors\(new IdempotencyInterceptor\(\)\)/);
  assert.match(service,/HR_REQUISITION_VERSION_CONFLICT/);assert.match(service,/HR_REQUISITION_CODE_CONFLICT/);assert.match(service,/FOR UPDATE OF r/);assert.match(service,/recordOperationRequired/);
 });
