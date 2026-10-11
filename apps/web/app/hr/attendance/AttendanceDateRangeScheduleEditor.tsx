@@ -4,6 +4,7 @@ import {createIdempotencyKey} from "../../../lib/api-client";
 import {getAccessToken} from "../../../lib/authz";
 import {addBusinessDateDays,businessDate} from "../../../lib/business-date";
 import {hrApi,type HrAttendanceShift,type HrEmployeeSchedule} from "../../../lib/hr-api";
+import {workCalendarApi,workCalendarLabels,type WorkCalendarDay} from "../../../lib/hr-work-calendar-api";
 import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import local from "./date-range-schedule.module.css";
@@ -22,6 +23,8 @@ function dates(a:string,b:string):string[]{
 export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,employeeCode,shifts,disabled,onBusyChange,onSaved}:{employeeId:string;employeeName?:string;employeeCode?:string;shifts:HrAttendanceShift[];disabled:boolean;onBusyChange:(v:boolean)=>void;onSaved:()=>Promise<void>}){
  const [start,setStart]=useState(businessDate()),[end,setEnd]=useState(businessDate());
  const [shift,setShift]=useState(""),[reason,setReason]=useState("");
+ const [calendar,setCalendar]=useState<WorkCalendarDay[]|null>(null),[calendarLoading,setCalendarLoading]=useState(false),[calendarError,setCalendarError]=useState("");
+ const calendarRead=useRef<AbortController|null>(null);
  const [selected,setSelected]=useState<Set<string>>(new Set());
  const [plan,setPlan]=useState<Plan|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
  const mounted=useRef(false),generation=useRef(0),flight=useRef(false),stop=useRef(false);
@@ -31,6 +34,15 @@ export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,emplo
  const chosen=[...selected].filter(date=>list.includes(date)).sort();
  const enabled=shifts.filter(row=>row.status==="enabled"),targetShift=enabled.find(row=>row.id===shift);
  const token=getAccessToken();
+ const calendarContext=JSON.stringify([start,end,token]),calendarOwner=useRef(calendarContext);calendarOwner.current=calendarContext;
+ useEffect(()=>{calendarRead.current?.abort();setCalendar(null);setCalendarLoading(false);setCalendarError("");return()=>calendarRead.current?.abort()},[calendarContext]);
+ const loadCalendar=async()=>{
+  if(calendarLoading||!list.length)return;
+  const context=calendarContext,controller=new AbortController();calendarRead.current?.abort();calendarRead.current=controller;setCalendarLoading(true);setCalendarError("");
+  try{const result=await workCalendarApi.range(start,end,token,controller.signal);if(!controller.signal.aborted&&calendarOwner.current===context)setCalendar(result.items)}
+  catch(failure){if(!controller.signal.aborted&&calendarOwner.current===context){setCalendar(null);setCalendarError(hrLoadErrorMessage(failure,"工作日历读取失败，日期性质未知；仍可明确手选日期。"))}}
+  finally{if(!controller.signal.aborted&&calendarOwner.current===context)setCalendarLoading(false)}
+ };
  const signature=JSON.stringify([token,employeeId,start,end,shift,reason.trim(),chosen]);
  const owner=useRef(signature);owner.current=signature;
  const name=employeeName?`${employeeName}${employeeCode?`（${employeeCode}）`:""}`:"请先选择考勤员工";
@@ -98,10 +110,10 @@ export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,emplo
    }}
   }finally{if(generation.current===id)release()}
  };
- const locked=busy||disabled;
+ const locked=busy||disabled||calendarLoading;
  const needReason=plan?.items.some(item=>item.operation?.kind==="update"&&!item.operation.body.reason)??false;
  return <section className={local.editor}>
-  <header><h3>日期范围排班</h3><small>逐日选择自然日，最多连续31天；不推断周末或节假日。</small></header>
+  <header><h3>日期范围排班</h3><small>逐日选择自然日，最多连续31天；可读取工作日历辅助选择，不推断未设置日期。</small></header>
   <div className={styles.operationFields}>
    <div className={styles.operationContext}><span>员工</span><strong>{name}</strong></div>
    <label className="form-field"><span>范围开始日期</span><input type="date" value={start} disabled={locked} onChange={e=>setStart(e.target.value)}/></label>
@@ -110,13 +122,16 @@ export function AttendanceDateRangeScheduleEditor({employeeId,employeeName,emplo
    <label className="form-field"><span>范围排班调整原因</span><textarea aria-label="范围排班调整原因" maxLength={500} value={reason} disabled={locked} onChange={e=>setReason(e.target.value)}/><small>修改已有排班时必填；填写后请重新核对计划。</small></label>
   </div>
   {list.length?<>
-   <div className={styles.actionRow}><button className="ds-button" type="button" disabled={locked} onClick={()=>setSelected(new Set(list))}>全选当前日期范围</button><button className="ds-button" type="button" disabled={locked} onClick={()=>setSelected(new Set())}>清空日期</button></div>
-   <div className={local.days}>{list.map(date=><label key={date}><input aria-label={date} type="checkbox" disabled={locked} checked={selected.has(date)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(date);else next.delete(date);return next})}/>{date}</label>)}</div>
+   <div className={styles.actionRow}><button className="ds-button ds-button-secondary" type="button" disabled={locked} onClick={()=>setSelected(new Set(list))}>全选当前日期范围</button><button className="ds-button ds-button-secondary" type="button" disabled={locked} onClick={()=>setSelected(new Set())}>清空日期</button></div>
+   <div className={styles.actionRow}><button type="button" className="ds-button ds-button-secondary" disabled={locked} onClick={()=>void loadCalendar()}>读取范围工作日历</button><button type="button" className="ds-button ds-button-secondary" disabled={locked||calendar===null} onClick={()=>setSelected(new Set(calendar?.filter(day=>day.dayKind==="working").map(day=>day.workDate)??[]))}>选择已设工作日</button></div>
+   {calendarError?<p role="alert" className="form-error">{calendarError}</p>:null}
+   {calendarLoading?<p role="status">正在读取范围工作日历…</p>:null}
+   <div className={local.days}>{list.map(date=><label key={date}><input aria-label={date} type="checkbox" disabled={locked} checked={selected.has(date)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(date);else next.delete(date);return next})}/>{date}{calendar!==null?<small>{(()=>{const day=calendar.find(row=>row.workDate===date);return day?`${workCalendarLabels[day.dayKind]} · ${day.dayName} · V${day.version}`:"未设置"})()}</small>:null}</label>)}</div>
   </>:<p className="form-error">请输入有效的自然日期范围，含起止日最多31天。</p>}
   <div className={styles.actionRow}>
-   <button className="ds-button" type="button" disabled={locked||!chosen.length||!employeeId||!targetShift} onClick={()=>void inspect()}>核对日期范围排班</button>
+   <button className="ds-button ds-button-secondary" type="button" disabled={locked||!chosen.length||!employeeId||!targetShift} onClick={()=>void inspect()}>核对日期范围排班</button>
    {plan?<button className="ds-button ds-button-primary" type="button" disabled={locked||!plan.ready||plan.signature!==signature||needReason} onClick={()=>void run()}>确认按日期顺序保存</button>:null}
-   {busy?<button type="button" className="ds-button" onClick={()=>{stop.current=true}}>停止后续日期</button>:null}
+   {busy?<button type="button" className="ds-button ds-button-secondary" onClick={()=>{stop.current=true}}>停止后续日期</button>:null}
   </div>
   {plan?<div className={`ds-panel ${local.plan}`}><strong>只读计划：{name} · 目标班次 {targetShift?.shiftName} {targetShift?.startLocal}—{targetShift?.endLocal}</strong>
    <div className={local.planDays}>{plan.items.map(item=><span key={item.date}>{item.date} · {item.row?`${item.row.shiftName} V${item.row.version}`:"尚未排班"} · {item.operation?.kind==="create"?"拟新增":item.operation?"拟调整":"无需变更"} · {item.state==="success"?"已保存":item.state==="failed"?"未确认完成":"待确认"}</span>)}</div>

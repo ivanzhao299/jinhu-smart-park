@@ -1,0 +1,8 @@
+.panel :global(.ds-button) {min-height:44px;}
+.days {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:.75rem;margin-block:1rem;}
+.days > button {display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;min-height:6rem;min-width:0;white-space:normal;overflow-wrap:anywhere;padding:.75rem;text-align:left;line-height:1.45;}
+.editor {grid-column:1 / -1;display:grid;gap:1rem;min-width:0;padding-block:1rem;}
+.editor h3 {margin:0;}
+
+.panel .history {display:grid;gap:.75rem;}
+.editor > :global(.ds-button) {justify-self:start;}
