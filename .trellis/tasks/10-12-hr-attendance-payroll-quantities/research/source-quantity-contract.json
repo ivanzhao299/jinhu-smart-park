@@ -1,0 +1,148 @@
+{
+  "kind": "source_catalog_quantity_contract",
+  "source": "/Users/mac/.codex/artifacts/yuzhou-import-recovery-20261001/s1-full-source-schema-20261003/atomic-columns.json",
+  "sha256": "d72afe42ce266abeaf2768c4050ae51728d2e5e826e2fb963601fe98835a25d5",
+  "sourceObservedAt": "2026-10-02T17:45:58.824428+00:00",
+  "sourceReadOnly": true,
+  "notCurrentProductionRows": true,
+  "fields": {
+    "overtime": [
+      {
+        "ordinal": 1,
+        "column": "id",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 2,
+        "column": "person",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 3,
+        "column": "starttime",
+        "type": "datetime",
+        "precision": 23,
+        "scale": 3,
+        "nullable": true
+      },
+      {
+        "ordinal": 4,
+        "column": "endtime",
+        "type": "datetime",
+        "precision": 23,
+        "scale": 3,
+        "nullable": true
+      },
+      {
+        "ordinal": 5,
+        "column": "recdate",
+        "type": "smalldatetime",
+        "precision": 16,
+        "scale": 0,
+        "nullable": true
+      },
+      {
+        "ordinal": 6,
+        "column": "operator",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": true
+      },
+      {
+        "ordinal": 7,
+        "column": "memo",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": true
+      }
+    ],
+    "errand": [
+      {
+        "ordinal": 1,
+        "column": "id",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 2,
+        "column": "person",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 3,
+        "column": "startdate",
+        "type": "smalldatetime",
+        "precision": 16,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 4,
+        "column": "enddate",
+        "type": "smalldatetime",
+        "precision": 16,
+        "scale": 0,
+        "nullable": false
+      },
+      {
+        "ordinal": 5,
+        "column": "days",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": true
+      },
+      {
+        "ordinal": 6,
+        "column": "pay",
+        "type": "money",
+        "precision": 19,
+        "scale": 4,
+        "nullable": true
+      },
+      {
+        "ordinal": 7,
+        "column": "description",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": true
+      },
+      {
+        "ordinal": 8,
+        "column": "recdate",
+        "type": "smalldatetime",
+        "precision": 16,
+        "scale": 0,
+        "nullable": true
+      },
+      {
+        "ordinal": 9,
+        "column": "operator",
+        "type": "varchar",
+        "precision": 0,
+        "scale": 0,
+        "nullable": true
+      }
+    ]
+  },
+  "conclusions": {
+    "overtimePayableQuantity": "not established by source catalog",
+    "tripDeclaredDays": "independent nullable int",
+    "tripPay": "independent nullable money; business meaning and formal field pending"
+  },
+  "productionWrites": 0
+}

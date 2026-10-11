@@ -1,0 +1,110 @@
+{
+  "status": "LOCAL_CANDIDATE_VERIFIED_RELEASE_PENDING",
+  "baseRevision": "71b0b7a2800e845113f6af413b6f248f9f676cb9",
+  "wholeTaskComplete": false,
+  "productionDeployed": false,
+  "actualJulyAmountTrial": "NOT_EXECUTED",
+  "sourceHashes": {
+    "apps/api/src/modules/hr/dto/hr.dto.ts": "aadafcc19b9f14078c8a0f6ebb0b2d3c5e55c8f50b967ab43bc3cf83db8e0b0f",
+    "apps/api/src/modules/hr/entities/hr.entities.ts": "3593b1210202058e297f8108bf82ae46b4d66230f158ae2e3567e6fe85b7c9b3",
+    "apps/api/src/modules/hr/hr-attendance-approved-quantity.spec.ts": "a28aeed0e5006fa9516de823c59e176b290b5b99e24056790d374ff5cf5b930e",
+    "apps/api/src/modules/hr/hr-attendance-approved-quantity.ts": "c1c9679fee781d24bd6e4136c737acaaa96fea859ff0f0b605a175d3ec059425",
+    "apps/api/src/modules/hr/hr-attendance-calculation.pg.spec.ts": "b8b408aca5a0d63588a4b04ea2526a782c162e1e44f074582bc52205e765df7c",
+    "apps/api/src/modules/hr/hr-attendance-interval-summary.spec.ts": "988effcdc824e9d205011aff63373e5b827cb71dd2e8f3a7fed33191f2774f25",
+    "apps/api/src/modules/hr/hr-attendance-interval-summary.ts": "a0d3ba6563dbad7870f97fa479a9e5fa64e838eec134d78b970967e06f70d2a3",
+    "apps/api/src/modules/hr/hr-attendance-month-close.pg.spec.ts": "f14f1e75adcd1f01cf058d2c6f4502679587ce259aa1365af7be04ee003bf6e3",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.pg.spec.ts": "2009fab9ac7f55616c4d7c218da729a48fd9f4b417e7b28790e2de3f831db825",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.spec.ts": "9a66f25a781dc96a1e14c83392442d9438bfde46ccf915bcf2bc2b01bd7de08c",
+    "apps/api/src/modules/hr/hr-business-trip-month-allocation.ts": "481a6d687c743b04ee8992a0d8859f8825c37d5cfe2466aef17873c2540b833d",
+    "apps/api/src/modules/hr/hr-payroll-attendance-coverage.pg.spec.ts": "bc7e40fb5260ba7e610cb2b0be6580797f4119d04c82948d4a913bea22a12dfd",
+    "apps/api/src/modules/hr/hr-payroll-attendance-input.spec.ts": "c95dd08517c55f2351308c3ef397a6ee515e39b634a75c296ed2bb7bf1ed235b",
+    "apps/api/src/modules/hr/hr-payroll-attendance-input.ts": "294d4abaa6a01d60af2244193cb137a8f0e9686f006e2e8c1d96d8ff51d2328a",
+    "apps/api/src/modules/hr/hr-payroll-formal-run.service.ts": "804b2c58099cc6a8f2aea1a57bc2023351a7c48235e9444e75f0961238256331",
+    "apps/api/src/modules/hr/hr-payroll-formal-source-calculation.spec.ts": "c9ce5911f746dd490eea2069601a2cc7e2e2087d690bc6b00730310a037e40a7",
+    "apps/api/src/modules/hr/hr-payroll-formal-source-calculation.ts": "11bc253d1e9a504146def5c7911a2798e235a653557d6061081afd0d241110df",
+    "apps/api/src/modules/hr/hr-payroll-formula-dsl.ts": "ad437a67e87ca9584d2f5528923c010919ec5dd2e821bc0187e4e35b8a6769a4",
+    "apps/api/src/modules/hr/hr-payroll-history.service.ts": "af65e09bbc69521a96c2d26f1c0e8118d20c407831db3412b121a8e35a45ad0c",
+    "apps/api/src/modules/hr/hr-payroll-reconciliation-source.spec.ts": "1389f762f1f08d1d050dbc8b7c95582206d0eef1516b60fcb4e81e237bda84f7",
+    "apps/api/src/modules/hr/hr.controller.ts": "6067d518d430d74f34496177c1b3d26772c0bdf65b73820a870b33be6e7850db",
+    "apps/api/src/modules/hr/hr.service.ts": "67d587308e84ef48276506107ee4c7f0b56926385e87f5de069be2431c55d3a1",
+    "apps/web/app/hr/attendance/AttendancePayrollLeaveFacts.tsx": "57b17dd5cf1bd421674b5575ad8f194d2018f7bd475e4de9bb73063dcbb40485",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx": "805d261e508f007d90c27841ac322c78de291af72f867ae49061340bf47ff939",
+    "apps/web/app/hr/attendance/BusinessTripDeclaredDaysPanel.tsx": "e7c774c83eb386bf5bd62984bed2bfdb842fd68bab91f63fbff2782a0e161557",
+    "apps/web/app/hr/attendance/BusinessTripMonthAllocationPanel.tsx": "1f705f85312ba7653b8c1a159def56ce655d21c297b443df1396003e2a0fb34a",
+    "apps/web/app/hr/attendance/HrAttendanceClient.tsx": "c5f81c2448a5fe746e6047aa41411c602997ff23e80cd7a5f75dcaebef8c398c",
+    "apps/web/app/hr/attendance/attendance-interval-quantity.spec.ts": "ca678e6be19703c84385cd3626a72d6e631d84963cbae4d2dfe394d9914bb360",
+    "apps/web/app/hr/attendance/attendance-interval-quantity.ts": "bb866841403ba652c2c7d340699f37075625b6397f543c4ab7f0a7a07b36745c",
+    "apps/web/app/hr/attendance/attendance-result-export.spec.ts": "a7d7f1b59e5a6aff5d546f7f03349a3f34cc8b9f1f0586ccc71ce5a2911ece19",
+    "apps/web/app/hr/attendance/attendance-result-export.ts": "889a7f882f5d16bdc34e8cd8e0ab34f01d3a9406243033448ac6fd5c6323e23b",
+    "apps/web/app/hr/payroll/PayrollRuleMaintenance.tsx": "5549c93cecda99cb9a8bde53db636a950ade264e128aedfbff16055fad4f6423",
+    "apps/web/lib/hr-api.ts": "f0805bd3d96ea00fa4f141284caaf49c451764c9a8872051d9d004ca7006ff3d",
+    "apps/web/test/interaction/hr-attendance-payroll-leave-facts.test.tsx": "288bf84e2b4a3ed6b648ae8e1b1b6aa5964003d688115f9de2fa605d952a858c",
+    "apps/web/test/interaction/hr-business-trip-month-allocation.test.tsx": "8b2b65f7031853086378bfe960223c3e49935fcd08586f1e36ba96d724108060",
+    "database/migrations/000367_hr_attendance_interval_payroll_facts.sql": "e469abacf6bdd6d321e16fcb838019889422696fcd2c38594ddb5aa344e776fa",
+    "database/migrations/000368_hr_business_trip_month_allocations.sql": "4df31cd4623029eac0432948ede2cfb15eb639e1c1b13bee39c71923e460f8fa",
+    "apps/api/src/modules/hr/hr-attendance-approved-facts.pg.spec.ts": "9a96e46746a871d14c5ab6a4a1dbb24b26a5dc37726703b27989877f8f78faca"
+  },
+  "checks": {
+    "apiUnit": {
+      "pass": 2514,
+      "fail": 0,
+      "skipped": 195,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/api-unit-integration-final.log"
+    },
+    "combinedPostgres": {
+      "pass": 21,
+      "fail": 0,
+      "skipped": 0,
+      "ownedDatabaseRemoved": true,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/attendance-payroll-integration-final-pg.log"
+    },
+    "apiBuild": "PASS",
+    "apiLint": "PASS",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "webLint": "PASS",
+    "webInteraction": {
+      "suites": 4,
+      "pass": 35,
+      "fail": 0
+    },
+    "webQuantityAndCsv": {
+      "pass": 11,
+      "fail": 0
+    },
+    "browser": {
+      "kind": "actual_components_with_synthetic_transport",
+      "desktopWidth": 1280,
+      "desktopScrollWidth": 1275,
+      "mobileWidth": 390,
+      "mobileScrollWidth": 385,
+      "formControlsMinHeight": 44,
+      "registrationVersion": 25,
+      "historyRecord21Reachable": true,
+      "consoleErrors": 0,
+      "sourceHashes": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/browser/source-hashes.json"
+    },
+    "approvedFactsRegression": {
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "ownedContainerRemoved": true,
+      "log": "/Users/mac/.codex/artifacts/hr-attendance-payroll-quantities-20261012/approved-fact-regression.log"
+    }
+  },
+  "limitations": [
+    "Actual July payroll rule/input confirmation and amount comparison remain pending",
+    "Missing/reversed source anomaly uses read-boundary injection because current DB schema prevents new invalid rows",
+    "Browser proof uses actual components with synthetic transport; production role UAT remains pending",
+    "No production deployment yet; source errand.pay formal semantics remain pending"
+  ],
+  "ciRecovery": {
+    "firstCandidate": "0200af22747cde293c721940ce9326c58ca74ad4",
+    "firstRun": 38180408439,
+    "failures": [
+      "host port55494 busy before HR PostgreSQL tests",
+      "stale-snapshot test expected generic text before new interval footprint validation"
+    ],
+    "fix": "Update exact stale-quantity footprint rejection assertion; 5 actual PG tests passed; no business code change"
+  }
+}

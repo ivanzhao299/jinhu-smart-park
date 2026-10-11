@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parsePayrollFormula } from "./hr-payroll-formula-dsl";
-import { projectApprovedLeavePayrollInput, requiresPayrollAttendanceInputs, sumApprovedLeaveMinutes } from "./hr-payroll-attendance-input";
+import { projectApprovedLeavePayrollInput, projectApprovedIntervalPayrollInput, requiresPayrollAttendanceInputs, sumApprovedLeaveMinutes } from "./hr-payroll-attendance-input";
 
 test("leave facts sum exact whole minutes while missing, fractional and overflowing values remain errors", () => {
   assert.equal(sumApprovedLeaveMinutes([{approvedLeaveMinutes:0},{approvedLeaveMinutes:120},{approvedLeaveMinutes:45}]),165);
@@ -20,4 +20,16 @@ test("leave expressions have distinct reviewed parser evidence without changing 
   assert.equal(leave.parserVersion,"jinhu-payroll-dsl-v3");assert.deepEqual(leave.dependencies,["hr:批准请假分钟"]);assert.equal(leave.requiresManualReview,true);
   assert.equal(parsePayrollFormula("[人事系统.工作分钟]").parserVersion,"jinhu-payroll-dsl-v1");
   assert.equal(parsePayrollFormula("[人事系统.养老保险个人金额]").parserVersion,"jinhu-payroll-dsl-v2");
+});
+
+test("interval minute inputs preserve exact millisecond evidence and use four-place half-up only at the formula boundary", () => {
+  for (const [value, expected] of [["0", "0.0000"], ["1", "0.0000"], ["3", "0.0001"], ["60000", "1.0000"], ["2678400000", "44640.0000"]]) assert.equal(projectApprovedIntervalPayrollInput(value), expected);
+  for (const value of [null, undefined, "01", "1.5", -1, false, "2678400001"]) assert.throws(() => projectApprovedIntervalPayrollInput(value));
+  for (const code of ["批准加班区间分钟", "批准出差区间分钟"]) {
+    assert.equal(requiresPayrollAttendanceInputs([`hr:${code}`]), true);
+    const parsed = parsePayrollFormula(`[人事系统.${code}]/60`);
+    assert.equal(parsed.parserVersion, "jinhu-payroll-dsl-v4");
+    assert.equal(parsed.requiresManualReview, true);
+    assert.deepEqual(parsed.dependencies, [`hr:${code}`]);
+  }
 });

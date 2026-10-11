@@ -6,6 +6,7 @@ import { ApiError } from "../../../lib/api-client";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import local from "./request-workflow.module.css";
+import { BusinessTripMonthAllocationPanel } from "./BusinessTripMonthAllocationPanel";
 
 type Receipt = { id: string; declaredDays: number | null; amendVersion: number };
 type Draft = { version: number; days: string; reason: string; token: string | undefined };
@@ -107,5 +108,6 @@ export function BusinessTripDeclaredDaysPanel({ row, busy, onBusyChange, onSaved
       {history.length ? history.map(item => <article key={item.id} className="ds-mobile-record"><strong>更正版本 {item.requestVersion}</strong><span>{daysLabel(item.beforeDeclaredDays)} → {daysLabel(item.declaredDays)}</span><span>{item.reason}</span><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("zh-CN")}</time></article>) : <p>暂无更正历史。</p>}
       <nav className={`${styles.actionRow} ${local.pagination}`} aria-label="出差更正历史分页"><button type="button" className="ds-button ds-button-secondary" disabled={locked || reading || page <= 1} onClick={() => void readHistory(page - 1)}>更正历史上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页 · 共 {total} 条</span><button type="button" className="ds-button ds-button-secondary" disabled={locked || reading || page * 20 >= total} onClick={() => void readHistory(page + 1)}>更正历史下一页</button></nav>
     </div> : null}
+    <BusinessTripMonthAllocationPanel key={`${row.id}:${row.amendVersion}`} row={row} busy={busy} onBusyChange={onBusyChange} onSaved={onSaved} />
   </section>;
 }

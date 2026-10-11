@@ -52,3 +52,22 @@ test("formal leave dependency consumes and freezes actual whole minutes; old una
   assert.equal(calculateFormalPayrollWithSources(leaveDefinition,{...prepared,attendance:{...prepared.attendance,approvedLeaveMinutes:"0"}}).calculation.netAmount,"0.00");
   assert.doesNotThrow(()=>calculateFormalPayrollWithSources(definition,{...source,attendance:{...source.attendance,approvedLeaveMinutes:null}}));
 });
+
+test("formal calculation consumes only explicitly referenced frozen interval quantities, preserving milliseconds", () => {
+  const rule = structuredClone(definition);
+  rule.items.find(item => item.code === "工资")!.expression = "[人事系统.批准加班区间分钟]+[人事系统.批准出差区间分钟]";
+  const prepared = { ...structuredClone(source), input: { ...source.input, directItems: { 税: "0.00" } }, attendance: { ...source.attendance, absenceDays: "0", approvedOvertimeMs: "60000", approvedBusinessTripMs: "120000" }, insurance: { ...structuredClone(source.insurance), items: [{ ...source.insurance.items[0]!, employeeAmount: "0.00" }] } };
+  const result = calculateFormalPayrollWithSources(rule, prepared);
+  assert.equal(result.calculation.netAmount, "3.00");
+  assert.equal(result.frozenSources.hrInputs["批准加班区间分钟"], "1.0000");
+  assert.equal(result.frozenSources.attendance!.approvedOvertimeMs, "60000");
+  for (const value of [null, undefined, "1.5", "2678400001"]) assert.throws(() => calculateFormalPayrollWithSources(rule, { ...prepared, attendance: { ...prepared.attendance, approvedOvertimeMs: value } }));
+  assert.doesNotThrow(() => calculateFormalPayrollWithSources(definition, { ...source, attendance: { ...source.attendance, approvedOvertimeMs: null, approvedBusinessTripMs: null } }));
+});
+
+test("formal consumer freezes explicit declared days and rejects unknown instead of deriving from duration",()=>{
+  const rule=structuredClone(definition);rule.items.find(item=>item.code==="工资")!.expression="[人事系统.批准出差申报天数]";
+  const prepared={...structuredClone(source),input:{...source.input,directItems:{税:"0.00"}},attendance:{...source.attendance,absenceDays:"0",approvedBusinessTripDeclaredDays:"3"},insurance:{...structuredClone(source.insurance),items:[{...source.insurance.items[0]!,employeeAmount:"0.00"}]}};
+  const result=calculateFormalPayrollWithSources(rule,prepared);assert.equal(result.calculation.netAmount,"3.00");assert.equal(result.frozenSources.attendance!.approvedBusinessTripDeclaredDays,"3");
+  for(const value of [null,undefined,"-1","1.5"])assert.throws(()=>calculateFormalPayrollWithSources(rule,{...prepared,attendance:{...prepared.attendance,approvedBusinessTripDeclaredDays:value}}));
+});

@@ -92,10 +92,10 @@ test("freeze DTO rejects malformed scope, dates, hashes, counts and absent revie
  }
 });
 
-function simulationFixture(sourceMonth="2026-07-01",missingSource=false,insuranceAmount?:string|null,parserOverride?:string,leave?:{value:unknown}){
+function simulationFixture(sourceMonth="2026-07-01",missingSource=false,insuranceAmount?:string|null,parserOverride?:string,leave?:{value:unknown},interval?:{kind:"overtime"|"businessTrip";value:unknown},trip?:{value:unknown}){
  const calls:Array<{sql:string;params?:unknown[]}>=[];
  const employee="50000000-0000-4000-8000-000000000001",sourceId="60000000-0000-4000-8000-000000000001";
- const expression="[人事系统.基本工资]+[人事系统.津贴]"+(leave?"-[人事系统.批准请假分钟]/60":"")+(insuranceAmount !== undefined?"-[人事系统.养老保险个人金额]":""),parsed=parsePayrollFormula(expression);
+ const expression="[人事系统.基本工资]+[人事系统.津贴]"+(trip?"+[人事系统.批准出差申报天数]":"")+(interval?`+[人事系统.${interval.kind==="overtime"?"批准加班区间分钟":"批准出差区间分钟"}]`:"")+(leave?"-[人事系统.批准请假分钟]/60":"")+(insuranceAmount !== undefined?"-[人事系统.养老保险个人金额]":""),parsed=parsePayrollFormula(expression);
  const snapshotJson=`[{"id":"70000000-0000-4000-8000-000000000001","employee_id":"${employee}","net_amount":900719925474.1234}]`;
  const itemJson='[{"snapshot_id":"70000000-0000-4000-8000-000000000001","item_version_id":"80000000-0000-4000-8000-000000000001","decimal_value":900719925474.1234,"value_type":"decimal","is_source_null":false,"is_deleted":false}]';
  const manager={query:async(sql:string,params?:unknown[])=>{
@@ -106,7 +106,7 @@ function simulationFixture(sourceMonth="2026-07-01",missingSource=false,insuranc
   if(sql.includes("SELECT f.id,f.book_id"))return [{id:"formula",book_id:dto.bookId,item_version_id:"item",raw_expression:expression,raw_condition:null,dsl_ast:parsed.ast,dependency_codes:parsed.dependencies,parser_version:parserOverride??parsed.parserVersion,calculation_order:1,item_code:"NET",item_category:"summary"}];
   if(sql.includes("AS x(id uuid"))return [{id:"snapshot",employee_id:employee,net_amount:"900719925474.1234",employee_version:1,book_id:dto.bookId}];
   if(sql.includes("FROM hr_payroll_reconciliation_policy_current cur"))return [{book_id:dto.bookId,policy_version_id:"policy",policy_version_no:1,net_item_version_id:"item",tolerance_amount:"0.0100",item_code:"NET",formula_version_id:"formula"}];
-  if(sql.includes("FROM hr_attendance_payroll_input_item"))return [{id:"attendance-item",employee_id:employee,approved_leave_minutes:leave?.value,worked_minutes:9600,late_minutes:0,early_minutes:0,absence_days:0,missing_punch_days:0}];
+  if(sql.includes("FROM hr_attendance_payroll_input_item"))return [{id:"attendance-item",employee_id:employee,approved_business_trip_declared_days:trip?.value,approved_leave_minutes:leave?.value,approved_overtime_ms:interval?.kind==="overtime"?interval.value:null,approved_business_trip_ms:interval?.kind==="businessTrip"?interval.value:null,worked_minutes:9600,late_minutes:0,early_minutes:0,absence_days:0,missing_punch_days:0}];
   if(sql.includes("FROM hr_employee_compensation"))return [{id:"compensation",employee_id:employee,version:1,effective_from:"2026-07-01",base_salary:"120.0000",allowance_amount:"5.0000",variable_target:"0.0000"}];
   if(sql.includes("FROM hr_employee_insurance_period"))return Array.isArray(params?.[2]) && params[2].length===0?[]:[{id:"insurance",employee_id:employee,version:1,needs_review:false}];
   if(sql.includes("FROM hr_insurance_owned_revision r"))return [{id:actor.sub,employee_id:employee,revision_no:1,snapshot_sha256:"a".repeat(64),result:{items:[{insuranceKind:"oldage",amounts:{base:"0.10",employer:"0.09",employee:insuranceAmount,supplement:"0.00"}}]}}];
@@ -188,4 +188,33 @@ test("modern source permission denial happens before probes and explicit histori
 test("reviewed leave minutes change actual dual calculation and freeze v3 evidence, with missing rejected",async()=>{
  for(const value of [120,0]){const f=simulationFixture("2026-07-01",false,undefined,undefined,{value});await f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub,reconciliationSourceId:f.sourceId});const result=f.calls.find(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result"))!;assert.equal(result.params![10],value===120?"123.0000":"125.0000");assert.equal(f.calls.find(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_run"))!.params![4],"jinhu-payroll-dsl-v3");}
  for(const value of [undefined,null,-1,0.5]){const f=simulationFixture("2026-07-01",false,undefined,undefined,{value});await assert.rejects(()=>f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub,reconciliationSourceId:f.sourceId}),ConflictException);assert.equal(f.calls.some(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result")),false);}
+});
+
+test("reviewed interval references use v4 and retain exact milliseconds in evidence without inventing unknown quantities", async () => {
+  for (const kind of ["overtime", "businessTrip"] as const) {
+    const hashes: unknown[] = [];
+    for (const value of ["0", "1", "60000"]) {
+      const f = simulationFixture("2026-07-01", false, undefined, undefined, undefined, { kind, value });
+      await f.service.simulateReconciliation(scope, { ...actor, permissions: [HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE] }, { legacyBatchId: dto.legacyBatchId, attendanceInputBatchId: actor.sub, reconciliationSourceId: f.sourceId });
+      const run = f.calls.find(c => c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_run"))!;
+      assert.equal(run.params![4], "jinhu-payroll-dsl-v4");
+      hashes.push(run.params![11]);
+      assert.equal(f.calls.find(c => c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result"))!.params![10], value === "60000" ? "126.0000" : "125.0000");
+    }
+    assert.notEqual(hashes[0], hashes[1], "even equal rounded results retain different exact source milliseconds");
+    for (const value of [null, undefined, -1, "0.5"]) {
+      const f = simulationFixture("2026-07-01", false, undefined, undefined, undefined, { kind, value });
+      await assert.rejects(() => f.service.simulateReconciliation(scope, { ...actor, permissions: [HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE] }, { legacyBatchId: dto.legacyBatchId, attendanceInputBatchId: actor.sub, reconciliationSourceId: f.sourceId }), ConflictException);
+      assert.equal(f.calls.some(c => c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result")), false);
+    }
+  }
+});
+
+test("reconciliation consumes declared days with v5 evidence and fails closed on missing allocation",async()=>{
+  for(const value of ["0","3",null,undefined,"-1","1.5"]){
+    const f=simulationFixture("2026-07-01",false,undefined,undefined,undefined,undefined,{value});
+    const run=()=>f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub,reconciliationSourceId:f.sourceId});
+    if(value==="0"||value==="3"){await run();assert.equal(f.calls.find(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_run"))!.params![4],"jinhu-payroll-dsl-v5");assert.equal(f.calls.find(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result"))!.params![10],value==="3"?"128.0000":"125.0000");}
+    else {await assert.rejects(run,ConflictException);assert.equal(f.calls.some(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result")),false);}
+  }
 });
