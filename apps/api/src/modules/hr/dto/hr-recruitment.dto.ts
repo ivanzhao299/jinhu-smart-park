@@ -5,6 +5,21 @@ const pageNumber=({value}:{value:unknown})=>value===undefined?1:typeof value==="
 export class HrRecruitmentListDto {@Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;@IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;@IsOptional() @IsIn(["draft","open","paused","closed","cancelled"]) status?:string;@IsOptional() @IsIn(["talent_pool","screening","interview","offer","hired","rejected","withdrawn"]) stage?:string;}
 export class HrCandidateStageActionListDto {@Transform(pageNumber) @IsInt() @Min(1) page=1;@Transform(pageNumber) @IsInt() @Min(1) @Max(100) page_size=20;}
 export class CreateHrRequisitionDto {@Transform(trim) @IsString() @MaxLength(64) requisitionCode!:string;@Transform(trim) @IsString() @MaxLength(160) title!:string;@IsUUID() orgId!:string;@IsOptional() @IsUUID() positionId?:string;@IsInt() @Min(1) @Max(1000) headcount!:number;@IsUUID() ownerUserId!:string;@IsOptional() @IsDateString() plannedOnboardDate?:string;@IsOptional() @IsIn(["draft","open"]) status?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(1000) approvalNote?:string;}
+export class HrRequisitionHistoryListDto {@Transform(pageNumber) @IsInt() @Min(1) page=1;@Transform(pageNumber) @IsInt() @Min(1) @Max(50) page_size=20;}
+export class HrRequisitionReferenceOptionsDto extends HrRequisitionHistoryListDto {@IsIn(["organization","position","owner"]) kind!:"organization"|"position"|"owner";@IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;@ValidateIf((_,value)=>value!==undefined) @IsUUID() orgId?:string;}
+export class SaveHrRequisitionDto {
+ @IsInt() @Min(1) expectedVersion!:number;
+ @Transform(trim) @IsString() @MaxLength(1000) @Matches(/\S/u) changeReason!:string;
+ @ValidateIf((_,value)=>value!==undefined) @Transform(trim) @IsString() @Matches(/\S/u) @MaxLength(64) requisitionCode?:string;
+ @ValidateIf((_,value)=>value!==undefined) @Transform(trim) @IsString() @Matches(/\S/u) @MaxLength(160) title?:string;
+ @ValidateIf((_,value)=>value!==undefined) @IsUUID() orgId?:string;
+ @IsOptional() @ValidateIf((_,value)=>value!==null) @IsUUID() positionId?:string|null;
+ @ValidateIf((_,value)=>value!==undefined) @IsUUID() ownerUserId?:string;
+ @ValidateIf((_,value)=>value!==undefined) @IsInt() @Min(1) @Max(1000) headcount?:number;
+ @IsOptional() @ValidateIf((_,value)=>value!==null) @Matches(/^\d{4}-\d{2}-\d{2}$/u) plannedOnboardDate?:string|null;
+ @IsOptional() @ValidateIf((_,value)=>value!==null) @Transform(trim) @IsString() @MaxLength(1000) approvalNote?:string|null;
+ @ValidateIf((_,value)=>value!==undefined) @IsIn(["draft","open","paused","closed","cancelled"]) status?:string;
+}
 export class CreateHrCandidateDto {@IsUUID() requisitionId!:string;@Transform(trim) @IsString() @MaxLength(64) candidateNo!:string;@Transform(trim) @IsString() @MaxLength(100) fullName!:string;@IsOptional() @Transform(trim) @Matches(/^\+?[0-9 -]{6,24}$/) mobile?:string;@IsOptional() @Transform(trim) @IsEmail() @MaxLength(160) email?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(64) identityNumber?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(64) source?:string;@IsOptional() @IsDateString() expectedOnboardDate?:string;}
 export class HrCandidateStageDto {@IsIn(["screening","interview","offer","rejected","withdrawn"]) toStage!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(2000) evaluation?:string;}
 export class HrCandidateConvertDto {@Transform(trim) @Matches(/^[A-Za-z0-9_-]{1,64}$/) employeeCode!:string;@IsOptional() @IsDateString() hireDate?:string;@IsOptional() @IsUUID() positionId?:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(128) workLocation?:string;}

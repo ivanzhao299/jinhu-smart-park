@@ -6,6 +6,8 @@ Formal candidate assessment scores and version history: [Candidate Assessment](.
 
 Formal candidate interview schedule/result records and immutable versions: [Candidate Interview Workflow](./hr-candidate-interview.md).
 
+Formal recruitment requisition maintenance, lifecycle and frozen history: [Recruitment Requisition Continuity](./hr-requisition-continuity.md).
+
 Formal salary-setting snapshot export: [Compensation Ledger Export](./hr-compensation-ledger-export.md).
 
 
