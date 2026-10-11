@@ -75,3 +75,17 @@
 .profileForm > .profileActions { grid-column:1 / -1; }
 .profileForm input,.profileForm textarea { width:100%; min-width:0; }
 @media (max-width:640px) { .profileForm { grid-template-columns:minmax(0,1fr); } }
+
+.requisitionWorkspace { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; min-width:0; overflow-wrap:anywhere; }
+.requisitionWorkspace h2,.requisitionWorkspace h3,.requisitionWorkspace p { margin:0; }
+.requisitionWorkspace :global(.ds-button) { min-height:44px; max-width:100%; white-space:normal; }
+.requisitionSnapshot { display:grid; grid-template-columns:minmax(6rem,auto) minmax(0,1fr); gap:.5rem 1rem; margin:0; }
+.requisitionSnapshot dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+.requisitionReference { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; min-width:0; }
+.requisitionReference span { min-width:0; overflow-wrap:anywhere; }
+.requisitionFullRow { grid-column:1 / -1; min-width:0; }
+@media (max-width:640px) {
+  .requisitionSnapshot { grid-template-columns:minmax(0,1fr); gap:.35rem; }
+  .requisitionSnapshot dd { margin-bottom:.65rem; }
+  .requisitionReference { align-items:flex-start; flex-direction:column; }
+}

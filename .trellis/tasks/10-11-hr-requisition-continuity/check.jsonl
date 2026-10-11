@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API conventions and prerequisites"}
+{"file": ".trellis/spec/api/backend/hr-candidate-profile.md", "reason": "Existing scoped version/history and reference patterns"}
+{"file": ".trellis/spec/web/frontend/hr-recruitment-results.md", "reason": "Recruitment parent continuity and shared DS"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Cross-layer guide routing"}
