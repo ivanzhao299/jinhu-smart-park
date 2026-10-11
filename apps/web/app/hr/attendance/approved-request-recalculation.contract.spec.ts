@@ -26,6 +26,6 @@ test("approved request recalculation stops for plan drift and separates refresh 
  assert.match(component,/await onRecalculated\(\)/);
  assert.match(component,/已成功办理的日期保持不变/);
  assert.match(component,/mounted\.current=false;stopRequested\.current=true/);
- assert.match(workflow,/canOperate&&row\.status==="approved"/);
+ assert.match(workflow,/canOperate\s*&&\s*row\.status\s*===\s*"approved"/);
  assert.match(workflow,/ApprovedRequestRecalculation/);
 });

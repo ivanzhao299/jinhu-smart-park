@@ -401,7 +401,7 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
 
 test("HR M6 attendance requests expose explicit self and approval actions without unauthorized calls",()=>{
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8")+readFileSync(resolve(__dirname,"attendance/AttendanceRequestWorkflow.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
- assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
+ assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove\s*&&\s*!row\.isSelf\s*&&\s*row\.status\s*===\s*"submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
  for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
 });
 
@@ -410,9 +410,9 @@ test("HR leave source reference stays distinct from requested duration and actua
  for(const field of ["leavePlannedMinutes","leaveEffectiveMinutes","leaveDayCount","leaveMinutes"])assert.match(api,new RegExp(`${field}:number`));
  assert.match(attendance,/申请时长 \$\{row\.durationMinutes\} 分钟；实际请假分钟以排班日结果为准/);
  assert.doesNotMatch(attendance,/已批准计入 \$\{row\.leaveEffectiveMinutes\}/);
- assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
+ assert.match(attendance,/row\.status\s*===\s*"cancelled"\s*\?\s*"已取消，不计入日考勤"/);
  assert.match(api,/leaveMinutes:number\|null/);
- assert.match(attendance,/row\.leaveMinutes==null\?"未提供"/);
+ assert.match(attendance,/row\.leaveMinutes\s*==\s*null\s*\?\s*"未提供"/);
  assert.match(attendance,/已批准请假/);
 });
 
