@@ -20,7 +20,15 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": [],
+  "relatedFiles": [
+    "database/migrations/000364_hr_attendance_leave_types_quotas.sql",
+    "apps/api/src/modules/hr/hr-attendance-leave-ledger.service.ts",
+    "apps/api/src/modules/hr/hr-attendance-leave-ledger.controller.ts",
+    "apps/api/src/modules/hr/hr-attendance-leave-type-selection.ts",
+    "apps/api/src/modules/hr/hr.service.ts"
+  ],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "phase": "backend_ledger_and_request_classification_validated_balance_read_model_and_ui_pending"
+  }
 }

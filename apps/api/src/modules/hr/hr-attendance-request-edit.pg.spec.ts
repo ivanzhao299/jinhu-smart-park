@@ -14,13 +14,19 @@ import {HrEmployeeEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttend
 import {HrService} from "./hr.service";
 
 test("isolated PostgreSQL: returned edits, ownership/version races, audit rollback and original approval continuation",{skip:process.env.HR_ATTENDANCE_EDIT_PG_REQUIRED!=="1"},async()=>{
- const connection={type:"postgres" as const,host:"127.0.0.1",port:Number(process.env.HR_ATTENDANCE_EDIT_PG_PORT??15484),username:"postgres"};
+ const connection={type:"postgres" as const,host:"127.0.0.1",port:Number(process.env.HR_ATTENDANCE_EDIT_PG_PORT??15484),username:process.env.HR_ATTENDANCE_EDIT_PG_USER??"postgres",password:process.env.HR_ATTENDANCE_EDIT_PG_PASSWORD};
  const database=`hr_attendance_edit_${randomUUID().replaceAll("-","")}`,admin=new DataSource({...connection,database:"postgres"});let db:DataSource|undefined;
  await admin.initialize();await admin.query(`CREATE DATABASE "${database}"`);
  try{
   const bootstrap=new DataSource({...connection,database,entities:[HrEmployeeEntity,OpLogEntity],synchronize:true});await bootstrap.initialize();await bootstrap.destroy();
   db=new DataSource({...connection,database,entities:[HrEmployeeEntity,OpLogEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrAttendanceRequestEntity]});await db.initialize();
-  for(const migration of ['000234_hr_approval_workflow.sql','000245_hr_attendance_requests.sql','000297_hr_attendance_business_trip_legacy_source.sql'])await db.query(readFileSync(resolve(__dirname,'../../../../../database/migrations',migration),'utf8'));
+  // Approval now consults real month locks and saved schedules, even when the
+  // fixture has no periods. Keep those current dependencies instead of mocks.
+  for(const migration of ['000234_hr_approval_workflow.sql','000245_hr_attendance_requests.sql','000246_hr_attendance_calculation_core.sql','000247_hr_attendance_month_close.sql','000297_hr_attendance_business_trip_legacy_source.sql','000353_hr_approval_content_revisions.sql','000363_hr_attendance_approved_leave_payroll_facts.sql'])await db.query(readFileSync(resolve(__dirname,'../../../../../database/migrations',migration),'utf8'));
+  // The legacy fixture predates scoped users and leave classification. Apply the
+  // real new migration after creating its ordinary scoped identity prerequisites.
+  await db.query("CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE TABLE sys_user(id uuid PRIMARY KEY,tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,UNIQUE(tenant_id,park_id,id)); CREATE UNIQUE INDEX uq_hr_employee_scope_id ON hr_employee(tenant_id,park_id,id)");
+  await db.query(readFileSync(resolve(__dirname,'../../../../../database/migrations/000364_hr_attendance_leave_types_quotas.sql'),'utf8'));
   const scope={tenantId:"edit-tenant",parkId:"edit-park"},user=randomUUID(),other=randomUUID(),reviewer=randomUUID();
   const actor=(sub=user,permissions:string[]=[H.HR_ATTENDANCE_REQUEST]):JwtPrincipal=>({sub,username:"synthetic",...scope,roles:[],permissions,isSuper:false});
   const employee=await db.getRepository(HrEmployeeEntity).save({ ...scope,employeeCode:"SYN",fullName:"Synthetic",userId:user,employmentStatus:"active"});
