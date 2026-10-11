@@ -79,7 +79,10 @@ export class HrAttendanceLeaveBalanceService {
      AND (r.start_at IS NULL OR r.end_at IS NULL OR r.start_at<$5 AND r.end_at>$4) ORDER BY r.id`, [s.tenantId, s.parkId, employeeId, range.from, range.to]) as RequestRow[];
    const cuts = await m.query(`SELECT id,version,cancellation_no "cancellationNo",source_request_id "sourceRequestId",status,start_at "startAt",end_at "endAt" FROM hr_attendance_leave_cancellation
     WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND status='approved' AND source_request_id=ANY($4::uuid[]) ORDER BY id`, [s.tenantId, s.parkId, employeeId, requests.map(row => row.id)]) as CutRow[];
+   const restDays = await m.query(`SELECT id,version,work_date::text "workDate",is_rest "isRest" FROM hr_employee_rest_day WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND work_date>=$4 AND work_date<$5 ORDER BY work_date,id`, [s.tenantId,s.parkId,employeeId,q.from,q.to]) as HrLeaveBalanceSources["restDays"];
+   if(restDays.some(day=>day.isRest&&schedules.some(schedule=>schedule.workDate===day.workDate)))throw new ConflictException("该区间休息安排与排班冲突，请核对后读取余额。");
    const covered = new Set(schedules.filter(row => row.startAt && row.endAt).map(row => row.workDate));
+   for(const day of restDays)if(day.isRest)covered.add(day.workDate);
    const missingScheduleDates = Array.from({ length: range.days }, (_, index) => new Date(Date.parse(q.from) + index * 86400000).toISOString().slice(0, 10)).filter(day => !covered.has(day));
    const quotaMap = new Map(quotas.map(row => [row.leaveTypeId, row]));
    let calculated: ReturnType<typeof calculateLeaveBalances>;
@@ -92,6 +95,7 @@ export class HrAttendanceLeaveBalanceService {
     throw error;
    }
    const sources: HrLeaveBalanceSources = {
+    restDays,
     schedules: schedules.map(({ id, version, workDate, shiftId, shiftVersion }) => ({ id, version, workDate, shiftId, shiftVersion })),
     requests: requests.map(({ id, version, requestNo, leaveTypeId, leaveTypeVersion }) => ({ id, version, requestNo, leaveTypeId, leaveTypeVersion })),
     cancellations: cuts.map(({ id, version, cancellationNo, sourceRequestId }) => ({ id, version, cancellationNo, sourceRequestId })),
@@ -102,7 +106,7 @@ export class HrAttendanceLeaveBalanceService {
    const [observed] = await m.query(`SELECT transaction_timestamp() "observedAt"`) as Array<{ observedAt: Date }>;
    if (!observed) throw new Error("Leave balance observation unavailable");
    return { employee: this.employee(employee, access.selfId), from: q.from, to: q.to, timezone: "Asia/Shanghai" as const, observedAt: observed.observedAt.toISOString(), basis: "registered_system_facts" as const,
-    basisHash: createHash("sha256").update(JSON.stringify({ employeeId, from: q.from, to: q.to, types, quotas, schedules, requests, cuts })).digest("hex"),
+    basisHash: createHash("sha256").update(JSON.stringify({ employeeId, from: q.from, to: q.to, types, quotas, schedules, restDays, requests, cuts })).digest("hex"),
     missingScheduleDates, unclassifiedMinutes: calculated.unclassifiedMinutes, undatedApprovedRequestCount: requests.filter(row => !row.startAt || !row.endAt).length, sources,
     items: items.slice((q.page - 1) * q.page_size, q.page * q.page_size), total: items.length, page: q.page, page_size: q.page_size };
   });

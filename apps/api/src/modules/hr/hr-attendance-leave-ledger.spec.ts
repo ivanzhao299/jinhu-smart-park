@@ -6,10 +6,16 @@ import { validateSync } from "class-validator";
 import type { EntityManager } from "typeorm";
 import { CreateHrLeaveQuotaDto, PutHrLeaveQuotaDto, PutHrLeaveTypeDto } from "./dto/hr-attendance-leave-ledger.dto";
 import { CreateHrAttendanceRequestDto } from "./dto/hr.dto";
+import { PutHrEmployeeRestDayDto } from "./dto/hr-employee-rest-day.dto";
 import { resolveLeaveTypeSelection } from "./hr-attendance-leave-type-selection";
 
 const scope = { tenantId: "10000001", parkId: "20000001" }, id = "00000000-0000-4000-8000-00000000ac01";
 const options = { whitelist: true, forbidNonWhitelisted: true };
+test("rest-day writes require explicit boolean fact, bounded CAS version and reason", () => {
+ const input = { expectedVersion: 0, isRest: false, reason: "取消原休息登记" };
+ assert.equal(validateSync(plainToInstance(PutHrEmployeeRestDayDto, input), options).length, 0);
+ for (const patch of [{ expectedVersion: -1 }, { expectedVersion: 2147483647 }, { expectedVersion: "1" }, { isRest: "false" }, { isRest: null }, { reason: " " }, { reason: "长".repeat(501) }, { payrollWrite: true }]) assert.ok(validateSync(plainToInstance(PutHrEmployeeRestDayDto, { ...input, ...patch }), options).length);
+});
 test("type and quota DTOs require explicit integer quantities, valid dates, version and business labels", () => {
  const type = { expectedVersion: 0, typeName: "年假", enabled: true, reason: "业务核对" };
  assert.equal(validateSync(plainToInstance(PutHrLeaveTypeDto, type), options).length, 0);

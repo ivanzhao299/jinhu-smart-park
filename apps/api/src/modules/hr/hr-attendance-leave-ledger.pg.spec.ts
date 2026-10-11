@@ -10,6 +10,7 @@ import * as entities from "./entities/hr.entities";
 import { HrService } from "./hr.service";
 import { HrAttendanceLeaveLedgerService } from "./hr-attendance-leave-ledger.service";
 import { HrAttendanceLeaveCancellationService } from "./hr-attendance-leave-cancellation.service";
+import { HrEmployeeRestDayService } from "./hr-employee-rest-day.service";
 import { HrAttendanceLeaveBalanceService } from "./hr-attendance-leave-balance.service";
 
 const enabled = process.env.HR_LEAVE_LEDGER_PG === "1";
@@ -20,7 +21,7 @@ if (enabled) {
  assert.ok(process.env.POSTGRES_PASSWORD);
 }
 (enabled ? describe : describe.skip)("Leave type/quota and request/cancellation PostgreSQL workflow", () => {
- let db: DataSource, ledger: HrAttendanceLeaveLedgerService, hr: HrService, cancel: HrAttendanceLeaveCancellationService, balance: HrAttendanceLeaveBalanceService;
+ let db: DataSource, ledger: HrAttendanceLeaveLedgerService, hr: HrService, cancel: HrAttendanceLeaveCancellationService, balance: HrAttendanceLeaveBalanceService, rest: HrEmployeeRestDayService;
  let failAudit = false, typeId = "", quotaId = "";
  const scope = { tenantId: "10000001", parkId: "20000001" }, adminId = randomUUID(), ownerId = randomUUID(), employeeId = randomUUID();
  const actor = (sub: string, permissions: string[]): JwtPrincipal => ({ ...scope, sub, username: "synthetic-leave", roles: [], permissions });
@@ -39,7 +40,7 @@ if (enabled) {
   ledger = new HrAttendanceLeaveLedgerService(db, audit);
   balance = new HrAttendanceLeaveBalanceService(db, audit);
   const args = Array(33).fill(undefined); args[0] = db.getRepository(entities.HrEmployeeEntity); args[18] = db.getRepository(entities.HrApprovalRequestEntity); args[26] = db.getRepository(entities.HrAttendanceRequestEntity); args[29] = { publishAttendanceRequestSubmitted: async () => undefined, publishAttendanceRequestReviewed: async () => undefined }; args[30] = db; args[31] = audit;
-  hr = Reflect.construct(HrService, args) as HrService; cancel = new HrAttendanceLeaveCancellationService(db, audit, hr);
+  hr = Reflect.construct(HrService, args) as HrService; rest = new HrEmployeeRestDayService(db,audit,hr); cancel = new HrAttendanceLeaveCancellationService(db, audit, hr);
  });
  after(async () => { if (db?.isInitialized) await db.destroy(); });
  const putType = (version: number, enabled = true) => ledger.putType(scope, admin, "ANNUAL", { expectedVersion: version, typeName: `合成年假${version + 1}`, enabled, reason: "合成配置核对" });
@@ -201,4 +202,60 @@ if (enabled) {
   const operator = actor(adminId, [P.HR_ATTENDANCE_OPERATE]); const first = await balance.employees(scope, operator, { page: 1, page_size: 1 }), second = await balance.employees(scope, operator, { page: 2, page_size: 1 });
   assert.equal(first.total, 3); assert.notEqual(first.items[0]!.id, second.items[0]!.id); assert.ok(!("userId" in first.items[0]!));
  });
+ it("explicit individual rest days complete balance coverage without inventing working minutes", async () => {
+  const id=randomUUID(); await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status) VALUES($1,$2,$3,'REST-GATE','Synthetic rest employee','active')",[id,scope.tenantId,scope.parkId]);
+  const q={...page,employee_id:id,from:"2026-07-01",to:"2026-07-03"};
+  await ledger.createQuota(scope,admin,{employeeId:id,leaveTypeId:typeId,periodStart:q.from,periodEnd:q.to,openingMinutes:480,adjustmentMinutes:0,reason:"Synthetic rest quota"});
+  assert.equal((await rest.get(scope,admin,id,q.from)),null); assert.equal(annual(await balance.report(scope,admin,q)).balanceMinutes,null);
+  await rest.put(scope,admin,id,q.from,{expectedVersion:0,isRest:true,reason:"Synthetic explicit rest"}); await rest.put(scope,admin,id,"2026-07-02",{expectedVersion:0,isRest:true,reason:"Synthetic explicit rest"});
+  const known=await balance.report(scope,admin,q); assert.deepEqual(known.missingScheduleDates,[]);assert.equal(annual(known).consumedMinutes,0);assert.equal(annual(known).balanceMinutes,480);assert.equal(known.sources.restDays.length,2);
+  const state=await rest.put(scope,admin,id,q.from,{expectedVersion:1,isRest:false,reason:"Synthetic rest removal"});assert.equal(state.version,2);
+  const unknown=await balance.report(scope,admin,q);assert.equal(annual(unknown).balanceMinutes,null);assert.deepEqual(unknown.missingScheduleDates,[q.from]);assert.notEqual(known.basisHash,unknown.basisHash);
+  await assert.rejects(rest.put(scope,owner,id,q.from,{expectedVersion:2,isRest:true,reason:"Denied"}),/权限不足/);
+  await assert.rejects(rest.put({...scope,parkId:"foreign"},admin,id,q.from,{expectedVersion:2,isRest:true,reason:"Denied"}),/权限不足/);
+  await assert.rejects(rest.get(scope,admin,randomUUID(),q.from),/员工不存在/);
+ });
+ it("rest on a work date retains the preceding overnight shift and approved leave consumption",async()=>{
+  const id=randomUUID(),userId=randomUUID(),nightOwner=actor(userId,[P.HR_ATTENDANCE_REQUEST,P.HR_ATTENDANCE_SELF_READ]);
+  await db.query("INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash) VALUES($1::uuid,$2,$3,$1::text,'Synthetic night owner','not-a-login-hash')",[userId,scope.tenantId,scope.parkId]);
+  await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,user_id,employment_status) VALUES($1,$2,$3,'REST-NIGHT','Synthetic overnight rest',$4,'active')",[id,scope.tenantId,scope.parkId,userId]);
+  const [shift]=await db.query("SELECT id FROM hr_attendance_shift WHERE shift_code='BALANCE-NIGHT'");
+  await hr.createEmployeeSchedule(scope,admin,{employeeId:id,workDate:"2026-06-30",shiftId:shift.id});
+  await rest.put(scope,admin,id,"2026-07-01",{expectedVersion:0,isRest:true,reason:"Synthetic next work-date rest"});
+  await ledger.createQuota(scope,admin,{employeeId:id,leaveTypeId:typeId,periodStart:"2026-07-01",periodEnd:"2026-07-02",openingMinutes:480,adjustmentMinutes:0,reason:"Synthetic night opening"});
+  const request=await hr.createAttendanceRequest(scope,nightOwner,{requestType:"leave",startAt:"2026-07-01T00:00:00+08:00",endAt:"2026-07-01T07:00:00+08:00",reason:"Synthetic night leave",leaveTypeId:typeId,expectedLeaveTypeVersion:23});
+  await hr.submitAttendanceRequest(scope,nightOwner,request.id);await hr.reviewAttendanceRequest(scope,admin,request.id,"approve",{});
+  const report=await balance.report(scope,admin,{...page,employee_id:id,from:"2026-07-01",to:"2026-07-02"});assert.deepEqual(report.missingScheduleDates,[]);assert.equal(annual(report).consumedMinutes,420);assert.equal(annual(report).balanceMinutes,60);
+ });
+ it("rest-day CAS, required audit rollback, immutable history and all history pages",async()=>{
+  const [employee]=await db.query("SELECT id FROM hr_employee WHERE employee_code='REST-GATE' AND tenant_id=$1 AND park_id=$2",[scope.tenantId,scope.parkId]);const date="2026-07-02";
+  const write=(version:number)=>rest.put(scope,admin,employee.id,date,{expectedVersion:version,isRest:true,reason:"Synthetic rest correction"});
+  const results=await Promise.allSettled([write(1),write(1)]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  failAudit=true;try{await assert.rejects(write(2),/audit failure/);}finally{failAudit=false;}
+  assert.equal((await rest.get(scope,admin,employee.id,date))!.version,2);
+  for(let version=2;version<23;version++)await write(version);
+  assert.equal((await rest.history(scope,admin,employee.id,date,page)).items.length,20);assert.equal((await rest.history(scope,admin,employee.id,date,{...page,page:2})).items.length,3);
+  await assert.rejects(db.query("DELETE FROM hr_employee_rest_day_history WHERE rest_day_id IN(SELECT id FROM hr_employee_rest_day WHERE employee_id=$1)",[employee.id]),/append-only/);
+ });
+ it("schedule and rest-day cannot race to coexist and both API and DB writes enforce the conflict",async()=>{
+  const [employee]=await db.query("SELECT id FROM hr_employee WHERE employee_code='REST-GATE' AND tenant_id=$1 AND park_id=$2",[scope.tenantId,scope.parkId]);const [shift]=await db.query("SELECT id FROM hr_attendance_shift WHERE tenant_id=$1 AND park_id=$2 AND NOT is_deleted AND status='enabled' LIMIT 1",[scope.tenantId,scope.parkId]);assert.ok(shift);
+  const date="2026-07-04";const results=await Promise.allSettled([rest.put(scope,admin,employee.id,date,{expectedVersion:0,isRest:true,reason:"Synthetic rest race"}),hr.createEmployeeSchedule(scope,admin,{employeeId:employee.id,workDate:date,shiftId:shift.id})]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  const [facts]=await db.query("SELECT (SELECT count(*) FROM hr_employee_rest_day WHERE employee_id=$1 AND work_date=$2 AND is_rest)::int rest,(SELECT count(*) FROM hr_employee_schedule WHERE employee_id=$1 AND work_date=$2 AND NOT is_deleted)::int schedules",[employee.id,date]);assert.equal(facts.rest+facts.schedules,1);
+  await rest.put(scope,admin,employee.id,"2026-07-05",{expectedVersion:0,isRest:true,reason:"Synthetic trigger rest"});
+  await assert.rejects(hr.createEmployeeSchedule(scope,admin,{employeeId:employee.id,workDate:"2026-07-05",shiftId:shift.id}),/取消休息安排/);
+  await assert.rejects(db.query("INSERT INTO hr_employee_schedule(tenant_id,park_id,employee_id,work_date,shift_id,source) VALUES($1,$2,$3,$4,$5,'manual')",[scope.tenantId,scope.parkId,employee.id,"2026-07-05",shift.id]),/conflicts with rest-day/);
+  await hr.createEmployeeSchedule(scope,admin,{employeeId:employee.id,workDate:"2026-07-06",shiftId:shift.id});
+  await assert.rejects(rest.put(scope,admin,employee.id,"2026-07-06",{expectedVersion:0,isRest:true,reason:"Synthetic schedule conflict"}),/已有排班/);
+  await assert.rejects(db.query("INSERT INTO hr_employee_rest_day(tenant_id,park_id,employee_id,work_date,is_rest,version,updated_by) VALUES($1,$2,$3,$4,true,1,$5)",[scope.tenantId,scope.parkId,employee.id,"2026-07-06",adminId]),/conflicts with schedule/);
+ });
+ it("calculating month blocks rest changes; closed month facts retain the closed state",async()=>{
+  const [employee]=await db.query("SELECT id FROM hr_employee WHERE employee_code='REST-GATE' AND tenant_id=$1 AND park_id=$2",[scope.tenantId,scope.parkId]);
+  const period=await hr.createAttendancePeriod(scope,admin,{periodMonth:"2026-09-01"});await db.query("UPDATE hr_attendance_period SET status='calculating' WHERE id=$1",[period.id]);
+  await assert.rejects(rest.put(scope,admin,employee.id,"2026-09-02",{expectedVersion:0,isRest:true,reason:"Synthetic month guard"}),/正在计算/);assert.equal(await rest.get(scope,admin,employee.id,"2026-09-02"),null);
+  await db.query("UPDATE hr_attendance_period SET status='review' WHERE id=$1",[period.id]);failAudit=true;try{await assert.rejects(rest.put(scope,admin,employee.id,"2026-09-02",{expectedVersion:0,isRest:true,reason:"Synthetic invalidation rollback"}),/audit failure/);}finally{failAudit=false;}
+  assert.equal((await db.query("SELECT status FROM hr_attendance_period WHERE id=$1",[period.id]))[0].status,'review');
+  await rest.put(scope,admin,employee.id,"2026-09-02",{expectedVersion:0,isRest:true,reason:"Synthetic invalidation"});assert.equal((await db.query("SELECT status FROM hr_attendance_period WHERE id=$1",[period.id]))[0].status,'open');
+  await db.query("UPDATE hr_attendance_period SET status='closed' WHERE id=$1",[period.id]);await rest.put(scope,admin,employee.id,"2026-09-03",{expectedVersion:0,isRest:true,reason:"Synthetic correction fact"});assert.equal((await db.query("SELECT status FROM hr_attendance_period WHERE id=$1",[period.id]))[0].status,'closed');
+ });
+
 });

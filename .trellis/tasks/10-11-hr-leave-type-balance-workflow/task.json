@@ -31,10 +31,13 @@
     "packages/shared/src/hr-attendance-leave-ledger.ts",
     "apps/web/app/hr/attendance/LeaveLedgerManagement.tsx",
     "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx",
-    "apps/web/lib/hr-leave-ledger-api.ts"
+    "apps/web/lib/hr-leave-ledger-api.ts",
+    "database/migrations/000365_hr_employee_rest_days.sql",
+    "apps/api/src/modules/hr/hr-employee-rest-day.service.ts",
+    "apps/web/app/hr/attendance/EmployeeRestDayPanel.tsx"
   ],
   "notes": "",
   "meta": {
-    "phase": "management_and_request_classification_ui_validated_explicit_rest_days_pending"
+    "phase": "full_feature_local_validated_release_pending"
   }
 }

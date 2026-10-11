@@ -72,7 +72,7 @@ export function LeaveBalancePanel() {
    {loading ? <p role="status">正在核对假期来源…</p> : null}{error ? <p role="alert">{error}</p> : null}
    {report ? <>
     <h3>{report.employee.employeeName} · 假期额度</h3><p>{report.from} 至 {report.to}（截止日不含） · 核对时间 {new Date(report.observedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>
-    <p>依据：{report.sources.schedules.length} 条排班、{report.sources.requests.length} 条批准请假、{report.sources.cancellations.length} 条批准销假、{report.sources.quotas.length} 条额度登记。</p>
+    <p>依据：{report.sources.schedules.length} 条排班、{report.sources.restDays.filter(day => day.isRest).length} 条个人休息安排、{report.sources.requests.length} 条批准请假、{report.sources.cancellations.length} 条批准销假、{report.sources.quotas.length} 条额度登记。</p>
     {report.missingScheduleDates.length ? <details><summary>{report.missingScheduleDates.length} 个日期的工作或休息安排待完善</summary><p>{report.missingScheduleDates.join("、")}</p></details> : null}
     {report.undatedApprovedRequestCount ? <p>{report.undatedApprovedRequestCount} 条批准请假的时段待核对。</p> : null}{report.unclassifiedMinutes ? <p>未分类的实际请假：{report.unclassifiedMinutes} 分钟。</p> : null}
     <div className={`ds-mobile-record-list ${styles.records}`}>{report.items.map(row => <article className="ds-mobile-record" key={row.leaveTypeId}>

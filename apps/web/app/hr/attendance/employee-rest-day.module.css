@@ -1,0 +1,7 @@
+.panel {min-width:0;padding:clamp(1rem,2vw,1.5rem);}
+.row {display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin-block:1rem;}
+.row > label,.row > span {flex:1 1 12rem;min-width:0;overflow-wrap:anywhere;}
+.panel :global(.ds-button),.panel input,.panel select,.panel textarea {min-height:44px;max-width:100%;}
+.panel textarea {min-height:6rem;}
+.records {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem;margin-block:1rem;}
+.records > article {min-width:0;overflow-wrap:anywhere;}

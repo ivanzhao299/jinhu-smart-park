@@ -17,7 +17,7 @@ const item = { leaveTypeId: "type", typeCode: "SYN", typeName: "合成假期", e
 function report(from: string, to: string, page = 1): HrLeaveBalanceReport {
  return { employee: person, from, to, page, page_size: 20, total: 1, timezone: "Asia/Shanghai", observedAt: "2026-07-31T01:00:00Z",
  basis: "registered_system_facts", basisHash: "a".repeat(64), missingScheduleDates: [], unclassifiedMinutes: 0,
- undatedApprovedRequestCount: 0, sources: { schedules: [], requests: [], cancellations: [], quotas: [] }, items: [{ ...item }] };
+ undatedApprovedRequestCount: 0, sources: { restDays: [], schedules: [], requests: [], cancellations: [], quotas: [] }, items: [{ ...item }] };
 }
 beforeEach(() => {
  mocks.token = "synthetic-token"; mocks.employees.mockReset(); mocks.report.mockReset();

@@ -22,6 +22,7 @@ export interface HrLeaveBalanceItem {
  blockers: HrLeaveBalanceBlocker[];
 }
 export interface HrLeaveBalanceSources {
+ restDays: Array<{ id: string; version: number; workDate: string; isRest: boolean }>;
  schedules: Array<{ id: string; version: number; workDate: string; shiftId: string; shiftVersion: number | null }>;
  requests: Array<{ id: string; version: number; requestNo: string; leaveTypeId: string | null; leaveTypeVersion: number | null }>;
  cancellations: Array<{ id: string; version: number; cancellationNo: string; sourceRequestId: string }>;

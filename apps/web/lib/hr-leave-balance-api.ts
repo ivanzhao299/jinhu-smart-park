@@ -19,6 +19,7 @@ export function decodeLeaveBalanceReport(v: unknown): HrLeaveBalanceReport {
   || !text(v.observedAt) || !Number.isFinite(Date.parse(v.observedAt)) || typeof v.basisHash !== "string" || !/^[a-f0-9]{64}$/.test(v.basisHash)
   || !integer(v.unclassifiedMinutes) || v.unclassifiedMinutes < 0 || !integer(v.undatedApprovedRequestCount) || v.undatedApprovedRequestCount < 0
   || !Array.isArray(v.missingScheduleDates) || !v.missingScheduleDates.every(date) || !object(v.sources)
+  || !Array.isArray(v.sources.restDays) || !v.sources.restDays.every(row => object(row) && text(row.id) && integer(row.version) && row.version > 0 && date(row.workDate) && typeof row.isRest === "boolean")
   || !Array.isArray(v.sources.schedules) || !v.sources.schedules.every(row => object(row) && text(row.id) && integer(row.version) && date(row.workDate) && text(row.shiftId) && nullableNumber(row.shiftVersion))
   || !Array.isArray(v.sources.requests) || !v.sources.requests.every(row => object(row) && text(row.id) && integer(row.version) && text(row.requestNo) && nullableText(row.leaveTypeId) && nullableNumber(row.leaveTypeVersion))
   || !Array.isArray(v.sources.cancellations) || !v.sources.cancellations.every(row => object(row) && text(row.id) && integer(row.version) && text(row.cancellationNo) && text(row.sourceRequestId))
