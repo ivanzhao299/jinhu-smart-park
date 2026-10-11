@@ -1,0 +1,32 @@
+{
+  "id": "hr-recruitment-ledger-filters",
+  "name": "hr-recruitment-ledger-filters",
+  "title": "招聘需求与候选人主列表检索",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-recruitment-ledger-filters-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/web/app/hr/recruitment/HrRecruitmentClient.tsx",
+    "apps/web/app/hr/recruitment/RecruitmentLedgerFilters.tsx",
+    "apps/web/app/hr/recruitment/recruitment.module.css",
+    "apps/web/test/interaction/hr-recruitment-ledger-filters.test.tsx",
+    ".trellis/spec/web/frontend/hr-recruitment-results.md"
+  ],
+  "notes": "67 interactions/7 files, ESLint and Web typecheck PASS. Actual parent synthetic browser desktop1280/mobile390 PASS; controls44px/no horizontal overflow. API/DB unchanged; no production business writes. PR956 predecessor runtime proof complete. Runtime deployment evidence pending.",
+  "meta": {}
+}

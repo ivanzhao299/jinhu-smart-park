@@ -60,3 +60,10 @@ useInitialOnboardingOperation局部持有精确body/token/key及期望回执，�
 五类回执必须为initial，精确申请/员工/候选关联、预期状态和递增正式版本；保存字段与提交一致，审批意见/时间及确认生效时间完整。先局部更新可见记录并保存独立回执，不自动读取掩盖写入结果；手动刷新失败不清回执。申请人元数据从原行或创建时身份保留，不能因mutation投影缺少applicantUserId而开放本人审批。缺少申请人身份时不显示审批按钮；后端审批分离继续权威执行。
 
 新建成功即在可见第一页加入记录，分页/状态筛选仍保留，修改/提交/审批不依赖主列表刷新。不增加expectedVersion CAS或改变初次入职日期/生效/权限规则。桌面和390px验收采用共享DS面板、表单fieldset及44px按钮，未知错误、已办回执与编辑输入都必须可读；合成证据不代替真实岗位验收。
+
+## Recruitment main ledger filters (2026-10-11)
+
+- Requisition keyword/status and candidate keyword/stage use the existing permission-scoped API queries. Input drafts are separate from applied filters; explicit search trims keywords (max 100 characters), resets only the matching ledger to page 1, and supports retrying the same query. Paging and manual refresh retain applied conditions. Reference pickers retain their own filters and selection.
+- Automatic list reads preserve open candidate/requisition operations, sensitive detail, unsaved child drafts, inline onboarding edits and confirmed operation receipts. Keep keyed inline onboarding records mounted while unrelated ledgers load; clear main ledger matches immediately when their queries start. Changing the onboarding page/status clears its previous matches. Failed queries clear their result rows so older matches are not presented under new conditions. Manual refresh retains its existing close-selection behavior.
+- Every filter callback checks synchronous business locks, including uncertain initial-onboarding requests. Starting a business operation cancels and invalidates outstanding list reads so late reads cannot overwrite confirmed results. Account/park context changes remount the view and clear both draft and applied filters.
+- Filter forms use shared DS controls and layout-only module CSS, independent accessible names, 44px touch controls and a single-column layout at 390px. Browser proof using synthetic records is layout/interaction evidence only; actual role business acceptance remains separate.
