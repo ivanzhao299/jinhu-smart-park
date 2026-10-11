@@ -6,3 +6,5 @@
 .panel .records {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem;margin-block:1rem;}
 .records > article {min-width:0;overflow-wrap:anywhere;}
 .panel p, .panel summary {overflow-wrap:anywhere;}
+.editor {min-width:0;display:grid;gap:1rem;border:0;padding:0;margin-block:1rem;}
+.editor textarea {min-height:6rem;max-width:100%;}

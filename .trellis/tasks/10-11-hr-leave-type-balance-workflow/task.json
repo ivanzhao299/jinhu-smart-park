@@ -28,10 +28,13 @@
     "apps/api/src/modules/hr/hr.service.ts",
     "apps/api/src/modules/hr/hr-attendance-leave-balance.service.ts",
     "apps/web/app/hr/attendance/LeaveBalancePanel.tsx",
-    "packages/shared/src/hr-attendance-leave-ledger.ts"
+    "packages/shared/src/hr-attendance-leave-ledger.ts",
+    "apps/web/app/hr/attendance/LeaveLedgerManagement.tsx",
+    "apps/web/app/hr/attendance/AttendanceRequestWorkflow.tsx",
+    "apps/web/lib/hr-leave-ledger-api.ts"
   ],
   "notes": "",
   "meta": {
-    "phase": "balance_read_api_and_ui_validated_type_quota_edit_rest_days_pending"
+    "phase": "management_and_request_classification_ui_validated_explicit_rest_days_pending"
   }
 }
