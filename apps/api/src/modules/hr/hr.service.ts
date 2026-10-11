@@ -513,7 +513,15 @@ export class HrService {
    const leaveType=await resolveLeaveTypeSelection(manager,scope,dto,{leaveTypeId:row.leaveTypeId,leaveTypeVersion:row.leaveTypeVersion,leaveTypeName:row.leaveTypeName});
    const reasonChanged=row.reason!==dto.reason.trim();
    Object.assign(row,timing,leaveType,{reason:dto.reason.trim(),updateBy:actor.sub});
-   const saved=await repo.save(row);if(row.requestType==="business_trip"&&dto.declaredDays!==undefined)await manager.query("UPDATE hr_attendance_request SET declared_days=$1 WHERE id=$2",[dto.declaredDays,row.id]);approval.payload={...approval.payload,...leaveType};approval.updateBy=actor.sub;await approvalRepo.save(approval);
+   const saved=await repo.save(row);
+   if(row.requestType==="business_trip"&&dto.declaredDays!==undefined){
+    if(saved.version!==before.version&&saved.version!==before.version+1)throw new ConflictException("Attendance request changed; reload before editing");
+    // TypeORM can skip an unchanged entity save when only this raw business field changed.
+    const [formal]=await manager.query("WITH changed AS (UPDATE hr_attendance_request SET declared_days=$1,version=$2,update_by=$3,update_time=now() WHERE id=$4 AND tenant_id=$5 AND park_id=$6 AND version=$7 RETURNING version) SELECT version FROM changed",[dto.declaredDays,before.version+1,actor.sub,row.id,scope.tenantId,scope.parkId,saved.version]) as Array<{version:number}>;
+    if(!formal)throw new ConflictException("Attendance request changed; reload before editing");
+    saved.version=formal.version;
+   }
+   approval.payload={...approval.payload,...leaveType};approval.updateBy=actor.sub;await approvalRepo.save(approval);
    await this.auditService.recordOperationRequired({...scope,userId:actor.sub,module:"人力资源管理",resource:"hr.attendance_request",action:"修改考勤申请",bizType:"hr_attendance_request",bizId:id,beforeJson:before,afterJson:{version:saved.version,status:saved.status,leaveTypeId:saved.leaveTypeId,leaveTypeVersion:saved.leaveTypeVersion,leaveTypeName:saved.leaveTypeName,declaredDays:dto.declaredDays===undefined?before.declaredDays:dto.declaredDays,startAt:saved.startAt?.toISOString()??null,endAt:saved.endAt?.toISOString()??null,attendanceDate:saved.attendanceDate,durationMinutes:saved.durationMinutes,reasonChanged},method:"PUT",path:"/hr/attendance/requests/:id",success:true,requestId:null},manager);
    return {...this.projectAttendanceRequestEntity(saved,"self"),declaredDays:row.requestType==="business_trip"?(dto.declaredDays===undefined?declaredBefore?.declared_days??null:dto.declaredDays):null};
   });

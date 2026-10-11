@@ -127,8 +127,14 @@ test("isolated PostgreSQL: real amendments invalidate month facts, preserve clos
     assert.equal(originalDays, 2);
     const preserved = await service.updateAttendanceRequest(scope, requester, created.id, { ...timing, expectedVersion: created.editVersion! });
     assert.equal(preserved.declaredDays, 2);
-    const cleared = await service.updateAttendanceRequest(scope, requester, created.id, { ...initial, declaredDays: null, expectedVersion: preserved.editVersion! });
+    const fieldRace = await Promise.allSettled([3, 4].map(declaredDays => service.updateAttendanceRequest(scope, requester, created.id, { ...initial, declaredDays, expectedVersion: preserved.editVersion! })));
+    assert.equal(fieldRace.filter(result => result.status === "fulfilled").length, 1);
+    assert.equal(fieldRace.filter(result => result.status === "rejected" && result.reason instanceof ConflictException).length, 1);
+    const afterFieldRace = await db.getRepository(entities.HrAttendanceRequestEntity).findOneByOrFail({ id: created.id });
+    assert.equal(afterFieldRace.version, preserved.editVersion! + 1);
+    const cleared = await service.updateAttendanceRequest(scope, requester, created.id, { ...initial, declaredDays: null, expectedVersion: afterFieldRace.version });
     assert.equal(cleared.declaredDays, null);
+    assert.equal(cleared.editVersion, afterFieldRace.version + 1);
     const submitted = await service.submitAttendanceRequest(scope, requester, created.id);
     assert.equal(submitted.declaredDays, null);
     await service.reviewAttendanceRequest(scope, { ...actor, sub: randomUUID(), permissions: [H.HR_ATTENDANCE_APPROVE, H.HR_ATTENDANCE_READ] }, created.id, "approve", {});

@@ -18,6 +18,6 @@ pnpm --filter @jinhu/web test:unit:interaction test/interaction/hr-business-trip
 
 真实 PostgreSQL 出差测试使用已完整迁移的独立临时数据库。必须设置 `HR_TRIP_FORMAL_PG_REQUIRED=1`、`HR_TRIP_FORMAL_ISOLATED=yes` 及普通 `POSTGRES_*` 连接变量；仅允许 loopback 上命名为 `jinhu_hr_migration_lab_trip_formal_<8位十六进制>` 的自有测试库，或 GitHub Actions 的 `jinhu_release_smoke`。禁止连接生产库，禁止把连接密码写入输出。测试与日计算、月结以及草稿编辑回归顺序执行，结束删除自有数据库并核实不存在。
 
-CI 的必需 Release Smoke 已启用此 PostgreSQL 测试，验证首次导入 null/零/正负整数、冲突跳过不覆盖、权限/园区、并发版本、审计回滚、平台新增审批后更正、陈旧日依据、封账快照及明确更正续算。页面交互覆盖失败保留、同键重试、匹配回执、身份/版本漂移和完整分页。
+CI 的必需 Release Smoke 已启用此 PostgreSQL 测试，验证首次导入 null/零/正负整数、冲突跳过不覆盖、权限/园区、并发版本（包括只修改申报天数）、审计回滚、平台新增审批后更正、陈旧日依据、封账快照及明确更正续算。页面交互覆盖失败保留、同键重试、匹配回执、身份/版本漂移和完整分页。
 
 浏览器使用实际考勤组件与全局样式，在390及1280宽度核对表单、历史、按钮和文字留白；合成数据截图仅是本地组件证据。发布仍须验证 CI、迁移、健康、Docker清理和 API/Web实际运行版本；真实角色业务验收和2026年7月全量“只算不发”金额核对单独记录，不能由本页技术测试替代。
