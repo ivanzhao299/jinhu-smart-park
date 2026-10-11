@@ -106,7 +106,8 @@
     "10-11-hr-candidate-interview-workflow",
     "10-11-hr-candidate-profile-continuity",
     "10-11-hr-requisition-continuity",
-    "10-11-hr-candidate-conversion-profile"
+    "10-11-hr-candidate-conversion-profile",
+    "10-11-hr-candidate-conversion-ui"
   ],
   "parent": null,
   "relatedFiles": [

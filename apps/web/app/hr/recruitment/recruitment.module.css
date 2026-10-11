@@ -89,3 +89,10 @@
   .requisitionSnapshot dd { margin-bottom:.65rem; }
   .requisitionReference { align-items:flex-start; flex-direction:column; }
 }
+
+.conversionReceipt { display:grid; gap:1rem; min-width:0; overflow-wrap:anywhere; }
+.conversionReceipt h2,.conversionReceipt p,.conversionReceipt dl { margin:0; }
+.conversionReceipt dl { display:grid; gap:.5rem 1rem; grid-template-columns:minmax(6rem,auto) minmax(0,1fr); }
+.conversionReceipt dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+.conversionReceipt :global(.ds-button) { min-height:44px; max-width:100%; white-space:normal; }
+@media (max-width:640px) { .conversionReceipt dl { grid-template-columns:minmax(0,1fr); } .conversionReceipt dd { margin-bottom:.5rem; } }

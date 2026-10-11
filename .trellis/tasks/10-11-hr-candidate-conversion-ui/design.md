@@ -1,0 +1,5 @@
+# Design
+
+基线8289c1f5089cee5fc226e1a079f0ab6169837cfc。新增route-local CandidateConversion处理受控表单、同步savingRef、精确body/key attempt以及不确定态。网络/5xx/408/处理中409/畸形成功保留attempt并冻结编辑。明确4xx业务拒绝解锁；敏感资料衔接权限沿用服务端，不在页面猜测来源事实。
+
+父HrRecruitmentClient新增conversionBusy与同步ref，加入读刷新/关闭/切换/其他写入守卫。成功先保存独立全局回执，更新候选公开stage与convertedEmployeeId、轨迹和引用revision；不自动刷新列表，不猜招聘需求新版本或名额。用户可选择刷新，回执保留。已有候选和入职管理权限时预选精确employeeId/candidateId；继续填写下方申请，不自动创建/提交/确认入职。员工链接使用已有employeeDetailHref且按员工读取权限显示。身份上下文remount清空一切。无API/数据库变更，无生产测试记录。
