@@ -61,6 +61,8 @@ export class HrAttendanceRequestListQueryDto {
  @IsOptional() @IsIn(["draft","submitted","approved","returned","cancelled"]) status?:string;
 }
 export class CreateHrAttendanceRequestDto {
+ @ValidateIf((_o,v)=>v!==undefined&&v!==null) @IsUUID() leaveTypeId?:string|null;
+ @ValidateIf((_o,v)=>v!==undefined) @IsInt() @Min(1) @Max(2147483647) expectedLeaveTypeVersion?:number;
  @IsIn(["leave","overtime","business_trip","correction"]) requestType!:string;
  @IsOptional() @IsDateString({strict:true}) startAt?:string;
  @IsOptional() @IsDateString({strict:true}) endAt?:string;
