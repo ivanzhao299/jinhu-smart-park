@@ -13,14 +13,14 @@
   "createdAt": "2026-10-11",
   "completedAt": null,
   "branch": "codex/hr-attendance-leave-payroll-facts-20261011",
-  "base_branch": "codex/hr-attendance-leave-payroll-facts-20261011",
+  "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-attendance-leave-payroll-facts-20261011",
   "commit": null,
-  "pr_url": null,
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/965",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Complete producer, consumers and modern surface implemented. Local checks passed; release remains pending.",
+  "notes": "Full quantity chain implemented and locally validated. CI contract assertion repaired; 252 full Web HR tests and 26 interactions pass. PR964 predecessor deployed/runtime verified. PR965 release not yet complete.",
   "meta": {}
 }

@@ -136,3 +136,9 @@ it("month cards preserve approved leave minutes and explicitly unknown historica
  render(<HrAttendanceClient/>);await screen.findByText("期间第 1 / 2 页 · 共 25 期");fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[0]!);
  await screen.findByText(/有请假 · 工作.*批准请假 125 分钟/);expect(screen.getByText(/未保存 · 工作.*批准请假 未提供/)).toBeInTheDocument();
 });
+
+it("daily actual leave facts distinguish unavailable history from a calculated zero",async()=>{
+ vi.mocked(hrApi.attendanceDaily).mockResolvedValue(page([{...daily("缺少旧事实"),leaveMinutes:null}],1));render(<HrAttendanceClient/>);
+ await screen.findByText("缺少旧事实 · 2026-10-01");expect(screen.getByText("已批准请假 未提供")).toBeInTheDocument();
+ vi.mocked(hrApi.attendanceDaily).mockResolvedValue(page([{...daily("已计算零值"),leaveMinutes:0}],1));fireEvent.click(screen.getByRole("button",{name:"刷新日结果"}));await screen.findByText("已计算零值 · 2026-10-01");expect(screen.getByText("已批准请假 0 分钟")).toBeInTheDocument();
+});

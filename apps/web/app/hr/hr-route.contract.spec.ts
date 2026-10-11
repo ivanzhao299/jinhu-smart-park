@@ -411,7 +411,8 @@ test("HR leave source reference stays distinct from requested duration and actua
  assert.match(attendance,/申请时长 \$\{row\.durationMinutes\} 分钟；实际请假分钟以排班日结果为准/);
  assert.doesNotMatch(attendance,/已批准计入 \$\{row\.leaveEffectiveMinutes\}/);
  assert.match(attendance,/row\.status==="cancelled"\?"已取消，不计入日考勤"/);
- assert.match(attendance,/row\.leaveMinutes>0/);
+ assert.match(api,/leaveMinutes:number\|null/);
+ assert.match(attendance,/row\.leaveMinutes==null\?"未提供"/);
  assert.match(attendance,/已批准请假/);
 });
 
