@@ -100,4 +100,12 @@ if(enabled&&(!owned||!process.env.POSTGRES_PASSWORD))throw new Error("Use only t
   assert.equal((await internal.attendanceRequestScheduleDates(db.manager,{...scope,parkId:"20000002"},[row])).size,0);
  });
 
+ it("locks employee before request so employee-first self operations cannot deadlock with approval",async()=>{
+  const employeeActor={...actor,sub:user,permissions:[]},request=await service.createAttendanceRequest(scope,employeeActor,{requestType:"correction",attendanceDate:"2049-03-15",reason:"合成锁序"});await service.submitAttendanceRequest(scope,employeeActor,request.id);
+  const blocker=db.createQueryRunner();await blocker.connect();await blocker.startTransaction();await blocker.query("SELECT id FROM hr_employee WHERE id=$1 FOR UPDATE",[employee]);
+  const review=service.reviewAttendanceRequest(scope,actor,request.id,"approve",{});
+  try{let waiting=false;for(let n=0;n<100;n++){const rows=await db.query("SELECT pid FROM pg_stat_activity WHERE application_name='overnight-facts-gate' AND wait_event_type='Lock' AND wait_event='transactionid'");if(rows.length){waiting=true;break;}await delay(20);}assert.ok(waiting,"approval must wait for the employee lock before locking request");await blocker.query("SELECT id FROM hr_attendance_request WHERE id=$1 FOR UPDATE NOWAIT",[request.id]);await blocker.commitTransaction();await review;assert.equal((await db.getRepository(HrAttendanceRequestEntity).findOneByOrFail({id:request.id})).status,"approved");}
+  finally{if(blocker.isTransactionActive)await blocker.rollbackTransaction();await blocker.release();await Promise.allSettled([review]);}
+ });
+
 });
