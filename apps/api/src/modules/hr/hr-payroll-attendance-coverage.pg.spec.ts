@@ -86,6 +86,21 @@ test("full-schema selected attendance coverage keeps global counts and rejects n
     const complete = await runs.options(scope, author, { inputId: input.id, expectedInputVersion: confirmed.version, attendanceInputBatchId: completeId, page: 2, pageSize: 20 });
     assert.equal(complete.attendanceBatches.find(batch => batch.id === completeId)?.missingEmployeeCount, 0);
     assert.ok(complete.items.every(row => row.attendanceCovered === true));
+    // New reference must treat a present row with an unavailable quantity as uncovered.
+    const leaveDefinition=structuredClone(definition);leaveDefinition.items[1]!.expression="[人事系统.批准请假分钟]/60";
+    const leaveSet=await rules.createSet(scope,author,{ruleCode:`LEAVE-${randomUUID().slice(0,8)}`,displayName:"封账请假事实规则"});
+    const leaveDraft=await rules.createVersion(scope,author,leaveSet.id,{expectedHeadRevision:0,definition:leaveDefinition,reason:"验证批准请假实际分钟"});
+    const leaveSubmitted=await rules.submitVersion(scope,author,leaveDraft.id,{expectedVersion:leaveDraft.version});
+    const leaveApproved=await rules.reviewVersion(scope,reviewer,leaveDraft.id,{expectedVersion:leaveSubmitted.version,decision:"approve",effectiveFrom:"2026-10",reason:"独立复核数量来源"});
+    const leaveInput=await inputs.create(scope,author,{periodId,ruleSetId:leaveSet.id,ruleVersionId:leaveApproved.id,expectedHeadRevision:0,reason:"封账请假来源核对",employees:employees.map(employeeId=>({employeeId,expectedEmployeeVersion:1,directItems:{收入:"100.0000"}}))});
+    const leaveConfirmed=await inputs.confirm(scope,reviewer,leaveInput.id,{expectedVersion:leaveInput.version});
+    const leaveQuery={inputId:leaveInput.id,expectedInputVersion:leaveConfirmed.version,attendanceInputBatchId:completeId,page:2,pageSize:20};
+    const missingLeave=await runs.options(scope,author,leaveQuery);assert.equal(missingLeave.attendanceBatches.find(b=>b.id===completeId)?.missingEmployeeCount,23);assert.ok(missingLeave.items.every(row=>row.attendanceCovered===false));
+    await assert.rejects(()=>runs.create(scope,author,{inputId:leaveInput.id,expectedInputVersion:leaveConfirmed.version,attendanceInputBatchId:completeId}),/attendance source value/);
+    await manager.query("UPDATE hr_attendance_payroll_input_item SET approved_leave_minutes=120 WHERE batch_id=$1",[completeId]);
+    const available=await runs.options(scope,author,leaveQuery);assert.equal(available.attendanceBatches.find(b=>b.id===completeId)?.missingEmployeeCount,0);assert.ok(available.items.every(row=>row.attendanceCovered===true));
+    const run=await runs.create(scope,author,{inputId:leaveInput.id,expectedInputVersion:leaveConfirmed.version,attendanceInputBatchId:completeId});
+    const result=await manager.query("SELECT net_amount::text,compensation_snapshot FROM hr_payslip WHERE run_id=$1 ORDER BY employee_id",[run.id]);assert.equal(result.length,23);assert.equal(result[0].net_amount,"98.00");assert.equal(result[0].compensation_snapshot.attendance.approvedLeaveMinutes,"120");
   } finally {
     try { if (runner.isTransactionActive) await runner.rollbackTransaction(); } finally { await runner.release(); await db.destroy(); }
   }

@@ -11,7 +11,7 @@ vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../lib/hr-api",()=>({hrApi:{attendanceRequests:vi.fn(),attendanceDaily:vi.fn(),attendancePeriods:vi.fn(),attendanceCalendars:vi.fn(),attendanceMonthSummaries:vi.fn(),payrollAttendanceInputs:vi.fn(),attendancePayrollVersions:vi.fn(),closeAttendancePeriod:vi.fn()}}));
 const daily=(id:string):HrAttendanceDailyResult=>({id,workDate:"2026-10-01",firstInAt:null,lastOutAt:null,workedMinutes:480,leaveMinutes:0,lateMinutes:0,earlyMinutes:0,resultStatus:"normal",anomalyCodes:[],corrected:false,calculationVersionId:"synthetic-version",isSelf:false,employeeName:id});
 const period=(id:string,month="2026-10",status="open"):HrAttendancePeriod=>({id,periodMonth:`${month}-01`,status,activeVersion:1,calculationStartedAt:null,calculationCompletedAt:null,failureCode:null,closedAt:null});
-const summary=(id:string):HrAttendanceMonthSummary=>({id,summaryVersion:1,scheduledDays:22,normalDays:22,workedMinutes:10560,lateMinutes:0,earlyMinutes:0,absenceDays:0,missingPunchDays:0,employeeName:id});
+const summary=(id:string):HrAttendanceMonthSummary=>({id,summaryVersion:1,scheduledDays:22,normalDays:22,approvedLeaveMinutes:125,workedMinutes:10560,lateMinutes:0,earlyMinutes:0,absenceDays:0,missingPunchDays:0,employeeName:id});
 const page=<T,>(items:T[],total:number,current=1,size=31)=>({items,total,page:current,page_size:size});
 beforeEach(()=>{
  vi.resetAllMocks();state.user={id:"reader",permissions:["hr:attendance","hr:attendance:read"],enabled_modules:[{module_code:"hr"}]};
@@ -129,4 +129,16 @@ it("switching the selected month permanently cancels its export",async()=>{
  vi.mocked(hrApi.attendanceMonthSummaries).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));fireEvent.click(screen.getByRole("button",{name:"导出筛选月考勤汇总"}));const signal=vi.mocked(hrApi.attendanceMonthSummaries).mock.calls.at(-1)![4];
  fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[1]!);expect(signal?.aborted).toBe(true);await act(async()=>finish(page([summary("过期")],1,1,100)));expect(downloadCsv).not.toHaveBeenCalled();
  await waitFor(()=>expect(screen.getByRole("button",{name:"导出筛选月考勤汇总"})).toBeEnabled());
+});
+
+it("month cards preserve approved leave minutes and explicitly unknown historical quantities",async()=>{
+ vi.mocked(hrApi.attendanceMonthSummaries).mockResolvedValue(page([{...summary("有请假"),approvedLeaveMinutes:125},{...summary("未保存"),approvedLeaveMinutes:null}],2,1,100));
+ render(<HrAttendanceClient/>);await screen.findByText("期间第 1 / 2 页 · 共 25 期");fireEvent.click(screen.getAllByRole("button",{name:"查看汇总"})[0]!);
+ await screen.findByText(/有请假 · 工作.*批准请假 125 分钟/);expect(screen.getByText(/未保存 · 工作.*批准请假 未提供/)).toBeInTheDocument();
+});
+
+it("daily actual leave facts distinguish unavailable history from a calculated zero",async()=>{
+ vi.mocked(hrApi.attendanceDaily).mockResolvedValue(page([{...daily("缺少旧事实"),leaveMinutes:null}],1));render(<HrAttendanceClient/>);
+ await screen.findByText("缺少旧事实 · 2026-10-01");expect(screen.getByText("已批准请假 未提供")).toBeInTheDocument();
+ vi.mocked(hrApi.attendanceDaily).mockResolvedValue(page([{...daily("已计算零值"),leaveMinutes:0}],1));fireEvent.click(screen.getByRole("button",{name:"刷新日结果"}));await screen.findByText("已计算零值 · 2026-10-01");expect(screen.getByText("已批准请假 0 分钟")).toBeInTheDocument();
 });

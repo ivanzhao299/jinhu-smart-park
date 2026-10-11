@@ -42,6 +42,7 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000348_hr_payroll_formal_inputs.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000233_hr_compensation_payroll.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000247_hr_attendance_month_close.sql"), "utf8"));
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000363_hr_attendance_approved_leave_payroll_facts.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000243_hr_payroll_concurrency_integrity.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000349_hr_payroll_formal_run_evidence.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000350_hr_payroll_formal_run_ledger_bridge.sql"), "utf8"));

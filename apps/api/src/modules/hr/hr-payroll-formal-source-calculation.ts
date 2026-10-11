@@ -1,3 +1,4 @@
+import { HR_PAYROLL_ATTENDANCE_FIELDS, projectApprovedLeavePayrollInput } from "./hr-payroll-attendance-input";
 import { ConflictException } from "@nestjs/common";
 import type { FormalPayrollDefinition, FormalPayrollEmployeeInput } from "@jinhu/shared";
 import { calculateFormalPayroll, buildFormalPayrollDefinitionEvidence } from "./hr-payroll-formal-calculation";
@@ -7,12 +8,9 @@ import { projectPayrollInsuranceInputs, type PayrollInsuranceAmountFact, HR_PAYR
 
 export type FormalPayrollAttendanceSource = {
   id: string; batchId: string; workedMinutes: string; lateMinutes: string; earlyMinutes: string;
-  absenceDays: string; missingPunchDays: string;
+  absenceDays: string; missingPunchDays: string; approvedLeaveMinutes?: string | null;
 };
-const attendanceFields = new Map([
-  ["工作分钟", "workedMinutes"], ["迟到分钟", "lateMinutes"], ["早退分钟", "earlyMinutes"],
-  ["缺勤天数", "absenceDays"], ["缺卡天数", "missingPunchDays"],
-] as const);
+const attendanceFields = HR_PAYROLL_ATTENDANCE_FIELDS;
 
 /** Sources must be read under scoped transaction locks; this composes calculation and frozen evidence, not source approval. */
 export function calculateFormalPayrollWithSources(definition: FormalPayrollDefinition, source: {
@@ -37,7 +35,7 @@ export function calculateFormalPayrollWithSources(definition: FormalPayrollDefin
   for (const [code, field] of attendanceRequired) {
     const value = source.attendance![field];
     if (typeof value !== "string" || !/^\d{1,16}(?:\.\d{1,4})?$/u.test(value)) throw new ConflictException("Invalid exact attendance source value");
-    hrInputs[code] = value;
+    hrInputs[code] = field === "approvedLeaveMinutes" ? projectApprovedLeavePayrollInput(value) : value;
   }
   const insuranceRequired = dependencies.some(code => code.startsWith("hr:") && HR_PAYROLL_INSURANCE_REFERENCE_CODES.has(code.slice(3)));
   if (insuranceRequired && !source.insurance) throw new ConflictException("Required confirmed insurance source is missing");

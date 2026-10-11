@@ -39,3 +39,16 @@ test("missing required sources and stale employee selection cannot produce a pay
   assert.throws(() => calculateFormalPayrollWithSources(definition, { ...source, employee: { ...source.employee, version: 3 } }), /employee source changed/);
   assert.throws(() => calculateFormalPayrollWithSources(definition, { ...source, attendance: { ...source.attendance, absenceDays: "NaN" } }), /attendance source value/);
 });
+
+test("formal leave dependency consumes and freezes actual whole minutes; old unavailable sources cannot stand in for zero", () => {
+  const leaveDefinition=structuredClone(definition);
+  leaveDefinition.items.find(item=>item.code==="工资")!.expression="[人事系统.批准请假分钟]/60*10";
+  const prepared={...structuredClone(source),input:{...source.input,directItems:{税:"0.00"}},attendance:{...source.attendance,absenceDays:"0",approvedLeaveMinutes:"120"},insurance:{...structuredClone(source.insurance),items:[{...source.insurance.items[0]!,employeeAmount:"0.00"}]}};
+  const result=calculateFormalPayrollWithSources(leaveDefinition,prepared);
+  assert.equal(result.calculation.netAmount,"20.00");
+  assert.equal(result.frozenSources.hrInputs["批准请假分钟"],"120.0000");
+  assert.equal(result.frozenSources.attendance!.approvedLeaveMinutes,"120");
+  for(const value of [null,undefined,"0.5","-1"]){assert.throws(()=>calculateFormalPayrollWithSources(leaveDefinition,{...prepared,attendance:{...prepared.attendance,approvedLeaveMinutes:value}}));}
+  assert.equal(calculateFormalPayrollWithSources(leaveDefinition,{...prepared,attendance:{...prepared.attendance,approvedLeaveMinutes:"0"}}).calculation.netAmount,"0.00");
+  assert.doesNotThrow(()=>calculateFormalPayrollWithSources(definition,{...source,attendance:{...source.attendance,approvedLeaveMinutes:null}}));
+});
