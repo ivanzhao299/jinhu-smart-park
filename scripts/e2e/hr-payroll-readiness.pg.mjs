@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import { diagnosePayrollReadiness, payrollReadinessSql } from '../diagnose-hr-payroll-readiness.mjs';
 import { payrollSourceCoverageSql, validatePayrollSourceCoverage } from '../diagnose-hr-payroll-source-coverage.mjs';
+import { randomUUID } from 'node:crypto';
 
 const database = process.env.POSTGRES_DB ?? '';
 const enabled = process.env.HR_PAYROLL_READINESS_PG === '1';
@@ -144,4 +145,62 @@ test('migrated PostgreSQL proves published source observation, invalid staged ex
   assert.equal(controlled.totals.snapshotCount,1);assert.equal(controlled.totals.eligibleSourceCount,1);
   const unavailable=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2030-01-01')).trim()),'2030-01-01');
   assert.equal(unavailable.totals.snapshotCount,1);assert.equal(unavailable.totals.unqualifiedBatchCount,1);
+});
+
+test('insurance coverage uses the exact eligible payroll cohort, reviewed historical periods and latest modern revisions', {skip:!enabled},()=>{
+ assert.match(database,/^jinhu_hr_migration_lab_review_[A-Za-z0-9_]{6,64}$/);
+ psql(`INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,employment_status)
+ SELECT '10000001','20000001','INS-COVERAGE-'||n,'Synthetic','active' FROM generate_series(1,7) n;
+ INSERT INTO hr_payroll_book(tenant_id,park_id,legacy_scheme,book_name,source_hash) VALUES('10000001','20000001',3,'insurance-coverage',repeat('f',64));
+ INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count,loaded_row_count,status)
+ VALUES('10000001','20000001','insurance-coverage',repeat('f',64),repeat('f',64),repeat('f',64),7,7,'staged');
+ INSERT INTO hr_payroll_book_period(tenant_id,park_id,book_id,period_month,legacy_close_state,source_hash)
+ SELECT '10000001','20000001',id,'2026-07-01',0,repeat('f',64) FROM hr_payroll_book WHERE book_name='insurance-coverage';
+ INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+ SELECT e.tenant_id,e.park_id,b.id,p.id,e.id,'salary03',encode(digest(e.employee_code,'sha256'),'hex'),encode(digest(e.employee_code,'sha256'),'hex'),'mapped',repeat('f',64)
+ FROM hr_employee e CROSS JOIN hr_payroll_legacy_batch b CROSS JOIN hr_payroll_book_period p
+ WHERE e.employee_code LIKE 'INS-COVERAGE-%' AND b.batch_code='insurance-coverage'
+ AND p.book_id=(SELECT id FROM hr_payroll_book WHERE book_name='insurance-coverage');
+ UPDATE hr_payroll_legacy_batch SET status='published',published_at=clock_timestamp(),published_by=gen_random_uuid() WHERE batch_code='insurance-coverage';
+ INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id,needs_review,is_deleted)
+ SELECT e.tenant_id,e.park_id,e.id,2026,7,n,n IN(5,6),n=7 FROM generate_series(1,7) n JOIN hr_employee e ON e.employee_code='INS-COVERAGE-'||n WHERE n IN(1,3,5,6,7);
+ INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id)
+ SELECT tenant_id,park_id,id,2026,8,108 FROM hr_employee WHERE employee_code='INS-COVERAGE-7';
+ INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,employment_status) VALUES('10000001','foreign-park','INS-FOREIGN','Synthetic','active');
+ INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id)
+ SELECT tenant_id,park_id,id,2026,7,109 FROM hr_employee WHERE employee_code='INS-FOREIGN';`);
+ const duplicate=psql(`INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id)
+ SELECT tenant_id,park_id,id,2026,7,106 FROM hr_employee WHERE employee_code='INS-COVERAGE-6';`,true);
+ assert.ok(duplicate instanceof Error);assert.match(String(duplicate.stderr),/uq_hr_employee_insurance_month/);
+ psql(`INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,employment_status) VALUES('10000001','20000001','INS-UNQUALIFIED','Synthetic','active');
+ INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash)
+ SELECT e.tenant_id,e.park_id,b.id,p.id,e.id,'salary03',repeat('e',64),repeat('e',64),'mapped',repeat('e',64)
+ FROM hr_employee e CROSS JOIN hr_payroll_legacy_batch b CROSS JOIN hr_payroll_book_period p
+ WHERE e.employee_code='INS-UNQUALIFIED' AND b.batch_code='readiness-invalid-staged'
+ AND p.book_id=(SELECT id FROM hr_payroll_book WHERE book_name='insurance-coverage');`);
+ const quote=value=>`'${JSON.stringify(value).replaceAll("'","''")}'::jsonb`;
+ const kinds=['oldage','remedy','losework','wound','bear','fund'];
+ const actor=randomUUID(),policyId=randomUUID();
+ const definition={formatVersion:1,engineVersion:'jinhu-insurance-decimal-v1',tenantId:'10000001',parkId:'20000001',createdBy:actor,policyCode:'COVERAGE',policyName:'Synthetic',variantNo:1,versionNo:1,effectiveFrom:'2026-01',effectiveThrough:'2026-12',reason:'Synthetic',origin:{kind:'manual'},items:kinds.map(insuranceKind=>({insuranceKind,factors:Object.fromEntries(['base','employer','employee','supplement'].map(k=>[k,{rate:'0.000000',fixedAmount:null}]))}))};
+ psql(`INSERT INTO hr_insurance_policy_version(id,tenant_id,park_id,request_id,request_sha256,policy_code,policy_name,variant_no,version_no,effective_from,effective_through,created_by,definition)
+ VALUES('${policyId}','10000001','20000001',gen_random_uuid(),repeat('a',64),'COVERAGE','Synthetic',1,1,'2026-01-01','2026-12-01','${actor}',${quote(definition)});`);
+ const policyHash=psql(`SELECT definition_sha256 FROM hr_insurance_policy_version WHERE id='${policyId}'`).trim();
+ for(const [n,month,revisions] of [[2,'2026-07',2],[3,'2026-07',1],[6,'2026-07',1],[7,'2026-08',1]]) {
+  const employeeId=psql(`SELECT id FROM hr_employee WHERE employee_code='INS-COVERAGE-${n}'`).trim();let previous=null;
+  for(let version=1;version<=revisions;version++) {
+   const previewId=randomUUID(),revisionId=randomUUID();
+   const input={formatVersion:1,employeeId,employeeVersion:1,policyVersionId:policyId,definitionHash:policyHash,periodMonth:month,includeFund:false,bases:kinds.map(insuranceKind=>({insuranceKind,contributionBase:'10.00'}))};
+   const result={engineVersion:'jinhu-insurance-decimal-v1',policyVersion:1,includeFund:false,items:kinds.map(insuranceKind=>({insuranceKind,contributionBase:'10.00',amounts:{base:'0.00',employer:'0.00',employee:'0.00',supplement:'0.00'}})),totals:{base:'0.00',employer:'0.00',employee:'0.00',supplement:'0.00'}};
+   psql(`INSERT INTO hr_insurance_owned_preview(id,tenant_id,park_id,request_id,request_sha256,employee_id,employee_version,policy_version_id,policy_definition_sha256,period_month,include_fund,created_by,input_snapshot,result)
+   VALUES('${previewId}','10000001','20000001',gen_random_uuid(),repeat('a',64),'${employeeId}',1,'${policyId}','${policyHash}','${month}-01',false,'${actor}',${quote(input)},${quote(result)});
+   INSERT INTO hr_insurance_owned_revision(id,tenant_id,park_id,employee_id,period_month,revision_no,preview_id,previous_revision_id,request_id,request_sha256,created_by,reason)
+   VALUES('${revisionId}','10000001','20000001','${employeeId}','${month}-01',${version},'${previewId}',${previous?`'${previous}'`:'NULL'},gen_random_uuid(),repeat('a',64),'${actor}','Synthetic');`);
+   if(version<revisions) psql(`INSERT INTO hr_insurance_owned_close(tenant_id,park_id,revision_id,request_id,request_sha256,created_by,reason) VALUES('10000001','20000001','${revisionId}',gen_random_uuid(),repeat('a',64),'${actor}','Synthetic');`);
+   previous=revisionId;
+  }
+ }
+ const result=validatePayrollSourceCoverage(JSON.parse(psql(payrollSourceCoverageSql('2026-07-01'))),'2026-07-01');
+ assert.deepEqual(result.insuranceCoverage,{cohortEmployeeCount:8,historicalOnlyCount:1,modernOnlyCount:2,bothCount:1,neitherCount:4,historicalAmbiguousCount:0,historicalNeedsReviewCount:2,noHistoricalPeriodCount:4,modernAmbiguousCount:0,noModernRevisionCount:5});
+ assert.equal(result.insuranceAmountCompleteness,'UNVERIFIED');
+ assert.equal(result.totals.employeeCount,9);assert.ok(result.totals.snapshotCount>9,'cross-book payroll records retained');
 });
