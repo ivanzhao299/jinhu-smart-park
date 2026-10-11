@@ -36,8 +36,16 @@
     "apps/api/src/modules/hr/hr-employee-rest-day.service.ts",
     "apps/web/app/hr/attendance/EmployeeRestDayPanel.tsx"
   ],
-  "notes": "",
+  "notes": "PR966技术上线已核验；API/Web/main一致，健康与Docker清理通过。真实岗位页面UAT、原系统功能规则等价和7月全量只算不发金额核对仍待独立证据，不宣称父目标完成。",
   "meta": {
-    "phase": "full_feature_local_validated_release_pending"
+    "phase": "deployed_runtime_verified_role_uat_pending",
+    "technicalDelivery": "DEPLOYED_RUNTIME_VERIFIED",
+    "mergedSha": "8a796daa5e6c9c26f0378bea51f868ebda4e9eb9",
+    "ciRun": 38163303316,
+    "deployRun": 38165734386,
+    "observerRun": 38166924346,
+    "releaseReceipt": "/Users/mac/.codex/artifacts/hr-leave-type-balance-workflow-20261012/checkpoint.json",
+    "productionRoleUAT": "PENDING_SESSION",
+    "realJulyAmountTrial": "NOT_EXECUTED"
   }
 }

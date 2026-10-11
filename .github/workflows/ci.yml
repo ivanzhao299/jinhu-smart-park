@@ -80,8 +80,8 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        # Docker Official Image via its public mirror; avoid shared-runner Hub pull limits.
-        image: public.ecr.aws/docker/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+        # Same Docker Official Image digest via Google's Docker Hub cache.
+        image: mirror.gcr.io/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: synthetic-scope-ci-only
@@ -396,7 +396,7 @@ jobs:
       - name: Start PostgreSQL
         run: |
           # Keep the production Compose definition unchanged; preload its CI-only image.
-          postgres_image=public.ecr.aws/docker/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+          postgres_image=mirror.gcr.io/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
           docker pull "$postgres_image"
           docker tag "$postgres_image" postgres:16-alpine
           docker compose -f "$COMPOSE_FILE" up -d postgres
@@ -1278,6 +1278,8 @@ jobs:
           HR_ATTENDANCE_CLOSE_PG_REQUIRED: "1"
           HR_ATTENDANCE_APPROVED_FACT_PG_REQUIRED: "1"
           HR_ATTENDANCE_OVERNIGHT_PG_REQUIRED: "1"
+          HR_TRIP_FORMAL_PG_REQUIRED: "1"
+          HR_TRIP_FORMAL_ISOLATED: "yes"
         run: |
           set -o pipefail
           pnpm --filter @jinhu/shared build
@@ -1287,6 +1289,7 @@ jobs:
             src/modules/hr/hr-attendance-month-close.pg.spec.ts \
             src/modules/hr/hr-attendance-approved-facts.pg.spec.ts \
             src/modules/hr/hr-attendance-overnight-approved-facts.pg.spec.ts \
+            src/modules/hr/hr-business-trip-formal.pg.spec.ts \
             2>&1 | tee /tmp/release-smoke-logs/hr-attendance-approved-facts.log
 
       - name: Bootstrap admin

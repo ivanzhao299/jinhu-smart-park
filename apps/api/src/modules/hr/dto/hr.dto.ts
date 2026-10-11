@@ -64,6 +64,7 @@ export class CreateHrAttendanceRequestDto {
  @ValidateIf((_o,v)=>v!==undefined&&v!==null) @IsUUID() leaveTypeId?:string|null;
  @ValidateIf((_o,v)=>v!==undefined) @IsInt() @Min(1) @Max(2147483647) expectedLeaveTypeVersion?:number;
  @IsIn(["leave","overtime","business_trip","correction"]) requestType!:string;
+ @ValidateIf((_o,v)=>v!==undefined&&v!==null) @IsInt() @Min(0) @Max(2147483647) declaredDays?:number|null;
  @IsOptional() @IsDateString({strict:true}) startAt?:string;
  @IsOptional() @IsDateString({strict:true}) endAt?:string;
  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() attendanceDate?:string;
@@ -74,6 +75,8 @@ export class UpdateHrAttendanceRequestDto extends CreateHrAttendanceRequestDto {
 }
 
 export class ReviewHrAttendanceRequestDto { @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
+export class AmendHrBusinessTripDeclaredDaysDto { @ValidateIf((_o,v)=>v!==null) @IsInt() @Min(0) @Max(2147483647) declaredDays!:number|null; @IsInt() @Min(1) expectedVersion!:number; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!:string; }
+export class HrBusinessTripDeclaredDaysHistoryQueryDto { @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1; @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20; }
 export class HrAttendanceDailyQueryDto {
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1; @Transform(({value})=>Number(value??31)) @IsInt() @Min(1) @Max(100) page_size=31;
  @IsOptional() @IsDateString() from?:string; @IsOptional() @IsDateString() to?:string; @IsOptional() @IsIn(["normal","late","early_leave","missing_punch","absence","rest","corrected"]) status?:string;
