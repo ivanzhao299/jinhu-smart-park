@@ -13,13 +13,13 @@ function punchTime(value:string|null){
 export function attendanceDailyCsv(rows:readonly HrAttendanceDailyResult[],selfOnly:boolean){
  return csvDocument([[...selfOnly?[]:["员工编号","姓名"],"考勤日期","上班打卡时间（北京时间）","下班打卡时间（北京时间）","工作分钟","请假分钟","迟到分钟","早退分钟","考勤状态","已更正"],...rows.map(row=>{
   if(!validDate(row.workDate)||typeof row.resultStatus!=="string"||typeof row.corrected!=="boolean")throw Error("日考勤资料未完整返回，请刷新后重新导出。");
-  return [...selfOnly?[]:[row.employeeCode,row.employeeName],row.workDate,punchTime(row.firstInAt),punchTime(row.lastOutAt),minutes(row.workedMinutes),minutes(row.leaveMinutes),minutes(row.lateMinutes),minutes(row.earlyMinutes),attendanceResultStatusLabel(row.resultStatus),row.corrected?"是":"否"];
+  return [...selfOnly?[]:[row.employeeCode,row.employeeName],row.workDate,punchTime(row.firstInAt),punchTime(row.lastOutAt),minutes(row.workedMinutes),row.leaveMinutes==null?"未提供":minutes(row.leaveMinutes),minutes(row.lateMinutes),minutes(row.earlyMinutes),attendanceResultStatusLabel(row.resultStatus),row.corrected?"是":"否"];
  })]);
 }
 export function attendanceMonthCsv(rows:readonly HrAttendanceMonthSummary[],selfOnly:boolean,month:string,version:number){
  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!Number.isSafeInteger(version)||version<1)throw Error("请重新选择有效的考勤期间。");
- return csvDocument([[...selfOnly?[]:["员工编号","姓名"],"考勤月份","汇总版本","应出勤天数","正常天数","工作分钟","迟到分钟","早退分钟","缺勤天数","缺卡天数"],...rows.map(row=>{
+ return csvDocument([[...selfOnly?[]:["员工编号","姓名"],"考勤月份","汇总版本","应出勤天数","正常天数","工作分钟","批准请假分钟","迟到分钟","早退分钟","缺勤天数","缺卡天数"],...rows.map(row=>{
   if(row.summaryVersion!==version)throw Error("考勤汇总版本已变化，请刷新期间后重新导出。");
-  return [...selfOnly?[]:[row.employeeCode,row.employeeName],month,version,minutes(row.scheduledDays),minutes(row.normalDays),minutes(row.workedMinutes),minutes(row.lateMinutes),minutes(row.earlyMinutes),minutes(row.absenceDays),minutes(row.missingPunchDays)];
+  return [...selfOnly?[]:[row.employeeCode,row.employeeName],month,version,minutes(row.scheduledDays),minutes(row.normalDays),minutes(row.workedMinutes),row.approvedLeaveMinutes==null?"未提供":minutes(row.approvedLeaveMinutes),minutes(row.lateMinutes),minutes(row.earlyMinutes),minutes(row.absenceDays),minutes(row.missingPunchDays)];
  })]);
 }

@@ -1,0 +1,26 @@
+.panel {
+  min-width: 0;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.panel > summary {
+  min-height: 44px;
+  padding-block: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+.pager button {
+  min-height: 44px;
+}
+
+.panel .records {
+  display: grid;
+  gap: 12px;
+}

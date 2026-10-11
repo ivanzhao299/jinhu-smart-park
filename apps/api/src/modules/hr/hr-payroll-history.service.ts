@@ -1,3 +1,4 @@
+import { projectApprovedLeavePayrollInput } from "./hr-payroll-attendance-input";
 import {
   BadRequestException,
   ConflictException,
@@ -53,6 +54,7 @@ import {
   HR_PAYROLL_DSL_ENGINE_VERSION,
   HR_PAYROLL_DSL_PARSER_VERSION,
   HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION,
+  HR_PAYROLL_LEAVE_DSL_PARSER_VERSION,
   assertAcyclicFormulaDependencies,
   assertFormulaEvaluationOrder,
   evaluatePayrollFormula,
@@ -1001,7 +1003,7 @@ export class HrPayrollHistoryService {
           "No approved formula version is available for simulation",
         );
       const verified = formulas.map((formula) => {
-        if (![HR_PAYROLL_DSL_PARSER_VERSION, HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION].includes(formula.parser_version))
+        if (![HR_PAYROLL_DSL_PARSER_VERSION, HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION, HR_PAYROLL_LEAVE_DSL_PARSER_VERSION].includes(formula.parser_version))
           throw new ConflictException(
             "Approved formula parser version is not supported",
           );
@@ -1102,7 +1104,7 @@ export class HrPayrollHistoryService {
       }
       const employeeIds = snapshots.map((x) => String(x.employee_id));
       const inputRows = (await manager.query(
-        `SELECT i.id,i.employee_id,i.worked_minutes,i.late_minutes,i.early_minutes,i.absence_days,i.missing_punch_days FROM hr_attendance_payroll_input_item i WHERE i.batch_id=$1 AND i.tenant_id=$2 AND i.park_id=$3 AND i.employee_id=ANY($4::uuid[]) AND i.is_deleted=false FOR SHARE`,
+        `SELECT i.id,i.employee_id,i.worked_minutes,i.late_minutes,i.early_minutes,i.absence_days,i.missing_punch_days,i.approved_leave_minutes FROM hr_attendance_payroll_input_item i WHERE i.batch_id=$1 AND i.tenant_id=$2 AND i.park_id=$3 AND i.employee_id=ANY($4::uuid[]) AND i.is_deleted=false FOR SHARE`,
         [dto.attendanceInputBatchId, scope.tenantId, scope.parkId, employeeIds],
       )) as Array<Record<string, unknown>>;
       const compensationRows = (await manager.query(
@@ -1240,6 +1242,7 @@ export class HrPayrollHistoryService {
           String(row.employee_id),
           {
             id: String(row.id),
+            approvedLeaveMinutes: row.approved_leave_minutes == null ? null : String(row.approved_leave_minutes),
             workedMinutes: String(row.worked_minutes),
             lateMinutes: String(row.late_minutes),
             earlyMinutes: String(row.early_minutes),
@@ -1248,7 +1251,7 @@ export class HrPayrollHistoryService {
           },
         ]),
       );
-      const runParserVersion = verified.some(f => f.parser_version === HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION)
+      const runParserVersion = verified.some(f => f.parser_version === HR_PAYROLL_LEAVE_DSL_PARSER_VERSION) ? HR_PAYROLL_LEAVE_DSL_PARSER_VERSION : verified.some(f => f.parser_version === HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION)
         ? HR_PAYROLL_INSURANCE_DSL_PARSER_VERSION : HR_PAYROLL_DSL_PARSER_VERSION;
       const frozen = {
         employeeVersions,
@@ -1349,6 +1352,7 @@ export class HrPayrollHistoryService {
           "hr:缺卡天数": `${attendanceInput.missing_punch_days}.0000`,
         });
         const employeeFormulas = verified.filter(f => String(f.book_id) === String(snapshot.book_id));
+        if (employeeFormulas.some(formula => formula.dependencies.includes("hr:批准请假分钟"))) inputs["hr:批准请假分钟"] = projectApprovedLeavePayrollInput(attendanceInput.approved_leave_minutes);
         const employeeInsurance = insuranceBy.get(employeeId)!;
         Object.assign(inputs, projectPayrollInsuranceInputs(
           insuranceItemsByPeriod.get(String(employeeInsurance.id)) ?? [],
