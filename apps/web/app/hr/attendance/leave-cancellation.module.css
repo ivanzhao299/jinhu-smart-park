@@ -1,0 +1,12 @@
+.panel {min-width:0;}
+.panel :global(.ds-button) {min-height:44px;white-space:normal;overflow-wrap:anywhere;}
+.content {display:grid;gap:1.5rem;margin-top:1rem;min-width:0;}
+.content > div,.content > section,.content > form {min-width:0;}
+.records {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:1rem;margin-block:1rem;}
+.records > article {min-width:0;overflow-wrap:anywhere;}
+.actions {display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin-block:.75rem;}
+.actions > span {min-width:0;overflow-wrap:anywhere;}
+.editor {display:grid;gap:1rem;min-width:0;margin:0;padding:0;border:0;}
+.editor input,.editor textarea {max-width:100%;min-width:0;}
+
+.editor legend {padding:0 0 1rem;font-weight:600;}

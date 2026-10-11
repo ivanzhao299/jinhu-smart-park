@@ -1,0 +1,31 @@
+{
+  "id": "hr-approved-leave-cancellation",
+  "name": "hr-approved-leave-cancellation",
+  "title": "已批准请假销假审批与考勤连续性",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": "codex/hr-approved-leave-cancellation-20261011",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr-attendance-leave-cancellation.service.ts",
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/web/app/hr/attendance/LeaveCancellationPanel.tsx",
+    "database/migrations/000362_hr_attendance_leave_cancellation.sql"
+  ],
+  "notes": "Full modern cancellation chain implemented; pre-release verified locally. Production release and real-role UAT pending; original GroupWeb exact equivalence separate.",
+  "meta": {}
+}

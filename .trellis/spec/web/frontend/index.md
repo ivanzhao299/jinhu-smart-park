@@ -610,3 +610,5 @@ Payroll per-person/item difference reviews and append-only history: [Reconciliat
 Work-report draft/submission/review exact retries and scoped business history: [Work-report operation continuity](./hr-work-report-operation-continuity.md).
 
 Formal work-calendar maintenance and date-range schedule reference: [Work Calendar](./hr-attendance-work-calendar.md).
+
+Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
