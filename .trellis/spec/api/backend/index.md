@@ -1070,3 +1070,5 @@ Payroll per-person/item difference reviews and append-only history: [Reconciliat
 Modern formal work calendar and immutable history: [Work Calendar](./hr-attendance-work-calendar.md).
 
 Count-only monthly payroll cohort insurance source availability: [Insurance Coverage](./hr-payroll-insurance-coverage.md).
+
+Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
