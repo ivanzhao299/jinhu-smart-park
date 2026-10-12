@@ -24,3 +24,12 @@ Expanded actual PG/HTTP fixture PASS1/1,0 skipped,6.08s; final changed-test ESLi
 - Fresh fetch: HEAD=origin/main=975f0820eb3a9ab1b80fb5258bbfaaa1bfdde9e2 before commit,0/0. No overlap or integration required.
 - Owned preview stopped, test container jinhu-hr-preparation-20261012 removed; no active test/build handles. No production business writes or historical import replay.
 - Production release/CI/runtime proof remains to follow this candidate. Real July rules/inputs/amounts and real-role acceptance remain pending.
+
+## CI contract correction
+
+PR CI38212101289 failed at Web HR route contract asserting old coordinator callback/prop spelling. No merge/deployment occurred. Updated the two existing assertions to demand explicit source/correction mutual exclusion and source/exit binding, preserving all review/freeze/run guards. Added two actual PayrollModernOperations coordinator tests for source/correction transitions, exits, RunCreation binding and actor/park reset. Independent incremental review PASS; no product, timeout or skip changes.
+
+- `pnpm --filter @jinhu/web test:unit:hr`:261/261 PASS,0skipped.
+- `pnpm --filter @jinhu/web test:unit:interaction`:149files/1190tests PASS,36.95s.
+- `pnpm --filter @jinhu/web typecheck`:PASS.
+- Unchanged product/source hashes retain prior API/PG/build/browser evidence. Full CI must run on updated head; old failed run not retried or reused as success.

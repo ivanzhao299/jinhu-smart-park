@@ -253,8 +253,9 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   assert.match(payroll,/待确认/);
   assert.match(payroll,/<PayrollModernOperations onCreated=/);
   assert.match(payroll,/refresh=\{payrollRefresh\}/);
-  assert.match(modern,/<PayrollPeriodOperations refresh=\{periodRefresh\} onUseCorrection=\{setCorrection\}/);
-  assert.match(modern,/<PayrollInputPreparation correction=\{correction\}/);
+  assert.match(modern,/<PayrollPeriodOperations refresh=\{periodRefresh\} onUseCorrection=\{value=>\{setSource\(null\);setCorrection\(value\);\}\}/);
+  assert.match(modern,/<PayrollInputPreparation source=\{source\} onExitSource=\{\(\)=>setSource\(null\)\} correction=\{correction\}/);
+  assert.match(modern,/<PayrollTrialComparison onPrepareSource=\{value=>\{setSource\(value\);if\(value\)setCorrection\(null\);\}\}/);
   assert.match(modern,/<PayrollRunCreation correction=\{correction\} onCreated=/);
   assert.match(modern,/<PayrollRunOperations key=\{runRefresh\} onChanged=/);
   assert.match(periods,/确认关账/);
