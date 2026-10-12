@@ -113,3 +113,45 @@ it("correction search totals never replace the complete original roster count", 
   await waitFor(() => expect(state.api.createPayrollInput).toHaveBeenCalledTimes(1));
   expect(state.api.createPayrollInput.mock.calls[0]![0].employees.map((row: { employeeId: string }) => row.employeeId)).toEqual(["employee", "second"]);
 });
+
+const source={reconciliationSourceId:"source",legacyBatchId:"batch",bookId:"book",bookName:"本账套",month:"2026-10",recordCount:101};
+const roster=Array.from({length:101},(_,n)=>({...candidate,employeeId:`employee-${n}`,employeeCode:`SYN-${n}`,fullName:`合成员工${n}`}));
+function sourcePage(query:{page:number;pageSize:number}) {return {...data,source:{...source,sourceHash:"a".repeat(64),rosterHash:"b".repeat(64)},items:roster.slice((query.page-1)*query.pageSize,query.page*query.pageSize),total:101,page:query.page,page_size:query.pageSize};}
+async function openSource(){
+  state.api.payrollRules.mockResolvedValue({items:[{id:"rules",displayName:"工资规则",sourceBookId:"book"},{id:"foreign",displayName:"其他账套规则",sourceBookId:"other"}],total:2});
+  state.api.payrollPreparation.mockImplementation(async query=>sourcePage(query));
+  const view=render(<PayrollInputPreparation source={source}/>);
+  await screen.findByRole("option",{name:"工资规则"});expect(screen.queryByRole("option",{name:"其他账套规则"})).toBeNull();
+  fireEvent.change(screen.getByLabelText("工资期间"),{target:{value:"period"}});fireEvent.change(screen.getByLabelText("工资规则"),{target:{value:"rules"}});
+  await screen.findByLabelText("选择 合成员工0（SYN-0）");return view;
+}
+it("source roster loads all 101 employees atomically beyond visible pages, leaves amounts blank and preserves explicit zero",async()=>{
+  await openSource();fireEvent.click(screen.getByLabelText("选择 合成员工0（SYN-0）"));
+  fireEvent.change(screen.getByLabelText("合成员工0 · 收入"),{target:{value:"0.0000"}});
+  fireEvent.click(screen.getByRole("button",{name:"带入本账套全部 101 位员工"}));await screen.findByText("已选员工 · 101 人");
+  expect(screen.getByLabelText("合成员工0 · 收入")).toHaveValue(0);expect(screen.getByLabelText("合成员工1 · 收入")).toHaveValue(null);
+  fireEvent.change(screen.getByLabelText("工资准备说明"),{target:{value:"完整名单"}});fireEvent.click(screen.getByRole("button",{name:"保存工资输入草稿"}));
+  await screen.findByText(/请完整填写每位员工/);expect(state.api.createPayrollInput).not.toHaveBeenCalled();
+  for(let page=0;page<6;page++){
+    const fields=screen.getAllByRole("spinbutton");
+    expect(fields).toHaveLength(Math.min(20,101-page*20)*2);
+    await act(async()=>{fields.forEach((field,index)=>fireEvent.change(field,{target:{value:index%2===1?"0.0000":"123.4500"}}));});
+    if(page<5)fireEvent.click(screen.getByRole("button",{name:"已选下一页"}));
+  }
+  state.api.createPayrollInput.mockRejectedValueOnce(new Error("network unavailable"));fireEvent.click(screen.getByRole("button",{name:"保存工资输入草稿"}));await screen.findByText("network unavailable");
+  const first=state.api.createPayrollInput.mock.calls[0]!;expect(first[0].employees).toHaveLength(101);expect(first[0].employees[100].directItems).toEqual({收入:"123.4500",税:"0.0000"});expect(first[0].employees).toEqual(roster.map(employee=>({employeeId:employee.employeeId,expectedEmployeeVersion:employee.expectedEmployeeVersion,directItems:{收入:"123.4500",税:"0.0000"}})));expect(first[0]).not.toHaveProperty("reconciliationSourceId");
+  fireEvent.click(screen.getByRole("button",{name:"保存工资输入草稿"}));await screen.findByText(/第 3 版输入草稿已保存/);expect(state.api.createPayrollInput.mock.calls[1]![2]).toBe(first[2]);
+  expect(state.api.payrollPreparation.mock.calls.filter(call=>call[0].pageSize===100).map(call=>call[0].page)).toEqual([1,2]);
+});
+it.each(["hash","head","rule","duplicate","short"])("source bulk %s drift preserves the original draft and applies no partial roster",async(kind)=>{
+  await openSource();fireEvent.click(screen.getByLabelText("选择 合成员工0（SYN-0）"));fireEvent.change(screen.getByLabelText("合成员工0 · 收入"),{target:{value:"88.1200"}});
+  state.api.payrollPreparation.mockImplementation(async query=>{const result=sourcePage(query);if(query.page===2){if(kind==="hash")result.source.rosterHash="c".repeat(64);if(kind==="head")result.expectedHeadRevision++;if(kind==="rule")result.rule={...result.rule,id:"changed"};if(kind==="duplicate")result.items=[roster[0]!];if(kind==="short")result.items=[];}return result;});
+  fireEvent.click(screen.getByRole("button",{name:"带入本账套全部 101 位员工"}));await screen.findByRole("alert");expect(screen.getByText("已选员工 · 1 人")).toBeVisible();expect(screen.getByLabelText("合成员工0 · 收入")).toHaveValue(88.12);expect(state.api.createPayrollInput).not.toHaveBeenCalled();
+});
+it("source switch aborts a complete-roster read and discards late identities",async()=>{
+  const view=await openSource();let finish!:(value:ReturnType<typeof sourcePage>)=>void;
+  state.api.payrollPreparation.mockReturnValue(new Promise(done=>{finish=done;}));fireEvent.click(screen.getByRole("button",{name:"带入本账套全部 101 位员工"}));
+  const signal=state.api.payrollPreparation.mock.calls.at(-1)![2] as AbortSignal;
+  view.rerender(<PayrollInputPreparation source={{...source,reconciliationSourceId:"second",bookId:"second"}}/>);expect(signal.aborted).toBe(true);
+  await act(async()=>finish(sourcePage({page:1,pageSize:100})));expect(screen.getByText("已选员工 · 0 人")).toBeVisible();expect(screen.getByLabelText("工资期间")).toHaveValue("");
+});

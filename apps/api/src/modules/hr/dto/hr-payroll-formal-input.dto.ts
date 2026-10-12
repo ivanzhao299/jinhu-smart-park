@@ -40,6 +40,7 @@ export class HrPayrollFormalInputDetailQueryDto {
   @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize = 20;
 }
 export class HrPayrollFormalPreparationQueryDto extends HrPayrollFormalInputDetailQueryDto {
+  @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() reconciliationSourceId?: string;
   @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() correctionWindowId?: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() periodId!: string;
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId!: string;

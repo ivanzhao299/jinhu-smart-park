@@ -43,11 +43,13 @@ export type FormalPayrollRunDetail = FormalPayrollPage<FormalPayrollTotals & {
   employeeCount: number; totals: FormalPayrollTotals; canReview: boolean; canConfirm: boolean; canCancel?: boolean;
 };
 
+export type FormalPayrollSourcePreparation = { reconciliationSourceId:string;legacyBatchId:string;bookId:string;bookName:string;month:string;recordCount:number };
+
 export type FormalPayrollPreparation = FormalPayrollPage<{
   employeeId:string;expectedEmployeeVersion:number;employeeCode:string;fullName:string;
   hireDate:string|null;departureDate:string|null;requiresSettlementWindow:boolean;
   eligibility:{eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null;
-}> & {correctionWindowId?:string;correctionOfRunId?:string;correctionEmployeeCount?:number;period:{id:string;month:string;startDate:string;endDate:string};
+}> & {source?:Omit<FormalPayrollSourcePreparation,"bookName"> & {sourceHash:string;rosterHash:string};correctionWindowId?:string;correctionOfRunId?:string;correctionEmployeeCount?:number;period:{id:string;month:string;startDate:string;endDate:string};
   rule:{id:string;ruleSetId:string;displayName:string;definition:FormalPayrollDefinition};expectedHeadRevision:number};
 
 export type FormalPayrollRunOptions = FormalPayrollPage<{

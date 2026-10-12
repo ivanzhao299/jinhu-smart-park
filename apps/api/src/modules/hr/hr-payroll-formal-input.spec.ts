@@ -44,3 +44,20 @@ test("preparation requires author and scoped financial, employee and rule author
   }
   assert.equal(probes,0);
 });
+
+
+test("source preparation rejects incompatible correction and malformed references before database probes",async()=>{
+  const {randomUUID}=await import("node:crypto");let probes=0;
+  const service=new HrPayrollFormalInputService({transaction:async()=>{probes++;}} as unknown as DataSource,{} as HrPayrollFormalRuleService,{} as AuditService);
+  const scope={tenantId:"synthetic",parkId:"synthetic"},actor:JwtPrincipal={...scope,sub:randomUUID(),username:"synthetic",roles:[],permissions:Object.values(HR_PERMISSIONS)};
+  const query={periodId:randomUUID(),ruleSetId:randomUUID(),reconciliationSourceId:randomUUID(),page:1,pageSize:100};
+  await assert.rejects(()=>service.preparation(scope,actor,{...query,correctionWindowId:randomUUID()}),/cannot be combined/);
+  await assert.rejects(()=>service.preparation(scope,actor,{...query,reconciliationSourceId:"invalid"}),/Invalid payroll input/);
+  await assert.rejects(()=>service.preparation(scope,{...actor,parkId:"other"},query),ForbiddenException);assert.equal(probes,0);
+});
+test("source roster limit rejects before building or returning frozen monetary payloads",async()=>{
+  const {lockCurrentPayrollSource}=await import("./hr-payroll-frozen-source");const statements:string[]=[];
+  const manager={query:async(sql:string)=>{statements.push(sql);return statements.length===1?[]:[{id:"source",recordCount:2001}];}} as unknown as EntityManager;
+  await assert.rejects(()=>lockCurrentPayrollSource(manager,{tenantId:"synthetic",parkId:"synthetic"},"source",2000),/exceeds/);
+  assert.equal(statements.length,2);assert.ok(!statements[1]!.includes("AS snapshots"));
+});

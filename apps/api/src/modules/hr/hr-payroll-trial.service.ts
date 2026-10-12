@@ -1,3 +1,4 @@
+import { lockCurrentPayrollSource, PAYROLL_SOURCE_TABLES } from "./hr-payroll-frozen-source";
 import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { HR_PERMISSIONS, type PayrollTrialOptions, type PayrollTrialResult, type PayrollTrialRecord, type TenantParkScope } from "@jinhu/shared";
@@ -16,7 +17,7 @@ import { comparePayrollTrialItems, payrollTrialDifference, type TrialSourceItem 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const MAX_RECORDS = 5000, MAX_ITEMS = 200000, MAX_RESULT_LINES = 200000, MAX_BYTES = 16 * 1024 * 1024;
 type Census = { id: string; bookId: string; employeeId: string | null; employeeCode: string | null; fullName: string | null; available: boolean; bookName: string; scheme: number };
-const sourceTables = "hr_payroll_legacy_snapshot,hr_payroll_legacy_snapshot_item,hr_payroll_book_period,legacy_record_map,hr_payroll_book,hr_payroll_item_definition,hr_payroll_item_version";
+
 
 @Injectable()
 export class HrPayrollTrialService {
@@ -125,7 +126,7 @@ export class HrPayrollTrialService {
       const deadline = Date.now() + 30000;
       // Builder 000319 requires READ COMMITTED. SHARE locks prevent phantoms and preserve
       // the entire census, item catalog and record ownership until audit + result commit.
-      await manager.query(`LOCK TABLE ${sourceTables} IN SHARE MODE`);
+      await manager.query(`LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`);
       await this.receipt(manager, scope, dto.legacyBatchId);
       const census = await this.census(manager, scope, dto.legacyBatchId, dto.month);
       const bookIds = [...new Set(census.map(row => row.bookId))].sort();
@@ -142,8 +143,7 @@ export class HrPayrollTrialService {
           FROM hr_payroll_reconciliation_source WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND legacy_batch_id=$4 AND book_id=$5 AND period_month=$6::date AND octet_length(frozen_input::text)<=$7 FOR SHARE`, [selected.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId, bookId, `${dto.month}-01`, MAX_BYTES]);
         if (sources.length !== 1) throw new ConflictException("Choose a frozen source matching this book and month");
         const source = sources[0]!;
-        const [{ current_hash: currentHash }] = await manager.query(`SELECT encode(digest(hr_build_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6)::text,'sha256'),'hex') AS current_hash`, [scope.tenantId, scope.parkId, dto.legacyBatchId, bookId, `${dto.month}-01`, source.bindingHash]);
-        if (currentHash !== source.sourceHash) throw new ConflictException("Frozen payroll source changed; review and freeze the complete current source again");
+        await lockCurrentPayrollSource(manager, scope, source.id);
         const prepared = await this.inputs.lockConfirmedInput(manager, scope, actor, selected.inputId, selected.expectedInputVersion);
         const linked = await manager.query("SELECT source_book_id FROM hr_payroll_rule_set WHERE id=$1 AND tenant_id=$2 AND park_id=$3 FOR SHARE", [prepared.rule.rule_set_id, scope.tenantId, scope.parkId]);
         if (prepared.period.month !== dto.month || prepared.period.correctionWindow || linked[0]?.source_book_id !== bookId) throw new ConflictException("Confirmed inputs must use this month's linked modern book rule");

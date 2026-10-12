@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, it, expect, vi } from "vitest";
+import { ApiError } from "../../lib/api-client";
 import { ReconciliationSourcePreparation } from "../../app/hr/payroll/ReconciliationSourcePreparation";
 import { hrApi, type HrPayrollReconciliationSetup } from "../../lib/hr-api";
 vi.mock("../../lib/hr-api", () => ({ hrApi: { previewPayrollReconciliationSource: vi.fn(), createPayrollReconciliationSource: vi.fn(), payrollReconciliationSourcePeriods: vi.fn().mockResolvedValue({items:[],total:0,page:1,pageSize:50}) } }));
@@ -34,7 +35,7 @@ describe("historical reconciliation source preparation", () => {
     expect(hrApi.createPayrollReconciliationSource).toHaveBeenCalledOnce();
     const { employeeCount, ...metadata } = preview;
     expect(employeeCount).toBe(64);
-    expect(hrApi.createPayrollReconciliationSource).toHaveBeenCalledWith({ ...metadata, reason: "核对期间" }, "synthetic-test-token");
+    expect(hrApi.createPayrollReconciliationSource).toHaveBeenCalledWith({ ...metadata, reason: "核对期间" }, "synthetic-test-token", expect.any(String));
     expect(screen.getByRole("status")).toHaveTextContent("来源已冻结");
   });
   it("ignores a pending preview after the month changes", async () => {
@@ -49,7 +50,7 @@ describe("historical reconciliation source preparation", () => {
   });
   it("clears the preview after a rejected freeze and requires a new inspection", async () => {
     vi.mocked(hrApi.previewPayrollReconciliationSource).mockResolvedValue(preview);
-    vi.mocked(hrApi.createPayrollReconciliationSource).mockRejectedValue(new Error("权限已变更，请重新核对"));
+    vi.mocked(hrApi.createPayrollReconciliationSource).mockRejectedValue(new ApiError("权限已变更，请重新核对",403));
     const prepared = vi.fn();
     render(<ReconciliationSourcePreparation setup={setup} onPrepared={prepared} />);
     choose(); fireEvent.click(screen.getByRole("button", { name: "预览来源" }));
@@ -133,4 +134,17 @@ describe("historical reconciliation source preparation", () => {
     render(<ReconciliationSourcePreparation setup={setup} onPrepared={vi.fn()}/>);choose();fireEvent.click(screen.getByRole("button",{name:"预览来源"}));
     await screen.findByText("预览响应与当前选择不一致，请重新预览。");expect(screen.queryByRole("button",{name:"冻结核对来源"})).not.toBeInTheDocument();
   });
+});
+
+it("contextual freeze needs review authority, skips month probes, retains transient retry and disables committed repeat",async()=>{
+  const context={legacyBatchId:"batch",bookId:"book",bookName:"测试账套",month:"2026-07",batchLabel:"已导入七月"};
+  auth.user.permissions=[];const view=render(<ReconciliationSourcePreparation context={context} onPrepared={vi.fn()}/>);expect(hrApi.previewPayrollReconciliationSource).not.toHaveBeenCalled();expect(screen.queryByRole("button")).toBeNull();view.unmount();
+  auth.user.permissions=["hr:payroll_reconciliation:review"];
+  vi.mocked(hrApi.previewPayrollReconciliationSource).mockResolvedValue(preview);
+  vi.mocked(hrApi.createPayrollReconciliationSource).mockRejectedValueOnce(new Error("network unavailable")).mockResolvedValueOnce({...preview,id:"source"});
+  const prepared=vi.fn(),writing=vi.fn();render(<ReconciliationSourcePreparation context={context} onPrepared={prepared} onWritingChange={writing}/>);
+  expect(screen.getByText("已导入七月 · 测试账套 · 2026-07")).toBeVisible();expect(hrApi.payrollReconciliationSourcePeriods).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"预览来源"}));await screen.findByLabelText("核对说明");fireEvent.change(screen.getByLabelText("核对说明"),{target:{value:"明确复核"}});fireEvent.click(screen.getByRole("checkbox"));fireEvent.click(screen.getByRole("button",{name:"冻结核对来源"}));await screen.findByText("network unavailable");
+  const first=vi.mocked(hrApi.createPayrollReconciliationSource).mock.calls.at(-1)!;expect(screen.getByLabelText("核对说明")).toHaveValue("明确复核");expect(screen.getByRole("checkbox")).toBeChecked();
+  fireEvent.click(screen.getByRole("button",{name:"冻结核对来源"}));await waitFor(()=>expect(prepared).toHaveBeenCalledOnce());expect(vi.mocked(hrApi.createPayrollReconciliationSource).mock.calls.at(-1)![2]).toBe(first[2]);expect(screen.getByRole("button",{name:"预览来源"})).toBeDisabled();expect(writing.mock.calls.map(call=>call[0])).toEqual([true,false,true,false]);
 });
