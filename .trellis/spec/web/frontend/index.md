@@ -557,6 +557,12 @@ HR employee full-read and masked summary: [Readonly employee profiles](./hr-empl
 
 HR insurance exact decimal aggregates and phone layout: [Insurance amounts](./hr-insurance-amounts.md).
 
+The interaction suite keeps a 5000ms whole-test budget locally and uses 15000ms
+only when `CI=true`. CI's existing Testing Library async assertion budget remains
+5000ms; a multi-stage test must have time for its assertions and surrounding work.
+Do not increase assertion/hook timeouts, add retries, skip cases or reduce assertions
+to bypass an observed failure. Verify timeout-budget changes with the full interaction suite.
+
 For frontend changes, choose the smallest reliable checks:
 
 - `pnpm --filter @jinhu/web lint`
