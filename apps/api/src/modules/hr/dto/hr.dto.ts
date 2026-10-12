@@ -278,3 +278,5 @@ export class ReviseHrApprovalDto { @IsInt() @Min(1) expectedVersion!:number;@Tra
 
 export class HrBusinessTripMonthAllocationRowDto { @Matches(/^\d{4}-(0[1-9]|1[0-2])$/) month!:string; @IsInt() @Min(0) @Max(2147483647) days!:number; }
 export class CreateHrBusinessTripMonthAllocationDto { @IsInt() @Min(1) expectedVersion!:number; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!:string; @IsArray() @ArrayMinSize(1) @ArrayMaxSize(3) @ValidateNested({each:true}) @Type(()=>HrBusinessTripMonthAllocationRowDto) allocations!:HrBusinessTripMonthAllocationRowDto[]; }
+
+export class AmendHrBusinessTripDatesDto { @IsDateString() startAt!:string; @IsDateString() endAt!:string; @IsInt() @Min(1) expectedVersion!:number; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!:string; }

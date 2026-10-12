@@ -3,12 +3,12 @@ import {act,fireEvent,render,screen,waitFor,within} from "@testing-library/react
 import {beforeEach,expect,it,vi} from "vitest";
 import {AttendanceRequestWorkflow} from "../../app/hr/attendance/AttendanceRequestWorkflow";
 import type {HrAttendanceRequest} from "../../lib/hr-api";
-const api=vi.hoisted(()=>({attendanceRequests:vi.fn(),createAttendanceRequest:vi.fn(),updateAttendanceRequest:vi.fn(),submitAttendanceRequest:vi.fn(),cancelAttendanceRequest:vi.fn(),reviewAttendanceRequest:vi.fn()}));
+const api=vi.hoisted(()=>({amendBusinessTripDates:vi.fn(),businessTripMonthAllocation:vi.fn(),attendanceRequestRecalculationPlan:vi.fn(),attendanceRequests:vi.fn(),createAttendanceRequest:vi.fn(),updateAttendanceRequest:vi.fn(),submitAttendanceRequest:vi.fn(),cancelAttendanceRequest:vi.fn(),reviewAttendanceRequest:vi.fn()}));
 const leaveLedger=vi.hoisted(()=>({types:vi.fn()}));
 vi.mock("../../lib/hr-api",()=>({hrApi:api}));vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../lib/hr-leave-ledger-api",()=>({leaveLedgerApi:leaveLedger}));
 const row=(id="request",status="returned",isSelf=true):HrAttendanceRequest=>({id,editVersion:4,requestNo:`SYN-${id}`,requestType:"leave",startAt:"2026-10-12T00:00:00.000Z",endAt:"2026-10-12T09:00:00.000Z",attendanceDate:null,durationMinutes:540,legacyDeclaredDays:null,leavePlannedMinutes:480,leaveEffectiveMinutes:0,leaveDayCount:1,reason:`合成事由${id}`,status,submittedAt:null,reviewedAt:null,reviewComment:status==="returned"?"补充时间及事由":null,organizationName:null,isSelf});
-function Harness({request=true,approve=false,onApproved}:{request?:boolean;approve?:boolean;onApproved?:()=>Promise<void>}){const [busy,setBusy]=useState(false);return <AttendanceRequestWorkflow canRequest={request} canApprove={approve} canOperate={false} busy={busy} onBusyChange={setBusy} onApproved={onApproved}/>;}
+function Harness({request=true,approve=false,operate=false,onApproved}:{request?:boolean;approve?:boolean;operate?:boolean;onApproved?:()=>Promise<void>}){const [busy,setBusy]=useState(false);return <AttendanceRequestWorkflow canRequest={request} canApprove={approve} canOperate={operate} busy={busy} onBusyChange={setBusy} onApproved={onApproved}/>;}
 const editForm=()=>screen.getByRole('form',{name:'修改考勤申请'});
 beforeEach(()=>{Object.values(api).forEach(m=>m.mockReset());leaveLedger.types.mockReset();leaveLedger.types.mockResolvedValue({items:[],total:0,page:1,page_size:20});api.attendanceRequests.mockResolvedValue({items:[row()],total:1,page:1,page_size:30});for(const name of ['createAttendanceRequest','updateAttendanceRequest','submitAttendanceRequest','cancelAttendanceRequest','reviewAttendanceRequest'] as const)api[name].mockResolvedValue({});});
 it('read-only users browse without action controls or write calls',async()=>{render(<Harness request={false}/>);await screen.findByText('SYN-request · 版本 4');expect(screen.queryByRole('button',{name:'修改申请'})).toBeNull();expect(screen.queryByRole('button',{name:'重新提交'})).toBeNull();expect(screen.queryByRole('button',{name:'新建申请'})).toBeNull();expect(api.updateAttendanceRequest).not.toHaveBeenCalled();});
@@ -31,3 +31,34 @@ it('returned request resubmits original request only after explicit confirmation
 it('malformed version prevents rendering mutation targets and permits retry',async()=>{api.attendanceRequests.mockResolvedValueOnce({items:[{...row(),editVersion:null}],total:1}).mockResolvedValueOnce({items:[row()],total:1});render(<Harness/>);await screen.findByText('考勤申请返回不完整，请刷新后重试。');expect(screen.queryByRole('button',{name:'修改申请'})).toBeNull();fireEvent.click(screen.getByRole('button',{name:'刷新申请'}));await screen.findByRole('button',{name:'修改申请'});});
 
 it('approved night leave displays requested duration without claiming the standard-day reference is the actual scheduled result',async()=>{api.attendanceRequests.mockResolvedValue({items:[{...row('night','approved',false),startAt:'2026-07-02T02:00:00+08:00',endAt:'2026-07-02T04:00:00+08:00',durationMinutes:120,leavePlannedMinutes:0,leaveEffectiveMinutes:0,leaveDayCount:0}],total:1});render(<Harness request={false}/>);await screen.findByText('申请时长 120 分钟；实际请假分钟以排班日结果为准');expect(screen.queryByText(/已批准计入 0 分钟|0 个工作时段/)).toBeNull();});
+
+
+it('saved trip dates update the real workflow and sibling allocation/recalculation context without losing declaration or refresh failure',async()=>{
+ const trip={...row('trip','approved',false),requestType:'business_trip',editVersion:undefined,amendVersion:4,declaredDays:2,legacyDeclaredDays:2};
+ const receipt={id:'trip',startAt:'2026-11-01T00:00:00.000Z',endAt:'2026-11-02T00:00:00.000Z',durationMinutes:1440,amendVersion:5};
+ api.attendanceRequests.mockResolvedValue({items:[trip],total:1,page:1,page_size:30});
+ api.amendBusinessTripDates.mockResolvedValue(receipt);
+ api.businessTripMonthAllocation.mockResolvedValue({id:'trip',amendVersion:5,declaredDays:2,startAt:receipt.startAt,endAt:receipt.endAt,months:['2026-11'],availability:'ready',unavailableReason:null,currentAllocation:null});
+ api.attendanceRequestRecalculationPlan.mockResolvedValue({requestId:'trip',requestNo:'SYN-trip',requestType:'business_trip',requestVersion:5,employeeId:'employee',employeeCode:'E',employeeName:'Synthetic',workDates:['2026-10-12','2026-11-01','2026-11-02']});
+ const refresh=vi.fn().mockRejectedValue(new Error('合成期间刷新失败'));
+ render(<Harness request={false} operate onApproved={refresh}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'更正出差日期'}));
+ fireEvent.change(screen.getByLabelText('出差开始时间'),{target:{value:'2026-11-01T08:00'}});
+ fireEvent.change(screen.getByLabelText('出差结束时间'),{target:{value:'2026-11-02T08:00'}});
+ fireEvent.change(screen.getByLabelText('日期更正原因'),{target:{value:'核对旧新日期'}});
+ fireEvent.submit(screen.getByRole('form',{name:'更正出差日期'}));
+ await screen.findByText('日期更正已保存；合成期间刷新失败');
+ expect(screen.getByText('申报天数：2 天')).toBeInTheDocument();
+ expect(refresh).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'更正出差日期'}));
+ expect(screen.getByLabelText('出差开始时间')).toHaveValue('2026-11-01T08:00');
+ expect(screen.getByLabelText('出差结束时间')).toHaveValue('2026-11-02T08:00');
+ fireEvent.click(screen.getByRole('button',{name:'取消日期更正'}));
+ fireEvent.click(screen.getByRole('button',{name:'查看跨月申报分配'}));
+ await screen.findByText('2026-11');
+ expect(screen.queryByText(/当前出差版本已变化或跨月分配资料不匹配/)).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'核对并重算'}));
+ await screen.findByText(/版本 5/);
+ expect(screen.getByText('日期范围：2026-10-12、2026-11-01、2026-11-02')).toBeInTheDocument();
+ expect(api.amendBusinessTripDates).toHaveBeenCalledTimes(1);
+});

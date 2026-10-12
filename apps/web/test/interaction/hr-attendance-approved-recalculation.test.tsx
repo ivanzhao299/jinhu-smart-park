@@ -51,3 +51,27 @@ it("accepts 33 ordered affected dates including a preceding night shift, but rej
  const dates=Array.from({length:33},(_,index)=>new Date(Date.UTC(2026,11,30+index)).toISOString().slice(0,10));api.attendanceRequestRecalculationPlan.mockResolvedValue(plan(3,dates));const view=render(<Harness/>);fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));await screen.findByText(/日期范围：2026-12-30/);fireEvent.click(screen.getByRole("button",{name:"确认按日期顺序重算"}));await waitFor(()=>expect(api.recalculateAttendance).toHaveBeenCalledTimes(33));expect(api.recalculateAttendance.mock.calls[0]?.[0].workDate).toBe("2026-12-30");view.unmount();
  api.attendanceRequestRecalculationPlan.mockResolvedValue(plan(3,[...dates,"2027-02-01"]));api.recalculateAttendance.mockClear();render(<Harness/>);fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));await screen.findByText(/重算计划返回不完整/);expect(api.recalculateAttendance).not.toHaveBeenCalled();
 });
+
+
+it("recalculates every saved old and new business-trip date beyond the current interval's 33-day bound",async()=>{
+ const oldDates=Array.from({length:34},(_,index)=>new Date(Date.UTC(2025,0,1+index)).toISOString().slice(0,10));
+ const dates=[...oldDates,"2026-10-10","2026-10-11"];
+ api.attendanceRequestRecalculationPlan.mockResolvedValue({...plan(4,dates),requestType:"business_trip"});
+ render(<Harness request={{...row,requestType:"business_trip",amendVersion:4}}/>);
+ fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));await screen.findByText(/日期范围：2025-01-01/);
+ fireEvent.click(screen.getByRole("button",{name:"确认按日期顺序重算"}));
+ await waitFor(()=>expect(api.recalculateAttendance).toHaveBeenCalledTimes(dates.length));
+ expect(api.recalculateAttendance.mock.calls.map(call=>call[0].workDate)).toEqual(dates);
+ expect(refreshed).toHaveBeenCalledTimes(1);
+});
+
+
+it("ignores an employee plan that arrives after the authenticated scope changes",async()=>{
+ let finish:(value:HrAttendanceRequestRecalculationPlan)=>void=()=>{};
+ api.attendanceRequestRecalculationPlan.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(<Harness/>);fireEvent.click(screen.getByRole("button",{name:"核对并重算"}));token="scope-b";
+ await act(async()=>finish(plan()));
+ expect(screen.queryByText(/员工甲/)).toBeNull();
+ expect(screen.queryByRole("button",{name:"确认按日期顺序重算"})).toBeNull();
+ expect(api.recalculateAttendance).not.toHaveBeenCalled();
+});

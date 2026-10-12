@@ -612,3 +612,5 @@ Work-report draft/submission/review exact retries and scoped business history: [
 Formal work-calendar maintenance and date-range schedule reference: [Work Calendar](./hr-attendance-work-calendar.md).
 
 Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
+
+Approved business-trip date edits and complete recalculation: [Business-trip date continuity](./hr-business-trip-dates.md).

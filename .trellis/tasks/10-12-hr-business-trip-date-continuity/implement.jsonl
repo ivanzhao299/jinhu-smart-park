@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/hr-attendance-approved-fact-continuity.md", "reason": "approved facts and lock/correction invariants"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR scope/permission/source invariants"}
+{"file": ".trellis/spec/api/backend/hr-attendance-request-edit.md", "reason": "versioned attendance edit contract"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "migration/runtime provenance"}
