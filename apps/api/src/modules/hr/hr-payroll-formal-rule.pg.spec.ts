@@ -37,12 +37,16 @@ test("actual rule migration and service enforce draft concurrency, review, effec
       UNIQUE(tenant_id,park_id,id));
       CREATE TABLE hr_payroll_period(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),period_month date,start_date date,end_date date,status text,is_deleted boolean DEFAULT false,version int DEFAULT 1,update_by uuid,update_time timestamptz);
       CREATE TABLE hr_employee(id uuid PRIMARY KEY,tenant_id varchar(64),park_id varchar(64),version int,hire_date date,departure_date date,is_deleted boolean DEFAULT false,employee_code text DEFAULT 'SYNTHETIC',full_name text DEFAULT '合成员工');
+      CREATE TABLE sys_user(id uuid,tenant_id varchar(64),park_id varchar(64),UNIQUE(tenant_id,park_id,id));
+      CREATE TABLE hr_attendance_request(id uuid,tenant_id varchar(64),park_id varchar(64),UNIQUE(tenant_id,park_id,id));
       CREATE TABLE test_required_audit(id uuid DEFAULT uuid_generate_v4(), metadata jsonb NOT NULL);`);
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000347_hr_payroll_formal_rules.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000348_hr_payroll_formal_inputs.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000233_hr_compensation_payroll.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000247_hr_attendance_month_close.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000363_hr_attendance_approved_leave_payroll_facts.sql"), "utf8"));
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000367_hr_attendance_interval_payroll_facts.sql"), "utf8"));
+    await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000368_hr_business_trip_month_allocations.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000243_hr_payroll_concurrency_integrity.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000349_hr_payroll_formal_run_evidence.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000350_hr_payroll_formal_run_ledger_bridge.sql"), "utf8"));

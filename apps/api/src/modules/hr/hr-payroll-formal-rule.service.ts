@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { HR_PERMISSIONS, type FormalPayrollBookOption, type TenantParkScope } from "@jinhu/shared";
+import { HR_PERMISSIONS, type FormalPayrollBookOption, type FormalPayrollSourceReference, type FormalPayrollSourceItem, type FormalPayrollSourceFormula, type TenantParkScope } from "@jinhu/shared";
 import { plainToInstance, type ClassConstructor } from "class-transformer";
 import { validate } from "class-validator";
 import { DataSource, type EntityManager } from "typeorm";
@@ -14,6 +14,8 @@ import {
 } from "./dto/hr-payroll-formal-rule.dto";
 import { buildFormalPayrollDefinitionEvidence, type FormalPayrollDefinition } from "./hr-payroll-formal-calculation";
 import { buildHrSensitiveReadAuditInput, recordHrSensitiveRead } from "./hr-sensitive-read-audit";
+
+import { parsePayrollFormula } from "./hr-payroll-formula-dsl";
 
 type SetRow = { id: string; rule_code: string; display_name: string; source_book_id: string | null; head_revision: number; source_book?: FormalPayrollBookOption | null };
 const bookProjection = "jsonb_build_object('id',b.id,'bookName',b.book_name,'bookCode',b.source_system||':'||b.legacy_scheme::text,'scheme',b.legacy_scheme)";
@@ -113,6 +115,57 @@ export class HrPayrollFormalRuleService {
         path: "/hr/payroll/rules/book-options", fieldGroups: ["legacy_definition_metadata"], projection: "metadata", itemCount: result!.items.length,
       }), manager);
       return { ...result!, page: dto.page, page_size: dto.pageSize };
+    });
+  }
+
+  async sourceReference(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<FormalPayrollSourceReference> {
+    this.authority(actor);
+    this.authority(actor, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
+    return this.transaction(async manager => {
+      // Must precede all data reads; items, formulas and parent share one snapshot.
+      await manager.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+      const parents: Array<{ book: FormalPayrollBookOption | null }> = await manager.query(`SELECT
+        CASE WHEN b.id IS NULL THEN NULL ELSE ${bookProjection} END AS book
+        FROM hr_payroll_rule_set r LEFT JOIN hr_payroll_book b ON b.id=r.source_book_id
+          AND b.tenant_id=r.tenant_id AND b.park_id=r.park_id AND b.is_deleted=false
+        WHERE r.id=$1 AND r.tenant_id=$2 AND r.park_id=$3`, [id, scope.tenantId, scope.parkId]);
+      if (parents.length !== 1) throw new NotFoundException("Payroll rules not found");
+      const book = parents[0]!.book;
+      if (!book) throw new ConflictException("Payroll rules have no available linked source book");
+      const params = [book.id, scope.tenantId, scope.parkId];
+      const [counts]: Array<{ items: number; formulas: number; bytes: string; missing: number }> = await manager.query(`SELECT
+        (SELECT count(*)::int FROM hr_payroll_item_version v JOIN hr_payroll_item_definition d
+          ON (d.id,d.tenant_id,d.park_id)=(v.item_definition_id,v.tenant_id,v.park_id)
+          WHERE d.book_id=$1 AND d.tenant_id=$2 AND d.park_id=$3 AND NOT d.is_deleted AND NOT v.is_deleted) AS items,
+        (SELECT count(*)::int FROM hr_payroll_formula_version WHERE book_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted) AS formulas,
+        (SELECT coalesce(sum(octet_length(raw_expression)+octet_length(coalesce(raw_condition,''))),0)::text FROM hr_payroll_formula_version
+          WHERE book_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted) AS bytes,
+        (SELECT count(*)::int FROM hr_payroll_item_definition d WHERE d.book_id=$1 AND d.tenant_id=$2 AND d.park_id=$3 AND NOT d.is_deleted
+          AND NOT EXISTS (SELECT 1 FROM hr_payroll_item_version v WHERE (v.item_definition_id,v.tenant_id,v.park_id)=(d.id,d.tenant_id,d.park_id) AND NOT v.is_deleted)) AS missing`, params);
+      if (!counts || counts.items > 2048 || counts.formulas > 4096 || Number(counts.bytes) > 2097152 || counts.missing) {
+        throw new ConflictException("Source reference is incomplete or exceeds the complete-set limit; no partial reference returned");
+      }
+      const items: FormalPayrollSourceItem[] = await manager.query(`SELECT v.id,d.id AS "definitionId",d.item_code AS code,d.legacy_item_name AS "legacyName",
+        v.display_name AS "displayName",v.version_no AS "versionNo",v.value_type AS "valueType",v.enabled,v.sort_no AS "sortNo",
+        v.legacy_item_type AS "legacyItemType",v.legacy_add_or_sub AS "legacyAddOrSub",v.item_category AS category,v.decimal_scale AS "decimalScale"
+        FROM hr_payroll_item_version v JOIN hr_payroll_item_definition d ON (d.id,d.tenant_id,d.park_id)=(v.item_definition_id,v.tenant_id,v.park_id)
+        WHERE d.book_id=$1 AND d.tenant_id=$2 AND d.park_id=$3 AND NOT d.is_deleted AND NOT v.is_deleted
+        ORDER BY v.sort_no,d.item_code,v.version_no,v.id LIMIT 2049`, params);
+      const rows: Omit<FormalPayrollSourceFormula, "reusableSyntax" | "syntaxReason">[] = await manager.query(`SELECT id,item_version_id AS "itemVersionId",
+        legacy_formula_id AS "legacyFormulaId",version_no AS "versionNo",raw_expression AS expression,raw_condition AS condition,calculation_order AS "calculationOrder"
+        FROM hr_payroll_formula_version WHERE book_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted
+        ORDER BY calculation_order,legacy_formula_id,version_no,id LIMIT 4097`, params);
+      if (items.length !== counts.items || rows.length !== counts.formulas) throw new ConflictException("Incomplete payroll source reference");
+      const formulas = rows.map(row => {
+        const parsed = parsePayrollFormula(row.expression, row.condition);
+        const syntaxReason = row.condition?.trim() ? "legacy_condition" as const : parsed.ast === null ? "unsupported_syntax" as const : null;
+        return { ...row, reusableSyntax: syntaxReason === null, syntaxReason };
+      });
+      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {
+        resource: "hr.payroll_rule", action: "读取工资规则源资料", bizType: "hr_payroll_rule",
+        path: `/hr/payroll/rules/${id}/source-reference`, fieldGroups: ["legacy_definition_metadata"], projection: "full", itemCount: items.length + formulas.length,
+      }), manager);
+      return { ruleSetId: id, book, items, formulas };
     });
   }
 

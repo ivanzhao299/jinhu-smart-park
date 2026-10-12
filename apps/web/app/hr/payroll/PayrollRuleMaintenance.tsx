@@ -11,6 +11,8 @@ import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./payroll-modern.module.css";
 import { payrollBookLabel, payrollBookOptions } from "./payroll-book-label";
 
+import { PayrollRuleSourcePreparation } from "./PayrollRuleSourcePreparation";
+
 const roles = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
 const statuses: Record<string, string> = { draft: "草稿", submitted: "待复核", approved: "已批准", rejected: "已拒绝" };
 const blankDefinition = (): FormalPayrollDefinition => ({ roundingPolicy: "line_items_half_up", items: [] });
@@ -33,6 +35,7 @@ function RuleWorkspace() {
   const [bookLoading, setBookLoading] = useState(false), [bookError, setBookError] = useState(""), [bookRefresh, setBookRefresh] = useState(0);
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const alive = useRef(true), request = useRef<AbortController | null>(null), lock = useRef(false);
+  const sourceApplied = useRef(false);
   const retry = useRef<{ signature: string; key: string } | null>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; request.current?.abort(); }; }, []);
   const load = useCallback(async () => {
@@ -118,12 +121,18 @@ function RuleWorkspace() {
     <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || rulePage <= 1} onClick={() => setRulePage(value => value - 1)} type="button">规则上一页</button><span>第 {rulePage} / {Math.max(1, Math.ceil(ruleTotal / 20))} 页</span><button className="secondary-button" disabled={busy || loading || rulePage * 20 >= ruleTotal} onClick={() => setRulePage(value => value + 1)} type="button">规则下一页</button></div>
     {current ? <>
       <p>关联账套：{current.sourceBook ? payrollBookLabel(current.sourceBook) : current.sourceBookId ? "关联账套暂不可用" : "独立工资规则"}</p>
-      <div className={styles.actions}><h3>{current.displayName}的版本</h3>{canManage ? <button className="secondary-button" type="button" disabled={busy || loading} onClick={() => { setSelected(null); setDefinition(blankDefinition()); setReason(""); setEditing(true); }}>新增版本</button> : null}</div>
+      <div className={styles.actions}><h3>{current.displayName}的版本</h3>{canManage ? <button className="secondary-button" type="button" disabled={busy || loading} onClick={() => { setSelected(null); setDefinition(blankDefinition()); setReason(""); setEditing(true); sourceApplied.current = false; }}>新增版本</button> : null}</div>
       {loading ? <p>正在加载版本…</p> : <div className={`ds-mobile-record-list ${styles.records}`}>{versions.map(version => <article className="ds-mobile-record" key={version.id}><strong>第 {version.revisionNo} 版 · {statuses[version.status] ?? version.status}</strong><span>{version.effectiveFrom ? `${version.effectiveFrom} 起生效` : "尚未生效"} · {version.definition.items.length} 个项目</span><button className="secondary-button" type="button" disabled={busy} onClick={() => choose(version)}>查看版本</button></article>)}{!versions.length ? <p>当前页暂无版本。</p> : null}</div>}
       <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || page <= 1} onClick={() => { setSelected(null); setEditing(false); setPage(value => value - 1); }} type="button">版本上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</span><button className="secondary-button" disabled={busy || loading || page * 20 >= total} onClick={() => { setSelected(null); setEditing(false); setPage(value => value + 1); }} type="button">版本下一页</button></div>
     </> : null}
     {current && (selected || editing) ? <section className={styles.workspace} aria-label="规则版本编辑">
       <div className={styles.actions}><h3>{selected ? `第 ${selected.revisionNo} 版` : "新增规则版本"}</h3>{selected && canManage && !editing ? <button className="secondary-button" disabled={busy} type="button" onClick={() => { if (selected.status === "draft") setEditing(true); else { setSelected(null); setReason(""); setEditing(true); } }}>{selected.status === "draft" ? "编辑草稿" : "复制为新版本"}</button> : null}</div>
+      {editable && !selected && current.sourceBookId && definition.items.length === 0 ? <PayrollRuleSourcePreparation key={`${current.id}:${current.sourceBookId}`} ruleSetId={current.id} sourceBookId={current.sourceBookId} disabled={busy || loading} onApply={prepared => {
+        if (lock.current || sourceApplied.current || !alive.current || !editable || selected || definition.items.length !== 0) return;
+        sourceApplied.current = true;
+        setDefinition(value => value.items.length === 0 ? { ...prepared, compensationPolicy: value.compensationPolicy } : value);
+        setNotice("已带入当前编辑草稿；请核对项目顺序、引用和计薪口径后保存，再提交独立复核。");
+      }} /> : null}
       <label className="form-field"><span>薪酬计算口径</span><select disabled={!editable || busy} value={definition.compensationPolicy ?? ""} onChange={event => setDefinition(value => ({ ...value, compensationPolicy: event.target.value ? event.target.value as FormalPayrollDefinition["compensationPolicy"] : undefined }))}><option value="">此规则不引用薪酬</option><option value="full_period_single">整期单一薪酬</option><option value="calendar_day_prorated">按自然日分摊调薪及部分月份</option></select></label>
       <p>金额项目按分舍入后参与后续汇总；参考数量保留四位小数。项目顺序即计算顺序。</p>
       <div className={`ds-mobile-record-list ${styles.records}`}>{definition.items.map((item, index) => <article className={`ds-mobile-record ${styles.project}`} key={index}>

@@ -66,6 +66,10 @@ test("formal payroll reads encode scope filters, carry cancellation and unwrap s
     assert.deepEqual(await hrApi.payrollInputs({ periodId: "period", ruleSetId: "rules", page: 2 }, undefined, controller.signal), page);
     assert.match(calls[0]!.url, /periodId=period&ruleSetId=rules&page=2&pageSize=20$/u);
     assert.equal(calls[0]!.init?.signal, controller.signal);
+    await hrApi.payrollRuleSourceReference("rules", "synthetic-token", controller.signal);
+    assert.equal(calls.at(-1)?.url, "/api/v1/hr/payroll/rules/rules/source-reference");
+    assert.equal(calls.at(-1)?.init?.signal, controller.signal);
+    assert.equal(new Headers(calls.at(-1)?.init?.headers).get("Authorization"), "Bearer synthetic-token");
     await hrApi.payrollRuleVersions("rules", { page: 2 }, undefined, controller.signal);
     assert.equal(calls.at(-1)?.url, "/api/v1/hr/payroll/rules/rules/versions?page=2&pageSize=20");
     await hrApi.payrollEffectiveRule("rules", "2026-10", undefined, controller.signal);

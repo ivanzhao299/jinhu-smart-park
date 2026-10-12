@@ -5,7 +5,7 @@ import { PayrollRuleMaintenance } from "../../app/hr/payroll/PayrollRuleMaintena
 import { payrollBookOptions } from "../../app/hr/payroll/payroll-book-label";
 
 const state = vi.hoisted(() => ({ user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: {
-  payrollBookOptions: vi.fn(), payrollRules: vi.fn(), payrollRuleVersions: vi.fn(), createPayrollRules: vi.fn(), createPayrollRuleVersion: vi.fn(),
+  payrollRuleSourceReference: vi.fn(), payrollBookOptions: vi.fn(), payrollRules: vi.fn(), payrollRuleVersions: vi.fn(), createPayrollRules: vi.fn(), createPayrollRuleVersion: vi.fn(),
   updatePayrollRuleVersion: vi.fn(), submitPayrollRuleVersion: vi.fn(), reviewPayrollRuleVersion: vi.fn(),
 } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
@@ -125,4 +125,48 @@ it("book labels normalize invisible names, deduplicate identities and disambigua
     { id: "uuid-three", bookName: "\u200B123", scheme: 3, bookCode: "a:3" },
   ]);
   expect(options.map(value => value.label)).toEqual(["工资 账套 · 账套 1（a:1）", "工资 账套 · 账套 1（b:1）", "工资账套 3"]);
+});
+
+it("source preparation only fills an empty new version and retains the existing editor save/retry workflow", async () => {
+  const linked = { ...rule, sourceBookId: "source-book" };
+  state.api.payrollRules.mockResolvedValue(page([linked]));
+  state.api.payrollRuleSourceReference.mockResolvedValue({ ruleSetId: rule.id, book: { id: "source-book", bookName: "源账套", bookCode: "test:1", scheme: 1 }, formulas: [], items: [
+    { id: "source-item", definitionId: "source-definition", code: "工资", legacyName: "工资", displayName: "工资", versionNo: 1, valueType: "decimal", enabled: true, sortNo: 1, legacyItemType: "旧类型", legacyAddOrSub: "旧标记", category: "unclassified", decimalScale: 2 },
+  ] });
+  render(<PayrollRuleMaintenance />); await open();
+  expect(screen.queryByRole("region", { name: "账套源资料准备" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "编辑草稿" }));
+  expect(screen.queryByRole("region", { name: "账套源资料准备" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "新增版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "读取关联账套源资料" })); await screen.findByText(/完整资料：/);
+  fireEvent.click(screen.getByRole("checkbox", { name: "纳入 工资 第1版" }));
+  fireEvent.change(screen.getByLabelText("源项目用途 工资"), { target: { value: "earning" } });
+  fireEvent.change(screen.getByLabelText("源项目数值来源 工资"), { target: { value: "direct" } });
+  fireEvent.click(screen.getByLabelText(/我已核对原条件/));
+  fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  expect(screen.getByLabelText("项目编号")).toHaveValue("工资");
+  expect(screen.queryByRole("region", { name: "账套源资料准备" })).toBeNull();
+  expect(state.api.createPayrollRuleVersion).not.toHaveBeenCalled();
+  state.api.createPayrollRuleVersion.mockRejectedValue(new Error("save unavailable"));
+  fireEvent.change(screen.getByLabelText("制定或修改理由"), { target: { value: "依据原账套核对" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存规则草稿" })); await screen.findByText("save unavailable");
+  fireEvent.click(screen.getByRole("button", { name: "保存规则草稿" })); await waitFor(() => expect(state.api.createPayrollRuleVersion).toHaveBeenCalledTimes(2));
+  expect(state.api.createPayrollRuleVersion.mock.calls[0]).toEqual(state.api.createPayrollRuleVersion.mock.calls[1]);
+  expect(state.api.updatePayrollRuleVersion).not.toHaveBeenCalled();
+});
+
+it("adding a manual project or changing identity aborts pending source reads without replacing editor data", async () => {
+  state.api.payrollRules.mockResolvedValue(page([{ ...rule, sourceBookId: "source-book" }]));
+  state.api.payrollRuleSourceReference.mockReturnValue(new Promise(() => undefined));
+  const view = render(<PayrollRuleMaintenance />); await open();
+  fireEvent.click(screen.getByRole("button", { name: "新增版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "读取关联账套源资料" }));
+  const firstSignal = state.api.payrollRuleSourceReference.mock.calls[0]?.[2] as AbortSignal;
+  fireEvent.click(screen.getByRole("button", { name: "添加工资项目" }));
+  expect(firstSignal.aborted).toBe(true); expect(screen.getByLabelText("项目编号")).toHaveValue("");
+  fireEvent.click(screen.getByRole("button", { name: "新增版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "读取关联账套源资料" }));
+  const secondSignal = state.api.payrollRuleSourceReference.mock.calls[1]?.[2] as AbortSignal;
+  state.user = { ...state.user, park_id: "other-park" }; view.rerender(<PayrollRuleMaintenance />);
+  expect(secondSignal.aborted).toBe(true); expect(screen.queryByRole("region", { name: "规则版本编辑" })).toBeNull();
 });
