@@ -26,6 +26,7 @@ import styles from "./payroll.module.css";
 import { PayrollInsuranceSourceSelection } from "./PayrollInsuranceSourceSelection";
 import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
 import { PayrollInputReadiness } from "./PayrollInputReadiness";
+import { PayrollPreparationCohort } from "./PayrollPreparationCohort";
 import { PayrollFormulaReview } from "./PayrollFormulaReview";
 import { PayrollRuleMaintenance } from "./PayrollRuleMaintenance";
 import { PayrollModernOperations } from "./PayrollModernOperations";
@@ -443,6 +444,7 @@ function ReconciliationWorkbench({
   return (
     <>
       {canCalculate && reconciliationSetup ? <PayrollInputReadiness setup={reconciliationSetup} sourceSelected={Boolean(selectedFrozenSource || selectedPublishedSource)} frozenSource={selectedFrozenSource ?? null} attendance={inputPairReady ? selectedAttendance : undefined} insuranceSelected={inputPairReady && Boolean(insuranceChoices)} canReadAttendance={hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_READ) || hasPermission(user, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ)} canReadRules={canReadRules} canReviewReconciliation={canReview} onOpenRules={onOpenRules} onOpenPolicy={() => { policyFormRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); policyFormRef.current?.focus(); }} /> : null}
+      {canReview && reconciliationSetup ? <PayrollPreparationCohort setup={reconciliationSetup} /> : null}
       <div className={styles.desktopSensitive}>
         {message ? (
           <p className="form-error" role="alert">

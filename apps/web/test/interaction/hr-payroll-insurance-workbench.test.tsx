@@ -1,11 +1,12 @@
 import {fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {beforeEach,expect,it,vi} from "vitest";
+import {HR_PERMISSIONS} from "@jinhu/shared";
 import {HrPayrollClient} from "../../app/hr/payroll/HrPayrollClient";
 import {hrApi} from "../../lib/hr-api";
 const state=vi.hoisted(()=>({user:{id:"synthetic",tenant_id:"tenant",park_id:"park",enabled_modules:[{module_code:"hr",enabled:true}],permissions:["hr:payroll","hr:payroll_reconciliation:calculate","hr:employee:read","hr:insurance:read","hr:insurance_amount:read"]}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
-vi.mock("../../lib/hr-api",()=>({hrApi:{payrollReconciliations:vi.fn(),payrollReconciliation:vi.fn(),payrollReconciliationSetup:vi.fn(),payrollInsuranceSourceOptions:vi.fn(),simulatePayrollReconciliation:vi.fn()}}));
+vi.mock("../../lib/hr-api",()=>({hrApi:{payrollPreparationCohort:vi.fn(),payrollReconciliations:vi.fn(),payrollReconciliation:vi.fn(),payrollReconciliationSetup:vi.fn(),payrollInsuranceSourceOptions:vi.fn(),simulatePayrollReconciliation:vi.fn()}}));
 const choice={employeeId:"employee",sourceId:"revision",sourceKind:"modern_confirmed" as const,expectedVersion:2,expectedHash:"a".repeat(64)};
 const setup={books:[],netItems:[],legacyBatches:[],sourceBatches:[],attendanceBatches:[{id:"attendance",periodMonth:"2026-07-01",batchNo:1}],frozenSources:[{id:"source",legacyBatchId:"legacy",bookName:"合成账套",periodMonth:"2026-07-01",snapshotCount:1}]};
 beforeEach(()=>{vi.clearAllMocks();state.user={...state.user,park_id:"park"};vi.mocked(hrApi.payrollReconciliations).mockResolvedValue({items:[],total:0,page:1,page_size:20});vi.mocked(hrApi.payrollReconciliationSetup).mockResolvedValue(setup as never);vi.mocked(hrApi.payrollInsuranceSourceOptions).mockResolvedValue({items:[{employeeId:"employee",employeeCode:"SYN-1",fullName:"合成员工",options:[choice]}],total:1,page:1,page_size:50,periodMonth:"2026-07-01"});});
@@ -38,4 +39,17 @@ it("difference detail displays the run frozen source and marks absent old eviden
  render(<HrPayrollClient/>);fireEvent.click(await screen.findByRole("button",{name:"查看差异"}));
  await screen.findByText("社保输入：现代确认 · 冻结版本 1");expect(screen.getByText("社保输入：未保留可展示的冻结来源")).toBeInTheDocument();
  expect(screen.queryByText("b".repeat(64))).not.toBeInTheDocument();
+});
+
+it("exposes cohort preparation in the actual workbench before attendance or frozen sources exist",async()=>{
+ state.user={...state.user,permissions:["hr:payroll",HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW]};
+ vi.mocked(hrApi.payrollReconciliationSetup).mockResolvedValue({books:[],netItems:[],legacyBatches:[],sourceBatches:[{id:"legacy",createdAt:"2026-07-01",recordCount:1}],attendanceBatches:[],frozenSources:[]});
+ const view=render(<HrPayrollClient/>);await waitFor(()=>expect(hrApi.payrollReconciliationSetup).toHaveBeenCalledOnce());
+ state.user={...state.user,permissions:["hr:payroll",HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW,HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_ATTENDANCE_READ,HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ,HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ,HR_PERMISSIONS.HR_PAYROLL_RULE_READ]};
+ view.rerender(<HrPayrollClient/>);
+ await screen.findByRole("heading",{name:"全账套人员准备清单"});
+ expect(screen.getByRole("button",{name:"查询全部账套人员"})).toBeEnabled();
+ expect(hrApi.payrollPreparationCohort).not.toHaveBeenCalled();
+ expect(hrApi.payrollInsuranceSourceOptions).not.toHaveBeenCalled();
+ expect(hrApi.simulatePayrollReconciliation).not.toHaveBeenCalled();
 });
