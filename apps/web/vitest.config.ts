@@ -23,6 +23,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // CI assertions may each wait up to 5s; multi-stage tests need a larger
+    // whole-test budget without relaxing assertion or hook timeouts.
+    testTimeout: process.env.CI === "true" ? 15000 : 5000,
     include: ["test/interaction/**/*.test.tsx"],
     setupFiles: ["./test/interaction/setup.ts"],
     restoreMocks: true
