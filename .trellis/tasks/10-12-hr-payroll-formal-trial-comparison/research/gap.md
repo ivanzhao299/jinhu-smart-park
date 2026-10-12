@@ -1,0 +1,12 @@
+# 当前源码证据（2026-10-12，main92674283f）
+
+hr-payroll-formal-run.service.ts:create在期间锁后检查同period所有未取消批次employee重叠；options同样投影overlap。000350明确正式批次允许互不重叠名单。该限制为入账保护，不应为了双轨比对放宽。
+
+hr-payroll-history.service.ts:simulateReconciliation从hr_payroll_formula_version读取approved_for_simulation公式和旧净额政策；它不消费hr_payroll_rule_version现代正式规则。复用这条路径不能证明现代规则实际金额一致。
+
+calculateFormalPayrollWithSources是现有唯一正式来源组合/精确计算函数，输出calculation和frozenSources；正式create再写hr_payroll_run、hr_payslip和evidence。因此试算应共享计算来源准备，不走正式写入再取消。
+
+既有生产聚合回执2026-10-12T03:53:44.834Z：July93源工资、64去重人、2295项目；账套34为54记录，35为39记录，有29人跨账套重叠。此回执仅为选任务依据，执行前仍须核实当前源完整性，不是实际金额核对完成。
+
+## 实施者已核实来源结构
+受控冻结来源保存完整snapshot/item JSONB行；十进制需SQL numeric::text精确投影，不能先经JSON.parse转成JS number。原snapshot有明确net_amount且允许NULL。既有冻结builder只选mapped行，因此全量核对前必须单独普查全部源记录和账套，拒绝不可用/未关联/账套内重复，并在同一一致事务比较冻结哈希和当前来源。候选入口需发现整个批次月份全部账套、既有冻结来源及关联现代确认输入，不能要求用户手填内部UUID。

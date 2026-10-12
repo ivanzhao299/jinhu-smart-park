@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormalPayrollCorrectionPreparation } from "@jinhu/shared";
 import { useAuthUser } from "../../../lib/auth-context";
+import { PayrollTrialComparison } from "./PayrollTrialComparison";
 import { PayrollPeriodOperations } from "./PayrollPeriodOperations";
 import { PayrollInputPreparation } from "./PayrollInputPreparation";
 import { PayrollInputOperations } from "./PayrollInputOperations";
@@ -16,6 +17,7 @@ function ModernWorkspace({ onCreated }: { onCreated?: () => void }) {
   const [correction, setCorrection] = useState<FormalPayrollCorrectionPreparation | null>(null);
   const [runRefresh, setRunRefresh] = useState(0), [periodRefresh, setPeriodRefresh] = useState(0);
   return <>
+    <PayrollTrialComparison/>
     <PayrollPeriodOperations refresh={periodRefresh} onUseCorrection={setCorrection}/>
     <PayrollInputPreparation correction={correction} onExitCorrection={() => setCorrection(null)}/>
     <PayrollInputOperations/>

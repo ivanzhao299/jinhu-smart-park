@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API guidelines and required checklists"}
+{"file": ".trellis/spec/api/backend/hr-payroll-formal-rules.md", "reason": "Confirmed inputs, exact consumer and guarded formal runs"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web guidelines and responsive shared DS"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-modern-rule-maintenance.md", "reason": "Modern rule scope and operator flow"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared cross-layer guidelines"}
+{"file": ".trellis/tasks/10-12-hr-payroll-formal-trial-comparison/research/gap.md", "reason": "Verified source gap and whole-month acceptance"}
+{"file": ".trellis/spec/api/backend/hr-payroll-formal-trial-comparison.md", "reason": "Final fullscope trial comparison invariants and audit lifetime"}
