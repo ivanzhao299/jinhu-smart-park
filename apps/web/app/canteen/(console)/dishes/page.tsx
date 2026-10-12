@@ -24,7 +24,7 @@ import {
   StatusPill,
   Tabs
 } from "@jinhu/ui";
-import { AlertTriangle, BookOpen, ChevronDown, Plus, RefreshCw, Save, Search, Trash, Upload } from "lucide-react";
+import { AlertTriangle, BookOpen, ChevronDown, Plus, RefreshCw, Save, Search, Store, Trash, Upload } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { canteenApi } from "../../../../lib/canteen-api";
 import type { CanteenCategory, CanteenDish, CanteenOutlet } from "../../../../lib/canteen-types";
@@ -71,6 +71,16 @@ interface CategoryFormState {
 
 const emptyCategoryForm: CategoryFormState = { name: "", sort_order: "0", status: "on" };
 
+interface OutletFormState {
+  name: string;
+  outlet_type: "dine_in" | "stall";
+  contractor_id: string;
+  location: string;
+  business_hours: string;
+}
+
+const emptyOutletForm: OutletFormState = { name: "", outlet_type: "dine_in", contractor_id: "", location: "", business_hours: "" };
+
 type ViewKind = "dishes" | "categories";
 
 export default function CanteenDishesPage() {
@@ -91,6 +101,9 @@ export default function CanteenDishesPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [categoryDrawer, setCategoryDrawer] = useState<{ mode: "create" | "edit"; category: CanteenCategory | null } | null>(null);
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
+  const [outletDrawer, setOutletDrawer] = useState(false);
+  const [outletForm, setOutletForm] = useState<OutletFormState>(emptyOutletForm);
+  const [outletSaving, setOutletSaving] = useState(false);
   const [detailDish, setDetailDish] = useState<CanteenDish | null>(null);
 
   const selectedOutlet = outlets.find((o) => o.id === filters.outletId) ?? outlets[0];
@@ -174,6 +187,7 @@ export default function CanteenDishesPage() {
   async function saveDish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dishDrawer) return;
+    if (!outletId) throw new Error("请先创建档口");
     if (!dishForm.name.trim()) throw new Error("请填写餐品名称");
     if (!dishForm.category_id) throw new Error("请选择品类");
     const price = Number(dishForm.price);
@@ -246,6 +260,7 @@ export default function CanteenDishesPage() {
   async function saveCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!categoryDrawer) return;
+    if (!outletId) throw new Error("请先创建档口");
     if (!categoryForm.name.trim()) throw new Error("请填写品类名称");
     const payload = {
       name: categoryForm.name.trim(),
@@ -269,7 +284,40 @@ export default function CanteenDishesPage() {
     await loadCategories(outletId);
   }
 
+  function openOutletCreate() {
+    setOutletForm(emptyOutletForm);
+    setOutletDrawer(true);
+  }
+
+  async function saveOutlet(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!outletForm.name.trim()) throw new Error("请填写档口名称");
+    if (!outletForm.contractor_id.trim()) throw new Error("请填写承包方标识");
+    setOutletSaving(true);
+    try {
+      const outlet = await canteenApi.createOutlet({
+        name: outletForm.name.trim(),
+        outlet_type: outletForm.outlet_type,
+        contractor_id: outletForm.contractor_id.trim(),
+        location: outletForm.location.trim() || undefined,
+        business_hours: outletForm.business_hours.trim() || undefined
+      }, getAccessToken());
+      setOutletDrawer(false);
+      setMessage(`档口「${outlet.name}」已创建`);
+      await loadOutlets();
+      if (outlet.id) {
+        setFilters((current) => ({ ...current, outletId: outlet.id }));
+      }
+    } finally {
+      setOutletSaving(false);
+    }
+  }
+
   function openDishCreate() {
+    if (!outletId) {
+      setMessage("请先创建档口，再新建餐品");
+      return;
+    }
     setDishForm({ ...emptyDishForm, outlet_id: outletId });
     setMoreOpen(false);
     setDishDrawer({ mode: "create", dish: null });
@@ -291,6 +339,10 @@ export default function CanteenDishesPage() {
   }
 
   function openCategoryCreate() {
+    if (!outletId) {
+      setMessage("请先创建档口，再新建品类");
+      return;
+    }
     setCategoryForm(emptyCategoryForm);
     setCategoryDrawer({ mode: "create", category: null });
   }
@@ -314,6 +366,10 @@ export default function CanteenDishesPage() {
                 <RefreshCw size={16} />
                 刷新
               </button>
+              <PermissionButton className="secondary-button" permission={CANTEEN_PERMISSIONS.OUTLET_CREATE} type="button" onClick={openOutletCreate}>
+                <Store size={16} />
+                新建档口
+              </PermissionButton>
               {view === "dishes" ? (
                 <PermissionButton className="primary-button" permission={CANTEEN_PERMISSIONS.DISH_CREATE} type="button" onClick={openDishCreate}>
                   <Plus size={16} />
@@ -383,6 +439,11 @@ export default function CanteenDishesPage() {
         ) : null}
         {outletsError ? (
           <ErrorState title="档口加载失败" description={outletsError} action={<button className="secondary-button" type="button" onClick={() => void loadOutlets()}>重试</button>} />
+        ) : null}
+        {!outletsError && outlets.length === 0 ? (
+          <FeedbackNotice variant="warning" icon={<AlertTriangle size={16} />}>
+            尚未创建档口：档口是品类与餐品的容器，请先点击右上角「新建档口」，完成后再新建品类和餐品。
+          </FeedbackNotice>
         ) : null}
 
         {view === "dishes" ? (
@@ -638,6 +699,44 @@ export default function CanteenDishesPage() {
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={() => setCategoryDrawer(null)}>取消</button>
                 <button className="primary-button" type="submit"><Save size={16} />保存</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {outletDrawer ? (
+          <Drawer size="md" onClose={() => setOutletDrawer(false)}>
+            <DrawerHeader eyebrow="档口" title="新建档口" description="档口是品类与餐品的容器，也是结算归属单元。" onClose={() => setOutletDrawer(false)} />
+            <DrawerForm onSubmit={(e: FormEvent<HTMLFormElement>) => void saveOutlet(e).catch((err: Error) => setMessage(err.message))}>
+              <DrawerSection title="基本信息">
+                <DrawerFormGrid>
+                  <Field label="档口名称 *">
+                    <input required value={outletForm.name} onChange={(e) => setOutletForm((c) => ({ ...c, name: e.target.value }))} placeholder="如：一号食堂" />
+                  </Field>
+                  <Field label="类型 *">
+                    <select value={outletForm.outlet_type} onChange={(e) => setOutletForm((c) => ({ ...c, outlet_type: e.target.value as "dine_in" | "stall" }))}>
+                      <option value="dine_in">堂食餐厅</option>
+                      <option value="stall">档口/窗口</option>
+                    </select>
+                  </Field>
+                  <Field label="承包方标识 *">
+                    <input required value={outletForm.contractor_id} onChange={(e) => setOutletForm((c) => ({ ...c, contractor_id: e.target.value }))} placeholder="结算归属标识，如 contractor-001" />
+                  </Field>
+                </DrawerFormGrid>
+              </DrawerSection>
+              <DrawerSection title="其他信息">
+                <DrawerFormGrid>
+                  <Field label="位置">
+                    <input value={outletForm.location} onChange={(e) => setOutletForm((c) => ({ ...c, location: e.target.value }))} placeholder="如：综合楼 1 层" />
+                  </Field>
+                  <Field label="营业时间">
+                    <input value={outletForm.business_hours} onChange={(e) => setOutletForm((c) => ({ ...c, business_hours: e.target.value }))} placeholder="如：07:00-19:00" />
+                  </Field>
+                </DrawerFormGrid>
+              </DrawerSection>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={() => setOutletDrawer(false)}>取消</button>
+                <button className="primary-button" type="submit" disabled={outletSaving}><Save size={16} />{outletSaving ? "保存中…" : "保存"}</button>
               </DrawerFooter>
             </DrawerForm>
           </Drawer>
