@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, EntityManager, Repository } from "typeorm";
+import { DataSource, EntityManager, In, Repository } from "typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CanteenOrderEntity } from "./entities/canteen-order.entity";
@@ -61,6 +61,21 @@ export class CanteenRefundService {
       if (!["paid", "completed"].includes(order.status)) throw new BadRequestException("order not refundable");
       if (order.refundStatus === "full") throw new BadRequestException("order already fully refunded");
 
+      // 同一订单在途退款唯一：pending/approved 存在时禁止再次申请，
+      // 否则多笔待审单先后通过会重复回补（资损）。
+      const openRefund = await manager.findOne(CanteenRefundEntity, {
+        where: {
+          orderId: order.id,
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false,
+          status: In(["pending", "approved"])
+        }
+      });
+      if (openRefund) {
+        throw new BadRequestException(`refund already in progress (${openRefund.refundNo})`);
+      }
+
       const refundCents = amount ? yuanToCents(amount) : yuanToCents(order.payAmount);
       if (refundCents <= 0) throw new BadRequestException("refund amount must be positive");
 
@@ -119,7 +134,15 @@ export class CanteenRefundService {
       r.updateBy = actor.sub;
       await manager.save(r);
 
-      const order = await manager.findOne(CanteenOrderEntity, { where: { id: r.orderId, isDeleted: false } });
+      // 复核订单退款状态：另一笔在途退款可能已先行成功（并发审批/多单穿透），
+      // 行锁串行化后仍须以订单当前状态为准，拒绝二次回补。
+      const order = await manager.findOne(CanteenOrderEntity, {
+        where: { id: r.orderId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (order && order.refundStatus === "full") {
+        throw new BadRequestException("order already fully refunded");
+      }
 
       if (r.refundChannel === "original_qr") {
         // 调支付适配器原路退（Mock 直接成功；wechat/alipay 未配置抛 NotConfigured）。
