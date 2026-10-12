@@ -35,7 +35,7 @@ test("approved-request recalculation plan is bounded, scoped, and derives dates 
  const result=await service.attendanceRequestRecalculationPlan(scope,actor([HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]),"request-1");
  assert.deepEqual(result,{requestId:"request-1",requestNo:"ATT-1",requestType:"leave",requestVersion:5,employeeId:"employee-1",employeeCode:"E-1",employeeName:"员工甲",workDates:["2027-01-01","2027-01-02"]});
  const source=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
- assert.match(source,/const workDates=this\.attendanceRequestAffectedDates\(request,scheduledDates\)/);
+ assert.match(source,/this\.attendanceRequestAffectedDates\(request,scheduledDates\)/);
  assert.match(source,/request\.status!=="approved"/);
  assert.match(source,/where:\{id,\.\.\.scope,isDeleted:false\}/);
 });

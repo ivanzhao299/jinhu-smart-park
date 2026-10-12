@@ -8,6 +8,7 @@ import { ApiError } from "../../../lib/api-client";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import local from "./request-workflow.module.css";
+import { BusinessTripDatesPanel } from "./BusinessTripDatesPanel";
 import { BusinessTripDeclaredDaysPanel } from "./BusinessTripDeclaredDaysPanel";
 import { ApprovedRequestRecalculation } from "./ApprovedRequestRecalculation";
 
@@ -476,6 +477,7 @@ export function AttendanceRequestWorkflow({
             : null}
         </div>
         {notice ? <p role="status">{notice}</p> : null}
+        {!operation && error ? <p role="alert" className="form-error">{error}</p> : null}
         {readError
           ? <p role="alert" className="form-error">{readError}</p>
           : null}
@@ -553,6 +555,15 @@ export function AttendanceRequestWorkflow({
                       ? <span>审批意见：{row.reviewComment}</span>
                       : null}
                     {controls(row)}
+                    {canOperate && row.requestType === "business_trip" && row.status === "approved" ? <BusinessTripDatesPanel key={`${row.id}:${row.amendVersion}`} row={row} busy={busy} onBusyChange={onBusyChange} onSaved={async receipt => {
+                      const token = getAccessToken(), owner = generation.current;
+                      setRows(current => current.map(item => item.id === receipt.id ? { ...item, startAt: receipt.startAt, endAt: receipt.endAt, durationMinutes: receipt.durationMinutes, amendVersion: receipt.amendVersion } : item));
+                      setError("");
+                      setNotice("出差日期已更新，请重算原时段和新时段涉及日期，并重新确认月份归属。");
+                      try { await onApproved?.(); } catch (cause) {
+                        if (mounted.current && owner === generation.current && token === getAccessToken()) setError(`日期更正已保存；${hrLoadErrorMessage(cause, "期间刷新失败，请刷新核对，勿重复办理。")}`);
+                      }
+                    }} /> : null}
                     {canOperate && row.requestType === "business_trip" && row.status === "approved" ? <BusinessTripDeclaredDaysPanel row={row} busy={busy} onBusyChange={onBusyChange} onSaved={async receipt => {
                       setRows(current => current.map(item => item.id === receipt.id ? { ...item, declaredDays: receipt.declaredDays, amendVersion: receipt.amendVersion } : item));
                       setNotice("出差申报数量已更新，请重算涉及日期并核对月结。");
