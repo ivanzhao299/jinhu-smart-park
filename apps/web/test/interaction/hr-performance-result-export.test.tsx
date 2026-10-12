@@ -43,7 +43,9 @@ it("reports the expanded dimension row count without changing the shared evaluat
   return query.pageSize===100?{...result,items:result.items.map(item=>({...item,dimensions:[...item.dimensions,{code:"collaboration",name:"协作",weight:"0",scoreMin:"0",scoreMax:"100"}]}))}:result;
  });
  render(<HrPerformanceClient/>);await screen.findByText("合成员工1");
- fireEvent.click(screen.getByRole("button",{name:"导出筛选绩效维度"}));
+ const exportButton=screen.getByRole("button",{name:"导出筛选绩效维度"});
+ await waitFor(()=>expect(exportButton).toBeEnabled());
+ fireEvent.click(exportButton);
  await screen.findByText("已导出 101 条评价的 202 条维度明细。");
  expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
 });

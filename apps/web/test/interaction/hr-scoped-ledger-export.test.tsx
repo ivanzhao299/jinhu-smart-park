@@ -1,3 +1,4 @@
+import {useLayoutEffect,useRef} from "react";
 import {act,fireEvent,render,screen} from "@testing-library/react";
 import {beforeEach,expect,it,vi} from "vitest";
 import {ScopedLedgerExport} from "../../app/hr/ScopedLedgerExport";
@@ -20,4 +21,37 @@ it.each(["failure","drift","limit"])("never produces a partial file after %s and
 it.each(["context","disabled","unmount"])("late response cannot download after %s",async mode=>{
  let finish!:(value:ReturnType<typeof page>)=>void;fetchPage.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));const view=render(<ScopedLedgerExport {...props}/>);fireEvent.click(screen.getByRole("button",{name:"导出筛选合同"}));const signal=fetchPage.mock.calls[0]![2];
  if(mode==="context")view.rerender(<ScopedLedgerExport {...props} contextKey="other-scope"/>);else if(mode==="disabled")view.rerender(<ScopedLedgerExport {...props} enabled={false}/>);else view.unmount();expect(signal.aborted).toBe(true);await act(async()=>finish(page(1,100,1)));expect(downloadCsv).not.toHaveBeenCalled();expect(fetchPage).toHaveBeenCalledTimes(1);
+});
+
+// A parent layout effect can act on the newly committed button before passive cleanup.
+function CommitClick({contextKey,enabled,click}:{contextKey:string;enabled:boolean;click:boolean}) {
+ const root=useRef<HTMLDivElement>(null);
+ useLayoutEffect(()=>{if(click)root.current!.querySelector("button")!.click();},[contextKey,enabled,click]);
+ return <div ref={root}><ScopedLedgerExport {...props} contextKey={contextKey} enabled={enabled}/></div>;
+}
+it("keeps a newly enabled context request alive before the old passive cleanup",async()=>{
+ let finish!:(value:ReturnType<typeof page>)=>void;
+ fetchPage.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const view=render(<CommitClick contextKey="loading" enabled={false} click={false}/>);
+ view.rerender(<CommitClick contextKey="ready" enabled click/>);
+ expect(fetchPage).toHaveBeenCalledTimes(1);
+ expect(fetchPage.mock.calls[0]![2].aborted).toBe(false);
+ fetchPage.mockImplementation(async(p,size)=>page(p,size,1));
+ await act(async()=>finish(page(1,100,1)));
+ await screen.findByText("已导出 1 条匹配合同。");
+ expect(downloadCsv).toHaveBeenCalledExactlyOnceWith("0","合成.csv");
+});
+it("allows the new context to start while cancelling only the previous context request",async()=>{
+ let finishOld!:(value:ReturnType<typeof page>)=>void;
+ fetchPage.mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}));
+ const view=render(<CommitClick contextKey="old" enabled click={false}/>);
+ fireEvent.click(screen.getByRole("button",{name:"导出筛选合同"}));
+ const oldSignal=fetchPage.mock.calls[0]![2];
+ fetchPage.mockImplementation(async(p,size)=>page(p,size,1));
+ view.rerender(<CommitClick contextKey="new" enabled click/>);
+ expect(oldSignal.aborted).toBe(true);
+ await screen.findByText("已导出 1 条匹配合同。");
+ await act(async()=>finishOld(page(1,100,1)));
+ expect(downloadCsv).toHaveBeenCalledExactlyOnceWith("0","合成.csv");
+ expect(screen.getByText("已导出 1 条匹配合同。")).toBeVisible();
 });

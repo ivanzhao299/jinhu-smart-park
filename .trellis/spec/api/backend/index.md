@@ -1072,3 +1072,5 @@ Modern formal work calendar and immutable history: [Work Calendar](./hr-attendan
 Count-only monthly payroll cohort insurance source availability: [Insurance Coverage](./hr-payroll-insurance-coverage.md).
 
 Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
+
+Whole-month modern calculate-only payroll and frozen source comparisons: [Formal Trial Comparison](./hr-payroll-formal-trial-comparison.md).
