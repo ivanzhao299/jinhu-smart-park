@@ -59,3 +59,9 @@ PayrollModernOperations串联期间操作、员工输入、输入确认、正式
 MANAGE+DETAIL+EMPLOYEE控制发起更正及未确认批次取消，CONFIRM+DETAIL+EMPLOYEE控制关账和窗口收口；服务端再校验。已确认更正结果可完成窗口，无活动结果时可取消窗口，取消批次保留金额/证据。理由、版本、载荷绑定重试键和同步写锁全部传递；成功先禁重复再刷新，刷新失败标明已提交。期间状态读取失败禁用旧状态动作，只有刷新成功恢复。身份变化中止读取并清空工作区。
 
 实际工作区与共享DS样式以本地合成API检查桌面和390px，无横向溢出；不能替代生产真实角色、实际月份金额及旧系统功能等价验收。
+
+## Linked source preparation
+
+`PayrollRuleSourcePreparation` is available only for linked rules in an empty newly added version. It never opens for a saved selected draft or a copied nonempty version. Source reads are explicit, abort on unmount/auth/rule/book change and validate response identity. Cards paginate20 while choices remain global. Nonnumeric/disabled versions and unmatched formulas remain visible; duplicate codes block apply.
+
+Inclusion, modern role and direct/formula/rewrite source all start unselected. Formula selection requires the exact source version with reusable unconditional syntax. Original expressions and conditions remain visible; conditional/unsupported formulas require explicit manual rewriting or a deliberate direct-input decision. Confirmation reminds operators to preserve conditions and verify dependency names, order and salary policy. Applying uses a synchronous one-shot guard plus parent empty-new-draft recheck, retains any explicitly chosen salary policy, and changes memory only. Existing authoring, reason, retry, save and independent review remain the only write workflow. Failed source refresh preserves choices but blocks stale application until a successful complete reload.

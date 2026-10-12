@@ -1,0 +1,15 @@
+{
+  "id": "hr-payroll-source-rule-drafts",
+  "name": "hr-payroll-source-rule-drafts",
+  "title": "关联账套资料承接正式工资规则草稿",
+  "status": "in_progress",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-12",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "branch": "codex/hr-payroll-source-rule-drafts-20261012",
+  "base_branch": "main",
+  "subtasks": [],
+  "children": [],
+  "meta": {}
+}

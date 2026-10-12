@@ -24,6 +24,7 @@ test("rule authority rejects every public read/write before database or audit ac
   const id = randomUUID();
   await assert.rejects(() => service.listSets(scope, actor, { page: 1, pageSize: 20 }), ForbiddenException);
   for (const permissions of [[], [HR_PERMISSIONS.HR_PAYROLL_MANAGE], [HR_PERMISSIONS.HR_PAYROLL_RULE_READ]]) {
+    await assert.rejects(() => service.sourceReference(scope, { ...actor, permissions }, id), ForbiddenException);
     await assert.rejects(() => service.bookOptions(scope, { ...actor, permissions }, { page: 1, pageSize: 20 }), ForbiddenException);
   }
   await assert.rejects(() => service.listVersions(scope, actor, id, { page: 1, pageSize: 20 }), ForbiddenException);

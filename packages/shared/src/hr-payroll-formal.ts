@@ -74,3 +74,19 @@ export type FormalPayrollPeriodLifecycle = {
 };
 export type FormalPayrollCorrectionOption = { id: string; runNo: number; version: number; employeeCount: number; ruleName: string };
 export type FormalPayrollCorrectionPreparation = { periodId: string; month: string; windowId: string; ruleSetId: string; ruleName: string; originalRunId: string; originalRunNo: number };
+
+/** Original catalog references only; eligibility is syntax, never business approval. */
+export type FormalPayrollSourceItem = {
+  id: string; definitionId: string; code: string; legacyName: string; displayName: string;
+  versionNo: number; valueType: "decimal" | "text" | "date"; enabled: boolean; sortNo: number;
+  legacyItemType: string; legacyAddOrSub: string; category: string; decimalScale: number | null;
+};
+export type FormalPayrollSourceFormula = {
+  id: string; itemVersionId: string | null; legacyFormulaId: number; versionNo: number;
+  expression: string; condition: string | null; calculationOrder: number;
+  reusableSyntax: boolean; syntaxReason: "legacy_condition" | "unsupported_syntax" | null;
+};
+export type FormalPayrollSourceReference = {
+  ruleSetId: string; book: FormalPayrollBookOption;
+  items: FormalPayrollSourceItem[]; formulas: FormalPayrollSourceFormula[];
+};
