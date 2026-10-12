@@ -24,6 +24,7 @@ import { AuditService } from "../audit/audit.service";
 import type {
   CreateHrPayrollReconciliationDto,
   HrPayrollInsuranceOptionsQueryDto,
+  HrPayrollPreparationCohortQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
   HrPayrollReconciliationSourcePeriodQueryDto,
@@ -887,6 +888,119 @@ export class HrPayrollHistoryService {
            WHERE source.id=$1 AND source.tenant_id=$2 AND source.park_id=$3
              AND source.legacy_batch_id=$4 FOR SHARE OF source,receipt,control`,
       [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId])) as RawRow[])[0];
+  }
+
+  async preparationCohort(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollPreparationCohortQueryDto) {
+    const permissions = [HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW, HR_PERMISSIONS.HR_EMPLOYEE_READ,
+      HR_PERMISSIONS.HR_ATTENDANCE_READ, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ,
+      HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_PAYROLL_RULE_READ];
+    if (!permissions.every(permission => this.has(actor, permission)) || actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId)
+      throw new ForbiddenException("Payroll preparation cohort read permission and current scope are required");
+    return this.dataSource.transaction("REPEATABLE READ", async manager => {
+      await manager.query("SET LOCAL statement_timeout='15s'");
+      await manager.query("SET LOCAL lock_timeout='2s'");
+      const source = (await manager.query(`SELECT batch.status FROM hr_payroll_legacy_batch batch
+        WHERE batch.id=$3 AND batch.tenant_id=$1 AND batch.park_id=$2 AND NOT batch.is_deleted
+        AND (batch.status='published' OR (batch.status='staged' AND batch.published_at IS NULL AND EXISTS(
+          SELECT 1 FROM hr_yuzhou_t4_followon_operation receipt WHERE receipt.operation_id=batch.batch_code
+          AND receipt.status='succeeded' AND receipt.binding->'targetScope'->>'tenantId'=batch.tenant_id
+          AND receipt.binding->'targetScope'->>'parkId'=batch.park_id
+          AND receipt.binding->'triple'->>'sourceSnapshotHash'=batch.source_backup_hash::text
+          AND EXISTS(SELECT 1 FROM migration_batch control WHERE control.run_id=receipt.operation_id
+            AND control.t4_followon_operation_id=receipt.operation_id AND control.status='succeeded'
+            AND control.target_database=current_database()))))`, [scope.tenantId,scope.parkId,query.legacyBatchId]))[0] as {status:"staged"|"published"}|undefined;
+      if (!source) throw new ConflictException("Selected payroll preparation source is not available");
+      // Keep unavailable and abnormal rows in the census; only the employee page applies eligibility.
+      const base = `WITH snapshots AS MATERIALIZED (
+        SELECT s.id,s.employee_id,s.mapping_status,s.source_multiplicity,p.book_id,b.book_name,b.legacy_scheme,
+          NOT (s.is_deleted OR p.is_deleted OR b.is_deleted) AS available,
+          (e.id IS NOT NULL AND NOT e.is_deleted) AS employee_available,
+          e.employee_code,e.full_name
+        FROM hr_payroll_legacy_snapshot s JOIN hr_payroll_book_period p
+          ON p.id=s.book_period_id AND p.tenant_id=s.tenant_id AND p.park_id=s.park_id
+        JOIN hr_payroll_book b ON b.id=p.book_id AND b.tenant_id=p.tenant_id AND b.park_id=p.park_id
+        LEFT JOIN hr_employee e ON e.id=s.employee_id AND e.tenant_id=s.tenant_id AND e.park_id=s.park_id
+        WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.batch_id=$3 AND p.period_month=$4::date
+      ), item_counts AS (
+        SELECT i.snapshot_id,count(*)::int item_count,count(*) FILTER(WHERE i.item_version_id IS NULL)::int unresolved_item_count
+        FROM hr_payroll_legacy_snapshot_item i JOIN snapshots s ON s.id=i.snapshot_id
+        WHERE i.tenant_id=$1 AND i.park_id=$2 AND NOT i.is_deleted GROUP BY i.snapshot_id
+      ), duplicates AS (
+        SELECT min(id::text)::uuid owner_id,count(*)-1 extra_count FROM snapshots
+        WHERE employee_id IS NOT NULL AND mapping_status='mapped' GROUP BY book_id,employee_id HAVING count(*)>1
+      ), facts AS (
+        SELECT s.*,COALESCE(i.item_count,0) item_count,COALESCE(i.unresolved_item_count,0) unresolved_item_count,
+          COALESCE(d.extra_count,0) extra_count FROM snapshots s LEFT JOIN item_counts i ON i.snapshot_id=s.id
+          LEFT JOIN duplicates d ON d.owner_id=s.id
+      ), employees AS (
+        SELECT employee_id,employee_code,full_name,count(*)::int record_count FROM facts
+        WHERE mapping_status='mapped' AND available AND employee_available
+        GROUP BY employee_id,employee_code,full_name
+      )`;
+      const aggregate = `count(*)::int AS "recordCount",COALESCE(sum(source_multiplicity),0)::double precision AS "sourceRowCount",
+        COALESCE(sum(item_count),0)::int AS "itemCount",
+        count(*) FILTER(WHERE mapping_status='mapped')::int AS "mappedRecordCount",
+        count(*) FILTER(WHERE mapping_status='employee_unmapped')::int AS "unmappedRecordCount",
+        count(*) FILTER(WHERE mapping_status='duplicate_source')::int AS "duplicateSourceCount",
+        count(*) FILTER(WHERE mapping_status='quarantined')::int AS "quarantinedCount",
+        count(*) FILTER(WHERE NOT available)::int AS "unavailableReferenceCount",
+        count(*) FILTER(WHERE mapping_status='mapped' AND NOT employee_available)::int AS "unavailableEmployeeCount",
+        COALESCE(sum(unresolved_item_count),0)::int AS "unresolvedItemCount",
+        COALESCE(sum(extra_count),0)::int AS "duplicateEmployeeExtraCount"`;
+      const params = [scope.tenantId,scope.parkId,query.legacyBatchId,query.periodMonth];
+      const totals = (await manager.query(`${base} SELECT ${aggregate},count(DISTINCT book_id)::int AS "bookCount",
+        (SELECT count(*)::int FROM employees) AS "employeeCount" FROM facts`,params))[0] as {recordCount:number;itemCount:number;employeeCount:number;bookCount:number} & Record<string,number>;
+      if (!totals.recordCount) throw new ConflictException("Selected payroll preparation month has no source records");
+      if (totals.recordCount>5000 || totals.itemCount>200000)
+        throw new ConflictException("Payroll preparation source exceeds supported record or item limit");
+      const books = await manager.query(`${base}, book_counts AS (
+        SELECT book_id AS "bookId",book_name AS "bookName",legacy_scheme AS "legacyScheme",bool_and(available) AS available,
+          ${aggregate} FROM facts GROUP BY book_id,book_name,legacy_scheme
+      ) SELECT bc.*,
+        (SELECT count(*)::int FROM hr_payroll_formula_version f
+          JOIN hr_payroll_item_version v ON v.id=f.item_version_id AND v.tenant_id=f.tenant_id AND v.park_id=f.park_id
+          JOIN hr_payroll_item_definition d ON d.id=v.item_definition_id AND d.tenant_id=v.tenant_id AND d.park_id=v.park_id
+          WHERE f.tenant_id=$1 AND f.park_id=$2 AND f.book_id=bc."bookId" AND d.book_id=f.book_id
+            AND f.parse_status='approved_for_simulation' AND NOT f.is_deleted AND NOT v.is_deleted AND NOT d.is_deleted AND v.enabled
+        ) AS "approvedFormulaCandidateCount",
+        CASE WHEN policy.id IS NULL THEN NULL ELSE jsonb_build_object('id',policy.id,'versionNo',policy.version_no,
+          'status',policy.status,'netItemVersionId',policy.net_item_version_id) END AS "currentNetPolicy"
+        FROM book_counts bc LEFT JOIN hr_payroll_reconciliation_policy_current cur
+          ON cur.book_id=bc."bookId" AND cur.tenant_id=$1 AND cur.park_id=$2
+        LEFT JOIN hr_payroll_reconciliation_policy_version policy ON policy.id=cur.policy_version_id
+          AND policy.book_id=cur.book_id AND policy.tenant_id=cur.tenant_id AND policy.park_id=cur.park_id
+        ORDER BY bc."legacyScheme",bc."bookId"`,params) as RawRow[];
+      const items = await manager.query(`${base}, paged AS (
+        SELECT * FROM employees ORDER BY employee_code,employee_id LIMIT $5 OFFSET $6
+      ) SELECT e.employee_id AS "employeeId",e.employee_code AS "employeeCode",e.full_name AS "fullName",e.record_count AS "recordCount",
+        (SELECT jsonb_agg(jsonb_build_object('bookId',x.book_id,'recordCount',x.record_count) ORDER BY x.book_id)
+          FROM (SELECT f.book_id,count(*)::int record_count FROM facts f WHERE f.employee_id=e.employee_id
+            AND f.mapping_status='mapped' AND f.available AND f.employee_available GROUP BY f.book_id) x) AS books,
+        (SELECT count(DISTINCT b.id)::int FROM hr_attendance_payroll_input_item i
+          JOIN hr_attendance_payroll_input_batch b ON b.id=i.batch_id AND b.tenant_id=i.tenant_id AND b.park_id=i.park_id
+          JOIN hr_attendance_period p ON p.id=b.period_id AND p.tenant_id=b.tenant_id AND p.park_id=b.park_id
+          WHERE i.tenant_id=$1 AND i.park_id=$2 AND i.employee_id=e.employee_id AND NOT i.is_deleted AND NOT b.is_deleted
+            AND NOT p.is_deleted AND b.status='effective' AND p.status='closed' AND p.period_month=$4::date) AS "attendanceInputCount",
+        h.period_count AS "historicalInsurancePeriodCount",h.needs_review AS "historicalInsuranceNeedsReview",
+        CASE WHEN h.period_count=1 AND NOT h.needs_review THEN 1 ELSE 0 END AS "historicalInsuranceSourceCount",
+        (SELECT count(*)::int FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p
+          ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id
+          WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.employee_id=e.employee_id AND r.period_month=$4::date
+            AND NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision n WHERE n.tenant_id=r.tenant_id AND n.park_id=r.park_id
+              AND n.employee_id=r.employee_id AND n.period_month=r.period_month AND n.revision_no>r.revision_no)) AS "modernInsuranceSourceCount"
+        FROM paged e CROSS JOIN LATERAL (
+          SELECT count(*)::int period_count,COALESCE(bool_or(p.needs_review),false) needs_review FROM hr_employee_insurance_period p
+          WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.employee_id=e.employee_id AND NOT p.is_deleted
+            AND p.period_year=EXTRACT(YEAR FROM $4::date)::int AND p.period_month=EXTRACT(MONTH FROM $4::date)::int
+        ) h ORDER BY e.employee_code,e.employee_id`,[...params,query.page_size,(query.page-1)*query.page_size]) as RawRow[];
+      await this.auditService.recordOperationRequired({tenantId:scope.tenantId,parkId:scope.parkId,userId:actor.sub,username:actor.username,
+        roleCodes:actor.roles,module:"人力资源管理",resource:"hr.payroll_preparation_cohort",action:"读取工资人员准备清单",
+        bizType:"hr_payroll_legacy_batch",bizId:query.legacyBatchId,beforeJson:null,
+        afterJson:{periodMonth:query.periodMonth,recordCount:totals.recordCount,employeeCount:totals.employeeCount,page:query.page,pageSize:query.page_size},
+        method:"GET",path:"/hr/payroll/reconciliations/preparation-cohort",success:true,result:"success",requestId:null},manager);
+      return {legacyBatchId:query.legacyBatchId,periodMonth:query.periodMonth,sourceStatus:source.status,preparationOnly:true,
+        totals,books,items,total:totals.employeeCount,page:query.page,page_size:query.page_size};
+    });
   }
 
   async insuranceSourceOptions(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollInsuranceOptionsQueryDto) {

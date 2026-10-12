@@ -22,6 +22,7 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import {
   CreateHrPayrollReconciliationDto,
   HrPayrollInsuranceOptionsQueryDto,
+  HrPayrollPreparationCohortQueryDto,
   CreateHrPayrollReconciliationSourceDto,
   HrPayrollReconciliationSourcePreviewDto,
   HrPayrollReconciliationSourcePeriodQueryDto,
@@ -132,6 +133,15 @@ export class HrPayrollHistoryController {
     @Query() query: HrPayrollReconciliationQueryDto,
   ) {
     return this.service.listReconciliations(scope, actor, query);
+  }
+
+  @Get("reconciliations/preparation-cohort")
+  @RequirePermissions(HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW, HR_PERMISSIONS.HR_EMPLOYEE_READ,
+    HR_PERMISSIONS.HR_ATTENDANCE_READ, HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ,
+    HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_PAYROLL_RULE_READ)
+  preparationCohort(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HrPayrollPreparationCohortQueryDto) {
+    return this.service.preparationCohort(scope,actor,query);
   }
 
   @Get("reconciliations/insurance-sources")

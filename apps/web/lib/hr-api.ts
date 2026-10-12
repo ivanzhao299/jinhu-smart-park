@@ -166,6 +166,23 @@ export interface HrPayrollReconciliationSource {
   id: string; legacyBatchId: string; bookId: string; bookName?: string;
   periodMonth: string; snapshotCount: number; itemCount: number;
 }
+export interface HrPayrollPreparationCounts {
+  recordCount:number; sourceRowCount:number; itemCount:number; mappedRecordCount:number; unmappedRecordCount:number;
+  duplicateSourceCount:number; quarantinedCount:number; unavailableReferenceCount:number; unavailableEmployeeCount:number;
+  unresolvedItemCount:number; duplicateEmployeeExtraCount:number;
+}
+export interface HrPayrollPreparationEmployee {
+  employeeId:string; employeeCode:string; fullName:string; recordCount:number;
+  books:Array<{bookId:string;recordCount:number}>; attendanceInputCount:number; historicalInsurancePeriodCount:number;
+  historicalInsuranceNeedsReview:boolean; historicalInsuranceSourceCount:number; modernInsuranceSourceCount:number;
+}
+export interface HrPayrollPreparationCohort {
+  legacyBatchId:string; periodMonth:string; sourceStatus:"staged"|"published"; preparationOnly:true;
+  totals:HrPayrollPreparationCounts & {employeeCount:number;bookCount:number};
+  books:Array<HrPayrollPreparationCounts & {bookId:string;bookName:string;legacyScheme:number;available:boolean;
+    approvedFormulaCandidateCount:number;currentNetPolicy:null|{id:string;versionNo:number;status:string;netItemVersionId:string}}>;
+  items:HrPayrollPreparationEmployee[]; total:number; page:number; page_size:number;
+}
 export interface HrPayrollReconciliationSetup {
   sourceBatches?: Array<{id:string;createdAt:string;recordCount:number}>;
   frozenSources?: HrPayrollReconciliationSource[];
@@ -774,6 +791,7 @@ payrollReconciliationReviewActions: (
     `/hr/payroll/reconciliations/${id}/review-actions?${new URLSearchParams({page:String(page),page_size:String(pageSize)})}`,
     { token, signal },
   )),
+payrollPreparationCohort:(query:{legacyBatchId:string;periodMonth:string},token?:string,page=1,pageSize=20,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollPreparationCohort>(`/hr/payroll/reconciliations/preparation-cohort?${new URLSearchParams({...query,page:String(page),page_size:String(pageSize)})}`,{token,signal})),
 payrollReconciliationSetup: (token?: string, signal?: AbortSignal) =>
     unwrap(
       apiRequest<HrPayrollReconciliationSetup>(

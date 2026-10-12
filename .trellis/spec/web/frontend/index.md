@@ -52,6 +52,8 @@ Formal job change review, return feedback and application history: [Job Change O
 
 Formal employee rehire with scoped search, approval and current assignment: [Employee Rehire Surface](./hr-employee-rehire.md).
 
+All-book per-person input gaps before attendance close: [Payroll Preparation Cohort](./hr-payroll-preparation-cohort.md).
+
 Payroll reconciliation preparation and matching months: [Payroll Input Readiness](./hr-payroll-input-readiness.md).
 
 Ordinary payroll ledger business labels, employee visibility and mobile pagination: [Payroll Ledger Presentation](./hr-payroll-ledger-presentation.md).

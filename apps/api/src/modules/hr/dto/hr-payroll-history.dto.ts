@@ -78,6 +78,13 @@ export class HrPayrollReconciliationReviewActionQueryDto {
   page_size = 20;
 }
 
+export class HrPayrollPreparationCohortQueryDto {
+  @IsUUID() legacyBatchId!: string;
+  @IsDateString({ strict: true }) @Matches(/^\d{4}-(0[1-9]|1[0-2])-01$/) periodMonth!: string;
+  @Transform(({value}) => Number(value ?? 1)) @IsInt() @Min(1) @Max(5000) page = 1;
+  @Transform(({value}) => Number(value ?? 50)) @IsInt() @Min(1) @Max(100) page_size = 50;
+}
+
 export class HrPayrollInsuranceOptionsQueryDto {
   @IsUUID() legacyBatchId!: string;
   @IsUUID() attendanceInputBatchId!: string;
