@@ -93,3 +93,11 @@ Actual PostgreSQL source tests prove unused-source projection, paging, scoped in
 ## 现代账套关联候选
 
 GET /hr/payroll/rules/book-options 同时要求RULE_READ及MANAGE，在任何探测前校验权限。按同租户/园区、未删除及未被规则集关联的账套查询；名称使用参数化literal子串，编号精确匹配；稳定排序分页，单语句给出同快照total及items，空页保留total。必需读审计在同一事务内，失败不返回结果。创建复用既有账套锁/范围外键/唯一映射约束，候选不代替写时校验。规则列表及创建直接投影sourceBook业务名称/编号，避免依赖候选页。关联只维护业务身份，不批准公式，不覆盖冻结工资；无关联仍可独立计算。无需新迁移。
+
+## Linked source reference preparation
+
+`GET /hr/payroll/rules/:id/source-reference` requires RULE_READ and MANAGE both in controller and before service probes. Resolve only the scoped parent's linked book; arbitrary client book IDs never select the source. A REPEATABLE READ transaction includes parent, all nondeleted item versions, all nondeleted formula versions and required metadata-only read audit. Include disabled/nonnumeric items, duplicate-code versions, unbound formulas and raw conditions. Do not infer modern accounting roles or silently select a latest item/formula.
+
+Complete-set limits are 2048 item versions, 4096 formulas and 2 MiB original formula/condition bytes. Missing item versions or limit overflow fail the entire read. Original schema is migration000248; no new schema or legacy writes. Current restricted-parser AST plus absence of original condition only establishes reusable syntax; dependency identity, order and business meaning still require the formal draft validator and independent review. No personal payroll rows, evidence hashes or audit identities are projected.
+
+`hr-payroll-source-reference.pg.spec.ts` executes entire original248 and347 migrations with employee/map prerequisites in an owned random localhost database. It verifies actual SQL, same-park other-book and other-park isolation, concurrent insertion snapshot stability, ambiguous versions, conditions, nonnumeric/disabled references, limits, required audit failure and real Nest HTTP/permission wiring. Local synthetic evidence does not establish real-month amount equivalence or production acceptance.

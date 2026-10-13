@@ -66,6 +66,10 @@ test("formal payroll reads encode scope filters, carry cancellation and unwrap s
     assert.deepEqual(await hrApi.payrollInputs({ periodId: "period", ruleSetId: "rules", page: 2 }, undefined, controller.signal), page);
     assert.match(calls[0]!.url, /periodId=period&ruleSetId=rules&page=2&pageSize=20$/u);
     assert.equal(calls[0]!.init?.signal, controller.signal);
+    await hrApi.payrollRuleSourceReference("rules", "synthetic-token", controller.signal);
+    assert.equal(calls.at(-1)?.url, "/api/v1/hr/payroll/rules/rules/source-reference");
+    assert.equal(calls.at(-1)?.init?.signal, controller.signal);
+    assert.equal(new Headers(calls.at(-1)?.init?.headers).get("Authorization"), "Bearer synthetic-token");
     await hrApi.payrollRuleVersions("rules", { page: 2 }, undefined, controller.signal);
     assert.equal(calls.at(-1)?.url, "/api/v1/hr/payroll/rules/rules/versions?page=2&pageSize=20");
     await hrApi.payrollEffectiveRule("rules", "2026-10", undefined, controller.signal);
@@ -170,4 +174,16 @@ test("closed-period transport carries scoped window selection, abort signals and
     ];
     for(const write of writes){await write.run();await write.run();for(const call of calls.slice(-2)){assert.equal(call.url,`/api/v1/hr/payroll/${write.path}`);assert.equal(call.init!.method,"POST");assert.deepEqual(JSON.parse(call.init!.body as string),write.body);assert.equal(new Headers(call.init!.headers).get("X-Idempotency-Key"),"stable-key");}}
   } finally {globalThis.fetch=originalFetch;}
+});
+
+test("all-book trial sends exact mappings and versions with guarded POST key and cancellation",async()=>{
+  const original=globalThis.fetch,calls:Array<{url:string;init?:RequestInit}>=[];
+  globalThis.fetch=async(url,init)=>{calls.push({url:String(url),init});return new Response(JSON.stringify({code:0,message:"success",data:{complete:true}}),{headers:{"content-type":"application/json"}});};
+  try{const abort=new AbortController(),body={legacyBatchId:"batch",month:"2026-07",books:[{bookId:"book",inputId:"input",expectedInputVersion:4,reconciliationSourceId:"frozen",mappings:[{modernCode:"改名 项目",sourceItemVersionId:"v1"}]}]};
+    await hrApi.payrollTrialOptions({legacyBatchId:"batch",month:"2026-07"},undefined,abort.signal);
+    await hrApi.trialSourceOptions({inputId:"input",expectedInputVersion:4,page:2,pageSize:100},undefined,abort.signal);
+    await hrApi.calculatePayrollTrial(body,undefined,"retained-trial-key",abort.signal);
+    assert.equal(calls[0]!.url,"/api/v1/hr/payroll/trial-comparisons/options?legacyBatchId=batch&month=2026-07");assert.equal(calls[1]!.url,"/api/v1/hr/payroll/trial-comparisons/source-options?inputId=input&expectedInputVersion=4&page=2&pageSize=100");
+    assert.equal(calls[2]!.url,"/api/v1/hr/payroll/trial-comparisons");assert.equal(calls[2]!.init?.method,"POST");assert.deepEqual(JSON.parse(calls[2]!.init?.body as string),body);assert.equal(new Headers(calls[2]!.init?.headers).get("X-Idempotency-Key"),"retained-trial-key");assert.ok(calls.every(call=>call.init?.signal===abort.signal));
+  }finally{globalThis.fetch=original;}
 });

@@ -52,7 +52,7 @@ export class HrPayrollFormalRunService {
       attendance: requiresPayrollAttendanceInputs(dependencies),
       insurance: dependencies.some(code => code.startsWith("hr:") && HR_PAYROLL_INSURANCE_REFERENCE_CODES.has(code.slice(3))) };
   }
-  async options(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollFormalRunOptionsQueryDto) {
+  async options(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollFormalRunOptionsQueryDto, enforceSourcePermissions = false) {
     const required = [HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ];
     if (!actor.isSuper && !actor.permissions.includes("*") && !required.every(permission => actor.permissions.includes(permission))) throw new ForbiddenException("Payroll calculation permission required");
     const dto = plainToInstance(HrPayrollFormalRunOptionsQueryDto, query);
@@ -62,6 +62,8 @@ export class HrPayrollFormalRunService {
       const prepared = await this.inputs.lockConfirmedInput(manager, scope, actor, dto.inputId, dto.expectedInputVersion);
       const {period,rule} = prepared, employeeIds = prepared.input.employees.map(employee => employee.employeeId);
       const requires = this.requirements([...new Set(rule.definition_evidence.items.flatMap(item => item.dependencies))]);
+      if (enforceSourcePermissions && requires.insurance && !actor.isSuper && !actor.permissions.includes("*")
+        && ![HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ].every(permission => actor.permissions.includes(permission))) throw new ForbiddenException("Insurance read and amount permissions required for this rule");
       if (!requires.attendance && dto.attendanceInputBatchId) throw new BadRequestException("This rule does not use attendance inputs");
       const selected = employeeIds.slice((dto.page-1)*dto.pageSize,dto.page*dto.pageSize);
       const compensationCoverage = requires.compensation ? await (async () => {
@@ -164,6 +166,37 @@ export class HrPayrollFormalRunService {
     if (rows.length !== employeeIds.length || new Set(rows.map(row => row.employeeId)).size !== employeeIds.length) throw new ConflictException("Attendance must cover each payroll employee exactly once");
     return new Map(rows.map(({ employeeId, ...row }) => [employeeId, row]));
   }
+  /** Internal calculate-only consumer. The caller owns the transaction and confirmed-input locks. */
+  async calculatePrepared(manager: EntityManager, scope: TenantParkScope,
+    prepared: Awaited<ReturnType<HrPayrollFormalInputService["lockConfirmedInput"]>>,
+    dto: Pick<CreateHrPayrollFormalRunDto, "attendanceInputBatchId" | "insuranceSources">) {
+    const { period, rule } = prepared, roster = prepared.input.employees;
+    const employeeIds = roster.map(employee => employee.employeeId);
+    const dependencies = [...new Set(rule.definition_evidence.items.flatMap(item => item.dependencies))];
+    const requirements = this.requirements(dependencies);
+    const salary = requirements.compensation ? await lockPayrollCompensationSegments(manager, scope, employeeIds, period.start_date, period.end_date) : new Map();
+    const attendanceRequired = requirements.attendance;
+    if (!attendanceRequired && dto.attendanceInputBatchId) throw new BadRequestException("This rule does not use attendance inputs");
+    const attendance = attendanceRequired ? await this.attendance(manager, scope, period.month, employeeIds, dto.attendanceInputBatchId) : new Map();
+    const insuranceRequired = requirements.insurance;
+    if (!insuranceRequired && dto.insuranceSources) throw new BadRequestException("This rule does not use insurance inputs");
+    if (insuranceRequired) {
+      if (!dto.insuranceSources || dto.insuranceSources.some(choice => choice.sourceKind !== "modern_confirmed")) throw new ConflictException("Select current confirmed insurance versions for this payroll month");
+      assertPayrollInsuranceChoices(employeeIds, dto.insuranceSources);
+    }
+    const insurance = insuranceRequired ? await lockModernPayrollInsuranceSources(manager, scope, `${period.month}-01`, dto.insuranceSources!) : new Map();
+    const employees: Array<{ id: string; version: number; hireDate: string | null; departureDate: string | null }> = await manager.query("SELECT id,version,to_char(hire_date,'YYYY-MM-DD') AS \"hireDate\",to_char(departure_date,'YYYY-MM-DD') AS \"departureDate\" FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[]) AND NOT is_deleted ORDER BY id FOR SHARE", [scope.tenantId, scope.parkId, employeeIds]);
+    const byId = new Map(employees.map(employee => [employee.id, employee]));
+    const results = roster.map(employeeInput => {
+      const employee = byId.get(employeeInput.employeeId);
+      if (!employee) throw new ConflictException("Payroll employee is no longer available");
+      return { employeeId: employee.id, ...calculateFormalPayrollWithSources(rule.definition, {
+        periodStart: period.start_date, periodEnd: period.end_date, employee, input: employeeInput,
+        compensations: salary.get(employee.id) ?? [], attendance: attendance.get(employee.id), insurance: insurance.get(employee.id),
+      }) };
+    });
+    return results;
+  }
   async create(scope: TenantParkScope, actor: JwtPrincipal, input: CreateHrPayrollFormalRunDto) {
     const required = [HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ];
     if (!actor.isSuper && !actor.permissions.includes("*") && !required.every(permission => actor.permissions.includes(permission))) throw new ForbiddenException("Payroll calculation permission required");
@@ -190,29 +223,7 @@ export class HrPayrollFormalRunService {
             AND r.status<>'cancelled' AND s.employee_id=ANY($4::uuid[]) LIMIT 1`, [period.id, scope.tenantId, scope.parkId, employeeIds]);
         if (existing.length) throw new ConflictException("Payroll employees already have a run in this period; use correction");
       }
-      const dependencies = [...new Set(rule.definition_evidence.items.flatMap(item => item.dependencies))];
-      const requirements = this.requirements(dependencies);
-      const salary = requirements.compensation ? await lockPayrollCompensationSegments(manager, scope, employeeIds, period.start_date, period.end_date) : new Map();
-      const attendanceRequired = requirements.attendance;
-      if (!attendanceRequired && dto.attendanceInputBatchId) throw new BadRequestException("This rule does not use attendance inputs");
-      const attendance = attendanceRequired ? await this.attendance(manager, scope, period.month, employeeIds, dto.attendanceInputBatchId) : new Map();
-      const insuranceRequired = requirements.insurance;
-      if (!insuranceRequired && dto.insuranceSources) throw new BadRequestException("This rule does not use insurance inputs");
-      if (insuranceRequired) {
-        if (!dto.insuranceSources || dto.insuranceSources.some(choice => choice.sourceKind !== "modern_confirmed")) throw new ConflictException("Select current confirmed insurance versions for this payroll month");
-        assertPayrollInsuranceChoices(employeeIds, dto.insuranceSources);
-      }
-      const insurance = insuranceRequired ? await lockModernPayrollInsuranceSources(manager, scope, `${period.month}-01`, dto.insuranceSources!) : new Map();
-      const employees: Array<{ id: string; version: number; hireDate: string | null; departureDate: string | null }> = await manager.query("SELECT id,version,to_char(hire_date,'YYYY-MM-DD') AS \"hireDate\",to_char(departure_date,'YYYY-MM-DD') AS \"departureDate\" FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[]) AND NOT is_deleted ORDER BY id FOR SHARE", [scope.tenantId, scope.parkId, employeeIds]);
-      const byId = new Map(employees.map(employee => [employee.id, employee]));
-      const results = roster.map(employeeInput => {
-        const employee = byId.get(employeeInput.employeeId);
-        if (!employee) throw new ConflictException("Payroll employee is no longer available");
-        return { employeeId: employee.id, payslipId: randomUUID(), ...calculateFormalPayrollWithSources(rule.definition, {
-          periodStart: period.start_date, periodEnd: period.end_date, employee, input: employeeInput,
-          compensations: salary.get(employee.id) ?? [], attendance: attendance.get(employee.id), insurance: insurance.get(employee.id),
-        }) };
-      });
+      const results = (await this.calculatePrepared(manager, scope, prepared, dto)).map(result => ({ ...result, payslipId: randomUUID() }));
       const sum = (field: "grossAmount" | "deductionAmount" | "personalTax" | "netAmount") => normalizeHrMoney(hrCentsToMoney(results.reduce((total, row) => total + hrMoneyToCents(row.calculation[field]), 0n)));
       const totals = { grossAmount: sum("grossAmount"), deductionAmount: sum("deductionAmount"), personalTax: sum("personalTax"), netAmount: sum("netAmount") };
       // Recorded run deduction_total includes tax (000243 balance contract).
