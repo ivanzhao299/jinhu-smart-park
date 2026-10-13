@@ -159,6 +159,14 @@ export interface CreateCanteenOutletInput {
   business_hours?: string;
   manager_user_id?: string;
 }
+export interface UpdateCanteenOutletInput {
+  name?: string;
+  outlet_type?: string;
+  contractor_id?: string;
+  location?: string;
+  business_hours?: string;
+  manager_user_id?: string;
+}
 export interface UpdateCanteenOutletStatusInput {
   status: "open" | "suspended" | "closed";
 }

@@ -24,7 +24,7 @@ import {
   StatusPill,
   Tabs
 } from "@jinhu/ui";
-import { AlertTriangle, BookOpen, ChevronDown, Plus, RefreshCw, Save, Search, Store, Trash, Upload } from "lucide-react";
+import { AlertTriangle, BookOpen, ChevronDown, Pencil, Plus, Power, RefreshCw, Save, Search, Store, Trash, Upload } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { canteenApi } from "../../../../lib/canteen-api";
 import type { CanteenCategory, CanteenDish, CanteenOutlet } from "../../../../lib/canteen-types";
@@ -101,7 +101,7 @@ export default function CanteenDishesPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [categoryDrawer, setCategoryDrawer] = useState<{ mode: "create" | "edit"; category: CanteenCategory | null } | null>(null);
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
-  const [outletDrawer, setOutletDrawer] = useState(false);
+  const [outletDrawer, setOutletDrawer] = useState<{ mode: "create" | "edit"; outlet: CanteenOutlet | null } | null>(null);
   const [outletForm, setOutletForm] = useState<OutletFormState>(emptyOutletForm);
   const [outletSaving, setOutletSaving] = useState(false);
   const [detailDish, setDetailDish] = useState<CanteenDish | null>(null);
@@ -286,24 +286,56 @@ export default function CanteenDishesPage() {
 
   function openOutletCreate() {
     setOutletForm(emptyOutletForm);
-    setOutletDrawer(true);
+    setOutletDrawer({ mode: "create", outlet: null });
+  }
+
+  function openOutletEdit() {
+    const outlet = outlets.find((o) => o.id === outletId);
+    if (!outlet) return;
+    setOutletForm({
+      name: outlet.name,
+      outlet_type: outlet.outletType === "stall" ? "stall" : "dine_in",
+      contractor_id: outlet.contractorId ?? "",
+      location: outlet.location ?? "",
+      business_hours: outlet.businessHours ?? ""
+    });
+    setOutletDrawer({ mode: "edit", outlet });
+  }
+
+  async function toggleOutletStatus() {
+    const outlet = outlets.find((o) => o.id === outletId);
+    if (!outlet) return;
+    const next = outlet.status === "open" ? "closed" : "open";
+    await canteenApi.updateOutletStatus(outlet.id, { status: next }, getAccessToken());
+    setMessage(`档口「${outlet.name}」已${next === "open" ? "启用" : "停用"}`);
+    await loadOutlets();
   }
 
   async function saveOutlet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!outletDrawer) return;
     if (!outletForm.name.trim()) throw new Error("请填写档口名称");
     if (!outletForm.contractor_id.trim()) throw new Error("请填写承包方标识");
     setOutletSaving(true);
     try {
-      const outlet = await canteenApi.createOutlet({
+      const payload = {
         name: outletForm.name.trim(),
         outlet_type: outletForm.outlet_type,
         contractor_id: outletForm.contractor_id.trim(),
         location: outletForm.location.trim() || undefined,
         business_hours: outletForm.business_hours.trim() || undefined
-      }, getAccessToken());
-      setOutletDrawer(false);
-      setMessage(`档口「${outlet.name}」已创建`);
+      };
+      let outlet: CanteenOutlet;
+      if (outletDrawer.mode === "create") {
+        outlet = await canteenApi.createOutlet(payload, getAccessToken());
+        setMessage(`档口「${outlet.name}」已创建`);
+      } else if (outletDrawer.outlet) {
+        outlet = await canteenApi.updateOutlet(outletDrawer.outlet.id, payload, getAccessToken());
+        setMessage(`档口「${outlet.name}」已更新`);
+      } else {
+        return;
+      }
+      setOutletDrawer(null);
       await loadOutlets();
       if (outlet.id) {
         setFilters((current) => ({ ...current, outletId: outlet.id }));
@@ -399,11 +431,28 @@ export default function CanteenDishesPage() {
           <Field label="档口">
             <select value={outletId} onChange={(e) => setFilters((c) => ({ ...c, outletId: e.target.value }))}>
               {outlets.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
+                <option key={o.id} value={o.id}>{o.name}{o.status !== "open" ? "（已停用）" : ""}</option>
               ))}
               {outlets.length === 0 ? <option value="">暂无档口</option> : null}
             </select>
           </Field>
+          {selectedOutlet ? (
+            <>
+              <PermissionButton className="secondary-button" permission={CANTEEN_PERMISSIONS.OUTLET_UPDATE} type="button" onClick={openOutletEdit}>
+                <Pencil size={16} />
+                编辑
+              </PermissionButton>
+              <PermissionButton
+                className="secondary-button"
+                permission={CANTEEN_PERMISSIONS.OUTLET_STATUS}
+                type="button"
+                onClick={() => void toggleOutletStatus().catch((e: Error) => setMessage(e.message))}
+              >
+                <Power size={16} />
+                {selectedOutlet.status === "open" ? "停用" : "启用"}
+              </PermissionButton>
+            </>
+          ) : null}
           {view === "dishes" ? (
             <>
               <Field label="品类">
@@ -705,8 +754,13 @@ export default function CanteenDishesPage() {
         ) : null}
 
         {outletDrawer ? (
-          <Drawer size="md" onClose={() => setOutletDrawer(false)}>
-            <DrawerHeader eyebrow="档口" title="新建档口" description="档口是品类与餐品的容器，也是结算归属单元。" onClose={() => setOutletDrawer(false)} />
+          <Drawer size="md" onClose={() => setOutletDrawer(null)}>
+            <DrawerHeader
+              eyebrow="档口"
+              title={outletDrawer.mode === "create" ? "新建档口" : "编辑档口"}
+              description="档口是品类与餐品的容器，也是结算归属单元。"
+              onClose={() => setOutletDrawer(null)}
+            />
             <DrawerForm onSubmit={(e: FormEvent<HTMLFormElement>) => void saveOutlet(e).catch((err: Error) => setMessage(err.message))}>
               <DrawerSection title="基本信息">
                 <DrawerFormGrid>
@@ -735,7 +789,7 @@ export default function CanteenDishesPage() {
                 </DrawerFormGrid>
               </DrawerSection>
               <DrawerFooter>
-                <button className="secondary-button" type="button" onClick={() => setOutletDrawer(false)}>取消</button>
+                <button className="secondary-button" type="button" onClick={() => setOutletDrawer(null)}>取消</button>
                 <button className="primary-button" type="submit" disabled={outletSaving}><Save size={16} />{outletSaving ? "保存中…" : "保存"}</button>
               </DrawerFooter>
             </DrawerForm>

@@ -24,6 +24,7 @@ import type {
   PosEmployeeLookup,
   SaveCanteenCategoryInput,
   SaveCanteenDishInput,
+  UpdateCanteenOutletInput,
   UpdateCanteenOutletStatusInput,
   UpdateDishShelfInput,
   UpdateDishStockInput,
@@ -69,6 +70,15 @@ export const canteenApi = {
       method: "POST",
       token,
       idempotencyKey: createIdempotencyKey("canteen-outlet-create"),
+      body: compactObject(input as unknown as Record<string, unknown>)
+    });
+    return response.data;
+  },
+  async updateOutlet(id: string, input: UpdateCanteenOutletInput, token?: string): Promise<CanteenOutlet> {
+    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}`, {
+      method: "PUT",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-outlet-update"),
       body: compactObject(input as unknown as Record<string, unknown>)
     });
     return response.data;

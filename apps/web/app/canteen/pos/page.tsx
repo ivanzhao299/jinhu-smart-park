@@ -110,7 +110,8 @@ export default function PosTerminalPage() {
       try {
         const outlets = await canteenApi.listOutlets(token);
         if (cancelled) return;
-        const firstOutlet = outlets[0];
+        /* POS 是营业终端：只服务营业中（open）的档口，停用/关闭的不参与点单 */
+        const firstOutlet = outlets.find((o) => o.status === "open");
         if (firstOutlet) {
           setOutletId(firstOutlet.id);
           setOutletName(firstOutlet.name);
