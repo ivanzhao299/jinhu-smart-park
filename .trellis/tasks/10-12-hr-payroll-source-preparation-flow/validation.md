@@ -33,3 +33,12 @@ PR CI38212101289 failed at Web HR route contract asserting old coordinator callb
 - `pnpm --filter @jinhu/web test:unit:interaction`:149files/1190tests PASS,36.95s.
 - `pnpm --filter @jinhu/web typecheck`:PASS.
 - Unchanged product/source hashes retain prior API/PG/build/browser evidence. Full CI must run on updated head; old failed run not retried or reused as success.
+
+## Calendar-independent CI fixture correction
+
+Full-smoke-labelled CI38385446665 failed in two pre-existing EmployeeRestDayPanel tests after the business date changed from Oct12 to Oct13. Local unchanged fixture reproduced6PASS/2FAIL with the real receipt-date mismatch message. Five tests had fixedOct12 returned facts but relied on runtime default today. They now explicitly select current.workDate through the actual UI before reading; no product, businessDate, timer, timeout or skip change. Added a wrong-date receipt counterexample asserting the actualOct13 request, no write form and no put call. Independent incremental reviewPASS.
+
+- Fixed existing focused8/8 PASS,316ms.
+- Final complete Web interaction149files/1191tests PASS,41.17s, including new wrong-date counterexample.
+- Original scoped CI38213489371 remainsPASS with intentionally skipped smoke; the full smoke label remains onPR974 and must pass on the new head. No production merge/deployment occurred in either failed run.
+- Product hashes unchanged; prior source PG/build/browser evidence remains applicable.
