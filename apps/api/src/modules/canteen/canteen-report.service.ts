@@ -46,6 +46,17 @@ export class CanteenReportService {
     )) as Array<Record<string, string | number>>;
     const r = rows[0] ?? { order_count: 0, sales_total: "0.00", qr_pay_total: "0.00", subsidy_total: "0.00" };
     const c = Number(r.order_count) || 0;
+    const refundRows = (await this.orderRepo.query(
+      `SELECT COALESCE(SUM(r.amount),0)::numeric AS refund_total
+         FROM biz_canteen_refunds r
+         JOIN biz_canteen_orders o ON o.id = r.order_id
+        WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
+          AND r.status='succeeded'
+          AND o.is_deleted=false
+          AND o.business_date BETWEEN $3 AND $4
+          AND ($5::uuid IS NULL OR o.outlet_id=$5)`,
+      [scope.tenantId, scope.parkId, q.start_date, q.end_date, q.outlet_id ?? null]
+    )) as Array<Record<string, string | number>>;
     return {
       start_date: q.start_date,
       end_date: q.end_date,
@@ -53,6 +64,7 @@ export class CanteenReportService {
       sales_total: r.sales_total,
       qr_pay_total: r.qr_pay_total,
       subsidy_total: r.subsidy_total,
+      refund_total: refundRows[0]?.refund_total ?? "0.00",
       avg_order_value: c > 0 ? (Number(r.sales_total) / c).toFixed(2) : "0.00"
     };
   }
