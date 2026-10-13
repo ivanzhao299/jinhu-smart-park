@@ -90,6 +90,9 @@ export default function CanteenSettlementsPage() {
     void load(1).catch((e: Error) => setLoadError(e.message));
   }, [load]);
 
+  /* 结算接口不带档口名，用筛选下拉已加载的档口做 id→名称映射 */
+  const outletNameById = useMemo(() => new Map(outlets.map((o) => [o.id, o.name])), [outlets]);
+
   async function openDetail(row: CanteenSettlement) {
     setDetail(row);
     setItems([]);
@@ -217,7 +220,7 @@ export default function CanteenSettlementsPage() {
                   <tr key={row.id}>
                     <td>{row.settlementNo}</td>
                     <td>{row.period}</td>
-                    <td>{row.outletName ?? row.outletId.slice(0, 8)}</td>
+                    <td>{outletNameById.get(row.outletId) ?? row.outletId.slice(0, 8)}</td>
                     <td>¥{row.salesTotal}</td>
                     <td>¥{row.qrPayTotal}</td>
                     <td>¥{row.subsidyTotal}</td>
@@ -247,7 +250,7 @@ export default function CanteenSettlementsPage() {
 
         {detail ? (
           <Drawer size="lg" onClose={() => setDetail(null)}>
-            <DrawerHeader eyebrow="结算详情" title={detail.settlementNo} description={`账期 ${detail.period} · 档口 ${detail.outletName ?? detail.outletId}`} onClose={() => setDetail(null)} />
+            <DrawerHeader eyebrow="结算详情" title={detail.settlementNo} description={`账期 ${detail.period} · 档口 ${outletNameById.get(detail.outletId) ?? detail.outletId}`} onClose={() => setDetail(null)} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="状态" value={<SettlementStatusPill status={detail.status} />} />
               <DrawerDetailItem label="营业额" value={`¥${detail.salesTotal}`} />
