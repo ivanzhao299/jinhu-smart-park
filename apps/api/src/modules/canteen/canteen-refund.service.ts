@@ -168,6 +168,11 @@ export class CanteenRefundService {
 
       if (order) {
         order.refundStatus = "full";
+        // 基线状态机：支付后全额退款完成，订单主状态流转到 refunded，
+        // 列表/报表按净口径统计（行业惯例：退款冲减营业额，单独列示）。
+        if (["paid", "completed"].includes(order.status)) {
+          order.status = "refunded";
+        }
         order.updateBy = actor.sub;
         await manager.save(order);
       }
