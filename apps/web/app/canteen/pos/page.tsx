@@ -643,6 +643,7 @@ export default function PosTerminalPage() {
       amount: res.qr_pay_amount ?? "0.00",
       codeUrl: res.code_url ?? "",
       demo: false,
+      provider: res.provider ?? "",
       subsidyAmount: res.subsidy_amount ?? "0.00",
       qrAmount: res.qr_pay_amount ?? "0.00",
       isMixed: true
