@@ -42,3 +42,13 @@ Full-smoke-labelled CI38385446665 failed in two pre-existing EmployeeRestDayPane
 - Final complete Web interaction149files/1191tests PASS,41.17s, including new wrong-date counterexample.
 - Original scoped CI38213489371 remainsPASS with intentionally skipped smoke; the full smoke label remains onPR974 and must pass on the new head. No production merge/deployment occurred in either failed run.
 - Product hashes unchanged; prior source PG/build/browser evidence remains applicable.
+
+## Latest-main integration acceptance
+
+Fresh main advanced to c8ce08a0e493020264ce208fd7a9b4ecb7622d18 (canteen release). Reviewed all14 changed paths and exact shared menu/sidebar diff: no HR product overlap, optional newTab is set only on canteen POS. Merged main without conflicts; preserved all baseline changes. Its CI38357541282 fails the same old rest-day fixed-date tests; deployment38357541321 stopped at pre-deploy validation and skipped the host deployment.
+
+- API build, Web production build and menu22/22 PASS on the integrated tree.
+- A local complete interaction run concurrent with both builds caused3 timing failures under heavy host memory pressure (22GB swap in use),149files/1188pass3fail; no product/threshold changes were made. After builds completed, ran the identical149files/1191tests with2workers and original deadlines: allPASS,83.85s. This is a separate execution-environment correction, not a retry of a failed CI job.
+- Command: `pnpm --filter @jinhu/web test:unit:interaction --maxWorkers=2 --minWorkers=1`; API/Web build and menu logs retained privately.
+- Final HR actual-component/CSS hashes exactly match prior desktop/390 acceptance. Product/PG evidence reused only for unchanged HR inputs/code; new full labelled CI required on final integrated head.
+- Fresh fetch before final commit still matches c8ce08a0e; working tree clean before this validation record update.
