@@ -70,6 +70,7 @@ export default function PosTerminalPage() {
 
   const [outletName, setOutletName] = useState("智慧园区餐厅 · 一楼综合档口");
   const [outletId, setOutletId] = useState("");
+  const [outlets, setOutlets] = useState<Array<{ id: string; name: string }>>([]);
   const [dishes, setDishes] = useState<PosDish[]>(DEMO_DISHES);
   const [cats, setCats] = useState<string[]>(DEMO_CATS);
   const [demoMode, setDemoMode] = useState(true);
@@ -103,65 +104,82 @@ export default function PosTerminalPage() {
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ====== 初始化：拉档口/餐品/当前班次；失败则演示兜底 ====== */
+  /* ====== 档口数据加载：品类/餐品/当前班次；接口失败保留演示兜底 ====== */
+  const loadOutletData = useCallback(async (outlet: { id: string; name: string }, isCancelled: () => boolean = () => false) => {
+    setOutletId(outlet.id);
+    setOutletName(outlet.name);
+    setCart([]);
+    setModal(null);
+    setShift({ qrTotal: 0, subsidyTotal: 0, orders: 0, refund: 0 });
+    setShiftOpen(false);
+    setShiftNo("");
+    setSessionId("");
+    try {
+      const [catList, dishList] = await Promise.all([
+        canteenApi.listCategories(outlet.id, token),
+        canteenApi.listDishes(outlet.id, { status: "on_shelf" }, token)
+      ]);
+      if (isCancelled()) return;
+      /* 真实数据加载成功即退出演示模式；无在架菜品显示空态而非假菜 */
+      setDemoMode(false);
+      const catNameById = new Map(catList.map((c) => [c.id, c.name]));
+      setCats(catList.map((c) => c.name));
+      setActiveCat(catList[0]?.name ?? "");
+      setDishes(
+        dishList.map((d) => ({
+          id: d.id,
+          name: d.name,
+          price: Number(d.price),
+          category: (d.categoryId && catNameById.get(d.categoryId)) ?? catList[0]?.name ?? "全部",
+          color: "#1f4e8c",
+          soldout: d.status !== "on_shelf"
+        }))
+      );
+    } catch {
+      /* 餐品接口未就绪，保留演示数据 */
+    }
+    try {
+      const current = await canteenApi.getCurrentSession(outlet.id, token);
+      if (isCancelled()) return;
+      if (current) {
+        setShiftOpen(current.status === "open");
+        setShiftNo(current.sessionNo ?? "");
+        setSessionId(current.id ?? "");
+        /* 注意：open 班次的存储汇总列恒为 0，不用它校准金额；预览以打开日结时的 day-close 接口为准 */
+      }
+    } catch {
+      /* 无班次视为未开班 */
+    }
+  }, [token]);
+
+  /* ====== 初始化：拉档口列表并进入第一个营业中档口 ====== */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const outlets = await canteenApi.listOutlets(token);
+        const outletList = await canteenApi.listOutlets(token);
         if (cancelled) return;
-        /* POS 是营业终端：只服务营业中（open）的档口，停用/关闭的不参与点单 */
-        const firstOutlet = outlets.find((o) => o.status === "open");
-        if (firstOutlet) {
-          setOutletId(firstOutlet.id);
-          setOutletName(firstOutlet.name);
-          try {
-            const [catList, dishList] = await Promise.all([
-              canteenApi.listCategories(firstOutlet.id, token),
-              canteenApi.listDishes(firstOutlet.id, { status: "on_shelf" }, token)
-            ]);
-            if (cancelled) return;
-            const firstCat = catList[0];
-            if (catList.length > 0 && firstCat) {
-              setCats(catList.map((c) => c.name));
-              setActiveCat(firstCat.name);
-            }
-            if (dishList.length > 0) {
-              const catNameById = new Map(catList.map((c) => [c.id, c.name]));
-              setDishes(
-                dishList.map((d) => ({
-                  id: d.id,
-                  name: d.name,
-                  price: Number(d.price),
-                  category: (d.categoryId && catNameById.get(d.categoryId)) ?? firstCat?.name ?? "全部",
-                  color: "#1f4e8c",
-                  soldout: d.status !== "on_shelf"
-                }))
-              );
-              setDemoMode(false);
-            }
-          } catch {
-            /* 餐品接口未就绪，保留演示数据 */
-          }
-        }
-        try {
-          const current = await canteenApi.getCurrentSession(token);
-          if (cancelled) return;
-          if (current) {
-            setShiftOpen(current.status === "open");
-            setShiftNo(current.sessionNo ?? "");
-            setSessionId(current.id ?? "");
-            /* 注意：open 班次的存储汇总列恒为 0，不用它校准金额；预览以打开日结时的 day-close 接口为准 */
-          }
-        } catch {
-          /* 无班次视为未开班 */
+        const usable = outletList.filter((o) => o.status === "open");
+        setOutlets(usable);
+        if (usable[0]) {
+          await loadOutletData(usable[0], () => cancelled);
         }
       } catch {
         /* 档口接口未就绪：保留演示档口/餐品 */
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, loadOutletData]);
+
+  /* 切换档口：终止进行中的支付轮询，清空账单与班次状态，重载该档口数据 */
+  async function changeOutlet(id: string) {
+    if (id === outletId) return;
+    const outlet = outlets.find((o) => o.id === id);
+    if (!outlet) return;
+    stopCountdown();
+    stopPolling();
+    await loadOutletData(outlet);
+  }
 
   /* ====== 联网状态 ====== */
   useEffect(() => {
@@ -323,7 +341,7 @@ export default function PosTerminalPage() {
   async function requestCloseShift() {
     if (!shiftOpen) return toast("当前无进行中班次");
     try {
-      const dc = await canteenApi.getCurrentDayClose(token);
+      const dc = await canteenApi.getCurrentDayClose(outletId, token);
       setShift({
         qrTotal: Number(dc.qr_pay_total ?? 0),
         subsidyTotal: Number(dc.subsidy_total ?? 0),
@@ -636,7 +654,20 @@ export default function PosTerminalPage() {
         {/* 顶栏 */}
         <header className={styles.topbar}>
           <div className={styles.outletBlock}>
-            <span className={styles.outletName}>{outletName}</span>
+            {outlets.length > 1 ? (
+              <select
+                className={styles.outletSelect}
+                value={outletId}
+                onChange={(e) => void changeOutlet(e.target.value)}
+                aria-label="切换档口"
+              >
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className={styles.outletName}>{outletName}</span>
+            )}
             <span className={styles.outletSub}>设备账号：餐厅收银（共用）{demoMode ? " · 演示数据" : ""}</span>
           </div>
           <div className={styles.topDiv} />
@@ -699,6 +730,9 @@ export default function PosTerminalPage() {
                   </button>
                 </div>
               ))}
+              {!demoMode && visibleDishes.length === 0 ? (
+                <div className={styles.gridEmpty}>该档口暂无在架菜品，请先在管理端「餐品与品类」上架</div>
+              ) : null}
             </div>
           </section>
 
