@@ -24,6 +24,7 @@ import type {
   PosEmployeeLookup,
   SaveCanteenCategoryInput,
   SaveCanteenDishInput,
+  UpdateCanteenOutletInput,
   UpdateCanteenOutletStatusInput,
   UpdateDishShelfInput,
   UpdateDishStockInput,
@@ -73,8 +74,16 @@ export const canteenApi = {
     });
     return response.data;
   },
-  async updateOutletStatus(id: string, input: UpdateCanteenOutletStatusInput, token?: string): Promise<CanteenOutlet> {
-    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}/status`, {
+  async updateOutlet(id: string, input: UpdateCanteenOutletInput, token?: string): Promise<CanteenOutlet> {
+    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}`, {
+      method: "PUT",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-outlet-update"),
+      body: compactObject(input as unknown as Record<string, unknown>)
+    });
+    return response.data;
+  },
+  async updateOutletStatus(id: string, input: UpdateCanteenOutletStatusInput, token?: string): Promise<CanteenOutlet> {    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}/status`, {
       method: "PATCH",
       token,
       idempotencyKey: createIdempotencyKey("canteen-outlet-status"),
@@ -225,13 +234,15 @@ export const canteenApi = {
     });
     return response.data;
   },
-  async getCurrentSession(token?: string): Promise<CanteenCashierSession | null> {
-    const response = await apiRequest<CanteenCashierSession | null>("/canteen/pos/sessions/current", { token });
+  async getCurrentSession(outletId?: string, token?: string): Promise<CanteenCashierSession | null> {
+    const query = outletId ? `?outlet_id=${encodeURIComponent(outletId)}` : "";
+    const response = await apiRequest<CanteenCashierSession | null>(`/canteen/pos/sessions/current${query}`, { token });
     return response.data;
   },
   /* 日结只读预览：聚合口径与结班一致，open 班次存储汇总列恒 0，故用此接口取实时数 */
-  async getCurrentDayClose(token?: string): Promise<CanteenDayClosePreview> {
-    const response = await apiRequest<CanteenDayClosePreview>("/canteen/pos/sessions/current/day-close", { token });
+  async getCurrentDayClose(outletId?: string, token?: string): Promise<CanteenDayClosePreview> {
+    const query = outletId ? `?outlet_id=${encodeURIComponent(outletId)}` : "";
+    const response = await apiRequest<CanteenDayClosePreview>(`/canteen/pos/sessions/current/day-close${query}`, { token });
     return response.data;
   },
   async closeSession(sessionId: string, token?: string): Promise<CanteenCashierSession> {
@@ -250,6 +261,15 @@ export const canteenApi = {
       body: compactObject(input as unknown as Record<string, unknown>)
     });
     return response.data;
+  },
+  /* Mock 渠道专用：模拟支付网关回调，将支付单置为已支付（与真实 webhook 同一应用服务）。 */
+  async settleMockPayment(paymentNo: string, token?: string): Promise<void> {
+    await apiRequest(`/canteen/internal/mock/payments/${encodeURIComponent(paymentNo)}/settle`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-mock-settle"),
+      body: {}
+    });
   },
   async checkoutSubsidy(input: PosCheckoutSubsidyInput, token?: string): Promise<PosCheckoutSubsidyResult> {
     const response = await apiRequest<PosCheckoutSubsidyResult>("/canteen/pos/checkout/subsidy", {

@@ -138,6 +138,7 @@ export interface CanteenDayClosePreview {
   qr_pay_total: string;
   subsidy_total: string;
   order_count: number;
+  refund_count: number;
   refund_total: string;
 }
 
@@ -153,6 +154,14 @@ export interface CanteenDayClosePreview {
 export interface CreateCanteenOutletInput {
   name: string;
   outlet_type: string;
+  contractor_id?: string;
+  location?: string;
+  business_hours?: string;
+  manager_user_id?: string;
+}
+export interface UpdateCanteenOutletInput {
+  name?: string;
+  outlet_type?: string;
   contractor_id?: string;
   location?: string;
   business_hours?: string;

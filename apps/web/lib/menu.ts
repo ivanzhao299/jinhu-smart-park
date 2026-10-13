@@ -46,6 +46,8 @@ export interface MenuNode {
   module?: string;
   icon?: LucideIcon;
   children?: MenuNode[];
+  /* 独立终端类页面（如 POS kiosk）：新标签页打开，不离开管理端 */
+  newTab?: boolean;
 }
 
 export interface BreadcrumbMatch {
@@ -404,6 +406,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "canteen",
     children: [
       { label: "餐品与品类", href: "/canteen/dishes", permission: CANTEEN_PERMISSIONS.DISH_VIEW, module: "canteen" },
+      { label: "POS 收银终端", href: "/canteen/pos", permission: CANTEEN_PERMISSIONS.ORDER_CREATE, module: "canteen", newTab: true },
       { label: "订单与流水", href: "/canteen/orders", permission: CANTEEN_PERMISSIONS.ORDER_VIEW, module: "canteen" },
       { label: "收银班次/日结", href: "/canteen/sessions", permission: CANTEEN_PERMISSIONS.SESSION_VIEW, module: "canteen" },
       { label: "结算与对账", href: "/canteen/settlements", permission: CANTEEN_PERMISSIONS.SETTLEMENT_VIEW, module: "canteen" },
