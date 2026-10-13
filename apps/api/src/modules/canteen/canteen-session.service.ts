@@ -128,7 +128,20 @@ export class CanteenSessionService {
     }
     qb.orderBy("s.open_time", "DESC").skip((page - 1) * pageSize).take(pageSize);
     const [list, total] = await qb.getManyAndCount();
-    return { list, total, page, pageSize };
+    /* 进行中班次的存储汇总列恒为 0（结班才写），此处以实时聚合覆盖，管理端可见营业中数据。 */
+    const withRealtime = await Promise.all(
+      list.map(async (s) => {
+        if (s.status !== "open") return s;
+        const agg = await this.aggregateSession(this.dataSource.manager, scope, s.id);
+        return Object.assign(s, {
+          qrPayTotal: agg.qrPayTotal,
+          subsidyTotal: agg.subsidyTotal,
+          orderCount: agg.orderCount,
+          refundTotal: agg.refundTotal
+        });
+      })
+    );
+    return { list: withRealtime, total, page, pageSize };
   }
 
   async close(scope: TenantParkScope, actor: JwtPrincipal, id: string, remark?: string) {
