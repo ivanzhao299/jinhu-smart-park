@@ -185,7 +185,7 @@ export default function CanteenOrdersPage() {
                   <tr key={order.id}>
                     <td>{order.orderNo}</td>
                     <td>{order.businessDate}</td>
-                    <td>{order.mealPeriod ?? "-"}</td>
+                    <td>{mealPeriodLabel(order.mealPeriod)}</td>
                     <td><ChannelPill channel={order.channel} /></td>
                     <td>¥{order.payAmount}</td>
                     <td>¥{order.qrPayAmount}</td>
@@ -220,7 +220,7 @@ export default function CanteenOrdersPage() {
 
         {detail ? (
           <Drawer size="lg" onClose={() => setDetail(null)}>
-            <DrawerHeader eyebrow="订单详情" title={detail.orderNo} description={`业务日期 ${detail.businessDate} · ${detail.mealPeriod ?? "—"}`} onClose={() => setDetail(null)} />
+            <DrawerHeader eyebrow="订单详情" title={detail.orderNo} description={`业务日期 ${detail.businessDate} · ${mealPeriodLabel(detail.mealPeriod)}`} onClose={() => setDetail(null)} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="订单状态" value={<OrderStatusPill status={detail.status} />} />
               <DrawerDetailItem label="收款渠道" value={<ChannelPill channel={detail.channel} />} />
@@ -262,6 +262,13 @@ export default function CanteenOrdersPage() {
       </PageShell>
     </PermissionGuard>
   );
+}
+
+/* 餐段枚举 → 中文显示；未知值原样展示 */
+function mealPeriodLabel(period?: string | null): string {
+  if (!period) return "-";
+  const map: Record<string, string> = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐" };
+  return map[period] ?? period;
 }
 
 function OrderStatusPill({ status }: { status: string }) {

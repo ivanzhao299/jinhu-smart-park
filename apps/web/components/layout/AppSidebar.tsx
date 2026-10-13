@@ -155,6 +155,8 @@ function MenuGroup({
               className={`nav-link${isActive ? " active" : ""}`}
               href={(child.href ?? "/dashboard") as Route}
               key={child.href}
+              target={child.newTab ? "_blank" : undefined}
+              rel={child.newTab ? "noopener" : undefined}
               onClick={onNavigate}
               onFocus={() => onPrefetch(child.href)}
               onMouseEnter={() => onPrefetch(child.href)}

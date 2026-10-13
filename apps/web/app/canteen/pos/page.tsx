@@ -70,6 +70,7 @@ export default function PosTerminalPage() {
 
   const [outletName, setOutletName] = useState("智慧园区餐厅 · 一楼综合档口");
   const [outletId, setOutletId] = useState("");
+  const [outlets, setOutlets] = useState<Array<{ id: string; name: string }>>([]);
   const [dishes, setDishes] = useState<PosDish[]>(DEMO_DISHES);
   const [cats, setCats] = useState<string[]>(DEMO_CATS);
   const [demoMode, setDemoMode] = useState(true);
@@ -86,7 +87,7 @@ export default function PosTerminalPage() {
   const [online, setOnline] = useState(true);
 
   const [modal, setModal] = useState<ModalKind>(null);
-  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false, subsidyAmount: "0.00", qrAmount: "0.00", isMixed: false });
+  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false, provider: "", subsidyAmount: "0.00", qrAmount: "0.00", isMixed: false });
   const [remain, setRemain] = useState(COUNTDOWN_SECONDS);
   const [showSuccess, setShowSuccess] = useState<{ amount: string; sub: string; subsidyAmount?: string; qrAmount?: string } | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -103,64 +104,82 @@ export default function PosTerminalPage() {
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ====== 初始化：拉档口/餐品/当前班次；失败则演示兜底 ====== */
+  /* ====== 档口数据加载：品类/餐品/当前班次；接口失败保留演示兜底 ====== */
+  const loadOutletData = useCallback(async (outlet: { id: string; name: string }, isCancelled: () => boolean = () => false) => {
+    setOutletId(outlet.id);
+    setOutletName(outlet.name);
+    setCart([]);
+    setModal(null);
+    setShift({ qrTotal: 0, subsidyTotal: 0, orders: 0, refund: 0 });
+    setShiftOpen(false);
+    setShiftNo("");
+    setSessionId("");
+    try {
+      const [catList, dishList] = await Promise.all([
+        canteenApi.listCategories(outlet.id, token),
+        canteenApi.listDishes(outlet.id, { status: "on_shelf" }, token)
+      ]);
+      if (isCancelled()) return;
+      /* 真实数据加载成功即退出演示模式；无在架菜品显示空态而非假菜 */
+      setDemoMode(false);
+      const catNameById = new Map(catList.map((c) => [c.id, c.name]));
+      setCats(catList.map((c) => c.name));
+      setActiveCat(catList[0]?.name ?? "");
+      setDishes(
+        dishList.map((d) => ({
+          id: d.id,
+          name: d.name,
+          price: Number(d.price),
+          category: (d.categoryId && catNameById.get(d.categoryId)) ?? catList[0]?.name ?? "全部",
+          color: "#1f4e8c",
+          soldout: d.status !== "on_shelf"
+        }))
+      );
+    } catch {
+      /* 餐品接口未就绪，保留演示数据 */
+    }
+    try {
+      const current = await canteenApi.getCurrentSession(outlet.id, token);
+      if (isCancelled()) return;
+      if (current) {
+        setShiftOpen(current.status === "open");
+        setShiftNo(current.sessionNo ?? "");
+        setSessionId(current.id ?? "");
+        /* 注意：open 班次的存储汇总列恒为 0，不用它校准金额；预览以打开日结时的 day-close 接口为准 */
+      }
+    } catch {
+      /* 无班次视为未开班 */
+    }
+  }, [token]);
+
+  /* ====== 初始化：拉档口列表并进入第一个营业中档口 ====== */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const outlets = await canteenApi.listOutlets(token);
+        const outletList = await canteenApi.listOutlets(token);
         if (cancelled) return;
-        const firstOutlet = outlets[0];
-        if (firstOutlet) {
-          setOutletId(firstOutlet.id);
-          setOutletName(firstOutlet.name);
-          try {
-            const [catList, dishList] = await Promise.all([
-              canteenApi.listCategories(firstOutlet.id, token),
-              canteenApi.listDishes(firstOutlet.id, { status: "on_shelf" }, token)
-            ]);
-            if (cancelled) return;
-            const firstCat = catList[0];
-            if (catList.length > 0 && firstCat) {
-              setCats(catList.map((c) => c.name));
-              setActiveCat(firstCat.name);
-            }
-            if (dishList.length > 0) {
-              const catNameById = new Map(catList.map((c) => [c.id, c.name]));
-              setDishes(
-                dishList.map((d) => ({
-                  id: d.id,
-                  name: d.name,
-                  price: Number(d.price),
-                  category: (d.categoryId && catNameById.get(d.categoryId)) ?? firstCat?.name ?? "全部",
-                  color: "#1f4e8c",
-                  soldout: d.status !== "on_shelf"
-                }))
-              );
-              setDemoMode(false);
-            }
-          } catch {
-            /* 餐品接口未就绪，保留演示数据 */
-          }
-        }
-        try {
-          const current = await canteenApi.getCurrentSession(token);
-          if (cancelled) return;
-          if (current) {
-            setShiftOpen(current.status === "open");
-            setShiftNo(current.sessionNo ?? "");
-            setSessionId(current.id ?? "");
-            /* 注意：open 班次的存储汇总列恒为 0，不用它校准金额；预览以打开日结时的 day-close 接口为准 */
-          }
-        } catch {
-          /* 无班次视为未开班 */
+        const usable = outletList.filter((o) => o.status === "open");
+        setOutlets(usable);
+        if (usable[0]) {
+          await loadOutletData(usable[0], () => cancelled);
         }
       } catch {
         /* 档口接口未就绪：保留演示档口/餐品 */
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, loadOutletData]);
+
+  /* 切换档口：终止进行中的支付轮询，清空账单与班次状态，重载该档口数据 */
+  async function changeOutlet(id: string) {
+    if (id === outletId) return;
+    const outlet = outlets.find((o) => o.id === id);
+    if (!outlet) return;
+    stopCountdown();
+    stopPolling();
+    await loadOutletData(outlet);
+  }
 
   /* ====== 联网状态 ====== */
   useEffect(() => {
@@ -225,6 +244,17 @@ export default function PosTerminalPage() {
       toast(e instanceof Error ? e.message : "加载订单失败");
     }
   }
+  /* 后端报错为英文契约信息，收银终端映射为收银员可读的中文提示；未识别的原样透出 */
+  function friendlyCanteenError(message: string, fallback: string): string {
+    const inProgress = message.match(/refund already in progress \(([^)]+)\)/);
+    if (inProgress) return `该订单已有退款处理中（${inProgress[1]}），请等待审核结果`;
+    if (message.includes("order already fully refunded")) return "该订单已全额退款，不能再次退款";
+    if (message.includes("order not refundable")) return "当前订单状态不可退款";
+    if (message.includes("order not cancellable")) return "当前订单状态不可撤单";
+    if (message.includes("already cancelled")) return "该订单已取消，不能重复操作";
+    return message.includes(" ") ? fallback : message;
+  }
+
   async function doVoid(order: CanteenOrder) {
     setRefundBusy(true);
     try {
@@ -232,7 +262,7 @@ export default function PosTerminalPage() {
       toast(`已撤单 ${order.orderNo}`);
       await openRefund();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "撤单失败");
+      toast(e instanceof Error ? friendlyCanteenError(e.message, "撤单失败") : "撤单失败");
     } finally {
       setRefundBusy(false);
     }
@@ -241,10 +271,10 @@ export default function PosTerminalPage() {
     setRefundBusy(true);
     try {
       await canteenApi.requestOrderRefund(order.id, { reason: "POS 退款申请" }, getAccessToken());
-      toast(`已发起退款 ${order.orderNo}，待 canteen-admin 审核`);
+      toast(`已发起退款 ${order.orderNo}，待审核`);
       await openRefund();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "退款申请失败");
+      toast(e instanceof Error ? friendlyCanteenError(e.message, "退款申请失败") : "退款申请失败");
     } finally {
       setRefundBusy(false);
     }
@@ -322,12 +352,12 @@ export default function PosTerminalPage() {
   async function requestCloseShift() {
     if (!shiftOpen) return toast("当前无进行中班次");
     try {
-      const dc = await canteenApi.getCurrentDayClose(token);
+      const dc = await canteenApi.getCurrentDayClose(outletId, token);
       setShift({
         qrTotal: Number(dc.qr_pay_total ?? 0),
         subsidyTotal: Number(dc.subsidy_total ?? 0),
         orders: Number(dc.order_count ?? 0),
-        refund: Number(dc.refund_total ?? 0)
+        refund: Number(dc.refund_count ?? 0)
       });
       setShiftNo(dc.session_no ?? shiftNo);
     } catch (error) {
@@ -433,6 +463,7 @@ export default function PosTerminalPage() {
     let paymentNo = "";
     let codeUrl = "";
     let demo = false;
+    let provider = "";
 
     try {
       const res = await canteenApi.checkoutQr(
@@ -442,6 +473,7 @@ export default function PosTerminalPage() {
       orderNo = res.order_no;
       paymentNo = res.payment_no;
       codeUrl = res.code_url;
+      provider = res.provider ?? "";
     } catch {
       // 后端 M1 收款接口未就绪：进入演示下单，二维码用占位串
       demo = true;
@@ -450,7 +482,7 @@ export default function PosTerminalPage() {
       codeUrl = "DEMO-canteen-qrcode-" + paymentNo;
     }
 
-    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo, subsidyAmount: "0.00", qrAmount: amount, isMixed: false });
+    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo, provider, subsidyAmount: "0.00", qrAmount: amount, isMixed: false });
     setModal("qr");
 
     const settle = () => {
@@ -469,12 +501,26 @@ export default function PosTerminalPage() {
     if (!demo) startPolling(paymentNo, onPaid, () => { stopCountdown(); setModal(null); toast("支付已关单"); });
   }
 
-  /* 演示模式下“模拟支付成功” */
+  /* 演示模式下“模拟支付成功”（后端无此单，纯本地收银反馈） */
   async function demoPaySuccess() {
     stopCountdown();
     stopPolling();
     const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
     finishOrder(qrInfo.amount, "二维码收款成功（演示）", note, "qr", "0.00", qrInfo.amount);
+  }
+
+  /* Mock 渠道“模拟支付成功”：调内部结算接口（与真实回调同一应用服务），
+     成功后走与“轮询到支付成功”完全一致的收尾，订单/班次/流水全部真实落库。 */
+  async function mockSettleSuccess() {
+    stopCountdown();
+    stopPolling();
+    try {
+      await canteenApi.settleMockPayment(qrInfo.paymentNo, token);
+      const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
+      finishOrder(qrInfo.amount, "二维码收款成功（Mock 渠道）", note, "qr", "0.00", qrInfo.amount);
+    } catch (error) {
+      toast(error instanceof Error ? `模拟支付失败：${error.message}` : "模拟支付失败，可稍后重试或超时关单");
+    }
   }
 
   function closeQr() {
@@ -608,6 +654,7 @@ export default function PosTerminalPage() {
       amount: res.qr_pay_amount ?? "0.00",
       codeUrl: res.code_url ?? "",
       demo: false,
+      provider: res.provider ?? "",
       subsidyAmount: res.subsidy_amount ?? "0.00",
       qrAmount: res.qr_pay_amount ?? "0.00",
       isMixed: true
@@ -635,7 +682,20 @@ export default function PosTerminalPage() {
         {/* 顶栏 */}
         <header className={styles.topbar}>
           <div className={styles.outletBlock}>
-            <span className={styles.outletName}>{outletName}</span>
+            {outlets.length > 1 ? (
+              <select
+                className={styles.outletSelect}
+                value={outletId}
+                onChange={(e) => void changeOutlet(e.target.value)}
+                aria-label="切换档口"
+              >
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className={styles.outletName}>{outletName}</span>
+            )}
             <span className={styles.outletSub}>设备账号：餐厅收银（共用）{demoMode ? " · 演示数据" : ""}</span>
           </div>
           <div className={styles.topDiv} />
@@ -698,6 +758,9 @@ export default function PosTerminalPage() {
                   </button>
                 </div>
               ))}
+              {!demoMode && visibleDishes.length === 0 ? (
+                <div className={styles.gridEmpty}>该档口暂无在架菜品，请先在管理端「餐品与品类」上架</div>
+              ) : null}
             </div>
           </section>
 
@@ -798,13 +861,15 @@ export default function PosTerminalPage() {
                 <div className={styles.demoTip}>
                   {qrInfo.demo
                     ? "演示模式：收款接口未联调，二维码为占位图形；点击「模拟支付成功」走完整收银反馈。真实环境由支付平台异步回调 + POS 轮询 /payments/{no}/status 驱动。"
-                    : "请顾客使用微信/支付宝扫码；POS 将自动轮询支付状态，支付成功后进入下一单。"}
+                    : qrInfo.provider === "mock"
+                      ? "演示渠道（Mock）：二维码为模拟地址，顾客无法扫码；点击「模拟支付成功」完成本单收款，数据真实入账。"
+                      : "请顾客使用微信/支付宝扫码；POS 将自动轮询支付状态，支付成功后进入下一单。"}
                 </div>
               </div>
               <div className={styles.dlgFoot}>
                 <button className={`${styles.btn} ${styles.btnWarn}`} type="button" onClick={closeQr}>超时关单</button>
-                {qrInfo.demo ? (
-                  <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={demoPaySuccess}>模拟支付成功</button>
+                {qrInfo.demo || qrInfo.provider === "mock" ? (
+                  <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={() => void (qrInfo.provider === "mock" ? mockSettleSuccess() : demoPaySuccess())}>模拟支付成功</button>
                 ) : null}
               </div>
             </div>

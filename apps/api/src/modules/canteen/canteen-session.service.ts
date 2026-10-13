@@ -7,6 +7,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { OpenSessionDto, SessionListQueryDto } from "./dto/canteen.dto";
 import { CanteenCashierSessionEntity } from "./entities/canteen-cashier-session.entity";
 import { CanteenOrderEntity } from "./entities/canteen-order.entity";
+import { CanteenRefundEntity } from "./entities/canteen-refund.entity";
 import { CanteenStatusLogEntity } from "./entities/canteen-status-log.entity";
 import { CanteenNumberService } from "./canteen-number.service";
 
@@ -127,7 +128,20 @@ export class CanteenSessionService {
     }
     qb.orderBy("s.open_time", "DESC").skip((page - 1) * pageSize).take(pageSize);
     const [list, total] = await qb.getManyAndCount();
-    return { list, total, page, pageSize };
+    /* 进行中班次的存储汇总列恒为 0（结班才写），此处以实时聚合覆盖，管理端可见营业中数据。 */
+    const withRealtime = await Promise.all(
+      list.map(async (s) => {
+        if (s.status !== "open") return s;
+        const agg = await this.aggregateSession(this.dataSource.manager, scope, s.id);
+        return Object.assign(s, {
+          qrPayTotal: agg.qrPayTotal,
+          subsidyTotal: agg.subsidyTotal,
+          orderCount: agg.orderCount,
+          refundTotal: agg.refundTotal
+        });
+      })
+    );
+    return { list: withRealtime, total, page, pageSize };
   }
 
   async close(scope: TenantParkScope, actor: JwtPrincipal, id: string, remark?: string) {
@@ -140,7 +154,7 @@ export class CanteenSessionService {
       if (session.status === "closed") throw new BadRequestException("session already closed");
 
       // 聚合本班订单（与预览口径完全一致）。
-      const { orderCount, qrPayTotal, subsidyTotal } = await this.aggregateSession(
+      const { orderCount, qrPayTotal, subsidyTotal, refundTotal } = await this.aggregateSession(
         manager,
         scope,
         session.id
@@ -150,7 +164,7 @@ export class CanteenSessionService {
       session.qrPayTotal = qrPayTotal;
       session.subsidyTotal = subsidyTotal;
       session.orderCount = orderCount;
-      session.refundTotal = "0.00";
+      session.refundTotal = refundTotal;
       session.status = "closed";
       session.closeSnapshot = {
         closedAt: new Date().toISOString(),
@@ -195,7 +209,8 @@ export class CanteenSessionService {
       qr_pay_total: agg.qrPayTotal,
       subsidy_total: agg.subsidyTotal,
       order_count: agg.orderCount,
-      refund_total: "0.00"
+      refund_count: agg.refundCount,
+      refund_total: agg.refundTotal
     };
   }
 
@@ -204,7 +219,7 @@ export class CanteenSessionService {
     manager: EntityManager,
     scope: TenantParkScope,
     sessionId: string
-  ): Promise<{ orderCount: number; qrPayTotal: string; subsidyTotal: string }> {
+  ): Promise<{ orderCount: number; qrPayTotal: string; subsidyTotal: string; refundCount: number; refundTotal: string }> {
     const agg = await manager
       .createQueryBuilder(CanteenOrderEntity, "o")
       .select("count(*)", "orderCount")
@@ -215,13 +230,32 @@ export class CanteenSessionService {
         p: scope.parkId,
         sid: sessionId
       })
-      .andWhere("o.status IN (:...st)", { st: ["paid", "completed"] })
+      /* 毛口径：本班真实收款动作（含已退款订单），退款在 refund 维度单独列示 */
+      .andWhere("o.status IN (:...st)", { st: ["paid", "completed", "refunded"] })
       .getRawOne<{ orderCount: string; qrPayTotal: string; subsidyTotal: string }>();
+
+    // 本班退款/撤单：挂在班次订单上的 succeeded 退款单（含退软前撤单 void_before_pay）。
+    const refundAgg = await manager
+      .createQueryBuilder(CanteenRefundEntity, "r")
+      .select("count(*)", "refundCount")
+      .addSelect("COALESCE(sum(r.amount),0)", "refundTotal")
+      .innerJoin(CanteenOrderEntity, "o", "o.id = r.order_id")
+      .where("r.tenant_id = :t AND r.park_id = :p AND r.is_deleted = false", {
+        t: scope.tenantId,
+        p: scope.parkId
+      })
+      .andWhere("r.status = :rst", { rst: "succeeded" })
+      .andWhere("o.cashier_session_id = :sid AND o.is_deleted = false", {
+        sid: sessionId
+      })
+      .getRawOne<{ refundCount: string; refundTotal: string }>();
 
     return {
       orderCount: Number(agg?.orderCount ?? 0),
       qrPayTotal: Number(agg?.qrPayTotal ?? 0).toFixed(2),
-      subsidyTotal: Number(agg?.subsidyTotal ?? 0).toFixed(2)
+      subsidyTotal: Number(agg?.subsidyTotal ?? 0).toFixed(2),
+      refundCount: Number(refundAgg?.refundCount ?? 0),
+      refundTotal: Number(refundAgg?.refundTotal ?? 0).toFixed(2)
     };
   }
 }
