@@ -30,9 +30,20 @@ interface Filters {
   endDate: string;
 }
 
+/* 本地时区当天（YYYY-MM-DD）：后端要求起止日期必填，默认查当天避免首载报错 */
+function todayLocal(): string {
+  const d = new Date();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 export default function CanteenReportsPage() {
   const [outlets, setOutlets] = useState<CanteenOutlet[]>([]);
-  const [filters, setFilters] = useState<Filters>({ outletId: "", startDate: "", endDate: "" });
+  const [filters, setFilters] = useState<Filters>(() => {
+    const today = todayLocal();
+    return { outletId: "", startDate: today, endDate: today };
+  });
   const [summary, setSummary] = useState<CanteenReportSummary>(EMPTY_SUMMARY);
   const [rows, setRows] = useState<CanteenReportShareRow[]>([]);
   const [loading, setLoading] = useState(false);
