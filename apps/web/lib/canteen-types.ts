@@ -138,6 +138,7 @@ export interface CanteenDayClosePreview {
   qr_pay_total: string;
   subsidy_total: string;
   order_count: number;
+  refund_count: number;
   refund_total: string;
 }
 

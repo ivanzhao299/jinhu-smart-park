@@ -327,7 +327,7 @@ export default function PosTerminalPage() {
         qrTotal: Number(dc.qr_pay_total ?? 0),
         subsidyTotal: Number(dc.subsidy_total ?? 0),
         orders: Number(dc.order_count ?? 0),
-        refund: Number(dc.refund_total ?? 0)
+        refund: Number(dc.refund_count ?? 0)
       });
       setShiftNo(dc.session_no ?? shiftNo);
     } catch (error) {
