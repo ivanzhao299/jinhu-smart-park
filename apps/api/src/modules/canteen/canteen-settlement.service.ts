@@ -116,7 +116,7 @@ export class CanteenSettlementService {
     };
   }
 
-  /** 幂等生成：已存在同 (outlet,period) 单据则直接返回（不重复聚合）。 */
+  /** 生成结算单：草稿可重算（regenerate），非草稿状态拒绝；首生成走聚合建单。 */
   async generate(scope: TenantParkScope, actor: JwtPrincipal, outletId: string, period: string) {
     const outlet = await this.outletRepo.findOne({
       where: { id: outletId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
@@ -126,35 +126,58 @@ export class CanteenSettlementService {
     const existing = await this.repo.findOne({
       where: { tenantId: scope.tenantId, outletId, period, isDeleted: false }
     });
-    if (existing) return existing;
+    if (existing && existing.status !== "draft") {
+      throw new BadRequestException(
+        `settlement ${existing.settlementNo} is ${existing.status}; only draft settlements can be regenerated`
+      );
+    }
 
     return this.ds.transaction(async (manager) => {
       const agg = await this.aggregate(manager, scope, outletId, period);
-      const no = await this.numbers.settlementNo(manager, scope.tenantId);
-      const s = manager.create(CanteenSettlementEntity, {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        settlementNo: no,
-        period,
-        outletId,
-        contractorId: outlet.contractorId,
-        salesTotal: agg.totals.sales_total,
-        qrPayTotal: agg.totals.qr_pay_total,
-        subsidyTotal: agg.totals.subsidy_total,
-        refundTotal: agg.totals.refund_total,
-        companyPayable: agg.totals.company_payable,
-        status: "draft",
-        generatedTime: new Date(),
-        createBy: actor.sub,
-        updateBy: actor.sub
-      });
-      const saved = await manager.save(s);
+      let settlement: CanteenSettlementEntity;
+
+      if (existing) {
+        /* 草稿重算：按最新订单/退款数据刷新头部金额并重建明细行。 */
+        existing.salesTotal = agg.totals.sales_total;
+        existing.qrPayTotal = agg.totals.qr_pay_total;
+        existing.subsidyTotal = agg.totals.subsidy_total;
+        existing.refundTotal = agg.totals.refund_total;
+        existing.companyPayable = agg.totals.company_payable;
+        existing.generatedTime = new Date();
+        existing.updateBy = actor.sub;
+        settlement = await manager.save(existing);
+        await manager.delete(CanteenSettlementItemEntity, { settlementId: settlement.id });
+        await this.writeLog(manager, settlement, "draft", "draft", "regenerate", actor.sub, actor.username);
+      } else {
+        const no = await this.numbers.settlementNo(manager, scope.tenantId);
+        settlement = await manager.save(
+          manager.create(CanteenSettlementEntity, {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            settlementNo: no,
+            period,
+            outletId,
+            contractorId: outlet.contractorId,
+            salesTotal: agg.totals.sales_total,
+            qrPayTotal: agg.totals.qr_pay_total,
+            subsidyTotal: agg.totals.subsidy_total,
+            refundTotal: agg.totals.refund_total,
+            companyPayable: agg.totals.company_payable,
+            status: "draft",
+            generatedTime: new Date(),
+            createBy: actor.sub,
+            updateBy: actor.sub
+          })
+        );
+        await this.writeLog(manager, settlement, null, "draft", "generate", actor.sub, actor.username);
+      }
+
       for (const r of agg.rows) {
         await manager.save(
           manager.create(CanteenSettlementItemEntity, {
             tenantId: scope.tenantId,
             parkId: scope.parkId,
-            settlementId: saved.id,
+            settlementId: settlement.id,
             bizDate: r.business_date,
             mealPeriod: null,
             orderCount: r.order_count,
@@ -169,8 +192,7 @@ export class CanteenSettlementService {
           })
         );
       }
-      await this.writeLog(manager, saved, null, "draft", "generate", actor.sub, actor.username);
-      return saved;
+      return settlement;
     });
   }
 
