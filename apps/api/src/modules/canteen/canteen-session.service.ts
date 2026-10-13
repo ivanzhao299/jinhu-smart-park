@@ -217,7 +217,8 @@ export class CanteenSessionService {
         p: scope.parkId,
         sid: sessionId
       })
-      .andWhere("o.status IN (:...st)", { st: ["paid", "completed"] })
+      /* 毛口径：本班真实收款动作（含已退款订单），退款在 refund 维度单独列示 */
+      .andWhere("o.status IN (:...st)", { st: ["paid", "completed", "refunded"] })
       .getRawOne<{ orderCount: string; qrPayTotal: string; subsidyTotal: string }>();
 
     // 本班退款/撤单：挂在班次订单上的 succeeded 退款单（含退软前撤单 void_before_pay）。

@@ -32,19 +32,18 @@ export class CanteenReportService {
   async sales(scope: TenantParkScope, q: { start_date: string; end_date: string; outlet_id?: string; meal_period?: string }) {
     this.bounds(q.start_date, q.end_date);
     const rows = (await this.orderRepo.query(
-      `SELECT COUNT(*)::int AS order_count,
-              COALESCE(SUM(pay_amount),0)::numeric AS sales_total,
+      `SELECT COUNT(*) FILTER (WHERE status IN ('paid','completed'))::int AS order_count,
               COALESCE(SUM(qr_pay_amount),0)::numeric AS qr_pay_total,
               COALESCE(SUM(subsidy_amount),0)::numeric AS subsidy_total
          FROM biz_canteen_orders
         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
-          AND status IN ('paid','completed')
+          AND status IN ('paid','completed','refunded')
           AND business_date BETWEEN $3 AND $4
           AND ($5::uuid IS NULL OR outlet_id=$5)
           AND ($6::text IS NULL OR meal_period=$6)`,
       [scope.tenantId, scope.parkId, q.start_date, q.end_date, q.outlet_id ?? null, q.meal_period ?? null]
     )) as Array<Record<string, string | number>>;
-    const r = rows[0] ?? { order_count: 0, sales_total: "0.00", qr_pay_total: "0.00", subsidy_total: "0.00" };
+    const r = rows[0] ?? { order_count: 0, qr_pay_total: "0.00", subsidy_total: "0.00" };
     const c = Number(r.order_count) || 0;
     const refundRows = (await this.orderRepo.query(
       `SELECT COALESCE(SUM(r.amount),0)::numeric AS refund_total
@@ -57,15 +56,18 @@ export class CanteenReportService {
           AND ($5::uuid IS NULL OR o.outlet_id=$5)`,
       [scope.tenantId, scope.parkId, q.start_date, q.end_date, q.outlet_id ?? null]
     )) as Array<Record<string, string | number>>;
+    /* 渠道卡片为毛口径（真实资金动作，含已退款订单），净营业额 = 扫码 + 餐补 − 退款。 */
+    const refundTotal = refundRows[0]?.refund_total ?? "0.00";
+    const netTotal = Number(r.qr_pay_total) + Number(r.subsidy_total) - Number(refundTotal);
     return {
       start_date: q.start_date,
       end_date: q.end_date,
       order_count: c,
-      sales_total: r.sales_total,
+      sales_total: netTotal.toFixed(2),
       qr_pay_total: r.qr_pay_total,
       subsidy_total: r.subsidy_total,
-      refund_total: refundRows[0]?.refund_total ?? "0.00",
-      avg_order_value: c > 0 ? (Number(r.sales_total) / c).toFixed(2) : "0.00"
+      refund_total: refundTotal,
+      avg_order_value: c > 0 ? (netTotal / c).toFixed(2) : "0.00"
     };
   }
 

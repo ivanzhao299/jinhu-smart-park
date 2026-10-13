@@ -58,7 +58,7 @@ export class CanteenSettlementService {
     );
   }
 
-  /** 按账期聚合某档口已完成订单（cancelled/pending 不计）。 */
+  /** 按账期聚合某档口订单（毛口径：含已退款订单；cancelled/pending 不计）。 */
   private async aggregate(manager: EntityManager, scope: TenantParkScope, outletId: string, period: string) {
     const rows = (await manager.query(
       `SELECT business_date,
@@ -68,7 +68,7 @@ export class CanteenSettlementService {
               COALESCE(SUM(subsidy_amount),0)::numeric AS subsidy_total
          FROM biz_canteen_orders
         WHERE tenant_id=$1 AND park_id=$2 AND outlet_id=$3 AND is_deleted=false
-          AND status IN ('paid','completed') AND to_char(business_date,'YYYY-MM') = $4
+          AND status IN ('paid','completed','refunded') AND to_char(business_date,'YYYY-MM') = $4
         GROUP BY business_date ORDER BY business_date`,
       [scope.tenantId, scope.parkId, outletId, period]
     )) as Array<{
@@ -81,13 +81,22 @@ export class CanteenSettlementService {
 
     const refundRows = (await manager.query(
       `SELECT COALESCE(SUM(r.amount),0)::numeric AS refund_total,
-              COALESCE(SUM(CASE WHEN r.refund_channel='subsidy' THEN r.amount ELSE 0 END),0)::numeric AS subsidy_refund
+              COALESCE(SUM(CASE WHEN r.refund_channel='subsidy' THEN r.amount ELSE 0 END),0)::numeric AS subsidy_refund,
+              COALESCE(SUM(CASE WHEN r.refund_channel='original_qr' THEN r.amount ELSE 0 END),0)::numeric AS qr_refund
          FROM biz_canteen_refunds r
          JOIN biz_canteen_orders o ON o.id = r.order_id
         WHERE r.tenant_id=$1 AND r.is_deleted=false AND r.status='succeeded'
           AND o.outlet_id=$2 AND to_char(o.business_date,'YYYY-MM')=$3`,
       [scope.tenantId, outletId, period]
-    )) as Array<{ refund_total: string; subsidy_refund: string }>;
+    )) as Array<{ refund_total: string; subsidy_refund: string; qr_refund: string }>;
+
+    /* 二维码收款资金归属：true=公司统一账户（结算时划付承包方）；false=承包方自有码（单列不重复付）。 */
+    const settingsRows = (await manager.query(
+      `SELECT funds_company_account FROM biz_canteen_settings
+        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false LIMIT 1`,
+      [scope.tenantId, scope.parkId]
+    )) as Array<{ funds_company_account: boolean }>;
+    const fundsCompanyAccount = settingsRows[0] ? settingsRows[0].funds_company_account !== false : true;
 
     const sum = rows.reduce(
       (acc, r) => ({
@@ -100,8 +109,10 @@ export class CanteenSettlementService {
     );
     const refundTotal = yuanToCents(refundRows[0]?.refund_total ?? "0");
     const subsidyRefund = yuanToCents(refundRows[0]?.subsidy_refund ?? "0");
-    // company_payable = 餐补核销净额（补贴消费 − 补贴退款净额）。
-    const companyPayable = sum.subsidy - subsidyRefund;
+    const qrRefund = yuanToCents(refundRows[0]?.qr_refund ?? "0");
+    // company_payable = 餐补净消费 + 扫码净收款（仅公司统一收款时；管理费规则另配，默认不启用）。
+    const companyPayable =
+      sum.subsidy - subsidyRefund + (fundsCompanyAccount ? sum.qr - qrRefund : 0);
 
     return {
       rows,
