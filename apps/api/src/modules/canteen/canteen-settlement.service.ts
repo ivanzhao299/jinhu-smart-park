@@ -61,7 +61,7 @@ export class CanteenSettlementService {
   /** 按账期聚合某档口订单（毛口径：含已退款订单；cancelled/pending 不计）。 */
   private async aggregate(manager: EntityManager, scope: TenantParkScope, outletId: string, period: string) {
     const rows = (await manager.query(
-      `SELECT business_date,
+      `SELECT to_char(business_date,'YYYY-MM-DD') AS business_date,
               COUNT(*)::int AS order_count,
               COALESCE(SUM(pay_amount),0)::numeric AS sales_total,
               COALESCE(SUM(qr_pay_amount),0)::numeric AS qr_pay_total,
@@ -90,6 +90,31 @@ export class CanteenSettlementService {
       [scope.tenantId, outletId, period]
     )) as Array<{ refund_total: string; subsidy_refund: string; qr_refund: string }>;
 
+    /* 分日退款：用于明细行 refund_amount 与按日净营业额。 */
+    const refundDayRows = (await manager.query(
+      `SELECT to_char(o.business_date,'YYYY-MM-DD') AS business_date,
+              COALESCE(SUM(r.amount),0)::numeric AS refund_total
+         FROM biz_canteen_refunds r
+         JOIN biz_canteen_orders o ON o.id = r.order_id
+        WHERE r.tenant_id=$1 AND r.is_deleted=false AND r.status='succeeded'
+          AND o.outlet_id=$2 AND to_char(o.business_date,'YYYY-MM')=$3
+        GROUP BY o.business_date ORDER BY o.business_date`,
+      [scope.tenantId, outletId, period]
+    )) as Array<{ business_date: string; refund_total: string }>;
+    const refundByDay = new Map(refundDayRows.map((r) => [r.business_date, yuanToCents(r.refund_total)]));
+    const detailRows = rows.map((r) => {
+      const dayRefund = refundByDay.get(String(r.business_date)) ?? 0;
+      return {
+        business_date: r.business_date,
+        order_count: r.order_count,
+        /* 当日净营业额 = 扫码 + 餐补 − 退款（与结算单头部口径一致） */
+        sales_total: centsToYuan(yuanToCents(r.qr_pay_total) + yuanToCents(r.subsidy_total) - dayRefund),
+        qr_pay_total: r.qr_pay_total,
+        subsidy_total: r.subsidy_total,
+        refund_total: centsToYuan(dayRefund)
+      };
+    });
+
     /* 二维码收款资金归属：true=公司统一账户（结算时划付承包方）；false=承包方自有码（单列不重复付）。 */
     const settingsRows = (await manager.query(
       `SELECT funds_company_account FROM biz_canteen_settings
@@ -113,11 +138,13 @@ export class CanteenSettlementService {
     // company_payable = 餐补净消费 + 扫码净收款（仅公司统一收款时；管理费规则另配，默认不启用）。
     const companyPayable =
       sum.subsidy - subsidyRefund + (fundsCompanyAccount ? sum.qr - qrRefund : 0);
+    /* 营业额为净口径（与经营报表一致）：扫码 + 餐补 − 退款。 */
+    const salesTotal = sum.qr + sum.subsidy - refundTotal;
 
     return {
-      rows,
+      rows: detailRows,
       totals: {
-        sales_total: centsToYuan(sum.sales),
+        sales_total: centsToYuan(salesTotal < 0 ? 0 : salesTotal),
         qr_pay_total: centsToYuan(sum.qr),
         subsidy_total: centsToYuan(sum.subsidy),
         refund_total: centsToYuan(refundTotal),
@@ -194,7 +221,7 @@ export class CanteenSettlementService {
             orderCount: r.order_count,
             qrPayAmount: r.qr_pay_total,
             subsidyAmount: r.subsidy_total,
-            refundAmount: "0.00",
+            refundAmount: r.refund_total,
             type: "order",
             diffAmount: "0.00",
             diffReason: null,
