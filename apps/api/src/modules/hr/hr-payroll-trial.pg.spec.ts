@@ -18,8 +18,10 @@ import type { AuditService } from "../audit/audit.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PermissionGuard } from "../../shared/guards/permission.guard";
 import { HrPayrollFormalInputService } from "./hr-payroll-formal-input.service";
+import { HrPayrollFormalInputController } from "./hr-payroll-formal-input.controller";
 import { HrPayrollFormalRuleService } from "./hr-payroll-formal-rule.service";
 import { HrPayrollFormalRunService } from "./hr-payroll-formal-run.service";
+import { HrPayrollPeriodLifecycleService } from "./hr-payroll-period-lifecycle.service";
 import type { HrPayrollFormalDefinitionDto } from "./dto/hr-payroll-formal-rule.dto";
 
 const required = process.env.HR_PAYROLL_TRIAL_PG_REQUIRED === "1";
@@ -58,8 +60,8 @@ test("actual all-book trial HTTP and PostgreSQL preserve 93 records, serialize s
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000350_hr_payroll_formal_run_ledger_bridge.sql"), "utf8"));
     await db.query(readFileSync(resolve(__dirname, "../../../../../database/migrations/000351_hr_payroll_period_close_correction.sql"), "utf8"));
     const scope={tenantId:randomUUID(),parkId:randomUUID()},actor:JwtPrincipal={...scope,sub:randomUUID(),username:"synthetic-author",roles:[],permissions:Object.values(HR_PERMISSIONS)},reviewer={...actor,sub:randomUUID(),username:"synthetic-reviewer"};
-    let failAudit=false,holdAudit:Promise<void>|null=null,auditReached:()=>void=()=>{};
-    const audit={recordOperationRequired:async(value:{afterJson:unknown;action:string},manager:EntityManager)=>{await manager.query("INSERT INTO test_required_audit(metadata) VALUES($1)",[value.afterJson]);if(failAudit)throw new Error("synthetic audit failure");if(value.action==="全账套只算不发核对"&&holdAudit){auditReached();await holdAudit;}}} as unknown as AuditService;
+    let failAudit=false,holdPreparation=false,holdAudit:Promise<void>|null=null,auditReached:()=>void=()=>{};
+    const audit={recordOperationRequired:async(value:{afterJson:unknown;action:string},manager:EntityManager)=>{await manager.query("INSERT INTO test_required_audit(metadata) VALUES($1)",[value.afterJson??{}]);if(failAudit)throw new Error("synthetic audit failure");if((value.action==="全账套只算不发核对"||holdPreparation&&value.action==="读取当期工资准备")&&holdAudit){auditReached();await holdAudit;}}} as unknown as AuditService;
     const rules=new HrPayrollFormalRuleService(db,audit),inputs=new HrPayrollFormalInputService(db,rules,audit),runs=new HrPayrollFormalRunService(db,inputs,audit),service=new HrPayrollTrialService(db,inputs,runs,audit);
     const periodId=randomUUID(),batchId=randomUUID(),controlId=randomUUID(),operation=`synthetic-${randomUUID()}`;
     await db.query("INSERT INTO hr_payroll_period(id,tenant_id,park_id,period_month,start_date,end_date,status) VALUES($1,$2,$3,'2026-07-01','2026-07-01','2026-07-31','open')",[periodId,scope.tenantId,scope.parkId]);
@@ -107,6 +109,51 @@ test("actual all-book trial HTTP and PostgreSQL preserve 93 records, serialize s
     selection.books[0] = {...selection.books[0]!,inputId:fullInput.id,expectedInputVersion:fullConfirmed.version};
     const baseline=async()=>{const result:Record<string,string>={};for(const table of ["hr_payroll_run","hr_payslip","hr_payslip_item","hr_payroll_formal_input","hr_payroll_rule_version","hr_payroll_legacy_batch","hr_payroll_book","hr_payroll_book_period","hr_payroll_legacy_snapshot","hr_payroll_legacy_snapshot_item","hr_payroll_reconciliation_source","legacy_record_map","migration_batch","hr_yuzhou_t4_followon_operation"]){result[table]=(await db!.query(`SELECT md5(COALESCE(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) AS hash FROM ${table} t`))[0].hash;}return result;};
     const before=await baseline();
+    const ruleSets=await Promise.all(selection.books.map(async book=>(await db!.query("SELECT rule_set_id FROM hr_payroll_formal_input WHERE id=$1",[book.inputId]))[0].rule_set_id as string));
+    const sourceQuery=(index=0)=>({periodId,ruleSetId:ruleSets[index]!,reconciliationSourceId:selection.books[index]!.reconciliationSourceId,page:1,pageSize:20});
+    const preparedBooks=await Promise.all(selection.books.map(async (_,index)=>{
+      const all:string[]=[];let rosterHash="";
+      for(let page=1;;page++){
+        const prepared=await inputs.preparation(scope,actor,{...sourceQuery(index),page});
+        assert.equal(prepared.source?.recordCount,index===0?54:39);assert.equal(prepared.source?.bookId,selection.books[index]!.bookId);
+        assert.equal(prepared.source?.month,"2026-07");assert.match(prepared.source!.sourceHash,/^[a-f0-9]{64}$/);assert.match(prepared.source!.rosterHash,/^[a-f0-9]{64}$/);
+        if(rosterHash)assert.equal(prepared.source!.rosterHash,rosterHash);rosterHash=prepared.source!.rosterHash;
+        assert.ok(prepared.items.every(row=>row.expectedEmployeeVersion===1&&row.eligibility?.eligibleStart==="2026-07-01"&&!row.requiresSettlementWindow));
+        assert.ok(prepared.items.every(row=>!("directItems" in row)));all.push(...prepared.items.map(row=>row.employeeId));if(all.length===prepared.total)break;
+      }
+      assert.equal(new Set(all).size,all.length);return all;
+    }));
+    assert.equal(preparedBooks[0]!.filter(id=>preparedBooks[1]!.includes(id)).length,29);
+    assert.deepEqual(await baseline(),before,"source preparation changes no business table");
+    assert.equal((await inputs.preparation(scope,actor,{...sourceQuery(),page:99})).total,54);
+    assert.equal((await inputs.preparation(scope,actor,{...sourceQuery(),keyword:"no match"})).total,0);
+    assert.equal((await inputs.preparation(scope,actor,{periodId,ruleSetId:ruleSets[0]!,page:1,pageSize:100})).total,64,"ordinary preparation still offers scoped directory");
+    for(const query of [{...sourceQuery(),reconciliationSourceId:randomUUID()},{...sourceQuery(),reconciliationSourceId:selection.books[1]!.reconciliationSourceId},{...sourceQuery(),correctionWindowId:randomUUID()}])await assert.rejects(()=>inputs.preparation(scope,actor,query));
+    const otherPeriod=randomUUID();await db.query("INSERT INTO hr_payroll_period(id,tenant_id,park_id,period_month,start_date,end_date,status) VALUES($1,$2,$3,'2026-08-01','2026-08-01','2026-08-31','open')",[otherPeriod,scope.tenantId,scope.parkId]);
+    await assert.rejects(()=>inputs.preparation(scope,actor,{...sourceQuery(),periodId:otherPeriod}),/source month's open period/);await db.query("DELETE FROM hr_payroll_period WHERE id=$1",[otherPeriod]);
+    await db.query("UPDATE migration_batch SET status='failed' WHERE id=$1",[controlId]);await assert.rejects(()=>inputs.preparation(scope,actor,sourceQuery()),/changed/);await db.query("UPDATE migration_batch SET status='succeeded' WHERE id=$1",[controlId]);
+    const foreignPreparationScope={...scope,parkId:randomUUID()};await assert.rejects(()=>inputs.preparation(foreignPreparationScope,{...actor,...foreignPreparationScope},sourceQuery()),/scope/);
+    await db.query("UPDATE hr_employee SET is_deleted=true WHERE id=$1",[employeeIds[0]]);
+    await assert.rejects(()=>inputs.preparation(scope,actor,sourceQuery()),/Every source employee/);
+    await db.query("UPDATE hr_employee SET is_deleted=false WHERE id=$1",[employeeIds[0]]);
+    const preparationAudit=(await db.query("SELECT count(*)::int n FROM test_required_audit"))[0].n;
+    failAudit=true;await assert.rejects(()=>inputs.preparation(scope,actor,sourceQuery()),/synthetic audit failure/);failAudit=false;
+    assert.equal((await db.query("SELECT count(*)::int n FROM test_required_audit"))[0].n,preparationAudit);assert.deepEqual(await baseline(),before);
+    // Current employee versions remain stable until the required preparation audit commits.
+    let releasePreparation=()=>{};holdAudit=new Promise<void>(resolve=>{releasePreparation=resolve;});holdPreparation=true;
+    const preparationReached=new Promise<void>(resolve=>{auditReached=resolve;});const readingPreparation=inputs.preparation(scope,actor,sourceQuery());await preparationReached;
+    const rosterWriter=db.createQueryRunner();await rosterWriter.connect();await rosterWriter.startTransaction();
+    const sourceWriter=db.createQueryRunner();await sourceWriter.connect();await sourceWriter.startTransaction();
+    try {
+      const [{id:lockedSnapshot}]=await db.query("SELECT id FROM hr_payroll_legacy_snapshot WHERE employee_id=$1 AND legacy_source_table='salary34'",[employeeIds[0]]);
+      const appending=sourceWriter.query("INSERT INTO hr_payroll_legacy_snapshot_item(tenant_id,park_id,snapshot_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value) VALUES($1,$2,$3,'preparation-race','unmapped',false,repeat('a',64),'synthetic')",[scope.tenantId,scope.parkId,lockedSnapshot]);
+      let sourceWaiting=false;for(let attempt=0;attempt<50&&!sourceWaiting;attempt++){sourceWaiting=(await db.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE relation='hr_payroll_legacy_snapshot_item'::regclass AND NOT granted) AS waiting"))[0].waiting;if(!sourceWaiting)await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(sourceWaiting,true,"source append waits for preparation audit commit");
+      const changing=rosterWriter.query("UPDATE hr_employee SET version=version+1 WHERE id=$1",[employeeIds[0]]);
+      let waiting=false;for(let attempt=0;attempt<50&&!waiting;attempt++){waiting=(await db.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='transactionid' AND NOT granted) AS waiting"))[0].waiting;if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(waiting,true);
+      releasePreparation();assert.equal((await readingPreparation).total,54);await changing;await rosterWriter.commitTransaction();await appending;await sourceWriter.rollbackTransaction();
+    }finally{releasePreparation();holdAudit=null;holdPreparation=false;if(rosterWriter.isTransactionActive)await rosterWriter.rollbackTransaction();await rosterWriter.release();if(sourceWriter.isTransactionActive)await sourceWriter.rollbackTransaction();await sourceWriter.release();}
+    const changedPreparation=await inputs.preparation(scope,actor,sourceQuery());assert.equal(changedPreparation.items.find(row=>row.employeeId===employeeIds[0])?.expectedEmployeeVersion,2);
+    await db.query("UPDATE hr_employee SET version=1 WHERE id=$1",[employeeIds[0]]);assert.deepEqual(await baseline(),before);
     assert.equal((await service.options(scope,actor,{})).periods[0]?.recordCount,93);
     const options=await service.options(scope,actor,{legacyBatchId:batchId,month:"2026-07"});assert.equal(options.books.length,2);assert.equal(options.recordCount,93);assert.equal(options.employeeCount,64);assert.deepEqual(options.books.map(b=>b.recordCount).sort((a,b)=>a-b),[39,54]);
     const result=await service.calculate(scope,actor,selection);assert.equal(result.recordCount,93);assert.equal(result.employeeCount,64);assert.equal(result.bookCount,2);assert.equal(new Set(result.records.map(row=>row.sourceRecordId)).size,93);
@@ -136,19 +183,59 @@ test("actual all-book trial HTTP and PostgreSQL preserve 93 records, serialize s
       assert.equal((await db.query("SELECT count(*)::int n FROM test_required_audit"))[0].n, auditCount);
       assert.deepEqual(await baseline(), before);
     } finally { clock.mock.restore(); holdAudit = null; auditReached = () => {}; }
-    @Module({controllers:[HrPayrollTrialController],providers:[{provide:HrPayrollTrialService,useValue:service}]})class FixtureModule{}
+    @Module({controllers:[HrPayrollTrialController,HrPayrollFormalInputController],providers:[{provide:HrPayrollTrialService,useValue:service},{provide:HrPayrollFormalInputService,useValue:inputs}]})class FixtureModule{}
     const app=await NestFactory.create(FixtureModule,{logger:false});
     app.use((req:Request&{user?:JwtPrincipal},_res:unknown,next:()=>void)=>{req.user=req.headers["x-fixture-denied"]?{...actor,permissions:[]}:actor;next();});app.useGlobalGuards(new PermissionGuard(new Reflector()),new IdempotencyKeyGuard(new Reflector()));app.useGlobalPipes(new ValidationPipe({transform:true,whitelist:true,forbidNonWhitelisted:true}));
-    try{await app.listen(0,"127.0.0.1");const url=await app.getUrl();const response=await fetch(`${url}/hr/payroll/trial-comparisons`,{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":"synthetic-trial-key"},body:JSON.stringify(selection)});assert.equal(response.status,201);assert.equal(((await response.json()) as PayrollTrialResult).recordCount,93);assert.equal((await fetch(`${url}/hr/payroll/trial-comparisons/options`,{headers:{"x-fixture-denied":"1"}})).status,403);assert.equal((await fetch(`${url}/hr/payroll/trial-comparisons`,{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":"synthetic-trial-key"},body:JSON.stringify({...selection,tenantId:"foreign"})})).status,400);}finally{await app.close();}
+    try{await app.listen(0,"127.0.0.1");const url=await app.getUrl();
+      const preparationUrl=`${url}/hr/payroll/inputs/preparation?${new URLSearchParams(Object.entries(sourceQuery()).map(([key,value])=>[key,String(value)]))}`;
+      const preparationResponse=await fetch(preparationUrl);assert.equal(preparationResponse.status,200);const preparedHttp=await preparationResponse.json() as {total:number;source:{recordCount:number};items:unknown[]};assert.equal(preparedHttp.total,54);assert.equal(preparedHttp.source.recordCount,54);assert.equal(preparedHttp.items.length,20);
+      assert.equal((await fetch(preparationUrl,{headers:{"x-fixture-denied":"1"}})).status,403);assert.equal((await fetch(`${preparationUrl}&unexpected=1`)).status,400);assert.equal((await fetch(`${preparationUrl}&correctionWindowId=${randomUUID()}`)).status,400);
+      const response=await fetch(`${url}/hr/payroll/trial-comparisons`,{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":"synthetic-trial-key"},body:JSON.stringify(selection)});assert.equal(response.status,201);assert.equal(((await response.json()) as PayrollTrialResult).recordCount,93);assert.equal((await fetch(`${url}/hr/payroll/trial-comparisons/options`,{headers:{"x-fixture-denied":"1"}})).status,403);assert.equal((await fetch(`${url}/hr/payroll/trial-comparisons`,{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":"synthetic-trial-key"},body:JSON.stringify({...selection,tenantId:"foreign"})})).status,400);}finally{await app.close();}
     const formal=await runs.create(scope,actor,{inputId:selection.books[0]!.inputId,expectedInputVersion:selection.books[0]!.expectedInputVersion});assert.equal(formal.employeeCount,54);assert.equal(formal.netAmount,"5346.54");await assert.rejects(()=>runs.create(scope,actor,{inputId:selection.books[1]!.inputId,expectedInputVersion:selection.books[1]!.expectedInputVersion}),/already have a run/);
     assert.equal((await service.calculate(scope,actor,selection)).recordCount,93,"trial ignores formal overlap without weakening formal safeguard");
     const evidence=(await db.query("SELECT snapshot FROM hr_payroll_formal_run_evidence WHERE run_id=$1",[formal.id]))[0].snapshot;
     for(const row of evidence.results){const trial=result.records.find(record=>record.bookId===selection.books[0]!.bookId&&record.employeeId===row.employeeId)!;assert.equal(row.calculation.netAmount,trial.totals.netAmount);assert.deepEqual(row.calculation.items.map((item:{code:string;amount:string|null;decimalValue:string})=>[item.code,item.amount??item.decimalValue]),trial.lines.filter(line=>line.modernCode).map(line=>[line.modernCode,line.modernValue]));}
     let release=()=>{};holdAudit=new Promise<void>(resolve=>{release=resolve;});const reached=new Promise<void>(resolve=>{auditReached=resolve;});const calculating=service.calculate(scope,actor,selection);await reached;
     const writer=db.createQueryRunner();await writer.connect();await writer.startTransaction();
-    try{const insert=writer.query(`INSERT INTO hr_payroll_legacy_snapshot_item(tenant_id,park_id,snapshot_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value) VALUES($1,$2,$3,'concurrent','unmapped',false,repeat('a',64),'synthetic append')`,[scope.tenantId,scope.parkId,result.records[0]!.sourceRecordId]);let waiting=false;for(let attempt=0;attempt<50&&!waiting;attempt++){waiting=(await db.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE relation='hr_payroll_legacy_snapshot_item'::regclass AND NOT granted) AS waiting"))[0].waiting;if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(waiting,true);release();holdAudit=null;assert.equal((await calculating).recordCount,93);await insert;await writer.commitTransaction();await assert.rejects(()=>service.calculate(scope,actor,selection),/source|Source/);}finally{release();holdAudit=null;if(writer.isTransactionActive)await writer.rollbackTransaction();await writer.release();}
+    try{const insert=writer.query(`INSERT INTO hr_payroll_legacy_snapshot_item(tenant_id,park_id,snapshot_id,legacy_column_name,value_type,is_source_null,source_hash,raw_value) VALUES($1,$2,$3,'concurrent','unmapped',false,repeat('a',64),'synthetic append')`,[scope.tenantId,scope.parkId,result.records[0]!.sourceRecordId]);let waiting=false;for(let attempt=0;attempt<50&&!waiting;attempt++){waiting=(await db.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE relation='hr_payroll_legacy_snapshot_item'::regclass AND NOT granted) AS waiting"))[0].waiting;if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(waiting,true);release();holdAudit=null;assert.equal((await calculating).recordCount,93);await insert;await writer.commitTransaction();await assert.rejects(()=>service.calculate(scope,actor,selection),/source|Source/);await assert.rejects(()=>inputs.preparation(scope,actor,sourceQuery(selection.books.findIndex(book=>book.bookId===result.records[0]!.bookId))),/source|Source|changed/);}finally{release();holdAudit=null;if(writer.isTransactionActive)await writer.rollbackTransaction();await writer.release();}
     // Same-book duplicates fail before any builder call, even when a source is already stale.
     const [{book_period_id:duplicatePeriod,legacy_source_table:table}]=await db.query("SELECT book_period_id,legacy_source_table FROM hr_payroll_legacy_snapshot WHERE id=$1",[result.records[0]!.sourceRecordId]);
     await db.query("INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash) VALUES($1,$2,$3,$4,$5,$6,repeat('d',64),repeat('d',64),'mapped',repeat('d',64))",[scope.tenantId,scope.parkId,batchId,duplicatePeriod,result.records[0]!.employeeId,table]);await assert.rejects(()=>service.calculate(scope,actor,selection),/Duplicate employee/);
+    // Freeze the now duplicated complete book with intact append-only guards, then reject its census.
+    for(const tableName of ["hr_payroll_legacy_snapshot","hr_payroll_legacy_snapshot_item"])await db.query(`INSERT INTO legacy_record_map SELECT $1,$2,t.id,true,'loaded' FROM ${tableName} t WHERE NOT EXISTS(SELECT 1 FROM legacy_record_map m WHERE m.target_id=t.id AND m.target_table=$2)`,[controlId,tableName]);
+    const duplicatedBookIndex=selection.books.findIndex(book=>book.bookId===result.records[0]!.bookId),duplicatedBook=selection.books[duplicatedBookIndex]!;
+    const duplicateSource=await db.transaction(async manager=>{
+      const [{hash,records,items}]=await manager.query("WITH source AS (SELECT hr_build_payroll_reconciliation_source($1,$2,$3,$4,'2026-07-01') AS payload) SELECT encode(digest(payload::text,'sha256'),'hex') AS hash,jsonb_array_length(payload->'snapshots') AS records,jsonb_array_length(payload->'items') AS items FROM source",[scope.tenantId,scope.parkId,batchId,duplicatedBook.bookId]);
+      return(await manager.query("SELECT hr_freeze_payroll_reconciliation_source($1,$2,$3,$4,'2026-07-01',repeat('a',64),$5,$6,$7,$8,'synthetic duplicate-source review') AS id",[scope.tenantId,scope.parkId,batchId,duplicatedBook.bookId,hash,records,items,actor.sub]))[0].id as string;
+    });
+    await assert.rejects(()=>inputs.preparation(scope,actor,{...sourceQuery(duplicatedBookIndex),reconciliationSourceId:duplicateSource}),/duplicate source records/);
+    const otherBookIndex=1-duplicatedBookIndex,otherBook=selection.books[otherBookIndex]!;
+    const [{id:incompletePeriod,source_table:incompleteTable}]=await db.query("SELECT p.id,'salary'||b.legacy_scheme AS source_table FROM hr_payroll_book_period p JOIN hr_payroll_book b ON b.id=p.book_id WHERE p.book_id=$1",[otherBook.bookId]);
+    await db.query("INSERT INTO hr_payroll_legacy_snapshot(tenant_id,park_id,batch_id,book_period_id,employee_id,legacy_source_table,legacy_employee_hash,source_content_group_hash,mapping_status,source_hash) VALUES($1,$2,$3,$4,NULL,$5,repeat('e',64),repeat('e',64),'employee_unmapped',repeat('e',64))",[scope.tenantId,scope.parkId,batchId,incompletePeriod,incompleteTable]);
+    const beforeIncompleteRead=await baseline();await assert.rejects(()=>inputs.preparation(scope,actor,sourceQuery(otherBookIndex)),/incomplete, unavailable or duplicate/);assert.deepEqual(await baseline(),beforeIncompleteRead);
+    // No source parameter preserves the governed closed-period correction preparation.
+    const reviewedRun = await runs.transition(scope, reviewer, formal.id, "review", {expectedVersion:formal.version,reason:"synthetic independent review"});
+    const confirmedRun = await runs.transition(scope, reviewer, formal.id, "confirm", {expectedVersion:reviewedRun.version,reason:"synthetic independent confirmation"});
+    const lifecycle = new HrPayrollPeriodLifecycleService(db, audit);
+    const closedPeriod = await lifecycle.close(scope, reviewer, periodId, {expectedVersion:1,reason:"synthetic period close"});
+    const window = await lifecycle.openCorrection(scope, actor, periodId, {expectedVersion:closedPeriod.version,originalRunId:formal.id,expectedRunVersion:confirmedRun.version,reason:"synthetic correction preparation"});
+    const correctionQuery = {periodId,ruleSetId:ruleSets[0]!,correctionWindowId:window.id,page:1,pageSize:20};
+    const beforeCorrectionRead = await baseline(), correctionRoster:string[] = [];
+    for(let page=1;page<=3;page++) {
+      const prepared = await inputs.preparation(scope, actor, {...correctionQuery,page});
+      assert.equal(prepared.source, undefined);
+      assert.equal(prepared.correctionWindowId, window.id);
+      assert.equal(prepared.correctionOfRunId, formal.id);
+      assert.equal(prepared.correctionEmployeeCount, 54);
+      assert.equal(prepared.total, 54);
+      assert.equal(prepared.expectedHeadRevision, window.inputHeadAtOpen);
+      correctionRoster.push(...prepared.items.map(row=>row.employeeId));
+    }
+    assert.deepEqual(correctionRoster.sort(), [...preparedBooks[0]!].sort());
+    const filteredCorrection = await inputs.preparation(scope, actor, {...correctionQuery,keyword:"no match"});
+    assert.equal(filteredCorrection.total, 0);assert.equal(filteredCorrection.correctionEmployeeCount, 54);
+    const emptyCorrection = await inputs.preparation(scope, actor, {...correctionQuery,page:99});
+    assert.equal(emptyCorrection.items.length, 0);assert.equal(emptyCorrection.total, 54);
+    assert.deepEqual(await baseline(), beforeCorrectionRead, "correction preparation remains read-only");
   }finally{if(db?.isInitialized)await db.destroy();await admin.query(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);await admin.destroy();}
 });

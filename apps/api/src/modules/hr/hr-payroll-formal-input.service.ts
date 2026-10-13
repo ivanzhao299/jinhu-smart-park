@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { lockCurrentPayrollSource } from "./hr-payroll-frozen-source";
 import { lockPayrollPeriodContext, assertPayrollCorrectionRoster, type PayrollPeriodContext } from "./hr-payroll-period-context";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
@@ -47,7 +49,7 @@ export class HrPayrollFormalInputService {
       return work(manager);
     }); } catch (error) {
       const code = (error as { driverError?: { code?: string }; code?: string })?.driverError?.code ?? (error as { code?: string })?.code;
-      if (["23505", "55P03", "40001", "40P01", "P0001"].includes(code ?? "")) throw new ConflictException("Payroll inputs changed; refresh before saving");
+      if (["23505", "55P03", "40001", "40P01", "P0001", "57014"].includes(code ?? "")) throw new ConflictException("Payroll inputs changed; refresh before saving");
       throw error;
     }
   }
@@ -136,15 +138,35 @@ export class HrPayrollFormalInputService {
     this.authority(actor);
     if (!actor.isSuper && !actor.permissions.includes("*") && !actor.permissions.includes(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)) throw new ForbiddenException("Payroll rule read permission required");
     const dto = await this.dto(HrPayrollFormalPreparationQueryDto, input);
+    if (dto.reconciliationSourceId && dto.correctionWindowId) throw new BadRequestException("Frozen source preparation cannot be combined with correction");
+    if (dto.reconciliationSourceId && (actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId)) throw new ForbiddenException("Current payroll preparation scope required");
     return this.transaction(async manager => {
+      const deadline=Date.now()+30000;
+      if(dto.reconciliationSourceId){await manager.query("SET LOCAL statement_timeout='15s'");await manager.query("SET LOCAL lock_timeout='2s'");await manager.query("SET LOCAL idle_in_transaction_session_timeout='30s'");}
+      const source = dto.reconciliationSourceId ? await lockCurrentPayrollSource(manager, scope, dto.reconciliationSourceId, 2000) : null;
       const period = await this.period(manager, scope, dto.periodId, dto.correctionWindowId);
       await assertPayrollCorrectionRoster(manager, scope, period, dto.ruleSetId);
       const rule = await this.rules.lockEffectiveVersion(manager, scope, dto.ruleSetId, period.month);
-      const sets = await manager.query("SELECT display_name FROM hr_payroll_rule_set WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [dto.ruleSetId, scope.tenantId, scope.parkId]);
+      const sets = await manager.query("SELECT display_name,source_book_id FROM hr_payroll_rule_set WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [dto.ruleSetId, scope.tenantId, scope.parkId]);
+      if (source && (source.month !== period.month || sets[0]?.source_book_id !== source.bookId)) throw new ConflictException("Select the source month's open period and linked payroll rule");
+      let sourceContext: { reconciliationSourceId: string; legacyBatchId: string; bookId: string; month: string; sourceHash: string; recordCount: number; rosterHash: string } | undefined;
+      let sourceEmployeeIds: string[] | null = null;
+      if (source) {
+        const census: Array<{ employeeId: string | null; available: boolean }> = await manager.query(`SELECT s.employee_id AS "employeeId",(NOT s.is_deleted AND NOT p.is_deleted AND NOT b.is_deleted AND s.mapping_status='mapped' AND s.source_multiplicity=1) AS available
+          FROM hr_payroll_legacy_snapshot s JOIN hr_payroll_book_period p ON (p.id,p.tenant_id,p.park_id)=(s.book_period_id,s.tenant_id,s.park_id)
+          JOIN hr_payroll_book b ON (b.id,b.tenant_id,b.park_id)=(p.book_id,p.tenant_id,p.park_id)
+          WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.batch_id=$3 AND p.book_id=$4 AND p.period_month=$5::date ORDER BY s.id LIMIT 2001`, [scope.tenantId,scope.parkId,source.legacyBatchId,source.bookId,`${source.month}-01`]);
+        if (!census.length || census.length > 2000 || census.length !== source.recordCount || census.some(row => !row.available || !row.employeeId) || new Set(census.map(row => row.employeeId)).size !== census.length) throw new ConflictException("Resolve incomplete, unavailable or duplicate source records before preparing the complete book roster");
+        sourceEmployeeIds = census.map(row => row.employeeId!);
+        const roster = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date
+          FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=ANY($3::uuid[]) AND NOT is_deleted ORDER BY id FOR SHARE`, [scope.tenantId,scope.parkId,sourceEmployeeIds]);
+        if (roster.length !== census.length) throw new ConflictException("Every source employee must be available in the current scope");
+        sourceContext = { reconciliationSourceId:source.id,legacyBatchId:source.legacyBatchId,bookId:source.bookId,month:source.month,sourceHash:source.sourceHash,recordCount:source.recordCount,rosterHash:createHash("sha256").update(JSON.stringify(roster)).digest("hex") };
+      }
       const heads = await manager.query("SELECT coalesce(max(revision_no),0)::int AS head FROM hr_payroll_formal_input WHERE period_id=$1 AND rule_set_id=$2 AND tenant_id=$3 AND park_id=$4", [dto.periodId, dto.ruleSetId, scope.tenantId, scope.parkId]);
-      const params = [scope.tenantId, scope.parkId, dto.keyword ?? "", period.correctionWindow?.originalRunId ?? null];
-      const predicate = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND ($4::uuid IS NULL OR id IN (SELECT employee_id FROM hr_payslip WHERE run_id=$4 AND tenant_id=$1 AND park_id=$2 AND NOT is_deleted)) AND ($3='' OR position(lower($3) in lower(full_name))>0 OR position(lower($3) in lower(employee_code))>0)";
-      const rows: Array<{id:string;version:number;employee_code:string;full_name:string;hire_date:string|null;departure_date:string|null;total:number}> = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date,count(*) OVER()::int AS total FROM hr_employee WHERE ${predicate} ORDER BY employee_code,id LIMIT $5 OFFSET $6`, [...params, dto.pageSize, (dto.page-1)*dto.pageSize]);
+      const params = [scope.tenantId, scope.parkId, dto.keyword ?? "", period.correctionWindow?.originalRunId ?? null, sourceEmployeeIds];
+      const predicate = "tenant_id=$1 AND park_id=$2 AND is_deleted=false AND ($4::uuid IS NULL OR id IN (SELECT employee_id FROM hr_payslip WHERE run_id=$4 AND tenant_id=$1 AND park_id=$2 AND NOT is_deleted)) AND ($5::uuid[] IS NULL OR id=ANY($5::uuid[])) AND ($3='' OR position(lower($3) in lower(full_name))>0 OR position(lower($3) in lower(employee_code))>0)";
+      const rows: Array<{id:string;version:number;employee_code:string;full_name:string;hire_date:string|null;departure_date:string|null;total:number}> = await manager.query(`SELECT id,version,employee_code,full_name,to_char(hire_date,'YYYY-MM-DD') AS hire_date,to_char(departure_date,'YYYY-MM-DD') AS departure_date,count(*) OVER()::int AS total FROM hr_employee WHERE ${predicate} ORDER BY employee_code,id LIMIT $6 OFFSET $7`, [...params, dto.pageSize, (dto.page-1)*dto.pageSize]);
       const total = rows[0]?.total ?? (await manager.query(`SELECT count(*)::int AS total FROM hr_employee WHERE ${predicate}`, params))[0].total;
       const correctionEmployeeCount: number | undefined = period.correctionWindow
         ? (await manager.query("SELECT count(*)::int AS total FROM hr_payslip WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [period.correctionWindow.originalRunId, scope.tenantId, scope.parkId]))[0].total
@@ -159,7 +181,8 @@ export class HrPayrollFormalInputService {
           hireDate:employee.hire_date,departureDate:employee.departure_date,eligibility,requiresSettlementWindow:eligibility===null};
       });
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {resource:"hr.payroll_input",action:"读取当期工资准备",bizType:"hr_payroll_formal_input",bizId:null,path:"/hr/payroll/inputs/preparation",fieldGroups:["identity","payroll_input"],projection:"full",itemCount:items.length}),manager);
-      return {...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId,correctionEmployeeCount} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
+      if(source && Date.now()>deadline)throw new ConflictException("Source preparation exceeded its complete read budget");
+      return {...(sourceContext ? {source:sourceContext} : {}),...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId,correctionEmployeeCount} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
         rule:{id:rule.id,ruleSetId:dto.ruleSetId,displayName:sets[0].display_name,definition:rule.definition},expectedHeadRevision:heads[0].head,
         items,total,page:dto.page,page_size:dto.pageSize};
     });

@@ -491,7 +491,7 @@
   grid-column: 1 / -1;
 }
 
-.sourcePeriodList :global(.ds-button) {
+.sourcePreparation button {
   min-height: 44px;
   white-space: nowrap;
 }

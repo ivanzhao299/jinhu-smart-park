@@ -1,9 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS, type PayrollTrialOptions, type PayrollTrialResult } from "@jinhu/shared";
 import { PayrollTrialComparison } from "../../app/hr/payroll/PayrollTrialComparison";
 import { payrollTrialCsv } from "../../app/hr/payroll/payroll-trial-export";
-const state=vi.hoisted(()=>({user:{id:"author",tenant_id:"tenant",park_id:"park",permissions:[] as string[]},api:{payrollTrialOptions:vi.fn(),trialSourceOptions:vi.fn(),calculatePayrollTrial:vi.fn()}}));
+const state=vi.hoisted(()=>({user:{id:"author",tenant_id:"tenant",park_id:"park",permissions:[] as string[]},api:{payrollTrialOptions:vi.fn(),trialSourceOptions:vi.fn(),calculatePayrollTrial:vi.fn(),previewPayrollReconciliationSource:vi.fn(),createPayrollReconciliationSource:vi.fn(),payrollReconciliationSourcePeriods:vi.fn()}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));vi.mock("../../lib/hr-api",()=>({hrApi:state.api}));
 const books:PayrollTrialOptions["books"]=[1,2].map(n=>({bookId:`book${n}`,bookName:`账套 ${n}`,scheme:n,recordCount:n===1?54:39,employeeCount:n===1?54:39,unavailableCount:0,duplicateCount:0,sources:[{id:`source${n}`,sourceHash:"sourcehash",recordCount:n===1?54:39,itemCount:200}],inputs:[{id:`input${n}`,version:2,revisionNo:1,ruleVersionId:`rule${n}`,ruleName:`规则 ${n}`,employeeCount:n===1?54:39,definition:{roundingPolicy:"line_items_half_up",items:[{code:"收入",role:"earning",expression:null}]}}],items:[{id:`old${n}`,code:"PAY",name:"旧收入",versionNo:1,valueType:"decimal"}]}));
 const options:PayrollTrialOptions={periods:[{legacyBatchId:"batch",batchCode:"合成导入",month:"2026-07",recordCount:93},{legacyBatchId:"next",batchCode:"次月导入",month:"2026-08",recordCount:93}],legacyBatchId:"batch",month:"2026-07",recordCount:93,employeeCount:64,books};
@@ -15,3 +15,22 @@ it("calculates overlapping books with explicit mappings, retains exact retry and
 it("source refresh failure blocks stale calculation while preserving choices",async()=>{await prepare();state.api.payrollTrialOptions.mockRejectedValueOnce(new Error("refresh failed"));fireEvent.click(screen.getByRole("button",{name:"刷新全部账套"}));await screen.findByRole("alert");expect(screen.getByRole("button",{name:"全账套试算并逐项核对"})).toBeDisabled();expect(screen.getAllByLabelText("现代确认输入")[0]).toHaveValue("input1");});
 it("context switch aborts and ignores an old successful calculation",async()=>{let resolve!:(value:PayrollTrialResult)=>void;state.api.calculatePayrollTrial.mockReturnValueOnce(new Promise(r=>{resolve=r;}));await prepare();fireEvent.click(screen.getByRole("button",{name:"全账套试算并逐项核对"}));fireEvent.change(screen.getByLabelText("试算来源与月份"),{target:{value:"next:2026-08"}});expect(state.api.calculatePayrollTrial.mock.calls[0]?.[3].aborted).toBe(true);await act(async()=>resolve(result));expect(screen.queryByText("本次完整试算结果")).not.toBeInTheDocument();});
 it("requires complete confirmed insurance only for a rule that references it",async()=>{const original=state.api.trialSourceOptions.getMockImplementation()!;state.api.trialSourceOptions.mockImplementation(async(query)=>{const data=await original(query);return{...data,requires:{...data.requires,insurance:true}};});render(<PayrollTrialComparison/>);fireEvent.change(await screen.findByLabelText("试算来源与月份"),{target:{value:"batch:2026-07"}});await screen.findByText(/本月全部 2 个账套/);fireEvent.change(screen.getAllByLabelText("现代确认输入")[0]!,{target:{value:"input1"}});await screen.findByText("请先补齐当月保险确认资料，不会按零计算。");expect(screen.getByRole("button",{name:"全账套试算并逐项核对"})).toBeDisabled();expect(state.api.calculatePayrollTrial).not.toHaveBeenCalled();});
+
+it("modern book preparation installs a committed frozen source before a failed refresh and keeps it usable",async()=>{
+  const unfrozen={...options,books:books.map(book=>({...book,sources:[],inputs:[]}))};state.api.payrollTrialOptions.mockResolvedValue(unfrozen);
+  const onPrepare=vi.fn();render(<PayrollTrialComparison onPrepareSource={onPrepare}/>);fireEvent.change(await screen.findByLabelText("试算来源与月份"),{target:{value:"batch:2026-07"}});await screen.findByText(/本月全部 2 个账套/);
+  const first=within(screen.getByRole("group",{name:/账套 1/}));fireEvent.click(first.getByRole("button",{name:"预览并冻结本账套来源"}));
+  state.api.previewPayrollReconciliationSource.mockResolvedValue({legacyBatchId:"batch",bookId:"book1",periodMonth:"2026-07-01",bindingSha256:"a".repeat(64),sourceSha256:"b".repeat(64),snapshotCount:54,itemCount:100,employeeCount:54});
+  fireEvent.click(first.getByRole("button",{name:"预览来源"}));await first.findByLabelText("核对说明");fireEvent.change(first.getByLabelText("核对说明"),{target:{value:"逐账套核对"}});fireEvent.click(first.getByRole("checkbox"));
+  let resolve!:(value:unknown)=>void;state.api.createPayrollReconciliationSource.mockReturnValue(new Promise(done=>{resolve=done;}));fireEvent.click(first.getByRole("button",{name:"冻结核对来源"}));
+  expect(screen.getByLabelText("试算来源与月份")).toBeDisabled();expect(screen.getByRole("button",{name:"刷新全部账套"})).toBeDisabled();
+  state.api.payrollTrialOptions.mockRejectedValueOnce(new Error("refresh unavailable"));await act(async()=>resolve({id:"new-source",legacyBatchId:"batch",bookId:"book1",periodMonth:"2026-07-01",snapshotCount:54,itemCount:100}));await screen.findByText("refresh unavailable");
+  expect(first.getByLabelText("冻结原工资来源")).toHaveValue("new-source");expect(first.getByRole("button",{name:"预览来源"})).toBeDisabled();
+  fireEvent.click(first.getByRole("button",{name:"准备本账套完整员工输入"}));expect(onPrepare).toHaveBeenLastCalledWith({reconciliationSourceId:"new-source",legacyBatchId:"batch",bookId:"book1",bookName:"账套 1",month:"2026-07",recordCount:54});
+  expect(state.api.payrollReconciliationSourcePeriods).not.toHaveBeenCalled();expect(state.api.createPayrollReconciliationSource).toHaveBeenCalledOnce();
+  fireEvent.change(screen.getByLabelText("试算来源与月份"),{target:{value:"next:2026-08"}});expect(onPrepare).toHaveBeenLastCalledWith(null);
+});
+it("trial authors without source-review permission cannot open or probe freeze preparation",async()=>{
+  state.user.permissions=state.user.permissions.filter(permission=>permission!==HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW);render(<PayrollTrialComparison onPrepareSource={vi.fn()}/>);fireEvent.change(await screen.findByLabelText("试算来源与月份"),{target:{value:"batch:2026-07"}});await screen.findByText(/本月全部 2 个账套/);
+  expect(screen.queryByRole("button",{name:"预览并冻结本账套来源"})).toBeNull();expect(state.api.previewPayrollReconciliationSource).not.toHaveBeenCalled();expect(state.api.createPayrollReconciliationSource).not.toHaveBeenCalled();
+});

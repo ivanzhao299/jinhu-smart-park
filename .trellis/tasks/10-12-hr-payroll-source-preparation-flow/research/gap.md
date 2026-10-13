@@ -1,0 +1,7 @@
+# Verified source gaps at975f0820e
+
+HrPayrollClient.tsx mounts ReconciliationSourcePreparation inside desktopSensitive at519; payroll.module.css31 hides it on mobile. PayrollTrialComparison.tsx87 only advises using the other work area, and has no preparation callback. ModernWorkspace currently only coordinates correction/run/period refresh. PayrollInputPreparation is full-directory manual selection, not source roster. HrPayrollFormalInputService.preparation lines135-166 returns current employee versions+eligibility advice for all scoped employees; employeeInputs requires exact direct projects, current versions, approved effective rule and explicit settlement exceptions. Keep those authoritative checks.
+
+Existing source reader requires READ COMMITTED, SHARE source locks, succeeded T4/current-database control receipts and exact content hash; scope/book/month are composite. Existing source creation is append-only/idempotent and audit metadata only. Reuse this, never just trust frozen JSON employee IDs or a UUID from client. Source metadata carries no automatic financial approval.
+
+Production proof: previous artifact hr-payroll-formal-trial-comparison-20261012/july-coverage-summary.json and runtime observer38208822108. Actual July amountsNOT_EXECUTED; source freeze count0. Normal login UI redirects, localized only. Main CI38207241589/session56034 running; no redeploy until it completes, use original handle.

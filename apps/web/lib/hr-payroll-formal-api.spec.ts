@@ -187,3 +187,17 @@ test("all-book trial sends exact mappings and versions with guarded POST key and
     assert.equal(calls[2]!.url,"/api/v1/hr/payroll/trial-comparisons");assert.equal(calls[2]!.init?.method,"POST");assert.deepEqual(JSON.parse(calls[2]!.init?.body as string),body);assert.equal(new Headers(calls[2]!.init?.headers).get("X-Idempotency-Key"),"retained-trial-key");assert.ok(calls.every(call=>call.init?.signal===abort.signal));
   }finally{globalThis.fetch=original;}
 });
+
+
+test("source roster transport encodes the chosen reference and freeze keeps its caller retry identity",async()=>{
+  const originalFetch=globalThis.fetch,calls:Array<{url:string;init?:RequestInit}>=[];
+  globalThis.fetch=async(url,init)=>{calls.push({url:String(url),init});return new Response(JSON.stringify({code:0,message:"success",data:{id:"synthetic"}}),{headers:{"Content-Type":"application/json"}});};
+  try {
+    const signal=new AbortController().signal;
+    await hrApi.payrollPreparation({periodId:"period",ruleSetId:"rules",reconciliationSourceId:"explicit-source",page:2,pageSize:100},undefined,signal);
+    const query=new URL(calls[0]!.url,"http://localhost").searchParams;assert.equal(query.get("reconciliationSourceId"),"explicit-source");assert.equal(query.get("page"),"2");assert.equal(query.get("pageSize"),"100");assert.equal(query.has("correctionWindowId"),false);assert.equal(calls[0]!.init!.signal,signal);
+    const body={legacyBatchId:"batch",bookId:"book",periodMonth:"2026-07-01",bindingSha256:"a".repeat(64),sourceSha256:"b".repeat(64),snapshotCount:54,itemCount:100,reason:"reviewed"};
+    await hrApi.createPayrollReconciliationSource(body,undefined,"same-freeze-key");await hrApi.createPayrollReconciliationSource(body,undefined,"same-freeze-key");
+    for(const call of calls.slice(1)){assert.deepEqual(JSON.parse(call.init!.body as string),body);assert.equal(new Headers(call.init!.headers).get("X-Idempotency-Key"),"same-freeze-key");}
+  }finally{globalThis.fetch=originalFetch;}
+});
