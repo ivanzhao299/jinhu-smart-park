@@ -404,6 +404,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "canteen",
     children: [
       { label: "餐品与品类", href: "/canteen/dishes", permission: CANTEEN_PERMISSIONS.DISH_VIEW, module: "canteen" },
+      { label: "POS 收银终端", href: "/canteen/pos", permission: CANTEEN_PERMISSIONS.ORDER_CREATE, module: "canteen" },
       { label: "订单与流水", href: "/canteen/orders", permission: CANTEEN_PERMISSIONS.ORDER_VIEW, module: "canteen" },
       { label: "收银班次/日结", href: "/canteen/sessions", permission: CANTEEN_PERMISSIONS.SESSION_VIEW, module: "canteen" },
       { label: "结算与对账", href: "/canteen/settlements", permission: CANTEEN_PERMISSIONS.SETTLEMENT_VIEW, module: "canteen" },
