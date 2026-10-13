@@ -83,8 +83,7 @@ export const canteenApi = {
     });
     return response.data;
   },
-  async updateOutletStatus(id: string, input: UpdateCanteenOutletStatusInput, token?: string): Promise<CanteenOutlet> {
-    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}/status`, {
+  async updateOutletStatus(id: string, input: UpdateCanteenOutletStatusInput, token?: string): Promise<CanteenOutlet> {    const response = await apiRequest<CanteenOutlet>(`/canteen/outlets/${id}/status`, {
       method: "PATCH",
       token,
       idempotencyKey: createIdempotencyKey("canteen-outlet-status"),
@@ -262,6 +261,15 @@ export const canteenApi = {
       body: compactObject(input as unknown as Record<string, unknown>)
     });
     return response.data;
+  },
+  /* Mock 渠道专用：模拟支付网关回调，将支付单置为已支付（与真实 webhook 同一应用服务）。 */
+  async settleMockPayment(paymentNo: string, token?: string): Promise<void> {
+    await apiRequest(`/canteen/internal/mock/payments/${encodeURIComponent(paymentNo)}/settle`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("canteen-mock-settle"),
+      body: {}
+    });
   },
   async checkoutSubsidy(input: PosCheckoutSubsidyInput, token?: string): Promise<PosCheckoutSubsidyResult> {
     const response = await apiRequest<PosCheckoutSubsidyResult>("/canteen/pos/checkout/subsidy", {

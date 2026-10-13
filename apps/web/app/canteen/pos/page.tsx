@@ -87,7 +87,7 @@ export default function PosTerminalPage() {
   const [online, setOnline] = useState(true);
 
   const [modal, setModal] = useState<ModalKind>(null);
-  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false, subsidyAmount: "0.00", qrAmount: "0.00", isMixed: false });
+  const [qrInfo, setQrInfo] = useState({ orderNo: "", paymentNo: "", amount: "0.00", codeUrl: "", demo: false, provider: "", subsidyAmount: "0.00", qrAmount: "0.00", isMixed: false });
   const [remain, setRemain] = useState(COUNTDOWN_SECONDS);
   const [showSuccess, setShowSuccess] = useState<{ amount: string; sub: string; subsidyAmount?: string; qrAmount?: string } | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -452,6 +452,7 @@ export default function PosTerminalPage() {
     let paymentNo = "";
     let codeUrl = "";
     let demo = false;
+    let provider = "";
 
     try {
       const res = await canteenApi.checkoutQr(
@@ -461,6 +462,7 @@ export default function PosTerminalPage() {
       orderNo = res.order_no;
       paymentNo = res.payment_no;
       codeUrl = res.code_url;
+      provider = res.provider ?? "";
     } catch {
       // 后端 M1 收款接口未就绪：进入演示下单，二维码用占位串
       demo = true;
@@ -469,7 +471,7 @@ export default function PosTerminalPage() {
       codeUrl = "DEMO-canteen-qrcode-" + paymentNo;
     }
 
-    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo, subsidyAmount: "0.00", qrAmount: amount, isMixed: false });
+    setQrInfo({ orderNo, paymentNo, amount, codeUrl, demo, provider, subsidyAmount: "0.00", qrAmount: amount, isMixed: false });
     setModal("qr");
 
     const settle = () => {
@@ -488,12 +490,26 @@ export default function PosTerminalPage() {
     if (!demo) startPolling(paymentNo, onPaid, () => { stopCountdown(); setModal(null); toast("支付已关单"); });
   }
 
-  /* 演示模式下“模拟支付成功” */
+  /* 演示模式下“模拟支付成功”（后端无此单，纯本地收银反馈） */
   async function demoPaySuccess() {
     stopCountdown();
     stopPolling();
     const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
     finishOrder(qrInfo.amount, "二维码收款成功（演示）", note, "qr", "0.00", qrInfo.amount);
+  }
+
+  /* Mock 渠道“模拟支付成功”：调内部结算接口（与真实回调同一应用服务），
+     成功后走与“轮询到支付成功”完全一致的收尾，订单/班次/流水全部真实落库。 */
+  async function mockSettleSuccess() {
+    stopCountdown();
+    stopPolling();
+    try {
+      await canteenApi.settleMockPayment(qrInfo.paymentNo, token);
+      const { note } = await tryPrintReceipt({ orderNo: qrInfo.orderNo, amount: qrInfo.amount, channel: "qr", lines: [] });
+      finishOrder(qrInfo.amount, "二维码收款成功（Mock 渠道）", note, "qr", "0.00", qrInfo.amount);
+    } catch (error) {
+      toast(error instanceof Error ? `模拟支付失败：${error.message}` : "模拟支付失败，可稍后重试或超时关单");
+    }
   }
 
   function closeQr() {
@@ -833,13 +849,15 @@ export default function PosTerminalPage() {
                 <div className={styles.demoTip}>
                   {qrInfo.demo
                     ? "演示模式：收款接口未联调，二维码为占位图形；点击「模拟支付成功」走完整收银反馈。真实环境由支付平台异步回调 + POS 轮询 /payments/{no}/status 驱动。"
-                    : "请顾客使用微信/支付宝扫码；POS 将自动轮询支付状态，支付成功后进入下一单。"}
+                    : qrInfo.provider === "mock"
+                      ? "演示渠道（Mock）：二维码为模拟地址，顾客无法扫码；点击「模拟支付成功」完成本单收款，数据真实入账。"
+                      : "请顾客使用微信/支付宝扫码；POS 将自动轮询支付状态，支付成功后进入下一单。"}
                 </div>
               </div>
               <div className={styles.dlgFoot}>
                 <button className={`${styles.btn} ${styles.btnWarn}`} type="button" onClick={closeQr}>超时关单</button>
-                {qrInfo.demo ? (
-                  <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={demoPaySuccess}>模拟支付成功</button>
+                {qrInfo.demo || qrInfo.provider === "mock" ? (
+                  <button className={`${styles.btn} ${styles.btnGreen}`} type="button" onClick={() => void (qrInfo.provider === "mock" ? mockSettleSuccess() : demoPaySuccess())}>模拟支付成功</button>
                 ) : null}
               </div>
             </div>
