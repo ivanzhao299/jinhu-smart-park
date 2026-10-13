@@ -244,6 +244,17 @@ export default function PosTerminalPage() {
       toast(e instanceof Error ? e.message : "加载订单失败");
     }
   }
+  /* 后端报错为英文契约信息，收银终端映射为收银员可读的中文提示；未识别的原样透出 */
+  function friendlyCanteenError(message: string, fallback: string): string {
+    const inProgress = message.match(/refund already in progress \(([^)]+)\)/);
+    if (inProgress) return `该订单已有退款处理中（${inProgress[1]}），请等待审核结果`;
+    if (message.includes("order already fully refunded")) return "该订单已全额退款，不能再次退款";
+    if (message.includes("order not refundable")) return "当前订单状态不可退款";
+    if (message.includes("order not cancellable")) return "当前订单状态不可撤单";
+    if (message.includes("already cancelled")) return "该订单已取消，不能重复操作";
+    return message.includes(" ") ? fallback : message;
+  }
+
   async function doVoid(order: CanteenOrder) {
     setRefundBusy(true);
     try {
@@ -251,7 +262,7 @@ export default function PosTerminalPage() {
       toast(`已撤单 ${order.orderNo}`);
       await openRefund();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "撤单失败");
+      toast(e instanceof Error ? friendlyCanteenError(e.message, "撤单失败") : "撤单失败");
     } finally {
       setRefundBusy(false);
     }
@@ -260,10 +271,10 @@ export default function PosTerminalPage() {
     setRefundBusy(true);
     try {
       await canteenApi.requestOrderRefund(order.id, { reason: "POS 退款申请" }, getAccessToken());
-      toast(`已发起退款 ${order.orderNo}，待 canteen-admin 审核`);
+      toast(`已发起退款 ${order.orderNo}，待审核`);
       await openRefund();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "退款申请失败");
+      toast(e instanceof Error ? friendlyCanteenError(e.message, "退款申请失败") : "退款申请失败");
     } finally {
       setRefundBusy(false);
     }
