@@ -111,9 +111,20 @@ export default function CanteenDishesPage() {
   const loadOutlets = useCallback(async () => {
     try {
       const list = await canteenApi.listOutlets(getAccessToken());
-      setOutlets(list);
+      /* 营业中的档口排前面，停用的沉底（稳定排序，组内保持原顺序） */
+      const sorted = [...list].sort(
+        (a, b) => Number(a.status !== "open") - Number(b.status !== "open")
+      );
+      setOutlets(sorted);
       setOutletsError("");
-      setFilters((current) => (current.outletId ? current : { ...current, outletId: list[0]?.id ?? "" }));
+      setFilters((current) => {
+        /* 已选的档口仍在列表中则保留；否则默认选第一个营业中的档口 */
+        if (current.outletId && sorted.some((o) => o.id === current.outletId)) {
+          return current;
+        }
+        const firstOpen = sorted.find((o) => o.status === "open");
+        return { ...current, outletId: (firstOpen ?? sorted[0])?.id ?? "" };
+      });
     } catch (error) {
       setOutletsError(error instanceof Error ? error.message : "加载档口失败");
     }
