@@ -25,7 +25,7 @@ export class UpdateApartmentRoomDto {
   @IsOptional() @IsEnum(APARTMENT_GENDER_POLICIES) gender_policy?: string;
   @IsOptional() @IsInt() @Min(1) @Max(20) capacity?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) facilities?: string[];
-  @IsOptional() @IsIn(["enabled", "disabled"]) management_status?: "enabled" | "disabled";
+  @IsOptional() @IsIn(["enabled", "disabled", "maintenance"]) management_status?: "enabled" | "disabled" | "maintenance";
 }
 export class CreateApartmentApplicationDto {
   @IsOptional() @IsUUID() applicant_party_id?: string;
