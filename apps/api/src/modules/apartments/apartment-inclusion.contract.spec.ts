@@ -47,3 +47,11 @@ test("room projections only expose active housing units", () => {
   assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*JOIN biz_unit u ON u\.id=r\.unit_id AND u\.tenant_id=r\.tenant_id AND u\.park_id=r\.park_id AND u\.is_deleted=false AND u\.usage_type=\$5/u);
   assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*query\.keyword\?\.trim\(\) \|\| null, UNIT_USAGE_HOUSING\]/u);
 });
+
+test("allocation enforces room gender policy against applicant gender", () => {
+  assert.match(service, /bed\.room_type!==app\.requested_room_type[\s\S]*?bed\.gender_policy!=="any"&&\(!app\.gender\|\|app\.gender==="unspecified"\)/u);
+  assert.match(service, /bed\.gender_policy!=="any"&&app\.gender!==bed\.gender_policy/u);
+  assert.match(service, /该房源仅限男性入住，申请人性别不符/u);
+  assert.match(service, /该房源仅限女性入住，申请人性别不符/u);
+  assert.match(service, /请先在申请中登记申请人性别/u);
+});
