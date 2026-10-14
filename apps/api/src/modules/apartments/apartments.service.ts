@@ -202,8 +202,51 @@ export class ApartmentsService {
     if(!candidate)throw new NotFoundException("房源不存在或不在当前园区");return candidate;
   }
 
-  private async resolveDocumentVariables(scope:TenantParkScope,applicationId?:string,stayId?:string,overrides:Record<string,unknown>={}){const [row]=await this.dataSource.query(`SELECT a.*,s.stay_code,s.planned_start_date,s.actual_check_out_at,u.unit_name,u.unit_code,b.bed_code,ap.decision approval_decision,ap.opinion approval_opinion,ap.decided_at approval_time,h.item_snapshot,h.key_snapshot,h.exception_note FROM biz_apartment_application a LEFT JOIN biz_apartment_stay s ON s.application_id=a.id AND s.is_deleted=false LEFT JOIN biz_apartment_room r ON r.id=s.room_id LEFT JOIN biz_unit u ON u.id=r.unit_id LEFT JOIN biz_apartment_bed b ON b.id=s.bed_id LEFT JOIN LATERAL(SELECT decision,opinion,decided_at FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true LEFT JOIN LATERAL(SELECT item_snapshot,key_snapshot,exception_note FROM biz_apartment_handover x WHERE x.stay_id=s.id AND x.is_deleted=false ORDER BY x.confirmed_at DESC LIMIT 1) h ON true WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND (($3::uuid IS NOT NULL AND a.id=$3) OR ($4::uuid IS NOT NULL AND s.id=$4)) LIMIT 1`,[...this.scope(scope),applicationId??null,stayId??null]);if(!row)throw new NotFoundException("关联的入住申请或在住记录不存在");return {...row,department_job:[row.department_name,row.job_title].filter(Boolean).join(" / ")||"—",room_bed:[row.unit_name||row.unit_code,row.bed_code].filter(Boolean).join(" / ")||"待分配",handover_items:this.formatSnapshot(row.item_snapshot),handover_keys:this.formatSnapshot(row.key_snapshot),checkout_time:row.actual_check_out_at??"—",...overrides};}
-  private formatSnapshot(value:unknown){if(!Array.isArray(value)||!value.length)return "无";return value.map(item=>typeof item==="string"?item:JSON.stringify(item)).join("；");}
+  private documentEnumLabels:Record<string,Record<string,string>>={
+    applicant_type:{internal_employee:"集团员工",subsidiary_employee:"下属企业员工",executive:"高级管理人员",external_talent:"引进人才"},
+    room_type:{talent:"人才公寓",executive:"高管宿舍",employee:"员工宿舍"},
+    gender:{male:"男",female:"女",unspecified:"不便透露"},
+    decision:{approve:"通过",reject:"驳回"},
+    cost_bearer:{company:"单位承担",employee:"个人承担",shared:"单位与个人共担",waived:"政策减免"}
+  };
+  private documentEnumLabel(field:string,value:unknown){if(value===null||value===undefined||value==="")return value;const labels=this.documentEnumLabels[field];return labels?labels[String(value)]??value:value;}
+  private formatDateDisplay(value:unknown){if(value===null||value===undefined||value==="")return value;const parsed=value instanceof Date?value:new Date(String(value));if(Number.isNaN(parsed.getTime()))return value;const month=String(parsed.getMonth()+1).padStart(2,"0"),day=String(parsed.getDate()).padStart(2,"0");return `${parsed.getFullYear()}-${month}-${day}`;}
+  private formatDateTimeDisplay(value:unknown){if(value===null||value===undefined||value==="")return value;const parsed=value instanceof Date?value:new Date(String(value));if(Number.isNaN(parsed.getTime()))return value;const hours=String(parsed.getHours()).padStart(2,"0"),minutes=String(parsed.getMinutes()).padStart(2,"0");return `${this.formatDateDisplay(parsed)} ${hours}:${minutes}`;}
+  private async resolveDocumentVariables(scope:TenantParkScope,applicationId?:string,stayId?:string,overrides:Record<string,unknown>={}){const [row]=await this.dataSource.query(`SELECT a.*,s.stay_code,s.planned_start_date,s.planned_end_date,s.actual_check_out_at,u.unit_name,u.unit_code,b.bed_code,ap.decision approval_decision,ap.opinion approval_opinion,ap.decided_at approval_time,ap.cost_bearer,h.item_snapshot,h.key_snapshot,h.exception_note FROM biz_apartment_application a LEFT JOIN biz_apartment_stay s ON s.application_id=a.id AND s.is_deleted=false LEFT JOIN biz_apartment_room r ON r.id=s.room_id LEFT JOIN biz_unit u ON u.id=r.unit_id LEFT JOIN biz_apartment_bed b ON b.id=s.bed_id LEFT JOIN LATERAL(SELECT decision,opinion,decided_at,cost_bearer FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true LEFT JOIN LATERAL(SELECT item_snapshot,key_snapshot,exception_note FROM biz_apartment_handover x WHERE x.stay_id=s.id AND x.is_deleted=false ORDER BY x.confirmed_at DESC LIMIT 1) h ON true WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND (($3::uuid IS NOT NULL AND a.id=$3) OR ($4::uuid IS NOT NULL AND s.id=$4)) LIMIT 1`,[...this.scope(scope),applicationId??null,stayId??null]);if(!row)throw new NotFoundException("关联的入住申请或在住记录不存在");return {...row,
+    applicant_type:this.documentEnumLabel("applicant_type",row.applicant_type),
+    requested_room_type:this.documentEnumLabel("room_type",row.requested_room_type),
+    room_type:this.documentEnumLabel("room_type",row.room_type),
+    gender:this.documentEnumLabel("gender",row.gender),
+    approval_decision:row.approval_decision?this.documentEnumLabel("decision",row.approval_decision):undefined,
+    cost_bearer:row.cost_bearer?this.documentEnumLabel("cost_bearer",row.cost_bearer):undefined,
+    requested_start_date:this.formatDateDisplay(row.requested_start_date),
+    requested_end_date:this.formatDateDisplay(row.requested_end_date),
+    approved_start_date:this.formatDateDisplay(row.approved_start_date),
+    approved_end_date:this.formatDateDisplay(row.approved_end_date),
+    planned_start_date:this.formatDateDisplay(row.planned_start_date),
+    planned_end_date:this.formatDateDisplay(row.planned_end_date),
+    department_job:[row.department_name,row.job_title].filter(Boolean).join(" / ")||"—",
+    room_bed:[row.unit_name||row.unit_code,row.bed_code].filter(Boolean).join(" / ")||"待分配",
+    handover_items:this.formatSnapshot(row.item_snapshot),
+    handover_keys:this.formatSnapshot(row.key_snapshot),
+    checkout_time:row.actual_check_out_at?this.formatDateTimeDisplay(row.actual_check_out_at):"—",
+    approval_time:row.approval_time?this.formatDateTimeDisplay(row.approval_time):undefined,
+    ...overrides};}
+  private formatSnapshot(value:unknown){
+    if(!Array.isArray(value)||!value.length)return "无";
+    const conditionLabels:Record<string,string>={normal:"完好",damaged:"有损坏",pending_repair:"待维修",missing:"有缺失",qualified:"合格",reclean_required:"需返工"};
+    return value.map(item=>{
+      if(typeof item==="string")return item;
+      if(!item||typeof item!=="object")return String(item);
+      const record=item as Record<string,unknown>;
+      const name=record.name!==undefined?String(record.name):null;
+      const condition=record.condition!==undefined?(conditionLabels[String(record.condition)]??String(record.condition)):null;
+      const quantity=record.quantity!==undefined?String(record.quantity):null;
+      if(!name&&!condition&&!quantity)return JSON.stringify(item);
+      const label=[name,condition].filter(Boolean).join("：");
+      return quantity?`${label||"物品"} ×${quantity}`:label;
+    }).join("；");
+  }
   private renderTemplate(template:string,variables:Record<string,unknown>){return this.sanitizeTemplate(template).replace(/\{\{([a-z0-9_]+)\}\}/gi,(_,key:string)=>this.escapeHtml(variables[key]??"—"));}
   private sanitizeTemplate(template:string){return template.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"").replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi,"").replace(/javascript\s*:/gi,"");}
   private escapeHtml(value:unknown){return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]!);}
