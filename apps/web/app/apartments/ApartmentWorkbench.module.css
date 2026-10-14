@@ -40,6 +40,13 @@
 .divider { margin: 20px 0; border: 0; border-top: 1px solid var(--border); }
 .subheading { margin: 0 0 12px; font-size: 15px; }
 .inlinePanel { grid-column: 1 / -1; width: 100%; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--bg-card); }
+.toastStack { position: fixed; top: 76px; right: 24px; z-index: 95; display: grid; gap: 10px; width: min(380px, calc(100vw - 32px)); }
+.toast { display: flex; align-items: flex-start; gap: 10px; border: 1px solid color-mix(in srgb, var(--status-danger) 45%, var(--border)); border-radius: 12px; padding: 12px 14px; background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-lg); animation: toastIn .22s ease; }
+.toast > svg { flex: none; margin-top: 2px; color: var(--status-danger); }
+.toast span { font-size: 13px; line-height: 1.55; }
+.toastClose { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin: -2px -4px 0 auto; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.toastClose:hover { background: var(--surface-subtle); color: var(--text-primary); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .auditDetails { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; border-top: 1px solid var(--border); padding-top: 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 @media (max-width: 900px) {
   .workspaceNav { grid-template-columns: 1fr; }
@@ -50,6 +57,7 @@
 }
 @media (max-width: 720px) {
   .hero { min-height: 0; }
+  .toastStack { top: 16px; right: 16px; }
   .heroCopy h1 { font-size: 26px; }
   .heroCopy p { font-size: 13px; }
   .heroActions { width: 100%; justify-content: stretch; }
