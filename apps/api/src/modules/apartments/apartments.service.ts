@@ -23,6 +23,7 @@ export class ApartmentsService {
 
   listRooms(scope: TenantParkScope, query: ListApartmentDto) {
     return this.dataSource.query(`SELECT r.*,u.unit_code,u.unit_name,b.building_name AS building_name,f.floor_name,
+      to_char(r.effective_from,'YYYY-MM-DD') AS effective_from,
       count(bed.id)::int AS bed_count,count(s.id) FILTER (WHERE s.status IN ('reserved','active','checkout_pending'))::int AS occupied_count
       FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$5
       LEFT JOIN biz_building b ON b.id=u.building_id LEFT JOIN biz_floor f ON f.id=u.floor_id
@@ -108,7 +109,9 @@ export class ApartmentsService {
   listApplications(scope: TenantParkScope, query: ListApartmentDto) { return this.dataSource.query(`SELECT a.*,u.display_name AS applicant_user_name,
     ap.decision AS approval_decision,ap.opinion AS approval_opinion,ap.approved_start_date,ap.approved_end_date,
     ap.cost_bearer,ap.deposit_amount,ap.monthly_fee,ap.allocation_note,ap.safety_requirements,
-    ap.decided_at AS approval_decided_at,approver.display_name AS approval_decided_by_name
+    ap.decided_at AS approval_decided_at,approver.display_name AS approval_decided_by_name,
+    to_char(a.requested_start_date,'YYYY-MM-DD') AS requested_start_date,to_char(a.requested_end_date,'YYYY-MM-DD') AS requested_end_date,
+    to_char(ap.approved_start_date,'YYYY-MM-DD') AS approved_start_date,to_char(ap.approved_end_date,'YYYY-MM-DD') AS approved_end_date
     FROM biz_apartment_application a
     LEFT JOIN sys_user u ON u.id=a.applicant_user_id AND u.tenant_id=a.tenant_id AND u.is_deleted=false
     LEFT JOIN LATERAL(SELECT x.* FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.tenant_id=a.tenant_id AND x.park_id=a.park_id AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true
@@ -134,14 +137,15 @@ export class ApartmentsService {
     }
     return this.dataSource.transaction(async manager=>{const [app]=await this.lockApplication(manager,scope,id);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="submitted")throw new ConflictException("仅已提交申请可审批");await manager.query(`INSERT INTO biz_apartment_approval(tenant_id,park_id,application_id,application_version,decision,decided_by,opinion,approved_start_date,approved_end_date,cost_bearer,deposit_amount,monthly_fee,allocation_note,safety_requirements,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12::numeric,$13,$14,$6,$6)`,[...this.scope(scope),id,app.version,dto.decision,actor.sub,dto.opinion,dto.decision==="approve"?dto.approved_start_date:null,dto.decision==="approve"?dto.approved_end_date??null:null,dto.decision==="approve"?dto.cost_bearer:null,dto.decision==="approve"?dto.deposit_amount??null:null,dto.decision==="approve"?dto.monthly_fee??null:null,dto.decision==="approve"?dto.allocation_note??null:null,dto.decision==="approve"?dto.safety_requirements:null]);const status=dto.decision==="approve"?"approved":"rejected";return (await manager.query(`UPDATE biz_apartment_application SET status=$1,decided_at=now(),update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING *`,[status,actor.sub,id]))[0];});
   }
-  async allocate(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:AllocateApartmentDto){return this.dataSource.transaction(async manager=>{const [app]=await manager.query(`SELECT a.*,ap.approved_start_date,ap.approved_end_date FROM biz_apartment_application a LEFT JOIN LATERAL(SELECT approved_start_date,approved_end_date FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.decision='approve' AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true WHERE a.id=$1 AND a.tenant_id=$2 AND a.park_id=$3 AND a.is_deleted=false FOR UPDATE OF a`,[id,...this.scope(scope)]);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="approved")throw new ConflictException("仅已批准申请可分配床位");const [bed]=await manager.query(`SELECT b.id,b.room_id,r.room_type,r.gender_policy,r.management_status FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=b.tenant_id AND u.park_id=b.park_id AND u.is_deleted=false AND u.usage_type=$5 WHERE b.id=$1 AND b.room_id=$2 AND b.tenant_id=$3 AND b.park_id=$4 AND b.status='enabled' AND b.is_deleted=false AND r.is_deleted=false FOR UPDATE`,[dto.bed_id,dto.room_id,...this.scope(scope),UNIT_USAGE_HOUSING]);if(!bed||bed.management_status!=="enabled")throw new ConflictException("床位当前不可分配");if(bed.room_type!==app.requested_room_type)throw new ConflictException("所选床位与申请房型不符");const plannedStart=app.approved_start_date??app.requested_start_date,plannedEnd=dto.planned_end_date??app.approved_end_date??app.requested_end_date;const [conflict]=await manager.query(`SELECT id FROM biz_apartment_stay WHERE bed_id=$1 AND is_deleted=false AND status IN ('reserved','active','checkout_pending') AND daterange(planned_start_date,COALESCE(planned_end_date,'infinity'::date),'[)') && daterange($2::date,COALESCE($3::date,'infinity'::date),'[)') LIMIT 1`,[dto.bed_id,plannedStart,plannedEnd]);if(conflict)throw new ConflictException("床位在批准期限内已被占用");const code=`STAY-${Date.now()}-${randomUUID().slice(0,6).toUpperCase()}`;const [stay]=await manager.query(`INSERT INTO biz_apartment_stay(tenant_id,park_id,stay_code,application_id,room_id,bed_id,occupant_party_id,occupant_user_id,occupant_name,planned_start_date,planned_end_date,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$12) RETURNING *`,[...this.scope(scope),code,id,dto.room_id,dto.bed_id,app.applicant_party_id,app.applicant_user_id,app.applicant_name,plannedStart,plannedEnd,actor.sub]);await manager.query(`UPDATE biz_apartment_application SET status='allocated',update_by=$1,update_time=now(),version=version+1 WHERE id=$2`,[actor.sub,id]);return stay;}).catch(this.translateConflict);}
+  async allocate(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:AllocateApartmentDto){return this.dataSource.transaction(async manager=>{const [app]=await manager.query(`SELECT a.*,ap.approved_start_date,ap.approved_end_date FROM biz_apartment_application a LEFT JOIN LATERAL(SELECT approved_start_date,approved_end_date FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.decision='approve' AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true WHERE a.id=$1 AND a.tenant_id=$2 AND a.park_id=$3 AND a.is_deleted=false FOR UPDATE OF a`,[id,...this.scope(scope)]);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="approved")throw new ConflictException("仅已批准申请可分配床位");const [bed]=await manager.query(`SELECT b.id,b.room_id,r.room_type,r.gender_policy,r.management_status FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=b.tenant_id AND u.park_id=b.park_id AND u.is_deleted=false AND u.usage_type=$5 WHERE b.id=$1 AND b.room_id=$2 AND b.tenant_id=$3 AND b.park_id=$4 AND b.status='enabled' AND b.is_deleted=false AND r.is_deleted=false FOR UPDATE`,[dto.bed_id,dto.room_id,...this.scope(scope),UNIT_USAGE_HOUSING]);if(!bed||bed.management_status!=="enabled")throw new ConflictException("床位当前不可分配");if(bed.room_type!==app.requested_room_type)throw new ConflictException("所选床位与申请房型不符");if(bed.gender_policy!=="any"&&(!app.gender||app.gender==="unspecified"))throw new ConflictException(bed.gender_policy==="male"?"该房源仅限男性入住，请先在申请中登记申请人性别":"该房源仅限女性入住，请先在申请中登记申请人性别");if(bed.gender_policy!=="any"&&app.gender!==bed.gender_policy)throw new ConflictException(bed.gender_policy==="male"?"该房源仅限男性入住，申请人性别不符":"该房源仅限女性入住，申请人性别不符");const plannedStart=app.approved_start_date??app.requested_start_date,plannedEnd=this.normalizeApiDate(dto.planned_end_date)??app.approved_end_date??app.requested_end_date;const [conflict]=await manager.query(`SELECT id FROM biz_apartment_stay WHERE bed_id=$1 AND is_deleted=false AND status IN ('reserved','active','checkout_pending') AND daterange(planned_start_date,COALESCE(planned_end_date,'infinity'::date),'[)') && daterange($2::date,COALESCE($3::date,'infinity'::date),'[)') LIMIT 1`,[dto.bed_id,plannedStart,plannedEnd]);if(conflict)throw new ConflictException("床位在批准期限内已被占用");const code=`STAY-${Date.now()}-${randomUUID().slice(0,6).toUpperCase()}`;const [stay]=await manager.query(`INSERT INTO biz_apartment_stay(tenant_id,park_id,stay_code,application_id,room_id,bed_id,occupant_party_id,occupant_user_id,occupant_name,planned_start_date,planned_end_date,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$12) RETURNING *`,[...this.scope(scope),code,id,dto.room_id,dto.bed_id,app.applicant_party_id,app.applicant_user_id,app.applicant_name,plannedStart,plannedEnd,actor.sub]);await manager.query(`UPDATE biz_apartment_application SET status='allocated',update_by=$1,update_time=now(),version=version+1 WHERE id=$2`,[actor.sub,id]);return stay;}).catch(this.translateConflict);}
   listStays(scope:TenantParkScope,query:ListApartmentDto){return this.dataSource.query(`SELECT s.*,a.application_code,u.unit_name,u.unit_code,b.bed_code,
     hi.confirmed_at AS move_in_confirmed_at,hi.water_meter_reading AS move_in_water_meter_reading,hi.electricity_meter_reading AS move_in_electricity_meter_reading,hi.exception_note AS move_in_exception_note,
-    ho.confirmed_at AS move_out_confirmed_at,ho.water_meter_reading AS move_out_water_meter_reading,ho.electricity_meter_reading AS move_out_electricity_meter_reading,ho.exception_note AS move_out_exception_note
+    ho.confirmed_at AS move_out_confirmed_at,ho.water_meter_reading AS move_out_water_meter_reading,ho.electricity_meter_reading AS move_out_electricity_meter_reading,ho.exception_note AS move_out_exception_note,
+    to_char(s.planned_start_date,'YYYY-MM-DD') AS planned_start_date,to_char(s.planned_end_date,'YYYY-MM-DD') AS planned_end_date
     FROM biz_apartment_stay s JOIN biz_apartment_application a ON a.id=s.application_id JOIN biz_apartment_room r ON r.id=s.room_id JOIN biz_unit u ON u.id=r.unit_id JOIN biz_apartment_bed b ON b.id=s.bed_id
     LEFT JOIN biz_apartment_handover hi ON hi.stay_id=s.id AND hi.handover_type='move_in' AND hi.is_deleted=false
     LEFT JOIN biz_apartment_handover ho ON ho.stay_id=s.id AND ho.handover_type='move_out' AND ho.is_deleted=false
-    WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND ($3::text IS NULL OR s.status=$3) AND ($4::text IS NULL OR s.occupant_name ILIKE '%'||$4||'%' OR s.stay_code ILIKE '%'||$4||'%') ORDER BY s.create_time DESC`,[...this.scope(scope),query.status??null,query.keyword?.trim()||null]);}
+    WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND ($3::text IS NULL OR s.status=ANY(string_to_array($3,','))) AND ($4::text IS NULL OR s.occupant_name ILIKE '%'||$4||'%' OR s.stay_code ILIKE '%'||$4||'%') ORDER BY s.create_time DESC`,[...this.scope(scope),query.status??null,query.keyword?.trim()||null]);}
   async checkIn(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:HandoverDto){return this.handover(scope,actor,id,"move_in",dto,"reserved","active");}
   async handoverMeters(scope:TenantParkScope,id:string){return this.dataSource.query(`SELECT m.id,m.meter_code,m.meter_name,m.meter_type,m.unit,m.current_reading,m.last_reading_at FROM biz_apartment_stay s JOIN biz_apartment_room r ON r.id=s.room_id AND r.is_deleted=false JOIN energy_meter m ON m.room_id=r.unit_id AND m.tenant_id=s.tenant_id AND m.park_id=s.park_id AND m.is_deleted=false AND m.is_enabled=true AND m.status<>'DISABLED' AND m.meter_type IN ('WATER','ELECTRIC') WHERE s.id=$1 AND s.tenant_id=$2 AND s.park_id=$3 AND s.is_deleted=false ORDER BY m.meter_type,m.meter_code`,[id,...this.scope(scope)]);}
   async requestCheckout(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.dataSource.transaction(async manager=>{const [stay]=await manager.query(`SELECT * FROM biz_apartment_stay WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`,[id,...this.scope(scope)]);if(!stay||stay.status!=="active")throw new ConflictException("仅在住记录可发起退房");await manager.query(`UPDATE biz_apartment_stay SET status='checkout_pending',checkout_requested_at=now(),update_by=$1,update_time=now() WHERE id=$2`,[actor.sub,id]);await manager.query(`UPDATE biz_apartment_application SET status='checkout_pending',update_by=$1,update_time=now() WHERE id=$2`,[actor.sub,stay.application_id]);return {id,status:"checkout_pending"};});}
@@ -198,8 +202,51 @@ export class ApartmentsService {
     if(!candidate)throw new NotFoundException("房源不存在或不在当前园区");return candidate;
   }
 
-  private async resolveDocumentVariables(scope:TenantParkScope,applicationId?:string,stayId?:string,overrides:Record<string,unknown>={}){const [row]=await this.dataSource.query(`SELECT a.*,s.stay_code,s.planned_start_date,s.actual_check_out_at,u.unit_name,u.unit_code,b.bed_code,ap.decision approval_decision,ap.opinion approval_opinion,ap.decided_at approval_time,h.item_snapshot,h.key_snapshot,h.exception_note FROM biz_apartment_application a LEFT JOIN biz_apartment_stay s ON s.application_id=a.id AND s.is_deleted=false LEFT JOIN biz_apartment_room r ON r.id=s.room_id LEFT JOIN biz_unit u ON u.id=r.unit_id LEFT JOIN biz_apartment_bed b ON b.id=s.bed_id LEFT JOIN LATERAL(SELECT decision,opinion,decided_at FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true LEFT JOIN LATERAL(SELECT item_snapshot,key_snapshot,exception_note FROM biz_apartment_handover x WHERE x.stay_id=s.id AND x.is_deleted=false ORDER BY x.confirmed_at DESC LIMIT 1) h ON true WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND (($3::uuid IS NOT NULL AND a.id=$3) OR ($4::uuid IS NOT NULL AND s.id=$4)) LIMIT 1`,[...this.scope(scope),applicationId??null,stayId??null]);if(!row)throw new NotFoundException("关联的入住申请或在住记录不存在");return {...row,department_job:[row.department_name,row.job_title].filter(Boolean).join(" / ")||"—",room_bed:[row.unit_name||row.unit_code,row.bed_code].filter(Boolean).join(" / ")||"待分配",handover_items:this.formatSnapshot(row.item_snapshot),handover_keys:this.formatSnapshot(row.key_snapshot),checkout_time:row.actual_check_out_at??"—",...overrides};}
-  private formatSnapshot(value:unknown){if(!Array.isArray(value)||!value.length)return "无";return value.map(item=>typeof item==="string"?item:JSON.stringify(item)).join("；");}
+  private documentEnumLabels:Record<string,Record<string,string>>={
+    applicant_type:{internal_employee:"集团员工",subsidiary_employee:"下属企业员工",executive:"高级管理人员",external_talent:"引进人才"},
+    room_type:{talent:"人才公寓",executive:"高管宿舍",employee:"员工宿舍"},
+    gender:{male:"男",female:"女",unspecified:"不便透露"},
+    decision:{approve:"通过",reject:"驳回"},
+    cost_bearer:{company:"单位承担",employee:"个人承担",shared:"单位与个人共担",waived:"政策减免"}
+  };
+  private documentEnumLabel(field:string,value:unknown){if(value===null||value===undefined||value==="")return value;const labels=this.documentEnumLabels[field];return labels?labels[String(value)]??value:value;}
+  private formatDateDisplay(value:unknown){if(value===null||value===undefined||value==="")return value;const parsed=value instanceof Date?value:new Date(String(value));if(Number.isNaN(parsed.getTime()))return value;const month=String(parsed.getMonth()+1).padStart(2,"0"),day=String(parsed.getDate()).padStart(2,"0");return `${parsed.getFullYear()}-${month}-${day}`;}
+  private formatDateTimeDisplay(value:unknown){if(value===null||value===undefined||value==="")return value;const parsed=value instanceof Date?value:new Date(String(value));if(Number.isNaN(parsed.getTime()))return value;const hours=String(parsed.getHours()).padStart(2,"0"),minutes=String(parsed.getMinutes()).padStart(2,"0");return `${this.formatDateDisplay(parsed)} ${hours}:${minutes}`;}
+  private async resolveDocumentVariables(scope:TenantParkScope,applicationId?:string,stayId?:string,overrides:Record<string,unknown>={}){const [row]=await this.dataSource.query(`SELECT a.*,s.stay_code,s.planned_start_date,s.planned_end_date,s.actual_check_out_at,u.unit_name,u.unit_code,b.bed_code,ap.decision approval_decision,ap.opinion approval_opinion,ap.decided_at approval_time,ap.cost_bearer,h.item_snapshot,h.key_snapshot,h.exception_note FROM biz_apartment_application a LEFT JOIN biz_apartment_stay s ON s.application_id=a.id AND s.is_deleted=false LEFT JOIN biz_apartment_room r ON r.id=s.room_id LEFT JOIN biz_unit u ON u.id=r.unit_id LEFT JOIN biz_apartment_bed b ON b.id=s.bed_id LEFT JOIN LATERAL(SELECT decision,opinion,decided_at,cost_bearer FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true LEFT JOIN LATERAL(SELECT item_snapshot,key_snapshot,exception_note FROM biz_apartment_handover x WHERE x.stay_id=s.id AND x.is_deleted=false ORDER BY x.confirmed_at DESC LIMIT 1) h ON true WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND (($3::uuid IS NOT NULL AND a.id=$3) OR ($4::uuid IS NOT NULL AND s.id=$4)) LIMIT 1`,[...this.scope(scope),applicationId??null,stayId??null]);if(!row)throw new NotFoundException("关联的入住申请或在住记录不存在");return {...row,
+    applicant_type:this.documentEnumLabel("applicant_type",row.applicant_type),
+    requested_room_type:this.documentEnumLabel("room_type",row.requested_room_type),
+    room_type:this.documentEnumLabel("room_type",row.room_type),
+    gender:this.documentEnumLabel("gender",row.gender),
+    approval_decision:row.approval_decision?this.documentEnumLabel("decision",row.approval_decision):undefined,
+    cost_bearer:row.cost_bearer?this.documentEnumLabel("cost_bearer",row.cost_bearer):undefined,
+    requested_start_date:this.formatDateDisplay(row.requested_start_date),
+    requested_end_date:this.formatDateDisplay(row.requested_end_date),
+    approved_start_date:this.formatDateDisplay(row.approved_start_date),
+    approved_end_date:this.formatDateDisplay(row.approved_end_date),
+    planned_start_date:this.formatDateDisplay(row.planned_start_date),
+    planned_end_date:this.formatDateDisplay(row.planned_end_date),
+    department_job:[row.department_name,row.job_title].filter(Boolean).join(" / ")||"—",
+    room_bed:[row.unit_name||row.unit_code,row.bed_code].filter(Boolean).join(" / ")||"待分配",
+    handover_items:this.formatSnapshot(row.item_snapshot),
+    handover_keys:this.formatSnapshot(row.key_snapshot),
+    checkout_time:row.actual_check_out_at?this.formatDateTimeDisplay(row.actual_check_out_at):"—",
+    approval_time:row.approval_time?this.formatDateTimeDisplay(row.approval_time):undefined,
+    ...overrides};}
+  private formatSnapshot(value:unknown){
+    if(!Array.isArray(value)||!value.length)return "无";
+    const conditionLabels:Record<string,string>={normal:"完好",damaged:"有损坏",pending_repair:"待维修",missing:"有缺失",qualified:"合格",reclean_required:"需返工"};
+    return value.map(item=>{
+      if(typeof item==="string")return item;
+      if(!item||typeof item!=="object")return String(item);
+      const record=item as Record<string,unknown>;
+      const name=record.name!==undefined?String(record.name):null;
+      const condition=record.condition!==undefined?(conditionLabels[String(record.condition)]??String(record.condition)):null;
+      const quantity=record.quantity!==undefined?String(record.quantity):null;
+      if(!name&&!condition&&!quantity)return JSON.stringify(item);
+      const label=[name,condition].filter(Boolean).join("：");
+      return quantity?`${label||"物品"} ×${quantity}`:label;
+    }).join("；");
+  }
   private renderTemplate(template:string,variables:Record<string,unknown>){return this.sanitizeTemplate(template).replace(/\{\{([a-z0-9_]+)\}\}/gi,(_,key:string)=>this.escapeHtml(variables[key]??"—"));}
   private sanitizeTemplate(template:string){return template.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"").replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi,"").replace(/javascript\s*:/gi,"");}
   private escapeHtml(value:unknown){return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]!);}
@@ -243,5 +290,22 @@ export class ApartmentsService {
       return {...handover,energy_readings:energyReadings};
     });
   }
-  private translateConflict(error: unknown): never { if (typeof error === "object"&&error&&"code" in error&&(["23P01","23505"].includes(String((error as {code:unknown}).code)))) throw new ConflictException("房源或床位已被占用，请刷新后重试"); throw error; }
+  private normalizeApiDate(value: unknown): string | undefined {
+    if (typeof value !== "string" || !value.trim()) return undefined;
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return trimmed;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(parsed);
+  }
+  private translateConflict(error: unknown): never {
+    const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : "";
+    if (code === "23514") {
+      const constraint = typeof error === "object" && error && "constraint" in error ? String((error as { constraint: unknown }).constraint) : "";
+      if (constraint === "ck_apartment_stay_period") throw new BadRequestException("计划退房日期必须晚于计划入住日期，请核对批准期限");
+      throw new ConflictException("数据校验未通过，请检查填写内容后重试");
+    }
+    if (code === "23P01" || code === "23505") throw new ConflictException("房源或床位已被占用，请刷新后重试");
+    throw error;
+  }
 }

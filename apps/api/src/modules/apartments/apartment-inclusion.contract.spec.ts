@@ -47,3 +47,22 @@ test("room projections only expose active housing units", () => {
   assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*JOIN biz_unit u ON u\.id=r\.unit_id AND u\.tenant_id=r\.tenant_id AND u\.park_id=r\.park_id AND u\.is_deleted=false AND u\.usage_type=\$5/u);
   assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*query\.keyword\?\.trim\(\) \|\| null, UNIT_USAGE_HOUSING\]/u);
 });
+
+test("allocation enforces room gender policy against applicant gender", () => {
+  assert.match(service, /bed\.room_type!==app\.requested_room_type[\s\S]*?bed\.gender_policy!=="any"&&\(!app\.gender\|\|app\.gender==="unspecified"\)/u);
+  assert.match(service, /bed\.gender_policy!=="any"&&app\.gender!==bed\.gender_policy/u);
+  assert.match(service, /该房源仅限男性入住，申请人性别不符/u);
+  assert.match(service, /该房源仅限女性入住，申请人性别不符/u);
+  assert.match(service, /请先在申请中登记申请人性别/u);
+});
+
+test("document variables render chinese labels and formatted dates", () => {
+  assert.match(service, /applicant_type:this\.documentEnumLabel\("applicant_type",row\.applicant_type\)/u);
+  assert.match(service, /requested_room_type:this\.documentEnumLabel\("room_type",row\.requested_room_type\)/u);
+  assert.match(service, /requested_start_date:this\.formatDateDisplay\(row\.requested_start_date\)/u);
+  assert.match(service, /checkout_time:row\.actual_check_out_at\?this\.formatDateTimeDisplay\(row\.actual_check_out_at\)/u);
+  assert.match(service, /internal_employee:"集团员工"/u);
+  assert.match(service, /talent:"人才公寓",executive:"高管宿舍",employee:"员工宿舍"/u);
+  assert.match(service, /approve:"通过",reject:"驳回"/u);
+  assert.match(service, /formatSnapshot[\s\S]*?conditionLabels\[String\(record\.condition\)\]/u);
+});

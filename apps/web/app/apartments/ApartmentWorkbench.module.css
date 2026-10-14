@@ -34,12 +34,33 @@
 .templateCard span:last-child { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .list { display: grid; gap: 12px; }
 .record { display: grid; grid-template-columns: minmax(180px, 1.35fr) minmax(130px, 1fr) minmax(100px, .8fr) minmax(80px, .6fr) auto; align-items: center; gap: 12px; }
+.recordRooms { grid-template-columns: minmax(150px, 1.15fr) minmax(80px, .55fr) minmax(200px, 1.5fr) minmax(120px, 1fr) minmax(64px, .45fr) auto; }
 .record strong, .record span { overflow: hidden; text-overflow: ellipsis; }
 .muted { color: var(--text-secondary); font-size: 13px; }
 .empty { min-height: 112px; display: grid; place-items: center; border: 1px dashed var(--border); border-radius: 14px; padding: 32px 20px; background: color-mix(in srgb, var(--bg-page) 62%, var(--bg-card)); color: var(--text-secondary); line-height: 1.65; text-align: center; }
 .divider { margin: 20px 0; border: 0; border-top: 1px solid var(--border); }
 .subheading { margin: 0 0 12px; font-size: 15px; }
 .inlinePanel { grid-column: 1 / -1; width: 100%; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--bg-card); }
+.picker { position: relative; }
+.pickerInput { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; background: var(--bg-card); color: var(--text-primary); font-size: 14px; text-align: left; cursor: pointer; }
+.pickerInput:hover { border-color: var(--form-control-border-hover); }
+.pickerPlaceholder { color: var(--text-secondary); }
+.pickerPanel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: var(--surface-elevated); box-shadow: var(--shadow-lg); }
+.pickerSearch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; color: var(--text-secondary); }
+.pickerSearch input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text-primary); font-size: 13px; }
+.pickerList { display: grid; max-height: 260px; overflow-y: auto; gap: 2px; }
+.pickerOption { display: grid; gap: 2px; border: 0; border-radius: 8px; padding: 8px 10px; background: transparent; color: var(--text-primary); font-size: 13px; text-align: left; cursor: pointer; }
+.pickerOption small { color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.pickerOptionActive { background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-card)); }
+.pickerOptionDisabled { cursor: not-allowed; color: var(--text-secondary); }
+.pickerEmpty { margin: 0; padding: 14px 10px; color: var(--text-secondary); font-size: 13px; text-align: center; }
+.toastStack { position: fixed; top: 76px; right: 24px; z-index: 95; display: grid; gap: 10px; width: min(380px, calc(100vw - 32px)); }
+.toast { display: flex; align-items: flex-start; gap: 10px; border: 1px solid color-mix(in srgb, var(--status-danger) 45%, var(--border)); border-radius: 12px; padding: 12px 14px; background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-lg); animation: toastIn .22s ease; }
+.toast > svg { flex: none; margin-top: 2px; color: var(--status-danger); }
+.toast span { font-size: 13px; line-height: 1.55; }
+.toastClose { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin: -2px -4px 0 auto; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.toastClose:hover { background: var(--surface-subtle); color: var(--text-primary); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .auditDetails { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; border-top: 1px solid var(--border); padding-top: 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 @media (max-width: 900px) {
   .workspaceNav { grid-template-columns: 1fr; }
@@ -47,9 +68,13 @@
   .templateGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .record { grid-template-columns: minmax(150px, 1fr) repeat(2, minmax(90px, .7fr)); }
   .record > .actions { grid-column: 1 / -1; }
+  .recordRooms { grid-template-columns: minmax(140px, 1.2fr) minmax(90px, .8fr) minmax(150px, 1.4fr) minmax(110px, 1fr) auto; }
+  .recordRooms > span:nth-child(2) { display: none; }
+  .recordRooms > .actions { grid-column: auto; }
 }
 @media (max-width: 720px) {
   .hero { min-height: 0; }
+  .toastStack { top: 16px; right: 16px; }
   .heroCopy h1 { font-size: 26px; }
   .heroCopy p { font-size: 13px; }
   .heroActions { width: 100%; justify-content: stretch; }
@@ -65,6 +90,9 @@
   .formActions > *, .settingsForm > button { width: 100%; }
   .record { grid-template-columns: 1fr 1fr; }
   .record > :first-child, .record > .actions { grid-column: 1 / -1; }
+  .recordRooms { grid-template-columns: 1fr 1fr; }
+  .recordRooms > :first-child, .recordRooms > .actions { grid-column: 1 / -1; }
+  .recordRooms > span:nth-child(2) { display: inline; }
   .auditDetails { grid-template-columns: 1fr; }
   .actions > button { flex: 1 1 auto; }
 }
