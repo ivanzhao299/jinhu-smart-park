@@ -124,7 +124,8 @@
     "10-12-hr-payroll-source-preparation-flow",
     "10-16-hr-performance-operation-continuity",
     "10-16-hr-goal-report-ledgers",
-    "10-16-hr-performance-record-rubric-entry"
+    "10-16-hr-performance-record-rubric-entry",
+    "10-16-hr-performance-formal-source-weights"
   ],
   "parent": null,
   "relatedFiles": [

@@ -1,0 +1,33 @@
+{
+  "id": "hr-performance-channel-calculation-core",
+  "name": "hr-performance-channel-calculation-core",
+  "title": "绩效五渠道快照计算内核",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "backend",
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": "codex/hr-performance-formal-source-weights-20261016",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-16-hr-performance-formal-source-weights",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "baseline": "f5ec67f9829373ce77102676a2226566067b33ed",
+    "migrationReservation": "000370",
+    "parentScopeUnchanged": true,
+    "localQualityGate": "PASS_IMPLEMENT_AND_INDEPENDENT_REVIEW",
+    "releaseGate": "PENDING",
+    "deploymentScope": "full"
+  }
+}

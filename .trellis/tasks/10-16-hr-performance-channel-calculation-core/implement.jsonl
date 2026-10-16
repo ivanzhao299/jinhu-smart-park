@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API quality and database conventions"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Forward-only migration and release requirements"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search and reuse existing mathematical primitives"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/source-math-contract.md", "reason": "Exact final source mathematics and caveats"}
