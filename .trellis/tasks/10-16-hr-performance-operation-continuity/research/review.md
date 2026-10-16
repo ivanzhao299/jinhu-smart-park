@@ -39,3 +39,13 @@ Pass after self-fix. The client keeps an in-memory immutable attempt containing 
 
 - This review did not perform a production write, deployment, release integration, real-role UAT, payroll calculation, historical import, or legacy-equivalence certification.
 - Desktop and 390px native browser inspection was performed by the coordinating session. This review consumed its reported no-overflow result and fixed the retry placement it identified; browser artifacts must be regenerated from the final source by that session.
+
+## CI follow-up: 38867314560
+
+The CI unit-test job had two related failures in `hr-performance-review-browsing.test.tsx`; the remaining 148 files / 1202 tests passed. Both expectations predated receipt continuity: the pending-write test resolved a bare object, which is now deliberately an unverified receipt and therefore must not trigger a refresh; the failed-write assertion omitted the new fourth idempotency-key adapter argument. The component implementation and service receipt contract require `{ id: "review-1", status: "manager_review", score: "80" }` for a successful self-review.
+
+The test fixture now returns that verified receipt, the pending-write resolver uses it explicitly, and the adapter expectation includes the generated key. The test additionally proves that a success followed by a failed refresh has no retry button, preserving the no-repeat-write guarantee.
+
+Validated after the correction:
+
+- `pnpm --filter @jinhu/web exec vitest run test/interaction/hr-performance-operation-workflow.test.tsx test/interaction/hr-performance-review-browsing.test.tsx test/interaction/hr-performance-result-export.test.tsx test/interaction/hr-performance-reward-evidence-api.test.tsx test/interaction/hr-performance-template-workflow.test.tsx` — 5 files, 53 tests passed.

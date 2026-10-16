@@ -33,6 +33,8 @@ Good: a lost self-review response retries the same body/token/key. Base: a new i
 
 Use the actual component workflow test. Table-driven cases cover all ten writes, rejecting a malformed receipt then verifying identical arguments on retry and accepting the real backend shape. Also cover draft retention, double-submit lock, ordinary409/401, successful write followed by failed reload, context replacement, score validation and retry placement inside the form. Inspect desktop and390px actual components; synthetic transport proves UI behavior only.
 
+Run all affected performance interaction suites, including review browsing, result export, reward evidence and template workflows. Their successful-write mocks must return actual receipt shapes, and adapter assertions must include the supplied key. Run the complete Web interaction suite before release after these adapter/receipt changes; do not weaken unknown-receipt rejection to keep an obsolete bare-object mock passing.
+
 ## Wrong vs Correct
 
 Wrong: invoke the write adapter again without its original key after any network error. Correct: keep the unresolved attempt and invoke its captured send closure with the captured token/key. Wrong: classify reload failure as failed submission. Correct: record matched write success before reloading.
