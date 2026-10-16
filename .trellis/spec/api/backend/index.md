@@ -1076,3 +1076,5 @@ Count-only monthly payroll cohort insurance source availability: [Insurance Cove
 Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
 
 Whole-month modern calculate-only payroll and frozen source comparisons: [Formal Trial Comparison](./hr-payroll-formal-trial-comparison.md).
+
+Pure exact five-channel snapshot arithmetic and complete threshold candidates: [Performance Channel Calculation Core](./hr-performance-channel-calculation-core.md).
