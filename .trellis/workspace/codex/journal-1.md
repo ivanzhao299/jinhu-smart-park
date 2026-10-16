@@ -218,3 +218,73 @@ PR #733 以 head 保护 squash 合并为 cfc7e6db；main CI 与自动生产部�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 正式绩效五渠道完整办理生产验收
+
+**Date**: 2026-10-16
+**Task**: 正式绩效五渠道完整办理生产验收
+**Package**: api
+**Branch**: `codex/hr-performance-formal-source-weights-20261016`
+
+### Summary
+
+PR982已合并生产9ed1e4b8；PR与main完整CI/ReleaseSmoke、迁移371/372各一次、健康清理和独立API/Web运行版本均通过。真实PG/HTTP/shared4PASS、Web155文件1267PASS、type/lint/build及实际组件桌面390px通过。真实角色会话未认证、7月全93条/64人/两有记录账套只算不发仍NOT_EXECUTED。父来源资格/幂等正式承接、增量、原程序完整等价、切换恢复及独立HR目标保留。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0ec8286925bd2bc45378adc697f751be574d26a9` | (see git log) |
+| `9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 13: 绩效正式承接生产只读取证与全7月工资范围固化
+
+**Date**: 2026-10-16
+**Task**: 绩效正式承接生产只读取证与全7月工资范围固化
+**Package**: api
+**Branch**: `codex/hr-performance-formal-continuation-20261016`
+
+### Summary
+
+绩效来源只读observer合同6/6、ownedPG2/2、独立8文件审查PASS。生产run38927701106成功，Deploy skipped，API/Web均9ed1e4b8；当前tenant10000001/park20000001六类绩效来源及正式five_channel记录全部0，仅此scope/模块，不否定其他HR已导入数据。预检子任务归档，完整正式可编辑首次接入/增量承接仍待实现。用户确认全量已导入2026-07工资/所有有记录账套，吴恩国负责，只算不发，实际试算NOT_EXECUTED。无业务写入、导入重放或应用部署。下一步按真实空集调整完整D接口设计，避免空关联修复及重复历史分析；长任务未完成。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `451f7d33d` | (see git log) |
+| `debdf41f9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

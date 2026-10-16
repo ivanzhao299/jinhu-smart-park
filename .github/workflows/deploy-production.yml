@@ -49,6 +49,11 @@ on:
         required: false
         default: false
         type: boolean
+      diagnose_performance_source_readiness:
+        description: "Include count/hash-only formal performance source evidence in runtime-revision diagnosis. Read-only; never continues or qualifies business data."
+        required: false
+        default: false
+        type: boolean
       payroll_coverage_month:
         description: "Optional explicit YYYY-MM-01 source coverage census with payroll readiness. Read-only; includes unavailable sources."
         required: false
@@ -355,6 +360,27 @@ jobs:
           fi
           cat "$RUNNER_TEMP/hr-payroll-readiness-observation.json"
 
+      - name: Diagnose HR performance source readiness counts (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_performance_source_readiness }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          if ! probe_error="$(ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "node --input-type=module - '$PROD_DEPLOY_PATH'" < scripts/diagnose-hr-performance-source-readiness.mjs \
+            2>&1 > "$RUNNER_TEMP/hr-performance-source-readiness-observation.json")"; then
+            case "$probe_error" in
+              HR_PERFORMANCE_SOURCE_READINESS_PATH_INVALID|HR_PERFORMANCE_SOURCE_READINESS_PROBE_FAILED|HR_PERFORMANCE_SOURCE_READINESS_RESULT_INVALID) printf '%s\n' "$probe_error" >&2 ;;
+              *) echo HR_PERFORMANCE_SOURCE_READINESS_REMOTE_FAILED >&2 ;;
+            esac
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/hr-performance-source-readiness-observation.json"
+
       - name: Diagnose HR payroll source coverage (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_payroll_readiness && inputs.payroll_coverage_month != '' }}
         env:
@@ -455,6 +481,15 @@ jobs:
         with:
           name: hr-payroll-readiness-observation
           path: ${{ runner.temp }}/hr-payroll-readiness-observation.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain HR performance source readiness observation
+        if: ${{ inputs.deploy_mode == 'diagnose-production-runtime-revision' && inputs.diagnose_performance_source_readiness && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: hr-performance-source-readiness-observation
+          path: ${{ runner.temp }}/hr-performance-source-readiness-observation.json
           if-no-files-found: error
           retention-days: 7
 

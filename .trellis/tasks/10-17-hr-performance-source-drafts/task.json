@@ -1,0 +1,33 @@
+{
+  "id": "hr-performance-source-drafts",
+  "name": "hr-performance-source-drafts",
+  "title": "绩效资料正式草稿与增量修订",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-17",
+  "completedAt": null,
+  "branch": "codex/hr-performance-formal-continuation-20261016",
+  "base_branch": "codex/hr-performance-formal-continuation-20261016",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-16-hr-performance-formal-source-continuation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "designStatus": "ROOT_FROZEN_V2_ACCEPTED_ALL_R1_R6",
+    "parentFullDeliverableNotReplaced": true,
+    "productionSourceObservation": 38927701106,
+    "independentDesignReview": "research/design-review.md",
+    "localAcceptance": "PASS_INDEPENDENT_FULL_SCOPE_AND_ROOT_BUILD_BROWSER",
+    "productionAcceptance": "PENDING"
+  }
+}

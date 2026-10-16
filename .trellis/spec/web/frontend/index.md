@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Modern performance source draft maintenance: [Source Drafts](./hr-performance-source-drafts.md).
+
 Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](../../api/backend/hr-goal-report-ledgers.md).
 
 Modern performance write retries and receipts: [Performance operation continuity](./hr-performance-operation-continuity.md).
@@ -566,6 +568,8 @@ only when `CI=true`. CI's existing Testing Library async assertion budget remain
 5000ms; a multi-stage test must have time for its assertions and surrounding work.
 Do not increase assertion/hook timeouts, add retries, skip cases or reduce assertions
 to bypass an observed failure. Verify timeout-budget changes with the full interaction suite.
+
+For asynchronously populated selects, wait for the intended option to exist before firing a selection. Waiting only for the select label is insufficient: the control may mount before its options, and selecting a missing option silently leaves the value empty. Cover delayed option arrival with a controlled promise; do not fix this race with sleeps, timeouts or retries.
 
 For frontend changes, choose the smallest reliable checks:
 

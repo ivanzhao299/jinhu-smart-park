@@ -3,7 +3,7 @@
   "name": "hr-performance-channel-workflow-web",
   "title": "正式绩效五渠道完整办理页面",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "web",
@@ -11,12 +11,12 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-16",
-  "completedAt": null,
+  "completedAt": "2026-10-16",
   "branch": "codex/hr-performance-formal-business-20261016",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-formal-trial-comparison-20261012",
-  "commit": null,
-  "pr_url": null,
+  "commit": "9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/982",
   "subtasks": [],
   "children": [],
   "parent": "10-16-hr-performance-channel-workflow",
@@ -29,11 +29,30 @@
     "parentAcceptance": false,
     "designStatus": "ROOT_REVIEWED",
     "modelSelection": "Host does not offer Terra; available gpt-6.1-sol medium for ordinary implementation",
-    "validationStatus": "FULL_SCOPE_LOCAL_PASS_RELEASE_PENDING",
+    "validationStatus": "RELEASE_ACCEPTED",
     "backendPgPassed": 4,
     "webInteractionPassed": 1267,
     "webInteractionFiles": 155,
     "nativeDesktopMobile": "PASS_SYNTHETIC_ACTUAL_COMPONENTS",
-    "actualJulyTrial": "NOT_EXECUTED"
+    "actualJulyTrial": "NOT_EXECUTED",
+    "releaseProof": {
+      "pr": 982,
+      "mergedSha": "9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0",
+      "ciRun": 38914273512,
+      "mainCiRun": 38918794537,
+      "deployRun": 38918794477,
+      "runtimeObserverRun": 38921666938,
+      "status": "DEPLOYED_RUNTIME_VERIFIED_MAIN_CI_PASS",
+      "migrations": [
+        371,
+        372
+      ],
+      "dockerCleanup": "PASS_ONCE",
+      "apiWebRuntimeEqualsMain": true,
+      "nativeDesktopMobile": "PASS_ACTUAL_COMPONENT_SYNTHETIC_PREVIEW",
+      "realRoleUat": "NOT_EXECUTED_SESSION_NOT_AUTHENTICATED",
+      "actualJulyTrial": "NOT_EXECUTED",
+      "parentAcceptance": false
+    }
   }
 }

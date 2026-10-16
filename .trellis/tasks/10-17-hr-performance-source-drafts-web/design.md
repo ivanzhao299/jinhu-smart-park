@@ -1,0 +1,13 @@
+# 设计状态：ROOT_FROZEN_V2，使用确切backend shared/API合同
+
+复用HrPerformanceClient.tsx、PerformanceChannelDefinitionEditor、PerformanceChannelWorkflowPolicyEditor及现有operation稳定重试模式；新增独立PerformanceSourceDraftsPanel和必要api-client adapter/测试。正常入口不依赖sourceOpen，read-only不加载write候选。共享字段元数据驱动允许编辑字段与精确input类型，固定字段折叠追溯，不提供任意JSON编辑。
+候选/资料列表/历史独立分页状态；预览、编辑、绑定、配置、刷新按目标key隔离，请求AbortController+generation；捕获key+body+auth token直到确定拒绝/成功receipt，所有mutation有同步ref锁。salary省略字段不生成change，binding显式null字段不猜日期。snapshot记录目录完整保存，显示可以分页不能裁剪提交集合。
+后端写只返回非敏感receipt，成功重读GET当前投影；retry重放也需服务器liveguard。禁止将preview通过Number转换或把来源计算输出当可编辑新总分。modern editor定义/workflow同次配对验证；source记录修订不暗改两份配置。
+backend合同已冻结为../10-17-hr-performance-source-drafts/research/api-contract.md及packages/shared/src/hr-performance-source-drafts.ts：GET metadata列表、完整preview/snapshot、detail.revision、history、非敏感write receipt。使用HR_PERFORMANCE_SOURCE_FIELDS/EDITABLE_FIELDS驱动类型/字段闭集，只显示当前snapshot实际存在的pay字段；创建非nullpay需salarywrite，refresh若变pay由服务器403原子拒绝。绑定通过既有正常员工/组织选择接口（按实际action权限可达）或者允许空值，不用原code猜UUID；同slice backend补只读source-drafts/options，kind-manage liveguard，resource org两kind可用/employee仅review；最小id/name/code/status分页搜索，不加HRREAD或新权限。使用普通picker完整绑定，不留UUID输入或只读绑定作为最终交付。definition/workflow按最终pair保存且省略字段不清空。所有目录完整客户端分组分页，不把显示页裁剪成提交全snapshot。父D activationbuttons尚无接口，不能做虚假启用/成功状态。
+
+
+## 精确页面实现边界
+新增PerformanceSourceDraftsPanel.tsx及小型模块CSS仅布局（globalDS先行），在HrPerformanceClient正常工作台加“资料维护”入口，与sourceOpen来源追溯独立；两个kind按各自read/manage权限制。候选仅对应manage角色展开时获取，draft列表read/manage获取。独立candidate/draft/history页码、当前draftId/generation。write结果严格核对receipt draftId/revisionId/revisionNo/outcome，再重读已授权GET，回读失败显示成功保留提示，不重复写。403/409确定拒绝可解锁修订；网络/processing不确定保持原token/key/body及原请求重试。
+字段中文名不猜S/M/T/X/C职责；采用既有五渠道可配置业务名称，没有配置时中性渠道字母；原作者/时刻/比较分值在可折叠追溯中。数字以text+inputMode及约束校验保持字符串，bool用明确true/false/null选择；nullable字段显式置空，不将空串猜0。metadata列表无名称时显示资料编号/修订号，不假造人员名称。
+复用PerformanceChannelDefinitionEditor/WorkflowPolicyEditor现有props（读实际代码），配对变更payload只包含明确编辑项。工资无read不展示input；有read无write只读；源pay非null无salarywrite创建操作给清晰权限提示而不清空pay；不显示NOT_EVALUATED技术状态或旧新分割。暂无候选不阻断已有模板/周期业务。
+正常页面和组件的可见功能仅草稿保存/修订，不能做虚假启用按钮；父D activation仍在下一段真实接口实现后加入。实际组件交互及native390px/desktop为必需，synthetic清晰标注。

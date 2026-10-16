@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/hr-performance-channel-workflow.md", "reason": "Existing normal workflow immutable guards"}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-definition.md", "reason": "Definition validation and draft revision rules"}
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts/prd.md", "reason": "Full child acceptance"}
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts/design.md", "reason": "Reviewed write contract"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-continuation/research/qualification-inventory.md", "reason": "Current source/map/schema facts; do not upgrade credit"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/source-field-carrier-matrix.csv", "reason": "Complete source field inventory"}
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts/research/design-review.md", "reason": "Mandatory normative R1-R6 corrections accepted by root in designv2"}

@@ -1,0 +1,15 @@
+import {expect,it,vi} from 'vitest';
+import {hrApi} from '../../lib/hr-api';
+import {apiRequest} from '../../lib/api-client';
+vi.mock('../../lib/api-client',()=>({apiRequest:vi.fn(),createIdempotencyKey:()=> 'generated'}));
+it('forwards exact source draft URLs, pages, frozen payloads, original key, token and AbortSignal',async()=>{vi.mocked(apiRequest).mockResolvedValue({data:{}} as Awaited<ReturnType<typeof apiRequest>>);const signal=new AbortController().signal;
+ await hrApi.performanceSourceDrafts('template',3,'token',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts?kind=template&page=3&pageSize=10',{token:'token',signal});
+ await hrApi.performanceSourceCandidates('review',2,'token',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/candidates?kind=review&page=2&pageSize=10',{token:'token',signal});
+ await hrApi.performanceSourceCandidates('review',3,'token',signal,'draft');expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/candidates?kind=review&page=3&pageSize=10&draftId=draft',{token:'token',signal});
+ await hrApi.performanceSourceOptions('review','employee',2,'合成','token',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/options?kind=review&resource=employee&page=2&pageSize=10&q=%E5%90%88%E6%88%90',{token:'token',signal});
+ await hrApi.performanceSourcePreview('review','source','token',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/preview?kind=review&sourceId=source',{token:'token',signal});
+ await hrApi.performanceSourceHistory('draft',4,'token',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/draft/history?page=4&pageSize=10',{token:'token',signal});
+ const body={expectedRevisionId:'revision',reason:'合成理由',changes:[{family:'master_result' as const,sourceFactId:'source',field:'source_master_value',value:'9999999999999999.99'}]};await hrApi.patchPerformanceSourceDraft('draft',body,'token','original',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/draft',{method:'PATCH',body,token:'token',idempotencyKey:'original',signal});
+ const create={kind:'template' as const,sourceId:'source',expectedManifestSha256:'hash'};await hrApi.createPerformanceSourceDraft(create,'token','create',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts',{method:'POST',body:create,token:'token',idempotencyKey:'create',signal});
+ const refresh={sourceId:'source',expectedManifestSha256:'hash',expectedRevisionId:'revision',reason:'合成刷新'};await hrApi.refreshPerformanceSourceDraft('draft',refresh,'token','refresh',signal);expect(apiRequest).toHaveBeenLastCalledWith('/hr/performance-v2/source-drafts/draft/refresh',{method:'POST',body:refresh,token:'token',idempotencyKey:'refresh',signal});
+});

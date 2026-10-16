@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Persisted editable performance source drafts and complete immutable source evidence: [Performance Source Drafts](./hr-performance-source-drafts.md).
+
 Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](./hr-goal-report-ledgers.md).
 
 Recruitment full filtered requisition and masked candidate snapshots: [Recruitment Ledger Exports](./hr-recruitment-ledger-export.md).
@@ -1084,3 +1086,5 @@ Five-channel draft definition maintenance: [Channel Definition](./hr-performance
 Modern payroll preparation read-only observer: [Modern Readiness Observer](./hr-payroll-modern-readiness-observer.md).
 
 Formal five-channel publish/input/stage/calibration/appeal/correction workflow: [Channel Workflow](./hr-performance-channel-workflow.md).
+
+Formal performance count/hash preparation: [Source Readiness Observer](./hr-performance-source-readiness-observer.md).
