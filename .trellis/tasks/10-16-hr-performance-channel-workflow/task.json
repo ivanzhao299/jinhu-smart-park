@@ -1,0 +1,33 @@
+{
+  "id": "hr-performance-channel-workflow",
+  "name": "hr-performance-channel-workflow",
+  "title": "五渠道正式评分与绩效办理闭环",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": "codex/hr-performance-formal-business-20261016",
+  "base_branch": "codex/hr-performance-formal-business-20261016",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-formal-trial-comparison-20261012",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-16-hr-performance-formal-source-weights",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planningBaseline": "e3528f6f142f9d8c8dd1c0e0dbdf066febcf16fa",
+    "designStatus": "ROOT_REVIEWED_PRE_EDIT_INVENTORY_DECISIONS_INCORPORATED",
+    "parentAcceptance": false,
+    "implementationStarted": true,
+    "implementationAgent": "/root/performance_channel_definition_implement",
+    "validationStatus": "SHARED_BUILD_PASS_FULL_WORKFLOW_PENDING"
+  }
+}

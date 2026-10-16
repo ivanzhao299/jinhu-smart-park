@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "10-16-hr-performance-channel-calculation-core",
-    "10-16-hr-performance-channel-definition-maintenance"
+    "10-16-hr-performance-channel-definition-maintenance",
+    "10-16-hr-performance-channel-workflow"
   ],
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],

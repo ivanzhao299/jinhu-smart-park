@@ -76,3 +76,6 @@ manifest按表名+稳定事实身份排序，冻结scope、fact/map/batch、每�
 
 ## 后续评分接入的阶段完整性补充
 配置允许渠道属于calibration阶段，故不能要求manager提交时已经填完校准渠道，否则流程死锁。各阶段仅验证该阶段冻结requiredChannels/adjustments及授权字段；self或manager可追加完成证据且computed_score=NULL，前提是five_channel模式、输入尚未全量具备并且未进入最终确认。输入全部具备后才调用纯总分函数；calibration批次完成必须有所有明细与调整的明确VALUE/EXPLICIT_NULL和唯一可用等级。UNPROVIDED不由required=false或weight=0隐式变NULL；确实不适用时需已发布政策允许、明确写入不适用状态及依据。旧dimension分支computed_score仍非NULL且原算法/状态规则不变。需新增跨阶段HTTP/PG用例：self→manager→calibration各写不同渠道、前阶段不越权填后阶段、后阶段完成可正常最终计算，缺件最终确认失败但不阻断其他员工。
+
+## C实施阶段完整性定案
+此前“仅requiredChannels”泛称修订为：每阶段提交须使本阶段所有最终算分字段有明确VALUE或政策允许EXPLICIT_NULL（附依据），不能把早阶段UNPROVIDED遗留到无法编辑的后阶段；required=true表示必须VALUE，required=false仅可依明确NULL政策登记不适用，不产生自动NULL。后续calibration字段不在manager必填范围。完整细节见子任务10-16-hr-performance-channel-workflow/design.md。
