@@ -1,3 +1,4 @@
+import {validateHrPerformanceWorkflowPolicy,validateHrPerformanceChannelDefinition} from "@jinhu/shared";
 import type { HrPerformanceTemplateDetailV2 } from "../../../lib/hr-api";
 
 export function performanceTemplateDetail(value: unknown, requestedId: string): HrPerformanceTemplateDetailV2 {
@@ -6,6 +7,12 @@ export function performanceTemplateDetail(value: unknown, requestedId: string): 
   const data = value as HrPerformanceTemplateDetailV2;
   if (data.templateId !== requestedId || typeof data.versionId !== "string" || !data.versionId.trim() || !Number.isSafeInteger(data.versionNo) || data.versionNo < 1 || !["draft", "published"].includes(data.status)) return fail();
   if ([data.templateCode, data.templateName, data.versionName].some(text => typeof text !== "string" || !text.trim())) return fail();
+  if(data.calculationMode === 'five_channel_v1') {
+    try { validateHrPerformanceChannelDefinition(data.channelDefinition);if(data.channelWorkflow!=null)validateHrPerformanceWorkflowPolicy(data.channelWorkflow,data.channelDefinition);if(data.status==='published'&&(!data.channelWorkflow||!data.workflowRevisionId))throw new Error(); } catch { return fail(); }
+    if(typeof data.currentRevisionId !== 'string' || !data.currentRevisionId || !Array.isArray(data.dimensions) || data.dimensions.length || !Array.isArray(data.levels) || data.levels.length) return fail();
+    return {...data, channelDefinition:data.channelDefinition, dimensions:[], levels:[]};
+  }
+  if(data.calculationMode != null && data.calculationMode !== 'dimension_weighted_v1') return fail();
   if (!Array.isArray(data.dimensions) || data.dimensions.length < 1 || data.dimensions.length > 30 || !Array.isArray(data.levels) || data.levels.length < 1 || data.levels.length > 20) return fail();
   const numeric = (value: unknown, min: number, max: number) => (typeof value === "number" || (typeof value === "string" && /^\d+(?:\.\d+)?$/.test(value))) && Number.isFinite(Number(value)) && Number(value) >= min && Number(value) <= max;
   const dimensions = data.dimensions.map(row => {
@@ -20,5 +27,5 @@ export function performanceTemplateDetail(value: unknown, requestedId: string): 
   if (new Set(dimensions.map(row => row.code.trim())).size !== dimensions.length || new Set(levels.map(row => row.code.trim())).size !== levels.length || Math.abs(dimensions.reduce((sum, row) => sum + Number(row.weight), 0) - 1) > .000001) return fail();
   const sorted = [...levels].sort((a, b) => Number(a.scoreMin) - Number(b.scoreMin));
   if (Number(sorted[0]!.scoreMin) !== 0 || Number(sorted.at(-1)!.scoreMax) !== 100 || sorted.some((row, index) => index > 0 && Math.abs(Number(row.scoreMin) - Number(sorted[index - 1]!.scoreMax) - .01) > .000001)) return fail();
-  return { templateId: data.templateId, templateCode: data.templateCode, templateName: data.templateName, versionId: data.versionId, versionNo: data.versionNo, versionName: data.versionName, status: data.status, dimensions, levels };
+  return { templateId: data.templateId, templateCode: data.templateCode, templateName: data.templateName, versionId: data.versionId, versionNo: data.versionNo, versionName: data.versionName, status: data.status, dimensions, levels, calculationMode: data.calculationMode, versions:data.versions };
 }

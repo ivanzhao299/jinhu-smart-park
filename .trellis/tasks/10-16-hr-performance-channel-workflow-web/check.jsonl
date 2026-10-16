@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/web/frontend/hr-performance-operation-continuity.md", "reason": "retry and receipts"}
+{"file": ".trellis/spec/web/frontend/hr-performance-channel-definition.md", "reason": "existing full editor"}
+{"file": ".trellis/spec/web/frontend/hr-performance-template-workflow.md", "reason": "template/cycle contracts"}
+{"file": ".trellis/spec/web/frontend/hr-performance-result-exports.md", "reason": "precision/scoped export"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "runtime contracts"}
+{"file": ".trellis/tasks/10-16-hr-performance-channel-workflow/design.md", "reason": "full C decisions"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/design.md", "reason": "parent scope and source identity"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/formal-design-review.md", "reason": "complete field carrier pitfalls"}
+{"file": ".trellis/tasks/10-16-hr-performance-channel-workflow/research/api-web-contract.md", "reason": "frozen backend DTO response routes and authority projection"}

@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/api/backend/hr-performance-template-workflow.md", "reason": "existing version and freeze contracts"}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-definition.md", "reason": "full definition schema"}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-calculation-core.md", "reason": "exact source math and pure helpers"}
+{"file": ".trellis/spec/web/frontend/hr-performance-operation-continuity.md", "reason": "request retry and page scope"}
+{"file": ".trellis/spec/web/frontend/hr-performance-channel-definition.md", "reason": "existing editable definition UI"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/design.md", "reason": "full stage/correction/security decisions"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/formal-design-review.md", "reason": "full field carrier pitfalls"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/source-math-contract.md", "reason": "do not repeat source math"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "cross-layer contracts"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "forward migration and production boundaries"}

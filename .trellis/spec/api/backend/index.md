@@ -1078,3 +1078,9 @@ Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-le
 Whole-month modern calculate-only payroll and frozen source comparisons: [Formal Trial Comparison](./hr-payroll-formal-trial-comparison.md).
 
 Pure exact five-channel snapshot arithmetic and complete threshold candidates: [Performance Channel Calculation Core](./hr-performance-channel-calculation-core.md).
+
+Five-channel draft definition maintenance: [Channel Definition](./hr-performance-channel-definition.md).
+
+Modern payroll preparation read-only observer: [Modern Readiness Observer](./hr-payroll-modern-readiness-observer.md).
+
+Formal five-channel publish/input/stage/calibration/appeal/correction workflow: [Channel Workflow](./hr-performance-channel-workflow.md).

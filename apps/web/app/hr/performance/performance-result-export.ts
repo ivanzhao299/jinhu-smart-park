@@ -20,8 +20,9 @@ function reviewColumns(row:HrPerformanceReviewV2){
 
 /** Explicit live-review projection. Scores are source facts and are never recalculated here. */
 export function performanceResultLedgerCsv(rows:readonly HrPerformanceReviewV2[],access:PerformanceResultExportAccess):string{
- const headers=["评价周期","员工编号","员工姓名","办理状态","自评总分","主管总分","校准总分","最终分","等级","申诉状态"];
- return csvDocument([headers,...rows.map(row=>[...reviewColumns(row),...resultColumns(row,access),row.appeal?appealStatusLabels[row.appeal.status]??row.appeal.status:null])]);
+ const includeChannelEvidence=rows.some(row=>row.calculationMode==='five_channel_v1');
+ const headers=["评价周期","员工编号","员工姓名","办理状态","自评总分","主管总分","校准总分","最终分","等级","申诉状态",...(includeChannelEvidence?["计算模式","输入修订","等级候选编号","等级说明","等级下限","等级上限","等级来源顺序","等级来源定义"]:[])];
+ return csvDocument([headers,...rows.map(row=>[...reviewColumns(row),...resultColumns(row,access),row.appeal?appealStatusLabels[row.appeal.status]??row.appeal.status:null,...(includeChannelEvidence?[row.calculationMode??'dimension_weighted_v1',mayReadResult(row,access)?row.result?.inputRevisionId:null,...(mayReadResult(row,access)&&row.result?.gradeCandidate?[row.result.gradeCandidate.id,row.result.gradeCandidate.description,row.result.gradeCandidate.minValue,row.result.gradeCandidate.maxValue,row.result.gradeCandidate.sourceOrderText,row.result.gradeCandidate.sourceAssessmentRef]:[null,null,null,null,null,null])]:[])])]);
 }
 
 export function performanceDimensionLedgerCsv(rows:readonly HrPerformanceReviewV2[],access:PerformanceResultExportAccess):string{

@@ -1,5 +1,6 @@
 .editor:global(.ds-panel) { padding: 24px; }
 .editor > button { justify-self: start; min-height: 44px; }
+.editor :global(.ds-mobile-record) :global(.ds-button) { min-height: 44px; }
 .editor { display: grid; gap: 16px; min-width: 0; }
 .fields, .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; margin: 0; }
 .fields { border: 0; padding: 0; }
@@ -27,3 +28,17 @@
 .records :global(.ds-mobile-record) > div:first-child { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 
 .reviewWorkbench :global(.ds-button) { min-height: var(--form-control-height-touch); }
+
+.channelFields { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
+.channelFields > section { min-width: 0; display: grid; gap: 12px; }
+.channelFields input, .channelFields select { min-width: 0; max-width: 100%; min-height: 44px; }
+.channelFields button { min-height: 44px; }
+.nullChoice { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.nullChoice input { width: 20px; flex: 0 0 20px; }
+
+.channelCell { display: grid; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.channelCell h4, .channelCell p { margin: 0; }
+.fullText { white-space: pre-wrap; overflow-wrap: anywhere; }
+.editor > section, .editor > article, .editor > form { min-width: 0; }
+.editor textarea { min-width: 0; width: 100%; min-height: 88px; }
+.editor summary { min-height: 44px; cursor: pointer; }

@@ -1,19 +1,19 @@
 import {Transform,Type} from "class-transformer";
-import {ArrayMaxSize,ArrayMinSize,IsArray,IsDateString,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateNested} from "class-validator";
+import {ArrayMaxSize,ArrayMinSize,IsArray,IsDateString,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min,ValidateIf,ValidateNested} from "class-validator";
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
 const number=({value}:{value:unknown})=>Number(value);
 export class HrPerformanceDimensionDto{@Transform(trim)@IsString()@MaxLength(64)code!:string;@Transform(trim)@IsString()@MaxLength(120)name!:string;@Transform(number)@IsNumber({maxDecimalPlaces:4})@Min(.0001)@Max(1)weight!:number;@IsOptional()@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMin?:number;@IsOptional()@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMax?:number;@IsOptional()@IsObject()scoringGuide?:Record<string,unknown>;}
 export class HrPerformanceLevelDto{@Transform(trim)@IsString()@MaxLength(32)code!:string;@Transform(trim)@IsString()@MaxLength(64)name!:string;@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMin!:number;@Transform(number)@IsNumber({maxDecimalPlaces:2})@Min(0)@Max(100)scoreMax!:number;}
 export class CreateHrPerformanceTemplateDto{@Transform(trim)@IsString()@MaxLength(64)templateCode!:string;@Transform(trim)@IsString()@MaxLength(120)templateName!:string;@Transform(trim)@IsString()@MaxLength(120)versionName!:string;@IsArray()@ArrayMinSize(1)@ArrayMaxSize(30)@ValidateNested({each:true})@Type(()=>HrPerformanceDimensionDto)dimensions!:HrPerformanceDimensionDto[];@IsArray()@ArrayMinSize(1)@ArrayMaxSize(20)@ValidateNested({each:true})@Type(()=>HrPerformanceLevelDto)levels!:HrPerformanceLevelDto[];}
 export class CreateHrPerformanceReviewCycleDto{@Transform(trim)@IsString()@MaxLength(64)cycleCode!:string;@Transform(trim)@IsString()@MaxLength(120)cycleName!:string;@IsDateString()startDate!:string;@IsDateString()endDate!:string;@IsUUID()templateVersionId!:string;@IsArray()@ArrayMinSize(1)@ArrayMaxSize(200)@IsUUID("4",{each:true})applicableOrgIds!:string[];}
-export class PreviewHrPerformanceScoreDto{@IsUUID()templateVersionId!:string;@IsObject()dimensionScores!:Record<string,number>;}
+export class PreviewHrPerformanceScoreDto{@IsOptional()@IsUUID()reviewId?:string;@IsOptional()@IsUUID()inputRevisionId?:string;@IsOptional()@IsUUID()templateVersionId?:string;@IsOptional()@IsObject()dimensionScores?:Record<string,number>;}
 export class HrPerformanceCycleQueryDto{@IsOptional()@IsIn(["planning","self_review","manager_review","calibration","employee_acknowledged","appealed","confirmed"])status?:string;}
 export class HrPerformanceReviewQueryDto{@IsOptional()@IsUUID()cycleId?:string;@IsOptional()@IsIn(["self_review","manager_review","calibration","employee_acknowledged","appealed","confirmed"])status?:string;}
-export class SubmitHrPerformanceReviewDto{@IsObject()dimensionScores!:Record<string,number>;@IsOptional()@IsObject()dimensionComments?:Record<string,string>;}
+export class SubmitHrPerformanceReviewDto{@IsOptional()@IsUUID()inputRevisionId?:string;@ValidateIf(o=>!o.inputRevisionId)@IsObject()dimensionScores?:Record<string,number>;@IsOptional()@IsObject()dimensionComments?:Record<string,string>;}
 export class CreateHrPerformanceCalibrationBatchDto{@IsUUID()cycleId!:string;@Transform(trim)@IsString()@MaxLength(120)batchName!:string;@IsDateString()meetingAt!:string;@IsArray()@ArrayMinSize(1)@ArrayMaxSize(100)@IsUUID("4",{each:true})participantUserIds!:string[];}
-export class AddHrPerformanceCalibrationEntryDto{@IsUUID()cycleEmployeeId!:string;@IsObject()dimensionScores!:Record<string,number>;@Transform(trim)@IsString()@MaxLength(1000)reason!:string;}
+export class AddHrPerformanceCalibrationEntryDto{@IsUUID()cycleEmployeeId!:string;@IsOptional()@IsUUID()inputRevisionId?:string;@ValidateIf(o=>!o.inputRevisionId)@IsObject()dimensionScores?:Record<string,number>;@Transform(trim)@IsString()@MaxLength(1000)reason!:string;}
 export class SubmitHrPerformanceAppealDto{@Transform(trim)@IsString()@MaxLength(2000)reason!:string;}
-export class ResolveHrPerformanceAppealDto{@IsIn(["upheld","rejected"])decision!:"upheld"|"rejected";@Transform(trim)@IsString()@MaxLength(2000)reason!:string;@IsOptional()@IsObject()dimensionScores?:Record<string,number>;}
+export class ResolveHrPerformanceAppealDto{@IsOptional()@IsUUID()inputRevisionId?:string;@IsIn(["upheld","rejected"])decision!:"upheld"|"rejected";@Transform(trim)@IsString()@MaxLength(2000)reason!:string;@IsOptional()@IsObject()dimensionScores?:Record<string,number>;}
 
 export class CreateHrPerformanceTemplateVersionDto extends CreateHrPerformanceTemplateDto { @IsUUID() expectedVersionId!: string; }
 
