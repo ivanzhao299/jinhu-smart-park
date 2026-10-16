@@ -100,6 +100,7 @@ export function validateLegacyGroupWebRuntimeUatEvidence(evidence, knownLegacyId
 
 const ROUTE_EVIDENCE = Object.freeze({
   "/hr": { page: "apps/web/app/hr/page.tsx", api: [], migrations: [] },
+  "/hr/employee-feedback": { page: "apps/web/app/hr/employee-feedback/page.tsx", api: ["apps/api/src/modules/hr/hr-employee-feedback.controller.ts", "apps/api/src/modules/hr/hr-employee-feedback.service.ts"], migrations: ["database/migrations/000376_hr_employee_feedback_workflow.sql"] },
   "/hr/approvals": { page: "apps/web/app/hr/approvals/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000234_hr_approval_workflow.sql"] },
   "/hr/attendance": { page: "apps/web/app/hr/attendance/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000245_hr_attendance_requests.sql", "database/migrations/000246_hr_attendance_calculation_core.sql"] },
   "/hr/compensation": { page: "apps/web/app/hr/compensation/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000233_hr_compensation_payroll.sql"] },

@@ -1090,3 +1090,5 @@ Formal five-channel publish/input/stage/calibration/appeal/correction workflow: 
 Formal performance count/hash preparation: [Source Readiness Observer](./hr-performance-source-readiness-observer.md).
 
 - [HR performance source formal activation](hr-performance-source-activation.md) — receipt-bound qualified baseline and explicit current-business bridge.
+
+- [员工建议与投诉](./hr-employee-feedback-workflow.md)：本人草稿/提交/撤回、园区 HR 正式回复、私密完整历史与原请求重试。

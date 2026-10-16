@@ -1,0 +1,71 @@
+{
+  "source": "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json",
+  "baseSha": "13a751e265bfe92aebe537af4ac104b33880a179",
+  "scope": "Menu source only; field/action/rule/runtime parity unverified",
+  "items": [
+    {
+      "legacyId": 121,
+      "parentId": 117,
+      "level": 2,
+      "order": 4,
+      "name": "我的建议",
+      "legacyUrl": "Service/netadvice/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 123,
+      "parentId": 117,
+      "level": 2,
+      "order": 5,
+      "name": "我的投诉",
+      "legacyUrl": "Service/nethull/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 122,
+      "parentId": 117,
+      "level": 2,
+      "order": 9,
+      "name": "建议反馈",
+      "legacyUrl": "Service/adviceback/browse.asp",
+      "legacyTable": "ser_tReAdvise",
+      "legacyView": "ser_vreadvise",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 124,
+      "parentId": 117,
+      "level": 2,
+      "order": 10,
+      "name": "投诉反馈",
+      "legacyUrl": "Service/Renethull/browse.asp",
+      "legacyTable": "Ser_tRe_nethull",
+      "legacyView": "Ser_vRe_nethull",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    }
+  ]
+}

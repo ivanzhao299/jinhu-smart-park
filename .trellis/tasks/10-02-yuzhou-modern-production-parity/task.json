@@ -12,9 +12,9 @@
   "assignee": "codex",
   "createdAt": "2026-10-02",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/hr-payroll-business-continuation-20261017",
   "base_branch": "main",
-  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-modern-run-workflow-20261009",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-business-continuation-20261017/jinhu-smart-park",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
@@ -125,7 +125,8 @@
     "10-16-hr-performance-operation-continuity",
     "10-16-hr-goal-report-ledgers",
     "10-16-hr-performance-record-rubric-entry",
-    "10-16-hr-performance-formal-source-weights"
+    "10-16-hr-performance-formal-source-weights",
+    "10-17-hr-employee-feedback-workflow"
   ],
   "parent": null,
   "relatedFiles": [
@@ -136,13 +137,13 @@
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/checkpoint.json",
     ".trellis/tasks/10-02-yuzhou-modern-production-parity/research/verified-baseline.md"
   ],
-  "notes": "PR951面试安排、结果和历史更正已生产部署，API/Web/main5f700773a692cab3ce5c4f584ab5c0bf2cfbdcab，CI38102258135、部署38104314552、观察38105332978及新迁移/健康/Docker清理通过。当前补齐正式候选人资料持续更正及历史；真实岗位、原GroupWeb逐字段规则、吴恩国最新完整工资只算不发及独立HR最终验收保留。历史导入不重放。",
+  "notes": "PR984已部署，API/Web/main13a751e265bfe92aebe537af4ac104b33880a179；2026-10-17生产只读全量七月93条/64人/2295项，账套34/35；现代规则集/版本及正式输入为0，实际试算未执行。复用已有源项目到规则草稿流程，吴恩国确认口径后全量只算不发。真实岗位、旧端业务等价、模块切换恢复和独立HR最终验收保留。历史导入不重放。",
   "meta": {
     "planningReady": true,
     "defaultExecution": "single_agent",
     "historyImportCommitted": true,
     "historicalQuarantineMustReachZero": false,
-    "nextSlice": "formal_candidate_profile_corrections_and_history",
+    "nextSlice": "july_all_imported_rule_and_input_business_preparation",
     "businessImplementationStarted": true
   }
 }
