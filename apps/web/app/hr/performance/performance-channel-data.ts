@@ -1,5 +1,5 @@
 import {HR_PERFORMANCE_CHANNEL_KEYS,HR_PERFORMANCE_ADJUSTMENT_KEYS,HR_PERFORMANCE_MASTER_KEYS,validateHrPerformanceChannelDefinition,validateHrPerformanceWorkflowPolicy,type HrPerformanceChannelInputProjection,type HrPerformanceInputCell,type HrPerformanceInputField,type HrPerformanceGradeCandidate,type HrPerformanceChannelDefinition} from '@jinhu/shared';
-import type {HrPerformanceChannelCurrent,HrPerformanceChannelPreview,HrPerformanceChannelBatchReceipt} from '../../../lib/hr-api';
+import type {HrPerformanceSourceOrigin,HrPerformanceChannelCurrent,HrPerformanceChannelPreview,HrPerformanceChannelBatchReceipt} from '../../../lib/hr-api';
 export type PerformanceOperation={success:string;send:(token:string|undefined,key:string)=>Promise<unknown>;accept:(value:unknown)=>boolean;retainEditor?:boolean;received?:(value:unknown)=>void;afterSuccess?:()=>Promise<void>};
 export const adjustmentLabels={master:'调整项1',timekeep:'调整项2',bonus:'调整项3'};
 export const gradeStatusLabels:Record<string,string>={RESOLVED:'等级已确定',TOTAL_UNAVAILABLE:'总分尚不可用',NO_ELIGIBLE_GRADE:'暂无符合条件的等级',AMBIGUOUS_TOP_THRESHOLD:'最高阈值有多个等级候选，请核对'};
@@ -27,6 +27,14 @@ export function channelPreview(value:unknown,revisionId:string):HrPerformanceCha
  if([row.levelCode,row.levelName].some(v=>v!==null&&typeof v!=='string'))return fail();
  return {schemaVersion:1,mathVersion:'five_channel_v1',inputRevisionId:revisionId,complete:row.complete,score:row.score as string|null,grade:{status:grade.status,expectedGrade:grade.expectedGrade as string|null,winningMinValue:grade.winningMinValue as string|null,winningCandidateCount:grade.winningCandidateCount as number},gradeCandidate:candidate,levelCode:row.levelCode as string|null,levelName:row.levelName as string|null};
 }
+export function sourceOriginProjection(value:unknown):HrPerformanceSourceOrigin|null {
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const r=value as Record<string,unknown>,keys=['receiptId','draftId','draftRevisionId','mode','sourceQualifiedAtActivation','inputRevisionId'];
+ if(Object.keys(r).length!==keys.length||keys.some(k=>!Object.hasOwn(r,k)))return null;
+ const uuid=(v:unknown)=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+ if(![r.receiptId,r.draftId,r.draftRevisionId,r.inputRevisionId].every(uuid)||!['qualified_source','manual_current'].includes(String(r.mode))||r.sourceQualifiedAtActivation!==(r.mode==='qualified_source'))return null;
+ return {receiptId:r.receiptId as string,draftId:r.draftId as string,draftRevisionId:r.draftRevisionId as string,inputRevisionId:r.inputRevisionId as string,mode:r.mode as HrPerformanceSourceOrigin['mode'],sourceQualifiedAtActivation:r.sourceQualifiedAtActivation as boolean};
+}
 export function channelCurrent(value:unknown,id:string,salaryPermission:boolean,salaryWritePermission=false):HrPerformanceChannelCurrent {
  const r=object(value),template=object(r.template);if(r.id!==id||r.calculationMode!=='five_channel_v1'||!text(r.currentRevisionId)||!Number.isSafeInteger(r.revisionNo)||typeof r.status!=='string'||typeof r.salaryReferenceAvailable!=='boolean'||!Array.isArray(r.allowedFields))return fail();
  validateHrPerformanceChannelDefinition(template.channelDefinition);validateHrPerformanceWorkflowPolicy(template.channelWorkflow,template.channelDefinition);
@@ -36,7 +44,7 @@ export function channelCurrent(value:unknown,id:string,salaryPermission:boolean,
  if(!policy.detailAppraisalPolicy&&input.details.some(d=>d.appraisal))return fail();
  const fields=[...HR_PERFORMANCE_CHANNEL_KEYS,...HR_PERFORMANCE_ADJUSTMENT_KEYS,...HR_PERFORMANCE_MASTER_KEYS,...(policy.detailAppraisalPolicy?['detailAppraisal']:[])] as string[];
  const allowedFields=r.allowedFields.map(value=>{const a=object(value);if(!fields.includes(String(a.field))||!(a.detailId===null||typeof a.detailId==='string'))return fail();const channel=(HR_PERFORMANCE_CHANNEL_KEYS as readonly string[]).includes(String(a.field));if(channel?!input.details.some(d=>d.id===a.detailId&&d.channels[a.field as typeof HR_PERFORMANCE_CHANNEL_KEYS[number]]):a.field==='detailAppraisal'?!input.details.some(d=>d.id===a.detailId&&d.appraisal):a.detailId!==null)return fail();return {detailId:a.detailId as string|null,field:a.field as HrPerformanceInputField};}).filter(a=>a.field!=='salaryReference'||salaryVisible&&salaryWritePermission);
- return {id,status:r.status,calculationMode:'five_channel_v1',currentRevisionId:r.currentRevisionId as string,revisionNo:r.revisionNo as number,input,allowedFields,template:{channelDefinition:template.channelDefinition,channelWorkflow:policy},salaryReferenceAvailable:salaryVisible,preview:channelPreview(r.preview,r.currentRevisionId as string)};
+ return {id,sourceOrigin:sourceOriginProjection(r.sourceOrigin),status:r.status,calculationMode:'five_channel_v1',currentRevisionId:r.currentRevisionId as string,revisionNo:r.revisionNo as number,input,allowedFields,template:{channelDefinition:template.channelDefinition,channelWorkflow:policy},salaryReferenceAvailable:salaryVisible,preview:channelPreview(r.preview,r.currentRevisionId as string)};
 }
 export function validBatchReceipt(value:unknown,id:string,reviewIds:readonly string[]):value is HrPerformanceChannelBatchReceipt {
  if(!value||typeof value!=='object')return false;const r=value as HrPerformanceChannelBatchReceipt;

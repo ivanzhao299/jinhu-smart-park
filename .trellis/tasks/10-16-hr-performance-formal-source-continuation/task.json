@@ -3,7 +3,7 @@
   "name": "hr-performance-formal-source-continuation",
   "title": "绩效来源正式承接与增量延续",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -34,6 +34,10 @@
       "formalFiveChannelRecordsEmpty": true,
       "formalContinuationCompleted": false,
       "next": "Freeze concrete first-intake and incremental continuation schema/API; no empty-source association repair"
-    }
+    },
+    "designStatus": "ROOT_FROZEN_IMPLEMENTING_FULL_PARENT_D",
+    "sourceDraftsProductionAcceptance": "PASS_PR983_EXACT_36e0624",
+    "fullFormalActivationAcceptance": "PENDING_BACKEND_UNION_FINAL_BROWSER_BUILD_RUNTIME_ROLES",
+    "goalComplete": false
   }
 }

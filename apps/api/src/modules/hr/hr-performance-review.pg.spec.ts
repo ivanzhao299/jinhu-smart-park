@@ -41,6 +41,21 @@ before(async () => {
   for (const id of users) await db.query(
     "INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash,status) VALUES($1,$2,$3,$4,'Synthetic performance actor','not-a-login-hash','enabled')",
     [id, scope.tenantId, scope.parkId, `perf-${id}`]);
+  // Full modern migration chains require actual selected-park roles for every SQL author.
+  const permissionSets = [hr.permissions, manager.permissions, self(0).permissions, self(1).permissions, self(2).permissions];
+  for (const [index, userId] of users.entries()) {
+    const roleId = randomUUID();
+    await db.query("INSERT INTO sys_role(id,tenant_id,park_id,code,name,status,role_scope) VALUES($1,$2,$3,$4,'Synthetic dimension author','enabled','park')", [roleId, scope.tenantId, scope.parkId, `P-${roleId}`]);
+    await db.query("INSERT INTO rel_user_role(tenant_id,park_id,user_id,role_id) VALUES($1,$2,$3,$4)", [scope.tenantId, scope.parkId, userId, roleId]);
+    for (const code of permissionSets[index]!) {
+      let permission = (await db.query("SELECT id FROM sys_permission WHERE tenant_id=$1 AND park_id=$2 AND code=$3", [scope.tenantId, scope.parkId, code]))[0];
+      if (!permission) {
+        permission = {id: randomUUID()};
+        await db.query("INSERT INTO sys_permission(id,tenant_id,park_id,code,name,resource,action,status) VALUES($1,$2,$3,$4,$4,'hr.performance','manage','enabled')", [permission.id, scope.tenantId, scope.parkId, code]);
+      }
+      await db.query("INSERT INTO rel_role_perm(tenant_id,park_id,role_id,permission_id) VALUES($1,$2,$3,$4)", [scope.tenantId, scope.parkId, roleId, permission.id]);
+    }
+  }
   await db.query("INSERT INTO sys_org(id,tenant_id,park_id,org_code,org_name,org_type,status,leader_user_id) VALUES($1,$2,$3,$4,'Synthetic root','department','enabled',$5)",
     [rootOrg, scope.tenantId, scope.parkId, `P-${rootOrg}`, manager.sub]);
   await db.query("INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,status) VALUES($1,$2,$3,$4,$5,'Synthetic team','department','enabled')",

@@ -31,3 +31,7 @@ SchemaVersion1 retains exact old JSON. Optional `detailAppraisalPolicy` must be 
 Migration374 uses CREATE OR REPLACE on only workflow_valid/policy_for/cells/input_valid/calculate/stage_complete, preserving signatures/OIDs/ACL/SECURITY INVOKER. calculate excludes the narrative from math completeness but never changes core370 arithmetic. Old no-extension and enabled extension must each pass actual required PG/HTTP lifecycle; narrative-only appeal keeps the same score and confirmed history immutable. See `docs/testing/hr-performance-detail-appraisal.md`. This does not grant source qualification or activation credit.
 
 Required detail appraisal blank detection uses the ECMAScript trim whitespace set consistently in API, SQL input validation and stage completion, including U+FEFF and U+00A0. This is classification only: stored text is preserved verbatim, optional text may remain blank, and existing master narrative semantics are unchanged. Required PG regressions cover API rejection, direct SQL rejection and required/optional stage readiness for these Unicode characters.
+
+## Explicit formal activation
+
+See [source formal activation](hr-performance-source-activation.md) for375. Source drafts alone remain unactivated. Qualified source initial values enter only a unique fresh receipt-bound revision2; ordinary revision1 and later role/stage lifecycle rules are preserved.

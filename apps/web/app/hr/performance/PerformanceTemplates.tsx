@@ -14,12 +14,12 @@ import {PerformanceChannelDefinitionFields,PerformanceChannelDefinitionHistory} 
 import {validateHrPerformanceChannelDefinition} from "@jinhu/shared";
 import styles from "./performance-template.module.css";
 
-type TemplateWorkspaceProps={writeLock?:{current:boolean};externalBlocked?:boolean;onWorkspaceBusyChange?:(value:boolean)=>void};
+type TemplateWorkspaceProps={requestedVersion?:{templateId:string;versionId:string;requestNo:number};writeLock?:{current:boolean};externalBlocked?:boolean;onWorkspaceBusyChange?:(value:boolean)=>void};
 export function PerformanceTemplates(props:TemplateWorkspaceProps={}) {
   const user = useAuthUser();
   return <TemplateWorkspace key={JSON.stringify(user)} {...props} />;
 }
-function TemplateWorkspace({writeLock,externalBlocked=false,onWorkspaceBusyChange}:TemplateWorkspaceProps) {
+function TemplateWorkspace({writeLock,externalBlocked=false,onWorkspaceBusyChange,requestedVersion}:TemplateWorkspaceProps) {
   const user = useAuthUser(), canManage = hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_MANAGE), canRead = canManage || hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_TEMPLATE_READ);
   const [templates, setTemplates] = useState<HrPerformanceTemplateV2[]>([]), [detail, setDetail] = useState<HrPerformanceTemplateDetailV2 | null>(null), [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [detailError, setDetailError] = useState(""), [notice, setNotice] = useState("");
@@ -42,14 +42,16 @@ function TemplateWorkspace({writeLock,externalBlocked=false,onWorkspaceBusyChang
   }, [canRead]);
   useEffect(() => { void load().catch(() => undefined); return () => listRequest.current?.abort(); }, [load]);
   const close = () => { editGeneration.current++; detailRequest.current?.abort(); setDetail(null); setCreating(false); setDetailError(""); };
-  const open = async (id: string) => {
+  const open = async (id: string, expectedVersionId?:string) => {
     const generation = ++editGeneration.current, request = new AbortController(); detailRequest.current?.abort(); detailRequest.current = request; setDetail(null); setCreating(false); setDetailError("");
     try {
       const result = await hrApi.performanceTemplateDetailV2(id, getAccessToken(), request.signal);
       if (!alive.current || request.signal.aborted || generation !== editGeneration.current) return;
       setDetail(performanceTemplateDetail(result, id));
+      if(expectedVersionId&&result.versionId!==expectedVersionId)setNotice("该模板已有后续版本；当前打开最新配置，原始版本可在修订历史中查看。");
     } catch (reason) { if (alive.current && !request.signal.aborted && generation === editGeneration.current) setDetailError(hrLoadErrorMessage(reason, "加载评价模板配置失败")); }
   };
+  useEffect(()=>{if(!requestedVersion?.versionId||!canRead||mutation.current)return;void load().catch(()=>undefined);void open(requestedVersion.templateId,requestedVersion.versionId);},[requestedVersion?.templateId,requestedVersion?.versionId,requestedVersion?.requestNo]);
   const saved = async (generation: number, id?: string) => {
     if (!alive.current || generation !== editGeneration.current) return;
     setNotice("模板草稿已保存。");

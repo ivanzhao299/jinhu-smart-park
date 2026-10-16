@@ -111,3 +111,15 @@ it("dimension and grade bounds retain the last row and stop at30/20", () => {
   expect(screen.getByRole("button", {name:"添加等级"})).toBeDisabled();
   expect(screen.getAllByLabelText("等级编号")).toHaveLength(20);
 });
+
+it("opens a newly activated exact version through the ordinary template editor and supports reopening the same receipt", async () => {
+  const view=render(<PerformanceTemplates/>);
+  await waitFor(()=>expect(state.api.performanceTemplatesV2).toHaveBeenCalled());
+  state.api.performanceTemplateDetailV2.mockResolvedValue({...detail,versionId:"new-version",versionName:"Activated V2",status:"draft"});
+  view.rerender(<PerformanceTemplates requestedVersion={{templateId:"template-1",versionId:"new-version",requestNo:1}}/>);
+  await waitFor(()=>expect(state.api.performanceTemplateDetailV2).toHaveBeenCalledWith("template-1","synthetic-token",expect.any(AbortSignal)));
+  await screen.findByDisplayValue("Synthetic template");
+  const count=state.api.performanceTemplateDetailV2.mock.calls.length;
+  view.rerender(<PerformanceTemplates requestedVersion={{templateId:"template-1",versionId:"new-version",requestNo:2}}/>);
+  await waitFor(()=>expect(state.api.performanceTemplateDetailV2).toHaveBeenCalledTimes(count+1));
+});

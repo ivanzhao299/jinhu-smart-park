@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Source material to ordinary performance operations: [Source Activation](./hr-performance-source-activation.md).
+
 Formal per-detail appraisal and explicit policy: [Detail Appraisal](./hr-performance-detail-appraisal.md).
 
 Modern performance source draft maintenance: [Source Drafts](./hr-performance-source-drafts.md).

@@ -16,8 +16,8 @@ One backend/shared/SQL writer owns the complete transaction and guard implementa
 
 Backend/shared/SQL writer (NEW entries created only here):
 - NEW `database/migrations/000375_hr_performance_source_activation.sql` (or next free number after root rebase).
-- NEW `packages/shared/src/hr-performance-source-activation.ts` and `packages/shared/src/hr-performance-source-activation.spec.ts`; update `packages/shared/src/index.ts` export only.
-- NEW `apps/api/src/modules/hr/hr-performance-source-activation.controller.ts`, `.service.ts`, `.guard.ts`, `.spec.ts`, `.pg.spec.ts`.
+- NEW `packages/shared/src/hr-performance-source-activation.ts` and `scripts/e2e/hr-performance-source-activation.contract.mjs`; update `packages/shared/src/index.ts` export only.
+- NEW `apps/api/src/modules/hr/hr-performance-source-activation.controller.ts`, `.service.ts`, `.guard.ts`, `.pg.spec.ts`.
 - NEW `apps/api/src/modules/hr/dto/hr-performance-source-activation.dto.ts`.
 - `apps/api/src/modules/hr/hr-performance-review.service.ts` transaction extraction/reserved IDs; `hr-performance-channel-workflow.service.ts` narrow baseline helper and existing masking reuse; `hr.module.ts` production providers/controllers/DI.
 - NEW `apps/api/src/modules/hr/testing/hr-performance-source-activation-fixture.ts`: actual full-migration isolated fixture and real guarded source loader calls. Existing e2e source scripts are read-only reuse references; no broad test-script refactor.
@@ -40,3 +40,9 @@ No edits to historical migrations, production workflows, import loaders, source 
 Contract section9 is normative acceptance matrix. Record exact commands and exit/skip counts, owned Docker handles, schema/app/function hashes, inherited evidence only when relevant inputs unchanged. API validation uses actual ValidationPipe/live guard/Idempotency/Audit and realDB, not only mocked service tests. Direct SQL must independently enforce cohort/receipt/init, including unknown JSON keys and null handling. All sensitive fixture/results private0700/0600.
 
 Final reviewer reports code/test findings and fixes, exact file manifest, missing runtime/real-role/business evidence, and explicit ownership release. Parent D is not complete merely because source drafts373, notes374, or this design is accepted. No further planning loop is needed after root freeze; scoped implementation begins with the real-chain fixture.
+
+## Reviewed test-path reconciliation (2026-10-17)
+
+The originally named shared `hr-performance-source-activation.spec.ts` and API `.spec.ts` were not created. The delivered shared `scripts/e2e/hr-performance-source-activation.contract.mjs` runs against freshly built producer exports and covers closed bodies, paired target CAS, complete catalog/detail derivation, plus the SQL replacement/facade allowlist. The delivered API `.pg.spec.ts` runs real Nest ValidationPipe, live DB guards, idempotency/audit and services against the full migration fixture; it covers direct SQL denial and the complete formal lifecycle. This is accepted equivalent behavioral coverage for the planned unit/API contract boundaries, not a claim that the planned filenames exist. New regression cases cover selected-master note independence, immutable receipt-bound cycle identity and Unicode request text. Web interaction coverage verifies policy copying, parent/version pairing, frozen retries, receipt/read independence, translated difference fields and complete code-point text input.
+
+The synthetic batch now contains 102 independent detail facts and three masters: the primary master selects all 101 repeated-item details, another master shares that session, and the third selects one note-free detail in a separate session. Qualification still verifies the entire batch; note-policy readiness and baseline construction must use only selected detail identities.
