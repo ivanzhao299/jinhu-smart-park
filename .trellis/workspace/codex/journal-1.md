@@ -218,3 +218,38 @@ PR #733 以 head 保护 squash 合并为 cfc7e6db；main CI 与自动生产部�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 正式绩效五渠道完整办理生产验收
+
+**Date**: 2026-10-16
+**Task**: 正式绩效五渠道完整办理生产验收
+**Package**: api
+**Branch**: `codex/hr-performance-formal-source-weights-20261016`
+
+### Summary
+
+PR982已合并生产9ed1e4b8；PR与main完整CI/ReleaseSmoke、迁移371/372各一次、健康清理和独立API/Web运行版本均通过。真实PG/HTTP/shared4PASS、Web155文件1267PASS、type/lint/build及实际组件桌面390px通过。真实角色会话未认证、7月全93条/64人/两有记录账套只算不发仍NOT_EXECUTED。父来源资格/幂等正式承接、增量、原程序完整等价、切换恢复及独立HR目标保留。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0ec8286925bd2bc45378adc697f751be574d26a9` | (see git log) |
+| `9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

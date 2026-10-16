@@ -2,7 +2,7 @@
   "id": "hr-performance-formal-source-weights",
   "name": "hr-performance-formal-source-weights",
   "title": "绩效来源权重与正式模板承接",
-  "description": "正式五渠道定义维护已本地验收，继续评分全流程、来源资格和增量承接，父任务未完成。",
+  "description": "正式五渠道定义与完整办理流程已合并生产并验收；继续历史来源正式承接、增量及真实业务验收，父目标未完成。",
   "status": "planning",
   "dev_type": "fullstack",
   "scope": null,
@@ -42,6 +42,25 @@
     "dependencyRelease": "DEPLOYED_RUNTIME_VERIFIED_MAIN_CI_PASS",
     "designStatus": "DRAFT_V2_REVIEW_INCORPORATED",
     "mergedBaseline": "f401edacd6049a0b335718df99f8258f763e1d6c",
-    "implementationScope": "A released; B definition local acceptance passed; qualification/inputs/C-D-E pending"
+    "implementationScope": "A released; B definition local acceptance passed; qualification/inputs/C-D-E pending",
+    "formalWorkflowReleaseProof": {
+      "pr": 982,
+      "mergedSha": "9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0",
+      "ciRun": 38914273512,
+      "mainCiRun": 38918794537,
+      "deployRun": 38918794477,
+      "runtimeObserverRun": 38921666938,
+      "status": "DEPLOYED_RUNTIME_VERIFIED_MAIN_CI_PASS",
+      "migrations": [
+        371,
+        372
+      ],
+      "dockerCleanup": "PASS_ONCE",
+      "apiWebRuntimeEqualsMain": true,
+      "nativeDesktopMobile": "PASS_ACTUAL_COMPONENT_SYNTHETIC_PREVIEW",
+      "realRoleUat": "NOT_EXECUTED_SESSION_NOT_AUTHENTICATED",
+      "actualJulyTrial": "NOT_EXECUTED",
+      "parentAcceptance": false
+    }
   }
 }
