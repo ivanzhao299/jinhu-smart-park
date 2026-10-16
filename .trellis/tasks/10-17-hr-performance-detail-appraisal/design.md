@@ -1,0 +1,15 @@
+# 明细评语合同 v1（root冻结）
+
+基线81e065b4d；独立工作区hr-performance-formal-activation-20261017，前序PR983由单独83285进程发布。本分支合并前需同步其最终main树。
+
+可选扩展保留schemaVersion1：HrPerformanceWorkflowPolicy新增detailAppraisalPolicy?:HrPerformanceMasterPolicy，并且appealReviewAllowed.detailAppraisal?:boolean|null。两者必须同时存在/同时缺席，不允许未知键。启用时发布须完整配置；缺席保持旧JSON不补默认字段、不推断阶段或职责。创建草稿时可用全null政策，发布继续按现有完整政策规则拒绝缺项。
+
+每条input.details元素新增appraisal?:HrPerformanceInputCell；扩展政策开启时每个detail必须有且仅有一个appraisal，否则禁止该键。初始仍完全UNPROVIDED。PATCH field='detailAppraisal'且detailId为真实独立detail ID；VALUE为0..200 Unicode码点正文，EXPLICIT_NULL必须按政策；必填VALUE不可仅空白。字段不得进入master/channels或把同item多条合并。empty初始化、policy选择、allowedFields、self投影、历史/响应解析都同步。UI正文textarea200字，正常DS表单与分页；历史只读完整可达。任何缺少投影的字段代表不可见，不能补成空或未提供。
+
+前向迁移374只CREATE OR REPLACE六个现有workflow helper（workflow_valid、policy_for、cells、input_valid、stage_complete；必要时精确最少其他函数），保持原函数OID/ACL/SECURITY INVOKER，不修改372/373，不创建账户/权限或触碰源facts。新cells枚举detailAppraisal，现有input revision actor/stage/live permission守卫自然适用于该字段。stage_complete把它归类为正文：可选未填写不阻断数学，必填/明确NULL政策严格。calculate仅消费原五渠道与调整，正文不能进入评分数学。直接SQL反例必须覆盖两种结构及必填正文。
+
+API当前/历史投影：本人未最终且无RESULT_READ只能看到明确self阶段字段，detailAppraisal若非self则省略整个cell；manager/calibrator权限仍由原actor规则决定。没有薪资/其他人内容的隐藏旁路。API PATCH作者/时间/evidence服务器构建，payload不接受这些值。
+
+这是完整逐明细评语能力，不是父D启用接口冻结。后续来源启用仍需manifest/receipt完整资格、明确detail映射、双CAS及一次来源baseline等全部父范围。
+
+低成本执行：沿用已完成implement/check代理而不创建新代理；API/shared/SQL/PG与root Web文件所有权分离，各验证一遍，不重复前序来源草稿测试或历史分析。更换工作区并离线锁定安装，禁止修改发布候选或主目录。

@@ -1,0 +1,33 @@
+{
+  "id": "hr-performance-detail-appraisal",
+  "name": "hr-performance-detail-appraisal",
+  "title": "正式绩效逐条明细评语",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-17",
+  "completedAt": null,
+  "branch": "codex/hr-performance-formal-activation-20261017",
+  "base_branch": "codex/hr-performance-formal-continuation-20261016",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-performance-formal-activation-20261017/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-16-hr-performance-formal-source-continuation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "designStatus": "ROOT_FROZEN_OPTIONAL_DETAIL_APPRAISAL_V1",
+    "parentFullDComplete": false,
+    "priorReleaseFollower": 83285,
+    "localAcceptance": "FULL_BACKEND_WEB_REVIEW_BUILD_NATIVE_PASS",
+    "productionAcceptance": "PENDING_AFTER_PR983_BASELINE",
+    "formalSourceActivation": "PARENT_D_PENDING"
+  }
+}
