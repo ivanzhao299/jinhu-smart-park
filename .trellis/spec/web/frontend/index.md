@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Modern performance write retries and receipts: [Performance operation continuity](./hr-performance-operation-continuity.md).
+
 Formal salary-setting CSV export: [Compensation Ledger Export](./hr-compensation-ledger-export.md).
 
 

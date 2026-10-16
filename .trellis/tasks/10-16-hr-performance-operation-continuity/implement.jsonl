@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "frontend contracts"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared guides"}
+{"file": ".trellis/spec/web/frontend/hr-performance-review-browsing.md", "reason": "keep scoped page and counts"}
+{"file": ".trellis/spec/web/frontend/hr-performance-template-workflow.md", "reason": "configuration boundaries"}
