@@ -5,6 +5,8 @@ const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value
 const number=({value}:{value:unknown})=>value===undefined||value===""?undefined:Number(value);
 
 export class HrGoalListQueryDto{@IsOptional()@IsUUID()cycle_id?:string;@IsOptional()@IsIn(["draft","active","completed","cancelled"])status?:string;}
+export class HrGoalLedgerExportQueryDto extends HrGoalListQueryDto{}
+export class HrGoalCheckinLedgerExportQueryDto extends HrGoalListQueryDto{}
 export class CreateHrGoalCycleT6Dto{@Transform(trim)@IsString()@MaxLength(64)cycleCode!:string;@Transform(trim)@IsString()@MaxLength(100)cycleName!:string;@IsDateString()startDate!:string;@IsDateString()endDate!:string;}
 export class CreateHrGoalT6Dto{@IsUUID()cycleId!:string;@IsOptional()@IsUUID()parentGoalId?:string;@IsIn(["group","department","employee"])goalLevel!:string;@Transform(trim)@IsString()@MaxLength(200)goalName!:string;@IsOptional()@IsUUID()ownerOrgId?:string;@IsOptional()@IsUUID()ownerEmployeeId?:string;@Transform(number)@IsNumber()@Min(.0001)@Max(1)weight!:number;@IsIn(["numeric","percentage","milestone","count","currency"])metricType!:string;@Transform(trim)@IsString()@MaxLength(100)metricName!:string;@Transform(number)@IsNumber()targetValue!:number;@Transform(trim)@IsString()@MaxLength(32)unit!:string;@IsOptional()@Transform(trim)@IsString()@MaxLength(1000)metricDefinition?:string;@IsDateString()startDate!:string;@IsDateString()dueDate!:string;@IsOptional()@IsArray()@ArrayMaxSize(50)@IsUUID("4",{each:true})collaboratorEmployeeIds?:string[];}
 export class ChangeHrGoalDto extends OmitType(CreateHrGoalT6Dto,["targetValue"] as const){
@@ -25,3 +27,5 @@ export class HrWorkReportPageQueryDto {
  @IsOptional() @IsIn(["daily","weekly","monthly"]) report_type?:string;
  @IsOptional() @IsIn(["draft","submitted","resubmitted","confirmed","returned"]) status?:string;
 }
+
+export class HrWorkReportLedgerExportQueryDto { @IsOptional() @IsIn(["daily","weekly","monthly"]) report_type?:string; @IsOptional() @IsIn(["draft","submitted","resubmitted","confirmed","returned"]) status?:string; }

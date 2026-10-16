@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](../../api/backend/hr-goal-report-ledgers.md).
+
 Modern performance write retries and receipts: [Performance operation continuity](./hr-performance-operation-continuity.md).
 
 Formal salary-setting CSV export: [Compensation Ledger Export](./hr-compensation-ledger-export.md).
