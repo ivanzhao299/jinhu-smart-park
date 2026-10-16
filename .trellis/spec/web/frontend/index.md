@@ -1,5 +1,7 @@
 # @jinhu/web Frontend Specs
 
+Modern performance source draft maintenance: [Source Drafts](./hr-performance-source-drafts.md).
+
 Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](../../api/backend/hr-goal-report-ledgers.md).
 
 Modern performance write retries and receipts: [Performance operation continuity](./hr-performance-operation-continuity.md).

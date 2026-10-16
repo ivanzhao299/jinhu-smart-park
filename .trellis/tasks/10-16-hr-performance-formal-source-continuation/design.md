@@ -27,3 +27,6 @@ sourceQualified必须由完整来源/成功receipt/000309双路resolved+matched/
 
 ## 已取证的当前生产分区
 Run38927701106成功且Deploy skipped/API-Web9ed；六类绩效来源及正式five_channel记录当前scope均0，详见research/production-readiness-20261016.md。没有既有绩效记录可做target关联修复；完整D应同时满足首次接入和后续增量，不能以猜造数据或反复分析历史替代。该结果不冻结未明确的写入schema/API，也不否定员工/工资已导入。
+
+## 分段实施进度
+10-17-hr-performance-source-drafts设计v2经独立审查R1-R6冻结，仅该子任务可实施正式可编辑草稿/不可变manifest/增量修订；完整D启用schema/API仍未冻结，不能据此放宽372或冒充完整承接。当前六表0不证明封存源原库空或漏导。

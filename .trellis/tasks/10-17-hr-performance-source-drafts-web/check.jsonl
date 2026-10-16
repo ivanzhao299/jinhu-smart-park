@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts-web/prd.md", "reason": "Web scope and acceptance"}
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts-web/design.md", "reason": "Frozen modern UI contract"}
+{"file": ".trellis/tasks/10-17-hr-performance-source-drafts/research/api-contract.md", "reason": "Exact endpoint and current masking receipt contract"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Frontend design and verification conventions"}
+{"file": ".trellis/spec/web/frontend/hr-performance-channel-workflow.md", "reason": "Reuse workflow editors and stable retry semantics"}

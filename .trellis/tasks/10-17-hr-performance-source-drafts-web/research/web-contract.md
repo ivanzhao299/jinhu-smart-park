@@ -1,0 +1,15 @@
+# Web implementation checkpoint
+
+Workspace `/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park`, dispatched base `44bc07a5a`, branch `codex/hr-performance-formal-continuation-20261016`, parent base `9ed1e4b8`. Parallel API/shared files are backend-owned and were not edited.
+
+Implemented independent normal “资料维护” entry, all source catalog fields/grouped complete record pages, saved/candidate/history separate paging, candidates lazy/manage-only, normal action-scoped employee/org search and paging, backend bindingLabels current projection, exact nullable string fields, diff-only changes and explicit binding/configuration, actual strict final-pair editors, captured original token/key/body retry, synchronous shared writer lock, strict operation receipt + authorized current GET, successful-write/read-failure recovery, source/CAS/human conflicts preserving drafts, generation/abort/auth/target reset, and salary omission/read-only handling. No activation/approval button or production write added.
+
+Final validation and exact file hashes: `/Users/mac/.codex/artifacts/hr-performance-source-drafts-web-20261017/ownership-manifest.json`. Logs preserved alongside it. Source-draft actual component + adapter final focused suite; broader affected performance suite; Web lint/typecheck; diff whitespace check. Full Web build/full interaction, native desktop/390px, PG/HTTP and production evidence remain root-owned gates.
+
+Private actual-component preview: `preview/build.mjs`, `preview/fixture.ts`, `preview/entry.tsx`, `preview/README.md`, `preview/source-hashes.json`. Bundler verified with automatic JSX/shared globals/actual source panel and strict editors; transport and all records synthetic. No preview server or browser launched by child. Root should rerun build after serial review edits, then start README command and inspect desktop/390px. Modes template/review/reader/empty/retry provide reachable controls, full six-family fields, 21 source records/options/history/list rows and exact salary strings. Hashes must match final source.
+
+Remaining scope: parent D activation/full evaluation linkage pending; source draft functionality does not imply qualification or full parent completion. Production six source tables being empty does not establish original source absence or missing import.
+
+Cost Summary: no children, no dependencies, no provider/config changes, no commits/push/PR/deploy. Approximately 25 model/tool rounds; fixture/type/accessibility defects corrected with focused runs, immutable task/shared references reused. Actual token/cost usage unavailable. Broad affected suite reused until lock refinement; final focused lock tests cover refinement. Root owns serial integration, final build and native acceptance.
+
+Serial review correction: explicit later-batch selection calls candidates with scoped draftId, pages all matching sources and binds exact preview sourceId/hash. Known successful create read recovery remains attached to its receipt draftId. Source preview mismatch fails before write. Final reviewer hashes and tests supersede the original writer evidence for changed files.

@@ -19,7 +19,9 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-16-hr-performance-source-readiness"
+    "10-16-hr-performance-source-readiness",
+    "10-17-hr-performance-source-drafts",
+    "10-17-hr-performance-source-drafts-web"
   ],
   "parent": "10-16-hr-performance-formal-source-weights",
   "relatedFiles": [],

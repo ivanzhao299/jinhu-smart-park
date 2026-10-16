@@ -1,0 +1,9 @@
+.panel { display: grid; gap: 1rem; min-width: 0; padding: 1rem; }
+.record { min-width: 0; padding: 1rem; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.actions button, .panel button { white-space: normal; word-break: keep-all; min-height: 44px; }
+.panel input, .panel select, .panel textarea { max-width: 100%; min-width: 0; }
+.trace { display: grid; gap: .7rem; overflow-wrap: anywhere; }
+.trace dd { margin-inline-start: 0; white-space: pre-wrap; }
+.panel output { white-space: pre-wrap; overflow-wrap: anywhere; }

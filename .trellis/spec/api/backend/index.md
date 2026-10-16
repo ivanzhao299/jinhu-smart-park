@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Persisted editable performance source drafts and complete immutable source evidence: [Performance Source Drafts](./hr-performance-source-drafts.md).
+
 Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](./hr-goal-report-ledgers.md).
 
 Recruitment full filtered requisition and masked candidate snapshots: [Recruitment Ledger Exports](./hr-recruitment-ledger-export.md).
