@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web patterns and required checks"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared cross-layer guides"}
+{"file": ".trellis/spec/web/frontend/hr-performance-operation-continuity.md", "reason": "actor and request continuity patterns"}

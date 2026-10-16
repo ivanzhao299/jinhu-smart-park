@@ -34,7 +34,7 @@ test("legacy performance screen exposes all 29 definition, 12 detail, and 21 mas
   ];
   for (const field of sourceFields) assert.match(panel, new RegExp(`key: "${field}"`, "u"));
   assert.equal(panel.match(/\{ key: "source[A-Z][A-Za-z]+"/gu)?.length, 62);
-  assert.match(panel, /29 个定义字段、12 个明细结果字段和 21 个汇总字段/u);
+  assert.match(panel, /只读展示考核表、项目、评分标准、记录和汇总字段/u);
   for (const field of ["calculatedTotal", "expectedAssGrade", "winningMinValue", "winningCandidateCount", "parityStatus"]) {
     assert.match(panel, new RegExp(`key: "${field}"`, "u"));
   }
@@ -59,10 +59,11 @@ test("legacy performance browser is read-only, paginated, scoped, and relationsh
 test("legacy performance rubric reproduces the dynamic grade matrix on desktop and mobile", () => {
   assert.match(api, /performanceLegacyRubric:/u);
   assert.match(api, /performance-legacy\/rubric\?source_assessment_id=/u);
-  assert.match(panel, /旧过程 u_printassessment/u);
-  assert.match(panel, /旧版动态评分表/u);
-  assert.match(panel, /源库没有该考核表的等级定义/u);
-  assert.match(panel, /考核表 #\{rubric\.sourceAssessmentId\}/u);
+  assert.match(panel, /考核表评分标准/u);
+  assert.match(panel, /查看评分标准/u);
+  assert.match(panel, /该考核表没有等级定义/u);
+  assert.match(panel, /当前考核表/u);
+  assert.match(panel, /Number\.isSafeInteger\(values\.sourceAssessment\)/u);
   assert.match(panel, /rubricRequest\.current\?\.abort\(\)/u);
   assert.match(panel, /current === rubricGeneration\.current/u);
   assert.match(panel, /ds-table-shell/u);
@@ -82,5 +83,7 @@ test("legacy performance filters reject invalid source identifiers before reques
 test("legacy performance fields collapse on phone-width layouts", () => {
   assert.match(styles, /@media \(max-width: 560px\)/u);
   assert.match(styles, /\.fieldGrid\s*\{[\s\S]*?grid-template-columns: 1fr/u);
+  assert.match(styles, /\.tab,\s*\.activeTab\s*\{[\s\S]*?min-height:\s*44px/u);
+  assert.match(styles, /\.filters :global\(\.ds-button\),[\s\S]*?\.record :global\(\.ds-button\)\s*\{[\s\S]*?min-height:\s*44px[\s\S]*?white-space:\s*nowrap/u);
   assert.match(panel, /<details className=\{styles\.record\}/u);
 });

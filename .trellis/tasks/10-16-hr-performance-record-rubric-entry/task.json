@@ -1,0 +1,35 @@
+{
+  "id": "hr-performance-record-rubric-entry",
+  "name": "hr-performance-record-rubric-entry",
+  "title": "绩效记录与评分标准业务入口",
+  "description": "",
+  "status": "in_review",
+  "dev_type": "frontend",
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": "codex/hr-performance-record-rubric-entry-20261016",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "Reuse clean prior release workspace at freshly fetched e8a3b60ac; no production data writes.",
+  "meta": {
+    "validation": {
+      "performanceInteractions": "62 PASS",
+      "hrContracts": "261 PASS",
+      "lint": "PASS",
+      "typecheck": "PASS",
+      "build": "PASS session19224 exit0",
+      "browser": "PASS desktop1440/phone390 touch44 nooverflow; synthetic transport"
+    }
+  }
+}
