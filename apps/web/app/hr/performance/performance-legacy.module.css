@@ -35,13 +35,20 @@
 
 .tab,
 .activeTab {
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
+}
+
+.filters :global(.ds-button),
+.pager :global(.ds-button),
+.record :global(.ds-button) {
+  min-height: 44px;
+  white-space: nowrap;
 }
 
 .activeTab {

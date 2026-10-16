@@ -1,0 +1,4 @@
+# 设计
+复用HrPerformanceLegacyPanel现有templates/levels/dimensions/guides/results/masters投影、definition读取权限、分页和loadRubric请求所有权。模板行增加只读评分标准入口；请求函数接受捕获的合法编号及展示名称，手工编号入口复用同一函数。选择归属和清理沿用现有generation/AbortController以及外层按用户键重挂载；增强所需页/目标切换屏障，不建立新认证或数据模型。
+
+显示业务名称和真实缺失状态；内部type/API和immutable来源不更名、不搬库、不改分值。所有已有字段仍能在详情查看，标记关系为关联记录而非现代/兼容关系。审核source绑定若因本文件变动需调整，只审查精确相关合同，不批量刷新其他域hash或修改pending状态。
