@@ -130,7 +130,7 @@ test("HR is a discoverable first-level sidebar module with every production page
       ["/hr/attendance", "hr:attendance"], ["/hr/insurance", "hr:insurance"], ["/hr/compensation", "hr:compensation"],
       ["/hr/payroll", "hr:payroll"], ["/hr/goals", "hr:goals"], ["/hr/work-reports", "hr:work_reports"],
       ["/hr/performance", "hr:performance"], ["/hr/feedback-360", "hr:feedback_360"], ["/hr/talent", "hr:talent"],
-      ["/hr/training", "hr:training"], ["/hr/rewards", "hr:rewards"], ["/hr/approvals", "hr:approvals"]
+      ["/hr/training", "hr:training"], ["/hr/rewards", "hr:rewards"], ["/hr/approvals", "hr:approvals"], ["/hr/employee-feedback", "hr:approvals"]
     ].map(([href, permission]) => ({ href, permission, module: "hr" }))
   );
   for (const child of hr?.children ?? []) {

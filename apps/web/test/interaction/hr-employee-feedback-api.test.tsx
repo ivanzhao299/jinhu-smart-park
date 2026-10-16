@@ -1,0 +1,9 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+import {employeeFeedbackApi as api} from '../../lib/hr-employee-feedback-api';
+import {apiRequest} from '../../lib/api-client';
+vi.mock('../../lib/api-client',()=>({apiRequest:vi.fn()}));
+const id='20000000-0000-4000-8000-000000000001';
+beforeEach(()=>vi.resetAllMocks());
+it('requires closed sensitive-free write receipts',async()=>{vi.mocked(apiRequest).mockResolvedValue({data:{id,version:1,status:'draft',actionId:id,content:'Private body'}} as never);await expect(api.write('token','','POST',{},'key')).rejects.toThrow(/尚未确认/);vi.mocked(apiRequest).mockResolvedValue({data:{id,version:1,status:'draft',actionId:id}} as never);await expect(api.write('token','','POST',{title:'Structured'},'key')).resolves.toEqual({id,version:1,status:'draft',actionId:id});expect(apiRequest).toHaveBeenLastCalledWith('/hr/employee-feedback',{token:'token',method:'POST',body:{title:'Structured'},idempotencyKey:'key'});});
+it('rejects malformed detail/history/pages before publishing sensitive projection',async()=>{for(const path of ['detail','history','list'] as const){vi.mocked(apiRequest).mockResolvedValue({data:{items:[{content:'Private malformed'}],total:1,page:1,pageSize:10}} as never);await expect(path==='detail'?api.detail('token',id,'mine'):path==='history'?api.history('token',id,'mine',1):api.list('token','mine',1)).rejects.toThrow(/格式异常/);}});
+it('sends exact bounded list and history filters',async()=>{vi.mocked(apiRequest).mockResolvedValue({data:{items:[],total:0,page:2,pageSize:10}} as never);await api.list('token','hr',2,'complaint','submitted');expect(apiRequest).toHaveBeenLastCalledWith('/hr/employee-feedback?view=hr&page=2&pageSize=10&kind=complaint&status=submitted',expect.objectContaining({token:'token'}));await api.history('token',id,'mine',2);expect(apiRequest).toHaveBeenLastCalledWith(`/hr/employee-feedback/${id}/history?view=mine&page=2&pageSize=10`,expect.objectContaining({token:'token'}));});

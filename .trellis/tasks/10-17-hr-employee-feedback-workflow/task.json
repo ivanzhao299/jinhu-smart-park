@@ -1,0 +1,31 @@
+{
+  "id": "hr-employee-feedback-workflow",
+  "name": "hr-employee-feedback-workflow",
+  "title": "员工建议与投诉正式办理闭环",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-17",
+  "completedAt": null,
+  "branch": "codex/hr-payroll-business-continuation-20261017",
+  "base_branch": "codex/hr-payroll-business-continuation-20261017",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-business-continuation-20261017/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "planningReady": true,
+    "userAuthorization": "Existing explicit start/continue long-task implementation; no new production imports or HR decisions",
+    "sourceParity": "UNVERIFIED_SOURCE_MENU_ONLY",
+    "singleImplementer": true
+  }
+}

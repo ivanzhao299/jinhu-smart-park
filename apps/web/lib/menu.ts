@@ -208,6 +208,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/hr/compensation",
   "/hr/payroll",
   "/hr/approvals",
+  "/hr/employee-feedback",
   "/hr/contracts",
   "/hr/attendance",
   "/hr/insurance",
@@ -356,7 +357,8 @@ export const dashboardMenus: MenuNode[] = [
       { label: "人才发展", href: "/hr/talent", permission: "hr:talent", module: "hr" },
       { label: "培训管理", href: "/hr/training", permission: "hr:training", module: "hr" },
       { label: "奖惩管理", href: "/hr/rewards", permission: "hr:rewards", module: "hr" },
-      { label: "人事审批", href: "/hr/approvals", permission: "hr:approvals", module: "hr" }
+      { label: "人事审批", href: "/hr/approvals", permission: "hr:approvals", module: "hr" },
+      { label: "建议与投诉", href: "/hr/employee-feedback", permission: "hr:approvals", module: "hr" }
     ]
   },
   {

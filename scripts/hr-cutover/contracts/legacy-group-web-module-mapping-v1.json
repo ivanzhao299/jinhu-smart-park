@@ -3585,7 +3585,7 @@
       "domain": "personal_office",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/employee-feedback"
       ],
       "mappingStatus": "mapped"
     },
@@ -3601,7 +3601,7 @@
       "domain": "personal_office",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/employee-feedback"
       ],
       "mappingStatus": "mapped"
     },
@@ -3665,7 +3665,7 @@
       "domain": "personal_office",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/employee-feedback"
       ],
       "mappingStatus": "mapped"
     },
@@ -3681,7 +3681,7 @@
       "domain": "personal_office",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/employee-feedback"
       ],
       "mappingStatus": "mapped"
     },
