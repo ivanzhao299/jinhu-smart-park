@@ -1,32 +1,23 @@
-# 正式承接设计输入（预检进行中，写入schema/API尚未冻结）
+# 完整父 D：来源到正式绩效启用设计（冻结候选 v1）
 
-基线9ed1e4b8；复用父design v2和已发布370/371/372。第一步子任务hr-performance-source-readiness仅取当前生产计数/摘要，不代替本任务交付。
+2026-10-17，基于 `ef715dc497e6cbae10d0c149021ef5b3b32eeea7`。本设计替代旧文档中未决的初值/员工选择方案；完整可执行合同在 [formal-activation-contract.md](research/formal-activation-contract.md)。373 来源草稿和374明细评语已单独验收，不重新设计；它们不等于父 D 完成。
 
-## 存储与读写边界
-保留不可变六表facts/旧target和旧成功回执。新增独立正式业务草稿aggregate、append-only修订、完整source manifest及承接link/receipt；manifest按同scope/batch的稳定事实身份排序，保留完整候选、独立detail和所有源字段的V/R/P归属。相同manifest可共享，避免反复复制整个备份。正式current值与原始证据分开；同人同期间多个master不能合并覆盖。
+## 最终产品路径
 
-## 当前关键守卫约束
-372 input初始化仅允许全部UNPROVIDED；正常PATCH仅能改当前阶段/真实角色允许字段。因此把源评分直接灌普通PATCH会失败，不能删掉当前守卫或伪造已提交状态。写入方案必须在新向前迁移引入一次性、receipt绑定的来源baseline初始化：仅新建且未办理、当前头为空baseline的review，锁cycle/review/receipt、重验完整manifest及draft revision、真实导入作者/时间和权限；初始化仅预填值，不推进self/manager/calibration或确认。不允许客户端传trusted=true/sourceQualified=true或绕过阶段的通用开关。普通后续PATCH完全沿现有守卫。
+1. 从现有来源草稿准备普通模板定义。来源目录、等级、指南完整保留，现代角色/阶段/日期必须明确配置；缺项只阻止该条发布。模板“建立正式模板”仅建立普通可编辑 draft/version，随后使用现有编辑、工作流、发布页面。
+2. 来源考核草稿的“启用考核”一次事务创建一个普通五通道版本，正常发布，创建明确选中一个员工的周期，正常冻结员工/目标/旁证，建立全 UNPROVIDED 的 rev1，再建立来源回执约束的 rev2。单条 master 对应单个周期/考核；同人同 session 的不同 master 保持独立。
+3. 已启用的考核从普通自评、主管、校准、确认/申诉页面继续。来源字段不代表历史审批；现代动作、作者和时间必须真实产生。源变动显示候选差异，不覆盖人工或进行中工作。已确认更正走现有显式 predecessor 更正链。
+4. 未通过历史资格的来源仍可维护草稿。明确“作为当前业务新建”可建立普通版本和空 rev1 的单员工周期，记录真实操作者/理由与来源参考，但不能导入历史初值、标记 sourceQualified 或升级原始回执信用。之后由实际阶段角色逐项录入。
 
-372周期selected_employee_ids目前仅合法纠正路径，普通createCycle按组织发布。承接需有独立receipt绑定的显式选择路径，不借纠正伪造predecessor，也不能全组织生成。复用发布冻结/初始化，所有额外允许条件必须DB直接写反例验证；同sourceMaster仅一个明确review实例，另一个master另行候选/周期，不按人月份去重。
+## 不可省略的实现决定
 
-## 资格与缺项
-sourceQualified必须由完整来源/成功receipt/000309双路resolved+matched/身份/manifest计算，永不从前端接收。manuallyResolvedForNewBusiness独立真实actor、理由及绑定版本，不给历史信用升级。日期不从recorded_at/session猜；缺日期/身份/政策只保留可编辑业务草稿，历史记录沿归档策略，当前业务由用户补明确字段后才启用。生产预检先确认哪些分支实际存在，再冻结完整qualification SQL。
+- 新375（实际实施前确认号码空闲）新增不可变 activation receipt/link、周期来源回执列、input revision 回执列、精确 cohort/首次初始化守卫。旧372/373/374文件字节不变；旧函数只以新迁移定点替换必要 formal guards，源导入/计算/ACL不变。
+- 资格由数据库服务端计算：373完整 generation +308/311/310成功链及当前hash/count +309成功且未回滚、匹配的 person/detail模板证据 +所有选中结果 exact person→employee。没有客户端 qualified、历史人名猜测、session推日期、数组位置配对。
+- 新事务内部 helper 使用同一个 EntityManager；公开普通方法保持一层 transaction 包装。不能调用会新开独立事务的公开 create/publish 方法，也不能添加通用 trusted/source bypass布尔参数。
+- 来源基线仅取不可变 manifest 中的原始值；373人工改动的结果值作为明确差异留在草稿，不能借基线例外绕过各阶段权限。模板配置和现代绑定可以由真人编辑。所有差异在启用前显示且必须明确确认。
+- 资格、本次定义配置、源基线、人工差异各自留证。资格不是现代配置与原系统计算等价的证明，也不是工资批准。
+- 来源工资19,4仅进入 salaryReference；所有API/UI当前与历史仍执行实时读写交集，不能进入预览分数、普通回执、日志或其他人的资料。
 
-## 权限与API/页面方向
-复用绩效模板/业务工作台和既有权限，增加业务草稿/承接预览、保存修订、绑定及显式启用动作，具体路由/DTO在下一轮精确inventory后冻结。普通表单用业务名称，来源provenance在详情追溯；不加“玉舟旧数据”或全局数据阻断。薪资参考19,4始终独立薪酬读写权限投影；源operator/assessment_person/recorded_at保留来源证据，正式作者/关系/时间真实记录。未确认源值不默认为0/NULL，不伪造审批。
+## 接受边界
 
-## 幂等与增量
-按模板版本/review草稿为原子单位，先锁target parent/current head，重验source hash与expectedBaseRevision；同key/body回放，异body409，不同key同来源目标复用业务唯一键。新来源版本追加候选；已有人工修改409零覆盖，只能显式差异选择后的新修订或既有确认后纠正。捕获原payload/key、失败保留与迟到响应校验。
-
-## 兼容、测试、发布
-不修改任何已应用迁移和旧算法/source信用。写入实现前补齐确切schema/API及守卫清单/字段矩阵；实际PG/HTTP覆盖source初始化直写绕过、重复/并发/源漂移/人工修订/跨scope/工资权限/缺件/完整集合和旧dimension生命周期。真组件桌面/390px及发布/runtime验收，最终真实岗位验收仍属父E。
-
-## 待预检后定案
-真实source/receipt/identity/template匹配分区及既有formal链接；可复用的目标版本/当前业务范围；上述新草稿、receipt、一次baseline初始化的准确表列/DTO/函数签名。此文件不授权尚未冻结的写入代码，不表示正式承接完成。
-
-## 已取证的当前生产分区
-Run38927701106成功且Deploy skipped/API-Web9ed；六类绩效来源及正式five_channel记录当前scope均0，详见research/production-readiness-20261016.md。没有既有绩效记录可做target关联修复；完整D应同时满足首次接入和后续增量，不能以猜造数据或反复分析历史替代。该结果不冻结未明确的写入schema/API，也不否定员工/工资已导入。
-
-## 分段实施进度
-10-17-hr-performance-source-drafts设计v2经独立审查R1-R6冻结，仅该子任务可实施正式可编辑草稿/不可变manifest/增量修订；完整D启用schema/API仍未冻结，不能据此放宽372或冒充完整承接。当前六表0不证明封存源原库空或漏导。
+必须同时完成合同中的共享/API/SQL/Web、真实308/309/310/311夹具、完整普通生命周期、同分评语申诉、旧维度回归、增量/并发/direct SQL/隐私与桌面390px。源表/原helpers/ACL指纹不能变化。CI、生产SHA/迁移/实际角色验收、7月93行64人2账套及吴恩国试算分别记账；本规划和本地合成测试不替代这些证据。
