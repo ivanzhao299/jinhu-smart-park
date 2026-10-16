@@ -569,6 +569,8 @@ only when `CI=true`. CI's existing Testing Library async assertion budget remain
 Do not increase assertion/hook timeouts, add retries, skip cases or reduce assertions
 to bypass an observed failure. Verify timeout-budget changes with the full interaction suite.
 
+For asynchronously populated selects, wait for the intended option to exist before firing a selection. Waiting only for the select label is insufficient: the control may mount before its options, and selecting a missing option silently leaves the value empty. Cover delayed option arrival with a controlled promise; do not fix this race with sleeps, timeouts or retries.
+
 For frontend changes, choose the smallest reliable checks:
 
 - `pnpm --filter @jinhu/web lint`
