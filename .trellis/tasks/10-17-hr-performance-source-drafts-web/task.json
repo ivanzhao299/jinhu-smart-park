@@ -3,7 +3,7 @@
   "name": "hr-performance-source-drafts-web",
   "title": "绩效资料维护现代页面",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "web",
@@ -27,6 +27,20 @@
     "parentFullDeliverableNotReplaced": true,
     "backendTask": "10-17-hr-performance-source-drafts",
     "localAcceptance": "PASS_INDEPENDENT_FULL_SCOPE_AND_ROOT_BUILD_BROWSER",
-    "productionAcceptance": "PENDING"
+    "productionAcceptance": "PASS_MAIN_CI_DEPLOY_RUNTIME_EXACT_SHA",
+    "productionEvidence": {
+      "pr": 983,
+      "mergedSha": "36e0624f7886041d8aa73267b63c01bd8a78b71d",
+      "ciRun": 38942106896,
+      "mainCiRun": 38947111446,
+      "deployRun": 38947111373,
+      "runtimeObserverRun": 38949880932,
+      "apiWebRuntime": "36e0624f7886041d8aa73267b63c01bd8a78b71d",
+      "migration373": "APPLIED_ONCE",
+      "health": "PASS",
+      "dockerCleanup": "PASS_ONCE",
+      "artifact": "/Users/mac/.codex/artifacts/hr-performance-source-drafts-release-r3-20261017/release-summary.json"
+    },
+    "archiveDisposition": "DEFER_TO_COHERENT_PARENT_BATCH_COMMIT_PRESERVE_ACTIVE_WRITER"
   }
 }

@@ -1,1 +1,9 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-workflow.md", "reason": "Current372/374 live role, input, masking, lifecycle contracts"}
+{"file": ".trellis/spec/api/backend/hr-performance-source-drafts.md", "reason": "Accepted373 snapshots/generation/source identity/history/CAS"}
+{"file": ".trellis/spec/api/backend/hr-performance-template-workflow.md", "reason": "Ordinary immutable template/version and publication"}
+{"file": ".trellis/spec/web/frontend/hr-performance-channel-workflow.md", "reason": "Normal Web lifecycle and field carriers"}
+{"file": ".trellis/spec/web/frontend/hr-performance-review-browsing.md", "reason": "Complete scoped review discovery and continuation"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Shared/API/SQL/Web consistency"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-continuation/research/qualification-inventory.md", "reason": "Existing exact308/309/310 schema joins; overridden decisions in frozen contract"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-continuation/research/formal-intake-api-inventory.md", "reason": "Existing transaction extraction points; formerly open decisions resolved"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-continuation/research/formal-activation-contract.md", "reason": "Normative complete activation schema/API/qualification/transaction/mapping/acceptance"}

@@ -1780,3 +1780,5 @@ export * from "./hr-performance-channel-definition";
 export * from "./hr-performance-channel-workflow";
 
 export * from './hr-performance-source-drafts';
+
+export * from './hr-performance-source-activation';

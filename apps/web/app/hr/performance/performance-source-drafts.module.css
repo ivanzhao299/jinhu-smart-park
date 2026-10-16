@@ -7,3 +7,6 @@
 .trace { display: grid; gap: .7rem; overflow-wrap: anywhere; }
 .trace dd { margin-inline-start: 0; white-space: pre-wrap; }
 .panel output { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.panel fieldset { min-width: 0; display: grid; gap: 1rem; }
+.choice { display: flex; align-items: flex-start; gap: .6rem; min-height: 44px; }

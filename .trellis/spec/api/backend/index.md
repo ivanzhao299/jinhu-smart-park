@@ -1088,3 +1088,5 @@ Modern payroll preparation read-only observer: [Modern Readiness Observer](./hr-
 Formal five-channel publish/input/stage/calibration/appeal/correction workflow: [Channel Workflow](./hr-performance-channel-workflow.md).
 
 Formal performance count/hash preparation: [Source Readiness Observer](./hr-performance-source-readiness-observer.md).
+
+- [HR performance source formal activation](hr-performance-source-activation.md) — receipt-bound qualified baseline and explicit current-business bridge.

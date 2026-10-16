@@ -30,3 +30,7 @@ Good: manager updates appraisal without reading salary, preserving exact19,4 pay
 Wrong: edit whole snapshots from client or infer modern period/role/source credit from source text. Correct: close changes by family+fact+editable field, preserve comparison outputs/provenance, accept explicit bindings/config and retain NOT_EVALUATED. Wrong: authorize only in service before returning cached payload. Correct: live route guard before interceptor; receipts only in cache; sensitive GET/history current scoped projection.
 
 Candidate GET optionally accepts draftId UUID. Resolve that draft under the request scope, require the same kind, and filter candidates by its server-owned stable identity. Pages may contain later batches, never other master identities. Create must acquire the existing draft row lock before generation capture. Semantic no-op detection ignores JSON object key ordering, preserves array ordering, and returns400 before SQL.
+
+## Explicit formal activation
+
+See [source formal activation](hr-performance-source-activation.md) for375. Source drafts alone remain unactivated. Qualified source initial values enter only a unique fresh receipt-bound revision2; ordinary revision1 and later role/stage lifecycle rules are preserved.
