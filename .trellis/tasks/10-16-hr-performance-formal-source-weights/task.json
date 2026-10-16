@@ -21,7 +21,8 @@
   "children": [
     "10-16-hr-performance-channel-calculation-core",
     "10-16-hr-performance-channel-definition-maintenance",
-    "10-16-hr-performance-channel-workflow"
+    "10-16-hr-performance-channel-workflow",
+    "10-16-hr-performance-formal-source-continuation"
   ],
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
@@ -42,7 +43,7 @@
     "dependencyRelease": "DEPLOYED_RUNTIME_VERIFIED_MAIN_CI_PASS",
     "designStatus": "DRAFT_V2_REVIEW_INCORPORATED",
     "mergedBaseline": "f401edacd6049a0b335718df99f8258f763e1d6c",
-    "implementationScope": "A released; B definition local acceptance passed; qualification/inputs/C-D-E pending",
+    "implementationScope": "A/B/C已生产验收；D正式来源承接完整需求保留，生产只读预检子任务实施中；E真实岗位/工资/原程序/切换/独立HR待验收",
     "formalWorkflowReleaseProof": {
       "pr": 982,
       "mergedSha": "9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0",

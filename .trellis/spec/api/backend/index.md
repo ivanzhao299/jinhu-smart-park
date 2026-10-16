@@ -1084,3 +1084,5 @@ Five-channel draft definition maintenance: [Channel Definition](./hr-performance
 Modern payroll preparation read-only observer: [Modern Readiness Observer](./hr-payroll-modern-readiness-observer.md).
 
 Formal five-channel publish/input/stage/calibration/appeal/correction workflow: [Channel Workflow](./hr-performance-channel-workflow.md).
+
+Formal performance count/hash preparation: [Source Readiness Observer](./hr-performance-source-readiness-observer.md).

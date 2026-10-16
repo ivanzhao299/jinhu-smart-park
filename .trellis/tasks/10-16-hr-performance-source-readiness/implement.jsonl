@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API operational SQL/testing conventions"}
+{"file": ".trellis/spec/api/backend/hr-payroll-modern-readiness-observer.md", "reason": "Existing strict self-contained readonly observer pattern"}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-calculation-core.md", "reason": "Keep full source math evidence separate"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Production diagnostics and artifact provenance"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-continuation/research/qualification-inventory.md", "reason": "Exact current source receipt and identity contracts"}

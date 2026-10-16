@@ -1,0 +1,30 @@
+{
+  "id": "hr-performance-source-readiness",
+  "name": "hr-performance-source-readiness",
+  "title": "正式绩效承接生产预检",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": "codex/hr-performance-formal-continuation-20261016",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-16-hr-performance-formal-source-continuation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "designStatus": "ROOT_REVIEWED_BOUNDED_OBSERVER_DESIGN",
+    "implementationAuthorizedBy": "existing_user_long_task_and_production_readonly_authorization",
+    "parentFullDeliverableNotReplaced": true
+  }
+}

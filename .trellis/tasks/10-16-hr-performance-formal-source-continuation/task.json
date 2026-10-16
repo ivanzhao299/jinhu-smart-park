@@ -1,0 +1,28 @@
+{
+  "id": "hr-performance-formal-source-continuation",
+  "name": "hr-performance-formal-source-continuation",
+  "title": "绩效来源正式承接与增量延续",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/hr-performance-formal-continuation-20261016",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-16-hr-performance-source-readiness"
+  ],
+  "parent": "10-16-hr-performance-formal-source-weights",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
