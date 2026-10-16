@@ -35,3 +35,10 @@
 .channelFields button { min-height: 44px; }
 .nullChoice { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .nullChoice input { width: 20px; flex: 0 0 20px; }
+
+.channelCell { display: grid; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.channelCell h4, .channelCell p { margin: 0; }
+.fullText { white-space: pre-wrap; overflow-wrap: anywhere; }
+.editor > section, .editor > article, .editor > form { min-width: 0; }
+.editor textarea { min-width: 0; width: 100%; min-height: 88px; }
+.editor summary { min-height: 44px; cursor: pointer; }

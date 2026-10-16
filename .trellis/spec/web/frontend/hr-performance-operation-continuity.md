@@ -2,7 +2,7 @@
 
 ## Scope / Trigger
 
-The ten main `HrPerformanceClient` writes: cycle create/publish, self/manager review, calibration batch create/entry/complete, acknowledgement, appeal and appeal resolution. Template authoring remains in its own workflow.
+The ten main `HrPerformanceClient` writes: cycle create/publish, self/manager review, calibration batch create/entry/complete, acknowledgement, appeal and appeal resolution. Template authoring shares the modern workspace writer lock. Five-channel operations additionally cover revision PATCH, explicit partial batch completion and confirmed correction; see hr-performance-channel-workflow.md.
 
 ## Signatures
 
@@ -12,7 +12,7 @@ The matching `hrApi` methods accept a final optional `idempotencyKey` argument a
 
 An attempt captures token, fixed payload closure, key, success text and receipt acceptance. Retain it in memory only. Before writing, invalidate/abort pending reads. While uncertain, disable competing workspace actions and offer one retry using exactly that attempt; place retry inside an open editor, otherwise in the workspace. Identity/context replacement unmounts the keyed workspace and suppresses old completion.
 
-Require a nonempty receipt id. Expected statuses are planning (create cycle), self_review (publish), manager_review (self), calibration (manager), active (create calibration), completed (complete calibration), confirmed (acknowledge), submitted (appeal), and the chosen decision (resolve). Existing-target writes require the requested id. Calibration entries require id and beforeScore/afterScore strings.
+Require a nonempty receipt id. Expected statuses are planning (create cycle), self_review (publish), manager_review (self), calibration (manager), active (create calibration), completed (complete calibration), confirmed (acknowledge), submitted (appeal), and the chosen decision (resolve). Existing-target writes require the requested id. Dimension calibration entries require id and beforeScore/afterScore strings. Five-channel entries accept beforeScoreNULL; self/manager receipts accept scoreNULL with exact inputRevisionId. Five-channel completion validates active/completed partial receipts against every explicit selected review ID.
 
 ## Validation & Error Matrix
 

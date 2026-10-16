@@ -1776,3 +1776,5 @@ export * from "./hr-attendance-leave-cancellation";
 export * from "./hr-attendance-leave-ledger";
 
 export * from "./hr-performance-channel-definition";
+
+export * from "./hr-performance-channel-workflow";

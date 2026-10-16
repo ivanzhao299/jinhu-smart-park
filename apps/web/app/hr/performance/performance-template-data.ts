@@ -1,4 +1,4 @@
-import {validateHrPerformanceChannelDefinition} from "@jinhu/shared";
+import {validateHrPerformanceWorkflowPolicy,validateHrPerformanceChannelDefinition} from "@jinhu/shared";
 import type { HrPerformanceTemplateDetailV2 } from "../../../lib/hr-api";
 
 export function performanceTemplateDetail(value: unknown, requestedId: string): HrPerformanceTemplateDetailV2 {
@@ -8,8 +8,8 @@ export function performanceTemplateDetail(value: unknown, requestedId: string): 
   if (data.templateId !== requestedId || typeof data.versionId !== "string" || !data.versionId.trim() || !Number.isSafeInteger(data.versionNo) || data.versionNo < 1 || !["draft", "published"].includes(data.status)) return fail();
   if ([data.templateCode, data.templateName, data.versionName].some(text => typeof text !== "string" || !text.trim())) return fail();
   if(data.calculationMode === 'five_channel_v1') {
-    try { validateHrPerformanceChannelDefinition(data.channelDefinition); } catch { return fail(); }
-    if(typeof data.currentRevisionId !== 'string' || !data.currentRevisionId || data.status !== 'draft' || !Array.isArray(data.dimensions) || data.dimensions.length || !Array.isArray(data.levels) || data.levels.length) return fail();
+    try { validateHrPerformanceChannelDefinition(data.channelDefinition);if(data.channelWorkflow!=null)validateHrPerformanceWorkflowPolicy(data.channelWorkflow,data.channelDefinition);if(data.status==='published'&&(!data.channelWorkflow||!data.workflowRevisionId))throw new Error(); } catch { return fail(); }
+    if(typeof data.currentRevisionId !== 'string' || !data.currentRevisionId || !Array.isArray(data.dimensions) || data.dimensions.length || !Array.isArray(data.levels) || data.levels.length) return fail();
     return {...data, channelDefinition:data.channelDefinition, dimensions:[], levels:[]};
   }
   if(data.calculationMode != null && data.calculationMode !== 'dimension_weighted_v1') return fail();

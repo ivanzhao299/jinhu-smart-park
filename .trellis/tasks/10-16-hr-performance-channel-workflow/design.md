@@ -25,3 +25,7 @@
 - 代码证明API/迁移均从POSTGRES_USER取连接身份，但默认jinhu不证明实际生产角色。不新增PUBLIC/SECURITY DEFINER/硬编码grant。迁移自检当前执行角色和API五渠道调用事务以has_function_privilege检验两370helper实际连接EXECUTE，缺权拒绝，不动态授权；实际生产API调用仍待最终运行验收。
 
 - 等级完整承载：five_channel final_level_code扩64，final_level_name仍64并展示candidate.code；完整candidate description500及其余字段进入final_grade_evidence和result/history，不截断说明，不误用描述作短名称。旧dimension名称保持原值，最终证据每次重验。
+
+## 实际PG后actor作用域修正
+首轮跨阶段PG/HTTP通过后发现现有258/259/371 actor复合FK绑定sys_user.home park，不能承接已有合法selected-park授权。root允许372仅对本次正式绩效表actor字段作前向修正：sys_user(id)全局PK FK加HR统一same-tenant guard；不改auth表/索引/角色/授权。version/cycle/review/input等业务scope复合FK保留。
+新actor/action按现有selected-park有效role-binding或完整受保护tenant-super条件检查，不能仅凭r.is_super、不能跨tenant、不能用失效角色新写。稳定历史作者仅保留身份/tenant引用，无关更新不得要求旧作者仍持现行权限；既有历史作者和时间不改。必须实际PG/HTTP覆盖selected-park普通actor、protected tenant super、跨tenant、disabled角色、自身校准、字段越权和旧dimension完整生命周期，并列明全部drop/add actor FK和guard覆盖供最终独立审查。此为既有授权消费一致性，不扩展认证基础设施。

@@ -13,12 +13,14 @@
   "createdAt": "2026-10-16",
   "completedAt": null,
   "branch": "codex/hr-performance-formal-business-20261016",
-  "base_branch": "codex/hr-performance-formal-business-20261016",
+  "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-formal-trial-comparison-20261012",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "10-16-hr-performance-channel-workflow-web"
+  ],
   "parent": "10-16-hr-performance-formal-source-weights",
   "relatedFiles": [],
   "notes": "",
@@ -28,6 +30,11 @@
     "parentAcceptance": false,
     "implementationStarted": true,
     "implementationAgent": "/root/performance_channel_definition_implement",
-    "validationStatus": "SHARED_BUILD_PASS_FULL_WORKFLOW_PENDING"
+    "validationStatus": "FULL_SCOPE_LOCAL_PASS_RELEASE_PENDING",
+    "backendPgPassed": 4,
+    "webInteractionPassed": 1267,
+    "webInteractionFiles": 155,
+    "nativeDesktopMobile": "PASS_SYNTHETIC_ACTUAL_COMPONENTS",
+    "actualJulyTrial": "NOT_EXECUTED"
   }
 }
