@@ -626,3 +626,5 @@ Formal work-calendar maintenance and date-range schedule reference: [Work Calend
 Approved leave cancellation workflow: [Cancellation Continuity](./hr-approved-leave-cancellation.md).
 
 Approved business-trip date edits and complete recalculation: [Business-trip date continuity](./hr-business-trip-dates.md).
+
+Five-channel draft definition maintenance: [Channel Definition](./hr-performance-channel-definition.md).

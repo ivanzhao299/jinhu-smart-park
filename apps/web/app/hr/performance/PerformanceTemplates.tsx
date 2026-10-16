@@ -8,6 +8,8 @@ import { hasPermission } from "../../../lib/permissions";
 import { hrLoadErrorMessage } from "../hr-errors";
 import { PerformanceTemplateEditor } from "./PerformanceTemplateEditor";
 import { performanceTemplateDetail } from "./performance-template-data";
+import {PerformanceChannelDefinitionFields,PerformanceChannelDefinitionHistory} from "./PerformanceChannelDefinitionEditor";
+import {validateHrPerformanceChannelDefinition} from "@jinhu/shared";
 import styles from "./performance-template.module.css";
 
 export function PerformanceTemplates() {
@@ -27,6 +29,7 @@ function TemplateWorkspace() {
       const rows = await hrApi.performanceTemplatesV2(getAccessToken(), request.signal);
       if (request.signal.aborted || listRequest.current !== request || !alive.current) return;
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row.id !== "string" || !row.id.trim() || typeof row.templateName !== "string" || typeof row.templateCode !== "string" || typeof row.versionName !== "string" || typeof row.versionId !== "string" || !row.versionId.trim() || !Number.isSafeInteger(row.currentVersionNo) || row.currentVersionNo < 1 || !["draft", "published"].includes(row.versionStatus ?? "") || !Array.isArray(row.dimensions)) || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error("评价模板列表响应无效，请重新加载。");
+      for(const row of rows)if(row.calculationMode==='five_channel_v1')validateHrPerformanceChannelDefinition(row.channelDefinition);
       setTemplates(rows);
     } catch (reason) { if (!request.signal.aborted && listRequest.current === request && alive.current) { setError(hrLoadErrorMessage(reason, "加载评价模板失败")); throw reason; } }
     finally { if (listRequest.current === request && alive.current) setLoading(false); }
@@ -61,13 +64,13 @@ function TemplateWorkspace() {
   if (!canRead) return null;
   const generation = editGeneration.current;
   return <section id="performance-templates" className={`ds-panel ${styles.editor}`}>
-    <div className={styles.actions}><h2>评价模板配置</h2>{canManage ? <button type="button" className="ds-button" disabled={busy} onClick={() => { close(); setCreating(true); }}>创建评价模板</button> : null}<button type="button" className="ds-button" disabled={loading || busy} onClick={() => void load().catch(() => undefined)}>刷新模板</button></div>
+    <div className={styles.actions}><h2>评价模板配置</h2>{canManage ? <button type="button" className="ds-button ds-button-secondary" disabled={busy} onClick={() => { close(); setCreating(true); }}>创建评价模板</button> : null}<button type="button" className="ds-button ds-button-secondary" disabled={loading || busy} onClick={() => void load().catch(() => undefined)}>刷新模板</button></div>
     <p>按企业制度配置维度、权重和等级。保存草稿后单独发布，既有周期继续使用其冻结版本。</p>
     {notice ? <p role="status">{notice}</p> : null}{error ? <p className="form-error" role="alert">{error}</p> : null}
-    <div className={`ds-mobile-record-list ${styles.records}`}>{templates.map(template => <article className="ds-mobile-record" key={template.id}><strong>{template.templateName}</strong><span>{template.templateCode} · V{template.currentVersionNo} · {template.versionName} · {template.versionStatus === "published" ? "已发布" : "草稿"}</span><span>{template.dimensions.length}个评价维度</span><div className={styles.actions}><button type="button" className="ds-button" disabled={busy} onClick={() => void open(template.id)}>{canManage ? "续建模板版本" : "查看模板配置"}</button>{canManage && template.versionStatus === "draft" && template.versionId ? <button type="button" className="ds-button ds-button-primary" disabled={busy || creating || Boolean(detail)} onClick={() => void publish(template.versionId!)}>发布模板</button> : null}</div></article>)}</div>
+    <div className={`ds-mobile-record-list ${styles.records}`}>{templates.map(template => <article className="ds-mobile-record" key={template.id}><strong>{template.displayName??template.templateName}</strong><span>{template.templateCode} · V{template.currentVersionNo} · {template.versionName} · {template.versionStatus === "published" ? "已发布" : "草稿"}</span><span>{template.calculationMode==='five_channel_v1'?`五渠道定义 · ${template.channelDefinition?.items.length??0}个项目 · ${template.channelDefinition?.gradeCandidates.length??0}个等级候选 · 仅草稿`:`${template.dimensions.length}个评价维度`}</span><div className={styles.actions}><button type="button" className="ds-button ds-button-secondary" disabled={busy} onClick={() => void open(template.id)}>{canManage ? template.calculationMode==='five_channel_v1'?"维护五渠道定义":"续建模板版本" : "查看模板配置"}</button>{canManage && template.calculationMode !== "five_channel_v1" && template.versionStatus === "draft" && template.versionId ? <button type="button" className="ds-button ds-button-primary" disabled={busy || creating || Boolean(detail)} onClick={() => void publish(template.versionId!)}>发布模板</button> : null}</div></article>)}</div>
     {loading ? <p aria-busy="true">正在加载模板…</p> : !templates.length && !error ? <p>当前没有评价模板。</p> : null}
     {detailError ? <p className="form-error" role="alert">{detailError}</p> : null}
     {(creating || detail) && canManage ? <PerformanceTemplateEditor key={detail?.versionId ?? `new-${generation}`} template={detail ?? undefined} writeLock={mutation} onBusyChange={value=>{if(alive.current)setBusy(value);}} onCancel={close} onSaved={() => saved(generation, detail?.templateId)} /> : null}
-    {detail && !canManage ? <section className="ds-panel"><h3>{detail.templateName} · V{detail.versionNo}</h3>{detail.dimensions.map(row => <p key={row.code}>{row.code} · {row.name} · 权重{Number(row.weight) * 100}% · {row.scoreMin}至{row.scoreMax}分</p>)}{detail.levels.map(row => <p key={row.code}>{row.code} · {row.name} · {row.scoreMin}至{row.scoreMax}分</p>)}<button type="button" className="ds-button" onClick={close}>关闭模板配置</button></section> : null}
+    {detail && !canManage ? <section className="ds-panel"><h3>{detail.displayName??detail.templateName} · V{detail.versionNo}</h3>{detail.calculationMode==='five_channel_v1'&&detail.channelDefinition?<><PerformanceChannelDefinitionFields config={detail.channelDefinition} change={()=>undefined} readOnly/><PerformanceChannelDefinitionHistory template={detail}/></>:null}{detail.dimensions.map(row => <p key={row.code}>{row.code} · {row.name} · 权重{Number(row.weight) * 100}% · {row.scoreMin}至{row.scoreMax}分</p>)}{detail.levels.map(row => <p key={row.code}>{row.code} · {row.name} · {row.scoreMin}至{row.scoreMax}分</p>)}<button type="button" className="ds-button ds-button-secondary" onClick={close}>关闭模板配置</button></section> : null}
   </section>;
 }

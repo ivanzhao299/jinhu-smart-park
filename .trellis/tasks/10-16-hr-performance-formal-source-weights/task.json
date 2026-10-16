@@ -2,7 +2,7 @@
   "id": "hr-performance-formal-source-weights",
   "name": "hr-performance-formal-source-weights",
   "title": "绩效来源权重与正式模板承接",
-  "description": "正式可维护承载来源五类绩效权重并贯通版本与评价；当前仅规划与定向研究。",
+  "description": "正式五渠道定义维护已本地验收，继续评分全流程、来源资格和增量承接，父任务未完成。",
   "status": "planning",
   "dev_type": "fullstack",
   "scope": null,
@@ -12,21 +12,22 @@
   "assignee": "codex",
   "createdAt": "2026-10-16",
   "completedAt": null,
-  "branch": "codex/hr-performance-formal-source-weights-20261016",
+  "branch": "codex/hr-performance-formal-business-20261016",
   "base_branch": "main",
-  "worktree_path": "/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-formal-trial-comparison-20261012",
   "commit": null,
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-16-hr-performance-channel-calculation-core"
+    "10-16-hr-performance-channel-calculation-core",
+    "10-16-hr-performance-channel-definition-maintenance"
   ],
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
   "notes": "",
   "meta": {
     "baseline": "f5ec67f9829373ce77102676a2226566067b33ed",
-    "implementationStarted": false,
+    "implementationStarted": true,
     "sourceHashes": {
       "apps/api/src/modules/hr/dto/hr-performance-review.dto.ts": "1459cc128345c0a185536282f91498f877facf4d8b0ca873baffab35a4848312",
       "apps/api/src/modules/hr/hr-performance-review.service.ts": "ca47b0ead075295f7078c989100361ae0987e042749fcd66885470b9c8d0b86d",
@@ -34,6 +35,12 @@
       "database/migrations/000321_hr_performance_yuzhou_total_rounding.sql": "4627cc2ed1ff056bf70105c9db19d592ae4ea9cdc20c8d1806dd9395ee2ff936",
       "scripts/hr-cutover/contracts/legacy-performance-calculation-print-parity-v1.json": "27f4e8471ab03585a1357ae01d646555a985e893708e0ae724c61840d9d4b9c1",
       ".trellis/tasks/10-08-hr-performance-template-workflow/prd.md": "3bef19ac9efd253853068124af6845616b6f3d75611d49650eaa2f63db857fc4"
-    }
+    },
+    "planningBaseline": "4142ce4474c9aeb91516894a49910adae1c49c2f",
+    "dependencyPR": 981,
+    "dependencyRelease": "DEPLOYED_RUNTIME_VERIFIED_MAIN_CI_PASS",
+    "designStatus": "DRAFT_V2_REVIEW_INCORPORATED",
+    "mergedBaseline": "f401edacd6049a0b335718df99f8258f763e1d6c",
+    "implementationScope": "A released; B definition local acceptance passed; qualification/inputs/C-D-E pending"
   }
 }

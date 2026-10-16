@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/hr-performance-template-workflow.md", "reason": "existing template/version CAS and frozen guards"}
+{"file": ".trellis/spec/web/frontend/hr-performance-template-workflow.md", "reason": "actual editor and request continuity"}
+{"file": ".trellis/spec/web/frontend/hr-performance-operation-continuity.md", "reason": "retry and receipts"}
+{"file": ".trellis/spec/api/backend/hr-performance-channel-calculation-core.md", "reason": "exact source numerical boundaries"}
+{"file": ".trellis/tasks/10-16-hr-performance-formal-source-weights/research/formal-design-review.md", "reason": "known design pitfalls and source carrier matrix"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "isolated work and owned resources"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse existing domain workflow"}
