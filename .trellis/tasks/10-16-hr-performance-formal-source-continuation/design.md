@@ -24,3 +24,6 @@ sourceQualified必须由完整来源/成功receipt/000309双路resolved+matched/
 
 ## 待预检后定案
 真实source/receipt/identity/template匹配分区及既有formal链接；可复用的目标版本/当前业务范围；上述新草稿、receipt、一次baseline初始化的准确表列/DTO/函数签名。此文件不授权尚未冻结的写入代码，不表示正式承接完成。
+
+## 已取证的当前生产分区
+Run38927701106成功且Deploy skipped/API-Web9ed；六类绩效来源及正式five_channel记录当前scope均0，详见research/production-readiness-20261016.md。没有既有绩效记录可做target关联修复；完整D应同时满足首次接入和后续增量，不能以猜造数据或反复分析历史替代。该结果不冻结未明确的写入schema/API，也不否定员工/工资已导入。

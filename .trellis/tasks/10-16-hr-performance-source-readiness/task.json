@@ -3,7 +3,7 @@
   "name": "hr-performance-source-readiness",
   "title": "正式绩效承接生产预检",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -11,11 +11,11 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-10-16",
-  "completedAt": null,
+  "completedAt": "2026-10-16",
   "branch": "codex/hr-performance-formal-continuation-20261016",
   "base_branch": "main",
   "worktree_path": "/Users/mac/.codex/worktrees/hr-goal-report-ledgers-20261016/jinhu-smart-park",
-  "commit": null,
+  "commit": "451f7d33dec4eb02acc642833b43de3e8071acfd",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -25,6 +25,19 @@
   "meta": {
     "designStatus": "ROOT_REVIEWED_BOUNDED_OBSERVER_DESIGN",
     "implementationAuthorizedBy": "existing_user_long_task_and_production_readonly_authorization",
-    "parentFullDeliverableNotReplaced": true
+    "parentFullDeliverableNotReplaced": true,
+    "acceptanceProof": {
+      "runId": 38927701106,
+      "observerCodeCommit": "451f7d33dec4eb02acc642833b43de3e8071acfd",
+      "observerSha256": "7624280fe58617c276766425cb68bb429190bcb465ce78eba9239808c2c5de78",
+      "runtimeObservedAt": "2026-10-16T15:55:12.026Z",
+      "apiWebRevision": "9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0",
+      "deploy": "skipped",
+      "contract": "6/6 PASS",
+      "ownedPG": "2/2 PASS",
+      "independentReview": "8/8 files PASS; no changes",
+      "formalContinuationCompleted": false,
+      "actualJulyTrial": "NOT_EXECUTED"
+    }
   }
 }
