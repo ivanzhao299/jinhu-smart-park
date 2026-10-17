@@ -155,3 +155,27 @@ it.each(["direct", "formula"])("clears hidden rewrite when switching to %s", asy
   fireEvent.click(screen.getByRole("button", { name: "导出规则选择表" })); await waitFor(() => expect(downloadCsv).toHaveBeenCalled());
   const rows = parsePayrollInputCsv(vi.mocked(downloadCsv).mock.calls[0]![0], { maxCellLength: 65536 }); expect(rows[3]![18]).toBe("");
 });
+
+it.each(["manual", "csv"])("allows the API's blank-condition original formula through %s and the final draft handoff", async mode => {
+  const current = structuredClone(reference); current.formulas[0]!.condition = " \t\r\n\u3000";
+  state.load.mockResolvedValue(current);
+  const apply = vi.fn(); render(<PayrollRuleSourcePreparation {...props} onApply={apply} />); await load();
+  if (mode === "csv") {
+    const rows = parsePayrollInputCsv(await payrollRuleChoiceCsv(current, {}), { maxCellLength: 65536 });
+    rows[3]!.splice(13, 6, "纳入", "收入", "原公式", "1", "1", "");
+    await preview(new File([csvDocument(rows)], "blank-condition.csv", { type: "text/csv" }));
+    fireEvent.click(screen.getByLabelText(consent)); fireEvent.click(screen.getByRole("button", { name: "确认替换本地选择" }));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "纳入 ITEM0 第1版" })).toBeChecked());
+  } else {
+    const card = within(screen.getByRole("article", { name: "ITEM0 第1版" }));
+    fireEvent.click(card.getByRole("checkbox"));
+    fireEvent.change(card.getByLabelText("源项目用途 ITEM0"), { target: { value: "earning" } });
+    fireEvent.change(card.getByLabelText("源项目数值来源 ITEM0"), { target: { value: "formula" } });
+    fireEvent.change(card.getByLabelText("原公式选择 ITEM0"), { target: { value: "f1" } });
+  }
+  expect(screen.getByLabelText(/我已核对原条件/)).toBeEnabled();
+  fireEvent.click(screen.getByLabelText(/我已核对原条件/));
+  fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "ITEM0", role: "earning", expression: "[BASE]+1" }] });
+  expect(current.formulas[0]!.condition).toBe(" \t\r\n\u3000");
+});

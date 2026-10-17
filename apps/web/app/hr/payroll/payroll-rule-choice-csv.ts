@@ -30,13 +30,17 @@ async function binding(reference: FormalPayrollSourceReference): Promise<string>
   const hash = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(reference)));
   return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
 }
+/** Match the source API: whitespace-only original conditions are absent, but retain raw evidence. */
+export const canReuseRuleSourceFormula = (formula: FormalPayrollSourceReference["formulas"][number]): boolean =>
+  formula.reusableSyntax && !formula.condition?.trim();
+
 export function validRuleChoice(reference: FormalPayrollSourceReference, itemId: string, choice: Choice): boolean {
   const item = reference.items.find(value => value.id === itemId);
   return !!item?.enabled && item.valueType === "decimal" && FORMAL_PAYROLL_ROLES.includes(choice.role as FormalPayrollRole)
     && (choice.source === "direct" && !choice.formulaId && !choice.rewrite
       || choice.source === "rewrite" && !choice.formulaId && !!choice.rewrite.trim() && choice.rewrite.length <= 2000
       || choice.source === "formula" && !choice.rewrite && reference.formulas.some(formula => formula.id === choice.formulaId
-        && formula.itemVersionId === itemId && formula.reusableSyntax && !formula.condition));
+        && formula.itemVersionId === itemId && canReuseRuleSourceFormula(formula)));
 }
 /** Full reference SHA includes rule/book identities, all item versions, orphan formulas and conditions. */
 export async function payrollRuleChoiceCsv(reference: FormalPayrollSourceReference, choices: RuleChoices): Promise<string> {
