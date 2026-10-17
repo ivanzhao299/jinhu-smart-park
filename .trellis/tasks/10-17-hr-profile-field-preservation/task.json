@@ -1,0 +1,31 @@
+{
+  "id": "hr-profile-field-preservation",
+  "name": "hr-profile-field-preservation",
+  "title": "已批准档案办理保留未提交字段及显式清空",
+  "description": "批准档案局部请求保留其他正式资料；普通完整替换保持，审批表单显式清空、版本、权限、回滚和回执一致。",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": "hr",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-17",
+  "completedAt": null,
+  "branch": "codex/hr-profile-field-preservation-20261017",
+  "base_branch": "main",
+  "worktree_path": "/Users/mac/.codex/worktrees/hr-payroll-business-continuation-20261017/jinhu-smart-park",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": ".trellis/tasks/10-02-yuzhou-modern-production-parity",
+  "relatedFiles": [
+    "apps/api/src/modules/hr/hr.service.ts",
+    "apps/api/src/modules/hr/dto/hr.dto.ts",
+    "apps/web/app/hr/approvals/ApprovedProfileRequestsPanel.tsx",
+    "apps/web/app/hr/employees/components/HrFixedProfileFields.tsx"
+  ],
+  "notes": "",
+  "meta": {}
+}

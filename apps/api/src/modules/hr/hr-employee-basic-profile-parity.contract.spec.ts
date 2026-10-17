@@ -23,7 +23,8 @@ test("profile API and UI cover the legacy field groups without leaking source va
  assert.match(ui,/buildProfileSaveBody/);
  assert.match(sharedForm,/证件号（加密保存）/);
  assert.match(sharedForm,/type="number"/);
- assert.match(sharedForm,/idNumber:String\(form\.get\("idNumber"\)\?\?""\)/);
+ // Complete replacement still submits identity; a missing approval control preserves it.
+ assert.match(sharedForm,/idNumber:mode==="patch"&&!form\.has\("idNumber"\)\?undefined:String\(form\.get\("idNumber"\)\?\?""\)/);
  const evidence=JSON.parse(read("scripts/hr-cutover/contracts/yuzhou-employee-basic-profile-source-evidence-v1.json")) as {legacyId:number;legacyFieldEvidenceHash:string;personalValuesRecorded:boolean;credentialsRecorded:boolean;targetControls:{productionImport:string}};
  assert.equal(evidence.legacyId,35);
  assert.equal(evidence.legacyFieldEvidenceHash,"61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622");

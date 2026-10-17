@@ -1,0 +1,7 @@
+# Approved profile explicit-field updates
+
+`fulfillApprovedProfile` updates only DTO fields whose values are not undefined. The shared private profile save method keeps ordinary profile PUT in replacement mode and uses patch mode only for the approved-request path. Do not infer fields from the approval description or clear unrelated formal/imported facts. Explicit null clears nullable fixed fields; explicit empty or null identity clears the encrypted, masked and fingerprint representations together. Missing identity remains unchanged. Numeric null/empty clears must survive ValidationPipe without becoming zero; nonempty values retain existing number/range validation.
+
+Reject metadata-only requests before saving or consuming the approved request. Keep source and employee locks, exact expected versions, one fulfillment per source, immutable link history, full rollback and existing permission/idempotency boundaries. Receipt fieldNames includes submitted clears but excludes unsubmitted fields, matching the fields actually applied. Raw source snapshots remain unchanged.
+
+Regress the actual approved service and PostgreSQL path with existing birthday, height, education, contacts and encrypted identity: a locality-only update preserves them, deliberate clears persist, receipt fields match, ordinary replacement behavior remains unchanged, and existing concurrency/rollback cases still pass. Frontend approval serialization sends null for present empty controls and omits absent controls; ordinary form serialization keeps its previous replacement contract.

@@ -47,6 +47,8 @@ Current employee status and normal permission-gated maintenance remain the prima
 
 The existing profile PUT replaces ordinary fixed fields: empty form values are omitted and the service writes them as null. Identity is the exception: omitted `idNumber` preserves encrypted/masked/fingerprint values, while an explicit empty string clears all three. The full admitted maintenance form always submits its identity control, including an empty string when the operator clears it. A failed, masked, versionless or foreign read must never create that form. Retain the global write/audit/idempotency and expectedVersion guards.
 
+Approved profile fulfillment uses explicit-field updates instead: request `patch` mode from the shared form serializer. Present empty fixed controls send null, present empty identity sends an empty string, and absent controls are omitted. The API preserves unsubmitted fields, applies explicit clears and records those exact field names. Keep the ordinary employee editor's default replacement serialization unchanged. Do not infer approved changes from description text.
+
 Required regression cases: imported employee remains manageable with provenance collapsed; no archive permission means no archive link; existing identity survives an unrelated edit; clear identity travels through the real form and ValidationPipe/service; every one of the 33 fixed business fields is editable and carried in the same form submission. This proves fixed modern field carriage, not all legacy-source mappings or custom-field maintenance. Desktop/390px synthetic browser inspection and production-role acceptance are recorded separately.
 
 ## Formal employee direct navigation

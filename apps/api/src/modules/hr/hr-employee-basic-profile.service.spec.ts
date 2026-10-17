@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { HrService } from "./hr.service";
-import { HrEmployeeEntity,type HrEmployeeProfileEntity } from "./entities/hr.entities";
-import { ValidationPipe } from "@nestjs/common";
+import { HrEmployeeEntity,HrEmployeeProfileEntity } from "./entities/hr.entities";
+import { BadRequestException,ValidationPipe } from "@nestjs/common";
 import { UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 
 test("employee identity is encrypted at rest, excluded from write replay, and revealed only by audited read",async()=>{
@@ -32,6 +32,7 @@ test("employee identity is encrypted at rest, excluded from write replay, and re
  // Omission preserves the encrypted identity; an explicit empty form value clears all three representations.
  await service.updateEmployeeProfile(scope,actor,"00000000-0000-4000-8000-000000000011",{expectedVersion:1,remark:"Changed another field"});
  assert.equal(persisted?.idNumberEncrypted,"enc:v1:320812198901011234");
+ assert.equal(persisted?.dateOfBirth,null);assert.equal(persisted?.heightCm,null);
  const pipe=new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true});
  const clear=await pipe.transform({expectedVersion:2,idNumber:""},{type:"body",metatype:UpdateHrEmployeeProfileDto});
  const clearResult=await service.updateEmployeeProfile(scope,actor,"00000000-0000-4000-8000-000000000011",clear);
@@ -45,4 +46,34 @@ test("employee identity is encrypted at rest, excluded from write replay, and re
 test("profile management permission can read the profile it manages",()=>{
  const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
  assert.match(controller,/@Get\("employees\/:id\/profile"\)[^\n]+HR_EMPLOYEE_PROFILE_MANAGE/);
+});
+
+test("approved partial profile fulfillment preserves every unsubmitted field and records only submitted fields",async()=>{
+ const scope={tenantId:"profile-tenant",parkId:"profile-park"},employeeId="00000000-0000-4000-8000-000000000011",approvalId="00000000-0000-4000-8000-000000000041";
+ const stored=Object.assign(new HrEmployeeProfileEntity(),{id:"00000000-0000-4000-8000-000000000021",...scope,employeeId,version:4,isDeleted:false,nativePlace:"Original",englishName:"Retained name",dateOfBirth:"1989-01-01",heightCm:"175.50",highestEducation:"Retained education",homePhone:"synthetic-phone",idNumberEncrypted:"enc:retained",idNumberMasked:"masked",idNumberFingerprint:"fingerprint",sourceSnapshot:{original:"retained"}});
+ let fieldNames:string[]=[];
+ const query={where:()=>query,setLock:()=>query,getMany:async()=>[stored]};
+ const profiles={createQueryBuilder:()=>query,save:async(row:HrEmployeeProfileEntity)=>row};
+ const employees={findOne:async()=>({id:employeeId})};
+ const manager={getRepository:(entity:unknown)=>entity===HrEmployeeEntity?employees:profiles,query:async(sql:string,params:unknown[])=>{
+  if(sql.includes("FROM hr_approval_request"))return [{id:approvalId,subject_employee_id:employeeId,version:1}];
+  if(sql.includes("INSERT INTO hr_profile_approval_fulfillment")){fieldNames=JSON.parse(params[8] as string);return [{fulfilled_at:new Date("2026-07-01T00:00:00Z")}];}
+  return [];
+ }};
+ const service=Object.create(HrService.prototype) as HrService;
+ Object.assign(service,{dataSource:{transaction:async(callback:(value:typeof manager)=>unknown)=>callback(manager)},sensitiveData:{identityProfile:()=>{throw Error("Unexpected identity change");}}});
+ const actor={sub:"00000000-0000-4000-8000-000000000001",username:"synthetic",...scope,roles:[],permissions:[HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE]};
+ await service.fulfillApprovedProfile(scope,actor,approvalId,{employeeId,expectedApprovalVersion:1,expectedVersion:4,nativePlace:"Updated"});
+ assert.equal(stored.nativePlace,"Updated");assert.equal(stored.englishName,"Retained name");assert.equal(stored.dateOfBirth,"1989-01-01");assert.equal(stored.heightCm,"175.50");assert.equal(stored.highestEducation,"Retained education");assert.equal(stored.homePhone,"synthetic-phone");assert.equal(stored.idNumberEncrypted,"enc:retained");assert.deepEqual(stored.sourceSnapshot,{original:"retained"});assert.equal(stored.version,5);assert.deepEqual(fieldNames,["nativePlace"]);
+ await service.fulfillApprovedProfile(scope,actor,approvalId,{employeeId,expectedApprovalVersion:1,expectedVersion:5,nativePlace:null,dateOfBirth:null,heightCm:null,idNumber:null});
+ assert.equal(stored.nativePlace,null);assert.equal(stored.dateOfBirth,null);assert.equal(stored.heightCm,null);assert.equal(stored.idNumberEncrypted,null);assert.equal(stored.idNumberMasked,null);assert.equal(stored.idNumberFingerprint,null);assert.equal(stored.englishName,"Retained name");assert.equal(stored.highestEducation,"Retained education");assert.deepEqual(fieldNames,["nativePlace","dateOfBirth","heightCm","idNumber"]);assert.equal(stored.version,6);
+ await assert.rejects(service.fulfillApprovedProfile(scope,actor,approvalId,{employeeId,expectedApprovalVersion:1,expectedVersion:6}),BadRequestException);assert.equal(stored.version,6);
+});
+
+test("profile DTO preserves explicit null clears and still rejects invalid nonempty numbers",async()=>{
+ const pipe=new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true});
+ const value=await pipe.transform({expectedVersion:1,heightCm:null,weightKg:null,dateOfBirth:null,idType:null,personalEmail:null},{type:"body",metatype:UpdateHrEmployeeProfileDto});
+ for(const key of ["heightCm","weightKg","dateOfBirth","idType","personalEmail"])assert.equal(value[key],null);
+ const blank=await pipe.transform({expectedVersion:1,heightCm:"",weightKg:""},{type:"body",metatype:UpdateHrEmployeeProfileDto});assert.equal(blank.heightCm,null);assert.equal(blank.weightKg,null);
+ for(const input of [{heightCm:0},{weightKg:501},{heightCm:"not-a-number"}])await assert.rejects(pipe.transform({expectedVersion:1,...input},{type:"body",metatype:UpdateHrEmployeeProfileDto}));
 });

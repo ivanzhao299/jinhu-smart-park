@@ -264,7 +264,7 @@ export class HrService {
   await this.detailEmployee(scope,id);
   return this.dataSource.transaction(manager=>this.saveEmployeeProfile(manager,scope,actor,id,dto));
  }
- private async saveEmployeeProfile(manager:EntityManager,scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){
+ private async saveEmployeeProfile(manager:EntityManager,scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto,mode:"replace"|"patch"="replace"){
    if(!Number.isInteger(dto.expectedVersion)||dto.expectedVersion<0||dto.expectedVersion>2147483646)throw new BadRequestException("Employee profile expectedVersion must be a non-negative integer");
    // The employee anchor serializes first-profile creation, where no profile row exists to lock.
    const employee=await manager.getRepository(HrEmployeeEntity).findOne({where:{...scope,id,isDeleted:false},lock:{mode:"pessimistic_write"}});
@@ -276,7 +276,8 @@ export class HrService {
    if((active.length===0&&profiles.length>0)||(active.length===0&&dto.expectedVersion!==0)||(active.length===1&&active[0]!.version!==dto.expectedVersion))throw new ConflictException("Employee profile changed; reload before saving");
    const row=active[0]??repo.create({...scope,employeeId:id,createBy:actor.sub});
    const identity=dto.idNumber===undefined?undefined:dto.idNumber?this.sensitiveData.identityProfile(dto.idNumber.replace(/\s+/g,"").toUpperCase()):null;
-   Object.assign(row,{idType:dto.idType??null,englishName:dto.englishName??null,gender:dto.gender??null,dateOfBirth:dto.dateOfBirth??null,ethnicity:dto.ethnicity??null,nativePlace:dto.nativePlace??null,politicalStatus:dto.politicalStatus??null,partyJoinDate:dto.partyJoinDate??null,heightCm:dto.heightCm===undefined?null:String(dto.heightCm),weightKg:dto.weightKg===undefined?null:String(dto.weightKg),maritalStatus:dto.maritalStatus??null,healthStatus:dto.healthStatus??null,householdRegistration:dto.householdRegistration??null,highestEducation:dto.highestEducation??null,major:dto.major??null,degree:dto.degree??null,foreignLanguage:dto.foreignLanguage??null,languageLevel:dto.languageLevel??null,graduationDate:dto.graduationDate??null,graduationSchool:dto.graduationSchool??null,homePhone:dto.homePhone??null,jobTitle:dto.jobTitle??null,jobGrade:dto.jobGrade??null,employeeCategory:dto.employeeCategory??null,technicalTitle:dto.technicalTitle??null,technicalGrade:dto.technicalGrade??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null,updateBy:actor.sub,version:dto.expectedVersion+1});
+   const values={idType:dto.idType??null,englishName:dto.englishName??null,gender:dto.gender??null,dateOfBirth:dto.dateOfBirth??null,ethnicity:dto.ethnicity??null,nativePlace:dto.nativePlace??null,politicalStatus:dto.politicalStatus??null,partyJoinDate:dto.partyJoinDate??null,heightCm:dto.heightCm==null?null:String(dto.heightCm),weightKg:dto.weightKg==null?null:String(dto.weightKg),maritalStatus:dto.maritalStatus??null,healthStatus:dto.healthStatus??null,householdRegistration:dto.householdRegistration??null,highestEducation:dto.highestEducation??null,major:dto.major??null,degree:dto.degree??null,foreignLanguage:dto.foreignLanguage??null,languageLevel:dto.languageLevel??null,graduationDate:dto.graduationDate??null,graduationSchool:dto.graduationSchool??null,homePhone:dto.homePhone??null,jobTitle:dto.jobTitle??null,jobGrade:dto.jobGrade??null,employeeCategory:dto.employeeCategory??null,technicalTitle:dto.technicalTitle??null,technicalGrade:dto.technicalGrade??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null};
+   Object.assign(row,Object.fromEntries(Object.entries(values).filter(([key])=>mode==="replace"||dto[key as keyof UpdateHrEmployeeProfileDto]!==undefined)),{updateBy:actor.sub,version:dto.expectedVersion+1});
    if(identity!==undefined)Object.assign(row,{idNumberEncrypted:identity?.encrypted??null,idNumberMasked:identity?.masked??null,idNumberFingerprint:identity?.hash??null});
    try{const saved=await repo.save(row);return projectHrEmployeeProfile(saved,"full")!;}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Employee identity number already exists");throw error;}
  }
@@ -297,6 +298,8 @@ export class HrService {
  }
  async fulfillApprovedProfile(scope:TenantParkScope,actor:JwtPrincipal,approvalId:string,dto:FulfillHrApprovedProfileDto){
   this.requireApprovedProfileFulfillment(scope,actor);
+   const fieldNames=Object.keys(dto).filter(key=>key!=="employeeId"&&key!=="expectedApprovalVersion"&&key!=="expectedVersion"&&dto[key as keyof FulfillHrApprovedProfileDto]!==undefined);
+   if(fieldNames.length===0)throw new BadRequestException("Profile fulfillment requires explicitly submitted profile fields");
   return this.dataSource.transaction(async manager=>{
    const source=(await manager.query(`SELECT id,subject_employee_id,version FROM hr_approval_request WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND request_type='profile_change' AND status='approved' AND is_deleted=false FOR UPDATE`,[approvalId,scope.tenantId,scope.parkId]))[0] as {id:string;subject_employee_id:string;version:number}|undefined;
    if(!source)throw new NotFoundException("Approved profile request not found");
@@ -305,8 +308,7 @@ export class HrService {
    const existing=(await manager.query(`SELECT id FROM hr_profile_approval_fulfillment WHERE tenant_id=$1 AND park_id=$2 AND approval_request_id=$3 FOR UPDATE`,[scope.tenantId,scope.parkId,approvalId]))[0];
    if(existing)throw new ConflictException("Approved profile request has already been fulfilled");
    const before=dto.expectedVersion;
-   const profile=await this.saveEmployeeProfile(manager,scope,actor,dto.employeeId,dto);
-   const fieldNames=Object.keys(dto).filter(key=>key!=="employeeId"&&key!=="expectedApprovalVersion"&&key!=="expectedVersion"&&dto[key as keyof FulfillHrApprovedProfileDto]!==undefined);
+   const profile=await this.saveEmployeeProfile(manager,scope,actor,dto.employeeId,dto,"patch");
    const link=(await manager.query(`INSERT INTO hr_profile_approval_fulfillment(tenant_id,park_id,approval_request_id,employee_id,profile_id,source_version,before_version,after_version,field_names,fulfilled_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING fulfilled_at`,[scope.tenantId,scope.parkId,approvalId,dto.employeeId,profile.id,source.version,before,profile.version,JSON.stringify(fieldNames),actor.sub]))[0] as {fulfilled_at:Date};
    return {sourceApprovalId:approvalId,sourceApprovalVersion:Number(source.version),employeeId:dto.employeeId,profileId:profile.id,beforeVersion:before,afterVersion:profile.version,fieldNames,profile,fulfilledAt:link.fulfilled_at};
   });

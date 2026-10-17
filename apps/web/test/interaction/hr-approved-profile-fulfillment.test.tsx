@@ -31,7 +31,7 @@ it("reads all existing fields, keeps original values, explicitly clears identity
  expect(screen.getByLabelText("联系地址")).toHaveValue("原联系地址"); expect(screen.getByLabelText("性别")).toHaveValue("历史保留值");
  fireEvent.change(screen.getByLabelText("证件号（加密保存）"), { target: { value: "" } }); fireEvent.change(screen.getByLabelText("联系地址"), { target: { value: "新联系地址" } }); save();
  await screen.findByText("档案变更已办理");
- expect(hrApi.fulfillProfileApproval).toHaveBeenCalledWith("source", expect.objectContaining({ employeeId: "employee", expectedApprovalVersion: 3, expectedVersion: 7, address: "新联系地址", idNumber: "", gender: "历史保留值", highestEducation: "本科", remark: "原备注" }), "synthetic-token", expect.any(String));
+ expect(hrApi.fulfillProfileApproval).toHaveBeenCalledWith("source", expect.objectContaining({ employeeId: "employee", expectedApprovalVersion: 3, expectedVersion: 7, address: "新联系地址", idNumber: "", dateOfBirth: null, heightCm: null, gender: "历史保留值", highestEducation: "本科", remark: "原备注" }), "synthetic-token", expect.any(String));
  expect(screen.getByRole("link", { name: "查看正式员工档案" })).toHaveAttribute("href", "/hr/employees?employee_id=employee");
  expect(hrApi.profile).toHaveBeenCalledWith("employee", "synthetic-token", expect.any(AbortSignal));
 });
