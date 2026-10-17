@@ -1,5 +1,6 @@
 .workspace { display: grid; gap: 16px; min-width: 0; }
 .sourcePreparation { padding: clamp(16px, 2vw, 24px); }
+.bulkInput { padding: 16px; overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .actions button { min-height: 44px; flex-shrink: 0; white-space: nowrap; }
 .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; align-items: start; }

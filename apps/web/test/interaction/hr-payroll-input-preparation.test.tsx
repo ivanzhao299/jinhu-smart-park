@@ -1,7 +1,10 @@
+import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PayrollInputPreparation } from "../../app/hr/payroll/PayrollInputPreparation";
+import { payrollInputCsv, parsePayrollInputCsv } from "../../app/hr/payroll/payroll-input-csv";
+import { csvDocument } from "../../lib/scoped-csv-export";
 const state = vi.hoisted(() => ({ user: { id: "author", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: { payrollPeriods: vi.fn(), payrollRules: vi.fn(), payrollPreparation: vi.fn(), createPayrollInput: vi.fn() } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
@@ -154,4 +157,19 @@ it("source switch aborts a complete-roster read and discards late identities",as
   const signal=state.api.payrollPreparation.mock.calls.at(-1)![2] as AbortSignal;
   view.rerender(<PayrollInputPreparation source={{...source,reconciliationSourceId:"second",bookId:"second"}}/>);expect(signal.aborted).toBe(true);
   await act(async()=>finish(sourcePage({page:1,pageSize:100})));expect(screen.getByText("已选员工 · 0 人")).toBeVisible();expect(screen.getByLabelText("工资期间")).toHaveValue("");
+});
+
+beforeAll(() => vi.stubGlobal("crypto", webcrypto));
+afterAll(() => vi.unstubAllGlobals());
+
+it("CSV preparation retains explicit settlement and requires the existing save action", async()=>{
+  state.api.payrollPreparation.mockResolvedValue({...data,items:[{...candidate,eligibility:null,requiresSettlementWindow:true}]});await select();
+  fireEvent.change(screen.getByLabelText("合成员工 · 结算开始"),{target:{value:"2026-10-01"}});fireEvent.change(screen.getByLabelText("合成员工 · 结算结束"),{target:{value:"2026-10-03"}});fireEvent.change(screen.getByLabelText("合成员工 · 补结算理由"),{target:{value:"保留原补结算理由"}});
+  fireEvent.change(screen.getByLabelText("工资准备说明"),{target:{value:"批量核对"}});
+  const context={binding:JSON.stringify({scope:["tenant","park"],period:"period",rule:"approved",ruleSet:"rules",head:2}),month:"2026-10",ruleName:"工资规则",revisionLabel:"准备第3版输入"};
+  const records=parsePayrollInputCsv(await payrollInputCsv(context,[{employeeId:"employee",expectedEmployeeVersion:7,employeeCode:"SYN",fullName:"合成员工",directItems:{收入:"",税:""}}]));records[3]![3]="9007199254740993.1234";records[3]![4]="0.0000";
+  fireEvent.change(screen.getByLabelText("选择工资输入 CSV"),{target:{files:[new File([csvDocument(records)],"input.csv",{type:"text/csv"})]}});fireEvent.click(screen.getByRole("button",{name:"预览整份录入表"}));await screen.findByText(/完整校验 1 位员工/);
+  expect(state.api.createPayrollInput).not.toHaveBeenCalled();fireEvent.click(screen.getByLabelText(/我已核对整份变更/));fireEvent.click(screen.getByRole("button",{name:"带入当前草稿"}));expect(state.api.createPayrollInput).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"保存工资输入草稿"}));await screen.findByText(/第 3 版输入草稿已保存/);
+  expect(state.api.createPayrollInput.mock.calls[0]![0].employees).toEqual([{employeeId:"employee",expectedEmployeeVersion:7,directItems:{收入:"9007199254740993.1234",税:"0.0000"},settlementStart:"2026-10-01",settlementEnd:"2026-10-03",eligibilityReason:"保留原补结算理由"}]);
 });

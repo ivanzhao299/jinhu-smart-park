@@ -66,6 +66,8 @@ All-book per-person input gaps before attendance close: [Payroll Preparation Coh
 
 Payroll reconciliation preparation and matching months: [Payroll Input Readiness](./hr-payroll-input-readiness.md).
 
+Local CSV preparation for formal payroll-input drafts: [Payroll Input CSV](./hr-payroll-input-csv.md).
+
 Ordinary payroll ledger business labels, employee visibility and mobile pagination: [Payroll Ledger Presentation](./hr-payroll-ledger-presentation.md).
 
 Complete filtered payroll CSV with existing HR/self scope: [Payroll Ledger Export](./hr-payroll-ledger-export.md).

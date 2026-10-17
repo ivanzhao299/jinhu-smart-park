@@ -1,0 +1,24 @@
+{
+  "id": "10-18-hr-payroll-input-csv",
+  "name": "hr-payroll-input-csv",
+  "title": "新建及整批工资输入CSV准备",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "priority": "P1",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "branch": "codex/hr-payroll-input-csv-20261018",
+  "base_branch": "main",
+  "createdAt": "2026-10-18",
+  "meta": {
+    "productionBusinessRuleApproval": false,
+    "fullGoalComplete": false,
+    "businessMonth": "2026-07",
+    "businessScope": "all_imported_records_all_populated_books",
+    "businessOwner": "wuenguo",
+    "businessMode": "trial_only_no_payment",
+    "focusedTests": 58,
+    "fullInteractionTests": 1404,
+    "qualityReview": "PASS",
+    "businessUat": "pending"
+  }
+}
