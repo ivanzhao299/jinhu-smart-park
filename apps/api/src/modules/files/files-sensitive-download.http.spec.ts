@@ -108,6 +108,7 @@ describe("HR sensitive file download HTTP boundary", () => {
   });
 
   beforeEach(() => {
+    principal.permissions = [HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_SELF_READ];
     auditFailure = false;
     photoMode = false;
     requiredAudit = undefined;
@@ -132,15 +133,37 @@ describe("HR sensitive file download HTTP boundary", () => {
     assert.equal(body.includes(fixturePath), false);
   });
 
-  it("does not emit download metadata or bytes when storage open fails", async () => {
+  it("returns a clear 404 without paths or download metadata when stored bytes are missing", async () => {
     fixturePath = join(temporaryDirectory, "missing.pdf");
     const response = await download();
     const body = await response.text();
-    assert.equal(response.status, 500);
+    assert.equal(response.status, 404);
+    assert.equal(JSON.parse(body).message, "附件文件缺失，请联系管理员补充");
     assert.equal(response.headers.has("content-disposition"), false);
     assert.notEqual(response.headers.get("content-length"), "16");
     assert.notEqual(response.headers.get("content-type"), "application/pdf");
     assert.equal(body.includes(payload.toString("utf8")), false);
+    assert.equal(body.includes(fixturePath), false);
+  });
+
+  it("retains a server failure for other storage errors instead of misreporting missing bytes", async () => {
+    fixturePath = join(temporaryDirectory, "employee-file.pdf", "invalid-child.pdf");
+    const response = await download();
+    const body = await response.text();
+    assert.equal(response.status, 500);
+    assert.equal(response.headers.has("content-disposition"), false);
+    assert.equal(body.includes("附件文件缺失"), false);
+    assert.equal(body.includes(fixturePath), false);
+  });
+
+  it("rejects missing file permission before revealing missing storage", async () => {
+    principal.permissions = [];
+    fixturePath = join(temporaryDirectory, "missing.pdf");
+    const response = await download();
+    const body = await response.text();
+    assert.equal(response.status, 403);
+    assert.equal(requiredAudit, undefined);
+    assert.equal(body.includes("附件文件缺失"), false);
     assert.equal(body.includes(fixturePath), false);
   });
 
