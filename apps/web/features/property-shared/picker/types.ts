@@ -34,6 +34,7 @@ export interface RemoteEntityPickerProps {
   contextValid: boolean;
   invalidationKey: string;
   pageSize?: number;
+  minQueryLength?: number;
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
@@ -65,6 +66,7 @@ export interface RemotePickerState {
   open: boolean;
   status: RemotePickerStatus;
   requestId: number;
+  minQueryLength?: number;
   errorMessage?: string;
 }
 

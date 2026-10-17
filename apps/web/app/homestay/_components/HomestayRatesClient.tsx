@@ -29,9 +29,12 @@ type RateDraft = {
 };
 type OverrideDraft = { date: string; rate: string; reason: string };
 
-async function loadUnits(input: { page: number; pageSize: number; signal: AbortSignal }) {
+async function loadUnits(input: {
+  query?: string; page: number; pageSize: number; signal: AbortSignal
+}) {
+  const keyword = input.query?.trim() ?? "";
   const response = await apiRequest<HomestayUnitCandidateListResponse>(
-    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}`,
+    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`,
     { token: getAccessToken() ?? undefined, signal: input.signal }
   );
   return {
@@ -158,7 +161,8 @@ function RatesAuthorized({
       <PropertyPanelSurface title="房源选择">
         <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
           invalidationKey={capability.invalidationKey} label="民宿房源"
-          loadOptions={loadUnits} onChange={setUnit} value={unit} />
+          loadOptions={loadUnits} onChange={setUnit} value={unit}
+          minQueryLength={0} placeholder="选择民宿房源，可输入关键词过滤" />
       </PropertyPanelSurface>
       <RateWorkspace canManage={canManage} invalidationKey={capability.invalidationKey}
         key={homestayRateWorkspaceKey(unit?.id)} unit={unit} />
