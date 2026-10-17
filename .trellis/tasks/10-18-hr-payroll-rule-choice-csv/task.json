@@ -12,7 +12,7 @@
   "assignee": "codex",
   "createdAt": "2026-10-18",
   "completedAt": null,
-  "branch": "codex/hr-payroll-rule-choice-csv-20261018",
+  "branch": "codex/hr-payroll-blank-condition-20261018",
   "base_branch": "codex/hr-payroll-rule-choice-csv-20261018",
   "worktree_path": null,
   "commit": null,
@@ -22,5 +22,10 @@
   "parent": "10-02-yuzhou-modern-production-parity",
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "originalPr": 998,
+    "followUp": "Align blank original conditions with source API",
+    "focusedTests": 119,
+    "fullGoalComplete": false
+  }
 }

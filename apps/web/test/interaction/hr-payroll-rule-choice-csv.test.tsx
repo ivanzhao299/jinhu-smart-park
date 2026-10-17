@@ -87,3 +87,13 @@ it("exports excluded choices without any dormant effective fields", async () => 
   expect(parsePayrollInputCsv(csv, { maxCellLength: 65536 })[3]!.slice(13)).toEqual(["排除", "", "", "", "", ""]);
   expect((await previewPayrollRuleChoiceCsv(csv, reference, previous)).choices["item-0"]).toEqual(blankRuleChoice());
 });
+
+it.each([null, "", " \t\r\n", "\u3000"])("retains the API's unconditional formula interpretation for blank condition %j", async condition => {
+  const current = structuredClone(reference); current.formulas[0]!.condition = condition;
+  const rows = await sheet(current); rows[3]!.splice(13, 6, "纳入", "收入", "原公式", "1", "1", "");
+  const result = await previewPayrollRuleChoiceCsv(csvDocument(rows), current, {});
+  expect(result.choices["item-0"]!.formulaId).toBe("f1");
+  expect(current.formulas[0]!.condition).toBe(condition);
+  const oldSheet = await payrollRuleChoiceCsv(reference, {});
+  if (condition !== null) await expect(previewPayrollRuleChoiceCsv(oldSheet, current, {})).rejects.toThrow("完整源资料");
+});
