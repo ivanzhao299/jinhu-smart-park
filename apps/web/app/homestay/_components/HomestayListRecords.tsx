@@ -28,6 +28,7 @@ import type { HomestayListSurface } from "./HomestayListClient";
 import {
   homestayDetailHref,
   homestayRoomStatePresentation,
+  homestayTurnoverAssigneeLabel,
   taskDetailHref
 } from "./homestay-workbench.logic";
 
@@ -124,7 +125,7 @@ function Stays({ data, returnContext }: { data: HomestayStayListResponse; return
 function Turnovers({ data, returnContext }: { data: HomestayTurnoverListResponse; returnContext: HomestayListReturnContext }) {
   return <PropertyResponsiveRecords<HomestayTurnoverListItem> items={data.items} label="民宿周转" getKey={(item) => item.id} getTitle={(item) => displayEntityName(item.unitName, item.unitCode, "未命名房源")} fields={[
     { key: "unit", label: "房源", render: (item) => displayEntityName(item.unitName, item.unitCode, "未命名房源") }, { key: "status", label: "状态", render: (item) => <StatusPill variant={statusVariant(item.status)}>{propertyLabels.turnoverStatus(item.status)}</StatusPill> },
-    { key: "assignee", label: "负责人", render: (item) => item.assigneeName ?? "待领取" }, { key: "exception", label: "异常", render: (item) => item.exceptionDescription ?? "无" }
+    { key: "assignee", label: "负责人", render: (item) => homestayTurnoverAssigneeLabel(item.assigneeName, item.status) }, { key: "exception", label: "异常", render: (item) => item.exceptionDescription ?? "无" }
   ]} renderActions={(item) => <Link className="secondary-button" href={detailHref(`/homestay/turnovers/${item.id}`, returnContext) as Route}>查看详情</Link>} />;
 }
 

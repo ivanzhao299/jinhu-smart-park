@@ -245,3 +245,11 @@ export function homestayStayActionVisibility(status: string): {
     canIssueCredential: ["confirmed", "checked_in"].includes(status)
   };
 }
+
+export function homestayTurnoverAssigneeLabel(
+  assigneeName: string | null | undefined,
+  status: string
+): string {
+  if (assigneeName) return assigneeName;
+  return status === "completed" ? "未指定" : "待领取";
+}
