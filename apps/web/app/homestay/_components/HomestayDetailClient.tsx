@@ -12,7 +12,9 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   CanonicalDetailShell,
   ConsequenceDialog,
+  PropertyPanelSurface,
   displayEntityName,
+  formatPropertyDateTime,
   homestayPriceSourceLabel,
   propertyLabels,
   propertyErrorMessage,
@@ -31,7 +33,7 @@ import styles from "./HomestayWorkbench.module.css";
 import { HomestayStayActions } from "./HomestayStayActions";
 import { HomestayReschedulePanel } from "./HomestayReschedulePanel";
 import { HomestayTurnoverActions } from "./HomestayTurnoverActions";
-import { HOMESTAY_DETAIL_READ_ACTIONS } from "./homestay-workbench.logic";
+import { HOMESTAY_DETAIL_READ_ACTIONS, homestayTurnoverAssigneeLabel } from "./homestay-workbench.logic";
 import { loadHomestayDetail } from "./homestay-detail-query";
 import { hasPermission } from "../../../lib/permissions";
 
@@ -148,7 +150,7 @@ export function HomestayDetailClient({ kind, entityId }: { kind: DetailKind; ent
       title={<span ref={titleRef} tabIndex={-1}>{title}</span>}
       actions={<button className="secondary-button" type="button" onClick={() => void query.load()}>刷新</button>}
     >
-      <div aria-busy={action.submitting} inert={action.submitting}>
+      <div aria-busy={action.submitting} inert={action.submitting} className={styles.detailStack}>
       {isBookingDetail(query.data)
         ? <BookingDetail fallbackFocusRef={titleRef} data={query.data} kind={kind} capability={capability} mutate={action.mutate} mutationError={action.errorMessage} submitting={action.submitting} />
         : query.data
@@ -179,7 +181,7 @@ function useReturnHref(kind: DetailKind) {
         bookings: { pathTemplate: "/homestay/bookings", allowedQueryKeys: ["page", "page_size", "status", "sort", "keyword", "date_from", "date_to", "unit_id"] },
         tasks: { pathTemplate: "/homestay/tasks", allowedQueryKeys: ["page", "page_size", "status", "source_type", "business_date", "sort", "taskId", "requestId"] },
         finance: { pathTemplate: "/homestay/finance", allowedQueryKeys: ["page", "page_size", "status", "sort"] },
-        stays: { pathTemplate: "/homestay/stays", allowedQueryKeys: ["page", "page_size", "queue", "business_date", "sort"] },
+        stays: { pathTemplate: "/homestay/stays", allowedQueryKeys: ["page", "page_size", "queue", "status", "business_date", "sort"] },
         turnovers: { pathTemplate: "/homestay/turnovers", allowedQueryKeys: ["page", "page_size", "status", "sort"] }
       }
     }));
@@ -228,43 +230,80 @@ function BookingDetail({
 function BookingOverview({ data }: { data: HomestayBookingDetailResponse }) {
   const booking = data.booking;
   return <><section className={styles.detailGrid}>
-    <div className="ds-panel"><h2>订单</h2><dl>
-      <dt>订单号</dt><dd>{booking.bookingCode}</dd>
-      <dt>入住期间</dt><dd>{booking.arrivalDate} 至 {booking.departureDate}</dd>
-      <dt>房源</dt><dd>{displayEntityName(booking.unitName, booking.unitCode, "未命名房源")}</dd>
-      <dt>状态</dt><dd><StatusPill variant={statusVariant(booking.status)}>{propertyLabels.bookingStatus(booking.status)}</StatusPill></dd>
-      <dt>入住人数</dt><dd>{booking.guestCount}</dd>
-    </dl></div>
-    {(booking.roomAmount !== undefined || booking.totalAmount !== undefined) ? <div className="ds-panel"><h2>授权金额</h2><dl>
-      <dt>房费</dt><dd>{booking.roomAmount ?? "—"}</dd><dt>调整</dt><dd>{booking.adjustmentAmount ?? "—"}</dd>
-      <dt>合计</dt><dd>{booking.totalAmount ?? "—"}</dd>
-    </dl></div> : null}
-  </section><section className="ds-panel"><h2>每日房价</h2>
-    {data.nights.length ? data.nights.map((night) => <p key={night.id}>{night.businessDate} · {night.finalRate ?? "金额未授权"} · {homestayPriceSourceLabel(night.priceSource)}</p>) : <p>暂无每日房价记录。</p>}
-  </section></>;
+    <PropertyPanelSurface title="订单"><dl className={styles.panelDefList}>
+      <div><dt>订单号</dt><dd>{booking.bookingCode}</dd></div>
+      <div><dt>入住期间</dt><dd>{booking.arrivalDate} 至 {booking.departureDate}</dd></div>
+      <div><dt>房源</dt><dd>{displayEntityName(booking.unitName, booking.unitCode, "未命名房源")}</dd></div>
+      <div><dt>状态</dt><dd><StatusPill variant={statusVariant(booking.status)}>{propertyLabels.bookingStatus(booking.status)}</StatusPill></dd></div>
+      <div><dt>入住人数</dt><dd>{booking.guestCount}</dd></div>
+    </dl></PropertyPanelSurface>
+    {(booking.roomAmount !== undefined || booking.totalAmount !== undefined) ? <PropertyPanelSurface title="授权金额"><dl className={styles.panelDefList}>
+      <div><dt>房费</dt><dd className={styles.num}>{booking.roomAmount ?? "—"}</dd></div>
+      <div><dt>调整</dt><dd className={styles.num}>{booking.adjustmentAmount ?? "—"}</dd></div>
+      <div><dt>合计</dt><dd className={styles.num}>{booking.totalAmount ?? "—"}</dd></div>
+    </dl></PropertyPanelSurface> : null}
+  </section>
+  <PropertyPanelSurface title="每日房价">
+    {data.nights.length ? <ul className={styles.rowList}>{data.nights.map((night) => <li key={night.id}>
+      <strong>{night.businessDate}</strong>
+      <span className={styles.num}>{night.finalRate ?? "金额未授权"}</span>
+      <span className={styles.muted}>{homestayPriceSourceLabel(night.priceSource)}</span>
+    </li>)}</ul> : <p>暂无每日房价记录。</p>}
+  </PropertyPanelSurface></>;
 }
 
 function BookingGuests({ data }: { data: HomestayBookingDetailResponse }) {
-  return <section className="ds-panel"><h2>住客与凭证</h2>
+  return <PropertyPanelSurface title="住客与凭证">
     <p>住客 {data.guests.length} 人，凭证 {data.credentials.length} 项。</p>
-    {data.guests.map((guest) => <p key={guest.id}>{guest.partyDisplayName} · {guest.isPrimary ? "主住客" : "同行住客"} · <StatusPill variant={statusVariant(guest.verificationStatus)}>{propertyLabels.homestayGuestVerification(guest.verificationStatus)}</StatusPill></p>)}
-    {data.credentials.map((credential) => <p key={credential.id}>{credential.credentialLabel} · <StatusPill variant={statusVariant(credential.status)}>{propertyLabels.homestayCredentialStatus(credential.status)}</StatusPill> · {credential.credentialReference ?? "未显示引用"}</p>)}
-  </section>;
+    {data.guests.length ? <ul className={styles.rowList}>{data.guests.map((guest) => <li key={guest.id}>
+      <strong>{guest.partyDisplayName}</strong>
+      <span className={styles.muted}>{guest.isPrimary ? "主住客" : "同行住客"}</span>
+      <StatusPill variant={statusVariant(guest.verificationStatus)}>{propertyLabels.homestayGuestVerification(guest.verificationStatus)}</StatusPill>
+    </li>)}</ul> : null}
+    {data.credentials.length ? <ul className={styles.rowList}>{data.credentials.map((credential) => <li key={credential.id}>
+      <strong>{credential.credentialLabel}</strong>
+      <StatusPill variant={statusVariant(credential.status)}>{propertyLabels.homestayCredentialStatus(credential.status)}</StatusPill>
+      <span className={styles.muted}>{credential.credentialReference ?? "未显示引用"}</span>
+    </li>)}</ul> : null}
+  </PropertyPanelSurface>;
 }
 
 function BookingProjections({ data }: { data: HomestayBookingDetailResponse }) {
-  return <>{data.finance_visible && data.ledger_summary ? <section className="ds-panel"><h2>民宿子账</h2>
-    <p className={styles.finance}>费用 {data.ledger_summary.charges} · 已收 {data.ledger_summary.payments} · 退款 {data.ledger_summary.refunds} · 减免 {data.ledger_summary.waivers} · 余额 {data.ledger_summary.balance}</p>
-  </section> : null}
-  {data.ledger ? <section className="ds-panel"><h2>账务流水</h2>
-    {data.ledger.map((entry) => <p key={entry.id}>{entry.occurredAt} · {propertyLabels.homestayLedgerType(entry.entryType)} · {entry.amount} · {propertyLabels.homestayLedgerStatus(entry.status)}</p>)}
-  </section> : null}
-  {data.turnover ? <section className="ds-panel"><h2>关联周转</h2>
-    <p><StatusPill variant={statusVariant(data.turnover.status)}>{propertyLabels.turnoverStatus(data.turnover.status)}</StatusPill> · {data.turnover.assigneeName ?? "待分配"} · {data.turnover.exceptionDescription ?? "无异常"}</p>
-  </section> : null}
-  <section className="ds-panel"><h2>操作审计</h2>
-    {data.actions.length ? data.actions.map((action) => <p key={action.id}>{action.actionTime} · {action.operatorName} · {propertyLabels.homestayAuditAction(action.action)} · {action.beforeStatus ? propertyLabels.bookingStatus(action.beforeStatus) : "无前置状态"} → {action.afterStatus ? propertyLabels.bookingStatus(action.afterStatus) : "无后置状态"} · {action.reason ?? "无说明"}</p>) : <p>暂无操作记录。</p>}
-  </section></>;
+  return <>{data.finance_visible && data.ledger_summary ? <PropertyPanelSurface title="民宿子账">
+    <div className="ds-kpi-grid">{([
+      ["费用", data.ledger_summary.charges],
+      ["已收", data.ledger_summary.payments],
+      ["退款", data.ledger_summary.refunds],
+      ["减免", data.ledger_summary.waivers],
+      ["余额", data.ledger_summary.balance]
+    ] as const).map(([label, value]) => <article className="ds-kpi-card" key={label}>
+      <span>{label}</span><strong className={styles.num}>{value}</strong>
+    </article>)}</div>
+  </PropertyPanelSurface> : null}
+  {data.ledger ? <PropertyPanelSurface title="账务流水">
+    {data.ledger.length ? <ul className={styles.rowList}>{data.ledger.map((entry) => <li key={entry.id}>
+      <span className={styles.muted}>{formatPropertyDateTime(entry.occurredAt)}</span>
+      <span>{propertyLabels.homestayLedgerType(entry.entryType)}</span>
+      <strong className={styles.num}>{entry.amount}</strong>
+      <StatusPill variant={statusVariant(entry.status)}>{propertyLabels.homestayLedgerStatus(entry.status)}</StatusPill>
+    </li>)}</ul> : <p>暂无流水记录。</p>}
+  </PropertyPanelSurface> : null}
+  {data.turnover ? <PropertyPanelSurface title="关联周转">
+    <ul className={styles.rowList}><li>
+      <StatusPill variant={statusVariant(data.turnover.status)}>{propertyLabels.turnoverStatus(data.turnover.status)}</StatusPill>
+      <span>{data.turnover.assigneeName ?? "待分配"}</span>
+      <span className={styles.muted}>{data.turnover.exceptionDescription ?? "无异常"}</span>
+    </li></ul>
+  </PropertyPanelSurface> : null}
+  <PropertyPanelSurface title="操作审计">
+    {data.actions.length ? <ul className={styles.rowList}>{data.actions.map((action) => <li key={action.id}>
+      <span className={styles.muted}>{formatPropertyDateTime(action.actionTime)}</span>
+      <span>{action.operatorName}</span>
+      <span>{propertyLabels.homestayAuditAction(action.action)}</span>
+      <span className={styles.muted}>{action.beforeStatus ? propertyLabels.bookingStatus(action.beforeStatus) : "无前置状态"} → {action.afterStatus ? propertyLabels.bookingStatus(action.afterStatus) : "无后置状态"}</span>
+      {action.reason ? <span className={styles.muted}>说明：{action.reason}</span> : null}
+    </li>)}</ul> : <p>暂无操作记录。</p>}
+  </PropertyPanelSurface></>;
 }
 
 function BookingActions({ booking, capability, isStay, mutate, mutationError, submitting, fallbackFocusRef }: {
@@ -282,7 +321,7 @@ function BookingActions({ booking, capability, isStay, mutate, mutationError, su
   const canCheckOut = isStay && capability.actionAllowed("homestay.stays.check-out") && booking.status === "checked_in";
   const canCancel = !isStay && capability.actionAllowed("homestay.bookings.cancel")
     && ["draft", "confirmed"].includes(booking.status);
-  return <section className="ds-panel"><h2>可执行操作</h2><div className="ds-action-bar">
+  return <PropertyPanelSurface title="可执行操作"><div className="ds-action-bar">
     {canConfirm ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/confirm`)}>确认订单</button> : null}
     {canCheckIn ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-in")}>办理入住</button> : null}
     {canCheckOut ? <button className="primary-button" type="button" onClick={() => setPendingStayAction("check-out")}>办理退房</button> : null}
@@ -309,10 +348,10 @@ function BookingActions({ booking, capability, isStay, mutate, mutationError, su
     open={pendingStayAction !== null}
     reasonPolicy={{ kind: "none" }}
     resultingState={pendingStayAction === "check-out" ? "已退房，待周转" : "在住"}
-    target={{ id: booking.id, label: `${booking.bookingCode} · ${booking.arrivalDate} 至 ${booking.departureDate}` }}
+    target={{ id: booking.id, label: `${displayEntityName(booking.unitName, booking.unitCode, "未命名房源")} · ${booking.bookingCode} · ${booking.arrivalDate} 至 ${booking.departureDate}` }}
     title={pendingStayAction === "check-out" ? "确认办理退房" : "确认办理入住"}
   />
-  </section>;
+  </PropertyPanelSurface>;
 }
 
 function TurnoverDetail({
@@ -333,26 +372,28 @@ function TurnoverDetail({
   return (
     <>
       <section className={styles.detailGrid}>
-        <div className="ds-panel"><h2>任务信息</h2><dl>
-          <dt>房源</dt><dd>{[data.unitCode, data.unitName].filter(Boolean).join(" · ") || "已关联房源"}</dd>
-          <dt>状态</dt><dd><StatusPill variant={statusVariant(data.status)}>{propertyLabels.turnoverStatus(data.status)}</StatusPill></dd>
-          <dt>负责人</dt><dd>{data.assigneeName ?? "待领取"}</dd>
-          <dt>异常</dt><dd>{data.exceptionDescription ?? "无"}</dd>
-          <dt>关联工单</dt><dd>{data.linkedWorkOrder ? `${data.linkedWorkOrder.code} · ${data.linkedWorkOrder.title} · ${workOrderStatusLabel(data.linkedWorkOrder.status)}` : "无"}</dd>
-        </dl></div>
-        <div className="ds-panel"><h2>耗材</h2>
-          {data.consumables.length ? data.consumables.map((item, index) => <p key={`${item.name}-${index}`}>{item.name} × {item.quantity} {item.unit ?? ""}</p>) : <p>未登记耗材</p>}
-        </div>
+        <PropertyPanelSurface title="任务信息"><dl className={styles.panelDefList}>
+          <div><dt>房源</dt><dd>{[data.unitCode, data.unitName].filter(Boolean).join(" · ") || "已关联房源"}</dd></div>
+          <div><dt>状态</dt><dd><StatusPill variant={statusVariant(data.status)}>{propertyLabels.turnoverStatus(data.status)}</StatusPill></dd></div>
+          <div><dt>负责人</dt><dd>{homestayTurnoverAssigneeLabel(data.assigneeName, data.status)}</dd></div>
+          <div><dt>异常</dt><dd>{data.exceptionDescription ?? "无"}</dd></div>
+          <div><dt>关联工单</dt><dd>{data.linkedWorkOrder ? `${data.linkedWorkOrder.code} · ${data.linkedWorkOrder.title} · ${workOrderStatusLabel(data.linkedWorkOrder.status)}` : "无"}</dd></div>
+        </dl></PropertyPanelSurface>
+        <PropertyPanelSurface title="耗材">
+          {data.consumables.length ? <ul className={styles.rowList}>{data.consumables.map((item, index) => <li key={`${item.name}-${index}`}>
+            <strong>{item.name}</strong><span className={styles.num}>× {item.quantity}</span><span className={styles.muted}>{item.unit ?? ""}</span>
+          </li>)}</ul> : <p>未登记耗材</p>}
+        </PropertyPanelSurface>
       </section>
       {files.canRead ? (
-        <section className="ds-panel"><h2>周转证据</h2>
+        <PropertyPanelSurface title="周转证据">
           <AttachmentList bizId={data.id} bizType="homestay_turnover" compact mutationDisabled={uploading || !files.canDelete} refreshKey={attachmentVersion} />
-        </section>
+        </PropertyPanelSurface>
       ) : null}
       {files.canUpload ? (
-        <section className="ds-panel"><h2>上传现场证据</h2>
+        <PropertyPanelSurface title="上传现场证据">
           <FileUploader bizId={data.id} bizType="homestay_turnover" compact onUploaded={onUploaded} onUploadingChange={setUploading} />
-        </section>
+        </PropertyPanelSurface>
       ) : null}
       <HomestayTurnoverActions capability={capability} data={data} disabled={uploading} mutate={mutate} />
     </>

@@ -36,17 +36,77 @@ fieldset.toolbar {
   gap: var(--space-4, 16px);
 }
 
-.detailGrid dl {
-  margin: 0;
+.detailStack {
+  display: grid;
+  gap: var(--space-4, 16px);
+  min-width: 0;
 }
 
-.detailGrid dt {
+.panelDefList {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.panelDefList > div {
+  display: grid;
+  gap: 2px;
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.panelDefList > div:first-child {
+  padding-top: 0;
+}
+
+.panelDefList > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.panelDefList dt {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.panelDefList dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.rowList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+.rowList > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.rowList > li:first-child {
+  padding-top: 0;
+}
+
+.rowList > li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.muted {
   color: var(--color-text-secondary);
 }
 
-.detailGrid dd {
-  margin: 4px 0 12px;
-  overflow-wrap: anywhere;
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
 .finance {
