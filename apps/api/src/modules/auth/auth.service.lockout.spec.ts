@@ -353,6 +353,7 @@ test("auth service signs compact revocable session claims instead of embedding a
       username: user.username,
       tenantId: user.tenantId,
       parkId: user.parkId,
+      runtimeMode: "integrated",
       authVersion: 1
     }
   ]);
