@@ -19,6 +19,7 @@
     "focusedTests": 58,
     "fullInteractionTests": 1404,
     "qualityReview": "PASS",
-    "businessUat": "pending"
+    "businessUat": "pending",
+    "hrUnitTests": 261
   }
 }
