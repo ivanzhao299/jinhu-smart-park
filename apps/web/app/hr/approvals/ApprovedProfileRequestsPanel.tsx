@@ -82,7 +82,7 @@ function ProfileContent({ blocked = false, onBlockedChange }: Props) {
  };
  const submit = (event: React.FormEvent<HTMLFormElement>) => {
   event.preventDefault(); if (frozen || lock.current || unresolved.current || conflict || !selected || !profileReady || profileLoading) return;
-  const body = { ...buildProfileSaveBody(new FormData(event.currentTarget), profile?.version ?? 0), employeeId: selected.subjectEmployeeId, expectedApprovalVersion: selected.version };
+  const body = { ...buildProfileSaveBody(new FormData(event.currentTarget), profile?.version ?? 0, "patch"), employeeId: selected.subjectEmployeeId, expectedApprovalVersion: selected.version };
   void execute({ sourceId: selected.id, body, token: getAccessToken(), key: createIdempotencyKey("hr-approved-profile") });
  };
  return <section className={`ds-panel ${local.panel}`} aria-label="已批准档案申请办理">

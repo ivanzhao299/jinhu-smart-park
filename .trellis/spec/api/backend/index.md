@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Approved profile explicit-field updates and intentional clears: [Approved Profile Field Preservation](./hr-approved-profile-field-preservation.md).
+
 Exact organization detail/update/delete visibility: [Organization Target Data Scope](./org-target-data-scope.md).
 
 Persisted editable performance source drafts and complete immutable source evidence: [Performance Source Drafts](./hr-performance-source-drafts.md).
