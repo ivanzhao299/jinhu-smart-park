@@ -574,6 +574,10 @@ function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
 
 function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor<FoundationRow>[] {
   if (surface === "operations") return [
+    { key: "unit", label: "业务房源", render: (item) => {
+      const row = item as OperationRow;
+      return formatCodeName(row.unitCode, row.unitName) || "未命名业务房源";
+    } },
     { key: "mode", label: "经营模式", render: (item) => formatOperatingMode((item as OperationRow).configuredMode) },
     { key: "status", label: "经营状态", render: (item) => formatOperatingStatus((item as OperationRow).operationStatus) },
     { key: "mapping", label: "楼栋 / 物理房源", render: (item) => {
