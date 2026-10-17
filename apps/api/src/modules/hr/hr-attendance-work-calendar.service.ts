@@ -1,4 +1,5 @@
-import {BadRequestException,ConflictException,ForbiddenException,Injectable} from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, historicalUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import {BadRequestException,ConflictException,ForbiddenException,Injectable, Inject, Optional } from "@nestjs/common";
 import {HR_PERMISSIONS,type TenantParkScope} from "@jinhu/shared";
 import {DataSource} from "typeorm";
 import {randomUUID} from "node:crypto";
@@ -10,7 +11,7 @@ const projection=`id,work_date::text "workDate",day_kind "dayKind",day_name "day
 
 @Injectable()
 export class HrAttendanceWorkCalendarService {
- constructor(private readonly db:DataSource,private readonly audit:AuditService){}
+ constructor(private readonly db:DataSource,private readonly audit:AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
  private assertActor(s:TenantParkScope,a:JwtPrincipal){
   if(a.tenantId!==s.tenantId||a.parkId!==s.parkId||!(a.isSuper||a.permissions.includes("*")||a.permissions.includes(HR_PERMISSIONS.HR_ATTENDANCE_OPERATE)))throw new ForbiddenException("当前园区考勤操作权限不足。");
  }
@@ -34,7 +35,7 @@ export class HrAttendanceWorkCalendarService {
    const from="FROM hr_attendance_work_calendar_history h JOIN hr_attendance_work_calendar c ON c.tenant_id=h.tenant_id AND c.park_id=h.park_id AND c.id=h.calendar_id WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.work_date=$3";
    const counts=await m.query(`SELECT count(*)::int count ${from}`,params) as Array<{count:number}>;
    const count=counts[0]?.count;if(count===undefined)throw new Error("Calendar history count unavailable");
-   const items=await m.query(`SELECT h.id,h.version,h.day_kind "dayKind",h.day_name "dayName",h.change_reason reason,h.occurred_at "occurredAt",COALESCE((SELECT display_name FROM sys_user u WHERE u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND u.park_id=h.park_id),'操作账号不可用') "actorName" ${from} ORDER BY h.version DESC LIMIT $4 OFFSET $5`,[...params,q.page_size,(q.page-1)*q.page_size]);
+   const items=await m.query(`SELECT h.id,h.version,h.day_kind "dayKind",h.day_name "dayName",h.change_reason reason,h.occurred_at "occurredAt",COALESCE((SELECT display_name FROM sys_user u WHERE u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND ${historicalUserStorageScopePredicate(this.identityScope,'u','h')}),'操作账号不可用') "actorName" ${from} ORDER BY h.version DESC LIMIT $4 OFFSET $5`,[...params,q.page_size,(q.page-1)*q.page_size]);
    return {items,total:count,page:q.page,page_size:q.page_size};
   });
   await this.readAudit(s,a,"/hr/attendance/work-calendar/:date/history",result.items.length);return result;

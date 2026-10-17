@@ -243,7 +243,7 @@ test("fetchCurrentUser writes user storage when request token is still current",
   const currentUser = await (fetchCurrentUser as FetchCurrentUserWithOptions)({ requestToken: "access-token" });
 
   assert.equal(currentUser.username, "current");
-  assert.equal(calls[0]?.input, "/api/v1/users/me");
+  assert.equal(calls[0]?.input, "/api/v1/auth/me");
   assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer access-token");
   assert.equal(JSON.parse(session.getItem("jinhu_auth_user") ?? "{}").username, "current");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "current");
@@ -334,7 +334,7 @@ test("switchParkContext rotates context, fetches the authoritative user, and pub
   assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer old-token");
   assert.match(new Headers(calls[0]?.init?.headers).get("X-Idempotency-Key") ?? "", /^park-context-switch-/u);
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { parkId: "20000002" });
-  assert.equal(calls[1]?.input, "/api/v1/users/me");
+  assert.equal(calls[1]?.input, "/api/v1/auth/me");
   assert.equal(new Headers(calls[1]?.init?.headers).get("Authorization"), "Bearer new-token");
   assert.equal(session.getItem("jinhu_access_token"), "new-token");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").park_id, "20000002");
@@ -874,4 +874,35 @@ test("logoutSession omits body and content type when no legacy refresh token exi
   assert.equal(calls[1]?.input, "/api/v1/auth/logout");
   assert.equal(calls[1]?.init?.body, undefined);
   assert.equal(new Headers(calls[1]?.init?.headers).get("Content-Type"), null);
+});
+
+
+test("enterprise context switching accepts only authoritative enterprise keys without park records", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = { ...user, runtime_mode: "hr_enterprise" as const, accessible_parks: [],
+    accessible_enterprises: [
+      { enterprise_id: "11111111-1111-4111-8111-111111111111", scope_key: "11111111111141118111111111111111", enterprise_code: "A", enterprise_name: "企业甲" },
+      { enterprise_id: "22222222-2222-4222-8222-222222222222", scope_key: "22222222222242228222222222222222", enterprise_code: "B", enterprise_name: "企业乙" }
+    ], park_id: "11111111111141118111111111111111" };
+  for (const store of [session, local]) { store.setItem("jinhu_access_token", "enterprise-old"); store.setItem("jinhu_auth_user", JSON.stringify(current)); }
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", { configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ input: String(input), init });
+    return new Response(JSON.stringify({ data: calls.length === 1 ? { accessToken: "enterprise-new" } : { ...current, park_id: current.accessible_enterprises[1]!.scope_key, current_enterprise: current.accessible_enterprises[1]! } }), { status: 200, headers: { "content-type": "application/json" } });
+  } });
+  await assert.rejects(switchParkContext("forged-key"), /不可访问/);
+  assert.equal(calls.length, 0);
+  const next = await switchParkContext(current.accessible_enterprises[1]!.scope_key);
+  assert.equal(next.current_enterprise?.enterprise_name, "企业乙");
+  assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), { parkId: current.accessible_enterprises[1]!.scope_key });
+  assert.equal(calls[1]!.input, "/api/v1/auth/me");
+});
+
+test("enterprise mode cannot use a legacy park option as an accessible enterprise", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = { ...user, runtime_mode: "hr_enterprise", accessible_enterprises: [], accessible_parks: [{ park_id: "forged-park", park_name: "旧范围", status: "enabled" }] };
+  for (const store of [session, local]) { store.setItem("jinhu_access_token", "old"); store.setItem("jinhu_auth_user", JSON.stringify(current)); }
+  const calls = installFetchRecorder();
+  await assert.rejects(switchParkContext("forged-park"), /所选企业不可访问/);
+  assert.equal(calls.length, 0);
 });

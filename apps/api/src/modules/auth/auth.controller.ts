@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Post, Req, Res, UnauthorizedException, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Inject, Body, Controller, ForbiddenException, Get, HttpCode, Post, Req, Res, UnauthorizedException, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
@@ -19,6 +19,7 @@ import {
   readRefreshTokenCookie,
   type RefreshCookieConfig
 } from "./auth-refresh-cookie";
+import {applicationRuntimeMode} from "../../runtime/runtime-mode";
 import { AuthService } from "./auth.service";
 import {
   AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
@@ -40,18 +41,22 @@ import { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
 import { WechatBindDto } from "./dto/wechat-bind.dto";
 import { WechatCallbackDto } from "./dto/wechat-callback.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
-import { UsersService } from "../users/users.service";
+import {AUTH_USER_CONTEXT,type AuthUserContextPort} from "./auth-user-context.port";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("auth")
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly usersService: UsersService,
+    @Inject(AUTH_USER_CONTEXT) private readonly usersService: AuthUserContextPort,
     private readonly cls: ClsService,
     private readonly authRateLimitService: AuthRateLimitService,
     private readonly configService: ConfigService
   ) {}
+
+  @Public()
+  @Get("runtime")
+  runtime(){return{runtime_mode:applicationRuntimeMode(this.configService)};}
 
   @Public()
   @Post("login")

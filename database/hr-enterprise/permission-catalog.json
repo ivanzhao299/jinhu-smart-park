@@ -1,0 +1,1549 @@
+{
+  "formatVersion": 1,
+  "sources": [
+    {
+      "file": "database/seeds/production/000016_hr_management_foundation.sql",
+      "sha256": "9f8a0fb1ce70f3f11ffb2ad83e5691a658ffa905984801001aa35472198e054d"
+    },
+    {
+      "file": "database/seeds/production/000017_hr_department_manager_directory.sql",
+      "sha256": "755f9829c8058816be45d1507767c879680ab116115baadcc25091b103fea72a"
+    },
+    {
+      "file": "database/seeds/production/000018_hr_payroll_history_rbac.sql",
+      "sha256": "39cb04ff37d5e81ff7ce85c77c9c68379aa9ec3e8bbba1fd9d4219989940ee3e"
+    },
+    {
+      "file": "database/seeds/production/000019_hr_recruitment_rbac.sql",
+      "sha256": "1077fc8dfb8659d6fdd4a7ae2f4e0a7b723c4c65f81455822eaa661dbeca8eed"
+    },
+    {
+      "file": "database/seeds/production/000020_hr_lifecycle_records_rbac.sql",
+      "sha256": "b78c44f8eddfcbd10a7d6ead96da3ffd5b3b1e1700e145d58996616ca3d06b60"
+    },
+    {
+      "file": "database/seeds/production/000021_hr_training_rbac.sql",
+      "sha256": "2df602dd170e535da20423e3a60c3cdcc5d00a7eeb31c1e92ecbb193f684cb6f"
+    },
+    {
+      "file": "database/seeds/production/000022_hr_rewards_rbac.sql",
+      "sha256": "a8c0e7b2b9dd3009d090bb2105b31e105772f93af665715e3dfd6c42bf61c172"
+    },
+    {
+      "file": "database/seeds/production/000023_hr_goal_report_rbac.sql",
+      "sha256": "f19dd0c3f0ec9c6789a25be611a2e181b7abc1fec5116959ea51cd3314ee2f98"
+    },
+    {
+      "file": "database/seeds/production/000024_hr_performance_v2_rbac.sql",
+      "sha256": "1ea39ab69de65127ca60bc3705f1c25fc3536444c91697572b880c292931236c"
+    },
+    {
+      "file": "database/seeds/production/000025_hr_performance_review_rbac.sql",
+      "sha256": "c89356dad36c8235f3c55d857a9b6796aba3a51a383f8dbcd9e0be1e476baa7e"
+    },
+    {
+      "file": "database/seeds/production/000026_hr_feedback360_rbac.sql",
+      "sha256": "e1af05cf2e23f265b69c531a9d15a99341ed4624d3d2df53fa1fb4235a31858d"
+    },
+    {
+      "file": "database/seeds/production/000027_hr_talent_rbac.sql",
+      "sha256": "20a99995475da5f44517482cb06e2f0288c6cdad80bce55ee95d2708d3a461a0"
+    },
+    {
+      "file": "database/seeds/production/000028_hr_job_change_rbac.sql",
+      "sha256": "22001123016fa81db31ae452aac1efbfcf2a2ff47764c05db0d8f4c2ec354fcc"
+    },
+    {
+      "file": "database/seeds/production/000029_hr_departure_rbac.sql",
+      "sha256": "b9db3a6c33b6e6789f7bd3c99635fd91350215e83f36ab0da1cb680c0a2c74f1"
+    },
+    {
+      "file": "database/seeds/production/000030_hr_legacy_dictionary_rbac.sql",
+      "sha256": "a5706e031d9dc5cfb510b369207f479964bf5a16779611310c10d92c3c03ef8e"
+    },
+    {
+      "file": "database/seeds/production/000031_hr_contract_reminder_policy.sql",
+      "sha256": "655c7e98ba8dd87122a4a87ac496e705a52911123e46c1373190faf35134678f"
+    },
+    {
+      "file": "database/seeds/production/000032_hr_legacy_archive_rbac.sql",
+      "sha256": "e6edbf5ce73a15cd4c117d96df0f0d0bbdfb991a87ccd331680db62648c1401e"
+    },
+    {
+      "file": "database/seeds/production/000035_hr_insurance_owned_period_catalog.sql",
+      "sha256": "d888f6e297807c480fa7219ab1c576c507f2a6ddb2e71aff8eac9ac832e0c241"
+    }
+  ],
+  "permissions": [
+    {
+      "code": "hr:approval:park_review",
+      "name": "审核园区人事申请",
+      "resource": "hr.approval",
+      "action": "park_review",
+      "route": null
+    },
+    {
+      "code": "hr:approval:self_manage",
+      "name": "提交本人人事申请",
+      "resource": "hr.approval",
+      "action": "self_manage",
+      "route": null
+    },
+    {
+      "code": "hr:approval:team_review",
+      "name": "审核团队人事申请",
+      "resource": "hr.approval",
+      "action": "team_review",
+      "route": null
+    },
+    {
+      "code": "hr:approvals",
+      "name": "人事审批",
+      "resource": "hr.approvals",
+      "action": "page",
+      "route": "/hr/approvals"
+    },
+    {
+      "code": "hr:attendance",
+      "name": "考勤管理",
+      "resource": "hr.attendance",
+      "action": "page",
+      "route": "/hr/attendance"
+    },
+    {
+      "code": "hr:attendance:approve",
+      "name": "审批考勤申请",
+      "resource": "hr.attendance",
+      "action": "approve",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:close",
+      "name": "复核并封账考勤期间",
+      "resource": "hr.attendance",
+      "action": "close",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:correct",
+      "name": "管理考勤更正",
+      "resource": "hr.attendance",
+      "action": "correct",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:operate",
+      "name": "运营排班与考勤计算",
+      "resource": "hr.attendance",
+      "action": "operate",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:payroll_input_read",
+      "name": "读取已封账工资输入",
+      "resource": "hr.attendance",
+      "action": "payroll_input_read",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:read",
+      "name": "读取园区历史考勤月历",
+      "resource": "hr.attendance",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:request",
+      "name": "提交本人考勤申请",
+      "resource": "hr.attendance",
+      "action": "request",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:self_read",
+      "name": "读取本人考勤",
+      "resource": "hr.attendance",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:attendance:team_read",
+      "name": "读取团队考勤",
+      "resource": "hr.attendance",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:candidate:convert",
+      "name": "候选人转预入职",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:candidate:manage",
+      "name": "管理候选人",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:candidate:read",
+      "name": "读取候选人",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:candidate:sensitive_read",
+      "name": "读取候选人敏感资料",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:candidate:stage",
+      "name": "办理候选人阶段",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:compensation",
+      "name": "薪酬方案",
+      "resource": "hr.compensation",
+      "action": "page",
+      "route": "/hr/compensation"
+    },
+    {
+      "code": "hr:compensation:manage",
+      "name": "管理薪酬方案",
+      "resource": "hr.compensation",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:compensation:read",
+      "name": "读取薪酬方案",
+      "resource": "hr.compensation",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_document:manage",
+      "name": "管理劳动合同附件",
+      "resource": "hr.contract_document",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:contract_document:read",
+      "name": "读取园区劳动合同附件",
+      "resource": "hr.contract_document",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_document:self_read",
+      "name": "读取本人劳动合同附件",
+      "resource": "hr.contract_document",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_document:team_read",
+      "name": "读取团队劳动合同附件",
+      "resource": "hr.contract_document",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:ack",
+      "name": "确认劳动合同提醒",
+      "resource": "hr.contract_reminder",
+      "action": "ack",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:manage",
+      "name": "管理劳动合同提醒",
+      "resource": "hr.contract_reminder",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:park_read",
+      "name": "读取园区劳动合同提醒",
+      "resource": "hr.contract_reminder",
+      "action": "park_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:run",
+      "name": "运行劳动合同提醒",
+      "resource": "hr.contract_reminder",
+      "action": "run",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:self_read",
+      "name": "hr:contract_reminder:ack",
+      "resource": "hr.contract_reminder",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_reminder:team_read",
+      "name": "hr:contract_reminder:ack",
+      "resource": "hr.contract_reminder",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract_salary:read",
+      "name": "读取劳动合同薪资",
+      "resource": "hr.contract_salary",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:contract:manage",
+      "name": "管理劳动合同",
+      "resource": "hr.contract",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:contract:read",
+      "name": "读取园区劳动合同",
+      "resource": "hr.contract",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:contract:self_read",
+      "name": "读取本人劳动合同",
+      "resource": "hr.contract",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:contract:team_read",
+      "name": "读取团队劳动合同",
+      "resource": "hr.contract",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:contracts",
+      "name": "劳动合同",
+      "resource": "hr.contract",
+      "action": "page",
+      "route": "/hr/contracts"
+    },
+    {
+      "code": "hr:dashboard",
+      "name": "人力资源工作台",
+      "resource": "hr.dashboard",
+      "action": "page",
+      "route": "/hr"
+    },
+    {
+      "code": "hr:decision_center",
+      "name": "人力资源决策中心",
+      "resource": "hr.decision_center",
+      "action": "page",
+      "route": "/hr/decision-center"
+    },
+    {
+      "code": "hr:departure:apply",
+      "name": "执行已批准离职",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:archive_close",
+      "name": "关闭离职人事档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:handover",
+      "name": "确认离职交接",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:interview",
+      "name": "记录离职面谈",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:manage",
+      "name": "起草和提交离职申请",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:read",
+      "name": "hr:departure:review",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:review",
+      "name": "审核离职申请",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:self_read",
+      "name": "读取本人离职流程",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:survey",
+      "name": "记录离职调查",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:team_read",
+      "name": "读取组织树离职流程",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:departure:wage_settle",
+      "name": "确认离职工资结算",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:development:manage",
+      "name": "管理发展计划",
+      "resource": "hr.development",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:development:self_action",
+      "name": "完成本人发展行动",
+      "resource": "hr.development",
+      "action": "self_action",
+      "route": null
+    },
+    {
+      "code": "hr:employee_credential_document:manage",
+      "name": "管理员工证照附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_credential_document:read",
+      "name": "读取员工证照附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_credential:read",
+      "name": "读取员工证照敏感档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_document:manage",
+      "name": "管理员工档案附件",
+      "resource": "hr.employee_document",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:employee_document:read",
+      "name": "读取园区员工档案附件",
+      "resource": "hr.employee_document",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_document:self_read",
+      "name": "读取本人员工档案附件",
+      "resource": "hr.employee_document",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_document:team_read",
+      "name": "读取团队员工档案附件",
+      "resource": "hr.employee_document",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_family:read",
+      "name": "hr:employee_credential:read",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_profile:manage",
+      "name": "管理员工敏感档案",
+      "resource": "hr.employee_profile",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:employee_profile:read",
+      "name": "读取员工敏感档案",
+      "resource": "hr.employee_profile",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_profile:self_read",
+      "name": "读取本人掩码敏感档案",
+      "resource": "hr.employee_profile",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_profile:team_read",
+      "name": "读取团队掩码敏感档案",
+      "resource": "hr.employee_profile",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_record:manage",
+      "name": "管理员工扩展档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_record:read",
+      "name": "读取员工扩展档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_record:self_read",
+      "name": "读取本人扩展档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee_record:team_read",
+      "name": "读取团队非敏感扩展档案",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:employee:manage",
+      "name": "管理员工档案",
+      "resource": "hr.employee",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:employee:read",
+      "name": "hr:employee:self_read",
+      "resource": "hr.employee",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:employee:self_read",
+      "name": "读取本人档案",
+      "resource": "hr.employee",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee:team_read",
+      "name": "读取团队员工档案",
+      "resource": "hr.employee",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:employees",
+      "name": "员工档案",
+      "resource": "hr.employees",
+      "action": "page",
+      "route": "/hr/employees"
+    },
+    {
+      "code": "hr:employment_event:read",
+      "name": "读取任职历史",
+      "resource": "hr.employment_event",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:employment:transition",
+      "name": "办理员工任职变动",
+      "resource": "hr.employment",
+      "action": "transition",
+      "route": null
+    },
+    {
+      "code": "hr:feedback_360",
+      "name": "360评价",
+      "resource": "hr.feedback",
+      "action": "page",
+      "route": "/hr/feedback-360"
+    },
+    {
+      "code": "hr:feedback:cycle_manage",
+      "name": "管理360周期",
+      "resource": "hr.feedback",
+      "action": "cycle_manage",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:manage",
+      "name": "管理360评价",
+      "resource": "hr.feedback",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:model_manage",
+      "name": "管理胜任力与问卷",
+      "resource": "hr.feedback",
+      "action": "model_manage",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:nominate",
+      "name": "提名360评价人",
+      "resource": "hr.feedback",
+      "action": "nominate",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:nomination_review",
+      "name": "审批360评价人",
+      "resource": "hr.feedback",
+      "action": "nomination_review",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:read",
+      "name": "hr:feedback:team_read",
+      "resource": "hr.feedback",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:respond",
+      "name": "提交360评价",
+      "resource": "hr.feedback",
+      "action": "respond",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:result_publish",
+      "name": "发布360匿名结果",
+      "resource": "hr.feedback",
+      "action": "result_publish",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:result_read",
+      "name": "读取360聚合结果",
+      "resource": "hr.feedback",
+      "action": "result_read",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:self_read",
+      "name": "读取本人360评价",
+      "resource": "hr.feedback",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:feedback:team_read",
+      "name": "读取组织树360评价",
+      "resource": "hr.feedback",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:goal:change",
+      "name": "变更目标口径",
+      "resource": "hr.goal",
+      "action": "change",
+      "route": null
+    },
+    {
+      "code": "hr:goal:checkin",
+      "name": "更新本人目标进度",
+      "resource": "hr.goal",
+      "action": "checkin",
+      "route": null
+    },
+    {
+      "code": "hr:goal:cycle_manage",
+      "name": "管理目标周期",
+      "resource": "hr.goal_cycle",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:goal:manage",
+      "name": "管理目标",
+      "resource": "hr.goal",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:goal:read",
+      "name": "hr:goal:team_read",
+      "resource": "hr.goal",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:goal:self_read",
+      "name": "读取本人目标",
+      "resource": "hr.goal",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:goal:team_read",
+      "name": "读取组织树目标",
+      "resource": "hr.goal",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:goals",
+      "name": "战略与目标",
+      "resource": "hr.goals",
+      "action": "page",
+      "route": "/hr/goals"
+    },
+    {
+      "code": "hr:insurance",
+      "name": "五险一金",
+      "resource": "hr.insurance",
+      "action": "page",
+      "route": "/hr/insurance"
+    },
+    {
+      "code": "hr:insurance_amount:read",
+      "name": "读取园区社保金额",
+      "resource": "hr.insurance_amount",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:insurance_period:close",
+      "name": "社保期间关账",
+      "resource": "hr.insurance_owned_period",
+      "action": "close",
+      "route": null
+    },
+    {
+      "code": "hr:insurance_period:confirm",
+      "name": "确认社保期间",
+      "resource": "hr.insurance_owned_period",
+      "action": "confirm",
+      "route": null
+    },
+    {
+      "code": "hr:insurance_period:correct",
+      "name": "更正社保期间",
+      "resource": "hr.insurance_owned_period",
+      "action": "correct",
+      "route": null
+    },
+    {
+      "code": "hr:insurance_period:preview_create",
+      "name": "生成社保期间预览",
+      "resource": "hr.insurance_owned_period",
+      "action": "preview_create",
+      "route": null
+    },
+    {
+      "code": "hr:insurance_policy:version_create",
+      "name": "保存社保政策版本",
+      "resource": "hr.insurance_policy_version",
+      "action": "version_create",
+      "route": null
+    },
+    {
+      "code": "hr:insurance:read",
+      "name": "读取园区社保台账",
+      "resource": "hr.insurance",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:insurance:self_read",
+      "name": "读取本人社保台账",
+      "resource": "hr.insurance",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:insurance:team_read",
+      "name": "读取团队社保台账",
+      "resource": "hr.insurance",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:apply",
+      "name": "执行已批准岗位变更",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:manage",
+      "name": "起草和提交岗位变更",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:read",
+      "name": "hr:job_change:review",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:review",
+      "name": "审核岗位变更",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:self_read",
+      "name": "读取本人岗位变更",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:job_change:team_read",
+      "name": "读取组织树岗位变更",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_archive",
+      "name": "档案沿革",
+      "resource": "hr.legacy_archive",
+      "action": "page",
+      "route": "/hr/employees/legacy"
+    },
+    {
+      "code": "hr:legacy_archive:read",
+      "name": "读取园区旧系统资料",
+      "resource": "hr.legacy_archive",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_archive:self_read",
+      "name": "读取本人旧系统资料",
+      "resource": "hr.legacy_archive",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_archive:sensitive_read",
+      "name": "读取旧系统敏感投影",
+      "resource": "hr.legacy_archive",
+      "action": "sensitive_read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_archive:team_read",
+      "name": "读取团队旧系统资料",
+      "resource": "hr.legacy_archive",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_archive:unclaimed_read",
+      "name": "读取待认领旧档案",
+      "resource": "hr.legacy_archive",
+      "action": "unclaimed_read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_dictionary:approve",
+      "name": "批准玉舟迁移字典",
+      "resource": "hr.legacy_dictionary",
+      "action": "approve",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_dictionary:manage",
+      "name": "管理玉舟迁移字典草稿",
+      "resource": "hr.legacy_dictionary",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_dictionary:read",
+      "name": "读取玉舟迁移字典",
+      "resource": "hr.legacy_dictionary",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:legacy_unclaimed",
+      "name": "待认领档案",
+      "resource": "hr.legacy_archive",
+      "action": "unclaimed_page",
+      "route": "/hr/employees/unclaimed"
+    },
+    {
+      "code": "hr:lifecycle",
+      "name": "入离职办理",
+      "resource": "hr",
+      "action": "page",
+      "route": "/hr/lifecycle"
+    },
+    {
+      "code": "hr:lifecycle_document:manage",
+      "name": "管理生命周期任务附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle_document:read",
+      "name": "读取生命周期任务附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle_template:manage",
+      "name": "管理生命周期模板",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:assign",
+      "name": "分配生命周期任务",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:read",
+      "name": "读取全园区生命周期清单",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:review",
+      "name": "复核生命周期任务",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:self_action",
+      "name": "办理本人生命周期任务",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:self_read",
+      "name": "读取本人生命周期清单",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:lifecycle:team_read",
+      "name": "读取团队生命周期清单",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:onboarding:manage",
+      "name": "管理入职清单",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:onboarding:read",
+      "name": "读取入职清单",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:organization",
+      "name": "组织与岗位",
+      "resource": "hr.organization",
+      "action": "page",
+      "route": "/hr/organization"
+    },
+    {
+      "code": "hr:payroll",
+      "name": "工资核算",
+      "resource": "hr.payroll",
+      "action": "page",
+      "route": "/hr/payroll"
+    },
+    {
+      "code": "hr:payroll_detail:read",
+      "name": "读取工资批次明细",
+      "resource": "hr.payroll_detail",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_formula:review",
+      "name": "复核历史工资公式",
+      "resource": "hr.payroll_formula",
+      "action": "review",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_history:read",
+      "name": "hr:payroll_rule:read",
+      "resource": "hr.payroll_history",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_history:self_read",
+      "name": "读取本人历史工资",
+      "resource": "hr.payroll_history",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_history:team_summary",
+      "name": "读取团队工资异常摘要",
+      "resource": "hr.payroll_history",
+      "action": "team_summary",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_reconciliation:calculate",
+      "name": "执行工资双轨模拟",
+      "resource": "hr.payroll_reconciliation",
+      "action": "calculate",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_reconciliation:review",
+      "name": "复核工资双轨差异",
+      "resource": "hr.payroll_reconciliation",
+      "action": "review",
+      "route": null
+    },
+    {
+      "code": "hr:payroll_rule:read",
+      "name": "读取历史工资规则",
+      "resource": "hr.payroll_rule",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:payroll:confirm",
+      "name": "确认工资批次",
+      "resource": "hr.payroll",
+      "action": "confirm",
+      "route": null
+    },
+    {
+      "code": "hr:payroll:manage",
+      "name": "管理工资批次",
+      "resource": "hr.payroll",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:payroll:read",
+      "name": "读取工资批次",
+      "resource": "hr.payroll",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:payroll:review",
+      "name": "复核工资批次",
+      "resource": "hr.payroll",
+      "action": "review",
+      "route": null
+    },
+    {
+      "code": "hr:payslip:self_read",
+      "name": "读取本人工资条",
+      "resource": "hr.payslip",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:performance",
+      "name": "绩效考核",
+      "resource": "hr.performance",
+      "action": "page",
+      "route": "/hr/performance"
+    },
+    {
+      "code": "hr:performance_template:manage",
+      "name": "管理绩效模板",
+      "resource": "hr.performance_template",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:performance_template:read",
+      "name": "hr:performance_template:manage",
+      "resource": "hr.performance_template",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:performance:acknowledge",
+      "name": "签收绩效结果",
+      "resource": "hr.performance",
+      "action": "acknowledge",
+      "route": null
+    },
+    {
+      "code": "hr:performance:appeal",
+      "name": "申诉绩效结果",
+      "resource": "hr.performance",
+      "action": "appeal",
+      "route": null
+    },
+    {
+      "code": "hr:performance:appeal_review",
+      "name": "处理绩效申诉",
+      "resource": "hr.performance",
+      "action": "appeal_review",
+      "route": null
+    },
+    {
+      "code": "hr:performance:calibrate",
+      "name": "hr:performance:appeal_review",
+      "resource": "hr.performance",
+      "action": "calibrate",
+      "route": null
+    },
+    {
+      "code": "hr:performance:manage",
+      "name": "管理绩效周期",
+      "resource": "hr.performance",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:performance:manager_review",
+      "name": "主管绩效评价",
+      "resource": "hr.performance",
+      "action": "manager_review",
+      "route": null
+    },
+    {
+      "code": "hr:performance:read",
+      "name": "读取绩效",
+      "resource": "hr.performance",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:performance:result_read",
+      "name": "读取绩效结果",
+      "resource": "hr.performance",
+      "action": "result_read",
+      "route": null
+    },
+    {
+      "code": "hr:performance:self_read",
+      "name": "读取本人绩效",
+      "resource": "hr.performance",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:performance:self_review",
+      "name": "绩效自评",
+      "resource": "hr.performance",
+      "action": "self_review",
+      "route": null
+    },
+    {
+      "code": "hr:performance:team_read",
+      "name": "读取组织树绩效",
+      "resource": "hr.performance",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:position:manage",
+      "name": "管理岗位",
+      "resource": "hr.position",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:position:read",
+      "name": "读取岗位",
+      "resource": "hr.position",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:recruitment",
+      "name": "招聘管理",
+      "resource": "hr",
+      "action": "page",
+      "route": "/hr/recruitment"
+    },
+    {
+      "code": "hr:recruitment_document:manage",
+      "name": "管理招聘受保护附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:recruitment_document:read",
+      "name": "读取招聘受保护附件",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:requisition:manage",
+      "name": "管理招聘需求",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:requisition:read",
+      "name": "读取招聘需求",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:requisition:team_read",
+      "name": "读取团队招聘需求摘要",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward_amount:read",
+      "name": "读取奖惩金额建议",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward_document:manage",
+      "name": "管理奖惩证据",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward_document:read",
+      "name": "读取奖惩证据",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward_reason:read",
+      "name": "读取奖惩详细原因",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:link_payroll",
+      "name": "建立奖惩工资引用",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:link_performance",
+      "name": "建立奖惩绩效引用",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:manage",
+      "name": "管理奖惩事项",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:read",
+      "name": "hr:reward:manage",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:review",
+      "name": "审核奖惩事项",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:self_read",
+      "name": "读取本人已批准奖惩",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:reward:team_read",
+      "name": "读取团队奖惩摘要",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:rewards",
+      "name": "奖惩管理",
+      "resource": "hr",
+      "action": "page",
+      "route": "/hr/rewards"
+    },
+    {
+      "code": "hr:succession:manage",
+      "name": "管理继任规划",
+      "resource": "hr.succession",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:succession:read",
+      "name": "读取继任规划",
+      "resource": "hr.succession",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:talent",
+      "name": "人才发展",
+      "resource": "hr.talent",
+      "action": "page",
+      "route": "/hr/talent"
+    },
+    {
+      "code": "hr:talent:profile_create",
+      "name": "冻结人才画像",
+      "resource": "hr.talent",
+      "action": "profile_create",
+      "route": null
+    },
+    {
+      "code": "hr:talent:read",
+      "name": "hr:talent:team_read",
+      "resource": "hr.talent",
+      "action": "read",
+      "route": null
+    },
+    {
+      "code": "hr:talent:review",
+      "name": "执行人才盘点",
+      "resource": "hr.talent",
+      "action": "review",
+      "route": null
+    },
+    {
+      "code": "hr:talent:self_read",
+      "name": "读取本人人才发展",
+      "resource": "hr.talent",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:talent:team_read",
+      "name": "读取组织树人才数据",
+      "resource": "hr.talent",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:training",
+      "name": "培训管理",
+      "resource": "hr",
+      "action": "page",
+      "route": "/hr/training"
+    },
+    {
+      "code": "hr:training_cost:read",
+      "name": "读取培训费用",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training_course:manage",
+      "name": "管理培训课程",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training_document:manage",
+      "name": "管理培训证书和证据",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training_document:read",
+      "name": "读取培训证书和证据",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training_plan:manage",
+      "name": "管理培训计划",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training_progress:manage",
+      "name": "办理培训进度",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training:read",
+      "name": "hr:training_course:manage",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training:self_action",
+      "name": "办理本人培训任务",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training:self_read",
+      "name": "读取本人培训",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:training:team_read",
+      "name": "读取团队培训进度",
+      "resource": "hr",
+      "action": "api",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:draft",
+      "name": "起草本人工作汇报",
+      "resource": "hr.work_report",
+      "action": "draft",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:review",
+      "name": "审核组织树工作汇报",
+      "resource": "hr.work_report",
+      "action": "review",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:self_manage",
+      "name": "提交本人工作汇报",
+      "resource": "hr.work_report",
+      "action": "self_manage",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:self_read",
+      "name": "读取本人工作汇报",
+      "resource": "hr.work_report",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:submit",
+      "name": "提交本人工作汇报",
+      "resource": "hr.work_report",
+      "action": "submit",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:team_read",
+      "name": "读取组织树工作汇报",
+      "resource": "hr.work_report",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:work_report:team_review",
+      "name": "审核团队工作汇报",
+      "resource": "hr.work_report",
+      "action": "team_review",
+      "route": null
+    },
+    {
+      "code": "hr:work_reports",
+      "name": "工作汇报",
+      "resource": "hr.work_reports",
+      "action": "page",
+      "route": "/hr/work-reports"
+    }
+  ]
+}

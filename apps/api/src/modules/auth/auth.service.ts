@@ -36,6 +36,8 @@ import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./au
 import { IdentityDirectoryService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/identity-directory.service";
 import { UserEntity } from "../users/entities/user.entity";
 import { isProtectedTenantSuperRole } from "../roles/protected-super-role";
+import {applicationRuntimeMode} from "../../runtime/runtime-mode";
+import {IDENTITY_SCOPE_PORT,type IdentityScopePort} from "../../runtime/identity-scope.port";
 import { AUTH_REFRESH_SCOPE_WRITER, type AuthRefreshScopeWriter } from "./auth-refresh-scope-writer";
 
 export interface LoginContextOption {
@@ -131,7 +133,8 @@ export class AuthService implements OnModuleInit {
     private readonly loginTicketRepository: Repository<AuthLoginTicketEntity>,
     @Optional()
     @Inject(AUTH_REFRESH_SCOPE_WRITER)
-    private readonly refreshScopeWriter?: AuthRefreshScopeWriter
+    private readonly refreshScopeWriter?: AuthRefreshScopeWriter,
+    @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly scopePort?:IdentityScopePort
   ) {}
 
   onModuleInit(): void {
@@ -315,7 +318,7 @@ export class AuthService implements OnModuleInit {
 
     const user = finalizedUsers[0]!;
     await this.ensureIdentity(user, "password", user.username);
-    return this.issueLoginResult(user, meta, "password", user.username);
+    return this.issueLoginResult(user, meta, "password", user.username,true,this.scopePort&&scopedLogin?dto.parkId:undefined);
   }
 
   async sendMobileCode(dto: MobileSendCodeDto, meta: LoginRequestMeta): Promise<MobileCodeResult> {
@@ -586,6 +589,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async selectContext(dto: SelectContextDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    this.assertRuntimeToken(dto.ticket);
     await this.tenantsService.assertTenantActive(dto.tenantId);
     const { selectedUser, loginMethod } = await this.loginTicketRepository.manager.transaction(async (manager) => {
       const ticketRepository = manager.getRepository(AuthLoginTicketEntity);
@@ -615,6 +619,8 @@ export class AuthService implements OnModuleInit {
       if (!user || !user.isEnabled || user.isDeleted) {
         throw new UnauthorizedException("Selected user context is unavailable");
       }
+      const selectedScope={tenantId:user.tenantId,parkId:this.scopePort?dto.parkId:user.parkId};
+      if(this.scopePort){await this.scopePort.lockActiveScope(manager,selectedScope,user.id);}else{
       const activePark = await manager.query<Array<{ id: string }>>(
         `SELECT id FROM biz_park
          WHERE tenant_id=$1 AND park_id=$2 AND status=1 AND is_deleted=false
@@ -624,10 +630,11 @@ export class AuthService implements OnModuleInit {
       if (activePark.length !== 1) {
         throw new UnauthorizedException("Selected user context is unavailable");
       }
+      }
       try {
         const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
         if (resolveJwtPrincipal) {
-          await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+          await resolveJwtPrincipal(selectedScope, user.id);
         }
       } catch (error) {
         if (error instanceof NotFoundException) throw new UnauthorizedException("Selected user context is unavailable");
@@ -671,13 +678,14 @@ export class AuthService implements OnModuleInit {
       await ticketRepository.save(ticket);
       return { selectedUser, loginMethod };
     });
-    return this.issueLoginResult(selectedUser, meta, loginMethod, selectedUser.username, false);
+    return this.issueLoginResult(selectedUser, meta, loginMethod, selectedUser.username, false,this.scopePort?dto.parkId:undefined);
   }
 
   async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
     if (!dto.refreshToken) {
       throw new UnauthorizedException("Refresh token expired");
     }
+    this.assertRuntimeToken(dto.refreshToken);
     const tokenHash = this.hashToken(dto.refreshToken);
     const refreshToken = await this.refreshTokenRepository.findOne({
       where: {
@@ -709,6 +717,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async switchContext(user: JwtPrincipal, parkId: string, currentRefreshToken: string, meta: LoginRequestMeta): Promise<LoginResult> {
+    this.assertRuntimeToken(currentRefreshToken);
     if (parkId === user.parkId) throw new BadRequestException("Already in selected park context");
     const tokenHash = this.hashToken(currentRefreshToken);
     const tokenLookupTime = new Date();
@@ -783,15 +792,16 @@ export class AuthService implements OnModuleInit {
   }
 
   isSmsLoginEnabled(): boolean {
-    return !this.isProduction();
+    return applicationRuntimeMode(this.configService) !== "hr_enterprise" && !this.isProduction();
   }
 
   isWechatLoginEnabled(): boolean {
-    return !this.isProduction();
+    return applicationRuntimeMode(this.configService) !== "hr_enterprise" && !this.isProduction();
   }
 
   async logout(user: JwtPrincipal, refreshToken?: string): Promise<{ userId: string }> {
     if (refreshToken) {
+      this.assertRuntimeToken(refreshToken);
       const tokenHash = this.hashToken(refreshToken);
       await this.refreshTokenRepository.update(
         {
@@ -809,6 +819,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async logoutRefreshToken(refreshToken: string): Promise<void> {
+    this.assertRuntimeToken(refreshToken);
     const tokenHash = this.hashToken(refreshToken);
     await this.refreshTokenRepository.update(
       {
@@ -858,16 +869,20 @@ export class AuthService implements OnModuleInit {
     meta: LoginRequestMeta,
     loginMethod: string,
     loginUsername: string,
-    validatePrincipal = true
+    validatePrincipal = true,
+    requestedScopeKey?:string
   ): Promise<LoginResult> {
     try {
       const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
-      if (validatePrincipal && resolveJwtPrincipal) {
-        await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+      if ((validatePrincipal || applicationRuntimeMode(this.configService)==="hr_enterprise") && resolveJwtPrincipal) {
+        const scope=this.scopePort?await this.scopePort.selectLoginScope(this.refreshTokenRepository.manager,user.tenantId,user.id,user.parkId,requestedScopeKey):{tenantId:user.tenantId,parkId:user.parkId};
+        if(!scope)throw new UnauthorizedException('当前企业不可用，请联系管理员调整企业成员资格');
+        const principal=await resolveJwtPrincipal(scope, user.id);
+        if(applicationRuntimeMode(this.configService)==="hr_enterprise")return this.issuePrincipalLoginResult(principal,meta,loginMethod);
       }
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new UnauthorizedException("当前园区不可用，请联系管理员调整默认园区");
+        throw new UnauthorizedException(this.scopePort?'当前企业不可用，请联系管理员调整企业成员资格':'当前园区不可用，请联系管理员调整默认园区');
       }
       throw error;
     }
@@ -893,6 +908,7 @@ export class AuthService implements OnModuleInit {
       username: authUser.username,
       tenantId: authUser.tenantId,
       parkId: authUser.parkId,
+      runtimeMode: applicationRuntimeMode(this.configService),
       authVersion: user.authVersion || 1
     };
 
@@ -939,6 +955,7 @@ export class AuthService implements OnModuleInit {
       username: principal.username,
       tenantId: principal.tenantId,
       parkId: principal.parkId,
+      runtimeMode: applicationRuntimeMode(this.configService),
       authVersion: principal.authVersion ?? profile.authVersion ?? 1
     } satisfies JwtSessionClaims);
     const refreshToken = await this.createScopedRefreshToken(principal, meta);
@@ -1082,7 +1099,7 @@ export class AuthService implements OnModuleInit {
     user: Pick<JwtPrincipal, "sub" | "tenantId" | "parkId">,
     meta: LoginRequestMeta
   ): Promise<string> {
-    const rawToken = randomBytes(48).toString("hex");
+    const rawToken = this.runtimeToken(randomBytes(48).toString("hex"));
     const expiresDays = Number(this.configService.get<string>("AUTH_REFRESH_EXPIRES_DAYS", "30"));
     const token = this.refreshTokenRepository.create({
       tenantId: user.tenantId,
@@ -1108,8 +1125,11 @@ export class AuthService implements OnModuleInit {
     return rawToken;
   }
 
+  private runtimeToken(value:string){return applicationRuntimeMode(this.configService)==='hr_enterprise'?'hre1.'+value:value;}
+  private assertRuntimeToken(value:string){if(typeof value!=='string'||value.startsWith('hre1.')!==(applicationRuntimeMode(this.configService)==='hr_enterprise'))throw new UnauthorizedException('Authentication deployment mode mismatch');}
+
   private async createLoginTicket(tenantId: string, provider: string, userIds: string[]): Promise<string> {
-    const ticket = randomBytes(32).toString("hex");
+    const ticket = this.runtimeToken(randomBytes(32).toString("hex"));
     const ttlSeconds = Number(this.configService.get<string>("AUTH_LOGIN_TICKET_TTL_SECONDS", "300"));
     await this.loginTicketRepository.save(
       this.loginTicketRepository.create({
@@ -1128,7 +1148,7 @@ export class AuthService implements OnModuleInit {
     parkId: string | null,
     profile: OAuthProviderProfile
   ): Promise<string> {
-    const ticket = randomBytes(32).toString("hex");
+    const ticket = this.runtimeToken(randomBytes(32).toString("hex"));
     const ttlSeconds = Number(this.configService.get<string>("AUTH_LOGIN_TICKET_TTL_SECONDS", "300"));
     await this.loginTicketRepository.save(
       this.loginTicketRepository.create({

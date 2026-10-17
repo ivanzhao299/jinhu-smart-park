@@ -1,4 +1,5 @@
-import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, historicalUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException, Inject, Optional } from "@nestjs/common";
 import { HR_PERMISSIONS,type TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -12,7 +13,7 @@ type Row=Record<string,unknown>&{id:string;application_no:string;application_nam
 
 @Injectable()
 export class HrJobChangeService {
- constructor(private readonly db:DataSource,private readonly audit:AuditService){}
+ constructor(private readonly db:DataSource,private readonly audit:AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
  private has(a:JwtPrincipal,p:string){return Boolean(a.isSuper||a.permissions.includes("*")||a.permissions.includes(p));}
  private access(a:JwtPrincipal):Access{if(this.has(a,HR_PERMISSIONS.HR_JOB_CHANGE_READ))return "park";if(this.has(a,HR_PERMISSIONS.HR_JOB_CHANGE_TEAM_READ))return "managed_org_tree";if(this.has(a,HR_PERMISSIONS.HR_JOB_CHANGE_SELF_READ))return "self";return "none";}
  private managedOrgSql(actorParam:string){return `WITH RECURSIVE managed_org AS(SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=${actorParam} AND is_deleted=false AND status='enabled' UNION ALL SELECT c.id FROM sys_org c JOIN managed_org p ON c.parent_id=p.id WHERE c.tenant_id=$1 AND c.park_id=$2 AND c.is_deleted=false AND c.status='enabled') SELECT id FROM managed_org`;}
@@ -46,7 +47,7 @@ export class HrJobChangeService {
   if(access!=="park"){args.push(a.sub);const actor=`$${args.length}`;where.push(access==="self"?`(j.applicant_user_id=${actor} OR e.user_id=${actor})`:`e.primary_org_id IN(${this.managedOrgSql(actor)})`);}
   const application=await this.db.query(`SELECT j.id FROM hr_job_change_application j JOIN hr_employee e ON e.tenant_id=j.tenant_id AND e.park_id=j.park_id AND e.id=j.subject_employee_id WHERE ${where.join(" AND ")}`,args) as Array<{id:string}>;
   if(!application[0])throw new NotFoundException("Job-change application not found");
-  const actions=await this.db.query(`SELECT a.id,a.sequence_no "sequenceNo",a.action,a.from_status "fromStatus",a.to_status "toStatus",a.comment,u.display_name "actorDisplayName",a.create_time "createTime" FROM hr_job_change_action a LEFT JOIN sys_user u ON u.tenant_id=a.tenant_id AND u.park_id=a.park_id AND u.id=a.actor_user_id AND u.is_deleted=false WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.application_id=$3 ORDER BY a.sequence_no ASC,a.id ASC`,[s.tenantId,s.parkId,id]);
+  const actions=await this.db.query(`SELECT a.id,a.sequence_no "sequenceNo",a.action,a.from_status "fromStatus",a.to_status "toStatus",a.comment,u.display_name "actorDisplayName",a.create_time "createTime" FROM hr_job_change_action a LEFT JOIN sys_user u ON u.tenant_id=a.tenant_id AND ${historicalUserStorageScopePredicate(this.identityScope,'u','a')} AND u.id=a.actor_user_id AND u.is_deleted=false WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.application_id=$3 ORDER BY a.sequence_no ASC,a.id ASC`,[s.tenantId,s.parkId,id]);
   await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.job_change_application",action:"读取岗位变更办理轨迹",bizType:"hr_job_change_application",bizId:id,path:"/hr/job-change-applications/:id/history",fieldGroups:[],projection:access==="managed_org_tree"?"team":access,itemCount:actions.length});
   return {applicationId:id,actions};
  }

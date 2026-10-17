@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, historicalUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Inject, Optional } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
@@ -17,7 +18,7 @@ const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call
 
 @Injectable()
 export class HrCandidateProfileService {
-  constructor(private readonly db: DataSource, private readonly sensitive: PartySensitiveDataService, private readonly audit: AuditService) {}
+  constructor(private readonly db: DataSource, private readonly sensitive: PartySensitiveDataService, private readonly audit: AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
   private can(actor: JwtPrincipal, permission: string) { return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission)); }
   private require(actor: JwtPrincipal, write = false) {
     if (!this.can(actor, HR_PERMISSIONS.HR_CANDIDATE_READ) || (write && !this.can(actor, HR_PERMISSIONS.HR_CANDIDATE_MANAGE))) throw new ForbiddenException("Candidate profile permission is required");
@@ -60,7 +61,7 @@ export class HrCandidateProfileService {
     return this.db.transaction("REPEATABLE READ", async manager => {
       await this.candidate(manager, scope, id);
       const count = this.first(await manager.query("SELECT count(*)::int total FROM hr_candidate_profile_history WHERE tenant_id=$1 AND park_id=$2 AND candidate_id=$3", [scope.tenantId, scope.parkId, id]));
-      const rows = await manager.query(`SELECT h.id,h.before_snapshot "before",h.after_snapshot "after",h.change_reason "changeReason",h.occurred_at "occurredAt",COALESCE(NULLIF(u.display_name,''),'系统用户') "actorDisplayName" FROM hr_candidate_profile_history h LEFT JOIN sys_user u ON u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND u.park_id=h.park_id AND u.is_deleted=false WHERE h.tenant_id=$1 AND h.park_id=$2 AND h.candidate_id=$3 ORDER BY h.after_version DESC,h.id DESC LIMIT $4 OFFSET $5`, [scope.tenantId, scope.parkId, id, query.page_size, (query.page - 1) * query.page_size]) as Row[];
+      const rows = await manager.query(`SELECT h.id,h.before_snapshot "before",h.after_snapshot "after",h.change_reason "changeReason",h.occurred_at "occurredAt",COALESCE(NULLIF(u.display_name,''),'系统用户') "actorDisplayName" FROM hr_candidate_profile_history h LEFT JOIN sys_user u ON u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND ${historicalUserStorageScopePredicate(this.identityScope,'u','h')} AND u.is_deleted=false WHERE h.tenant_id=$1 AND h.park_id=$2 AND h.candidate_id=$3 ORDER BY h.after_version DESC,h.id DESC LIMIT $4 OFFSET $5`, [scope.tenantId, scope.parkId, id, query.page_size, (query.page - 1) * query.page_size]) as Row[];
       const items = rows.map(row => ({ id: row.id, before: this.publicSnapshot(row.before as Row, actor), after: this.publicSnapshot(row.after as Row, actor), changeReason: row.changeReason, occurredAt: new Date(row.occurredAt as string | Date).toISOString(), actorDisplayName: row.actorDisplayName }));
       await this.readAudit(manager, scope, actor, id, "hr.candidate_profile_history", "/hr/recruitment/candidates/:id/profile-history", items.length);
       return { items, total: Number(count?.total ?? 0), page: query.page, page_size: query.page_size };

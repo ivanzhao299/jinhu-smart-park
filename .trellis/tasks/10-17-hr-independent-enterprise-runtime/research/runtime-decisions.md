@@ -1,0 +1,22 @@
+# 同内核独立运行决策
+
+基线 b8813ced。API/Web索引hash与已完整阅读的上一轮manifest一致；复用其规范，无重跑结构恢复。
+
+1. 服务端 APP_RUNTIME_MODE=integrated|hr_enterprise，缺省integrated，其他值启动失败。main仅装配所选根；独立根不导入UsersModule/SaaSModulesModule/TenantsModule/FilesModule的园区传递图。
+2. 复用现有 business-scope/000001_core.sql 的真实 enterprise scope、membership、scope module；企业UUID的32字符小写hex（去除连字符、可无损还原）为既有HR/组织/RBAC/audit/file中park_id内部兼容存储键。没有biz_park/asset_park或虚假园区记录。用户上下文另给runtime_mode/business_scope/accessible_enterprises，客户页面显示企业；park字段仅内部旧合同兼容，不声称企业为园区。
+3. IdentityDirectoryService保留同一role/permission/alias/password内核，只把live scope predicate通过可选部署端口改为enterprise+membership。即使super也需要当前企业membership。集成缺省端口仍原SQL/规则。
+4. AuthController的me context投影经小接口注入；AuthService/Controller/RateLimit/JWT/refresh/switch逻辑共享。AuthModule元数据提取为公共装配工厂，集成上下文仍UsersService，独立上下文提供实际企业+字段/数据范围。不是第二套认证实现。
+5. JWT带服务端runtimeMode，独立拒绝旧/集成claim；集成拒绝独立claim但保留旧无mode令牌。独立refresh/login ticket使用固定模式前缀且入口独立验证，不能跨模式复用。独立部署需要专用DB与绝对文件根，启动验证mode marker和无园区业务表。
+6. 现有HrModule、OrgsModule、DataScopes、FieldPolicies、Audit、DB Idempotency及HrFilesModule原实现复用。ModuleGuard同一检查逻辑消费仅listEnabledModulesForTenant接口，独立用持久化sys_business_scope_module，非硬编码允许。Property文件port在既有hr_leaf组合拒绝，无园区业务实例。
+7. 专用版本化HR schema从已有仅结构快照精确选择必要对象生成并冻结源hash/对象清单；正常独立初始化执行该专用DDL和独立升级历史，不执行全部园区迁移。必须在真实空库验证无园区表和关键业务全路径，不能用静态闭包抵扣。集成旧迁移保持不可变。
+8. 首次空客户初始化与现有HR迁出/恢复不同；本任务只使用owned synthetic数据。原始历史源/全量工资/生产角色和M0-M5/P0-P4仍待父目标。7月全部已导入记录/全部有数据账套，吴恩国负责，只算不发口径不变。
+
+## 实际结构发现的兼容键修正
+
+已有快照确认talent10表和sys_idempotency_request的park_id为varchar(32)。因此企业UUID canonical36字符不直接写入旧键；采用确定性的UUID hex32作为sys_business_scope.scope_key generated列，canonical enterprise_id/scopeId仍UUID。无长度扩张/截断/新假园区，无积分/工资规则改变。首次owned空库DDL成功只证明结构安装；本修正后在同一容器新空DB再次安装，不重启容器/不重复完整集成结构恢复。
+
+## 成员账号引用闭合
+
+HR目录与普通员工账号绑定在独立部署通过同一scope port查询实时成员，而不是sys_user默认home键；集成保持原repository路径。独立006给member增加generated hex32与唯一键，hr_employee/rel_user_role复合FK引用同tenant+enterprise+user；nullable未绑定历史员工不升级身份，停用只影响live资格不删除事实。角色委派还限制当前dataScope上界与附加字段/范围策略，不能夹带自身没有的权限。
+
+审查集中修复：独立007仅替换精确97个HR复合home身份FK至历史membership，008仅使企业提醒角色代码可显式配置；不改集成DDL/规则。当前操作者有任何有效字段/旧字段/命名范围限制时三委派写入口同事务拒绝，状态维护保留。成员列表复用原UsersService的DataScope与FieldPolicy投影。负责人/招聘owner/生命周期/提醒均使用实时企业成员，历史actor仅保留租户身份显示。真实密码登录优先有效home，否则稳定选择有效企业；显式scope仍必须有效成员。

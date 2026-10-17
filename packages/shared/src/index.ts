@@ -1,3 +1,5 @@
+import type { EnterpriseContext } from './hr-runtime';
+import type { BusinessScopeContext } from './business-scope';
 export * from "./hr-payroll-trial";
 export * from "./hr-payroll-formal";
 export * from "./hr-yuzhou-profile-baseline";
@@ -298,6 +300,10 @@ export interface EnabledModuleContext {
 }
 
 export interface UserContext {
+  runtime_mode?: "integrated" | "hr_enterprise";
+  business_scope?: BusinessScopeContext;
+  current_enterprise?: EnterpriseContext;
+  accessible_enterprises?: EnterpriseContext[];
   id: string;
   username: string;
   real_name: string;
@@ -1783,3 +1789,5 @@ export * from './hr-performance-source-drafts';
 
 export * from './hr-performance-source-activation';
 export * from './hr-employee-feedback';
+
+export * from "./hr-runtime";

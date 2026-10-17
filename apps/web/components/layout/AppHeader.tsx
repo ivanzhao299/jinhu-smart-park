@@ -27,6 +27,7 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
   const user = useAuthUser();
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
+  const enterprise = user?.runtime_mode === "hr_enterprise";
   const canOpenWorkflowInbox = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
   const isTerminalRoute = terminalMode ?? matchesTerminalRoute(pathname);
 
@@ -61,9 +62,10 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
       <div className="header-actions">
         {sidebarToggleButton("actions")}
         {!isTerminalRoute ? <CommandPalette /> : null}
-        <Link aria-label="客户端下载" className="header-icon-link" href="/system/client-downloads" title="客户端下载">
+        {!enterprise ? <Link aria-label="客户端下载" className="header-icon-link" href="/system/client-downloads" title="客户端下载">
           <Download size={16} />
-        </Link>
+        </Link> : null}
+        {enterprise ? <Link aria-label="我的消息" className="header-icon-link" href="/workflow/messages" title="我的消息"><ListTodo size={16} /></Link> : null}
         {!isTerminalRoute && canOpenWorkflowInbox ? (
           <Link aria-label="流程收件箱" className="header-icon-link header-workflow-link" href="/workflow/inbox" title="流程收件箱">
             <ListTodo size={16} />

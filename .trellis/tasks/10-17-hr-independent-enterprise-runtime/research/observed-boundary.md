@@ -1,0 +1,11 @@
+# 已有证据
+
+基线 b8813ced68423125623854abd7885082feca9c35。空库完整结构、仅结构SQL、直接/间接外键、模块AST和运行范围依赖已盘点；无需再次恢复同一结构或分析历史源。
+
+- 262个HR表加七个精确来源/批次账本，共269初始关系；外键闭包272，额外sys_user/sys_org/sys_file。237个park_id无单列FK。
+- 仓库/幂等根另含biz_user_message、rel_role_data_scope、rel_user_role、sys_data_scope_rule、sys_idempotency_request、sys_login_log、sys_op_log、sys_role。仍不是完整动态auth/config/file运行闭包。
+- HrModule直接装配DataScopesModule、AuditModule和TypeOrm仓库；DTO/实体目录引用不是完整模块依赖。
+- IdentityDirectoryService主体SQL依赖rel_user_park，并要求有效biz_park；CurrentScope取JWT tenantId/parkId；ModuleGuard按tenant/park查模块。
+- AppModule根部有Jwt/Permission/Module/IdempotencyKey/PropertyHighRisk guard，Audit/Response interceptor、ApiExceptionFilter、IdempotencyService及CleanupService；独立装配必须保留必需HR语义并明确领域专属保护边界。
+
+旧个人通讯录来源缺失，生产真实岗位页面仍待正常登录；这些不阻断独立环境实现。静态结构不抵扣旧端、真实工资、恢复或最终验收。

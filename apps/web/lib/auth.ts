@@ -8,6 +8,7 @@ import {
   propertyModuleAssignmentFingerprint
 } from "../features/property-shared/offline/property-draft-contract";
 import { clearParkRoleRecoverySource } from "./park-role-recovery";
+import { accessibleContextOptions, contextNoun } from "./runtime-context";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -126,6 +127,8 @@ function sessionScope(user: UserContext): string {
     user.id,
     user.tenant_id,
     user.park_id,
+    user.runtime_mode ?? "integrated",
+    user.business_scope?.scopeId,
     propertyDataScopeFingerprint(user.data_scope, user.data_scopes),
     [...user.permissions].sort(),
     propertyModuleAssignmentFingerprint(user.enabled_modules)
@@ -154,7 +157,7 @@ export async function fetchCurrentUser(options: { requestToken?: string; persist
     throw new Error("Unauthorized");
   }
   if (!currentUserRequest || currentUserRequest.token !== token) {
-    const promise = apiRequest<UserContext>("/users/me", { token, skipUnauthorizedReset: options.skipUnauthorizedReset })
+    const promise = apiRequest<UserContext>("/auth/me", { token, skipUnauthorizedReset: options.skipUnauthorizedReset })
       .then(async (response) => {
         if (options.persist !== false && token === getToken()) {
           const previous = getStoredUser();
@@ -199,8 +202,8 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   const current = getStoredUser();
   if (!parkId || !current) throw new Error("园区上下文不可用，请重新登录");
   if (current.park_id === parkId) return current;
-  const target = current.accessible_parks?.find((park) => park.park_id === parkId);
-  if (!target || target.status !== "enabled") throw new Error("所选园区不可访问或未启用");
+  const target = accessibleContextOptions(current).find((option) => option.value === parkId);
+  if (!target) throw new Error(`所选${contextNoun(current)}不可访问或未启用`);
   const originalToken = getToken();
   const originalSharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
   const switchId = crypto.randomUUID();
@@ -219,6 +222,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false, skipUnauthorizedReset: true });
+    if ((nextUser.runtime_mode ?? "integrated") !== (current.runtime_mode ?? "integrated")) throw new Error("切换后的运行范围不一致，请重新登录");
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     await setSession(response.data.accessToken, nextUser, response.data.refreshToken, {

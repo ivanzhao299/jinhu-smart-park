@@ -126,7 +126,8 @@
     "10-16-hr-goal-report-ledgers",
     "10-16-hr-performance-record-rubric-entry",
     "10-16-hr-performance-formal-source-weights",
-    "10-17-hr-employee-feedback-workflow"
+    "10-17-hr-employee-feedback-workflow",
+    "10-17-hr-independent-enterprise-runtime"
   ],
   "parent": null,
   "relatedFiles": [

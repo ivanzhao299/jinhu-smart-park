@@ -219,6 +219,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/workorders",
   "/tenant/service",
   "/workflow/inbox",
+  "/workflow/messages",
+  "/enterprise",
   "/workorders/list",
   "/workorders/sla-rules",
   "/workorders/overdue",
@@ -544,13 +546,14 @@ export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | 
   return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
 
-type MenuTreeUser = Pick<UserContext, "menu_tree" | "menus">;
+type MenuTreeUser = Pick<UserContext, "menu_tree" | "menus" | "runtime_mode">;
 
 export function resolveUserMenuTree(user?: MenuTreeUser | null): UserMenuTreeNode[] | undefined {
   return user?.menu_tree ?? user?.menus;
 }
 
 export function getUserDashboardMenus(user?: MenuTreeUser | null): MenuNode[] {
+  if (user?.runtime_mode === "hr_enterprise") return normalizeMenuTree(resolveUserMenuTree(user));
   return getDashboardMenus(resolveUserMenuTree(user));
 }
 
@@ -559,6 +562,7 @@ export function getUserNormalizedMenuTree(user?: MenuTreeUser | null): MenuNode[
 }
 
 export function getUserDashboardAuthorizationMenus(user?: MenuTreeUser | null): MenuNode[] {
+  if (user?.runtime_mode === "hr_enterprise") return normalizeMenuTree(resolveUserMenuTree(user));
   return getDashboardAuthorizationMenus(resolveUserMenuTree(user));
 }
 

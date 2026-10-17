@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Optional, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
@@ -11,6 +11,7 @@ import {
   type PasswordLockoutConfig
 } from "../auth/auth-password-lockout.policy";
 import { PROTECTED_TENANT_SUPER_ROLE_CODE } from "../roles/protected-super-role";
+import {IDENTITY_SCOPE_PORT,type IdentityScopePort} from "../../runtime/identity-scope.port";
 import { UserEntity } from "./entities/user.entity";
 
 export interface PasswordFailureRecordResult {
@@ -194,15 +195,16 @@ export function resolveDataScope(scopes: string[]): string {
 export class IdentityDirectoryService {
   constructor(
     @InjectRepository(UserEntity)
-    private readonly usersRepository: Repository<UserEntity>
+    private readonly usersRepository: Repository<UserEntity>,
+    @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly scopePort?:IdentityScopePort
   ) {}
 
-  findByUsernameInScope(username: string, scope: TenantParkScope): Promise<UserEntity | null> {
-    return this.usersRepository.findOne({
+  async findByUsernameInScope(username: string, scope: TenantParkScope): Promise<UserEntity | null> {
+    const user=await this.usersRepository.findOne({
       where: {
         username,
         tenantId: scope.tenantId,
-        parkId: scope.parkId,
+        ...(this.scopePort?{}:{parkId:scope.parkId}),
         isDeleted: false
       },
       relations: {
@@ -215,6 +217,8 @@ export class IdentityDirectoryService {
         }
       }
     });
+    if(user&&this.scopePort&&(await this.scopePort.activeMemberUsers(this.usersRepository.manager,scope,[user.id])).length!==1)return null;
+    return user;
   }
 
   findLoginCandidatesByUsername(username: string): Promise<UserEntity[]> {
@@ -236,12 +240,12 @@ export class IdentityDirectoryService {
     });
   }
 
-  findByIdInScope(id: string, scope: TenantParkScope): Promise<UserEntity | null> {
-    return this.usersRepository.findOne({
+  async findByIdInScope(id: string, scope: TenantParkScope): Promise<UserEntity | null> {
+    const user=await this.usersRepository.findOne({
       where: {
         id,
         tenantId: scope.tenantId,
-        parkId: scope.parkId,
+        ...(this.scopePort?{}:{parkId:scope.parkId}),
         isDeleted: false
       },
       relations: {
@@ -254,6 +258,8 @@ export class IdentityDirectoryService {
         }
       }
     });
+    if(user&&this.scopePort&&(await this.scopePort.activeMemberUsers(this.usersRepository.manager,scope,[user.id])).length!==1)return null;
+    return user;
   }
 
   findByIdForIdentity(id: string, tenantId: string): Promise<UserEntity | null> {
@@ -368,7 +374,7 @@ export class IdentityDirectoryService {
         AND permission.is_enabled = true
         AND permission.status = 'enabled'
         AND permission.tenant_id = usr.tenant_id
-       WHERE (
+       WHERE ${this.scopePort?.principalPredicate ?? `(
            usr.is_tenant_super
            OR
            (
@@ -389,7 +395,7 @@ export class IdentityDirectoryService {
            SELECT 1 FROM biz_park live_park
            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
               AND live_park.status=1 AND live_park.is_deleted=false
-         )
+         )`}
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]
     );

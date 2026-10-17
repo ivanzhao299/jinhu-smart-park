@@ -1,0 +1,494 @@
+{
+  "formatVersion": 1,
+  "kernelSha256": "8387439502bee89f1d26b58f616aff478e68e25b8f41bc32ec0c6b4f674a4471",
+  "count": 97,
+  "oldTarget": "public.sys_user(tenant_id,park_id,id)",
+  "newTarget": "public.sys_user_business_scope_membership(tenant_id,scope_key,user_id)",
+  "constraints": [
+    {
+      "table": "hr_candidate_action",
+      "constraint": "fk_hr_candidate_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_candidate_assessment",
+      "constraint": "fk_hr_candidate_assessment_actor",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_candidate_assessment_history",
+      "constraint": "fk_hr_candidate_assessment_history_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_candidate_interview",
+      "constraint": "fk_hr_candidate_interview_actor",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_candidate_interview_history",
+      "constraint": "fk_hr_candidate_interview_history_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_candidate_profile_history",
+      "constraint": "fk_hr_candidate_profile_history_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_competency_model",
+      "constraint": "fk_hr_competency_model_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_competency_model",
+      "constraint": "fk_hr_competency_model_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_competency_model_version",
+      "constraint": "fk_hr_competency_version_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_contract_reminder_outbox",
+      "constraint": "fk_hr_contract_reminder_outbox_recipient",
+      "userColumn": "recipient_user_id"
+    },
+    {
+      "table": "hr_contract_reminder",
+      "constraint": "fk_hr_contract_reminder_recipient",
+      "userColumn": "recipient_user_id"
+    },
+    {
+      "table": "hr_candidate_conversion",
+      "constraint": "fk_hr_conversion_actor",
+      "userColumn": "converted_by"
+    },
+    {
+      "table": "hr_departure_action",
+      "constraint": "fk_hr_departure_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_applicant",
+      "userColumn": "applicant_user_id"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_applier",
+      "userColumn": "applied_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_archive_actor",
+      "userColumn": "archive_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_handover_actor",
+      "userColumn": "handover_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_interviewer",
+      "userColumn": "interview_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_reviewer",
+      "userColumn": "reviewed_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_surveyor",
+      "userColumn": "survey_by"
+    },
+    {
+      "table": "hr_departure_application",
+      "constraint": "fk_hr_departure_wage_actor",
+      "userColumn": "wage_by"
+    },
+    {
+      "table": "hr_employee_credential",
+      "constraint": "fk_hr_employee_credential_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_employee_credential",
+      "constraint": "fk_hr_employee_credential_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_employee_experience",
+      "constraint": "fk_hr_employee_experience_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_employee_experience",
+      "constraint": "fk_hr_employee_experience_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_employee_family",
+      "constraint": "fk_hr_employee_family_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_employee_family",
+      "constraint": "fk_hr_employee_family_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_employee_skill",
+      "constraint": "fk_hr_employee_skill_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_employee_skill",
+      "constraint": "fk_hr_employee_skill_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_employee_family_change",
+      "constraint": "fk_hr_family_change_actor",
+      "userColumn": "actor_id"
+    },
+    {
+      "table": "hr_feedback360_action",
+      "constraint": "fk_hr_feedback360_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_feedback360_cycle",
+      "constraint": "fk_hr_feedback360_cycle_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_feedback360_cycle",
+      "constraint": "fk_hr_feedback360_cycle_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_feedback360_nomination",
+      "constraint": "fk_hr_feedback360_nomination_decider",
+      "userColumn": "decided_by"
+    },
+    {
+      "table": "hr_feedback360_nomination",
+      "constraint": "fk_hr_feedback360_nomination_nominator",
+      "userColumn": "nominated_by"
+    },
+    {
+      "table": "hr_feedback_questionnaire",
+      "constraint": "fk_hr_feedback_questionnaire_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_feedback_questionnaire",
+      "constraint": "fk_hr_feedback_questionnaire_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_feedback_questionnaire_version",
+      "constraint": "fk_hr_feedback_questionnaire_version_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_job_change_action",
+      "constraint": "fk_hr_job_change_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_job_change_application",
+      "constraint": "fk_hr_job_change_applicant",
+      "userColumn": "applicant_user_id"
+    },
+    {
+      "table": "hr_job_change_application",
+      "constraint": "fk_hr_job_change_applier",
+      "userColumn": "applied_by"
+    },
+    {
+      "table": "hr_job_change_application",
+      "constraint": "fk_hr_job_change_reviewer",
+      "userColumn": "reviewed_by"
+    },
+    {
+      "table": "hr_lifecycle_checklist_action",
+      "constraint": "fk_hr_lifecycle_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_lifecycle_checklist_action",
+      "constraint": "fk_hr_lifecycle_action_assignee",
+      "userColumn": "assignee_user_id"
+    },
+    {
+      "table": "hr_lifecycle_checklist_item",
+      "constraint": "fk_hr_lifecycle_item_completed_by",
+      "userColumn": "completed_by"
+    },
+    {
+      "table": "hr_lifecycle_checklist_item",
+      "constraint": "fk_hr_lifecycle_item_responsible",
+      "userColumn": "responsible_user_id"
+    },
+    {
+      "table": "hr_lifecycle_checklist_template",
+      "constraint": "fk_hr_lifecycle_template_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_lifecycle_checklist_template",
+      "constraint": "fk_hr_lifecycle_template_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_lifecycle_checklist_template_version",
+      "constraint": "fk_hr_lifecycle_template_version_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_onboarding_application_action",
+      "constraint": "fk_hr_onboarding_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_onboarding_application",
+      "constraint": "fk_hr_onboarding_applicant",
+      "userColumn": "applicant_user_id"
+    },
+    {
+      "table": "hr_onboarding_application",
+      "constraint": "fk_hr_onboarding_confirmer",
+      "userColumn": "confirmed_by"
+    },
+    {
+      "table": "hr_onboarding_application",
+      "constraint": "fk_hr_onboarding_reviewer",
+      "userColumn": "reviewed_by"
+    },
+    {
+      "table": "hr_probation_application_action",
+      "constraint": "fk_hr_probation_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_probation_application",
+      "constraint": "fk_hr_probation_application_applicant",
+      "userColumn": "applicant_user_id"
+    },
+    {
+      "table": "hr_probation_application",
+      "constraint": "fk_hr_probation_application_confirmer",
+      "userColumn": "confirmed_by"
+    },
+    {
+      "table": "hr_probation_application",
+      "constraint": "fk_hr_probation_application_reviewer",
+      "userColumn": "reviewed_by"
+    },
+    {
+      "table": "hr_requisition_history",
+      "constraint": "fk_hr_requisition_history_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_recruitment_requisition",
+      "constraint": "fk_hr_requisition_owner",
+      "userColumn": "owner_user_id"
+    },
+    {
+      "table": "hr_reward_discipline_action",
+      "constraint": "fk_hr_reward_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_reward_discipline_case",
+      "constraint": "fk_hr_reward_case_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_reward_discipline_case",
+      "constraint": "fk_hr_reward_case_reviewer",
+      "userColumn": "reviewer_user_id"
+    },
+    {
+      "table": "hr_reward_discipline_case",
+      "constraint": "fk_hr_reward_case_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_reward_discipline_category",
+      "constraint": "fk_hr_reward_category_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_reward_discipline_category",
+      "constraint": "fk_hr_reward_category_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_reward_discipline_category_version",
+      "constraint": "fk_hr_reward_category_version_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_reward_discipline_correction",
+      "constraint": "fk_hr_reward_correction_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_reward_discipline_link",
+      "constraint": "fk_hr_reward_link_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_action",
+      "constraint": "fk_hr_training_action_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_training_result_correction",
+      "constraint": "fk_hr_training_correction_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_course",
+      "constraint": "fk_hr_training_course_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_course",
+      "constraint": "fk_hr_training_course_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_training_course_version",
+      "constraint": "fk_hr_training_course_version_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_plan",
+      "constraint": "fk_hr_training_plan_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_plan_fact_revision",
+      "constraint": "fk_hr_training_plan_fact_actor",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_plan",
+      "constraint": "fk_hr_training_plan_updater",
+      "userColumn": "update_by"
+    },
+    {
+      "table": "hr_training_position_requirement",
+      "constraint": "fk_hr_training_position_requirement_creator",
+      "userColumn": "create_by"
+    },
+    {
+      "table": "hr_training_position_requirement",
+      "constraint": "fk_hr_training_position_requirement_disabler",
+      "userColumn": "disabled_by"
+    },
+    {
+      "table": "hr_attendance_work_calendar",
+      "constraint": "fk_hr_work_calendar_actor",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_attendance_work_calendar_history",
+      "constraint": "fk_hr_work_calendar_history_actor",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_attendance_leave_quota_history",
+      "constraint": "hr_attendance_leave_quota_his_tenant_id_park_id_actor_user_fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_attendance_leave_quota",
+      "constraint": "hr_attendance_leave_quota_tenant_id_park_id_updated_by_fkey",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_attendance_leave_type_history",
+      "constraint": "hr_attendance_leave_type_hist_tenant_id_park_id_actor_user_fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_attendance_leave_type",
+      "constraint": "hr_attendance_leave_type_tenant_id_park_id_updated_by_fkey",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_business_trip_date_history",
+      "constraint": "hr_business_trip_date_history_tenant_id_park_id_actor_user_fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_business_trip_declared_days_history",
+      "constraint": "hr_business_trip_declared_day_tenant_id_park_id_actor_user_fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_business_trip_month_allocation",
+      "constraint": "hr_business_trip_month_alloca_tenant_id_park_id_actor_user_fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_employee_credential_change",
+      "constraint": "hr_employee_credential_change_tenant_id_park_id_actor_id_fkey",
+      "userColumn": "actor_id"
+    },
+    {
+      "table": "hr_employee_experience_change",
+      "constraint": "hr_employee_experience_change_tenant_id_park_id_actor_id_fkey",
+      "userColumn": "actor_id"
+    },
+    {
+      "table": "hr_employee_rest_day_history",
+      "constraint": "hr_employee_rest_day_history_tenant_id_park_id_actor_user__fkey",
+      "userColumn": "actor_user_id"
+    },
+    {
+      "table": "hr_employee_rest_day",
+      "constraint": "hr_employee_rest_day_tenant_id_park_id_updated_by_fkey",
+      "userColumn": "updated_by"
+    },
+    {
+      "table": "hr_employee_skill_change",
+      "constraint": "hr_employee_skill_change_tenant_id_park_id_actor_id_fkey",
+      "userColumn": "actor_id"
+    },
+    {
+      "table": "hr_incremental_credential_baseline",
+      "constraint": "hr_incremental_credential_bas_tenant_id_park_id_created_by_fkey",
+      "userColumn": "created_by"
+    },
+    {
+      "table": "hr_incremental_family_baseline",
+      "constraint": "hr_incremental_family_baselin_tenant_id_park_id_created_by_fkey",
+      "userColumn": "created_by"
+    },
+    {
+      "table": "hr_incremental_insurance_policy_binding",
+      "constraint": "hr_incremental_insurance_poli_tenant_id_park_id_created_by_fkey",
+      "userColumn": "created_by"
+    },
+    {
+      "table": "hr_incremental_skill_baseline",
+      "constraint": "hr_incremental_skill_baseline_tenant_id_park_id_created_by_fkey",
+      "userColumn": "created_by"
+    },
+    {
+      "table": "hr_incremental_training_binding",
+      "constraint": "hr_incremental_training_bindi_tenant_id_park_id_created_by_fkey",
+      "userColumn": "created_by"
+    }
+  ]
+}
