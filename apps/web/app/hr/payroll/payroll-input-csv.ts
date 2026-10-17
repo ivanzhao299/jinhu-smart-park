@@ -90,6 +90,15 @@ export async function payrollInputCsv(context: PayrollSheetContext, rows: readon
 
 export async function previewPayrollInputCsv(text: string, context: PayrollSheetContext, rows: readonly PayrollSheetEmployee[]): Promise<PayrollSheetPreview> {
   const columns = columnsFor(context, rows), records = parsePayrollInputCsv(text), binding = await bindingFor(context, rows, columns);
+  // Spreadsheet applications save a rectangular range, padding short metadata/data rows.
+  // Allow only empty trailing cells within that range; unknown columns still fail closed.
+  const width = Math.max(6, columns.length + 3);
+  const withoutPadding = (record: string[] | undefined, length: number): string[] | undefined =>
+    record && record.length >= length && record.length <= width && record.slice(length).every(value => value === "")
+      ? record.slice(0, length) : undefined;
+  records[0] = withoutPadding(records[0], 3) ?? [];
+  records[1] = withoutPadding(records[1], 6) ?? [];
+  records[2] = withoutPadding(records[2], columns.length + 3) ?? [];
   requireCondition(records.length === rows.length + 3 && records[0]?.length === 3 && records[0][0] === "工资输入表" && records[0][1] === "1"
     && sameText(records[0][2], binding), "录入表与当前期间、规则、输入版本或完整员工名单不一致，请重新导出。");
   const metadata = ["工资月份", context.month, "工资规则", context.ruleName, "输入范围", context.revisionLabel];
@@ -97,7 +106,8 @@ export async function previewPayrollInputCsv(text: string, context: PayrollSheet
     && JSON.stringify(records[2]) === JSON.stringify(headings(columns)), "录入表头或业务范围已变化，请保留原表头和校验信息。");
   const seen = new Set<number>(), updates = rows.map(row => ({ employeeId: row.employeeId, directItems: { ...row.directItems } }));
   let changedCells = 0;
-  for (const [offset, record] of records.slice(3).entries()) {
+  for (const [offset, originalRecord] of records.slice(3).entries()) {
+    const record = withoutPadding(originalRecord, columns.length + 3) ?? [];
     const line = offset + 4;
     requireCondition(record.length === columns.length + 3 && /^[1-9]\d{0,3}$/u.test(record[0] ?? ""), `第 ${line} 行列数或序号无效。`);
     const index = Number(record[0]) - 1, row = rows[index];

@@ -67,6 +67,17 @@ it("uses the current draft as the blank-cell baseline without binding a file to 
   const current = structuredClone(rows); current[0]!.directItems.收入 = "88.8800";
   expect((await previewPayrollInputCsv(csvDocument(records), context, current)).updates[0]!.directItems.收入).toBe("88.8800");
 });
+it.each([1, 2, 6])("accepts a spreadsheet rectangular round trip with %i direct columns but never extra nonempty cells", async count => {
+  const employees = rows.map(row => ({ ...row, directItems: Object.fromEntries(Array.from({ length: count }, (_, index) => [`项目${index}`, "1.0000"])) }));
+  const records = parsePayrollInputCsv(await payrollInputCsv(context, employees));
+  const width = Math.max(...records.map(record => record.length));
+  const rectangular = records.map(record => [...record, ...Array<string>(width - record.length).fill("")]);
+  rectangular[3]![3] = "9.9900";
+  const preview = await previewPayrollInputCsv(csvDocument(rectangular), context, employees);
+  expect(preview.changedCells).toBe(1); expect(preview.updates[0]!.directItems.项目0).toBe("9.9900");
+  rectangular[0]![width - 1] = "unexpected";
+  await expect(previewPayrollInputCsv(csvDocument(rectangular), context, employees)).rejects.toThrow();
+});
 it("reads standard CSV escapes and rejects unclosed quotes, injected columns and binary content", () => {
   expect(parsePayrollInputCsv('\uFEFF"a,b","line1\nline2","a""b"\r\n')).toEqual([["a,b", "line1\nline2", 'a"b']]);
   for (const text of ['"unclosed', '"a"trailing', 'a"b', "a\0b", Array.from({ length: 260 }, () => "x").join(",")]) expect(() => parsePayrollInputCsv(text)).toThrow();
