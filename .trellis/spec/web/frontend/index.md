@@ -31,6 +31,7 @@ Talent authorized operations on desktop and phones: [Talent Operations](./hr-tal
 Complete scoped contract and insurance CSV: [Ledger Exports](./hr-contract-insurance-ledger-exports.md).
 
 Modern payroll business rule authoring and version review: [Modern Rule Maintenance](./hr-payroll-modern-rule-maintenance.md).
+Complete local rule-choice preparation: [Rule Choice CSV](./hr-payroll-rule-choice-csv.md).
 
 Payroll formula desktop and mobile review operations: [Formula Review Workflow](./hr-payroll-formula-review-workflow.md).
 
