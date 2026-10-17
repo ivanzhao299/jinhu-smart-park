@@ -5,6 +5,8 @@ import { FORMAL_PAYROLL_ROLES, type FormalPayrollDefinition, type FormalPayrollR
 import { getAccessToken } from "../../../lib/authz";
 import { hrApi } from "../../../lib/hr-api";
 import { hrLoadErrorMessage } from "../hr-errors";
+import { downloadCsv } from "../../../lib/scoped-csv-export";
+import { payrollSourceReviewCsv } from "./payroll-source-review-export";
 import styles from "./payroll-modern.module.css";
 
 const roles: Record<FormalPayrollRole, string> = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
@@ -20,20 +22,44 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
   const [reference, setReference] = useState<FormalPayrollSourceReference | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({}), [error, setError] = useState("");
   const [loading, setLoading] = useState(false), [confirmed, setConfirmed] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [page, setPage] = useState(1), [unmatchedPage, setUnmatchedPage] = useState(1);
   const request = useRef<AbortController | null>(null), applied = useRef(false);
+  const referenceToken = useRef<string | null>(null), busy = loading || exporting;
   useEffect(() => () => request.current?.abort(), []);
   const load = async () => {
-    if (disabled || loading) return;
+    if (disabled || busy) return;
     request.current?.abort(); const controller = new AbortController(); request.current = controller;
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setExportMessage("");
     try {
-      const value = await hrApi.payrollRuleSourceReference(ruleSetId, getAccessToken(), controller.signal);
+      const token = getAccessToken();
+      const value = await hrApi.payrollRuleSourceReference(ruleSetId, token, controller.signal);
       if (controller.signal.aborted) return;
+      if (getAccessToken() !== token) throw new Error("登录状态已变化，请重新读取源资料。");
       if (value.ruleSetId !== ruleSetId || value.book.id !== sourceBookId) throw new Error("源资料与当前工资规则不一致，请重新选择规则。");
+      referenceToken.current = token;
       setReference(value); setChoices({}); setConfirmed(false); setPage(1); setUnmatchedPage(1);
     } catch (cause) { if (!controller.signal.aborted) setError(hrLoadErrorMessage(cause, "读取关联账套源资料失败")); }
     finally { if (!controller.signal.aborted) setLoading(false); }
+  };
+  const exportReview = async () => {
+    if (disabled || busy || error || !reference) return;
+    request.current?.abort(); const controller = new AbortController(); request.current = controller;
+    setExporting(true); setError(""); setExportMessage("");
+    try {
+      const token = getAccessToken();
+      if (!token || token !== referenceToken.current) throw new Error("登录状态已变化，请重新读取源资料。");
+      const fresh = await hrApi.payrollRuleSourceReference(ruleSetId, token, controller.signal);
+      if (controller.signal.aborted) return;
+      if (getAccessToken() !== token) throw new Error("登录状态已变化，请重新读取源资料。");
+      if (fresh.ruleSetId !== ruleSetId || fresh.book.id !== sourceBookId || JSON.stringify(fresh) !== JSON.stringify(reference)) {
+        throw new Error("源资料已变化，请重新读取后再导出核对表。");
+      }
+      downloadCsv(payrollSourceReviewCsv(fresh), `工资项目核对-${fresh.book.scheme}.csv`);
+      setExportMessage(`已生成核对表：${fresh.items.length} 个项目版本、${fresh.formulas.length} 个公式版本。`);
+    } catch (cause) { if (!controller.signal.aborted) setError(hrLoadErrorMessage(cause, "导出账套项目核对表失败")); }
+    finally { if (!controller.signal.aborted) setExporting(false); }
   };
   const change = (id: string, value: Partial<Choice>) => { setConfirmed(false); setChoices(previous => ({ ...previous, [id]: { ...(previous[id] ?? blank()), ...value } })); };
   const selected = reference?.items.filter(item => choices[item.id]?.included) ?? [];
@@ -42,13 +68,18 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
     const choice = choices[item.id]!;
     return item.enabled && item.valueType === "decimal" && choice.role && (choice.source === "direct" || choice.source === "rewrite" && choice.rewrite.trim() || choice.source === "formula" && reference?.formulas.some(formula => formula.id === choice.formulaId && formula.itemVersionId === item.id && formula.reusableSyntax));
   });
-  return <section className={`ds-panel ${styles.workspace}`} aria-label="账套源资料准备">
+  return <section className={`ds-panel ${styles.workspace} ${styles.sourcePreparation}`} aria-label="账套源资料准备">
     <h4>从关联账套准备规则草稿</h4>
     <p>原项目、公式和条件仅供参考。请逐项选择用途与数值来源，并核对计算顺序、项目引用及计薪口径；语法可复用不代表业务已批准。带入只修改当前编辑内容，随后保存草稿并独立复核。</p>
-    <button className="secondary-button" type="button" disabled={disabled || loading} onClick={() => void load()}>{loading ? "正在读取源资料…" : reference ? "重新读取源资料" : "读取关联账套源资料"}</button>
+    <div className={styles.actions}>
+      <button className="secondary-button" type="button" disabled={disabled || busy} onClick={() => void load()}>{loading ? "正在读取源资料…" : reference ? "重新读取源资料" : "读取关联账套源资料"}</button>
+      {reference ? <button className="secondary-button" type="button" disabled={disabled || busy || !!error} onClick={() => void exportReview()}>{exporting ? "正在导出核对表…" : "导出完整项目核对表"}</button> : null}
+    </div>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
+    {exportMessage ? <p role="status">{exportMessage}</p> : null}
     {reference ? <>
       <p>完整资料：{reference.items.length} 个项目版本，{reference.formulas.length} 个公式版本。不同版本均保留；同一项目代码只能选择一个版本。非数字及禁用项目只作参考。</p>
+      <p>核对表包含全部项目版本、公式和原条件，供集中确认用途及税、考勤、社保、舍入口径；填写后继续在系统保存规则并独立复核。</p>
       <div className={`ds-mobile-record-list ${styles.records}`}>{reference.items.slice((page - 1) * 20, page * 20).map(item => {
         const choice = choices[item.id] ?? blank();
         const formulas = reference.formulas.filter(formula => formula.itemVersionId === item.id);
