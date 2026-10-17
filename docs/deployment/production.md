@@ -371,6 +371,8 @@ PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:cleanup
 
 Pruning build cache is safe for runtime data, but it makes the next Docker build slower. If cleanup is skipped or fails, the deployment report must call that out explicitly.
 
+The API Dockerfile uses the Docker engine's bundled BuildKit frontend. Its cache mount uses standard BuildKit syntax; no external `docker/dockerfile` frontend image is required. Keep BuildKit enabled. A failed external frontend download can otherwise stall before application construction begins, even while the current production containers remain healthy.
+
 When `PRUNE_DOCKER_BUILD_CACHE=yes` (as in CI production deployment), `full`, `api`, and `web` also check the Docker data filesystem before and after image construction. Below 15 GiB free, they reclaim unused build cache with `--keep-storage 0gb`; they require at least 1 GiB remaining before continuing. A failed observation, prune, or remaining-space check stops before API quiescing, migration, or service replacement. This covers the build peak that post-health cleanup cannot prevent. These build-stage checks never prune images or volumes: a newly built image is not yet attached to a container. Required post-health cleanup remains in place; its normal cache retention setting is unchanged.
 
 ## 2.1 Deployment Traceability
