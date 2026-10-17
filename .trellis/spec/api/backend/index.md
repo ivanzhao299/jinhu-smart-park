@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Exact organization detail/update/delete visibility: [Organization Target Data Scope](./org-target-data-scope.md).
+
 Persisted editable performance source drafts and complete immutable source evidence: [Performance Source Drafts](./hr-performance-source-drafts.md).
 
 Complete scoped goal/progress/work-report ledgers: [Goal Report Ledgers](./hr-goal-report-ledgers.md).

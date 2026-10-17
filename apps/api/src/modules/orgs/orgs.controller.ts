@@ -47,8 +47,8 @@ export class OrgsController {
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_DETAIL)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.orgsService.detail(scope, id);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.orgsService.detail(scope, user, id);
   }
 
   @Patch(":id")
@@ -67,6 +67,6 @@ export class OrgsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_DELETE)
   @AuditLog({ module: "组织管理", resource: "system.org", action: "删除", bizType: "org", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.orgsService.softDelete(scope, user.sub, id);
+    return this.orgsService.softDelete(scope, user, id);
   }
 }
