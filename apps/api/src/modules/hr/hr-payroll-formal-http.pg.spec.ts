@@ -1,4 +1,13 @@
 import "reflect-metadata";
+import { UserEntity } from "../users/entities/user.entity";
+import { PermissionEntity } from "../permissions/entities/permission.entity";
+import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
+import { UserRoleEntity } from "../roles/entities/user-role.entity";
+
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -35,7 +44,7 @@ test("full-schema HTTP payroll lifecycle validates, replays, confirms and correc
   assert.equal(process.env.POSTGRES_HOST,"127.0.0.1");
   assert.equal(process.env.POSTGRES_PORT,"15490");
   assert.match(process.env.POSTGRES_DB??"",/^jinhu_hr_migration_lab_core_payroll(?:fresh|upgrade)$/u);
-  const db=new DataSource({type:"postgres",host:"127.0.0.1",port:15490,username:"postgres",password:process.env.POSTGRES_PASSWORD,database:process.env.POSTGRES_DB,entities:[LoginLogEntity,OpLogEntity,IdempotencyRequestEntity],synchronize:false});
+  const db=new DataSource({type:"postgres",host:"127.0.0.1",port:15490,username:"postgres",password:process.env.POSTGRES_PASSWORD,database:process.env.POSTGRES_DB,entities:[LoginLogEntity,OpLogEntity,IdempotencyRequestEntity,DataScopeRuleEntity,RoleDataScopeEntity,RoleEntity,UserRoleEntity,UserEntity,PermissionEntity,RolePermissionEntity],synchronize:false});
   await db.initialize();
   const scope={tenantId:randomUUID().replaceAll("-",""),parkId:randomUUID().replaceAll("-","")};
   const author:JwtPrincipal={...scope,sub:randomUUID(),username:"synthetic-author",roles:[],permissions:[HR_PERMISSIONS.HR_PAYROLL_READ,HR_PERMISSIONS.HR_PAYROLL_MANAGE,HR_PERMISSIONS.HR_PAYROLL_RULE_READ,HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ,HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_PAYROLL_REVIEW,HR_PERMISSIONS.HR_PAYROLL_CONFIRM,HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW]};
@@ -98,7 +107,7 @@ test("full-schema HTTP payroll lifecycle validates, replays, confirms and correc
     const insuredId=randomUUID();
     await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status,hire_date) VALUES($1,$2,$3,$4,'合成保险工资员工','active','2026-10-01')",[insuredId,scope.tenantId,scope.parkId,`SYN-${randomUUID()}`]);
     const insuranceActor={...author,permissions:[...author.permissions,HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ,HR_INSURANCE_POLICY_PERMISSIONS.VERSION_CREATE,...Object.values(HR_INSURANCE_OWNED_PERMISSIONS)]};
-    const policyService=new HrInsurancePolicyVersionService(db,audit),owned=new HrInsuranceOwnedPeriodService(db,audit);
+    const policyService=new HrInsurancePolicyVersionService(db,audit),owned=new HrInsuranceOwnedPeriodService(db,audit,new DataScopeService(db.getRepository(DataScopeRuleEntity),db.getRepository(RoleDataScopeEntity),db.getRepository(RoleEntity),db.getRepository(UserRoleEntity)));
     const policy=await policyService.create(scope,insuranceActor,{requestId:randomUUID(),policyCode:`SYN-${randomUUID()}`,policyName:"合成保险政策",variantNo:1,effectiveFrom:"2026-01",effectiveThrough:"2026-12",reason:"验证实际来源衔接",items:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,factors:{base:{rate:"0.01",fixedAmount:null},employer:{rate:"0.01",fixedAmount:null},employee:{rate:"0.01",fixedAmount:null},supplement:{rate:"0.01",fixedAmount:null}}}))});
     const previewBody={requestId:randomUUID(),employeeId:insuredId,expectedEmployeeVersion:1,policyVersionId:policy.id,expectedDefinitionHash:policy.definitionHash,periodMonth:"2026-10",includeFund:false,bases:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,contributionBase:"10.00"}))};
     const preview=await owned.preview(scope,insuranceActor,previewBody);

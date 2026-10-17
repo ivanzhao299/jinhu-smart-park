@@ -12,6 +12,12 @@ import { calculateInsurancePreview, HR_INSURANCE_KINDS, type InsuranceCalculatio
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 
 type CommandTable = "hr_insurance_owned_preview" | "hr_insurance_owned_revision" | "hr_insurance_owned_close";
+import { DataScopeService, type DataScopeFilter } from "../data-scopes/data-scope.service";
+import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
+import { UserRoleEntity } from "../roles/entities/user-role.entity";
+
 type PreviewRow = { id: string; employee_id: string; employee_version: number; policy_version_id: string;
   period_month: string; include_fund: boolean; created_by: string; request_sha256: string;
   expires_at: Date; snapshot_sha256: string; result: ReturnType<typeof calculateInsurancePreview> };
@@ -24,12 +30,70 @@ const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(va
 
 @Injectable()
 export class HrInsuranceOwnedPeriodService {
-  constructor(private readonly db: DataSource, private readonly audit: AuditService) {}
+  constructor(private readonly db: DataSource, private readonly audit: AuditService, private readonly dataScopes: DataScopeService) {}
+
+  private async orgScope(manager: EntityManager, actor: JwtPrincipal, lock = false): Promise<DataScopeFilter> {
+    if (lock) await manager.query("LOCK TABLE public.sys_role,public.rel_user_role,public.sys_data_scope_rule,public.rel_role_data_scope IN SHARE MODE");
+    const scopes = this.dataScopes instanceof DataScopeService ? new DataScopeService(
+      manager.getRepository(DataScopeRuleEntity), manager.getRepository(RoleDataScopeEntity),
+      manager.getRepository(RoleEntity), manager.getRepository(UserRoleEntity)) : this.dataScopes;
+    return scopes.buildScopeFilter(actor, "org");
+  }
+
+  private orgPredicate(filter: DataScopeFilter, params: unknown[], alias: "e" | "" = "e"): string {
+    return filter.unrestricted ? "" : ` AND ${alias ? alias + "." : ""}primary_org_id=ANY($${params.push(filter.allowed_ids)}::uuid[])`;
+  }
+
+  private async existingRequestScope(manager: EntityManager, scope: TenantParkScope, table: CommandTable, id: string, filter: DataScopeFilter) {
+    if (filter.unrestricted) return;
+    const params: unknown[] = [id, scope.tenantId, scope.parkId];
+    const parent = table === "hr_insurance_owned_close" ? " JOIN hr_insurance_owned_revision r ON r.id=c.revision_id AND r.tenant_id=c.tenant_id AND r.park_id=c.park_id" : "";
+    const employee = table === "hr_insurance_owned_close" ? "r.employee_id" : "c.employee_id";
+    const rows = await manager.query(`SELECT c.id FROM ${table} c${parent} JOIN hr_employee e ON e.id=${employee} AND e.tenant_id=c.tenant_id AND e.park_id=c.park_id
+      WHERE c.id=$1 AND c.tenant_id=$2 AND c.park_id=$3${this.orgPredicate(filter, params)} FOR SHARE OF e`, params);
+    if (!rows.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
+  }
 
   private authority(actor: JwtPrincipal, capability?: string) {
     const required: string[] = [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ];
     if (capability) required.push(capability);
     if (!actor.isSuper && !actor.permissions.includes("*") && !required.every(p => actor.permissions.includes(p))) throw new ForbiddenException("HR_INSURANCE_OWNED_FORBIDDEN");
+  }
+
+  /** HTTP guard calls this before the idempotency interceptor can return a
+   * cached financial response. No eligibility, expiry or approval is replayed. */
+  async authorizeWrite(scope: TenantParkScope, actor: JwtPrincipal, action: "preview" | "confirm" | "correct" | "close", body: unknown) {
+    const capability = { preview: HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE, confirm: HR_INSURANCE_OWNED_PERMISSIONS.CONFIRM,
+      correct: HR_INSURANCE_OWNED_PERMISSIONS.CORRECT, close: HR_INSURANCE_OWNED_PERMISSIONS.CLOSE }[action];
+    this.authority(actor, capability);
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new BadRequestException("HR_INSURANCE_OWNED_INPUT_INVALID");
+    const targets: Array<{ kind: "employee" | "preview" | "revision"; id: string }> = [];
+    if (action === "preview") {
+      const dto = await this.input(CreateHrInsuranceOwnedPreviewDto, body as CreateHrInsuranceOwnedPreviewDto);
+      targets.push({ kind: "employee", id: dto.employeeId });
+    } else if (action === "close") {
+      const dto = await this.input(CloseHrInsuranceOwnedPeriodDto, body as CloseHrInsuranceOwnedPeriodDto);
+      targets.push({ kind: "revision", id: dto.revisionId });
+    } else if (action === "correct") {
+      const dto = await this.input(CorrectHrInsuranceOwnedPeriodDto, body as CorrectHrInsuranceOwnedPeriodDto);
+      targets.push({ kind: "preview", id: dto.previewId }, { kind: "revision", id: dto.previousRevisionId });
+    } else {
+      const dto = await this.input(ConfirmHrInsuranceOwnedPeriodDto, body as ConfirmHrInsuranceOwnedPeriodDto);
+      targets.push({ kind: "preview", id: dto.previewId });
+    }
+    await this.db.transaction("REPEATABLE READ", async manager => {
+      const filter = await this.orgScope(manager, actor);
+      if (filter.unrestricted) return;
+      for (const target of targets) {
+        const params: unknown[] = [target.id, scope.tenantId, scope.parkId];
+        const from = target.kind === "employee" ? "hr_employee e" : target.kind === "preview"
+          ? "hr_insurance_owned_preview source JOIN hr_employee e ON e.id=source.employee_id AND e.tenant_id=source.tenant_id AND e.park_id=source.park_id"
+          : "hr_insurance_owned_revision source JOIN hr_employee e ON e.id=source.employee_id AND e.tenant_id=source.tenant_id AND e.park_id=source.park_id";
+        const alias = target.kind === "employee" ? "e" : "source";
+        const rows = await manager.query(`SELECT e.id FROM ${from} WHERE ${alias}.id=$1 AND ${alias}.tenant_id=$2 AND ${alias}.park_id=$3${this.orgPredicate(filter, params)}`, params);
+        if (!rows.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
+      }
+    });
   }
 
   private async input<T extends object>(type: ClassConstructor<T>, value: T): Promise<T> {
@@ -52,18 +116,20 @@ export class HrInsuranceOwnedPeriodService {
   }
 
   private async command<T>(scope: TenantParkScope, actor: JwtPrincipal, table: CommandTable,
-    requestId: string, request: object, operation: (manager: EntityManager, requestHash: string, existingId?: string) => Promise<T>) {
+    requestId: string, request: object, operation: (manager: EntityManager, requestHash: string, existingId: string | undefined, orgScope: DataScopeFilter) => Promise<T>) {
     const requestHash = digest({ ...request, tenantId: scope.tenantId, parkId: scope.parkId, actorId: actor.sub });
     try {
       return await this.db.transaction("READ COMMITTED", async manager => {
         await manager.query("SET LOCAL lock_timeout='2s'");
         await manager.query("SET LOCAL statement_timeout='15s'");
+        const orgScope = await this.orgScope(manager, actor, true);
         await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [JSON.stringify(["insurance-owned-request", table, scope.tenantId, scope.parkId, requestId])]);
         // Table name is an internal closed union, never an HTTP input.
         const rows: Array<{ id: string; created_by: string; request_sha256: string }> = await manager.query(
           `SELECT id,created_by,request_sha256 FROM ${table} WHERE tenant_id=$1 AND park_id=$2 AND request_id=$3`, [scope.tenantId, scope.parkId, requestId]);
+        if (rows.length) await this.existingRequestScope(manager, scope, table, rows[0]!.id, orgScope);
         if (rows.length && (rows[0]!.created_by !== actor.sub || rows[0]!.request_sha256 !== requestHash)) throw new ConflictException("HR_INSURANCE_OWNED_REQUEST_CONFLICT");
-        return operation(manager, requestHash, rows[0]?.id);
+        return operation(manager, requestHash, rows[0]?.id, orgScope);
       });
     } catch (error) {
       const detail = (error as { driverError?: { code?: string; message?: string }; code?: string; message?: string });
@@ -84,14 +150,15 @@ export class HrInsuranceOwnedPeriodService {
       return { insuranceKind, contributionBase: `${BigInt(whole!)}.${fraction.padEnd(2, "0")}` };
     });
     const request = { ...dto, bases };
-    return this.command(scope, actor, "hr_insurance_owned_preview", dto.requestId, request, async (manager, requestHash, existingId) => {
+    return this.command(scope, actor, "hr_insurance_owned_preview", dto.requestId, request, async (manager, requestHash, existingId, orgScope) => {
       if (existingId) {
         const rows: PreviewRow[] = await manager.query(`SELECT ${previewColumns} FROM hr_insurance_owned_preview WHERE id=$1 AND tenant_id=$2 AND park_id=$3`, [existingId, scope.tenantId, scope.parkId]);
         await this.auditWrite(manager, scope, actor, "preview", existingId, rows[0]!.snapshot_sha256, true);
         return { ...this.previewProjection(rows[0]!), replayed: true };
       }
+      const employeeParams: unknown[] = [dto.employeeId, scope.tenantId, scope.parkId];
       const people: Array<{ id: string; version: number; employment_status: string }> = await manager.query(
-        "SELECT id,version,employment_status FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted FOR SHARE", [dto.employeeId, scope.tenantId, scope.parkId]);
+        `SELECT id,version,employment_status FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted${this.orgPredicate(orgScope, employeeParams, "")} FOR SHARE`, employeeParams);
       if (!people.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
       if (people[0]!.version !== dto.expectedEmployeeVersion || !["active", "probation"].includes(people[0]!.employment_status)) throw new ConflictException("HR_INSURANCE_OWNED_EMPLOYEE_CHANGED_OR_INELIGIBLE");
       const policies: Array<{ version_no: number; definition_sha256: string; effective_from: string; effective_through: string; definition: { items: Array<Omit<InsuranceCalculationItem, "contributionBase">> } }> = await manager.query(
@@ -120,8 +187,10 @@ export class HrInsuranceOwnedPeriodService {
     return this.saveRevision(scope, actor, await this.input(CorrectHrInsuranceOwnedPeriodDto, dto));
   }
 
-  private async revision(manager: EntityManager, scope: TenantParkScope, id: string): Promise<RevisionRow> {
-    const rows: RevisionRow[] = await manager.query(`SELECT ${revisionColumns} FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id WHERE r.id=$1 AND r.tenant_id=$2 AND r.park_id=$3`, [id, scope.tenantId, scope.parkId]);
+  private async revision(manager: EntityManager, scope: TenantParkScope, id: string, orgScope: DataScopeFilter, lockEmployee = false): Promise<RevisionRow> {
+    const params: unknown[] = [id, scope.tenantId, scope.parkId];
+    const rows: RevisionRow[] = await manager.query(`SELECT ${revisionColumns} FROM hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id
+      JOIN hr_employee e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id AND e.park_id=r.park_id WHERE r.id=$1 AND r.tenant_id=$2 AND r.park_id=$3${this.orgPredicate(orgScope, params)}${lockEmployee ? " FOR SHARE OF e" : ""}`, params);
     if (!rows.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
     return rows[0]!;
   }
@@ -129,26 +198,31 @@ export class HrInsuranceOwnedPeriodService {
   private saveRevision(scope: TenantParkScope, actor: JwtPrincipal, dto: ConfirmHrInsuranceOwnedPeriodDto | CorrectHrInsuranceOwnedPeriodDto) {
     const correction = dto instanceof CorrectHrInsuranceOwnedPeriodDto;
     const request = { ...dto, reason: dto.reason.trim(), action: correction ? "correct" : "confirm" };
-    return this.command(scope, actor, "hr_insurance_owned_revision", dto.requestId, request, async (manager, requestHash, existingId) => {
+    return this.command(scope, actor, "hr_insurance_owned_revision", dto.requestId, request, async (manager, requestHash, existingId, orgScope) => {
       if (existingId) {
-        const row = await this.revision(manager, scope, existingId);
+        const row = await this.revision(manager, scope, existingId, orgScope, true);
         await this.auditWrite(manager, scope, actor, request.action, row.id, row.snapshot_sha256, true);
         return { ...this.revisionProjection(row), replayed: true };
       }
       const previews: PreviewRow[] = await manager.query(`SELECT ${previewColumns} FROM hr_insurance_owned_preview WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND created_by=$4 FOR SHARE`, [dto.previewId, scope.tenantId, scope.parkId, actor.sub]);
       if (!previews.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
       const preview = previews[0]!;
+      if (!orgScope.unrestricted) {
+        const params: unknown[] = [preview.employee_id, scope.tenantId, scope.parkId];
+        const visible = await manager.query(`SELECT id FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3${this.orgPredicate(orgScope, params, "")} FOR SHARE`, params);
+        if (!visible.length) throw new NotFoundException("HR_INSURANCE_OWNED_SOURCE_NOT_FOUND");
+      }
       if (preview.snapshot_sha256 !== dto.expectedPreviewHash) throw new ConflictException("HR_INSURANCE_OWNED_PREVIEW_CHANGED");
       let previousId: string | null = null, revisionNo = 1;
       if (correction) {
         const change = dto as CorrectHrInsuranceOwnedPeriodDto;
-        const previous = await this.revision(manager, scope, change.previousRevisionId);
+        const previous = await this.revision(manager, scope, change.previousRevisionId, orgScope, true);
         if (previous.employee_id !== preview.employee_id || previous.period_month !== preview.period_month || previous.revision_no !== change.expectedPeriodVersion) throw new ConflictException("HR_INSURANCE_OWNED_PERIOD_CHANGED");
         previousId = previous.id; revisionNo = previous.revision_no + 1;
       }
       // SQL serializes the family and rechecks expiry, actor, employee, source and closed predecessor.
       const inserted = typeormQueryRows<{ id: string }>(await manager.query("INSERT INTO hr_insurance_owned_revision(tenant_id,park_id,employee_id,period_month,revision_no,preview_id,previous_revision_id,request_id,request_sha256,created_by,reason) VALUES($1,$2,$3,$4::date,$5,$6,$7,$8,$9,$10,$11) RETURNING id", [scope.tenantId, scope.parkId, preview.employee_id, `${preview.period_month}-01`, revisionNo, preview.id, previousId, dto.requestId, requestHash, actor.sub, request.reason]));
-      const row = await this.revision(manager, scope, inserted[0]!.id);
+      const row = await this.revision(manager, scope, inserted[0]!.id, orgScope, true);
       await this.auditWrite(manager, scope, actor, request.action, row.id, row.snapshot_sha256, false);
       return { ...this.revisionProjection(row), replayed: false };
     });
@@ -157,14 +231,14 @@ export class HrInsuranceOwnedPeriodService {
   async close(scope: TenantParkScope, actor: JwtPrincipal, value: CloseHrInsuranceOwnedPeriodDto) {
     this.authority(actor, HR_INSURANCE_OWNED_PERMISSIONS.CLOSE);
     const dto = await this.input(CloseHrInsuranceOwnedPeriodDto, value);
-    return this.command(scope, actor, "hr_insurance_owned_close", dto.requestId, { ...dto, reason: dto.reason.trim() }, async (manager, requestHash, existingId) => {
+    return this.command(scope, actor, "hr_insurance_owned_close", dto.requestId, { ...dto, reason: dto.reason.trim() }, async (manager, requestHash, existingId, orgScope) => {
       if (existingId) {
         const rows: Array<{ revision_id: string }> = await manager.query("SELECT revision_id FROM hr_insurance_owned_close WHERE id=$1 AND tenant_id=$2 AND park_id=$3", [existingId, scope.tenantId, scope.parkId]);
-        const row = await this.revision(manager, scope, rows[0]!.revision_id);
+        const row = await this.revision(manager, scope, rows[0]!.revision_id, orgScope, true);
         await this.auditWrite(manager, scope, actor, "close", existingId, row.snapshot_sha256, true);
         return { id: existingId, revisionId: row.id, revisionNo: row.revision_no, status: "closed" as const, replayed: true };
       }
-      const row = await this.revision(manager, scope, dto.revisionId);
+      const row = await this.revision(manager, scope, dto.revisionId, orgScope, true);
       if (row.revision_no !== dto.expectedPeriodVersion) throw new ConflictException("HR_INSURANCE_OWNED_PERIOD_CHANGED");
       const inserted = typeormQueryRows<{ id: string }>(await manager.query("INSERT INTO hr_insurance_owned_close(tenant_id,park_id,revision_id,request_id,request_sha256,created_by,reason) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id", [scope.tenantId, scope.parkId, row.id, dto.requestId, requestHash, actor.sub, dto.reason.trim()]));
       await this.auditWrite(manager, scope, actor, "close", inserted[0]!.id, row.snapshot_sha256, false);
@@ -176,7 +250,7 @@ export class HrInsuranceOwnedPeriodService {
     this.authority(actor);
     if (!isUUID(id)) throw new BadRequestException("HR_INSURANCE_OWNED_ID_INVALID");
     return this.db.transaction("REPEATABLE READ", async manager => {
-      const row = await this.revision(manager, scope, id);
+      const row = await this.revision(manager, scope, id, await this.orgScope(manager, actor));
       const state: Array<{ closed: boolean; current: boolean }> = await manager.query("SELECT EXISTS(SELECT 1 FROM hr_insurance_owned_close WHERE tenant_id=$1 AND park_id=$2 AND revision_id=$3) AS closed,NOT EXISTS(SELECT 1 FROM hr_insurance_owned_revision WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$4 AND period_month=$5::date AND revision_no>$6) AS current", [scope.tenantId, scope.parkId, row.id, row.employee_id, `${row.period_month}-01`, row.revision_no]);
       await this.auditRead(manager, scope, actor, 1, id);
       return { ...this.revisionProjection(row), status: state[0]!.closed ? "closed" : "confirmed", current: state[0]!.current };
@@ -195,7 +269,8 @@ export class HrInsuranceOwnedPeriodService {
       if (query.status) predicates.push(query.status === "closed" ? closed : `NOT ${closed}`);
       // Current/history always probes every later revision, independent of the status filter above.
       if (query.revision) predicates.push(query.revision === "current" ? current : `NOT ${current}`);
-      const filter = predicates.join(" AND ");
+      const orgScope = await this.orgScope(manager, actor);
+      const filter = predicates.join(" AND ") + this.orgPredicate(orgScope, params);
       const from = "hr_insurance_owned_revision r JOIN hr_insurance_owned_preview p ON p.id=r.preview_id AND p.tenant_id=r.tenant_id AND p.park_id=r.park_id JOIN hr_employee e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id AND e.park_id=r.park_id";
       const total = (await manager.query(`SELECT count(*)::int AS n FROM ${from} WHERE ${filter}`, params))[0].n as number;
       const limitIndex = params.length + 1, offsetIndex = params.length + 2;
@@ -209,10 +284,10 @@ export class HrInsuranceOwnedPeriodService {
     this.authority(actor, HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE);
     const query = await this.input(HrInsurancePolicyQueryDto, value);
     return this.db.transaction("REPEATABLE READ", async manager => {
-      const params = [scope.tenantId, scope.parkId, `%${query.keyword?.trim() ?? ""}%`];
-      const filter = "tenant_id=$1 AND park_id=$2 AND NOT is_deleted AND (employee_code ILIKE $3 OR full_name ILIKE $3)";
+      const params: unknown[] = [scope.tenantId, scope.parkId, `%${query.keyword?.trim() ?? ""}%`];
+      const filter = "tenant_id=$1 AND park_id=$2 AND NOT is_deleted AND (employee_code ILIKE $3 OR full_name ILIKE $3)" + this.orgPredicate(await this.orgScope(manager, actor), params, "");
       const total = (await manager.query(`SELECT count(*)::int n FROM hr_employee WHERE ${filter}`, params))[0].n as number;
-      const items: Array<{ id: string; employeeCode: string; fullName: string; version: number; employmentStatus: string; previewEligible: boolean }> = await manager.query(`SELECT id,employee_code AS "employeeCode",full_name AS "fullName",version,employment_status AS "employmentStatus",employment_status IN ('active','probation') AS "previewEligible" FROM hr_employee WHERE ${filter} ORDER BY employee_code,id LIMIT $4 OFFSET $5`, [...params, query.page_size, (query.page - 1) * query.page_size]);
+      const items: Array<{ id: string; employeeCode: string; fullName: string; version: number; employmentStatus: string; previewEligible: boolean }> = await manager.query(`SELECT id,employee_code AS "employeeCode",full_name AS "fullName",version,employment_status AS "employmentStatus",employment_status IN ('active','probation') AS "previewEligible" FROM hr_employee WHERE ${filter} ORDER BY employee_code,id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, query.page_size, (query.page - 1) * query.page_size]);
       await this.audit.recordOperationRequired({ tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub, username: actor.username,
         realName: actor.realName ?? null, roleCodes: actor.roles, module: "人力资源管理", resource: "hr.insurance_owned_period", action: "读取社保期间选人",
         bizType: "hr_employee", bizId: null, beforeJson: null, afterJson: { fieldGroups: ["identity", "employment"], itemCount: items.length },

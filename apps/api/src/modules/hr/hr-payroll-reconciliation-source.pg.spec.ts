@@ -1,4 +1,13 @@
 import "reflect-metadata";
+import { UserEntity } from "../users/entities/user.entity";
+import { PermissionEntity } from "../permissions/entities/permission.entity";
+import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
+import { UserRoleEntity } from "../roles/entities/user-role.entity";
+
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { after, before, test } from "node:test";
@@ -35,7 +44,7 @@ before(async () => {
   if (!enabled) return;
   assert.match(database, /^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/);
   assert.ok(["127.0.0.1", "localhost"].includes(process.env.POSTGRES_HOST ?? ""));
-  db = new DataSource({ type: "postgres", host: process.env.POSTGRES_HOST, port: Number(process.env.POSTGRES_PORT), username: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD, database, synchronize: false, entities: [] });
+  db = new DataSource({ type: "postgres", host: process.env.POSTGRES_HOST, port: Number(process.env.POSTGRES_PORT), username: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD, database, synchronize: false, entities: [DataScopeRuleEntity,RoleDataScopeEntity,RoleEntity,UserRoleEntity,UserEntity,PermissionEntity,RolePermissionEntity] });
   await db.initialize();
   assert.equal((await db.query("SELECT count(*)::int AS count FROM hr_employee"))[0].count, 0, "fixture requires an empty isolated schema");
   await db.transaction("SERIALIZABLE", async (manager) => {
@@ -172,7 +181,7 @@ test("full-schema preview, audit rollback, freeze and exact-decimal simulation r
 test("explicit modern insurance sources affect money, reject stale revisions and preserve prior results", {skip:!enabled}, async()=>{
  const principal={...actor,permissions:["*"]};
  const audit={recordOperationRequired:async()=>undefined} as unknown as AuditService;
- const owned=new HrInsuranceOwnedPeriodService(db,audit),policies=new HrInsurancePolicyVersionService(db,audit),payroll=service();
+ const owned=new HrInsuranceOwnedPeriodService(db,audit,new DataScopeService(db.getRepository(DataScopeRuleEntity),db.getRepository(RoleDataScopeEntity),db.getRepository(RoleEntity),db.getRepository(UserRoleEntity))),policies=new HrInsurancePolicyVersionService(db,audit),payroll=service();
  const source=(await db.query("SELECT id FROM hr_payroll_reconciliation_source WHERE tenant_id=$1 AND park_id=$2 ORDER BY created_at LIMIT 1",[scope.tenantId,scope.parkId]))[0];
  const policy=await policies.create(scope,principal,{requestId:randomUUID(),policyCode:"SYN-MODERN",policyName:"合成政策",variantNo:1,effectiveFrom:"2026-01",effectiveThrough:"2026-12",reason:"合成验证",
   items:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,factors:{base:{rate:"0.01",fixedAmount:null},employer:{rate:"0.01",fixedAmount:null},employee:{rate:"0.01",fixedAmount:null},supplement:{rate:"0",fixedAmount:null}}}))});
