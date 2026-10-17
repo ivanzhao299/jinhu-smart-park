@@ -156,6 +156,10 @@ export class HomestayStayQueryDto extends HomestayUnitCandidateQueryDto {
   queue: "all" | "arrivals" | "departures" | "in_house" = "all";
 
   @IsOptional()
+  @IsIn(["confirmed", "checked_in", "checked_out"])
+  status?: "confirmed" | "checked_in" | "checked_out";
+
+  @IsOptional()
   @Validate(HomestayBusinessDateConstraint)
   business_date?: string;
 }
@@ -168,8 +172,8 @@ export class HomestayFinanceQueryDto extends HomestayUnitCandidateQueryDto {
 
 export class HomestayTurnoverQueryDto {
   @IsOptional()
-  @IsIn(["open", "pending", "cleaning", "inspection", "completed", "exception"])
-  status: "open" | "pending" | "cleaning" | "inspection" | "completed" | "exception" = "open";
+  @IsIn(["open", "all", "pending", "cleaning", "inspection", "completed", "exception"])
+  status: "open" | "all" | "pending" | "cleaning" | "inspection" | "completed" | "exception" = "open";
 
   @IsOptional()
   @Type(() => Number)
