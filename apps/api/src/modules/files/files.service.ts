@@ -434,8 +434,15 @@ export class FilesService {
   }
 
   async openReadStream(absolutePath: string) {
-    const handle=await open(absolutePath,"r");
-    return handle.createReadStream({autoClose:true});
+    try {
+      const handle = await open(absolutePath, "r");
+      return handle.createReadStream({ autoClose: true });
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+        throw new NotFoundException("附件文件缺失，请联系管理员补充");
+      }
+      throw error;
+    }
   }
 
   private validateFile(bizType: string, file: UploadedFilePayload): void {

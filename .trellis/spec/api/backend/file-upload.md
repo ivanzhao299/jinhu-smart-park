@@ -79,6 +79,7 @@
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
+- An authorized download whose stored bytes fail to open with `ENOENT` -> `NotFoundException` (404) with a path-free attachment-missing message, after normal permission/reference/audit checks. Other storage and required-audit failures remain errors, not missing-file responses; no download headers or bytes are emitted on any failure.
 - UTF-8 filename decoded as Latin-1 plus a byte-consistent `original_name` hint ->
   recover the original Unicode name before extension parsing and metadata persistence.
 - Missing or inconsistent `original_name` hint -> preserve the parser-provided name;
