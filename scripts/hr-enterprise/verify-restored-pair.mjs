@@ -19,7 +19,7 @@ export function databaseIdentity(config) {
   return sha256(JSON.stringify([config.host, String(config.port), config.database]));
 }
 
-async function regularFile(path, privateFile = false) {
+export async function regularFile(path, privateFile = false) {
   requireCondition(isAbsolute(path) && await realpath(path) === path, 'PAIR_FILE_PATH');
   const info = await lstat(path);
   requireCondition(info.isFile() && info.nlink === 1, 'PAIR_REGULAR_FILE_REQUIRED');
@@ -27,7 +27,7 @@ async function regularFile(path, privateFile = false) {
   return info;
 }
 
-async function digestFile(path) {
+export async function digestFile(path) {
   const before = await regularFile(path);
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
@@ -98,39 +98,46 @@ export const copyRowBytes = text => text.replace(/\\/g, '\\\\').replace(/\t/g, '
   .replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\u0008/g, '\\b')
   .replace(/\f/g, '\\f').replace(/\v/g, '\\v') + '\n';
 
-export async function inspectDatabase(db, expectedTables, installSteps) {
+// Caller must already own a consistent transaction. The ordinary content
+// checker wraps this in READ ONLY; offline registration holds maintenance locks.
+export async function inspectDatabaseSnapshot(db, expectedTables, installSteps) {
   const result = {};
+  await db.query("SET LOCAL statement_timeout='30s'");
+  await db.query("SET LOCAL lock_timeout='3s'");
+  await db.query("SET LOCAL TIME ZONE 'UTC'");
+  const {rows: tables} = await db.query("SELECT c.relname name,c.relkind kind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLATE \"C\"");
+  requireCondition(tables.every(t => t.kind === 'r') && same(tables.map(t => t.name),
+    Object.keys(expectedTables).sort()), 'PAIR_DATABASE_TABLE_SET');
+  const {rows: modes} = await db.query('SELECT runtime_mode,schema_version FROM public.sys_hr_runtime_schema');
+  requireCondition(modes.length === 1 && modes[0].runtime_mode === 'hr_enterprise'
+    && modes[0].schema_version === 1, 'PAIR_DATABASE_MODE');
+  requireCondition(!tables.some(t => ['biz_park', 'asset_park', 'rel_user_park'].includes(t.name)), 'PAIR_PARK_SCHEMA');
+  const {rows: history} = await db.query('SELECT file,sha256 FROM public.sys_hr_enterprise_schema_history ORDER BY file COLLATE "C"');
+  requireCondition(same(history, installSteps.map(s => ({file: s.file, sha256: s.sha256}))
+    .sort((a, b) => a.file < b.file ? -1 : 1)), 'PAIR_DATABASE_HISTORY');
+  for (const name of Object.keys(expectedTables).sort()) {
+    requireCondition(tablePattern.test(name), 'PAIR_TABLE_MANIFEST');
+    await db.query(`DECLARE pair_rows NO SCROLL CURSOR FOR SELECT to_jsonb(t)::text AS row FROM public."${name}" t ORDER BY (to_jsonb(t)::text) COLLATE "C"`);
+    let count = 0;
+    const hash = createHash('sha256');
+    while (true) {
+      const {rows} = await db.query('FETCH FORWARD 1000 FROM pair_rows');
+      if (!rows.length) break;
+      count += rows.length;
+      requireCondition(count <= expectedTables[name].rows, 'PAIR_DATABASE_ROWS');
+      for (const {row} of rows) hash.update(copyRowBytes(row));
+    }
+    await db.query('CLOSE pair_rows');
+    result[name] = {rows: count, sha256: hash.digest('hex')};
+    requireCondition(same(result[name], expectedTables[name]), 'PAIR_DATABASE_ROWS');
+  }
+  return result;
+}
+
+export async function inspectDatabase(db, expectedTables, installSteps) {
   await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
   try {
-    await db.query("SET LOCAL statement_timeout='30s'");
-    await db.query("SET LOCAL lock_timeout='3s'");
-    await db.query("SET LOCAL TIME ZONE 'UTC'");
-    const {rows: tables} = await db.query("SELECT c.relname name,c.relkind kind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLATE \"C\"");
-    requireCondition(tables.every(t => t.kind === 'r') && same(tables.map(t => t.name),
-      Object.keys(expectedTables).sort()), 'PAIR_DATABASE_TABLE_SET');
-    const {rows: modes} = await db.query('SELECT runtime_mode,schema_version FROM public.sys_hr_runtime_schema');
-    requireCondition(modes.length === 1 && modes[0].runtime_mode === 'hr_enterprise'
-      && modes[0].schema_version === 1, 'PAIR_DATABASE_MODE');
-    requireCondition(!tables.some(t => ['biz_park', 'asset_park', 'rel_user_park'].includes(t.name)), 'PAIR_PARK_SCHEMA');
-    const {rows: history} = await db.query('SELECT file,sha256 FROM public.sys_hr_enterprise_schema_history ORDER BY file COLLATE "C"');
-    requireCondition(same(history, installSteps.map(s => ({file: s.file, sha256: s.sha256}))
-      .sort((a, b) => a.file < b.file ? -1 : 1)), 'PAIR_DATABASE_HISTORY');
-    for (const name of Object.keys(expectedTables).sort()) {
-      requireCondition(tablePattern.test(name), 'PAIR_TABLE_MANIFEST');
-      await db.query(`DECLARE pair_rows NO SCROLL CURSOR FOR SELECT to_jsonb(t)::text AS row FROM public."${name}" t ORDER BY (to_jsonb(t)::text) COLLATE "C"`);
-      let count = 0;
-      const hash = createHash('sha256');
-      while (true) {
-        const {rows} = await db.query('FETCH FORWARD 1000 FROM pair_rows');
-        if (!rows.length) break;
-        count += rows.length;
-        requireCondition(count <= expectedTables[name].rows, 'PAIR_DATABASE_ROWS');
-        for (const {row} of rows) hash.update(copyRowBytes(row));
-      }
-      await db.query('CLOSE pair_rows');
-      result[name] = {rows: count, sha256: hash.digest('hex')};
-      requireCondition(same(result[name], expectedTables[name]), 'PAIR_DATABASE_ROWS');
-    }
+    const result = await inspectDatabaseSnapshot(db, expectedTables, installSteps);
     await db.query('COMMIT');
     return result;
   } catch (error) {
@@ -139,8 +146,8 @@ export async function inspectDatabase(db, expectedTables, installSteps) {
   }
 }
 
-export async function verifyRestoredPair(config) {
-  requireCondition(config?.mode === 'check' && shaPattern.test(config.manifestSha256), 'PAIR_CHECK_ONLY');
+export async function preparePairInputs(config) {
+  requireCondition(shaPattern.test(config?.manifestSha256), 'PAIR_MANIFEST_PIN');
   await regularFile(config.manifestPath, true);
   const bytes = await readFile(config.manifestPath);
   requireCondition(sha256(bytes) === config.manifestSha256, 'PAIR_MANIFEST_PIN');
@@ -150,7 +157,9 @@ export async function verifyRestoredPair(config) {
   requireCondition(target && typeof target.host === 'string' && target.host.length > 0
     && Number.isInteger(target.port) && target.port > 0 && target.port <= 65535
     && typeof target.database === 'string' && target.database.length > 0
-    && target.database !== 'jinhu_smart_park', 'PAIR_TARGET_CONFIG');
+    && target.database !== 'jinhu_smart_park'
+    && Object.keys(target).every(key => ['host', 'port', 'database', 'user', 'password', 'ssl'].includes(key)),
+  'PAIR_TARGET_CONFIG');
   requireCondition(databaseIdentity(target) !== manifest.sourceDatabaseIdentity, 'PAIR_SOURCE_IS_TARGET');
   requireCondition(sha256(config.fileRoot) !== manifest.sourceFileRootIdentity, 'PAIR_SOURCE_FILES_ARE_TARGET');
   const installBytes = await readFile(resolve(root, 'database/hr-enterprise/install-manifest.json'));
@@ -159,6 +168,13 @@ export async function verifyRestoredPair(config) {
   for (const step of install.steps) requireCondition(sha256(await readFile(resolve(root, step.file))) === step.sha256,
     'PAIR_INSTALL_SOURCE_DRIFT');
   requireCondition(same(await digestFile(config.dumpPath), manifest.dump), 'PAIR_DUMP_HASH');
+  return {manifest, install};
+}
+
+export async function verifyRestoredPair(config) {
+  requireCondition(config?.mode === 'check' && shaPattern.test(config.manifestSha256), 'PAIR_CHECK_ONLY');
+  const {manifest, install} = await preparePairInputs(config);
+  const target = config.target;
   const before = await inventoryFiles(config.fileRoot);
   requireCondition(same(before, ordered(manifest.files)), 'PAIR_FILES_HASH');
   const marker = JSON.parse(await readFile(resolve(config.fileRoot, markerName), 'utf8'));

@@ -1,5 +1,7 @@
 # 独立 HR 恢复内容配对核对
 
+配对内容通过后，如需对离线恢复目标登记文件绑定，使用独立的 [配对恢复登记入口](./hr-enterprise-restore-registration.md)；本页 check-only 工具本身仍不修改 marker。
+
 入口：`node scripts/hr-enterprise/verify-restored-pair.mjs /absolute/private/check-config.json`。该命令只检查，不迁移、不发薪、不改数据库、不改文件 marker、不启用恢复实例。
 
 配置和 manifest 均须为真实绝对路径、非链接、单链接普通文件，权限 0600（或更严格）；凭据只放配置，不提交。成功 stdout 为一条聚合 JSON；失败 stderr 仅固定错误代码、退出 1，不打印数据库错误或路径。请将实际运维回执保存在私有目录。

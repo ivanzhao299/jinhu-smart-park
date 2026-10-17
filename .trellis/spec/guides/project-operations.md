@@ -353,6 +353,8 @@ Reference files:
 
 `scripts/hr-enterprise/verify-restored-pair.mjs` is check-only: private hash-pinned frozen manifest, dump hash, exact public table/data fingerprints in a read-only consistent snapshot, current installation history/checksums, and link-free file inventories before/after. A content PASS must retain NOT_EXECUTED registration/HTTP and cannot authorize marker changes, prove physical target separation, full schema/function ACL/role equivalence, or production RTO/RPO. Never create expected fingerprints from the target under verification. Preserve existing RuntimeIsolationService rejection until a separately verified recovery registration exists. See `docs/testing/hr-enterprise-restored-pair.md`.
 
+`register-restored-pair.mjs` is a separate offline administrator operation, default check. Explicit apply binds a pinned physical target, full frozen schema/routine/role catalog and original pair manifest; takes managed file/DB locks and business-table write locks; rejects other target clients; re-observes global privileges in a fresh snapshot (repeatable-read cannot prove later global-role state). Marker replacement uses exact old identity/bytes and a durable atomic rename; exact replay revalidates the pristine restore. Preserve normal runtime isolation and use actual restored HTTP/file-root evidence; locks left by a killed owner require inspected operator recovery. No current production auto-run. See `docs/testing/hr-enterprise-restore-registration.md`.
+
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.
 
 ### Evidence-Bound Refactors

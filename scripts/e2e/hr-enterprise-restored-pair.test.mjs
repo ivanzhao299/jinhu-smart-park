@@ -77,6 +77,22 @@ test('database rejection rolls back the explicit read-only snapshot', async () =
   assert.equal(queries.some(sql => /^(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)/.test(sql)), false);
 });
 
+test('connection URI cannot override the declared target identity', async () => {
+  const directory = await realpathForTest();
+  try {
+    const path = resolve(directory, 'manifest.json');
+    const bytes = JSON.stringify(manifest());
+    await writeFile(path, bytes, {mode: 0o600});
+    await assert.rejects(verifyRestoredPair({mode: 'check', manifestPath: path, manifestSha256: sha256(bytes),
+      target: {host: '127.0.0.1', port: 5432, database: 'synthetic_target', connectionString: 'postgresql://synthetic/other'}}),
+    /PAIR_TARGET_CONFIG/);
+  } finally { await rm(directory, {recursive: true, force: true}); }
+});
+
+async function realpathForTest() {
+  return (await import('node:fs/promises')).realpath(await mkdtemp(resolve(tmpdir(), 'hr-pair-uri-')));
+}
+
 test('CLI refuses missing private configuration without dumping stacks or paths', () => {
   const r = spawnSync(process.execPath, ['scripts/hr-enterprise/verify-restored-pair.mjs'], {encoding: 'utf8'});
   assert.equal(r.status, 1);
