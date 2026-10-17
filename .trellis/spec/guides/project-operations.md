@@ -349,6 +349,10 @@ Reference files:
 
 ## Documentation Sync
 
+### Independent HR restored-pair content checks
+
+`scripts/hr-enterprise/verify-restored-pair.mjs` is check-only: private hash-pinned frozen manifest, dump hash, exact public table/data fingerprints in a read-only consistent snapshot, current installation history/checksums, and link-free file inventories before/after. A content PASS must retain NOT_EXECUTED registration/HTTP and cannot authorize marker changes, prove physical target separation, full schema/function ACL/role equivalence, or production RTO/RPO. Never create expected fingerprints from the target under verification. Preserve existing RuntimeIsolationService rejection until a separately verified recovery registration exists. See `docs/testing/hr-enterprise-restored-pair.md`.
+
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.
 
 ### Evidence-Bound Refactors

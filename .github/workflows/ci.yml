@@ -249,6 +249,9 @@ jobs:
       - name: Verify HR CI PostgreSQL preparation contract
         run: node scripts/e2e/hr-postgres-tool-preflight-contract.mjs
 
+      - name: Verify independent HR restored pair content checks
+        run: node --test scripts/e2e/hr-enterprise-restored-pair.test.mjs
+
       - name: Verify HR manager scoped role assignment
         timeout-minutes: 5
         run: |
