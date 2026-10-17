@@ -2,7 +2,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { INTERCEPTORS_METADATA } from "@nestjs/common/constants";
+import { INTERCEPTORS_METADATA, GUARDS_METADATA } from "@nestjs/common/constants";
 import { HR_INSURANCE_OWNED_PERMISSIONS, HR_PERMISSIONS } from "@jinhu/shared";
 import { PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
@@ -11,8 +11,12 @@ import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import { HR_INSURANCE_KINDS, calculateInsurancePreview } from "./hr-insurance-calculation";
 import { HrInsuranceOwnedPeriodController } from "./hr-insurance-owned-period.controller";
 import { HrInsuranceOwnedPeriodService } from "./hr-insurance-owned-period.service";
+import { HrInsuranceOwnedWriteScopeGuard } from "./hr-insurance-owned-write-scope.guard";
 import type { CreateHrInsuranceOwnedPreviewDto } from "./dto/hr-insurance-owned-period.dto";
 
+const construct = (args: unknown[], orgIds?: string[]) => Reflect.construct(HrInsuranceOwnedPeriodService, [...args, {
+  buildScopeFilter: async () => ({ dimension: "org", unrestricted: orgIds === undefined, allowed_ids: orgIds ?? [], scope_types: [orgIds === undefined ? "park" : "assigned"] })
+}]);
 const scope = { tenantId: randomUUID(), parkId: randomUUID() };
 const reads = [HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ];
 const actor: JwtPrincipal = { ...scope, sub: randomUUID(), username: "synthetic", roles: [], permissions: [...reads, ...Object.values(HR_INSURANCE_OWNED_PERMISSIONS)] };
@@ -29,6 +33,7 @@ test("owned period routes declare read scope, independent writes, replay interce
     const handler = HrInsuranceOwnedPeriodController.prototype[action];
     assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY, handler), [...reads, HR_INSURANCE_OWNED_PERMISSIONS[capability]]);
     assert.ok(Reflect.getMetadata(INTERCEPTORS_METADATA, handler).some((i: unknown) => i instanceof IdempotencyInterceptor));
+    assert.ok(Reflect.getMetadata(GUARDS_METADATA, handler).includes(HrInsuranceOwnedWriteScopeGuard));
   }
   assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY, HrInsuranceOwnedPeriodController).captureBody, false);
   assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY, HrInsuranceOwnedPeriodController.prototype.employeeOptions), [...reads, HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE]);
@@ -36,7 +41,7 @@ test("owned period routes declare read scope, independent writes, replay interce
 
 test("every period action checks independent authority before querying protected identities", async () => {
   let probes = 0;
-  const service = Reflect.construct(HrInsuranceOwnedPeriodService, [{ transaction: () => { probes++; } }, {}]) as HrInsuranceOwnedPeriodService;
+  const service = construct([{ transaction: () => { probes++; } }, {}]) as HrInsuranceOwnedPeriodService;
   const reader = { ...actor, permissions: reads };
   const confirm = { requestId: randomUUID(), previewId: randomUUID(), expectedPreviewHash: hash, reason: "合成测试" };
   await assert.rejects(service.preview(scope, reader, request()), /FORBIDDEN/u);
@@ -71,7 +76,7 @@ test("preview resolves server factors, canonicalizes bases, unwraps DML rows and
     assert.equal(received, manager); audits++;
     assert.deepEqual(entry.afterJson, { snapshotHash: hash, replayed: false, fieldGroups: ["insurance", "financial"] });
   } };
-  const service = Reflect.construct(HrInsuranceOwnedPeriodService, [{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, audit]) as HrInsuranceOwnedPeriodService;
+  const service = construct([{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, audit]) as HrInsuranceOwnedPeriodService;
   assert.equal((await service.preview(scope, actor, dto)).id, previewId);
   assert.equal(inserts, 1); assert.equal(audits, 1);
 });
@@ -93,7 +98,7 @@ test("durable preview replay precedes expiry and employee drift; changed content
     if (sql.includes("FROM hr_insurance_policy_version ")) return [{ version_no: 1, definition_sha256: hash, effective_from: "2026-01", effective_through: "2026-12", definition: { items } }];
     return [];
   } };
-  const service = Reflect.construct(HrInsuranceOwnedPeriodService, [{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, { recordOperationRequired: async () => { audits++; if (auditFail) throw new Error("synthetic audit failure"); } }]) as HrInsuranceOwnedPeriodService;
+  const service = construct([{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, { recordOperationRequired: async () => { audits++; if (auditFail) throw new Error("synthetic audit failure"); } }]) as HrInsuranceOwnedPeriodService;
   const first = await service.preview(scope, actor, dto);
   const replay = await service.preview(scope, actor, { ...dto, bases: [...dto.bases].reverse().map(b => ({ ...b, contributionBase: "10.00" })) });
   assert.deepEqual({ ...replay, replayed: false }, first);
@@ -123,7 +128,7 @@ test("confirm, close and correction unwrap returning rows and bind audit to the 
     if (sql.startsWith("SELECT r.id")) return [params[0] === nextId ? second : first];
     return [];
   } };
-  const service = Reflect.construct(HrInsuranceOwnedPeriodService, [{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, {
+  const service = construct([{ transaction: async (_isolation: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, {
     recordOperationRequired: async (entry: { action: string; afterJson: unknown }, received: unknown) => {
       assert.equal(received, manager); audits.push(entry.action);
       assert.deepEqual(entry.afterJson, { snapshotHash: hash, replayed: false, fieldGroups: ["insurance", "financial"] });
@@ -136,4 +141,85 @@ test("confirm, close and correction unwrap returning rows and bind audit to the 
   const corrected = await service.correct(scope, actor, { requestId: randomUUID(), previewId, expectedPreviewHash: hash, previousRevisionId: firstId, expectedPeriodVersion: 1, reason: " 合成更正 " });
   assert.equal(corrected.previousRevisionId, firstId); assert.equal(corrected.revisionNo, 2);
   assert.deepEqual(writes, ["confirm", "close", "correct"]); assert.deepEqual(audits, writes);
+});
+
+
+test("named organization scope hides detail, list counts and employee choices consistently", async () => {
+  const ids = [randomUUID()]; let audited = 0;
+  const manager = { query: async (sql: string, params: unknown[] = []) => {
+    if (sql.includes("FROM hr_insurance_owned_revision r") || sql.includes("FROM hr_employee WHERE")) {
+      assert.match(sql, /primary_org_id=ANY\(\$[0-9]+::uuid\[\]\)/u);
+      assert.ok(params.some(value => value === ids));
+      return sql.startsWith("SELECT count(") ? [{ n: 0 }] : [];
+    }
+    return [];
+  } };
+  const service = construct([{ transaction: async (_: string, run: (m: unknown) => Promise<unknown>) => run(manager) },
+    { recordOperationRequired: async () => { audited++; } }], ids) as HrInsuranceOwnedPeriodService;
+  await assert.rejects(service.detail(scope, actor, randomUUID()), /SOURCE_NOT_FOUND/u);
+  assert.equal((await service.list(scope, actor, { page: 2, page_size: 20, period_month: "2026-07" })).total, 0);
+  assert.equal((await service.employeeOptions(scope, actor, { page: 2, page_size: 20 })).total, 0);
+  assert.equal(audited, 2);
+});
+
+test("outside named organization cannot preview, confirm, correct or close before inserts", async () => {
+  const ids = [randomUUID()], previewId = randomUUID(); let writes = 0;
+  const manager = { query: async (sql: string, params: unknown[] = []) => {
+    if (sql.startsWith("INSERT")) writes++;
+    if (sql.includes("FROM hr_insurance_owned_preview WHERE") && sql.includes("FOR SHARE")) return [{ id: previewId, employee_id: randomUUID(), snapshot_sha256: hash }];
+    if (sql.includes("FROM hr_employee WHERE") || sql.includes("FROM hr_insurance_owned_revision r")) {
+      assert.match(sql, /primary_org_id=ANY/u); assert.ok(params.some(value => value === ids)); return [];
+    }
+    return [];
+  } };
+  const service = construct([{ transaction: async (_: string, run: (m: unknown) => Promise<unknown>) => run(manager) },
+    { recordOperationRequired: async () => assert.fail("denied source must not emit a successful audit") }], ids) as HrInsuranceOwnedPeriodService;
+  const confirm = { requestId: randomUUID(), previewId, expectedPreviewHash: hash, reason: "合成核对" };
+  await assert.rejects(service.preview(scope, actor, request()), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.confirm(scope, actor, confirm), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.correct(scope, actor, { ...confirm, previousRevisionId: randomUUID(), expectedPeriodVersion: 1 }), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.close(scope, actor, { requestId: randomUUID(), revisionId: randomUUID(), expectedPeriodVersion: 1, reason: "合成核对" }), /SOURCE_NOT_FOUND/u);
+  assert.equal(writes, 0);
+});
+
+test("named scope revalidation precedes existing-request content conflicts and replay responses", async () => {
+  const ids: string[] = [], existingId = randomUUID(); let probes = 0;
+  const manager = { query: async (sql: string, params: unknown[] = []) => {
+    if (sql.startsWith("SELECT id,created_by,request_sha256")) return [{ id: existingId, created_by: randomUUID(), request_sha256: "different" }];
+    if (sql.startsWith("SELECT c.id")) { probes++; assert.match(sql, /primary_org_id=ANY/u); assert.ok(params.some(value => value === ids)); }
+    if (sql.startsWith("INSERT")) assert.fail("revoked scope must not write");
+    return [];
+  } };
+  const service = construct([{ transaction: async (_: string, run: (m: unknown) => Promise<unknown>) => run(manager) },
+    { recordOperationRequired: async () => assert.fail("revoked scope must not audit a successful replay") }], ids) as HrInsuranceOwnedPeriodService;
+  const confirm = { requestId: randomUUID(), previewId: randomUUID(), expectedPreviewHash: hash, reason: "合成核对" };
+  await assert.rejects(service.preview(scope, actor, request()), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.confirm(scope, actor, confirm), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.correct(scope, actor, { ...confirm, previousRevisionId: randomUUID(), expectedPeriodVersion: 1 }), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.close(scope, actor, { requestId: randomUUID(), revisionId: randomUUID(), expectedPeriodVersion: 1, reason: "合成核对" }), /SOURCE_NOT_FOUND/u);
+  assert.equal(probes, 4);
+});
+
+
+test("pre-interceptor authorization blocks cached responses outside current named scope", async () => {
+  const ids = [randomUUID()]; let probes = 0;
+  const manager = { query: async (sql: string, params: unknown[] = []) => {
+    assert.ok(sql.startsWith("SELECT e.id")); assert.match(sql, /primary_org_id=ANY/u); assert.ok(params.some(value => value === ids)); probes++; return [];
+  } };
+  const service = construct([{ transaction: async (_: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, {}], ids) as HrInsuranceOwnedPeriodService;
+  const confirm = { requestId: randomUUID(), previewId: randomUUID(), expectedPreviewHash: hash, reason: "合成核对" };
+  await assert.rejects(service.authorizeWrite(scope, actor, "preview", request()), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.authorizeWrite(scope, actor, "confirm", confirm), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.authorizeWrite(scope, actor, "correct", { ...confirm, previousRevisionId: randomUUID(), expectedPeriodVersion: 1 }), /SOURCE_NOT_FOUND/u);
+  await assert.rejects(service.authorizeWrite(scope, actor, "close", { requestId: randomUUID(), revisionId: randomUUID(), expectedPeriodVersion: 1, reason: "合成核对" }), /SOURCE_NOT_FOUND/u);
+  assert.equal(probes, 4);
+});
+
+test("allowed named-scope replay authorization checks identity without recalculating expired business", async () => {
+  const ids = [randomUUID()]; let probes = 0;
+  const manager = { query: async (sql: string) => { assert.ok(sql.startsWith("SELECT e.id")); assert.doesNotMatch(sql, /expires_at|INSERT|UPDATE/u); probes++; return [{ id: randomUUID() }]; } };
+  const service = construct([{ transaction: async (_: string, run: (m: unknown) => Promise<unknown>) => run(manager) }, {}], ids) as HrInsuranceOwnedPeriodService;
+  await service.authorizeWrite(scope, actor, "correct", { requestId: randomUUID(), previewId: randomUUID(), expectedPreviewHash: hash,
+    previousRevisionId: randomUUID(), expectedPeriodVersion: 1, reason: "合成核对" });
+  assert.equal(probes, 2);
 });

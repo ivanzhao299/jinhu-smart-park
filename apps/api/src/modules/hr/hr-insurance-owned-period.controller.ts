@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards, UseInterceptors } from "@nestjs/common";
 import { HR_INSURANCE_OWNED_PERMISSIONS, HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -11,6 +11,8 @@ import { CloseHrInsuranceOwnedPeriodDto, ConfirmHrInsuranceOwnedPeriodDto, Corre
 import { HrInsurancePolicyQueryDto } from "./dto/hr-insurance-preview.dto";
 import { HrInsuranceOwnedPeriodService } from "./hr-insurance-owned-period.service";
 
+import { HrInsuranceOwnedWriteScopeGuard } from "./hr-insurance-owned-write-scope.guard";
+
 @Controller("hr/insurance/owned-periods")
 @RequireModule("hr")
 @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ)
@@ -20,21 +22,25 @@ export class HrInsuranceOwnedPeriodController {
 
   @Post("preview")
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_INSURANCE_OWNED_PERMISSIONS.PREVIEW_CREATE)
+  @UseGuards(HrInsuranceOwnedWriteScopeGuard)
   @UseInterceptors(new IdempotencyInterceptor())
   preview(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreateHrInsuranceOwnedPreviewDto) { return this.service.preview(scope, actor, dto); }
 
   @Post("confirm")
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_INSURANCE_OWNED_PERMISSIONS.CONFIRM)
+  @UseGuards(HrInsuranceOwnedWriteScopeGuard)
   @UseInterceptors(new IdempotencyInterceptor())
   confirm(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: ConfirmHrInsuranceOwnedPeriodDto) { return this.service.confirm(scope, actor, dto); }
 
   @Post("close")
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_INSURANCE_OWNED_PERMISSIONS.CLOSE)
+  @UseGuards(HrInsuranceOwnedWriteScopeGuard)
   @UseInterceptors(new IdempotencyInterceptor())
   close(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CloseHrInsuranceOwnedPeriodDto) { return this.service.close(scope, actor, dto); }
 
   @Post("correct")
   @RequirePermissions(HR_PERMISSIONS.HR_INSURANCE_READ, HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_INSURANCE_OWNED_PERMISSIONS.CORRECT)
+  @UseGuards(HrInsuranceOwnedWriteScopeGuard)
   @UseInterceptors(new IdempotencyInterceptor())
   correct(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CorrectHrInsuranceOwnedPeriodDto) { return this.service.correct(scope, actor, dto); }
 

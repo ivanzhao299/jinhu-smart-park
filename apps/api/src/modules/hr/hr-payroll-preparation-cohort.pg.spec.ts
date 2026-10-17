@@ -1,4 +1,13 @@
 import "reflect-metadata";
+import { UserEntity } from "../users/entities/user.entity";
+import { PermissionEntity } from "../permissions/entities/permission.entity";
+import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
+import { UserRoleEntity } from "../roles/entities/user-role.entity";
+
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { after, before, test } from "node:test";
@@ -34,7 +43,7 @@ before(async () => {
   assert.equal(process.env.HR_PREPARATION_COHORT_ISOLATED, "yes");
   assert.match(database, /^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/);
   assert.ok(["127.0.0.1", "localhost"].includes(process.env.POSTGRES_HOST ?? ""));
-  db = new DataSource({ type: "postgres", host: process.env.POSTGRES_HOST, port: Number(process.env.POSTGRES_PORT), username: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD, database, synchronize: false, entities: [] });
+  db = new DataSource({ type: "postgres", host: process.env.POSTGRES_HOST, port: Number(process.env.POSTGRES_PORT), username: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD, database, synchronize: false, entities: [DataScopeRuleEntity,RoleDataScopeEntity,RoleEntity,UserRoleEntity,UserEntity,PermissionEntity,RolePermissionEntity] });
   await db.initialize();
   assert.equal((await db.query("SELECT count(*)::int AS count FROM hr_employee"))[0].count, 0, "fixture requires an empty isolated schema");
   await db.transaction("SERIALIZABLE", async (manager) => {
@@ -104,7 +113,7 @@ test("same-month historical review and modern latest revision counts never imply
   await assert.rejects(db.query("INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id) VALUES($1,$2,$3,2026,7,2)",[scope.tenantId,scope.parkId,employeeId]),/unique|duplicate/);
   await db.query("UPDATE hr_employee_insurance_period SET needs_review=false WHERE id=$1",[historical]);assert.equal((await person()).historicalInsuranceSourceCount,1);
   const audit={recordOperationRequired:async()=>undefined} as unknown as AuditService;
-  const policies=new HrInsurancePolicyVersionService(db,audit),modern=new HrInsuranceOwnedPeriodService(db,audit);
+  const policies=new HrInsurancePolicyVersionService(db,audit),modern=new HrInsuranceOwnedPeriodService(db,audit,new DataScopeService(db.getRepository(DataScopeRuleEntity),db.getRepository(RoleDataScopeEntity),db.getRepository(RoleEntity),db.getRepository(UserRoleEntity)));
   const policy=await policies.create(scope,actor,{requestId:randomUUID(),policyCode:'COHORT',policyName:'Synthetic',variantNo:1,effectiveFrom:'2026-01',effectiveThrough:'2026-12',reason:'Synthetic',items:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,factors:{base:{rate:'0.01',fixedAmount:null},employer:{rate:'0.01',fixedAmount:null},employee:{rate:'0.01',fixedAmount:null},supplement:{rate:'0.01',fixedAmount:null}}}))});
   const dto={requestId:randomUUID(),employeeId,expectedEmployeeVersion:1,policyVersionId:policy.id,expectedDefinitionHash:policy.definitionHash,periodMonth:'2026-07',includeFund:false,bases:HR_INSURANCE_KINDS.map(insuranceKind=>({insuranceKind,contributionBase:'10.00'}))};
   const preview=await modern.preview(scope,actor,dto),revision=await modern.confirm(scope,actor,{requestId:randomUUID(),previewId:preview.id,expectedPreviewHash:preview.previewHash,reason:'Synthetic'});

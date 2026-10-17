@@ -1,4 +1,13 @@
 import "reflect-metadata";
+import { UserEntity } from "../users/entities/user.entity";
+import { PermissionEntity } from "../permissions/entities/permission.entity";
+import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { DataScopeRuleEntity } from "../data-scopes/entities/data-scope-rule.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
+import { UserRoleEntity } from "../roles/entities/user-role.entity";
+
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -27,10 +36,10 @@ before(async () => {
   assert.match(process.env.POSTGRES_DB ?? "", /^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/u);
   assert.equal(process.env.POSTGRES_HOST, "127.0.0.1"); assert.equal(process.env.HR_INSURANCE_OWNED_PERIOD_ISOLATED, "yes");
   db = new DataSource({ type: "postgres", host: process.env.POSTGRES_HOST, port: Number(process.env.POSTGRES_PORT), username: process.env.POSTGRES_USER,
-    password: process.env.POSTGRES_PASSWORD, database: process.env.POSTGRES_DB, entities: [OpLogEntity, LoginLogEntity], synchronize: false });
+    password: process.env.POSTGRES_PASSWORD, database: process.env.POSTGRES_DB, entities: [OpLogEntity, LoginLogEntity,DataScopeRuleEntity,RoleDataScopeEntity,RoleEntity,UserRoleEntity,UserEntity,PermissionEntity,RolePermissionEntity], synchronize: false });
   await db.initialize();
   const audit = new AuditService(db.getRepository(LoginLogEntity), db.getRepository(OpLogEntity));
-  service = new HrInsuranceOwnedPeriodService(db, audit); policy = new HrInsurancePolicyVersionService(db, audit);
+  service = new HrInsuranceOwnedPeriodService(db, audit, new DataScopeService(db.getRepository(DataScopeRuleEntity),db.getRepository(RoleDataScopeEntity),db.getRepository(RoleEntity),db.getRepository(UserRoleEntity))); policy = new HrInsurancePolicyVersionService(db, audit);
 });
 after(async () => { if (db?.isInitialized) await db.destroy(); });
 

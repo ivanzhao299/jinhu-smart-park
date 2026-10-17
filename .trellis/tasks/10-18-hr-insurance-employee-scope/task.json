@@ -1,0 +1,21 @@
+{
+  "id": "hr-insurance-employee-scope",
+  "name": "hr-insurance-employee-scope",
+  "title": "社保正式办理遵循员工部门范围",
+  "status": "in_progress",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-10-18",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "branch": "codex/hr-insurance-employee-scope-20261018",
+  "meta": {
+    "focusedUnitTests": 10,
+    "nativeChecks": 43,
+    "packageChecks": 14,
+    "actualHttpChecks": 28,
+    "productionDeployed": false,
+    "fullGoalComplete": false
+  }
+}
