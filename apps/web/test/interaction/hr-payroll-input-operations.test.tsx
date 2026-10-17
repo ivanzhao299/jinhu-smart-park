@@ -1,7 +1,10 @@
+import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PayrollInputOperations } from "../../app/hr/payroll/PayrollInputOperations";
+import { payrollInputCsv, parsePayrollInputCsv } from "../../app/hr/payroll/payroll-input-csv";
+import { csvDocument } from "../../lib/scoped-csv-export";
 const state=vi.hoisted(()=>({user:{id:"reviewer",tenant_id:"tenant",park_id:"park",permissions:[] as string[]},api:{payrollPeriods:vi.fn(),payrollInputs:vi.fn(),payrollInput:vi.fn(),updatePayrollInput:vi.fn(),confirmPayrollInput:vi.fn()}}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));vi.mock("../../lib/hr-api",()=>({hrApi:state.api}));
 const employees=Array.from({length:101},(_,index)=>({employeeId:`employee-${index}`,expectedEmployeeVersion:index+1,employeeCode:`SYN-${index}`,fullName:`员工${index}`,directItems:{收入:"123.4500",税:"0.0000"}}));
@@ -14,3 +17,24 @@ it("version drift while loading the roster cannot open a partial editor",async()
 it("failed save retains the full roster and reason with stable retry identity",async()=>{state.api.updatePayrollInput.mockRejectedValueOnce(new Error("合成修改失败"));await open();fireEvent.click(screen.getByRole("button",{name:"修改整批草稿"}));await screen.findByLabelText("修改准备说明");fireEvent.change(screen.getByLabelText("修改准备说明"),{target:{value:"重新核对所有员工"}});fireEvent.click(screen.getByRole("button",{name:"保存整批修改"}));await screen.findByText("合成修改失败");expect(screen.getByLabelText("修改准备说明")).toHaveValue("重新核对所有员工");fireEvent.click(screen.getByRole("button",{name:"保存整批修改"}));await screen.findByText("整批输入草稿已更新。");expect(state.api.updatePayrollInput.mock.calls[0]).toEqual(state.api.updatePayrollInput.mock.calls[1]);});
 it("confirmation is single flight and a committed refresh failure blocks repeats",async()=>{let complete!:(value:unknown)=>void;state.api.confirmPayrollInput.mockImplementation(()=>new Promise(resolve=>{complete=resolve;}));await open();fireEvent.click(screen.getByRole("button",{name:"确认整批工资输入"}));fireEvent.click(screen.getByRole("button",{name:"确认整批工资输入"}));expect(state.api.confirmPayrollInput).toHaveBeenCalledTimes(1);expect(screen.getByLabelText("查看输入期间")).toBeDisabled();state.api.payrollInput.mockRejectedValue(new Error("合成刷新失败"));await act(async()=>complete({...detail,status:"confirmed",version:5}));await screen.findByText("操作已提交，刷新失败；请刷新最新状态，勿重复提交。");expect(screen.queryByRole("button",{name:"确认整批工资输入"})).toBeNull();expect(state.api.confirmPayrollInput.mock.calls[0]![1]).toEqual({expectedVersion:4});});
 it("server action eligibility hides self-confirmation and terminal edits",async()=>{state.api.payrollInput.mockImplementation(async()=>({...detail,status:"confirmed",canEdit:false,canConfirm:false,employees:employees.slice(0,20)}));await open();expect(screen.queryByRole("button",{name:"修改整批草稿"})).toBeNull();expect(screen.queryByRole("button",{name:"确认整批工资输入"})).toBeNull();});
+
+beforeAll(() => vi.stubGlobal("crypto", webcrypto));
+afterAll(() => vi.unstubAllGlobals());
+
+it("CSV applies all 101 employees only to the draft and preserves versions, settlement dates and save contract", async()=>{
+  await open(); fireEvent.click(screen.getByRole("button",{name:"修改整批草稿"})); await screen.findByLabelText("员工0 · 收入");
+  fireEvent.change(screen.getByLabelText("员工0 · 结算开始"),{target:{value:"2026-10-02"}});
+  fireEvent.change(screen.getByLabelText("员工0 · 结算结束"),{target:{value:"2026-10-03"}});
+  fireEvent.change(screen.getByLabelText("员工0 · 补结算理由"),{target:{value:"保留补结算"}});
+  const context={binding:JSON.stringify({scope:["tenant","park"],input:"input",version:4,period:"period",rule:"approved",ruleSet:"rules"}),month:"2026-10",ruleName:"当期工资规则",revisionLabel:"修改第3版输入"};
+  const records=parsePayrollInputCsv(await payrollInputCsv(context,employees));records[3]![3]="99.9900"; records[103]![3]="9007199254740993.1234";
+  fireEvent.change(screen.getByLabelText("选择工资输入 CSV"),{target:{files:[new File([csvDocument(records)],"input.csv",{type:"text/csv"})]}});
+  fireEvent.click(screen.getByRole("button",{name:"预览整份录入表"}));await screen.findByText(/完整校验 101 位员工/);
+  expect(state.api.updatePayrollInput).not.toHaveBeenCalled(); expect(state.api.confirmPayrollInput).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox"));fireEvent.click(screen.getByRole("button",{name:"带入当前草稿"}));
+  expect(screen.getByLabelText("员工0 · 收入")).toHaveValue(99.99);expect(state.api.updatePayrollInput).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"保存整批修改"}));await screen.findByText("整批输入草稿已更新。");
+  const payload=state.api.updatePayrollInput.mock.calls[0]![1];expect(payload.expectedVersion).toBe(4);expect(payload.employees).toHaveLength(101);
+  expect(payload.employees[0]).toMatchObject({expectedEmployeeVersion:1,settlementStart:"2026-10-02",settlementEnd:"2026-10-03",eligibilityReason:"保留补结算",directItems:{收入:"99.9900",税:"0.0000"}});
+  expect(payload.employees[100].directItems.收入).toBe("9007199254740993.1234");expect(JSON.stringify(payload)).not.toContain("fullName");
+});

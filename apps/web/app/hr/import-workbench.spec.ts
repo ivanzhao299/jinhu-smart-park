@@ -344,12 +344,14 @@ test("route uses inherited authenticated layout, visible denial, safe selector a
   const page = readFileSync("app/hr/imports/HrImportsClient.tsx", "utf8");
   const layout = readFileSync("app/hr/layout.tsx", "utf8");
   const picker = readFileSync("components/files/LocalJsonFilePicker.tsx", "utf8");
+  const localPicker = readFileSync("components/files/LocalFilePicker.tsx", "utf8");
   assert.match(layout, /DashboardLayout/);
   assert.match(page, /PermissionGuard module="hr"/);
   assert.match(page, /ForbiddenState variant="page"/);
   assert.match(page, /apiRequest<unknown>/);
   assert.match(page, /idempotencyKey: key/);
-  assert.match(picker, /className="sr-only" type="file"/);
+  assert.match(picker, /<LocalFilePicker accept="\.json,application\/json,text\/json"/);
+  assert.match(localPicker, /className="sr-only" type="file"/);
   assert.doesNotMatch(page, /localStorage|sessionStorage|console\.|package_encrypted|\.projection/);
 });
 
