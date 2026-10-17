@@ -46,9 +46,31 @@ sed 's/HELPER_NAME/docker/g' > "$TEST_ROOT/bin/docker" <<'SH'
 #!/usr/bin/env sh
 set -eu
 printf 'HELPER_NAME %s\n' "$*" >> "$PROD_DEPLOY_TEST_LOG"
+case "$*" in
+  "info --format {{.DockerRootDir}}") printf '/synthetic/docker\n' ;;
+  "builder prune -af --keep-storage 0gb")
+    if [ "${PROD_DEPLOY_TEST_PRUNE_FAIL:-no}" = yes ]; then exit 25; fi
+    printf '%s\n' "$PROD_DEPLOY_TEST_FREE_AFTER_PRUNE" > "$PROD_DEPLOY_TEST_DISK_STATE"
+    ;;
+  *" build "*)
+    if [ -n "${PROD_DEPLOY_TEST_DISK_STATE:-}" ]; then
+      printf '%s\n' "$PROD_DEPLOY_TEST_FREE_AFTER_BUILD" > "$PROD_DEPLOY_TEST_DISK_STATE"
+    fi
+    ;;
+esac
 exit 0
 SH
 chmod +x "$TEST_ROOT/bin/docker"
+
+cat > "$TEST_ROOT/bin/df" <<'SH'
+#!/usr/bin/env sh
+set -eu
+test "$*" = '-Pk /synthetic/docker'
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+printf '/synthetic 100000000 10000000 %s 10%% /synthetic/docker\n' "$(cat "$PROD_DEPLOY_TEST_DISK_STATE")"
+test "${PROD_DEPLOY_TEST_DF_FAIL:-no}" != yes
+SH
+chmod +x "$TEST_ROOT/bin/df"
 
 run_case() {
   case_name="$1"
@@ -195,5 +217,68 @@ if env -u RUN_PRODUCTION_SEED \
 fi
 grep -Fq 'RUN_PRODUCTION_SEED must be yes or no' "$TEST_ROOT/empty-env.out"
 test ! -s "$empty_env_log"
+
+run_pressure_case() {
+  pressure_name="$1"
+  initial_free="$2"
+  after_build="$3"
+  after_prune="$4"
+  prune_failure="$5"
+  expected_prunes="$6"
+  expected_result="$7"
+  pressure_mode="${8:-full}"
+  df_failure="${9:-no}"
+  pressure_log="$TEST_ROOT/$pressure_name.log"
+  pressure_state="$TEST_ROOT/$pressure_name.disk"
+  : > "$pressure_log"
+  printf '%s\n' "$initial_free" > "$pressure_state"
+  pressure_status=0
+  PATH="$TEST_ROOT/bin:$PATH" \
+    PROD_DEPLOY_TEST_LOG="$pressure_log" \
+    PROD_DEPLOY_TEST_DISK_STATE="$pressure_state" \
+    PROD_DEPLOY_TEST_FREE_AFTER_BUILD="$after_build" \
+    PROD_DEPLOY_TEST_FREE_AFTER_PRUNE="$after_prune" \
+    PROD_DEPLOY_TEST_PRUNE_FAIL="$prune_failure" \
+    PROD_DEPLOY_TEST_DF_FAIL="$df_failure" \
+    ENV_FILE="$TEST_ROOT/workflow_yes_env_no.env" \
+    COMPOSE_FILE="$TEST_ROOT/infra/docker/docker-compose.prod.yml" \
+    PROD_DEPLOY_MODE="$pressure_mode" RUN_PRODUCTION_SEED=no \
+    PRUNE_DOCKER_BUILD_CACHE=yes PRUNE_DOCKER_AFTER_DEPLOY=yes \
+    sh "$TEST_ROOT/scripts/prod-deploy.sh" > "$TEST_ROOT/$pressure_name.out" 2>&1 || pressure_status=$?
+  prune_count="$(grep -c '^docker builder prune -af --keep-storage 0gb$' "$pressure_log" || true)"
+  test "$prune_count" -eq "$expected_prunes"
+  if [ "$expected_result" = pass ]; then
+    test "$pressure_status" -eq 0
+    test "$(grep -c '^prod-docker-cleanup$' "$pressure_log")" -eq 1
+    if [ "$expected_prunes" -eq 2 ]; then
+      first_prune="$(grep -n '^docker builder prune ' "$pressure_log" | head -1 | cut -d: -f1)"
+      last_prune="$(grep -n '^docker builder prune ' "$pressure_log" | tail -1 | cut -d: -f1)"
+      build_line="$(grep -n ' build ' "$pressure_log" | cut -d: -f1)"
+      stop_line="$(grep -En ' stop api$| up -d api$| up -d web$' "$pressure_log" | head -1 | cut -d: -f1)"
+      test "$first_prune" -lt "$build_line"
+      test "$build_line" -lt "$last_prune"
+      test "$last_prune" -lt "$stop_line"
+    fi
+  else
+    test "$pressure_status" -ne 0
+    if grep -Eq ' stop api$|^db-migrate$|^db-seed-prod$|^prod-healthcheck$|^prod-docker-cleanup$| up -d (api( web)?|web)$' "$pressure_log"; then
+      printf 'Disk/cache failure must stop before API quiesce or database mutation.\n' >&2
+      exit 1
+    fi
+  fi
+  if grep -Eq '^docker (image|volume|container|system) prune' "$pressure_log"; then
+    printf 'Build-space recovery must not prune images, containers or volumes.\n' >&2
+    exit 1
+  fi
+}
+
+run_pressure_case cache_reclaimed_before_and_after_build 5000000 2000000 12000000 no 2 pass
+run_pressure_case adequate_space_preserves_cache 32000000 25000000 25000000 no 0 pass
+run_pressure_case post_build_cache_failure 32000000 2000000 12000000 yes 1 fail
+run_pressure_case post_build_reserve_insufficient 32000000 100000 500000 no 1 fail
+run_pressure_case malformed_disk_observation invalid 2000000 12000000 no 0 fail
+run_pressure_case api_cache_reclaimed_before_and_after_build 5000000 2000000 12000000 no 2 pass api
+run_pressure_case web_cache_reclaimed_before_and_after_build 5000000 2000000 12000000 no 2 pass web
+run_pressure_case failed_disk_observation 32000000 2000000 12000000 no 0 fail full yes
 
 printf 'Production deploy seed precedence regression: PASS\n'

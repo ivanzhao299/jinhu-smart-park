@@ -248,6 +248,7 @@ Reference files:
 
 ### Deployment Artifact Cleanup Contract
 
+- Under explicit build-cache cleanup, inspect the Docker data filesystem before and after image builds. Reclaim only unused build cache under disk pressure, and fail before API quiescing/database work if cleanup fails or the minimum reserve cannot be met. Do not prune images between build and service replacement: the newly built image has no container yet. Health-gated post-deploy cleanup remains required.
 - Temporary credential files are deleted on both the CI runner and production host on success,
   command failure, interruption, and termination.
 - Register the remote-cleanup attempt before uploading credentials. A trap installed only after the
