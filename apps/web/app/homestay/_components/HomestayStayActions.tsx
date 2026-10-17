@@ -4,6 +4,7 @@ import type { HomestayBookingDetailResponse, HomestayGuestCandidateListResponse 
 import { type RefObject, useMemo, useState } from "react";
 import {
   ConsequenceDialog, PropertyPanelSurface, RemoteEntityPicker,
+  displayEntityName,
   type PropertyCapabilityProjection, type RemoteEntityOption
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
@@ -143,7 +144,7 @@ function NoShow({ bookingId, data, mutate, busy, errorMessage, fallbackFocusRef 
       onOpenChange={setOpen} open={open}
       reasonPolicy={{ kind: "required", label: "登记原因", minLength: 1, maxLength: 500 }}
       resultingState="未到店"
-      target={{ id: bookingId, label: `${data.booking.bookingCode} · ${data.booking.arrivalDate} 至 ${data.booking.departureDate}` }}
+      target={{ id: bookingId, label: `${displayEntityName(data.booking.unitName, data.booking.unitCode, "未命名房源")} · ${data.booking.bookingCode} · ${data.booking.arrivalDate} 至 ${data.booking.departureDate}` }}
       title="确认登记未到店"
     />
   </PropertyPanelSurface>;
