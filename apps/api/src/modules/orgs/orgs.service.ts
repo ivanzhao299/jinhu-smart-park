@@ -151,7 +151,11 @@ export class OrgsService {
     });
   }
 
-  async detail(scope: TenantParkScope, id: string, repository = this.orgRepository): Promise<OrgEntity> {
+  async detail(scope: TenantParkScope, actor: JwtPrincipal, id: string, repository = this.orgRepository): Promise<OrgEntity> {
+    const filter = await this.dataScopeService.buildScopeFilter(actor, "org");
+    if (!filter.unrestricted && !filter.allowed_ids.includes(id.toLowerCase())) {
+      throw new NotFoundException("Org not found");
+    }
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
     });
@@ -166,7 +170,7 @@ export class OrgsService {
       const { legacyCompanyManagerReference: protectedLegacyManagerReference, ...writableDto } = dto as
         UpdateOrgDto & { legacyCompanyManagerReference?: unknown };
       void protectedLegacyManagerReference;
-      const entity = await this.detail(scope, id, orgRepository);
+      const entity = await this.detail(scope, actor, id, orgRepository);
       if (dto.orgCode && dto.orgCode !== entity.orgCode) {
         await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
       }
@@ -192,9 +196,9 @@ export class OrgsService {
     });
   }
 
-  async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
+  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     return this.withHierarchyLock(scope, async ({ orgRepository, userOrgRepository }) => {
-      const entity = await this.detail(scope, id, orgRepository);
+      const entity = await this.detail(scope, actor, id, orgRepository);
       await this.assertNoActiveChildren(scope, id, "存在有效下级组织，不能删除", orgRepository);
       const activeUsers = await userOrgRepository.count({
         where: {
@@ -209,7 +213,7 @@ export class OrgsService {
         throw new BadRequestException("组织仍有关联用户，不能删除");
       }
       entity.isDeleted = true;
-      entity.updateBy = actorId;
+      entity.updateBy = actor.sub;
       await orgRepository.save(entity);
       return { id };
     });

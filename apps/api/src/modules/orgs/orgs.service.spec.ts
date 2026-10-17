@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { OrgsService } from "./orgs.service";
 import { OrgEntity } from "./entities/org.entity";
 import { UserOrgEntity } from "./entities/user-org.entity";
@@ -49,6 +49,7 @@ function createService(
     userOrgCountWhere?: unknown[];
     visibleOrgIds?: string[];
     orgSaveInputs?: Array<Record<string, unknown>>;
+    orgFindOneOptions?: unknown[];
   } = {}
 ) {
   const byId = new Map(orgs.map((org) => [org.id, org]));
@@ -60,7 +61,10 @@ function createService(
       }
       return [...orgs].sort((a, b) => a.sortOrder - b.sortOrder || a.orgName.localeCompare(b.orgName));
     },
-    findOne: async ({ where }: { where: { id: string } }) => byId.get(where.id) ?? null,
+    findOne: async (findOptions: { where: { id: string } }) => {
+      options.orgFindOneOptions?.push(findOptions);
+      return byId.get(findOptions.where.id.toLowerCase()) ?? null;
+    },
     findAndCount: async () => [[], 0], exists: async () => false, count: async () => options.childCount ?? 0,
     create: (value: unknown) => value,
     save: async (value: Record<string, unknown>) => {
@@ -102,7 +106,10 @@ function createService(
     { find: async () => [] } as never,
     userOrgRepository as never,
     userRepository as never,
-    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => options.treeWhere ?? where } as never,
+    {
+      buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => options.treeWhere ?? where,
+      buildScopeFilter: async () => ({ unrestricted: options.visibleOrgIds === undefined, allowed_ids: options.visibleOrgIds ?? [] })
+    } as never,
     {
       applyFieldPoliciesToList: async (...args: unknown[]) => {
         options.fieldPolicyCalls?.push(args);
@@ -132,7 +139,7 @@ test("update rejects a parent that creates a cycle", async () => {
 test("delete rejects an organization with active children", async () => {
   const root = makeOrg("root", null, 10);
   const service = createService([root], { childCount: 1 });
-  await assert.rejects(() => service.softDelete(scope, "actor", "root"), BadRequestException);
+  await assert.rejects(() => service.softDelete(scope, actor, "root"), BadRequestException);
 });
 
 test("update rejects self, missing and disabled parents", async () => {
@@ -147,7 +154,7 @@ test("update rejects self, missing and disabled parents", async () => {
 test("delete rejects an organization with active user assignments", async () => {
   const root = makeOrg("root", null, 10);
   const service = createService([root], { userCount: 1 });
-  await assert.rejects(() => service.softDelete(scope, "actor", "root"), BadRequestException);
+  await assert.rejects(() => service.softDelete(scope, actor, "root"), BadRequestException);
 });
 
 test("tree applies the organization data-scope predicate", async () => {
@@ -160,11 +167,55 @@ test("tree applies the organization data-scope predicate", async () => {
   assert.equal((orgFindOptions[0] as { where: unknown }).where, treeWhere);
 });
 
+test("exact organization reads and writes reject hidden IDs before target lookup", async () => {
+  const allowed = makeOrg("allowed", null, 10);
+  const hidden = makeOrg("hidden", null, 20);
+  const orgFindOneOptions: unknown[] = [];
+  const orgSaveInputs: Array<Record<string, unknown>> = [];
+  const service = createService([allowed, hidden], {
+    visibleOrgIds: [allowed.id], orgFindOneOptions, orgSaveInputs
+  });
+  const limitedActor = { ...actor, permissions: ["system:org:detail", "system:org:update", "system:org:delete"] };
+  await assert.rejects(service.detail(scope, limitedActor, hidden.id), NotFoundException);
+  await assert.rejects(service.update(scope, limitedActor, hidden.id, { orgName: "Hidden overwrite" }), NotFoundException);
+  await assert.rejects(service.softDelete(scope, limitedActor, hidden.id), NotFoundException);
+  assert.equal(orgFindOneOptions.length, 0);
+  assert.equal(orgSaveInputs.length, 0);
+  assert.equal(hidden.orgName, "hidden");
+  assert.equal(hidden.isDeleted, false);
+});
+
+test("an allowed organization keeps its exact ID and remains editable", async () => {
+  const allowed = makeOrg("allowed", null, 10);
+  const other = makeOrg("other", null, 20);
+  const orgFindOneOptions: unknown[] = [];
+  const service = createService([allowed, other], { visibleOrgIds: [allowed.id], orgFindOneOptions });
+  const limitedActor = { ...actor, permissions: ["system:org:detail", "system:org:update", "system:org:delete"] };
+  assert.equal((await service.detail(scope, limitedActor, allowed.id)).id, allowed.id);
+  await service.update(scope, limitedActor, allowed.id, { orgName: "Allowed edit" });
+  assert.equal(allowed.orgName, "Allowed edit");
+  assert.equal(other.orgName, "other");
+  assert.deepEqual((orgFindOneOptions[0] as { where: unknown }).where, {
+    id: allowed.id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false
+  });
+  await service.softDelete(scope, limitedActor, allowed.id);
+  assert.equal(allowed.isDeleted, true);
+  assert.equal(allowed.updateBy, actor.sub);
+});
+
+test("allowed canonical UUIDs accept uppercase request spelling without widening visibility", async () => {
+  const id = "00000000-0000-4000-8000-abcdefabcdef";
+  const service = createService([makeOrg(id, null, 0)], { visibleOrgIds: [id] });
+  const limitedActor = { ...actor, permissions: ["system:org:detail"] };
+  assert.equal((await service.detail(scope, limitedActor, id.toUpperCase())).id, id);
+  await assert.rejects(service.detail(scope, limitedActor, "00000000-0000-4000-8000-000000000000"), NotFoundException);
+});
+
 test("delete counts only assignments belonging to active users", async () => {
   const userOrgCountWhere: unknown[] = [];
   const root = makeOrg("root", null, 10);
   const service = createService([root], { userOrgCountWhere });
-  await service.softDelete(scope, "actor", "root");
+  await service.softDelete(scope, actor, "root");
   assert.deepEqual(userOrgCountWhere[0], {
     tenantId: scope.tenantId,
     parkId: scope.parkId,
