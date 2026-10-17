@@ -1,0 +1,13 @@
+{
+  "id": "hr-lifecycle-calendar-date",
+  "title": "生命周期截止日按业务纯日期返回",
+  "status": "in_progress",
+  "createdAt": "2026-10-18",
+  "branch": "codex/hr-lifecycle-calendar-date-20261018",
+  "parent": "10-02-yuzhou-modern-production-parity",
+  "meta": {
+    "schemaChanged": false,
+    "financialWrites": false,
+    "fullParentGoalComplete": false
+  }
+}

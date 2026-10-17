@@ -37,3 +37,7 @@ Exercise the real Nest ValidationPipe for null/string/empty nested items, wrong 
 
 Wrong: overwrite V1 task names or require READ to populate an already-authorized ASSIGN action.
 Correct: action-specific summary plus exact manage detail; insertV2 and retainV1 snapshot.
+
+## Calendar-date projection
+
+Checklist list/detail and task detail return dueDate as YYYY-MM-DD text or null. Format PostgreSQL DATE with to_char at the service query boundary, preserving calendar meaning across Node and database time zones. Do not serialize DATE through a JavaScript Date or treat completion instants as date-only values. Relative deadlines remain submitted checklist dueDate plus defaultDueDays; no stored rows or workflow states change. Verify actual list/detail queries with nonnull/null dates and multiple process/session zones, plus the full native lifecycle continuation fixture.

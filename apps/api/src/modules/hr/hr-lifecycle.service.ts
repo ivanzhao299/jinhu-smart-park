@@ -241,7 +241,7 @@ export class HrLifecycleService {
       );
     const where = filters.join(" AND ");
     const rows = await this.db.query(
-      `SELECT c.id,c.employee_id "employeeId",e.full_name "employeeName",c.checklist_type "type",c.status,c.due_date "dueDate",
+      `SELECT c.id,c.employee_id "employeeId",e.full_name "employeeName",c.checklist_type "type",c.status,to_char(c.due_date,'YYYY-MM-DD') "dueDate",
               COUNT(i.id)::int "itemCount",COUNT(i.id) FILTER(WHERE i.status IN('completed','waived'))::int "doneCount",
               COUNT(i.id) FILTER(WHERE i.due_date<CURRENT_DATE AND i.status IN('pending','returned'))::int "overdueCount",
               COUNT(*) OVER()::int "totalCount"
@@ -278,7 +278,7 @@ export class HrLifecycleService {
     const access = this.scope(a);
     if (access === "none") throw new NotFoundException("Checklist not found");
     const rows = await this.db.query(
-      `SELECT c.id,c.employee_id "employeeId",e.full_name "employeeName",e.user_id "employeeUserId",e.manager_employee_id "managerEmployeeId",c.checklist_type "type",c.status,c.due_date "dueDate",c.snapshot FROM hr_lifecycle_checklist c JOIN hr_employee e ON e.tenant_id=c.tenant_id AND e.park_id=c.park_id AND e.id=c.employee_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.park_id=$3 AND c.is_deleted=false`,
+      `SELECT c.id,c.employee_id "employeeId",e.full_name "employeeName",e.user_id "employeeUserId",e.manager_employee_id "managerEmployeeId",c.checklist_type "type",c.status,to_char(c.due_date,'YYYY-MM-DD') "dueDate",c.snapshot FROM hr_lifecycle_checklist c JOIN hr_employee e ON e.tenant_id=c.tenant_id AND e.park_id=c.park_id AND e.id=c.employee_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.park_id=$3 AND c.is_deleted=false`,
       [id, s.tenantId, s.parkId],
     );
     const c = rows[0];
@@ -305,7 +305,7 @@ export class HrLifecycleService {
         throw new NotFoundException("Checklist not found");
     }
     const items = await this.db.query(
-      `SELECT id,item_code "itemCode",item_name "itemName",category,sequence_no "sequenceNo",status,responsible_user_id "responsibleUserId",due_date "dueDate",required,completed_at "completedAt",CASE WHEN due_date<CURRENT_DATE AND status IN('pending','returned') THEN true ELSE false END overdue FROM hr_lifecycle_checklist_item WHERE tenant_id=$1 AND park_id=$2 AND checklist_id=$3 ORDER BY sequence_no`,
+      `SELECT id,item_code "itemCode",item_name "itemName",category,sequence_no "sequenceNo",status,responsible_user_id "responsibleUserId",to_char(due_date,'YYYY-MM-DD') "dueDate",required,completed_at "completedAt",CASE WHEN due_date<CURRENT_DATE AND status IN('pending','returned') THEN true ELSE false END overdue FROM hr_lifecycle_checklist_item WHERE tenant_id=$1 AND park_id=$2 AND checklist_id=$3 ORDER BY sequence_no`,
       [s.tenantId, s.parkId, id],
     );
     await recordHrSensitiveRead(this.audit, s, a, {
