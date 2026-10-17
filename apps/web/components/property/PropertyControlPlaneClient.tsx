@@ -15,6 +15,7 @@ import type {
   IncidentListItem,
   NotificationDetail,
   NotificationListItem,
+  PartyListResponse,
   PropertyPaginatedResult
 } from "@jinhu/shared";
 import type { Route } from "next";
@@ -28,8 +29,10 @@ import { hasPermission } from "../../lib/permissions";
 import {
   PropertyPageSurface,
   PropertyPanelSurface,
+  RemoteEntityPicker,
   propertyLabels,
-  useDirtyLeaveGuard
+  useDirtyLeaveGuard,
+  type RemoteEntityOption
 } from "../../features/property-shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { FileUploader } from "../files/FileUploader";
@@ -172,22 +175,27 @@ function ControlPlaneRecords({ config, items, surface }: {
   surface: PropertyControlPlaneSurface;
 }) {
   if (!items.length) return <PropertyPanelSurface><p>当前筛选条件下暂无记录。</p></PropertyPanelSurface>;
+  const actionLabel = surface === "identity" ? "进入核验" : "查看详情";
   return <>
     <section className={`ds-table-shell ${styles.desktopOnly}`}>
-      <table aria-label={`${config.title}桌面列表`}><thead><tr><th>记录</th><th>状态</th><th>来源</th><th>更新时间</th></tr></thead>
+      <table aria-label={`${config.title}桌面列表`}><thead><tr><th>记录</th><th>状态</th><th>来源</th><th>更新时间</th><th>操作</th></tr></thead>
         <tbody>{items.map((item) => {
           const row = normalize(item, surface);
-          return <tr key={row.id}><td><Link className={styles.tableLink} href={`${config.route}/${row.id}`}>{row.title}</Link></td>
-            <td>{row.status}</td><td>{row.source}</td><td>{formatTime(row.updatedAt)}</td></tr>;
+          const href = `${config.route}/${row.id}` as Route;
+          return <tr key={row.id}><td><Link className={styles.tableLink} href={href}>{row.title}</Link></td>
+            <td>{row.status}</td><td>{row.source}</td><td>{formatTime(row.updatedAt)}</td>
+            <td><Link className="ds-button ds-button-secondary" href={href}>{actionLabel}</Link></td></tr>;
         })}</tbody></table>
     </section>
     <section aria-label={`${config.title}移动列表`} className={`ds-mobile-record-list ${styles.mobileOnly}`}>
       {items.map((item) => {
         const row = normalize(item, surface);
+        const href = `${config.route}/${row.id}` as Route;
         return <article className="ds-mobile-record" key={row.id}>
-          <Link className={styles.tableLink} href={`${config.route}/${row.id}`}>{row.title}</Link>
+          <Link className={styles.tableLink} href={href}>{row.title}</Link>
           <div className={styles.recordMeta}><span>状态：{row.status}</span><span>来源：{row.source}</span>
             <span>更新时间：{formatTime(row.updatedAt)}</span></div>
+          <div className="ds-action-bar"><Link className="ds-button ds-button-secondary" href={href}>{actionLabel}</Link></div>
         </article>;
       })}
     </section>
@@ -391,12 +399,29 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   </PropertyPageSurface>;
 }
 
+async function loadPartyOptions(input: {
+  query: string; page: number; pageSize: number; signal: AbortSignal
+}) {
+  const keyword = input.query.trim();
+  const response = await apiRequest<PartyListResponse>(
+    `/property/parties?page=${input.page}&page_size=${input.pageSize}${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`,
+    { token: getAccessToken() ?? undefined, signal: input.signal }
+  );
+  return {
+    items: response.data.items.map((item) => ({ id: item.id, label: item.displayName })),
+    page: response.data.page, pageSize: response.data.page_size, total: response.data.total
+  };
+}
+
 function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
   partyId: string | null;
   identityRows: IdentitySubmissionProjection[];
   onCreated: () => void;
 }) {
   const [draftPartyId, setDraftPartyId] = useState(partyId ?? "");
+  const [draftPartyOption, setDraftPartyOption] = useState<RemoteEntityOption | null>(
+    partyId ? { id: partyId, label: partyId } : null
+  );
   const [expectedIdentityVersion, setExpectedIdentityVersion] = useState(0);
   const [supersedesSubmissionId, setSupersedesSubmissionId] = useState("");
   const [expectedSupersededStatus, setExpectedSupersededStatus] = useState<"rejected" | "withdrawn" | "verified" | "">("");
@@ -469,11 +494,11 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
     event.preventDefault();
     if (busy) return;
     if (!draftPartyId.trim()) {
-      setFeedback("请填写 Party ID。");
+      setFeedback("请先选择个人档案。");
       return;
     }
     if (!UUID_PATTERN.test(draftPartyId.trim())) {
-      setFeedback("Party ID 需为有效 UUID。");
+      setFeedback("所选个人档案无效，请重新选择。");
       return;
     }
     if (terminalCasPending) {
@@ -494,7 +519,11 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
       expectedSupersededVersion > 0 ? String(expectedSupersededVersion) : ""
     ];
     if (supersessionValues.some(Boolean) && !supersessionValues.every(Boolean)) {
-      setFeedback("复核原提交 ID、状态和版本需要同时填写。");
+      setFeedback("复核原提交 ID、状态和版本需要同时填写；首次核验请把这三项全部留空或保持默认。");
+      return;
+    }
+    if (supersedesSubmissionId.trim() && !UUID_PATTERN.test(supersedesSubmissionId.trim())) {
+      setFeedback("复核原提交 ID 需为核验提交的 UUID；首次核验请把这三项全部留空或保持默认。");
       return;
     }
     setBusy(true);
@@ -530,13 +559,18 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
   return <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE}>
     <PropertyPanelSurface title="创建身份核验草稿">
       <form className={styles.actionForm} onSubmit={(event) => void createDraft(event)}>
+        <RemoteEntityPicker
+          authorized contextValid invalidationKey="identity-draft-party"
+          label="个人档案（可输入姓名搜索）" loadOptions={loadPartyOptions}
+          minQueryLength={0} placeholder="选择个人档案，可输入姓名搜索"
+          value={draftPartyOption}
+          onChange={(option) => {
+            createKey.current = null;
+            setDraftPartyOption(option);
+            setDraftPartyId(option?.id ?? "");
+          }}
+        />
         <div className={styles.formGrid}>
-          <label>Party ID
-            <input name="party_id" required value={draftPartyId} onChange={(event) => {
-              createKey.current = null;
-              setDraftPartyId(event.target.value);
-            }} />
-          </label>
           <label>预期身份版本
             <input min={0} name="expected_identity_version" onFocus={(event) => event.target.select()} step={1} type="number" value={expectedIdentityVersion}
               onChange={(event) => {
@@ -549,7 +583,7 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
           将基于当前终态提交（{propertyLabels.identitySubmissionStatus(terminalSubmission.status)}，版本 {terminalSubmission.version}）创建复核草稿。
         </p> : null}
         <div className={styles.formGrid}>
-          <label>复核原提交 ID
+          <label>复核原提交 ID（首次核验请留空）
             <input name="supersedes_submission_id" value={supersedesSubmissionId} onChange={(event) => {
               createKey.current = null;
               setSupersedesSubmissionId(event.target.value);
