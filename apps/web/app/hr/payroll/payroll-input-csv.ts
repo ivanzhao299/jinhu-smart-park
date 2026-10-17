@@ -26,7 +26,9 @@ export function decodePayrollInputCsv(bytes: ArrayBuffer): string {
 }
 
 /** Bounded RFC4180 reader. Never evaluate cells or expose their contents in errors. */
-export function parsePayrollInputCsv(text: string): string[][] {
+export function parsePayrollInputCsv(text: string, options: { maxCellLength?: number } = {}): string[][] {
+  const maxCellLength = options.maxCellLength ?? 1024;
+  requireCondition(Number.isSafeInteger(maxCellLength) && maxCellLength >= 1 && maxCellLength <= PAYROLL_INPUT_CSV_MAX_BYTES, "CSV 单元格限制无效。");
   requireCondition(new TextEncoder().encode(text).byteLength <= PAYROLL_INPUT_CSV_MAX_BYTES, "CSV 文件不能超过 32 MiB。");
   const input = text.replace(/^\uFEFF/u, ""), records: string[][] = [];
   let record: string[] = [], cell = "", quoted = false, closed = false, touched = false;
@@ -42,7 +44,7 @@ export function parsePayrollInputCsv(text: string): string[][] {
     else if (char === "\r" || char === "\n") { row(); if (char === "\r" && input[index + 1] === "\n") index++; }
     else if (char === '"' && !cell && !closed) { quoted = true; touched = true; }
     else { requireCondition(!closed && char !== '"', "CSV 引号或分隔格式无效。"); cell += char; touched = true; }
-    requireCondition(cell.length <= 1024, "CSV 单元格内容过长。");
+    requireCondition(cell.length <= maxCellLength, "CSV 单元格内容过长。");
   }
   requireCondition(!quoted, "CSV 引号未闭合。");
   if (touched || cell || closed || record.length) row();

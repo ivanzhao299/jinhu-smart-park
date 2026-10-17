@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/web/frontend/hr-payroll-rule-choice-csv.md", "reason": "Complete choice-sheet contract and acceptance"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-modern-rule-maintenance.md", "reason": "Existing rule authoring and independent review"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-csv.md", "reason": "Preserve input CSV defaults and local-reader lifecycle"}
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "Shared file picker and constrained inputs"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse current CSV parser and controls"}
