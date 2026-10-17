@@ -1,5 +1,7 @@
 # 独立企业 HR 双模式验证
 
+恢复后的数据库/附件内容检查见 [恢复内容配对核对](./hr-enterprise-restored-pair.md)。该入口不更新 runtime marker，不替代实际恢复启动、角色/结构核验或生产 RTO/RPO。
+
 `node scripts/e2e/hr-enterprise-runtime.mjs` 必须传 `HR_ENTERPRISE_E2E_CONFIG=/private/owned-config.json`。没有配置、非0600文件、非loopback API/数据库、非精确匹配 `jinhu.hr-enterprise-runtime=<container>` label 的 `hr-enterprise-*` owned Docker 容器均失败，不静默跳过。配置 `allowSyntheticWrites:true` 只授权隔离测试资源，不能作为业务接口 trusted flag；服务端仍使用真实登录、权限、DTO、状态、CAS、审计和数据库幂等。
 
 配置包含 `outputDir`（0700）、`jwtSecret`（synthetic前缀的测试签名密钥）及 `enterprise`/`integrated` 两组：`container,port,database,user,apiBase,tenantId,scopeKey,username,password`。两个 API 必须采用同一测试密钥，以实际验证 mode claim，不能把不同签名密钥的失败冒充模式隔离。密码只存私有合成配置，不提交。API 正常根入口与全部真实 guards/interceptors 启动；不能使用测试主体 stub 或 fake park。

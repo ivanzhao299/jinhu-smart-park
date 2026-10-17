@@ -27,3 +27,12 @@ Root串行负责恢复补丁，仅修改部署脚本、对应确定性测试及�
 ## 当前明确文件所有权
 
 Root 独占 apps/web 本功能文件与测试（登录、企业切换、导航、成员/角色及消息页面）；原实施者不再编辑 Web。实施者独占 API/shared/独立 DDL/scripts/runtime docs 与后端测试。未创建新代理；两位既有写者文件互不重叠。Root 仍独占 PRD/task/context manifests/父 metadata。
+
+## 发布完成后的配对恢复续接
+
+PR986/987 已完成合并、主干 CI、生产部署及实际 API/Web d9c0d6a55ed206fb5a9641e4ee0b8dcbb8ed1370 版本证明。旧发布句柄终态，不重启。既有实施者所有权已释放，本片 root 单写，保留主目录无关改动。
+
+1. 将内容校验入口固化为可重复使用的只读脚本；维护私有 manifest/config 格式和固定错误代码，不内置密码或私有路径。
+2. 执行 `node --test scripts/e2e/hr-enterprise-restored-pair.test.mjs`、两文件 `node --check`、`git diff --check`。实际 owned PostgreSQL 从原冻结合成 dump 恢复，验证全量内容及缺件、额外表、行漂移、历史冲突、缺少模式行负例；不禁用约束。原备份/原实例保留，临时恢复库/文件根精确清理。
+3. 新鲜 fetch、审查最终 diff、提交/PR；运维工具不接入生产自动执行，不将内容验证当成完整恢复验收。
+4. 下一片补完整结构/函数 ACL/角色及物理目标证明、源目标清单绑定的显式 CAS 恢复登记，随后实际恢复 HTTP/业务/文件回读。工资 2026-07 全部已导入账套和记录、吴恩国、只算不发保持；真实岗位、旧端等价和父任务最终验收保留。
