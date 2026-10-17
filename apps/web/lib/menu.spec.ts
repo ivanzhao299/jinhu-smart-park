@@ -93,17 +93,24 @@ test("property menus expose the shared 8/9 canonical surfaces with exact page pe
   const menus = getDashboardMenus();
   assert.equal(menus.find((menu) => menu.module === "housing_rental")?.label, "长租经营");
   for (const moduleCode of ["homestay", "housing_rental"] as const) {
-    const expected = PROPERTY_BUSINESS_SURFACES
+    const surfaceChildren = PROPERTY_BUSINESS_SURFACES
       .filter((surface) => surface.moduleCode === moduleCode)
       .map(({ route, pageCode }) => ({
         href: route,
         permission: pageCode,
         module: moduleCode
       }));
+    const expected = moduleCode === "homestay"
+      ? [...surfaceChildren, { href: "/assets/parties", permission: "party:read", module: "asset" }]
+      : surfaceChildren;
     const actual = menus.find((menu) => menu.module === moduleCode)?.children
       ?.map(({ href, permission, module }) => ({ href, permission, module }));
     assert.deepEqual(actual, expected);
   }
+  const homestayPartiesChild = menus.find((menu) => menu.module === "homestay")?.children
+    ?.find((child) => child.href === "/assets/parties");
+  assert.equal(homestayPartiesChild?.label, "个人档案");
+  assert.equal(FIRST_RELEASE_MENU_PATH_SET.has("/assets/parties"), true);
 
   assert.equal(
     menus.flatMap((menu) => menu.children ?? [])
@@ -191,8 +198,15 @@ test("property menu nodes require only their module and granular page permission
     .filter((menu) => menu.module === "homestay" || menu.module === "housing_rental")
     .flatMap((menu) => menu.children ?? []);
 
-  assert.equal(propertyChildren.length, 17);
+  assert.equal(propertyChildren.length, 18);
   for (const child of propertyChildren) {
+    if (child.href === "/assets/parties") {
+      assert.deepEqual(
+        { module: child.module, permission: child.permission },
+        { module: "asset", permission: "party:read" }
+      );
+      continue;
+    }
     const surface = PROPERTY_BUSINESS_SURFACES.find((item) => item.route === child.href);
     assert.ok(surface);
     assert.deepEqual(
