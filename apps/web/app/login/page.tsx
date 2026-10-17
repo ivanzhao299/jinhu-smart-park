@@ -35,6 +35,7 @@ interface LoginFormValues {
 export default function LoginPage() {
   const router = useRouter();
   const branding = useAppBranding();
+  const enterprise = branding.runtime_mode === "hr_enterprise";
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -45,7 +46,7 @@ export default function LoginPage() {
     async (result: LoginResult, options: { lockAlreadyHeld?: boolean } = {}) => {
       if (!result.accessToken) {
         if (result.requiresContextSelection) {
-          throw new Error("该账号关联多个园区，请联系管理员设置默认登录园区");
+          throw new Error(`该账号关联多个${enterprise ? "企业" : "园区"}，请联系管理员设置默认登录范围`);
         }
         throw new Error("登录响应缺少访问令牌");
       }
@@ -53,7 +54,7 @@ export default function LoginPage() {
       setMessage(`登录成功，欢迎 ${result.user?.username ?? currentUser.username}`);
       router.replace(resolvePostLoginPath(currentUser) as Route);
     },
-    [router]
+    [router, enterprise]
   );
 
   async function handlePasswordSubmit(payload: LoginFormValues) {
@@ -87,11 +88,18 @@ export default function LoginPage() {
         <div className="signin-copy">
           <h1>{branding.systemName}</h1>
           <div className="signin-capabilities" aria-label="平台能力">
+            {enterprise ? <>
+              <span><UserRound size={16} /> 员工与组织</span>
+              <span><FileText size={16} /> 人事与合同</span>
+              <span><ShieldCheck size={16} /> 考勤与薪酬</span>
+              <span><Building2 size={16} /> 绩效与培训</span>
+            </> : <>
             <span><Building2 size={16} /> 资产运营</span>
             <span><Store size={16} /> 招商租赁</span>
             <span><FileText size={16} /> 财务合同</span>
             <span><ShieldCheck size={16} /> 现场安全</span>
-            <span><PlugZap size={16} /> 设备能源</span>
+            <span><PlugZap size={16} /> 设备能源</span>            </>}
+
           </div>
         </div>
       </section>
@@ -101,7 +109,7 @@ export default function LoginPage() {
           <div>
             <span className="signin-card-eyebrow">Secure Access</span>
             <h2>登录</h2>
-            <p>使用平台账号登录。</p>
+            <p>{enterprise ? "使用企业人力资源账号登录。" : "使用平台账号登录。"}</p>
           </div>
         </div>
         <Form<LoginFormValues> className="signin-form" data-browser-uat-ready={hydrated ? "true" : undefined} layout="vertical" onFinish={handlePasswordSubmit}>

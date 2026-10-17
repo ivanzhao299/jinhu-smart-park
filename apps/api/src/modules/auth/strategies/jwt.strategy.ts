@@ -1,3 +1,4 @@
+import {applicationRuntimeMode,type ApplicationRuntimeMode} from "../../../runtime/runtime-mode";
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
@@ -8,6 +9,7 @@ import { IdentityDirectoryService } from "../../users/identity-directory.service
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly runtimeMode:ApplicationRuntimeMode;
   constructor(
     config: ConfigService,
     private readonly tenantsService: TenantStatusService,
@@ -18,9 +20,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>("JWT_SECRET")
     });
+    this.runtimeMode=applicationRuntimeMode(config);
   }
 
   async validate(payload: JwtSessionClaims): Promise<JwtPrincipal> {
+    if((payload.runtimeMode??"integrated")!==this.runtimeMode)throw new UnauthorizedException("Authentication deployment mode mismatch");
     const [tenantResult, principalResult] = await Promise.allSettled([
       this.tenantsService.assertTenantActive(payload.tenantId),
       this.usersService.resolveJwtPrincipal(

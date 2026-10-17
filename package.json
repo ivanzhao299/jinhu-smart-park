@@ -335,7 +335,10 @@
     "go-live:uat-engineering-terminal-form": "node scripts/engineering-terminal-form-uat.mjs",
     "go-live:uat-ai-work": "node scripts/ai-work-orchestration-uat.mjs",
     "css:check": "node scripts/check-css-architecture.mjs",
-    "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
+    "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test",
+    "db:hr-enterprise:init": "node scripts/hr-enterprise/init-db.mjs",
+    "db:hr-enterprise:bootstrap": "node scripts/hr-enterprise/bootstrap-enterprise.mjs",
+    "test:e2e:hr-enterprise-runtime": "node scripts/e2e/hr-enterprise-runtime.mjs"
   },
   "devDependencies": {
     "@jinhu/config": "workspace:*",

@@ -1,0 +1,6 @@
+-- Independent permission display metadata only; no role or permission grants.
+BEGIN;
+UPDATE sys_permission SET frontend_route=NULL WHERE code LIKE 'hr:%';
+UPDATE sys_permission p SET name=c.name,frontend_route=c.route FROM(VALUES ('hr:dashboard','人力资源工作台','/hr'),('hr:decision_center','人力资源决策中心','/hr/decision-center'),('hr:organization','组织与岗位','/hr/organization'),('hr:employees','员工档案','/hr/employees'),('hr:legacy_archive','档案沿革','/hr/employees/legacy'),('hr:legacy_unclaimed','待认领档案','/hr/employees/unclaimed'),('hr:recruitment','招聘管理','/hr/recruitment'),('hr:lifecycle','入离职办理','/hr/lifecycle'),('hr:contracts','劳动合同','/hr/contracts'),('hr:attendance','考勤管理','/hr/attendance'),('hr:insurance','五险一金','/hr/insurance'),('hr:compensation','薪酬方案','/hr/compensation'),('hr:payroll','工资核算','/hr/payroll'),('hr:goals','战略与目标','/hr/goals'),('hr:work_reports','工作汇报','/hr/work-reports'),('hr:performance','绩效考核','/hr/performance'),('hr:feedback_360','360评价','/hr/feedback-360'),('hr:talent','人才发展','/hr/talent'),('hr:training','培训管理','/hr/training'),('hr:rewards','奖惩管理','/hr/rewards'),('hr:approvals','人事审批','/hr/approvals')) c(code,name,route) WHERE p.code=c.code;
+UPDATE sys_permission SET frontend_route='/enterprise' WHERE code='system:user:list';
+COMMIT;

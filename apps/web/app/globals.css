@@ -9445,6 +9445,8 @@ select {
 
   .app-header .header-sidebar-toggle-actions {
     display: inline-flex;
+    position: static;
+    opacity: 1;
   }
 
   .app-header .header-actions {

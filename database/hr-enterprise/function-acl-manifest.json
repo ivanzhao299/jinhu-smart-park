@@ -1,0 +1,3842 @@
+{
+  "sourceCodeSha": "b8813ced68423125623854abd7885082feca9c35",
+  "sourceCatalogSha256": "f3d87cdbbeefca909e86a9b0ebf84c9e3a3c49a610e3638ae750af6dc0070b6d",
+  "functionCount": 324,
+  "roles": [
+    "jinhu_hr_yuzhou_perf_assessment_executor",
+    "jinhu_hr_yuzhou_perf_assessment_reader",
+    "jinhu_hr_yuzhou_performance_fact_identity_probe",
+    "jinhu_hr_yuzhou_performance_fact_identity_writer",
+    "jinhu_hr_yuzhou_performance_facts_probe",
+    "jinhu_hr_yuzhou_performance_facts_writer",
+    "jinhu_hr_yuzhou_performance_relations_probe",
+    "jinhu_hr_yuzhou_performance_relations_writer"
+  ],
+  "functions": [
+    {
+      "signature": "enforce_hr_contract_action_scope()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_legacy_t5_batch_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_legacy_t5_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_reward_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_reward_case_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_reward_category_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_reward_file_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_reward_file_inverse_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_certificate_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_memo_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_participant_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_plan_fact_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_plan_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_hr_training_position_requirement_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "fn_party_identity_protected_audit_assign_retention()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_assert_legacy_archive_identity_kinds()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_assert_legacy_identity_t0_owner()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_assert_legacy_materialization_source()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_assign_employment_event_no()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_leave_cancellation_approval_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_leave_cancellation_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_leave_cancellation_history_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_leave_cancellation_source_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_leave_ledger_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_request_declared_days_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_attendance_request_leave_type_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_build_payroll_reconciliation_source(character varying,character varying,uuid,uuid,date,text,integer,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public",
+        "TimeZone=UTC"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_business_trip_date_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_business_trip_date_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_business_trip_declared_days_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_business_trip_month_allocation_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_candidate_assessment_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_candidate_interview_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_candidate_profile_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_candidate_profile_snapshot_valid(jsonb,uuid,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_critical_position_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_departure_action_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_departure_application_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_development_action_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_development_action_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_development_plan_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_departure_workflow_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_feedback_action_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_feedback_authorized(character varying,character varying,uuid,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_feedback_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_feedback_head_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_position_assignment_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_rest_day_check_schedule()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_rest_day_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_employee_schedule_check_rest_day()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_assignment_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_assignment_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_cycle_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_model_root_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_nomination_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_questionnaire_root_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_response_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_response_sync_assignment()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_result_threshold_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_subject_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_subject_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_version_child_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_feedback360_version_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_freeze_payroll_reconciliation_source(character varying,character varying,uuid,uuid,date,text,text,integer,integer,uuid,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public",
+        "TimeZone=UTC"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_goal_cycle_state_guard_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_goal_state_guard_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_goal_validate_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_guard_custom_value_change()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_extended_record_change()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_family_change()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_family_baseline()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_family_item()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_insurance_policy_binding()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_insurance_policy_item()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_record_baseline()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_record_item()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_training_binding()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_incremental_training_item()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_legacy_archive_materialization_batch()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_guard_legacy_custom_field()",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_legacy_custom_field_logic()",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_guard_legacy_identity_registry()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_incremental_initial_baseline_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_insurance_owned_close_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_owned_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_owned_preview_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_owned_revision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_policy_version_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_policy_version_source_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_insurance_version_factors_valid(jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_job_change_action_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_job_change_application_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_archive_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_archive_redact_source_fields(jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_archive_source_field_projection()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_dictionary_item_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_dictionary_item_touch_version()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_dictionary_items_sha256(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_dictionary_version_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_legacy_training_reward_rollback_allowed(text,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_lifecycle_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_lifecycle_preserve_linked_departure_event()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_lifecycle_validate_offboarding_event()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_onboarding_action_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_onboarding_application_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_onboarding_rehire_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_catalog_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_correction_window_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_action_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_evidence_hash()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_evidence_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_evidence_input_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_input_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_item_frozen()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_payslip_frozen()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_rule_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_run_frozen()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_formal_run_window_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_legacy_batch_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_legacy_fact_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_legacy_snapshot_item_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_legacy_snapshot_item_mutation_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_period_close_commit_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_period_close_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_period_closed_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_reconciliation_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_reconciliation_policy_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_reconciliation_policy_current_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_reconciliation_policy_scope_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_reconciliation_run_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_result_modern_insurance_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_review_action_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_payroll_review_action_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_appeal_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_calibration_batch_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_calibration_entry_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_channel_action_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_actor_has(character varying,character varying,uuid,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_appeal_decision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_author_scope_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_batch_complete_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_calculate(jsonb,jsonb,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_cells(jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_child_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_config_valid_v1(jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_cycle_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_employee_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_final_ready(jsonb,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_finite_score(numeric)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_head_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_input_head_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_input_revision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_input_valid(jsonb,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_object_v1(jsonb,text[])",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_policy_for(jsonb,jsonb,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_policy_v1(jsonb,boolean)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_revision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_scalar_v1(jsonb,text,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_stage_complete(jsonb,jsonb,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_version_pair_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_workflow_head_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_workflow_revision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_channel_workflow_valid(jsonb,jsonb,boolean)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_child_freeze_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_cycle_employee_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_cycle_employee_result_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_cycle_freeze_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_evidence_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_five_channel_snapshot_total_v1(jsonb,jsonb,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_freeze_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_participant_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_snapshot_score(jsonb,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_build_input(jsonb,jsonb,jsonb,uuid,uuid,timestamp with time zone,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_cell(jsonb,uuid,timestamp with time zone,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_derive_definition(jsonb,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_differences(character varying,character varying,uuid,uuid,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_expected_input(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_final_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_mapping(character varying,character varying,uuid,uuid,text,boolean)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_mapping_config_valid(jsonb,jsonb,jsonb,boolean)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_qualification(character varying,character varying,uuid,uuid,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_source_activation_receipt_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_request_valid(jsonb,text)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_activation_text_valid(jsonb,integer,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_draft_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_field_valid(text,text,jsonb,boolean)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_generation(character varying,character varying,text,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_head_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_manifest_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_revision_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_source_snapshot_valid(jsonb,character varying,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_submission_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_template_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_threshold_snapshot_grade_v1(numeric,jsonb)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_version_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_performance_yuzhou_ass_compute_weight_evidence_sha256(uuid,character,integer,integer,integer,uuid,character varying,integer,uuid,character varying,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_ass_compute_weight_expectation(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_ass_compute_weight_resolution_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_assert_master_record_map(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_assert_record_map(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_assert_relation_record_map(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_employee_resolution_reverse_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_identity_resolution_delete_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_identity_resolution_evidence_sha256(character varying,uuid,character varying,character,character varying,character varying,uuid,uuid,uuid,character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_identity_resolution_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_jsonb_exact_keys(jsonb,text[])",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_legacy_fact_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_legacy_full_total(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_legacy_grade_parity(uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_person_assessment_evidence_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_person_assessment_evidence_sha256(character,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_person_identity_sha256(character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_prepare_master_record_map(uuid,character,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_prepare_record_map(uuid,character varying,character,character,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_prepare_relation_record_map(uuid,character varying,character,character,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_session_binding_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_t0_map_resolution_reverse_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_t0_person_candidate(character varying,character varying,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_master_record_map_reverse_trigge()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_master_record_map_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_record_map_reverse_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_record_map_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_relation_map_reverse_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_validate_relation_map_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_performance_yuzhou_weighted_detail_total(character varying,character varying,uuid,uuid,integer,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_personnel_correction_commit_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_personnel_correction_detail_cas_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_personnel_correction_immutable()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_personnel_correction_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_position_assignment_continuity_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_position_hierarchy_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_probation_action_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_probation_application_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_probation_participant_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_recruitment_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_reject_employee_code_change()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_require_incremental_insurance_policy_binding()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_requisition_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_requisition_snapshot_valid(jsonb,uuid,integer)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_resolve_legacy_dictionary(character varying,character varying,character varying,character,character varying,character varying,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_succession_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_t5a_controlled_rollback_matches(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_t6_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_talent_append_only_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_talent_decision_insert_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_talent_session_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_validate_custom_field_value_type()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_work_calendar_history_append_only()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_work_report_action_freeze_suggestions_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_work_report_goal_mutation_guard_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_work_report_state_guard_t6()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_apply_performance_fact_identity_production_v1(character varying,character,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character,character,bigint,bigint,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_fact_identity_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_apply_performance_facts_production_v1(character varying,character,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character,character,character,character,bytea,bytea,bigint,bigint,bigint,bigint,bigint,bigint,bigint,character,character,character,character,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_facts_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_apply_performance_relations_production_v1(character varying,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character,bytea,bytea,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_relations_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_assert_production_projection_record(character varying,character varying,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_assert_t5_nonfile_writer_context(character varying,character,character varying,character varying,character,uuid,character,character,character,bigint)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_bind_t5_nonfile_rollback_context(character varying,character varying,character,character varying,character varying,character,uuid)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_consume_import_authorization(character varying,character,character,character,character,character,character,character,timestamp with time zone,timestamp with time zone,timestamp with time zone,timestamp with time zone,character,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_consume_import_authorization_v2(character varying,character,character,character,character,character,character varying,character varying,character,character,character,timestamp with time zone,timestamp with time zone,timestamp with time zone,timestamp with time zone,character,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_consume_performance_person_assessment_authorization(character varying,character varying,character,character,character,character,character,character,character,character,character,character,character,character,character,character,timestamp with time zone)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_executor",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_consume_performance_person_assessment_rollback_author(character varying,character varying,character,character,character,timestamp with time zone)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_executor",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_consume_rollback_authorization(character varying,character varying,character,character,character,character,timestamp with time zone,timestamp with time zone)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_guard_production_record_receipt()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_guard_t0_owner_map_reverse()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_materialize_performance_fact_identity_production_v1(character varying,character varying,uuid)",
+      "routineKind": "p",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_materialize_performance_identity_production_v1(character varying,character varying,uuid,jsonb)",
+      "routineKind": "p",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_materialize_performance_relations_production_v1(character varying,character varying,uuid,jsonb)",
+      "routineKind": "p",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_fact_identity_context_allowed_v1(uuid,character varying)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_fact_identity_production_capability_v1()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_fact_identity_probe",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_fact_identity_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_fact_identity_set_v1(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_fact_identity_state_v1(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_fact_loader_dependency_valid_v1(character varying,uuid,character varying,character varying,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_facts_production_capability_v1()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_facts_probe",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_facts_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_facts_production_context_allowed_v1(uuid,character varying)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_full_fact_set_v1(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_owner_map_projection_v1(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_owner_map_state_v1(character varying,character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_dependency_valid(character varying,uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_owner_state_sha256(uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_payload_sha256(jsonb)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_production_capability(character varying,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_reader",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_executor",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_production_context_allo(uuid,character varying)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_production_receipt(character varying)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_reader",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "grantee": "jinhu_hr_yuzhou_perf_assessment_executor",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_person_assessment_state_sha256(uuid,character varying,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_performance_production_receipt_chain_v1(character varying,character,character,character,character,character,character varying,character varying,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_facts_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_relations_production_capability_v1()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_relations_probe",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_relations_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_performance_relations_production_context_allowed(uuid,character varying)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_production_target_scope_sha256(character varying,character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_rollback_performance_fact_identity_production_v1(character varying,character varying,character,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_fact_identity_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_rollback_performance_facts_production_v1(character varying,character varying,character,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character,character,character,character,bigint,bigint,bigint,bigint,bigint,bigint,bigint,character,character,character,character,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_facts_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_rollback_performance_relations_production_v1(character varying,character varying,character,character,character,character,character,character,character,character varying,character varying,character,character,character,character)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "jinhu_hr_yuzhou_performance_relations_writer",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_start_production_import(character varying,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t4_followon_batch_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t4_followon_control_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t4_followon_fresh_authorization()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t4_followon_owned_state(character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t4_followon_rollback(character varying,character,character,character)",
+      "routineKind": "p",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_batch_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_commit_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_context(character varying,character)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_control_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_fresh_authorization()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_owned_state(character varying)",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_receipt_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_rollback(character varying,character,character,character)",
+      "routineKind": "p",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_t5_followon_source_guard()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    },
+    {
+      "signature": "hr_yuzhou_t5_nonfile_rollback_context_allowed(uuid)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_import_owner_map()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_import_v2_dependency_dependents()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_import_v2_dependency_graph()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_import_v2_operation_scope()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_import_v2_phase_payload()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_migration_batch()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_projection_batch_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_projection_map_trigger()",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_production_projection_record_trigger()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_validate_t5_nonfile_batch_actor()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "hr_yuzhou_verify_performance_owner_maps_v1(character varying,character varying,uuid,bigint,boolean)",
+      "routineKind": "f",
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "materialize_yuzhou_performance_legacy_lab(character varying,character varying,uuid,jsonb)",
+      "routineKind": "p",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "materialize_yuzhou_performance_legacy_master_lab(character varying,character varying,uuid,jsonb)",
+      "routineKind": "p",
+      "securityDefiner": false,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "grants": []
+    },
+    {
+      "signature": "prevent_hr_contract_action_mutation()",
+      "routineKind": "f",
+      "securityDefiner": false,
+      "config": null,
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantable": false
+        }
+      ]
+    }
+  ]
+}

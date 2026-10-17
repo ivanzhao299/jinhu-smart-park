@@ -1,0 +1,43 @@
+{
+  "formatVersion": 1,
+  "runtimeMode": "hr_enterprise",
+  "schemaVersion": 1,
+  "steps": [
+    {
+      "file": "database/hr-enterprise/000001_kernel.sql",
+      "sha256": "8387439502bee89f1d26b58f616aff478e68e25b8f41bc32ec0c6b4f674a4471"
+    },
+    {
+      "file": "database/components/business-scope/000001_core.sql",
+      "sha256": "875216d2fc6962172aa8f1ea932a848e834ea9d31b6f4fd38391e8547f04da3d"
+    },
+    {
+      "file": "database/hr-enterprise/000002_enterprise.sql",
+      "sha256": "e66d3e78bece0b6bad0e9b0cc030406a8fd30f9451b4ebef9a4cc95c0cddc4c4"
+    },
+    {
+      "file": "database/hr-enterprise/000003_admin_history.sql",
+      "sha256": "39712511cd5aa1f5cc455172cb475158695e06028905a1cbe3480b1d1a45d474"
+    },
+    {
+      "file": "database/hr-enterprise/000004_function_acls.sql",
+      "sha256": "34b5c77a7ac2c1133e53cda00502db55e17a3b76c8426e793dfc67e5ee53ec2a"
+    },
+    {
+      "file": "database/hr-enterprise/000005_navigation_metadata.sql",
+      "sha256": "d2f525ec59455a6e4715e482c5b152ce7fb5cf22671f220ab4b660f6291cb26c"
+    },
+    {
+      "file": "database/hr-enterprise/000006_member_bindings.sql",
+      "sha256": "e017f4a44a9c01aa12b043644233d4a1bd4ed48bfbbd85a82c3973db918691c0"
+    },
+    {
+      "file": "database/hr-enterprise/000007_member_actor_references.sql",
+      "sha256": "754adf6f0201434c5a95ab9d4f525f3fccff5168e639833cfecd370836331080"
+    },
+    {
+      "file": "database/hr-enterprise/000008_reminder_role_scope.sql",
+      "sha256": "029deb2265e018bd56fb44a22963f64a5a96890b4dd3a5262f9ebf2f225ee0aa"
+    }
+  ]
+}

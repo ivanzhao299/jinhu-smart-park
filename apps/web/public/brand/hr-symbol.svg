@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="企业人力资源">
+  <rect width="64" height="64" rx="16" fill="#1677ff"/>
+  <g fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="26" cy="23" r="7"/><path d="M12 49v-5a14 14 0 0 1 28 0v5M42 17a7 7 0 0 1 0 13M46 36a12 12 0 0 1 7 11"/>
+  </g>
+</svg>

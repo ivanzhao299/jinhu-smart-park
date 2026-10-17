@@ -1,4 +1,5 @@
-import {ConflictException,ForbiddenException,Injectable,NotFoundException} from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, activeUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import {ConflictException,ForbiddenException,Injectable,NotFoundException, Inject, Optional } from "@nestjs/common";
 import {HR_PERMISSIONS,type TenantParkScope} from "@jinhu/shared";
 import {createHash} from "node:crypto";
 import {DataSource,type EntityManager} from "typeorm";
@@ -13,7 +14,7 @@ type ReminderRow={id:string;contract_id:string;employee_id:string;reminder_kind:
 
 @Injectable()
 export class HrContractReminderService{
- constructor(private readonly db:DataSource,private readonly audit:AuditService){}
+ constructor(private readonly db:DataSource,private readonly audit:AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
  private has(a:JwtPrincipal,p:string){return Boolean(a.isSuper||a.permissions.includes("*")||a.permissions.includes(p));}
  private require(a:JwtPrincipal,p:string){if(!this.has(a,p))throw new ForbiddenException("Contract reminder permission is required");}
  private access(a:JwtPrincipal):ReminderAccess{
@@ -55,11 +56,11 @@ export class HrContractReminderService{
      SELECT c.employee_user_id recipient_user_id WHERE c.recipient_scope='employee'
      UNION ALL SELECT c.manager_user_id WHERE c.recipient_scope='manager'
      UNION ALL SELECT su.id FROM sys_user su
-      JOIN rel_user_role ur ON ur.user_id=su.id AND ur.tenant_id=su.tenant_id AND ur.park_id=su.park_id AND ur.is_deleted=false
-      JOIN sys_role role ON role.id=ur.role_id AND role.tenant_id=ur.tenant_id AND role.park_id=ur.park_id AND role.is_deleted=false
-      WHERE c.recipient_scope='hr' AND role.code=c.recipient_role_code AND su.tenant_id=$1 AND su.park_id=$2 AND su.is_deleted=false AND su.is_enabled=true
+      JOIN rel_user_role ur ON ur.user_id=su.id AND ur.tenant_id=su.tenant_id AND ${this.identityScope?'ur.park_id=$2':'ur.park_id=su.park_id'} AND ur.is_deleted=false
+      JOIN sys_role role ON role.id=ur.role_id AND role.tenant_id=ur.tenant_id AND role.park_id=ur.park_id AND role.is_deleted=false ${this.identityScope?"AND role.is_enabled AND role.status='enabled'":''}
+      WHERE c.recipient_scope='hr' AND role.code=c.recipient_role_code AND su.tenant_id=$1 AND ${activeUserStorageScopePredicate(this.identityScope,'su',2)} AND su.is_deleted=false AND su.is_enabled=true
     )recipient
-    JOIN sys_user active_user ON active_user.id=recipient.recipient_user_id AND active_user.tenant_id=$1 AND active_user.park_id=$2 AND active_user.is_deleted=false AND active_user.is_enabled=true
+    JOIN sys_user active_user ON active_user.id=recipient.recipient_user_id AND active_user.tenant_id=$1 AND ${activeUserStorageScopePredicate(this.identityScope,'active_user',2)} AND active_user.is_deleted=false AND active_user.is_enabled=true
     WHERE c.source_date IS NOT NULL
    ),inserted AS(
     INSERT INTO hr_contract_reminder(tenant_id,park_id,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,window_date,due_date,recipient_scope,recipient_user_id,source_date,source_contract_version,dedupe_key)

@@ -1,0 +1,13 @@
+.page { min-width: 0; }
+.page :global(.ds-panel) { padding: 1rem; min-width: 0; }
+.page h1, .page h2 { display: flex; align-items: center; gap: .6rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.fields { display: grid; gap: 1rem; min-width: 0; border: 0; padding: 0; margin: 0; }
+.fields input, .fields select, .fields textarea { max-width: 100%; min-width: 0; }
+.choices { display: grid; gap: .6rem; max-height: 20rem; overflow: auto; border: 0; padding: .5rem 0; }
+.choices label { display: flex; min-height: var(--form-control-height-touch, 44px); gap: .5rem; align-items: center; overflow-wrap: anywhere; }
+.choices input { flex: none; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }
+.record { display: flex; flex-direction: column; align-items: stretch; gap: .75rem; min-width: 0; padding: 1rem; overflow-wrap: anywhere; }
+.record h3, .record p { margin: 0; min-width: 0; }
+@media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }

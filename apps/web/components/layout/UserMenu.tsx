@@ -1,7 +1,6 @@
 "use client";
 
 import { KeyRound, LogOut, MapPin, UserRound, Wallet } from "lucide-react";
-import type { UserParkContext } from "@jinhu/shared";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,7 +8,7 @@ import { useMemo, useState } from "react";
 import { useAuthSessionActions, useAuthUser } from "../../lib/auth-context";
 import { getToken, logoutSession, switchParkContext } from "../../lib/auth";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
-import { formatParkRoleSummary } from "../../lib/park-role-summary";
+import { accessibleContextOptions, contextNoun, currentContextLabel, isEnterpriseRuntime } from "../../lib/runtime-context";
 
 interface UserMenuProps {
   compact?: boolean;
@@ -24,10 +23,10 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   const [message, setMessage] = useState("");
   const displayName = user?.real_name ?? user?.username ?? "未登录";
   const accountLabel = user ? `${displayName}（${user.username}）` : displayName;
-  const accessibleParks = useMemo(() => (
-    (user?.accessible_parks ?? []).filter((park) => park.status === "enabled")
-  ), [user?.accessible_parks]);
-  const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "当前园区";
+  const accessibleParks = useMemo(() => accessibleContextOptions(user), [user]);
+  const currentParkName = currentContextLabel(user);
+  const noun = contextNoun(user);
+  const enterprise = isEnterpriseRuntime(user);
 
   async function switchPark(parkId: string) {
     if (!user || !parkId || parkId === user.park_id || switching) {
@@ -42,7 +41,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
       if (nextPath === pathname) router.refresh();
       else router.replace(nextPath as Route);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "园区切换失败");
+      setMessage(error instanceof Error ? error.message : `${noun}切换失败`);
       if (!getToken()) router.replace("/login");
     } finally {
       setSwitching(false);
@@ -66,32 +65,26 @@ export function UserMenu({ compact = false }: UserMenuProps) {
       <label className="user-park-switcher" title={currentParkName}>
         <MapPin size={15} />
         <select
-          aria-label="切换园区"
+          aria-label={`切换${noun}`}
           disabled={switching || accessibleParks.length <= 1}
           value={user?.park_id ?? ""}
           onChange={(event) => void switchPark(event.target.value)}
         >
           {accessibleParks.length === 0 ? <option value={user?.park_id ?? ""}>{currentParkName}</option> : null}
           {accessibleParks.map((park) => (
-            <option key={park.park_id} value={park.park_id}>
-              {formatParkOptionLabel(park)}
+            <option key={park.value} value={park.value}>
+              {park.label}
             </option>
           ))}
         </select>
       </label>
       {message ? <span className="user-menu-message" role="alert">{message}</span> : null}
-      <Link className="header-icon-link" aria-label="我的餐补" href="/account/meal-subsidy" title="我的餐补"><Wallet size={15} /></Link>
-      <Link className="header-icon-link" aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={15} /></Link>
+      {!enterprise ? <Link className="header-icon-link" aria-label="我的餐补" href="/account/meal-subsidy" title="我的餐补"><Wallet size={15} /></Link> : null}
+      {!enterprise ? <Link className="header-icon-link" aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={15} /></Link> : null}
       <button className="user-logout-button" aria-label="退出登录" title="退出登录" type="button" onClick={() => void logout()}>
         <LogOut size={15} />
         <span>退出</span>
       </button>
     </div>
   );
-}
-
-function formatParkOptionLabel(park: UserParkContext): string {
-  const prefix = park.park_code ? `${park.park_code} · ` : "";
-  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
-  return `${prefix}${park.park_name}｜${roles}`;
 }

@@ -1,9 +1,10 @@
+import {IDENTITY_SCOPE_PORT,type IdentityScopePort} from '../../runtime/identity-scope.port';
 import { businessTripAllocationMonths,validateBusinessTripAllocation,assertBusinessTripDeclaredDays } from "./hr-business-trip-month-allocation";
 import { isDeepStrictEqual } from "node:util";
 import {resolveLeaveTypeSelection} from "./hr-attendance-leave-type-selection";
 import { projectHrCustomValue, type HrCustomValueReadRow } from "./hr-custom-value.service";
 import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
-import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from "@nestjs/common";
+import { BadRequestException,ConflictException,ForbiddenException,Inject,Injectable,NotFoundException,Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { HR_PERMISSIONS,type PaginatedResult,type TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager,ILike,In,Not,type Repository } from "typeorm";
@@ -80,7 +81,8 @@ export class HrService {
   private readonly notifications:HrNotificationService,
   private readonly dataSource:DataSource,
   private readonly auditService:AuditService,
-  private readonly sensitiveData:PartySensitiveDataService
+  private readonly sensitiveData:PartySensitiveDataService,
+  @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort
  ){}
 
  async listEmployees(scope:TenantParkScope,actor:JwtPrincipal,q:HrListQueryDto):Promise<PaginatedResult<HrEmployeeProjection>>{
@@ -338,6 +340,7 @@ export class HrService {
  async createEmployee(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrEmployeeDto){
   await this.validateEmployeeReferences(scope,dto);
   return this.dataSource.transaction(async manager=>{
+   if(dto.userId&&this.identityScope&&(await this.identityScope.activeMemberUsers(manager,scope,[dto.userId],true)).length!==1)throw new BadRequestException('User is unavailable in current scope');
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    if(await repo.exists({where:{...scope,employeeCode:dto.employeeCode}}))throw new ConflictException("Employee code has already been allocated and cannot be reused");
    if(dto.userId&&await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false}}))throw new ConflictException("User is already linked to another employee");
@@ -377,6 +380,7 @@ export class HrService {
   await this.validateEmployeeReferences(scope,dto,id);
   if(dto.userId&&await this.employees.exists({where:{...scope,userId:dto.userId,isDeleted:false,id:Not(id)}}))throw new ConflictException("User is already linked to another employee");
   return this.dataSource.transaction(async manager=>{
+   if(dto.userId&&this.identityScope&&(await this.identityScope.activeMemberUsers(manager,scope,[dto.userId],true)).length!==1)throw new BadRequestException("User is unavailable in current scope");
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});if(!row)throw new NotFoundException("Employee not found");
    this.assertEmployeeVersion(row,dto.expectedVersion);
@@ -396,7 +400,7 @@ export class HrService {
    if(dto.userId===row.userId)return projectHrEmployee(row);
    if(dto.userId){
     if(row.employmentStatus==="departed")throw new BadRequestException("Departed employees cannot receive a new account link");
-    const account=await manager.getRepository(UserEntity).findOne({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true,status:"enabled"},lock:{mode:"pessimistic_write"}});
+    const account=this.identityScope?(await this.identityScope.activeMemberUsers(manager,scope,[dto.userId],true))[0]:await manager.getRepository(UserEntity).findOne({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true,status:"enabled"},lock:{mode:"pessimistic_write"}});
     if(!account)throw new BadRequestException("User is unavailable in current scope");
     if(await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false,id:Not(id)}}))throw new ConflictException("User is already linked to another employee");
    }
@@ -410,7 +414,7 @@ export class HrService {
  async directoryOptions(scope:TenantParkScope){
   const [orgs,users]=await Promise.all([
    this.orgs.find({where:{...scope,isDeleted:false,status:"enabled"},select:{id:true,orgCode:true,orgName:true,status:true},order:{sortOrder:"ASC",orgName:"ASC"}}),
-   this.users.find({where:{...scope,isDeleted:false,isEnabled:true,status:"enabled"},select:{id:true,username:true,displayName:true,status:true},order:{displayName:"ASC",username:"ASC"}})
+   this.identityScope?this.identityScope.activeMemberUsers(this.dataSource.manager,scope):this.users.find({where:{...scope,isDeleted:false,isEnabled:true,status:"enabled"},select:{id:true,username:true,displayName:true,status:true},order:{displayName:"ASC",username:"ASC"}})
   ]);
   return {orgs,users};
  }
@@ -1280,7 +1284,7 @@ export class HrService {
   if(!isHrEmployeeIdAccessible(accessScope,id,employee.id,managedIds))throw new NotFoundException("Employee not found");
   return employee.id===id?employee:this.detailEmployee(scope,id);
  }
- private async validateEmployeeReferences(scope:TenantParkScope,dto:CreateHrEmployeeDto,selfId?:string){if(dto.userId&&!await this.users.exists({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true}}))throw new BadRequestException("User is unavailable in current scope");if(dto.primaryOrgId)await this.mustOrg(scope,dto.primaryOrgId);if(dto.positionId){const p=await this.positions.findOne({where:{id:dto.positionId,...scope,isDeleted:false,status:"enabled"}});if(!p)throw new BadRequestException("Position is unavailable in current scope");if(dto.primaryOrgId&&p.orgId!==dto.primaryOrgId)throw new BadRequestException("Position does not belong to primary organization");}if(dto.managerEmployeeId){if(dto.managerEmployeeId===selfId)throw new BadRequestException("Employee cannot manage themselves");if(!await this.employees.exists({where:{id:dto.managerEmployeeId,...scope,isDeleted:false}}))throw new BadRequestException("Manager employee is unavailable in current scope");}}
+ private async validateEmployeeReferences(scope:TenantParkScope,dto:CreateHrEmployeeDto,selfId?:string){if(dto.userId&&!(this.identityScope?(await this.identityScope.activeMemberUsers(this.dataSource.manager,scope,[dto.userId])).length===1:await this.users.exists({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true}})))throw new BadRequestException("User is unavailable in current scope");if(dto.primaryOrgId)await this.mustOrg(scope,dto.primaryOrgId);if(dto.positionId){const p=await this.positions.findOne({where:{id:dto.positionId,...scope,isDeleted:false,status:"enabled"}});if(!p)throw new BadRequestException("Position is unavailable in current scope");if(dto.primaryOrgId&&p.orgId!==dto.primaryOrgId)throw new BadRequestException("Position does not belong to primary organization");}if(dto.managerEmployeeId){if(dto.managerEmployeeId===selfId)throw new BadRequestException("Employee cannot manage themselves");if(!await this.employees.exists({where:{id:dto.managerEmployeeId,...scope,isDeleted:false}}))throw new BadRequestException("Manager employee is unavailable in current scope");}}
  private async mustOrg(scope:TenantParkScope,id:string){if(!await this.orgs.exists({where:{id,...scope,isDeleted:false,status:"enabled"}}))throw new BadRequestException("Organization is unavailable in current scope");}
  private async mustPosition(scope:TenantParkScope,id:string){if(!await this.positions.exists({where:{id,...scope,isDeleted:false,status:"enabled"}}))throw new BadRequestException("Parent position is unavailable in current scope");}
  private async managedEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal):Promise<string[]>{const manager=await this.myEmployee(scope,actor);const rows=await this.dataSource.query(HR_MANAGED_EMPLOYEE_IDS_SQL,[scope.tenantId,scope.parkId,actor.sub,manager.id]) as Array<{id:string}>;return rows.map(row=>row.id);}

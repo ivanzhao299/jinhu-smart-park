@@ -2,12 +2,14 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
+import {parseApplicationRuntimeMode} from "./runtime/runtime-mode";
 import { parseTrustProxySetting } from "./modules/auth/auth-client-ip";
 import { AUTH_CONTEXT_SWITCH_ROTATION_HEADER } from "./modules/auth/auth.service";
 import { createYuzhouIncrementalPreviewJsonParser } from "./shared/http/yuzhou-incremental-preview-json-parser";
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const root=parseApplicationRuntimeMode(process.env.APP_RUNTIME_MODE)==="hr_enterprise"?(await import("./runtime/hr-enterprise.module")).HrEnterpriseModule:AppModule;
+  const app = await NestFactory.create<NestExpressApplication>(root);
   const trustProxy = parseTrustProxySetting(process.env.APP_TRUST_PROXY);
   if (trustProxy !== undefined) {
     app.set("trust proxy", trustProxy);

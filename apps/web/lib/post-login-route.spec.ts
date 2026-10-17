@@ -474,3 +474,13 @@ test("park switches require the engineering terminal dashboard permission", () =
 
   assert.equal(resolvePostParkSwitchPath(user, "/engineering/terminal", null, mobileSignals), "/engineering/projects");
 });
+
+
+test("enterprise runtime uses its authoritative menu even for a desktop superuser", () => {
+  const user = createUser({ runtime_mode: "hr_enterprise", is_super: true, permissions: ["*"], enabled_modules: [{ module_code: "hr", module_name: "人力资源", module_group: "hr", enabled: true }], menu_tree: [{ label: "员工", href: "/hr/employees", module: "hr", permission: "hr:employees" }] });
+  assert.equal(resolvePostLoginPath(user, { viewportWidth: 1440 }), "/hr/employees");
+  assert.deepEqual(getUserDashboardMenus(user).map((item) => item.href), ["/hr/employees"]);
+  const empty = { ...user, menu_tree: [] };
+  assert.deepEqual(getUserDashboardMenus(empty), []);
+  assert.equal(resolvePostLoginPath(empty, { viewportWidth: 390 }), "/403");
+});

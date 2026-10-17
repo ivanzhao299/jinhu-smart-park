@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { IDENTITY_SCOPE_PORT, type IdentityScopePort } from '../../runtime/identity-scope.port';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { ILike } from "typeorm";
@@ -45,7 +46,8 @@ export class OrgsService {
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
     private readonly dataScopeService: DataScopeService,
-    private readonly fieldPolicyService: FieldPolicyService
+    private readonly fieldPolicyService: FieldPolicyService,
+    @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?: IdentityScopePort
   ) {}
 
   async list(scope: TenantParkScope, query: PaginationQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<OrgEntity>> {
@@ -110,7 +112,7 @@ export class OrgsService {
     scope: TenantParkScope,
     actor: JwtPrincipal
   ): Promise<Array<{ id: string; displayName: string; username: string }>> {
-    const leaders = await this.userRepository.find({
+    const leaders = this.identityScope ? await this.identityScope.activeMemberUsers(this.userRepository.manager, scope) : await this.userRepository.find({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, isEnabled: true },
       select: { id: true, displayName: true, username: true },
       order: { displayName: "ASC", username: "ASC" }
@@ -271,10 +273,10 @@ export class OrgsService {
     repository = this.userRepository
   ): Promise<void> {
     if (!leaderUserId) return;
-    const exists = await repository.exists({
+    const exists = this.identityScope ? (await this.identityScope.activeMemberUsers(repository.manager, scope, [leaderUserId], true)).length === 1 : await repository.exists({
       where: { id: leaderUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, isEnabled: true }
     });
-    if (!exists) throw new BadRequestException("负责人不存在、已停用或不属于当前园区");
+    if (!exists) throw new BadRequestException(this.identityScope ? "负责人不存在、已停用或不属于当前企业" : "负责人不存在、已停用或不属于当前园区");
   }
 
   private async assertCodeAvailable(

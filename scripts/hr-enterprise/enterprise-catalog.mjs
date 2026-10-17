@@ -1,0 +1,7 @@
+/** Same online catalog as production HR seed000016; no historical or employee data. */
+export async function seedEnterpriseCatalog(db,tenantId,scopeKey,hrRecipientRoleCode='HR_ENTERPRISE_ADMIN'){
+ const {rows}=await db.query("SELECT id FROM sys_business_scope WHERE tenant_id=$1 AND scope_key=$2 AND scope_kind='enterprise' AND status='enabled' AND NOT is_deleted",[tenantId,scopeKey]);if(rows.length!==1)throw new Error('Exact active enterprise required for HR catalog');
+ for(const [code,name] of [['ONLINE_FIXED_TERM','固定期限劳动合同'],['ONLINE_OPEN_ENDED','无固定期限劳动合同'],['ONLINE_PROJECT_TERM','以完成一定工作任务为期限']])await db.query("INSERT INTO hr_contract_type(tenant_id,park_id,type_code,type_name,status,is_historical_import) SELECT $1::varchar,$2::varchar,$3::varchar,$4::varchar,'enabled',false WHERE NOT EXISTS(SELECT 1 FROM hr_contract_type WHERE tenant_id=$1 AND park_id=$2 AND type_code=$3 AND NOT is_deleted)",[tenantId,scopeKey,code,name]);
+ // Same explicit online reminder windows/recipient scopes as production seed000031.
+ for(const kind of ['contract_expiry','probation_expiry'])for(const days of [30,60,90])for(const recipient of ['hr','manager','employee'])await db.query("INSERT INTO hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope,recipient_role_code) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(tenant_id,park_id,reminder_kind,window_days,recipient_scope) WHERE enabled DO NOTHING",[tenantId,scopeKey,kind,days,recipient,recipient==='hr'?hrRecipientRoleCode:null]);
+}

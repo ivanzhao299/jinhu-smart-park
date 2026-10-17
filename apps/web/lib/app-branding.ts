@@ -7,6 +7,7 @@ export interface AppBranding {
   logoFileId: string | null;
   logoUrl: string | null;
   configured?: boolean;
+  runtime_mode?: "integrated" | "hr_enterprise";
 }
 
 export const BRANDING_STORAGE_KEY = "jinhu_branding";
@@ -26,12 +27,13 @@ export function normalizeBranding(value?: Partial<AppBranding> | null): AppBrand
     logoAlt: value?.logoAlt?.trim() || defaultAppBranding.logoAlt,
     logoFileId: value?.logoFileId?.trim() || null,
     logoUrl: value?.logoUrl?.trim() || null,
-    configured: value?.configured === true
+    configured: value?.configured === true,
+    runtime_mode: value?.runtime_mode === "hr_enterprise" ? "hr_enterprise" : "integrated"
   };
 }
 
 export function resolveBrandLogo(branding: AppBranding, fallback: string): string {
-  return branding.logoUrl || fallback;
+  return branding.logoUrl || (branding.runtime_mode === "hr_enterprise" ? "/brand/hr-symbol.svg" : fallback);
 }
 
 export function readStoredBranding(): AppBranding {
@@ -61,7 +63,8 @@ export function writeStoredBranding(value: Partial<AppBranding>): AppBranding {
 
 export async function fetchPublicBranding(): Promise<AppBranding> {
   const response = await apiRequest<AppBranding>("/tenants/public/branding", { cache: "no-store" });
-  return response.data.configured ? writeStoredBranding(response.data) : readStoredBranding();
+  const branding = response.data.configured ? response.data : readStoredBranding();
+  return writeStoredBranding({ ...branding, runtime_mode: response.data.runtime_mode ?? "integrated" });
 }
 
 export async function fetchCurrentBranding(token: string): Promise<AppBranding> {

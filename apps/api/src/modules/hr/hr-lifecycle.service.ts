@@ -1,10 +1,10 @@
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort} from "../../runtime/identity-scope.port";
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+  NotFoundException, Inject, Optional } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -32,8 +32,7 @@ export class HrLifecycleService {
   constructor(
     private readonly db: DataSource,
     private readonly sensitive: PartySensitiveDataService,
-    private readonly audit: AuditService,
-  ) {}
+    private readonly audit: AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
   private has(a: JwtPrincipal, p: string) {
     return Boolean(
       a.isSuper || a.permissions.includes("*") || a.permissions.includes(p),
@@ -477,7 +476,7 @@ export class HrLifecycleService {
       const next = transitions[d.action];
       if (!next) throw new BadRequestException();
       if (d.action === "reassign") {
-        const assignee = await m.query(
+        const assignee = this.identityScope?await this.identityScope.activeMemberUsers(m,s,[d.assigneeUserId!],true):await m.query(
           `SELECT 1 FROM sys_user WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND status='enabled' AND is_deleted=false LIMIT 1 FOR SHARE`,
           [s.tenantId, s.parkId, d.assigneeUserId],
         );

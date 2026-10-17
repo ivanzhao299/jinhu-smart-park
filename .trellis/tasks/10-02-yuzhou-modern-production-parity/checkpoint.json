@@ -34,8 +34,8 @@
   "dormantHistoricalUncertainty": 36,
   "activeHistoricalRepairQueue": 0,
   "activeRunHandle": null,
-  "currentSlice": "JULY_ALL_IMPORTED_PAYROLL_BUSINESS_PREPARATION",
-  "currentSliceTask": ".trellis/tasks/10-12-hr-payroll-source-rule-drafts",
+  "currentSlice": "HR_INDEPENDENT_ENTERPRISE_RUNTIME",
+  "currentSliceTask": ".trellis/tasks/10-17-hr-independent-enterprise-runtime",
   "preparedProfileInput": {
     "preparationRuntimeCommit": "e321e284ea4452b71923bffb5c4c68b2e350e3c5",
     "preparationRunId": 37658598558,
@@ -110,10 +110,10 @@
       "status": "runtime_verified_catalog_and_business_commit_pending"
     }
   ],
-  "nextAction": "Reuse existing source-book rule-draft and formal-input workflows to prepare new records for books34/35; current rule sets, versions and inputs are zero. Obtain Wu policy decisions before actual all-record July trial; continue independent HR reproduction work",
+  "nextAction": "Single existing implementer completes actual shared-kernel integrated/standalone enterprise scope and runtime entry; then serial review, desktop/390 browser evidence and release checks. July reconciliation remains 2026-07 ALL_IMPORTED_RECORDS_ALL_POPULATED_BOOKS owned by wuenguo, calculate only, pending confirmed rules/inputs; do not replay historical import.",
   "previousCheckpoint": "research/checkpoint-2026-10-02.json",
   "usage": "unavailable",
-  "updatedAt": "2026-10-16T21:27:52.953212+00:00",
+  "updatedAt": "2026-10-17T00:19:50.443990+00:00",
   "currentRuntimeObservation": {
     "pr": 984,
     "apiRuntimeSha": "13a751e265bfe92aebe537af4ac104b33880a179",
@@ -122,22 +122,31 @@
     "scope": "Technical runtime; not business UAT"
   },
   "currentRelease": {
-    "pr": 984,
-    "mergedSha": "13a751e265bfe92aebe537af4ac104b33880a179",
-    "deployRun": 38963286149,
-    "mainCiRun": 38963286386,
-    "status": "DEPLOYED_RUNTIME_AND_MAIN_CI_PASS"
+    "pr": 985,
+    "authoredCandidateSha": "3f2a9e002b097279dc40b62fefbfd4763514ca33",
+    "mergedSha": "b8813ced68423125623854abd7885082feca9c35",
+    "candidateMergedTree": "7edd79ca419f5a67c943229b807a538207a4f565",
+    "ciRun": 38975584090,
+    "prReleaseSmoke": "success",
+    "mainCiRun": 38979015811,
+    "mainCiStatus": "PASS_INCLUDING_RELEASE_SMOKE",
+    "deployRun": 38979015849,
+    "runtimeObserverRun": 38980689137,
+    "apiRuntimeSha": "b8813ced68423125623854abd7885082feca9c35",
+    "webRuntimeSha": "b8813ced68423125623854abd7885082feca9c35",
+    "observerCodeCommit": "b8813ced68423125623854abd7885082feca9c35",
+    "dockerCleanup": "PASS_ONCE",
+    "health": "PASS",
+    "deploymentScope": "full",
+    "migration376": "APPLIED_ONCE",
+    "observedAt": "2026-10-16T23:31:45.085642+00:00",
+    "productionBusinessTests": "NOT_EXECUTED",
+    "actualJulyAmountTrial": "NOT_EXECUTED",
+    "fullGoalComplete": false
   },
   "baselineBoundary": "PR984 merged-main13a751e265bfe92aebe537af4ac104b33880a179; runtime and source evidence verified separately; current candidate adds task metadata only",
   "priority": "Modern production workflows and legacy function reproduction; historical import only for incremental intake and current-business impact",
-  "latestReleaseEvidence": {
-    "performanceFormalSourceActivation": {
-      "pr": 984,
-      "commit": "13a751e265bfe92aebe537af4ac104b33880a179",
-      "status": "DEPLOYED_RUNTIME_VERIFIED_BUSINESS_UAT_PENDING",
-      "receipt": "/Users/mac/.codex/artifacts/hr-performance-source-activation-release-20261017/release-summary.json"
-    }
-  },
+  "latestReleaseEvidence": "/Users/mac/.codex/artifacts/hr-employee-feedback-workflow-20261017/release/release-summary.json",
   "historicalCheckpointSnapshots": [
     {
       "recordedAsHistoricalAt": "2026-10-17",
@@ -215,5 +224,16 @@
     "amountReconciliation": "UNVERIFIED",
     "businessAcceptance": "UNVERIFIED",
     "evidence": "/Users/mac/.codex/artifacts/hr-payroll-rule-inventory-20261017/production-summary.json"
+  },
+  "payrollBusinessConfirmation": {
+    "month": "2026-07",
+    "owner": "吴恩国",
+    "username": "wuenguo",
+    "scope": "全部已导入的2026年7月工资记录，覆盖全部有数据账套",
+    "mode": "只算不发",
+    "laterData": "后续通过增量导入补充",
+    "amountTrial": "NOT_EXECUTED",
+    "rulesAndInputs": "仍需业务确认；不自行补零或猜规则",
+    "confirmedBy": "用户明确回复"
   }
 }

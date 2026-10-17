@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "Read current backend index/pre-development contracts in bounded chunks when not already known at matching hash; source/shared scope, auth, migration and verification apply."}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "Preserve same HR business kernel and actual role/field constraints."}
+{"file": ".trellis/spec/api/backend/identity-scope-transition.md", "reason": "Existing identity boundary preparation, opt-in scope and compatibility constraints."}
+{"file": ".trellis/spec/api/backend/refresh-scope-write.md", "reason": "Refresh/token scope and rollback semantics remain correct in both modes."}
+{"file": ".trellis/spec/shared/backend/index.md", "reason": "Shared scope/UserContext/JWT contracts impact both API and Web."}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Read applicable frontend checklist and DS/permission/API/mobile patterns before web edits."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Mandatory shared thinking guide routing."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Trace mode/scope from persistent enterprise membership through API/token/UI."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse HR and existing identity, audit, permission, idempotency/file primitives."}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "New config/schema/startup docs and regression/release discipline."}
+{"file": ".trellis/tasks/10-17-hr-independent-enterprise-runtime/research/observed-boundary.md", "reason": "Existing measured dependency and hard biz_park principal coupling; no new inventory run required."}

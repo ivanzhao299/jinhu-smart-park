@@ -127,7 +127,8 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     pathname,
     parkSwitchSourcePath
   );
-  const accessOnlyCurrentPark = isCurrentParkAccessOnly(user);
+  const enterprise = user?.runtime_mode === "hr_enterprise";
+  const accessOnlyCurrentPark = !enterprise && isCurrentParkAccessOnly(user);
   const publishUser = useCallback((nextUser: UserContext, options?: { remountScopedPages?: boolean }) => {
     if (options?.remountScopedPages) setParkSwitchSourcePath(pathname);
     setParkRoleRecoverySource(updateParkRoleRecoverySource(user, nextUser));
@@ -154,8 +155,9 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     if (!ready || !user) {
       return;
     }
+    if (user.runtime_mode === "hr_enterprise" && pathname === "/dashboard") { router.replace(resolvePostLoginPath(user) as Route); return; }
     if (effectiveRouteDenial && !accessOnlyCurrentPark) router.replace(dashboardRouteDenialHref(effectiveRouteDenial));
-  }, [accessOnlyCurrentPark, effectiveRouteDenial, ready, router, user]);
+  }, [accessOnlyCurrentPark, effectiveRouteDenial, pathname, ready, router, user]);
 
   const returnToRecoveryPark = async () => {
     if (!parkRoleRecoverySource || recoveringPark) return;
@@ -174,7 +176,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     }
   };
 
-  if (!ready || !user || (effectiveRouteDenial && !accessOnlyCurrentPark)) {
+  if (!ready || !user || (effectiveRouteDenial && !accessOnlyCurrentPark) || (enterprise && pathname === "/dashboard")) {
     return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
   }
 
@@ -210,7 +212,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
               />
             ) : children}
           </div>
-          <AdminIssueFeedback />
+          {!enterprise ? <AdminIssueFeedback /> : null}
         </div>
         </DynamicBreadcrumbProvider>
       </AuthSessionActionsContext.Provider>

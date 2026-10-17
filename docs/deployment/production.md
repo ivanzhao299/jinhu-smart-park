@@ -915,3 +915,7 @@ pnpm prod:deploy
 ```
 
 Database migrations are forward-only in this project. Take a PostgreSQL backup before every production migration.
+
+## 独立企业 HR 的单独部署边界
+
+现有生产默认 `APP_RUNTIME_MODE=integrated`，本功能不自动切换或复制生产数据。独立安装/前向schema/文件/密码登录及 Web 同模式配置见 [独立企业 HR](hr-enterprise.md)；独立入口不得使用集成数据库或文件目录。

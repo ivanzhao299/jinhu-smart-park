@@ -172,6 +172,7 @@ export function prefersMobileWorkbench(signals: PostLoginDeviceSignals): boolean
 
 export function resolvePostLoginPath(user: UserContext | null, signals: PostLoginDeviceSignals = detectPostLoginDeviceSignals()): string {
   const firstMenuHref = findFirstPostLoginMenuHref(user);
+  if (user?.runtime_mode === "hr_enterprise") return firstMenuHref ?? "/403";
   const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
   const hasOperationsAccess =
     hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);

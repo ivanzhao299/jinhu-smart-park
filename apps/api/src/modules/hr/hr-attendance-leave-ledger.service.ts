@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, historicalUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Inject, Optional } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
 import { DataSource, type EntityManager } from "typeorm";
@@ -10,11 +11,11 @@ type TypeRow = { id: string; typeCode: string; typeName: string; enabled: boolea
 type QuotaRow = { id: string; employeeId: string; leaveTypeId: string; periodStart: string; periodEnd: string; openingMinutes: number; adjustmentMinutes: number; version: number };
 const typeFields = `t.id,t.type_code "typeCode",t.type_name "typeName",t.enabled,t.version`;
 const quotaFields = `q.id,q.employee_id "employeeId",q.leave_type_id "leaveTypeId",q.period_start::text "periodStart",q.period_end::text "periodEnd",q.opening_minutes "openingMinutes",q.adjustment_minutes "adjustmentMinutes",q.version`;
-const historyActor = `COALESCE((SELECT display_name FROM sys_user u WHERE u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND u.park_id=h.park_id),'操作账号不可用') "actorName"`;
+const historyActor = (identityScope?:IdentityScopePort) => `COALESCE((SELECT display_name FROM sys_user u WHERE u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND ${historicalUserStorageScopePredicate(identityScope,'u','h')}),'操作账号不可用') "actorName"`;
 
 @Injectable()
 export class HrAttendanceLeaveLedgerService {
- constructor(private readonly db: DataSource, private readonly audit: AuditService) {}
+ constructor(private readonly db: DataSource, private readonly audit: AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
  private authorize(s: TenantParkScope, a: JwtPrincipal, catalog = false) {
   const has = (p: string) => Boolean(a.isSuper || a.permissions.includes("*") || a.permissions.includes(p));
   if (a.tenantId !== s.tenantId || a.parkId !== s.parkId ||
@@ -41,7 +42,7 @@ export class HrAttendanceLeaveLedgerService {
  }
  async typeHistory(s: TenantParkScope, a: JwtPrincipal, code: string, q: HrLeaveLedgerPageDto) {
   this.authorize(s, a);
-  const result = await this.read(m => this.page(m, "FROM hr_attendance_leave_type_history h JOIN hr_attendance_leave_type t ON t.id=h.leave_type_id AND t.tenant_id=h.tenant_id AND t.park_id=h.park_id WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.type_code=$3", `h.id,h.version,h.type_name "typeName",h.enabled,h.change_reason reason,h.occurred_at "occurredAt",${historyActor}`, [s.tenantId, s.parkId, code], q, "h.version DESC"));
+  const result = await this.read(m => this.page(m, "FROM hr_attendance_leave_type_history h JOIN hr_attendance_leave_type t ON t.id=h.leave_type_id AND t.tenant_id=h.tenant_id AND t.park_id=h.park_id WHERE t.tenant_id=$1 AND t.park_id=$2 AND t.type_code=$3", `h.id,h.version,h.type_name "typeName",h.enabled,h.change_reason reason,h.occurred_at "occurredAt",${historyActor(this.identityScope)}`, [s.tenantId, s.parkId, code], q, "h.version DESC"));
   await this.auditRead(s, a, "hr.attendance_leave_type_history", result.items.length); return result;
  }
  async putType(s: TenantParkScope, a: JwtPrincipal, code: string, d: PutHrLeaveTypeDto) {
@@ -70,7 +71,7 @@ export class HrAttendanceLeaveLedgerService {
  async quotaHistory(s: TenantParkScope, a: JwtPrincipal, id: string, q: HrLeaveLedgerPageDto) {
   this.authorize(s, a);
   const result = await this.read(m => this.page(m, "FROM hr_attendance_leave_quota_history h JOIN hr_attendance_leave_quota q ON q.id=h.quota_id AND q.tenant_id=h.tenant_id AND q.park_id=h.park_id JOIN hr_employee e ON e.id=q.employee_id AND e.tenant_id=q.tenant_id AND e.park_id=q.park_id AND NOT e.is_deleted WHERE q.tenant_id=$1 AND q.park_id=$2 AND q.id=$3",
-   `h.id,h.version,h.opening_minutes "openingMinutes",h.adjustment_minutes "adjustmentMinutes",h.change_reason reason,h.occurred_at "occurredAt",${historyActor}`, [s.tenantId, s.parkId, id], q, "h.version DESC"));
+   `h.id,h.version,h.opening_minutes "openingMinutes",h.adjustment_minutes "adjustmentMinutes",h.change_reason reason,h.occurred_at "occurredAt",${historyActor(this.identityScope)}`, [s.tenantId, s.parkId, id], q, "h.version DESC"));
   await this.auditRead(s, a, "hr.attendance_leave_quota_history", result.items.length); return result;
  }
  private quotaBody(d: { openingMinutes: number; adjustmentMinutes: number; reason: string }) {

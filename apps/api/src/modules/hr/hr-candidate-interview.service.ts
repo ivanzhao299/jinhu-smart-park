@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {IDENTITY_SCOPE_PORT, type IdentityScopePort, historicalUserStorageScopePredicate} from "../../runtime/identity-scope.port";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Inject, Optional } from "@nestjs/common";
 import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -12,7 +13,7 @@ const outcomes = new Set(["pending", "pass", "fail", "hold"]);
 
 @Injectable()
 export class HrCandidateInterviewService {
-  constructor(private readonly db: DataSource, private readonly audit: AuditService) {}
+  constructor(private readonly db: DataSource, private readonly audit: AuditService, @Optional() @Inject(IDENTITY_SCOPE_PORT) private readonly identityScope?:IdentityScopePort) {}
 
   private can(actor: JwtPrincipal, permission: string) { return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission)); }
   private require(actor: JwtPrincipal, permission: string) { if (!this.can(actor, permission)) throw new ForbiddenException(`${permission} permission is required`); }
@@ -71,7 +72,7 @@ export class HrCandidateInterviewService {
       const exists = this.first(await manager.query("SELECT id FROM hr_candidate_interview WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND candidate_id=$4", [interviewId, scope.tenantId, scope.parkId, candidateId]));
       if (!exists) throw new NotFoundException("Candidate interview not found");
       const count = this.first(await manager.query("SELECT count(*)::int total FROM hr_candidate_interview_history WHERE tenant_id=$1 AND park_id=$2 AND candidate_id=$3 AND interview_id=$4", [scope.tenantId, scope.parkId, candidateId, interviewId]));
-      const items = await manager.query(`SELECT ${this.historyProjection("h")} FROM hr_candidate_interview_history h LEFT JOIN sys_user u ON u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND u.park_id=h.park_id AND u.is_deleted=false WHERE h.tenant_id=$1 AND h.park_id=$2 AND h.candidate_id=$3 AND h.interview_id=$4 ORDER BY h.version DESC,h.id DESC LIMIT $5 OFFSET $6`, [scope.tenantId, scope.parkId, candidateId, interviewId, query.page_size, (query.page - 1) * query.page_size]) as InterviewRow[];
+      const items = await manager.query(`SELECT ${this.historyProjection("h")} FROM hr_candidate_interview_history h LEFT JOIN sys_user u ON u.id=h.actor_user_id AND u.tenant_id=h.tenant_id AND ${historicalUserStorageScopePredicate(this.identityScope,'u','h')} AND u.is_deleted=false WHERE h.tenant_id=$1 AND h.park_id=$2 AND h.candidate_id=$3 AND h.interview_id=$4 ORDER BY h.version DESC,h.id DESC LIMIT $5 OFFSET $6`, [scope.tenantId, scope.parkId, candidateId, interviewId, query.page_size, (query.page - 1) * query.page_size]) as InterviewRow[];
       await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, { resource: "hr.candidate_interview_history", action: "读取候选人面试历史", bizType: "hr_candidate_interview", bizId: interviewId, path: "/hr/recruitment/candidates/:id/interviews/:interviewId/history", fieldGroups: [], projection: "metadata", itemCount: items.length }), manager);
       return { items, total: Number(count?.total ?? 0), page: query.page, page_size: query.page_size };
     });

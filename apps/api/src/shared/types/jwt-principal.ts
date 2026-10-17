@@ -10,6 +10,7 @@ export interface JwtPrincipal {
   isSuper?: boolean;
   isTenantSuper?: boolean;
   authVersion?: number;
+  runtimeMode?: "integrated" | "hr_enterprise";
 }
 
 export interface JwtSessionClaims {
@@ -18,4 +19,5 @@ export interface JwtSessionClaims {
   tenantId: string;
   parkId: string;
   authVersion?: number;
+  runtimeMode?: "integrated" | "hr_enterprise";
 }

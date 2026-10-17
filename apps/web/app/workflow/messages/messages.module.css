@@ -1,0 +1,5 @@
+.page { min-width: 0; }
+.panel, .record { padding: 1rem; min-width: 0; }
+.record { display: flex; flex-direction: column; gap: .75rem; overflow-wrap: anywhere; }
+.record h2, .record p { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }

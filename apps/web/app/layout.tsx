@@ -6,9 +6,10 @@ import "antd/dist/reset.css";
 import "./globals.css";
 import "./mobile-terminal.css";
 
+const enterpriseRuntime = process.env.APP_RUNTIME_MODE === "hr_enterprise";
 export const metadata: Metadata = {
-  title: "金湖科创产业园 SaaS 平台",
-  description: "金湖科创产业园资产、招商、合同与运营数字化平台",
+  title: enterpriseRuntime ? "企业人力资源管理" : "金湖科创产业园 SaaS 平台",
+  description: enterpriseRuntime ? "企业员工、组织、人事、考勤与薪酬管理" : "金湖科创产业园资产、招商、合同与运营数字化平台",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "金湖园区",
+    title: enterpriseRuntime ? "企业 HR" : "金湖园区",
     statusBarStyle: "black-translucent"
   }
 };

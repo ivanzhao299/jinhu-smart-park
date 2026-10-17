@@ -1,7 +1,6 @@
 "use client";
 
 import { Download, Home, KeyRound, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
-import type { UserParkContext } from "@jinhu/shared";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,7 +11,7 @@ import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
-import { formatParkRoleSummary } from "../../lib/park-role-summary";
+import { accessibleContextOptions, contextNoun, currentContextLabel, isEnterpriseRuntime } from "../../lib/runtime-context";
 
 export function MobileTerminalHeader() {
   const branding = useAppBranding();
@@ -24,10 +23,10 @@ export function MobileTerminalHeader() {
   const [refreshing, setRefreshing] = useState(false);
   const [switchingPark, setSwitchingPark] = useState(false);
   const [parkMessage, setParkMessage] = useState("");
-  const accessibleParks = useMemo(() => (
-    (user?.accessible_parks ?? []).filter((park) => park.status === "enabled")
-  ), [user?.accessible_parks]);
-  const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "当前园区";
+  const accessibleParks = useMemo(() => accessibleContextOptions(user), [user]);
+  const currentParkName = currentContextLabel(user);
+  const noun = contextNoun(user);
+  const enterprise = isEnterpriseRuntime(user);
 
   const refresh = () => {
     setRefreshing(true);
@@ -54,7 +53,7 @@ export function MobileTerminalHeader() {
       if (nextPath === pathname) router.refresh();
       else router.replace(nextPath as Route);
     } catch (error) {
-      setParkMessage(error instanceof Error ? error.message : "园区切换失败");
+      setParkMessage(error instanceof Error ? error.message : `${noun}切换失败`);
       if (!getToken()) router.replace("/login");
     } finally {
       setSwitchingPark(false);
@@ -67,26 +66,27 @@ export function MobileTerminalHeader() {
         <img alt={branding.logoAlt} src={resolveBrandLogo(branding, "/brand/jinhupark-symbol.svg")} />
         <span>
           <strong>{branding.systemName}</strong>
-          <small>移动作业终端</small>
+          <small>{enterprise ? "移动人力资源" : "移动作业终端"}</small>
         </span>
       </div>
       <nav aria-label="终端快捷操作" className="mobile-terminal-actions">
         <label className="mobile-terminal-park-switcher" title={currentParkName}>
           <MapPin size={18} />
           <select
-            aria-label="切换园区"
+            aria-label={`切换${noun}`}
             disabled={switchingPark || accessibleParks.length <= 1}
             value={user?.park_id ?? ""}
             onChange={(event) => void switchPark(event.target.value)}
           >
             {accessibleParks.length === 0 ? <option value={user?.park_id ?? ""}>{currentParkName}</option> : null}
             {accessibleParks.map((park) => (
-              <option key={park.park_id} value={park.park_id}>
-                {formatParkOptionLabel(park)}
+              <option key={park.value} value={park.value}>
+                {park.label}
               </option>
             ))}
           </select>
         </label>
+        {enterprise ? <Link aria-label="人力资源首页" href="/hr" title="人力资源首页"><Home size={18} /></Link> : <>
         <Link aria-label="客户端下载" href="/system/client-downloads" title="客户端下载">
           <Download size={18} />
         </Link>
@@ -94,6 +94,7 @@ export function MobileTerminalHeader() {
           <Home size={18} />
         </Link>
         <Link aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={18} /></Link>
+        </>}
         <button aria-label="刷新当前任务" className={refreshing ? "is-refreshing" : undefined} title="刷新当前任务" type="button" onClick={refresh}>
           <RefreshCw size={18} />
         </button>
@@ -112,10 +113,4 @@ export function MobileTerminalHeader() {
       {parkMessage ? <span className="mobile-terminal-park-message" role="alert">{parkMessage}</span> : null}
     </header>
   );
-}
-
-function formatParkOptionLabel(park: UserParkContext): string {
-  const prefix = park.park_code ? `${park.park_code} · ` : "";
-  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
-  return `${prefix}${park.park_name}｜${roles}`;
 }
