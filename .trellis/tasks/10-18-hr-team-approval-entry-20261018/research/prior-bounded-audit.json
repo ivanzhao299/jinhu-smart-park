@@ -1,0 +1,48 @@
+{
+  "baseline": "3cc8fde79d34deb2a11b17b8861c8c5e6430687f",
+  "scope": "Prior audit used only for pointers; permissions/controller/service were reverified against current e5 baseline for this task",
+  "confirmed": [
+    {
+      "module": "work-reports",
+      "status": "FIXED_PR1001_CI_PENDING"
+    },
+    {
+      "module": "approvals",
+      "currentWorkbenchTrigger": "HR_APPROVAL_REVIEW",
+      "controllerReadAuthority": [
+        "HR_APPROVAL_PARK_REVIEW",
+        "HR_APPROVAL_TEAM_REVIEW"
+      ],
+      "controllerFile": "apps/api/src/modules/hr/hr.controller.ts",
+      "controllerLine": 118,
+      "clientPath": "/hr/approvals/pending",
+      "impact": "TEAM_REVIEW-only actor has no team pending job; PARK_REVIEW is already covered through exact alias, not a gap",
+      "actualProductionUserImpact": "NOT_OBSERVED_IN_THIS_AUDIT",
+      "nextCheck": "Verify page+TEAM_REVIEW-only and mixed SELF_MANAGE cases, scoped pending semantics; retain PARK_REVIEW alias behavior and avoid account grants",
+      "resolvedAlias": {
+        "HR_APPROVAL_REVIEW": "hr:approval:park_review",
+        "HR_APPROVAL_PARK_REVIEW": "hr:approval:park_review",
+        "HR_APPROVAL_TEAM_REVIEW": "hr:approval:team_review",
+        "source": "packages/shared/src/hr.ts:64"
+      }
+    }
+  ],
+  "matchingChecked": [
+    "performance/plans/me SELF_REVIEW",
+    "performance/plans/team MANAGER_REVIEW",
+    "feedback/assignments/me RESPOND",
+    "payroll/runs PAYROLL_READ",
+    "approvals/me SELF_MANAGE"
+  ],
+  "unresolved": [
+    "talent readAtoms expansion and action-only route semantics",
+    "other module current-source metrics require separate domain scope review; no unsupported count aggregation"
+  ],
+  "correction": "Identifier names alone initially overstated PARK_REVIEW gap; actual literal resolution proves only missing TEAM_REVIEW trigger.",
+  "currentTaskSourceFinding": {
+    "pendingQueryStatus": "submitted",
+    "projectionPreservesStatus": true,
+    "backendChanged": false,
+    "workbenchOldPendingFilterFalseZero": true
+  }
+}

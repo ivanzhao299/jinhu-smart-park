@@ -6,6 +6,8 @@
 ## Permissions
 Read/create/self actions require `HR_APPROVAL_SELF_MANAGE`; pending/review accept `HR_APPROVAL_PARK_REVIEW` or `HR_APPROVAL_TEAM_REVIEW`. Do not call an endpoint without its permission. Backend retains team scope and maker/checker enforcement.
 
+The actual page renders its HR module/page `PermissionGuard` before mounting the data workspace, with a visible denial fallback. Key the workspace by the complete current user context. Denial/revocation unmounts business hooks, aborts old reads and invalidates old writes; restoring access starts a fresh workspace. Keep the inner operation context/version/history safeguards. Page access does not grant self, review or approved-employment/profile fulfillment authority.
+
 ## Independent reads
 Mine and pending have independent loading/error/refresh state and abort signals. Context generations discard late reads/writes. Replacing context clears drafts, unresolved operations and write locks. A previous operation must not unlock a newer operation.
 

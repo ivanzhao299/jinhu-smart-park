@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/hr-workbench-continuity.md", "reason": "Preserve independent jobs/navigation"}
+{"file": ".trellis/spec/web/frontend/hr-approval-operation-continuity.md", "reason": "Preserve approval workflow and role scoping"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guidelines"}
+{"file": ".trellis/tasks/10-18-hr-team-approval-entry-20261018/research/prior-bounded-audit.json", "reason": "Prior targeted evidence; revalidate actual literals"}

@@ -1,3 +1,4 @@
+import {StrictMode} from "react";
 import {act,fireEvent,render,screen} from "@testing-library/react";
 import {beforeEach,expect,it,vi} from "vitest";
 import {HR_PERMISSIONS as H} from "@jinhu/shared";
@@ -5,10 +6,10 @@ import {HrApprovalsClient} from "../../app/hr/approvals/HrApprovalsClient";
 import {ApiError} from "../../lib/api-client";
 import {hrApi,type HrApproval} from "../../lib/hr-api";
 import type * as ApiClientModule from "../../lib/api-client";
-const auth=vi.hoisted(()=>({user:{id:"actor",park_id:"park",permissions:[] as string[]}}));
-vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>auth.user}));vi.mock("../../lib/authz",()=>({getAccessToken:()=>"token"}));vi.mock("../../lib/api-client",async original=>({...await original<typeof ApiClientModule>(),createIdempotencyKey:()=>"stable-key"}));vi.mock("../../lib/hr-api",()=>({hrApi:{myApprovals:vi.fn(),pendingApprovals:vi.fn(),createApproval:vi.fn(),approvalAction:vi.fn(),reviewApproval:vi.fn()}}));vi.mock("../../components/auth/PermissionGuard",()=>({PermissionGuard:({children}:{children:React.ReactNode})=>children}));
+const auth=vi.hoisted(()=>({user:{id:"actor",tenant_id:"tenant",park_id:"park",org_id:"org",data_scope:"park",permissions:[] as string[],enabled_modules:[{module_code:"hr",enabled:true}] }}));
+vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>auth.user}));vi.mock("../../lib/authz",()=>({getAccessToken:()=>"token"}));vi.mock("../../lib/api-client",async original=>({...await original<typeof ApiClientModule>(),createIdempotencyKey:()=>"stable-key"}));vi.mock("../../lib/hr-api",()=>({hrApi:{myApprovals:vi.fn(),pendingApprovals:vi.fn(),createApproval:vi.fn(),approvalAction:vi.fn(),reviewApproval:vi.fn(),approvalHistory:vi.fn()}}));
 const row=(id="approval",status="draft"):HrApproval=>({id,requestNo:"HR-1",requestType:"employment_change",applicantEmployeeId:"employee",subjectEmployeeId:"employee",title:"合成申请",payload:{description:"合成说明"},status,submittedAt:null,completedAt:null});
-beforeEach(()=>{vi.clearAllMocks();auth.user={id:"actor",park_id:"park",permissions:[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_SELF_MANAGE]};vi.mocked(hrApi.myApprovals).mockResolvedValue([row()]);vi.mocked(hrApi.pendingApprovals).mockResolvedValue([row("pending","submitted")]);});
+beforeEach(()=>{vi.clearAllMocks();auth.user={id:"actor",tenant_id:"tenant",park_id:"park",org_id:"org",data_scope:"park",permissions:[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_SELF_MANAGE],enabled_modules:[{module_code:"hr",enabled:true}]};vi.mocked(hrApi.myApprovals).mockResolvedValue([row()]);vi.mocked(hrApi.pendingApprovals).mockResolvedValue([row("pending","submitted")]);});
 it("uses exact self and team/park permissions for independent reads",async()=>{const view=render(<HrApprovalsClient/>);await screen.findByText("合成申请");expect(hrApi.myApprovals).toHaveBeenCalledWith("token",expect.any(AbortSignal));expect(hrApi.pendingApprovals).not.toHaveBeenCalled();auth.user={...auth.user,permissions:[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_TEAM_REVIEW]};view.rerender(<HrApprovalsClient/>);await screen.findByRole("heading",{name:"待审核申请"});expect(hrApi.pendingApprovals).toHaveBeenCalledWith("token",expect.any(AbortSignal));expect(hrApi.myApprovals).toHaveBeenCalledTimes(1);expect(screen.queryByRole("button",{name:"发起申请"})).toBeNull();});
 it("keeps successful self records when the independent review queue read fails",async()=>{auth.user.permissions.push(H.HR_APPROVAL_TEAM_REVIEW);vi.mocked(hrApi.pendingApprovals).mockRejectedValueOnce(new Error("待审读取失败"));render(<HrApprovalsClient/>);await screen.findByText("合成申请");await screen.findByText("待审读取失败");expect(screen.getByRole("heading",{name:"我的申请"})).toBeVisible();});
 it("retains a definitive rejected creation draft and reviewer opinion",async()=>{vi.mocked(hrApi.createApproval).mockRejectedValueOnce(new ApiError("标题冲突",409));const initial=render(<HrApprovalsClient/>);fireEvent.click(await screen.findByRole("button",{name:"发起申请"}));fireEvent.change(screen.getByLabelText("申请标题"),{target:{value:"保留标题"}});fireEvent.change(screen.getByLabelText("申请说明"),{target:{value:"保留说明"}});fireEvent.submit(screen.getByRole("button",{name:"保存草稿"}).closest("form")!);await screen.findByText("标题冲突");expect(screen.getByLabelText("申请标题")).toHaveValue("保留标题");expect(screen.queryByRole("button",{name:"按原请求重试"})).toBeNull();initial.unmount();auth.user={...auth.user,permissions:[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_TEAM_REVIEW]};vi.mocked(hrApi.reviewApproval).mockRejectedValueOnce(new ApiError("审核冲突",409));const view=render(<HrApprovalsClient/>);await screen.findByRole("heading",{name:"待审核申请"});fireEvent.change(screen.getByLabelText("审核意见"),{target:{value:"保留审核意见"}});fireEvent.submit(screen.getByRole("button",{name:"提交审核"}).closest("form")!);await screen.findByText("审核冲突");expect(screen.getByLabelText("审核意见")).toHaveValue("保留审核意见");view.unmount();});
@@ -18,3 +19,68 @@ it("keeps a committed create through stale and failed readback",async()=>{const 
 it("keeps a reviewed item out of the queue until stale readback observes its removal",async()=>{auth.user.permissions=[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_TEAM_REVIEW];vi.mocked(hrApi.pendingApprovals).mockResolvedValueOnce([row("pending","submitted")]).mockResolvedValueOnce([row("pending","submitted")]);vi.mocked(hrApi.reviewApproval).mockResolvedValueOnce({...row("pending","approved")});render(<HrApprovalsClient/>);await screen.findByRole("heading",{name:"待审核申请"});fireEvent.change(screen.getByLabelText("审核意见"),{target:{value:"通过"}});fireEvent.submit(screen.getByRole("button",{name:"提交审核"}).closest("form")!);await screen.findByText("审核已通过。");expect(screen.queryByText("合成申请")).toBeNull();});
 it("allows the replacement context to write while an old completion cannot unlock its mutex",async()=>{let oldDone!:(approval:HrApproval)=>void,newDone!:(approval:HrApproval)=>void;vi.mocked(hrApi.createApproval).mockImplementationOnce(()=>new Promise(done=>{oldDone=done})).mockImplementationOnce(()=>new Promise(done=>{newDone=done}));const view=render(<HrApprovalsClient/>);fireEvent.click(await screen.findByRole("button",{name:"发起申请"}));fireEvent.change(screen.getByLabelText("申请标题"),{target:{value:"旧申请"}});fireEvent.change(screen.getByLabelText("申请说明"),{target:{value:"旧说明"}});fireEvent.submit(screen.getByRole("button",{name:"保存草稿"}).closest("form")!);auth.user={...auth.user,park_id:"other"};view.rerender(<HrApprovalsClient/>);fireEvent.click(await screen.findByRole("button",{name:"发起申请"}));fireEvent.change(screen.getByLabelText("申请标题"),{target:{value:"新申请"}});fireEvent.change(screen.getByLabelText("申请说明"),{target:{value:"新说明"}});fireEvent.submit(screen.getByRole("button",{name:"保存草稿"}).closest("form")!);expect(hrApi.createApproval).toHaveBeenCalledTimes(2);await act(async()=>oldDone({...row("old"),title:"旧申请",payload:{description:"旧说明"}}));expect(screen.getByRole("button",{name:"保存草稿"})).toBeDisabled();await act(async()=>newDone({...row("new"),title:"新申请",payload:{description:"新说明"}}));await screen.findByText("申请草稿已保存。");view.unmount();});
 it("drops late read and write completions after context replacement or unmount",async()=>{let resolveRead!:(rows:HrApproval[])=>void,resolveWrite!:(approval:HrApproval)=>void;vi.mocked(hrApi.myApprovals).mockImplementationOnce(()=>new Promise(done=>{resolveRead=done})).mockResolvedValue([row("new")]);vi.mocked(hrApi.createApproval).mockImplementationOnce(()=>new Promise(done=>{resolveWrite=done}));const view=render(<HrApprovalsClient/>);fireEvent.click(screen.getByRole("button",{name:"发起申请"}));fireEvent.change(screen.getByLabelText("申请标题"),{target:{value:"旧上下文"}});fireEvent.change(screen.getByLabelText("申请说明"),{target:{value:"旧说明"}});fireEvent.submit(screen.getByRole("button",{name:"保存草稿"}).closest("form")!);auth.user={...auth.user,park_id:"other"};view.rerender(<HrApprovalsClient/>);await screen.findByText("合成申请");await act(async()=>{resolveRead([row("late")]);resolveWrite({...row("old"),title:"旧上下文",payload:{description:"旧说明"}});});expect(screen.queryByText("申请草稿已保存。")).toBeNull();expect(screen.queryByDisplayValue("旧上下文")).toBeNull();view.unmount();});
+
+
+function deferred<T>() {
+ let resolve!:(value:T)=>void;
+ const promise=new Promise<T>(done=>{resolve=done;});
+ return {promise,resolve};
+}
+
+it.each(["module","page"])("outer %s denial blocks business reads and revocation aborts both queues before late completion",async denial=>{
+ const original={...auth.user,permissions:[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_SELF_MANAGE,H.HR_APPROVAL_TEAM_REVIEW]};
+ const denied=denial==="module"?{...original,enabled_modules:[]}:{...original,permissions:original.permissions.filter(permission=>permission!==H.HR_APPROVALS_PAGE)};
+ const mine=deferred<HrApproval[]>(),pending=deferred<HrApproval[]>();
+ vi.mocked(hrApi.myApprovals).mockReturnValueOnce(mine.promise).mockResolvedValue([{...row("new"),title:"恢复后本人申请"}]);
+ vi.mocked(hrApi.pendingApprovals).mockReturnValueOnce(pending.promise).mockResolvedValue([{...row("new-pending","submitted"),title:"恢复后待审申请"}]);
+ auth.user=denied; const view=render(<HrApprovalsClient/>);
+ await act(async()=>{});
+ expect(screen.getByRole("heading",{name:"无权访问人事审批"})).toBeVisible();
+ expect(hrApi.myApprovals).not.toHaveBeenCalled();expect(hrApi.pendingApprovals).not.toHaveBeenCalled();
+ auth.user=original;view.rerender(<HrApprovalsClient/>);await act(async()=>{});
+ expect(hrApi.myApprovals).toHaveBeenCalledTimes(1);expect(hrApi.pendingApprovals).toHaveBeenCalledTimes(1);
+ const ownSignal=vi.mocked(hrApi.myApprovals).mock.calls[0]![1]!,pendingSignal=vi.mocked(hrApi.pendingApprovals).mock.calls[0]![1]!;
+ auth.user=denied;view.rerender(<HrApprovalsClient/>);
+ expect(ownSignal.aborted).toBe(true);expect(pendingSignal.aborted).toBe(true);
+ await act(async()=>{mine.resolve([{...row("old"),title:"旧本人申请"}]);pending.resolve([{...row("old-pending","submitted"),title:"旧待审申请"}]);});
+ expect(screen.queryByText("旧本人申请")).toBeNull();expect(screen.queryByText("旧待审申请")).toBeNull();
+ expect(hrApi.myApprovals).toHaveBeenCalledTimes(1);expect(hrApi.pendingApprovals).toHaveBeenCalledTimes(1);
+ auth.user=original;view.rerender(<HrApprovalsClient/>);
+ expect(await screen.findByText("恢复后本人申请")).toBeVisible();expect(await screen.findByText("恢复后待审申请")).toBeVisible();
+ expect(hrApi.myApprovals).toHaveBeenCalledTimes(2);expect(hrApi.pendingApprovals).toHaveBeenCalledTimes(2);
+});
+
+it("page revocation discards draft and unresolved review, and late write cannot refresh the restored workspace",async()=>{
+ auth.user.permissions=[H.HR_APPROVALS_PAGE,H.HR_APPROVAL_SELF_MANAGE,H.HR_APPROVAL_TEAM_REVIEW];
+ const original=auth.user,operation=deferred<HrApproval>();
+ vi.mocked(hrApi.pendingApprovals).mockResolvedValue([{...row("pending","submitted"),title:"待审合成申请"}]);
+ vi.mocked(hrApi.reviewApproval).mockReturnValue(operation.promise);
+ const view=render(<HrApprovalsClient/>);await screen.findByText("待审合成申请");
+ fireEvent.click(screen.getByRole("button",{name:"发起申请"}));
+ fireEvent.change(screen.getByLabelText("申请标题"),{target:{value:"旧未保存草稿"}});
+ fireEvent.change(screen.getByLabelText("审核意见"),{target:{value:"旧审批意见"}});
+ fireEvent.submit(screen.getByLabelText("审核意见").closest("form")!);
+ auth.user={...original,permissions:[H.HR_APPROVAL_SELF_MANAGE,H.HR_APPROVAL_TEAM_REVIEW]};view.rerender(<HrApprovalsClient/>);
+ expect(screen.getByRole("heading",{name:"无权访问人事审批"})).toBeVisible();
+ auth.user=original;view.rerender(<HrApprovalsClient/>);await screen.findByText("待审合成申请");
+ expect(screen.queryByDisplayValue("旧未保存草稿")).toBeNull();expect(screen.getByLabelText("审核意见")).toHaveValue("");
+ const ownReads=vi.mocked(hrApi.myApprovals).mock.calls.length,pendingReads=vi.mocked(hrApi.pendingApprovals).mock.calls.length;
+ await act(async()=>operation.resolve(row("pending","approved")));
+ expect(hrApi.myApprovals).toHaveBeenCalledTimes(ownReads);expect(hrApi.pendingApprovals).toHaveBeenCalledTimes(pendingReads);
+ expect(screen.queryByText("审核已通过。")).toBeNull();expect(screen.getByLabelText("审核意见").closest("form")!.querySelector("button")).toBeEnabled();
+});
+
+it.each(["tenant_id","org_id","data_scope"] as const)("full %s replacement clears old rows synchronously and ignores pending reads",async field=>{
+ const old=deferred<HrApproval[]>();vi.mocked(hrApi.myApprovals).mockReturnValueOnce(old.promise).mockResolvedValue([{...row("new"),title:"新范围申请"}]);
+ const view=render(<HrApprovalsClient/>);await act(async()=>{});
+ auth.user={...auth.user,[field]:"changed"};view.rerender(<HrApprovalsClient/>);
+ expect(await screen.findByText("新范围申请")).toBeVisible();
+ await act(async()=>old.resolve([{...row("old"),title:"旧范围申请"}]));
+ expect(screen.queryByText("旧范围申请")).toBeNull();expect(hrApi.myApprovals).toHaveBeenCalledTimes(2);
+});
+
+it("denied StrictMode entry never starts a business request",async()=>{
+ auth.user={...auth.user,enabled_modules:[]};render(<StrictMode><HrApprovalsClient/></StrictMode>);await act(async()=>{});
+ expect(screen.getByRole("heading",{name:"无权访问人事审批"})).toBeVisible();
+ expect(hrApi.myApprovals).not.toHaveBeenCalled();expect(hrApi.pendingApprovals).not.toHaveBeenCalled();
+});
