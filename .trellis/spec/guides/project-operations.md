@@ -248,7 +248,9 @@ Reference files:
 
 ### Deployment Artifact Cleanup Contract
 
-- Under explicit build-cache cleanup, inspect the Docker data filesystem before and after image builds. Reclaim only unused build cache under disk pressure, and fail before API quiescing/database work if cleanup fails or the minimum reserve cannot be met. Do not prune images between build and service replacement: the newly built image has no container yet. Health-gated post-deploy cleanup remains required.
+- Under explicit build-cache cleanup, inspect the Docker data filesystem before and after image builds. Below 15 GiB before build, require current API liveness, API readiness and Web login health, then use the existing cleanup helper to reclaim stopped containers, unused images and build cache with zero cache retention. Re-observe space and require at least 1 GiB; failed health, observation, cleanup or reserve checks must stop before build, API quiescing or database work. This reserve is a fail-stop floor, not proof that the entire build will fit.
+- Build-capable workflow modes (`web`, `api`, `full`) also check the release-root and Docker filesystems before any secret-helper transfer, source snapshot or candidate sync. Run this gate over SSH stdin using the deployed health/cleanup helpers, after deployment path and verified-scope validation. Skip when no existing release helpers/env exist; diagnostic and non-build modes must never enter this cleanup path.
+- After build, reclaim only unused build cache under pressure and recheck the reserve. Do not prune images between build and service replacement: the newly built image has no container yet. Running containers and their images remain protected throughout cleanup; never prune volumes. Health-gated post-deploy cleanup remains required.
 - Temporary credential files are deleted on both the CI runner and production host on success,
   command failure, interruption, and termination.
 - Register the remote-cleanup attempt before uploading credentials. A trap installed only after the
