@@ -185,6 +185,11 @@ directory_kib var /var
 directory_kib var_lib /var/lib
 directory_kib var_cache /var/cache
 directory_kib var_backups /var/backups
+directory_kib backups_jinhu_smart_park /var/backups/jinhu-smart-park
+directory_kib backups_jinhu /var/backups/jinhu
+directory_kib backups_park /var/backups/park
+directory_kib backups_yuzhou_hr /var/backups/yuzhou-hr
+directory_kib backups_kingturf_erp /var/backups/kingturf-erp
 directory_kib var_www /var/www
 directory_kib var_spool /var/spool
 directory_kib var_snap /var/snap
@@ -259,3 +264,116 @@ printf 'data_mount_total_kib=%s\n' "$data_mount_total_kib"
 printf 'data_mount_used_kib=%s\n' "$data_mount_used_kib"
 printf 'data_mount_free_kib=%s\n' "$data_mount_free_kib"
 printf 'data_mount_same_filesystem_as_host=%s\n' "$data_mount_same_filesystem_as_host"
+
+# Fixed, immediate-entry ownership hints only; classification is not disposal authority.
+observe_backup_ownership() {
+  timeout -k 1s 8s node - 2>/dev/null <<'CAPACITY_BACKUP_OBSERVER'
+const fs = require("node:fs");
+const ENTRY_LIMIT = 4096, CRON_ENTRY_LIMIT = 64, CRON_BYTE_LIMIT = 65536;
+const output = [];
+const emit = (key, value) => output.push(`${key}=${value}`);
+const problem = status => { throw Object.assign(new Error("OBSERVER_UNAVAILABLE"), { status }); };
+const optionalStat = path => {
+  try { return fs.lstatSync(path); }
+  catch (error) { if (error.code === "ENOENT") return null; problem("UNAVAILABLE"); }
+};
+const backupKeys = ["entries", "directories", "regular_files", "symlinks", "special_entries", "regular_bytes", "oldest_regular_age_seconds", "newest_regular_age_seconds"];
+for (const category of ["hr_jinhu", "kingturf", "other"]) backupKeys.push(`${category}_entries`, `${category}_regular_files`, `${category}_regular_bytes`);
+const categoryFor = name => {
+  const known = ["jinhu-smart-park", "jinhu_pg_", "jinhu_files", "yuzhou-hr"];
+  if (known.some(prefix => prefix.endsWith("_") ? name.startsWith(prefix) : name === prefix || ["-", "_", "."].some(separator => name.startsWith(prefix + separator)))) return "hr_jinhu";
+  return /^kingturf(?:[-_.]|$)/i.test(name) ? "kingturf" : "other";
+};
+let backupStatus = "AVAILABLE", backup = Object.fromEntries(backupKeys.map(key => [key, 0]));
+let oldest = null, newest = null;
+try {
+  const root = optionalStat("/var/backups");
+  if (!root) problem("NOT_PRESENT");
+  if (!root.isDirectory() || root.isSymbolicLink()) problem("UNAVAILABLE");
+  const directory = fs.opendirSync("/var/backups");
+  try {
+    let entry;
+    while ((entry = directory.readSync()) !== null) {
+      if (backup.entries >= ENTRY_LIMIT) problem("TRUNCATED");
+      const stat = fs.lstatSync(`/var/backups/${entry.name}`), category = categoryFor(entry.name);
+      backup.entries++; backup[`${category}_entries`]++;
+      if (stat.isSymbolicLink()) backup.symlinks++;
+      else if (stat.isDirectory()) backup.directories++;
+      else if (stat.isFile()) {
+        if (!Number.isSafeInteger(stat.size) || stat.size < 0 || !Number.isFinite(stat.mtimeMs)) problem("UNAVAILABLE");
+        backup.regular_files++; backup.regular_bytes += stat.size;
+        backup[`${category}_regular_files`]++; backup[`${category}_regular_bytes`] += stat.size;
+        if (!Number.isSafeInteger(backup.regular_bytes)) problem("UNAVAILABLE");
+        const age = Math.max(0, Math.floor((Date.now() - stat.mtimeMs) / 1000));
+        oldest = oldest === null ? age : Math.max(oldest, age);
+        newest = newest === null ? age : Math.min(newest, age);
+      } else backup.special_entries++;
+    }
+  } finally { directory.closeSync(); }
+  backup.oldest_regular_age_seconds = oldest === null ? "NOT_PRESENT" : oldest;
+  backup.newest_regular_age_seconds = newest === null ? "NOT_PRESENT" : newest;
+} catch (error) {
+  backupStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  backup = Object.fromEntries(backupKeys.map(key => [key, backupStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("backup_inventory_status", backupStatus);
+emit("backup_inventory_entry_limit", ENTRY_LIMIT);
+emit("backup_inventory_truncated", backupStatus === "TRUNCATED" ? "true" : backupStatus === "AVAILABLE" ? "false" : "UNAVAILABLE");
+for (const key of backupKeys) emit(`backup_inventory_${key}`, backup[key]);
+
+const cronKeys = ["files_scanned", "lines_referencing_backups", "lines_referencing_hr", "references_backups", "references_hr"];
+let cronStatus = "AVAILABLE", cron = { files_scanned: 0, lines_referencing_backups: 0, lines_referencing_hr: 0, references_backups: false, references_hr: false };
+try {
+  const files = ["/etc/crontab", "/var/spool/cron/root", "/var/spool/cron/crontabs/root"];
+  const directoryStat = optionalStat("/etc/cron.d");
+  if (directoryStat) {
+    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) problem("UNAVAILABLE");
+    const directory = fs.opendirSync("/etc/cron.d");
+    let count = 0;
+    try {
+      let entry;
+      while ((entry = directory.readSync()) !== null) {
+        if (++count > CRON_ENTRY_LIMIT) problem("TRUNCATED");
+        const path = `/etc/cron.d/${entry.name}`, stat = fs.lstatSync(path);
+        if (stat.isFile() && !stat.isSymbolicLink()) files.push(path);
+      }
+    } finally { directory.closeSync(); }
+  }
+  for (const path of files) {
+    const stat = optionalStat(path);
+    if (!stat) continue;
+    if (!stat.isFile() || stat.isSymbolicLink()) problem("UNAVAILABLE");
+    const fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try {
+      const opened = fs.fstatSync(fd);
+      if (!opened.isFile()) problem("UNAVAILABLE");
+      if (opened.size > CRON_BYTE_LIMIT) problem("TRUNCATED");
+      const bytes = Buffer.alloc(CRON_BYTE_LIMIT + 1), read = fs.readSync(fd, bytes, 0, bytes.length, 0);
+      if (read > CRON_BYTE_LIMIT) problem("TRUNCATED");
+      cron.files_scanned++;
+      for (const line of bytes.toString("utf8", 0, read).split(/\r?\n/)) {
+        if (!line.trim() || line.trimStart().startsWith("#")) continue;
+        if (/\/var\/backups(?:\/|$|[\s"'\x60;])/.test(line)) cron.lines_referencing_backups++;
+        if (/\/var\/backups\/(?:jinhu-smart-park|jinhu|park|yuzhou-hr)(?:\/|$|[\s"'\x60;])/.test(line)) cron.lines_referencing_hr++;
+      }
+    } finally { fs.closeSync(fd); }
+  }
+  if (!cron.files_scanned) problem("NOT_PRESENT");
+  cron.references_backups = cron.lines_referencing_backups > 0;
+  cron.references_hr = cron.lines_referencing_hr > 0;
+} catch (error) {
+  cronStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  cron = Object.fromEntries(cronKeys.map(key => [key, cronStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("cron_reference_status", cronStatus);
+emit("cron_reference_entry_limit", CRON_ENTRY_LIMIT);
+emit("cron_reference_file_limit_bytes", CRON_BYTE_LIMIT);
+for (const key of cronKeys) emit(`cron_${key}`, cron[key]);
+process.stdout.write(output.join("\n") + "\n");
+CAPACITY_BACKUP_OBSERVER
+}
+if command -v timeout >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && backup_observation="$(observe_backup_ownership)"; then
+  printf 'backup_observer_status=AVAILABLE\n%s\n' "$backup_observation"
+else
+  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\n'
+fi

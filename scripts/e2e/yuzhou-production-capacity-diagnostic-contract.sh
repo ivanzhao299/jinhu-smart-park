@@ -57,4 +57,13 @@ grep -Fq 'directory_kib failed_rollback_39086313571' "$script"
 grep -Fq 'directory_kib retained_gate19_backups /srv/jinhu-production-data/hr-preimport-backups' "$script"
 grep -Fq 'data_mount_same_filesystem_as_host' "$script"
 grep -Fq 'timeout -k 1s 8s stat -c %d --' "$script"
+for service_path in jinhu-smart-park jinhu park yuzhou-hr kingturf-erp; do
+  grep -Fq "/var/backups/$service_path" "$script"
+done
+grep -Fq 'ENTRY_LIMIT = 4096, CRON_ENTRY_LIMIT = 64, CRON_BYTE_LIMIT = 65536' "$script"
+grep -Fq 'fs.lstatSync' "$script"
+grep -Fq 'fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW' "$script"
+grep -Fq 'backup_inventory_status' "$script"
+grep -Fq 'cron_reference_status' "$script"
+grep -Fq 'CAPACITY_BACKUP_OBSERVER' "$script"
 echo 'Yuzhou production capacity diagnostic contract passed.'

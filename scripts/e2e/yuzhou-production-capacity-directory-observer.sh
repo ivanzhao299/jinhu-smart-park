@@ -83,14 +83,17 @@ run_case() {
    printf 'Compose consumed the streamed diagnostic source.\n' >&2; exit 89
  fi
  test "$(grep -c '^compose_read_attempt$' "$calls")" -eq 4
- test "$(grep -c '^directory_.*_used_kib=' "$output")" -eq 38
- for label in root var var_lib var_cache var_backups var_www var_spool var_snap var_opt var_crash containerd containerd_overlayfs containerd_content containerd_metadata srv opt usr root_home home tmp var_tmp var_log docker docker_overlay2 docker_buildkit docker_containers docker_volumes docker_tmp release release_node_modules release_web_next release_logs release_tmp gate19_reports rollback failed_rollback_39086313571 data_mount retained_gate19_backups; do
+ test "$(grep -c '^directory_.*_used_kib=' "$output")" -eq 43
+ for label in root var var_lib var_cache var_backups backups_jinhu_smart_park backups_jinhu backups_park backups_yuzhou_hr backups_kingturf_erp var_www var_spool var_snap var_opt var_crash containerd containerd_overlayfs containerd_content containerd_metadata srv opt usr root_home home tmp var_tmp var_log docker docker_overlay2 docker_buildkit docker_containers docker_volumes docker_tmp release release_node_modules release_web_next release_logs release_tmp gate19_reports rollback failed_rollback_39086313571 data_mount retained_gate19_backups; do
    grep -Eq "^directory_${label}_used_kib=([0-9]+|UNAVAILABLE|NOT_PRESENT)$" "$output"
  done
  for label in total used free; do
    grep -Eq "^data_mount_${label}_kib=([0-9]+|UNAVAILABLE|NOT_PRESENT)$" "$output"
  done
  grep -Eq '^data_mount_same_filesystem_as_host=(yes|no|UNAVAILABLE|NOT_PRESENT)$' "$output"
+ grep -Eq '^backup_observer_status=(AVAILABLE|UNAVAILABLE)$' "$output"
+ grep -Eq '^backup_inventory_status=(AVAILABLE|UNAVAILABLE|NOT_PRESENT|TRUNCATED)$' "$output"
+ grep -Eq '^cron_reference_status=(AVAILABLE|UNAVAILABLE|NOT_PRESENT|TRUNCATED)$' "$output"
  grep -Fxq 'status=DISK_GUARD' "$output"
  grep -Fxq 'host_free_kib=100000' "$output"
  grep -Fxq 'host_recovery_required_kib=20972126' "$output"

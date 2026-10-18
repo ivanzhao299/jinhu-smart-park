@@ -377,6 +377,9 @@ When `PRUNE_DOCKER_BUILD_CACHE=yes` (as in CI production deployment), `full`, `a
 
 The production workflow also performs health-gated pressure recovery before copying required-secret helpers, taking the rollback source snapshot or syncing candidate source. This earlier check is needed when the root/Docker filesystem is too full even to reach `prod-deploy.sh`; the deployment script retains its own protection for direct invocation and the later build peak. Recovery uses the current deployed health and cleanup scripts over SSH. A failed early gate stops before source transfer; it does not relocate data or prune volumes.
 
+For unresolved pressure, `diagnose-yuzhou-hr-capacity` runs the capacity helper over SSH stdin without deploying or changing business data. Fixed directory observations use single-device, no-symlink traversal with per-path deadlines; nested sizes overlap and must not be added together. `UNAVAILABLE`, `NOT_PRESENT`, and `TRUNCATED` remain distinct from zero. The fixed `/var/backups` inventory reports only bounded immediate-entry type, age, size and service-prefix aggregates; it does not enumerate filenames or recurse into arbitrary service directories. Fixed cron-reference counts cover only the listed cron files, and do not prove the absence of systemd timers or active writers. Service classification is an ownership hint, not evidence that a backup may be removed. Keep any archival operation separate from this read-only mode and verify copies before reclaiming selected originals.
+
+
 ## 2.1 Deployment Traceability
 
 The production directory may not be a git worktree. In that case, operators must not rely on `git rev-parse HEAD`, `git status`, or `.git` metadata inside `<production-deploy-path>` to prove which release candidate is deployed.
