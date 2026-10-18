@@ -12,11 +12,12 @@ import { ApiError, isForbiddenError } from "../../lib/api-client";
 import { hrApi } from "../../lib/hr-api";
 import { hasAnyPermission, hasPermission } from "../../lib/permissions";
 import styles from "./hr-workbench.module.css";
+import { assertWorkReportPage } from "./work-reports/work-report-page";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "loading" | "unavailable" | "error" | null;
-interface Snapshot { recruitment:MetricState; lifecycle:MetricState; training:MetricState; rewards:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; talent:MetricState; approvals:MetricState; payroll:MetricState }
-const EMPTY: Snapshot = { recruitment:null, lifecycle:null, training:null, rewards:null, employees:null, contracts:null, attendance:null, insurance:null, goals:null, reports:null, performance:null, feedback:null, talent:null, approvals:null, payroll:null };
+interface Snapshot { recruitment:MetricState; lifecycle:MetricState; training:MetricState; rewards:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reportsSelf: MetricState; reportsTeam: MetricState; performance: MetricState; feedback: MetricState; talent:MetricState; approvals:MetricState; payroll:MetricState }
+const EMPTY: Snapshot = { recruitment:null, lifecycle:null, training:null, rewards:null, employees:null, contracts:null, attendance:null, insurance:null, goals:null, reportsSelf:null, reportsTeam:null, performance:null, feedback:null, talent:null, approvals:null, payroll:null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -37,6 +38,8 @@ function HrWorkspace() {
   const canReadEmployees = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW]);
   const canManagePeople = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYMENT_TRANSITION, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE]);
   const canReviewTeam = hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW, HR_PERMISSIONS.HR_APPROVAL_REVIEW]);
+
+  const canOpenReports = hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORTS_PAGE) && hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_SELF_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_READ, HR_PERMISSIONS.HR_WORK_REPORT_REVIEW, HR_PERMISSIONS.HR_WORK_REPORT_DRAFT, HR_PERMISSIONS.HR_WORK_REPORT_SUBMIT]);
 
   const jobs = useMemo(() => {
     const jobs: Partial<Record<keyof Snapshot, () => Promise<Metric>>> = {};
@@ -65,10 +68,21 @@ function HrWorkspace() {
     if (hasAnyPermission(user, [HR_PERMISSIONS.HR_GOAL_READ, HR_PERMISSIONS.HR_GOAL_SELF_READ])) {
       add("goals", () => hrApi.goals(!hasPermission(user, HR_PERMISSIONS.HR_GOAL_READ), token()).then((goals) => ({ value: goals.filter((item) => isOpen(item.status)).length, detail: `共 ${goals.length} 项可见目标` })));
     }
-    if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW)) {
-      add("reports", () => hrApi.teamWorkReports(token()).then((rows) => ({ value: rows.filter((item) => item.status === "submitted").length, detail: "待审核团队汇报" })));
-    } else if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_SELF_MANAGE)) {
-      add("reports", () => hrApi.myWorkReports(token()).then((rows) => ({ value: rows.filter((item) => item.status === "returned").length, detail: "退回待修改汇报" })));
+    if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORTS_PAGE)) {
+      if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_SELF_READ)) {
+        add("reportsSelf", async () => {
+          const result = await hrApi.workReportsPage(false, 1, {}, token());
+          assertWorkReportPage(result, 1);
+          return { value: result.summary.returned, detail: "本人退回待修改汇报" };
+        });
+      }
+      if (hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_TEAM_READ, HR_PERMISSIONS.HR_WORK_REPORT_REVIEW])) {
+        add("reportsTeam", async () => {
+          const result = await hrApi.workReportsPage(true, 1, {}, token());
+          assertWorkReportPage(result, 1);
+          return { value: result.summary.pending, detail: "团队待审核汇报（含重新提交）" };
+        });
+      }
     }
     if (hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW)) {
       add("performance", () => hrApi.teamPerformancePlans(token()).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "团队绩效待处理" })));
@@ -127,7 +141,8 @@ function HrWorkspace() {
     { key: "training", title: "培训管理", href: "/hr/training", icon: GraduationCap, group: "组织效能", attention: true },
     { key: "rewards", title: "奖惩管理", href: "/hr/rewards", icon: Award, group: "组织效能", attention: true },
     { key: "goals", title: "战略与目标", href: "/hr/goals", icon: Target, group: "组织效能", attention: true },
-    { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock, group: "组织效能", attention: true },
+    { key: "reportsSelf", title: "本人退回汇报", href: "/hr/work-reports", icon: FileClock, group: "组织效能", attention: true },
+    { key: "reportsTeam", title: "团队待审汇报", href: "/hr/work-reports", icon: FileClock, group: "组织效能", attention: true },
     { key: "performance", title: "绩效考核", href: "/hr/performance", icon: ClipboardCheck, group: "组织效能", attention: true },
     { key: "feedback", title: "360 评价", href: "/hr/feedback-360", icon: Network, group: "组织效能", attention: true },
     { key: "talent", title: "人才发展", href: "/hr/talent", icon: Sparkles, group: "组织效能", attention: true },
@@ -137,7 +152,9 @@ function HrWorkspace() {
     { key: "payroll", title: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) ? "工资核算" : "我的工资条", href: "/hr/payroll", icon: BadgeDollarSign, group: "薪酬保障", attention: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) }
   ].filter((item) => jobs[item.key as keyof Snapshot] !== undefined), [jobs, user]);
   const attentionCards = cards.filter(({ key, attention }) => { const metric = snapshot[key as keyof Snapshot]; return metric === "error" || (attention && typeof metric === "object" && metric !== null && metric.value > 0); });
-  const groups = ["人员运营", "组织效能", "薪酬保障"].map((title) => ({ title, items: cards.filter((item) => item.group === title) })).filter((group) => group.items.length > 0);
+  const navigationCards = cards.filter(({ key }) => key !== "reportsSelf" && key !== "reportsTeam");
+  if (canOpenReports) navigationCards.push({ key: "reportsEntry", title: "工作汇报", href: "/hr/work-reports", icon: FileClock, group: "组织效能", attention: true });
+  const groups = ["人员运营", "组织效能", "薪酬保障"].map((title) => ({ title, items: navigationCards.filter((item) => item.group === title) })).filter((group) => group.items.length > 0);
   const roleLabel = canManagePeople ? "人力资源工作台" : canReviewTeam ? "团队管理工作台" : "我的人事工作台";
   const loading = cards.some(({ key }) => snapshot[key as keyof Snapshot] === null || snapshot[key as keyof Snapshot] === "loading");
   const incomplete = cards.some(({ key }) => typeof snapshot[key as keyof Snapshot] !== "object" || snapshot[key as keyof Snapshot] === null);

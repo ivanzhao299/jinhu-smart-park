@@ -89,7 +89,8 @@ test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
   assert.match(workbench,/attention && typeof metric === "object"/);
   assert.match(workbench,/当前没有待处理事项/);
   assert.match(workbench,/hrApi\.pendingApprovals/);
-  assert.match(workbench,/hrApi\.teamWorkReports/);
+  assert.match(workbench,/hrApi\.workReportsPage/);
+  assert.doesNotMatch(workbench,/hrApi\.(teamWorkReports|myWorkReports)/);
   assert.match(workbench,/isEmployeeContextUnavailable\(error\) \? "unavailable" : "error"/);
   assert.match(workbench,/No employee profile is linked to current user/);
   assert.match(workbench,/当前范围不可访问或未关联员工档案/);

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HR_PERMISSIONS as H, type UserContext } from "@jinhu/shared";
+import { HrWorkReportsClient } from "../../app/hr/work-reports/HrWorkReportsClient";
 import { HrWorkbench } from "../../app/hr/HrWorkbench";
 import { AuthUserContext } from "../../lib/auth-context";
 import { ApiError } from "../../lib/api-client";
@@ -9,12 +10,13 @@ import { ApiError } from "../../lib/api-client";
 const api = vi.hoisted(() => ({
   me: vi.fn(), employees: vi.fn(), recruitmentRequisitions: vi.fn(), lifecycleChecklists: vi.fn(),
   trainingPlans: vi.fn(), rewardCases: vi.fn(), contracts: vi.fn(), attendanceCalendars: vi.fn(),
-  insurancePeriods: vi.fn(), goals: vi.fn(), teamWorkReports: vi.fn(), myWorkReports: vi.fn(),
+  insurancePeriods: vi.fn(), workReportsPage: vi.fn(), goals: vi.fn(), teamWorkReports: vi.fn(), myWorkReports: vi.fn(),
   teamPerformancePlans: vi.fn(), myPerformancePlans: vi.fn(), myFeedbackAssignments: vi.fn(),
   developmentPlans: vi.fn(), pendingApprovals: vi.fn(), myApprovals: vi.fn(), payrollRuns: vi.fn(), myPayslips: vi.fn()
 }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: api }));
-vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
+const session = vi.hoisted(() => ({ token: "synthetic-token" }));
+vi.mock("../../lib/authz", () => ({ getAccessToken: () => session.token }));
 function user(permissions: string[] = [H.HR_EMPLOYEE_READ, H.HR_GOAL_READ]): UserContext {
   return { id: "synthetic-actor", username: "synthetic", real_name: "合成用户", mobile: null, email: null,
     tenant_id: "tenant-a", park_id: "park-a", org_id: null, org_name: null, roles: [], data_scope: "park", is_super: false,
@@ -28,9 +30,15 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 const page = (total: number) => ({ total, items: [] });
+const reportPage = (pending = 7, returned = 3, total = 43) => ({
+  total, page: 1, page_size: 20, summary: { pending, returned },
+  items: Array.from({ length: Math.min(20, total) }, (_, index) => ({ id: `report-${index}`, reportType: "daily", status: index ? "submitted" : "resubmitted", periodStart: "2026-10-01", periodEnd: "2026-10-01", completedWork: "合成工作", goalSuggestions: [] }))
+});
 const metric = (title: string) => within(screen.getByRole("article", { name: `${title}统计` }));
 beforeEach(() => {
   Object.values(api).forEach((method) => method.mockReset().mockResolvedValue([]));
+  session.token = "synthetic-token";
+  api.workReportsPage.mockResolvedValue(reportPage());
   api.employees.mockResolvedValue(page(2));
   api.me.mockResolvedValue({ employmentStatus: "active" });
   for (const method of [api.recruitmentRequisitions, api.lifecycleChecklists, api.trainingPlans, api.rewardCases, api.contracts, api.attendanceCalendars, api.insurancePeriods]) method.mockResolvedValue(page(0));
@@ -167,9 +175,9 @@ it("survives StrictMode effect replay and late promises after unmount", async ()
 
 it("preserves self endpoints, status counting, and contract/insurance self flags", async () => {
   const actor = user([H.HR_EMPLOYEE_SELF_READ, H.HR_CONTRACT_SELF_READ, H.HR_INSURANCE_SELF_READ, H.HR_GOAL_SELF_READ,
-    H.HR_WORK_REPORT_SELF_MANAGE, H.HR_PERFORMANCE_SELF_REVIEW, H.HR_FEEDBACK_RESPOND, H.HR_TALENT_SELF_READ,
+    H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_PERFORMANCE_SELF_REVIEW, H.HR_FEEDBACK_RESPOND, H.HR_TALENT_SELF_READ,
     H.HR_APPROVAL_SELF_MANAGE, H.HR_PAYSLIP_SELF_READ]);
-  api.myWorkReports.mockResolvedValue([{ status: "returned" }, { status: "submitted" }]);
+  api.workReportsPage.mockResolvedValue(reportPage(0, 1));
   api.myPerformancePlans.mockResolvedValue([{ status: "draft" }, { status: "confirmed" }]);
   api.myFeedbackAssignments.mockResolvedValue([{ status: "draft" }, { status: "completed" }]);
   api.developmentPlans.mockResolvedValue([{ actions: [{ status: "draft" }, { status: "completed" }] }]);
@@ -177,7 +185,7 @@ it("preserves self endpoints, status counting, and contract/insurance self flags
   api.myPayslips.mockResolvedValue([{}, {}]);
   render(view(actor));
   expect(await metric("人事审批").findByText("2")).toBeVisible();
-  for (const title of ["员工档案", "工作汇报", "绩效考核", "360 评价", "人才发展"]) expect(metric(title).getByText("1")).toBeVisible();
+  for (const title of ["员工档案", "本人退回汇报", "绩效考核", "360 评价", "人才发展"]) expect(metric(title).getByText("1")).toBeVisible();
   expect(metric("我的工资条").getByText("2")).toBeVisible();
   expect(api.me).toHaveBeenCalledWith("synthetic-token"); expect(api.employees).not.toHaveBeenCalled();
   expect(api.contracts).toHaveBeenCalledWith("synthetic-token", 1, 1, {}, true);
@@ -187,17 +195,152 @@ it("preserves self endpoints, status counting, and contract/insurance self flags
 });
 
 it("preserves team/HR precedence and original count requests", async () => {
-  api.teamWorkReports.mockResolvedValue([{ status: "submitted" }, { status: "returned" }]);
+  api.workReportsPage.mockResolvedValue(reportPage(1, 1));
   api.teamPerformancePlans.mockResolvedValue([{ status: "draft" }, { status: "paid" }]);
   api.pendingApprovals.mockResolvedValue([{ status: "pending" }, { status: "approved" }]);
   api.payrollRuns.mockResolvedValue([{ status: "draft" }, { status: "confirmed" }]);
   render(view(user(Object.values(H))));
   expect(await metric("工资核算").findByText("1")).toBeVisible();
-  for (const title of ["工作汇报", "绩效考核", "人事审批"]) expect(metric(title).getByText("1")).toBeVisible();
+  for (const title of ["本人退回汇报", "团队待审汇报", "绩效考核", "人事审批"]) expect(metric(title).getByText("1")).toBeVisible();
   expect(api.contracts).toHaveBeenCalledWith("synthetic-token", 1, 1, {}, false);
   expect(api.insurancePeriods).toHaveBeenCalledWith("synthetic-token", 1, 1, {}, false);
   expect(api.goals).toHaveBeenCalledWith(false, "synthetic-token");
   expect(api.recruitmentRequisitions).toHaveBeenCalledWith("synthetic-token", 1, 1, { status: "open" });
   for (const method of [api.lifecycleChecklists, api.trainingPlans, api.rewardCases, api.attendanceCalendars]) expect(method).toHaveBeenCalledWith("synthetic-token", 1, 1);
   for (const method of [api.me, api.myWorkReports, api.myPerformancePlans, api.myApprovals, api.myPayslips]) expect(method).not.toHaveBeenCalled();
+});
+
+
+it.each([
+  [H.HR_WORK_REPORT_SELF_READ, false, "本人退回汇报", "3"],
+  [H.HR_WORK_REPORT_TEAM_READ, true, "团队待审汇报", "7"],
+  [H.HR_WORK_REPORT_REVIEW, true, "团队待审汇报", "7"]
+] as const)("uses exact %s authority and complete summary without employee or goal probes", async (permission, team, title, count) => {
+  render(view(user([H.HR_WORK_REPORTS_PAGE, permission])));
+  expect(await metric(title).findByText(count)).toBeVisible();
+  expect(api.workReportsPage).toHaveBeenCalledExactlyOnceWith(team, 1, {}, "synthetic-token");
+  for (const method of [api.me, api.employees, api.goals, api.myWorkReports, api.teamWorkReports]) expect(method).not.toHaveBeenCalled();
+  const navigation = within(screen.getByRole("region", { name: "按场景办理" }));
+  expect(navigation.getAllByRole("link", { name: "工作汇报" })).toHaveLength(1);
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+});
+
+it.each([H.HR_WORK_REPORT_DRAFT, H.HR_WORK_REPORT_SUBMIT])("exposes page plus %s business entry without inventing a readable statistic", async permission => {
+  render(view(user([H.HR_WORK_REPORTS_PAGE, permission])));
+  expect(screen.getByRole("link", { name: "工作汇报" })).toHaveAttribute("href", "/hr/work-reports");
+  await act(async () => {});
+  expect(screen.queryByRole("article")).toBeNull();
+  for (const method of Object.values(api)) expect(method).not.toHaveBeenCalled();
+  expect(screen.queryByText("当前没有待处理事项")).toBeNull();
+});
+
+it.each([
+  { permissions: [H.HR_WORK_REPORTS_PAGE] },
+  { permissions: [H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_TEAM_READ, H.HR_WORK_REPORT_REVIEW, H.HR_WORK_REPORT_DRAFT] },
+  { permissions: [H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_MANAGE, H.HR_WORK_REPORT_TEAM_REVIEW] }
+])("does not infer modern report reads or entry from missing page or legacy atoms %#", async ({ permissions }) => {
+  render(view(user(permissions))); await act(async () => {});
+  expect(api.workReportsPage).not.toHaveBeenCalled();
+  expect(api.myWorkReports).not.toHaveBeenCalled(); expect(api.teamWorkReports).not.toHaveBeenCalled();
+  expect(screen.queryByRole("link", { name: "工作汇报" })).toBeNull();
+});
+
+it("publishes full own returned summary while team is slow and retries only malformed team summary with the current token", async () => {
+  const team = deferred<ReturnType<typeof reportPage>>();
+  api.workReportsPage.mockImplementation((isTeam: boolean) => isTeam ? team.promise : Promise.resolve(reportPage(4, 27)));
+  render(view(user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_TEAM_READ])));
+  expect(await metric("本人退回汇报").findByText("27")).toBeVisible();
+  expect(metric("团队待审汇报").getByText("正在加载统计…")).toBeVisible();
+  expect(screen.queryByText("当前没有待处理事项")).toBeNull();
+  await act(async () => { team.resolve(reportPage(30, 30)); });
+  const retry = await screen.findByRole("button", { name: "重试团队待审汇报统计" });
+  expect(metric("本人退回汇报").getByText("27")).toBeVisible();
+  session.token = "replacement-token"; api.workReportsPage.mockResolvedValue(reportPage(32, 2));
+  fireEvent.click(retry);
+  expect(await metric("团队待审汇报").findByText("32")).toBeVisible();
+  expect(api.workReportsPage).toHaveBeenCalledTimes(3);
+  expect(api.workReportsPage).toHaveBeenLastCalledWith(true, 1, {}, "replacement-token");
+});
+
+it.each(["page", "summary", "negative", "fraction", "items"])("rejects malformed report %s without fabricated zero", async field => {
+  const response = reportPage();
+  if (field === "page") response.page = 2;
+  if (field === "summary") response.summary.pending = 44;
+  if (field === "negative") response.summary.returned = -1;
+  if (field === "fraction") response.summary.returned = 0.5;
+  if (field === "items") response.items = [];
+  api.workReportsPage.mockResolvedValue(response);
+  render(view(user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ])));
+  await screen.findByRole("button", { name: "重试本人退回汇报统计" });
+  expect(metric("本人退回汇报").queryByText("0")).toBeNull();
+  expect(screen.queryByText("当前没有待处理事项")).toBeNull();
+});
+
+it("keeps own and team request generations independent across retry, refresh, StrictMode and page revocation", async () => {
+  const initial = deferred<ReturnType<typeof reportPage>>(), retry = deferred<ReturnType<typeof reportPage>>();
+  let ownCalls = 0;
+  api.workReportsPage.mockImplementation((team: boolean) => {
+    if (team) return Promise.resolve(reportPage(31, 0));
+    ownCalls++;
+    if (ownCalls === 1) return initial.promise;
+    if (ownCalls === 2) return Promise.reject(new Error("synthetic failure"));
+    if (ownCalls === 3) return retry.promise;
+    return Promise.resolve(reportPage(0, 24));
+  });
+  const actor = user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_REVIEW]);
+  const { rerender } = render(view(actor, true)); await act(async () => {});
+  expect(api.workReportsPage).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: "刷新中" }));
+  fireEvent.click(await screen.findByRole("button", { name: "重试本人退回汇报统计" })); await act(async () => {});
+  expect(metric("团队待审汇报").getByText("31")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "刷新中" }));
+  expect(await metric("本人退回汇报").findByText("24")).toBeVisible();
+  await act(async () => { initial.resolve(reportPage(0, 42)); retry.resolve(reportPage(0, 41)); });
+  expect(metric("本人退回汇报").getByText("24")).toBeVisible();
+  rerender(view({ ...actor, permissions: ["hr:dashboard", H.HR_WORK_REPORT_SELF_READ] }, true));
+  expect(screen.queryByRole("article", { name: "本人退回汇报统计" })).toBeNull();
+  expect(screen.queryByText("24")).toBeNull();
+});
+
+it.each(["module", "page"])("report page denies %s before mounting workspace reads and aborts revoked requests", async denial => {
+  const pending = deferred<ReturnType<typeof reportPage>>(); api.workReportsPage.mockReturnValue(pending.promise);
+  const actor = user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_DRAFT, H.HR_GOAL_SELF_READ]);
+  const reportView = (u: UserContext) => <AuthUserContext.Provider value={u}><HrWorkReportsClient /></AuthUserContext.Provider>;
+  const denied = denial === "module" ? { ...actor, enabled_modules: [] } : { ...actor, permissions: actor.permissions.filter(p => p !== H.HR_WORK_REPORTS_PAGE) };
+  const { rerender } = render(reportView(denied)); await act(async () => {});
+  expect(screen.getByText("无权访问工作汇报")).toBeVisible();
+  expect(api.workReportsPage).not.toHaveBeenCalled(); expect(api.goals).not.toHaveBeenCalled();
+  rerender(reportView(actor)); await act(async () => {});
+  expect(api.workReportsPage).toHaveBeenCalledTimes(1);
+  const signal = api.workReportsPage.mock.calls[0]![4] as AbortSignal;
+  rerender(reportView(denied)); expect(signal.aborted).toBe(true);
+  await act(async () => { pending.resolve(reportPage()); });
+  expect(screen.getByText("无权访问工作汇报")).toBeVisible();
+  expect(screen.queryByText("合成工作")).toBeNull();
+});
+
+
+it.each(["id", "tenant_id", "park_id", "org_id", "data_scope", "permissions"] as const)("report metrics discard both pending reads when %s context changes", async field => {
+  const oldOwn = deferred<ReturnType<typeof reportPage>>(), oldTeam = deferred<ReturnType<typeof reportPage>>();
+  api.workReportsPage.mockImplementationOnce(() => oldOwn.promise).mockImplementationOnce(() => oldTeam.promise).mockResolvedValue(reportPage(23, 4));
+  const actor = user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_TEAM_READ]);
+  const { rerender } = render(view(actor)); await act(async () => {});
+  const changed = { ...actor, [field]: field === "permissions" ? [...actor.permissions, H.HR_WORK_REPORT_REVIEW] : "changed" };
+  rerender(view(changed));
+  expect(metric("本人退回汇报").getByText("正在加载统计…")).toBeVisible();
+  expect(await metric("团队待审汇报").findByText("23")).toBeVisible();
+  await act(async () => { oldOwn.resolve(reportPage(0, 42)); oldTeam.resolve(reportPage(41, 0)); });
+  expect(metric("本人退回汇报").getByText("4")).toBeVisible();
+  expect(metric("团队待审汇报").getByText("23")).toBeVisible();
+  expect(screen.queryByText("42")).toBeNull(); expect(screen.queryByText("41")).toBeNull();
+  expect(api.workReportsPage).toHaveBeenCalledTimes(4);
+});
+
+it.each(["module", "dashboard"])("report metrics do not mount without workbench %s grant", async denial => {
+  const actor = user([H.HR_WORK_REPORTS_PAGE, H.HR_WORK_REPORT_SELF_READ, H.HR_WORK_REPORT_REVIEW]);
+  if (denial === "module") actor.enabled_modules = [];
+  else actor.permissions = actor.permissions.filter(p => p !== "hr:dashboard");
+  render(view(actor)); await act(async () => {});
+  expect(screen.getByText("无权访问人力资源管理")).toBeVisible();
+  expect(api.workReportsPage).not.toHaveBeenCalled();
 });
