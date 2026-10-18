@@ -1,0 +1,3 @@
+# 当前证据
+
+基线096674ccb，工作区干净，fetch后main相同。HrWorkbench按旧SELF_MANAGE和TEAM_REVIEW触发无界数组读取，团队筛选只有submitted。控制器和现代汇报页均以SELF_READ、TEAM_READ/REVIEW读取，分页API同一快照summary.pending包含submitted/resubmitted且total为完整范围。work-report-page.ts已提供共享校验。上轮独立请求代次/外层工作台guard的20回归须保留。

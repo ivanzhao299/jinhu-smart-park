@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/web/frontend/hr-workbench-continuity.md", "reason": "independent scoped request invariants"}
+{"file": ".trellis/spec/api/backend/hr-work-report-page.md", "reason": "authoritative read permissions and full summary"}
+{"file": ".trellis/spec/web/frontend/hr-work-report-operation-continuity.md", "reason": "preserve business retry continuity"}
