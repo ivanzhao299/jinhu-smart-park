@@ -1,0 +1,9 @@
+# HR workbench independent reads and scope continuity
+
+- Render the outer HR module/dashboard PermissionGuard before mounting any data-reading workspace. Key the workspace by the complete current user authorization context so changing user, tenant, business scope or permissions synchronously discards previous metrics.
+- Derive business navigation from existing permissions, independently of metric request state. A slow metric must never remove authorized business entry links.
+- Create lazy metric jobs; publish each success, error or unavailable result independently. Every job reads the current access token at invocation. Preserve each original self/team endpoint, status filter, count definition and server authorization.
+- Track generations separately per metric and invalidate on replacement/cleanup. Check current mount and generation both before starting delayed jobs and before publishing any resolved/rejected result. React StrictMode cleanup/setup must not revive old requests. A fetch cancellation flag alone is insufficient where API methods lack signal support.
+- Refresh supersedes pending metrics; local retry calls only its module. Clear previous values while obtaining new values. Failed and inaccessible metrics remain visible with accurate messages and local retry. Never display an all-clear assertion while an authorized metric is still loading, errored or inaccessible. Qualify the empty summary to loaded indicators.
+- Reuse shared DS cards/buttons. Retry buttons occupy their own grid row and retain 44px touch height. Inspect desktop and 390px-class actual component rendering.
+- Controlled-promise component tests cover immediate navigation, independent outcomes, local retry call counts, slow siblings, refresh/retry ordering, identity/scope/permission/module changes, unmount and StrictMode. No real payroll calculation or business acceptance follows from these UI checks.
