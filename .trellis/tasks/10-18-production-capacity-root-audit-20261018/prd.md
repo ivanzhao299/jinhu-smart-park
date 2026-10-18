@@ -22,3 +22,6 @@ main e5f7bc789b38ba6bf6319f7b5283d48598fd9d4d。初始39086313571磁盘耗尽；
 39092981077确认/var/backups为主要占用，独立数据盘约83GiB可用。下一次只读观察仅增加该固定目录的一层类型/大小/年龄统计及固定服务归属分类，和固定cron配置中是否引用该目录的布尔/计数。不输出真实文件名、cron命令、人员、凭据或配置内容。文件名只在内存用于固定模式分类；未知文件保持UNKNOWN，分类不等于可归档授权。不先复制70GB全部备份，不动KingTurf或未知备份；获得HR备份明确归属后单独实施可验证转存。
 
 39093421990表明/var/backups只有一个直属子目录且容纳大部分占用，但所有固定服务路径都不存在、名称分类均OTHER。为避免反复猜路径，允许只读输出该唯一基础设施目录的basename（仅ASCII字母数字点横线下划线、1..80字符；多目录/非法名称/错误则UNAVAILABLE），不输出普通文件名、完整路径、任何正文或凭据。该名称只用于确认后续固定服务路径和备份用途。
+
+## 已确认实际归属
+39093637270唯一目录名为smart-control。只读参考本机SmartControl现有发布备份脚本，已确认其默认异机备份目录/var/backups/smart-control、bundle命名release-*、生产校验工具/usr/local/sbin/smart-control-offsite-release-backup.py。不得将其当HR临时垃圾。下一步固定该目录观察发布bundle/未完成incoming数量、有限manifest/receipt有效性、时间和工具hash，并另做明确的共享主机备份转存方案，保留原路径可访问性、近期备份和全部内容；不停止SmartControl/KingTurf服务，不在只读诊断中复制/删除/挂载。

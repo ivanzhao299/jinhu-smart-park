@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -14,7 +15,7 @@ function fixture(t) {
   fs.chmodSync(root, 0o700);
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const mapped = path => {
-    assert.ok(["/var/backups", "/etc/crontab", "/var/spool/cron/root", "/var/spool/cron/crontabs/root", "/etc/cron.d"].some(base => path === base || path.startsWith(base + "/")));
+    assert.ok(["/var/backups", "/etc/crontab", "/var/spool/cron/root", "/var/spool/cron/crontabs/root", "/etc/cron.d", "/usr/local/sbin/smart-control-offsite-release-backup.py"].some(base => path === base || path.startsWith(base + "/")));
     return join(root, path.slice(1));
   };
   const write = (path, bytes, age = 60) => {
@@ -40,8 +41,8 @@ function fixture(t) {
       fstatSync: fs.fstatSync, readSync: fs.readSync, closeSync: fs.closeSync,
     };
     runInNewContext(source, {
-      require: name => { assert.equal(name, "node:fs"); return readOnlyFs; },
-      Buffer, Date: { now: () => NOW },
+      require: name => { if(name === "node:crypto") return {createHash}; assert.equal(name, "node:fs"); return readOnlyFs; },
+      Buffer, Date: { now: () => NOW, parse: Date.parse },
       process: { stdout: { write: text => { output += text; } } },
     }, { timeout: 2000 });
     assert.doesNotMatch(output, /PRIVATE|PERSON|\/var\/|\/etc\/|\.dump|\.tgz|\.sql|TOKEN|archive_command/);
@@ -49,7 +50,8 @@ function fixture(t) {
     assert.equal(new Set(rows.map(row => row.split("=")[0])).size, rows.length);
     for (const row of rows) {
       if (row.startsWith("backup_inventory_single_directory_name=")) assert.match(row, /^backup_inventory_single_directory_name=[A-Za-z0-9._-]{1,80}$/);
-      else assert.match(row, /^[a-z0-9_]+=(?:[0-9]+|true|false|AVAILABLE|NOT_PRESENT|UNAVAILABLE|TRUNCATED)$/);
+      else if (row.startsWith("smart_control_verifier_sha256=")) assert.match(row, /^smart_control_verifier_sha256=(?:[a-f0-9]{64}|UNAVAILABLE|NOT_PRESENT|TRUNCATED)$/);
+      else assert.match(row, /^[a-z0-9_]+=(?:[0-9]+|true|false|AVAILABLE|NOT_PRESENT|UNAVAILABLE|TRUNCATED|COMPLETE|INCOMPLETE)$/);
     }
     return Object.fromEntries(rows.map(row => row.split("=")));
   };
@@ -155,4 +157,59 @@ test("only one complete, bounded ASCII directory basename may be disclosed", t =
     assert.equal(f.observe().backup_inventory_single_directory_name, "UNAVAILABLE");
     fs.rmSync(f.mapped("/var/backups"), {recursive:true});
   }
+});
+
+
+function bundle(f, name, mutate = receipt => receipt) {
+  const root = `/var/backups/smart-control/${name}`;
+  const manifest = {version:1,kind:"release-recovery-bundle",sourceRevision:"a".repeat(40),database:{path:"sqlite-synthetic/database.sqlite",sha256:"b".repeat(64)},media:{path:"media-synthetic",manifestSha256:"c".repeat(64)}};
+  const bytes=Buffer.from(JSON.stringify(manifest));
+  const receipt=mutate({version:1,kind:"offsite-release-backup-receipt",bundleName:name,copiedAt:"2026-10-18T00:00:00Z",sourceRevision:manifest.sourceRevision,manifestSha256:createHash("sha256").update(bytes).digest("hex"),databaseSha256:manifest.database.sha256,mediaManifestSha256:manifest.media.manifestSha256,mediaFileCount:0,mediaBytes:0});
+  f.write(`${root}/release.json`,bytes);
+  f.write(`${root}/offsite-receipt.json`,JSON.stringify(receipt));
+  return root;
+}
+
+test("Smart Control inventory only validates bounded manifest/receipt metadata and hashes the fixed verifier", t => {
+  const f=fixture(t);
+  const valid=bundle(f,"release-valid");
+  bundle(f,"release-mismatch",receipt=>({...receipt,manifestSha256:"0".repeat(64)}));
+  f.directory("/var/backups/smart-control/release-missing");
+  const linked=bundle(f,"release-symlink");
+  fs.unlinkSync(f.mapped(`${linked}/release.json`));
+  fs.symlinkSync("/PRIVATE_TARGET",f.mapped(`${linked}/release.json`));
+  const oversized=bundle(f,"release-oversized");
+  f.write(`${oversized}/release.json`,Buffer.alloc(65537));
+  f.directory("/var/backups/smart-control/.incoming-synthetic");
+  f.directory("/var/backups/smart-control/other-directory");
+  fs.symlinkSync("/PRIVATE_TARGET",f.mapped("/var/backups/smart-control/release-link"));
+  f.write("/var/backups/smart-control/PRIVATE_ORDINARY_FILE", "not read");
+  for(const name of ["release-valid","release-mismatch","release-missing","release-symlink","release-oversized",".incoming-synthetic","other-directory"])fs.utimesSync(f.mapped(`/var/backups/smart-control/${name}`),NOW/1000,NOW/1000);
+  for(const path of [valid,"/var/backups/smart-control/.incoming-synthetic"])fs.utimesSync(f.mapped(path),(NOW-8*86400*1000)/1000,(NOW-8*86400*1000)/1000);
+  const verifier=Buffer.from("PRIVATE_VERIFIER_SOURCE");f.write("/usr/local/sbin/smart-control-offsite-release-backup.py",verifier);
+  const result=f.observe();
+  assert.equal(result.smart_control_inventory_status,"AVAILABLE");
+  for(const [key,value] of Object.entries({entries:9,directories:7,release_directories:5,incoming_directories:1,other_directories:1,symlinks:1,regular_files:1,release_directories_at_least_7_days:1,incoming_directories_at_least_7_days:1,metadata_validated:1,metadata_missing:1,metadata_invalid:1,metadata_unavailable:1,metadata_oversize:1}))assert.equal(result[`smart_control_${key}`],String(value),key);
+  assert.equal(result.smart_control_metadata_status,"UNAVAILABLE");
+  assert.equal(result.smart_control_verifier_status,"AVAILABLE");
+  assert.equal(result.smart_control_verifier_sha256,createHash("sha256").update(verifier).digest("hex"));
+});
+
+test("Smart Control metadata mismatch, missing, oversize, root absence and inventory bounds stay explicit", t => {
+  const f=fixture(t);
+  assert.equal(f.observe().smart_control_inventory_status,"NOT_PRESENT");
+  bundle(f,"release-valid");
+  assert.equal(f.observe().smart_control_metadata_status,"COMPLETE");
+  bundle(f,"release-invalid",receipt=>({...receipt,version:2}));
+  assert.equal(f.observe().smart_control_metadata_status,"INCOMPLETE");
+  fs.rmSync(f.mapped("/var/backups/smart-control/release-invalid"),{recursive:true});
+  f.directory("/var/backups/smart-control/release-missing");
+  assert.equal(f.observe().smart_control_metadata_status,"INCOMPLETE");
+  f.write("/var/backups/smart-control/release-missing/release.json",Buffer.alloc(65537));
+  assert.equal(f.observe().smart_control_metadata_status,"TRUNCATED");
+  fs.rmSync(f.mapped("/var/backups/smart-control"),{recursive:true});
+  for(let i=0;i<257;i++)f.directory(`/var/backups/smart-control/.incoming-${i}`);
+  const result=f.observe();
+  assert.equal(result.smart_control_inventory_status,"TRUNCATED");
+  assert.equal(result.smart_control_metadata_validated,"UNAVAILABLE");
 });

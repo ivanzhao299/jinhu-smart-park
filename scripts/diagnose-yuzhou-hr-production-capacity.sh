@@ -185,6 +185,7 @@ directory_kib var /var
 directory_kib var_lib /var/lib
 directory_kib var_cache /var/cache
 directory_kib var_backups /var/backups
+directory_kib backups_smart_control /var/backups/smart-control
 directory_kib backups_jinhu_smart_park /var/backups/jinhu-smart-park
 directory_kib backups_jinhu /var/backups/jinhu
 directory_kib backups_park /var/backups/park
@@ -269,6 +270,7 @@ printf 'data_mount_same_filesystem_as_host=%s\n' "$data_mount_same_filesystem_as
 observe_backup_ownership() {
   timeout -k 1s 8s node - 2>/dev/null <<'CAPACITY_BACKUP_OBSERVER'
 const fs = require("node:fs");
+const { createHash } = require("node:crypto");
 const ENTRY_LIMIT = 4096, CRON_ENTRY_LIMIT = 64, CRON_BYTE_LIMIT = 65536;
 const output = [];
 const emit = (key, value) => output.push(`${key}=${value}`);
@@ -370,11 +372,87 @@ emit("cron_reference_status", cronStatus);
 emit("cron_reference_entry_limit", CRON_ENTRY_LIMIT);
 emit("cron_reference_file_limit_bytes", CRON_BYTE_LIMIT);
 for (const key of cronKeys) emit(`cron_${key}`, cron[key]);
+
+// This is metadata consistency, not the Smart Control verifier or an active-writer check.
+const SMART_LIMIT = 256, SMALL_FILE_LIMIT = 65536;
+const smallRegular = path => {
+  const before = optionalStat(path);
+  if (!before) problem("NOT_PRESENT");
+  if (!before.isFile() || before.isSymbolicLink()) problem("UNAVAILABLE");
+  const fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const opened = fs.fstatSync(fd);
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) problem("UNAVAILABLE");
+    if (opened.size > SMALL_FILE_LIMIT) problem("TRUNCATED");
+    const bytes = Buffer.alloc(SMALL_FILE_LIMIT + 1);
+    let size = 0, read;
+    while (size < bytes.length && (read = fs.readSync(fd, bytes, size, bytes.length - size, size)) > 0) size += read;
+    if (size > SMALL_FILE_LIMIT) problem("TRUNCATED");
+    const after = fs.fstatSync(fd);
+    if (size !== opened.size || after.size !== opened.size || after.mtimeMs !== opened.mtimeMs) problem("UNAVAILABLE");
+    return bytes.subarray(0, size);
+  } finally { fs.closeSync(fd); }
+};
+const smartKeys = ["entries", "directories", "regular_files", "symlinks", "special_entries", "release_directories", "incoming_directories", "other_directories", "release_directories_at_least_7_days", "incoming_directories_at_least_7_days", "metadata_validated", "metadata_missing", "metadata_invalid", "metadata_unavailable", "metadata_oversize"];
+let smartStatus = "AVAILABLE", smart = Object.fromEntries(smartKeys.map(key => [key, 0]));
+try {
+  const root = optionalStat("/var/backups/smart-control");
+  if (!root) problem("NOT_PRESENT");
+  if (!root.isDirectory() || root.isSymbolicLink()) problem("UNAVAILABLE");
+  const directory = fs.opendirSync("/var/backups/smart-control");
+  try {
+    let entry;
+    while ((entry = directory.readSync()) !== null) {
+      if (smart.entries >= SMART_LIMIT) problem("TRUNCATED");
+      const path = `/var/backups/smart-control/${entry.name}`, stat = fs.lstatSync(path);
+      smart.entries++;
+      if (stat.isSymbolicLink()) { smart.symlinks++; continue; }
+      if (stat.isFile()) { smart.regular_files++; continue; }
+      if (!stat.isDirectory()) { smart.special_entries++; continue; }
+      smart.directories++;
+      if (!Number.isFinite(stat.mtimeMs)) problem("UNAVAILABLE");
+      const old = Date.now() - stat.mtimeMs >= 7 * 86400 * 1000;
+      if (/^\.incoming-[A-Za-z0-9_-]+$/.test(entry.name)) {
+        smart.incoming_directories++;
+        if (old) smart.incoming_directories_at_least_7_days++;
+        continue;
+      }
+      if (!/^release-[A-Za-z0-9_-]+$/.test(entry.name)) { smart.other_directories++; continue; }
+      smart.release_directories++;
+      if (old) smart.release_directories_at_least_7_days++;
+      try {
+        const manifestBytes = smallRegular(`${path}/release.json`), receiptBytes = smallRegular(`${path}/offsite-receipt.json`);
+        const manifest = JSON.parse(manifestBytes.toString("utf8")), receipt = JSON.parse(receiptBytes.toString("utf8"));
+        const sha = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+        if (!manifest || manifest.kind !== "release-recovery-bundle" || manifest.version !== 1 || typeof manifest.sourceRevision !== "string" || !/^[a-f0-9]{40}$/.test(manifest.sourceRevision) || !manifest.database || typeof manifest.database.path !== "string" || !/^sqlite-[A-Za-z0-9_-]+\/database\.sqlite$/.test(manifest.database.path) || !sha(manifest.database.sha256) || !manifest.media || typeof manifest.media.path !== "string" || !/^media-[A-Za-z0-9_-]+$/.test(manifest.media.path) || !sha(manifest.media.manifestSha256)) problem("INVALID");
+        if (!receipt || receipt.kind !== "offsite-release-backup-receipt" || receipt.version !== 1 || receipt.bundleName !== entry.name || receipt.sourceRevision !== manifest.sourceRevision || receipt.manifestSha256 !== createHash("sha256").update(manifestBytes).digest("hex") || receipt.databaseSha256 !== manifest.database.sha256 || receipt.mediaManifestSha256 !== manifest.media.manifestSha256 || typeof receipt.copiedAt !== "string" || !Number.isFinite(Date.parse(receipt.copiedAt)) || !Number.isSafeInteger(receipt.mediaFileCount) || receipt.mediaFileCount < 0 || !Number.isSafeInteger(receipt.mediaBytes) || receipt.mediaBytes < 0) problem("INVALID");
+        smart.metadata_validated++;
+      } catch (error) {
+        if (error.status === "NOT_PRESENT") smart.metadata_missing++;
+        else if (error.status === "TRUNCATED") smart.metadata_oversize++;
+        else if (error.status === "UNAVAILABLE" || error.code) smart.metadata_unavailable++;
+        else smart.metadata_invalid++;
+      }
+    }
+  } finally { directory.closeSync(); }
+} catch (error) {
+  smartStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  smart = Object.fromEntries(smartKeys.map(key => [key, smartStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("smart_control_inventory_status", smartStatus);
+emit("smart_control_entry_limit", SMART_LIMIT);
+for (const key of smartKeys) emit(`smart_control_${key}`, smart[key]);
+emit("smart_control_metadata_status", smartStatus !== "AVAILABLE" ? smartStatus : smart.metadata_unavailable ? "UNAVAILABLE" : smart.metadata_oversize ? "TRUNCATED" : smart.metadata_missing || smart.metadata_invalid ? "INCOMPLETE" : "COMPLETE");
+let verifierStatus = "AVAILABLE", verifierSha = "UNAVAILABLE";
+try { verifierSha = createHash("sha256").update(smallRegular("/usr/local/sbin/smart-control-offsite-release-backup.py")).digest("hex"); }
+catch (error) { verifierStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE"; verifierSha = verifierStatus; }
+emit("smart_control_verifier_status", verifierStatus);
+emit("smart_control_verifier_sha256", verifierSha);
 process.stdout.write(output.join("\n") + "\n");
 CAPACITY_BACKUP_OBSERVER
 }
 if command -v timeout >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && backup_observation="$(observe_backup_ownership)"; then
   printf 'backup_observer_status=AVAILABLE\n%s\n' "$backup_observation"
 else
-  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\nbackup_inventory_single_directory_name=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\n'
+  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\nbackup_inventory_single_directory_name=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\nsmart_control_inventory_status=UNAVAILABLE\nsmart_control_metadata_status=UNAVAILABLE\nsmart_control_verifier_status=UNAVAILABLE\nsmart_control_verifier_sha256=UNAVAILABLE\n'
 fi
