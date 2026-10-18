@@ -37,7 +37,7 @@ function HrWorkspace() {
   const generations = useRef<Partial<Record<keyof Snapshot, number>>>({});
   const canReadEmployees = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW]);
   const canManagePeople = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYMENT_TRANSITION, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE]);
-  const canReviewTeam = hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW, HR_PERMISSIONS.HR_APPROVAL_REVIEW]);
+  const canReviewTeam = hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW, HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW, HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW]);
 
   const canOpenReports = hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORTS_PAGE) && hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_SELF_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_READ, HR_PERMISSIONS.HR_WORK_REPORT_REVIEW, HR_PERMISSIONS.HR_WORK_REPORT_DRAFT, HR_PERMISSIONS.HR_WORK_REPORT_SUBMIT]);
 
@@ -91,10 +91,12 @@ function HrWorkspace() {
     }
     if (hasPermission(user, HR_PERMISSIONS.HR_FEEDBACK_RESPOND)) add("feedback", () => hrApi.myFeedbackAssignments(token()).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "待完成 360 评价" })));
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_SELF_ACTION]))add("talent",()=>hrApi.developmentPlans(token()).then(rows=>({value:rows.flatMap(x=>x.actions).filter(x=>isOpen(x.status)).length,detail:"待推进发展行动"})));
-    if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_REVIEW)) {
-      add("approvals", () => hrApi.pendingApprovals(token()).then((rows) => ({ value: rows.filter((item) => item.status === "pending").length, detail: "待审核人事申请" })));
-    } else if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE)) {
-      add("approvals", () => hrApi.myApprovals(token()).then((rows) => ({ value: rows.filter((item) => ["draft", "pending"].includes(item.status)).length, detail: "我的进行中申请" })));
+    if (hasPermission(user, HR_PERMISSIONS.HR_APPROVALS_PAGE)) {
+      if (hasAnyPermission(user, [HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW, HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW])) {
+        add("approvals", () => hrApi.pendingApprovals(token()).then((rows) => ({ value: rows.filter((item) => item.status === "submitted").length, detail: "当前授权范围待审核人事申请" })));
+      } else if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE)) {
+        add("approvals", () => hrApi.myApprovals(token()).then((rows) => ({ value: rows.filter((item) => ["draft", "submitted"].includes(item.status)).length, detail: "我的草稿与待审核申请" })));
+      }
     }
     if (hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ)) {
       add("payroll", () => hrApi.payrollRuns(token()).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "进行中工资批次" })));
