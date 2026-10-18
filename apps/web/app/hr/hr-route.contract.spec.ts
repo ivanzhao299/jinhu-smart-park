@@ -92,8 +92,8 @@ test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
   assert.match(workbench,/hrApi\.teamWorkReports/);
   assert.match(workbench,/isEmployeeContextUnavailable\(error\) \? "unavailable" : "error"/);
   assert.match(workbench,/No employee profile is linked to current user/);
-  assert.match(workbench,/当前范围暂无访问权限/);
-  assert.match(workbench,/加载失败，可刷新重试/);
+  assert.match(workbench,/当前范围不可访问或未关联员工档案/);
+  assert.match(workbench,/统计加载失败，请重试/);
   assert.doesNotMatch(workbench,/\.catch\(\(\) => undefined\)/);
   assert.doesNotMatch(workbench,/规划能力|交付路线|基础期|执行期|绩效期|薪酬期/);
 });

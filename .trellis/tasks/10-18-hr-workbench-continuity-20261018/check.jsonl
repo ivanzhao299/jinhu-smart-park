@@ -1,0 +1,3 @@
+{"file": "apps/web/app/hr/HrWorkbench.tsx", "reason": "exact affected workflow"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "frontend contracts"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "shared patterns"}

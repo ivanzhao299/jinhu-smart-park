@@ -1038,3 +1038,6 @@
 .departurePickerPages { align-items: center; }
 .departurePickerPages :global(.ds-button) { width: auto; flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
 .departurePickerPages > span { flex: 1 1 110px; text-align: center; }
+
+/* Keep a failed metric retry separate from its navigation link at every width. */
+.metricCard > button { grid-column: 2 / 4; justify-self: start; min-height: 44px; margin-top: 8px; }

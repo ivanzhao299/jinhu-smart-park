@@ -643,3 +643,5 @@ Five-channel draft definition maintenance: [Channel Definition](./hr-performance
 Five-channel complete scoped operations, paired policies, revisions and correction: [Channel Workflow](./hr-performance-channel-workflow.md).
 
 - [员工建议与投诉](./hr-employee-feedback-workflow.md)：本人/园区 HR 范围、私密历史、原请求重试、Unicode 与移动端。
+
+HR business entry and independently recoverable scoped metrics: [Workbench continuity](./hr-workbench-continuity.md).
