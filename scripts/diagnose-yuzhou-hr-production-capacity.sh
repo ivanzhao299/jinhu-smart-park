@@ -182,6 +182,12 @@ printf 'directory_sizes_overlap=true\n'
 printf 'directory_sizes_same_filesystem_only=true\n'
 directory_kib root /
 directory_kib var /var
+directory_kib var_lib /var/lib
+directory_kib var_cache /var/cache
+directory_kib containerd /var/lib/containerd
+directory_kib containerd_overlayfs /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
+directory_kib containerd_content /var/lib/containerd/io.containerd.content.v1.content
+directory_kib containerd_metadata /var/lib/containerd/io.containerd.metadata.v1.bolt
 directory_kib srv /srv
 directory_kib opt /opt
 directory_kib usr /usr

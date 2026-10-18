@@ -12,3 +12,7 @@
 - 39092509885工作流SUCCESS但新增尾部字段缺失，不作为目录占用证据。
 - 真实sh -s传输复现Compose消耗脚本stdin，修复前回归exit89。
 - 固定只读Compose查询stdin改为/dev/null；9/9流传输用例验证4次查询EOF、26标签及4尾部字段完整；静态合同/语法/diff PASS。
+
+## 完整目录结果与聚焦后续
+- 39092682308返回26目录及4数据盘字段；root/var在8秒限时内未完成，不能推断为0。DockerRoot约4.1GiB，源码/回滚约0.15/0.40GiB，tmp约4GiB，独立数据盘可用约83GiB。
+- 为解释98GB系统盘已用，仅增6个var_lib/cache/containerd固定路径。9流传输用例更新32目录标签PASS，静态/语法/diff PASS。禁止将嵌套目录相加，尚未实施任何删除/转存。
