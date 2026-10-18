@@ -25,6 +25,13 @@ printf '%s\n' '{"blockdevices":[{"name":"synthetic","type":"disk","size":1024000
 SH
 cat > "$bin/docker" <<'SH'
 #!/bin/sh
+if [ "$1" = compose ]; then
+  printf 'compose_read_attempt\n' >> "$CAPACITY_CALLS"
+  if IFS= read -r ignored; then
+    printf 'compose_consumed_script\n' >> "$CAPACITY_CALLS"
+    while IFS= read -r ignored; do :; done
+  fi
+fi
 case "$*" in
  'info --format {{.DockerRootDir}}') printf '%s\n' "$CAPACITY_DOCKER" ;;
  *'file_root='*) printf '101\n' ;;
@@ -70,7 +77,20 @@ run_case() {
  if [ "$case_name" = no_timeout ]; then rm "$bin/timeout"; fi
  if [ "$case_name" = no_du ]; then rm "$bin/du"; fi
  PATH="$bin" CAPACITY_CASE="$case_name" CAPACITY_DOCKER="$fixture/docker" CAPACITY_CALLS="$calls" \
-   /bin/sh "$repo_root/scripts/diagnose-yuzhou-hr-production-capacity.sh" report "$release" > "$output" 2> "$errors"
+   /bin/sh -s -- report "$release" < "$repo_root/scripts/diagnose-yuzhou-hr-production-capacity.sh" > "$output" 2> "$errors"
+ # Production sends this script over SSH stdin. Compose must receive EOF, not consume it.
+ if grep -Fxq 'compose_consumed_script' "$calls"; then
+   printf 'Compose consumed the streamed diagnostic source.\n' >&2; exit 89
+ fi
+ test "$(grep -c '^compose_read_attempt$' "$calls")" -eq 4
+ test "$(grep -c '^directory_.*_used_kib=' "$output")" -eq 26
+ for label in root var srv opt usr root_home home tmp var_tmp var_log docker docker_overlay2 docker_buildkit docker_containers docker_volumes docker_tmp release release_node_modules release_web_next release_logs release_tmp gate19_reports rollback failed_rollback_39086313571 data_mount retained_gate19_backups; do
+   grep -Eq "^directory_${label}_used_kib=([0-9]+|UNAVAILABLE|NOT_PRESENT)$" "$output"
+ done
+ for label in total used free; do
+   grep -Eq "^data_mount_${label}_kib=([0-9]+|UNAVAILABLE|NOT_PRESENT)$" "$output"
+ done
+ grep -Eq '^data_mount_same_filesystem_as_host=(yes|no|UNAVAILABLE|NOT_PRESENT)$' "$output"
  grep -Fxq 'status=DISK_GUARD' "$output"
  grep -Fxq 'host_free_kib=100000' "$output"
  grep -Fxq 'host_recovery_required_kib=20972126' "$output"
@@ -103,4 +123,4 @@ run_case multiline UNAVAILABLE
 run_case timeout UNAVAILABLE
 run_case no_timeout UNAVAILABLE
 run_case no_du UNAVAILABLE
-printf 'Yuzhou capacity directory observer: PASS (9 cases)\n'
+printf 'Yuzhou capacity directory observer: PASS (9 streamed cases)\n'

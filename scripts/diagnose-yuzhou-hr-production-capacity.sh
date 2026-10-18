@@ -23,7 +23,8 @@ compose_file="${COMPOSE_FILE:-$root_dir/infra/docker/docker-compose.prod.yml}"
 test -f "$env_file" && test -f "$compose_file" || fail
 
 compose() {
-  docker compose --env-file "$env_file" -f "$compose_file" "$@"
+  # The diagnostic arrives through sh -s; fixed queries must not consume its source stream.
+  docker compose --env-file "$env_file" -f "$compose_file" "$@" </dev/null
 }
 
 numeric() {
