@@ -1,0 +1,2 @@
+先独立review设计，再实现。Worker负责scripts/archive-production-offsite-backups.py、scripts/e2e/production-offsite-backup-archive.test.py及精确校验器fixture；root负责workflow、路由合同、docs及task/checkpoint、唯一生产写入。不得修改其他仓库，其他人改动须保留。聚焦测试完成后check agent审查全部增量；先plan生产回执，再apply绑定真实plan。无应用/依赖改动不跑重复全应用CI。
+设计审查已经通过，以上design addendum为必需实现合同。校验器fixture精确复制已审查本机Python源码（SHA283c03b...860bc3a），只作为真实小SQLite/媒体夹具测试，不更改其他repo。工具fixture来源需test锁完整hash。root workflow传输python3 -B，受测计划默认零写；apply复制/校验后只退役原盘副本，保留内容和近期备份。

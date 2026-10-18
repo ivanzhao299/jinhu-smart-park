@@ -387,3 +387,30 @@ Reference files:
 - Count source and run entities separately to prevent join fanout. Follow authoritative source scope, deletion, receipt, binding and current-database control predicates; synthetic schema fixtures must not disable immutable guards to create impossible rows.
 - Latest observed payroll month comes from payroll facts, independently of attendance/insurance months. A maximum 24-month ordered list must expose its total and truncation. Counts never establish a complete period, employee coverage, amount equivalence or payment authority; Wu Enguo confirms the latest complete actual period and rules for calculate-only acceptance.
 - Bind actual production observation to its workflow/code revision and verified API/Web runtime receipt. Local fixtures and a healthy deployment cannot stand in for actual production input evidence or HR-role business acceptance.
+
+## Scenario: Existing recovery bundle archival
+
+### 1. Scope / Trigger
+Explicit operations-only transfer from a full root disk to the existing independent data mount; no application deployment.
+
+### 2. Signatures
+`python3 -B - plan|apply EXPECTED_PLAN_SHA_OR_DASH DEPLOY_ROOT`; workflow mode `archive-smart-control-backups`. No arbitrary source/target inputs.
+
+### 3. Contracts
+Plan emits PLAN_READY, exact plan_sha256 and bounded aggregate counts/bytes. Apply binds that digest and emits ARCHIVE_COMPLETED only when retired_bundles equals planned_bundles. Preserve latest two including ties and all bundles younger than seven days. Logical transfer cap 40GiB, reserve 10GiB; reclaim estimate uses allocated bytes.
+
+### 4. Validation & Error Matrix
+Plan mismatch, verifier pin mismatch, source/target drift, activity or incomplete observation -> FAIL with fixed code; retain uncertain copies. Failed/canceled transport keeps a sanitized FAIL artifact. Raw output is never uploaded.
+
+### 5. Good/Base/Bad Cases
+Good: verify all destination payloads, fsync and durable recovery index before retiring exact source identities. Base: plan creates no remote files. Bad: trust a receipt without typed actual verifier evidence or reuse a completed staging file without fsync.
+
+### 6. Tests Required
+Real SQLite/media fixture, eleven interruption fences, partial deletion subset, recreated source identity, durability failures, typed receipt tamper, per-process verification cache invalidation, logical-space budget, workflow exclusions and cancellation artifact. See production-offsite-backup-archive.test.py and production-offsite-backup-archive-route.contract.mjs.
+
+### 7. Wrong vs Correct
+Wrong: reuse verification across processes or skip fresh file facts to save time. Correct: in-memory reuse within one apply only after fresh exact full-tree facts; new process/resume fully verifies again. Only known rename root ctime is normalized; source/purge checks remain complete.
+
+## Observed SQLite verifier side effect and same-plan recovery
+Production apply 39095793691 stopped with SOURCE_DRIFT; read-only artifacts 39096192551/39096372834 prove all eight sources unchanged, seven PLANNED/one VERIFIED/zero retirement, and only original target WAL/SHM time facts changed while both original hashes match. The original SQLite mode=ro checker may mutate auxiliary metadata. Execute its saved original function on independent private byte copies of the DB and every present WAL/SHM/rollback journal; do not use immutable mode or omit engine companions. Copies belong to the sealed plan's .verification directory, reserve space before copying, normal completion removes only its own temporary directory; interrupted leftovers stay attributable and are not broadly cleaned. Full target byte/manifest/media/typed-receipt checks and strict post-check target facts remain required.
+Recovery binds the original digest: only manifest-designated existing WAL/SHM mtime/ctime changes in COPIED/VERIFIED may be reconciled after exact source inventory/hash, full target hash and pinned verification; every other fact/path remains exact. Fsync auxiliary files, preserve old/new facts in private journal, persist before the recovery index or any retirement. Source/retirement same_tree semantics stay unchanged. Actual resumed production success is still pending.

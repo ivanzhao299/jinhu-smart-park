@@ -23,7 +23,8 @@ compose_file="${COMPOSE_FILE:-$root_dir/infra/docker/docker-compose.prod.yml}"
 test -f "$env_file" && test -f "$compose_file" || fail
 
 compose() {
-  docker compose --env-file "$env_file" -f "$compose_file" "$@"
+  # The diagnostic arrives through sh -s; fixed queries must not consume its source stream.
+  docker compose --env-file "$env_file" -f "$compose_file" "$@" </dev/null
 }
 
 numeric() {
@@ -156,3 +157,302 @@ printf 'docker_data_total_kib=%s\n' "$docker_total_kib"
 printf 'docker_data_used_kib=%s\n' "$docker_used_kib"
 printf 'docker_data_free_kib=%s\n' "$docker_free_kib"
 printf 'container_minimum_kib=%s\n' "$container_min_kib"
+
+
+# These observations supplement capacity evidence; they never change the existing gate status.
+# Each traversal is on one device, does not follow symlinks, and may overlap another label.
+directory_kib() {
+  directory_label="$1"
+  directory_path="$2"
+  directory_value=UNAVAILABLE
+  if [ ! -e "$directory_path" ] && [ ! -L "$directory_path" ]; then
+    directory_value=NOT_PRESENT
+  elif [ -d "$directory_path" ] && [ ! -L "$directory_path" ] && command -v timeout >/dev/null 2>&1 && command -v du >/dev/null 2>&1; then
+    if directory_output="$(timeout -k 1s 8s du -P -x -s -k -- "$directory_path" 2>/dev/null)"; then
+      if directory_size="$(printf '%s\n' "$directory_output" | awk 'NR == 1 && NF >= 2 && $1 ~ /^[0-9]+$/ { value=$1 } END { if (NR == 1 && value != "") print value; else exit 1 }')"; then
+        directory_value="$directory_size"
+      fi
+    fi
+  fi
+  printf 'directory_%s_used_kib=%s\n' "$directory_label" "$directory_value"
+}
+
+printf 'directory_probe_timeout_seconds=8\n'
+printf 'directory_sizes_overlap=true\n'
+printf 'directory_sizes_same_filesystem_only=true\n'
+directory_kib root /
+directory_kib var /var
+directory_kib var_lib /var/lib
+directory_kib var_cache /var/cache
+directory_kib var_backups /var/backups
+directory_kib backups_smart_control /var/backups/smart-control
+directory_kib backups_jinhu_smart_park /var/backups/jinhu-smart-park
+directory_kib backups_jinhu /var/backups/jinhu
+directory_kib backups_park /var/backups/park
+directory_kib backups_yuzhou_hr /var/backups/yuzhou-hr
+directory_kib backups_kingturf_erp /var/backups/kingturf-erp
+directory_kib var_www /var/www
+directory_kib var_spool /var/spool
+directory_kib var_snap /var/snap
+directory_kib var_opt /var/opt
+directory_kib var_crash /var/crash
+directory_kib containerd /var/lib/containerd
+directory_kib containerd_overlayfs /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
+directory_kib containerd_content /var/lib/containerd/io.containerd.content.v1.content
+directory_kib containerd_metadata /var/lib/containerd/io.containerd.metadata.v1.bolt
+directory_kib srv /srv
+directory_kib opt /opt
+directory_kib usr /usr
+directory_kib root_home /root
+directory_kib home /home
+directory_kib tmp /tmp
+directory_kib var_tmp /var/tmp
+directory_kib var_log /var/log
+directory_kib docker "$docker_root"
+directory_kib docker_overlay2 "$docker_root/overlay2"
+directory_kib docker_buildkit "$docker_root/buildkit"
+directory_kib docker_containers "$docker_root/containers"
+directory_kib docker_volumes "$docker_root/volumes"
+directory_kib docker_tmp "$docker_root/tmp"
+directory_kib release "$root_dir"
+directory_kib release_node_modules "$root_dir/node_modules"
+directory_kib release_web_next "$root_dir/apps/web/.next"
+directory_kib release_logs "$root_dir/logs"
+directory_kib release_tmp "$root_dir/tmp"
+directory_kib gate19_reports "$root_dir/tmp/production-gates"
+directory_kib rollback "${root_dir}.runner-rollback"
+directory_kib failed_rollback_39086313571 "${root_dir}.runner-rollback/39086313571"
+directory_kib data_mount /srv/jinhu-production-data
+directory_kib retained_gate19_backups /srv/jinhu-production-data/hr-preimport-backups
+
+# The mount path is fixed by mount-production-data-disk.sh; expose no device/path names.
+data_mount_total_kib=UNAVAILABLE
+data_mount_used_kib=UNAVAILABLE
+data_mount_free_kib=UNAVAILABLE
+data_mount_same_filesystem_as_host=UNAVAILABLE
+if [ ! -e /srv/jinhu-production-data ] && [ ! -L /srv/jinhu-production-data ]; then
+  data_mount_total_kib=NOT_PRESENT
+  data_mount_used_kib=NOT_PRESENT
+  data_mount_free_kib=NOT_PRESENT
+  data_mount_same_filesystem_as_host=NOT_PRESENT
+elif [ -d /srv/jinhu-production-data ] && [ ! -L /srv/jinhu-production-data ] && command -v timeout >/dev/null 2>&1; then
+  if data_mount_output="$(timeout -k 1s 8s df -Pk /srv/jinhu-production-data 2>/dev/null)"; then
+    data_mount_row="$(printf '%s\n' "$data_mount_output" | awk 'NR == 2 { print $2 "|" $3 "|" $4; exit }')"
+    case "$data_mount_row" in
+      ''|*[!0-9\|]*|\|*|*\|) ;;
+      *)
+        IFS='|' read -r candidate_total candidate_used candidate_free <<EOF
+$data_mount_row
+EOF
+        case "$candidate_total:$candidate_used:$candidate_free" in
+          *[!0-9:]*|:*|*::*|*:) ;;
+          *) data_mount_total_kib="$candidate_total"; data_mount_used_kib="$candidate_used"; data_mount_free_kib="$candidate_free" ;;
+        esac
+        ;;
+    esac
+  fi
+  if command -v stat >/dev/null 2>&1 && host_device="$(timeout -k 1s 8s stat -c %d -- "$root_dir" 2>/dev/null)" && data_device="$(timeout -k 1s 8s stat -c %d -- /srv/jinhu-production-data 2>/dev/null)"; then
+    case "$host_device:$data_device" in
+      *[!0-9:]*|:*|*:) ;;
+      *:*:*) ;;
+      *)
+        if [ "$host_device" = "$data_device" ]; then data_mount_same_filesystem_as_host=yes; else data_mount_same_filesystem_as_host=no; fi
+        ;;
+    esac
+  fi
+fi
+printf 'data_mount_total_kib=%s\n' "$data_mount_total_kib"
+printf 'data_mount_used_kib=%s\n' "$data_mount_used_kib"
+printf 'data_mount_free_kib=%s\n' "$data_mount_free_kib"
+printf 'data_mount_same_filesystem_as_host=%s\n' "$data_mount_same_filesystem_as_host"
+
+# Fixed, immediate-entry ownership hints only; classification is not disposal authority.
+observe_backup_ownership() {
+  timeout -k 1s 8s node - 2>/dev/null <<'CAPACITY_BACKUP_OBSERVER'
+const fs = require("node:fs");
+const { createHash } = require("node:crypto");
+const ENTRY_LIMIT = 4096, CRON_ENTRY_LIMIT = 64, CRON_BYTE_LIMIT = 65536;
+const output = [];
+const emit = (key, value) => output.push(`${key}=${value}`);
+const problem = status => { throw Object.assign(new Error("OBSERVER_UNAVAILABLE"), { status }); };
+const optionalStat = path => {
+  try { return fs.lstatSync(path); }
+  catch (error) { if (error.code === "ENOENT") return null; problem("UNAVAILABLE"); }
+};
+const backupKeys = ["entries", "directories", "regular_files", "symlinks", "special_entries", "regular_bytes", "oldest_regular_age_seconds", "newest_regular_age_seconds"];
+for (const category of ["hr_jinhu", "kingturf", "other"]) backupKeys.push(`${category}_entries`, `${category}_regular_files`, `${category}_regular_bytes`);
+const categoryFor = name => {
+  const known = ["jinhu-smart-park", "jinhu_pg_", "jinhu_files", "yuzhou-hr"];
+  if (known.some(prefix => prefix.endsWith("_") ? name.startsWith(prefix) : name === prefix || ["-", "_", "."].some(separator => name.startsWith(prefix + separator)))) return "hr_jinhu";
+  return /^kingturf(?:[-_.]|$)/i.test(name) ? "kingturf" : "other";
+};
+let backupStatus = "AVAILABLE", backup = Object.fromEntries(backupKeys.map(key => [key, 0]));
+let oldest = null, newest = null, singleDirectoryName = null;
+try {
+  const root = optionalStat("/var/backups");
+  if (!root) problem("NOT_PRESENT");
+  if (!root.isDirectory() || root.isSymbolicLink()) problem("UNAVAILABLE");
+  const directory = fs.opendirSync("/var/backups");
+  try {
+    let entry;
+    while ((entry = directory.readSync()) !== null) {
+      if (backup.entries >= ENTRY_LIMIT) problem("TRUNCATED");
+      const stat = fs.lstatSync(`/var/backups/${entry.name}`), category = categoryFor(entry.name);
+      backup.entries++; backup[`${category}_entries`]++;
+      if (stat.isSymbolicLink()) backup.symlinks++;
+      else if (stat.isDirectory()) { backup.directories++; singleDirectoryName = entry.name; }
+      else if (stat.isFile()) {
+        if (!Number.isSafeInteger(stat.size) || stat.size < 0 || !Number.isFinite(stat.mtimeMs)) problem("UNAVAILABLE");
+        backup.regular_files++; backup.regular_bytes += stat.size;
+        backup[`${category}_regular_files`]++; backup[`${category}_regular_bytes`] += stat.size;
+        if (!Number.isSafeInteger(backup.regular_bytes)) problem("UNAVAILABLE");
+        const age = Math.max(0, Math.floor((Date.now() - stat.mtimeMs) / 1000));
+        oldest = oldest === null ? age : Math.max(oldest, age);
+        newest = newest === null ? age : Math.min(newest, age);
+      } else backup.special_entries++;
+    }
+  } finally { directory.closeSync(); }
+  backup.oldest_regular_age_seconds = oldest === null ? "NOT_PRESENT" : oldest;
+  backup.newest_regular_age_seconds = newest === null ? "NOT_PRESENT" : newest;
+} catch (error) {
+  backupStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  backup = Object.fromEntries(backupKeys.map(key => [key, backupStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("backup_inventory_status", backupStatus);
+emit("backup_inventory_single_directory_name", backupStatus === "NOT_PRESENT" || backupStatus === "AVAILABLE" && backup.directories === 0 ? "NOT_PRESENT" : backupStatus === "AVAILABLE" && backup.directories === 1 && /^[A-Za-z0-9._-]{1,80}$/.test(singleDirectoryName) ? singleDirectoryName : "UNAVAILABLE");
+emit("backup_inventory_entry_limit", ENTRY_LIMIT);
+emit("backup_inventory_truncated", backupStatus === "TRUNCATED" ? "true" : backupStatus === "AVAILABLE" ? "false" : "UNAVAILABLE");
+for (const key of backupKeys) emit(`backup_inventory_${key}`, backup[key]);
+
+const cronKeys = ["files_scanned", "lines_referencing_backups", "lines_referencing_hr", "references_backups", "references_hr"];
+let cronStatus = "AVAILABLE", cron = { files_scanned: 0, lines_referencing_backups: 0, lines_referencing_hr: 0, references_backups: false, references_hr: false };
+try {
+  const files = ["/etc/crontab", "/var/spool/cron/root", "/var/spool/cron/crontabs/root"];
+  const directoryStat = optionalStat("/etc/cron.d");
+  if (directoryStat) {
+    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) problem("UNAVAILABLE");
+    const directory = fs.opendirSync("/etc/cron.d");
+    let count = 0;
+    try {
+      let entry;
+      while ((entry = directory.readSync()) !== null) {
+        if (++count > CRON_ENTRY_LIMIT) problem("TRUNCATED");
+        const path = `/etc/cron.d/${entry.name}`, stat = fs.lstatSync(path);
+        if (stat.isFile() && !stat.isSymbolicLink()) files.push(path);
+      }
+    } finally { directory.closeSync(); }
+  }
+  for (const path of files) {
+    const stat = optionalStat(path);
+    if (!stat) continue;
+    if (!stat.isFile() || stat.isSymbolicLink()) problem("UNAVAILABLE");
+    const fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try {
+      const opened = fs.fstatSync(fd);
+      if (!opened.isFile()) problem("UNAVAILABLE");
+      if (opened.size > CRON_BYTE_LIMIT) problem("TRUNCATED");
+      const bytes = Buffer.alloc(CRON_BYTE_LIMIT + 1), read = fs.readSync(fd, bytes, 0, bytes.length, 0);
+      if (read > CRON_BYTE_LIMIT) problem("TRUNCATED");
+      cron.files_scanned++;
+      for (const line of bytes.toString("utf8", 0, read).split(/\r?\n/)) {
+        if (!line.trim() || line.trimStart().startsWith("#")) continue;
+        if (/\/var\/backups(?:\/|$|[\s"'\x60;])/.test(line)) cron.lines_referencing_backups++;
+        if (/\/var\/backups\/(?:jinhu-smart-park|jinhu|park|yuzhou-hr)(?:\/|$|[\s"'\x60;])/.test(line)) cron.lines_referencing_hr++;
+      }
+    } finally { fs.closeSync(fd); }
+  }
+  if (!cron.files_scanned) problem("NOT_PRESENT");
+  cron.references_backups = cron.lines_referencing_backups > 0;
+  cron.references_hr = cron.lines_referencing_hr > 0;
+} catch (error) {
+  cronStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  cron = Object.fromEntries(cronKeys.map(key => [key, cronStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("cron_reference_status", cronStatus);
+emit("cron_reference_entry_limit", CRON_ENTRY_LIMIT);
+emit("cron_reference_file_limit_bytes", CRON_BYTE_LIMIT);
+for (const key of cronKeys) emit(`cron_${key}`, cron[key]);
+
+// This is metadata consistency, not the Smart Control verifier or an active-writer check.
+const SMART_LIMIT = 256, SMALL_FILE_LIMIT = 65536;
+const smallRegular = path => {
+  const before = optionalStat(path);
+  if (!before) problem("NOT_PRESENT");
+  if (!before.isFile() || before.isSymbolicLink()) problem("UNAVAILABLE");
+  const fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const opened = fs.fstatSync(fd);
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) problem("UNAVAILABLE");
+    if (opened.size > SMALL_FILE_LIMIT) problem("TRUNCATED");
+    const bytes = Buffer.alloc(SMALL_FILE_LIMIT + 1);
+    let size = 0, read;
+    while (size < bytes.length && (read = fs.readSync(fd, bytes, size, bytes.length - size, size)) > 0) size += read;
+    if (size > SMALL_FILE_LIMIT) problem("TRUNCATED");
+    const after = fs.fstatSync(fd);
+    if (size !== opened.size || after.size !== opened.size || after.mtimeMs !== opened.mtimeMs) problem("UNAVAILABLE");
+    return bytes.subarray(0, size);
+  } finally { fs.closeSync(fd); }
+};
+const smartKeys = ["entries", "directories", "regular_files", "symlinks", "special_entries", "release_directories", "incoming_directories", "other_directories", "release_directories_at_least_7_days", "incoming_directories_at_least_7_days", "metadata_validated", "metadata_missing", "metadata_invalid", "metadata_unavailable", "metadata_oversize"];
+let smartStatus = "AVAILABLE", smart = Object.fromEntries(smartKeys.map(key => [key, 0]));
+try {
+  const root = optionalStat("/var/backups/smart-control");
+  if (!root) problem("NOT_PRESENT");
+  if (!root.isDirectory() || root.isSymbolicLink()) problem("UNAVAILABLE");
+  const directory = fs.opendirSync("/var/backups/smart-control");
+  try {
+    let entry;
+    while ((entry = directory.readSync()) !== null) {
+      if (smart.entries >= SMART_LIMIT) problem("TRUNCATED");
+      const path = `/var/backups/smart-control/${entry.name}`, stat = fs.lstatSync(path);
+      smart.entries++;
+      if (stat.isSymbolicLink()) { smart.symlinks++; continue; }
+      if (stat.isFile()) { smart.regular_files++; continue; }
+      if (!stat.isDirectory()) { smart.special_entries++; continue; }
+      smart.directories++;
+      if (!Number.isFinite(stat.mtimeMs)) problem("UNAVAILABLE");
+      const old = Date.now() - stat.mtimeMs >= 7 * 86400 * 1000;
+      if (/^\.incoming-[A-Za-z0-9_-]+$/.test(entry.name)) {
+        smart.incoming_directories++;
+        if (old) smart.incoming_directories_at_least_7_days++;
+        continue;
+      }
+      if (!/^release-[A-Za-z0-9_-]+$/.test(entry.name)) { smart.other_directories++; continue; }
+      smart.release_directories++;
+      if (old) smart.release_directories_at_least_7_days++;
+      try {
+        const manifestBytes = smallRegular(`${path}/release.json`), receiptBytes = smallRegular(`${path}/offsite-receipt.json`);
+        const manifest = JSON.parse(manifestBytes.toString("utf8")), receipt = JSON.parse(receiptBytes.toString("utf8"));
+        const sha = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+        if (!manifest || manifest.kind !== "release-recovery-bundle" || manifest.version !== 1 || typeof manifest.sourceRevision !== "string" || !/^[a-f0-9]{40}$/.test(manifest.sourceRevision) || !manifest.database || typeof manifest.database.path !== "string" || !/^sqlite-[A-Za-z0-9_-]+\/database\.sqlite$/.test(manifest.database.path) || !sha(manifest.database.sha256) || !manifest.media || typeof manifest.media.path !== "string" || !/^media-[A-Za-z0-9_-]+$/.test(manifest.media.path) || !sha(manifest.media.manifestSha256)) problem("INVALID");
+        if (!receipt || receipt.kind !== "offsite-release-backup-receipt" || receipt.version !== 1 || receipt.bundleName !== entry.name || receipt.sourceRevision !== manifest.sourceRevision || receipt.manifestSha256 !== createHash("sha256").update(manifestBytes).digest("hex") || receipt.databaseSha256 !== manifest.database.sha256 || receipt.mediaManifestSha256 !== manifest.media.manifestSha256 || typeof receipt.copiedAt !== "string" || !Number.isFinite(Date.parse(receipt.copiedAt)) || !Number.isSafeInteger(receipt.mediaFileCount) || receipt.mediaFileCount < 0 || !Number.isSafeInteger(receipt.mediaBytes) || receipt.mediaBytes < 0) problem("INVALID");
+        smart.metadata_validated++;
+      } catch (error) {
+        if (error.status === "NOT_PRESENT") smart.metadata_missing++;
+        else if (error.status === "TRUNCATED") smart.metadata_oversize++;
+        else if (error.status === "UNAVAILABLE" || error.code) smart.metadata_unavailable++;
+        else smart.metadata_invalid++;
+      }
+    }
+  } finally { directory.closeSync(); }
+} catch (error) {
+  smartStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE";
+  smart = Object.fromEntries(smartKeys.map(key => [key, smartStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
+}
+emit("smart_control_inventory_status", smartStatus);
+emit("smart_control_entry_limit", SMART_LIMIT);
+for (const key of smartKeys) emit(`smart_control_${key}`, smart[key]);
+emit("smart_control_metadata_status", smartStatus !== "AVAILABLE" ? smartStatus : smart.metadata_unavailable ? "UNAVAILABLE" : smart.metadata_oversize ? "TRUNCATED" : smart.metadata_missing || smart.metadata_invalid ? "INCOMPLETE" : "COMPLETE");
+let verifierStatus = "AVAILABLE", verifierSha = "UNAVAILABLE";
+try { verifierSha = createHash("sha256").update(smallRegular("/usr/local/sbin/smart-control-offsite-release-backup.py")).digest("hex"); }
+catch (error) { verifierStatus = ["NOT_PRESENT", "TRUNCATED"].includes(error.status) ? error.status : "UNAVAILABLE"; verifierSha = verifierStatus; }
+emit("smart_control_verifier_status", verifierStatus);
+emit("smart_control_verifier_sha256", verifierSha);
+process.stdout.write(output.join("\n") + "\n");
+CAPACITY_BACKUP_OBSERVER
+}
+if command -v timeout >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && backup_observation="$(observe_backup_ownership)"; then
+  printf 'backup_observer_status=AVAILABLE\n%s\n' "$backup_observation"
+else
+  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\nbackup_inventory_single_directory_name=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\nsmart_control_inventory_status=UNAVAILABLE\nsmart_control_metadata_status=UNAVAILABLE\nsmart_control_verifier_status=UNAVAILABLE\nsmart_control_verifier_sha256=UNAVAILABLE\n'
+fi

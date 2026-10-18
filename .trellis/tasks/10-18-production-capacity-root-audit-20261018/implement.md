@@ -1,0 +1,1 @@
+Read exact existing capacity script, its e2e contract, mount helper and ops spec. Add minimal bounded fixed-label aggregate observer, meaningful executable stub tests. No filesystem mutation, no broad dumps, no env reads. Root owns Git/dispatch/cleanup and metadata.

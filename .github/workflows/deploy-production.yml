@@ -29,6 +29,20 @@ on:
           - diagnose-yuzhou-hr-production-target-inventory
           - diagnose-yuzhou-hr-production-id-census
           - prepare-yuzhou-hr-production-data-volume
+          - archive-smart-control-backups
+      backup_archive_operation:
+        description: "Only for archive-smart-control-backups: plan is read-only; apply requires its exact plan hash. Never deploys or changes business data."
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      backup_archive_plan_sha256:
+        description: "Exact plan hash from the archive plan receipt; required for apply."
+        required: false
+        default: ""
+        type: string
       source_manifest_json:
         description: "Hash-only Yuzhou source-manifest receipt prepared in the data-custody environment; never provide source rows, files, paths, or credentials."
         required: false
@@ -109,7 +123,7 @@ jobs:
           set -eu
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
           case "$requested" in
-            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume)
+            diagnose-production-runtime-revision|diagnose-000189-scope|diagnose-000194-runtime-control|diagnose-yuzhou-hr-production-target|diagnose-yuzhou-hr-capacity|diagnose-yuzhou-hr-preimport-snapshot|diagnose-yuzhou-hr-production-source-manifest|diagnose-yuzhou-hr-production-t0-target-inventory|diagnose-yuzhou-hr-production-target-inventory|diagnose-yuzhou-hr-production-id-census|prepare-yuzhou-hr-production-data-volume|archive-smart-control-backups)
               echo "mode=ops-only" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
@@ -173,6 +187,8 @@ jobs:
           node scripts/e2e/yuzhou-personnel-alias-route.contract.mjs
           sh scripts/e2e/production-backup-restore-gate-contract.sh
           sh scripts/e2e/production-data-disk-mount-contract.sh
+          python3 -B scripts/e2e/production-offsite-backup-archive.test.py
+          node --test scripts/e2e/production-offsite-backup-archive-route.contract.mjs
           git diff --check
 
       - name: Validate runtime design system CSS
@@ -222,9 +238,9 @@ jobs:
   deploy:
     name: Deploy to production host
     needs: [classify, verify]
-    if: ${{ needs.classify.outputs.mode != 'ops-only' || startsWith(inputs.deploy_mode, 'diagnose-') || inputs.deploy_mode == 'prepare-yuzhou-hr-production-data-volume' }}
+    if: ${{ needs.classify.outputs.mode != 'ops-only' || startsWith(inputs.deploy_mode, 'diagnose-') || inputs.deploy_mode == 'prepare-yuzhou-hr-production-data-volume' || inputs.deploy_mode == 'archive-smart-control-backups' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.deploy_mode == 'archive-smart-control-backups' && inputs.backup_archive_operation == 'apply' && 90 || 30 }}
     environment: production
 
     steps:
@@ -273,7 +289,7 @@ jobs:
             "sh -s -- '$PROD_DEPLOY_PATH'" < scripts/validate-production-deploy-path.sh
 
       - name: Resolve deployment mode
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' }}
         id: deploy-mode
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
@@ -310,7 +326,7 @@ jobs:
           echo "run_production_seed=$run_production_seed" >> "$GITHUB_OUTPUT"
 
       - name: Enforce verified deployment scope
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' }}
         env:
           VERIFIED_DEPLOY_MODE: ${{ needs.classify.outputs.mode }}
           RESOLVED_DEPLOY_MODE: ${{ steps.deploy-mode.outputs.mode }}
@@ -574,6 +590,74 @@ jobs:
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-capacity.sh
 
+      - name: Observe existing archival state (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          set -eu
+          umask 077
+          ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" "python3 -B -" \
+            < scripts/observe-production-backup-archive-state.py > "$RUNNER_TEMP/production-backup-archive-state.json"
+
+      - name: Retain aggregate archival state
+        if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: production-backup-archive-state
+          path: ${{ runner.temp }}/production-backup-archive-state.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Plan or apply historical Smart Control backup archival
+        if: ${{ inputs.deploy_mode == 'archive-smart-control-backups' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          ARCHIVE_OPERATION_INPUT: ${{ inputs.backup_archive_operation }}
+          ARCHIVE_PLAN_INPUT: ${{ inputs.backup_archive_plan_sha256 }}
+        run: |
+          set -eu
+          umask 077
+          receipt="$RUNNER_TEMP/production-backup-archive-receipt.json"
+          raw_receipt="$RUNNER_TEMP/production-backup-archive-raw.json"
+          printf '{"status":"FAIL","fixed_failure_code":"OPERATION_NOT_COMPLETED"}\n' > "$receipt"
+          operation="${ARCHIVE_OPERATION_INPUT:-plan}"
+          expected="${ARCHIVE_PLAN_INPUT:-}"
+          case "$operation" in
+            plan)
+              case "$expected" in ''|-) expected=- ;; *) echo PRODUCTION_BACKUP_ARCHIVE_PLAN_INVALID >&2; exit 1 ;; esac
+              ;;
+            apply)
+              test "${#expected}" -eq 64 || { echo PRODUCTION_BACKUP_ARCHIVE_PLAN_REQUIRED >&2; exit 1; }
+              case "$expected" in *[!0123456789abcdef]*) echo PRODUCTION_BACKUP_ARCHIVE_PLAN_INVALID >&2; exit 1 ;; esac
+              ;;
+            *) echo PRODUCTION_BACKUP_ARCHIVE_OPERATION_INVALID >&2; exit 1 ;;
+          esac
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          transport_status=0
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "python3 -B - '$operation' '$expected' '$PROD_DEPLOY_PATH'" \
+            < scripts/archive-production-offsite-backups.py > "$raw_receipt" \
+            2> "$RUNNER_TEMP/production-backup-archive-transport.log" || transport_status=$?
+          ARCHIVE_RECEIPT_PATH="$receipt" ARCHIVE_RAW_PATH="$raw_receipt" ARCHIVE_EXPECTED_PLAN="$expected" \
+            ARCHIVE_SSH_STATUS="$transport_status" ARCHIVE_OPERATION="$operation" \
+            node scripts/validate-production-backup-archive-receipt.mjs
+
+      - name: Retain historical backup archival receipt
+        if: ${{ always() && inputs.deploy_mode == 'archive-smart-control-backups' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: production-backup-archive-receipt
+          path: ${{ runner.temp }}/production-backup-archive-receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Diagnose Yuzhou global ID hash census (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-production-id-census' }}
         env:
@@ -831,7 +915,7 @@ jobs:
           PRE_SYNC_CLEANUP
 
       - name: Ensure required production secrets
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && steps.deploy-mode.outputs.mode != 'ops-only' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -848,7 +932,7 @@ jobs:
             "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
 
       - name: Enforce 000189 asset scope parity before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -861,7 +945,7 @@ jobs:
             "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
 
       - name: Repair retired 000194 runtime owner rows before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -874,7 +958,7 @@ jobs:
             "sh -s -- repair '$PROD_DEPLOY_PATH'" < scripts/repair-000194-retired-runtime-owner.sh
 
       - name: Enforce 000194 runtime control parity before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -888,7 +972,7 @@ jobs:
             "sh -s -- enforce '$PROD_DEPLOY_PATH' '' '$RUN_PRODUCTION_SEED'" < scripts/diagnose-000194-runtime-control.sh
 
       - name: Write release marker
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && steps.deploy-mode.outputs.mode != 'ops-only' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         run: |
           cat > .release.json <<EOF
           {
@@ -902,7 +986,7 @@ jobs:
           EOF
 
       - name: Deploy
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && steps.deploy-mode.outputs.mode != 'ops-only' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -1002,7 +1086,7 @@ jobs:
           cleanup_rollback_snapshot
 
       - name: Verify protected acceptance accounts in Production
-        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && steps.deploy-mode.outputs.mode != 'ops-only' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && inputs.deploy_mode != 'archive-smart-control-backups' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
         run: |
