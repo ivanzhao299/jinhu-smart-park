@@ -49,7 +49,8 @@ compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
-reclaim_build_cache_under_pressure() {
+reclaim_build_space_under_pressure() {
+  build_phase="$1"
   case "${PRUNE_DOCKER_BUILD_CACHE:-no}" in
     yes|true|1) ;;
     *) return 0 ;;
@@ -62,9 +63,21 @@ reclaim_build_cache_under_pressure() {
     ''|*[!0-9]*) printf 'PRODUCTION_DOCKER_FREE_SPACE_UNAVAILABLE\n' >&2; return 1 ;;
   esac
   if [ "$docker_free_kib" -lt 15728640 ]; then
-    printf 'Docker filesystem under pressure (%s KiB free); reclaiming unused build cache.\n' "$docker_free_kib"
-    # Do not prune images here: a freshly built image has no container yet.
-    docker builder prune -af --keep-storage 0gb
+    printf 'Docker filesystem under pressure (%s KiB free) at %s.\n' "$docker_free_kib" "$build_phase"
+    case "$build_phase" in
+      before-build)
+        # Only prune unused images before construction, while the current release is healthy.
+        ENV_FILE="$ENV_FILE" MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
+        ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" \
+          PRUNE_DOCKER_BUILD_CACHE=yes DOCKER_BUILD_CACHE_KEEP_STORAGE=0gb \
+          "$ROOT_DIR/scripts/prod-docker-cleanup.sh"
+        ;;
+      after-build)
+        # A freshly built image has no container yet; retain it for service replacement.
+        docker builder prune -af --keep-storage 0gb
+        ;;
+      *) printf 'PRODUCTION_BUILD_PHASE_INVALID\n' >&2; return 1 ;;
+    esac
     docker_filesystem="$(df -Pk "$docker_data_root")"
     docker_free_kib="$(printf '%s\n' "$docker_filesystem" | awk 'NR == 2 { print $4; exit }')"
     case "$docker_free_kib" in
@@ -125,9 +138,9 @@ deploy_fast_css() {
 }
 
 deploy_web() {
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure before-build
   compose build web --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure after-build
   compose up -d postgres
   wait_for_postgres
   compose up -d web
@@ -136,9 +149,9 @@ deploy_web() {
 
 deploy_api() {
   node "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" --deploy "$ROOT_DIR"
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure before-build
   compose build api --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure after-build
   compose up -d api
   MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
 }
@@ -155,9 +168,9 @@ deploy_database() {
 
 deploy_full() {
   node "$ROOT_DIR/scripts/hr-cutover/ensure-profile-private-root.mjs" --deploy "$ROOT_DIR"
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure before-build
   compose build api web --build-arg "RELEASE_COMMIT=$REQUESTED_RELEASE_COMMIT"
-  reclaim_build_cache_under_pressure
+  reclaim_build_space_under_pressure after-build
   compose up -d postgres
   wait_for_postgres
   quiesce_api_for_migrations

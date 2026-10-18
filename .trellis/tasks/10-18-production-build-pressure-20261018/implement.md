@@ -1,0 +1,1 @@
+Read exact scripts/prod-deploy.sh and existing regression patterns; make before/after-build phase explicit, reuse existing cleanup. Add deterministic mocked Docker/shell health tests that execute the real deployment entry. Avoid broad suite repeats. Root controls Git and production.

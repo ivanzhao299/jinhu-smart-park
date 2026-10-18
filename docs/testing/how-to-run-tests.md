@@ -150,6 +150,11 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
     `scripts/e2e/migration-prerequisite-contract.mjs` 与 `scripts/e2e/prod-deploy-seed-precedence.sh` 还会锁定
     retired 000194 owner-row repair 的接线顺序和候选边界：它必须位于 000189 gate 与 000194 gate 之间，且只能
     恢复完整 audit evidence 下的 retained `asset_park` / disabled asset assignment。
+  - 运行 `sh scripts/e2e/prod-deploy-build-pressure.sh`，以真实部署、健康检查及 Docker 清理脚本和合成命令替身验证
+    web/api/full 低空间时 `health -> cleanup -> df -> build`；正常空间跳过额外清理；健康/清理/磁盘观察失败和
+    回收后空间不足停止；构建后仅清 builder cache，尚未切换的新镜像不可被剪除，最终健康后清理仍执行。
+    运行 `node scripts/e2e/production-pre-sync-cleanup.contract.mjs` 检查工作流在任何源码/secret helper 传输及
+    回滚快照之前执行同样的健康门禁与空间复查。以上回归不连接生产或 Docker daemon，也不替代实际容量及运行版本验收。
   - CI workflow 的 run shell 必须显式启用 `pipefail`；任何通过 `tee` 留存日志的 migration、seed、
     bootstrap、baseline 或 login 命令都必须传播原命令的非零退出码
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚

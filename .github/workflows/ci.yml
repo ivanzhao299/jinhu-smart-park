@@ -226,7 +226,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify production seed decision precedence
-        run: scripts/e2e/prod-deploy-seed-precedence.sh
+        run: |
+          sh scripts/e2e/prod-deploy-seed-precedence.sh
+          sh scripts/e2e/prod-deploy-build-pressure.sh
+          node scripts/e2e/production-pre-sync-cleanup.contract.mjs
 
       - name: Verify Track B production seed contracts
         run: pnpm test:e2e:property-track-b-seed-reconcile

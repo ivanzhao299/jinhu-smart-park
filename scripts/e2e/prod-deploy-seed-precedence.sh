@@ -22,6 +22,12 @@ for helper in db-migrate.sh db-seed-prod.sh prod-healthcheck.sh prod-docker-clea
 #!/usr/bin/env sh
 set -eu
 printf '%s\n' 'HELPER_NAME' >> "$PROD_DEPLOY_TEST_LOG"
+if [ "HELPER_NAME" = "prod-docker-cleanup" ] && [ -n "${PROD_DEPLOY_TEST_DISK_STATE:-}" ]; then
+  # Model the cache branch of the existing helper, including its failure propagation.
+  if [ "${DOCKER_BUILD_CACHE_KEEP_STORAGE:-}" = "0gb" ]; then
+    docker builder prune -af --keep-storage 0gb
+  fi
+fi
 if [ "HELPER_NAME" = "db-migrate" ] && [ "${PROD_DEPLOY_TEST_MIGRATE_FAIL:-no}" = "yes" ]; then
   exit 23
 fi
@@ -249,7 +255,9 @@ run_pressure_case() {
   test "$prune_count" -eq "$expected_prunes"
   if [ "$expected_result" = pass ]; then
     test "$pressure_status" -eq 0
-    test "$(grep -c '^prod-docker-cleanup$' "$pressure_log")" -eq 1
+    expected_cleanups=1
+    if [ "$initial_free" -lt 15728640 ]; then expected_cleanups=2; fi
+    test "$(grep -c '^prod-docker-cleanup$' "$pressure_log")" -eq "$expected_cleanups"
     if [ "$expected_prunes" -eq 2 ]; then
       first_prune="$(grep -n '^docker builder prune ' "$pressure_log" | head -1 | cut -d: -f1)"
       last_prune="$(grep -n '^docker builder prune ' "$pressure_log" | tail -1 | cut -d: -f1)"

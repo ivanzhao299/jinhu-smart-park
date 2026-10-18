@@ -159,6 +159,8 @@ jobs:
         run: |
           sh scripts/e2e/production-deploy-path-contract.sh
           node scripts/e2e/production-deploy-route-contract.mjs
+          node scripts/e2e/production-pre-sync-cleanup.contract.mjs
+          sh scripts/e2e/prod-deploy-build-pressure.sh
           node scripts/e2e/yuzhou-production-target-inventory-contract.mjs
           node scripts/e2e/production-deploy-scope.contract.mjs
           node scripts/e2e/production-deploy-transfer.contract.mjs
@@ -781,6 +783,52 @@ jobs:
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "YUZHOU_PRODUCTION_DATA_VOLUME_ACTION=mount-empty-disk sh -s -- mount-empty-disk '$PROD_DEPLOY_PATH'" < scripts/mount-production-data-disk.sh
+
+      - name: Reclaim unused Docker storage before release transfer
+        if: ${{ contains(fromJSON('["web","api","full"]'), steps.deploy-mode.outputs.mode) }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" "sh -s -- '$PROD_DEPLOY_PATH'" <<'PRE_SYNC_CLEANUP'
+          set -eu
+          root_dir="$1"
+          # Bootstrap has no existing healthy release to clean. Normal deployment handles it.
+          if [ ! -f "$root_dir/.env.production" ] || [ ! -f "$root_dir/scripts/prod-healthcheck.sh" ] || [ ! -f "$root_dir/scripts/prod-docker-cleanup.sh" ]; then
+            echo PRODUCTION_PRE_SYNC_EXISTING_RELEASE_UNAVAILABLE
+            exit 0
+          fi
+          docker_root="$(docker info --format '{{.DockerRootDir}}')"
+          test -n "$docker_root" || exit 1
+          read_free_kib() {
+            filesystem="$(df -Pk "$1")" || return 1
+            printf '%s\n' "$filesystem" | awk 'NR == 2 { print $4; exit }'
+          }
+          root_free="$(read_free_kib "$root_dir")"
+          docker_free="$(read_free_kib "$docker_root")"
+          case "$root_free:$docker_free" in
+            *[!0-9:]*|:*|*:) echo PRODUCTION_PRE_SYNC_FREE_SPACE_UNAVAILABLE >&2; exit 1 ;;
+          esac
+          if [ "$root_free" -lt 15728640 ] || [ "$docker_free" -lt 15728640 ]; then
+            echo PRODUCTION_PRE_SYNC_DISK_PRESSURE
+            MODE=full sh "$root_dir/scripts/prod-healthcheck.sh"
+            PRUNE_DOCKER_BUILD_CACHE=yes DOCKER_BUILD_CACHE_KEEP_STORAGE=0gb sh "$root_dir/scripts/prod-docker-cleanup.sh"
+            root_free="$(read_free_kib "$root_dir")"
+            docker_free="$(read_free_kib "$docker_root")"
+            case "$root_free:$docker_free" in
+              *[!0-9:]*|:*|*:) echo PRODUCTION_PRE_SYNC_FREE_SPACE_UNAVAILABLE >&2; exit 1 ;;
+            esac
+            if [ "$root_free" -lt 1048576 ] || [ "$docker_free" -lt 1048576 ]; then
+              echo PRODUCTION_PRE_SYNC_FREE_SPACE_INSUFFICIENT >&2
+              exit 1
+            fi
+          fi
+          echo PRODUCTION_PRE_SYNC_STORAGE_READY
+          PRE_SYNC_CLEANUP
 
       - name: Ensure required production secrets
         if: ${{ inputs.deploy_mode != 'diagnose-production-runtime-revision' && inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target' && inputs.deploy_mode != 'diagnose-yuzhou-hr-capacity' && inputs.deploy_mode != 'diagnose-yuzhou-hr-preimport-snapshot' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-source-manifest' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-t0-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-target-inventory' && inputs.deploy_mode != 'diagnose-yuzhou-hr-production-id-census' && inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume' && steps.deploy-mode.outputs.mode != 'ops-only' }}
