@@ -109,7 +109,7 @@ test('archive routing excludes all diagnostics, application writes and unrelated
     .replace("steps.deploy-mode.outputs.mode != 'ops-only'", 'true'))));
   assert.throws(() => assertBoundary(source.replace(`if: \$\{\{ inputs.deploy_mode == '${mode}' \}\}`, "if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' }}")));
   assert.throws(() => assertBoundary(source.replace('default: plan\n', 'default: apply\n')));
-  assert.throws(() => assertBoundary(source.replace('python3 -B -', 'python3 -')));
+  assert.throws(() => assertBoundary(source.replace(step(archiveName), step(archiveName).replace('python3 -B -', 'python3 -'))));
 });
 
 test('classification executes the ops-only early exit for archive mode', t => {
