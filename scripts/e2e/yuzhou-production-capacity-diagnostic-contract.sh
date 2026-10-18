@@ -35,4 +35,13 @@ if grep -Fq '. "$env_file"' "$script"; then
   exit 1
 fi
 
+grep -Fq 'timeout -k 1s 8s du -P -x -s -k --' "$script"
+grep -Fq 'directory_sizes_overlap=true' "$script"
+grep -Fq 'directory_sizes_same_filesystem_only=true' "$script"
+grep -Fq 'directory_value=UNAVAILABLE' "$script"
+grep -Fq 'directory_value=NOT_PRESENT' "$script"
+grep -Fq 'directory_kib failed_rollback_39086313571' "$script"
+grep -Fq 'directory_kib retained_gate19_backups /srv/jinhu-production-data/hr-preimport-backups' "$script"
+grep -Fq 'data_mount_same_filesystem_as_host' "$script"
+grep -Fq 'timeout -k 1s 8s stat -c %d --' "$script"
 echo 'Yuzhou production capacity diagnostic contract passed.'

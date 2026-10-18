@@ -156,3 +156,93 @@ printf 'docker_data_total_kib=%s\n' "$docker_total_kib"
 printf 'docker_data_used_kib=%s\n' "$docker_used_kib"
 printf 'docker_data_free_kib=%s\n' "$docker_free_kib"
 printf 'container_minimum_kib=%s\n' "$container_min_kib"
+
+
+# These observations supplement capacity evidence; they never change the existing gate status.
+# Each traversal is on one device, does not follow symlinks, and may overlap another label.
+directory_kib() {
+  directory_label="$1"
+  directory_path="$2"
+  directory_value=UNAVAILABLE
+  if [ ! -e "$directory_path" ] && [ ! -L "$directory_path" ]; then
+    directory_value=NOT_PRESENT
+  elif [ -d "$directory_path" ] && [ ! -L "$directory_path" ] && command -v timeout >/dev/null 2>&1 && command -v du >/dev/null 2>&1; then
+    if directory_output="$(timeout -k 1s 8s du -P -x -s -k -- "$directory_path" 2>/dev/null)"; then
+      if directory_size="$(printf '%s\n' "$directory_output" | awk 'NR == 1 && NF >= 2 && $1 ~ /^[0-9]+$/ { value=$1 } END { if (NR == 1 && value != "") print value; else exit 1 }')"; then
+        directory_value="$directory_size"
+      fi
+    fi
+  fi
+  printf 'directory_%s_used_kib=%s\n' "$directory_label" "$directory_value"
+}
+
+printf 'directory_probe_timeout_seconds=8\n'
+printf 'directory_sizes_overlap=true\n'
+printf 'directory_sizes_same_filesystem_only=true\n'
+directory_kib root /
+directory_kib var /var
+directory_kib srv /srv
+directory_kib opt /opt
+directory_kib usr /usr
+directory_kib root_home /root
+directory_kib home /home
+directory_kib tmp /tmp
+directory_kib var_tmp /var/tmp
+directory_kib var_log /var/log
+directory_kib docker "$docker_root"
+directory_kib docker_overlay2 "$docker_root/overlay2"
+directory_kib docker_buildkit "$docker_root/buildkit"
+directory_kib docker_containers "$docker_root/containers"
+directory_kib docker_volumes "$docker_root/volumes"
+directory_kib docker_tmp "$docker_root/tmp"
+directory_kib release "$root_dir"
+directory_kib release_node_modules "$root_dir/node_modules"
+directory_kib release_web_next "$root_dir/apps/web/.next"
+directory_kib release_logs "$root_dir/logs"
+directory_kib release_tmp "$root_dir/tmp"
+directory_kib gate19_reports "$root_dir/tmp/production-gates"
+directory_kib rollback "${root_dir}.runner-rollback"
+directory_kib failed_rollback_39086313571 "${root_dir}.runner-rollback/39086313571"
+directory_kib data_mount /srv/jinhu-production-data
+directory_kib retained_gate19_backups /srv/jinhu-production-data/hr-preimport-backups
+
+# The mount path is fixed by mount-production-data-disk.sh; expose no device/path names.
+data_mount_total_kib=UNAVAILABLE
+data_mount_used_kib=UNAVAILABLE
+data_mount_free_kib=UNAVAILABLE
+data_mount_same_filesystem_as_host=UNAVAILABLE
+if [ ! -e /srv/jinhu-production-data ] && [ ! -L /srv/jinhu-production-data ]; then
+  data_mount_total_kib=NOT_PRESENT
+  data_mount_used_kib=NOT_PRESENT
+  data_mount_free_kib=NOT_PRESENT
+  data_mount_same_filesystem_as_host=NOT_PRESENT
+elif [ -d /srv/jinhu-production-data ] && [ ! -L /srv/jinhu-production-data ] && command -v timeout >/dev/null 2>&1; then
+  if data_mount_output="$(timeout -k 1s 8s df -Pk /srv/jinhu-production-data 2>/dev/null)"; then
+    data_mount_row="$(printf '%s\n' "$data_mount_output" | awk 'NR == 2 { print $2 "|" $3 "|" $4; exit }')"
+    case "$data_mount_row" in
+      ''|*[!0-9\|]*|\|*|*\|) ;;
+      *)
+        IFS='|' read -r candidate_total candidate_used candidate_free <<EOF
+$data_mount_row
+EOF
+        case "$candidate_total:$candidate_used:$candidate_free" in
+          *[!0-9:]*|:*|*::*|*:) ;;
+          *) data_mount_total_kib="$candidate_total"; data_mount_used_kib="$candidate_used"; data_mount_free_kib="$candidate_free" ;;
+        esac
+        ;;
+    esac
+  fi
+  if command -v stat >/dev/null 2>&1 && host_device="$(timeout -k 1s 8s stat -c %d -- "$root_dir" 2>/dev/null)" && data_device="$(timeout -k 1s 8s stat -c %d -- /srv/jinhu-production-data 2>/dev/null)"; then
+    case "$host_device:$data_device" in
+      *[!0-9:]*|:*|*:) ;;
+      *:*:*) ;;
+      *)
+        if [ "$host_device" = "$data_device" ]; then data_mount_same_filesystem_as_host=yes; else data_mount_same_filesystem_as_host=no; fi
+        ;;
+    esac
+  fi
+fi
+printf 'data_mount_total_kib=%s\n' "$data_mount_total_kib"
+printf 'data_mount_used_kib=%s\n' "$data_mount_used_kib"
+printf 'data_mount_free_kib=%s\n' "$data_mount_free_kib"
+printf 'data_mount_same_filesystem_as_host=%s\n' "$data_mount_same_filesystem_as_host"
