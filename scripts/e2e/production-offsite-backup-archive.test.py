@@ -59,6 +59,8 @@ class ArchiveTest(unittest.TestCase):
         connection.execute("CREATE TABLE sample(id INTEGER PRIMARY KEY, value TEXT)")
         connection.execute("INSERT INTO sample VALUES(1,'synthetic')")
         connection.commit()
+        if getattr(self, "wal_mode", False):
+            connection.execute("PRAGMA journal_mode=WAL")
         connection.close()
         media = root / "media-synthetic"
         media.mkdir(mode=0o700)
@@ -121,6 +123,99 @@ class ArchiveTest(unittest.TestCase):
         repeated = module.apply(self.ctx, sha)
         self.assertEqual(repeated, result)
         self.assertTrue((self.ctx.archive / ".operations" / sha / "recovery-index.json").is_file())
+
+    def test_real_wal_verification_preserves_target_and_exact_resume(self):
+        self.wal_mode = True
+        self.make_bundle("release-real-wal", 18)
+        value, sha = self.ready()
+        def stop(event, index):
+            if event == "verified" and index == 0:
+                raise RuntimeError("synthetic interruption")
+        self.ctx.hook = stop
+        with self.assertRaises(RuntimeError): module.apply(self.ctx, sha)
+        target = self.ctx.archive / value["selected"][0]["name"]
+        before = module.snapshot(target, self.ctx.policy)
+        self.ctx.hook = lambda event,index:None
+        result = module.apply(self.ctx, sha)
+        self.assertEqual(result["retired_bundles"], 2)
+        self.assertEqual(module.snapshot(target, self.ctx.policy), before)
+        self.assertEqual(module.apply(self.ctx, sha), result)
+        self.assertFalse(list((self.ctx.archive / ".operations" / sha / ".verification").glob(".database-verify-*")))
+
+    def test_wal_auxiliary_timestamp_only_recovery_preserves_original_plan(self):
+        self.wal_mode = True
+        self.make_bundle("release-real-wal", 18)
+        value, sha = self.ready()
+        self.ctx.hook = lambda event,index: (_ for _ in ()).throw(RuntimeError("stop")) if event=="verified" and index==0 else None
+        with self.assertRaises(RuntimeError):module.apply(self.ctx,sha)
+        target=self.ctx.archive/value["selected"][0]["name"]
+        auxiliary=target/"sqlite-synthetic/database.sqlite-shm"
+        self.assertTrue(auxiliary.exists())
+        before=auxiliary.stat();os.utime(auxiliary,ns=(before.st_atime_ns,before.st_mtime_ns+1000000))
+        self.ctx.hook=lambda event,index:None
+        self.assertEqual(module.apply(self.ctx,sha)["retired_bundles"],2)
+        journal=module.sealed_document(self.ctx.archive/".operations"/sha/"journal.json")
+        self.assertEqual(len(journal["bundles"][0]["auxiliary_time_reconciliations"]),1)
+        self.assertEqual(journal["plan_sha256"],sha)
+
+    def test_private_database_checker_preserves_uncheckpointed_committed_wal_view(self):
+        self.wal_mode=True
+        root=self.make_bundle("release-real-wal",18)
+        database=root/"sqlite-synthetic/database.sqlite"
+        writer=sqlite3.connect(database)
+        self.addCleanup(writer.close)
+        writer.execute("PRAGMA wal_autocheckpoint=0")
+        writer.execute("INSERT INTO sample VALUES(2,'committed-wal')")
+        writer.commit()
+        self.assertGreater(Path(str(database)+"-wal").stat().st_size,0)
+        self.ctx.archive.mkdir(mode=0o700)
+        scratch=self.ctx.archive/".verification-test"
+        verify=module.verifier(self.tool.read_bytes(),self.ctx,scratch)
+        before=module.snapshot(root,self.ctx.policy)
+        connect=sqlite3.connect;observed=[]
+        def inspect(database_uri,*args,**kwargs):
+            connection=connect(database_uri,*args,**kwargs)
+            if ".database-verify-" in str(database_uri):
+                observed.append(connection.execute("SELECT count(*) FROM sample").fetchone()[0])
+            return connection
+        with patch.object(sqlite3,"connect",side_effect=inspect):verify(root)
+        self.assertEqual(observed,[2])
+        self.assertEqual(module.snapshot(root,self.ctx.policy),before)
+        self.assertFalse(list(scratch.iterdir()))
+
+    def test_wal_copied_reconciliation_survives_publish_before_journal(self):
+        self.wal_mode=True;self.make_bundle("release-real-wal",18)
+        value,sha=self.ready()
+        self.ctx.hook=lambda event,index: (_ for _ in ()).throw(RuntimeError("stop")) if event=="copied" and index==0 else None
+        with self.assertRaises(RuntimeError):module.apply(self.ctx,sha)
+        stage=self.ctx.archive/".staging"/f"{sha}-0"
+        auxiliary=stage/"sqlite-synthetic/database.sqlite-shm"
+        before=auxiliary.stat();os.utime(auxiliary,ns=(before.st_atime_ns,before.st_mtime_ns+1000000))
+        self.ctx.hook=lambda event,index:None
+        original_rename=module.os.rename
+        def interrupted(source,target):
+            original_rename(source,target)
+            if Path(source)==stage:raise RuntimeError("after publication")
+        with patch.object(module.os,"rename",side_effect=interrupted),self.assertRaises(RuntimeError):module.apply(self.ctx,sha)
+        self.assertTrue((self.ctx.archive/value["selected"][0]["name"]).exists())
+        self.assertEqual(module.apply(self.ctx,sha)["retired_bundles"],2)
+
+    def test_wal_auxiliary_corruption_and_other_file_timestamp_drift_still_fail(self):
+        for changed in ("sqlite-synthetic/database.sqlite-shm", "media-synthetic/media/synthetic.bin"):
+            with self.subTest(changed=changed):
+                temp=ArchiveTest();temp.setUp();self.addCleanup(temp.doCleanups)
+                temp.wal_mode=True;temp.make_bundle("release-real-wal",18)
+                value,sha=temp.ready()
+                temp.ctx.hook=lambda event,index: (_ for _ in ()).throw(RuntimeError("stop")) if event=="verified" and index==0 else None
+                with self.assertRaises(RuntimeError):module.apply(temp.ctx,sha)
+                file=temp.ctx.archive/value["selected"][0]["name"]/changed
+                if changed.endswith("-shm"):
+                    data=file.read_bytes();file.write_bytes(bytes([data[0]^1])+data[1:])
+                else:
+                    before=file.stat();os.utime(file,ns=(before.st_atime_ns,before.st_mtime_ns+1000000))
+                temp.ctx.hook=lambda event,index:None
+                with self.assertRaises(module.ArchiveError):module.apply(temp.ctx,sha)
+                self.assertTrue(all((temp.source/row["name"]).exists() for row in value["selected"]))
 
     def test_wrong_pin_plan_digest_device_mount_and_space_fail_without_mutation(self):
         _, sha = self.ready()

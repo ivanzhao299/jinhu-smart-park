@@ -342,14 +342,71 @@ def hashes(path, tree):
             os.close(fd)
     return result
 
-def verifier(tool):
+def verifier(tool, ctx, scratch_root):
     namespace = {"__name__": "pinned_offsite_verifier"}
     exec(compile(tool, "<pinned-offsite-verifier>", "exec"), namespace)
+    original_check = namespace["check_database"]
+    private_directory(scratch_root)
+    def scratch_check(database, expected):
+        # SQLite mode=ro can write WAL/SHM companions. Run the original checker
+        # against an exact private copy of the complete SQLite engine view.
+        files = [database]
+        for suffix in ("-wal", "-shm", "-journal"):
+            companion = Path(str(database) + suffix)
+            if companion.exists() or companion.is_symlink():
+                files.append(companion)
+        facts = {file: fact(file.lstat()) for file in files}
+        for file in files:
+            secure(file.lstat())
+        require(ctx.free(ctx.mount) >= sum(row["size"] for row in facts.values()) + ctx.policy.reserve,
+                "DATA_RESERVE_INSUFFICIENT")
+        with tempfile.TemporaryDirectory(prefix=".database-verify-", dir=scratch_root) as temporary:
+            for file in files:
+                source_fd = os.open(file, os.O_RDONLY | os.O_NOFOLLOW)
+                try:
+                    require(fact(os.fstat(source_fd)) == facts[file], "FILE_DRIFT")
+                    destination_fd = os.open(Path(temporary) / file.name,
+                                             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                    with os.fdopen(destination_fd, "wb") as stream:
+                        while True:
+                            part = os.read(source_fd, 1024 * 1024)
+                            if not part:
+                                break
+                            stream.write(part)
+                    require(fact(os.fstat(source_fd)) == facts[file], "FILE_DRIFT")
+                finally:
+                    os.close(source_fd)
+            original_check(Path(temporary) / database.name, expected)
+        require(all(fact(file.lstat()) == row for file, row in facts.items()), "FILE_DRIFT")
+    namespace["check_database"] = scratch_check
     return namespace["verify_bundle"]
 
-def verify_target(path, entry, record, verify, verified_targets=None):
+def verify_target(path, entry, record, verify, verified_targets=None, ctx=None):
     tree = snapshot(path, Policy(**record["policy"]))
-    same_tree(tree, record["target_tree"])
+    previous = record["target_tree"]
+    reconciled = tree != previous
+    changed = []
+    if reconciled:
+        # Recover only the observed legacy-verifier WAL/SHM timestamp side effect.
+        # Every identity, path, size and other fact remains pinned; full source
+        # and target byte evidence is mandatory before accepting new timestamps.
+        require(ctx is not None and record["state"] in ("COPIED", "VERIFIED")
+                and set(tree) == set(previous), "SOURCE_DRIFT")
+        manifest = document(path / "release.json")
+        database = manifest.get("database", {}).get("path", "")
+        require(re.fullmatch(r"sqlite-[A-Za-z0-9_-]+/database\.sqlite", database) is not None,
+                "TARGET_RECEIPT_INVALID")
+        allowed = {database + "-wal", database + "-shm"}
+        for relative in tree:
+            if tree[relative] == previous[relative]:
+                continue
+            require(relative in allowed and stat.S_ISREG(tree[relative]["mode"])
+                    and {k:v for k,v in tree[relative].items() if k not in ("mtime", "ctime")}
+                    == {k:v for k,v in previous[relative].items() if k not in ("mtime", "ctime")}, "SOURCE_DRIFT")
+            changed.append({"path": relative, "before": previous[relative], "after": tree[relative]})
+        source = ctx.source / entry["name"]
+        same_tree(snapshot(source, ctx.policy), entry["tree"])
+        require(hashes(source, entry["tree"]) == record["hashes"], "SOURCE_DRIFT")
     # This process alone may reuse verified payload evidence after a fresh exact
     # inventory check. Our stage-to-final rename changes only the root ctime.
     # All file facts, the complete path set and root identity remain in the key.
@@ -357,7 +414,7 @@ def verify_target(path, entry, record, verify, verified_targets=None):
                             if not (relative == "" and key == "ctime")}
                   for relative, row in tree.items()}
     verification_key = digest(normalized)
-    if verified_targets is not None and verification_key in verified_targets:
+    if not reconciled and verified_targets is not None and verification_key in verified_targets:
         return
     require(hashes(path, tree) == record["hashes"], "TARGET_CONTENT_MISMATCH")
     evidence = verify(path)
@@ -368,6 +425,18 @@ def verify_target(path, entry, record, verify, verified_targets=None):
             and receipt.get("bundleName") == entry["name"]
             and all(type(receipt.get(key)) is type(value) and receipt[key] == value
                     for key, value in evidence.items()), "TARGET_RECEIPT_INVALID")
+    same_tree(snapshot(path, Policy(**record["policy"])), tree)
+    if reconciled:
+        for row in changed:
+            fd = os.open(path / row["path"], os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                require(fact(os.fstat(fd)) == row["after"], "FILE_DRIFT")
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        same_tree(snapshot(path, Policy(**record["policy"])), tree)
+        record["auxiliary_time_reconciliations"] = record.get("auxiliary_time_reconciliations", []) + changed
+        record["target_tree"] = tree
     if verified_targets is not None:
         verified_targets.add(verification_key)
 
@@ -518,7 +587,7 @@ def apply(ctx, expected):
                 remaining -= sum(row["size"] for name, row in partial_hashes.items() if source_hashes.get(name) == row)
             pending += remaining
         require(ctx.free(ctx.mount) >= pending + ctx.policy.reserve, "DATA_RESERVE_INSUFFICIENT")
-        verify = verifier(tool)
+        verify = verifier(tool, ctx, operation / ".verification")
         verified_targets = set()  # Never persisted or reused across apply/resume calls.
         private_directory(ctx.archive / ".staging")
         # Complete and durably verify every destination before retiring any source.
@@ -549,7 +618,8 @@ def apply(ctx, expected):
             if record["state"] == "COPIED":
                 if not target.exists() and not target.is_symlink():
                     require(identity(stage.lstat()) == record["stage_id"], "STAGING_CONFLICT")
-                    verify_target(stage, entry, record, verify, verified_targets)
+                    verify_target(stage, entry, record, verify, verified_targets, ctx)
+                    atomic_document(journal_path, journal)
                     os.rename(stage, target)
                     fsync_directory(stage.parent)
                     fsync_directory(ctx.archive)
@@ -557,14 +627,18 @@ def apply(ctx, expected):
                     record["target_tree"] = snapshot(target, ctx.policy)
                 else:
                     require(identity(target.lstat()) == record["stage_id"] and not stage.exists(), "TARGET_CONFLICT")
-                    previous = record["target_tree"]
-                    same_tree(snapshot(target, ctx.policy), previous, renamed=True)
-                    record["target_tree"] = snapshot(target, ctx.policy)
-                verify_target(target, entry, record, verify, verified_targets)
+                    published = snapshot(target, ctx.policy)
+                    previous = {key:dict(row) for key,row in record["target_tree"].items()}
+                    # A completed stage publication changes only its root ctime.
+                    # All remaining facts go through the same bounded recovery.
+                    previous[""]["ctime"] = published[""]["ctime"]
+                    record["target_tree"] = previous
+                verify_target(target, entry, record, verify, verified_targets, ctx)
                 record["state"] = "VERIFIED"
                 atomic_document(journal_path, journal)
                 ctx.hook("verified", index)
-            verify_target(target, entry, record, verify, verified_targets)
+            verify_target(target, entry, record, verify, verified_targets, ctx)
+            atomic_document(journal_path, journal)
         atomic_document(operation / "recovery-index.json", {"plan_sha256": expected,
                         "bundles": [{"name": entry["name"], "target": str(ctx.archive / entry["name"]),
                                      "manifest": entry["manifest"], "source_id": entry["tree"][""]["id"]}
@@ -573,7 +647,7 @@ def apply(ctx, expected):
         for index, (entry, record) in enumerate(zip(value["selected"], journal["bundles"])):
             source, target = ctx.source / entry["name"], ctx.archive / entry["name"]
             retirement = ctx.source / f".archive-retiring-{expected}-{index}"
-            verify_target(target, entry, record, verify, verified_targets)
+            verify_target(target, entry, record, verify, verified_targets, ctx)
             if record["state"] == "RETIRED":
                 require(not retirement.exists() and not retirement.is_symlink(), "RETIREMENT_CONFLICT")
                 if source.exists() or source.is_symlink():
@@ -615,7 +689,7 @@ def apply(ctx, expected):
                 ctx.hook("purge_intent", index)
             if record["state"] == "PURGE_INTENT":
                 health(ctx)
-                verify_target(target, entry, record, verify, verified_targets)
+                verify_target(target, entry, record, verify, verified_targets, ctx)
                 if retirement.exists() or retirement.is_symlink():
                     purge(ctx, retirement, record)
                 record["state"] = "RETIRED"
