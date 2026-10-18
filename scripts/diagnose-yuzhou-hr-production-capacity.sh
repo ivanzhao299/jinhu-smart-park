@@ -285,7 +285,7 @@ const categoryFor = name => {
   return /^kingturf(?:[-_.]|$)/i.test(name) ? "kingturf" : "other";
 };
 let backupStatus = "AVAILABLE", backup = Object.fromEntries(backupKeys.map(key => [key, 0]));
-let oldest = null, newest = null;
+let oldest = null, newest = null, singleDirectoryName = null;
 try {
   const root = optionalStat("/var/backups");
   if (!root) problem("NOT_PRESENT");
@@ -298,7 +298,7 @@ try {
       const stat = fs.lstatSync(`/var/backups/${entry.name}`), category = categoryFor(entry.name);
       backup.entries++; backup[`${category}_entries`]++;
       if (stat.isSymbolicLink()) backup.symlinks++;
-      else if (stat.isDirectory()) backup.directories++;
+      else if (stat.isDirectory()) { backup.directories++; singleDirectoryName = entry.name; }
       else if (stat.isFile()) {
         if (!Number.isSafeInteger(stat.size) || stat.size < 0 || !Number.isFinite(stat.mtimeMs)) problem("UNAVAILABLE");
         backup.regular_files++; backup.regular_bytes += stat.size;
@@ -317,6 +317,7 @@ try {
   backup = Object.fromEntries(backupKeys.map(key => [key, backupStatus === "NOT_PRESENT" ? "NOT_PRESENT" : "UNAVAILABLE"]));
 }
 emit("backup_inventory_status", backupStatus);
+emit("backup_inventory_single_directory_name", backupStatus === "NOT_PRESENT" || backupStatus === "AVAILABLE" && backup.directories === 0 ? "NOT_PRESENT" : backupStatus === "AVAILABLE" && backup.directories === 1 && /^[A-Za-z0-9._-]{1,80}$/.test(singleDirectoryName) ? singleDirectoryName : "UNAVAILABLE");
 emit("backup_inventory_entry_limit", ENTRY_LIMIT);
 emit("backup_inventory_truncated", backupStatus === "TRUNCATED" ? "true" : backupStatus === "AVAILABLE" ? "false" : "UNAVAILABLE");
 for (const key of backupKeys) emit(`backup_inventory_${key}`, backup[key]);
@@ -375,5 +376,5 @@ CAPACITY_BACKUP_OBSERVER
 if command -v timeout >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && backup_observation="$(observe_backup_ownership)"; then
   printf 'backup_observer_status=AVAILABLE\n%s\n' "$backup_observation"
 else
-  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\n'
+  printf 'backup_observer_status=UNAVAILABLE\nbackup_inventory_status=UNAVAILABLE\nbackup_inventory_single_directory_name=UNAVAILABLE\ncron_reference_status=UNAVAILABLE\n'
 fi

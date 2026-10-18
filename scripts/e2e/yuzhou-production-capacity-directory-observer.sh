@@ -93,6 +93,7 @@ run_case() {
  grep -Eq '^data_mount_same_filesystem_as_host=(yes|no|UNAVAILABLE|NOT_PRESENT)$' "$output"
  grep -Eq '^backup_observer_status=(AVAILABLE|UNAVAILABLE)$' "$output"
  grep -Eq '^backup_inventory_status=(AVAILABLE|UNAVAILABLE|NOT_PRESENT|TRUNCATED)$' "$output"
+ grep -Eq '^backup_inventory_single_directory_name=[A-Za-z0-9._-]{1,80}$' "$output"
  grep -Eq '^cron_reference_status=(AVAILABLE|UNAVAILABLE|NOT_PRESENT|TRUNCATED)$' "$output"
  grep -Fxq 'status=DISK_GUARD' "$output"
  grep -Fxq 'host_free_kib=100000' "$output"

@@ -47,7 +47,10 @@ function fixture(t) {
     assert.doesNotMatch(output, /PRIVATE|PERSON|\/var\/|\/etc\/|\.dump|\.tgz|\.sql|TOKEN|archive_command/);
     const rows = output.trim().split("\n");
     assert.equal(new Set(rows.map(row => row.split("=")[0])).size, rows.length);
-    for (const row of rows) assert.match(row, /^[a-z0-9_]+=(?:[0-9]+|true|false|AVAILABLE|NOT_PRESENT|UNAVAILABLE|TRUNCATED)$/);
+    for (const row of rows) {
+      if (row.startsWith("backup_inventory_single_directory_name=")) assert.match(row, /^backup_inventory_single_directory_name=[A-Za-z0-9._-]{1,80}$/);
+      else assert.match(row, /^[a-z0-9_]+=(?:[0-9]+|true|false|AVAILABLE|NOT_PRESENT|UNAVAILABLE|TRUNCATED)$/);
+    }
     return Object.fromEntries(rows.map(row => row.split("=")));
   };
   return { root, mapped, write, directory, observe };
@@ -65,6 +68,7 @@ test("real inline observer reports mixed immediate ownership, ages and only acti
   f.write("/etc/cron.d/PRIVATE_CRON", "0 4 * * * root archive_command /var/backups/kingturf-erp\n");
   const result = f.observe();
   assert.equal(result.backup_inventory_status, "AVAILABLE");
+  assert.equal(result.backup_inventory_single_directory_name, "jinhu-smart-park");
   for (const [key, value] of Object.entries({ entries:9,directories:1,regular_files:7,symlinks:1,regular_bytes:143,hr_jinhu_entries:6,hr_jinhu_regular_files:4,hr_jinhu_regular_bytes:60,kingturf_regular_bytes:23,other_regular_bytes:60,oldest_regular_age_seconds:240,newest_regular_age_seconds:30 })) assert.equal(result[`backup_inventory_${key}`], String(value));
   assert.equal(result.cron_reference_status, "AVAILABLE");
   assert.equal(result.cron_files_scanned, "3");
@@ -81,6 +85,7 @@ test("absent roots are distinct from empty directories and true zero counts", t 
   const result = f.observe();
   assert.equal(result.backup_inventory_status, "AVAILABLE");
   assert.equal(result.backup_inventory_regular_bytes, "0");
+  assert.equal(result.backup_inventory_single_directory_name, "NOT_PRESENT");
   assert.equal(result.backup_inventory_oldest_regular_age_seconds, "NOT_PRESENT");
 });
 
@@ -93,12 +98,14 @@ test("a root symlink is unavailable, not traversed", t => {
 
 test("one failed lstat withholds all partial backup aggregates and redacts its error", t => {
   const f = fixture(t);
+  f.directory("/var/backups/safe_infrastructure");
   f.write("/var/backups/jinhu_pg_first", "123");
   f.write("/var/backups/PRIVATE_FAILED", "456");
   const result = f.observe("/var/backups/PRIVATE_FAILED");
   assert.equal(result.backup_inventory_status, "UNAVAILABLE");
   assert.equal(result.backup_inventory_regular_bytes, "UNAVAILABLE");
   assert.equal(result.backup_inventory_hr_jinhu_regular_bytes, "UNAVAILABLE");
+  assert.equal(result.backup_inventory_single_directory_name, "UNAVAILABLE");
 });
 
 test("backup entry bound truncates without publishing partial ownership counts", t => {
@@ -132,4 +139,20 @@ test("fixed cron symlink and stat failures are unavailable without exposing thei
   fs.unlinkSync(f.mapped("/etc/crontab"));
   f.write("/etc/crontab", "0 1 * * * PRIVATE\n");
   assert.equal(f.observe("/etc/crontab").cron_reference_status, "UNAVAILABLE");
+});
+
+
+test("only one complete, bounded ASCII directory basename may be disclosed", t => {
+  const f = fixture(t);
+  const valid="infra_backups-2026.10";
+  f.directory(`/var/backups/${valid}`);
+  assert.equal(f.observe().backup_inventory_single_directory_name, valid);
+  f.directory("/var/backups/second_directory");
+  assert.equal(f.observe().backup_inventory_single_directory_name, "UNAVAILABLE");
+  fs.rmSync(f.mapped("/var/backups"), {recursive:true});
+  for (const invalid of ["infra space", "infra-中文", "infra\nname", "x".repeat(81)]) {
+    f.directory(`/var/backups/${invalid}`);
+    assert.equal(f.observe().backup_inventory_single_directory_name, "UNAVAILABLE");
+    fs.rmSync(f.mapped("/var/backups"), {recursive:true});
+  }
 });
