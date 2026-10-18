@@ -184,6 +184,12 @@ directory_kib root /
 directory_kib var /var
 directory_kib var_lib /var/lib
 directory_kib var_cache /var/cache
+directory_kib var_backups /var/backups
+directory_kib var_www /var/www
+directory_kib var_spool /var/spool
+directory_kib var_snap /var/snap
+directory_kib var_opt /var/opt
+directory_kib var_crash /var/crash
 directory_kib containerd /var/lib/containerd
 directory_kib containerd_overlayfs /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
 directory_kib containerd_content /var/lib/containerd/io.containerd.content.v1.content

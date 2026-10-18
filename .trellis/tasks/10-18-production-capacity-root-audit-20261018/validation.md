@@ -16,3 +16,5 @@
 ## 完整目录结果与聚焦后续
 - 39092682308返回26目录及4数据盘字段；root/var在8秒限时内未完成，不能推断为0。DockerRoot约4.1GiB，源码/回滚约0.15/0.40GiB，tmp约4GiB，独立数据盘可用约83GiB。
 - 为解释98GB系统盘已用，仅增6个var_lib/cache/containerd固定路径。9流传输用例更新32目录标签PASS，静态/语法/diff PASS。禁止将嵌套目录相加，尚未实施任何删除/转存。
+
+- 39092849445实测var=88,007,276KiB、containerd=8,076,964KiB、var/log约926080KiB；containerd不能解释大头。再补6个固定var子目录backups/www/spool/snap/opt/crash，9用例38标签+4tail+4EOF PASS。未将占用当作可删除性证明。
