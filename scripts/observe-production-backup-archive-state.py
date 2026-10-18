@@ -35,12 +35,24 @@ def tree(path, depth=0, result=None, relative=""):
             tree(path/name, depth+1, result, f"{relative}/{name}" if relative else name)
     return result
 
-def difference(actual, expected):
+def difference(actual, expected, root=None, hashes=None):
     counts = {"added":len(actual.keys()-expected.keys()),"missing":len(expected.keys()-actual.keys()),
-              "directory_time_only":0,"file_time_only":0,"other_changed":0}
+              "directory_time_only":0,"file_time_only":0,"other_changed":0,"changed_regular_files":[]}
     for key in actual.keys() & expected.keys():
         a,b=actual[key],expected[key]
         if a == b: continue
+        if root is not None and stat.S_ISREG(a["mode"]):
+            category = "SQLITE_SHM" if key.endswith("/database.sqlite-shm") else "SQLITE_WAL" if key.endswith("/database.sqlite-wal") else "DATABASE" if key.endswith("/database.sqlite") else "OTHER"
+            match = "UNAVAILABLE"
+            if a["size"]<=64*1024**2 and hashes and key in hashes:
+                checksum=hashlib.sha256()
+                with (root/key).open("rb") as stream:
+                    while True:
+                        part=stream.read(1024*1024)
+                        if not part:break
+                        checksum.update(part)
+                match="MATCH" if checksum.hexdigest()==hashes[key]["sha256"] else "MISMATCH"
+            counts["changed_regular_files"].append({"category":category,"hash_status":match,"mtime_changed":a["mtime"]!=b["mtime"],"ctime_changed":a["ctime"]!=b["ctime"]})
         stripped=lambda row:{k:v for k,v in row.items() if k not in ("mtime","ctime")}
         if stripped(a)==stripped(b):
             counts["directory_time_only" if stat.S_ISDIR(a["mode"]) else "file_time_only"]+=1
@@ -66,7 +78,7 @@ def observe(archive=Path("/srv/jinhu-production-data/smart-control-release-archi
             stage=archive/".staging"/f"{operation.name}-{index}"
             row["target_exists"]=target.exists();row["stage_exists"]=stage.exists()
             if record.get("target_tree") and (target.exists() or stage.exists()):
-                row["target_difference"]=difference(tree(target if target.exists() else stage),record["target_tree"])
+                row["target_difference"]=difference(tree(target if target.exists() else stage),record["target_tree"],target if target.exists() else stage,record.get("hashes"))
             result["bundles"].append(row)
     return result
 
