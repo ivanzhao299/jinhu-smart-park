@@ -590,6 +590,28 @@ jobs:
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-yuzhou-hr-production-capacity.sh
 
+      - name: Observe existing archival state (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          set -eu
+          umask 077
+          ssh -p "$PROD_SSH_PORT" -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=2 \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" "python3 -B -" \
+            < scripts/observe-production-backup-archive-state.py > "$RUNNER_TEMP/production-backup-archive-state.json"
+
+      - name: Retain aggregate archival state
+        if: ${{ inputs.deploy_mode == 'diagnose-yuzhou-hr-capacity' && success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: production-backup-archive-state
+          path: ${{ runner.temp }}/production-backup-archive-state.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Plan or apply historical Smart Control backup archival
         if: ${{ inputs.deploy_mode == 'archive-smart-control-backups' }}
         env:
