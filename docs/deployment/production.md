@@ -379,6 +379,11 @@ The production workflow also performs health-gated pressure recovery before copy
 
 For unresolved pressure, `diagnose-yuzhou-hr-capacity` runs the capacity helper over SSH stdin without deploying or changing business data. Fixed directory observations use single-device, no-symlink traversal with per-path deadlines; nested sizes overlap and must not be added together. `UNAVAILABLE`, `NOT_PRESENT`, and `TRUNCATED` remain distinct from zero. The fixed `/var/backups` inventory reports only bounded immediate-entry type, age, size and service-prefix aggregates; it does not enumerate filenames or recurse into arbitrary service directories. When exactly one immediate service directory exists, its basename may be reported only if it is 1–80 ASCII letters, digits, dots, underscores or hyphens; ordinary filenames and full paths remain excluded. Fixed cron-reference counts cover only the listed cron files, and do not prove the absence of systemd timers or active writers. Service classification is an ownership hint, not evidence that a backup may be removed. Keep any archival operation separate from this read-only mode and verify copies before reclaiming selected originals.
 
+`archive-smart-control-backups` is a separate operations mode for historical, already published recovery bundles on the shared host. It never deploys applications, imports HR data, edits other systems or stops services. `backup_archive_operation=plan` is the default and creates no production files; its aggregate receipt contains a plan hash. Explicit `apply` requires that exact `backup_archive_plan_sha256`. The helper protects the newest two copies (including timestamp ties), all recent or uncertain objects, and transfers only eligible older bundles to the existing independent data disk. The selected backup contents remain available at the archive location recorded in a private recovery index; recent backup paths stay unchanged.
+
+Apply requires the reviewed verifier's exact hash, complete copy checksums, actual database/media verification and durable target files before the original copy can be retired. Retirement uses an exact directory identity outside the producer's publication namespace; uncertainty retains the old copy and destination. A private journal supports interrupted runs without selecting a new set of backups. Explicit archive apply has a bounded 90-minute host-job budget for copy and full verification; other operations retain the existing 30-minute budget. If interrupted, resume with the same plan hash rather than generating a new candidate set. Small local fixtures do not establish production copy duration. Actual freed space and current service health must be checked after archival before starting the HR release. Count-only plan/operation receipts are retained as `production-backup-archive-receipt`; backup filenames and the private recovery index are not uploaded. This is controlled archival of existing copies, not a change to Smart Control's running application or its backup producer.
+
+
 
 ## 2.1 Deployment Traceability
 
@@ -928,3 +933,8 @@ Database migrations are forward-only in this project. Take a PostgreSQL backup b
 ## 独立企业 HR 的单独部署边界
 
 现有生产默认 `APP_RUNTIME_MODE=integrated`，本功能不自动切换或复制生产数据。独立安装/前向schema/文件/密码登录及 Web 同模式配置见 [独立企业 HR](hr-enterprise.md)；独立入口不得使用集成数据库或文件目录。
+
+## Final review contracts
+- Reused complete staging files must be identity-checked and fsynced before COPIED; a matching hash alone is insufficient after interruption.
+- Compare every typed verifier evidence field against the original receipt, including database/media hashes, counts, bytes and source revision.
+- Target verification may be reused only inside one apply process after a fresh exact full-tree snapshot; normalize only the known root rename ctime. Every new process/resume starts with an empty cache. Source and retirement checks remain complete.
