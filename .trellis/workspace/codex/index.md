@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
+- **Total Sessions**: 15
 - **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~325 | Active |
+| `journal-1.md` | ~360 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-10-20 | Approved personnel business chain production release | `6ec2e0821`, `369ed5775` | `codex/hr-approved-personnel-continuity-20261020` |
 | 14 | 2026-10-20 | HR正式档案33字段连续更新生产发布与运行取证 | `e07b5554c`, `770a60e72` | `codex/hr-profile-continuous-update-20261020` |
 | 13 | 2026-10-16 | 绩效正式承接生产只读取证与全7月工资范围固化 | `451f7d33d`, `debdf41f9` | `codex/hr-performance-formal-continuation-20261016` |
 | 12 | 2026-10-16 | 正式绩效五渠道完整办理生产验收 | `0ec8286925bd2bc45378adc697f751be574d26a9`, `9ed1e4b828c3ff9ad807c8a5f4b54b4f61f7b5c0` | `codex/hr-performance-formal-source-weights-20261016` |

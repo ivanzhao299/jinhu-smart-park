@@ -323,3 +323,38 @@ PR982已合并生产9ed1e4b8；PR与main完整CI/ReleaseSmoke、迁移371/372各
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: Approved personnel business chain production release
+
+**Date**: 2026-10-20
+**Task**: Approved personnel business chain production release
+**Package**: api
+**Branch**: `codex/hr-approved-personnel-continuity-20261020`
+
+### Summary
+
+PR1012 merged and deployed; independent runtime369ed verified, health and cleanup PASS. Normal-role dual-runtime continuity accepted locally; actual production HR role and July formal payroll remain unaccepted. Full HR modernization goal active.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6ec2e0821` | (see git log) |
+| `369ed5775` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
