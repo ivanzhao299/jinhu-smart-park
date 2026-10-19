@@ -1,14 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HrRecruitmentClient } from "../../app/hr/recruitment/HrRecruitmentClient";
-import { hrApi, type HrCandidate, type HrOnboardingApplication } from "../../lib/hr-api";
+import { hrApi, type HrCandidate, type HrEmployee, type HrOnboardingApplication } from "../../lib/hr-api";
 
 const permissions = ["hr:recruitment", "hr:candidate:read", "hr:onboarding:read", "hr:onboarding:manage", "hr:approval:park_review", "hr:employment:transition"];
 const auth = vi.hoisted(() => ({ user: { id: "hr", permissions: [] as string[], enabled_modules: [{ module_code: "hr" }] } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => auth.user }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: {
-  recruitmentRequisitions: vi.fn(), recruitmentCandidates: vi.fn(), onboardingApplications: vi.fn(), directoryOptions: vi.fn(), positions: vi.fn(),
+  recruitmentRequisitions: vi.fn(), recruitmentCandidates: vi.fn(), onboardingApplications: vi.fn(), employees: vi.fn(), directoryOptions: vi.fn(), positions: vi.fn(),
   createOnboardingApplication: vi.fn(), updateOnboardingApplication: vi.fn(), onboardingApplicationAction: vi.fn(), reviewOnboardingApplication: vi.fn(), confirmOnboardingApplication: vi.fn()
 } }));
 const row = (patch: Partial<HrOnboardingApplication> = {}): HrOnboardingApplication => ({
@@ -17,14 +17,60 @@ const row = (patch: Partial<HrOnboardingApplication> = {}): HrOnboardingApplicat
   probationMonths: 3, attendanceCardNo: "123", status: "draft", reviewComment: null, reviewedAt: null, confirmedAt: null, remark: null, ...patch
 });
 const person: HrCandidate = { id: "candidate-1", candidateNo: "SYN-C1", fullName: "合成员工", requisitionId: "req-1", requisitionTitle: "合成岗位", stage: "hired", source: null, expectedOnboardDate: null, latestEvaluation: null, mobileMasked: null, emailMasked: null, identityMasked: null, convertedEmployeeId: "employee-1" };
+const employee = (index: number): HrEmployee => ({ id: `employee-${index}`, employeeCode: `SYN-E${index}`, fullName: `预入职员工${index}`, employmentStatus: "preboarding", userId: null, primaryOrgId: "org-1", positionId: "position-1", managerEmployeeId: null, employmentType: "full_time", legacyJobstateCode: null, legacyJobstateName: null, hireDate: null, departureDate: null, workLocation: null, workMobile: null, workEmail: null });
 const list = <T,>(items: T[]) => ({ items, total: items.length, page: 1, page_size: 20 });
 const rejection = (status: number, message: string) => Object.assign(new Error(message), { status });
 beforeEach(() => {
   vi.resetAllMocks(); auth.user = { id: "hr", permissions: [...permissions], enabled_modules: [{ module_code: "hr" }] };
   vi.mocked(hrApi.recruitmentRequisitions).mockResolvedValue(list([]));
   vi.mocked(hrApi.recruitmentCandidates).mockImplementation(async (_token, _page, _size, filters) => list(filters?.stage === "hired" ? [person] : []));
+  vi.mocked(hrApi.employees).mockImplementation(async (_token, page = 1) => ({ items: Array.from({ length: 21 }, (_, index) => employee(index + 1)).slice((page - 1) * 20, page * 20), total: 21, page, page_size: 20 }));
   vi.mocked(hrApi.onboardingApplications).mockResolvedValue(list([row()]));
   vi.mocked(hrApi.createOnboardingApplication).mockImplementation(async body => ({ ...row(), ...body, id: "new-application", version: 1, applicationNo: "SYN-NEW" }));
+});
+
+it("lets HR without candidate read select a paged preboarding employee, clears the other source, and retries the exact direct request", async () => {
+  auth.user.permissions = ["hr:recruitment", "hr:onboarding:read", "hr:onboarding:manage", "hr:employee:read"];
+  vi.mocked(hrApi.createOnboardingApplication).mockRejectedValueOnce(new TypeError("直接员工请求中断"))
+    .mockImplementationOnce(async body => ({ ...row(), ...body, candidateId: null, id: "employee-direct", applicationNo: "SYN-DIRECT", version: 1 }));
+  render(<HrRecruitmentClient />);
+  expect(hrApi.recruitmentCandidates).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByLabelText("已有预入职员工"));
+  await screen.findByRole("option", { name: "预入职员工1 · SYN-E1" });
+  expect(hrApi.employees).toHaveBeenLastCalledWith("synthetic-token", 1, 20, { keyword: "", status: "preboarding" }, expect.any(AbortSignal));
+  fireEvent.click(screen.getByRole("button", { name: "员工下一页" }));
+  await screen.findByRole("option", { name: "预入职员工21 · SYN-E21" });
+  fireEvent.change(screen.getByLabelText("员工"), { target: { value: "employee-21" } });
+  fireEvent.click(screen.getByLabelText("招聘录用人员"));
+  fireEvent.click(screen.getByLabelText("已有预入职员工"));
+  expect(screen.getByLabelText("员工")).toHaveValue("");
+  await screen.findByText("员工目录第 1 / 2 页 · 共 21 人");
+  fireEvent.click(screen.getByRole("button", { name: "员工下一页" }));
+  await screen.findByRole("option", { name: "预入职员工21 · SYN-E21" });
+  fireEvent.change(screen.getByLabelText("员工"), { target: { value: "employee-21" } });
+  const form = screen.getByRole("button", { name: "保存入职申请草稿" }).closest("form")!;
+  fireEvent.change(within(form).getByLabelText("申请名称"), { target: { value: "直接办理" } });
+  fireEvent.change(within(form).getByLabelText("申请日期"), { target: { value: "2026-10-01" } });
+  fireEvent.change(within(form).getByLabelText("入职日期"), { target: { value: "2026-10-10" } });
+  fireEvent.change(within(form).getByLabelText("考勤卡号"), { target: { value: "321" } });
+  fireEvent.submit(form);
+  await screen.findByText("直接员工请求中断");
+  expect(vi.mocked(hrApi.createOnboardingApplication)).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "employee-21", candidateId: undefined }), "synthetic-token", expect.any(String));
+  expect(screen.getByLabelText("已有预入职员工")).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "重试原入职请求" }));
+  await screen.findByText("入职申请草稿已保存，可继续提交审批。");
+  expect(vi.mocked(hrApi.createOnboardingApplication).mock.calls[1]).toEqual(vi.mocked(hrApi.createOnboardingApplication).mock.calls[0]);
+});
+
+it("rejects and labels a non-preboarding row from an anomalous scoped directory response", async () => {
+  auth.user.permissions = ["hr:recruitment", "hr:onboarding:read", "hr:onboarding:manage", "hr:employee:read"];
+  vi.mocked(hrApi.employees).mockResolvedValueOnce(list([{ ...employee(1), employmentStatus: "active" }]));
+  render(<HrRecruitmentClient />);
+  fireEvent.click(screen.getByLabelText("已有预入职员工"));
+  const option = await screen.findByRole("option", { name: "预入职员工1 · SYN-E1（非预入职）" });
+  expect(option).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("员工"), { target: { value: "employee-1" } });
+  expect(screen.getByLabelText("员工")).toHaveValue("");
 });
 async function fillCreate() {
   fireEvent.click(await screen.findByRole("button", { name: "选择 合成员工 · SYN-C1" }));

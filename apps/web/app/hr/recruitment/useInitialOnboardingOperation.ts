@@ -31,7 +31,7 @@ export function acceptInitialOnboardingReceipt(receipt: HrOnboardingApplication,
   }
   if (expected.body) {
     const fields: (keyof InitialOnboardingBody)[] = ["applicationName", "employeeId", "candidateId", "applicationDate", "plannedHireDate", "probationMonths", "attendanceCardNo", "remark"];
-    if (fields.some(field => (receipt[field] ?? null) !== (expected.body?.[field] ?? null))) {
+    if (fields.some(field => (receipt[field] ?? null) !== (field === "candidateId" ? expected.body?.candidateId ?? null : expected.body?.[field] ?? null))) {
       throw new Error("入职保存回执与本次填写内容不一致，结果待确认，请重试原请求。");
     }
   }

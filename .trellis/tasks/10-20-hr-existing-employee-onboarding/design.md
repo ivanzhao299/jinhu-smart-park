@@ -1,0 +1,7 @@
+# 设计
+
+在现有初次入职表单增加显式办理对象来源。招聘来源沿用RecruitmentReferencePicker；已有员工来源复用HrEmployeeSelection的新增onboarding用途，现有hrApi.employees筛选status=preboarding、page_size20，使用员工读取权限。所选employeeId与candidate关联严格分开，互斥来源切换清空另一来源选择。招聘转换回执继续操作必须切回招聘来源并绑定本次candidate。
+
+所有写入沿用useInitialOnboardingOperation，既有服务端校验不放松。增加onboarding用途时不改变contract/probation等已使用行为，selected回调保持现有兼容。页面身份/权限/园区key已经整体重挂载，可依赖该现有边界，但须有测试。
+
+无数据迁移或服务配置变化。回滚为本片Web代码回退，正式申请不受影响。
