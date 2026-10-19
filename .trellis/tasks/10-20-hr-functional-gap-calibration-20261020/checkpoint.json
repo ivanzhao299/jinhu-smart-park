@@ -1,0 +1,35 @@
+{
+  "objective": "Verify actual36 mapped-only candidates and select genuine HR business gap",
+  "status": "GAP_MATRIX_COMPLETE_ACTIONABLE_CORE_HANDOFF_DEFECT_DISPATCHED",
+  "workspace": "/Users/mac/.codex/worktrees/hr-team-approval-entry-20261018/jinhu-smart-park",
+  "branch": "codex/hr-functional-gap-calibration-20261020",
+  "baselineSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53",
+  "changedFiles": [
+    "prd.md",
+    "gap-matrix.json",
+    "gap-matrix.md",
+    "checkpoint.json",
+    "research/source-candidates.json",
+    "next-work-package.md"
+  ],
+  "validation": "36 unique IDs; 7 grouping/2 implemented/6 related/21 unverified; every cited source exists and needle line/hash verified; no tests or deploy for evidence-only changes",
+  "activeRunHandle": null,
+  "blocker": null,
+  "nextAction": "实施已批准任职申请到同一岗位变更单精确接续；新子任务10-20-hr-linked-job-change-continuation-20261020已in_progress。",
+  "fullGoalComplete": false,
+  "updatedAt": "2026-10-19T16:24:35.744680+00:00",
+  "usage": "unavailable",
+  "classificationCounts": {
+    "GROUP_NOT_ATOMIC_FUNCTION": 7,
+    "IMPLEMENTED_AWAITING_PARITY_UAT": 2,
+    "UNVERIFIED_OPERATIONAL_GAP": 21,
+    "RELATED_CAPABILITY_NOT_PARITY": 6
+  },
+  "productionBrowser": {
+    "observedAt": "2026-10-19T16:19:33.149895+00:00",
+    "url": "https://park.cnjinhu.com/login",
+    "realRoleUat": "PENDING_SESSION",
+    "globalDevelopmentBlocked": false
+  },
+  "nextImplementationTask": ".trellis/tasks/10-20-hr-linked-job-change-continuation-20261020"
+}

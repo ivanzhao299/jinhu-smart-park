@@ -1,10 +1,12 @@
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {beforeEach,expect,it,vi} from "vitest";
+import {HrLifecycleClient} from "../../app/hr/lifecycle/HrLifecycleClient";
 import {JobChangeApplicationsPanel} from "../../app/hr/lifecycle/JobChangeApplicationsPanel";
 import {ApiError} from "../../lib/api-client";
 import {hrApi,type HrJobChangeApplication} from "../../lib/hr-api";
 
 const state=vi.hoisted(()=>({user:{id:"actor",park_id:"park-a",permissions:["hr:job_change:read","hr:job_change:manage","hr:job_change:apply"]}}));
+vi.mock("../../components/auth/PermissionGuard",()=>({PermissionGuard:({children}:{children:import("react").ReactNode})=>children}));
 vi.mock("../../lib/auth-context",()=>({useAuthUser:()=>state.user}));
 vi.mock("../../lib/authz",()=>({getAccessToken:()=>"synthetic-token"}));
 vi.mock("../../lib/hr-api",()=>({hrApi:{jobChangeApplications:vi.fn(),jobChangeOptions:vi.fn(),jobChangeEmployeeOptions:vi.fn(),createJobChangeApplication:vi.fn(),updateJobChangeApplication:vi.fn(),jobChangeApplicationAction:vi.fn(),reviewJobChangeApplication:vi.fn(),applyJobChangeApplication:vi.fn(),jobChangeHistory:vi.fn()}}));
@@ -194,4 +196,64 @@ it("keeps the employee bound to the approved source while allowing job-change de
  expect(screen.getByText("员工已绑定原任职申请；可修改岗位和办理信息，不能更换办理对象。")).toBeVisible();
  fireEvent.change(screen.getByLabelText("变更原因"),{target:{value:"经核对的新办理原因"}});fireEvent.click(screen.getByRole("button",{name:"保存修改"}));
  await waitFor(()=>expect(hrApi.updateJobChangeApplication).toHaveBeenCalledWith("application-1",expect.objectContaining({employeeId:"employee-1",reason:"经核对的新办理原因"}),"synthetic-token",expect.any(String)));
+});
+
+it("opens an application beyond page20 with the existing returned, approved and applied workflow",async()=>{
+ for(const status of ["returned","approved","applied"]){
+  const target={...row(51,status,"2020-01-01"),id:"00000000-0000-4000-8000-000000000051"};
+  vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[target],1));
+  const view=render(<JobChangeApplicationsPanel applicationId={target.id}/>);
+  expect(await screen.findByText(`Synthetic 51 · ${{returned:"已退回",approved:"已批准",applied:"已生效"}[status]}`)).toBeVisible();
+  expect(hrApi.jobChangeApplications).toHaveBeenLastCalledWith("synthetic-token",1,20,undefined,expect.any(AbortSignal),target.id);
+  expect(screen.getByRole("link",{name:"返回全部岗位变更台账"})).toHaveAttribute("href","/hr/lifecycle#job-change-applications");
+  expect(screen.queryByRole("button",{name:"保存申请草稿"})).toBeNull();
+  if(status==="returned"){fireEvent.click(screen.getByRole("button",{name:"修改"}));expect(screen.getByLabelText("员工")).toHaveValue("employee-51");}
+  if(status==="approved")expect(screen.getByRole("button",{name:"生效变更"})).toBeEnabled();
+  view.unmount();
+ }
+});
+
+it("refuses an unrelated target response and retries an inaccessible or failed read without a fallback row",async()=>{
+ const id="00000000-0000-4000-8000-000000000051";
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[row(1)],1)).mockResolvedValueOnce(list(1,[],0));
+ render(<JobChangeApplicationsPanel applicationId={id}/>);
+ expect(await screen.findByText("岗位变更定位响应无效，请重试。")).toBeVisible();expect(screen.queryByText("Synthetic 1 · 草稿")).toBeNull();expect(screen.queryByText("未找到可访问的关联岗位变更单，请核对入口或联系授权人员。")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"重试申请和基础数据"}));expect(await screen.findByText("未找到可访问的关联岗位变更单，请核对入口或联系授权人员。")).toBeVisible();
+});
+
+it("cancels old target reads and clears drafts and unresolved retries when the target changes",async()=>{
+ const first={...row(1),id:"00000000-0000-4000-8000-000000000001"},second={...row(51),id:"00000000-0000-4000-8000-000000000051"};
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[first],1));
+ const view=render(<JobChangeApplicationsPanel applicationId={first.id}/>);fireEvent.click(await screen.findByRole("button",{name:"修改"}));
+ fireEvent.change(screen.getByLabelText("变更原因"),{target:{value:"Old target draft"}});
+ vi.mocked(hrApi.updateJobChangeApplication).mockRejectedValueOnce(new Error("Synthetic unknown result"));fireEvent.click(screen.getByRole("button",{name:"保存修改"}));await screen.findByRole("button",{name:"按原请求重试"});
+ let finish!:(value:ReturnType<typeof list>)=>void;
+ vi.mocked(hrApi.jobChangeApplications).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ // Changing the target clears an unresolved original request before new reads complete.
+ view.rerender(<JobChangeApplicationsPanel applicationId={second.id}/>);
+ expect(screen.queryByRole("button",{name:"按原请求重试"})).toBeNull();expect(screen.queryByDisplayValue("Old target draft")).toBeNull();
+ await waitFor(()=>expect(hrApi.jobChangeApplications).toHaveBeenCalledTimes(2));
+ const signal=vi.mocked(hrApi.jobChangeApplications).mock.calls[1]![4]!;
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[first],1));view.rerender(<JobChangeApplicationsPanel applicationId={first.id}/>);expect(signal.aborted).toBe(true);
+ await act(async()=>finish(list(1,[second],1)));await screen.findByText("Synthetic 1 · 草稿");expect(screen.queryByText("Synthetic 51 · 草稿")).toBeNull();
+});
+
+it("discards an old target write completion and confirmed readback on target or full identity replacement",async()=>{
+ const first={...row(1),id:"00000000-0000-4000-8000-000000000001"},second={...row(51),id:"00000000-0000-4000-8000-000000000051"};
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[first],1));
+ let finish!:(value:HrJobChangeApplication)=>void;vi.mocked(hrApi.jobChangeApplicationAction).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const view=render(<JobChangeApplicationsPanel applicationId={first.id}/>);fireEvent.click(await screen.findByRole("button",{name:"提交审批"}));
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[second],1));view.rerender(<JobChangeApplicationsPanel applicationId={second.id}/>);await screen.findByText("Synthetic 51 · 草稿");
+ await act(async()=>finish({...first,status:"submitted",version:2}));expect(screen.queryByText("Synthetic 1 · 待审批")).toBeNull();expect(screen.queryByText(/申请已保存/)).toBeNull();
+ vi.mocked(hrApi.jobChangeApplicationAction).mockResolvedValueOnce({...second,status:"submitted",version:2});vi.mocked(hrApi.jobChangeApplications).mockRejectedValueOnce(new Error("Synthetic refresh unavailable"));fireEvent.click(screen.getByRole("button",{name:"提交审批"}));await screen.findByText("Synthetic 51 · 待审批");
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValueOnce(list(1,[],0));state.user={...state.user,id:"different-actor"};view.rerender(<JobChangeApplicationsPanel applicationId={second.id}/>);await screen.findByText("未找到可访问的关联岗位变更单，请核对入口或联系授权人员。");expect(screen.queryByText("Synthetic 51 · 待审批")).toBeNull();
+});
+
+it("hands the server-selected target through the actual lifecycle client to its scoped existing panel",async()=>{
+ const target={...row(51,"returned"),id:"00000000-0000-4000-8000-000000000051"};
+ vi.mocked(hrApi.jobChangeApplications).mockResolvedValue(list(1,[target],1));
+ render(<HrLifecycleClient jobChangeId={target.id}/>);
+ expect(await screen.findByText("Synthetic 51 · 已退回")).toBeVisible();
+ expect(hrApi.jobChangeApplications).toHaveBeenCalledWith("synthetic-token",1,20,undefined,expect.any(AbortSignal),target.id);
+ expect(screen.queryByRole("button",{name:"保存申请草稿"})).toBeNull();
 });

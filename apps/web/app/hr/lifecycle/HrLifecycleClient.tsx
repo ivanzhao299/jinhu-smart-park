@@ -48,12 +48,12 @@ const typeLabel: Record<string, string> = {
     waived: "已豁免",
   };
 const initialStatisticsTo=new Date().toISOString().slice(0,10),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
-export function HrLifecycleClient({employeeId}:{employeeId?:string}) {
+export function HrLifecycleClient({employeeId,jobChangeId}:{employeeId?:string;jobChangeId?:string}) {
   const user=useAuthUser();
-  return <HrLifecycleContext key={JSON.stringify([user,employeeId])} employeeId={employeeId}/>;
+  return <HrLifecycleContext key={JSON.stringify([user,employeeId,jobChangeId])} employeeId={employeeId} jobChangeId={jobChangeId}/>;
 }
 
-function HrLifecycleContext({employeeId}:{employeeId?:string}) {
+function HrLifecycleContext({employeeId,jobChangeId}:{employeeId?:string;jobChangeId?:string}) {
   const user = useAuthUser(),
     canRead = hasAnyPermission(user, [
       HR_PERMISSIONS.HR_LIFECYCLE_READ,
@@ -317,7 +317,7 @@ function HrLifecycleContext({employeeId}:{employeeId?:string}) {
         ) : null}
         {success?<section className="ds-panel"><p role="status">{success}</p></section>:null}
         <ProbationApplicationsPanel />
-        <JobChangeApplicationsPanel />
+        <JobChangeApplicationsPanel applicationId={jobChangeId} />
         <DepartureApplicationsPanel employeeId={employeeId}/>
         <RehireApplicationsPanel employeeId={employeeId}/>
         {canReadEmploymentEvents ? (

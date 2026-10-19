@@ -46,7 +46,7 @@ it("keeps source/employee/version fixed, requires explicit business fields and r
  vi.mocked(hrApi.approvedEmploymentRequests).mockRejectedValueOnce(new Error("合成刷新失败")); save();
  await screen.findByText("已建立办理单 SYN-DZ-001"); await screen.findByText("合成刷新失败");
  const call = vi.mocked(hrApi.createJobChangeFromApproval).mock.calls[0]!; expect(call[0]).toBe("source"); expect(call[1]).toMatchObject({ employeeId: "employee", expectedApprovalVersion: 7, afterOrgId: "org", afterPositionId: "position" });
- expect(screen.getByRole("region", { name: "任职办理回执" })).toHaveTextContent("本次仅建立草稿，未执行任职变更"); expect(screen.getByRole("link", { name: "继续岗位变更审批与生效" })).toHaveAttribute("href", "/hr/lifecycle#job-change-applications");
+ expect(screen.getByRole("region", { name: "任职办理回执" })).toHaveTextContent("本次仅建立草稿，未执行任职变更"); expect(screen.getByRole("link", { name: "继续岗位变更审批与生效" })).toHaveAttribute("href", "/hr/lifecycle?job_change_id=job#job-change-applications");
  fireEvent.click(screen.getByRole("button", { name: "刷新办理队列" })); await waitFor(() => expect(hrApi.approvedEmploymentRequests).toHaveBeenCalledTimes(3)); expect(hrApi.createJobChangeFromApproval).toHaveBeenCalledTimes(1);
  expect(screen.queryByRole("button", { name: "建立岗位变更办理单" })).toBeNull();
 });
@@ -81,4 +81,12 @@ it("does not acknowledge an incomplete receipt without its real application numb
  await screen.findByText("办理回执无法核对，请按原请求重试。"); expect(screen.queryByRole("region", { name: "任职办理回执" })).toBeNull();
  expect(screen.getByLabelText("办理名称")).toBeDisabled(); fireEvent.click(screen.getByRole("button", { name: "按原请求重试建立办理单" }));
  await screen.findByText("已建立办理单 SYN-DZ-001"); expect(vi.mocked(hrApi.createJobChangeFromApproval).mock.calls[1]).toEqual(vi.mocked(hrApi.createJobChangeFromApproval).mock.calls[0]);
+});
+
+it("links an existing returned, approved or applied record to its exact ID",async()=>{
+ for(const status of ["returned","approved","applied"]){
+  vi.mocked(hrApi.approvedEmploymentRequests).mockResolvedValue({items:[{...source(),jobChange:{id:"00000000-0000-4000-8000-000000000051",applicationNo:"SYN-51",status}}],total:1,page:1,page_size:20});
+  const view=render(<ApprovedEmploymentRequestsPanel/>);
+  expect(await screen.findByRole("link",{name:"查看岗位变更"})).toHaveAttribute("href","/hr/lifecycle?job_change_id=00000000-0000-4000-8000-000000000051#job-change-applications");view.unmount();
+ }
 });
