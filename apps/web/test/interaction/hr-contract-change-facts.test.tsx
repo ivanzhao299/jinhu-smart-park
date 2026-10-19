@@ -25,3 +25,15 @@ it("empty facts are omitted and termination hides the new term input",async()=>{
 it("detail shows registered change facts while keeping action time separate",async()=>{
  vi.mocked(hrApi.contract).mockResolvedValue({...basic,changes:[{id:"change",sequenceNo:1,changeType:"renewal",previousStartDate:basic.startDate,previousEndDate:basic.endDate,newStartDate:"2092-01-01",newEndDate:"2092-12-31",contractTermMonths:0,signatureDate:"2091-12-15",status:"effective",isHistoricalImport:false}]});render(<HrContractsClient/>);fireEvent.click(await screen.findByRole("button",{name:"查看合同"}));expect(await screen.findByText("本次合同期限：0 个月")).toBeVisible();expect(screen.getByText("登记签订日期：2091-12-15")).toBeVisible();
 });
+it("shows an unregistered end date for a fixed-term contract without changing its recorded term",async()=>{
+ const fixedTerm={...basic,contractTypeName:"固定期限",endDate:null,contractTermMonths:12,changes:[{id:"change",sequenceNo:1,changeType:"renewal",previousStartDate:"2090-01-01",previousEndDate:null,newStartDate:"2092-01-01",newEndDate:null,contractTermMonths:12,status:"effective",isHistoricalImport:false}]};
+ vi.mocked(hrApi.contracts).mockResolvedValue({items:[fixedTerm],total:1,page:1,page_size:50});vi.mocked(hrApi.contract).mockResolvedValue(fixedTerm);
+ render(<HrContractsClient/>);expect(await screen.findByText("2090-01-01 至 未登记")).toBeVisible();fireEvent.click(screen.getByRole("button",{name:"查看合同"}));
+ expect(await screen.findByText("期限：2090-01-01 至 未登记 · 12 个月")).toBeVisible();expect(screen.getByText("2090-01-01 至 未登记 → 2092-01-01 至 未登记")).toBeVisible();expect(screen.queryByText("无固定期限")).toBeNull();
+});
+it("keeps a recorded end date exact in the ledger, detail, and change history",async()=>{
+ const recorded={...basic,contractTermMonths:12,changes:[{id:"change",sequenceNo:1,changeType:"renewal",previousStartDate:"2090-01-01",previousEndDate:"2091-12-31",newStartDate:"2092-01-01",newEndDate:"2092-12-31",contractTermMonths:12,status:"effective",isHistoricalImport:false}]};
+ vi.mocked(hrApi.contracts).mockResolvedValue({items:[recorded],total:1,page:1,page_size:50});vi.mocked(hrApi.contract).mockResolvedValue(recorded);
+ render(<HrContractsClient/>);expect(await screen.findByText("2090-01-01 至 2091-12-31")).toBeVisible();fireEvent.click(screen.getByRole("button",{name:"查看合同"}));
+ expect(await screen.findByText("期限：2090-01-01 至 2091-12-31 · 12 个月")).toBeVisible();expect(screen.getByText("2090-01-01 至 2091-12-31 → 2092-01-01 至 2092-12-31")).toBeVisible();
+});
