@@ -1098,3 +1098,5 @@ Formal performance count/hash preparation: [Source Readiness Observer](./hr-perf
 - [员工建议与投诉](./hr-employee-feedback-workflow.md)：本人草稿/提交/撤回、园区 HR 正式回复、私密完整历史与原请求重试。
 
 - [同内核独立企业 HR runtime](hr-enterprise-runtime.md)：部署模式、企业成员范围、专用schema/文件及双模式实际验证。
+
+Explicit versioned pre-gross payroll adjustment and exact selected source identifiers: [Gross Reduction](./hr-payroll-gross-reduction.md).

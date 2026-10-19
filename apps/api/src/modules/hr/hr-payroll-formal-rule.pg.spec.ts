@@ -287,6 +287,8 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     const runDetail = await runService.detail(scope, confirmer, formalRun.id, { page: 1, pageSize: 20 });
     assert.equal(runDetail.canConfirm, true);
     assert.equal(runDetail.items[0]!.netAmount, "123.45");
+    assert.equal(runDetail.totals.grossReductionAmount, undefined);
+    assert.equal(runDetail.items[0]!.grossReductionAmount, undefined);
     assert.equal(runDetail.items[0]!.items.length, 4);
     assert.equal((await runService.detail(scope, confirmer, formalRun.id, { page: 2, pageSize: 20 })).items.length, 0);
     assert.equal(JSON.stringify(runDetail).includes('"snapshot"'), false);
@@ -315,6 +317,53 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     assert.equal((await runService.options(scope,creator,optionsQuery)).correctionRuns.length,0);
     assert.equal((await db.query("SELECT correction_of_run_id FROM hr_payroll_run WHERE id=$1", [corrected.id]))[0].correction_of_run_id, formalRun.id);
     await assert.rejects(() => runService.create(scope, creator, { ...runPayload, correctionOfRunId: formalRun.id, correctionReason: "重复更正" }), /active correction/);
+    const grossReductionEmployeeId = randomUUID(), grossReductionReversalEmployeeId = randomUUID();
+    await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,version,hire_date,employee_code,full_name) VALUES($1,$3,$4,1,'2026-10-01','GROSS-REDUCTION','应发扣减合成员工'),($2,$3,$4,1,'2026-10-01','GROSS-REVERSAL','应发扣减返还合成员工')", [grossReductionEmployeeId, grossReductionReversalEmployeeId, tenantId, parkId]);
+    const grossReductionRules = await service.createSet(scope, creator, { ruleCode: "gross-reduction-test", displayName: "应发扣减正式规则" });
+    const grossReductionDefinition: HrPayrollFormalDefinitionDto = { roundingPolicy: "line_items_half_up", items: [
+      { code: "收入", role: "earning", expression: null },
+      { code: "应发扣减", role: "gross_reduction", expression: null },
+      { code: "扣款", role: "deduction", expression: null },
+      { code: "税", role: "tax", expression: null },
+      { code: "应发", role: "gross", expression: "[收入]-[应发扣减]" },
+      { code: "实发", role: "net", expression: "[应发]-[扣款]-[税]" },
+    ] };
+    const grossReductionDraft = await service.createVersion(scope, creator, grossReductionRules.id, { expectedHeadRevision: 0, definition: grossReductionDefinition, reason: "明确应发扣减在应发前计算" });
+    const grossReductionSubmitted = await service.submitVersion(scope, creator, grossReductionDraft.id, { expectedVersion: grossReductionDraft.version });
+    const grossReductionApproved = await service.reviewVersion(scope, reviewer, grossReductionDraft.id, { expectedVersion: grossReductionSubmitted.version, decision: "approve", effectiveFrom: "2026-10", reason: "独立复核应发扣减规则" });
+    assert.equal(grossReductionApproved.status, "approved");
+    const grossReductionInput = await inputService.create(scope, creator, { periodId, ruleSetId: grossReductionRules.id, ruleVersionId: grossReductionDraft.id, expectedHeadRevision: 0,
+      employees: [{ employeeId: grossReductionEmployeeId, expectedEmployeeVersion: 1, directItems: { 收入: "100.0000", 应发扣减: "10.0000", 扣款: "3.0000", 税: "5.0000" } }, { employeeId: grossReductionReversalEmployeeId, expectedEmployeeVersion: 1, directItems: { 收入: "100.0000", 应发扣减: "-20.0000", 扣款: "3.0000", 税: "5.0000" } }], reason: "明确应发扣减与返还当期输入" });
+    const grossReductionConfirmed = await inputService.confirm(scope, reviewer, grossReductionInput.id, { expectedVersion: grossReductionInput.version });
+    const grossReductionPayload = { inputId: grossReductionInput.id, expectedInputVersion: grossReductionConfirmed.version };
+    failAudit = true;
+    await assert.rejects(() => runService.create(scope, creator, grossReductionPayload), /audit unavailable/);
+    failAudit = false;
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM hr_payroll_run WHERE formal_input_id=$1", [grossReductionInput.id]))[0].n, 0);
+    const grossReductionRun = await runService.create(scope, creator, grossReductionPayload);
+    assert.deepEqual([grossReductionRun.grossAmount, grossReductionRun.grossReductionAmount, grossReductionRun.deductionAmount, grossReductionRun.personalTax, grossReductionRun.netAmount], ["210.00", "-10.00", "6.00", "10.00", "194.00"]);
+    const [grossReductionLedger] = await db.query("SELECT gross_total::text,deduction_total::text,net_total::text FROM hr_payroll_run WHERE id=$1", [grossReductionRun.id]);
+    assert.deepEqual(grossReductionLedger, { gross_total: "210.00", deduction_total: "16.00", net_total: "194.00" });
+    const [grossReductionEvidence] = await db.query("SELECT snapshot FROM hr_payroll_formal_run_evidence WHERE run_id=$1", [grossReductionRun.id]);
+    assert.equal(grossReductionEvidence.snapshot.totals.grossReductionAmount, "-10.00");
+    assert.equal(grossReductionEvidence.snapshot.results[0].calculation.calculationVersion, "jinhu-formal-payroll-v2");
+    const grossReductionItems = await db.query("SELECT item_type,amount::text FROM hr_payslip_item WHERE payslip_id IN (SELECT id FROM hr_payslip WHERE run_id=$1) AND item_code='应发扣减' ORDER BY amount::numeric", [grossReductionRun.id]);
+    assert.deepEqual(grossReductionItems, [{ item_type: "gross_reduction", amount: "-20.00" }, { item_type: "gross_reduction", amount: "10.00" }]);
+    const grossReductionDetail = await runService.detail(scope, confirmer, grossReductionRun.id, { page: 1, pageSize: 20 });
+    assert.equal(grossReductionDetail.totals.grossReductionAmount, "-10.00");
+    assert.equal(grossReductionDetail.items.find(item => item.employeeId === grossReductionEmployeeId)?.grossReductionAmount, "10.00");
+    assert.equal(grossReductionDetail.items.find(item => item.employeeId === grossReductionReversalEmployeeId)?.grossReductionAmount, "-20.00");
+    failAudit = true;
+    await assert.rejects(() => runService.transition(scope, reviewer, grossReductionRun.id, "review", { expectedVersion: grossReductionRun.version, reason: "复核审计不可用" }), /audit unavailable/);
+    failAudit = false;
+    const grossReductionReviewed = await runService.transition(scope, reviewer, grossReductionRun.id, "review", { expectedVersion: grossReductionRun.version, reason: "复核应发扣减工资条" });
+    failAudit = true;
+    await assert.rejects(() => runService.transition(scope, confirmer, grossReductionRun.id, "confirm", { expectedVersion: grossReductionReviewed.version, reason: "确认审计不可用" }), /audit unavailable/);
+    failAudit = false;
+    const grossReductionConfirmedRun = await runService.transition(scope, confirmer, grossReductionRun.id, "confirm", { expectedVersion: grossReductionReviewed.version, reason: "确认应发扣减工资条" });
+    assert.equal(grossReductionConfirmedRun.status, "confirmed");
+    await assert.rejects(() => db!.query("UPDATE hr_payroll_formal_run_evidence SET snapshot='{}' WHERE run_id=$1", [grossReductionRun.id]), /immutable/);
+    await assert.rejects(() => db!.query("UPDATE hr_payslip_item SET amount=0 WHERE payslip_id=(SELECT id FROM hr_payslip WHERE run_id=$1 ORDER BY id LIMIT 1)", [grossReductionRun.id]), /frozen/);
     const salaryEmployeeId = randomUUID(), planId = randomUUID();
     await db.query("INSERT INTO hr_employee(id,tenant_id,park_id,version,hire_date) VALUES($1,$2,$3,1,'2026-10-01')", [salaryEmployeeId, tenantId, parkId]);
     await db.query("INSERT INTO hr_compensation_plan(id,tenant_id,park_id,plan_code,plan_name,effective_from,status) VALUES($1,$2,$3,'SYNTHETIC','合成薪酬','2026-10-01','active')", [planId, tenantId, parkId]);
@@ -352,12 +401,12 @@ test("actual rule migration and service enforce draft concurrency, review, effec
     assert.equal(salaryEvidence.snapshot.results[0].frozenSources.attendance.batchId, attendanceBatchId);
     const metadataReader = { ...creator, permissions: [HR_PERMISSIONS.HR_PAYROLL_READ] };
     const runPage = await runService.list(scope, metadataReader, { page: 1, pageSize: 2, month: "2026-10" });
-    assert.equal(runPage.total, 3); assert.equal(runPage.items.length, 2);
+    assert.equal(runPage.total, 4); assert.equal(runPage.items.length, 2);
     assert.equal(JSON.stringify(runPage).includes("4519.90"), false);
     assert.equal(JSON.stringify(runPage).includes("snapshot"), false);
-    assert.equal((await runService.list(scope, metadataReader, { page: 2, pageSize: 2 })).items.length, 1);
-    assert.equal((await runService.list(scope, metadataReader, { page: 3, pageSize: 2 })).total, 3);
-    assert.equal((await runService.list(scope, metadataReader, { page: 1, pageSize: 20, status: "confirmed" })).total, 1);
+    assert.equal((await runService.list(scope, metadataReader, { page: 2, pageSize: 2 })).items.length, 2);
+    assert.equal((await runService.list(scope, metadataReader, { page: 3, pageSize: 2 })).total, 4);
+    assert.equal((await runService.list(scope, metadataReader, { page: 1, pageSize: 20, status: "confirmed" })).total, 2);
     assert.equal((await runService.list({ ...scope, parkId: randomUUID() }, metadataReader, { page: 1, pageSize: 20 })).total, 0);
     failAudit = true;
     await assert.rejects(() => runService.list(scope, metadataReader, { page: 1, pageSize: 20 }), /audit unavailable/);

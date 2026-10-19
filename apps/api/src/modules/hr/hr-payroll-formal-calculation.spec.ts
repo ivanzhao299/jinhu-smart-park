@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 import {
-  calculateFormalPayroll, validateFormalPayrollDefinition,
+  calculateFormalPayroll, validateFormalPayrollDefinition, buildFormalPayrollDefinitionEvidence,
   type FormalPayrollDefinition,
 } from "./hr-payroll-formal-calculation";
 
@@ -33,6 +34,19 @@ test("formal payroll calculates current HR, direct projects, insurance and tax w
   const changed = calculateFormalPayroll(definition, { ...input, hrInputs: { ...input.hrInputs, 五险个人金额: "360.25" } });
   assert.equal(changed.netAmount, "4609.66");
   assert.equal(result.netAmount, "4619.66");
+});
+
+test("v2 pre-gross reductions remain distinct from post-gross deductions", () => {
+  const v2: FormalPayrollDefinition = { roundingPolicy: "line_items_half_up", items: [
+    { code: "收入", role: "earning", expression: null }, { code: "质量扣减", role: "gross_reduction", expression: null },
+    { code: "扣款", role: "deduction", expression: null }, { code: "税", role: "tax", expression: null },
+    { code: "应发", role: "gross", expression: "[收入]-[质量扣减]" }, { code: "实发", role: "net", expression: "[应发]-[扣款]-[税]" },
+  ] };
+  const result = calculateFormalPayroll(v2, { directItems: { 收入: "100", 质量扣减: "10", 扣款: "3", 税: "5" }, hrInputs: {} });
+  assert.deepEqual([result.grossAmount, result.grossReductionAmount, result.deductionAmount, result.personalTax, result.netAmount], ["90.00", "10.00", "3.00", "5.00", "82.00"]);
+  assert.equal(result.calculationVersion, "jinhu-formal-payroll-v2");
+  assert.equal(calculateFormalPayroll(v2, { directItems: { 收入: "100", 质量扣减: "-10", 扣款: "3", 税: "5" }, hrInputs: {} }).grossAmount, "110.00");
+  assert.throws(() => calculateFormalPayroll(v2, { directItems: { 收入: "100", 质量扣减: "100.01", 扣款: "0", 税: "0" }, hrInputs: {} }), /negative/);
 });
 
 test("missing financial sources are rejected, while explicitly recorded zero is valid", () => {
@@ -102,4 +116,42 @@ test("informational quantities retain precision and employer amounts do not redu
   const result = calculateFormalPayroll(rules, input);
   assert.deepEqual(result.items[0], { code: "天数", role: "informational", decimalValue: "0.1667", amount: null });
   assert.equal(result.netAmount, "4619.66");
+});
+
+// Golden hashes were captured from the pre-change kernel at 9a3e739c065d733c906112274b3281a8af738a35.
+// These bind serialized field presence/order, interpretation, AST and exact monetary strings.
+test("legacy v1 calculation and interpretation preserve their pre-change serialized bytes", () => {
+  const legacy: FormalPayrollDefinition = { roundingPolicy: "line_items_half_up", items: [
+    { code: "E", role: "earning", expression: null }, { code: "T", role: "tax", expression: "0" },
+    { code: "G", role: "gross", expression: "[E]" }, { code: "N", role: "net", expression: "[G]-[T]" },
+  ] };
+  const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  assert.equal(hash(buildFormalPayrollDefinitionEvidence(legacy)), "607dfc8557718a6a63126e0e058fefed6bfcb974049d9772e865aedcdb792b69");
+  assert.equal(hash(calculateFormalPayroll(legacy, { directItems: { E: "100.005" }, hrInputs: {} })), "06f3e4959f05d8425879ad50aaa0dd94a5da7306e1bd2cd9bf238a96ab4c07f2");
+});
+
+test("v2 interpretation depends on declared roles at zero and rounds each signed reduction before reuse", () => {
+  const rules: FormalPayrollDefinition = { roundingPolicy: "line_items_half_up", items: [
+    { code: "E", role: "earning", expression: null }, { code: "R1", role: "gross_reduction", expression: null },
+    { code: "R2", role: "gross_reduction", expression: null }, { code: "T", role: "tax", expression: "0" },
+    { code: "G", role: "gross", expression: "[E]-[R1]-[R2]" }, { code: "N", role: "net", expression: "[G]-[T]" },
+  ] };
+  assert.equal(buildFormalPayrollDefinitionEvidence(rules).calculationVersion, "jinhu-formal-payroll-v2");
+  for (const [first, second, reduction, gross] of [
+    ["0", "0", "0.00", "100.00"], ["0.005", "0.005", "0.02", "99.98"],
+    ["-0.005", "-0.005", "-0.02", "100.02"], ["0.005", "-0.005", "0.00", "100.00"],
+  ]) {
+    const result = calculateFormalPayroll(rules, { directItems: { E: "100", R1: first!, R2: second! }, hrInputs: {} });
+    assert.equal(result.calculationVersion, "jinhu-formal-payroll-v2");
+    assert.equal(result.grossReductionAmount, reduction); assert.equal(result.grossAmount, gross); assert.equal(result.netAmount, gross);
+  }
+  const inputs = { directItems: { E: "100", R1: "10", R2: "0" }, hrInputs: {} };
+  assert.throws(() => calculateFormalPayroll(rules, { ...inputs, directItems: { E: "100", R1: "0" } }), /Missing project input R2/);
+  assert.throws(() => calculateFormalPayroll(rules, { ...inputs, directItems: { ...inputs.directItems, G: "90" } }), /Unexpected or computed/);
+  assert.throws(() => calculateFormalPayroll({ ...rules, items: rules.items.map(item => item.code === "G" ? { ...item, expression: "[E]" } : item) }, inputs), /earnings less gross reductions/);
+  assert.throws(() => calculateFormalPayroll({ ...rules, items: rules.items.map(item => item.code === "N" ? { ...item, expression: "[G]-[R1]" } : item) }, inputs), /do not balance/);
+  assert.throws(() => calculateFormalPayroll(rules, { ...inputs, directItems: { E: "9999999999999999.99", R1: "-0.01", R2: "0" } }), /overflow|non-negative decimal/);
+  for (const value of ["9999999999999999.995", "-9999999999999999.995"]) {
+    assert.throws(() => calculateFormalPayroll(rules, { ...inputs, directItems: { ...inputs.directItems, R1: value } }), /non-negative decimal/);
+  }
 });

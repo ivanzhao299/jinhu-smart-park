@@ -13,6 +13,7 @@ import {
 import { hrCentsToMoney, normalizeHrMoney } from "./hr-money";
 
 export const FORMAL_PAYROLL_CALCULATION_VERSION = "jinhu-formal-payroll-v1";
+export const FORMAL_PAYROLL_GROSS_REDUCTION_CALCULATION_VERSION = "jinhu-formal-payroll-v2";
 export { FORMAL_PAYROLL_ROLES } from "@jinhu/shared";
 export type { FormalPayrollRole, FormalPayrollItem, FormalPayrollDefinition } from "@jinhu/shared";
 type PreparedItem = FormalPayrollItem & { ast: PayrollAst | null; dependencies: string[]; parserVersion: string | null; astHash: string | null };
@@ -62,7 +63,8 @@ export function validateFormalPayrollDefinition(definition: FormalPayrollDefinit
 
 /** Persist with the draft and freeze on submission; parser upgrades require a new reviewed revision. */
 export function buildFormalPayrollDefinitionEvidence(definition: FormalPayrollDefinition) {
-  return { calculationVersion: FORMAL_PAYROLL_CALCULATION_VERSION, formulaEngineVersion: HR_PAYROLL_DSL_ENGINE_VERSION,
+  const calculationVersion = definition.items.some(item => item.role === "gross_reduction") ? FORMAL_PAYROLL_GROSS_REDUCTION_CALCULATION_VERSION : FORMAL_PAYROLL_CALCULATION_VERSION;
+  return { calculationVersion, formulaEngineVersion: HR_PAYROLL_DSL_ENGINE_VERSION,
     ...(definition.compensationPolicy === undefined ? {} : { compensationPolicy: definition.compensationPolicy }),
     roundingPolicy: definition.roundingPolicy, items: prepare(definition).map(item => ({ code: item.code,
       role: item.role, expression: item.expression, ast: item.ast, dependencies: item.dependencies,
@@ -89,11 +91,13 @@ function signedMoney(cents: bigint): string {
 }
 
 export type FormalPayrollCalculation = {
-  calculationVersion: typeof FORMAL_PAYROLL_CALCULATION_VERSION;
+  calculationVersion: typeof FORMAL_PAYROLL_CALCULATION_VERSION | typeof FORMAL_PAYROLL_GROSS_REDUCTION_CALCULATION_VERSION;
   formulaEngineVersion: typeof HR_PAYROLL_DSL_ENGINE_VERSION;
   roundingPolicy: FormalPayrollDefinition["roundingPolicy"];
   items: Array<{ code: string; role: FormalPayrollRole; decimalValue: string; amount: string | null }>;
   grossAmount: string;
+  /** Present only for the v2 pre-gross interpretation. */
+  grossReductionAmount?: string;
   deductionAmount: string;
   personalTax: string;
   netAmount: string;
@@ -114,7 +118,8 @@ export function calculateFormalPayroll(
     if (!Object.hasOwn(input.hrInputs, code)) invalid(`Missing HR input ${code}`);
     values[dependency] = formatPayrollDecimal(decimalUnits(input.hrInputs[code]!));
   }
-  let earnings = 0n, deductions = 0n;
+  const calculationVersion = rules.some(item => item.role === "gross_reduction") ? FORMAL_PAYROLL_GROSS_REDUCTION_CALCULATION_VERSION : FORMAL_PAYROLL_CALCULATION_VERSION;
+  let earnings = 0n, grossReductions = 0n, deductions = 0n;
   const roleValues = new Map<FormalPayrollRole, bigint>();
   const items = rules.map(item => {
     if (item.ast === null && !Object.hasOwn(input.directItems, item.code)) invalid(`Missing project input ${item.code}`);
@@ -124,19 +129,21 @@ export function calculateFormalPayroll(
     const decimalValue = formatPayrollDecimal(item.role === "informational" ? units : cents * 100n);
     values[`payroll:${item.code}`] = decimalValue;
     if (item.role === "earning") earnings += cents;
+    if (item.role === "gross_reduction") grossReductions += cents;
     if (item.role === "deduction") deductions += cents;
     if (["gross", "tax", "net"].includes(item.role)) roleValues.set(item.role, cents);
     return { code: item.code, role: item.role, decimalValue,
       amount: item.role === "informational" ? null : signedMoney(cents) };
   });
   const gross = roleValues.get("gross")!, tax = roleValues.get("tax")!, net = roleValues.get("net")!;
-  if (gross !== earnings) invalid("Gross amount does not equal the earning items");
+  if (gross !== earnings - grossReductions) invalid(calculationVersion === FORMAL_PAYROLL_CALCULATION_VERSION ? "Gross amount does not equal the earning items" : "Gross amount does not equal earnings less gross reductions");
   if (gross < 0n || deductions < 0n || tax < 0n || net < 0n) invalid("Payroll totals cannot be negative");
   if (gross !== deductions + tax + net) invalid("Gross, deductions, tax and net do not balance");
   // The persisted numeric(18,2) and existing HR monetary contract apply to totals.
-  return { calculationVersion: FORMAL_PAYROLL_CALCULATION_VERSION,
+  return { calculationVersion,
     formulaEngineVersion: HR_PAYROLL_DSL_ENGINE_VERSION, roundingPolicy: definition.roundingPolicy, items,
     grossAmount: normalizeHrMoney(hrCentsToMoney(gross)),
+    ...(calculationVersion === FORMAL_PAYROLL_GROSS_REDUCTION_CALCULATION_VERSION ? { grossReductionAmount: signedMoney(grossReductions) } : {}),
     deductionAmount: normalizeHrMoney(hrCentsToMoney(deductions)),
     personalTax: normalizeHrMoney(hrCentsToMoney(tax)),
     netAmount: normalizeHrMoney(hrCentsToMoney(net)) };

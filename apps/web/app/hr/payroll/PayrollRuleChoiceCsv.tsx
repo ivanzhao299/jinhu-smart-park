@@ -87,7 +87,7 @@ export function PayrollRuleChoiceCsv({ reference, choices, token, disabled, onRe
   const active = preview?.identity === identity && !disabled ? preview.result : null;
   return <section className={`ds-panel ${styles.workspace}`} aria-label="工资规则选择表">
     <h4>批量准备规则选择</h4>
-    <p>选择表覆盖全部 {reference.items.length} 个项目版本。仅填写最后六列：选择填“纳入”或“排除”；空白选择且其他字段全空时保留当前选择。用途填收入、扣款、税额、应发汇总、实发汇总、单位承担或参考数量；来源填直接录入、原公式或人工改写。原公式必须填写准确编号和版本，带原条件的公式需人工处理。改写最多 2000 字，按文本填写。</p>
+    <p>选择表覆盖全部 {reference.items.length} 个项目版本。仅填写最后六列：选择填“纳入”或“排除”；空白选择且其他字段全空时保留当前选择。用途填收入、应发扣减、扣款、税额、应发汇总、实发汇总、单位承担或参考数量；来源填直接录入、原公式或人工改写。原公式必须填写准确编号和版本，带原条件的公式需人工处理。改写最多 2000 字，按文本填写。</p>
     <p>读取和预览保留当前选择。确认后重新核对完整源资料，仅替换本地选择；随后仍须带入草稿、保存及独立复核。</p>
     <button type="button" className="secondary-button" disabled={disabled || working} onClick={() => void exportSheet()}>导出规则选择表</button>
     <LocalFilePicker accept={PAYROLL_INPUT_CSV_ACCEPT} buttonLabel="选择规则选择 CSV" description="UTF-8 CSV · 最大 32 MiB · 保留全部只读列和全部项目行" fileName={file?.name} disabled={disabled || working} onSelect={selectFile} />

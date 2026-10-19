@@ -15,7 +15,7 @@ import { payrollBookLabel, payrollBookOptions } from "./payroll-book-label";
 import { PayrollRuleSourcePreparation } from "./PayrollRuleSourcePreparation";
 import type { PayrollRuleHandoffIntent } from "./payroll-rule-handoff";
 
-const roles = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
+const roles = { earning: "收入", gross_reduction: "应发扣减", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
 const statuses: Record<string, string> = { draft: "草稿", submitted: "待复核", approved: "已批准", rejected: "已拒绝" };
 const blankDefinition = (): FormalPayrollDefinition => ({ roundingPolicy: "line_items_half_up", items: [] });
 

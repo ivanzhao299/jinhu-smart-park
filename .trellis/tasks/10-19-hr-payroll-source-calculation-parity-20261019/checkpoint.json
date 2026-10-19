@@ -1,0 +1,99 @@
+{
+  "objective": "Fix actual July source→formal rule→pre-gross calculation gap within full HR modernization goal",
+  "status": "READY_FOR_FRESH_CI",
+  "workspace": "/Users/mac/.codex/worktrees/hr-team-approval-entry-20261018/jinhu-smart-park",
+  "branch": "codex/hr-payroll-source-calculation-parity-20261019",
+  "baseSha": "9a3e739c065d733c906112274b3281a8af738a35",
+  "activeTask": ".trellis/tasks/10-19-hr-payroll-source-calculation-parity-20261019",
+  "activeRunHandle": {
+    "browserServerSession": 50882
+  },
+  "previousGoalTurn": "PROGRESS_PG_LIFECYCLE_AND_ACTUAL_DESKTOP_PHONE_UI",
+  "currentTurnEvidence": {
+    "sourceHashVerified": true,
+    "sourceRecords": 93,
+    "independentFormulaHypothesisExactComparisons": 186,
+    "chainedGrossAndNetExactRecords": 93,
+    "literalRoleV1Successful": 78,
+    "literalRoleV1GrossBalanceRejected": 15,
+    "byBookRejected": {
+      "34": 8,
+      "35": 7
+    },
+    "formalProductionTrial": "NOT_EXECUTED",
+    "nullZeroPolicy": "DIAGNOSTIC_HYPOTHESIS_NOT_APPROVED",
+    "productionWrites": 0,
+    "bindingCorrectionRetry": "Actual component regression reported10/10; precise missing reference error then corrected re-apply, not source-frozen yet",
+    "pgV2Lifecycle": "Implementer reports1/1 requiredPG final passed incl signed aggregate, ledger bridge, review/confirm/audit rollback and frozen evidence; final receipt pending",
+    "browserEvidence": "/Users/mac/.codex/artifacts/hr-payroll-source-calculation-parity-20261019/browser-evidence.json",
+    "browserSourceDrift": [],
+    "webFocusedTests": "Implementer reports43/43; final receipt pending",
+    "implementationReceipt": "implementation-report.md",
+    "pgContainer": "STOPPED_REMOVED",
+    "validation": {
+      "kernel": 9,
+      "ownedPgLifecycle": 1,
+      "focusedWebInteraction": 43,
+      "webHrContracts": 261,
+      "sharedBuild": "PASS",
+      "apiWebTypecheck": "PASS",
+      "focusedLint": "PASS",
+      "diffCheck": "PASS"
+    },
+    "sourceErrorCua": "PASS: change role after failed source reread retains error and disabled confirmation/apply",
+    "reviewValidation": "API29/29, Web54/54, binder4/4, transport11/11, HRcontracts261/261; Shared/API/Web full lint,typechecks,build PASS; requiredPG1/1 reused unchanged"
+  },
+  "ownership": "One app implementer API/shared/Web/tests; root specs/task/private93/CUA/release; sequential independent high-risk check",
+  "nextAction": "Commit reviewed coherent task, push PR with run-release-smoke; await CI before merge, one automatic full deployment health→cleanup then independent runtime/July proof. Full HR goal and actual business payroll acceptance remain pending.",
+  "blocker": null,
+  "fullGoalComplete": false,
+  "updatedAt": "2026-10-19T14:22:43.685118+00:00",
+  "usage": "unavailable",
+  "currentTurnPreparation": {
+    "candidateRunner": "/Users/mac/.codex/artifacts/hr-july-business-review-20261019/diagnose-july-v2-candidate.cjs",
+    "candidateExecuted": true,
+    "oldBaselinePreserved": true,
+    "actualComponentFixture": "/Users/mac/.codex/artifacts/hr-payroll-source-calculation-parity-20261019/browser",
+    "freshOriginMain": "9a3e739c065d733c906112274b3281a8af738a35",
+    "productionUiSession": "LOGIN_PAGE_OBSERVED",
+    "bindingRetryRegression": "implementer reported10/10; full source not frozen"
+  },
+  "currentTurnClassification": "PROGRESS_REVIEW_FIXED_SOURCE_ERRORS_AND_EXACT_ALIASES_REVERIFIED93",
+  "latestActual93Candidate": {
+    "sourceRecords": 93,
+    "book34": {
+      "successful": 54,
+      "exactGrossAndNet": 54
+    },
+    "book35": {
+      "successful": 39,
+      "exactGrossAndNet": 39
+    },
+    "actualSourceBinderUsed": true,
+    "actualFormalKernelUsed": true,
+    "sourceHashesUnchangedDuringRun": true,
+    "candidateSourceState": "UNCOMMITTED_NOT_FINAL_RELEASE",
+    "nullZeroPolicy": "DIAGNOSTIC_HYPOTHESIS_NOT_APPROVED",
+    "roles": "Explicit pre-gross quality/absence reductions and book35 U487 post-gross provident-fund deduction; tax U466/U484. Business approval pending.",
+    "earlierAttempt": "92/93 retained; U487 source increase tag contradicts original net subtraction formula",
+    "formalProductionTrial": "NOT_EXECUTED",
+    "productionWrites": 0,
+    "privateEvidence": "/Users/mac/.codex/artifacts/hr-july-business-review-20261019/july-arithmetic-v2-candidate.json",
+    "observedAt": "2026-10-19T14:07:53.088898+00:00",
+    "sourceBinderReviewedHash": "26c6b1cfb2b40a3530d5be8a66856d3444d62849d7f17e1db18883ed8fd39ec0",
+    "reviewedRerun": "PASS93/93"
+  },
+  "releasePlan": {
+    "mode": "full",
+    "prLabel": "run-release-smoke",
+    "reason": "HR financial core paths do not automatically trigger current release-smoke classifier; existing label verified",
+    "healthBeforeDockerCleanup": true,
+    "independentRuntimeAndJulyEvidenceRequired": true
+  },
+  "reviewFindings": [
+    "Unconditional error clearing on local change may bypass failed or drifting source reread; checker splitting local binding errors from source validity",
+    "Catalog aliases must remain exact, only parser reference whitespace trimmed",
+    "Add missing zero-v2/rounding/overflow/v1 byte-evidence regression"
+  ],
+  "reviewStatus": "PASS_ALL_SOURCE_FINDINGS_FIXED"
+}

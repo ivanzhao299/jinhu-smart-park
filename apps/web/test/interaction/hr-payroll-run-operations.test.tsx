@@ -82,3 +82,21 @@ it("pending cancellation retains reason/retry identity and cannot repeat after c
   expect(state.api.cancelFormalPayrollRun.mock.calls[0]).toEqual(state.api.cancelFormalPayrollRun.mock.calls[1]);
   expect(screen.queryByRole("button",{name:"取消未确认批次"})).toBeNull();
 });
+
+
+it.each(["0.00", "-10.00"])("shows the optional signed pre-gross total %s separately from deductions", async amount => {
+  state.api.formalPayrollRun.mockResolvedValue({ ...detail, totals: { ...detail.totals, grossReductionAmount: amount },
+    items: [{ ...detail.items[0], grossReductionAmount: amount, calculationVersion: "jinhu-formal-payroll-v2",
+      items: [...detail.items[0]!.items, { code: "ABSENCE", role: "gross_reduction", decimalValue: amount, amount }] }] });
+  render(<PayrollRunOperations />); await open();
+  expect(screen.getByText("应发扣减合计")).toBeVisible();
+  expect(screen.getByText(`应发 ¥4,700.00 · 应发扣减 ¥${amount} · 扣款 ¥100.00`)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "查看工资分项（4项）" }));
+  expect(screen.getByText("ABSENCE · 应发扣减")).toBeVisible();
+  expect(screen.queryByText(/gross_reduction/)).toBeNull();
+});
+
+it("does not add a pre-gross amount or label to legacy v1 results", async () => {
+  render(<PayrollRunOperations />); await open();
+  expect(screen.queryByText(/应发扣减/)).toBeNull();
+});

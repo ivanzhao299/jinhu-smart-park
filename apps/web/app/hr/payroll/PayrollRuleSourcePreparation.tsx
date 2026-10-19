@@ -9,6 +9,7 @@ import { downloadCsv } from "../../../lib/scoped-csv-export";
 import { payrollSourceReviewCsv } from "./payroll-source-review-export";
 import { PayrollRuleChoiceCsv } from "./PayrollRuleChoiceCsv";
 import { blankRuleChoice as blank, payrollRoleLabels as roles, validRuleChoice, canReuseRuleSourceFormula, type Choice } from "./payroll-rule-choice-csv";
+import { bindSelectedPayrollSourceReferences } from "./payroll-source-formula-binding";
 import styles from "./payroll-modern.module.css";
 
 /** Mounted only in an empty new version; parent rechecks the editor before applying. */
@@ -19,6 +20,7 @@ export function PayrollRuleSourcePreparation(props: Props) {
 function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props) {
   const [reference, setReference] = useState<FormalPayrollSourceReference | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({}), [error, setError] = useState("");
+  const [bindingError, setBindingError] = useState("");
   const [loading, setLoading] = useState(false), [confirmed, setConfirmed] = useState(false);
   const [exporting, setExporting] = useState(false), [csvWorking, setCsvWorking] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
@@ -43,7 +45,7 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
       if (getAccessToken() !== token) throw new Error("登录状态已变化，请重新读取源资料。");
       if (value.ruleSetId !== ruleSetId || value.book.id !== sourceBookId) throw new Error("源资料与当前工资规则不一致，请重新选择规则。");
       referenceToken.current = token;
-      setReference(value); setChoices({}); setConfirmed(false); setPage(1); setUnmatchedPage(1);
+      setReference(value); setChoices({}); setBindingError(""); setConfirmed(false); setPage(1); setUnmatchedPage(1);
     } catch (cause) { if (!controller.signal.aborted) setError(hrLoadErrorMessage(cause, "读取关联账套源资料失败")); }
     finally { if (!controller.signal.aborted) { flight.current = false; setLoading(false); } }
   };
@@ -66,7 +68,7 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
     } catch (cause) { if (!controller.signal.aborted) setError(hrLoadErrorMessage(cause, "导出账套项目核对表失败")); }
     finally { if (!controller.signal.aborted) { flight.current = false; setExporting(false); } }
   };
-  const change = (id: string, value: Partial<Choice>) => { setConfirmed(false); setChoices(previous => ({ ...previous, [id]: { ...(previous[id] ?? blank()), ...value } })); };
+  const change = (id: string, value: Partial<Choice>) => { setBindingError(""); setConfirmed(false); setChoices(previous => ({ ...previous, [id]: { ...(previous[id] ?? blank()), ...value } })); };
   const selected = reference?.items.filter(item => choices[item.id]?.included) ?? [];
   const unmatched = reference?.formulas.filter(formula => !reference.items.some(item => item.id === formula.itemVersionId)) ?? [];
   const valid = selected.length > 0 && selected.length <= 256 && new Set(selected.map(item => item.code)).size === selected.length && selected.every(item => {
@@ -79,10 +81,10 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
       <button className="secondary-button" type="button" disabled={disabled || busy} onClick={() => void load()}>{loading ? "正在读取源资料…" : reference ? "重新读取源资料" : "读取关联账套源资料"}</button>
       {reference ? <button className="secondary-button" type="button" disabled={disabled || busy || !!error} onClick={() => void exportReview()}>{exporting ? "正在导出核对表…" : "导出完整项目核对表"}</button> : null}
     </div>
-    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    {error || bindingError ? <p className="form-error" role="alert">{error || bindingError}</p> : null}
     {exportMessage ? <p role="status">{exportMessage}</p> : null}
     {reference ? <>
-      <PayrollRuleChoiceCsv reference={reference} choices={choices} token={referenceToken.current} disabled={disabled || loading || exporting || !!error} onSourceError={message => { setError(message); setConfirmed(false); }} onWorking={value => { flight.current = value; setCsvWorking(value); }} onReplace={value => { setChoices(value); setConfirmed(false); setExportMessage("已替换本地项目选择，请核对后带入空白规则草稿，再保存并独立复核。"); }} />
+      <PayrollRuleChoiceCsv reference={reference} choices={choices} token={referenceToken.current} disabled={disabled || loading || exporting || !!error} onSourceError={message => { setError(message); setConfirmed(false); }} onWorking={value => { flight.current = value; setCsvWorking(value); }} onReplace={value => { setBindingError(""); setChoices(value); setConfirmed(false); setExportMessage("已替换本地项目选择，请核对后带入空白规则草稿，再保存并独立复核。"); }} />
       <p>完整资料：{reference.items.length} 个项目版本，{reference.formulas.length} 个公式版本。不同版本均保留；同一项目代码只能选择一个版本。非数字及禁用项目只作参考。</p>
       <p>核对表包含全部项目版本、公式和原条件，供集中确认用途及税、考勤、社保、舍入口径；填写后继续在系统保存规则并独立复核。</p>
       <div className={`ds-mobile-record-list ${styles.records}`}>{reference.items.slice((page - 1) * 20, page * 20).map(item => {
@@ -110,11 +112,15 @@ function SourcePreparation({ ruleSetId, sourceBookId, disabled, onApply }: Props
       <button className="primary-button" type="button" disabled={disabled || busy || !valid || !confirmed || !!error} onClick={() => {
         if (disabled || busy || flight.current || !valid || !confirmed || error || applied.current) return;
         if (!referenceToken.current || getAccessToken() !== referenceToken.current) { setError("登录状态已变化，请重新读取源资料。"); return; }
-        applied.current = true;
-        onApply({ roundingPolicy: "line_items_half_up", items: selected.map(item => {
-          const choice = choices[item.id]!;
-          return { code: item.code, role: choice.role as FormalPayrollRole, expression: choice.source === "direct" ? null : choice.source === "rewrite" ? choice.rewrite.trim() : reference.formulas.find(formula => formula.id === choice.formulaId)!.expression };
-        }) });
+        try {
+          const definition: FormalPayrollDefinition = { roundingPolicy: "line_items_half_up", items: selected.map(item => {
+            const choice = choices[item.id]!;
+            const original = choice.source === "formula" ? reference.formulas.find(formula => formula.id === choice.formulaId)!.expression : null;
+            return { code: item.code, role: choice.role as FormalPayrollRole, expression: choice.source === "direct" ? null : choice.source === "rewrite" ? choice.rewrite.trim() : bindSelectedPayrollSourceReferences(original!, selected) };
+          }) };
+          applied.current = true;
+          onApply(definition);
+        } catch (cause) { setBindingError(cause instanceof Error ? cause.message : "原公式引用绑定失败，请修正项目选择后重试。"); setConfirmed(false); }
       }}>带入空白规则草稿</button>
     </> : null}
   </section>;

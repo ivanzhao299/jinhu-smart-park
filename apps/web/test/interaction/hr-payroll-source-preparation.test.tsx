@@ -17,8 +17,8 @@ const reference: FormalPayrollSourceReference = {
     { id: "disabled", definitionId: "d3", code: "DISABLED", legacyName: "disabled", displayName: "停用", versionNo: 1, valueType: "decimal", enabled: false, sortNo: 4, legacyItemType: "原类型", legacyAddOrSub: "原增减", category: "unclassified", decimalScale: 2 },
   ],
   formulas: [
-    { id: "f1", itemVersionId: "first", legacyFormulaId: 1, versionNo: 1, expression: "[BASIC]+1", condition: null, calculationOrder: 1, reusableSyntax: true, syntaxReason: null },
-    { id: "f2", itemVersionId: "first", legacyFormulaId: 1, versionNo: 2, expression: "[BASIC]+2", condition: null, calculationOrder: 1, reusableSyntax: true, syntaxReason: null },
+    { id: "f1", itemVersionId: "first", legacyFormulaId: 1, versionNo: 1, expression: "[salary]+1", condition: null, calculationOrder: 1, reusableSyntax: true, syntaxReason: null },
+    { id: "f2", itemVersionId: "first", legacyFormulaId: 1, versionNo: 2, expression: "[未选择项目]+2", condition: null, calculationOrder: 1, reusableSyntax: true, syntaxReason: null },
     { id: "conditional", itemVersionId: "first", legacyFormulaId: 2, versionNo: 1, expression: "[BASIC]*3", condition: "旧条件 > 0", calculationOrder: 2, reusableSyntax: false, syntaxReason: "legacy_condition" },
     { id: "orphan", itemVersionId: null, legacyFormulaId: 3, versionNo: 1, expression: "old_function()", condition: null, calculationOrder: 3, reusableSyntax: false, syntaxReason: "unsupported_syntax" },
   ],
@@ -46,8 +46,55 @@ it("requires explicit inclusion, role, source and exact original version; preser
   expect(card.queryByRole("option", { name: /原公式 2/ })).toBeNull();
   fireEvent.change(card.getByLabelText("原公式选择 SALARY"), { target: { value: "f2" } });
   fireEvent.click(screen.getByLabelText(confirmLabel)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
-  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "SALARY", role: "earning", expression: "[BASIC]+2" }] });
+  await screen.findByText("原公式引用“未选择项目”未对应已选择的启用数值项目。"); expect(apply).not.toHaveBeenCalled();
+  fireEvent.change(card.getByLabelText("原公式选择 SALARY"), { target: { value: "f1" } });
+  fireEvent.click(screen.getByLabelText(confirmLabel)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "SALARY", role: "earning", expression: "[SALARY]+1" }] });
   fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" })); expect(apply).toHaveBeenCalledTimes(1);
+});
+it("binds Chinese local references only to selected numeric versions and carries the gross-reduction role", async () => {
+  const data = structuredClone(reference);
+  data.items = [
+    { ...data.items[0]!, id: "base", code: "U460", legacyName: "基本工资", displayName: "基本工资" },
+    { ...data.items[0]!, id: "reduction", code: "U461", legacyName: "应发扣减", displayName: "应发扣减" },
+    { ...data.items[0]!, id: "gross", code: "U462", legacyName: "应发", displayName: "应发" },
+  ];
+  data.formulas = [{ ...data.formulas[0]!, id: "gross-formula", itemVersionId: "gross", expression: "[基本工资]-[应发扣减]-[人事系统.养老保险个人金额]" }];
+  state.load.mockResolvedValue(data);
+  const apply = vi.fn(); render(<PayrollRuleSourcePreparation ruleSetId="rules" sourceBookId="book" disabled={false} onApply={apply} />); await load();
+  const chooseExact = (cardName: string, code: string, role: string, source: "direct" | "formula") => {
+    const card = within(screen.getByRole("article", { name: cardName }));
+    fireEvent.click(card.getByRole("checkbox"));
+    fireEvent.change(card.getByLabelText(`源项目用途 ${code}`), { target: { value: role } });
+    fireEvent.change(card.getByLabelText(`源项目数值来源 ${code}`), { target: { value: source } });
+    return card;
+  };
+  chooseExact("U460 第1版", "U460", "earning", "direct");
+  chooseExact("U461 第1版", "U461", "gross_reduction", "direct");
+  const gross = chooseExact("U462 第1版", "U462", "gross", "formula");
+  fireEvent.change(gross.getByLabelText("原公式选择 U462"), { target: { value: "gross-formula" } });
+  fireEvent.click(screen.getByLabelText(confirmLabel)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [
+    { code: "U460", role: "earning", expression: null }, { code: "U461", role: "gross_reduction", expression: null },
+    { code: "U462", role: "gross", expression: "[U460]-[U461]-[人事系统.养老保险个人金额]" },
+  ] });
+});
+it("rejects an ambiguous selected source alias and lets the editor correct it before retrying", async () => {
+  const data = structuredClone(reference);
+  data.items[0] = { ...data.items[0]!, code: "BASE", legacyName: "工资", displayName: "基本工资" };
+  data.items[1] = { ...data.items[1]!, code: "BONUS", legacyName: "工资", displayName: "奖金" };
+  data.formulas[0] = { ...data.formulas[0]!, expression: "[工资]+1" };
+  state.load.mockResolvedValue(data);
+  const apply = vi.fn(); render(<PayrollRuleSourcePreparation ruleSetId="rules" sourceBookId="book" disabled={false} onApply={apply} />); await load();
+  const first = within(screen.getByRole("article", { name: "BASE 第1版" }));
+  fireEvent.click(first.getByRole("checkbox")); fireEvent.change(first.getByLabelText("源项目用途 BASE"), { target: { value: "earning" } }); fireEvent.change(first.getByLabelText("源项目数值来源 BASE"), { target: { value: "formula" } }); fireEvent.change(first.getByLabelText("原公式选择 BASE"), { target: { value: "f1" } });
+  const second = within(screen.getByRole("article", { name: "BONUS 第2版" }));
+  fireEvent.click(second.getByRole("checkbox")); fireEvent.change(second.getByLabelText("源项目用途 BONUS"), { target: { value: "earning" } }); fireEvent.change(second.getByLabelText("源项目数值来源 BONUS"), { target: { value: "direct" } });
+  fireEvent.click(screen.getByLabelText(confirmLabel)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  await screen.findByText("原公式引用“工资”对应多个所选项目版本，请只保留一个明确版本。"); expect(apply).not.toHaveBeenCalled();
+  fireEvent.click(second.getByRole("checkbox"));
+  fireEvent.click(screen.getByLabelText(confirmLabel)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
+  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "BASE", role: "earning", expression: "[BASE]+1" }] });
 });
 it("duplicate codes block application and rewriting requires explicit nonempty formula", async () => {
   const apply = vi.fn(); render(<PayrollRuleSourcePreparation ruleSetId="rules" sourceBookId="book" disabled={false} onApply={apply} />); await load();
@@ -67,6 +114,10 @@ it("paging preserves full selection and failed refresh blocks stale confirmation
   fireEvent.click(screen.getByRole("button", { name: "源项目上一页" })); expect(screen.getByRole("checkbox", { name: "纳入 SALARY 第1版" })).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "重新读取源资料" })); await screen.findByText("source unavailable");
   expect(screen.getByRole("checkbox", { name: "纳入 SALARY 第1版" })).toBeChecked(); expect(screen.getByLabelText(confirmLabel)).toBeDisabled();
+  fireEvent.change(within(screen.getByRole("article", { name: "SALARY 第1版" })).getByLabelText("源项目用途 SALARY"), { target: { value: "gross_reduction" } });
+  expect(screen.getByText("source unavailable")).toBeVisible();
+  expect(screen.getByLabelText(confirmLabel)).toBeDisabled();
+  expect(screen.getByRole("button", { name: "带入空白规则草稿" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "重新读取源资料" })); await waitFor(() => expect(screen.queryByText("source unavailable")).toBeNull());
   expect(screen.getByRole("checkbox", { name: "纳入 SALARY 第1版" })).not.toBeChecked();
 });

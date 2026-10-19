@@ -19,6 +19,15 @@ import { HrPayrollFormalInputDetailQueryDto } from "./dto/hr-payroll-formal-inpu
 import { buildHrSensitiveReadAuditInput } from "./hr-sensitive-read-audit";
 import { resolvePayrollEligibility } from "./hr-payroll-eligibility";
 
+/** Gross-reduction reversals are signed, while the other formal-money fields remain non-negative. */
+function signedHrMoneyToCents(value: string): bigint {
+  const negative = value.startsWith("-");
+  return (negative ? -1n : 1n) * hrMoneyToCents(negative ? value.slice(1) : value);
+}
+function signedHrCentsToMoney(value: bigint): string {
+  return `${value < 0n ? "-" : ""}${normalizeHrMoney(hrCentsToMoney(value < 0n ? -value : value))}`;
+}
+
 @Injectable()
 export class HrPayrollFormalRunService {
   constructor(private readonly db: DataSource, private readonly inputs: HrPayrollFormalInputService, private readonly audit: AuditService) {}
@@ -142,7 +151,7 @@ export class HrPayrollFormalRunService {
         path: "/hr/payroll/formal-runs/:id", fieldGroups: ["financial", "compensation", "identity"], projection: "full", itemCount: selected.length }), manager);
       return { id: row.id as string, periodId: row.period_id as string, runNo: row.run_no as number, version: row.version as number,
         status: row.status as string, inputId: row.input_id as string, ruleVersionId: row.rule_version_id as string,
-        employeeCount: row.employee_count as number, totals: row.totals as { grossAmount: string; deductionAmount: string; personalTax: string; netAmount: string },
+        employeeCount: row.employee_count as number, totals: row.totals as { grossAmount: string; grossReductionAmount?: string; deductionAmount: string; personalTax: string; netAmount: string },
         canCancel: permitted(HR_PERMISSIONS.HR_PAYROLL_MANAGE) && row.actionable === true && ["calculated", "reviewing"].includes(row.status),
         canReview: permitted(HR_PERMISSIONS.HR_PAYROLL_REVIEW) && row.actionable === true && row.status === "calculated" && row.create_by !== actor.sub,
         canConfirm: permitted(HR_PERMISSIONS.HR_PAYROLL_CONFIRM) && row.actionable === true && row.status === "reviewing" && row.create_by !== actor.sub,
@@ -225,7 +234,8 @@ export class HrPayrollFormalRunService {
       }
       const results = (await this.calculatePrepared(manager, scope, prepared, dto)).map(result => ({ ...result, payslipId: randomUUID() }));
       const sum = (field: "grossAmount" | "deductionAmount" | "personalTax" | "netAmount") => normalizeHrMoney(hrCentsToMoney(results.reduce((total, row) => total + hrMoneyToCents(row.calculation[field]), 0n)));
-      const totals = { grossAmount: sum("grossAmount"), deductionAmount: sum("deductionAmount"), personalTax: sum("personalTax"), netAmount: sum("netAmount") };
+      const totals = { grossAmount: sum("grossAmount"), deductionAmount: sum("deductionAmount"), personalTax: sum("personalTax"), netAmount: sum("netAmount"),
+        ...(results.some(row => row.calculation.grossReductionAmount !== undefined) ? { grossReductionAmount: signedHrCentsToMoney(results.reduce((total, row) => total + signedHrMoneyToCents(row.calculation.grossReductionAmount ?? "0"), 0n)) } : {}) };
       // Recorded run deduction_total includes tax (000243 balance contract).
       // Formal evidence and payslips retain deductions and personal tax separately.
       const withheldTotal = normalizeHrMoney(hrCentsToMoney(hrMoneyToCents(totals.deductionAmount) + hrMoneyToCents(totals.personalTax)));
