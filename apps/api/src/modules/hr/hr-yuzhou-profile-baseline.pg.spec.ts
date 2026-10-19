@@ -33,7 +33,7 @@ const requestDto=(value:unknown):Promise<PreviewYuzhouIncrementalImportDto>=>val
 const result=(value:unknown)=>value as {id:string;status:string;appliedCount:number;unchangedCount:number;plan:Array<{action:string;conflictFields:string[]}>};
 
 test("T5 profile CLI continuity: original-set certificate, raw bridge, CAS and immutable provenance",{skip:process.env.HR_YUZHOU_PROFILE_BASELINE_PG_REQUIRED!=="1",timeout:90000},async t=>{
-  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); const port=Number(process.env.POSTGRES_PORT);assert.ok([55491,55496].includes(port));
+  assert.equal(process.env.POSTGRES_HOST,"127.0.0.1"); const port=Number(process.env.POSTGRES_PORT);assert.ok(Number.isInteger(port)&&port>1024&&port<=65535,"PostgreSQL test port must be an explicit non-privileged loopback port");
   const database=`jinhu_hr_profile_lab_${randomBytes(12).toString("hex")}`;
   assert.match(database,/^jinhu_hr_profile_lab_[a-f0-9]{24}$/);
   const connection={type:"postgres" as const,host:"127.0.0.1",port,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD,database};

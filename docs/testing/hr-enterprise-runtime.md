@@ -6,7 +6,7 @@
 
 配置包含 `outputDir`（0700）、`jwtSecret`（synthetic前缀的测试签名密钥）及 `enterprise`/`integrated` 两组：`container,port,database,user,apiBase,tenantId,scopeKey,username,password`。两个 API 必须采用同一测试密钥，以实际验证 mode claim，不能把不同签名密钥的失败冒充模式隔离。密码只存私有合成配置，不提交。API 正常根入口与全部真实 guards/interceptors 启动；不能使用测试主体 stub 或 fake park。
 
-独立库从空库执行 `scripts/hr-enterprise/init-db.mjs` 全 manifest，再通过显式 bootstrap 配置管理员。集成库执行真实 `scripts/db-migrate.sh`、production-safe seed、bootstrap-admin、baseline（均仅 owned 容器）；集成已应用迁移不得修改。启动两个实际 API 后运行完整矩阵。可用 `--phase=initialization|catalog|compatibility|enterprise|integrated|delegation|multi-enterprise` 只补输入变化对应的分组；`all` 不跳过任何组。
+独立库从空库执行 `scripts/hr-enterprise/init-db.mjs` 全 manifest，再通过显式 bootstrap 配置管理员。集成库执行真实 `scripts/db-migrate.sh`、production-safe seed、bootstrap-admin、baseline（均仅 owned 容器）；集成已应用迁移不得修改。启动两个实际 API 后运行完整矩阵。可用 `--phase=initialization|catalog|compatibility|enterprise|profile-continuity|integrated|delegation|multi-enterprise` 只补输入变化对应的分组；`profile-continuity` 只跑正式档案增量 HTTP 链，仍要求两组 exact-owned 数据库，`all` 不跳过任何组。
 
 矩阵包括：
 
@@ -16,6 +16,7 @@
 - 独立成员/角色维护、同键回放/不同body冲突、CAS、撤权/停用、不可授予角色、窄创建能力无额外名单读权、不能将既有高权限角色分配给受限成员。
 - 真实主管绩效评价、校准/申诉至确认、不能自审/重复写；培训签到/完成/另一作者纠错生成通知；实际奖励和考勤二人审批。
 - 跨租户/企业、非本人、super仍需成员、模块停用、必需审计失败回滚、并发处理中409后原键回放仅一条成员；敏感档案加密/掩码/写权限和附件关联/字节一致/跨本人拒绝。
+- 规范化正式档案增量包通过真实 HTTP 走预览、提交、33字段 ValidationPipe、正常档案 `PUT`、后续来源更新和现代同字段冲突；窄档案读取角色可以读取该操作状态，但不能预览或提交。此项只使用新建的合成来源键和 owned 数据库，不能替代原始玉舟映射或生产岗位验收。
 
 输出只有阶段、结果、0skip及资源句柄；完整原始日志/合成回执留私有目录。验证结束由唯一资源 owner 停止 exact PID、按 label 校验后删除 exact owned 容器，记录文件目录/容器清理或显式保留供独立浏览器审查。不要清理其他容器、全局Docker或生产数据。
 

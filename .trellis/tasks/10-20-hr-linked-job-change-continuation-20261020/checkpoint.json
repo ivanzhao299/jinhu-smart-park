@@ -1,13 +1,13 @@
 {
-  "status": "CHECK_PASSED_READY_COMMIT_PR_CI",
+  "status": "DEPLOYED_RUNTIME_VERIFIED",
   "workspace": "/Users/mac/.codex/worktrees/hr-team-approval-entry-20261018/jinhu-smart-park",
   "baselineSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53",
   "objective": "Exact linked job-change continuation through existing authorized workflow",
   "fullGoalComplete": false,
   "productionWrites": 0,
   "activeRunHandle": null,
-  "nextAction": "Commit reviewed source/spec/task records; push candidate PR with required CI and ReleaseSmoke, then authorized merge/deploy/runtime verification",
-  "updatedAt": "2026-10-19T16:29:44.147462+00:00",
+  "nextAction": "Technical code leaf released; real-role business chain acceptance remains in parent goal",
+  "updatedAt": "2026-10-19T18:03:28.758838+00:00",
   "validation": {
     "focusedApi": "4/4 PASS zero skip; current exact-target PG rerun1/1 PASS",
     "focusedWeb": "37 unique PASS",
@@ -17,5 +17,6 @@
     "hrContracts": "261/261 PASS zero skip",
     "desktop390": "PASS actual components synthetic evidence",
     "independentFullScope": "PASS no unresolved findings"
-  }
+  },
+  "releaseEvidence": "/Users/mac/.codex/artifacts/hr-linked-job-change-continuation-20261020/release-evidence.json"
 }

@@ -25,6 +25,10 @@ test("published interface is reproducible and usable by the actual frozen builde
   assert.deepEqual(d.coverage.supported.map(x => x.domain).sort(), ["contract","credential","employee","family","insurance_policy","organization","position","profile","skill","training_history"]);
   assert.equal(d.limits.maxItems, 2000); assert.equal(d.limits.maxPackageBytes, 8388608);
   assert.equal(d.productionWrites, false);
+  assert.equal(d.normalizedProfileInput.businessFields.length, 33);
+  assert.ok(d.normalizedProfileInput.businessFields.includes("idType"));
+  assert.ok(d.normalizedProfileInput.businessFields.includes("remark"));
+  assert.match(d.normalizedProfileInput.rawCoverage,/does not add raw mappings/);
   assert.ok(d.entries.originalProfileAliases.includes("build-yuzhou-profile-alias-batch.mjs"));
   assert.equal(d.originalProfileAliasPreparation.codeSha256,YUZHOU_PROFILE_ALIAS_BATCH_CODE_SHA256);
   assert.equal(d.originalProfileAliasPreparation.authorizationGranted,false);
