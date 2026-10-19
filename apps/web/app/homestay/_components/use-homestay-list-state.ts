@@ -38,6 +38,7 @@ export type HomestaySurfaceData =
 export interface HomestayListFilters {
   page: number;
   status: string;
+  stayStatus: string;
   dateFrom: string;
   dateTo: string;
   keyword: string;
@@ -48,18 +49,19 @@ export interface HomestayListFilters {
 }
 
 export const EMPTY_HOMESTAY_FILTERS: HomestayListFilters = {
-  page: 1, status: "", dateFrom: "", dateTo: "", keyword: "",
+  page: 1, status: "", stayStatus: "", dateFrom: "", dateTo: "", keyword: "",
   sourceType: "", businessDateValue: "", unit: null, ready: false
 };
 
 interface QueryInput {
-  page: number; status: string; dateFrom?: string; dateTo?: string; keyword?: string;
+  page: number; status: string; stayStatus?: string; dateFrom?: string; dateTo?: string; keyword?: string;
   sourceType?: string; businessDateValue?: string; unitId?: string;
 }
 
 function queryFor(surface: HomestayListSurface, input: QueryInput) {
   const params = new URLSearchParams({ page: String(input.page), page_size: "20" });
   if (input.status) params.set(surface === "stays" ? "queue" : "status", input.status);
+  if (surface === "stays" && input.stayStatus) params.set("status", input.stayStatus);
   if (surface === "bookings") {
     const values = { keyword: input.keyword?.trim(), unit_id: input.unitId, date_from: input.dateFrom, date_to: input.dateTo };
     Object.entries(values).forEach(([key, value]) => { if (value) params.set(key, value); });
@@ -77,10 +79,12 @@ function queryFor(surface: HomestayListSurface, input: QueryInput) {
 }
 
 export async function loadHomestayUnitOptions(input: {
-  page: number; pageSize: number; signal: AbortSignal; unitId?: string;
+  page: number; pageSize: number; signal: AbortSignal; unitId?: string; query?: string;
 }) {
   const params = new URLSearchParams({ page: String(input.page), page_size: String(input.pageSize) });
   if (input.unitId) params.set("unit_id", input.unitId);
+  const keyword = input.query?.trim() ?? "";
+  if (keyword) params.set("keyword", keyword);
   const response = await apiRequest<HomestayUnitCandidateListResponse>(
     `/homestay/unit-candidates?${params.toString()}`,
     { token: getAccessToken() ?? undefined, signal: input.signal }
@@ -99,7 +103,8 @@ export function createHomestayReturnContext(
   filters: HomestayListFilters
 ): HomestayListReturnContext {
   return { route: surface, query: {
-    page: String(filters.page), page_size: "20", status: filters.status || undefined,
+    page: String(filters.page), page_size: "20",
+    status: surface === "stays" ? filters.stayStatus || undefined : filters.status || undefined,
     queue: surface === "stays" ? filters.status || undefined : undefined,
     keyword: filters.keyword || undefined, date_from: filters.dateFrom || undefined,
     date_to: filters.dateTo || undefined, source_type: filters.sourceType || undefined,
@@ -110,7 +115,10 @@ export function createHomestayReturnContext(
 export function useHomestayListFilters(surface: HomestayListSurface) {
   const router = useRouter();
   const pathname = usePathname();
-  const [filters, setFilters] = useState<HomestayListFilters>(EMPTY_HOMESTAY_FILTERS);
+  const [filters, setFilters] = useState<HomestayListFilters>({
+    ...EMPTY_HOMESTAY_FILTERS,
+    status: surface === "turnovers" ? "all" : ""
+  });
   useEffect(() => {
     const controller = new AbortController();
     const query = new URLSearchParams(window.location.search);
@@ -118,7 +126,9 @@ export function useHomestayListFilters(surface: HomestayListSurface) {
     const unitId = query.get("unit_id");
     setFilters({
       page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
-      status: query.get(surface === "stays" ? "queue" : "status") ?? "",
+      status: query.get(surface === "stays" ? "queue" : "status")
+        ?? (surface === "turnovers" ? "all" : ""),
+      stayStatus: surface === "stays" ? query.get("status") ?? "" : "",
       dateFrom: query.get("date_from") ?? "", dateTo: query.get("date_to") ?? "",
       keyword: query.get("keyword") ?? "", sourceType: query.get("source_type") ?? "",
       businessDateValue: query.get("business_date") ?? "",
@@ -211,6 +221,6 @@ export function homestayResultTotal(data: HomestaySurfaceData | null, pageData: 
 }
 
 export function hasActiveHomestayFilters(filters: HomestayListFilters): boolean {
-  return [filters.status, filters.dateFrom, filters.dateTo, filters.keyword,
+  return [filters.status, filters.stayStatus, filters.dateFrom, filters.dateTo, filters.keyword,
     filters.sourceType, filters.businessDateValue, filters.unit].some(Boolean);
 }

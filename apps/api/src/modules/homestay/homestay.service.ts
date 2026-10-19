@@ -322,6 +322,9 @@ export class HomestayService {
     } else if (query.queue === "in_house") {
       builder.andWhere("booking.status = 'checked_in'");
     }
+    if (query.status) {
+      builder.andWhere("booking.status = :stayStatus", { stayStatus: query.status });
+    }
     return builder;
   }
 

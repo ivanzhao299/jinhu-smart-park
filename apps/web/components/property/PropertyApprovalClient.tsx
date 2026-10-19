@@ -7,9 +7,10 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
+import { DataTable } from "@jinhu/ui";
 import { projectPropertyCapabilities } from "../../features/property-shared";
 import { getAccessToken } from "../../lib/authz";
-import { PropertyPageSurface, PropertyPanelSurface, propertyLabels } from "../../features/property-shared";
+import { PropertyPageSurface, PropertyPanelSurface, formatPropertyDateTime, propertyLabels } from "../../features/property-shared";
 import styles from "./PropertyControlPlane.module.css";
 import {
   propertyApprovalPageFromQuery,
@@ -87,6 +88,26 @@ export function PropertyApprovalListClient() {
       </article>)}
       {data && !data.items.length ? <PropertyPanelSurface><p>暂无可见审批。</p></PropertyPanelSurface> : null}
     </section> : null}
+    {!loading && !error && data?.items.length ? <DataTable aria-label="审批桌面列表">
+      <thead>
+        <tr>
+          <th scope="col">审批类型</th>
+          <th scope="col">审批状态</th>
+          <th scope="col">执行状态</th>
+          <th scope="col">申请时间</th>
+          <th scope="col">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.items.map((item) => <tr key={item.requestId}>
+          <td><Link href={propertyApprovalListDetailHref(item.requestId, page) as Route}>{propertyLabels.approvalAction(item.actionId)}</Link></td>
+          <td>{propertyLabels.decisionStatus(item.decisionStatus)}</td>
+          <td>{propertyLabels.executionStatus(item.executionStatus)}</td>
+          <td>{formatPropertyDateTime(item.requestedAt)}</td>
+          <td><Link className="ds-button" href={propertyApprovalListDetailHref(item.requestId, page) as Route}>查看详情</Link></td>
+        </tr>)}
+      </tbody>
+    </DataTable> : null}
     {!loading && !error ? <nav aria-label="分页" className={`ds-panel ds-section-panel ${styles.pager}`}>
       <button className="ds-button" disabled={page <= 1 || loading}
         onClick={() => setPage((value) => value - 1)} type="button">上一页</button>

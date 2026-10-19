@@ -154,6 +154,7 @@ function partyFailureState(error: unknown, cached: boolean): PropertyPageState {
 function partyFields(sensitive: boolean) {
   const fields = [
     { key: "type", label: "类型", render: (item: PartyListItemResponse) => item.partyType === "person" ? "个人" : "组织" },
+    { key: "name", label: "姓名", render: (item: PartyListItemResponse) => item.displayName },
     { key: "source", label: "来源", render: (item: PartyListItemResponse) => propertyLabels.partySourceDomain(item.sourceDomain) },
     { key: "verification", label: "核验", render: (item: PartyListItemResponse) => propertyLabels.partyVerification(item.verificationStatus) },
     { key: "updated", label: "更新时间", render: (item: PartyListItemResponse) => new Date(item.updateTime).toLocaleString("zh-CN") }

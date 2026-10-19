@@ -127,7 +127,10 @@ test("homestay candidate and turnover queries enforce bounded pagination and kno
   const openTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "open", page: 1, page_size: 20 });
   assert.deepEqual(await validate(openTurnovers), []);
 
-  const invalidTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "all" });
+  const allTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "all" });
+  assert.deepEqual(await validate(allTurnovers), []);
+
+  const invalidTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "bogus" });
   assert.ok((await validate(invalidTurnovers)).some((error) => error.property === "status"));
 });
 

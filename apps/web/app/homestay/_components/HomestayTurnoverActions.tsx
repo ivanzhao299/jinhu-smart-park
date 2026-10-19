@@ -1,6 +1,6 @@
 "use client";
 
-import { SYSTEM_PERMISSIONS, type FileRecord } from "@jinhu/shared";
+import { PROPERTY_BUSINESS_PERMISSIONS, SYSTEM_PERMISSIONS, type FileRecord } from "@jinhu/shared";
 import type {
   HomestayTurnoverDetailResponse, HomestayWorkOrderCandidateListResponse, PaginatedResult
 } from "@jinhu/shared";
@@ -38,6 +38,22 @@ function workOrderLoader(unitId: string) {
   };
 }
 
+async function loadAssigneeOptions(input: {
+  query: string; page: number; pageSize: number; signal: AbortSignal
+}) {
+  const keyword = input.query.trim();
+  const response = await apiRequest<PaginatedResult<{ id: string; username: string; displayName: string }>>(
+    `/users?page=${input.page}&page_size=${input.pageSize}${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`,
+    { token: getAccessToken() ?? undefined, signal: input.signal }
+  );
+  return {
+    items: response.data.items.map((item) => ({
+      id: item.id, label: item.displayName || item.username, secondaryLabel: item.username
+    })),
+    page: response.data.page, pageSize: response.data.page_size, total: response.data.total
+  };
+}
+
 async function authoritativeFileIds(turnoverId: string): Promise<string[]> {
   const params = new URLSearchParams({
     biz_type: "homestay_turnover", biz_id: turnoverId, page: "1", page_size: "100"
@@ -58,11 +74,13 @@ export function HomestayTurnoverActions({
 }) {
   const user = useAuthUser();
   const workOrderAllowed = hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_READ);
+  const isSupervisor = hasPermission(user, PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_TASK_SUPERVISE);
   const [draft, setDraft] = useState({
     workOrder: data.linkedWorkOrder ? {
       id: data.linkedWorkOrderId ?? "",
       label: `${data.linkedWorkOrder.code} · ${data.linkedWorkOrder.title}`
     } as RemoteEntityOption : null,
+    assignee: null as RemoteEntityOption | null,
     consumableName: "", consumableQuantity: "", exceptionDescription: ""
   });
   if (!capability.actionAllowed("homestay.turnovers.execute")) return null;
@@ -74,6 +92,15 @@ export function HomestayTurnoverActions({
       } : {}),
       ...extra
     };
+    if (isSupervisor) {
+      if (draft.assignee?.id) {
+        body.assignee_id = draft.assignee.id;
+        body.assignee_name = draft.assignee.label;
+      }
+    } else if (!data.assigneeId && user) {
+      body.assignee_id = user.id;
+      body.assignee_name = user.real_name || user.username;
+    }
     if (capability.fileCapability("homestay_turnover").canRead) {
       body.photo_file_ids = await authoritativeFileIds(data.id);
     }
@@ -82,7 +109,7 @@ export function HomestayTurnoverActions({
   const update = (patch: Partial<typeof draft>) => setDraft((current) => ({ ...current, ...patch }));
   return (
     <PropertyPanelSurface title="任务执行">
-      <TurnoverInputs capability={capability} data={data} draft={draft} update={update} workOrderAllowed={workOrderAllowed} />
+      <TurnoverInputs capability={capability} data={data} draft={draft} update={update} workOrderAllowed={workOrderAllowed} isSupervisor={isSupervisor} />
       <TurnoverButtons disabled={disabled} execute={execute} status={data.status} />
       {data.status !== "completed"
         ? <TurnoverException disabled={disabled} execute={execute} value={draft.exceptionDescription}
@@ -94,16 +121,21 @@ export function HomestayTurnoverActions({
 
 type Draft = {
   workOrder: RemoteEntityOption | null;
+  assignee: RemoteEntityOption | null;
   consumableName: string;
   consumableQuantity: string;
   exceptionDescription: string;
 };
 
-function TurnoverInputs({ capability, data, draft, update, workOrderAllowed }: {
+function TurnoverInputs({ capability, data, draft, update, workOrderAllowed, isSupervisor }: {
   capability: PropertyCapabilityProjection; data: HomestayTurnoverDetailResponse;
-  draft: Draft; update(patch: Partial<Draft>): void; workOrderAllowed: boolean;
+  draft: Draft; update(patch: Partial<Draft>): void; workOrderAllowed: boolean; isSupervisor: boolean;
 }) {
   return <div className={styles.toolbar}>
+    {isSupervisor ? <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
+      invalidationKey={`${capability.invalidationKey}:assignee:${data.id}`} label="负责人（可选）"
+      loadOptions={loadAssigneeOptions} minQueryLength={0} placeholder="选择保洁负责人，可输入姓名搜索"
+      onChange={(assignee) => update({ assignee })} value={draft.assignee} /> : null}
     {workOrderAllowed ? <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
       invalidationKey={`${capability.invalidationKey}:${data.id}`} label="关联工单（可选）"
       loadOptions={workOrderLoader(data.unitId)} onChange={(workOrder) => update({ workOrder })} value={draft.workOrder} /> : null}
@@ -119,6 +151,7 @@ function TurnoverButtons({ disabled, execute, status }: {
     {status === "pending" ? <button className="primary-button" disabled={disabled} type="button" onClick={() => void execute("start")}>开始清洁</button> : null}
     {status === "cleaning" || status === "exception" ? <button className="primary-button" disabled={disabled} type="button" onClick={() => void execute("complete")}>完成清洁</button> : null}
     {status === "inspection" ? <button className="primary-button" disabled={disabled} type="button" onClick={() => void execute("inspect")}>检查通过</button> : null}
+    {status === "cleaning" || status === "exception" ? <p className={styles.muted}>完成清洁前需在上方“上传现场证据”处至少上传一张现场照片。</p> : null}
   </div>;
 }
 

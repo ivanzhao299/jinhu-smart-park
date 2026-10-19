@@ -18,11 +18,12 @@ function statusMessage(
   total: number,
   errorMessage?: string,
   noPermissionText = "无权读取候选项",
-  invalidContextText = "请先选择有效的租户和园区"
+  invalidContextText = "请先选择有效的租户和园区",
+  minQueryLength = REMOTE_PICKER_MIN_QUERY_LENGTH
 ): string {
   const messages: Record<RemotePickerStatus, string> = {
     idle: "",
-    "too-short": `请输入至少 ${REMOTE_PICKER_MIN_QUERY_LENGTH} 个字符`,
+    "too-short": `请输入至少 ${minQueryLength} 个字符`,
     debouncing: "等待输入完成",
     loading: "正在加载候选项",
     ready: `已找到 ${total} 个候选项`,
@@ -188,7 +189,8 @@ function PickerStatus({
         state.total,
         state.errorMessage,
         noPermissionText,
-        invalidContextText
+        invalidContextText,
+        state.minQueryLength
       )}
     </div>
   );

@@ -24,9 +24,12 @@ const BOOKING_DRAFT_SCHEMA = {
   guestCount: "string"
 } as const;
 
-async function loadUnits(input: { page: number; pageSize: number; signal: AbortSignal }) {
+async function loadUnits(input: {
+  query?: string; page: number; pageSize: number; signal: AbortSignal
+}) {
+  const keyword = input.query?.trim() ?? "";
   const response = await apiRequest<HomestayUnitCandidateListResponse>(
-    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}`,
+    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`,
     { token: getAccessToken() ?? undefined, signal: input.signal }
   );
   return {
@@ -140,6 +143,7 @@ export function HomestayBookingCreatePanel({
             authorized contextValid={capability.moduleAvailable}
             invalidationKey={capability.invalidationKey} label="房源"
             loadOptions={loadUnits} onChange={form.setUnit} required value={form.unit}
+            minQueryLength={0} placeholder="选择民宿房源，可输入关键词过滤"
           />
           <label>入住日期<input name="arrival_date" required type="date" value={form.arrivalDate} onChange={(event) => updateArrival(event.target.value)} /></label>
           <label>离店日期<input name="departure_date" required type="date" min={nextDate(form.arrivalDate)} value={form.departureDate} onChange={(event) => form.setDepartureDate(event.target.value)} /></label>

@@ -207,7 +207,7 @@ function HomestayFilters({
             {surface === "bookings" ? (
               <>
                 <label>订单搜索<input maxLength={100} name="booking_keyword" placeholder="订单号" type="search" value={filters.keyword} onChange={(event) => resetPage({ keyword: event.target.value })} /></label>
-                <RemoteEntityPicker authorized contextValid={capability.moduleAvailable} invalidationKey={capability.invalidationKey} label="房源" loadOptions={loadHomestayUnitOptions} onChange={(unit) => resetPage({ unit })} value={filters.unit} />
+                <RemoteEntityPicker authorized contextValid={capability.moduleAvailable} invalidationKey={capability.invalidationKey} label="房源" loadOptions={loadHomestayUnitOptions} minQueryLength={0} placeholder="选择民宿房源，可输入关键词过滤" onChange={(unit) => resetPage({ unit })} value={filters.unit} />
                 <label>入住开始<input name="booking_date_from" type="date" value={filters.dateFrom} onChange={(event) => resetPage({ dateFrom: event.target.value })} /></label>
                 <label>入住结束<input name="booking_date_to" type="date" min={filters.dateFrom || undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
               </>
@@ -219,7 +219,7 @@ function HomestayFilters({
               </>
             ) : null}
             {surface === "stays" ? <label>业务日期<input name="stay_business_date" type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label> : null}
-            <label>业务状态<select name={`${surface}_status`} value={filters.status} onChange={(event) => resetPage({ status: event.target.value })}><option value="">全部</option>{filterOptions(surface).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            {surface === "stays" ? <><label>队列<select name="stays_queue" value={filters.status} onChange={(event) => resetPage({ status: event.target.value })}><option value="">全部</option>{filterOptions(surface).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>业务状态<select name="stays_status" value={filters.stayStatus} onChange={(event) => resetPage({ stayStatus: event.target.value })}><option value="">全部</option>{homestayBookingStatusOptions.filter((option) => ["confirmed", "checked_in", "checked_out"].includes(option.value)).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></> : <label>业务状态<select name={`${surface}_status`} value={filters.status} onChange={(event) => resetPage({ status: event.target.value })}>{surface === "turnovers" ? <><option value="all">全部</option><option value="">待办</option></> : <option value="">全部</option>}{filterOptions(surface).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
           </>
         )}
         <button className="secondary-button" type="button" onClick={() => void onRefresh()}>刷新</button>

@@ -314,3 +314,11 @@ test("stay mutations mirror the booking lifecycle accepted by the API", () => {
     });
   }
 });
+
+test("completed turnovers without an assignee are labelled 未指定, not 待领取", async () => {
+  const { homestayTurnoverAssigneeLabel } = await import("./homestay-workbench.logic");
+  assert.equal(homestayTurnoverAssigneeLabel("李四", "completed"), "李四");
+  assert.equal(homestayTurnoverAssigneeLabel(null, "completed"), "未指定");
+  assert.equal(homestayTurnoverAssigneeLabel(null, "pending"), "待领取");
+  assert.equal(homestayTurnoverAssigneeLabel(null, "cleaning"), "待领取");
+});

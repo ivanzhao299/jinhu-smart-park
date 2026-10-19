@@ -108,7 +108,11 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   assert.match(fileUploader, /formatAcceptedMimeLabel/);
   assert.match(fileUploader, /"application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet": "XLSX"/);
   assert.match(fileUploader, /"application\/vnd\.ms-excel": "XLS"/);
-  assert.match(control, /name="party_id"/);
+  assert.match(control, /RemoteEntityPicker/);
+  assert.match(control, /loadPartyOptions/);
+  assert.match(control, /minQueryLength=\{0\}/);
+  assert.match(control, /个人档案（可输入姓名搜索）/);
+  assert.match(control, /\/property\/parties\?/);
   assert.match(control, /name="expected_identity_version"/);
   assert.match(control, /name="document_type"/);
   assert.match(control, /name="identity_number"/);

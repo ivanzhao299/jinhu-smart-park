@@ -5,6 +5,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HomestayService } from "./homestay.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayTurnoverService } from "./homestay-turnover.service";
+import { FileEntity } from "../files/entities/file.entity";
 import {
   HomestayRateConfigEntity,
   HomestayTurnoverTaskEntity
@@ -55,6 +56,17 @@ test("inspection-required turnover releases occupancy only after terminal inspec
     if (entity === HomestayRateConfigEntity) {
       return { findOne: async () => ({ checkoutRequiresInspection: true }) };
     }
+    if (entity === FileEntity) {
+      return { createQueryBuilder: () => {
+        const builder: Record<string, unknown> = {};
+        const chain = () => builder;
+        builder.where = chain;
+        builder.andWhere = chain;
+        builder.setLock = chain;
+        builder.getMany = async () => [{ id: "photo-1" }];
+        return builder;
+      } };
+    }
     throw new Error("Unexpected repository");
   } };
   const releases: unknown[][] = [];
@@ -65,7 +77,8 @@ test("inspection-required turnover releases occupancy only after terminal inspec
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never
   );
 
-  const afterComplete = await service.executeTurnover(scope, actor, task.id, "complete", {});
+  const afterComplete = await service.executeTurnover(
+    scope, actor, task.id, "complete", { photo_file_ids: ["photo-1"] });
   assert.equal(afterComplete.status, "inspection");
   assert.equal(releases.length, 0);
   const afterInspect = await service.executeTurnover(scope, actor, task.id, "inspect", {});
@@ -73,6 +86,32 @@ test("inspection-required turnover releases occupancy only after terminal inspec
   assert.deepEqual(lockMode, { mode: "pessimistic_write" });
   assert.equal(releases.length, 1);
   assert.deepEqual(releases[0]!.slice(1), [scope, actor, "occupancy-1", "turnover_completed", "completed"]);
+});
+
+test("completing a turnover without on-site photos is rejected", async () => {
+  const task = { id: "turnover-1", unitId: "unit-1", occupancyId: "occupancy-1",
+    status: "cleaning", completedAt: null, inspectedAt: null, updateBy: null,
+    assigneeId: null, assigneeName: null, photoFileIds: [], consumables: [],
+    linkedWorkOrderId: null };
+  const repository = {
+    findOne: async () => task,
+    save: async () => task
+  };
+  const manager = { getRepository: (entity: unknown) => {
+    if (entity === HomestayTurnoverTaskEntity) return repository;
+    throw new Error("Unexpected repository");
+  } };
+  const service = new HomestayTurnoverService(
+    {} as never, {} as never, {} as never,
+    { releaseInTransaction: async () => undefined } as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never
+  );
+
+  await assert.rejects(
+    service.executeTurnover(scope, actor, task.id, "complete", {}),
+    /at least one on-site turnover photo/i
+  );
 });
 
 test("assigned turnover detail fails closed when the handler scope rejects the assignee", async () => {

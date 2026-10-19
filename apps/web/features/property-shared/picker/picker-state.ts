@@ -11,7 +11,8 @@ export const REMOTE_PICKER_DEFAULT_PAGE_SIZE = 20;
 
 export function createRemotePickerState(
   value: RemoteEntityOption | null,
-  pageSize = REMOTE_PICKER_DEFAULT_PAGE_SIZE
+  pageSize = REMOTE_PICKER_DEFAULT_PAGE_SIZE,
+  minQueryLength = REMOTE_PICKER_MIN_QUERY_LENGTH
 ): RemotePickerState {
   return {
     query: value?.label ?? "",
@@ -24,7 +25,8 @@ export function createRemotePickerState(
     activeIndex: -1,
     open: false,
     status: "idle",
-    requestId: 0
+    requestId: 0,
+    minQueryLength
   };
 }
 
@@ -114,7 +116,7 @@ function reduceLifecycle(
         options: [],
         activeIndex: -1,
         open: true,
-        status: action.query.trim().length < REMOTE_PICKER_MIN_QUERY_LENGTH
+        status: action.query.trim().length < (state.minQueryLength ?? REMOTE_PICKER_MIN_QUERY_LENGTH)
           ? "too-short"
           : "debouncing",
         errorMessage: undefined
@@ -232,10 +234,11 @@ export function shouldLoadRemoteOptions(input: {
   authorized: boolean;
   contextValid: boolean;
   query: string;
+  minQueryLength?: number;
 }): boolean {
   return input.open
     && !input.disabled
     && input.authorized
     && input.contextValid
-    && input.query.trim().length >= REMOTE_PICKER_MIN_QUERY_LENGTH;
+    && input.query.trim().length >= (input.minQueryLength ?? REMOTE_PICKER_MIN_QUERY_LENGTH);
 }

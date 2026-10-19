@@ -72,7 +72,6 @@ export function DialogContent({
       <div className={styles.content} id={descriptionId}>
         <p>
           操作对象：<strong>{target.label}</strong>
-          <span>（标识：{target.id}）</span>
         </p>
         <p>执行后状态：{resultingState}</p>
         <ul>

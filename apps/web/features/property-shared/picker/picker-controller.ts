@@ -177,7 +177,7 @@ export function useRemotePickerController(
   const coordinator = coordinatorRef.current;
   const [state, dispatch] = useReducer(
     remotePickerReducer,
-    createRemotePickerState(props.value, props.pageSize)
+    createRemotePickerState(props.value, props.pageSize, props.minQueryLength)
   );
   useExternalValue(props.value, dispatch);
   usePickerInvalidation(props, dispatch, coordinator);

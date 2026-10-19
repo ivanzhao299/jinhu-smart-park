@@ -78,7 +78,9 @@ export class HomestayTurnoverService {
       builder.andWhere("task.status IN (:...statuses)", {
         statuses: ["pending", "cleaning", "inspection", "exception"]
       });
-    } else builder.andWhere("task.status = :status", { status: query.status });
+    } else if (query.status !== "all") {
+      builder.andWhere("task.status = :status", { status: query.status });
+    }
     const [tasks, total] = await builder.orderBy("task.create_time", "ASC")
       .skip((query.page - 1) * query.page_size).take(query.page_size).getManyAndCount();
     const unitRows = tasks.length ? await this.dataSource.query(
@@ -166,8 +168,13 @@ export class HomestayTurnoverService {
       const repository = manager.getRepository(HomestayTurnoverTaskEntity);
       const task = await repository.findOne({ where: { id, tenantId: scope.tenantId,
         parkId: scope.parkId, isDeleted: false }, lock: { mode: "pessimistic_write" } });
-      if (!task) throw new NotFoundException("Turnover task not found");
-      await this.unitAccessService.assertAccess(scope, actor, task.unitId);
+    if (!task) throw new NotFoundException("Turnover task not found");
+    await this.unitAccessService.assertAccess(scope, actor, task.unitId);
+    if (action === "complete" && !dto.photo_file_ids?.length) {
+      throw new BadRequestException(
+        "At least one on-site turnover photo is required to complete cleaning"
+      );
+    }
       if (task.assigneeId !== null) {
         await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, task.assigneeId);
       }

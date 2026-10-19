@@ -187,6 +187,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/receivables",
   "/leasing/payments",
   ...assetPropertyControlMenus.map((surface) => surface.href!),
+  "/property/approvals",
+  "/assets/parties",
   ...PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route),
   "/apartments",
   "/apartments/rooms",
@@ -286,7 +288,8 @@ export const dashboardMenus: MenuNode[] = [
       { label: "房间/房源管理", href: "/assets/units", permission: "asset:unit:list", module: "asset" },
       { label: "房源状态看板", href: "/assets/unit-status-board", permission: "asset:status_board", module: "asset" },
       { label: "资产统计", href: "/assets/statistics", permission: "asset:statistics", module: "asset" },
-      ...assetPropertyControlMenus
+      ...assetPropertyControlMenus,
+      { label: "房产业务审批", href: "/property/approvals", permission: PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ, module: "asset" }
     ]
   },
   {
@@ -313,7 +316,10 @@ export const dashboardMenus: MenuNode[] = [
     label: "民宿管理",
     icon: Hotel,
     module: "homestay",
-    children: propertySurfaceMenus("homestay")
+    children: [
+      ...propertySurfaceMenus("homestay"),
+      { label: "个人档案", href: "/assets/parties", permission: PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ, module: "asset" }
+    ]
   },
   {
     label: "长租经营",

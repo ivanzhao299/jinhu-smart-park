@@ -216,12 +216,16 @@ export function propertyErrorMessage(error: unknown, fallback = "操作失败，
     "property-mode-usage-not-allowed": "房源用途不支持目标经营模式，请选择允许的模式。",
     "approval-no-eligible-approver": "当前园区没有可用的独立审批人，请联系管理员配置。",
     "property-mode-blocked": "当前房源存在经营阻断项，请先处理后再提交。",
-    "approval-source-changed": "房源经营配置已发生变化，请刷新后重试。"
+    "approval-source-changed": "房源经营配置已发生变化，请刷新后重试。",
+    "identity-snapshot-stale": "住客实名信息未就绪：请先在个人档案完成身份核验，并记录“民宿入住”同意事实，再办理入住。",
+    "identity-active-submission-exists": "该档案已有进行中的身份核验提交，请在身份核验工作台继续处理。"
   };
   if (errorCode && codeLabels[errorCode]) return codeLabels[errorCode];
   const message = error instanceof Error ? error.message.trim() : "";
   if (!message) return fallback;
   if (/[㐀-鿿]/u.test(message)) return message;
+  if (/credential/i.test(message)) return "请先回收或挂失全部已发放的入住凭证，再办理退房。";
+  if (/photo/i.test(message)) return "完成清洁前请先在“上传现场证据”处至少上传一张现场照片。";
   if (/forbidden|permission|access denied/i.test(message)) return "当前账号无权执行此操作";
   if (/not found/i.test(message)) return "相关记录不存在或已不可用";
   if (/conflict|already|duplicate/i.test(message)) return "数据状态已变化，请刷新后重试";

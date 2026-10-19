@@ -1,5 +1,6 @@
 import {
   REMOTE_PICKER_DEBOUNCE_MS,
+  REMOTE_PICKER_MIN_QUERY_LENGTH,
   isForbiddenPickerError,
   pickerErrorMessage,
   shouldLoadRemoteOptions
@@ -41,7 +42,7 @@ export interface PickerLoadRequest extends PickerAuthorizationContext {
   disabled: boolean;
   state: Pick<
     RemotePickerState,
-    "open" | "query" | "requestPage" | "requestPageSize"
+    "open" | "query" | "requestPage" | "requestPageSize" | "minQueryLength"
   >;
   loadOptions: RemoteEntityLoader;
 }
@@ -118,7 +119,8 @@ export class RemotePickerLoadCoordinator {
     this.syncAuthorization(request);
     this.cancel();
     if (!shouldLoadRemoteOptions({ ...request.state, ...request })) {
-      return request.state.query.trim().length < 2
+      return request.state.query.trim().length
+          < (request.state.minQueryLength ?? REMOTE_PICKER_MIN_QUERY_LENGTH)
         ? "too-short"
         : "not-allowed";
     }
