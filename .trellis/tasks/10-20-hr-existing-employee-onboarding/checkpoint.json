@@ -1,0 +1,27 @@
+{
+  "objective": "Close existing formal preboarding employee initial-onboarding modern entry, preserve complete parent HR goal",
+  "workspace": "/Users/mac/.codex/worktrees/hr-team-approval-entry-20261018/jinhu-smart-park",
+  "acceptedCodeBaseline": "369ed5775bcd2e0c4faa15411c49df6ad0d1e516",
+  "status": "REVIEWED_LOCAL_ACCEPTANCE_COMPLETE_READY_FOR_RELEASE",
+  "activeAgent": null,
+  "sourceOwner": "root after final full-scope checker terminal",
+  "acceptance": [
+    "Existing preboarding selectable without candidate permissions",
+    "Exact source association, unknown retry and context isolation preserved",
+    "Desktop390 modern component proof and focused regression",
+    "Release/runtime proof separate from production role UAT"
+  ],
+  "previousGoalTurnClassification": "NO_PROGRESS_STATUS_REPORT_ONLY",
+  "thisGoalTurnClassification": "PROGRESS_PRIOR_RELEASE_CLOSED_AND_CONFIRMED_ENTRY_GAP_IMPLEMENTATION",
+  "fullGoalComplete": false,
+  "updatedAt": "2026-10-19T21:28:21.329988+00:00",
+  "browserProof": "/Users/mac/.codex/artifacts/hr-existing-employee-onboarding-20261020/browser/proof.json",
+  "nextAction": "Commit reviewed coherent business-entry fix, PR/CI/merge/deploy and exact runtime verification",
+  "validation": {
+    "interaction": "85/85 in7files; checker receipt check-review.md",
+    "webLintTypecheck": "PASS",
+    "actualComponentDesktop390": "PASS synthetic API; not production UAT"
+  },
+  "cleanupEvidence": "/Users/mac/.codex/artifacts/hr-existing-employee-onboarding-20261020/browser/cleanup.json",
+  "activeRunHandles": {}
+}

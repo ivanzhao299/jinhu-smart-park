@@ -10,7 +10,7 @@ import {hrLoadErrorMessage} from "../hr-errors";
 import styles from "./hr-employee-selection.module.css";
 
 export type HrEmployeeOption=Pick<HrEmployee,"id"|"fullName"|"employeeCode">;
-interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward"|"talent"|"job_change";required?:boolean;}
+interface Props {selectedId:string;currentEmployee?:HrEmployeeOption;onChange:(id:string,employee?:HrEmployeeOption)=>void;disabled:boolean;purpose:"contract"|"lifecycle"|"probation"|"reward"|"talent"|"job_change"|"onboarding";required?:boolean;}
 const pageSize=20;
 type EmployeeCandidate=HrEmployeeOption & Partial<Pick<HrEmployee,"employmentStatus">>;
 const contractEligible=(employee:EmployeeCandidate)=>["preboarding","probation","active"].includes(employee.employmentStatus??"");
@@ -18,8 +18,8 @@ const contractEligible=(employee:EmployeeCandidate)=>["preboarding","probation",
 /** Uses the existing scoped directory; opening a contract never scans all employee pages. */
 export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disabled,purpose,required=true}:Props){
  const user=useAuthUser(),allowed=hasAnyPermission(user,purpose==="job_change"?[HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE]:purpose==="talent"?[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_TALENT_PROFILE_CREATE,HR_PERMISSIONS.HR_TALENT_REVIEW,HR_PERMISSIONS.HR_SUCCESSION_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE]:purpose==="reward"?[HR_PERMISSIONS.HR_REWARD_MANAGE]:[HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
- const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"||purpose==="talent"||purpose==="job_change"?true:purpose==="probation"?employee.employmentStatus==="probation":contractEligible(employee);
- const domain=purpose==="job_change"?"岗位变更":purpose==="talent"?"人才":purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":"清单";
+ const eligible=(employee:EmployeeCandidate)=>purpose==="lifecycle"||purpose==="reward"||purpose==="talent"||purpose==="job_change"?true:purpose==="probation"?employee.employmentStatus==="probation":purpose==="onboarding"?employee.employmentStatus==="preboarding":contractEligible(employee);
+ const domain=purpose==="job_change"?"岗位变更":purpose==="talent"?"人才":purpose==="contract"?"合同":purpose==="probation"?"转正":purpose==="reward"?"奖惩":purpose==="onboarding"?"预入职":"清单";
  const [draft,setDraft]=useState(""),[keyword,setKeyword]=useState("");
  const [rows,setRows]=useState<EmployeeCandidate[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0);
  const [retained,setRetained]=useState<HrEmployeeOption|undefined>(currentEmployee);
@@ -31,7 +31,7 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
   const current=()=>pending.current===controller&&!controller.signal.aborted;
   setLoading(true);setRows([]);setError("");
   try{
-   const result=purpose==="job_change"?await hrApi.jobChangeEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="talent"?await hrApi.talentEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:{keyword:query},controller.signal);
+   const result=purpose==="job_change"?await hrApi.jobChangeEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="talent"?await hrApi.talentEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):purpose==="reward"?await hrApi.rewardEmployeeOptions(requestedPage,query,getAccessToken(),controller.signal):await hrApi.employees(getAccessToken(),requestedPage,pageSize,purpose==="probation"?{keyword:query,status:"probation"}:purpose==="onboarding"?{keyword:query,status:"preboarding"}:{keyword:query},controller.signal);
    if(!Array.isArray(result.items)||result.items.some(row=>!row||typeof row.id!=="string"||!row.id.trim()||typeof row.employeeCode!=="string"||typeof row.fullName!=="string"))throw new Error("员工候选响应无效，请重试。");
    if(!current())return;
    if(result.page!==requestedPage||result.page_size!==pageSize||!Number.isSafeInteger(result.total)||result.total<0||result.items.length>pageSize||new Set(result.items.map(row=>row.id)).size!==result.items.length)throw new Error("员工候选分页响应无效，请重试。");
@@ -53,7 +53,7 @@ export function HrEmployeeSelection({selectedId,currentEmployee,onChange,disable
     else if(event.target.value===""){setRetained(undefined);onChange("");}
    }}><option value="">请选择员工</option>
     {selected&&!rows.some(row=>row.id===selected.id)?<option value={selected.id}>{selected.fullName} · {selected.employeeCode}（已选）</option>:null}
-    {rows.map(row=><option key={row.id} value={row.id} disabled={!eligible(row)&&row.id!==selectedId}>{row.fullName} · {row.employeeCode}{eligible(row)?"":row.employmentStatus==="departed"?"（已离职）":"（停职）"}</option>)}
+    {rows.map(row=><option key={row.id} value={row.id} disabled={!eligible(row)&&row.id!==selectedId}>{row.fullName} · {row.employeeCode}{eligible(row)?"":purpose==="onboarding"?"（非预入职）":row.employmentStatus==="departed"?"（已离职）":"（停职）"}</option>)}
    </select></label>
   </div>
   {allowed?<nav className={styles.employeeControls} aria-label={`${domain}员工候选分页`}>
