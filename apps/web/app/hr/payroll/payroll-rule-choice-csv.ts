@@ -6,7 +6,7 @@ import { payrollBookLabel } from "./payroll-book-label";
 export type Choice = { included: boolean; role: FormalPayrollRole | ""; source: "" | "direct" | "formula" | "rewrite"; formulaId: string; rewrite: string };
 export type RuleChoices = Record<string, Choice>;
 export const blankRuleChoice = (): Choice => ({ included: false, role: "", source: "", formulaId: "", rewrite: "" });
-export const payrollRoleLabels: Record<FormalPayrollRole, string> = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
+export const payrollRoleLabels: Record<FormalPayrollRole, string> = { earning: "收入", gross_reduction: "应发扣减", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
 export const payrollSourceLabels = { direct: "直接录入", formula: "原公式", rewrite: "人工改写" };
 const check = (value: unknown, message: string): void => { if (!value) throw new Error(message); };
 const text = (value: unknown) => value == null ? "" : String(value);

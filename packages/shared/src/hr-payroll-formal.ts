@@ -1,5 +1,5 @@
 import type { PaginatedResult } from "./index";
-export const FORMAL_PAYROLL_ROLES = ["earning", "deduction", "tax", "gross", "net", "employer_contribution", "informational"] as const;
+export const FORMAL_PAYROLL_ROLES = ["earning", "gross_reduction", "deduction", "tax", "gross", "net", "employer_contribution", "informational"] as const;
 export type FormalPayrollRole = typeof FORMAL_PAYROLL_ROLES[number];
 export type FormalPayrollItem = { code: string; role: FormalPayrollRole; expression: string | null };
 export const FORMAL_PAYROLL_COMPENSATION_POLICIES = ["full_period_single", "calendar_day_prorated"] as const;
@@ -26,7 +26,7 @@ export type FormalPayrollInputDetail = Omit<FormalPayrollInput, "employees"> & {
   employees: Array<FormalPayrollEmployeeInput & { fullName: string | null; employeeCode: string | null }>;
   total: number; page: number; page_size: number; canEdit: boolean; canConfirm: boolean;
 };
-export type FormalPayrollTotals = { grossAmount: string; deductionAmount: string; personalTax: string; netAmount: string };
+export type FormalPayrollTotals = { grossAmount: string; deductionAmount: string; personalTax: string; netAmount: string; grossReductionAmount?: string };
 export type FormalPayrollRunSelection = {
   inputId: string; expectedInputVersion: number; attendanceInputBatchId?: string;
   correctionOfRunId?: string; correctionReason?: string;

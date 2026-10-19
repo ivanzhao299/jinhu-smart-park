@@ -44,7 +44,7 @@ it("previews every off-page change then re-reads before replacing and reaches ex
   expect(screen.getByLabelText(/我已核对原条件/)).not.toBeChecked();
   fireEvent.click(screen.getByLabelText(/我已核对原条件/)); fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
   expect(apply).toHaveBeenCalledTimes(1); const definition = apply.mock.calls[0]![0]; expect(definition.items).toHaveLength(25);
-  expect(definition.items[0]).toEqual({ code: "ITEM0", role: "earning", expression: "[BASE]+2" });
+  expect(definition.items[0]).toEqual({ code: "ITEM0", role: "earning", expression: "[ITEM0]+2" });
   expect(definition.items[24]).toEqual({ code: "ITEM24", role: "earning", expression: null });
 });
 it("exports current incomplete selections without inventing a role", async () => {
@@ -176,6 +176,6 @@ it.each(["manual", "csv"])("allows the API's blank-condition original formula th
   expect(screen.getByLabelText(/我已核对原条件/)).toBeEnabled();
   fireEvent.click(screen.getByLabelText(/我已核对原条件/));
   fireEvent.click(screen.getByRole("button", { name: "带入空白规则草稿" }));
-  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "ITEM0", role: "earning", expression: "[BASE]+1" }] });
+  expect(apply).toHaveBeenCalledWith({ roundingPolicy: "line_items_half_up", items: [{ code: "ITEM0", role: "earning", expression: "[ITEM0]+1" }] });
   expect(current.formulas[0]!.condition).toBe(" \t\r\n\u3000");
 });
