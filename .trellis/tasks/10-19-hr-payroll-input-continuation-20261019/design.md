@@ -1,0 +1,11 @@
+# Design
+
+复用PayrollInputPreparation、PayrollInputOperations、PayrollTrialComparison和ModernOperations；新增的客户端意图仅包含回执标识及可选原来源月份，不持久化金额/员工信息或身份信息。明确保存→明确查看→现有批次详情/编辑/独立确认→明确返回全月，不因读失败重做已成功的写入。
+
+来源模式规则读取复用collectScopedExport(100/page, cap2000)，只匹配sourceBookId，检查唯一关联/返回元数据；不改变普通分页和更正已锁定的规则。期间仍由操作者明确选择，只显示已返回的当月open期间。
+
+回执在准备组件内校验后保存，新增查看按钮经父级路由本次batchID/periodID/ruleSetID/ruleVersionID/revisionNo，输入工作区重新读取并校验归属；不能依赖20条列表存在与否。详情的最新version/canEdit/canConfirm为准，不把旧回执version当成核对后的操作版本。错误回执/读取失败保留可恢复状态；来源/身份变化取消旧信号/回调。
+
+全月返回携带原legacyBatchId/month及每次明确操作的新意图标识，当前月份目录重新读取后才恢复选择，并重载该月账套/清除旧试算结果和选择。来源冻结/相关写入在进行中时禁止新的导航/刷新；返回不清空其他输入工作区的未保存草稿。不改HrPayrollClient已发布规则返回契约。
+
+使用已有DS布局、动作区和间距类。不引入新业务写接口、角色或数据库对象。生产范围应仍分类为web；API固定已核验84df，最终Web与合并版本独立观察。

@@ -16,25 +16,25 @@ import type { PayrollRuleHandoffIntent } from "./payroll-rule-handoff";
 
 type Book = PayrollTrialOptions["books"][number];
 type Draft = { ready: boolean; selection: PayrollTrialBookSelection };
-type PreparationProps = {onPrepareSource?:(source:FormalPayrollSourcePreparation|null)=>void;onPrepareRule?:(intent:PayrollRuleHandoffIntent)=>void;returnTrial?:Pick<PayrollRuleHandoffIntent,"legacyBatchId"|"month">|null};
+type PreparationProps = {onPrepareSource?:(source:FormalPayrollSourcePreparation|null)=>void;onPrepareRule?:(intent:PayrollRuleHandoffIntent)=>void;onWritingChange?:(writing:boolean)=>void;returnTrial?:(Pick<PayrollRuleHandoffIntent,"legacyBatchId"|"month">&{nonce?:number})|null};
 export function PayrollTrialComparison(props:PreparationProps) {
   const user = useAuthUser(); return <TrialWorkspace key={JSON.stringify(user)} {...props}/>;
 }
-function TrialWorkspace({onPrepareSource,onPrepareRule,returnTrial}:PreparationProps) {
+function TrialWorkspace({onPrepareSource,onPrepareRule,onWritingChange,returnTrial}:PreparationProps) {
   const [preparing,setPreparing]=useState(false);
-  const restoredReturn=useRef<string|null>(null);
+  const restoredReturn=useRef<string|null>(null), returnAbort=useRef<AbortController|null>(null);
   const user = useAuthUser();
   const allowed = [HR_PERMISSIONS.HR_PAYROLL_MANAGE,HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ,HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_PAYROLL_RULE_READ,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE].every(permission => hasPermission(user,permission));
-  const [periods,setPeriods]=useState<PayrollTrialOptions["periods"]>([]),[period,setPeriod]=useState(""),[refresh,setRefresh]=useState(0),[error,setError]=useState("");
+  const [periods,setPeriods]=useState<PayrollTrialOptions["periods"]>([]),[period,setPeriod]=useState(""),[refresh,setRefresh]=useState(0),[selectionEpoch,setSelectionEpoch]=useState(0),[error,setError]=useState("");
   useEffect(()=>{if(!allowed)return;const abort=new AbortController();setError("");void hrApi.payrollTrialOptions({},getAccessToken(),abort.signal).then(result=>{if(!abort.signal.aborted)setPeriods(result.periods);}).catch(cause=>{if(!abort.signal.aborted)setError(hrLoadErrorMessage(cause,"加载试算月份失败"));});return()=>abort.abort();},[allowed,refresh]);
-  useEffect(()=>{if(!returnTrial)return;const value=`${returnTrial.legacyBatchId}:${returnTrial.month}`;if(restoredReturn.current===value)return;if(periods.some(row=>`${row.legacyBatchId}:${row.month}`===value)){restoredReturn.current=value;setPeriod(value);}},[periods,returnTrial]);
+  useEffect(()=>{if(!returnTrial||preparing)return;const value=`${returnTrial.legacyBatchId}:${returnTrial.month}:${returnTrial.nonce??"external"}`;if(restoredReturn.current===value)return;const abort=new AbortController();returnAbort.current?.abort();returnAbort.current=abort;const token=getAccessToken();setError("");void hrApi.payrollTrialOptions({},token,abort.signal).then(result=>{if(abort.signal.aborted||getAccessToken()!==token)return;const target=`${returnTrial.legacyBatchId}:${returnTrial.month}`;if(!result.periods.some(row=>`${row.legacyBatchId}:${row.month}`===target))throw new Error("原账套月份已变化或不可读取，请刷新后重新选择。");restoredReturn.current=value;setPeriods(result.periods);setPeriod(target);setSelectionEpoch(current=>current+1);}).catch(cause=>{if(!abort.signal.aborted&&getAccessToken()===token)setError(hrLoadErrorMessage(cause,"刷新原账套月份失败"));});return()=>abort.abort();},[returnTrial?.legacyBatchId,returnTrial?.month,returnTrial?.nonce,preparing]);
   if(!allowed)return null;
   const selected=periods.find(row=>`${row.legacyBatchId}:${row.month}`===period);
   return <section className={`ds-panel ${styles.workspace}`} aria-label="全账套只算不发">
     <h2>全账套只算不发</h2><p>使用已确认的现代工资输入和已批准规则，对照本月全部账套的冻结原工资。跨账套同一员工分别核对；结果供业务核对，不代表业务签署。</p>
-    <label className="form-field">试算来源与月份<select value={period} disabled={preparing} onChange={event=>{onPrepareSource?.(null);setPeriod(event.target.value);}}><option value="">请选择实际来源月份</option>{periods.map(row=><option key={`${row.legacyBatchId}:${row.month}`} value={`${row.legacyBatchId}:${row.month}`}>{row.month} · {row.recordCount} 条原工资 · {row.batchCode}</option>)}</select></label>
+    <label className="form-field">试算来源与月份<select value={period} disabled={preparing} onChange={event=>{onPrepareSource?.(null);setPeriod(event.target.value);setSelectionEpoch(current=>current+1);}}><option value="">请选择实际来源月份</option>{periods.map(row=><option key={`${row.legacyBatchId}:${row.month}`} value={`${row.legacyBatchId}:${row.month}`}>{row.month} · {row.recordCount} 条原工资 · {row.batchCode}</option>)}</select></label>
     <div className={styles.actions}><button className="secondary-button" disabled={preparing} onClick={()=>setRefresh(value=>value+1)}>刷新来源月份</button></div>
-    {error&&<p role="alert">{error}</p>}{selected&&<MonthTrial key={period} legacyBatchId={selected.legacyBatchId} month={selected.month} batchLabel={selected.batchCode} onPrepareSource={onPrepareSource} onPrepareRule={onPrepareRule} onWritingChange={setPreparing}/>}
+    {error&&<p role="alert">{error}</p>}{selected&&<MonthTrial key={`${period}:${selectionEpoch}`} legacyBatchId={selected.legacyBatchId} month={selected.month} batchLabel={selected.batchCode} onPrepareSource={onPrepareSource} onPrepareRule={onPrepareRule} onWritingChange={value=>{setPreparing(value);onWritingChange?.(value);}}/>}
   </section>;
 }
 function MonthTrial({legacyBatchId,month,batchLabel,onPrepareSource,onPrepareRule,onWritingChange}:{legacyBatchId:string;month:string;batchLabel:string;onWritingChange:(value:boolean)=>void}&PreparationProps) {

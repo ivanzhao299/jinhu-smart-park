@@ -9,21 +9,22 @@ import { createIdempotencyKey } from "../../../lib/api-client";
 import { hrApi, type HrPayrollPeriod } from "../../../lib/hr-api";
 import { hrLoadErrorMessage } from "../hr-errors";
 import { PayrollInputBulkCsv } from "./PayrollInputBulkCsv";
+import type { PayrollInputReviewIntent } from "./payroll-input-handoff";
 import styles from "./payroll-modern.module.css";
 
 type Employee = FormalPayrollInputDetail["employees"][number];
-export function PayrollInputOperations() {
-  const user = useAuthUser(); return <InputWorkspace key={JSON.stringify(user)}/>;
+export function PayrollInputOperations({ intent, onReturnToTrial, navigationBlocked = false }: { intent?: PayrollInputReviewIntent | null; onReturnToTrial?: (intent: PayrollInputReviewIntent) => void; navigationBlocked?: boolean }) {
+  const user = useAuthUser(); return <InputWorkspace key={JSON.stringify(user)} intent={intent} onReturnToTrial={onReturnToTrial} navigationBlocked={navigationBlocked}/>;
 }
-function InputWorkspace() {
+function InputWorkspace({ intent, onReturnToTrial, navigationBlocked }: { intent?: PayrollInputReviewIntent | null; onReturnToTrial?: (intent: PayrollInputReviewIntent) => void; navigationBlocked: boolean }) {
   const user = useAuthUser(), canRead = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ);
   const canDetail = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ) && hasPermission(user, HR_PERMISSIONS.HR_EMPLOYEE_READ);
   const canManage = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_MANAGE), canConfirm = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_REVIEW);
   const [periods, setPeriods] = useState<HrPayrollPeriod[]>([]), [periodId, setPeriodId] = useState(""), [page, setPage] = useState(1), [rows, setRows] = useState<FormalPayrollInputListItem[]>([]), [total, setTotal] = useState(0);
-  const [selectedId, setSelectedId] = useState(""), [detailPage, setDetailPage] = useState(1), [detail, setDetail] = useState<FormalPayrollInputDetail | null>(null);
+  const [selectedId, setSelectedId] = useState(""), [detailPage, setDetailPage] = useState(1), [detail, setDetail] = useState<FormalPayrollInputDetail | null>(null), [reviewIntent, setReviewIntent] = useState<PayrollInputReviewIntent | null>(null), [pendingIntent, setPendingIntent] = useState<PayrollInputReviewIntent | null>(null);
   const [edit, setEdit] = useState<Employee[] | null>(null), [editPage, setEditPage] = useState(1), [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false), [detailLoading, setDetailLoading] = useState(false), [busy, setBusy] = useState(false), [committed, setCommitted] = useState(false), [error, setError] = useState(""), [detailError, setDetailError] = useState(""), [notice, setNotice] = useState("");
-  const alive = useRef(true), lock = useRef(false), listAbort = useRef<AbortController | null>(null), detailAbort = useRef<AbortController | null>(null), editAbort = useRef<AbortController | null>(null), retry = useRef<{signature:string;key:string}|null>(null);
+  const alive = useRef(true), lock = useRef(false), handledIntent = useRef<number | null>(null), listedPeriod = useRef(periodId), listAbort = useRef<AbortController | null>(null), detailAbort = useRef<AbortController | null>(null), editAbort = useRef<AbortController | null>(null), retry = useRef<{signature:string;key:string}|null>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; listAbort.current?.abort(); detailAbort.current?.abort(); editAbort.current?.abort(); }; }, []);
   useEffect(() => {
     if (!canRead) return;
@@ -31,6 +32,13 @@ function InputWorkspace() {
     void hrApi.payrollPeriods(getAccessToken(), abort.signal).then(result => { if (!abort.signal.aborted) setPeriods(result); }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载工资期间失败")); });
     return () => abort.abort();
   }, [canRead]);
+  useEffect(() => {
+    const next = pendingIntent ?? intent;
+    if (!next || handledIntent.current === next.nonce) return;
+    if (lock.current || busy || edit !== null) { setPendingIntent(next); if (edit !== null) setNotice("当前整批修改尚未保存；完成或取消后可查看本次输入草稿。"); return; }
+    handledIntent.current = next.nonce; setPendingIntent(null);
+    setPeriodId(next.periodId); setPage(1); setSelectedId(next.id); setDetailPage(1); setDetail(null); setReason(""); setNotice(""); setCommitted(false); setDetailError(""); setReviewIntent(next);
+  }, [intent?.nonce, pendingIntent?.nonce, busy, edit]);
   const loadList = useCallback(async () => {
     if (!canRead || !periodId) return;
     const abort = new AbortController(); listAbort.current?.abort(); listAbort.current = abort; setLoading(true); setError("");
@@ -40,16 +48,31 @@ function InputWorkspace() {
     } catch (cause) { if (alive.current && !abort.signal.aborted) { setError(hrLoadErrorMessage(cause, "加载输入批次失败")); throw cause; } }
     finally { if (alive.current && listAbort.current === abort) setLoading(false); }
   }, [canRead, periodId, page]);
-  useEffect(() => { setRows([]); setSelectedId(""); setDetail(null); setEdit(null); setReason(""); setNotice(""); setCommitted(false); detailAbort.current?.abort(); editAbort.current?.abort(); void loadList().catch(() => undefined); return () => listAbort.current?.abort(); }, [loadList]);
+  useEffect(() => {
+    /* A saved-draft handoff owns the selected ID while its period list is loading.
+       The target may be beyond that list page, so list completion must not erase it. */
+    const periodChanged = listedPeriod.current !== periodId;
+    listedPeriod.current = periodId;
+    const preservesExactReview = reviewIntent?.id === selectedId && reviewIntent.periodId === periodId;
+    setRows([]);
+    if (periodChanged && !preservesExactReview) {
+      setSelectedId(""); setDetail(null); setEdit(null); setReason(""); setNotice(""); setCommitted(false);
+      detailAbort.current?.abort(); editAbort.current?.abort();
+    }
+    void loadList().catch(() => undefined);
+    return () => listAbort.current?.abort();
+  }, [loadList, periodId, reviewIntent, selectedId]);
   const loadDetail = useCallback(async () => {
     if (!canDetail || !selectedId) return;
-    const abort = new AbortController(); detailAbort.current?.abort(); detailAbort.current = abort; setDetailLoading(true); setDetailError("");
+    const abort = new AbortController(); detailAbort.current?.abort(); detailAbort.current = abort; const token = getAccessToken(); setDetailLoading(true); setDetailError("");
     try {
-      const result = await hrApi.payrollInput(selectedId, { page: detailPage, pageSize: 20 }, getAccessToken(), abort.signal);
+      const result = await hrApi.payrollInput(selectedId, { page: detailPage, pageSize: 20 }, token, abort.signal);
+      if (abort.signal.aborted || getAccessToken() !== token) return;
+      if (reviewIntent && selectedId === reviewIntent.id && (result.id !== reviewIntent.id || result.periodId !== reviewIntent.periodId || result.ruleSetId !== reviewIntent.ruleSetId || result.ruleVersionId !== reviewIntent.ruleVersionId || result.revisionNo !== reviewIntent.revisionNo)) throw new Error("本次保存的输入草稿已变化、移除或无权查看，请返回后重新读取。 ");
       if (alive.current && !abort.signal.aborted) { setDetail(result); setCommitted(false); }
     } catch (cause) { if (alive.current && !abort.signal.aborted) { setDetailError(hrLoadErrorMessage(cause, "加载输入明细失败")); throw cause; } }
     finally { if (alive.current && detailAbort.current === abort) setDetailLoading(false); }
-  }, [canDetail, selectedId, detailPage]);
+  }, [canDetail, selectedId, detailPage, reviewIntent]);
   useEffect(() => { setDetail(null); setEdit(null); setReason(""); void loadDetail().catch(() => undefined); return () => detailAbort.current?.abort(); }, [loadDetail]);
   const beginEdit = async () => {
     if (!detail || !detail.canEdit || !canManage || lock.current || committed || detailLoading) return;
@@ -89,13 +112,13 @@ function InputWorkspace() {
   };
   if (!canRead) return null;
   return <section className={`ds-panel ${styles.workspace}`} aria-labelledby="payroll-input-operations-heading"><h2 id="payroll-input-operations-heading">工资输入批次</h2><p>草稿可按权限修改，由其他有权限的人员确认。已确认输入保持原记录，后续调整保存新版本。</p>
-    <label className="form-field"><span>查看输入期间</span><select value={periodId} disabled={busy || edit !== null} onChange={event => { if (!lock.current) { setPeriodId(event.target.value); setPage(1); } }}><option value="">请选择期间</option>{periods.map(row => <option value={row.id} key={row.id}>{row.periodMonth.slice(0, 7)}{row.status === "open" ? "" : " · 已关闭"}</option>)}</select></label>
+    <label className="form-field"><span>查看输入期间</span><select value={periodId} disabled={busy || edit !== null} onChange={event => { if (!lock.current) { setPeriodId(event.target.value); setPage(1); setReviewIntent(null); } }}><option value="">请选择期间</option>{periods.map(row => <option value={row.id} key={row.id}>{row.periodMonth.slice(0, 7)}{row.status === "open" ? "" : " · 已关闭"}</option>)}</select></label>
     <button className="secondary-button" disabled={busy || loading || edit !== null || !periodId} onClick={() => void loadList().catch(() => undefined)}>刷新输入批次</button>{error ? <p className="form-error" role="alert">{error}</p> : null}{loading ? <p>正在读取输入批次…</p> : null}
     <div className={`ds-mobile-record-list ${styles.records}`}>{rows.map(row => <article className="ds-mobile-record" key={row.id}><strong>{row.displayName} · 第 {row.revisionNo} 版</strong><span>{row.status === "confirmed" ? "已确认" : "草稿"} · {row.employeeCount} 位员工</span>{canDetail ? <button className="secondary-button" disabled={busy || edit !== null} onClick={() => { if (!lock.current) { setSelectedId(row.id); setDetailPage(1); setDetail(null); setNotice(""); setCommitted(false); if (selectedId === row.id && detailPage === 1) void loadDetail().catch(() => undefined); } }}>查看输入明细</button> : <span>当前权限可查看批次概要。</span>}</article>)}</div>
     <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || edit !== null || page <= 1} onClick={() => setPage(value => value - 1)}>输入上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页 · 共 {total} 版</span><button className="secondary-button" disabled={busy || loading || edit !== null || page * 20 >= total} onClick={() => setPage(value => value + 1)}>输入下一页</button></div>
-    {detailLoading ? <p>正在读取员工输入…</p> : null}{detailError ? <p className="form-error" role="alert">{detailError}</p> : null}{notice ? <p role="status">{notice}</p> : null}
+    {detailLoading ? <p>正在读取员工输入…</p> : null}{detailError ? <p className="form-error" role="alert">{detailError}</p> : null}{detailError && selectedId && !detail ? <button className="secondary-button" disabled={detailLoading || busy} onClick={() => void loadDetail().catch(() => undefined)}>重试读取本次输入草稿</button> : null}{notice ? <p role="status">{notice}</p> : null}
     {detail ? <section className={styles.workspace} aria-label="工资输入明细"><h3>第 {detail.revisionNo} 版 · {detail.status === "confirmed" ? "已确认" : "草稿"} · {detail.total} 位员工</h3><p>{detail.reason}</p>
-      {!edit ? <><div className={`ds-mobile-record-list ${styles.records}`}>{detail.employees.map(employee => <article className="ds-mobile-record" key={employee.employeeId}><strong>{employee.fullName ?? "员工信息暂不可用"} · {employee.employeeCode ?? "编号暂不可用"}</strong><dl className={styles.amounts}>{Object.entries(employee.directItems).map(([code,value]) => <div className={styles.amountRow} key={code}><dt>{code}</dt><dd>{value}</dd></div>)}</dl>{employee.settlementStart ? <p>补结算 {employee.settlementStart} 至 {employee.settlementEnd} · {employee.eligibilityReason}</p> : null}</article>)}</div><div className={styles.actions}><button className="secondary-button" disabled={busy || detailLoading || detailPage <= 1} onClick={() => setDetailPage(value => value - 1)}>明细上一页</button><span>第 {detail.page} / {Math.max(1, Math.ceil(detail.total / 20))} 页</span><button className="secondary-button" disabled={busy || detailLoading || detailPage * 20 >= detail.total} onClick={() => setDetailPage(value => value + 1)}>明细下一页</button></div><div className={styles.actions}><button className="secondary-button" disabled={busy || detailLoading} onClick={() => void loadDetail().catch(() => undefined)}>刷新输入明细</button>{canManage && detail.canEdit ? <button className="secondary-button" disabled={busy || detailLoading || committed} onClick={() => void beginEdit()}>修改整批草稿</button> : null}{canConfirm && detail.canConfirm ? <button className="primary-button" disabled={busy || detailLoading || committed} onClick={() => void transition("confirm")}>确认整批工资输入</button> : null}</div></> : <><PayrollInputBulkCsv context={{
+      {!edit ? <><div className={`ds-mobile-record-list ${styles.records}`}>{detail.employees.map(employee => <article className="ds-mobile-record" key={employee.employeeId}><strong>{employee.fullName ?? "员工信息暂不可用"} · {employee.employeeCode ?? "编号暂不可用"}</strong><dl className={styles.amounts}>{Object.entries(employee.directItems).map(([code,value]) => <div className={styles.amountRow} key={code}><dt>{code}</dt><dd>{value}</dd></div>)}</dl>{employee.settlementStart ? <p>补结算 {employee.settlementStart} 至 {employee.settlementEnd} · {employee.eligibilityReason}</p> : null}</article>)}</div><div className={styles.actions}><button className="secondary-button" disabled={busy || detailLoading || detailPage <= 1} onClick={() => setDetailPage(value => value - 1)}>明细上一页</button><span>第 {detail.page} / {Math.max(1, Math.ceil(detail.total / 20))} 页</span><button className="secondary-button" disabled={busy || detailLoading || detailPage * 20 >= detail.total} onClick={() => setDetailPage(value => value + 1)}>明细下一页</button></div><div className={styles.actions}><button className="secondary-button" disabled={busy || detailLoading} onClick={() => void loadDetail().catch(() => undefined)}>刷新输入明细</button>{canManage && detail.canEdit ? <button className="secondary-button" disabled={busy || detailLoading || committed} onClick={() => void beginEdit()}>修改整批草稿</button> : null}{canConfirm && detail.canConfirm ? <button className="primary-button" disabled={busy || detailLoading || committed} onClick={() => void transition("confirm")}>确认整批工资输入</button> : null}{reviewIntent?.sourceReturn ? <button className="secondary-button" disabled={busy || detailLoading || navigationBlocked} onClick={() => onReturnToTrial?.(reviewIntent)}>返回本账套 {reviewIntent.sourceReturn.month} 月核对</button> : null}</div></> : <><PayrollInputBulkCsv context={{
         binding: JSON.stringify({ scope: [user?.tenant_id, user?.park_id], input: detail.id, version: detail.version,
           period: detail.periodId, rule: detail.ruleVersionId, ruleSet: detail.ruleSetId, correction: detail.correctionWindowId }),
         month: periods.find(row => row.id === detail.periodId)?.periodMonth.slice(0, 7) ?? "",
