@@ -19,7 +19,9 @@ beforeEach(()=>{vi.clearAllMocks();auth.user={id:"synthetic-hr",permissions:["hr
 it("actual contract page exports all filtered rows, keeps self entry and excludes salary",async()=>{
  auth.user.permissions=["hr:contract:self_read"];render(<HrContractsClient/>);
  const button=screen.getByRole("button",{name:"导出筛选合同"});await waitFor(()=>expect(button).toBeEnabled());
- fireEvent.change(screen.getByPlaceholderText("姓名、员工编号或合同编号"),{target:{value:"SYN"}});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);await screen.findByText("已导出 101 条匹配合同。");
+ fireEvent.change(screen.getByPlaceholderText("姓名、员工编号或合同编号"),{target:{value:"SYN"}});
+ await waitFor(()=>expect(vi.mocked(hrApi.contracts).mock.calls.some(call=>call[1]===1&&call[2]===50&&call[3]?.keyword==="SYN"&&call[4]===true)).toBe(true));
+ await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);await screen.findByText("已导出 101 条匹配合同。");
  const csv=vi.mocked(downloadCsv).mock.calls[0]![0];expect(csv.split("\r\n")).toHaveLength(102);expect(csv).toContain("CON-row-100");expect(csv).not.toContain("SYN-");expect(csv).not.toContain("SECRET-SALARY");
  const calls=vi.mocked(hrApi.contracts).mock.calls.filter(c=>c[2]===100);expect(calls.map(c=>c[1])).toEqual([1,2,1]);expect(calls.every(c=>c[3]?.keyword==="SYN"&&c[4]===true&&c[5] instanceof AbortSignal)).toBe(true);
 });

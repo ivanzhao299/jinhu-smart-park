@@ -12,29 +12,32 @@ import { payrollTrialCsv, trialStatus } from "./payroll-trial-export";
 import { ReconciliationSourcePreparation } from "./ReconciliationSourcePreparation";
 import type { HrPayrollReconciliationSource } from "../../../lib/hr-api";
 import styles from "./payroll-modern.module.css";
+import type { PayrollRuleHandoffIntent } from "./payroll-rule-handoff";
 
 type Book = PayrollTrialOptions["books"][number];
 type Draft = { ready: boolean; selection: PayrollTrialBookSelection };
-type PreparationProps = {onPrepareSource?:(source:FormalPayrollSourcePreparation|null)=>void};
+type PreparationProps = {onPrepareSource?:(source:FormalPayrollSourcePreparation|null)=>void;onPrepareRule?:(intent:PayrollRuleHandoffIntent)=>void;returnTrial?:Pick<PayrollRuleHandoffIntent,"legacyBatchId"|"month">|null};
 export function PayrollTrialComparison(props:PreparationProps) {
   const user = useAuthUser(); return <TrialWorkspace key={JSON.stringify(user)} {...props}/>;
 }
-function TrialWorkspace({onPrepareSource}:PreparationProps) {
+function TrialWorkspace({onPrepareSource,onPrepareRule,returnTrial}:PreparationProps) {
   const [preparing,setPreparing]=useState(false);
+  const restoredReturn=useRef<string|null>(null);
   const user = useAuthUser();
   const allowed = [HR_PERMISSIONS.HR_PAYROLL_MANAGE,HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ,HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_PAYROLL_RULE_READ,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE].every(permission => hasPermission(user,permission));
   const [periods,setPeriods]=useState<PayrollTrialOptions["periods"]>([]),[period,setPeriod]=useState(""),[refresh,setRefresh]=useState(0),[error,setError]=useState("");
   useEffect(()=>{if(!allowed)return;const abort=new AbortController();setError("");void hrApi.payrollTrialOptions({},getAccessToken(),abort.signal).then(result=>{if(!abort.signal.aborted)setPeriods(result.periods);}).catch(cause=>{if(!abort.signal.aborted)setError(hrLoadErrorMessage(cause,"加载试算月份失败"));});return()=>abort.abort();},[allowed,refresh]);
+  useEffect(()=>{if(!returnTrial)return;const value=`${returnTrial.legacyBatchId}:${returnTrial.month}`;if(restoredReturn.current===value)return;if(periods.some(row=>`${row.legacyBatchId}:${row.month}`===value)){restoredReturn.current=value;setPeriod(value);}},[periods,returnTrial]);
   if(!allowed)return null;
   const selected=periods.find(row=>`${row.legacyBatchId}:${row.month}`===period);
   return <section className={`ds-panel ${styles.workspace}`} aria-label="全账套只算不发">
     <h2>全账套只算不发</h2><p>使用已确认的现代工资输入和已批准规则，对照本月全部账套的冻结原工资。跨账套同一员工分别核对；结果供业务核对，不代表业务签署。</p>
     <label className="form-field">试算来源与月份<select value={period} disabled={preparing} onChange={event=>{onPrepareSource?.(null);setPeriod(event.target.value);}}><option value="">请选择实际来源月份</option>{periods.map(row=><option key={`${row.legacyBatchId}:${row.month}`} value={`${row.legacyBatchId}:${row.month}`}>{row.month} · {row.recordCount} 条原工资 · {row.batchCode}</option>)}</select></label>
     <div className={styles.actions}><button className="secondary-button" disabled={preparing} onClick={()=>setRefresh(value=>value+1)}>刷新来源月份</button></div>
-    {error&&<p role="alert">{error}</p>}{selected&&<MonthTrial key={period} legacyBatchId={selected.legacyBatchId} month={selected.month} batchLabel={selected.batchCode} onPrepareSource={onPrepareSource} onWritingChange={setPreparing}/>}
+    {error&&<p role="alert">{error}</p>}{selected&&<MonthTrial key={period} legacyBatchId={selected.legacyBatchId} month={selected.month} batchLabel={selected.batchCode} onPrepareSource={onPrepareSource} onPrepareRule={onPrepareRule} onWritingChange={setPreparing}/>}
   </section>;
 }
-function MonthTrial({legacyBatchId,month,batchLabel,onPrepareSource,onWritingChange}:{legacyBatchId:string;month:string;batchLabel:string;onWritingChange:(value:boolean)=>void}&PreparationProps) {
+function MonthTrial({legacyBatchId,month,batchLabel,onPrepareSource,onPrepareRule,onWritingChange}:{legacyBatchId:string;month:string;batchLabel:string;onWritingChange:(value:boolean)=>void}&PreparationProps) {
   const [freezing,setFreezing]=useState(false);
   const [options,setOptions]=useState<PayrollTrialOptions|null>(null),[drafts,setDrafts]=useState<Record<string,Draft>>({}),[error,setError]=useState(""),[refresh,setRefresh]=useState(0),[validOptions,setValidOptions]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[result,setResult]=useState<PayrollTrialResult|null>(null),[page,setPage]=useState(1);
   const flight=useRef(false),abortRef=useRef<AbortController|null>(null),retry=useRef<{signature:string;key:string}|null>(null);
@@ -55,7 +58,7 @@ function MonthTrial({legacyBatchId,month,batchLabel,onPrepareSource,onWritingCha
   };
   return <div className={styles.workspace}>
     {options&&<p>本月全部 {options.books.length} 个账套，共 {options.recordCount} 条工资记录、{options.employeeCount} 位员工。逐账套的准备须全部完成。</p>}
-    {options?.books.map(book=><TrialBook key={book.bookId} book={book} month={month} legacyBatchId={legacyBatchId} batchLabel={batchLabel} onPrepareSource={onPrepareSource} onFrozen={()=>{setResult(null);setRefresh(value=>value+1);}} onWritingChange={value=>{setFreezing(value);onWritingChange(value);}} disabled={busy||loading||freezing} onChange={draft=>{setDrafts(current=>({...current,[book.bookId]:draft}));setResult(null);}}/>)}
+    {options?.books.map(book=><TrialBook key={book.bookId} book={book} month={month} legacyBatchId={legacyBatchId} batchLabel={batchLabel} onPrepareSource={onPrepareSource} onPrepareRule={onPrepareRule} onFrozen={()=>{setResult(null);setRefresh(value=>value+1);}} onWritingChange={value=>{setFreezing(value);onWritingChange(value);}} disabled={busy||loading||freezing} onChange={draft=>{setDrafts(current=>({...current,[book.bookId]:draft}));setResult(null);}}/>)}
     <div className={styles.actions}><button className="secondary-button" disabled={busy||loading||freezing} onClick={()=>{setResult(null);setRefresh(value=>value+1);}}>刷新全部账套</button><button className="primary-button" disabled={busy||loading||freezing||!validOptions||!options||options.books.some(book=>!drafts[book.bookId]?.ready)} onClick={()=>void calculate()}>{busy?"正在完整核算…":"全账套试算并逐项核对"}</button></div>
     {loading&&<p role="status">正在读取全部账套…</p>}{error&&<p role="alert">{error}</p>}
     {result&&<section className={styles.workspace} aria-label="本次试算结果"><h3>本次完整试算结果</h3><p>{result.bookCount} 个账套 · {result.recordCount} 条记录 · {result.employeeCount} 人 · {result.comparableLineCount}/{result.lineCount} 个可比分项 · {result.differentLineCount} 个分项有差异。缺项和不可比项目需业务补齐后再次核对。</p><p>净额核对：{result.records.filter(row=>row.net.status!=="missing_source").length} 条可比，{result.records.filter(row=>row.net.status==="different").length} 条有差异，{result.records.filter(row=>row.net.status==="missing_source").length} 条缺少原净额。</p>
@@ -66,7 +69,7 @@ function MonthTrial({legacyBatchId,month,batchLabel,onPrepareSource,onWritingCha
     </section>}
   </div>;
 }
-function TrialBook({book,month,legacyBatchId,batchLabel,disabled,onChange,onFrozen,onWritingChange,onPrepareSource}:{book:Book;month:string;legacyBatchId:string;batchLabel:string;disabled:boolean;onChange:(draft:Draft)=>void;onFrozen:()=>void;onWritingChange:(value:boolean)=>void}&PreparationProps) {
+function TrialBook({book,month,legacyBatchId,batchLabel,disabled,onChange,onFrozen,onWritingChange,onPrepareSource,onPrepareRule}:{book:Book;month:string;legacyBatchId:string;batchLabel:string;disabled:boolean;onChange:(draft:Draft)=>void;onFrozen:()=>void;onWritingChange:(value:boolean)=>void}&PreparationProps) {
   const [preparing,setPreparing]=useState(false),[committedSource,setCommittedSource]=useState<HrPayrollReconciliationSource|null>(null);
   const user=useAuthUser(),insuranceAllowed=[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ].every(permission=>hasPermission(user,permission));
   const [inputId,setInputId]=useState(""),[sourceId,setSourceId]=useState(""),[attendanceId,setAttendanceId]=useState(""),[mapping,setMapping]=useState<Record<string,string>>({}),[options,setOptions]=useState<FormalPayrollRunOptions|null>(null),[insurance,setInsurance]=useState<NonNullable<PayrollTrialBookSelection["insuranceSources"]>>([]),[acceptInsurance,setAcceptInsurance]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(""),[refresh,setRefresh]=useState(0),[page,setPage]=useState(1);
@@ -93,7 +96,7 @@ function TrialBook({book,month,legacyBatchId,batchLabel,disabled,onChange,onFroz
     {(book.unavailableCount>0||book.duplicateCount>0)&&<p role="alert">来源有 {book.unavailableCount} 条不可用记录、{book.duplicateCount} 条同账套重复人员记录，请先处理来源。</p>}
     <div className={styles.fields}><label className="form-field">冻结原工资来源<select value={sourceId} onChange={event=>{onPrepareSource?.(null);setSourceId(event.target.value);}}><option value="">请选择经复核的冻结来源</option>{sources.map((row,index)=><option key={row.id} value={row.id}>已冻结来源 {index+1} · {row.recordCount} 条 · {row.itemCount} 项</option>)}</select>{!sources.length&&<span>请先在下方预览并冻结此账套来源。</span>}</label>
       <label className="form-field">现代确认输入<select value={inputId} onChange={event=>{setInputId(event.target.value);setAttendanceId("");setMapping({});setPage(1);}}><option value="">请选择已确认输入</option>{book.inputs.map(row=><option key={row.id} value={row.id}>{row.ruleName} · 输入第 {row.revisionNo} 版 · {row.employeeCount} 人</option>)}</select>{!book.inputs.length&&<span>请先关联本账套规则，批准规则并确认本月完整员工输入。</span>}</label></div>
-    <div className={styles.actions}>{hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)&&<button className="secondary-button" onClick={()=>setPreparing(value=>!value)}>{preparing?"收起来源准备":"预览并冻结本账套来源"}</button>}{onPrepareSource&&<button className="secondary-button" disabled={!sourceId||!sources.some(row=>row.id===sourceId)} onClick={()=>{const source=sources.find(row=>row.id===sourceId)!;onPrepareSource({reconciliationSourceId:source.id,legacyBatchId,bookId:book.bookId,bookName:book.bookName,month,recordCount:source.recordCount});document.getElementById("payroll-preparation-heading")?.scrollIntoView?.({behavior:"smooth",block:"start"});}}>准备本账套完整员工输入</button>}</div>
+    <div className={styles.actions}>{hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)&&<button className="secondary-button" onClick={()=>setPreparing(value=>!value)}>{preparing?"收起来源准备":"预览并冻结本账套来源"}</button>}{onPrepareSource&&<button className="secondary-button" disabled={!sourceId||!sources.some(row=>row.id===sourceId)} onClick={()=>{const source=sources.find(row=>row.id===sourceId)!;onPrepareSource({reconciliationSourceId:source.id,legacyBatchId,bookId:book.bookId,bookName:book.bookName,month,recordCount:source.recordCount});document.getElementById("payroll-preparation-heading")?.scrollIntoView?.({behavior:"smooth",block:"start"});}}>准备本账套完整员工输入</button>}{onPrepareRule&&hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RULE_READ)&&hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_MANAGE)&&<button className="secondary-button" disabled={disabled} onClick={()=>onPrepareRule({legacyBatchId,month,bookId:book.bookId,bookName:book.bookName,scheme:book.scheme})}>准备本账套工资规则</button>}</div>
     {preparing&&<ReconciliationSourcePreparation context={{legacyBatchId,bookId:book.bookId,bookName:book.bookName,month,batchLabel}} onWritingChange={onWritingChange} onPrepared={source=>{onPrepareSource?.(null);setCommittedSource(source);setSourceId(source.id);onFrozen();}}/>}
     {options?.requires.attendance&&<label className="form-field">试算考勤来源<select value={attendanceId} onChange={event=>setAttendanceId(event.target.value)}><option value="">请选择当月已封账考勤</option>{options.attendanceBatches.map(row=><option key={row.id} value={row.id}>批次 {row.batchNo} · 缺 {row.missingEmployeeCount} 人</option>)}</select></label>}
     {compensationMissing>0&&<p role="alert">{compensationMissing} 位员工的现行薪酬资料或有效区间待补齐。</p>}

@@ -4,14 +4,15 @@ import { HR_PERMISSIONS } from "@jinhu/shared";
 import { PayrollRuleMaintenance } from "../../app/hr/payroll/PayrollRuleMaintenance";
 import { payrollBookOptions } from "../../app/hr/payroll/payroll-book-label";
 
-const state = vi.hoisted(() => ({ user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: {
+const state = vi.hoisted(() => ({ token: "synthetic-token", user: { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [] as string[] }, api: {
   payrollRuleSourceReference: vi.fn(), payrollBookOptions: vi.fn(), payrollRules: vi.fn(), payrollRuleVersions: vi.fn(), createPayrollRules: vi.fn(), createPayrollRuleVersion: vi.fn(),
   updatePayrollRuleVersion: vi.fn(), submitPayrollRuleVersion: vi.fn(), reviewPayrollRuleVersion: vi.fn(),
 } }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => state.user }));
-vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
+vi.mock("../../lib/authz", () => ({ getAccessToken: () => state.token }));
 vi.mock("../../lib/hr-api", () => ({ hrApi: state.api }));
 const rule = { id: "rules", ruleCode: "pay", displayName: "当期工资规则", sourceBookId: null, headRevision: 1 };
+const handoff = { legacyBatchId: "july-import", month: "2026-07", bookId: "book-34", bookName: "七月账套", scheme: 34 };
 const draft = { id: "draft", ruleSetId: rule.id, revisionNo: 1, version: 1, status: "draft", reason: "当期规则",
   effectiveFrom: null, reviewReason: null, definition: { roundingPolicy: "line_items_half_up", items: [
     { code: "工资", role: "earning", expression: null }, { code: "税", role: "tax", expression: null },
@@ -19,7 +20,7 @@ const draft = { id: "draft", ruleSetId: rule.id, revisionNo: 1, version: 1, stat
   ] } };
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_size: 20 });
 beforeEach(() => {
-  vi.resetAllMocks(); state.user = { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [HR_PERMISSIONS.HR_PAYROLL_RULE_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW] };
+  vi.resetAllMocks(); state.token="synthetic-token"; state.user = { id: "actor", tenant_id: "tenant", park_id: "park", permissions: [HR_PERMISSIONS.HR_PAYROLL_RULE_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW] };
   state.api.payrollRules.mockResolvedValue(page([rule])); state.api.payrollRuleVersions.mockResolvedValue(page([draft]));
   state.api.payrollBookOptions.mockResolvedValue(page([]));
   state.api.updatePayrollRuleVersion.mockResolvedValue({ ...draft, version: 2 });
@@ -169,4 +170,96 @@ it("adding a manual project or changing identity aborts pending source reads wit
   const secondSignal = state.api.payrollRuleSourceReference.mock.calls[1]?.[2] as AbortSignal;
   state.user = { ...state.user, park_id: "other-park" }; view.rerender(<PayrollRuleMaintenance />);
   expect(secondSignal.aborted).toBe(true); expect(screen.queryByRole("region", { name: "规则版本编辑" })).toBeNull();
+});
+
+it("opens an exact linked rule found beyond the ordinary first page without a write", async () => {
+  const linked = { ...rule, id: "rule-35", ruleCode: "JULY35", displayName: "七月账套 35 规则", sourceBookId: "book-35", sourceBook: { id: "book-35", bookName: "七月账套", bookCode: "july:35", scheme: 35 } };
+  const other = Array.from({ length: 21 }, (_, index) => ({ ...rule, id: `rule-${index}`, ruleCode: `OTHER${index}` }));
+  state.api.payrollRules.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [...other, linked], total: 22, page: 1, page_size: 100 } : page([rule]));
+  state.api.payrollBookOptions.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [], total: 0, page: 1, page_size: 100 } : page([]));
+  render(<PayrollRuleMaintenance intent={{ ...handoff, bookId: "book-35", scheme: 35 }} />);
+  await screen.findByText("已打开该账套的现有关联规则。");
+  expect(screen.getByLabelText("选择工资规则")).toHaveValue("rule-35");
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+  expect(state.api.payrollRules.mock.calls.some(call => (call[0] as { pageSize?: number } | undefined)?.pageSize === 100)).toBe(true);
+});
+
+it("contextual creation uses only the fully resolved exact book and never posts on navigation", async () => {
+  const books = Array.from({ length: 22 }, (_, index) => ({ id: `book-${index}`, bookName: `普通账套${index}`, bookCode: `book:${index}`, scheme: index }));
+  books[21] = { id: handoff.bookId, bookName: handoff.bookName, bookCode: "july:34", scheme: handoff.scheme };
+  state.api.payrollRules.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [], total: 0, page: 1, page_size: 100 } : page([rule]));
+  state.api.payrollBookOptions.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: books, total: books.length, page: 1, page_size: 100 } : page([]));
+  state.api.createPayrollRules.mockResolvedValue({ ...rule, id: "new-rule", sourceBookId: handoff.bookId });
+  render(<PayrollRuleMaintenance intent={handoff} />);
+  await screen.findByText(/正在准备：七月账套 · 账套 34 · 2026-07/);
+  await waitFor(() => expect(screen.getByRole("button", { name: "新建规则" })).toBeEnabled());
+  expect(screen.queryByRole("option", { name: "独立规则，不关联账套" })).toBeNull();
+  expect(screen.getByLabelText("关联工资账套（可选）")).toHaveValue(handoff.bookId);
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("规则编号"), { target: { value: "JULY34" } });
+  fireEvent.change(screen.getByLabelText("规则名称"), { target: { value: "七月工资规则" } });
+  fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+  await waitFor(() => expect(state.api.createPayrollRules).toHaveBeenCalledWith({ ruleCode: "JULY34", displayName: "七月工资规则", sourceBookId: handoff.bookId }, "synthetic-token", expect.any(String)));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull());
+});
+
+it("drifted or unavailable contextual book blocks creation rather than falling back to an independent rule", async () => {
+  state.api.payrollRules.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [], total: 0, page: 1, page_size: 100 } : page([rule]));
+  state.api.payrollBookOptions.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [{ id: handoff.bookId, bookName: handoff.bookName, bookCode: "drift:35", scheme: 35 }], total: 1, page: 1, page_size: 100 } : page([]));
+  render(<PayrollRuleMaintenance intent={handoff} />);
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "独立规则，不关联账套" })).toBeNull();
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+});
+
+it("does not open a linked rule when its current book scheme has drifted", async () => {
+  const linked = { ...rule, id: "rule-34", sourceBookId: handoff.bookId, sourceBook: { id: handoff.bookId, bookName: handoff.bookName, bookCode: "drift:35", scheme: 35 } };
+  state.api.payrollRules.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [linked], total: 1, page: 1, page_size: 100 } : page([rule]));
+  state.api.payrollBookOptions.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [{ id: handoff.bookId, bookName: handoff.bookName, bookCode: "drift:35", scheme: 35 }], total: 1, page: 1, page_size: 100 } : page([]));
+  render(<PayrollRuleMaintenance intent={handoff} />);
+  await screen.findByRole("alert");
+  expect(screen.queryByText("已打开该账套的现有关联规则。")).toBeNull();
+  expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+});
+
+it("context revocation aborts a pending contextual resolver before it can install a stale target", async () => {
+  state.api.payrollRules.mockImplementation(({ pageSize }: { pageSize: number }) => pageSize === 100 ? new Promise(() => undefined) : Promise.resolve(page([rule])));
+  state.api.payrollBookOptions.mockImplementation(({ pageSize }: { pageSize: number }) => pageSize === 100 ? new Promise(() => undefined) : Promise.resolve(page([])));
+  const view = render(<PayrollRuleMaintenance intent={handoff} />);
+  await waitFor(() => expect(state.api.payrollRules.mock.calls.some(call => (call[0] as { pageSize?: number } | undefined)?.pageSize === 100)).toBe(true));
+  const resolverCall = state.api.payrollRules.mock.calls.find(call => (call[0] as { pageSize?: number } | undefined)?.pageSize === 100)!;
+  const signal = resolverCall[2] as AbortSignal;
+  state.user = { ...state.user, park_id: "revoked-park", permissions: [HR_PERMISSIONS.HR_PAYROLL_RULE_READ] };
+  view.rerender(<PayrollRuleMaintenance intent={handoff} />);
+  await waitFor(() => expect(signal.aborted).toBe(true));
+  expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+});
+
+it("a token rotation discards a pending contextual resolver before it enables creation", async () => {
+  let resolveRules!: (value: unknown) => void;
+  let resolveBooks!: (value: unknown) => void;
+  state.api.payrollRules.mockImplementation(({ pageSize }: { pageSize: number }) => pageSize === 100 ? new Promise(resolve => { resolveRules=resolve; }) : Promise.resolve(page([rule])));
+  state.api.payrollBookOptions.mockImplementation(({ pageSize }: { pageSize: number }) => pageSize === 100 ? new Promise(resolve => { resolveBooks=resolve; }) : Promise.resolve(page([])));
+  render(<PayrollRuleMaintenance intent={handoff} />);
+  await waitFor(() => expect(state.api.payrollRules.mock.calls.some(call => (call[0] as { pageSize?: number } | undefined)?.pageSize === 100)).toBe(true));
+  state.token="rotated-token";
+  await act(async () => { resolveRules({ items: [], total: 0, page: 1, page_size: 100 }); resolveBooks({ items: [{ id: handoff.bookId, bookName: handoff.bookName, bookCode: "july:34", scheme: handoff.scheme }], total: 1, page: 1, page_size: 100 }); });
+  expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
+});
+
+it("a token rotation after resolution blocks the contextual create click", async () => {
+  state.api.payrollRules.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [], total: 0, page: 1, page_size: 100 } : page([rule]));
+  state.api.payrollBookOptions.mockImplementation(async ({ pageSize }: { pageSize: number }) => pageSize === 100 ? { items: [{ id: handoff.bookId, bookName: handoff.bookName, bookCode: "july:34", scheme: handoff.scheme }], total: 1, page: 1, page_size: 100 } : page([]));
+  render(<PayrollRuleMaintenance intent={handoff} />);
+  await screen.findByRole("button", { name: "新建规则" });
+  fireEvent.change(screen.getByLabelText("规则编号"), { target: { value: "JULY34" } });
+  fireEvent.change(screen.getByLabelText("规则名称"), { target: { value: "七月工资规则" } });
+  state.token="rotated-token";
+  fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+  await screen.findByText("登录状态已变化，请返回整月试算重新选择账套。");
+  expect(state.api.createPayrollRules).not.toHaveBeenCalled();
 });

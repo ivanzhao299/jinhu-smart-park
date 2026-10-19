@@ -7,21 +7,23 @@ import { getAccessToken } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
 import { createIdempotencyKey } from "../../../lib/api-client";
 import { hrApi } from "../../../lib/hr-api";
+import { collectScopedExport } from "../../../lib/scoped-csv-export";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "./payroll-modern.module.css";
 import { payrollBookLabel, payrollBookOptions } from "./payroll-book-label";
 
 import { PayrollRuleSourcePreparation } from "./PayrollRuleSourcePreparation";
+import type { PayrollRuleHandoffIntent } from "./payroll-rule-handoff";
 
 const roles = { earning: "收入", deduction: "扣款", tax: "税额", gross: "应发汇总", net: "实发汇总", employer_contribution: "单位承担", informational: "参考数量" };
 const statuses: Record<string, string> = { draft: "草稿", submitted: "待复核", approved: "已批准", rejected: "已拒绝" };
 const blankDefinition = (): FormalPayrollDefinition => ({ roundingPolicy: "line_items_half_up", items: [] });
 
-export function PayrollRuleMaintenance() {
+export function PayrollRuleMaintenance({intent,onReturn}:{intent?:PayrollRuleHandoffIntent|null;onReturn?:(intent:PayrollRuleHandoffIntent)=>void}) {
   const user = useAuthUser();
-  return <RuleWorkspace key={JSON.stringify(user)} />;
+  return <RuleWorkspace key={JSON.stringify(user)} intent={intent} onReturn={onReturn}/>;
 }
-function RuleWorkspace() {
+function RuleWorkspace({intent,onReturn}:{intent?:PayrollRuleHandoffIntent|null;onReturn?:(intent:PayrollRuleHandoffIntent)=>void}) {
   const user = useAuthUser(), canRead = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_RULE_READ);
   const canManage = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_MANAGE), canReview = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW);
   const [sets, setSets] = useState<FormalPayrollRuleSet[]>([]), [rulePage, setRulePage] = useState(1), [ruleTotal, setRuleTotal] = useState(0);
@@ -34,10 +36,13 @@ function RuleWorkspace() {
   const [book, setBook] = useState<FormalPayrollBookOption | null>(null), [bookKeyword, setBookKeyword] = useState(""), [bookSearch, setBookSearch] = useState("");
   const [bookLoading, setBookLoading] = useState(false), [bookError, setBookError] = useState(""), [bookRefresh, setBookRefresh] = useState(0);
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const [handoffState,setHandoffState]=useState<"idle"|"loading"|"ready"|"linked"|"error">("idle"),[handoffError,setHandoffError]=useState("");
   const alive = useRef(true), request = useRef<AbortController | null>(null), lock = useRef(false);
+  const handoffRequest=useRef<AbortController|null>(null);
+  const handoffToken=useRef<string|null>(null);
   const sourceApplied = useRef(false);
   const retry = useRef<{ signature: string; key: string } | null>(null);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; request.current?.abort(); }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; request.current?.abort(); handoffRequest.current?.abort(); }; }, []);
   const load = useCallback(async () => {
     if (!canRead) return;
     const controller = new AbortController(); request.current?.abort(); request.current = controller;
@@ -67,6 +72,31 @@ function RuleWorkspace() {
     }).finally(() => { if (alive.current && !controller.signal.aborted) setBookLoading(false); });
     return () => controller.abort();
   }, [canRead, canManage, bookPage, bookSearch, bookRefresh]);
+  useEffect(()=>{
+    handoffRequest.current?.abort();
+    if(!intent){handoffToken.current=null;setHandoffState("idle");setHandoffError("");return;}
+    if(!canRead||!canManage){setHandoffState("error");setHandoffError("当前权限不足，不能为该账套准备工资规则。");return;}
+    const controller=new AbortController(),token=getAccessToken();handoffRequest.current=controller;handoffToken.current=token;setHandoffState("loading");setHandoffError("");setError("");
+    const current=()=>alive.current&&!controller.signal.aborted&&handoffRequest.current===controller&&getAccessToken()===token;
+    void (async()=>{
+      const [allRules,allBooks]=await Promise.all([
+        collectScopedExport(page=>hrApi.payrollRules({page,pageSize:100},token,controller.signal),current,{pageSize:100,limit:2000,label:"工资规则"}),
+        collectScopedExport(page=>hrApi.payrollBookOptions({page,pageSize:100},token,controller.signal),current,{pageSize:100,limit:2000,label:"工资账套"}),
+      ]);
+      if(!current()||!allRules||!allBooks)return;
+      const linked=allRules.filter(rule=>rule.sourceBookId===intent.bookId);
+      if(linked.length>1)throw new Error("该工资账套关联了多个规则，请先处理关联关系后重试。");
+      if(linked.length===1){
+        const linkedBook=linked[0]!.sourceBook;
+        if(!linkedBook||linkedBook.id!==intent.bookId||linkedBook.scheme!==intent.scheme)throw new Error("所选工资账套已变化或不可读取，请返回整月试算刷新后重试。");
+        setCurrent(linked[0]!);setSelected(null);setEditing(false);setHandoffState("linked");return;
+      }
+      const target=allBooks.find(candidate=>candidate.id===intent.bookId&&candidate.scheme===intent.scheme);
+      if(!target)throw new Error("所选工资账套已变化或不可读取，请返回整月试算刷新后重试。");
+      setBook(target);setBookKeyword("");setBookSearch("");setBookPage(1);setHandoffState("ready");
+    })().catch(cause=>{if(current()){setHandoffState("error");setHandoffError(hrLoadErrorMessage(cause,"无法确认该账套的规则关联，请重试。"));}});
+    return()=>controller.abort();
+  },[intent?.legacyBatchId,intent?.month,intent?.bookId,intent?.scheme,canRead,canManage]);
   const write = async (action: string, body: unknown, operation: (key: string) => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(""); setNotice("");
@@ -88,37 +118,40 @@ function RuleWorkspace() {
   const changeItem = (index: number, change: Partial<FormalPayrollItem>) => setDefinition(value => ({ ...value, items: value.items.map((item, i) => i === index ? { ...item, ...change } : item) }));
   const editable = canManage && editing && (!selected || selected.status === "draft");
   const bookOptions = payrollBookOptions(book ? [book, ...books] : books);
+  const contextualCreate=Boolean(intent&&handoffState==="ready"&&handoffToken.current===getAccessToken()&&book?.id===intent.bookId&&book.scheme===intent.scheme);
   if (!canRead) return null;
   return <section className={`ds-panel ${styles.workspace}`} aria-labelledby="modern-payroll-rules">
-    <div className={styles.actions}><h2 id="modern-payroll-rules">工资业务规则</h2><button className="secondary-button" type="button" disabled={loading || busy} onClick={() => void load().catch(() => undefined)}>刷新规则</button></div>
+    <div className={styles.actions}><h2 id="modern-payroll-rules">工资业务规则</h2><button className="secondary-button" type="button" disabled={loading || busy} onClick={() => void load().catch(() => undefined)}>刷新规则</button>{intent&&onReturn?<button className="secondary-button" type="button" disabled={busy} onClick={()=>{if(handoffToken.current!==getAccessToken()){setHandoffState("error");setHandoffError("登录状态已变化，请返回整月试算重新选择账套。");return;}onReturn(intent);}}>返回同一来源月份</button>:null}</div>
     <p>按业务项目维护计算顺序、金额来源和生效月份。已批准版本保留，后续调整新增版本。</p>
+    {intent?<section className={`ds-panel ${styles.workspace} ${styles.sourcePreparation}`} aria-label="本账套规则准备上下文"><strong>正在准备：{intent.bookName} · 账套 {intent.scheme} · {intent.month}</strong><p>请核对该账套的现有规则，或明确填写新规则编号和名称后建立关联。完成后可返回同一来源月份继续准备。</p>{handoffState==="loading"?<p role="status">正在完整核对规则与工资账套…</p>:null}{handoffError?<p className="form-error" role="alert">{handoffError}</p>:null}{handoffState==="linked"?<p role="status">已打开该账套的现有关联规则。</p>:null}</section>:null}
     {error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
-    {canManage ? <form className={styles.workspace} onSubmit={event => {
-      event.preventDefault(); if (!code.trim() || !name.trim()) return;
+    {canManage && (!intent || handoffState === "ready") ? <form className={styles.workspace} onSubmit={event => {
+      const handoffTokenCurrent=handoffToken.current===getAccessToken();
+      event.preventDefault(); if (!code.trim() || !name.trim() || (intent&&(!contextualCreate||!handoffTokenCurrent))) { if(intent&&!handoffTokenCurrent){setHandoffState("error");setHandoffError("登录状态已变化，请返回整月试算重新选择账套。");} return; }
       const body = { ruleCode: code.trim(), displayName: name.trim(), ...(book ? { sourceBookId: book.id } : {}) };
-      void write("hr-rule-create", body, async key => { const created = await hrApi.createPayrollRules(body, getAccessToken(), key); if (alive.current) { setCurrent(created); setCode(""); setName(""); setBook(null); setBookRefresh(value => value + 1); setSelected(null); setEditing(false); setPage(1); } });
+      void write("hr-rule-create", body, async key => { const created = await hrApi.createPayrollRules(body, getAccessToken(), key); if (alive.current) { setCurrent(created); setCode(""); setName(""); setBook(null); setBookRefresh(value => value + 1); setSelected(null); setEditing(false); setPage(1); if (intent) setHandoffState("linked"); } });
     }}>
       <div className={styles.fields}><label className="form-field"><span>规则编号</span><input required maxLength={64} disabled={busy} value={code} onChange={event => setCode(event.target.value)} /></label>
       <label className="form-field"><span>规则名称</span><input required maxLength={100} disabled={busy} value={name} onChange={event => setName(event.target.value)} /></label>
       </div>
       <div className={styles.workspace}>
-        <div className={styles.fields}><label className="form-field"><span>关联工资账套（可选）</span><select disabled={busy || bookLoading || !!bookError} value={book?.id ?? ""} onChange={event => setBook(bookOptions.find(value => value.id === event.target.value) ?? null)}>
-          <option value="">独立规则，不关联账套</option>
-          {bookOptions.map(value => <option value={value.id} key={value.id}>{value.label}</option>)}
+        <div className={styles.fields}><label className="form-field"><span>关联工资账套（可选）</span><select disabled={busy || bookLoading || !!bookError || Boolean(intent)} value={book?.id ?? ""} onChange={event => setBook(bookOptions.find(value => value.id === event.target.value) ?? null)}>
+          {!intent?<option value="">独立规则，不关联账套</option>:null}
+          {(intent&&book?payrollBookOptions([book]):bookOptions).map(value => <option value={value.id} key={value.id}>{value.label}</option>)}
         </select></label>
-        <div className={styles.actions}><label className="form-field"><span>搜索工资账套名称或编号</span><input maxLength={100} disabled={busy} value={bookKeyword} onChange={event => setBookKeyword(event.target.value)} /></label><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => { setBookSearch(bookKeyword.trim()); setBookPage(1); setBookRefresh(value => value + 1); }}>搜索账套</button></div>
+        {!intent?<div className={styles.actions}><label className="form-field"><span>搜索工资账套名称或编号</span><input maxLength={100} disabled={busy} value={bookKeyword} onChange={event => setBookKeyword(event.target.value)} /></label><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => { setBookSearch(bookKeyword.trim()); setBookPage(1); setBookRefresh(value => value + 1); }}>搜索账套</button></div>:null}
         </div>
         {bookError ? <p className="form-error" role="alert">{bookError}</p> : bookLoading ? <p>正在加载工资账套…</p> : <p>{bookTotal ? `有 ${bookTotal} 个可关联账套。` : "当前搜索没有可关联账套，可创建独立规则。"}</p>}
-        <div className={styles.actions}><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage <= 1} onClick={() => setBookPage(value => value - 1)}>账套上一页</button><span>第 {bookPage} / {Math.max(1, Math.ceil(bookTotal / 20))} 页</span><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage * 20 >= bookTotal} onClick={() => setBookPage(value => value + 1)}>账套下一页</button><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => setBookRefresh(value => value + 1)}>刷新账套</button></div>
+        {!intent?<div className={styles.actions}><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage <= 1} onClick={() => setBookPage(value => value - 1)}>账套上一页</button><span>第 {bookPage} / {Math.max(1, Math.ceil(bookTotal / 20))} 页</span><button type="button" className="secondary-button" disabled={busy || bookLoading || bookPage * 20 >= bookTotal} onClick={() => setBookPage(value => value + 1)}>账套下一页</button><button type="button" className="secondary-button" disabled={busy || bookLoading} onClick={() => setBookRefresh(value => value + 1)}>刷新账套</button></div>:null}
         <p>已关联的账套在对应工资规则中维护；关联保留业务关系，计算使用独立批准的生效规则。</p>
-        {book ? <p>本次关联：{payrollBookLabel(book)}<button type="button" className="secondary-button" disabled={busy} onClick={() => setBook(null)}>取消关联选择</button></p> : null}
+        {book ? <p>本次关联：{payrollBookLabel(book)}{!intent?<button type="button" className="secondary-button" disabled={busy} onClick={() => setBook(null)}>取消关联选择</button>:null}</p> : null}
       </div>
-      <div className={styles.actions}><button className="secondary-button" disabled={busy} type="submit">新建规则</button></div>
+      <div className={styles.actions}><button className="secondary-button" disabled={busy || Boolean(intent&&!contextualCreate)} type="submit">新建规则</button></div>
     </form> : null}
-    <label className="form-field"><span>选择工资规则</span><select value={current?.id ?? ""} disabled={busy || loading} onChange={event => {
+    <label className="form-field"><span>选择工资规则</span><select value={current?.id ?? ""} disabled={busy || loading || Boolean(intent)} onChange={event => {
       if (lock.current) return; setCurrent(sets.find(rule => rule.id === event.target.value) ?? null); setSelected(null); setEditing(false); setVersions([]); setPage(1); setNotice("");
     }}><option value="">请选择规则</option>{current && !sets.some(rule => rule.id === current.id) ? <option value={current.id}>{current.displayName}</option> : null}{sets.map(rule => <option key={rule.id} value={rule.id}>{rule.displayName} · {rule.ruleCode}</option>)}</select></label>
-    <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || rulePage <= 1} onClick={() => setRulePage(value => value - 1)} type="button">规则上一页</button><span>第 {rulePage} / {Math.max(1, Math.ceil(ruleTotal / 20))} 页</span><button className="secondary-button" disabled={busy || loading || rulePage * 20 >= ruleTotal} onClick={() => setRulePage(value => value + 1)} type="button">规则下一页</button></div>
+    <div className={styles.actions}><button className="secondary-button" disabled={busy || loading || Boolean(intent) || rulePage <= 1} onClick={() => setRulePage(value => value - 1)} type="button">规则上一页</button><span>第 {rulePage} / {Math.max(1, Math.ceil(ruleTotal / 20))} 页</span><button className="secondary-button" disabled={busy || loading || Boolean(intent) || rulePage * 20 >= ruleTotal} onClick={() => setRulePage(value => value + 1)} type="button">规则下一页</button></div>
     {current ? <>
       <p>关联账套：{current.sourceBook ? payrollBookLabel(current.sourceBook) : current.sourceBookId ? "关联账套暂不可用" : "独立工资规则"}</p>
       <div className={styles.actions}><h3>{current.displayName}的版本</h3>{canManage ? <button className="secondary-button" type="button" disabled={busy || loading} onClick={() => { setSelected(null); setDefinition(blankDefinition()); setReason(""); setEditing(true); sourceApplied.current = false; }}>新增版本</button> : null}</div>

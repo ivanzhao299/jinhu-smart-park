@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-modern-rule-maintenance.md", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-preparation-cohort.md", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-rule-choice-csv.md", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/app/hr/payroll/HrPayrollClient.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/app/hr/payroll/PayrollModernOperations.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/app/hr/payroll/PayrollTrialComparison.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/app/hr/payroll/PayrollRuleMaintenance.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/lib/scoped-csv-export.ts", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/test/interaction/hr-payroll-rule-maintenance.test.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}
+{"file": "apps/web/test/interaction/hr-payroll-trial.test.tsx", "reason": "Existing payroll workflow and exact target/whole-month continuation contract"}

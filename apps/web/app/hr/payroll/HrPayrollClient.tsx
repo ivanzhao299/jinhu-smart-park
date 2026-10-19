@@ -34,6 +34,7 @@ import { PayrollLedgerExport } from "./PayrollLedgerExport";
 import { PayrollStatementActions } from "./PayrollStatementActions";
 import { PayrollReconciliationReview } from "./PayrollReconciliationReview";
 import { formatPayrollHistoryItemValue } from "./payroll-history-display";
+import type { PayrollRuleHandoffIntent } from "./payroll-rule-handoff";
 
 type WorkArea = "online" | "history" | "rules" | "difference";
 type ViewState = "loading" | "ready" | "empty" | "forbidden" | "error";
@@ -158,6 +159,15 @@ export function HrPayrollClient() {
           ? "rules"
           : "difference",
   );
+  const [ruleIntent,setRuleIntent]=useState<PayrollRuleHandoffIntent|null>(null);
+  const [returnTrial,setReturnTrial]=useState<Pick<PayrollRuleHandoffIntent,"legacyBatchId"|"month">|null>(null);
+  const payrollContextKey=JSON.stringify([user?.id,user?.tenant_id,user?.park_id,user?.permissions,user?.roles,user?.is_super,user?.data_scope,user?.data_scopes,user?.field_policies]);
+  const [intentContextKey,setIntentContextKey]=useState(payrollContextKey);
+  if(intentContextKey!==payrollContextKey){
+    setIntentContextKey(payrollContextKey);
+    setRuleIntent(null);
+    setReturnTrial(null);
+  }
   const availableAreas = useMemo(
     () => [
       ...(canReadOnline || canSelfOnline
@@ -237,7 +247,7 @@ export function HrPayrollClient() {
           </section>
         ) : null}
         {area === "online" && (canReadOnline || canSelfOnline) ? (
-          <><PayrollModernOperations onCreated={()=>setPayrollRefresh(value=>value+1)}/><OnlinePayroll
+          <><PayrollModernOperations onCreated={()=>setPayrollRefresh(value=>value+1)} returnTrial={returnTrial} onPrepareRule={intent=>{setReturnTrial(null);setRuleIntent(intent);setArea("rules");}}/><OnlinePayroll
             refresh={payrollRefresh}
             canManage={canManage}
             canRead={canReadOnline}
@@ -251,7 +261,7 @@ export function HrPayrollClient() {
           <HistoryPayroll key={JSON.stringify(user)} selfOnly={!canHistory} />
         ) : null}
         {area === "rules" && canRules ? (
-          <><PayrollRuleMaintenance/><PayrollFormulaReview/><RuleReview canAct={canReviewRules} /></>
+          <><PayrollRuleMaintenance intent={ruleIntent} onReturn={intent=>{setRuleIntent(null);setReturnTrial({legacyBatchId:intent.legacyBatchId,month:intent.month});setArea("online");}}/><PayrollFormulaReview/><RuleReview canAct={canReviewRules} /></>
         ) : null}
         {area === "difference" && canDifference ? (
           <ReconciliationWorkbench
