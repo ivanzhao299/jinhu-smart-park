@@ -1,7 +1,7 @@
 {
   "objective": "Normalized33-field formal profile continuity, modern-edit preservation, original provenance unchanged",
   "baselineSha": "8ffc3cff81a60865ec8006136890d260a6ec6012",
-  "status": "CHECK_PASSED_READY_COMMIT_PR",
+  "status": "DEPLOYED_RUNTIME_VERIFIED",
   "agent": null,
   "sourceOwnership": "root release owner",
   "rootOwnership": "task/release/parent metadata",
@@ -11,9 +11,10 @@
     "degree": 68
   },
   "boundary": "Do not treat field structure or optional normalized support as actual data population/oldsource mapping/UAT",
-  "nextAction": "Commit reviewed candidate, required CI smoke, merge/deploy/runtime verification; full goal active",
+  "nextAction": "Archive technical code leaf; proceed to complete approved request business chain",
   "fullGoalComplete": false,
-  "activeWork": "Root release preparation",
-  "validationStatus": "Independent fullscope PASS,46 unit/access,PG1+2,contract2,actualHTTP2 reused with valid-path validator ordering boundary",
-  "branch": "codex/hr-profile-continuous-update-20261020"
+  "activeWork": "Technical release complete; real business acceptance remains parent-owned",
+  "validationStatus": "Reviewed candidate/merged tree + required CI, production deploy cleanup health and actual API/Web770a runtime verified",
+  "branch": "codex/hr-profile-continuous-update-20261020",
+  "releaseEvidence": "/Users/mac/.codex/artifacts/hr-profile-continuous-update-20261020/release-evidence.json"
 }
