@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/api/backend/hr-approved-profile-field-preservation.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/api/backend/hr-enterprise-runtime.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/web/frontend/hr-approval-operation-continuity.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/web/frontend/hr-approval-content-history.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/web/frontend/hr-job-change-operation-continuity.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/web/frontend/hr-employee-profile-readonly.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Existing approved request/formal fulfillment/state/scope/UI contracts"}

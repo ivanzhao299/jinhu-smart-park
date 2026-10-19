@@ -21,6 +21,7 @@
 
 - All HR rows and references are tenant + park scoped in service validation.
 - Employee status is changed only by lifecycle actions; generic profile update cannot change it.
+- Job-change application/effective SQL dates must remain `YYYY-MM-DD` in list/detail and locked mutation rows. Do not serialize PostgreSQL date values as JavaScript instants or compare a Date object with a date string. Apply eligibility uses the database Shanghai business day, consistent with the modern Web; a future date must leave approved state, employee assignment and employment events unchanged. Regress same-day apply, future refusal and date list/detail readback through the actual dual-runtime HTTP flow.
 - Child-goal weights under one parent cannot exceed `1.0`; employee check-ins can update only the actor's own goal.
 - Performance plans freeze target name, metric, value, unit, due date, and weight.
 - Anonymous 360 results never expose reviewer identity and remain unavailable below the threshold.
