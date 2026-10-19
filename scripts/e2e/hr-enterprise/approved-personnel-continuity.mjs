@@ -1,0 +1,122 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+
+export async function exerciseApprovedPersonnelContinuity({base, fixture, record = () => {}}) {
+  const login = async identity => {
+    const response = await fetch(base + '/auth/login', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({username: identity.username, password: identity.password})});
+    assert.equal(response.status, 200, 'Normal actor password login');
+    const session = (await response.json()).data;
+    assert.ok(session.accessToken);
+    return session;
+  };
+  const call = async (session, method, path, body, expected = method === 'POST' ? 201 : 200, key = randomUUID()) => {
+    const response = await fetch(base + path, {method, headers: {'content-type': 'application/json', authorization: 'Bearer ' + session.accessToken, 'x-idempotency-key': key}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+    const envelope = await response.json();
+    assert.ok((Array.isArray(expected) ? expected : [expected]).includes(response.status), `${method} ${path}: ${response.status} ${String(envelope.message)}`);
+    return envelope.data ?? envelope;
+  };
+  const employee = await login(fixture.employee), manager = await login(fixture.manager), hr = await login(fixture.hr), reviewer = await login(fixture.reviewer);
+  for (const session of [employee, manager, hr, reviewer]) {
+    const me = await call(session, 'GET', '/auth/me');
+    assert.equal(me.is_super, false);
+    assert.ok(!me.permissions.includes('*'));
+  }
+  const create = (type, title) => call(employee, 'POST', '/hr/approvals', {requestType: type, title, payload: {description: 'Synthetic source only'}});
+  const submit = source => call(employee, 'POST', `/hr/approvals/${source.id}/actions`, {action: source.status === 'returned' ? 'resubmit' : 'submit'});
+  const review = (source, action) => call(manager, 'POST', `/hr/approvals/${source.id}/review`, {action, comment: 'Synthetic department review'});
+  const profilePath = `/hr/employees/${fixture.employeeId}/profile`;
+  const original = await call(hr, 'GET', profilePath);
+  assert.equal(original.englishName, 'Synthetic preserved');
+  let profileSource = await create('profile_change', 'Synthetic profile correction');
+  assert.equal(profileSource.subjectEmployeeId, fixture.employeeId);
+  profileSource = await review(await submit(profileSource), 'return');
+  profileSource = await call(employee, 'POST', `/hr/approvals/${profileSource.id}/revisions`, {expectedVersion: profileSource.version, title: 'Synthetic profile revised', description: 'Synthetic revised', reason: 'Synthetic reason'});
+  profileSource = await review(await submit(profileSource), 'approve');
+  const fulfillmentPath = `/hr/approvals/${profileSource.id}/profile-fulfillment`;
+  const patch = {employeeId: fixture.employeeId, expectedApprovalVersion: profileSource.version, expectedVersion: original.version, nativePlace: 'Synthetic locality'};
+  await call(employee, 'POST', fulfillmentPath, patch, 403);
+  const profileKey = randomUUID();
+  const receipt = await call(hr, 'POST', fulfillmentPath, patch, 201, profileKey);
+  assert.deepEqual(receipt.fieldNames, ['nativePlace']);
+  assert.equal(receipt.employeeId, fixture.employeeId);
+  assert.deepEqual(await call(hr, 'POST', fulfillmentPath, patch, 201, profileKey), receipt);
+  await call(hr, 'POST', fulfillmentPath, patch, 409);
+  const updated = await call(hr, 'GET', profilePath);
+  assert.equal(updated.version, original.version + 1);
+  assert.equal(updated.nativePlace, 'Synthetic locality');
+  assert.equal(updated.englishName, original.englishName);
+  assert.equal(updated.highestEducation, original.highestEducation);
+  const ownProfile = await call(employee, 'GET', '/hr/employees/me/profile');
+  assert.equal(ownProfile.employeeId, fixture.employeeId);
+  assert.equal(ownProfile.version, updated.version);
+  const queue = await call(hr, 'GET', '/hr/approvals/profile-fulfillments?page=1&page_size=100');
+  assert.equal(queue.items.filter(item => item.id === profileSource.id && item.fulfillment?.profileId === receipt.profileId).length, 1);
+  record('profileReturnReviseResubmitApprovePatchReplayAndScopedReadback');
+
+  let clearSource = await create('profile_change', 'Synthetic explicit clear');
+  clearSource = await review(await submit(clearSource), 'approve');
+  const cleared = await call(hr, 'POST', `/hr/approvals/${clearSource.id}/profile-fulfillment`, {employeeId: fixture.employeeId, expectedApprovalVersion: clearSource.version, expectedVersion: updated.version, nativePlace: null});
+  assert.deepEqual(cleared.fieldNames, ['nativePlace']);
+  const afterClear = await call(hr, 'GET', profilePath);
+  assert.equal(afterClear.nativePlace, null);
+  assert.equal(afterClear.englishName, original.englishName);
+  assert.equal(afterClear.highestEducation, original.highestEducation);
+  record('explicitClearPreservesUnsubmittedFormalFields');
+
+  const before = await call(hr, 'GET', `/hr/employees/${fixture.employeeId}`);
+  let employmentSource = await create('employment_change', 'Synthetic employment change');
+  employmentSource = await review(await submit(employmentSource), 'approve');
+  assert.equal(employmentSource.subjectEmployeeId, fixture.employeeId);
+  assert.equal((await call(hr, 'GET', `/hr/employees/${fixture.employeeId}`)).primaryOrgId, before.primaryOrgId, 'Generic approval does not alter assignment');
+  const draftPath = `/hr/job-change-applications/from-approval/${employmentSource.id}`;
+  const draftBody = {applicationName: 'Synthetic linked transfer', employeeId: fixture.employeeId, expectedApprovalVersion: employmentSource.version, applicationDate: fixture.today, effectiveDate: fixture.today, changeType: 'transfer', afterOrgId: fixture.targetOrgId, reason: 'Synthetic explicit target'};
+  const draftKey = randomUUID();
+  const linked = await call(hr, 'POST', draftPath, draftBody, 201, draftKey);
+  assert.equal(linked.sourceApprovalId, employmentSource.id);
+  assert.equal(linked.sourceApprovalVersion, employmentSource.version);
+  assert.equal(linked.status, 'draft');
+  assert.equal(linked.applicationDate, fixture.today);
+  assert.equal(linked.effectiveDate, fixture.today);
+  assert.equal((await call(hr, 'POST', draftPath, draftBody, 201, draftKey)).id, linked.id);
+  await call(hr, 'POST', draftPath, draftBody, 409);
+  const exactPath = `/hr/job-change-applications?application_id=${linked.id}&page=1&page_size=1`;
+  const exact = await call(hr, 'GET', exactPath);
+  assert.equal(exact.total, 1);
+  assert.deepEqual(exact.items.map(item => item.id), [linked.id]);
+  assert.equal(exact.items[0].applicationDate, fixture.today);
+  assert.equal(exact.items[0].effectiveDate, fixture.today);
+  await call(hr, 'POST', `/hr/job-change-applications/${linked.id}/actions`, {action: 'submit'});
+  // The applicant lacks review permission. Service-level maker/checker remains
+  // covered by the existing unchanged PostgreSQL job-change regression.
+  await call(employee, 'POST', `/hr/job-change-applications/${linked.id}/review`, {action: 'approve'}, 403);
+  await call(reviewer, 'POST', `/hr/job-change-applications/${linked.id}/review`, {action: 'approve'});
+  const applyPath = `/hr/job-change-applications/${linked.id}/apply`, applyKey = randomUUID();
+  const applied = await call(reviewer, 'POST', applyPath, undefined, 201, applyKey);
+  assert.equal(applied.status, 'applied');
+  assert.deepEqual(await call(reviewer, 'POST', applyPath, undefined, 201, applyKey), applied);
+  await call(reviewer, 'POST', applyPath, undefined, 409);
+  const current = await call(hr, 'GET', `/hr/employees/${fixture.employeeId}`);
+  assert.equal(current.primaryOrgId, fixture.targetOrgId);
+  assert.equal((await call(employee, 'GET', '/hr/employees/me')).primaryOrgId, fixture.targetOrgId);
+  const history = await call(hr, 'GET', `/hr/job-change-applications/${linked.id}/history`);
+  assert.deepEqual(history.actions.map(action => action.action), ['created', 'submitted', 'approved', 'applied']);
+  const events = await call(hr, 'GET', `/hr/employees/${fixture.employeeId}/events`);
+  assert.equal(events.filter(event => event.eventType === 'transfer' && event.eventNo === linked.applicationNo).length, 1);
+  assert.equal((await call(employee, 'GET', exactPath)).items[0].status, 'applied');
+  await call(manager, 'GET', `/hr/employees/${fixture.foreignEmployeeId}`, undefined, [403, 404]);
+  await call(employee, 'GET', `/hr/employees/${fixture.foreignEmployeeId}`, undefined, [403, 404]);
+  record('approvedEmploymentUniqueDraftReviewApplyReplayEventExactAndSelfReadback');
+  const tomorrow = new Date(Date.parse(fixture.today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  const future = await call(hr, 'POST', '/hr/job-change-applications', {...draftBody, expectedApprovalVersion: undefined, applicationName: 'Synthetic future transfer guard', afterOrgId: fixture.departmentId, effectiveDate: tomorrow});
+  assert.equal(future.effectiveDate, tomorrow);
+  await call(hr, 'POST', `/hr/job-change-applications/${future.id}/actions`, {action: 'submit'});
+  await call(reviewer, 'POST', `/hr/job-change-applications/${future.id}/review`, {action: 'approve'});
+  await call(reviewer, 'POST', `/hr/job-change-applications/${future.id}/apply`, undefined, 409);
+  const futureState = await call(hr, 'GET', `/hr/job-change-applications?application_id=${future.id}`);
+  assert.equal(futureState.items[0].status, 'approved');
+  assert.equal((await call(employee, 'GET', '/hr/employees/me')).primaryOrgId, fixture.targetOrgId);
+  assert.equal((await call(hr, 'GET', `/hr/employees/${fixture.employeeId}/events`)).length, events.length);
+  record('calendarDatesStableAndFutureApplyRefusedWithoutEmployeeOrEventMutation');
+  fixture.completed = {profileApprovalId: profileSource.id, clearApprovalId: clearSource.id, employmentApprovalId: employmentSource.id, jobChangeId: linked.id};
+  return fixture.completed;
+}

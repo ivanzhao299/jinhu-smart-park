@@ -25,6 +25,7 @@ import {DepartureApplicationsPanel} from "./DepartureApplicationsPanel";
 import {LifecycleTemplateManager} from "./LifecycleTemplateManager";
 import {lifecycleTemplateSummaries} from "./lifecycle-template-data";
 import {HrEmployeeSelection} from "../components/HrEmployeeSelection";
+import {businessDate} from "../../../lib/business-date";
 const typeLabel: Record<string, string> = {
     onboarding: "入职",
     offboarding: "离职",
@@ -47,7 +48,7 @@ const typeLabel: Record<string, string> = {
     returned: "已退回",
     waived: "已豁免",
   };
-const initialStatisticsTo=new Date().toISOString().slice(0,10),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
+const initialStatisticsTo=businessDate(),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
 export function HrLifecycleClient({employeeId,jobChangeId}:{employeeId?:string;jobChangeId?:string}) {
   const user=useAuthUser();
   return <HrLifecycleContext key={JSON.stringify([user,employeeId,jobChangeId])} employeeId={employeeId} jobChangeId={jobChangeId}/>;
@@ -324,7 +325,7 @@ function HrLifecycleContext({employeeId,jobChangeId}:{employeeId?:string;jobChan
           <section className="ds-panel">
             <div className={styles.sectionHeading}>
               <div>
-                <span className="ds-eyebrow">玉舟兼容查询</span>
+                <span className="ds-eyebrow">任职记录</span>
                 <h2>人事异动统计</h2>
               </div>
               <span>{statistics?.from ?? statisticsFrom} 至 {statistics?.to ?? statisticsTo}</span>
@@ -339,8 +340,6 @@ function HrLifecycleContext({employeeId,jobChangeId}:{employeeId?:string;jobChan
               <div className={`ds-kpi-grid ${styles.statisticsKpis}`} aria-label="人事异动概览">
                 <article className="ds-kpi-card"><span>异动事件</span><strong>{statistics.total}</strong><small>所选日期范围</small></article>
                 <article className="ds-kpi-card"><span>涉及员工</span><strong>{statistics.employeeCount}</strong><small>按员工去重</small></article>
-                <article className="ds-kpi-card"><span>旧系统历史</span><strong>{statistics.historicalCount}</strong><small>玉舟迁移记录</small></article>
-                <article className="ds-kpi-card"><span>新系统办理</span><strong>{statistics.onlineCount}</strong><small>上线后在线记录</small></article>
               </div>
               <div className={`ds-mobile-record-list ${styles.statisticsRecords}`}>
                 {statistics.byType.length?statistics.byType.map((item)=><article className="ds-mobile-record" key={item.eventType}><strong>{eventTypeLabel[item.eventType]??item.eventType}</strong><span>{item.count} 次</span></article>):<p>所选日期范围暂无异动记录。</p>}
