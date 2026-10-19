@@ -35,3 +35,10 @@ it("trial authors without source-review permission cannot open or probe freeze p
   state.user.permissions=state.user.permissions.filter(permission=>permission!==HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW);render(<PayrollTrialComparison onPrepareSource={vi.fn()}/>);await selectJuly();await screen.findByText(/本月全部 2 个账套/);
   expect(screen.queryByRole("button",{name:"预览并冻结本账套来源"})).toBeNull();expect(state.api.previewPayrollReconciliationSource).not.toHaveBeenCalled();expect(state.api.createPayrollReconciliationSource).not.toHaveBeenCalled();
 });
+it("returns only to a still-authoritative selected source and month with fresh empty book state",async()=>{
+  render(<PayrollTrialComparison returnTrial={{legacyBatchId:"batch",month:"2026-07"}}/>);
+  await screen.findByText(/本月全部 2 个账套/);
+  expect(screen.getByLabelText("试算来源与月份")).toHaveValue("batch:2026-07");
+  expect(screen.getAllByLabelText("冻结原工资来源")[0]).toHaveValue("");
+  expect(screen.getAllByLabelText("现代确认输入")[0]).toHaveValue("");
+});
