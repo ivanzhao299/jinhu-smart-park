@@ -1,0 +1,1571 @@
+{
+  "baselineSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53",
+  "mappingSha256": "343644b266ba2a679419afd82aca0681b1954b74b04ae62301f89e42737e081f",
+  "reusedUnchangedReportSha256": "17f1d75e00223f0060e274d390b7a86be6d1eb5c7b5d7ced28c3227ac4793a47",
+  "scope": "36 static candidates, not a global functional denominator",
+  "productionWrites": 0,
+  "items": [
+    {
+      "legacyId": 240,
+      "parentId": -1,
+      "level": 1,
+      "order": 8,
+      "name": "事务管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 184,
+      "parentId": 240,
+      "level": 2,
+      "order": 1,
+      "name": "建议管理",
+      "legacyUrl": "civilservice/advicemag/browse.asp",
+      "legacyTable": "ser_tadvise",
+      "legacyView": "ser_vadvise",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "IMPLEMENTED_AWAITING_PARITY_UAT",
+      "evidence": [
+        {
+          "path": "apps/web/app/hr/employee-feedback/page.tsx",
+          "line": 1,
+          "sha256": "c85433e2df906bc5cd55105553ea83427a91515a538ca4ac5a490bd0b745b730",
+          "supports": "HrEmployeeFeedbackClient"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr-employee-feedback.controller.ts",
+          "line": 12,
+          "sha256": "e641afe849bd3e2128f91ca6330d344e1f4eb89f46c19d924fce4ae1b9f85f22",
+          "supports": "@Controller('hr/employee-feedback')"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr-employee-feedback.service.ts",
+          "line": 17,
+          "sha256": "9d09386615bf637a30b2850074cffcf2a245c9f97a4b8fada28637e7d1af2149",
+          "supports": "hr_employee_feedback"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "modernRoutes": [
+        "/hr/employee-feedback"
+      ],
+      "boundary": "已有持久化建议投诉办理；原规则等价和真实本人/HR操作未验收，旧/workflow映射已过时。"
+    },
+    {
+      "legacyId": 185,
+      "parentId": 240,
+      "level": 2,
+      "order": 2,
+      "name": "投诉管理",
+      "legacyUrl": "civilservice/hulmanage/browse.asp",
+      "legacyTable": "ser_tnethull",
+      "legacyView": "ser_vnethull",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "IMPLEMENTED_AWAITING_PARITY_UAT",
+      "evidence": [
+        {
+          "path": "apps/web/app/hr/employee-feedback/page.tsx",
+          "line": 1,
+          "sha256": "c85433e2df906bc5cd55105553ea83427a91515a538ca4ac5a490bd0b745b730",
+          "supports": "HrEmployeeFeedbackClient"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr-employee-feedback.controller.ts",
+          "line": 12,
+          "sha256": "e641afe849bd3e2128f91ca6330d344e1f4eb89f46c19d924fce4ae1b9f85f22",
+          "supports": "@Controller('hr/employee-feedback')"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr-employee-feedback.service.ts",
+          "line": 17,
+          "sha256": "9d09386615bf637a30b2850074cffcf2a245c9f97a4b8fada28637e7d1af2149",
+          "supports": "hr_employee_feedback"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "modernRoutes": [
+        "/hr/employee-feedback"
+      ],
+      "boundary": "已有持久化建议投诉办理；原规则等价和真实本人/HR操作未验收，旧/workflow映射已过时。"
+    },
+    {
+      "legacyId": 119,
+      "parentId": 240,
+      "level": 2,
+      "order": 3,
+      "name": "信息发布",
+      "legacyUrl": "civilservice/news/browse.asp",
+      "legacyTable": "ser_tnews",
+      "legacyView": "ser_vnews",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "ser_tnews",
+          "ser_vnews"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 120,
+      "parentId": 240,
+      "level": 2,
+      "order": 4,
+      "name": "论坛管理",
+      "legacyUrl": "CIVILSERVICE/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 3,
+      "parentId": 240,
+      "level": 2,
+      "order": 5,
+      "name": "文档管理",
+      "legacyUrl": "civilservice/HRPOLICY/submain.asp",
+      "legacyTable": "org_tCatalog",
+      "legacyView": "Civ_File_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/files/files.controller.ts",
+          "line": 50,
+          "sha256": "b76828180d6510f69db48ab8473826b617e65eb18d1a6ae8870ac2afd6eb1dca",
+          "supports": "@Controller(\"files\")"
+        },
+        {
+          "path": "apps/api/src/modules/files/files.controller.ts",
+          "line": 42,
+          "sha256": "b76828180d6510f69db48ab8473826b617e65eb18d1a6ae8870ac2afd6eb1dca",
+          "supports": "HR_FILE_READ_PERMISSIONS"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "附件中心有HR文件权限与上传读取，不证明制度目录、发布、版本或阅读权限已复现。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "org_tCatalog",
+          "Civ_File_vCata"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 252,
+      "parentId": 240,
+      "level": 2,
+      "order": 6,
+      "name": "活动安排",
+      "legacyUrl": "civilservice/ployplan/Browse.asp",
+      "legacyTable": "Civ_tployplan",
+      "legacyView": "Civ_vployplan",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tployplan",
+          "Civ_vployplan"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 253,
+      "parentId": 240,
+      "level": 2,
+      "order": 7,
+      "name": "行政接待",
+      "legacyUrl": "civilservice/politicalTa/Browse.asp",
+      "legacyTable": "Civ_tpoliticalTalk",
+      "legacyView": "Civ_vpoliticalTalk",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tpoliticalTalk",
+          "Civ_vpoliticalTalk"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 257,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "图书管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 254,
+      "parentId": 257,
+      "level": 3,
+      "order": 1,
+      "name": "图书信息",
+      "legacyUrl": "civilservice/bookmanage/submain.asp",
+      "legacyTable": "Civ_tbookbasicinfo",
+      "legacyView": "Civ_vbookbasicinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tbookbasicinfo",
+          "Civ_vbookbasicinfo"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 256,
+      "parentId": 257,
+      "level": 3,
+      "order": 3,
+      "name": "图书借还",
+      "legacyUrl": "civilservice/bookmanage/BookLoan/browse.asp",
+      "legacyTable": "Civ_tbookloaninfo",
+      "legacyView": "Civ_vbookloaninfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tbookloaninfo",
+          "Civ_vbookloaninfo"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 244,
+      "parentId": 240,
+      "level": 2,
+      "order": 9,
+      "name": "会议管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 241,
+      "parentId": 244,
+      "level": 3,
+      "order": 1,
+      "name": "会议室",
+      "legacyUrl": "civilservice/meetingroom/Browse.asp",
+      "legacyTable": "Civ_tBoardroom",
+      "legacyView": "Civ_vBoardroom",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tBoardroom",
+          "Civ_vBoardroom"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 242,
+      "parentId": 244,
+      "level": 3,
+      "order": 2,
+      "name": "会议安排",
+      "legacyUrl": "civilservice/meetingarrange/Browse.asp",
+      "legacyTable": "Civ_tMeetinfo",
+      "legacyView": "Civ_vMeetinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_tMeetinfo",
+          "Civ_vMeetinfo"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 295,
+      "parentId": 240,
+      "level": 2,
+      "order": 10,
+      "name": "办公用品",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 296,
+      "parentId": 295,
+      "level": 3,
+      "order": 1,
+      "name": "物品入库",
+      "legacyUrl": "civilservice/office/InRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tInRepertory",
+      "legacyView": "civ_Office_vInRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Office_tInRepertory",
+          "civ_Office_vInRepertory"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 297,
+      "parentId": 295,
+      "level": 3,
+      "order": 2,
+      "name": "物品出库",
+      "legacyUrl": "civilservice/office/OutRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tOutRepertory",
+      "legacyView": "civ_Office_vOutRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Office_tOutRepertory",
+          "civ_Office_vOutRepertory"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 298,
+      "parentId": 295,
+      "level": 3,
+      "order": 3,
+      "name": "库存查询",
+      "legacyUrl": "civilservice/office/Repertory/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 299,
+      "parentId": 295,
+      "level": 3,
+      "order": 4,
+      "name": "物品清单",
+      "legacyUrl": "civilservice/office/Goods/Browse.asp",
+      "legacyTable": "civ_Office_tgoods",
+      "legacyView": "civ_Office_vgoods",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Office_tgoods",
+          "civ_Office_vgoods"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 302,
+      "parentId": 240,
+      "level": 3,
+      "order": 11,
+      "name": "车辆管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 303,
+      "parentId": 302,
+      "level": 3,
+      "order": 1,
+      "name": "驾驶员",
+      "legacyUrl": "civilservice/car/Driver/Browse.asp",
+      "legacyTable": "Civ_Car_tDrivers",
+      "legacyView": "Civ_Car_vDrivers",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_Car_tDrivers",
+          "Civ_Car_vDrivers"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 304,
+      "parentId": 302,
+      "level": 3,
+      "order": 2,
+      "name": "车辆登记",
+      "legacyUrl": "civilservice/car/basic/Browse.asp",
+      "legacyTable": "Civ_Car_tBasic",
+      "legacyView": "Civ_Car_vBasic",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_Car_tBasic",
+          "Civ_Car_vBasic"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 305,
+      "parentId": 302,
+      "level": 3,
+      "order": 3,
+      "name": "日常费用",
+      "legacyUrl": "civilservice/car/DailyFee/Browse.asp",
+      "legacyTable": "civ_Car_tDailyFee",
+      "legacyView": "civ_Car_vDailyFee",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Car_tDailyFee",
+          "civ_Car_vDailyFee"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 306,
+      "parentId": 302,
+      "level": 3,
+      "order": 4,
+      "name": "车辆杂费",
+      "legacyUrl": "civilservice/car/Incidental/Browse.asp",
+      "legacyTable": "civ_car_tIncidental",
+      "legacyView": "civ_car_vIncidental",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_car_tIncidental",
+          "civ_car_vIncidental"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 307,
+      "parentId": 302,
+      "level": 3,
+      "order": 5,
+      "name": "车辆维修",
+      "legacyUrl": "civilservice/Maintain/basic/Browse.asp",
+      "legacyTable": "civ_Car_tMaintain",
+      "legacyView": "civ_Car_vMaintain",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Car_tMaintain",
+          "civ_Car_vMaintain"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 308,
+      "parentId": 302,
+      "level": 3,
+      "order": 6,
+      "name": "用油登记",
+      "legacyUrl": "civilservice/car/Oil/Browse.asp",
+      "legacyTable": "civ_Car_tOil",
+      "legacyView": "civ_Car_vOil",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Car_tOil",
+          "civ_Car_vOil"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 309,
+      "parentId": 302,
+      "level": 3,
+      "order": 7,
+      "name": "车辆保险",
+      "legacyUrl": "civilservice/car/Insurance/Browse.asp",
+      "legacyTable": "civ_Car_tInsurance",
+      "legacyView": "civ_Car_vInsurance",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "civ_Car_tInsurance",
+          "civ_Car_vInsurance"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 310,
+      "parentId": 302,
+      "level": 3,
+      "order": 8,
+      "name": "车辆申请",
+      "legacyUrl": "civilservice/car/Applay/Browse.asp",
+      "legacyTable": "Civ_Car_tApplay",
+      "legacyView": "Civ_Car_vApplay",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_Car_tApplay",
+          "Civ_Car_vApplay"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 311,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "CIVILSERVICE/PubAddressBook/submain.asp",
+      "legacyTable": "Civ_AddressBook_tCata",
+      "legacyView": "Civ_AddressBook_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 19,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "@Get(\"employees\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "员工名录不是公共通讯录；外部联系人、目录及维护规则仍未知。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Civ_AddressBook_tCata",
+          "Civ_AddressBook_vCata"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 174,
+      "parentId": 258,
+      "level": 2,
+      "order": 2,
+      "name": "流程定义",
+      "legacyUrl": "Configure/flow/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 110,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "approvals/me"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 119,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "approvals/:id/history"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 14,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@RequireModule(\"workorder\")"
+        },
+        {
+          "path": "apps/api/src/modules/workflow/workflow.controller.ts",
+          "line": 18,
+          "sha256": "e5c378fcbb9bf460a2a880f32d5ea0453fcfb78dcb0353d049f686d3377f2f91",
+          "supports": "@Get(\"inbox\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "已有固定HR审批与工单消息，不证明存在可配置流程定义设计器。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 117,
+      "parentId": -1,
+      "level": 1,
+      "order": 12,
+      "name": "个人办公",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。"
+    },
+    {
+      "legacyId": 125,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "个人信息",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "GROUP_NOT_ATOMIC_FUNCTION",
+      "evidence": [
+        {
+          "path": "apps/web/app/hr/employees/HrEmployeesClient.tsx",
+          "line": 100,
+          "sha256": "c79b84a6571f53c2f2d66695d2492f0a1739424d192dc47bd6d80066d6f761cb",
+          "supports": "hrApi.myProfile"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 21,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "employees/me/profile"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr.service.ts",
+          "line": 261,
+          "sha256": "16ed9ed23b88f1f288af409fe67aa1b183068a7b3207eed924995dee7cb1cafe",
+          "supports": "async myEmployeeProfile"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "旧入口为空的目录分组，不计为独立缺失CRUD。 另有本人档案投影，不能将此分组视为本人资料缺失。"
+    },
+    {
+      "legacyId": 149,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "我的监控",
+      "legacyUrl": "SERVICE/myMonitor/browse.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Con_vMonitorList",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 110,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "approvals/me"
+        },
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 119,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "approvals/:id/history"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "已有本人申请及办理轨迹；尚未证明等价于旧Con_vMonitorList监控语义。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Ser_AddressBook_tCata",
+          "Con_vMonitorList"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 259,
+      "parentId": 117,
+      "level": 2,
+      "order": 6,
+      "name": "内部论坛",
+      "legacyUrl": "Service/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "UNVERIFIED_OPERATIONAL_GAP",
+      "evidence": [],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "仅确认旧入口/资源名。未证实当前有同等业务闭环；不得由目标通用入口推断已实现，也不得仅凭本次未找到推断全局不存在。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 300,
+      "parentId": 117,
+      "level": 2,
+      "order": 7,
+      "name": "日程安排",
+      "legacyUrl": "Service/PerCalendar/browse.asp",
+      "legacyTable": "Ser_tDayPlan",
+      "legacyView": "Ser_vDayPlan",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/hr/hr-attendance-work-calendar.controller.ts",
+          "line": 12,
+          "sha256": "0ba2270058f49eecdbe77a49212e1c334eea0cbcd33200eae11ba93415a23929",
+          "supports": "@Controller(\"hr/attendance/work-calendar\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "组织考勤工作日历不是个人日程，提醒、共享、重复规则等旧行为仍未知。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Ser_tDayPlan",
+          "Ser_vDayPlan"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    },
+    {
+      "legacyId": 301,
+      "parentId": 117,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "Service/PerAddressBook/submain.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Ser_AddressBook_vCata",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "RELATED_CAPABILITY_NOT_PARITY",
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/hr/hr.controller.ts",
+          "line": 19,
+          "sha256": "db8153b7cd07d2e5dcc07a13e84350132f1e2f37cda5c7dca602fcfc379f543f",
+          "supports": "@Get(\"employees\")"
+        }
+      ],
+      "legacyRuleParity": "NOT_ACCEPTED",
+      "realRoleUat": "PENDING",
+      "boundary": "员工名录不是个人通讯录；私人联系人、分组和共享规则仍未知。",
+      "scopedResourceNameSearch": {
+        "roots": [
+          "apps/api/src/modules",
+          "apps/web/app",
+          "database/migrations"
+        ],
+        "exclude": "*.spec.*,*.test.*",
+        "terms": [
+          "Ser_AddressBook_tCata",
+          "Ser_AddressBook_vCata"
+        ],
+        "matchingPaths": [],
+        "interpretation": "Exact resource-name matches only; generic import readers or no hits do not establish business implementation or absence."
+      }
+    }
+  ],
+  "classificationCounts": {
+    "GROUP_NOT_ATOMIC_FUNCTION": 7,
+    "IMPLEMENTED_AWAITING_PARITY_UAT": 2,
+    "UNVERIFIED_OPERATIONAL_GAP": 21,
+    "RELATED_CAPABILITY_NOT_PARITY": 6
+  },
+  "auditedAt": "2026-10-19T16:18:13.101766+00:00",
+  "overallCompletionPercentage": null,
+  "codeSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53"
+}

@@ -178,6 +178,7 @@ row.managerEmployeeId = dto.managerEmployeeId === undefined ? row.managerEmploye
 
 - Read scope is resolved by the backend as `park | managed_org_tree | self | none`; no unrelated permission may fall back to `self`.
 - Client filters may narrow the resolved scope but never expand it.
+- `GET /hr/job-change-applications?application_id=<uuid>` applies the optional validated UUID with AND to the same tenant/park, deletion, employee join and park/team/self predicates before count/pagination. It grants no detail bypass, preserves required read audit (including authorized empty results), and composes with status/keyword. Repeated/malformed query values fail DTO validation. Prove a target beyond page20 and negative tenant/park/team/self/employee cases against isolated PostgreSQL.
 - Sensitive reads return explicit allowlist projections rather than TypeORM entities. HR file metadata never exposes storage path, stored name, digest, tenant/park, actor, soft-delete, or version fields.
 - Required audit records actor, tenant/park, action, field groups, business identity, route template, projection level, and item count without sensitive values.
 - Audit persistence completes before the sensitive response, response headers, or download stream. Audit failure blocks the response.

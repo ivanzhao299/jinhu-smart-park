@@ -1,0 +1,693 @@
+{
+  "baselineSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53",
+  "mappingSha256": "343644b266ba2a679419afd82aca0681b1954b74b04ae62301f89e42737e081f",
+  "reusedUnchangedReportSha256": "17f1d75e00223f0060e274d390b7a86be6d1eb5c7b5d7ced28c3227ac4793a47",
+  "scope": "36 static candidates, not a global functional denominator",
+  "productionWrites": 0,
+  "items": [
+    {
+      "legacyId": 240,
+      "parentId": -1,
+      "level": 1,
+      "order": 8,
+      "name": "事务管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 184,
+      "parentId": 240,
+      "level": 2,
+      "order": 1,
+      "name": "建议管理",
+      "legacyUrl": "civilservice/advicemag/browse.asp",
+      "legacyTable": "ser_tadvise",
+      "legacyView": "ser_vadvise",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 185,
+      "parentId": 240,
+      "level": 2,
+      "order": 2,
+      "name": "投诉管理",
+      "legacyUrl": "civilservice/hulmanage/browse.asp",
+      "legacyTable": "ser_tnethull",
+      "legacyView": "ser_vnethull",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 119,
+      "parentId": 240,
+      "level": 2,
+      "order": 3,
+      "name": "信息发布",
+      "legacyUrl": "civilservice/news/browse.asp",
+      "legacyTable": "ser_tnews",
+      "legacyView": "ser_vnews",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 120,
+      "parentId": 240,
+      "level": 2,
+      "order": 4,
+      "name": "论坛管理",
+      "legacyUrl": "CIVILSERVICE/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 3,
+      "parentId": 240,
+      "level": 2,
+      "order": 5,
+      "name": "文档管理",
+      "legacyUrl": "civilservice/HRPOLICY/submain.asp",
+      "legacyTable": "org_tCatalog",
+      "legacyView": "Civ_File_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 252,
+      "parentId": 240,
+      "level": 2,
+      "order": 6,
+      "name": "活动安排",
+      "legacyUrl": "civilservice/ployplan/Browse.asp",
+      "legacyTable": "Civ_tployplan",
+      "legacyView": "Civ_vployplan",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 253,
+      "parentId": 240,
+      "level": 2,
+      "order": 7,
+      "name": "行政接待",
+      "legacyUrl": "civilservice/politicalTa/Browse.asp",
+      "legacyTable": "Civ_tpoliticalTalk",
+      "legacyView": "Civ_vpoliticalTalk",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 257,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "图书管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 254,
+      "parentId": 257,
+      "level": 3,
+      "order": 1,
+      "name": "图书信息",
+      "legacyUrl": "civilservice/bookmanage/submain.asp",
+      "legacyTable": "Civ_tbookbasicinfo",
+      "legacyView": "Civ_vbookbasicinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 256,
+      "parentId": 257,
+      "level": 3,
+      "order": 3,
+      "name": "图书借还",
+      "legacyUrl": "civilservice/bookmanage/BookLoan/browse.asp",
+      "legacyTable": "Civ_tbookloaninfo",
+      "legacyView": "Civ_vbookloaninfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 244,
+      "parentId": 240,
+      "level": 2,
+      "order": 9,
+      "name": "会议管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 241,
+      "parentId": 244,
+      "level": 3,
+      "order": 1,
+      "name": "会议室",
+      "legacyUrl": "civilservice/meetingroom/Browse.asp",
+      "legacyTable": "Civ_tBoardroom",
+      "legacyView": "Civ_vBoardroom",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 242,
+      "parentId": 244,
+      "level": 3,
+      "order": 2,
+      "name": "会议安排",
+      "legacyUrl": "civilservice/meetingarrange/Browse.asp",
+      "legacyTable": "Civ_tMeetinfo",
+      "legacyView": "Civ_vMeetinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 295,
+      "parentId": 240,
+      "level": 2,
+      "order": 10,
+      "name": "办公用品",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 296,
+      "parentId": 295,
+      "level": 3,
+      "order": 1,
+      "name": "物品入库",
+      "legacyUrl": "civilservice/office/InRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tInRepertory",
+      "legacyView": "civ_Office_vInRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 297,
+      "parentId": 295,
+      "level": 3,
+      "order": 2,
+      "name": "物品出库",
+      "legacyUrl": "civilservice/office/OutRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tOutRepertory",
+      "legacyView": "civ_Office_vOutRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 298,
+      "parentId": 295,
+      "level": 3,
+      "order": 3,
+      "name": "库存查询",
+      "legacyUrl": "civilservice/office/Repertory/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 299,
+      "parentId": 295,
+      "level": 3,
+      "order": 4,
+      "name": "物品清单",
+      "legacyUrl": "civilservice/office/Goods/Browse.asp",
+      "legacyTable": "civ_Office_tgoods",
+      "legacyView": "civ_Office_vgoods",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 302,
+      "parentId": 240,
+      "level": 3,
+      "order": 11,
+      "name": "车辆管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 303,
+      "parentId": 302,
+      "level": 3,
+      "order": 1,
+      "name": "驾驶员",
+      "legacyUrl": "civilservice/car/Driver/Browse.asp",
+      "legacyTable": "Civ_Car_tDrivers",
+      "legacyView": "Civ_Car_vDrivers",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 304,
+      "parentId": 302,
+      "level": 3,
+      "order": 2,
+      "name": "车辆登记",
+      "legacyUrl": "civilservice/car/basic/Browse.asp",
+      "legacyTable": "Civ_Car_tBasic",
+      "legacyView": "Civ_Car_vBasic",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 305,
+      "parentId": 302,
+      "level": 3,
+      "order": 3,
+      "name": "日常费用",
+      "legacyUrl": "civilservice/car/DailyFee/Browse.asp",
+      "legacyTable": "civ_Car_tDailyFee",
+      "legacyView": "civ_Car_vDailyFee",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 306,
+      "parentId": 302,
+      "level": 3,
+      "order": 4,
+      "name": "车辆杂费",
+      "legacyUrl": "civilservice/car/Incidental/Browse.asp",
+      "legacyTable": "civ_car_tIncidental",
+      "legacyView": "civ_car_vIncidental",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 307,
+      "parentId": 302,
+      "level": 3,
+      "order": 5,
+      "name": "车辆维修",
+      "legacyUrl": "civilservice/Maintain/basic/Browse.asp",
+      "legacyTable": "civ_Car_tMaintain",
+      "legacyView": "civ_Car_vMaintain",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 308,
+      "parentId": 302,
+      "level": 3,
+      "order": 6,
+      "name": "用油登记",
+      "legacyUrl": "civilservice/car/Oil/Browse.asp",
+      "legacyTable": "civ_Car_tOil",
+      "legacyView": "civ_Car_vOil",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 309,
+      "parentId": 302,
+      "level": 3,
+      "order": 7,
+      "name": "车辆保险",
+      "legacyUrl": "civilservice/car/Insurance/Browse.asp",
+      "legacyTable": "civ_Car_tInsurance",
+      "legacyView": "civ_Car_vInsurance",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 310,
+      "parentId": 302,
+      "level": 3,
+      "order": 8,
+      "name": "车辆申请",
+      "legacyUrl": "civilservice/car/Applay/Browse.asp",
+      "legacyTable": "Civ_Car_tApplay",
+      "legacyView": "Civ_Car_vApplay",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 311,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "CIVILSERVICE/PubAddressBook/submain.asp",
+      "legacyTable": "Civ_AddressBook_tCata",
+      "legacyView": "Civ_AddressBook_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 174,
+      "parentId": 258,
+      "level": 2,
+      "order": 2,
+      "name": "流程定义",
+      "legacyUrl": "Configure/flow/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 117,
+      "parentId": -1,
+      "level": 1,
+      "order": 12,
+      "name": "个人办公",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 125,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "个人信息",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 149,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "我的监控",
+      "legacyUrl": "SERVICE/myMonitor/browse.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Con_vMonitorList",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 259,
+      "parentId": 117,
+      "level": 2,
+      "order": 6,
+      "name": "内部论坛",
+      "legacyUrl": "Service/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 300,
+      "parentId": 117,
+      "level": 2,
+      "order": 7,
+      "name": "日程安排",
+      "legacyUrl": "Service/PerCalendar/browse.asp",
+      "legacyTable": "Ser_tDayPlan",
+      "legacyView": "Ser_vDayPlan",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    },
+    {
+      "legacyId": 301,
+      "parentId": 117,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "Service/PerAddressBook/submain.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Ser_AddressBook_vCata",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped",
+      "priorStaticClassification": "mapped_only",
+      "currentClassification": "PENDING_EVIDENCE",
+      "evidence": []
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "status": "CHECK_PASSED_READY_COMMIT_PR_CI",
+  "workspace": "/Users/mac/.codex/worktrees/hr-team-approval-entry-20261018/jinhu-smart-park",
+  "baselineSha": "9e96fc106219ca2e849b7c0bb9ca43d866d3de53",
+  "objective": "Exact linked job-change continuation through existing authorized workflow",
+  "fullGoalComplete": false,
+  "productionWrites": 0,
+  "activeRunHandle": null,
+  "nextAction": "Commit reviewed source/spec/task records; push candidate PR with required CI and ReleaseSmoke, then authorized merge/deploy/runtime verification",
+  "updatedAt": "2026-10-19T16:29:44.147462+00:00",
+  "validation": {
+    "focusedApi": "4/4 PASS zero skip; current exact-target PG rerun1/1 PASS",
+    "focusedWeb": "37 unique PASS",
+    "apiFullLintBuild": "PASS",
+    "webFullLintBuild": "PASS",
+    "apiWebTypecheck": "PASS independent",
+    "hrContracts": "261/261 PASS zero skip",
+    "desktop390": "PASS actual components synthetic evidence",
+    "independentFullScope": "PASS no unresolved findings"
+  }
+}

@@ -19,12 +19,12 @@ type Draft={applicationName:string;applicationDate:string;effectiveDate:string;c
 const emptyDraft=():Draft=>({applicationName:"",applicationDate:businessDate(),effectiveDate:businessDate(),changeType:"transfer",reason:""});
 type Operation={kind:"create"|"update"|"submit"|"resubmit"|"cancel"|"approve"|"return"|"apply";id?:string;status?:string;body?:Draft&{employeeId:string;afterOrgId:string;afterPositionId?:string};comment?:string;token:string|undefined;key:string};
 
-export function JobChangeApplicationsPanel(){
+export function JobChangeApplicationsPanel({applicationId}:{applicationId?:string}){
  const user=useAuthUser();
- return <JobChangeApplicationsContent key={JSON.stringify(user)}/>;
+ return <JobChangeApplicationsContent key={JSON.stringify([user,applicationId])} applicationId={applicationId}/>;
 }
 
-function JobChangeApplicationsContent(){
+function JobChangeApplicationsContent({applicationId}:{applicationId?:string}){
  const user=useAuthUser(),canRead=hasAnyPermission(user,[HR_PERMISSIONS.HR_JOB_CHANGE_READ,HR_PERMISSIONS.HR_JOB_CHANGE_TEAM_READ,HR_PERMISSIONS.HR_JOB_CHANGE_SELF_READ]),canManage=hasPermission(user,HR_PERMISSIONS.HR_JOB_CHANGE_MANAGE),canReview=hasPermission(user,HR_PERMISSIONS.HR_JOB_CHANGE_REVIEW),canApply=hasPermission(user,HR_PERMISSIONS.HR_JOB_CHANGE_APPLY);
  const [rows,setRows]=useState<HrJobChangeApplication[]>([]),[page,setPage]=useState(1),[total,setTotal]=useState(0),[options,setOptions]=useState<HrJobChangeOptions>({employees:[],orgs:[],positions:[]}),[editing,setEditing]=useState<HrJobChangeApplication|null>(null),[employeeId,setEmployeeId]=useState(""),[afterOrgId,setAfterOrgId]=useState(""),[afterPositionId,setAfterPositionId]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[optionsError,setOptionsError]=useState(""),abortRef=useRef<AbortController|null>(null),optionsAbort=useRef<AbortController|null>(null);
  const [draft,setDraft]=useState<Draft>(emptyDraft),[opinions,setOpinions]=useState<Record<string,string>>({}),[retry,setRetry]=useState<Operation|null>(null),[message,setMessage]=useState("");
@@ -35,16 +35,17 @@ function JobChangeApplicationsContent(){
   if(!canRead){setLoading(false);return;}
   const c=new AbortController();abortRef.current?.abort();abortRef.current=c;setLoading(true);setError("");
   try{
-   const result=await hrApi.jobChangeApplications(getAccessToken(),requestedPage,pageSize,undefined,c.signal);
+   const result=await hrApi.jobChangeApplications(getAccessToken(),requestedPage,pageSize,undefined,c.signal,...(applicationId?[applicationId] as const:[]));
    if(c.signal.aborted||abortRef.current!==c)return;
    if(result.page!==requestedPage||result.page_size!==pageSize||!Number.isSafeInteger(result.total)||result.total<0)throw new Error("岗位变更申请分页响应无效，请重试。");
    if(requestedPage>Math.max(1,Math.ceil(result.total/pageSize))){setPage(1);return;}
+   if(applicationId&&(result.total>1||result.items.some(row=>row.id!==applicationId)))throw new Error("岗位变更定位响应无效，请重试。");
    const reconciled=result.items.map(row=>{const saved=confirmed.current.get(row.id);if(!saved)return row;if(row.status===saved.status&&typeof row.version==="number"&&typeof saved.version==="number"&&row.version>=saved.version){confirmed.current.delete(row.id);return row;}return saved;});
    for(const saved of confirmed.current.values())if(!reconciled.some(row=>row.id===saved.id))reconciled.unshift(saved);
    setRows(reconciled);setTotal(Math.max(result.total,reconciled.length));
   }catch(reason){if(!c.signal.aborted&&abortRef.current===c)setError(hrLoadErrorMessage(reason,"加载岗位变更申请失败"));}
   finally{if(!c.signal.aborted&&abortRef.current===c)setLoading(false);}
- },[canRead,page]);
+ },[canRead,page,applicationId]);
  const loadOptions=useCallback(async()=>{
   if(!canManage)return;
   const c=new AbortController();optionsAbort.current?.abort();optionsAbort.current=c;setOptionsError("");
@@ -80,11 +81,12 @@ function JobChangeApplicationsContent(){
  const action=(row:HrJobChangeApplication,kind:Operation["kind"])=>{if(lock.current||unresolved.current||editing)return;const comment=opinions[row.id]?.trim()??"";if(kind==="return"&&!comment){setMessage("请填写具体退回意见，便于申请人修改。");return;}void execute({kind,id:row.id,status:row.status,comment,token:getAccessToken(),key:createIdempotencyKey(`hr-job-change-${kind}`)});};
  return <section id="job-change-applications" className="ds-panel">
   <div className={styles.sectionHeading}><div><span className="ds-eyebrow">人事办理</span><h2>岗位变更申请</h2></div><span>{loading?"加载中":`共 ${total} 条`}</span></div>
+  {applicationId?<p>正在查看关联岗位变更单。<a className="ds-button ds-button-secondary" href="/hr/lifecycle#job-change-applications">返回全部岗位变更台账</a></p>:null}
   {message?<p role="status">{message}</p>:null}{retry?<button type="button" className="ds-button ds-button-secondary" disabled={busy} onClick={()=>void execute(retry)}>按原请求重试</button>:null}
   {error?<p className="form-error" role="alert">{error}</p>:null}
   {optionsError?<p className="form-error" role="alert">{optionsError}</p>:null}
   {(error||optionsError)?<button type="button" className="ds-button ds-button-secondary" disabled={blocked} onClick={()=>{void load();void loadOptions();}}>重试申请和基础数据</button>:null}
-  {canManage?<form key={editing?.id??"new"} className={styles.formGrid} onSubmit={event=>{event.preventDefault();save();}}>
+  {canManage&&(!applicationId||editing)?<form key={editing?.id??"new"} className={styles.formGrid} onSubmit={event=>{event.preventDefault();save();}}>
    <label className="form-field"><span>申请名称</span><input name="applicationName" maxLength={128} value={draft.applicationName} disabled={blocked} onChange={event=>setDraft({...draft,applicationName:event.target.value})} required/></label>
    <HrEmployeeSelection purpose="job_change" selectedId={employeeId} currentEmployee={editing?{id:editing.employeeId,fullName:editing.employeeName,employeeCode:editing.employeeCode}:undefined} onChange={setEmployeeId} disabled={blocked||!!editing?.sourceApprovalId}/>
 
@@ -103,7 +105,7 @@ function JobChangeApplicationsContent(){
    <JobChangeHistory application={row}/>
 
    <div className={styles.actionRow}>{canManage&&["draft","returned"].includes(row.status)?<button className="ds-button ds-button-secondary" disabled={blocked} onClick={()=>edit(row)}>修改</button>:null}{canManage&&row.status==="draft"?<button className="ds-button ds-button-primary" disabled={blocked||!!editing} onClick={()=>void action(row,"submit")}>提交审批</button>:null}{canManage&&row.status==="returned"?<button className="ds-button ds-button-primary" disabled={blocked||!!editing} onClick={()=>void action(row,"resubmit")}>重新提交</button>:null}{canManage&&["draft","submitted","returned"].includes(row.status)?<button className="ds-button ds-button-secondary" disabled={blocked||!!editing} onClick={()=>void action(row,"cancel")}>取消申请</button>:null}{canReview&&row.status==="submitted"?<><button className="ds-button ds-button-primary" disabled={blocked||!!editing} onClick={()=>void action(row,"approve")}>批准</button><button className="ds-button ds-button-secondary" disabled={blocked||!!editing} onClick={()=>void action(row,"return")}>退回</button></>:null}{canApply&&row.status==="approved"?<button className="ds-button ds-button-primary" disabled={blocked||!!editing||row.effectiveDate>businessDate()} title={row.effectiveDate>businessDate()?"到生效日期后方可办理":""} onClick={()=>void action(row,"apply")}>生效变更</button>:null}</div>
-  </article>):loading?<p>正在加载岗位变更申请…</p>:<p>暂无岗位变更申请。</p>}</div>
+  </article>):loading?<p>正在加载岗位变更申请…</p>:error?null:<p>{applicationId?"未找到可访问的关联岗位变更单，请核对入口或联系授权人员。":"暂无岗位变更申请。"}</p>}</div>
   <nav className={styles.actionRow} aria-label="岗位变更申请分页"><button type="button" className="ds-button ds-button-secondary" disabled={blocked||loading||page<=1} onClick={()=>setPage(value=>value-1)}>上一页</button><span>第 {page} / {Math.max(1,Math.ceil(total/pageSize))} 页 · 共 {total} 条</span><button type="button" className="ds-button ds-button-secondary" disabled={blocked||loading||page>=Math.max(1,Math.ceil(total/pageSize))} onClick={()=>setPage(value=>value+1)}>下一页</button></nav>
  </section>;
 }

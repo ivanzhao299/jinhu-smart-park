@@ -22,6 +22,7 @@ export class HrJobChangeService {
   const access=this.access(a);if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
   const args:unknown[]=[s.tenantId,s.parkId],where=["j.tenant_id=$1","j.park_id=$2","j.is_deleted=false"];
   if(access!=="park"){args.push(a.sub);const actor=`$${args.length}`;where.push(access==="self"?`(j.applicant_user_id=${actor} OR e.user_id=${actor})`:`e.primary_org_id IN(${this.managedOrgSql(actor)})`);}
+  if(q.application_id){args.push(q.application_id);where.push(`j.id=$${args.length}`);}
   if(q.status){args.push(q.status);where.push(`j.status=$${args.length}`);}
   if(q.keyword){args.push(`%${q.keyword}%`);where.push(`(j.application_no ILIKE $${args.length} OR j.application_name ILIKE $${args.length} OR e.employee_code ILIKE $${args.length} OR e.full_name ILIKE $${args.length})`);}
   const from=`FROM hr_job_change_application j JOIN hr_employee e ON e.tenant_id=j.tenant_id AND e.park_id=j.park_id AND e.id=j.subject_employee_id LEFT JOIN sys_org bo ON bo.tenant_id=j.tenant_id AND bo.park_id=j.park_id AND bo.id=j.before_org_id LEFT JOIN sys_org ao ON ao.tenant_id=j.tenant_id AND ao.park_id=j.park_id AND ao.id=j.after_org_id LEFT JOIN hr_position bp ON bp.tenant_id=j.tenant_id AND bp.park_id=j.park_id AND bp.id=j.before_position_id LEFT JOIN hr_position ap ON ap.tenant_id=j.tenant_id AND ap.park_id=j.park_id AND ap.id=j.after_position_id LEFT JOIN hr_job_change_approval_fulfillment f ON f.tenant_id=j.tenant_id AND f.park_id=j.park_id AND f.job_change_application_id=j.id WHERE ${where.join(" AND ")}`;

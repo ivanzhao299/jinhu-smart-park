@@ -5,6 +5,7 @@ const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value
 const candidatePageNumber=({value}:{value:unknown})=>typeof value==="number"?value:typeof value==="string"&&/^\d+$/.test(value)?Number(value):Number.NaN;
 
 export class HrJobChangeListDto {
+ @IsOptional() @IsUUID() application_id?:string;
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;

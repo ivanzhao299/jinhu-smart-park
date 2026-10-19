@@ -1,0 +1,5 @@
+# Verified defect
+
+基线9e96fc106；ApprovedEmploymentRequestsPanel.tsx新建回执和列表已有单据链接均仅/hr/lifecycle#job-change-applications。HrLifecyclePage只接employee_id；JobChangeApplicationsPanel无定位参数，固定20条分页GET。hrApi.jobChangeApplications无单据ID筛选；HrJobChangeController无单据详情GET。用户无法从已有源申请保证直接续办同一单据。
+
+复用批准任职来源锁及草稿业务，不重新实现。工资口径待确认不阻断本片。原任务36项校准与此片业务断点有独立证据，不修改整体复现分数。
