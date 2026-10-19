@@ -49,6 +49,8 @@ export type FormalPayrollPreparation = FormalPayrollPage<{
   employeeId:string;expectedEmployeeVersion:number;employeeCode:string;fullName:string;
   hireDate:string|null;departureDate:string|null;requiresSettlementWindow:boolean;
   eligibility:{eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null;
+  /** Present only after the caller explicitly requests source-value preview. */
+  sourceValues?:{values:Record<string,string>;issues:Array<{code:string;reason:"missing"|"source_null"|"non_decimal"|"ambiguous"}>};
 }> & {source?:Omit<FormalPayrollSourcePreparation,"bookName"> & {sourceHash:string;rosterHash:string};correctionWindowId?:string;correctionOfRunId?:string;correctionEmployeeCount?:number;period:{id:string;month:string;startDate:string;endDate:string};
   rule:{id:string;ruleSetId:string;displayName:string;definition:FormalPayrollDefinition};expectedHeadRevision:number};
 

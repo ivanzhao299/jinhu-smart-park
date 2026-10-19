@@ -1,5 +1,5 @@
 import { Transform, Type } from "class-transformer";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsDefined, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsDefined, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 
 export class HrPayrollFormalEmployeeInputDto {
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() employeeId!: string;
@@ -46,4 +46,7 @@ export class HrPayrollFormalPreparationQueryDto extends HrPayrollFormalInputDeta
   @Transform(({ value }) => typeof value === "string" ? value.toLowerCase() : value) @IsUUID() ruleSetId!: string;
   @IsOptional() @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
   @IsString() @MaxLength(100) keyword?: string;
+  /** Source amounts are financial data, so this stays opt-in and strict. */
+  @IsOptional() @Transform(({ value }) => value === "true" ? true : value === "false" ? false : value)
+  @IsBoolean() includeSourceValues?: boolean = false;
 }

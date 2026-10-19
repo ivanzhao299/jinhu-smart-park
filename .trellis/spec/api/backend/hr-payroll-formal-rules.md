@@ -112,3 +112,27 @@ Reuse `lockCurrentPayrollSource` with the trial consumer. Under the caller's REA
 Return ordinary paged candidates plus source identity, source hash, complete record count and a roster hash binding every current employee's ID/version/name/code/employment dates. Period/effective rule/input-head locks and employee/source locks remain through the required read audit. Source reads use15s statement/2s lock/30s idle and total callback bounds. Separate pages are separate live reads; clients must compare source/roster/rule/head/period metadata before bulk applying. Hashes are transport conflict checks, not financial approval or new persistent source provenance. No monetary frozen JSON is read into JavaScript for this path.
 
 Owned PostgreSQL/HTTP tests use actual original migrations with explicit employee/period/receipt prerequisites:54+39 records,64 people,29 overlap; wrong book/month/scope, missing employee, unqualified control, unmapped/duplicate census, hash drift, audited no-business-write reads, source append and employee mutation waiting for preparation audit. Existing ordinary/correction/formal-run regressions remain required. These tests are not a full-schema migration gate or real July acceptance.
+
+
+## Opt-in source values for editable formal input preparation
+
+### 1. Scope / Trigger
+Imported exact amounts may be explicitly reused as direct-input candidates for the selected source book/month and approved effective rule. This is additive preparation, not approval of the original calculations or a financial write.
+
+### 2. Signatures
+`GET /hr/payroll/inputs/preparation` adds optional `includeSourceValues?: boolean`; the existing DTO/query and `FormalPayrollPreparation` remain backward compatible. Response rows optionally contain `sourceValues: { values: Record<string,string>; issues: Array<{code:string;reason:"missing"|"source_null"|"non_decimal"|"ambiguous"}> }`.
+
+### 3. Contracts
+Default/false requests return the existing roster without monetary candidates. True requests require `reconciliationSourceId`, no correction, existing manage/detail/employee/rule capabilities, plus `resolveHrPayrollHistoryAccessScope(actor)==="park"` before DB probes; self/team-only amount access is insufficient. No role/permission grant is introduced. Reuse the locked source/current-content/period/effective-rule/complete-roster checks and bounded transaction. Match only the approved definition's `expression===null` codes through the exact scoped book/item-version/definition identity. Return only requested-page employees/direct codes, never raw JSON, nonnumeric original text, other books or computed modern projects. Required financial-sensitive read audit shares the transaction.
+
+### 4. Validation & Error Matrix
+Missing source, correction mix or invalid boolean -> reject. Missing amount capability -> deny before probes. Wrong source/book/month/current hash/roster/rule -> conflict, no fallback. Missing/NULL/nondecimal/duplicate candidate -> explicit per-code issue with no value; zero is an explicit valid string. Audit failure -> no successful read. PostgreSQL must project `decimal_value::text` under the validated source locks; no JavaScript number conversion or parsing numeric frozen JSON.
+
+### 5. Good / Base / Bad Cases
+Good: explicit source values include `0.0000`, negative and full supported numeric precision, then operator reviews before local application. Base: ordinary/correction preparation makes no amount read. Bad: copy modern formula projects, choose one ambiguous version, supply missing=zero, or treat copied amounts as financial equality proof.
+
+### 6. Tests Required
+Strict DTO, permission-before-probes including history self-only, exact code/book/employee ownership, NULL/missing/nondecimal/ambiguous issues, max decimal precision, current-content drift and required audit failure. Execute actual projection SQL in an owned disposable PostgreSQL fixture. Web must compare source/roster/period/rule/head/draft/token through full pagination and before explicit application; default fill blanks only, retain manual/settlement fields, and verify whole-roster save/retry/detail composition. Include `pnpm --filter @jinhu/web test:unit:hr` when payroll composition changes, alongside interaction tests.
+
+### 7. Wrong vs Correct
+Wrong: `Number(JSON.parse(frozenInput).items[0].decimal_value)` or copying every original amount directly into a saved input. Correct: locked PostgreSQL text projection of explicitly approved direct codes, bounded preview, explicit local apply, then existing governed save and independent confirmation.
