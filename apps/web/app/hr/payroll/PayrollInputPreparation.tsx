@@ -15,21 +15,24 @@ import styles from "./payroll-modern.module.css";
 
 type Candidate = FormalPayrollPreparation["items"][number];
 type Selection = { employee: Candidate; input: FormalPayrollEmployeeInput; explicit: boolean };
+type SourcePreview = { rows: Candidate[]; identity: string; draftFingerprint: string; replaceExisting: boolean; acknowledged: boolean; page: number };
 type Props = { source?:FormalPayrollSourcePreparation|null;onExitSource?:()=>void; correction?: FormalPayrollCorrectionPreparation | null; onExitCorrection?: () => void; onViewDraft?: (intent: PayrollInputReviewIntent) => void };
+const candidateMetadata = ({ sourceValues: _sourceValues, ...candidate }: Candidate) => candidate;
 export function PayrollInputPreparation(props: Props) {
   const user = useAuthUser(); return <PreparationWorkspace key={`${JSON.stringify(user)}:${props.correction?.windowId ?? JSON.stringify(props.source) ?? "ordinary"}`} {...props}/>;
 }
 function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection, onViewDraft }: Props) {
   const user = useAuthUser();
   const canPrepare = [HR_PERMISSIONS.HR_PAYROLL_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_PAYROLL_RULE_READ].every(permission => hasPermission(user, permission));
+  const canReadSourceValues = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ);
   const [periods, setPeriods] = useState<HrPayrollPeriod[]>([]), [periodId, setPeriodId] = useState(correction?.periodId ?? "");
   const [rules, setRules] = useState<FormalPayrollRuleSet[]>([]), [ruleId, setRuleId] = useState(correction?.ruleSetId ?? ""), [rulePage, setRulePage] = useState(1), [ruleTotal, setRuleTotal] = useState(0);
   const [query, setQuery] = useState(""), [keyword, setKeyword] = useState(""), [page, setPage] = useState(1);
-  const [data, setData] = useState<FormalPayrollPreparation | null>(null), [chosen, setChosen] = useState<Record<string, Selection>>({}), [selectionPage, setSelectionPage] = useState(1);
+  const [data, setData] = useState<FormalPayrollPreparation | null>(null), [chosen, setChosen] = useState<Record<string, Selection>>({}), [selectionPage, setSelectionPage] = useState(1), [sourcePreview, setSourcePreview] = useState<SourcePreview | null>(null);
   const [reason, setReason] = useState(""), [error, setError] = useState(""), [notice, setNotice] = useState(""), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [savedIntent, setSavedIntent] = useState<PayrollInputReviewIntent | null>(null), [refresh, setRefresh] = useState(0);
-  const bulkAbort=useRef<AbortController|null>(null), sourceIdentity=useRef<string|null>(null), sourceRulesAbort=useRef<AbortController|null>(null);
-  const alive = useRef(true), lock = useRef(false), ruleIdentity = useRef<string | null>(null), retry = useRef<{ signature: string; key: string } | null>(null);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; bulkAbort.current?.abort(); sourceRulesAbort.current?.abort(); }; }, []);
+  const bulkAbort=useRef<AbortController|null>(null), previewApplyAbort=useRef<AbortController|null>(null), sourceIdentity=useRef<string|null>(null), sourceRulesAbort=useRef<AbortController|null>(null);
+  const alive = useRef(true), lock = useRef(false), ruleIdentity = useRef<string | null>(null), retry = useRef<{ signature: string; key: string } | null>(null), draftFingerprint = useRef("");
+  useEffect(() => { alive.current = true; return () => { alive.current = false; bulkAbort.current?.abort(); previewApplyAbort.current?.abort(); sourceRulesAbort.current?.abort(); }; }, []);
   useEffect(() => {
     if (!canPrepare || correction) return;
     const abort = new AbortController();
@@ -70,13 +73,15 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
     }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载当期员工准备失败")); }).finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return () => abort.abort();
   }, [canPrepare, periodId, ruleId, keyword, page, refresh, correction,source]);
-  const reset = () => { bulkAbort.current?.abort();sourceIdentity.current=null;ruleIdentity.current = null; setChosen({}); setSelectionPage(1); setReason(""); setData(null); setPage(1); setQuery(""); setKeyword(""); setSaved(false); setSavedIntent(null); setNotice(""); setError(""); retry.current = null; };
-  const change = (id: string, update: (value: Selection) => Selection) => { if (!lock.current && !saved) setChosen(values => ({ ...values, [id]: update(values[id]!) })); };
+  const reset = () => { bulkAbort.current?.abort();previewApplyAbort.current?.abort();sourceIdentity.current=null;ruleIdentity.current = null; setChosen({}); setSelectionPage(1); setSourcePreview(null); setReason(""); setData(null); setPage(1); setQuery(""); setKeyword(""); setSaved(false); setSavedIntent(null); setNotice(""); setError(""); retry.current = null; };
+  const change = (id: string, update: (value: Selection) => Selection) => { if (!lock.current && !saved) { setSourcePreview(null); setChosen(values => ({ ...values, [id]: update(values[id]!) })); } };
   const preparationIdentity = (value:FormalPayrollPreparation) => JSON.stringify({period:value.period,rule:value.rule,head:value.expectedHeadRevision,source:value.source});
   const validateSourcePage = (value:FormalPayrollPreparation, current:number,size:number,full:boolean) => {
     const binding=value.source;
     if(!source||!binding||binding.reconciliationSourceId!==source.reconciliationSourceId||binding.legacyBatchId!==source.legacyBatchId||binding.bookId!==source.bookId||binding.month!==source.month||binding.recordCount!==source.recordCount||!Number.isSafeInteger(binding.recordCount)||binding.recordCount<1||binding.recordCount>2000||!/^[a-f0-9]{64}$/.test(binding.sourceHash)||!/^[a-f0-9]{64}$/.test(binding.rosterHash)||value.period.id!==periodId||value.period.month!==source.month||value.rule.ruleSetId!==ruleId||value.correctionWindowId||value.page!==current||value.page_size!==size||!Number.isSafeInteger(value.total)||value.total<0||value.total>binding.recordCount||(full&&value.total!==binding.recordCount)||value.items.length!==Math.max(0,Math.min(size,value.total-(current-1)*size))||value.items.some(row=>!row.employeeId||!Number.isSafeInteger(row.expectedEmployeeVersion)||row.expectedEmployeeVersion<1))throw new Error("冻结来源或完整员工名单已变化，请刷新后重新核对。");
   };
+  const sourceDraftFingerprint = () => JSON.stringify(Object.values(chosen).map(value => [value.input.employeeId, value.input.expectedEmployeeVersion, value.input.directItems, value.explicit, value.input.settlementStart, value.input.settlementEnd, value.input.eligibilityReason]).sort((a,b) => String(a[0]).localeCompare(String(b[0]))));
+  draftFingerprint.current=sourceDraftFingerprint();
   const selectCompleteRoster = async () => {
     if(!source||!data||lock.current||loading||saved)return;
     const baseline=preparationIdentity(data),controller=new AbortController();bulkAbort.current?.abort();bulkAbort.current=controller;
@@ -92,10 +97,52 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
       }
       if(!first||new Set(all.map(row=>row.employeeId)).size!==source.recordCount)throw new Error("员工名单重复或不完整，本次未带入任何名单。");
       const directCodes=first.rule.definition.items.filter(item=>item.expression===null).map(item=>item.code);
-      setChosen(current=>Object.fromEntries(all.map(employee=>{const old=current[employee.employeeId];return [employee.employeeId,old&&JSON.stringify(old.employee)===JSON.stringify(employee)?old:{employee,explicit:employee.requiresSettlementWindow,input:{employeeId:employee.employeeId,expectedEmployeeVersion:employee.expectedEmployeeVersion,directItems:Object.fromEntries(directCodes.map(code=>[code,""]))}}];})));
+      setSourcePreview(null);setChosen(current=>Object.fromEntries(all.map(employee=>{const old=current[employee.employeeId];return [employee.employeeId,old&&JSON.stringify(candidateMetadata(old.employee))===JSON.stringify(candidateMetadata(employee))?old:{employee,explicit:employee.requiresSettlementWindow,input:{employeeId:employee.employeeId,expectedEmployeeVersion:employee.expectedEmployeeVersion,directItems:Object.fromEntries(directCodes.map(code=>[code,""]))}}];})));
       setSelectionPage(1);setNotice(`已带入本账套全部 ${all.length} 位员工；请逐项填写金额，零值也需明确填写。`);
     } catch(cause) {if(!controller.signal.aborted)setError(hrLoadErrorMessage(cause,"读取完整名单失败，原草稿已保留"));}
     finally {lock.current=false;if(!controller.signal.aborted)setBusy(false);}
+  };
+  const previewSourceValues = async () => {
+    if(!source||!data||lock.current||loading||saved)return;
+    const baseline=preparationIdentity(data),controller=new AbortController();bulkAbort.current?.abort();bulkAbort.current=controller;
+    lock.current=true;setBusy(true);setError("");
+    try {
+      const all:Candidate[]=[];let first:FormalPayrollPreparation|null=null;
+      for(let current=1;;current++) {
+        const result=await hrApi.payrollPreparation({periodId,ruleSetId:ruleId,reconciliationSourceId:source.reconciliationSourceId,includeSourceValues:true,page:current,pageSize:100},getAccessToken(),controller.signal);
+        if(controller.signal.aborted)return;
+        validateSourcePage(result,current,100,true);
+        if(preparationIdentity(result)!==baseline)throw new Error("来源、规则、员工或输入头版本已变化，本次未带入任何名单，请刷新后重试。");
+        first??=result;all.push(...result.items);if(all.length===result.total)break;
+      }
+      if(!first||new Set(all.map(row=>row.employeeId)).size!==source.recordCount)throw new Error("员工名单重复或不完整，本次未带入任何名单。");
+      const directCodes=first.rule.definition.items.filter(item=>item.expression===null).map(item=>item.code).sort();
+      if(all.some(employee=>!employee.sourceValues||Object.keys(employee.sourceValues.values).some(code=>!directCodes.includes(code))||employee.sourceValues.issues.some(issue=>!directCodes.includes(issue.code))))throw new Error("来源数值预览不完整，未修改草稿。");
+      setSourcePreview({rows:all,identity:baseline,draftFingerprint:draftFingerprint.current,replaceExisting:false,acknowledged:false,page:1});
+      setNotice(`已读取本账套全部 ${all.length} 位员工的来源数值。请核对缺项后明确带入；尚未修改草稿。`);
+    } catch(cause) {if(!controller.signal.aborted)setError(hrLoadErrorMessage(cause,"读取完整名单失败，原草稿已保留"));}
+    finally {lock.current=false;if(!controller.signal.aborted)setBusy(false);}
+  };
+  const applySourcePreview = async () => {
+    if(!sourcePreview||!data||!source||lock.current||saved||loading||sourcePreview.identity!==preparationIdentity(data)||sourcePreview.draftFingerprint!==draftFingerprint.current) { setSourcePreview(null);setError("来源数值预览已过期，未修改草稿，请重新读取。");return; }
+    const token=getAccessToken(),controller=new AbortController();previewApplyAbort.current?.abort();previewApplyAbort.current=controller;lock.current=true;setBusy(true);setError("");
+    try {
+      const current=await hrApi.payrollPreparation({periodId,ruleSetId:ruleId,reconciliationSourceId:source.reconciliationSourceId,page:1,pageSize:1},token,controller.signal);
+      if(controller.signal.aborted||!alive.current||getAccessToken()!==token)return;
+      validateSourcePage(current,1,1,false);
+      if(preparationIdentity(current)!==sourcePreview.identity)throw new Error("来源、名单、规则或输入版本已变化，未修改草稿。");
+      if(sourcePreview.draftFingerprint!==draftFingerprint.current)throw new Error("来源数值预览已过期，未修改草稿。");
+      const directCodes=data.rule.definition.items.filter(item=>item.expression===null).map(item=>item.code);
+      setChosen(existing=>Object.fromEntries(sourcePreview.rows.map(employee=>{
+        const old=existing[employee.employeeId]; const directItems=Object.fromEntries(directCodes.map(code=>{
+          const prior=old?.input.directItems[code] ?? "", sourceValue=employee.sourceValues?.values[code];
+          return [code,sourcePreview.replaceExisting ? (sourceValue ?? prior) : (prior || sourceValue || "")];
+        }));
+        return [employee.employeeId,{employee,explicit:old?.explicit ?? employee.requiresSettlementWindow,input:{employeeId:employee.employeeId,expectedEmployeeVersion:employee.expectedEmployeeVersion,directItems,...(old ? {settlementStart:old.input.settlementStart,settlementEnd:old.input.settlementEnd,eligibilityReason:old.input.eligibilityReason}: {})}}];
+      })));
+      setSelectionPage(1);setSourcePreview(null);setNotice("已带入来源可用数值；缺失、空值和非数值项目未覆盖现有草稿。请检查后保存。");
+    } catch(cause) { if(!controller.signal.aborted&&alive.current) { setSourcePreview(null);setError(hrLoadErrorMessage(cause,"来源数值已变化，未修改草稿")); } }
+    finally { lock.current=false;if(!controller.signal.aborted&&alive.current)setBusy(false); }
   };
   const save = async () => {
     if (lock.current || saved || !data || loading) return;
@@ -127,8 +174,9 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
     {!correction ? <div className={styles.actions}><button className="secondary-button" disabled={busy || rulePage <= 1} onClick={() => { reset(); setRuleId(""); setRulePage(value => value - 1); }}>规则上一页</button><span>规则第 {rulePage} / {Math.max(1, Math.ceil(ruleTotal / 20))} 页</span><button className="secondary-button" disabled={busy || rulePage * 20 >= ruleTotal} onClick={() => { reset(); setRuleId(""); setRulePage(value => value + 1); }}>规则下一页</button></div> : null}
     {error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
     {periodId && ruleId ? <><form className={styles.actions} onSubmit={event => { event.preventDefault(); if (!lock.current) { setKeyword(query.trim()); setPage(1); setRefresh(value => value + 1); } }}><label className="form-field"><span>搜索员工</span><input value={query} maxLength={100} disabled={busy || saved} onChange={event => setQuery(event.target.value)}/></label><button className="secondary-button" disabled={busy || saved}>查询员工</button></form>{loading ? <p>正在读取员工和生效规则…</p> : null}</> : null}
-    {source&&data&&<div className={styles.actions}><button className="secondary-button" disabled={busy||loading||saved} onClick={()=>void selectCompleteRoster()}>带入本账套全部 {source.recordCount} 位员工</button><button className="secondary-button" disabled={busy||saved} onClick={()=>setRefresh(value=>value+1)}>刷新来源名单</button></div>}
-    {data ? <><p>{data.rule.displayName} · {data.period.month} · 结算期间 {data.period.startDate} 至 {data.period.endDate}</p><div className={`ds-mobile-record-list ${styles.records}`}>{data.items.map(employee => <article className="ds-mobile-record" key={employee.employeeId}><strong>{employee.fullName} · {employee.employeeCode}</strong><span>{employee.requiresSettlementWindow ? "需明确补结算日期和理由" : `结算范围 ${employee.eligibility!.eligibleStart} 至 ${employee.eligibility!.eligibleEnd}`}</span><label><input type="checkbox" checked={Boolean(chosen[employee.employeeId])} disabled={busy || saved || (!chosen[employee.employeeId] && selections.length >= 2000)} onChange={event => { if (lock.current || saved) return; const checked = event.target.checked; setChosen(values => { const next = { ...values }; if (checked) next[employee.employeeId] = { employee, explicit: employee.requiresSettlementWindow, input: { employeeId: employee.employeeId, expectedEmployeeVersion: employee.expectedEmployeeVersion, directItems: Object.fromEntries(direct.map(item => [item.code, ""])) } }; else delete next[employee.employeeId]; return next; }); }}/>{`选择 ${employee.fullName}（${employee.employeeCode}）`}</label></article>)}</div><div className={styles.actions}><button className="secondary-button" disabled={busy || loading || saved || page <= 1} onClick={() => setPage(value => value - 1)}>候选上一页</button><span>第 {page} / {Math.max(1, Math.ceil(data.total / 20))} 页 · 共 {data.total} 位员工</span><button className="secondary-button" disabled={busy || loading || saved || page * 20 >= data.total} onClick={() => setPage(value => value + 1)}>候选下一页</button></div></> : null}
+    {source&&data&&<div className={styles.actions}><button className="secondary-button" disabled={busy||loading||saved} onClick={()=>void selectCompleteRoster()}>带入本账套全部 {source.recordCount} 位员工</button>{canReadSourceValues?<button className="secondary-button" disabled={busy||loading||saved} onClick={()=>void previewSourceValues()}>预览本账套全部 {source.recordCount} 位员工来源数值</button>:<span>需要园区历史工资读取权限才能预览来源数值。</span>}<button className="secondary-button" disabled={busy||saved} onClick={()=>{setSourcePreview(null);setRefresh(value=>value+1);}}>刷新来源名单</button></div>}
+    {sourcePreview ? <section className={`ds-panel ${styles.workspace} ${styles.bulkInput}`} aria-label="来源数值预览"><h3>来源数值预览 · {sourcePreview.rows.length} 位员工</h3><p>预览不会保存或确认。缺失、来源空值、非数值和歧义项目不会填零，也不会清除已有人工输入。</p><label><input type="checkbox" checked={sourcePreview.replaceExisting} onChange={event=>setSourcePreview(value=>value?{...value,replaceExisting:event.target.checked,acknowledged:false}:value)}/>明确以可用来源数值覆盖已有人工输入</label><div className={`ds-mobile-record-list ${styles.records}`}>{sourcePreview.rows.slice((sourcePreview.page-1)*20,sourcePreview.page*20).map(row=><article className="ds-mobile-record" key={row.employeeId}><strong>{row.fullName} · {row.employeeCode}</strong>{(data?.rule.definition.items.filter(item=>item.expression===null).map(item=>item.code)??[]).map(code=>{const current=chosen[row.employeeId]?.input.directItems[code]??"",fromSource=row.sourceValues?.values[code],next=sourcePreview.replaceExisting?(fromSource??current):(current||fromSource||"");return <span key={code}>{code}：当前 {current||"空白"} → 来源 {fromSource??"不可用"} → 本次带入 {next||"保持空白"}</span>;})}{row.sourceValues?.issues.map(issue=><span key={`issue-${issue.code}`}>{issue.code}：{issue.reason==="missing"?"缺失":issue.reason==="source_null"?"来源为空":issue.reason==="non_decimal"?"非数值":"歧义"}</span>)}</article>)}</div><div className={styles.actions}><button className="secondary-button" disabled={busy||sourcePreview.page<=1} onClick={()=>setSourcePreview(value=>value?{...value,page:value.page-1}:value)}>预览上一页</button><span>预览第 {sourcePreview.page} / {Math.max(1,Math.ceil(sourcePreview.rows.length/20))} 页</span><button className="secondary-button" disabled={busy||sourcePreview.page*20>=sourcePreview.rows.length} onClick={()=>setSourcePreview(value=>value?{...value,page:value.page+1}:value)}>预览下一页</button></div><label><input type="checkbox" disabled={busy} checked={sourcePreview.acknowledged} onChange={event=>setSourcePreview(value=>value?{...value,acknowledged:event.target.checked}:value)}/>我已核对完整来源预览并确认带入本地草稿</label><button className="primary-button" disabled={!sourcePreview.acknowledged||busy||loading||saved} onClick={()=>void applySourcePreview()}>带入当前本地草稿</button></section> : null}
+    {data ? <><p>{data.rule.displayName} · {data.period.month} · 结算期间 {data.period.startDate} 至 {data.period.endDate}</p><div className={`ds-mobile-record-list ${styles.records}`}>{data.items.map(employee => <article className="ds-mobile-record" key={employee.employeeId}><strong>{employee.fullName} · {employee.employeeCode}</strong><span>{employee.requiresSettlementWindow ? "需明确补结算日期和理由" : `结算范围 ${employee.eligibility!.eligibleStart} 至 ${employee.eligibility!.eligibleEnd}`}</span><label><input type="checkbox" checked={Boolean(chosen[employee.employeeId])} disabled={busy || saved || (!chosen[employee.employeeId] && selections.length >= 2000)} onChange={event => { if (lock.current || saved) return; const checked = event.target.checked; setSourcePreview(null); setChosen(values => { const next = { ...values }; if (checked) next[employee.employeeId] = { employee, explicit: employee.requiresSettlementWindow, input: { employeeId: employee.employeeId, expectedEmployeeVersion: employee.expectedEmployeeVersion, directItems: Object.fromEntries(direct.map(item => [item.code, ""])) } }; else delete next[employee.employeeId]; return next; }); }}/>{`选择 ${employee.fullName}（${employee.employeeCode}）`}</label></article>)}</div><div className={styles.actions}><button className="secondary-button" disabled={busy || loading || saved || page <= 1} onClick={() => setPage(value => value - 1)}>候选上一页</button><span>第 {page} / {Math.max(1, Math.ceil(data.total / 20))} 页 · 共 {data.total} 位员工</span><button className="secondary-button" disabled={busy || loading || saved || page * 20 >= data.total} onClick={() => setPage(value => value + 1)}>候选下一页</button></div></> : null}
     <h3>已选员工 · {selections.length} 人</h3>
     {data && selections.length ? <PayrollInputBulkCsv context={{
       binding: JSON.stringify({ scope: [user?.tenant_id, user?.park_id], period: data.period.id, rule: data.rule.id,

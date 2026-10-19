@@ -55,6 +55,15 @@ test("source preparation rejects incompatible correction and malformed reference
   await assert.rejects(()=>service.preparation(scope,actor,{...query,reconciliationSourceId:"invalid"}),/Invalid payroll input/);
   await assert.rejects(()=>service.preparation(scope,{...actor,parkId:"other"},query),ForbiddenException);assert.equal(probes,0);
 });
+test("source value preparation requires park-wide history authority before database probes",async()=>{
+  const {randomUUID}=await import("node:crypto");let probes=0;
+  const service=new HrPayrollFormalInputService({transaction:async()=>{probes++;}} as unknown as DataSource,{} as HrPayrollFormalRuleService,{} as AuditService);
+  const scope={tenantId:"synthetic",parkId:"synthetic"};
+  const base=[HR_PERMISSIONS.HR_PAYROLL_MANAGE,HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ,HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_PAYROLL_RULE_READ,HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ];
+  const actor:JwtPrincipal={...scope,sub:randomUUID(),username:"synthetic",roles:[],permissions:base};
+  await assert.rejects(()=>service.preparation(scope,actor,{periodId:randomUUID(),ruleSetId:randomUUID(),reconciliationSourceId:randomUUID(),includeSourceValues:true,page:1,pageSize:20}),ForbiddenException);
+  assert.equal(probes,0);
+});
 test("source roster limit rejects before building or returning frozen monetary payloads",async()=>{
   const {lockCurrentPayrollSource}=await import("./hr-payroll-frozen-source");const statements:string[]=[];
   const manager={query:async(sql:string)=>{statements.push(sql);return statements.length===1?[]:[{id:"source",recordCount:2001}];}} as unknown as EntityManager;

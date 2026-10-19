@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lockCurrentPayrollSource } from "./hr-payroll-frozen-source";
 import { lockPayrollPeriodContext, assertPayrollCorrectionRoster, type PayrollPeriodContext } from "./hr-payroll-period-context";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { HR_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { HR_PERMISSIONS, type FormalPayrollPreparation, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, type EntityManager } from "typeorm";
 import { plainToInstance, type ClassConstructor } from "class-transformer";
 import { isUUID, validate } from "class-validator";
@@ -14,6 +14,7 @@ import { evaluatePayrollFormula } from "./hr-payroll-formula-dsl";
 import { ConfirmHrPayrollFormalInputDto, CreateHrPayrollFormalInputDto, HrPayrollFormalEmployeeInputDto, HrPayrollFormalInputQueryDto, HrPayrollFormalInputDetailQueryDto, HrPayrollFormalPreparationQueryDto, UpdateHrPayrollFormalInputDto } from "./dto/hr-payroll-formal-input.dto";
 import { buildHrSensitiveReadAuditInput } from "./hr-sensitive-read-audit";
 import { resolvePayrollEligibility } from "./hr-payroll-eligibility";
+import { resolveHrPayrollHistoryAccessScope } from "./hr-access-policy";
 
 type InputRow = { correction_window_id?: string | null; id: string; period_id: string; rule_set_id: string; rule_version_id: string; revision_no: number; version: number; status: string; employees: HrPayrollFormalEmployeeInputDto[]; reason: string; created_by: string; authored_by: string; snapshot_sha256: string };
 type PeriodRow = PayrollPeriodContext;
@@ -55,6 +56,50 @@ export class HrPayrollFormalInputService {
   }
   private period(manager: EntityManager, scope: TenantParkScope, id: string, windowId?: string | null) {
     return lockPayrollPeriodContext(manager, scope, id, windowId);
+  }
+  /**
+   * Project only the requested source rows after lockCurrentPayrollSource has verified
+   * the frozen source against current content.  PostgreSQL owns decimal rendering: do
+   * not read frozen JSON or let a JavaScript number touch a historical amount.
+   */
+  private async sourceValueProjection(manager: EntityManager, scope: TenantParkScope, source: { legacyBatchId: string; bookId: string; month: string }, employeeIds: string[], directCodes: string[]) {
+    const issues = new Map<string, Array<{ code: string; reason: "missing" | "source_null" | "non_decimal" | "ambiguous" }>>();
+    const values = new Map<string, Record<string, string>>();
+    for (const employeeId of employeeIds) { issues.set(employeeId, []); values.set(employeeId, Object.create(null) as Record<string, string>); }
+    if (!employeeIds.length || !directCodes.length) return { values, issues };
+    const rows: Array<{ employee_id: string; code: string; candidate_count: number; is_source_null: boolean; value_type: string; decimal_value: string | null }> = await manager.query(`
+      WITH requested AS (SELECT unnest($4::uuid[]) AS employee_id), candidates AS (
+        SELECT snapshot.employee_id,item_definition.item_code AS code,
+          count(*) OVER (PARTITION BY snapshot.employee_id,item_definition.item_code)::int AS candidate_count,
+          item.is_source_null,item.value_type,item.decimal_value::text AS decimal_value
+        FROM requested
+        JOIN hr_payroll_legacy_snapshot snapshot ON snapshot.employee_id=requested.employee_id
+          AND snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND snapshot.batch_id=$3 AND NOT snapshot.is_deleted
+        JOIN hr_payroll_book_period book_period ON book_period.id=snapshot.book_period_id
+          AND book_period.tenant_id=$1 AND book_period.park_id=$2 AND book_period.book_id=$5 AND book_period.period_month=$6::date AND NOT book_period.is_deleted
+        JOIN hr_payroll_legacy_snapshot_item item ON item.snapshot_id=snapshot.id AND item.tenant_id=$1 AND item.park_id=$2 AND NOT item.is_deleted
+        JOIN hr_payroll_item_version item_version ON item_version.id=item.item_version_id AND item_version.tenant_id=$1 AND item_version.park_id=$2 AND NOT item_version.is_deleted
+        JOIN hr_payroll_item_definition item_definition ON item_definition.id=item_version.item_definition_id AND item_definition.tenant_id=$1 AND item_definition.park_id=$2 AND item_definition.book_id=$5 AND NOT item_definition.is_deleted
+        WHERE item_definition.item_code=ANY($7::text[])
+      ) SELECT employee_id,code,candidate_count,is_source_null,value_type,decimal_value FROM candidates ORDER BY employee_id,code` ,
+      [scope.tenantId, scope.parkId, source.legacyBatchId, employeeIds, source.bookId, `${source.month}-01`, directCodes]);
+    const byEmployee = new Map<string, Map<string, typeof rows>>();
+    for (const row of rows) {
+      const byCode = byEmployee.get(row.employee_id) ?? new Map<string, typeof rows>();
+      const candidates = byCode.get(row.code) ?? [];
+      candidates.push(row); byCode.set(row.code, candidates); byEmployee.set(row.employee_id, byCode);
+    }
+    for (const employeeId of employeeIds) for (const code of directCodes) {
+      const candidates = byEmployee.get(employeeId)?.get(code) ?? [];
+      const issue = issues.get(employeeId)!;
+      if (!candidates.length) { issue.push({ code, reason: "missing" }); continue; }
+      if (candidates.length !== 1 || candidates[0]!.candidate_count !== 1) { issue.push({ code, reason: "ambiguous" }); continue; }
+      const candidate = candidates[0]!;
+      if (candidate.is_source_null) { issue.push({ code, reason: "source_null" }); continue; }
+      if (candidate.value_type !== "decimal" || candidate.decimal_value === null || !/^-?\d{1,16}(?:\.\d{1,4})?$/u.test(candidate.decimal_value)) { issue.push({ code, reason: "non_decimal" }); continue; }
+      values.get(employeeId)![code] = candidate.decimal_value;
+    }
+    return { values, issues };
   }
   private async employeeInputs(manager: EntityManager, scope: TenantParkScope, period: PeriodRow, ruleSetId: string, ruleVersionId: string, employees: HrPayrollFormalEmployeeInputDto[]) {
     await assertPayrollCorrectionRoster(manager, scope, period, ruleSetId, employees.map(employee => employee.employeeId));
@@ -139,6 +184,9 @@ export class HrPayrollFormalInputService {
     if (!actor.isSuper && !actor.permissions.includes("*") && !actor.permissions.includes(HR_PERMISSIONS.HR_PAYROLL_RULE_READ)) throw new ForbiddenException("Payroll rule read permission required");
     const dto = await this.dto(HrPayrollFormalPreparationQueryDto, input);
     if (dto.reconciliationSourceId && dto.correctionWindowId) throw new BadRequestException("Frozen source preparation cannot be combined with correction");
+    if (dto.includeSourceValues && !dto.reconciliationSourceId) throw new BadRequestException("Choose a frozen payroll source before reading source values");
+    if (dto.includeSourceValues && dto.correctionWindowId) throw new BadRequestException("Source values cannot be read for a correction preparation");
+    if (dto.includeSourceValues && resolveHrPayrollHistoryAccessScope(actor) !== "park") throw new ForbiddenException("Park payroll history permission is required to read source values");
     if (dto.reconciliationSourceId && (actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId)) throw new ForbiddenException("Current payroll preparation scope required");
     return this.transaction(async manager => {
       const deadline=Date.now()+30000;
@@ -171,7 +219,7 @@ export class HrPayrollFormalInputService {
       const correctionEmployeeCount: number | undefined = period.correctionWindow
         ? (await manager.query("SELECT count(*)::int AS total FROM hr_payslip WHERE run_id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted", [period.correctionWindow.originalRunId, scope.tenantId, scope.parkId]))[0].total
         : undefined;
-      const items = rows.map(employee => {
+      const items: FormalPayrollPreparation["items"] = rows.map(employee => {
         let eligibility: {eligibleStart:string;eligibleEnd:string;basis:"employment_dates"}|null = null;
         try {
           const window = resolvePayrollEligibility({periodStart:period.start_date,periodEnd:period.end_date,hireDate:employee.hire_date,departureDate:employee.departure_date});
@@ -180,7 +228,13 @@ export class HrPayrollFormalInputService {
         return {employeeId:employee.id,expectedEmployeeVersion:employee.version,employeeCode:employee.employee_code,fullName:employee.full_name,
           hireDate:employee.hire_date,departureDate:employee.departure_date,eligibility,requiresSettlementWindow:eligibility===null};
       });
-      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {resource:"hr.payroll_input",action:"读取当期工资准备",bizType:"hr_payroll_formal_input",bizId:null,path:"/hr/payroll/inputs/preparation",fieldGroups:["identity","payroll_input"],projection:"full",itemCount:items.length}),manager);
+      if (dto.includeSourceValues) {
+        const directCodes = rule.definition.items.filter(item => item.expression === null).map(item => item.code).sort();
+        if (directCodes.length > 500 || new Set(directCodes).size !== directCodes.length) throw new ConflictException("Approved direct payroll projects are not a bounded unique source projection");
+        const projected = await this.sourceValueProjection(manager, scope, source!, items.map(item => item.employeeId), directCodes);
+        for (const item of items) Object.assign(item, { sourceValues: { values: projected.values.get(item.employeeId)!, issues: projected.issues.get(item.employeeId)! } });
+      }
+      await this.audit.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {resource:"hr.payroll_input",action:dto.includeSourceValues ? "读取当期工资准备来源数值" : "读取当期工资准备",bizType:"hr_payroll_formal_input",bizId:null,path:"/hr/payroll/inputs/preparation",fieldGroups:dto.includeSourceValues ? ["identity","payroll_input","financial"] : ["identity","payroll_input"],projection:"full",itemCount:items.length}),manager);
       if(source && Date.now()>deadline)throw new ConflictException("Source preparation exceeded its complete read budget");
       return {...(sourceContext ? {source:sourceContext} : {}),...(period.correctionWindow ? {correctionWindowId:period.correctionWindow.id,correctionOfRunId:period.correctionWindow.originalRunId,correctionEmployeeCount} : {}),period:{id:period.id,month:period.month,startDate:period.start_date,endDate:period.end_date},
         rule:{id:rule.id,ruleSetId:dto.ruleSetId,displayName:sets[0].display_name,definition:rule.definition},expectedHeadRevision:heads[0].head,
