@@ -358,3 +358,38 @@ PR1012 merged and deployed; independent runtime369ed verified, health and cleanu
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Existing preboarding onboarding production continuity
+
+**Date**: 2026-10-20
+**Task**: Existing preboarding onboarding production continuity
+**Package**: api
+**Branch**: `codex/hr-existing-employee-onboarding-20261020`
+
+### Summary
+
+PR1013 direct preboarding-employee initial-onboarding entry merged/deployed Web-only. PR/main CI and deploy/independent observer pass; API369ed retained, Web6cc941e19 actual runtime verified, health before cleanup. Production source counts preserved.85 focused interactions and actual component desktop390 pass. Real-role production UI and full HR/payroll goal remain open.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b0abba45f` | (see git log) |
+| `6cc941e19` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

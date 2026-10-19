@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
+- **Total Sessions**: 16
 - **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~360 | Active |
+| `journal-1.md` | ~395 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-10-20 | Existing preboarding onboarding production continuity | `b0abba45f`, `6cc941e19` | `codex/hr-existing-employee-onboarding-20261020` |
 | 15 | 2026-10-20 | Approved personnel business chain production release | `6ec2e0821`, `369ed5775` | `codex/hr-approved-personnel-continuity-20261020` |
 | 14 | 2026-10-20 | HR正式档案33字段连续更新生产发布与运行取证 | `e07b5554c`, `770a60e72` | `codex/hr-profile-continuous-update-20261020` |
 | 13 | 2026-10-16 | 绩效正式承接生产只读取证与全7月工资范围固化 | `451f7d33d`, `debdf41f9` | `codex/hr-performance-formal-continuation-20261016` |
