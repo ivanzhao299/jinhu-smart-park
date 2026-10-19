@@ -255,8 +255,9 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   assert.match(payroll,/<PayrollModernOperations onCreated=/);
   assert.match(payroll,/refresh=\{payrollRefresh\}/);
   assert.match(modern,/<PayrollPeriodOperations refresh=\{periodRefresh\} onUseCorrection=\{value=>\{setSource\(null\);setCorrection\(value\);\}\}/);
-  assert.match(modern,/<PayrollInputPreparation source=\{source\} onExitSource=\{\(\)=>setSource\(null\)\} correction=\{correction\}/);
-  assert.match(modern,/<PayrollTrialComparison onPrepareSource=\{value=>\{setSource\(value\);if\(value\)setCorrection\(null\);\}\}/);
+  assert.match(modern,/<PayrollTrialComparison onPrepareSource=\{value=>\{setReviewIntent\(null\);setSource\(value\);if\(value\)setCorrection\(null\);\}\}/);
+  assert.match(modern,/<PayrollInputPreparation source=\{source\} onExitSource=\{\(\)=>setSource\(null\)\} correction=\{correction\}[\s\S]*?onViewDraft=\{intent => \{ setReviewIntent\(intent\); setSource\(null\); setCorrection\(null\); \}\}/);
+  assert.match(modern,/<PayrollInputOperations intent=\{reviewIntent\} navigationBlocked=\{sourceWriting\} onReturnToTrial=\{intent => \{ if \(!intent\.sourceReturn \|\| sourceWriting\) return; setTrialReturn\(\{ \.\.\.intent\.sourceReturn, nonce: \+\+returned\.current \}\); \}\}/);
   assert.match(modern,/<PayrollRunCreation correction=\{correction\} onCreated=/);
   assert.match(modern,/<PayrollRunOperations key=\{runRefresh\} onChanged=/);
   assert.match(periods,/确认关账/);

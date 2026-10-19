@@ -14,7 +14,7 @@ const data = { period: { id: "period", month: "2026-10", startDate: "2026-10-01"
 beforeEach(() => {
   vi.resetAllMocks(); state.user = { id: "author", tenant_id: "tenant", park_id: "park", permissions: [HR_PERMISSIONS.HR_PAYROLL_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_PAYROLL_RULE_READ] };
   state.api.payrollPeriods.mockResolvedValue([{ id: "period", periodMonth: "2026-10-01", status: "open" }]); state.api.payrollRules.mockResolvedValue({ items: [{ id: "rules", displayName: "工资规则" }], total: 1, page: 1, page_size: 20 });
-  state.api.payrollPreparation.mockResolvedValue(data); state.api.createPayrollInput.mockImplementation(async body => ({ ...body, id: "saved", revisionNo: 3 }));
+  state.api.payrollPreparation.mockResolvedValue(data); state.api.createPayrollInput.mockImplementation(async body => ({ ...body, id: "saved", revisionNo: 3, version: 1, status: "draft" }));
 });
 async function open() {
   render(<PayrollInputPreparation/>); await screen.findByRole("option", { name: "2026-10" }); await screen.findByRole("option", { name: "工资规则" });
@@ -44,7 +44,7 @@ it("failed save retains input and retry identity; pending write owns one submiss
   fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" })); fireEvent.click(screen.getByRole("button", { name: "保存工资输入草稿" }));
   expect(state.api.createPayrollInput).toHaveBeenCalledTimes(2); expect(state.api.createPayrollInput.mock.calls[0]).toEqual(state.api.createPayrollInput.mock.calls[1]);
   expect(screen.getByLabelText("工资期间")).toBeDisabled();
-  await act(async () => complete({ revisionNo: 3, employees: [candidate] })); await screen.findByText(/草稿已保存/);
+  await act(async () => complete({ id: "saved", periodId: "period", ruleSetId: "rules", ruleVersionId: "approved", revisionNo: 3, version: 1, status: "draft", employees: [candidate], reason: "核对当期项目" })); await screen.findByText(/草稿已保存/);
 });
 it("missing values never become zero and settlement exceptions need explicit bounded dates", async () => {
   state.api.payrollPreparation.mockResolvedValue({ ...data, items: [{ ...candidate, eligibility: null, requiresSettlementWindow: true }] }); await select();
@@ -121,7 +121,8 @@ const source={reconciliationSourceId:"source",legacyBatchId:"batch",bookId:"book
 const roster=Array.from({length:101},(_,n)=>({...candidate,employeeId:`employee-${n}`,employeeCode:`SYN-${n}`,fullName:`合成员工${n}`}));
 function sourcePage(query:{page:number;pageSize:number}) {return {...data,source:{...source,sourceHash:"a".repeat(64),rosterHash:"b".repeat(64)},items:roster.slice((query.page-1)*query.pageSize,query.page*query.pageSize),total:101,page:query.page,page_size:query.pageSize};}
 async function openSource(){
-  state.api.payrollRules.mockResolvedValue({items:[{id:"rules",displayName:"工资规则",sourceBookId:"book"},{id:"foreign",displayName:"其他账套规则",sourceBookId:"other"}],total:2});
+  const allRules=[{id:"rules",displayName:"工资规则",sourceBookId:"book"},{id:"foreign",displayName:"其他账套规则",sourceBookId:"other"}];
+  state.api.payrollRules.mockImplementation(async(query:{page:number;pageSize:number})=>({items:allRules.slice((query.page-1)*query.pageSize,query.page*query.pageSize),total:allRules.length,page:query.page,page_size:query.pageSize}));
   state.api.payrollPreparation.mockImplementation(async query=>sourcePage(query));
   const view=render(<PayrollInputPreparation source={source}/>);
   await screen.findByRole("option",{name:"工资规则"});expect(screen.queryByRole("option",{name:"其他账套规则"})).toBeNull();

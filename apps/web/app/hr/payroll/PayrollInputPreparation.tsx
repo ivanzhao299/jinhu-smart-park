@@ -9,25 +9,27 @@ import { createIdempotencyKey } from "../../../lib/api-client";
 import { hrApi, type HrPayrollPeriod } from "../../../lib/hr-api";
 import { hrLoadErrorMessage } from "../hr-errors";
 import { PayrollInputBulkCsv } from "./PayrollInputBulkCsv";
+import { collectScopedExport } from "../../../lib/scoped-csv-export";
+import { payrollInputReviewIntent, type PayrollInputReviewIntent } from "./payroll-input-handoff";
 import styles from "./payroll-modern.module.css";
 
 type Candidate = FormalPayrollPreparation["items"][number];
 type Selection = { employee: Candidate; input: FormalPayrollEmployeeInput; explicit: boolean };
-type Props = { source?:FormalPayrollSourcePreparation|null;onExitSource?:()=>void; correction?: FormalPayrollCorrectionPreparation | null; onExitCorrection?: () => void };
+type Props = { source?:FormalPayrollSourcePreparation|null;onExitSource?:()=>void; correction?: FormalPayrollCorrectionPreparation | null; onExitCorrection?: () => void; onViewDraft?: (intent: PayrollInputReviewIntent) => void };
 export function PayrollInputPreparation(props: Props) {
   const user = useAuthUser(); return <PreparationWorkspace key={`${JSON.stringify(user)}:${props.correction?.windowId ?? JSON.stringify(props.source) ?? "ordinary"}`} {...props}/>;
 }
-function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection }: Props) {
+function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection, onViewDraft }: Props) {
   const user = useAuthUser();
   const canPrepare = [HR_PERMISSIONS.HR_PAYROLL_READ, HR_PERMISSIONS.HR_PAYROLL_MANAGE, HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ, HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_PAYROLL_RULE_READ].every(permission => hasPermission(user, permission));
   const [periods, setPeriods] = useState<HrPayrollPeriod[]>([]), [periodId, setPeriodId] = useState(correction?.periodId ?? "");
   const [rules, setRules] = useState<FormalPayrollRuleSet[]>([]), [ruleId, setRuleId] = useState(correction?.ruleSetId ?? ""), [rulePage, setRulePage] = useState(1), [ruleTotal, setRuleTotal] = useState(0);
   const [query, setQuery] = useState(""), [keyword, setKeyword] = useState(""), [page, setPage] = useState(1);
   const [data, setData] = useState<FormalPayrollPreparation | null>(null), [chosen, setChosen] = useState<Record<string, Selection>>({}), [selectionPage, setSelectionPage] = useState(1);
-  const [reason, setReason] = useState(""), [error, setError] = useState(""), [notice, setNotice] = useState(""), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [refresh, setRefresh] = useState(0);
-  const bulkAbort=useRef<AbortController|null>(null), sourceIdentity=useRef<string|null>(null);
+  const [reason, setReason] = useState(""), [error, setError] = useState(""), [notice, setNotice] = useState(""), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [savedIntent, setSavedIntent] = useState<PayrollInputReviewIntent | null>(null), [refresh, setRefresh] = useState(0);
+  const bulkAbort=useRef<AbortController|null>(null), sourceIdentity=useRef<string|null>(null), sourceRulesAbort=useRef<AbortController|null>(null);
   const alive = useRef(true), lock = useRef(false), ruleIdentity = useRef<string | null>(null), retry = useRef<{ signature: string; key: string } | null>(null);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; bulkAbort.current?.abort(); }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; bulkAbort.current?.abort(); sourceRulesAbort.current?.abort(); }; }, []);
   useEffect(() => {
     if (!canPrepare || correction) return;
     const abort = new AbortController();
@@ -36,8 +38,19 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
   }, [canPrepare, correction,source]);
   useEffect(() => {
     if (!canPrepare || correction) return;
-    const abort = new AbortController(); setRules([]);
-    void hrApi.payrollRules({ page: rulePage, pageSize: 20 }, getAccessToken(), abort.signal).then(result => { if (!abort.signal.aborted) { setRules(result.items.filter(row=>!source||row.sourceBookId===source.bookId)); setRuleTotal(result.total); } }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载工资规则失败")); });
+    const abort = new AbortController(); sourceRulesAbort.current?.abort(); sourceRulesAbort.current = abort; setRules([]);
+    const token = getAccessToken();
+    if (source) {
+      void collectScopedExport(page => hrApi.payrollRules({ page, pageSize: 100 }, token, abort.signal), () => alive.current && !abort.signal.aborted && getAccessToken() === token, { pageSize: 100, limit: 2000, label: "工资规则" }).then(result => {
+        if (abort.signal.aborted || !result) return;
+        const scoped = result.filter(row => row.sourceBookId === source.bookId);
+        setRules(scoped); setRuleTotal(scoped.length);
+      }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载工资规则失败")); });
+    } else {
+      void hrApi.payrollRules({ page: rulePage, pageSize: 20 }, token, abort.signal).then(result => {
+        if (!abort.signal.aborted) { setRules(result.items); setRuleTotal(result.total); }
+      }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载工资规则失败")); });
+    }
     return () => abort.abort();
   }, [canPrepare, rulePage, correction,source]);
   useEffect(() => {
@@ -57,7 +70,7 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
     }).catch(cause => { if (!abort.signal.aborted) setError(hrLoadErrorMessage(cause, "加载当期员工准备失败")); }).finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return () => abort.abort();
   }, [canPrepare, periodId, ruleId, keyword, page, refresh, correction,source]);
-  const reset = () => { bulkAbort.current?.abort();sourceIdentity.current=null;ruleIdentity.current = null; setChosen({}); setSelectionPage(1); setReason(""); setData(null); setPage(1); setQuery(""); setKeyword(""); setSaved(false); setNotice(""); setError(""); retry.current = null; };
+  const reset = () => { bulkAbort.current?.abort();sourceIdentity.current=null;ruleIdentity.current = null; setChosen({}); setSelectionPage(1); setReason(""); setData(null); setPage(1); setQuery(""); setKeyword(""); setSaved(false); setSavedIntent(null); setNotice(""); setError(""); retry.current = null; };
   const change = (id: string, update: (value: Selection) => Selection) => { if (!lock.current && !saved) setChosen(values => ({ ...values, [id]: update(values[id]!) })); };
   const preparationIdentity = (value:FormalPayrollPreparation) => JSON.stringify({period:value.period,rule:value.rule,head:value.expectedHeadRevision,source:value.source});
   const validateSourcePage = (value:FormalPayrollPreparation, current:number,size:number,full:boolean) => {
@@ -97,7 +110,11 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
     lock.current = true; setBusy(true); setError("");
     try {
       const result = await hrApi.createPayrollInput(body, getAccessToken(), retry.current.key);
-      if (alive.current) { setSaved(true); setNotice(`第 ${result.revisionNo} 版输入草稿已保存，共 ${result.employees.length} 位员工。请在输入批次中核对，并由其他有权限的人员确认。`); retry.current = null; }
+      if (alive.current) {
+        const intent = payrollInputReviewIntent(result, { periodId, ruleSetId: ruleId, ruleVersionId: data.rule.id, employeeCount: employees.length }, source ? { legacyBatchId: source.legacyBatchId, month: source.month } : undefined);
+        if (!intent) throw new Error("保存回执与当前期间或规则不一致，请重新读取后核对输入批次。");
+        setSavedIntent(intent); setSaved(true); setNotice(`第 ${result.revisionNo} 版输入草稿已保存。请先查看本次输入草稿；不会自动确认。`); retry.current = null;
+      }
     } catch (cause) { if (alive.current) setError(hrLoadErrorMessage(cause, "保存工资输入失败")); }
     finally { lock.current = false; if (alive.current) setBusy(false); }
   };
@@ -129,6 +146,6 @@ function PreparationWorkspace({ source,onExitSource,correction, onExitCorrection
       }} /> : null}
     <div className={`ds-mobile-record-list ${styles.records}`}>{selections.slice((selectionPage - 1) * 20, selectionPage * 20).map(value => <article className="ds-mobile-record" key={value.input.employeeId}><strong>{value.employee.fullName} · {value.employee.employeeCode}</strong><div className={styles.fields}>{Object.keys(value.input.directItems).map(code => <label className="form-field" key={code}><span>{value.employee.fullName} · {code}</span><input type="number" step="0.0001" min="-9999999999999999.9999" max="9999999999999999.9999" required value={value.input.directItems[code]} disabled={busy || saved} onFocus={event => event.target.select()} onChange={event => change(value.input.employeeId, old => ({ ...old, input: { ...old.input, directItems: { ...old.input.directItems, [code]: event.target.value } } }))}/></label>)}</div><label><input type="checkbox" checked={value.explicit} disabled={busy || saved || value.employee.requiresSettlementWindow} onChange={event => change(value.input.employeeId, old => ({ ...old, explicit: event.target.checked }))}/>明确补结算范围</label>{value.explicit ? <div className={styles.fields}><label className="form-field"><span>{value.employee.fullName} · 结算开始</span><input type="date" required min={data?.period.startDate} max={data?.period.endDate} value={value.input.settlementStart ?? ""} disabled={busy || saved} onChange={event => change(value.input.employeeId, old => ({ ...old, input: { ...old.input, settlementStart: event.target.value } }))}/></label><label className="form-field"><span>{value.employee.fullName} · 结算结束</span><input type="date" required min={value.input.settlementStart || data?.period.startDate} max={data?.period.endDate} value={value.input.settlementEnd ?? ""} disabled={busy || saved} onChange={event => change(value.input.employeeId, old => ({ ...old, input: { ...old.input, settlementEnd: event.target.value } }))}/></label><label className="form-field"><span>{value.employee.fullName} · 补结算理由</span><textarea required maxLength={500} value={value.input.eligibilityReason ?? ""} disabled={busy || saved} onChange={event => change(value.input.employeeId, old => ({ ...old, input: { ...old.input, eligibilityReason: event.target.value } }))}/></label></div> : null}<button className="secondary-button" disabled={busy || saved} onClick={() => { if (!lock.current) setChosen(values => { const next = { ...values }; delete next[value.input.employeeId]; return next; }); }}>移除 {value.employee.fullName}</button></article>)}</div>
     <div className={styles.actions}><button className="secondary-button" disabled={busy || selectionPage <= 1} onClick={() => setSelectionPage(value => value - 1)}>已选上一页</button><span>已选第 {selectionPage} / {Math.max(1, Math.ceil(selections.length / 20))} 页</span><button className="secondary-button" disabled={busy || selectionPage * 20 >= selections.length} onClick={() => setSelectionPage(value => value + 1)}>已选下一页</button></div>
-    <label className="form-field"><span>工资准备说明</span><textarea required maxLength={1000} value={reason} disabled={busy || saved} onChange={event => setReason(event.target.value)}/></label><div className={styles.actions}><button className="primary-button" disabled={busy || saved || loading || !data || !selections.length || !reason.trim()} onClick={() => void save()}>保存工资输入草稿</button>{saved ? <button className="secondary-button" onClick={() => { reset(); setRefresh(value => value + 1); }}>准备下一版输入</button> : null}</div>
+    <label className="form-field"><span>工资准备说明</span><textarea required maxLength={1000} value={reason} disabled={busy || saved} onChange={event => setReason(event.target.value)}/></label><div className={styles.actions}><button className="primary-button" disabled={busy || saved || loading || !data || !selections.length || !reason.trim()} onClick={() => void save()}>保存工资输入草稿</button>{saved ? <><button className="secondary-button" disabled={busy || !savedIntent} onClick={() => { if (!lock.current && savedIntent) onViewDraft?.(savedIntent); }}>查看本次输入草稿</button><button className="secondary-button" onClick={() => { reset(); setRefresh(value => value + 1); }}>准备下一版输入</button></> : null}</div>
   </section>;
 }
